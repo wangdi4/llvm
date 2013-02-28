@@ -433,6 +433,7 @@ void ThreadPool::release()
 {
     if (NULL != m_task_executor)
     {
+        m_RootDevice->ShutDown();
         m_RootDevice->ResetObserver();
         m_RootDevice = NULL;
         m_task_executor->Finalize();

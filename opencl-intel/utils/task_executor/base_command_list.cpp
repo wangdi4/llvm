@@ -27,8 +27,13 @@ using namespace Intel::OpenCL::TaskExecutor;
 
 void TaskGroup::WaitForAll()
 {
-    ArenaFunctorWaiter waiter(m_rootTask);
-    m_device->Execute(waiter);
+    TEDeviceStateAutoLock lock(*m_device);
+
+    if (!m_device->isTerminating())
+    {
+        ArenaFunctorWaiter waiter(m_rootTask);
+        m_device->Execute(waiter);
+    }
 }
 
 base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device) :
@@ -37,16 +42,17 @@ base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::Ope
 {
 	m_execTaskRequests = 0;
 	m_bMasterRunning = false;
-    m_device->AddCommandList(this);
 }
 
 base_command_list::~base_command_list()
 {
-    if (!m_device->isTerminating())
-    {
-		WaitForIdle();
-        m_device->RemoveCommandList(this);
-    }
+	WaitForIdle();
+}
+
+unsigned int base_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
+{
+    m_quIncomingWork.PushBack(pTask);  
+    return 1;
 }
 
 te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& pTaskToWait)
@@ -157,10 +163,12 @@ out_of_order_command_list::~out_of_order_command_list()
 {
 	/* Although in ~base_command_list we also wait for idle, we need to first wait here, otherwise m_oooTaskGroup might be destroyed before we make sure all tasks are completed in
 	   ~base_command_list */
-	if (!m_device->isTerminating())
-    {
-		WaitForIdle();
-	}
+	WaitForIdle();
+}
+
+unsigned int immediate_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
+{    
+    return LaunchExecutorTask( true, pTask );
 }
 
 unsigned int immediate_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask )

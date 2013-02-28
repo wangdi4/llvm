@@ -986,12 +986,6 @@ public:
                                            cl_dev_cmd_list* OUT list
                                            ) = 0;
 
-    /**
-     * wait until all work in a sub-device to be completed
-     * @param subdevice_id sub-device ID of the sub-device
-     */
-    virtual void clDevWaitUntilEmpty(cl_dev_subdevice_id IN subdevice_id) = 0;
-
 	//! 	This function flushes the content of a list, all waiting commands are sent to execution.
 	/*!
 		\param[in]	list		A valid (non zero) handle to device command list.

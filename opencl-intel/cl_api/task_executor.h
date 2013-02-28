@@ -328,10 +328,9 @@ public:
 	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param ) = 0;
 
     /**
-     * Wait until all work in a sub-device is complete
-     * @return only TE_WAIT_COMPLETED for master threads and TE_WAIT_NOT_SUPPORTED for workers
+     * Wait until all work in a sub-device is complete and mark device as disabled. No more enqueues are allowed after the ShutDown
      */
-    virtual te_wait_result WaitUntilEmpty() = 0;
+    virtual void ShutDown() = 0;
 };
 
 // ITaskExecutorObserver - recieves notification on ITaskExecutor events

@@ -47,7 +47,7 @@ struct DeviceAuto
     {
         if (NULL != deviceHandle)
         {
-            //deviceHandle->WaitUntilEmpty();
+            deviceHandle->ShutDown();
             if (is_root)
             {
                 deviceHandle->ResetObserver();

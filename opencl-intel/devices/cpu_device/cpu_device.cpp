@@ -1752,6 +1752,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             {
                 m_pTaskDispatcher->releaseSubdevice(((cl_dev_internal_subdevice_id*)subdevice_ids[j])->taskExecutorData);
             }
+            rollBackSubdeviceAllocation( subdevice_ids, *num_subdevices );
             return CL_DEV_OUT_OF_MEMORY;
         }
     }
@@ -1771,8 +1772,8 @@ cl_dev_err_code CPUDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
 	cl_dev_internal_subdevice_id* pSubdeviceData = static_cast<cl_dev_internal_subdevice_id*>(subdevice_id);
 	if (NULL != pSubdeviceData)
 	{
-		delete pSubdeviceData->legal_core_ids;
         m_pTaskDispatcher->releaseSubdevice(pSubdeviceData->taskExecutorData);
+		delete pSubdeviceData->legal_core_ids;
 		delete pSubdeviceData;
 	}
     return CL_DEV_SUCCESS;
@@ -1869,18 +1870,6 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
     cl_dev_err_code ret = pList->task_dispatcher->createCommandList(props, pSubdevTaskExecData, &pList->cmd_list);
     *list = pList;
     return ret;
-}
-
-void CPUDevice::clDevWaitUntilEmpty(cl_dev_subdevice_id IN subdevice_id)
-{
-    if (NULL != subdevice_id)
-    {
-        m_pTaskDispatcher->waitUntilEmpty(((cl_dev_internal_subdevice_id*)subdevice_id)->taskExecutorData);
-    }
-    else
-    {
-        m_pTaskDispatcher->waitUntilEmpty(NULL);
-    }
 }
 
 /****************************************************************************************************************

@@ -178,9 +178,9 @@ public:
 	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param );
 
     /**
-     * Wait until all work in a sub-device is complete
+     * Wait until all work in a sub-device is complete and mark device as disabled. No more enqueues are allowed after the ShutDown
      */
-    virtual te_wait_result WaitUntilEmpty();
+    virtual void ShutDown();
 
     //
     //   Extra methods
@@ -203,26 +203,20 @@ public:
     void Execute(F& f);
 
     /**
+     * Lock/Unlock current state (working/shutting down)
+     */
+    void   LockState() { m_stateLock.EnterRead(); }
+    void UnLockState() { m_stateLock.LeaveRead(); }
+
+    /**
      * @return whether there are enqueued tasks in the sub-device's command lists
      */
     bool AreEnqueuedTasks() const;
 
     /**
-     * Add a base_command_list that uses this ArenaHandler
-     * @param pCmdList the base_command_list to add
-     */
-    void AddCommandList(base_command_list* pCmdList);
-
-    /**
-     * Remove a base_command_list that uses this ArenaHandler
-     * @param pCmdList the base_command_list to remove
-     */
-    void RemoveCommandList(base_command_list* pCmdList);
-
-    /**
      * Whether this ArenaHandler is inside its destructor
      */
-    bool isTerminating() const { return m_isTerminating; }
+    bool isTerminating() const { return (m_state >= TERMINATING); }
 
     /**
      * Is master thread joining supported?
@@ -258,6 +252,18 @@ public:
 
 private:
 
+    enum State 
+    {
+        INITIALIZING = 0,
+        WORKING,
+        TERMINATING,
+        DISABLE_NEW_THREADS,
+        SHUTTED_DOWN
+    };
+
+    Intel::OpenCL::Utils::OclReaderWriterLock  m_stateLock;
+    volatile State                             m_state;
+
     RootDeviceCreationParam m_deviceDescriptor;
     TBBTaskExecutor&        m_taskExecutor;
     void*                   m_userData;
@@ -270,10 +276,8 @@ private:
     ArenaHandler*           m_lowLevelArenas[TE_MAX_LEVELS_COUNT-1]; // arrray or arrys of all levels except of 0
 
     Intel::OpenCL::Utils::AtomicCounter                m_numOfActiveThreads; 
-    mutable Intel::OpenCL::Utils::OclReaderWriterLock  m_cmdListsRWLock;
-    // Since base_command_list remove themselves from this list upon their destruction, we don't hold SharedPtrs to them - otherwise they would never be destroyed.
-    std::set<base_command_list*> m_cmdLists;
-    bool m_isTerminating;
+
+    bool new_threads_disabled() const { return (m_state >= DISABLE_NEW_THREADS); }
 
     TEDevice( const RootDeviceCreationParam& device_desc, void* user_data, ITaskExecutorObserver* observer, 
               TBBTaskExecutor& taskExecutor, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& parent );
@@ -297,6 +301,21 @@ private:
     }
 };
 
+class TEDeviceStateAutoLock
+{
+public:
+    TEDeviceStateAutoLock( TEDevice& device ) : m_device(device)
+    {
+        m_device.LockState();
+    }
+    ~TEDeviceStateAutoLock()
+    {
+        m_device.UnLockState();
+    }
+
+private:
+    TEDevice& m_device;
+};
 
 // inlines
 inline

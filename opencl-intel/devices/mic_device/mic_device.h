@@ -94,7 +94,6 @@ private:
 	void  clDevCloseDeviceInt( bool preserve_object = false );
 	
 	// dummy implementations
-	void clDevWaitUntilEmpty(void*) { }
      void clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease) { }
 
 protected:

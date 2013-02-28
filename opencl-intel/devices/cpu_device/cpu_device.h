@@ -137,7 +137,6 @@ public:
 	cl_ulong	clDevGetPerformanceCounter();
 	cl_dev_err_code	clDevSetLogger(IOCLDevLogDescriptor *);
 	void		clDevCloseDevice(void);
-    void        clDevWaitUntilEmpty(cl_dev_subdevice_id IN subdevice_id);
     void        clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease);
 
 	const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const {return *this;}

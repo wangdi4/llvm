@@ -592,10 +592,7 @@ void FissionableDevice::AddedToContext()
 void FissionableDevice::RemovedFromContext()
 { 
     OclAutoMutex mu(&m_devMutex);
-    if (0 == --m_numContexts)
-    {
-        GetDeviceAgent()->clDevWaitUntilEmpty(GetSubdeviceId());
-    }
+    --m_numContexts;
 }
 
 SubDevice::SubDevice(SharedPtr<FissionableDevice>pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props) :

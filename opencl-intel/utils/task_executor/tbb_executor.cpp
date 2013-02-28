@@ -314,10 +314,10 @@ TBBTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, v
     for (unsigned int i = 0; i < device.uiNumOfLevels; ++i)
     {
         unsigned int uiThreadsPerLevel =  device.uiThreadsPerLevel[i];
-        if ((0 == uiThreadsPerLevel) || (1 == uiThreadsPerLevel) || (TE_AUTO_THREADS == uiThreadsPerLevel))
+        if ((0 == uiThreadsPerLevel) || (TE_AUTO_THREADS == uiThreadsPerLevel))
         {
-            assert( false && "Cannot specify 0, 1 or TE_AUTO_THREADS threads per level" );
-    	    LOG_ERROR(TEXT("Wrong number of threads per level: %u, must not be 0, 1 and %u"), uiThreadsPerLevel, TE_AUTO_THREADS);
+            assert( false && "Cannot specify 0 or TE_AUTO_THREADS threads per level" );
+    	    LOG_ERROR(TEXT("Wrong number of threads per level: %u, must not be 0 or %u"), uiThreadsPerLevel, TE_AUTO_THREADS);
     	    LOG_INFO(TEXT("Leave%s"), "");
             return NULL;
         }

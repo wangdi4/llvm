@@ -114,6 +114,8 @@ private:
 class QueueOnDevice
 {
 public:
+    // return false on error
+    virtual bool Init() = 0;
 	virtual ~QueueOnDevice() {};
 
 	/* Initializing the task */
@@ -180,8 +182,11 @@ class InOrderQueueOnDevice : public QueueOnDevice
 {
 
 public:
-    InOrderQueueOnDevice( ThreadPool& thread_pool );
+    InOrderQueueOnDevice( ThreadPool& thread_pool ) : QueueOnDevice( thread_pool ) {}
 	~InOrderQueueOnDevice() {};
+
+    // return false on error
+    bool Init();
 
 	bool InitTask(  const SharedPtr<TaskHandler>& task_handler,
                     dispatcher_data* dispatcherData, misc_data* miscData, 
@@ -203,8 +208,11 @@ public:
 class OutOfOrderQueueOnDevice : public QueueOnDevice
 {
 public:
-    OutOfOrderQueueOnDevice( ThreadPool& thread_pool );
+    OutOfOrderQueueOnDevice( ThreadPool& thread_pool ) : QueueOnDevice( thread_pool ) {}
 	~OutOfOrderQueueOnDevice() {};
+
+    // return false on error
+    bool Init();
 
 	bool InitTask(  const SharedPtr<TaskHandler>& task_handler,
                     dispatcher_data* dispatcherData, misc_data* miscData, 

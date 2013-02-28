@@ -71,6 +71,13 @@ void init_commands_queue(uint32_t         in_BufferCount,
     	return;
     }
 
+    if (!pQueue->Init())
+    {
+    	*((cl_dev_err_code*)in_pReturnValue) = CL_DEV_OUT_OF_MEMORY;
+        delete pQueue;
+    	return;        
+    }
+
     QueueOnDevice::setCurrentQueue( &tlsAccessor, pQueue );
     *((cl_dev_err_code*)in_pReturnValue) = CL_DEV_SUCCESS;
 }
@@ -250,7 +257,8 @@ void QueueOnDevice::RunTask( const SharedPtr<TaskHandler>& task_handler ) const
     m_task_list->Flush();
 }
 
-InOrderQueueOnDevice::InOrderQueueOnDevice( ThreadPool& thread_pool ) : QueueOnDevice( thread_pool )
+// return false on error
+bool InOrderQueueOnDevice::Init()
 {
     m_task_list = m_thread_pool.getRootDevice().CreateTaskList( 
                             CommandListCreationParam( TE_CMD_LIST_IMMEDIATE,  gMicExecEnvOptions.tbb_scheduler ));
@@ -260,7 +268,10 @@ InOrderQueueOnDevice::InOrderQueueOnDevice( ThreadPool& thread_pool ) : QueueOnD
         //Report Error
         NATIVE_PRINTF("Cannot create in-order TaskList\n");
     }
+
+    return (NULL != m_task_list);
 }
+
 
 bool InOrderQueueOnDevice::InitTask(const SharedPtr<TaskHandler>& task_handler,
                                     dispatcher_data* dispatcherData, misc_data* miscData, 
@@ -282,7 +293,7 @@ void InOrderQueueOnDevice::FinishTask(const SharedPtr<TaskHandler>& task_handler
 	assert(false == isLegalBarrier);
 }
 
-OutOfOrderQueueOnDevice::OutOfOrderQueueOnDevice( ThreadPool& thread_pool ) : QueueOnDevice( thread_pool )
+bool OutOfOrderQueueOnDevice::Init()
 {
     m_task_list = m_thread_pool.getRootDevice().CreateTaskList( TE_CMD_LIST_OUT_OF_ORDER );
 
@@ -291,6 +302,8 @@ OutOfOrderQueueOnDevice::OutOfOrderQueueOnDevice( ThreadPool& thread_pool ) : Qu
         //Report Error
         NATIVE_PRINTF("Cannot create out-of-order TaskList\n");
     }
+
+    return (NULL != m_task_list);
 }
 
 bool OutOfOrderQueueOnDevice::InitTask( const SharedPtr<TaskHandler>& task_handler,

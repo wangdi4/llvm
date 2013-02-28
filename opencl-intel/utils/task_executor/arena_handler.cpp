@@ -137,8 +137,9 @@ void TEDevice::init_next_arena_level( unsigned int current_level, unsigned int p
 
 TEDevice::TEDevice(  const RootDeviceCreationParam& device_desc, void* user_data, ITaskExecutorObserver* observer, 
                      TBBTaskExecutor& taskExecutor, const SharedPtr<TEDevice>& parent ) :
+  m_state( INITIALIZING ),
   m_deviceDescriptor( device_desc ), m_taskExecutor( taskExecutor ), m_userData( user_data ), m_observer( observer ), 
-  m_pParentDevice( parent ), m_isTerminating( false )
+  m_pParentDevice( parent )
 {
     memset( m_lowLevelArenas, 0, sizeof(m_lowLevelArenas) );
 
@@ -171,13 +172,43 @@ TEDevice::TEDevice(  const RootDeviceCreationParam& device_desc, void* user_data
     {
         init_next_arena_level( 1, position );
     }
+
+    m_state = WORKING;
 }
 
 TEDevice::~TEDevice()
 {
-    WaitUntilEmpty();
-    m_isTerminating = true;
+    ShutDown();
 
+    //  All threads that we allocated data for exited from arena, new threads will not call us anymore and
+    //  noone is in the process of calling callbacks - delete
+    for (unsigned int i = 0; i < m_deviceDescriptor.uiNumOfLevels-1; ++i)
+    {
+        delete [] m_lowLevelArenas[i];
+        m_lowLevelArenas[i] = NULL;
+    }
+}
+
+void TEDevice::ShutDown()
+{
+    if (isTerminating())
+    {
+        return;
+    }
+
+    // must be in a block to release after block exit to avoid deadlock with threads counting down later in shut down
+    {
+        OclAutoWriter lock(&m_stateLock);
+
+        if (isTerminating())
+        {
+            return;
+        }
+        
+        m_state = TERMINATING;
+    }
+
+    // 1. Signal all arenas to terminate
     for (unsigned int i =  m_deviceDescriptor.uiNumOfLevels-1; i > 0  ; --i)
     {
         ArenaHandler* ar = m_lowLevelArenas[i-1];
@@ -187,21 +218,20 @@ TEDevice::~TEDevice()
             ar[j].Terminate();
         }
     }
-
     m_mainArena.Terminate();
 
-    // wait until all threads where stopped
+    // 2. Count down until all threads stopped
     if (!gIsExiting)
     {
-        // if current thread is inside TE Device - notify about exit manually
         TBB_PerActiveThreadData* tls = m_taskExecutor.GetThreadManager().GetCurrentThreadDescriptor();
-        unsigned int remainder = ((NULL == tls) || (tls->device != this)) ? 0 : 1;
-
-        while (remainder != m_numOfActiveThreads)
+        unsigned int remainder = ((NULL == tls) || (tls->device != this)) ? 0 : 1; // how many threads may remain inside arena
+        
+        while (m_numOfActiveThreads > remainder)
         {
             hw_pause();
         }
 
+        // if current thread is inside TE Device - notify about exit manually
         if (0 != remainder)
         {
             assert( (NULL != tls->attached_arenas[tls->attach_level]) && "NULL arena pointer at attach level" );
@@ -209,37 +239,36 @@ TEDevice::~TEDevice()
         }
     }
 
-    for (unsigned int i = 0; i < m_deviceDescriptor.uiNumOfLevels-1; ++i)
+    // 3. Signal all now-entring threads that we are exiting
+    m_state = DISABLE_NEW_THREADS;
+
+    // 4. new threads may enter before disabling - wait all to exit
+    if (!gIsExiting)
     {
-        delete [] m_lowLevelArenas[i];
-        m_lowLevelArenas[i] = NULL;
+
+        while (m_numOfActiveThreads > 0)
+        {
+            hw_pause();
+        }
     }
+    // now all threads that we allocated data for exited from TEDevice
 
-    /* This destructor is called in the finalization flow of task_executor, so it's not safe to call observers, which itself calls the device agent. This is why I don't
-       take care for notifications */
-    m_cmdLists.clear();
-}
-
-te_wait_result TEDevice::WaitUntilEmpty()
-{
-	/* We don't wait in worker thread, since we would deadlock waiting for our own task. */
-    if (!m_taskExecutor.IsMaster())
+    // 5. Stop all observers
+    //    observer stopping blocks if any observer callback is in process
+    for (unsigned int i =  m_deviceDescriptor.uiNumOfLevels-1; i > 0  ; --i)
     {
-         return TE_WAIT_NOT_SUPPORTED;
+        ArenaHandler* ar = m_lowLevelArenas[i-1];
+        assert( (NULL != ar) && "Low level arena array in NULL for hierarchical arenas?" );
+        for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[ i ]; ++i)
+        {
+            ar[j].StopMonitoring();
+        }
     }
+    m_mainArena.StopMonitoring();
 
-	/* We put the base_command_lists in a SharedPtr vector to temporarily increase their reference count. Otherwise they might be deleted while the lock is reader-locked and then they would try
-		to write-lock it in order to remove themselves from the list in their destructor. */
-	m_cmdListsRWLock.EnterRead();	// protect against base_command_lists adding themselves to the list during the copy
-	std::vector<SharedPtr<base_command_list> > cmdLists(m_cmdLists.begin(), m_cmdLists.end());
-	m_cmdListsRWLock.LeaveRead();
+    m_userData = NULL; // to be on the safe side
 
-	// we're iterating over a local list, so no lock is needed
-	for (std::vector<SharedPtr<base_command_list> >::iterator iter = cmdLists.begin(); iter != cmdLists.end(); iter++)
-	{
-		(*iter)->WaitForIdle();
-	}  
-    return TE_WAIT_COMPLETED;
+    m_state = SHUTTED_DOWN;
 }
 
 bool TEDevice::AreEnqueuedTasks() const
@@ -247,31 +276,6 @@ bool TEDevice::AreEnqueuedTasks() const
 	// Not used for now. When we use it, we'll implement it with a counter that is incremented whenever a task is enqueued.
 	assert(false && "TEDevice::AreEnqueuedTasks() Not implemented");
 	return false;
-}
-
-void TEDevice::AddCommandList(base_command_list* pCmdList)
-{
-	assert( (pCmdList != NULL) && "Cannot add NULL command list" );
-	OclAutoWriter autoWriter(&m_cmdListsRWLock);
-    const std::pair<std::set<base_command_list*>::iterator, bool> res = m_cmdLists.insert(pCmdList);
-    assert( res.second && "Add to std::set failed" );
-}
-
-void TEDevice::RemoveCommandList(base_command_list* pCmdList)
-{
-	assert((pCmdList != NULL) && "Cannot delete NULL command list" );
-	OclAutoWriter writer(&m_cmdListsRWLock);    
-    /* We can get here in from ~TEDevice(). In this case pCmdList won't find itself in the set anymore, so erase will return 0, but that's OK. 
-       We use a regular pointer rather than SharedPtr to prevent an infinite
-       recursion of ~base_commad_list(). Try it and see what happens :) */
-    for (std::set<base_command_list*>::iterator iter = m_cmdLists.begin(); iter != m_cmdLists.end(); iter++)
-    {
-        if (*iter == pCmdList)
-        {
-            m_cmdLists.erase(iter);
-            break;
-        }
-    }    
 }
 
 void TEDevice::free_thread_arenas_resources( TBB_PerActiveThreadData* tls, unsigned int starting_level )
@@ -304,6 +308,13 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
     if (NULL == tls->device)
     {
         // Yyyyes - thread is attaching to device
+        if (new_threads_disabled())
+        {
+            // we are inside destructor after threads count reached 0 - disable new threads
+            thread_manager.UnregisterCurrentThread();
+            return;
+        }
+        
         ++m_numOfActiveThreads;
         tls->device = this;
         tls->attach_level = curr_arena_level;
@@ -346,6 +357,7 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
     if ((!tls->enter_tried_to_report) && (curr_arena_level == (m_deviceDescriptor.uiNumOfLevels-1)))
     {
         tls->enter_tried_to_report = true;
+
         /* If the user enqueues a command and then exits the program without having waited for the command to finish, we might get here while things are being folded beneath our feet. We have no way to
            protect ourselves, except by raising a flag in a function registered by atexit. This isn't a perfect protection, since exit can be called while the worker thread is in this method after having
            already checked the flag, but it significantly reduces the probability for it. This also applies to the same flag checking in other methods. */
@@ -367,6 +379,12 @@ void TEDevice::on_scheduler_exit( bool bIsWorker, ArenaHandler& arena )
     TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
     TBB_PerActiveThreadData* tls = thread_manager.GetCurrentThreadDescriptor();
 
+    if ((NULL == tls) && new_threads_disabled())
+    {
+        // thread entered after disabling
+        return;
+    }
+
     assert( (NULL != tls) && "TBB Thread Manager lost entry?" );
     assert( (NULL != tls->device) && "Something wrong with observers - thread exits without enter" );
     assert( (this == tls->device) && "Something wrong with observers - thread exits the wrong device" );
@@ -386,7 +404,10 @@ void TEDevice::on_scheduler_exit( bool bIsWorker, ArenaHandler& arena )
         free_thread_arenas_resources( tls, tls->attach_level );
         tls->reset();
         thread_manager.UnregisterCurrentThread();
-        --m_numOfActiveThreads;
+        if (--m_numOfActiveThreads < 0)
+        {
+            assert( false && "Thread exits device while device already does not contain running threads while leaving above attach level" );
+        }
         return;
     }
 
@@ -405,7 +426,10 @@ void TEDevice::on_scheduler_exit( bool bIsWorker, ArenaHandler& arena )
     free_thread_arenas_resources( tls, tls->attach_level );
     tls->reset();
     thread_manager.UnregisterCurrentThread();
-    --m_numOfActiveThreads;
+    if (--m_numOfActiveThreads < 0)
+    {
+        assert( false && "Thread exits device while device already does not contain running threads while leaving normally" );
+    }
 }
 
 bool TEDevice::on_scheduler_leaving( ArenaHandler& arena )

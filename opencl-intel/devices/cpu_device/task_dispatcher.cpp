@@ -224,7 +224,7 @@ TaskDispatcher::~TaskDispatcher()
 		CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Deactivate();");
         if ((NULL != m_pTaskExecutor) && (NULL != m_pRootDevice ))
         {
-            m_pRootDevice->WaitUntilEmpty();
+            m_pRootDevice->ShutDown();
             m_pRootDevice->ResetObserver();
             m_pRootDevice = NULL;
         }
@@ -406,6 +406,7 @@ cl_dev_err_code TaskDispatcher::releaseCommandList( cl_dev_cmd_list IN list )
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
 
 	SharedPtr<ITaskList> pList = (ITaskList*)list;
+    pList->Flush();
     pList.DecRefCnt();
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X"), list);
 	return CL_DEV_SUCCESS;
@@ -622,18 +623,12 @@ void* TaskDispatcher::createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_d
     return pDev;
 }
 
-void TaskDispatcher::waitUntilEmpty(void* pSubdevData)
-{
-    ITEDevice* pDev = (NULL != pSubdevData) ? reinterpret_cast<ITEDevice*>(pSubdevData) : m_pRootDevice.GetPtr();
-    pDev->WaitUntilEmpty();
-}
-
 void TaskDispatcher::releaseSubdevice(void* pSubdevData)
 {
     // Manual IncRefCnt() is called in TaskDispatcher::createSubdevice()
     assert( NULL != pSubdevData );
     ITEDevice* pSubDev = reinterpret_cast<ITEDevice*>(pSubdevData);
-    pSubDev->WaitUntilEmpty();
+    pSubDev->ShutDown();
     pSubDev->DecRefCnt();
 }
 

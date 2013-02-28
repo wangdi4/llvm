@@ -165,11 +165,7 @@ public:
 
     ~base_command_list();    
 
-    unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
-	{
-		m_quIncomingWork.PushBack(pTask);        
-		return 0;
-	}
+    unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask);
 
 	te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait);
 
@@ -342,10 +338,7 @@ public:
         return new immediate_command_list(pTBBExec, device, param);
     }
 
-    unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
-    {        
-        return LaunchExecutorTask( true, pTask );
-    }
+    unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask);
 
     te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait)
     {
