@@ -1,3 +1,9 @@
+/*=================================================================================
+Copyright (c) 2012, Intel Corporation
+Subject to the terms and conditions of the Master Development License
+Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
+OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
+==================================================================================*/
 #include "Specializer.h"
 #include "Predicator.h"
 #include "Linearizer.h"
@@ -30,10 +36,9 @@ FunctionSpecializer::FunctionSpecializer(Predicator* pred, Function* func,
                                          PostDominatorTree* PDT,
                                          DominatorTree*  DT,
                                          RegionInfo *RI,
-                                         LoopInfo *LI,
-                                         WIAnalysis *WIA):
+                                         LoopInfo *LI):
   m_pred(pred), m_func(func),
-  m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_RI(RI), m_LI(LI), m_WIA(WIA),
+  m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_RI(RI), m_LI(LI),
   m_zero(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 0))),
   m_one(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 1))){  }
 
@@ -59,7 +64,7 @@ bool FunctionSpecializer::shouldSpecialize(Region *reg) {
     if (Metrics.NumInsts < SpecializeThreshold && !funcCallFound) return false;
   }
 
-  return m_WIA->isDivergentBlock(reg->getEntry());
+  return true;
 }
 
 BasicBlock* FunctionSpecializer::getAnyReturnBlock() {
@@ -238,7 +243,7 @@ void FunctionSpecializer::registerSchedulingScopes(SchedulingScope& parent) {
   for (std::vector<Region*>::iterator rit = m_region_vector.begin(),
       re = m_region_vector.end(); rit != re; ++rit) {
     Region* reg = *rit;
-    // if we specialize this region
+    // if we specialze this region
     if (! shouldSpecialize(reg)) continue;
     // create a new region
     V_ASSERT(m_skipped.find(reg) != m_skipped.end());
@@ -297,7 +302,7 @@ BasicBlock* FunctionSpecializer::createIntermediateBlock(
 
 void FunctionSpecializer::ZeroBypassedMasks(Region *reg, BasicBlock *src,
                                     BasicBlock *exit, BasicBlock *footer) {
-  // Some mask are initialized or computed inside the region but are used
+  // Some mask are initialized or computed inisude the region but are used
   // outside the region. These edges, blocks of these masks were collected 
   // in the collectDominanceInfo stage. we use phi node that collect the 
   // value computed inside the region or zero if the region is bypassed, and
