@@ -2989,15 +2989,22 @@ void NEATPlugIn::execute_bitselect(Function *F,
 {
     Function::arg_iterator Fit = F->arg_begin();
     Value *arg0 = Fit++;
+    const Type *Ty = arg0->getType();
+    if(!m_NTD.IsNEATSupported(Ty)) return;
+    // all three input values or vectors should have the same type (and size for vectors)
+
     const NEATGenericValue& ValArg0 = GetArg(arg0, ArgVals);
     Value *arg1 = Fit++;
     const NEATGenericValue& ValArg1 = GetArg(arg1, ArgVals);
     Value *arg2 = Fit++;
     const NEATGenericValue& ValArg2 = GetArg(arg2, ArgVals);
 
+    if(Ty != arg1->getType() || Ty != arg2->getType())
+        throw Exception::NEATTrackFailure("[NEATPlugIn::execute_bitselect]: input data types are not the same.");
+
     // only floating point type values or vectors are supoorted.
     // in case of integer or boolean or other type input data just do nothing
-    const Type *Ty = arg0->getType();
+
     if(Ty->isFloatTy())  {
         Result.NEATVal = NEAT_WRAP::bitselect_f (ValArg0.NEATVal, ValArg1.NEATVal, ValArg2.NEATVal);
     }
@@ -3022,33 +3029,34 @@ void NEATPlugIn::execute_select(Function *F,
 {
     Function::arg_iterator Fit = F->arg_begin();
     Value *arg0 = Fit++;
-    const NEATGenericValue& a = GetArg(arg0, ArgVals);
+    const Type *Ty = arg0->getType();
     Value *arg1 = Fit++;
+
+    if(!m_NTD.IsNEATSupported(Ty)) return;
+
+    const NEATGenericValue& a = GetArg(arg0, ArgVals);
     const NEATGenericValue& b = GetArg(arg1, ArgVals);
 
-    GenericValue c = GetGenericArg(2);
+    if(Ty != arg1->getType())
+        throw Exception::NEATTrackFailure("[NEATPlugIn::execute_select]: input data types of first and second arguments are not the same.");
 
-    const Type *Ty0 = arg0->getType();
-    const Type *Ty1 = arg1->getType();
+    GenericValue c = GetGenericArg(2);
 
     // only floating point type values or vectors are supoorted.
     // in case of integer or boolean or other type input data just do nothing
     // both input values or vectors should have the same type (and size for vectors)
-    if (Ty0->isFloatTy() && Ty1->isFloatTy()) {
+    if (Ty->isFloatTy()) {
         int64_t intVal = int64_t(c.IntVal.getSExtValue());
         Result.NEATVal = NEAT_WRAP::select_f(a.NEATVal, b.NEATVal, intVal);
-    } else if (Ty0->isDoubleTy() && Ty1->isDoubleTy()) {
+    } else if (Ty->isDoubleTy()) {
         int64_t intVal = int64_t(c.IntVal.getSExtValue());
         Result.NEATVal = NEAT_WRAP::select_d(a.NEATVal, b.NEATVal, intVal);
-    } else if (Ty0->isVectorTy() && Ty1->isVectorTy()) {
-        const Type *ETy0 = cast<VectorType>(Ty0)->getElementType();
-        const Type *ETy1 = cast<VectorType>(Ty1)->getElementType();
+    } else if (Ty->isVectorTy()) {
+        const Type *ETy = cast<VectorType>(Ty)->getElementType();
 
-        if ((ETy0->isFloatTy() && ETy1->isFloatTy()) ||
-            (ETy0->isDoubleTy() && ETy1->isDoubleTy()) ) {
+        if (ETy->isFloatTy() || ETy->isDoubleTy() ) {
             if (a.NEATVec.GetSize() != b.NEATVec.GetSize() || a.NEATVec.GetSize() != size_t(c.AggregateVal.size()) ||
-               (a.NEATVec.GetSize() != cast<VectorType>(Ty0)->getNumElements()) ||
-               (b.NEATVec.GetSize() != cast<VectorType>(Ty1)->getNumElements()) )
+               (a.NEATVec.GetSize() != cast<VectorType>(Ty)->getNumElements()) )
                 throw Exception::NEATTrackFailure("[NEATPlugIn::execute_select]: wrong vector size.");
 
             std::vector<int64_t> condVec;
@@ -3057,9 +3065,9 @@ void NEATPlugIn::execute_select(Function *F,
                 condVec.push_back(intVal);
             }
 
-            if (ETy0->isFloatTy() && ETy1->isFloatTy()) {
+            if (ETy->isFloatTy()) {
                 Result.NEATVec = NEAT_WRAP::select_f(a.NEATVec, b.NEATVec, condVec);
-            } else if (ETy0->isDoubleTy() && ETy1->isDoubleTy()) {
+            } else if (ETy->isDoubleTy()) {
                 Result.NEATVec = NEAT_WRAP::select_d(a.NEATVec, b.NEATVec, condVec);
             }
         }
