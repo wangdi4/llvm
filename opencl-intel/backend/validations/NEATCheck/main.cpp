@@ -118,7 +118,11 @@ void SkipDelimiters(stringstream& inout_Stream)
 {
     // const char* delimiters = " \t";
     int byte = inout_Stream.peek();
-    while(inout_Stream.good() && ((byte == ' ') || (byte == '\t')))
+    while(inout_Stream.good() && ((byte == ' ') || (byte == '\t')
+#if defined (__linux__)
+         ||(byte == '\r')
+#endif
+    ))
     {
         inout_Stream.read((char*)&byte, 1);
         byte = inout_Stream.peek();

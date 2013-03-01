@@ -6,5 +6,3 @@
 ;CHECKNEAT: ACCURATE 3
 ;CHECKNEAT: ACCURATE 3
 ;CHECKNEAT: ACCURATE 3
-; XFAIL: linux
-; expected to fail till CSSD100015632 will be fixed

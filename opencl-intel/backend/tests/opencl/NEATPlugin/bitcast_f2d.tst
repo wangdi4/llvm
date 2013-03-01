@@ -10,5 +10,3 @@
 ;CHECKNEAT: UNKNOWN
 ;CHECKNEAT: UNKNOWN
 ;CHECKNEAT: UNKNOWN
-; XFAIL: linux
-; expected to fail till CSSD100015632 will be fixed
