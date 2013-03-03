@@ -29,11 +29,10 @@
  *   
  *   Additions and fixes from:
  *       Brian Cole, March 3rd 2010 and April 2012 
- *       Lee Howes, October 2011, March 2012
  *       Matt Gruenke, April 2012.
  *   
- *   \version 1.2.1
- *   \date September 2012
+ *   \version 1.2.4
+ *   \date January 2013
  *
  *   Optional extension support
  *
@@ -167,12 +166,6 @@
 #if defined(USE_CL_DEVICE_FISSION)
 #include <CL/cl_ext.h>
 #endif
-
-// TODO: Remove once declaration is moved elsewhere
-//#if !defined(CL_USE_DEPRECATED_OPENCL_1_1_APIS)
-//#define CL_USE_DEPRECATED_OPENCL_1_1_APIS 
-//#endif // #if !defined(CL_USE_DEPRECATED_OPENCL_1_1_APIS)
-
 
 #if defined(__APPLE__) || defined(__MACOSX)
 #include <OpenGL/OpenGL.h>
@@ -397,6 +390,7 @@ static inline cl_int errHandler (cl_int err, const char * errStr = NULL)
 #define __BUILD_PROGRAM_ERR                 __ERR_STR(clBuildProgram)
 #if defined(CL_VERSION_1_2)
 #define __COMPILE_PROGRAM_ERR                  __ERR_STR(clCompileProgram)
+
 #endif // #if defined(CL_VERSION_1_2)
 #define __CREATE_KERNELS_IN_PROGRAM_ERR     __ERR_STR(clCreateKernelsInProgram)
 
@@ -436,7 +430,7 @@ static inline cl_int errHandler (cl_int err, const char * errStr = NULL)
 #define __VECTOR_CAPACITY_ERR               __ERR_STR(Vector capacity error)
 
 /**
- * CL 1.1 version that uses device fission.
+ * CL 1.2 version that uses device fission.
  */
 #if defined(CL_VERSION_1_2)
 #define __CREATE_SUB_DEVICES                __ERR_STR(clCreateSubDevices)
@@ -461,6 +455,13 @@ static inline cl_int errHandler (cl_int err, const char * errStr = NULL)
 #endif // __CL_USER_OVERRIDE_ERROR_STRINGS
 //! \endcond
 
+/**
+ * CL 1.2 marker and barrier commands
+ */
+#if defined(CL_VERSION_1_2)
+#define __ENQUEUE_MARKER_WAIT_LIST_ERR                __ERR_STR(clEnqueueMarkerWithWaitList)
+#define __ENQUEUE_BARRIER_WAIT_LIST_ERR               __ERR_STR(clEnqueueBarrierWithWaitList)
+#endif // #if defined(CL_VERSION_1_2)
 
 #if !defined(__USE_DEV_STRING) && !defined(__NO_STD_STRING)
 typedef std::string STRING_CLASS;
@@ -626,10 +627,8 @@ public:
     //! \brief Destructor - frees memory used to hold the current value.
     ~string()
     {
-        if (str_ != NULL) {
-            delete[] str_;
-            str_ = NULL;
-        }
+        delete[] str_;
+        str_ = NULL;
     }
     
     //! \brief Queries the length of the string, excluding any added '\0's.
@@ -2330,9 +2329,16 @@ public:
         cl_int* err = NULL)
     {
         cl_int error;
+
+        ::size_t numDevices = devices.size();
+        cl_device_id* deviceIDs = (cl_device_id*) alloca(numDevices * sizeof(cl_device_id));
+        for( ::size_t deviceIndex = 0; deviceIndex < numDevices; ++deviceIndex ) {
+            deviceIDs[deviceIndex] = (devices[deviceIndex])();
+        }
+
         object_ = ::clCreateContext(
-            properties, (cl_uint) devices.size(),
-            (cl_device_id*) &devices.front(),
+            properties, (cl_uint) numDevices,
+            deviceIDs,
             notifyFptr, data, &error);
 
         detail::errHandler(error, __CREATE_CONTEXT_ERR);
@@ -2353,9 +2359,12 @@ public:
         cl_int* err = NULL)
     {
         cl_int error;
+
+        cl_device_id deviceID = device();
+
         object_ = ::clCreateContext(
             properties, 1,
-            (cl_device_id*) &device,
+            &deviceID,
             notifyFptr, data, &error);
 
         detail::errHandler(error, __CREATE_CONTEXT_ERR);
@@ -3000,7 +3009,7 @@ public:
     Buffer(
         IteratorType startIterator,
         IteratorType endIterator,
-        bool readOnly = false,
+        bool readOnly,
         bool useHostPtr = false,
         cl_int* err = NULL)
     {
@@ -4105,14 +4114,14 @@ public:
     ImageGL& operator = (const ImageGL& rhs)
     {
         if (this != &rhs) {
-            ImageGL::operator=(rhs);
+            Image::operator=(rhs);
         }
         return *this;
     }
 
     ImageGL& operator = (const cl_mem& rhs)
     {
-        ImageGL::operator=(rhs);
+        Image::operator=(rhs);
         return *this;
     }
 };
@@ -4634,9 +4643,15 @@ public:
             lengths[i] = binaries[(int)i].second;
         }
 
+        ::size_t numDevices = devices.size();
+        cl_device_id* deviceIDs = (cl_device_id*) alloca(numDevices * sizeof(cl_device_id));
+        for( ::size_t deviceIndex = 0; deviceIndex < numDevices; ++deviceIndex ) {
+            deviceIDs[deviceIndex] = (devices[deviceIndex])();
+        }
+
         object_ = ::clCreateProgramWithBinary(
             context(), (cl_uint) devices.size(),
-            (cl_device_id*)&devices.front(),
+            deviceIDs,
             lengths, images, binaryStatus != NULL
                ? (cl_int*) &binaryStatus->front()
                : NULL, &error);
@@ -4660,11 +4675,18 @@ public:
         cl_int* err = NULL)
     {
         cl_int error;
+
+
+        ::size_t numDevices = devices.size();
+        cl_device_id* deviceIDs = (cl_device_id*) alloca(numDevices * sizeof(cl_device_id));
+        for( ::size_t deviceIndex = 0; deviceIndex < numDevices; ++deviceIndex ) {
+            deviceIDs[deviceIndex] = (devices[deviceIndex])();
+        }
         
         object_ = ::clCreateProgramWithBuiltInKernels(
             context(), 
             (cl_uint) devices.size(),
-            (cl_device_id*)&devices.front(),
+            deviceIDs,
             kernelNames.c_str(), 
             &error);
 
@@ -4701,18 +4723,18 @@ public:
         void (CL_CALLBACK * notifyFptr)(cl_program, void *) = NULL,
         void* data = NULL) const
     {
-		VECTOR_CLASS<cl_device_id> device_list;
-        for(unsigned int i = 0 ; i < devices.size() ; ++i)
-        {
-            device_list.push_back(devices[i]());
+        ::size_t numDevices = devices.size();
+        cl_device_id* deviceIDs = (cl_device_id*) alloca(numDevices * sizeof(cl_device_id));
+        for( ::size_t deviceIndex = 0; deviceIndex < numDevices; ++deviceIndex ) {
+            deviceIDs[deviceIndex] = (devices[deviceIndex])();
         }
 
         return detail::errHandler(
             ::clBuildProgram(
                 object_,
                 (cl_uint)
-                device_list.size(),
-                &device_list.front(),
+                devices.size(),
+                deviceIDs,
                 options,
                 notifyFptr,
                 data),
@@ -5658,7 +5680,7 @@ public:
                 (events != NULL) ? (cl_uint) events->size() : 0,
                 (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
                 (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_UNMAP_MEM_OBJECT_ERR);
+            __ENQUEUE_MARKER_WAIT_LIST_ERR);
 
         if (event != NULL && err == CL_SUCCESS)
             *event = tmp;
@@ -5677,18 +5699,18 @@ public:
      * all events either in the event_wait_list or all previously enqueued commands, queued 
      * before this command to command_queue, have completed.
      */
-    cl_int clEnqueueBarrierWithWaitList(
+    cl_int enqueueBarrierWithWaitList(
         const VECTOR_CLASS<Event> *events = 0,
         Event *event = 0)
     {
         cl_event tmp;
         cl_int err = detail::errHandler(
-            ::clEnqueueMarkerWithWaitList(
+            ::clEnqueueBarrierWithWaitList(
                 object_,
                 (events != NULL) ? (cl_uint) events->size() : 0,
                 (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
                 (event != NULL) ? &tmp : NULL),
-            __ENQUEUE_UNMAP_MEM_OBJECT_ERR);
+            __ENQUEUE_BARRIER_WAIT_LIST_ERR);
 
         if (event != NULL && err == CL_SUCCESS)
             *event = tmp;
