@@ -18,7 +18,7 @@ File Name:  plugin_manager.h
 #ifndef __PLUGIN_MANAGER_H__
 #define __PLUGIN_MANAGER_H__
 
-#include "DynamicLib.h"
+#include <BE_DynamicLib.h>
 #include <string>
 #include <stdexcept>
 #include <cstdlib>
@@ -136,7 +136,7 @@ private:
 
 private:
     class PluginInfo{
-        Intel::OpenCL::DeviceBackend::Utils::DynamicLib m_dll;
+        Intel::OpenCL::DeviceBackend::Utils::BE_DynamicLib m_dll;
         IPlugin* m_pPlugin;
         //lock for the cleanup operation
         llvm::sys::Mutex m_lock;

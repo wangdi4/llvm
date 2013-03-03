@@ -12,6 +12,7 @@ include_directories( AFTER
             ${CMAKE_SOURCE_DIR}/backend/plugin_manager
             ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
             ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
+            ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
             )
 
             

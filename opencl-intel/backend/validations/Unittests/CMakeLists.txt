@@ -58,6 +58,7 @@ include_directories(${VALIDATIONS_ROOT}/OCLRecorder)
 include_directories(${VALIDATIONS_ROOT}/OCLKernelDataGenerator)
 include_directories(${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Common )
+include_directories(${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export)
  
 add_library( ${TARGET_LIB_NAME} STATIC
     ${TARGET_LIB_SOURCE_FILES}
@@ -92,6 +93,7 @@ target_link_libraries(${TARGET_NAME}
     OpenCLKernelArgumentsParser
     name_mangle
     ${LLVM_MODULE_LIBS}
+    cl_sys_utils
 )
 
 if( NOT WIN32)
@@ -102,6 +104,8 @@ if( NOT WIN32)
         ImathLibd_wrapper
     )
 endif ()
+
+add_dependencies( ${TARGET_NAME} cl_sys_utils)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Tests")
 

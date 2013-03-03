@@ -12,42 +12,40 @@ including liability for infringement of any proprietary rights, relating to
 use of the code. No license, express or implied, by estoppels or otherwise,
 to any intellectual property rights is granted herein.
 
-File Name: OCLBuilder.h
+File Name: CommonOCLBuilder.h
 
 \*****************************************************************************/
-#ifndef __OCL_BUILDER_H__
-#define __OCL_BUILDER_H__
+#ifndef __COMMON_OCL_BUILDER_H__
+#define __COMMON_OCL_BUILDER_H__
 
-#include "frontend_api.h"
-#include <BE_DynamicLib.h>
-#include <Exception.h>
-#include <CommonOCLBuilder.h>
+#include <frontend_api.h>
+#include <DynamicLib.h>
 
-namespace Validation{
+namespace Intel { namespace OpenCL { namespace Utils {
 
 //
 //Name: OCLBinaryFactory
 //Description: Simplifies the OCL source building process
 //
-class OCLBuilder {
+class CommonOCLBuilder{
 public:
   //
   //returns a singleton instance of this.
-  static OCLBuilder& Instance();
+  static CommonOCLBuilder& instance();
 
   //Sets the name of the library, from which the compiler will be loaded
-  OCLBuilder& withLibrary(const char* lib);
+  CommonOCLBuilder& withLibrary(const char* lib);
 
   //Sets the build options
-  OCLBuilder& withBuildOptions(const char* options);
+  CommonOCLBuilder& withBuildOptions(const char* options);
 
   //sets the OCL source to be compiled
-  OCLBuilder& withSource(const char* src);
+  CommonOCLBuilder& withSource(const char* src);
 
-  OCLBuilder& withExtensions(const char* extentions);
+  CommonOCLBuilder& withExtensions(const char* extentions);
 
-  OCLBuilder& withFP64Support(bool );
-  OCLBuilder& withImageSupport(bool );
+  CommonOCLBuilder& withFP64Support(bool );
+  CommonOCLBuilder& withImageSupport(bool );
   //cleanup function
   void close();
 
@@ -58,15 +56,28 @@ public:
   Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* build();
 
 private:
-  OCLBuilder();
-  /*
+  CommonOCLBuilder();
+
   Intel::OpenCL::FECompilerAPI::IOCLFECompiler* createCompiler(const char* lib);
-  */
+
   //Statically initialized instance of the builder
-  static OCLBuilder m_instance;
-  Intel::OpenCL::Utils::CommonOCLBuilder& m_CommonBuilder;
+  static CommonOCLBuilder _instance;
+  //compiler pointer, extracted by 'withLibrary' method
+  Intel::OpenCL::FECompilerAPI::IOCLFECompiler* m_pCompiler;
+  //used to load the library
+  Intel::OpenCL::Utils::DynamicLib m_dynamicLoader;
+  //source to be compiled
+  std::string m_source;
+  //build options
+  std::string m_options;
+  //extensions
+  std::string m_extensions;
+  //Indicates whether doubles are supported by the device
+  bool m_bSupportFP64;
+  //Indicates whether images are supported by the device
+  bool m_bSupportImages;
 };
 
-}
+}}} // Namespaces
 
 #endif //__OCL_BUILDER_H__

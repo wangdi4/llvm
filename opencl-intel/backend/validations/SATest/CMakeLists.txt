@@ -91,6 +91,7 @@ include_directories(
     ${VALIDATIONS_ROOT}/OCLBuilder
     ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
     ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
+    ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
 )
 
 set (TARGET_HEADER_FILES
@@ -204,6 +205,7 @@ target_link_libraries(${TARGET_NAME}
     dynamic_load
     tinyxml_STL
     ImathLibd
+    cl_sys_utils
     ${LLVM_MODULE_LIBS}
     )
 
@@ -225,6 +227,8 @@ if( NOT WIN32)
         ImathLibd_wrapper
         )
 endif ()
+
+add_dependencies( ${TARGET_NAME} cl_sys_utils)
 
 if (INCLUDE_MIC_DEVICE)
     add_subdirectory(MICNative)

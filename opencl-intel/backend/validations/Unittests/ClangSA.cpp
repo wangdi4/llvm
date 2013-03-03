@@ -50,7 +50,7 @@ TEST(ClangStadalone, DISABLED_instance_creation){
   "int tid = get_global_id(0);"
   "c[tid] = b[tid] + a[tid];"
   "}";
-  OCLBuilder& builder = OCLBuilder::instance();
+  OCLBuilder& builder = OCLBuilder::Instance();
   IOCLFEBinaryResult* binaryResult =
     builder.withSource(source).withLibrary(clangLib.c_str()).build();
   ASSERT_TRUE(binaryResult);

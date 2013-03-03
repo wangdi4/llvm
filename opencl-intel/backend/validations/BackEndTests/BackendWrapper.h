@@ -23,7 +23,7 @@ File Name:  BackendWrapper.h
  */
 
 #include <gtest/gtest.h>                // Test framework
-#include "DynamicLib.h"
+#include "BE_DynamicLib.h"
 #include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
 #include "mem_utils.h"
@@ -120,7 +120,7 @@ protected:
     virtual void TearDown();
 
     /// @brief the backend dll and the exported functions
-    Intel::OpenCL::DeviceBackend::Utils::DynamicLib m_dll;
+    Intel::OpenCL::DeviceBackend::Utils::BE_DynamicLib m_dll;
     BACKEND_INIT_FUNCPTR       m_funcInit;
     BACKEND_TERMINATE_FUNCPTR  m_funcTerminate;
     BACKEND_GETFACTORY_FUNCPTR m_funcGetFactory;
@@ -165,7 +165,7 @@ public:
 protected:
     virtual void SetUp();
 
-    Intel::OpenCL::DeviceBackend::Utils::DynamicLib m_dll;
+    Intel::OpenCL::DeviceBackend::Utils::BE_DynamicLib m_dll;
     /// @brief the plugin exported function (see SamplePlugin)
     PLUGIN_EXPORT_F getFlag;
 };

@@ -16,6 +16,7 @@ endif( DISABLE_NUMA_SUPPORT )
 
 include_directories( AFTER
             ../cl_hw_utils/export
+            ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
             )
 
 FIND_SOURCES_IN_FOLDER(../cl_sys_utils)

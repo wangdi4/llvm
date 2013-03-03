@@ -6,7 +6,9 @@ remove_definitions( -Werror )
 
 #setting the path to the recorder we test
 if(WIN32)
-  add_definitions(-DRECORDER=${CMAKE_INSTALL_PREFIX}/bin/OclRecorder.dll)
+  set (DORDER_INSTALL "")
+  string( REPLACE  "\${BUILD_TYPE}"  ${CMAKE_CFG_INTDIR}  DORDER_INSTALL  ${CMAKE_INSTALL_PREFIX} )
+  add_definitions(-DRECORDER=${DORDER_INSTALL}/bin/OclRecorder.dll)
 else(WIN32)
   add_definitions(-DRECORDER=${CMAKE_INSTALL_PREFIX}/bin/libOclRecorder.so)
 endif(WIN32)
@@ -44,7 +46,7 @@ ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
 endif (WIN32)
 
 #linking
-link_directories( ${TBB_LIB_DIR} )
+link_directories( ${TBB_LIB_DIR} ${CMAKE_INSTALL_PREFIX}/bin/ )
 
 target_link_libraries( ${TARGET_NAME} googletest cl_logger OpenCL )
 

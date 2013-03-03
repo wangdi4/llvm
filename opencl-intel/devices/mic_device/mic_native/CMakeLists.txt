@@ -221,6 +221,7 @@ list( APPEND MIC_FLAGS
                 -I ${COI_SDK_PATH}/include
                 -I ${BOOST_DIR}
 				-I ${ITT_DIR}/include
+				-I ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
                 )
 
 list( APPEND MIC_FLAGS
@@ -357,6 +358,7 @@ set( SYS_UTILS_EXCEPTIONS NumericListParser|oclNotifier|cl_socket )
 FIND_SOURCES_EX( ${SYS_UTILS_DIR}  ${SYS_UTILS_EXCEPTIONS} )
 CALCULATE_TARGET_SOURCES()
 set( SYS_UTILS_TARGET_SOURCES ${TARGET_SOURCES} )
+message("Using sources from cl_sys_utils ${SYS_UTILS_TARGET_SOURCES}")
 
 # add task_executor
 set( TARGET_SOURCES )
@@ -368,7 +370,7 @@ set( TASK_EXECUTOR_TARGET_SOURCES ${TARGET_SOURCES} )
 
 add_device_executable(${TARGET_NAME} ${MAIN_TARGET_SOURCES} ${HW_UTILS_TARGET_SOURCES} ${SYS_UTILS_TARGET_SOURCES} ${TASK_EXECUTOR_TARGET_SOURCES} )
 install(PROGRAMS ${FILES_TO_COPY} ${BACKEND_FILES_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
-add_dependencies( ${TARGET_NAME} ${BACKEND_LIB} )
+add_dependencies( ${TARGET_NAME} ${BACKEND_LIB} cl_sys_utils)
 
 file( GLOB MIC_TBB_LIBS_TO_COPY ${MIC_TBB_LIB_PATH}/*.so ${MIC_TBB_LIB_PATH}/*.so.2 )
 install(FILES ${MIC_TBB_LIBS_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )

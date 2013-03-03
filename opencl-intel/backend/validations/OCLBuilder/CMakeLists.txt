@@ -8,8 +8,9 @@ include_directories(
   ${BACKEND_ROOT_DIR}/dynamic_lib
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend/export
   ${BACKEND_ROOT_DIR}/plugin_manager
-  ${BACKEND_ROOT_DIR}/../cl_api
-  ${BACKEND_ROOT_DIR}/../fe_compilers/clang_compiler
+  ${CMAKE_SOURCE_DIR}/cl_api
+  ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
+  ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
 )
 
 add_library( ${TARGET_NAME} STATIC

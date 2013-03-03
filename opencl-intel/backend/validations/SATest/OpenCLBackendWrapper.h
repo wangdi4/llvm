@@ -18,7 +18,7 @@ File Name:  OpenCLBackendWrapper.h
 #ifndef OPENCL_BACKEND_WRAPPER_H
 #define OPENCL_BACKEND_WRAPPER_H
 
-#include "DynamicLib.h"
+#include <BE_DynamicLib.h>
 #include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
 
@@ -49,7 +49,7 @@ namespace Validation
       ~OpenCLBackendWrapper();
 
   private:
-      Intel::OpenCL::DeviceBackend::Utils::DynamicLib m_dll;
+      Intel::OpenCL::DeviceBackend::Utils::BE_DynamicLib m_dll;
       BACKEND_INIT_FUNCPTR       m_funcInit;
       BACKEND_TERMINATE_FUNCPTR  m_funcTerminate;
       BACKEND_GETFACTORY_FUNCPTR m_funcGetFactory;

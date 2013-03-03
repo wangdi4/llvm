@@ -12,6 +12,7 @@ include_directories(${BACKEND_ROOT_DIR}/dynamic_lib)             #for DLL loadin
 include_directories(${BACKEND_ROOT_DIR}/ocl_cpu_backend/export ) #for plugins interface
 include_directories(${BACKEND_ROOT_DIR}/arch_headers)            #including CPUDetect headers
 include_directories(${BACKEND_ROOT_DIR}/plugin_manager)            #including CPUDetect headers
+include_directories(${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export)
 
 set (BACKEND_TESTS_INCLUDE_FILES
     BackendWrapper.h
@@ -40,6 +41,7 @@ target_link_libraries(${TARGET_NAME}
   dynamic_load
   OclPluginManager
   googletest
+  cl_sys_utils
   ${LLVM_MODULE_LIBS}
 )
 
@@ -51,6 +53,7 @@ if( NOT WIN32)
 endif ()
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
+add_dependencies( ${TARGET_NAME} cl_sys_utils)
 
 # install the bitcode files that the project loads
 install(FILES Bitcode/bitcodeNoise.bc Bitcode/bitcodeNoKernels.bc Bitcode/bitcodeWithKernels.bc DESTINATION bin)

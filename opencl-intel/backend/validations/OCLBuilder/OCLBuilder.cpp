@@ -19,119 +19,107 @@ File Name: OCLBuilder.cpp
 #include "OCLBuilder.h"
 #include <cstring>
 #include "clang_device_info.h"
+#include <ocl_string_exception.h>
 
 using namespace Intel::OpenCL::FECompilerAPI;
+using namespace Intel::OpenCL;
+using namespace Intel::OpenCL::Utils;
 
 namespace Validation{
+#define BE_FE_COMPILER_USE_EXTENSIONS "cl_khr_fp64 cl_khr_icd cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store cl_intel_printf cl_ext_device_fission cl_intel_exec_by_local_thread"
 
-OCLBuilder& OCLBuilder::instance(){
-  return _instance;
+OCLBuilder& OCLBuilder::Instance() {
+  return m_instance;
 }
 
-OCLBuilder& OCLBuilder::withLibrary(const char* lib){
-  m_pCompiler = createCompiler(lib);
-  return *this;
+
+//Sets the name of the library, from which the compiler will be loaded
+OCLBuilder& OCLBuilder::withLibrary(const char* lib)
+{
+	try {
+		m_CommonBuilder.withLibrary(lib);
+		return *this;
+	}
+	catch (ocl_string_exception Error)
+	{
+		throw Validation::Exception::OperationFailed(Error.what());
+	}
 }
 
-OCLBuilder& OCLBuilder::withBuildOptions(const char* options){
-  m_options = options;
-  return *this;
+//Sets the build options
+OCLBuilder& OCLBuilder::withBuildOptions(const char* options) {
+	try {
+		m_CommonBuilder.withBuildOptions(options);
+		return *this;
+	}
+	catch (ocl_string_exception Error)
+	{
+		throw Validation::Exception::OperationFailed(Error.what());
+	}
 }
 
-OCLBuilder& OCLBuilder::withSource(const char* src){
-  m_source = src;
-  return *this;
+//sets the OCL source to be compiled
+OCLBuilder& OCLBuilder::withSource(const char* src) {
+	try {
+		m_CommonBuilder.withSource(src);
+		return *this;
+	}
+	catch (ocl_string_exception Error)
+	{
+		throw Validation::Exception::OperationFailed(Error.what());
+	}
 }
 
-OCLBuilder& OCLBuilder::withFP64Support(bool isFP64Supported) {
-  m_bSupportFP64 = isFP64Supported;
-  return *this;
+OCLBuilder& OCLBuilder::withFP64Support(bool FP64) {
+	try {
+		m_CommonBuilder.withFP64Support(FP64);
+		return *this;
+	}
+	catch (ocl_string_exception Error)
+	{
+		throw Validation::Exception::OperationFailed(Error.what());
+	}
 }
 
-OCLBuilder& OCLBuilder::withImageSupport(bool areImagesSupported) {
-  m_bSupportImages = areImagesSupported;
-  return *this;
+OCLBuilder& OCLBuilder::withImageSupport(bool IS) {
+	try {
+		m_CommonBuilder.withImageSupport(IS);
+		return *this;
+	}
+	catch (ocl_string_exception Error)
+	{
+		throw Validation::Exception::OperationFailed(Error.what());
+	}
 }
 
-void OCLBuilder::close(){
-  m_dynamicLoader.Close();
-//causes a crash.. investigate!
-  /*if (m_pCompiler)
-    m_pCompiler->Release();*/
-  m_pCompiler = NULL;
+//cleanup function
+void OCLBuilder::close() {
+	try {
+		m_CommonBuilder.close();
+	}
+	catch (ocl_string_exception Error)
+	{
+		throw Validation::Exception::OperationFailed(Error.what());
+	}
 }
 
-IOCLFEBinaryResult* OCLBuilder::build(){
-  if (NULL == m_pCompiler)
-    throw Validation::Exception::OperationFailed("loader wasn't assigned");
-  if (m_source.empty())
-    throw Validation::Exception::OperationFailed("OCL source wasn't assigned");
-  FECompileProgramDescriptor programDescriptor;
-  programDescriptor.pProgramSource = m_source.c_str();
-  programDescriptor.uiNumInputHeaders = 0;
-  programDescriptor.pInputHeaders = NULL;
-  programDescriptor.pszInputHeadersNames = NULL;
-  programDescriptor.pszOptions = m_options.c_str();
-  IOCLFEBinaryResult* res;
-  int rc = m_pCompiler->CompileProgram(&programDescriptor, &res);
-  if (rc || NULL == res){
-    std::string errorMessage = "compilation failed: ";
-    if (res)
-      errorMessage.append (res->GetErrorLog());
-    else
-      errorMessage.append("<unknown error>");
-    throw Validation::Exception::OperationFailed(errorMessage);
-  }
-  //
-  //Linking
-  //
-  IOCLFEBinaryResult* executableResult = NULL;
-  FELinkProgramsDescriptor linkDescriptor;
-  linkDescriptor.uiNumBinaries = 1;
-  linkDescriptor.pszOptions = "";
-  const void* irBuffer = res->GetIR();
-  linkDescriptor.pBinaryContainers = &irBuffer;
-  size_t execsize = res->GetIRSize();
-  linkDescriptor.puiBinariesSizes = &execsize;
-  rc = m_pCompiler->LinkPrograms(&linkDescriptor, &executableResult);
-  if (rc || NULL == executableResult)
-    throw Validation::Exception::OperationFailed("linkage failed");
-  return executableResult;
+//Compiles the (previously given) source file with the compiler loaded from
+//(the previously given) library.
+//Returns value: IOCLFEBinaryResult, which contains the binary result in its
+//bytecode form, with some metadeta on it (size in bytes etc.)
+Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* OCLBuilder::build() {
+	try {
+		return m_CommonBuilder.build();
+	}
+	catch (ocl_string_exception Error) {
+		throw Validation::Exception::OperationFailed(Error.what());
+	}
 }
 
-OCLBuilder::OCLBuilder(): m_pCompiler(NULL), m_bSupportFP64(true),
-m_bSupportImages(true) {
+OCLBuilder::OCLBuilder() : m_CommonBuilder(Intel::OpenCL::Utils::CommonOCLBuilder::instance()) {
+	m_CommonBuilder.withExtensions(BE_FE_COMPILER_USE_EXTENSIONS);
 }
 
-IOCLFECompiler* OCLBuilder::createCompiler(const char* lib){
-  IOCLFECompiler* ret;
-  //constants
-  const char* fnFactoryName = "CreateFrontEndInstance";
-  const char* strDeviceOptions = "cl_khr_fp64 cl_khr_icd"
-  "cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics"
-  " cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics"
-  " cl_khr_byte_addressable_store cl_intel_printf cl_ext_device_fission"
-  " cl_intel_exec_by_local_thread";
-
-  Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo = {
-    strDeviceOptions,
-    m_bSupportImages,
-    m_bSupportFP64,
-	0
-    };
-
-  //
-  //loading clang dll
-  //
-  m_dynamicLoader.Load(lib);
-  fnCreateFECompilerInstance* factoryMethod =
-    (fnCreateFECompilerInstance*)(intptr_t)m_dynamicLoader.GetFuncPtr(fnFactoryName);
-  int rc = factoryMethod(&sDeviceInfo, sizeof(sDeviceInfo), &ret);
-  if (rc || NULL == ret)
-    throw Validation::Exception::OperationFailed("factory method failed");
-  return ret;
-}
-
-OCLBuilder OCLBuilder::_instance;
+OCLBuilder OCLBuilder::m_instance;
 
 }

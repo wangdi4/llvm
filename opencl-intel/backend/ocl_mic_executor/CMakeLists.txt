@@ -184,7 +184,8 @@ list( APPEND MIC_FLAGS
                 -I ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
                 -I ${CMAKE_SOURCE_DIR}/backend/plugin_manager
                 -I ${LLVM_INCLUDE_DIR}
-                -I ${CMAKE_CURRENT_SOURCE_DIR}/../external/vtune/include 	
+                -I ${CMAKE_CURRENT_SOURCE_DIR}/../external/vtune/include
+                -I ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
                 )
 
 if (${CMAKE_BUILD_TYPE} STREQUAL Debug)

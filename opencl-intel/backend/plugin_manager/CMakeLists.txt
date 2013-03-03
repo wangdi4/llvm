@@ -9,6 +9,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend/export
   ${BACKEND_ROOT_DIR}/dynamic_lib
   ${BACKEND_ROOT_DIR}/../cl_api
+  ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
 )
 
 add_library( ${TARGET_NAME} STATIC
@@ -24,7 +25,7 @@ add_dependencies( ${TARGET_NAME} dynamic_load )
 
 link_directories(${CMAKE_CURRENT_BINARY_DIR}/../lib)
 
-target_link_libraries(${TARGET_NAME} dynamic_load)
+target_link_libraries(${TARGET_NAME} cl_sys_utils dynamic_load)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/plugins )
 
