@@ -434,11 +434,6 @@ void TEDevice::on_scheduler_exit( bool bIsWorker, ArenaHandler& arena )
 
 bool TEDevice::on_scheduler_leaving( ArenaHandler& arena )
 {
-    if (isTerminating())
-    {
-        return true; // always allow leaving during shutdown
-    }
-
     TE_BOOLEAN_ANSWER user_answer = TE_USE_DEFAULT;
 
     TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();

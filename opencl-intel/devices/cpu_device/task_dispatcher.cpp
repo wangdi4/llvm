@@ -244,10 +244,9 @@ cl_dev_err_code TaskDispatcher::init()
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Activate();");
 
-    // create root device in flat mode with maximum threads, support for masters joining and 
-    // one reserved position for master in device
+    // create root device in flat mode with maximum threads and no support for masters joining
     m_pRootDevice = m_pTaskExecutor->CreateRootDevice( 
-                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 1), NULL, this );
+                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN), NULL, this );
 
 	m_bTEActivated = (NULL != m_pRootDevice);
 	if ( !m_bTEActivated )
