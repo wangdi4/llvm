@@ -56,7 +56,7 @@ void DynamicLib::Load(const char* pLibName)
   {
     std::string errMsg("Can't load dynamic library:");
     errMsg += std::string(pLibName);
-    throw string(
+    throw ocl_string_exception(
       errMsg
 #if !defined(_WIN32)
       + std::string(":") + dlerror()
