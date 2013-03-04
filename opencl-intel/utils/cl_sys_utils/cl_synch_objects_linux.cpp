@@ -38,6 +38,11 @@
  ************************************************************************/
 using namespace Intel::OpenCL::Utils;
 
+void Intel::OpenCL::Utils::InnerSpinloopImpl()
+{
+    hw_pause();
+}
+
 /************************************************************************
  * Creates the mutex section object.
  ************************************************************************/
@@ -96,69 +101,12 @@ void OclMutex::spinCountMutexLock()
 	    if (err == EBUSY)
 	    {
             // In order to improve the performance of spin-wait loops.
-            hw_pause();
+            InnerSpinloopImpl();
 	    }
 	    i++;
     } while (i < m_uiSpinCount);
     pthread_mutex_lock((pthread_mutex_t*)m_mutexHndl);
 }
-
-/************************************************************************
- *
- ************************************************************************/
-OclSpinMutex::OclSpinMutex()
-{
-	lMutex.exchange(0);
-	threadId = -1; // On WIN32 implemetation you initiate threadId as 0, on Linux threadID can be any non_negative integer so it prefered to initiate it as -1 in order to prevent defects.
-}
-void OclSpinMutex::Lock()
-{
-	if (pthread_equal(threadId, pthread_self()) != 0)
-	{
-		++lMutex;
-		return;
-	}
-	while (lMutex.test_and_set(0, 1))   // CAS(*ptr, old, new)
-	{
-		// In order to improve the performance of spin-wait loops.
-		hw_pause();
-	}
-	threadId = pthread_self();
-}
-void OclSpinMutex::Unlock()
-{
-	//Prevent a thread that doesn't own the mutex from unlocking it
-	if (pthread_equal(threadId, pthread_self()) == 0)
-	{
-		return;
-	}
-	if ( 1 == (long)lMutex )
-	{
-		threadId = -1;
-		lMutex.exchange(0);
-		return;
-	}
-	--lMutex;
-	assert(lMutex > 0);
-}
-
-/************************************************************************
- *
- ************************************************************************/
-OclAutoMutex::OclAutoMutex(IMutex* mutexObj, bool bAutoLock)
-{
-    m_mutexObj = mutexObj;
-	if ( bAutoLock )
-	{
-		m_mutexObj->Lock();
-	}
-}
-
-OclAutoMutex::~OclAutoMutex()
-{
-    m_mutexObj->Unlock();
-}
-
 
 /************************************************************************
  *

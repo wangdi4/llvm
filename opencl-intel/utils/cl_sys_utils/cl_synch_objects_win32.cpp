@@ -37,6 +37,15 @@
 /************************************************************************/
 using namespace Intel::OpenCL::Utils;
 
+void Intel::OpenCL::Utils::InnerSpinloopImpl()
+{
+        if (0 == SwitchToThread())
+        {
+            //0 means no other thread is ready to run
+            hw_pause();
+        }
+}
+
 /************************************************************************
  * Creates the mutex section object.
 /************************************************************************/
@@ -72,64 +81,6 @@ void OclMutex::Unlock()
 {
     LeaveCriticalSection((LPCRITICAL_SECTION)m_mutexHndl);
 }
-
-
-/************************************************************************
- *
-/************************************************************************/
-OclSpinMutex::OclSpinMutex()
-{
-	lMutex.exchange(0);
-	threadId = 0;
-}
-void OclSpinMutex::Lock()
-{
-	if (threadId == GetCurrentThreadId())
-	{
-		++lMutex;
-		return;
-	}
-	while (lMutex.test_and_set(0, 1))
-	{
-		// In order to improve the performance of spin-wait loops.
-		hw_pause();
-	}
-	threadId = GetCurrentThreadId();
-}
-void OclSpinMutex::Unlock()
-{
-	//Prevent a thread that doesn't own the mutex from unlocking it
-	if (GetCurrentThreadId() != threadId)
-	{
-		return;
-	}
-	if ( 1 == (long)lMutex )
-	{
-		threadId = 0;
-		lMutex.exchange(0);
-		return;
-	}
-	long val = --lMutex;
-	assert(val != -1);
-}
-
-/************************************************************************
- *
-/************************************************************************/
-OclAutoMutex::OclAutoMutex(IMutex* mutexObj, bool bAutoLock)
-{
-    m_mutexObj = mutexObj;
-	if ( bAutoLock )
-	{
-		m_mutexObj->Lock();
-	}
-}
-
-OclAutoMutex::~OclAutoMutex()
-{
-    m_mutexObj->Unlock();
-}
-
 
 /************************************************************************
  *

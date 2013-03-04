@@ -65,12 +65,17 @@
 #include <windows.h>
 #define CAS(ptr,old_val,new_val)	InterlockedCompareExchangePointer((void*volatile*)ptr,new_val,old_val)
 #define TAS(ptr,new_val)			InterlockedExchangePointer((void*volatile*)ptr,new_val)
+#define INVALID_MUTEX_OWNER (0)
 #else
 #define CAS(ptr,old_val,new_val)	__sync_val_compare_and_swap(ptr,old_val,new_val)
 #define TAS(ptr,new_val)			__sync_lock_test_and_set(ptr,new_val)
+#define INVALID_MUTEX_OWNER (-1)
 #endif
 
 namespace Intel { namespace OpenCL { namespace Utils {
+
+    //Call this function from within spinning loops
+    void InnerSpinloopImpl();
 
 	template<class T=void>
 	class AtomicPointer
@@ -215,7 +220,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		void Unlock();
 	protected:
 		AtomicCounter lMutex;
-		long threadId;
+		threadid_t threadId;
 	};
 
 
@@ -382,9 +387,9 @@ namespace Intel { namespace OpenCL { namespace Utils {
         OclReaderWriterLock() : m_readers(0) {}
         virtual ~OclReaderWriterLock() { assert(0 == m_readers); }
 
-        void EnterRead()  { m_writeLock.Lock(); m_readers++; m_writeLock.Unlock();}
+        void EnterRead()  { m_writeLock.Lock(); m_readers++; m_writeLock.Unlock(); }
         void LeaveRead()  { m_readers--; }
-        void EnterWrite() { m_writeLock.Lock(); while (m_readers > 0) hw_pause(); }
+        void EnterWrite() { m_writeLock.Lock(); while (m_readers > 0) InnerSpinloopImpl(); }
         void LeaveWrite() { m_writeLock.Unlock();  }
 
     protected:
