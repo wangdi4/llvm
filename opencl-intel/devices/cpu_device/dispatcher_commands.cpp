@@ -1014,6 +1014,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 	//Todo: might want to revisit these restrictions in the future
 	m_pAffinityPermutation = m_pTaskDispatcher->getAffinityPermutation();
 	m_bAllowAffinityPermutation = ((NULL != m_pAffinityPermutation) && (1 == dimCount) && (region[0] == m_numThreads));
+  m_bWGExecuted.init(m_numThreads, false);
 
 #ifdef _DEBUG_PRINT
 	printf("--> Init(done):%s\n", pKernel->GetKernelName());
@@ -1211,9 +1212,24 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
 				//Optionally override the iteration to be executed if an affinity permutation is defined
 	if (m_bAllowAffinityPermutation)
 	{
-		groupId[0] = m_pAffinityPermutation[pWgContext->GetThreadId()];
-		assert((0 == y) && (0 == z));
-	}
+            assert((0 == y) && (0 == z));
+	    unsigned int myGroupID = pWgContext->GetThreadId();
+	    if (0 == m_bWGExecuted.bitTestAndSet(myGroupID))
+	    {
+		groupId[0] = myGroupID;
+	    }
+	    else // find an available work group
+	    {
+		for (unsigned int ui = 0; ui < m_numThreads; ++ui)
+		{
+	            if (0 == m_bWGExecuted.bitTestAndSet(ui))
+		    {
+		        groupId[0] = ui;
+			break;
+		    }
+		}
+	    }
+        }
 #endif
 	if (NULL == pExec)
 	{

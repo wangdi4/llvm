@@ -226,6 +226,10 @@ protected:
     unsigned int                m_numThreads;
     size_t*                     m_pAffinityPermutation;
     bool                        m_bAllowAffinityPermutation;
+
+	// Used when running in "predictable partitioning" mode (i.e. 1:1 mapping between threads and WGs when using fission)
+	// Ensures no work group is executed twice, regardless of task stealing
+	Intel::OpenCL::Utils::AtomicBitField m_bWGExecuted;
     
 	// Unique ID of the NDRange command
 	static Intel::OpenCL::Utils::AtomicCounter	s_lGlbNDRangeId;
