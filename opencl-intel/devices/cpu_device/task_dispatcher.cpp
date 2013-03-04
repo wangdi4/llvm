@@ -244,9 +244,15 @@ cl_dev_err_code TaskDispatcher::init()
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Activate();");
 
-    // create root device in flat mode with maximum threads and no support for masters joining
+    // create root device in flat mode with maximum threads, support for masters joining and 
+    // one reserved position for master in device
     m_pRootDevice = m_pTaskExecutor->CreateRootDevice( 
-                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN), NULL, this );
+                    // tbb deadlock when master slot is reserved and other slots are busy with wait_for_all()
+                    // TBB bug report: https://bugzilla.inn.intel.com/SSG/bugzilla/show_bug.cgi?id=1981
+                    // temporary disable slot reservation
+                    //RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 1), 
+                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 0), 
+                    NULL, this );
 
 	m_bTEActivated = (NULL != m_pRootDevice);
 	if ( !m_bTEActivated )
