@@ -57,6 +57,13 @@ if (LLVM_CONFIG_EXECUTABLE)
       OUTPUT_STRIP_TRAILING_WHITESPACE
     )
 
+if( INCLUDE_MIC_DEVICE)
+        list(APPEND LLVM_MODULE_LIBS
+            pcg
+            svml
+            irc
+            )
+endif( INCLUDE_MIC_DEVICE)
 	message( STATUS "LLVM libs: ${LLVM_MODULE_LIBS}")
 else (LLVM_CONFIG_EXECUTABLE)
     
@@ -111,6 +118,9 @@ if( INCLUDE_MIC_DEVICE)
             LLVMY86Disassembler
             LLVMY86Info
             LLVMY86Utils
+            pcg
+            svml
+            irc
             )
 endif( INCLUDE_MIC_DEVICE)
         list(APPEND LLVM_MODULE_LIBS
@@ -183,6 +193,9 @@ if( INCLUDE_MIC_DEVICE)
             LLVMY86Disassembler
             LLVMY86Info
             LLVMY86Utils
+            pcg
+            svml
+            irc
             )
 endif( INCLUDE_MIC_DEVICE)
         list(APPEND LLVM_MODULE_LIBS

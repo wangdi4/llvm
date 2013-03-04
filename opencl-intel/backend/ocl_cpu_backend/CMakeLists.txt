@@ -316,13 +316,6 @@ if( LLVM_USE_OPROFILE )
     link_directories ( ${LLVM_OPROFILE_INCDIR} )
 endif( LLVM_USE_OPROFILE )
 
-if ( INCLUDE_MIC_DEVICE )
-    link_directories( 
-        ${BACKEND_ROOT_DIR}/external/pcg 
-        ${BACKEND_ROOT_DIR}/external/pcg/${CMAKE_BUILD_TYPE}
-    )
-endif(INCLUDE_MIC_DEVICE)
-
 # Create DLL
 add_library (${TARGET_NAME} SHARED
     ${OCL_CPU_BACKEND_INCLUDE_FILES}
@@ -378,14 +371,7 @@ target_link_libraries (${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
     )
 
-if ( INCLUDE_MIC_DEVICE )
-    target_link_libraries (${TARGET_NAME}
-        pcg
-        irc
-        svml
-    )
-endif(INCLUDE_MIC_DEVICE)
-  
+
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 
 add_definitions( -DOclCpuBackEnd_EXPORTS )
