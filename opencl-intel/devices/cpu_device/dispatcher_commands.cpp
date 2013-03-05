@@ -757,7 +757,7 @@ Intel::OpenCL::Utils::AtomicCounter	NDRange::s_lGlbNDRangeId;
 cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
 {
 #ifdef __INCLUDE_MKL__
-	// First to check if the requried NDRange is one of the built-in kernels
+	// First to check if the required NDRange is one of the built-in kernels
 	ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
 
 	// Built-in kernel currently returns NULL properties.
@@ -802,7 +802,7 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
 
 NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
 	CommandBaseClass<ITaskSet>(pTD, pCmd), m_lastError(CL_DEV_SUCCESS), m_pBinary(NULL),
-	m_pMemBuffSizes(NULL), m_numThreads(0), m_pAffinityPermutation(NULL), m_bAllowAffinityPermutation(false)
+	m_pMemBuffSizes(NULL), m_numThreads(0), m_bEnablePredictablePartitioning(false)
 {
 #ifdef _DEBUG
 	memset(m_pLockedParams, 0x88, sizeof(m_pLockedParams));
@@ -1012,9 +1012,8 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 	dimCount = cmdParams->work_dim;
   
 	//Todo: might want to revisit these restrictions in the future
-	m_pAffinityPermutation = m_pTaskDispatcher->getAffinityPermutation();
-	m_bAllowAffinityPermutation = ((NULL != m_pAffinityPermutation) && (1 == dimCount) && (region[0] == m_numThreads));
-  m_bWGExecuted.init(m_numThreads, false);
+    m_bEnablePredictablePartitioning = ((1 == dimCount) && (region[0] == m_numThreads) && m_pTaskDispatcher->isPredictablePartitioningAllowed() );
+    m_bWGExecuted.init(m_numThreads, false);
 
 #ifdef _DEBUG_PRINT
 	printf("--> Init(done):%s\n", pKernel->GetKernelName());
@@ -1210,9 +1209,9 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
 	size_t groupId[MAX_WORK_DIM] = {x, y, z};
 #ifndef _WIN32	//Don't support this feature on Windows at the moment   
 				//Optionally override the iteration to be executed if an affinity permutation is defined
-	if (m_bAllowAffinityPermutation)
+	if (m_bEnablePredictablePartitioning)
 	{
-            assert((0 == y) && (0 == z));
+        assert((0 == y) && (0 == z));
 	    unsigned int myGroupID = pWgContext->GetThreadId();
 	    if (0 == m_bWGExecuted.bitTestAndSet(myGroupID))
 	    {
@@ -1487,7 +1486,7 @@ cl_dev_err_code NativeKernelTask::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* p
 NativeKernelTask::NativeKernelTask(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
 	CommandBaseClass<ITask>(pTD, pCmd)
 {
-	// First to check if the requried NDRange is one of the built-in kernels
+	// First to check if the required NDRange is one of the built-in kernels
 	ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
 	
 	m_pBIKernel = dynamic_cast<IBuiltInKernel*>(pKernel);

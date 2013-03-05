@@ -79,9 +79,6 @@ protected:
 	//Affinity observer interface
 	void            NotifyAffinity(unsigned int tid, unsigned int core);
 
-	// Generate a mapping ensuring the thread running on the ith compute unit will run WG #i if static partitioning is enabled
-	void            GenerateAffinityPermutation(cl_uint* pComputeUnits, unsigned long count, size_t* pAffinityPermutation);
-
 	// A mapping between an OpenCL-defined core ID (1 is first CPU on second socket) and OS-defined core ID
 	unsigned int*    m_pComputeUnitMap;
 	// Indexed by thread ID, contains data on which core the thread is pinned to and whether it's a part of a sub-device

@@ -224,8 +224,7 @@ protected:
 
     // Information about the hardware and a potential override for work group to thread mapping
     unsigned int                m_numThreads;
-    size_t*                     m_pAffinityPermutation;
-    bool                        m_bAllowAffinityPermutation;
+    bool                        m_bEnablePredictablePartitioning;
 
 	// Used when running in "predictable partitioning" mode (i.e. 1:1 mapping between threads and WGs when using fission)
 	// Ensures no work group is executed twice, regardless of task stealing

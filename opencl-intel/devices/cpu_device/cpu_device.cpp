@@ -369,23 +369,6 @@ void CPUDevice::NotifyAffinity(unsigned int tid, unsigned int core)
 	}
 }
 
-void CPUDevice::GenerateAffinityPermutation(cl_uint *pComputeUnits, unsigned long count, size_t *pAffinityPermutation)
-{
-	if ((NULL == pComputeUnits) || (NULL == pAffinityPermutation))
-	{
-		return;
-	}
-	//Prevent changes while populating the map
-	Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
-
-	for (unsigned long i = 0; i < count; ++i)
-	{
-		assert(pComputeUnits[i] < m_numCores && "Access outside core map size");
-		pAffinityPermutation[m_pCoreToThread[pComputeUnits[i]]] = i;
-	}
-	pAffinityPermutation[0] = 0;
-}
-
 cl_uint GetNativeVectorWidth(CPUDeviceDataTypes dataType)
 {
     const bool     avx1Support   = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
@@ -1810,30 +1793,17 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 				return CL_DEV_ERROR_FAIL;
 			}
 
-			size_t* pAffinityPermutation = new size_t[m_numCores];
-			if (NULL == pAffinityPermutation)
-			{
-				ReleaseComputeUnits(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units);
-				delete pList;
-				pSubdeviceData->task_dispatcher_init_complete = true;
-				pSubdeviceData->task_dispatcher_ref_count--;
-				return CL_DEV_ERROR_FAIL;
-			}
-
             TaskDispatcher* pNewTaskDispatcher = new SubdeviceTaskDispatcher(pSubdeviceData->num_compute_units, pSubdeviceData->legal_core_ids, m_uiCpuId, m_pFrameworkCallBacks,
                                                                              m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this, pSubdeviceData->taskExecutorData);
 			if (NULL == pNewTaskDispatcher)
 			{
 				ReleaseComputeUnits(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units);
-				delete[] pAffinityPermutation;
 				delete pList;
 				pSubdeviceData->task_dispatcher_init_complete = true;
 				pSubdeviceData->task_dispatcher_ref_count--;
 				return CL_DEV_OUT_OF_MEMORY;
 			}
 
-			pNewTaskDispatcher->setAffinityPermutation(pAffinityPermutation);
-			//From here on, no need to delete pAffinityPermutation on failure as the new dispatcher owns the pointer
             cl_dev_err_code ret = pNewTaskDispatcher->init();
 			if (CL_DEV_FAILED(ret))
 			{
@@ -1844,7 +1814,6 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 				pSubdeviceData->task_dispatcher_ref_count--;
 				return CL_DEV_OUT_OF_MEMORY;
 			}
-			GenerateAffinityPermutation(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units, pAffinityPermutation);
 			pSubdeviceData->task_dispatcher = pNewTaskDispatcher;
 			pList->task_dispatcher          = pNewTaskDispatcher;
 			pSubdeviceData->task_dispatcher_init_complete = true;

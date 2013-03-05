@@ -91,11 +91,10 @@ public:
 
     virtual ProgramService* getProgramService(){ return m_pProgramService; }
 
-	virtual bool            isDestributedAllocationRequried();
-	virtual bool			isThreadAffinityRequried();
+	virtual bool            isDestributedAllocationRequired();
+	virtual bool			isThreadAffinityRequired();
 
-	virtual void            setAffinityPermutation(size_t* pAffinityPermutation) { m_pAffinityPermutation = pAffinityPermutation; }
-	virtual size_t*         getAffinityPermutation() const                       { return m_pAffinityPermutation; }
+    virtual bool            isPredictablePartitioningAllowed()                   { return false;          }
 	virtual unsigned int    getNumberOfThreads() const                           { return m_uiNumThreads; }
 
     void*                   createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_dev_internal_subdevice_id* dev_ptr);
@@ -134,7 +133,6 @@ protected:
 	WGContext*					m_pWGContexts;
 
 	IAffinityChangeObserver*    m_pObserver;
-	size_t*                     m_pAffinityPermutation;    
 
 	// Internal implementation of functions
 	static fnDispatcherCommandCreate_t*	m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
@@ -193,8 +191,9 @@ public:
 
   	virtual cl_dev_err_code init();
 
-	virtual bool isThreadAffinityRequried();
-	virtual bool isDestributedAllocationRequried();
+	virtual bool isPredictablePartitioningAllowed() { return true; }
+    virtual bool isThreadAffinityRequired();
+	virtual bool isDestributedAllocationRequired();
 
 	// Release SubDispatcher Instance
 	// We to handle reference counting in order to be able to release it from different code places

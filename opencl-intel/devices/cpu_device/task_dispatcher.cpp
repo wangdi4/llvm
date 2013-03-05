@@ -182,7 +182,7 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 		m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pFrameworkCallBacks(devCallbacks),
 		m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
 		m_pCPUDeviceConfig(cpuDeviceConfig), m_pWgContextPool(NULL), m_uiNumThreads(0), 
-        m_bTEActivated(false), m_pWGContexts(NULL), m_pObserver(pObserver), m_pAffinityPermutation(NULL)
+        m_bTEActivated(false), m_pWGContexts(NULL), m_pObserver(pObserver)
 #ifdef __INCLUDE_MKL__
 		,m_pOMPExecutionThread(NULL)
 #endif
@@ -234,10 +234,6 @@ TaskDispatcher::~TaskDispatcher()
 	{
 		m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
 	}
-	if (NULL != m_pAffinityPermutation)
-	{
-		delete[] m_pAffinityPermutation;
-	}
 }
 
 cl_dev_err_code TaskDispatcher::init()
@@ -286,7 +282,7 @@ cl_dev_err_code TaskDispatcher::init()
 	m_pOMPExecutionThread->Start();
 #endif
 
-	bool bInitTasksRequired = isDestributedAllocationRequried() || isThreadAffinityRequried();
+	bool bInitTasksRequired = isDestributedAllocationRequired() || isThreadAffinityRequired();
 	
 	if (!bInitTasksRequired)
 	{
@@ -326,12 +322,12 @@ cl_dev_err_code TaskDispatcher::init()
 	return CL_DEV_SUCCESS;
 }
 
-bool TaskDispatcher::isDestributedAllocationRequried()
+bool TaskDispatcher::isDestributedAllocationRequired()
 {
 	return clIsNumaAvailable();
 }
 
-bool TaskDispatcher::isThreadAffinityRequried()
+bool TaskDispatcher::isThreadAffinityRequired()
 {
 #if ( defined(WIN32) || defined(__ANDROID__) ) //Not pinning threads for Windows or Android
 	return false;
@@ -646,7 +642,7 @@ void* TaskDispatcher::OnThreadEntry()
 
     if (!pCtx->DoesBelongToMasterThread())
 	{
-	    if ( isThreadAffinityRequried() )
+	    if ( isThreadAffinityRequired() )
 	    {
             cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(
                                                                     m_pTaskExecutor->GetCurrentDevice().user_handle);
@@ -719,13 +715,13 @@ cl_dev_err_code SubdeviceTaskDispatcher::internalFlushCommandList(cl_dev_cmd_lis
     return err;
 }
 
-bool SubdeviceTaskDispatcher::isThreadAffinityRequried()
+bool SubdeviceTaskDispatcher::isThreadAffinityRequired()
 {
 	// Threads already affinitized
 	return false;
 }
 
-bool SubdeviceTaskDispatcher::isDestributedAllocationRequried()
+bool SubdeviceTaskDispatcher::isDestributedAllocationRequired()
 {
 	// Always partially allocate resources
 	return true;

@@ -107,7 +107,7 @@ cl_err_code GLTexture3D::AcquireGLObject()
 
 	m_pMemObjData = pChild->GetBackingStoreData(NULL);
 
-	// Now read image data if requried
+	// Now read image data if required
 	if ( (m_clFlags & CL_MEM_READ_WRITE) || (m_clFlags & CL_MEM_READ_ONLY) )
 	{
 		GLint	currTexture;
@@ -131,7 +131,7 @@ cl_err_code GLTexture3D::AcquireGLObject()
 
 cl_err_code GLTexture3D::ReleaseGLObject()
 {
-	// Now write back image data if requried
+	// Now write back image data if required
 	if ( (m_clFlags & CL_MEM_READ_WRITE) || (m_clFlags & CL_MEM_WRITE_ONLY) )
 	{
 		GLint	currTexture;
