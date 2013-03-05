@@ -201,6 +201,7 @@ void CL_CALLBACK CrtMemDestructorCallBack(cl_mem m, void* userData)
         memObj->DecPendencyCnt();
         memData->m_clMemHandle = NULL;
         delete memData;
+
     }
 }
 
@@ -261,6 +262,9 @@ CrtContext::CrtContext(
 m_context_handle(context_handle)
 {
     cl_int errCode = CL_SUCCESS;
+    
+    // Initialize the alignment class variable
+    m_alignment = 0;
 
     OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
 
@@ -1893,6 +1897,7 @@ cl_int CrtContext::CreateSubBuffer(
 ///
 /// ------------------------------------------------------------------------------
 cl_int  CrtContext::CreateCommandQueue(
+	cl_command_queue			queue_crt_handle,
     cl_device_id                device,
     cl_command_queue_properties properties,
     CrtQueue**                  crtQueue)
@@ -1918,6 +1923,7 @@ cl_int  CrtContext::CreateCommandQueue(
         }
         pCrtQueue->m_cmdQueueDEV = queueDEV;
         pCrtQueue->m_device = device;
+		pCrtQueue->m_queue_handle = queue_crt_handle;
         *crtQueue = pCrtQueue;
         {
             OCLCRT::Utils::OclAutoMutex CS(&m_mutex);   // Critical section

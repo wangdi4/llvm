@@ -170,6 +170,9 @@ struct CrtQueue: public CrtObject
     cl_command_queue    m_cmdQueueDEV;
     cl_device_id        m_device;
     CrtContext*         m_contextCRT;
+	
+	// CRT opaque handle for the command_queue
+	cl_command_queue	m_queue_handle;
 
     cl_int              Release();
 };
@@ -536,6 +539,7 @@ public:
 
     // Command Queue and Build
     cl_int  CreateCommandQueue(
+		cl_command_queue				queue_crt_handle,
         cl_device_id                    device,
         cl_command_queue_properties     properties,
         CrtQueue**                      crtQueue);
@@ -596,7 +600,7 @@ public:
     SHARED_CTX_DISPATCH     m_contexts;
 
     // Map from device id to matching underlying context couplying that device id
-    DEV_CTX_MAP             m_DeviceToContext;
+    DEV_CTX_MAP             m_DeviceToContext;	
 
     // Release all underlying contexts
     cl_int Release();

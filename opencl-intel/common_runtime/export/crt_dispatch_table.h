@@ -52,6 +52,27 @@ namespace CRT_ICD_DISPATCH
         cl_command_queue_properties properties,
         cl_int *                    errcode_ret );
 
+    /* cl_intel_accelerator */
+    typedef CL_API_ENTRY cl_accelerator_intel (CL_API_CALL *INTELpfn_clCreateAcceleratorINTEL)(
+        cl_context                      context,
+        cl_accelerator_type_intel       type, 
+        size_t                          desc_size,
+        const void *                    desc, 
+        cl_int *                        errcode_ret ) CL_API_SUFFIX__VERSION_1_2;
+
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetAcceleratorInfoINTEL)(
+        cl_accelerator_intel         accelerator,
+        cl_accelerator_info_intel    param_name,
+        size_t                       param_value_size,
+        void*                        param_value,
+        size_t*                      param_value_size_ret ) CL_API_SUFFIX__VERSION_1_2;
+
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clRetainAcceleratorINTEL)(
+        cl_accelerator_intel /* accelerator */) CL_API_SUFFIX__VERSION_1_2;
+
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clReleaseAcceleratorINTEL)(
+        cl_accelerator_intel /* accelerator */) CL_API_SUFFIX__VERSION_1_2;
+
     struct SOCLCRTDispatchTable
     {
         KHRpfn_clGetKernelArgInfo                       clGetKernelArgInfo;
@@ -62,6 +83,10 @@ namespace CRT_ICD_DISPATCH
         INTELpfn_clGetImageParamsINTEL                  clGetImageParamsINTEL;
         // API to expose the Performance Counters to applications
         INTELpfn_clCreatePerfCountersCommandQueueINTEL  clCreatePerfCountersCommandQueueINTEL;
+        INTELpfn_clCreateAcceleratorINTEL               clCreateAcceleratorINTEL;
+        INTELpfn_clGetAcceleratorInfoINTEL              clGetAcceleratorInfoINTEL;
+        INTELpfn_clRetainAcceleratorINTEL               clRetainAcceleratorINTEL;
+        INTELpfn_clReleaseAcceleratorINTEL              clReleaseAcceleratorINTEL;
     };
 
     struct SOCLEntryPointsTable

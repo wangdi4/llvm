@@ -93,8 +93,8 @@ extern void CL_API_ENTRY clLogMessagesToStderrAPPLE(   const char * /* errstr */
                                           void *       /* user_data */ )    CL_EXT_SUFFIX__VERSION_1_0;
 
 
-/************************ 
-* cl_khr_icd extension *                                                  
+/************************
+* cl_khr_icd extension *
 ************************/
 #define cl_khr_icd 1
 
@@ -174,6 +174,55 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clTerminateContextKHR_fn)(cl_context /
 * cl_amd_device_attribute_query *
 *********************************/
 #define CL_DEVICE_PROFILING_TIMER_OFFSET_AMD        0x4036
+
+/*********************************
+* cl_intel_accelerator extension *
+*********************************/
+#define cl_intel_accelerator 1
+
+typedef struct _cl_accelerator_intel*     cl_accelerator_intel;
+typedef cl_uint                           cl_accelerator_type_intel;
+typedef cl_uint                           cl_accelerator_info_intel;
+
+// Error Codes
+#define CL_INVALID_ACCELERATOR_INTEL                    -6000
+#define CL_INVALID_ACCELERATOR_TYPE_INTEL               -6001
+#define CL_INVALID_ACCELERATOR_DESC_INTEL               -6002
+#define CL_ACCELERATOR_TYPE_NOT_SUPPORTED_INTEL         -6003
+
+/* cl_accelerator_type_intel */
+//#define CL_ACCELERATOR_TYPE_MOTION_DETECT_INTEL
+
+/* cl_accelerator_info_intel */
+#define CL_ACCELERATOR_DESCRIPTOR_INTEL                 0x4080
+#define CL_ACCELERATOR_REFERENCE_COUNT_INTEL            0x4081
+#define CL_ACCELERATOR_CONTEXT_INTEL                    0x4082
+#define CL_ACCELERATOR_TYPE_INTEL                       0x4083
+
+extern CL_API_ENTRY cl_accelerator_intel CL_API_CALL
+clCreateAcceleratorINTEL(
+    cl_context                  /* context */,
+    cl_accelerator_type_intel   /* accelerator_type */,
+    size_t                      /* descriptor_size */,
+    const void*                 /* descriptor */,
+    cl_int*                     /* errcode_ret */ ) CL_EXT_SUFFIX__VERSION_1_2;
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+clGetAcceleratorInfoINTEL
+(
+    cl_accelerator_intel        /* accelerator */,
+    cl_accelerator_info_intel   /* param_name */,
+    size_t                      /* param_value_size */,
+    void*                       /* param_value */,
+    size_t*                     /* param_value_size_ret */ ) CL_EXT_SUFFIX__VERSION_1_2;
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+clRetainAcceleratorINTEL(
+    cl_accelerator_intel        /* accelerator */ ) CL_EXT_SUFFIX__VERSION_1_2;
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+clReleaseAcceleratorINTEL(
+    cl_accelerator_intel        /* accelerator */ ) CL_EXT_SUFFIX__VERSION_1_2;
 
 #ifdef CL_VERSION_1_1
    /***********************************

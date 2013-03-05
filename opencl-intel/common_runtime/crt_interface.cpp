@@ -981,37 +981,33 @@ cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  co
                                                   cl_command_queue_properties properties,
                                                   cl_int *                    errcode_ret)
 {
-    _cl_command_queue_crt* queue_handle = NULL;
-    CrtQueue* queue = NULL;
-    cl_int errCode = CL_SUCCESS;
-    CrtContextInfo* ctxInfo  = NULL;
+    _cl_command_queue_crt*	queue_handle	= NULL;
+    CrtQueue*				queue			= NULL;
+	CrtContext*				ctx				= NULL;
+    cl_int					errCode			= CL_SUCCESS;
+    CrtContextInfo*			ctxInfo			= NULL;
 
-    ctxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue(context);
+    ctxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
     if (!ctxInfo)
     {
         errCode = CL_INVALID_CONTEXT;
         goto FINISH;
     }
 
-    CrtContext* ctx = (CrtContext*)(ctxInfo->m_object);
-    errCode = ctx->CreateCommandQueue(device, properties, &queue);
+	queue_handle = new _cl_command_queue_crt;
+	if( !queue_handle )
+	{
+		errCode = CL_OUT_OF_HOST_MEMORY;
+		goto FINISH;
+	}
 
+    ctx = (CrtContext*)(ctxInfo->m_object);
+    errCode = ctx->CreateCommandQueue(queue_handle, device, properties, &queue);
     if (CL_SUCCESS != errCode)
     {
         goto FINISH;
-    }
-
-    queue_handle = new _cl_command_queue_crt;
-    if (!queue_handle)
-    {
-        queue->Release();
-        queue->DecPendencyCnt();
-        errCode = CL_OUT_OF_HOST_MEMORY;
-    }
-    else
-    {
-        queue_handle->object = (void*)queue;
-    }
+    }    
+    queue_handle->object = (void*)queue;    
 
 FINISH:
     if (errcode_ret)
@@ -4449,9 +4445,9 @@ cl_int CL_API_CALL clGetEventInfo(
                                                 param_value,
                                                 param_value_size_ret);
 
-    if (errCode == CL_SUCCESS && param_value)
+    if( errCode == CL_SUCCESS && param_value )
     {
-        if (param_name == CL_EVENT_CONTEXT)
+        if( param_name == CL_EVENT_CONTEXT )
         {
             // since the app receives a context handle from the CRT, we need to assure
             // we are returning the CRT context and not the underlying context.
@@ -4460,7 +4456,14 @@ cl_int CL_API_CALL clGetEventInfo(
                 &(crtContext->m_context_handle),
                 sizeof(cl_context));
         }
-        else if (param_name == CL_EVENT_REFERENCE_COUNT)
+		else if( !crtEvent->m_isUserEvent && ( param_name == CL_EVENT_COMMAND_QUEUE ) )
+        {            
+            memcpy_s(param_value,
+                sizeof(cl_command_queue),
+                &(crtEvent->m_queueCRT->m_queue_handle),
+                sizeof(cl_command_queue));
+        }
+        else if( param_name == CL_EVENT_REFERENCE_COUNT )
         {
             // The CRT maintains the correct reference count, so we need to return
             // it from the CRT; recall CRT doesn't forward retain calls to the underlying
@@ -8385,39 +8388,161 @@ clEnqueueReleaseGLObjects( cl_command_queue command_queue,
         event_wait_list,
         event);
 }
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+CL_API_ENTRY cl_accelerator_intel CL_API_CALL clCreateAcceleratorINTEL(
+                                       cl_context                   context,
+                                       cl_accelerator_type_intel    type, 
+                                       size_t                       desc_size,
+                                       const void *                 desc, 
+                                       cl_int *                     errcode_ret)
+{
+    cl_accelerator_intel acceleratorObj = NULL;
+    cl_int errCode = CL_SUCCESS;
+
+    CrtContextInfo* ctxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
+    if( ( !ctxInfo ) ||
+        ( ctxInfo->m_contextType == CrtContextInfo::SharedPlatformContext ) )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    acceleratorObj = ( (SOCLEntryPointsTable*)context )->crtDispatch->clCreateAcceleratorINTEL(
+        context,
+        type,
+        desc_size,
+        desc,
+        &errCode);
+
+FINISH:
+    if (errcode_ret)
+    {
+        *errcode_ret = errCode;
+    }
+
+    return acceleratorObj;
+};
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+CL_API_ENTRY cl_int CL_API_CALL clGetAcceleratorInfoINTEL(
+                           cl_accelerator_intel         accelerator,
+                           cl_accelerator_info_intel    param_name, 
+                           size_t                       param_value_size,
+                           void *                       param_value, 
+                           size_t *                     param_value_size_ret)
+{
+    cl_int errCode = CL_SUCCESS;
+
+    if( accelerator == NULL )
+    {
+        errCode = CL_INVALID_ACCELERATOR_INTEL;
+        goto FINISH;
+    }
+
+    errCode = ( (SOCLEntryPointsTable*)accelerator )->crtDispatch->clGetAcceleratorInfoINTEL(
+                           accelerator,
+                           param_name, 
+                           param_value_size,
+                           param_value, 
+                           param_value_size_ret );
+
+FINISH:
+    return errCode;
+}
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CL_API_CALL clRetainAcceleratorINTEL( cl_accelerator_intel accelerator )
+{
+    cl_int errCode = CL_SUCCESS;
+
+    if( accelerator == NULL )
+    {
+        errCode = CL_INVALID_ACCELERATOR_INTEL;
+        goto FINISH;
+    }
+
+    errCode = ( (SOCLEntryPointsTable*)accelerator )->crtDispatch->clRetainAcceleratorINTEL( accelerator );
+
+FINISH:
+    return errCode;
+}
+
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CL_API_CALL clReleaseAcceleratorINTEL( cl_accelerator_intel accelerator )
+{
+    cl_int errCode = CL_SUCCESS;
+
+    if( accelerator == NULL )
+    {
+        errCode = CL_INVALID_ACCELERATOR_INTEL;
+        goto FINISH;
+    }
+
+    errCode = ( (SOCLEntryPointsTable*)accelerator )->crtDispatch->clReleaseAcceleratorINTEL( accelerator );
+
+FINISH:
+    return errCode;
+}
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
 CL_API_ENTRY void * CL_API_CALL clGetExtensionFunctionAddress(
     const char *funcname)
 {
-    if( funcname && !strcmp( funcname,"clIcdGetPlatformIDsKHR"))
+    if( funcname && !strcmp( funcname, "clIcdGetPlatformIDsKHR" ) )
     {
-        return ( ( void* )clGetPlatformIDs);
+        return ( ( void* )clGetPlatformIDs );
     }
-    if( funcname && !strcmp( funcname,"clCreateSubDevicesEXT"))
+    if( funcname && !strcmp( funcname, "clCreateSubDevicesEXT" ) )
     {
         return ( ( void* )clCreateSubDevicesEXT );
     }
     if( funcname && !strcmp( funcname, "clGetDeviceIDsFromDX9INTEL" ) )
     {
-        return ( ( void* )clGetDeviceIDsFromDX9INTEL);
+        return ( ( void* )clGetDeviceIDsFromDX9INTEL );
     }
     if( funcname && !strcmp( funcname, "clCreateFromDX9MediaSurfaceINTEL" ) )
     {
-        return ( ( void* )clCreateFromDX9MediaSurfaceINTEL);
+        return ( ( void* )clCreateFromDX9MediaSurfaceINTEL );
     }
     if( funcname && !strcmp( funcname, "clEnqueueAcquireDX9ObjectsINTEL" ) )
     {
-        return ( ( void* )clEnqueueAcquireDX9ObjectsINTEL);
+        return ( ( void* )clEnqueueAcquireDX9ObjectsINTEL );
     }
     if( funcname && !strcmp( funcname, "clEnqueueReleaseDX9ObjectsINTEL" ) )
     {
-        return ( ( void* )clEnqueueReleaseDX9ObjectsINTEL);
+        return ( ( void* )clEnqueueReleaseDX9ObjectsINTEL );
     }
     if( funcname && !strcmp( funcname, "clCreatePerfCountersCommandQueueINTEL" ) )
     {
-        return ( ( void* )clCreatePerfCountersCommandQueueINTEL);
+        return ( ( void* )clCreatePerfCountersCommandQueueINTEL );
+    }
+    if( funcname && !strcmp( funcname, "clCreateAcceleratorINTEL" ) )
+    {
+        return ( ( void* )clCreateAcceleratorINTEL );
+    }
+    if( funcname && !strcmp( funcname, "clGetAcceleratorInfoINTEL" ) )
+    {
+        return ( ( void* )clGetAcceleratorInfoINTEL );
+    }
+    if( funcname && !strcmp( funcname, "clRetainAcceleratorINTEL" ) )
+    {
+        return ( ( void* )clRetainAcceleratorINTEL );
+    }
+    if( funcname && !strcmp( funcname, "clReleaseAcceleratorINTEL" ) )
+    {
+        return ( ( void* )clReleaseAcceleratorINTEL );
     }
     return NULL;
 };
