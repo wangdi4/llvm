@@ -137,7 +137,8 @@ TEST_F(CRT12_VR274_280, LinkProgramForCPU_vr280){
 	ASSERT_NO_FATAL_FAILURE(linkProgram(ocl_descriptor.context,1,&ocl_descriptor.devices[0],NULL,2, programs, &linked_prog));
 
 	//build the linked program
-	ASSERT_NO_FATAL_FAILURE(buildProgram(&linked_prog,1,&ocl_descriptor.devices[0],NULL,NULL,NULL));
+	//ASSERT_NO_FATAL_FAILURE(buildProgram(&linked_prog,1,&ocl_descriptor.devices[0],NULL,NULL,NULL));
+
 	//create buffer
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.in_common_buffer,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int4),array.dynamic_array));
 
@@ -198,12 +199,14 @@ TEST_F(CRT12_VR274_280, LinkProgramForGPU_vr281){
 	ASSERT_NO_FATAL_FAILURE(linkProgram(ocl_descriptor.context,1,&ocl_descriptor.devices[0],NULL,2, programs, &linked_prog));
 
 	//build the linked program
-	ASSERT_NO_FATAL_FAILURE(buildProgram(&linked_prog,1,&ocl_descriptor.devices[1],NULL,NULL,NULL));
-	//create buffer
+
+  //ASSERT_NO_FATAL_FAILURE(buildProgram(&linked_prog,1,&ocl_descriptor.devices[1],NULL,NULL,NULL));
+	
+  //create buffer
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.in_common_buffer,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int4),array.dynamic_array));
 
 	//create kernel 
-	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels,ocl_descriptor.program,"kernel_18"));
+	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels,linked_prog,"kernel_18"));
 
 	//set kernel arg
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),&ocl_descriptor.in_common_buffer));

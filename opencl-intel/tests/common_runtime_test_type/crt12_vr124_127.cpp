@@ -262,15 +262,18 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadOnly_vr126){
 
 	//validate result
 	ASSERT_EQ(num,buffer3.dynamic_array[0]) << "result is not 1 as expected";
+  buffer2.dynamic_array[0]=2;
 
 	//set arguments for GPU
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),(void*)&ocl_descriptor.buffers[1]));
 
 	// enqueue kernel on CPU 
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+  finish(ocl_descriptor.queues[1]);
 	num = 2;
 	//read from CPU device
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.out_common_buffer,CL_TRUE,0,sizeof(int)*1,buffer3.dynamic_array,NULL,NULL,NULL));
+  finish(ocl_descriptor.queues[1]);
 	ASSERT_EQ(num,buffer3.dynamic_array[0]) << "result is not 1 as expected";
 }
 
