@@ -47,6 +47,20 @@ void INLINE_ATTRIBUTE __ocl_masked_load_char4x8(char4* pLoadAdd, char4* pLoadedV
 void INLINE_ATTRIBUTE __ocl_masked_store_char4x8(char4* pStoreAdd, char4* pValuesToStore, int8 mask);
 
 // ****************************************************************************
+//                                 short4x4
+// ****************************************************************************
+
+void INLINE_ATTRIBUTE __ocl_masked_load_short4x4(short4* pLoadAdd, short4* pLoadedValues, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_short4x4(short4* pStoreAdd, short4* pValuesToStore, int4 mask);
+
+// ****************************************************************************
+//                                 short4x8
+// ****************************************************************************
+
+void INLINE_ATTRIBUTE __ocl_masked_load_short4x8(short4* pLoadAdd, short4* pLoadedValues, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_short4x8(short4* pStoreAdd, short4* pValuesToStore, int8 mask);
+
+// ****************************************************************************
 //                                 int4x4
 // ****************************************************************************
 

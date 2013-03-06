@@ -86,6 +86,32 @@ void INLINE_ATTRIBUTE __ocl_masked_transpose_scatter_char4x8(char4* pStoreAdd0, 
 #endif // defined(__AVX__)
 
 // ****************************************************************************
+//                                 short4x8
+// ****************************************************************************
+
+#if defined(__AVX__)
+void INLINE_ATTRIBUTE __ocl_load_transpose_short4x8(short4* pLoadAdd, short8* xOut, short8* yOut, short8* zOut, short8* wOut);
+void INLINE_ATTRIBUTE __ocl_transpose_store_short4x8(short4* pStoreAdd, short8 xIn, short8 yIn, short8 zIn, short8 wIn);
+
+void INLINE_ATTRIBUTE __ocl_gather_transpose_short4x8(short4* pLoadAdd0, short4* pLoadAdd1, short4* pLoadAdd2, short4* pLoadAdd3,
+                                short4* pLoadAdd4, short4* pLoadAdd5, short4* pLoadAdd6, short4* pLoadAdd7,
+                                short8* xOut, short8* yOut, short8* zOut, short8* wOut);
+void INLINE_ATTRIBUTE __ocl_transpose_scatter_short4x8(short4* pStoreAdd0, short4* pStoreAdd1, short4* pStoreAdd2, short4* pStoreAdd3,
+                                short4* pStoreAdd4, short4* pStoreAdd5, short4* pStoreAdd6, short4* pStoreAdd7,
+                                short8 xIn, short8 yIn, short8 zIn, short8 wIn);
+
+void INLINE_ATTRIBUTE __ocl_masked_load_transpose_short4x8(short4* pLoadAdd, short8* xOut, short8* yOut, short8* zOut, short8* wOut, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_transpose_store_short4x8(short4* pStoreAdd, short8 xIn, short8 yIn, short8 zIn, short8 wIn, int8 mask);
+
+void INLINE_ATTRIBUTE __ocl_masked_gather_transpose_short4x8(short4* pLoadAdd0, short4* pLoadAdd1, short4* pLoadAdd2, short4* pLoadAdd3,
+                                short4* pLoadAdd4, short4* pLoadAdd5, short4* pLoadAdd6, short4* pLoadAdd7,
+                                short8* xOut, short8* yOut, short8* zOut, short8* wOut, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_transpose_scatter_short4x8(short4* pStoreAdd0, short4* pStoreAdd1, short4* pStoreAdd2, short4* pStoreAdd3,
+                                short4* pStoreAdd4, short4* pStoreAdd5, short4* pStoreAdd6, short4* pStoreAdd7,
+                                short8 xIn, short8 yIn, short8 zIn, short8 wIn, int8 mask);
+#endif // defined(__AVX__)
+
+// ****************************************************************************
 //                                 int4x4
 // ****************************************************************************
 
@@ -178,4 +204,4 @@ void INLINE_ATTRIBUTE __ocl_masked_transpose_scatter_float4x8(float4* pStoreAdd0
                                 float8 xIn, float8 yIn, float8 zIn, float8 wIn, int8 mask);
 
 #endif // defined(__AVX__)
-#endif // defined(__SSE_4_2__)
+#endif // defined(__SSE4_2__)

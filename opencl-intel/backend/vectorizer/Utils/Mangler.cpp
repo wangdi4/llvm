@@ -372,6 +372,8 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, 
   std::string typeName = "unknown";
   if (origVecType->getScalarSizeInBits() == 8) {
     typeName = "char";
+  } else if ((origVecType->getScalarSizeInBits() == 16) && origVecType->getElementType()->isIntegerTy()) {
+    typeName = "short";
   } else if ((origVecType->getScalarSizeInBits() == 32) && origVecType->getElementType()->isIntegerTy()) {
     typeName = "int";
   } else if ((origVecType->getScalarSizeInBits() == 32) && origVecType->getElementType()->isFloatTy()) {

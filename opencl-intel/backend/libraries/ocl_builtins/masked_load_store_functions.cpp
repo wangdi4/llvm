@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -39,7 +39,7 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_char4x4_AVX2(char4* pLoadAdd, c
 }
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_char4x4_AVX2(char4* pStoreAdd, char4* pValuesToStore, int4 mask) {
-  _mm_maskstore_epi32((int*)pStoreAdd, (__m128i) mask,*((__m128i*) pValuesToStore)); 
+  _mm_maskstore_epi32((int*)pStoreAdd, (__m128i) mask,*((__m128i*) pValuesToStore));
 }
 
 #endif // defined(__AVX2__)
@@ -52,7 +52,7 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_char4x4_AVX(char4* pLoadAdd, ch
 }
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_char4x4_AVX(char4* pStoreAdd, char4* pValuesToStore, int4 mask) {
-  _mm_maskstore_ps((float*)pStoreAdd, (__m128) mask,*((__m128*) pValuesToStore)); 
+  _mm_maskstore_ps((float*)pStoreAdd, (__m128) mask,*((__m128*) pValuesToStore));
 }
 
 #endif // defined(__AVX__)
@@ -92,7 +92,7 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_char4x8_AVX2(char4* pLoadAdd, c
 }
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_char4x8_AVX2(char4* pStoreAdd, char4* pValuesToStore, int8 mask) {
-  _mm256_maskstore_epi32((int*)pStoreAdd, (__m256i) mask,*((__m256i*) pValuesToStore)); 
+  _mm256_maskstore_epi32((int*)pStoreAdd, (__m256i) mask,*((__m256i*) pValuesToStore));
 }
 
 #endif // defined(__AVX2__)
@@ -108,7 +108,7 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_char4x8_AVX(char4* pLoadAdd, ch
 }
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_char4x8_AVX(char4* pStoreAdd, char4* pValuesToStore, int8 mask) {
-  _mm256_maskstore_ps((float*)pStoreAdd, (__m256) mask,*((__m256*) pValuesToStore)); 
+  _mm256_maskstore_ps((float*)pStoreAdd, (__m256) mask,*((__m256*) pValuesToStore));
 }
 
 #endif // defined(__AVX__)
@@ -135,17 +135,157 @@ void INLINE_ATTRIBUTE __ocl_masked_store_char4x8(char4* pStoreAdd, char4* pValue
 #endif // defined(__AVX__)
 
 // ****************************************************************************
+//                                 short4x4
+// ****************************************************************************
+
+#if defined(__AVX2__)
+
+void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_short4x4_AVX2(short4* pLoadAdd, short4* pLoadedValues, int4 mask) {
+  int8 extendedMask = mask.s00112233;
+
+  short16* tmpLoadAdd = (short16*)pLoadAdd;
+  short16* tmpLoadedValues = (short16*)pLoadedValues;
+  *tmpLoadedValues = as_short16( _mm256_maskload_epi32((int*)(tmpLoadAdd), (__m256i)extendedMask) );
+}
+
+void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_short4x4_AVX2(short4* pStoreAdd, short4* pValuesToStore, int4 mask) {
+  int8 extendedMask = mask.s00112233;
+
+  short16* tmpStoreAdd = (short16*)pStoreAdd;
+  short16* tmpValuesToStore = (short16*)pValuesToStore;
+  _mm256_maskstore_epi32((int*)(tmpStoreAdd), (__m256i)extendedMask, *((__m256i*)tmpValuesToStore));
+}
+
+#endif // defined(__AVX2__)
+
+
+#if defined(__AVX__)
+
+void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_short4x4_AVX(short4* pLoadAdd, short4* pLoadedValues, int4 mask) {
+  int8 extendedMask = mask.s00112233;
+
+  short16* tmpLoadAdd = (short16*)pLoadAdd;
+  short16* tmpLoadedValues = (short16*)pLoadedValues;
+  *tmpLoadedValues = as_short16( _mm256_maskload_ps((float*)(tmpLoadAdd), (__m256)extendedMask) );
+}
+
+void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_short4x4_AVX(short4* pStoreAdd, short4* pValuesToStore, int4 mask) {
+  int8 extendedMask = mask.s00112233;
+
+  short16* tmpStoreAdd = (short16*)pStoreAdd;
+  short16* tmpValuesToStore = (short16*)pValuesToStore;
+  _mm256_maskstore_ps((float*)(tmpStoreAdd), (__m256)extendedMask, *((__m256*)tmpValuesToStore));
+}
+
+#endif // defined(__AVX__)
+
+
+#if defined(__AVX__)
+
+void INLINE_ATTRIBUTE __ocl_masked_load_short4x4(short4* pLoadAdd, short4* pLoadedValues, int4 mask) {
+#if defined(__AVX2__)
+  __ocl_masked_load_short4x4_AVX2(pLoadAdd, pLoadedValues, mask);
+#else // defined(__AVX__)
+  __ocl_masked_load_short4x4_AVX(pLoadAdd, pLoadedValues, mask);
+#endif
+}
+
+void INLINE_ATTRIBUTE __ocl_masked_store_short4x4(short4* pStoreAdd, short4* pValuesToStore, int4 mask) {
+#if defined(__AVX2__)
+  __ocl_masked_store_short4x4_AVX2(pStoreAdd, pValuesToStore, mask);
+#else // defined(__AVX__)
+  __ocl_masked_store_short4x4_AVX(pStoreAdd, pValuesToStore, mask);
+#endif
+}
+
+#endif // defined(__AVX__)
+
+// ****************************************************************************
+//                                 short4x8
+// ****************************************************************************
+
+#if defined(__AVX2__)
+
+void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_short4x8_AVX2(short4* pLoadAdd, short4* pLoadedValues, int8 mask) {
+  int8 maskLow  = mask.s00112233;
+  int8 maskHigh = mask.s44556677;
+
+  short16* tmpLoadAdd = (short16*)pLoadAdd;
+  short16* tmpLoadedValues = (short16*)pLoadedValues;
+  tmpLoadedValues[0] = as_short16( _mm256_maskload_epi32((int*)&(tmpLoadAdd[0]), (__m256i)maskLow) );
+  tmpLoadedValues[1] = as_short16( _mm256_maskload_epi32((int*)&(tmpLoadAdd[1]), (__m256i)maskHigh) );
+}
+
+void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_short4x8_AVX2(short4* pStoreAdd, short4* pValuesToStore, int8 mask) {
+  int8 maskLow  = mask.s00112233;
+  int8 maskHigh = mask.s44556677;
+
+  short16* tmpStoreAdd = (short16*)pStoreAdd;
+  short16* tmpValuesToStore = (short16*)pValuesToStore;
+  _mm256_maskstore_epi32((int*)&(tmpStoreAdd[0]), (__m256i)maskLow,  (__m256i)tmpValuesToStore[0]);
+  _mm256_maskstore_epi32((int*)&(tmpStoreAdd[1]), (__m256i)maskHigh, (__m256i)tmpValuesToStore[1]);
+}
+
+#endif //defined(__AVX2__)
+
+
+#if defined(__AVX__)
+
+void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_short4x8_AVX(short4* pLoadAdd, short4* pLoadedValues, int8 mask) {
+  int8 maskLow  = mask.s00112233;
+  int8 maskHigh = mask.s44556677;
+
+  short16* tmpLoadAdd = (short16*)pLoadAdd;
+  short16* tmpLoadedValues = (short16*)pLoadedValues;
+  tmpLoadedValues[0] = as_short16( _mm256_maskload_ps((float*)&(tmpLoadAdd[0]), (__m256)maskLow) );
+  tmpLoadedValues[1] = as_short16( _mm256_maskload_ps((float*)&(tmpLoadAdd[1]), (__m256)maskHigh) );
+}
+
+void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_short4x8_AVX(short4* pStoreAdd, short4* pValuesToStore, int8 mask) {
+  int8 maskLow  = mask.s00112233;
+  int8 maskHigh = mask.s44556677;
+
+  short16* tmpStoreAdd = (short16*)pStoreAdd;
+  short16* tmpValuesToStore = (short16*)pValuesToStore;
+  _mm256_maskstore_ps((float*)&(tmpStoreAdd[0]), (__m256)maskLow,  (__m256)tmpValuesToStore[0]);
+  _mm256_maskstore_ps((float*)&(tmpStoreAdd[1]), (__m256)maskHigh, (__m256)tmpValuesToStore[1]);
+}
+
+#endif //defined(__AVX__)
+
+
+#if defined(__AVX__)
+
+void INLINE_ATTRIBUTE __ocl_masked_load_short4x8(short4* pLoadAdd, short4* pLoadedValues, int8 mask) {
+#if defined(__AVX2__)
+  __ocl_masked_load_short4x8_AVX2(pLoadAdd, pLoadedValues, mask);
+#else // defined(__AVX__)
+  __ocl_masked_load_short4x8_AVX(pLoadAdd, pLoadedValues, mask);
+#endif
+}
+
+void INLINE_ATTRIBUTE __ocl_masked_store_short4x8(short4* pStoreAdd, short4* pValuesToStore, int8 mask) {
+#if defined(__AVX2__)
+  __ocl_masked_store_short4x8_AVX2(pStoreAdd, pValuesToStore, mask);
+#else // defined(__AVX__)
+  __ocl_masked_store_short4x8_AVX(pStoreAdd, pValuesToStore, mask);
+#endif
+}
+
+#endif //defined(__AVX__)
+
+// ****************************************************************************
 //                                 int4x4
 // ****************************************************************************
 
 #if defined(__AVX2__)
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_int4x4_AVX2(int4* pLoadAdd, int4* pLoadedValues, int4 mask) {
-  
+
   int8 extendedMask = mask.s01230123;
   int8 maskLow = extendedMask.s00001111;
   int8 maskHigh = extendedMask.s22223333;
-  
+
   int8* tmpLoadAdd = (int8*)pLoadAdd;
   int8* tmpLoadedValues = (int8*)pLoadedValues;
   tmpLoadedValues[0] = (int8)_mm256_maskload_epi32((int*)&(tmpLoadAdd[0]), (__m256i)maskLow);
@@ -153,11 +293,11 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_int4x4_AVX2(int4* pLoadAdd, int
 }
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_int4x4_AVX2(int4* pStoreAdd, int4* pValuesToStore, int4 mask) {
-  
+
   int8 extendedMask = mask.s01230123;
   int8 maskLow = extendedMask.s00001111;
   int8 maskHigh = extendedMask.s22223333;
-  
+
   int8* tmpStoreAdd = (int8*)pStoreAdd;
   int8* tmpValuesToStore = (int8*)pValuesToStore;
   _mm256_maskstore_epi32((int*)&(tmpStoreAdd[0]), (__m256i)maskLow, (__m256i)tmpValuesToStore[0]);
@@ -174,7 +314,7 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_float4x4_common(float4* pLoadAd
   float8 extendedMask = (float8) mask.s01230123;
   float8 maskLow = extendedMask.s00001111;
   float8 maskHigh = extendedMask.s22223333;
-  
+
   float8* tmpLoadAdd = (float8*)pLoadAdd;
   float8* tmpLoadedValues = (float8*)pLoadedValues;
   tmpLoadedValues[0] = (float8)_mm256_maskload_ps((float*)&(tmpLoadAdd[0]), (__m256)maskLow);
@@ -218,7 +358,7 @@ void INLINE_ATTRIBUTE __ocl_masked_store_int4x4(int4* pStoreAdd, int4* pValuesTo
 
 #if defined(__AVX__)
 
-void INLINE_ATTRIBUTE __ocl_masked_load_int4x8(int4* pLoadAdd, int4* pLoadedValues, int8 mask) {  
+void INLINE_ATTRIBUTE __ocl_masked_load_int4x8(int4* pLoadAdd, int4* pLoadedValues, int8 mask) {
   __ocl_masked_load_int4x4(&(pLoadAdd[0]), &(pLoadedValues[0]), mask.lo);
   __ocl_masked_load_int4x4(&(pLoadAdd[4]), &(pLoadedValues[4]), mask.hi);
 }
@@ -243,11 +383,11 @@ void INLINE_ATTRIBUTE __ocl_masked_load_float4x4(float4* pLoadAdd, float4* pLoad
 }
 
 void INLINE_ATTRIBUTE __ocl_masked_store_float4x4(float4* pStoreAdd, float4* pValuesToStore, int4 mask) {
-  
+
   float8 extendedMask = (float8) mask.s01230123;
   float8 maskLow = extendedMask.s00001111;
   float8 maskHigh = extendedMask.s22223333;
-  
+
   float8* tmpStoreAdd = (float8*)pStoreAdd;
   float8* tmpValuesToStore = (float8*)pValuesToStore;
   _mm256_maskstore_ps((float*)&(tmpStoreAdd[0]), (__m256)maskLow, (__m256)tmpValuesToStore[0]);
@@ -304,7 +444,7 @@ int8 INLINE_ATTRIBUTE __ocl_masked_load_int8(int8* pLoadAdd, int8 mask) {
 #if defined(__AVX2__)
   return as_int8(_mm256_maskload_epi32((int const *)pLoadAdd, (__m256i) mask));
 #else
-  return as_int8(_mm256_maskload_ps((float const *)pLoadAdd, (__m256) mask)); 
+  return as_int8(_mm256_maskload_ps((float const *)pLoadAdd, (__m256) mask));
 #endif
 }
 
@@ -373,7 +513,7 @@ void INLINE_ATTRIBUTE __ocl_masked_store_float4(float4* pStoreAdd, float4 data, 
 // ****************************************************************************
 
 float8 INLINE_ATTRIBUTE __ocl_masked_load_float8(float8* pLoadAdd, int8 mask) {
-  return as_float8(_mm256_maskload_ps((float const *)pLoadAdd, (__m256) mask)); 
+  return as_float8(_mm256_maskload_ps((float const *)pLoadAdd, (__m256) mask));
 }
 
 void INLINE_ATTRIBUTE __ocl_masked_store_float8(float8* pStoreAdd, float8 data, int8 mask) {
