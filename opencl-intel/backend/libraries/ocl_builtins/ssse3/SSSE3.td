@@ -1,10 +1,6 @@
 // vim:ts=2:sw=2:et:
 
 include "GENERIC/GENERIC_CPU.td"
-//Memory Fence Functions
-def mem_fence : OclBuiltin<"mem_fence", (outs), (ins cl_mem_fence_flags:$flags), [v1i64], []>;
-def read_mem_fence : OclBuiltin<"read_mem_fence", (outs), (ins cl_mem_fence_flags:$flags), [v1i64], []>;
-def write_mem_fence : OclBuiltin<"write_mem_fence", (outs), (ins cl_mem_fence_flags:$flags), [v1i64], []>;
 
 class SSSE3 : Generic {
 // Native types for SSSE3. Used in "Promote" calls

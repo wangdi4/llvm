@@ -966,6 +966,11 @@ foreach relationf = [/*"isless", "isgreater", "isequal", "isnotequal", "isgreate
     0,1>; //not scalarizable, packetizable
 }
 
+// Memory Fence Functions
+def mem_fence : OclBuiltin<"mem_fence", (outs), (ins cl_mem_fence_flags:$flags), [v1i64], []>;
+def read_mem_fence : OclBuiltin<"read_mem_fence", (outs), (ins cl_mem_fence_flags:$flags), [v1i64], []>;
+def write_mem_fence : OclBuiltin<"write_mem_fence", (outs), (ins cl_mem_fence_flags:$flags), [v1i64], []>;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Helper built-ins
 // intel_movemask

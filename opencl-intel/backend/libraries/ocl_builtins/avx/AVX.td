@@ -14,7 +14,6 @@ class AVX : SSE42 {
   include "avx/math.td"
   include "avx/common.td"
   include "avx/integers.td"
-  include "avx/misc.td"
   include "avx/conversion.td"
   include "avx/conversion_sat.td"
   include "avx/relational.td"
