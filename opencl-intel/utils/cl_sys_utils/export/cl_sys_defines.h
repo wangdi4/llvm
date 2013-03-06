@@ -229,6 +229,7 @@ typedef cpu_set_t                      affinityMask_t;
 #define STATIC_ASSERT(e) typedef char __STATIC_ASSERT__[(e)?1:-1]
 
 #define PAGE_4K_SIZE                    4096
+#define CPU_CACHE_LINE_SIZE				64
 
 // assumes alignment is a power of 2
 #define IS_ALIGNED_ON( what, alignment ) (0 == (((size_t)(what)              &  ((size_t)(alignment) - 1))))

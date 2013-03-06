@@ -2216,7 +2216,7 @@ cl_err_code WriteMemObjCommand::Init()
 			sCpyParam.vRegion[dim] = m_szRegion[dim];
 		}
 
-		m_pTempBuffer = malloc(sizeToAlloc);
+		m_pTempBuffer = ALIGNED_MALLOC(sizeToAlloc, CPU_CACHE_LINE_SIZE);
 		if ( NULL == m_pTempBuffer )
 		{
 			LogErrorA("Can't allocate temporary storage for blockng command (%s)", GetCommandName());
@@ -2245,6 +2245,8 @@ cl_err_code WriteMemObjCommand::Init()
     cl_err_code res = pMemObj->CreateDeviceResource(m_pDevice);
     if( CL_FAILED(res))
     {
+    	ALIGNED_FREE(m_pTempBuffer);
+    	m_pTempBuffer = NULL;
         return res;
     }
 
@@ -2268,6 +2270,8 @@ cl_err_code WriteMemObjCommand::Execute()
 	cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
     if ( CL_SUCCESS != res )
     {
+    	ALIGNED_FREE(m_pTempBuffer);
+    	m_pTempBuffer = NULL;
         return res;
 	}
 
@@ -2280,6 +2284,8 @@ cl_err_code WriteMemObjCommand::Execute()
 	cl_err_code clErr = pMemObj->GetDeviceDescriptor(m_pDevice, &m_rwParams.memObj, &pObjEvent);
 	if ( CL_FAILED(clErr) )
 	{
+    	ALIGNED_FREE(m_pTempBuffer);
+    	m_pTempBuffer = NULL;
 		return clErr;
 	}
 
@@ -2292,6 +2298,11 @@ cl_err_code WriteMemObjCommand::Execute()
 	LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
 	// Sending 1 command to the device where the buffer is located now
 	cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
+	if ( CL_DEV_FAILED(errDev) )
+	{
+    	ALIGNED_FREE(m_pTempBuffer);
+    	m_pTempBuffer = NULL;
+	}
 	//m_Event->RemovePendency(this);
 	return CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
@@ -2303,7 +2314,7 @@ cl_err_code WriteMemObjCommand::CommandDone()
 {
 	if ( m_bBlocking && (NULL != m_pTempBuffer) )
 	{
-		free(m_pTempBuffer);
+		ALIGNED_FREE(m_pTempBuffer);
 		m_pTempBuffer = NULL;
 	}
 
