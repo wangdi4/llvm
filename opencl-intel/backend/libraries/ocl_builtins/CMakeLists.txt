@@ -364,8 +364,7 @@ function( install_svml ARCH )
   endif()
 endfunction( install_svml )
 
-function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN)
-    string(REPLACE ".td" ".cl" OFN ${IFN})
+function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN OFN)
     file(GLOB_RECURSE depend_tds "${CL_BUILTIN_SOURCE_DIR}/*.td")
     add_custom_command(
         OUTPUT ${OUTPUT_DIR}/${OFN}
@@ -398,9 +397,16 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   # intermediate directory for OpenCL compilation/link
   set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
   
+  list(APPEND CMD_ARGS -gen-ocl-bi -inject target.Target=${ARCH})  
   # generate OCL builtin implementation
-	tblgenoclblt(OCL_TABLEGEN_SOURCE ${INTERMEDIATE_OUTPUT_DIR} ${TARGET_DIR} target-${ARCH}.td -gen-ocl-bi)
-    list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
+	tblgenoclblt(OCL_TABLEGEN_SOURCE
+    ${INTERMEDIATE_OUTPUT_DIR}
+    ${TARGET_DIR}
+    target-${TARGET_DIR}.td
+    target-${ARCH}.cl
+    ${CMD_ARGS}
+  )
+  list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
     
   # build .rtl file out of OCL code (by clang) and copy it to install directory
   add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
