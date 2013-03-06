@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.4)
+cmake_minimum_required(VERSION 2.8.7)
 
 if( ANDROID )
     set( BACKEND_BUILD_TESTS            OFF  CACHE STRING "")

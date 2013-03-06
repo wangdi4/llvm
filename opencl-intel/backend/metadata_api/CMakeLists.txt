@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.4)
+cmake_minimum_required(VERSION 2.8.7)
 
 set(TARGET_NAME metadataapi)
 set(MAKO_GENERATOR_CMD python ${CMAKE_CURRENT_SOURCE_DIR}/generator.py) 

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.4)
+cmake_minimum_required(VERSION 2.8.7)
 use_eh(TRUE)
 
 set(TARGET_NAME NameManglingTests)

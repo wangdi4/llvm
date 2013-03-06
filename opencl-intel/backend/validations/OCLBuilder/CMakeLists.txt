@@ -2,7 +2,7 @@ set(TARGET_NAME OCLBuilder)
 
 project(${TARGET_NAME})
 
-cmake_minimum_required(VERSION 2.8.4)
+cmake_minimum_required(VERSION 2.8.7)
 
 include_directories(
   ${BACKEND_ROOT_DIR}/dynamic_lib
