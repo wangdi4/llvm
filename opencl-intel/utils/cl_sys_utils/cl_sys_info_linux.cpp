@@ -322,7 +322,17 @@ int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileNam
 ////////////////////////////////////////////////////////////////////
 unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
 {
-        return sysconf(_SC_NPROCESSORS_ONLN);
+    //Todo: implement a solution based on affinity mask
+    static unsigned long numProcessors = 0;
+    if (0 == numProcessors)
+    {
+#if defined(__ANDROID__) //we would like to use CONF but it's buggy on Android
+        numProcessors = sysconf(_SC_NPROCESSORS_ONLN);
+#else
+        numProcessors = sysconf(_SC_NPROCESSORS_CONF);
+#endif
+    }
+    return numProcessors;        
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
