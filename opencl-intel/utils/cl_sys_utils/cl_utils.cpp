@@ -1110,29 +1110,29 @@ string GetDeviceTypeString(const cl_device_type& Type)
     string DevType;
     if (Type & CL_DEVICE_TYPE_CPU)
     {
-        DevType += "CL_DEVICE_TYPE_CPU,";
+        DevType += "CL_DEVICE_TYPE_CPU | ";
     }
     if (Type & CL_DEVICE_TYPE_GPU)
     {
-        DevType += "CL_DEVICE_TYPE_GPU,";
+        DevType += "CL_DEVICE_TYPE_GPU | ";
     }
     if (Type & CL_DEVICE_TYPE_ACCELERATOR)
     {
-        DevType += "CL_DEVICE_TYPE_ACCELERATOR";
+        DevType += "CL_DEVICE_TYPE_ACCELERATOR | ";
     }
     if (Type & CL_DEVICE_TYPE_CUSTOM)
     {
-        DevType += "CL_DEVICE_TYPE_CUSTOM";
+        DevType += "CL_DEVICE_TYPE_CUSTOM | ";
     }
     if (Type & CL_DEVICE_TYPE_DEFAULT)
     {
-        DevType += "CL_DEVICE_TYPE_DEFAULT";
+        DevType += "CL_DEVICE_TYPE_DEFAULT | ";
     }
     if (DevType.empty())
     {
         throw string("Failed to get device type");
     }
-    return DevType.substr(0, DevType.length()-1); // Remove the last comma
+    return DevType.substr(0, DevType.length()-3); // Remove the last " | "
 }
 
 cl_ushort float2half_rte( float f )
