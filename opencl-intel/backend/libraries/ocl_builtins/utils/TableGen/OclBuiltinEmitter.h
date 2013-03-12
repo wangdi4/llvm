@@ -167,8 +167,6 @@ public:
 
   std::string getArgumentCGenType(unsigned, const std::string&, const std::string&) const;
 
-  std::string getReturnCGenType(const std::string& Generator, const std::string& TyName) const;
-
   std::string getArgumentCName(unsigned, const std::string&) const;
 
   std::string getCFunc(const std::string&) const;
