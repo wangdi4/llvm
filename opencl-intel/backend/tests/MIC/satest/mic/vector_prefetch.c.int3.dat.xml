@@ -2,7 +2,7 @@
 <ICSCData>
   <BufferContainerList size="1" version="0.1">
     <BufferContainer size="2">
-      <Buffer length="32" type="vector" type_size_in_bytes="12" vectorWidth="3" vector_number_of_subtypes="1" vector0type="i32" vector0type_size_in_bytes="4" neat="0">
+      <Buffer length="32" type="vector" type_size_in_bytes="16" vectorWidth="3" vector_number_of_subtypes="1" vector0type="i32" vector0type_size_in_bytes="4" neat="0">
         <Vector id="0">0 1 2</Vector>
         <Vector id="1">0 1 2</Vector>
         <Vector id="2">0 1 2</Vector>
@@ -36,7 +36,7 @@
         <Vector id="30">0 1 2</Vector>
         <Vector id="31">0 1 2</Vector>
       </Buffer>
-      <Buffer length="32" type="vector" type_size_in_bytes="12" vectorWidth="3" vector_number_of_subtypes="1" vector0type="i32" vector0type_size_in_bytes="4" neat="0">
+      <Buffer length="32" type="vector" type_size_in_bytes="16" vectorWidth="3" vector_number_of_subtypes="1" vector0type="i32" vector0type_size_in_bytes="4" neat="0">
         <Vector id="0">1 0 3</Vector>
         <Vector id="1">1 0 3</Vector>
         <Vector id="2">1 0 3</Vector>
