@@ -561,6 +561,18 @@ OclBuiltin::getArgumentCGenType(unsigned i, const std::string& Generator, const 
 }
 
 std::string
+OclBuiltin::getReturnCGenType(const std::string& Generator, const std::string& TyName) const
+{
+  const OclType* g = m_DB.getOclType(Generator);
+  const std::string& GT = m_Outputs[0].first->getGenType(TyName);
+  const std::string& GT2 = g->getGenType(GT);
+  const OclType* T = m_DB.getOclType(GT2);
+  assert(T && "Invalid type found.");
+
+  return T->getCType(this, true);
+}
+
+std::string
 OclBuiltin::getArgumentCName(unsigned i, const std::string&) const
 {
   assert(i < m_Inputs.size() && "Argument index is out of bound.");
@@ -1174,6 +1186,8 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
           val = OB->getReturnBaseCType(OT->getName());
         } else if ("$ReturnVarName" == pat) {
           val = OB->getReturnCName(OT->getName());
+        } else if ("$Return" == pat.substr(0, 7) && pat.substr(7).find("gentype") != std::string::npos) {
+          val = OB->getReturnCGenType(pat.substr(7), OT->getName());
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 9 && "Type" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCType(i, OT->getName());
@@ -1351,9 +1365,10 @@ OclBuiltinDB::getExpandHiType(const std::string& in) const
 const OclType*
 OclBuiltinDB::getOclType(const std::string& name) const
 {
-  if (m_TypeMap.find(name) == m_TypeMap.end())
-    return 0;
-  return m_TypeMap.find(name)->second;
+  if (m_TypeMap.find(name) != m_TypeMap.end())
+    return m_TypeMap.find(name)->second;
+  report_fatal_error("GenType " + name + " is not defined");
+  return 0;
 }
 
 const OclBuiltin*

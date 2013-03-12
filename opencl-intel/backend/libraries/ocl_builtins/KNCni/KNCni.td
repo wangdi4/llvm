@@ -87,13 +87,14 @@ def v16ui32gentype : OclGenType<"v16ui32gentype"> {
   list<string> Tout = SubSt_v16<T1>.res;
 }
 
-// generate "epu32" and "epi32" suffixes
+// generate "epu32", "epi32", "epu64","epi64" suffixes
 // Can only be used with $ArgXSym macro
 def epuigentype : OclGenType<"epuigentype"> {
   list<string> T1   = SubSt_delVecLength<Tin>.res;
-  list<string> T2   = SubSt_delUIWidth<T1>.res;
-  list<string> T3   = !foreach(n, T2, !subst("u",  "epu32", n));
-  list<string> Tout = !foreach(n, T3, !subst("i",  "epi32", n));
+  list<string> T2   = !foreach(n, T1, !subst("u",  "epu", n));
+  list<string> T3   = !foreach(n, T2, !subst("i",  "epi", n));
+  list<string> T4   = !foreach(n, T3, !subst("8",  "32", n));
+  list<string> Tout = !foreach(n, T4, !subst("16", "32", n));
 }
 
 // generate "ps" and "pd" suffixes
@@ -374,6 +375,9 @@ class KNC : Generic {
     $NativeReturnType $ReturnVarName = mask_$NativeFunc($Mask, n$Arg0VarName, n$Arg1VarName, n$Arg2VarName);
     return $ReturnVarName$Pattern;
   }];
+
+list<OclType> float_types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+                             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64];
 
 include "KNCni/atomic.td"
 include "KNCni/common.td"
