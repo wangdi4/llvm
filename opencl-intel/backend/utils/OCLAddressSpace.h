@@ -25,12 +25,20 @@ class OCLAddressSpace
 {
   public:
     enum spaces {
+      Private = 0,
       Global = 1,
-      Local,
-      Constant,
-      Private
+      Constant = 2,
+      Local = 3,
+      Global_EndianHost = 4,
+      Constant_EndianHost = 5
     };
 };
+
+#define getAddressSpaceMask(ID) (1 << (ID))
+
+inline bool isInSpace (int spaceID, int spaceMask) {
+  return ((getAddressSpaceMask(spaceID) & spaceMask) != 0);
+}
 
 }}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 

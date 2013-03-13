@@ -1,3 +1,21 @@
+/*****************************************************************************\
+
+Copyright (c) Intel Corporation (2013).
+
+    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
+    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
+    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
+    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
+    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
+    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
+    including liability for infringement of any proprietary rights, relating to
+    use of the code. No license, express or implied, by estoppels or otherwise,
+    to any intellectual property rights is granted herein.
+
+File Name:  Prefetch.cpp
+
+\*****************************************************************************/
+
 #define DEBUG_TYPE "prefetch"
 
 #include "llvm/ADT/Statistic.h"
@@ -34,25 +52,19 @@
 
 namespace intel{
 
-const std::string Prefetch::m_intrinsicName = "llvm.x86.mic.";
+// KNC Micro-architecture specific information
+const int UarchInfo::L2MissLatency = 512;
+const int UarchInfo::L1MissLatency = 32;
+const int UarchInfo::L1PrefetchSlots = 8;
+const int UarchInfo::L2PrefetchSlots = 32;
+const int UarchInfo::MaxThreads = 4;
+const int UarchInfo::CacheLineSize = 64;
+const int UarchInfo::defaultL1PFType = 1;
+const int UarchInfo::defaultL2PFType = 2;
+
 const std::string Prefetch::m_prefetchIntrinsicName = "llvm.x86.mic.prefetch";
-const std::string Prefetch::m_gatherPrefetchIntrinsicName = "gatherpf";
-const std::string Prefetch::m_scatterPrefetchIntrinsicName = "scatterpf";
-const std::string Prefetch::m_gatherIntrinsicName = "mic.gather.";
-const std::string Prefetch::m_maskGatherIntrinsicName = "mic.mask.gather.";
-const std::string Prefetch::m_scatterIntrinsicName = "mic.scatter.";
-const std::string Prefetch::m_maskScatterIntrinsicName = "mic.mask.scatter.";
-const int Prefetch::L2MissLatency = 512;
-const int Prefetch::L1MissLatency = 32;
-const int Prefetch::L1PrefetchSlots = 8;
-const int Prefetch::L2PrefetchSlots = 32;
-const int Prefetch::MaxThreads = 4;
-const int Prefetch::CacheLineSize = 64;
 
 const int Prefetch::defaultTripCount = 16;
-
-const int Prefetch::defaultL1PFType = 1;
-const int Prefetch::defaultL2PFType = 2;
 } // namespace intel
 
 #ifdef TUNE_PREFETCH
@@ -67,25 +79,21 @@ STATISTIC(PFStat_NonSimpleStore, "Non simple stores that were ignored for prefet
 STATISTIC(PFStat_LocalStore, "Stores to the local space that were ignored for prefetching");
 STATISTIC(PFStat_PrivateStore, "Stores to the private space that were ignored for prefetching");
 STATISTIC(PFStat_ManualPFAbortAPF, "Abort memory access search since prefetch intrinsic was found");
-STATISTIC(PFStat_UnknwnGather, "Gather from Unknown address space");
 STATISTIC(PFStat_GlobalGather, "Gather from Global address space");
 STATISTIC(PFStat_LocalGather, "Gather from Local address space");
 STATISTIC(PFStat_ConstantGather, "Gather from Constant address space");
 STATISTIC(PFStat_PrivateGather, "Gather from Private address space");
 
-STATISTIC(PFStat_UnknwnMaskGather, "Mask Gather from Unknown address space");
 STATISTIC(PFStat_GlobalMaskGather, "Mask Gather from Global address space");
 STATISTIC(PFStat_LocalMaskGather, "Mask Gather from Local address space");
 STATISTIC(PFStat_ConstantMaskGather, "Mask Gather from Constant address space");
 STATISTIC(PFStat_PrivateMaskGather, "Mask Gather from Private address space");
 
-STATISTIC(PFStat_UnknwnScatter, "Scatter from Unknown address space");
 STATISTIC(PFStat_GlobalScatter, "Scatter from Global address space");
 STATISTIC(PFStat_LocalScatter, "Scatter from Local address space");
 STATISTIC(PFStat_ConstantScatter, "Scatter from Constant address space");
 STATISTIC(PFStat_PrivateScatter, "Scatter from Private address space");
 
-STATISTIC(PFStat_UnknwnMaskScatter, "Mask Scatter from Unknown address space");
 STATISTIC(PFStat_GlobalMaskScatter, "Mask Scatter from Global address space");
 STATISTIC(PFStat_LocalMaskScatter, "Mask Scatter from Local address space");
 STATISTIC(PFStat_ConstantMaskScatter, "Mask Scatter from Constant address space");
@@ -101,6 +109,12 @@ STATISTIC(PFStat_matchSameLine, "Access address match same cache line");
 STATISTIC(PFStat_partLine, "PF triggered by partial cache line access");
 STATISTIC(PFStat_oneLine, "PF triggered by full cache line access");
 STATISTIC(PFStat_multLines, "PF triggered by multiple line access");
+STATISTIC(PFStat_pfMaskedLoads, "PF triggered by masked unaligned loads");
+STATISTIC(PFStat_pfMaskedStores, "PF triggered by masked unaligned stores");
+STATISTIC(PFStat_pfMaskedRandomGather, "PF triggered by masked random gathers");
+STATISTIC(PFStat_pfMaskedRandomScatter, "PF triggered by masked random scatters");
+STATISTIC(PFStat_pfRandomGather, "PF triggered by full random gathers");
+STATISTIC(PFStat_pfRandomScatter, "PF triggered by full random scatters");
 STATISTIC(PFStat_variableStep, "Access step is variable (non-constant or unknown constant))");
 #endif // TUNE_PREFETCH
 
@@ -110,19 +124,79 @@ PFL1Distance("pfl1dist", cl::init(0), cl::Hidden,
 
 static cl::opt<int>
     PFL2Distance("pfl2dist", cl::init(0), cl::Hidden,
-                 cl::desc("Number of iterations ahead to prefetch to the L2"));
+        cl::desc("Number of iterations ahead to prefetch to the L2"));
 static cl::opt<int>
-    PFL1Type("pfl1type", cl::init(intel::Prefetch::defaultL1PFType), cl::Hidden,
-             cl::desc("Prefetch type (L1). See SDM for details. Negative number disables these prefetches"));
+    PFL1Type("pfl1type",cl::init(intel::UarchInfo::defaultL1PFType), cl::Hidden,
+        cl::desc("Prefetch type (L1). See SDM for details. Negative number "
+            "disables these prefetches"));
 
 static cl::opt<int>
-    PFL2Type("pfl2type", cl::init(intel::Prefetch::defaultL2PFType), cl::Hidden,
-             cl::desc("Prefetch type (L2). See SDM for details. Negative number disables these prefetches"));
+    PFL2Type("pfl2type",cl::init(intel::UarchInfo::defaultL2PFType), cl::Hidden,
+        cl::desc("Prefetch type (L2). See SDM for details. Negative number "
+            "disables these prefetches"));
 
 
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel{
+
+// PrefetchCandidateUtils - Support memory accesses that are KNC architecture
+// specific.
+class PrefetchCandidateUtils {
+
+private:
+  // inrinsic names of KNC specific accesses
+  static const std::string m_intrinsicName;
+  static const std::string m_prefetchIntrinsicName;
+  static const std::string m_prefetchGatherIntrinsicName;
+  static const std::string m_prefetchMaskGatherIntrinsicName;
+  static const std::string m_prefetchScatterIntrinsicName;
+  static const std::string m_prefetchMaskScatterIntrinsicName;
+  static const std::string m_gatherPrefetchIntrinsicStr;
+  static const std::string m_scatterPrefetchIntrinsicStr;
+  static const std::string m_gatherIntrinsicName;
+  static const std::string m_maskGatherIntrinsicName;
+  static const std::string m_scatterIntrinsicName;
+  static const std::string m_maskScatterIntrinsicName;
+
+private:
+  // address space detection
+  static unsigned detectAddressSpace(Value *addr);
+
+  // identify if an index vector refers to one cache line load
+  static bool isTightConstantVect (Value *index, Type *indexedType);
+
+  // get the index operand of a gather or scatter intrinsic
+  static bool getIndexOperand(Instruction *I);
+
+public:
+  // identify whether an intrinsic represents a memory access
+  static bool isPrefetchCandidate (CallInst *pCallInst, bool &pfExclusive,
+      bool &isRandomV, unsigned &addrSpace, Value *&addrV,
+      int &accessSizeV);
+
+  // identify if 2 instructions have the same index operand
+  static bool indexMatch(Instruction *I1, Instruction *I2);
+
+  // insert a prefetch for a random access
+  static void insertPF(Instruction *I);
+
+#ifdef TUNE_PREFETCH
+  static void statAccess(Instruction *I, bool isRandom, bool pfExclusive);
+#endif // TUNE_PREFETCH
+};
+
+
+//////////////////////////////////////////////////////////////////
+/// Prefetch Class implementation
+//////////////////////////////////////////////////////////////////
+
+// Mask of all address spaces from which prefetch is likely to be beneficial
+const int Prefetch::PrefecthedAddressSpaces =
+    getAddressSpaceMask(Utils::OCLAddressSpace::Global) |
+    getAddressSpaceMask(Utils::OCLAddressSpace::Constant) |
+    getAddressSpaceMask(Utils::OCLAddressSpace::Global_EndianHost) |
+    getAddressSpaceMask(Utils::OCLAddressSpace::Constant_EndianHost);
 
 /// Support for dynamic loading of modules under Linux
 char Prefetch::ID = 0;
@@ -168,17 +242,19 @@ void Prefetch::init() {
   m_disableAPF = false;
   if (getenv("DISAPF")) {
     m_disableAPF = true;
-}
-
-  m_coopAPFMPF = false;
-  m_exclusiveMPF = false;
-  if ((val = getenv("APFMPF")) != NULL) {
-    std::string APFMPF(val);
-    if (APFMPF.compare("COOP") == 0)
-      m_coopAPFMPF = true;
-    if (APFMPF.compare("EXCLUSIVE") == 0)
-      m_exclusiveMPF = true;
   }
+
+  m_disableAPFGS = false;
+  m_disableAPFGSTune = false;
+  if (getenv("DISAPFGS")) {
+    m_disableAPFGS = true;
+#ifndef TUNE_PREFETCH
+    m_disableAPFGSTune = true;
+#endif // TUNE_PREFETCH
+  }
+
+  m_calcFactor = getenv("APFDISSMALL") == NULL;
+  m_prefetchScalarCode = getenv("APFSCALAR") != NULL;
 
   TUNEPF (EnableStatistics());
 }
@@ -385,14 +461,27 @@ static const SCEV *PromoteSCEV(const SCEV *S, Loop *L, ScalarEvolution &SE,
 // accessIsReady tells whether all access details are already calculated
 bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
                                 bool accessIsReady) {
+
   // Check first if an exact access is already detected. If yes - no need
   // to go into other analysis
-  for (unsigned i = 0; i < MAV.size(); i++) {
-    // If the exact same address is already detected drop the new one
-    if (access.S == MAV[i].S) {
-      TUNEPF(PFStat_matchExact++);
-      return true;
-  }
+  if (!access.isRandom()) {
+    for (unsigned i = 0; i < MAV.size(); i++) {
+      // If the exact same address is already detected drop the new one
+      if (!MAV[i].isRandom() && access.S == MAV[i].S) {
+        TUNEPF(PFStat_matchExact++);
+        return true;
+      }
+    }
+  } else { // access isRandom
+    for (unsigned i = 0; i < MAV.size(); i++) {
+      // If the exact same base address and index vector are already detected
+      // drop the new one
+      if (MAV[i].isRandom() && access.S == MAV[i].S &&
+          PrefetchCandidateUtils::indexMatch(access.I, MAV[i].I)) {
+        TUNEPF(PFStat_matchExact++);
+        return true;
+      }
+    }
   }
 
   DEBUG (dbgs() << "Found SCEV in this BB of type " <<
@@ -405,11 +494,23 @@ bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
     access.offset = getOffsetOfSCEV(access.S, *m_SE);
   }
 
-  // Identify and dismiss close adresses which are prefetched by a
+  // Identify and dismiss close addresses which are prefetched by a
   // close iteration
   for (unsigned i = 0; i < MAV.size(); i++) {
-    // if the steps of the 2 accesses are different they are not in constant distance
+
+    // compare only if they have the same Random property
+    if (access.isRandom() != MAV[i].isRandom())
+      continue;
+
+    // if the steps of the 2 accesses are different they are not in constant
+    // distance
     if (access.step != MAV[i].step)
+      continue;
+
+    // random accesses base address are comparable only if index vector is the
+    // same
+    if (access.isRandom() &&
+        !PrefetchCandidateUtils::indexMatch(access.I, MAV[i].I))
       continue;
 
     // analyze the distance between accesses
@@ -420,7 +521,7 @@ bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
       constDiff = constDiff - access.offset + MAV[i].offset;
 
       // if accesses are in the same cache line discard this one
-      if (constDiff >= 0 && constDiff < CacheLineSize) {
+      if (constDiff >= 0 && constDiff < UarchInfo::CacheLineSize) {
         TUNEPF(PFStat_matchSameLine++);
         return true;
       }
@@ -433,7 +534,7 @@ bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
       if (diffSteps < 0)
         diffSteps = -diffSteps;
       // if accesses are in the same cache line in another iteration
-      if (iterOffset >= 0 && iterOffset < CacheLineSize) {
+      if (iterOffset >= 0 && iterOffset < UarchInfo::CacheLineSize) {
         TUNEPF (
           if (diffSteps > 256 && diffSteps <=1024)
             PFStat_LargeDiff256++;
@@ -444,18 +545,18 @@ bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
         // large so the code may suffer from long cache warmup at the
         // beginning and from prefetches that hit the caches later
         if (diffSteps < 1024) {
-        // prefetch for the more advanced access (step and diff are in the
-        // same direction) is better, since the back access will catch up in
-        // later iterations
+          // prefetch for the more advanced access (step and diff are in the
+          // same direction) is better, since the back access will catch up in
+          // later iterations
           if ((constDiff < 0) == (access.step < 0)) {
-          MAV[i].S = access.S;
-          MAV[i].offset = access.offset;
-        }
+            MAV[i].S = access.S;
+            MAV[i].offset = access.offset;
+          }
           TUNEPF (PFStat_matchSameLine++);
-        return true;
+          return true;
+        }
       }
     }
-  }
   }
 
   return false;
@@ -492,16 +593,13 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
   domBB.reserve(F.size());
   domBB.push_back(DT->getRoot());
 
-  // if the function contains manual prefetches don't try to add it auto-prefetches
-  bool noManualPrefetch = true;
-
   // Access size in bytes. If it's more than 64 bits onsider keeping more than
   // one record per access
   int accessSize;
 
   // collect all addresses accessed by loads and stores, which are from Global
   // address space and simple. Stores should not be to non temporal locations.
-  for (unsigned int bbi = 0; bbi < domBB.size() && (noManualPrefetch || m_coopAPFMPF); bbi++) {
+  for (unsigned int bbi = 0; bbi < domBB.size(); bbi++) {
     BasicBlock *BB = domBB[bbi];
 
     // insert to the list BBs dominated by this one
@@ -529,10 +627,11 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       LoadInst *pLoadInst;
       StoreInst *pStoreInst;
       CallInst* pCallInst;
+      bool pfExclusive = false;
+      bool isRandom = false;
       if ((pLoadInst = dyn_cast<LoadInst>(I)) != NULL) {
         if (pLoadInst->isSimple() &&
-            (pLoadInst->getPointerAddressSpace() == Utils::OCLAddressSpace::Global ||
-            pLoadInst->getPointerAddressSpace() == Utils::OCLAddressSpace::Constant   )) {
+            Utils::isInSpace(pLoadInst->getPointerAddressSpace(), PrefecthedAddressSpaces)) {
           addr = pLoadInst->getPointerOperand();
           accessSize = getSize(I->getType());
         } else {
@@ -547,11 +646,11 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
         }
       } else if ((pStoreInst = dyn_cast<StoreInst>(I)) != NULL) {
         if (pStoreInst->isSimple() &&
-            (pStoreInst->getPointerAddressSpace() == Utils::OCLAddressSpace::Global ||
-            pStoreInst->getPointerAddressSpace() == Utils::OCLAddressSpace::Constant   ) &&
+            Utils::isInSpace(pStoreInst->getPointerAddressSpace(), PrefecthedAddressSpaces) &&
             pStoreInst->getMetadata(NTSKind) == NULL) {
           addr = pStoreInst->getPointerOperand();
           accessSize = getSize(pStoreInst->getValueOperand()->getType());
+          pfExclusive = true;
         } else {
           TUNEPF (
             if (!pStoreInst->isSimple()) PFStat_NonSimpleStore++;
@@ -562,70 +661,17 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
           );
           continue;
         }
-      } else if ((pCallInst = dyn_cast<CallInst>(I)) != NULL &&
+      } else if (!m_disableAPFGSTune &&
+                 (pCallInst = dyn_cast<CallInst>(I)) != NULL &&
                   pCallInst->getCalledFunction()) {
-        StringRef Name = pCallInst->getCalledFunction()->getName();
-        if (Name.find(m_intrinsicName) != std::string::npos) {
-          if (Name.find(m_prefetchIntrinsicName) != std::string::npos ||
-              Name.find(m_gatherPrefetchIntrinsicName) != std::string::npos ||
-              Name.find(m_scatterPrefetchIntrinsicName) != std::string::npos) {
-            TUNEPF (PFStat_ManualPFAbortAPF++);
-          noManualPrefetch = false;
-          }
-          else {
-            TUNEPF (
-            int addrSpace = 0;
-            if (Name.find(m_gatherIntrinsicName) != std::string::npos) {
-              assert (I->getOperand(1)->getType()->isPointerTy() && "expected pointer type");
-              addrSpace = cast<PointerType>(I->getOperand(1)->getType())->getAddressSpace();
-              switch (addrSpace) {
-                default: assert(false && "Unknown address space detected for gather"); break;
-                case 0: PFStat_UnknwnGather++; break;
-                case Utils::OCLAddressSpace::Global: PFStat_GlobalGather++; break;
-                case Utils::OCLAddressSpace::Local: PFStat_LocalGather++; break;
-                case Utils::OCLAddressSpace::Constant: PFStat_ConstantGather++; break;
-                case Utils::OCLAddressSpace::Private: PFStat_PrivateGather++; break;
-              }
-            }
-            else if (Name.find(m_maskGatherIntrinsicName) != std::string::npos) {
-              assert (I->getOperand(3)->getType()->isPointerTy() && "expected pointer type");
-              addrSpace = cast<PointerType>(I->getOperand(3)->getType())->getAddressSpace();
-              switch (addrSpace) {
-                default: assert(false && "Unknown address space detected for masked gather"); break;
-                case 0: PFStat_UnknwnMaskGather++; break;
-                case Utils::OCLAddressSpace::Global: PFStat_GlobalMaskGather++; break;
-                case Utils::OCLAddressSpace::Local: PFStat_LocalMaskGather++; break;
-                case Utils::OCLAddressSpace::Constant: PFStat_ConstantMaskGather++; break;
-                case Utils::OCLAddressSpace::Private: PFStat_PrivateMaskGather++; break;
-              }
-            }
-            else if (Name.find(m_scatterIntrinsicName) != std::string::npos) {
-              assert (I->getOperand(0)->getType()->isPointerTy() && "expected pointer type");
-              addrSpace = cast<PointerType>(I->getOperand(0)->getType())->getAddressSpace();
-              switch (addrSpace) {
-                default: assert(false && "Unknown address space detected for scatter"); break;
-                case 0: PFStat_UnknwnScatter++; break;
-                case Utils::OCLAddressSpace::Global: PFStat_GlobalScatter++; break;
-                case Utils::OCLAddressSpace::Local: PFStat_LocalScatter++; break;
-                case Utils::OCLAddressSpace::Constant: PFStat_ConstantScatter++; break;
-                case Utils::OCLAddressSpace::Private: PFStat_PrivateScatter++; break;
-              }
-            }
-            else if (Name.find(m_maskScatterIntrinsicName) != std::string::npos) {
-              assert (I->getOperand(0)->getType()->isPointerTy() && "expected pointer type");
-              addrSpace = cast<PointerType>(I->getOperand(0)->getType())->getAddressSpace();
-              switch (addrSpace) {
-                default: assert(false && "Unknown address space detected for masked scatter"); break;
-                case 0: PFStat_UnknwnMaskScatter++; break;
-                case Utils::OCLAddressSpace::Global: PFStat_GlobalMaskScatter++; break;
-                case Utils::OCLAddressSpace::Local: PFStat_LocalMaskScatter++; break;
-                case Utils::OCLAddressSpace::Constant: PFStat_ConstantMaskScatter++; break;
-                case Utils::OCLAddressSpace::Private: PFStat_PrivateMaskScatter++; break;
-              }
-            } ); // TUNEPF()
-          }
-        }
-        continue;
+        unsigned addrSpace;
+        bool isOtherPFCandidate =
+            PrefetchCandidateUtils::isPrefetchCandidate(pCallInst, pfExclusive,
+                isRandom, addrSpace, addr, accessSize);
+        if (isOtherPFCandidate)
+          isOtherPFCandidate = Utils::isInSpace(addrSpace, PrefecthedAddressSpaces);
+        if (!isOtherPFCandidate || m_disableAPFGS)
+          continue;
       } else {
         continue;
       }
@@ -645,13 +691,18 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       // keep only addresses which have computable evolution in this loop
       // TODO: hoist prefetches for addresses that have computable evolution
       // in outer loop
-      if (!m_SE->hasComputableLoopEvolution(SAddr, L)) {
+      // Random accesses can be loop variant
+      if (!isRandom && !m_SE->hasComputableLoopEvolution(SAddr, L)) {
         TUNEPF (
           switch (m_SE->getLoopDisposition(SAddr, L)) {
             default:
-            case ScalarEvolution::LoopComputable: assert (false && "unexpected loop disposition detected in SCEV");
-            case ScalarEvolution::LoopVariant: PFStat_accessStepIsLoopVariant++; break;
-            case ScalarEvolution::LoopInvariant: PFStat_accessStepIsLoopInvariant++; break;
+            case ScalarEvolution::LoopComputable:
+              assert (false && "unexpected loop disposition detected in SCEV");
+              break;
+            case ScalarEvolution::LoopVariant:
+              PFStat_accessStepIsLoopVariant++; break;
+            case ScalarEvolution::LoopInvariant:
+              PFStat_accessStepIsLoopInvariant++; break;
           }
         );
         continue;
@@ -660,7 +711,9 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       // if this is not an Add Recurrence expression already
       // simplify address scev so step is always assumed to be non wrapping.
       // this works with the vectorizer assumption of element consecutivity
-      if (SAddr->getSCEVType() != scAddRecExpr)
+      // we don't do this for random accesses since the prefetch will use the
+      // original instruction address
+      if (!isRandom && SAddr->getSCEVType() != scAddRecExpr)
         SAddr = SimplifySCEV(SAddr, *m_SE);
 
       BBAccesses::iterator it = m_addresses.find(BB);
@@ -670,19 +723,25 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
             SAddr->dump(););
         it = m_addresses.insert(std::make_pair(BB, memAccessV())).first;
         memAccessV &MAV = it->second;
-        int step = getConstStep(SAddr, *m_SE);
-        int offset = getOffsetOfSCEV(SAddr, *m_SE);
-        MAV.push_back(memAccess (I, SAddr, step, offset));
+        int step = 0;
+        int offset = 0;
+        if (!isRandom) {
+          step = getConstStep(SAddr, *m_SE);
+          offset = getOffsetOfSCEV(SAddr, *m_SE);
+        }
+        MAV.push_back(memAccess(I, SAddr, step, offset, isRandom, pfExclusive));
 
-        // if access is for more than 64 bytes record references for all
+        // if access is for more than one cache line record references for all
         // accessed cache lines
-        assert (accessSize <= 2 * CacheLineSize &&
+        assert (accessSize <= 2 * UarchInfo::CacheLineSize &&
             "Accesses larger than 128 bytes are not expected");
-        if (accessSize > CacheLineSize) {
-          memAccess access (I, SAddr, step, offset);
+        if (accessSize > UarchInfo::CacheLineSize) {
+          memAccess access (I, SAddr, step, offset, isRandom, pfExclusive);
           const SCEV *nextSAddr = SAddr;
-          for (int i = CacheLineSize; i < accessSize; i+= CacheLineSize) {
-            nextSAddr = m_SE->getAddExpr(nextSAddr, m_SE->getConstant(m_i64, 64));
+          for (int i = UarchInfo::CacheLineSize; i < accessSize;
+              i+= UarchInfo::CacheLineSize) {
+            nextSAddr =
+                m_SE->getAddExpr(nextSAddr, m_SE->getConstant(m_i64, 64));
             access.S = nextSAddr;
             MAV.push_back(access);
             DEBUG (dbgs() << "Added access at offset " << i <<
@@ -697,7 +756,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       memAccessV &MAV = it->second;
 
       // if no overlapping access was found add this one to the list
-      memAccess access (I, SAddr, 0, 0);
+      memAccess access (I, SAddr, 0, 0, isRandom, pfExclusive);
       if (!memAccessExists(access, MAV, false)) {
         MAV.push_back(access);
         DEBUG (dbgs() << "Found new access of " << accessSize << " bytes\n   ";
@@ -705,13 +764,14 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       } else {
         TUNEPF (PFStat_accessMatchInSameBB++);
       }
-      // if access is for more than 64 bytes record references for all
-      // accessedcache lines
-      assert (accessSize <= 2 * CacheLineSize &&
+      // if access is for more than one cache line record references for all
+      // accessed cache lines
+      assert (accessSize <= 2 * UarchInfo::CacheLineSize &&
           "Accesses larger than 128 bytes are not expected");
-      if (accessSize > CacheLineSize) {
+      if (accessSize > UarchInfo::CacheLineSize) {
         const SCEV *nextSAddr = SAddr;
-        for (int i = CacheLineSize; i < accessSize; i+= CacheLineSize) {
+        for (int i = UarchInfo::CacheLineSize; i < accessSize;
+            i+= UarchInfo::CacheLineSize) {
           nextSAddr = m_SE->getAddExpr(nextSAddr, m_SE->getConstant(m_i64, 64));
           access.S = nextSAddr;
           if (!memAccessExists(access, MAV, true)) {
@@ -726,11 +786,6 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       }
     } // end loop over instructions
   } // end loop over BBs
-
-  // if using the mode where manual prefetches should not be used with
-  // auto-prefetching - leave now
-  if (m_exclusiveMPF == true && noManualPrefetch == false)
-    return false;
 
   // Merge overlapping accesses into dominating BBs
   for (unsigned int bbi = domBB.size()-1; bbi != 0; bbi--) {
@@ -751,7 +806,8 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
     // prefetches for it.
     Loop *L = m_LI->getLoopFor(BB);
     assert (L && "BB with PF candidates is expected to be inside a loop");
-    if (m_isVectorized.find(L) == m_isVectorized.end()) {
+    if ((m_prefetchScalarCode == false) &&
+        (m_isVectorized.find(L) == m_isVectorized.end())) {
       TUNEPF (PFStat_SerialBB += MAV.size());
       m_addresses.erase(BB);
       continue;
@@ -770,18 +826,19 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       // check for each access that is not detected as recurring already if
       // it's recurring in its dominator
       for (unsigned i = 0; i < MAV.size(); i++) {
-        if (!MAV[i].recurring && memAccessExists(MAV[i], iDomMAV, true)) {
-          MAV[i].recurring = true;
+        if (!MAV[i].isRecurring() && memAccessExists(MAV[i], iDomMAV, true)) {
+          MAV[i].setRecurring();
           TUNEPF(PFStat_accessMatchInDOMBB++);
-      }
+        }
       }
 
       // maintenance:
-      // count number of nun recurring accesses remain
+      // find the last non-recurring occurrence, so future vector traversals
+      // won't go beyond it.
       unsigned size = MAV.size();
       unsigned vSize = size;
       for (unsigned i = 0; i < MAV.size(); i++)
-        size = MAV[i].recurring ? size-1 : vSize;
+        size = MAV[i].isRecurring() ? size-1 : vSize;
 
       // if all are recurring - remove MAV for this BB
       if (size == 0) {
@@ -797,9 +854,14 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
   return (m_addresses.size() > 0);
 }
 
+// countPFPerLoop() - Count the number of accesses that deserve a prefetch
+// in each loop. Also record the number of consecutive iterations that
+// target the same cache line for each access.
 void Prefetch::countPFPerLoop () {
   assert (m_LoopInfo.size() == 0 &&
       "PF count should be called once per runOnFunction");
+
+  bool hasFactor = false;
 
   for (BBAccesses::iterator it = m_addresses.begin(), itEnd = m_addresses.end();
       it != itEnd; ++it) {
@@ -809,34 +871,93 @@ void Prefetch::countPFPerLoop () {
 
     // count the number of non-recurring accesses in this BB
     unsigned MAVSize = 0;
+    int numRandom = 0;
+    int factor = 1;
     for (unsigned int i = 0; i < MAV.size(); i++)
-      if (!MAV[i].recurring) {
+      if (!MAV[i].isRecurring()) {
         MAVSize++;
+        MAV[i].factor = 1;
+        // calculate the number of consecutive iterations that target the same
+        // cache line.
+        // Find the maximum of this factor for this BB.
+        if (m_calcFactor) {
+          if (MAV[i].step > 0 && MAV[i].step <= UarchInfo::CacheLineSize / 2) {
+            MAV[i].factor = (UarchInfo::CacheLineSize - 1) / MAV[i].step + 1;
+            if (MAV[i].factor > factor)
+              factor = MAV[i].factor;
+          }
+        }
+        if (MAV[i].isRandom())
+          numRandom++;
         TUNEPF (
-          int accessSize;
-          StoreInst *pStoreInst;
+          int accessSize = 0;
+        StoreInst *pStoreInst;
+        LoadInst *pLoadInst;
           if ((pStoreInst = dyn_cast<StoreInst>(MAV[i].I)) != NULL)
             accessSize = getSize(pStoreInst->getValueOperand()->getType());
-          else
+          else if ((pLoadInst = dyn_cast<LoadInst>(MAV[i].I)) != NULL)
             accessSize = getSize(MAV[i].I->getType());
-          if (accessSize < 64)
-            PFStat_partLine++;
-          if (accessSize == 64)
-            PFStat_oneLine++;
-          if (accessSize > 64)
-            PFStat_multLines++;
+          if (pStoreInst || pLoadInst) {
+            if (accessSize < UarchInfo::CacheLineSize)
+              PFStat_partLine++;
+            else if (accessSize == UarchInfo::CacheLineSize)
+              PFStat_oneLine++;
+            else // (accessSize > UarchInfo::CacheLineSize)
+              PFStat_multLines++;
+          }
+          else
+            PrefetchCandidateUtils::statAccess(MAV[i].I, MAV[i].isRandom(),
+                MAV[i].isExclusive());
           );
       }
 
-    // BB with all recurring accesses where removed already from the map
+    // BB with all recurring accesses were already removed from the map
     assert (MAVSize &&
         "expecting to have in address map only BB with prefetch candidates");
 
+    if (factor > 1)
+      hasFactor = true;
+
     // add number of prefetch candidates in this BB to loop counter
     if (m_LoopInfo.find(L) == m_LoopInfo.end())
-      m_LoopInfo.insert (std::make_pair(L, loopPFInfo(MAVSize)));
-    else
-      m_LoopInfo[L].numRefs += MAVSize;
+      m_LoopInfo.insert(std::make_pair(L, loopPFInfo(MAVSize, factor,
+                                                     numRandom)));
+    else {
+      loopPFInfo &info = m_LoopInfo[L];
+      info.numRefs += MAVSize;
+      info.numRandom += numRandom;
+      // Find the maximum of the iteration factor for this loop
+      if (factor > info.factor)
+        info.factor = factor;
+    }
+  }
+
+  // if none of the accesses target the same cache lines in different iterations
+  // return
+  if (!hasFactor)
+    return;
+
+  // calculate the number of accesses to different cache lines assuming that
+  // loop iteration length is factored
+  for (BBAccesses::iterator it = m_addresses.begin(), itEnd = m_addresses.end();
+      it != itEnd; ++it) {
+    Loop *L = m_LI->getLoopFor(it->first);
+    assert (L && "a BB that has prefetches must have a loop");
+
+    loopPFInfo &info = m_LoopInfo[L];
+    int factor = info.factor;
+
+    if(factor == 1)
+      continue;
+
+    memAccessV &MAV = it->second;
+    int numRefs = 0;
+    // count the number of non-recurring accesses in this BB
+    for (unsigned int i = 0; i < MAV.size(); i++)
+      if (!MAV[i].isRecurring())
+        numRefs += factor / MAV[i].factor;
+
+    info.factNumRefs += numRefs;
   }
 }
 
@@ -921,21 +1042,31 @@ void Prefetch::getPFDistance(Loop *L, loopPFInfo &info) {
   // start with the minimum number of threads set by previously processed loops
   info.numThreads = m_numThreads;
 
+  // if the loop iteration factor is more than 1
+  int factIterLen = info.iterLen;
+  int factNumRefs = info.numRefs;
+  if (info.factor > 1) {
+    factIterLen *= info.factor;
+    factNumRefs = info.factNumRefs;
+  }
+
   // If one loop iteration is longer than miss latency, then once a miss latency
   // has passed there's a free prefetch slot again. so overall the practical
   // number of available prefetch slots can be considered as higher, and it can
   // handle more accesses in each iteration.
-  int L1PrefetchSlotsExt = (info.iterLen <= L1MissLatency) ? L1PrefetchSlots :
-      L1PrefetchSlots * info.iterLen / L1MissLatency;
-  int L2PrefetchSlotsExt = (info.iterLen <= L2MissLatency) ? L2PrefetchSlots :
-      L2PrefetchSlots * info.iterLen / L2MissLatency;
+  int L1PrefetchSlotsExt = (factIterLen <= UarchInfo::L1MissLatency) ?
+      UarchInfo::L1PrefetchSlots :
+      UarchInfo::L1PrefetchSlots * factIterLen / UarchInfo::L1MissLatency;
+  int L2PrefetchSlotsExt = (factIterLen <= UarchInfo::L2MissLatency) ?
+      UarchInfo::L2PrefetchSlots :
+      UarchInfo::L2PrefetchSlots * factIterLen / UarchInfo::L2MissLatency;
 
   // if there are not enough L2 prefetch slots for one loop iterations use 1
   // thread to avoid mutual thread stalls, and prefetch distance of 1 to the L1
   // and 2 to the L2, so the data is ready when the L1 prefetch comes. Or let's
   // be a bit more agressive and optimistic, just in case that some of the
   // accesses are in the cache after all
-  if (info.numRefs >= L2PrefetchSlotsExt) {
+  if (factNumRefs >= L2PrefetchSlotsExt) {
     info.L1Distance = 2;
     info.L2Distance = 3;
     info.numThreads = 1;
@@ -946,23 +1077,23 @@ void Prefetch::getPFDistance(Loop *L, loopPFInfo &info) {
 
   // if there are not enough L1 prefetch slots for one loop iterations use 1
   // thread to avoid mutual thread stalls.
-  if (info.numRefs >= L1PrefetchSlotsExt) {
+  if (factNumRefs >= L1PrefetchSlotsExt) {
     info.L1Distance = 2;
     info.numThreads = 1;
 
     // recalculate iteration length assuming L1 cache misses will happen
-    int iterLen = L1MissLatency * info.numRefs / L1PrefetchSlotsExt;
-    if (iterLen < info.iterLen)
-      iterLen = info.iterLen;
+    int iterLen = UarchInfo::L1MissLatency * factNumRefs / L1PrefetchSlotsExt;
+    if (iterLen < factIterLen)
+      iterLen = factIterLen;
 
     // calculate the distance for L2 prefetches: it's the upper bound of L2
     // miss latency divided by iteration length
-    info.L2Distance = (L2MissLatency - 1) / iterLen + 1;
+    info.L2Distance = (UarchInfo::L2MissLatency - 1) / iterLen + 1;
 
     // if there are not enough slots for this distance reduce the distance
     // accordingly. We already know it's more than 1
-    if (info.L2Distance * info.numRefs > L2PrefetchSlotsExt)
-      info.L2Distance = L2PrefetchSlotsExt / info.numRefs;
+    if (info.L2Distance * factNumRefs > L2PrefetchSlotsExt)
+      info.L2Distance = L2PrefetchSlotsExt / factNumRefs;
     // put cache line in the L2 ahead of time, so it's ready when the L1
     // prefetchcomes to get it
     if (info.L2Distance < 3)
@@ -974,27 +1105,27 @@ void Prefetch::getPFDistance(Loop *L, loopPFInfo &info) {
 
   // there are enough L1 and L2 prefetch slots for at least one iteration
   // calculate the prefetch distances.
-  assert (info.numRefs < L2PrefetchSlotsExt &&
-      info.numRefs < L1PrefetchSlotsExt &&
+  assert (factNumRefs < L2PrefetchSlotsExt &&
+      factNumRefs < L1PrefetchSlotsExt &&
       "There are not enough prefetch slots for one access");
 
   // calculate the number of threads with which there's enough space for all
   // references. It shouldn't exceed the maximum number of HW threads or the
   // limit chosen for already processed loops
-  int numThreads1 = L1PrefetchSlotsExt / info.numRefs;
-  int numThreads2 = L2PrefetchSlotsExt / info.numRefs;
+  int numThreads1 = L1PrefetchSlotsExt / factNumRefs;
+  int numThreads2 = L2PrefetchSlotsExt / factNumRefs;
   int numThreads = (numThreads1 < numThreads2) ? numThreads1 : numThreads2;
   if (numThreads > m_numThreads)
     numThreads = m_numThreads;
-  int iterLen = info.iterLen;
+  int iterLen = factIterLen;
   // calculate the distance for L2 prefetches: its the upper bound of L2
   // miss latency divided by iteration length
-  info.L2Distance = (L2MissLatency - 1) / iterLen + 1;
+  info.L2Distance = (UarchInfo::L2MissLatency - 1) / iterLen + 1;
   // if there are not enough slots for this distance reduce the distance
   // accordingly. We already know it's more than 1
-  if (info.L2Distance * info.numRefs * numThreads > L2PrefetchSlotsExt) {
+  if (info.L2Distance * factNumRefs * numThreads > L2PrefetchSlotsExt) {
     // calculate the l2 distance accordingly. It should be >= 1
-    info.L2Distance = L2PrefetchSlotsExt / (info.numRefs * numThreads);
+    info.L2Distance = L2PrefetchSlotsExt / (factNumRefs * numThreads);
     assert (info.L2Distance > 0 && "L2 distance is 0");
   }
   // we don't want the L1 and L2 distance to be the same. we want the L2 data
@@ -1006,15 +1137,15 @@ void Prefetch::getPFDistance(Loop *L, loopPFInfo &info) {
   if (numThreads == 1)
     info.L2Distance++;
   // iteration length grows
-  iterLen = L2MissLatency / info.L2Distance;
-  if (iterLen < info.iterLen)
-    iterLen = info.iterLen;
+  iterLen = UarchInfo::L2MissLatency / info.L2Distance;
+  if (iterLen < factIterLen)
+    iterLen = factIterLen;
 
   // do the same to calculate the L1 distance
-  info.L1Distance = (L1MissLatency - 1) / iterLen + 1;
-  if (info.L1Distance * info.numRefs * numThreads > L1PrefetchSlotsExt) {
+  info.L1Distance = (UarchInfo::L1MissLatency - 1) / iterLen + 1;
+  if (info.L1Distance * factNumRefs * numThreads > L1PrefetchSlotsExt) {
     // calculate the l1 distance accordingly. It should be >= 1
-    info.L1Distance = L1PrefetchSlotsExt / (info.numRefs * numThreads);
+    info.L1Distance = L1PrefetchSlotsExt / (factNumRefs * numThreads);
     assert (info.L1Distance > 0 && "L1 distance is 0");
   }
   // if L1 distance is larger than the L2 distance the L1 distance is made
@@ -1027,7 +1158,8 @@ void Prefetch::getPFDistance(Loop *L, loopPFInfo &info) {
 
   assert (info.L2Distance > info.L1Distance && "L1 distance >= L2 distance");
 
-  assert (numThreads <= m_numThreads && "this loop tries to increase number of threads");
+  assert (numThreads <= m_numThreads &&
+      "this loop tries to increase number of threads");
 
   info.numThreads = m_numThreads = numThreads;
 
@@ -1037,8 +1169,8 @@ void Prefetch::getPFDistance(Loop *L, loopPFInfo &info) {
 // getPFDistance() - calculate prefetch distance for all loops in a function
 void Prefetch::getPFDistance() {
   // start with the maximum number of threads
-  m_numThreads = MaxThreads;
-  int firstNumThreads = MaxThreads;
+  m_numThreads = UarchInfo::MaxThreads;
+  int firstNumThreads = UarchInfo::MaxThreads;
   bool first = true;
 
   // traverse all loops that have references that deserve prefetches and
@@ -1047,19 +1179,27 @@ void Prefetch::getPFDistance() {
        it != itEnd ; it++) {
     Loop *L = it->first;
     loopPFInfo &info = it->second;
-    info.iterLen = IterLength(L);
-    getPFDistance(L, info);
-    if (first) {
-      first = false;
-      firstNumThreads = m_numThreads;
+    if (info.numRefs != info.numRandom) {
+      info.iterLen = IterLength(L);
+      getPFDistance(L, info);
+      if (first) {
+        first = false;
+        firstNumThreads = m_numThreads;
+      }
     }
+
     TUNEPF (
-    printf ("First Loop %llx Num Refs %d NumThreads %d distL1 %d distL2 %d iterLen %d\n",
-            (long long int )((void *)L), info.numRefs, info.numThreads, info.L1Distance, info.L2Distance,
-            info.iterLen);
+      printf ("First Loop %llx Num Refs %d (factor %d, factored Num Refs %d)"
+          "Num Random Refs %d NumThreads %d distL1 %d distL2 %d iterLen %d\n",
+            (long long int )((void *)L), info.numRefs, info.factor,
+             info.factNumRefs, info.numRandom, info.numThreads, info.L1Distance,
+             info.L2Distance, info.iterLen);
     );
+
     DEBUG (dbgs() << "First Loop " << (void *)L << " Num Refs " << info.numRefs
-      << " NumThreads " << info.numThreads << " distL1 " << info.L1Distance <<
+      << " (factor " << info.factor << " factored Num Refs " << info.factNumRefs
+      << ") NumRandom Refs " << info.numRandom << " NumThreads " <<
+      info.numThreads << " distL1 " << info.L1Distance <<
       " distL2 " << info.L2Distance << " iterLen " << info.iterLen << "\n");
   }
 
@@ -1072,26 +1212,34 @@ void Prefetch::getPFDistance() {
   for (LoopInfoMap::iterator it = m_LoopInfo.begin(), itEnd = m_LoopInfo.end();
        it != itEnd ; it++) {
     loopPFInfo &info = it->second;
+    if (info.numRefs == info.numRandom)
+      continue;
+    Loop *L = it->first;
     assert (info.numThreads >= m_numThreads &&
         "there's a loop that prefers less threads");
     if (info.numThreads > m_numThreads)
-      getPFDistance(it->first, info);
+      getPFDistance(L, info);
+
     TUNEPF (
-    printf ("Final Loop %llx Num Refs %d NumThreads %d distL1 %d distL2 %d iterLen %d\n",
-            (long long int )((void *)it->first), info.numRefs, info.numThreads, info.L1Distance, info.L2Distance,
-            info.iterLen);
+      printf ("Final Loop %llx Num Refs %d (factor %d, factored Num Refs %d)"
+          "Num Random Refs %d NumThreads %d distL1 %d distL2 %d iterLen %d\n",
+            (long long int )((void *)L), info.numRefs, info.factor,
+             info.factNumRefs, info.numRandom, info.numThreads, info.L1Distance,
+             info.L2Distance, info.iterLen);
     );
-    DEBUG (dbgs() << "Final Loop " << (void *)it->first <<
-        " Num Refs " << info.numRefs << " NumThreads " << info.numThreads <<
-        " distL1 " << info.L1Distance << " distL2 " << info.L2Distance <<
-        " iterLen " << info.iterLen << "\n";);
+
+    DEBUG (dbgs() << "Final Loop " << (void *)L << " Num Refs " << info.numRefs
+      << " (factor " << info.factor << " factored Num Refs " << info.factNumRefs
+      << ") NumRandom Refs " << info.numRandom << " NumThreads " <<
+      info.numThreads << " distL1 " << info.L1Distance <<
+      " distL2 " << info.L2Distance << " iterLen " << info.iterLen << "\n");
   }
 }
 
 /// Insert a prefetch instruction just before instruction I, for address SADDR
 /// count iterations ahead. The prefetched address is loop variant for loop L.
-void Prefetch::InsertPF (Instruction *I, Loop *L, int PFType,
-                         const SCEV *SAddr, unsigned count) {
+void Prefetch::insertPF (Instruction *I, Loop *L, int PFType,
+                         const SCEV *SAddr, unsigned count, bool pfExclusive) {
   std::vector<Value*> args;
   std::vector<Type *> types;
 
@@ -1105,8 +1253,7 @@ void Prefetch::InsertPF (Instruction *I, Loop *L, int PFType,
 
   // if the first instruction that accesses this location is a store bring this
   // line as exclusive
-  StoreInst *pStoreInst;
-  if ((pStoreInst = dyn_cast<StoreInst>(I)) != NULL)
+  if (pfExclusive)
     PFType |= 4;
 
   Constant *hint = ConstantInt::get(m_i32, PFType);
@@ -1150,19 +1297,26 @@ void Prefetch::emitPrefetches() {
     for (unsigned int i = 0; i < MAV.size(); i++)
     {
       // ignore recurring accesses
-      if (MAV[i].recurring)
+      if (MAV[i].isRecurring())
         continue;
 
       Instruction *I = MAV[i].I;
-      const SCEV *SAddr = MAV[i].S;
 
-      // do not insert L1 prefetch if it was disabled
-      if (PFL1Type > 0)
-        InsertPF (I, L, (int)PFL1Type, SAddr, L1Dist);
+      if (!MAV[i].isRandom()) {
+        const SCEV *SAddr = MAV[i].S;
 
-      // do not insert L2 prefetch if it was disabled
-      if (PFL2Type > 0)
-        InsertPF (I, L, (int)PFL2Type, SAddr, L2Dist);
+        // do not insert L1 prefetch if it was disabled
+        if (PFL1Type > 0)
+          insertPF (I, L, (int)PFL1Type, SAddr, L1Dist * MAV[i].factor,
+              MAV[i].isExclusive());
+
+        // do not insert L2 prefetch if it was disabled
+        if (PFL2Type > 0)
+          insertPF (I, L, (int)PFL2Type, SAddr, L2Dist * MAV[i].factor,
+              MAV[i].isExclusive());
+      }
+      else
+        PrefetchCandidateUtils::insertPF(I);
     }
     MAV.clear();
   }
@@ -1191,9 +1345,6 @@ bool Prefetch::autoPrefetch(Function &F) {
 
   return true;
 }
-
-/// runOnFunction()
-//extern char *__progname;
 
 bool Prefetch::runOnFunction(Function &F) {
   // don't bother if prefetching is disabled.
@@ -1230,6 +1381,477 @@ bool Prefetch::runOnFunction(Function &F) {
 
   return modified;
 }
+
+//////////////////////////////////////////////////////////////////
+/// PrefetchCandidateUtils Class implementation
+//////////////////////////////////////////////////////////////////
+unsigned PrefetchCandidateUtils::detectAddressSpace(Value *addr) {
+  BitCastInst *BCI = NULL;
+  GetElementPtrInst *GEPI = NULL;
+
+  // get address pointer type
+  PointerType * PType = dyn_cast<PointerType>(addr->getType());
+
+  // if it's a pointer as expected
+  while (PType) {
+
+    // get address space
+    unsigned addrSpace = PType->getAddressSpace();
+    // if address space is not the default value return it
+    if (addrSpace != 0)
+      return addrSpace;
+
+    // get the instruction representing this value
+    // return if it's not an instruction
+    Instruction *I = dyn_cast<Instruction>(addr);
+    if (I == NULL)
+      return 0;
+
+    // if it's a bit cast - get the source pointer type and the source
+    // instruction
+    if ((BCI = dyn_cast<BitCastInst>(I)) != NULL) {
+       PType = cast<PointerType>(BCI->getSrcTy());
+       addr = I->getOperand(0);
+    }
+    // if its a GEP - get its pointer operand
+    else if((GEPI = dyn_cast<GetElementPtrInst>(I)) != NULL) {
+      PType = cast<PointerType>(GEPI->getType());
+      addr = I->getOperand(0);
+    }
+    // otherwise no specific address space was detected
+    else
+      return 0;
+  }
+
+  // no specific address space was detected
+  return 0;
+}
+
+// isTightConstantVect - check if all vector elements are constants with
+// maximum difference between the smallest and largest value, such that
+// the type indexed by this vector is contained in one cache line.
+bool PrefetchCandidateUtils::isTightConstantVect(Value *index, Type *indexedType) {
+  VectorType *VType = dyn_cast<VectorType>(indexedType);
+  ConstantVector *CV = dyn_cast<ConstantVector>(index);
+  // verify that the accessed type is a vector type (although this should be
+  // guaranteed)
+  // check if the index vector is of constant int values.
+  if (VType == NULL || CV == NULL ||
+      dyn_cast<ConstantInt>(CV->getOperand(0)) == NULL)
+    return false;
+  unsigned N = VType->getNumElements();
+  unsigned destSize = VType->getElementType()->getScalarSizeInBits() / 8;
+  if (CV->getNumOperands() < N)
+    return false;
+  assert (CV->getType()->getElementType()->getScalarSizeInBits() == 32 &&
+      "expecting gather index to be v16i32");
+
+  int i32Min = 0x7FFFFFFF;
+  int i32Max = 0x80000000;
+
+  for (unsigned i = 0; i < N; ++i) {
+    int v = cast<ConstantInt>(CV->getOperand(i))->getSExtValue();
+    if (v < i32Min) i32Min = v;
+    if (v > i32Max) i32Max = v;
+  }
+  return ((i32Max - i32Min) * destSize <= unsigned(UarchInfo::CacheLineSize));
+}
+
+bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
+    bool &pfExclusive, bool &isRandomV, unsigned &addrSpace, Value *&addrV,
+    int &accessSizeV) {
+
+  Value *addr = NULL;
+
+  StringRef Name = pCallInst->getCalledFunction()->getName();
+
+  // ignore calls that are non intrinsic
+  if (Name.find(m_intrinsicName) == std::string::npos)
+    return false;
+
+  // check if gather intrinsic for fetching data randomly
+  // gather: <vector> = gather (<indexes>, <address> ...)
+  if (Name.find(m_gatherIntrinsicName) != std::string::npos) {
+    assert (pCallInst->getNumOperands() >= 2 &&
+        "gather intrinsic doesn't have enough operands");
+    if (pCallInst->getNumOperands() < 2)
+      return false;
+    assert (pCallInst->getOperand(1)->getType()->isPointerTy() &&
+        "expected pointer type");
+    addr = pCallInst->getOperand(1);
+    if (!addr)
+      return false;
+    addrV = addr;
+    addrSpace = detectAddressSpace(addr);
+    TUNEPF (
+      switch (addrSpace) {
+        default: assert(false && "Unknown address space detected for gather");
+          break;
+        case Utils::OCLAddressSpace::Global: PFStat_GlobalGather++; break;
+        case Utils::OCLAddressSpace::Local: PFStat_LocalGather++; break;
+        case Utils::OCLAddressSpace::Constant: PFStat_ConstantGather++; break;
+        case Utils::OCLAddressSpace::Private: PFStat_PrivateGather++; break;
+      }
+    );
+    accessSizeV = UarchInfo::CacheLineSize;
+    pfExclusive = false;
+    isRandomV = !isTightConstantVect(pCallInst->getOperand(2),
+        pCallInst->getType());
+    return true;
+  }
+
+  // check if masked gather intrinsic. For MIC can be consecutive masked load
+  // or masked gather of random data
+  // masked gather:
+  //     <vector> = gather (<old-value>, <mask>, <indexes>, <address> ...)
+  if (Name.find(m_maskGatherIntrinsicName) != std::string::npos) {
+    assert (pCallInst->getNumOperands() >= 4 &&
+        "masked gather intrinsic doesn't have enough operands");
+    if (pCallInst->getNumOperands() < 4)
+      return false;
+    assert (pCallInst->getOperand(3)->getType()->isPointerTy() &&
+        "expected pointer type");
+    addr = pCallInst->getOperand(3);
+    if (!addr)
+      return false;
+    addrV = addr;
+    addrSpace = detectAddressSpace(addr);
+    TUNEPF (
+      switch (addrSpace) {
+        default: assert(false &&
+            "Unknown address space detected for masked gather"); break;
+        case Utils::OCLAddressSpace::Global: PFStat_GlobalMaskGather++; break;
+        case Utils::OCLAddressSpace::Local: PFStat_LocalMaskGather++; break;
+        case Utils::OCLAddressSpace::Constant: PFStat_ConstantMaskGather++;
+          break;
+        case Utils::OCLAddressSpace::Private: PFStat_PrivateMaskGather++;
+          break;
+      }
+    );
+    accessSizeV = UarchInfo::CacheLineSize;
+    pfExclusive = false;
+    // check if the index operand is constant vector with close values
+    isRandomV = !isTightConstantVect(pCallInst->getOperand(2),
+        pCallInst->getType());
+    return true;
+  }
+
+  // check if scatter
+  // scatter: scatter (<address>, <indexes>, <data> ...)
+  if (Name.find(m_scatterIntrinsicName) != std::string::npos) {
+    assert (pCallInst->getNumOperands() >= 3 &&
+        "scatter intrinsic doesn't have enough operands");
+    if (pCallInst->getNumOperands() < 3)
+      return false;
+    assert (pCallInst->getOperand(0)->getType()->isPointerTy() &&
+        "expected pointer type");
+    addr = pCallInst->getOperand(0);
+    if (!addr)
+      return false;
+    addrV = addr;
+    addrSpace = detectAddressSpace(addr);
+    TUNEPF (
+      switch (addrSpace) {
+        default: assert(false && "Unknown address space detected for scatter");
+        break;
+        case Utils::OCLAddressSpace::Global: PFStat_GlobalScatter++; break;
+        case Utils::OCLAddressSpace::Local: PFStat_LocalScatter++; break;
+        case Utils::OCLAddressSpace::Constant: PFStat_ConstantScatter++; break;
+        case Utils::OCLAddressSpace::Private: PFStat_PrivateScatter++; break;
+      }
+    );
+    accessSizeV = UarchInfo::CacheLineSize;
+    pfExclusive = true;
+    isRandomV = !isTightConstantVect(pCallInst->getOperand(1),
+        pCallInst->getOperand(2)->getType());
+    return true;
+  }
+
+  // check if masked scatter
+  // masked scatter: scatter (<address>, <mask>, <indexes>, <data> ...)
+  if (Name.find(m_maskScatterIntrinsicName) != std::string::npos) {
+    assert (pCallInst->getNumOperands() >= 4 &&
+        "scatter intrinsic doesn't have enough operands");
+    if (pCallInst->getNumOperands() < 4)
+      return false;
+    assert (pCallInst->getOperand(0)->getType()->isPointerTy() &&
+        "expected pointer type");
+    addr = pCallInst->getOperand(0);
+    if (!addr)
+      return false;
+    addrV = addr;
+    addrSpace = detectAddressSpace(addr);
+    TUNEPF (
+      switch (addrSpace) {
+        default: assert(false &&
+            "Unknown address space detected for masked scatter"); break;
+        case Utils::OCLAddressSpace::Global: PFStat_GlobalMaskScatter++; break;
+        case Utils::OCLAddressSpace::Local: PFStat_LocalMaskScatter++; break;
+        case Utils::OCLAddressSpace::Constant: PFStat_ConstantMaskScatter++;
+          break;
+        case Utils::OCLAddressSpace::Private: PFStat_PrivateMaskScatter++;
+          break;
+      }
+    );
+    accessSizeV = UarchInfo::CacheLineSize;
+    pfExclusive = true;
+    isRandomV = !isTightConstantVect(pCallInst->getOperand(1),
+        pCallInst->getOperand(2)->getType());
+    return true;
+  }
+
+  TUNEPF(
+    if (Name.find(m_prefetchIntrinsicName) != std::string::npos ||
+        Name.find(m_gatherPrefetchIntrinsicStr) != std::string::npos ||
+        Name.find(m_scatterPrefetchIntrinsicStr) != std::string::npos) {
+      PFStat_ManualPFAbortAPF++;
+    }
+  );
+  return false;
+}
+
+bool PrefetchCandidateUtils::getIndexOperand(Instruction *I) {
+  assert (isa<CallInst>(I) && "Call instruction expected");
+  CallInst *pCallInst = cast<CallInst>(I);
+  StringRef Name = pCallInst->getCalledFunction()->getName();
+
+  if (Name.find(m_gatherIntrinsicName) != std::string::npos)
+    return 0;
+
+  if (Name.find(m_scatterIntrinsicName) != std::string::npos)
+    return 1;
+
+  return 2;
+}
+
+bool PrefetchCandidateUtils::indexMatch(Instruction *I1, Instruction *I2) {
+  return (I1->getOperand(getIndexOperand(I1)) ==
+      I2->getOperand(getIndexOperand(I2)));
+}
+
+void PrefetchCandidateUtils::insertPF (Instruction *I) {
+  const char *pfIntrinName = NULL;
+  std::vector<Value*> args;
+  std::vector<Type *> types;
+
+  Module *M = I->getParent()->getParent()->getParent();
+  LLVMContext &context = M->getContext();
+  Type *i8 =  IntegerType::get(context, 8);
+  Type *pi8 = PointerType::get(i8, 0);
+  Type *i16 =  IntegerType::get(context, 16);
+  Type *i32 =  IntegerType::get(context, 32);
+  Type *v16i32 = VectorType::get(i32, 16);
+  Value *mask8Bit = NULL;
+
+  bool isExclusive = false;
+
+  CallInst *pCallInst = cast<CallInst>(I);
+  StringRef Name = pCallInst->getCalledFunction()->getName();
+
+  Constant *hint = ConstantInt::get(i32, UarchInfo::defaultL1PFType);
+  // gather: <vector> = gather (<indexes>, <address>, i, i, i)
+  // gather PF: <vector> = gather (<indexes>, <address> , i, i, i)
+  if (Name.find(m_gatherIntrinsicName) != std::string::npos) {
+    // create gatherpf intrinsic operand list
+    // push indexes
+    args.push_back(pCallInst->getOperand(0));
+    types.push_back(v16i32);
+
+    if (I->getType()->getNumElements() == 16) {
+      pfIntrinName = m_prefetchGatherIntrinsicName.c_str();
+    } else {
+      // if the instruction gathers 8 elements need to pf only the first 8
+      // indexes
+      pfIntrinName = m_prefetchMaskGatherIntrinsicName.c_str();
+      mask8Bit = ConstantInt::get(Type::getInt16Ty(context), 127);
+      args.push_back(mask8Bit);
+      types.push_back(i16);
+    }
+
+    // push the address and modifiers - values and then types
+    args.push_back(pCallInst->getOperand(1));
+    args.push_back(pCallInst->getOperand(2));
+    args.push_back(pCallInst->getOperand(3));
+    args.push_back(hint);
+
+    types.push_back(pi8);
+    types.push_back(i32);
+    types.push_back(i32);
+    types.push_back(i32);
+  }
+
+  // masked gather:
+  //     <vector> = gather (<old-value>, <mask>, <indexes>, <address>, i, i, i)
+  // masked gather PF:
+  //     <vector> = gather (<indexes>, <mask>, <address>, i, i, i)
+  else if (Name.find(m_maskGatherIntrinsicName) != std::string::npos) {
+    pfIntrinName = m_prefetchMaskGatherIntrinsicName.c_str();
+    // create gatherpf intrinsic operand list
+    // push indexes
+    args.push_back(pCallInst->getOperand(2));
+    types.push_back(v16i32);
+
+    // push mask. zero extend it first to 16 bits as required by the gatherpf
+    if (pCallInst->getOperand(1)->getType() == i8) {
+      mask8Bit = CastInst::Create(Instruction::ZExt, pCallInst->getOperand(1),
+          i16, "", I);
+      args.push_back(mask8Bit);
+    }
+    else
+      args.push_back(pCallInst->getOperand(1));
+
+    types.push_back(i16);
+
+    // push the address and modifiers - values and then types
+    args.push_back(pCallInst->getOperand(3));
+    args.push_back(pCallInst->getOperand(4));
+    args.push_back(pCallInst->getOperand(5));
+    args.push_back(hint);
+
+    types.push_back(pi8);
+    types.push_back(i32);
+    types.push_back(i32);
+    types.push_back(i32);
+  }
+
+  // scatter: scatter (<address>, <indexes>, <data>, i,i,i)
+  // scatter PF: scatter (<address>, <indexes>, i, i, i)
+  else if (Name.find(m_scatterIntrinsicName) != std::string::npos) {
+    // create scatterpf intrinsic operand list
+    // push address
+    args.push_back(pCallInst->getOperand(0));
+    types.push_back(pi8);
+
+    if (I->getType()->getNumElements() == 16) {
+      pfIntrinName = m_prefetchScatterIntrinsicName.c_str();
+    } else {
+      // if the instruction scatters 8 elements need to pf only the first 8
+      // indexes
+      pfIntrinName = m_prefetchMaskScatterIntrinsicName.c_str();
+      mask8Bit = ConstantInt::get(Type::getInt16Ty(context), 127);
+      args.push_back(mask8Bit);
+      types.push_back(i16);
+    }
+
+    // push the indexes and modifiers - values and then types
+    args.push_back(pCallInst->getOperand(1));
+    args.push_back(pCallInst->getOperand(3));
+    args.push_back(pCallInst->getOperand(4));
+    args.push_back(hint);
+
+    types.push_back(v16i32);
+    types.push_back(i32);
+    types.push_back(i32);
+    types.push_back(i32);
+
+    isExclusive = true;
+  }
+
+  // masked scatter: scatter (<address>, <mask>, <indexes>, <data>, i, i, i)
+  // masked scatter PF: scatter (<address>, <mask>, <indexes>, i, i, i)
+  else if (Name.find(m_maskScatterIntrinsicName) != std::string::npos) {
+    pfIntrinName = m_prefetchMaskScatterIntrinsicName.c_str();
+    // create scatterpf intrinsic operand list
+    // push address
+    args.push_back(pCallInst->getOperand(0));
+    types.push_back(pi8);
+
+    // push mask. zero extend it first to 16 bits as required by the gatherpf
+    if (pCallInst->getOperand(1)->getType() == i8) {
+      mask8Bit = CastInst::Create(Instruction::ZExt, pCallInst->getOperand(1),
+          i16, "", I);
+      args.push_back(mask8Bit);
+    }
+    else
+      args.push_back(pCallInst->getOperand(1));
+
+    types.push_back(i16);
+
+    // push the indexes and modifiers - values and then types
+    args.push_back(pCallInst->getOperand(2));
+    args.push_back(pCallInst->getOperand(4));
+    args.push_back(pCallInst->getOperand(5));
+    args.push_back(hint);
+
+    types.push_back(v16i32);
+    types.push_back(i32);
+    types.push_back(i32);
+    types.push_back(i32);
+
+    isExclusive = true;
+  }
+
+  Type *voidTy = Type::getVoidTy(context);
+  FunctionType *intr = FunctionType::get(voidTy, types, false);
+  Constant *new_f = M->getOrInsertFunction(pfIntrinName, intr);
+
+  CallInst *callInst = CallInst::Create(new_f, ArrayRef<Value*>(args), "", I);
+
+  // set debug info
+  if (!I->getDebugLoc().isUnknown()) {
+    callInst->setDebugLoc(I->getDebugLoc());
+  }
+
+  DEBUG(dbgs() << "Generated PF in BB " << I->getParent()->getName() <<
+      " type " << (isExclusive ? "ScatterPF" : "GatherPF") << "\n");
+}
+
+#ifdef TUNE_PREFETCH
+void PrefetchCandidateUtils::statAccess(Instruction *I, bool isRandom,
+    bool pfExclusive) {
+  CallInst *pCallInst = dyn_cast<CallInst>(I);
+  assert (pCallInst && "Expecting pf stat for gather/scatter");
+
+  StringRef Name = pCallInst->getCalledFunction()->getName();
+  // ignore calls that are non intrinsic
+  assert (Name.find(m_intrinsicName) != std::string::npos &&
+    "Expecting pf stat for gather/scatter");
+
+  if (!isRandom) {
+    if (pfExclusive)
+      PFStat_pfMaskedStores++;
+    else
+      PFStat_pfMaskedLoads++;
+    return;
+  }
+
+  // all our known intrinsic access cache line
+  if (pfExclusive) {
+    if (Name.find(m_scatterIntrinsicName) != std::string::npos)
+      PFStat_pfRandomScatter++;
+    else
+      PFStat_pfMaskedRandomScatter++;
+  } else {
+    if (Name.find(m_gatherIntrinsicName) != std::string::npos)
+      PFStat_pfRandomGather++;
+    else
+      PFStat_pfMaskedRandomGather++;
+  }
+}
+#endif // TUNE_PREFETCH
+
+const std::string PrefetchCandidateUtils::m_intrinsicName = "llvm.x86.mic.";
+const std::string PrefetchCandidateUtils::m_prefetchIntrinsicName =
+    "llvm.x86.mic.prefetch";
+const std::string PrefetchCandidateUtils::m_prefetchGatherIntrinsicName =
+    "llvm.x86.mic.gatherpf.ps";
+const std::string PrefetchCandidateUtils::m_prefetchMaskGatherIntrinsicName =
+    "llvm.x86.mic.mask.gatherpf.ps";
+const std::string PrefetchCandidateUtils::m_prefetchScatterIntrinsicName =
+    "llvm.x86.mic.scatterpf.ps";
+const std::string PrefetchCandidateUtils::m_prefetchMaskScatterIntrinsicName =
+    "llvm.x86.mic.mask.scatterpf.ps";
+const std::string PrefetchCandidateUtils::m_gatherPrefetchIntrinsicStr =
+    "gatherpf";
+const std::string PrefetchCandidateUtils::m_scatterPrefetchIntrinsicStr =
+    "scatterpf";
+const std::string PrefetchCandidateUtils::m_gatherIntrinsicName = "mic.gather.";
+const std::string PrefetchCandidateUtils::m_maskGatherIntrinsicName =
+    "mic.mask.gather.";
+const std::string PrefetchCandidateUtils::m_scatterIntrinsicName =
+    "mic.scatter.";
+const std::string PrefetchCandidateUtils::m_maskScatterIntrinsicName =
+    "mic.mask.scatter.";
 
 } // namespace intel
 

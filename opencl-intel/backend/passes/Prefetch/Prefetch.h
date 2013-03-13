@@ -1,3 +1,21 @@
+/*****************************************************************************\
+
+Copyright (c) Intel Corporation (2013).
+
+    INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
+    LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
+    ASSISTANCE, INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL DOES NOT
+    PROVIDE ANY UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY
+    DISCLAIMS ANY WARRANTY OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR ANY
+    PARTICULAR PURPOSE, OR ANY OTHER WARRANTY.  Intel disclaims all liability,
+    including liability for infringement of any proprietary rights, relating to
+    use of the code. No license, express or implied, by estoppels or otherwise,
+    to any intellectual property rights is granted herein.
+
+File Name:  Prefetch.h
+
+\*****************************************************************************/
+
 #ifndef __PREFETCH_H_
 #define __PREFETCH_H_
 
@@ -16,6 +34,18 @@
 using namespace llvm;
 
 namespace intel{
+
+  // Micro-architecture specific information
+  struct UarchInfo {
+    static const int L1MissLatency;
+    static const int L2MissLatency;
+    static const int L1PrefetchSlots;
+    static const int L2PrefetchSlots;
+    static const int MaxThreads;
+    static const int CacheLineSize;
+    static const int defaultL1PFType;
+    static const int defaultL2PFType;
+  };
 
   class Prefetch : public FunctionPass {
 
@@ -40,9 +70,6 @@ namespace intel{
         AU.setPreservesCFG();
       }
 
-      static const int defaultL1PFType;
-      static const int defaultL2PFType;
-
     private:
       // Pass pointers
       LoopInfo        * m_LI ;
@@ -50,9 +77,16 @@ namespace intel{
       SCEVExpander    * m_ADRExpander;
 
       // Controls
-      bool m_exclusiveMPF;  // if MPF is detected don't generate prefetches at all
-      bool m_coopAPFMPF;    // if MPF is detected continue to generated APF
-      bool m_disableAPF;    // don't APF
+                                  // if MPF is detected don't generate
+      bool m_exclusiveMPF;        // prefetches at all
+      bool m_coopAPFMPF;          // if MPF is detected continue to generated APF
+      bool m_disableAPF;          // don't APF
+      bool m_disableAPFGS;        // don't APF gathers and scatters
+                                  // don't APF gathers and scatters and don't
+      bool m_disableAPFGSTune;    // collect tuning info
+                                  // Consider further ahead prefetch for less
+      bool m_calcFactor;          // than cache line accesses
+      bool m_prefetchScalarCode;  // prefetch for accesses in scalar BBs
 
       // Type pointers
       Type *m_i8;
@@ -61,21 +95,9 @@ namespace intel{
       Type *m_pi8;
       Type *m_void;
 
-      static const std::string m_intrinsicName;
       static const std::string m_prefetchIntrinsicName;
-      static const std::string m_gatherPrefetchIntrinsicName;
-      static const std::string m_scatterPrefetchIntrinsicName;
-      static const std::string m_gatherIntrinsicName;
-      static const std::string m_maskGatherIntrinsicName;
-      static const std::string m_scatterIntrinsicName;
-      static const std::string m_maskScatterIntrinsicName;
 
-      static const int L1MissLatency;
-      static const int L2MissLatency;
-      static const int L1PrefetchSlots;
-      static const int L2PrefetchSlots;
-      static const int MaxThreads;
-      static const int CacheLineSize;
+      static const int PrefecthedAddressSpaces;
 
       static const int defaultTripCount;
 
@@ -97,10 +119,17 @@ namespace intel{
         int L2Distance;    // L2 prefetch distance
         int numThreads;    // optimal number of threads
         int iterLen;       // IR based iteration length
+                           // number of iterations in which the same cache line
+        int factor;        // is the prefech target
+                           // Effective number of references if loop iteration
+        int factNumRefs;   // length is factored
+        int numRandom;     // number of random accesses to prefetch in loop
 
         loopPFInfo() {}
-        loopPFInfo (int count) : numRefs(count), L1Distance(0), L2Distance(0),
-          numThreads(MaxThreads) {}
+        loopPFInfo (int count, int _factor, int _numRandom) : numRefs(count),
+            L1Distance(0), L2Distance(0), numThreads(UarchInfo::MaxThreads),
+            iterLen(0), factor (_factor), factNumRefs(0), numRandom(_numRandom)
+        {}
       };
       typedef std::map<Loop *, loopPFInfo> LoopInfoMap;
       LoopInfoMap m_LoopInfo;
@@ -110,11 +139,26 @@ namespace intel{
         const SCEV *S;
         int step;
         int offset;
-        bool recurring;
+        int factor;
+        int flags;
 
         memAccess () {}
-        memAccess (Instruction *i, const SCEV *s, int _step, int _offset) :
-            I(i), S(s), step(_step), offset(_offset), recurring(false) {}
+        memAccess (Instruction *i, const SCEV *s, int _step, int _offset,
+            bool random, bool exclusive) :
+            I(i), S(s), step(_step), offset(_offset), flags(0) {
+          if (random) setRandom();
+          if (exclusive) setExclusive();
+        }
+
+        // set and query flags
+        void setRecurring () {flags |= 0x1;}
+        bool isRecurring () {return (flags & 0x1);}
+
+        void setRandom() {flags |= 0x2;}
+        bool isRandom() {return (flags & 0x2);}
+
+        void setExclusive () {flags |= 0x4;}
+        bool isExclusive () {return (flags & 0x4);}
       };
 
       typedef std::vector<memAccess> memAccessV;
@@ -142,8 +186,8 @@ namespace intel{
 
       void getPFDistance();
 
-      void InsertPF (Instruction *I, Loop *L, int PFType,
-                     const SCEV *SAddr, unsigned count);
+      void insertPF (Instruction *I, Loop *L, int PFType,
+                     const SCEV *SAddr, unsigned count, bool pfExclusive);
 
       void emitPrefetches();
 
