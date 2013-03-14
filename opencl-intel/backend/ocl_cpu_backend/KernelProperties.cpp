@@ -23,13 +23,14 @@ File Name:  KernelProperties.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-KernelJITProperties::KernelJITProperties(): 
+KernelJITProperties::KernelJITProperties():
     m_useVTune(false),
     m_vectorSize(1)
 {}
 
-KernelProperties::KernelProperties(): 
+KernelProperties::KernelProperties():
     m_hasBarrier(false),
+    m_DAZ(false),
     m_optWGSize(0),
     m_totalImplSize(0),
     m_privateMemorySize(0),
@@ -84,16 +85,14 @@ bool KernelProperties::HasKernelCallOperation() const
     return false;
 }
 
-void KernelProperties::SetReqdWGSize(const size_t* psize )   
-{ 
+void KernelProperties::SetReqdWGSize(const size_t* psize )
+{
     std::copy(psize, psize + MAX_WORK_DIM, m_reqdWGSize);
-    //memcpy(m_reqdWGSize, psize, sizeof(size_t)*MAX_WORK_DIM); 
 }
 
-void KernelProperties::SetHintWGSize(const size_t* psize )   
-{ 
+void KernelProperties::SetHintWGSize(const size_t* psize )
+{
     std::copy(psize, psize + MAX_WORK_DIM, m_hintWGSize);
-    //memcpy(m_hintWGSize, psize, sizeof(size_t)*MAX_WORK_DIM); 
 }
 
 }}}

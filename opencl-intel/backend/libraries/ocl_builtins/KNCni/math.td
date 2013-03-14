@@ -118,24 +118,16 @@ OclBuiltinImpl native_fmod_f64_expand = OclBuiltinImpl<native_fmod, [v16f64], 0,
 
 // native_fract
 code native_fract_f32_v16 = [{
-    // !!! WORKAROUND: PCG generates call to compiler SVML library at the moment for floor intrinsics. !!!
-    // Until it is fixed we will call original fract version.
-    // TODO: uncomment once PCG bug is fixed.
-    /*float16 f = _mm512_floor_ps($Arg0VarName);
+    float16 f = _mm512_floor_ps($Arg0VarName);
     *($Arg1NoASType)$Arg1VarName = f;
-    return _mm512_min_ps(_mm512_sub_ps($Arg0VarName, f), _mm512_set_1to16_ps(0x1.fffffep-1f));*/
-    return fract($Arg0VarName, $Arg1VarName);
+    return _mm512_min_ps(_mm512_sub_ps($Arg0VarName, f), _mm512_set_1to16_ps(0x1.fffffep-1f));
   }];
 code mask_native_fract_f32_v16 = [{
-    // !!! WORKAROUND: PCG generates call to compiler SVML library at the moment for floor intrinsics. !!!
-    // Until it is fixed we will call original fract version.
-    // TODO: uncomment once PCG bug is fixed.
-    /*float16 nx; nx$Pattern = $Arg0VarName;
+    float16 nx; nx$Pattern = $Arg0VarName;
     float16 f = _mm512_mask_floor_ps(nx, $Mask, nx);
     *($Arg1NoASType)$Arg1VarName = f$Pattern;
     float16 nret = _mm512_mask_min_ps(nx, $Mask, _mm512_mask_sub_ps(nx, $Mask, nx, f), _mm512_set_1to16_ps(0x1.fffffep-1f));
-    return nret$Pattern;*/
-    return fract($Arg0VarName, $Arg1VarName);
+    return nret$Pattern;
   }];
 OclBuiltinImpl native_fract_f32_v16_pas = OclBuiltinImpl<native_fract_pas, [v16f32], 0, native_fract_f32_v16>;
 OclBuiltinImpl native_fract_f32_v16_las = OclBuiltinImpl<native_fract_las, [v16f32], 0, native_fract_f32_v16>;
@@ -339,32 +331,14 @@ OclBuiltinImpl knc_erf        = OclBuiltinImpl<erf, [v16f32, v8f64], 0, knc_code
 OclBuiltinImpl knc_mask_erf   = OclBuiltinImpl<erf, mask_types, 0, knc_mask_code_1>;
 OclBuiltinImpl knc_expand_erf = OclBuiltinImpl<erf, [v16f64], 0, Expand1>;
 
-// WORKAROUND: PCG inlines incorrectly the following intrinsics
-// _mm512[_mask]_exp2_ps, _mm512[_mask]_sqrt_pd,
-// _mm512[_mask]_half_log2_ps, _mm512[_mask]_half_powr_ps
-
-code WorkaroundPromote1 = [{
-    $NativeArg0Type n$Arg0VarName = ($NativeArg0Type)(1); n$Arg0VarName$Pattern = $Arg0VarName;
-    $ReturnBaseType$NativeArg0VecLength $ReturnVarName = $Func(n$Arg0VarName);
-    return $ReturnVarName$Pattern;
-  }];
-
-code WorkaroundPromote2 = [{
-    $NativeArg0Type n$Arg0VarName = ($NativeArg0Type)(1); n$Arg0VarName$Pattern = $Arg0VarName;
-    $Arg1BaseType$NativeArg0VecLength n$Arg1VarName = ($Arg1BaseType$NativeArg0VecLength)(1); n$Arg1VarName$Pattern = $Arg1VarName;
-    $ReturnBaseType$NativeArg0VecLength $ReturnVarName = $NativeFunc(n$Arg0VarName, n$Arg1VarName);
-    return $ReturnVarName$Pattern;
-  }];
-
 // exp
 OclBuiltinImpl knc_exp        = OclBuiltinImpl<exp, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_exp   = OclBuiltinImpl<exp, mask_types, 0, knc_mask_code_1>;
 OclBuiltinImpl knc_expand_exp = OclBuiltinImpl<exp, [v16f64], 0, Expand1>;
 
 // exp2
-OclBuiltinImpl pcg_workaround_mask_exp2   = OclBuiltinImpl<exp2, mask_f32_types, 0, WorkaroundPromote1>;
-OclBuiltinImpl knc_exp2        = OclBuiltinImpl<exp2, [v8f64], 0, knc_code_1>;
-OclBuiltinImpl knc_mask_exp2   = OclBuiltinImpl<exp2, mask_f64_types, 0, knc_mask_code_1>;
+OclBuiltinImpl knc_exp2        = OclBuiltinImpl<exp2, [v16f32, v8f64], 0, knc_code_1>;
+OclBuiltinImpl knc_mask_exp2   = OclBuiltinImpl<exp2, mask_types, 0, knc_mask_code_1>;
 OclBuiltinImpl knc_expand_exp2 = OclBuiltinImpl<exp2, [v16f64], 0, Expand1>;
 
 // exp10
@@ -730,12 +704,8 @@ OclBuiltinImpl knc_half_tan         = OclBuiltinImpl<half_tan, [v16f32], 0, knc_
 OclBuiltinImpl knc_mask_half_tan    = OclBuiltinImpl<half_tan, mask_f32_types, 0, knc_mask_code_1>;
 
 // half_recip
-OclBuiltinImpl knc_half_recip = OclBuiltinImpl<half_recip, half_recip.Types, 0, [{
-    return 1.f/$Arg0VarName;
-}]>;
-// compilation fails with unclear reason
-// OclBuiltinImpl knc_half_recip         = OclBuiltinImpl<half_recip, [v16f32], 0, knc_code_1>;
-// OclBuiltinImpl knc_mask_half_recip    = OclBuiltinImpl<half_recip, mask_f32_types, 0, knc_mask_code_1>;
+OclBuiltinImpl knc_half_recip         = OclBuiltinImpl<half_recip, [v16f32], 0, knc_code_1>;
+OclBuiltinImpl knc_mask_half_recip    = OclBuiltinImpl<half_recip, mask_f32_types, 0, knc_mask_code_1>;
 
 // half_rsqrt
 OclBuiltinImpl knc_half_rsqrt         = OclBuiltinImpl<half_rsqrt, [v16f32], 0, knc_code_1>;
@@ -758,10 +728,12 @@ OclBuiltinImpl knc_half_divide         = OclBuiltinImpl<half_divide, [v16f32], 0
 OclBuiltinImpl knc_mask_half_divide    = OclBuiltinImpl<half_divide, mask_f32_types, 0, knc_mask_code_2>;
 
 // half_log2
-OclBuiltinImpl pcg_workaround_mask_half_log2 = OclBuiltinImpl<half_log2, mask_f32_types, 0, WorkaroundPromote1>;
+OclBuiltinImpl knc_half_log2         = OclBuiltinImpl<half_log2, [v16f32], 0, knc_code_1>;
+OclBuiltinImpl knc_mask_half_log2    = OclBuiltinImpl<half_log2, mask_f32_types, 0, knc_mask_code_1>;
 
-// half_powr
-OclBuiltinImpl svml_workaround_mask_half_powr = OclBuiltinImpl<half_powr, mask_f32_types, 0, WorkaroundPromote2>;
+// half_powr 
+OclBuiltinImpl knc_half_powr         = OclBuiltinImpl<half_powr, [v16f32], 0, knc_code_2>;
+OclBuiltinImpl knc_mask_half_powr    = OclBuiltinImpl<half_powr, mask_f32_types, 0, knc_mask_code_2>;
 
 // native builtins
 // native_acos
@@ -960,15 +932,12 @@ OclBuiltinImpl knc_mask_native_tanpi   = OclBuiltinImpl<native_tanpi, mask_types
 OclBuiltinImpl knc_expand_native_tanpi = OclBuiltinImpl<native_tanpi, [v16f64], 0, Expand1>;
 
 // native_recip
-OclBuiltinImpl workaround_mask_native_recip = OclBuiltinImpl<native_recip, [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, [{
-    return 1.f/$Arg0VarName;
-}]>;
-OclBuiltinImpl workaround_mask_native_recip = OclBuiltinImpl<native_recip, [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
-    return 1./$Arg0VarName;
-}]>;
+OclBuiltinImpl knc_native_recip        = OclBuiltinImpl<native_recip, [v16f32, v8f64], 0, knc_code_1>;
+OclBuiltinImpl knc_mask_native_recip   = OclBuiltinImpl<native_recip, mask_types, 0, knc_mask_code_1>;
+OclBuiltinImpl knc_expand_native_recip = OclBuiltinImpl<native_recip, [v16f64], 0, Expand1>;
 
 // native_rcbrt
-OclBuiltinImpl workaround_mask_native_rcbrt = OclBuiltinImpl<native_rcbrt, mask_types, 0, [{
+OclBuiltinImpl workaround_mask_native_rcbrt = OclBuiltinImpl<native_rcbrt, native_rcbrt.Types, 0, [{
     return native_recip(native_cbrt($Arg0VarName));
 }]>;
 

@@ -1,7 +1,6 @@
 // vim:ts=2:sw=2:et:
 
 include "GENERIC/GENERIC_MIC.td"
-include "SVML.td"
 
 def m8 : OclType<"m8", "uchar", 1, 8, 0>;
 def m16 : OclType<"m16", "ushort", 1, 16, 0>;
