@@ -588,25 +588,25 @@ code MaskVStoreDHalfRTE = [{
     j.ix &= 0x20000000;
     x.ix |= j.ix;
     x.ix &= ~0x1fffffff;  
-    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rte8(x.d);
+    tmp.lo = convert_float8_rte(x.d);
     ushort mask16 = $Arg0VarName;
     mask_vstore_half_rte(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreDHalfRTZ = [{
     float16 tmp;
-    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rtz8($Arg1VarName);
+    tmp.lo = convert_float8_rtz($Arg1VarName);
     ushort mask16 = $Arg0VarName;
     mask_vstore_half_rtz(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreDHalfRTP = [{
     float16 tmp;
-    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rtp8($Arg1VarName);
+    tmp.lo = convert_float8_rtp($Arg1VarName);
     ushort mask16 = $Arg0VarName;
     mask_vstore_half_rtp(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreDHalfRTN = [{
     float16 tmp; 
-    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rtn8($Arg1VarName);
+    tmp.lo = convert_float8_rtn($Arg1VarName);
     ushort mask16 = $Arg0VarName;
     mask_vstore_half_rtn(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
@@ -707,25 +707,25 @@ code MaskVStoreADHalfRTE = [{
     j.ix &= 0x20000000;
     x.ix |= j.ix;
     x.ix &= ~0x1fffffff;  
-    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rte8(x.d);
+    tmp.lo = convert_float8_rte(x.d);
     ushort mask16 = $Arg0VarName;
     mask_vstorea_half_rte(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreADHalfRTZ = [{
     float16 tmp;
-    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rtz8($Arg1VarName);
+    tmp.lo = convert_float8_rtz($Arg1VarName);
     ushort mask16 = $Arg0VarName;
     mask_vstorea_half_rtz(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreADHalfRTP = [{
     float16 tmp;
-    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rtp8($Arg1VarName);
+    tmp.lo = convert_float8_rtp($Arg1VarName);
     ushort mask16 = $Arg0VarName;
     mask_vstorea_half_rtp(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];
 code MaskVStoreADHalfRTN = [{
     float16 tmp;
-    tmp.lo = __ocl_svml_b2_cvtfp64tofp32rtn8($Arg1VarName);
+    tmp.lo = convert_float8_rtn($Arg1VarName);
     ushort mask16 = $Arg0VarName;
     mask_vstorea_half_rtn(mask16, tmp, $Arg2VarName, $Arg3VarName);
   }];

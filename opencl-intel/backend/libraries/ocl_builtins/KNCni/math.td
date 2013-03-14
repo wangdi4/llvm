@@ -217,67 +217,6 @@ OclBuiltinImpl mask_native_logb_f64_v8 = OclBuiltinImpl<mask_native_logb, [v8f64
 OclBuiltinImpl native_logb_f64_promote = OclBuiltinImpl<native_logb, [v1f64, v2f64, v3f64, v4f64], 0, MaskPromote1>;
 OclBuiltinImpl native_logb_f64_expand = OclBuiltinImpl<native_logb, [v16f64], 0, Expand1>;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// since SVML 3.0 all non mask math functions which arguments do not fit to native types are deprecated for MIC //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-code svml_code_2p = [{
-    $Arg0Type stack;
-    $Arg1NoASType p_arg1 = ($Arg1NoASType)&stack;
-    $ReturnType ret = __ocl_svml_$Target_$Func$SVMLSuffix($Arg0VarName, p_arg1);
-    *$Arg1VarName = *p_arg1;
-    return ret;
-}];
- 
-code svml_mask_code_2p = [{
-    $NativeArg0Type arg0 = ($NativeArg0Type)(1); arg0$Pattern = $Arg0VarName;
-    $NativeArg1Type arg1 = ($NativeArg1Type)(1); 
-    $Arg1BaseType$NativeArg0VecLength * p_arg1 = ($Arg1BaseType$NativeArg0VecLength *)&arg1;
-    $NativeReturnType ret = $Func(arg0, p_arg1);
-    *$Arg1VarName = arg1$Pattern;
-    return ret$Pattern;
-}];
-
-code expand_svml_mask_code_2p = [{
-     int16 lo, hi;
-     $Arg1BaseType#8 * plo = ($Arg1BaseType#8 *)&lo;
-     $Arg1BaseType#8 * phi = ($Arg1BaseType#8 *)&hi;
-     $ReturnBaseType#16 $ReturnVarName = 
-         ($ReturnBaseType#16)($Func($Arg0VarName.lo, plo), $Func($Arg0VarName.hi, phi));
-     *$Arg1VarName = ($Arg1BaseType#16)(*plo, *phi);
-     return $ReturnVarName;
-}];
-
-code svml_code_3p = [{
-    $Arg0Type stack;
-    $Arg2NoASType p_arg2 = ($Arg2NoASType)&stack;
-    $ReturnType ret = __ocl_svml_$Target_$Func$SVMLSuffix($Arg0VarName, $Arg1VarName, p_arg2);
-    *$Arg2VarName = *p_arg2;
-    return ret;
-}];
- 
-code svml_mask_code_3p = [{
-    $NativeArg0Type arg0 = ($NativeArg0Type)(1); arg0$Pattern = $Arg0VarName;
-    $NativeArg1Type arg1 = ($NativeArg1Type)(1); arg1$Pattern = $Arg1VarName;
-    $NativeArg2Type arg2 = ($NativeArg2Type)(1); 
-    $Arg2BaseType$NativeArg0VecLength * p_arg2 = ($Arg2BaseType$NativeArg0VecLength *)&arg2;
-    $NativeReturnType ret = $Func(arg0, arg1, p_arg2);
-    *$Arg2VarName = arg2$Pattern;
-    return ret$Pattern;
-}];
-
-code svml_expand_code_3p = [{
-     int16 lo, hi;
-     $Arg2BaseType#8 * plo = ($Arg2BaseType#8 *)&lo;
-     $Arg2BaseType#8 * phi = ($Arg2BaseType#8 *)&hi;
-     $ReturnBaseType#16 $ReturnVarName = 
-         ($ReturnBaseType#16)($Func($Arg0VarName.lo, $Arg1VarName.lo, plo),
-                              $Func($Arg0VarName.hi, $Arg1VarName.hi, phi));
-     *$Arg2VarName = ($Arg2BaseType#16)(*plo, *phi);
-     return $ReturnVarName;
-}];
-
-
 list<OclType> mask_f32_types = [v1f32, v2f32, v3f32, v4f32, v8f32];
 list<OclType> mask_f64_types = [v1f64, v2f64, v3f64, v4f64];
 list<OclType> mask_types = [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64];
@@ -794,7 +733,7 @@ OclBuiltinImpl knc_mask_half_tan    = OclBuiltinImpl<half_tan, mask_f32_types, 0
 OclBuiltinImpl knc_half_recip = OclBuiltinImpl<half_recip, half_recip.Types, 0, [{
     return 1.f/$Arg0VarName;
 }]>;
-// compilation hangs with unclear reason
+// compilation fails with unclear reason
 // OclBuiltinImpl knc_half_recip         = OclBuiltinImpl<half_recip, [v16f32], 0, knc_code_1>;
 // OclBuiltinImpl knc_mask_half_recip    = OclBuiltinImpl<half_recip, mask_f32_types, 0, knc_mask_code_1>;
 
