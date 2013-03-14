@@ -8,13 +8,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Mangler.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "Functions.h"
 
-#include "llvm/Value.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Constants.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/Analysis/PostDominators.h"
+
 #include <string>
+#include <stack>
 
 namespace intel {
 
@@ -109,6 +111,13 @@ bool WIAnalysis::runOnFunction(Function &F) {
   m_soaAllocaAnalysis = &getAnalysis<SoaAllocaAnalysis>();
   V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
 
+  m_DT = &getAnalysis<DominatorTree>();
+  assert(m_DT && "Unable to get DominatorTree pass");
+  m_PDT = &getAnalysis<PostDominatorTree>();
+  assert(m_PDT && "Unable to get PostDominatorTree pass");
+  m_LI = &getAnalysis<LoopInfo>();
+  assert(m_LI && "Unable to get LoopInfo pass");
+
   m_deps.clear();
   m_changed1.clear();
   m_changed2.clear();
@@ -116,7 +125,7 @@ bool WIAnalysis::runOnFunction(Function &F) {
   m_pChangedOld = &m_changed2;
 
   // Compute the  first iteration of the WI-dep according to ordering
-  // intstructions this ordering is generally good (as it ususally correlates
+  // instructions this ordering is generally good (as it usually correlates
   // well with dominance).
   inst_iterator it = inst_begin(F);
   inst_iterator  e = inst_end(F);
@@ -124,7 +133,7 @@ bool WIAnalysis::runOnFunction(Function &F) {
     calculate_dep(&*it);
   }
 
-  // Recursively check if WI-dep changes and if so reclaculates
+  // Recursively check if WI-dep changes and if so recalculates
   // the WI-dep and marks the users for re-checking.
   // This procedure is guranteed to converge since WI-dep can only
   // become less unifrom (uniform->consecutive->ptr->stride->random).
@@ -173,11 +182,8 @@ WIAnalysis::WIDependancy WIAnalysis::whichDepend(const Value* val){
   V_ASSERT(m_pChangedNew->empty() && "set should be empty before query");
   V_ASSERT(val && "Bad value");
   if (m_deps.find(val) == m_deps.end()) {
-    // We do not expect instructions not in the map, in that case take the safe
-    // way return random on release (assert on debug). For non-instruction
-    // (arguments, constants) return uniform.
     bool isInst = isa<Instruction>(val);
-    V_ASSERT(!isInst && "should not have new instruciton");
+
     if (isInst) return WIAnalysis::RANDOM;
     return WIAnalysis::UNIFORM;
   }
@@ -186,6 +192,14 @@ WIAnalysis::WIDependancy WIAnalysis::whichDepend(const Value* val){
     outs()<<"whichDepend function "<< "WIA " <<m_deps[val] <<" "<<*val <<" " << "\n";
   }
   return m_deps[val];
+}
+
+bool WIAnalysis::isDivergentBlock(BasicBlock *BB) {
+  return m_divBlocks.count(BB);
+}
+
+bool WIAnalysis::isDivergentPhiBlocks(BasicBlock *Phi) {
+  return m_divPhiBlocks.count(Phi);
 }
 
 void WIAnalysis::invalidateDepend(const Value* val){
@@ -258,6 +272,11 @@ void WIAnalysis::calculate_dep(const Value* val) {
   // Our initial value
   bool hasOriginal = hasDependency(inst);
   WIDependancy orig = getDependency(inst);
+
+  // if inst is already marked random, it cannot get better
+  if (orig == WIAnalysis::RANDOM) {
+    return;
+  }
   WIDependancy dep = orig;
 
   // LLVM does not have compile time polymorphisms
@@ -284,19 +303,156 @@ void WIAnalysis::calculate_dep(const Value* val) {
   // If the value was changed in this calculation
   if (!hasOriginal || dep!=orig) {
     // Save the new value of this instruction
-    m_deps[inst] = dep;
-    // Register for update all of the dependent values of this updated
-    // instruction.
-    Value::const_use_iterator it = inst->use_begin();
-    Value::const_use_iterator e  = inst->use_end();
-    for (; it != e; ++it) {
-      m_pChangedNew->insert(*it);
+    updateDepMap(inst, dep);
+    // divergent branch, trigger updates due to control-dependence
+    const TerminatorInst *term = dyn_cast<TerminatorInst>(inst);
+    if ( term && dep != WIAnalysis::UNIFORM) {
+      // inst is a conditional branch because otherwise its dependency would be uniform
+      updateCfDependency(term);
     }
   }
 }
 
+// Mark each phi node in join or a partial join as divergent
+void WIAnalysis::markDependentPhiRandom() {
+
+  // full join
+  // Note that a branch can have null immediate post-dominator
+  // when a function has multiple exits in llvm-ir
+  if (m_fullJoin) {
+    m_divPhiBlocks.insert(m_fullJoin);
+    for (BasicBlock::iterator instItr = m_fullJoin->begin();
+        instItr != m_fullJoin->end();
+        ++instItr) {
+
+      Instruction *inst = dyn_cast<Instruction>(instItr);
+      if (!isa<PHINode>(inst))
+        break;
+      updateDepMap(inst, WIAnalysis::RANDOM);
+    }
+  }
+
+  // partial joins
+  for (SmallPtrSet<BasicBlock*, 4>::iterator blkItr = m_partialJoins.begin();
+       blkItr != m_partialJoins.end();
+       ++blkItr) {
+    m_divPhiBlocks.insert((*blkItr));
+    for (BasicBlock::iterator instItr = (*blkItr)->begin();
+        instItr != (*blkItr)->end();
+        ++instItr) {
+      Instruction *inst = dyn_cast<Instruction>(instItr);
+      if (!isa<PHINode>(inst))
+        break;
+      updateDepMap(inst, WIAnalysis::RANDOM);
+    }
+  }
+}
+
+void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
+  BasicBlock *blk = (BasicBlock *)(inst->getParent());
+
+  calcInfoForBranch(inst);
+
+  // Mark each phi node in a join or a partial join as divergent
+  markDependentPhiRandom();
+
+  // walk through all the instructions in the influence-region
+  for(DenseSet<BasicBlock*>::iterator blkItr = m_influenceRegion.begin();
+    blkItr != m_influenceRegion.end();
+    ++blkItr) {
+    BasicBlock *defBlk = *blkItr;
+
+
+    // A node in the influence region of a divergent branch may not have
+    // an incoming edge from a non-divergent block (unless its the immediate post
+    // dominator which contains a random terminator).
+    // Therefore, in case such an edge exists we need to mark the terminator of
+    // the immediate dominator of the edge successor as random.
+    // The only exception that this is allowed is in loops and because loops has
+    // preheaders with non-conditional branches then the following will work
+    // for these as well.
+    for (pred_iterator itr = pred_begin(defBlk); itr != pred_end(defBlk); ++itr) {
+      if (!isDivergentBlock(*itr) && (*itr != blk)) {
+        BasicBlock *immDom = m_DT->getNode(defBlk)->getIDom()->getBlock();
+        assert(immDom && "immDom cannot be null");
+
+        TerminatorInst* term = immDom->getTerminator();
+        BranchInst* br = dyn_cast<BranchInst>(term);
+        assert(br && "br cannot be null");
+
+        if (br->isConditional())
+          updateDepMap(term, WIAnalysis::RANDOM);
+        break;
+      }
+    }
+
+    for (BasicBlock::iterator I = defBlk->begin(), E = defBlk->end(); I != E; ++I) {
+      Instruction *defInst = I;
+
+      // If defInst is random then its randomness will propagate to its usages
+      // in the regular way and no control flow info propagation is needed
+      if (hasDependency(defInst) && getDependency(defInst) == WIAnalysis::RANDOM) {
+        continue;
+      }
+
+      // look at the uses
+      for (Value::use_iterator useItr = defInst->use_begin();
+          useItr != defInst->use_end();
+          ++useItr) {
+
+        Instruction *useInst = dyn_cast<Instruction>(*useItr);
+        if (!useInst) {
+          continue;
+        }
+
+        BasicBlock *useBlk = useInst->getParent();
+        if (useBlk == defBlk) {
+          // local def-use, not related to control-dependence
+          continue; // check the next use
+        }
+
+        if (useBlk == m_fullJoin ||
+            m_partialJoins.count(useBlk)) {
+
+          if (isa<PHINode>(useInst)) {
+            continue;
+          }
+
+          // We can check whether the (partial) join is a loop exit and change the algorithm
+          // This might increase accuracy in case there are gotos but seems like 
+          // redundant computation for our case.
+          // For now we'll mark a usage in every join/partial join as random
+          // We might change it in the future.
+
+          updateDepMap(useInst, WIAnalysis::RANDOM);
+
+        }
+        else {
+          // Mark each usage not in the influence region as random
+          if (! m_influenceRegion.count(useBlk)){
+            updateDepMap(useInst, WIAnalysis::RANDOM);
+          }
+        }
+      }
+    }
+  }
+}
+
+void WIAnalysis::updateDepMap(const Instruction *inst, WIAnalysis::WIDependancy dep)
+{
+  // Save the new value of this instruction
+  m_deps[inst] = dep;
+  // Register for update all of the dependent values of this updated
+  // instruction.
+  Value::const_use_iterator useItr = inst->use_begin();
+  Value::const_use_iterator useEnd  = inst->use_end();
+  for (; useItr != useEnd; ++useItr) {
+    m_pChangedNew->insert(*useItr);
+  }
+}
+
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep_simple(const Instruction *I) {
-  // simply check that all operans are uniform, if so return uniform, else random
+  // simply check that all operands are uniform, if so return uniform, else random
   const unsigned nOps = I->getNumOperands();
   for (unsigned i=0; i<nOps; ++i) {
     const Value *op = I->getOperand(i);
@@ -440,8 +596,8 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
     scalarFuncName = Mangler::demangle(scalarFuncName);
   }
 
-  // Check with the runtime whether we can say that the ouput of the call
-  // is uniform in case all it's operands are unifrom.
+  // Check with the runtime whether we can say that the output of the call
+  // is uniform in case all it's operands are uniform.
   // Note that for openCL the runtime will say it is true for: get_gloabl_id,
   // get_local_id, since on dimension 0 the isTIDGenerator should answer true,
   // and we will say the value is Consecutive. So in here we cover dimensions 1,2
@@ -624,6 +780,106 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const VAArgInst* inst) {
 }
 
 
+// Calculating the influence region, partial joins, and block uniformity
+void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
+{
+  assert(inst && "inst cannot be null");
+  assert(dyn_cast<BranchInst>(inst) && dyn_cast<BranchInst>(inst)->isConditional() && "branch has to be a conditional branch");
+  assert(inst->getNumSuccessors() == 2 && "supports only for conditional branches with two successors");
+
+  m_fullJoin = m_PDT->getNode((BasicBlock*)(inst->getParent()))->getIDom()->getBlock();
+
+  bool updatedFullJoin = true;
+
+  // iterate until we do not need to recalculate the full join
+  while (updatedFullJoin) {
+
+    updatedFullJoin = false;
+
+    m_influenceRegion.clear();
+    m_partialJoins.clear();
+
+    Loop *fullJoinLoop = m_LI->getLoopFor(m_fullJoin);
+    SmallPtrSet<BasicBlock *, 4> fullJoinLoopLatches;
+
+    if (fullJoinLoop) {
+      for (pred_iterator itr = pred_begin(fullJoinLoop->getHeader());
+          itr != pred_end(fullJoinLoop->getHeader());
+          ++itr) {
+        if (fullJoinLoop->contains(*itr))
+          fullJoinLoopLatches.insert(*itr);
+      }
+    }
+
+    DenseSet<BasicBlock*> leftSet, rightSet;
+    std::stack<BasicBlock*> workSet;
+
+    for (int i=0; i < 2; ++i) { // inst->getNumSuccessors() == 2
+
+      if (inst->getSuccessor(i) != m_fullJoin) {
+
+        workSet.push(inst->getSuccessor(i));
+
+        while (!workSet.empty()) {
+          BasicBlock *curBlk = workSet.top();
+          workSet.pop();
+
+          m_divBlocks.insert(curBlk); // mark block as divergent
+
+          Loop * curLoop = m_LI->getLoopFor(curBlk);
+
+          // If full join is in the curLoop and we reached the latch node of this loop
+          // Then we should abort, update the full join by finding its first post-dominator which
+          // is outside curLoop and then recalculate new info for this branch.
+          if ((fullJoinLoop) && (fullJoinLoop == curLoop)
+               && fullJoinLoopLatches.count(curBlk)) {
+            updatedFullJoin = true;
+            break;
+          }
+
+          if (i == 1 && leftSet.count(curBlk))
+            m_partialJoins.insert(curBlk);
+
+          DenseSet<BasicBlock*> & blkSet = (i == 0) ? leftSet : rightSet;
+
+          blkSet.insert(curBlk);
+          m_influenceRegion.insert(curBlk);
+          for (succ_iterator SI = succ_begin(curBlk), E = succ_end(curBlk); SI != E; ++SI) {
+            BasicBlock *succBlk = (*SI);
+            if (succBlk != m_fullJoin && !blkSet.count(succBlk)) {
+              workSet.push(succBlk);
+            }
+          }
+        }
+      }
+
+      if (updatedFullJoin)
+        break;
+    }
+
+    // If we need to update fullJoin it means that during computing the influence region
+    // we have reached the latch node of the loop where the full join is located in.
+    // In this case, in order to be sound, we should move the full join to the full join's
+    // first post-dominator outside its loop and start the computation from the beginning.
+    // This process can also be calculated incrementally by continue the calculation from
+    // the current full join.
+
+    if (updatedFullJoin) {
+      BasicBlock * nextFullJoin = m_fullJoin;
+      Loop *nextFullJoinLoop = 0;
+
+      // find the first full join's post-dominator outside the post dominator's loop
+      do {
+        nextFullJoin = m_PDT->getNode((BasicBlock*)nextFullJoin)->getIDom()->getBlock();
+        nextFullJoinLoop = m_LI->getLoopFor(nextFullJoin);
+      } while (nextFullJoinLoop == fullJoinLoop);
+
+      m_fullJoin = nextFullJoin;
+      fullJoinLoop = nextFullJoinLoop;
+    }
+  }
+}
+
 } // namespace
 
 /// Support for static linking of modules for Windows
@@ -633,5 +889,3 @@ extern "C" {
     return new intel::WIAnalysis();
   }
 }
-
-

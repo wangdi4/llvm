@@ -10,9 +10,9 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: @BypassCase2
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: header{{[0-9]*}}:
-; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                           ; preds = %header{{[0-9]*}}
+; CHECK-NOT: header{{[0-9]*}}:
+; CHECK-NO:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK-NOT: footer{{[0-9]*}}:                                           ; preds = %header{{[0-9]*}}
 ; CHECK: ret
 define void @BypassCase2(i32 %arg1, i32 %arg2, float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %b) nounwind {
 entry:

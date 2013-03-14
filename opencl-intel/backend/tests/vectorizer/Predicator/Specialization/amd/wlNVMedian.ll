@@ -11,9 +11,6 @@ target triple = "i686-pc-win32"
 @lvgv = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
 
 ; CHECK: @ckMedian
-; CHECK: header{{[0-9]*}}:
-; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: header{{[0-9]*}}:
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
@@ -23,6 +20,7 @@ target triple = "i686-pc-win32"
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
+; CHECK: ret
 
 define void @ckMedian(<4 x i8> addrspace(1)* %uc4Source, i32 addrspace(1)* %uiDest, <4 x i8> addrspace(3)* %uc4LocalData, i32 %iLocalPixPitch, i32 %uiImageWidth, i32 %uiDevImageHeight, ...) nounwind {
 entry:

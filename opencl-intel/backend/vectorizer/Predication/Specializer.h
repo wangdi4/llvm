@@ -7,6 +7,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef SPECIALIZER_H
 #define SPECIALIZER_H
 #include "Linearizer.h"
+#include "WIAnalysis.h"
+
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Module.h"
@@ -44,7 +46,8 @@ public:
   /// @param DT dominator analysis
   FunctionSpecializer(Predicator* pred, Function* func, Function* all_zero,
                       PostDominatorTree* PDT, DominatorTree*  DT,
-                      RegionInfo* RI, LoopInfo *LI);
+                      RegionInfo* RI, LoopInfo *LI, WIAnalysis *WIA);
+
   /// @brief Finds a single edge to specialize. This uses
   ///  the control dominance of the block to check.
   ///  Of all the CD-ed children, It finds the one which post-dominates
@@ -153,6 +156,8 @@ private:
   RegionInfo* m_RI;
   // LoopInfo
   LoopInfo *m_LI;
+  // Work Item Analysis
+  WIAnalysis *m_WIA;
   /// Zero
   Value* m_zero;
   /// One

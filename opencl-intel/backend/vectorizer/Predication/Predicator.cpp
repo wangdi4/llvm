@@ -87,13 +87,10 @@ void Predicator::createAllOne(Module &M) {
 
 bool Predicator::needPredication(Function &F) {
 
-  WIAnalysis* WIA = &getAnalysis<WIAnalysis>();
-  V_ASSERT(WIA && "Unable to get pass");
-
   /// Place out-masks
   for (Function::iterator it = F.begin(), e  = F.end(); it != e ; ++it) {
     if (dyn_cast<ReturnInst>(it->getTerminator())) continue;
-    WIAnalysis::WIDependancy dep = WIA->whichDepend(it->getTerminator());
+    WIAnalysis::WIDependancy dep = m_WIA->whichDepend(it->getTerminator());
     if (dep != WIAnalysis::UNIFORM) {
       V_PRINT(predicate, F.getName()<< "needs predication because of "<<it->getName()<<" \n");
       return true;
@@ -105,6 +102,10 @@ bool Predicator::needPredication(Function &F) {
 }
 
 bool Predicator::runOnFunction(Function &F) {
+
+  /// Work item analysis pointer
+  m_WIA = &getAnalysis<WIAnalysis>();
+  V_ASSERT(m_WIA && "Unable to get work item analysis pointer pass");
 
   /// Create functions which we may use later
   createAllOne(*F.getParent());
@@ -208,6 +209,11 @@ void Predicator::LinearizeBlock(
 
   // nothing to do for return block
   if (term_successors == 0) return;
+
+  // The control flow of uniform branches in a non divergent blocks should remain
+  // as it is
+  if (m_WIA->whichDepend(term) == WIAnalysis::UNIFORM && !m_WIA->isDivergentBlock(block))
+    return;
 
   if (!loop) {
     // case where not a loop, a simple branch below
@@ -348,11 +354,11 @@ void Predicator::registerLoopSchedulingScopes(SchedulingScope& parent,
 void Predicator::linearizeFunction(Function* F,
                                    FunctionSpecializer& specializer) {
 
-  // Maps loop headers back to ths scops which represents them
+  // Maps loop headers back to the scopes which represents them
   DenseMap<BasicBlock*, SchedulingScope*> headers;
 
   // global scope which contains the entire function
-  // When this scope is destroied, all sub-scopes will be deleted.
+  // When this scope is destroyed, all sub-scopes will be deleted.
   SchedulingScope main_scope(NULL);
 
   LoopInfo *LI = &getAnalysis<LoopInfo>();
@@ -614,9 +620,13 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
   V_ASSERT (m_inInst.find(BB) != m_inInst.end() &&
             "Where did we save the mask in this BB ?");
 
+  // Should be done only for divergent blocks
+  if (! m_WIA->isDivergentBlock(BB))
+    return;
+
   // Load the predicate value and place the select
   // We will place them in the correct place in the next section
-  Instruction* predicate  = new LoadInst(pred,"prediacte");
+  Instruction* predicate  = new LoadInst(pred,"predicate");
   Instruction* prev_value  = new LoadInst(prev_ptr, "prev_value");
   SelectInst* select = SelectInst::Create(predicate, inst, prev_value, "out_sel");
   Instruction* store  = new StoreInst(select,prev_ptr);
@@ -645,7 +655,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
 
   // Replace all of the users of the original instruction with the select
   // We only replace instructions which do not belong to the same loop.
-  // Instructuins which are inside the loop will be predicated with local masks
+  // Instructions which are inside the loop will be predicated with local masks
   // instructions outside the loop need the special masking.
   std::vector<Value*> users(inst->use_begin(), inst->use_end());
   for (std::vector<Value*>::iterator it = users.begin(),
@@ -691,7 +701,7 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
   V_ASSERT(LI && "Unable to get loop analysis");
   Loop* loop = LI->getLoopFor(BB);
 
-  // incase a block post dominates the entry block and is not in a loop
+  // In case a block post dominates the entry block and is not in a loop
   // then all the instructions within it will be executed once and only once
   // so no need for masking
   BasicBlock &entryBlock = BB->getParent()->getEntryBlock();
@@ -730,6 +740,9 @@ void Predicator::maskDummyEntry(BasicBlock *BB) {
     BB->getParent()->getEntryBlock().begin());          // where
 }
 
+// Use the incoming mask as the outgoing mask
+// Can be either done for a non-conditional branch or for a uniform branch
+// in a non-divergent block
 void Predicator::maskOutgoing_useIncoming(BasicBlock *BB, BasicBlock* SrcBB) {
 
   TerminatorInst* term = BB->getTerminator();
@@ -739,7 +752,9 @@ void Predicator::maskOutgoing_useIncoming(BasicBlock *BB, BasicBlock* SrcBB) {
   // Output same as input
   V_ASSERT(m_inMask.find(SrcBB) != m_inMask.end() && "BB has no in-mask");
   Value* incoming = m_inMask[SrcBB];
-  m_outMask[std::make_pair(BB, br->getSuccessor(0))] = incoming;
+
+  for (unsigned i=0; i < br->getNumSuccessors(); ++i)
+    m_outMask[std::make_pair(BB, br->getSuccessor(i))] = incoming;
 }
 
 void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
@@ -810,7 +825,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     m_outMask[std::make_pair(BB, BBexit)] = exit_edge_mask_p;
   }
 
-  /// Update loop masks for all loop that BB is exiting (possible parent loops).
+  /// Update loop masks for all the loops that BB is exiting (possible parent loops).
   Value *curLoopMask = NULL;
   do {
     V_ASSERT(m_inMask.count(L->getHeader()) && "header has no in-mask");
@@ -821,8 +836,8 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     Value *newLoopMask = localOutMask;
     Value* loopMask_p = m_inMask[L->getHeader()];
     if (!L->getExitingBlock()) {
-      // There are more than one exiting block than we need to update loop
-      // mask with negation of exit edge .
+      // There are more than one exiting block then we need to update loop
+      // mask with negation of exit edge.
       Value* who_left_tr_not =
           BinaryOperator::CreateNot(who_left_tr, "who_left_tr_not", br);
       Value* loopMask   = new LoadInst(loopMask_p, "loop_mask", br);
@@ -851,7 +866,7 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
   BranchInst* br = dyn_cast<BranchInst>(term);
   V_ASSERT(br && "Unable to handle non branch terminators");
 
-  // Below we handle conditional brancs
+  // Below we handle conditional branches
   Value* cond = br->getCondition();
   BasicBlock *BBsucc0 = br->getSuccessor(0);
   BasicBlock *BBsucc1 = br->getSuccessor(1);
@@ -879,18 +894,26 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
     BB->getName() + "_to_" + BBsucc1->getName()+"_mask",
     BB->getParent()->getEntryBlock().begin());
 
-  BinaryOperator* MFalse  = BinaryOperator::Create(
-    Instruction::And, l_incoming, notCond,
-    BB->getName() + "_to_" + BBsucc1->getName(), br);
-  BinaryOperator* MTrue   = BinaryOperator::Create(
-    Instruction::And, l_incoming, cond,
-    BB->getName() + "_to_" + BBsucc0->getName(), br);
+  Value* MFalse, *MTrue;
+
+  if (m_WIA->isDivergentBlock(BB)) {
+    MFalse = BinaryOperator::Create(
+      Instruction::And, l_incoming, notCond,
+      BB->getName() + "_to_" + BBsucc1->getName(), br);
+    MTrue   = BinaryOperator::Create(
+      Instruction::And, l_incoming, cond,
+      BB->getName() + "_to_" + BBsucc0->getName(), br);
+  }
+  else {
+    MFalse = notCond;
+    MTrue = cond;
+  }
 
   // Store the mask into the alloca
   new StoreInst(MFalse, mfalse, br);
   new StoreInst(MTrue, mtrue, br);
   /// Save outgoing edges
-  m_outMask[std::make_pair(BB, BBsucc0 )] = mtrue;
+  m_outMask[std::make_pair(BB, BBsucc0)] = mtrue;
   m_outMask[std::make_pair(BB, BBsucc1)] = mfalse;
 }
 
@@ -959,8 +982,10 @@ void Predicator::maskOutgoing(BasicBlock *BB) {
   BranchInst* br = dyn_cast<BranchInst>(term);
   V_ASSERT(br && "Unable to handle non return/branch terminators");
 
-  // Implementation of unconditional branches is easy.
-  if (br->isUnconditional()) {
+  // Implementation of unconditional branches or uniform branches in 
+  // a non divergent blocks can be easily done
+  if (br->isUnconditional() || 
+    (m_WIA->whichDepend(br) == WIAnalysis::UNIFORM && !m_WIA->isDivergentBlock(BB))) {
     // If this outgoing mask is an optimized case
     return maskOutgoing_useIncoming(BB, BB);
   }
@@ -1108,6 +1133,20 @@ void Predicator::maskIncoming(BasicBlock *BB) {
 }
 
 
+bool Predicator::checkCanonicalForm(Function *F, LoopInfo *LI) {
+  for( Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
+
+    // Assert that each block has at most two preds
+    V_ASSERT(std::distance(pred_begin(it), pred_end(it))<3 && "Phi canon failed");
+
+    /// Verify that the loop is simplified
+    Loop* loop = LI->getLoopFor(it);
+    if (loop) {
+        V_ASSERT(loop->isLoopSimplifyForm() && "Loop must be in normal form");
+    }
+  }
+  return true;
+}
 
 void Predicator::predicateFunction(Function *F) {
 
@@ -1118,7 +1157,7 @@ void Predicator::predicateFunction(Function *F) {
   //
 
   // This pass runs on multiple functions, clean
-  // the data structures between each runts.
+  // the data structures between each runs.
   m_inMask.clear();
   m_inInst.clear();
   m_outMask.clear();
@@ -1133,7 +1172,7 @@ void Predicator::predicateFunction(Function *F) {
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   V_ASSERT(LI && "Unable to get loop analysis");
   FunctionSpecializer specializer(
-    this, F, m_allzero, PDT, DT, RI, LI);
+    this, F, m_allzero, PDT, DT, RI, LI, m_WIA);
 
   V_PRINT(predicate, "Predicating "<<F->getName()<<"\n");
 
@@ -1160,7 +1199,8 @@ void Predicator::predicateFunction(Function *F) {
   )
 
   for( Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
-    collectInstructionsToPredicate(it);
+    if (m_WIA->isDivergentBlock(it))
+      collectInstructionsToPredicate(it);
   }
 
   V_STAT(
@@ -1173,18 +1213,7 @@ void Predicator::predicateFunction(Function *F) {
           "prev-select marked "<<
           m_outsideUsers.size()<<" instructions\n");
 
-
-  for( Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
-
-    // Assert that each block has at most two preds
-    V_ASSERT(std::distance(pred_begin(it), pred_end(it))<3 && "Phi canon failed");
-
-    /// Verify that the loop is simplified
-    Loop* loop = LI->getLoopFor(it);
-    if (loop) {
-        V_ASSERT(loop->isLoopSimplifyForm() && "Loop must be in normal form");
-    }
-  }
+  V_ASSERT(checkCanonicalForm(F, LI) && "Function for predication has to be in canonical form");
 
   /// Place dummy in-masks
   for( Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
@@ -1194,13 +1223,15 @@ void Predicator::predicateFunction(Function *F) {
   for (Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
     maskOutgoing(it);
   }
-  /// replace dummy in-masks with real in-masks
+  /// Replace dummy in-masks with real in-masks
   for (Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
     maskIncoming(it);
   }
-  /// replace all PHINodes with select instruction
+  /// Replace all the divergent PHINodes and the PHINodes in 
+  /// divergent blocks with select instructions
   for (Function::iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
-    convertPhiToSelect(it);
+    if (m_WIA->isDivergentBlock(it) || m_WIA->isDivergentPhiBlocks(it))
+      convertPhiToSelect(it);
   }
   /// Place selects on loop-exit-users
   for (SmallInstVector::iterator

@@ -14,10 +14,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
 ; CHECK: header{{[0-9]*}}:
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: header{{[0-9]*}}:
-; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: header{{[0-9]*}}:
-; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: header{{[0-9]*}}:
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
@@ -30,8 +26,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
 ; CHECK: header{{[0-9]*}}:
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}

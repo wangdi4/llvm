@@ -10,12 +10,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: @BypassCase3
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
-; CHECK: header{{[0-9]*}}:
-; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                         ; preds = %header{{[0-9]*}}
-; CHECK: header{{[0-9]*}}:
-; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                         ; preds = %header{{[0-9]*}}
+; CHECK-NOT: header{{[0-9]*}}:
+; CHECK-NOT:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK-NOT: footer{{[0-9]*}}:                                         ; preds = %header{{[0-9]*}}
+; CHECK-NOT: header{{[0-9]*}}:
+; CHECK-NOT:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK-NOT: footer{{[0-9]*}}:                                         ; preds = %header{{[0-9]*}}
 ; CHECK: ret
 define void @BypassCase3(i32 %arg1, i32 %arg2, float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %b) nounwind {
 entry:
@@ -23,7 +23,7 @@ entry:
   %arrayidx = getelementptr inbounds float addrspace(1)* %a, i32 %call
   %tmp2 = load float addrspace(1)* %arrayidx, align 4
   %cmp = icmp sgt i32 %arg1, 3
-  br i1 %cmp, label %if.then, label %if.else11
+  br i1 %cmp, label %if.then, label %if.else11    ; uniform control flow, therefore, should not be flattened
 
 if.then:                                          ; preds = %entry
   %mul = fmul float %tmp2, 2.000000e+000

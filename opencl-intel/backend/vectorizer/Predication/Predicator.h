@@ -46,7 +46,7 @@ public:
   }
 
 private:
-  /// Declare the type of our small isntruction vector
+  /// Declare the type of our small instruction vector
   typedef SmallVector<Instruction*, 8> SmallInstVector;
   /// Declare the type for our incoming-value-to-source-edge data structure
   typedef DenseMap<std::pair<BasicBlock*, Value*>, BasicBlock*> IncomingEdgeMap;
@@ -231,6 +231,10 @@ private:
   bool needPredication(Function &F);
   /*! \} */
 
+  /// @brief Checks if the input function is in canonical form
+  /// @param F function to manipulate
+  bool checkCanonicalForm(Function *F, LoopInfo *LI);
+  
 public:
   /*! \name LLVM Interface
    * \{ */
@@ -299,7 +303,9 @@ private:
   int m_maskedStoreCtr;
   /// Counter for masked call
   int m_maskedCallCtr;
-
+  
+  // Work-item analysis pointer
+  WIAnalysis* m_WIA;
 };
 
 }

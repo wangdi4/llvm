@@ -43,9 +43,6 @@ target triple = "i686-pc-win32"
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: header{{[0-9]*}}:
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: header{{[0-9]*}}:
-; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: ret
 
@@ -58,45 +55,30 @@ target triple = "i686-pc-win32"
 ; CHECK: @histogramStep2int
 ; CHECK: header{{[0-9]*}}:
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: header{{[0-9]*}}:
-; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: ret
 
 ; CHECK: @histogramStep2int2
 ; CHECK: header{{[0-9]*}}:
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: header{{[0-9]*}}:
-; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: ret
 
 ; CHECK: @histogramStep2int4
 ; CHECK: header{{[0-9]*}}:
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: header{{[0-9]*}}:
-; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: ret
 
 ; CHECK: @histogramStep2int8
 ; CHECK: header{{[0-9]*}}:
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: header{{[0-9]*}}: 
-; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: ret
 
 ; CHECK: @histogramStep2int16
 ; CHECK: header{{[0-9]*}}:
 ; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: header{{[0-9]*}}:
-; CHECK:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                        ; preds = %header{{[0-9]*}}
 ; CHECK: ret
 

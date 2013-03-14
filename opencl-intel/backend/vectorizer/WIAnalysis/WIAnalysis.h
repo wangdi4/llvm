@@ -6,16 +6,26 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #ifndef __WIANALYSIS_H_
 #define __WIANALYSIS_H_
+
 #include "RuntimeServices.h"
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 
+#include "llvm/Instructions.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
-#include "llvm/Instructions.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Module.h"
+#include "llvm/Value.h"
+#include "llvm/Support/InstIterator.h"
+#include "llvm/Analysis/Dominators.h"
+#include "llvm/Analysis/PostDominators.h"
 
-#include <set>
+#include <map>
 
 using namespace llvm;
 
@@ -58,7 +68,7 @@ public:
     /// The WIAnalysis follows pointer arithmetic
     ///  and Index arithmetic when calculating dependency
     ///  properties. If a part of the index is lost due to
-    ///  a transformation, it is acceptible.
+    ///  a transformation, it is acceptable.
     ///  This constant decides how many bits need to be
     ///  preserved before we give up on the analysis.
     static const unsigned int MinIndexBitwidthToPreserve;
@@ -68,6 +78,16 @@ public:
     /// @param val Value to test
     /// @return Dependency kind
     WIDependancy whichDepend(const Value* val);
+
+    /// @brief Returns whether BB is a divergent block
+    /// @param BB the block
+    /// @return true for divergent and false otherwise
+    bool isDivergentBlock(BasicBlock *BB);
+
+    /// @brief Returns whether the Phi's in BB are divergent
+    /// @param BB the basic block
+    /// @return true for divergent and false otherwise
+    bool isDivergentPhiBlocks(BasicBlock *BB);
 
     /// @brief Inform analysis that instruction was invalidated
     /// as pointer may later be reused
@@ -103,6 +123,21 @@ private:
     ///         Uniform, Random othewise
     WIDependancy calculate_dep_simple(const Instruction *I);
 
+    /// @brief update the WI-dep from a divergent branch
+    /// @param the divergent branch and the dependency
+    /// @return no explicit return, however, affected instructions
+    ///         are added to m_pChangedNew
+    void updateDepMap(const Instruction *inst, WIAnalysis::WIDependancy dep);
+
+    /// @brief mark all the Phi nodes in full/partial joins as random
+    /// @return
+    void markDependentPhiRandom();
+
+    /// @brief the main function to handle control flow divergence
+    /// @param the divergent branch
+    /// @return
+    void updateCfDependency(const TerminatorInst *inst);
+
     /// @brief Provide known dependency type for requested value
     /// @param val Value to examine
     /// @return Dependency type. Returns Uniform for unknown type
@@ -113,6 +148,11 @@ private:
     /// @return true if value has dependency type, false otherwise.
     bool hasDependency(const Value *val);
 
+    // @brief Calculates the influence region, divergent loops, divergent blocks, and partial joins for
+    // the branch inst. PDT is given for post dominance info
+    // @param divergent branch
+    // @return the full join
+    void calcInfoForBranch(const TerminatorInst *inst);
 
     /// @brief  LLVM Interface
     /// @param AU Analysis
@@ -120,6 +160,9 @@ private:
       // Analysis pass preserve all
       AU.setPreservesAll();
       AU.addRequired<SoaAllocaAnalysis>();
+      AU.addRequired<DominatorTree>();
+      AU.addRequired<PostDominatorTree>();
+      AU.addRequired<LoopInfo>();
     }
 
 private:
@@ -137,6 +180,38 @@ private:
     std::set<const Value*> *m_pChangedOld;
     std::set<const Value*> *m_pChangedNew;
 
+   /// Analyses needed by the control flow divergence
+   /// propagation
+    DominatorTree *m_DT;
+    PostDominatorTree *m_PDT;
+    LoopInfo *m_LI;
+
+    //// Fields for the control flow divergence propagation
+
+    //// block info - these are general for the kernel and not branch specific
+
+    // stores the divergent blocks - ones that have an input mask
+    DenseSet<const BasicBlock*> m_divBlocks;
+
+    // stores the divergent phi block nodes - ones that has divergent output due to the control flow
+    DenseSet<const BasicBlock*> m_divPhiBlocks;
+
+    //// branch specific info
+
+    // Immediate post-dominator
+    // In case where the immediate post-dominator of a branch is
+    // inside a loop, the latch node is not an exiting node, and
+    // the latch node is in the influence region.
+    // Then m_fullJoin is moved to be the first post-dominator
+    // outside the loop
+
+    BasicBlock *m_fullJoin;
+
+    // influence region - blocks that exist in a path from cbr to fullJoin
+    DenseSet<BasicBlock*> m_influenceRegion;
+
+    // blocks in influenceRegion that are reachable from cbr by two different successors
+    SmallPtrSet<BasicBlock*, 4> m_partialJoins;
   };
 } // namespace
 
