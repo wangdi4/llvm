@@ -45,7 +45,11 @@
 void fileToBuffer(const char** return_val, const char* sFileName)
 {
 	std::stringstream ss;
-	ss << "validation\\common_runtime_test_type\\" << sFileName;
+	#if defined (_WIN32)
+		ss << "validation\\common_runtime_test_type\\" << sFileName;
+	#else
+		ss << "validation/common_runtime_test_type/" << sFileName;
+	#endif
 	//	try to open file
 	std::ifstream file(ss.str().c_str());
 	//	check if file was opened successfully
