@@ -315,7 +315,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   m_modulePasses.add(createShiftZeroUpperBitsPass());
   m_modulePasses.add(createPreventDivisionCrashesPass());
   // We need InstructionCombining and GVN passes after ShiftZeroUpperBits, PreventDivisionCrashes passes
-  // to optimize redundancy entroduced by those passes
+  // to optimize redundancy introduced by those passes
   if ( debugType == None ) {
     m_modulePasses.add(llvm::createInstructionCombiningPass());
     m_modulePasses.add(llvm::createGVNPass());
