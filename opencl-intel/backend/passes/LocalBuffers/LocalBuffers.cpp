@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "LocalBuffers.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
+#include "common_dev_limits.h"
 #include "llvm/Version.h"
 
 #if LLVM_VERSION >= 3425

@@ -213,7 +213,7 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //
   {
 #ifdef __APPLE__
-    llvm::StringRef names[] = ("__cl_ldexp");
+    llvm::StringRef names[] = {"__cl_ldexp"};
 #else
     llvm::StringRef names[] = {"ldexp"};
 #endif
