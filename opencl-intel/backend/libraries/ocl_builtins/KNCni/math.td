@@ -1,40 +1,58 @@
 // vim:ts=2:sw=2:et:
 
-// fmax
-OclBuiltinImpl fmax_f32_v16 = OclBuiltinImpl<fmax, [v16f32], 0, [{
-    return _mm512_max_ps($Arg0VarName, $Arg1VarName);
-  }]>;
-OclBuiltinImpl mask_fmax_f32_v16 = OclBuiltinImpl<mask_fmax, [v16f32], 0, [{
-    return _mm512_mask_max_ps($Arg1VarName, $Arg0VarName, $Arg1VarName, $Arg2VarName);
-  }]>;
-OclBuiltinImpl fmax_f32_promote = OclBuiltinImpl<fmax, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, MaskPromote2>;
+list<OclType> mask_f32_types = [v1f32, v2f32, v3f32, v4f32, v8f32];
+list<OclType> mask_f64_types = [v1f64, v2f64, v3f64, v4f64];
+list<OclType> mask_types = [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64];
 
-OclBuiltinImpl fmax_f64_v8 = OclBuiltinImpl<fmax, [v8f64], 0, [{
-    return _mm512_max_pd($Arg0VarName, $Arg1VarName);
+// fmax
+OclBuiltinImpl knc_fmax = OclBuiltinImpl<fmax, [v16f32, v8f64], 0, [{
+    $Arg0Symm512gentype arg0 = ($Arg0Symm512gentype)$Arg0VarName;
+    $Arg1Symm512gentype arg1 = ($Arg1Symm512gentype)$Arg1VarName;
+    // according to OpenCL 1.2 ch. 6.12.2
+    // fmax(-0., +0.) has to return -0.
+    $Arg0Symmaskgentype neq_mask = _mm512_cmpneq_$Arg0Sympspdgentype(arg0, arg1);
+    $Arg1Symm512gentype ret = _mm512_mask_max_$Arg0Sympspdgentype(arg0, neq_mask, arg0, arg1);
+    return as_$ReturnType(ret);
   }]>;
-OclBuiltinImpl mask_fmax_f64_v8 = OclBuiltinImpl<mask_fmax, [v8f64], 0, [{
-    return _mm512_mask_max_pd($Arg1VarName, $Arg0VarName, $Arg1VarName, $Arg2VarName);
+
+OclBuiltinImpl knc_fmax_mask = OclBuiltinImpl<fmax, mask_types, 0, [{
+    $NativeArg0Type arg;
+    arg$Pattern = $Arg0VarName;
+    $Arg0Symm512gentype arg0 = ($Arg0Symm512gentype)arg;
+    arg$Pattern = $Arg1VarName;
+    $Arg1Symm512gentype arg1 = ($Arg1Symm512gentype)arg;
+    // according to OpenCL 1.2 ch. 6.12.2
+    // fmax(-0., +0.) has to return -0.
+    $Arg0Symmaskgentype neq_mask = _mm512_mask_cmpneq_$Arg0Sympspdgentype($Mask, arg0, arg1);
+    $ReturnSymm512gentype ret = _mm512_mask_max_$Arg0Sympspdgentype(arg0, neq_mask, arg0, arg1);
+    return as_$NativeReturnType(ret)$Pattern;
   }]>;
-OclBuiltinImpl fmax_f64_promote = OclBuiltinImpl<fmax, [v1f64, v2f64, v3f64, v4f64], 0, MaskPromote2>;
-OclBuiltinImpl fmax_f64_expand = OclBuiltinImpl<fmax, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_fmax_expand = OclBuiltinImpl<fmax, [v16f64], 0, Expand2>;
 
 // fmin
-OclBuiltinImpl fmin_f32_v16 = OclBuiltinImpl<fmin, [v16f32], 0, [{
-    return _mm512_min_ps($Arg0VarName, $Arg1VarName);
+OclBuiltinImpl knc_fmin = OclBuiltinImpl<fmin, [v16f32, v8f64], 0, [{
+    $Arg0Symm512gentype arg0 = ($Arg0Symm512gentype)$Arg0VarName;
+    $Arg1Symm512gentype arg1 = ($Arg1Symm512gentype)$Arg1VarName;
+    // according to OpenCL 1.2 ch. 6.12.2
+    // fmin(+0., -0.) has to return +0.
+    $Arg0Symmaskgentype neq_mask = _mm512_cmpneq_$Arg0Sympspdgentype(arg0, arg1);
+    $Arg1Symm512gentype ret = _mm512_mask_min_$Arg0Sympspdgentype(arg0, neq_mask, arg0, arg1);
+    return as_$ReturnType(ret);
   }]>;
-OclBuiltinImpl mask_fmin_f32_v16 = OclBuiltinImpl<mask_fmin, [v16f32], 0, [{
-    return _mm512_mask_min_ps($Arg1VarName, $Arg0VarName, $Arg1VarName, $Arg2VarName);
-  }]>;
-OclBuiltinImpl fmin_f32_promote = OclBuiltinImpl<fmin, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, MaskPromote2>;
 
-OclBuiltinImpl fmin_f64_v8 = OclBuiltinImpl<fmin, [v8f64], 0, [{
-    return _mm512_min_pd($Arg0VarName, $Arg1VarName);
+OclBuiltinImpl knc_fmin_mask = OclBuiltinImpl<fmin, mask_types, 0, [{
+    $NativeArg0Type arg;
+    arg$Pattern = $Arg0VarName;
+    $Arg0Symm512gentype arg0 = ($Arg0Symm512gentype)arg;
+    arg$Pattern = $Arg1VarName;
+    $Arg1Symm512gentype arg1 = ($Arg1Symm512gentype)arg;
+    // according to OpenCL 1.2 ch. 6.12.2
+    // fmin(+0., -0.) has to return +0.
+    $Arg0Symmaskgentype neq_mask = _mm512_mask_cmpneq_$Arg0Sympspdgentype($Mask, arg0, arg1);
+    $ReturnSymm512gentype ret = _mm512_mask_min_$Arg0Sympspdgentype(arg0, neq_mask, arg0, arg1);
+    return as_$NativeReturnType(ret)$Pattern;
   }]>;
-OclBuiltinImpl mask_fmin_f64_v8 = OclBuiltinImpl<mask_fmin, [v8f64], 0, [{
-    return _mm512_mask_min_pd($Arg1VarName, $Arg0VarName, $Arg1VarName, $Arg2VarName);
-  }]>;
-OclBuiltinImpl fmin_f64_promote = OclBuiltinImpl<fmin, [v1f64, v2f64, v3f64, v4f64], 0, MaskPromote2>;
-OclBuiltinImpl fmin_f64_expand = OclBuiltinImpl<fmin, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_fmin_expand = OclBuiltinImpl<fmin, [v16f64], 0, Expand2>;
 
 // native_fdim
 OclBuiltinImpl native_fdim_f32_v16 = OclBuiltinImpl<native_fdim, [v16f32], 0, [{
@@ -208,10 +226,6 @@ OclBuiltinImpl mask_native_logb_f64_v8 = OclBuiltinImpl<mask_native_logb, [v8f64
   }]>;
 OclBuiltinImpl native_logb_f64_promote = OclBuiltinImpl<native_logb, [v1f64, v2f64, v3f64, v4f64], 0, MaskPromote1>;
 OclBuiltinImpl native_logb_f64_expand = OclBuiltinImpl<native_logb, [v16f64], 0, Expand1>;
-
-list<OclType> mask_f32_types = [v1f32, v2f32, v3f32, v4f32, v8f32];
-list<OclType> mask_f64_types = [v1f64, v2f64, v3f64, v4f64];
-list<OclType> mask_types = [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64];
 
 // one argument code
 code knc_code_1 = [{

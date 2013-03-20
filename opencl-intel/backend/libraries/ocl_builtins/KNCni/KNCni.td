@@ -96,6 +96,18 @@ def epuigentype : OclGenType<"epuigentype"> {
   list<string> Tout = !foreach(n, T4, !subst("16", "32", n));
 }
 
+// generate short or char mask 
+// Can only be used with $ArgXSym macro
+def maskgentype: OclGenType<"maskgentype"> {
+  list<string> T1   = SubSt_delVecLength<Tin>.res;
+  list<string> T2   = !foreach(n, T1,  !subst("i32", "short", n));
+  list<string> T3   = !foreach(n, T2,  !subst("u32", "short", n));
+  list<string> T4   = !foreach(n, T3,  !subst("f32", "short", n));
+  list<string> T5   = !foreach(n, T4,  !subst("i64", "char", n));
+  list<string> T6   = !foreach(n, T5,  !subst("u64", "char", n));
+  list<string> Tout = !foreach(n, T6,  !subst("f64", "char", n));
+}
+
 // generate "ps" and "pd" suffixes
 // Can only be used with $ArgXSym macro
 def pspdgentype : OclGenType<"pspdgentype"> {
@@ -131,14 +143,6 @@ def micnativegentype : OclGenType<"micnativegentype"> {
   list<string> T10  = !foreach(n, T9,  !subst("i32", "int16", n));
   list<string> T11  = !foreach(n, T10, !subst("u64", "ulong8", n));
   list<string> Tout = !foreach(n, T11, !subst("i64", "long8", n));
-}
-
-// math builtins
-let Types = [v16f32, v8f64],
-    Attrs = [CONSTFUNC, OVERLOADABLE],
-    NeedForwardDecl = 1 in {
-def mask_fmax : OclBuiltin<"mask_fmax", (outs gentype:$ret), (ins masktype:$mask, gentype:$x, gentype:$y), [], []>;
-def mask_fmin : OclBuiltin<"mask_fmin", (outs gentype:$ret), (ins masktype:$mask, gentype:$x, gentype:$y), [], []>;
 }
 
 // lprefetch builtin

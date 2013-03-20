@@ -158,18 +158,28 @@ OclBuiltinImpl fma_svml = OclBuiltinImpl<fma, fma.Types, 0, [{
 
 // fmax
 OclBuiltinImpl fmax_impl = OclBuiltinImpl<fmax, fmax.Types, 0, [{
-  $Arg0igentype nan = isnan($Arg1VarName);
-  $Arg0Type res = max($Arg0VarName, $Arg1VarName);
-  res = select(res, $Arg0VarName, nan);
-  return res;
+    // according to OpenCL 1.2 ch. 6.12.2
+    // fmax(-0., +0.) has to return -0.
+    // WARNING: this implementation is not generic,
+    //          it relies on CPU implementation of max builtin
+    //          where order of arguments matters and must be preserved
+    $Arg0igentype nan = isnan($Arg0VarName);
+    $Arg0Type res = max($Arg1VarName, $Arg0VarName);
+    res = select(res, $Arg1VarName, nan);
+    return res;
   }]>;
 
 // fmin implementation
 OclBuiltinImpl fmin_impl = OclBuiltinImpl<fmin, fmin.Types, 0, [{
-     $Arg0igentype nan = isnan($Arg1VarName);
-  $Arg0Type res = min($Arg0VarName, $Arg1VarName);
-  res = select(res, $Arg0VarName, nan);
-  return res;
+    // according to OpenCL 1.2 ch. 6.12.2
+    // fmin(+0., -0.) has to return +0.
+    // WARNING: this implementation is not generic,
+    //          it relies on CPU implementation of min builtin
+    //          where order of arguments matters and must be preserved
+    $Arg0igentype nan = isnan($Arg0VarName);
+    $Arg0Type res = min($Arg1VarName, $Arg0VarName);
+    res = select(res, $Arg1VarName, nan);
+    return res;
   }]>;
 
 // fmod
