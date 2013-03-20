@@ -9,6 +9,14 @@ set( OBJ_FILE_EXTENSION .o )
 
 set( DEVICE   MIC )
 
+option( MIC_USE_OMP OFF )
+set ( TASK_EXECUTOR_FLAG __TBB_EXECUTOR__ )
+set( OMP_COMPILER_FLAG  )
+if (MIC_USE_OMP)
+	set ( TASK_EXECUTOR_FLAG __OMP_EXECUTOR__ )
+	set( OMP_COMPILER_FLAG -openmp)
+endif ( MIC_USE_OMP)
+
 #
 # Set Backend dependencies
 #
@@ -69,8 +77,9 @@ else ()
     else ()
         message( FATAL_ERROR "ICC is not found! Setenv ICC_MIC_COMPILER_PATH to point to the ICC with MIC support" )
     endif (TMP_ICC_INSTALL_DIR)
-    unset( TMP_ICC_INSTALL_DIR )
-
+	set( DEVICE_LIBS_DIR    ${TMP_ICC_INSTALL_DIR}/../lib/mic/ )	
+	unset( TMP_ICC_INSTALL_DIR )
+	
     set( DEVICE_DEPENDENCY_SCRIPT 	dependency.sh )
     set( DEVICE_COMPILER_SCRIPT 	compile.sh )
     set( DEVICE_LINKER_SCRIPT   	link.sh )
@@ -201,6 +210,7 @@ set( MIC_FLAGS  -Werror
                 -mCG_lrb_workaround_vgather_vscatter_pairing=F
                 -mCG_lrb_dp_workaround=F
                 -sox
+                ${OMP_COMPILER_FLAG}
 
 				# allow exclusion of un-referenced code and data
                 -fdata-sections
@@ -227,7 +237,7 @@ list( APPEND MIC_FLAGS
 list( APPEND MIC_FLAGS
                 -DDEVICE_NATIVE
                 -DDISABLE_NUMA_SUPPORT
-                -D__TBB_EXECUTOR__ -DTBB_PREVIEW_LOCAL_OBSERVER=1 -DTBB_PREVIEW_TASK_ARENA=1
+                -D${TASK_EXECUTOR_FLAG} -DTBB_PREVIEW_LOCAL_OBSERVER=1 -DTBB_PREVIEW_TASK_ARENA=1
     )
 
 list( APPEND MIC_FLAGS -DKNC_CARD )
@@ -267,6 +277,8 @@ set( MIC_LINK_FLAGS      )
 
 # lib path
 list( APPEND MIC_LINK_FLAGS
+                ${OMP_COMPILER_FLAG}
+
                 # next entry - support converting Linux trap signals into C++ exceptions
                 -fnon-call-exceptions
 
@@ -336,7 +348,12 @@ configure_file(${DEVICE_DEPENDENCY_SCRIPT} 	${DEVICE_DEPENDENCY} @ONLY)
 configure_file(${DEVICE_COMPILER_SCRIPT} 	${DEVICE_COMPILER} @ONLY)
 configure_file(${DEVICE_LINKER_SCRIPT} 		${DEVICE_LINKER} @ONLY)
 
-set(FILES_TO_COPY ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}${EXE_FILE_EXTENSION} )
+if (MIC_USE_OMP)
+	set(FILES_TO_COPY ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}${EXE_FILE_EXTENSION} ${DEVICE_LIBS_DIR}/libiomp5.so ${DEVICE_LIBS_DIR}/libcilkrts.so.5 )
+else (MIC_USE_OMP)
+	set(FILES_TO_COPY ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}${EXE_FILE_EXTENSION} )
+endif ( MIC_USE_OMP)
+
 
 # find main sources
 set( MAIN_EXCEPTIONS )
