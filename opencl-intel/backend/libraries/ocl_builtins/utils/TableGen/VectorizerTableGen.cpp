@@ -98,7 +98,7 @@ void VectorizerTableGen::run(raw_ostream& os){
     assert(arrCells.size() == ROW_SIZE && "cell list should have exactly six entries");
     //populating the keyes in the builtins map
     for (size_t j=0 ; j<arrCells.size() ; ++j){
-      Record* pCell = dynamic_cast<DefInit*>(arrCells[j])->getDef();
+      Record* pCell = dyn_cast<DefInit>(arrCells[j])->getDef();
       assert(pCell && "Record dwoncast failed");
       processCell(pCell);
     }

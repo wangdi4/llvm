@@ -151,7 +151,7 @@ OclBuiltinImpl fast_normalize_v4f32 = OclBuiltinImpl<fast_normalize, [v4f32], 0,
         return $Arg0VarName;
     }
 
-    tmp = (float4)_mm_shuffle_ps((__m128i)tmp, (__m128i)tmp, 0x0);
+    tmp = as_float4(_mm_shuffle_ps((__m128)tmp, (__m128)tmp, 0x0));
     tmp = half_rsqrt(tmp);
     $Arg0VarName = $Arg0VarName * tmp;
 

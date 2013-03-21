@@ -21,12 +21,7 @@ File Name:  DebugInfoPass.cpp
 #include <llvm/Constants.h>
 #include <llvm/Instructions.h>
 #include <llvm/DerivedTypes.h>
-#include <llvm/Version.h>
-#if LLVM_VERSION >= 3425
 #include <llvm/DebugInfo.h>
-#else
-#include <llvm/Analysis/DebugInfo.h>
-#endif
 
 #include <list>
 #include <vector>

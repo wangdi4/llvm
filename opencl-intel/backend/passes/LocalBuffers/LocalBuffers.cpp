@@ -9,14 +9,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "common_dev_limits.h"
-#include "llvm/Version.h"
 
-#if LLVM_VERSION >= 3425
+
 #include "llvm/IRBuilder.h"
-#else
-#include "llvm/Support/IRBuilder.h"
-#endif
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 
 extern "C"
 {
@@ -257,8 +253,8 @@ namespace intel{
         }
 
         // Calculate required buffer size
-        llvm::TargetData TD(m_pModule);
-        size_t uiArraySize = TD.getTypeSizeInBits(pLclBuff->getType()->getElementType())/8;
+        llvm::DataLayout DL(m_pModule);
+        size_t uiArraySize = DL.getTypeSizeInBits(pLclBuff->getType()->getElementType())/8;
         assert(0 != uiArraySize && "zero array size!");
         // Now retrieve to the offset of the local buffer
         GetElementPtrInst *pLocalAddr =

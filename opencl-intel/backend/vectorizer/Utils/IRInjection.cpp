@@ -33,7 +33,6 @@
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Version.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <string>
@@ -184,11 +183,7 @@ private:
                                 (Constant*) 0,
                                 I->getName(),
                                 (GlobalVariable*) 0,
-#if LLVM_VERSION >= 3425
                                 I->isThreadLocal() ? GlobalVariable::GeneralDynamicTLSModel :GlobalVariable::NotThreadLocal,
-#else
-                                I->isThreadLocal(),
-#endif
                                 I->getType()->getAddressSpace());
       }
       GV->copyAttributesFrom(I);

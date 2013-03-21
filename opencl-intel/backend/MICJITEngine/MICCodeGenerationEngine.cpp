@@ -21,12 +21,12 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/PiggyBackAnalysis.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "MICJITEngine/include/MICCodeGenerationEngine.h"
 #include "MICJITEngine/include/ModuleJITHolder.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "passes/OpenCLAliasAnalysisSupport/OpenCLAliasAnalysis.h"
 #include <cassert>
 #include <cstdio>
@@ -39,17 +39,22 @@ using namespace llvm;
 /// selectTarget - Pick a target either via -march or by guessing the native
 /// arch.  Add any CPU features specified via -mcpu or -mattr.
 TargetMachine *MICCodeGenerationEngine::selectTarget(Module *Mod,
-                              StringRef MArch,
-                              StringRef MCPU,
-                              const SmallVectorImpl<std::string>& MAttrs,
-                              Reloc::Model RM,
-                              CodeModel::Model CM,
-                              std::string *ErrorStr) {
-
-  return llvm::EngineBuilder::selectTarget(Mod, MArch, MCPU, MAttrs, RM, CM, ErrorStr);
+                                                     StringRef MArch,
+                                                     StringRef MCPU,
+                                                     const SmallVectorImpl<std::string>& MAttrs,
+                                                     Reloc::Model RM,
+                                                     CodeModel::Model CM,
+                                                     std::string *ErrorStr) {
+  EngineBuilder EB(Mod);
+  EB.setEngineKind(EngineKind::JIT);
+  EB.setErrorStr(ErrorStr);
+  EB.setRelocationModel(RM);
+  EB.setCodeModel(CM);
+  EB.create();
+  return EB.selectTarget(Triple(Mod->getTargetTriple()), MArch, MCPU, MAttrs);
 }
 
-MICCodeGenerationEngine::MICCodeGenerationEngine(TargetMachine &tm, 
+MICCodeGenerationEngine::MICCodeGenerationEngine(TargetMachine &tm,
     CodeGenOpt::Level optlvl, const IFunctionAddressResolver* resolver) :
     TM(tm), optLevel(optlvl), Resolver(resolver) {}
 
@@ -57,7 +62,7 @@ MICCodeGenerationEngine::~MICCodeGenerationEngine() {}
 
 size_t MICCodeGenerationEngine::sizeOf(Type* t) const{
   assert(t && "type is null");
-  return(size_t)TM.getTargetData()->getTypeSizeInBits(t);
+  return(size_t)TM.getDataLayout()->getTypeSizeInBits(t);
 }
 
 const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
@@ -134,11 +139,11 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
   if (useir_name)
     printf("Injected %s\n", useir_name);
 
-  // Add the target data from the target machine, if it exists, or the module.
-  if (const TargetData *TD = TM.getTargetData())
-    PM.add(new TargetData(*TD));
+  // Add the DataLayout from the target machine, if it exists, or the module.
+  if (const DataLayout *DL = TM.getDataLayout())
+    PM.add(new DataLayout(*DL));
   else
-    PM.add(new TargetData(&local_mod));
+    PM.add(new DataLayout(&local_mod));
 
   // This pointer will *magically* get updated during PM.run()
   ModuleJITHolder* MJH = 0;
@@ -171,13 +176,12 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
     PM.add(new PiggyBackAnalysis(&MJH, Resolver, OutF, IsContractionsAllowed, openCLAA.get()));
 
     // Ask the target to add backend passes as necessary.
-    CodeGenOpt::Level OLvl = CodeGenOpt::Default;
     LLVMTargetMachine &LTM = static_cast<LLVMTargetMachine&>(TM);
-    MCContext *MCC = 0;
 
-    PM.add(openCLAA.release());   
+    PM.add(openCLAA.release());
 
-    if (LTM.addCommonCodeGenPasses(PM, OLvl, false, MCC, true)) {
+    formatted_raw_ostream FOS;
+    if (LTM.addPassesToEmitFile(PM, FOS, TargetMachine::CGFT_AssemblyFile, false, 0, 0, true)) {
       errs() << "target does not support generation of this file type!\n";
       return 0;
     }

@@ -26,6 +26,7 @@
 #include "masked_load_store_functions.h"
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#define __OPENCL__
 #include <intrin.h>
 
 // TODO: when porting that file to Tablegen look into CSSD100015383
@@ -674,50 +675,6 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_transpose_store_short4x8_AVX(short4* pStore
 }
 
 
-void INTERNAL_INLINE_ATTRIBUTE __ocl_gather_transpose_short4x8_AVX(short4* pLoadAdd0, short4* pLoadAdd1, short4* pLoadAdd2, short4* pLoadAdd3,
-                              short4* pLoadAdd4, short4* pLoadAdd5, short4* pLoadAdd6, short4* pLoadAdd7,
-                              short8* xOut, short8* yOut, short8* zOut, short8* wOut) {
-
-  double4 xyzw1 = *((double4*)pLoadAdd1);                                           // x1 y1 z1 w1 x1 y1 z1 w1 x1 y1 z1 w1 x1 y1 z1 w1
-  double4 xyzw2 = *((double4*)pLoadAdd2);                                           // x2 y2 z2 w2 x2 y2 z2 w2 x2 y2 z2 w2 x2 y2 z2 w2
-  double4 xyzw3 = *((double4*)pLoadAdd3);                                           // x3 y3 z3 w3 x3 y3 z3 w3 x3 y3 z3 w3 x3 y3 z3 w3
-  double4 xyzw5 = *((double4*)pLoadAdd5);                                           // x5 y5 z5 w5 x5 y5 z5 w5 x5 y5 z5 w5 x5 y5 z5 w5
-  double4 xyzw6 = *((double4*)pLoadAdd6);                                           // x6 y6 z6 w6 x6 y6 z6 w6 x6 y6 z6 w6 x6 y6 z6 w6
-  double4 xyzw7 = *((double4*)pLoadAdd7);                                           // x7 y7 z7 w7 x7 y7 z7 w7 x7 y7 z7 w7 x7 y7 z7 w7
-
-  double4 xyzw0123;
-  xyzw0123.s0 = *((double*)pLoadAdd0);                                              // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D
-  xyzw0123 = as_double4(_mm256_blend_pd((__m256d)xyzw0123, (__m256d)xyzw1, 0x2));   // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D
-  xyzw0123 = as_double4(_mm256_blend_pd((__m256d)xyzw0123, (__m256d)xyzw2, 0x4));   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D
-  xyzw0123 = as_double4(_mm256_blend_pd((__m256d)xyzw0123, (__m256d)xyzw3, 0x8));   // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
-
-  double4 xyzw4567;
-  xyzw4567.s0 = *((double*)pLoadAdd4);                                              // x4 y4 z4 w4  D  D  D  D  D  D  D  D  D  D  D  D
-  xyzw4567 = as_double4(_mm256_blend_pd((__m256d)xyzw4567, (__m256d)xyzw5, 0x2));   // x4 y4 z4 w4 x5 y5 z5 w5  D  D  D  D  D  D  D  D
-  xyzw4567 = as_double4(_mm256_blend_pd((__m256d)xyzw4567, (__m256d)xyzw6, 0x4));   // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6  D  D  D  D
-  xyzw4567 = as_double4(_mm256_blend_pd((__m256d)xyzw4567, (__m256d)xyzw7, 0x8));   // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
-
-  __ocl_load_transpose_short4x8_AVX_common(as_short16(xyzw0123), as_short16(xyzw4567), xOut, yOut, zOut, wOut);
-}
-
-
-void INTERNAL_INLINE_ATTRIBUTE __ocl_transpose_scatter_short4x8_AVX(short4* pStoreAdd0, short4* pStoreAdd1, short4* pStoreAdd2, short4* pStoreAdd3,
-                                short4* pStoreAdd4, short4* pStoreAdd5, short4* pStoreAdd6, short4* pStoreAdd7,
-                                short8 xIn, short8 yIn, short8 zIn, short8 wIn) {
-  short16 xyzw0, xyzw1;
-  __ocl_transpose_store_short4x8_AVX_common(&xyzw0, &xyzw1, xIn, yIn, zIn, wIn);
-
-  *((double*)pStoreAdd0) = as_double4(xyzw0).s0;                      // x0 y0 z0 w0
-  *((double*)pStoreAdd1) = as_double4(xyzw0).s1;                      // x1 y1 z1 w1
-  *((double*)pStoreAdd2) = as_double4(xyzw0).s2;                      // x2 y2 z2 w2
-  *((double*)pStoreAdd3) = as_double4(xyzw0).s3;                      // x3 y3 z3 w3
-  *((double*)pStoreAdd4) = as_double4(xyzw1).s0;                      // x4 y4 z4 w4
-  *((double*)pStoreAdd5) = as_double4(xyzw1).s1;                      // x5 y5 z5 w5
-  *((double*)pStoreAdd6) = as_double4(xyzw1).s2;                      // x6 y6 z6 w6
-  *((double*)pStoreAdd7) = as_double4(xyzw1).s3;                      // x7 y7 z7 w7
-}
-
-
 #if defined(__AVX2__)
 
 
@@ -778,50 +735,6 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_transpose_store_short4x8_AVX2(short4* pStor
 }
 
 
-void INTERNAL_INLINE_ATTRIBUTE __ocl_gather_transpose_short4x8_AVX2(short4* pLoadAdd0, short4* pLoadAdd1, short4* pLoadAdd2, short4* pLoadAdd3,
-                              short4* pLoadAdd4, short4* pLoadAdd5, short4* pLoadAdd6, short4* pLoadAdd7,
-                              short8* xOut, short8* yOut, short8* zOut, short8* wOut) {
-
-  long4 xyzw1 = *((long*)pLoadAdd1);                                                // x1 y1 z1 w1 x1 y1 z1 w1 x1 y1 z1 w1 x1 y1 z1 w1
-  long4 xyzw2 = *((long*)pLoadAdd2);                                                // x2 y2 z2 w2 x2 y2 z2 w2 x2 y2 z2 w2 x2 y2 z2 w2
-  long4 xyzw3 = *((long*)pLoadAdd3);                                                // x3 y3 z3 w3 x3 y3 z3 w3 x3 y3 z3 w3 x3 y3 z3 w3
-  long4 xyzw5 = *((long*)pLoadAdd5);                                                // x5 y5 z5 w5 x5 y5 z5 w5 x5 y5 z5 w5 x5 y5 z5 w5
-  long4 xyzw6 = *((long*)pLoadAdd6);                                                // x6 y6 z6 w6 x6 y6 z6 w6 x6 y6 z6 w6 x6 y6 z6 w6
-  long4 xyzw7 = *((long*)pLoadAdd7);                                                // x7 y7 z7 w7 x7 y7 z7 w7 x7 y7 z7 w7 x7 y7 z7 w7
-
-  long4 xyzw0123;
-  xyzw0123.s0 = *((long*)pLoadAdd0);                                                // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D
-  xyzw0123 = as_long4(_mm256_blend_epi32((__m256i)xyzw0123, (__m256i)xyzw1, 0xC));  // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D
-  xyzw0123 = as_long4(_mm256_blend_epi32((__m256i)xyzw0123, (__m256i)xyzw2, 0x30)); // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D
-  xyzw0123 = as_long4(_mm256_blend_epi32((__m256i)xyzw0123, (__m256i)xyzw3, 0xC0)); // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
-
-  long4 xyzw4567;
-  xyzw4567.s0 = *((long*)pLoadAdd4);                                                // x4 y4 z4 w4  D  D  D  D  D  D  D  D  D  D  D  D
-  xyzw4567 = as_long4(_mm256_blend_epi32((__m256i)xyzw4567, (__m256i)xyzw5, 0xC));  // x4 y4 z4 w4 x5 y5 z5 w5  D  D  D  D  D  D  D  D
-  xyzw4567 = as_long4(_mm256_blend_epi32((__m256i)xyzw4567, (__m256i)xyzw6, 0x30)); // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6  D  D  D  D
-  xyzw4567 = as_long4(_mm256_blend_epi32((__m256i)xyzw4567, (__m256i)xyzw7, 0xC0)); // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
-
-  __ocl_load_transpose_short4x8_AVX2_common(as_short16(xyzw0123), as_short16(xyzw4567), xOut, yOut, zOut, wOut);
-}
-
-
-void INTERNAL_INLINE_ATTRIBUTE __ocl_transpose_scatter_short4x8_AVX2(short4* pStoreAdd0, short4* pStoreAdd1, short4* pStoreAdd2, short4* pStoreAdd3,
-                                short4* pStoreAdd4, short4* pStoreAdd5, short4* pStoreAdd6, short4* pStoreAdd7,
-                                short8 xIn, short8 yIn, short8 zIn, short8 wIn) {
-
-  short16 xyzw0, xyzw1;
-  __ocl_transpose_store_short4x8_AVX2_common(&xyzw0, &xyzw1, xIn, yIn, zIn, wIn);
-
-  *((long*)pStoreAdd0) = as_long4(xyzw0).s0;                      // x0 y0 z0 w0
-  *((long*)pStoreAdd1) = as_long4(xyzw0).s1;                      // x1 y1 z1 w1
-  *((long*)pStoreAdd2) = as_long4(xyzw0).s2;                      // x2 y2 z2 w2
-  *((long*)pStoreAdd3) = as_long4(xyzw0).s3;                      // x3 y3 z3 w3
-  *((long*)pStoreAdd4) = as_long4(xyzw1).s0;                      // x4 y4 z4 w4
-  *((long*)pStoreAdd5) = as_long4(xyzw1).s1;                      // x5 y5 z5 w5
-  *((long*)pStoreAdd6) = as_long4(xyzw1).s2;                      // x6 y6 z6 w6
-  *((long*)pStoreAdd7) = as_long4(xyzw1).s3;                      // x7 y7 z7 w7
-}
-
 #endif // defined(__AVX2__)
 
 
@@ -846,14 +759,22 @@ void INLINE_ATTRIBUTE __ocl_transpose_store_short4x8(short4* pStoreAdd, short8 x
 void INLINE_ATTRIBUTE __ocl_gather_transpose_short4x8(short4* pLoadAdd0, short4* pLoadAdd1, short4* pLoadAdd2, short4* pLoadAdd3,
                                 short4* pLoadAdd4, short4* pLoadAdd5, short4* pLoadAdd6, short4* pLoadAdd7,
                                 short8* xOut, short8* yOut, short8* zOut, short8* wOut) {
+  double4 xyzw0123;
+  xyzw0123.s0 = *((double*)pLoadAdd0);                                              // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw0123.s1 = *((double*)pLoadAdd1);                                              // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D
+  xyzw0123.s2 = *((double*)pLoadAdd2);                                              // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D
+  xyzw0123.s3 = *((double*)pLoadAdd3);                                              // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
+
+  double4 xyzw4567;
+  xyzw4567.s0 = *((double*)pLoadAdd4);                                              // x4 y4 z4 w4  D  D  D  D  D  D  D  D  D  D  D  D
+  xyzw4567.s1 = *((double*)pLoadAdd5);                                              // x4 y4 z4 w4 x5 y5 z5 w5  D  D  D  D  D  D  D  D
+  xyzw4567.s2 = *((double*)pLoadAdd6);                                              // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6  D  D  D  D
+  xyzw4567.s3 = *((double*)pLoadAdd7);                                              // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+
 #if defined(__AVX2__)
-  __ocl_gather_transpose_short4x8_AVX2(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-                                       pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
-                                       xOut, yOut, zOut, wOut);
+  __ocl_load_transpose_short4x8_AVX2_common(as_short16(xyzw0123), as_short16(xyzw4567), xOut, yOut, zOut, wOut);
 #else // defined(__AVX__)
-  __ocl_gather_transpose_short4x8_AVX(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-                                       pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
-                                       xOut, yOut, zOut, wOut);
+  __ocl_load_transpose_short4x8_AVX_common(as_short16(xyzw0123), as_short16(xyzw4567), xOut, yOut, zOut, wOut);
 #endif
 }
 
@@ -861,15 +782,26 @@ void INLINE_ATTRIBUTE __ocl_gather_transpose_short4x8(short4* pLoadAdd0, short4*
 void INLINE_ATTRIBUTE __ocl_transpose_scatter_short4x8(short4* pStoreAdd0, short4* pStoreAdd1, short4* pStoreAdd2, short4* pStoreAdd3,
                                 short4* pStoreAdd4, short4* pStoreAdd5, short4* pStoreAdd6, short4* pStoreAdd7,
                                 short8 xIn, short8 yIn, short8 zIn, short8 wIn) {
+
+  short16 xyzw0, xyzw1;
+
 #if defined(__AVX2__)
-  __ocl_transpose_scatter_short4x8_AVX2(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
-                                       pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7,
-                                       xIn, yIn, zIn, wIn);
+  __ocl_transpose_store_short4x8_AVX2_common(&xyzw0, &xyzw1, xIn, yIn, zIn, wIn);
 #else // defined(__AVX__)
-  __ocl_transpose_scatter_short4x8_AVX(pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
-                                       pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7,
-                                       xIn, yIn, zIn, wIn);
+  __ocl_transpose_store_short4x8_AVX_common(&xyzw0, &xyzw1, xIn, yIn, zIn, wIn);
 #endif
+
+  double4 temp0 = as_double4(xyzw0);
+  double4 temp1 = as_double4(xyzw1);
+
+  *((double*)pStoreAdd0) = temp0.s0;                      // x0 y0 z0 w0
+  *((double*)pStoreAdd1) = temp0.s1;                      // x1 y1 z1 w1
+  *((double*)pStoreAdd2) = temp0.s2;                      // x2 y2 z2 w2
+  *((double*)pStoreAdd3) = temp0.s3;                      // x3 y3 z3 w3
+  *((double*)pStoreAdd4) = temp1.s0;                      // x4 y4 z4 w4
+  *((double*)pStoreAdd5) = temp1.s1;                      // x5 y5 z5 w5
+  *((double*)pStoreAdd6) = temp1.s2;                      // x6 y6 z6 w6
+  *((double*)pStoreAdd7) = temp1.s3;                      // x7 y7 z7 w7
 }
 
 

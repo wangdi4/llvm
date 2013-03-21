@@ -37,7 +37,7 @@ File Name:  ocl_recorder.h
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/Mutex.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 #include <list>
 #include <map>
 #include "plugin_interface.h"
@@ -223,7 +223,7 @@ namespace Validation
         TiXmlDocument   m_config;
         TiXmlElement   *m_pRunConfig;
         llvm::sys::Mutex m_configLock;
-        llvm::TargetData *m_TD;
+        llvm::DataLayout *m_DL;
 
     private:
 

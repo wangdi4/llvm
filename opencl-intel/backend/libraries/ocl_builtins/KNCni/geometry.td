@@ -14,7 +14,7 @@ OclBuiltinImpl dot_f32_v2 = OclBuiltinImpl<dot, [v2f32], 0, [{
     __m512 result = (__m512)x_reg;
     result = _mm512_mul_ps(result, (__m512)(y_reg));
     add_reduce1_ps(result);
-    return((float16)result).s0;
+    return as_float16(result).s0;
   }]>;
 OclBuiltinImpl dot_f32_v3_v4 = OclBuiltinImpl<dot, [v3f32, v4f32], 0, [{
     float16 x_reg = (float16)0;
@@ -108,7 +108,7 @@ OclBuiltinImpl length_f64_v3_v4 = OclBuiltinImpl<length, [v3f64, v4f64], 0, [{
     add_reduce2_pd(data);
 
     return sqrt(data.s0)*denorm.s0;
-    return ((double8)abs_data).s0;
+    return as_double8(abs_data).s0;
   }]>;
 
 // normalize
@@ -233,7 +233,7 @@ OclBuiltinImpl cross_f32_v3 = OclBuiltinImpl<cross, [v3f32], 0, [{
     y_reg = _mm512_mul_ps(y_reg, x_reg);
     result = _mm512_sub_ps(result, y_reg);
 
-    return ((float16)result)$Pattern;
+    return (as_float16(result))$Pattern;
   }]>;
 OclBuiltinImpl cross_f32_v4 = OclBuiltinImpl<cross, [v4f32], 0, [{
     float3 temp = cross ($Arg0VarName.s012, $Arg1VarName.s012);
@@ -301,7 +301,7 @@ OclBuiltinImpl fast_normalize_f32_vector = OclBuiltinImpl<fast_normalize, [v2f32
     temp = _mm512_mul_ps(temp, temp);
     add_reduce1_ps(temp);
     add_reduce2_ps(temp);
-    sum = ((float16)temp).s0;
+    sum = as_float16(temp).s0;
 
     // Below include checking if all(source == 0) and sum-of-squae is < FLT_MIN
     sum = (sum < FLT_MIN)?1.0:sum;
@@ -310,7 +310,7 @@ OclBuiltinImpl fast_normalize_f32_vector = OclBuiltinImpl<fast_normalize, [v2f32
     temp = (__m512)x_reg;
     temp = _mm512_mul_ps(temp, (__m512)((float16)sum));
   
-    return ((float16)temp)$Pattern;
+    return (as_float16(temp))$Pattern;
   }]>;
 
 // Extend SOA Geometry built-in functions

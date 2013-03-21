@@ -231,6 +231,9 @@ void OpenCLBackendRunner::FillIgnoreList( std::vector<bool>& ignoreList, const c
             break;
         case CL_KRNL_ARG_PTR_IMG_2D:        // Argument is a pointer to 2D image
         case CL_KRNL_ARG_PTR_IMG_3D:        // Argument is a pointer to 3D image
+        case CL_KRNL_ARG_PTR_IMG_2D_ARR:
+        case CL_KRNL_ARG_PTR_IMG_1D:
+        case CL_KRNL_ARG_PTR_IMG_1D_ARR:
             // TODO: disable read-only images  are ready
             ignoreList[i] = false;
             break;
@@ -239,7 +242,7 @@ void OpenCLBackendRunner::FillIgnoreList( std::vector<bool>& ignoreList, const c
             ignoreList[i] = true;
             break;
         default:
-            throw Exception::InvalidArgument("Comparator::CompareOCLKernelRun "
+            throw Exception::InvalidArgument("OpenCLBackendRunner::FillIgnoreList "
                 "Unknown kernel argument type\n");
         } // switch(pKernelArgs[i].type)
     }

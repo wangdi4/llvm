@@ -16,7 +16,7 @@ OclBuiltinImpl abs_iexpand  = OclBuiltinImpl<abs, [                            v
                                                                        v8i32, v16i32], 0, Expand1>;
 // abs native
 OclBuiltinImpl abs_inative = OclBuiltinImpl<abs, [v16i8, v8i16, v4i32] , 0, [{
-    return (u$Arg0Type)_mm_abs_epi$BitWidth((__m128i)$Arg0VarName);
+    return as_u$Arg0Type(_mm_abs_epi$BitWidth((__m128i)$Arg0VarName));
   }]>;
 
 
@@ -45,7 +45,7 @@ OclBuiltinImpl abs_diff_svector = OclBuiltinImpl<abs_diff, [ v2i8,  v3i8,  v4i8,
     $Arg0Type tmpc = $Arg1VarName > $Arg0VarName;
     $Arg0Type res = tmpc & tmp2;
     $Arg0Type reb = (~tmpc) & tmp1;
-    return (u$Arg0Type)(res | reb);
+    return as_u$Arg0Type(res | reb);
   }]>;
 // abs_diff on unsigned vector
 OclBuiltinImpl abs_diff_uvector = OclBuiltinImpl<abs_diff, [ v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
@@ -54,7 +54,7 @@ OclBuiltinImpl abs_diff_uvector = OclBuiltinImpl<abs_diff, [ v2u8,  v3u8,  v4u8,
                                                             v2u64, v3u64, v4u64, v8u64, v16u64] , 0, [{
     $Arg0Type tmp1 = $Arg0VarName - $Arg1VarName;
     $Arg0Type tmp2 = $Arg1VarName - $Arg0VarName;
-    $Arg0Type tmpc = ($Arg0Type)($Arg1VarName > $Arg0VarName);
+    $Arg0Type tmpc = as_$Arg0Type($Arg1VarName > $Arg0VarName);
     $Arg0Type res = tmpc & tmp2;
     $Arg0Type reb = (~tmpc) & tmp1;
     return (res | reb);
@@ -67,11 +67,11 @@ OclBuiltinImpl abs_diff_uvector = OclBuiltinImpl<abs_diff, [ v2u8,  v3u8,  v4u8,
 \*****************************************************************/
 // add_sat on char16, short8
 OclBuiltinImpl add_sat_v16i8v8i16 = OclBuiltinImpl<add_sat, [v16i8, v8i16], 0, [{
-    return ($ReturnType)_mm_adds_epi$BitWidth((__m128i)$Arg0VarName, (__m128i)$Arg1VarName);
+    return as_$ReturnType(_mm_adds_epi$BitWidth((__m128i)$Arg0VarName, (__m128i)$Arg1VarName));
   }]>;
 // add_sat on uchar16, ushort8
 OclBuiltinImpl add_sat_v16u8v8u16 = OclBuiltinImpl<add_sat, [v16u8, v8u16], 0, [{
-    return ($ReturnType)_mm_adds_epu$BitWidth((__m128i)$Arg0VarName, (__m128i)$Arg1VarName);
+    return as_$ReturnType(_mm_adds_epu$BitWidth((__m128i)$Arg0VarName, (__m128i)$Arg1VarName));
   }]>;
 // add_sat promote
 OclBuiltinImpl add_sat_ssepromote = OclBuiltinImpl<add_sat, [ v2i8,  v3i8,  v4i8,  v8i8,
@@ -88,11 +88,11 @@ OclBuiltinImpl add_sat_sseexpand  = OclBuiltinImpl<add_sat, [v16i16, v16u16], 0,
 \*****************************************************************/
 // sub_sat on char16, short8
 OclBuiltinImpl sub_sat_v16i8v8i16 = OclBuiltinImpl<sub_sat, [v16i8, v8i16], 0, [{
-    return ($ReturnType)_mm_subs_epi$BitWidth((__m128i)$Arg0VarName, (__m128i)$Arg1VarName);
+    return as_$ReturnType(_mm_subs_epi$BitWidth((__m128i)$Arg0VarName, (__m128i)$Arg1VarName));
   }]>;
 // sub_sat on uchar16, ushort8
 OclBuiltinImpl sub_sat_v16u8v8u16 = OclBuiltinImpl<sub_sat, [v16u8, v8u16], 0, [{
-    return ($ReturnType)_mm_subs_epu$BitWidth((__m128i)$Arg0VarName, (__m128i)$Arg1VarName);
+    return as_$ReturnType(_mm_subs_epu$BitWidth((__m128i)$Arg0VarName, (__m128i)$Arg1VarName));
   }]>;
 // sub_sat promote
 OclBuiltinImpl sub_sat_ssepromote = OclBuiltinImpl<sub_sat, [ v2i8,  v3i8,  v4i8,  v8i8,
@@ -219,71 +219,71 @@ OclBuiltinImpl mad_sat_iexpand  = OclBuiltinImpl<mad_sat, [                     
 // mad_sat native char16
 OclBuiltinImpl mad_sat_v16i8 = OclBuiltinImpl<mad_sat, [v16i8], 0, [{
     char16 zero = (char16)0;
-    short8 lox = (short8)_mm_unpacklo_epi8((__m128i)zero, (__m128i)$Arg0VarName);
+    short8 lox = as_short8(_mm_unpacklo_epi8((__m128i)zero, (__m128i)$Arg0VarName));
     lox = lox >> (short)8;
-    short8 loy = (short8)_mm_unpacklo_epi8((__m128i)zero, (__m128i)$Arg1VarName);
+    short8 loy = as_short8(_mm_unpacklo_epi8((__m128i)zero, (__m128i)$Arg1VarName));
     loy = loy >> (short)8;
-    short8 loz = (short8)_mm_unpacklo_epi8((__m128i)zero, (__m128i)$Arg2VarName);
+    short8 loz = as_short8(_mm_unpacklo_epi8((__m128i)zero, (__m128i)$Arg2VarName));
     loz = loz >> (short)8;
     short8 reslo = lox * loy ;
     reslo = reslo + loz;
     reslo = max(reslo, (short)generic_min_char);
     reslo = min(reslo, (short)generic_max_char);
-    short8 hix = (short8)_mm_unpackhi_epi8((__m128i)zero, (__m128i)$Arg0VarName);
+    short8 hix = as_short8(_mm_unpackhi_epi8((__m128i)zero, (__m128i)$Arg0VarName));
     hix = hix >> (short)8;
-    short8 hiy = (short8)_mm_unpackhi_epi8((__m128i)zero, (__m128i)$Arg1VarName);
+    short8 hiy = as_short8(_mm_unpackhi_epi8((__m128i)zero, (__m128i)$Arg1VarName));
     hiy = hiy >> (short)8;
-    short8 hiz = (short8)_mm_unpackhi_epi8((__m128i)zero, (__m128i)$Arg2VarName);
+    short8 hiz = as_short8(_mm_unpackhi_epi8((__m128i)zero, (__m128i)$Arg2VarName));
     hiz = hiz >> (short)8;
     short8 reshi = hix * hiy;
     reshi = reshi + hiz;
     reshi = max(reshi, (short)generic_min_char);
     reshi = min(reshi, (short)generic_max_char);
-    char16 res = (char16)_mm_packs_epi16((__m128i)reslo, (__m128i)reshi);
+    char16 res = as_char16(_mm_packs_epi16((__m128i)reslo, (__m128i)reshi));
     return res;
   }]>;
 // mad_sat native uchar16
 OclBuiltinImpl mad_sat_v16u8 = OclBuiltinImpl<mad_sat, [v16u8], 0, [{
     uchar16 zero = (uchar)0;
-    ushort8 lox = (ushort8)_mm_unpacklo_epi8((__m128i)$Arg0VarName, (__m128i)zero);
-    ushort8 loy = (ushort8)_mm_unpacklo_epi8((__m128i)$Arg1VarName, (__m128i)zero);
-    ushort8 loz = (ushort8)_mm_unpacklo_epi8((__m128i)$Arg2VarName, (__m128i)zero);
+    ushort8 lox = as_ushort8(_mm_unpacklo_epi8((__m128i)$Arg0VarName, (__m128i)zero));
+    ushort8 loy = as_ushort8(_mm_unpacklo_epi8((__m128i)$Arg1VarName, (__m128i)zero));
+    ushort8 loz = as_ushort8(_mm_unpacklo_epi8((__m128i)$Arg2VarName, (__m128i)zero));
     ushort8 reslo = lox * loy;
     reslo = reslo + loz;
     reslo = min(reslo, (ushort)generic_max_uchar);
-    ushort8 hix = (ushort8)_mm_unpackhi_epi8((__m128i)$Arg0VarName, (__m128i)zero);
-    ushort8 hiy = (ushort8)_mm_unpackhi_epi8((__m128i)$Arg1VarName, (__m128i)zero);
-    ushort8 hiz = (ushort8)_mm_unpackhi_epi8((__m128i)$Arg2VarName, (__m128i)zero);
+    ushort8 hix = as_ushort8(_mm_unpackhi_epi8((__m128i)$Arg0VarName, (__m128i)zero));
+    ushort8 hiy = as_ushort8(_mm_unpackhi_epi8((__m128i)$Arg1VarName, (__m128i)zero));
+    ushort8 hiz = as_ushort8(_mm_unpackhi_epi8((__m128i)$Arg2VarName, (__m128i)zero));
     ushort8 reshi = hix * hiy;
     reshi = reshi + hiz;
     reshi = min(reshi, (ushort)generic_max_uchar);
-    uchar16 res = (uchar16)_mm_packus_epi16((__m128i)reslo, (__m128i)reshi);
+    uchar16 res = as_uchar16(_mm_packus_epi16((__m128i)reslo, (__m128i)reshi));
     return res;
   }]>;
 // mad_sat native short8
 OclBuiltinImpl mad_sat_v8i16 = OclBuiltinImpl<mad_sat, [v8i16] , 0, [{
     short8 zero = (short8)0;
-    int4 lox = (int4)_mm_unpacklo_epi16((__m128i)zero, (__m128i)$Arg0VarName);
+    int4 lox = as_int4(_mm_unpacklo_epi16((__m128i)zero, (__m128i)$Arg0VarName));
     lox = lox >> 16;
-    int4 loy = (int4)_mm_unpacklo_epi16((__m128i)zero, (__m128i)$Arg1VarName);
+    int4 loy = as_int4(_mm_unpacklo_epi16((__m128i)zero, (__m128i)$Arg1VarName));
     loy = loy >> 16;
-    int4 loz = (int4)_mm_unpacklo_epi16((__m128i)zero, (__m128i)$Arg2VarName);
+    int4 loz = as_int4(_mm_unpacklo_epi16((__m128i)zero, (__m128i)$Arg2VarName));
     loz = loz >> 16;
     int4 reslo = lox * loy;
     reslo = reslo + loz;
     reslo = max(reslo, (int)generic_min_short);
     reslo = min(reslo, (int)generic_max_short);
-    int4 hix = (int4)_mm_unpackhi_epi16((__m128i)zero, (__m128i)$Arg0VarName);
+    int4 hix = as_int4(_mm_unpackhi_epi16((__m128i)zero, (__m128i)$Arg0VarName));
     hix = hix >> 16;
-    int4 hiy = (int4)_mm_unpackhi_epi16((__m128i)zero, (__m128i)$Arg1VarName);
+    int4 hiy = as_int4(_mm_unpackhi_epi16((__m128i)zero, (__m128i)$Arg1VarName));
     hiy = hiy >> 16;
-    int4 hiz = (int4)_mm_unpackhi_epi16((__m128i)zero, (__m128i)$Arg2VarName);
+    int4 hiz = as_int4(_mm_unpackhi_epi16((__m128i)zero, (__m128i)$Arg2VarName));
     hiz = hiz >> 16;
     int4 reshi = hix * hiy;
     reshi = reshi + hiz;
     reshi = max(reshi, (int)generic_min_short);
     reshi = min(reshi, (int)generic_max_short);
-    short8 res = (short8)_mm_packs_epi32((__m128i)reslo, (__m128i)reshi);
+    short8 res = as_short8(_mm_packs_epi32((__m128i)reslo, (__m128i)reshi));
     return res;
   }]>;
 // mad_sat native ushort8 (expanded from scalar, because any smaller vector size (2 & 4) is promoted to 8)
@@ -326,7 +326,7 @@ OclBuiltinImpl mad_sat_v4u32 = OclBuiltinImpl<mad_sat, [v4u32] , 0, [{
 \*****************************************************************/
 // max native char16, short8
 OclBuiltinImpl max_native_i = OclBuiltinImpl<max, [v16i8, v8i16], 0, [{
-    return ($ReturnType)_mm_max_epi$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName);
+    return as_$ReturnType(_mm_max_epi$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName));
   }]>;
 //max native int4 (expanded from scalar, because any smaller vector size (2) is promoted to 4)
 OclBuiltinImpl max_native_i = OclBuiltinImpl<max, [v4i32], 0, [{
@@ -340,7 +340,7 @@ OclBuiltinImpl max_native_i = OclBuiltinImpl<max, [v4i32], 0, [{
 
 // max native uchar16, ushort8
 OclBuiltinImpl max_native_u = OclBuiltinImpl<max, [v16u8, v8u16], 0, [{
-    return ($ReturnType)_mm_max_epu$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName);
+    return as_$ReturnType(_mm_max_epu$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName));
   }]>;
 //max native uint4 (expanded from scalar, because any smaller vector size (2) is promoted to 4)
 OclBuiltinImpl max_native_u = OclBuiltinImpl<max, [v4u32], 0, [{
@@ -393,7 +393,7 @@ OclBuiltinImpl max_iexpand  = OclBuiltinImpl<max, [                            v
 \*****************************************************************/
 // min native char16, short8
 OclBuiltinImpl min_native_i = OclBuiltinImpl<min, [v16i8, v8i16], 0, [{
-    return ($ReturnType)_mm_min_epi$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName);
+    return as_$ReturnType(_mm_min_epi$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName));
   }]>;
 // min native int4 (expanded from scalar, because any smaller vector size (2) is promoted to 4)
 OclBuiltinImpl min_native_i = OclBuiltinImpl<min, [v4i32], 0, [{
@@ -407,7 +407,7 @@ OclBuiltinImpl min_native_i = OclBuiltinImpl<min, [v4i32], 0, [{
 
 // min native uchar16, ushort8
 OclBuiltinImpl min_native_u = OclBuiltinImpl<min, [v16u8, v8u16], 0, [{
-    return ($ReturnType)_mm_min_epu$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName);
+    return as_$ReturnType(_mm_min_epu$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName));
   }]>;
 // min native uint4 (expanded from scalar, because any smaller vector size (2) is promoted to 4)
 OclBuiltinImpl min_native_u = OclBuiltinImpl<min, [v4u32], 0, [{
@@ -475,42 +475,42 @@ OclBuiltinImpl mul_hi_iexpand  = OclBuiltinImpl<mul_hi, [                       
 // mul_hi native char16
 OclBuiltinImpl mul_hi_v16i8 = OclBuiltinImpl<mul_hi, [v16i8], 0, [{
     $Arg0Type zero = ($Arg0Type)0;
-    short8 tempX = (short8)_mm_unpacklo_epi8((__m128i)zero, (__m128i)$Arg0VarName);
-    short8 tempY = (short8)_mm_unpacklo_epi8((__m128i)zero, (__m128i)$Arg1VarName);
+    short8 tempX = as_short8(_mm_unpacklo_epi8((__m128i)zero, (__m128i)$Arg0VarName));
+    short8 tempY = as_short8(_mm_unpacklo_epi8((__m128i)zero, (__m128i)$Arg1VarName));
     tempX = tempX >> (short)8;
     tempY = tempY >> (short)8;
     short8 temp = tempX * tempY;
     short8 reslo = as_short8(as_ushort8(temp) >> (short)8);
-    tempX = (short8)_mm_unpackhi_epi8((__m128i)zero, (__m128i)$Arg0VarName);
-    tempY = (short8)_mm_unpackhi_epi8((__m128i)zero, (__m128i)$Arg1VarName);
+    tempX = as_short8(_mm_unpackhi_epi8((__m128i)zero, (__m128i)$Arg0VarName));
+    tempY = as_short8(_mm_unpackhi_epi8((__m128i)zero, (__m128i)$Arg1VarName));
     tempX = tempX >> (short)8;
     tempY = tempY >> (short)8;
     temp = tempX * tempY;
     short8 reshi = as_short8(as_ushort8(temp) >> (short)8);
-    $ReturnType res = ($ReturnType)_mm_packus_epi16((__m128i)reslo, (__m128i)reshi);
+    $ReturnType res = as_$ReturnType(_mm_packus_epi16((__m128i)reslo, (__m128i)reshi));
     return res;
   }]>;
 // mul_hi native uchar16
 OclBuiltinImpl mul_hi_v16u8 = OclBuiltinImpl<mul_hi, [v16u8], 0, [{
     $Arg0Type zero = ($Arg0Type)0;
-    ushort8 tempX = (ushort8)_mm_unpacklo_epi8((__m128i)$Arg0VarName, (__m128i)zero);
-    ushort8 tempY = (ushort8)_mm_unpacklo_epi8((__m128i)$Arg1VarName, (__m128i)zero);
+    ushort8 tempX = as_ushort8(_mm_unpacklo_epi8((__m128i)$Arg0VarName, (__m128i)zero));
+    ushort8 tempY = as_ushort8(_mm_unpacklo_epi8((__m128i)$Arg1VarName, (__m128i)zero));
     ushort8 temp = tempX * tempY;
     ushort8 reslo = temp >> (short)8;
-    tempX = (ushort8)_mm_unpackhi_epi8((__m128i)$Arg0VarName, (__m128i)zero);
-    tempY = (ushort8)_mm_unpackhi_epi8((__m128i)$Arg1VarName, (__m128i)zero);
+    tempX = as_ushort8(_mm_unpackhi_epi8((__m128i)$Arg0VarName, (__m128i)zero));
+    tempY = as_ushort8(_mm_unpackhi_epi8((__m128i)$Arg1VarName, (__m128i)zero));
     temp = tempX * tempY;
     ushort8 reshi = temp >> (short)8;
-    $ReturnType res = ($ReturnType)_mm_packus_epi16((__m128i)reslo, (__m128i)reshi);
+    $ReturnType res = as_$ReturnType(_mm_packus_epi16((__m128i)reslo, (__m128i)reshi));
     return res;
   }]>;
 // mul_hi native short8
 OclBuiltinImpl mul_hi_v8i16 = OclBuiltinImpl<mul_hi, [v8i16] , 0, [{
-    return (short8) _mm_mulhi_epi16((__m128i)$Arg0VarName, (__m128i)$Arg1VarName);
+    return as_short8(_mm_mulhi_epi16((__m128i)$Arg0VarName, (__m128i)$Arg1VarName));
   }]>;
 // mul_hi native ushort8
 OclBuiltinImpl mul_hi_v8u16 = OclBuiltinImpl<mul_hi, [v8u16] , 0, [{
-    return (ushort8) _mm_mulhi_epu16((__m128i)$Arg0VarName, (__m128i)$Arg1VarName);
+    return as_ushort8(_mm_mulhi_epu16((__m128i)$Arg0VarName, (__m128i)$Arg1VarName));
   }]>;
 // mul_hi native int4 (expanded from scalar, because any smaller vector size (2) is promoted to 4)
 OclBuiltinImpl mul_hi_v4i32 = OclBuiltinImpl<mul_hi, [v4i32] , 0, [{

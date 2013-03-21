@@ -37,7 +37,6 @@ File Name:  MICProgramBuilder.cpp
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Target/TargetMachine.h"
 #include "MICJITEngine/include/MICCodeGenerationEngine.h"

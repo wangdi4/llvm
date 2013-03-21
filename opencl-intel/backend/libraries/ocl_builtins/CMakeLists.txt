@@ -165,12 +165,24 @@ message (STATUS "TRIPLE:    ${TRIPLE}")
 # clang
 set (OCL_OUTPUT_EXTENSION .rtl)
 set (OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
+set (CLANG_LLVM_INCLUDE_DIRS)
+foreach( LLVM_INCLUDE_DIR_ITEM ${LLVM_INCLUDE_DIR} )
+	set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${LLVM_INCLUDE_DIR_ITEM})
+endforeach( LLVM_INCLUDE_DIR_ITEM)
 
 set (CLANG_COMPILER_PARAMS 
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -O3 -opencl-builtins -fwrapv
-  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} -I
-  ${LLVM_INCLUDE_DIR} -include opencl_.h
-  )
+  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h )
+  
+if (PLATFORM EQUAL Win32)
+  set (CLANG_COMPILER_PARAMS ${CLANG_COMPILER_PARAMS} -target=i686-pc-win32-OpenCL)
+elseif (PLATFORM EQUAL Win64)
+  set (CLANG_COMPILER_PARAMS ${CLANG_COMPILER_PARAMS} -target=x86_64-pc-win32-OpenCL)
+elseif (PLATFORM EQUAL Linux64)
+  set (CLANG_COMPILER_PARAMS ${CLANG_COMPILER_PARAMS} -target=x86_64-pc-linux-OpenCL)
+elseif (PLATFORM EQUAL Android32)
+  set (CLANG_COMPILER_PARAMS ${CLANG_COMPILER_PARAMS} -target=i686-pc-linux-OpenCL)
+endif (PLATFORM EQUAL Win32)
 
 # llvm-opt
 # Currently target_* built-ins are not compiled using -O3

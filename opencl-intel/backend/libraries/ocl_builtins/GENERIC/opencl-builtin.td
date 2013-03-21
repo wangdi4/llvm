@@ -154,7 +154,13 @@ defm f32 : _OCLTYPE2_<"f32", 32, "float">;
 defm f64 : _OCLTYPE2_<"f64", 64, "double">;
 def size_t : OclType<"size_t", "size_t", 1, 0, 0>;
 def cl_mem_fence_flags : OclType<"cl_mem_fence_flags", "cl_mem_fence_flags", 1, 0, 0>;
-def image2d: OclType<"image2d_t", "image2d_t", 1, 0, 0>;
+def image1d: OclType<"image1d", "image1d_t", 1, 0, 0>;
+def image2d: OclType<"image2d", "image2d_t", 1, 0, 0>;
+def image3d: OclType<"image3d", "image3d_t", 1, 0, 0>;
+def image1d_buffer: OclType<"image1d_buffer", "image1d_buffer_t", 1, 0, 0>;
+def image1d_array: OclType<"image1d_array", "image1d_array_t", 1, 0, 0>;
+def image2d_array: OclType<"image2d_array", "image2d_array_t", 1, 0, 0>;
+def sampler_t : OclType<"sampler_t", "sampler_t", 1, 0, 0>;
 def void: OclType<"void", "void", 1, 0, 0>;
 
 class TypeNameList<list<string> names> {
@@ -183,7 +189,9 @@ def ocl_types : TypeNameList<[
   pv1u64.TypeName, pv2u64.TypeName, pv3u64.TypeName, pv4u64.TypeName, pv8u64.TypeName, pv16u64.TypeName,
   pv1f16.TypeName, pv2f16.TypeName, pv3f16.TypeName, pv4f16.TypeName, pv8f16.TypeName, pv16f16.TypeName,
   pv1f32.TypeName, pv2f32.TypeName, pv3f32.TypeName, pv4f32.TypeName, pv8f32.TypeName, pv16f32.TypeName,
-  pv1f64.TypeName, pv2f64.TypeName, pv3f64.TypeName, pv4f64.TypeName, pv8f64.TypeName, pv16f64.TypeName
+  pv1f64.TypeName, pv2f64.TypeName, pv3f64.TypeName, pv4f64.TypeName, pv8f64.TypeName, pv16f64.TypeName,
+  image1d.TypeName, image2d.TypeName, image3d.TypeName, image1d_buffer.TypeName, image1d_array.TypeName,
+  image2d_array.TypeName, sampler_t.TypeName 
 ]>;
 
 class OclGenType<string name>

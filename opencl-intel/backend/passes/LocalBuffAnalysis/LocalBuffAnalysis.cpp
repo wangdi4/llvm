@@ -14,7 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Instructions.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Constant.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -101,7 +101,7 @@ namespace intel{
       return m_localSizeMap[pFunc];
     }
 
-    llvm::TargetData TD(m_pModule);
+    llvm::DataLayout DL(m_pModule);
     size_t localBufferSize = 0;
 
     for ( TUsedLocals::iterator li = m_localUsageMap[pFunc].begin(),
@@ -111,7 +111,7 @@ namespace intel{
         assert( pLclBuff && "locals container contains something other than GlobalValue!" );
 
         // Calculate required buffer size
-        size_t uiArraySize = TD.getTypeSizeInBits(pLclBuff->getType()->getElementType())/8;
+        size_t uiArraySize = DL.getTypeSizeInBits(pLclBuff->getType()->getElementType())/8;
         assert ( 0 != uiArraySize && "local buffer size is zero!" );
 
         // Advance total implicit size

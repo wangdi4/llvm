@@ -16,7 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 
 #include "RuntimeServices.h"
 #include "SoaAllocaAnalysis.h"
@@ -260,8 +260,8 @@ private:
   /// @brief flag to enable scatter/gather to/from memory.
   bool UseScatterGather;
 
-  /// @brief This holds TargetData of processed module
-  TargetData *m_pTD;
+  /// @brief This holds DataLayout of processed module
+  DataLayout *m_pDL;
 
 };
 

@@ -425,7 +425,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
         llvm::MDNode *elt = metadata->getOperand(k);
 
         m_pKernel = dyn_cast<Function>(elt->getOperand(0)->stripPointerCasts());
-        if ( m_pKernel->getNameStr() != kernelName)
+        if ( m_pKernel->getName().str() != kernelName)
         {
             continue;
         }

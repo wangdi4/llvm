@@ -230,7 +230,7 @@ OclBuiltinImpl iselect_3f64       =  OclBuiltinImpl  <iselect,  [v3f64],        
 code select_vector_v2_64 = [{ 
   $Arg0igentype zero = ($Arg0igentype)0;
   $Arg0igentype mask = (zero > as_$Arg0igentype($Arg2VarName));
-  mask = _mm_shuffle_epi32 (__builtin_astype(mask,__m128i), 0xF5);
+  mask = as_$Arg0igentype(_mm_shuffle_epi32(__builtin_astype(mask,__m128i), 0xF5));
   $Arg0igentype res = (mask & as_$Arg0igentype($Arg1VarName));
   return as_$ReturnType (((~mask) & as_$Arg0igentype($Arg0VarName))| res);
   }];
@@ -556,10 +556,10 @@ OclBuiltinImpl bitselect_v4i32 = OclBuiltinImpl<bitselect, [v4i32, v4u32], 0, [{
 }]>;
 
 OclBuiltinImpl bitselect_v2i64 = OclBuiltinImpl<bitselect, [v2i64], 0, [{
-  return as_$ReturnType(bitselect((int4)$Arg0VarName, (int4)$Arg1VarName, (int4)$Arg2VarName));
+  return as_$ReturnType(bitselect(as_int4($Arg0VarName), as_int4($Arg1VarName), as_int4($Arg2VarName)));
 }]>;
 OclBuiltinImpl bitselect_v2u64 = OclBuiltinImpl<bitselect, [v2u64], 0, [{
-  return as_$ReturnType(bitselect((uint4)$Arg0VarName, (uint4)$Arg1VarName, (uint4)$Arg2VarName));
+  return as_$ReturnType(bitselect(as_uint4($Arg0VarName), as_uint4($Arg1VarName), as_uint4($Arg2VarName)));
 }]>;
 
 OclBuiltinImpl iselect_v2 = OclBuiltinImpl<iselect, [v2i64, v2u64], 0, select_vector_v2_64>;

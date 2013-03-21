@@ -325,8 +325,8 @@ class KNC : Generic {
     #pragma OPENCL EXTENSION cl_khr_fp64 : enable
     #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 
+    #define __OPENCL__
     #include <intrin.h>
-    #define intel_ocl_bicc svmlcc
 
     #include "generic-builtin-defines.h"
     #include "knc-builtin-defines.h"

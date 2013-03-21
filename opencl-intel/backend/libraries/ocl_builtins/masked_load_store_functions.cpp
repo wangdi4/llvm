@@ -25,6 +25,8 @@
 #include "masked_load_store_functions.h"
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
+#define __OPENCL__
 #include <intrin.h>
 
 // ****************************************************************************
@@ -35,7 +37,7 @@
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_char4x4_AVX2(char4* pLoadAdd, char4* pLoadedValues, int4 mask) {
   char16* tmpLoadedValues = (char16*)pLoadedValues;
-  *tmpLoadedValues = (char16)_mm_maskload_epi32((int*)pLoadAdd, (__m128i)mask);
+  *tmpLoadedValues = as_char16(_mm_maskload_epi32((int*)pLoadAdd, (__m128i)mask));
 }
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_char4x4_AVX2(char4* pStoreAdd, char4* pValuesToStore, int4 mask) {
@@ -48,7 +50,7 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_char4x4_AVX2(char4* pStoreAdd,
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_char4x4_AVX(char4* pLoadAdd, char4* pLoadedValues, int4 mask) {
   char16* tmpLoadedValues = (char16*)pLoadedValues;
-  *tmpLoadedValues = (char16)_mm_maskload_ps((float*)pLoadAdd, (__m128)mask);
+  *tmpLoadedValues = as_char16(_mm_maskload_ps((float*)pLoadAdd, (__m128)mask));
 }
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_char4x4_AVX(char4* pStoreAdd, char4* pValuesToStore, int4 mask) {
@@ -101,10 +103,10 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_char4x8_AVX2(char4* pStoreAdd,
 #if defined(__AVX__)
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_char4x8_AVX(char4* pLoadAdd, char4* pLoadedValues, int8 mask) {
-  float8 res = (float8)_mm256_maskload_ps((float*)pLoadAdd, (__m256)mask);
+  float8 res = as_float8(_mm256_maskload_ps((float*)pLoadAdd, (__m256)mask));
   char16* tmpLoadedValues = (char16*)pLoadedValues;
-  tmpLoadedValues[0] = (char16) res.lo;
-  tmpLoadedValues[1] = (char16) res.hi;
+  tmpLoadedValues[0] = as_char16(res.lo);
+  tmpLoadedValues[1] = as_char16(res.hi);
 }
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_char4x8_AVX(char4* pStoreAdd, char4* pValuesToStore, int8 mask) {
@@ -288,8 +290,8 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_int4x4_AVX2(int4* pLoadAdd, int
 
   int8* tmpLoadAdd = (int8*)pLoadAdd;
   int8* tmpLoadedValues = (int8*)pLoadedValues;
-  tmpLoadedValues[0] = (int8)_mm256_maskload_epi32((int*)&(tmpLoadAdd[0]), (__m256i)maskLow);
-  tmpLoadedValues[1] = (int8)_mm256_maskload_epi32((int*)&(tmpLoadAdd[1]), (__m256i)maskHigh);
+  tmpLoadedValues[0] = as_int8(_mm256_maskload_epi32((int*)&(tmpLoadAdd[0]), (__m256i)maskLow));
+  tmpLoadedValues[1] = as_int8(_mm256_maskload_epi32((int*)&(tmpLoadAdd[1]), (__m256i)maskHigh));
 }
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_int4x4_AVX2(int4* pStoreAdd, int4* pValuesToStore, int4 mask) {
@@ -311,14 +313,14 @@ void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_store_int4x4_AVX2(int4* pStoreAdd, i
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_float4x4_common(float4* pLoadAdd, float4* pLoadedValues, int4 mask) {
 
-  float8 extendedMask = (float8) mask.s01230123;
+  float8 extendedMask = as_float8(mask.s01230123);
   float8 maskLow = extendedMask.s00001111;
   float8 maskHigh = extendedMask.s22223333;
 
   float8* tmpLoadAdd = (float8*)pLoadAdd;
   float8* tmpLoadedValues = (float8*)pLoadedValues;
-  tmpLoadedValues[0] = (float8)_mm256_maskload_ps((float*)&(tmpLoadAdd[0]), (__m256)maskLow);
-  tmpLoadedValues[1] = (float8)_mm256_maskload_ps((float*)&(tmpLoadAdd[1]), (__m256)maskHigh);
+  tmpLoadedValues[0] = as_float8(_mm256_maskload_ps((float*)&(tmpLoadAdd[0]), (__m256)maskLow));
+  tmpLoadedValues[1] = as_float8(_mm256_maskload_ps((float*)&(tmpLoadAdd[1]), (__m256)maskHigh));
 }
 
 void INTERNAL_INLINE_ATTRIBUTE __ocl_masked_load_int4x4_AVX(int4* pLoadAdd, int4* pLoadedValues, int4 mask) {
@@ -384,7 +386,7 @@ void INLINE_ATTRIBUTE __ocl_masked_load_float4x4(float4* pLoadAdd, float4* pLoad
 
 void INLINE_ATTRIBUTE __ocl_masked_store_float4x4(float4* pStoreAdd, float4* pValuesToStore, int4 mask) {
 
-  float8 extendedMask = (float8) mask.s01230123;
+  float8 extendedMask = as_float8(mask.s01230123);
   float8 maskLow = extendedMask.s00001111;
   float8 maskHigh = extendedMask.s22223333;
 
@@ -464,7 +466,7 @@ long4 INLINE_ATTRIBUTE __ocl_masked_load_long4(long4* pLoadAdd, int4 mask) {
   long4 extMask = convert_long4(mask);
 
 #if defined(__AVX2__)
-  return as_long4(_mm256_maskload_epi64((long const *)pLoadAdd, (__m256i) extMask));
+  return as_long4(_mm256_maskload_epi64((const long long *)pLoadAdd, (__m256i) extMask));
 #else
   return as_long4(_mm256_maskload_pd((double *)pLoadAdd, (__m256d) extMask));
 #endif
@@ -474,7 +476,7 @@ void INLINE_ATTRIBUTE __ocl_masked_store_long4(long4* pStoreAdd, long4 data, int
   long4 extMask = convert_long4(mask);
 
 #if defined(__AVX2__)
-  _mm256_maskstore_epi64((long *)pStoreAdd, (__m256i) extMask, *((__m256i*) &data));
+  _mm256_maskstore_epi64((long long *)pStoreAdd, (__m256i) extMask, *((__m256i*) &data));
 #else
   _mm256_maskstore_pd((double *)pStoreAdd, (__m256d) extMask, *((__m256d*) &data));
 #endif

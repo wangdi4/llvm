@@ -20,7 +20,7 @@ class TestVariableTypes(DebuggerTestCase):
     GLOBAL_VARAIBLE_AMOUNT = 1
     FUNCTION_VARAIBLE_AMOUNT = 7
     # these "defines" are for test_all_variable_types_are_available2
-    LAST_ROW = 142
+    LAST_ROW = 141
 
     def test_all_variable_types_are_available(self):
     #
@@ -316,7 +316,6 @@ class TestVariableTypes(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('p_image3d_t'), '34')
         self.assertEqual(self.client.var_query_value('p_image2d_t'), '34')
         self.assertEqual(self.client.var_query_value('var_sampler_t'), '28')
-        self.assertEqual(self.client.var_query_value('var_event_t'), '28')
         self.assertEqual(self.client.var_query_value('p_event_t'), '34')
         self.assertEqual(self.client.var_query_value('p_half'), '34')
         self.client.debug_run_finish()

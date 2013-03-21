@@ -56,6 +56,10 @@
 #ifdef __AVX2__
 #include <avx2intrin.h>
 #endif
+
+#ifdef __FMA__
+#include <fmaintrin.h>
+#endif
 #endif
 
 #endif

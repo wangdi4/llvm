@@ -978,7 +978,9 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
                 cl_prog_binary_type binType = pHeader->description.bin_type;
 
                 if ((CL_PROG_BIN_COMPILED_LLVM == binType) ||
-                    (CL_PROG_BIN_LINKED_LLVM == binType))
+                    (CL_PROG_BIN_LINKED_LLVM == binType) ||
+                    (CL_PROG_BIN_COMPILED_SPIR == binType) ||
+                    (CL_PROG_BIN_LINKED_SPIR == binType))
                 {
                     ++uiFoundBinaries;
                 }

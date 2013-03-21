@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.7)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 
-set (TARGET_NAME "PlugInNEAT")
+set (TARGET_NAME PlugInNEAT)
 #
 # Settings for Linux compilation
 #
@@ -27,7 +27,7 @@ set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
 set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
 endif()
 
-add_library(PlugInNEAT
+add_library(${TARGET_NAME}
   PlugInNEAT.cpp
   )
 include_directories (
@@ -42,3 +42,8 @@ include_directories (
   ${BACKEND_ROOT_DIR}/validations/ImathLibd
   )
 
+#During the compilation of the LLVMInterpreter the Interpreter.h file is copying to the build directory 
+#(and then to the install one - but this is irrelevant for current problem). 
+#This file is then used by IntepreterPluggable build. So we need to ensure the LLVMInterpreter is running first
+
+add_dependencies(${TARGET_NAME} LLVMInterpreter)

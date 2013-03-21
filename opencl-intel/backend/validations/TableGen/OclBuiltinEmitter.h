@@ -32,6 +32,7 @@
 #define OCLBUILTIN_EMITTER_H
 
 #include "llvm/TableGen/TableGenBackend.h"
+#include "llvm/TableGen/Record.h"
 
 #include <map>
 #include <vector>

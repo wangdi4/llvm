@@ -143,7 +143,7 @@ option(LLVM_BUILD_APPLE_BACKEND "Build OpenCL CPU Apple backend plugin." OFF)
 
 project(Backend)
 
-set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES ${LLVM_INCLUDE_DIR})
+include_directories(${LLVM_INCLUDE_DIR})
 message( STATUS "LLVM include directory: ${LLVM_INCLUDE_DIR}")
 set(ADD_CXX_FLAGS "-D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ADD_CXX_FLAGS}")
@@ -202,8 +202,7 @@ else(LLVM_BUILD_APPLE_BACKEND)
         add_subdirectory(vectorizer        "${CMAKE_CURRENT_BINARY_DIR}/vectorizer")
         add_subdirectory(barrier           "${CMAKE_CURRENT_BINARY_DIR}/barrier")
         add_subdirectory(MICJITEngine      "${CMAKE_CURRENT_BINARY_DIR}/MICJITEngine")
-        add_subdirectory(MICJITEngine/ModuleJITHolder "${CMAKE_CURRENT_BINARY_DIR}/MICJITEngine/ModuleJITHolder")
-        add_subdirectory(utils             "${CMAKE_CURRENT_BINARY_DIR}/utils")
+       add_subdirectory(utils             "${CMAKE_CURRENT_BINARY_DIR}/utils")
         add_subdirectory(metadata_api      "${CMAKE_CURRENT_BINARY_DIR}/metadata_api")
         add_subdirectory(passes            "${CMAKE_CURRENT_BINARY_DIR}/passes")
         add_subdirectory(optimizer         "${CMAKE_CURRENT_BINARY_DIR}/optimizer")
@@ -225,6 +224,8 @@ else(LLVM_BUILD_APPLE_BACKEND)
     if (BACKEND_BUILD_VERIFICATION_LIB)
         add_subdirectory(external/tinyxml  "${CMAKE_CURRENT_BINARY_DIR}/tinyxml")
         add_subdirectory(validations       "${CMAKE_CURRENT_BINARY_DIR}/validations")
+        install(FILES ${BACKEND_ROOT_DIR}/tests/Conformance.7z
+                DESTINATION bin/validation)
     endif ()
 
     #removing the test/... directories since it will be incorporated as part of the LIT script support

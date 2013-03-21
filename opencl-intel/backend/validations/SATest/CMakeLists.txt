@@ -55,11 +55,18 @@ if (INCLUDE_MIC_DEVICE)
     endif (KNC_CARD)
 endif (INCLUDE_MIC_DEVICE)
 
-if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set (ICC_PLATFORM ia32)
-else ()
-  set (ICC_PLATFORM intel64)
-endif ()
+if (WIN32)
+    set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
+
+    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+      set (ICC_PLATFORM ia32)
+    else ()
+      set (ICC_PLATFORM intel64)
+    endif ()
+
+    link_directories( "${ICC_WIN32_PATH}/compiler/lib/${ICC_PLATFORM}" )
+endif(WIN32)
+
 
 link_directories(
     ${LLVM_LIBRARY_DIR}
@@ -197,7 +204,7 @@ target_link_libraries(${TARGET_NAME}
     Comparator
     LLVMInterpreterPluggable
     OclBackendUtils
-    OCLInterpreter
+    LLVMInterpreter
     OCLBuiltins
     NEAT
     REFALU

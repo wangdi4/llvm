@@ -12,11 +12,11 @@ code Prolog = [{
 
     #pragma OPENCL EXTENSION cl_khr_fp64 : enable
     #pragma OPENCL EXTENSION cl_khr_fp16 : enable
+    #define __OPENCL__
     #ifdef __APPLE__
       #include <immintrin.h>
     #else
       #include <intrin.h>
-      #define intel_ocl_bicc svmlcc
     #endif
     #include "generic-builtin-defines.h"
     #include "cpu-builtin-defines.h"

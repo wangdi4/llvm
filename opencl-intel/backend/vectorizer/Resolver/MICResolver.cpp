@@ -302,6 +302,7 @@ void MICResolver::FixBaseAndIndexIfNeeded(
     // Initialize function arguments
     SmallVector<Value *, 4> args;
     args.push_back(CombinedMask);
+    args.push_back(ConstantInt::get(Type::getInt1Ty(caller->getContext()),0));
 
     // Call cttz intrinsics name
     Instruction *CttzCaller = VectorizerUtils::createFunctionCall(pModule, sname.str(), MaskCombinedTy, args, SmallVector<Attributes, 4>(), caller);

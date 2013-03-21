@@ -14,10 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Version.h"
-#if LLVM_VERSION >= 3425
 #include "llvm/Analysis/ScalarEvolution.h"
-#endif
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
@@ -81,11 +78,7 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   m_indVar = L->getCanonicalInductionVariable();
   if (!m_indVar)
     return false;
-#if LLVM_VERSION >= 3425
   m_tripCount = getTripCountValue(L, m_indVar);
-#else
-  m_tripCount = L->getTripCount();
-#endif
   if (!m_indVar || !m_tripCount) return false;
 
   // Obtain upper bound on the trip count of the loop.

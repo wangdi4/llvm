@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Metadata.h"
 #include "llvm/Instructions.h"
-#include <llvm/Target/TargetData.h>
+#include <llvm/DataLayout.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -35,6 +35,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_WAIT_GROUP_EVENTS = "_Z17wait_group_events";
   const std::string CompilationUtils::NAME_PREFETCH = "_Z8prefetch";
   const std::string CompilationUtils::NAME_ASYNC_WORK_GROUP_STRIDED_COPY = "_Z29async_work_group_strided_copy";
+
+  typedef enum {
+    NONE = 0,
+    READ_ONLY = 1,
+    WRITE_ONLY = 2,
+    SAMPLER = 4
+  } ArgumentAttributes;
 
   BasicBlock::iterator CompilationUtils::removeInstruction(BasicBlock* pBB, BasicBlock::iterator it) {
     BasicBlock::InstListType::iterator prev;
@@ -195,7 +202,7 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
 #ifdef __APPLE__
     if (tag->getString() == "apple.cl.arg_metadata") {
 #else
-    if (tag->getString() == "image_access_qualifier") {
+    if (tag->getString() == "argument_attribute") {
 #endif
       MDImgAccess = tmpMD;
       break;
@@ -224,8 +231,8 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
         {
             llvm::StructType *STy = llvm::cast<llvm::StructType>(arg_it->getType());
             curArg.type = CL_KRNL_ARG_COMPOSITE;
-            TargetData targetData(pModule);
-            curArg.size_in_bytes = targetData.getTypeAllocSize(STy);
+            DataLayout dataLayout(pModule);
+            curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
             break;
         }
     case llvm::Type::PointerTyID:
@@ -251,22 +258,22 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
         StructType *ST = dyn_cast<StructType>(PTy->getElementType());
         if(ST) {
           const std::string &imgArg = ST->getName().str();
-          if ( std::string::npos != imgArg.find("struct._image"))    // Image identifier was found
+          if ( std::string::npos != imgArg.find("opencl.image"))    // Image identifier was found
           {
             curArg.type = CL_KRNL_ARG_INT;
 
             // Get dimension image type
-            if(imgArg.find("struct._image1d_t") != std::string::npos)
+            if(imgArg.find("opencl.image1d_t") != std::string::npos)
                 curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
-            else if(imgArg.find("struct._image1d_array_t") != std::string::npos)
+            else if (imgArg.find("opencl.image1d_array_t") != std::string::npos)
                 curArg.type = CL_KRNL_ARG_PTR_IMG_1D_ARR;
-            else if(imgArg.find("struct._image1d_buffer_t") != std::string::npos)
+            else if (imgArg.find("opencl.image1d_buffer_t") != std::string::npos)
                 curArg.type = CL_KRNL_ARG_PTR_IMG_1D_BUF;
-            else if (imgArg.find("struct._image2d_t") != std::string::npos)
+            else if (imgArg.find("opencl.image2d_t") != std::string::npos)
                 curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
-            else if (imgArg.find("struct._image2d_array_t") != std::string::npos)
+            else if (imgArg.find("opencl.image2d_array_t") != std::string::npos)
                 curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
-            else if(imgArg.find("struct._image3d_t") != std::string::npos)
+            else if (imgArg.find("opencl.image3d_t") != std::string::npos)
                 curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
 
             // Setup image pointer
@@ -281,7 +288,7 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
 #else
               ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i+1));
 
-              curArg.size_in_bytes = (access->getValue().getZExtValue() == 0) ? 0 : 1;    // Set RW/WR flag
+              curArg.size_in_bytes = (access->getValue().getZExtValue() == READ_ONLY) ? 0 : 1;    // Set RW/WR flag
 #endif
               break;
             }
@@ -295,8 +302,8 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
           if(PTy->getAddressSpace() == 0) //We're dealing with real struct and not struct pointer
           {
             llvm::StructType *STy = llvm::cast<llvm::StructType>(Ty);
-            TargetData targetData(pModule);
-            curArg.size_in_bytes = targetData.getTypeAllocSize(STy);
+            DataLayout dataLayout(pModule);
+            curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
             curArg.type = CL_KRNL_ARG_COMPOSITE;
             break;
           }
@@ -334,7 +341,7 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
           if(isSampler)
 #else
           ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i+1));
-          if (access->getValue().getSExtValue() == -1) //sampler_t
+          if (access->getValue().getSExtValue() == SAMPLER) //sampler_t
 #endif
           {
             curArg.type = CL_KRNL_ARG_SAMPLER;

@@ -576,7 +576,7 @@ static int getSize(Type *Ty) {
   int size = Ty->getScalarSizeInBits() / 8;
   assert (size != 0 && "load/store is not scalar or size is 0");
   if (Ty->isVectorTy())
-    size *= Ty->getNumElements();
+    size *= cast<VectorType>(Ty)->getNumElements();
   return size;
 }
 
@@ -999,7 +999,10 @@ unsigned int Prefetch::IterLength(Loop *L)
       assert (BBL->getHeader() == BB &&
           "expected to enter subloop from its header");
       unsigned internalLoopLen = IterLength(BBL);
-      unsigned tripCount = BBL->getSmallConstantTripCount();
+      //unsigned tripCount = BBL->getSmallConstantTripCount();
+      // TODO : make sure the tripCount is still correct, as it now looks on one exit block (what if there are several exit blocks?)
+      ScalarEvolution *SE = &getAnalysis<ScalarEvolution>();
+      unsigned tripCount = SE->getSmallConstantTripCount(L, L->getExitBlock());
       if (tripCount == 0)
         tripCount = defaultTripCount;
       len += internalLoopLen * tripCount;
@@ -1657,7 +1660,7 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
     args.push_back(pCallInst->getOperand(0));
     types.push_back(v16i32);
 
-    if (I->getType()->getNumElements() == 16) {
+    if (cast<VectorType>(I->getType())->getNumElements() == 16) {
       pfIntrinName = m_prefetchGatherIntrinsicName.c_str();
     } else {
       // if the instruction gathers 8 elements need to pf only the first 8
@@ -1722,7 +1725,7 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
     args.push_back(pCallInst->getOperand(0));
     types.push_back(pi8);
 
-    if (I->getType()->getNumElements() == 16) {
+    if (cast<VectorType>(I->getType())->getNumElements() == 16) {
       pfIntrinName = m_prefetchScatterIntrinsicName.c_str();
     } else {
       // if the instruction scatters 8 elements need to pf only the first 8

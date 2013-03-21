@@ -1,6 +1,6 @@
 #include "debuginfo_utils.h"
 #include "debugservermessages.pb.h"
-#include "llvm/Analysis/DebugInfo.h"
+#include "llvm/DebugInfo.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Metadata.h"
 #include <iostream>

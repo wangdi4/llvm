@@ -155,11 +155,9 @@ define void @externalDivBranchNestedUnLoopsMX(i32 addrspace(1)* nocapture %a, i3
 
 ; CHECK: void @externalDivBranchNestedLoopsMX
 ; CHECK: @masked_store
-; CHECK: header:
 ; CHECK: @masked_load
 ; CHECK: @masked_store
 ; CHECK: @masked_load
-; CHECK: footer:
 ; CHECK: ret
 
 define void @externalDivBranchNestedLoopsMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {

@@ -37,7 +37,7 @@
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Main.h"
 #include "llvm/TableGen/Record.h"
-#include "llvm/TableGen/TableGenAction.h"
+#include "llvm/TableGen/TableGenBackend.h"
 
 using namespace llvm;
 
@@ -63,24 +63,22 @@ Class("class", cl::desc("Print Enum list for this class"),
 
 } // anonymous namespace
 
-class OCLTableGenAction : public TableGenAction {
-public:
-  bool operator()(raw_ostream& OS, RecordKeeper& Records) {
-    switch (Action) {
-      default:
-        assert(1 && "Invalid Action");
-        return true;
-      case PrintRecords:
-        OS << Records;
-        break;
-      case GenOCLBuiltisnHeader:
-        OclBuiltinsHeaderGen(Records).run(OS);
-        break;
-    }
-
-    return false;
+bool OCLTableGenAction(raw_ostream& OS, RecordKeeper& Records) {
+  switch (Action) {
+    default:
+      assert(1 && "Invalid Action");
+      return true;
+    case PrintRecords:
+      OS << Records;
+      break;
+    case GenOCLBuiltisnHeader:
+      OclBuiltinsHeaderGen(Records).run(OS);
+      break;
   }
-};
+
+  return false;
+}
+
 
 int
 main(int argc, char** argv)
@@ -89,6 +87,5 @@ main(int argc, char** argv)
   PrettyStackTraceProgram X(argc, argv);
   cl::ParseCommandLineOptions(argc, argv);
 
-  OCLTableGenAction Action;
-  return TableGenMain(argv[0], Action);
+  return TableGenMain(argv[0], OCLTableGenAction);
 }

@@ -31,6 +31,7 @@
 #ifndef OCLBUILTIN_EMITTER_H
 #define OCLBUILTIN_EMITTER_H
 
+#include "llvm/TableGen/Record.h"
 #include "llvm/TableGen/TableGenBackend.h"
 
 #include <map>
@@ -315,7 +316,7 @@ protected:
 };
 
 /// OclBuiltinEmitter
-class OclBuiltinEmitter : public TableGenBackend {
+class OclBuiltinEmitter {
 public:
   explicit OclBuiltinEmitter(RecordKeeper&);
 

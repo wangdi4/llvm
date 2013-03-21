@@ -23,7 +23,6 @@ File Name:  PlugInNEAT.h
 #include "llvm/Function.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -41,7 +40,7 @@ File Name:  PlugInNEAT.h
 
 namespace llvm {
 
-  class NEATTargetData;
+  class NEATDataLayout ;
 
   class NEATStructLayout {
   public:
@@ -54,11 +53,11 @@ namespace llvm {
     unsigned StructAlignment;
     unsigned NumElements;
     uint64_t MemberOffsets[1];  // variable sized array!
-    friend class NEATTargetData;   // Only NEATTargetData can create this class
-    NEATStructLayout(const StructType *ST, const NEATTargetData &TD);
+    friend class NEATDataLayout ;   // Only NEATDataLayout  can create this class
+    NEATStructLayout(const StructType *ST, const NEATDataLayout  &TD);
   };
 
-  class NEATTargetData
+  class NEATDataLayout 
   {
   public:
 
@@ -345,7 +344,7 @@ namespace llvm {
         /// NEAT execution context
         std::vector<NEATExecutionContext> m_NECStack;
         /// helper class to count storage bytes of NEAT values
-        NEATTargetData m_NTD;
+        NEATDataLayout  m_NTD;
         /// Use interval for mul in the NEAT if specified
         bool const m_bUseFmaNEAT;
         /// current event being handled by NEAT

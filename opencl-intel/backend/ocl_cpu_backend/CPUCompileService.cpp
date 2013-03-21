@@ -28,7 +28,6 @@ File Name:  CPUCompileService.cpp
 #include "CPUDeviceBackendFactory.h"
 
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/Support/MemoryObject.h"

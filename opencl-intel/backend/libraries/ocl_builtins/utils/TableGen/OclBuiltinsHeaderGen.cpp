@@ -180,11 +180,11 @@ protected:
 };
 
 const char* DESC=
-"Ocl built-in functions data. (mangled name array, and a corresponding prototype array";
+"Ocl BuiltIn funcs data: mangled name array + corresponding prototype array";
 
 void OclBuiltinsHeaderGen::run(raw_ostream& stream){
   OclBuiltinDB bidb(m_recordKeeper);
-  EmitSourceFileHeader(DESC, stream);
+  emitSourceFileHeader(DESC, stream);
   CodeFormatter formatter(stream);
   formatter << "#ifndef __MANGLED_BI_NAMES_H__";
   formatter.endl();

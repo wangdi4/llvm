@@ -405,7 +405,7 @@ static std::string RemoveCommonLeadingSpaces(const std::string& t)
 
 void OclBuiltinsHeaderGen::run(raw_ostream& stream){
   OclBuiltinDB bidb(m_recordKeeper);
-  EmitSourceFileHeader("Reference OpenCL Builtins", stream);
+  emitSourceFileHeader("Reference OpenCL Builtins", stream);
   CodeFormatter formatter(stream);
 
   formatter << RemoveCommonLeadingSpaces(bidb.getProlog());

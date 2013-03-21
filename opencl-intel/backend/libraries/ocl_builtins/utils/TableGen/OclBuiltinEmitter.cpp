@@ -275,8 +275,8 @@ OclGenType::OclGenType(const OclBuiltinDB& DB, const Record* R)
   for (ListInit::const_iterator I = Tin->begin(),
                                 O = Tout->begin(),
                                 E = Tin->end(); I != E; ++I, ++O) {
-    const std::string& istr = dynamic_cast<StringInit*>(*I)->getValue();
-    const std::string& ostr = dynamic_cast<StringInit*>(*O)->getValue();
+    const std::string& istr = dyn_cast<StringInit>(*I)->getValue();
+    const std::string& ostr = dyn_cast<StringInit>(*O)->getValue();
     m_GenMap.insert(std::pair<std::string, std::string>(istr, ostr));
   }
 }
@@ -348,12 +348,12 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     DagInit* Outs = R->getValueAsDag("Outs");
     assert(Outs && "Invalid OclBuiltin record without outs.");
 
-    assert(dynamic_cast<DefInit*>(Outs->getOperator()) && 
-      dynamic_cast<DefInit*>(Outs->getOperator())->getDef()->getName() == "outs" && 
+    assert(dyn_cast<DefInit>(Outs->getOperator()) && 
+      dyn_cast<DefInit>(Outs->getOperator())->getDef()->getName() == "outs" && 
       "Invalid OclBuiltin record with invalid outputs.");
 
     for (unsigned i = 0, e = Outs->getNumArgs(); i != e; ++i) {
-      const OclType* ArgTy = m_DB.getOclType(dynamic_cast<DefInit*>(Outs->getArg(i))->getDef()->getName());
+      const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Outs->getArg(i))->getDef()->getName());
       const std::string& ArgName = Outs->getArgName(i);
       m_Outputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
@@ -364,11 +364,11 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     DagInit* Ins = R->getValueAsDag("Ins");
     assert(Ins && "Invalid OclBuiltin record without ins.");
 
-    assert(dynamic_cast<DefInit*>(Ins->getOperator()) && 
-      dynamic_cast<DefInit*>(Ins->getOperator())->getDef()->getName() == "ins" && 
+    assert(dyn_cast<DefInit>(Ins->getOperator()) && 
+      dyn_cast<DefInit>(Ins->getOperator())->getDef()->getName() == "ins" && 
       "Invalid OclBuiltin record with invalid outputs.");
     for (unsigned i = 0, e = Ins->getNumArgs(); i != e; ++i) {
-      const OclType* ArgTy = m_DB.getOclType(dynamic_cast<DefInit*>(Ins->getArg(i))->getDef()->getName());
+      const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Ins->getArg(i))->getDef()->getName());
       const std::string& ArgName = Ins->getArgName(i);
       m_Inputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
@@ -919,11 +919,11 @@ OclBuiltinImpl::appendImpl(const Record* R)
     {
       for (ListInit::const_iterator iter = macroses->begin();
         iter != macroses->end(); ++iter) {
-        PairInit* pair = dynamic_cast<PairInit*>(*iter);
+        PairInit* pair = dyn_cast<PairInit>(*iter);
         if(pair)
         {
-          std::string const& keyword = dynamic_cast<StringInit*>(pair->getFirst())->getValue();
-          std::string const& replacement = dynamic_cast<StringInit*>(pair->getSecond())->getValue();
+          std::string const& keyword = dyn_cast<StringInit>(pair->getFirst())->getValue();
+          std::string const& replacement = dyn_cast<StringInit>(pair->getSecond())->getValue();
           impl->m_customMacro[keyword] = replacement;
         } else {
           GENOCL_WARNING("'" << R->getName() << "' specifes invalid custom macro.\n");
@@ -936,12 +936,12 @@ OclBuiltinImpl::appendImpl(const Record* R)
     
     std::vector<Record*> Tys;
     const RecordVal* RV = R->getValue("Types");
-    if (VarInit* FI = dynamic_cast<VarInit*>(RV->getValue())) {
+    if (VarInit* FI = dyn_cast<VarInit>(RV->getValue())) {
       const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
-      assert(dynamic_cast<ListInit*>(IV->getValue()) && "Invalid OclBuiltinImpl record.");
-      ListInit* List = dynamic_cast<ListInit*>(IV->getValue());
+      assert(dyn_cast<ListInit>(IV->getValue()) && "Invalid OclBuiltinImpl record.");
+      ListInit* List = dyn_cast<ListInit>(IV->getValue());
       for (unsigned i = 0; i != List->getSize(); ++i) {
-        DefInit* DI = dynamic_cast<DefInit*>(List->getElement(i));
+        DefInit* DI = dyn_cast<DefInit>(List->getElement(i));
         assert(DI && "Invalid OclBuiltinImpl record, list is not entirely DefInit.");
         Tys.push_back(DI->getDef());
       }
@@ -961,10 +961,10 @@ OclBuiltinImpl::appendImpl(const Record* R)
   // Impl
   {
     const RecordVal* RV = R->getValue("Impl");
-    if (VarInit* FI = dynamic_cast<VarInit*>(RV->getValue())) {
+    if (VarInit* FI = dyn_cast<VarInit>(RV->getValue())) {
       const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
-      assert(dynamic_cast<StringInit*>(IV->getValue()) && "Invalid OclBuiltinImpl record.");
-      impl->m_Code = dynamic_cast<StringInit*>(IV->getValue())->getValue();
+      assert(dyn_cast<StringInit>(IV->getValue()) && "Invalid OclBuiltinImpl record.");
+      impl->m_Code = dyn_cast<StringInit>(IV->getValue())->getValue();
     } else
       impl->m_Code = R->getValueAsString("Impl");
   }
@@ -1038,14 +1038,14 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
         Init* Def = RV.getValue();
 
         // UnsetInit could be converted to any type, skip it first.
-        if (dynamic_cast<UnsetInit*>(Def))
+        if (dyn_cast<UnsetInit>(Def))
           continue;
 
         // Not convertible, skip it as well.
         if (!Def->convertInitializerTo(OBI))
           continue;
 
-        const Record* DefRec = dynamic_cast<DefInit*>(Def)->getDef();
+        const Record* DefRec = dyn_cast<DefInit>(Def)->getDef();
         const OclBuiltin* proto = getOclBuiltin(DefRec->getValueAsDef("Builtin")->getName());
 
         std::map<const OclBuiltin*, OclBuiltinImpl*>::const_iterator II = m_ImplMap.find(proto);
@@ -1067,14 +1067,14 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
           Init* Def = RV.getValue();
 
           // UnsetInit could be converted to any type, skip it first.
-          if (dynamic_cast<UnsetInit*>(Def))
+          if (dyn_cast<UnsetInit>(Def))
             continue;
 
           // Not convertible, skip it as well.
           if (!Def->convertInitializerTo(OBI))
             continue;
 
-          const Record* DefRec = dynamic_cast<DefInit*>(Def)->getDef();
+          const Record* DefRec = dyn_cast<DefInit>(Def)->getDef();
           const OclBuiltin* proto = getOclBuiltin(DefRec->getValueAsDef("Builtin")->getName());
 
           std::map<const OclBuiltin*, OclBuiltinImpl*>::const_iterator II = m_ImplMap.find(proto);
@@ -1411,7 +1411,7 @@ OclBuiltinEmitter::OclBuiltinEmitter(RecordKeeper& R)
 void
 OclBuiltinEmitter::run(raw_ostream& OS)
 {
-  EmitSourceFileHeader("OpenCL Builtins", OS);
+  emitSourceFileHeader("OpenCL Builtins", OS);
 
   if (!GenOCLBuiltinPrototype)
     OS << RemoveCommonLeadingSpaces(m_DB.getProlog()) << "\n";

@@ -32,6 +32,7 @@ File Name:  PlugInNEAT.cpp
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "InterpreterPluggable.h"
+#include "llvm/DataLayout.h"
 
 #include "PlugInNEAT.h"
 #include "NEAT_WRAP.h"
@@ -61,7 +62,7 @@ using namespace Validation::Exception;
 //                     Various Helper Functions
 //===----------------------------------------------------------------------===//
 
-const NEATStructLayout * NEATTargetData::getStructLayout( const StructType *Ty ) const
+const NEATStructLayout * NEATDataLayout ::getStructLayout( const StructType *Ty ) const
 {
   NEATStructLayout *SL = 0;
   // Create the struct layout.  Because it is variable length, we
@@ -79,7 +80,7 @@ const NEATStructLayout * NEATTargetData::getStructLayout( const StructType *Ty )
   return L;
 }
 
-NEATStructLayout::NEATStructLayout( const StructType *ST, const NEATTargetData &TD )
+NEATStructLayout::NEATStructLayout( const StructType *ST, const NEATDataLayout  &DL )
 {
   StructAlignment = 0;
   StructSize = 0;
@@ -88,17 +89,17 @@ NEATStructLayout::NEATStructLayout( const StructType *ST, const NEATTargetData &
   // Loop over each of the elements, placing them in memory.
   for (unsigned i = 0, e = NumElements; i != e; ++i) {
     const Type *Ty = ST->getElementType(i);
-    unsigned TyAlign = ST->isPacked() ? 1 : TD.getABITypeAlignment(Ty);
+    unsigned TyAlign = ST->isPacked() ? 1 : DL.getABITypeAlignment(Ty);
 
     // Add padding if necessary to align the data element properly.
     if ((StructSize & (TyAlign-1)) != 0)
-      StructSize = TargetData::RoundUpAlignment(StructSize, TyAlign);
+      StructSize = DataLayout::RoundUpAlignment(StructSize, TyAlign);
 
     // Keep track of maximum alignment constraint.
     StructAlignment = std::max(TyAlign, StructAlignment);
 
     MemberOffsets[i] = StructSize;
-    StructSize += TD.getTypeAllocSize(Ty); // Consume space for this data item
+    StructSize += DL.getTypeAllocSize(Ty); // Consume space for this data item
   }
 
   // Empty structures have alignment of 1 byte.
@@ -107,10 +108,10 @@ NEATStructLayout::NEATStructLayout( const StructType *ST, const NEATTargetData &
   // Add padding to the end of the struct so that it could be put in an array
   // and all array elements would be aligned correctly.
   if ((StructSize & (StructAlignment-1)) != 0)
-    StructSize = TargetData::RoundUpAlignment(StructSize, StructAlignment);
+    StructSize = DataLayout::RoundUpAlignment(StructSize, StructAlignment);
 }
 
-unsigned NEATTargetData::getABITypeAlignment(const Type *Ty) const {
+unsigned NEATDataLayout ::getABITypeAlignment(const Type *Ty) const {
   // TODO: implement!
   return 1; // getAlignment(Ty, true);
 }
@@ -202,7 +203,7 @@ NEATGenericValue NEATPlugIn::getConstantValueFromValue (Value *V)
         case Type::PointerTyID:
             {
             const PointerType* PT = cast<PointerType>(V->getType());
-            if (NEATTargetData::IsNEATSupported(PT->getElementType())) {
+            if (NEATDataLayout ::IsNEATSupported(PT->getElementType())) {
                 if (GlobalValue *GV2 = dyn_cast<GlobalValue>(V)) {
                     Ret = PTONGV(getPointerToGlobal(GV2));
                 } else {
@@ -306,7 +307,7 @@ void NEATPlugIn::LoadValueFromMemory(NEATGenericValue &Result,
       report_fatal_error(Msg.str());
     }
 }
-void NEATTargetData::InitMemory( void* Memory, const Type* Ty ) const
+void NEATDataLayout ::InitMemory( void* Memory, const Type* Ty ) const
 {
     assert(Ty->isSized() && "Cannot InitMemory() on a type that is unsized!");
     switch (Ty->getTypeID()) {
@@ -354,13 +355,13 @@ void NEATTargetData::InitMemory( void* Memory, const Type* Ty ) const
       }
       break;
   default:
-      throw Validation::Exception::InvalidArgument("NEATTargetData::InitMemory(): Unsupported type");
+      throw Validation::Exception::InvalidArgument("NEATDataLayout ::InitMemory(): Unsupported type");
       break;
     }
 }
 
 
-uint64_t NEATTargetData::getTypeStoreSize( const Type* Ty ) const
+uint64_t NEATDataLayout ::getTypeStoreSize( const Type* Ty ) const
 {
   assert(Ty->isSized() && "Cannot getTypeStoreSize() on a type that is unsized!");
   switch (Ty->getTypeID()) {
@@ -393,7 +394,7 @@ uint64_t NEATTargetData::getTypeStoreSize( const Type* Ty ) const
       return getTypeStoreSize(VTy->getElementType())*VTy->getNumElements();
       }
   default:
-    throw Validation::Exception::InvalidArgument("NEATTargetData::getTypeSizeInBits(): Unsupported type");
+    throw Validation::Exception::InvalidArgument("NEATDataLayout ::getTypeSizeInBits(): Unsupported type");
     break;
   }
   return 0;
@@ -495,32 +496,8 @@ void NEATPlugIn::visitAllocaInst( AllocaInst &I )
 
     // Avoid malloc-ing zero bytes, use max()...
     unsigned MemToAlloc = std::max(1U, NumElements * TypeSize);
-    unsigned alignment = I.getAlignment();
 
-    void *Memory = 0;
-    // Allocate enough memory to hold the type...
-#if defined(_WIN32) && defined(_MSC_VER)
-    Memory = _aligned_malloc(MemToAlloc, alignment);
-#elif  defined(__linux__) || defined (linux) || defined(__APPLE__)
-   // The value of alignment shall be a multiple of sizeof(void*)
-   if (alignment) {
-     size_t linuxAlignment;
-     size_t remainder = alignment % (sizeof(void*));
-     if(remainder) {
-         size_t quotient = alignment / (sizeof(void*));
-         linuxAlignment = (quotient+1)*(sizeof(void*));
-     }
-     else {
-         linuxAlignment = alignment;
-     }
-
-     if (0 != posix_memalign(&Memory, linuxAlignment, MemToAlloc)) {
-       assert(0 && "Malloc returns error!");
-     }
-   } else {
-     Memory = malloc(MemToAlloc);
-   }
-#endif
+    void *Memory = malloc(MemToAlloc);
 
     DEBUG(dbgs() << "NEATPlugin: Allocated Type: " << *Ty << " (" << TypeSize << " bytes) x "
         << NumElements << " (Total: " << MemToAlloc << ") at "
@@ -540,7 +517,7 @@ void NEATPlugIn::visitAllocaInst( AllocaInst &I )
 
 }
 
-uint64_t NEATTargetData::getTypeAllocSize( const Type* Ty ) const
+uint64_t NEATDataLayout ::getTypeAllocSize( const Type* Ty ) const
 {
     return getTypeStoreSize(Ty);
 }
@@ -633,14 +610,14 @@ void NEATPlugIn::callFunction( Function *F,
             return;
         }
 
-        if (NEATTargetData::IsNEATSupported(F->getReturnType()))
+        if (NEATDataLayout ::IsNEATSupported(F->getReturnType()))
         {
             throw Exception::NotImplemented("[NEATPlugin]: Not implemented "
               " external call in callFunction with floating point return type"
-              + F->getNameStr() );
+              + F->getName().str() );
         }
 
-        DEBUG(dbgs() << "[NEATPlugin]: Skipped function " << F->getNameStr() << "\n");
+        DEBUG(dbgs() << "[NEATPlugin]: Skipped function " << F->getName() << "\n");
         // TODO: decide what to do with unsupported functions
         // throw Exception::NotImplemented("[NEATPlugin]: Not implemented external call in callFunction " + F->getNameStr() );
         return;
@@ -1029,7 +1006,7 @@ void llvm::CreateNEATBufferContainerMap( Function *in_F,
             throw Exception::InvalidArgument("Unsupported memory object");
     } // for (   std::size_t buf = 0;
 }
-bool NEATTargetData::IsNEATSupported( const Type *Ty )
+bool NEATDataLayout ::IsNEATSupported( const Type *Ty )
 {
 // TODO: implement
     switch (Ty->getTypeID()) {
@@ -1067,7 +1044,7 @@ bool NEATTargetData::IsNEATSupported( const Type *Ty )
     }
   default:
       assert(Ty->isSized() && "Cannot getTypeInfo() on a type that is unsized!");
-      throw Validation::Exception::InvalidArgument("NEATTargetData::IsNEATSupported(): Unsupported type");
+      throw Validation::Exception::InvalidArgument("NEATDataLayout ::IsNEATSupported(): Unsupported type");
       break;
     }
 
@@ -1512,7 +1489,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
     NEATGenericValue R;
 
     // To know byte order on target machine.
-    bool isLittleEndian = m_pInterp->getTargetData()->isLittleEndian();
+    bool isLittleEndian = m_pInterp->getDataLayout()->isLittleEndian();
     // Ignore operation that doesn't involve NEAT supported data types
     if (!m_NTD.IsNEATSupported(DstTy) && !m_NTD.IsNEATSupported(SrcTy))
         return;
@@ -1585,6 +1562,19 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
                 Type::TypeID ArrTypeID = dyn_cast<ArrayType>(localDstTy)->getElementType()->getTypeID();
                 if((ArrTypeID == Type::FloatTyID && localSrcTy->getTypeID() == Type::FloatTyID) ||
                     (ArrTypeID == Type::DoubleTyID && localSrcTy->getTypeID() == Type::DoubleTyID)){
+                        DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
+                        R.PointerVal = Src1.PointerVal;
+                        SetValue(&I, R, SF);
+                        return;
+                }
+            }
+
+            // <n x float>* to <m x float>*, <n x double>* to <m x double>*
+            if(localSrcTy->getTypeID() == Type::VectorTyID && localDstTy->getTypeID() == Type::VectorTyID) {
+                Type::TypeID VecSrcTypeID = dyn_cast<VectorType>(localSrcTy)->getElementType()->getTypeID();
+                Type::TypeID VecDstTypeID = dyn_cast<VectorType>(localDstTy)->getElementType()->getTypeID();
+                if((VecSrcTypeID == Type::FloatTyID && VecDstTypeID == Type::FloatTyID) ||
+                   (VecSrcTypeID == Type::DoubleTyID && VecDstTypeID == Type::DoubleTyID)) {
                         DEBUG(dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
                         R.PointerVal = Src1.PointerVal;
                         SetValue(&I, R, SF);
@@ -1960,7 +1950,7 @@ void NEATPlugIn::visitCallSite( CallSite CS )
         return;
         }
         // Ignore execution of "printf" function in NEATPlugIn.
-        if (F->getNameStr() == "printf")
+        if (F->getName() == "printf")
             return;
     }
 
@@ -3804,7 +3794,7 @@ bool NEATPlugIn::DetectAndExecuteOCLBuiltins( Function *F,
     OCLBuiltinParser::ArgVector ArgList;
 
     // try to extract string with OCL built-in
-    if(!OCLBuiltinParser::ParseOCLBuiltin(F->getNameStr(),
+    if(!OCLBuiltinParser::ParseOCLBuiltin(F->getName(),
                     BINameStr, ArgList))
     {
         // TODO: add here detection of non regular OCL built-ins names
@@ -4125,7 +4115,7 @@ void * NEATPlugIn::getOrEmitGlobalVariable( const GlobalVariable *GV )
 
     // if NEAT does not support type return NULL
     // and do not allocate global variable
-    if(!NEATTargetData::IsNEATSupported(GlobalType))
+    if(!NEATDataLayout ::IsNEATSupported(GlobalType))
         return 0;
 
     void *GA = getPointerToGlobalIfAvailable((GlobalValue*) GV);
@@ -4167,3 +4157,4 @@ void * NEATPlugIn::getPointerToGlobal( const GlobalValue *GV )
 
     return GA;
 }
+

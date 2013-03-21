@@ -25,6 +25,8 @@
 
 // Enable double support. It is needed for declarations from intrin.h
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
+#define __OPENCL__
 #include <intrin.h>
 
 #include "cl_image_declaration.h"
@@ -35,34 +37,34 @@
 #define SHRT16_MAX      32767
 
 // Clamp border color used for CL_A, CL_INTENSITY, CL_Rx, CL_RA, CL_RGx, CL_RGBx, CL_ARGB, CL_BGRA, CL_RGBA
-ALIGN16 const float4 BorderColorNoAlphaFloat = {0.0f, 0.0f, 0.0f, 0.0f}; 
-ALIGN16 const int4 BorderColorNoAlphaInt = {0, 0, 0, 0}; 
-ALIGN16 const uint4 BorderColorNoAlphaUint = {0, 0, 0, 0}; 
-ALIGN16 const float4 halfhalfhalfzero = {0.5f, 0.5f, 0.5f, 0.0f};
-ALIGN16 const float4 f4half = {0.5f, 0.5f, 0.5f, 0.5f};
-ALIGN16 const float4 f4two = {2.f, 2.f, 2.f, 2.f};
+ALIGN16 const constant float4 BorderColorNoAlphaFloat = {0.0f, 0.0f, 0.0f, 0.0f}; 
+ALIGN16 const constant int4 BorderColorNoAlphaInt = {0, 0, 0, 0}; 
+ALIGN16 const constant uint4 BorderColorNoAlphaUint = {0, 0, 0, 0}; 
+ALIGN16 const constant float4 halfhalfhalfzero = {0.5f, 0.5f, 0.5f, 0.0f};
+ALIGN16 const constant float4 f4half = {0.5f, 0.5f, 0.5f, 0.5f};
+ALIGN16 const constant float4 f4two = {2.f, 2.f, 2.f, 2.f};
 /// Minimal representative float. It is represented as zero mantissa 
 /// and exponenta with only last bit set to one
-ALIGN16 const int4 oneOneOneZero = {1, 1, 1, 0};
-ALIGN16 const int4   int4AllZeros = {0, 0, 0, 0};
-ALIGN16 const int4   int4MinusOnes= {-1,-1,-1,-1};
-ALIGN16 const float4 float4AllZeros = {0.f ,0.f , 0.f, 0.f};
-ALIGN16 const float4 f4Unorm8Dim = {(float)(1./255.), (float)(1./255.), (float)(1./255.), (float)(1./255.)};
-ALIGN16 const float4 f4Unorm16Dim = {(float)(1./65535.), (float)(1./65535.), (float)(1./65535.), (float)(1./65535.)};
-ALIGN16 const float4 f4unorm16mul = {65535.f, 65535.f, 65535.f, 65535.f};
-ALIGN16 const float4 f4unorm16lim = {0.f, 0.f, 0.f, 0.f};
-ALIGN16 const float4 f4unorm8mul = {255.f, 255.f, 255.f, 255.f};
-ALIGN16 const float4 f4unorm8lim = {0.0f, 0.0f, 0.0f, 0.0f};
-ALIGN16 const int4 i4int16Min = {SHRT16_MIN, SHRT16_MIN, SHRT16_MIN, SHRT16_MIN};
-ALIGN16 const int4 i4int16Max = {SHRT16_MAX, SHRT16_MAX, SHRT16_MAX, SHRT16_MAX};
-ALIGN16 const uint4 i4uint16Max = {USHRT_MAX, USHRT_MAX, USHRT_MAX, USHRT_MAX};
+ALIGN16 const constant int4 oneOneOneZero = {1, 1, 1, 0};
+ALIGN16 const constant int4   int4AllZeros = {0, 0, 0, 0};
+ALIGN16 const constant int4   int4MinusOnes= {-1,-1,-1,-1};
+ALIGN16 const constant float4 float4AllZeros = {0.f ,0.f , 0.f, 0.f};
+ALIGN16 const constant float4 f4Unorm8Dim = {(float)(1./255.), (float)(1./255.), (float)(1./255.), (float)(1./255.)};
+ALIGN16 const constant float4 f4Unorm16Dim = {(float)(1./65535.), (float)(1./65535.), (float)(1./65535.), (float)(1./65535.)};
+ALIGN16 const constant float4 f4unorm16mul = {65535.f, 65535.f, 65535.f, 65535.f};
+ALIGN16 const constant float4 f4unorm16lim = {0.f, 0.f, 0.f, 0.f};
+ALIGN16 const constant float4 f4unorm8mul = {255.f, 255.f, 255.f, 255.f};
+ALIGN16 const constant float4 f4unorm8lim = {0.0f, 0.0f, 0.0f, 0.0f};
+ALIGN16 const constant int4 i4int16Min = {SHRT16_MIN, SHRT16_MIN, SHRT16_MIN, SHRT16_MIN};
+ALIGN16 const constant int4 i4int16Max = {SHRT16_MAX, SHRT16_MAX, SHRT16_MAX, SHRT16_MAX};
+ALIGN16 const constant uint4 i4uint16Max = {USHRT_MAX, USHRT_MAX, USHRT_MAX, USHRT_MAX};
 
 // Clamp Border color used for CL_R, CL_RG, CL_RGB, CL_LUMINANCE
-ALIGN16 const float4 BorderColorAlphaFloat = {0.0f, 0.0f, 0.0f, 1.0f}; 
-ALIGN16 const int4 BorderColorAlphaInt = {0, 0, 0, 1}; 
+ALIGN16 const constant float4 BorderColorAlphaFloat = {0.0f, 0.0f, 0.0f, 1.0f}; 
+ALIGN16 const constant int4 BorderColorAlphaInt = {0, 0, 0, 1}; 
 
-ALIGN16 const uint4 BorderColorAlphaUint = {0, 0, 0, 1}; 
-ALIGN16 const float f4SignMask[] = {-0.f, -0.f, -0.f, -0.f};
+ALIGN16 const constant uint4 BorderColorAlphaUint = {0, 0, 0, 1}; 
+ALIGN16 const constant float f4SignMask[] = {-0.f, -0.f, -0.f, -0.f};
 
 // utility functions declarations
 int isOutOfBoundsInt(image2d_t image, int4 coord);
@@ -138,20 +140,20 @@ float4 SampleImage2DFloatCh1(float4 components, float4 frac);
 
 float4 SampleImage3DFloat(float4 Ti0j0k0, float4 Ti1j0k0, float4 Ti0j1k0, float4 Ti1j1k0, float4 Ti0j0k1, float4 Ti1j0k1, float4 Ti0j1k1, float4 Ti1j1k1, float4 frac);
 
-#define _mm_abs_ps(X)    _mm_andnot_ps(_mm_load_ps(f4SignMask),X)
+#define _mm_abs_ps(X)    _mm_andnot_ps(_mm_load_ps((const float*)f4SignMask),X)
 
-ALIGN16 const short  Fvec8Float16ExponentMask[] = {0x7C00, 0x7C00, 0x7C00, 0x7C00, 0x7C00, 0x7C00, 0x7C00, 0x7C00};
-ALIGN16 const short  Fvec8Float16MantissaMask[] = {0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF};
-ALIGN16 const short  Fvec8Float16SignMask[]     = {0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000};
-ALIGN16 const int Fvec4Float32ExponentMask[] = {0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000};
-ALIGN16 const int Fvec4Float32NanMask[] = {0x7FC00000, 0x7FC00000, 0x7FC00000, 0x7FC00000};
-ALIGN16 const int Fvec4Float16NaNExpMask[]   = {0x7C00, 0x7C00, 0x7C00, 0x7C00};
-ALIGN16 const int FVec4Float16Implicit1Mask[] = {(1<<10), (1<<10), (1<<10), (1<<10)};
-ALIGN16 const int Fvec4Float16ExpMin[] = {(1<<10), (1<<10), (1<<10), (1<<10)};
-ALIGN16 const int Fvec4Float16BiasDiffDenorm[] = {((127 - 15 - 10) << 23), ((127 - 15 - 10) << 23), ((127 - 15 - 10) << 23), ((127 - 15 - 10) << 23)};
-ALIGN16 const int Fvec4Float16ExpBiasDifference[] = {((127 - 15) << 10), ((127 - 15) << 10), ((127 - 15) << 10), ((127 - 15) << 10)};
-ALIGN16 const int f4minNorm[] = {0x00800000, 0x00800000, 0x00800000, 0x00800000};
-ALIGN16 const int mth_signMask[] = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
+ALIGN16 const constant short  Fvec8Float16ExponentMask[] = {0x7C00, 0x7C00, 0x7C00, 0x7C00, 0x7C00, 0x7C00, 0x7C00, 0x7C00};
+ALIGN16 const constant short  Fvec8Float16MantissaMask[] = {0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF};
+ALIGN16 const constant short  Fvec8Float16SignMask[]     = {0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000};
+ALIGN16 const constant int Fvec4Float32ExponentMask[] = {0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000};
+ALIGN16 const constant int Fvec4Float32NanMask[] = {0x7FC00000, 0x7FC00000, 0x7FC00000, 0x7FC00000};
+ALIGN16 const constant int Fvec4Float16NaNExpMask[]   = {0x7C00, 0x7C00, 0x7C00, 0x7C00};
+ALIGN16 const constant int FVec4Float16Implicit1Mask[] = {(1<<10), (1<<10), (1<<10), (1<<10)};
+ALIGN16 const constant int Fvec4Float16ExpMin[] = {(1<<10), (1<<10), (1<<10), (1<<10)};
+ALIGN16 const constant int Fvec4Float16BiasDiffDenorm[] = {((127 - 15 - 10) << 23), ((127 - 15 - 10) << 23), ((127 - 15 - 10) << 23), ((127 - 15 - 10) << 23)};
+ALIGN16 const constant int Fvec4Float16ExpBiasDifference[] = {((127 - 15) << 10), ((127 - 15) << 10), ((127 - 15) << 10), ((127 - 15) << 10)};
+ALIGN16 const constant int f4minNorm[] = {0x00800000, 0x00800000, 0x00800000, 0x00800000};
+ALIGN16 const constant int mth_signMask[] = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 
 // Helper functions to speed up mask analyzing
 // tblgen generated
@@ -376,8 +378,9 @@ __m128i cvt_to_norm(__m128i i4Val, __m128 f4Mul, __m128 lowLimit)
 //         or all ones otherwise
 int8 __attribute__((overloadable)) soa8_isInsideBoundsInt(image2d_t image, int8 coord_x, int8 coord_y)
 {
-    int8 upper_x = (int8)(((image_aux_data*)image)->dimSub1[0]);
-    int8 upper_y = (int8)(((image_aux_data*)image)->dimSub1[1]);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int8 upper_x = (int8)(pImage->dimSub1[0]);
+    int8 upper_y = (int8)(pImage->dimSub1[1]);
     int8 lower_x = (int8)(0,0,0,0,0,0,0,0);
     int8 lower_y = (int8)(0,0,0,0,0,0,0,0);
 
@@ -400,11 +403,12 @@ int8 __attribute__((overloadable)) soa8_isInsideBoundsInt(image2d_t image, int8 
 void __attribute__((overloadable)) soa8_extract_pixel_pointer_quad(image2d_t image, int8 coord_x, int8 coord_y, void* pData,
                                    void** p0, void** p1, void** p2, void** p3, void** p4, void** p5, void** p6, void** p7)
 {
-    uint8 offset_x = (uint8)(((image_aux_data*)image)->offset[0]);
-    uint8 offset_y = (uint8)(((image_aux_data*)image)->offset[1]);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*); 
+    uint8 offset_x = (uint8)(pImage->offset[0]);
+    uint8 offset_y = (uint8)(pImage->offset[1]);
     
-    uint8 ocoord_x = ((uint8)coord_x) * offset_x;
-    uint8 ocoord_y = ((uint8)coord_y) * offset_y;
+    uint8 ocoord_x = (as_uint8(coord_x)) * offset_x;
+    uint8 ocoord_y = (as_uint8(coord_y)) * offset_y;
 
     uint8 ocoord = ocoord_x + ocoord_y;
     *p0 = (char*)pData + ocoord.s0;
@@ -453,8 +457,9 @@ void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8_oob(int8 i
 //         or all ones otherwise
 int4 __attribute__((overloadable)) soa4_isInsideBoundsInt(image2d_t image, int4 coord_x, int4 coord_y)
 {
-    int4 upper_x = (int4)(((image_aux_data*)image)->dimSub1[0]);
-    int4 upper_y = (int4)(((image_aux_data*)image)->dimSub1[1]);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*); 
+    int4 upper_x = (int4)(pImage->dimSub1[0]);
+    int4 upper_y = (int4)(pImage->dimSub1[1]);
     int4 lower_x = (int4)(0,0,0,0);
     int4 lower_y = (int4)(0,0,0,0);
 
@@ -476,11 +481,12 @@ int4 __attribute__((overloadable)) soa4_isInsideBoundsInt(image2d_t image, int4 
 // return: pointer to the begining of the pixel in memory
 void __attribute__((overloadable)) soa4_extract_pixel_pointer_quad(image2d_t image, int4 coord_x, int4 coord_y, void* pData, void** p1, void** p2, void** p3, void** p4)
 {
-    uint4 offset_x = (uint4)(((image_aux_data*)image)->offset[0]);
-    uint4 offset_y = (uint4)(((image_aux_data*)image)->offset[1]);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*); 
+    uint4 offset_x = (uint4)(pImage->offset[0]);
+    uint4 offset_y = (uint4)(pImage->offset[1]);
     
-    uint4 ocoord_x = ((uint4)coord_x) * offset_x;
-    uint4 ocoord_y = ((uint4)coord_y) * offset_y;
+    uint4 ocoord_x = (as_uint4(coord_x)) * offset_x;
+    uint4 ocoord_y = (as_uint4(coord_y)) * offset_y;
 
     uint4 ocoord = ocoord_x + ocoord_y;
     *p1 = (char*)pData + ocoord.s0;
@@ -553,9 +559,10 @@ void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 i
          COORD_TYPE##4 vcoord = 0;\
          vcoord.x = lcoord_x[cnt];\
          vcoord.y = lcoord_y[cnt];\
+         image_aux_data *pImage = __builtin_astype(image, image_aux_data*);\
          PIX_TYPE##4 pixval = \
            read_sample_##FILTER_TYPE##_##CLAMP_FLAG##_##FORMAT(\
-           image, vcoord, ((image_aux_data*)image)->pData);\
+           image, vcoord, pImage->pData);\
          lpix_x[cnt] = pixval.x;\
          lpix_y[cnt] = pixval.y;\
          lpix_z[cnt] = pixval.z;\
@@ -676,7 +683,8 @@ int4 trans_coord_float_CLAMP_TO_EDGE_TRUE_NEAREST(image2d_t image, float4 coord)
 
 int4 trans_coord_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord)
 {
-    int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dimSub1)));
     int4 urcoord = ProjectNearest(Unnormalize(image, coord-floor(coord)));  //unrepeated coords
     
     urcoord = urcoord <= upper ? urcoord : 0;
@@ -686,9 +694,10 @@ int4 trans_coord_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord)
 
 int4 trans_coord_float_MIRRORED_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord)
 {
-    int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dimSub1)));
     __m128 isZero = _mm_cmpeq_ps((__m128)coord, float4AllZeros);
-    __m128 mcoord = (float4)_mm_sub_epi32((__m128i)coord, *((__m128i*)f4minNorm));
+    __m128 mcoord = as_float4(_mm_sub_epi32((__m128i)coord, *((__m128i*)f4minNorm)));
     mcoord= rint((__m128)mcoord);
     mcoord = (__m128)_mm_add_epi32((__m128i)mcoord, *((__m128i*)f4minNorm));
     /// Set to zero coordinates that were equal to zero before
@@ -696,7 +705,7 @@ int4 trans_coord_float_MIRRORED_REPEAT_TRUE_NEAREST(image2d_t image, float4 coor
     mcoord = (__m128)_mm_andnot_si128((__m128i)isZero, (__m128i)mcoord);
     mcoord = (__m128)_mm_sub_ps((__m128)mcoord, (__m128)coord);
     mcoord=fabs(mcoord);
-    int4 urcoord = ProjectNearest(Unnormalize(image, (float4)mcoord));  //unrepeated coords
+    int4 urcoord = ProjectNearest(Unnormalize(image, as_float4(mcoord)));  //unrepeated coords
     urcoord=min(urcoord,upper);
     return urcoord;
 }
@@ -738,7 +747,8 @@ float4 trans_coord_float_float_CLAMP_TO_EDGE_TRUE_NEAREST(image2d_t image, float
 float4 trans_coord_float_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
 
-    int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dimSub1)));
     int4 urcoord = ProjectNearest(Unnormalize(image, coord-floor(coord)));  //unrepeated coords
 
     *square0 = urcoord <= upper ? urcoord : 0;
@@ -748,7 +758,8 @@ float4 trans_coord_float_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord
 
 float4 trans_coord_float_float_MIRRORED_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
-    int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dimSub1)));
     __m128 isZero = _mm_cmpeq_ps(coord, float4AllZeros);
     __m128 mcoord = (__m128)_mm_sub_epi32((__m128i)coord, *((__m128i*)f4minNorm));
     mcoord = rint(mcoord);
@@ -758,7 +769,7 @@ float4 trans_coord_float_float_MIRRORED_REPEAT_TRUE_NEAREST(image2d_t image, flo
     mcoord = (__m128)_mm_andnot_si128((__m128i)isZero, (__m128i)mcoord);
     mcoord = _mm_sub_ps(mcoord, coord);
     mcoord = _mm_abs_ps(mcoord);
-    int4 urcoord = ProjectNearest(Unnormalize(image, (float4)mcoord));  //unrepeated coords
+    int4 urcoord = ProjectNearest(Unnormalize(image, as_float4(mcoord)));  //unrepeated coords
     *square0=min(urcoord,upper);
     return float4AllZeros;
 }
@@ -803,7 +814,8 @@ float4 trans_coord_float_float_CLAMP_TO_EDGE_TRUE_LINEAR(image2d_t image, float4
 
 float4 trans_coord_float_float_REPEAT_TRUE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
-    int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dim));
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dim)));
     float4 ucoord = Unnormalize(image, coord-floor(coord));  //unrepeated coords
     int4 sq0 = ProjectNearest(ucoord - halfhalfhalfzero);
     int4 sq1 = sq0 + oneOneOneZero;
@@ -816,7 +828,8 @@ float4 trans_coord_float_float_REPEAT_TRUE_LINEAR(image2d_t image, float4 coord,
 
 float4 trans_coord_float_float_MIRRORED_REPEAT_TRUE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
 {
-    int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dimSub1)));
     float4 mcoord=2.0f*rint(0.5f*coord);
     mcoord=fabs(coord - mcoord);
     float4 urcoord = Unnormalize(image, mcoord);  //unrepeated coords
@@ -922,7 +935,7 @@ void write_sample_RG_UNSIGNED_INT8(void* pixel, uint4 color)
 {
     const __m128i i4uint8Max = _mm_set1_epi32(UCHAR_MAX);
     __m128i i4Val=(__m128i)color;
-    i4Val = (__m128i)min((int4)i4Val, (int4)i4uint8Max);
+    i4Val = (__m128i)min(as_int4(i4Val), as_int4(i4uint8Max));
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
     *((unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
@@ -932,7 +945,7 @@ void write_sample_R_UNSIGNED_INT8(void* pixel, uint4 color)
 {
     const __m128i i4uint8Max = _mm_set1_epi32(UCHAR_MAX);
     __m128i i4Val=(__m128i)color;
-    i4Val = (__m128i)min((int4)i4Val, (int4)i4uint8Max);
+    i4Val = (__m128i)min(as_int4(i4Val), as_int4(i4uint8Max));
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
@@ -942,7 +955,7 @@ uint4 load_pixel_RGBA_UNSIGNED_INT16(void* pPixel)
 {
     __m128i i4Val = _mm_loadl_epi64((__m128i*)pPixel);
     i4Val = _mm_unpacklo_epi16(i4Val, _mm_setzero_si128());
-    return (uint4)i4Val;
+    return as_uint4(i4Val);
 }
 
 void write_sample_RGBA_UNSIGNED_INT16(void* pixel, uint4 color)
@@ -1010,13 +1023,13 @@ int4 load_pixel_RGBA_SIGNED_INT8(void* pPixel)
     // Extend sign
     i4Val = _mm_slli_si128(i4Val, 3);
     i4Val = _mm_srai_epi32(i4Val, 24);
-    return (int4)i4Val;
+    return as_int4(i4Val);
 }
 
 void write_sample_RGBA_SIGNED_INT8(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)max(color, i4int16Min);
-    i4Val = (__m128i)min((int4)i4Val, i4int16Max);
+    i4Val = (__m128i)min(as_int4(i4Val), i4int16Max);
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     i4Val = _mm_packs_epi16(i4Val, i4Val);
     *(unsigned int*)pixel = _mm_cvtsi128_si32(i4Val);
@@ -1025,7 +1038,7 @@ void write_sample_RGBA_SIGNED_INT8(void* pixel, int4 color)
 void write_sample_R_SIGNED_INT8(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)max(color, i4int16Min);
-    i4Val = (__m128i)min((int4)i4Val, i4int16Max);
+    i4Val = (__m128i)min(as_int4(i4Val), i4int16Max);
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     i4Val = _mm_packs_epi16(i4Val, i4Val);
     *(char*)pixel = ((char4)_mm_cvtsi128_si32(i4Val)).x;
@@ -1034,7 +1047,7 @@ void write_sample_R_SIGNED_INT8(void* pixel, int4 color)
 void write_sample_RG_SIGNED_INT8(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)max(color, i4int16Min);
-    i4Val = (__m128i)min((int4)i4Val, i4int16Max);
+    i4Val = (__m128i)min(as_int4(i4Val), i4int16Max);
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     i4Val = _mm_packs_epi16(i4Val, i4Val);
     *(unsigned short*)pixel = ((ushort2)_mm_cvtsi128_si32(i4Val)).x;
@@ -1048,14 +1061,14 @@ int4 load_pixel_RGBA_SIGNED_INT16(void* pPixel)
     // Extend sign
     i4Val = _mm_slli_si128(i4Val, 2);
     i4Val = _mm_srai_epi32(i4Val, 16);
-    return (int4)i4Val;
+    return as_int4(i4Val);
 }
 
 void write_sample_RGBA_SIGNED_INT16(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)color;
-    i4Val = (__m128i)max((int4)i4Val, i4int16Min);
-    i4Val = (__m128i)min((int4)i4Val, i4int16Max);
+    i4Val = (__m128i)max(as_int4(i4Val), i4int16Min);
+    i4Val = (__m128i)min(as_int4(i4Val), i4int16Max);
     // Shrink to 8bit
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     _mm_storel_epi64((__m128i*)pixel, i4Val);
@@ -1064,20 +1077,20 @@ void write_sample_RGBA_SIGNED_INT16(void* pixel, int4 color)
 void write_sample_RG_SIGNED_INT16(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)color;
-    i4Val = (__m128i)max((int4)i4Val, i4int16Min);
-    i4Val = (__m128i)min((int4)i4Val, i4int16Max);
+    i4Val = (__m128i)max(as_int4(i4Val), i4int16Min);
+    i4Val = (__m128i)min(as_int4(i4Val), i4int16Max);
     // i4Val already contains valid short value
-    (*(short*)pixel)=((int4)i4Val).x;
-    ((short*)pixel)[1]=((int4)i4Val).y;
+    (*(short*)pixel)=(as_int4(i4Val)).x;
+    ((short*)pixel)[1]=(as_int4(i4Val)).y;
 }
 
 void write_sample_R_SIGNED_INT16(void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)color;
-    i4Val = (__m128i)max((int4)i4Val, i4int16Min);
-    i4Val = (__m128i)min((int4)i4Val, i4int16Max);
+    i4Val = (__m128i)max(as_int4(i4Val), i4int16Min);
+    i4Val = (__m128i)min(as_int4(i4Val), i4int16Max);
     // i4Val already contains valid short value
-    (*(short*)pixel)=((int4)i4Val).x;
+    (*(short*)pixel)=(as_int4(i4Val)).x;
 }
 
 /*****************************RGBA_SIGNED_INT32 Image type i/o functions****************************************************/
@@ -1207,7 +1220,7 @@ float4 load_pixel_BGRA_UNORM_INT8(void* pPixel)
     i4Val = (__m128i)_mm_cvtepi32_ps(i4Val);
     i4Val = (__m128i)_mm_mul_ps((__m128)i4Val, (__m128)f4Unorm8Dim);
     i4Val = _mm_shuffle_epi32(i4Val, _MM_SHUFFLE(3, 0, 1, 2));
-    return (float4)i4Val;
+    return as_float4(i4Val);
 }
 
 void write_sample_BGRA_UNORM_INT8(void* pixel, float4 color)
@@ -2179,8 +2192,9 @@ int4 load_pixel_RG_SIGNED_INT16(void* pPixel)
 void* extract_pixel_pointer_quad(image2d_t image, int4 coord, void* pData)
 {
     // Calculate required pixel offset
-    uint4 offset = *((uint4*)(&((image_aux_data*)image)->offset));
-    uint4 ocoord = ((uint4)coord) * offset;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    uint4 offset = *((uint4*)(&pImage->offset));
+    uint4 ocoord = (as_uint4(coord)) * offset;
     void* pixel = pData + ocoord.x + ocoord.y + ocoord.z;
     return pixel;
 }
@@ -2194,11 +2208,12 @@ void* extract_pixel_pointer_quad(image2d_t image, int4 coord, void* pData)
 // return: nonzero if the image is out of bounds, otherwise 0
 int isOutOfBoundsInt(image2d_t image, int4 coord)
 {
-    __m128i    i4up = _mm_load_si128((__m128i*)(((image_aux_data*)image)->dim));
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    __m128i    i4up = _mm_load_si128((__m128i*)(pImage->dim));
     // Prepare mask for compare mask extraction
-    int iMask=((image_aux_data*)image)->dimmask;
+    int iMask=pImage->dimmask;
     int4 iCoord = max(coord, int4MinusOnes);
-    iCoord = min(iCoord, (int4)i4up);
+    iCoord = min(iCoord, as_int4(i4up));
     __m128i isUp=_mm_cmpeq_epi32((__m128i)iCoord,(__m128i)i4up);
     __m128i isLo=_mm_cmpeq_epi32((__m128i)iCoord,(__m128i)int4MinusOnes);
     int iBorder=(_mm_movemask_epi8(isUp) | _mm_movemask_epi8(isLo)) & iMask;
@@ -2207,7 +2222,8 @@ int isOutOfBoundsInt(image2d_t image, int4 coord)
 
 int4 ProjectToEdgeInt(image2d_t image, int4 coord)
 {
-    int4 upper = (int4)_mm_load_si128((__m128i*)(&((image_aux_data*)image)->dimSub1));
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dimSub1)));
     int4 lower = (int4)(0, 0, 0, 0);
     
     int4 correctCoord=min(coord, upper);
@@ -2218,7 +2234,8 @@ int4 ProjectToEdgeInt(image2d_t image, int4 coord)
 
 float4 Unnormalize(image2d_t image,float4 coord)
 {
-    float4 fupper = _mm_load_ps((float*)(&((image_aux_data*)image)->dimf));
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    float4 fupper = as_float4(_mm_load_ps((float*)(&pImage->dimf)));
     return fupper*coord;
 }
 
@@ -2226,7 +2243,7 @@ float4 Unnormalize(image2d_t image,float4 coord)
 //the coordinate here should be unnormalized already
 int4 ProjectNearest(float4 coord)
 {
-    return (int4)_mm_cvtps_epi32(floor(coord));
+    return as_int4(_mm_cvtps_epi32(floor(coord)));
 }
 
 float4 frac(float4 coord)

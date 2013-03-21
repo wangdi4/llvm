@@ -35,7 +35,6 @@ File Name:  CompileService.cpp
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCDisassembler.h"

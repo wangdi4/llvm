@@ -30,6 +30,7 @@ File Name:  CPUCompiler.cpp
 #include "CompilationUtils.h"
 #include "BuiltinModuleManager.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/JITMemoryManager.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
@@ -38,7 +39,7 @@ File Name:  CPUCompiler.cpp
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 
 // Reference a symbol in JIT.cpp and MCJIT.cpp so that static or global constructors are called
 #include "llvm/ExecutionEngine/JIT.h"
@@ -157,7 +158,7 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
     {
         cpuFeatures |= CFS_AVX1;
         cpuFeatures |= CFS_AVX2;
-        //cpuFeatures |= CFS_FMA;
+        cpuFeatures |= CFS_FMA;
     }
 
     // Add forced features
@@ -170,10 +171,6 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
     {
         cpuFeatures |= CFS_AVX2;
         cpuFeatures |= CFS_AVX1;
-    }
-
-    if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "+fma3" ) != forcedFeatures.end())
-    {
         cpuFeatures |= CFS_FMA;
     }
 
@@ -199,7 +196,7 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
         cpuFeatures &= ~CFS_AVX2;
         cpuFeatures &= ~CFS_FMA;
     }
-    if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-fma3" ) != forcedFeatures.end())
+    if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-fma" ) != forcedFeatures.end())
     {
         cpuFeatures &= ~CFS_FMA;
     }
@@ -246,7 +243,7 @@ CPUCompiler::~CPUCompiler()
 unsigned int CPUCompiler::GetTypeAllocSize(llvm::Type* pType) const
 {
     assert(m_pExecEngine);
-    return m_pExecEngine->getTargetData()->getTypeAllocSize(pType);
+    return m_pExecEngine->getDataLayout()->getTypeAllocSize(pType);
 }
 
 void *CPUCompiler::GetPointerToFunction(llvm::Function *pf)
@@ -297,7 +294,6 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
     if (!DisableAVX && (selectedCpuId == Intel::CPU_HASWELL)) {
       m_forcedCpuFeatures.push_back("+avx2");
       m_forcedCpuFeatures.push_back("+f16c");
-      m_forcedCpuFeatures.push_back("+fma3");
     }
 
     unsigned int selectedCpuFeatures = Utils::SelectCpuFeatures( selectedCpuId, m_forcedCpuFeatures );
@@ -331,23 +327,29 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     // Exclude FMA instructions when FP_CONTRACT is disabled
     std::vector<std::string> cpuFeatures(m_forcedCpuFeatures);
 
-    if (pModule->getNamedMetadata("opencl.disabled.FP_CONTRACT"))
-      cpuFeatures.push_back("-fma3");
-
     SetTargetTriple(pModule);
 
-    llvm::ExecutionEngine* pExecEngine = llvm::EngineBuilder(pModule)
-                  .setEngineKind(llvm::EngineKind::JIT)
-                  .setUseMCJIT(true)
-                  .setErrorStr(&strErr)
-                  .setOptLevel(OLevel)
-                  .setAllocateGVsWithCode(AllocateGVsWithCode)
-                  .setCodeModel(llvm::CodeModel::JITDefault)
-                  .setRelocationModel(llvm::Reloc::Default)
-                  .setMArch(MArch)
-                  .setMCPU(MCPU)
-                  .setMAttrs(cpuFeatures)
-                  .create();
+    llvm::EngineBuilder builder(pModule);
+    builder.setEngineKind(llvm::EngineKind::JIT);
+    builder.setUseMCJIT(true);
+    builder.setErrorStr(&strErr);
+    builder.setOptLevel(OLevel);
+    builder.setAllocateGVsWithCode(AllocateGVsWithCode);
+    builder.setCodeModel(llvm::CodeModel::JITDefault);
+    builder.setRelocationModel(llvm::Reloc::Default);
+    builder.setMArch(MArch);
+    builder.setMCPU(MCPU);
+    builder.setMAttrs(cpuFeatures);
+    builder.setJITMemoryManager(JITMemoryManager::CreateDefaultMemManager());
+    llvm::TargetOptions targetOpt;
+    if (pModule->getNamedMetadata("opencl.disabled.FP_CONTRACT"))
+      targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Standard;
+    else
+      targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Fast;
+    builder.setTargetOptions(targetOpt);
+    
+    llvm::ExecutionEngine* pExecEngine = builder.create();
+
     if ( NULL == pExecEngine )
     {
         throw Exceptions::CompilerException("Failed to create execution engine");
@@ -384,7 +386,8 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
 
     std::string cpuFeatures( Utils::JoinStrings(m_forcedCpuFeatures, ","));
     std::string cpuName( m_CpuId.GetCPUName());
-    TargetMachine* pTargetMachine = pTarget->createTargetMachine(triple.getTriple(), cpuName, cpuFeatures);
+    TargetOptions Options;
+    TargetMachine* pTargetMachine = pTarget->createTargetMachine(triple.getTriple(), cpuName, cpuFeatures, Options);
 
     if( NULL == pTargetMachine )
     {

@@ -1,6 +1,6 @@
 use_eh(TRUE)
-use_rtti(TRUE)
 
+set(TARGET_NAME ocl-tblgen)
 set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
 set(CLANG_INCLUDE_PATH "${BACKEND_ROOT_DIR}/clang_headers/")
 
@@ -22,7 +22,7 @@ link_directories(
 )
 
 add_executable(
-  ocl-tblgen
+  ${TARGET_NAME}
   OclBuiltinEmitter.cpp
   OclBuiltinsHeaderGen.cpp
   VectorizerTableGen.cpp
@@ -32,25 +32,28 @@ add_executable(
   ClangUtils.cpp
 )
 
+add_dependencies(${TARGET_NAME} 
+	clang
+)
 
-target_link_libraries(ocl-tblgen
+target_link_libraries(${TARGET_NAME}
   name_mangle
   ${LLVM_MODULE_LIBS}
 )
 
 if (NOT WIN32)
   if( NOT ANDROID)
-  target_link_libraries(ocl-tblgen pthread)
+  target_link_libraries(${TARGET_NAME} pthread dl)
   endif()
 endif (NOT WIN32)
 
 if( CMAKE_CROSSCOMPILING )
-  add_custom_target( ocl-tblgen-native ALL
-    COMMAND make ocl-tblgen
+  add_custom_target( ${TARGET_NAME}-native ALL
+    COMMAND make ${TARGET_NAME}
     DEPENDS ConfigureNativeTargets
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/native
     COMMENT "LLVM Cross-Compile: Building Native ocl-tblgen tool"
   )
 endif( CMAKE_CROSSCOMPILING )
 
-install(TARGETS ocl-tblgen RUNTIME DESTINATION bin)
+install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)

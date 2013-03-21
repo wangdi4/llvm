@@ -76,7 +76,10 @@ std::string Mangler::mangle(const std::string& name) {
         reflection::FunctionDescriptor fdesc = ::demangle(name.c_str());
         V_ASSERT(!fdesc.isNull() && "demangle operation failed!");
         //Currently, we only support two dimension images to be masked.
-        if ( fdesc.parameters[0]->toString() != "image2d_t" )
+        //TODO: 1) hard-coded comparison assumes that CLANG mangling will stay, and such assumption is incorrect.
+        //      2) toString is function which is used mainly for debugging, however its implementation could not be changed
+        //         because it is also used in the real flows
+        if ( fdesc.parameters[0]->toString() != "ocl_image2d" )
           return name;
         fdesc.name = IMG_MASK_PREFIX + fdesc.name;
         reflection::TypeVector& params = fdesc.parameters;

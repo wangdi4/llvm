@@ -33,6 +33,7 @@ if (NOT WIN32)
   if(NOT ANDROID)
     target_link_libraries(${TARGET_NAME}
         pthread
+        dl
     )
   endif()
 endif(NOT WIN32)

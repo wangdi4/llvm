@@ -240,8 +240,8 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
     static_cast<Type*>(ArrayType::get(retValType, 2)) :
     static_cast<Type*>(VectorType::get(retValType, 2));
   SmallVector<Attributes, 4> attrs;
-  attrs.push_back(Attribute::ReadNone);
-  attrs.push_back(Attribute::NoUnwind);
+  attrs.push_back(Attributes::get(CI->getContext(), Attributes::ReadNone));
+  attrs.push_back(Attributes::get(CI->getContext(), Attributes::NoUnwind));
   CallInst *newCall = VectorizerUtils::createFunctionCall(m_curModule, newFuncName, retType, args, attrs, CI);    
   V_ASSERT(newCall && "adding function failed");
   SmallVector<Instruction*, 2> extractVals;

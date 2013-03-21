@@ -204,6 +204,8 @@ ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompiler
 																												Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo)
 : m_pProgDesc(pProgDesc), m_sDeviceInfo(sDeviceInfo), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
 {
+  Twine t(g_uiProgID++);
+  m_source_filename = t.str();
 }
 
 ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
@@ -276,20 +278,20 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
 	// Retrieve local relatively to binary directory
 	GetModuleDirectory(szBinaryPath, MAX_STR_BUFF);
 #ifndef PASS_PCH
-    char	szOclIncPath[MAX_STR_BUFF];
-	char	szOclPchPath[MAX_STR_BUFF];
+   char	szOclIncPath[MAX_STR_BUFF];
+  char	szOclPchPath[MAX_STR_BUFF];
 
-	SPRINTF_S(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
-	SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_.pch", szBinaryPath);
+  SPRINTF_S(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
+  SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_.pch", szBinaryPath);
 
-	list.push_back("-I");
-	list.push_back(szOclIncPath);
+  list.push_back("-I");
+  list.push_back(szOclIncPath);
 
-	list.push_back("-include-pch");
-	list.push_back(szOclPchPath);
+  list.push_back("-include-pch");
+  list.push_back(szOclPchPath);
 #else
-    list.push_back("-include-pch");
-	list.push_back("OpenCL_.pch");
+  list.push_back("-include-pch");
+  list.push_back("OpenCL_.pch");
 #endif
 
     list.push_back("-fno-validate-pch");
@@ -323,14 +325,8 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
         {
             list.push_back("-g");
 
-            if (m_source_filename.empty()) 
-            {
-                // Add a unique name when using profiling
-                Twine t(g_uiProgID++);
-            
-                list.push_back("-main-file-name");
-                list.push_back(t.str());
-            }
+            list.push_back("-main-file-name");
+            list.push_back(m_source_filename.c_str());
         }
 		
 	}
@@ -373,166 +369,161 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
 
 int ClangFECompilerCompileTask::Compile()
 {
-	LOG_INFO(TEXT("%s"), TEXT("enter"));
+  LOG_INFO(TEXT("%s"), TEXT("enter"));
 
-	OclAutoMutex CS(&s_serializingMutex);
+  OclAutoMutex CS(&s_serializingMutex);
+  {   // create a new scope to make sure the mutex will be released last
 
-    {   // create a new scope to make sure the mutex will be released last
+  // Prepare argument list
+  ArgListType ArgList;
 
-	ArgListType ArgList;
+  PrepareArgumentList(ArgList, m_pProgDesc->pszOptions);
 
-	PrepareArgumentList(ArgList, m_pProgDesc->pszOptions);
+  const char **argArray = new const char *[ArgList.size()];
+  ArgListType::iterator iter = ArgList.begin();
 
-	const char **argArray = new const char *[ArgList.size()];
-	ArgListType::iterator iter = ArgList.begin();
+  for(unsigned int i=0; i<ArgList.size(); i++)
+  {
+    argArray[i] = iter->c_str();
+    iter++;
+  }
 
-	for(unsigned int i=0; i<ArgList.size(); i++)
-	{
-		argArray[i] = iter->c_str();
-		iter++;
-	}
-
-	SmallVector<char, 4096>	Log;
-	llvm::raw_svector_ostream errStream(Log);
-
-	llvm::OwningPtr<CompilerInstance> Clang(new CompilerInstance());
-    llvm::IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
-
-	// Buffer diagnostics from argument parsing so that we can output them using a
-	//well formed diagnostic object.
-	TextDiagnosticBuffer *DiagsBuffer = new TextDiagnosticBuffer;
-	DiagnosticsEngine Diags(DiagID, DiagsBuffer);
-	CompilerInvocation::CreateFromArgs(Clang->getInvocation(), argArray, argArray + ArgList.size(),
-                                     Diags);
-
-	// Create the actual diagnostics engine.
-	Clang->SetErrorStream(&errStream);
-
-	Clang->createDiagnostics((int)ArgList.size(), const_cast<char**>(argArray));
-	if (!Clang->hasDiagnostics())
-	{
-		LOG_ERROR(TEXT("Failed to create diagnostics"), "");
-		delete []argArray;
-		return CL_OUT_OF_HOST_MEMORY;
-	}
-
-	// don't write anything on the screen
-	Clang->getDiagnosticOpts().ShowCarets = 0;
-
-	// Set an error handler, so that any LLVM backend diagnostics go through our
-	// error handler.
-	llvm::remove_fatal_error_handler();
-	llvm::install_fatal_error_handler(LLVMErrorHandler,
-                                  static_cast<void*>(&Clang->getDiagnostics()));
-
-	DiagsBuffer->FlushDiagnostics(Clang->getDiagnostics());
-
-	llvm::MemoryBuffer *SB = llvm::MemoryBuffer::getMemBuffer(
+  // Prepare input Buffer
+  llvm::MemoryBuffer *inputBuffer = llvm::MemoryBuffer::getMemBuffer(
         m_pProgDesc->pProgramSource,
         m_source_filename);
-	Clang->SetInputBuffer(SB);
 
-    for (unsigned int i = 0; i < m_pProgDesc->uiNumInputHeaders; ++i)
-    {
-        llvm::MemoryBuffer *header = llvm::MemoryBuffer::getMemBufferCopy(m_pProgDesc->pInputHeaders[i], m_pProgDesc->pszInputHeadersNames[i]);
-        Clang->AddInMemoryHeader(header, m_pProgDesc->pszInputHeadersNames[i]);
-    }
+  // Prepare output buffer
+  SmallVector<char, 4096>	IRbinary;
+  llvm::raw_svector_ostream IRStream(IRbinary);
 
-	//prepare output buffer
-	SmallVector<char, 4096>	IRbinary;
-	llvm::raw_svector_ostream *IRStream = new llvm::raw_svector_ostream(IRbinary);
-	Clang->SetOutputStream(IRStream);
-    
-    bool Success = true;
+  // Prepare error buffer
+  SmallVector<char, 4096> Log;
+  llvm::raw_svector_ostream errStream(Log);
+
+  // Prepare our diagnostic client.
+  llvm::IntrusiveRefCntPtr<DiagnosticIDs> DiagID = new DiagnosticIDs();
+  llvm::IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
+  DiagOpts->ShowCarets = 0;
+  TextDiagnosticPrinter *DiagsPrinter = new TextDiagnosticPrinter(errStream, DiagOpts.getPtr());
+  llvm::IntrusiveRefCntPtr<DiagnosticsEngine> Diags = 
+    new DiagnosticsEngine(DiagID, &*DiagOpts, DiagsPrinter);
+
+  // Prepare Clang
+  llvm::OwningPtr<CompilerInstance> Clang(new CompilerInstance());
+
+  // Set our buffers
+  Clang->SetInputBuffer(inputBuffer);
+  Clang->SetOutputStream(&IRStream);
+  Clang->setDiagnostics(Diags.getPtr());
+
+  // Create compiler invocation from user args
+  CompilerInvocation::CreateFromArgs(Clang->getInvocation(), argArray, argArray + ArgList.size(),
+                                     *Diags);
+
+  // Set an error handler, so that any LLVM backend diagnostics go through our
+  // error handler.
+  llvm::remove_fatal_error_handler();
+  llvm::install_fatal_error_handler(LLVMErrorHandler,
+                                    static_cast<void*>(&Clang->getDiagnostics()));
+
+
+  for (unsigned int i = 0; i < m_pProgDesc->uiNumInputHeaders; ++i)
+  {
+      llvm::MemoryBuffer *header = llvm::MemoryBuffer::getMemBufferCopy(m_pProgDesc->pInputHeaders[i], m_pProgDesc->pszInputHeadersNames[i]);
+      Clang->AddInMemoryHeader(header, m_pProgDesc->pszInputHeadersNames[i]);
+  }
+
+  bool Success = true;
 
 #ifdef PASS_PCH
-	//prepare pch buffer
-	HMODULE hMod = NULL;
-	HRSRC hRes = NULL;
-	HGLOBAL hBytes = NULL;
-	char *pData = NULL;
-	size_t dResSize = NULL;
-	llvm::MemoryBuffer *pchBuff = NULL;
+  //prepare pch buffer
+  HMODULE hMod = NULL;
+  HRSRC hRes = NULL;
+  HGLOBAL hBytes = NULL;
+  char *pData = NULL;
+  size_t dResSize = NULL;
+  llvm::MemoryBuffer *pchBuff = NULL;
 
 #if defined (_WIN32)
 #if defined (_M_X64)
-	static const char* sFEModuleName = "clang_compiler64";
+  static const char* sFEModuleName = "clang_compiler64";
 #else
-	static const char* sFEModuleName = "clang_compiler32";
+  static const char* sFEModuleName = "clang_compiler32";
 #endif
 #else
-	static const char* sFEModuleName = "clang_compiler";
+  static const char* sFEModuleName = "clang_compiler";
 #endif
 
-	// Get the handle to the current module
-	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
-					  GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
-					  sFEModuleName,
-					  &hMod);
+  // Get the handle to the current module
+  GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
+                    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
+                    sFEModuleName,
+                    &hMod);
 
-	// Locate the resource
-	if( NULL != hMod )
-	{
-		hRes = FindResource(hMod, "#101", "PCH");
-	}
-    else
-    {
-        LOG_ERROR(TEXT("%s"), "hMod is NULL");
-        Success = false;
-    }
+  // Locate the resource
+  if( NULL != hMod )
+  {
+    hRes = FindResource(hMod, "#101", "PCH");
+  }
+  else
+  {
+    LOG_ERROR(TEXT("%s"), "hMod is NULL");
+    Success = false;
+  }
 
-	// Load the resource
-	if( NULL != hRes )
-	{
-		hBytes = LoadResource(hMod, hRes);
-	}
-    else
-    {
-        LOG_ERROR(TEXT("%s"), "hRes is NULL");
-        Success = false;
-    }
-	
-	// Get the base address to the resource. This call doesn't really lock it
-	if( NULL != hBytes )
-	{
-		pData = (char *)LockResource(hBytes);
-	}
+  // Load the resource
+  if( NULL != hRes )
+  {
+    hBytes = LoadResource(hMod, hRes);
+  }
+  else
+  {
+    LOG_ERROR(TEXT("%s"), "hRes is NULL");
+    Success = false;
+  }
+
+  // Get the base address to the resource. This call doesn't really lock it
+  if( NULL != hBytes )
+  {
+    pData = (char *)LockResource(hBytes);
+  }
     else
     {
         LOG_ERROR(TEXT("%s"), "hBytes is NULL");
         Success = false;
     }
-	
-	// Get the buffer size
-	if( NULL != pData )
-	{
-		dResSize = SizeofResource(hMod, hRes);
-	}
-    else
-    {
-        LOG_ERROR(TEXT("%s"), "pData is NULL");
-        Success = false;
-    }
 
-	if( dResSize > 0 )
-	{	
-		pchBuff = llvm::MemoryBuffer::getMemBufferCopy(StringRef(pData, dResSize));
-	}
-    else
-    {
-        LOG_ERROR(TEXT("%s"), "dResSize <= 0");
-        Success = false;
-    }
+  // Get the buffer size
+  if( NULL != pData )
+  {
+    dResSize = SizeofResource(hMod, hRes);
+  }
+  else
+  {
+    LOG_ERROR(TEXT("%s"), "pData is NULL");
+    Success = false;
+  }
 
-	if( NULL != pchBuff )
-	{
-		Clang->SetPchBuffer(pchBuff);
-	}
-    else
-    {
-        LOG_ERROR(TEXT("%s"), "pchBuff is NULL");
-        Success = false;
-    }
+  if( dResSize > 0 )
+  {
+    pchBuff = llvm::MemoryBuffer::getMemBufferCopy(StringRef(pData, dResSize));
+  }
+  else
+  {
+    LOG_ERROR(TEXT("%s"), "dResSize <= 0");
+    Success = false;
+  }
+
+  if( NULL != pchBuff )
+  {
+    Clang->SetPchBuffer(pchBuff);
+  }
+  else
+  {
+    LOG_ERROR(TEXT("%s"), "pchBuff is NULL");
+    Success = false;
+  }
 #endif
     
     // Execute the frontend actions.
@@ -546,77 +537,73 @@ int ClangFECompilerCompileTask::Compile()
         }
     }    
 
-	// Our error handler depends on the Diagnostics object, which we're
-	// potentially about to delete. Uninstall the handler now so that any
-	// later errors use the default handling behavior instead.
-	llvm::remove_fatal_error_handler();
+    // Our error handler depends on the Diagnostics object, which we're
+    // potentially about to delete. Uninstall the handler now so that any
+    // later errors use the default handling behavior instead.
+    llvm::remove_fatal_error_handler();
 
-	//Clang.take();
+    IRStream.flush();
+    errStream.flush();
 
-	IRStream->flush();
-
-  delete IRStream;
-	errStream.flush();
-	if ( !Log.empty() )
-	{
-		m_pLogString = new char[Log.size()+1];
-		if ( m_pLogString != NULL )
-		{
-			MEMCPY_S(m_pLogString, Log.size(), Log.begin(), Log.size());
-			m_pLogString[Log.size()] = '\0';
-		}
-	}
-	
-	if (!Success)
-	{
-		return CL_BUILD_PROGRAM_FAILURE;
-	}
-
-	size_t	stTotSize = 0;
-	if ( !IRbinary.empty() )
-	{
-		stTotSize = IRbinary.size()+
-			sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header);
-		m_pOutIR = new char[stTotSize];
-		if ( NULL == m_pOutIR )
-		{
-			LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
-			delete []argArray;
-			return CL_OUT_OF_HOST_MEMORY;
-		}
-	}
-
-	if ( NULL != m_pOutIR )
-	{
-		m_stOutIRSize = stTotSize;
-		cl_prog_container_header*	pHeader = (cl_prog_container_header*)m_pOutIR;
-		MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
-		pHeader->container_size = IRbinary.size()+sizeof(cl_llvm_prog_header);
-		pHeader->container_type = CL_PROG_CNT_PRIVATE;
-		pHeader->description.bin_type = CL_PROG_BIN_COMPILED_LLVM;
-		pHeader->description.bin_ver_major = 1;
-		pHeader->description.bin_ver_minor = 1;
-		// Fill options
-		cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)(m_pOutIR+sizeof(cl_prog_container_header));
-		pProgHeader->bDebugInfo = OptDebugInfo;
-        pProgHeader->bProfiling = OptProfiling;
-		pProgHeader->bDisableOpt = Opt_Disable;
-		pProgHeader->bDenormsAreZero = Denorms_Are_Zeros;
-		pProgHeader->bFastRelaxedMath = Fast_Relaxed_Math;
-        pProgHeader->bEnableLinkOptions = true; // enable link options is true for all compiled objects
-		void *pIR = (void*)(pProgHeader+1);
-		// Copy IR
-		MEMCPY_S(pIR, IRbinary.size(), IRbinary.begin(), IRbinary.size());
-	}
-
-	IRbinary.clear();
-	LOG_INFO(TEXT("%s"), TEXT("Finished"));
-
-	delete []argArray;
-
-	return CL_SUCCESS;
-
+    if ( !Log.empty() )
+    {
+      m_pLogString = new char[Log.size()+1];
+      if ( m_pLogString != NULL )
+      {
+        MEMCPY_S(m_pLogString, Log.size(), Log.begin(), Log.size());
+        m_pLogString[Log.size()] = '\0';
+      }
     }
+
+    if (!Success)
+    {
+      return CL_BUILD_PROGRAM_FAILURE;
+    }
+
+    size_t stTotSize = 0;
+    if ( !IRbinary.empty() )
+    {
+      stTotSize = IRbinary.size()+
+        sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header);
+      m_pOutIR = new char[stTotSize];
+      if ( NULL == m_pOutIR )
+      {
+        LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
+        delete []argArray;
+        return CL_OUT_OF_HOST_MEMORY;
+      }
+    }
+
+    if ( NULL != m_pOutIR )
+    {
+      m_stOutIRSize = stTotSize;
+      cl_prog_container_header*	pHeader = (cl_prog_container_header*)m_pOutIR;
+      MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
+      pHeader->container_size = IRbinary.size()+sizeof(cl_llvm_prog_header);
+      pHeader->container_type = CL_PROG_CNT_PRIVATE;
+      pHeader->description.bin_type = CL_PROG_BIN_COMPILED_LLVM;
+      pHeader->description.bin_ver_major = 1;
+      pHeader->description.bin_ver_minor = 1;
+      // Fill options
+      cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)(m_pOutIR+sizeof(cl_prog_container_header));
+      pProgHeader->bDebugInfo = OptDebugInfo;
+      pProgHeader->bProfiling = OptProfiling;
+      pProgHeader->bDisableOpt = Opt_Disable;
+      pProgHeader->bDenormsAreZero = Denorms_Are_Zeros;
+      pProgHeader->bFastRelaxedMath = Fast_Relaxed_Math;
+      pProgHeader->bEnableLinkOptions = true; // enable link options is true for all compiled objects
+      void *pIR = (void*)(pProgHeader+1);
+      // Copy IR
+      MEMCPY_S(pIR, IRbinary.size(), IRbinary.begin(), IRbinary.size());
+    }
+
+    IRbinary.clear();
+    LOG_INFO(TEXT("%s"), TEXT("Finished"));
+
+    delete []argArray;
+
+    return CL_SUCCESS;
+  }
 }
 
 
@@ -642,6 +629,7 @@ ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
 int ClangFECompilerLinkTask::Link()
 {
     OclAutoMutex CS(&s_serializingMutex);
+	char* pBinary = NULL;
 
     {   // create a new scope to make sure the mutex will be released last
 
@@ -686,21 +674,27 @@ int ClangFECompilerLinkTask::Link()
     
     string ErrorMessage;
     LLVMContext &Context = getGlobalContext();
+	size_t uiBinarySize = 0;
 
     // Initialize the module with the first binary
     cl_prog_container_header* pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[0];
 
     cl_llvm_prog_header* pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
 
-    size_t uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
+	if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[0], NULL) ) {
+		uiBinarySize = m_pProgDesc->puiBinariesSizes[0];
+		pBinary = (char*)m_pProgDesc->pBinaryContainers[0];
 
-    char* pBinary = (char*)pHeader + 
-                    sizeof(cl_prog_container_header) + // Skip the container
-                    sizeof(cl_llvm_prog_header); //Skip the build flags for now
+	} else {
+	    uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
+		pBinary = (char*)pHeader + 
+				  sizeof(cl_prog_container_header) + // Skip the container
+				  sizeof(cl_llvm_prog_header); //Skip the build flags for now
 
-    MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
-           
-    std::auto_ptr<Module> composite(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
+	}
+    MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));   
+    std::auto_ptr<llvm::Module> composite(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
+
 
     if (composite.get() == 0) 
     {
@@ -723,19 +717,23 @@ int ClangFECompilerLinkTask::Link()
     // Now go over the rest of the binaries and add them
     for (unsigned int i = 1; i < m_pProgDesc->uiNumBinaries; ++i)
     {
-        pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[i];
+		if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[i], NULL) ) {
+			uiBinarySize = m_pProgDesc->puiBinariesSizes[i];
+			pBinary = (char*)m_pProgDesc->pBinaryContainers[i];
+		} else {
+			pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[i];
+		    pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
 
-        pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
+			uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
 
-        uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
-
-        char* pBinary = (char*)pHeader + 
-                        sizeof(cl_prog_container_header) + // Skip the container
-                        sizeof(cl_llvm_prog_header); //Skip the build flags for now
+			pBinary = (char*)pHeader + 
+					  sizeof(cl_prog_container_header) + // Skip the container
+					  sizeof(cl_llvm_prog_header); //Skip the build flags for now
+		}
 
         MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
                
-        std::auto_ptr<Module> M(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
+        std::auto_ptr<llvm::Module> M(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
         if (M.get() == 0) 
         {
             if ( !ErrorMessage.empty() )
@@ -774,13 +772,13 @@ int ClangFECompilerLinkTask::Link()
         }
     }
 
-
-    std::vector<unsigned char> Buffer;
-    BitstreamWriter Stream(Buffer);
+    llvm::SmallVector<char, 1024> Buffer;
+    llvm::raw_svector_ostream OS(Buffer);
 
     Buffer.reserve(256*1024);
 
-    WriteBitcodeToStream( composite.get(), Stream );
+    WriteBitcodeToFile(composite.get(), OS);
+    OS.flush();
 
     m_stOutIRSize = sizeof(cl_prog_container_header) + 
                     sizeof(cl_llvm_prog_header) + 
@@ -803,11 +801,11 @@ int ClangFECompilerLinkTask::Link()
     MEMCPY_S(pBinary, Buffer.size(), &Buffer.front(), Buffer.size());
 
     MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
-	pHeader->container_size = Buffer.size() + sizeof(cl_llvm_prog_header);
-	pHeader->container_type = CL_PROG_CNT_PRIVATE;
-	pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;
-	pHeader->description.bin_ver_major = 1;
-	pHeader->description.bin_ver_minor = 1;
+	  pHeader->container_size = Buffer.size() + sizeof(cl_llvm_prog_header);
+	  pHeader->container_type = CL_PROG_CNT_PRIVATE;
+	  pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;
+	  pHeader->description.bin_ver_major = 1;
+	  pHeader->description.bin_ver_minor = 1;
 
     pProgHeader->bDebugInfo = bDebugInfoFlag;
     pProgHeader->bProfiling = bProfilingFlag;
@@ -818,7 +816,7 @@ int ClangFECompilerLinkTask::Link()
 
     return CL_SUCCESS;
 
-    }
+  }
 }
 
 void ClangFECompilerLinkTask::ParseOptions(const char *buildOpts)
@@ -982,7 +980,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
 
     MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
 
-    Module* pModule = ParseIR(pBinBuff, Err, Context);
+    llvm::Module* pModule = ParseIR(pBinBuff, Err, Context);
 
     if (NULL == pModule) 
     {
@@ -1029,19 +1027,19 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     // Go over the kernel metadata and see if it has a kernel_arg_info
     for (unsigned int i = 0; i < pKernel->getNumOperands(); ++i)
     {
-        pKernelArgsInfo = dynamic_cast<MDNode*>(pKernel->getOperand(i));
+        pKernelArgsInfo = dyn_cast<MDNode>(pKernel->getOperand(i));
         if (NULL == pKernelArgsInfo)
         {
             continue;
         }
 
-        MDString* pName = dynamic_cast<MDString*>(pKernelArgsInfo->getOperand(0));
+        MDString* pName = dyn_cast<MDString>(pKernelArgsInfo->getOperand(0));
         if (NULL == pName)
         {
             continue;
         }
 
-        if (0 == pName->getString().compare("cl_kernel_arg_info"))
+        if (0 == pName->getString().compare("cl-kernel-arg-info"))
         {
             // Kernel has kernel arg info
             bFoundKernelArgsInfo = true;
@@ -1055,11 +1053,49 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
     }
       
-    MDNode* pAddressQualifiers = dynamic_cast<MDNode*>(pKernelArgsInfo->getOperand(1));
-    MDNode* pAccessQualifiers = dynamic_cast<MDNode*>(pKernelArgsInfo->getOperand(2));
-    MDNode* pTypeNames = dynamic_cast<MDNode*>(pKernelArgsInfo->getOperand(3));
-    MDNode* pTypeQualifiers = dynamic_cast<MDNode*>(pKernelArgsInfo->getOperand(4));
-    MDNode* pArgNames = dynamic_cast<MDNode*>(pKernelArgsInfo->getOperand(5));
+    MDNode* pAddressQualifiers = NULL;
+    MDNode* pAccessQualifiers = NULL;
+    MDNode* pTypeNames = NULL;
+    MDNode* pTypeQualifiers = NULL;
+    MDNode* pArgNames = NULL;
+       
+    for (unsigned int i = 0; i < pKernelArgsInfo->getNumOperands(); ++i)
+    {
+        MDNode* pTemp = dyn_cast<MDNode>(pKernelArgsInfo->getOperand(i));
+        if (NULL == pTemp){
+            continue;
+        }
+
+        MDString* pName = dyn_cast<MDString>(pTemp->getOperand(0));
+        if (NULL == pName) {
+            continue;
+        }
+
+        if (0 == pName->getString().compare("address_qualifiers")) {
+            pAddressQualifiers = pTemp;
+            continue;
+        }
+
+        if (0 == pName->getString().compare("access_qualifiers")) {
+            pAccessQualifiers = pTemp;
+            continue;
+        }
+
+        if (0 == pName->getString().compare("arg_type_names")) {
+            pTypeNames = pTemp;
+            continue;
+        }
+
+        if (0 == pName->getString().compare("arg_type_qualifiers")) {
+            pTypeQualifiers = pTemp;
+            continue;
+        }
+
+        if (0 == pName->getString().compare("arg_names")) {
+            pArgNames = pTemp;
+            continue;
+        }
+    }    
 
     // all of the above must be valid
     assert(pAddressQualifiers && "pAddressQualifiers is NULL");
@@ -1068,7 +1104,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     assert(pTypeQualifiers && "pTypeQualifiers is NULL");
     assert(pArgNames && "pArgNames is NULL");
 
-    m_numArgs = pAddressQualifiers->getNumOperands();
+    m_numArgs = pAddressQualifiers->getNumOperands() - 1;
 
     m_argsInfo = new ARG_INFO[m_numArgs];
     if (!m_argsInfo)
@@ -1077,93 +1113,97 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         return CL_OUT_OF_HOST_MEMORY;
     }
         
-    for (unsigned int i = 0; i < m_numArgs; ++i)
+    for (unsigned int i = 1; i < m_numArgs + 1; ++i)
     {
+        // Since the arg info in the metadata have a string field before the operands
+        // Now we have an off by one that we need to compensate for
+        ARG_INFO &argInfo = m_argsInfo[i - 1];
+
         // Adress qualifier
-        ConstantInt* pAddressQualifier = dynamic_cast<ConstantInt*>(pAddressQualifiers->getOperand(i));
+        ConstantInt* pAddressQualifier = dyn_cast<ConstantInt>(pAddressQualifiers->getOperand(i));
         assert(pAddressQualifier && "pAddressQualifier is not a valid ConstantInt*");
 
         uint64_t uiAddressQualifier = pAddressQualifier->getZExtValue();
         switch( uiAddressQualifier )
         {
         case 0:
-            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
+            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
             break;
         case 1:
-            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
+            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
             break;
         case 2:
-            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
+            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
             break;
         case 3:
-            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
+            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
             break;
         }
 
         // Access qualifier
-        ConstantInt* pAccessQualifier = dynamic_cast<ConstantInt*>(pAccessQualifiers->getOperand(i));
+        ConstantInt* pAccessQualifier = dyn_cast<ConstantInt>(pAccessQualifiers->getOperand(i));
         assert(pAccessQualifier && "pAccessQualifier is not a valid ConstantInt*");
 
         uint64_t uiAccessQualifier = pAccessQualifier->getZExtValue();
         switch( uiAccessQualifier )
         {
         case 0:
-            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_READ_ONLY;
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_READ_ONLY;
             break;
         case 1:
-            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
             break;
         case 2:
-            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_READ_WRITE;
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_READ_WRITE;
             break;
         case 3:
-            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_NONE;
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_NONE;
             break;
         }
 
         // Type qualifier
-        ConstantInt* pTypeQualifier = dynamic_cast<ConstantInt*>(pTypeQualifiers->getOperand(i));
+        ConstantInt* pTypeQualifier = dyn_cast<ConstantInt>(pTypeQualifiers->getOperand(i));
         assert(pTypeQualifier && "pTypeQualifier is not a valid ConstantInt*");
         uint64_t uiTypeQualifier = pTypeQualifier->getZExtValue();
-        m_argsInfo[i].typeQualifier = 0;
+        argInfo.typeQualifier = 0;
         if (uiTypeQualifier & (1 << 0))
         {
-            m_argsInfo[i].typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
+            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
         }
         if (uiTypeQualifier & (1 << 1))
         {
-            m_argsInfo[i].typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
+            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
         }
         if (uiTypeQualifier & (1 << 2))
         {
-            m_argsInfo[i].typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
+            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
         }
 
         // Type name
-        MDString* pTypeName = dynamic_cast<MDString*>(pTypeNames->getOperand(i));
+        MDString* pTypeName = dyn_cast<MDString>(pTypeNames->getOperand(i));
         assert(pTypeName && "pTypeName is not a valid MDString*");
 
         string szTypeName = pTypeName->getString().str();
-        m_argsInfo[i].typeName = new char[szTypeName.length() + 1];
-        if (!m_argsInfo[i].typeName)
+        argInfo.typeName = new char[szTypeName.length() + 1];
+        if (!argInfo.typeName)
         {
             delete pModule;
             return CL_OUT_OF_HOST_MEMORY;
         }
-        STRCPY_S(m_argsInfo[i].typeName, szTypeName.length() + 1, szTypeName.c_str());
+        STRCPY_S(argInfo.typeName, szTypeName.length() + 1, szTypeName.c_str());
 
         // Parameter name
-        MDString* pArgName = dynamic_cast<MDString*>(pArgNames->getOperand(i));
+        MDString* pArgName = dyn_cast<MDString>(pArgNames->getOperand(i));
         assert(pArgName && "pArgName is not a valid MDString*");
 
         string szArgName = pArgName->getString().str();
-        m_argsInfo[i].name = new char[szArgName.length() + 1];
-        if (!m_argsInfo[i].name)
+        argInfo.name = new char[szArgName.length() + 1];
+        if (!argInfo.name)
         {
             delete pModule;
             return CL_OUT_OF_HOST_MEMORY;
         }
-        STRCPY_S(m_argsInfo[i].name, szArgName.length() + 1, szArgName.c_str());
+        STRCPY_S(argInfo.name, szArgName.length() + 1, szArgName.c_str());
     }
 
     delete pModule;
@@ -1434,10 +1474,10 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         *pbFastRelaxedMath = bFastRelaxedMath;
     }
 
-    if (pszFileName)
+    if (pszFileName && !szFileName.empty())
     {
         *pszFileName = szFileName;
-    }
+	}
 
     return res;
 }

@@ -138,11 +138,11 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                 llvm::LLVMContext context;
                 std::auto_ptr<llvm::Module> M(llvm::ParseAssemblyFile(programFile,
                                                 err, context));
-                std::vector<unsigned char> buffer;
-                llvm::BitstreamWriter stream(buffer);
-                llvm::WriteBitcodeToStream( M.get(), stream );
-                std::vector<unsigned char> byteCodeBuffer(stream.getBuffer());
-                int bufferSize=byteCodeBuffer.size();
+
+                llvm::SmallVector<char, 8> buffer;
+                llvm::raw_svector_ostream outStream(buffer);
+                WriteBitcodeToFile(M.get(), outStream);
+                int bufferSize = buffer.size();
 
                 containerSize = sizeof(cl_prog_container_header) +
                                                 sizeof(cl_llvm_prog_header);
@@ -153,7 +153,7 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
                 char* pContainerPosition = ((char*)pContainer) +
                     sizeof(cl_prog_container_header)+ sizeof(cl_llvm_prog_header);
                 for (unsigned i = 0, e = bufferSize; i != e; ++i) {
-                    pContainerPosition[i] = byteCodeBuffer[i];
+                    pContainerPosition[i] = buffer[i];
                 }
             }
             break;

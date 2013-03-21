@@ -36,7 +36,6 @@ File Name:  Compiler.cpp
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -49,6 +48,7 @@ File Name:  Compiler.cpp
 #include "llvm/Instructions.h"
 #include "llvm/Instruction.h"
 #include "llvm/LLVMContext.h"
+#include "llvm/CodeGen/CommandFlags.h"
 using std::string;
 
 #include <fstream>

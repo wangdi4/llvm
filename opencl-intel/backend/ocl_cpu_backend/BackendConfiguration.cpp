@@ -172,7 +172,7 @@ void CompilerConfig::LoadConfig()
     }
     if (const char *pEnv = getenv("VOLCANO_DEBUG_ONLY"))
     {
-      llvm::SetCurrentDebugType(pEnv);
+      llvm::setCurrentDebugType(pEnv);
     }
 #endif
 }
@@ -197,7 +197,7 @@ void MICCompilerConfig::LoadConfig()
     }
     if (const char *pEnv = getenv("VOLCANO_DEBUG_ONLY"))
     {
-      llvm::SetCurrentDebugType(pEnv);
+      llvm::setCurrentDebugType(pEnv);
     }
 #endif
 }

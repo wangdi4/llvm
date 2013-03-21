@@ -135,7 +135,6 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
 	image3d_t* p_image3d_t = (image3d_t*)34;
 	image2d_t* p_image2d_t = (image2d_t*)34;
 	sampler_t var_sampler_t = 28;
-	event_t var_event_t = 28;
 	event_t* p_event_t = (event_t*)34;
 	half* p_half = (half*)34;
 	int a = 1;

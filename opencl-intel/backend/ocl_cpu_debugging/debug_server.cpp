@@ -15,7 +15,7 @@
 #undef max
 #endif
 
-#include "llvm/Analysis/DebugInfo.h"
+#include "llvm/DebugInfo.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/GlobalVariable.h"
 #include "llvm/Metadata.h"

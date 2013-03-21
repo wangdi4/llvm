@@ -10,7 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "common_dev_limits.h"
 
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -347,7 +347,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     assert( m_pCtx && "Context pointer m_pCtx created as expected" );
 
-    TargetData TD(m_pModule);
+    DataLayout DL(m_pModule);
     
     // Find out the buffer size required to store all the arguments.
     // Note: CallInst->getNumOperands() returns the number of operands in
@@ -359,7 +359,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     unsigned total_arg_size = 0;   
     for ( unsigned numarg = 1; numarg < pCall->getNumArgOperands(); ++numarg ) {
       Value *arg = pCall->getArgOperand(numarg);
-      unsigned argsize = TD.getTypeSizeInBits(arg->getType()) / 8;
+      unsigned argsize = DL.getTypeSizeInBits(arg->getType()) / 8;
       total_arg_size += argsize;
     }
 
@@ -416,7 +416,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // Advance the buffer pointer offset by its size to know where the next
       // argument should be placed.
       // 
-      unsigned argsize = TD.getTypeSizeInBits(arg->getType()) / 8;
+      unsigned argsize = DL.getTypeSizeInBits(arg->getType()) / 8;
       buf_pointer_offset += argsize;        
     }
 
@@ -444,12 +444,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   Value* ResolveWICall::updateAsyncCopy(llvm::CallInst *pCall, bool strided) {
-    TargetData TD(m_pModule);
+    DataLayout DL(m_pModule);
 
     assert( m_pCtx && "Context pointer m_pCtx created as expected" );
 
     // Create new call instruction with extended parameters
-    SmallVector<Value*, 4> params;
+    SmallVector<Value*, 8> params;
     // push original parameters
     // Need bitcast to a general pointer
     CastInst *pBCDst = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(0),
@@ -459,10 +459,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0), "", pCall);
     params.push_back(pBCSrc);
     params.push_back(pCall->getArgOperand(2));
-    params.push_back(pCall->getArgOperand(3));
+	unsigned int eventIndex = 3;
     if ( strided ) {
-      params.push_back(pCall->getArgOperand(4));
+      params.push_back(pCall->getArgOperand(3));
+	  eventIndex++;
     }
+    //The reason for this change is because implementation of Event_t type in CLANG has changed. It is not void* anymore, 
+	//and hence the bitcast was required in order to comply with function signature.
+    CastInst *Event = CastInst::Create(Instruction::PtrToInt, pCall->getArgOperand(eventIndex),
+      IntegerType::get(*m_pLLVMContext,  sizeof(size_t) * BYTE_SIZE),"", pCall);
+    params.push_back(Event);
+
     // Distinguish operator size
     PointerType *pPTy = dyn_cast<PointerType>(pCall->getArgOperand(0)->getType());
     assert(pPTy && "Must be a pointer");
@@ -470,7 +477,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 
 	assert(pPT->getPrimitiveSizeInBits() && "Not primitive type, not valid calculation");
-    unsigned int uiSize = TD.getPrefTypeAlignment(pPT);
+    unsigned int uiSize = DL.getPrefTypeAlignment(pPT);
 
 	params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext,  sizeof(size_t) * BYTE_SIZE), uiSize));
     params.push_back(m_pCtx);
@@ -482,9 +489,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     } else {
       pNewAsyncCopy = m_pModule->getFunction(pPTy->getAddressSpace() == 3 ? "lasync_wg_copy_g2l" : "lasync_wg_copy_l2g");
     }
-
     Value *res = CallInst::Create(pNewAsyncCopy, ArrayRef<Value*>(params), "", pCall);
-    return res;
+    CastInst *resCasted = CastInst::Create(Instruction::IntToPtr, res, pCall->getType(),"", pCall);
+    return resCasted;
   }
 
   void ResolveWICall::updateWaitGroup(llvm::CallInst *pCall) {
@@ -494,7 +501,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Create new call instruction with extended parameters
     SmallVector<Value*, 4> params;
     params.push_back(pCall->getArgOperand(0));
-    params.push_back(pCall->getArgOperand(1));
+    CastInst *pEvent = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(1),
+      PointerType::get(IntegerType::get(*m_pLLVMContext,  sizeof(size_t) * BYTE_SIZE), 0), "", pCall);
+    params.push_back(pEvent);
     params.push_back(m_pCtx);
     Function *pNewWait = m_pModule->getFunction("lwait_group_events");
     CallInst::Create(pNewWait, ArrayRef<Value*>(params), "", pCall);
@@ -502,7 +511,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   void ResolveWICall::updatePrefetch(llvm::CallInst *pCall) {
 
-    TargetData TD(m_pModule);
+    DataLayout DL(m_pModule);
 
     unsigned int uiSizeT = m_pModule->getPointerSize()*32;
 
@@ -521,7 +530,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     Type *pPT = pPTy->getElementType();
 	
 	assert(pPT->getPrimitiveSizeInBits() && "Not primitive type, not valid calculation");
-    unsigned int uiSize = TD.getPrefTypeAlignment(pPT);
+    unsigned int uiSize = DL.getPrefTypeAlignment(pPT);
 
     params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, uiSizeT), uiSize));
     Function *pPrefetch = m_pModule->getFunction("lprefetch");

@@ -1,5 +1,5 @@
 // 
-let Types = [v1f16],
+let Types = [v1i16],
     Attrs = [INTERNAL_INLINE, OVERLOADABLE] in {
 let NeedForwardDecl = 1 in {
 def __ocl_HalfToFloat   : OclBuiltin<"__ocl_HalfToFloat",   (outs v1f32:$ret), (ins gentype:$param), [], []>;

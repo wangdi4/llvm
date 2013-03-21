@@ -18,7 +18,7 @@ File Name: OclBuiltinsHeaderGen.h
 #ifndef __OCLBUILTINS_HEADER_GEN_H__
 #define __OCLBUILTINS_HEADER_GEN_H__
 
-#include "llvm/TableGen/TableGenBackend.h"
+#include "llvm/TableGen/Record.h"
 
 namespace llvm {
 
@@ -27,7 +27,7 @@ namespace llvm {
 //Purpose: generates an array of strings, contining all the mangled names of
 //the builting in the given td file.
 ////////////////////////////////////////////////////
-class OclBuiltinsHeaderGen: public TableGenBackend {
+class OclBuiltinsHeaderGen {
 public:
   explicit OclBuiltinsHeaderGen(RecordKeeper&);
   void run(raw_ostream&);

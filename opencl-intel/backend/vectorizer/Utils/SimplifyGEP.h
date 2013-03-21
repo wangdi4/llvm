@@ -13,7 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 
 using namespace llvm;
 
@@ -80,8 +80,8 @@ namespace intel {
   private:
     /// @brief pointer to work-item analysis performed for this function
     WIAnalysis *m_depAnalysis;
-    /// @brief This holds TargetData of processed module
-    TargetData *m_pTD;
+    /// @brief This holds DataLayout of processed module
+    DataLayout *m_pDL;
   };
 } // namespace
 

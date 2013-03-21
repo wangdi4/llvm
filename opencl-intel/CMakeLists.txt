@@ -117,9 +117,7 @@ if (BUILD_QTGUI)
     endif()
 
     #install the QT and boost libraries themselfs
-    if(NOT WIN32)
-        set(BOOST_LIB_DIR_SUFFIX x64)
-    else( NOT WIN32)
+    if(WIN32)
         # special processing for QT library on windows:
         # the problem is that QT doesn't naturally supports installing 
         # both 32 and 64 bits libraries on the same machine (there is 
@@ -135,7 +133,9 @@ if (BUILD_QTGUI)
         else(BUILD_X64)
             execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions\\${QT_VERSION} /v InstallDir /d c:\\qt\\${QT_VERSION}\\vs2010 /f)
         endif(BUILD_X64)
-    endif(NOT WIN32)
+    else()
+        set(BOOST_LIB_DIR_SUFFIX x64)
+    endif()
     
     find_package( Qt4 REQUIRED)
 
@@ -315,6 +315,10 @@ set( EXTERNAL_FOLDER_NAME       External )
 if (APPLE)
     add_subdirectory( backend )
 else(APPLE)
+	if(BUILD_LLVM_FROM_SOURCE)
+		add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
+	endif()
+
     # externals
     add_subdirectory(externals)
 

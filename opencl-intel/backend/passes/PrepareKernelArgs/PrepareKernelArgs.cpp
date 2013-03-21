@@ -10,6 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "ImplicitArgsUtils.h"
 
+#include "llvm/Attributes.h"
 #include "llvm/Support/ValueHandle.h"
 
 #include <map>
@@ -172,7 +173,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // This info is used later on in OpenCLAliasAnalysis to overcome the fact that inlining 
       // does not maintain the restrict information.
       Instruction* pLoadedValueInst = cast<Instruction>(pLoadedValue);
-      if (pFunc->paramHasAttr(ArgNo+1, Attribute::NoAlias)) {
+      if (pFunc->getParamAttributes(ArgNo + 1).hasAttribute(Attributes::NoAlias)) {
         pLoadedValueInst->setMetadata("restrict", llvm::MDNode::get(*m_pLLVMContext, 0)); 
       }
 
@@ -264,7 +265,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     pFunc->setName("__" + pFunc->getName() + "_separated_args");
     // Make sure old function always inlined
     // We want to do inlining pass after PrepareKernelArgs pass to gain performance
-    pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
+    pFunc->addFnAttr(llvm::Attributes::AlwaysInline);
 
     createWrapperBody(pWrapper, pFunc);
 

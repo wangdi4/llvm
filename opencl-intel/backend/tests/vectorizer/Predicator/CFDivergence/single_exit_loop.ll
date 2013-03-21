@@ -243,11 +243,11 @@ define void @internalDivBranchNestedUnLoops(i32 addrspace(1)* nocapture %a, i32 
 }
 
 ; CHECK: @internalDivBranchNestedLoops
-; CHECK: footer:
 ; CHECK: @masked_load
 ; CHECK: @masked_load
 ; CHECK: @masked_store
 ; CHECK: header:
+; CHECK: footer:
 ; CHECK: ret
 
 define void @internalDivBranchNestedLoops(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {

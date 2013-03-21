@@ -26,7 +26,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
   bool SimplifyGEP::runOnFunction(Function &F) {
     // obtain TagetData of the module
-    m_pTD = getAnalysisIfAvailable<TargetData>();
+    m_pDL = getAnalysisIfAvailable<DataLayout>();
 
     // Obtain WIAnalysis of the function
     m_depAnalysis = &getAnalysis<WIAnalysis>();
@@ -209,12 +209,12 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
         V_ASSERT((baseType->isIntOrIntVectorTy() || baseType->isFPOrFPVectorTy()) && "assumed primitive base type!");
 
         if(baseType->isVectorTy()) {
-          if(!m_pTD) {
-            // No TargetData cannot apply this SimplifyGEP approach!
+          if(!m_pDL) {
+            // No DataLayout cannot apply this SimplifyGEP approach!
             continue;
           }
-          unsigned int vectorSize = m_pTD->getTypeAllocSize(baseType);
-          unsigned int elementSize = m_pTD->getTypeSizeInBits(cast<VectorType>(baseType)->getElementType()) / 8;
+          unsigned int vectorSize = m_pDL->getTypeAllocSize(baseType);
+          unsigned int elementSize = m_pDL->getTypeSizeInBits(cast<VectorType>(baseType)->getElementType()) / 8;
           V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
             "vector size should be a multiply of element size");
           arraySizes.push_back(vectorSize/elementSize);

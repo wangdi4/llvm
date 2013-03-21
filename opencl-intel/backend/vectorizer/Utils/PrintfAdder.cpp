@@ -8,7 +8,6 @@
 #include "llvm/Constants.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Version.h"
 
 namespace intel {
 
@@ -304,11 +303,7 @@ void PrintfAdder::addDebugPrintImpl(Function *F, debug_print_args& print_args, I
   printf_str = printf_str + suffix;  
   
   // Create global
-#if LLVM_VERSION >= 3425
   Constant * strVal = ConstantDataArray::getString(F->getContext(), printf_str.c_str(), true);
-#else
-  Constant * strVal = ConstantArray::get(F->getContext(), printf_str.c_str(), true);
-#endif
   Type * arrayType = strVal->getType();
   unsigned strAddrSpace = 2;
   GlobalVariable * newGV = new GlobalVariable(*currentModule,
@@ -318,11 +313,7 @@ void PrintfAdder::addDebugPrintImpl(Function *F, debug_print_args& print_args, I
                                               strVal,
                                               "ptrstr",
                                               0,
-#if LLVM_VERSION >= 3425
                                               GlobalVariable::NotThreadLocal,
-#else
-                                              false,
-#endif
                                               strAddrSpace);
 
   // Declare printf function

@@ -36,13 +36,13 @@ define void @GaussianBlur_Clean(%struct._image2d_t* %dst) nounwind {
   %2 = insertelement <2 x i32> undef, i32 %1, i32 0
   %3 = tail call i32 @get_global_id(i32 1) nounwind
   %4 = insertelement <2 x i32> %2, i32 %3, i32 1
-  tail call void @_Z13write_imageui9image2d_tDv2_iDv4_j(%struct._image2d_t* %dst, <2 x i32> %4, <4 x i32> zeroinitializer) nounwind
+  tail call void @bar(%struct._image2d_t* %dst, <2 x i32> %4, <4 x i32> zeroinitializer) nounwind
   ret void
 }
 
 declare i32 @get_global_id(i32)
 
-declare void @_Z13write_imageui9image2d_tDv2_iDv4_j(%struct._image2d_t*, <2 x i32>, <4 x i32>)
+declare void @bar(%struct._image2d_t*, <2 x i32>, <4 x i32>)
 
 define void @GaussianBlur_X(%struct._image2d_t* %src, %struct._image2d_t* %dst, i32 addrspace(1)* %Table, i32 addrspace(1)* %SumWidth, i32 %width, i32 %height, i32 %BlurRadius, i32 %nRealWidth) nounwind {
 ; <label>:0
@@ -112,7 +112,7 @@ bb.nph.split.us.split.split.us:                   ; preds = %bb.nph.split.us.spl
   %33 = insertelement <2 x i32> undef, i32 %32, i32 0
   %34 = insertelement <2 x i32> %33, i32 %30, i32 1
   %35 = load i32 addrspace(2)* @imageSampler, align 4
-  %36 = tail call <4 x i32> @_Z12read_imageui9image2d_tjDv2_i(%struct._image2d_t* %src, i32 %35, <2 x i32> %34) nounwind
+  %36 = tail call <4 x i32> @foo(%struct._image2d_t* %src, i32 %35, <2 x i32> %34) nounwind
   %37 = load i32 addrspace(1)* %scevgep, align 4
   %38 = extractelement <4 x i32> %36, i32 0
   %39 = mul i32 %38, %37
@@ -142,7 +142,7 @@ bb.nph.split.split.us:                            ; preds = %bb.nph.split.split.
   %55 = sdiv i32 %nShiftIndex.03.us7, %54
   %56 = insertelement <2 x i32> <i32 0, i32 undef>, i32 %55, i32 1
   %57 = load i32 addrspace(2)* @imageSampler, align 4
-  %58 = tail call <4 x i32> @_Z12read_imageui9image2d_tjDv2_i(%struct._image2d_t* %src, i32 %57, <2 x i32> %56) nounwind
+  %58 = tail call <4 x i32> @foo(%struct._image2d_t* %src, i32 %57, <2 x i32> %56) nounwind
   %59 = load i32 addrspace(1)* %scevgep43, align 4
   %60 = extractelement <4 x i32> %58, i32 0
   %61 = mul i32 %60, %59
@@ -174,7 +174,7 @@ bb.nph.split.split.bb.nph.split.split.split_crit_edge: ; preds = %bb.nph.split.s
   %79 = insertelement <2 x i32> undef, i32 %78, i32 0
   %80 = insertelement <2 x i32> %79, i32 %77, i32 1
   %81 = load i32 addrspace(2)* @imageSampler, align 4
-  %82 = tail call <4 x i32> @_Z12read_imageui9image2d_tjDv2_i(%struct._image2d_t* %src, i32 %81, <2 x i32> %80) nounwind
+  %82 = tail call <4 x i32> @foo(%struct._image2d_t* %src, i32 %81, <2 x i32> %80) nounwind
   %83 = load i32 addrspace(1)* %scevgep61, align 4
   %84 = extractelement <4 x i32> %82, i32 0
   %85 = mul i32 %84, %83
@@ -240,8 +240,8 @@ bb.nph.split.split.bb.nph.split.split.split_crit_edge: ; preds = %bb.nph.split.s
   %128 = insertelement <2 x i32> undef, i32 %127, i32 0
   %129 = tail call i32 @get_global_id(i32 1) nounwind
   %130 = insertelement <2 x i32> %128, i32 %129, i32 1
-  tail call void @_Z13write_imageui9image2d_tDv2_iDv4_j(%struct._image2d_t* %dst, <2 x i32> %130, <4 x i32> %storemerge1) nounwind
+  tail call void @bar(%struct._image2d_t* %dst, <2 x i32> %130, <4 x i32> %storemerge1) nounwind
   ret void
 }
 
-declare <4 x i32> @_Z12read_imageui9image2d_tjDv2_i(%struct._image2d_t*, i32, <2 x i32>)
+declare <4 x i32> @foo(%struct._image2d_t*, i32, <2 x i32>)

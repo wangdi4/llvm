@@ -9,16 +9,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 
 #include "llvm/Instructions.h"
-#include "llvm/Support/CFG.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Support/InstIterator.h"
-#include "llvm/Version.h"
-
-#if LLVM_VERSION >= 3425
 #include "llvm/IRBuilder.h"
-#else
-#include "llvm/Support/IRBuilder.h"
-#endif
+#include "llvm/Support/CFG.h"
+#include "llvm/Support/InstIterator.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include <set>
 

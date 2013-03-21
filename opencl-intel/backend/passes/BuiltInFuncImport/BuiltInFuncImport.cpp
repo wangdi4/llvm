@@ -13,7 +13,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/Instruction.h>
 #include <llvm/Support/InstIterator.h>
 #include <llvm/Instructions.h>
-#include <llvm/Version.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/IRReader.h>
@@ -258,11 +257,7 @@ namespace intel {
             0, // We only create global variable declaration, no init yet!
             pSrcGlobal->getName(),
             0,
-#if LLVM_VERSION >= 3425
             pSrcGlobal->getThreadLocalMode(),
-#else
-            pSrcGlobal->isThreadLocal(),
-#endif
             pSrcGlobal->getType()->getAddressSpace());
 
     // Propagate alignment, visibility and section info.

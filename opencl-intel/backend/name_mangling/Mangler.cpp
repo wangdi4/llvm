@@ -13,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <sstream>
 #include <list>
 #include <algorithm>
+#include <map>
 
 //
 //Implementation of an API.
@@ -31,7 +32,16 @@ const char* DUPLICANT_STR[2] = {"S_", "S0_"};
 class MangleVisitor: public reflection::TypeVisitor{
 public:
 
-  MangleVisitor(std::stringstream& s): m_stream(s){}
+  MangleVisitor(std::stringstream& s): m_stream(s)
+  {
+    imageTypeNameTranslate["ocl_image1d"]="image1d_t";
+    imageTypeNameTranslate["ocl_image2d"]="image2d_t";
+    imageTypeNameTranslate["ocl_image3d"]="image3d_t";
+    imageTypeNameTranslate["ocl_image1dbuffer"]="image1d_buffer_t";
+    imageTypeNameTranslate["ocl_image1darray"]="image1d_array_t";
+    imageTypeNameTranslate["ocl_image2darray"]="image2d_array_t";
+    imageTypeNameTranslate["ocl_sampler"]="sampler_t";
+  }
 
   void operator() (const reflection::Type* t){
     t->accept(this);
@@ -89,13 +99,17 @@ public:
   }
 
   void visit(const reflection::UserDefinedTy* pTy){
-    int typeIndex = getTypeIndex(pTy);
-    if( -1 != typeIndex ) {
-      m_stream << getDuplicateString(typeIndex);
-      return;
-    }
-    addIfNotExist(pTy);
     std::string name = pTy->toString();
+    std::map<std::string,std::string>::iterator it = imageTypeNameTranslate.find(name);
+    if (it == imageTypeNameTranslate.end()) {
+      int typeIndex = getTypeIndex(pTy);
+      if( -1 != typeIndex ) {
+        m_stream << getDuplicateString(typeIndex);
+        return;
+      }
+      addIfNotExist(pTy);
+    }
+    name = pTy->toString();
     m_stream << name.size() << name;
   }
 
@@ -134,6 +148,8 @@ private:
     return ss.str();
   }
 
+  // translation table between API names and CLANG-mangled names
+  std::map<std::string,std::string> imageTypeNameTranslate;
   //holds the mangled string representing the prototype of the function
   std::stringstream& m_stream;
   //list of types 'seen' so far

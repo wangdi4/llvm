@@ -71,7 +71,7 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
 
   // obtain TagetData of the module
-  m_pTD = getAnalysisIfAvailable<TargetData>();
+  m_pDL = getAnalysisIfAvailable<DataLayout>();
 
   // Prepare data structures for scalarizing a new function
   m_scalarizableRootsMap.clear();
@@ -950,13 +950,13 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
   }
 
   VectorType *dataType = dyn_cast<VectorType>(LI->getType());
-  if (isScalarizableLoadStoreType(dataType) && m_pTD) {
+  if (isScalarizableLoadStoreType(dataType) && m_pDL) {
     // Prepare empty SCM entry for the instruction
     SCMEntry *newEntry = getSCMEntry(LI);
 
     // Get additional info from instruction
-    unsigned int vectorSize = m_pTD->getTypeAllocSize(dataType);
-    unsigned int elementSize = m_pTD->getTypeSizeInBits(dataType->getElementType()) / 8;
+    unsigned int vectorSize = m_pDL->getTypeAllocSize(dataType);
+    unsigned int elementSize = m_pDL->getTypeSizeInBits(dataType->getElementType()) / 8;
     V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
       "vector size should be a multiply of element size");
     unsigned numElements = vectorSize/elementSize;
@@ -1026,10 +1026,10 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
   int indexPtr = SI->getPointerOperandIndex();
   int indexData = 1-indexPtr;
   VectorType *dataType = dyn_cast<VectorType>(SI->getOperand(indexData)->getType());
-  if (isScalarizableLoadStoreType(dataType) && m_pTD) {
+  if (isScalarizableLoadStoreType(dataType) && m_pDL) {
     // Get additional info from instruction
-    unsigned int vectorSize = m_pTD->getTypeAllocSize(dataType);
-    unsigned int elementSize = m_pTD->getTypeSizeInBits(dataType->getElementType()) / 8;
+    unsigned int vectorSize = m_pDL->getTypeAllocSize(dataType);
+    unsigned int elementSize = m_pDL->getTypeSizeInBits(dataType->getElementType()) / 8;
     V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
       "vector size should be a multiply of element size");
     unsigned numElements = vectorSize/elementSize;
@@ -1337,8 +1337,8 @@ bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName
     SmallVector<Type *, 1> types(1, scalarType);
     Type* retType = static_cast<Type*>(VectorType::get(scalarType, 2));
     funcType = FunctionType::get(retType, types, false);
-    funcAttr.addAttr(~0, Attribute::ReadNone);
-    funcAttr.addAttr(~0, Attribute::NoUnwind);
+    funcAttr.addAttr(m_currFunc->getContext(), ~0, Attributes::get(m_currFunc->getContext(), Attributes::ReadNone));
+    funcAttr.addAttr(m_currFunc->getContext(), ~0, Attributes::get(m_currFunc->getContext(), Attributes::NoUnwind));
     return true;
   }
 

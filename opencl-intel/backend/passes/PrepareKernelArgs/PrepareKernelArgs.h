@@ -14,13 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/Instructions.h"
-#include "llvm/Version.h"
-
-#if LLVM_VERSION >= 3425
 #include "llvm/IRBuilder.h"
-#else
-#include "llvm/Support/IRBuilder.h"
-#endif
 
 #include <map>
 

@@ -1,9 +1,9 @@
-OclBuiltinImpl HalfToFloat2 = OclBuiltinImpl<__ocl_HalfToFloat, [v1f16], 0, [{
-	unsigned short expHalf16 = as_short($Arg0VarName) & 0x7C00;
+OclBuiltinImpl HalfToFloat2 = OclBuiltinImpl<__ocl_HalfToFloat, [v1i16], 0, [{
+	unsigned short expHalf16 = $Arg0VarName & 0x7C00;
 	int exp1 = (int)expHalf16;
-	unsigned short mantissa16 = as_short($Arg0VarName) & 0x03FF;
+	unsigned short mantissa16 = $Arg0VarName & 0x03FF;
 	int mantissa1 = (int)mantissa16;
-	int sign = (int)(as_short($Arg0VarName) & 0x8000);
+	int sign = (int)($Arg0VarName & 0x8000);
 	sign = sign << 16;
 	
 	if (expHalf16 == 0x7C00) // nan or inf
@@ -679,7 +679,7 @@ code LoadC = [{
     return res;
 }];
 code Load_half = [{
-   return __ocl_HalfToFloat($Arg1VarName[$Arg0VarName]);
+   return __ocl_HalfToFloat(as_short($Arg1VarName[$Arg0VarName]));
 }];
 code Load_half2 = [{
 	short8 tmp;

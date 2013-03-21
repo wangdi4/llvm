@@ -41,7 +41,6 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -212,7 +211,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
 
     // Check whether the kernel creates WI ids by itself (work group loops were not created by barrier)
     // This also means that this a 1-sise Jit (no vector kernel)
-    std::string wrapperName = pWrapperFunc->getNameStr();
+    std::string wrapperName = pWrapperFunc->getName().str();
     std::string vecPrefix = "__Vectorized_.";
     std::string wrapperVecName = vecPrefix + wrapperName;
     bool bJitCreateWIids = buildResult.GetNoBarrierSet().count(wrapperName);
@@ -237,7 +236,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
 
     // Private memory size contains the max size between
     // the needed size for scalar and needed size for vectorized versions.
-    unsigned int privateMemorySize = buildResult.GetPrivateMemorySize().at(pWrapperFunc->getNameStr());
+    unsigned int privateMemorySize = buildResult.GetPrivateMemorySize().at(pWrapperFunc->getName().str());
     // TODO: This is workaround till the SDK hanlde case of zero private memory size!
     privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, privateMemorySize));
     pProps->SetPrivateMemorySize( privateMemorySize );

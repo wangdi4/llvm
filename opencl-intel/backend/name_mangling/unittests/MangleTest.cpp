@@ -23,6 +23,7 @@
 #include "TypeCast.h"
 #include <algorithm>
 #include <cctype>
+#include <map>
 
 using namespace reflection;
 
@@ -184,6 +185,16 @@ static bool isPointer(const reflection::Type *T){
 
 TEST(NameMangle, demangleTostrightAndBack){
   #include "MangledNames.h"
+  // translation table between API names and CLANG-mangled names
+  std::map<std::string,std::string> imageTypeNameTranslate;
+  imageTypeNameTranslate["ocl_image1d"]="image1d_t";
+  imageTypeNameTranslate["ocl_image2d"]="image2d_t";
+  imageTypeNameTranslate["ocl_image3d"]="image3d_t";
+  imageTypeNameTranslate["ocl_image1dbuffer"]="image1d_buffer_t";
+  imageTypeNameTranslate["ocl_image1darray"]="image1d_array_t";
+  imageTypeNameTranslate["ocl_image2darray"]="image2d_array_t";
+  imageTypeNameTranslate["ocl_sampler"]="sampler_t";
+
   for( unsigned int i = 0 ; i < sizeof(mangledNames)/sizeof(char*) ; i++){
     try{
       const char* mname = mangledNames[i];
@@ -192,6 +203,15 @@ TEST(NameMangle, demangleTostrightAndBack){
       std::string actual = mangle(fd);
       //checking that the mangle demangle cycle returns to the same string
       ASSERT_EQ(expected, actual);
+      // Account for functions with CLANG-mangled type names
+      for (TypeVector::iterator paramType = fd.parameters.begin();
+           paramType != fd.parameters.end(); paramType++) {
+        std::string name = (*paramType)->toString();
+        std::map<std::string,std::string>::iterator it = imageTypeNameTranslate.find(name);
+        if (it != imageTypeNameTranslate.end()) {
+          *paramType = new UserDefinedTy(it->second);
+        }
+      }
       //checking that the demangle string is as we expect it to be
       //(semantically the same)
       if (!isSematicallyEqual(fd.toString(), prototypes[i]))
@@ -308,12 +328,12 @@ TEST(DemangleTest, imageAmbiguity){
 }
 
 TEST(DemangleTest, imageBuiltin){
-  const char* name = "_Z11read_imagefP10_image2d_tjDv2_f";
+  const char* name = "_Z11read_imagef11ocl_image2d11ocl_samplerDv2_f";
   FunctionDescriptor fd = demangle(name);
   ASSERT_EQ("read_imagef", fd.name);
   ASSERT_EQ(3U, fd.parameters.size());
-  ASSERT_EQ(std::string("_image2d_t *"), getParameterString(fd, 0));
-  ASSERT_EQ(std::string("uint"), getParameterString(fd, 1));
+  ASSERT_EQ(std::string("ocl_image2d"), getParameterString(fd, 0));
+  ASSERT_EQ(std::string("ocl_sampler"), getParameterString(fd, 1));
   ASSERT_EQ(std::string("float2"), getParameterString(fd, 2));
 }
 

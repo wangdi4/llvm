@@ -387,20 +387,28 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
             // Need to pass a pointer in the arguments buffer
 
             size_t bufferSize = bufferDesc.GetBufferSizeInBytes();
-            
+
             void ** pBufferArg = (void **)(m_pArgsBuffer + offset);
             cl_mem_obj_descriptor* pMemDesc = *(cl_mem_obj_descriptor**)pBufferArg;
             void* pBufferArgData = pMemDesc->pData;
 
             if (m_isCheckOOBAccess) 
             {
+                TypeDesc bufferElemDesc = bufferDesc.GetElementDescription();
+                // if vector has 3 components, it is actually includes 4 components, so we need to skip the checking of forth element
+                size_t vec3align = 0;
+                if(bufferElemDesc.GetType() == TVECTOR) {
+                    if( bufferDesc.SizeOfVector() == 3) {
+                        vec3align = bufferDesc.GetElementDescription().GetSubTypeDesc(0).GetSizeInBytes();
+                    }
+                }
 
                 // Check for mutations
                 if ( (std::find_if( (char*)pBufferArgData - PaddingSize, 
                                     (char*)pBufferArgData, 
                                     std::bind2nd(std::not_equal_to<char>(), PaddingVal)) != (char*)pBufferArgData) 
                         ||
-                     (std::find_if( (char*)pBufferArgData + bufferSize, 
+                     (std::find_if( (char*)pBufferArgData + bufferSize + vec3align, 
                                     (char*)pBufferArgData + bufferSize + PaddingSize, 
                                     std::bind2nd(std::not_equal_to<char>(), PaddingVal)) != (char*)pBufferArgData + bufferSize + PaddingSize) )
                 {

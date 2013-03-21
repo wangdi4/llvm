@@ -33,7 +33,7 @@ File Name:  ocl_recorder.cpp
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/LLVMContext.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 #include "cl_device_api.h"
 #include "IBufferContainerList.h"
 #include "BinaryDataWriter.h"
@@ -57,7 +57,7 @@ namespace Validation
     namespace Utils
     {
     /// \brief Converts type description from LLVM data structures to Data Manager structures.
-    TypeDesc GetTypeDesc(llvm::Type* type, const llvm::TargetData* td)
+    TypeDesc GetTypeDesc(llvm::Type* type, const llvm::DataLayout* td)
     {
         assert(NULL != type);
         TypeDesc ret;
@@ -156,7 +156,7 @@ namespace Validation
         return size;
     }
 
-    const BufferDesc GetBufferDesc(size_t size, const llvm::Argument& func_arg, const llvm::TargetData* td)
+    const BufferDesc GetBufferDesc(size_t size, const llvm::Argument& func_arg, const llvm::DataLayout* td)
     {
         BufferDesc bd;
         // Do not record pointer.
@@ -173,12 +173,12 @@ namespace Validation
         return bd;
     }
 
-    const BufferDesc GetBufferDesc(size_t elemSize, size_t numElements, const llvm::Argument& func_arg, const llvm::TargetData* td)
+    const BufferDesc GetBufferDesc(size_t elemSize, size_t numElements, const llvm::Argument& func_arg, const llvm::DataLayout* td)
     {
         return GetBufferDesc( elemSize * numElements, func_arg, td);
     }
 
-    const BufferDesc GetBufferDesc(cl_mem_obj_descriptor* pmem_obj, const llvm::Argument& func_arg, const llvm::TargetData* td)
+    const BufferDesc GetBufferDesc(cl_mem_obj_descriptor* pmem_obj, const llvm::Argument& func_arg, const llvm::DataLayout* td)
     {
         assert(NULL != pmem_obj);
         return GetBufferDesc(GetBufferSizeInBytes(pmem_obj), func_arg, td);
@@ -307,7 +307,7 @@ namespace Validation
     }
 
     RecorderContext::RecorderContext(const std::string& logsPath, const std::string& prefix):
-        m_TD(NULL),
+        m_DL(NULL),
         m_logsPath(logsPath)
     {
         // create the unique path for current context
@@ -330,7 +330,7 @@ namespace Validation
 
     RecorderContext::~RecorderContext()
     {
-        delete m_TD;
+        delete m_DL;
     }
 
     const std::string RecorderContext::getPath( const std::string& suffix ) const
@@ -566,13 +566,15 @@ namespace Validation
         {
             throw Exception::ValidationExceptionBase("Failed to parse IR");
         }
-        spContext->m_TD = new llvm::TargetData(pModule);
+        spContext->m_DL = new llvm::DataLayout(pModule);
         //checking whehter we need source or byte-level recording
         MD5 md5((unsigned char*)fileData, fileDataSize);
         MD5Code code = md5.digest();
         Frontend::SourceFile sourceFile;
         if (NeedSourceRecording(code, OUT &sourceFile))
+        {
             RecordSourceCode(*spContext, sourceFile);
+        }
         else
         {
             RecordByteCode(pContainer, *spContext);
@@ -789,7 +791,7 @@ namespace Validation
             {
                 cl_mem_obj_descriptor* mem_descriptor = *(cl_mem_obj_descriptor**)((char*)pArgsBuffer+stArgsOffset);
                 // create buffer
-                BufferDesc desc = Utils::GetBufferDesc(mem_descriptor, *arg_it, programContext.m_TD);
+                BufferDesc desc = Utils::GetBufferDesc(mem_descriptor, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
 
                 // fill it with data
@@ -803,7 +805,7 @@ namespace Validation
             else if (CL_KRNL_ARG_PTR_LOCAL == pKernelArgs[i].type)
             {
                 size_t localMemSize = *(size_t*)((char*)pArgsBuffer+stArgsOffset);
-                BufferDesc desc = Utils::GetBufferDesc(localMemSize, *arg_it, programContext.m_TD);
+                BufferDesc desc = Utils::GetBufferDesc(localMemSize, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
 
                 // fill it with data
@@ -819,21 +821,21 @@ namespace Validation
                 size_t numElements = (pKernelArgs[i].size_in_bytes) & 0xFFFF;
                 size_t uiSize = elemSize * numElements;
 
-                BufferDesc desc = Utils::GetBufferDesc(elemSize, numElements, *arg_it, programContext.m_TD);
+                BufferDesc desc = Utils::GetBufferDesc(elemSize, numElements, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
                 memcpy( pBuffer->GetDataPtr(), (void *)((char*)pArgsBuffer + stArgsOffset), uiSize);
                 stArgsOffset += uiSize;
             }
             else if (CL_KRNL_ARG_SAMPLER == pKernelArgs[i].type)
             {
-                BufferDesc desc = Utils::GetBufferDesc(sizeof(unsigned int), *arg_it, programContext.m_TD);
+                BufferDesc desc = Utils::GetBufferDesc(sizeof(unsigned int), *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
                 memcpy( pBuffer->GetDataPtr(), (void *)((char*)pArgsBuffer + stArgsOffset), sizeof(unsigned int));
                 stArgsOffset += sizeof(unsigned int);
             }
             else
             {
-                BufferDesc desc = Utils::GetBufferDesc((size_t)pKernelArgs[i].size_in_bytes, *arg_it, programContext.m_TD);
+                BufferDesc desc = Utils::GetBufferDesc((size_t)pKernelArgs[i].size_in_bytes, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
                 memcpy( pBuffer->GetDataPtr(), (void *)((char*)pArgsBuffer + stArgsOffset), pKernelArgs[i].size_in_bytes);
                 stArgsOffset += pKernelArgs[i].size_in_bytes;

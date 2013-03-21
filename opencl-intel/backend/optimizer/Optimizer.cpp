@@ -16,7 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Function.h"
 #include "llvm/Pass.h"
 #include "llvm/DerivedTypes.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/Passes.h"
@@ -216,13 +216,13 @@ Optimizer::Optimizer( llvm::Module* pModule,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
   }
 #endif //#ifndef __APPLE__
-  // Add an appropriate TargetData instance for this module...
-  m_modulePasses.add(new llvm::TargetData(pModule));
+  // Add an appropriate DataLayout instance for this module...
+  m_modulePasses.add(new llvm::DataLayout(pModule));
 #ifdef __APPLE__
   m_modulePasses.add(createClangCompatFixerPass());
 #endif
   m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
-  m_funcPasses.add(new llvm::TargetData(pModule));
+  m_funcPasses.add(new llvm::DataLayout(pModule));
 #ifndef __APPLE__
   if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
@@ -398,7 +398,10 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #endif
 
   if ( debugType == None ) {
-    m_modulePasses.add(llvm::createFunctionInliningPass());     // Inline small functions
+    if (pConfig->GetCpuId().HasGatherScatter())
+      m_modulePasses.add(llvm::createFunctionInliningPass(4096));     // Inline (not only small) functions.
+    else
+      m_modulePasses.add(llvm::createFunctionInliningPass());     // Inline small functions
   }
 
   if ( debugType == None ) {

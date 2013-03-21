@@ -62,39 +62,52 @@ install(TARGETS ${TARGET_NAME}
 
 if (NOT WIN32) 
   list(APPEND LINK_LIBS
-        #LLVMCBackend
-        #LLVMCBackendInfo
-        LLVMCppBackend
+        LLVMCppBackendCodeGen
         LLVMCppBackendInfo
       )
 endif (NOT WIN32)
 
 
-
+# The list of clang libraries is taken from clang makefile
+# (build/tools/clang/tools/driver/CMakeFiles/clang.dir/build.make)
+# All duplicate libraries are there on purpose 
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils
                                       cl_logger
                                       ${LINK_LIBS} 
                                       task_executor${BUILD_PLATFORM}
                                       clangFrontendTool
-                                      clangAnalysis
                                       clangAST
+                                      clangAnalysis
                                       clangBasic
                                       clangCodeGen
                                       clangDriver
+                                      clangEdit
                                       clangFrontend
-                                      clangFrontendTool
-                                      clangIndex
                                       clangLex
                                       clangParse
-                                      clangRewrite
+                                      clangEdit
+                                      clangARCMigrate
+                                      clangRewriteCore
+                                      clangRewriteFrontend
                                       clangSema
                                       clangSerialization
-                                      clangARCMigrate
                                       clangStaticAnalyzerFrontend
                                       clangStaticAnalyzerCheckers
                                       clangStaticAnalyzerCore
-                                      OclPluginManager
+                                      clangRewriteFrontend
+                                      clangFrontend
+                                      clangDriver
+                                      clangSerialization
+                                      clangRewriteCore
+                                      clangParse
+                                      clangSema
+                                      clangAnalysis
+                                      clangEdit
+                                      clangAST
+                                      clangLex
+                                      clangBasic
+				      OclPluginManager
                                       ${LLVM_MODULE_LIBS}
                                       )
 
@@ -122,13 +135,15 @@ endif()
     
 set( CLANG ${TOOL_BINARY_DIR}/clang )
 
-add_custom_command( TARGET clang_compiler${BUILD_PLATFORM}
+add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
                     COMMAND ${CLANG} ${COMPILER_OPTIONS} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     VERBATIM
                    )
-
+add_dependencies( ${TARGET_NAME}
+	clang
+)
 
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
@@ -140,13 +155,13 @@ if (WIN32)
     file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008 
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS	"${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")	    
+        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS    "${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")        
     else (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2010 (assumed if not Visual Studio 2008)
         # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
-        # The /DEBUG flag is required in order to create stripped pdbs.		
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}")
-        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}")
+        # The /DEBUG flag is required in order to create stripped pdbs.        
+        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG} /PDBSTRIPPED:${PDB_NAME}")
+        set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE    "${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}")
     endif (${MSVC_VERSION} EQUAL 1500)
     if (INSTALL_PDBS)    
         install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)

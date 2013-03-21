@@ -31,10 +31,12 @@ set(OCL_BE_PASSES_DEPS
     BackendPassesWrappers
 )
 
+add_dependencies(${TARGET_NAME} opt)
+
 target_link_libraries(${TARGET_NAME}
     ${OCL_BE_PASSES}
     ${OCL_BE_PASSES_DEPS}
-    optEngine
+    LLVMOptEngine
     ${LLVM_MODULE_LIBS}
 )
 

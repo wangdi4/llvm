@@ -11,7 +11,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Instruction.h"
 #include "llvm/Instructions.h"
 #include "llvm/Support/CFG.h"
-#include "llvm/Version.h"
 
 #include <set>
 
@@ -504,13 +503,12 @@ namespace intel {
     AttrListPtr func_factorial_PAL;
     SmallVector<AttributeWithIndex, 4> Attrs;
     AttributeWithIndex PAWI;
-    PAWI.Index = 4294967295U; PAWI.Attrs = Attribute::None  | Attribute::NoUnwind | Attribute::ReadNone/* | Attribute::UWTable*/;
+    PAWI.Index = 4294967295U; 
+    AttrBuilder attBuilder;
+    attBuilder.addAttribute(Attributes::None).addAttribute(Attributes::NoUnwind).addAttribute(Attributes::ReadNone) /* .addAttribute(Attribute::UWTable) */;
+    PAWI.Attrs = Attributes::get(pFunc->getContext(), attBuilder);
     Attrs.push_back(PAWI);
-#if LLVM_VERSION >= 3425
-    func_factorial_PAL = AttrListPtr::get(Attrs);
-#else
-    func_factorial_PAL = AttrListPtr::get(Attrs.begin(), Attrs.end());
-#endif
+    func_factorial_PAL = AttrListPtr::get(pFunc->getContext(), Attrs);
     pFunc->setAttributes(func_factorial_PAL);
   }
 } // namespace intel

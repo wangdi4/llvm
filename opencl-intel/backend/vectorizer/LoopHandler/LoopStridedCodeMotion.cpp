@@ -10,7 +10,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 #include "VectorizerUtils.h"
 #include "llvm/Constants.h"
-#include "llvm/Version.h"
 
 
 //unsigned counter = 0;
@@ -268,12 +267,7 @@ Value *LoopStridedCodeMotion::getVectorStrideIfNeeded(Instruction *I,
   unsigned nElts = vTy->getNumElements();
   // For constant stride just generate constant vector.
   if (Constant *C = dyn_cast<Constant>(stride)) {
-#if LLVM_VERSION >= 3425
     return ConstantDataVector::getSplat(nElts, C);
-#else
-    std::vector<Constant*> vecConst(nElts, C);
-    return ConstantVector::get(vecConst);
-#endif
   }
 
   // For non constant broadcast the stride.

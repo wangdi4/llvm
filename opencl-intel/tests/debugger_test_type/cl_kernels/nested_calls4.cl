@@ -12,7 +12,7 @@ int test3(int a, int b)
     int i3 = a;
 	i3++;
 	volatile int c3 = 2;
-	int* restrict r3 = (int*)67;
+	int* r3 = (int*)67;
 	if (c3 > 1)
 	{
 		int ai3 = i3;
@@ -28,7 +28,7 @@ int test2(int a)
     int i2 = a;
 	i2++;
 	volatile int c2 = 2;
-	int* restrict r2 = (int*)67;
+	int* r2 = (int*)67;
     test3(i2,a);
 	if (c2 > 1)
 	{
@@ -46,7 +46,7 @@ int test1(int a)
     int i1 = a;
 	i1++;
 	volatile int c1 = 2;
-	int* restrict r1 = (int*)67;
+	int* r1 = (int*)67;
     test2(i1);
 	foo();
 	if (c1 > 1)

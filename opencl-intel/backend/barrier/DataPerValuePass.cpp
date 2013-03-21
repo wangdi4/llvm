@@ -23,7 +23,7 @@ namespace intel {
   OCL_INITIALIZE_PASS_END(DataPerValue, "B-ValueAnalysis", "Barrier Pass - Collect Data per Value", false, true)
 
   DataPerValue::DataPerValue()
-    : ModulePass(ID), m_pTD(0)
+    : ModulePass(ID), m_pDL(0)
   {
     initializeDataPerValuePass(*llvm::PassRegistry::getPassRegistry());
   }
@@ -36,9 +36,9 @@ namespace intel {
     //Initialize barrier utils class with current module
     m_util.init(&M);
 
-    // obtain TagetData of the module
-    m_pTD = getAnalysisIfAvailable<TargetData>();
-    assert( m_pTD && "Failed to obtain instance of TargetData!" );
+    // obtain DataLayout of the module
+    m_pDL = getAnalysisIfAvailable<DataLayout>();
+    assert( m_pDL && "Failed to obtain instance of DataLayout!" );
 
     // Find and sort all connected function into disjointed groups
     CalculateConnectedGraph(M);
@@ -281,22 +281,22 @@ namespace intel {
       pElementType = pVecType->getElementType();
     }
     assert(!isa<VectorType>(pElementType) && "element type of a vector is another vector!");
-    if ( m_pTD->getTypeSizeInBits(pElementType) == 1 ) {
+    if ( m_pDL->getTypeSizeInBits(pElementType) == 1 ) {
       //we have a Value with base type i1
       m_oneBitElementValues.insert(pVal);
       //We will extend i1 to i32 before storing to special buffer.
       sizeFactor = 32; // In bits
       alignmentFactor = 4; // In bytes
-      assert(m_pTD->getPrefTypeAlignment(pType) ==
+      assert(m_pDL->getPrefTypeAlignment(pType) ==
         (pVecType ? pVecType->getNumElements() : 1) &&
         "assumes alignment of vector of i1 type equals to vector length");
     }
     //TODO: check what is better to use for alignment?
     //unsigned int alignment = m_pTD->getABITypeAlignment(pType);
     unsigned int alignment = ((allocaAlignment) ?
-      allocaAlignment : m_pTD->getPrefTypeAlignment(pType)) * alignmentFactor;
+      allocaAlignment : m_pDL->getPrefTypeAlignment(pType)) * alignmentFactor;
     assert( alignment && "alignment is 0" );
-    unsigned int sizeInBits = m_pTD->getTypeSizeInBits(pType) * sizeFactor;
+    unsigned int sizeInBits = m_pDL->getTypeSizeInBits(pType) * sizeFactor;
 
     unsigned int sizeInBytes = sizeInBits / 8;
     assert( sizeInBytes && "sizeInBytes is 0" );

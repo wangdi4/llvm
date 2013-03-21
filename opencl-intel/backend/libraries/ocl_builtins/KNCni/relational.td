@@ -127,7 +127,7 @@ OclBuiltinImpl isunordered_f32_v16 = OclBuiltinImpl<isunordered, [v16f32], 0, [{
     int16 nan2 = isnan($Arg1VarName);
     __m512i isunordered = (__m512i)(nan1);
     isunordered = _mm512_or_epi32(isunordered, (__m512i)nan2);
-    return ($NativeReturnType)isunordered;
+    return as_$NativeReturnType(isunordered);
   }]>;
 OclBuiltinImpl isunordered_f32_promote = OclBuiltinImpl<isunordered, [v2f32, v3f32, v4f32, v8f32], 0, NonMaskPromote2>;
 OclBuiltinImpl isunordered_f64_v1 = OclBuiltinImpl<isunordered, [v1f64], 0, [{
@@ -138,7 +138,7 @@ OclBuiltinImpl isunordered_f64_v8 = OclBuiltinImpl<isunordered, [v8f64], 0, [{
     long8 nan2 = isnan($Arg1VarName);
     __m512i isunordered = (__m512i)(nan1);
     isunordered = _mm512_or_epi64(isunordered, (__m512i)nan2);
-    return ($NativeReturnType)isunordered;
+    return as_$NativeReturnType(isunordered);
   }]>;
 OclBuiltinImpl isunordered_f64_promote = OclBuiltinImpl<isunordered, [v2f64, v3f64, v4f64], 0, NonMaskPromote2>;
 OclBuiltinImpl isunordered_f64_expand = OclBuiltinImpl<isunordered, [v16f64], 0, Expand2>;
@@ -159,11 +159,11 @@ OclBuiltinImpl signbit_f64_v1 = OclBuiltinImpl<signbit, [v1f64], 0, [{
     return (as_long($Arg0VarName) & const_dp_msb)?1:0;
   }]>;
 OclBuiltinImpl signbit_f64_v8 = OclBuiltinImpl<signbit, [v8f64], 0, [{
-    $NativeArg0Type upper = ($NativeArg0Type)unpack_hi($Arg0VarName);
+    $NativeArg0Type upper = as_$NativeArg0Type(unpack_hi($Arg0VarName));
     __m512i zeros = (__m512i)_mm512_setzero();
     __m512i no_sign = _mm512_and_epi32((__m512i)(upper), (__m512i)((int16)const_msb));
     __mmask16 sign = _mm512_cmpneq_epi32(no_sign, zeros);
-    return ($NativeReturnType) mask2pi(sign);
+    return as_$NativeReturnType(mask2pi(sign));
   }]>;
 OclBuiltinImpl signbit_f64_promote = OclBuiltinImpl<signbit, [v2f64, v3f64, v4f64], 0, NonMaskPromote1>;
 OclBuiltinImpl signbit_f64_expand = OclBuiltinImpl<signbit, [v16f64], 0, Expand1>;
@@ -191,7 +191,7 @@ OclBuiltinImpl mask_any_vector_v16 = OclBuiltinImpl<mask_any, [v16i8, v16u8, v16
     __m512i const_vector_msb = (__m512i)((int16)(1 << ($BitWidth-1)));
     __m512i zeros = (__m512i)_mm512_setzero();
     __m512i sign_bits = (__m512i)_mm512_setzero();
-    int16 x_reg = (int16)sign_ext_from($Arg1VarName);
+    int16 x_reg = as_int16(sign_ext_from($Arg1VarName));
     sign_bits = _mm512_mask_and_epi32(sign_bits, $Arg0VarName, (__m512i)(x_reg), const_vector_msb);
     __mmask16 sign_mask = _mm512_cmpneq_epi32(sign_bits, zeros);
     int all_zero = _mm512_kortestz(sign_mask, sign_mask);
@@ -200,14 +200,14 @@ OclBuiltinImpl mask_any_vector_v16 = OclBuiltinImpl<mask_any, [v16i8, v16u8, v16
 OclBuiltinImpl any_vector_v16 = OclBuiltinImpl<any, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32], 0, [{
     __m512i const_vector_msb = (__m512i)((int16)(1 << ($BitWidth-1)));
     __m512i zeros = (__m512i)_mm512_setzero();
-    int16 x_reg = (int16)sign_ext_from($Arg0VarName);
+    int16 x_reg = as_int16(sign_ext_from($Arg0VarName));
     __m512i sign_bits = _mm512_and_epi32((__m512i)(x_reg), const_vector_msb);
     __mmask16 sign_mask = _mm512_cmpneq_epi32(sign_bits, zeros);
     int all_zero = _mm512_kortestz(sign_mask, sign_mask);
     return all_zero?0:1;
   }]>;
 OclBuiltinImpl any_vector_v8 = OclBuiltinImpl<any, [ v8i64, v8u64, v8f64], 0, [{
-    int16 x_reg = (int16)unpack_hi($Arg0VarName);
+    int16 x_reg = as_int16(unpack_hi($Arg0VarName));
     return any(x_reg);
   }]>;
 OclBuiltinImpl any_short_promote = OclBuiltinImpl<any, [v2i8, v3i8, v4i8, v8i8, v2u8, v3u8, v4u8, v8u8,
@@ -250,7 +250,7 @@ OclBuiltinImpl mask_all_vector_v16 = OclBuiltinImpl<mask_all, [v16i8, v16u8, v16
     __m512i const_vector_msb = (__m512i)((int16)(1 << ($BitWidth-1)));
     __m512i no_sign = const_vector_msb;
     __m512i zeros = (__m512i)_mm512_setzero();
-    int16 x_reg = (int16)sign_ext_from($Arg1VarName);
+    int16 x_reg = as_int16(sign_ext_from($Arg1VarName));
     no_sign = _mm512_mask_and_epi32(no_sign, $Arg0VarName, (__m512i)(x_reg), const_vector_msb);
     __mmask16 equal = _mm512_cmpeq_epi32(no_sign, const_vector_msb);
     int all_one = _mm512_kortestc(equal, equal);
@@ -259,14 +259,14 @@ OclBuiltinImpl mask_all_vector_v16 = OclBuiltinImpl<mask_all, [v16i8, v16u8, v16
 OclBuiltinImpl all_vector_v16 = OclBuiltinImpl<all, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32], 0, [{
     __m512i const_vector_msb = (__m512i)((int16)(1 << ($BitWidth-1)));
     __m512i zeros = (__m512i)_mm512_setzero();
-    int16 x_reg = (int16)sign_ext_from($Arg0VarName);
+    int16 x_reg = as_int16(sign_ext_from($Arg0VarName));
     __m512i no_sign = _mm512_and_epi32((__m512i)(x_reg), const_vector_msb);
     __mmask16 equal = _mm512_cmpeq_epi32(no_sign, const_vector_msb);
     int all_one = _mm512_kortestc(equal, equal);
     return all_one?1:0;
   }]>;
 OclBuiltinImpl all_vector_v8 = OclBuiltinImpl<all, [v8i64, v8u64, v8f64], 0, [{
-    int16 x_reg = (int16)unpack_hi($Arg0VarName);
+    int16 x_reg = as_int16(unpack_hi($Arg0VarName));
     return all(x_reg);
   }]>;
 OclBuiltinImpl all_short_promote = OclBuiltinImpl<all, [v2i8, v3i8, v4i8, v8i8, v2u8, v3u8, v4u8, v8u8,
@@ -295,18 +295,18 @@ OclBuiltinImpl all_f64_expand = OclBuiltinImpl<all, [v16f64, v16u64, v16i64], 0,
 // iselect
 code select_vector_v16 = [{
     __m512i const_vector_msb = (__m512i)((int16)const_msb);
-    int16 c_reg = (int16)sign_ext_from($Arg2VarName);
-    int16 a_reg = (int16)ext_from($Arg0VarName);
-    int16 b_reg = (int16)ext_from($Arg1VarName);
+    int16 c_reg = as_int16(sign_ext_from($Arg2VarName));
+    int16 a_reg = as_int16(ext_from($Arg0VarName));
+    int16 b_reg = as_int16(ext_from($Arg1VarName));
     __m512i no_sign = _mm512_and_epi32((__m512i)(c_reg), const_vector_msb);
     __mmask16 sel = _mm512_cmpeq_epi32(no_sign, const_vector_msb);
     __m512i tempi = (__m512i)(a_reg);
     tempi = _mm512_mask_or_epi32(tempi, sel, (__m512i)(b_reg), (__m512i)(b_reg));
-    return trunc_to_$NativeReturnType((int16)tempi);
+    return trunc_to_$NativeReturnType(as_int16(tempi));
   }];
 code select_vector_v8 = [{
-    int16 x_reg = (int16)unpack_hi($Arg2VarName);
-    return ($ReturnType)select((int16)$Arg0VarName, (int16)$Arg1VarName, x_reg);
+    int16 x_reg = as_int16(unpack_hi($Arg2VarName));
+    return as_$ReturnType(select(as_int16($Arg0VarName), as_int16($Arg1VarName), x_reg));
   }];
 code select_scalar = [{
     return $Arg2VarName?$Arg1VarName:$Arg0VarName;
@@ -369,13 +369,13 @@ OclBuiltinImpl bitselect_scalar_f64 = OclBuiltinImpl<bitselect, [v1f64], 0, [{
   }]>;
 OclBuiltinImpl bitselect_vector = OclBuiltinImpl<bitselect, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32,
                                                                       v8i64, v8u64, v16f32, v8f64], 0, [{
-    int16 c_reg = (int16)ext_from($Arg2VarName);
-    int16 a_reg = (int16)ext_from($Arg0VarName);
-    int16 b_reg = (int16)ext_from($Arg1VarName);
+    int16 c_reg = as_int16(ext_from($Arg2VarName));
+    int16 a_reg = as_int16(ext_from($Arg0VarName));
+    int16 b_reg = as_int16(ext_from($Arg1VarName));
     __m512i result_true = _mm512_and_epi32((__m512i)b_reg, (__m512i)c_reg);
     __m512i result_false = _mm512_andnot_epi32((__m512i)c_reg, (__m512i)a_reg);
     result_true = _mm512_or_epi32(result_true, result_false);
-    return trunc_to_$NativeReturnType((int16)result_true);
+    return trunc_to_$NativeReturnType(as_int16(result_true));
   }]>;
 OclBuiltinImpl bitselect_v16_promote = OclBuiltinImpl<bitselect, [v2i8, v3i8, v4i8, v8i8, v2u8, v3u8, v4u8, v8u8,
                                                       v2i16, v3i16, v4i16, v8i16, v2u16, v3u16, v4u16, v8u16,

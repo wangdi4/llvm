@@ -1,6 +1,6 @@
 use_eh(TRUE)
-use_rtti(TRUE)
 
+set(TARGET_NAME ref-ocl-tblgen)
 set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
 set(CLANG_INCLUDE_PATH "${BACKEND_ROOT_DIR}/clang_headers/")
 
@@ -22,7 +22,7 @@ link_directories(
 )
 
 add_executable(
-  ref-ocl-tblgen
+  ${TARGET_NAME}
   OclBuiltinEmitter.cpp
   OclBuiltinsHeaderGen.cpp
   TableGen.cpp
@@ -31,14 +31,17 @@ add_executable(
   ClangUtils.cpp
 )
 
+add_dependencies(${TARGET_NAME} 
+	clang
+)
 
-target_link_libraries(ref-ocl-tblgen
+target_link_libraries(${TARGET_NAME}
   name_mangle
   ${LLVM_MODULE_LIBS}
 )
 
 if (NOT WIN32)
   if( NOT ANDROID)
-  target_link_libraries(ref-ocl-tblgen pthread)
+  target_link_libraries(${TARGET_NAME} pthread dl)
   endif()
 endif (NOT WIN32)

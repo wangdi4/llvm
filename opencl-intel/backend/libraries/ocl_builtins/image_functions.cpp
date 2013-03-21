@@ -21,6 +21,8 @@
 #if !defined (__MIC__) && !defined(__MIC2__)
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
+#define __OPENCL__
 #include <intrin.h>
 
 #include "cl_image_declaration.h"
@@ -30,27 +32,30 @@
 
 #define ALIGN16 __attribute__ ((aligned(16)))
 
-const int fVec4FloatZeroCoordMask3D[4] ALIGN16 = {0xffffffff, 0xffffffff, 0xffffffff, 0};
-ALIGN16 const int4 UndefCoordInt = {0, 0, 0, 0};
-ALIGN16 const int4 SOA4_UndefCoordIntX = {0, 0, 0, 0};
-ALIGN16 const int4 SOA4_UndefCoordIntY = {0, 0, 0, 0};
-ALIGN16 const int8 SOA8_UndefCoordIntX = {0, 0, 0, 0, 0, 0, 0, 0};
-ALIGN16 const int8 SOA8_UndefCoordIntY = {0, 0, 0, 0, 0, 0, 0, 0};
+const constant int fVec4FloatZeroCoordMask3D[4] ALIGN16 = {0xffffffff, 0xffffffff, 0xffffffff, 0};
+ALIGN16 const constant int4 UndefCoordInt = {0, 0, 0, 0};
+ALIGN16 const constant int4 SOA4_UndefCoordIntX = {0, 0, 0, 0};
+ALIGN16 const constant int4 SOA4_UndefCoordIntY = {0, 0, 0, 0};
+ALIGN16 const constant int8 SOA8_UndefCoordIntX = {0, 0, 0, 0, 0, 0, 0, 0};
+ALIGN16 const constant int8 SOA8_UndefCoordIntY = {0, 0, 0, 0, 0, 0, 0, 0};
 #define SIMPLE_SAMPLER NONE_FALSE_NEAREST
 
 /// image properties functions
 #define IMG_GET_PARAM(FUNC_NAME, IMG_TYPE, PARAM_TYPE, PARAM)\
 PARAM_TYPE __attribute__((overloadable)) __attribute__((const)) FUNC_NAME(IMG_TYPE img)\
 {\
-    return ((image_aux_data*)img)->PARAM;\
+    image_aux_data *pImage = __builtin_astype(img, image_aux_data*);\
+    return (pImage->PARAM);\
 }\
 PARAM_TYPE##4 __attribute__((overloadable)) __attribute__((const)) soa4_##FUNC_NAME(IMG_TYPE img)\
 {\
-    return (PARAM_TYPE##4)(((image_aux_data*)img)->PARAM);\
+    image_aux_data *pImage = __builtin_astype(img, image_aux_data*);\
+    return (PARAM_TYPE##4)(pImage->PARAM);\
 }\
 PARAM_TYPE##8 __attribute__((overloadable)) __attribute__((const)) soa8_##FUNC_NAME(IMG_TYPE img)\
 {\
-    return (PARAM_TYPE##8)(((image_aux_data*)img)->PARAM);\
+    image_aux_data *pImage = __builtin_astype(img, image_aux_data*);\
+    return (PARAM_TYPE##8)(pImage->PARAM);\
 }
 
 IMG_GET_PARAM(get_image_width, image1d_t, int, dim[0])
@@ -84,8 +89,9 @@ int2 __attribute__((overloadable)) __attribute__((const)) get_image_dim(image2d_
 {
     int2 res;
 
-    res.lo = ((image_aux_data*)img)->dim[0];
-    res.hi = ((image_aux_data*)img)->dim[1];
+    image_aux_data *pImage = __builtin_astype(img, image_aux_data*);
+    res.lo = pImage->dim[0];
+    res.hi = pImage->dim[1];
     return res;
 }
 
@@ -93,27 +99,31 @@ int2 __attribute__((overloadable)) __attribute__((const)) get_image_dim(image2d_
 {
     int2 res;
 
-    res.lo = ((image_aux_data*)img)->dim[0];
-    res.hi = ((image_aux_data*)img)->dim[1];
+    image_aux_data *pImage = __builtin_astype(img, image_aux_data*);
+    res.lo = pImage->dim[0];
+    res.hi = pImage->dim[1];
     return res;
 }
  int4 __attribute__((overloadable)) __attribute__((const)) get_image_dim(image3d_t img)
 {
-    __m128i dim = _mm_lddqu_si128((__m128i*)((image_aux_data*)img)->dim);
+    image_aux_data *pImage = __builtin_astype(img, image_aux_data*);
+    __m128i dim = _mm_lddqu_si128((__m128i*)pImage->dim);
     // Set to 0 the highest DWORD
     dim = _mm_srli_si128(_mm_slli_si128(dim, 4),4);
 
-    return (_4i32)dim;
+    return as_int4(dim);
 }
 
 size_t __attribute__((overloadable)) __attribute__((const)) get_image_array_size(image2d_array_t img)
 {
-        return ((image_aux_data*)img)->array_size;
+        image_aux_data *pImage = __builtin_astype(img, image_aux_data*);
+        return pImage->array_size;
 }
 
 size_t __attribute__((overloadable)) __attribute__((const)) get_image_array_size(image1d_array_t img)
 {
-        return ((image_aux_data*)img)->array_size;
+        image_aux_data *pImage = __builtin_astype(img, image_aux_data*);
+        return pImage->array_size;
 }
 
 
@@ -121,7 +131,8 @@ size_t __attribute__((overloadable)) __attribute__((const)) get_image_array_size
 
 int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord)
 {
-    int4 upper = *((int4*)(&((image_aux_data*)image)->dimSub1));
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int4 upper = *((int4*)(&pImage->dimSub1));
     int4 lower = (int4)(0, 0, 0, 0);
 
     int4 correctCoord=min(coord, upper);
@@ -136,8 +147,9 @@ int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord)
 // @param [out] res_(x,y) output coordinates
 void __attribute__((overloadable)) SOA4_ProjectToEdgeInt(image2d_t image, int4 coord_x, int4 coord_y, int4* res_x, int4* res_y)
 {
-    int4 upper_x = (int4)(((image_aux_data*)image)->dimSub1[0]);
-    int4 upper_y = (int4)(((image_aux_data*)image)->dimSub1[1]);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int4 upper_x = (int4)(pImage->dimSub1[0]);
+    int4 upper_y = (int4)(pImage->dimSub1[1]);
     int4 lower = (int4)(0, 0, 0, 0);
     coord_x = clamp(coord_x, lower, upper_x);
     coord_y = clamp(coord_y, lower, upper_y);
@@ -152,8 +164,9 @@ void __attribute__((overloadable)) SOA4_ProjectToEdgeInt(image2d_t image, int4 c
 // @param [out] res_(x,y) output coordinates
 void __attribute__((overloadable)) SOA8_ProjectToEdgeInt(image2d_t image, int8 coord_x, int8 coord_y, int8* res_x, int8* res_y)
 {
-    int8 upper_x = (int8)(((image_aux_data*)image)->dimSub1[0]);
-    int8 upper_y = (int8)(((image_aux_data*)image)->dimSub1[1]);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int8 upper_x = (int8)(pImage->dimSub1[0]);
+    int8 upper_y = (int8)(pImage->dimSub1[1]);
     int8 lower = (int8)(0, 0, 0, 0, 0, 0, 0, 0);
     coord_x = clamp(coord_x, lower, upper_x);
     coord_y = clamp(coord_y, lower, upper_y);
@@ -163,22 +176,24 @@ void __attribute__((overloadable)) SOA8_ProjectToEdgeInt(image2d_t image, int8 c
 
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d_t image, int2 coord)
 {
-    uint4 offset = *(uint4*)(((image_aux_data*)image)->offset);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    uint4 offset = *(uint4*)(pImage->offset);
     // Use uint for poitner computations to avoid type overrun
-    void* pixel = (void*)((image_aux_data*)image)->pData+(uint)coord.x * offset.x + (uint)coord.y * offset.y;
+    void* pixel = (void*)pImage->pData+(uint)coord.x * offset.x + (uint)coord.y * offset.y;
     return pixel;
 }
 
 void __attribute__((overloadable)) soa4_extract_pixel(image2d_t image, int4 coord_x, int4 coord_y, void** p1, void** p2, void** p3, void** p4)
 {
-    uint4 offset_x = (uint4)(((image_aux_data*)image)->offset[0]);
-    uint4 offset_y = (uint4)(((image_aux_data*)image)->offset[1]);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    uint4 offset_x = (uint4)(pImage->offset[0]);
+    uint4 offset_y = (uint4)(pImage->offset[1]);
 
     // Use uint for poitner computations to avoid type overrun
-    uint4 ocoord_x = ((uint4)coord_x) * offset_x;
-    uint4 ocoord_y = ((uint4)coord_y) * offset_y;
+    uint4 ocoord_x = (as_uint4(coord_x)) * offset_x;
+    uint4 ocoord_y = (as_uint4(coord_y)) * offset_y;
 
-    char* pData = (void*)((image_aux_data*)image)->pData;
+    char* pData = (void*)pImage->pData;
 
     uint4 ocoord = ocoord_x + ocoord_y;
     *p1 = pData + ocoord.s0;
@@ -189,13 +204,14 @@ void __attribute__((overloadable)) soa4_extract_pixel(image2d_t image, int4 coor
 
 void __attribute__((overloadable)) soa8_extract_pixel(image2d_t image, int8 coord_x, int8 coord_y, void** p0, void** p1, void** p2, void** p3, void** p4, void** p5, void** p6, void** p7)
 {
-    uint8 offset_x = (uint8)(((image_aux_data*)image)->offset[0]);
-    uint8 offset_y = (uint8)(((image_aux_data*)image)->offset[1]);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    uint8 offset_x = (uint8)(pImage->offset[0]);
+    uint8 offset_y = (uint8)(pImage->offset[1]);
     
-    uint8 ocoord_x = ((uint8)coord_x) * offset_x;
-    uint8 ocoord_y = ((uint8)coord_y) * offset_y;
+    uint8 ocoord_x = (as_uint8(coord_x)) * offset_x;
+    uint8 ocoord_y = (as_uint8(coord_y)) * offset_y;
 
-    char* pData = (void*)((image_aux_data*)image)->pData;
+    char* pData = (void*)pImage->pData;
 
     uint8 ocoord = ocoord_x + ocoord_y;
     *p0 = pData + ocoord.s0;
@@ -210,25 +226,28 @@ void __attribute__((overloadable)) soa8_extract_pixel(image2d_t image, int8 coor
 
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d_array_t image, int4 coord)
 {
-    uint4 offset = *(uint4*)(((image_aux_data*)image)->offset);
-    void* pixel = (void*)((image_aux_data*)image)->pData+(uint)coord.x * offset.x + (uint)coord.y * offset.y 
-               + (uint)coord.z*((image_aux_data*)image)->pitch[1];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    uint4 offset = *(uint4*)(pImage->offset);
+    void* pixel = (void*)pImage->pData+(uint)coord.x * offset.x + (uint)coord.y * offset.y 
+               + (uint)coord.z*pImage->pitch[1];
     return pixel;
 }
 
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image1d_t image, int coord)
 {
-    uint4 offset = *(uint4*)(((image_aux_data*)image)->offset);
-    void* pixel = (void*)((image_aux_data*)image)->pData+(uint)coord * offset.x;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    uint4 offset = *(uint4*)(pImage->offset);
+    void* pixel = (void*)pImage->pData+(uint)coord * offset.x;
     return pixel;
 }
 
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image1d_array_t image, int2 coord)
 {
-    uint4 offset = *(uint4*)(((image_aux_data*)image)->offset);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    uint4 offset = *(uint4*)(pImage->offset);
     // Offset for image array correspongs to offset inside image
     // that's why  to compute pixel pointer dimension is used here
-    void* pixel = (void*)((image_aux_data*)image)->pData + coord.x * offset.x + coord.y * (uint)((image_aux_data*)image)->pitch[0];
+    void* pixel = (void*)pImage->pData + coord.x * offset.x + coord.y * (uint)pImage->pitch[0];
     return pixel;
 }
 
@@ -236,15 +255,16 @@ void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image2d_
 {
     // First convert integer image index
     int idx = rint(idxFloat);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     // clamp idx to edge
     if(idx < 0)
     {
         idx = 0;
-    } else if(idx >= ((image_aux_data*)image)->array_size)
+    } else if(idx >= pImage->array_size)
     {
-        idx = ((image_aux_data*)image)->array_size - 1;
+        idx = pImage->array_size - 1;
     }
-    void* ptr = (void*)((image_aux_data*)image)->pData + ((image_aux_data*)image)->pitch[1]*idx;
+    void* ptr = (void*)pImage->pData + pImage->pitch[1]*idx;
     return ptr;
 }
 
@@ -253,41 +273,44 @@ void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image1d_
     // First convert integer image index
     int idx = rint(idxFloat);
     // clamp idx to edge
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     if(idx < 0)
     {
         idx = 0;
-    } else if(idx >= ((image_aux_data*)image)->array_size)
+    } else if(idx >= pImage->array_size)
     {
-        idx = ((image_aux_data*)image)->array_size - 1;
+        idx = pImage->array_size - 1;
     }
-    void* ptr = (void*)((image_aux_data*)image)->pData + ((image_aux_data*)image)->pitch[0]*idx;
+    void* ptr = (void*)pImage->pData + pImage->pitch[0]*idx;
     return ptr;
 }
 
 void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr(image2d_array_t image, int idx)
 {
     // clamp idx to edge
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     if(idx < 0)
     {
         idx = 0;
-    } else if(idx >= ((image_aux_data*)image)->array_size)
+    } else if(idx >= pImage->array_size)
     {
-        idx = ((image_aux_data*)image)->array_size - 1;
+        idx = pImage->array_size - 1;
     }
-    void* ptr = (void*)((image_aux_data*)image)->pData + ((image_aux_data*)image)->pitch[1]*idx;
+    void* ptr = (void*)pImage->pData + pImage->pitch[1]*idx;
     return ptr;
 }
 
 void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr(image1d_array_t image, int idx)
 {
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     if(idx < 0)
     {
         idx = 0;
-    } else if(idx >= ((image_aux_data*)image)->array_size)
+    } else if(idx >= pImage->array_size)
     {
-        idx = ((image_aux_data*)image)->array_size - 1;
+        idx = pImage->array_size - 1;
     }
-    void* ptr = (void*)((image_aux_data*)image)->pData + ((image_aux_data*)image)->pitch[0]*idx;
+    void* ptr = (void*)pImage->pData + pImage->pitch[0]*idx;
     return ptr;
 }
 
@@ -322,17 +345,20 @@ void __attribute__((overloadable)) soa8_trans_coord_int_NONE_FALSE_NEAREST(void*
 
 int4 __attribute__((overloadable)) trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int4 coord)
 {
-    return ProjectToEdgeInt((image2d_t)image, coord);
+    image2d_t image2d = __builtin_astype(image, image2d_t);
+    return ProjectToEdgeInt(image2d, coord);
 }
 
 void __attribute__((overloadable)) soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int4 coord_x, int4 coord_y, int4* res_coord_x, int4* res_coord_y)
 {
-    return SOA4_ProjectToEdgeInt((image2d_t)image, coord_x, coord_y, res_coord_x, res_coord_y);
+    image2d_t image2d = __builtin_astype(image, image2d_t);
+    return SOA4_ProjectToEdgeInt(image2d, coord_x, coord_y, res_coord_x, res_coord_y);
 }
 
 void __attribute__((overloadable)) soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int8 coord_x, int8 coord_y, int8* res_coord_x, int8* res_coord_y)
 {
-    return SOA8_ProjectToEdgeInt((image2d_t)image, coord_x, coord_y, res_coord_x, res_coord_y);
+    image2d_t image2d = __builtin_astype(image, image2d_t);
+    return SOA8_ProjectToEdgeInt(image2d, coord_x, coord_y, res_coord_x, res_coord_y);
 }
 
 int4 __attribute__((overloadable)) trans_coord_int_UNDEFINED(void* image, int4 coord)
@@ -367,7 +393,7 @@ void __attribute__((overloadable)) soa8_trans_coord_int_UNDEFINED(void* image, i
 //    Normalized and bilinear modes are not defined with integer coordinates
 // and all remaining entries are undefined.
 
-Image_I_COORD_CBK const            coord_translate_i_callback[32] = {
+Image_I_COORD_CBK const constant coord_translate_i_callback[32] = {
     trans_coord_int_NONE_FALSE_NEAREST,
     trans_coord_int_NONE_FALSE_NEAREST,
     trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST,
@@ -402,7 +428,7 @@ Image_I_COORD_CBK const            coord_translate_i_callback[32] = {
     trans_coord_int_UNDEFINED
 };    //the list of integer coordinate translation callback
 
-SOA4_Image_I_COORD_CBK const    soa4_coord_translate_i_callback[32] = {
+SOA4_Image_I_COORD_CBK const constant soa4_coord_translate_i_callback[32] = {
     soa4_trans_coord_int_NONE_FALSE_NEAREST,
     soa4_trans_coord_int_NONE_FALSE_NEAREST,
     soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST,
@@ -437,7 +463,7 @@ SOA4_Image_I_COORD_CBK const    soa4_coord_translate_i_callback[32] = {
     soa4_trans_coord_int_UNDEFINED
 };    //the list of soa4 integer coordinate translation callback
 
-SOA8_Image_I_COORD_CBK const    soa8_coord_translate_i_callback[32] = {
+SOA8_Image_I_COORD_CBK const constant soa8_coord_translate_i_callback[32] = {
     soa8_trans_coord_int_NONE_FALSE_NEAREST,
     soa8_trans_coord_int_NONE_FALSE_NEAREST,
     soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST,
@@ -481,35 +507,41 @@ uint4  __attribute__((overloadable)) read_imageui(image2d_t image, sampler_t sam
 {
     int4 coord4 = (int4)(0, 0, 0, 0);
     coord4.lo = coord;
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, coord4);
-    return read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, coord4);
+    return read_cbk((void*)pImage, trans_position, pData);
 }
 
 void __attribute__((overloadable)) soa4_read_imageui(image2d_t image, sampler_t sampler, int4 coord_x, int4 coord_y, 
                                                     uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w)
 {
-    void* pData =((image_aux_data*)image)->pData;
-    SOA4_Image_I_COORD_CBK coord_cbk = soa4_coord_translate_i_callback[sampler];
-    SOA4_Image_UI_READ_CBK read_cbk = (SOA4_Image_UI_READ_CBK)((image_aux_data*)image)->soa4_read_img_callback_int[sampler];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    SOA4_Image_I_COORD_CBK coord_cbk = soa4_coord_translate_i_callback[samplerIndex];
+    SOA4_Image_UI_READ_CBK read_cbk = (SOA4_Image_UI_READ_CBK)pImage->soa4_read_img_callback_int[samplerIndex];
     int4 translated_coord_x;
     int4 translated_coord_y;
-    coord_cbk((void*)image, coord_x, coord_y, &translated_coord_x, &translated_coord_y );
-    read_cbk((void*)image, translated_coord_x, translated_coord_y, pData, res_x, res_y, res_z, res_w);
+    coord_cbk((void*)pImage, coord_x, coord_y, &translated_coord_x, &translated_coord_y );
+    read_cbk((void*)pImage, translated_coord_x, translated_coord_y, pData, res_x, res_y, res_z, res_w);
 }
 
 void __attribute__((overloadable)) soa8_read_imageui(image2d_t image, sampler_t sampler, int8 coord_x, int8 coord_y,
                                                     uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w)
 {
-    void* pData =((image_aux_data*)image)->pData;
-    SOA8_Image_I_COORD_CBK coord_cbk = soa8_coord_translate_i_callback[sampler];
-    SOA8_Image_UI_READ_CBK read_cbk = (SOA8_Image_UI_READ_CBK)((image_aux_data*)image)->soa8_read_img_callback_int[sampler];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    SOA8_Image_I_COORD_CBK coord_cbk = soa8_coord_translate_i_callback[samplerIndex];
+    SOA8_Image_UI_READ_CBK read_cbk = (SOA8_Image_UI_READ_CBK)pImage->soa8_read_img_callback_int[samplerIndex];
     int8 translated_coord_x;
     int8 translated_coord_y;
-    coord_cbk((void*)image, coord_x, coord_y, &translated_coord_x, &translated_coord_y );
-    read_cbk((void*)image, translated_coord_x, translated_coord_y, pData, res_x, res_y, res_z, res_w);
+    coord_cbk((void*)pImage, coord_x, coord_y, &translated_coord_x, &translated_coord_y );
+    read_cbk((void*)pImage, translated_coord_x, translated_coord_y, pData, res_x, res_y, res_z, res_w);
 }
 
 uint4  __attribute__((overloadable)) mask_read_imageui(int mask, image2d_t image, sampler_t sampler, int2 coord)
@@ -520,22 +552,26 @@ uint4  __attribute__((overloadable)) mask_read_imageui(int mask, image2d_t image
 
 uint4  __attribute__((overloadable)) read_imageui(image3d_t image, sampler_t sampler, int4 coord)
 {
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, coord);
-    return read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, coord);
+    return read_cbk((void*)pImage, trans_position, pData);
 }
 
 uint4  __attribute__((overloadable)) read_imageui(image2d_t image, sampler_t sampler, float2 coord)
 {
     float4 coord4 = (float4)(0.f, 0.f ,0.f ,0.f);
     coord4.lo = coord;
-    void* pData =((image_aux_data*)image)->pData;
-    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, coord4);
-    return read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, coord4);
+    return read_cbk((void*)pImage, trans_position, pData);
 }
 
 uint4  __attribute__((overloadable)) mask_read_imageui(int mask, image2d_t image, sampler_t sampler, float2 coord)
@@ -547,17 +583,20 @@ uint4  __attribute__((overloadable)) mask_read_imageui(int mask, image2d_t image
 uint4  __attribute__((overloadable)) read_imageui(image3d_t image, sampler_t sampler, float4 coord)
 {
     coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, coord);
-    return read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, coord);
+    return read_cbk((void*)pImage, trans_position, pData);
 }
 
 void  __attribute__((overloadable)) write_imageui(image2d_t image, int2 coord, uint4 color)
 {
     void* pixel = extract_pixel(image, coord);
-    Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
@@ -568,7 +607,8 @@ void __attribute__((overloadable)) soa4_write_imageui(image2d_t image, int4 coor
     uchar4* p3;
     uchar4* p4;
     soa4_extract_pixel(image, coord_x, coord_y, (void**)&p1, (void**)&p2, (void**)&p3, (void**)&p4);
-    SOA4_Image_UI_WRITE_CBK cbk = (SOA4_Image_UI_WRITE_CBK)((image_aux_data*)image)->soa4_write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    SOA4_Image_UI_WRITE_CBK cbk = (SOA4_Image_UI_WRITE_CBK)pImage->soa4_write_img_callback;
     cbk(p1, p2, p3, p4, val_x, val_y, val_z, val_w);
 }
 
@@ -583,7 +623,8 @@ void __attribute__((overloadable)) soa8_write_imageui(image2d_t image, int8 coor
     uchar4* p6;
     uchar4* p7;
     soa8_extract_pixel(image, coord_x, coord_y, (void**)&p0, (void**)&p1, (void**)&p2, (void**)&p3, (void**)&p4, (void**)&p5, (void**)&p6, (void**)&p7);
-    SOA8_Image_UI_WRITE_CBK cbk = (SOA8_Image_UI_WRITE_CBK)((image_aux_data*)image)->soa8_write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    SOA8_Image_UI_WRITE_CBK cbk = (SOA8_Image_UI_WRITE_CBK)pImage->soa8_write_img_callback;
     cbk(p0, p1, p2, p3, p4, p5, p6, p7, val_x, val_y, val_z, val_w);
 }
 
@@ -598,11 +639,13 @@ int4  __attribute__((overloadable)) read_imagei(image2d_t image, sampler_t sampl
 {
     int4 coord4 = (int4)(0, 0, 0, 0);
     coord4.lo = coord;
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, coord4);
-    return read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, coord4);
+    return read_cbk((void*)pImage, trans_position, pData);
 }
 
 int4  __attribute__((overloadable)) mask_read_imagei(int mask, image2d_t image, sampler_t sampler, int2 coord)
@@ -613,22 +656,26 @@ int4  __attribute__((overloadable)) mask_read_imagei(int mask, image2d_t image, 
 
 int4  __attribute__((overloadable)) read_imagei(image3d_t image, sampler_t sampler, int4 coord)
 {
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, coord);
-    return read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, coord);
+    return read_cbk((void*)pImage, trans_position, pData);
 }
 
 int4  __attribute__((overloadable)) read_imagei(image2d_t image, sampler_t sampler, float2 coord)
 {
     float4 coord4 = (float4)(0.f, 0.f, 0.f, 0.f);
     coord4.lo = coord;
-    void* pData =((image_aux_data*)image)->pData;
-    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, coord4);
-    return read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, coord4);
+    return read_cbk((void*)pImage, trans_position, pData);
 }
 
 int4  __attribute__((overloadable)) mask_read_imagei(int mask, image2d_t image, sampler_t sampler, float2 coord)
@@ -640,17 +687,20 @@ int4  __attribute__((overloadable)) mask_read_imagei(int mask, image2d_t image, 
 int4  __attribute__((overloadable)) read_imagei(image3d_t image, sampler_t sampler, float4 coord)
 {
     coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
-    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    void* pData =((image_aux_data*)image)->pData;
-    int4 trans_position=coord_cbk((void*)image, coord);
-    return read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    void* pData =pImage->pData;
+    int4 trans_position=coord_cbk((void*)pImage, coord);
+    return read_cbk((void*)pImage, trans_position, pData);
 }
 
 void  __attribute__((overloadable)) write_imagei(image2d_t image, int2 coord, int4 color)
 {
     void* pixel = extract_pixel(image, coord);
-    Image_I_WRITE_CBK cbk = (Image_I_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_I_WRITE_CBK cbk = (Image_I_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
@@ -665,13 +715,15 @@ float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sam
 {
     int4 coord4 = (int4)(0.f, 0.f, 0.f, 0.f);
     coord4.lo = coord;
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback_float[sampler];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[samplerIndex];
     int4 dummy0;
     float4 dummy1;
-    int4 trans_position=coord_cbk((void*)image, coord4);
-    return read_cbk((void*)image, trans_position, dummy0, dummy1, pData);
+    int4 trans_position=coord_cbk((void*)pImage, coord4);
+    return read_cbk((void*)pImage, trans_position, dummy0, dummy1, pData);
 }
 
 float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image, sampler_t sampler, int2 coord)
@@ -682,26 +734,30 @@ float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image
 
 float4  __attribute__((overloadable)) read_imagef(image3d_t image, sampler_t sampler, int4 coord)
 {
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback_float[sampler];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[samplerIndex];
     int4 dummy0;
     float4 dummy1;
-    int4 trans_position=coord_cbk((void*)image, coord);
-    return read_cbk((void*)image, trans_position, dummy0, dummy1, pData);
+    int4 trans_position=coord_cbk((void*)pImage, coord);
+    return read_cbk((void*)pImage, trans_position, dummy0, dummy1, pData);
 }
 
 float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sampler, float2 coord)
 {
     float4 coord4 = (float4)(0.f, 0.f, 0.f, 0.f);
     coord4.lo = coord;
-    void* pData =((image_aux_data*)image)->pData;
-    Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)((image_aux_data*)image)->read_img_callback_float[sampler];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)pImage->read_img_callback_float[samplerIndex];
     ///// components for interpolation
     int4 square0, square1;
-    float4 fraction= coord_cbk((void*)image, coord4, &square0, &square1);
-    return read_cbk((void*)image, square0, square1, fraction, pData);
+    float4 fraction= coord_cbk((void*)pImage, coord4, &square0, &square1);
+    return read_cbk((void*)pImage, square0, square1, fraction, pData);
 }
 
 float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image, sampler_t sampler, float2 coord)
@@ -713,18 +769,21 @@ float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image
 float4  __attribute__((overloadable)) read_imagef(image3d_t image, sampler_t sampler, float4 coord)
 {
     coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)((image_aux_data*)image)->read_img_callback_float[sampler];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)pImage->read_img_callback_float[samplerIndex];
     int4 square0, square1;
-    float4 fraction=coord_cbk((void*)image, coord, &square0, &square1);
-    return read_cbk((void*)image, square0, square1, fraction, pData);
+    float4 fraction=coord_cbk((void*)pImage, coord, &square0, &square1);
+    return read_cbk((void*)pImage, square0, square1, fraction, pData);
 }
 
 void  __attribute__((overloadable)) write_imagef(image2d_t image, int2 coord, float4 color)
 {
     void* pixel = extract_pixel(image, coord);
-    Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
@@ -742,12 +801,14 @@ float4  __attribute__((overloadable)) read_imagef(image2d_array_t image, sampler
     internal_coord.z = 0;
     int arrayIndex = coord.z;
     void* pData = GetImagePtr(image, arrayIndex);
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback_float[sampler];
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[samplerIndex];
     int4 dummy0;
     float4 dummy1;
-    int4 trans_position=coord_cbk((void*)image, internal_coord);
-    float4 val = read_cbk((void*)image, trans_position, dummy0, dummy1, pData);
+    int4 trans_position=coord_cbk((void*)pImage, internal_coord);
+    float4 val = read_cbk((void*)pImage, trans_position, dummy0, dummy1, pData);
     return val;
 }
 
@@ -756,11 +817,13 @@ float4  __attribute__((overloadable)) read_imagef(image2d_array_t image, sampler
     float4 internal_coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
     internal_coord.z = 0;
     void* pData = GetImagePtr(image, coord.z);
-    Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)((image_aux_data*)image)->read_img_callback_float[sampler];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)pImage->read_img_callback_float[samplerIndex];
     int4 square0, square1;
-    float4 fraction=coord_cbk((void*)image, internal_coord, &square0, &square1);
-    float4 val = read_cbk((void*)image, square0, square1, fraction, pData);
+    float4 fraction=coord_cbk((void*)pImage, internal_coord, &square0, &square1);
+    float4 val = read_cbk((void*)pImage, square0, square1, fraction, pData);
     return val;
 }
 
@@ -769,10 +832,12 @@ int4  __attribute__((overloadable)) read_imagei(image2d_array_t image, sampler_t
     int4 internal_coord = coord;
     internal_coord.z = 0;
     void* pData = GetImagePtr(image, coord.z);
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, internal_coord);
-    int4 val = read_cbk((void*)image, trans_position, pData);
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, internal_coord);
+    int4 val = read_cbk((void*)pImage, trans_position, pData);
     return val;
 }
 
@@ -781,10 +846,12 @@ int4  __attribute__((overloadable)) read_imagei(image2d_array_t image, sampler_t
     float4 internal_coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
     internal_coord.z = 0.f;
     void* pData = GetImagePtr(image, coord.z);
-    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position = coord_cbk((void*)image, internal_coord);
-    int4 val = read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position = coord_cbk((void*)pImage, internal_coord);
+    int4 val = read_cbk((void*)pImage, trans_position, pData);
     return val;
 }
 
@@ -793,10 +860,12 @@ uint4  __attribute__((overloadable)) read_imageui(image2d_array_t image, sampler
     int4 internal_coord = coord;
     internal_coord.z = 0;
     void* pData = GetImagePtr(image, coord.z);
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, internal_coord);
-    uint4 val = read_cbk((void*)image, trans_position, pData);
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, internal_coord);
+    uint4 val = read_cbk((void*)pImage, trans_position, pData);
     return val;
 }
 
@@ -805,74 +874,88 @@ uint4  __attribute__((overloadable)) read_imageui(image2d_array_t image, sampler
     float4 internal_coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
     internal_coord.z = 0.f;
     void* pData = GetImagePtr(image, coord.z);
-    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position = coord_cbk((void*)image, internal_coord);
-    uint4 val = read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position = coord_cbk((void*)pImage, internal_coord);
+    uint4 val = read_cbk((void*)pImage, trans_position, pData);
     return val;
 }
 
 float4 __attribute__((overloadable)) read_imagef(image1d_t image, sampler_t sampler, int coord)
 {
     int4 coord4=(int4)(coord, 0,0,0);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback_float[sampler];
-    int4 trans_position=coord_cbk((void*)image, coord4);    
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, coord4);    
     int4 dummy0;
     float4 dummy1;
-	return read_cbk((void*)image, trans_position, dummy0, dummy1, pData);
+	return read_cbk((void*)pImage, trans_position, dummy0, dummy1, pData);
 }
 
 float4 __attribute__((overloadable)) read_imagef(image1d_t image, sampler_t sampler, float coord)
 {
     float4 coord4=(float4)(coord, 0.0,0.0,0.0);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)((image_aux_data*)image)->read_img_callback_float[sampler];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)pImage->read_img_callback_float[samplerIndex];
     int4 square0, square1;
-    float4 fraction= coord_cbk((void*)image, coord4, &square0, &square1);
-    return read_cbk((void*)image, square0, square1, fraction, pData);
+    float4 fraction= coord_cbk((void*)pImage, coord4, &square0, &square1);
+    return read_cbk((void*)pImage, square0, square1, fraction, pData);
 }
 
 int4 __attribute__((overloadable)) read_imagei(image1d_t image, sampler_t sampler, int coord)
 {
     int4 coord4=(int4)(coord, 0,0,0);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, coord4);
-    return read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, coord4);
+    return read_cbk((void*)pImage, trans_position, pData);
 }
 
 int4 __attribute__((overloadable)) read_imagei(image1d_t image, sampler_t sampler, float coord)
 {
     float4 coord4=(float4)(coord, 0.0,0.0,0.0);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, coord4);
-    return read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, coord4);
+    return read_cbk((void*)pImage, trans_position, pData);
 }
 
 uint4 __attribute__((overloadable)) read_imageui(image1d_t image, sampler_t sampler, int coord)
 {
     int4 coord4=(int4)(coord, 0,0,0);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_COORD_CBK coord_cbk= coord_translate_i_callback[sampler];
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, coord4);
-    return read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk= coord_translate_i_callback[samplerIndex];
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, coord4);
+    return read_cbk((void*)pImage, trans_position, pData);
 }
 
 uint4 __attribute__((overloadable)) read_imageui(image1d_t image, sampler_t sampler, float coord)
 {
     float4 coord4=(float4)(coord, 0.0,0.0,0.0);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, coord4);
-    return read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, coord4);
+    return read_cbk((void*)pImage, trans_position, pData);
 }
 
 float4 __attribute__((overloadable)) read_imagef(image1d_array_t image, sampler_t sampler, int2 coord)
@@ -880,12 +963,14 @@ float4 __attribute__((overloadable)) read_imagef(image1d_array_t image, sampler_
     int4 internal_coord=(int4)(coord.x, 0,0,0);
     int arrayIndex = coord.y;
     void* pData = GetImagePtr(image, arrayIndex);
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback_float[sampler];
-    int4 trans_position=coord_cbk((void*)image, internal_coord);
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, internal_coord);
     int4 dummy0;
     float4 dummy1;
-    float4 val = read_cbk((void*)image, trans_position, dummy0, dummy1, pData);
+    float4 val = read_cbk((void*)pImage, trans_position, dummy0, dummy1, pData);
     return val;
 
 }
@@ -894,11 +979,13 @@ float4 __attribute__((overloadable)) read_imagef(image1d_array_t image, sampler_
 {
     float4 internal_coord = (float4)(coord.x, 0.0,0.0,0.0);
     void* pData = GetImagePtr(image, coord.y);
-    Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)((image_aux_data*)image)->read_img_callback_float[sampler];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_FF_COORD_CBK coord_cbk=(Image_FF_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_F_READ_CBK read_cbk = (Image_F_READ_CBK)pImage->read_img_callback_float[samplerIndex];
     int4 square0, square1;
-    float4 fraction=coord_cbk((void*)image, internal_coord, &square0, &square1);
-    float4 val = read_cbk((void*)image, square0, square1, fraction, pData);
+    float4 fraction=coord_cbk((void*)pImage, internal_coord, &square0, &square1);
+    float4 val = read_cbk((void*)pImage, square0, square1, fraction, pData);
     return val;
 }
 
@@ -906,10 +993,12 @@ int4 __attribute__((overloadable)) read_imagei(image1d_array_t image, sampler_t 
 {
     int4 internal_coord = (int4)(coord.x, 0,0,0);
     void* pData = GetImagePtr(image, coord.y);
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, internal_coord);
-    int4 val = read_cbk((void*)image, trans_position, pData);
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, internal_coord);
+    int4 val = read_cbk((void*)pImage, trans_position, pData);
     return val;
 }
 
@@ -917,10 +1006,12 @@ int4 __attribute__((overloadable)) read_imagei(image1d_array_t image, sampler_t 
 {
     float4 internal_coord = (float4)(coord.x, 0.0,0.0,0.0);
     void* pData = GetImagePtr(image, coord.y);
-    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position = coord_cbk((void*)image, internal_coord);
-    int4 val = read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position = coord_cbk((void*)pImage, internal_coord);
+    int4 val = read_cbk((void*)pImage, trans_position, pData);
     return val;
 }
 
@@ -928,10 +1019,12 @@ uint4 __attribute__((overloadable)) read_imageui(image1d_array_t image, sampler_
 {
     int4 internal_coord = (int4)(coord.x, 0,0,0);
     void* pData = GetImagePtr(image, coord.y);
-    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[sampler];
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position=coord_cbk((void*)image, internal_coord);
-    uint4 val = read_cbk((void*)image, trans_position, pData);
+    int samplerIndex = __builtin_astype(sampler, int);
+    Image_I_COORD_CBK coord_cbk = coord_translate_i_callback[samplerIndex];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position=coord_cbk((void*)pImage, internal_coord);
+    uint4 val = read_cbk((void*)pImage, trans_position, pData);
     return val;
 }
 
@@ -939,10 +1032,12 @@ uint4 __attribute__((overloadable)) read_imageui(image1d_array_t image, sampler_
 {
     float4 internal_coord = (float4)(coord.x, 0.0,0.0,0.0);
     void* pData = GetImagePtr(image, coord.y);
-    Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)((image_aux_data*)image)->coord_translate_f_callback[sampler];
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[sampler];
-    int4 trans_position = coord_cbk((void*)image, internal_coord);
-    uint4 val = read_cbk((void*)image, trans_position, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    int samplerIndex = __builtin_astype(sampler, int);
+Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[samplerIndex];
+    int4 trans_position = coord_cbk((void*)pImage, internal_coord);
+    uint4 val = read_cbk((void*)pImage, trans_position, pData);
     return val;
 }
 
@@ -951,11 +1046,12 @@ float4 __attribute__((overloadable)) read_imagef (image2d_t image, int2 coord)
 {
     int4 coord4 = (int4)(0, 0, 0, 0);
     coord4.lo = coord;
-    void* pData =((image_aux_data*)image)->pData;
-    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback_float[SIMPLE_SAMPLER];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
     int4 dummy0;
     float dummy1;
-    return read_cbk((void*)image, coord4, dummy0, dummy1, pData);
+    return read_cbk((void*)pImage, coord4, dummy0, dummy1, pData);
 }
 
 float4 __attribute__((overloadable)) mask_read_imagef (int mask, image2d_t image, int2 coord)
@@ -968,9 +1064,10 @@ int4 __attribute__((overloadable)) read_imagei (image2d_t image, int2 coord)
 {
     int4 coord4 = (int4)(0, 0, 0, 0);
     coord4.lo = coord;
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
-    return read_cbk((void*)image, coord4, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
+    return read_cbk((void*)pImage, coord4, pData);
 }
 
 int4 __attribute__((overloadable)) mask_read_imagei (int mask, image2d_t image, int2 coord)
@@ -983,9 +1080,10 @@ uint4 __attribute__((overloadable)) read_imageui (image2d_t image, int2 coord)
 {
     int4 coord4 = (int4)(0, 0, 0, 0);
     coord4.lo = coord;    
-    void* pData =((image_aux_data*)image)->pData;
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
-    return read_cbk((void*)image, coord4, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
+    return read_cbk((void*)pImage, coord4, pData);
 }
 
 uint4 __attribute__((overloadable)) mask_read_imageui (int mask, image2d_t image, int2 coord)
@@ -996,25 +1094,28 @@ uint4 __attribute__((overloadable)) mask_read_imageui (int mask, image2d_t image
 
 float4 __attribute__((overloadable)) read_imagef (image3d_t image, int4 coord)
 {
-    void* pData =((image_aux_data*)image)->pData;
-    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback_float[SIMPLE_SAMPLER];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
     int4 dummy0;
     float4 dummy1;
-    return read_cbk((void*)image, coord, dummy0, dummy1, pData);
+    return read_cbk((void*)pImage, coord, dummy0, dummy1, pData);
 }
 
 int4 __attribute__((overloadable)) read_imagei (image3d_t image, int4 coord)
 {
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
-    return read_cbk((void*)image, coord, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
+    return read_cbk((void*)pImage, coord, pData);
 }
 
 uint4 __attribute__((overloadable)) read_imageui (image3d_t image, int4 coord)
 {
-    void* pData =((image_aux_data*)image)->pData;
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
-    return read_cbk((void*)image, coord, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
+    return read_cbk((void*)pImage, coord, pData);
 }
 
 float4 __attribute__((overloadable)) read_imagef (image2d_array_t image, int4 coord)
@@ -1023,10 +1124,11 @@ float4 __attribute__((overloadable)) read_imagef (image2d_array_t image, int4 co
     int4 internal_coord = coord;
     internal_coord.z = 0;
     void* pData = GetImagePtr(image, coord.z);
-    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback_float[SIMPLE_SAMPLER];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
     int4 dummy0; 
     float dummy1;
-    return read_cbk((void*)image, internal_coord, dummy0, dummy1, pData);
+    return read_cbk((void*)pImage, internal_coord, dummy0, dummy1, pData);
 }
 
 int4 __attribute__((overloadable)) read_imagei (image2d_array_t image, int4 coord)
@@ -1034,8 +1136,9 @@ int4 __attribute__((overloadable)) read_imagei (image2d_array_t image, int4 coor
     int4 internal_coord = coord;
     internal_coord.z = 0;
     void* pData = GetImagePtr(image, coord.z);
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
-    return read_cbk((void*)image, internal_coord, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
+    return read_cbk((void*)pImage, internal_coord, pData);
 }
 
 uint4 __attribute__((overloadable)) read_imageui (image2d_array_t image, int4 coord)
@@ -1043,170 +1146,195 @@ uint4 __attribute__((overloadable)) read_imageui (image2d_array_t image, int4 co
     int4 internal_coord = coord;
     internal_coord.z = 0;
     void* pData = GetImagePtr(image, coord.z);
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
-    return read_cbk((void*)image, internal_coord, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
+    return read_cbk((void*)pImage, internal_coord, pData);
 }
 
 float4 __attribute__((overloadable)) read_imagef (image1d_t image, int coord)
 {
     int4 coord4=(int4)(coord, 0,0,0);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback_float[SIMPLE_SAMPLER];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
     int4 dummy0;
     float4 dummy1;
-    return read_cbk((void*)image, coord4, dummy0, dummy1, pData);
+    return read_cbk((void*)pImage, coord4, dummy0, dummy1, pData);
 }
 
 float4 __attribute__((overloadable)) read_imagef (image1d_buffer_t image, int coord)
 {
     int4 coord4=(int4)(coord, 0,0,0);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback_float[SIMPLE_SAMPLER];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
     int4 dummy0;
     float dummy1;
-    return read_cbk((void*)image, coord4, dummy0, dummy1, pData);
+    return read_cbk((void*)pImage, coord4, dummy0, dummy1, pData);
 }
 
 int4 __attribute__((overloadable)) read_imagei(image1d_t image, int coord)
 {
     int4 coord4=(int4)(coord, 0,0,0);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
-    return read_cbk((void*)image, coord4, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
+    return read_cbk((void*)pImage, coord4, pData);
 }
 
 uint4 __attribute__((overloadable)) read_imageui(image1d_t image, int coord)
 {
     int4 coord4=(int4)(coord, 0,0,0);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
-    return read_cbk((void*)image, coord4, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
+    return read_cbk((void*)pImage, coord4, pData);
 }
 
 int4 __attribute__((overloadable)) read_imagei(image1d_buffer_t image, int coord)
 {
     int4 coord4=(int4)(coord, 0,0,0);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
-    return read_cbk((void*)image, coord4, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
+    return read_cbk((void*)pImage, coord4, pData);
 }
 
 uint4 __attribute__((overloadable)) read_imageui(image1d_buffer_t image, int coord)
 {
     int4 coord4=(int4)(coord, 0,0,0);
-    void* pData =((image_aux_data*)image)->pData;
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
-    return read_cbk((void*)image, coord4, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    void* pData =pImage->pData;
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
+    return read_cbk((void*)pImage, coord4, pData);
 }
 
 float4 __attribute__((overloadable)) read_imagef(image1d_array_t image, int2 coord)
 {
     int4 internal_coord=(int4)(coord.x, 0,0,0);
     void* pData = GetImagePtr(image, coord.y);
-    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)((image_aux_data*)image)->read_img_callback_float[SIMPLE_SAMPLER];
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_FI_READ_CBK read_cbk = (Image_FI_READ_CBK)pImage->read_img_callback_float[SIMPLE_SAMPLER];
     int4 dummy0;
     float dummy1;
-    return read_cbk((void*)image, internal_coord, dummy0, dummy1, pData);
+    return read_cbk((void*)pImage, internal_coord, dummy0, dummy1, pData);
 }
 
 int4 __attribute__((overloadable)) read_imagei(image1d_array_t image, int2 coord)
 {
     int4 internal_coord=(int4)(coord.x, 0,0,0);
     void* pData = GetImagePtr(image, coord.y);
-    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
-    return read_cbk((void*)image, internal_coord, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_I_READ_CBK read_cbk = (Image_I_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
+    return read_cbk((void*)pImage, internal_coord, pData);
 }
 
 uint4 __attribute__((overloadable)) read_imageui(image1d_array_t image, int2 coord)
 {
 	int4 internal_coord=(int4)(coord.x, 0,0,0);
     void* pData = GetImagePtr(image, coord.y);
-    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)((image_aux_data*)image)->read_img_callback_int[SIMPLE_SAMPLER];
-    return read_cbk((void*)image, internal_coord, pData);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_UI_READ_CBK read_cbk = (Image_UI_READ_CBK)pImage->read_img_callback_int[SIMPLE_SAMPLER];
+    return read_cbk((void*)pImage, internal_coord, pData);
 }
 
 // write_image calls
 void __attribute__((overloadable)) write_imagef (image2d_array_t image, int4 coord, float4 color)
 {
     void* pixel = extract_pixel(image, coord);
-    Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
 void __attribute__((overloadable)) write_imagei (image2d_array_t image, int4 coord, int4 color)
 {
     void* pixel = extract_pixel(image, coord);
-    Image_I_WRITE_CBK cbk = (Image_I_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_I_WRITE_CBK cbk = (Image_I_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
 void __attribute__((overloadable)) write_imageui (image2d_array_t image, int4 coord, uint4 color)
 {
     void* pixel = extract_pixel(image, coord);
-    Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
 void __attribute__((overloadable)) write_imagef (image1d_t image, int coord, float4 color)
 {
     void* pixel = extract_pixel(image, coord);
-    Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
 void __attribute__((overloadable)) write_imagei (image1d_t image, int coord, int4 color)
 {
     void* pixel = extract_pixel(image, coord);
-    Image_I_WRITE_CBK cbk = (Image_I_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_I_WRITE_CBK cbk = (Image_I_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
 void __attribute__((overloadable)) write_imageui (image1d_t image, int coord, uint4 color)
 {
     void* pixel = extract_pixel(image, coord);
-    Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
 void __attribute__((overloadable)) write_imagef (image1d_buffer_t image, int coord, float4 color)
 {
-    void* pixel = extract_pixel((image1d_t)image, coord);
-    Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image1d_t image1d = __builtin_astype(image, image1d_t);
+    void* pixel = extract_pixel(image1d, coord);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
 void __attribute__((overloadable)) write_imagei (image1d_buffer_t image, int coord, int4 color)
 {
-    void* pixel = extract_pixel((image1d_t)image, coord);
-    Image_I_WRITE_CBK cbk = (Image_I_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image1d_t image1d = __builtin_astype(image, image1d_t);
+    void* pixel = extract_pixel(image1d, coord);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_I_WRITE_CBK cbk = (Image_I_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
 void __attribute__((overloadable)) write_imageui (image1d_buffer_t image, int coord, uint4 color)
 {
-    void* pixel = extract_pixel((image1d_t)image, coord);
-    Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image1d_t image1d = __builtin_astype(image, image1d_t);
+    void* pixel = extract_pixel(image1d, coord);
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
 void __attribute__((overloadable)) write_imagef (image1d_array_t image, int2 coord, float4 color)
 {
     void* pixel = extract_pixel(image, coord);
-    Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
 void __attribute__((overloadable)) write_imagei (image1d_array_t image, int2 coord, int4 color)
 {
     void* pixel = extract_pixel(image, coord);
-    Image_I_WRITE_CBK cbk = (Image_I_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_I_WRITE_CBK cbk = (Image_I_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 
 void __attribute__((overloadable)) write_imageui (image1d_array_t image, int2 coord, uint4 color)
 {
     void* pixel = extract_pixel(image, coord);
-    Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)((image_aux_data*)image)->write_img_callback;
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
+    Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)pImage->write_img_callback;
     cbk(pixel, color);
 }
 

@@ -21,8 +21,6 @@
 #ifndef _OPENCL_H_
 #define _OPENCL_H_
 
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
-
 // Optimizations
 
 #define const_func __attribute__((const))
@@ -7456,24 +7454,24 @@ void __attribute__((overloadable)) write_imageui(__write_only image3d_t image, i
 /**
  * Return the image width in pixels.
  */
-int const_func __attribute__((overloadable)) get_image_width(__attribute__((opencl_image_access(0))) image1d_t image);
-int const_func __attribute__((overloadable)) get_image_width(__attribute__((opencl_image_access(0))) image1d_buffer_t image);
-int const_func __attribute__((overloadable)) get_image_width(__attribute__((opencl_image_access(0))) image2d_t image);
-int const_func __attribute__((overloadable)) get_image_width(__attribute__((opencl_image_access(0))) image3d_t image);
-int const_func __attribute__((overloadable)) get_image_width(__attribute__((opencl_image_access(0))) image1d_array_t image);
-int const_func __attribute__((overloadable)) get_image_width(__attribute__((opencl_image_access(0))) image2d_array_t image);
+int const_func __attribute__((overloadable)) get_image_width(image1d_t image);
+int const_func __attribute__((overloadable)) get_image_width(image1d_buffer_t image);
+int const_func __attribute__((overloadable)) get_image_width(image2d_t image);
+int const_func __attribute__((overloadable)) get_image_width(image3d_t image);
+int const_func __attribute__((overloadable)) get_image_width(image1d_array_t image);
+int const_func __attribute__((overloadable)) get_image_width(image2d_array_t image);
 
 /**
  * Return the image height in pixels.
  */
-int const_func __attribute__((overloadable)) get_image_height(__attribute__((opencl_image_access(0))) image2d_t image);
-int const_func __attribute__((overloadable)) get_image_height(__attribute__((opencl_image_access(0))) image3d_t image);
-int const_func __attribute__((overloadable)) get_image_height(__attribute__((opencl_image_access(0))) image2d_array_t image);
+int const_func __attribute__((overloadable)) get_image_height(image2d_t image);
+int const_func __attribute__((overloadable)) get_image_height(image3d_t image);
+int const_func __attribute__((overloadable)) get_image_height(image2d_array_t image);
 
 /**
  * Return the image depth in pixels.
  */
-int const_func __attribute__((overloadable)) get_image_depth(__attribute__((opencl_image_access(0))) image3d_t image);
+int const_func __attribute__((overloadable)) get_image_depth(image3d_t image);
 
 /**
  * Return the channel data type. Valid values are:
@@ -7523,12 +7521,12 @@ int const_func __attribute__((overloadable)) get_image_depth(__attribute__((open
 #define CLK_HALF_FLOAT			13
 #define CLK_FLOAT				14
 
-int const_func __attribute__((overloadable)) get_image_channel_data_type(__attribute__((opencl_image_access(0))) image1d_t image);
-int const_func __attribute__((overloadable)) get_image_channel_data_type(__attribute__((opencl_image_access(0))) image1d_buffer_t image);
-int const_func __attribute__((overloadable)) get_image_channel_data_type(__attribute__((opencl_image_access(0))) image2d_t image);
-int const_func __attribute__((overloadable)) get_image_channel_data_type(__attribute__((opencl_image_access(0))) image3d_t image);
-int const_func __attribute__((overloadable)) get_image_channel_data_type(__attribute__((opencl_image_access(0))) image1d_array_t image);
-int const_func __attribute__((overloadable)) get_image_channel_data_type(__attribute__((opencl_image_access(0))) image2d_array_t image);
+int const_func __attribute__((overloadable)) get_image_channel_data_type(image1d_t image);
+int const_func __attribute__((overloadable)) get_image_channel_data_type(image1d_buffer_t image);
+int const_func __attribute__((overloadable)) get_image_channel_data_type(image2d_t image);
+int const_func __attribute__((overloadable)) get_image_channel_data_type(image3d_t image);
+int const_func __attribute__((overloadable)) get_image_channel_data_type(image1d_array_t image);
+int const_func __attribute__((overloadable)) get_image_channel_data_type(image2d_array_t image);
 
 /**
  * Return the image channel order. Valid values are:
@@ -7546,20 +7544,20 @@ int const_func __attribute__((overloadable)) get_image_channel_data_type(__attri
  * CLK_INTENSITY
  * CLK_LUMINANCE
  */
-int const_func __attribute__((overloadable)) get_image_channel_order(__attribute__((opencl_image_access(0))) image1d_t image);
-int const_func __attribute__((overloadable)) get_image_channel_order(__attribute__((opencl_image_access(0))) image1d_buffer_t image);
-int const_func __attribute__((overloadable)) get_image_channel_order(__attribute__((opencl_image_access(0))) image2d_t image);
-int const_func __attribute__((overloadable)) get_image_channel_order(__attribute__((opencl_image_access(0))) image3d_t image);
-int const_func __attribute__((overloadable)) get_image_channel_order(__attribute__((opencl_image_access(0))) image1d_array_t image);
-int const_func __attribute__((overloadable)) get_image_channel_order(__attribute__((opencl_image_access(0))) image2d_array_t image);
+int const_func __attribute__((overloadable)) get_image_channel_order(image1d_t image);
+int const_func __attribute__((overloadable)) get_image_channel_order(image1d_buffer_t image);
+int const_func __attribute__((overloadable)) get_image_channel_order(image2d_t image);
+int const_func __attribute__((overloadable)) get_image_channel_order(image3d_t image);
+int const_func __attribute__((overloadable)) get_image_channel_order(image1d_array_t image);
+int const_func __attribute__((overloadable)) get_image_channel_order(image2d_array_t image);
 
 /**
  * Return the 2D image width and height as an int2
  * type. The width is returned in the x component, and
  * the height in the y component.
  */
-int2 const_func __attribute__((overloadable)) get_image_dim(__attribute__((opencl_image_access(0))) image2d_t image);
-int2 const_func __attribute__((overloadable)) get_image_dim(__attribute__((opencl_image_access(0))) image2d_array_t image);
+int2 const_func __attribute__((overloadable)) get_image_dim(image2d_t image);
+int2 const_func __attribute__((overloadable)) get_image_dim(image2d_array_t image);
 
 /**
  * Return the 3D image width, height, and depth as an
@@ -7567,17 +7565,17 @@ int2 const_func __attribute__((overloadable)) get_image_dim(__attribute__((openc
  * component, height in the y component, depth in the z
  * component and the w component is 0.
  */
-int4 const_func __attribute__((overloadable)) get_image_dim(__attribute__((opencl_image_access(0))) image3d_t image);
+int4 const_func __attribute__((overloadable)) get_image_dim(image3d_t image);
 
 /**
  * Return the number of images in the 2D image array.
  */
-size_t const_func __attribute__((overloadable)) get_image_array_size(__attribute__((opencl_image_access(0))) image2d_array_t image_array);
+size_t const_func __attribute__((overloadable)) get_image_array_size(image2d_array_t image_array);
 
 /**
  * Return the number of images in the 1D image array.
  */
-size_t const_func __attribute__((overloadable)) get_image_array_size(__attribute__((opencl_image_access(0))) image1d_array_t image_array);
+size_t const_func __attribute__((overloadable)) get_image_array_size(image1d_array_t image_array);
 
 /**
  *  Use coord.xy to do an element lookup in the 2D image layer identified by index coord.z in the 2D image array.
@@ -13157,7 +13155,5 @@ double16 const_func __attribute__((overloadable)) convert_double16_rtz(double16)
 double16 const_func __attribute__((overloadable)) convert_double16_rtp(double16);
 double16 const_func __attribute__((overloadable)) convert_double16_rtn(double16);
 double16 const_func __attribute__((overloadable)) convert_double16(double16);
-
-#pragma OPENCL EXTENSION cl_khr_fp64 : disable
 
 #endif

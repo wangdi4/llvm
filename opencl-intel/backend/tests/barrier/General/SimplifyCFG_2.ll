@@ -50,7 +50,7 @@ define void @spmv_csr_vector_kernel(float addrspace(1)* noalias nocapture %val, 
   %12 = trunc i64 %11 to i32
   %13 = sext i32 %2 to i64
   %14 = getelementptr inbounds [128 x float] addrspace(3)* @opencl_spmv_csr_vector_kernel_local_partialSums, i64 0, i64 %13
-  volatile store float 0.000000e+000, float addrspace(3)* %14, align 4
+  store volatile float 0.000000e+000, float addrspace(3)* %14, align 4
   %15 = icmp slt i32 %12, %dim
   br i1 %15, label %16, label %83
 
@@ -94,7 +94,7 @@ bb.nph:                                           ; preds = %16
 
 ._crit_edge:                                      ; preds = %26, %16
   %mySum.0.lcssa = phi float [ 0.000000e+000, %16 ], [ %33, %26 ]
-  volatile store float %mySum.0.lcssa, float addrspace(3)* %14, align 4
+  store volatile float %mySum.0.lcssa, float addrspace(3)* %14, align 4
   tail call void @foo(i64 1) nounwind
   %35 = icmp ult i32 %3, 16
   br i1 %35, label %36, label %43
@@ -103,10 +103,10 @@ bb.nph:                                           ; preds = %16
   %37 = add nsw i32 %2, 16
   %38 = sext i32 %37 to i64
   %39 = getelementptr inbounds [128 x float] addrspace(3)* @opencl_spmv_csr_vector_kernel_local_partialSums, i64 0, i64 %38
-  %40 = volatile load float addrspace(3)* %39, align 4
-  %41 = volatile load float addrspace(3)* %14, align 4
+  %40 = load volatile float addrspace(3)* %39, align 4
+  %41 = load volatile float addrspace(3)* %14, align 4
   %42 = fadd float %41, %40
-  volatile store float %42, float addrspace(3)* %14, align 4
+  store volatile float %42, float addrspace(3)* %14, align 4
   br label %43
 
 ; <label>:43                                      ; preds = %36, %._crit_edge
@@ -118,10 +118,10 @@ bb.nph:                                           ; preds = %16
   %46 = add nsw i32 %2, 8
   %47 = sext i32 %46 to i64
   %48 = getelementptr inbounds [128 x float] addrspace(3)* @opencl_spmv_csr_vector_kernel_local_partialSums, i64 0, i64 %47
-  %49 = volatile load float addrspace(3)* %48, align 4
-  %50 = volatile load float addrspace(3)* %14, align 4
+  %49 = load volatile float addrspace(3)* %48, align 4
+  %50 = load volatile float addrspace(3)* %14, align 4
   %51 = fadd float %50, %49
-  volatile store float %51, float addrspace(3)* %14, align 4
+  store volatile float %51, float addrspace(3)* %14, align 4
   br label %52
 
 ; <label>:52                                      ; preds = %45, %43
@@ -133,10 +133,10 @@ bb.nph:                                           ; preds = %16
   %55 = add nsw i32 %2, 4
   %56 = sext i32 %55 to i64
   %57 = getelementptr inbounds [128 x float] addrspace(3)* @opencl_spmv_csr_vector_kernel_local_partialSums, i64 0, i64 %56
-  %58 = volatile load float addrspace(3)* %57, align 4
-  %59 = volatile load float addrspace(3)* %14, align 4
+  %58 = load volatile float addrspace(3)* %57, align 4
+  %59 = load volatile float addrspace(3)* %14, align 4
   %60 = fadd float %59, %58
-  volatile store float %60, float addrspace(3)* %14, align 4
+  store volatile float %60, float addrspace(3)* %14, align 4
   br label %61
 
 ; <label>:61                                      ; preds = %54, %52
@@ -148,10 +148,10 @@ bb.nph:                                           ; preds = %16
   %64 = add nsw i32 %2, 2
   %65 = sext i32 %64 to i64
   %66 = getelementptr inbounds [128 x float] addrspace(3)* @opencl_spmv_csr_vector_kernel_local_partialSums, i64 0, i64 %65
-  %67 = volatile load float addrspace(3)* %66, align 4
-  %68 = volatile load float addrspace(3)* %14, align 4
+  %67 = load volatile float addrspace(3)* %66, align 4
+  %68 = load volatile float addrspace(3)* %14, align 4
   %69 = fadd float %68, %67
-  volatile store float %69, float addrspace(3)* %14, align 4
+  store volatile float %69, float addrspace(3)* %14, align 4
   br label %70
 
 ; <label>:70                                      ; preds = %63, %61
@@ -163,10 +163,10 @@ bb.nph:                                           ; preds = %16
   %73 = add nsw i32 %2, 1
   %74 = sext i32 %73 to i64
   %75 = getelementptr inbounds [128 x float] addrspace(3)* @opencl_spmv_csr_vector_kernel_local_partialSums, i64 0, i64 %74
-  %76 = volatile load float addrspace(3)* %75, align 4
-  %77 = volatile load float addrspace(3)* %14, align 4
+  %76 = load volatile float addrspace(3)* %75, align 4
+  %77 = load volatile float addrspace(3)* %14, align 4
   %78 = fadd float %77, %76
-  volatile store float %78, float addrspace(3)* %14, align 4
+  store volatile float %78, float addrspace(3)* %14, align 4
   br label %79
 
 ; <label>:79                                      ; preds = %72, %70
@@ -175,7 +175,7 @@ bb.nph:                                           ; preds = %16
   br i1 %.pr, label %80, label %83
 
 ; <label>:80                                      ; preds = %79
-  %81 = volatile load float addrspace(3)* %14, align 4
+  %81 = load volatile float addrspace(3)* %14, align 4
   %82 = getelementptr inbounds float addrspace(1)* %out, i64 %17
   store float %81, float addrspace(1)* %82, align 4
   ret void

@@ -242,8 +242,8 @@ OclGenType::OclGenType(const OclBuiltinDB& DB, const Record* R)
   for (ListInit::const_iterator I = Tin->begin(),
                                 O = Tout->begin(),
                                 E = Tin->end(); I != E; ++I, ++O) {
-    const std::string& istr = dynamic_cast<StringInit*>(*I)->getValue();
-    const std::string& ostr = dynamic_cast<StringInit*>(*O)->getValue();
+    const std::string& istr = dyn_cast<StringInit>(*I)->getValue();
+    const std::string& ostr = dyn_cast<StringInit>(*O)->getValue();
     m_GenMap.insert(std::pair<std::string, std::string>(istr, ostr));
   }
 }
@@ -305,12 +305,12 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     DagInit* Outs = R->getValueAsDag("Outs");
     assert(Outs && "Invalid OclBuiltin record without outs.");
 
-    assert(dynamic_cast<DefInit*>(Outs->getOperator()) && 
-      dynamic_cast<DefInit*>(Outs->getOperator())->getDef()->getName() == "outs" && 
+    assert(dyn_cast<DefInit>(Outs->getOperator()) && 
+      dyn_cast<DefInit>(Outs->getOperator())->getDef()->getName() == "outs" && 
       "Invalid OclBuiltin record with invalid outputs.");
 
     for (unsigned i = 0, e = Outs->getNumArgs(); i != e; ++i) {
-      const OclType* ArgTy = m_DB.getOclType(dynamic_cast<DefInit*>(Outs->getArg(i))->getDef()->getName());
+      const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Outs->getArg(i))->getDef()->getName());
       const std::string& ArgName = Outs->getArgName(i);
       m_Outputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
@@ -321,11 +321,11 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     DagInit* Ins = R->getValueAsDag("Ins");
     assert(Ins && "Invalid OclBuiltin record without ins.");
 
-    assert(dynamic_cast<DefInit*>(Ins->getOperator()) && 
-      dynamic_cast<DefInit*>(Ins->getOperator())->getDef()->getName() == "ins" && 
+    assert(dyn_cast<DefInit>(Ins->getOperator()) && 
+      dyn_cast<DefInit>(Ins->getOperator())->getDef()->getName() == "ins" && 
       "Invalid OclBuiltin record with invalid outputs.");
     for (unsigned i = 0, e = Ins->getNumArgs(); i != e; ++i) {
-      const OclType* ArgTy = m_DB.getOclType(dynamic_cast<DefInit*>(Ins->getArg(i))->getDef()->getName());
+      const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Ins->getArg(i))->getDef()->getName());
       const std::string& ArgName = Ins->getArgName(i);
       m_Inputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }

@@ -9,7 +9,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Constants.h"
-#include "llvm/Version.h"
 
 namespace intel {
 
@@ -109,12 +108,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
     if (isa<Constant>(origValue))
     {
       // Create a broadcasted constant (no need to make an instruction for this)
-#if LLVM_VERSION >= 3425
       broadcastedVal = ConstantVector::getSplat(m_packetWidth, cast<Constant>(origValue));
-#else
-      std::vector<Constant *> vectorVal(m_packetWidth, cast<Constant>(origValue));
-      broadcastedVal = ConstantVector::get(vectorVal);
-#endif
     }
     else
     {

@@ -422,7 +422,7 @@ void OpenCLReferenceRunner::ReadKernelArgs(
             continue;   // Not a function pointer
         }
         // if not needed name skip
-        if ( m_pKernel->getNameStr() != kernelName && !kernelName.empty())
+        if ( m_pKernel->getName() != kernelName && !kernelName.empty())
         {
             m_pKernel = NULL;
             continue;
@@ -997,7 +997,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                             GV->getType()->getElementType();
 
                         // skip unsupported variables
-                        if(NEATTargetData::IsNEATSupported(GlobalType) == false)
+                        if(NEATDataLayout ::IsNEATSupported(GlobalType) == false)
                             continue;
 
                         DEBUG(dbgs() << "About to add NEAT supported "

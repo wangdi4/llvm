@@ -13,17 +13,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/Constants.h>
 #include <llvm/Instructions.h>
 #include <llvm/DerivedTypes.h>
-
-#include "llvm/Version.h"
-
-#if LLVM_VERSION >= 3425
 #include <llvm/DebugInfo.h>
 #include <llvm/DIBuilder.h>
-#else
-#include "llvm/Analysis/DebugInfo.h"
-#include "llvm/Analysis/DIBuilder.h"
-#endif
-
 
 #include <vector>
 
