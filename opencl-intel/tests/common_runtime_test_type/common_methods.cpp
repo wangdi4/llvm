@@ -111,7 +111,7 @@ void sleepMS(unsigned milliseconds)
 #ifdef _WIN32
 	Sleep(milliseconds);
 #else
-	sleep(milliseconds);
+	usleep(milliseconds*1000);
 #endif
 }
 
