@@ -1170,11 +1170,14 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   case PREFETCH:
     DT = cast<PointerType>(MO.Ptr->getType())->getElementType();
     break;
+  default:
+    V_ASSERT(0 && "Unsupported memory operation type");    
   }
 
+  bool isVectorPrefetch = DT->isVectorTy() &&  MO.type == PREFETCH;
   // Not much we can do for load of non-scalars
   // For prefetches we can actually do
-  if (!(DT->isFloatingPointTy() || DT->isIntegerTy()) &&  !(DT->isVectorTy() &&  MO.type == PREFETCH)) {
+  if (!(DT->isFloatingPointTy() || DT->isIntegerTy()) &&  !isVectorPrefetch) {
     V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(MO.Orig->getOpcode()) <<" of non-scalars\n");
     V_STAT(m_nonPrimitiveCtr[MO.Orig->getOpcode()]++;)
     if (MO.Index) {
@@ -1183,24 +1186,14 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
     return duplicateNonPacketizableInst(MO.Orig);
   }
 
-  // Support for a prefetch with a pointer to a buffer of vector types
-  if (DT->isVectorTy() &&  MO.type == PREFETCH && UseScatterGather && MO.Index) {
-    V_ASSERT(MO.Base && "Index w/o base");
-    // If we were able to generate scatter\gather update VCM and return.
-    if (Instruction *Scat =  widenScatterGatherOp(MO)) {
-      createVCMEntryWithVectorValue(MO.Orig, Scat);
+  // Check if we were able to obtain a vector wide memory operand, for consecutive access.
+  if (!isVectorPrefetch) {
+    if (Instruction *Wide = widenConsecutiveMemOp(MO)) {
+      // If we were able to generate wide memory operation update VCM and return.
+      createVCMEntryWithVectorValue(MO.Orig, Wide);
       m_removedInsts.insert(MO.Orig);
-      V_PRINT(gather_scatter_stat, "PACKETIZER: SUCCESS\n");
       return;
     }
-  }
-
-  // Check if we were able tp obtain a vector wide memory operand, for consecutive access.
-  if (Instruction *Wide = widenConsecutiveMemOp(MO)) {
-    // If we were able to generate wide memory operation update VCM and return.
-    createVCMEntryWithVectorValue(MO.Orig, Wide);
-    m_removedInsts.insert(MO.Orig);
-    return;
   }
 
   // In case we were told the target supports scat/gath regions, and were able to find
@@ -1216,7 +1209,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
     }
   }
 
-  // Was not able to vectorize meory operation, fall back to scalarizing.
+  // Was not able to vectorize memory operation, fall back to scalarizing.
   V_PRINT(vectorizer_stat, "<<<<NonConsecCtr("<<__FILE__<<":"<<__LINE__<<"): " <<Instruction::getOpcodeName(MO.Orig->getOpcode()) <<": Handles random pointer, or load/store of non primitive types\n");
   V_STAT(m_nonConsecCtr++;)
   return duplicateNonPacketizableInst(MO.Orig);
@@ -1287,6 +1280,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
         }
       }
       MO.Data = 0;
+      MO.Alignment = 0;
       MO.Mask = (isMangled) ? CI->getArgOperand(0) : 0;
       MO.type = PREFETCH;
     } else if (Mangler::isMangledStore(scalarFuncName)) {
