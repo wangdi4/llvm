@@ -52,6 +52,7 @@ namespace Validation
         RC_BR_DUMP_JIT,
         RC_BR_TIME_PASSES,
         RC_BR_DUMP_HEURISTIC_IR,
+        RC_BR_PERF_LOG,
         // Reference runner specific options
         RC_REF_USE_NEAT,
         RC_REF_USE_FMA_NEAT,
@@ -91,6 +92,7 @@ namespace Validation
         std::string m_cpuArch;
         std::string m_cpuFeatures;
         std::string m_optimizedLLVMIRDumpFile;
+        std::string m_perfLogFile;
         Intel::OpenCL::DeviceBackend::ETransposeSize m_transposeSize;
         std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> m_PrintIRAfter;
         std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> m_PrintIRBefore;
@@ -104,8 +106,8 @@ namespace Validation
     template<> uint32_t BERunOptions::GetValue<uint32_t>(RunConfigurationOption rc, uint32_t defaultValue) const;
     template<> uint64_t BERunOptions::GetValue<uint64_t>(RunConfigurationOption rc, uint64_t defaultValue) const;
     template<> std::string BERunOptions::GetValue<std::string>(RunConfigurationOption rc, std::string defaultValue) const;
-    template<> Intel::OpenCL::DeviceBackend::ETransposeSize 
-        BERunOptions::GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RunConfigurationOption rc, 
+    template<> Intel::OpenCL::DeviceBackend::ETransposeSize
+        BERunOptions::GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RunConfigurationOption rc,
         Intel::OpenCL::DeviceBackend::ETransposeSize defaultValue) const;
     template<> const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions>*
         BERunOptions::GetValue<const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> * >

@@ -16,7 +16,6 @@ File Name:  PerformancePrinter.cpp
 
 \*****************************************************************************/
 
-#include <iostream>
 #include "PerformancePrinter.h"
 #include "OpenCLRunConfiguration.h"
 
@@ -30,12 +29,21 @@ PerformancePrinter::PerformancePrinter(const IProgramConfiguration * pProgramCon
     m_programName= pProgramConfiguration->GetProgramName();
     m_IRFilename = pBERunConfig->GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "");
     m_JITFilename= pBERunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, "");
+    std::string csvFilename= pBERunConfig->GetValue<std::string>(RC_BR_PERF_LOG, "-");
+
+    if( csvFilename == "-" )
+        m_pOutStream = &std::cout;
+    else
+    {
+        m_fOutStream.open(csvFilename.c_str(), std::ios_base::out | std::ios::app);
+        m_pOutStream = &m_fOutStream;
+    }
 }
 
 void PerformancePrinter::OnKernelSample(
                     const std::string& kernel,
                     unsigned int vectorSize,
-                    cl_long buildTicks, 
+                    cl_long buildTicks,
                     double buildSDMean,
                     cl_long executionTicks,
                     double executionSDMean,
@@ -45,7 +53,7 @@ void PerformancePrinter::OnKernelSample(
                     double deserializationSDMean
                     )
 {
-    std::cout << m_programName << "."
+    *m_pOutStream << m_programName << "."
               << kernel << ","
               << buildTicks << ","
               << buildSDMean << ","
@@ -59,6 +67,6 @@ void PerformancePrinter::OnKernelSample(
 #endif
               << vectorSize << "," // Actualy vector size
               << m_IRFilename << ","
-              << m_JITFilename 
+              << m_JITFilename
               << std::endl;
 }

@@ -52,7 +52,7 @@ ProgramType(llvm::cl::desc("Type of the test program:"),
             )
             );
 
-llvm::cl::opt<ETransposeSize> 
+llvm::cl::opt<ETransposeSize>
 TransposeSize("tsize",
          llvm::cl::desc("Transpose size:"),
          llvm::cl::values(
@@ -66,13 +66,13 @@ TransposeSize("tsize",
          );
 
 
-llvm::cl::opt<std::string> 
+llvm::cl::opt<std::string>
 CPUArch("cpuarch",
          llvm::cl::desc("CPU Architecture: auto, core2, corei7, corei7-avx, haswell, knc"),
          llvm::cl::init("auto")
          );
 
-llvm::cl::opt<std::string> 
+llvm::cl::opt<std::string>
 CPUFeatures("cpufeatures",
          llvm::cl::desc("CPU Features: -avx, +avx2, ..."),
          llvm::cl::init("")
@@ -129,6 +129,12 @@ TestMode(llvm::cl::desc("Test mode:"),
          clEnumValN(PERFORMANCE, "PERF",  "Performance mode"),
          clEnumValN(BUILD,       "BUILD", "Build only mode"),
          clEnumValEnd));
+
+llvm::cl::opt<std::string>
+PerformanceLog("csv-out",
+               llvm::cl::desc("Output the performance measurement to the file <filename>. If '-' filename is set the measurements data will be printed to the standard output stream."),
+               llvm::cl::value_desc("filename"),
+               llvm::cl::init("-"));
 
 // turn on running single work group
 llvm::cl::opt<bool>

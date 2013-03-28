@@ -224,8 +224,6 @@ else(LLVM_BUILD_APPLE_BACKEND)
     if (BACKEND_BUILD_VERIFICATION_LIB)
         add_subdirectory(external/tinyxml  "${CMAKE_CURRENT_BINARY_DIR}/tinyxml")
         add_subdirectory(validations       "${CMAKE_CURRENT_BINARY_DIR}/validations")
-        install(FILES ${BACKEND_ROOT_DIR}/tests/Conformance.7z
-                DESTINATION bin/validation)
     endif ()
 
     #removing the test/... directories since it will be incorporated as part of the LIT script support
@@ -288,8 +286,12 @@ else(LLVM_BUILD_APPLE_BACKEND)
     # copying MICRegression suite tests to install directory, excluding .svn
     # files 
     install(DIRECTORY ${BACKEND_ROOT_DIR}/tests/MIC/satest/mic/
-         DESTINATION bin/validation/MICRegression/
-         PATTERN ".svn" EXCLUDE)
+            DESTINATION bin/validation/MICRegression/
+            PATTERN ".svn" EXCLUDE)
+    # copy the Clang conformance tests to the validation directory
+    install(FILES ${BACKEND_ROOT_DIR}/tests/Conformance.7z 
+            DESTINATION bin/validation)
+
 endif(LLVM_BUILD_APPLE_BACKEND)
 
 

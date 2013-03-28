@@ -69,6 +69,9 @@ DefaultLocalWGSize;
 extern llvm::cl::opt<std::string>
 OptimizedLLVMIRDumpFile;
 
+extern llvm::cl::opt<std::string>
+PerformanceLog;
+
 extern llvm::cl::opt<bool>
 DetailedStat;
 
@@ -196,6 +199,8 @@ namespace Validation
             return m_DumpJIT;
         case RC_BR_TIME_PASSES :
             return m_TimePasses;
+        case RC_BR_PERF_LOG:
+            return m_perfLogFile;
         default:
             return defaultValue;
         }
@@ -251,6 +256,7 @@ namespace Validation
         m_defaultLocalWGSize = ::DefaultLocalWGSize;
         m_RandomDataGeneratorSeed = ::RandomDGSeed;
         m_optimizedLLVMIRDumpFile = ::OptimizedLLVMIRDumpFile;
+        m_perfLogFile = ::PerformanceLog;
         m_PrintIRAfter = ::PrintIRAfter;
         m_PrintIRBefore = ::PrintIRBefore;
         m_DumpIRDir = ::DumpIRDir;

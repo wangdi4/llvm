@@ -19,6 +19,8 @@ File Name:  PerformancePrinter.h
 #define PERFORMANCEPRINTER_H
 
 #include <string>
+#include <iostream>
+#include <fstream>
 #include "IPerformance.h"
 #include "IRunConfiguration.h"
 #include "IProgramConfiguration.h"
@@ -33,9 +35,9 @@ public:
                         const IRunComponentConfiguration* pRunConfiguration );
 
 private:
-    void OnKernelSample(const std::string& kernel,  
+    void OnKernelSample(const std::string& kernel,
                         unsigned int vectorSize,
-                        cl_long buildTicks, 
+                        cl_long buildTicks,
                         double buildSDMean,
                         cl_long executionTicks,
                         double executionSDMean,
@@ -48,6 +50,8 @@ private:
     std::string m_IRFilename;
     std::string m_JITFilename;
     std::string m_programName;
+    std::fstream m_fOutStream;
+    std::ostream* m_pOutStream;
 };
 
 }
