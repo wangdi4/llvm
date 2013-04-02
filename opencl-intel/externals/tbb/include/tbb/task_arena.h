@@ -55,14 +55,14 @@ public:
 
 class delegate_base : no_assign {
 public:
-    virtual void run() = 0;
+    virtual void operator()() const = 0;
     virtual ~delegate_base() {}
 };
 
 template<typename F>
 class delegated_function : public delegate_base {
     F &my_func;
-    /*override*/ void run() {
+    /*override*/ void operator()() const {
         my_func();
     }
 public:
@@ -139,11 +139,24 @@ public:
         } // TODO: else throw?
     }
 
-    //! Removes the reference to the internal arena representation, and destroys the external object
-    //! Not thread safe wrt concurrent invocations of other methods
-    ~task_arena() {
-        internal_terminate();
+    //! Removes the reference to the internal arena representation.
+    //! Not thread safe wrt concurrent invocations of other methods.
+    inline void terminate() {
+        if( my_initialized ) {
+            internal_terminate();
+            my_initialized = false;
+        }
     }
+
+    //! Removes the reference to the internal arena representation, and destroys the external object.
+    //! Not thread safe wrt concurrent invocations of other methods.
+    ~task_arena() {
+        terminate();
+    }
+
+    //! Returns true if the arena is active (initialized); false otherwise.
+    //! The name was chosen to match a task_scheduler_init method with the same semantics.
+    bool is_active() const { return my_initialized; }
 
     //! Enqueues a task into the arena to process a functor, and immediately returns.
     //! Does not require the calling thread to join the arena

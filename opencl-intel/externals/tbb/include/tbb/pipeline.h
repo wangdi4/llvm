@@ -26,6 +26,7 @@
 #include "tbb_allocator.h"
 #include <cstddef>
 
+//TODO: consider more accurate method to check if need to implement <type_trais> ourself
 #if !TBB_IMPLEMENT_CPP0X
 #include <type_traits>
 #endif
@@ -39,7 +40,7 @@ class filter;
 namespace internal {
 
 // The argument for PIPELINE_VERSION should be an integer between 2 and 9
-#define __TBB_PIPELINE_VERSION(x) (unsigned char)(x-2)<<1
+#define __TBB_PIPELINE_VERSION(x) ((unsigned char)(x-2)<<1)
 
 typedef unsigned long Token;
 typedef long tokendiff_t;
@@ -290,7 +291,7 @@ private:
     void __TBB_EXPORTED_METHOD inject_token( task& self );
 
 #if __TBB_TASK_GROUP_CONTEXT
-    //! Does clean up if pipeline is cancelled or exception occured
+    //! Does clean up if pipeline is cancelled or exception occurred
     void clear_filters();
 #endif
 };
@@ -338,7 +339,7 @@ template<typename T> struct tbb_trivially_copyable { enum { value = std::has_tri
 #else
 template<typename T> struct tbb_trivially_copyable { enum { value = std::is_trivially_copyable<T>::value }; };
 #endif //
-#endif // __TBB_USE_CPP0X
+#endif // TBB_IMPLEMENT_CPP0X
 
 template<typename T> struct is_large_object {enum { value = tbb_large_object<T>::value || !tbb_trivially_copyable<T>::value }; };
 

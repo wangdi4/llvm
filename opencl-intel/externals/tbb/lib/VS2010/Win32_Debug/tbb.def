@@ -85,35 +85,38 @@ EXPORTS
     
 
  
-     
-     
-
-
-
-
-
-
-
-
- 
- 
-     
-
-     
-
- 
-
-
-
-
-
-
-
-     
+    
 
  
      
 
+
+
+
+
+
+
+
+ 
+ 
+     
+
+     
+
+ 
+
+
+
+
+
+
+
+     
+
+ 
+     
+     
+
  
 
  
@@ -158,6 +161,12 @@ EXPORTS
 
 
 
+
+
+
+
+ 
+ 
 
 
 
@@ -436,5 +445,6 @@ TBB_runtime_interface_version
 ?internal_condition_variable_notify_one@internal@interface5@tbb@@YAXAATcondvar_impl_t@123@@Z
 ?internal_condition_variable_notify_all@internal@interface5@tbb@@YAXAATcondvar_impl_t@123@@Z
 ?internal_destroy_condition_variable@internal@interface5@tbb@@YAXAATcondvar_impl_t@123@@Z
+
 
 

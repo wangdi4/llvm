@@ -413,7 +413,7 @@ struct atomic: internal::atomic_impl<T> {
 #if __TBB_ATOMIC_CTORS
     #define __TBB_DECL_ATOMIC(T)                                                                    \
         template<> struct atomic<T>: internal::atomic_impl_with_arithmetic<T,T,char> {              \
-            atomic() = default;                                                                             \
+            atomic() = default;                                                                     \
             constexpr atomic(T arg): internal::atomic_impl_with_arithmetic<T,T,char>(arg) {}        \
                                                                                                     \
             T operator=( T rhs ) {return store_with_release(rhs);}                                  \
@@ -446,7 +446,7 @@ __TBB_DECL_ATOMIC(unsigned long)
    perspective of /Wp64. */
 #define __TBB_DECL_ATOMIC_ALT(T,U) \
     template<> struct atomic<T>: internal::atomic_impl_with_arithmetic<T,T,char> {             \
-        atomic() = default ;                                                                            \
+        atomic() = default ;                                                                   \
         constexpr atomic(T arg): internal::atomic_impl_with_arithmetic<T,T,char>(arg) {}       \
         T operator=( U rhs ) {return store_with_release(T(rhs));}                              \
         atomic<T>& operator=( const atomic<T>& rhs ) {store_with_release(rhs); return *this;}  \

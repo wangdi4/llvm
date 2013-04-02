@@ -112,7 +112,7 @@ namespace interface6 {
             static size_t hash( key_type k ) {
                 // Multiplicative hashing.  Client should use *upper* bits.
                 // casts required for Mac gcc4.* compiler
-                return uintptr_t(k)*tbb::internal::size_t_select(0x9E3779B9,0x9E3779B97F4A7C15ULL);
+                return uintptr_t(k)*tbb::internal::select_size_t_constant<0x9E3779B9,0x9E3779B97F4A7C15ULL>::value;
             } 
         
             ets_base() {my_root=NULL; my_count=0;}
@@ -766,7 +766,7 @@ namespace interface6 {
             my_construct_callback( internal::callback_leaf<T,internal::construct_by_finit<T,Finit> >::make( finit ) ) 
         {}
     
-        //! Constuctor with exemplar.  Each local instance of T is copied-constructed from the exemplar.
+        //! Constructor with exemplar.  Each local instance of T is copied-constructed from the exemplar.
         enumerable_thread_specific(const T& exemplar) : 
             my_construct_callback( internal::callback_leaf<T,internal::construct_by_exemplar<T> >::make( exemplar ) )
         {}

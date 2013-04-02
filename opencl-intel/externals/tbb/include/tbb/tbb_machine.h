@@ -205,6 +205,8 @@ template<> struct atomic_selector<8> {
         #include "machine/windows_intel64.h"
     #elif _XBOX
         #include "machine/xbox360_ppc.h"
+    #elif _M_ARM
+        #include "machine/msvc_armv7.h"
     #endif
 
 #ifdef _MANAGED
@@ -231,6 +233,8 @@ template<> struct atomic_selector<8> {
         #include "machine/linux_ia64.h"
     #elif __powerpc__
         #include "machine/mac_ppc.h"
+    #elif __arm__
+        #include "machine/gcc_armv7.h"
     #elif __TBB_GCC_BUILTIN_ATOMICS_PRESENT
         #include "machine/gcc_generic.h"
     #endif
@@ -388,9 +392,11 @@ void spin_wait_until_eq( const volatile T& location, const U value ) {
     while( location!=value ) backoff.pause();
 }
 
-//TODO: add static_assert for the requirements stated below
-//TODO: check if it works with signed types
+#if (__TBB_USE_GENERIC_PART_WORD_CAS && ( __TBB_BIG_ENDIAN==-1))
+    #error generic implementation of part-word CAS was explicitly disabled for this configuration
+#endif
 
+#if (__TBB_BIG_ENDIAN!=-1)
 // there are following restrictions/limitations for this operation:
 //  - T should be unsigned, otherwise sign propagation will break correctness of bit manipulations.
 //  - T should be integer type of at most 4 bytes, for the casts and calculations to work.
@@ -399,10 +405,9 @@ void spin_wait_until_eq( const volatile T& location, const U value ) {
 //  - The operation assumes that the architecture consistently uses either little-endian or big-endian:
 //      it does not support mixed-endian or page-specific bi-endian architectures.
 // This function is the only use of __TBB_BIG_ENDIAN.
-#if (__TBB_BIG_ENDIAN!=-1)
-    #if ( __TBB_USE_GENERIC_PART_WORD_CAS)
-        #error generic implementation of part-word CAS was explicitly disabled for this configuration
-    #endif
+//
+//TODO: add static_assert for the requirements stated above
+//TODO: check if it works with signed types
 template<typename T>
 inline T __TBB_MaskedCompareAndSwap (volatile T * const ptr, const T value, const T comparand ) {
     struct endianness{ static bool is_big_endian(){
@@ -437,10 +442,10 @@ inline T __TBB_MaskedCompareAndSwap (volatile T * const ptr, const T value, cons
         {
             return T((big_result & mask) >> bits_to_shift);
         }
-        else continue;                                     // CAS failed but the bits of interest left unchanged
+        else continue;                                     // CAS failed but the bits of interest were not changed
     }
 }
-#endif
+#endif //__TBB_BIG_ENDIAN!=-1
 template<size_t S, typename T>
 inline T __TBB_CompareAndSwapGeneric (volatile void *ptr, T value, T comparand );
 
@@ -568,11 +573,15 @@ __TBB_MACHINE_DEFINE_STORE8_GENERIC_FENCED(full_fence)
 
 #if __TBB_USE_GENERIC_HALF_FENCED_LOAD_STORE
 /** Fenced operations use volatile qualifier to prevent compiler from optimizing
-    them out, and on on architectures with weak memory ordering to induce compiler
+    them out, and on architectures with weak memory ordering to induce compiler
     to generate code with appropriate acquire/release semantics.
-    On architectures like IA32, Intel64 (and likely and Sparc TSO) volatile has
+    On architectures like IA32, Intel64 (and likely Sparc TSO) volatile has
     no effect on code gen, and consistency helpers serve as a compiler fence (the
-    latter being true for IA64/gcc as well to fix a bug in some gcc versions). **/
+    latter being true for IA64/gcc as well to fix a bug in some gcc versions).
+    This code assumes that the generated instructions will operate atomically,
+    which typically requires a type that can be moved in a single instruction,
+    cooperation from the compiler for effective use of such an instruction,
+    and appropriate alignment of the data. **/
 template <typename T, size_t S>
 struct machine_load_store {
     static T load_with_acquire ( const volatile T& location ) {
@@ -815,13 +824,16 @@ using tbb::internal::__TBB_store_with_release;
 inline intptr_t __TBB_Log2( uintptr_t x ) {
     if( x==0 ) return -1;
     intptr_t result = 0;
-    uintptr_t tmp;
 
-    if( sizeof(x)>4 && (tmp = ((uint64_t)x)>>32)) { x=tmp; result += 32; }
-    if( (tmp = x>>16) ) { x=tmp; result += 16; }
-    if( (tmp = x>>8) )  { x=tmp; result += 8; }
-    if( (tmp = x>>4) )  { x=tmp; result += 4; }
-    if( (tmp = x>>2) )  { x=tmp; result += 2; }
+#ifndef _M_ARM
+    uintptr_t tmp;
+	if( sizeof(x)>4 && (tmp = ((uint64_t)x)>>32) ) { x=tmp; result += 32; }
+#endif
+    if( uintptr_t tmp = x>>16 ) { x=tmp; result += 16; }
+    if( uintptr_t tmp = x>>8 )  { x=tmp; result += 8; }
+    if( uintptr_t tmp = x>>4 )  { x=tmp; result += 4; }
+    if( uintptr_t tmp = x>>2 )  { x=tmp; result += 2; }
+
     return (x&2)? result+1: result;
 }
 #endif
@@ -848,6 +860,16 @@ inline void __TBB_AtomicAND( volatile void *operand, uintptr_t addend ) {
         b.pause();
     }
 }
+#endif
+
+#if __TBB_PREFETCHING
+#ifndef __TBB_cl_prefetch
+#error This platform does not define cache management primitives required for __TBB_PREFETCHING
+#endif
+
+#ifndef __TBB_cl_evict
+#define __TBB_cl_evict(p)
+#endif
 #endif
 
 #ifndef __TBB_Flag

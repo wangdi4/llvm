@@ -122,6 +122,7 @@ namespace internal {
                 my_queue->reset();
             }
             my_predecessors.reset();
+            forwarder_busy = false;
         }
 
         task *my_root_task;
@@ -201,7 +202,7 @@ namespace internal {
                             bool item_was_retrieved = false;
                             if ( my_queue )
                                 item_was_retrieved = my_queue->pop(i);
-                            else
+                            else 
                                 item_was_retrieved = my_predecessors.get_item(i);
                             if (item_was_retrieved) {
                                 ++my_concurrency;
@@ -268,8 +269,6 @@ namespace internal {
         
         //! Applies the body to the provided input
         //  then decides if more work is available 
-        //  we should still be able to use app_body, because the task returned should be the successor node
-        //  and not us, so we are reducing my_concurrency.  (might be a problem if we are our own successor?)
         task * apply_body_bypass( input_type &i ) {
             task * new_task = static_cast<ImplType *>(this)->apply_body_impl_bypass(i);
             if ( my_max_concurrency != 0 ) {
