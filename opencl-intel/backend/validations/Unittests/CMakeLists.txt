@@ -4,7 +4,6 @@ cmake_policy(SET CMP0011 OLD)
 use_eh(TRUE)
 
 set (TARGET_NAME "ValidationTests")
-set (TARGET_LIB_NAME "ValidationTestsBase")
 
 # to be shure that ICC compiler uses the correct presentation of 80-bit long doubles
 # we have to set proper compiler options, for win32 only, for linux gcc(g++) is used and 
@@ -14,25 +13,23 @@ set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:source /fp:strict /Qlong-double /Q
 set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" ) 
 endif(WIN32)
 
-set(TARGET_LIB_SOURCE_FILES
-  DMTest.cpp
-  DMImageTest.cpp
-  CMPTest.cpp
-  OpenCLKernelArgumentsParserTest.cpp
-  DGTest.cpp
-  Float16Test.cpp
-  NEATALUUtils.cpp
-  NEATALUTest.cpp
-  NEATALUCommonTest.cpp
-  NEATALUConversionTest.cpp
-  NEATALUVLoadStoreTest.cpp
-  NEATValueTest.cpp
-  NEATMathTest.cpp
-  OCLBuiltinParserTest.cpp
-  NEATALUImageTest.cpp
-)
 
 set(TARGET_SOURCE_FILES
+    DMTest.cpp
+    DMImageTest.cpp
+    CMPTest.cpp
+    OpenCLKernelArgumentsParserTest.cpp
+    DGTest.cpp
+    Float16Test.cpp
+    NEATALUUtils.cpp
+    NEATALUTest.cpp
+    NEATALUCommonTest.cpp
+    NEATALUConversionTest.cpp
+    NEATALUVLoadStoreTest.cpp
+    NEATValueTest.cpp
+    NEATMathTest.cpp
+    OCLBuiltinParserTest.cpp
+    NEATALUImageTest.cpp
     SourceRecorder.cpp
     ClangSA.cpp
     OCLKernelDataGeneratorTest.cpp
@@ -60,9 +57,6 @@ include_directories(${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Common )
 include_directories(${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export)
  
-add_library( ${TARGET_LIB_NAME} STATIC
-    ${TARGET_LIB_SOURCE_FILES}
-)
  
 link_directories(
     ${LLVM_LIBRARY_DIR}
@@ -74,7 +68,6 @@ add_executable(${TARGET_NAME}
 )
 
 target_link_libraries(${TARGET_NAME}
-    ${TARGET_LIB_NAME}
     DataManager 
     tinyxml_STL
     Comparator
