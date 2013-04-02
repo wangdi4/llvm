@@ -76,27 +76,19 @@ BuiltinLibrary* BuiltinModuleManager::GetOrLoadCPULibrary(Intel::CPUId cpuId)
 
     std::auto_ptr<BuiltinLibrary> pLibrary( new CPUBuiltinLibrary(cpuId) );
     pLibrary->Load();
-    
+
     m_BuiltinLibs[key] = pLibrary.get();
     return pLibrary.release();
 }
 
 // TODO: Make this method re-entrable
-BuiltinLibrary* BuiltinModuleManager::GetOrLoadMICLibrary(unsigned int targetID, Intel::CPUId cpuId, 
+BuiltinLibrary* BuiltinModuleManager::GetOrLoadMICLibrary(unsigned int targetID, Intel::CPUId cpuId,
      const void* targetContext)
 {
-    DevIdCpuId key = std::make_pair(targetID, cpuId);
-    BuiltinsMap::iterator it = m_BuiltinLibs.find(key);
-    if( it != m_BuiltinLibs.end() )
-    {
-        return it->second;
-    }
-
     std::auto_ptr<BuiltinLibrary> pLibrary( new MICBuiltinLibrary(cpuId) );
     pLibrary->SetContext(targetContext);
     pLibrary->Load();
-    
-    m_BuiltinLibs[key] = pLibrary.get();
+
     return pLibrary.release();
 }
 
