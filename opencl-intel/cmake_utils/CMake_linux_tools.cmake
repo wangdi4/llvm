@@ -97,6 +97,10 @@ set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 ${SSE4_VAL} ${ARCH_BIT} -fPIC -fdiagnos
 
 set (ADD_C_FLAGS         "${ADD_COMMON_C_FLAGS} -std=gnu99" )
 set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS}" )
+if (DEFINED UBUNTU64_BUILD)
+  set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS}  -Wno-conversion-null -Wno-unused-result")
+endif()
+
 
 set (ADD_C_FLAGS_DEBUG   "-O0 -ggdb3 -D _DEBUG" )
 set (ADD_C_FLAGS_RELEASE "-O2 -ggdb2 -U _DEBUG")

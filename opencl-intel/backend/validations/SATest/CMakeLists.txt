@@ -228,6 +228,11 @@ if (INCLUDE_MIC_DEVICE)
     set_target_properties( ${TARGET_NAME} PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_DIR}/host-linux-release/lib" )
 endif (INCLUDE_MIC_DEVICE)
 
+if (NOT WIN32)
+  if( NOT ANDROID)
+    target_link_libraries(${TARGET_NAME} pthread dl)
+  endif()
+endif (NOT WIN32)
 
 if( NOT WIN32)
     add_dependencies(${TARGET_NAME}

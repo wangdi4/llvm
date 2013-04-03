@@ -195,7 +195,7 @@ class MICBackendPrintfFiller : public ICLDevBackendBufferPrinter
 public:
     int  Print(void* id, const char* buf ) 
     {
-        printf(buf);
+        printf("%s", buf);
         fflush(0);
         return strlen(buf);
     }
