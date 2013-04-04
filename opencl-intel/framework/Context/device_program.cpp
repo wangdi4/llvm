@@ -473,6 +473,12 @@ cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * pui
 		MEMCPY_S(pBin, uiBinSize, m_pBinaryBits, m_uiBinaryBitsSize);
 		return CL_SUCCESS;
 
+	case DEVICE_PROGRAM_SOURCE:
+		// Program source loaded but hasn't been built yet, so no binary to return.
+		// Return success and zero binary size to be consistent with GEN.
+		*puiBinSizeRet = 0;
+		return CL_SUCCESS;
+
 	default:
 		if ( NULL == pBin)	// When query for binary size and it's not available, we should return 0
 		{
