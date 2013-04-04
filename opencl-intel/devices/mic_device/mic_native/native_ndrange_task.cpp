@@ -57,8 +57,10 @@ void execute_NDRange(uint32_t         in_BufferCount,
 
 NDRangeTask::NDRangeTask( const QueueOnDevice& queue ) : TaskHandler( queue ),
     m_commandIdentifier((cl_dev_cmd_id)-1), m_kernel(NULL), m_pBinary(NULL), m_progamExecutableMemoryManager(NULL),
-    m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_dim(0), m_lockedParams(NULL),
-    m_tbb_perf_data(*this)
+    m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_dim(0), m_lockedParams(NULL)
+#ifdef ENABLE_MIC_TRACER
+    ,m_tbb_perf_data(*this)
+#endif    
 {
 }
 
@@ -68,21 +70,25 @@ NDRangeTask::~NDRangeTask()
 	{
 		delete [] m_pMemBuffSizes;
 	}
-
-    m_tbb_perf_data.PerfDataFini();    
+#ifdef ENABLE_MIC_TRACER
+    m_tbb_perf_data.PerfDataFini();
+#endif    
 }
 
 // called immediately after creation and after filling the COI-passed data
 bool NDRangeTask::InitTask()
 {
 	// Set total buffers size and num of buffers for the tracer.
+#ifdef ENABLE_MIC_TRACER
 	commandTracer().add_delta_num_of_buffer_sent_to_device(m_lockBufferCount);
-
+#endif
 	unsigned long long bufSize = 0;
 	for (unsigned int i = 0; i < m_lockBufferCount; i++)
 	{
 		bufSize = m_lockBufferLengths[i];
+#ifdef ENABLE_MIC_TRACER
 		commandTracer().add_delta_buffers_size_sent_to_device(bufSize);
+#endif		
 	}
 
 	ndrange_dispatcher_data* pDispatcherData = (ndrange_dispatcher_data*)(m_dispatcherData);
@@ -158,8 +164,11 @@ bool NDRangeTask::InitTask()
 		return false;
 	}
 
+#ifdef ENABLE_MIC_TRACER
 	// Set kernel name for the tracer.
 	commandTracer().set_kernel_name((char*)(m_kernel->GetKernelName()));
+#endif
+	
 
 	// Update buffer parameters
     m_pBinary->GetMemoryBuffersDescriptions(NULL, &m_MemBuffCount);
@@ -181,20 +190,22 @@ bool NDRangeTask::InitTask()
 	for (i = 0; i < m_dim; ++i)
 	{
 		m_region[i] = (uint64_t)((pWorkDesc->globalWorkSize[i])/(uint64_t)(pWGSize[i]));
-		
+#ifdef ENABLE_MIC_TRACER
 		// Set global work size in dimension "i" for the tracer.
 		commandTracer().set_global_work_size(pWorkDesc->globalWorkSize[i], i);
 		// Set WG size in dimension "i" for the tracer.
 		commandTracer().set_work_group_size(pWGSize[i], i);
+#endif		
 	}
 	for (; i < MAX_WORK_DIM; ++i)
 	{
 		m_region[i] = 1;
-
+#ifdef ENABLE_MIC_TRACER
 		// Set global work size in dimension "i" for the tracer.
 		commandTracer().set_global_work_size(0, i);
 		// Set WG size in dimension "i" for the tracer.
 		commandTracer().set_work_group_size(0, i);
+#endif		
 	}
 
 	return true;
@@ -319,7 +330,9 @@ int NDRangeTask::Init(size_t region[], unsigned int& regCount)
     }
 
     queue().SignalTaskStart( this );
+#ifdef ENABLE_MIC_TRACER
     commandTracer().set_current_time_tbb_exe_in_device_time_start();
+#endif
 
     return 0;
 }
@@ -333,8 +346,8 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
 
 #ifdef ENABLE_MIC_TRACER
     TaskLoopBodyTrace::loop_start(commandTracer(), uiNumberOfWorkGroups);
-#endif
     m_tbb_perf_data.work_group_start();
+#endif
     
 	assert( NULL!=pWgContextBase && "At this point pWgContext must be valid");
 	if ( NULL == pWgContextBase)
@@ -343,8 +356,7 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
 		return NULL;
 	}
 
-    WGContextBase* pContextBase = reinterpret_cast<WGContextBase*>(pWgContextBase);
-    WGContext* pContext         = static_cast<WGContext*>(pContextBase);
+    WGContext* pContext         = reinterpret_cast<WGContext*>(pWgContextBase);
     
 	// If can NOT recycle the current context - This is the case when my current context is not the context of the next execution
 	if (m_commandIdentifier != pContext->GetCmdId())
@@ -398,8 +410,8 @@ void NDRangeTask::DetachFromThread(void* pWgContext)
     TlsAccessor tls;
     pContext->jitExecWapper().thread_fini( &tls );
 
-    m_tbb_perf_data.work_group_end();
 #ifdef ENABLE_MIC_TRACER
+    m_tbb_perf_data.work_group_end();
     TaskLoopBodyTrace::loop_end();
 #endif
 
@@ -409,7 +421,9 @@ void NDRangeTask::DetachFromThread(void* pWgContext)
 // The function is called with different 'inx' parameters for each iteration number
 bool NDRangeTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext )
 {
+#ifdef ENABLE_MIC_TRACER
     m_tbb_perf_data.append_data_item(m_dim, (unsigned int)x, (unsigned int)y, (unsigned int)z );
+#endif    
 
 	assert( NULL!=pWgContext && "At this point pWgContext must be valid");
 	if ( NULL == pWgContext)
@@ -437,8 +451,9 @@ bool NDRangeTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContex
 // Return false when command execution fails
 bool NDRangeTask::Finish(FINISH_REASON reason)
 {
+#ifdef ENABLE_MIC_TRACER
     commandTracer().set_current_time_tbb_exe_in_device_time_end();
-    
+#endif    
     FinishTask();
     return CL_DEV_SUCCEEDED( getTaskError() );
 }

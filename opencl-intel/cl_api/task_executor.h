@@ -300,6 +300,8 @@ public:
 
 };
 
+class ITaskExecutorObserver;
+
 /////////////////////////////////////////////////////////////////////////////
 // ITEDevice interface - defines a function set for TaskExecutor Device and SubDevice paradigm
 class ITEDevice : public Intel::OpenCL::Utils::ReferenceCountedObject
@@ -321,6 +323,11 @@ public:
      */
     virtual void ResetObserver() = 0;
 
+	/**
+     * Set new ITaskExecutorObserver observer for the TEDevice.
+	 */
+    virtual void SetObserver(ITaskExecutorObserver* pObserver) = 0;
+
     /**
 	 * Create Task Execution List to the given sub-device
 	 * @return pointer to the new list or NULL on error
@@ -331,6 +338,17 @@ public:
      * Wait until all work in a sub-device is complete and mark device as disabled. No more enqueues are allowed after the ShutDown
      */
     virtual void ShutDown() = 0;
+
+
+	/**
+      * Set-up/Register calling thread (master) to be used by the device
+	  */    
+    virtual void AttachMasterThread(void* user_tls) = 0;
+	/**
+      * Unegister calling thread (master) to be used by the device
+	  */    
+    virtual void DettachMasterThread() = 0;
+
 };
 
 // ITaskExecutorObserver - recieves notification on ITaskExecutor events

@@ -92,7 +92,6 @@ void release_commands_queue(uint32_t         in_BufferCount,
 					        void*            in_pReturnValue,
 					        uint16_t         in_ReturnValueLength)
 {
-	// For master thread we should access it's TLS to retrieve the WGContext
 	TlsAccessor tlsAccessor;
 
     QueueOnDevice* pQueue = QueueOnDevice::getCurrentQueue( &tlsAccessor );
@@ -104,6 +103,9 @@ void release_commands_queue(uint32_t         in_BufferCount,
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SharedPtr<TaskHandler> TaskHandler::TaskFactory(TASK_TYPES taskType, QueueOnDevice& queue,
                                                 dispatcher_data* dispatcherData, misc_data* miscData)
 {
@@ -136,6 +138,38 @@ SharedPtr<TaskHandler> TaskHandler::TaskFactory(TASK_TYPES taskType, QueueOnDevi
 	return task;
 }
 
+TaskHandler::TaskHandler( const QueueOnDevice& queue ) : 
+    m_queue(queue), m_errorCode(CL_DEV_SUCCESS),
+    m_dispatcherData(NULL), m_miscData(NULL), 
+    m_lockBufferCount(0), m_lockBufferPointers(NULL), 
+    m_lockBufferLengths(NULL)
+{
+}
+
+TaskHandler::~TaskHandler()
+{
+	// Set leaving time to device for the tracer
+	m_commandTracer.set_current_time_cmd_run_in_device_time_end();
+}
+
+void TaskHandler::setTaskError(cl_dev_err_code errorCode)
+{
+    // set error code only if current state is success
+    if ((CL_DEV_SUCCESS != errorCode) && (CL_DEV_SUCCESS == m_errorCode))
+    {
+        m_errorCode = errorCode;
+        
+    	// If m_miscData defined set it
+    	if (m_miscData)
+    	{
+    		m_miscData->errCode = errorCode;
+    	}
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void QueueOnDevice::execute_command(
                      uint32_t                   in_BufferCount,
 					 void**						in_ppBufferPointers,
@@ -213,39 +247,10 @@ void QueueOnDevice::execute_command(
 	queue->RunTask(taskHandler);
 }
 
-TaskHandler::TaskHandler( const QueueOnDevice& queue ) : 
-    m_queue(queue), m_errorCode(CL_DEV_SUCCESS),
-    m_dispatcherData(NULL), m_miscData(NULL), 
-    m_lockBufferCount(0), m_lockBufferPointers(NULL), 
-    m_lockBufferLengths(NULL)
-{
-}
-
-TaskHandler::~TaskHandler()
-{
-	// Set leaving time to device for the tracer
-	m_commandTracer.set_current_time_cmd_run_in_device_time_end();
-}
-
-void TaskHandler::setTaskError(cl_dev_err_code errorCode)
-{
-    // set error code only if current state is success
-    if ((CL_DEV_SUCCESS != errorCode) && (CL_DEV_SUCCESS == m_errorCode))
-    {
-        m_errorCode = errorCode;
-        
-    	// If m_miscData defined set it
-    	if (m_miscData)
-    	{
-    		m_miscData->errCode = errorCode;
-    	}
-    }
-}
-
 void QueueOnDevice::RunTask( const SharedPtr<TaskHandler>& task_handler ) const
 {
-    SharedPtr<ITaskBase> pTask = task_handler.DynamicCast<ITaskBase>();
-	assert(pTask);
+    const SharedPtr<ITaskBase>& pTask = task_handler.DynamicCast<ITaskBase>();
+	assert(NULL != pTask && "Internal task not supposed to be NULL");
 	if ((NULL == pTask) || (NULL == m_task_list))
 	{
 		task_handler->setTaskError( CL_DEV_ERROR_FAIL );
@@ -257,10 +262,18 @@ void QueueOnDevice::RunTask( const SharedPtr<TaskHandler>& task_handler ) const
     m_task_list->Flush();
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+InOrderQueueOnDevice::~InOrderQueueOnDevice()
+{
+	m_thread_pool.DeactivateCurrentMasterThread();
+}
+
 // return false on error
 bool InOrderQueueOnDevice::Init()
 {
-    m_task_list = m_thread_pool.getRootDevice().CreateTaskList( 
+    m_task_list = m_thread_pool.getRootDevice()->CreateTaskList( 
                             CommandListCreationParam( TE_CMD_LIST_IMMEDIATE,  gMicExecEnvOptions.tbb_scheduler ));
 
     if (NULL == m_task_list)
@@ -268,6 +281,8 @@ bool InOrderQueueOnDevice::Init()
         //Report Error
         NATIVE_PRINTF("Cannot create in-order TaskList\n");
     }
+    
+    m_thread_pool.ActivateCurrentMasterThread();
 
     return (NULL != m_task_list);
 }
@@ -293,9 +308,12 @@ void InOrderQueueOnDevice::FinishTask(const SharedPtr<TaskHandler>& task_handler
 	assert(false == isLegalBarrier);
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool OutOfOrderQueueOnDevice::Init()
 {
-    m_task_list = m_thread_pool.getRootDevice().CreateTaskList( TE_CMD_LIST_OUT_OF_ORDER );
+    m_task_list = m_thread_pool.getRootDevice()->CreateTaskList( TE_CMD_LIST_OUT_OF_ORDER );
 
     if (NULL == m_task_list)
     {

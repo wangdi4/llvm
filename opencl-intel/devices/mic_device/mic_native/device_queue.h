@@ -183,7 +183,7 @@ class InOrderQueueOnDevice : public QueueOnDevice
 
 public:
     InOrderQueueOnDevice( ThreadPool& thread_pool ) : QueueOnDevice( thread_pool ) {}
-	~InOrderQueueOnDevice() {};
+	~InOrderQueueOnDevice();
 
     // return false on error
     bool Init();

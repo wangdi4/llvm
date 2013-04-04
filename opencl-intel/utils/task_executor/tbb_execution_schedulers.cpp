@@ -134,9 +134,9 @@ struct TaskLoopBody1D : public TaskLoopBody {
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
         
         TBB_PerActiveThreadData* tls = m_executor.GetThreadManager().GetCurrentThreadDescriptor();
+        assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
         if (NULL == tls)
         {
-            assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
             return;
         }
 

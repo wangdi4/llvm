@@ -288,6 +288,40 @@ void TEDevice::free_thread_arenas_resources( TBB_PerActiveThreadData* tls, unsig
     }
 }
 
+void TEDevice::AttachMasterThread(void* user_tls)
+{
+    TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
+    TBB_PerActiveThreadData* tls = thread_manager.RegisterAndGetCurrentThreadDescriptor();
+
+    assert( (NULL != tls) && "TBB Thread Manager was not able to find free entry" );
+    
+    tls->device = this;
+    tls->attach_level = 0;
+    tls->is_master = true;
+    
+    // arena was not used yet - allocate position inside arena
+    tls->position[0]         = m_mainArena.AllocateThreadPosition();
+    assert(0==tls->position[0] && "Currently master should be allocated on slot 0");
+    
+    tls->attached_arenas[0]  = &m_mainArena;
+    
+    // report entry to user - need be done only at the lowest level
+    tls->enter_tried_to_report = true;
+
+    // per thread user data recides inside per-thread descriptor
+    tls->user_tls = user_tls;
+    tls->enter_reported = true;
+}
+
+void TEDevice::DettachMasterThread()
+{
+    TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
+    TBB_PerActiveThreadData* tls = thread_manager.RegisterAndGetCurrentThreadDescriptor();
+
+	tls->reset();
+	thread_manager.UnregisterCurrentThread();
+}
+
 void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
 {
     TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
@@ -477,6 +511,27 @@ void TEDevice::ResetObserver()
     OclAutoWriter  writer_lock( &(rootDevice->m_observerLock) );
     rootDevice->m_observer = NULL;
 }
+
+void TEDevice::SetObserver(ITaskExecutorObserver* pObserver)
+{
+    TEDevice* rootDevice = get_root();
+    {
+    	OclAutoWriter  writer_lock( &(rootDevice->m_observerLock) );
+	    if ( (NULL==pObserver) && (NULL != rootDevice->m_observer) )
+	    {
+	    	m_mainArena.observe(false);
+	    	m_numOfActiveThreads = 0;
+			rootDevice->m_observer = NULL;
+			return;
+	    }
+		
+       	rootDevice->m_observer = pObserver;
+    }
+	
+	// Looks a raise in this place, but since it's relevant only for MIC we don't have an issue
+    m_mainArena.observe(true);
+}
+
 
 SharedPtr<ITEDevice> TEDevice::CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_data ) 
 {

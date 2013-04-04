@@ -110,16 +110,20 @@ public:
     }
 
     // get TE Root Device
-    Intel::OpenCL::TaskExecutor::ITEDevice& getRootDevice() const { return *(m_RootDevice.GetPtr()); }
+    const SharedPtr<Intel::OpenCL::TaskExecutor::ITEDevice>& getRootDevice() const { return m_RootDevice; }
+    
+    // Allocate all nessary resources for the current calling thread
+    bool	ActivateCurrentMasterThread();
+    bool	DeactivateCurrentMasterThread();
 
     // get WGContext for the current thread if exists
     WGContext* findActiveWGContext();
 
     // ITaskExecutorObserver
     virtual void* OnThreadEntry();
-    virtual void  OnThreadExit( void* currentThreadData ) {}
-    virtual Intel::OpenCL::TaskExecutor::TE_BOOLEAN_ANSWER MayThreadLeaveDevice( void* currentThreadData ) 
-                { return Intel::OpenCL::TaskExecutor::TE_USE_DEFAULT; }
+    virtual void  OnThreadExit( void* currentThreadData );
+    
+    virtual Intel::OpenCL::TaskExecutor::TE_BOOLEAN_ANSWER MayThreadLeaveDevice( void* currentThreadData );
 
 #if (defined(ENABLE_TBB_TRACER) || defined(ENABLE_MIC_TBB_TRACER))
     /* Return current thread worker ID (worker ID of muster thread is always 0 and for worker thread >= 1). */
@@ -157,10 +161,11 @@ private:
     bool         m_useIgnoreLastCore;
     bool         m_useAffinity;
     bool         m_init_done;
+    volatile bool m_shut_down;
 
     CoreAffinityDescriptor m_cores[ MIC_NATIVE_MAX_CORES ];
     TaskExecutorCore       m_workerId_2_executorCore[ MIC_NATIVE_MAX_WORKER_THREADS ];
-    WGContext              m_contexts[ MIC_NATIVE_MAX_WORKER_THREADS ];
+    WGContext              m_contexts[ MIC_NATIVE_MAX_WORKER_THREADS]; // Context for Masters are allocated separatly
     
     // Global workers affinity mask 
     cpu_set_t m_globalWorkersAffinityMask;
@@ -182,6 +187,7 @@ private:
 #endif // #if (defined(ENABLE_TBB_TRACER) || defined(ENABLE_MIC_TBB_TRACER))        
 
     static ThreadPool* m_threadPool;
+    static __thread WGContext* m_tpMasterCtx;
 };
 
 }}}

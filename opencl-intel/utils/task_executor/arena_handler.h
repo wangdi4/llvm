@@ -171,6 +171,13 @@ public:
      */
     virtual void ResetObserver();
 
+
+    // Set observer for the TEDevice
+    virtual void SetObserver(ITaskExecutorObserver* pObserver);
+    
+    virtual void AttachMasterThread(void* user_tls);
+    virtual void DettachMasterThread();
+
     /**
 	 * Create Task Execution List to the given sub-device
 	 * @return pointer to the new list or NULL on error

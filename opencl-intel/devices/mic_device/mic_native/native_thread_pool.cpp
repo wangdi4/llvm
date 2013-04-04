@@ -37,6 +37,7 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::TaskExecutor;
 
 ThreadPool* ThreadPool::m_threadPool = NULL;
+__thread WGContext*	ThreadPool::m_tpMasterCtx = NULL;
 
 // 
 // CoreAffinityDescriptor
@@ -102,7 +103,7 @@ cpu_set_t CoreAffinityDescriptor::get_core_affinity_mask() const
 
 ThreadPool::ThreadPool() : 
     m_useNumberOfCores( MIC_NATIVE_MAX_CORES ), m_useThreadsPerCore( MIC_NATIVE_MAX_THREADS_PER_CORE ),m_numOfActivatedThreads(0),
-    m_useIgnoreFirstCore( false ), m_useIgnoreLastCore( false ), m_useAffinity(false), m_init_done( false ),
+    m_useIgnoreFirstCore( false ), m_useIgnoreLastCore( false ), m_useAffinity(false), m_init_done(false), m_shut_down(false),
     m_task_executor(NULL), m_RootDevice(NULL)
 {
     unsigned int i;
@@ -254,7 +255,6 @@ bool ThreadPool::init_base( bool use_affinity,
         if (0 != sched_getaffinity( 0, sizeof(m_globalWorkersAffinityMask), &m_globalWorkersAffinityMask))
         {
             //Report Error
-            printf("ThreadPool GetThreadAffinityMask error: %d\n", errno);
             assert( false && "sched_getaffinity returned error" );
             return false;
         }
@@ -332,7 +332,6 @@ bool ThreadPool::init(
     if (! init_base( use_affinity, number_of_cores, threads_per_core, ignore_first_core, ignore_last_core ))
     {
         //Report Error
-        printf("ThreadPool initialization failed\n");
         assert( false && "ThreadPool::init_base returned error" );
         return false;
     }
@@ -343,7 +342,6 @@ bool ThreadPool::init(
     if (NULL == m_task_executor)
     {
         //Report Error
-        printf("ThreadPool initialization failed - cannot create TaskExecutor\n");
         return false;
     }
 
@@ -415,6 +413,8 @@ bool ThreadPool::init(
         return false;        
     }
 
+    startup_all_workers();
+
     if (useAffinity())
     {
         // restore previous current thread affinity
@@ -427,8 +427,6 @@ bool ThreadPool::init(
         }
     }
 
-    startup_all_workers();
-    
     return true;    
 }
 
@@ -436,6 +434,10 @@ void ThreadPool::release()
 {
     if (NULL != m_task_executor)
     {
+    	//printf("Setback observers");
+    	m_shut_down = true;
+	    m_RootDevice->SetObserver(this);
+	    
         m_RootDevice->ShutDown();
         m_RootDevice->ResetObserver();
         m_RootDevice = NULL;
@@ -477,7 +479,13 @@ void* ThreadPool::OnThreadEntry()
         return NULL;
     }
 
-    WGContext* pCtx = &m_contexts[thread_idx];
+    WGContext* pCtx = m_task_executor->IsMaster() ? m_tpMasterCtx : &m_contexts[thread_idx];
+    assert (NULL != pCtx && "Referenced context is NULL");
+    if ( NULL == pCtx )
+    {
+    	return NULL;
+    }
+    
     pCtx->SetThreadId( thread_idx );
     pCtx->SetBelongsToMasterThread( isMaster );
 
@@ -490,14 +498,55 @@ void* ThreadPool::OnThreadEntry()
     }
 #endif // #if (defined(ENABLE_TBB_TRACER) || defined(ENABLE_MIC_TBB_TRACER))
 
-    return static_cast<WGContextBase*>(pCtx);
+    return pCtx;
+}
+
+// Allocate all nessary resources for the current calling thread
+bool ThreadPool::ActivateCurrentMasterThread()
+{
+	if ( NULL == m_tpMasterCtx )
+	{
+		WGContext* pCtx = new WGContext();
+		assert(NULL != pCtx && "Allocation of master WGContext failed");
+		m_tpMasterCtx = pCtx;
+		setCurrentThreadAffinity(0);
+		m_RootDevice->AttachMasterThread(pCtx);
+	}
+	
+	return (NULL != m_tpMasterCtx);
+}
+
+bool ThreadPool::DeactivateCurrentMasterThread()
+{
+	assert(NULL != m_tpMasterCtx && "Master context is not supposed to be NULL");
+	if ( NULL != m_tpMasterCtx )
+	{
+		m_RootDevice->DettachMasterThread();
+		delete m_tpMasterCtx;
+		m_tpMasterCtx = NULL;
+	}
+	
+	return true;
 }
 
 // get WGContext for the current thread if exists
 WGContext* ThreadPool::findActiveWGContext() 
 {
     unsigned int  thread_idx = m_task_executor->GetPosition();
-    return (TE_UNKNOWN == thread_idx) ? NULL : &m_contexts[thread_idx];
+    return (TE_UNKNOWN == thread_idx) ? NULL :
+    		m_task_executor->IsMaster() ? m_tpMasterCtx : &m_contexts[thread_idx];
+}
+
+void  ThreadPool::OnThreadExit( void* currentThreadData )
+{
+}
+
+Intel::OpenCL::TaskExecutor::TE_BOOLEAN_ANSWER ThreadPool::MayThreadLeaveDevice( void* currentThreadData )
+{
+	if ( !m_shut_down )
+		return Intel::OpenCL::TaskExecutor::TE_NO;
+	else
+		return Intel::OpenCL::TaskExecutor::TE_YES;
 }
 
 void ThreadPool::setCurrentThreadAffinity( unsigned int worker_id )
@@ -531,7 +580,6 @@ void ThreadPool::setCurrentThreadAffinity( unsigned int worker_id )
             if (0 != sched_setaffinity( 0, sizeof(affinity), &affinity))
             {
                 //Report Error
-                printf("ThreadPool::setCurrentThreadAffinity sched_setaffinity error: %d\n", errno);
                 assert( false && "ThreadPool::setCurrentThreadAffinity sched_setaffinity returned error" );
             }
             
@@ -562,7 +610,7 @@ public:
 	bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = NULL);
 
 	bool	Finish(FINISH_REASON reason) { m_completed = 1; return true; }
-    
+
 	// Returns true in case current task is a syncronization point
 	// No more tasks will be executed in this case
 	bool	CompleteAndCheckSyncPoint() { return false; }
@@ -573,6 +621,12 @@ public:
 
 	// Returns true if command is already completed
 	bool	IsCompleted() const { return (0 != m_completed); }
+
+	// Returns true if command is already completed
+	bool	IsAllWorkersJoined() const { return (1 == startup_workers_left); }
+	
+	// Master operation is ready, workers can be released
+	void	SetMasterReady() { startup_workers_left--; }
     
     // Releases task object, shall be called instead of delete operator.
     long    Release() { delete this; return 0; }
@@ -594,13 +648,13 @@ private:
 int WarmUpTask::Init(size_t region[], unsigned int& regCount)
 {
     regCount = 1;
-    region[0] = startup_workers_left;
+    region[0] = startup_workers_left-1;	// Less one for the master slot.
     return 0;
 }
 
 bool WarmUpTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext)
 {
-    long val = --startup_workers_left;
+    long val = startup_workers_left--;
     while (0 != startup_workers_left)
     {
         hw_pause();
@@ -615,17 +669,24 @@ void ThreadPool::startup_all_workers()
         return;
     }
 
-//  // ALERT!!! DK!!! do this only with switch to batching requests
-//	// Initialized only workers, don't include current worker thread	
-//    SharedPtr<ITaskSet> warmup_task = WarmUpTask::Allocate( m_numOfActivatedThreads-1 );
-//
-//    m_task_executor->Execute( warmup_task, m_RootDevice );
-
-    SharedPtr<ITaskList> list = m_RootDevice->CreateTaskList( TE_CMD_LIST_IMMEDIATE );
-    SharedPtr<ITaskSet> warmup_task = WarmUpTask::Allocate( m_numOfActivatedThreads );
+    SharedPtr<ITaskList> list = m_RootDevice->CreateTaskList( TE_CMD_LIST_IN_ORDER );
+    SharedPtr<WarmUpTask> warmup_task = WarmUpTask::Allocate( m_numOfActivatedThreads );
     list->Enqueue( warmup_task );
     list->Flush();
     
+    // Wait workers to join execution
+    while ( !warmup_task->IsAllWorkersJoined() )
+    {
+    	hw_pause();
+	}
+	
+	// All workers joined, now we can shutdown observer
+    m_RootDevice->SetObserver(NULL);
+    
+    // Workers might be released
+    warmup_task->SetMasterReady();
+    
+    // Wait until all workers completed
     while ( !warmup_task->IsCompleted() )
     {
     	hw_pause();

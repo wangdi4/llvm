@@ -53,8 +53,10 @@ extern "C" void ASM_FUNCTION  Intel::OpenCL::Utils::hw_cpuid(CPUID_PARAMS *param
 
 extern "C" void ASM_FUNCTION  Intel::OpenCL::Utils::hw_pause()
 {
-#ifndef KNC_CARD
-    __asm__ __volatile__ ("pause"); 
+#ifdef KNC_CARD
+	_mm_delay_32(100);
+#else
+    __asm__ __volatile__ ("pause");	
 #endif
 }
 

@@ -129,8 +129,10 @@ private:
 	// Print handle for this command.
 	PrintfHandle m_printHandle;
 
+#ifdef ENABLE_MIC_TRACER
     NDRangePerfData m_tbb_perf_data;
     friend class NDRangePerfData;
+#endif    
 };
 
 }}}
