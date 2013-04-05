@@ -292,70 +292,76 @@ OclBuiltinImpl all_f64_promote = OclBuiltinImpl<all, [v2f64, v3f64, v4f64],
   }]>;
 OclBuiltinImpl all_f64_expand = OclBuiltinImpl<all, [v16f64, v16u64, v16i64], 0, AllExpand>;
 
-// iselect
-code select_vector_v16 = [{
-    __m512i const_vector_msb = (__m512i)((int16)const_msb);
-    int16 c_reg = as_int16(sign_ext_from($Arg2VarName));
-    int16 a_reg = as_int16(ext_from($Arg0VarName));
-    int16 b_reg = as_int16(ext_from($Arg1VarName));
-    __m512i no_sign = _mm512_and_epi32((__m512i)(c_reg), const_vector_msb);
-    __mmask16 sel = _mm512_cmpeq_epi32(no_sign, const_vector_msb);
-    __m512i tempi = (__m512i)(a_reg);
-    tempi = _mm512_mask_or_epi32(tempi, sel, (__m512i)(b_reg), (__m512i)(b_reg));
-    return trunc_to_$NativeReturnType(as_int16(tempi));
+code select_native_vector = [{
+    $Arg0igentype ret =
+      __ocl_select_$ReturnSymigentype(as_$Arg0igentype($Arg0VarName),
+                                      as_$Arg1igentype($Arg1VarName),
+                                      as_$Arg2igentype($Arg2VarName));
+    return as_$ReturnType(ret);
   }];
-code select_vector_v8 = [{
-    int16 x_reg = as_int16(unpack_hi($Arg2VarName));
-    return as_$ReturnType(select(as_int16($Arg0VarName), as_int16($Arg1VarName), x_reg));
+
+code select_narrow_types = [{
+    $Arg0i32gentype arg0 = convert_$Arg0i32gentype($Arg0VarName);
+    $Arg1i32gentype arg1 = convert_$Arg1i32gentype($Arg1VarName);
+    $Arg2i32gentype arg2 = __ocl_sext_$Arg2Symigentype_$Arg2Symi32gentype(
+      as_$Arg2igentype($Arg2VarName));
+
+    $Returni32gentype ret = select(arg0, arg1, arg2);
+    return convert_$ReturnType(ret);
   }];
+
 code select_scalar = [{
     return $Arg2VarName?$Arg1VarName:$Arg0VarName;
   }];
-code select_scalar_i64 = [{
-    return $Arg2VarName?$Arg1VarName:$Arg0VarName;
-  }];
-code select_scalar_f32 = [{
-    return as_int($Arg2VarName)?$Arg1VarName:$Arg0VarName;
-  }];
-code select_scalar_f64 = [{
-    return as_long($Arg2VarName)?$Arg1VarName:$Arg0VarName;
-  }];
-OclBuiltinImpl iselect_scalar = OclBuiltinImpl<iselect, [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32],
+
+// iselect
+OclBuiltinImpl iselect_scalar = OclBuiltinImpl<iselect, [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64],
                                 0, select_scalar>;
-OclBuiltinImpl iselect_scalar_i64 = OclBuiltinImpl<iselect, [v1i64, v1u64],
-                                0, select_scalar_i64>;
-OclBuiltinImpl iselect_scalar_f32 = OclBuiltinImpl<iselect, [v1f32], 0, select_scalar_f32>;
-OclBuiltinImpl iselect_scalar_f64 = OclBuiltinImpl<iselect, [v1f64], 0, select_scalar_f64>;
-OclBuiltinImpl iselect_vector_v16 = OclBuiltinImpl<iselect, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32],
-                                    0, select_vector_v16>;
-OclBuiltinImpl iselect_vector_v8 = OclBuiltinImpl<iselect, [v8i64, v8u64, v8f64],
-                                    0, select_vector_v8>;
-OclBuiltinImpl iselect_v16_promote = OclBuiltinImpl<iselect, [v2i8, v3i8, v4i8, v8i8, v2u8, v3u8, v4u8, v8u8,
-                                                      v2i16, v3i16, v4i16, v8i16, v2u16, v3u16, v4u16, v8u16,
-                                                      v2i32, v3i32, v4i32, v8i32, v2u32, v3u32, v4u32, v8u32,
-                                                      v2i64, v3i64, v4i64, v2u64, v3u64, v4u64,
-                                                      v2f32, v3f32, v4f32, v8f32, v2f64, v3f64, v4f64],
-                                                      0, NonMaskPromote3>;
-OclBuiltinImpl iselect_f64_expand = OclBuiltinImpl<iselect, [v16f64, v16u64, v16i64], 0, Expand3>;
+OclBuiltinImpl iselect_native_vector = OclBuiltinImpl<iselect, [v16i32, v16u32, v16f32, v8i64, v8u64, v8f64],
+                                    0, select_native_vector>;
+
+OclBuiltinImpl iselect_expand_wide = OclBuiltinImpl<iselect, [v16f64, v16u64, v16i64], 0, Expand3>;
+
+OclBuiltinImpl iselect_promote = OclBuiltinImpl<iselect,
+                                               [v2i32, v3i32, v4i32, v8i32,
+                                                v2u32, v3u32, v4u32, v8u32,
+                                                v2f32, v3f32, v4f32, v8f32,
+                                                v2i64, v3i64, v4i64,
+                                                v2u64, v3u64, v4u64,
+                                                v2f64, v3f64, v4f64],
+                                                0, NonMaskPromote3>;
+
+OclBuiltinImpl iselect_narrow_types = OclBuiltinImpl<iselect,
+                                                    [v2i8, v3i8, v4i8, v8i8, v16i8,
+                                                     v2u8, v3u8, v4u8, v8u8, v16u8,
+                                                     v2i16, v3i16, v4i16, v8i16, v16i16,
+                                                     v2u16, v3u16, v4u16, v8u16, v16u16],
+                                                     0, select_narrow_types>;
 
 // uselect
-OclBuiltinImpl uselect_scalar = OclBuiltinImpl<uselect, [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32],
-                                              0, select_scalar>;
-OclBuiltinImpl uselect_scalar_i64 = OclBuiltinImpl<uselect, [v1i64, v1u64],
-                                              0, select_scalar_i64>;
-OclBuiltinImpl uselect_vector_v16 = OclBuiltinImpl<uselect, [ v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32],
-                                                  0, select_vector_v16>;
-OclBuiltinImpl uselect_vector_v8 = OclBuiltinImpl<uselect, [v8i64, v8u64, v8f64],
-                                                  0, select_vector_v8>;
-OclBuiltinImpl uselect_v16_promote = OclBuiltinImpl<uselect, [v2i8, v3i8, v4i8, v8i8, v2u8, v3u8, v4u8, v8u8,
-                                                      v2i16, v3i16, v4i16, v8i16, v2u16, v3u16, v4u16, v8u16,
-                                                      v2i32, v3i32, v4i32, v8i32, v2u32, v3u32, v4u32, v8u32,
-                                                      v2i64, v3i64, v4i64, v2u64, v3u64, v4u64,
-                                                      v2f32, v3f32, v4f32, v8f32, v2f64, v3f64, v4f64],
-                                                      0, NonMaskPromote3>;
-OclBuiltinImpl uselect_scalar_f32 = OclBuiltinImpl<uselect, [v1f32], 0, select_scalar_f32>;
-OclBuiltinImpl uselect_scalar_f64 = OclBuiltinImpl<uselect, [v1f64], 0, select_scalar_f64>;
-OclBuiltinImpl uselect_f64_expand = OclBuiltinImpl<uselect, [v16f64, v16u64, v16i64], 0, Expand3>;
+OclBuiltinImpl uselect_scalar = OclBuiltinImpl<uselect, [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64],
+                                0, select_scalar>;
+OclBuiltinImpl uselect_native_vector = OclBuiltinImpl<uselect, [v16i32, v16u32, v16f32, v8i64, v8u64, v8f64],
+                                    0, select_native_vector>;
+
+OclBuiltinImpl uselect_expand_wide = OclBuiltinImpl<uselect, [v16f64, v16u64, v16i64], 0, Expand3>;
+
+OclBuiltinImpl uselect_promote = OclBuiltinImpl<uselect,
+                                               [v2i32, v3i32, v4i32, v8i32,
+                                                v2u32, v3u32, v4u32, v8u32,
+                                                v2f32, v3f32, v4f32, v8f32,
+                                                v2i64, v3i64, v4i64,
+                                                v2u64, v3u64, v4u64,
+                                                v2f64, v3f64, v4f64],
+                                                0, NonMaskPromote3>;
+
+OclBuiltinImpl uselect_narrow_types = OclBuiltinImpl<uselect,
+                                                    [v2i8, v3i8, v4i8, v8i8, v16i8,
+                                                     v2u8, v3u8, v4u8, v8u8, v16u8,
+                                                     v2i16, v3i16, v4i16, v8i16, v16i16,
+                                                     v2u16, v3u16, v4u16, v8u16, v16u16],
+                                                     0, select_narrow_types>;
+
 
 // bitselect
 OclBuiltinImpl bitselect_scalar = OclBuiltinImpl<bitselect, [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64], 0, [{

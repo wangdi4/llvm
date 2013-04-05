@@ -44,3 +44,8 @@ let Types = [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
 def trunc_f32 : OclBuiltin<"__ocl_trunc_$Arg0Type_$ReturnType", (outs f32gentype:$ret), (ins gentype:$x), [], []>;
 }
+
+let Types = [v16i32, v8i64],
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
+def __ocl_select : OclBuiltin<"__ocl_select_$Arg0Symgentype", (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$c), [], []>;
+}
