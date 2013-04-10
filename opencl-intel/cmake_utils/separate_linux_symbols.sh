@@ -31,6 +31,11 @@ fi
 
 for f in `ls -B --hide="*.${symbolsSuffix}"`
 do
+    if [[ "${f}" =~ libtbb.* ]] ; then
+        #echo "Skipping tbb binary file $f"
+        continue;
+    fi
+
     mimetype=`file -bi $f`
     isLib=`echo "$mimetype" | grep -c "application/x-sharedlib"`
     isExe=`echo "$mimetype" | grep -c "application/x-executable"`
