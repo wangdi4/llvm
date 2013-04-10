@@ -391,21 +391,25 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
         spModule->setModuleIdentifier("RTLibrary");
     }
 
-	SetTargetTriple(spModule.get());
-	return spModule.release();
+  UpdateTargetTriple(spModule.get());
+  return spModule.release();
 
 }
 
-void SetTargetTriple(llvm::Module *pModule)
+void UpdateTargetTriple(llvm::Module *pModule)
 {
-    //Force ELF codegen, even on Windows.
-#if defined(_M_X64)
-    pModule->setTargetTriple( "x86_64-pc-win32-elf");
-#elif defined(__LP64__)
-    pModule->setTargetTriple( "x86_64-pc-linux");
-#else
-    pModule->setTargetTriple( "i686-pc-win32-elf");
-#endif
+  std::string triple = pModule->getTargetTriple();
+
+  //Force ELF codegen on Windows (MCJIT does not support COFF format)
+  if ((triple.find("win32") != std::string::npos)
+        && triple.find("-elf") == std::string::npos) {
+    pModule->setTargetTriple(triple + "-elf");    // transforms:
+                                                  // x86_64-pc-win32
+                                                  // i686-pc-win32
+                                                  // to:
+                                                  // x86_64-pc-win32-elf
+                                                  // i686-pc-win32-elf
+  }
 }
 
 }}}

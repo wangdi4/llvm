@@ -247,6 +247,6 @@ private:
 
 };
 
-void SetTargetTriple(llvm::Module *pModule);
+void UpdateTargetTriple(llvm::Module *pModule);
 
 }}}

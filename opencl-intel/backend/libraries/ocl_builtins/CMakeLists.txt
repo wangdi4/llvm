@@ -144,7 +144,7 @@ else (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
     set    (TRIPLE i686-pc-Linux)
   else ()
-    set (TRIPLE amd64)
+     set (TRIPLE x86_64-pc-linux)
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4) 
 endif (WIN32)
 
@@ -169,6 +169,12 @@ set (CLANG_LLVM_INCLUDE_DIRS)
 foreach( LLVM_INCLUDE_DIR_ITEM ${LLVM_INCLUDE_DIR} )
 	set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${LLVM_INCLUDE_DIR_ITEM})
 endforeach( LLVM_INCLUDE_DIR_ITEM)
+
+# Adding include path for "micintrin.h", "micintrin_mici64ext.h"
+if(INCLUDE_MIC_DEVICE)
+  set(MIC_HEADERS_DIR ${LLVM_LIBRARY_DIR}/clang/3.2/include)
+  set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${MIC_HEADERS_DIR})
+endif(INCLUDE_MIC_DEVICE)
 
 set (CLANG_COMPILER_PARAMS 
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -O3 -opencl-builtins -fwrapv
