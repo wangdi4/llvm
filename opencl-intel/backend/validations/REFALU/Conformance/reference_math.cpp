@@ -186,7 +186,7 @@ namespace Conformance
     double reference_atan2pi( double y, double x ) { return reference_atan2( y, x) / M_PI; }
     double reference_cospi( double x)
     {
-        if( reference_fabs(x) >= MAKE_HEX_DOUBLE(0x1.0p52, 0x1LL, 52) )
+        if( reference_fabs(x) >= HEX_DBL( +, 1, 0, +, 52 ) )
         {
             if( reference_fabs(x) == INFINITY )
                 return cl_make_nan();
@@ -1774,7 +1774,7 @@ namespace Conformance
     long double reference_atan2pil( long double y, long double x){ return reference_atan2l( y, x) / M_PIL; }
     long double reference_cospil( long double x)
     {
-        if( reference_fabsl(x) >= MAKE_HEX_LONG(0x1.0p54L, 0x1LL, 54) )
+        if( reference_fabsl(x) >= HEX_LDBL( +, 1, 0, +, 54 ) )
         {
             if( reference_fabsl(x) == INFINITY )
                 return cl_make_nan();
@@ -1785,7 +1785,52 @@ namespace Conformance
             return 1.0L;
         }
 
-        x = reduce1l(x+0.5L);
+        x = reduce1l(x);     
+
+#if DBL_MANT_DIG >= LDBL_MANT_DIG  
+
+        // phase adjust
+        double xhi = 0.0;
+        double xlo = 0.0;
+        xhi = (double) x + 0.5;
+
+        if(reference_fabsl(x) > 0.5L)
+        {
+            xlo = xhi - x;
+            xlo = 0.5 - xlo;
+        }
+        else
+        {
+            xlo = xhi - 0.5;
+            xlo = x - xlo;
+        }
+
+        // reduce to [-0.5, 0.5]
+        if( xhi < -0.5 )
+        {
+            xhi = -1.0 - xhi;
+            xlo = -xlo;
+        }
+        else if ( xhi > 0.5 )
+        {
+            xhi = 1.0 - xhi;
+            xlo = -xlo;
+        } 
+
+        // cosPi zeros are all +0
+        if( xhi == 0.0 && xlo == 0.0 )
+            return 0.0;
+
+        xhi *= M_PI;
+        xlo *= M_PI;
+
+        xhi += xlo;
+
+        return reference_sinl( xhi );
+
+#else
+        // phase adjust
+        x += 0.5L;
 
         // reduce to [-0.5, 0.5]
         if( x < -0.5L )
@@ -1797,7 +1842,8 @@ namespace Conformance
         if( x == 0.0L )
             return 0.0L;
 
-        return reference_sinl( x * M_PIL );
+        return reference_sinl( x * M_PIL );   
+#endif    
     }
 
     long double reference_dividel( long double x, long double y)
@@ -1820,8 +1866,302 @@ namespace Conformance
         return res;
     }
 
-    long double reference_exp10l( long double x ){   return reference_exp2l( x * (long double)MAKE_HEX_LONG(0xd.49a784bcd1b8afep-2L, 0xd49a784bcd1b8afeLL, -62) );    }
 
+    typedef struct{ double hi, lo; } double_double;
+    // Split doubles_double into a series of consecutive 26-bit precise doubles and a remainder.
+    // Note for later -- for multiplication, it might be better to split each double into a power of two and two 26 bit portions
+    //                      multiplication of a double double by a known power of two is cheap. The current approach causes some inexact arithmetic in mul_dd.
+    static inline void split_dd( double_double x, double_double *hi, double_double *lo )
+    {
+        union{ double d; cl_ulong u;}u;
+        u.d = x.hi;
+        u.u &= 0xFFFFFFFFF8000000ULL;
+        hi->hi = u.d;
+        x.hi -= u.d;
+
+        u.d = x.hi;
+        u.u &= 0xFFFFFFFFF8000000ULL;
+        hi->lo = u.d;
+        x.hi -= u.d;
+
+        double temp = x.hi;
+        x.hi += x.lo;
+        x.lo -= x.hi - temp;
+        u.d = x.hi;
+        u.u &= 0xFFFFFFFFF8000000ULL;
+        lo->hi = u.d;
+        x.hi -= u.d;
+
+        lo->lo = x.hi + x.lo;
+    }
+
+    static inline double_double accum_d( double_double a, double b )
+    {
+        double temp;
+        if( fabs(b) > fabs(a.hi) )
+        {
+            temp = a.hi;
+            a.hi += b;
+            a.lo += temp - (a.hi - b);
+        }
+        else 
+        {
+            temp = a.hi;
+            a.hi += b;
+            a.lo += b - (a.hi - temp);
+        }
+
+        if( isnan( a.lo ) )
+            a.lo = 0.0;
+
+        return a;
+    }
+
+    static inline double_double add_dd( double_double a, double_double b )
+    {
+        double_double r = {-0.0, -0.0 };
+
+        if( isinf(a.hi) || isinf( b.hi )  ||
+            isnan(a.hi) || isnan( b.hi )  ||
+            0.0 == a.hi || 0.0 == b.hi )
+        {
+            r.hi = a.hi + b.hi;
+            r.lo = a.lo + b.lo;
+            if( isnan( r.lo ) )
+                r.lo = 0.0;
+            return r;
+        }
+
+        //merge sort terms by magnitude -- here we assume that |a.hi| > |a.lo|, |b.hi| > |b.lo|, so we don't have to do the first merge pass
+        double terms[4] = { a.hi, b.hi, a.lo, b.lo };
+        double temp;
+
+        //Sort hi terms
+        if( fabs(terms[0]) < fabs(terms[1]) )
+        {
+            temp = terms[0];
+            terms[0] = terms[1];
+            terms[1] = temp;
+        }
+        //sort lo terms
+        if( fabs(terms[2]) < fabs(terms[3]) )
+        {
+            temp = terms[2];
+            terms[2] = terms[3];
+            terms[3] = temp;
+        }
+        // Fix case where small high term is less than large low term
+        if( fabs(terms[1]) < fabs(terms[2]) )
+        {
+            temp = terms[1];
+            terms[1] = terms[2];
+            terms[2] = temp;
+        }
+
+        // accumulate the results
+        r.hi = terms[2] + terms[3];
+        r.lo = terms[3] - (r.hi - terms[2]);
+
+        temp = r.hi;
+        r.hi += terms[1];
+        r.lo += temp - (r.hi - terms[1]);
+
+        temp = r.hi;
+        r.hi += terms[0];
+        r.lo += temp - (r.hi - terms[0]);
+
+        // canonicalize the result
+        temp = r.hi;
+        r.hi += r.lo;
+        r.lo = r.lo - (r.hi - temp);
+        if( isnan( r.lo ) )
+            r.lo = 0.0;
+
+        return r;
+    }
+
+    static inline double_double mul_dd( double_double a, double_double b )
+    {
+        double_double result = {-0.0,-0.0};
+
+        // Inf, nan and 0
+        if( isnan( a.hi ) || isnan( b.hi ) || 
+            isinf( a.hi ) || isinf( b.hi ) || 
+            0.0 == a.hi || 0.0 == b.hi )
+        {
+            result.hi = a.hi * b.hi;
+            return result;
+        }
+
+        double_double ah, al, bh, bl;
+        split_dd( a, &ah, &al );
+        split_dd( b, &bh, &bl );
+
+        double p0 = ah.hi * bh.hi;        // exact    (52 bits in product) 0
+        double p1 = ah.hi * bh.lo;        // exact    (52 bits in product) 26
+        double p2 = ah.lo * bh.hi;        // exact    (52 bits in product) 26
+        double p3 = ah.lo * bh.lo;        // exact    (52 bits in product) 52
+        double p4 = al.hi * bh.hi;        // exact    (52 bits in product) 52
+        double p5 = al.hi * bh.lo;        // exact    (52 bits in product) 78
+        double p6 = al.lo * bh.hi;        // inexact  (54 bits in product) 78
+        double p7 = al.lo * bh.lo;        // inexact  (54 bits in product) 104
+        double p8 = ah.hi * bl.hi;        // exact    (52 bits in product) 52
+        double p9 = ah.hi * bl.lo;        // inexact  (54 bits in product) 78
+        double pA = ah.lo * bl.hi;        // exact    (52 bits in product) 78
+        double pB = ah.lo * bl.lo;        // inexact  (54 bits in product) 104
+        double pC = al.hi * bl.hi;        // exact    (52 bits in product) 104
+        // the last 3 terms are two low to appear in the result
+
+
+        // accumulate from bottom up
+        // take advantage of the known relative magnitudes of the partial products to avoid some sorting
+        // Combine 2**-78 and 2**-104 terms. Here we are a bit sloppy about canonicalizing the double_doubles
+        double_double t0 = { pA, pC };
+        double_double t1 = { p9, pB };
+        double_double t2 = { p6, p7 };
+        double temp0, temp1, temp2;
+
+        t0 = accum_d( t0, p5 );  // there is an extra 2**-78 term to deal with
+
+        // Add in 2**-52 terms. Here we are a bit sloppy about canonicalizing the double_doubles
+        temp0 = t0.hi;      temp1 = t1.hi;      temp2 = t2.hi;
+        t0.hi += p3;        t1.hi += p4;        t2.hi += p8;
+        temp0 -= t0.hi-p3;  temp1 -= t1.hi-p4;  temp2 -= t2.hi - p8;
+        t0.lo += temp0;     t1.lo += temp1;     t2.lo += temp2;
+
+        // Add in 2**-26 terms. Here we are a bit sloppy about canonicalizing the double_doubles
+        temp1 = t1.hi;      temp2 = t2.hi;
+        t1.hi += p1;        t2.hi += p2;
+        temp1 -= t1.hi-p1;  temp2 -= t2.hi - p2;
+        t1.lo += temp1;     t2.lo += temp2;
+
+        // Combine accumulators to get the low bits of result
+        t1 = add_dd( t1, add_dd( t2, t0 ) );
+
+        // Add in MSB's, and round to precision
+        return accum_d( t1, p0 );  // canonicalizes
+
+    }
+
+
+    long double reference_exp10l( long double z )
+    {
+        const double_double log2_10 = { HEX_DBL( +, 1, a934f0979a371, +, 1 ), HEX_DBL( +, 1, 7f2495fb7fa6d, -, 53 ) };
+        double_double x;
+        int j;
+
+        if(sizeof(double)==sizeof(long double))
+            throw;
+        // Handle NaNs
+        if( isnan(z) )
+            return z;
+
+        // init x
+        x.hi = z;
+        x.lo = z - x.hi;
+
+
+        // 10**x = exp2( x * log2(10) )
+
+        x = mul_dd( x, log2_10);    // x * log2(10)
+
+        //Deal with overflow and underflow for exp2(x) stage next
+        if( x.hi >= 1025 )
+            return INFINITY;
+
+        if( x.hi < -1075-24 )
+            return +0.0;
+
+        // find nearest integer to x
+        int i = (int) rint(x.hi);
+
+        // x now holds fractional part.  The result would be then 2**i  * exp2( x )
+        x.hi -= i;
+
+        // We could attempt to find a minimax polynomial for exp2(x) over the range x = [-0.5, 0.5].
+        // However, this would converge very slowly near the extrema, where 0.5**n is not a lot different
+        // from 0.5**(n+1), thereby requiring something like a 20th order polynomial to get 53 + 24 bits 
+        // of precision. Instead we further reduce the range to [-1/32, 1/32] by observing that 
+        //
+        //  2**(a+b) = 2**a * 2**b
+        //
+        // We can thus build a table of 2**a values for a = n/16, n = [-8, 8], and reduce the range
+        // of x to [-1/32, 1/32] by subtracting away the nearest value of n/16 from x.
+        const double_double corrections[17] = 
+        {
+            { HEX_DBL( +, 1, 6a09e667f3bcd, -, 1 ), HEX_DBL( -, 1, bdd3413b26456, -, 55 ) },
+            { HEX_DBL( +, 1, 7a11473eb0187, -, 1 ), HEX_DBL( -, 1, 41577ee04992f, -, 56 ) },
+            { HEX_DBL( +, 1, 8ace5422aa0db, -, 1 ), HEX_DBL( +, 1, 6e9f156864b27, -, 55 ) },
+            { HEX_DBL( +, 1, 9c49182a3f09,  -, 1 ), HEX_DBL( +, 1, c7c46b071f2be, -, 57 ) },
+            { HEX_DBL( +, 1, ae89f995ad3ad, -, 1 ), HEX_DBL( +, 1, 7a1cd345dcc81, -, 55 ) },
+            { HEX_DBL( +, 1, c199bdd85529c, -, 1 ), HEX_DBL( +, 1, 11065895048dd, -, 56 ) },
+            { HEX_DBL( +, 1, d5818dcfba487, -, 1 ), HEX_DBL( +, 1, 2ed02d75b3707, -, 56 ) },
+            { HEX_DBL( +, 1, ea4afa2a490da, -, 1 ), HEX_DBL( -, 1, e9c23179c2893, -, 55 ) },
+            { HEX_DBL( +, 1, 0,             +, 0 ), HEX_DBL( +, 0, 0,             +,  0 ) },
+            { HEX_DBL( +, 1, 0b5586cf9890f, +, 0 ), HEX_DBL( +, 1, 8a62e4adc610b, -, 54 ) },
+            { HEX_DBL( +, 1, 172b83c7d517b, +, 0 ), HEX_DBL( -, 1, 19041b9d78a76, -, 55 ) },
+            { HEX_DBL( +, 1, 2387a6e756238, +, 0 ), HEX_DBL( +, 1, 9b07eb6c70573, -, 54 ) },
+            { HEX_DBL( +, 1, 306fe0a31b715, +, 0 ), HEX_DBL( +, 1, 6f46ad23182e4, -, 55 ) },
+            { HEX_DBL( +, 1, 3dea64c123422, +, 0 ), HEX_DBL( +, 1, ada0911f09ebc, -, 55 ) },
+            { HEX_DBL( +, 1, 4bfdad5362a27, +, 0 ), HEX_DBL( +, 1, d4397afec42e2, -, 56 ) },
+            { HEX_DBL( +, 1, 5ab07dd485429, +, 0 ), HEX_DBL( +, 1, 6324c054647ad, -, 54 ) },
+            { HEX_DBL( +, 1, 6a09e667f3bcd, +, 0 ), HEX_DBL( -, 1, bdd3413b26456, -, 54 ) }
+
+        };
+        int index = (int) rint( x.hi * 16.0 );
+        x.hi -= (double) index * 0.0625;
+
+        // canonicalize x
+        double temp = x.hi;
+        x.hi += x.lo;
+        x.lo -= x.hi - temp;
+
+        // Minimax polynomial for (exp2(x)-1)/x, over the range [-1/32, 1/32].  Max Error: 2 * 0x1.e112p-87
+        const double_double c[] = {
+            {HEX_DBL( +, 1, 62e42fefa39ef, -,  1 ), HEX_DBL( +, 1, abc9e3ac1d244, -, 56 )}, 
+            {HEX_DBL( +, 1, ebfbdff82c58f, -,  3 ), HEX_DBL( -, 1, 5e4987a631846, -, 57 )}, 
+            {HEX_DBL( +, 1, c6b08d704a0c,  -,  5 ), HEX_DBL( -, 1, d323200a05713, -, 59 )}, 
+            {HEX_DBL( +, 1, 3b2ab6fba4e7a, -,  7 ), HEX_DBL( +, 1, c5ee8f8b9f0c1, -, 63 )}, 
+            {HEX_DBL( +, 1, 5d87fe78a672a, -, 10 ), HEX_DBL( +, 1, 884e5e5cc7ecc, -, 64 )}, 
+            {HEX_DBL( +, 1, 430912f7e8373, -, 13 ), HEX_DBL( +, 1, 4f1b59514a326, -, 67 )}, 
+            {HEX_DBL( +, 1, ffcbfc5985e71, -, 17 ), HEX_DBL( -, 1, db7d6a0953b78, -, 71 )}, 
+            {HEX_DBL( +, 1, 62c150eb16465, -, 20 ), HEX_DBL( +, 1, e0767c2d7abf5, -, 80 )}, 
+            {HEX_DBL( +, 1, b52502b5e953,  -, 24 ), HEX_DBL( +, 1, 6797523f944bc, -, 78 )}
+        };
+        size_t count = sizeof( c ) / sizeof( c[0] );
+
+        // Do polynomial
+        double_double r = c[count-1];
+        for( j = (int) count-2; j >= 0; j-- )
+            r = add_dd( c[j], mul_dd( r, x ) );
+
+        // unwind approximation
+        r = mul_dd( r, x );     // before: r =(exp2(x)-1)/x;   after: r = exp2(x) - 1
+
+        // correct for [-0.5, 0.5] -> [-1/32, 1/32] reduction above
+        //  exp2(x) = (r + 1) * correction = r * correction + correction
+        r = mul_dd( r, corrections[index+8] );
+        r = add_dd( r, corrections[index+8] );
+
+        // Format result for output:
+
+        // Get mantissa
+        long double m = ((long double) r.hi + (long double) r.lo );
+
+        // Handle a pesky overflow cases when long double = double
+        if( i > 512 )
+        {
+            m *=  HEX_DBL( +, 1, 0, +, 512 );
+            i -= 512;
+        }
+        else if( i < -512 )
+        {
+            m *= HEX_DBL( +, 1, 0, -, 512 );
+            i += 512;
+        }
+
+        return m * CimathLibd::imf_ldexp( 1.0L, i );
+    }
 
     // Assumes zeros, infinities and NaNs handed elsewhere
     static inline int extract( double x, cl_ulong *mant );
@@ -3981,17 +4321,22 @@ namespace Conformance
 
         //Prepare a head + tail representation of PI in long double.  A good compiler should get rid of all of this work.
         static const cl_ulong pi_bits[2] = { 0x3243F6A8885A308DULL, 0x313198A2E0370734ULL};  // first 126 bits of pi http://www.super-computing.org/pi-hexa_current.html
-        long double head, tail/*, temp*/;
-
-        long double temp;
+        long double head, tail, temp;
+#if __LDBL_MANT_DIG__ >= 64 
         // long double has 64-bits of precision or greater
-        temp = (long double) pi_bits[0] * CimathLibd::imf_ldexp(1.0L, 64);
+        temp = (long double) pi_bits[0] * HEX_LDBL(+, 1, 0, +, 64);//0x1.0p64L;
         head = temp + (long double) pi_bits[1];
         temp -= head;           // rounding err rounding pi_bits[1] into head
-        tail = (long double) pi_bits[1] + temp;
-        head *= CimathLibd::imf_ldexp( 1.0L, -125 );
-        tail *= CimathLibd::imf_ldexp( 1.0L, -125 );
-
+        tail = (long double) pi_bits[1] + temp; 
+        head *= HEX_LDBL( +, 1, 0, -, 125 );
+        tail *= HEX_LDBL( +, 1, 0, -, 125 );
+#else
+        head = (long double) pi_bits[0];
+        tail = (long double) ((cl_long) pi_bits[0] - (cl_long) head );       // residual part of pi_bits[0] after rounding
+        tail = tail * HEX_LDBL( +, 1, 0, +, 64 ) + (long double) pi_bits[1];
+        head *= HEX_LDBL( +, 1, 0, -, 61 );
+        tail *= HEX_LDBL( +, 1, 0, -, 125 );
+#endif
 
         // oversize values and NaNs go to NaN
         if( ! (x2 <= 1.0) )
@@ -4011,7 +4356,7 @@ namespace Conformance
             head -= head * sign;        // x > 0 ? 0 : pi.hi
             tail -= tail * sign;        // x > 0 ? 0 : pi.low
 
-            // z = sqrt( 1-x**2 ) / (1+x) = sqrt( (1-x)(1+x) / (1+x)**2 ) = sqrt( (1-x)/(1+x) )
+            // z = sqrt( 1-x**2 ) / (1+x) = sqrt( (1-x)(1+x) / (1+x)**2 ) = sqrt( (1-x)/(1+x) ) 
             long double z2 = (1.0L - fabsx) / (1.0L + fabsx);   // z**2
             long double z = sign * CimathLibd::imf_sqrt(z2);
 
@@ -4020,15 +4365,15 @@ namespace Conformance
             //                        sqrt(q)
             //
             // Define q = r*r, and solve for atan(r):
-            //
+            // 
             //  atan(r) = (p(r) + 1) * r = rp(r) + r
-            static long double atan_coeffs[] = { -MAKE_HEX_LONG( 0xb.3f52e0c278293b3p-67L, 0xb3f52e0c278293b3ULL, -127 ), -MAKE_HEX_LONG( 0xa.aaaaaaaaaaa95b8p-5L, 0xaaaaaaaaaaaa95b8ULL, -65 ),
-                                                  MAKE_HEX_LONG( 0xc.ccccccccc992407p-6L, 0xcccccccccc992407ULL, -66 ), -MAKE_HEX_LONG( 0x9.24924923024398p-6L, 0x9249249230243980ULL, -66 ),
-                                                  MAKE_HEX_LONG( 0xe.38e38d6f92c98f3p-7L, 0xe38e38d6f92c98f3ULL, -67 ), -MAKE_HEX_LONG( 0xb.a2e89bfb8393ec6p-7L, 0xba2e89bfb8393ec6ULL, -67 ),
-                                                  MAKE_HEX_LONG( 0x9.d89a9f574d412cbp-7L, 0x9d89a9f574d412cbULL, -67 ), -MAKE_HEX_LONG( 0x8.88580517884c547p-7L, 0x888580517884c547ULL, -67 ),
-                                                  MAKE_HEX_LONG( 0xf.0ab6756abdad408p-8L, 0xf0ab6756abdad408ULL, -68 ), -MAKE_HEX_LONG( 0xd.56a5b07a2f15b49p-8L, 0xd56a5b07a2f15b49ULL, -68 ),
-                                                  MAKE_HEX_LONG( 0xb.72ab587e46d80b2p-8L, 0xb72ab587e46d80b2ULL, -68 ), -MAKE_HEX_LONG( 0x8.62ea24bb5b2e636p-8L, 0x862ea24bb5b2e636ULL, -68 ),
-                                                  MAKE_HEX_LONG( 0xe.d67c16582123937p-10L, 0xed67c16582123937ULL, -70 ) }; // minimax fit over [ 0x1.0p-52, 0.18]   Max error:  0x1.67ea5c184e5d9p-64
+            static long double atan_coeffs[] = { HEX_LDBL( -, b, 3f52e0c278293b3, -, 67 ), HEX_LDBL( -, a, aaaaaaaaaaa95b8, -, 5 ),
+                HEX_LDBL( +, c, ccccccccc992407, -,  6 ), HEX_LDBL( -, 9, 24924923024398,  -, 6 ),
+                HEX_LDBL( +, e, 38e38d6f92c98f3, -,  7 ), HEX_LDBL( -, b, a2e89bfb8393ec6, -, 7 ),
+                HEX_LDBL( +, 9, d89a9f574d412cb, -,  7 ), HEX_LDBL( -, 8, 88580517884c547, -, 7 ),
+                HEX_LDBL( +, f, 0ab6756abdad408, -,  8 ), HEX_LDBL( -, d, 56a5b07a2f15b49, -, 8 ),
+                HEX_LDBL( +, b, 72ab587e46d80b2, -,  8 ), HEX_LDBL( -, 8, 62ea24bb5b2e636, -, 8 ),
+                HEX_LDBL( +, e, d67c16582123937, -, 10 ) }; // minimax fit over [ 0x1.0p-52, 0.18]   Max error:  0x1.67ea5c184e5d9p-64
 
             // Calculate y = p(r)
             const size_t atan_coeff_count = sizeof( atan_coeffs ) / sizeof( atan_coeffs[0] );
@@ -4044,7 +4389,7 @@ namespace Conformance
 
         // do |x| <= sqrt(0.5) here
         //                                                     acos( sqrt(z) ) - PI/2
-        //  Piecewise minimax polynomial fits for p(z) = 1 + ------------------------;
+        //  Piecewise minimax polynomial fits for p(z) = 1 + ------------------------;     
         //                                                            sqrt(z)
         //
         //  Define z = x*x, and solve for acos(x) over x in  x >= 0:
@@ -4052,40 +4397,40 @@ namespace Conformance
         //      acos( sqrt(z) ) = acos(x) = x*(p(z)-1) + PI/2 = xp(x**2) - x + PI/2
         //
         const long double coeffs[4][14] = {
-                                        { -MAKE_HEX_LONG( 0xa.fa7382e1f347974p-10L, 0xafa7382e1f347974ULL, -70 ), -MAKE_HEX_LONG( 0xb.4d5a992de1ac4dap-6L, 0xb4d5a992de1ac4daULL, -66 ),
-                                          -MAKE_HEX_LONG( 0xa.c526184bd558c17p-7L, 0xac526184bd558c17ULL, -67 ), -MAKE_HEX_LONG( 0xd.9ed9b0346ec092ap-8L, 0xd9ed9b0346ec092aULL, -68 ),
-                                          -MAKE_HEX_LONG( 0x9.dca410c1f04b1fp-8L, 0x9dca410c1f04b1f0ULL, -68 ), -MAKE_HEX_LONG( 0xf.76e411ba9581ee5p-9L, 0xf76e411ba9581ee5ULL, -69 ),
-                                          -MAKE_HEX_LONG( 0xc.c71b00479541d8ep-9L, 0xcc71b00479541d8eULL, -69 ), -MAKE_HEX_LONG( 0xa.f527a3f9745c9dep-9L, 0xaf527a3f9745c9deULL, -69 ),
-                                          -MAKE_HEX_LONG( 0x9.a93060051f48d14p-9L, 0x9a93060051f48d14ULL, -69 ), -MAKE_HEX_LONG( 0x8.b3d39ad70e06021p-9L, 0x8b3d39ad70e06021ULL, -69 ),
-                                          -MAKE_HEX_LONG( 0xf.f2ab95ab84f79cp-10L, 0xff2ab95ab84f79c0ULL, -70 ), -MAKE_HEX_LONG( 0xe.d1af5f5301ccfe4p-10L, 0xed1af5f5301ccfe4ULL, -70 ),
-                                          -MAKE_HEX_LONG( 0xe.1b53ba562f0f74ap-10L, 0xe1b53ba562f0f74aULL, -70 ), -MAKE_HEX_LONG( 0xd.6a3851330e15526p-10L, 0xd6a3851330e15526ULL, -70 ) },  // x - 0.0625 in [ -0x1.fffffffffp-5, 0x1.0p-4 ]    Error: 0x1.97839bf07024p-76
+            { HEX_LDBL( -, a, fa7382e1f347974, -, 10 ), HEX_LDBL( -, b, 4d5a992de1ac4da, -,  6 ),
+            HEX_LDBL( -, a, c526184bd558c17, -,  7 ), HEX_LDBL( -, d, 9ed9b0346ec092a, -,  8 ),
+            HEX_LDBL( -, 9, dca410c1f04b1f,  -,  8 ), HEX_LDBL( -, f, 76e411ba9581ee5, -,  9 ),
+            HEX_LDBL( -, c, c71b00479541d8e, -,  9 ), HEX_LDBL( -, a, f527a3f9745c9de, -,  9 ),
+            HEX_LDBL( -, 9, a93060051f48d14, -,  9 ), HEX_LDBL( -, 8, b3d39ad70e06021, -,  9 ),
+            HEX_LDBL( -, f, f2ab95ab84f79c,  -, 10 ), HEX_LDBL( -, e, d1af5f5301ccfe4, -, 10 ),
+            HEX_LDBL( -, e, 1b53ba562f0f74a, -, 10 ), HEX_LDBL( -, d, 6a3851330e15526, -, 10 ) },  // x - 0.0625 in [ -0x1.fffffffffp-5, 0x1.0p-4 ]    Error: 0x1.97839bf07024p-76
 
-                                        { -MAKE_HEX_LONG( 0x8.c2f1d638e4c1b48p-8L, 0x8c2f1d638e4c1b48ULL, -68 ), -MAKE_HEX_LONG( 0xc.d47ac903c311c2cp-6L, 0xcd47ac903c311c2cULL, -66 ),
-                                          -MAKE_HEX_LONG( 0xd.e020b2dabd5606ap-7L, 0xde020b2dabd5606aULL, -67 ), -MAKE_HEX_LONG( 0xa.086fafac220f16bp-7L, 0xa086fafac220f16bULL, -67 ),
-                                          -MAKE_HEX_LONG( 0x8.55b5efaf6b86c3ep-7L, 0x855b5efaf6b86c3eULL, -67 ), -MAKE_HEX_LONG( 0xf.05c9774fed2f571p-8L, 0xf05c9774fed2f571ULL, -68 ),
-                                          -MAKE_HEX_LONG( 0xe.484a93f7f0fc772p-8L, 0xe484a93f7f0fc772ULL, -68 ), -MAKE_HEX_LONG( 0xe.1a32baef01626e4p-8L, 0xe1a32baef01626e4ULL, -68 ),
-                                          -MAKE_HEX_LONG( 0xe.528e525b5c9c73dp-8L, 0xe528e525b5c9c73dULL, -68 ), -MAKE_HEX_LONG( 0xe.ddd5d27ad49b2c8p-8L, 0xeddd5d27ad49b2c8ULL, -68 ),
-                                          -MAKE_HEX_LONG( 0xf.b3259e7ae10c6fp-8L, 0xfb3259e7ae10c6f0ULL, -68 ), -MAKE_HEX_LONG( 0x8.68998170d5b19b7p-7L, 0x868998170d5b19b7ULL, -67 ),
-                                          -MAKE_HEX_LONG( 0x9.4468907f007727p-7L, 0x94468907f0077270ULL, -67 ), -MAKE_HEX_LONG( 0xa.2ad5e4906a8e7b3p-7L, 0xa2ad5e4906a8e7b3ULL, -67 ) },// x - 0.1875 in [ -0x1.0p-4, 0x1.0p-4 ]    Error: 0x1.647af70073457p-73
+            { HEX_LDBL( -, 8, c2f1d638e4c1b48, -,  8 ), HEX_LDBL( -, c, d47ac903c311c2c, -,  6 ),
+            HEX_LDBL( -, d, e020b2dabd5606a, -,  7 ), HEX_LDBL( -, a, 086fafac220f16b, -,  7 ),
+            HEX_LDBL( -, 8, 55b5efaf6b86c3e, -,  7 ), HEX_LDBL( -, f, 05c9774fed2f571, -,  8 ),
+            HEX_LDBL( -, e, 484a93f7f0fc772, -,  8 ), HEX_LDBL( -, e, 1a32baef01626e4, -,  8 ),
+            HEX_LDBL( -, e, 528e525b5c9c73d, -,  8 ), HEX_LDBL( -, e, ddd5d27ad49b2c8, -,  8 ),
+            HEX_LDBL( -, f, b3259e7ae10c6f,  -,  8 ), HEX_LDBL( -, 8, 68998170d5b19b7, -,  7 ),
+            HEX_LDBL( -, 9, 4468907f007727,  -,  7 ), HEX_LDBL( -, a, 2ad5e4906a8e7b3, -,  7 ) },// x - 0.1875 in [ -0x1.0p-4, 0x1.0p-4 ]    Error: 0x1.647af70073457p-73
 
-                                        { -MAKE_HEX_LONG( 0xf.a76585ad399e7acp-8L, 0xfa76585ad399e7acULL, -68 ), -MAKE_HEX_LONG( 0xe.d665b7dd504ca7cp-6L, 0xed665b7dd504ca7cULL, -66 ),
-                                          -MAKE_HEX_LONG( 0x9.4c7c2402bd4bc33p-6L, 0x94c7c2402bd4bc33ULL, -66 ), -MAKE_HEX_LONG( 0xf.ba76b69074ff71cp-7L, 0xfba76b69074ff71cULL, -67 ),
-                                          -MAKE_HEX_LONG( 0xf.58117784bdb6d5fp-7L, 0xf58117784bdb6d5fULL, -67 ), -MAKE_HEX_LONG( 0x8.22ddd8eef53227dp-6L, 0x822ddd8eef53227dULL, -66 ),
-                                          -MAKE_HEX_LONG( 0x9.1d1d3b57a63cdb4p-6L, 0x91d1d3b57a63cdb4ULL, -66 ), -MAKE_HEX_LONG( 0xa.9c4bdc40cca848p-6L, 0xa9c4bdc40cca8480ULL, -66 ),
-                                          -MAKE_HEX_LONG( 0xc.b673b12794edb24p-6L, 0xcb673b12794edb24ULL, -66 ), -MAKE_HEX_LONG( 0xf.9290a06e31575bfp-6L, 0xf9290a06e31575bfULL, -66 ),
-                                          -MAKE_HEX_LONG( 0x9.b4929c16aeb3d1fp-5L, 0x9b4929c16aeb3d1fULL, -65 ), -MAKE_HEX_LONG( 0xc.461e725765a7581p-5L, 0xc461e725765a7581ULL, -65 ),
-                                          -MAKE_HEX_LONG( 0x8.0a59654c98d9207p-4L, 0x80a59654c98d9207ULL, -64 ), -MAKE_HEX_LONG( 0xa.6de6cbd96c80562p-4L, 0xa6de6cbd96c80562ULL, -64 ) }, // x - 0.3125 in [ -0x1.0p-4, 0x1.0p-4 ]   Error: 0x1.b0246c304ce1ap-70
+            { HEX_LDBL( -, f, a76585ad399e7ac, -,  8 ), HEX_LDBL( -, e, d665b7dd504ca7c, -,  6 ),
+            HEX_LDBL( -, 9, 4c7c2402bd4bc33, -,  6 ), HEX_LDBL( -, f, ba76b69074ff71c, -,  7 ),
+            HEX_LDBL( -, f, 58117784bdb6d5f, -,  7 ), HEX_LDBL( -, 8, 22ddd8eef53227d, -,  6 ),
+            HEX_LDBL( -, 9, 1d1d3b57a63cdb4, -,  6 ), HEX_LDBL( -, a, 9c4bdc40cca848,  -,  6 ),
+            HEX_LDBL( -, c, b673b12794edb24, -,  6 ), HEX_LDBL( -, f, 9290a06e31575bf, -,  6 ),
+            HEX_LDBL( -, 9, b4929c16aeb3d1f, -,  5 ), HEX_LDBL( -, c, 461e725765a7581, -,  5 ),
+            HEX_LDBL( -, 8, 0a59654c98d9207, -,  4 ), HEX_LDBL( -, a, 6de6cbd96c80562, -,  4 ) }, // x - 0.3125 in [ -0x1.0p-4, 0x1.0p-4 ]   Error: 0x1.b0246c304ce1ap-70
 
-                                        { -MAKE_HEX_LONG( 0xb.dca8b0359f96342p-7L, 0xbdca8b0359f96342ULL, -67 ), -MAKE_HEX_LONG( 0x8.cd2522fcde9823p-5L, 0x8cd2522fcde98230ULL, -65 ),
-                                          -MAKE_HEX_LONG( 0xd.2af9397b27ff74dp-6L, 0xd2af9397b27ff74dULL, -66 ), -MAKE_HEX_LONG( 0xd.723f2c2c2409811p-6L, 0xd723f2c2c2409811ULL, -66 ),
-                                          -MAKE_HEX_LONG( 0xf.ea8f8481ecc3cd1p-6L, 0xfea8f8481ecc3cd1ULL, -66 ), -MAKE_HEX_LONG( 0xa.43fd8a7a646b0b2p-5L, 0xa43fd8a7a646b0b2ULL, -65 ),
-                                          -MAKE_HEX_LONG( 0xe.01b0bf63a4e8d76p-5L, 0xe01b0bf63a4e8d76ULL, -65 ), -MAKE_HEX_LONG( 0x9.f0b7096a2a7b4dp-4L, 0x9f0b7096a2a7b4d0ULL, -64 ),
-                                          -MAKE_HEX_LONG( 0xe.872e7c5a627ab4cp-4L, 0xe872e7c5a627ab4cULL, -64 ), -MAKE_HEX_LONG( 0xa.dbd760a1882da48p-3L, 0xadbd760a1882da48ULL, -63 ),
-                                          -MAKE_HEX_LONG( 0x8.424e4dea31dd273p-2L, 0x8424e4dea31dd273ULL, -62 ), -MAKE_HEX_LONG( 0xc.c05d7730963e793p-2L, 0xcc05d7730963e793ULL, -62 ),
-                                          -MAKE_HEX_LONG( 0xa.523d97197cd124ap-1L, 0xa523d97197cd124aULL, -61 ), -MAKE_HEX_LONG( 0x8.307ba943978aaeep+0L, 0x8307ba943978aaeeULL, -60 ) } // x - 0.4375 in [ -0x1.0p-4, 0x1.0p-4 ]  Error: 0x1.9ecff73da69c9p-66
-                                     };
+            { HEX_LDBL( -, b, dca8b0359f96342, -,  7 ), HEX_LDBL( -, 8, cd2522fcde9823,  -,  5 ),
+            HEX_LDBL( -, d, 2af9397b27ff74d, -,  6 ), HEX_LDBL( -, d, 723f2c2c2409811, -,  6 ),
+            HEX_LDBL( -, f, ea8f8481ecc3cd1, -,  6 ), HEX_LDBL( -, a, 43fd8a7a646b0b2, -,  5 ),
+            HEX_LDBL( -, e, 01b0bf63a4e8d76, -,  5 ), HEX_LDBL( -, 9, f0b7096a2a7b4d,  -,  4 ),
+            HEX_LDBL( -, e, 872e7c5a627ab4c, -,  4 ), HEX_LDBL( -, a, dbd760a1882da48, -,  3 ),
+            HEX_LDBL( -, 8, 424e4dea31dd273, -,  2 ), HEX_LDBL( -, c, c05d7730963e793, -,  2 ),
+            HEX_LDBL( -, a, 523d97197cd124a, -,  1 ), HEX_LDBL( -, 8, 307ba943978aaee, +,  0 ) } // x - 0.4375 in [ -0x1.0p-4, 0x1.0p-4 ]  Error: 0x1.9ecff73da69c9p-66
+        };
 
-        const long double offsets[4] = { 0.0625L, 0.1875L, 0.3125L, 0.4375L };
+        const long double offsets[4] = { 0.0625, 0.1875, 0.3125, 0.4375 };
         const size_t coeff_count = sizeof( coeffs[0] ) / sizeof( coeffs[0][0] );
 
         // reduce the incoming values a bit so that they are in the range [-0x1.0p-4, 0x1.0p-4]

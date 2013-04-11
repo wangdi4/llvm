@@ -238,8 +238,8 @@ File Name:  oclbuiltin_f.cl
 }
 
 
-    KERNEL_DUMMY(acos) //KERNEL_BI_ONEARG(acos)  CSSD100015633
-    KERNEL_DUMMY(acospi) //KERNEL_BI_ONEARG(acospi) CSSD100015633
+    KERNEL_BI_ONEARG(acos)
+    KERNEL_BI_ONEARG(acospi)
     KERNEL_BI_ONEARG(asin)
     KERNEL_BI_ONEARG(asinpi)
     KERNEL_BI_ONEARG(atan)
@@ -248,10 +248,10 @@ File Name:  oclbuiltin_f.cl
     KERNEL_BI_ONEARG(atanpi)
     KERNEL_BI_ONEARG(cos)
     KERNEL_BI_ONEARG(cosh)
-    KERNEL_DUMMY(cospi) //KERNEL_BI_ONEARG(cospi) CSSD100015633
+    KERNEL_BI_ONEARG(cospi)
     KERNEL_BI_ONEARG(exp)
     KERNEL_BI_ONEARG(exp2)
-    KERNEL_DUMMY(exp10) //KERNEL_BI_ONEARG(exp10) CSSD100015633
+    KERNEL_BI_ONEARG(exp10)
     KERNEL_BI_ONEARG(expm1)
     KERNEL_BI_ONEARG(log)
     KERNEL_BI_ONEARG(log2)
@@ -299,7 +299,7 @@ File Name:  oclbuiltin_f.cl
     KERNEL_BI_ONEARG(native_log10)
     KERNEL_BI_ONEARG(native_exp)
     KERNEL_BI_ONEARG(native_exp2)
-    KERNEL_DUMMY(native_exp10) //KERNEL_BI_ONEARG(native_exp10) CSSD100015633
+    KERNEL_BI_ONEARG(native_exp10)
     KERNEL_BI_TWOARGS(native_divide)
     KERNEL_BI_TWOARGS(native_powr)
     KERNEL_BI_ONEARG(native_recip)
@@ -311,7 +311,7 @@ File Name:  oclbuiltin_f.cl
     KERNEL_BI_ONEARG(half_log10)
     KERNEL_BI_ONEARG(half_exp)
     KERNEL_BI_ONEARG(half_exp2)
-    KERNEL_DUMMY(half_exp10) //KERNEL_BI_ONEARG(half_exp10) CSSD100015633
+    KERNEL_BI_ONEARG(half_exp10)
     KERNEL_BI_ONEARG(half_cos)
     KERNEL_BI_TWOARGS(half_divide)
     KERNEL_BI_TWOARGS(half_powr)

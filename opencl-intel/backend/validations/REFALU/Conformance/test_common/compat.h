@@ -12,6 +12,42 @@
 #ifndef _COMPAT_H_
 #define _COMPAT_H_
 
+/*
+    ------------------------------------------------------------------------------------------------
+    HEX_FLT, HEXT_DBL, HEX_LDBL -- Create hex floating point literal of type float, double, long
+    double respectively. Arguments:
+
+        sm    -- sign of number,
+        int   -- integer part of mantissa (without `0x' prefix),
+        fract -- fractional part of mantissa (without decimal point and `L' or `LL' suffixes),
+        se    -- sign of exponent,
+        exp   -- absolute value of (binary) exponent.
+
+    Example:
+
+        double yhi = HEX_DBL( +, 1, 5555555555555, -, 2 ); // == 0x1.5555555555555p-2
+
+    Note:
+
+        We have to pass signs as separate arguments because gcc pass negative integer values
+        (e. g. `-2') into a macro as two separate tokens, so `HEX_FLT( 1, 0, -2 )' produces result
+        `0x1.0p- 2' (note a space between minus and two) which is not a correct floating point
+        literal.
+    ------------------------------------------------------------------------------------------------
+*/
+
+#if ! defined( __INTEL_COMPILER )
+    // If compiler does not support hex floating point literals:
+    #define HEX_FLT(  sm, int, fract, se, exp ) sm ldexpf(       (float)( 0x ## int ## fract ## UL  ), se exp + ilogbf(       (float) 0x ## int ) - ilogbf(       ( float )( 0x ## int ## fract ## UL  ) ) )
+    #define HEX_DBL(  sm, int, fract, se, exp ) sm ldexp(       (double)( 0x ## int ## fract ## ULL ), se exp + ilogb(       (double) 0x ## int ) - ilogb(       ( double )( 0x ## int ## fract ## ULL ) ) )
+    #define HEX_LDBL( sm, int, fract, se, exp ) sm ldexpl( (long double)( 0x ## int ## fract ## ULL ), se exp + ilogbl( (long double) 0x ## int ) - ilogbl( ( long double )( 0x ## int ## fract ## ULL ) ) )
+#else    
+    // If compiler supports hex floating point literals: just concatenate all the parts into a literal.
+    #define HEX_FLT(  sm, int, fract, se, exp ) sm 0x ## int ## . ## fract ## p ## se ## exp ## F
+    #define HEX_DBL(  sm, int, fract, se, exp ) sm 0x ## int ## . ## fract ## p ## se ## exp
+    #define HEX_LDBL( sm, int, fract, se, exp ) sm 0x ## int ## . ## fract ## p ## se ## exp ## L
+#endif
+
 #if defined(_WIN32) && defined (_MSC_VER)
 
 #include <Windows.h>
@@ -36,6 +72,27 @@
 namespace Conformance
 {
 
+/*
+    ------------------------------------------------------------------------------------------------
+    WARNING: DO NOT USE THESE MACROS: MAKE_HEX_FLOAT, MAKE_HEX_DOUBLE, MAKE_HEX_LONG.
+
+    This is a typical usage of the macros:
+    
+        double yhi = MAKE_HEX_DOUBLE(0x1.5555555555555p-2,0x15555555555555LL,-2);
+
+     (taken from math_brute_force/reference_math.c). There are two problems:
+
+        1.  There is an error here. On Windows it will produce incorrect result
+            `0x1.5555555555555p+50'. To have a correct result it should be written as
+            `MAKE_HEX_DOUBLE(0x1.5555555555555p-2,0x15555555555555LL,-54)'. A proper value of the
+            third argument is not obvious -- sometimes it should be the same as exponent of the
+            first argument, but sometimes not.
+
+        2.  Information is duplicated. It is easy to make a mistake.
+
+    Use HEX_FLT, HEX_DBL, HEX_LDBL macros instead.
+    ------------------------------------------------------------------------------------------------
+*/
 #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
 #define MAKE_HEX_DOUBLE(x,y,z) ldexp( (double)(y), z)
 #define MAKE_HEX_LONG(x,y,z)   ((long double) ldexp( (long double)(y), z))
