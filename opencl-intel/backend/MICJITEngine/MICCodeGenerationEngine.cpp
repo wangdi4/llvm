@@ -167,7 +167,7 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
 
     // FP_CONTRACT defined in module
     // Exclude FMA instructions when FP_CONTRACT is disabled
-    bool IsContractionsAllowed = !local_mod.getNamedMetadata("opencl.disabled.FP_CONTRACT");
+    bool IsContractionsAllowed = local_mod.getNamedMetadata("opencl.enable.FP_CONTRACT");
 
     std::auto_ptr<OpenCLAliasAnalysis> openCLAA(new OpenCLAliasAnalysis());
 
