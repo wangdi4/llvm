@@ -255,13 +255,21 @@ namespace Validation
     {
         assert(NULL != pmem_obj);
         ImageSizeDesc imSizes;
+
         imSizes.width = pmem_obj->dimensions.dim[0];
         imSizes.height = pmem_obj->dimensions.dim[1];
         imSizes.depth = pmem_obj->dimensions.dim[2];
+
         imSizes.row = pmem_obj->pitch[0];
         imSizes.slice = pmem_obj->pitch[1];
 
-        ImageTypeVal imageType = GetImageTypeFromDimCount(pmem_obj->dim_count);
+        image_aux_data * data = (image_aux_data *)pmem_obj->imageAuxData;
+
+        // see struct image_aux_data in \cl_api\cl_types.h, 
+        // array_size is set to -1 if it is not array
+        bool isArray = (int(-1) != data->array_size);
+
+        ImageTypeVal imageType = GetImageTypeFromDimCount(pmem_obj->dim_count, isArray);
 
         return ImageDesc (
             imageType,
@@ -618,7 +626,7 @@ namespace Validation
       SameBase(const std::string& s):name(s){}
 
       bool operator()(const std::string& s)const{
-        return s.substr(0, firstDot(s)- s.begin()) == name;
+          return s.substr(0, firstDot(s)- s.begin()) == name.substr(0, firstDot(name)- name.begin());
       }
     };
 

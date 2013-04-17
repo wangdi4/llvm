@@ -3,9 +3,14 @@
 include "ref-opencl-builtin.td"
 include "BLTRef.td"
 
+def image2d_array: OclType<"image2d_array_t", "image2d_array_t", 1, 0, 0>;
+def image1d: OclType<"image1d_t", "image1d_t", 1, 0, 0>;
+def image1d_array: OclType<"image1d_array_t", "image1d_array_t", 1, 0, 0>;
+def image1d_buffer: OclType<"image1d_buffer_t", "image1d_buffer_t", 1, 0, 0>;
 def image3d: OclType<"image3d_t", "image3d_t", 1, 0, 0>;
 def sampler_t : OclType<"sampler_t", "sampler_t", 1, 0, 0>;
 
+// Table 6.12.14.2 Built-in Image Read Functions
 
 let Types = [ v4f32, v4i32 ],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
@@ -15,7 +20,43 @@ def read_imageui_2d  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (
 def read_imagef_3d  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image3d:$image, sampler_t:$sampler, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
 def read_imagei_3d  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image3d:$image, sampler_t:$sampler, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
 def read_imageui_3d  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image3d:$image, sampler_t:$sampler, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def read_imagef_2d_arr  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image2d_array:$image, sampler_t:$sampler, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagei_2d_arr  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image2d_array:$image, sampler_t:$sampler, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def read_imageui_2d_arr  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image2d_array:$image, sampler_t:$sampler, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def read_imagef_1d  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image1d:$image, sampler_t:$sampler, sgentype:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagei_1d  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image1d:$image, sampler_t:$sampler, sgentype:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def read_imageui_1d  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image1d:$image, sampler_t:$sampler, sgentype:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def read_imagef_1d_arr  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image1d_array:$image, sampler_t:$sampler, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagei_1d_arr  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image1d_array:$image, sampler_t:$sampler, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def read_imageui_1d_arr  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image1d_array:$image, sampler_t:$sampler, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
 }
+
+// Table 6.12.14.3 Built-in Image Sampler-less Read Functions
+
+let Types = [ v4i32 ],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+
+def read_imagef_2d_samplerless  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image2d:$image, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagei_2d_samplerless  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image2d:$image, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def read_imageui_2d_samplerless  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image2d:$image, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def read_imagef_3d_samplerless  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image3d:$image, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagei_3d_samplerless  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image3d:$image, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def read_imageui_3d_samplerless  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image3d:$image, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def read_imagef_2d_arr_samplerless  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image2d_array:$image, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagei_2d_arr_samplerless  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image2d_array:$image, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def read_imageui_2d_arr_samplerless  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image2d_array:$image, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def read_imagef_1d_samplerless  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image1d:$image, sgentype:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagei_1d_samplerless  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image1d:$image, sgentype:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def read_imageui_1d_samplerless  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image1d:$image, sgentype:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def read_imagef_1d_buff_samplerless  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image1d_buffer:$image, sgentype:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagei_1d_buff_samplerless  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image1d_buffer:$image, sgentype:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def read_imageui_1d_buff_samplerless  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image1d_buffer:$image, sgentype:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def read_imagef_1d_arr_samplerless  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image1d_array:$image, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagei_1d_arr_samplerless  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image1d_array:$image, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def read_imageui_1d_arr_samplerless  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image1d_array:$image, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+}
+
+// Table 6.12.14.4 Built-in Image Write Functions
 
 let Types = [ v4i32 ],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
@@ -24,19 +65,37 @@ def write_imagei  : REF_OclBuiltin<"write_imagei",  (outs), (ins image2d:$image,
 def write_imageui  : REF_OclBuiltin<"write_imageui",  (outs), (ins image2d:$image, gentype2:$coord, u32gentype:$color), [], [], TemplateAttr< [] > >;
 }
 
+// Table 6.12.14.5 Built-in Image Query Functions
+
 let Types = [ v1i32 ],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def get_image_width_1d  : REF_OclBuiltin<"get_image_width",  (outs gentype:$ret), (ins image1d:$image), [], [], TemplateAttr< [] > >;
+def get_image_width_1d_buff  : REF_OclBuiltin<"get_image_width",  (outs gentype:$ret), (ins image1d_buffer:$image), [], [], TemplateAttr< [] > >;
 def get_image_width_2d  : REF_OclBuiltin<"get_image_width",  (outs gentype:$ret), (ins image2d:$image), [], [], TemplateAttr< [] > >;
 def get_image_width_3d  : REF_OclBuiltin<"get_image_width",  (outs gentype:$ret), (ins image3d:$image), [], [], TemplateAttr< [] > >;
+def get_image_width_1d_arr  : REF_OclBuiltin<"get_image_width",  (outs gentype:$ret), (ins image1d_array:$image), [], [], TemplateAttr< [] > >;
+def get_image_width_2d_arr  : REF_OclBuiltin<"get_image_width",  (outs gentype:$ret), (ins image2d_array:$image), [], [], TemplateAttr< [] > >;
 def get_image_height_2d  : REF_OclBuiltin<"get_image_height",  (outs gentype:$ret), (ins image2d:$image), [], [], TemplateAttr< [] > >;
 def get_image_height_3d  : REF_OclBuiltin<"get_image_height",  (outs gentype:$ret), (ins image3d:$image), [], [], TemplateAttr< [] > >;
+def get_image_height_2d_arr  : REF_OclBuiltin<"get_image_height",  (outs gentype:$ret), (ins image2d_array:$image), [], [], TemplateAttr< [] > >;
 def get_image_depth : REF_OclBuiltin<"get_image_depth",  (outs gentype:$ret), (ins image3d:$image), [], [], TemplateAttr< [] > >;
+def get_image_channel_data_type_1d : REF_OclBuiltin<"get_image_channel_data_type",  (outs gentype:$ret), (ins image1d:$image), [], [], TemplateAttr< [] > >;
+def get_image_channel_data_type_1d_buff : REF_OclBuiltin<"get_image_channel_data_type",  (outs gentype:$ret), (ins image1d_buffer:$image), [], [], TemplateAttr< [] > >;
 def get_image_channel_data_type_2d : REF_OclBuiltin<"get_image_channel_data_type",  (outs gentype:$ret), (ins image2d:$image), [], [], TemplateAttr< [] > >;
 def get_image_channel_data_type_3d : REF_OclBuiltin<"get_image_channel_data_type",  (outs gentype:$ret), (ins image3d:$image), [], [], TemplateAttr< [] > >;
+def get_image_channel_data_type_1d_arr : REF_OclBuiltin<"get_image_channel_data_type",  (outs gentype:$ret), (ins image1d_array:$image), [], [], TemplateAttr< [] > >;
+def get_image_channel_data_type_2d_arr : REF_OclBuiltin<"get_image_channel_data_type",  (outs gentype:$ret), (ins image2d_array:$image), [], [], TemplateAttr< [] > >;
+def get_image_channel_order_1d : REF_OclBuiltin<"get_image_channel_order",  (outs gentype:$ret), (ins image1d:$image), [], [], TemplateAttr< [] > >;
+def get_image_channel_order_1d_buff : REF_OclBuiltin<"get_image_channel_order",  (outs gentype:$ret), (ins image1d_buffer:$image), [], [], TemplateAttr< [] > >;
 def get_image_channel_order_2d : REF_OclBuiltin<"get_image_channel_order",  (outs gentype:$ret), (ins image2d:$image), [], [], TemplateAttr< [] > >;
 def get_image_channel_order_3d : REF_OclBuiltin<"get_image_channel_order",  (outs gentype:$ret), (ins image3d:$image), [], [], TemplateAttr< [] > >;
+def get_image_channel_order_1d_arr : REF_OclBuiltin<"get_image_channel_order",  (outs gentype:$ret), (ins image1d_array:$image), [], [], TemplateAttr< [] > >;
+def get_image_channel_order_2d_arr : REF_OclBuiltin<"get_image_channel_order",  (outs gentype:$ret), (ins image2d_array:$image), [], [], TemplateAttr< [] > >;
 def get_image_dim_2d : REF_OclBuiltin<"get_image_dim",  (outs gentype2:$ret), (ins image2d:$image), [], [], TemplateAttr< [] > >;
+def get_image_dim_2d_arr : REF_OclBuiltin<"get_image_dim",  (outs gentype2:$ret), (ins image2d_array:$image), [], [], TemplateAttr< [] > >;
 def get_image_dim_3d : REF_OclBuiltin<"get_image_dim",  (outs gentype4:$ret), (ins image3d:$image), [], [], TemplateAttr< [] > >;
+def get_image_array_size_2d_arr : REF_OclBuiltin<"get_image_array_size",  (outs size_t:$ret), (ins image2d_array:$image), [], [], TemplateAttr< [] > >;
+def get_image_array_size_1d_arr : REF_OclBuiltin<"get_image_array_size",  (outs size_t:$ret), (ins image1d_array:$image), [], [], TemplateAttr< [] > >;
 }
 
 class Generic {
@@ -163,13 +222,19 @@ Conformance::image_descriptor CreateConfImageDesc(const cl_mem_obj_descriptor& i
     retDesc.rowPitch = (size_t) in_Desc.pitch[0];
     retDesc.slicePitch = (size_t) (Is3D ? in_Desc.pitch[1] : 0);
 
-    // TODO: to add array support when runtime 1.2 will be ready
-    if(Is2D) 
-        retDesc.type = CL_MEM_OBJECT_IMAGE2D;
-    if(Is3D) 
-        retDesc.type = CL_MEM_OBJECT_IMAGE3D;
+    retDesc.type = in_Desc.memObjType;
 
     retDesc.arraySize = 0;
+
+    if(in_Desc.memObjType == CL_MEM_OBJECT_IMAGE1D_ARRAY) {
+        retDesc.height = 0;
+        retDesc.arraySize = in_Desc.dimensions.dim[1];
+    }
+
+    if(in_Desc.memObjType == CL_MEM_OBJECT_IMAGE2D_ARRAY) {
+        retDesc.depth = 0;
+        retDesc.arraySize = in_Desc.dimensions.dim[2];
+    }
     
     out_ImageFmt.image_channel_data_type = 
         ConvertChannelDataTypeFromIntelOCLToCL(in_Desc.format.image_channel_data_type);
@@ -302,6 +367,25 @@ GenericValue lle_X_get_image_channel_order(FunctionType *FT,
     cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
     const int32_t image_channel_order = memobj->format.image_channel_order;
     gv.IntVal = APInt( 32, image_channel_order );
+    return gv;
+}
+
+GenericValue lle_X_get_image_array_size(FunctionType *FT,
+                                               const std::vector<GenericValue> &Args) 
+{
+    GenericValue gv;
+    cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
+    cl_mem_object_type imageType = memobj->memObjType;
+    
+    uint32_t image_array_size = 0;
+
+    if ( imageType == CL_MEM_OBJECT_IMAGE1D_ARRAY) {
+        image_array_size = (uint32_t)memobj->dimensions.dim[1];
+    } else if ( imageType == CL_MEM_OBJECT_IMAGE2D_ARRAY) {
+        image_array_size = (uint32_t)memobj->dimensions.dim[2];
+    }
+    
+    gv.IntVal = APInt( 32, image_array_size );
     return gv;
 }
 

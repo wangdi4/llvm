@@ -136,7 +136,10 @@ namespace Validation
 
     };
 
-    ImageTypeVal GetImageTypeFromDimCount(uint32_t dim_count);
+    /// @brief function gets ImageTypeVal from dimention count and bool variable:
+    ///  if dim_count == 2 && isArray==true => imageType = OpenCL_MEM_OBJECT_IMAGE1D_ARRAY;
+    ///  if dim_count == 2 && isArray==false => imageType = OpenCL_MEM_OBJECT_IMAGE2D;
+    ImageTypeVal GetImageTypeFromDimCount(uint32_t dim_count, bool isArray);
 
     /// @brief Image description structure.
     /// Describes the data which is stored into an image.
@@ -155,10 +158,11 @@ namespace Validation
         {}
 
         /// @brief ctor of object
-        /// @param in_numOfVectors - number of vectors in image
-        /// @param in_vw - Vector Width i.e. Number of elements in vector
-        ///                from enum VectorWidth. V1, ... V16
+        /// @param in_imageType - image type, for example OpenCL_MEM_OBJECT_IMAGE2D_ARRAY
+        /// @param in_sizes - structure describing 1) image sizes: width, height,depth;
+        /// 2) size of lines in bytes : row, slice and  3) array_size
         /// @param in_dt - data type of elements in image
+        /// @param in_order - channel order, for example OpenCL_RGBA
         /// @param in_isNEAT - this image contains NEAT intervals
         explicit ImageDesc(const ImageTypeVal in_imageType,
             const ImageSizeDesc in_sizes,
@@ -177,6 +181,18 @@ namespace Validation
             // fixup row
             if( m_size.row == 0)
                 m_size.row = m_size.width * GetElementSize();
+
+            // fixup array_size and height or depth
+            if(m_size.array_size == 0) {
+                if (m_imageType == OpenCL_MEM_OBJECT_IMAGE2D_ARRAY) {
+                    m_size.array_size = m_size.depth;
+                    m_size.depth = 0;
+                }
+                if (m_imageType == OpenCL_MEM_OBJECT_IMAGE1D_ARRAY) {
+                    m_size.array_size = m_size.height;
+                    m_size.height = 0;
+                }
+            }
 
             // fixup slice
             if(m_size.slice == 0) {
@@ -201,11 +217,12 @@ namespace Validation
 
         ImageTypeVal GetImageType() const {return m_imageType;}
 
-        // function to get dimension count (OpenCL 1.1) from ImageTypeVal (OpenCL 1.2)
         uint32_t GetDimensionCount() const {
-            if (m_imageType == OpenCL_MEM_OBJECT_IMAGE2D)
+            if (m_imageType == OpenCL_MEM_OBJECT_IMAGE1D || m_imageType == OpenCL_MEM_OBJECT_IMAGE1D_BUFFER)
+                return 1;
+            else if (m_imageType == OpenCL_MEM_OBJECT_IMAGE2D || m_imageType == OpenCL_MEM_OBJECT_IMAGE1D_ARRAY )
                 return 2;
-            else if (m_imageType == OpenCL_MEM_OBJECT_IMAGE3D)
+            else if (m_imageType == OpenCL_MEM_OBJECT_IMAGE3D || m_imageType == OpenCL_MEM_OBJECT_IMAGE2D_ARRAY)
                 return 3;
             else
                 return 0;

@@ -140,6 +140,7 @@ static std::string getRefFunction(const llvm::OclBuiltin* bi, const std::string&
     std::string asyncFuncName = "async_work_group_strided_copy";
     std::string getImageDim2 = "get_image_dim_2d";
     std::string getImageDim3 = "get_image_dim_3d";
+    std::string samplerless = "_samplerless";
 
     // we have two functions async_work_group_strided_copy, distinguishied by memory access qualifiers only
     // so, we add suffixes _g2l and _l2g to the basic function name, but only here, after .ll code generated,
@@ -155,6 +156,10 @@ static std::string getRefFunction(const llvm::OclBuiltin* bi, const std::string&
             cFuncRef.append("3");
         }
         std::string tempFuncName = processFunctionName(cFuncRef);
+        if(funcName.find(samplerless) != std::string::npos ) {
+             tempFuncName.append(samplerless);
+        }
+
         if((tempFuncName.find("vstore_half_",0,12)==0))
         {
             std::string typeSuffix=bi->getArgumentBaseCType(0,type);
@@ -162,6 +167,7 @@ static std::string getRefFunction(const llvm::OclBuiltin* bi, const std::string&
             if(typeSuffix=="f"||typeSuffix=="d")//float or double
                 tempFuncName.replace(0,12, std::string("vstore")+typeSuffix+"_half_");//rebuild name
         }
+
         ret.append(tempFuncName);
     }
 

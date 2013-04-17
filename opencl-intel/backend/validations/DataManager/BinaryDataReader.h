@@ -187,7 +187,9 @@ namespace Validation
                         // OpenCl 1.1 read
                         ImageSizeDesc_1_1 oldSizes;
                         // here signature actually is num of dimensions
-                        imageType = GetImageTypeFromDimCount(signature);
+
+                        bool isArray = false; // no image arrays supported by OpenCl 1.1
+                        imageType = GetImageTypeFromDimCount(signature,isArray);
                         read_value(oldSizes);
 
                         sizes.width = oldSizes.width;

@@ -234,6 +234,7 @@ void OpenCLBackendRunner::FillIgnoreList( std::vector<bool>& ignoreList, const c
         case CL_KRNL_ARG_PTR_IMG_2D_ARR:
         case CL_KRNL_ARG_PTR_IMG_1D:
         case CL_KRNL_ARG_PTR_IMG_1D_ARR:
+        case CL_KRNL_ARG_PTR_IMG_1D_BUF:
             // TODO: disable read-only images  are ready
             ignoreList[i] = false;
             break;

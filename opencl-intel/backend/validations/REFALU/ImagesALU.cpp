@@ -718,323 +718,323 @@ namespace Conformance
         return ret;
     }
 
+FloatPixel sample_image_pixel_float( void *imageData, image_descriptor *imageInfo, 
+                                    float x, float y, float z,
+                                    image_sampler_data *imageSampler, float *outData, int verbose, int *containsDenorms ) {
+    return sample_image_pixel_float_offset(imageData, imageInfo, x, y, z, 0.0f, 0.0f, 0.0f, imageSampler, outData, verbose, containsDenorms);
+}
 
-    FloatPixel sample_image_pixel_float( void *imageData, image_descriptor *imageInfo, 
-                                        float x, float y, float z,
-                                        image_sampler_data *imageSampler, float *outData, int verbose, int *containsDenorms ) {
-        return sample_image_pixel_float_offset(imageData, imageInfo, x, y, z, 0.0f, 0.0f, 0.0f, imageSampler, outData, verbose, containsDenorms);
-    }
 
-    // returns max pixel value of the pixels touched
-    FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *imageInfo, 
-                                               float x, float y, float z, float xAddressOffset, float yAddressOffset, float zAddressOffset,
-                                               image_sampler_data *imageSampler, float *outData, int verbose, int *containsDenorms )
-    {
-        AddressFn adFn = sAddressingTable[ imageSampler ];
-        FloatPixel returnVal;
-        
-        if( containsDenorms )
-            *containsDenorms = 0;
-        
-        if( imageSampler->normalized_coords ) {
-            
-            // We need to unnormalize our coordinates differently depending on
-            // the image type, but 'x' is always processed the same way.
-            
-            x = unnormalize_coordinate("x", x, xAddressOffset, imageInfo->width, 
-            imageSampler->addressing_mode, verbose);
+FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *imageInfo, 
+                                           float x, float y, float z, float xAddressOffset, float yAddressOffset, float zAddressOffset,
+                                           image_sampler_data *imageSampler, float *outData, int verbose, int *containsDenorms )
+{
+    AddressFn adFn = sAddressingTable[ imageSampler ];
+    FloatPixel returnVal;
     
-            switch (imageInfo->type) {
+    if( containsDenorms )
+        *containsDenorms = 0;
+    
+    if( imageSampler->normalized_coords ) {
+        
+        // We need to unnormalize our coordinates differently depending on
+        // the image type, but 'x' is always processed the same way.
+        
+        x = unnormalize_coordinate("x", x, xAddressOffset, (float)imageInfo->width, 
+            imageSampler->addressing_mode, verbose);
+
+        switch (imageInfo->type) {
+        
+            // The image array types require special care:
             
-                // The image array types require special care:
+            case CL_MEM_OBJECT_IMAGE1D_ARRAY:                
+                z = 0; // don't care -- unused for 1D arrays
+                break;
                 
-                case CL_MEM_OBJECT_IMAGE1D_ARRAY:                
-                    y = unnormalize_coordinate("array index", y, yAddressOffset, 
-                        imageInfo->arraySize, CL_ADDRESS_CLAMP_TO_EDGE, verbose);
-                    z = 0; // don't care -- unused for 1D arrays
-                    break;
-                    
-                case CL_MEM_OBJECT_IMAGE2D_ARRAY:
-                    y = unnormalize_coordinate("y", y, yAddressOffset, imageInfo->height, 
-                        imageSampler->addressing_mode, verbose);
-                    z = unnormalize_coordinate("array index", z, zAddressOffset, 
-                        imageInfo->arraySize, CL_ADDRESS_CLAMP_TO_EDGE, verbose);
-                    break;
-                
-                // Everybody else:
-                
-                default: 
-                    y = unnormalize_coordinate("y", y, yAddressOffset, imageInfo->height, 
-                        imageSampler->addressing_mode, verbose);
-                    z = unnormalize_coordinate("z", z, zAddressOffset, imageInfo->depth, 
-                        imageSampler->addressing_mode, verbose);
-            }
+            case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+                y = unnormalize_coordinate("y", y, yAddressOffset, (float)imageInfo->height, 
+                    imageSampler->addressing_mode, verbose);
+                break;
             
-        } else if ( verbose ) {
+            // Everybody else:
             
-            switch (imageInfo->type) {
-                case CL_MEM_OBJECT_IMAGE1D_ARRAY:
-                    log_info("Starting coordinate: %f, array index %f\n", x, y);
-                    break;
-                case CL_MEM_OBJECT_IMAGE2D_ARRAY:
-                    log_info("Starting coordinate: %f, %f, array index %f\n", x, y, z);
-                    break;
-                case CL_MEM_OBJECT_IMAGE1D:
-                case CL_MEM_OBJECT_IMAGE1D_BUFFER:
-                    log_info("Starting coordinate: %f\b", x);
-                    break;
-                case CL_MEM_OBJECT_IMAGE2D:
-                    log_info("Starting coordinate: %f, %f\n", x, y);
-                    break;
-                case CL_MEM_OBJECT_IMAGE3D:
-                default:
-                    log_info("Starting coordinate: %f, %f, %f\n", x, y, z); 
-            }
+            default: 
+                y = unnormalize_coordinate("y", y, yAddressOffset, (float)imageInfo->height, 
+                    imageSampler->addressing_mode, verbose);
+                z = unnormalize_coordinate("z", z, zAddressOffset, (float)imageInfo->depth, 
+                    imageSampler->addressing_mode, verbose);
         }
         
-        // At this point, we have unnormalized coordinates.
+    } else if ( verbose ) {
         
-        if( imageSampler->filter_mode == CL_FILTER_NEAREST )
-        {
-            int ix, iy, iz;
-            
-            // We apply the addressing function to the now-unnormalized
-            // coordiates.  Note that the array cases again require special
-            // care, per section 8.4 in the OpenCL 1.2 Specification.
-            
-            ix = adFn( floorf( x ), imageInfo->width );
-            
-            switch (imageInfo->type) {
-                case CL_MEM_OBJECT_IMAGE1D_ARRAY:
-                    iy = calculate_array_index( y, imageInfo->arraySize - 1 );
-                    iz = 0;
-                    break;
-                case CL_MEM_OBJECT_IMAGE2D_ARRAY:
-                    iy = adFn( floorf( y ), imageInfo->height );
-                    iz = calculate_array_index( z, imageInfo->arraySize - 1 );
-                    break;
-                default:
-                    iy = adFn( floorf( y ), imageInfo->height );
-                    if( imageInfo->depth != 0 )
-                        iz = adFn( floorf( z ), imageInfo->depth );
-                    else
-                        iz = 0;
-            }
-            
-            if( verbose ) {
-                if( iz )
-                    log_info( "\tActual integer coords used (i = floor(x)): { %d, %d, %d }\n", ix, iy, iz );
+        switch (imageInfo->type) {
+            case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+                log_info("Starting coordinate: %f, array index %f\n", x, y);
+                break;
+            case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+                log_info("Starting coordinate: %f, %f, array index %f\n", x, y, z);
+                break;
+            case CL_MEM_OBJECT_IMAGE1D:
+            case CL_MEM_OBJECT_IMAGE1D_BUFFER:
+                log_info("Starting coordinate: %f\b", x);
+                break;
+            case CL_MEM_OBJECT_IMAGE2D:
+                log_info("Starting coordinate: %f, %f\n", x, y);
+                break;
+            case CL_MEM_OBJECT_IMAGE3D:
+            default:
+                log_info("Starting coordinate: %f, %f, %f\n", x, y, z); 
+        }
+    }
+    
+    // At this point, we have unnormalized coordinates.
+    
+    if( imageSampler->filter_mode == CL_FILTER_NEAREST )
+    {
+        int ix, iy, iz;
+        
+        // We apply the addressing function to the now-unnormalized
+        // coordinates.  Note that the array cases again require special
+        // care, per section 8.4 in the OpenCL 1.2 Specification.
+        
+        ix = adFn( floorf( x ), imageInfo->width );
+        
+        switch (imageInfo->type) {
+            case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+                iy = calculate_array_index( y, (float)(imageInfo->arraySize - 1) );
+                iz = 0;
+                break;
+            case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+                iy = adFn( floorf( y ), imageInfo->height );
+                iz = calculate_array_index( z, (float)(imageInfo->arraySize - 1) );
+                break;
+            default:
+                iy = adFn( floorf( y ), imageInfo->height );
+                if( imageInfo->depth != 0 )
+                    iz = adFn( floorf( z ), imageInfo->depth );
                 else
-                    log_info( "\tActual integer coords used (i = floor(x)): { %d, %d }\n", ix, iy );
+                    iz = 0;
+        }
+        
+        if( verbose ) {
+            if( iz )
+                log_info( "\tActual integer coords used (i = floor(x)): { %d, %d, %d }\n", ix, iy, iz );
+            else
+                log_info( "\tActual integer coords used (i = floor(x)): { %d, %d }\n", ix, iy );
+        }
+        
+        read_image_pixel_float( imageData, imageInfo, ix, iy, iz, outData );
+        check_for_denorms( outData, containsDenorms );
+        for( int i = 0; i < 4; i++ )
+            returnVal.p[i] = fabsf( outData[i] );
+        return returnVal;
+    }
+    else
+    {
+        // Linear filtering cases.
+    
+        size_t width = imageInfo->width, height = imageInfo->height, depth = imageInfo->depth;
+        
+        // Image arrays can use 2D filtering, but require us to walk into the
+        // image a certain number of slices before reading.
+        
+        if( depth == 0 || imageInfo->type == CL_MEM_OBJECT_IMAGE2D_ARRAY || 
+                          imageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY)
+        {            
+            size_t layer_offset = 0;
+            
+            if (imageInfo->type == CL_MEM_OBJECT_IMAGE2D_ARRAY) {
+                layer_offset = imageInfo->slicePitch * (size_t)calculate_array_index( 
+                    z, (float)(imageInfo->arraySize - 1) 
+                );
+            }
+            else if (imageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY) {
+                layer_offset = imageInfo->slicePitch * (size_t)calculate_array_index( 
+                    y, (float)(imageInfo->arraySize - 1) 
+                );
+                
+                // Set up y and height so that the filtering below is correct
+                // 1D filtering on a single slice.
+                height = 1;
             }
             
-            read_image_pixel_float( imageData, imageInfo, ix, iy, iz, outData );
-            check_for_denorms( outData, containsDenorms );
+            int x1 = adFn( floorf( x - 0.5f ), width );
+            int y1 = 0;
+            int x2 = adFn( floorf( x - 0.5f ) + 1, width );
+            int y2 = 0;
+            if ((imageInfo->type != CL_MEM_OBJECT_IMAGE1D) &&
+                (imageInfo->type != CL_MEM_OBJECT_IMAGE1D_ARRAY) &&
+                (imageInfo->type != CL_MEM_OBJECT_IMAGE1D_BUFFER)) {
+                y1 = adFn( floorf( y - 0.5f ), height );
+                y2 = adFn( floorf( y - 0.5f ) + 1, height );
+            } else {
+              y = 0.5f;
+            }
+          
+            if( verbose )
+                log_info( "\tActual integer coords used (i = floor(x-.5)): i0:{%d, %d } and i1:{%d, %d }\n", x1, y1, x2, y2 );
+            
+            // Walk to beginning of the 'correct' slice, if needed.
+            char* imgPtr = ((char*)imageData) + layer_offset;
+            
+            float upLeft[ 4 ], upRight[ 4 ], lowLeft[ 4 ], lowRight[ 4 ];
+            float maxUp[4], maxLow[4];
+            read_image_pixel_float( imgPtr, imageInfo, x1, y1, 0, upLeft );
+            read_image_pixel_float( imgPtr, imageInfo, x2, y1, 0, upRight );
+            check_for_denorms( upLeft, containsDenorms );
+            check_for_denorms( upRight, containsDenorms );
+            pixelMax( upLeft, upRight, maxUp );
+            read_image_pixel_float( imgPtr, imageInfo, x1, y2, 0, lowLeft );
+            read_image_pixel_float( imgPtr, imageInfo, x2, y2, 0, lowRight );
+            check_for_denorms( lowLeft, containsDenorms );
+            check_for_denorms( lowRight, containsDenorms );
+            pixelMax( lowLeft, lowRight, maxLow );
+            pixelMax( maxUp, maxLow, returnVal.p );
+            
+            if( verbose )
+            {
+                if( NULL == containsDenorms )
+                    log_info( "\tSampled pixels (rgba order, denorms flushed to zero):\n" );
+                else
+                    log_info( "\tSampled pixels (rgba order):\n" );
+                log_info( "\t\tp00: %f, %f, %f, %f\n", upLeft[0], upLeft[1], upLeft[2], upLeft[3] ); 
+                log_info( "\t\tp01: %f, %f, %f, %f\n", upRight[0], upRight[1], upRight[2], upRight[3] ); 
+                log_info( "\t\tp10: %f, %f, %f, %f\n", lowLeft[0], lowLeft[1], lowLeft[2], lowLeft[3] ); 
+                log_info( "\t\tp11: %f, %f, %f, %f\n", lowRight[0], lowRight[1], lowRight[2], lowRight[3] ); 
+            }
+            
+            bool printMe = false;
+            if( x1 <= 0 || x2 <= 0 || x1 >= (int)width-1 || x2 >= (int)width-1 )
+                printMe = true;
+            if( y1 <= 0 || y2 <= 0 || y1 >= (int)height-1 || y2 >= (int)height-1 )
+                printMe = true;
+            
+            double weights[ 2 ][ 2 ];
+            
+            weights[ 0 ][ 0 ] = weights[ 0 ][ 1 ] = 1.0 - frac( x - 0.5f );
+            weights[ 1 ][ 0 ] = weights[ 1 ][ 1 ] = frac( x - 0.5f );
+            weights[ 0 ][ 0 ] *= 1.0 - frac( y - 0.5f );
+            weights[ 1 ][ 0 ] *= 1.0 - frac( y - 0.5f );
+            weights[ 0 ][ 1 ] *= frac( y - 0.5f );
+            weights[ 1 ][ 1 ] *= frac( y - 0.5f );
+            
+            if( verbose )
+                log_info( "\tfrac( x - 0.5f ) = %f,  frac( y - 0.5f ) = %f\n",  frac( x - 0.5f ), frac( y - 0.5f ) );
+            
             for( int i = 0; i < 4; i++ )
-                returnVal.p[i] = fabsf( outData[i] );
-            return returnVal;
+            {
+                outData[ i ] = (float)( ( upLeft[ i ] * weights[ 0 ][ 0 ] ) +
+                                       ( upRight[ i ] * weights[ 1 ][ 0 ] ) +
+                                       ( lowLeft[ i ] * weights[ 0 ][ 1 ] ) +
+                                       ( lowRight[ i ] * weights[ 1 ][ 1 ] ));
+                
+                // flush subnormal results to zero if necessary
+                if( NULL == containsDenorms && fabs(outData[i]) < FLT_MIN )
+                    outData[i] = copysignf( 0.0f, outData[i] );
+            }
         }
         else
-        {
-            // Linear filtering cases.
-        
-            size_t width = imageInfo->width, height = imageInfo->height, depth = imageInfo->depth;
+        {    
+            // 3D linear filtering
+            int x1 = adFn( floorf( x - 0.5f ), width );
+            int y1 = adFn( floorf( y - 0.5f ), height );
+            int z1 = adFn( floorf( z - 0.5f ), depth );
+            int x2 = adFn( floorf( x - 0.5f ) + 1, width );
+            int y2 = adFn( floorf( y - 0.5f ) + 1, height );
+            int z2 = adFn( floorf( z - 0.5f ) + 1, depth );
             
-            // Image arrays can use 2D filtering, but require us to walk into the
-            // image a certain number of slices before reading.
+            if( verbose )
+                log_info( "\tActual integer coords used (i = floor(x-.5)): i0:{%d, %d, %d} and i1:{%d, %d, %d}\n", x1, y1, z1, x2, y2, z2 );
             
-            if( depth == 0 || imageInfo->type == CL_MEM_OBJECT_IMAGE2D_ARRAY || 
-                              imageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY)
-            {            
-                size_t layer_offset = 0;
-                
-                if (imageInfo->type == CL_MEM_OBJECT_IMAGE2D_ARRAY) {
-                    layer_offset = imageInfo->slicePitch * (size_t)calculate_array_index( 
-                        z, imageInfo->arraySize - 1 
-                    );
-                }
-                else if (imageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY) {
-                    layer_offset = imageInfo->slicePitch * (size_t)calculate_array_index( 
-                        y, imageInfo->arraySize - 1 
-                    );
-                    
-                    // Set up y and height so that the filtering below is correct
-                    // 1D filtering on a single slice.
-                    y = 0;
-                    height = 1;
-                } 
-            
-                int x1 = adFn( floorf( x - 0.5f ), width );
-                int y1 = adFn( floorf( y - 0.5f ), height );
-                int x2 = adFn( floorf( x - 0.5f ) + 1, width );
-                int y2 = adFn( floorf( y - 0.5f ) + 1, height ); 
-                
-                if( verbose )
-                    log_info( "\tActual integer coords used (i = floor(x-.5)): i0:{%d, %d } and i1:{%d, %d }\n", x1, y1, x2, y2 );
-                
-                // Walk to beginning of the 'correct' slice, if needed.
-                char* imgPtr = ((char*)imageData) + layer_offset;
-                
-                float upLeft[ 4 ], upRight[ 4 ], lowLeft[ 4 ], lowRight[ 4 ];
-                float maxUp[4], maxLow[4];
-                read_image_pixel_float( imgPtr, imageInfo, x1, y1, 0, upLeft );
-                read_image_pixel_float( imgPtr, imageInfo, x2, y1, 0, upRight );
-                check_for_denorms( upLeft, containsDenorms );
-                check_for_denorms( upRight, containsDenorms );
-                pixelMax( upLeft, upRight, maxUp );
-                read_image_pixel_float( imgPtr, imageInfo, x1, y2, 0, lowLeft );
-                read_image_pixel_float( imgPtr, imageInfo, x2, y2, 0, lowRight );
-                check_for_denorms( lowLeft, containsDenorms );
-                check_for_denorms( lowRight, containsDenorms );
-                pixelMax( lowLeft, lowRight, maxLow );
-                pixelMax( maxUp, maxLow, returnVal.p );
-                
-                if( verbose )
-                {
-                    if( NULL == containsDenorms )
-                        log_info( "\tSampled pixels (rgba order, denorms flushed to zero):\n" );
-                    else
-                        log_info( "\tSampled pixels (rgba order):\n" );
-                    log_info( "\t\tp00: %f, %f, %f, %f\n", upLeft[0], upLeft[1], upLeft[2], upLeft[3] ); 
-                    log_info( "\t\tp01: %f, %f, %f, %f\n", upRight[0], upRight[1], upRight[2], upRight[3] ); 
-                    log_info( "\t\tp10: %f, %f, %f, %f\n", lowLeft[0], lowLeft[1], lowLeft[2], lowLeft[3] ); 
-                    log_info( "\t\tp11: %f, %f, %f, %f\n", lowRight[0], lowRight[1], lowRight[2], lowRight[3] ); 
-                }
-                
-                /* Not used reqion
-                bool printMe = false;
-                if( x1 <= 0 || x2 <= 0 || x1 >= (int)width-1 || x2 >= (int)width-1 )
-                    printMe = true;
-                if( y1 <= 0 || y2 <= 0 || y1 >= (int)height-1 || y2 >= (int)height-1 )
-                    printMe = true;
-                */
-                
-                double weights[ 2 ][ 2 ];
-                
-                weights[ 0 ][ 0 ] = weights[ 0 ][ 1 ] = 1.0 - frac( x - 0.5f );
-                weights[ 1 ][ 0 ] = weights[ 1 ][ 1 ] = frac( x - 0.5f );
-                weights[ 0 ][ 0 ] *= 1.0 - frac( y - 0.5f );
-                weights[ 1 ][ 0 ] *= 1.0 - frac( y - 0.5f );
-                weights[ 0 ][ 1 ] *= frac( y - 0.5f );
-                weights[ 1 ][ 1 ] *= frac( y - 0.5f );
-                
-                if( verbose )
-                    log_info( "\tfrac( x - 0.5f ) = %f,  frac( y - 0.5f ) = %f\n",  frac( x - 0.5f ), frac( y - 0.5f ) );
-                
-                for( int i = 0; i < 4; i++ )
-                {
-                    outData[ i ] = (float)( ( upLeft[ i ] * weights[ 0 ][ 0 ] ) +
-                                           ( upRight[ i ] * weights[ 1 ][ 0 ] ) +
-                                           ( lowLeft[ i ] * weights[ 0 ][ 1 ] ) +
-                                           ( lowRight[ i ] * weights[ 1 ][ 1 ] ));
-                    
-                    // flush subnormal results to zero if necessary
-                    if( NULL == containsDenorms && fabs(outData[i]) < FLT_MIN )
-                        outData[i] = copysignf( 0.0f, outData[i] );
-                }
-            }
-            else
-            {    
-                // 3D linear filtering
-                int x1 = adFn( floorf( x - 0.5f ), width );
-                int y1 = adFn( floorf( y - 0.5f ), height );
-                int z1 = adFn( floorf( z - 0.5f ), depth );
-                int x2 = adFn( floorf( x - 0.5f ) + 1, width );
-                int y2 = adFn( floorf( y - 0.5f ) + 1, height );
-                int z2 = adFn( floorf( z - 0.5f ) + 1, depth );
-                
-                if( verbose )
-                    log_info( "\tActual integer coords used (i = floor(x-.5)): i0:{%d, %d, %d} and i1:{%d, %d, %d}\n", x1, y1, z1, x2, y2, z2 );
-                
-                float upLeftA[ 4 ], upRightA[ 4 ], lowLeftA[ 4 ], lowRightA[ 4 ];
-                float upLeftB[ 4 ], upRightB[ 4 ], lowLeftB[ 4 ], lowRightB[ 4 ];
-                float pixelMaxA[4], pixelMaxB[4];
-                read_image_pixel_float( imageData, imageInfo, x1, y1, z1, upLeftA );
-                read_image_pixel_float( imageData, imageInfo, x2, y1, z1, upRightA );
-                check_for_denorms( upLeftA, containsDenorms );
-                check_for_denorms( upRightA, containsDenorms );
-                pixelMax( upLeftA, upRightA, pixelMaxA );
-                read_image_pixel_float( imageData, imageInfo, x1, y2, z1, lowLeftA );
-                read_image_pixel_float( imageData, imageInfo, x2, y2, z1, lowRightA );
-                check_for_denorms( lowLeftA, containsDenorms );
-                check_for_denorms( lowRightA, containsDenorms );
-                pixelMax( lowLeftA, lowRightA, pixelMaxB );
-                pixelMax( pixelMaxA, pixelMaxB, returnVal.p);
-                read_image_pixel_float( imageData, imageInfo, x1, y1, z2, upLeftB );
-                read_image_pixel_float( imageData, imageInfo, x2, y1, z2, upRightB );
-                check_for_denorms( upLeftB, containsDenorms );
-                check_for_denorms( upRightB, containsDenorms );
-                pixelMax( upLeftB, upRightB, pixelMaxA );
-                read_image_pixel_float( imageData, imageInfo, x1, y2, z2, lowLeftB );
-                read_image_pixel_float( imageData, imageInfo, x2, y2, z2, lowRightB );
-                check_for_denorms( lowLeftB, containsDenorms );
-                check_for_denorms( lowRightB, containsDenorms );
-                pixelMax( lowLeftB, lowRightB, pixelMaxB );
-                pixelMax( pixelMaxA, pixelMaxB, pixelMaxA);
-                pixelMax( pixelMaxA, returnVal.p, returnVal.p );
-                            
-                if( verbose )
-                {
-                    if( NULL == containsDenorms )
-                        log_info( "\tSampled pixels (rgba order, denorms flushed to zero):\n" );
-                    else
-                        log_info( "\tSampled pixels (rgba order):\n" );
-                    log_info( "\t\tp000: %f, %f, %f, %f\n", upLeftA[0], upLeftA[1], upLeftA[2], upLeftA[3] ); 
-                    log_info( "\t\tp001: %f, %f, %f, %f\n", upRightA[0], upRightA[1], upRightA[2], upRightA[3] ); 
-                    log_info( "\t\tp010: %f, %f, %f, %f\n", lowLeftA[0], lowLeftA[1], lowLeftA[2], lowLeftA[3] ); 
-                    log_info( "\t\tp011: %f, %f, %f, %f\n\n", lowRightA[0], lowRightA[1], lowRightA[2], lowRightA[3] ); 
-                    log_info( "\t\tp100: %f, %f, %f, %f\n", upLeftB[0], upLeftB[1], upLeftB[2], upLeftB[3] ); 
-                    log_info( "\t\tp101: %f, %f, %f, %f\n", upRightB[0], upRightB[1], upRightB[2], upRightB[3] ); 
-                    log_info( "\t\tp110: %f, %f, %f, %f\n", lowLeftB[0], lowLeftB[1], lowLeftB[2], lowLeftB[3] ); 
-                    log_info( "\t\tp111: %f, %f, %f, %f\n", lowRightB[0], lowRightB[1], lowRightB[2], lowRightB[3] ); 
-                }
-                
-                double weights[ 2 ][ 2 ][ 2 ];
-                
-                float a = frac( x - 0.5f ), b = frac( y - 0.5f ), c = frac( z - 0.5f );
-                weights[ 0 ][ 0 ][ 0 ] = weights[ 0 ][ 1 ][ 0 ] = weights[ 0 ][ 0 ][ 1 ] = weights[ 0 ][ 1 ][ 1 ] = 1.f - a;
-                weights[ 1 ][ 0 ][ 0 ] = weights[ 1 ][ 1 ][ 0 ] = weights[ 1 ][ 0 ][ 1 ] = weights[ 1 ][ 1 ][ 1 ] = a; 
-                weights[ 0 ][ 0 ][ 0 ] *= 1.f - b; 
-                weights[ 1 ][ 0 ][ 0 ] *= 1.f - b; 
-                weights[ 0 ][ 0 ][ 1 ] *= 1.f - b; 
-                weights[ 1 ][ 0 ][ 1 ] *= 1.f - b; 
-                weights[ 0 ][ 1 ][ 0 ] *= b; 
-                weights[ 1 ][ 1 ][ 0 ] *= b; 
-                weights[ 0 ][ 1 ][ 1 ] *= b; 
-                weights[ 1 ][ 1 ][ 1 ] *= b; 
-                weights[ 0 ][ 0 ][ 0 ] *= 1.f - c; 
-                weights[ 0 ][ 1 ][ 0 ] *= 1.f - c; 
-                weights[ 1 ][ 0 ][ 0 ] *= 1.f - c; 
-                weights[ 1 ][ 1 ][ 0 ] *= 1.f - c; 
-                weights[ 0 ][ 0 ][ 1 ] *= c; 
-                weights[ 0 ][ 1 ][ 1 ] *= c; 
-                weights[ 1 ][ 0 ][ 1 ] *= c; 
-                weights[ 1 ][ 1 ][ 1 ] *= c; 
-                
-                if( verbose )
-                    log_info( "\tfrac( x - 0.5f ) = %f,  frac( y - 0.5f ) = %f, frac( z - 0.5f ) = %f\n",  
-                             frac( x - 0.5f ), frac( y - 0.5f ), frac( z - 0.5f )  );
-                
-                for( int i = 0; i < 4; i++ )
-                {
-                    outData[ i ] = (float)( ( upLeftA[ i ] * weights[ 0 ][ 0 ][ 0 ] ) +
-                                           ( upRightA[ i ] * weights[ 1 ][ 0 ][ 0 ] ) +
-                                           ( lowLeftA[ i ] * weights[ 0 ][ 1 ][ 0 ] ) +
-                                           ( lowRightA[ i ] * weights[ 1 ][ 1 ][ 0 ] ) +
-                                           ( upLeftB[ i ] * weights[ 0 ][ 0 ][ 1 ] ) +
-                                           ( upRightB[ i ] * weights[ 1 ][ 0 ][ 1 ] ) +
-                                           ( lowLeftB[ i ] * weights[ 0 ][ 1 ][ 1 ] ) +
-                                           ( lowRightB[ i ] * weights[ 1 ][ 1 ][ 1 ] ));
-                    
-                    // flush subnormal results to zero if necessary
-                    if( NULL == containsDenorms && fabs(outData[i]) < FLT_MIN )
-                        outData[i] = copysignf( 0.0f, outData[i] );
-                }
+            float upLeftA[ 4 ], upRightA[ 4 ], lowLeftA[ 4 ], lowRightA[ 4 ];
+            float upLeftB[ 4 ], upRightB[ 4 ], lowLeftB[ 4 ], lowRightB[ 4 ];
+            float pixelMaxA[4], pixelMaxB[4];
+            read_image_pixel_float( imageData, imageInfo, x1, y1, z1, upLeftA );
+            read_image_pixel_float( imageData, imageInfo, x2, y1, z1, upRightA );
+            check_for_denorms( upLeftA, containsDenorms );
+            check_for_denorms( upRightA, containsDenorms );
+            pixelMax( upLeftA, upRightA, pixelMaxA );
+            read_image_pixel_float( imageData, imageInfo, x1, y2, z1, lowLeftA );
+            read_image_pixel_float( imageData, imageInfo, x2, y2, z1, lowRightA );
+            check_for_denorms( lowLeftA, containsDenorms );
+            check_for_denorms( lowRightA, containsDenorms );
+            pixelMax( lowLeftA, lowRightA, pixelMaxB );
+            pixelMax( pixelMaxA, pixelMaxB, returnVal.p);
+            read_image_pixel_float( imageData, imageInfo, x1, y1, z2, upLeftB );
+            read_image_pixel_float( imageData, imageInfo, x2, y1, z2, upRightB );
+            check_for_denorms( upLeftB, containsDenorms );
+            check_for_denorms( upRightB, containsDenorms );
+            pixelMax( upLeftB, upRightB, pixelMaxA );
+            read_image_pixel_float( imageData, imageInfo, x1, y2, z2, lowLeftB );
+            read_image_pixel_float( imageData, imageInfo, x2, y2, z2, lowRightB );
+            check_for_denorms( lowLeftB, containsDenorms );
+            check_for_denorms( lowRightB, containsDenorms );
+            pixelMax( lowLeftB, lowRightB, pixelMaxB );
+            pixelMax( pixelMaxA, pixelMaxB, pixelMaxA);
+            pixelMax( pixelMaxA, returnVal.p, returnVal.p );
+                        
+            if( verbose )
+            {
+                if( NULL == containsDenorms )
+                    log_info( "\tSampled pixels (rgba order, denorms flushed to zero):\n" );
+                else
+                    log_info( "\tSampled pixels (rgba order):\n" );
+                log_info( "\t\tp000: %f, %f, %f, %f\n", upLeftA[0], upLeftA[1], upLeftA[2], upLeftA[3] ); 
+                log_info( "\t\tp001: %f, %f, %f, %f\n", upRightA[0], upRightA[1], upRightA[2], upRightA[3] ); 
+                log_info( "\t\tp010: %f, %f, %f, %f\n", lowLeftA[0], lowLeftA[1], lowLeftA[2], lowLeftA[3] ); 
+                log_info( "\t\tp011: %f, %f, %f, %f\n\n", lowRightA[0], lowRightA[1], lowRightA[2], lowRightA[3] ); 
+                log_info( "\t\tp100: %f, %f, %f, %f\n", upLeftB[0], upLeftB[1], upLeftB[2], upLeftB[3] ); 
+                log_info( "\t\tp101: %f, %f, %f, %f\n", upRightB[0], upRightB[1], upRightB[2], upRightB[3] ); 
+                log_info( "\t\tp110: %f, %f, %f, %f\n", lowLeftB[0], lowLeftB[1], lowLeftB[2], lowLeftB[3] ); 
+                log_info( "\t\tp111: %f, %f, %f, %f\n", lowRightB[0], lowRightB[1], lowRightB[2], lowRightB[3] ); 
             }
             
-            return returnVal;
+            double weights[ 2 ][ 2 ][ 2 ];
+            
+            float a = frac( x - 0.5f ), b = frac( y - 0.5f ), c = frac( z - 0.5f );
+            weights[ 0 ][ 0 ][ 0 ] = weights[ 0 ][ 1 ][ 0 ] = weights[ 0 ][ 0 ][ 1 ] = weights[ 0 ][ 1 ][ 1 ] = 1.f - a;
+            weights[ 1 ][ 0 ][ 0 ] = weights[ 1 ][ 1 ][ 0 ] = weights[ 1 ][ 0 ][ 1 ] = weights[ 1 ][ 1 ][ 1 ] = a; 
+            weights[ 0 ][ 0 ][ 0 ] *= 1.f - b; 
+            weights[ 1 ][ 0 ][ 0 ] *= 1.f - b; 
+            weights[ 0 ][ 0 ][ 1 ] *= 1.f - b; 
+            weights[ 1 ][ 0 ][ 1 ] *= 1.f - b; 
+            weights[ 0 ][ 1 ][ 0 ] *= b; 
+            weights[ 1 ][ 1 ][ 0 ] *= b; 
+            weights[ 0 ][ 1 ][ 1 ] *= b; 
+            weights[ 1 ][ 1 ][ 1 ] *= b; 
+            weights[ 0 ][ 0 ][ 0 ] *= 1.f - c; 
+            weights[ 0 ][ 1 ][ 0 ] *= 1.f - c; 
+            weights[ 1 ][ 0 ][ 0 ] *= 1.f - c; 
+            weights[ 1 ][ 1 ][ 0 ] *= 1.f - c; 
+            weights[ 0 ][ 0 ][ 1 ] *= c; 
+            weights[ 0 ][ 1 ][ 1 ] *= c; 
+            weights[ 1 ][ 0 ][ 1 ] *= c; 
+            weights[ 1 ][ 1 ][ 1 ] *= c; 
+            
+            if( verbose )
+                log_info( "\tfrac( x - 0.5f ) = %f,  frac( y - 0.5f ) = %f, frac( z - 0.5f ) = %f\n",  
+                         frac( x - 0.5f ), frac( y - 0.5f ), frac( z - 0.5f )  );
+            
+            for( int i = 0; i < 4; i++ )
+            {
+                outData[ i ] = (float)( ( upLeftA[ i ] * weights[ 0 ][ 0 ][ 0 ] ) +
+                                       ( upRightA[ i ] * weights[ 1 ][ 0 ][ 0 ] ) +
+                                       ( lowLeftA[ i ] * weights[ 0 ][ 1 ][ 0 ] ) +
+                                       ( lowRightA[ i ] * weights[ 1 ][ 1 ][ 0 ] ) +
+                                       ( upLeftB[ i ] * weights[ 0 ][ 0 ][ 1 ] ) +
+                                       ( upRightB[ i ] * weights[ 1 ][ 0 ][ 1 ] ) +
+                                       ( lowLeftB[ i ] * weights[ 0 ][ 1 ][ 1 ] ) +
+                                       ( lowRightB[ i ] * weights[ 1 ][ 1 ][ 1 ] ));
+                
+                // flush subnormal results to zero if necessary
+                if( NULL == containsDenorms && fabs(outData[i]) < FLT_MIN )
+                    outData[i] = copysignf( 0.0f, outData[i] );
+            }
         }
+        
+        return returnVal;
     }
+}
 
 
     template <class T> void swizzle_vector_for_image( T *srcVector, const cl_image_format *imageFormat )
@@ -1488,15 +1488,11 @@ bool get_integer_coords_offset( float x, float y, float z, float xAddressOffset,
             case CL_ADDRESS_REPEAT:
                 x = RepeatNormalizedAddressFn( x, width );
                 if (height != 0) {
-                    if (imageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY)
-                        y *= (float)height+yAddressOffset;
-                    else
+                    if (imageInfo->type != CL_MEM_OBJECT_IMAGE1D_ARRAY)
                         y = RepeatNormalizedAddressFn( y, height );
                 }
                 if (depth != 0) {
-                    if (imageInfo->type == CL_MEM_OBJECT_IMAGE2D_ARRAY)
-                        z *= (float)depth+zAddressOffset;
-                    else
+                    if (imageInfo->type != CL_MEM_OBJECT_IMAGE2D_ARRAY)
                         z = RepeatNormalizedAddressFn( z, depth );
                 }
                 
@@ -1532,15 +1528,11 @@ bool get_integer_coords_offset( float x, float y, float z, float xAddressOffset,
             case CL_ADDRESS_MIRRORED_REPEAT:
                 x = MirroredRepeatNormalizedAddressFn( x, width );
                 if (height != 0) {
-                    if (imageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY)
-                        y *= (float)height+yAddressOffset;
-                    else
+                    if (imageInfo->type != CL_MEM_OBJECT_IMAGE1D_ARRAY)
                         y = MirroredRepeatNormalizedAddressFn( y, height );
                 }
                 if (depth != 0) {
-                    if (imageInfo->type == CL_MEM_OBJECT_IMAGE2D_ARRAY)
-                        z *= (float)depth+zAddressOffset;
-                    else
+                    if (imageInfo->type != CL_MEM_OBJECT_IMAGE2D_ARRAY)
                         z = MirroredRepeatNormalizedAddressFn( z, depth );
                 }
                 
@@ -1569,8 +1561,10 @@ bool get_integer_coords_offset( float x, float y, float z, float xAddressOffset,
                 // Also, remultiply to the original coords. This simulates any truncation in
                 // the pass to OpenCL
                 x *= (float)width+xAddressOffset;
-                y *= (float)height+yAddressOffset;
-                z *= (float)depth+zAddressOffset;
+                if (imageInfo->type != CL_MEM_OBJECT_IMAGE1D_ARRAY)
+                  y *= (float)height+yAddressOffset;
+                if (imageInfo->type != CL_MEM_OBJECT_IMAGE2D_ARRAY)
+                  z *= (float)depth+zAddressOffset;
                 break;
         }
     }
@@ -1583,17 +1577,19 @@ bool get_integer_coords_offset( float x, float y, float z, float xAddressOffset,
     
     switch (imageInfo->type) {
         case CL_MEM_OBJECT_IMAGE1D_ARRAY:
-            outY = calculate_array_index(y, imageInfo->arraySize - 1.0f);
+            outY = calculate_array_index(y, (float)imageInfo->arraySize - 1.0f);
             outZ = 0.0f; /* don't care! */
             break;
         case CL_MEM_OBJECT_IMAGE2D_ARRAY:
             outY = adFn( floorf( y ), height );
-            outZ = calculate_array_index(z, imageInfo->arraySize - 1.0f);
+            outZ = calculate_array_index(z, (float)imageInfo->arraySize - 1.0f);
             break;
         default:
             // legacy path:
-            outY = height == 0 ? 0 : adFn( floorf( y ), height );
-            outZ = depth == 0 ? 0 : adFn( floorf( z ), depth );
+            if (height != 0)
+                outY = adFn( floorf( y ), height );
+            if( depth != 0 )
+                outZ = adFn( floorf( z ), depth );
     }
     
 

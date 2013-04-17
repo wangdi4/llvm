@@ -20,6 +20,9 @@ static std::string getZeroLiteral(const std::string& type){
 
   if ("event_t" == type)
     return "0";
+  if ("size_t" == type)
+    return "0";
+
 
   llvm::errs() << "unhandled type " << type << "\n";
   assert (0 && "unrecognized type");
