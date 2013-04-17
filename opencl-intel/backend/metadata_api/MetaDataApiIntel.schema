@@ -10,18 +10,8 @@
                             "name":     "KernelWrappers",
                             "key":      "opencl.wrappers",
                             "metatype": "KernelWrappers"
-                        },
-                        {
-                            "name":     "disabled_FP_CONTRACT",
-                            "key":      "opencl.disabled.FP_CONTRACT",
-                            "metatype": "DummyList"
                         }
                     ]
-                },
-    "DummyList" : {
-                    "is_container":     true,
-                    "container_type":   "list",
-                    "item_type":        "int32_item"
                 },
     "Kernels" : {
                     "is_container":     true,

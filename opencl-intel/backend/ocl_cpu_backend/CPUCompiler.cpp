@@ -342,10 +342,10 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     builder.setMAttrs(cpuFeatures);
     builder.setJITMemoryManager(JITMemoryManager::CreateDefaultMemManager());
     llvm::TargetOptions targetOpt;
-    if (pModule->getNamedMetadata("opencl.disabled.FP_CONTRACT"))
-      targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Standard;
-    else
+    if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT"))
       targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Fast;
+    else
+      targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Standard;
     builder.setTargetOptions(targetOpt);
     
     llvm::ExecutionEngine* pExecEngine = builder.create();
