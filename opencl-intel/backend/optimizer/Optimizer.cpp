@@ -109,7 +109,7 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<std::string, TKernelIn
       PM->add(llvm::createArgumentPromotionPass());   // Scalarize uninlined fn args
 
     // Start of function pass.
-    PM->add(llvm::createScalarReplAggregatesPass(256));  // Break up aggregate allocas
+    PM->add(llvm::createScalarReplAggregatesPass(256, true, 2, 2, 64));  // Break up aggregate allocas
     if (SimplifyLibCalls)
       PM->add(llvm::createSimplifyLibCallsPass());    // Library Call Optimizations
     PM->add(llvm::createEarlyCSEPass());              // Catch trivial redundancies
@@ -135,8 +135,8 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<std::string, TKernelIn
     }
     if (!isDBG)
       PM->add(llvm::createFunctionInliningPass(4096)); //Inline (not only small) functions
-    PM->add(llvm::createScalarReplAggregatesPass(256));  // Break up aggregate allocas
-    PM->add(llvm::createInstructionCombiningPass());  // Clean up after the unroller
+    PM->add(llvm::createScalarReplAggregatesPass(256, true, 2, 2, 64));  // Break up aggregate allocas
+	PM->add(llvm::createInstructionCombiningPass());  // Clean up after the unroller
     PM->add(llvm::createInstructionSimplifierPass());
     if (allowAllocaModificationOpt){
       if (OptimizationLevel > 1)
@@ -175,7 +175,7 @@ void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<std::string, TKernelIn
       if (OptimizationLevel == 1)
         PM->add(llvm::createPromoteMemoryToRegisterPass());
       else
-        PM->add(llvm::createScalarReplAggregatesPass(256));
+        PM->add(llvm::createScalarReplAggregatesPass(256, true, 2, 2, 64));
       PM->add(llvm::createInstructionCombiningPass());
       PM->add(llvm::createInstructionSimplifierPass());
     }
