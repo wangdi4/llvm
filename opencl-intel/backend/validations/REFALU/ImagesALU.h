@@ -23,6 +23,7 @@ File Name:  ImagesALU.h
 #include "FloatOperations.h"
 #include "Conformance/reference_math.h"
 #include "Conformance/test_common/errorHelpers.h"
+#include "Exception.h"
 
 namespace Conformance
 {
@@ -388,6 +389,32 @@ namespace Conformance
         read_image_pixel<T>( imageData, imageInfo, iX, iY, iZ, outData );
     }
 
+    void pack_image_pixel( unsigned int *srcVector, const cl_image_format *imageFormat, void *outData );
+    void pack_image_pixel( int *srcVector, const cl_image_format *imageFormat, void *outData );
+    void pack_image_pixel( float *srcVector, const cl_image_format *imageFormat, void *outData );
+
+    template<typename T>
+    void write_image_pixel( void *imageData, image_descriptor *imageInfo, const int x, const int y, const int z, T* inData )
+    {
+
+        if ( x < 0 || y < 0 || z < 0 || x >= (int)imageInfo->width
+           || ( imageInfo->height != 0 && y >= (int)imageInfo->height )
+           || ( imageInfo->depth != 0 && z >= (int)imageInfo->depth )
+           || ( imageInfo->arraySize != 0 && z >= (int)imageInfo->arraySize ) )
+        {
+            throw Validation::Exception::InvalidArgument("write_image_pixel:: Coordinates out of boundaries");
+        }
+
+        cl_image_format *format = imageInfo->format;
+        // Advance to the right spot
+        char *ptr = (char *)imageData;
+        size_t pixelSize = get_pixel_size( format );
+
+        ptr += z * imageInfo->slicePitch + y * imageInfo->rowPitch + x * pixelSize;
+        
+        pack_image_pixel(inData, format, ptr);
+    }
+
 
     template <class T> void sample_image_pixel( void *imageData, image_descriptor *imageInfo, 
         float x, float y, float z, image_sampler_data *imageSampler, T *outData )
@@ -403,12 +430,6 @@ namespace Conformance
         image_sampler_data *imageSampler, 
         float *outData, int verbose, int *containsDenorms );
 
-    void write_image_pixel_float( void *imageData, image_descriptor *imageInfo, 
-        const int x, const int y, const int z, float* inData );
-    void write_image_pixel_int( void *imageData, image_descriptor *imageInfo, 
-        const int x, const int y, const int z, int* inData );
-    void write_image_pixel_uint( void *imageData, image_descriptor *imageInfo, 
-        const int x, const int y, const int z, unsigned int* inData );
 
     // get maximum relative error for pixel
     float get_max_relative_error( cl_image_format *format, image_sampler_data *sampler, int is3D, int isLinearFilter );

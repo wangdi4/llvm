@@ -21,7 +21,6 @@ File Name:  ImagesALU.cpp
 #include "ImagesALU.h"
 #include "Conformance/test_common/compat.h"
 #include "Conformance/test_common/errorHelpers.h"
-#include "Exception.h"
 
 using namespace Validation;
 
@@ -32,12 +31,6 @@ namespace Conformance
     static void read_image_pixel_float( void *imageData, image_descriptor *imageInfo, 
         int x, int y, int z, float *outData );
 
-    static void pack_image_pixel( unsigned int *srcVector, const cl_image_format *imageFormat, void *outData );
-    static void pack_image_pixel( int *srcVector, const cl_image_format *imageFormat, void *outData );
-    static void pack_image_pixel( float *srcVector, const cl_image_format *imageFormat, void *outData );
-
-    template<typename T>
-    void write_image_pixel( void *imageData, image_descriptor *imageInfo, const int x, const int y, const int z, T* inData );
 
     // Define the addressing functions
     typedef int (*AddressFn)( int value, size_t maxValue );
@@ -1340,42 +1333,6 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
         }
     }
 
-    template<typename T>
-    void write_image_pixel( void *imageData, image_descriptor *imageInfo, const int x, const int y, const int z, T* inData )
-    {
-
-        if ( x < 0 || y < 0 || z < 0 || x >= (int)imageInfo->width
-           || ( imageInfo->height != 0 && y >= (int)imageInfo->height )
-           || ( imageInfo->depth != 0 && z >= (int)imageInfo->depth )
-           || ( imageInfo->arraySize != 0 && z >= (int)imageInfo->arraySize ) )
-        {
-            throw Exception::InvalidArgument("write_image_pixel:: Coordinates out of boundaries");
-        }
-
-        cl_image_format *format = imageInfo->format;
-        // Advance to the right spot
-        char *ptr = (char *)imageData;
-        size_t pixelSize = get_pixel_size( format );
-
-        ptr += z * imageInfo->slicePitch + y * imageInfo->rowPitch + x * pixelSize;
-        
-        pack_image_pixel(inData, format, ptr);
-    }
-
-    void write_image_pixel_float( void *imageData, image_descriptor *imageInfo, const int x, const int y, const int z, float* inData )
-    {
-        write_image_pixel<float>(imageData, imageInfo, x, y, z, inData);
-    }
-    
-    void write_image_pixel_int( void *imageData, image_descriptor *imageInfo, const int x, const int y, const int z, int* inData )
-    {
-        write_image_pixel<int>(imageData, imageInfo, x, y, z, inData);
-    }
-
-    void write_image_pixel_uint( void *imageData, image_descriptor *imageInfo, const int x, const int y, const int z, unsigned int* inData )
-    {
-        write_image_pixel<unsigned int>(imageData, imageInfo, x, y, z, inData);
-    }
 
     float get_max_relative_error( cl_image_format *format, image_sampler_data *sampler, int is3D, int isLinearFilter )
     {

@@ -56,13 +56,26 @@ def read_imagei_1d_arr_samplerless  : REF_OclBuiltin<"read_imagei",  (outs i32ge
 def read_imageui_1d_arr_samplerless  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image1d_array:$image, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
 }
 
+
 // Table 6.12.14.4 Built-in Image Write Functions
 
 let Types = [ v4i32 ],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
-def write_imagef  : REF_OclBuiltin<"write_imagef",  (outs), (ins image2d:$image, gentype2:$coord, f32gentype:$color), [], [], TemplateAttr< [] > >;
-def write_imagei  : REF_OclBuiltin<"write_imagei",  (outs), (ins image2d:$image, gentype2:$coord, i32gentype:$color), [], [], TemplateAttr< [] > >;
-def write_imageui  : REF_OclBuiltin<"write_imageui",  (outs), (ins image2d:$image, gentype2:$coord, u32gentype:$color), [], [], TemplateAttr< [] > >;
+def write_imagef_2d  : REF_OclBuiltin<"write_imagef",  (outs), (ins image2d:$image, gentype2:$coord, f32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def write_imagei_2d  : REF_OclBuiltin<"write_imagei",  (outs), (ins image2d:$image, gentype2:$coord, i32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def write_imageui_2d  : REF_OclBuiltin<"write_imageui",  (outs), (ins image2d:$image, gentype2:$coord, u32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def write_imagef_2d_arr  : REF_OclBuiltin<"write_imagef",  (outs), (ins image2d_array:$image, gentype4:$coord, f32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def write_imagei_2d_arr  : REF_OclBuiltin<"write_imagei",  (outs), (ins image2d_array:$image, gentype4:$coord, i32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def write_imageui_2d_arr  : REF_OclBuiltin<"write_imageui",  (outs), (ins image2d_array:$image, gentype4:$coord, u32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def write_imagef_1d  : REF_OclBuiltin<"write_imagef",  (outs), (ins image1d:$image, sgentype:$coord, f32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def write_imagei_1d  : REF_OclBuiltin<"write_imagei",  (outs), (ins image1d:$image, sgentype:$coord, i32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def write_imageui_1d  : REF_OclBuiltin<"write_imageui",  (outs), (ins image1d:$image, sgentype:$coord, u32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def write_imagef_1d_buff  : REF_OclBuiltin<"write_imagef",  (outs), (ins image1d_buffer:$image, sgentype:$coord, f32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def write_imagei_1d_buff  : REF_OclBuiltin<"write_imagei",  (outs), (ins image1d_buffer:$image, sgentype:$coord, i32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def write_imageui_1d_buff  : REF_OclBuiltin<"write_imageui",  (outs), (ins image1d_buffer:$image, sgentype:$coord, u32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def write_imagef_1d_arr  : REF_OclBuiltin<"write_imagef",  (outs), (ins image1d_array:$image, gentype2:$coord, f32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def write_imagei_1d_arr  : REF_OclBuiltin<"write_imagei",  (outs), (ins image1d_array:$image, gentype2:$coord, i32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
+def write_imageui_1d_arr  : REF_OclBuiltin<"write_imageui",  (outs), (ins image1d_array:$image, gentype2:$coord, u32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
 }
 
 // Table 6.12.14.5 Built-in Image Query Functions
@@ -389,60 +402,33 @@ GenericValue lle_X_get_image_array_size(FunctionType *FT,
     return gv;
 }
 
-llvm::GenericValue lle_X_write_image( llvm::FunctionType *FT, 
-                                     const std::vector<llvm::GenericValue> &Args )
-{
-    GenericValue gv;
-    cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
-
-    const int32_t dimCnt = memobj->dim_count;
-    
-    cl_image_format im_fmt;
-    Conformance::image_descriptor desc = CreateConfImageDesc(*memobj, im_fmt);
-
-    // coordinates
-    const GenericValue& CoordGV = Args[1];
-    const int32_t u = getVal<uint32_t, 4>(CoordGV, 0);
-    const int32_t v = (dimCnt > 1) ? getVal<uint32_t, 4>(CoordGV, 1) : 0;
-    const int32_t w = (dimCnt > 2) ? getVal<uint32_t, 4>(CoordGV, 2) : 0;
-
-    // datatype of pixel 
-    const GenericValue& PixelGV = Args[2];
-    const llvm::Type::TypeID PixelTy= FT->getParamType(2)->getContainedType(0)->getTypeID();
-
-    if (PixelTy == llvm::Type::FloatTyID)
-    {   // pixel data type is float
-        float val[4] = 
-                       {PixelGV.AggregateVal[0].FloatVal, 
-                        PixelGV.AggregateVal[1].FloatVal,
-                        PixelGV.AggregateVal[2].FloatVal, 
-                        PixelGV.AggregateVal[3].FloatVal };
-        write_image_pixel_float(memobj->pData, &desc, u, v, w, val);    
-    }
-    else if(PixelTy == llvm::Type::IntegerTyID && CoordGV.AggregateVal[0].IntVal.isSignedIntN(32))
-    {   // pixel is signed int
-        int32_t val[4] = 
-        {   (int32_t)PixelGV.AggregateVal[0].IntVal.getSExtValue(), 
-            (int32_t)PixelGV.AggregateVal[1].IntVal.getSExtValue(),
-            (int32_t)PixelGV.AggregateVal[2].IntVal.getSExtValue(), 
-            (int32_t)PixelGV.AggregateVal[3].IntVal.getSExtValue()};
-
-        write_image_pixel_int(memobj->pData, &desc, u, v, w, val);    
-    }
-    else if(PixelTy == llvm::Type::IntegerTyID && !CoordGV.AggregateVal[0].IntVal.isSignedIntN(32))
-    {   // pixel is unsigned int
-        uint32_t val[4] = 
-        {   (uint32_t)PixelGV.AggregateVal[0].IntVal.getZExtValue(), 
-            (uint32_t)PixelGV.AggregateVal[1].IntVal.getZExtValue(),
-            (uint32_t)PixelGV.AggregateVal[2].IntVal.getZExtValue(), 
-            (uint32_t)PixelGV.AggregateVal[3].IntVal.getZExtValue()};
-        write_image_pixel_uint(memobj->pData, &desc, u, v, w, val);    
-    }
-    else throw Exception::InvalidArgument("lle_X_write_image::Invalid data type of pixel data");
-
-    return gv;
-
+template<>
+void getColorForWriteImage(const GenericValue& PixelGV, float val[4]) {
+    val[0] = PixelGV.AggregateVal[0].FloatVal;
+    val[1] = PixelGV.AggregateVal[1].FloatVal;
+    val[2] = PixelGV.AggregateVal[2].FloatVal;
+    val[3] = PixelGV.AggregateVal[3].FloatVal;
+    return;
 }
+
+template<>
+void getColorForWriteImage(const GenericValue& PixelGV, int32_t val[4]) {
+    val[0] = (int32_t)PixelGV.AggregateVal[0].IntVal.getSExtValue(); 
+    val[1] = (int32_t)PixelGV.AggregateVal[1].IntVal.getSExtValue();
+    val[2] = (int32_t)PixelGV.AggregateVal[2].IntVal.getSExtValue(); 
+    val[3] = (int32_t)PixelGV.AggregateVal[3].IntVal.getSExtValue();
+    return;
+}
+
+template<>
+void getColorForWriteImage(const GenericValue& PixelGV, uint32_t val[4]) {
+    val[0] = (uint32_t)PixelGV.AggregateVal[0].IntVal.getZExtValue();
+    val[1] = (uint32_t)PixelGV.AggregateVal[1].IntVal.getZExtValue();
+    val[2] = (uint32_t)PixelGV.AggregateVal[2].IntVal.getZExtValue(); 
+    val[3] = (uint32_t)PixelGV.AggregateVal[3].IntVal.getZExtValue();
+    return;
+}
+
 }
 }
   }];
