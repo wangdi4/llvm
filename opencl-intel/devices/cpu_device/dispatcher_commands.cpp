@@ -151,9 +151,13 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam)
 
 		{
 			IOCLDevMemoryObject *memObj = *((IOCLDevMemoryObject**)(pKernelParams+stOffset));
+			assert( ((CL_KRNL_ARG_PTR_CONST == pArgs[i].type) || (CL_KRNL_ARG_PTR_GLOBAL == pArgs[i].type) || (NULL != memObj)) &&
+				"NULL is not allowed for non buffer arguments");
             if (NULL != memObj)
             {
 			    memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)(pLockedParams+stOffset));
+				assert( (*((cl_mem_obj_descriptor**)(pLockedParams+stOffset)))->pData != NULL &&
+					"Passing NULL data object for execution");
             }
             else
             {

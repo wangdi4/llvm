@@ -99,17 +99,44 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		pFnglDeleteBuffers*				glDeleteBuffers;
 #ifdef WIN32
 		pFnwglCreateContextAttribsARB*	wglCreateContextAttribsARB;
-
-		// Blocks execution, until GLBackup context becomes available
-		HGLRC	GetBackupGLCntx();
-		void	RecycleBackupGLCntx(HGLRC hGLRC);
 #endif
+
+		class GLContextSync{
+		public:
+			GLContextSync(GLContext* _glCtx);
+			~GLContextSync();
+
+		private:
+			GLContext*	m_pGLContext;
+			bool		m_bUpdated;
+#ifdef WIN32
+			HGLRC	m_hCurrentGL;
+			HDC		m_hCurrentDC;
+#endif
+
+			GLContextSync(const GLContextSync&);
+			GLContextSync& operator=(const GLContextSync&);
+		};
+
 	protected:
 		~GLContext();
 		cl_context_properties m_hDC;
 		cl_context_properties m_hGLCtx;
 
 #ifdef WIN32
+		// Set backup GL context as current GL context
+		// The context is acuired for sigle usage,
+		// Multiple call to this function will block callers
+		// Returns:
+		//	CL_TRUE if context was exchanged
+		//	CL_FALSE if current context is used
+		//	An error of operation fails
+		cl_err_code	AcquiereGLCntx(HGLRC hCntxGL, HDC hDC);
+
+		// Release previously acquired GL context,
+		// and restore previous GL context
+		void	RestoreGLCntx(HGLRC hCntxGL, HDC hDC);
+
 		Intel::OpenCL::Utils::OclMutex	m_muGLBkpCntx;
 		HGLRC							m_hGLBackupCntx;
 #endif

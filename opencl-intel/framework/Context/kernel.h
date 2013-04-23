@@ -144,9 +144,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void * GetValue() const { return m_pValue; }
 
 		bool	IsMemObject() const;
-
-		//bool IsBuffer() const;
-        //bool IsImage() const;
+		bool	IsBuffer() const;
+        bool	IsImage() const;
 
         bool IsSampler() const;
 

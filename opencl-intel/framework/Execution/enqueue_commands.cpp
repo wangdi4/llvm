@@ -1599,6 +1599,7 @@ cl_err_code NDRangeKernelCommand::Init()
 	// TODO: Why we need two expensive passes, access to map, memcpy
 	//		Join to single pass, consider build most of the buffer during SetKernelArgs
 	//		Consider to add KernelArgument class, that can handle all argument cases
+	//		Open engeneering note for further optiomization, include TODO in line 1637
     for(i=0; i< szArgCount; i++)
     {
         pArg = m_pKernel->GetKernelArg(i);
@@ -1607,7 +1608,7 @@ cl_err_code NDRangeKernelCommand::Init()
             szSize = sizeof(IOCLDevMemoryObject*);
             // Create buffer resources here if not available.
             SharedPtr<MemoryObject> pMemObj = (MemoryObject*)pArg->GetValue();
-            if (NULL != pMemObj)    // NULL argument is allowed
+            if( NULL != pMemObj )    // NULL argument is allowed
             {
                 // Mark as used
                 res = pMemObj->CreateDeviceResource(m_pDevice);
@@ -1615,8 +1616,18 @@ cl_err_code NDRangeKernelCommand::Init()
                 {
                     break;
                 }                
+				// TODO: Check why we always pass READ_WRITE as usage. Why we need it at all
                 m_MemOclObjects.push_back(MemoryObjectArg(pMemObj, MemoryObject::READ_WRITE));
             }
+			else
+			{
+				if ( !pArg->IsBuffer() )
+				{
+					assert(0 && "Providing NULL argument for non-buffers is not allowed");
+					res = CL_INVALID_ARG_VALUE;
+					break;
+				}
+			}
             szCurrentLocation += szSize;
         }
 		else if ( pArg->IsSampler() )
@@ -1938,6 +1949,15 @@ ReadMemObjCommand::~ReadMemObjCommand()
  ******************************************************************/
 cl_err_code ReadMemObjCommand::Init()
 {
+	assert(m_MemOclObjects.size() == 1 && "Memory object list must be == 1");
+    SharedPtr<MemoryObject> pMemObj = m_MemOclObjects[0].pMemObj;
+
+	cl_err_code res = pMemObj->CreateDeviceResource(m_pDevice);
+	if( CL_FAILED(res))
+	{
+		return res;
+	}
+
 	// Initialize GPA data
 	GPA_InitCommand();
 
@@ -1949,35 +1969,34 @@ cl_err_code ReadMemObjCommand::Init()
  ******************************************************************/
 cl_err_code ReadMemObjCommand::Execute()
 {
-	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
+	cl_dev_cmd_desc *pDevCmd = &m_DevCmd;
 
 	assert(m_MemOclObjects.size() == 1);
 	m_MemOclObjects[0].access_rights = MemoryObject::READ_ONLY;
-	cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
-	
 	SharedPtr<MemoryObject> pMemObj = m_MemOclObjects[0].pMemObj;
+	
+	cl_err_code res = GetMemObjectDescriptor(pMemObj, &m_rwParams.memObj);
+	if ( CL_FAILED(res) )
+	{
+		assert(0 && "ReadMemObjCommand::Execute() Failed: on a call to GetMemObjectDescriptor");
+		return res;
+    }
 
+	res = AcquireMemoryObjects(m_MemOclObjects);
     if ( CL_SUCCESS != res )
     {
         return res;
 	}
 
-	SharedPtr<OclEvent> pObjEvent;
-	cl_err_code clErr = pMemObj->GetDeviceDescriptor(m_pDevice, &m_rwParams.memObj, &pObjEvent);
-	if ( CL_FAILED(clErr) )
-	{
-		return clErr;
-	}
-
-    create_dev_cmd_rw(
+	create_dev_cmd_rw(
 		m_commandType == CL_COMMAND_READ_BUFFER_RECT ? MAX_WORK_DIM  : pMemObj->GetNumDimensions(),
 		m_pDst, m_szOrigin, m_szDstOrigin, m_szRegion, m_szDstRowPitch, m_szDstSlicePitch, m_szMemObjRowPitch, m_szMemObjSlicePitch,
-        CL_DEV_CMD_READ );
+		CL_DEV_CMD_READ );
 
     LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
     // Sending 1 command to the device where the buffer is located now
 
-	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
+	return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &pDevCmd, 1);
 
 }
 
@@ -2201,7 +2220,7 @@ WriteMemObjCommand::~WriteMemObjCommand()
  ******************************************************************/
 cl_err_code WriteMemObjCommand::Init()
 {
-	assert(m_MemOclObjects.size() == 1);
+	assert(m_MemOclObjects.size() == 1 && "Memory object list must be == 1");
     SharedPtr<MemoryObject> pMemObj = m_MemOclObjects[0].pMemObj;
     
 	// If we are blocking command, we need to allocate internal buffer
@@ -2267,26 +2286,30 @@ cl_err_code WriteMemObjCommand::Init()
  ******************************************************************/
 cl_err_code WriteMemObjCommand::Execute()
 {  
-	cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
-    if ( CL_SUCCESS != res )
-    {
-    	ALIGNED_FREE(m_pTempBuffer);
-    	m_pTempBuffer = NULL;
-        return res;
+	cl_dev_cmd_desc *pDevCmd = &m_DevCmd;
+	assert(m_MemOclObjects.size() == 1 && "We expect single memory object in the command");
+	SharedPtr<MemoryObject> pMemObj = m_MemOclObjects[0].pMemObj;
+
+	cl_err_code res = GetMemObjectDescriptor(pMemObj, &m_rwParams.memObj);
+	if ( CL_FAILED(res) )
+	{
+		assert(0 && "WriteMemObjCommand::Execute() Failed: on a call to GetMemObjectDescriptor");
+		ALIGNED_FREE(m_pTempBuffer);
+		m_pTempBuffer = NULL;
+		return res;
+    }
+
+	res = AcquireMemoryObjects(m_MemOclObjects);
+	if ( CL_NOT_READY == res )
+	{
+		return res;
 	}
 
-	assert(m_MemOclObjects.size() == 1);
-    SharedPtr<MemoryObject> pMemObj = m_MemOclObjects[0].pMemObj;
- 	cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
-
-	/// memory object resides on target device, update it
-	SharedPtr<OclEvent> pObjEvent;
-	cl_err_code clErr = pMemObj->GetDeviceDescriptor(m_pDevice, &m_rwParams.memObj, &pObjEvent);
-	if ( CL_FAILED(clErr) )
+	if ( CL_SUCCESS != res )
 	{
-    	ALIGNED_FREE(m_pTempBuffer);
-    	m_pTempBuffer = NULL;
-		return clErr;
+		ALIGNED_FREE(m_pTempBuffer);
+		m_pTempBuffer = NULL;
+		return res;
 	}
 
 	create_dev_cmd_rw(
@@ -2297,7 +2320,7 @@ cl_err_code WriteMemObjCommand::Execute()
 
 	LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
 	// Sending 1 command to the device where the buffer is located now
-	cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
+	cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &pDevCmd, 1);
 	if ( CL_DEV_FAILED(errDev) )
 	{
     	ALIGNED_FREE(m_pTempBuffer);

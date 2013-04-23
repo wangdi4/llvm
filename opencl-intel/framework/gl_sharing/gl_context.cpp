@@ -160,14 +160,17 @@ cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, Sha
 		return clErr;
 	}
 
-	clErr = pBuffer->Initialize(clFlags, NULL, 1, NULL, NULL, (void*)glBufObj, CL_RT_MEMOBJ_FORCE_BS);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("Failed to initialize data, pBuffer->Initialize(pHostPtr = %s"), ClErrTxt(clErr));
-		pBuffer->Release();
-		return clErr;
-	}
+	{	// Operation requires nested stack frame, GLContext should be release after Initialize
+		GLContext::GLContextSync sync(this);
 
+		clErr = pBuffer->Initialize(clFlags, NULL, 1, NULL, NULL, (void*)glBufObj, CL_RT_MEMOBJ_FORCE_BS);
+		if (CL_FAILED(clErr))
+		{
+			LOG_ERROR(TEXT("Failed to initialize data, pBuffer->Initialize(pHostPtr = %s"), ClErrTxt(clErr));
+			pBuffer->Release();
+			return clErr;
+		}
+	}
 	m_mapMemObjects.AddObject(pBuffer);
 
 	*ppBuffer = pBuffer;
@@ -195,12 +198,15 @@ cl_err_code GLContext::CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTexture
 	txtDesc.glMipLevel = glMipLevel;
 	txtDesc.glTextureTarget = glTextureTarget;
 
-	clErr = pImage->Initialize(clMemFlags, NULL, pImage->GetNumDimensions(), NULL, NULL, &txtDesc, CL_RT_MEMOBJ_FORCE_BS);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize(pHostPtr = %s"), ClErrTxt(clErr));
-		pImage->Release();
-		return clErr;
+	{	// Operation requires nested stack frame, GLContext should be release after Initialize
+		GLContext::GLContextSync sync(this);
+		clErr = pImage->Initialize(clMemFlags, NULL, pImage->GetNumDimensions(), NULL, NULL, &txtDesc, CL_RT_MEMOBJ_FORCE_BS);
+		if (CL_FAILED(clErr))
+		{
+			LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize(pHostPtr = %s"), ClErrTxt(clErr));
+			pImage->Release();
+			return clErr;
+		}
 	}
 
 	m_mapMemObjects.AddObject(pImage);
@@ -224,12 +230,15 @@ cl_err_code GLContext::CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRe
 		return clErr;
 	}
 
-	clErr = pImage->Initialize(clMemFlags, NULL, 2, NULL, NULL, (void*)glRednderBuffer, CL_RT_MEMOBJ_FORCE_BS);
-	if (CL_FAILED(clErr))
-	{
-		LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize(pHostPtr = %s"), ClErrTxt(clErr));
-		pImage->Release();
-		return clErr;
+	{	// Operation requires nested stack frame, GLContext should be release after Initialize
+		GLContext::GLContextSync sync(this);
+		clErr = pImage->Initialize(clMemFlags, NULL, 2, NULL, NULL, (void*)glRednderBuffer, CL_RT_MEMOBJ_FORCE_BS);
+		if (CL_FAILED(clErr))
+		{
+			LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize(pHostPtr = %s"), ClErrTxt(clErr));
+			pImage->Release();
+			return clErr;
+		}
 	}
 
 	m_mapMemObjects.AddObject(pImage);
@@ -238,14 +247,103 @@ cl_err_code GLContext::CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRe
 	return CL_SUCCESS;
 }
 
-HGLRC GLContext::GetBackupGLCntx()
+cl_err_code GLContext::AcquiereGLCntx(HGLRC hCntxGL, HDC hDC)
 {
+	const HGLRC	hMyCntxGL = (HGLRC)m_hGLCtx;
+	const HDC	hMyCntxDC = (HDC)m_hDC;
+
+	if ( NULL == m_hGLBackupCntx )
+	{
+		return CL_OUT_OF_RESOURCES;
+	}
+
+	// We are using same context, no need to change
+	if ( ((hMyCntxGL == hCntxGL) || (m_hGLBackupCntx==hCntxGL)) && (hMyCntxDC == hDC) )
+	{
+		return CL_FALSE;
+	}
+
+	BOOL err = 0;
+#if 0
+	// First make a try to choose GL context wich was used during CL context creation
+	err = wglMakeCurrent(hMyCntxDC, hMyCntxGL);
+	if ( TRUE == err )
+	{
+		return CL_TRUE;
+	}
+#endif
+
+	// If a context exists, firts wait until all GL operations are completed
+	if ( NULL != hCntxGL )
+	{
+		glFinish();
+	}
+
+	// Acquire backup context, block others
 	m_muGLBkpCntx.Lock();
 
-	return m_hGLBackupCntx;
+	int iter = 0;
+	do
+	{
+		// Set our context as current one
+		err = wglMakeCurrent(hMyCntxDC, m_hGLBackupCntx);
+		if ( !err )
+		{
+			Sleep(1);
+		}
+	} while ( (FALSE==err) && ((++iter)<1000) );
+	DWORD wErr = GetLastError();
+	assert( (TRUE==err) && (0==wErr) && "Failed to update to private GL context after 1000 iterations");
+	if( (TRUE!=err) || (0!= wErr) )
+	{
+		m_muGLBkpCntx.Unlock();
+		return CL_INVALID_OPERATION;
+	}
+
+	return CL_TRUE;
 }
 
-void GLContext::RecycleBackupGLCntx(HGLRC hGLRC)
+void GLContext::RestoreGLCntx(HGLRC hCntxGL, HDC hDC)
 {
-	m_muGLBkpCntx.Unlock();
+	const HGLRC	hMyCntxGL = (HGLRC)m_hGLCtx;
+	const HDC	hMyCntxDC = (HDC)m_hDC;
+
+	// We are using same context
+	if ( (hMyCntxGL == hCntxGL) && (hMyCntxDC == hDC) )
+	{
+		return;
+	}
+
+	const HGLRC hCurrentContext = wglGetCurrentContext();
+
+	// Finish pending operations on current context
+	glFinish();
+
+	wglMakeCurrent(hDC, hCntxGL);
+	assert( (0 == GetLastError()) && "Failed to revert to original GL context");
+	if ( hCurrentContext == m_hGLBackupCntx )
+	{
+		// The internal backup context was used, we need to release it
+		m_muGLBkpCntx.Unlock();
+	}
 }
+
+///////////////////////////////////////////////////////////////////
+GLContext::GLContextSync::GLContextSync(GLContext* glCtx) : m_pGLContext(glCtx), m_bUpdated(false)
+{
+#ifdef WIN32
+    m_hCurrentGL = wglGetCurrentContext();
+    m_hCurrentDC = wglGetCurrentDC();
+
+	m_bUpdated = CL_TRUE == m_pGLContext->AcquiereGLCntx(m_hCurrentGL, m_hCurrentDC);
+#endif
+}
+
+GLContext::GLContextSync::~GLContextSync()
+{
+	if (m_bUpdated)
+	{
+		m_pGLContext->RestoreGLCntx(m_hCurrentGL, m_hCurrentDC);
+	}
+}
+

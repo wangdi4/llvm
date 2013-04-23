@@ -46,69 +46,36 @@ const char* SyncGLObjects::GetCommandName() const
 
 cl_err_code SyncGLObjects::Execute()
 {
-    // Attach GL context to thread
-    HGLRC hCurrentGL = wglGetCurrentContext();
-    HDC hCurrentDC = wglGetCurrentDC();
-	HGLRC hCntxGL = (HGLRC)m_pContext->GetGLCtx();
-	HDC hCntxDC = (HDC)m_pContext->GetDC();
-	HGLRC hBackupGL = NULL;
-
-    if ( ( hCntxGL != hCurrentGL) || ( hCntxDC != hCurrentDC))
-    {
-		hBackupGL = m_pContext->GetBackupGLCntx();
-		if ( NULL == hBackupGL )
-		{
-			return CL_OUT_OF_RESOURCES;
-		}
-
-		const BOOL ret = wglMakeCurrent(hCntxDC, hBackupGL);
-        assert(ret);
-    }
-
-    ExecGLSync(NULL == hBackupGL);
-
-	if ( NULL != hBackupGL )
 	{
-		wglMakeCurrent(hCurrentDC, hCurrentGL);
-		m_pContext->RecycleBackupGLCntx(hBackupGL);
-	}
+		// Attach GL context to thread, need to be done in separate stack frame
+		GLContext::GLContextSync glSync(m_pContext.GetPtr());
 
-    return CL_SUCCESS;
-}
-
-void SyncGLObjects::ExecGLSync(bool bMainGLThread)
-{
-	cl_err_code err = CL_SUCCESS;
-	// Do the actual work here
-	if ( CL_COMMAND_ACQUIRE_GL_OBJECTS == GetCommandType() )
-	{
-		for (unsigned int i=0; i<GetNumMemObjs(); ++i)
+		cl_err_code err = CL_SUCCESS;
+		// Do the actual work here
+		if ( CL_COMMAND_ACQUIRE_GL_OBJECTS == GetCommandType() )
 		{
-			err = dynamic_cast<GLMemoryObject&>(GetMemoryObject(i)).AcquireGLObject();
-			if ( CL_FAILED(err) )
+			for (unsigned int i=0; i<GetNumMemObjs(); ++i)
 			{
-				m_returnCode = err;
+				err = dynamic_cast<GLMemoryObject&>(GetMemoryObject(i)).AcquireGLObject();
+				if ( CL_FAILED(err) )
+				{
+					m_returnCode = err;
+				}
+			}
+		}
+		else
+		{
+			for (unsigned int i=0; i<GetNumMemObjs(); ++i)
+			{
+				err = dynamic_cast<GLMemoryObject&>(GetMemoryObject(i)).ReleaseGLObject();
+				if ( CL_FAILED(err) )
+				{
+					m_returnCode = err;
+				}
 			}
 		}
 	}
-	else
-	{
-		for (unsigned int i=0; i<GetNumMemObjs(); ++i)
-		{
-			err = dynamic_cast<GLMemoryObject&>(GetMemoryObject(i)).ReleaseGLObject();
-			if ( CL_FAILED(err) )
-			{
-				m_returnCode = err;
-			}
-		}
-		if ( !bMainGLThread )
-		{
-			// If syncronization is done in different thread we must make sure
-			// that all GL commands were completed            
-            glFinish();
-            assert(!glGetError());
-		}                
-	}
-	RuntimeCommand::Execute();
-    
+
+	return RuntimeCommand::Execute();
 }
+

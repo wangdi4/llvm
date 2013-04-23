@@ -280,19 +280,19 @@ bool KernelArg::IsMemObject() const
 	return (m_clKernelArgType.type >= CL_KRNL_ARG_PTR_GLOBAL);
 }
 
-/*
 bool KernelArg::IsBuffer() const
 {
 	return ((m_clKernelArgType.type == CL_KRNL_ARG_PTR_GLOBAL)	|| 
 			//(m_clKernelArgType.type == CL_KRNL_ARG_PTR_LOCAL)	||
 			(m_clKernelArgType.type == CL_KRNL_ARG_PTR_CONST));
 }
+
 bool KernelArg::IsImage() const
 {
-	return ((m_clKernelArgType.type == CL_KRNL_ARG_PTR_IMG_2D)	|| 
-			(m_clKernelArgType.type == CL_KRNL_ARG_PTR_IMG_3D));
+	return ((m_clKernelArgType.type >= CL_KRNL_ARG_PTR_IMG_2D)	&& 
+			(m_clKernelArgType.type <= CL_KRNL_ARG_PTR_IMG_1D_BUF));
 }
-*/
+
 
 bool KernelArg::IsSampler() const
 {

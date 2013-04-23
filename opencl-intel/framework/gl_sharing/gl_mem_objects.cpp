@@ -231,12 +231,13 @@ cl_err_code GLTexture::GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t va
 
 cl_err_code GLTexture::CreateChildObject()
 {
+    GLint glErr = 0;
 	GLint glBindingType = 0;
-	GLint glBind = 0;
-	GLint glErr = 0;
+	GLint glBind = 0;	
 	GLint pboBinding;
 
 	SharedPtr<GLContext> pGLContext = m_pContext.DynamicCast<GLContext>();
+	GLContext::GLContextSync sync(pGLContext.GetPtr());
 
 	if ( (m_clFlags & CL_MEM_READ_ONLY) || (m_clFlags & CL_MEM_READ_WRITE) )
 	{
@@ -249,13 +250,27 @@ cl_err_code GLTexture::CreateChildObject()
 	}
 
 	glGetIntegerv(glBindingType, &pboBinding);
+	glErr = glGetError();
+	assert( (GL_NO_ERROR==glErr) && "Failed to retrieved current PBO" );
+	if ( GL_NO_ERROR!=glErr )
+	{
+		return CL_INVALID_OPERATION;
+	}
 
 	// read pixels from framebuffer to PBO
 	// glReadPixels() should return immediately, the transfer is in background by DMA
 	m_pGLContext->glBindBuffer(glBind, m_glPBO);
+	glErr = glGetError();
+	assert( (GL_NO_ERROR==glErr) && "Failed to bind PBO" );
+	if ( GL_NO_ERROR!=glErr )
+	{
+		return CL_INVALID_OPERATION;
+	}
+
 	void *pBuffer = pGLContext->glMapBuffer(glBind, m_glMemFlags);
 	if ( NULL == pBuffer )
 	{
+		assert( 0 && "Map failed, buffer == NULL" );
 		pGLContext->glBindBuffer(glBind, pboBinding);
 		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
 		return CL_INVALID_OPERATION;
@@ -266,6 +281,7 @@ cl_err_code GLTexture::CreateChildObject()
     cl_err_code res = MemoryObjectFactory::GetInstance()->CreateMemoryObject(CL_DEVICE_TYPE_CPU, m_clMemObjectType, CL_MEMOBJ_GFX_SHARE_NONE, m_pContext, &pChild);
 	if (CL_FAILED(res))
 	{
+		assert( 0 && "Failed to create a new object" );
 		pGLContext->glUnmapBuffer(glBind);
 		pGLContext->glBindBuffer(glBind, pboBinding);
 		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
@@ -276,6 +292,7 @@ cl_err_code GLTexture::CreateChildObject()
 	res = pChild->Initialize(m_clFlags, &m_clFormat.clType, GetNumDimensions(), dim, &m_stPitches[0], pBuffer, CL_RT_MEMOBJ_FORCE_BS);
 	if (CL_FAILED(res))
 	{
+		assert( 0 && "Failed to initialize a new object" );
 		pGLContext->glUnmapBuffer(glBind);
 		pGLContext->glBindBuffer(glBind, pboBinding);
 		pChild->Release();
@@ -286,7 +303,10 @@ cl_err_code GLTexture::CreateChildObject()
 	m_itCurrentAcquriedObject->second = pChild;
 	pGLContext->glBindBuffer(glBind, pboBinding);
 
-	return CL_SUCCESS;
+	glErr = glGetError();
+	assert( (GL_NO_ERROR==glErr) && "Failed to bind old PBO" );
+
+	return GL_NO_ERROR==glErr ? CL_SUCCESS : CL_INVALID_OPERATION;
 }
 
 cl_err_code GLTexture::Initialize(cl_mem_flags clMemFlags, const cl_image_format* pclImageFormat, unsigned int dim_count,
@@ -294,6 +314,7 @@ cl_err_code GLTexture::Initialize(cl_mem_flags clMemFlags, const cl_image_format
 {
 	GLTextureDescriptor* pTxtDescriptor = (GLTextureDescriptor*)pHostPtr;
 
+	assert(0!=pTxtDescriptor->glTexture && "Invalid texture descriptor == 0");
 	// Retrieve open GL texture information
 	GLint	currTexture;
 	GLenum	targetBinding = GetTargetBinding(pTxtDescriptor->glTextureTarget);
@@ -312,10 +333,12 @@ cl_err_code GLTexture::Initialize(cl_mem_flags clMemFlags, const cl_image_format
 	glErr |= glGetError();
 	glGetTexLevelParameteriv( pTxtDescriptor->glTextureTarget, pTxtDescriptor->glMipLevel, GL_TEXTURE_INTERNAL_FORMAT, &m_glInternalFormat );
 	glErr |= glGetError();
+	assert ( (GL_NO_ERROR==glErr) && "Failed to retrive texture information");
 
 	m_clFormat = ImageFrmtConvertGL2CL(m_glInternalFormat);
 	if ( 0 == m_clFormat.clType.image_channel_order)
 	{
+		assert(0 && "Can't match texture format");
 		glBindTexture(glBaseTarget, currTexture);
 		return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
 	}
@@ -325,18 +348,21 @@ cl_err_code GLTexture::Initialize(cl_mem_flags clMemFlags, const cl_image_format
 	m_glReadBackFormat = GetGLFormat(m_clFormat.clType.image_channel_data_type, m_clFormat.isGLExt);
 	m_glReadBackType = GetGLType(m_clFormat.clType.image_channel_data_type);
 
-	glErr |= CalculateTextureDimensions();
+	glErr = CalculateTextureDimensions();
+	assert ( (GL_NO_ERROR==glErr) && "Failed to calculate texture dimensions");
 
 	glBindTexture(glBaseTarget, currTexture);
 	glErr |= glGetError();
 
-	if ( 0 != glErr)
+	if ( GL_NO_ERROR != glErr)
 	{
+		assert(0 && "Failed in binding original texture");
 		return CL_INVALID_GL_OBJECT;
 	}
 
 	if (0 == m_glInternalFormat)
 	{
+		assert(0 && "GL internal format is not recognized");
 		return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
 	}
 
@@ -350,9 +376,11 @@ cl_err_code GLTexture::AcquireGLObject()
 {
 	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
 
+	GLContext::GLContextSync sync(m_pGLContext.GetPtr());
+
 	if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject && 
-        ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
-        (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
+		  ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&
+		    (CL_GFX_OBJECT_NOT_READY != m_itCurrentAcquriedObject->second) &&
         (CL_GFX_OBJECT_FAIL_IN_ACQUIRE != m_itCurrentAcquriedObject->second) )
 		)
 	{
@@ -391,6 +419,7 @@ cl_err_code GLTexture::AcquireGLObject()
 
 		GLint pboBinding;
 		glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING_ARB, &pboBinding);
+        assert( glGetError() == GL_NO_ERROR && "error after glFlush" );
 
 		// read pixels from framebuffer to PBO
 		m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, m_glPBO);
