@@ -267,7 +267,7 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
 		delete[] m_pComputeUnitMap;
 		return CL_DEV_OUT_OF_MEMORY;
 	}
-	m_pCoreToThread = new unsigned int[m_numCores];
+	m_pCoreToThread = new int[m_numCores];
 	if (NULL == m_pCoreToThread)
 	{
 		delete[] m_pComputeUnitScoreboard;
@@ -285,7 +285,7 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
     for (unsigned int i = 0; i < m_numCores; i++)
     {
         m_pComputeUnitMap[i] = i;
-        m_pCoreToThread[i] = i;
+        m_pCoreToThread[i] = -1;
     }
 	return CL_DEV_SUCCESS;
 }
@@ -335,9 +335,14 @@ void CPUDevice::NotifyAffinity(unsigned int tid, unsigned int core)
 
 	assert(core <m_numCores && "Access outside core map size");
 
-	unsigned int other_tid    = m_pCoreToThread[core];
+	int			 other_tid    = m_pCoreToThread[core];
 	int          my_prev_core = m_pComputeUnitScoreboard[tid].core;
-	bool         other_valid  = (other_tid != tid) && (-1 != m_pComputeUnitScoreboard[other_tid].core);
+	bool         other_valid  = (other_tid != -1) && ((unsigned int)other_tid != tid);
+	assert(!other_valid || (int)core == m_pComputeUnitScoreboard[other_tid].core);
+	if (!(!other_valid || (int)core == m_pComputeUnitScoreboard[other_tid].core))
+	{
+		return;
+	}
 
 	if (0 == m_pComputeUnitScoreboard[tid].os_tid)
 	{

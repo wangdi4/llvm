@@ -84,7 +84,7 @@ protected:
 	// Indexed by thread ID, contains data on which core the thread is pinned to and whether it's a part of a sub-device
 	ThreadMapping*   m_pComputeUnitScoreboard;
 	// Maps OpenCL core ID to thread id which is pinned to the core, which can then be used access the scoreboard above
-	unsigned int*    m_pCoreToThread;
+	int*    m_pCoreToThread;
 	// Architectural data on the underlying HW
 	unsigned long    m_numNumaNodes;
 	unsigned long    m_numCoresPerL1;

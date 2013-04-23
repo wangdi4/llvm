@@ -168,7 +168,7 @@ void out_of_order_executor_task::operator()()
         while (NULL != pTask && NULL == dynamic_cast<SyncTask*>(pTask.GetPtr()))
         {
 			ExecuteContainerBody functor(pTask, *m_list);
-            m_list->EnqueueOOOFunc<ExecuteContainerBody>(functor);
+            m_list->ExecOOOFunc<ExecuteContainerBody>(functor);
             pTask = GetTask();
         }
         if (NULL != pTask && NULL != dynamic_cast<SyncTask*>(pTask.GetPtr()))

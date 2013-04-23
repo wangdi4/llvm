@@ -110,7 +110,7 @@ public:
 private:
 
     tbb::task_group_context m_taskGroupContext;
-    tbb::empty_task& m_rootTask;  // an empty task whose reference count represents the number of enqueued tasks that haven't been completed    
+    tbb::empty_task& m_rootTask;  // an empty task whose reference count represents the number of enqueued tasks that haven't been completed
     TEDevice* m_device;
 
     // auxiliary functor classes to be replaced by lambda functions
@@ -288,14 +288,14 @@ public:
 	~out_of_order_command_list();
 
     /**
-     * Enqueue a task to execute a functor for OOO execution
+     * Execute a functor for OOO execution (this method should be called only when running inside the arena)
      * @param F the functor's type
      * @param f the functor's object			
      */
     template<typename F>
-    void EnqueueOOOFunc(const F& f)
+    void ExecOOOFunc(const F& f)
     {
-        m_oooTaskGroup.EnqueueFunc(f);
+        m_oooTaskGroup.run(f);
     }
 
 	/**
@@ -303,7 +303,7 @@ public:
      */
 	void WaitForAllCommands()
     {
-        m_oooTaskGroup.WaitForAll();
+        m_oooTaskGroup.wait();
     }
 
     // overriden methods:    
@@ -311,18 +311,18 @@ public:
     void WaitForIdle()
     {
 		// we wait here for 2 things seperately: commands and execution tasks
+    	m_oooTaskGroup.wait();
         base_command_list::WaitForIdle();
-        m_oooTaskGroup.WaitForAll();
     }
         
 private:
 
     virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL);
 
-    TaskGroup m_oooTaskGroup;
+    tbb::task_group m_oooTaskGroup;
 
     out_of_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam* param) : 
-        base_command_list(pTBBExec, device), m_oooTaskGroup(device.GetPtr()) { }
+        base_command_list(pTBBExec, device) { }
 };
 
 class immediate_command_list : public base_command_list

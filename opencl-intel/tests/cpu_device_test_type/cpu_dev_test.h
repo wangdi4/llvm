@@ -24,9 +24,10 @@
 
 #pragma once
 
+#include <set>
 #include "cl_device_api.h"
 #include "SimpleBackingStore.h"
-
+#include "cl_synch_objects.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -139,4 +140,29 @@ private:
 	const size_t*			m_pDimension;
 	const size_t*			m_pPitches;
     cl_mem_object_type      m_memObjType;
+};
+
+class CPUTestCallbacks : public IOCLFrameworkCallbacks
+{
+public:
+	//Test callback functions
+	void clDevCmdStatusChanged(cl_dev_cmd_id  cmd_id, void* data, cl_int cmd_status, cl_int completion_result, cl_ulong timer );	
+
+	void AddUserCallback(IOCLFrameworkCallbacks& callback)
+	{
+		Intel::OpenCL::Utils::OclAutoMutex mutex(&m_mutex);
+		m_userCallbacks.insert(&callback);
+	}
+
+	void RemoveUserCallback(IOCLFrameworkCallbacks& callback)
+	{
+		Intel::OpenCL::Utils::OclAutoMutex mutex(&m_mutex);
+		m_userCallbacks.erase(&callback);
+	}
+
+private:
+
+	std::set<IOCLFrameworkCallbacks*> m_userCallbacks;
+	Intel::OpenCL::Utils::OclMutex m_mutex;		
+
 };

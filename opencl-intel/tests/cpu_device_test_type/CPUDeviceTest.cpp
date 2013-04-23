@@ -32,7 +32,6 @@
 #include "logger_test.h"
 #include <cl_device_api.h>
 #include <gtest/gtest.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +47,8 @@ using namespace Intel::OpenCL::TaskExecutor;
 
 extern bool memoryTest(bool profiling);
 extern bool mapTest();
+extern bool AffinityRootDeviceTest();
+extern bool AffinitySubDeviceTest();
 
 IOCLDeviceAgent*		dev_entry;
 cl_ulong profile_run = 0;
@@ -60,35 +61,36 @@ volatile bool	gExecDone = true;
 
 unsigned int gDeviceIdInType = 0;
 
-class CPUTestCallbacks : public IOCLFrameworkCallbacks
+void CPUTestCallbacks::clDevCmdStatusChanged(cl_dev_cmd_id  cmd_id, void* data, cl_int cmd_status, cl_int completion_result, cl_ulong timer )
 {
-public:
-	//Test callback functions
-	void clDevCmdStatusChanged(cl_dev_cmd_id  cmd_id, void* data, cl_int cmd_status, cl_int completion_result, cl_ulong timer )
-	{
-		unsigned int cmdId = (unsigned int)(size_t)cmd_id;
+	unsigned int cmdId = (unsigned int)(size_t)cmd_id;
 
-		printf("The command status changed %u status is %u, result %X\n", cmdId, cmd_status, completion_result);
-		if ( CL_COMPLETE == cmd_status )
+	printf("The command status changed %u status is %u, result %X\n", cmdId, cmd_status, completion_result);
+	if ( CL_COMPLETE == cmd_status )
+	{
+		switch(cmdId)
 		{
-			switch(cmdId)
-			{
-			case CL_DEV_CMD_EXEC_NATIVE:
-			case CL_DEV_CMD_COPY:
-			case CL_DEV_CMD_EXEC_KERNEL: case CL_DEV_CMD_EXEC_TASK: case CL_DEV_CMD_READ: case CL_DEV_CMD_WRITE:
-			case CL_DEV_CMD_MAP: case CL_DEV_CMD_UNMAP:
-				gExecDone = true;
-				break;
-			}
-			profile_complete = timer;
-			printf("Elapsed time is %lu nano second\n", profile_complete - profile_run); 
+		case CL_DEV_CMD_EXEC_NATIVE:
+		case CL_DEV_CMD_COPY:
+		case CL_DEV_CMD_EXEC_KERNEL: case CL_DEV_CMD_EXEC_TASK: case CL_DEV_CMD_READ: case CL_DEV_CMD_WRITE:
+		case CL_DEV_CMD_MAP: case CL_DEV_CMD_UNMAP:
+			gExecDone = true;
+			break;
 		}
-		if(CL_RUNNING == cmd_status)
-		{
-			profile_run = timer;
-		}
+		profile_complete = timer;
+		printf("Elapsed time is %lu nano second\n", profile_complete - profile_run); 
 	}
-};
+	if(CL_RUNNING == cmd_status)
+	{
+		profile_run = timer;
+	}
+
+	Intel::OpenCL::Utils::OclAutoMutex mutex(&m_mutex);
+	for (std::set<IOCLFrameworkCallbacks*>::iterator iter = m_userCallbacks.begin(); iter != m_userCallbacks.end(); iter++)
+	{
+		(*iter)->clDevCmdStatusChanged(cmd_id, data, cmd_status, completion_result, timer);
+	}
+}
 
 //GetDeviceInfo with CL_DEVICE_TYPE test
 bool clGetDeviceInfo_TypeTest()
@@ -662,6 +664,17 @@ TEST(CpuDeviceTestType, Test_KernelExecute_Math)
 	EXPECT_TRUE(KernelExecute_Math_Test("test.bc"));
 }
 
+#ifndef _WIN32
+TEST(CpuDeviceTestType, DISABLED_Test_AffinityRootDevice)	// ticket CSSD100016084 has been opened for this
+{
+	EXPECT_TRUE(AffinityRootDeviceTest());
+}
+
+TEST(CpuDeviceTestType, DISABLED_Test_AffinitySubDevice)	// I've opened ticket #CSSD100016067 for this
+{
+	EXPECT_TRUE(AffinitySubDeviceTest());
+}
+#endif
 // Manual test, don't enable
 //TEST(CpuDeviceTestType, Test_KernelExecute_Lcl_Mem)
 //{
@@ -682,6 +695,9 @@ TEST(CpuDeviceTestType, Test_mapTest)
 //
 // Read the gtest documentation for more information.
 //
+
+CPUTestCallbacks g_dev_callbacks;
+
 int main(int argc, char* argv[])
 {	
 	::testing::InitGoogleTest(&argc, argv);
@@ -695,7 +711,7 @@ int main(int argc, char* argv[])
 
 	//Create and Init the device
 	cl_uint						dev_id = 0;
-	static CPUTestCallbacks		dev_callbacks;
+	
 	static CPUTestLogger		log_desc;
 
 	size_t numDevicesInDeviceType = 0;
@@ -717,7 +733,7 @@ int main(int argc, char* argv[])
 
 	gDeviceIdInType = deviceIdsList[0];
 
-	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &dev_callbacks, &log_desc, &dev_entry);
+	iRes = clDevCreateDeviceInstance(gDeviceIdInType, &g_dev_callbacks, &log_desc, &dev_entry);
 	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
 
 	int rc = RUN_ALL_TESTS();

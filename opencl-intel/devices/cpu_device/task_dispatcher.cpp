@@ -642,8 +642,9 @@ void* TaskDispatcher::OnThreadEntry()
 	    {
             cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(
                                                                     m_pTaskExecutor->GetCurrentDevice().user_handle);
+
             unsigned int coreId = (NULL == pSubDevID) ? 
-                Intel::OpenCL::Utils::GetCpuId() : pSubDevID->legal_core_ids[position_in_device];
+            		position_in_device : pSubDevID->legal_core_ids[position_in_device];
             m_pObserver->NotifyAffinity( position_in_device, coreId );
 	    }
     }

@@ -80,7 +80,7 @@ unsigned int ArenaHandler::AllocateThreadPosition()
         // TBB now always allocate slot for master. TaskExecutor now never allows master to join, but number of slots 
         // may be more that size of device
         unsigned int position = tbb::task_arena::current_slot();
-        if (m_device->isSubDevice() && (position >= m_uiMaxNumThreads))
+        if (position >= m_uiMaxNumThreads)
         {
             // wrap around
             assert( (position == m_uiMaxNumThreads) && "Assumption that current_slot() may return numberer between 0..slots_count is violated" );
