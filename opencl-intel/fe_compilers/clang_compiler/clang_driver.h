@@ -75,9 +75,11 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         bool OptDebugInfo;
         bool OptProfiling;
         bool Opt_Disable;
-        bool Denorms_Are_Zeros;
-        bool Fast_Relaxed_Math;
-        std::string m_source_filename;
+		bool Denorms_Are_Zeros;
+		bool Fast_Relaxed_Math;
+		bool AndroidCross;
+		std::string m_source_filename;
+		std::string m_triple;
 
 		char*	m_pOutIR;				// Output IR
 		size_t	m_stOutIRSize;
@@ -195,7 +197,8 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
                              bool*        pbOptDisable        = NULL,
                              bool*        pbDenormsAreZeros   = NULL,
                              bool*        pbFastRelaxedMath   = NULL,
-                             std::string* pszFileName         = NULL);
+                             std::string* pszFileName         = NULL,
+							 std::string* pszTriple           = NULL);
 
     bool ParseLinkOptions(const char* szOptions,
                           char**      szUnrecognizedOptions,

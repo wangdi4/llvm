@@ -223,26 +223,40 @@ ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
 
 void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const char *buildOpts)
 {
-    bool cl_std_set = false;
-    
-    ParseCompileOptions(buildOpts,
-                        NULL,
-                        &list,
-                        &cl_std_set,
-                        &OptDebugInfo,
-                        &OptProfiling,
-                        &Opt_Disable,
-                        &Denorms_Are_Zeros,
-                        &Fast_Relaxed_Math,
-                        &m_source_filename);
+	bool cl_std_set = false;
+	AndroidCross = false;
 
-    // Add standard OpenCL options
+	ParseCompileOptions(buildOpts,
+		NULL,
+		&list,
+		&cl_std_set,
+		&OptDebugInfo,
+		&OptProfiling,
+		&Opt_Disable,
+		&Denorms_Are_Zeros,
+		&Fast_Relaxed_Math,
+		&m_source_filename,
+		&m_triple);
 
-  if(!cl_std_set) {
-    list.push_back("-cl-std=CL1.2");
-    list.push_back("-D");
-    list.push_back("__OPENCL_C_VERSION__=120");
-  }
+	ParseCompileOptions(buildOpts,
+		NULL,
+		&list,
+		&cl_std_set,
+		&OptDebugInfo,
+		&OptProfiling,
+		&Opt_Disable,
+		&Denorms_Are_Zeros,
+		&Fast_Relaxed_Math,
+		&m_source_filename,
+		&m_triple);
+
+	// Add standard OpenCL options
+
+	if(!cl_std_set) {
+		list.push_back("-cl-std=CL1.2");
+		list.push_back("-D");
+		list.push_back("__OPENCL_C_VERSION__=120");
+	}
 
 	list.push_back("-x");
 	list.push_back("cl");
@@ -278,23 +292,50 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
 	// Retrieve local relatively to binary directory
 	GetModuleDirectory(szBinaryPath, MAX_STR_BUFF);
 #ifndef PASS_PCH
-   char	szOclIncPath[MAX_STR_BUFF];
-  char	szOclPchPath[MAX_STR_BUFF];
+	char	szOclIncPath[MAX_STR_BUFF];
+	char	szOclPchPath[MAX_STR_BUFF];
 
-  SPRINTF_S(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
-  SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_.pch", szBinaryPath);
+	SPRINTF_S(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
 
-  list.push_back("-I");
-  list.push_back(szOclIncPath);
-
-  list.push_back("-include-pch");
-  list.push_back(szOclPchPath);
+#ifndef __ANDROID__
+	if (m_triple != "i686-pc-linux")
+	{
+		AndroidCross = true;
+		SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_.pch", szBinaryPath);
+	}
+	else
+	{
+		SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_android_.pch", szBinaryPath);
+	}
 #else
-  list.push_back("-include-pch");
-  list.push_back("OpenCL_.pch");
+	SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_.pch", szBinaryPath);
 #endif
 
-    list.push_back("-fno-validate-pch");
+	list.push_back("-I");
+	list.push_back(szOclIncPath);
+
+	list.push_back("-I");
+	list.push_back(szOclIncPath);
+
+	list.push_back("-include-pch");
+	list.push_back(szOclPchPath);
+#else
+	if (m_triple != "i686-pc-linux")
+	{
+		list.push_back("-include-pch");
+		list.push_back("OpenCL_.pch");
+	}
+	else {
+		// Android cross-compilation
+		AndroidCross = true;
+		char	szOclPchPath[MAX_STR_BUFF];
+		SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_android_.pch", szBinaryPath);
+		list.push_back("-include-pch");
+		list.push_back(szOclPchPath);
+	}
+#endif
+
+	list.push_back("-fno-validate-pch");
 
 	// Add current directory
 	GET_CURR_WORKING_DIR(MAX_STR_BUFF, szCurrDirrPath);
@@ -357,14 +398,20 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
 
 	// Don't optimize in the frontend
 	list.push_back("-O0");
+
+	if (m_triple.empty()) {
 #if defined(__linux__)	
-	list.push_back("-triple");
+		list.push_back("-triple");
 #if defined(__ANDROID__)
-	list.push_back("i686-pc-linux");
+		list.push_back("i686-pc-linux");
 #else
-	list.push_back("x86_64-unknown-linux-gnu");
+		list.push_back("x86_64-unknown-linux-gnu");
 #endif // __ANDROID__
 #endif // __linux__
+	} else {
+		list.push_back("-triple");
+		list.push_back(m_triple);
+	}
 }
 
 int ClangFECompilerCompileTask::Compile()
@@ -437,6 +484,7 @@ int ClangFECompilerCompileTask::Compile()
   bool Success = true;
 
 #ifdef PASS_PCH
+if (!AndroidCross) {
   //prepare pch buffer
   HMODULE hMod = NULL;
   HRSRC hRes = NULL;
@@ -524,6 +572,7 @@ int ClangFECompilerCompileTask::Compile()
     LOG_ERROR(TEXT("%s"), "pchBuff is NULL");
     Success = false;
   }
+} // if (!AndroidCross)
 #endif
     
     // Execute the frontend actions.
@@ -1231,7 +1280,8 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                                                  bool*        pbOptDisable,
                                                  bool*        pbDenormsAreZeros,
                                                  bool*        pbFastRelaxedMath,
-                                                 std::string* pszFileName)
+                                                 std::string* pszFileName,
+												 std::string* pszTriple)
 {
     // Reset options
     bool bCLStdSet = false;
@@ -1241,6 +1291,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     bool bDenormsAreZeros = false;
     bool bFastRelaxedMath = false;
     std::string szFileName = "";
+	std::string szTriple = "";
 	
     if (!szOptions)
         szOptions = "";
@@ -1341,6 +1392,13 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 continue;
             }
         }
+		else if (*opt_i == "-triple") {
+			// Expect the target triple as the next token
+			//
+			if (++opt_i != opts.end()) {
+				szTriple = *opt_i;
+			}
+		}
         else if (*opt_i == "-Werror") {
             pList->push_back(*opt_i);
         }
@@ -1477,6 +1535,11 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     if (pszFileName && !szFileName.empty())
     {
         *pszFileName = szFileName;
+	}
+
+	if (pszTriple)
+	{
+		*pszTriple = szTriple;
 	}
 
     return res;

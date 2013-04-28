@@ -141,11 +141,18 @@ add_custom_command( TARGET ${TARGET_NAME}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     VERBATIM
                    )
+add_custom_command( TARGET ${TARGET_NAME}
+                    PRE_BUILD
+                    COMMAND ${CLANG} ${COMPILER_OPTIONS} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
+                    COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
+                    VERBATIM
+                   )
 add_dependencies( ${TARGET_NAME}
 	clang
 )
 
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )
