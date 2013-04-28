@@ -186,7 +186,7 @@ TEST(TaskExecutorTestType, Test_SubdeviceSize1)
     EXPECT_TRUE(SubdeviceSize1Test());
 }
 
-TEST(TaskExecutorTestType, Test_SubdeviceFullDevice)
+TEST(TaskExecutorTestType, DISABLED_Test_SubdeviceFullDevice)	// disabled until bug CSSD100016095 is fixed
 {
 	EXPECT_TRUE(SubdeviceFullDevice());
 }

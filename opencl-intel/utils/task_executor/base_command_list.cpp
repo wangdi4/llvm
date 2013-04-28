@@ -166,6 +166,31 @@ out_of_order_command_list::~out_of_order_command_list()
 	WaitForIdle();
 }
 
+class TaskGroupWaiter
+{
+public:
+
+	TaskGroupWaiter(tbb::task_group& tbbTskGrp, TaskGroup& tskGrp) : m_tbbTskGrp(tbbTskGrp), m_tskGrp(tskGrp) { }
+
+	void operator()()
+	{
+		m_tbbTskGrp.wait();
+		m_tskGrp.WaitForAll();
+	}
+
+private:
+
+	tbb::task_group& m_tbbTskGrp;
+	TaskGroup& m_tskGrp;
+};
+
+void out_of_order_command_list::WaitForIdle()
+{
+	// we wait here for 2 things seperately: commands and execution tasks
+	TaskGroupWaiter waiter(m_oooTaskGroup, m_taskGroup);
+	m_device->Execute(waiter);	
+}
+
 unsigned int immediate_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
 {    
     return LaunchExecutorTask( true, pTask );

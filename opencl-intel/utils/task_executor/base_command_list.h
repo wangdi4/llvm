@@ -308,12 +308,7 @@ public:
 
     // overriden methods:    
 
-    void WaitForIdle()
-    {
-		// we wait here for 2 things seperately: commands and execution tasks
-    	m_oooTaskGroup.wait();
-        base_command_list::WaitForIdle();
-    }
+    void WaitForIdle();
         
 private:
 

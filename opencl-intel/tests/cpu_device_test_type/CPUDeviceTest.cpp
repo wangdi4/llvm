@@ -665,7 +665,7 @@ TEST(CpuDeviceTestType, Test_KernelExecute_Math)
 }
 
 #ifndef _WIN32
-TEST(CpuDeviceTestType, DISABLED_Test_AffinityRootDevice)	// ticket CSSD100016084 has been opened for this
+TEST(CpuDeviceTestType, Test_AffinityRootDevice)	// ticket CSSD100016084 has been opened for this
 {
 	EXPECT_TRUE(AffinityRootDeviceTest());
 }
