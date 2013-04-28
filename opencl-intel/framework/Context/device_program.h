@@ -88,6 +88,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		cl_build_status GetBuildStatus() const;
 
+		bool IsBinaryAvailable(cl_program_binary_type requestedType) const;
+
 		cl_err_code GetNumKernels(cl_uint* pszNumKernels);
 		// Returns an array of NULL-terminated strings, one for each 
 		cl_err_code GetKernelNames(char** ppNames, size_t* pszNameSizes, size_t szNumNames);

@@ -491,6 +491,22 @@ cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * pui
 	}
 }
 
+bool DeviceProgram::IsBinaryAvailable(cl_program_binary_type requestedType) const
+{
+	cl_program_binary_type binaryType = CL_PROGRAM_BINARY_TYPE_NONE;
+
+	if (CL_BUILD_SUCCESS == GetBuildStatus() &&
+		CL_SUCCESS == GetBuildInfo(CL_PROGRAM_BINARY_TYPE,
+								sizeof(binaryType),
+								&binaryType,
+								NULL) &&
+		binaryType == requestedType)
+	{
+		return true;
+	}
+	return false;
+}
+
 cl_err_code DeviceProgram::GetNumKernels(cl_uint* pszNumKernels)
 {
 	assert(pszNumKernels);

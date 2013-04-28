@@ -219,7 +219,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
             {
                 DeviceProgram* pDevProg = m_ppDevicePrograms[i];
 
-                if (CL_BUILD_SUCCESS == pDevProg->GetBuildStatus())
+                if (pDevProg->IsBinaryAvailable(CL_PROGRAM_BINARY_TYPE_EXECUTABLE))
 		        {
                     found = true;
 
@@ -255,7 +255,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
             {
                 DeviceProgram* pDevProg = m_ppDevicePrograms[i];
 
-                if (CL_BUILD_SUCCESS == pDevProg->GetBuildStatus())
+                if (pDevProg->IsBinaryAvailable(CL_PROGRAM_BINARY_TYPE_EXECUTABLE))
 		        {
                     found = true;
                     size_t total_length = 0;
