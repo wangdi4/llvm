@@ -9,7 +9,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Metadata.h"
 #include "llvm/Instructions.h"
-#include <llvm/DataLayout.h>
+#include "llvm/Version.h"
+#if LLVM_VERSION == 3200
+#include "llvm/DataLayout.h"
+#else
+#include "llvm/Target/TargetData.h"
+#endif
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -231,7 +236,11 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
         {
             llvm::StructType *STy = llvm::cast<llvm::StructType>(arg_it->getType());
             curArg.type = CL_KRNL_ARG_COMPOSITE;
+#if LLVM_VERSION == 3200
             DataLayout dataLayout(pModule);
+#else
+            TargetData dataLayout(pModule);
+#endif
             curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
             break;
         }
@@ -302,7 +311,11 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
           if(PTy->getAddressSpace() == 0) //We're dealing with real struct and not struct pointer
           {
             llvm::StructType *STy = llvm::cast<llvm::StructType>(Ty);
+#if LLVM_VERSION == 3200
             DataLayout dataLayout(pModule);
+#else
+            TargetData dataLayout(pModule);
+#endif
             curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
             curArg.type = CL_KRNL_ARG_COMPOSITE;
             break;

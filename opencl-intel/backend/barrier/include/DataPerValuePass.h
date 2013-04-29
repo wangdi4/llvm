@@ -13,7 +13,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/Function.h"
+#include "llvm/Version.h"
+#if LLVM_VERSION == 3200
 #include "llvm/DataLayout.h"
+#else
+#include "llvm/Target/TargetData.h"
+#endif
 
 using namespace llvm;
 
@@ -192,7 +197,11 @@ namespace intel {
     /// This holds WIRelatedValue analysis pass
     WIRelatedValue *m_pWIRelatedValue;
     /// This holds DataLayout of processed module
+#if LLVM_VERSION == 3200
     DataLayout *m_pDL;
+#else
+    TargetData *m_pDL;
+#endif
 
     // Analysis Data for pass user
     /// This holds a map between function and its values of Group-A

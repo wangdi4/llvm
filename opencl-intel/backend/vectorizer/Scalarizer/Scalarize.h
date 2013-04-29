@@ -7,6 +7,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __SCALARIZE_H__
 #define __SCALARIZE_H__
 
+#include "RuntimeServices.h"
+#include "SoaAllocaAnalysis.h"
+#include "Logger.h"
+#include "VectorizerCommon.h"
+
 #include "llvm/Pass.h"
 #include "llvm/Type.h"
 #include "llvm/ADT/DenseMap.h"
@@ -16,12 +21,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
+#include "llvm/Version.h"
+#if LLVM_VERSION == 3200
 #include "llvm/DataLayout.h"
-
-#include "RuntimeServices.h"
-#include "SoaAllocaAnalysis.h"
-#include "Logger.h"
-#include "VectorizerCommon.h"
+#else
+#include "llvm/Target/TargetData.h"
+#endif
 
 #include <string>
 #include <sstream>
@@ -261,7 +266,11 @@ private:
   bool UseScatterGather;
 
   /// @brief This holds DataLayout of processed module
+#if LLVM_VERSION == 3200
   DataLayout *m_pDL;
+#else
+  TargetData *m_pDL;
+#endif
 
 };
 

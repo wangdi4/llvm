@@ -37,7 +37,11 @@ namespace intel {
     m_util.init(&M);
 
     // obtain DataLayout of the module
+#if LLVM_VERSION == 3200
     m_pDL = getAnalysisIfAvailable<DataLayout>();
+#else
+    m_pDL = getAnalysisIfAvailable<TargetData>();
+#endif
     assert( m_pDL && "Failed to obtain instance of DataLayout!" );
 
     // Find and sort all connected function into disjointed groups

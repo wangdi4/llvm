@@ -11,7 +11,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Pass.h"
 #include "llvm/PassManager.h"
+#include "llvm/Version.h"
+#if LLVM_VERSION == 3200
 #include "llvm/DataLayout.h"
+#else
+#include "llvm/Target/TargetData.h"
+#endif
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
@@ -115,7 +120,11 @@ bool VectorizerCore::runOnFunction(Function &F) {
   // Function-wide (preparations)
   {
     FunctionPassManager fpm1(M);
+#if LLVM_VERSION == 3200
     DataLayout *DL = new DataLayout(M);
+#else
+    TargetData *DL = new DataLayout(M);
+#endif
     fpm1.add(DL);
 
     // Register lowerswitch

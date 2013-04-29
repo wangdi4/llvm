@@ -10,7 +10,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "common_dev_limits.h"
 
 #include "llvm/Support/InstIterator.h"
+#include "llvm/Version.h"
+#if LLVM_VERSION == 3200
 #include "llvm/DataLayout.h"
+#else
+#include "llvm/Target/TargetData.h"
+#endif
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -346,8 +351,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   Value* ResolveWICall::updatePrintf(CallInst *pCall) {
 
     assert( m_pCtx && "Context pointer m_pCtx created as expected" );
-
+#if LLVM_VERSION == 3200
     DataLayout DL(m_pModule);
+#else
+    TargetData DL(m_pModule);
+#endif
     
     // Find out the buffer size required to store all the arguments.
     // Note: CallInst->getNumOperands() returns the number of operands in
@@ -444,7 +452,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   Value* ResolveWICall::updateAsyncCopy(llvm::CallInst *pCall, bool strided) {
+#if LLVM_VERSION == 3200
     DataLayout DL(m_pModule);
+#else
+    TargetData DL(m_pModule);
+#endif
 
     assert( m_pCtx && "Context pointer m_pCtx created as expected" );
 
@@ -511,7 +523,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   void ResolveWICall::updatePrefetch(llvm::CallInst *pCall) {
 
+#if LLVM_VERSION == 3200
     DataLayout DL(m_pModule);
+#else
+    TargetData DL(m_pModule);
+#endif
 
     unsigned int uiSizeT = m_pModule->getPointerSize()*32;
 

@@ -26,7 +26,11 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
   bool SimplifyGEP::runOnFunction(Function &F) {
     // obtain TagetData of the module
+#if LLVM_VERSION == 3200
     m_pDL = getAnalysisIfAvailable<DataLayout>();
+#else
+    m_pDL = getAnalysisIfAvailable<TargetData>();
+#endif
 
     // Obtain WIAnalysis of the function
     m_depAnalysis = &getAnalysis<WIAnalysis>();

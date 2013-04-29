@@ -13,7 +13,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/PassManagers.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/Verifier.h"
+#include "llvm/Version.h"
+#if LLVM_VERSION == 3200
 #include "llvm/DataLayout.h"
+#else
+#include "llvm/Target/TargetData.h"
+#endif
 
 using namespace llvm;
 
@@ -45,7 +50,11 @@ namespace intel {
     PassManager barrierModulePM;
 
     //Register DataLayout to the pass manager
+#if LLVM_VERSION == 3200
     barrierModulePM.add(new llvm::DataLayout(&M));
+#else
+    barrierModulePM.add(new llvm::TargetData(&M));
+#endif
 
     if( m_debugType == None ) {
       //In DBG mode do not run extra llvm optimizations
