@@ -50,6 +50,7 @@ namespace CRT_ICD_DISPATCH
         cl_context                  context,
         cl_device_id                device,
         cl_command_queue_properties properties,
+        cl_uint                     configuration,
         cl_int *                    errcode_ret );
 
     /* cl_intel_accelerator */
@@ -73,6 +74,20 @@ namespace CRT_ICD_DISPATCH
     typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clReleaseAcceleratorINTEL)(
         cl_accelerator_intel /* accelerator */) CL_API_SUFFIX__VERSION_1_2;
 
+    /* Kernel Instrumentation Query APIs */
+    typedef CL_API_ENTRY cl_program (CL_API_CALL *INTELpfn_clCreateProfiledProgramWithSourceINTEL)(
+        cl_context          context,
+        cl_uint             count,
+        const char**        sources,
+        const size_t*       lengths,
+        const void*         configurations,
+        cl_uint             configurations_count,
+        cl_int*             errorCode );
+
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clCreateKernelProfilingJournalINTEL)(
+        cl_context          context,
+        const void*         configuration );
+
     struct SOCLCRTDispatchTable
     {
         KHRpfn_clGetKernelArgInfo                       clGetKernelArgInfo;
@@ -87,6 +102,9 @@ namespace CRT_ICD_DISPATCH
         INTELpfn_clGetAcceleratorInfoINTEL              clGetAcceleratorInfoINTEL;
         INTELpfn_clRetainAcceleratorINTEL               clRetainAcceleratorINTEL;
         INTELpfn_clReleaseAcceleratorINTEL              clReleaseAcceleratorINTEL;
+        // API to expose the Kernel Instrumentation Query to applications
+        INTELpfn_clCreateProfiledProgramWithSourceINTEL clCreateProfiledProgramWithSourceINTEL;
+        INTELpfn_clCreateKernelProfilingJournalINTEL    clCreateKernelProfilingJournalINTEL;
     };
 
     struct SOCLEntryPointsTable

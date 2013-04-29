@@ -8037,6 +8037,7 @@ CL_API_ENTRY cl_command_queue CL_API_CALL clCreatePerfCountersCommandQueueINTEL(
     cl_context                   context,
     cl_device_id                 device,
     cl_command_queue_properties  properties,
+    cl_uint                      configuration,
     cl_int *                     errcode_ret )
 {
     cl_int errCode = CL_SUCCESS;
@@ -8072,6 +8073,7 @@ CL_API_ENTRY cl_command_queue CL_API_CALL clCreatePerfCountersCommandQueueINTEL(
                     context,
                     device,
                     properties,
+                    configuration,
                     &errCode );
             }
             else
@@ -8426,6 +8428,75 @@ FINISH:
     return acceleratorObj;
 };
 
+/******************************************************************************\
+
+Function:
+    clCreateProfiledProgramWithSourceINTEL
+
+\******************************************************************************/
+CL_API_ENTRY cl_program CL_API_CALL clCreateProfiledProgramWithSourceINTEL(
+    cl_context          context,
+    cl_uint             count,
+    const char**        sources,
+    const size_t*       lengths,
+    const void*         configurations,
+    cl_uint             configurations_count,
+    cl_int*             error_code )
+{
+    cl_int errorCode = CL_SUCCESS;
+    cl_program program = NULL;
+    CrtContextInfo* pCtxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
+
+    if( pCtxInfo == NULL )
+    {
+        errorCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    program = ((SOCLEntryPointsTable*) context)->crtDispatch->clCreateProfiledProgramWithSourceINTEL(
+        context,
+        count,
+        sources,
+        lengths,
+        configurations,
+        configurations_count,
+        &errorCode );
+
+FINISH:
+    if( error_code )
+    {
+        *error_code = errorCode;
+    }
+    return program;
+}
+
+/******************************************************************************\
+
+Function:
+    clCreateKernelProfilingJournalINTEL
+
+\******************************************************************************/
+CL_API_ENTRY cl_int CL_API_CALL clCreateKernelProfilingJournalINTEL(
+    cl_context    context,
+    const void*   configuration )
+{
+    cl_int errorCode = CL_SUCCESS;
+    CrtContextInfo* pCtxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
+
+    if( pCtxInfo == NULL )
+    {
+        errorCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    errorCode = ((SOCLEntryPointsTable*) context)->crtDispatch->clCreateKernelProfilingJournalINTEL(
+        context,
+        configuration );
+
+FINISH:
+    return errorCode;
+}
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -8543,6 +8614,14 @@ CL_API_ENTRY void * CL_API_CALL clGetExtensionFunctionAddress(
     if( funcname && !strcmp( funcname, "clReleaseAcceleratorINTEL" ) )
     {
         return ( ( void* )clReleaseAcceleratorINTEL );
+    }
+    if( funcname && !strcmp( funcname, "clCreateProfiledProgramWithSourceINTEL" ) )
+    {
+        return ( ( void* )clCreateProfiledProgramWithSourceINTEL);
+    }
+    if( funcname && !strcmp( funcname, "clCreateKernelProfilingJournalINTEL" ) )
+    {
+        return ( ( void* )clCreateKernelProfilingJournalINTEL);
     }
     return NULL;
 };

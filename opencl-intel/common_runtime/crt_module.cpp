@@ -28,7 +28,7 @@
 using namespace OCLCRT;
 
 #define REGISTER_DISPATCH_ENTRYPOINT(__NAME__,__ADDRESS__) \
-    m_icdDispatchTable . __NAME__ = (__ADDRESS__);
+    m_icdDispatchTable.##__NAME__ = (__ADDRESS__);
 
 namespace OCLCRT
 {

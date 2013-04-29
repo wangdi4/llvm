@@ -1232,17 +1232,7 @@ m_dimCount(0)
     if( gpuDevice != NULL )
     {
         SOCLEntryPointsTable* gpuDispatch = (SOCLEntryPointsTable*)gpuDevice;
-        // <<<<<<   GMM Query Bug Workaround when arraysize == 1
-        size_t previousArraySize = m_imageDesc.desc.image_array_size;
 
-        switch( m_imageDesc.desc.image_type )
-        {
-            case CL_MEM_OBJECT_IMAGE1D_ARRAY:
-            case CL_MEM_OBJECT_IMAGE2D_ARRAY:
-                m_imageDesc.desc.image_array_size = 2;
-                break;
-        }
-        // >>>>>>   GMM Query Bug Workaround when arraysize == 1
         cl_int RetVal = gpuDispatch->crtDispatch->clGetImageParamsINTEL(
                                              ctx->GetContextByDeviceID( gpuDevice ),
                                              &m_imageFormat,
@@ -1262,9 +1252,6 @@ m_dimCount(0)
                 assert( 0 && "clGetImageParamsINTEL has failed with non-expected error" );
             }
         }
-        // <<<<<<   GMM Query Bug Workaround when arraysize == 1
-        m_imageDesc.desc.image_array_size = previousArraySize;
-        // >>>>>>   GMM Query Bug Workaround when arraysize == 1
 
         assert(
             ( m_imageDesc.desc.image_type == CL_MEM_OBJECT_IMAGE1D )            ||
