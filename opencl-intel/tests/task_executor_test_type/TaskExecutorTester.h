@@ -26,6 +26,7 @@
 
 using namespace Intel::OpenCL::TaskExecutor;
 using Intel::OpenCL::Utils::SharedPtr;
+using Intel::OpenCL::Utils::AtomicCounter;
 
 class WGContextPool : public IWGContextPool
 {
@@ -95,7 +96,10 @@ public:
 
     PREPARE_SHARED_PTR(TesterTaskSet)
 
-    static SharedPtr<TesterTaskSet> Allocate(unsigned int uiNumDims) { return SharedPtr<TesterTaskSet>(new TesterTaskSet(uiNumDims)); }    
+    static SharedPtr<TesterTaskSet> Allocate(unsigned int uiNumDims, AtomicCounter* pUncompletedTasks)
+    {
+    	return SharedPtr<TesterTaskSet>(new TesterTaskSet(uiNumDims, pUncompletedTasks));
+    }
 
     // overriden methods:
 
@@ -126,6 +130,10 @@ public:
 	virtual bool Finish(FINISH_REASON reason)
     {
         m_bIsComplete = true;
+        if (NULL != m_pUncompletedTasks)
+        {
+        	(*m_pUncompletedTasks)--;
+        }
         return true;
     }
 
@@ -137,10 +145,12 @@ public:
 
 private:
 
-    TesterTaskSet(unsigned int uiNumDims) : m_bIsComplete(false), m_uiNumDims(uiNumDims) { }
+    TesterTaskSet(unsigned int uiNumDims, AtomicCounter* pUncompletedTasks) : m_bIsComplete(false), m_uiNumDims(uiNumDims),
+    	m_pUncompletedTasks(pUncompletedTasks) { }
 
     volatile bool m_bIsComplete;
     const unsigned int m_uiNumDims;
+    AtomicCounter* const m_pUncompletedTasks;
 
 };
 

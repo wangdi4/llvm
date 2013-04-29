@@ -208,19 +208,7 @@ void TEDevice::ShutDown()
         m_state = TERMINATING;
     }
 
-    // 1. Signal all arenas to terminate
-    for (unsigned int i =  m_deviceDescriptor.uiNumOfLevels-1; i > 0  ; --i)
-    {
-        ArenaHandler* ar = m_lowLevelArenas[i-1];
-        assert( (NULL != ar) && "Low level arena array in NULL for hierarchical arenas?" );
-        for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[ i ]; ++i)
-        {
-            ar[j].Terminate();
-        }
-    }
-    m_mainArena.Terminate();
-
-    // 2. Count down until all threads stopped
+    // 1. Count down until all threads stopped
     if (!gIsExiting)
     {
         TBB_PerActiveThreadData* tls = m_taskExecutor.GetThreadManager().GetCurrentThreadDescriptor();
@@ -239,10 +227,10 @@ void TEDevice::ShutDown()
         }
     }
 
-    // 3. Signal all now-entring threads that we are exiting
+    // 2. Signal all now-entring threads that we are exiting
     m_state = DISABLE_NEW_THREADS;
 
-    // 4. new threads may enter before disabling - wait all to exit
+    // 3. new threads may enter before disabling - wait all to exit
     if (!gIsExiting)
     {
 
@@ -253,7 +241,7 @@ void TEDevice::ShutDown()
     }
     // now all threads that we allocated data for exited from TEDevice
 
-    // 5. Stop all observers
+    // 4. Stop all observers
     //    observer stopping blocks if any observer callback is in process
     for (unsigned int i =  m_deviceDescriptor.uiNumOfLevels-1; i > 0  ; --i)
     {
@@ -265,8 +253,19 @@ void TEDevice::ShutDown()
         }
     }
     m_mainArena.StopMonitoring();
-
     m_userData = NULL; // to be on the safe side
+
+    // 5. Signal all arenas to terminate
+	for (unsigned int i =  m_deviceDescriptor.uiNumOfLevels-1; i > 0  ; --i)
+	{
+		ArenaHandler* ar = m_lowLevelArenas[i-1];
+		assert( (NULL != ar) && "Low level arena array in NULL for hierarchical arenas?" );
+		for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[ i ]; ++i)
+		{
+			ar[j].Terminate();
+		}
+	}
+	m_mainArena.Terminate();
 
     m_state = SHUTTED_DOWN;
 }

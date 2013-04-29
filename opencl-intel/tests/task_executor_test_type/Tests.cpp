@@ -58,7 +58,7 @@ private:
     bool is_root;
 };
 
-static bool RunSomeTasks(const SharedPtr<ITEDevice>& pSubdevData, bool bOutOfOrder, bool bIsFullDevice)
+static bool RunSomeTasks(const SharedPtr<ITEDevice>& pSubdevData, bool bOutOfOrder, bool bIsFullDevice, AtomicCounter* pUncompletedTasks)
 {
     SharedPtr<ITaskList> pTaskList = pSubdevData->CreateTaskList( bOutOfOrder ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER );
     if (NULL == pTaskList)
@@ -72,7 +72,11 @@ static bool RunSomeTasks(const SharedPtr<ITEDevice>& pSubdevData, bool bOutOfOrd
         std::vector<SharedPtr<TesterTaskSet> > tasks(1000);
         for (size_t i = 0; i < tasks.size(); i++)
         {
-            SharedPtr<TesterTaskSet> pTaskSet = TesterTaskSet::Allocate(uiNumDims);
+            SharedPtr<TesterTaskSet> pTaskSet = TesterTaskSet::Allocate(uiNumDims, pUncompletedTasks);
+            if (NULL != pUncompletedTasks)
+            {
+            	(*pUncompletedTasks)++;
+            }
             pTaskList->Enqueue(pTaskSet);
             tasks[i] = pTaskSet;
         }        
@@ -116,11 +120,12 @@ static bool RunSubdeviceTest(unsigned int uiSubdevSize, TaskExecutorTester& task
         cerr << "CreateSubdevice returned NULL" << endl;
         return false;
     }
-	const bool bResult = RunSomeTasks(pSubdevData, false, !use_subdevice);
+    AtomicCounter uncompletedTasks;
+	const bool bResult = RunSomeTasks(pSubdevData, false, !use_subdevice, &uncompletedTasks);
 
-    if (0 == uiSubdevSize)   // subdevices with size 1 don't support WaitForCompletion
+    if (0 == uiSubdevSize)   // subdevices don't support WaitForCompletion
     {
-        SharedPtr<TesterTaskSet> pTaskSet = TesterTaskSet::Allocate(1);
+        SharedPtr<TesterTaskSet> pTaskSet = TesterTaskSet::Allocate(1, &uncompletedTasks);
         SharedPtr<ITaskList>     pTaskList = pSubdevData->CreateTaskList( TE_CMD_LIST_IN_ORDER );
 
         pTaskList->Enqueue(pTaskSet);
@@ -131,6 +136,13 @@ static bool RunSubdeviceTest(unsigned int uiSubdevSize, TaskExecutorTester& task
             cerr << "pTaskSet is not completed after taskExecutor.Execute" << endl;
             return false;
         }
+    }
+    else
+    {
+    	while (uncompletedTasks > 0)
+    	{
+    		clSleep(1);
+    	}
     }
     return bResult;
 }
@@ -167,7 +179,7 @@ bool OOOTest()
     TaskExecutorTester tester;
 
     DeviceAuto rootDeviceHandle( tester );
-    const bool bResult = RunSomeTasks(rootDeviceHandle.deviceHandle, true, true);
+    const bool bResult = RunSomeTasks(rootDeviceHandle.deviceHandle, true, true, NULL);
     return bResult;
 }
 
@@ -186,7 +198,7 @@ TEST(TaskExecutorTestType, Test_SubdeviceSize1)
     EXPECT_TRUE(SubdeviceSize1Test());
 }
 
-TEST(TaskExecutorTestType, DISABLED_Test_SubdeviceFullDevice)	// disabled until bug CSSD100016095 is fixed
+TEST(TaskExecutorTestType, Test_SubdeviceFullDevice)
 {
 	EXPECT_TRUE(SubdeviceFullDevice());
 }
