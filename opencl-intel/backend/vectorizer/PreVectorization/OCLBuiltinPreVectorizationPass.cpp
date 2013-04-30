@@ -13,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
+#include "llvm/Version.h"
 
 namespace intel{
 
@@ -240,9 +241,14 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
     static_cast<Type*>(ArrayType::get(retValType, 2)) :
     static_cast<Type*>(VectorType::get(retValType, 2));
   SmallVector<Attributes, 4> attrs;
+#if LLVM_VERSION == 3200
   attrs.push_back(Attributes::get(CI->getContext(), Attributes::ReadNone));
   attrs.push_back(Attributes::get(CI->getContext(), Attributes::NoUnwind));
-  CallInst *newCall = VectorizerUtils::createFunctionCall(m_curModule, newFuncName, retType, args, attrs, CI);    
+#else
+  attrs.push_back(Attribute::ReadNone);
+  attrs.push_back(Attribute::NoUnwind);
+#endif
+  CallInst *newCall = VectorizerUtils::createFunctionCall(m_curModule, newFuncName, retType, args, attrs, CI);
   V_ASSERT(newCall && "adding function failed");
   SmallVector<Instruction*, 2> extractVals;
   for (unsigned i=0; i < 2; ++i) {

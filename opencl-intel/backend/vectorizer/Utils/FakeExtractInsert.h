@@ -7,13 +7,14 @@
 #ifndef __FAKE_INSERT_H__
 #define __FAKE_INSERT_H__
 #include "Mangler.h"
+#include "Logger.h"
+#include "VectorizerUtils.h"
+
 #include "llvm/Instructions.h"
 #include "llvm/Constants.h"
 #include "llvm/Function.h"
 #include "llvm/Module.h"
-#include "Logger.h"
-#include "VectorizerUtils.h"
-
+#include "llvm/Version.h"
 
 using namespace llvm;
 
@@ -65,8 +66,13 @@ class FakeExtract : public FakeVectorOp {
     args.push_back(vec);
     args.push_back(indConst);
     SmallVector<Attributes, 4> attrs;
+#if LLVM_VERSION == 3200
     attrs.push_back(Attributes::get(insertBefore->getContext(), Attributes::ReadNone));
     attrs.push_back(Attributes::get(insertBefore->getContext(), Attributes::NoUnwind));
+#else
+    attrs.push_back(Attribute::ReadNone);
+    attrs.push_back(Attribute::NoUnwind);
+#endif
     return VectorizerUtils::createFunctionCall(insertBefore->getParent()->getParent()->getParent(),
 		Mangler::getFakeExtractName(), vec->getType()->getScalarType(), args, attrs, insertBefore);
   }
@@ -98,8 +104,13 @@ class FakeInsert : public FakeVectorOp {
     args.push_back(newElt);
     args.push_back(indConst);
     SmallVector<Attributes, 4> attrs;
+#if LLVM_VERSION == 3200
     attrs.push_back(Attributes::get(insertBefore->getContext(), Attributes::ReadNone));
     attrs.push_back(Attributes::get(insertBefore->getContext(), Attributes::NoUnwind));
+#else
+    attrs.push_back(Attribute::ReadNone);
+    attrs.push_back(Attribute::NoUnwind);
+#endif
     return VectorizerUtils::createFunctionCall(insertBefore->getParent()->getParent()->getParent(),
       Mangler::getFakeInsertName(), vec->getType(), args, attrs, insertBefore);
   }

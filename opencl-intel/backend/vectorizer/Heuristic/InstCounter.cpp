@@ -1057,10 +1057,11 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
   
 bool CanVectorizeImpl::hasDirectStreamCalls(Function &F) {
   Module *pM = F.getParent();
+  bool isPointer64 = (pM->getPointerSize() == Module::Pointer64);
   std::set<Function *> streamFunctions;
   std::set<Function *> unsupportedFunctions;
   
-  Function* readStreamFunc = ((OpenclRuntime*)RuntimeServices::get())->getReadStream();
+  Function* readStreamFunc = ((OpenclRuntime*)RuntimeServices::get())->getReadStream(isPointer64);
   if (readStreamFunc) {
     // This returns the read stream function *from the runtime module*.
     // We need a function in *this* module with the same name.
@@ -1069,7 +1070,7 @@ bool CanVectorizeImpl::hasDirectStreamCalls(Function &F) {
       streamFunctions.insert(readStreamFunc);
   }
   
-  Function* writeStreamFunc = ((OpenclRuntime*)RuntimeServices::get())->getWriteStream();
+  Function* writeStreamFunc = ((OpenclRuntime*)RuntimeServices::get())->getWriteStream(isPointer64);
   if (writeStreamFunc) {
     // This returns the write stream function *from the runtime module*.
     // We need a function in *this* module with the same name.

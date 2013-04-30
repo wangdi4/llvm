@@ -123,7 +123,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
 #if LLVM_VERSION == 3200
     DataLayout *DL = new DataLayout(M);
 #else
-    TargetData *DL = new DataLayout(M);
+    TargetData *DL = new TargetData(M);
 #endif
     fpm1.add(DL);
 

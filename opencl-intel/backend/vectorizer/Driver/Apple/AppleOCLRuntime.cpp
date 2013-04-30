@@ -128,18 +128,11 @@ const char *APPLE_READ_IMG_NAME = "_Z11read_imagefPU3AS110_image2d_tuSamplerDv2_
 // On volcano sets the __i386 manually
 //TODO: Check whether we need to define __i386
 
-#if defined(__i386)
-const char *APPLE_STREAM_READ_IMG_NAME = "_Z36__async_work_group_stream_from_imagePU3AS110_image2d_tuSamplerDv2_fS1_jPDv4_fS3_S3_S3_";
-#else
-const char *APPLE_STREAM_READ_IMG_NAME = "_Z36__async_work_group_stream_from_imagePU3AS110_image2d_tuSamplerDv2_fS1_mPDv4_fS3_S3_S3_";
-#endif
+const char *APPLE_STREAM_READ_IMG_NAME_32 = "_Z36__async_work_group_stream_from_imagePU3AS110_image2d_tuSamplerDv2_fS1_jPDv4_fS3_S3_S3_";
+const char *APPLE_STREAM_READ_IMG_NAME_64 = "_Z36__async_work_group_stream_from_imagePU3AS110_image2d_tuSamplerDv2_fS1_mPDv4_fS3_S3_S3_";
 
-#if defined(__i386)
-const char *APPLE_STREAM_WRITE_IMG_NAME = "_Z34__async_work_group_stream_to_imagePU3AS110_image2d_tjjjPKDv4_fS2_S2_S2_";
-#else
-const char *APPLE_STREAM_WRITE_IMG_NAME = "_Z34__async_work_group_stream_to_imagePU3AS110_image2d_tmmmPKDv4_fS2_S2_S2_";
-#endif
-
+const char *APPLE_STREAM_WRITE_IMG_NAME_32 = "_Z34__async_work_group_stream_to_imagePU3AS110_image2d_tjjjPKDv4_fS2_S2_S2_";
+const char *APPLE_STREAM_WRITE_IMG_NAME_64 = "_Z34__async_work_group_stream_to_imagePU3AS110_image2d_tmmmPKDv4_fS2_S2_S2_";
 
 
 AppleOpenclRuntime::AppleOpenclRuntime(const Module *runtimeModule):
@@ -203,8 +196,12 @@ bool AppleOpenclRuntime::isTransposedReadImg(const std::string &func_name) const
   return false;
 }
 
-Function *AppleOpenclRuntime::getWriteStream() const {
-  return m_runtimeModule->getFunction(APPLE_STREAM_WRITE_IMG_NAME);
+Function *AppleOpenclRuntime::getWriteStream(bool isPointer64Bit) const {
+  if(isPointer64Bit) {
+    return m_runtimeModule->getFunction(APPLE_STREAM_WRITE_IMG_NAME_64);
+  } else {
+    return m_runtimeModule->getFunction(APPLE_STREAM_WRITE_IMG_NAME_32);
+  }
 }
 
 bool AppleOpenclRuntime::isTransposedWriteImg(const std::string &func_name) const {
@@ -215,8 +212,12 @@ bool AppleOpenclRuntime::isTransposedWriteImg(const std::string &func_name) cons
   return false;
 }
 
-Function *AppleOpenclRuntime::getReadStream() const {
-  return m_runtimeModule->getFunction(APPLE_STREAM_READ_IMG_NAME);
+Function *AppleOpenclRuntime::getReadStream(bool isPointer64Bit) const {
+  if(isPointer64Bit) {
+    return m_runtimeModule->getFunction(APPLE_STREAM_READ_IMG_NAME_64);
+  } else {
+    return m_runtimeModule->getFunction(APPLE_STREAM_READ_IMG_NAME_32);
+  }
 }
 
 } // Namespace

@@ -41,7 +41,7 @@ namespace intel {
     return false;
   }
   
-  Function *VolcanoOpenclRuntime::getWriteStream() const {
+  Function *VolcanoOpenclRuntime::getWriteStream(bool isPointer64Bit) const {
     return NULL;
   }
   
@@ -49,7 +49,7 @@ namespace intel {
     return false;
   }
   
-  Function *VolcanoOpenclRuntime::getReadStream() const {
+  Function *VolcanoOpenclRuntime::getReadStream(bool isPointer64Bit) const {
     return NULL;
   }
   

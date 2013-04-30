@@ -138,16 +138,20 @@ public:
   virtual bool isSafeToSpeculativeExecute(const std::string &func_name) const;
 
   /// @brief returns true iff this is name of transposed_read_image.
+  /// @param funcName Function name to check
   virtual bool isTransposedReadImg(const std::string &func_name) const = 0;
 
   /// @brief returns true iff this is name of transposed_write_image.
+  /// @param funcName Function name to check
   virtual bool isTransposedWriteImg(const std::string &func_name) const = 0;
 
   /// @brief returns the read stream function from the runtime module.
-  virtual Function *getReadStream() const = 0;
+  /// @param isPointer64Bit true if pointer size is 64bit, false otherwise.
+  virtual Function *getReadStream(bool isPointer64Bit) const = 0;
 
   /// @brief returns the write stream function from the runtime module.
-  virtual Function *getWriteStream() const = 0;
+  /// @param isPointer64Bit true if pointer size is 64bit, false otherwise.
+  virtual Function *getWriteStream(bool isPointer64Bit) const = 0;
 
   // @brief return true if this name of stream built-in.
   virtual bool isStreamFunc(const std::string &funcName) const = 0;

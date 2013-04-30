@@ -16,7 +16,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Function.h"
 #include "llvm/Pass.h"
 #include "llvm/DerivedTypes.h"
+#include "llvm/Version.h"
+#if LLVM_VERSION == 3200
 #include "llvm/DataLayout.h"
+#else
+#include "llvm/Target/TargetData.h"
+#endif
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/Passes.h"
@@ -217,12 +222,20 @@ Optimizer::Optimizer( llvm::Module* pModule,
   }
 #endif //#ifndef __APPLE__
   // Add an appropriate DataLayout instance for this module...
+#if LLVM_VERSION == 3200
   m_modulePasses.add(new llvm::DataLayout(pModule));
+#else
+  m_modulePasses.add(new llvm::TargetData(pModule));
+#endif
 #ifdef __APPLE__
   m_modulePasses.add(createClangCompatFixerPass());
 #endif
   m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
+#if LLVM_VERSION == 3200
   m_funcPasses.add(new llvm::DataLayout(pModule));
+#else
+  m_funcPasses.add(new llvm::TargetData(pModule));
+#endif
 #ifndef __APPLE__
   if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,

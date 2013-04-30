@@ -16,6 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Constants.h"
+#include "llvm/Version.h"
 
 extern cl::opt<bool>
 EnableScatterGatherSubscript;
@@ -1341,8 +1342,13 @@ bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName
     SmallVector<Type *, 1> types(1, scalarType);
     Type* retType = static_cast<Type*>(VectorType::get(scalarType, 2));
     funcType = FunctionType::get(retType, types, false);
+#if LLVM_VERSION == 3200
     funcAttr.addAttr(m_currFunc->getContext(), ~0, Attributes::get(m_currFunc->getContext(), Attributes::ReadNone));
     funcAttr.addAttr(m_currFunc->getContext(), ~0, Attributes::get(m_currFunc->getContext(), Attributes::NoUnwind));
+#else
+    funcAttr.addAttr(~0, Attribute::ReadNone);
+    funcAttr.addAttr(~0, Attribute::NoUnwind);
+#endif
     return true;
   }
 
