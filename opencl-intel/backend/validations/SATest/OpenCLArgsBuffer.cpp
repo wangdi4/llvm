@@ -88,6 +88,14 @@ void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc,
     mem_desc.dimensions.dim[0] = imSizes.width;
     mem_desc.dimensions.dim[1] = imSizes.height;
     mem_desc.dimensions.dim[2] = imSizes.depth;
+
+    if(image_desc.GetImageType() == OpenCL_MEM_OBJECT_IMAGE1D_ARRAY) {
+        mem_desc.dimensions.dim[1] = imSizes.array_size;
+    }
+    if(image_desc.GetImageType() == OpenCL_MEM_OBJECT_IMAGE2D_ARRAY) {
+        mem_desc.dimensions.dim[2] = imSizes.array_size;
+    }
+
     mem_desc.pitch[0] = imSizes.row;
     mem_desc.pitch[1] = imSizes.slice;
     ImageChannelDataTypeVal dataType = image_desc.GetImageChannelDataType();

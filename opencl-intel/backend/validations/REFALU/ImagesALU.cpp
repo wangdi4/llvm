@@ -802,7 +802,10 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
                 iz = calculate_array_index( z, (float)(imageInfo->arraySize - 1) );
                 break;
             default:
-                iy = adFn( floorf( y ), imageInfo->height );
+                if( imageInfo->height != 0 )
+                    iy = adFn( floorf( y ), imageInfo->height );
+                else
+                    iy = 0;
                 if( imageInfo->depth != 0 )
                     iz = adFn( floorf( z ), imageInfo->depth );
                 else
@@ -833,7 +836,7 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
         
         if( depth == 0 || imageInfo->type == CL_MEM_OBJECT_IMAGE2D_ARRAY || 
                           imageInfo->type == CL_MEM_OBJECT_IMAGE1D_ARRAY)
-        {            
+        {
             size_t layer_offset = 0;
             
             if (imageInfo->type == CL_MEM_OBJECT_IMAGE2D_ARRAY) {
@@ -1545,8 +1548,12 @@ bool get_integer_coords_offset( float x, float y, float z, float xAddressOffset,
             // legacy path:
             if (height != 0)
                 outY = adFn( floorf( y ), height );
+            else
+                outY = 0;
             if( depth != 0 )
                 outZ = adFn( floorf( z ), depth );
+            else
+                outZ = 0;
     }
     
 
