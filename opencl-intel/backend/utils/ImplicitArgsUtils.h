@@ -44,6 +44,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param arg     The implicit argument index
     /// @returns The implicit argument properties
     static const ImplicitArgProperties& getImplicitArgProps(unsigned int arg);
+
+    static void initImplicitArgProps(unsigned int uiSizeT);
     
     /// @brief Constructor
     ImplicitArgsUtils() {}
@@ -92,6 +94,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   
     /// list of implicit arguments
     ImplicitArgument m_implicitArgs[m_numberOfImplicitArgs];
+    static bool m_initialized;
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

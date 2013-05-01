@@ -67,9 +67,9 @@ Kernel* MICDeviceBackendFactory::CreateKernel(
     return new MICKernel(name, args, pProps);
 }
 
-KernelProperties* MICDeviceBackendFactory::CreateKernelProperties()
+KernelProperties* MICDeviceBackendFactory::CreateKernelProperties(unsigned int uiSizeOfPtr)
 {
-    return new MICKernelProperties();
+    return new MICKernelProperties(uiSizeOfPtr);
 }
 
 KernelJITProperties* MICDeviceBackendFactory::CreateKernelJITProperties()

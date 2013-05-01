@@ -71,7 +71,8 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
      m_cpuId( pKernelProperties->GetCpuId()),
      m_bJitCreateWIids(pKernelProperties->GetJitCreateWIids()),
      m_uiVectorWidth(1), 
-     m_pUsedEntryPoint(0)
+     m_pUsedEntryPoint(0),
+     m_uiSizeT(pKernelProperties->GetPointerSize())
 {
     InitWorkInfo(pWorkInfo);
     
@@ -176,12 +177,13 @@ void Binary::InitParams(const std::vector<cl_kernel_argument>& args, char* pArgs
     // Calculate parameter sizes
     m_stFormalParamSize = pArgValueDest - m_pLocalParams;
 
+    unsigned int ptrSize = GetPointerSize();
     m_stKernelParamSize = m_stFormalParamSize +
-                          3*sizeof(void*)+ // OCL specific argument: WG Info, pWGID, pBaseGlobalID
-                          sizeof(void*)  + // pWI-ids[]
-                          sizeof(void*)  + // Pointer to IDevExecutable
-                          sizeof(size_t) + // iterCount
-                          sizeof(void*);   //  pSpecialBuffer
+                          3 * ptrSize + // OCL specific argument: WG Info, pWGID, pBaseGlobalID
+                          ptrSize  + // pWI-ids[]
+                          ptrSize  + // Pointer to IDevExecutable
+                          ptrSize  + // iterCount
+                          ptrSize;   //  pSpecialBuffer
 
     m_stAlignedKernelParamSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(m_stKernelParamSize);
 }

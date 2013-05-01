@@ -20,6 +20,7 @@ File Name:  KernelProperties.cpp
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 MICKernelProperties::MICKernelProperties(KernelProperties* pKernelProps)
+  :KernelProperties(pKernelProps->GetPointerSize())
 {
     SetOptWGSize(pKernelProps->GetOptWGSize());
     SetReqdWGSize(pKernelProps->GetReqdWGSize());

@@ -92,6 +92,7 @@ public:
     bool   GetDAZ() const                  {return m_DAZ; }
     const Intel::CPUId &GetCpuId() const   {return m_cpuId; }
     void*  GetFormalParameters() const     {return m_pLocalParams;}
+    unsigned int GetPointerSize() const    { return m_uiSizeT; }
 
     ICLDevBackendBufferPrinter* GetDevicePrinter() const { return m_pPrinter;}
     
@@ -126,6 +127,7 @@ private:
     // Vectorizer data
     unsigned int            m_uiVectorWidth;
     const void*             m_pUsedEntryPoint;
+    unsigned int            m_uiSizeT;
 };
 
 

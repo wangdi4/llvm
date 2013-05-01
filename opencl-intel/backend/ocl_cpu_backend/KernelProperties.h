@@ -48,7 +48,7 @@ protected:
 class KernelProperties: public ICLDevBackendKernelProporties
 {
 public:
-    KernelProperties();
+    KernelProperties(unsigned int uiSizeT);
     /*
      * ICLDevBackendKernelProporties methods
      */ 
@@ -129,6 +129,8 @@ public:
     bool          GetDAZ()            const { return m_DAZ; }
     const CPUId   &GetCpuId()          const { return m_cpuId; }
     bool          GetJitCreateWIids() const { return m_bJitCreateWIids;}
+    // Get size of pointer in bytes
+    unsigned int  GetPointerSize()     const { return m_uiSizeT;}
 
 protected:
     bool m_hasBarrier;
@@ -142,6 +144,7 @@ protected:
     size_t m_kernelExecutionLength;
     unsigned int m_minGroupSizeFactorial;
     bool m_bJitCreateWIids;
+    unsigned int m_uiSizeT;
 
 };
 

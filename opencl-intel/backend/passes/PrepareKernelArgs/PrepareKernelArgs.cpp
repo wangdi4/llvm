@@ -190,6 +190,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
     
     // Handle implicit arguments
+    unsigned int ptrSizeInBytes = m_pModule->getPointerSize()*4;
+    ImplicitArgsUtils::initImplicitArgProps(ptrSizeInBytes);
     for(unsigned int i=0; i< ImplicitArgsUtils::m_numberOfImplicitArgs; ++i) {
       Value* pArg = NULL;
       switch(i) {

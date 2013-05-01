@@ -222,6 +222,7 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
   for (unsigned i=0; i<argsCount; ++i)
   {
     cl_kernel_argument curArg;
+    curArg.access = CL_KERNEL_ARG_ACCESS_NONE;
 
     llvm::Argument* pArg = arg_it;
     // Set argument sizes
@@ -260,7 +261,7 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
           curArg.size_in_bytes |= (uiElemSize << 16);
           break;
         }
-        curArg.size_in_bytes = 0;
+        curArg.size_in_bytes = pModule->getPointerSize()*4;
         // Detect pointer qualifier
         // Test for image
         //const std::string &imgArg = pFunc->getParent()->getTypeName(PTy->getElementType());
@@ -293,11 +294,12 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
               MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
               assert(tag->getString() == "image" && "image MD arg type is not 'image'");
               tag = dyn_cast<MDString>(tmpMD->getOperand(1));
-              curArg.size_in_bytes = (tag->getString() == "read") ? 0 : 1;    // Set RW/WR flag
+              curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY : 
+                              CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
 #else
               ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i+1));
-
-              curArg.size_in_bytes = (access->getValue().getZExtValue() == READ_ONLY) ? 0 : 1;    // Set RW/WR flag
+              curArg.access = (access->getValue().getZExtValue() == READ_ONLY) ? 
+                              CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
 #endif
               break;
             }

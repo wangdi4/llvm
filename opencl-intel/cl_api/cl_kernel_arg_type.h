@@ -45,7 +45,7 @@ struct cl_kernel_argument
 {
     cl_kernel_arg_type      type;               //!< Type of the argument.
     unsigned int            size_in_bytes;      //!< Size of the argument in bytes
-                                                //!< for pointer types the size is 0
+    unsigned int            access;             //!< Access type for pointers
 };
 
 #ifdef __cplusplus

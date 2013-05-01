@@ -44,7 +44,7 @@ public:
         const std::vector<cl_kernel_argument>& args,
         KernelProperties* pProps);
 
-    virtual KernelProperties* CreateKernelProperties();
+    virtual KernelProperties* CreateKernelProperties(unsigned int uiSizeT);
     virtual KernelJITProperties* CreateKernelJITProperties();
 
     virtual Binary* CreateBinary( 

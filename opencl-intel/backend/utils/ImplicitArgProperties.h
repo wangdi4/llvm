@@ -14,7 +14,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   /// @brief  ImplicitArgProperties struct used to describe each implicit argument
   struct ImplicitArgProperties {
     /// @brief Implicit argument's name
-    std::string m_name;
+    const char* m_name;
       
     /// @brief Implicit argument's size
     size_t m_size; 

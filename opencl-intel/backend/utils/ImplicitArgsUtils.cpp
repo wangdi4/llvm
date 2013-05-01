@@ -15,26 +15,45 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+struct ArgData {
+  const char *name;
+  bool        initByWrapper;
+};
+
+const ArgData impArgs[] = {  
+  {"pLocalMem",       true },
+  {"pWorkDim",        false},
+  {"pWGId",           false},
+  {"BaseGlbId",       false},
+  {"contextpointer",  false},
+  {"pLocalIds",       false},
+  {"iterCount",       false},
+  {"pSpecialBuf",     false},
+  {"pCurrWI",         true }};
+
 
 // Initialize the implicit arguments properties
-ImplicitArgProperties ImplicitArgsUtils::m_implicitArgProps[m_numberOfImplicitArgs] = {
-//{m_name,            m_size,         m_alignment,    m_bInitializedByWrapper}
-  {"pLocalMem",       sizeof(void*),  sizeof(void*),  true },
-  {"pWorkDim",        sizeof(void*),  sizeof(void*),  false},
-  {"pWGId",           sizeof(void*),  sizeof(void*),  false},
-  {"BaseGlbId",       sizeof(void*),  sizeof(void*),  false},
-  {"contextpointer",  sizeof(void*),  sizeof(void*),  false},
-  {"pLocalIds",       sizeof(void*),  sizeof(void*),  false},
-  {"iterCount",       sizeof(size_t), sizeof(size_t), false},
-  {"pSpecialBuf",     sizeof(void*),  sizeof(void*),  false},
-  {"pCurrWI",         sizeof(void*),  sizeof(void*),  true }
-};
+ImplicitArgProperties ImplicitArgsUtils::m_implicitArgProps[m_numberOfImplicitArgs];
+bool ImplicitArgsUtils::m_initialized = false;
 
 const ImplicitArgProperties& ImplicitArgsUtils::getImplicitArgProps(unsigned int arg) {
   assert(arg < m_numberOfImplicitArgs && "arg is bigger than implicit args number");
   assert(!m_implicitArgProps[arg].m_bInitializedByWrapper &&
     "arg is initialized by wrapper no need for Props!");
+  assert(m_initialized);
   return m_implicitArgProps[arg]; 
+}
+
+void ImplicitArgsUtils::initImplicitArgProps(unsigned int SizeT) {
+  if (m_initialized) 
+    return;
+  for(unsigned int i=0; i<m_numberOfImplicitArgs; ++i) {
+    m_implicitArgProps[i].m_name = impArgs[i].name;
+    m_implicitArgProps[i].m_size = SizeT;
+    m_implicitArgProps[i].m_alignment = SizeT;
+    m_implicitArgProps[i].m_bInitializedByWrapper = impArgs[i].initByWrapper;
+  }
+  m_initialized = true;
 }
 
 #ifndef __APPLE__
@@ -42,8 +61,8 @@ void ImplicitArgsUtils::createImplicitArgs(char* pDest) {
   
   // Start from the beginning of the given dest buffer
   char* pArgValueDest = pDest;
-  
-  // go over all implicit arguments' properties
+
+   // go over all implicit arguments' properties
   for(unsigned int i=0; i<m_numberOfImplicitArgs; ++i) {
     // Only implicit arguments that are not initialized by the wrapper
     // Should be loaded from the parameter structutre.

@@ -221,7 +221,8 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     TKernelInfo info = buildResult.GetKernelsInfo(wrapperName);
     TKernelInfo vecinfo = buildResult.GetKernelsInfo(wrapperVecName);
 
-    KernelProperties* pProps = new KernelProperties();
+    unsigned int ptrSizeInBytes = pModule->getPointerSize()*4;
+    KernelProperties* pProps = new KernelProperties(ptrSizeInBytes);
 
     pProps->SetOptWGSize(optWGSize);
     pProps->SetReqdWGSize(reqdWGSize);

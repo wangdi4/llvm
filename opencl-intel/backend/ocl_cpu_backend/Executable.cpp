@@ -94,6 +94,7 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
   }
 
   char* pWIParams = m_pParameters + m_pBinary->GetFormalParametersSize();
+  m_implicitArgsUtils.initImplicitArgProps(m_pBinary->GetPointerSize());
   m_implicitArgsUtils.createImplicitArgs(pWIParams);
   // Set implicit local buffer pointer
   memset(&m_GlobalId[0], 0, sizeof(m_GlobalId));
