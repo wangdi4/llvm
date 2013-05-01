@@ -520,6 +520,11 @@ TEST(FrameworkTestType, DISABLED_cl_ALL_Devices_Common_RT_SubBuffers_Async_With_
     EXPECT_TRUE(cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release());
 }
 
+TEST(FrameworkTestType, TEST_APFLevel)
+{
+    EXPECT_TRUE(cl_APFLevelForce());
+}
+
 #endif
 
 // To run individual tests, use the --gtest_filter=<pattern> command-line 

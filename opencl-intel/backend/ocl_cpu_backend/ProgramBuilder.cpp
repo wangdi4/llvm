@@ -100,7 +100,8 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
                                           pProgram->GetProfilingFlag(),
                                           pProgram->GetDisableOpt(),
                                           pProgram->GetFastRelaxedMath(),
-                                          false);
+                                          false,
+                                          pOptions? pOptions->GetIntValue(CL_DEV_BACKEND_OPTION_APF_LEVEL, 0) : 0);
 
         std::auto_ptr<llvm::Module> spModule( pCompiler->BuildProgram( Utils::GetProgramMemoryBuffer(pProgram),
                                                                        &buildOptions,

@@ -28,12 +28,14 @@ File Name:  Prefetch.cpp
 #include "llvm/Instructions.h"
 #include "llvm/Type.h"
 #include "OCLAddressSpace.h"
+#include "mic_dev_limits.h"
 
 #include "Prefetch.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include <sstream>
 #include <string>
+#include <climits>
 #include <map>
 
 // Un-comment the following line if you want to get auto-prefetch statistics and decision information.
@@ -173,7 +175,7 @@ public:
   // identify whether an intrinsic represents a memory access
   static bool isPrefetchCandidate (CallInst *pCallInst, bool &pfExclusive,
       bool &isRandomV, unsigned &addrSpace, Value *&addrV,
-      int &accessSizeV);
+      int &accessSizeV, int level);
 
   // identify if 2 instructions have the same index operand
   static bool indexMatch(Instruction *I1, Instruction *I2);
@@ -209,7 +211,7 @@ OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
 OCL_INITIALIZE_PASS_END(Prefetch, "prefetch", "Auto Prefetch in Function", false, false)
 
 
-Prefetch::Prefetch() : FunctionPass(ID) {
+Prefetch::Prefetch(int level) : FunctionPass(ID), m_level(level) {
   initializePrefetchPass(*PassRegistry::getPassRegistry());
   init();
 }
@@ -661,13 +663,13 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
           );
           continue;
         }
-      } else if (!m_disableAPFGSTune &&
+      } else if (m_level > APFLEVEL_1_APF_LOAD_STORE && !m_disableAPFGSTune &&
                  (pCallInst = dyn_cast<CallInst>(I)) != NULL &&
                   pCallInst->getCalledFunction()) {
         unsigned addrSpace;
         bool isOtherPFCandidate =
             PrefetchCandidateUtils::isPrefetchCandidate(pCallInst, pfExclusive,
-                isRandom, addrSpace, addr, accessSize);
+                isRandom, addrSpace, addr, accessSize, m_level);
         if (isOtherPFCandidate)
           isOtherPFCandidate = Utils::isInSpace(addrSpace, PrefecthedAddressSpaces);
         if (!isOtherPFCandidate || m_disableAPFGS)
@@ -1352,7 +1354,7 @@ bool Prefetch::autoPrefetch(Function &F) {
 bool Prefetch::runOnFunction(Function &F) {
   // don't bother if prefetching is disabled.
   DEBUG (dbgs() << "prefetch go " << F.getName() << "\n";);
-  if (m_disableAPF)
+  if (m_level == APFLEVEL_0_DISAPF || m_disableAPF)
     return false;
 
   // connect some analysis passes
@@ -1435,7 +1437,10 @@ unsigned PrefetchCandidateUtils::detectAddressSpace(Value *addr) {
 // the type indexed by this vector is contained in one cache line.
 bool PrefetchCandidateUtils::isTightConstantVect(Value *index, Type *indexedType) {
   VectorType *VType = dyn_cast<VectorType>(indexedType);
-  ConstantVector *CV = dyn_cast<ConstantVector>(index);
+  if (VType == NULL)
+    return false;
+  assert (!isa<ConstantVector>(index) && "need to handle ConstantVector type in Prefetch.cpp");
+/*  ConstantVector *CV = dyn_cast<ConstantVector>(index);
   // verify that the accessed type is a vector type (although this should be
   // guaranteed)
   // check if the index vector is of constant int values.
@@ -1457,12 +1462,33 @@ bool PrefetchCandidateUtils::isTightConstantVect(Value *index, Type *indexedType
     if (v < i32Min) i32Min = v;
     if (v > i32Max) i32Max = v;
   }
+  return ((i32Max - i32Min) * destSize <= unsigned(UarchInfo::CacheLineSize));*/
+  ConstantDataVector *CV = dyn_cast<ConstantDataVector>(index);
+  // verify that the accessed type is a vector type (although this should be
+  // guaranteed)
+  // check if the index vector is of constant int values.
+  if (CV == NULL || CV->getElementType() !=
+      IntegerType::get(CV->getContext(), 32))
+    return false;
+  unsigned N = VType->getNumElements();
+  unsigned destSize = VType->getElementType()->getScalarSizeInBits() / 8;
+  if (CV->getNumElements() < N)
+    return false;
+
+  int i32Min = INT_MAX;
+  int i32Max = INT_MIN;
+
+  for (unsigned i = 0; i < N; ++i) {
+    int v = CV->getElementAsInteger(i);
+    if (v < i32Min) i32Min = v;
+    if (v > i32Max) i32Max = v;
+  }
   return ((i32Max - i32Min) * destSize <= unsigned(UarchInfo::CacheLineSize));
 }
 
 bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
     bool &pfExclusive, bool &isRandomV, unsigned &addrSpace, Value *&addrV,
-    int &accessSizeV) {
+    int &accessSizeV, int level) {
 
   Value *addr = NULL;
 
@@ -1500,6 +1526,7 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
     pfExclusive = false;
     isRandomV = !isTightConstantVect(pCallInst->getOperand(2),
         pCallInst->getType());
+    if (isRandomV && level < APFLEVEL_3_RANDOM) return false;
     return true;
   }
 
@@ -1536,6 +1563,7 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
     // check if the index operand is constant vector with close values
     isRandomV = !isTightConstantVect(pCallInst->getOperand(2),
         pCallInst->getType());
+    if (isRandomV && level < APFLEVEL_3_RANDOM) return false;
     return true;
   }
 
@@ -1567,6 +1595,7 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
     pfExclusive = true;
     isRandomV = !isTightConstantVect(pCallInst->getOperand(1),
         pCallInst->getOperand(2)->getType());
+    if (isRandomV && level < APFLEVEL_3_RANDOM) return false;
     return true;
   }
 
@@ -1598,8 +1627,9 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
     );
     accessSizeV = UarchInfo::CacheLineSize;
     pfExclusive = true;
-    isRandomV = !isTightConstantVect(pCallInst->getOperand(1),
-        pCallInst->getOperand(2)->getType());
+    isRandomV = !isTightConstantVect(pCallInst->getOperand(2),
+        pCallInst->getOperand(3)->getType());
+    if (isRandomV && level < APFLEVEL_3_RANDOM) return false;
     return true;
   }
 
@@ -1660,6 +1690,10 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
     args.push_back(pCallInst->getOperand(0));
     types.push_back(v16i32);
 
+    assert (I->getType()->isVectorTy() &&
+        (cast<VectorType>(I->getType())->getNumElements() == 16 ||
+         cast<VectorType>(I->getType())->getNumElements() == 8) &&
+        "gathered data expected to be vector of 8 or 16");
     if (cast<VectorType>(I->getType())->getNumElements() == 16) {
       pfIntrinName = m_prefetchGatherIntrinsicName.c_str();
     } else {
@@ -1725,7 +1759,11 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
     args.push_back(pCallInst->getOperand(0));
     types.push_back(pi8);
 
-    if (cast<VectorType>(I->getType())->getNumElements() == 16) {
+    assert (pCallInst->getOperand(2)->getType()->isVectorTy() &&
+        (cast<VectorType>(pCallInst->getOperand(2)->getType())->getNumElements() == 16 ||
+         cast<VectorType>(pCallInst->getOperand(2)->getType())->getNumElements() == 8) &&
+        "scatter data expected to be vector of 8 or 16");
+    if (cast<VectorType>(pCallInst->getOperand(2)->getType())->getNumElements() == 16) {
       pfIntrinName = m_prefetchScatterIntrinsicName.c_str();
     } else {
       // if the instruction scatters 8 elements need to pf only the first 8
@@ -1859,6 +1897,9 @@ const std::string PrefetchCandidateUtils::m_maskScatterIntrinsicName =
 } // namespace intel
 
 extern "C" {
+FunctionPass * createPrefetchPassLevel(int level) {
+  return new intel::Prefetch(level);
+}
 FunctionPass * createPrefetchPass() {
   return new intel::Prefetch();
 }

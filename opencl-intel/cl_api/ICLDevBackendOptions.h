@@ -23,7 +23,8 @@ enum cl_dev_backend_options                     // Description                  
     CL_DEV_BACKEND_OPTION_BUFFER_PRINTER,       //!< Pointer to the Buffer Printer       |pointer      | (Used for ocl_printf)
     CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR,    //!< Print IR input to heuristic         |boolean      |
     CL_DEV_BACKEND_OPTION_INJECTED_OBJECT,      //!< Pointer to preloaded object file    |pointer      |
-    CL_DEV_BACKEND_OPTION_DUMPFILE              //!< file name to store the dump into    |string       |
+    CL_DEV_BACKEND_OPTION_DUMPFILE,             //!< file name to store the dump into    |string       |
+    CL_DEV_BACKEND_OPTION_APF_LEVEL            //!< select auto-prefetch level           |int          | 0 - 3
 };
 
 /*! \enum cl_dev_backend_dump_options

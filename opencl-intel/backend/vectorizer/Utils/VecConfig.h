@@ -23,7 +23,8 @@ public:
             bool disableOpt,
             bool relaxedMath,
             bool libraryModule,
-            bool heuristicIR):
+            bool heuristicIR,
+            int  APFLevel):
       m_cpuId(cpuId),
       m_transposeSize(tranposeSize),
       m_dumpIROptionsAfter(dumpIROptionAfter),
@@ -34,7 +35,8 @@ public:
       m_disableOpt(disableOpt),
       m_relaxedMath(relaxedMath),
       m_libraryModule(libraryModule),
-      m_dumpHeuristicIR(heuristicIR)
+      m_dumpHeuristicIR(heuristicIR),
+      m_APFLevel(APFLevel)
     {}
 
     const Intel::CPUId &GetCpuId() const { return m_cpuId; }
@@ -51,6 +53,7 @@ public:
     // If this options is set to true then some optimization passes will be skipped
     bool GetLibraryModule()   const { return m_libraryModule; }
     bool GetDumpHeuristicIRFlag() const {return m_dumpHeuristicIR; }
+    int  GetAPFLevel() const { return m_APFLevel; }
 
 private:
     Intel::CPUId m_cpuId;
@@ -68,6 +71,8 @@ private:
     bool m_libraryModule;
     // Sets whether the vectorize should output heuristic LL IR inputs
     bool m_dumpHeuristicIR;
+    // Auto prefetch disable options
+    int  m_APFLevel;
 };
 
 

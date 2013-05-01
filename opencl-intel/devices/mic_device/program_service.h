@@ -58,7 +58,9 @@ public:
     MICBackendOptions( DeviceServiceCommunication& dev_service );
 
     void init( bool bUseVectorizer, bool bUseVtune );
+    void init_cl_options ( const char *options);
     void init_for_dump( const char* options );
+    void init_for_apf_level( const char *p );
 
     // ICLDevBackendOptions interface
     bool GetBooleanValue( int optionId, bool defaultValue) const;
@@ -71,6 +73,7 @@ private:
     bool                        m_bUseVectorizer;
     bool                        m_bUseVtune;
     string                      m_dump_file_name;
+    int                         m_apf_level;
 
     int getTargetDescriptionSize( void ) const;
     bool getTargetDescription( void* Value, size_t* pSize) const;

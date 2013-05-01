@@ -125,7 +125,8 @@ ProgramService::~ProgramService()
  BEGIN MICBackendOptions
 ********************************************************************************************************************/
 MICBackendOptions::MICBackendOptions( DeviceServiceCommunication& dev_service ) :
-             m_dev_service( dev_service), m_bUseVectorizer(false), m_bUseVtune(false)
+             m_dev_service( dev_service), m_bUseVectorizer(false), m_bUseVtune(false),
+             m_apf_level(APFLEVEL_DEFAULT)
 {
 }
 
@@ -133,6 +134,22 @@ void MICBackendOptions::init( bool bUseVectorizer, bool bUseVtune )
 {
     m_bUseVectorizer = bUseVectorizer;
     m_bUseVtune      = bUseVtune;
+}
+
+void MICBackendOptions::init_cl_options ( const char *options) {
+  const char *p;
+  if( (NULL != options) && ('\0' != *options) )
+  {
+    if (NULL != (p = strstr(options, "-dump-opt-asm=")))
+    {
+      init_for_dump(p);
+    }
+    const char* opt_prefetch_level = "-auto-prefetch-level=";
+    if (NULL != (p = strstr(options, opt_prefetch_level)))
+    {
+       init_for_apf_level(p+strlen(opt_prefetch_level));
+    }
+  }
 }
 
 void MICBackendOptions::init_for_dump( const char* options )
@@ -146,6 +163,22 @@ void MICBackendOptions::init_for_dump( const char* options )
     {
          m_dump_file_name = fname.substr(pos1 + 1, pos2 - pos1 - 1);
     }
+}
+
+void MICBackendOptions::init_for_apf_level( const char *p )
+{
+  // verify option correctness
+  if (p == NULL)
+  {
+    return;
+  }
+  // parse apf value and set accordingly
+  int val = *p - '0';
+  if (val >= APFLEVEL_MIN && val <= APFLEVEL_MAX)
+  {
+    m_apf_level = val;
+  }
+  assert(val >= APFLEVEL_MIN && val <= APFLEVEL_MAX && "Invalid value for prefetching level");
 }
 
 // ICLDevBackendOptions interface
@@ -167,6 +200,9 @@ int MICBackendOptions::GetIntValue( int optionId, int defaultValue) const
                 int size = getTargetDescriptionSize();
                 return (size <= 0) ? defaultValue : size;
             }
+
+        case CL_DEV_BACKEND_OPTION_APF_LEVEL:
+            return m_apf_level;
 
         default:
             return defaultValue;
@@ -721,12 +757,10 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     
     if (NULL != compiler)
     {
-        MICBackendOptions dumpOptions( m_DevService );
-        if( (NULL != options) && ('\0' != *options) &&
-            (NULL != (p = strstr(options, "-dump-opt-asm="))) )
-            dumpOptions.init_for_dump(p);
+        MICBackendOptions buildOptions( m_DevService);
+        buildOptions.init_cl_options (options);
 
-        ret = compiler->BuildProgram(pEntry->pProgram, &dumpOptions);
+        ret = compiler->BuildProgram(pEntry->pProgram, &buildOptions);
         MicDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Build Done (%d)"), ret);
     }
     

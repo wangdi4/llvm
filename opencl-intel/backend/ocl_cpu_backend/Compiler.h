@@ -85,12 +85,14 @@ public:
                           bool profiling,
                           bool disableOpt,
                           bool relaxedMath,
-                          bool libraryModule):
+                          bool libraryModule,
+                          int  APFLevel):
       m_debugInfo(debugInfo),
       m_profiling(profiling),
       m_disableOpt(disableOpt),
       m_relaxedMath(relaxedMath),
-      m_libraryModule(libraryModule)
+      m_libraryModule(libraryModule),
+      m_APFLevel(APFLevel)
     {}
 
     bool GetDisableOpt()    const { return m_disableOpt; }
@@ -98,6 +100,7 @@ public:
     bool GetProfilingFlag() const { return m_profiling; }
     bool GetRelaxedMath()   const { return m_relaxedMath; }
     bool GetlibraryModule() const { return m_libraryModule; }
+    int  GetAPFLevel()      const { return m_APFLevel; }
 
 private:
     bool m_debugInfo; 
@@ -107,6 +110,7 @@ private:
     // Sets whether optimized code is library module or a set of kernels
     // If this options is set to true then some optimization passes will be skipped
     bool m_libraryModule;
+    int  m_APFLevel;
 };
 
 //*****************************************************************************************

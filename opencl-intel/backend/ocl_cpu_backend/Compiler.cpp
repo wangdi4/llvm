@@ -313,7 +313,8 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
                                             pOptions->GetDisableOpt(),
                                             pOptions->GetRelaxedMath(),
                                             pOptions->GetlibraryModule(),
-                                            m_dumpHeuristicIR);
+                                            m_dumpHeuristicIR,
+                                            pOptions->GetAPFLevel());
     Optimizer optimizer( spModule.get(), GetRtlModule(), &optimizerConfig);
     optimizer.Optimize();
     

@@ -60,6 +60,7 @@
 #include "llvm/Support/Path.h"
 
 #include "clang_driver.h"
+#include "mic_dev_limits.h"
 
 #include <Logger.h>
 #include <cl_sys_info.h>
@@ -1292,6 +1293,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     bool bFastRelaxedMath = false;
     std::string szFileName = "";
 	std::string szTriple = "";
+    const char *APFLevelOptionName = "-auto-prefetch-level=";
 	
     if (!szOptions)
         szOptions = "";
@@ -1357,6 +1359,21 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         else if (opt_i->find("-dump-opt-asm=") == 0)
         {
             // Dump file must be attached to the flag, but we ignore it for now
+        }
+        else if (opt_i->find(APFLevelOptionName) == 0)
+        {
+            // expecting only one digit after option name
+            unsigned optNameLength = strlen(APFLevelOptionName);
+            if (opt_i->length() != optNameLength + 1)
+              return false;
+            // set auto-prefetching level. should be one digit number.
+            int val = opt_i->at(optNameLength) - '0';
+            if (val < APFLEVEL_MIN || val > APFLEVEL_MAX) {
+                string flag = *opt_i;
+                UnrecognizedArgs.push_back(flag);
+                UnrecognizedArgsLength += flag.length() + 1;
+                res = false;
+            }
         }
         else if (*opt_i == "-s") {
             // Expect the file name as the next token

@@ -51,7 +51,7 @@ namespace intel{
 
     public:
       static char ID; // Pass identification, replacement for typeid
-      Prefetch();
+      Prefetch(int level=2);
 
       ~Prefetch();
 
@@ -77,6 +77,8 @@ namespace intel{
       SCEVExpander    * m_ADRExpander;
 
       // Controls
+                                  // prefetch level, which accesses to consider for prefetching:
+      int  m_level;               // 0 - none, 1 - loads/stores, 2 - all sequential accesses, 3 - all accesses
                                   // if MPF is detected don't generate
       bool m_exclusiveMPF;        // prefetches at all
       bool m_coopAPFMPF;          // if MPF is detected continue to generated APF

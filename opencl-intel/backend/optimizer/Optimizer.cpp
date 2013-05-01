@@ -29,6 +29,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
+#include "mic_dev_limits.h"
 
 extern "C"{
 
@@ -63,7 +64,7 @@ void* createAppleOpenclRuntimeSupport(const llvm::Module *runtimeModule);
 llvm::Pass *createClangCompatFixerPass();
 #else
 void* createVolcanoOpenclRuntimeSupport(const llvm::Module *runtimeModule);
-llvm::FunctionPass *createPrefetchPass();
+llvm::FunctionPass *createPrefetchPassLevel(int level);
 llvm::ModulePass * createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
@@ -456,17 +457,22 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createModuleCleanupPass(m_vectFunctions));
 
 #ifndef __APPLE__
-    // Add prefetches only for V16, if not in debug mode, and don't change the
-    // library
-    if (debugType == None && !pConfig->GetLibraryModule() && pConfig->GetCpuId().HasGatherScatter()) {
-      m_modulePasses.add(createPrefetchPass());
+  // Add prefetches if useful for micro-architecture, if not in debug mode,
+  // and don't change libraries
+  if (debugType == None && !pConfig->GetLibraryModule() &&
+      pConfig->GetCpuId().HasGatherScatter()) {
+    int APFLevel = pConfig->GetAPFLevel();
+    // do APF and following cleaning passes only if APF is not disabled
+    if (APFLevel != APFLEVEL_0_DISAPF) {
+      m_modulePasses.add(createPrefetchPassLevel(pConfig->GetAPFLevel()));
 
-    m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
-    m_modulePasses.add(llvm::createInstructionCombiningPass());       // Instruction combining
-    m_modulePasses.add(llvm::createGVNPass());
+      m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
+      m_modulePasses.add(llvm::createInstructionCombiningPass());       // Instruction combining
+      m_modulePasses.add(llvm::createGVNPass());
 #ifdef _DEBUG
-    m_modulePasses.add(llvm::createVerifierPass());
+      m_modulePasses.add(llvm::createVerifierPass());
 #endif
+    }
   }
   if (unrollLoops && debugType == None) {
     m_modulePasses.add(llvm::createLoopUnrollPass(4, 0, 0));          // Unroll small loops
