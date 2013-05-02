@@ -62,7 +62,7 @@
                             "name":     "ImgAccQuals",
                             "metatype": "image_access_qualifiers",
                             "optional": true
-                        },
+                        }
                     ]
                 },
     "KernelInfo" :  {
@@ -133,6 +133,19 @@
                             "optional": true
                         }
                     ]
+                },
+    "int32_item": {
+                    "is_container":     false,
+                    "type":             "int32_t"
+                },
+    "bool_item": {
+                    "is_container":     false,
+                    "type":             "bool"
+                },
+    "image_access_qualifiers":  {
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "int32_item"
                 },
     "function": {
                     "is_container":     false,
