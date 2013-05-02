@@ -9,7 +9,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __PREPARE_KERNEL_ARGS_H__
 
 #include "LocalBuffAnalysis.h"
-#include "TLLVMKernelInfo.h"
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
@@ -18,9 +17,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <map>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+using namespace llvm;
 
-  using namespace llvm;
+namespace Intel {
+  class MetaDataUtils;
+}
+
+namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   /// @brief  PrepareKernelArgs changes the way arguments are passed to kernels.
   ///         It changes the kernel to receive as arguments a single buffer
@@ -36,8 +39,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static char ID;
 
     /// @brief Constructor
-    PrepareKernelArgs(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap,
-                      SmallVectorImpl<Function*> &vectFunctions);
+    PrepareKernelArgs();
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
@@ -55,9 +57,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///         function arguments from the buffer, creates a call to the given
     ///         funciton with the loaded arguments.
     /// @param  pFunc The kernel for which to create a wrapper
-    /// @param  isVectorized True if this is a vectorized kernel, false otherwise
-    /// @returns The new function wrapper function that calls the given function
-    Function* runOnFunction(Function *pFunc, bool isVectorized);
+    /// @returns true if changed
+    bool runOnFunction(Function *pFunc);
 
     /// @brief  Creates a new function that receives as argument a single buffer
     ///         based on the given function's name, return type and calling convention.
@@ -90,18 +91,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief The llvm context
     LLVMContext                *m_pLLVMContext;
 
-    /// @brief Maps each function and its metadata
-    std::map<Function*, MDNode*> m_kernelsMetadata;
-
-    /// @brief A pointer to the map from functions to its kernel info (local buffer size)
-    std::map<const llvm::Function*, TLLVMKernelInfo> *m_pkernelsLocalBufferMap;
-
-    /// @brief A pointer to the vectorized functions set gotten from the vectorizer pass
-    SmallVectorImpl<Function*> *m_pVectFunctions;
-
-    /// @brief Maps old function with its new cloned function
-    ///        (that takes extra implicite arguments)
-    std::map<Function*, Function*> m_oldToNewFunctionMap;
+    /// @brief holds Meta Data utils
+    Intel::MetaDataUtils       *m_mdUtils;
 
   };
 

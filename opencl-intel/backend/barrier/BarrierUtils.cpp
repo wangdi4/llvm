@@ -5,6 +5,7 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "BarrierUtils.h"
+#include "MetaDataApi.h"
 
 #include "llvm/Module.h"
 #include "llvm/Function.h"
@@ -15,7 +16,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <set>
 
-extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrierPath);
 namespace intel {
 
 
@@ -176,42 +176,27 @@ namespace intel {
   TFunctionVector& BarrierUtils::getAllKernelFunctions() {
     //Clear old collected data!
     m_kernelFunctions.clear();
-    //Check for some common module errors, before actually diving in
-    NamedMDNode *pOpenCLMetadata = m_pModule->getNamedMetadata("opencl.kernels");
-    if ( !pOpenCLMetadata ) {
-      //Module contains no MetaData, thus it contains no kernels
+    Intel::MetaDataUtils mdUtils(m_pModule);
+    if ( !mdUtils.isKernelsHasValue() ) {
+      //Module contains no kernels, thus it contains no kernels
       return m_kernelFunctions;
     }
 
-    unsigned int numOfKernels = pOpenCLMetadata->getNumOperands();
-    if ( numOfKernels == 0 ) {
-      //Module contains no kernels
-      return m_kernelFunctions;
-    }
-
-    //list all kernel not marked as no-barrier.
-    std::set<std::string> NoBarrier;
-    fillNoBarrierPathSet(m_pModule, NoBarrier);
-    for ( unsigned int i = 0, e = numOfKernels; i != e; ++i ) {
-      MDNode *elt = pOpenCLMetadata->getOperand(i);
-      Value *field0 = elt->getOperand(0)->stripPointerCasts();
-      if ( Function *pKernelFunc = dyn_cast<Function>(field0)) {
-        std::string kernelName = pKernelFunc->getName().str();
-        if (NoBarrier.count(kernelName)) continue;
-
-        //Add kernel to the list
-        //Currently no check if kernel already added to the list!
-        m_kernelFunctions.push_back(pKernelFunc);
-
-        //Check if there is a vectorized version of this kernel
-        std::string vectorizedKernelName =
-          std::string(VECTORIZED_KERNEL_PREFIX) + pKernelFunc->getName().str();
-        Function *pVectorizedKernelFunc = m_pModule->getFunction(vectorizedKernelName);
-        if ( pVectorizedKernelFunc ) {
-          //Add vectorized kernel function to list
-          m_kernelFunctions.push_back(pVectorizedKernelFunc);
-        }
+    // Get the kernels using the barrier for work group loops.
+    Intel::MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
+    Intel::MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
+    for (; itr != end; ++itr) {
+      Function *pFunc = (*itr)->getFunction();
+      Intel::KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
+      //Need to check if NoBarrierPath Value exists, it is not guaranteed that
+      //KernelAnalysisPass is running in all scenarios.
+      if (kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath()) {
+        //Kernel that should not be handled in Barrier path, skip it.
+        continue;
       }
+      //Add kernel to the list
+      //Currently no check if kernel already added to the list!
+      m_kernelFunctions.push_back(pFunc);
     }
     return m_kernelFunctions;
   }

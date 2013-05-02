@@ -43,7 +43,7 @@ namespace intel {
 
     /// @brief C'tor
     /// @param isNativeDebug true if we are debugging natively (gdb)
-    Barrier(bool isNativeDebug);
+    Barrier(bool isNativeDebug = false);
 
     /// @brief D'tor
     ~Barrier() {}

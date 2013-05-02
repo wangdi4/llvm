@@ -125,31 +125,23 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
 
     MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels();
     MetaDataUtils::KernelsList::const_iterator e = mdUtils.end_Kernels();
-    MetaDataUtils::KernelWrappersList::const_iterator iw = mdUtils.begin_KernelWrappers();
-    MetaDataUtils::KernelWrappersList::const_iterator ew = mdUtils.end_KernelWrappers();
 
-    std::vector<FunctionWidthPair>::const_iterator vecIter = buildResult.GetFunctionsWidths().begin();
-
-    for ( ; i != e; ++i, ++iw)
+    for ( ; i != e; ++i)
     {
-        assert( iw != ew);
         // Obtain kernel function from annotation
         llvm::Function *pFunc = (*i)->getFunction(); // TODO: stripPointerCasts());
-        // The wrapper function that receives a single buffer as argument is the last node in the metadata
-        llvm::Function *pWrapperFunc = (*iw)->getFunction(); //TODO: stripPointerCasts());
+        KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
+        // Obtain kernel wrapper function from metadata info
+        llvm::Function *pWrapperFunc = kimd->getKernelWrapper(); //TODO: stripPointerCasts());
 
         // Create a kernel and kernel JIT properties
         std::auto_ptr<KernelProperties> spKernelProps( CreateKernelProperties( pProgram,
                                                                                pFunc,
-                                                                               pWrapperFunc,
                                                                                buildResult));
-        unsigned int vecSize = 1;
 
-        if( spKernelProps->GetJitCreateWIids() && vecIter != buildResult.GetFunctionsWidths().end())
-        {
-            vecSize = vecIter->second;
-            spKernelProps->SetMinGroupSizeFactorial(vecSize);
-        }
+        // get the vector size used to generate the function
+        unsigned int vecSize = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
+        spKernelProps->SetMinGroupSizeFactorial(vecSize);
 
         std::auto_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
 
@@ -165,52 +157,56 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
                      spKernelJITProps.release());
 
 
-        // Check if vectorized kernel present
-        if( !buildResult.GetFunctionsWidths().empty())
+        //TODO (AABOUD): is this redundant code?
+        const llvm::Type *vTypeHint = NULL; //pFunc->getVectTypeHint(); //TODO: Read from metadata (Guy)
+        bool dontVectorize = false;
+
+        if( NULL != vTypeHint)
         {
-            assert(vecIter != buildResult.GetFunctionsWidths().end());
-            assert( !(spKernelProps->GetJitCreateWIids() && vecIter->first) &&
+            //currently if the vector_type_hint attribute is set
+            //we types that vector length is below 4, vectorizer restriction
+            const llvm::VectorType* pVect = llvm::dyn_cast<llvm::VectorType>(vTypeHint);
+            if( ( NULL != pVect) && pVect->getNumElements() >= 4)
+            {
+                dontVectorize = true;
+            }
+        }
+
+        //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
+        //Vectorized is running in all scenarios.
+        if (kimd->isVectorizedKernelHasValue())
+        {
+            Function *pVecFunc = kimd->getVectorizedKernel();
+            assert(!(spKernelProps->GetJitCreateWIids() && pVecFunc) &&
                 "if the vector kernel is inlined the entry of the vector kernel should be NULL");
-
-            const llvm::Type *vTypeHint = NULL; //pFunc->getVectTypeHint(); //TODO: Read from metadata (Guy)
-            bool dontVectorize = false;
-
-            if( NULL != vTypeHint)
+            if(NULL != pVecFunc && !dontVectorize)
             {
-                //currently if the vector_type_hint attribute is set
-                //we types that vector length is below 4, vectorizer restriction
-                const llvm::VectorType* pVect = llvm::dyn_cast<llvm::VectorType>(vTypeHint);
-                if( ( NULL != pVect) && pVect->getNumElements() >= 4)
-                {
-                    dontVectorize = true;
-                }
-            }
-
-            if(NULL != vecIter->first && !dontVectorize)
-            {
+                KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(pVecFunc);
+                // Obtain kernel wrapper function from metadata info
+                llvm::Function *pWrapperVecFunc = vkimd->getKernelWrapper(); //TODO: stripPointerCasts());
+                //Update vecSize according to vectorWidth of vectorized function
+                vecSize = vkimd->getVectorizedWidth();
                 // Create the vectorized kernel - no need to pass argument list here
-                std::auto_ptr<KernelJITProperties> spVKernelJITProps(CreateKernelJITProperties(vecIter->second));
-                spKernelProps->SetMinGroupSizeFactorial(vecIter->second);
+                std::auto_ptr<KernelJITProperties> spVKernelJITProps(CreateKernelJITProperties(vecSize));
+                spKernelProps->SetMinGroupSizeFactorial(vecSize);
                 AddKernelJIT(static_cast<CPUProgram*>(pProgram),
-                             spKernel.get(),
-                             pModule,
-                             vecIter->first,
-                             spVKernelJITProps.release());
-
+                              spKernel.get(),
+                              pModule,
+                              pWrapperVecFunc,
+                              spVKernelJITProps.release());
             }
-            if ( dontVectorize )
-            {
-                buildResult.LogS() << "Vectorization of kernel <" << spKernel->GetKernelName() << "> was disabled by the developer\n";
-            }
-            else if ( vecIter->second <= 1)
-            {
-                buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was not vectorized\n";
-            }
-            else
-            {
-                buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
-            }
-            vecIter++;
+        }
+        if ( dontVectorize )
+        {
+            buildResult.LogS() << "Vectorization of kernel <" << spKernel->GetKernelName() << "> was disabled by the developer\n";
+        }
+        else if (vecSize <= 1)
+        {
+            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was not vectorized\n";
+        }
+        else
+        {
+            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
         }
 #ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin manager

@@ -58,10 +58,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       Argument **ppBaseGlbId, Argument **ppLocalId, Argument **ppIterCount,
       Argument **ppSpecialBuf, Argument **ppCurrWI, Argument **ppCtx);
                     
-    /// @brief collect all scalar kernel functions
-    /// @param functionSet container to insert all scalar kernel function into
+    /// @brief collect all kernel functions
+    /// @param functionSet container to insert all kernel function into
     /// @param pModule the module to search kernel function inside
-    static void getAllScalarKernels(std::set<Function*> &functionSet, Module *pModule);
+    static void getAllKernels(std::set<Function*> &functionSet, Module *pModule);
+
+    /// @brief collect all kernel wrapper functions
+    /// @param functionSet container to insert all kernel wrapper function into
+    /// @param pModule the module to search kernel wrapper function inside
+    static void getAllKernelWrappers(std::set<Function*> &functionSet, Module *pModule);
 
     /// @brief  fills a vector of cl_kernel_argument with arguments representing pFunc's
     ///         OpenCL level arguments
@@ -73,16 +78,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                                               Function* pFunc, 
                                               std::vector<cl_kernel_argument>& /* OUT */ arguments);
     
-    /// @brief  maps between kernels (both scalar and vectorized) and their metdata
-    /// @param pModule          The module
-    /// @param pVectFunctions   The vectorized kernels, these kernel should be mapped
-    ///                         to their scalar version metadata
-    /// @param pVectFunctions   OUT param, maps between kernels (both scalar and
-    ///                         vectorized) and their metdata
-    static void getKernelsMetadata( Module* pModule, 
-                                    const SmallVectorImpl<Function*>& pVectFunctions, 
-                                    std::map<Function*, MDNode*>& /* OUT */ kernelMetadata);
-
   public:
     /// This holds the number of implicite arguments addeded to function
     static const unsigned int NUMBER_IMPLICIT_ARGS;

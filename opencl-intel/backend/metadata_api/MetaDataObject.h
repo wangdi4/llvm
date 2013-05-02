@@ -261,10 +261,15 @@ struct MDValueTraits<MetaObjectHandle<T>, void>
 {
     typedef MetaObjectHandle<T> value_type;
 
-    static value_type load( llvm::Value* pNode)
+    static value_type load(llvm::Value* pNode)
     {
-        llvm::MDNode* pMDNode = NULL == pNode ? NULL : llvm::dyn_cast<llvm::MDNode>(pNode);
-        return MetaObjectHandle<T>(new T(pMDNode, false));
+        if (NULL == pNode) {
+          return MetaObjectHandle<T>(new T());
+        } else {
+          llvm::MDNode* pMDNode = llvm::dyn_cast<llvm::MDNode>(pNode);
+          assert(pMDNode && "pNode is not an MDNode value");
+          return MetaObjectHandle<T>(new T(pMDNode, false));
+        }
     }
 
     static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)

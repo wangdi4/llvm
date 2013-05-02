@@ -7,9 +7,9 @@
                             "metatype": "Kernels"
                         },
                         {
-                            "name":     "KernelWrappers",
-                            "key":      "opencl.wrappers",
-                            "metatype": "KernelWrappers"
+                            "name":     "KernelsInfo",
+                            "key":      "opencl.kernel_info",
+                            "metatype": "KernelsInfo"
                         }
                     ]
                 },
@@ -18,10 +18,11 @@
                     "container_type":   "list",
                     "item_type":        "Kernel"
                 },
-    "KernelWrappers" : {
+    "KernelsInfo" : {
                     "is_container":     true,
-                    "container_type":   "list",
-                    "item_type":        "KernelWrapper"
+                    "container_type":   "map",
+                    "key_type":         "function",
+                    "item_type":        "KernelInfo"
                 },
     "Kernel" :  {
                     "is_container":     true,
@@ -57,7 +58,7 @@
                         },
                         {
                             "location": "named",
-                            "key":      "image_access_qualifier",
+                            "key":      "argument_attribute",
                             "name":     "ImgAccQuals",
                             "metatype": "image_access_qualifiers",
                             "optional": true
@@ -71,16 +72,72 @@
                         }
                     ]
                 },
-    "KernelWrapper" :  {
+    "KernelInfo" :  {
                     "is_container":     true,
                     "container_type":   "struct",
                     "elements": [
                         {
-                            "location": "positional",
-                            "index":    "0",
-                            "name":     "Function",
+                            "location": "named",
+                            "key":      "local_buffer_size",
+                            "name":     "LocalBufferSize",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "barrier_buffer_size",
+                            "name":     "BarrierBufferSize",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_execution_length",
+                            "name":     "KernelExecutionLength",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_has_barrier",
+                            "name":     "KernelHasBarrier",
+                            "metatype": "bool_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "no_barrier_path",
+                            "name":     "NoBarrierPath",
+                            "metatype": "bool_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "vectorized_kernel",
+                            "name":     "VectorizedKernel",
                             "metatype": "function",
-                            "optional": false
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "vectorized_width",
+                            "name":     "VectorizedWidth",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_wrapper",
+                            "name":     "KernelWrapper",
+                            "metatype": "function",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "scalarized_kernel",
+                            "name":     "ScalarizedKernel",
+                            "metatype": "function",
+                            "optional": true
                         }
                     ]
                 },
@@ -166,6 +223,10 @@
     "int32_item": {
                     "is_container":     false,
                     "type":             "int32_t"
+                },
+    "bool_item": {
+                    "is_container":     false,
+                    "type":             "bool"
                 },
     "str_list":  {
                     "is_container":     true,

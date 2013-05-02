@@ -6,6 +6,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "KernelInfoPass.h"
+#include "CompilationUtils.h"
+#include "MetaDataApi.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/PassManager.h"
@@ -17,8 +19,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   char KernelInfo::ID = 0;
 
   bool KernelInfo::runOnFunction(Function &Func) {
-    m_mapKernelInfo[Func.getName().str()].kernelExecutionLength = getExecutionLength(&Func);
-    m_mapKernelInfo[Func.getName().str()].hasBarrier = conatinsBarrier(&Func);
+    m_mdUtils->getOrInsertKernelsInfoItem(&Func)->setKernelExecutionLength(getExecutionLength(&Func));
+    m_mdUtils->getOrInsertKernelsInfoItem(&Func)->setKernelHasBarrier(conatinsBarrier(&Func));
     return false;
   }
 
@@ -56,28 +58,29 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return new KernelInfoWrapper();
   }
   
-  bool KernelInfoWrapper::runOnModule(Module& Mod) {
-    llvm::FunctionPassManager FPM(&Mod);
-    KernelInfo* pKernelInfoPass = new KernelInfo();
+  bool KernelInfoWrapper::runOnModule(Module& M) {
+    Intel::MetaDataUtils mdUtils(&M);
+    KernelInfo* pKernelInfoPass = new KernelInfo(&mdUtils);
+
+    llvm::FunctionPassManager FPM(&M);
     FPM.add(pKernelInfoPass);
-    
-    for (llvm::Module::iterator i = Mod.begin(), e = Mod.end(); i != e; ++i) {
-        FPM.run(*i);
+
+    // Get all kernels
+    std::set<Function*> kernelsFunctionSet;
+    CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
+
+    // Run on all scalar functions for handling and handle them
+    for ( std::set<Function*>::iterator fi = kernelsFunctionSet.begin(),
+      fe = kernelsFunctionSet.end(); fi != fe; ++fi ) {
+        Function *pFunc = dyn_cast<Function>(*fi);
+        assert(pFunc && "got NULL kernel");
+        FPM.run(*pFunc);
     }
-    m_mapKernelInfo.clear();
-    m_mapKernelInfo.insert(pKernelInfoPass->getKernelInfoMap().begin(), pKernelInfoPass->getKernelInfoMap().end());
+
+    //Save Metadata to the module
+    mdUtils.save(M.getContext());
     return false;
   }
-
-  void getKernelInfoMap(ModulePass *pPass, std::map<std::string, TKernelInfo>& infoMap) {
-    KernelInfoWrapper *pKU = (KernelInfoWrapper*)pPass;
-
-    infoMap.clear();
-    if ( NULL != pKU ) {
-      infoMap.insert(pKU->getKernelInfoMap().begin(), pKU->getKernelInfoMap().end());
-    }
-  }
-
 
 }}}
 

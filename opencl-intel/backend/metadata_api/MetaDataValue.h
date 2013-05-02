@@ -22,7 +22,7 @@ class MetaDataValue
 public:
     typedef typename Traits::value_type value_type;
 
-    MetaDataValue( llvm::Value* pNode):
+    MetaDataValue(llvm::Value* pNode):
         m_pNode(pNode),
         m_value(Traits::load(pNode)),
         m_isDirty(false)
@@ -36,7 +36,7 @@ public:
     {
     }
 
-    MetaDataValue( const value_type& val):
+    MetaDataValue(const value_type& val):
         m_pNode(NULL),
         m_value(val),
         m_isDirty(true)

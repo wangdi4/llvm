@@ -9,11 +9,15 @@ include_directories(BEFORE "SoaAllocaAnalysis")
 include_directories(BEFORE "Utils")
 include_directories(BEFORE "WIAnalysis")
 
-include_directories(${CMAKE_SOURCE_DIR}/backend/arch_headers)
-include_directories(${CMAKE_SOURCE_DIR}/backend/reflection_module)
-include_directories(${CMAKE_SOURCE_DIR}/backend/name_mangling)
-include_directories(${CMAKE_SOURCE_DIR}/backend/utils)
-include_directories(${CMAKE_SOURCE_DIR}/backend/passes)
+include_directories(
+  ${CMAKE_SOURCE_DIR}/backend/arch_headers
+  ${CMAKE_SOURCE_DIR}/backend/reflection_module
+  ${CMAKE_SOURCE_DIR}/backend/name_mangling
+  ${CMAKE_SOURCE_DIR}/backend/utils
+  ${CMAKE_SOURCE_DIR}/backend/passes
+  ${BACKEND_ROOT_DIR}/metadata_api
+  ${BACKEND_ROOT_DIR}/metadata_api/gen
+)
 
 if(APPLE)
 set(TARGET_EXTRA_SOURCE_FILES 
@@ -142,6 +146,8 @@ target_link_libraries(
   reflection_module
   name_mangle
 )
+
+add_dependencies(${TARGET_NAME} metadataapi)
 
 set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
 

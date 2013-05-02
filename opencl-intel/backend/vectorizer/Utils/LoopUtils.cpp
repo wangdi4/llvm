@@ -6,6 +6,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "LoopUtils.h"
+#include "MetaDataApi.h"
+
 #include "llvm/Function.h"
 #include "llvm/Module.h"
 #include "llvm/Constants.h"
@@ -73,15 +75,12 @@ bool LoopUtils::inSubLoop(Loop *L, Instruction *I) {
 }
 
 void LoopUtils::GetOCLKernel(Module &M, SmallVectorImpl<Function *> &kernels) {
-  NamedMDNode *pOpenCLMetadata = M.getNamedMetadata("opencl.kernels");
-  if (!pOpenCLMetadata) return;
-  unsigned numOfKernels = pOpenCLMetadata->getNumOperands();
-  // List all kernels in module
-  for (unsigned i = 0, e = numOfKernels; i != e; ++i) {
-    MDNode *elt = pOpenCLMetadata->getOperand(i);
-    Value *field0 = elt->getOperand(0)->stripPointerCasts();
-    Function *F = dyn_cast<Function>(field0);
-    kernels.push_back(F);
+  //List all kernels in module
+  Intel::MetaDataUtils mdUtils(&M);
+  Intel::MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
+  Intel::MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
+  for (; itr != end; ++itr) {
+    kernels.push_back((*itr)->getFunction());
   }
 }
 

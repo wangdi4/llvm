@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "TypeAlignment.h"
 #include "CompilationUtils.h"
 #include "ImplicitArgsUtils.h"
+#include "MetaDataApi.h"
 
 #include "llvm/Attributes.h"
 #include "llvm/Support/ValueHandle.h"
@@ -21,71 +22,32 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   
   /// @brief Creates new PrepareKernelArgs module pass
   /// @returns new PrepareKernelArgs module pass  
-  ModulePass* createPrepareKernelArgsPass(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap,
-      SmallVectorImpl<Function*> &vectFunctions) {
-    return new PrepareKernelArgs(kernelsLocalBufferMap, vectFunctions);
+  ModulePass* createPrepareKernelArgsPass() {
+    return new PrepareKernelArgs();
   }
 
   char PrepareKernelArgs::ID = 0;
 
-  PrepareKernelArgs::PrepareKernelArgs(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap,
-                                       SmallVectorImpl<Function*> &vectFunctions) :
-    ModulePass(ID), m_pkernelsLocalBufferMap(&kernelsLocalBufferMap), m_pVectFunctions(&vectFunctions) {
+  PrepareKernelArgs::PrepareKernelArgs() : ModulePass(ID) {
   }
 
   bool PrepareKernelArgs::runOnModule(Module &M) {
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
+    Intel::MetaDataUtils mdUtils(&M);
+    m_mdUtils = &mdUtils;
 
-    NamedMDNode *KernelsMD = m_pModule->getNamedMetadata("opencl.kernels");
-
-    if (!KernelsMD)
-      return false;
-
-    NamedMDNode *WrapperMD = m_pModule->getOrInsertNamedMetadata("opencl.wrappers");
-    for(int i = 0, e = KernelsMD->getNumOperands(); i < e ; i++) {
-      MDNode *elem = KernelsMD->getOperand(i);
-      WrapperMD->addOperand(elem);
-    }
-    
-    // Map functions and their metadata
-    CompilationUtils::getKernelsMetadata(m_pModule, *m_pVectFunctions, m_kernelsMetadata);
-
-    // Get all scalar kernels (original kernels, before vectorization)
+    // Get all kernels (original scalar kernels and vectorized kernels)
     std::set<Function*> kernelsFunctionSet;
-    CompilationUtils::getAllScalarKernels(kernelsFunctionSet, m_pModule);
+    CompilationUtils::getAllKernels(kernelsFunctionSet, m_pModule);
 
-    // Run on all scalar functions for handling and handle them
+    // Run on all kernels for handling and handle them
     for ( std::set<Function*>::iterator fi = kernelsFunctionSet.begin(),
       fe = kernelsFunctionSet.end(); fi != fe; ++fi ) {
-        runOnFunction(*fi, false);
+        runOnFunction(*fi);
     }
-    
-    kernelsFunctionSet.clear();
-    
-    // Run on all vectorized functions and handle them
-    kernelsFunctionSet.insert(m_pVectFunctions->begin(), m_pVectFunctions->end());
-    for ( std::set<Function*>::iterator fi = kernelsFunctionSet.begin(),
-      fe = kernelsFunctionSet.end(); fi != fe; ++fi ) {
-        
-        Function* pVectFunc = *fi;
-        
-        if (pVectFunc != NULL) {
-          runOnFunction(pVectFunc, true);
-        }
-    }
-
-    // TODO : is it ok?
-    // Update vectorized functions map with the new functions
-    for ( unsigned int i=0; i < m_pVectFunctions->size(); ++i  ) {
-      // Check if this function is a vectorized function
-      Function *pVecFunc = (*m_pVectFunctions)[i];
-      if ( pVecFunc ) {
-        // It is a vectorized function, update it with its new function
-        (*m_pVectFunctions)[i] = m_oldToNewFunctionMap[pVecFunc];
-      }
-    }
-
+    //Save Metadata to the module
+    m_mdUtils->save(*m_pLLVMContext);
     return true;
   }
   
@@ -110,7 +72,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Get old function's arguments list in the OpenCL level from its metadata
     std::vector<cl_kernel_argument> arguments;
     CompilationUtils::parseKernelArguments(m_pModule, pFunc, arguments);
-
     
     std::vector<Value*> params;
     // assuming pBuffer is initially aligned to TypeAlignment::MAX_ALIGNMENT and 
@@ -197,7 +158,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       switch(i) {
       case ImplicitArgsUtils::IA_SLM_BUFFER:
         {
-          uint64_t slmSizeInBytes = (*m_pkernelsLocalBufferMap)[pFunc].stTotalImplSize;
+          uint64_t slmSizeInBytes = 0;
+          KernelInfoMetaDataHandle kimd = m_mdUtils->getKernelsInfoItem(pFunc);
+          if (NULL == kimd.get()) {
+            assert(false && "Function info should be available at this point");
+          } else {
+            slmSizeInBytes = kimd->getLocalBufferSize();
+          }
           //TODO: when slmSizeInBytes equal 0, we might want to set dummy address for debugging!
           Type *slmType = ArrayType::get(IntegerType::getInt8Ty(*m_pLLVMContext), slmSizeInBytes);
           AllocaInst *slmBuffer = builder.CreateAlloca(slmType);
@@ -263,7 +230,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     builder.CreateRetVoid();
   }
 
-  Function* PrepareKernelArgs::runOnFunction(Function *pFunc, bool isVectorized) {
+  bool PrepareKernelArgs::runOnFunction(Function *pFunc) {
   
     // Create wrapper function
     Function *pWrapper = createWrapper(pFunc);
@@ -283,34 +250,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Add declaration of original function with its signature
     m_pModule->getFunctionList().push_back(pWrapper);
 
-    // Map original function to new function
-    m_oldToNewFunctionMap[pFunc] = pWrapper;
+    m_mdUtils->getOrInsertKernelsInfoItem(pFunc)->setKernelWrapper(pWrapper);
       
-    if (!isVectorized) {
-      NamedMDNode *WrapperMD = m_pModule->getNamedMetadata("opencl.wrappers");
-
-      SmallVector<llvm::Value*, 5> Operands;
-
-      for(int i = 0, e = WrapperMD->getNumOperands(); i < e ; i++) {
-        Value *op = WrapperMD->getOperand(i)->getOperand(0);
-        // We expect the metadata nodes to be llvm::Function
-        // In case the cast is wrong an assertion failure will be thrown
-        if(pFunc == cast<Function>(op))
-          Operands.push_back(pWrapper);
-        else
-          Operands.push_back(WrapperMD->getOperand(i)->getOperand(0));
-      }
-
-      WrapperMD->eraseFromParent();
-
-      WrapperMD = m_pModule->getOrInsertNamedMetadata("opencl.wrappers");
-
-      for(int i = 0, e = Operands.size(); i < e ; i++) {
-        WrapperMD->addOperand(llvm::MDNode::get(*m_pLLVMContext, Operands[i]));
-      }
-    }
-
-   return pWrapper;
+    return true;
   }
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

@@ -216,7 +216,7 @@ namespace intel{
         Module::iterator it,e;
         for (it = M.begin(), e=M.end(); it != e; ++it)
         {
-		std::string pFuncName = it->getName().str();
+            std::string pFuncName = it->getName().str();
             if ( ( it->isDeclaration() ) && ( m_relaxedFunctions.count( pFuncName ) != 0 ) )
             {
                 Function* pFunction = &*it;

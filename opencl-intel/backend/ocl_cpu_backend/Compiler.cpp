@@ -60,9 +60,6 @@ using std::string;
 #include <sstream>
 
 
-extern "C" void fillNoBarrierPathSet(llvm::Module *M, std::set<std::string>& noBarrierPath);
-
-
 namespace llvm 
 {
   extern bool DisablePrettyStackTrace;
@@ -144,50 +141,6 @@ cl_dev_err_code ProgramBuildResult::GetBuildResult() const
 { 
     return m_result; 
 }
-
-void ProgramBuildResult::SetFunctionsWidths( FunctionWidthVector* pv)
-{
-    m_pFunctionWidths = pv;
-}
-
-const FunctionWidthVector& ProgramBuildResult::GetFunctionsWidths() const
-{
-    assert(m_pFunctionWidths);
-    return *m_pFunctionWidths;
-}
-
-void ProgramBuildResult::SetKernelsLocalBufferInfo( KernelsLocalBufferInfoMap* pKernelsInfo)
-{
-    m_pKernelsLocalBufferInfo = pKernelsInfo;
-}
-
-void ProgramBuildResult::SetKernelsInfo( KernelsInfoMap* pKernelsInfo)
-{
-    m_pKernelsInfo = pKernelsInfo;
-}
-
-TLLVMKernelInfo ProgramBuildResult::GetKernelsLocalBufferInfo(const llvm::Function* pFunc) const
-{
-    assert(m_pKernelsLocalBufferInfo);
-    return (*m_pKernelsLocalBufferInfo)[pFunc];
-}
-
-TKernelInfo ProgramBuildResult::GetKernelsInfo(std::string func) const
-{
-    assert(m_pKernelsInfo);
-    return (*m_pKernelsInfo)[func];
-}
-
-std::map<std::string, unsigned int>& ProgramBuildResult::GetPrivateMemorySize()
-{
-    return m_privateMemorySizeMap;
-}
-
-const std::map<std::string, unsigned int>& ProgramBuildResult::GetPrivateMemorySize() const
-{
-    return m_privateMemorySizeMap;
-}
-
 
 bool Compiler::s_globalStateInitialized = false;
 
@@ -327,26 +280,10 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     //
     // Populate the build results
     //
-    std::auto_ptr<FunctionWidthVector> vectorizedFunctions( new FunctionWidthVector() );
-    std::auto_ptr<KernelsLocalBufferInfoMap> kernelsLocalBufferMap( new KernelsLocalBufferInfoMap());
-    std::auto_ptr<KernelsInfoMap> kernelsMap( new KernelsInfoMap());
-
     m_debug = pOptions->GetDebugInfoFlag();
 
-    optimizer.GetVectorizedFunctions( *vectorizedFunctions.get());
     //dumpModule(*(spModule.get()));
 
-    optimizer.GetKernelsLocalBufferInfo( *kernelsLocalBufferMap.get());
-    optimizer.GetKernelsInfo( *kernelsMap.get());
-
-    if (!pOptions->GetlibraryModule()){  //the build results don't apply to a library module
-      //Set PrivateMemorySize of pResult
-      optimizer.getPrivateMemorySize(pResult->GetPrivateMemorySize());
-      pResult->SetFunctionsWidths( vectorizedFunctions.release() );
-      pResult->SetKernelsLocalBufferInfo( kernelsLocalBufferMap.release());
-      pResult->SetKernelsInfo( kernelsMap.release());
-      fillNoBarrierPathSet(spModule.get(), pResult->GetNoBarrierSet());
-    }
     pResult->SetBuildResult( CL_DEV_SUCCESS );
 
     // Execution Engine depends on module configuration and should

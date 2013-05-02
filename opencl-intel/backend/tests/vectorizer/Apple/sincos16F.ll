@@ -63,11 +63,14 @@
  }
   
   !opencl.kernels = !{!0}
-  !cl.noBarrierPath.kernels = !{!3}
+  !opencl.kernel_info = !{!6}
   
   !0 = metadata !{void (<16 x float> addrspace(1)*, <16 x float> addrspace(1)*, <16 x float> addrspace(1)*)* @math_kernel16, metadata !1}
   !1 = metadata !{metadata !"apple.cl.arg_metadata", metadata !2, metadata !2, metadata !2}
   !2 = metadata !{metadata !"stream", metadata !"write", metadata !"global"}
-  !3 = metadata !{metadata !"math_kernel16"}
+  !3 = metadata !{metadata !"no_barrier_path", i1 true}
   !4 = metadata !{metadata !"omnipotent char", metadata !5}
   !5 = metadata !{metadata !"Simple C/C++ TBAA"}
+
+  !6 = metadata !{void (<16 x float> addrspace(1)*, <16 x float> addrspace(1)*, <16 x float> addrspace(1)*)* @math_kernel16, metadata !7}
+  !7 = metadata !{metadata !3}

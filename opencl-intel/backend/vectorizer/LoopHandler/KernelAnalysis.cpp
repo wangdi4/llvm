@@ -8,31 +8,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OpenclRuntime.h"
 #include "LoopUtils.h"
 #include "OCLPassSupport.h"
+#include "MetaDataApi.h"
 
 #include "llvm/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
 
 #include <string.h>
-
-
-extern "C" {
-  void fillNoBarrierPathSet(const Module *M, std::set<std::string>& noBarrierPath)
-  {
-    noBarrierPath.clear();
-    NamedMDNode *noBarrier =M->getNamedMetadata("cl.noBarrierPath.kernels");
-    if (!noBarrier) return;
-    assert (noBarrier->getNumOperands() == 1 &&
-        "expected single operand pointing to set of names");
-    MDNode *noBarrierNames = noBarrier->getOperand(0);
-    for (unsigned i=0; i < noBarrierNames->getNumOperands(); ++i) {
-      MDString *kernelName = dyn_cast<MDString>(noBarrierNames->getOperand(i));
-      assert(kernelName && "operand is not an MDString");
-      std::string funcName = kernelName->getString().str();
-      noBarrierPath.insert(funcName);
-    }
-  }
-}
 
 namespace intel {
 
@@ -120,37 +102,44 @@ bool KernelAnalysis::runOnModule(Module& M) {
   m_kernels.clear();
   LoopUtils::GetOCLKernel(M, m_kernels);
 
+  Intel::MetaDataUtils mdUtils(m_M);
+
   fillKernelCallers();
   fillBarrierUsersFuncs();
   fillUnsupportedTIDFuncs();
 
-
-  NamedMDNode *noBarrier = M.getOrInsertNamedMetadata("cl.noBarrierPath.kernels");
-  SmallVector<Value *, 5> Operands;
   for (FVec::iterator fit = m_kernels.begin(), fe = m_kernels.end();
        fit != fe; ++fit) {
     Function *F = *fit;
-    if (!F || m_unsupportedFunc.count(F)) continue;
-
-    std::string funcName = F->getName().str();
-    Operands.push_back(MDString::get(F->getContext(), funcName));
+    if (!F) {
+      assert(false && "Kernel Metadata contains NULL kernel");
+      continue;
+    }
+    if(m_unsupportedFunc.count(F)) {
+      mdUtils.getOrInsertKernelsInfoItem(F)->setNoBarrierPath(false);
+    } else {
+      mdUtils.getOrInsertKernelsInfoItem(F)->setNoBarrierPath(true);
+    }
   }
-  noBarrier->addOperand(MDNode::get(M.getContext(), Operands));
-  return Operands.size();
+
+  //Save Metadata to the module
+  mdUtils.save(m_M->getContext());
+  return (m_kernels.size() != 0);
 }
 
 void KernelAnalysis::print(raw_ostream &OS, const Module *M) const {
   if ( !M ) return;
+  Intel::MetaDataUtils mdUtils(const_cast<Module*>(M));
 
   OS << "\nKernelAnalysis\n";
-  std::set<std::string> noBarrierPath;
-  fillNoBarrierPathSet(M, noBarrierPath);
+
   for (unsigned i=0, e = m_kernels.size(); i<e; ++i) {
     Function *F = m_kernels[i];
     if (!F) continue;
 
     std::string funcName = F->getName().str();
-    if (noBarrierPath.count(funcName)) {
+    Intel::KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(F);
+    if (kimd->getNoBarrierPath()) {
       OS << funcName << " yes\n";
     } else {
       OS << funcName << " no\n";

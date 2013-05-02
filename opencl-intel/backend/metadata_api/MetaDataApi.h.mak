@@ -222,6 +222,8 @@ public:
     <%utils:iterate_struct_elements parent="${schema['root']}" args="element">
     %if schema[element['metatype']]['container_type'] == 'list':
     typedef ${root_member_type(element)} ${member_typedef(element)};\
+    %elif schema[element['metatype']]['container_type'] == 'map':
+    typedef ${root_member_type(element)} ${member_typedef(element)};\
     %endif
     </%utils:iterate_struct_elements>
 
@@ -247,7 +249,7 @@ public:
         return ${member_name(element)}.begin();
     }
 
-    ${member_typedef(element)} ::iterator end_${element['name']}()
+    ${member_typedef(element)}::iterator end_${element['name']}()
     {
         return ${member_name(element)}.end();
     }
@@ -295,6 +297,67 @@ public:
     ${member_typedef(element)}::iterator erase${element['name']}Item(${member_typedef(element)}::iterator it)
     {
         return ${member_name(element)}.erase(it);
+    }
+
+    %elif meta_type['container_type'] == 'map':
+    ${member_typedef(element)}::iterator begin_${element['name']}()
+    {
+        return ${member_name(element)}.begin();
+    }
+
+    ${member_typedef(element)}::iterator end_${element['name']}()
+    {
+        return ${member_name(element)}.end();
+    }
+
+    ${member_typedef(element)}::const_iterator begin_${element['name']}() const
+    {
+        return ${member_name(element)}.begin();
+    }
+
+    ${member_typedef(element)}::const_iterator end_${element['name']}() const
+    {
+        return ${member_name(element)}.end();
+    }
+
+    size_t size_${element['name']}()  const
+    {
+        return ${member_name(element)}.size();
+    }
+
+    bool empty_${element['name']}()  const
+    {
+        return ${member_name(element)}.empty();
+    }
+
+    bool is${element['name']}HasValue() const
+    {
+        return ${member_name(element)}.hasValue();
+    }
+
+    ${member_typedef(element)}::item_type get${element['name']}Item( const ${member_typedef(element)}::key_type& index )
+    {
+        return ${member_name(element)}.getItem(index);
+    }
+
+    ${member_typedef(element)}::item_type getOrInsert${element['name']}Item( const ${member_typedef(element)}::key_type& index )
+    {
+        return ${member_name(element)}.getOrInsertItem(index);
+    }
+
+    void set${element['name']}Item( const ${member_typedef(element)}::key_type& index, const ${member_typedef(element)}::item_type& item  )
+    {
+        return ${member_name(element)}.setItem(index, item);
+    }
+
+    ${member_typedef(element)}::iterator find${element['name']}Item(const ${member_typedef(element)}::key_type& key)
+    {
+        return ${member_name(element)}.find(key);
+    }
+
+    void erase${element['name']}Item(${member_typedef(element)}::iterator it)
+    {
+        ${member_name(element)}.erase(it);
     }
 
     %elif meta_type['container_type'] == 'struct':

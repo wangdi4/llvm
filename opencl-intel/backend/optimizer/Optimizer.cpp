@@ -36,14 +36,10 @@ extern "C"{
 void* createInstToFuncCallPass(bool);
 
 llvm::Pass *createVectorizerPass(const llvm::Module *runtimeModule,
-                                            const intel::OptimizerConfig* pConfig,
-                                            llvm::SmallVectorImpl<llvm::Function*> &optimizerFunctions,
-                                            llvm::SmallVectorImpl<int> &optimizerWidths);
+                                 const intel::OptimizerConfig* pConfig);
 llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType);
-void getBarrierStrideSize(llvm::Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
 
-llvm::ModulePass* createCLWGLoopCreatorPass(llvm::SmallVectorImpl<llvm::Function*> *optimizerFunctions,
-                                            llvm::SmallVectorImpl<int> *optimizerWidths);
+llvm::ModulePass* createCLWGLoopCreatorPass();
 llvm::ModulePass* createCLWGLoopBoundariesPass();
 llvm::Pass* createCLBuiltinLICMPass();
 llvm::Pass* createLoopStridedCodeMotionPass();
@@ -54,9 +50,9 @@ llvm::Pass *createShuffleCallToInstPass();
 llvm::Pass *createRelaxedPass();
 llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
-llvm::ModulePass *createLocalBuffersPass(std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDebug);
-llvm::ModulePass *createAddImplicitArgsPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
-llvm::ModulePass *createModuleCleanupPass(llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
+llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
+llvm::ModulePass *createAddImplicitArgsPass();
+llvm::ModulePass *createModuleCleanupPass();
 
 void* destroyOpenclRuntimeSupport();
 #ifdef __APPLE__
@@ -78,12 +74,8 @@ llvm::ModulePass* createProfilingInfoPass();
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
                                                        const std::vector<llvm::Module*>& runtimeModules );
-llvm::ModulePass *createPrepareKernelArgsPass(std::map<const llvm::Function*, TLLVMKernelInfo> &kernelsLocalBufferMap,
-                                              llvm::SmallVectorImpl<llvm::Function*> &vectFunctions);
+llvm::ModulePass *createPrepareKernelArgsPass();
 llvm::ModulePass *createKernelInfoWrapperPass();
-void getKernelInfoMap(llvm::ModulePass *pKUPath, std::map<std::string, TKernelInfo>& infoMap);
-
-
 
   /// createStandardModulePasses - Add the standard module passes.  This is
   /// expected to be run after the standard function passes.
@@ -196,10 +188,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
                       llvm::Module* pRtlModule,
                       const intel::OptimizerConfig* pConfig):
     m_funcPasses(pModule),
-    m_vectorizerPass(NULL),
-    m_barrierPass(NULL),
-    m_pModule(pModule),
-    m_localBuffersPass(NULL)
+    m_pModule(pModule)
 {
   using namespace intel;
 
@@ -283,7 +272,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   // Should be called before vectorizer!
   m_modulePasses.add((llvm::Pass*)createInstToFuncCallPass(pConfig->GetCpuId().HasGatherScatter()));
 
-  if ( debugType == None && !pConfig->GetLibraryModule()) {
+  if ( debugType == None && !pConfig->GetLibraryModule() ) {
     m_modulePasses.add(createKernelAnalysisPass());
     m_modulePasses.add(createCLWGLoopBoundariesPass());
     m_modulePasses.add(llvm::createDeadCodeEliminationPass());
@@ -309,9 +298,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     }
 #endif //#ifndef __APPLE__
     if(pRtlModule != NULL) {
-        m_vectorizerPass = createVectorizerPass(pRtlModule, pConfig,
-                                                m_vectFunctions, m_vectWidths);
-        m_modulePasses.add(m_vectorizerPass);
+        m_modulePasses.add(createVectorizerPass(pRtlModule, pConfig));
     }
 #ifndef __APPLE__
     if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
@@ -349,15 +336,15 @@ Optimizer::Optimizer( llvm::Module* pModule,
    // Get Some info about the kernel
    // should be called before BarrierPass and createPrepareKernelArgsPass
    if(pRtlModule != NULL) {
-     m_kernelInfoPass = createKernelInfoWrapperPass();
-     m_modulePasses.add(m_kernelInfoPass);
+     m_modulePasses.add(createKernelInfoWrapperPass());
    }
 
   // Adding WG loops
   if (!pConfig->GetLibraryModule()){
-    m_modulePasses.add(createCLWGLoopCreatorPass(&m_vectFunctions, &m_vectWidths));
-    m_barrierPass = createBarrierMainPass(debugType);
-    m_modulePasses.add(m_barrierPass);
+    if ( debugType == None ) {
+      m_modulePasses.add(createCLWGLoopCreatorPass());
+    }
+    m_modulePasses.add(createBarrierMainPass(debugType));
 
     // After adding loops run loop optimizations.
     if( debugType == None ) {
@@ -376,10 +363,9 @@ Optimizer::Optimizer( llvm::Module* pModule,
   // must run before createBuiltInImportPass!
   if(!pConfig->GetLibraryModule())
   {
-    m_modulePasses.add(createAddImplicitArgsPass(m_vectFunctions));
+    m_modulePasses.add(createAddImplicitArgsPass());
     m_modulePasses.add(createResolveWICallPass());
-    m_localBuffersPass = createLocalBuffersPass(m_kernelsLocalBufferMap, debugType == Native);
-    m_modulePasses.add(m_localBuffersPass);
+    m_modulePasses.add(createLocalBuffersPass(debugType == Native));
     // clang converts OCL's local to global.
     // createLocalBuffersPass changes the local allocation from global to a kernel argument.
     // The next pass createGlobalOptimizerPass cleans the unused global allocation in order to make sure
@@ -434,7 +420,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   // PrepareKernelArgsPass must run in debugging mode as well
   if (!pConfig->GetLibraryModule())
-    m_modulePasses.add(createPrepareKernelArgsPass(m_kernelsLocalBufferMap, m_vectFunctions));
+    m_modulePasses.add(createPrepareKernelArgsPass());
 
   if ( debugType == None ) {
     // These passes come after PrepareKernelArgs pass to eliminate the redundancy reducced by it
@@ -454,7 +440,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   // Remove unneeded functions from the module.
   // *** keep this optimization last, or at least after function inlining! ***
   if (!pConfig->GetLibraryModule())
-    m_modulePasses.add(createModuleCleanupPass(m_vectFunctions));
+    m_modulePasses.add(createModuleCleanupPass());
 
 #ifndef __APPLE__
   // Add prefetches if useful for micro-architecture, if not in debug mode,
@@ -482,8 +468,6 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
 void Optimizer::Optimize()
 {
-    m_vectFunctions.clear();
-    m_vectWidths.clear();
     for (llvm::Module::iterator i = m_pModule->begin(), e = m_pModule->end(); i != e; ++i) {
         m_funcPasses.run(*i);
     }
@@ -503,11 +487,6 @@ bool Optimizer::hasBarriers(llvm::Module *pModule)
     return false;
 }
 
-void Optimizer::getPrivateMemorySize(std::map<std::string, unsigned int>& bufferStrideMap)
-{
-    getBarrierStrideSize(m_barrierPass, bufferStrideMap);
-}
-
 bool Optimizer::hasUndefinedExternals() const
 {
     return !m_undefinedExternalFunctions.empty();
@@ -516,29 +495,6 @@ bool Optimizer::hasUndefinedExternals() const
 const std::vector<std::string>& Optimizer::GetUndefinedExternals() const
 {
     return m_undefinedExternalFunctions;
-}
-
-void Optimizer::GetVectorizedFunctions(FunctionWidthVector& vector)
-{
-    vector.clear();
-
-    if( NULL == m_vectorizerPass )
-        return;
-
-    for(unsigned int i=0; i < m_vectFunctions.size(); i++) {
-        vector.push_back(FunctionWidthPair(m_vectFunctions[i], m_vectWidths[i]));
-    }
-}
-
-void Optimizer::GetKernelsInfo(KernelsInfoMap& map)
-{
-    getKernelInfoMap(m_kernelInfoPass, map);
-}
-
-void Optimizer::GetKernelsLocalBufferInfo(KernelsLocalBufferInfoMap& map)
-{
-    map.clear();
-    map.insert(m_kernelsLocalBufferMap.begin(), m_kernelsLocalBufferMap.end());
 }
 
 }}}

@@ -83,14 +83,6 @@ using namespace llvm;
 
 __BEGIN_DECLS
 
-namespace Intel {
-  unsigned int getBarrierBufferStrideSize(OpenCL::DeviceBackend::Optimizer& optimizer, const Function& func) {
-    std::map<std::string, unsigned int> bufferStrideMap;
-    optimizer.getPrivateMemorySize(bufferStrideMap);
-    return bufferStrideMap[func.getName().str()];
-  }
-}
-
 int Link(std::vector<std::string*>& objs, const char *path, CFDataRef dict,
          std::vector<unsigned char> &dylib, std::string &log);
 
@@ -107,14 +99,12 @@ struct CPUPluginPrivateData
   Intel::CPUId cpuId;
 };
 
-extern "C" void fillNoBarrierPathSet(llvm::Module *M, std::set<std::string>& noBarrierPath);
-
 /// alloc_kernel_info - Create a dictionary containing argument info for all
 /// kernels in the program.
 static
 int alloc_kernels_info(CFMutableDictionaryRef *info,
                        ConstantArray *init,
-                       Module *M, Intel::OpenCL::DeviceBackend::Optimizer &optimizer) {
+                       Module *M) {
 
   // Aquire named metadata node for kernel arg info. Right now only type info
   // is recorded.
@@ -136,31 +126,15 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
   // Create the TargetData structure from the Module's arch info.
   TargetData TD(M);
 
-  Intel::OpenCL::DeviceBackend::FunctionWidthVector vectorFunc;
-  optimizer.GetVectorizedFunctions(vectorFunc);
-  std::vector<Intel::OpenCL::DeviceBackend::FunctionWidthPair>::const_iterator vecIter = vectorFunc.begin();
-  std::vector<Intel::OpenCL::DeviceBackend::FunctionWidthPair>::const_iterator vecEnd = vectorFunc.end();
-
-  // Get Map between function name and its build path info
-  std::set<std::string> noBarrierPath;
-  fillNoBarrierPathSet(M, noBarrierPath);
-
-  // Get Map between function and its implicit local buffer info
-  Intel::OpenCL::DeviceBackend::KernelsLocalBufferInfoMap kernelsLocalBufferMap;
-  optimizer.GetKernelsLocalBufferInfo(kernelsLocalBufferMap);
-
-  Intel::KernelMetaDataHandle kmd;
-
-  //TODO: Should use metadata utils to run over wrapper kernels
-  NamedMDNode *OpenCLKernelWrapperMD = M->getNamedMetadata("opencl.wrappers");
   Intel::MetaDataUtils::KernelsList::const_iterator iter = mdUtils.begin_Kernels(), end = mdUtils.end_Kernels();
   for(unsigned int i=0; iter != end; ++iter, ++i) {
     Intel::KernelMetaDataHandle kmd = (*iter);
     // In case the cast is wrong an assertion failure will be thrown
-    llvm::Function *pFunc = (*iter)->getFunction();
-    // The wrapper function that receives a single buffer as argument is the last node in the metadata
-    MDNode *wrapperN = OpenCLKernelWrapperMD->getOperand(i);
-    llvm::Function *pWrapperFunc = llvm::cast<llvm::Function>(wrapperN->getOperand(0)->stripPointerCasts());
+    llvm::Function *pFunc = kmd->getFunction();
+
+    KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
+    // Obtain kernel wrapper function from metadata info
+    llvm::Function *pWrapperFunc = kimd->getKernelWrapper();
 
 #ifdef REQD_WORK_GROUP_SIZE
     // TODO: enable this code when required work group size will be passed by metadata
@@ -395,9 +369,11 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     // Vector name, which we will use to dlsym the vector wrapper out of the object.
     std::string VKernelName = "";
     int VWidthMax = 0;
-    if (vecIter != vecEnd && vecIter->first != NULL) {
-      VKernelName = vecIter->first->getName().str();
-      VWidthMax = vecIter->second;
+    if (kimd->isVectorizedKernelHasValue() && kimd->getVectorizedKernel() != NULL) {
+      Function *pVecFunc = kimd->getVectorizedKernel();
+      KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(pVecFunc);
+      VKernelName = vkimd->getKernelWrapper()->getName().str();
+      VWidthMax = vkimd->getVectorizedWidth();
       
     }
     CFStringRef vname = CFStringCreateWithCString(NULL, VKernelName.c_str(),
@@ -406,12 +382,12 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     CFNumberRef vwmax = CFNumberCreate(NULL, kCFNumberIntType, vwmaxptr);
   
     //hasBarrier, indicator for kernel that was compiled with barrier path
-    int hasBarrier = 0 == noBarrierPath.count(pWrapperFunc->getName().str());
+    int hasBarrier = !(kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath());
     const void *hbarrierptr = (const void *)&hasBarrier;
     CFNumberRef hbarrier = CFNumberCreate(NULL, kCFNumberIntType, hbarrierptr);
 
     //barrier buffer stride, is the size in bytes for barrier buffer stride
-    unsigned int barrierBufferSTride = Intel::getBarrierBufferStrideSize(optimizer, *pWrapperFunc);
+    unsigned int barrierBufferSTride = kimd->getBarrierBufferSize();
     const void *bbsptr = (const void *)&barrierBufferSTride;
     CFNumberRef bbs = CFNumberCreate(NULL, kCFNumberIntType, bbsptr);
 
@@ -421,7 +397,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     CFNumberRef lsmax = CFNumberCreate(NULL, kCFNumberIntType, lsmaxptr);
 
     //implicit local buffer size, is the total size in bytes for all implicit local variables in this kernel
-    unsigned int implicitLocalBufferSize = kernelsLocalBufferMap[pFunc].stTotalImplSize;
+    unsigned int implicitLocalBufferSize = kimd->getLocalBufferSize();
     const void *ilbptr = (const void *)&implicitLocalBufferSize;
     CFNumberRef ilb = CFNumberCreate(NULL, kCFNumberIntType, ilbptr);
 
@@ -887,7 +863,7 @@ static int compileProgram(
   optimizer.Optimize();
   
   if (has_kernel_annotation) {
-    alloc_kernels_info((CFMutableDictionaryRef*)info, init, SM, optimizer);
+    alloc_kernels_info((CFMutableDictionaryRef*)info, init, SM);
     annotation->eraseFromParent();
   }
   // Create the target machine for this module, and add passes to emit an object

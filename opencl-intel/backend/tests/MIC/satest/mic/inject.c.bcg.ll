@@ -65,10 +65,12 @@ __zero_imm_separated_args.exit:                   ; preds = %scalar_kernel_entry
   ret void
 }
 
+!0 = metadata !{void ()* @thisIsKernel, metadata !1}
+!1 = metadata !{metadata !"kernel_wrapper", void ()* @thisIsKernel}
+
 !opencl.kernels = !{!0}
 !opencl.build.options = !{!8}
-!cl.noBarrierPath.kernels = !{!9}
-!opencl.wrappers = !{!10}
+!opencl.kernel_info = !{!15}
 
 !0 = metadata !{void (double addrspace(1)*, float addrspace(1)*, double addrspace(1)*, float addrspace(1)*, i8 addrspace(3)*, { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }*, i64*, <{ [4 x i64] }>*, <{ [4 x i64] }>*, i64*, i64, i8*, i64*)* @__zero_imm_separated_args, metadata !1, metadata !2}
 !1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3, i32 3, i32 3}
@@ -79,9 +81,12 @@ __zero_imm_separated_args.exit:                   ; preds = %scalar_kernel_entry
 !6 = metadata !{i32 0, i32 0, i32 1, i32 1}
 !7 = metadata !{metadata !"outD", metadata !"outF", metadata !"inD", metadata !"inF"}
 !8 = metadata !{metadata !"-cl-std=CL1.2", metadata !"-cl-kernel-arg-info"}
-!9 = metadata !{metadata !"zero_imm"}
-!10 = metadata !{void (i8*)* @zero_imm}
+!9 = metadata !{metadata !"no_barrier_path", i1 true}
+!10 = metadata !{metadata !"kernel_wrapper", void (i8*)* @zero_imm}
 !11 = metadata !{metadata !"float", metadata !12}
 !12 = metadata !{metadata !"omnipotent char", metadata !13}
 !13 = metadata !{metadata !"Simple C/C++ TBAA", null}
 !14 = metadata !{metadata !"double", metadata !12}
+
+!15 = !{void (double addrspace(1)*, float addrspace(1)*, double addrspace(1)*, float addrspace(1)*, i8 addrspace(3)*, { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }*, i64*, <{ [4 x i64] }>*, <{ [4 x i64] }>*, i64*, i64, i8*, i64*)* @__zero_imm_separated_args, !16}
+!16 = metadata !{metadata !9, metadata !10}

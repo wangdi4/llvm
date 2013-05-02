@@ -82,10 +82,7 @@ public:
   static char ID;
 
   ///@brief C'tor.
-  ///@param vectFunctions pointer to vectorized kernels.
-  ///@param vectWidths pointer to vectorized widths.
-  CLWGLoopCreator(SmallVectorImpl<Function*> *vectFunctions = NULL,
-                  SmallVectorImpl<int> *vectWidths = NULL);
+  CLWGLoopCreator();
 
   /// @brief D'tor
   ~CLWGLoopCreator();
@@ -306,12 +303,6 @@ private:
 
   ///@brief early exit call.
   CallInst *m_EECall;
-
-  ///@brief pointer to vectorized kernels.
-  SmallVectorImpl<Function*> *m_vectFunctions;
-  
-  ///@brief pointer to vectorized widths.
-  SmallVectorImpl<int> *m_vectWidths;
 
 };// CLWGLoopCreator
 } //namespace

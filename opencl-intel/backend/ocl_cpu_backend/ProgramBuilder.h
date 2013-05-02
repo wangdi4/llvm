@@ -48,7 +48,6 @@ class KernelSet;
 class ProgramBuildResult;
 class BuiltinLibrary;
 class Compiler;
-struct TLLVMKernelInfo;
 
 //*****************************************************************************************
 // Provides the module optimization and code generation functionality. 
@@ -83,7 +82,6 @@ protected:
     
     KernelProperties* CreateKernelProperties(const Program* pProgram, 
                                              Function *func, 
-                                             Function *pWrapperFunc,
                                              const ProgramBuildResult& buildResult) const;
 
 

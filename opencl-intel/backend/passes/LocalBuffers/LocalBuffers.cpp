@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "common_dev_limits.h"
-
+#include "MetaDataApi.h"
 
 #include "llvm/IRBuilder.h"
 #include "llvm/Version.h"
@@ -21,8 +21,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 extern "C"
 {
-  ModulePass* createLocalBuffersPass(std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDBG) {
-    return new intel::LocalBuffers(kernelsLocalBufferMap, isNativeDBG);
+  ModulePass* createLocalBuffersPass(bool isNativeDBG) {
+    return new intel::LocalBuffers(isNativeDBG);
   }
 }
 
@@ -30,8 +30,8 @@ namespace intel{
 
   char LocalBuffers::ID = 0;
 
-  LocalBuffers::LocalBuffers(std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDBG) :
-    ModulePass(ID), m_pMapKernelInfo(&kernelsLocalBufferMap), m_isNativeDBG(isNativeDBG) {
+  LocalBuffers::LocalBuffers(bool isNativeDBG) :
+    ModulePass(ID), m_isNativeDBG(isNativeDBG) {
       initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 
@@ -39,9 +39,13 @@ namespace intel{
 
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
-    m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
+    Intel::MetaDataUtils mdUtils(&M);
 
-    m_pMapKernelInfo->clear();
+    // Get all kernels
+    std::set<Function*> kernelsFunctionSet;
+    Intel::OpenCL::DeviceBackend::CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
+
+    m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
 
     // Run on all defined function in the module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
@@ -51,7 +55,13 @@ namespace intel{
         continue;
       }
       runOnFunction(pFunc);
+      if (kernelsFunctionSet.count(pFunc) ) {
+        //We have a kernel, update metadata
+        mdUtils.getOrInsertKernelsInfoItem(pFunc)->setLocalBufferSize(m_localBuffersAnalysis->getLocalsSize(pFunc));
+      }
     }
+    //Save Metadata to the module
+    mdUtils.save(*m_pLLVMContext);
     return true;
   }
 
@@ -346,8 +356,6 @@ namespace intel{
       updateUsageBlocks(pFunc);
 
     parseLocalBuffers(pFunc, pLocalMem);
-
-    (*m_pMapKernelInfo)[pFunc].stTotalImplSize = m_localBuffersAnalysis->getLocalsSize(pFunc);
   }
 
   void LocalBuffers::updateUsageBlocks(Function *pFunc) {

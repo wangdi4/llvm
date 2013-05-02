@@ -8,11 +8,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __KERNEL_INFO_H__
 #define __KERNEL_INFO_H__
 
-#include "TLLVMKernelInfo.h"
-#include <llvm/Pass.h>
-#include <llvm/Module.h>
-#include <llvm/Instructions.h>
-#include <llvm/Constants.h>
+#include "llvm/Pass.h"
+#include "llvm/Module.h"
+#include "llvm/Instructions.h"
+#include "llvm/Constants.h"
 #include "llvm/Analysis/LoopInfo.h"
 
 #include <map>
@@ -20,6 +19,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <vector>
 
 using namespace llvm;
+
+namespace Intel {
+  class MetaDataUtils;
+}
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -42,15 +45,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
 
     /// @brief performs KernelInfo pass on the module
-    bool runOnModule(Module& Mod);
+    bool runOnModule(Module& M);
 
-    /// @brief get Kernel Info Map
-    std::map<std::string, TKernelInfo>& getKernelInfoMap() {
-      return m_mapKernelInfo;
-    }
   protected:
-    /// @brief map between kernel and its kernel info
-    std::map<std::string, TKernelInfo>  m_mapKernelInfo;
+
   };
 
   /// This pass is responsible of getting some info about the OCL
@@ -61,7 +59,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static char ID;
 
     /// @brief Constructor 
-    KernelInfo() : FunctionPass(ID) {
+    KernelInfo(Intel::MetaDataUtils *mdUtils) : FunctionPass(ID), m_mdUtils(mdUtils) {
       initializeLoopInfoPass(*PassRegistry::getPassRegistry());
     }
 
@@ -80,11 +78,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       AU.setPreservesAll();
     }
 
-    /// @brief get Kernel Info Map
-    std::map<std::string, TKernelInfo>& getKernelInfoMap() {
-      return m_mapKernelInfo;
-    }
-
   protected:
 
     /// @brief checks if the function has a barrier in it
@@ -101,8 +94,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   protected:
 
-    /// @brief map between kernel and its kernel info
-    std::map<std::string, TKernelInfo>  m_mapKernelInfo;
+    /// @brief holds Meta Data utils
+    Intel::MetaDataUtils* m_mdUtils;
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

@@ -28,7 +28,6 @@ set (TARGET_INCLUDE_FILES
   ImplicitArgProperties.h
   ImplicitArgsUtils.h
   ImplicitArgument.h
-  TLLVMKernelInfo.h
   TypeAlignment.h
   TypeConversion.h
   VectorizerUtils.h
@@ -50,6 +49,8 @@ set (TARGET_SOURCE_FILES
 include_directories(
     ${BACKEND_ROOT_DIR}/../cl_api
     ${BACKEND_ROOT_DIR}/name_mangling
+    ${BACKEND_ROOT_DIR}/metadata_api
+    ${BACKEND_ROOT_DIR}/metadata_api/gen
 )
 
 if (APPLE)
@@ -88,6 +89,8 @@ add_library(${TARGET_NAME} STATIC
     ${TARGET_SOURCE_FILES}
     ${UTILS_ASM_ADD_TO_SOURCES_LIST}
 )
+
+add_dependencies(${TARGET_NAME} metadataapi)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
 

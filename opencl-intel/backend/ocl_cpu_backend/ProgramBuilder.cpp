@@ -142,7 +142,6 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
 
 KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram,
                                                          Function *func,
-                                                         Function *pWrapperFunc,
                                                          const ProgramBuildResult& buildResult) const
 {
     // Set optimal WG size
@@ -167,7 +166,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
         }
     }
 
-    if( NULL == kmd.get())
+    if(NULL == kmd.get())
     {
         throw Exceptions::CompilerException("Internal Error");
     }
@@ -210,16 +209,32 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
         }
     }
 
-    // Check whether the kernel creates WI ids by itself (work group loops were not created by barrier)
-    // This also means that this a 1-sise Jit (no vector kernel)
-    std::string wrapperName = pWrapperFunc->getName().str();
-    std::string vecPrefix = "__Vectorized_.";
-    std::string wrapperVecName = vecPrefix + wrapperName;
-    bool bJitCreateWIids = buildResult.GetNoBarrierSet().count(wrapperName);
-    TLLVMKernelInfo localBufferInfo = buildResult.GetKernelsLocalBufferInfo(func);
-
-    TKernelInfo info = buildResult.GetKernelsInfo(wrapperName);
-    TKernelInfo vecinfo = buildResult.GetKernelsInfo(wrapperVecName);
+    KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(func);
+    //Need to check if NoBarrierPath Value exists, it is not guaranteed that
+    //KernelAnalysisPass is running in all scenarios.
+    const bool bJitCreateWIids = skimd->isNoBarrierPathHasValue() && skimd->getNoBarrierPath();
+    const unsigned int localBufferSize = skimd->getLocalBufferSize();
+    const bool hasBarrier = skimd->getKernelHasBarrier();
+    const size_t scalarExecutionLength = skimd->getKernelExecutionLength();
+    const unsigned int scalarBufferStride = skimd->getBarrierBufferSize();
+    
+    size_t vectorExecutionLength = 0;
+    unsigned int vectorBufferStride = 0;
+    //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
+    //Vectorized is running in all scenarios.
+    if (skimd->isVectorizedKernelHasValue() && skimd->getVectorizedKernel() != NULL) {
+      KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(skimd->getVectorizedKernel());
+      vectorExecutionLength = vkimd->getKernelExecutionLength();
+      vectorBufferStride = vkimd->getBarrierBufferSize();
+    }
+    // Execution length contains the max size between
+    // the length of scalar and the length of vectorized versions.
+    const size_t executionLength = std::max(scalarExecutionLength, vectorExecutionLength);
+    // Private memory size contains the max size between
+    // the needed size for scalar and needed size for vectorized versions.
+    unsigned int privateMemorySize = std::max<unsigned int>(scalarBufferStride, vectorBufferStride);
+    // TODO: This is workaround till the SDK hanlde case of zero private memory size!
+    privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, privateMemorySize));
 
     unsigned int ptrSizeInBytes = pModule->getPointerSize()*4;
     KernelProperties* pProps = new KernelProperties(ptrSizeInBytes);
@@ -227,21 +242,15 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     pProps->SetOptWGSize(optWGSize);
     pProps->SetReqdWGSize(reqdWGSize);
     pProps->SetHintWGSize(hintWGSize);
-    pProps->SetTotalImplSize(localBufferInfo.stTotalImplSize);
-    pProps->SetHasBarrier( info.hasBarrier);
-    size_t executionLength = std::max(vecinfo.kernelExecutionLength, info.kernelExecutionLength);
+    pProps->SetTotalImplSize(localBufferSize);
+    pProps->SetHasBarrier(hasBarrier);
     pProps->SetKernelExecutionLength(executionLength);
 
-    pProps->SetDAZ( pProgram->GetDAZ());
-    pProps->SetCpuId( GetCompiler()->GetCpuId() );
+    pProps->SetDAZ(pProgram->GetDAZ());
+    pProps->SetCpuId(GetCompiler()->GetCpuId());
     pProps->SetJitCreateWIids(bJitCreateWIids);
 
-    // Private memory size contains the max size between
-    // the needed size for scalar and needed size for vectorized versions.
-    unsigned int privateMemorySize = buildResult.GetPrivateMemorySize().at(pWrapperFunc->getName().str());
-    // TODO: This is workaround till the SDK hanlde case of zero private memory size!
-    privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, privateMemorySize));
-    pProps->SetPrivateMemorySize( privateMemorySize );
+    pProps->SetPrivateMemorySize(privateMemorySize);
 
     return pProps;
 }

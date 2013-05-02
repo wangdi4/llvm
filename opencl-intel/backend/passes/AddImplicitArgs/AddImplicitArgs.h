@@ -30,7 +30,7 @@ namespace intel {
     static char ID;
 
     /// @brief Constructor
-    AddImplicitArgs(SmallVectorImpl<Function*> &vectFunctions);
+    AddImplicitArgs();
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
@@ -79,13 +79,6 @@ namespace intel {
 
     /// @brief Maps call instructions to the implicit arguments needed to patch up the call
     std::map<llvm::CallInst *, llvm::Value **> m_fixupCalls;
-
-    /// @brief A pointer to the vectorized functions set gotten from the vectorizer pass
-    SmallVectorImpl<Function*> *m_pVectFunctions;
-
-    /// @brief Maps old function with its new cloned function
-    ///        (that takes extra implicite arguments)
-    std::map<Function*, Function*> m_oldToNewFunctionMap;
 
 
     Type* m_struct_PaddedDimId;

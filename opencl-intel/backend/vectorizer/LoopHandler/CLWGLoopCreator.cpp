@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "LoopUtils.h"
 #include "CLWGBoundDecoder.h"
 #include "OCLPassSupport.h"
+#include "MetaDataApi.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/InstIterator.h"
@@ -20,8 +21,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 static unsigned MAX_OCL_NUM_DIM = 3;
 
-extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrierPath);
-
 namespace intel {
 
 char CLWGLoopCreator::ID = 0;
@@ -29,12 +28,8 @@ char CLWGLoopCreator::ID = 0;
 OCL_INITIALIZE_PASS(CLWGLoopCreator, "cl-loop-creator", "create loops opencl kernels", false, false)
 
 
-CLWGLoopCreator::CLWGLoopCreator(SmallVectorImpl<Function*> *vectFunctions,
-                                 SmallVectorImpl<int> *vectWidths) :
-ModulePass(ID),
-m_rtServices(static_cast<OpenclRuntime *>(RuntimeServices::get())),
-m_vectFunctions(vectFunctions),
-m_vectWidths(vectWidths)
+CLWGLoopCreator::CLWGLoopCreator() : ModulePass(ID),
+  m_rtServices(static_cast<OpenclRuntime *>(RuntimeServices::get()))
 {
   assert(m_rtServices);
 }
@@ -44,45 +39,49 @@ CLWGLoopCreator::~CLWGLoopCreator()
 }
 
 bool CLWGLoopCreator::runOnModule(Module &M) {
-  // First obtain kernels from metadata.
+  bool changed = false;
+  Intel::MetaDataUtils mdUtils(&M);
+  if ( !mdUtils.isKernelsInfoHasValue() ) {
+    //Module contains no MetaData information, thus it contains no kernels
+    return changed;
+  }
+  // First obtain original scalar kernels from metadata.
   SmallVector<Function *, 8> kernels;
-
   LoopUtils::GetOCLKernel(M, kernels);
 
-  // Obtain vector kernel and widths from input buffer.
-  SmallVector<int, 8> vectWidths;
-  SmallVector<Function *, 8> vectKernels;
-
-  if (m_vectFunctions && m_vectFunctions->size()) {
-    // vectorized functions exist and non empty so use it.
-    assert(m_vectWidths && "null width vector");
-    assert(m_vectFunctions->size() == kernels.size() &&
-           m_vectWidths->size() == kernels.size() &&
-           "mismatch size of width, functions vector");
-    for (unsigned i=0, e = kernels.size(); i < e; ++i){
-      vectWidths.push_back((*m_vectWidths)[i]);
-      vectKernels.push_back((*m_vectFunctions)[i]);
-    }
-  } else {
-    vectWidths.assign(kernels.size(), 0);
-    vectKernels.assign(kernels.size(), NULL);
-  }
-
-  // Only process kernels that KernelAnalysis found sutiable.
-  std::set<std::string> NoBarrier;
-  fillNoBarrierPathSet(&M, NoBarrier);
-  bool changed = false;
-  for (unsigned i=0, e=kernels.size(); i<e; ++i) {
+  for (unsigned i=0, e = kernels.size(); i < e; ++i) {
     Function *F = kernels[i];
     if (!F) continue;
-    std::string funcName = F->getName().str();
-    if (!NoBarrier.count(funcName)) continue;
-
+    Intel::KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(F);
+    //No need to check if NoBarrierPath Value exists, it is guaranteed that
+    //KernelAnalysisPass ran before CLWGLoopCreator pass.
+    if (!skimd->getNoBarrierPath()) {
+      //Kernel that should be handled in barrier path, skip it.
+      continue;
+    }
+    unsigned int vectWidth = 0;
+    Function *vectKernel = NULL;
+    //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
+    //Vectorized is running in all scenarios.
+    if (skimd->isVectorizedKernelHasValue() && skimd->getVectorizedKernel()) {
+      //Set the vectorized function
+      vectKernel = skimd->getVectorizedKernel();
+      Intel::MetaDataUtils::KernelsInfoMap::iterator itrVecKernelInfo = mdUtils.findKernelsInfoItem(vectKernel);
+      assert(itrVecKernelInfo != mdUtils.end_KernelsInfo() &&
+        itrVecKernelInfo->second.get() && "Failed finding vectorized kernel info");
+      //Set the vectorized width
+      vectWidth = itrVecKernelInfo->second->getVectorizedWidth();
+      //Erase vectorized kernel info and update scalaized kernel info
+      mdUtils.eraseKernelsInfoItem(itrVecKernelInfo);
+      skimd->setVectorizedKernel(NULL);
+      skimd->setVectorizedWidth(vectWidth);
+    }
     // We can create loops for this kernel - runOnFunction on it!!
-    changed |= runOnFunction(*F, vectKernels[i], vectWidths[i]);
-    // The pass inlined and erased the vector Function.
-    if (vectKernels[i]) (*m_vectFunctions)[i] = NULL;
+    changed |= runOnFunction(*F, vectKernel, vectWidth);
   }
+
+  //Save Metadata to the module
+  mdUtils.save(M.getContext());
   return changed;
 }
 
@@ -246,7 +245,7 @@ CallInst *CLWGLoopCreator::createEECall() {
   std::string funcName = m_F->getName().str();
   std::string EEFuncName = CLWGBoundDecoder::encodeWGBound(funcName);
   Function *EEFunc = m_M->getFunction(EEFuncName);
-  assert("early exit function must exist!!!");
+  assert(EEFunc && "early exit function must exist!!!");
   std::vector<Value *> args;
   unsigned i=0;
   for(Function::arg_iterator argIt = m_F->arg_begin(), argE = m_F->arg_end();
@@ -595,10 +594,8 @@ CLWGLoopCreator::getVectorLoopBoundaries(Value *initVal, Value *dimSize) {
 
 
 extern "C" {
-  ModulePass* createCLWGLoopCreatorPass(
-      SmallVectorImpl<Function*> *vectFunctions = NULL,
-      SmallVectorImpl<int> *vectWidths = NULL) {
-    return new intel::CLWGLoopCreator(vectFunctions, vectWidths);
+  ModulePass* createCLWGLoopCreatorPass() {
+    return new intel::CLWGLoopCreator();
   }
 }
 

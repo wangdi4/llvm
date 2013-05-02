@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "Main.h"
 #include "VectorizerCore.h"
+#include "MetaDataApi.h"
 
 #include "llvm/Pass.h"
 #include "llvm/PassManager.h"
@@ -56,14 +57,15 @@ bool Vectorizer::runOnModule(Module &M)
   m_numOfKernels = 0;
   m_isModuleVectorized = true;
 
+  Intel::MetaDataUtils mdUtils(&M);
+
   // check for some common module errors, before actually diving in
-  NamedMDNode *KernelsMD = M.getNamedMetadata("opencl.kernels");
-  if (!KernelsMD)
+  if (mdUtils.empty_Kernels())
   {
     V_PRINT(wrapper, "Failed to find annotation. Aborting!\n");
     return false;
   }
-  m_numOfKernels = KernelsMD->getNumOperands();
+  m_numOfKernels = mdUtils.size_Kernels();
   if (m_numOfKernels == 0)
   {
     V_PRINT(wrapper, "Num of kernels is 0. Aborting!\n");
@@ -76,33 +78,21 @@ bool Vectorizer::runOnModule(Module &M)
   }
 
 
-  for (int i = 0, e = KernelsMD->getNumOperands(); i < e; i++) {
-    MDNode *FuncInfo = KernelsMD->getOperand(i);
-    Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
-    Function *F = dyn_cast<Function>(field0);
+  for (Intel::MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(), e = mdUtils.end_Kernels(); i != e; ++i) {
+    Intel::KernelMetaDataHandle kmd = (*i);
+    Function *F = kmd->getFunction();
     bool disableVect = false;
 
     //look for vector type hint metadata
-    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
-      MDNode *MDVTH = dyn_cast<MDNode>(FuncInfo->getOperand(i));
-      assert(MDVTH && "Malformed metadata!");
-
-      MDString *tag = dyn_cast<MDString>(MDVTH->getOperand(0));
-      assert(tag && "Malformed metadata!");
-
-      if (tag && tag->getString() == "vec_type_hint") {
-        // extract type
-        Type *VTHTy = MDVTH->getOperand(1)->getType();
-
-        if (!VTHTy->isFloatTy()     &&
+    if (kmd->isVecTypeHintHasValue()) {
+      Type* VTHTy = kmd->getVecTypeHint()->getType();
+      if (!VTHTy->isFloatTy()     &&
           !VTHTy->isDoubleTy()    &&
           !VTHTy->isIntegerTy(8)  &&
           !VTHTy->isIntegerTy(16) &&
           !VTHTy->isIntegerTy(32) &&
           !VTHTy->isIntegerTy(64)) {
             disableVect = true;
-        }
-        break;
       }
     }
 
@@ -143,13 +133,30 @@ bool Vectorizer::runOnModule(Module &M)
         // We can't or choose not to vectorize the kernel, erase the clone from the module.
         clone->eraseFromParent();
       }
+      V_ASSERT(vectFuncWidth > 0 && "vect width for non vectoized kernels should be 1");
+      //Initialize scalar kernel information, which contains:
+      // * pointer to vectorized kernel
+      // * vectorized width of 1 (as it is the scalar version)
+      // * NULL as pointer to scalar version (as there is no scalar version for scalar kernel)
+      Intel::KernelInfoMetaDataHandle skimd = mdUtils.getOrInsertKernelsInfoItem(*fi);
+      skimd->setVectorizedKernel(vectFunc);
+      skimd->setVectorizedWidth(1);
+      skimd->setScalarizedKernel(NULL);
+      if (vectFunc) {
+        //Initialize vector kernel information
+        // * NULL pointer to vectorized kernel (as there is no vectorized version for vectroized kernel)
+        // * vectorized width
+        // * pointer to scalar version
+        Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getOrInsertKernelsInfoItem(vectFunc);
+        vkimd->setVectorizedKernel(NULL);
+        vkimd->setVectorizedWidth(vectFuncWidth);
+        vkimd->setScalarizedKernel(*fi);
+      }
     }
-    V_ASSERT(vectFuncWidth > 0 && "vect width for non vectoized kernels should be 1");
-    m_optimizerFunctions->push_back(vectFunc);
-    m_optimizerWidths->push_back(vectFuncWidth);
-
   }
 
+  //Save Metadata to the module
+  mdUtils.save(M.getContext());
 
   {
     PassManager mpm;

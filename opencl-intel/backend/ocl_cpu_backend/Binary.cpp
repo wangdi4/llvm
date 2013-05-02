@@ -246,7 +246,7 @@ cl_dev_err_code Binary::GetMemoryBuffersDescriptions(size_t* IN pBufferSizes,
     // Fill size of private area for all work-items
     // [WORK-AROUND] and also the area for kernel params and local WI ids
     pBufferSizes[i] = m_stAlignedKernelParamSize + m_stWIidsBufferSize +
-      (m_stPrivateMemorySize * m_uiWGSize);
+      (m_stPrivateMemorySize * m_uiVectorWidth * m_uiWGSize);
 
     return CL_DEV_SUCCESS;
 }

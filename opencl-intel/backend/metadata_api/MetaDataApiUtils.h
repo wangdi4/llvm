@@ -14,6 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Value.h"
 #include "llvm/Metadata.h"
 #include <vector>
+#include <map>
 
 namespace Intel
 {
@@ -106,7 +107,7 @@ public:
         return i;
     }
 
-    item_type getItem( size_t index)
+    item_type getItem(size_t index)
     {
         lazyLoad();
         return m_data[index];
@@ -322,7 +323,7 @@ public:
         if(!dirty())
             return;
 
-        assert( m_isLoaded && "Collection should be loaded at this point (since it is dirty)");
+        assert(m_isLoaded && "Collection should be loaded at this point (since it is dirty)");
 
         if(pNode->getNumOperands() > size() )
             pNode->dropAllReferences();
@@ -413,6 +414,208 @@ private:
 };
 
 bool isNamedNode(const llvm::Value* pNode, const char* name);
+
+template<class K, class T,
+        class KeyTraits = MDValueTraits<K>,
+        class ValTraits = MDValueTraits<T> >
+class NamedMetaDataMap: public IMetaDataObject
+{
+public:
+    typedef NamedMetaDataMap<K, T, KeyTraits, ValTraits> _Myt;
+    typedef MetaDataIterator<llvm::MDNode, llvm::NamedMDNode, MDValueTraits<llvm::MDNode> > meta_iterator;
+    typedef typename KeyTraits::value_type key_type;
+    typedef typename ValTraits::value_type item_type;
+    typedef typename std::map<key_type, item_type>::iterator iterator;
+    typedef typename std::map<key_type, item_type>::const_iterator const_iterator;
+
+    NamedMetaDataMap(const llvm::NamedMDNode* pNode):
+        m_pNode(pNode),
+        m_isDirty(false),
+        m_isLoaded(false)
+    {}
+
+    NamedMetaDataMap():
+        m_pNode(NULL),
+        m_isDirty(false),
+        m_isLoaded(true)
+    {}
+
+    size_t size() const
+    {
+        lazyLoad();
+        return m_data.size();
+    }
+
+    bool empty() const
+    {
+        lazyLoad();
+        return m_data.empty();
+    }
+
+    iterator begin()
+    {
+        lazyLoad();
+        return m_data.begin();
+    }
+
+    iterator end()
+    {
+        return m_data.end();
+    }
+
+    const_iterator begin() const
+    {
+        lazyLoad();
+        return m_data.begin();
+    }
+
+    const_iterator end() const
+    {
+        return m_data.end();
+    }
+
+    item_type getItem(const key_type& key)
+    {
+        lazyLoad();
+        assert(m_data.find(key) != end() && "Trying to get key that does not exists in Metadata map");
+        return m_data[key];
+    }
+
+    item_type getOrInsertItem(const key_type& key)
+    {
+        lazyLoad();
+        if(m_data.find(key) == end() || m_data[key].get() == NULL)
+        {
+            m_data[key] = ValTraits::load(NULL);
+            m_isDirty = true;
+        }
+        return m_data[key];
+    }
+
+    void setItem(const key_type& key, const item_type& item)
+    {
+        lazyLoad();
+        m_data[key] = item;
+        m_isDirty = true;
+    }
+
+    item_type& operator[]( const key_type& key )
+    {
+        lazyLoad();
+        return &m_data[key];
+    }
+
+    const item_type& operator[]( const key_type& key ) const
+    {
+        lazyLoad();
+        return &m_data[key];
+    }
+
+    iterator find(const key_type& key)
+    {
+        lazyLoad();
+        return m_data.find(key);
+    }
+
+    void erase(iterator where)
+    {
+        lazyLoad();
+        m_data.erase(where);
+        m_isDirty = true;
+    }
+
+    void save(llvm::LLVMContext &context, llvm::NamedMDNode* pNode) const
+    {
+        if(!dirty())
+            return;
+
+        assert(m_isLoaded && "Collection should be loaded at this point (since it is dirty)");
+
+        pNode->dropAllReferences();
+
+        meta_iterator mi(pNode,0);
+        meta_iterator me(pNode);
+        const_iterator i = begin();
+        const_iterator e = end();
+
+        while( i != e || mi != me )
+        {
+            assert( i != e && mi == me );
+            llvm::SmallVector< llvm::Value*, 2> args;
+            args.push_back(KeyTraits::generateValue(context, (*i).first));
+            args.push_back(ValTraits::generateValue(context, (*i).second));
+            pNode->addOperand(llvm::MDNode::get(context,args));
+            ++i;
+        }
+    }
+
+    bool dirty() const
+    {
+        if( m_isDirty )
+        {
+            return true;
+        }
+
+        if( !m_isLoaded )
+        {
+            return false;
+        }
+
+        for( const_iterator i = m_data.begin(), e = m_data.end(); i != e; ++i )
+        {
+            if( KeyTraits::dirty((*i).first) || ValTraits::dirty((*i).second) )
+                return true;
+        }
+        return false;
+    }
+
+    bool hasValue() const
+    {
+        return m_pNode != NULL || dirty();
+    }
+
+    void discardChanges()
+    {
+        if( !dirty() )
+        {
+            return;
+        }
+
+        for( iterator i = m_data.begin(), e = m_data.end(); i != e; ++i )
+        {
+            KeyTraits::discardChanges((key_type&)((*i).first));
+            ValTraits::discardChanges((item_type&)((*i).second));
+        }
+
+        m_isDirty = false;
+    }
+private:
+
+    void lazyLoad() const
+    {
+        if( m_isLoaded || NULL == m_pNode )
+        {
+            return;
+        }
+
+        for(meta_iterator i(m_pNode,0), e(m_pNode); i != e; ++i )
+        {
+            llvm::MDNode *node = i.get();
+            assert(node->getNumOperands() == 2 && "MetaDataMap node assumed to have exactly two operands");
+            key_type key = KeyTraits::load(node->getOperand(0));
+            item_type val = ValTraits::load(node->getOperand(1));
+            m_data[key] = val;
+        }
+
+        m_isLoaded = true;
+    }
+
+private:
+    const llvm::NamedMDNode* m_pNode;
+    mutable std::map<key_type, item_type> m_data;
+    bool m_isDirty;
+    mutable bool m_isLoaded;
+};
 
 } //namespace
 #endif

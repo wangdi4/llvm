@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __MODULE_CLEANUP_H__
 
 #include <llvm/Pass.h>
-#include <llvm/ADT/SmallSet.h>
+#include <set>
 
 namespace intel{
     using namespace llvm;
@@ -19,8 +19,7 @@ namespace intel{
     {
     public:
         /// @brief Constructor
-        ModuleCleanup(SmallVectorImpl<Function*> &vectFunctions)
-          : ModulePass(ID), m_pVectFunctions(&vectFunctions) {}
+        ModuleCleanup() : ModulePass(ID) {}
 
         /// @brief LLVM Module pass entry
         /// @param M Module to transform
@@ -28,9 +27,6 @@ namespace intel{
         bool runOnModule(Module& M);
 
     private:
-        /// @brief Go over metadata + vectorized kernels list, and extract kernels.
-        void obtainKernelsList();
-
         /// @brief Scan recursively if function is used by kernel.
         bool isNeededByKernel(Function* func);
 
@@ -42,11 +38,8 @@ namespace intel{
         /// @brief Current module
         Module *m_module;
 
-        /// @brief List of all vectorized kernels in module
-        SmallVectorImpl<Function*> *m_pVectFunctions;
-
         /// @brief Set of all functions which are deemed necessary
-        SmallSet<Function*, 32> m_neededFuncsSet;
+        std::set<Function*> m_neededFuncsSet;
 
     };
 

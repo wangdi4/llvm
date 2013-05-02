@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "CompilationUtils.h"
+#include "MetaDataApi.h"
 
 #include "llvm/Metadata.h"
 #include "llvm/Instructions.h"
@@ -133,40 +134,84 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
   }
 
-  void CompilationUtils::getAllScalarKernels(std::set<Function*> &functionSet, Module *pModule) {
+  void CompilationUtils::getAllKernels(std::set<Function*> &functionSet, Module *pModule) {
     //Clear old collected data!
     functionSet.clear();
-    //Check for some common module errors, before actually diving in
-    NamedMDNode *pOpenCLMetadata = pModule->getNamedMetadata("opencl.kernels");
-    if ( !pOpenCLMetadata ) {
-      //Module contains no MetaData, thus it contains no kernels
-      return;
-    }
-
-    unsigned int numOfKernels = pOpenCLMetadata->getNumOperands();
-    if ( numOfKernels == 0 ) {
-      //Module contains no kernels
-      return;
-    }
 
     //List all kernels in module
-    for ( unsigned int i = 0, e = numOfKernels; i != e; ++i ) {
-      MDNode *elt = pOpenCLMetadata->getOperand(i);
-      Value *field0 = elt->getOperand(0)->stripPointerCasts();
-      if ( Function *pKernelFunc = dyn_cast<Function>(field0) )
-      {
-        //Add kernel to the list
-        //Currently no check if kernel already added to the list!
-        functionSet.insert(pKernelFunc);
+    MetaDataUtils mdUtils(pModule);
+    MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
+    MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
+    for (; itr != end; ++itr) {
+      Function *pSclFunc = (*itr)->getFunction();
+      functionSet.insert(pSclFunc);
+      if(mdUtils.findKernelsInfoItem(pSclFunc) == mdUtils.end_KernelsInfo()) {
+        //No kernel info for this scalar kernel, in this case there is no vector
+        //version for this kernel, just skip to next kernel.
+        continue;
+      }
+      //Check if there is a vectorized version
+      KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pSclFunc);
+      //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
+      //Vectorized is running in all scenarios.
+      if (kimd->isVectorizedKernelHasValue() && kimd->getVectorizedKernel() != NULL) {
+        functionSet.insert(kimd->getVectorizedKernel());
       }
     }
   }
 
-void CompilationUtils::parseKernelArguments(  Module* pModule,
-                                              Function* pFunc,
-                                              std::vector<cl_kernel_argument>& /* OUT */ arguments) {
-  // Check maximum number of arguments to kernel
-  NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
+  void CompilationUtils::getAllKernelWrappers(std::set<Function*> &functionSet, Module *pModule) {
+    //Clear old collected data!
+    functionSet.clear();
+
+    //List all kernels in module
+    Intel::MetaDataUtils mdUtils(pModule);
+    MetaDataUtils::KernelsInfoMap::const_iterator itr = mdUtils.begin_KernelsInfo();
+    MetaDataUtils::KernelsInfoMap::const_iterator end = mdUtils.end_KernelsInfo();
+    for (; itr != end; ++itr) {
+      KernelInfoMetaDataHandle kimd = itr->second;
+      if(kimd->isKernelWrapperHasValue()) {
+        functionSet.insert(kimd->getKernelWrapper());
+      }
+    }
+  }
+
+  void CompilationUtils::parseKernelArguments(  Module* pModule,
+                                                Function* pFunc,
+                                                std::vector<cl_kernel_argument>& /* OUT */ arguments) {
+    // Check maximum number of arguments to kernel
+    MetaDataUtils mdUtils(pModule);
+    if (!mdUtils.isKernelsHasValue()) {
+      assert(false && "Internal Error: kernels metadata is missing");
+      // workaround to overcome klockwork issue
+      return;
+    }
+    KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
+    Function *pOriginalFunc = pFunc;
+    //Check if this is a vectorized version of the kernel
+    if (kimd->isScalarizedKernelHasValue() && kimd->getScalarizedKernel()) {
+      //Get the scalarized version of the vectorized kernel
+      pOriginalFunc = kimd->getScalarizedKernel();
+    }
+
+    KernelMetaDataHandle kmd;
+    MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
+    MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
+    for (; itr != end; ++itr) {
+      if (pOriginalFunc == (*itr)->getFunction()) {
+        kmd = *itr;
+        break;
+      }
+    }
+
+    if( NULL == kmd.get() ) {
+      assert(false && "Intenal error: can't find the function info for the scalarized function");
+      // workaround to overcome klockwork issue
+      return;
+    }
+    
+#ifdef __APPLE__
+      NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
   if( NULL == MDArgInfo )
   {
       assert(false && "Internal Error: opencl.kernels metadata is missing");
@@ -199,238 +244,198 @@ void CompilationUtils::parseKernelArguments(  Module* pModule,
 
   assert(FuncInfo->getNumOperands() > 1 && "Invalid number of kernel properties."
      " Are you running a workload recorded using old meta data format?");
-  MDNode *MDImgAccess = NULL;
-  //look for image access metadata
-  for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
-    MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
-    MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-#ifdef __APPLE__
-    if (tag->getString() == "apple.cl.arg_metadata") {
-#else
-    if (tag->getString() == "argument_attribute") {
-#endif
-      MDImgAccess = tmpMD;
-      break;
-    }
-  }
 
-  size_t argsCount = pFunc->getArgumentList().size() - NUMBER_IMPLICIT_ARGS;
-
-  unsigned int localMemCount = 0;
-
-  llvm::Function::arg_iterator arg_it = pFunc->arg_begin();
-  for (unsigned i=0; i<argsCount; ++i)
-  {
-    cl_kernel_argument curArg;
-    curArg.access = CL_KERNEL_ARG_ACCESS_NONE;
-
-    llvm::Argument* pArg = arg_it;
-    // Set argument sizes
-    switch (arg_it->getType()->getTypeID())
-    {
-    case llvm::Type::FloatTyID:
-        curArg.type = CL_KRNL_ARG_FLOAT;
-        curArg.size_in_bytes = sizeof(float);
+    MDNode *MDImgAccess = NULL;
+    //look for image access metadata
+    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
+      MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
+      MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
+  #ifdef __APPLE__
+      if (tag->getString() == "apple.cl.arg_metadata") {
+  #else
+      if (tag->getString() == "argument_attribute") {
+  #endif
+        MDImgAccess = tmpMD;
         break;
-
-    case llvm::Type::StructTyID:
-        {
-            llvm::StructType *STy = llvm::cast<llvm::StructType>(arg_it->getType());
-            curArg.type = CL_KRNL_ARG_COMPOSITE;
-#if LLVM_VERSION == 3200
-            DataLayout dataLayout(pModule);
-#else
-            TargetData dataLayout(pModule);
+      }
+    }
 #endif
-            curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
-            break;
-        }
-    case llvm::Type::PointerTyID:
+    size_t argsCount = pFunc->getArgumentList().size() - NUMBER_IMPLICIT_ARGS;
+
+    unsigned int localMemCount = 0;
+
+    llvm::Function::arg_iterator arg_it = pFunc->arg_begin();
+    for (unsigned i=0; i<argsCount; ++i)
+    {
+      cl_kernel_argument curArg;
+      curArg.access = CL_KERNEL_ARG_ACCESS_NONE;
+
+      llvm::Argument* pArg = arg_it;
+      // Set argument sizes
+      switch (arg_it->getType()->getTypeID())
       {
-        llvm::PointerType *PTy = llvm::cast<llvm::PointerType>(arg_it->getType());
-        if ( pArg->hasByValAttr() && PTy->getElementType()->getTypeID() == llvm::Type::VectorTyID )
-        {
-          // Check by pointer vector passing, used in long16 and double16
-          llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(PTy->getElementType());
-          unsigned int uiNumElem = (unsigned int)pVector->getNumElements();;
-          unsigned int uiElemSize = pVector->getContainedType(0)->getPrimitiveSizeInBits()/8;
-          //assert( ((uiElemSize*uiNumElem) < 8 || (uiElemSize*uiNumElem) > 4*16) &&
-          //  "We have byval pointer for legal vector type larger than 64bit");
-          curArg.type = CL_KRNL_ARG_VECTOR_BY_REF;
-          curArg.size_in_bytes = uiNumElem & 0xFFFF;
-          curArg.size_in_bytes |= (uiElemSize << 16);
+      case llvm::Type::FloatTyID:
+          curArg.type = CL_KRNL_ARG_FLOAT;
+          curArg.size_in_bytes = sizeof(float);
           break;
-        }
-        curArg.size_in_bytes = pModule->getPointerSize()*4;
-        // Detect pointer qualifier
-        // Test for image
-        //const std::string &imgArg = pFunc->getParent()->getTypeName(PTy->getElementType());
-        StructType *ST = dyn_cast<StructType>(PTy->getElementType());
-        if(ST) {
-          const std::string &imgArg = ST->getName().str();
-          if ( std::string::npos != imgArg.find("opencl.image"))    // Image identifier was found
+
+      case llvm::Type::StructTyID:
           {
-            curArg.type = CL_KRNL_ARG_INT;
-
-            // Get dimension image type
-            if(imgArg.find("opencl.image1d_t") != std::string::npos)
-                curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
-            else if (imgArg.find("opencl.image1d_array_t") != std::string::npos)
-                curArg.type = CL_KRNL_ARG_PTR_IMG_1D_ARR;
-            else if (imgArg.find("opencl.image1d_buffer_t") != std::string::npos)
-                curArg.type = CL_KRNL_ARG_PTR_IMG_1D_BUF;
-            else if (imgArg.find("opencl.image2d_t") != std::string::npos)
-                curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
-            else if (imgArg.find("opencl.image2d_array_t") != std::string::npos)
-                curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
-            else if (imgArg.find("opencl.image3d_t") != std::string::npos)
-                curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
-
-            // Setup image pointer
-            if(curArg.type != CL_KRNL_ARG_INT) {
-#ifdef __APPLE__
-              MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
-              assert((tmpMD->getNumOperands() > 0) && "image MD arg type is empty");
-              MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-              assert(tag->getString() == "image" && "image MD arg type is not 'image'");
-              tag = dyn_cast<MDString>(tmpMD->getOperand(1));
-              curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY : 
-                              CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
+              llvm::StructType *STy = llvm::cast<llvm::StructType>(arg_it->getType());
+              curArg.type = CL_KRNL_ARG_COMPOSITE;
+#if LLVM_VERSION == 3200
+              DataLayout dataLayout(pModule);
 #else
-              ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i+1));
-              curArg.access = (access->getValue().getZExtValue() == READ_ONLY) ? 
-                              CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
+              TargetData dataLayout(pModule);
 #endif
+              curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
+              break;
+          }
+      case llvm::Type::PointerTyID:
+        {
+          llvm::PointerType *PTy = llvm::cast<llvm::PointerType>(arg_it->getType());
+          if ( pArg->hasByValAttr() && PTy->getElementType()->getTypeID() == llvm::Type::VectorTyID )
+          {
+            // Check by pointer vector passing, used in long16 and double16
+            llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(PTy->getElementType());
+            unsigned int uiNumElem = (unsigned int)pVector->getNumElements();;
+            unsigned int uiElemSize = pVector->getContainedType(0)->getPrimitiveSizeInBits()/8;
+            //assert( ((uiElemSize*uiNumElem) < 8 || (uiElemSize*uiNumElem) > 4*16) &&
+            //  "We have byval pointer for legal vector type larger than 64bit");
+            curArg.type = CL_KRNL_ARG_VECTOR_BY_REF;
+            curArg.size_in_bytes = uiNumElem & 0xFFFF;
+            curArg.size_in_bytes |= (uiElemSize << 16);
+            break;
+          }
+          curArg.size_in_bytes = pModule->getPointerSize()*4;
+          // Detect pointer qualifier
+          // Test for image
+          //const std::string &imgArg = pFunc->getParent()->getTypeName(PTy->getElementType());
+          StructType *ST = dyn_cast<StructType>(PTy->getElementType());
+          if(ST) {
+            const std::string &imgArg = ST->getName().str();
+            if ( std::string::npos != imgArg.find("opencl.image"))    // Image identifier was found
+            {
+              curArg.type = CL_KRNL_ARG_INT;
+
+              // Get dimension image type
+              if(imgArg.find("opencl.image1d_t") != std::string::npos)
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
+              else if (imgArg.find("opencl.image1d_array_t") != std::string::npos)
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_1D_ARR;
+              else if (imgArg.find("opencl.image1d_buffer_t") != std::string::npos)
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_1D_BUF;
+              else if (imgArg.find("opencl.image2d_t") != std::string::npos)
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
+              else if (imgArg.find("opencl.image2d_array_t") != std::string::npos)
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
+              else if (imgArg.find("opencl.image3d_t") != std::string::npos)
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
+
+              // Setup image pointer
+              if(curArg.type != CL_KRNL_ARG_INT) {
+  #ifdef __APPLE__
+                MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
+                assert((tmpMD->getNumOperands() > 0) && "image MD arg type is empty");
+                MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
+                assert(tag->getString() == "image" && "image MD arg type is not 'image'");
+                tag = dyn_cast<MDString>(tmpMD->getOperand(1));
+                curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY : 
+                                CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
+  #else
+                curArg.access = (kmd->getImgAccQualsItem(i) == READ_ONLY) ? 
+                                CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
+  #endif
+                break;
+              }
+            }
+          }
+
+          //test for structs
+          llvm::Type *Ty = PTy->getContainedType(0);
+          if ( true == Ty->isStructTy() ) // struct or struct*
+          {
+            if(PTy->getAddressSpace() == 0) //We're dealing with real struct and not struct pointer
+            {
+              llvm::StructType *STy = llvm::cast<llvm::StructType>(Ty);
+#if LLVM_VERSION == 3200
+              DataLayout dataLayout(pModule);
+#else
+              TargetData dataLayout(pModule);
+#endif
+              curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
+              curArg.type = CL_KRNL_ARG_COMPOSITE;
               break;
             }
           }
-        }
 
-        //test for structs
-        llvm::Type *Ty = PTy->getContainedType(0);
-        if ( true == Ty->isStructTy() ) // struct or struct*
-        {
-          if(PTy->getAddressSpace() == 0) //We're dealing with real struct and not struct pointer
+          switch (PTy->getAddressSpace())
           {
-            llvm::StructType *STy = llvm::cast<llvm::StructType>(Ty);
-#if LLVM_VERSION == 3200
-            DataLayout dataLayout(pModule);
-#else
-            TargetData dataLayout(pModule);
-#endif
-            curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
-            curArg.type = CL_KRNL_ARG_COMPOSITE;
+          case 0: case 1: // Global Address space
+            curArg.type = CL_KRNL_ARG_PTR_GLOBAL;
             break;
-          }
-        }
+          case 2:
+            curArg.type = CL_KRNL_ARG_PTR_CONST;
+            break;
+          case 3: // Local Address space
+            curArg.type = CL_KRNL_ARG_PTR_LOCAL;
+            ++localMemCount;
+            break;
 
-        switch (PTy->getAddressSpace())
-        {
-        case 0: case 1: // Global Address space
-          curArg.type = CL_KRNL_ARG_PTR_GLOBAL;
-          break;
-        case 2:
-          curArg.type = CL_KRNL_ARG_PTR_CONST;
-          break;
-        case 3: // Local Address space
-          curArg.type = CL_KRNL_ARG_PTR_LOCAL;
-          ++localMemCount;
-          break;
-
-        default:
-          assert(0);
-        }
-      }
-      break;
-
-    case llvm::Type::IntegerTyID:
-        {
-#ifdef __APPLE__
-          MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
-          bool isSampler = false;
-          if(tmpMD->getNumOperands() > 0) {
-            MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-            if(tag->getString() == "sampler") //sampler_t
-                isSampler = true;
-          }
-          if(isSampler)
-#else
-          ConstantInt *access = dyn_cast<ConstantInt>(MDImgAccess->getOperand(i+1));
-          if (access->getValue().getSExtValue() == SAMPLER) //sampler_t
-#endif
-          {
-            curArg.type = CL_KRNL_ARG_SAMPLER;
-            curArg.size_in_bytes = 0;
-          }
-          else
-          {
-            llvm::IntegerType *ITy = llvm::cast<llvm::IntegerType>(arg_it->getType());
-            curArg.type = CL_KRNL_ARG_INT;
-            curArg.size_in_bytes = ITy->getBitWidth()/8;
+          default:
+            assert(0);
           }
         }
         break;
 
-    case llvm::Type::DoubleTyID:
-      curArg.type = CL_KRNL_ARG_DOUBLE;
-      curArg.size_in_bytes = sizeof(double);
-      break;
+      case llvm::Type::IntegerTyID:
+          {
+  #ifdef __APPLE__
+            MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
+            bool isSampler = false;
+            if(tmpMD->getNumOperands() > 0) {
+              MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
+              if(tag->getString() == "sampler") //sampler_t
+                  isSampler = true;
+            }
+            if(isSampler)
+  #else
+            if (kmd->getImgAccQualsItem(i) == SAMPLER)
+  #endif
+            {
+              curArg.type = CL_KRNL_ARG_SAMPLER;
+              curArg.size_in_bytes = 0;
+            }
+            else
+            {
+              llvm::IntegerType *ITy = llvm::cast<llvm::IntegerType>(arg_it->getType());
+              curArg.type = CL_KRNL_ARG_INT;
+              curArg.size_in_bytes = ITy->getBitWidth()/8;
+            }
+          }
+          break;
 
-    case llvm::Type::VectorTyID:
-      {
-        llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(arg_it->getType());
-        curArg.type = CL_KRNL_ARG_VECTOR;
-        curArg.size_in_bytes = (unsigned int)(pVector->getNumElements() == 3 ? 4 : pVector->getNumElements());
-        curArg.size_in_bytes |= (pVector->getContainedType(0)->getPrimitiveSizeInBits()/8)<<16;
+      case llvm::Type::DoubleTyID:
+        curArg.type = CL_KRNL_ARG_DOUBLE;
+        curArg.size_in_bytes = sizeof(double);
+        break;
+
+      case llvm::Type::VectorTyID:
+        {
+          llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(arg_it->getType());
+          curArg.type = CL_KRNL_ARG_VECTOR;
+          curArg.size_in_bytes = (unsigned int)(pVector->getNumElements() == 3 ? 4 : pVector->getNumElements());
+          curArg.size_in_bytes |= (pVector->getContainedType(0)->getPrimitiveSizeInBits()/8)<<16;
+        }
+        break;
+
+      default:
+        assert(0 && "Unhelded parameter type");
       }
-      break;
-
-    default:
-      assert(0 && "Unhelded parameter type");
+      arguments.push_back(curArg);
+      ++arg_it;
     }
-    arguments.push_back(curArg);
-    ++arg_it;
-  }
-}
-
-void CompilationUtils::getKernelsMetadata( Module* pModule,
-                                      const SmallVectorImpl<Function*>& pVectFunctions,
-                                      std::map<Function*, MDNode*>& /* OUT */ kernelMetadata) {
-
-  NamedMDNode *pModuleMetadata = pModule->getNamedMetadata("opencl.kernels");
-
-  if( NULL == pModuleMetadata )
-  {
-      assert(false && "Internal Error: opencl.kernels metadata is missing");
-      // workaround to overcome klockwork issue
-      return;
   }
 
-  unsigned int vecIndex = 0;
-  for (unsigned i = 0, e = pModuleMetadata->getNumOperands(); i != e; ++i)
-  {
-    // Obtain kernel function from annotation
-    MDNode* metadata = pModuleMetadata->getOperand(i);
-    Function *pFunc = dyn_cast<Function>(metadata->getOperand(0)->stripPointerCasts());
-    if ( NULL == pFunc )
-    {
-      continue;   // Not a function pointer
-    }
-
-    // Get appropriate vector function
-    Function *vecFunc = ( (size_t)vecIndex < pVectFunctions.size() ) ?
-        pVectFunctions[vecIndex] : NULL;
-
-    // Map scalar function
-    kernelMetadata[pFunc] = metadata;
-    // Map vetor function if exists
-    if(vecFunc != NULL)
-    {
-      kernelMetadata[vecFunc] = metadata;
-    }
-
-    vecIndex++;
-  }
-}
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

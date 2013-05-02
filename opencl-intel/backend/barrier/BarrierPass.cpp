@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BarrierPass.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "MetaDataApi.h"
 
 #include "llvm/Instructions.h"
 #include "llvm/IRBuilder.h"
@@ -16,7 +17,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <set>
 
-extern "C" void fillNoBarrierPathSet(Module *M, std::set<std::string>& noBarrierPath);
 namespace intel {
 
   char Barrier::ID = 0;
@@ -27,9 +27,8 @@ namespace intel {
   OCL_INITIALIZE_PASS_DEPENDENCY(DataPerInternalFunction);
   OCL_INITIALIZE_PASS_END(Barrier, "B-Barrier", "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs", false, true)
 
-  Barrier::Barrier(bool isNativeDebug = false) : ModulePass(ID), m_isNativeDBG(isNativeDebug)
-  {
-      initializeBarrierPass(*llvm::PassRegistry::getPassRegistry());
+  Barrier::Barrier(bool isNativeDebug) : ModulePass(ID), m_isNativeDBG(isNativeDebug) {
+    initializeBarrierPass(*llvm::PassRegistry::getPassRegistry());
   }
 
   bool Barrier::runOnModule(Module &M) {
@@ -1003,39 +1002,35 @@ namespace intel {
   }
 
   void Barrier::updateStructureStride(Module & M) {
-    llvm::NamedMDNode *pModuleMetadata = M.getNamedMetadata("opencl.kernels");
-    if ( !pModuleMetadata ) {
-      //Module contains no MetaData, thus it contains no kernels
+    Intel::MetaDataUtils mdUtils(&M);
+    if ( !mdUtils.isKernelsInfoHasValue() ) {
+      //Module contains no MetaData information, thus it contains no kernels
       return;
     }
-
     // Get the kernels using the barrier for work group loops.
-    std::set<std::string> NoBarrier;
-    fillNoBarrierPathSet(&M, NoBarrier);
-    for (unsigned i = 0, e = pModuleMetadata->getNumOperands(); i != e; ++i) {
-      //Obtain kernel function from annotation
-      llvm::MDNode *elt = pModuleMetadata->getOperand(i);
-      Function* pFunc = dyn_cast<Function>(elt->getOperand(0));
-      assert( pFunc && "MetaData first operand is not of type Function!" );
-      unsigned int strideScalar = 1; // default value can not be 0
-      unsigned int strideVectorized = 0;
-      std::string funcName = pFunc->getName().str();
-      // Need to get the stride size only for kernel using the barrier for work
-      // group loops
-      if (!NoBarrier.count(funcName)) {
-        strideScalar = m_pDataPerValue->getStrideSize(pFunc);
-        //Check if there is a vectorized version of this kernel
-        std::string vectorizedKernelName =
-          std::string(VECTORIZED_KERNEL_PREFIX) + pFunc->getName().str();
-        Function *pVectorizedKernelFunc = M.getFunction(vectorizedKernelName);
-        if ( pVectorizedKernelFunc ) {
-          strideVectorized = m_pDataPerValue->getStrideSize(pVectorizedKernelFunc);
-        }
+    Intel::MetaDataUtils::KernelsInfoMap::const_iterator itr = mdUtils.begin_KernelsInfo();
+    Intel::MetaDataUtils::KernelsInfoMap::const_iterator end = mdUtils.end_KernelsInfo();
+    for (; itr != end; ++itr) {
+      unsigned int strideSize = 1; // default value can not be 0
+      Intel::KernelInfoMetaDataHandle kimd = itr->second;
+      //Need to check if NoBarrierPath Value exists, it is not guaranteed that
+      //KernelAnalysisPass is running in all scenarios.
+      if (kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath()) {
+        //Kernel that should not be handled in Barrier path,
+        //set barrier buffer stride to default.
+        kimd->setBarrierBufferSize(strideSize);
+        continue;
       }
-      //For each kernel save the max stride between scalar and vectorized version
-      unsigned int strideSize = std::max<unsigned int>(strideScalar, strideVectorized);
-      m_bufferStrideMap[pFunc->getName().str()] = strideSize;
+      Function* pFunc = itr->first;
+      assert( pFunc && "MetaData first operand is not of type Function!" );
+      //Need to check if Vectorized Width Value exists, it is not guaranteed that
+      //Vectorized is running in all scenarios.
+      int vecWidth = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
+      strideSize = m_pDataPerValue->getStrideSize(pFunc);
+      strideSize = (strideSize + vecWidth - 1) / vecWidth;
+      kimd->setBarrierBufferSize(strideSize);
     }
+    mdUtils.save(M.getContext());
   }
 
 

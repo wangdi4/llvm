@@ -133,38 +133,10 @@ public:
     
     cl_dev_err_code GetBuildResult() const;
 
-    // Set the functions width vector. 
-    // The passed pointer will be owned by the ProgramBuildResult
-    void SetFunctionsWidths( FunctionWidthVector* pv);
-
-    const FunctionWidthVector& GetFunctionsWidths() const;
-
-    // Set the kernel information map. 
-    // The passed pointer will be owned by the ProgramBuildResult
-    void SetKernelsLocalBufferInfo( KernelsLocalBufferInfoMap* pKernelsInfo);
-    void SetKernelsInfo( KernelsInfoMap* pKernelsInfo);
-
-    TLLVMKernelInfo GetKernelsLocalBufferInfo(const llvm::Function* pFunc) const;
-    TKernelInfo GetKernelsInfo(std::string func) const;
-
-    std::map<std::string, unsigned int>& GetPrivateMemorySize();
-
-    const std::map<std::string, unsigned int>& GetPrivateMemorySize() const;
-
-    std::set<std::string>& GetNoBarrierSet() { return m_noBarrierSet; }
-
-    const std::set<std::string>& GetNoBarrierSet() const { return m_noBarrierSet; }
-
-
 private:
     cl_dev_err_code m_result;
     std::string m_buildLog;
     mutable llvm::raw_string_ostream m_logStream;
-    FunctionWidthVector* m_pFunctionWidths; 
-    KernelsLocalBufferInfoMap*      m_pKernelsLocalBufferInfo;
-    KernelsInfoMap*      m_pKernelsInfo;
-    std::map<std::string, unsigned int> m_privateMemorySizeMap;
-    std::set<std::string> m_noBarrierSet;
 };
 
 //*****************************************************************************************

@@ -29,9 +29,8 @@ set(OCL_BE_PASSES_DEPS
     name_mangle
     OclBackendUtils
     BackendPassesWrappers
+    metadataapi
 )
-
-add_dependencies(${TARGET_NAME} opt)
 
 target_link_libraries(${TARGET_NAME}
     ${OCL_BE_PASSES}
@@ -46,6 +45,8 @@ if( NOT WIN32)
         dl
     )
 endif ()
+
+add_dependencies(${TARGET_NAME} metadataapi)
 
 if( CMAKE_CROSSCOMPILING )
     add_custom_target( oclopt_native ALL

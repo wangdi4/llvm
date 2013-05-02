@@ -23,7 +23,6 @@ File Name:  KernelProperties.h
 #include <string>
 #include "cl_dev_backend_api.h"
 #include "ICLDevBackendKernel.h"
-#include "TLLVMKernelInfo.h"
 #include "TargetArch.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

@@ -8,7 +8,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __LOCAL_BUFFERS_H__
 #define __LOCAL_BUFFERS_H__
 
-#include "TLLVMKernelInfo.h"
 #include "LocalBuffAnalysis.h"
 
 #include <llvm/Pass.h>
@@ -33,7 +32,7 @@ namespace intel{
 
     /// @brief Constructor with debug parameter
     /// @param isNatveiDBG true if native debug set
-    LocalBuffers(std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> &kernelsLocalBufferMap, bool isNativeDBG);
+    LocalBuffers(bool isNativeDBG);
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
@@ -78,9 +77,6 @@ namespace intel{
     LLVMContext                *m_pLLVMContext;
     /// @brief instance of LocalBuffAnalysis pass
     LocalBuffAnalysis       *m_localBuffersAnalysis;
-
-    /// @brief map between kernel and its kernel info
-    std::map<const Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo>  *m_pMapKernelInfo;
 
     /// @brief vector of llvm instructions
     typedef std::vector<llvm::Instruction*> TInstVector;

@@ -8,7 +8,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "AddImplicitArgs.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
-#include "TLLVMKernelInfo.h"
 #include "common_dev_limits.h"
 
 #include "llvm/Support/InstIterator.h"
@@ -16,12 +15,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/Utils/Cloning.h"
 
 extern "C"{
-  int getVectorizerFunctions(Pass *V, SmallVectorImpl<Function*> &Functions);
-
   /// @brief Creates new AddImplicitArgs module pass
   /// @returns new AddImplicitArgs module pass
-  ModulePass* createAddImplicitArgsPass(SmallVectorImpl<Function*> &vectFunctions) {
-    return new intel::AddImplicitArgs(vectFunctions);
+  ModulePass* createAddImplicitArgsPass() {
+    return new intel::AddImplicitArgs();
   }
 
 }
@@ -32,8 +29,7 @@ namespace intel{
 
   char AddImplicitArgs::ID = 0;
 
-  AddImplicitArgs::AddImplicitArgs(SmallVectorImpl<Function*> &vectFunctions) :
-    ModulePass(ID), m_pVectFunctions(&vectFunctions) {
+  AddImplicitArgs::AddImplicitArgs() : ModulePass(ID) {
         initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 
@@ -49,10 +45,7 @@ namespace intel{
     addWIInfoDeclarations();
 
     std::set<Function*> kernelsFunctionSet;
-    CompilationUtils::getAllScalarKernels(kernelsFunctionSet, m_pModule);
-    //Now add all vectorized kernels
-    //TODO: should we take care of NULL values?
-    kernelsFunctionSet.insert(m_pVectFunctions->begin(), m_pVectFunctions->end());
+    CompilationUtils::getAllKernels(kernelsFunctionSet, m_pModule);
 
     // Collect all module functions that are not declarations into for handling
     std::vector<Function*> toHandleFunctions;
@@ -72,18 +65,6 @@ namespace intel{
         bool isAKernel = (kernelsFunctionSet.count(pFunc) > 0);
         runOnFunction(pFunc, isAKernel);
     }
-
-
-    // Update vectorized functions with the new functions
-    for ( unsigned int i=0; i < m_pVectFunctions->size(); ++i  ) {
-      // Check if this function is a vectorized function
-        Function *pVecFunc = (*m_pVectFunctions)[i];
-      if ( pVecFunc ) {
-        // It is a vectorized function, update it with its new function
-          (*m_pVectFunctions)[i] = m_oldToNewFunctionMap[pVecFunc];
-      }
-    }
-
 
     // Go over all call instructions that need to be changed
     // and add implicit arguments to them
@@ -300,10 +281,6 @@ namespace intel{
 
     // Delete original function body
     pFunc->deleteBody();
-
-    // Map original function to new function
-
-    m_oldToNewFunctionMap[pFunc] = pNewF;
 
     for ( Value::use_iterator UI = pNewF->use_begin(),
       UE = pNewF->use_end(); UI != UE; ++UI ) {

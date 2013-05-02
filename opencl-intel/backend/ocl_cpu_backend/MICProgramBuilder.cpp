@@ -56,9 +56,7 @@ File Name:  MICProgramBuilder.cpp
 #include "ModuleJITHolder.h"
 #include "MICJITContainer.h"
 #include "CompilationUtils.h"
-
-using std::string;
-extern "C" void fillNoBarrierPathSet(llvm::Module *M, std::set<std::string>& noBarrierPath);
+#include "MetaDataApi.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -97,40 +95,26 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
     buildResult.LogS() << "Build started\n";
     std::auto_ptr<KernelSet> spKernels( new KernelSet );
 
-    llvm::NamedMDNode *pModuleMetadata = pModule->getNamedMetadata("opencl.kernels");
-    llvm::NamedMDNode *WrapperMD = pModule->getOrInsertNamedMetadata("opencl.wrappers");
-    if ( !pModuleMetadata ) {
-      //Module contains no MetaData, thus it contains no kernels
-      return spKernels.release();
-    }
+    MetaDataUtils mdUtils(pModule);
 
-    std::set<std::string> noBarrier;
-    fillNoBarrierPathSet(pModule, noBarrier);
-    std::vector<FunctionWidthPair>::const_iterator vecIter = buildResult.GetFunctionsWidths().begin();
-    for (unsigned i = 0, e = pModuleMetadata->getNumOperands(); i != e; ++i) 
+    MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels();
+    MetaDataUtils::KernelsList::const_iterator e = mdUtils.end_Kernels();
+
+    for (unsigned int kernelId = 0 ; i != e; ++i, ++kernelId)
     {
         // Obtain kernel function from annotation
-        llvm::MDNode *elt = pModuleMetadata->getOperand(i);
-        llvm::MDNode *welt = WrapperMD->getOperand(i);
-        // We expect the metadata nodes to be llvm::Function
-        // In case the cast is wrong an assertion failure will be thrown
-        llvm::Function *pFunc = llvm::cast<llvm::Function>(elt->getOperand(0)->stripPointerCasts());
-        // The wrapper function that receives a single buffer as argument is the last node in the metadata 
-        llvm::Function *pWrapperFunc = llvm::cast<llvm::Function>(welt->getOperand(0)->stripPointerCasts());
+        llvm::Function *pFunc = (*i)->getFunction(); // TODO: stripPointerCasts());
+        KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
+        // Obtain kernel wrapper function from metadata info
+        llvm::Function *pWrapperFunc = kimd->getKernelWrapper(); //TODO: stripPointerCasts());
         
         // Create a kernel and kernel JIT properties 
         std::auto_ptr<KernelProperties> spMICKernelProps( CreateKernelProperties( pProgram, 
                                                                                   pFunc, 
-                                                                                  pWrapperFunc,
                                                                                   buildResult));
         // get the vector size used to generate the function
-        unsigned int vecSize = 1;
-        
-        if( spMICKernelProps->GetJitCreateWIids() && vecIter != buildResult.GetFunctionsWidths().end())
-        {
-            vecSize = vecIter->second;
-            spMICKernelProps->SetMinGroupSizeFactorial(vecSize);
-        }
+        unsigned int vecSize = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
+        spMICKernelProps->SetMinGroupSizeFactorial(vecSize);
                                                                               
         std::auto_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
 
@@ -138,7 +122,7 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         std::auto_ptr<MICKernel> spKernel( CreateKernel( pFunc, 
                                                          pWrapperFunc->getName().str(),
                                                          spMICKernelProps.get()));
-        spKernel->SetKernelID(i);
+        spKernel->SetKernelID(kernelId);
 
         AddKernelJIT( static_cast<const MICProgram*>(pProgram), 
                       spKernel.get(), 
@@ -146,48 +130,57 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
                       pWrapperFunc, 
                       spKernelJITProps.release());
 
-        // Check if vectorized kernel present
-        if( !buildResult.GetFunctionsWidths().empty())
+        //TODO (AABOUD): is this redundant code?
+        const llvm::Type *vTypeHint = NULL; //pFunc->getVectTypeHint(); //TODO: R namespace micead from metadata (Guy)
+        bool dontVectorize = false;
+
+        if( NULL != vTypeHint)
         {
-            assert(vecIter != buildResult.GetFunctionsWidths().end());
-            assert( !(spMICKernelProps->GetJitCreateWIids() && vecIter->first) &&
+            //currently if the vector_type_hint attribute is set
+            //we types that vector length is below 4, vectorizer restriction
+            const llvm::VectorType* pVect = llvm::dyn_cast<llvm::VectorType>(vTypeHint);
+            if( ( NULL != pVect) && pVect->getNumElements() >= 4)
+            {
+                dontVectorize = true;
+            }
+        }
+
+        //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
+        //Vectorized is running in all scenarios.
+        if (kimd->isVectorizedKernelHasValue())
+        {
+            Function *pVecFunc = kimd->getVectorizedKernel();
+            assert(!(spMICKernelProps->GetJitCreateWIids() && pVecFunc) &&
                 "if the vector kernel is inlined the entry of the vector kernel should be NULL");
 
-            const llvm::Type *vTypeHint = NULL; //pFunc->getVectTypeHint(); //TODO: R namespace micead from metadata (Guy)
-            bool dontVectorize = false;
-
-            if( NULL != vTypeHint)
+            if(NULL != pVecFunc && !dontVectorize)
             {
-                //currently if the vector_type_hint attribute is set
-                //we types that vector length is below 4, vectorizer restriction
-                const llvm::VectorType* pVect = llvm::dyn_cast<llvm::VectorType>(vTypeHint);
-                if( ( NULL != pVect) && pVect->getNumElements() >= 4)
-                {
-                    dontVectorize = true;
-                }
-            }
-
-            if(NULL != vecIter->first && !dontVectorize)
-            {
-                //
+                KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(pVecFunc);
+                // Obtain kernel wrapper function from metadata info
+                llvm::Function *pWrapperVecFunc = vkimd->getKernelWrapper(); //TODO: stripPointerCasts());
+                //Update vecSize according to vectorWidth of vectorized function
+                vecSize = vkimd->getVectorizedWidth();
                 // Create the vectorized kernel - no need to pass argument list here
-                std::auto_ptr<KernelJITProperties>  spVKernelJITProps(CreateKernelJITProperties( vecIter->second));
-                spMICKernelProps->SetMinGroupSizeFactorial(vecIter->second);
-                AddKernelJIT( static_cast<const MICProgram*>(pProgram), spKernel.get(), pModule, vecIter->first, spVKernelJITProps.release());
+                std::auto_ptr<KernelJITProperties> spVKernelJITProps(CreateKernelJITProperties(vecSize));
+                spMICKernelProps->SetMinGroupSizeFactorial(vecSize);
+                AddKernelJIT(static_cast<const MICProgram*>(pProgram),
+                              spKernel.get(),
+                              pModule,
+                              pWrapperVecFunc,
+                              spVKernelJITProps.release());
             }
-            if ( dontVectorize )
-            {
-                buildResult.LogS() << "Vectorization of kernel <" << spKernel->GetKernelName() << "> was disabled by the developer\n";
-            }
-            else if ( vecIter->second <= 1)
-            {
-                buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was not vectorized\n";
-            }
-            else 
-            {
-                buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
-            }
-            vecIter++;
+        }
+        if ( dontVectorize )
+        {
+            buildResult.LogS() << "Vectorization of kernel <" << spKernel->GetKernelName() << "> was disabled by the developer\n";
+        }
+        else if (vecSize <= 1)
+        {
+            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was not vectorized\n";
+        }
+        else 
+        {
+            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized\n";
         }
 #ifdef OCL_DEV_BACKEND_PLUGINS  
         // Notify the plugin managerModuleJITHolder

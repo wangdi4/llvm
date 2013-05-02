@@ -27,9 +27,11 @@ entry:
   ret i32 %w
 }
 
-!opencl.wrappers = !{!0}
+!opencl.kernel_info = !{!0}
 
-!0 = metadata !{void ()* @thisIsKernel}
+!0 = metadata !{void ()* @thisIsKernel, metadata !1}
+!1 = metadata !{metadata !2}
+!2 = metadata !{metadata !"kernel_wrapper", void ()* @thisIsKernel}
 
 ; CHECK:        define void @thisIsKernel()
 ; CHECK:        %x = call i32 @nonKernel1()

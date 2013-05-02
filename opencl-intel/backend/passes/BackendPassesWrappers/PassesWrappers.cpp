@@ -49,26 +49,11 @@ namespace intel{
             return m_instance;
         }
 
-        /// @brief Get a dummy function set to be used instead of the actual
-        ///        vectorized function set
-        SmallVectorImpl<Function*> &getDummyFuncSet()
-        {
-            m_vectFunctions.clear();
-            return m_vectFunctions;
-        }
-
-        /// @brief Get a dummy map from function to TLLVMKernelInfo to be used instead of the actual map
-        std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> &getDummyLocalBufferMap()
-        {
-            m_kernelsLocalBufferMap.clear();
-            return m_kernelsLocalBufferMap;
-        }
     private:
         PassesWrappersSupporter() {}
 
         static PassesWrappersSupporter * m_instance;
         llvm::SmallVector<llvm::Function*, 16> m_vectFunctions;
-        std::map<const llvm::Function*, Intel::OpenCL::DeviceBackend::TLLVMKernelInfo> m_kernelsLocalBufferMap;
     };
     PassesWrappersSupporter * PassesWrappersSupporter::m_instance = NULL;
 
@@ -77,7 +62,7 @@ namespace intel{
     {
     public:
         ModuleCleanupWrapper() :
-          ModuleCleanup(PassesWrappersSupporter::getInstance()->getDummyFuncSet())
+          ModuleCleanup()
           {}
         static char ID;
     };
@@ -86,7 +71,7 @@ namespace intel{
     {
     public:
         AddImplicitArgsWrapper() :
-          AddImplicitArgs(PassesWrappersSupporter::getInstance()->getDummyFuncSet())
+          AddImplicitArgs()
           {}
         static char ID;
     };
@@ -95,7 +80,7 @@ namespace intel{
     {
     public:
         LocalBuffersWrapper() :
-          LocalBuffers(PassesWrappersSupporter::getInstance()->getDummyLocalBufferMap(), false)
+          LocalBuffers(false)
           {}
         static char ID;
     };
@@ -104,7 +89,7 @@ namespace intel{
     {
     public:
         LocalBuffersWithDebugWrapper() :
-          LocalBuffers(PassesWrappersSupporter::getInstance()->getDummyLocalBufferMap(), true)
+          LocalBuffers(true)
           {}
         static char ID;
     };

@@ -25,10 +25,12 @@ declare void @_Z8prefetchPKU3AS1Dv4_im(<4 x i32> addrspace(1)*, i64)
 
 !opencl.kernels = !{!0}
 !opencl.build.options = !{!2}
-!cl.noBarrierPath.kernels = !{!3}
+!opencl.kernel_info = !{!4}
 
 !0 = metadata !{void (<4 x i32> addrspace(1)*, <4 x i32> addrspace(1)*)* @vector_prefetch_test, metadata !1}
 !1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3}
 !2 = metadata !{metadata !"-cl-std=CL1.2"}
-!3 = metadata !{metadata !"vector_prefetch_test"}
+!3 = metadata !{metadata !"no_barrier_path", i1 true}
 
+!4 = metadata !{void (<4 x i32> addrspace(1)*, <4 x i32> addrspace(1)*)* @vector_prefetch_test, metadata !5}
+!5 = metadata !{metadata !3}

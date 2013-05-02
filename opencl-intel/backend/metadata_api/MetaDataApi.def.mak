@@ -45,6 +45,8 @@
     ${element['name']}Type
     %elif meta_type['container_type'] == 'list':
     ${element['name']}List
+    %elif meta_type['container_type'] == 'map':
+    ${element['name']}Map
     %endif
 </%def>
 ## generate the cpp typename for the element in the root struct or list
@@ -54,6 +56,8 @@
         /* ERROR!!! Non container types cant be used as a top level meta data nodes */
     %elif meta_type['container_type'] == 'list':
         NamedMDNodeList<${list_item_type(meta_type['item_type'])}>
+    %elif meta_type['container_type'] == 'map':
+        NamedMetaDataMap<${list_item_type(meta_type['key_type'])}, ${list_item_type(meta_type['item_type'])}>
     %elif meta_type['container_type'] == 'struct':
         /* ERROR!!! Top level metadata structs are not supported */
     %endif
