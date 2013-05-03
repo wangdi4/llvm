@@ -530,3 +530,37 @@ OclBuiltinImpl mul_hi_v4u32 = OclBuiltinImpl<mul_hi, [v4u32] , 0, [{
     res.s3 = mul_hi($Arg0VarName.s3, $Arg1VarName.s3);
     return res;
   }]>;
+/*****************************************************************\
+ * ctz:                                                          *
+ *   gentype ctz (gentype x)                                     *
+ *   Returns the count of trailing 0-bits in x.                  *
+\*****************************************************************/
+// ctz on signed integer - call unsigned
+OclBuiltinImpl ctz_igeneric = OclBuiltinImpl<ctz, [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
+                                                   v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
+                                                   v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
+                                                   v1i64, v2i64, v3i64, v4i64, v8i64, v16i64], 0, [{
+    return as_$ReturnType(ctz(as_u$Arg0Type($Arg0VarName)));
+  }]>;
+// ctz on scalar uchar
+OclBuiltinImpl ctz_v1char = OclBuiltinImpl<ctz, [v1u8], 0, [{
+    //return __builtin_ctzc($Arg0VarName); //There is no ctz implementation for char in the open source
+	return (($Arg0VarName == 0) ? 8 : __builtin_ctz((uint)$Arg0VarName));//uchar as uint
+  }]>;
+// ctz on scalar ushort
+OclBuiltinImpl ctz_v1short = OclBuiltinImpl<ctz, [v1u16], 0, [{
+    return __builtin_ctzs($Arg0VarName);
+  }]>;
+// ctz on scalar uint
+OclBuiltinImpl ctz_v1int = OclBuiltinImpl<ctz, [v1u32], 0, [{
+    return __builtin_ctz($Arg0VarName);
+  }]>;
+// ctz on scalar ulong
+OclBuiltinImpl ctz_v1long = OclBuiltinImpl<ctz, [v1u64], 0, [{
+    return __builtin_ctzl($Arg0VarName);
+  }]>;
+// ctz expand unsigned vectors to scalar
+OclBuiltinImpl ctz_expand = OclBuiltinImpl<ctz, [v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
+                                                 v2u16, v3u16, v4u16, v8u16, v16u16,
+                                                 v2u32, v3u32, v4u32, v8u32, v16u32,
+                                                 v2u64, v3u64, v4u64, v8u64, v16u64], 0, Expand1>;

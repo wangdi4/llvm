@@ -13156,4 +13156,62 @@ double16 const_func __attribute__((overloadable)) convert_double16_rtp(double16)
 double16 const_func __attribute__((overloadable)) convert_double16_rtn(double16);
 double16 const_func __attribute__((overloadable)) convert_double16(double16);
 
+#if !defined (__MIC__) && !defined(__MIC2__)
+//*****************************************************
+//        OpenCl2.0 functions
+//*****************************************************
+/**
+ * ctz-Returns the number of trailing 0-bits in x.
+ */
+
+char const_func __attribute__((overloadable)) ctz(char x);
+uchar const_func __attribute__((overloadable)) ctz(uchar x);
+char2 const_func __attribute__((overloadable)) ctz(char2 x);
+uchar2 const_func __attribute__((overloadable)) ctz(uchar2 x);
+char3 const_func __attribute__((overloadable)) ctz(char3 x);
+uchar3 const_func __attribute__((overloadable)) ctz(uchar3 x);
+char4 const_func __attribute__((overloadable)) ctz(char4 x);
+uchar4 const_func __attribute__((overloadable)) ctz(uchar4 x);
+char8 const_func __attribute__((overloadable)) ctz(char8 x);
+uchar8 const_func __attribute__((overloadable)) ctz(uchar8 x);
+char16 const_func __attribute__((overloadable)) ctz(char16 x);
+uchar16 const_func __attribute__((overloadable)) ctz(uchar16 x);
+short const_func __attribute__((overloadable)) ctz(short x);
+ushort const_func __attribute__((overloadable)) ctz(ushort x);
+short2 const_func __attribute__((overloadable)) ctz(short2 x);
+ushort2 const_func __attribute__((overloadable)) ctz(ushort2 x);
+short3 const_func __attribute__((overloadable)) ctz(short3 x);
+ushort3 const_func __attribute__((overloadable)) ctz(ushort3 x);
+short4 const_func __attribute__((overloadable)) ctz(short4 x);
+ushort4 const_func __attribute__((overloadable)) ctz(ushort4 x);
+short8 const_func __attribute__((overloadable)) ctz(short8 x);
+ushort8 const_func __attribute__((overloadable)) ctz(ushort8 x);
+short16 const_func __attribute__((overloadable)) ctz(short16 x);
+ushort16 const_func __attribute__((overloadable)) ctz(ushort16 x);
+int const_func __attribute__((overloadable)) ctz(int x);
+uint const_func __attribute__((overloadable)) ctz(uint x);
+int2 const_func __attribute__((overloadable)) ctz(int2 x);
+uint2 const_func __attribute__((overloadable)) ctz(uint2 x);
+int3 const_func __attribute__((overloadable)) ctz(int3 x);
+uint3 const_func __attribute__((overloadable)) ctz(uint3 x);
+int4 const_func __attribute__((overloadable)) ctz(int4 x);
+uint4 const_func __attribute__((overloadable)) ctz(uint4 x);
+int8 const_func __attribute__((overloadable)) ctz(int8 x);
+uint8 const_func __attribute__((overloadable)) ctz(uint8 x);
+int16 const_func __attribute__((overloadable)) ctz(int16 x);
+uint16 const_func __attribute__((overloadable)) ctz(uint16 x);
+long const_func __attribute__((overloadable)) ctz(long x);
+ulong const_func __attribute__((overloadable)) ctz(ulong x);
+long2 const_func __attribute__((overloadable)) ctz(long2 x);
+ulong2 const_func __attribute__((overloadable)) ctz(ulong2 x);
+long3 const_func __attribute__((overloadable)) ctz(long3 x);
+ulong3 const_func __attribute__((overloadable)) ctz(ulong3 x);
+long4 const_func __attribute__((overloadable)) ctz(long4 x);
+ulong4 const_func __attribute__((overloadable)) ctz(ulong4 x);
+long8 const_func __attribute__((overloadable)) ctz(long8 x);
+ulong8 const_func __attribute__((overloadable)) ctz(ulong8 x);
+long16 const_func __attribute__((overloadable)) ctz(long16 x);
+ulong16 const_func __attribute__((overloadable)) ctz(ulong16 x);
+
+#endif   // !defined (__MIC__) && !defined(__MIC2__)
 #endif
