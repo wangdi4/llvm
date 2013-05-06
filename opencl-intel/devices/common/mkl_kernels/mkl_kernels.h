@@ -262,7 +262,7 @@ public:
 	int GetKernelParamsCount() const {return (int)MKL_EXECUTOR_CLASS::GetParamCount();}
 	const cl_kernel_argument* GetKernelParams() const { return MKL_EXECUTOR_CLASS::GetKernelParams();}
 	const cl_kernel_argument_info* GetKernelArgInfo() const { return MKL_EXECUTOR_CLASS::GetKernelArgInfo();}
-	const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties* GetKernelProporties() const {return NULL;}
+	const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties* GetKernelProporties() const {return &m_mklProperties;}
 
 protected:
 	class MKLKernelProperties : public Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties
@@ -271,7 +271,7 @@ protected:
 		const size_t* GetRequiredWorkGroupSize() const {return NULL;}
 		size_t GetPrivateMemorySize() const {return 1;}
 		size_t GetImplicitLocalMemoryBufferSize() const {return 0;}
-		size_t GetKernelExecutionLength() const {return 0;}
+		size_t GetKernelExecutionLength() const {return -1;}
 		bool HasPrintOperation() const {return false;}
 		bool HasBarrierOperation() const {return false;}
 		bool HasKernelCallOperation() const {return false;}

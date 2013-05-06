@@ -28,6 +28,7 @@
 #include "builtin_kernels.h"
 #include <assert.h>
 #include <cl_sys_defines.h>
+#include <string>
 
 using namespace Intel::OpenCL::BuiltInKernels;
 using namespace Intel::OpenCL::Utils;
@@ -49,31 +50,26 @@ cl_dev_err_code BuiltInProgram::ParseFunctionList(const char* szBuiltInKernelLis
 			pNextNameSeparator = pCurrFuncName+strlen(pCurrFuncName);
 		}
 
-		size_t stNameSize = (size_t)(pNextNameSeparator-pCurrFuncName);
-		char* pFuncName = (char*)STACK_ALLOC(stNameSize+1);
-		assert(NULL!=pFuncName && "alloca() always MUST success");
-		if ( NULL == pFuncName )
-		{
-			return CL_DEV_OUT_OF_MEMORY;
-		}
-		MEMCPY_S(pFuncName, stNameSize, pCurrFuncName, stNameSize);
-		pFuncName[stNameSize]='\0';
+		const size_t stNameSize = (size_t)(pNextNameSeparator-pCurrFuncName);
+		
+		std::string funcName;
+		
+		funcName.resize(stNameSize);
+		MEMCPY_S(&funcName[0], stNameSize, pCurrFuncName, stNameSize);
 
-		if ( m_mapKernels.find(pFuncName) == m_mapKernels.end() )
+		if ( m_mapKernels.find(funcName) == m_mapKernels.end() )
 		{
 			IBuiltInKernel* pBIKernel;
-			cl_dev_err_code err = BuiltInKernelRegistry::GetInstance()->CreateBuiltInKernel(pFuncName, &pBIKernel);
+			cl_dev_err_code err = BuiltInKernelRegistry::GetInstance()->CreateBuiltInKernel(funcName.c_str(), &pBIKernel);
 			if ( CL_DEV_FAILED(err) )
 			{
 				return err;
 			}
-			m_mapKernels[pFuncName] = pBIKernel;
+			m_mapKernels[funcName] = pBIKernel;
 			m_listKernels.push_back(pBIKernel);
 		}
 		// Nothing to do on else. If kernel is not supported by the device, just don't add it to the list.
 		// Other devices might support it
-
-		STACK_FREE(pFuncName);
 
 		pCurrFuncName = pNextNameSeparator+1;
 	}
