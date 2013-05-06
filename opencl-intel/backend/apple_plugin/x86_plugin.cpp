@@ -132,7 +132,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     // In case the cast is wrong an assertion failure will be thrown
     llvm::Function *pFunc = kmd->getFunction();
 
-    KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
+    Intel::KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
     // Obtain kernel wrapper function from metadata info
     llvm::Function *pWrapperFunc = kimd->getKernelWrapper();
 
@@ -371,7 +371,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     int VWidthMax = 0;
     if (kimd->isVectorizedKernelHasValue() && kimd->getVectorizedKernel() != NULL) {
       Function *pVecFunc = kimd->getVectorizedKernel();
-      KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(pVecFunc);
+      Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(pVecFunc);
       VKernelName = vkimd->getKernelWrapper()->getName().str();
       VWidthMax = vkimd->getVectorizedWidth();
       
@@ -856,7 +856,8 @@ static int compileProgram(
                                          disable_opt, // optimizations on/off
                                          false, // relaxed_math
                                          false, // create library only
-                                         false  // produce heuristics IR
+                                         false, // produce heuristics IR
+                                         false  // APFLevel
                                          );
 
   Intel::OpenCL::DeviceBackend::Optimizer optimizer(SM, Runtime, &optimizerConfig);

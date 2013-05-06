@@ -37,6 +37,27 @@
                         },
                         {
                             "location": "named",
+                            "key":      "vec_type_hint",
+                            "name":     "VecTypeHint",
+                            "metatype": "vec_type_hint",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "work_group_size_hint",
+                            "name":     "WorkGroupSizeHint",
+                            "metatype": "WorkGroupSize",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "reqd_work_group_size",
+                            "name":     "ReqdWorkGroupSize",
+                            "metatype": "WorkGroupSize",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
                             "key":      "kernel_arg_type",
                             "name":     "ArgTypes",
                             "metatype": "arglist",
@@ -133,6 +154,38 @@
                             "optional": true
                         }
                     ]
+                },
+    "WorkGroupSize":{
+                    "is_container":     true,
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index":    "0",
+                            "name":     "XDim",
+                            "metatype": "int32_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "1",
+                            "name":     "YDim",
+                            "metatype": "int32_item",
+                            "optional": false
+                        },
+                        {
+                            "location": "positional",
+                            "index":    "2",
+                            "name":     "ZDim",
+                            "metatype": "int32_item",
+                            "optional": false
+                        }
+                    ]
+                    
+                },
+    "vec_type_hint":{
+                    "is_container":     false,
+                    "type":             "llvm::UndefValue"
                 },
     "int32_item": {
                     "is_container":     false,

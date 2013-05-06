@@ -8,6 +8,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "MetaDataApi.h"
 
+#if defined(__APPLE__)
+  #include "OpenCL/cl.h"
+#else
+  #include "CL/cl.h"
+#endif
+
 #include "llvm/Metadata.h"
 #include "llvm/Instructions.h"
 #include "llvm/Version.h"
