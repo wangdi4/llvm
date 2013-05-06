@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "debuggingservicetype.h"
 #ifndef __APPLE__
 #include "PrintIRPass.h"
+#include "mic_dev_limits.h"
 #endif //#ifndef __APPLE__
 #include "llvm/Module.h"
 #include "llvm/Function.h"
@@ -29,7 +30,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
-#include "mic_dev_limits.h"
 
 extern "C"{
 

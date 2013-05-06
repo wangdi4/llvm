@@ -8,7 +8,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Mangler.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
-#include "Functions.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
