@@ -58,7 +58,7 @@ def get_interesting_line(line):
 
 def main():
     src_to_c = {}
-    cfg_lookup = {}
+    cfg_lookup = set()
     parser = argparse.ArgumentParser()
     parser.add_argument("logfile", type=file, help="File to parse")
     options = parser.parse_args()
@@ -103,7 +103,7 @@ def main():
                 src_file.write(src)
             src = ''
             # Next see if we need to create a new config or this is the same as a previous one
-            key = tuple([kernel_filename, compile_options])
+            key = tuple([kernel_filename, compile_options.strip()])
             if key in cfg_lookup:
                 continue
             for cfg_num in range(10000):
@@ -111,6 +111,7 @@ def main():
                 if not os.path.exists(candidate):
                     config_name = candidate
                     break
+            cfg_lookup.add(key)
             with open(config_name , 'w') as cfg_file:
                 cfg_file.write(config_template.format(src_file=kernel_filename, compilation_options=compile_options))
             continue

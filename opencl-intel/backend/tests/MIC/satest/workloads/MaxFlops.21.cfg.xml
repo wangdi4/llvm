@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <RunConfiguration>
-  <ProgramFile compilation_flags="-cl-mad-enable -cl-no-signed-zeros -cl-unsafe-math-optimizations -cl-finite-math-only">MaxFlops.20.c</ProgramFile>
+  <ProgramFile compilation_flags="-cl-mad-enable -cl-no-signed-zeros -cl-unsafe-math-optimizations -cl-finite-math-only">MaxFlops.21.c</ProgramFile>
   <ProgramFileType>CL</ProgramFileType>
   <UseVTune>0</UseVTune>
   <UseVectorizer>1</UseVectorizer>
@@ -9,11 +9,11 @@
     <LocalWorkSize>16</LocalWorkSize>
     <GlobalWorkSize>16</GlobalWorkSize>
     <GlobalWorkOffset>0</GlobalWorkOffset>
-    <InputDataFile>MaxFlops.20.c.dat.xml</InputDataFile>
+    <InputDataFile>MaxFlops.21.c.dat.xml</InputDataFile>
     <InputDataFileType>xml</InputDataFileType>
-    <ReferenceDataFile>MaxFlops.20.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFile>MaxFlops.21.c.ref.xml</ReferenceDataFile>
     <ReferenceDataFileType>xml</ReferenceDataFileType>
-    <NeatDataFile>MaxFlops.20.c.neat.xml</NeatDataFile>
+    <NeatDataFile>MaxFlops.21.c.neat.xml</NeatDataFile>
     <NeatDataFileType>xml</NeatDataFileType>
   </KernelConfiguration>
 </RunConfiguration>
