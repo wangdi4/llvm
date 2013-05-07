@@ -262,7 +262,7 @@ void Predicator::LinearizeBlock(
     if (succ0 != header && succ1 != header) {
       term->eraseFromParent();
       BranchInst::Create(next, block);
-      return;
+      return LinearizeFixPhiNode(next, block);
     }
     // If the block has a conditional branch with a backedge, the other edge
     // that leaves the loop is replaced by an edge to the next block in the
