@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <RunConfiguration>
-  <ProgramFile compilation_flags="-DK_DOUBLE_PRECISION  -D__INTEL_MIC__">Reduction.1.c</ProgramFile>
+  <ProgramFile compilation_flags="-DK_DOUBLE_PRECISION  -D__INTEL_MIC__">Reduction.0.c</ProgramFile>
   <ProgramFileType>CL</ProgramFileType>
   <UseVTune>0</UseVTune>
   <UseVectorizer>1</UseVectorizer>
@@ -9,11 +9,11 @@
     <LocalWorkSize>16</LocalWorkSize>
     <GlobalWorkSize>16</GlobalWorkSize>
     <GlobalWorkOffset>0</GlobalWorkOffset>
-    <InputDataFile>Reduction.1.c.dat.xml</InputDataFile>
+    <InputDataFile>Reduction.0.c.dat.xml</InputDataFile>
     <InputDataFileType>xml</InputDataFileType>
-    <ReferenceDataFile>Reduction.1.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFile>Reduction.0.c.ref.xml</ReferenceDataFile>
     <ReferenceDataFileType>xml</ReferenceDataFileType>
-    <NeatDataFile>Reduction.1.c.neat.xml</NeatDataFile>
+    <NeatDataFile>Reduction.0.c.neat.xml</NeatDataFile>
     <NeatDataFileType>xml</NeatDataFileType>
   </KernelConfiguration>
 </RunConfiguration>

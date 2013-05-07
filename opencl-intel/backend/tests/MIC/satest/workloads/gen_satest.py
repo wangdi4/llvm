@@ -101,6 +101,7 @@ def main():
                 src_to_c[src] = kernel_filename
             with open(kernel_filename, 'w') as src_file:
                 src_file.write(src)
+            src = ''
             # Next see if we need to create a new config or this is the same as a previous one
             key = tuple([kernel_filename, compile_options])
             if key in cfg_lookup:

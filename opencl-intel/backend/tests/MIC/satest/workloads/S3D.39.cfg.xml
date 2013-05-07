@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <RunConfiguration>
-  <ProgramFile compilation_flags="-DK_DOUBLE_PRECISION -DDIM=16 -DN_GP=4096">S3D.39.c</ProgramFile>
+  <ProgramFile compilation_flags="-DK_DOUBLE_PRECISION -DDIM=16 -DN_GP=4096">S3D.12.c</ProgramFile>
   <ProgramFileType>CL</ProgramFileType>
   <UseVTune>0</UseVTune>
   <UseVectorizer>1</UseVectorizer>
@@ -9,11 +9,11 @@
     <LocalWorkSize>16</LocalWorkSize>
     <GlobalWorkSize>16</GlobalWorkSize>
     <GlobalWorkOffset>0</GlobalWorkOffset>
-    <InputDataFile>S3D.39.c.dat.xml</InputDataFile>
+    <InputDataFile>S3D.12.c.dat.xml</InputDataFile>
     <InputDataFileType>xml</InputDataFileType>
-    <ReferenceDataFile>S3D.39.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFile>S3D.12.c.ref.xml</ReferenceDataFile>
     <ReferenceDataFileType>xml</ReferenceDataFileType>
-    <NeatDataFile>S3D.39.c.neat.xml</NeatDataFile>
+    <NeatDataFile>S3D.12.c.neat.xml</NeatDataFile>
     <NeatDataFileType>xml</NeatDataFileType>
   </KernelConfiguration>
 </RunConfiguration>
