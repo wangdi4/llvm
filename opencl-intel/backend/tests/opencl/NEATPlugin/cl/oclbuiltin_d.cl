@@ -290,8 +290,7 @@ File Name:  oclbuiltin_d.cl
     KERNEL_BI_ONEARG(tanpi)
     KERNEL_BI_ONEARG(fabs)
  
-    //KERNEL_BI_ONEARG(asinh)
-	KERNEL_DUMMY(asinh)
+    KERNEL_BI_ONEARG(asinh)
     KERNEL_BI_ONEARG(acosh)
     KERNEL_BI_ONEARG(atanh)
 
