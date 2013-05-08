@@ -2916,14 +2916,6 @@ cl_int getAssocDevices(
     if( NULL != inDevList )
     {
         // devices have been provided by the user
-
-        *outDevList = new cl_device_id[ *outNumDevs ];
-        if( !( *outDevList ) )
-        {
-            errCode = CL_OUT_OF_HOST_MEMORY;
-            *outDevList = NULL;
-            goto FINISH;
-        }
         cl_uint j = 0;
         for( cl_uint i=0; i < *outNumDevs; i++ )
         {
@@ -2945,21 +2937,15 @@ cl_int getAssocDevices(
         {
             errCode = CL_INVALID_PROGRAM;
         }
+        ( *outNumDevs ) = j;
     }
     else
     {
         // devices have NOT been provided by the user
         // consider the context devices instead
 
-        ( *outNumDevs ) = ( cl_uint )crtCtx->m_DeviceToContext.size();
-        ( *outDevList ) = new cl_device_id[ *outNumDevs ];
-        if( !( *outDevList ) )
-        {
-            errCode = CL_OUT_OF_HOST_MEMORY;
-            goto FINISH;
-        }
+        cl_uint j = 0;
         DEV_CTX_MAP::iterator itr = crtCtx->m_DeviceToContext.begin();
-        cl_uint i=0;
         for (;itr != crtCtx->m_DeviceToContext.end(); itr++)
         {
             if( isRequiredObjAvailable(
@@ -2967,20 +2953,16 @@ cl_int getAssocDevices(
                     in_programs,
                     bin_types) )
             {
-                ( *outDevList )[ i++ ] = itr->first;
+                ( *outDevList )[ j++ ] = itr->first;
             }
         }
-        if( i == 0 )
+        if( j == 0 )
         {
             errCode = CL_INVALID_PROGRAM;
         }
+        ( *outNumDevs ) = j;
     }
 FINISH:
-    if( ( CL_SUCCESS != errCode ) && *outDevList )
-    {
-        delete[] *outDevList;
-        *outDevList = NULL;
-    }
     return errCode;
 }
 /// ------------------------------------------------------------------------------
@@ -3022,7 +3004,9 @@ cl_int CL_API_CALL clBuildProgram(
     std::string                     optReflect;
     cl_int errCode                  = CL_SUCCESS;
     cl_device_id* deviceList        = NULL;
+    cl_uint deviceListSize          = 0;
     CrtBuildCallBackData* crtData   = NULL;
+    cl_device_id* outDevices        = NULL;
 
     CrtProgram* crtProg = reinterpret_cast<CrtProgram*>(((_cl_program_crt*)program)->object);
 
@@ -3057,6 +3041,21 @@ cl_int CL_API_CALL clBuildProgram(
 
     in_programs.push_back( crtProg );
 
+    if( NULL == device_list )
+    {
+        deviceListSize = crtProg->m_contextCRT->m_DeviceToContext.size();
+    }
+    else
+    {
+        deviceListSize = num_devices;
+    }
+    deviceList = new cl_device_id[ deviceListSize ];
+    if( NULL == deviceList )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
     errCode = getAssocDevices( device_list, &deviceList, in_programs, crtProg->m_contextCRT,
         CL_PROGRAM_BINARY_TYPE_NONE,
         &num_devices);
@@ -3067,15 +3066,16 @@ cl_int CL_API_CALL clBuildProgram(
     }
 
     crtData->m_numBuild = getNumRelevantContexts( num_devices, deviceList, crtProg->m_contextCRT );
-    for (cl_uint i = 0; i < OCLCRT::crt_ocl_module.m_oclPlatforms.size(); i++)
-    {
-        cl_device_id* outDevices = new cl_device_id[num_devices];
-        if (NULL == outDevices)
-        {
-            errCode = CL_OUT_OF_HOST_MEMORY;
-            goto FINISH;
-        }
 
+    outDevices = new cl_device_id[ num_devices ];
+    if( NULL == outDevices )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
+    for( cl_uint i = 0; i < OCLCRT::crt_ocl_module.m_oclPlatforms.size(); i++ )
+    {
         cl_uint matchDevices = 0;
         crtProg->m_contextCRT->GetDevicesByPlatformId(
             num_devices,
@@ -3086,7 +3086,6 @@ cl_int CL_API_CALL clBuildProgram(
 
         if (matchDevices == 0)
         {
-            delete[] outDevices;
             continue;
         }
 
@@ -3102,8 +3101,6 @@ cl_int CL_API_CALL clBuildProgram(
             optReflect.c_str(),
             buildCompleteFn,
             crtData);
-
-        delete[] outDevices;
 
         // if ( CL_BUILD_PROGRAM_FAILURE != errCode ) is True; it means that
         // This is the first call to the underlying platforms, since the previous
@@ -3156,6 +3153,11 @@ FINISH:
         delete[] deviceList;
         deviceList = NULL;
     }
+    if( outDevices )
+    {
+        delete[] outDevices;
+        outDevices = NULL;
+    }
     return errCode;
 }
 /// ------------------------------------------------------------------------------
@@ -3176,9 +3178,12 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
     SHARED_CTX_DISPATCH::iterator       itr;
     cl_int errCode                      = CL_SUCCESS;
     cl_device_id* deviceList            = NULL;
+    cl_uint deviceListSize              = 0;
     CrtBuildCallBackData* crtData       = NULL;
     _cl_program_crt* program            = NULL;
     CrtProgram* crtProg                 = NULL;
+    cl_device_id* outDevices            = NULL;
+    cl_program* devPrograms             = NULL;
 
     if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 )
     {
@@ -3235,6 +3240,21 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
         in_programs.push_back( ((CrtProgram*)((_cl_program_crt*)input_programs[i])->object) );
     }
 
+    if( NULL == device_list )
+    {
+        deviceListSize = crtCtx->m_DeviceToContext.size();
+    }
+    else
+    {
+        deviceListSize = num_devices;
+    }
+    deviceList = new cl_device_id[ deviceListSize ];
+    if( NULL == deviceList )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
     // Retrieves the list of devices with a compiled object
     errCode = getAssocDevices( device_list, &deviceList, in_programs, crtCtx,
         CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT | CL_PROGRAM_BINARY_TYPE_LIBRARY,
@@ -3245,19 +3265,30 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
         goto FINISH;
     }
 
+    for( cl_uint i = 0; i < num_devices; i++ )
+    {
+        crtProg->m_assocDevices.push_back( deviceList[i] );
+    }
+
     crtData->m_numBuild = getNumRelevantContexts( num_devices, deviceList, crtCtx );
+
+    outDevices  = new cl_device_id[ num_devices ];
+    if( NULL == outDevices )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+    devPrograms = new cl_program[ num_input_programs ];
+    if( NULL == devPrograms )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
 
     // Iterate over the contexts
     itr = crtCtx->m_contexts.begin();
-    for(;itr != crtCtx->m_contexts.end(); itr++)
-    {        
-        cl_device_id* outDevices = new cl_device_id[num_devices];
-        if (NULL == outDevices)
-        {
-            errCode = CL_OUT_OF_HOST_MEMORY;
-            goto FINISH;
-        }
-
+    for( ;itr != crtCtx->m_contexts.end(); itr++ )
+    {
         cl_platform_id pId;
         itr->first->dispatch->clGetPlatformIDs(1, &pId, NULL );
 
@@ -3271,11 +3302,8 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
 
         if (matchDevices == 0)
         {
-            delete[] outDevices;
             continue;
         }
-
-        cl_program* devPrograms = new cl_program[ num_input_programs ];
 
         int p = 0;
         for( std::vector<CrtProgram*>::iterator pItr = in_programs.begin(); pItr != in_programs.end(); pItr++ )
@@ -3293,9 +3321,6 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
             buildCompleteFn,
             crtData,
             &errCode);
-        
-        delete[] devPrograms;        
-        delete[] outDevices;
 
         if( devPro )
         {
@@ -3309,7 +3334,6 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
         {
             goto FINISH;
         }
-
     }
 
     if (!pfn_notify)
@@ -3365,7 +3389,17 @@ FINISH:
         delete[] deviceList;
         deviceList = NULL;
     }
-    
+    if( outDevices )
+    {
+        delete[] outDevices;
+        outDevices = NULL;
+    }
+    if( devPrograms )
+    {
+        delete[] devPrograms;
+        devPrograms = NULL;
+    }
+
     if( errcode_ret )
     {
         *errcode_ret = errCode;
@@ -3391,6 +3425,8 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
     cl_int errCode                  = CL_SUCCESS;
     CrtBuildCallBackData* crtData   = NULL;
     cl_device_id* deviceList        = NULL;
+    cl_uint deviceListSize          = 0;
+    cl_device_id* outDevices        = NULL;
 
     if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 )
     {
@@ -3426,6 +3462,22 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
     }
     in_programs.push_back( crtProg );
 
+
+    if( NULL == device_list )
+    {
+        deviceListSize = crtProg->m_contextCRT->m_DeviceToContext.size();
+    }
+    else
+    {
+        deviceListSize = num_devices;
+    }
+    deviceList = new cl_device_id[ deviceListSize ];
+    if( NULL == deviceList )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
     errCode = getAssocDevices( device_list, &deviceList, in_programs, crtProg->m_contextCRT,
         CL_PROGRAM_BINARY_TYPE_NONE,
         &num_devices);
@@ -3436,15 +3488,16 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
     }
 
     crtData->m_numBuild = getNumRelevantContexts( num_devices, deviceList, crtProg->m_contextCRT );
-    for (cl_uint i = 0; i < OCLCRT::crt_ocl_module.m_oclPlatforms.size(); i++)
-    {
-        cl_device_id* outDevices = new cl_device_id[num_devices];
-        if (NULL == outDevices)
-        {
-            errCode = CL_OUT_OF_HOST_MEMORY;
-            goto FINISH;
-        }
 
+    outDevices = new cl_device_id[ num_devices ];
+    if( NULL == outDevices )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
+    for( cl_uint i = 0; i < OCLCRT::crt_ocl_module.m_oclPlatforms.size(); i++ )
+    {
         cl_uint matchDevices = 0;
         crtProg->m_contextCRT->GetDevicesByPlatformId(
             num_devices,
@@ -3455,7 +3508,6 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
 
         if (matchDevices == 0)
         {
-            delete[] outDevices;
             continue;
         }
 
@@ -3474,8 +3526,6 @@ CL_API_ENTRY cl_int CL_API_CALL clCompileProgram(
             header_include_names,
             *buildCompleteFn,
             crtData);
-
-        delete[] outDevices;
 
         // if ( CL_COMPILE_PROGRAM_FAILURE != errCode ) is True; it means that
         // This is the first call to the underlying platforms, since the previous
@@ -3529,6 +3579,11 @@ FINISH:
         delete[] deviceList;
         deviceList = NULL;
     }
+    if( outDevices )
+    {
+        delete[] outDevices;
+        outDevices = NULL;
+    }
     return errCode;
 }
 /// ------------------------------------------------------------------------------
@@ -3575,9 +3630,6 @@ cl_int CL_API_CALL clGetProgramBuildInfo( cl_program             program,
 {
     cl_int errCode = CL_SUCCESS;
     CrtProgram* pgm = reinterpret_cast<CrtProgram*>(((_cl_program_crt*)program)->object);
-    CrtContext* ctx = pgm->m_contextCRT;
-
-    cl_program currPgm = pgm->m_ContextToProgram[ ctx->GetContextByDeviceID( device ) ];
 
     if( param_name == CL_PROGRAM_BUILD_OPTIONS )
     {
@@ -3601,12 +3653,24 @@ cl_int CL_API_CALL clGetProgramBuildInfo( cl_program             program,
     }
     else
     {
-        errCode = currPgm->dispatch->clGetProgramBuildInfo( currPgm,
-                                                        device,
-                                                        param_name,
-                                                        param_value_size,
-                                                        param_value,
-                                                        param_value_size_ret );
+        CrtContext* ctx = pgm->m_contextCRT;
+
+        CTX_PGM_MAP::iterator it = pgm->m_ContextToProgram.find( ctx->GetContextByDeviceID( device ) );
+
+        if( it != pgm->m_ContextToProgram.end() )
+        {
+            cl_program currPgm = it->second;
+            errCode = currPgm->dispatch->clGetProgramBuildInfo( currPgm,
+                                                            device,
+                                                            param_name,
+                                                            param_value_size,
+                                                            param_value,
+                                                            param_value_size_ret );
+            goto FINISH;
+        }
+
+        // else, device is not associated with program
+        errCode = CL_INVALID_DEVICE;
     }
 
 FINISH:
