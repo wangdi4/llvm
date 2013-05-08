@@ -44,7 +44,7 @@ namespace intel{
     // Add WI structure declarations to the module
     addWIInfoDeclarations();
 
-    std::set<Function*> kernelsFunctionSet;
+    CompilationUtils::FunctionSet kernelsFunctionSet;
     CompilationUtils::getAllKernels(kernelsFunctionSet, m_pModule);
 
     // Collect all module functions that are not declarations into for handling

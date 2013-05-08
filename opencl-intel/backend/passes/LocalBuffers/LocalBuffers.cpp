@@ -42,7 +42,7 @@ namespace intel{
     Intel::MetaDataUtils mdUtils(&M);
 
     // Get all kernels
-    std::set<Function*> kernelsFunctionSet;
+    Intel::OpenCL::DeviceBackend::CompilationUtils::FunctionSet  kernelsFunctionSet;
     Intel::OpenCL::DeviceBackend::CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
 
     m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();

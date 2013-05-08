@@ -31,13 +31,12 @@ namespace intel{
 
   bool ModuleCleanup::runOnModule(Module& M) {
     bool didDeleteAny = false;
-    m_module = &M;
 
     // Grab list of kernels from module
-    Intel::OpenCL::DeviceBackend::CompilationUtils::getAllKernelWrappers(m_neededFuncsSet, m_module);
+    Intel::OpenCL::DeviceBackend::CompilationUtils::getAllKernelWrappers(m_neededFuncsSet, &M);
 
     // Erase body of all functions which are not needed
-    for (Module::iterator i = m_module->begin(), e = m_module->end(); i != e; ++i) {
+    for (Module::iterator i = M.begin(), e = M.end(); i != e; ++i) {
       Function *func = &*i;
       if (func->isDeclaration()) continue; // skip externals
       if (isNeededByKernel(func)) continue; // skip needed functions

@@ -16,10 +16,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Constants.h"
-
-#include <set>
+#include "llvm/ADT/SetVector.h"
 #include <vector>
-#include <map>
 
 using namespace llvm;
 
@@ -35,6 +33,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   class CompilationUtils {
 
   public:
+    /// We use a SetVector to ensure determinstic iterations
+    typedef SetVector<Function*> FunctionSet;
     /// @brief Removes the from the given basic block the instruction pointed 
     ///        by the given iterator
     /// @param pBB         A Basic block from which the instruction needs to be removed
@@ -61,12 +61,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief collect all kernel functions
     /// @param functionSet container to insert all kernel function into
     /// @param pModule the module to search kernel function inside
-    static void getAllKernels(std::set<Function*> &functionSet, Module *pModule);
+    static void getAllKernels(FunctionSet &functionSet, Module *pModule);
 
     /// @brief collect all kernel wrapper functions
     /// @param functionSet container to insert all kernel wrapper function into
     /// @param pModule the module to search kernel wrapper function inside
-    static void getAllKernelWrappers(std::set<Function*> &functionSet, Module *pModule);
+    static void getAllKernelWrappers(FunctionSet &functionSet, Module *pModule);
 
     /// @brief  fills a vector of cl_kernel_argument with arguments representing pFunc's
     ///         OpenCL level arguments

@@ -14,8 +14,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Attributes.h"
 #include "llvm/Support/ValueHandle.h"
 #include "llvm/Version.h"
+#include "llvm/ADT/SetVector.h"
 
-#include <map>
 #include <memory>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -38,11 +38,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     m_mdUtils = &mdUtils;
 
     // Get all kernels (original scalar kernels and vectorized kernels)
-    std::set<Function*> kernelsFunctionSet;
+    CompilationUtils::FunctionSet kernelsFunctionSet;
     CompilationUtils::getAllKernels(kernelsFunctionSet, m_pModule);
 
     // Run on all kernels for handling and handle them
-    for ( std::set<Function*>::iterator fi = kernelsFunctionSet.begin(),
+    for ( CompilationUtils::FunctionSet::iterator fi = kernelsFunctionSet.begin(),
       fe = kernelsFunctionSet.end(); fi != fe; ++fi ) {
         runOnFunction(*fi);
     }

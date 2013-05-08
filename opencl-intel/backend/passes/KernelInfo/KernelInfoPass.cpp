@@ -66,11 +66,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     FPM.add(pKernelInfoPass);
 
     // Get all kernels
-    std::set<Function*> kernelsFunctionSet;
+    CompilationUtils::FunctionSet kernelsFunctionSet;
     CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
 
     // Run on all scalar functions for handling and handle them
-    for ( std::set<Function*>::iterator fi = kernelsFunctionSet.begin(),
+    for ( CompilationUtils::FunctionSet::iterator fi = kernelsFunctionSet.begin(),
       fe = kernelsFunctionSet.end(); fi != fe; ++fi ) {
         Function *pFunc = dyn_cast<Function>(*fi);
         assert(pFunc && "got NULL kernel");

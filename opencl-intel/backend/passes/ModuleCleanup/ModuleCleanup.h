@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __MODULE_CLEANUP_H__
 
 #include <llvm/Pass.h>
-#include <set>
+#include "CompilationUtils.h"
 
 namespace intel{
     using namespace llvm;
@@ -38,8 +38,9 @@ namespace intel{
         /// @brief Current module
         Module *m_module;
 
+        typedef Intel::OpenCL::DeviceBackend::CompilationUtils::FunctionSet FunctionSet;
         /// @brief Set of all functions which are deemed necessary
-        std::set<Function*> m_neededFuncsSet;
+        FunctionSet m_neededFuncsSet;
 
     };
 

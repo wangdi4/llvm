@@ -22,6 +22,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #else
 #include "llvm/Target/TargetData.h"
 #endif
+#include "llvm/ADT/SetVector.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -140,7 +141,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
   }
 
-  void CompilationUtils::getAllKernels(std::set<Function*> &functionSet, Module *pModule) {
+  void CompilationUtils::getAllKernels(FunctionSet &functionSet, Module *pModule) {
     //Clear old collected data!
     functionSet.clear();
 
@@ -166,7 +167,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
 
-  void CompilationUtils::getAllKernelWrappers(std::set<Function*> &functionSet, Module *pModule) {
+  void CompilationUtils::getAllKernelWrappers(FunctionSet &functionSet, Module *pModule) {
     //Clear old collected data!
     functionSet.clear();
 
