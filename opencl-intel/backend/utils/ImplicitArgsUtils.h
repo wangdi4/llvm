@@ -45,8 +45,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @returns The implicit argument properties
     static const ImplicitArgProperties& getImplicitArgProps(unsigned int arg);
 
-    static void initImplicitArgProps(unsigned int uiSizeT);
+    /// @brief  Initialize properties on implicit arguments in run time
+    /// @param  sizeOfPtr     Size of pointer, depends on target machine
+    /// @returns none
+    static void initImplicitArgProps(unsigned int sizeOfPtr);
     
+    /// @brief Indicates that the properties were initialized
+    static bool m_initialized;
+
     /// @brief Constructor
     ImplicitArgsUtils() {}
     /// @brief Destructor
@@ -94,7 +100,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   
     /// list of implicit arguments
     ImplicitArgument m_implicitArgs[m_numberOfImplicitArgs];
-    static bool m_initialized;
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

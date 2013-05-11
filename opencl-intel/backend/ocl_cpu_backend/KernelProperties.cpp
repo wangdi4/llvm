@@ -28,17 +28,17 @@ KernelJITProperties::KernelJITProperties():
     m_vectorSize(1)
 {}
 
-KernelProperties::KernelProperties(unsigned int uiSizeT):
+KernelProperties::KernelProperties():
     m_hasBarrier(false),
     m_DAZ(false),
     m_optWGSize(0),
     m_totalImplSize(0),
     m_privateMemorySize(0),
     m_minGroupSizeFactorial(1),
-    m_uiSizeT(uiSizeT)
+    m_uiSizeT(sizeof(void*))
 {
-    memset(m_reqdWGSize, 0, MAX_WORK_DIM*(uiSizeT));
-    memset(m_hintWGSize, 0, MAX_WORK_DIM*(uiSizeT));
+    memset(m_reqdWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
+    memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
 }
 
 size_t KernelProperties::GetKernelExecutionLength() const

@@ -67,9 +67,9 @@ Kernel* CPUDeviceBackendFactory::CreateKernel(
     return new Kernel(name, args, pProps);
 }
 
-KernelProperties* CPUDeviceBackendFactory::CreateKernelProperties(unsigned int uiSizeOfPtr)
+KernelProperties* CPUDeviceBackendFactory::CreateKernelProperties()
 {
-    return new KernelProperties(uiSizeOfPtr);
+    return new KernelProperties();
 }
 
 KernelJITProperties* CPUDeviceBackendFactory::CreateKernelJITProperties()

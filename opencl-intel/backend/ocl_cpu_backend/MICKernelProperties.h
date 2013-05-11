@@ -39,7 +39,7 @@ public:
 class MICKernelProperties : public KernelProperties
 {
 public:
-    MICKernelProperties(unsigned int uiSizeT) : KernelProperties(uiSizeT) { };
+    MICKernelProperties() : KernelProperties() { };
 
     MICKernelProperties(KernelProperties* pKernelProps);
 

@@ -47,7 +47,7 @@ protected:
 class KernelProperties: public ICLDevBackendKernelProporties
 {
 public:
-    KernelProperties(unsigned int uiSizeT);
+    KernelProperties();
     /*
      * ICLDevBackendKernelProporties methods
      */ 
@@ -121,6 +121,7 @@ public:
     void SetCpuId( const Intel::CPUId &cpuId ) { m_cpuId = cpuId; }
     void SetMinGroupSizeFactorial(unsigned int size) { m_minGroupSizeFactorial = size; }
     void SetJitCreateWIids (bool value) { m_bJitCreateWIids = value; }
+    void SetPointerSize(unsigned int value) { m_uiSizeT = value; }
     
     unsigned int  GetOptWGSize()      const { return m_optWGSize; } 
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }

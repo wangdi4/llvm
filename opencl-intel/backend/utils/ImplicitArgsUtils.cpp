@@ -45,8 +45,6 @@ const ImplicitArgProperties& ImplicitArgsUtils::getImplicitArgProps(unsigned int
 }
 
 void ImplicitArgsUtils::initImplicitArgProps(unsigned int SizeT) {
-  if (m_initialized) 
-    return;
   for(unsigned int i=0; i<m_numberOfImplicitArgs; ++i) {
     m_implicitArgProps[i].m_name = impArgs[i].name;
     m_implicitArgProps[i].m_size = SizeT;

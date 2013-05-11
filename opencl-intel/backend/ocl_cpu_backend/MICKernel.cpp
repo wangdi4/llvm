@@ -106,7 +106,7 @@ void MICKernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
     Serializer::DeserialPointerHint((void**)&m_pProps, ist);
     if(NULL != m_pProps)
     {
-        m_pProps = static_cast<MICKernelProperties*>(stats->GetBackendFactory()->CreateKernelProperties(sizeof(void*))); 
+        m_pProps = static_cast<MICKernelProperties*>(stats->GetBackendFactory()->CreateKernelProperties()); 
         static_cast<MICKernelProperties*>(m_pProps)->Deserialize(ist, stats);
     }
 

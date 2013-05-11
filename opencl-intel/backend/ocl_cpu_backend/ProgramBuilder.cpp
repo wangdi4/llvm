@@ -236,8 +236,12 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     // TODO: This is workaround till the SDK hanlde case of zero private memory size!
     privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, privateMemorySize));
 
+    KernelProperties* pProps = new KernelProperties();
+
+    // Kernel should keep size of pointer specified inside module
+    // to allow cross-platform compilation
     unsigned int ptrSizeInBytes = pModule->getPointerSize()*4;
-    KernelProperties* pProps = new KernelProperties(ptrSizeInBytes);
+    pProps->SetPointerSize(ptrSizeInBytes);
 
     pProps->SetOptWGSize(optWGSize);
     pProps->SetReqdWGSize(reqdWGSize);

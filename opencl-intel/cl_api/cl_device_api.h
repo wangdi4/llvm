@@ -150,7 +150,7 @@ typedef struct _cl_prog_container_header
     cl_char                 mask[4];        //!< A container identifier mask must be "CLPC"
     cl_prog_binary_desc     description;    //!< Binary/IR description that is held by a container
     cl_prog_container_type  container_type; //!< Type of container that stores program binary, as defined by cl_prog_container_type
-    size_t                  container_size; //!< Size in bytes of the container data
+    unsigned int            container_size; //!< Size in bytes of the container data
 } cl_prog_container_header;
 
 // Interface declaration
