@@ -119,15 +119,15 @@ typedef enum
     CPU_DEVICE_DATA_TYPE_CHAR  = 0,
     CPU_DEVICE_DATA_TYPE_SHORT,
     CPU_DEVICE_DATA_TYPE_INT,
-    CPU_DEVICE_DATA_TYPE_FLOAT,
     CPU_DEVICE_DATA_TYPE_LONG, 
+    CPU_DEVICE_DATA_TYPE_FLOAT,
     CPU_DEVICE_DATA_TYPE_DOUBLE,
     CPU_DEVICE_DATA_TYPE_HALF
 } CPUDeviceDataTypes;
 
-static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_SSE42[] = {16, 8, 4, 4, 2, 2, 0};  //SSE4.2 has 16 byte (XMM) registers
-static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX[]   = {16, 8, 4, 8, 2, 4, 0};  //AVX supports 32 byte (YMM) registers only for floats and doubles
-static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX2[]  = {32, 16, 8, 8, 4, 4, 0}; //AVX2 has a full set of 32 byte (YMM) registers
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_SSE42[] = {16, 8, 4, 2, 4, 2, 0};  //SSE4.2 has 16 byte (XMM) registers
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX[]   = {16, 8, 4, 2, 8, 4, 0};  //AVX supports 32 byte (YMM) registers only for floats and doubles
+static const cl_uint CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX2[]  = {32, 16, 8, 4, 8, 4, 0}; //AVX2 has a full set of 32 byte (YMM) registers
 
 extern "C" const char* clDevErr2Txt(cl_dev_err_code errorCode)
 {
