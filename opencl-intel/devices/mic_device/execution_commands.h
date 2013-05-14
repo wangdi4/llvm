@@ -34,6 +34,12 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 
 class ExecutionCommand : public Command
 {
+public:
+
+	PREPARE_SHARED_PTR(Command)
+
+	bool commandEnqueuedToPipe() { return true; };
+
 protected:
 
 	ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
@@ -53,6 +59,9 @@ protected:
 	MiscDataHandler m_miscDatahandler;
 
 	DispatcherDataHandler m_dispatcherDatahandler;
+
+	// Contains COIEVENT that will signal when the Command will start.
+    command_event_struct m_startBarrier;
 };
 
 
@@ -61,8 +70,10 @@ class NDRange : public ExecutionCommand
 
 public:
 
+	PREPARE_SHARED_PTR(Command)
+
 	/* static function for NDRange Command creation */
-    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
+    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
 	cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::EXECUTE_NDRANGE, (char*)"NDRange"); };
 
@@ -111,8 +122,10 @@ class FillMemObject : public ExecutionCommand
 {
 public:
 
+	PREPARE_SHARED_PTR(Command)
+
 	/* static function for FillMemObject Command creation */
-    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
+    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
 	cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::FILL_MEM_OBJECT, (char*)"FillMemObject"); };
 

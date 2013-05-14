@@ -78,8 +78,8 @@ public:
 	   It is NOT thread safe method. */
 	cl_dev_err_code commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
 
-	/* The operation is not supported by device. The runtime should handle wait by itself */
-	void commandListWaitCompletion() { return; };
+	/* If cmdDescToWait != NULL waiting on the Command that store in cmdDescToWait->device_agent_data, otherwise wait to m_lastCommand Command. */
+	void commandListWaitCompletion(cl_dev_cmd_desc* cmdDescToWait = NULL);
 
 	/* Return this queue COIPIPLINE */
 	COIPIPELINE getPipelineHandle() const { return m_pipe; };
@@ -113,24 +113,15 @@ public:
 
     PerformanceDataStore* getOverheadData() { return m_pOverhead_data; };
 
-	/* In case of inOrder command list set:
-	       If threre is valid barrier and the previous command is not NDRange or 'isExecutionTask' == false than return the last barrier and set 'numDependencies' to 1.
-		   othrewise it means that the barrier is not valid or that the previous command was NDRange and the current command is NDRange in this case We return NULL as barrier 
-		   and set 'numDependencies' to 0 because the dependency betweem the commands enforced by COIPIPELINE.
-	   In case of outOfOrder command list set:
-	      Do nothing.
-	   It is NOT thread safe method because 'commandListExecute()' is NOT thread safe.
-	*/
-	virtual void getLastDependentBarrier(COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask) = 0;
+	/* Get the last Command that enqueued to this command_list. (Can be NULL if not command or the command deleted) */
+	SharedPtr<Command> getLastCommand();
 
-	/* set last dependency barrier to be barrier and lastCommandWasExecution flag accordingly (In case of InOrder command list).
-	   Do nothing in case of out of order commandList. 
-	   It is NOT thread safe method because 'commandListExecute()' is NOT thread safe.
-	*/
-	virtual void setLastDependentBarrier(COIEVENT barrier, bool lastCmdWasExecution) = 0;
+	/* Set the last command of this command_list to be newCommand.
+		If newCommand == NULL and oldCommand == m_lastCommand than setting the last command to be NULL. Command MUST Call it with the optional argument Before deleting command. */
+	void setLastCommand(const SharedPtr<Command>& newCommand, const SharedPtr<Command>& oldCommand = NULL);
 
 	/* return true if the queue is InOrder command list */
-	virtual bool isInOrderCommandList() = 0;
+	bool isInOrderCommandList() { return m_isInOrderQueue; };
 
 protected:
 
@@ -140,7 +131,8 @@ protected:
 	            IOCLFrameworkCallbacks*     pFrameworkCallBacks, 
 	            ProgramService*             pProgramService, 
 	            PerformanceDataStore*       pOverheadData,
-	            cl_dev_subdevice_id subDeviceId);
+	            cl_dev_subdevice_id subDeviceId,
+				bool isInOrder);
 
 	// the last dependency barrier COIBarrier.
 	COIEVENT          m_lastDependentBarrier;
@@ -149,7 +141,7 @@ protected:
 private:
 
 	// definition of static function of Commands that create command object (factory)
-    typedef cl_dev_err_code fnCommandCreate_t(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
+    typedef cl_dev_err_code fnCommandCreate_t(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
 	/* Create new COIPIPELINE for this queue */
 	cl_dev_err_code createPipeline();
@@ -171,7 +163,7 @@ private:
 	   cmd - cl_dev_cmd_desc input data structure.
 	   cmdObject - out paramenter for appropriate Command object according to cmd->type or FailureNotification object in case of failure.
 	   Return CL_DEV_SUCCESS if succeeded */
-	cl_dev_err_code createCommandObject(cl_dev_cmd_desc* cmd, Command** cmdObject);
+	cl_dev_err_code createCommandObject(cl_dev_cmd_desc* cmd, SharedPtr<Command>& cmdObject);
 
 	// pointer to device notification port object
 	NotificationPort*                 m_pNotificationPort;
@@ -192,70 +184,19 @@ private:
     // per device overhead storage
     PerformanceDataStore*             m_pOverhead_data;
 
+	// Shared pointer that store the last command enqueued (Can be NULL)
+	SharedPtr<Command>				  m_lastCommand;
+
+	// Spin mutex to guard the last Command object
+	OclSpinMutex					  m_lastCommandMutex;
+
+	// True if this is in order CommandList, otherwise False.
+	bool							  m_isInOrderQueue;
+
 #ifdef _DEBUG
 	AtomicCounter					  m_numOfConcurrentExecutions;
 #endif
 
 };
 
-
-
-/* Class wich represent In order command list */
-class InOrderCommandList : public CommandList
-{
-
-public:
-
-    InOrderCommandList(NotificationPort*            pNotificationPort, 
-                       DeviceServiceCommunication*  pDeviceServiceComm, 
-                       IOCLFrameworkCallbacks*      pFrameworkCallBacks, 
-                       ProgramService*              pProgramService, 
-                       PerformanceDataStore*        pOverheadData,
-                       cl_dev_subdevice_id          subDeviceId);
-	
-	virtual ~InOrderCommandList();
-	
-	/* Get the current dependent barrier and its details according to 'isExecutionTask' flag and according to the value in m_lastCommandWasNDRange. */
-	void getLastDependentBarrier(COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask);
-	
-	/* Set the current dependent barrier and its details */
-	void setLastDependentBarrier(COIEVENT barrier, bool lastCmdWasExecution);
-	
-	bool isInOrderCommandList() { return true; };
-	
-private:
-
-	// is the last command was NDRange
-	bool                m_lastCommandWasNDRange;
-
-};
-
-
-
-class OutOfOrderCommandList : public CommandList
-{
-
-public:
-
-    OutOfOrderCommandList(NotificationPort*             pNotificationPort, 
-                          DeviceServiceCommunication*   pDeviceServiceComm, 
-                          IOCLFrameworkCallbacks*       pFrameworkCallBacks, 
-                          ProgramService*               pProgramService, 
-                          PerformanceDataStore*         pOverheadData,
-                          cl_dev_subdevice_id           subDeviceId)
-		: CommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService, pOverheadData, subDeviceId) {};
-	
-	virtual ~OutOfOrderCommandList() {};
-	
-	/* In out of order command list there is no dependency between commands so return NULL as barrier and 0 as num dependencies. */
-	void getLastDependentBarrier(COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask) { *numDependencies = 0; *barrier = NULL; };
-	
-	/* Set the current dependent barrier and its details. Need it in out of order command list only for the implementation of 'commandListWaitCompletion()' */
-	void setLastDependentBarrier(COIEVENT barrier, bool lastCmdWasExecution) { return; };
-	
-	bool isInOrderCommandList() { return false; };
-
-};
-
 }}}
-

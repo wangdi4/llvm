@@ -20,11 +20,21 @@ m_pCommandList(pCommandList), m_cmdRunningTime(0), m_cmdCompletionTime(0), m_pFr
 	// Get CommandSynchHandler singleton according to Queue type.
 	m_pCommandSynchHandler = CommandSynchHandler::getCommandSyncHandler(pCommandList->isInOrderCommandList());
 	assert(m_pCommandSynchHandler);
+#ifdef _DEBUG
+	m_commandCompleted = false;
+#endif
 }
 
 Command::~Command()
 {
+	assert(m_commandCompleted == true && "CRITICAL ERROR Trying to delete Command object before the command execution completed");
 	releaseResources();
+}
+
+void Command::releaseCommand()
+{
+	// Decrease the reference counter.
+	DecRefCnt();
 }
 
 void Command::notifyCommandStatusChanged(unsigned uStatus, cl_ulong timer)
@@ -46,8 +56,8 @@ cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bo
 
 	if ((CL_DEV_SUCCESS == err) && (!otherErr))
     {
-    	// Set m_completionBarrier.cmdEvent to be the last barrier in case of InOrder CommandList.
-    	m_pCommandSynchHandler->setLastDependentBarrier(m_pCommandList, m_completionBarrier.cmdEvent, lastCmdWasExecution);
+		// Set this Command as the last command in the queue.
+		m_pCommandList->setLastCommand(this);
     	// Register m_completionBarrier.cmdEvent to NotificationPort
     	m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier.cmdEvent, this, NULL);
     }
@@ -55,7 +65,6 @@ cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bo
     {
         // error path
     	notifyCommandStatusChanged(CL_COMPLETE);
-    	delete this;
     }
 
 	return err;
@@ -69,14 +78,19 @@ void Command::registerProfilingContext(bool mayReplaceByUserEvent)
 
 void Command::fireCallBack(void* arg)
 {
+#ifdef _DEBUG
+	m_commandCompleted = true;
+#endif
 	// Set end coi execution time for the tracer. (Notification)
 	m_commandTracer.set_current_time_coi_notify_command_time_end();
+
+	// Call to setLastCommand with new command as NULL and Old command as this in order to remove myself from last command in command list (in case that this command is last command)
+	m_pCommandList->setLastCommand(NULL, this);
+
 	// Notify runtime that  the command completed
 	assert(m_pCmd->profiling == false || (m_cmdRunningTime > 0 && m_cmdCompletionTime > 0));
 	notifyCommandStatusChanged(CL_RUNNING, m_cmdRunningTime);
 	notifyCommandStatusChanged(CL_COMPLETE, m_cmdCompletionTime);
-	// Delete this Command object
-	delete this;
 }
 
 void Command::eventProfilingCall(COI_NOTIFICATIONS& type)
@@ -135,7 +149,7 @@ void Command::releaseResources()
 	// Delete Synchronization handler
 	assert(m_pCommandSynchHandler);
 	// Unregister the completion barrier
-	m_pCommandSynchHandler->unregisterCompletionBarrier(m_completionBarrier);
+	m_pCommandSynchHandler->unregisterBarrier(m_completionBarrier);
 }
 
 
@@ -147,9 +161,10 @@ FailureNotification::FailureNotification(IOCLFrameworkCallbacks* pFrameworkCallB
 
 cl_dev_err_code FailureNotification::execute()
 {
-	COIEVENT* barrier = NULL;
+	COIEVENT barrier;
+	COIEVENT* pBarrier = &barrier;
 	unsigned int numDependecies = 0;
-	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, pBarrier, &numDependecies, false);
 	// If OOO or first command fireCallBack in order to complete, otherwise add the last dependent barrier as my callback.
 	if (0 == numDependecies)
 	{
@@ -157,7 +172,7 @@ cl_dev_err_code FailureNotification::execute()
 	}
 	else
 	{
-		m_pCommandList->getNotificationPort()->addBarrier(*barrier, this, NULL);
+		m_pCommandList->getNotificationPort()->addBarrier(*pBarrier, this, NULL);
 	}
     return CL_DEV_SUCCESS;
 }
@@ -178,12 +193,42 @@ public:
 
 CommandSynchHandler::StaticInitializer CommandSynchHandler::init_statics;
 
-void InOrderCommandSynchHandler::getLastDependentBarrier(CommandList* pCommandList, COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask)
+void InOrderCommandSynchHandler::getLastDependentBarrier(CommandList* pCommandList, COIEVENT* barrier, unsigned int* numDependencies, bool isExecutionTask)
 {
-	pCommandList->getLastDependentBarrier(barrier, numDependencies, isExecutionTask);
+	SharedPtr<Command> lastCmd = pCommandList->getLastCommand();
+	/* If last command is NULL --> Last command completed or not exist; or the current command is going to enqueue to COIPipe and the last Command also enqueued to COIPipe
+		Then we can return NULL as the barrier. */
+	if ((NULL == lastCmd) || ((isExecutionTask) && (lastCmd->commandEnqueuedToPipe())))
+	{
+		*numDependencies = 0;
+	}
+	else
+	{
+		assert(lastCmd && "lastCmd Must be valid pointer");
+		*barrier = lastCmd->getCommandCompletionEvent();
+		*numDependencies = 1;
+	}
 }
 
-void InOrderCommandSynchHandler::setLastDependentBarrier(CommandList* pCommandList, COIEVENT barrier, bool lastCmdWasExecution)
-{
-	pCommandList->setLastDependentBarrier(barrier, lastCmdWasExecution);
+COIEVENT* OutOfOrderCommandSynchHandler::registerBarrier(Command::command_event_struct& completionBarrier, Command* pCommand) 
+{ 
+	// If not register yet
+	if (false == completionBarrier.isRegister)
+	{
+		pCommand->registerProfilingContext();
+		COIEventRegisterUserEvent(&(completionBarrier.cmdEvent));
+		pCommand->unregisterProfilingContext();
+		completionBarrier.isRegister = true;
+	}
+	return NULL;
+}
+
+void OutOfOrderCommandSynchHandler::unregisterBarrier(Command::command_event_struct& completionBarrier) 
+{ 
+	// If already registered
+	if (completionBarrier.isRegister)
+	{
+		COIEventUnregisterUserEvent(completionBarrier.cmdEvent);
+		completionBarrier.isRegister = false;
+	}
 }

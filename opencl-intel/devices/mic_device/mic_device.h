@@ -92,9 +92,6 @@ private:
                                        cl_dev_cmd_list* OUT list);
 
 	void  clDevCloseDeviceInt( bool preserve_object = false );
-	
-	// dummy implementations
-     void clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease) { }
 
 protected:
     ~MICDevice();
@@ -126,6 +123,7 @@ public:
     cl_dev_err_code clDevReleaseCommandList( cl_dev_cmd_list IN list );
     cl_dev_err_code clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
     cl_dev_err_code clDevCommandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* cmdDesc);
+	void clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease);
     cl_dev_err_code clDevGetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
                     cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet) const;
     cl_dev_err_code clDevGetMemoryAllocProperties( cl_mem_object_type IN memObjType,    cl_dev_alloc_prop* OUT pAllocProp );

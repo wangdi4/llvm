@@ -586,7 +586,7 @@ ReadWriteMemObject::~ReadWriteMemObject()
 	}
 }
 
-cl_dev_err_code ReadWriteMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand)
+cl_dev_err_code ReadWriteMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand)
 {
 	return verifyCreation(new ReadWriteMemObject(pCommandList, pFrameworkCallBacks, pCmd), pOutCommand);
 }
@@ -607,9 +607,10 @@ cl_dev_err_code ReadWriteMemObject::execute()
     bool error = false;
 
     do {
-       	COIEVENT* barrier = NULL;
+       	COIEVENT barrier;
     	unsigned int numDependecies = 0;
     	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+		COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
 
         assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -639,7 +640,7 @@ cl_dev_err_code ReadWriteMemObject::execute()
     						cmdParams->ptr_origin[0];
 
         ReadWriteMemoryChunk copier(
-                            barrier,
+                            pBarrier,
                             pMicMemObj, 
                             cmdParams->ptr,
                             ( CL_DEV_CMD_READ == m_pCmd->type ),
@@ -750,7 +751,7 @@ CopyMemObject::~CopyMemObject()
 	}
 }
 
-cl_dev_err_code CopyMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand)
+cl_dev_err_code CopyMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand)
 {
 	return verifyCreation(new CopyMemObject(pCommandList, pFrameworkCallBacks, pCmd), pOutCommand);
 }
@@ -830,9 +831,10 @@ cl_dev_err_code CopyMemObject::execute()
 		memcpy(sCpyParam.vRegion, cmdParams->region, sizeof(sCpyParam.vRegion));
 		sCpyParam.vRegion[0] *= uiSrcElementSize;
 
-       	COIEVENT* barrier = NULL;
+       	COIEVENT barrier;
     	unsigned int numDependecies = 0;
     	m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+		COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
 
         assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -867,7 +869,7 @@ cl_dev_err_code CopyMemObject::execute()
 												 pMicMemObjSrc->GetRawDataSize(),									// The number of bytes to write from coiBuffer into host
 												 COI_COPY_UNSPECIFIED,												// The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
 												 numDependecies,													// The number of dependencies specified.
-												 barrier,															// An optional array of handles to previously created COIEVENT objects that this read operation will wait for before starting.
+												 pBarrier,															// An optional array of handles to previously created COIEVENT objects that this read operation will wait for before starting.
 												 &initialReadBarrier										        // An optional event to be signaled when the copy has completed.
 											   );
 
@@ -889,7 +891,7 @@ cl_dev_err_code CopyMemObject::execute()
 		else	// Regular copy from different source and destination COIBuffers.
 		{
 			pCopier = new CopyMemoryChunk(
-											barrier,
+											pBarrier,
 											pMicMemObjSrc,
 											pMicMemObjDst,
 											m_pCommandList->getDeviceProcess()
@@ -1009,7 +1011,7 @@ MapMemObject::MapMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pF
 {
 }
 
-cl_dev_err_code MapMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand)
+cl_dev_err_code MapMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand)
 {
 	return verifyCreation(new MapMemObject(pCommandList, pFrameworkCallBacks, pCmd), pOutCommand);
 }
@@ -1047,9 +1049,10 @@ cl_dev_err_code MapMemObject::execute()
 	// The do .... while (0) is a pattern when there are many failures points instead of goto operation use do ... while (0) with break commands.
 	do
 	{
-	    COIEVENT* barrier = NULL;
+	    COIEVENT barrier;
 	    unsigned int numDependecies = 0;
 	    m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+        COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
 
 	    assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -1063,7 +1066,7 @@ cl_dev_err_code MapMemObject::execute()
 		m_commandTracer.set_command_type((char*)"Map");
 
 		MapMemoryChunk copier(
-                               barrier,
+                               pBarrier,
                                pMicMemObj->clDevMemObjGetCoiBufferHandler(), // Get the COIBUFFER which represent this memory object
                                cmdParams->ptr,
 							   COI_MAP_READ_WRITE, 
@@ -1152,7 +1155,7 @@ UnmapMemObject::UnmapMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks
 {
 }
 
-cl_dev_err_code UnmapMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand)
+cl_dev_err_code UnmapMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand)
 {
 	return verifyCreation(new UnmapMemObject(pCommandList, pFrameworkCallBacks, pCmd), pOutCommand);
 }
@@ -1175,9 +1178,10 @@ cl_dev_err_code UnmapMemObject::execute()
 	// The do .... while (0) is a pattern when there are many failures points instead of goto operation use do ... while (0) with break commands.
 	do
 	{		
-		COIEVENT* barrier = NULL;
+		COIEVENT barrier;
 		unsigned int numDependecies = 0;
 		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+		COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
 
 		assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -1201,7 +1205,7 @@ cl_dev_err_code UnmapMemObject::execute()
 		// Set command type for the tracer.
 		m_commandTracer.set_command_type((char*)"Unmap");
 
-		UnmapMemoryChunk unmapper( barrier );
+		UnmapMemoryChunk unmapper( pBarrier );
 
 		// Set start coi execution time for the tracer.
 		m_commandTracer.set_current_time_coi_enqueue_command_time_start();
@@ -1265,7 +1269,7 @@ MigrateMemObject::MigrateMemObject(CommandList* pCommandList, IOCLFrameworkCallb
 {
 }
 
-cl_dev_err_code MigrateMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand)
+cl_dev_err_code MigrateMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand)
 {
 	return verifyCreation(new MigrateMemObject(pCommandList, pFrameworkCallBacks, pCmd), pOutCommand);
 }
@@ -1335,9 +1339,10 @@ cl_dev_err_code MigrateMemObject::execute()
 
 	do
 	{
-		COIEVENT* barrier = NULL;
+		COIEVENT barrier;
 		unsigned int numDependecies = 0;
 		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+		COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
 
         assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -1362,10 +1367,10 @@ cl_dev_err_code MigrateMemObject::execute()
         // now enqueue all operations independently, except of the last, that should be dependent on all other
         vector<COIEVENT> independent_ops;
         independent_ops.reserve( coiBuffsArr.size() + numDependecies );
-        if (NULL != barrier)
+        if (NULL != pBarrier)
         {
             // make last operation dependent on queue barrier in case only a single buffer op is required
-            independent_ops.push_back( *barrier );
+            independent_ops.push_back( *pBarrier );
         }
 
         vector<COIBUFFER>::iterator it     = coiBuffsArr.begin();
@@ -1384,7 +1389,7 @@ cl_dev_err_code MigrateMemObject::execute()
             
             result = COIBufferSetState(buffer, 
                                        targetProcess, COI_BUFFER_VALID, moveDataFlag, 
-                                       numDependecies, barrier, 
+                                       numDependecies, pBarrier, 
                                        &intermediate_barrier);
 
             if (result != COI_SUCCESS)
@@ -1402,7 +1407,7 @@ cl_dev_err_code MigrateMemObject::execute()
         result = COIBufferSetState(last_buffer_handle, 
                                    targetProcess, COI_BUFFER_VALID, moveDataFlag, 
                                    independent_ops.size(), barrier_list, 
-                                   m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier, this));
+                                   m_pCommandSynchHandler->registerBarrier(m_completionBarrier, this));
         
         if (result != COI_SUCCESS)
         {

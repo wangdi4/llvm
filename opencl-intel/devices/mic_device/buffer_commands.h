@@ -193,6 +193,10 @@ class BufferCommands : public Command
 {
 public:
 
+	PREPARE_SHARED_PTR(Command)
+
+	bool commandEnqueuedToPipe() { return false; };
+
 	void eventProfilingCall(COI_NOTIFICATIONS& type);
 
 protected:
@@ -227,8 +231,10 @@ class ReadWriteMemObject : public BufferCommands
 
 public:
 
+	PREPARE_SHARED_PTR(Command)
+
 	/* static function for ReadWriteMemObject Command creation */
-    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
+    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
 	cl_dev_err_code execute();
 
@@ -248,10 +254,12 @@ class CopyMemObject : public BufferCommands
 
 public:
 
+	PREPARE_SHARED_PTR(Command)
+
 	virtual ~CopyMemObject();
 
 	/* static function for CopyMemObject Command creation */
-    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
+    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
 	cl_dev_err_code execute();
 
@@ -271,8 +279,10 @@ class MapMemObject : public BufferCommands
 
 public:
 
+	PREPARE_SHARED_PTR(Command)
+
 	/* static function for MapMemObject Command creation */
-    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
+    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
 	cl_dev_err_code execute();
 
@@ -290,8 +300,10 @@ class UnmapMemObject : public BufferCommands
 
 public:
 
+	PREPARE_SHARED_PTR(Command)
+
 	/* static function for UnmapMemObject Command creation */
-    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
+    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
 	cl_dev_err_code execute();
 
@@ -307,8 +319,10 @@ class MigrateMemObject : public BufferCommands
 {
 public:
 
+	PREPARE_SHARED_PTR(Command)
+
 	/* static function for MigrateMemObject Command creation */
-    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand);
+    static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
 	cl_dev_err_code execute();
 

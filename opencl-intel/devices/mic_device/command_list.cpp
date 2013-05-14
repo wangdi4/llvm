@@ -34,9 +34,10 @@ CommandList::CommandList(NotificationPort* pNotificationPort,
                          IOCLFrameworkCallbacks* pFrameworkCallBacks, 
                          ProgramService* pProgramService, 
                          PerformanceDataStore* pOverheadData,
-                         cl_dev_subdevice_id subDeviceId) :
+                         cl_dev_subdevice_id subDeviceId,
+						 bool isInOrder) :
 m_validBarrier(false), m_pNotificationPort(pNotificationPort), m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks), 
-m_pProgramService(pProgramService), m_pipe(NULL), m_subDeviceId(subDeviceId), m_pOverhead_data(pOverheadData)
+m_pProgramService(pProgramService), m_pipe(NULL), m_subDeviceId(subDeviceId), m_pOverhead_data(pOverheadData), m_lastCommand(NULL), m_isInOrderQueue(isInOrder)
 {
 	m_refCounter.exchange(1);
 #ifdef _DEBUG
@@ -72,15 +73,15 @@ cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN        
 	// If out of order command list
 	if (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO) )
 	{
-	    tCommandList = new OutOfOrderCommandList(pNotificationPort, pDeviceServiceComm, 
+	    tCommandList = new CommandList(pNotificationPort, pDeviceServiceComm, 
                                                  pFrameworkCallBacks, pProgramService, 
-                                                 pOverheadData, subDeviceId);
+                                                 pOverheadData, subDeviceId, false);
 	}
 	else  // In order command list
 	{
-	    tCommandList = new InOrderCommandList(pNotificationPort, pDeviceServiceComm, 
+	    tCommandList = new CommandList(pNotificationPort, pDeviceServiceComm, 
                                               pFrameworkCallBacks, pProgramService, 
-                                              pOverheadData, subDeviceId);
+                                              pOverheadData, subDeviceId, true);
 	}
 	if (NULL == tCommandList)
 	{
@@ -140,12 +141,12 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
 #endif
 
 	cl_dev_err_code rc = CL_DEV_SUCCESS;
-    Command* pCmdObject;
+    SharedPtr<Command> pCmdObject;
 	// run over all the cmds
     for (unsigned int i = 0; i < count; i++)
 	{
-	    // Create appropriate Command object
-		rc = createCommandObject(cmds[i], &pCmdObject);
+	    // Create appropriate Command object, After createCommandObject() complete, Do not change pCmdObject until completion of pCmdObject->execute()!
+		rc = createCommandObject(cmds[i], pCmdObject);
 		// If there is no enough memory for allocating Command object
 		if (CL_DEV_FAILED(rc))
 		{
@@ -157,6 +158,12 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
 		{
 			break;
 		}
+		// Save the new Command pointer in device agent data. ASSUME that calling to clDevReleaseCommand in order to delete this Command!
+		cmds[i]->device_agent_data = pCmdObject.GetPtr();
+		// Incrementing the reference counter because it is a temporary shared pointer instance. (otherwise the Command object can delete before it complete its execution)
+		pCmdObject.IncRefCnt();
+		// In order to decrease the reference count of the last command.
+		pCmdObject = NULL;
 	}
 #ifdef _DEBUG
 	oldVal = m_numOfConcurrentExecutions--;
@@ -165,7 +172,28 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
 	return rc;
 }
 
-cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, Command** cmdObject)
+void CommandList::commandListWaitCompletion(cl_dev_cmd_desc* cmdDescToWait)
+{
+	SharedPtr<Command> waitToCmd = NULL;
+	// Assume that if cmdDescToWait->device_agent_data != NULL than the Command object exist.
+	if ((cmdDescToWait) && (cmdDescToWait->device_agent_data))
+	{
+		waitToCmd = (Command*)(cmdDescToWait->device_agent_data);
+	}
+	else
+	{
+		// Wait to last Command (if didn't finish yet)
+		waitToCmd = getLastCommand();
+	}
+	if (NULL != waitToCmd)
+	{
+		COIRESULT err = COI_SUCCESS;
+		err = COIEventWait(1, &(waitToCmd->getCommandCompletionEvent()), -1, true, NULL, NULL);
+		assert(COI_SUCCESS == err);
+	}	
+}
+
+cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, SharedPtr<Command>& cmdObject)
 {
 	if ((NULL == cmd) || (cmd->type >= CL_DEV_CMD_MAX_COMMAND_TYPE))
 	{
@@ -174,19 +202,19 @@ cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, Command**
 	// get function pointer to cmd->type factory function
 	fnCommandCreate_t* fnCreate = m_vCommands[cmd->type];
 	assert( (NULL != fnCreate) && "Not implemented");
-	Command* pCmdObject;
-	// create appropriate command object DO NOT delete this object, it will delete itself when it will finish
-	cl_dev_err_code	rc = fnCreate(this, m_pFrameworkCallBacks, cmd, &pCmdObject);
+	SharedPtr<Command> pCmdObject;
+	// create appropriate command object. In order to delete it call to clDevReleaseCommand()
+	cl_dev_err_code	rc = fnCreate(this, m_pFrameworkCallBacks, cmd, pCmdObject);
     // if failed create FailureNotification command object
 	if (CL_DEV_FAILED(rc))
 	{
-	    pCmdObject = new FailureNotification(m_pFrameworkCallBacks, cmd, rc);
+	    pCmdObject = FailureNotification::Create(m_pFrameworkCallBacks, cmd, rc);
 		if (NULL == pCmdObject)
 		{
 		    rc = CL_DEV_OUT_OF_MEMORY;
 		}
 	}
-	*cmdObject = pCmdObject;
+	cmdObject = pCmdObject;
 	return rc;
 }
 
@@ -244,42 +272,25 @@ cl_dev_err_code CommandList::runBlockingFuncOnDevice(DeviceServiceCommunication:
     return (ok) ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL;
 }
 
-
-
-
-InOrderCommandList::InOrderCommandList( NotificationPort*           pNotificationPort, 
-                                        DeviceServiceCommunication* pDeviceServiceComm, 
-                                        IOCLFrameworkCallbacks*     pFrameworkCallBacks, 
-                                        ProgramService*             pProgramService, 
-                                        PerformanceDataStore*       pOverheadData,
-                                        cl_dev_subdevice_id         subDeviceId) :
-    CommandList(pNotificationPort, pDeviceServiceComm, pFrameworkCallBacks, pProgramService, pOverheadData, subDeviceId), 
-    m_lastCommandWasNDRange(false)
+SharedPtr<Command> CommandList::getLastCommand()
 {
+	m_lastCommandMutex.Lock();
+	SharedPtr<Command> retCommand = m_lastCommand;
+	m_lastCommandMutex.Unlock();
+	return retCommand;
 }
 
-InOrderCommandList::~InOrderCommandList()
+void CommandList::setLastCommand(const SharedPtr<Command>& newCommand, const SharedPtr<Command>& oldCommand)
 {
-}
-
-void InOrderCommandList::getLastDependentBarrier(COIEVENT** barrier, unsigned int* numDependencies, bool isExecutionTask)
-{
-    *numDependencies = 1;
-    COIEVENT* tBarrier = &m_lastDependentBarrier;
-	/* if last command was ExecutionTask and the current command is ExecutionTask or it is NOT the first execution (validBarrier = true) than perform the operation without explicit barrier
-	   because the COIPIPELINE will enforce the order correctly. */
-	if (((isExecutionTask) && (m_lastCommandWasNDRange)) || (false == m_validBarrier))
+	assert(((NULL != newCommand) || (NULL != oldCommand)) && "If NULL == newCommand than u must supply valid oldCommand");
+	m_lastCommandMutex.Lock();
+	if ((oldCommand == m_lastCommand) && (NULL == newCommand))
 	{
-	    tBarrier = NULL;
-		*numDependencies = 0;
+		m_lastCommand = NULL;
 	}
-	*barrier = tBarrier;
+	else if (NULL != newCommand)
+	{
+		m_lastCommand = newCommand;
+	}
+	m_lastCommandMutex.Unlock();
 }
-
-void InOrderCommandList::setLastDependentBarrier(COIEVENT barrier, bool lastCmdWasExecution)
-{
-	m_lastDependentBarrier = barrier;
-	m_validBarrier = true;
-	m_lastCommandWasNDRange = lastCmdWasExecution;
-}
-

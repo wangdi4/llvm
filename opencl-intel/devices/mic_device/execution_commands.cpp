@@ -90,9 +90,10 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
 	vector<COI_ACCESS_FLAGS> accessFlagsArr;
 	do
 	{
-		COIEVENT* barrier = NULL;
+		COIEVENT barrier;
 		unsigned int numDependecies = 0;
 		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, true);
+		COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
 
 		assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -134,10 +135,10 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
 		COIRESULT result = COIPipelineRunFunction(pipe,
 												  func,
 												  tCoiBuffsArrSize, (tCoiBuffsArrSize > 0 ? &(coiBuffsArr[0]) : NULL), (tCoiBuffsArrSize > 0 ? &(accessFlagsArr[0]) : NULL),
-												  numDependecies, barrier,
+												  numDependecies, pBarrier,
 												  m_dispatcherDatahandler.getDispatcherDataPtrForCoiRunFunc(), m_dispatcherDatahandler.getDispatcherDataSizeForCoiRunFunc(),
 												  m_miscDatahandler.getMiscDataPtrForCoiRunFunc(), m_miscDatahandler.getMiscDataSizeForCoiRunFunc(), 
-												  m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier, this));
+												  m_pCommandSynchHandler->registerBarrier(m_completionBarrier, this));
 		unregisterProfilingContext();
 		if (result != COI_SUCCESS)
 		{
@@ -153,9 +154,6 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
 
 void ExecutionCommand::fireCallBack(void* arg)
 {
-	// Set end coi execution time for the tracer. (Notification)
-	m_commandTracer.set_current_time_coi_notify_command_time_end();
-
 	misc_data miscData;
 	m_miscDatahandler.readMiscData(&miscData);
 	if (CL_DEV_SUCCESS == m_lastError)
@@ -181,11 +179,16 @@ void ExecutionCommand::fireCallBack(void* arg)
 
     m_commandTracer.set_opencl_running_time_start( m_cmdRunningTime );
     m_commandTracer.set_opencl_running_time_end( m_cmdCompletionTime );
-    
-	notifyCommandStatusChanged(CL_RUNNING, m_cmdRunningTime);
-	notifyCommandStatusChanged(CL_COMPLETE, m_cmdCompletionTime);
-	// Delete this Command object
-	delete this;
+
+	// It is safe now to release the resources of m_dispatcherDatahandler, m_miscDatahandler and m_startBarrier (m_startBarrier in case of OOO Queue)
+	// It is NOT safe to release m_completionBarrier because it can be use by other thread during the release.
+	m_dispatcherDatahandler.release();
+	m_miscDatahandler.release();
+
+	m_pCommandSynchHandler->unregisterBarrier(m_startBarrier);
+
+	// Call parent fireCallBack
+	Command::fireCallBack(arg);
 }
 
 //
@@ -202,7 +205,7 @@ NDRange::~NDRange()
 	releaseResources(gSafeReleaseOfCoiObjects);
 }
 
-cl_dev_err_code NDRange::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand)
+cl_dev_err_code NDRange::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand)
 {
 	return verifyCreation(new NDRange(pCommandList, pFrameworkCallBacks, pCmd), pOutCommand);
 }
@@ -301,7 +304,7 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 		// set kernel args blob size in bytes for dispatcherData
 		dispatcherData.kernelArgSize = cmdParams->arg_size;
 		// set isInOrderQueue flag in dispatcherData
-		dispatcherData.isInOrderQueue = m_pCommandSynchHandler->isInOrderType();
+		dispatcherData.isInOrderQueue = m_pCommandList->isInOrderCommandList();
 		// Filling the workDesc structure in dispatcherData
 		dispatcherData.workDesc.setParams(cmdParams->work_dim, cmdParams->glb_wrk_offs, cmdParams->glb_wrk_size, cmdParams->lcl_wrk_size);
 
@@ -446,16 +449,13 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 			currPostDirectiveIndex ++;
 		}
 
+		// Register start barrier
+		m_pCommandSynchHandler->registerBarrier(m_startBarrier, this);
 		// Register completion barrier
-		 m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier, this);
+		m_pCommandSynchHandler->registerBarrier(m_completionBarrier, this);
 		// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
 		if (false == dispatcherData.isInOrderQueue)
 		{
-			// Register start barrier for this command.
-			registerProfilingContext();
-			COIEventRegisterUserEvent(&(m_startBarrier.cmdEvent));
-			unregisterProfilingContext();
-
 			preExeDirectives[currPreDirectiveIndex].id = BARRIER;
 			preExeDirectives[currPreDirectiveIndex].barrierDirective.barrier = m_startBarrier.cmdEvent;
 			currPreDirectiveIndex ++;
@@ -553,7 +553,7 @@ FillMemObject::FillMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* 
 {
 }
 
-cl_dev_err_code FillMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, Command** pOutCommand)
+cl_dev_err_code FillMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand)
 {
 	return verifyCreation(new FillMemObject(pCommandList, pFrameworkCallBacks, pCmd), pOutCommand);
 }
@@ -581,7 +581,7 @@ cl_dev_err_code FillMemObject::init(vector<COIBUFFER>& outCoiBuffsArr, vector<CO
     	const cl_mem_obj_descriptor& pMemObj = pMicMemObj->clDevMemObjGetDescriptorRaw();
 
 		fillMemObjDispatcherData.commandIdentifier = m_pCmd->id;
-		fillMemObjDispatcherData.isInOrderQueue = m_pCommandSynchHandler->isInOrderType();
+		fillMemObjDispatcherData.isInOrderQueue = m_pCommandList->isInOrderCommandList();
 
     	// copy the dimension value
 		assert(pMemObj.dim_count == cmdParams->dim_count);
@@ -626,16 +626,14 @@ cl_dev_err_code FillMemObject::init(vector<COIBUFFER>& outCoiBuffsArr, vector<CO
 		fillMemObjDispatcherData.preExeDirectivesCount = 1;
 
 		fillMemObjDispatcherData.postExeDirectivesCount = 0;
+
+		// Register start barrier
+		m_pCommandSynchHandler->registerBarrier(m_startBarrier, this);
 		// Register completion barrier
-		 m_pCommandSynchHandler->registerCompletionBarrier(m_completionBarrier, this);
+		m_pCommandSynchHandler->registerBarrier(m_completionBarrier, this);
 		// If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
 		if (false == fillMemObjDispatcherData.isInOrderQueue)
 		{
-			// Register start barrier for this command.
-			registerProfilingContext();
-			COIEventRegisterUserEvent(&(m_startBarrier.cmdEvent));
-			unregisterProfilingContext();
-
 			preExeDirective[1].id = BARRIER;
 			preExeDirective[0].barrierDirective.barrier = m_startBarrier.cmdEvent;
 			fillMemObjDispatcherData.preExeDirectivesCount ++;

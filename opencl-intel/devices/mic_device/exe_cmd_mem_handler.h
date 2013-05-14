@@ -57,6 +57,10 @@ public:
 	/* Initialize the Dispatcher data. */
 	cl_dev_err_code init(dispatcher_data& dispatcherData, const directive_pack* preExeDirectives, const directive_pack* postExeDirectives, const char* pKernelParams, COIPROCESS* pCoiProcess);
 
+	/* Release the members of this object. Do not use this object after calling to release.
+		You must call it before the destructor of this object, otherwise u will have memory leak. */
+	void release();
+
 	/* Register the buffer in "coiBuffsArr" and the access flag in "coiBuffsAccessFlag". (If needed - in case of COIBUFFER only, when dispatcher data size is greater than COI_PIPELINE_MAX_IN_MISC_DATA_LEN) */
 	void registerDispatcherData(vector<COIBUFFER>& coiBuffsArr, vector<COI_ACCESS_FLAGS>& coiBuffsAccessFlag);
 
@@ -105,6 +109,9 @@ public:
 
 	/* Initialize the MiscData object. (If needed) */
 	cl_dev_err_code init(bool useCoiBuffer, COIPROCESS* pCoiProcess);
+
+	/* Release the members of this object. Do not use this object after calling to release */
+	void release();
 
 	/* Register the buffer in "coiBuffsArr" and the access flag in "coiBuffsAccessFlag". (If needed - in case of COIBUFFER only) */
 	void registerMiscData(vector<COIBUFFER>& coiBuffsArr, vector<COI_ACCESS_FLAGS>& coiBuffsAccessFlag);

@@ -42,16 +42,7 @@ DispatcherDataHandler::DispatcherDataHandler() : m_size(0), m_pDispatcherData(NU
 
 DispatcherDataHandler::~DispatcherDataHandler()
 {
-	if (m_pDispatcherData)
-	{
-		m_pDispatcherData->release(m_data);
-		m_pDispatcherData = NULL;
-		if (m_data.pDataBuffer)
-		{
-			delete [] m_data.pDataBuffer;
-			m_data.pDataBuffer = NULL;
-		}
-	}
+	assert(m_pDispatcherData == NULL && "You must call to release() before the destuctor of this object, You have memory leak");
 }
 
 
@@ -88,6 +79,20 @@ cl_dev_err_code DispatcherDataHandler::init(dispatcher_data& dispatcherData, con
 	return err;
 }
 
+void DispatcherDataHandler::release()
+{
+	if (m_pDispatcherData)
+	{
+		m_pDispatcherData->release(m_data);
+		m_pDispatcherData = NULL;
+		if (m_data.pDataBuffer)
+		{
+			delete [] m_data.pDataBuffer;
+			m_data.pDataBuffer = NULL;
+		}
+	}
+}
+
 void DispatcherDataHandler::registerDispatcherData(vector<COIBUFFER>& coiBuffsArr, vector<COI_ACCESS_FLAGS>& coiBuffsAccessFlag)
 {
 	assert(m_pDispatcherData);
@@ -117,11 +122,7 @@ MiscDataHandler::MiscDataHandler() : m_pMiscData(NULL)
 
 MiscDataHandler::~MiscDataHandler()
 {
-	if (m_pMiscData)
-	{
-		m_pMiscData->release(m_data);
-		m_pMiscData = NULL;
-	}
+	assert(m_pMiscData == NULL && "You must call to release() before the destuctor of this object, You have memory leak");
 }
 
 cl_dev_err_code MiscDataHandler::init(bool useCoiBuffer, COIPROCESS* pCoiProcess) 
@@ -130,6 +131,15 @@ cl_dev_err_code MiscDataHandler::init(bool useCoiBuffer, COIPROCESS* pCoiProcess
 	// Choose the appripriate MiscData object according to "useCoiBuffer" flag.
 	m_pMiscData = m_miscDataOptionsArr[useCoiBuffer];
 	return m_pMiscData->init(m_data, sizeof(misc_data), pCoiProcess); 
+}
+
+void MiscDataHandler::release()
+{
+	if (m_pMiscData)
+	{
+		m_pMiscData->release(m_data);
+		m_pMiscData = NULL;
+	}
 }
 
 void MiscDataHandler::registerMiscData(vector<COIBUFFER>& coiBuffsArr, vector<COI_ACCESS_FLAGS>& coiBuffsAccessFlag) 
