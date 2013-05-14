@@ -3235,12 +3235,11 @@ void NEATPlugIn::execute_read_imagef(Function *F,
                   NEATGenericValue& Result,
                   const OCLBuiltinParser::ArgVector& ArgList)
 {
-    // copy of OCLBuiltins BLTImage section
-
     cl_mem_obj_descriptor * memobj = (cl_mem_obj_descriptor *)GetGenericArg(0).PointerVal;
     
-    // TODO: detect sampler-less functions 
-    const bool IsSamplerLess = false;
+    // samplerless read image functions have 2 parameters,
+    // functions with sampler have 3 parameters
+    const bool IsSamplerLess = bool(ArgList.size() == 2);
     size_t n = 0;
     uint32_t sampler;
 
@@ -3252,18 +3251,14 @@ void NEATPlugIn::execute_read_imagef(Function *F,
     }
 
     // data type of coordinates == float or int
-    const OCLBuiltinParser::BasicArgType CoordTy= ArgList[2].vecType.elType;
-
-
-    // TODO: to add array support when runtime 1.2 will be ready
-    // is image 3d
-    const bool IsImage2d = (memobj->dim_count == 2);
-    const bool IsImage3d = (memobj->dim_count == 3);
+    const OCLBuiltinParser::BasicArgType CoordTy= ArgList[n].vecType.elType;
 
     // coordinates
     float u = 0.0f, v = 0.0f, w = 0.0f;
 
     const GenericValue& CoordGV = GetGenericArg(n);
+
+    const cl_mem_object_type objType = memobj->memObjType;
 
     if( OCLBuiltinParser::FLOAT == CoordTy)
     {
@@ -3273,19 +3268,12 @@ void NEATPlugIn::execute_read_imagef(Function *F,
 
         // HACK !!!
         // we take coordinates from Interpreter not from NEAT context
-        u = OCLBuiltins::getVal<float, 4>(CoordGV, 0);
-        if( IsImage2d || IsImage3d )
-            v = OCLBuiltins::getVal<float, 4>(CoordGV, 1);
-        if( IsImage3d )
-            w = OCLBuiltins::getVal<float, 4>(CoordGV, 2);
-    }
-    else
-    { // int coordinates
-        u = (float) OCLBuiltins::getVal<uint32_t, 4>(CoordGV, 0);
-        if( IsImage2d || IsImage3d )
-            v = (float) OCLBuiltins::getVal<uint32_t, 4>(CoordGV, 1);
-        if( IsImage3d )
-            w = (float) OCLBuiltins::getVal<uint32_t, 4>(CoordGV, 2);
+
+        OCLBuiltins::getCoordsByImageType<float,float>(objType,CoordGV,u,v,w);
+
+    } else { 
+       // int coordinates
+       OCLBuiltins::getCoordsByImageType<int32_t,float>(objType,CoordGV,u,v,w);
     }
 
     DEBUG(dbgs() << "[NEATPlugin] Coordinates u=" << u <<" v=" << v << " w=" << w << "\n");

@@ -201,10 +201,13 @@ typedef Singleton<ArgVectorMap> ArgVectorMapSingleton;
       size_t found_1d = gotString.find("image1d");
       size_t found_2d = gotString.find("image2d");
       size_t found_3d = gotString.find("image3d");
+      size_t found_sampler = gotString.find("sampler");
 
       if(found_1d != std::string::npos || found_2d != std::string::npos || found_3d != std::string::npos) {
          newArg.genType = OCLBuiltinParser::IMAGE;
          newArg.imgType.imgStr = gotString;
+      } else if (found_sampler) {
+          newArg.genType = OCLBuiltinParser::SAMPLER;
       } else {
          newArg.genType = OCLBuiltinParser::NA;
       }

@@ -48,6 +48,7 @@ namespace llvm {
             ARRAY,
             POINTER,
             IMAGE, // images in OpenCL1.2 should have this type
+            SAMPLER,
             NA = 255
         };
 

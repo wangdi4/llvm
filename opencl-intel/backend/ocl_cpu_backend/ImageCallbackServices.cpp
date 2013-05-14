@@ -189,8 +189,9 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     // Offset represents offset in byte within a dimension used
     // to compute pixel pointer in image access routines
     // For image arrays it represents offset within the image
+
     pImageAuxData->offset[0] = pImageAuxData->uiElementSize;
-    if(pImageObject->memObjType != CL_MEM_OBJECT_IMAGE1D_ARRAY)
+    if(pImageObject->memObjType != CL_MEM_OBJECT_IMAGE1D_ARRAY && pImageObject->memObjType != CL_MEM_OBJECT_IMAGE1D)
         pImageAuxData->offset[1] = pImageAuxData->pitch[0];
 
     if (pImageObject->memObjType != CL_MEM_OBJECT_IMAGE2D_ARRAY)

@@ -242,6 +242,7 @@ Conformance::image_descriptor CreateConfImageDesc(const cl_mem_obj_descriptor& i
     if(in_Desc.memObjType == CL_MEM_OBJECT_IMAGE1D_ARRAY) {
         retDesc.height = 0;
         retDesc.arraySize = in_Desc.dimensions.dim[1];
+        retDesc.slicePitch = (size_t) (in_Desc.pitch[1]);
     }
 
     if(in_Desc.memObjType == CL_MEM_OBJECT_IMAGE2D_ARRAY) {
