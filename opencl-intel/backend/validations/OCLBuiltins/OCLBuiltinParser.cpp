@@ -206,7 +206,7 @@ typedef Singleton<ArgVectorMap> ArgVectorMapSingleton;
       if(found_1d != std::string::npos || found_2d != std::string::npos || found_3d != std::string::npos) {
          newArg.genType = OCLBuiltinParser::IMAGE;
          newArg.imgType.imgStr = gotString;
-      } else if (found_sampler) {
+      } else if (found_sampler != std::string::npos ) {
           newArg.genType = OCLBuiltinParser::SAMPLER;
       } else {
          newArg.genType = OCLBuiltinParser::NA;
