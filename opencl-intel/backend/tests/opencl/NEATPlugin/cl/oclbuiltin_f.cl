@@ -325,9 +325,7 @@ File Name:  oclbuiltin_f.cl
     KERNEL_BI_ONEARG(acosh)
     KERNEL_BI_ONEARG(atanh)
 
-KERNEL_DUMMY(vload)
-/*
-turned off due to CSSD100015634
+
 __kernel void vload_f(__global float * input,  __global int * input_int, 
                       __global float * output, __global float * output2)
 {
@@ -337,7 +335,7 @@ __kernel void vload_f(__global float * input,  __global int * input_int,
     a8_out = vload8(0, input); a16_out = vload16(0, input);
     OUTPUT_ONE_VEC_FLOAT(tid)
 }
-*/
+
 __kernel void vstore_f(__global float * input, __global int * input_int, 
                        __global float * output, __global float * output2)
 {
