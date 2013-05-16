@@ -44,6 +44,11 @@
     #include <stdint.h>
 #endif
 
+#if defined(__ANDROID__)
+    #include <stdint.h>
+    typedef long long __int64;
+#endif
+
 
 using namespace std;
 using namespace Intel::OpenCL;
@@ -338,37 +343,37 @@ inline bool is_unsigned_specifier(char c)
     return (c == 'X' || c == 'x' || c == 'o' || c == 'u');
 }
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32) || defined(_WIN64) || defined (__ANDROID__)
 //union for double bit operations
+static const __int64 MASK = 0x8000000000000000;
+static const __int64 dnan_min =  0x7FF0000000000000; // or numeric_limits<float>::quiet_NaN();
+static const __int64 dnan_max = 0x7FFFFFFFFFFFFFFF;  // or numeric_limits<float>::quiet_NaN();
 union DoubleUtil{
-    static const __int64 MASK = 0x8000000000000000;
     double m_d;
     __int64 m_i;
 
     DoubleUtil(double d): m_d(d){}
-    bool isNan()const{ return _isnan(m_d); }
-    bool isInf()const{ return std::numeric_limits<double>::infinity() == m_d;  }
+    bool isNan()const{ return !( m_d==m_d ); }
+    bool isInf()const{ return (m_i & dnan_max) == dnan_min; }
     bool isNegative()const {return MASK == (m_i & MASK);}
 };
-#endif //WIN
+#endif //WIN || ANDROID
 
 //Purpose: appends a string to the output buffer, with respect to the value of
 //the given double value (d).
 static void purgeDouble(OutputAccumulator& output, const double& d, char* buffer){
 //window's sprintf does not conform with OpenCL when it comes to NAN and INF values
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32) || defined(_WIN64) || defined (__ANDROID__)
     DoubleUtil dutil(d);
     if (dutil.isNan()){
-        char* nan = dutil.isNegative() ? "-nan" : "nan";
-        output.append(nan);
+        dutil.isNegative() ? output.append("-nan") : output.append("nan");
         return;
     }
     if(dutil.isInf()){
-        char* inf = dutil.isNegative() ? "-inf" : "inf";
-        output.append(inf);
+        dutil.isNegative() ? output.append("-inf") : output.append("inf");
         return;
     }
-#endif
+#endif //WIN || ANDROID
     output.append(buffer);
 }
 // Does the heavy lifting of formatted printing - called by the interface
