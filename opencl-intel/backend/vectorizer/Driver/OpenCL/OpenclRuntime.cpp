@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BuiltinKeeper.h"
 #include "NameMangleAPI.h"
 #include "Mangler.h"
+#include "ParameterType.h"
 #include "Logger.h"
 
 #include "llvm/Constants.h"
@@ -368,13 +369,14 @@ bool OpenclRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
   FunctionDescriptor desc = demangle(funcName.data());
   assert(desc.parameters.size() == 2 && "min, max should have two parameters");
   // The argument type should be (u)int/(u)long
-  reflection::Type *argTy = desc.parameters[0];
-  if (!argTy->isPrimiteTy()) return false;
-  reflection::primitives::Primitive basicType = argTy->getPrimitive();
-  isSigned = (basicType == reflection::primitives::INT ||
-              basicType == reflection::primitives::LONG);
-  if (!isSigned && basicType != reflection::primitives::UINT &&
-      basicType != reflection::primitives::ULONG)  return false;
+  RefParamType argTy = desc.parameters[0];
+  const PrimitiveType *pPrimitive = reflection::dyn_cast<PrimitiveType>(argTy);
+  if (!pPrimitive) return false;
+  TypePrimitiveEnum basicType = pPrimitive->getPrimitive();
+  isSigned = (basicType == PRIMITIVE_INT ||
+              basicType == PRIMITIVE_LONG);
+  if (!isSigned && basicType != PRIMITIVE_UINT &&
+      basicType != PRIMITIVE_ULONG)  return false;
   return true;
 }
   

@@ -5,7 +5,6 @@ set(TARGET_NAME NameManglingTests)
 
 include_directories(
   ${BACKEND_ROOT_DIR}/../externals/gtest/include
-  ${NAME_MANGLE_ROOT_DIR}/antlruntime/include
   ../
 )
 
@@ -41,7 +40,6 @@ add_executable(
 
 target_link_libraries(
   ${TARGET_NAME}
-  antlr
   name_mangle
   googletest
   LLVMSupport

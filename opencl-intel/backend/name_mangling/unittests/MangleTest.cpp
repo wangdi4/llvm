@@ -15,14 +15,12 @@
 
 \****************************************************************************/
 
-#include "gtest/gtest.h"
 #include "NameMangleAPI.h"
-#include "antlr/ANTLRException.hpp"
-#include "Type.h"
 #include "FunctionDescriptor.h"
-#include "TypeCast.h"
+#include "ParameterType.h"
+#include "gtest/gtest.h"
 #include <algorithm>
-#include <cctype>
+#include <stdint.h>
 #include <map>
 
 using namespace reflection;
@@ -171,12 +169,12 @@ static bool isSematicallyEqual(const std::string& l, const std::string& r){
   return (attributeCount == tokens.size());
 }
 
-static bool isVector(const reflection::Type *T){
-  return NULL != reflection::dyn_cast<reflection::Vector>(T);
+static bool isVector(const ParamType *T){
+  return NULL != reflection::dyn_cast<VectorType>(T);
 }
 
-static bool isPointer(const reflection::Type *T){
-  return NULL != reflection::dyn_cast<reflection::Pointer>(T);
+static bool isPointer(const ParamType *T){
+  return NULL != reflection::dyn_cast<PointerType>(T);
 }
 
 //
@@ -185,44 +183,19 @@ static bool isPointer(const reflection::Type *T){
 
 TEST(NameMangle, demangleTostrightAndBack){
   #include "MangledNames.h"
-  // translation table between API names and CLANG-mangled names
-  std::map<std::string,std::string> imageTypeNameTranslate;
-  imageTypeNameTranslate["ocl_image1d"]="image1d_t";
-  imageTypeNameTranslate["ocl_image2d"]="image2d_t";
-  imageTypeNameTranslate["ocl_image3d"]="image3d_t";
-  imageTypeNameTranslate["ocl_image1dbuffer"]="image1d_buffer_t";
-  imageTypeNameTranslate["ocl_image1darray"]="image1d_array_t";
-  imageTypeNameTranslate["ocl_image2darray"]="image2d_array_t";
-  imageTypeNameTranslate["ocl_sampler"]="sampler_t";
-
   for( unsigned int i = 0 ; i < sizeof(mangledNames)/sizeof(char*) ; i++){
-    try{
       const char* mname = mangledNames[i];
       FunctionDescriptor fd = demangle(mname);
+      ASSERT_FALSE(fd.isNull());
       std::string expected(mname);
       std::string actual = mangle(fd);
       //checking that the mangle demangle cycle returns to the same string
       ASSERT_EQ(expected, actual);
-      // Account for functions with CLANG-mangled type names
-      for (TypeVector::iterator paramType = fd.parameters.begin();
-           paramType != fd.parameters.end(); paramType++) {
-        std::string name = (*paramType)->toString();
-        std::map<std::string,std::string>::iterator it = imageTypeNameTranslate.find(name);
-        if (it != imageTypeNameTranslate.end()) {
-          *paramType = new UserDefinedTy(it->second);
-        }
-      }
       //checking that the demangle string is as we expect it to be
       //(semantically the same)
       if (!isSematicallyEqual(fd.toString(), prototypes[i]))
         FAIL() << "\'" << fd.toString() << "\'" << " semantically differs from "
         << "\'" << prototypes[i] << "\'";
-    } catch (std::exception e){
-      std::cerr << e.what();
-    } catch (antlr::ANTLRException antlrEx){
-      std::cerr << "in: " << mangledNames[i] << std::endl;
-      std::cerr << antlrEx.toString() << std::endl;
-    }
   }
 }
 
@@ -230,9 +203,11 @@ const char*const strRetByPtr = "_Z4FuncfPfS_";
 
 TEST(DemangleTest, retByPtr){
   FunctionDescriptor fd = demangle(strRetByPtr);
+  ASSERT_FALSE(fd.isNull());
 
-  ASSERT_TRUE(fd.parameters[0]->isPrimiteTy());
-  ASSERT_EQ( primitives::FLOAT, fd.parameters[0]->getPrimitive());
+  const PrimitiveType *pSclTy = reflection::dyn_cast<PrimitiveType>(fd.parameters[0]);
+  ASSERT_TRUE(pSclTy != NULL);
+  ASSERT_EQ(PRIMITIVE_FLOAT, pSclTy->getPrimitive());
 
   ASSERT_TRUE(isPointer(fd.parameters[1]));
   ASSERT_TRUE(isPointer(fd.parameters[2]));
@@ -241,8 +216,8 @@ TEST(DemangleTest, retByPtr){
 TEST(MangleTest, retByPtr){
   FunctionDescriptor fd;
   fd.name = "Func";
-  intel::RefCount<Type> F(new Type(primitives::FLOAT));
-  intel::RefCount<Type> PF = new Pointer(F);
+  RefParamType F(new PrimitiveType(PRIMITIVE_FLOAT));
+  RefParamType PF(new PointerType(F));
   fd.parameters.push_back(F);
   fd.parameters.push_back(PF);
   fd.parameters.push_back(PF);
@@ -252,6 +227,7 @@ TEST(MangleTest, retByPtr){
 TEST(DemangleTest, AsyncGropuCpy){
   FunctionDescriptor fd =
     demangle("_Z21async_work_group_copyPU3AS3Dv2_cPKU3AS1S_mm");
+  ASSERT_FALSE(fd.isNull());
   ASSERT_EQ(
     std::string("async_work_group_copy(__local char2 *, __global const char2 *, ulong, ulong)")
     , fd.toString()
@@ -261,6 +237,7 @@ TEST(DemangleTest, AsyncGropuCpy){
 TEST(NameMangle, FailedOnce){
   const char* s = "_Z5frexpDv2_fPU3AS1Dv2_i";
   FunctionDescriptor fd = demangle(s);
+  ASSERT_FALSE(fd.isNull());
   std::string mangled = mangle(fd);
   ASSERT_STREQ(mangled.c_str(), s);
 }
@@ -268,6 +245,7 @@ TEST(NameMangle, FailedOnce){
 TEST(NameMangle, Failed2){
   const char* s = "_Z9mask_fmaxtDv16_fS_";
   FunctionDescriptor fd = demangle(s);
+  ASSERT_FALSE(fd.isNull());
   std::string mangled = mangle(fd);
   ASSERT_STREQ(mangled.c_str(), s);
 }
@@ -275,26 +253,21 @@ TEST(NameMangle, Failed2){
 TEST(NameMangle, SOAFunction){
   FunctionDescriptor soaDescriptor;
   soaDescriptor.name = "soa";
-  Type* doubleTy = new Type(primitives::DOUBLE);
-  Type* intTy = new Type(primitives::INT);
-  Pointer* pintTy = new Pointer(intTy);
-  soaDescriptor.parameters.push_back(doubleTy->clone());
-  soaDescriptor.parameters.push_back(pintTy->clone());
-  soaDescriptor.parameters.push_back(pintTy->clone());
+  RefParamType doubleTy(new PrimitiveType(PRIMITIVE_DOUBLE));
+  RefParamType intTy(new PrimitiveType(PRIMITIVE_INT));
+  RefParamType pintTy(new PointerType(intTy));
+  soaDescriptor.parameters.push_back(doubleTy);
+  soaDescriptor.parameters.push_back(pintTy);
+  soaDescriptor.parameters.push_back(pintTy);
   std::cout << soaDescriptor.toString() << std::endl;
   ASSERT_EQ(std::string("_Z3soadPiS_"), mangle(soaDescriptor));
-  delete doubleTy;
-  delete intTy;
-  delete pintTy;
 }
 
 static bool testDemangle(const char* mname){
-  try{
-    printf( "%s\n", demangle(mname).toString().c_str());
+    FunctionDescriptor fd = demangle(mname);
+    if(fd.isNull()) return false;
+    printf( "%s\n", fd.toString().c_str());
     return true;
-  } catch (antlr::ANTLRException antlrEx){
-    return false;
-  }
 }
 
 TEST(DemangleTest, pointerAttributes){
@@ -319,6 +292,7 @@ TEST(DemangleTest, imageAmbiguity){
   const char* name = "_Z11mask_vstoretDv16_imPU3AS1i";
   ::testing::AssertionSuccess() << "demangling " << name; // << std::endl;
   FunctionDescriptor fd = demangle(name);
+  ASSERT_FALSE(fd.isNull());
   ASSERT_EQ("mask_vstore", fd.name);
   ASSERT_EQ(4U, fd.parameters.size());
   ASSERT_EQ(std::string("ushort"), getParameterString(fd, 0));
@@ -330,16 +304,18 @@ TEST(DemangleTest, imageAmbiguity){
 TEST(DemangleTest, imageBuiltin){
   const char* name = "_Z11read_imagef11ocl_image2d11ocl_samplerDv2_f";
   FunctionDescriptor fd = demangle(name);
+  ASSERT_FALSE(fd.isNull());
   ASSERT_EQ("read_imagef", fd.name);
   ASSERT_EQ(3U, fd.parameters.size());
-  ASSERT_EQ(std::string("ocl_image2d"), getParameterString(fd, 0));
-  ASSERT_EQ(std::string("ocl_sampler"), getParameterString(fd, 1));
+  ASSERT_EQ(std::string("image2d_t"), getParameterString(fd, 0));
+  ASSERT_EQ(std::string("sampler_t"), getParameterString(fd, 1));
   ASSERT_EQ(std::string("float2"), getParameterString(fd, 2));
 }
 
 TEST(DemangleTest, duplicatedVector){
   const char* name = "_Z3maxDv2_iS_";
   FunctionDescriptor fd = demangle(name);
+  ASSERT_FALSE(fd.isNull());
   ASSERT_EQ("max", fd.name);
   ASSERT_EQ(2U, fd.parameters.size());
   ASSERT_EQ(std::string("int2"), getParameterString(fd, 0));
@@ -348,12 +324,14 @@ TEST(DemangleTest, duplicatedVector){
 
 TEST(DemangleTest, voidptr){
   FunctionDescriptor fd = demangle("_Z34trans_coord_int_NONE_FALSE_NEARESTPvDv4_i");
+  ASSERT_FALSE(fd.isNull());
   ASSERT_STREQ("trans_coord_int_NONE_FALSE_NEAREST", fd.name.c_str());
   ASSERT_EQ(2U, fd.parameters.size());
 }
 
 TEST(DemangleTest, userDefinedTy1){
   FunctionDescriptor fd = demangle("_Z6myfunc4myTy");
+  ASSERT_FALSE(fd.isNull());
   ASSERT_STREQ("myfunc", fd.name.c_str());
   ASSERT_EQ(std::string("myTy"), getParameterString(fd, 0));
   ASSERT_EQ(1U, fd.parameters.size());
@@ -362,6 +340,7 @@ TEST(DemangleTest, userDefinedTy1){
 //tests user defined types, one after the other
 TEST(DemangleTest, userDefinedTy2){
   FunctionDescriptor fd = demangle("_Z6myfunc5myTy16myTy21");
+  ASSERT_FALSE(fd.isNull());
   ASSERT_EQ(std::string("myTy1"), getParameterString(fd, 0));
   ASSERT_EQ(std::string("myTy21"), getParameterString(fd, 1));
 }
@@ -374,35 +353,39 @@ TEST(DemangleTest, addressSpace){
 
 TEST(DemangleTest, addressSpace1){
   FunctionDescriptor fd = demangle("_Z3myfPU3AS1i");
-  Pointer* p = dyn_cast<Pointer>(fd.parameters[0]);
+  ASSERT_FALSE(fd.isNull());
+  PointerType* p = reflection::dyn_cast<PointerType>(fd.parameters[0]);
   ASSERT_TRUE(p);
-  std::vector<std::string>::const_iterator it = p->beginAttributes();
-  ASSERT_EQ(std::string("__global"), *it);
+  ASSERT_EQ(ATTR_GLOBAL, *p->getAttributes().begin());
 }
 
 TEST(DemangleTest, addressSpaceAndUserDefTy){
   FunctionDescriptor fd = demangle("_Z3myfPU3AS23mta");
-  Pointer* p = dyn_cast<Pointer>(fd.parameters[0]);
+  ASSERT_FALSE(fd.isNull());
+  PointerType* p = reflection::dyn_cast<PointerType>(fd.parameters[0]);
   ASSERT_TRUE(p);
-  ASSERT_EQ(std::string("__constant"), *p->beginAttributes());
+  ASSERT_EQ(ATTR_CONSTANT, *p->getAttributes().begin());
   ASSERT_EQ(std::string("mta"), p->getPointee()->toString());
 }
 
-TEST(DemangleTest, appleImageMangle){
-  const char*const strImagefunction = "_Z11read_imageiPU3AS110_image2d_tuSamplerDv2_i";
-  FunctionDescriptor fd = demangle(strImagefunction);
-  ASSERT_FALSE(fd.isNull());
-  ASSERT_TRUE(reflection::dyn_cast<Pointer>(fd.parameters[0]));
-  std::string strMangled = mangle(fd);
-  ASSERT_STREQ(strMangled.c_str(), strImagefunction);
-}
+// Test for Apple (deprecated)
+//TEST(DemangleTest, appleImageMangle){
+//  const char*const strImagefunction = "_Z11read_imageiPU3AS110_image2d_tuSamplerDv2_i";
+//  FunctionDescriptor fd = demangle(strImagefunction);
+//  ASSERT_FALSE(fd.isNull());
+//  ASSERT_TRUE(reflection::dyn_cast<PointerType>(fd.parameters[0]));
+//  std::string strMangled = mangle(fd);
+//  ASSERT_STREQ(strMangled.c_str(), strImagefunction);
+//}
 //
 //Manlge
 //
 
 TEST(MangleTest, _Z17convert_float_satc){
   std::string orig = "_Z17convert_float_satc";
-  std::string syntesized = mangle( demangle( orig.c_str() ) );
+  FunctionDescriptor fd = demangle( orig.c_str() );
+  ASSERT_FALSE(fd.isNull());
+  std::string syntesized = mangle( fd );
   ASSERT_EQ(orig, syntesized);
 }
 
@@ -410,7 +393,9 @@ TEST(MangleTest, _Z17convert_float_satc){
 //type suffix, not the enture type. The first parameter is v2f, the second is v2f*.
 TEST(MangleTest, semidup){
   std::string orig = "_Z5fractDv2_fPU3AS1S_";
-  std::string actual = mangle( demangle( orig.c_str() ) );
+  FunctionDescriptor fd = demangle( orig.c_str() );
+  ASSERT_FALSE(fd.isNull());
+  std::string actual = mangle( fd );
   ASSERT_EQ(orig, actual);
 }
 
@@ -418,53 +403,63 @@ const char* strDoubleDup = "_Z4stamDv4_fS_PS_S0_" ;
 
 TEST(MangleTest, doubleDup){
   FunctionDescriptor fd;
-  Type* primitiveFloat = new Type(primitives::FLOAT);
-  Vector* vectorFloat = new Vector(primitiveFloat, 4);
-  Pointer*  ptrFloat = new Pointer(vectorFloat);
+  RefParamType primitiveFloat(new PrimitiveType(PRIMITIVE_FLOAT));
+  RefParamType vectorFloat(new VectorType(primitiveFloat, 4));
+  RefParamType ptrFloat(new PointerType(vectorFloat));
 
   fd.name = "stam";
   fd.parameters.push_back(vectorFloat);
-  fd.parameters.push_back(vectorFloat->clone());
+  fd.parameters.push_back(vectorFloat);
   fd.parameters.push_back(ptrFloat);
-  fd.parameters.push_back(ptrFloat->clone());
+  fd.parameters.push_back(ptrFloat);
 
   std::string mangled = mangle(fd);
   ASSERT_STREQ(strDoubleDup, mangled.c_str());
-  delete primitiveFloat;
 }
 
 TEST(DemangleTest, doubleDup1){
   FunctionDescriptor fd = demangle(strDoubleDup);
-  reflection::Type *T = fd.parameters[0];
+  ASSERT_FALSE(fd.isNull());
+  RefParamType T = fd.parameters[0];
   ASSERT_TRUE(isVector(T));
-  ASSERT_EQ(primitives::FLOAT, T->getPrimitive());
+  const VectorType *pVecTy = reflection::dyn_cast<VectorType>(T);
+  const PrimitiveType *pSclTy = reflection::dyn_cast<PrimitiveType>(pVecTy->getScalarType());
+  ASSERT_TRUE(pSclTy != NULL);
+  ASSERT_EQ(PRIMITIVE_FLOAT, pSclTy->getPrimitive());
 }
 
 TEST(DemangleTest, doubleDup2){
   FunctionDescriptor fd = demangle(strDoubleDup);
-  reflection::Type *T = fd.parameters[1];
+  ASSERT_FALSE(fd.isNull());
+  RefParamType T = fd.parameters[1];
   ASSERT_TRUE(isVector(T));
-  ASSERT_EQ(primitives::FLOAT, T->getPrimitive());
+  const VectorType *pVecTy = reflection::dyn_cast<VectorType>(T);
+  const PrimitiveType *pSclTy = reflection::dyn_cast<PrimitiveType>(pVecTy->getScalarType());
+  ASSERT_TRUE(pSclTy != NULL);
+  ASSERT_EQ(PRIMITIVE_FLOAT, pSclTy->getPrimitive());
 }
 
 TEST(DemangleTest, doubleDup3){
   FunctionDescriptor fd = demangle(strDoubleDup);
+  ASSERT_FALSE(fd.isNull());
   ASSERT_TRUE(isPointer(fd.parameters[2]));
 }
 
 TEST(DemangleTest, doubleDup4){
   FunctionDescriptor fd = demangle(strDoubleDup);
-  const reflection::Type *T = fd.parameters[2];
+  ASSERT_FALSE(fd.isNull());
+  RefParamType T = fd.parameters[2];
   ASSERT_TRUE(isPointer(T));
-  const Pointer *P = reflection::dyn_cast<reflection::Pointer>(T);
+  const PointerType *P = reflection::dyn_cast<PointerType>(T);
   ASSERT_TRUE(isVector(P->getPointee()));
 }
 
 TEST(DemangleTest, doubleDup5){
   FunctionDescriptor fd = demangle(strDoubleDup);
-  const reflection::Type *T = fd.parameters[3];
+  ASSERT_FALSE(fd.isNull());
+  RefParamType T = fd.parameters[3];
   ASSERT_TRUE(isPointer(T));
-  const Pointer *P = reflection::dyn_cast<reflection::Pointer>(T);
+  const PointerType *P = reflection::dyn_cast<PointerType>(T);
   ASSERT_TRUE(isVector(P->getPointee()));
 }
 
@@ -488,22 +483,37 @@ TEST(DemangleTest, doubleDup7){
   );
 }
 
+TEST(DemangleTest, doubleDup8){
+  FunctionDescriptor fd =
+    demangle("_Z3fooPiPjPcPhPfPdS_S0_S1_S2_S3_S4_PS_PS0_PS1_PS2_PS3_PS4_S5_S6_S7_S8_S9_SA_");
+  ASSERT_FALSE(fd.isNull());
+  ASSERT_EQ(
+    std::string("foo(int *, uint *, char *, uchar *, float *, double *, int *, uint *, char *, uchar *, float *, double *, int * *, uint * *, char * *, uchar * *, float * *, double * *, int * *, uint * *, char * *, uchar * *, float * *, double * *)")
+    , fd.toString()
+  );
+}
+
+TEST(DemangleTest, doubleDup9){
+  FunctionDescriptor fd = demangle("_Z3fooP4sFooS0_S_");
+  ASSERT_FALSE(fd.isNull());
+  ASSERT_EQ(std::string("foo(sFoo *, sFoo *, sFoo)"), fd.toString());
+}
+
+
 TEST(MangleBasic, scalarfloat){
-  Type* primitiveFloat = new Type(primitives::FLOAT);
+  RefParamType primitiveFloat(new PrimitiveType(PRIMITIVE_FLOAT));
   FunctionDescriptor fd;
   fd.name = "foo";
-  fd.parameters.push_back(primitiveFloat->clone());
+  fd.parameters.push_back(primitiveFloat);
   ASSERT_STREQ("_Z3foof", mangle(fd).c_str());
-  delete primitiveFloat;
 }
 
 TEST(MangleBasic, scalardouble){
-  Type* primitiveDouble = new Type(primitives::DOUBLE);
+  RefParamType primitiveDouble(new PrimitiveType(PRIMITIVE_DOUBLE));
   FunctionDescriptor fd;
   fd.name = "foo";
-  fd.parameters.push_back(primitiveDouble->clone());
+  fd.parameters.push_back(primitiveDouble);
   ASSERT_STREQ("_Z3food", mangle(fd).c_str());
-  delete primitiveDouble;
 }
 
 //
@@ -524,22 +534,21 @@ TEST(MangleAPI, visitorExample){
 
     PrintTypeVisitor(): ordinal(0){}
 
-    void visit(const Type* p){
-      Type primitive(p->getPrimitive());
-      std::cout << "primitive " << primitive.toString() << std::endl;
+    void visit(const PrimitiveType* p){
+      std::cout << "primitive " << p->toString() << std::endl;
     }
 
-    void visit(const Vector* p){
-      std::cout << "vector with length " << p->getLen() << " with ";
-      visit((Type*)p);
+    void visit(const VectorType* p){
+      std::cout << "vector with length " << p->getLength() << " with ";
+      p->getScalarType()->accept(this);
     }
 
-    void visit(const Pointer* p){
+    void visit(const PointerType* p){
       std::cout << "pointer to ";
       p->getPointee()->accept(this);
     }
 
-    void visit(const UserDefinedTy*){
+    void visit(const UserDefinedType*){
       std::cout << ordinalStr();
       std::cout << "user defined type. in OCL, its images..." << std::endl;
     }
@@ -555,10 +564,10 @@ TEST(MangleAPI, visitorExample){
 }
 
 TEST(Type, TypeCast){
-  Type primitiveInt(primitives::INT);
-  Vector vectorInt(&primitiveInt, 4);
-  ASSERT_TRUE(NULL == dyn_cast<Vector>(&primitiveInt));
-  ASSERT_EQ( &vectorInt, dyn_cast<Vector>(&vectorInt));
+  RefParamType primitiveInt(new PrimitiveType(PRIMITIVE_INT));
+  VectorType vectorInt(primitiveInt, 4);
+  ASSERT_TRUE(NULL == reflection::dyn_cast<VectorType>(primitiveInt));
+  ASSERT_EQ(&vectorInt, reflection::dyn_cast<VectorType>(&vectorInt));
 }
 
 TEST(MemoryLeaks, Vector){
@@ -583,7 +592,8 @@ TEST(MemoryLeaks, PointerAttribToVector){
 
 TEST(MemoryLeaks, StructTy){
   FunctionDescriptor fd = demangle("_Z1f2xx");
-  EXPECT_TRUE(reflection::dyn_cast<UserDefinedTy>(fd.parameters[0]));
+  ASSERT_FALSE(fd.isNull());
+  EXPECT_TRUE(reflection::dyn_cast<UserDefinedType>(fd.parameters[0]));
 }
 
 }//end namespace test

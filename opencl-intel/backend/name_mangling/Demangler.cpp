@@ -5,32 +5,11 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 
-#include <sstream>
-#include <cctype>
-#include <cstdlib>
-#include "antlr/AST.hpp"
-#include "DemangleLexer.hpp"
-#include "DemangleParser.hpp"
 #include "FunctionDescriptor.h"
+#include "DemangleParser.h"
 
-//
-//A callback delegate (aka functor), to handle the discovery of parameters by
-//the parser (accumulator)
-//
-struct TypeAccumulator: reflection::TypeDelegate<TypeAccumulator> {
+#include <stdlib.h>
 
-TypeAccumulator(){
-  m_cb = &TypeAccumulator::pushParameter;
-  m_pReceiver = this;
-}
-
-void pushParameter(reflection::Type* t){
-  m_parameters.push_back(t->clone());
-}
-
-std::vector<reflection::Type*> m_parameters;
-
-};//End TypeAccumulator
 
 const char* PREFIX = "_Z";
 
@@ -70,41 +49,31 @@ bool isMangledName(const char* rawString){
 //converts the given mangled name string to a FunctionDescriptor object.
 //
 reflection::FunctionDescriptor demangle(const char* rawstring){
-  ANTLR_USING_NAMESPACE(antlr)
-  ANTLR_USING_NAMESPACE(namemangling)
   if (!rawstring || reflection::FunctionDescriptor::nullString() == rawstring)
     return reflection::FunctionDescriptor::null();
-  std::stringstream input;
+  
   llvm::StringRef mangledName(rawstring);
   //making sure it starts with _Z
-  if (false == peelPrefix(mangledName))
+  if (false == peelPrefix(mangledName)) {
     return reflection::FunctionDescriptor::null();
+  }
   llvm::StringRef nameLen = peelNameLen(mangledName);
   //cutting the prefix
   int len = atoi(nameLen.data());
   std::string functionName = mangledName.substr(0, len);
   std::string parameters =
     mangledName.substr(len, mangledName.size() - len);
-  input << parameters;
-  DemangleLexer lexer(input);
-  DemangleParser parser(lexer);
-  parser.setLexer(&lexer);
-  //
-  //setting the callback to parameter discovery
-  //
-  TypeAccumulator parameterAccumulator;
-  parser.setCallback(&parameterAccumulator);
-  // Parse the input expression
-  try {
-    parser.demangle();
-  }catch(ANTLRException ex){
+
+  reflection::FunctionDescriptor ret;
+
+  reflection::DemangleParser parser(ret.parameters);
+
+  if(!parser.demangle(parameters.c_str())) {
     return reflection::FunctionDescriptor::null();
   }
-  reflection::FunctionDescriptor ret;
+
   ret.name = functionName;
-  ret.parameters.insert ( ret.parameters.begin(),
-    parameterAccumulator.m_parameters.rbegin(),
-    parameterAccumulator.m_parameters.rend() );
+
   return ret;
 }
 

@@ -1337,8 +1337,7 @@ bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName
   if (Mangler::isRetByVectorBuiltin(strScalarFuncName)) {
     reflection::FunctionDescriptor fdesc = ::demangle(strScalarFuncName.c_str());
     V_ASSERT(fdesc.parameters.size() == 1 && "supported built-ins must have one parameter");
-    reflection::Type* refType = fdesc.parameters[0];
-    Type *scalarType = reflectionToLLVM(m_currFunc->getContext(), refType);
+    Type *scalarType = reflectionToLLVM(m_currFunc->getContext(), fdesc.parameters[0]);
     SmallVector<Type *, 1> types(1, scalarType);
     Type* retType = static_cast<Type*>(VectorType::get(scalarType, 2));
     funcType = FunctionType::get(retType, types, false);

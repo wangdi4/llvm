@@ -10,8 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 //name mangled related
 #include "NameMangleAPI.h"
 #include "FunctionDescriptor.h"
-#include "Type.h"
-#include "TypeCast.h"
+#include "ParameterType.h"
 
 #include <stdlib.h>
 #include <cassert>
@@ -76,14 +75,13 @@ std::string Mangler::mangle(const std::string& name) {
         reflection::FunctionDescriptor fdesc = ::demangle(name.c_str());
         V_ASSERT(!fdesc.isNull() && "demangle operation failed!");
         //Currently, we only support two dimension images to be masked.
-        //TODO: 1) hard-coded comparison assumes that CLANG mangling will stay, and such assumption is incorrect.
-        //      2) toString is function which is used mainly for debugging, however its implementation could not be changed
-        //         because it is also used in the real flows
-        if ( fdesc.parameters[0]->toString() != "ocl_image2d" )
+        reflection::PrimitiveType *pTy = reflection::dyn_cast<reflection::PrimitiveType>(fdesc.parameters[0]);
+        bool isImage2d = (pTy && pTy->getPrimitive() == reflection::PRIMITIVE_IMAGE_2D_T);
+        if (!isImage2d)
           return name;
         fdesc.name = IMG_MASK_PREFIX + fdesc.name;
         reflection::TypeVector& params = fdesc.parameters;
-        reflection::Type* intType = new reflection::Type(reflection::primitives::INT);
+        reflection::RefParamType intType(new reflection::PrimitiveType(reflection::PRIMITIVE_INT));
         params.insert(params.begin(), intType);
         return ::mangle(fdesc);
       }
@@ -196,20 +194,17 @@ std::string Mangler::getVectorizedPrefetchName(const std::string& name, int pack
 
   reflection::FunctionDescriptor prefetchDesc = ::demangle(mangledName.c_str());
   // First argument of prefetch built-in must be pointer.
-  V_ASSERT(reflection::dyn_cast<reflection::Pointer>(prefetchDesc.parameters[0])
+  V_ASSERT(reflection::dyn_cast<reflection::PointerType>(prefetchDesc.parameters[0])
     && "First argument of prefetch built-in is expected to a pointer.");
-  reflection::Pointer* pPtrTy =
-    reflection::dyn_cast<reflection::Pointer>(prefetchDesc.parameters[0]);
+  reflection::PointerType* pPtrTy =
+    reflection::dyn_cast<reflection::PointerType>(prefetchDesc.parameters[0]);
   assert (pPtrTy && "not a pointer");
-  const reflection::Type* scalarType = pPtrTy->getPointee();
-  V_ASSERT(scalarType->isPrimiteTy() && "Primitive type is expected.");
+  reflection::RefParamType scalarType = pPtrTy->getPointee();
+  V_ASSERT(scalarType->getTypeId() == reflection::PrimitiveType::enumTy && "Primitive type is expected.");
   // create vectorized data type for packed prefetch
-  reflection::Vector *vectorizedType = new reflection::Vector(scalarType, packetWidth);
-  reflection::Pointer* vectorizedPtr = new reflection::Pointer(vectorizedType);
+  reflection::VectorType *vectorizedType = new reflection::VectorType(scalarType, packetWidth);
+  reflection::PointerType* vectorizedPtr = new reflection::PointerType(vectorizedType);
   prefetchDesc.parameters[0] = vectorizedPtr;
-  //we need to delete this, since the Pointer constructor is defensive, by
-  //cloning the given pointer
-  delete vectorizedType;
   return ::mangle(prefetchDesc);
 }
 
@@ -300,7 +295,7 @@ std::string Mangler::getRetByArrayBuiltinName(const std::string& name) {
   // Create the name of the builtin function we will be replacing with.
   // If the orginal function was scalar, use the same function that will
   // planted by the Scalarizer
-  ret.name = reflection::dyn_cast<reflection::Vector>(ret.parameters[0]) ?
+  ret.name = reflection::dyn_cast<reflection::VectorType>(ret.parameters[0]) ?
     retbyarray_builtin_prefix + ret.name :
     retbyvector_builtin_prefix + ret.name;
   return ::mangle(ret);
@@ -338,7 +333,7 @@ std::string Mangler::get_original_scalar_name_from_retbyvector_builtin(const std
   reflection::FunctionDescriptor desc = ::demangle(name.c_str());
   //Add second operand that is pointer of first operand type
   //It is always pointer to address space 0 (should not really matter)!
-  desc.parameters.push_back(new reflection::Pointer(desc.parameters[0]));
+  desc.parameters.push_back(new reflection::PointerType(desc.parameters[0]));
   //Fix the name
   size_t start = desc.name.find(retbyvector_builtin_prefix);
   // when get_original_scalar_name_from_retbyvector_builtin

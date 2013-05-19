@@ -5,19 +5,19 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 
-#include <map>
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "Type.h"
+#include "ParameterType.h"
 #include "FunctionDescriptor.h"
 #include "utils.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/ArrayRef.h"
+#include <map>
 
 #ifndef __VERSION_STRATEGY_H__
 #define __VERSION_STRATEGY_H__
 
 namespace reflection{
 
-typedef std::map<FunctionDescriptor,Type*>  ReturnTypeMap;
+typedef std::map<FunctionDescriptor, RefParamType> ReturnTypeMap;
 
 struct PairSW : std::pair<std::string, width::V> {
   PairSW(const std::pair<std::string, width::V>&);
@@ -64,10 +64,10 @@ public:
   //Return: the transposed function descriptor
   //////////////////////////////////////////////////////////////////////////////
   PairSW operator()(const PairSW&)const;
-  void visit(const Type*);
-  void visit(const Vector*);
-  void visit(const Pointer*);
-  void visit(const UserDefinedTy*);
+  void visit(const PrimitiveType*);
+  void visit(const VectorType*);
+  void visit(const PointerType*);
+  void visit(const UserDefinedType*);
 private:
 
   FunctionDescriptor scalarReturnTranspose(const PairSW& sw)const;

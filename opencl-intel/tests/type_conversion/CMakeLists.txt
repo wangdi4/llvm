@@ -5,7 +5,6 @@ set(TARGET_NAME TestTypeConversion)
 include_directories(
   ${CMAKE_SOURCE_DIR}/externals/gtest/include
   ${CMAKE_SOURCE_DIR}/backend/utils
-  ${CMAKE_SOURCE_DIR}/backend/llvm/include
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
 )
 
@@ -22,7 +21,6 @@ add_executable(${TARGET_NAME}
 
 target_link_libraries(
   ${TARGET_NAME}
-  antlr
   name_mangle
   OclBackendUtils
   googletest

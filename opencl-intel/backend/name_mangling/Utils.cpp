@@ -4,76 +4,110 @@ Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
+
 #include "Utils.h"
 #include <cassert>
+#include <sstream>
+#include <string>
 
-namespace reflection{
+namespace reflection {
 
-//string represenration for the primitive types
-static const char* PrimitiveNames[NUM_TYPES] ={
-  "bool",
-  "uchar",
-  "char",
-  "ushort",
-  "short",
-  "uint",
-  "int",
-  "ulong",
-  "long",
-  "half",
-  "float",
-  "double",
-  "void",
-  "sampler_t",
-  "NONE",
-};
+  //string represenration for the primitive types
+  static const char* PrimitiveNames[PRIMITIVE_NUM] ={
+    "bool",
+    "uchar",
+    "char",
+    "ushort",
+    "short",
+    "uint",
+    "int",
+    "ulong",
+    "long",
+    "half",
+    "float",
+    "double",
+    "void",
+    "image1d_t",
+    "image2d_t",
+    "image3d_t",
+    "image1d_buffer_t",
+    "image1d_array_t",
+    "image2d_array_t",
+    "sampler_t"
+  };
 
-const char* mangledTypes[NUM_TYPES] = {
-  "b", //BOOL
-  "h", //UCHAR
-  "c", //CHAR
-  "t", //USHORT
-  "s", //SHORT
-  "j", //UINT
-  "i", //INT
-  "m", //ULONG
-  "l", //LONG
-  "Dh", //HALF
-  "f", //FLOAT
-  "d", //DOUBLE
-  "v",  //VOID
-  "uSampler" //SAMPLER_T
-};
+  const char* mangledTypes[PRIMITIVE_NUM] = {
+    "b",  //BOOL
+    "h",  //UCHAR
+    "c",  //CHAR
+    "t",  //USHORT
+    "s",  //SHORT
+    "j",  //UINT
+    "i",  //INT
+    "m",  //ULONG
+    "l",  //LONG
+    "Dh", //HALF
+    "f",  //FLOAT
+    "d",  //DOUBLE
+    "v",  //VOID
+    "11ocl_image1d",       //PRIMITIVE_IMAGE_1D_T,
+    "11ocl_image2d",       //PRIMITIVE_IMAGE_2D_T,
+    "11ocl_image3d",       //PRIMITIVE_IMAGE_3D_T,
+    "17ocl_image1dbuffer", //PRIMITIVE_IMAGE_1D_BUFFER_T,
+    "16ocl_image1darray",  //PRIMITIVE_IMAGE_1D_ARRAY_T,
+    "16ocl_image2darray",  //PRIMITIVE_IMAGE_2D_ARRAY_T,
+    "11ocl_sampler"        //SAMPLER_T
+  };
 
-//BOOL is the first type enum, and its not neccesrily valed zero.
-const char* mangledString(const reflection::Type* t){
-  assert(t && "null pointer");
-  assert(
-    (t->getPrimitive() > reflection::primitives::FIRST) &&
-    (t->getPrimitive() <= reflection::primitives::NONE) &&
-    "invalid primitive type"
-  );
-  return mangledTypes[t->getPrimitive()-reflection::primitives::BOOL];
-}
+  const char* readableAttribute[ATTR_NUM] = {
+   "__private",
+    "__global",
+    "__constant",
+    "__local",
+    "restrict",
+    "volatile",
+    "const"
+  };
 
-const char* readableString(const reflection::Type* t){
-  assert(t && "null pointer");
-  assert(
-    (t->getPrimitive() > reflection::primitives::FIRST) &&
-    (t->getPrimitive() <= reflection::primitives::NONE) &&
-    "invalid primitive type"
-  );
-  if (reflection::primitives::NONE == t->getPrimitive())
-    return t->toString().c_str();
-  return PrimitiveNames[t->getPrimitive()-reflection::primitives::BOOL];
-}
+  const char* mangledAttribute[ATTR_NUM] = {
+    "U3AS0",
+    "U3AS1",
+    "U3AS2",
+    "U3AS3",
+    "r",
+    "V",
+    "K"
+  };
 
-primitives::Primitive parseType(const std::string& s){
-  for (int i=0 ; i<NUM_TYPES ; ++i)
-    if (0==s.compare(PrimitiveNames[i]))
-      return static_cast<primitives::Primitive>(primitives::BOOL+i);
-  assert(false && "unreachable code: not a valid type");
-  return static_cast<primitives::Primitive>(0);
-}
+  const char* mangledPrimitiveString(TypePrimitiveEnum t) {
+    return mangledTypes[t];
+  }
 
-}
+  const char* readablePrimitiveString(TypePrimitiveEnum t) {
+    return PrimitiveNames[t];
+  }
+
+  std::string llvmPrimitiveString(TypePrimitiveEnum t) {
+    assert(t >= PRIMITIVE_IMAGE_1D_T && t <= PRIMITIVE_IMAGE_2D_ARRAY_T &&
+      "assuming image primitive type only!");
+    return std::string("opencl.") + std::string(PrimitiveNames[t]);
+  }
+
+  std::string getMangledAttribute(TypeAttributeEnum attribute) {
+    return mangledAttribute[attribute];
+  }
+
+  std::string getReadableAttribute(TypeAttributeEnum attribute) {
+    return readableAttribute[attribute];
+  }
+
+  std::string getDuplicateString(int index) {
+    assert (index >= 0 && "illegal index");
+    if (0 == index)
+      return "S_";
+    std::stringstream ss;
+    ss << "S" << index-1 << "_";
+    return ss.str();
+  }
+
+} // namespace reflection {

@@ -10,54 +10,28 @@ endif( ANDROID )
 
 set(TARGET_NAME name_mangle)
 
-set(ANTLR_COMMAND
-  java -cp ${CMAKE_CURRENT_SOURCE_DIR}/antlruntime/lib/antlr.jar antlr.Tool
-)
-
 project (${TARGET_NAME})
-
-set(NAME_MANGLE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (NOT APPLE)
     add_subdirectory(unittests)
 endif (NOT APPLE)
 
-add_subdirectory(antlruntime)
-
-add_custom_command(
-  OUTPUT
-  ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleParser.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleParser.hpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleLexer.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleLexer.hpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/gen/DemangleParserTokenTypes.hpp
-  COMMAND ${ANTLR_COMMAND}
-  -o ${CMAKE_CURRENT_SOURCE_DIR}/gen ${CMAKE_CURRENT_SOURCE_DIR}/demangler.g
-  DEPENDS demangler.g
-  COMMENT "running ${ANTLR_COMMAND} on ${CMAKE_CURRENT_SOURCE_DIR}/demangler.g"
-)
-
 set(TARGET_SOURCE_FILES
-  Type.cpp
+  ParameterType.cpp
   Demangler.cpp
   Mangler.cpp
   FunctionDescriptor.cpp
-  TypeCast.cpp
+  DemangleParser.cpp
   Utils.cpp
-  gen/DemangleLexer.cpp
-  gen/DemangleParser.cpp
 )
 
 set(TARGET_INCLUDE_FILES
-  Type.h
+  ParameterType.h
   NameMangleAPI.h
   FunctionDescriptor.h
   Refcount.h
-  TypeCast.h
+  DemangleParser.h
   Utils.h
-  gen/DemangleLexer.hpp
-  gen/DemangleParser.hpp
-  gen/DemangleParserTokenTypes.hpp
 )
 
 add_library(
@@ -74,14 +48,7 @@ if (NOT APPLE)
 endif (NOT APPLE)
 
 include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/antlruntime/include
-  ${CMAKE_CURRENT_SOURCE_DIR}/gen
   ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-target_link_libraries(
-  ${TARGET_NAME}
-  antlr
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )

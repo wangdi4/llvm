@@ -16,7 +16,7 @@ template <typename T>
 class RefCount{
 public:
 //Forge
-  RefCount(): m_refCount(NULL), m_ptr(NULL){
+  RefCount(): m_refCount(0), m_ptr(0){
   }
 
   RefCount(T* ptr): m_ptr(ptr){
@@ -47,6 +47,11 @@ public:
     m_refCount = new int(1);
     m_ptr = ptr;
   }
+
+  bool isNull() const {
+    return (!m_ptr);
+  }
+
 //Pointer access
   const T& operator*()const{
     sanity();
@@ -83,7 +88,7 @@ private:
   void cpy(const RefCount<T>& other){
     m_refCount = other.m_refCount;
     m_ptr = other.m_ptr;
-    ++*m_refCount;
+    if (m_refCount) ++*m_refCount;
   }
 
   void dispose(){
@@ -91,8 +96,8 @@ private:
     if (0 == --*m_refCount){
       delete m_refCount;
       delete m_ptr;
-      m_ptr = NULL;
-      m_refCount = NULL;
+      m_ptr = 0;
+      m_refCount = 0;
     }
   }
 

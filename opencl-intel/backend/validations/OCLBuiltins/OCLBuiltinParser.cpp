@@ -31,7 +31,7 @@ File Name:  OCLBuiltinParser.cpp
 #include "OCLBuiltinParser.h"
 
 #include "NameMangleAPI.h"
-#include "Type.h"
+#include "ParameterType.h"
 #include "FunctionDescriptor.h"
 
 #include <iostream>
@@ -77,6 +77,13 @@ void BasicTypeFromStr::initStatic()
     m_Map["ulong"] = OCLBuiltinParser::ULONG;
     m_Map["float"] = OCLBuiltinParser::FLOAT;
     m_Map["double"] = OCLBuiltinParser::DOUBLE;
+    m_Map["image1d_t"] = OCLBuiltinParser::IMAGE_1D_T;
+    m_Map["image2d_t"] = OCLBuiltinParser::IMAGE_2D_T;
+    m_Map["image3d_t"] = OCLBuiltinParser::IMAGE_3D_T;
+    m_Map["image1d_buffer_t"] = OCLBuiltinParser::IMAGE_1D_BUFFER_T;
+    m_Map["image1d_array_t"] = OCLBuiltinParser::IMAGE_1D_ARRAY_T;
+    m_Map["image2d_array_t"] = OCLBuiltinParser::IMAGE_2D_ARRAY_T;
+    m_Map["sampler_t"] = OCLBuiltinParser::SAMPLER_T;
 }
 
 std::map<std::string, OCLBuiltinParser::BasicArgType> BasicTypeFromStr::m_Map;
@@ -91,10 +98,10 @@ public:
             initStatic();
     }
 
-    reflection::primitives::Primitive operator[](
+    reflection::TypePrimitiveEnum operator[](
         const OCLBuiltinParser::BasicArgType& type) const
     {
-        std::map<OCLBuiltinParser::BasicArgType, reflection::primitives::Primitive >::const_iterator 
+        std::map<OCLBuiltinParser::BasicArgType, reflection::TypePrimitiveEnum >::const_iterator 
             it = m_Map.find(type);
         if (it == m_Map.end())
             throw Exception::InvalidArgument("Unknown basic type");
@@ -103,25 +110,32 @@ public:
 
 private:
     void initStatic();
-    static std::map<OCLBuiltinParser::BasicArgType, reflection::primitives::Primitive> m_Map;
+    static std::map<OCLBuiltinParser::BasicArgType, reflection::TypePrimitiveEnum> m_Map;
 };
 
 void BasicTypeToStr::initStatic()
 {
-    m_Map[OCLBuiltinParser::BOOL]       = reflection::primitives::BOOL;
-    m_Map[OCLBuiltinParser::CHAR]       = reflection::primitives::CHAR;
-    m_Map[OCLBuiltinParser::UCHAR]      = reflection::primitives::UCHAR;
-    m_Map[OCLBuiltinParser::SHORT]      = reflection::primitives::SHORT;
-    m_Map[OCLBuiltinParser::USHORT]     = reflection::primitives::USHORT;
-    m_Map[OCLBuiltinParser::INT]        = reflection::primitives::INT;
-    m_Map[OCLBuiltinParser::UINT]       = reflection::primitives::UINT;
-    m_Map[OCLBuiltinParser::LONG]       = reflection::primitives::LONG;
-    m_Map[OCLBuiltinParser::ULONG]      = reflection::primitives::ULONG;
-    m_Map[OCLBuiltinParser::FLOAT]      = reflection::primitives::FLOAT;
-    m_Map[OCLBuiltinParser::DOUBLE]     = reflection::primitives::DOUBLE;
+    m_Map[OCLBuiltinParser::BOOL]       = reflection::PRIMITIVE_BOOL;
+    m_Map[OCLBuiltinParser::CHAR]       = reflection::PRIMITIVE_CHAR;
+    m_Map[OCLBuiltinParser::UCHAR]      = reflection::PRIMITIVE_UCHAR;
+    m_Map[OCLBuiltinParser::SHORT]      = reflection::PRIMITIVE_SHORT;
+    m_Map[OCLBuiltinParser::USHORT]     = reflection::PRIMITIVE_USHORT;
+    m_Map[OCLBuiltinParser::INT]        = reflection::PRIMITIVE_INT;
+    m_Map[OCLBuiltinParser::UINT]       = reflection::PRIMITIVE_UINT;
+    m_Map[OCLBuiltinParser::LONG]       = reflection::PRIMITIVE_LONG;
+    m_Map[OCLBuiltinParser::ULONG]      = reflection::PRIMITIVE_ULONG;
+    m_Map[OCLBuiltinParser::FLOAT]      = reflection::PRIMITIVE_FLOAT;
+    m_Map[OCLBuiltinParser::DOUBLE]     = reflection::PRIMITIVE_DOUBLE;
+    m_Map[OCLBuiltinParser::IMAGE_1D_T] = reflection::PRIMITIVE_IMAGE_1D_T;
+    m_Map[OCLBuiltinParser::IMAGE_2D_T] = reflection::PRIMITIVE_IMAGE_2D_T;
+    m_Map[OCLBuiltinParser::IMAGE_3D_T] = reflection::PRIMITIVE_IMAGE_3D_T;
+    m_Map[OCLBuiltinParser::IMAGE_1D_BUFFER_T] = reflection::PRIMITIVE_IMAGE_1D_BUFFER_T;
+    m_Map[OCLBuiltinParser::IMAGE_1D_ARRAY_T] = reflection::PRIMITIVE_IMAGE_1D_ARRAY_T;
+    m_Map[OCLBuiltinParser::IMAGE_2D_ARRAY_T] = reflection::PRIMITIVE_IMAGE_2D_ARRAY_T;
+    m_Map[OCLBuiltinParser::SAMPLER_T] = reflection::PRIMITIVE_SAMPLER_T;
 }
 
-std::map<OCLBuiltinParser::BasicArgType, reflection::primitives::Primitive> BasicTypeToStr::m_Map;
+std::map<OCLBuiltinParser::BasicArgType, reflection::TypePrimitiveEnum> BasicTypeToStr::m_Map;
 
 // template singleton class
 // taken from source http://www.yolinux.com/TUTORIALS/C++Singleton.html
@@ -162,7 +176,7 @@ typedef std::map<std::string, ArgPair> ArgVectorMap;
 typedef Singleton<ArgVectorMap> ArgVectorMapSingleton;
 
 
-  struct GetTypeVisitor: reflection::TypeVisitor{
+  struct GetTypeVisitor: reflection::TypeVisitor {
 
     llvm::OCLBuiltinParser::ARG newArg;
     BasicTypeFromStr BasicTypeConvertor;
@@ -171,20 +185,19 @@ typedef Singleton<ArgVectorMap> ArgVectorMapSingleton;
         return newArg;
     }
 
-    void visit(const reflection::Type* p){
-      reflection::Type primitive(p->getPrimitive());
-      newArg.basicType = BasicTypeConvertor[primitive.toString()];
+    void visit(const reflection::PrimitiveType* p) {
+      newArg.basicType = BasicTypeConvertor[p->toString()];
       newArg.genType = OCLBuiltinParser::BASIC;
     }
 
-    void visit(const reflection::Vector* p){
-      visit((reflection::Type*)p);
+    void visit(const reflection::VectorType* p) {
+      p->getScalarType()->accept(this);
       newArg.vecType.elType = newArg.basicType;
-      newArg.vecType.elNum = p->getLen();
+      newArg.vecType.elNum = p->getLength();
       newArg.genType = OCLBuiltinParser::VECTOR;
     }
 
-    void visit(const reflection::Pointer* p){
+    void visit(const reflection::PointerType* p) {
 
       llvm::OCLBuiltinParser::ARG pointerArg;
 
@@ -195,7 +208,7 @@ typedef Singleton<ArgVectorMap> ArgVectorMapSingleton;
       newArg.ptrType.ptrToStr = p->toString();      
     }
 
-    void visit(const reflection::UserDefinedTy* p){
+    void visit(const reflection::UserDefinedType* p) {
       //user defined type, in OCL, its images
       std::string gotString = p->toString();
       size_t found_1d = gotString.find("image1d");
@@ -263,31 +276,33 @@ bool OCLBuiltinParser::ParseOCLBuiltin(const std::string& in_str,
                 }
 
             // find attributes : __global, __constant, etc 
-                std::vector<std::string>::const_iterator it = fd.parameters[i]->beginAttributes();
-                while(it != fd.parameters[i]->endAttributes()) {
-                    if( (*it) == "__local") {
+                reflection::PointerType *pPTy = reflection::dyn_cast<reflection::PointerType>(&*fd.parameters[i]);
+                for(unsigned int j=0; j< pPTy->getAttributes().size(); ++j) {
+                    switch (pPTy->getAttributes()[j]) {
+                    case reflection::ATTR_LOCAL:
                         newArg.ptrType.isAddrSpace = true;
                         newArg.ptrType.AddrSpace = OCLBuiltinParser::LOCAL;
-                    }
-                    if( (*it) == "__constant") {
+                        break;
+                    case reflection::ATTR_CONSTANT:
                         newArg.ptrType.isAddrSpace = true;
                         newArg.ptrType.AddrSpace = OCLBuiltinParser::CONSTANT;
-                    }
-                    if( (*it) == "__global") {
+                        break;
+                    case reflection::ATTR_GLOBAL:
                         newArg.ptrType.isAddrSpace = true;
                         newArg.ptrType.AddrSpace = OCLBuiltinParser::GLOBAL;
-                    }
-                    if( (*it) == "__private") {
+                        break;
+                    case reflection::ATTR_PRIVATE:
                         newArg.ptrType.isAddrSpace = true;
                         newArg.ptrType.AddrSpace = OCLBuiltinParser::PRIVATE;
-                    }
-                    if( (*it) == "const") {
+                        break;
+                    case reflection::ATTR_CONST:
                         newArg.ptrType.isPointsToConst = true;
+                        break;
+                    default:
+                        break;
                     }
-                    ++it;
                 }
             }
-
             al.push_back(newArg);
         }
 
@@ -331,38 +346,38 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
             case OCLBuiltinParser::BASIC:
             {
                 // create parameter
-                reflection::Type *primitiveType = new reflection::Type(typeConvertor[arg.basicType]);
+                reflection::PrimitiveType *primitiveType = new reflection::PrimitiveType(typeConvertor[arg.basicType]);
                 // 
                 fd.parameters.push_back(primitiveType);
                 break;
             }
             case OCLBuiltinParser::VECTOR:
             {
-                reflection::Type *primitiveType = new reflection::Type(typeConvertor[arg.vecType.elType]);
-                reflection::Vector *vectorType = new reflection::Vector(primitiveType,(int)arg.vecType.elNum);
+                reflection::RefParamType primitiveType(new reflection::PrimitiveType(typeConvertor[arg.vecType.elType]));
+                reflection::VectorType *vectorType = new reflection::VectorType(primitiveType,(int)arg.vecType.elNum);
                 fd.parameters.push_back(vectorType);
                 break;
             }
             case OCLBuiltinParser::POINTER:
             {
+                reflection::PointerType *pPointerType;
                 switch (arg.ptrType.ptrType[0].genType) {
                     case OCLBuiltinParser::BASIC:
                     {
-                        reflection::Type *primitiveType = 
-                            new reflection::Type(typeConvertor[arg.ptrType.ptrType[0].basicType]);
-                        reflection::Pointer *ptrPrimitive = new reflection::Pointer(primitiveType);
-                        fd.parameters.push_back(ptrPrimitive);
+                        reflection::RefParamType primitiveType( 
+                            new reflection::PrimitiveType(typeConvertor[arg.ptrType.ptrType[0].basicType]));
+                        pPointerType = new reflection::PointerType(primitiveType);
+                        fd.parameters.push_back(pPointerType);
                         break;
                     }
                     case OCLBuiltinParser::VECTOR:
                     {
-                        reflection::Type *primitiveType = 
-                            new reflection::Type(typeConvertor[arg.ptrType.ptrType[0].vecType.elType]);
-                        reflection::Vector *vectorType = 
-                            new reflection::Vector(primitiveType,(int)arg.ptrType.ptrType[0].vecType.elNum);
-                        reflection::Pointer *ptrVector = 
-                            new reflection::Pointer(vectorType);
-                        fd.parameters.push_back(ptrVector);
+                        reflection::RefParamType primitiveType(
+                            new reflection::PrimitiveType(typeConvertor[arg.ptrType.ptrType[0].vecType.elType]));
+                        reflection::VectorType *vectorType = 
+                            new reflection::VectorType(primitiveType,(int)arg.ptrType.ptrType[0].vecType.elNum);
+                        pPointerType = new reflection::PointerType(vectorType);
+                        fd.parameters.push_back(pPointerType);
                         break;
                     }
                     default:
@@ -374,16 +389,16 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
                 if (arg.ptrType.isAddrSpace) {
                     switch(arg.ptrType.AddrSpace) {
                     case PRIVATE:
-                        fd.parameters[i]->addAttribute("__private");
+                        pPointerType->addAttribute(reflection::ATTR_PRIVATE);
                         break;
                     case GLOBAL:
-                        fd.parameters[i]->addAttribute("__global");
+                        pPointerType->addAttribute(reflection::ATTR_GLOBAL);
                         break;
                     case CONSTANT:
-                        fd.parameters[i]->addAttribute("__constant");
+                        pPointerType->addAttribute(reflection::ATTR_CONSTANT);
                         break;
                     case LOCAL:
-                        fd.parameters[i]->addAttribute("__local");
+                        pPointerType->addAttribute(reflection::ATTR_LOCAL);
                         break;
                     default:
                         throw Validation::Exception::InvalidArgument("Unknown address space!");
@@ -391,7 +406,7 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
                 }
 
                 if (arg.ptrType.isPointsToConst) {
-                    fd.parameters[i]->addAttribute("const");
+                    pPointerType->addAttribute(reflection::ATTR_CONST);
                 }
 
                 break;

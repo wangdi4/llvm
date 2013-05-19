@@ -107,13 +107,8 @@ TEST(getWidth, fromScalar){
 }
 
 TEST(getWidth, nonBuiltin){
-  try{
-    BuiltinKeeper::instance()->getVersion("_Z2bof", width::TWO);
-  } catch(BuiltinKeeperException){
-    SUCCEED();
-    return;
-  }
-  FAIL() << "exception wasn't caught";
+  PairSW sw = BuiltinKeeper::instance()->getVersion("_Z2bof", width::TWO);
+  ASSERT_TRUE(isNullPair(sw));
 }
 
 static width::V indexToWidth(size_t index){
@@ -142,13 +137,13 @@ TEST(VectorizerReference, OldTable){
   for (size_t rowindex=0 ; rowindex<numFunctionEntries ; ++rowindex){
     for (size_t colindex=0 ; colindex<width::OCL_VERSIONS ; ++colindex){
       const char* biName = functionEntries[rowindex][colindex];
-      if (biName && !pKeeper->isBuiltin(biName)){
+      if (!biName) //not interested in processing NULL entries.
+        continue;
+      if (!pKeeper->isBuiltin(biName)){
         //we skip those, since they are not first class citizens (they are not
         //built-in functions), thus may not be demangled
         continue;
       }
-      if (!biName) //not interested in processing NULL entries.
-        continue;
       //Do the two versions agree on the scalarization property?
       width::V expectedWidth = indexToWidth(colindex);
       PairSW scalarVersion = pKeeper->getVersion(biName, width::SCALAR);
@@ -170,7 +165,7 @@ TEST(VectorizerReference, OldTable){
         ASSERT_FALSE(isNull) << "in built-in: " << biName;
         continue;
       }
-      ASSERT_TRUE (tableProperties[rowindex][1] == !isNull) <<
+      ASSERT_EQ(tableProperties[rowindex][1], !isNull) <<
       "packetization property failure: mangled name " << biName;
       //
       //Width check
@@ -226,10 +221,10 @@ TEST(Functionality, duplicatedScalarEntry){
 //
 TEST(FDTranspose, vectorReturnTyFunctionality){
   FunctionDescriptor cross4 = demangle("_Z5crossDv4_dS_");
-  Type doubleTy(primitives::DOUBLE);
-  Vector double4Ty(&doubleTy, 4);
+  RefParamType doubleTy(new PrimitiveType(PRIMITIVE_DOUBLE));
+  RefParamType double4Ty(new VectorType(doubleTy, 4));
   ReturnTypeMap retMap;
-  retMap[cross4] = &double4Ty;
+  retMap[cross4] = double4Ty;
 
   SoaDescriptorStrategy soaStrategy;
   soaStrategy.setTypeMap(&retMap);
@@ -239,10 +234,10 @@ TEST(FDTranspose, vectorReturnTyFunctionality){
 }
 
 TEST(FDTranspose, scalarReturnTyFunctionality){
-  Type doubleTy(primitives::DOUBLE);
+  RefParamType doubleTy(new PrimitiveType(PRIMITIVE_DOUBLE));
   FunctionDescriptor dot = demangle("_Z3dotdd");
   ReturnTypeMap retMap;
-  retMap[dot] = &doubleTy;
+  retMap[dot] = doubleTy;
   SoaDescriptorStrategy soaStrategy;
   soaStrategy.setTypeMap(&retMap);
 

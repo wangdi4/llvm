@@ -6,73 +6,86 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "TypeConversion.h"
+#include "Utils.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/ADT/StringRef.h"
+#include <string>
 
 namespace intel{
 
-const std::string PRIVATE  = "__private";
-const std::string GLOBAL   = "__global";
-const std::string CONSTANT = "__constant";
-const std::string LOCAL    = "__local";
-
 class ConversionVisitor : public reflection::TypeVisitor{
-  llvm::Type *llvmTy;
-  llvm::LLVMContext &Ctx;
+  llvm::Type *m_llvmTy;
+  llvm::LLVMContext &m_Ctx;
 
-  bool isAddressSpace(const std::string& S){
-    return (S == PRIVATE || S == GLOBAL || S == CONSTANT || S == LOCAL);
+  bool isAddressSpace(reflection::TypeAttributeEnum attr){
+    return (attr >= reflection::ATTR_ADDR_SPACE_FIRST && attr <= reflection::ATTR_ADDR_SPACE_LAST);
   }
 
-  unsigned convertAddressSpace(const std::string& S){
-    if(S == PRIVATE)
+  unsigned convertAddressSpace(reflection::TypeAttributeEnum attr){
+    switch (attr) {
+    case reflection::ATTR_PRIVATE:
       return 0U;
-    if(S == GLOBAL)
+    case reflection::ATTR_GLOBAL:
       return 1U;
-    if(S == CONSTANT)
+    case reflection::ATTR_CONSTANT:
       return 2U;
-    if(S == LOCAL)
+    case reflection::ATTR_LOCAL:
       return 3U;
-    assert(false && "unreachable");
-    return 42U;
+    default:
+      assert(false && "unreachable");
+      return 42U;
+    }
   }
 public:
-  ConversionVisitor(llvm::LLVMContext &ctx): Ctx(ctx){
+  ConversionVisitor(llvm::LLVMContext &ctx): m_Ctx(ctx){
   }
 
-  virtual void visit(const reflection::Type *Ty){
+  virtual void visit(const reflection::PrimitiveType *Ty){
     switch (Ty->getPrimitive()){
-    case reflection::primitives::BOOL:
-      llvmTy = llvm::IntegerType::get(Ctx, 1U);
+    case reflection::PRIMITIVE_BOOL:
+      m_llvmTy = llvm::IntegerType::get(m_Ctx, 1U);
       break;
-    case reflection::primitives::UCHAR:
-    case reflection::primitives::CHAR:
-      llvmTy = llvm::IntegerType::get(Ctx, 8U);
+    case reflection::PRIMITIVE_UCHAR:
+    case reflection::PRIMITIVE_CHAR:
+      m_llvmTy = llvm::IntegerType::get(m_Ctx, 8U);
       break;
-    case reflection::primitives::USHORT:
-    case reflection::primitives::SHORT:
-      llvmTy = llvm::IntegerType::get(Ctx, 16U);
+    case reflection::PRIMITIVE_USHORT:
+    case reflection::PRIMITIVE_SHORT:
+      m_llvmTy = llvm::IntegerType::get(m_Ctx, 16U);
       break;
-    case reflection::primitives::UINT:
-    case reflection::primitives::INT:
-    case reflection::primitives::SAMPLER_T:
-      llvmTy = llvm::IntegerType::get(Ctx, 32U);
+    case reflection::PRIMITIVE_UINT:
+    case reflection::PRIMITIVE_INT:
+      m_llvmTy = llvm::IntegerType::get(m_Ctx, 32U);
       break;
-    case reflection::primitives::ULONG:
-    case reflection::primitives::LONG:
-      llvmTy = llvm::IntegerType::get(Ctx, 64U);
+    case reflection::PRIMITIVE_ULONG:
+    case reflection::PRIMITIVE_LONG:
+      m_llvmTy = llvm::IntegerType::get(m_Ctx, 64U);
       break;
-    case reflection::primitives::HALF:
-      llvmTy = llvm::Type::getHalfTy(Ctx);
-    break;
-    case reflection::primitives::FLOAT:
-      llvmTy = llvm::Type::getFloatTy(Ctx);
+    case reflection::PRIMITIVE_HALF:
+      m_llvmTy = llvm::Type::getHalfTy(m_Ctx);
       break;
-    case reflection::primitives::DOUBLE:
-      llvmTy = llvm::Type::getDoubleTy(Ctx);
-    break;
-    case reflection::primitives::VOID:
-      llvmTy = llvm::Type::getVoidTy(Ctx);
+    case reflection::PRIMITIVE_FLOAT:
+      m_llvmTy = llvm::Type::getFloatTy(m_Ctx);
+      break;
+    case reflection::PRIMITIVE_DOUBLE:
+      m_llvmTy = llvm::Type::getDoubleTy(m_Ctx);
+      break;
+    case reflection::PRIMITIVE_VOID:
+      m_llvmTy = llvm::Type::getVoidTy(m_Ctx);
+      break;
+    case reflection::PRIMITIVE_IMAGE_1D_T:
+    case reflection::PRIMITIVE_IMAGE_2D_T:
+    case reflection::PRIMITIVE_IMAGE_3D_T:
+    case reflection::PRIMITIVE_IMAGE_1D_BUFFER_T:
+    case reflection::PRIMITIVE_IMAGE_1D_ARRAY_T:
+    case reflection::PRIMITIVE_IMAGE_2D_ARRAY_T:
+      {
+         std::string Name = reflection::llvmPrimitiveString(Ty->getPrimitive());
+         m_llvmTy = llvm::StructType::create(m_Ctx, Name);
+      }
+      break;
+    case reflection::PRIMITIVE_SAMPLER_T:
+      m_llvmTy = llvm::IntegerType::get(m_Ctx, 32U);
       break;
     default:
       assert(false && "unexpected type");
@@ -80,40 +93,36 @@ public:
     }
   }
 
-  virtual void visit(const reflection::Vector *VTy){
-    reflection::Type pTy(VTy->getPrimitive()); 
-    pTy.accept(this);
-    llvmTy = llvm::VectorType::get(llvmTy, VTy->getLen());
+  virtual void visit(const reflection::VectorType *VTy){
+    VTy->getScalarType()->accept(this);
+    m_llvmTy = llvm::VectorType::get(m_llvmTy, VTy->getLength());
   }
 
-  virtual void visit(const reflection::Pointer *PTy){
-    const reflection::Type *Ty = PTy->getPointee();
-    Ty->accept(this);
+  virtual void visit(const reflection::PointerType *PTy){
+    PTy->getPointee()->accept(this);
     unsigned AS = 0U;
-    std::vector<std::string>::const_iterator b = PTy->beginAttributes(),
-      e = PTy->endAttributes();
-    while (b != e){
-      const std::string Attrib = *b++;
-      if ( isAddressSpace(Attrib) ){
-        AS = convertAddressSpace(Attrib);
+    for(unsigned int i=0; i< PTy->getAttributes().size(); ++i ) {
+      reflection::TypeAttributeEnum attr = PTy->getAttributes()[i];
+      if ( isAddressSpace(attr) ) {
+        AS = convertAddressSpace(attr);
         break;
       }
     }
-    llvmTy = llvm::PointerType::get(llvmTy, AS);
+    m_llvmTy = llvm::PointerType::get(m_llvmTy, AS);
   }
 
-  virtual void visit(const reflection::UserDefinedTy *UdTy){
-    llvm::StringRef Name = UdTy->toString();
-    llvmTy = llvm::StructType::create(Ctx, Name);
+  virtual void visit(const reflection::UserDefinedType *UdTy){
+    std::string Name = UdTy->toString();
+    m_llvmTy = llvm::StructType::create(m_Ctx, Name);
   }
 
-  const llvm::Type* getType()const{ return llvmTy;}
+  const llvm::Type* getType()const{ return m_llvmTy;}
 
-  llvm::Type* getType(){ return llvmTy; }
+  llvm::Type* getType(){ return m_llvmTy; }
 };
 
 
-llvm::Type* reflectionToLLVM(llvm::LLVMContext &Ctx, const reflection::Type *Ty){
+llvm::Type* reflectionToLLVM(llvm::LLVMContext &Ctx, const reflection::RefParamType& Ty){
   ConversionVisitor V(Ctx);
   Ty->accept(&V);
   return V.getType();

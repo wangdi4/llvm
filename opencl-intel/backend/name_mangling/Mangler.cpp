@@ -7,12 +7,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "FunctionDescriptor.h"
 #include "Utils.h"
-#include "Type.h"
+#include "ParameterType.h"
 #include <assert.h>
 #include <string>
 #include <sstream>
-#include <list>
-#include <algorithm>
 #include <map>
 
 //
@@ -32,128 +30,71 @@ const char* DUPLICANT_STR[2] = {"S_", "S0_"};
 class MangleVisitor: public reflection::TypeVisitor{
 public:
 
-  MangleVisitor(std::stringstream& s): m_stream(s)
-  {
-    imageTypeNameTranslate["ocl_image1d"]="image1d_t";
-    imageTypeNameTranslate["ocl_image2d"]="image2d_t";
-    imageTypeNameTranslate["ocl_image3d"]="image3d_t";
-    imageTypeNameTranslate["ocl_image1dbuffer"]="image1d_buffer_t";
-    imageTypeNameTranslate["ocl_image1darray"]="image1d_array_t";
-    imageTypeNameTranslate["ocl_image2darray"]="image2d_array_t";
-    imageTypeNameTranslate["ocl_sampler"]="sampler_t";
+  MangleVisitor(std::stringstream& s): m_stream(s) {
   }
 
-  void operator() (const reflection::Type* t){
+  void operator() (const reflection::ParamType* t){
     t->accept(this);
   }
 
   //visit methods
-  void visit(const reflection::Type* t){
+  void visit(const reflection::PrimitiveType* t){
     //NOTE! we don't use  DUPLICANT_STR here, since primitive strings are
     //shorter or less then the DUPLICANT_STR itself.
-    m_stream << mangledString(t);
+    m_stream << reflection::mangledPrimitiveString(t->getPrimitive());
   }
 
-  void visit(const reflection::Pointer* p){
+  void visit(const reflection::PointerType* p) {
     int typeIndex = getTypeIndex(p);
     if( -1 != typeIndex ) {
-      m_stream << getDuplicateString(typeIndex);
+      m_stream << reflection::getDuplicateString(typeIndex);
       return;
     }
     m_stream << "P";
-    std::vector<std::string>::const_reverse_iterator e = p->rendAttributes(),
-    it = p->rbeginAttributes();
-    while (it != e ){
-      if (*it == "__private")
-        m_stream << "U3AS0";
-      else if(*it == "__global")
-        m_stream << "U3AS1";
-      else if(*it == "__constant")
-        m_stream << "U3AS2";
-      else if(*it == "__local")
-        m_stream << "U3AS3";
-      else if(*it == "restrict")
-        m_stream << "r";
-      else if(*it == "volatile")
-        m_stream << "V";
-      else if(*it == "const")
-        m_stream << "K";
-      #ifndef NDEBUG
-      else
-        assert(false && "dont know this attribute!");
-      #endif
-      ++it;
+    for (unsigned int i=0; i < p->getAttributes().size(); ++i) {
+      m_stream << getMangledAttribute(p->getAttributes()[i]);
     }
     p->getPointee()->accept(this);
-    addIfNotExist(p);
+    m_dupList.push_back((reflection::ParamType*)p);
   }
 
-  void visit(const reflection::Vector* v){
+  void visit(const reflection::VectorType* v){
     int typeIndex = getTypeIndex(v);
     if( -1 != typeIndex ) {
-      m_stream << getDuplicateString(typeIndex);
+      m_stream << reflection::getDuplicateString(typeIndex);
       return;
     }
-    addIfNotExist(v);
-    m_stream << "Dv" << v->getLen() << "_" << mangledString(v);
+    m_stream << "Dv" << v->getLength() << "_";
+    v->getScalarType()->accept(this);
+    m_dupList.push_back((reflection::ParamType*)v);
   }
 
-  void visit(const reflection::UserDefinedTy* pTy){
-    std::string name = pTy->toString();
-    std::map<std::string,std::string>::iterator it = imageTypeNameTranslate.find(name);
-    if (it == imageTypeNameTranslate.end()) {
-      int typeIndex = getTypeIndex(pTy);
-      if( -1 != typeIndex ) {
-        m_stream << getDuplicateString(typeIndex);
-        return;
-      }
-      addIfNotExist(pTy);
+  void visit(const reflection::UserDefinedType* pTy){
+    int typeIndex = getTypeIndex(pTy);
+    if( -1 != typeIndex ) {
+      m_stream << reflection::getDuplicateString(typeIndex);
+      return;
     }
-    name = pTy->toString();
+    std::string name = pTy->toString();
     m_stream << name.size() << name;
+    m_dupList.push_back((reflection::ParamType*)pTy);
   }
 
 private:
 
-  void addIfNotExist(const reflection::Type* t){
-    std::list<const reflection::Type*>::const_iterator it = m_listTys.begin(),
-      e = m_listTys.end();
-    while (it != e){
-      if ((*it)->equals(t))
-        return;
-      ++it;
-    }
-    m_listTys.push_back(t);
-  }
-
-  int getTypeIndex(const reflection::Type* t)const{
-    int ret = 0;
-    std::list<const reflection::Type*>::const_iterator it = m_listTys.begin(),
-      e = m_listTys.end();
-    while (it != e){
-      if ((*it)->equals(t))
-        return ret;
-      ++ret;
-      ++it;
+  int getTypeIndex(const reflection::ParamType* t)const{
+    for (unsigned int i=0; i < m_dupList.size(); ++i) {
+      if (t->equals(m_dupList[i])) {
+        return i;
+      }
     }
     return -1;
   }
 
-  static std::string getDuplicateString(int index){
-    assert (index >= 0 && "illegal index");
-    if (0 == index)
-      return "S_";
-    std::stringstream ss;
-    ss << "S" << index-1 << "_";
-    return ss.str();
-  }
-
-  // translation table between API names and CLANG-mangled names
-  std::map<std::string,std::string> imageTypeNameTranslate;
   //holds the mangled string representing the prototype of the function
   std::stringstream& m_stream;
   //list of types 'seen' so far
-  std::list<const reflection::Type*> m_listTys;
+  reflection::DuplicatedTypeList m_dupList;
 };
 
 std::string mangle(const reflection::FunctionDescriptor& fd){
@@ -162,6 +103,8 @@ std::string mangle(const reflection::FunctionDescriptor& fd){
   std::stringstream ret;
   ret << "_Z" << fd.name.length() << fd.name;
   MangleVisitor visitor(ret);
-  std::for_each(fd.parameters.begin(), fd.parameters.end(), visitor);
+  for (unsigned int i=0; i < fd.parameters.size(); ++i) {
+    fd.parameters[i]->accept(&visitor);
+  }
   return ret.str();
 }

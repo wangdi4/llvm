@@ -29,11 +29,11 @@ enum V{
 const size_t OCL_VERSIONS = 6;
 }
 
-struct Type;
+struct ParamType;
 
 #define INVALID_ENTRY "<invalid>"
 
-typedef std::vector<intel::RefCount<Type> > TypeVector;
+typedef std::vector<intel::RefCount<ParamType> > TypeVector;
 
 struct FunctionDescriptor{
   //
@@ -59,6 +59,7 @@ struct FunctionDescriptor{
 
   static llvm::StringRef nullString();
 };
+
 template <typename T>
 std::ostream& operator<< (T& o, const reflection::FunctionDescriptor& fd){
   o << fd.toString();

@@ -16,19 +16,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "FunctionDescriptor.h"
 #include "VersionStrategy.h"
 #include "BuiltinMap.h"
-#include "Type.h"
+#include "ParameterType.h"
 #include "utils.h"
 
 namespace reflection{
-
-class BuiltinKeeperException: public std::exception{
-public:
-  BuiltinKeeperException(const std::string&);
-  ~BuiltinKeeperException()throw();
-  const char* what()const throw();
-private:
-  std::string m_msg;
-};
 
 ///////////////////////////////////////////////////////////////////////////////
 //Purpose: A singleton class which supplies reflection services on OCL builtins
@@ -43,13 +34,13 @@ class BuiltinKeeper{
   //Type synonyms
   //
   typedef std::map<PairSW,VersionStrategy*>     VersionCBMap;
-  typedef llvm::ArrayRef<primitives::Primitive> PrimitiveArray;
+  typedef llvm::ArrayRef<TypePrimitiveEnum> PrimitiveArray;
   typedef llvm::ArrayRef<llvm::StringRef>       StringArray;
   typedef llvm::ArrayRef<width::V>              VWidthArray;
   //A function descriptor factory method, for builtins with two parameters
   typedef FunctionDescriptor (*FDFactory)(
-  const std::pair<std::pair<llvm::StringRef,primitives::Primitive>,width::V>&,
-  primitives::Primitive PTy);
+  const std::pair<std::pair<llvm::StringRef,TypePrimitiveEnum>,width::V>&,
+  TypePrimitiveEnum PTy);
 public:
   static const BuiltinKeeper* instance();
 
@@ -63,22 +54,17 @@ public:
   bool isBuiltin(const FunctionDescriptor&)const;
 
   //Purpose: returns the function descriptor of the built-in with the given
-  //name, and the given vector with. In case there is no match (since the given
-  //builtin doesn't have the requested version), the 'null descriptor' is
-  //returned.
+  //name, and the given vector with. And returns the 'null descriptor', in case
+  //the given name is not a mangled name for OpenCL built-in or there is no match
+  //for the given built-in (since the given builtin doesn't have the requested version).
   //Parameters:
   //  name: the mangled name of the built-in function to be versioned.
   //  w: the width of the requested version
   //Assumptions: the given width is valid in OpenCL.
   //Returns: the function descriptor of the built-in in the requested width.
-  //Exceptions: throws a BuiltinKeeperException when the given string isn't the
-  //mangled name of a built-in function in OpenCL.
-  PairSW getVersion(const std::string& mangledString, width::V w)const
-#if !defined(_WIN32) && !defined(_WIN64)
-  //cl compiler doesn't approve that, and issued a warning
-  throw(BuiltinKeeperException)
-#endif
-  ;
+  //         And a 'null descriptor' when the given string isn't an OpenCL
+  //         built-in function or if there is no match.
+  PairSW getVersion(const std::string& mangledString, width::V w) const;
 
 private:
   BuiltinKeeper();
@@ -113,7 +99,7 @@ private:
   //  the quartet (name, vtype, width, stype)
   /////////////////////////////////////////////////////////////////////////////
   void addConversionGroup (const StringArray& names, const PrimitiveArray& types
-  , primitives::Primitive s, FDFactory fdFactory);
+  , TypePrimitiveEnum s, FDFactory fdFactory);
 
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: add a 'line' of transposed functions to the exceptions map.

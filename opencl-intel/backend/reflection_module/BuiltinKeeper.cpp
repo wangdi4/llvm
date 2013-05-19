@@ -7,15 +7,37 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "BuiltinKeeper.h"
 #include "NameMangleAPI.h"
-#include "TypeCast.h"
-#include <cctype>
-#include <sstream>
 #include  "llvm/Support/MutexGuard.h"
 #include  "llvm/Support/raw_ostream.h"
 #include  "llvm/ADT/ArrayRef.h"
+#include <cctype>
+#include <sstream>
 
 namespace reflection{
 
+  struct PrimitiveVisitor : TypeVisitor {
+    void visit(const PrimitiveType* t) {
+      m_primitivType = t->getPrimitive();
+    }
+
+    void visit(const VectorType* v) {
+      v->getScalarType()->accept(this);
+    }
+
+    void visit(const PointerType* p) {
+      p->getPointee()->accept(this);
+    }
+
+    void visit(const UserDefinedType*) {
+      m_primitivType = PRIMITIVE_NONE;
+    }
+
+    TypePrimitiveEnum getPrimitiveType() const {
+      return m_primitivType;
+    }
+  private:
+    TypePrimitiveEnum m_primitivType;
+  };
 //
 //Utilities
 //
@@ -35,13 +57,14 @@ compatible(const FunctionDescriptor& l, const FunctionDescriptor& r){
   TypeIter lit = l.parameters.begin(), lend = l.parameters.end(),
   rit = r.parameters.begin();
   while(lit != lend){
-    primitives::Primitive pleft = (*lit)->getPrimitive(),
-      pright = (*rit)->getPrimitive();
-    if (pleft != pright)
+    PrimitiveVisitor lv, rv;
+    (*lit)->accept(&lv);
+    (*rit)->accept(&rv);
+    if (lv.getPrimitiveType() != rv.getPrimitiveType()) {
       return false;
-    if (pleft == primitives::NONE){
-      if (!(*lit)->equals(*rit))
-        return false;
+    }
+    if (lv.getPrimitiveType() == PRIMITIVE_NONE) {
+      if (!(*lit)->equals(*rit)) return false;
     }
     ++lit;
     ++rit;
@@ -59,28 +82,24 @@ compatible(const FunctionDescriptor& l, const FunctionDescriptor& r){
 //Note: the parameter are allocated on the heap, and their ownership is
 //transfered to the caller of this function.
 static FunctionDescriptor createDescriptorVP_P (
-  const std::pair<std::pair<llvm::StringRef,primitives::Primitive>,width::V>& arg,
-  primitives::Primitive PTy)
+  const std::pair<std::pair<llvm::StringRef,TypePrimitiveEnum>,width::V>& arg,
+  TypePrimitiveEnum PTy)
 {
   FunctionDescriptor fd;
   fd.name = arg.first.first.str();
-  Type pPrimitiveTy0(arg.first.second);
-  Type* pVectorTy;
-  if ( width::SCALAR == arg.second)
-    pVectorTy = pPrimitiveTy0.clone();
-  else
-    pVectorTy = new Vector(&pPrimitiveTy0, static_cast<int>(arg.second));
-  Type* pPrimitiveTy1 = new Type(PTy);
+  RefParamType pPrimitiveTy(new PrimitiveType(arg.first.second));
+  RefParamType pVectorTy = (width::SCALAR == arg.second) ? pPrimitiveTy :
+    (new VectorType(pPrimitiveTy, (int)(arg.second)));
   fd.parameters.push_back(pVectorTy);
-  fd.parameters.push_back(pPrimitiveTy1);
+  fd.parameters.push_back(new PrimitiveType(PTy));
   return fd;
 }
 
 //similar to createDescriptorVP_P, only the vector parameter is the second one,
 //and the scalar is the first.
 static FunctionDescriptor createDescriptorP_VP (
-  const std::pair<std::pair<llvm::StringRef,primitives::Primitive>,width::V>& arg,
-  primitives::Primitive PTy)
+  const std::pair<std::pair<llvm::StringRef,TypePrimitiveEnum>,width::V>& arg,
+  TypePrimitiveEnum PTy)
 {
   FunctionDescriptor fd = createDescriptorVP_P(arg, PTy);
   std::iter_swap(fd.parameters.begin(), fd.parameters.begin()+1);
@@ -91,24 +110,24 @@ static FunctionDescriptor createDescriptorP_VP (
 //the two parameter version  (createDescriptorVP_P), with a third scalar
 //parameter
 static FunctionDescriptor createDescriptorVP_P_P(
-const std::pair<std::pair<llvm::StringRef,primitives::Primitive>,width::V>& arg,
-primitives::Primitive PTy)
+const std::pair<std::pair<llvm::StringRef,TypePrimitiveEnum>,width::V>& arg,
+TypePrimitiveEnum PTy)
 {
   FunctionDescriptor fd = createDescriptorVP_P(arg, PTy);
-  fd.parameters.push_back(fd.parameters[1]->clone());
+  fd.parameters.push_back(fd.parameters[1]);
   return fd;
 }
 
 //creates a function descriptor with three parameters, in the following format:
 //(vtype, vtype, stype)
 static FunctionDescriptor createDescriptorVP_VP_P(
-const std::pair<std::pair<llvm::StringRef,primitives::Primitive>,width::V>& arg,
-primitives::Primitive PTy)
+const std::pair<std::pair<llvm::StringRef,TypePrimitiveEnum>,width::V>& arg,
+TypePrimitiveEnum PTy)
 {
   FunctionDescriptor fd = createDescriptorVP_P(arg, PTy);
   //duplicating the first (vector) parameter
-  Type* pVector = (*fd.parameters.begin())->clone();
-  fd.parameters.insert(fd.parameters.begin(), pVector);
+  RefParamType firstType = fd.parameters[0];
+  fd.parameters.insert(fd.parameters.begin(), firstType);
   return fd;
 }
 
@@ -116,8 +135,8 @@ primitives::Primitive PTy)
 //the three parameter version  (createDescriptorVP_P_P), only that the vector
 //parameter is third, not first: (type, type, vtype).
 static FunctionDescriptor createDescriptorP_P_VP(
-const std::pair<std::pair<llvm::StringRef,primitives::Primitive>,width::V>& arg,
-primitives::Primitive PTy)
+const std::pair<std::pair<llvm::StringRef,TypePrimitiveEnum>,width::V>& arg,
+TypePrimitiveEnum PTy)
 {
   FunctionDescriptor fd = createDescriptorVP_P_P(arg, PTy);
   std::iter_swap(fd.parameters.begin(), fd.parameters.begin()+2);
@@ -165,17 +184,17 @@ void BuiltinKeeper::initSoaStrategyEntries(){
 void BuiltinKeeper::initNullStrategyEntries(){
   width::V vwidths[] = {width::SCALAR, width::TWO, width::THREE, width::FOUR,
   width::EIGHT, width::SIXTEEN};
-  primitives::Primitive primitivesTy[] = {
-    primitives::CHAR,    //1
-    primitives::SHORT,   //2
-    primitives::INT,     //3
-    primitives::LONG,    //4
-    primitives::UCHAR,   //5
-    primitives::USHORT,  //6
-    primitives::UINT,    //7
-    primitives::ULONG,   //8
-    primitives::FLOAT,   //9
-    primitives::DOUBLE}; //10
+  TypePrimitiveEnum primitivesTy[] = {
+    PRIMITIVE_CHAR,    //1
+    PRIMITIVE_SHORT,   //2
+    PRIMITIVE_INT,     //3
+    PRIMITIVE_LONG,    //4
+    PRIMITIVE_UCHAR,   //5
+    PRIMITIVE_USHORT,  //6
+    PRIMITIVE_UINT,    //7
+    PRIMITIVE_ULONG,   //8
+    PRIMITIVE_FLOAT,   //9
+    PRIMITIVE_DOUBLE}; //10
   //arrays of types
   PrimitiveArray arrPrimitives(primitivesTy);
   PrimitiveArray arrReals = arrPrimitives.slice(8, 2);
@@ -193,8 +212,8 @@ void BuiltinKeeper::initNullStrategyEntries(){
     llvm::StringRef names[] = {"fmin", "fmax"};
 #endif
     StringArray arrNames (names);
-    reflection::primitives::Primitive singleFloat[] = {primitives::FLOAT};
-    reflection::primitives::Primitive singleDouble[] = {primitives::DOUBLE};
+    reflection::TypePrimitiveEnum singleFloat[] = {PRIMITIVE_FLOAT};
+    reflection::TypePrimitiveEnum singleDouble[] = {PRIMITIVE_DOUBLE};
     PrimitiveArray arrFloat(singleFloat);
     addConversionGroup(arrNames, arrFloat, createDescriptorVP_P);
     PrimitiveArray arrDouble(singleDouble);
@@ -218,7 +237,7 @@ void BuiltinKeeper::initNullStrategyEntries(){
     llvm::StringRef names[] = {"ldexp"};
 #endif
     StringArray arrLdexp(names);
-    addConversionGroup(arrLdexp, arrReals, primitives::INT, createDescriptorVP_P);
+    addConversionGroup(arrLdexp, arrReals, PRIMITIVE_INT, createDescriptorVP_P);
   }
   //
   //clamp
@@ -345,21 +364,21 @@ void BuiltinKeeper::initHardCodeStrategy(){
 }
 
 void BuiltinKeeper::addConversionGroup (const StringArray& names,
-  const PrimitiveArray& types, primitives::Primitive p, FDFactory fdFactory){
+  const PrimitiveArray& types, TypePrimitiveEnum p, FDFactory fdFactory){
   //Data Arrays
   width::V vwidths[] = {width::TWO, width::THREE, width::FOUR,
     width::EIGHT, width::SIXTEEN};
-  Cartesian<llvm::ArrayRef,llvm::StringRef,primitives::Primitive> product2ways(
+  Cartesian<llvm::ArrayRef, llvm::StringRef, TypePrimitiveEnum> product2ways(
     names, types);
-  std::vector<std::pair<llvm::StringRef, primitives::Primitive> > tmpResult;
+  std::vector<std::pair<llvm::StringRef, TypePrimitiveEnum> > tmpResult;
   do{
     tmpResult.push_back(product2ways.get());
   } while(product2ways.next());
-  llvm::ArrayRef<std::pair<llvm::StringRef,primitives::Primitive> >arrTmpResult(
+  llvm::ArrayRef<std::pair<llvm::StringRef, TypePrimitiveEnum> >arrTmpResult(
     &tmpResult[0], tmpResult.size());
   //arrays of vector width
   VWidthArray arrNonScalars(vwidths);
-  Cartesian<llvm::ArrayRef, std::pair<llvm::StringRef, primitives::Primitive>,
+  Cartesian<llvm::ArrayRef, std::pair<llvm::StringRef, TypePrimitiveEnum>,
     width::V> threeWayProduct(arrTmpResult, arrNonScalars);
   do{
     FunctionDescriptor fd = fdFactory(
@@ -389,220 +408,220 @@ void BuiltinKeeper::addTransposGroup(const FunctionDescriptor& aosDescriptor){
 }
 
 template<int w>
-static std::pair<FunctionDescriptor, Type*>
-createBiV_V(primitives::Primitive p, const std::string& n){
+static std::pair<FunctionDescriptor, RefParamType>
+createBiV_V(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
   fd.name = n;
-  Type primitiveTy(p);
-  Type* vTy = new Vector(&primitiveTy, w);
+  RefParamType primitiveTy(new PrimitiveType(p));
+  RefParamType vTy(new VectorType(primitiveTy, w));
   fd.parameters.push_back(vTy);
-  fd.parameters.push_back(vTy->clone());
-  return std::make_pair(fd, vTy->clone());
+  fd.parameters.push_back(vTy);
+  return std::make_pair(fd, vTy);
 }
 
 template<>
-std::pair<FunctionDescriptor, Type*>
-createBiV_V<1>(primitives::Primitive p, const std::string& n){
+std::pair<FunctionDescriptor, RefParamType>
+createBiV_V<1>(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
   fd.name = n;
-  Type primitiveTy(p);
-  fd.parameters.push_back(primitiveTy.clone());
-  fd.parameters.push_back(primitiveTy.clone());
-  return std::make_pair(fd, primitiveTy.clone());
+  RefParamType primitiveTy(new PrimitiveType(p));
+  fd.parameters.push_back(primitiveTy);
+  fd.parameters.push_back(primitiveTy);
+  return std::make_pair(fd, primitiveTy);
 }
 
 template<int w>
-static std::pair<FunctionDescriptor, Type*>
-createBiV_S(primitives::Primitive p, const std::string& n){
+static std::pair<FunctionDescriptor, RefParamType>
+createBiV_S(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
   fd.name = n;
-  Type scalar(p);
-  Type* vTy = new Vector(&scalar, w);
+  RefParamType scalar(new PrimitiveType(p));
+  RefParamType vTy(new VectorType(scalar, w));
   fd.parameters.push_back(vTy);
-  fd.parameters.push_back(vTy->clone());
-  return std::make_pair(fd, scalar.clone());
+  fd.parameters.push_back(vTy);
+  return std::make_pair(fd, scalar);
 }
 
 template<> inline
-std::pair<FunctionDescriptor, Type*>
-createBiV_S<1>(primitives::Primitive p, const std::string& n){
+std::pair<FunctionDescriptor, RefParamType>
+createBiV_S<1>(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
   fd.name = n;
-  Type* scalar = new Type(p);
+  RefParamType scalar(new PrimitiveType(p));
   fd.parameters.push_back(scalar);
-  fd.parameters.push_back(scalar->clone());
-  return std::make_pair(fd, scalar->clone());
+  fd.parameters.push_back(scalar);
+  return std::make_pair(fd, scalar);
 }
 
 template<int w>
-std::pair<FunctionDescriptor, Type*>
-createUniV_S(primitives::Primitive p, const std::string& n){
+std::pair<FunctionDescriptor, RefParamType>
+createUniV_S(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
   fd.name = n;
-  Type scalar(p);
-  Type* vTy = new Vector(&scalar, w);
+  RefParamType scalar(new PrimitiveType(p));
+  RefParamType vTy(new VectorType(scalar, w));
   fd.parameters.push_back(vTy);
-  return std::make_pair(fd, scalar.clone());
+  return std::make_pair(fd, scalar);
 }
 
 template<>
-std::pair<FunctionDescriptor, Type*>
-createUniV_S<1>(primitives::Primitive p, const std::string& n){
+std::pair<FunctionDescriptor, RefParamType>
+createUniV_S<1>(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
   fd.name = n;
-  Type* scalar = new Type(p);
+  RefParamType scalar(new PrimitiveType(p));
   fd.parameters.push_back(scalar);
-  return std::make_pair(fd, scalar->clone());
+  return std::make_pair(fd, scalar);
 }
 
 template <int w>
-std::pair<FunctionDescriptor, Type*>
-createUniV_V(primitives::Primitive p, const std::string& n){
+std::pair<FunctionDescriptor, RefParamType>
+createUniV_V(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
   fd.name = n;
-  Type scalar(p);
-  Type* vTy = new Vector(&scalar, w);
+  RefParamType scalar(new PrimitiveType(p));
+  RefParamType vTy(new VectorType(scalar, w));
   fd.parameters.push_back(vTy);
-  return std::make_pair(fd, vTy->clone());
+  return std::make_pair(fd, vTy);
 }
 
 template <>
-std::pair<FunctionDescriptor, Type*>
-createUniV_V<1>(primitives::Primitive p, const std::string& n){
+std::pair<FunctionDescriptor, RefParamType>
+createUniV_V<1>(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
   fd.name = n;
-  Type scalar(p);
-  fd.parameters.push_back(scalar.clone());
-  return std::make_pair(fd, scalar.clone());
+  RefParamType scalar(new PrimitiveType(p));
+  fd.parameters.push_back(scalar);
+  return std::make_pair(fd, scalar);
 }
 
 void BuiltinKeeper::populateReturnTyMap(){
   //
   //cross
   //
-  m_fdToRetTy.insert(createBiV_V<3>(primitives::DOUBLE, "cross"));
-  m_fdToRetTy.insert(createBiV_V<3>(primitives::FLOAT, "cross"));
-  m_fdToRetTy.insert(createBiV_V<4>(primitives::DOUBLE, "cross"));
-  m_fdToRetTy.insert(createBiV_V<4>(primitives::FLOAT, "cross"));
+  m_fdToRetTy.insert(createBiV_V<3>(PRIMITIVE_DOUBLE, "cross"));
+  m_fdToRetTy.insert(createBiV_V<3>(PRIMITIVE_FLOAT, "cross"));
+  m_fdToRetTy.insert(createBiV_V<4>(PRIMITIVE_DOUBLE, "cross"));
+  m_fdToRetTy.insert(createBiV_V<4>(PRIMITIVE_FLOAT, "cross"));
   //
   //dot
   //
-  m_fdToRetTy.insert(createBiV_S<1>(primitives::FLOAT, "dot"));
-  m_fdToRetTy.insert(createBiV_S<2>(primitives::FLOAT, "dot"));
-  m_fdToRetTy.insert(createBiV_S<3>(primitives::FLOAT, "dot"));
-  m_fdToRetTy.insert(createBiV_S<4>(primitives::FLOAT, "dot"));
-  m_fdToRetTy.insert(createBiV_S<1>(primitives::DOUBLE, "dot"));
-  m_fdToRetTy.insert(createBiV_S<2>(primitives::DOUBLE, "dot"));
-  m_fdToRetTy.insert(createBiV_S<3>(primitives::DOUBLE, "dot"));
-  m_fdToRetTy.insert(createBiV_S<4>(primitives::DOUBLE, "dot"));
+  m_fdToRetTy.insert(createBiV_S<1>(PRIMITIVE_FLOAT, "dot"));
+  m_fdToRetTy.insert(createBiV_S<2>(PRIMITIVE_FLOAT, "dot"));
+  m_fdToRetTy.insert(createBiV_S<3>(PRIMITIVE_FLOAT, "dot"));
+  m_fdToRetTy.insert(createBiV_S<4>(PRIMITIVE_FLOAT, "dot"));
+  m_fdToRetTy.insert(createBiV_S<1>(PRIMITIVE_DOUBLE, "dot"));
+  m_fdToRetTy.insert(createBiV_S<2>(PRIMITIVE_DOUBLE, "dot"));
+  m_fdToRetTy.insert(createBiV_S<3>(PRIMITIVE_DOUBLE, "dot"));
+  m_fdToRetTy.insert(createBiV_S<4>(PRIMITIVE_DOUBLE, "dot"));
   //
   //distance
   //
-  m_fdToRetTy.insert(createBiV_S<1>(primitives::FLOAT, "distance"));
-  m_fdToRetTy.insert(createBiV_S<2>(primitives::FLOAT, "distance"));
-  m_fdToRetTy.insert(createBiV_S<3>(primitives::FLOAT, "distance"));
-  m_fdToRetTy.insert(createBiV_S<4>(primitives::FLOAT, "distance"));
-  m_fdToRetTy.insert(createBiV_S<1>(primitives::DOUBLE, "distance"));
-  m_fdToRetTy.insert(createBiV_S<2>(primitives::DOUBLE, "distance"));
-  m_fdToRetTy.insert(createBiV_S<3>(primitives::DOUBLE, "distance"));
-  m_fdToRetTy.insert(createBiV_S<4>(primitives::DOUBLE, "distance"));
+  m_fdToRetTy.insert(createBiV_S<1>(PRIMITIVE_FLOAT, "distance"));
+  m_fdToRetTy.insert(createBiV_S<2>(PRIMITIVE_FLOAT, "distance"));
+  m_fdToRetTy.insert(createBiV_S<3>(PRIMITIVE_FLOAT, "distance"));
+  m_fdToRetTy.insert(createBiV_S<4>(PRIMITIVE_FLOAT, "distance"));
+  m_fdToRetTy.insert(createBiV_S<1>(PRIMITIVE_DOUBLE, "distance"));
+  m_fdToRetTy.insert(createBiV_S<2>(PRIMITIVE_DOUBLE, "distance"));
+  m_fdToRetTy.insert(createBiV_S<3>(PRIMITIVE_DOUBLE, "distance"));
+  m_fdToRetTy.insert(createBiV_S<4>(PRIMITIVE_DOUBLE, "distance"));
   //
   //fast_distance
   //
-  m_fdToRetTy.insert(createBiV_S<1>(primitives::FLOAT, "fast_distance"));
-  m_fdToRetTy.insert(createBiV_S<2>(primitives::FLOAT, "fast_distance"));
-  m_fdToRetTy.insert(createBiV_S<3>(primitives::FLOAT, "fast_distance"));
-  m_fdToRetTy.insert(createBiV_S<4>(primitives::FLOAT, "fast_distance"));
+  m_fdToRetTy.insert(createBiV_S<1>(PRIMITIVE_FLOAT, "fast_distance"));
+  m_fdToRetTy.insert(createBiV_S<2>(PRIMITIVE_FLOAT, "fast_distance"));
+  m_fdToRetTy.insert(createBiV_S<3>(PRIMITIVE_FLOAT, "fast_distance"));
+  m_fdToRetTy.insert(createBiV_S<4>(PRIMITIVE_FLOAT, "fast_distance"));
   //
   //fast length
   //
-  m_fdToRetTy.insert(createUniV_S<1>(primitives::FLOAT, "fast_length"));
-  m_fdToRetTy.insert(createUniV_S<2>(primitives::FLOAT, "fast_length"));
-  m_fdToRetTy.insert(createUniV_S<3>(primitives::FLOAT, "fast_length"));
-  m_fdToRetTy.insert(createUniV_S<4>(primitives::FLOAT, "fast_length"));
+  m_fdToRetTy.insert(createUniV_S<1>(PRIMITIVE_FLOAT, "fast_length"));
+  m_fdToRetTy.insert(createUniV_S<2>(PRIMITIVE_FLOAT, "fast_length"));
+  m_fdToRetTy.insert(createUniV_S<3>(PRIMITIVE_FLOAT, "fast_length"));
+  m_fdToRetTy.insert(createUniV_S<4>(PRIMITIVE_FLOAT, "fast_length"));
   //
   //fast_normalize
   //
-  m_fdToRetTy.insert(createUniV_V<1>(primitives::FLOAT, "fast_normalize"));
-  m_fdToRetTy.insert(createUniV_V<2>(primitives::FLOAT, "fast_normalize"));
-  m_fdToRetTy.insert(createUniV_V<3>(primitives::FLOAT, "fast_normalize"));
-  m_fdToRetTy.insert(createUniV_V<4>(primitives::FLOAT, "fast_normalize"));
+  m_fdToRetTy.insert(createUniV_V<1>(PRIMITIVE_FLOAT, "fast_normalize"));
+  m_fdToRetTy.insert(createUniV_V<2>(PRIMITIVE_FLOAT, "fast_normalize"));
+  m_fdToRetTy.insert(createUniV_V<3>(PRIMITIVE_FLOAT, "fast_normalize"));
+  m_fdToRetTy.insert(createUniV_V<4>(PRIMITIVE_FLOAT, "fast_normalize"));
   //
   //length
   //
-  m_fdToRetTy.insert(createUniV_S<1>(primitives::FLOAT, "length"));
-  m_fdToRetTy.insert(createUniV_S<2>(primitives::FLOAT, "length"));
-  m_fdToRetTy.insert(createUniV_S<3>(primitives::FLOAT, "length"));
-  m_fdToRetTy.insert(createUniV_S<4>(primitives::FLOAT, "length"));
-  m_fdToRetTy.insert(createUniV_S<1>(primitives::DOUBLE, "length"));
-  m_fdToRetTy.insert(createUniV_S<2>(primitives::DOUBLE, "length"));
-  m_fdToRetTy.insert(createUniV_S<3>(primitives::DOUBLE, "length"));
-  m_fdToRetTy.insert(createUniV_S<4>(primitives::DOUBLE, "length"));
+  m_fdToRetTy.insert(createUniV_S<1>(PRIMITIVE_FLOAT, "length"));
+  m_fdToRetTy.insert(createUniV_S<2>(PRIMITIVE_FLOAT, "length"));
+  m_fdToRetTy.insert(createUniV_S<3>(PRIMITIVE_FLOAT, "length"));
+  m_fdToRetTy.insert(createUniV_S<4>(PRIMITIVE_FLOAT, "length"));
+  m_fdToRetTy.insert(createUniV_S<1>(PRIMITIVE_DOUBLE, "length"));
+  m_fdToRetTy.insert(createUniV_S<2>(PRIMITIVE_DOUBLE, "length"));
+  m_fdToRetTy.insert(createUniV_S<3>(PRIMITIVE_DOUBLE, "length"));
+  m_fdToRetTy.insert(createUniV_S<4>(PRIMITIVE_DOUBLE, "length"));
   //
   //normalize
   //
-  m_fdToRetTy.insert(createUniV_V<1>(primitives::FLOAT, "normalize"));
-  m_fdToRetTy.insert(createUniV_V<2>(primitives::FLOAT, "normalize"));
-  m_fdToRetTy.insert(createUniV_V<3>(primitives::FLOAT, "normalize"));
-  m_fdToRetTy.insert(createUniV_V<4>(primitives::FLOAT, "normalize"));
-  m_fdToRetTy.insert(createUniV_V<1>(primitives::DOUBLE,"normalize"));
-  m_fdToRetTy.insert(createUniV_V<2>(primitives::DOUBLE,"normalize"));
-  m_fdToRetTy.insert(createUniV_V<3>(primitives::DOUBLE,"normalize"));
-  m_fdToRetTy.insert(createUniV_V<4>(primitives::DOUBLE,"normalize"));
+  m_fdToRetTy.insert(createUniV_V<1>(PRIMITIVE_FLOAT, "normalize"));
+  m_fdToRetTy.insert(createUniV_V<2>(PRIMITIVE_FLOAT, "normalize"));
+  m_fdToRetTy.insert(createUniV_V<3>(PRIMITIVE_FLOAT, "normalize"));
+  m_fdToRetTy.insert(createUniV_V<4>(PRIMITIVE_FLOAT, "normalize"));
+  m_fdToRetTy.insert(createUniV_V<1>(PRIMITIVE_DOUBLE,"normalize"));
+  m_fdToRetTy.insert(createUniV_V<2>(PRIMITIVE_DOUBLE,"normalize"));
+  m_fdToRetTy.insert(createUniV_V<3>(PRIMITIVE_DOUBLE,"normalize"));
+  m_fdToRetTy.insert(createUniV_V<4>(PRIMITIVE_DOUBLE,"normalize"));
   //
   //any
   //
-  m_fdToRetTy.insert(createUniV_S<1>(primitives::CHAR, "any"));
-  m_fdToRetTy.insert(createUniV_S<2>(primitives::CHAR, "any"));
-  m_fdToRetTy.insert(createUniV_S<3>(primitives::CHAR, "any"));
-  m_fdToRetTy.insert(createUniV_S<4>(primitives::CHAR, "any"));
-  m_fdToRetTy.insert(createUniV_S<8>(primitives::CHAR, "any"));
-  m_fdToRetTy.insert(createUniV_S<16>(primitives::CHAR, "any"));
-  m_fdToRetTy.insert(createUniV_S<1>(primitives::SHORT, "any"));
-  m_fdToRetTy.insert(createUniV_S<2>(primitives::SHORT, "any"));
-  m_fdToRetTy.insert(createUniV_S<3>(primitives::SHORT, "any"));
-  m_fdToRetTy.insert(createUniV_S<4>(primitives::SHORT, "any"));
-  m_fdToRetTy.insert(createUniV_S<8>(primitives::SHORT, "any"));
-  m_fdToRetTy.insert(createUniV_S<16>(primitives::SHORT, "any"));
-  m_fdToRetTy.insert(createUniV_S<1>(primitives::INT, "any"));
-  m_fdToRetTy.insert(createUniV_S<2>(primitives::INT, "any"));
-  m_fdToRetTy.insert(createUniV_S<3>(primitives::INT, "any"));
-  m_fdToRetTy.insert(createUniV_S<4>(primitives::INT, "any"));
-  m_fdToRetTy.insert(createUniV_S<8>(primitives::INT, "any"));
-  m_fdToRetTy.insert(createUniV_S<16>(primitives::INT, "any"));
-  m_fdToRetTy.insert(createUniV_S<1>(primitives::LONG, "any"));
-  m_fdToRetTy.insert(createUniV_S<2>(primitives::LONG, "any"));
-  m_fdToRetTy.insert(createUniV_S<3>(primitives::LONG, "any"));
-  m_fdToRetTy.insert(createUniV_S<4>(primitives::LONG, "any"));
-  m_fdToRetTy.insert(createUniV_S<8>(primitives::LONG, "any"));
-  m_fdToRetTy.insert(createUniV_S<16>(primitives::LONG, "any"));
+  m_fdToRetTy.insert(createUniV_S<1>(PRIMITIVE_CHAR, "any"));
+  m_fdToRetTy.insert(createUniV_S<2>(PRIMITIVE_CHAR, "any"));
+  m_fdToRetTy.insert(createUniV_S<3>(PRIMITIVE_CHAR, "any"));
+  m_fdToRetTy.insert(createUniV_S<4>(PRIMITIVE_CHAR, "any"));
+  m_fdToRetTy.insert(createUniV_S<8>(PRIMITIVE_CHAR, "any"));
+  m_fdToRetTy.insert(createUniV_S<16>(PRIMITIVE_CHAR, "any"));
+  m_fdToRetTy.insert(createUniV_S<1>(PRIMITIVE_SHORT, "any"));
+  m_fdToRetTy.insert(createUniV_S<2>(PRIMITIVE_SHORT, "any"));
+  m_fdToRetTy.insert(createUniV_S<3>(PRIMITIVE_SHORT, "any"));
+  m_fdToRetTy.insert(createUniV_S<4>(PRIMITIVE_SHORT, "any"));
+  m_fdToRetTy.insert(createUniV_S<8>(PRIMITIVE_SHORT, "any"));
+  m_fdToRetTy.insert(createUniV_S<16>(PRIMITIVE_SHORT, "any"));
+  m_fdToRetTy.insert(createUniV_S<1>(PRIMITIVE_INT, "any"));
+  m_fdToRetTy.insert(createUniV_S<2>(PRIMITIVE_INT, "any"));
+  m_fdToRetTy.insert(createUniV_S<3>(PRIMITIVE_INT, "any"));
+  m_fdToRetTy.insert(createUniV_S<4>(PRIMITIVE_INT, "any"));
+  m_fdToRetTy.insert(createUniV_S<8>(PRIMITIVE_INT, "any"));
+  m_fdToRetTy.insert(createUniV_S<16>(PRIMITIVE_INT, "any"));
+  m_fdToRetTy.insert(createUniV_S<1>(PRIMITIVE_LONG, "any"));
+  m_fdToRetTy.insert(createUniV_S<2>(PRIMITIVE_LONG, "any"));
+  m_fdToRetTy.insert(createUniV_S<3>(PRIMITIVE_LONG, "any"));
+  m_fdToRetTy.insert(createUniV_S<4>(PRIMITIVE_LONG, "any"));
+  m_fdToRetTy.insert(createUniV_S<8>(PRIMITIVE_LONG, "any"));
+  m_fdToRetTy.insert(createUniV_S<16>(PRIMITIVE_LONG, "any"));
   //
   //all
   //
-  m_fdToRetTy.insert(createUniV_S<1>(primitives::CHAR, "all"));
-  m_fdToRetTy.insert(createUniV_S<2>(primitives::CHAR, "all"));
-  m_fdToRetTy.insert(createUniV_S<3>(primitives::CHAR, "all"));
-  m_fdToRetTy.insert(createUniV_S<4>(primitives::CHAR, "all"));
-  m_fdToRetTy.insert(createUniV_S<8>(primitives::CHAR, "all"));
-  m_fdToRetTy.insert(createUniV_S<16>(primitives::CHAR, "all"));
-  m_fdToRetTy.insert(createUniV_S<1>(primitives::SHORT, "all"));
-  m_fdToRetTy.insert(createUniV_S<2>(primitives::SHORT, "all"));
-  m_fdToRetTy.insert(createUniV_S<3>(primitives::SHORT, "all"));
-  m_fdToRetTy.insert(createUniV_S<4>(primitives::SHORT, "all"));
-  m_fdToRetTy.insert(createUniV_S<8>(primitives::SHORT, "all"));
-  m_fdToRetTy.insert(createUniV_S<16>(primitives::SHORT, "all"));
-  m_fdToRetTy.insert(createUniV_S<1>(primitives::INT, "all"));
-  m_fdToRetTy.insert(createUniV_S<2>(primitives::INT, "all"));
-  m_fdToRetTy.insert(createUniV_S<3>(primitives::INT, "all"));
-  m_fdToRetTy.insert(createUniV_S<4>(primitives::INT, "all"));
-  m_fdToRetTy.insert(createUniV_S<8>(primitives::INT, "all"));
-  m_fdToRetTy.insert(createUniV_S<16>(primitives::INT, "all"));
-  m_fdToRetTy.insert(createUniV_S<1>(primitives::LONG, "all"));
-  m_fdToRetTy.insert(createUniV_S<2>(primitives::LONG, "all"));
-  m_fdToRetTy.insert(createUniV_S<3>(primitives::LONG, "all"));
-  m_fdToRetTy.insert(createUniV_S<4>(primitives::LONG, "all"));
-  m_fdToRetTy.insert(createUniV_S<8>(primitives::LONG, "all"));
-  m_fdToRetTy.insert(createUniV_S<16>(primitives::LONG, "all"));
+  m_fdToRetTy.insert(createUniV_S<1>(PRIMITIVE_CHAR, "all"));
+  m_fdToRetTy.insert(createUniV_S<2>(PRIMITIVE_CHAR, "all"));
+  m_fdToRetTy.insert(createUniV_S<3>(PRIMITIVE_CHAR, "all"));
+  m_fdToRetTy.insert(createUniV_S<4>(PRIMITIVE_CHAR, "all"));
+  m_fdToRetTy.insert(createUniV_S<8>(PRIMITIVE_CHAR, "all"));
+  m_fdToRetTy.insert(createUniV_S<16>(PRIMITIVE_CHAR, "all"));
+  m_fdToRetTy.insert(createUniV_S<1>(PRIMITIVE_SHORT, "all"));
+  m_fdToRetTy.insert(createUniV_S<2>(PRIMITIVE_SHORT, "all"));
+  m_fdToRetTy.insert(createUniV_S<3>(PRIMITIVE_SHORT, "all"));
+  m_fdToRetTy.insert(createUniV_S<4>(PRIMITIVE_SHORT, "all"));
+  m_fdToRetTy.insert(createUniV_S<8>(PRIMITIVE_SHORT, "all"));
+  m_fdToRetTy.insert(createUniV_S<16>(PRIMITIVE_SHORT, "all"));
+  m_fdToRetTy.insert(createUniV_S<1>(PRIMITIVE_INT, "all"));
+  m_fdToRetTy.insert(createUniV_S<2>(PRIMITIVE_INT, "all"));
+  m_fdToRetTy.insert(createUniV_S<3>(PRIMITIVE_INT, "all"));
+  m_fdToRetTy.insert(createUniV_S<4>(PRIMITIVE_INT, "all"));
+  m_fdToRetTy.insert(createUniV_S<8>(PRIMITIVE_INT, "all"));
+  m_fdToRetTy.insert(createUniV_S<16>(PRIMITIVE_INT, "all"));
+  m_fdToRetTy.insert(createUniV_S<1>(PRIMITIVE_LONG, "all"));
+  m_fdToRetTy.insert(createUniV_S<2>(PRIMITIVE_LONG, "all"));
+  m_fdToRetTy.insert(createUniV_S<3>(PRIMITIVE_LONG, "all"));
+  m_fdToRetTy.insert(createUniV_S<4>(PRIMITIVE_LONG, "all"));
+  m_fdToRetTy.insert(createUniV_S<8>(PRIMITIVE_LONG, "all"));
+  m_fdToRetTy.insert(createUniV_S<16>(PRIMITIVE_LONG, "all"));
 }
 
 const BuiltinKeeper* BuiltinKeeper::instance(){
@@ -700,21 +719,14 @@ bool BuiltinKeeper::isBuiltin(const FunctionDescriptor& fd)const{
   return false;
 }
 
-PairSW BuiltinKeeper::getVersion(const std::string& name, width::V w)const
-#if !defined(_WIN32) && !defined(_WIN64)
- //cl compiler doesn't approve that, and issued a warning
-throw(BuiltinKeeperException)
-#endif
-{
+PairSW BuiltinKeeper::getVersion(const std::string& name, width::V w) const {
   VersionCBMap::const_iterator it = m_exceptionsMap.find(std::make_pair(name, w));
   if (m_exceptionsMap.end() != it){
     VersionStrategy* pCb = it->second;
     return (*pCb)(it->first);
   }
   if (!isBuiltin(name)){
-    std::string msg = "'" + name + "'";
-    msg += "is not an OpenCL built-in function.";
-    throw BuiltinKeeperException(msg);
+    return nullPair();
   }
   //now the entire set of overloads is in the cache
   FunctionDescriptor original = demangle(name.c_str());
@@ -730,19 +742,6 @@ throw(BuiltinKeeperException)
     range.increment();
   } while(!range.isEmpty());
   return nullPair();
-}
-
-//
-//BuiltinKeeperException
-//
-BuiltinKeeperException::BuiltinKeeperException(const std::string& msg): m_msg(msg){
-}
-
-BuiltinKeeperException::~BuiltinKeeperException() throw(){
-}
-
-const char* BuiltinKeeperException::what()const throw(){
-  return m_msg.c_str();
 }
 
 }

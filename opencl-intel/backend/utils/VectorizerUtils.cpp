@@ -85,8 +85,7 @@ Value *VectorizerUtils::RootInputArgumentBySignature(Value *arg, unsigned int pa
   // Get the (reflection) type from the mangled name
   StringRef mangledName = CI->getCalledFunction()->getName();
   reflection::FunctionDescriptor fdesc = ::demangle(mangledName.str().c_str());
-  reflection::Type* refType = fdesc.parameters[paramNum];
-  return RootInputArgument(arg, reflectionToLLVM(CI->getContext(), refType), CI);
+  return RootInputArgument(arg, reflectionToLLVM(CI->getContext(), fdesc.parameters[paramNum]), CI);
 }
   
 

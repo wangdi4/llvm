@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <utility>
 #include <assert.h>
 #include <cctype>
-#include "Type.h"
+#include "ParameterType.h"
 
 namespace reflection{
 

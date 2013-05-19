@@ -7,7 +7,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "VersionStrategy.h"
 #include "NameMangleAPI.h"
-#include "TypeCast.h"
 #include <sstream>
 
 namespace reflection{
@@ -76,22 +75,22 @@ void SoaDescriptorStrategy::setTypeMap(const ReturnTypeMap* pMap){
   m_pTypeMap = pMap;
 }
 
-SoaDescriptorStrategy::~SoaDescriptorStrategy(){
+SoaDescriptorStrategy::~SoaDescriptorStrategy() {
 }
 
-void SoaDescriptorStrategy::visit(const Type*){
+void SoaDescriptorStrategy::visit(const PrimitiveType*){
   m_transposeStrategy = &SoaDescriptorStrategy::scalarReturnTranspose;
 }
 
-void SoaDescriptorStrategy::visit(const UserDefinedTy*){
+void SoaDescriptorStrategy::visit(const UserDefinedType*){
   m_transposeStrategy = &SoaDescriptorStrategy::scalarReturnTranspose;
 }
 
-void SoaDescriptorStrategy::visit(const Vector*){
+void SoaDescriptorStrategy::visit(const VectorType*){
   m_transposeStrategy = &SoaDescriptorStrategy::vectorReturnTranspose;
 }
 
-void SoaDescriptorStrategy::visit(const Pointer*){
+void SoaDescriptorStrategy::visit(const PointerType*){
   assert(false && "unreachable code");
 }
 
@@ -114,7 +113,7 @@ PairSW SoaDescriptorStrategy::operator()(const PairSW& sw)const{
   ReturnTypeMap::const_iterator it = m_pTypeMap->find(fdOrig);
   assert (m_pTypeMap->end() != it &&
   "this type cannot be transposed (forgot to add it to transpose map?");
-  Type* retTy = it->second;
+  RefParamType retTy = it->second;
   assert (retTy && "return type is NULL");
   //activating the double dispatach, so the transpose stategy will be applied
   retTy->accept(pVisitor);
@@ -131,22 +130,28 @@ SoaDescriptorStrategy::scalarReturnTranspose(const PairSW& sw)const{
   const FunctionDescriptor& orig = demangle(sw.first.c_str());
   width::V transposeWidth = sw.second;
   FunctionDescriptor fd;
+  if(orig.parameters.size() > 0) {
+    std::stringstream nameBuilder;
+    const VectorType* pVec = reflection::dyn_cast<VectorType>(orig.parameters[0]);
+    int nameWidth = pVec ? pVec->getLength() : 1;
+    nameBuilder << "soa_" << orig.name << nameWidth;
+    fd.name = nameBuilder.str();
+  }
   for(size_t i=0 ; i<orig.parameters.size() ; ++i){
-    const Vector* pVector = reflection::dyn_cast<Vector>(orig.parameters[i]);
-    width::V paramWidth = (pVector) ?
-      static_cast<width::V>(pVector->getLen()):
-      width::SCALAR;
-    primitives::Primitive p = orig.parameters[i]->getPrimitive();
-    for (unsigned i=0 ; i<static_cast<unsigned>(paramWidth) ; ++i){
-      Type scalar(p);
-      Type* transposedParam =
-        new Vector(&scalar, static_cast<int>(transposeWidth));
+    const VectorType* pVector = reflection::dyn_cast<VectorType>(orig.parameters[i]);
+    RefParamType pParam = orig.parameters[i];
+    width::V paramWidth = width::SCALAR;
+    if (pVector) {
+      paramWidth = static_cast<width::V>(pVector->getLength());
+      pParam = pVector->getScalarType();
+    }
+    const PrimitiveType *pPrimitive = reflection::dyn_cast<PrimitiveType>(pParam);
+    assert(pPrimitive && "Parameter has no primitive type");
+    TypePrimitiveEnum p = pPrimitive->getPrimitive();
+    for (unsigned j=0 ; j<static_cast<unsigned>(paramWidth) ; ++j){
+      RefParamType scalar(new PrimitiveType(p));
+      RefParamType transposedParam(new VectorType(scalar, (int)(transposeWidth)));
       fd.parameters.push_back(transposedParam);
-      std::stringstream nameBuilder;
-      const Vector* pVec = reflection::dyn_cast<Vector>(orig.parameters[0]);
-      int nameWidth = pVec ? pVec->getLen() : 1;
-      nameBuilder << "soa_" << orig.name << nameWidth;
-      fd.name = nameBuilder.str();
     }
   }
   return fd;
@@ -163,14 +168,15 @@ SoaDescriptorStrategy::vectorReturnTranspose(const PairSW& sw)const{
   //that Vector is indeed the dynamic type of m_returnTy
   ReturnTypeMap::const_iterator it = m_pTypeMap->find(fdOrig);
   assert (m_pTypeMap->end() != it &&
-  "this type cannot be transposed (forgot to add it to transpose map?");
-  const Vector* retTy = (const Vector*)it->second;
-  assert(retTy && "NULL return type");
+    "this type cannot be transposed (forgot to add it to transpose map?");
+  RefParamType retTy = it->second;
   //Calculating the OUT parameter type
-  Vector vOut(retTy, sw.second);
-  Pointer ptr = Pointer(&vOut);
-  for(int i=0 ; i<retTy->getLen() ; ++i)
-    fd.parameters.push_back(ptr.clone());
+  VectorType* retVecTy = reflection::dyn_cast<VectorType>(&*retTy);
+  assert(retVecTy && "non-vector return type");
+  RefParamType vOut(new VectorType(retVecTy->getScalarType(), sw.second));
+  RefParamType ptr(new PointerType(vOut));
+  for(int i=0 ; i<retVecTy->getLength() ; ++i)
+    fd.parameters.push_back(ptr);
   return fd;
 }
 

@@ -6,7 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "FunctionDescriptor.h"
-#include "Type.h"
+#include "ParameterType.h"
 #include <sstream>
 
 namespace reflection{
@@ -17,24 +17,24 @@ namespace reflection{
 //here), but this will compel us to add the getWidth method throughout the Type
 //inheritance tree, when it is only needed here.
 ///////////////////////////////////////////////////////////////////////////////
-struct VWidthResolver: TypeVisitor{
-  void visit(const Type*){
+struct VWidthResolver: TypeVisitor {
+  void visit(const PrimitiveType*) {
     m_width = width::SCALAR;
   }
 
-  void visit(const Vector* v){
-    m_width = static_cast<width::V>(v->getLen());
+  void visit(const VectorType* v) {
+    m_width = static_cast<width::V>(v->getLength());
   }
 
-  void visit(const Pointer* p){
+  void visit(const PointerType* p) {
     p->getPointee()->accept(this);
   }
 
-  void visit(const UserDefinedTy*){
+  void visit(const UserDefinedType*) {
     m_width = width::SCALAR;
   }
 
-  width::V width()const{return m_width;}
+  width::V width() const { return m_width; }
 private:
   width::V m_width;
 };
@@ -106,6 +106,7 @@ bool FunctionDescriptor::operator < (const FunctionDescriptor& that)const{
   }
   return false;
 }
+
 void FunctionDescriptor::assignAutomaticWidth(){
   VWidthResolver widthResolver;
   width::V w = width::SCALAR;

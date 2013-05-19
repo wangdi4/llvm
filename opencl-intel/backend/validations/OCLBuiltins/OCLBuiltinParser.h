@@ -72,6 +72,13 @@ namespace llvm {
             FLOAT,
             DOUBLE,
             LONGDOUBLE,
+            IMAGE_1D_T,
+            IMAGE_2D_T,
+            IMAGE_3D_T,
+            IMAGE_1D_BUFFER_T,
+            IMAGE_1D_ARRAY_T,
+            IMAGE_2D_ARRAY_T,
+            SAMPLER_T,
             INVALID = 255
         };
 
