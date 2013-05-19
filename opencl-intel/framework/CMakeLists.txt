@@ -26,8 +26,6 @@ endif ()
 
 add_subdirectory( icd )
 
-include( ../cmake_utils/itt.cmake )
-
 # these sub-directories must be added here in order to recieve the ITT definitions
 add_subdirectory( Platform )
 add_subdirectory( Context )
@@ -90,6 +88,8 @@ else (WIN32)
 endif (WIN32)
 
 link_directories( ${TBB_LIB_DIR} )
+
+include( ../cmake_utils/itt.cmake )
 
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})

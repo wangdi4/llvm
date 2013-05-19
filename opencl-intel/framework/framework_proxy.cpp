@@ -48,9 +48,9 @@ FrameworkProxy::FrameworkProxy()
 	m_pFileLogHandler = NULL;
 	m_pConfig = NULL;
 	m_pLoggerClient = NULL;
-    m_pTaskExecutor = NULL;
-    m_pTaskList     = NULL;
-    m_uiTEActivationCount = NULL;
+	m_pTaskExecutor = NULL;
+	m_pTaskList     = NULL;
+	m_uiTEActivationCount = NULL;
 	
 	Initialize();
 }	
@@ -272,20 +272,20 @@ void FrameworkProxy::Initialize()
 
 	INIT_LOGGER_CLIENT(TEXT("FrameworkProxy"), LL_DEBUG);
 #if defined(USE_ITT)
-	m_GPAData.bUseGPA = m_pConfig->UseGPA();
+	m_GPAData.bUseGPA = m_pConfig->EnableITT();
 	m_GPAData.bEnableAPITracing = m_pConfig->EnableAPITracing();
 	m_GPAData.bEnableContextTracing = m_pConfig->EnableContextTracing();
 	m_GPAData.cStatusMarkerFlags = 0;
 	if (m_GPAData.bUseGPA)
 	{
 		if (m_pConfig->ShowQueuedMarker())
-			m_GPAData.cStatusMarkerFlags += GPA_SHOW_QUEUED_MARKER;
+			m_GPAData.cStatusMarkerFlags |= ITT_SHOW_QUEUED_MARKER;
 		if (m_pConfig->ShowSubmittedMarker())
-			m_GPAData.cStatusMarkerFlags += GPA_SHOW_SUBMITTED_MARKER;
+			m_GPAData.cStatusMarkerFlags |= ITT_SHOW_SUBMITTED_MARKER;
 		if (m_pConfig->ShowRunningMarker())
-			m_GPAData.cStatusMarkerFlags += GPA_SHOW_RUNNING_MARKER;
+			m_GPAData.cStatusMarkerFlags |= ITT_SHOW_RUNNING_MARKER;
 		if (m_pConfig->ShowCompletedMarker())
-			m_GPAData.cStatusMarkerFlags += GPA_SHOW_COMPLETED_MARKER;
+			m_GPAData.cStatusMarkerFlags |= ITT_SHOW_COMPLETED_MARKER;
 
 		// Create domains
 		m_GPAData.pDeviceDomain = __itt_domain_create("com.intel.open_cl.device");
@@ -305,12 +305,12 @@ void FrameworkProxy::Initialize()
 			m_GPAData.pRunningTaskState = __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Running");
 		}
 		#endif
-
-		m_GPAData.pReadHandle = __itt_string_handle_create("Read");
-		m_GPAData.pWriteHandle = __itt_string_handle_create("Write");
-		m_GPAData.pCopyHandle = __itt_string_handle_create("Copy");
-		m_GPAData.pMapHandle = __itt_string_handle_create("Map");
-		m_GPAData.pUnmapHandle = __itt_string_handle_create("Unmap");
+		m_GPAData.pNDRangeHandle = __itt_string_handle_create("NDRange");
+		m_GPAData.pReadHandle = __itt_string_handle_create("Read MemoryObject");
+		m_GPAData.pWriteHandle = __itt_string_handle_create("Write MemoryObject");
+		m_GPAData.pCopyHandle = __itt_string_handle_create("Copy MemoryObject");
+		m_GPAData.pMapHandle = __itt_string_handle_create("Map MemoryObject");
+		m_GPAData.pUnmapHandle = __itt_string_handle_create("Unmap MemoryObject");
 		m_GPAData.pSyncDataHandle = __itt_string_handle_create("Sync Data");
 		m_GPAData.pSizeHandle = __itt_string_handle_create("Size W/H/D");
 		m_GPAData.pWorkGroupSizeHandle = __itt_string_handle_create("Work Group Size");
@@ -330,7 +330,7 @@ void FrameworkProxy::Initialize()
 	}
 #endif // ITT
 	
-	LOG_INFO(TEXT("%s"), TEXT("Initialize platform module: m_PlatformModule = new PlatformModule()"));
+	LOG_INFO(TEXT("%s"), "Initialize platform module: m_PlatformModule = new PlatformModule()");
 	m_pPlatformModule = new PlatformModule();
 	m_pPlatformModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
 
@@ -343,8 +343,8 @@ void FrameworkProxy::Initialize()
 	m_pExecutionModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
 
 	// Initialize TaskExecutor
-	LOG_INFO(TEXT("%s"), TEXT("Initialize Executor"));
-    m_pTaskExecutor = GetTaskExecutor();
+	LOG_INFO(TEXT("%s"), "Initialize Executor");
+	m_pTaskExecutor = GetTaskExecutor();
 	m_pTaskExecutor->Init(TE_AUTO_THREADS, &m_GPAData);
 }
 

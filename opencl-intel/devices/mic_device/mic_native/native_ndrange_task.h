@@ -32,6 +32,10 @@
 #include "native_printf.h"
 #include "mic_tbb_tracer.h"
 
+#ifdef USE_ITT
+#include <ocl_itt.h>
+#endif
+
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
 using namespace Intel::OpenCL::TaskExecutor;
@@ -55,11 +59,11 @@ public:
 
     // ITaskSet methods 
     
-	// Returns true in case current task is a syncronization point
+	// Returns true in case current task is a synchronization point
 	// No more tasks will be executed in this case
 	bool	CompleteAndCheckSyncPoint() { return false; }
 	
-	// Set current command as syncronization point
+	// Set current command as synchronization point
 	// Returns true if command is already completed
 	bool	SetAsSyncPoint() { return false; }
 
@@ -86,20 +90,17 @@ public:
 	// Return false to break iterations
 	bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = NULL);
 
-    void    ExecuteAllIterations(size_t* dims, void* pWgContext = NULL) 
-                                { assert( false && "ExecuteAllIterations Not implemented" ); }
-
-    // Final stage, free execution resources
+   // Final stage, free execution resources
 	// Return false when command execution fails
 	bool	Finish(FINISH_REASON reason);
 
-    // Releases task object, shall be called instead of delete operator.
-    long    Release() { delete this; return 0; }
+  // Releases task object, shall be called instead of delete operator.
+  long    Release() { delete this; return 0; }
 
-    // Optimize By
-    TASK_PRIORITY         GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-    TASK_SET_OPTIMIZATION OptimizeBy() const { return gMicExecEnvOptions.tbb_block_optimization; }
-    unsigned int          PreferredSequentialItemsPerThread() const { return gMicExecEnvOptions.use_TBB_grain_size; }
+  // Optimize By
+  TASK_PRIORITY         GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+  TASK_SET_OPTIMIZATION OptimizeBy() const { return gMicExecEnvOptions.tbb_block_optimization; }
+  unsigned int          PreferredSequentialItemsPerThread() const { return gMicExecEnvOptions.use_TBB_grain_size; }
 
 protected:
     NDRangeTask( const QueueOnDevice& queue );
@@ -107,32 +108,34 @@ protected:
 
 private:
     
-	// uniqueue identifier for this task (command)
+	// Unique identifier for this task (command)
 	cl_dev_cmd_id m_commandIdentifier;
 
 	ICLDevBackendKernel_* m_kernel;
 	ICLDevBackendBinary_* m_pBinary;
-	ProgramMemoryManager* m_progamExecutableMemoryManager;
 
 	// Executable information
     size_t m_MemBuffCount;
     size_t* m_pMemBuffSizes;
 	
 	// working region
-	uint64_t m_region[MAX_WORK_DIM];
+	uint64_t      m_region[MAX_WORK_DIM];
 	// dimensions
-	unsigned int m_dim;
+	unsigned int  m_dim;
 
 	// The kernel arguments blob
-	char* m_lockedParams;
+	char*         m_lockedParams;
 
 	// Print handle for this command.
-	PrintfHandle m_printHandle;
+	PrintfHandle  m_printHandle;
 
 #ifdef ENABLE_MIC_TRACER
     NDRangePerfData m_tbb_perf_data;
     friend class NDRangePerfData;
-#endif    
+#endif
+#ifdef USE_ITT
+    __itt_string_handle*        m_pIttKernelName;
+#endif
 };
 
 }}}

@@ -78,11 +78,12 @@ inline cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags);
  * is undefined and function calls may crash the system.
  ******************************************************************/
 ExecutionModule::ExecutionModule( PlatformModule *pPlatformModule, ContextModule* pContextModule ):
-    m_bUseTaskalyzer(false),
     m_pPlatfromModule(pPlatformModule),
     m_pContextModule(pContextModule),
     m_pOclCommandQueueMap(NULL),
-    m_pEventsManager(NULL)
+    m_pEventsManager(NULL),
+    m_pOclEntryPoints(NULL),
+    m_pGPAData(NULL)
 {
 	INIT_LOGGER_CLIENT(TEXT("ExecutionModel"),LL_DEBUG);
 
@@ -94,8 +95,8 @@ ExecutionModule::ExecutionModule( PlatformModule *pPlatformModule, ContextModule
  ******************************************************************/
 ExecutionModule::~ExecutionModule()
 {
-	RELEASE_LOGGER_CLIENT;
-    // TODO: clear all resources!
+  RELEASE_LOGGER_CLIENT;
+  // TODO: clear all resources!
 }
 
 /******************************************************************
@@ -109,16 +110,15 @@ cl_err_code ExecutionModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLC
     m_pOclCommandQueueMap = new OCLObjectsMap<_cl_command_queue_int>();
     m_pEventsManager = new EventsManager();
 
-	m_pOclEntryPoints = pOclEntryPoints;
+    m_pOclEntryPoints = pOclEntryPoints;
 
-	// initialize GPA data
-	m_pGPAData = pGPAData;
+    // initialize GPA data
+    m_pGPAData = pGPAData;
     
     if ( (NULL == m_pOclCommandQueueMap) || ( NULL == m_pEventsManager))
     {
         return CL_ERR_FAILURE;
     }
-	m_bUseTaskalyzer = pOclConfig->UseGPA();
     return CL_SUCCESS;
 }
 

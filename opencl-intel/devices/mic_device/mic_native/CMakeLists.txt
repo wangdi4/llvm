@@ -22,73 +22,56 @@ endif ( MIC_USE_OMP)
 #
 set( BACKEND_LIB            OclDeviceExecutor )
 set( BACKEND_LIB_DIR        ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR} )
-set( BACKEND_SVML_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/libraries/ocl_builtins/bin/svml/Linux64 )
+set( BACKEND_SVML_DIR       ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/bin/svml/Linux64 )
 
 set( UTILS_DIR              ${OCL_SOURCE_DIR}/utils )
 set( SYS_UTILS_DIR 			${UTILS_DIR}/cl_sys_utils )
 set( HW_UTILS_DIR 			${UTILS_DIR}/cl_hw_utils )
 set( TASK_EXECUTOR_DIR 		${UTILS_DIR}/task_executor )
 
-set( BOOST_DIR              ${OCL_SOURCE_DIR}/externals/boost_1_46_1 )
-set( ITT_DIR                ${OCL_SOURCE_DIR}/externals/gpa )
+set( ITT_DIR                ${OCL_SOURCE_DIR}/externals/itt )
+	
+set( MIC_TBB_PATH            	${OCL_SOURCE_DIR}/externals/tbb )
+set( MIC_TBB_HEADERS_PATH    	${MIC_TBB_PATH}/include )
+set( MIC_TBB_LIB_PATH_DEBUG  	${MIC_TBB_PATH}/bin/Knc_Debug )
+set( MIC_TBB_LIB_PATH_RELEASE	${MIC_TBB_PATH}/bin/Knc_Release )
 
-if (KNC_CARD)
-        set( BACKEND_VTUNE_DIR 		 -L ${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/external/vtune/libknc )
-        set( VTUNE_PROFILING_LIB     -ljitprofiling)  
-
-        set( MIC_TBB_PATH            ${CMAKE_CURRENT_SOURCE_DIR}/../../../externals/tbb )
-		set( MIC_TBB_HEADERS_PATH    ${MIC_TBB_PATH}/include )
-		set( MIC_TBB_LIB_PATH_DEBUG  ${MIC_TBB_PATH}/bin/Knc_Debug )
-		set( MIC_TBB_LIB_PATH_RELEASE  ${MIC_TBB_PATH}/bin/Knc_Release )
-        
-		set( BACKEND_FILES_TO_COPY
-								${BACKEND_SVML_DIR}/libsvml.so
-								)
-else (KNC_CARD)
-        set( BACKEND_VTUNE_DIR   )
-        set( VTUNE_PROFILING_LIB )  
-	set( BACKEND_FILES_TO_COPY
-								${BACKEND_SVML_DIR}/__ocl_svml_b1.so
-								)
-endif (KNC_CARD)								
+set( BACKEND_FILES_TO_COPY
+						${BACKEND_SVML_DIR}/libsvml.so
+						)
 
 if (WIN32)
     # Windows
     message( WARNING "MIC native server creation is not supported on Windows yet!")
 else ()
-    # Linux
-    set( TMP_ICC_INSTALL_DIR $ENV{ICC_MIC_COMPILER_PATH} )
-
-    if (NOT TMP_ICC_INSTALL_DIR)
-		if (KNC_CARD)
-			set( SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe/bin )
-		else (KNC_CARD)
-			set( SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe_mic/bin )
-		endif (KNC_CARD)
-        if (EXISTS ${SUITABLE_ICC_INSTALL_DIR})
-            set( TMP_ICC_INSTALL_DIR ${SUITABLE_ICC_INSTALL_DIR} )
-        endif ()
-    endif (NOT TMP_ICC_INSTALL_DIR)
+	# Linux
+	set( ICC_INSTALL_DIR /opt/intel/composerxe )
+	if ( NOT EXISTS ${ICC_INSTALL_DIR})
+    		message( FATAL_ERROR "ICC for Xeon Phi(MIC) can't be found")
+	endif ()
+    
+	execute_process(COMMAND ${ICC_INSTALL_DIR}/bin/icc -dumpversion OUTPUT_VARIABLE MIC_ICC_VERSION)
+	if (  MIC_ICC_VERSION VERSION_LESS 13.0 )
+		message(FATAL_ERROR "ICC ${MIC_ICC_VERSION} found, expected 13.x")
+	endif()
 	
-    if (TMP_ICC_INSTALL_DIR)
-        # if environment ICC_INSTALL_DIR is set
-        set( DEVICE_INIT_ENV_SCRIPT "${TMP_ICC_INSTALL_DIR}/compilervars.sh" )
-        message(STATUS "MIC C COMPILER: ${TMP_ICC_INSTALL_DIR}" )
-    else ()
-        message( FATAL_ERROR "ICC is not found! Setenv ICC_MIC_COMPILER_PATH to point to the ICC with MIC support" )
-    endif (TMP_ICC_INSTALL_DIR)
-	set( DEVICE_LIBS_DIR    ${TMP_ICC_INSTALL_DIR}/../lib/mic/ )	
-	unset( TMP_ICC_INSTALL_DIR )
+	message(STATUS "MIC C COMPILER: ${ICC_INSTALL_DIR}/bin/icc, version ${MIC_ICC_VERSION}" )
 	
-    set( DEVICE_DEPENDENCY_SCRIPT 	dependency.sh )
-    set( DEVICE_COMPILER_SCRIPT 	compile.sh )
-    set( DEVICE_LINKER_SCRIPT   	link.sh )
+	set( DEVICE_INIT_ENV_SCRIPT "${ICC_INSTALL_DIR}/bin/compilervars.sh" )
+	set( DEVICE_LIBS_DIR    ${TMP_ICC_INSTALL_DIR}/lib/mic/ )	
+	
+	set( DEVICE_DEPENDENCY_SCRIPT 	dependency.sh )
+	set( DEVICE_COMPILER_SCRIPT 	compile.sh )
+	set( DEVICE_LINKER_SCRIPT   	link.sh )
 
-    set( DEVICE_DEPENDENCY 	${BIN_DIR}/${DEVICE_DEPENDENCY_SCRIPT} )
-    set( DEVICE_COMPILER 	${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} )
-    set( DEVICE_LINKER   	${BIN_DIR}/${DEVICE_LINKER_SCRIPT} )
+	set( DEVICE_DEPENDENCY 	${BIN_DIR}/${DEVICE_DEPENDENCY_SCRIPT} )
+	set( DEVICE_COMPILER 	${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} )
+	set( DEVICE_LINKER   	${BIN_DIR}/${DEVICE_LINKER_SCRIPT} )
 endif (WIN32)
 
+##############################################################################################
+##############################################################################################
+##############################################################################################
 #
 # Check for file/dir existence
 #    check_file(FILE)
@@ -165,15 +148,15 @@ function ( add_device_executable TARGET_NAME )
     set( OBJ_LIST )
 
     if (${ARGC} GREATER  1)
-        foreach( FILE ${ARGN} )
-            set( SRC_FILE ${CMAKE_CURRENT_SOURCE_DIR}/${FILE} )
-
-            get_filename_component( FILE_NAME ${FILE} NAME_WE )
+        foreach( SRC_FILE ${ARGN} )
+            get_filename_component( FILE_NAME ${SRC_FILE} NAME_WE )
+            get_filename_component( FILE_PATH ${SRC_FILE} ABSOLUTE } )
+            
             set( OBJ_FILE ${CMAKE_CURRENT_BINARY_DIR}/${FILE_NAME}${OBJ_FILE_EXTENSION} )
 
             COMPILE_DEVICE_CXX_FILE( ${SRC_FILE} ${OBJ_FILE} )
             list( APPEND OBJ_LIST ${OBJ_FILE} )
-        endforeach( FILE )
+        endforeach( SRC_FILE )
 
         LINK_DEVICE_EXE( ${EXE_FILE} ${OBJ_LIST} )
 
@@ -199,16 +182,17 @@ endif()
 
 # MIC compilation flags
 set( MIC_FLAGS  -Werror
-                -std=c++0x
+#                -std=c++0x
                 # next entry - support converting Linux trap signals into C++ exceptions
                 -fnon-call-exceptions
                 -fstack-security-check
                 -use-msasm
-                -mCG_lrb_rex_workaround=F
-                -mCG_insert_nops_between_gathers_scatters=F
-                -mCG_lrb_vgather_b2b_warns=F
-                -mCG_lrb_workaround_vgather_vscatter_pairing=F
-                -mCG_lrb_dp_workaround=F
+# OLD KNF flags                
+#                -mCG_lrb_rex_workaround=F
+#                -mCG_insert_nops_between_gathers_scatters=F
+#                -mCG_lrb_vgather_b2b_warns=F
+#                -mCG_lrb_workaround_vgather_vscatter_pairing=F
+#                -mCG_lrb_dp_workaround=F
                 -sox
                 ${OMP_COMPILER_FLAG}
 
@@ -229,15 +213,18 @@ list( APPEND MIC_FLAGS
                 -I ${OCL_SOURCE_DIR}/cl_api
                 -I ${MIC_TBB_HEADERS_PATH}
                 -I ${COI_SDK_PATH}/include
-                -I ${BOOST_DIR}
-				-I ${ITT_DIR}/include
-				-I ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
+		-I ${ITT_DIR}/include
+		-I ${ITT_DIR}/ittnotify
+		-I ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
                 )
 
 list( APPEND MIC_FLAGS
                 -DDEVICE_NATIVE
                 -DDISABLE_NUMA_SUPPORT
+                -DUSE_ITT
                 -D${TASK_EXECUTOR_FLAG} -DTBB_PREVIEW_LOCAL_OBSERVER=1 -DTBB_PREVIEW_TASK_ARENA=1
+                # DEBUG flags
+                #-DUSE_ITT_INTERNAL
     )
 
 list( APPEND MIC_FLAGS -DKNC_CARD )
@@ -293,7 +280,6 @@ list( APPEND MIC_LINK_FLAGS
                 -l${BACKEND_LIB}
                 -l${TBBMALLOC_LIB_TO_LINK}
                 -l${TBB_LIB_TO_LINK}
-                ${VTUNE_PROFILING_LIB}
                 -lpthread
                 -lrt
 
@@ -375,7 +361,8 @@ set( SYS_UTILS_EXCEPTIONS NumericListParser|oclNotifier|cl_socket )
 FIND_SOURCES_EX( ${SYS_UTILS_DIR}  ${SYS_UTILS_EXCEPTIONS} )
 CALCULATE_TARGET_SOURCES()
 set( SYS_UTILS_TARGET_SOURCES ${TARGET_SOURCES} )
-message("Using sources from cl_sys_utils ${SYS_UTILS_TARGET_SOURCES}")
+
+#message("Using sources from cl_sys_utils ${SYS_UTILS_TARGET_SOURCES}")
 
 # add task_executor
 set( TARGET_SOURCES )
@@ -384,12 +371,16 @@ FIND_SOURCES_EX( ${TASK_EXECUTOR_DIR}  ${TASK_EXECUTOR_EXCEPTIONS} )
 CALCULATE_TARGET_SOURCES()
 set( TASK_EXECUTOR_TARGET_SOURCES ${TARGET_SOURCES} )
 
+#Add VTune sources ittnotify interface
+list( APPEND ITT_TARGET_SOURCES ${ITT_DIR}/ittnotify/ittnotify_static.c )
+list( APPEND ITT_TARGET_SOURCES ${ITT_DIR}/ittnotify/jitprofiling.c )
 
-add_device_executable(${TARGET_NAME} ${MAIN_TARGET_SOURCES} ${HW_UTILS_TARGET_SOURCES} ${SYS_UTILS_TARGET_SOURCES} ${TASK_EXECUTOR_TARGET_SOURCES} )
+
+
+add_device_executable(${TARGET_NAME} ${MAIN_TARGET_SOURCES} ${HW_UTILS_TARGET_SOURCES} ${SYS_UTILS_TARGET_SOURCES} ${TASK_EXECUTOR_TARGET_SOURCES} ${ITT_TARGET_SOURCES})
+
 install(PROGRAMS ${FILES_TO_COPY} ${BACKEND_FILES_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
 add_dependencies( ${TARGET_NAME} ${BACKEND_LIB} cl_sys_utils)
 
 file( GLOB MIC_TBB_LIBS_TO_COPY ${MIC_TBB_LIB_PATH}/*.so ${MIC_TBB_LIB_PATH}/*.so.2 )
 install(FILES ${MIC_TBB_LIBS_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
-
-

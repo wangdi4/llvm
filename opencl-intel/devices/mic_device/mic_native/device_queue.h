@@ -92,12 +92,12 @@ protected:
     uint64_t*        m_lockBufferLengths;
 
 private:
-    const QueueOnDevice& m_queue;
+    const QueueOnDevice&  m_queue;
 
-    cl_dev_err_code m_errorCode;
+    cl_dev_err_code       m_errorCode;
     
-	// Command tracer
-	CommandTracer m_commandTracer;
+    // Command tracer
+    CommandTracer         m_commandTracer;
     
     typedef SharedPtr<TaskHandler> (*CommandAllocateFunc)( const QueueOnDevice& queue );
     
@@ -107,7 +107,6 @@ private:
     friend class QueueOnDevice;
     friend class InOrderQueueOnDevice;
     friend class OutOfOrderQueueOnDevice;
-    
 };
 
 /* QueueOnDevice is an abstract class that manage the execution of a task. */
@@ -140,34 +139,34 @@ public:
 	   The FinishTask is not public because We don't want the user to release the resource. (It will release itself when completed)*/
 	virtual void FinishTask(const SharedPtr<TaskHandler>& task_handler, COIEVENT& completionBarrier, bool isLegalBarrier) const = 0;
 
-    virtual bool isInOrder() const = 0;
+	virtual bool isInOrder() const = 0;
 
-    static QueueOnDevice* getCurrentQueue( TlsAccessor* tlsAccessor ) 
+	static QueueOnDevice* getCurrentQueue( TlsAccessor* tlsAccessor )
         {
             assert( NULL != tlsAccessor );
             QueueTls queueTls(tlsAccessor);
             return (QueueOnDevice*)(queueTls.getTls(QueueTls::QUEUE_TLS_ENTRY)); 
         };
 
-    static void setCurrentQueue( TlsAccessor* tlsAccessor, QueueOnDevice* queue ) 
+	static void setCurrentQueue( TlsAccessor* tlsAccessor, QueueOnDevice* queue )
         {
             assert( NULL != tlsAccessor );
             QueueTls queueTls(tlsAccessor);
             queueTls.setTls(QueueTls::QUEUE_TLS_ENTRY, queue); 
         };
 
-    static QueueOnDevice* createQueueOnDevice( bool is_in_order );
+	static QueueOnDevice* createQueueOnDevice( bool is_in_order );
 
-    // helper routine
-    static void execute_command(
-                     uint32_t				    in_BufferCount,
-					 void**						in_ppBufferPointers,
-					 uint64_t*					in_pBufferLengths,
-					 void*						in_pMiscData,
-					 uint16_t					in_MiscDataLength,
-					 void*						in_pReturnValue,
-					 uint16_t					in_ReturnValueLength,
-					 TASK_TYPES	                taskType);
+	// helper routine
+	static void execute_command(
+				uint32_t				in_BufferCount,
+				void**					in_ppBufferPointers,
+				uint64_t*				in_pBufferLengths,
+				void*						in_pMiscData,
+				uint16_t				in_MiscDataLength,
+				void*						in_pReturnValue,
+				uint16_t				in_ReturnValueLength,
+				TASK_TYPES	    taskType);
 
 protected:
 
@@ -183,23 +182,23 @@ class InOrderQueueOnDevice : public QueueOnDevice
 
 public:
     InOrderQueueOnDevice( ThreadPool& thread_pool ) : QueueOnDevice( thread_pool ) {}
-	~InOrderQueueOnDevice();
+    ~InOrderQueueOnDevice();
 
     // return false on error
     bool Init();
 
-	bool InitTask(  const SharedPtr<TaskHandler>& task_handler,
+    bool InitTask(  const SharedPtr<TaskHandler>& task_handler,
                     dispatcher_data* dispatcherData, misc_data* miscData, 
                     uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, 
                     void* in_pMiscData, uint16_t in_MiscDataLength) const;
 
-	void NotifyTaskAllocationFailed(  
+    void NotifyTaskAllocationFailed(
  	                dispatcher_data* dispatcherData, misc_data* miscData ) const {};
 
-	/* Do nothing in case of in order because the task start immediatly. */
-	void SignalTaskStart( const SharedPtr<TaskHandler>& task_handler ) const {};
+    /* Do nothing in case of in order because the task start immediately. */
+    void SignalTaskStart( const SharedPtr<TaskHandler>& task_handler ) const {};
 
-	void FinishTask(const SharedPtr<TaskHandler>& task_handler, COIEVENT& completionBarrier, bool isLegalBarrier) const;
+    void FinishTask(const SharedPtr<TaskHandler>& task_handler, COIEVENT& completionBarrier, bool isLegalBarrier) const;
     
     bool isInOrder() const { return true; };
 };
@@ -209,22 +208,22 @@ class OutOfOrderQueueOnDevice : public QueueOnDevice
 {
 public:
     OutOfOrderQueueOnDevice( ThreadPool& thread_pool ) : QueueOnDevice( thread_pool ) {}
-	~OutOfOrderQueueOnDevice() {};
+    ~OutOfOrderQueueOnDevice() {};
 
     // return false on error
     bool Init();
 
-	bool InitTask(  const SharedPtr<TaskHandler>& task_handler,
+    bool InitTask(  const SharedPtr<TaskHandler>& task_handler,
                     dispatcher_data* dispatcherData, misc_data* miscData, 
                     uint32_t in_BufferCount, void** in_ppBufferPointers, 
                     uint64_t* in_pBufferLengths, void* in_pMiscData, uint16_t in_MiscDataLength) const;
 
-	void NotifyTaskAllocationFailed(  
+    void NotifyTaskAllocationFailed(
 	                dispatcher_data* dispatcherData, misc_data* miscData ) const;
 
-	void SignalTaskStart( const SharedPtr<TaskHandler>& task_handler ) const;
+    void SignalTaskStart( const SharedPtr<TaskHandler>& task_handler ) const;
 
-	void FinishTask(const SharedPtr<TaskHandler>& task_handler, COIEVENT& completionBarrier, bool isLegalBarrier) const;
+    void FinishTask(const SharedPtr<TaskHandler>& task_handler, COIEVENT& completionBarrier, bool isLegalBarrier) const;
 
     bool isInOrder() const { return false; };
 };

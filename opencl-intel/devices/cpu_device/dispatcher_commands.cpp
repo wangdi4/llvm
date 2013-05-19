@@ -1481,7 +1481,7 @@ cl_dev_err_code NativeKernelTask::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* p
 	    const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
 
 	    char  strTaskName[ITT_TASK_NAME_LEN];
-	    SPRINTF_S(strTaskName, ITT_TASK_NAME_LEN, "%s %lu", pKernel->GetKernelName(), (cl_ulong)pCommand->m_pCmd->id);
+	    SPRINTF_S(strTaskName, ITT_TASK_NAME_LEN, "%s(%lu)", pKernel->GetKernelName(), (cl_ulong)pCommand->m_pCmd->id);
 	    pCommand->m_pTaskNameHandle = __itt_string_handle_create(strTaskName);
     }
 #endif

@@ -35,6 +35,10 @@ set (ADD_C_FLAGS_RELEASE "/Zi /Gy -D NDEBUG /MT")# /Ob0") #/GL") #MT
 # Compiler switches that CAN be modified during makefile generation and configuration-independent
 add_definitions( -DWIN32 )
 
+# ITT/GPA/VTUNE integration
+add_definitions( -DUSE_GPA )
+include_directories( ${CMAKE_SOURCE_DIR}/externals/gpa/include )
+
 # Linker switches
 if (BUILD_X64)
     set (INIT_LINKER_FLAGS        "/MACHINE:X64 /OPT:REF /INCREMENTAL:NO /NXCOMPAT")

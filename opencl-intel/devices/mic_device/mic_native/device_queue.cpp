@@ -11,6 +11,8 @@
 #include "native_ndrange_task.h"
 #include "native_buffer_commands.h"
 
+#include <ocl_itt.h>
+
 using namespace Intel::OpenCL::MICDeviceNative;
 using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::Utils;
@@ -24,18 +26,19 @@ TaskHandler::CommandAllocateFunc TaskHandler::m_native_command_allocators[ LAST_
 
 // Initialize current pipeline command queue. Call it after Pipeline creation of Command list.
 COINATIVELIBEXPORT
-void init_commands_queue(uint32_t         in_BufferCount,
-				         void**           in_ppBufferPointers,
-				         uint64_t*        in_pBufferLengths,
-				         void*            in_pMiscData,
-				         uint16_t         in_MiscDataLength,
-				         void*            in_pReturnValue,
-				         uint16_t         in_ReturnValueLength)
+void init_commands_queue(
+                 uint32_t         in_BufferCount,
+		         void**           in_ppBufferPointers,
+		         uint64_t*        in_pBufferLengths,
+		         void*            in_pMiscData,
+		         uint16_t         in_MiscDataLength,
+		         void*            in_pReturnValue,
+		         uint16_t         in_ReturnValueLength)
 {
     assert( sizeof(INIT_QUEUE_ON_DEVICE_STRUCT) == in_MiscDataLength );
     assert( NULL != in_pMiscData );
 
-	INIT_QUEUE_ON_DEVICE_STRUCT* data = (INIT_QUEUE_ON_DEVICE_STRUCT*)in_pMiscData;
+    INIT_QUEUE_ON_DEVICE_STRUCT* data = (INIT_QUEUE_ON_DEVICE_STRUCT*)in_pMiscData;
 
     TlsAccessor tlsAccessor;
 
@@ -78,6 +81,13 @@ void init_commands_queue(uint32_t         in_BufferCount,
     	return;        
     }
 
+#if defined(USE_ITT)
+    if ( gMicGPAData.bUseGPA )
+    {
+      __itt_thread_set_name("MIC Device Queue Thread");
+    }
+#endif
+
     QueueOnDevice::setCurrentQueue( &tlsAccessor, pQueue );
     *((cl_dev_err_code*)in_pReturnValue) = CL_DEV_SUCCESS;
 }
@@ -92,7 +102,7 @@ void release_commands_queue(uint32_t         in_BufferCount,
 					        void*            in_pReturnValue,
 					        uint16_t         in_ReturnValueLength)
 {
-	TlsAccessor tlsAccessor;
+    TlsAccessor tlsAccessor;
 
     QueueOnDevice* pQueue = QueueOnDevice::getCurrentQueue( &tlsAccessor );
     QueueOnDevice::setCurrentQueue( &tlsAccessor, NULL );
@@ -157,7 +167,7 @@ void TaskHandler::setTaskError(cl_dev_err_code errorCode)
     // set error code only if current state is success
     if ((CL_DEV_SUCCESS != errorCode) && (CL_DEV_SUCCESS == m_errorCode))
     {
-        m_errorCode = errorCode;
+      m_errorCode = errorCode;
         
     	// If m_miscData defined set it
     	if (m_miscData)
@@ -171,15 +181,40 @@ void TaskHandler::setTaskError(cl_dev_err_code errorCode)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void QueueOnDevice::execute_command(
-                     uint32_t                   in_BufferCount,
+           uint32_t         in_BufferCount,
 					 void**						in_ppBufferPointers,
-					 uint64_t*					in_pBufferLengths,
+					 uint64_t*				in_pBufferLengths,
 					 void*						in_pMiscData,
 					 uint16_t					in_MiscDataLength,
 					 void*						in_pReturnValue,
 					 uint16_t					in_ReturnValueLength,
-					 TASK_TYPES	                taskType)
+					 TASK_TYPES	      taskType)
 {
+  TlsAccessor tls;
+  QueueOnDevice* queue = QueueOnDevice::getCurrentQueue(&tls);
+
+  assert( queue && "Can't retrieve a queue from TLS");
+  if (NULL == queue)
+  {
+    NATIVE_PRINTF("Cannot find current queue in execute_command\n");
+    return;
+  }
+
+#if defined(USE_ITT)
+    // currently monitor only IN-ORDER queue
+    if ( gMicGPAData.bUseGPA && queue->isInOrder() )
+    {
+      __itt_frame_begin_v3(gMicGPAData.pDeviceDomain, NULL);
+#if defined(USE_ITT_INTERNAL)
+      static __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("QueueOnDevice::execute_command");
+      }
+      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+#endif
+    }
+#endif
 	dispatcher_data* tDispatcherData = NULL;
 	misc_data* tMiscData = NULL;
 	// the buffer index of misc_data in case that it is not in "in_pReturnValue"
@@ -214,16 +249,6 @@ void QueueOnDevice::execute_command(
 	// Set init value of misc_data.
 	tMiscData->init();	
 
-    TlsAccessor tls;
-    QueueOnDevice* queue = QueueOnDevice::getCurrentQueue(&tls);
-
-    assert( queue );
-    if (NULL == queue)
-    {
-		NATIVE_PRINTF("Cannot find current queue in execute_command\n");
-		return;
-    }
-
 	// DO NOT delete this object, It will delete itself after kernel execution
 	SharedPtr<TaskHandler> taskHandler = TaskHandler::TaskFactory(taskType, *queue, tDispatcherData, tMiscData);
 	if (NULL == taskHandler)
@@ -232,7 +257,7 @@ void QueueOnDevice::execute_command(
 		return;
 	}
 
-	// Initialize the task brefore sending for execution.
+	// Initialize the task before sending for execution.
 	bool ok = queue->InitTask( taskHandler, 
 	                           tDispatcherData, tMiscData, 
 	                           in_BufferCount, in_ppBufferPointers, in_pBufferLengths, 
@@ -245,21 +270,33 @@ void QueueOnDevice::execute_command(
     
 	// Send the task for execution.
 	queue->RunTask(taskHandler);
+
+#if defined(USE_ITT)
+	  // Monitor only IN-ORDER queue
+    if ( gMicGPAData.bUseGPA && queue->isInOrder())
+    {
+      __itt_frame_end_v3(gMicGPAData.pDeviceDomain, NULL);
+#if defined(USE_ITT_INTERNAL)
+      __itt_task_end(gMicGPAData.pDeviceDomain);
+#endif
+    }
+#endif
+
 }
 
 void QueueOnDevice::RunTask( const SharedPtr<TaskHandler>& task_handler ) const
 {
-    const SharedPtr<ITaskBase>& pTask = task_handler.DynamicCast<ITaskBase>();
+  const SharedPtr<ITaskBase>& pTask = task_handler.DynamicCast<ITaskBase>();
 	assert(NULL != pTask && "Internal task not supposed to be NULL");
 	if ((NULL == pTask) || (NULL == m_task_list))
 	{
 		task_handler->setTaskError( CL_DEV_ERROR_FAIL );
 		task_handler->FinishTask();
-        return;
+    return;
 	}
 
-    m_task_list->Enqueue( pTask );
-    m_task_list->Flush();
+  m_task_list->Enqueue( pTask );
+  m_task_list->Flush();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -267,7 +304,7 @@ void QueueOnDevice::RunTask( const SharedPtr<TaskHandler>& task_handler ) const
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 InOrderQueueOnDevice::~InOrderQueueOnDevice()
 {
-	m_thread_pool.DeactivateCurrentMasterThread();
+  m_thread_pool.DeactivateCurrentMasterThread();
 }
 
 // return false on error
@@ -300,7 +337,7 @@ bool InOrderQueueOnDevice::InitTask(const SharedPtr<TaskHandler>& task_handler,
 	task_handler->m_lockBufferPointers = in_ppBufferPointers;
 	task_handler->m_lockBufferLengths = in_pBufferLengths;
 
-    return task_handler->InitTask();
+  return task_handler->InitTask();
 }
 
 void InOrderQueueOnDevice::FinishTask(const SharedPtr<TaskHandler>& task_handler, COIEVENT& completionBarrier, bool isLegalBarrier) const
@@ -313,15 +350,15 @@ void InOrderQueueOnDevice::FinishTask(const SharedPtr<TaskHandler>& task_handler
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool OutOfOrderQueueOnDevice::Init()
 {
-    m_task_list = m_thread_pool.getRootDevice()->CreateTaskList( TE_CMD_LIST_OUT_OF_ORDER );
+  m_task_list = m_thread_pool.getRootDevice()->CreateTaskList( TE_CMD_LIST_OUT_OF_ORDER );
 
-    if (NULL == m_task_list)
-    {
-        //Report Error
-        NATIVE_PRINTF("Cannot create out-of-order TaskList\n");
-    }
+  if (NULL == m_task_list)
+  {
+    //Report Error
+    NATIVE_PRINTF("Cannot create out-of-order TaskList\n");
+  }
 
-    return (NULL != m_task_list);
+  return (NULL != m_task_list);
 }
 
 bool OutOfOrderQueueOnDevice::InitTask( const SharedPtr<TaskHandler>& task_handler,
@@ -342,6 +379,7 @@ bool OutOfOrderQueueOnDevice::InitTask( const SharedPtr<TaskHandler>& task_handl
 			task_handler->FinishTask();
 			return false;
 		}
+
 		task_handler->m_lockBufferLengths = new uint64_t[in_BufferCount];
 		if (NULL == task_handler->m_lockBufferLengths)
 		{
@@ -349,6 +387,7 @@ bool OutOfOrderQueueOnDevice::InitTask( const SharedPtr<TaskHandler>& task_handl
 			task_handler->FinishTask();
 			return false;
 		}
+
 		COIRESULT result = COI_SUCCESS;
 		// In case of non blocking task, shall lock all input buffers.
 		for (unsigned int i = 0; i < in_BufferCount; i++)
@@ -417,15 +456,14 @@ void OutOfOrderQueueOnDevice::FinishTask(const SharedPtr<TaskHandler>& task_hand
 	assert(COI_SUCCESS == coiErr);
 }
 
-
 void OutOfOrderQueueOnDevice::SignalTaskStart( const SharedPtr<TaskHandler>& task_handler ) const
 {
 	bool findBarrier = false;
-	// find start barrier in pre exexution directives.
+	// find start barrier in pre-execution directives.
 	unsigned int numOfPreExeDirectives = task_handler->m_dispatcherData->preExeDirectivesCount;
 	if (numOfPreExeDirectives > 0)
 	{
-		// get teh pointer to postExeDirectivesArr
+		// get the pointer to postExeDirectivesArr
 		directive_pack* preExeDirectivesArr = (directive_pack*)((char*)(task_handler->m_dispatcherData) +
 		                                                        task_handler->m_dispatcherData->preExeDirectivesArrOffset);
 		// traverse over the postExeDirectivesArr
@@ -449,7 +487,7 @@ void OutOfOrderQueueOnDevice::NotifyTaskAllocationFailed(
 {
     unsigned int numOfPostExeDirectives = dispatcherData->postExeDirectivesCount;
     assert(numOfPostExeDirectives > 0);
-    // get teh pointer to postExeDirectivesArr
+    // get the pointer to postExeDirectivesArr
     directive_pack* postExeDirectivesArr = (directive_pack*)((char*)dispatcherData + dispatcherData->postExeDirectivesArrOffset);
     // traverse over the postExeDirectivesArr
     for (unsigned int i = 0; i < numOfPostExeDirectives; i++)

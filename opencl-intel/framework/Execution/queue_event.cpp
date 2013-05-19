@@ -335,7 +335,7 @@ OclEventState QueueEvent::SetEventState(OclEventState newColor)
 	{
 		if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
 		{
-			if (m_pGPAData->cStatusMarkerFlags & GPA_SHOW_SUBMITTED_MARKER)
+			if (m_pGPAData->cStatusMarkerFlags & ITT_SHOW_SUBMITTED_MARKER)
 			{
 				#if defined(USE_GPA)
 				// Write this data to the thread track

@@ -11,13 +11,19 @@
 
 using namespace Intel::OpenCL::MICDeviceNative;
 
-Intel::OpenCL::MICDevice::mic_exec_env_options Intel::OpenCL::MICDeviceNative::gMicExecEnvOptions;
-volatile unsigned int resume_server_execution = 0;
+// Declare global variables
+Intel::OpenCL::MICDevice::mic_exec_env_options  Intel::OpenCL::MICDeviceNative::gMicExecEnvOptions;
+#ifdef USE_ITT
+ocl_gpa_data                                    Intel::OpenCL::MICDeviceNative::gMicGPAData;
+#endif
+
+// Module local variable
+static volatile unsigned int resume_server_execution = 0;
 
 // Initialize the device thread pool. Call it immediately after process creation.
 COINATIVELIBEXPORT
-void init_device(uint32_t         in_BufferCount,
-			     void**           in_ppBufferPointers,
+void init_device(uint32_t in_BufferCount,
+		     void**           in_ppBufferPointers,
 				 uint64_t*        in_pBufferLengths,
 				 void*            in_pMiscData,
 				 uint16_t         in_MiscDataLength,
@@ -39,8 +45,22 @@ void init_device(uint32_t         in_BufferCount,
 		fflush(stdout);
 		while (resume_server_execution == 0) {};
 	}
+
 	gMicExecEnvOptions = *tEnvOptions;
-    unsigned int num_of_worker_threads = gMicExecEnvOptions.threads_per_core*gMicExecEnvOptions.num_of_cores;
+#ifdef USE_ITT
+    memset(&gMicGPAData, sizeof(ocl_gpa_data), 0);
+    if ( gMicExecEnvOptions.enable_itt )
+    {
+      gMicGPAData.bUseGPA = true;
+      if ( NULL == gMicGPAData.pDeviceDomain )
+      {
+        gMicGPAData.pDeviceDomain   = __itt_domain_create("com.intel.open_cl.device.mic");
+        gMicGPAData.pNDRangeHandle  = __itt_string_handle_create("NDRange");
+      }
+    }
+#endif
+
+  unsigned int num_of_worker_threads = gMicExecEnvOptions.threads_per_core*gMicExecEnvOptions.num_of_cores;
 	assert((num_of_worker_threads > 0) && (num_of_worker_threads < MIC_NATIVE_MAX_WORKER_THREADS));
 
     if ((num_of_worker_threads <= 0) || (num_of_worker_threads >= MIC_NATIVE_MAX_WORKER_THREADS))

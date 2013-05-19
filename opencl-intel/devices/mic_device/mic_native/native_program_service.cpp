@@ -306,7 +306,7 @@ size_t ProgramService::getBackendTargetDescription( size_t buffer_size, void* bu
 //
 // Deserialize program and create kernels
 //
-void ProgramService::add_program(
+cl_dev_err_code ProgramService::add_program(
                       size_t prog_blob_size, void* prog_blob,  // serialized prog
                       const COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT* prog_info,
                       COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT*      fill_kernel_info )
@@ -319,7 +319,7 @@ void ProgramService::add_program(
     if (NULL == prog_entry)
     {
         NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TProgramEntry" );
-        return;
+		return CL_DEV_OUT_OF_MEMORY;
     }
 
     // 1. Reserve execution memory
@@ -333,7 +333,7 @@ void ProgramService::add_program(
             NATIVE_PRINTF("ProgramService::add_program: Cannot reserve %lu executable bytes for passed program\n",required_exec_size );
 
             delete prog_entry;
-            return;
+			return CL_DEV_OUT_OF_MEMORY;
         }
     }
     else
@@ -341,7 +341,7 @@ void ProgramService::add_program(
         prog_entry->exec_memory_manager = NULL;
     }
 
-    // setup TLS with execution memory allocator
+	// setup TLS with execution memory allocator, which is required by DeSerialize
 	TlsAccessor tlsAccessor;
 	ProgramServiceTls tls(&tlsAccessor);
     tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, prog_entry->exec_memory_manager);
@@ -356,45 +356,49 @@ void ProgramService::add_program(
         NATIVE_PRINTF("ProgramService::add_program: Cannot deserialize program with blob size %#lX bytes\n", prog_blob_size );
 
         RemoveProgramEntry( prog_entry );
-        return;
+		return be_err;
     }
+
+	// clean TLS
+	tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, NULL);
 
     // 3. Create kernels list and fill output data
     int kernels_count = prog_entry->pProgram->GetKernelsCount();
     assert( kernels_count >= 0 && "ProgramService::add_program: Cannot restore kernels from deserialized program" );
     assert( kernels_count == prog_info->number_of_kernels && "ProgramService::add_program: Backend restored kernel count differ from serialized" );
 
-    bool error_found = false;
+	prog_entry->pKernels = new TKernelEntry[kernels_count];
+	if ( NULL == prog_entry->pKernels )
+	{
+	NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TKernelEntry[kernels_count], kernels_count=%d", kernels_count);
+	return CL_DEV_OUT_OF_MEMORY;
+	}
 
-    for (int i = 0; i < kernels_count; ++i)
-    {
-        TKernelEntry* k_entry = new TKernelEntry;
-        assert( k_entry && "ProgramService::add_program: No memory to allocate kernel entry struct" );
+	for (int i = 0; i < kernels_count; ++i)
+	{
+		be_err = prog_entry->pProgram->GetKernel(i, &(prog_entry->pKernels[i].kernel) );
+		assert( CL_DEV_SUCCEEDED(be_err) && "ProgramService::add_program: Cannot get kernel from deserialized program" );
+		if ( CL_DEV_FAILED(be_err) )
+		{
+			break;
+		}
 
-        if (NULL == k_entry)
-        {
-            NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TKernelEntry" );
-            error_found = true;
-            break;
-        }
+#ifdef USE_ITT
+		if ( gMicGPAData.bUseGPA)
+		{
+			prog_entry->pKernels[i].pIttKernelName = __itt_string_handle_create(prog_entry->pKernels[i].kernel->GetKernelName());
+		}
+#endif
+		// add kernel info to the return struct
+		fill_kernel_info->device_kernel_info_pts[i].kernel_id        = (uint64_t)prog_entry->pKernels[i].kernel->GetKernelID();
+		fill_kernel_info->device_kernel_info_pts[i].device_info_ptr  = (uint64_t)(size_t)&prog_entry->pKernels[i];
+	}
 
-        k_entry->program_entry = prog_entry;
-        be_err = prog_entry->pProgram->GetKernel(i, &(k_entry->kernel) );
-        assert( CL_DEV_SUCCEEDED(be_err) && "ProgramService::add_program: Cannot get kernel from deserialized program" );
-
-        // add kernel entry to the prog list
-        prog_entry->kernels.push_back( k_entry );
-
-        // add kernel info to the return struct
-        fill_kernel_info->device_kernel_info_pts[i].kernel_id        = (uint64_t)k_entry->kernel->GetKernelID();
-        fill_kernel_info->device_kernel_info_pts[i].device_info_ptr  = (uint64_t)(size_t)k_entry;
-    }
-
-    if (error_found)
-    {
-        RemoveProgramEntry( prog_entry );
-        return;
-    }
+	if ( CL_DEV_FAILED(be_err) )
+	{
+		RemoveProgramEntry( prog_entry );
+		return be_err;
+	}
 
     // 4. Add program to the program map
     m_muProgMap.Lock();
@@ -403,6 +407,7 @@ void ProgramService::add_program(
 
     // 5. Set number of filled kernels
     fill_kernel_info->filled_kernels = kernels_count;
+	return CL_DEV_SUCCESS;
 }
 
 void ProgramService::remove_program( uint64_t be_program_id )
@@ -431,29 +436,27 @@ void ProgramService::remove_program( uint64_t be_program_id )
 
 void  ProgramService::RemoveProgramEntry( TProgramEntry* prog_entry )
 {
-    TKernelList::iterator it     = prog_entry->kernels.begin();
-    TKernelList::iterator it_end = prog_entry->kernels.end();
-
-    for(; it != it_end; ++it)
+    if ( NULL != prog_entry->pProgram )
     {
-        delete *it;
-    }
-
-    prog_entry->kernels.clear();
-
-    if (prog_entry->pProgram)
-    {
-        // setup TLS with execution memory allocator
+		// setup TLS with execution memory allocator
 		TlsAccessor tlsAccessor;
 		ProgramServiceTls tls(&tlsAccessor);
 		tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, prog_entry->exec_memory_manager);
 
-        GetSerializationService()->ReleaseProgram(prog_entry->pProgram);
+		GetSerializationService()->ReleaseProgram(prog_entry->pProgram);
+
+		// clean TLS
+		tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, NULL);
     }
 
-    if (prog_entry->exec_memory_manager)
+    if ( NULL != prog_entry->exec_memory_manager)
     {
-        delete prog_entry->exec_memory_manager;
+		delete prog_entry->exec_memory_manager;
+    }
+
+    if ( NULL != prog_entry->pKernels )
+    {
+		delete []prog_entry->pKernels;
     }
 
     delete prog_entry;
@@ -463,10 +466,10 @@ void  ProgramService::RemoveProgramEntry( TProgramEntry* prog_entry )
 // called by worker and pipeline threads
 bool ProgramService::get_kernel(
                  uint64_t device_info_ptr,
-                 const ICLDevBackendKernel_** kernel,
-                 ProgramMemoryManager**       program_exec_memory_manager ) const
+                 const ICLDevBackendKernel_** kernel)
 {
-    if (0 == device_info_ptr)
+    assert( (NULL!=kernel) && (0 != device_info_ptr) && "Invalid arguments passed");
+    if ( (NULL==kernel) || (0 == device_info_ptr) )
     {
         return false;
     }
@@ -482,18 +485,24 @@ bool ProgramService::get_kernel(
         return false;
     }
 
-    if (kernel)
-    {
-        *kernel = k_entry->kernel;
-    }
-
-    if (program_exec_memory_manager)
-    {
-        *program_exec_memory_manager = k_entry->program_entry->exec_memory_manager;
-    }
+   *kernel = k_entry->kernel;
 
     return true;
 }
+
+#ifdef USE_ITT
+__itt_string_handle* ProgramService::get_itt_kernel_name(uint64_t device_info_ptr)
+{
+	assert( 0 != device_info_ptr && "Invalid arguments passed");
+	if ( 0 == device_info_ptr )
+	{
+		return NULL;
+	}
+
+	TKernelEntry* k_entry = (TKernelEntry*)(size_t)device_info_ptr;
+	return k_entry->pIttKernelName;
+}
+#endif
 
 cl_dev_err_code ProgramService::create_binary( const ICLDevBackendKernel_* pKernel,
 		                           char* pLockedParams,
@@ -603,19 +612,26 @@ void copy_program_to_device(
 
     COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* output = (COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT*)in_ppBufferPointers[1];
 
-	CommandTracer cmdTracer;
-	cmdTracer.set_command_id(input->uid_program_on_device);
-	cmdTracer.set_current_time_build_deserialize_time_start();
-
-
+#ifdef ENABLE_MIC_TRACER
+    CommandTracer cmdTracer;
+    cmdTracer.set_command_id(input->uid_program_on_device);
+    cmdTracer.set_current_time_build_deserialize_time_start();
+#endif
     // check that serialized program size is valid
     size_t blob_size = in_pBufferLengths[0];
     assert( blob_size > 0 && "SINK: copy_program_to_device() should get non-zero serialized program" );
 
     ProgramService& program_service = ProgramService::getInstance();
 
-    program_service.add_program( blob_size, in_ppBufferPointers[0], input, output );
-	cmdTracer.set_current_time_build_deserialize_time_end();
+    cl_dev_err_code err = program_service.add_program( blob_size, in_ppBufferPointers[0], input, output );
+    if ( in_ReturnValueLength > 0 )
+    {
+		*((cl_dev_err_code*)in_pReturnValue) = err;
+    }
+
+#ifdef ENABLE_MIC_TRACER
+    cmdTracer.set_current_time_build_deserialize_time_end();
+#endif
 }
 
 //

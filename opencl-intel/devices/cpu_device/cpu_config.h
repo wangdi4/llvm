@@ -34,8 +34,8 @@ using namespace Intel::OpenCL::Utils;
 **************************************************************************************************/
 
 // CPU specific:
-#define	CL_CONFIG_USE_VECTORIZER		"CL_CONFIG_USE_VECTORIZER"		// bool
-#define	CL_CONFIG_USE_VTUNE				"CL_CONFIG_USE_VTUNE"		    // bool
+#define	CL_CONFIG_USE_VECTORIZER		"CL_CONFIG_USE_VECTORIZER"	// bool
+#define	CL_CONFIG_USE_VTUNE				"CL_CONFIG_USE_VTUNE"		// bool
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 

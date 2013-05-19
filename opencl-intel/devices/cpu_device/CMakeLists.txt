@@ -18,8 +18,6 @@ include_directories( BEFORE ../../backend/ocl_cpu_backend/export
 							../common/builtin_kernels
 					)
 							
-include( ../../cmake_utils/itt.cmake )
-
 if(WIN32)
 	include_directories( AFTER
 		${OCL_SOURCE_DIR}/externals/gpa/include
@@ -51,7 +49,6 @@ if (WIN32)
     endif (CMAKE_SIZEOF_VOID_P EQUAL 8) 
 else ()
 	add_definitions( -D_LINUX )
- 	message( WARNING " Task Analizer DLLs for Linux are not ready yet" )
 endif (WIN32)
 
 #Support for builtin kernels
@@ -73,6 +70,9 @@ endif(INCLUDE_MKL)
 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
+
+#include ITT notify sources
+include( ../../cmake_utils/itt.cmake )
 				
 #add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})

@@ -501,7 +501,7 @@ void* ThreadPool::OnThreadEntry()
     return pCtx;
 }
 
-// Allocate all nessary resources for the current calling thread
+// Allocate all necessary resources for the current calling thread
 bool ThreadPool::ActivateCurrentMasterThread()
 {
 	if ( NULL == m_tpMasterCtx )
@@ -611,11 +611,11 @@ public:
 
 	bool	Finish(FINISH_REASON reason) { m_completed = 1; return true; }
 
-	// Returns true in case current task is a syncronization point
+	// Returns true in case current task is a synchronization point
 	// No more tasks will be executed in this case
 	bool	CompleteAndCheckSyncPoint() { return false; }
 	
-	// Set current command as syncronization point
+	// Set current command as synchronization point
 	// Returns true if command is already completed
 	bool	SetAsSyncPoint() { return false; }
 
@@ -637,7 +637,6 @@ public:
     unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
 
 private:
-
     WarmUpTask( unsigned int num_of_workers ) : startup_workers_left(num_of_workers) {}
     ~WarmUpTask() {}
 
@@ -655,10 +654,33 @@ int WarmUpTask::Init(size_t region[], unsigned int& regCount)
 bool WarmUpTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext)
 {
     long val = startup_workers_left--;
+#if defined(USE_ITT)
+    if ( gMicGPAData.bUseGPA )
+    {
+		__itt_thread_set_name("MIC Device Worker Thread");
+    }
+#endif
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( gMicGPAData.bUseGPA)
+    {
+		static __itt_string_handle* pTaskName = NULL;
+		if ( NULL == pTaskName )
+		{
+			pTaskName = __itt_string_handle_create("WarmUp Task");
+		}
+		__itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
     while (0 != startup_workers_left)
     {
         hw_pause();
     }  
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( gMicGPAData.bUseGPA)
+    {
+		__itt_task_end(gMicGPAData.pDeviceDomain);
+    }
+#endif
     return true;
 }
 
@@ -668,6 +690,19 @@ void ThreadPool::startup_all_workers()
     {
         return;
     }
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( gMicGPAData.bUseGPA)
+    {
+		__itt_frame_begin_v3(gMicGPAData.pDeviceDomain, NULL);
+		static __itt_string_handle* pTaskName = NULL;
+		if ( NULL == pTaskName )
+		{
+		pTaskName = __itt_string_handle_create("Thread Pool initialization");
+		}
+		__itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
 
     SharedPtr<ITaskList> list = m_RootDevice->CreateTaskList( TE_CMD_LIST_IN_ORDER );
     SharedPtr<WarmUpTask> warmup_task = WarmUpTask::Allocate( m_numOfActivatedThreads );
@@ -691,5 +726,14 @@ void ThreadPool::startup_all_workers()
     {
     	hw_pause();
     }
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( gMicGPAData.bUseGPA)
+    {
+		__itt_task_end(gMicGPAData.pDeviceDomain);
+		__itt_frame_end_v3(gMicGPAData.pDeviceDomain, NULL);
+    }
+#endif
+
 }
 

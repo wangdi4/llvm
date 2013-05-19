@@ -11,31 +11,35 @@
 #else
 // A bug in 4.0 < GCC < 4.6 treats cdecl attribute ignore (on 64 bit) as error.
 //#if __x86_64__ && __GNUC__ == 4 &&  __GNUC_MINOR__ < 6
-	#undef CDECL
+#undef CDECL
 //#else
 //	#define CDECL   __attribute__((cdecl))
 //#endif
-        #include <stdio.h>
-	#include <ittnotify.h>
+#include <stdio.h>
+#ifdef USE_ITT
+#include <ittnotify.h>
+#endif
 #endif
 
-#define GPA_SHOW_QUEUED_MARKER		0x1
-#define GPA_SHOW_SUBMITTED_MARKER	0x2
-#define GPA_SHOW_RUNNING_MARKER		0x4
-#define GPA_SHOW_COMPLETED_MARKER	0x8
+#define ITT_SHOW_QUEUED_MARKER		0x1
+#define ITT_SHOW_SUBMITTED_MARKER	0x2
+#define ITT_SHOW_RUNNING_MARKER		0x4
+#define ITT_SHOW_COMPLETED_MARKER	0x8
 
 #define ITT_TASK_NAME_LEN     64
 
 struct ocl_gpa_data
 {
-	bool					bUseGPA;
-	bool					bEnableAPITracing;
-    bool					bEnableContextTracing;
-	unsigned char			cStatusMarkerFlags;
-	unsigned int			iIDCounter;
+  bool					    bUseGPA;
+  bool					    bEnableAPITracing;
+  bool					    bEnableContextTracing;
+  unsigned char			cStatusMarkerFlags;
+  unsigned int			iIDCounter;
+#ifdef USE_ITT
 	__itt_domain*			pDeviceDomain;
 	__itt_domain*			pContextDomain;
 	__itt_domain*			pAPIDomain;
+	__itt_string_handle*	pNDRangeHandle;
 	__itt_string_handle*	pReadHandle;
 	__itt_string_handle*	pWriteHandle;
 	__itt_string_handle*	pCopyHandle;
@@ -58,9 +62,9 @@ struct ocl_gpa_data
 	__itt_string_handle*	pEndPos;
 	__itt_string_handle*	pIsBlocking;
 	__itt_string_handle*	pNumEventsInWaitList;
-
+#endif
 #if defined(USE_GPA)
-	__itt_track_group*      pContextTrackGroup;
+	__itt_track_group*    pContextTrackGroup;
 	__ittx_task_state*		pWaitingTaskState;
 	__ittx_task_state*		pRunningTaskState;
 #endif
@@ -71,7 +75,9 @@ struct ocl_gpa_queue
 #if defined(USE_GPA)
     __itt_track*            m_pTrack;
 #endif
+#ifdef USE_ITT
     __itt_string_handle*    m_pStrHndl;
+#endif
 };
 
 struct ocl_gpa_command
@@ -84,7 +90,9 @@ struct ocl_gpa_command
     // *       WAIT TIME       *        EXECUTION TIME        *
     // ********************************************************
     //
-	__itt_id                m_CmdId;
-    __itt_string_handle*    m_strCmdName;
+#ifdef USE_ITT
+  __itt_id                m_CmdId;
+  __itt_string_handle*    m_strCmdName;
+#endif
 };
 

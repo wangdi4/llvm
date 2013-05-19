@@ -33,18 +33,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
     #define DEFAULT_LOG_FILE_NAME "~/intel_ocl.log"
 #endif
 
-#define	CL_CONFIG_LOG_FILE				"CL_CONFIG_LOG_FILE"			// string
-#define	CL_CONFIG_USE_LOGGER			"CL_CONFIG_USE_LOGGER"			// bool
-#define	CL_CONFIG_DEVICES				"CL_CONFIG_DEVICES"				// string (use tokenize to get substrings)
 
-#define	CL_GPA_CONFIG_ENABLE_API_TRACING		"CL_GPA_CONFIG_ENABLE_API_TRACING"	    // bool
-#define CL_GPA_CONFIG_ENABLE_CONTEXT_TRACING    "CL_GPA_CONFIG_ENABLE_CONTEXT_TRACING"  // bool
+// General configuration strings:
+#define CL_CONFIG_LOG_FILE                      "CL_CONFIG_LOG_FILE"                    // string
+#define CL_CONFIG_USE_LOGGER                    "CL_CONFIG_USE_LOGGER"                  // bool
+#define CL_CONFIG_DEVICES                       "CL_CONFIG_DEVICES"                     // string (use tokenize to get substrings)
+
+#define CL_CONFIG_USE_ITT_API                   "CL_CONFIG_USE_ITT_API"                 // bool
+#define	CL_ITT_CONFIG_ENABLE_API_TRACING		"CL_ITT_CONFIG_ENABLE_API_TRACING"	    // bool
+#define CL_ITT_CONFIG_ENABLE_CONTEXT_TRACING    "CL_ITT_CONFIG_ENABLE_CONTEXT_TRACING"  // bool
 
 // Used to Enable/Disable task state Markers in GPA Platform Analyzer
-#define	CL_GPA_CONFIG_SHOW_QUEUED_MARKER		"CL_GPA_CONFIG_SHOW_QUEUED_MARKER"		    // bool
-#define	CL_GPA_CONFIG_SHOW_SUBMITTED_MARKER		"CL_GPA_CONFIG_SHOW_SUBMITTED_MARKER"	    // bool
-#define	CL_GPA_CONFIG_SHOW_RUNNING_MARKER		"CL_GPA_CONFIG_SHOW_RUNNING_MARKER"		    // bool
-#define	CL_GPA_CONFIG_SHOW_COMPLETED_MARKER		"CL_GPA_CONFIG_SHOW_COMPLETED_MARKER"	    // bool
+#define	CL_ITT_CONFIG_SHOW_QUEUED_MARKER		"CL_ITT_CONFIG_SHOW_QUEUED_MARKER"		  // bool
+#define	CL_ITT_CONFIG_SHOW_SUBMITTED_MARKER		"CL_ITT_CONFIG_SHOW_SUBMITTED_MARKER"	  // bool
+#define	CL_ITT_CONFIG_SHOW_RUNNING_MARKER		"CL_ITT_CONFIG_SHOW_RUNNING_MARKER"		  // bool
+#define	CL_ITT_CONFIG_SHOW_COMPLETED_MARKER		"CL_ITT_CONFIG_SHOW_COMPLETED_MARKER"	  // bool
 	
 	/**********************************************************************************************
 	* Class name:	OCLConfig
@@ -59,19 +62,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OCLConfig();
 		~OCLConfig();
 
-		string		   GetLogFile() const { return m_pConfigFile->Read<string>(CL_CONFIG_LOG_FILE, DEFAULT_LOG_FILE_NAME); }
+		string		 GetLogFile() const { return m_pConfigFile->Read<string>(CL_CONFIG_LOG_FILE, DEFAULT_LOG_FILE_NAME); }
 		bool		   UseLogger() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_LOGGER, false); }
 		
 		vector<string> GetDevices() const;
 		string         GetDefaultDevice() const;
 
-		bool			EnableAPITracing() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_ENABLE_API_TRACING, false); }
-		bool			EnableContextTracing() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_ENABLE_CONTEXT_TRACING, true); }
+		bool			EnableAPITracing() const { return m_pConfigFile->Read<bool>(CL_ITT_CONFIG_ENABLE_API_TRACING, false); }
+		bool			EnableContextTracing() const { return m_pConfigFile->Read<bool>(CL_ITT_CONFIG_ENABLE_CONTEXT_TRACING, true); }
 		
-		bool			ShowQueuedMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_QUEUED_MARKER, true); }
-		bool			ShowSubmittedMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_SUBMITTED_MARKER, false); }
-		bool			ShowRunningMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_RUNNING_MARKER, false); }
-		bool			ShowCompletedMarker() const { return m_pConfigFile->Read<bool>(CL_GPA_CONFIG_SHOW_COMPLETED_MARKER, true); }
+		bool			ShowQueuedMarker() const { return m_pConfigFile->Read<bool>(CL_ITT_CONFIG_SHOW_QUEUED_MARKER, true); }
+		bool			ShowSubmittedMarker() const { return m_pConfigFile->Read<bool>(CL_ITT_CONFIG_SHOW_SUBMITTED_MARKER, false); }
+		bool			ShowRunningMarker() const { return m_pConfigFile->Read<bool>(CL_ITT_CONFIG_SHOW_RUNNING_MARKER, false); }
+		bool			ShowCompletedMarker() const { return m_pConfigFile->Read<bool>(CL_ITT_CONFIG_SHOW_COMPLETED_MARKER, true); }
+
+		bool      EnableITT() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_ITT_API, false); }
+
     };
 
 }}}

@@ -56,7 +56,7 @@ void execute_NDRange(uint32_t         in_BufferCount,
 }
 
 NDRangeTask::NDRangeTask( const QueueOnDevice& queue ) : TaskHandler( queue ),
-    m_commandIdentifier((cl_dev_cmd_id)-1), m_kernel(NULL), m_pBinary(NULL), m_progamExecutableMemoryManager(NULL),
+    m_commandIdentifier((cl_dev_cmd_id)-1), m_kernel(NULL), m_pBinary(NULL),
     m_MemBuffCount(0), m_pMemBuffSizes(NULL), m_dim(0), m_lockedParams(NULL)
 #ifdef ENABLE_MIC_TRACER
     ,m_tbb_perf_data(*this)
@@ -81,22 +81,24 @@ bool NDRangeTask::InitTask()
 	// Set total buffers size and num of buffers for the tracer.
 #ifdef ENABLE_MIC_TRACER
 	commandTracer().add_delta_num_of_buffer_sent_to_device(m_lockBufferCount);
-#endif
 	unsigned long long bufSize = 0;
 	for (unsigned int i = 0; i < m_lockBufferCount; i++)
 	{
 		bufSize = m_lockBufferLengths[i];
-#ifdef ENABLE_MIC_TRACER
 		commandTracer().add_delta_buffers_size_sent_to_device(bufSize);
-#endif		
 	}
+#endif
 
 	ndrange_dispatcher_data* pDispatcherData = (ndrange_dispatcher_data*)(m_dispatcherData);
-	assert(pDispatcherData);
-	ProgramService& tProgramService = ProgramService::getInstance();
+	assert(NULL!=pDispatcherData && "Dispatcher data is NULL");
+	if ( NULL == pDispatcherData )
+	{
+	  return false;
+	}
+
 #ifndef NDRANGE_UNIT_TEST
 	// Get kernel object
-	bool result = tProgramService.get_kernel(pDispatcherData->kernelDirective.kernelAddress, (const ICLDevBackendKernel_**)&m_kernel, &m_progamExecutableMemoryManager);
+	bool result = ProgramService::get_kernel(pDispatcherData->kernelDirective.kernelAddress, (const ICLDevBackendKernel_**)&m_kernel);
 	if (false == result)
 	{
 		setTaskError( CL_DEV_INVALID_KERNEL );
@@ -104,6 +106,11 @@ bool NDRangeTask::InitTask()
 		return false;
 	}
 #endif
+
+#ifdef USE_ITT
+	m_pIttKernelName = ProgramService::get_itt_kernel_name(pDispatcherData->kernelDirective.kernelAddress);
+#endif
+
 	// Set command identifier
 	m_commandIdentifier = pDispatcherData->commandIdentifier;
 
@@ -112,6 +119,7 @@ bool NDRangeTask::InitTask()
 	{
 		m_lockedParams = (char*)((char*)pDispatcherData + pDispatcherData->kernelArgBlobOffset);
 	}
+
 	unsigned int numOfPreExeDirectives = pDispatcherData->preExeDirectivesCount;
 	// If there are pre executable directives to execute
 	if (numOfPreExeDirectives > 0)
@@ -155,6 +163,7 @@ bool NDRangeTask::InitTask()
 	pDispatcherData->workDesc.convertToClWorkDescriptionType(&tWorkDesc);
     tWorkDesc.minWorkGroupNum = gMicExecEnvOptions.min_work_groups_number;
 
+	ProgramService& tProgramService = ProgramService::getInstance();
 	// Create the binary.
 	cl_dev_err_code errCode = tProgramService.create_binary(m_kernel, m_lockedParams, pDispatcherData->kernelArgSize, &tWorkDesc, &m_pBinary);
     if ( CL_DEV_FAILED(errCode) )
@@ -185,7 +194,7 @@ bool NDRangeTask::InitTask()
 	cl_mic_work_description_type* pWorkDesc = &(pDispatcherData->workDesc);
 	m_dim = pWorkDesc->workDimension;
 	assert((m_dim >= 1) && (m_dim <= MAX_WORK_DIM));
-	// Calculate the region of each dimention in the task.
+	// Calculate the region of each dimension in the task.
 	unsigned int i = 0;
 	for (i = 0; i < m_dim; ++i)
 	{
@@ -225,7 +234,7 @@ void NDRangeTask::FinishTask()
 	assert(pDispatcherData);
 	COIEVENT completionBarrier;
 	bool findBarrier = false;
-	// Perform post exexution directives.
+	// Perform post execution directives.
 	unsigned int numOfPostExeDirectives = pDispatcherData->postExeDirectivesCount;
 	if (numOfPostExeDirectives > 0)
 	{
@@ -333,12 +342,16 @@ int NDRangeTask::Init(size_t region[], unsigned int& regCount)
 #ifdef ENABLE_MIC_TRACER
     commandTracer().set_current_time_tbb_exe_in_device_time_start();
 #endif
+#ifdef USE_ITT
+    if ( gMicGPAData.bUseGPA)
+    {
+      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, m_pIttKernelName);
+    }
+#endif
 
     return 0;
 }
 
-// Is called when the task is going to be called for the first time
-// within specific thread. 
 // Returns void* to be passed to other, if attach process succeeded, otherwise NULL
 void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
 {
@@ -349,6 +362,13 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
     m_tbb_perf_data.work_group_start();
 #endif
     
+#ifdef USE_ITT
+    if ( gMicGPAData.bUseGPA)
+    {
+      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, m_pIttKernelName);
+    }
+#endif
+
 	assert( NULL!=pWgContextBase && "At this point pWgContext must be valid");
 	if ( NULL == pWgContextBase)
 	{
@@ -414,6 +434,13 @@ void NDRangeTask::DetachFromThread(void* pWgContext)
     m_tbb_perf_data.work_group_end();
     TaskLoopBodyTrace::loop_end();
 #endif
+#ifdef USE_ITT
+    if ( gMicGPAData.bUseGPA)
+    {
+
+      __itt_task_end(gMicGPAData.pDeviceDomain);
+    }
+#endif
 
 }
 
@@ -453,7 +480,15 @@ bool NDRangeTask::Finish(FINISH_REASON reason)
 {
 #ifdef ENABLE_MIC_TRACER
     commandTracer().set_current_time_tbb_exe_in_device_time_end();
-#endif    
+#endif
+#ifdef USE_ITT
+    if ( gMicGPAData.bUseGPA)
+    {
+
+      __itt_task_end(gMicGPAData.pDeviceDomain);
+    }
+#endif
+
     FinishTask();
     return CL_DEV_SUCCEEDED( getTaskError() );
 }

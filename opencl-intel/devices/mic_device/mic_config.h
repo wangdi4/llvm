@@ -33,28 +33,30 @@ using namespace Intel::OpenCL::Utils;
 * Configuration keys
 **************************************************************************************************/
 
-#define    CL_CONFIG_USE_GPA               "CL_CONFIG_USE_GPA"              // bool
-#define    CL_CONFIG_USE_VECTORIZER        "CL_CONFIG_USE_VECTORIZER"       // bool
-#define    CL_CONFIG_USE_VTUNE             "CL_CONFIG_USE_VTUNE"            // bool
+// General configuration
+#define CL_CONFIG_USE_ITT_API     "CL_CONFIG_USE_ITT_API"     // bool
+#define CL_CONFIG_USE_VECTORIZER  "CL_CONFIG_USE_VECTORIZER"  // bool
+#define CL_CONFIG_USE_VTUNE       "CL_CONFIG_USE_VTUNE"       // bool
+
 
 // device setup
-#define    CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD				"CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD"         // bool
-#define    CL_CONFIG_MIC_DEVICE_USE_AFFINITY				"CL_CONFIG_MIC_DEVICE_USE_AFFINITY"         // bool
-#define    CL_CONFIG_MIC_DEVICE_THREADS_PER_CORE            "CL_CONFIG_MIC_DEVICE_THREADS_PER_CORE"     // unsigned int
-#define    CL_CONFIG_MIC_DEVICE_NUM_CORES					"CL_CONFIG_MIC_DEVICE_NUM_CORES"	        // unsigned int
-#define    CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0				"CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0"        // bool
-#define    CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE			"CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE"     // bool
-#define    CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB			"CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB"   // size_t in KB
-#define    CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE				"CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE"       // unsigned int
-#define    CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER				"CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER"        // string
-#define    CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION      "CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION" // string
-#define    CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS	        "CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS"     // bool
-#define    CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER				"CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER"        // unsigned int
-#define    CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION		"CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION" // bool
+#define    CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD				    "CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD"           // bool
+#define    CL_CONFIG_MIC_DEVICE_USE_AFFINITY				    "CL_CONFIG_MIC_DEVICE_USE_AFFINITY"           // bool
+#define    CL_CONFIG_MIC_DEVICE_THREADS_PER_CORE        "CL_CONFIG_MIC_DEVICE_THREADS_PER_CORE"       // unsigned int
+#define    CL_CONFIG_MIC_DEVICE_NUM_CORES					      "CL_CONFIG_MIC_DEVICE_NUM_CORES"	            // unsigned int
+#define    CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0				    "CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0"          // bool
+#define    CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE		    "CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE"       // bool
+#define    CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB	    "CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB"     // size_t in KB
+#define    CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE				  "CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE"         // unsigned int
+#define    CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER				    "CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER"          // string
+#define    CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION  "CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION" // string
+#define    CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS	      "CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS"       // bool
+#define    CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER				    "CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER"          // unsigned int
+#define    CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION		"CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION"  // bool
 
-#define    CL_CONFIG_MIC_DEVICE_PRINT_CONFIG                "CL_CONFIG_MIC_DEVICE_PRINT_CONFIG"          // bool
+#define    CL_CONFIG_MIC_DEVICE_PRINT_CONFIG             "CL_CONFIG_MIC_DEVICE_PRINT_CONFIG"          // bool
 
-#define    OFFLOAD_DEVICES									"OFFLOAD_DEVICES"							// string
+#define    OFFLOAD_DEVICES									             "OFFLOAD_DEVICES"							              // string
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
@@ -71,9 +73,9 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 		bool           Device_PrintConfig() const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_PRINT_CONFIG, false); }
 
 
-        bool           UseGPA() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_GPA, false); }
-        bool           UseVectorizer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
-        bool           UseVTune()      const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
+    bool           UseITT() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_ITT_API, false); }
+    bool           UseVectorizer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
+    bool           UseVTune()      const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
 
 		// Device performance setup
 		bool           Device_StopAtLoad()      const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD, false); }
@@ -91,7 +93,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 		// Device safe mode setup
 		bool           Device_safeKernelExecution() const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION, true); }
 
-		string		   Device_offloadDevices() const { return m_pConfigFile->Read<string>(OFFLOAD_DEVICES, ""); }
+		string		     Device_offloadDevices() const { return m_pConfigFile->Read<string>(OFFLOAD_DEVICES, ""); }
 
     private:
 
@@ -106,7 +108,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
             MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_PRINT_CONFIG, Device_PrintConfig, "1 - print current configuration at MIC device startup" );
             std::cout << std::endl;
 
-            MICDeviceConfigPrintKey( CL_CONFIG_USE_GPA, UseGPA, "1 - gather info for GPA" );
+            MICDeviceConfigPrintKey( CL_CONFIG_USE_ITT_API, UseITT, "1 - gather info for ITT interface" );
             MICDeviceConfigPrintKey( CL_CONFIG_USE_VECTORIZER, UseVectorizer, "1 - try to vectorize kernel during compilation" );
             MICDeviceConfigPrintKey( CL_CONFIG_USE_VTUNE, UseVTune , "1 - connect to VTune on device");
 

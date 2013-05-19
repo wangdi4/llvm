@@ -74,7 +74,6 @@ if (WIN32)
      add_definitions( -D_WINDOWS )
 else ()
     add_definitions( -D_LINUX )
-    message( WARNING " ERROR-in-MIC-device: Task Analizer DLLs for Linux are not ready yet" )
 endif (WIN32)
 
 # add a target named ${TARGET_NAME}

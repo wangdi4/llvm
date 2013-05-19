@@ -43,7 +43,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
         ittID = __itt_id_make(&ittID, (unsigned long long)pCommand);
 	    __itt_id_create(pGPAData->pDeviceDomain, ittID);
 
-		if (pGPAData->cStatusMarkerFlags & GPA_SHOW_QUEUED_MARKER)
+		if (pGPAData->cStatusMarkerFlags & ITT_SHOW_QUEUED_MARKER)
 		{
 			#if defined(USE_GPA)
 			// Write this data to the thread track

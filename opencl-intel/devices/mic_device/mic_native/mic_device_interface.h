@@ -42,7 +42,7 @@
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
 //
-// NOTE: please be carefull for alignments!
+// NOTE: please be careful for alignments!
 //
 
 //
@@ -195,7 +195,7 @@ public:
 	// offset of post execution directives array
 	uint64_t postExeDirectivesArrOffset;
 
-	/* Claculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset' / other req. offsets
+	/* Calculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset' / other req. offsets
 	   Call it only after u set the parameters - 'preExeDirectivesCount' / 'postExeDirectivesCount' */
 	virtual void calcAndSetOffsets() = 0;
 
@@ -207,7 +207,7 @@ public:
 
 protected:
 
-	/* Claculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset'.
+	/* Calculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset'.
 	   Call it from child struct.
 	   dispatcherDataSize - the size of the child struct (which include my size) */
 	void calcAndSetDirectivesArrOffsets(size_t dispatcherDataSize)
@@ -260,7 +260,7 @@ struct ndrange_dispatcher_data : public dispatcher_data
 	// offset of kernel arguments blob
 	uint64_t kernelArgBlobOffset;
 
-	/* Claculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset' / 'kernelArgBlobOffset'.
+	/* Calculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset' / 'kernelArgBlobOffset'.
 	   Call it only after u set the parameters - 'preExeDirectivesCount' / 'postExeDirectivesCount' */
 	void calcAndSetOffsets()
 	{
@@ -365,6 +365,7 @@ struct mic_exec_env_options {
     bool                ignore_last_core;
 	bool                kernel_safe_mode;
 	bool                use_vtune;
+	bool                enable_itt;
     bool                trap_workers;
 	uint32_t            threads_per_core;
 	uint32_t            num_of_cores;

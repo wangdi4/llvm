@@ -101,6 +101,13 @@ if (DEFINED UBUNTU64_BUILD)
   set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS}  -Wno-conversion-null -Wno-unused-result")
 endif()
 
+# ITT/VTune integration
+if( NOT ANDROID )
+	add_definitions( -DUSE_ITT )
+	include_directories( ${CMAKE_SOURCE_DIR}/externals/itt/include
+						 ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ )
+endif( NOT ANDROID )
+
 
 set (ADD_C_FLAGS_DEBUG   "-O0 -ggdb3 -D _DEBUG" )
 set (ADD_C_FLAGS_RELEASE "-O2 -ggdb2 -U _DEBUG")

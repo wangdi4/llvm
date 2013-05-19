@@ -1336,11 +1336,21 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
         return false;
     }
 
+    STATIC_ASSERT((sizeof(unsigned long long int)<=sizeof(uint64_t)));
+
     // build kernel maps
     for (int i = 0; i < kernels_count; ++i)
     {
         TKernelEntry* kernel_entry = new TKernelEntry;
-        assert( kernel_entry && "Cannot allocate TKernelEntry structure" );
+        assert( (NULL!=kernel_entry) && "Cannot allocate TKernelEntry structure" );
+        if ( NULL==kernel_entry )
+        {
+          MicErrLog(m_pLogDescriptor, m_iLogHandle,
+              TEXT("%s"), "MICDevice: Failed to allocate TKernelEntry");
+          return false;
+        }
+
+        COPY_PROGRAM_TO_DEVICE_KERNEL_INFO* info = &(output->device_kernel_info_pts[i]);
 
         kernel_entry->pProgEntry = pEntry;
 
@@ -1349,29 +1359,22 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
 
         if ( CL_DEV_SUCCEEDED(err_code) && (NULL != kernel_entry->pKernel) )
         {
-            kernel_entry->uDevKernelEntry = 0; // to be asserted later
+		if ( kernel_entry->pKernel->GetKernelID() != info->kernel_id )
+		{
+			assert( 0 && "Kernel IDs are the same on host and device" );
+			MicErrLog(m_pLogDescriptor, m_iLogHandle,
+			    TEXT("MICDevice: Kernel ID on teh device(%lld) and the host(%lld) don't match."),
+		    	info->kernel_id, kernel_entry->pKernel->GetKernelID());
+			return false;
+		}
+		// insert entry to the TKernelName2Entry map
+		pEntry->mapName2Kernels[ kernel_entry->pKernel->GetKernelName() ] = kernel_entry;
 
-            // insert entry to the TKernelName2Entry map
-            pEntry->mapName2Kernels[ kernel_entry->pKernel->GetKernelName() ] = kernel_entry;
+		// insert entry to the TKernelId2Entry map
+		pEntry->mapId2Kernels[ kernel_entry->pKernel->GetKernelID() ] = kernel_entry;
 
-            // insert entry to the TKernelId2Entry map
-            pEntry->mapId2Kernels[ kernel_entry->pKernel->GetKernelID() ] = kernel_entry;
-        }
+		kernel_entry->uDevKernelEntry = info->device_info_ptr; // to be updated later
     }
-
-    // now parse the COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT and update maps with device info
-    for (int i = 0; i < kernels_count; ++i)
-    {
-        assert( (sizeof( unsigned long long int ) <= sizeof( uint64_t )) &&
-            "Assumption that uint64_t can contain unsigned long long int" );
-
-        COPY_PROGRAM_TO_DEVICE_KERNEL_INFO* info = &(output->device_kernel_info_pts[i]);
-
-        TKernelId2Entry::iterator it = pEntry->mapId2Kernels.find(
-                ( unsigned long long int )info->kernel_id );
-
-        assert( (it != pEntry->mapId2Kernels.end()) && "Kernel IDs are the same on host and device" );
-        it->second->uDevKernelEntry = info->device_info_ptr;
     }
 
     return true;
@@ -1400,7 +1403,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
 
         if (NULL == in_pProcesses[0])
         {
-            MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Device process disappeared", "");
+            MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "MICDevice: Device process disappeared");
             break;
         }
 
@@ -1409,7 +1412,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
 
         if (NULL == serializer)
         {
-            MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Cannot load Serialization Service", "");
+            MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "MICDevice: Cannot load Serialization Service");
             break;
         }
 
@@ -1419,7 +1422,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
 
         if (CL_DEV_FAILED(be_err))
         {
-            MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Serialization Service failed to calculate blob size", "");
+            MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "MICDevice: Serialization Service failed to calculate blob size");
             break;
         }
 
@@ -1475,7 +1478,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
 
         if (CL_DEV_FAILED(be_err))
         {
-            MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Serialization Service failed to calculate blob size", "");
+            MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),"MICDevice: Serialization Service failed to calculate blob size");
             break;
         }
 
@@ -1518,27 +1521,30 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
         COIBUFFER           buffers[]    = { coi_buffer_prog,   cio_buffer_output };
         COI_ACCESS_FLAGS    buf_access[] = { COI_SINK_READ,     COI_SINK_WRITE_ENTIRE };
 
+        cl_dev_err_code dev_err;
         bool done = m_DevService.runServiceFunction(
                                     DeviceServiceCommunication::COPY_PROGRAM_TO_DEVICE,
-                                    input_size, input,                   // input_data
-                                    0, NULL,                             // ouput_data
+                                    input_size, input,                             // input_data
+                                    sizeof(cl_dev_err_code), &dev_err,             // ouput_data
                                     ARRAY_ELEMENTS(buffers), buffers, buf_access); // buffers passed
 
-        assert( done && "Cannot run Device Function to copy program to device" );
+        assert( done && "Cannot run Device Function to copy program to device");
+        assert( CL_DEV_SUCCESS == dev_err && "CopyProgramOnDevice failed on device");
 
-        if (!done)
+        if ( !done || CL_DEV_FAILED(dev_err) )
         {
-            MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Cannot run Device Function to copy program to device", "");
+            MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("MICDevice: Failed to copy program to device, done=%d, dev_err=0x%x"), done, dev_err);
 
             break;
         }
 
         // map buffer to get results
+        // Since buffer was created in-place we expect to have receive the same pointer value in blob.
         coi_err = COIBufferMap(cio_buffer_output, 0, output_size, COI_MAP_READ_ONLY, 0, NULL, NULL, &map_instance, &blob );
         assert( (COI_SUCCESS == coi_err) && "COIBufferMap failed to map buffer with device kernels list" );
         assert( ((size_t)output == (size_t)blob) && "COIBufferMap did not return original data pointer for buffer from memory" );
 
-        if (COI_SUCCESS != coi_err)
+        if ( COI_SUCCESS != coi_err )
         {
             MicErrLog(m_pLogDescriptor, m_iLogHandle,
                 "MICDevice: Program Service failed to map COI buffer with device kernels list. Buffer size is %d bytes. COI returned %s",
@@ -1546,6 +1552,14 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
                 COIResultGetName( coi_err ));
 
             break;
+        }
+
+        if ( (size_t)output != (size_t)blob )
+        {
+          MicErrLog(m_pLogDescriptor, m_iLogHandle,
+              TEXT("MICDevice: Program Service failed to map COI buffer with the same pointer for the output buffer(%p vs %p)"),
+                  (void*)blob, (void*) output);
+             break;
         }
 
         ok = true;

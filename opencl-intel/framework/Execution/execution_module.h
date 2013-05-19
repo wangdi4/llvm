@@ -144,41 +144,36 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #endif
 
         cl_err_code         Release(bool bTerminate) { return CL_SUCCESS; }  // Release resources ???
+        EventsManager*      GetEventsManager() const { return m_pEventsManager; }
+        ocl_entry_points *  GetDispatchTable() const {return m_pOclEntryPoints; }
+        ocl_gpa_data *      GetGPAData() const { return m_pGPAData; }
 
-		EventsManager*      GetEventsManager() const { return m_pEventsManager; }
-
-		ocl_entry_points *  GetDispatchTable() const {return m_pOclEntryPoints; }
-
-		ocl_gpa_data *      GetGPAData() const { return m_pGPAData; }
     private:
-
-		bool				m_bUseTaskalyzer;
-        // Private functions
+	    // Private functions
         SharedPtr<IOclCommandQueueBase>    GetCommandQueue(cl_command_queue clCommandQueue);
 
         // Input parameters validation commands
         cl_err_code         CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, SharedPtr<Context>* ppContext );
         cl_err_code         CheckImageFormats( SharedPtr<MemoryObject> pSrcImage, SharedPtr<MemoryObject> pDstImage);
-		bool                CheckMemoryObjectOverlapping(SharedPtr<MemoryObject> pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion);
+        bool                CheckMemoryObjectOverlapping(SharedPtr<MemoryObject> pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion);
         size_t              CalcRegionSizeInBytes(SharedPtr<MemoryObject> pImage, const size_t* szRegion);
-		cl_err_code         FlushAllQueuesForContext(cl_context ctx);
+        cl_err_code         FlushAllQueuesForContext(cl_context ctx);
 
-        // Members
-        PlatformModule*     m_pPlatfromModule;          // Pointer to the platform operation. This is the internal interface of the module.
-        ContextModule*      m_pContextModule;           // Pointer to the context operation. This is the internal interface of the module.
+        PlatformModule*     m_pPlatfromModule;                                                  // Pointer to the platform operation. This is the internal interface of the module.
+        ContextModule*      m_pContextModule;                                                   // Pointer to the context operation. This is the internal interface of the module.
         OCLObjectsMap<_cl_command_queue_int, _cl_context_int>*      m_pOclCommandQueueMap;      // Holds the set of active queues.
-        EventsManager*      m_pEventsManager;           // Placeholder for all active events.
+        EventsManager*      m_pEventsManager;                                                   // Placeholder for all active events.
         
-		ocl_entry_points *	m_pOclEntryPoints;
+        ocl_entry_points *	m_pOclEntryPoints;
 
-		ocl_gpa_data *      m_pGPAData;
+        ocl_gpa_data *      m_pGPAData;
 
-		DECLARE_LOGGER_CLIENT; // Logger client for logging operations.
+        DECLARE_LOGGER_CLIENT; // Logger client for logging operations.
 
-	private:
-		ExecutionModule(const ExecutionModule&);
-		ExecutionModule& operator=(const ExecutionModule&);
-    };
+        // Disable copy consructors
+        ExecutionModule(const ExecutionModule&);
+        ExecutionModule& operator=(const ExecutionModule&);
+};
 
 #if defined (DX_MEDIA_SHARING)
 template<typename RESOURCE_TYPE, typename DEV_TYPE>

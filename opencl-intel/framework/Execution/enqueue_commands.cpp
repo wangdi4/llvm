@@ -158,7 +158,7 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 #if defined(USE_ITT)
 		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 		{
-			if (pGPAData->cStatusMarkerFlags & GPA_SHOW_RUNNING_MARKER)
+			if (pGPAData->cStatusMarkerFlags & ITT_SHOW_RUNNING_MARKER)
 			{
 				#if defined(USE_GPA)
 				// Write this data to the thread track
@@ -214,7 +214,7 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 #if defined(USE_ITT)
 		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
 		{
-			if (pGPAData->cStatusMarkerFlags & GPA_SHOW_COMPLETED_MARKER)
+			if (pGPAData->cStatusMarkerFlags & ITT_SHOW_COMPLETED_MARKER)
 			{
 				#if defined(USE_GPA)
 				// Write this data to the thread track
