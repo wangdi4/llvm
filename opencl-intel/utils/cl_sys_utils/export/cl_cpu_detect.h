@@ -54,6 +54,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
     enum EProcessorType
     {
         PT_ALL,
+        PT_ATOM,
         PT_YONAH,
         PT_MEROM,
         PT_PENRYN,

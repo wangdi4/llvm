@@ -48,3 +48,11 @@ static const char OCL_SUPPORTED_EXTENSIONS[] =
     OCL_COMMON_SUPPORTED_EXTENSIONS " ";
 #endif
 #endif
+
+static const char OCL_SUPPORTED_EXTENSIONS_ATOM[] = 
+#if (_WIN32)                                                
+    OCL_COMMON_SUPPORTED_EXTENSIONS " " OCL_SUPPORTED_EXTENSIONS_WIN " ";
+#else
+    OCL_COMMON_SUPPORTED_EXTENSIONS " ";
+#endif
+

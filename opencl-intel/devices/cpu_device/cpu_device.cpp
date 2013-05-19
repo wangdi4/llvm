@@ -71,7 +71,22 @@ const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 // We put it here, because just here all the required macros are defined.
 #include "ocl_supported_extensions.h"
 
-static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {OCL_SUPPORTED_EXTENSIONS,1,1,0};
+struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *GetCPUDevInfo()
+{
+    static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {NULL, 1, 1, 0};
+    if (NULL == CPUDevInfo.sExtensionStrings)
+    {
+        if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
+        {
+            CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_ATOM;
+        }
+        else
+        {
+            CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS;
+        }
+    }
+    return &CPUDevInfo;
+}
 
 static const size_t CPU_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
     {
@@ -218,7 +233,7 @@ cl_dev_err_code CPUDevice::Init()
     m_pCPUDeviceConfig->Initialize(clCPUDEVICE_CFG_PATH);
 
 	// Enable VTune source level profiling
-	CPUDevInfo.bEnableSourceLevelProfiling = m_pCPUDeviceConfig->UseVTune();
+	GetCPUDevInfo()->bEnableSourceLevelProfiling = m_pCPUDeviceConfig->UseVTune();
 
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateDevice function enter"));
 
@@ -605,7 +620,14 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             if(NULL != paramVal)
             {
 #ifdef __DOUBLE_ENABLED__
-                *(cl_uint*)paramVal = GetNativeVectorWidth(CPU_DEVICE_DATA_TYPE_DOUBLE);
+                if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
+                {
+                    *(cl_uint*)paramVal = 0;
+                }
+                else
+                {
+                    *(cl_uint*)paramVal = GetNativeVectorWidth(CPU_DEVICE_DATA_TYPE_DOUBLE);
+                }
 #else
                 *(cl_uint*)paramVal = 0;
 #endif
@@ -660,7 +682,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case(CL_DEVICE_DOUBLE_FP_CONFIG):
         {
 #ifdef __DOUBLE_ENABLED__
-            cl_device_fp_config fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM | CL_FP_FMA |  CL_FP_ROUND_TO_ZERO |  CL_FP_ROUND_TO_INF;
+            cl_device_fp_config fpConfig = 0;
+            if (!CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
+            {
+                fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM | CL_FP_FMA |  CL_FP_ROUND_TO_ZERO |  CL_FP_ROUND_TO_INF;
+            }
 #else
             cl_device_fp_config fpConfig = 0;
 #endif
@@ -1189,7 +1215,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_EXTENSIONS):
         {
-            *pinternalRetunedValueSize = strlen(OCL_SUPPORTED_EXTENSIONS) + 1;
+            const char* oclSupportedExtensions = OCL_SUPPORTED_EXTENSIONS;
+            if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
+            {
+                oclSupportedExtensions = OCL_SUPPORTED_EXTENSIONS_ATOM;
+            }
+            *pinternalRetunedValueSize = strlen(oclSupportedExtensions) + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1197,7 +1228,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                STRCPY_S((char*)paramVal, valSize, OCL_SUPPORTED_EXTENSIONS);
+                STRCPY_S((char*)paramVal, valSize, oclSupportedExtensions);
             }
             return CL_DEV_SUCCESS;
 
@@ -2210,12 +2241,12 @@ const char* CPUDevice::clDevFEModuleName() const
 
 const void* CPUDevice::clDevFEDeviceInfo() const
 {
-	return &CPUDevInfo;
+	return GetCPUDevInfo();
 }
 
 size_t CPUDevice::clDevFEDeviceInfoSize() const
 {
-	return sizeof(CPUDevInfo);
+	return sizeof(Intel::OpenCL::ClangFE::CLANG_DEV_INFO);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

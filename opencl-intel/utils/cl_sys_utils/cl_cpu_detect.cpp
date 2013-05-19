@@ -112,6 +112,14 @@ bool CPUDetect::IsProcessorType(EProcessorType processorType)
     case PT_ALL:
         return true;
     	break;
+    case PT_ATOM:
+        if (m_ucFamily == 0x6 &&
+             (m_ucModel == 0x6 ||
+              m_ucModel == 0x7))
+        {
+            return true;
+        }
+        break;
     case PT_YONAH:
         if (m_ucFamily == 0x6 && m_ucModel == 0xE)
         {
