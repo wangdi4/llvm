@@ -9,9 +9,11 @@ set( CMAKE_SYSTEM_NAME Linux )
 set( CMAKE_CROSSCOMPILING True )
 set( CMAKE_SYSTEM_VERSION 1 )
 set( ANDROID_NDK_DEFAULT_SEARCH_PATH ${ANDROID_NDK} )
-set( ANDROID_NDK_SUPPORTED_VERSIONS -r7 "")
+set( ANDROID_NDK_SUPPORTED_VERSIONS -r8 "")
 set( ANDROID_NDK_TOOLCHAIN_DEFAULT_SEARCH_PATH ${ANDROID_NDK_TOOLCHAIN_ROOT} )
 set( TOOL_OS_SUFFIX "" )
+set( GCC_VERSION "" )
+set( GCC_VERSION_OUTPUT "" )
 
 execute_process(COMMAND find "/usr/local/" -name android-toolchain  -type d OUTPUT_VARIABLE ANDROID_NDK_TOOLCHAIN_ROOT OUTPUT_STRIP_TRAILING_WHITESPACE)
 if (NOT IS_DIRECTORY ${ANDROID_NDK_TOOLCHAIN_ROOT})
@@ -19,6 +21,13 @@ if (NOT IS_DIRECTORY ${ANDROID_NDK_TOOLCHAIN_ROOT})
 endif (NOT IS_DIRECTORY ${ANDROID_NDK_TOOLCHAIN_ROOT})
 
 set(CMAKE_FIND_ROOT_PATH  ${ANDROID_NDK_TOOLCHAIN_ROOT})
+
+# specify gcc version
+execute_process(COMMAND "${ANDROID_NDK_TOOLCHAIN_ROOT}/bin/i686-linux-android-gcc${TOOL_OS_SUFFIX}" --version
+                OUTPUT_VARIABLE GCC_VERSION_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE )
+STRING( REGEX MATCH "[0-9](\\.[0-9])+" GCC_VERSION "${GCC_VERSION_OUTPUT}" )
+#message("\n******************\n GCC VERSION IS: ${GCC_VERSION} \n***************\n" )
+
 
 ##############################################################
 #        Detect Android API Level
@@ -182,9 +191,9 @@ if( BUILD_WITH_ANDROID_NDK )
   set( STL_LIBRARIES_PATH "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android/lib/${CMAKE_SYSTEM_PROCESSOR}" )
  endif()
  #ARK: Had to add this to find STL headers
- include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/lib/gcc/i686-linux-android/4.4.3/include/" )
- include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android/include/c++/4.4.3/" )
- include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android/include/c++/4.4.3/i686-linux-android" )
+ include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/lib/gcc/i686-linux-android/${GCC_VERSION}/include/" )
+ include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android/include/c++/${GCC_VERSION}/" )
+ include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android/include/c++/${GCC_VERSION}/i686-linux-android" )
 endif()
 
 if( BUILD_WITH_ANDROID_NDK_TOOLCHAIN )
@@ -196,7 +205,7 @@ if( BUILD_WITH_ANDROID_NDK_TOOLCHAIN )
   set( STL_LIBRARIES_PATH "${STL_LIBRARIES_PATH}" )
  endif()
  #for some reason this is needed? TODO figure out why...
- include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android/include/c++/4.4.3/i686-linux-android" )
+ include_directories(SYSTEM "${ANDROID_NDK_TOOLCHAIN_ROOT}/i686-linux-android/include/c++/${GCC_VERSION}/i686-linux-android" )
 endif()
 message( STATUS "STL_LIBRARIES_PATH is ${STL_LIBRARIES_PATH}" )
 
