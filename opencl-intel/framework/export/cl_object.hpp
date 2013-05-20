@@ -13,6 +13,8 @@ OCLObject<HandleType,ParentHandleType>::OCLObject(ParentHandleType* parent, cons
 	if ( NULL != parent )
 	{
 		MEMCPY_S(&m_handle, sizeof(ocl_entry_points), &(parent->dispatch), sizeof(ocl_entry_points));
+		// By default use logger of the parent object
+		SET_LOGGER_CLIENT( ((OCLObject<ParentHandleType>*)parent->object)->GetLoggerClient());
 	}
 #ifdef _DEBUG
 	else

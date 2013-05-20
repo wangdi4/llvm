@@ -176,6 +176,8 @@ cl_image_format MapD3DFormat2OclFormat(const D3DFORMAT d3dFormat, unsigned int u
         clFormat.image_channel_order = CL_R;
         clFormat.image_channel_data_type = CL_UNORM_INT8;
         break;
+	default:
+		break; // prevent compilation warnings
     }
     return clFormat;
 }

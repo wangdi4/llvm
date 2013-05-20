@@ -297,8 +297,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool bIsImageBuffer)
     {
         assert(DIM >= 1 && DIM <= 3);
-        LOG_DEBUG(TEXT("Enter CreateScalarImage (clContext=%d, clFlags=%d, clImageFormat=%d, szImageWidth=%d, szImageHeight=%d, szImageDepth=%d, szImageRowPitch=%d, szImageSlicePitch=%d, pHostPtr=%d, pErrcodeRet=%d)"), 
-            clContext, clFlags, clImageFormat, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, pHostPtr, pErrcodeRet);
+        LOG_INFO(TEXT("Enter CreateScalarImage (clContext=%p, clFlags=0x%X, cl_data_type=0x%x, cl_channel_order=0x%x, szImageWidth=%d, szImageHeight=%d, szImageDepth=%d, szImageRowPitch=%d, szImageSlicePitch=%d, pHostPtr=%p, pErrcodeRet=%x)"), 
+			(void*)clContext, clFlags, clImageFormat->image_channel_data_type, clImageFormat->image_channel_order, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, pHostPtr, pErrcodeRet);
 
         SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
         if (NULL == pContext)

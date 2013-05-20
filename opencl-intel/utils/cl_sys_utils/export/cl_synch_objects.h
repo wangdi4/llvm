@@ -53,24 +53,13 @@
  *  TODO: More objects that may be added: Semaphore, Event, else???
  ************************************************************************/
 
-//forward declaration
-#include "cl_utils.h"
-#include "hw_utils.h"
-
 #include <tbb/concurrent_queue.h>
 #include <queue>
 #include <assert.h>
 
-#ifdef WIN32
-#include <windows.h>
-#define CAS(ptr,old_val,new_val)	InterlockedCompareExchangePointer((void*volatile*)ptr,new_val,old_val)
-#define TAS(ptr,new_val)			InterlockedExchangePointer((void*volatile*)ptr,new_val)
-#define INVALID_MUTEX_OWNER (0)
-#else
-#define CAS(ptr,old_val,new_val)	__sync_val_compare_and_swap(ptr,old_val,new_val)
-#define TAS(ptr,new_val)			__sync_lock_test_and_set(ptr,new_val)
-#define INVALID_MUTEX_OWNER (-1)
-#endif
+#include "cl_utils.h"
+#include "hw_utils.h"
+#include "cl_sys_defines.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -223,42 +212,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		threadid_t threadId;
 	};
 
-
-    /************************************************************************
-     * OclCondition:
-     *      Condition object is a synchronization object that enables a thread to wait on a condition
-     *      until that condition is set.
-     *      The object is attached with an external mutex. When the object enters into wait state,
-     *      the mutex is atomically released and atomically is acquired when the condition is set.
-     *      The condition may be signaled or broadcast. In case of single, only one waiting thread
-     *      is released, otherwise, all threads are released
-                AND THE MUTEX IS NOT AQUIRED???
-     ************************************************************************/
-    enum COND_RESULT
-    {
-        COND_RESULT_OK,                 // Return code on success.
-        COND_RESULT_FAIL,               // Return code in case of error.
-        COND_RESULT_COND_BROADCASTED    // Result code when a wait on condition was broadcasted.
-    };
-
-
-    class OclCondition
-    {
-    public:
-        OclCondition();
-        ~OclCondition();
-
-        COND_RESULT Wait(IMutex* m_mutexObj);
-        COND_RESULT Signal();
-        COND_RESULT Broadcast();
-
-    private:
-        unsigned long   m_ulNumWaiters;
-        void*           m_signalEvent;
-        void*           m_broadcastEvent;
-        OclMutex        m_numWaitersMutex;
-    };
-
 	// The class below encapsulates an OS-dependent event
 	// Can be used by OclEvent's Wait() method
 	class OclOsDependentEvent
@@ -277,7 +230,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		void Reset();
 	private:
 		// The internal, OS-dependent representation of the event.
-		void* m_eventRepresentation;
+		EVENT_STRUCTURE m_eventRepresentation;
 	};
 
     // A class representing a binary semaphore, i.e. an OS-dependent object allowing a thread waiting on it to yield.
@@ -380,29 +333,37 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	};
 	
 	///////////////////////////////////////////////////////////////////////////////////////
+	// Basic ReadWriteLock implemenation
+	// Using standart OS mechanism, SLIM RreadWrite lock on Windows and pthread_rwlock on Linux/Android
+	// The lock implementation in not recursive
+	// Optimization of ReadRead path, in case of contention, waiting thread is scheduled out
 	///////////////////////////////////////////////////////////////////////////////////////
     class OclReaderWriterLock
     {
     public:
-        OclReaderWriterLock() : m_readers(0) {}
-        virtual ~OclReaderWriterLock() { assert(0 == m_readers); }
+        OclReaderWriterLock();
+        ~OclReaderWriterLock();
 
-        void EnterRead()  { m_writeLock.Lock(); m_readers++; m_writeLock.Unlock(); }
-        void LeaveRead()  { m_readers--; }
-        void EnterWrite() { m_writeLock.Lock(); while (m_readers > 0) InnerSpinloopImpl(); }
-        void LeaveWrite() { m_writeLock.Unlock();  }
+        void EnterRead();
+        void LeaveRead();
+        void EnterWrite();
+        void LeaveWrite();
 
     protected:
-        OclSpinMutex  m_writeLock;
-        AtomicCounter m_readers;
-    };
+		READ_WRITE_LOCK	m_rwLock;
+
+#ifdef _DEBUG
+		AtomicCounter readEnter;
+		AtomicCounter writeEnter;
+#endif
+	};
 
     class OclAutoReader
     {
     public:
         OclAutoReader(OclReaderWriterLock* mutexObj, bool bAutoLock = true) : m_mutexObj(mutexObj)
         {
-            assert(m_mutexObj);
+            assert( (NULL!=m_mutexObj) && "Got invalid object");
             if (bAutoLock)
             {
                 m_mutexObj->EnterRead();
@@ -410,7 +371,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
         }
         ~OclAutoReader()
         {
-            assert(m_mutexObj);
             m_mutexObj->LeaveRead();
         }
 

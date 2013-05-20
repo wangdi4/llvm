@@ -29,6 +29,17 @@
 // -----------------------------------------------------------
 #if defined (_WIN32)
 #include <basetsd.h>
+#include <intrin.h>
+
+#if defined(_M_AMD64)
+#define CAS(ptr,old_val,new_val)	_InterlockedCompareExchange64((__int64 volatile*)ptr,(__int64)new_val,(__int64)old_val)
+#define TAS(ptr,new_val)			_InterlockedExchange64((__int64 volatile*)ptr,(__int64)new_val)
+#else
+#define CAS(ptr,old_val,new_val)	_InterlockedCompareExchange((long volatile*)ptr,(LONG_PTR)new_val,(LONG_PTR)old_val)
+#define TAS(ptr,new_val)			_InterlockedExchange((long volatile*)ptr,(LONG_PTR)new_val)
+#endif
+
+#define INVALID_MUTEX_OWNER			(0)
 
 #define CL_MAX_INT32 MAXINT32
 #define CL_MAX_UINT32	MAXUINT32
@@ -76,6 +87,10 @@
 #define VSPRINTF_S                        vsprintf_s
 
 typedef unsigned long long               affinityMask_t;
+
+typedef void*							EVENT_STRUCTURE;
+typedef void*							BINARY_SEMAPHORE;
+typedef void*							READ_WRITE_LOCK;
 
 // aligned malloc
 #include <malloc.h>
@@ -158,7 +173,24 @@ typedef int errno_t;
 #include <sys/mman.h>
 #define ALIGNED_FREE                      free
 
+#include <pthread.h>
+// OS native event structure
+typedef struct event_Structure
+{
+	bool	bAutoReset;
+	pthread_mutex_t mutex;
+	pthread_cond_t condition;
+	volatile bool isFired;
+} EVENT_STRUCTURE;
 
+#include <semaphore.h>
+// Type declaration for binary sempahore
+typedef sem_t							BINARY_SEMAPHORE;
+typedef pthread_rwlock_t				READ_WRITE_LOCK;
+
+#define CAS(ptr,old_val,new_val)	__sync_val_compare_and_swap(ptr,old_val,new_val)
+#define TAS(ptr,new_val)			__sync_lock_test_and_set(ptr,new_val)
+#define INVALID_MUTEX_OWNER (-1)
 
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -219,8 +251,6 @@ typedef cpu_set_t                      affinityMask_t;
 #define SPRINTF_S                       snprintf
 #define VSPRINTF_S                      Intel::OpenCL::Utils::safeVStrPrintf
 
-
-
 #define STACK_ALLOC( size ) 				alloca(size)
 #define STACK_FREE( ptr )					
 #endif
@@ -235,5 +265,3 @@ typedef cpu_set_t                      affinityMask_t;
 #define IS_ALIGNED_ON( what, alignment ) (0 == (((size_t)(what)              &  ((size_t)(alignment) - 1))))
 #define ALIGN_DOWN( what, alignment )    ((size_t)(what)                     & ~((size_t)(alignment) - 1))
 #define ALIGN_UP( what, alignment )      ((size_t)((what) + (alignment) - 1) & ~((size_t)(alignment) - 1))
-
-

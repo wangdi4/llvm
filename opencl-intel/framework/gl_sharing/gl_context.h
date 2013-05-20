@@ -105,10 +105,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		public:
 			GLContextSync(GLContext* _glCtx);
 			~GLContextSync();
+			bool IsValid() const { return m_bValid;}
 
 		private:
 			GLContext*	m_pGLContext;
-			bool		m_bUpdated;
+			bool		m_bUpdated;	// marks if current GL context was changed to back up context
+			bool		m_bValid;	// marks if current GL context is valid
 #ifdef WIN32
 			HGLRC	m_hCurrentGL;
 			HDC		m_hCurrentDC;

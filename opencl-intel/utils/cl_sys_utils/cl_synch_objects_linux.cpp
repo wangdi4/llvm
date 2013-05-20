@@ -24,7 +24,6 @@
 // or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors
 // in any way.
 /////////////////////////////////////////////////////////////////////////
-#include "cl_synch_objects.h"
 #include <tbb/concurrent_queue.h>
 #include <pthread.h>
 #include <malloc.h>
@@ -32,6 +31,8 @@
 #include <assert.h>
 #include <algorithm>
 #include <semaphore.h>
+
+#include "cl_synch_objects.h"
 #include "hw_utils.h"
 /************************************************************************
  * This file is the Linux implementation of the cl_synch_objects interface
@@ -109,159 +110,65 @@ void OclMutex::spinCountMutexLock()
 }
 
 /************************************************************************
- *
- ************************************************************************/
-OclCondition::OclCondition():
-m_ulNumWaiters(0)
-{
-	assert(0 && "AdirD Not implemented in Linux");
-}
-
-/************************************************************************
- * Condition distructor must be called when there are no threads waiting
- * on this condition.
- * Else, the behavior is undefined.
- ************************************************************************/
-OclCondition::~OclCondition()
-{
-	assert(0 && "AdirD Not implemented in Linux");
-}
-
-/************************************************************************
-*
- ************************************************************************/
-COND_RESULT OclCondition::Wait(IMutex* mutexObj)
-{
-
-	assert(0 && "AdirD Not implemented in Linux");
-
-    return COND_RESULT_OK;
-}
-
-/************************************************************************
-*
- ************************************************************************/
-COND_RESULT OclCondition::Signal()
-{
-	assert(0 && "AdirD Not implemented in Linux");
-	return COND_RESULT_OK;
-}
-
-/************************************************************************
-*
- ************************************************************************/
-COND_RESULT OclCondition::Broadcast()
-{
-	assert(0 && "AdirD Not implemented in Linux");
-    return COND_RESULT_OK;
-}
-
-/************************************************************************
 * OclOsDependentEvent implementation
  ************************************************************************/
-typedef struct event_Structure
-{
-	bool	bAutoReset;
-	pthread_mutex_t mutex;
-	pthread_cond_t condition;
-	volatile bool isFired;
-} EVENT_STRUCTURE;
-
-OclOsDependentEvent::OclOsDependentEvent() : m_eventRepresentation(NULL)
+OclOsDependentEvent::OclOsDependentEvent()
 {
 }
 
 OclOsDependentEvent::~OclOsDependentEvent()
 {
-	EVENT_STRUCTURE* pEvent = static_cast<EVENT_STRUCTURE*>(m_eventRepresentation);
-	if (pEvent != NULL)
-	{
-		pthread_cond_destroy(&(pEvent->condition));
-		pthread_mutex_destroy(&(pEvent->mutex));
-		delete pEvent;
-	}
-	m_eventRepresentation = NULL;
+	pthread_cond_destroy(&m_eventRepresentation.condition);
+	pthread_mutex_destroy(&m_eventRepresentation.mutex);
 }
 
 bool OclOsDependentEvent::Init(bool bAutoReset /* = false */)
 {
-	if (m_eventRepresentation != NULL) //event already initialized
-	{
-		//Todo: raise error?
-		return true;
-	}
-	EVENT_STRUCTURE* pEvent = new EVENT_STRUCTURE;
-	if (! pEvent)
+	m_eventRepresentation.bAutoReset = bAutoReset;
+	m_eventRepresentation.isFired = false;
+	if (0 != pthread_mutex_init(&m_eventRepresentation.mutex, NULL))
 	{
 		return false;
 	}
-	pEvent->bAutoReset = bAutoReset;
-	pEvent->isFired = false;
-  if (0 != pthread_mutex_init(&(pEvent->mutex), NULL))
+	if (0 != pthread_cond_init(&m_eventRepresentation.condition, NULL))
 	{
-		delete pEvent;
+	    pthread_mutex_destroy(&m_eventRepresentation.mutex);
 		return false;
 	}
-	if (0 != pthread_cond_init(&(pEvent->condition), NULL))
-	{
-    pthread_mutex_destroy(&(pEvent->mutex));
-		delete pEvent;
-		return false;
-	}
-	m_eventRepresentation = pEvent;
 	return true;
 }
 
 bool OclOsDependentEvent::Wait()
 {
-	EVENT_STRUCTURE* pEvent = static_cast<EVENT_STRUCTURE*>(m_eventRepresentation);
-	if (NULL == pEvent)
-	{
-		//event not initialized
-		return false;
-	}
-	pthread_mutex_lock(&(pEvent->mutex));
+	pthread_mutex_lock(&(m_eventRepresentation.mutex));
 	int err = 0;
-	while (!pEvent->isFired) //Todo: maybe && err == 0?
+	while (!m_eventRepresentation.isFired) //Todo: maybe && err == 0?
 	{
-		err = pthread_cond_wait(&(pEvent->condition), &(pEvent->mutex));
+		err = pthread_cond_wait(&m_eventRepresentation.condition, &m_eventRepresentation.mutex);
 	}
-	if ( pEvent->bAutoReset )
+	if ( m_eventRepresentation.bAutoReset )
 	{
-		pEvent->isFired = false;
+		m_eventRepresentation.isFired = false;
 	}
-	pthread_mutex_unlock(&(pEvent->mutex));
+	pthread_mutex_unlock(&m_eventRepresentation.mutex);
 	return (err == 0);
 }
 
 void OclOsDependentEvent::Signal()
 {
-	EVENT_STRUCTURE* pEvent = static_cast<EVENT_STRUCTURE*>(m_eventRepresentation);
-	if (pEvent != NULL)
-	{
-		assert((!pEvent->isFired) && "Event already signaled");
+	assert( (!m_eventRepresentation.isFired) && "Event already signaled" );
 
-		pthread_mutex_lock(&(pEvent->mutex));
-		pEvent->isFired = true;
-		pthread_cond_broadcast(&(pEvent->condition));
-		pthread_mutex_unlock(&(pEvent->mutex));
-	}
-	else
-	{
-		assert(m_eventRepresentation && "m_eventRepresentation is NULL pointer");
-	}
+	pthread_mutex_lock(&m_eventRepresentation.mutex);
+	m_eventRepresentation.isFired = true;
+	pthread_cond_broadcast(&m_eventRepresentation.condition);
+	pthread_mutex_unlock(&m_eventRepresentation.mutex);
 }
 
 void OclOsDependentEvent::Reset()
 {
-	EVENT_STRUCTURE* pEvent = static_cast<EVENT_STRUCTURE*>(m_eventRepresentation);
-	assert((pEvent != NULL) && "Event not initialized");
-	if (pEvent != NULL)
-	{
-		pthread_mutex_lock(&(pEvent->mutex));
-		pEvent->isFired = false;
-		pthread_mutex_unlock(&(pEvent->mutex));
-	}
+	pthread_mutex_lock(&m_eventRepresentation.mutex);
+	m_eventRepresentation.isFired = false;
+	pthread_mutex_unlock(&m_eventRepresentation.mutex);
 }
 
 /************************************************************************
@@ -297,20 +204,20 @@ long AtomicCounter::test_and_set(long comparand, long exchange)
 	return __sync_val_compare_and_swap(&m_val, comparand, exchange);	// CAS(*ptr, old, new)
 }
 
-
 long AtomicCounter::exchange(long val)
 {
 	return __sync_lock_test_and_set(&m_val, val);
 }
 
-
+/************************************************************************
+* AtomicBitField implementation
+ ************************************************************************/
 AtomicBitField::AtomicBitField() : m_size(0), m_oneTimeFlag(0), m_isInitialize(false), m_eventLock()
 {
 	m_bitField = NULL;
 	m_eventLock.Init(false);
 }
-
-
+ 
 AtomicBitField::~AtomicBitField()
 {
 	if (m_bitField)
@@ -372,6 +279,9 @@ long AtomicBitField::bitTestAndSet(unsigned int bitNum)
 	return __sync_val_compare_and_swap((m_bitField + bitNum), 0, 1);
 }
 
+/************************************************************************
+* OclBinarySemaphore implementation
+ ************************************************************************/
 OclBinarySemaphore::OclBinarySemaphore()
 {
     sem_t* pSemaphore = new sem_t();
@@ -380,6 +290,7 @@ OclBinarySemaphore::OclBinarySemaphore()
     sem_init(pSemaphore, 0, 0);
     m_semaphore = pSemaphore;
 }
+
 OclBinarySemaphore::~OclBinarySemaphore()
 {
     if (NULL != m_semaphore)
@@ -387,11 +298,67 @@ OclBinarySemaphore::~OclBinarySemaphore()
         delete static_cast<sem_t*>(m_semaphore);
     }
 }
+
 void OclBinarySemaphore::Signal()
 {
     sem_post((sem_t*)m_semaphore);
 }
+
 void OclBinarySemaphore::Wait()
 {
     sem_wait((sem_t*)m_semaphore);
+}
+
+/************************************************************************
+* OclReaderWriterLock implementation
+************************************************************************/
+OclReaderWriterLock::OclReaderWriterLock()
+{
+	pthread_rwlock_init(&m_rwLock, NULL);
+#ifdef _DEBUG
+	readEnter = 0;
+	writeEnter = 0;
+#endif
+}
+
+OclReaderWriterLock::~OclReaderWriterLock()
+{
+#ifdef _DEBUG
+	assert( (writeEnter==0) && (readEnter==0) && "Writers or Readers are active in destructor");
+#endif
+	pthread_rwlock_destroy(&m_rwLock);
+}
+
+void OclReaderWriterLock::EnterRead()
+{
+	pthread_rwlock_rdlock(&m_rwLock);
+#ifdef _DEBUG
+	readEnter++;
+	assert( writeEnter == 0 && "No writer is allowed insde EnterRead()");
+#endif
+}
+
+void OclReaderWriterLock::LeaveRead()
+{
+#ifdef _DEBUG
+	readEnter--;
+#endif
+	pthread_rwlock_unlock(&m_rwLock);
+}
+
+void OclReaderWriterLock::EnterWrite()
+{
+	pthread_rwlock_wrlock(&m_rwLock);
+#ifdef _DEBUG
+	writeEnter++;
+	assert( (writeEnter == 1) && (readEnter==0) && "Only single writer and no readers are allowed insde EnterWrite()");
+#endif
+}
+
+void OclReaderWriterLock::LeaveWrite()
+{
+#ifdef _DEBUG
+	writeEnter--;
+#endif
+	pthread_rwlock_unlock(&m_rwLock);
 }

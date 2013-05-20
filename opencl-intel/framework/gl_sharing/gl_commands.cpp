@@ -50,6 +50,13 @@ cl_err_code SyncGLObjects::Execute()
 		// Attach GL context to thread, need to be done in separate stack frame
 		GLContext::GLContextSync glSync(m_pContext.GetPtr());
 
+		// Acquired GL context must be valid
+		if ( !glSync.IsValid() )
+		{
+			m_returnCode = CL_INVALID_OPERATION;
+			return RuntimeCommand::Execute();
+		}
+
 		cl_err_code err = CL_SUCCESS;
 		// Do the actual work here
 		if ( CL_COMMAND_ACQUIRE_GL_OBJECTS == GetCommandType() )

@@ -179,8 +179,7 @@ cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, Sha
 
 cl_err_code GLContext::CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, cl_mem_object_type clObjType, SharedPtr<MemoryObject>* ppImage)
 {
-
-	LOG_DEBUG(TEXT("Enter - (cl_mem_flags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%d ppImage=%d)"), 
+	LOG_INFO(TEXT("Enter - params(cl_mem_flags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%d ppImage=%p)"), 
 		clMemFlags, glTextureTarget, glMipLevel, glTexture, ppImage);
 
 	assert ( NULL != ppImage );
@@ -203,7 +202,7 @@ cl_err_code GLContext::CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTexture
 		clErr = pImage->Initialize(clMemFlags, NULL, pImage->GetNumDimensions(), NULL, NULL, &txtDesc, CL_RT_MEMOBJ_FORCE_BS);
 		if (CL_FAILED(clErr))
 		{
-			LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize(pHostPtr = %s"), ClErrTxt(clErr));
+			LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize() returns %s"), ClErrTxt(clErr));
 			pImage->Release();
 			return clErr;
 		}
@@ -291,12 +290,14 @@ cl_err_code GLContext::AcquiereGLCntx(HGLRC hCntxGL, HDC hDC)
 		{
 			Sleep(1);
 		}
-	} while ( (FALSE==err) && ((++iter)<1000) );
+	} while ( (FALSE==err) && ((++iter)<10) );
+
 	DWORD wErr = GetLastError();
-	assert( (TRUE==err) && (0==wErr) && "Failed to update to private GL context after 1000 iterations");
 	if( (TRUE!=err) || (0!= wErr) )
 	{
 		m_muGLBkpCntx.Unlock();
+		LOG_ERROR(TEXT("Failed to active backup GL context after 10 iterations. DC=%p, GL=%p. LastError()=%x"),
+			(void*)hMyCntxDC, (void*)m_hGLBackupCntx, wErr);
 		return CL_INVALID_OPERATION;
 	}
 
@@ -335,7 +336,9 @@ GLContext::GLContextSync::GLContextSync(GLContext* glCtx) : m_pGLContext(glCtx),
     m_hCurrentGL = wglGetCurrentContext();
     m_hCurrentDC = wglGetCurrentDC();
 
-	m_bUpdated = CL_TRUE == m_pGLContext->AcquiereGLCntx(m_hCurrentGL, m_hCurrentDC);
+	cl_err_code ret = m_pGLContext->AcquiereGLCntx(m_hCurrentGL, m_hCurrentDC);
+	m_bUpdated = (CL_TRUE == ret);
+	m_bValid = !CL_FAILED(ret);
 #endif
 }
 

@@ -69,7 +69,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		******************************************************************************************/
 		virtual ~LogHandler()
         {
-            delete m_handle;
+			assert(m_handle==NULL && "Base handle expected to be released");
         };
 
 		/******************************************************************************************

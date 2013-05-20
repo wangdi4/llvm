@@ -83,102 +83,8 @@ void OclMutex::Unlock()
 }
 
 /************************************************************************
- *
-/************************************************************************/
-OclCondition::OclCondition():
-m_ulNumWaiters(0)
-{
-	assert(0 && "Invalid condition implementation");
-    // Signal event is an auto-reset event, only 1 thread released.
-    // Fairness is not guaranteed,
-    m_signalEvent = (void*)CreateEvent(NULL,FALSE,FALSE,NULL);
-
-    // Broadcast event is a manual-reset event. When signaled all threads are released
-    m_broadcastEvent = CreateEvent (NULL, TRUE, FALSE, NULL);
-}
-
-/************************************************************************
- * Condition distructor must be called when there are no threads waiting
- * on this condition.
- * Else, the behavior is undefined.
-/************************************************************************/
-OclCondition::~OclCondition()
-{
-    assert(m_ulNumWaiters == 0);
-    // Free all ...
-    CloseHandle(m_signalEvent);
-    CloseHandle(m_broadcastEvent);
-    m_signalEvent = NULL;
-    m_broadcastEvent = NULL;
-}
-
-/************************************************************************
-*
-/************************************************************************/
-COND_RESULT OclCondition::Wait(IMutex* mutexObj)
-{
-    COND_RESULT res = COND_RESULT_OK;
-    if(NULL == mutexObj)
-    {
-        return COND_RESULT_FAIL;
-    }
-    { OclAutoMutex lock(&m_numWaitersMutex);
-        m_ulNumWaiters++;
-    }
-    // Released the attached Mutex
-    mutexObj->Unlock();
-    // Wait both for broadcast and single, but act differently.
-    DWORD waitRes = WaitForMultipleObjects(2, &m_signalEvent,FALSE, INFINITE);
-    // Critical section - check if it is the last waiter on a broadcast
-    // If it is, reset the manual-reset event
-    bool resetEvent = false;
-    { OclAutoMutex lock(&m_numWaitersMutex);
-        m_ulNumWaiters--;
-        resetEvent = ((m_ulNumWaiters == 0 ) && (waitRes == WAIT_OBJECT_0 + 1)); // Reset event only at the end
-    }
-    if(waitRes == WAIT_OBJECT_0 + 1)    // Second object is the broadcast event
-        res = COND_RESULT_COND_BROADCASTED;
-    if(resetEvent)
-    {
-        ResetEvent(m_broadcastEvent);
-    }
-    // Acquire the Mutex
-    mutexObj->Lock();
-    return res;
-}
-
-/************************************************************************
-*
-/************************************************************************/
-COND_RESULT OclCondition::Signal()
-{
-    OclAutoMutex lock(&m_numWaitersMutex);
-    if( m_ulNumWaiters > 0 )
-    {
-        // There are waiters
-        SetEvent((HANDLE)m_signalEvent);
-    }
-    return COND_RESULT_OK;
-}
-
-/************************************************************************
-*
-/************************************************************************/
-COND_RESULT OclCondition::Broadcast()
-{
-    OclAutoMutex lock(&m_numWaitersMutex);
-    if(m_ulNumWaiters > 0 )
-    {
-        // There are waiters
-        SetEvent((HANDLE)m_broadcastEvent);
-    }
-    return COND_RESULT_OK;
-}
-
-/************************************************************************
 * OclOsDependentEvent implementation
 /************************************************************************/
-
 OclOsDependentEvent::OclOsDependentEvent() : m_eventRepresentation(NULL)
 {
 }
@@ -237,23 +143,32 @@ void OclOsDependentEvent::Reset()
 	}
 }
 
+/************************************************************************
+* OclOsDependentEvent implementation
+/************************************************************************/
 OclBinarySemaphore::OclBinarySemaphore()
 {
     m_semaphore = CreateEvent(NULL, false, false, NULL);
 }
+
 OclBinarySemaphore::~OclBinarySemaphore()
 {
     CloseHandle(m_semaphore);
 }
+
 void OclBinarySemaphore::Signal()
 {
     SetEvent(m_semaphore);
 }
+
 void OclBinarySemaphore::Wait()
 {
     WaitForSingleObject(m_semaphore, INFINITE);
 }
 
+/************************************************************************
+* AtomicCounter implementation
+/************************************************************************/
 AtomicCounter::operator long() const
 {
 	return InterlockedCompareExchange(const_cast<volatile LONG*>(&m_val), 0, 0);
@@ -263,40 +178,45 @@ long AtomicCounter::operator ++() //prefix, returns new val
 {
 	return InterlockedIncrement(&m_val);
 }
+
 long AtomicCounter::operator ++(int alwaysZero) //postfix, returns previous val
 {
 	return InterlockedExchangeAdd(&m_val, 1);
 }
+
 long AtomicCounter::operator --() //prefix, returns new val
 {
 	return InterlockedDecrement(&m_val);
 }
+
 long AtomicCounter::operator --(int alwaysZero) //postfix, returns previous val
 {
 	return InterlockedExchangeAdd(&m_val, -1);
 }
+
 long AtomicCounter::add(long val)
 {
 	return InterlockedExchangeAdd(&m_val, val) + val;
 }
+
 long AtomicCounter::test_and_set(long comparand, long exchange)
 {
 	return InterlockedCompareExchange(&m_val, exchange, comparand);
 }
-
 
 long AtomicCounter::exchange(long val)
 {
 	return InterlockedExchange(&m_val, val);
 }
 
-
+/************************************************************************
+* AtomicBitField implementation
+/************************************************************************/
 AtomicBitField::AtomicBitField() : m_size(0), m_oneTimeFlag(0), m_isInitialize(false), m_eventLock()
 {
 	m_bitField = NULL;
 	m_eventLock.Init(false);
 }
-
 
 AtomicBitField::~AtomicBitField()
 {
@@ -370,3 +290,56 @@ long AtomicBitField::bitTestAndSet(unsigned int bitNum)
 	return InterlockedCompareExchange((m_bitField + bitNum), 1, 0);
 }
 
+/************************************************************************
+* OclReaderWriterLock implementation
+/************************************************************************/
+OclReaderWriterLock::OclReaderWriterLock()
+{
+	STATIC_ASSERT(sizeof(void*)==sizeof(SRWLOCK)); // We assume that SRWLOCK defined as struct{void*}
+	InitializeSRWLock((PSRWLOCK)&m_rwLock);
+#ifdef _DEBUG
+	readEnter = 0;
+	writeEnter = 0;
+#endif
+}
+
+OclReaderWriterLock::~OclReaderWriterLock()
+{
+#ifdef _DEBUG
+	assert( (writeEnter==0) && (readEnter==0) && "Writers or Readers are active in destructor");
+#endif
+}
+
+void OclReaderWriterLock::EnterRead()
+{
+	AcquireSRWLockShared((PSRWLOCK)&m_rwLock);
+#ifdef _DEBUG
+	readEnter++;
+	assert( writeEnter == 0 && "No writer is allowed insde EnterRead()");
+#endif
+}
+
+void OclReaderWriterLock::LeaveRead()
+{
+#ifdef _DEBUG
+	readEnter--;
+#endif
+	ReleaseSRWLockShared((PSRWLOCK)&m_rwLock);
+}
+
+void OclReaderWriterLock::EnterWrite()
+{
+	AcquireSRWLockExclusive((PSRWLOCK)&m_rwLock);
+#ifdef _DEBUG
+	writeEnter++;
+	assert( (writeEnter == 1) && (readEnter==0) && "Only single writer and no readers are allowed insde EnterWrite()");
+#endif
+}
+
+void OclReaderWriterLock::LeaveWrite()
+{
+#ifdef _DEBUG
+	writeEnter--;
+#endif
+	ReleaseSRWLockExclusive((PSRWLOCK)&m_rwLock);
+}

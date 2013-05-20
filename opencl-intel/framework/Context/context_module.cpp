@@ -1807,7 +1807,7 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
 						  int * pErrcodeRet)
 {
 #if defined (_WIN32)  //TODO GL support for Linux
-	LOG_DEBUG(TEXT("Enter CreateFromGLBuffer (clContext=%d, clFlags=%d, pErrcodeRet=%d)"), 
+	LOG_INFO(TEXT("Enter CreateFromGLBuffer (clContext=%d, clFlags=%d, pErrcodeRet=%d)"), 
 		clContext, clMemFlags, pErrcodeRet);
     
     cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, CL_GL_OBJECT_BUFFER, 0, 0, 0, 0, 0, 0, NULL);
@@ -1919,8 +1919,8 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
 							 cl_int * pErrcodeRet)
 {
 #if defined (_WIN32)  //TODO GL support for Linux
-	LOG_DEBUG(TEXT("Enter CreateFromGLTexture (clContext=%d, clFlags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%, pErrcodeRet=%d)"), 
-		clContext, clMemFlags, glTextureTarget, glMipLevel, glTexture, pErrcodeRet);	
+	LOG_INFO(TEXT("Enter params(clContext=%x, clFlags=%x, glTextureTarget=%d, glMipLevel=%d, glTexture=%d)"), 
+		clContext, clMemFlags, glTextureTarget, glMipLevel, glTexture);
 
 	cl_mem_object_type clObjType = ConvertGLTargetToCLObject(glTextureTarget);
     cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, clObjType, 0, 0, 0, 0, 0, 0, NULL);
@@ -1999,7 +1999,7 @@ cl_mem ContextModule::CreateFromGLRenderbuffer(cl_context clContext,
 								cl_int * pErrcodeRet)
 {
 #if defined (_WIN32)  //TODO GL support for Linux
-	LOG_DEBUG(TEXT("Enter CreateFromGLRenderbuffer (clContext=%d, clFlags=%d, glRenderBuffer=%d, pErrcodeRet=%d)"), 
+	LOG_INFO(TEXT("Enter CreateFromGLRenderbuffer (clContext=%d, clFlags=%d, glRenderBuffer=%d, pErrcodeRet=%d)"), 
 		clContext, clMemFlags, glRenderBuffer, pErrcodeRet);
 
     SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();

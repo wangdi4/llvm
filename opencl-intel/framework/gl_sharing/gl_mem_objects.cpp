@@ -18,7 +18,6 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-
 #include "gl_mem_objects.h"
 #include "ocl_event.h"
 #include "memobj_event.h"
@@ -338,6 +337,8 @@ cl_err_code GLTexture::Initialize(cl_mem_flags clMemFlags, const cl_image_format
 	m_clFormat = ImageFrmtConvertGL2CL(m_glInternalFormat);
 	if ( 0 == m_clFormat.clType.image_channel_order)
 	{
+        LOG_ERROR(TEXT("Can't match CL format, glTextureTarget=%d, glTexture=%d, glInternalFormat=%d"),
+			pTxtDescriptor->glTextureTarget, pTxtDescriptor->glTexture, m_glInternalFormat);
 		assert(0 && "Can't match texture format");
 		glBindTexture(glBaseTarget, currTexture);
 		return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
@@ -347,6 +348,10 @@ cl_err_code GLTexture::Initialize(cl_mem_flags clMemFlags, const cl_image_format
 
 	m_glReadBackFormat = GetGLFormat(m_clFormat.clType.image_channel_data_type, m_clFormat.isGLExt);
 	m_glReadBackType = GetGLType(m_clFormat.clType.image_channel_data_type);
+
+	LOG_INFO("glTexture=%d, glInternalFormat=0x%X, clType.image_channel_data_type=0x%x, clType.image_channel_order=0x%x, ReadBackFormat=0x%x ReadBackType=0x%x",
+		m_txtDescriptor.glTexture, m_glInternalFormat, m_clFormat.clType.image_channel_data_type, m_clFormat.clType.image_channel_order, m_glReadBackFormat, m_glReadBackType);
+
 
 	glErr = CalculateTextureDimensions();
 	assert ( (GL_NO_ERROR==glErr) && "Failed to calculate texture dimensions");
@@ -375,8 +380,6 @@ cl_err_code GLTexture::Initialize(cl_mem_flags clMemFlags, const cl_image_format
 cl_err_code GLTexture::AcquireGLObject()
 {
 	Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
-
-	GLContext::GLContextSync sync(m_pGLContext.GetPtr());
 
 	if ( m_lstAcquiredObjectDescriptors.end() != m_itCurrentAcquriedObject && 
 		  ( (CL_GFX_OBJECT_NOT_ACQUIRED != m_itCurrentAcquriedObject->second) &&

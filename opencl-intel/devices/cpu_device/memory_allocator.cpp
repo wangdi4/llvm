@@ -98,7 +98,7 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 					 IOCLDevRTMemObjectService* pRTMemObjService,
 					 IOCLDevMemoryObject*  *memObj)
 {
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateObject enter"));
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter node_id:%d, flags:%x"), node_id, flags);
 
 	assert(NULL != memObj);
 	assert(NULL != dim);
@@ -113,7 +113,7 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 															pRTMemObjService, m_pImageService);
 	if ( NULL == pMemObj )
 	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Memory Object allocation failed"));
+		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "Memory Object allocation failed");
 		return CL_DEV_OBJECT_ALLOC_FAIL;
 	}
 
@@ -126,6 +126,8 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 	}
 
 	*memObj = pMemObj;
+
+	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "Done");
 
 	return CL_DEV_SUCCESS;
 }

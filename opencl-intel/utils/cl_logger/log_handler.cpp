@@ -84,13 +84,23 @@ FileLogHandler::FileLogHandler(const char* handle) :
 /////////////////////////////////////////////////////////////////////////////////////////
 FileLogHandler::~FileLogHandler()
 {
-    free(m_handle);
-    if (m_fileHandler)
+	if ( NULL != m_handle )
 	{
-        fclose(m_fileHandler);
+		free(m_handle);
+		m_handle=NULL;
 	}
 
-    free(m_fileName);
+    if (NULL != m_fileHandler)
+	{
+        fclose(m_fileHandler);
+		m_fileHandler=NULL;
+	}
+
+	if ( NULL != m_fileName )
+	{
+		free(m_fileName);
+		m_fileName=NULL;
+	}
 }
 
 

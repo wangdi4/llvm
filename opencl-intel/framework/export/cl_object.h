@@ -124,7 +124,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// Get the context to which object belongs
 		ParentHandleType* GetParentHandle() const {return m_pParentHandle;}
-
 		
 		/******************************************************************************************
 		* Function: 	SetLoggerClient    
@@ -135,6 +134,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			July 2009
 		******************************************************************************************/
 		void SetLoggerClient(Intel::OpenCL::Utils::LoggerClient * pLoggerClient){ SET_LOGGER_CLIENT(pLoggerClient); }        
+
+		/******************************************************************************************
+		* Function: 	GetLoggerClient    
+		* Description:	retrieve the logger client to the object
+		* Arguments:	void
+		* Return value:	pointer to the logger client
+		* Author:		Evgeny Fiksman
+		* Date:			May 2013
+		******************************************************************************************/
+		Intel::OpenCL::Utils::LoggerClient* GetLoggerClient() const {return GET_LOGGER_CLIENT;}
 
 		/******************************************************************************************
 		* Function: 	SetTerminate    
@@ -172,7 +181,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const std::string m_typename;
 
         DECLARE_LOGGER_CLIENT;
-
 	};
 #include "cl_object.hpp"
 
