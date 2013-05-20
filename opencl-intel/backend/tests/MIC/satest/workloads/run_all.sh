@@ -5,5 +5,5 @@
 setenv OUTDIR ./trunk
 mkdir $OUTDIR
 cd $OUTDIR
-find .. -name '*.xml' -exec SATest -BUILD -cpuarch knc -config {} \; >& run.log
+find .. -name '*.xml' -exec ../satest_wrap.sh {} \; >& run.log
 cd -
