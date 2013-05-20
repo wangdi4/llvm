@@ -282,6 +282,12 @@ list( APPEND MIC_LINK_FLAGS
                 -l${TBB_LIB_TO_LINK}
                 -lpthread
                 -lrt
+                ############ Begin of statically linked libraries
+                # The following line affects all libraries mentioned after it, add here
+                # only libraries which must be linked statically
+                -Wl,-Bstatic
+                -lirc
+                ############ End of statically linked libraries
 
 				# allow exclusion of un-referenced sections (code and data)
                 -Wl,--gc-sections

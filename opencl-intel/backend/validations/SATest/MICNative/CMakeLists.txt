@@ -187,6 +187,13 @@ list( APPEND MIC_LINK_FLAGS
                 -lpthread
                 -ljitprofiling
 
+                ############ Begin of statically linked libraries
+                # The following line affects all libraries mentioned after it, add here
+                # only libraries which must be linked statically
+                -Wl,-Bstatic
+                -lirc
+                ############ End of statically linked libraries
+
                 # add unused defined symbols to the dynamic symbol table - they will be used dynamically
                 -rdynamic
 
