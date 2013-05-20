@@ -26,7 +26,6 @@ File Name: OCLBuilder.h
 namespace Validation{
 
 //
-//Name: OCLBinaryFactory
 //Description: Simplifies the OCL source building process
 //
 class OCLBuilder {
@@ -59,11 +58,12 @@ public:
 
 private:
   OCLBuilder();
+  OCLBuilder(OCLBuilder const&);
+  OCLBuilder& operator=(OCLBuilder const&);
   /*
   Intel::OpenCL::FECompilerAPI::IOCLFECompiler* createCompiler(const char* lib);
   */
-  //Statically initialized instance of the builder
-  static OCLBuilder m_instance;
+
   Intel::OpenCL::Utils::CommonOCLBuilder& m_CommonBuilder;
 };
 

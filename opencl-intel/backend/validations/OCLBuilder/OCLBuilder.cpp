@@ -29,7 +29,9 @@ namespace Validation{
 #define BE_FE_COMPILER_USE_EXTENSIONS "cl_khr_fp64 cl_khr_icd cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store cl_intel_printf cl_ext_device_fission cl_intel_exec_by_local_thread"
 
 OCLBuilder& OCLBuilder::Instance() {
-  return m_instance;
+  //Statically initialized instance of the builder
+  static OCLBuilder instance;
+  return instance;
 }
 
 
@@ -119,7 +121,5 @@ Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* OCLBuilder::build() {
 OCLBuilder::OCLBuilder() : m_CommonBuilder(Intel::OpenCL::Utils::CommonOCLBuilder::instance()) {
 	m_CommonBuilder.withExtensions(BE_FE_COMPILER_USE_EXTENSIONS);
 }
-
-OCLBuilder OCLBuilder::m_instance;
 
 }
