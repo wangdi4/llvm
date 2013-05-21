@@ -20,8 +20,8 @@ File Name:  DynamicLibraryLoader.cpp
 #include "exceptions.h"
 #include "TargetArch.h"
 #include "assert.h"
-#include <stdlib.h>
 #include <stdio.h>
+
 #if defined(_WIN32)
     #include <windows.h>
 #else
@@ -31,7 +31,7 @@ void RegisterMICBIFunctions(std::map<std::string, unsigned long long int>& funct
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-static const char* g_SVMLFunctionNames[] =
+static const char* g_functionNames[] =
 {
     "__ocl_svml_b2_acos16",
     "__ocl_svml_b2_acos16_ha",
@@ -2123,33 +2123,31 @@ static const char* g_SVMLFunctionNames[] =
     "__ocl_svml_b2_urem32_mask",
 };
 
-std::size_t OCL_SVML_FUNCTIONS_COUNT = sizeof(g_SVMLFunctionNames)/sizeof(const char*);
+std::size_t OCL_SVML_FUNCTIONS_COUNT = sizeof(g_functionNames)/sizeof(const char*);
 
-extern "C" int _intel_fast_memcpy(void*, void*, size_t);
-extern "C" int _intel_fast_memset(void*, int, size_t);
 static const char *g_LibCFunctionNames [] =
 {
-    "memcpy",
-    "memset"
+    "memset",
+    "memcpy"
 };
 
 const unsigned int OCLExportedLibCFunctionCount =
     (sizeof(g_LibCFunctionNames)/sizeof(const char *));
 
 DynamicLibraryLoader::DynamicLibraryLoader():
-    m_pSVMLHandle(NULL)
+    m_pLibHandle(NULL)
 { }
 
 DynamicLibraryLoader::~DynamicLibraryLoader()
 {
-    if(NULL != m_pSVMLHandle)
+    if(NULL != m_pLibHandle)
     {
 #if defined(__LP64__)
-        dlclose(m_pSVMLHandle);
+        dlclose(m_pLibHandle);
 #else
         assert(false && "Not Implemented");
 #endif
-        m_pSVMLHandle = NULL;
+        m_pLibHandle = NULL;
     }
 }
 
@@ -2161,12 +2159,11 @@ void DynamicLibraryLoader::SetCPUId(const Intel::CPUId &cpuId)
 void DynamicLibraryLoader::Load()
 {
     std::string strErr;
-    assert(!m_pSVMLHandle && "Library already loaded");
+    assert(!m_pLibHandle && "Library already loaded");
 
     // Load SVML functions
 #if defined (_WIN32)
     assert(false && "Not Implemented");
-    strError = "Not Implemented";
 #else
     // Load precompiled Built-in functions
 #ifdef ENABLE_SDE
@@ -2175,15 +2172,15 @@ void DynamicLibraryLoader::Load()
     char const* svml_library_name = "libsvml.so";
 #endif
 
-    m_pSVMLHandle = dlopen(svml_library_name, RTLD_NOW);
-    if(NULL == m_pSVMLHandle)
+    m_pLibHandle = dlopen(svml_library_name, RTLD_NOW);
+    if(NULL == m_pLibHandle)
     {
         strErr = dlerror();
         assert(false && "Loading SVML library failed");
     }
 
 #endif
-    if (NULL == m_pSVMLHandle)
+    if (NULL == m_pLibHandle)
     {
         throw Exceptions::DeviceBackendExceptionBase(std::string("Loading SVML library failed - ") + strErr);
     }
@@ -2196,7 +2193,7 @@ void DynamicLibraryLoader::GetLibraryFunctions(
     assert(false && "Not Implemented");
 #endif
 
-    assert(m_pSVMLHandle && "The Library is not loaded yet");
+    assert(m_pLibHandle && "The Library is not loaded yet");
 
     functionsTable.clear();
 
@@ -2205,23 +2202,22 @@ void DynamicLibraryLoader::GetLibraryFunctions(
         void* pFuncAddress = NULL;
 
 #if defined(__LP64__)
-        pFuncAddress = dlsym(m_pSVMLHandle, g_SVMLFunctionNames[i]);
+        pFuncAddress = dlsym(m_pLibHandle, g_functionNames[i]);
         assert(dlerror() == NULL && "Incorrect symbol name");
 #else
         assert(false && "Not Implemented");
 #endif
 
-        functionsTable[g_SVMLFunctionNames[i]] = (unsigned long long int)pFuncAddress;
+        functionsTable[g_functionNames[i]] = (unsigned long long int)pFuncAddress;
     }
 
     void *dlh = dlopen(0, RTLD_GLOBAL);
     for (unsigned i = 0; i < OCLExportedLibCFunctionCount; i++)
     {
-        void* pFuncAddress = NULL;
+      void* pFuncAddress = NULL;
 
 #if defined(__LP64__)
         pFuncAddress = dlsym(dlh, g_LibCFunctionNames[i]);
-        assert(pFuncAddress && "dlsym failed");
 #else
         assert(false && "Not Implemented");
 #endif
@@ -2229,9 +2225,6 @@ void DynamicLibraryLoader::GetLibraryFunctions(
         functionsTable[g_LibCFunctionNames[i]] =
             (unsigned long long int)pFuncAddress;
     }
-    // Helper functions called by PCG, implemented in libirc
-    functionsTable["_intel_fast_memcpy"] = (unsigned long long int)_intel_fast_memcpy;
-    functionsTable["_intel_fast_memset"] = (unsigned long long int)_intel_fast_memset;
     // Need to register all the BI function implemented in the Backend
     RegisterMICBIFunctions(functionsTable);
 }

@@ -37,7 +37,7 @@ public:
 private:
     Intel::CPUId m_cpuId;
 
-    void* m_pSVMLHandle;
+    void* m_pLibHandle;
 };
 
 }}} // namespace
