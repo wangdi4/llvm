@@ -91,7 +91,7 @@ public:
 
 	virtual void KernelFree (cl_kernel /* kernel */)=0;
 
-	//virtual void KernelSetArg (cl_kernel /* kernel */)=0;
+	virtual void KernelSetArg (cl_kernel /* kernel */, cl_uint /* arg_index */, size_t /* argSize */,const void* /* arg_value */ )=0;
 
 	/* Command Callbacks */
 	
@@ -138,6 +138,7 @@ public:
 	CommandData* commandEventProfiling(cl_event **pEvent);
 	void createCommandEvents(cl_event *event, CommandData *data);
 
+	const char* enableKernelArgumentInfo(const char* options);
 	static void releaseCommandData(cl_event *event, CommandData* data);
 	static void releaseCommandData(cl_event event, CommandData* data);
 
@@ -206,7 +207,7 @@ public:
 
 	virtual void KernelFree (cl_kernel /* kernel */);
 
-	//virtual void KernelSetArg (cl_kernel /* kernel */);
+	virtual void KernelSetArg (cl_kernel /* kernel */, cl_uint /* arg_index */, size_t /* argSize */,const void* /* arg_value */ );
 
 	/* Command Callbacks */
 

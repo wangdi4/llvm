@@ -155,6 +155,10 @@ const string buildStatusToString(const cl_build_status& status);
 const string binaryTypeToString(const cl_program_binary_type& type);
 const string addressQualifierToString(const cl_kernel_arg_address_qualifier& AddressQualifer);
 const string accessQualifierToString(const cl_kernel_arg_access_qualifier& AccessQualifier);
+const string addressQualifierToString_def(const cl_kernel_arg_address_qualifier& add);
+const string accessQualifierToString_def(const cl_kernel_arg_access_qualifier& acc);
+const string typeQualifierToString(const cl_kernel_arg_type_qualifier& type);
+
 
 /**************************************************************************************************
 * Function: 	XXXFromString

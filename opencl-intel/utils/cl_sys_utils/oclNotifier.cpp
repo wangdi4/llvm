@@ -228,6 +228,12 @@ void NotifierCollection::KernelFree( cl_kernel kernel )
 	NOTIFY(KernelFree, kernel);	
 }
 
+void NotifierCollection::KernelSetArg (cl_kernel kernel, cl_uint arg_index, size_t arg_size,const void* arg_value )
+{
+	CHECK_FOR_NULL(kernel);
+	NOTIFY(KernelSetArg, kernel, arg_index, arg_size, arg_value);
+}
+
 //TODO: deprecated for now, remove it in the future
 // void NotifierCollection::CommandEnqueue( cl_command_queue queue , void* pCommand,cl_command_type commandType, const char* commandName, void** oclObjectArray, cl_uint numObjects )
 // {
@@ -359,4 +365,25 @@ void NotifierCollection::createCommandEvents(cl_event* event, CommandData *comma
 	if ( isOwnEvent){
 		delete event; //only release the pointer to the event and not the actual object.
 	}
+
+}
+
+#define CL_KERNEL_ARG_INFO_OPTION " -cl-kernel-arg-info"
+const char* NotifierCollection::enableKernelArgumentInfo(const char* options){
+	size_t options_length = strlen(options);
+	if ( strstr(options, CL_KERNEL_ARG_INFO_OPTION))
+	{
+		char* newOptions = new char[options_length + 1]; //Dynamic allocation - will be freed in buildProgram
+		newOptions[options_length] = '\0';
+		strncpy(newOptions, options, options_length);
+		return newOptions; //TODO: fix, you don't need dynamic allocation here...
+	}
+	
+	size_t addon_length = strlen(CL_KERNEL_ARG_INFO_OPTION);
+	char* newOptions = new char[options_length + addon_length + 1]; //Dynamic allocation - will be freed in buildProgram
+	newOptions[options_length + addon_length] = '\0';
+	strncpy(newOptions, options, options_length);
+	newOptions[options_length] = '\0';
+	strncat(newOptions, CL_KERNEL_ARG_INFO_OPTION, addon_length); 
+	return newOptions;
 }

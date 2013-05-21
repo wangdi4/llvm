@@ -554,6 +554,43 @@ const string binaryTypeToString(const cl_program_binary_type& type)
 	}
 }
 
+const string addressQualifierToString_def(const cl_kernel_arg_address_qualifier& add)
+{
+	switch (add) {
+		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ADDRESS_GLOBAL);
+		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ADDRESS_LOCAL);
+		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ADDRESS_CONSTANT);
+		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ADDRESS_PRIVATE);
+	default:
+		return "Not Recognized";
+	}
+}
+
+const string typeQualifierToString(const cl_kernel_arg_type_qualifier& type)
+{
+	string str = "";
+	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_KERNEL_ARG_TYPE_CONST,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_KERNEL_ARG_TYPE_RESTRICT,str);
+	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_KERNEL_ARG_TYPE_VOLATILE,str);
+	if ( type == 0) //	CL_KERNEL_ARG_TYPE_NONE = 0
+		return "CL_KERNEL_ARG_TYPE_NONE";
+	if ( str == "")
+		return "Not Recognized: " + stringify(type);
+
+	return str.substr(strlen(DEFAULT_PREFIX));
+}
+
+const string accessQualifierToString_def(const cl_kernel_arg_access_qualifier& acc)
+{
+	switch (acc) {
+		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ACCESS_READ_ONLY);
+		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ACCESS_WRITE_ONLY);
+		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ACCESS_READ_WRITE);
+		CASE_DEFINE_RETURN_STRING(CL_KERNEL_ARG_ACCESS_NONE);
+	default:
+		return "Not Recognized";
+	}
+}
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // addressQualifierToString
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
