@@ -24,6 +24,7 @@ config_template = r"""<?xml version="1.0" encoding="UTF-8" ?>
 
 
 def get_command(line):
+    # Appears in Volcan log files
     m = re.match("Command:(\w+).*", line)
     if m:
         return m.group(1)
@@ -49,15 +50,28 @@ def get_options_end(line):
         return line
     return None
 
+def get_process_start(line):
+    if line == "Process:":
+        return line
+    return None
+
+def get_process_end(line):
+    if line == "/Process:":
+        return line
+    return None
+
 def get_interesting_line(line):
-    m = re.match(r"[0-9]+>(.+)", line)
+#    m = re.match(r"[0-9]+>(.+)", line)
+    m = re.match(r"stderr:  (.+)", line)
     if m:
-        return re.sub("^\s*err>", "", m.group(1))
+        return m.group(1)
     return None
 
 
 def main():
+    # Maps a kernel source string to filename containing the string
     src_to_c = {}
+    # Set of tuple([kernel_filename, compile_options])
     cfg_lookup = set()
     parser = argparse.ArgumentParser()
     parser.add_argument("logfile", type=file, help="File to parse")
@@ -66,7 +80,8 @@ def main():
     config_name = ''
     cl_filename = ''
     in_source = False
-    in_options = True
+    in_options = False
+    in_process = False
     src = ''
     compile_options = ''
     for line in options.logfile:
@@ -76,6 +91,12 @@ def main():
         cmd = get_command(line)
         if cmd:
             kernel_name = os.path.basename(cmd)
+            continue
+        if get_process_start(line):
+            in_process = True
+            continue
+        if get_process_end(line):
+            in_process = False
             continue
         if get_source_start(line):
             in_source = True
@@ -119,6 +140,8 @@ def main():
             src = src + line.rstrip() + '\n';
         if in_options:
             compile_options = line.strip()
+        if in_process:
+            kernel_name = line.strip()
 
 if __name__ == "__main__":
     main()

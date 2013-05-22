@@ -5,10 +5,8 @@
 #define DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #endif
-
 //replace divisions by multiplication with the reciprocal
 #define REPLACE_DIV_WITH_RCP 1
-
 //Call the appropriate math function based on precision
 #ifdef DOUBLE_PRECISION
 #define real double
@@ -57,12 +55,9 @@
 #define RKR(q)   idx2(RKR, q)
 #define A_DIM    (11)
 #define A(b, c)  idx2(A, (((b)*A_DIM)+c) )
-
-
 __kernel void
 ratx2_kernel(__global const real* C, __global real* RF)
 {
-
     RF(1) = RF(1)*C(2)*C(4);
     RF(2) = RF(2)*C(3)*C(1);
     RF(3) = RF(3)*C(5)*C(1);
@@ -255,4 +250,3 @@ ratx2_kernel(__global const real* C, __global real* RF)
     RF(204) = RF(204)*C(7);
     RF(205) = RF(205)*C(9);
 }
-

@@ -5,10 +5,8 @@
 #define DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #endif
-
 //replace divisions by multiplication with the reciprocal
 #define REPLACE_DIV_WITH_RCP 1
-
 //Call the appropriate math function based on precision
 #ifdef DOUBLE_PRECISION
 #define real double
@@ -41,7 +39,6 @@
 #define LOG log
 #define LOG10 log10
 #endif
-
 //Kernel indexing macros
 #define thread_num (get_global_id(0))
 #define idx2(p,z) (p[(((z)-1)*(N_GP)) + thread_num])
@@ -58,12 +55,9 @@
 #define RKR(q)   idx2(RKR, q)
 #define A_DIM    (11)
 #define A(b, c)  idx2(A, (((b)*A_DIM)+c) )
-
-
 __kernel void
 ratx4_kernel(__global const real* C, __global real* RB)
 {
-
     RB(1) = RB(1)*C(3)*C(5);
     RB(2) = RB(2)*C(2)*C(5);
     RB(3) = RB(3)*C(2)*C(6);
@@ -256,4 +250,3 @@ ratx4_kernel(__global const real* C, __global real* RB)
     RB(205) = RB(205)*C(10)*C(21);
     RB(206) = RB(206)*C(20)*C(9);
 }
-

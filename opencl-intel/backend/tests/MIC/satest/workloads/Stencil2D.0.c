@@ -1,4 +1,3 @@
-
 // define types based on compiler "command line"
 #if defined(SINGLE_PRECISION)
 #define VALTYPE float
@@ -11,8 +10,6 @@
 #else
 #error No precision defined.
 #endif
-
-
 inline
 int
 ToGlobalRow( int gidRow, int lidRow )
@@ -21,7 +18,6 @@ ToGlobalRow( int gidRow, int lidRow )
     // returns logical global row (without halo)
     return gidRow*LROWS + lidRow;
 }
-
 inline
 int
 ToGlobalCol( int gidCol, int lidCol )
@@ -30,8 +26,6 @@ ToGlobalCol( int gidCol, int lidCol )
     // returns logical global column (without halo)
     return gidCol*LCOLS + lidCol;
 }
-
-
 inline
 int
 ToFlatHaloedIdx( int row, int col, int rowWidth )
@@ -40,16 +34,12 @@ ToFlatHaloedIdx( int row, int col, int rowWidth )
     // and a halo of width 1
     return (row + 1)*(rowWidth + 2) + (col + 1);
 }
-
-
 inline
 int
 ToFlatIdx( int row, int col, int pitch )
 {
     return row * pitch + col;
 }
-
-
 __kernel
 void
 CopyRect( __global VALTYPE* dest,
@@ -66,7 +56,6 @@ CopyRect( __global VALTYPE* dest,
     int gsz = get_global_size(0);
     int lsz = get_local_size(0);
     int grow = gid * lsz + lid;
-
     if( grow < height )
     {
         for( int c = 0; c < width; c++ )
@@ -75,11 +64,6 @@ CopyRect( __global VALTYPE* dest,
         }
     }
 }
-
-
-
-
-
 __kernel
 void
 StencilKernel( __global VALTYPE* data,
@@ -95,20 +79,16 @@ StencilKernel( __global VALTYPE* data,
     int gszCol = get_num_groups(0);
     int lidRow = get_local_id(1);
     int lidCol = get_local_id(0);
-
     // determine our logical global data coordinates (without halo)
     int gRow = ToGlobalRow( gidRow, lidRow );
     int gCol = ToGlobalCol( gidCol, lidCol );
     int gRowWidth = gszCol * LCOLS;
-
     // determine our coodinate in the flattened data (with halo)
     int gidx = ToFlatHaloedIdx( gRow, gCol, gRowWidth );
-
     // copy my global data item to a shared local buffer
     // (i.e., it is same size as our local block but with halo of width 1)
     __local VALTYPE sh[LROWS+2][LCOLS+2];
     sh[lidRow+1][lidCol+1] = data[gidx];
-
     // copy halo data into shared local buffer
     // We follow the approach of Micikevicius (NVIDIA) from the
     // GPGPU-2 Workshop, 3/8/2009.
@@ -136,10 +116,8 @@ StencilKernel( __global VALTYPE* data,
         sh[0][LCOLS+1] = data[ToFlatHaloedIdx(gRow-1,gCol+LCOLS,gRowWidth)];
         sh[LROWS+1][LCOLS+1] = data[ToFlatHaloedIdx(gRow+LROWS,gCol+LCOLS, gRowWidth)];
     }
-
     // let all those loads finish
     barrier( CLK_LOCAL_MEM_FENCE );
-
     // do my part of the smoothing operation
     VALTYPE centerValue = sh[lidRow+1][lidCol+1];
     VALTYPE cardinalValueSum = sh[lidRow][lidCol+1] +
@@ -154,5 +132,3 @@ StencilKernel( __global VALTYPE* data,
             wCardinal * cardinalValueSum +
             wDiagonal * diagonalValueSum;
 }
-
-

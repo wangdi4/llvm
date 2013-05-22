@@ -5,10 +5,8 @@
 #define DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #endif
-
 //replace divisions by multiplication with the reciprocal
 #define REPLACE_DIV_WITH_RCP 1
-
 //Call the appropriate math function based on precision
 #ifdef DOUBLE_PRECISION
 #define real double
@@ -41,7 +39,6 @@
 #define LOG log
 #define LOG10 log10
 #endif
-
 //Kernel indexing macros
 #define thread_num (get_global_id(0))
 #define idx2(p,z) (p[(((z)-1)*(N_GP)) + thread_num])
@@ -58,17 +55,12 @@
 #define RKR(q)   idx2(RKR, q)
 #define A_DIM    (11)
 #define A(b, c)  idx2(A, (((b)*A_DIM)+c) )
-
 #define ROP2(a)  (RKF(a) - RKR (a))
-
-
 __kernel void
 rdwdot3_kernel (__global const real* RKF, __global const real* RKR,
 		__global real* WDOT, const real rateconv, __global const real* molwt)
 {
-
     real ROP114 =  ROP2(114) - ROP2(122);
-
     WDOT(13) = (+ROP2(31) +ROP2(37) +ROP2(41) +ROP2(53)
             +ROP2(55) +ROP2(63) +ROP2(70) -ROP2(71)
             -ROP2(72) -ROP2(73) -ROP2(74) -ROP2(75)
@@ -81,7 +73,6 @@ rdwdot3_kernel (__global const real* RKF, __global const real* RKR,
             -ROP114 +ROP2(115) -ROP2(116) -ROP2(117)
             -ROP2(118) -ROP2(119) -ROP2(120) -ROP2(121)
             +ROP2(133) +ROP2(137) +ROP2(138) +ROP2(144))*rateconv *molwt[13];
-
     WDOT(15) = (+ROP2(91) +ROP2(92) +ROP2(95) +ROP2(105)
             +ROP2(132) +ROP2(142) +ROP2(143) -ROP2(155)
             -ROP2(156) -ROP2(157) -ROP2(158) -ROP2(159)
@@ -92,7 +83,6 @@ rdwdot3_kernel (__global const real* RKF, __global const real* RKR,
     WDOT(16) = (+ROP2(93) +ROP2(170) +ROP2(175) +ROP2(178)
             +ROP2(179) -ROP2(180) -ROP2(181) -ROP2(182)
             -ROP2(183) -ROP2(184))*rateconv *molwt[15];
-
     WDOT(17) = (+ROP2(39) -ROP2(95) -ROP2(108) -ROP2(109)
             -ROP2(110) -ROP2(111) -ROP2(112) -ROP2(113) -ROP2(113)
             +ROP2(116) +ROP2(127) +ROP2(129) +ROP2(131))*rateconv *molwt[16];
@@ -102,4 +92,3 @@ rdwdot3_kernel (__global const real* RKF, __global const real* RKR,
             +ROP2(151) +ROP2(152) +ROP2(153) +ROP2(193))*rateconv *molwt[17];
     WDOT(19) = (+ROP2(89) +ROP2(148) +ROP2(163) +ROP2(173))*rateconv *molwt[18];
 }
-

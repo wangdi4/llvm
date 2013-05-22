@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <RunConfiguration>
-  <ProgramFile compilation_flags="">QueueDelay.0.c</ProgramFile>
+  <ProgramFile compilation_flags="-DK_DOUBLE_PRECISION">QueueDelay.0.c</ProgramFile>
   <ProgramFileType>CL</ProgramFileType>
   <UseVTune>0</UseVTune>
   <UseVectorizer>1</UseVectorizer>

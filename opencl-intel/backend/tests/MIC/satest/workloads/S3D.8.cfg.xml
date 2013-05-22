@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <RunConfiguration>
-  <ProgramFile compilation_flags="-DSINGLE_PRECISION -DDIM=24 -DN_GP=13824">S3D.8.c</ProgramFile>
+  <ProgramFile compilation_flags="-DSINGLE_PRECISION -DDIM=48 -DN_GP=110592">S3D.8.c</ProgramFile>
   <ProgramFileType>CL</ProgramFileType>
   <UseVTune>0</UseVTune>
   <UseVectorizer>1</UseVectorizer>

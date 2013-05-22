@@ -5,10 +5,8 @@
 #define DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #endif
-
 //replace divisions by multiplication with the reciprocal
 #define REPLACE_DIV_WITH_RCP 1
-
 //Call the appropriate math function based on precision
 #ifdef DOUBLE_PRECISION
 #define real double
@@ -41,7 +39,6 @@
 #define LOG log
 #define LOG10 log10
 #endif
-
 //Kernel indexing macros
 #define thread_num (get_global_id(0))
 #define idx2(p,z) (p[(((z)-1)*(N_GP)) + thread_num])
@@ -58,25 +55,19 @@
 #define RKR(q)   idx2(RKR, q)
 #define A_DIM    (11)
 #define A(b, c)  idx2(A, (((b)*A_DIM)+c) )
-
 __kernel void
 gr_base(__global const real* P, __global const real* T, __global const real* Y,
 		__global real* C, const real TCONV, const real PCONV)
 {
-
     const real TEMP = T[get_global_id(0)]*TCONV;
     const real PRES = P[get_global_id(0)]*PCONV;
-
 #ifdef DOUBLE_PRECISION
     const real SMALL = 1.0e-50;
 #else
     const real SMALL = FLT_MIN;
 #endif
-
     real SUM, ctmp;
-
     SUM = 0.0;
-
     C(1)  = ctmp = Y(1) *4.96046521e-1;
     SUM  += ctmp;
     C(2)  = ctmp = Y(2) *9.92093043e-1;
@@ -121,13 +112,10 @@ gr_base(__global const real* P, __global const real* T, __global const real* Y,
     SUM  += ctmp;
     C(22) = ctmp = Y(22)*3.56972032e-2;
     SUM  += ctmp;
-
     SUM = DIV (PRES, (SUM * (TEMP) * 8.314510e7));
-
 // #pragma unroll 22
     for (unsigned k=1; k<=22; k++)
     {
         C(k) = MAX(C(k), SMALL) * SUM;
     }
 }
-

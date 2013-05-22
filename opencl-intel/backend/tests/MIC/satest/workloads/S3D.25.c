@@ -5,10 +5,8 @@
 #define DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #endif
-
 //replace divisions by multiplication with the reciprocal
 #define REPLACE_DIV_WITH_RCP 1
-
 //Call the appropriate math function based on precision
 #ifdef DOUBLE_PRECISION
 #define real double
@@ -41,7 +39,6 @@
 #define LOG log
 #define LOG10 log10
 #endif
-
 //Kernel indexing macros
 #define thread_num (get_global_id(0))
 #define idx2(p,z) (p[(((z)-1)*(N_GP)) + thread_num])
@@ -58,17 +55,12 @@
 #define RKR(q)   idx2(RKR, q)
 #define A_DIM    (11)
 #define A(b, c)  idx2(A, (((b)*A_DIM)+c) )
-
 #define ROP2(a)  (RKF(a) - RKR (a))
-
-
 __kernel void
 rdwdot9_kernel (__global const real* RKF, __global const real* RKR,
 		__global real* WDOT, const real rateconv, __global const real* molwt)
 {
-
     real ROP27 = ROP2(27) + ROP2(28);
-
     WDOT(5) = (+ROP2(1) +ROP2(2) -ROP2(3) -ROP2(4) -ROP2(4)
             -ROP2(9) +ROP2(10) -ROP2(16) -ROP2(16)
             +ROP2(19) +ROP2(19) +ROP2(20) -ROP2(21)
@@ -84,6 +76,4 @@ rdwdot9_kernel (__global const real* RKF, __global const real* RKR,
             +ROP2(158) -ROP2(161) +ROP2(163) +ROP2(177)
             +ROP2(181) -ROP2(182) +ROP2(188) +ROP2(195)
             -ROP2(196) -ROP2(202) +ROP2(204))*rateconv *molwt[4];
-
 }
-

@@ -5,11 +5,8 @@
 #define DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #endif
-
-
 //replace divisions by multiplication with the reciprocal
 #define REPLACE_DIV_WITH_RCP 1
-
 //Call the appropriate math function based on precision
 #ifdef DOUBLE_PRECISION
 #define real double
@@ -58,15 +55,11 @@
 #define RKR(q)   idx2(RKR, q)
 #define A_DIM    (11)
 #define A(b, c)  idx2(A, (((b)*A_DIM)+c) )
-
-
 __kernel void
 ratt10_kernel(__global const real* T, __global real* RKLOW, real TCONV)
 {
-
     const real TEMP = T[get_global_id(0)]*TCONV;
     const real ALOGT = LOG(TEMP);
-
     RKLOW(1) = EXP(4.22794408e1 -9.e-1*ALOGT + DIV(8.55468335e2,TEMP));
     RKLOW(2) = EXP(6.37931383e1 -3.42e0*ALOGT - DIV(4.24463259e4,TEMP));
     RKLOW(3) = EXP(6.54619238e1 -3.74e0*ALOGT - DIV(9.74227469e2,TEMP));
@@ -89,4 +82,3 @@ ratt10_kernel(__global const real* T, __global real* RKLOW, real TCONV)
     RKLOW(20) = EXP(1.38440285e2 -1.2e1*ALOGT - DIV(3.00309643e3,TEMP));
     RKLOW(21) = EXP(8.93324137e1 -6.66e0*ALOGT - DIV(3.52251667e3,TEMP));
 }
-

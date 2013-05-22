@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <RunConfiguration>
-  <ProgramFile compilation_flags="">Sort.0.c</ProgramFile>
+  <ProgramFile compilation_flags="-DK_DOUBLE_PRECISION -cl-mad-enable -DWI_TILE_SIZE=32 -DWG_SIZE_0=16 -DWG_SIZE_1=4">Sort.0.c</ProgramFile>
   <ProgramFileType>CL</ProgramFileType>
   <UseVTune>0</UseVTune>
   <UseVectorizer>1</UseVectorizer>

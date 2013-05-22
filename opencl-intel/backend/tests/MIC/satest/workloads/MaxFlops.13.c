@@ -1,4 +1,3 @@
-
 __kernel void MAdd8(__global float *data, int nIters) {
   int gid = get_global_id(0), globalSize = get_global_size(0);
   float s = data[gid];

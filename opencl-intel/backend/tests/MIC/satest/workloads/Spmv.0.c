@@ -1,5 +1,4 @@
 #define VECTOR_SIZE 32
-
 #ifdef SINGLE_PRECISION
 #define FPTYPE float
 #elif K_DOUBLE_PRECISION
@@ -9,7 +8,6 @@
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #define FPTYPE double
 #endif
-
 // ****************************************************************************
 // Function: spmv_csr_scalar_kernel
 //
@@ -45,7 +43,6 @@ spmv_csr_scalar_kernel( __global const FPTYPE * restrict val,
                        const int dim, __global FPTYPE * restrict out)
 {
     int myRow = get_global_id(0);
-
     if (myRow < dim)
     {
         FPTYPE t=0;
@@ -59,7 +56,6 @@ spmv_csr_scalar_kernel( __global const FPTYPE * restrict val,
         out[myRow] = t;
     }
 }
-
 // ****************************************************************************
 // Function: spmv_csr_vector_kernel
 //
@@ -101,10 +97,8 @@ spmv_csr_vector_kernel(__global const FPTYPE * restrict val,
     // One row per warp
     int vecsPerBlock = get_local_size(0) / VECTOR_SIZE;
     int myRow = (get_group_id(0) * vecsPerBlock) + (t / VECTOR_SIZE);
-
     __local volatile FPTYPE partialSums[128];
     partialSums[t] = 0;
-
     if (myRow < dim)
     {
         int vecStart = rowDelimiters[myRow];
@@ -116,10 +110,8 @@ spmv_csr_vector_kernel(__global const FPTYPE * restrict val,
             int col = cols[j];
             mySum += val[j] * vec[col];
         }
-
         partialSums[t] = mySum;
         barrier(CLK_LOCAL_MEM_FENCE);
-
         // Reduce partial sums
         // Needs to be modified if there is a change in vector
         // length
@@ -133,7 +125,6 @@ spmv_csr_vector_kernel(__global const FPTYPE * restrict val,
         barrier(CLK_LOCAL_MEM_FENCE);
         if (id <  1) partialSums[t] += partialSums[t+ 1];
         barrier(CLK_LOCAL_MEM_FENCE);
-
         // Write result
         if (id == 0)
         {
@@ -141,7 +132,6 @@ spmv_csr_vector_kernel(__global const FPTYPE * restrict val,
         }
     }
 }
-
 // ****************************************************************************
 // Function: spmv_ellpackr_kernel
 //
@@ -176,7 +166,6 @@ spmv_ellpackr_kernel(__global const FPTYPE * restrict val,
                      const int dim, __global FPTYPE * restrict out)
 {
     int t = get_global_id(0);
-
     if (t < dim)
     {
         FPTYPE result = 0.0;
@@ -189,6 +178,3 @@ spmv_ellpackr_kernel(__global const FPTYPE * restrict val,
         out[t] = result;
     }
 }
-
-
-

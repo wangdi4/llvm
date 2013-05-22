@@ -5,10 +5,8 @@
 #define DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #endif
-
 //replace divisions by multiplication with the reciprocal
 #define REPLACE_DIV_WITH_RCP 1
-
 //Call the appropriate math function based on precision
 #ifdef DOUBLE_PRECISION
 #define real double
@@ -41,7 +39,6 @@
 #define LOG log
 #define LOG10 log10
 #endif
-
 //Kernel indexing macros
 #define thread_num (get_global_id(0))
 #define idx2(p,z) (p[(((z)-1)*(N_GP)) + thread_num])
@@ -58,20 +55,16 @@
 #define RKR(q)   idx2(RKR, q)
 #define A_DIM    (11)
 #define A(b, c)  idx2(A, (((b)*A_DIM)+c) )
-
 __kernel void
 qssa_kernel(__global real* RF, __global real* RB, __global real* A)
 {
-
     real DEN;
-
     RF(57) = 0.e0;
     RF(58) = 0.e0;
     RF(143) = 0.e0;
     RF(179) = 0.e0;
     RB(194) = 0.e0;
     RF(206) = 0.e0;
-
     //   CH
     DEN = +RF(34) +RF(35) +RF(36) +RF(37) +RF(38)
                +RF(39) +RF(40) +RF(77) +RF(87) +RF(105) +RF(111)
@@ -172,11 +165,9 @@ qssa_kernel(__global real* RF, __global real* RB, __global real* A)
             +RB(152) +RB(153) +RB(154)), DEN);
     A(9,4) = DIV ((+RB(149)), DEN);
     A(9,7) = DIV ((+RF(139) +RF(141)), DEN);
-
     DEN = +RF(199) +RF(200) +RF(201) +RF(202) +RF(203)
                +RF(204) +RF(205) +RB(169) +RB(190) ;
     A(10,0) = DIV ((+RF(169) +RF(190) +RB(200) +RB(202) +RB(203)
             +RB(205)), DEN);
     A(10,8) = DIV ((+RB(199) +RB(201) +RB(204)), DEN);
 }
-

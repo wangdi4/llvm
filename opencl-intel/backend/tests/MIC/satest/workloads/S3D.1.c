@@ -5,10 +5,8 @@
 #define DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #endif
-
 //replace divisions by multiplication with the reciprocal
 #define REPLACE_DIV_WITH_RCP 1
-
 //Call the appropriate math function based on precision
 #ifdef DOUBLE_PRECISION
 #define real double
@@ -41,7 +39,6 @@
 #define LOG log
 #define LOG10 log10
 #endif
-
 //Kernel indexing macros
 #define thread_num (get_global_id(0))
 #define idx2(p,z) (p[(((z)-1)*(N_GP)) + thread_num])
@@ -58,24 +55,18 @@
 #define RKR(q)   idx2(RKR, q)
 #define A_DIM    (11)
 #define A(b, c)  idx2(A, (((b)*A_DIM)+c) )
-
-
 inline real POLYX(real x, real c0, real c1,
 		real c2, real c3)
 {
 	return (((((c3) * (x) + (c2)) * (x) + (c1)) * (x) + (c0)) * (x));
 }
-
 __kernel void
 rdsmh_kernel(__global const real* T, __global real* EG, const real TCONV)
 {
-
     const real TEMP = T[get_global_id(0)]*TCONV;
     const real TLOG = LOG((TEMP));
     const real TI = 1.0e0/(TEMP);
-
     const real TN1 = TLOG - 1.0;
-
     if ((TEMP) > 1.0e3)
     {
         EG(1) = EXP(-3.20502331e+00 + 9.50158922e+02*TI
@@ -331,4 +322,3 @@ rdsmh_kernel(__global const real* T, __global real* EG, const real TCONV)
                      - 1.63292767e-09, + 4.68601035e-13));
     }
 }
-

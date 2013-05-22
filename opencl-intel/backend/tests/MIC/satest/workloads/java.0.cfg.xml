@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RunConfiguration>
+  <ProgramFile compilation_flags="-cl-denorms-are-zero -cl-fast-relaxed-math -DNSAMP=262144">java.0.c</ProgramFile>
+  <ProgramFileType>CL</ProgramFileType>
+  <UseVTune>0</UseVTune>
+  <UseVectorizer>1</UseVectorizer>
+  <KernelConfiguration Name="Foo">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>16</LocalWorkSize>
+    <GlobalWorkSize>16</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>java.0.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>java.0.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>java.0.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+</RunConfiguration>

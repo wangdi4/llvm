@@ -5,10 +5,8 @@
 #define DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #endif
-
 //replace divisions by multiplication with the reciprocal
 #define REPLACE_DIV_WITH_RCP 1
-
 //Call the appropriate math function based on precision
 #ifdef DOUBLE_PRECISION
 #define real double
@@ -41,7 +39,6 @@
 #define LOG log
 #define LOG10 log10
 #endif
-
 //Kernel indexing macros
 #define thread_num (get_global_id(0))
 #define idx2(p,z) (p[(((z)-1)*(N_GP)) + thread_num])
@@ -58,19 +55,14 @@
 #define RKR(q)   idx2(RKR, q)
 #define A_DIM    (11)
 #define A(b, c)  idx2(A, (((b)*A_DIM)+c) )
-
-
 __kernel void
 ratt_kernel(__global const real* T, __global real* RF, real TCONV)
 {
-
     const real TEMP = T[get_global_id(0)]*TCONV;
-
     const real ALOGT = LOG(TEMP);
     const real TI = 1.0e0/(TEMP);
     const real TI2 = TI*TI;
     real TMP;
-
     RF(1) = EXP(3.20498617e1 -7.25286183e3*TI);
     RF(2) = EXP(1.08197783e1 +2.67e0*ALOGT -3.16523284e3*TI);
     RF(3) = EXP(1.9190789e1 +1.51e0*ALOGT -1.72603317e3*TI);
@@ -285,4 +277,3 @@ ratt_kernel(__global const real* T, __global real* RF, real TCONV)
     RF(205) = 1.1e13;
     RF(206) = EXP(7.50436995e1 -5.22e0*ALOGT -9.93701954e3*TI);
 }
-

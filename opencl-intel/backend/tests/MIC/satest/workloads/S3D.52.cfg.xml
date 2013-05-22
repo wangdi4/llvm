@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <RunConfiguration>
-  <ProgramFile compilation_flags="-DK_DOUBLE_PRECISION -DDIM=16 -DN_GP=4096">S3D.25.c</ProgramFile>
+  <ProgramFile compilation_flags="-DK_DOUBLE_PRECISION -DDIM=40 -DN_GP=64000">S3D.25.c</ProgramFile>
   <ProgramFileType>CL</ProgramFileType>
   <UseVTune>0</UseVTune>
   <UseVectorizer>1</UseVectorizer>

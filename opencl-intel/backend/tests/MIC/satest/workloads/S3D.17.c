@@ -5,10 +5,8 @@
 #define DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #endif
-
 //replace divisions by multiplication with the reciprocal
 #define REPLACE_DIV_WITH_RCP 1
-
 //Call the appropriate math function based on precision
 #ifdef DOUBLE_PRECISION
 #define real double
@@ -41,7 +39,6 @@
 #define LOG log
 #define LOG10 log10
 #endif
-
 //Kernel indexing macros
 #define thread_num (get_global_id(0))
 #define idx2(p,z) (p[(((z)-1)*(N_GP)) + thread_num])
@@ -58,14 +55,10 @@
 #define RKR(q)   idx2(RKR, q)
 #define A_DIM    (11)
 #define A(b, c)  idx2(A, (((b)*A_DIM)+c) )
-
-
 __kernel void
 qssab_kernel(__global real* RF, __global real* RB, __global real* A)
 {
-
     real DEN;
-
     A(8,0) = A(8,0) + A(8,10)*A(10,0);
     DEN = 1 -A(8,10)*A(10,8);
     A(8,0) = DIV (A(8,0), DEN);
@@ -211,4 +204,3 @@ qssab_kernel(__global real* RF, __global real* RB, __global real* A)
     DEN = 1 -A(4,3)*A(3,4);
     A(4,0) = DIV (A(4,0), DEN);
 }
-

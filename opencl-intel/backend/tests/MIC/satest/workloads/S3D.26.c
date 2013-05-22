@@ -5,10 +5,8 @@
 #define DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #endif
-
 //replace divisions by multiplication with the reciprocal
 #define REPLACE_DIV_WITH_RCP 1
-
 //Call the appropriate math function based on precision
 #ifdef DOUBLE_PRECISION
 #define real double
@@ -57,20 +55,15 @@
 #define RKR(q)   idx2(RKR, q)
 #define A_DIM    (11)
 #define A(b, c)  idx2(A, (((b)*A_DIM)+c) )
-
 #define ROP2(a)  (RKF(a) - RKR (a))
-
-
 __kernel void
 rdwdot10_kernel (__global const real* RKF, __global const real* RKR,
 		__global real* WDOT, const real rateconv, __global const real* molwt)
 {
-
     real ROP12 = ROP2(12) + ROP2(13) + ROP2(14)+ ROP2(15);
     real ROP22 = ROP2(22) + ROP2(23);
     real ROP27 = ROP2(27) + ROP2(28);
     real ROP5 = ROP2(5) + ROP2(6) + ROP2(7) + ROP2(8);
-
     WDOT(1) = (-ROP2(2) -ROP2(3) +ROP5 +ROP2(18)
             +ROP2(24) -ROP2(31) -ROP2(36) +ROP2(42)
             -ROP2(49) +ROP2(58) +ROP2(60) +ROP2(61)
@@ -78,7 +71,6 @@ rdwdot10_kernel (__global const real* RKF, __global const real* RKR,
             +ROP2(127) +ROP2(133) +ROP2(134) +ROP2(150)
             +ROP2(155) +ROP2(157) +ROP2(171) +ROP2(180)
             +ROP2(192) +ROP2(200))*rateconv*molwt[0] ;
-
     WDOT(3) = (+ROP2(1) -ROP2(2) +ROP2(4) -ROP2(10)
             -ROP2(11) -ROP2(11) +ROP2(17) -ROP2(20)
             -ROP2(26) -ROP2(29) +ROP2(32) -ROP2(34)
@@ -90,7 +82,6 @@ rdwdot10_kernel (__global const real* RKF, __global const real* RKR,
             -ROP2(151) -ROP2(158) -ROP2(159) -ROP2(160)
             -ROP2(172) -ROP2(173) -ROP2(181) -ROP2(193)
             -ROP2(194) -ROP2(195) -ROP2(201))*rateconv *molwt[2];
-
     WDOT(4) = (-ROP2(1) +ROP2(11) -ROP12 +ROP2(18)
             +ROP2(20) +ROP2(21) +ROP22 -ROP2(32)
             -ROP2(38) -ROP2(47) -ROP2(51) -ROP2(52)
@@ -106,4 +97,3 @@ rdwdot10_kernel (__global const real* RKF, __global const real* RKR,
             +ROP2(104) +ROP2(131) +ROP2(137) +ROP2(152)
             +ROP2(161) +ROP2(182) +ROP2(196) +ROP2(202))*rateconv *molwt[5];
 }
-

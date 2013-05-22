@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RunConfiguration>
+  <ProgramFile compilation_flags="-DPI=3.1415926535897931 -DNUMCHANXNUMCHROW=28416 -DNUMCHROW=32 -DNUMCHAN=888 -DBETAKNAUGHT=-0.8527057766914368 -DBETAINC=-0.0063853509219305 -DNS2ISO=551.4445190429687500 -DPIDIV2=1.5707963267948966 -DVIEWINCZ=0.0000000000000000 -DCENTCHROWXNDETZ=15.5000000000000000 -DCENTCHROW=15.5000000000000000 -DNS2ISO2=304091.0625000000000000 -DNDETZ2=1.0000000000000000 -DDETANGLERAD=0.0010814939159900 -DCENTCHAN=444.7500000000000000 -DVOLAREA=262144 -DVOLW=512 -DVOLWDIV2=256.0000000000000000 -DVOLVOL=262656 -DVOLD=32 -DYVALINIT=-255.5000000000000000 -DTABLEDIR=-1 -DZSOURCE_AX=16.0000000000000000 -DHELICAL=0 -I stdio.h">Fp3d.0.c</ProgramFile>
+  <ProgramFileType>CL</ProgramFileType>
+  <UseVTune>0</UseVTune>
+  <UseVectorizer>1</UseVectorizer>
+  <KernelConfiguration Name="Foo">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>16</LocalWorkSize>
+    <GlobalWorkSize>16</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>Fp3d.0.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>Fp3d.0.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>Fp3d.0.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+</RunConfiguration>

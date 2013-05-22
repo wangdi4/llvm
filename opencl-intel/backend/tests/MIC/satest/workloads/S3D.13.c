@@ -5,10 +5,8 @@
 #define DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #endif
-
 //replace divisions by multiplication with the reciprocal
 #define REPLACE_DIV_WITH_RCP 1
-
 //Call the appropriate math function based on precision
 #ifdef DOUBLE_PRECISION
 #define real double
@@ -41,7 +39,6 @@
 #define LOG log
 #define LOG10 log10
 #endif
-
 //Kernel indexing macros
 #define thread_num (get_global_id(0))
 #define idx2(p,z) (p[(((z)-1)*(N_GP)) + thread_num])
@@ -58,31 +55,25 @@
 #define RKR(q)   idx2(RKR, q)
 #define A_DIM    (11)
 #define A(b, c)  idx2(A, (((b)*A_DIM)+c) )
-
-
 __kernel void
 ratxb_kernel(__global const real* T, __global const real* C, __global real* RF,
 		__global real* RB, __global const real* RKLOW, const real TCONV)
 {
-
     const real TEMP = T[get_global_id(0)]*TCONV;
     const real ALOGT = LOG((TEMP));
     real CTOT = 0.0f;
     real PR, PCOR, PRLOG, FCENT, FCLOG, XN;
     real CPRLOG, FLOG, FC, SQR;
-
 #ifdef DOUBLE_PRECISION
     const real SMALL = 1.0e-200;
 #else
     const real SMALL = FLT_MIN;
 #endif
-
 //#pragma unroll 22
     for (unsigned int k=1; k<=22; k++)
     {
         CTOT += C(k);
     }
-
     real CTB_5  = CTOT - C(1) - C(6) + C(10) - C(12) + 2.e0*C(16)
                 + 2.e0*C(14) + 2.e0*C(15) ;
     real CTB_9  = CTOT - 2.7e-1*C(1) + 2.65e0*C(6) + C(10) + 2.e0*C(16)
@@ -99,7 +90,6 @@ ratxb_kernel(__global const real* T, __global const real* C, __global real* RF,
                 + 2.e0*C(14) + 2.e0*C(15) ;
     real CTB_190= CTOT + C(1) + 5.e0*C(6) + C(10) + 5.e-1*C(11)
                 + C(12) + 2.e0*C(16) ;
-
     RF(5) = RF(5)*CTB_5*C(2)*C(2);
     RB(5) = RB(5)*CTB_5*C(1);
     RF(9) = RF(9)*CTB_9*C(2)*C(5);
@@ -116,8 +106,6 @@ ratxb_kernel(__global const real* T, __global const real* C, __global real* RF,
     RB(46) = RB(46)*CTB_10*C(11)*C(2);
     RF(121) = RF(121)*CTOT*C(14)*C(9);
     RB(121) = RB(121)*CTOT*C(20);
-
-
     PR = RKLOW(13) * DIV(CTB_10, RF(126));
     PCOR = DIV(PR, (1.0 + PR));
     PRLOG = LOG10(MAX(PR,SMALL));
@@ -132,7 +120,6 @@ ratxb_kernel(__global const real* T, __global const real* C, __global real* RF,
     PCOR = FC * PCOR;
     RF(126) = RF(126) * PCOR;
     RB(126) = RB(126) * PCOR;
-
     PR = RKLOW(14) * DIV(CTB_10, RF(132));
     PCOR = DIV(PR, (1.0 + PR));
     PRLOG = LOG10(MAX(PR,SMALL));
@@ -147,7 +134,6 @@ ratxb_kernel(__global const real* T, __global const real* C, __global real* RF,
     PCOR = FC * PCOR;
     RF(132) = RF(132) * PCOR;
     RB(132) = RB(132) * PCOR;
-
     PR = RKLOW(15) * DIV(CTB_10, RF(145));
     PCOR = DIV(PR, (1.0 + PR));
     PRLOG = LOG10(MAX(PR,SMALL));
@@ -162,7 +148,6 @@ ratxb_kernel(__global const real* T, __global const real* C, __global real* RF,
     PCOR = FC * PCOR;
     RF(145) = RF(145) * PCOR;
     RB(145) = RB(145) * PCOR;
-
     PR = RKLOW(16) * DIV(CTB_10, RF(148));
     PCOR = DIV(PR, (1.0 + PR));
     PRLOG = LOG10(MAX(PR,SMALL));
@@ -177,7 +162,6 @@ ratxb_kernel(__global const real* T, __global const real* C, __global real* RF,
     PCOR = FC * PCOR;
     RF(148) = RF(148) * PCOR;
     RB(148) = RB(148) * PCOR;
-
     PR = RKLOW(17) * DIV(CTB_10, RF(155));
     PCOR = DIV(PR, (1.0 + PR));
     PRLOG = LOG10(MAX(PR,SMALL));
@@ -192,7 +176,6 @@ ratxb_kernel(__global const real* T, __global const real* C, __global real* RF,
     PCOR = FC * PCOR;
     RF(155) = RF(155) * PCOR;
     RB(155) = RB(155) * PCOR;
-
     PR = RKLOW(18) * DIV(CTB_10, RF(156));
     PCOR = DIV(PR, (1.0 + PR));
     PRLOG = LOG10(MAX(PR,SMALL));
@@ -207,7 +190,6 @@ ratxb_kernel(__global const real* T, __global const real* C, __global real* RF,
     PCOR = FC * PCOR;
     RF(156) = RF(156) * PCOR;
     RB(156) = RB(156) * PCOR;
-
     PR = RKLOW(19) * DIV(CTB_10, RF(170));
     PCOR = DIV(PR, (1.0 + PR));
     PRLOG = LOG10(MAX(PR,SMALL));
@@ -222,7 +204,6 @@ ratxb_kernel(__global const real* T, __global const real* C, __global real* RF,
     PCOR = FC * PCOR;
     RF(170) = RF(170) * PCOR;
     RB(170) = RB(170) * PCOR;
-
     PR = RKLOW(20) * DIV(CTB_10, RF(185));
     PCOR = DIV(PR, (1.0 + PR));
     PRLOG = LOG10(MAX(PR,SMALL));
@@ -237,7 +218,6 @@ ratxb_kernel(__global const real* T, __global const real* C, __global real* RF,
     PCOR = FC * PCOR;
     RF(185) = RF(185) * PCOR;
     RB(185) = RB(185) * PCOR;
-
     PR = RKLOW(21) * DIV(CTB_190, RF(190));
     PCOR = DIV(PR, (1.0 + PR));
     PRLOG = LOG10(MAX(PR,SMALL));
@@ -252,6 +232,4 @@ ratxb_kernel(__global const real* T, __global const real* C, __global real* RF,
     PCOR = FC * PCOR;
     RF(190) = RF(190) * PCOR;
     RB(190) = RB(190) * PCOR;
-
 }
-

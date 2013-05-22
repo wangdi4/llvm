@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RunConfiguration>
+  <ProgramFile compilation_flags="-DLROWS=16 -DLCOLS=16 -DK_DOUBLE_PRECISION">DeviceMemory.2.c</ProgramFile>
+  <ProgramFileType>CL</ProgramFileType>
+  <UseVTune>0</UseVTune>
+  <UseVectorizer>1</UseVectorizer>
+  <KernelConfiguration Name="Foo">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>16</LocalWorkSize>
+    <GlobalWorkSize>16</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>DeviceMemory.2.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>DeviceMemory.2.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>DeviceMemory.2.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+</RunConfiguration>
