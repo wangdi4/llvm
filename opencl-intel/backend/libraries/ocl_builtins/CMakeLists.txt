@@ -478,6 +478,7 @@ endfunction( create_target)
 # OpenCL source code
 list (APPEND OCL_SOURCE_FILES
   image_functions.cpp
+  cbk_helper.c
   masked_load_store_functions.cpp
   transpose_functions.cpp
   )
