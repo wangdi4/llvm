@@ -46,6 +46,7 @@ namespace Validation
         RC_BR_USE_VTUNE,
         RC_BR_PRINT_BUILD_LOG,
         RC_BR_BUILD_ONLY,
+        RC_BR_STOP_BEFORE_JIT,
         RC_BR_DUMP_IR_AFTER,
         RC_BR_DUMP_IR_BEFORE,
         RC_BR_DUMP_IR_DIR,
@@ -53,6 +54,7 @@ namespace Validation
         RC_BR_TIME_PASSES,
         RC_BR_DUMP_HEURISTIC_IR,
         RC_BR_PERF_LOG,
+        RC_BR_OBJECT_FILE,
         // Reference runner specific options
         RC_REF_USE_NEAT,
         RC_REF_USE_FMA_NEAT,
@@ -85,6 +87,7 @@ namespace Validation
         bool m_printBuildLog;
         bool m_runSingleWG;
         bool m_buildOnly;
+        bool m_stopBeforeJIT;
         uint32_t m_defaultLocalWGSize;
         uint64_t m_RandomDataGeneratorSeed;
         uint32_t  m_buildIterationsCount;
@@ -99,6 +102,7 @@ namespace Validation
         std::string m_DumpIRDir;
         std::string m_DumpJIT;
         std::string m_TimePasses;
+        std::string m_InjectedObject;
         bool m_dumpHeuristcIR;
     };
 

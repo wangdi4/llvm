@@ -37,6 +37,18 @@ ConfigFile("config",
            llvm::cl::value_desc("filename"));
 
 llvm::cl::opt<std::string>
+ObjectFile("inject-object-file",
+           llvm::cl::ValueOptional,
+           llvm::cl::desc("Execute pre-compiled object file"),
+           llvm::cl::value_desc("filename"));
+
+// Enable VTune support in Volcano.
+llvm::cl::opt<bool>
+StopBeforeJIT("stop-before-jit",
+        llvm::cl::desc("Stops compilation after all optmization passes, but before binary generation."),
+        llvm::cl::init(false));
+
+llvm::cl::opt<std::string>
 BaseDirectory("basedir",
            llvm::cl::desc("Base directory to use for configuration and data files lookup. "
                           "Default value - configuration file directory."),
@@ -68,7 +80,7 @@ TransposeSize("tsize",
 
 llvm::cl::opt<std::string>
 CPUArch("cpuarch",
-         llvm::cl::desc("CPU Architecture: auto, core2, corei7, corei7-avx, haswell, knc"),
+         llvm::cl::desc("CPU Architecture: auto, core2, corei7, corei7-avx, core-avx2, knc, knl"),
          llvm::cl::init("auto")
          );
 
@@ -124,10 +136,10 @@ ExecuteIterations("execute-iterations",
 llvm::cl::opt<TEST_MODE>
 TestMode(llvm::cl::desc("Test mode:"),
          llvm::cl::values(
-         clEnumValN(VALIDATION,  "VAL",   "Validation mode"),
-         clEnumValN(REFERENCE,   "REF",   "Reference mode"),
-         clEnumValN(PERFORMANCE, "PERF",  "Performance mode"),
-         clEnumValN(BUILD,       "BUILD", "Build only mode"),
+         clEnumValN(VALIDATION,  "VAL",     "Validation mode"),
+         clEnumValN(REFERENCE,   "REF",     "Reference mode"),
+         clEnumValN(PERFORMANCE, "PERF",    "Performance mode"),
+         clEnumValN(BUILD,       "BUILD",   "Build only mode"),
          clEnumValEnd));
 
 llvm::cl::opt<std::string>

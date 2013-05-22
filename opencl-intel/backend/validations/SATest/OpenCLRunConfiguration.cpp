@@ -79,6 +79,9 @@ extern llvm::cl::opt<bool>
 UseVTune;
 
 extern llvm::cl::opt<bool>
+StopBeforeJIT;
+
+extern llvm::cl::opt<bool>
 PrintBuildLog;
 
 extern llvm::cl::list<Intel::OpenCL::DeviceBackend::IRDumpOptions>
@@ -101,6 +104,9 @@ TimePasses;
 
 extern llvm::cl::opt<uint64_t>
 RandomDGSeed;
+
+extern llvm::cl::opt<std::string>
+ObjectFile;
 
 namespace Validation
 {
@@ -147,6 +153,8 @@ namespace Validation
             return m_measurePerformance;
         case RC_BR_BUILD_ONLY :
             return m_buildOnly;
+        case RC_BR_STOP_BEFORE_JIT:
+            return m_stopBeforeJIT;
         case RC_BR_DUMP_HEURISTIC_IR :
             return m_dumpHeuristcIR;
         default:
@@ -201,6 +209,8 @@ namespace Validation
             return m_TimePasses;
         case RC_BR_PERF_LOG:
             return m_perfLogFile;
+        case RC_BR_OBJECT_FILE:
+            return m_InjectedObject;
         default:
             return defaultValue;
         }
@@ -250,6 +260,7 @@ namespace Validation
         m_useSDE = ::SDEEnabled;
         m_useTraceMarks = ::TraceMarks;
         m_buildOnly = (::TestMode == BUILD);
+        m_stopBeforeJIT = ::StopBeforeJIT;
         m_runSingleWG = ::RunSingleWG;
         m_useVTune = ::UseVTune;
         m_printBuildLog = ::PrintBuildLog;
@@ -262,6 +273,7 @@ namespace Validation
         m_DumpIRDir = ::DumpIRDir;
         m_DumpJIT = ::DumpJIT;
         m_TimePasses = ::TimePasses;
+        m_InjectedObject = ::ObjectFile;
         m_dumpHeuristcIR = ::DumpHeuristicIR;
     }
 

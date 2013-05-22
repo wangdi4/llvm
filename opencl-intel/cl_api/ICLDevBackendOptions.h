@@ -8,7 +8,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
  */
 enum cl_dev_backend_options                     // Description                           | Type        | Values/Format/Exampl
 {                                               // --------------------------------------+-------------+----------------------
-	CL_DEV_BACKEND_OPTION_DEVICE,               //!< Device selection                    |string       | "mic","cpu"
+    CL_DEV_BACKEND_OPTION_DEVICE,               //!< Device selection                    |string       | "mic","cpu"
     CL_DEV_BACKEND_OPTION_SUBDEVICE,            //!< Sub-device selection                |string       | "corei7","sandybride" for cpu or "knc" for mic
     CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES,   //!< Enable/Disable specific CPU features|string       | "+avx,-avx256"
     CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE,       //!< Transpose size use in vectorizer    |ETranposeSize|
@@ -24,7 +24,8 @@ enum cl_dev_backend_options                     // Description                  
     CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR,    //!< Print IR input to heuristic         |boolean      |
     CL_DEV_BACKEND_OPTION_INJECTED_OBJECT,      //!< Pointer to preloaded object file    |pointer      |
     CL_DEV_BACKEND_OPTION_DUMPFILE,             //!< file name to store the dump into    |string       |
-    CL_DEV_BACKEND_OPTION_APF_LEVEL            //!< select auto-prefetch level           |int          | 0 - 3
+    CL_DEV_BACKEND_OPTION_APF_LEVEL,            //!< select auto-prefetch level          |int          | 0 - 3
+    CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT       //!< Stops compilation before JITing     |boolean      | (Used for early AVX3 development)
 };
 
 /*! \enum cl_dev_backend_dump_options

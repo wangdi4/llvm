@@ -502,7 +502,7 @@ private:
 class BuildProgramOptions: public ICLDevBackendOptions
 {
 public:
-    BuildProgramOptions() : m_pInjectedObjectStart(NULL) {}
+    BuildProgramOptions() : m_pInjectedObjectStart(NULL), m_bStopBeforeJIT(false) {}
 
     void SetInjectedObject(const char* pInjectedObjectStart, size_t injectedObjectSize)
     {
@@ -517,7 +517,13 @@ public:
 
     bool GetBooleanValue(int optionId, bool defaultValue) const
     {
-        return defaultValue;
+        switch(optionId)
+        {
+        case CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT:
+            return m_bStopBeforeJIT;
+        default:
+            return defaultValue;
+        }
     }
 
     int GetIntValue( int optionId, int defaultValue) const
@@ -542,10 +548,12 @@ public:
                 return false;
         }
     }
+    void SetStopBeforeJIT() { m_bStopBeforeJIT = true; }
 
 private:
     const char*  m_pInjectedObjectStart;
     size_t       m_injectedObjectSize;
+    bool         m_bStopBeforeJIT;
 };
 
 } // namespace Validation

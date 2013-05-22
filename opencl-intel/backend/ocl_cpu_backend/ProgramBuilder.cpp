@@ -112,12 +112,15 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
         PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
 
-        //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Start iterating over kernels");
-        KernelSet* pKernels = CreateKernels( pProgram,
-                                             spModule.get(),
-                                             buildResult);
+        if (!(pOptions && pOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
+        {
+            //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Start iterating over kernels");
+            KernelSet* pKernels = CreateKernels( pProgram,
+                                                 spModule.get(),
+                                                 buildResult);
 
-        pProgram->SetKernelSet( pKernels);
+            pProgram->SetKernelSet( pKernels);
+        }
         pProgram->SetModule( spModule.release());
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
@@ -217,7 +220,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     const bool hasBarrier = skimd->getKernelHasBarrier();
     const size_t scalarExecutionLength = skimd->getKernelExecutionLength();
     const unsigned int scalarBufferStride = skimd->getBarrierBufferSize();
-    
+
     size_t vectorExecutionLength = 0;
     unsigned int vectorBufferStride = 0;
     //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
