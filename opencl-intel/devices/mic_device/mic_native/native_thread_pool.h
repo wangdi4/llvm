@@ -186,9 +186,8 @@ private:
     Intel::OpenCL::Utils::AtomicCounter m_workersCount; // used for worker id allocation also
 #endif // #if (defined(ENABLE_TBB_TRACER) || defined(ENABLE_MIC_TBB_TRACER))        
 
-    static ThreadPool* m_threadPool;
-    static __thread WGContext* m_tpMasterCtx;
+    static ThreadPool*          m_threadPool;
+    static __thread WGContext*  m_tpMasterCtx;
 };
 
 }}}
-

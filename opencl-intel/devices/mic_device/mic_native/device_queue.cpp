@@ -204,9 +204,8 @@ void QueueOnDevice::execute_command(
     // currently monitor only IN-ORDER queue
     if ( gMicGPAData.bUseGPA && queue->isInOrder() )
     {
-      __itt_frame_begin_v3(gMicGPAData.pDeviceDomain, NULL);
 #if defined(USE_ITT_INTERNAL)
-      static __itt_string_handle* pTaskName = NULL;
+      static __thread __itt_string_handle* pTaskName = NULL;
       if ( NULL == pTaskName )
       {
         pTaskName = __itt_string_handle_create("QueueOnDevice::execute_command");
@@ -275,7 +274,6 @@ void QueueOnDevice::execute_command(
 	  // Monitor only IN-ORDER queue
     if ( gMicGPAData.bUseGPA && queue->isInOrder())
     {
-      __itt_frame_end_v3(gMicGPAData.pDeviceDomain, NULL);
 #if defined(USE_ITT_INTERNAL)
       __itt_task_end(gMicGPAData.pDeviceDomain);
 #endif

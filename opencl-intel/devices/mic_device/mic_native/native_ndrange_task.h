@@ -135,6 +135,7 @@ private:
 #endif
 #ifdef USE_ITT
     __itt_string_handle*        m_pIttKernelName;
+    __itt_domain*               m_pIttKernelDomain;
 #endif
 };
 

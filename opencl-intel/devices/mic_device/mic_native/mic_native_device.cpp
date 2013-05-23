@@ -54,7 +54,7 @@ void init_device(uint32_t in_BufferCount,
       gMicGPAData.bUseGPA = true;
       if ( NULL == gMicGPAData.pDeviceDomain )
       {
-        gMicGPAData.pDeviceDomain   = __itt_domain_create("com.intel.open_cl.device.mic");
+        gMicGPAData.pDeviceDomain   = __itt_domain_create("com.intel.opencl.device.mic");
         gMicGPAData.pNDRangeHandle  = __itt_string_handle_create("NDRange");
       }
     }

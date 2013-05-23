@@ -370,14 +370,14 @@ cl_dev_err_code ProgramService::add_program(
 	prog_entry->pKernels = new TKernelEntry[kernels_count];
 	if ( NULL == prog_entry->pKernels )
 	{
-	NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TKernelEntry[kernels_count], kernels_count=%d", kernels_count);
-	return CL_DEV_OUT_OF_MEMORY;
+	    NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TKernelEntry[kernels_count], kernels_count=%d", kernels_count);
+	    return CL_DEV_OUT_OF_MEMORY;
 	}
 
 	for (int i = 0; i < kernels_count; ++i)
 	{
 		be_err = prog_entry->pProgram->GetKernel(i, &(prog_entry->pKernels[i].kernel) );
-		assert( CL_DEV_SUCCEEDED(be_err) && "ProgramService::add_program: Cannot get kernel from deserialized program" );
+		assert( CL_DEV_SUCCEEDED(be_err) && "ProgramService::add_program: Cannot get kernel from de-serialized program" );
 		if ( CL_DEV_FAILED(be_err) )
 		{
 			break;
@@ -386,7 +386,24 @@ cl_dev_err_code ProgramService::add_program(
 #ifdef USE_ITT
 		if ( gMicGPAData.bUseGPA)
 		{
-			prog_entry->pKernels[i].pIttKernelName = __itt_string_handle_create(prog_entry->pKernels[i].kernel->GetKernelName());
+			static const char kernelDomainNamePrefix[] = "com.intel.opencl.device.mic.";
+			static const size_t maxKernelDomainLenght = 256;
+
+			const char* kernelName = prog_entry->pKernels[i].kernel->GetKernelName();
+
+			prog_entry->pKernels[i].pIttKernelName = __itt_string_handle_create(kernelName);
+
+			// Create private domain per kernel
+			if ( strlen(kernelDomainNamePrefix)+strlen(kernelName) < maxKernelDomainLenght)
+			{
+				char kernelDomainName[maxKernelDomainLenght];
+				sprintf(kernelDomainName, "%s%s", kernelDomainNamePrefix, kernelName);
+				prog_entry->pKernels[i].pIttKernelDomain = __itt_domain_create(kernelDomainName);
+			}
+			else
+			{
+				prog_entry->pKernels[i].pIttKernelDomain = NULL;
+			}
 		}
 #endif
 		// add kernel info to the return struct
@@ -501,6 +518,18 @@ __itt_string_handle* ProgramService::get_itt_kernel_name(uint64_t device_info_pt
 
 	TKernelEntry* k_entry = (TKernelEntry*)(size_t)device_info_ptr;
 	return k_entry->pIttKernelName;
+}
+
+__itt_domain* ProgramService::get_itt_kernel_domain(uint64_t device_info_ptr)
+{
+	assert( 0 != device_info_ptr && "Invalid arguments passed");
+	if ( 0 == device_info_ptr )
+	{
+		return NULL;
+	}
+
+	TKernelEntry* k_entry = (TKernelEntry*)(size_t)device_info_ptr;
+	return k_entry->pIttKernelDomain;
 }
 #endif
 

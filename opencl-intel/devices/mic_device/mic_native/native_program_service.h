@@ -118,6 +118,7 @@ public:
 
 #ifdef USE_ITT
 	static __itt_string_handle* get_itt_kernel_name(uint64_t device_info_ptr);
+	static __itt_domain*        get_itt_kernel_domain(uint64_t device_info_ptr);
 #endif
 
 private:
@@ -146,6 +147,7 @@ private:
       const ICLDevBackendKernel_* kernel;         // The pointer is not required to be deleted
   #ifdef USE_ITT
       __itt_string_handle*  pIttKernelName;   // The value is not required to freed by the ITT
+      __itt_domain*         pIttKernelDomain;
   #endif
 
       // constructor

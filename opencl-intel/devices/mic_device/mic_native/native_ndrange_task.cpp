@@ -61,6 +61,9 @@ NDRangeTask::NDRangeTask( const QueueOnDevice& queue ) : TaskHandler( queue ),
 #ifdef ENABLE_MIC_TRACER
     ,m_tbb_perf_data(*this)
 #endif    
+#ifdef __USE_ITT__
+    ,m_pIttKernelName(NULL), m_pIttKernelDomain(NULL)
+#endif
 {
 }
 
@@ -108,13 +111,25 @@ bool NDRangeTask::InitTask()
 #endif
 
 #ifdef USE_ITT
-	m_pIttKernelName = ProgramService::get_itt_kernel_name(pDispatcherData->kernelDirective.kernelAddress);
+  if ( gMicGPAData.bUseGPA)
+  {
+
+	    m_pIttKernelName = ProgramService::get_itt_kernel_name(pDispatcherData->kernelDirective.kernelAddress);
+	    m_pIttKernelDomain = ProgramService::get_itt_kernel_domain(pDispatcherData->kernelDirective.kernelAddress);
+	    // Use kernel specific domain if possible, if not available switch to global domain
+	    if ( NULL == m_pIttKernelDomain )
+	    {
+	        m_pIttKernelDomain = gMicGPAData.pDeviceDomain;
+	    }
+
+	    __itt_frame_begin_v3(m_pIttKernelDomain, NULL);
+  }
 #endif
 
 	// Set command identifier
 	m_commandIdentifier = pDispatcherData->commandIdentifier;
 
-	// Set kernel args blob (Still have to set the buffers pointer in the blob)
+	// Set kernel arguments blob (Still have to set the buffers pointer in the blob)
 	if (pDispatcherData->kernelArgSize > 0)
 	{
 		m_lockedParams = (char*)((char*)pDispatcherData + pDispatcherData->kernelArgBlobOffset);
@@ -229,6 +244,13 @@ void NDRangeTask::FinishTask()
 	{
 		m_pBinary->Release();
 	}
+
+#ifdef USE_ITT
+  if ( gMicGPAData.bUseGPA)
+  {
+      __itt_frame_end_v3(m_pIttKernelDomain, NULL);
+  }
+#endif
 
 	ndrange_dispatcher_data* pDispatcherData = (ndrange_dispatcher_data*)(m_dispatcherData);
 	assert(pDispatcherData);
@@ -345,7 +367,7 @@ int NDRangeTask::Init(size_t region[], unsigned int& regCount)
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
-      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, m_pIttKernelName);
+		__itt_task_begin(m_pIttKernelDomain, __itt_null, __itt_null, m_pIttKernelName);
     }
 #endif
 
@@ -365,7 +387,7 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
-      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, m_pIttKernelName);
+		__itt_task_begin(m_pIttKernelDomain, __itt_null, __itt_null, m_pIttKernelName);
     }
 #endif
 
@@ -438,7 +460,7 @@ void NDRangeTask::DetachFromThread(void* pWgContext)
     if ( gMicGPAData.bUseGPA)
     {
 
-      __itt_task_end(gMicGPAData.pDeviceDomain);
+		__itt_task_end(m_pIttKernelDomain);
     }
 #endif
 
@@ -484,8 +506,7 @@ bool NDRangeTask::Finish(FINISH_REASON reason)
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
-
-      __itt_task_end(gMicGPAData.pDeviceDomain);
+		__itt_task_end(m_pIttKernelDomain);
     }
 #endif
 
