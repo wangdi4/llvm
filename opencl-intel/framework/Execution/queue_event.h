@@ -61,7 +61,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ~QueueEvent();
 
         SharedPtr<IOclCommandQueueBase>   GetEventQueue() const { return m_pEventQueue;}
-		void SetEventQueue(SharedPtr<IOclCommandQueueBase> pQueue) { m_pEventQueue = pQueue;}
+		void SetEventQueue(SharedPtr<IOclCommandQueueBase> pQueue);
+
+        cl_command_queue GetEventQueueHandle() const { return m_pEventQueueHandle; }
 
 		cl_command_queue GetQueueHandle() const;
 		cl_int           GetReturnCode() const;
@@ -96,8 +98,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool					m_bCommandSubmitValid;
 		bool					m_bCommandStartValid;
 		bool					m_bCommandEndValid;
-		Command*				m_pCommand;             // Pointer to the command represented by this event
-		SharedPtr<IOclCommandQueueBase>   m_pEventQueue;          // Pointer to the queue that this event was enqueued on  
+		Command*				m_pCommand;                 // Pointer to the command represented by this event
+		SharedPtr<IOclCommandQueueBase>   m_pEventQueue;    // Pointer to the queue that this event was enqueued on
+        cl_command_queue        m_pEventQueueHandle;        // A cached copy of m_pEventQueue's handle to use in QueueEvent::GetInfo
 	
 	private:
 

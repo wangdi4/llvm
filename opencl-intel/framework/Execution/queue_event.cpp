@@ -43,7 +43,8 @@ using namespace Intel::OpenCL::Utils;
 ******************************************************************/
 QueueEvent::QueueEvent(SharedPtr<IOclCommandQueueBase> cmdQueue) :
 	OclEvent(cmdQueue?cmdQueue->GetParentHandle():CL_INVALID_HANDLE),
-	m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue)
+	m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue),
+	m_pEventQueueHandle(m_pEventQueue->GetHandle())
 {
 	m_sProfilingInfo.m_ulCommandQueued	= 0;
 	m_sProfilingInfo.m_ulCommandSubmit	= 0;
@@ -105,7 +106,7 @@ cl_err_code QueueEvent::GetInfo(cl_int paramName, size_t paramValueSize, void * 
 	switch (paramName)
 	{
 	case CL_EVENT_COMMAND_QUEUE:
-		cmd_queue = GetEventQueue()->GetHandle();
+		cmd_queue = GetEventQueueHandle();
 		localParamValue = &cmd_queue;
 		outputValueSize = sizeof(cl_command_queue);
 		break;
@@ -397,6 +398,12 @@ void QueueEvent::NotifyComplete(cl_int returnCode /* = CL_SUCCESS */)
     //No longer need my queue reference
     m_pEventQueue = NULL;
     MarkAsComplete();
+}
+
+void QueueEvent::SetEventQueue(SharedPtr<IOclCommandQueueBase> pQueue)
+{
+    m_pEventQueue = pQueue;
+    m_pEventQueueHandle = m_pEventQueue->GetHandle();
 }
 
 cl_command_queue QueueEvent::GetQueueHandle() const
