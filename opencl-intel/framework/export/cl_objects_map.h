@@ -176,6 +176,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_uint	Count() const;
 
 		/******************************************************************************************
+		* Function: 	ForEach
+		* Description:	Call a functor for each object in the map
+		* Arguments:	F - type of functor, which must have a method bool operator()(const SharedPtr<OCLObject<HandleType, ParentHandleType> >& obj).
+		* 					obj - the object on which to perform the operation
+		* 					returns whether to continue traversing the map
+		* Return value:	whether all objects have been traversed
+		* Author:		Aharon Abramson
+		* Date:			May 2013
+		******************************************************************************************/
+		template<class F>
+		bool ForEach(F& functor);
+
+		/******************************************************************************************
 		* Function: 	ReleaseObject    
 		* Description:	calls ->Release() on the given object and removes it from the map if applicable
 		* Return Value: Whatever ->Release() returned or CL_ERR_KEY_NOT_FOUND

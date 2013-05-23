@@ -2914,22 +2914,45 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
 #endif
 }
 
-cl_err_code ExecutionModule::FlushAllQueuesForContext(cl_context clEventsContext)
+class QueueFlusher
 {
-	for (cl_uint ui=0; ui<m_pOclCommandQueueMap->Count(); ++ui)
+public:
+
+	QueueFlusher(cl_context context) : m_context() { }
+
+	bool operator()(const SharedPtr<OCLObject<_cl_command_queue_int, _cl_context_int> >& pObj)
 	{
-        SharedPtr<IOclCommandQueueBase> pQueue = m_pOclCommandQueueMap->GetObjectByIndex(ui).DynamicCast<IOclCommandQueueBase>();
+		assert(pObj != NULL && "got NULL for queue");
+		if (NULL == pObj)
+		{
+			return false;
+		}
+
+		SharedPtr<IOclCommandQueueBase> pQueue = pObj.DynamicCast<IOclCommandQueueBase>();
 		if (NULL == pQueue)
 		{
-			return CL_ERR_KEY_NOT_FOUND;
+			return false;
 		}
 
 		cl_context queueContext = (cl_context)pQueue->GetParentHandle();
-		if(queueContext == clEventsContext)
+		if (queueContext == m_context)
 		{
-			// Flush
 			pQueue->Flush(false);
 		}
+		return true;
+	}
+
+private:
+
+	cl_context m_context;
+};
+
+cl_err_code ExecutionModule::FlushAllQueuesForContext(cl_context clEventsContext)
+{
+	QueueFlusher flusher(clEventsContext);
+	if (!m_pOclCommandQueueMap->ForEach(flusher))
+	{
+		return CL_ERR_KEY_NOT_FOUND;
 	}
 	return CL_SUCCESS;
 }

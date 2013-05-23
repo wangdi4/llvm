@@ -106,6 +106,22 @@ SharedPtr<OCLObject<HandleType, ParentHandleType> > OCLObjectsMap<HandleType, Pa
 	return it->second;
 }
 
+template<class HandleType, class ParentHandleType>
+template<class F>
+bool OCLObjectsMap<HandleType, ParentHandleType>::ForEach(F& functor)
+{
+	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+
+	for (HandleTypeMapIterator iter = m_mapObjects.begin(); iter != m_mapObjects.end(); iter++)
+	{
+		if (!functor(iter->second))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 template <class HandleType, class ParentHandleType>
 cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::RemoveObject(HandleType* hObjectHandle)
 {
