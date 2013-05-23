@@ -1,326 +1,291 @@
-#define BLOCK_WIDTH 8
-#if 0 // comment out GPU version of kernel that could be used in future
-//The scalar version, optimized for GPU
-__kernel void DCT(__global float* output, __global float* input, __global float* dct, const uint width)
+//	nBodyVecKernel - evaluates NBody algorithm over overall body_count=body_count_per_item*global size bodies
+//	Each item evaluates velocity and position after time_delta units of time for its szElementsPerItem bodies within the input
+//	input_position_x - input array with current x axis position of the element
+//	input_position_y - input array with current y axis position of the element
+//	input_position_z - input array with current z axis position of the element
+//	mass - mass of the element
+//	input_velocity_x - input array with current x axis velocity of the element
+//	input_velocity_y - input array with current y axis velocity of the element
+//	input_velocity_z - input array with current z axis velocity of the element
+//	output_position_x - output array with current x axis position of the element
+//	output_position_y - output array with current y axis position of the element
+//	output_position_z - output array with current z axis position of the element
+//	output_velocity_x - output array with current x axis velocity of the element
+//	output_velocity_y - output array with current y axis velocity of the element
+//	output_velocity_z - output array with current z axis velocity of the element
+//	softening_squared - represents epsilon noise added to the distance evaluation between each pair of elements
+__kernel void
+nBodyVecKernel(
+		const __global float4 *input_position_x, const __global float4 *input_position_y, const __global float4 *input_position_z,
+		const __global float4 *mass,
+		const __global float *input_velocity_x, const __global float *input_velocity_y, const __global float *input_velocity_z,
+		__global float *output_position_x, __global float *output_position_y, __global float *output_position_z,
+		__global float *output_velocity_x, __global float *output_velocity_y, __global float *output_velocity_z,
+		int body_count, int body_count_per_item, float softening_squared, float time_delta
+		)
 {
-    uint globalIdx = get_global_id(0);
-    uint globalIdy = get_global_id(1);
-    uint groupIdx  = get_group_id(0);
-    uint groupIdy  = get_group_id(1);
-	__local float inter[BLOCK_WIDTH * BLOCK_WIDTH];
-    uint i  = get_local_id(1);
-	uint k1, k2, n1, n2;
-    uint idx = 0;
-	uint index1 = 0;
-	uint index2 = 0;
-	float acc[BLOCK_WIDTH] = {0.0f};
-	k1 = i;
-	//Calculate a single line from DCT^T * IN
-	index1 =  k1 * BLOCK_WIDTH;
-	index2 =  ( groupIdy * BLOCK_WIDTH ) * width + groupIdx * BLOCK_WIDTH;
-	for( int ind = 0; ind < BLOCK_WIDTH; ind++ )
+	int index = get_global_id(0);
+	const __global float *in_position_x = (const __global float *)input_position_x;
+	const __global float *in_position_y = (const __global float *)input_position_y;
+	const __global float *in_position_z = (const __global float *)input_position_z;
+	float4 position_x, position_y, position_z, m;
+	float4 current_x1, current_y1, current_z1, current_mass1;
+	float4 current_x2, current_y2, current_z2, current_mass2;
+	float4 velocity_x, velocity_y, velocity_z;
+	float4 zero = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+	int i, j, k, l;
+	int inner_loop_count = ((body_count >> 2)/3)*3;
+	int outer_loop_count = body_count_per_item;
+	int start = index * outer_loop_count;
+	int finish = start + outer_loop_count;
+	for (k = start; k < finish; k++)
 	{
-		for(n1 = 0; n1 < BLOCK_WIDTH; n1++)
+		position_x = (float4)(in_position_x[k]);
+		position_y = (float4)(in_position_y[k]);
+		position_z = (float4)(in_position_z[k]);
+		float4 acceleration_x1 = zero;
+		float4 acceleration_x2 = zero;
+		float4 acceleration_x3 = zero;
+		float4 acceleration_y1 = zero;
+		float4 acceleration_y2 = zero;
+		float4 acceleration_y3 = zero;
+		float4 acceleration_z1 = zero;
+		float4 acceleration_z2 = zero;
+		float4 acceleration_z3 = zero;
+		for (i = 0; i < inner_loop_count; i+=3)
 		{
-			acc[ind] += dct[index1 + n1] * input[index2 + n1];	//acc += dct(k1,n1) * in(n1,n2)
+			float4 dx1 = input_position_x[i] - position_x;
+			float4 dx2 = input_position_x[i+1] - position_x;
+			float4 dx3 = input_position_x[i+2] - position_x;
+			float4 dy1 = input_position_y[i] - position_y;
+			float4 dy2 = input_position_y[i+1] - position_y;
+			float4 dy3 = input_position_y[i+2] - position_y;
+			float4 dz1 = input_position_z[i] - position_z;
+			float4 dz2 = input_position_z[i+1] - position_z;
+			float4 dz3 = input_position_z[i+2] - position_z;
+			float4 distance_squared1 = dx1 * dx1 + dy1 * dy1 + dz1 * dz1;
+			float4 distance_squared2 = dx2 * dx2 + dy2 * dy2 + dz2 * dz2;
+			float4 distance_squared3 = dx3 * dx3 + dy3 * dy3 + dz3 * dz3;
+			distance_squared1 += softening_squared;
+			distance_squared2 += softening_squared;
+			distance_squared3 += softening_squared;
+			float4 inverse_distance1 = rsqrt(distance_squared1);
+			float4 inverse_distance2 = rsqrt(distance_squared2);
+			float4 inverse_distance3 = rsqrt(distance_squared3);
+			float4 mi1 = mass[i];
+			float4 mi2 = mass[i+1];
+			float4 mi3 = mass[i+2];
+			float4 s1 = (mi1 * inverse_distance1) * (inverse_distance1 * inverse_distance1);
+			float4 s2 = (mi2 * inverse_distance2) * (inverse_distance2 * inverse_distance2);
+			float4 s3 = (mi3 * inverse_distance3) * (inverse_distance3 * inverse_distance3);
+			acceleration_x1 += dx1 * s1;
+			acceleration_x2 += dx2 * s2;
+			acceleration_x3 += dx3 * s3;
+			acceleration_y1 += dy1 * s1;
+			acceleration_y2 += dy2 * s2;
+			acceleration_y3 += dy3 * s3;
+			acceleration_z1 += dz1 * s1;
+			acceleration_z2 += dz2 * s2;
+			acceleration_z3 += dz3 * s3;
 		}
-		index2 += width;
-	}
-	idx = k1 * BLOCK_WIDTH;
-	inter[idx + 0] = acc[0];	//inter[k1][0]
-	inter[idx + 1] = acc[1];	//inter[k1][1]
-	inter[idx + 2] = acc[2];	//inter[k1][2]
-	inter[idx + 3] = acc[3];	//inter[k1][3]
-	inter[idx + 4] = acc[4];	//inter[k1][4]
-	inter[idx + 5] = acc[5];	//inter[k1][5]
-	inter[idx + 6] = acc[6];	//inter[k1][6]
-	inter[idx + 7] = acc[7];	//inter[k1][7]
-    barrier(CLK_LOCAL_MEM_FENCE);
-	for(int ind = 0; ind < BLOCK_WIDTH; ind++)
-	{
-		acc[ind] = 0.0f;
-	}
-	k2 = i;
-	//Calculate a single line from (DCT^T * IN) * DCT
-	index1 =  0;
-	index2 =  k2 * BLOCK_WIDTH;
-	for( int ind = 0; ind < BLOCK_WIDTH; ind++ )
-	{
-		for(n2 = 0; n2 < BLOCK_WIDTH; n2++)
+		for (; i < (body_count>>2); i++)
 		{
-			acc[ind] += inter[index1 + n2] * dct[index2 + n2];  //acc += dct(k2,n2) * inter(k1,n2)
+			float4 dx1 = input_position_x[i] - position_x;
+			float4 dy1 = input_position_y[i] - position_y;
+			float4 dz1 = input_position_z[i] - position_z;
+			float4 distance_squared1 = dx1 * dx1 + dy1 * dy1 + dz1 * dz1;
+			distance_squared1 += softening_squared;
+			//float4 inverse_distance1 = __native_rsqrtf4(distance_squared1);
+			float4 inverse_distance1 = rsqrt(distance_squared1);
+			float4 mi1 = mass[i];
+			float4 s1 = (mi1 * inverse_distance1) * (inverse_distance1 * inverse_distance1);
+			acceleration_x1 += dx1 * s1;
+			acceleration_y1 += dy1 * s1;
+			acceleration_z1 += dz1 * s1;
 		}
-		index1 += BLOCK_WIDTH;
-	}
-	//write results to output
-	idx = ( groupIdy * BLOCK_WIDTH + k2 ) * width + groupIdx * BLOCK_WIDTH;
-    output[idx + 0] = acc[0];
-	output[idx + 1] = acc[1];
-	output[idx + 2] = acc[2];
-	output[idx + 3] = acc[3];
-	output[idx + 4] = acc[4];
-	output[idx + 5] = acc[5];
-	output[idx + 6] = acc[6];
-	output[idx + 7] = acc[7];
-}
-//The vector version, optimized for GPU
-__kernel void DCT_VECTOR(__global float8* output, __global float8* input, __global float8* dct, const uint width)
-{
-    uint globalIdx = get_global_id(0);
-    uint globalIdy = get_global_id(1);
-    uint groupIdx  = get_group_id(0);
-    uint groupIdy  = get_group_id(1);
-	__local float8 inter[BLOCK_WIDTH];
-    uint i  = get_local_id(1);
-	uint k1, k2, n1, n2;
-    uint idx = 0;
-    float8 acc = 0.0f;
-	float8 temp;
-	int step = width / BLOCK_WIDTH;
-	k1 = i;
-	//Calculate a single line from DCT^T * IN
-	uint index1 = k1;
-	uint index2 =  ( groupIdy * BLOCK_WIDTH ) * step + groupIdx;
-	temp = dct[index1] * input[index2];
-	acc.s0 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	index2 += step;
-	temp = dct[index1] * input[index2];
-	acc.s1 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	index2 += step;
-	temp = dct[index1] * input[index2];
-	acc.s2 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	index2 += step;
-	temp = dct[index1] * input[index2];
-	acc.s3 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	index2 += step;
-	temp = dct[index1] * input[index2];
-	acc.s4 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	index2 += step;
-	temp = dct[index1] * input[index2];
-	acc.s5 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	index2 += step;
-	temp = dct[index1] * input[index2];
-	acc.s6 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	index2 += step;
-	temp = dct[index1] * input[index2];
-	acc.s7 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	idx = k1;
-    inter[idx] = acc; //inter[k1]
-    barrier(CLK_LOCAL_MEM_FENCE);
-	k2 = i;
-	//Calculate a single line from (DCT^T * IN) * DCT
-	index2 =  k2;
-	temp = inter[0] * dct[index2];
-	acc.s0 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	temp = inter[1] * dct[index2];
-	acc.s1 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	temp = inter[2] * dct[index2];
-	acc.s2 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	temp = inter[3] * dct[index2];
-	acc.s3 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	temp = inter[4] * dct[index2];
-	acc.s4 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	temp = inter[5] * dct[index2];
-	acc.s5 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	temp = inter[6] * dct[index2];
-	acc.s6 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	temp = inter[7] * dct[index2];
-	acc.s7 = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-	//write results to output
-	idx = ( groupIdy * BLOCK_WIDTH + k2 ) * step + groupIdx;
-    output[idx] = acc;
-}
-//The same as DCT_VECTOR with "dot" builtin function
-__kernel void DCT_VECTOR_DOT(__global float8* output, __global float8* input, __global float8* dct, const uint width)
-{
-    uint globalIdx = get_global_id(0);
-    uint globalIdy = get_global_id(1);
-    uint groupIdx  = get_group_id(0);
-    uint groupIdy  = get_group_id(1);
-	__local float8 inter[BLOCK_WIDTH];
-    uint i  = get_local_id(1);
-	uint k1, k2, n1, n2;
-    uint idx = 0;
-    float8 acc = 0.0f;
-	int step = width / BLOCK_WIDTH;
-	k1 = i;
-	//Calculate a single line from DCT^T * IN
-	uint index1 = k1;
-	uint index2 =  ( groupIdy * BLOCK_WIDTH ) * step + groupIdx;
-	acc.s0 = dot(dct[index1].lo, input[index2].lo) + dot(dct[index1].hi, input[index2].hi);
-	index2 += step;
-	acc.s1 = dot(dct[index1].lo, input[index2].lo) + dot(dct[index1].hi, input[index2].hi);
-	index2 += step;
-	acc.s2 = dot(dct[index1].lo, input[index2].lo) + dot(dct[index1].hi, input[index2].hi);
-	index2 += step;
-	acc.s3 = dot(dct[index1].lo, input[index2].lo) + dot(dct[index1].hi, input[index2].hi);
-	index2 += step;
-	acc.s4 = dot(dct[index1].lo, input[index2].lo) + dot(dct[index1].hi, input[index2].hi);
-	index2 += step;
-	acc.s5 = dot(dct[index1].lo, input[index2].lo) + dot(dct[index1].hi, input[index2].hi);
-	index2 += step;
-	acc.s6 = dot(dct[index1].lo, input[index2].lo) + dot(dct[index1].hi, input[index2].hi);
-	index2 += step;
-	acc.s7 = dot(dct[index1].lo, input[index2].lo) + dot(dct[index1].hi, input[index2].hi);
-	idx = k1;
-    inter[idx] = acc; //inter[k1]
-    barrier(CLK_GLOBAL_MEM_FENCE);
-	k2 = i;
-	//Calculate a single line from (DCT^T * IN) * DCT
-	index2 =  k2;
-	acc.s0 = dot(inter[0].lo, dct[index2].lo) + dot(inter[0].hi, dct[index2].hi);
-	acc.s1 = dot(inter[1].lo, dct[index2].lo) + dot(inter[1].hi, dct[index2].hi);
-	acc.s2 = dot(inter[2].lo, dct[index2].lo) + dot(inter[2].hi, dct[index2].hi);
-	acc.s3 = dot(inter[3].lo, dct[index2].lo) + dot(inter[3].hi, dct[index2].hi);
-	acc.s4 = dot(inter[4].lo, dct[index2].lo) + dot(inter[4].hi, dct[index2].hi);
-	acc.s5 = dot(inter[5].lo, dct[index2].lo) + dot(inter[5].hi, dct[index2].hi);
-	acc.s6 = dot(inter[6].lo, dct[index2].lo) + dot(inter[6].hi, dct[index2].hi);
-	acc.s7 = dot(inter[7].lo, dct[index2].lo) + dot(inter[7].hi, dct[index2].hi);
-	//write results to output
-	idx = ( groupIdy * BLOCK_WIDTH + k2 ) * step + groupIdx;
-    output[idx] = acc;
-}
-#endif // end GPU version of kernels that could be used in the future
-//The scalar version, optimized for CPU
-__kernel void DCT_CPU(__global float* output, __global float* input, __global float* dct, const uint width)
-{
-    uint groupIdx  = get_global_id(0);
-    uint groupIdy  = get_global_id(1);
-	uint k1, k2, n1, n2;
-	float inter[BLOCK_WIDTH * BLOCK_WIDTH] = {0};
-	uint step = width;
-	uint inputIndex = 0;
-	uint dctIndex = 0;
-	uint interIndex = 0;
-	uint outputIndex = 0;
-	inputIndex = ( groupIdy * BLOCK_WIDTH ) * width + groupIdx * BLOCK_WIDTH;
-	//Calculate DCT^T * IN
-	for(n2 = 0; n2 < BLOCK_WIDTH; n2++)
-	{
-		dctIndex = 0;
-		interIndex = 0;
-		for(k1 = 0; k1 < BLOCK_WIDTH; k1++)
-		{
-			for(n1 = 0; n1 < BLOCK_WIDTH; n1++)
-			{
-				//inter(n2,k1) += dct(k1,n1) * in(n1,n2)
-				inter[interIndex + n2] += dct[dctIndex + n1] * input[inputIndex + n1];
-			}
-			dctIndex += BLOCK_WIDTH;
-			interIndex += BLOCK_WIDTH;
-		}
-		inputIndex += step;
-	}
-	dctIndex = 0;
-	outputIndex = ( groupIdy * BLOCK_WIDTH ) * width + groupIdx * BLOCK_WIDTH;
-	//Calculate (DCT^T * IN) * DCT
-	for(k2 = 0; k2 < BLOCK_WIDTH; k2++)
-	{
-		interIndex = 0;
-		for(k1 = 0; k1 < BLOCK_WIDTH; k1++)
-		{
-			output[outputIndex + k1] = 0;
-			for(n2 = 0; n2 < BLOCK_WIDTH; n2++)
-			{
-				//out(k1,k2) = dct(k2,n2) * inter(n2,k1)
-				output[outputIndex + k1] += dct[dctIndex + n2] * inter[interIndex + n2];
-			}
-			interIndex += BLOCK_WIDTH;
-		}
-		dctIndex += BLOCK_WIDTH;
-		outputIndex += step;
+		acceleration_x1 = acceleration_x1 + acceleration_x2 + acceleration_x3;
+		acceleration_y1 = acceleration_y1 + acceleration_y2 + acceleration_y3;
+		acceleration_z1 = acceleration_z1 + acceleration_z2 + acceleration_z3;
+		float acc_x = acceleration_x1.x+acceleration_x1.y+acceleration_x1.z+acceleration_x1.w;
+		float acc_y = acceleration_y1.x+acceleration_y1.y+acceleration_y1.z+acceleration_y1.w;
+		float acc_z = acceleration_z1.x+acceleration_z1.y+acceleration_z1.z+acceleration_z1.w;
+		output_velocity_x[k] = input_velocity_x[k] + acc_x * time_delta;
+		output_velocity_y[k] = input_velocity_y[k] + acc_y * time_delta;
+		output_velocity_z[k] = input_velocity_z[k] + acc_z * time_delta;
+		output_position_x[k] = in_position_x[k] + input_velocity_x[k] * time_delta + acc_x * time_delta * time_delta/2;
+		output_position_y[k] = in_position_y[k] + input_velocity_y[k] * time_delta + acc_y * time_delta * time_delta/2;
+		output_position_z[k] = in_position_z[k] + input_velocity_z[k] * time_delta + acc_z * time_delta * time_delta/2;
 	}
 }
-//The vector version, optimized for CPU
-__kernel void DCT_CPU_VECTOR(__global float* output, __global float8* input, __global float8* dct, const uint width)
+__kernel void
+nBodyVec8Kernel(
+		const __global float8 *input_position_x, const __global float8 *input_position_y, const __global float8 *input_position_z,
+		const __global float8 *mass,
+		const __global float *input_velocity_x, const __global float *input_velocity_y, const __global float *input_velocity_z,
+		__global float *output_position_x, __global float *output_position_y, __global float *output_position_z,
+		__global float *output_velocity_x, __global float *output_velocity_y, __global float *output_velocity_z,
+		int body_count, int body_count_per_item, float softening_squared, float time_delta
+		)
 {
-    uint groupIdx  = get_global_id(0);
-    uint groupIdy  = get_global_id(1);
-	uint k1, k2, n1, n2;
-	float acc[BLOCK_WIDTH * BLOCK_WIDTH];
-	float8 inter[BLOCK_WIDTH];
-	float8 temp;
-	uint step = width / BLOCK_WIDTH;
-	uint inputIndex = 0;
-	uint dctIndex = 0;
-	uint interIndex = 0;
-	uint outputIndex = 0;
-	inputIndex = ( groupIdy * BLOCK_WIDTH ) * width / BLOCK_WIDTH + groupIdx;
-	//Calculate DCT^T * IN
-	for(n2 = 0; n2 < BLOCK_WIDTH; n2++)
+	int index = get_global_id(0);
+	const __global float *in_position_x = (const __global float *)input_position_x;
+	const __global float *in_position_y = (const __global float *)input_position_y;
+	const __global float *in_position_z = (const __global float *)input_position_z;
+	float8 position_x, position_y, position_z, m;
+	float8 current_x1, current_y1, current_z1, current_mass1;
+	float8 current_x2, current_y2, current_z2, current_mass2;
+	float8 velocity_x, velocity_y, velocity_z;
+	float8 zero = (float8)(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	int i, j, k, l;
+	int inner_loop_count = ((body_count >> 3)/3)*3;
+	int outer_loop_count = body_count_per_item;
+	int start = index * outer_loop_count;
+	int finish = start + outer_loop_count;
+	for (k = start; k < finish; k++)
 	{
-		interIndex = 0;
-		for(k1 = 0; k1 < BLOCK_WIDTH; k1++)
+		position_x = (float8)(in_position_x[k]);
+		position_y = (float8)(in_position_y[k]);
+		position_z = (float8)(in_position_z[k]);
+		float8 acceleration_x1 = zero;
+		float8 acceleration_x2 = zero;
+		float8 acceleration_x3 = zero;
+		float8 acceleration_y1 = zero;
+		float8 acceleration_y2 = zero;
+		float8 acceleration_y3 = zero;
+		float8 acceleration_z1 = zero;
+		float8 acceleration_z2 = zero;
+		float8 acceleration_z3 = zero;
+		for (i = 0; i < inner_loop_count; i+=3)
 		{
-			//inter(n2,k1) += dct(k1,:) * in(:,n2)
-			temp = dct[k1] * input[inputIndex];
-			acc[interIndex + n2] = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
-			interIndex += BLOCK_WIDTH;
+			float8 dx1 = input_position_x[i] - position_x;
+			float8 dx2 = input_position_x[i+1] - position_x;
+			float8 dx3 = input_position_x[i+2] - position_x;
+			float8 dy1 = input_position_y[i] - position_y;
+			float8 dy2 = input_position_y[i+1] - position_y;
+			float8 dy3 = input_position_y[i+2] - position_y;
+			float8 dz1 = input_position_z[i] - position_z;
+			float8 dz2 = input_position_z[i+1] - position_z;
+			float8 dz3 = input_position_z[i+2] - position_z;
+			float8 distance_squared1 = dx1 * dx1 + dy1 * dy1 + dz1 * dz1;
+			float8 distance_squared2 = dx2 * dx2 + dy2 * dy2 + dz2 * dz2;
+			float8 distance_squared3 = dx3 * dx3 + dy3 * dy3 + dz3 * dz3;
+			distance_squared1 += softening_squared;
+			distance_squared2 += softening_squared;
+			distance_squared3 += softening_squared;
+			float8 inverse_distance1 = rsqrt(distance_squared1);
+			float8 inverse_distance2 = rsqrt(distance_squared2);
+			float8 inverse_distance3 = rsqrt(distance_squared3);
+			float8 mi1 = mass[i];
+			float8 mi2 = mass[i+1];
+			float8 mi3 = mass[i+2];
+			float8 s1 = (mi1 * inverse_distance1) * (inverse_distance1 * inverse_distance1);
+			float8 s2 = (mi2 * inverse_distance2) * (inverse_distance2 * inverse_distance2);
+			float8 s3 = (mi3 * inverse_distance3) * (inverse_distance3 * inverse_distance3);
+			acceleration_x1 += dx1 * s1;
+			acceleration_x2 += dx2 * s2;
+			acceleration_x3 += dx3 * s3;
+			acceleration_y1 += dy1 * s1;
+			acceleration_y2 += dy2 * s2;
+			acceleration_y3 += dy3 * s3;
+			acceleration_z1 += dz1 * s1;
+			acceleration_z2 += dz2 * s2;
+			acceleration_z3 += dz3 * s3;
 		}
-		inputIndex += step;
-	}
-	for(int i = 0; i < BLOCK_WIDTH; i++)
-	{
-		inter[i] = vload8(i, &acc[0]);
-	}
-	outputIndex = ( groupIdy * BLOCK_WIDTH ) * width + groupIdx * BLOCK_WIDTH;
-	//Calculate (DCT^T * IN) * DCT
-	for(k2 = 0; k2 < BLOCK_WIDTH; k2++)
-	{
-		for(k1 = 0; k1 < BLOCK_WIDTH; k1++)
+		for (; i < (body_count>>3); i++)
 		{
-			//out(k1,k2) = dct(k2,:) * inter(:,k1)
-			temp = dct[k2] * inter[k1];
-			output[outputIndex + k1] = temp.s0 + temp.s1 + temp.s2 + temp.s3 + temp.s4 + temp.s5 + temp.s6 + temp.s7;
+			float8 dx1 = input_position_x[i] - position_x;
+			float8 dy1 = input_position_y[i] - position_y;
+			float8 dz1 = input_position_z[i] - position_z;
+			float8 distance_squared1 = dx1 * dx1 + dy1 * dy1 + dz1 * dz1;
+			distance_squared1 += softening_squared;
+			//float8 inverse_distance1 = __native_rsqrtf8(distance_squared1);
+			float8 inverse_distance1 = rsqrt(distance_squared1);
+			float8 mi1 = mass[i];
+			float8 s1 = (mi1 * inverse_distance1) * (inverse_distance1 * inverse_distance1);
+			acceleration_x1 += dx1 * s1;
+			acceleration_y1 += dy1 * s1;
+			acceleration_z1 += dz1 * s1;
 		}
-		outputIndex += width;
+		acceleration_x1 = acceleration_x1 + acceleration_x2 + acceleration_x3;
+		acceleration_y1 = acceleration_y1 + acceleration_y2 + acceleration_y3;
+		acceleration_z1 = acceleration_z1 + acceleration_z2 + acceleration_z3;
+		float acc_x = acceleration_x1.s0+acceleration_x1.s1+acceleration_x1.s2+acceleration_x1.s3+acceleration_x1.s4+acceleration_x1.s5+acceleration_x1.s6+acceleration_x1.s7;
+		float acc_y = acceleration_y1.s0+acceleration_y1.s1+acceleration_y1.s2+acceleration_y1.s3+acceleration_y1.s4+acceleration_y1.s5+acceleration_y1.s6+acceleration_y1.s7;
+		float acc_z = acceleration_z1.s0+acceleration_z1.s1+acceleration_z1.s2+acceleration_z1.s3+acceleration_z1.s4+acceleration_z1.s5+acceleration_z1.s6+acceleration_z1.s7;
+		output_velocity_x[k] = input_velocity_x[k] + acc_x * time_delta;
+		output_velocity_y[k] = input_velocity_y[k] + acc_y * time_delta;
+		output_velocity_z[k] = input_velocity_z[k] + acc_z * time_delta;
+		output_position_x[k] = in_position_x[k] + input_velocity_x[k] * time_delta + acc_x * time_delta * time_delta/2;
+		output_position_y[k] = in_position_y[k] + input_velocity_y[k] * time_delta + acc_y * time_delta * time_delta/2;
+		output_position_z[k] = in_position_z[k] + input_velocity_z[k] * time_delta + acc_z * time_delta * time_delta/2;
 	}
 }
-__kernel void DCT_CPU_VECTOR_AVX(__global float* output, __global float8* input, __global float8* dct, const uint width)
+//	nBodyScalarKernel - evaluates NBody algorithm over overall body_count=body_count_per_item*global size bodies
+//	Each item evaluates velocity and position after time_delta units of time for its szElementsPerItem bodies within the input
+//	input_position_x - input array with current x axis position of the element
+//	input_position_y - input array with current y axis position of the element
+//	input_position_z - input array with current z axis position of the element
+//	mass - mass of the element
+//	input_velocity_x - input array with current x axis velocity of the element
+//	input_velocity_y - input array with current y axis velocity of the element
+//	input_velocity_z - input array with current z axis velocity of the element
+//	output_position_x - output array with current x axis position of the element
+//	output_position_y - output array with current y axis position of the element
+//	output_position_z - output array with current z axis position of the element
+//	output_velocity_x - output array with current x axis velocity of the element
+//	output_velocity_y - output array with current y axis velocity of the element
+//	output_velocity_z - output array with current z axis velocity of the element
+//	softening_squared - represents epsilon noise added to the distance evaluation between each pair of elements
+__kernel void
+nBodyScalarKernel(
+		const __global float *input_position_x, const __global float *input_position_y, const __global float *input_position_z,
+		const __global float *mass,
+		const __global float *input_velocity_x, const __global float *input_velocity_y, const __global float *input_velocity_z,
+		__global float *output_position_x, __global float *output_position_y, __global float *output_position_z,
+		__global float *output_velocity_x, __global float *output_velocity_y, __global float *output_velocity_z,
+		int body_count, int body_count_per_item, float softening_squared, float time_delta
+		)
 {
-    uint groupIdx  = get_global_id(0);
-    uint groupIdy  = get_global_id(1);
-	uint k1, k2, n1, n2;
-	float acc[BLOCK_WIDTH * BLOCK_WIDTH];
-	float8 inter[BLOCK_WIDTH];
-	float8 temp;
-	uint step = width / BLOCK_WIDTH;
-	uint inputIndex = 0;
-	uint dctIndex = 0;
-	uint interIndex = 0;
-	uint outputIndex = 0;
-	inputIndex = ( groupIdy * BLOCK_WIDTH ) * width / BLOCK_WIDTH + groupIdx;
-	//Calculate DCT^T * IN
-	for(n2 = 0; n2 < BLOCK_WIDTH; n2++)
+	int index = get_global_id(0);
+	const __global float *in_position_x = (const __global float *)input_position_x;
+	const __global float *in_position_y = (const __global float *)input_position_y;
+	const __global float *in_position_z = (const __global float *)input_position_z;
+	int i;
+	int inner_loop_count = body_count;
+	int start = index;
+	//!!!!! This simplified (to help vectorizer) version assumes that body_count_per_item ==1 !!!!!!!!!!!!!!!
+	//!!!!! So overall (global) number of work-items should be equal to the nuber of bodies being proccesed !!!!!!!!!!!!!!!
+	//!!!!! i.e. szGlobalWork == szBodies in your cfg file !!!!!!!!!!!!!!!
+	//int start = index * body_count_per_item;
+	//int outer_loop_count = body_count_per_item;
+	//int finish = start + outer_loop_count;
+	//for (k = start; k < finish; k++)
+	int k =start;
 	{
-		interIndex = 0;
-		for(k1 = 0; k1 < BLOCK_WIDTH; k1++)
+		float position_x = (float)(in_position_x[k]);
+		float position_y = (float)(in_position_y[k]);
+		float position_z = (float)(in_position_z[k]);
+		float acc_x = 0;
+		float acc_y = 0;
+		float acc_z = 0;
+		for (i = 0; i < inner_loop_count; i++)
 		{
-			float4 tmp0 = ((__global float4*)dct)[k1*2];
-			float4 tmp1 = ((__global float4*)input)[inputIndex*2];
-			float4 tmp2 = ((__global float4*)dct)[k1*2+1];
-			float4 tmp3 = ((__global float4*)input)[inputIndex*2+1];
-			acc[interIndex + n2] = dot(tmp0, tmp1) +  dot(tmp2, tmp3);
-			interIndex += BLOCK_WIDTH;
+			float dx = input_position_x[i] - position_x;
+			float dy = input_position_y[i] - position_y;
+			float dz = input_position_z[i] - position_z;
+			float distance_squared = dx * dx + dy * dy + dz * dz + softening_squared;
+			float inverse_distance = rsqrt(distance_squared);
+			float mi = mass[i];
+			float s = (mi * inverse_distance) * (inverse_distance * inverse_distance);
+			acc_x += dx * s;
+			acc_y += dy * s;
+			acc_z += dz * s;
 		}
-		inputIndex += step;
-	}
-	for(int i = 0; i < BLOCK_WIDTH; i++)
-	{
-		inter[i] = vload8(i, &acc[0]);
-	}
-	outputIndex = ( groupIdy * BLOCK_WIDTH ) * width + groupIdx * BLOCK_WIDTH;
-	//Calculate (DCT^T * IN) * DCT
-	for(k2 = 0; k2 < BLOCK_WIDTH; k2++)
-	{
-		for(k1 = 0; k1 < BLOCK_WIDTH; k1++)
-		{
-			float4 tmp0 = ((__global float4*)dct)[k2*2];
-			float4 tmp1 = ((float4*)inter)[k1*2];
-			float4 tmp2 = ((__global float4*)dct)[k2*2+1];
-			float4 tmp3 = ((float4*)inter)[k1*2+1];
-			output[outputIndex + k1] = dot(tmp0, tmp1) +  dot(tmp2, tmp3);
-		}
-		outputIndex += width;
+		output_velocity_x[k] = input_velocity_x[k] + acc_x * time_delta;
+		output_velocity_y[k] = input_velocity_y[k] + acc_y * time_delta;
+		output_velocity_z[k] = input_velocity_z[k] + acc_z * time_delta;
+		output_position_x[k] = in_position_x[k] + input_velocity_x[k] * time_delta + acc_x * time_delta * time_delta/2;
+		output_position_y[k] = in_position_y[k] + input_velocity_y[k] * time_delta + acc_y * time_delta * time_delta/2;
+		output_position_z[k] = in_position_z[k] + input_velocity_z[k] * time_delta + acc_z * time_delta * time_delta/2;
 	}
 }

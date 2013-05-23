@@ -8,14 +8,23 @@
 // for his cubin disassembler (http://www.cs.rug.nl/~wladimir/decuda/)
 //
 //
+#define OPTIMIZED_NT_B_BLOCK 2
+#define OPTIMIZED_NT_A_BLOCK_STRIDE 16
+#define OPTIMIZED_NT_A_BLOCK 1
+#define OPTIMIZED_MANUAL_PREFETCH 1
+#define OPTIMIZED_PREFETCH_FOR_1_OF_16 0
+#define OPTMIZED_MANUAL_UNROLLING 0
 #ifdef SINGLE_PRECISION
 #define FPTYPE float
+#define FPTYPE16 float16
 #elif K_DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_khr_fp64: enable
 #define FPTYPE double
+#define FPTYPE16 double16
 #elif AMD_DOUBLE_PRECISION
 #pragma OPENCL EXTENSION cl_amd_fp64: enable
 #define FPTYPE double
+#define FPTYPE16 double16
 #endif
 #define SAXPY( _A_, _BS_ , _C_) do{ \
 	_C_[0] += _A_ * _BS_[0]; \
@@ -35,115 +44,95 @@
 	_C_[14] += _A_ * _BS_[14]; \
 	_C_[15] += _A_ * _BS_[15]; \
     }while(0)
-__kernel void sgemmNT( __global const FPTYPE *A, int lda,
-                       __global const FPTYPE *B, int ldb,
-                       __global FPTYPE *C, int ldc, int k,
+__kernel void sgemmNT( __global const FPTYPE * restrict A, int lda,
+                       __global const FPTYPE * restrict B, int ldb,
+                       __global FPTYPE * restrict C, int ldc, int k,
                        FPTYPE alpha, FPTYPE beta )
 {
 	const int inx = get_local_id(0);
 	const int iny = get_local_id(1);
-	const int ibx = get_group_id(0) * 64;
-	const int iby = get_group_id(1) * 16;
-	const int id  = inx + iny*16;
-        int i, counter = 0;
-	A += ibx + id;
-	B += iby + inx + (iny*ldb);
-	C += ibx + id  + (iby*ldc );
-	FPTYPE a[4];
-	for(i=0; i<4; ++i){ a[i] = A[i*lda]; }
-	__private FPTYPE b;
-	b = B[0];
-	A += 4*lda;
-	B += 4*ldb;
-        counter+= 4*ldb;
-	__local FPTYPE bs[4][16];
-	FPTYPE c[16];
-        for(i=0; i<16; ++i){
+	const int ibx = get_group_id(0) * 64 * OPTIMIZED_NT_A_BLOCK;
+	const int iby = get_group_id(1) * 16 * OPTIMIZED_NT_B_BLOCK;
+	const int id  = inx + iny*16*OPTIMIZED_NT_A_BLOCK;
+        int Aind = ibx + id;
+        int Bind = iby;
+        int Cind = ibx + id  + (iby*ldc );
+        FPTYPE c[16*OPTIMIZED_NT_A_BLOCK*OPTIMIZED_NT_B_BLOCK];
+        for(int i=0; i<16*OPTIMIZED_NT_A_BLOCK*OPTIMIZED_NT_B_BLOCK; ++i){
             c[i] = 0.0;
         }
-	do
+	for(int ii = 0; ii < k; ++ii)
 	{
-	        __private FPTYPE as[4];
-		for(i=0; i<4; ++i){ as[i] = a[i]; }
-		bs[iny][inx] = b;
-  		barrier(CLK_LOCAL_MEM_FENCE);
-		a[0] = A[0*lda];
-		a[1] = A[1*lda];
-		a[2] = A[2*lda];
-		a[3] = A[3*lda];
-		b    = B[0];
-		SAXPY( as[0], bs[0], c );
-		SAXPY( as[1], bs[1], c );
-		SAXPY( as[2], bs[2], c );
-		SAXPY( as[3], bs[3], c );
-		A += 4*lda;
-		B += 4*ldb;
-                counter += 4*ldb;
-  		barrier(CLK_LOCAL_MEM_FENCE);
-	} while( counter < k*ldb );
-	bs[iny][inx] = b;
-	barrier(CLK_LOCAL_MEM_FENCE);
-	SAXPY( a[0], bs[0], c );
-	SAXPY( a[1], bs[1], c );
-	SAXPY( a[2], bs[2], c );
-	SAXPY( a[3], bs[3], c );
-	for( int i = 0; i < 16; i++, C += ldc ){
-		C[0] = alpha*c[i] + beta*C[0];
+            for(int ablock = 0; ablock < OPTIMIZED_NT_A_BLOCK; ++ablock)
+            {
+                for(int bblock = 0; bblock < OPTIMIZED_NT_B_BLOCK; ++bblock)
+                {
+                        int Acur = Aind + ii*lda + ablock*OPTIMIZED_NT_A_BLOCK_STRIDE;
+                        int Bcur = Bind + ii*ldb + bblock*16;
+                        FPTYPE atmp = A[Acur];
+                        #if OPTIMIZED_MANUAL_PREFETCH
+                        {
+                            #if OPTIMIZED_PREFETCH_FOR_1_OF_16
+                            if(inx == 0)
+                            #endif
+                            {
+                                //prefetch(A + Acur + lda, 1);
+                                prefetch(B + Bcur + ldb, 1);
+                            }
+                        }
+                        #endif
+                        #if !OPTMIZED_MANUAL_UNROLLING
+                        for(int jj = 0; jj < 16; ++jj) {
+                            c[jj + OPTIMIZED_NT_B_BLOCK*ablock*16 + bblock*16] += atmp * B[Bcur + jj];
+                        }
+                        #else
+                        {
+                            #define MYMACRO1(jj) c[jj + OPTIMIZED_NT_B_BLOCK*ablock*16 + bblock*16] += atmp * B[Bcur + jj];
+                            MYMACRO1(0)
+                            MYMACRO1(1)
+                            MYMACRO1(2)
+                            MYMACRO1(3)
+                            MYMACRO1(4)
+                            MYMACRO1(5)
+                            MYMACRO1(6)
+                            MYMACRO1(7)
+                            MYMACRO1(8)
+                            MYMACRO1(9)
+                            MYMACRO1(10)
+                            MYMACRO1(11)
+                            MYMACRO1(12)
+                            MYMACRO1(13)
+                            MYMACRO1(14)
+                            MYMACRO1(15)
+                        }
+                        #endif
+                }
+            }
+	}
+    for(int ablock = 0; ablock < OPTIMIZED_NT_A_BLOCK; ++ablock) {
+        for(int bblock = 0; bblock < OPTIMIZED_NT_B_BLOCK; ++bblock) {
+            Cind = (ibx + id) + (iby*ldc) + ablock*OPTIMIZED_NT_A_BLOCK_STRIDE + ldc*bblock*16;
+            for( int i = 0; i < 16; i++, Cind += ldc ) {
+                C[Cind] = alpha*c[i + OPTIMIZED_NT_B_BLOCK*ablock*16 + bblock*16] + beta*C[Cind];
+            }
         }
+    }
 }
-__kernel void sgemmNN( __global const FPTYPE *A, int lda,
-                       __global const FPTYPE *B, int ldb,
-                       __global FPTYPE *C, int ldc, int k,
-                       FPTYPE alpha, FPTYPE beta )
-{
-	const int inx = get_local_id(0);
-	const int iny = get_local_id(1);
-	const int ibx = get_group_id(0) * 64;
-	const int iby = get_group_id(1) * 16;
-	const int id = inx + iny*16;
-        int i, j, ii, counter=0;
-	A += ibx + id;
-	B += inx + (iby+iny) * ldb;
-	C += ibx + id  + (iby*ldc);
-	FPTYPE c[16];
-        for(i=0; i<16; ++i){
-            c[i] = 0.0;
-	}
-       	__local FPTYPE bs[16][17];
-	do
-	{
-		__private FPTYPE a[4];
-		for(ii=0; ii<4; ++ii) { a[ii] = A[ii*lda]; }
-		bs[inx][iny]    = B[0*ldb];
-		bs[inx][iny+4]  = B[4*ldb];
-		bs[inx][iny+8]  = B[8*ldb];
-		bs[inx][iny+12] = B[12*ldb];
-		barrier(CLK_LOCAL_MEM_FENCE);
-		A += 4*lda;
-		SAXPY( a[0], bs[0], c );	a[0] = A[0*lda];
-		SAXPY( a[1], bs[1], c );	a[1] = A[1*lda];
-		SAXPY( a[2], bs[2], c );	a[2] = A[2*lda];
-		SAXPY( a[3], bs[3], c );	a[3] = A[3*lda];
-		A += 4*lda;
-		SAXPY( a[0], bs[4], c );	a[0] = A[0*lda];
-		SAXPY( a[1], bs[5], c );	a[1] = A[1*lda];
-		SAXPY( a[2], bs[6], c );	a[2] = A[2*lda];
-		SAXPY( a[3], bs[7], c );	a[3] = A[3*lda];
-		A += 4*lda;
-		SAXPY( a[0], bs[8], c );	a[0] = A[0*lda];
-		SAXPY( a[1], bs[9], c );	a[1] = A[1*lda];
-		SAXPY( a[2], bs[10], c );	a[2] = A[2*lda];
-		SAXPY( a[3], bs[11], c );	a[3] = A[3*lda];
-		A += 4*lda;
-		SAXPY( a[0], bs[12], c );
-		SAXPY( a[1], bs[13], c );
-		SAXPY( a[2], bs[14], c );
-		SAXPY( a[3], bs[15], c );
-		B += 16;
-	        counter += 16;
-		barrier(CLK_LOCAL_MEM_FENCE);
-	} while( counter < k );
-	for( int i = 0; i < 16; i++, C += ldc ){
-		C[0] = alpha*c[i] + beta*C[0];
-	}
-}
+#define AA(X,Y) A[(X)+(Y)*lda]
+#define BB(X,Y) B[(X)+(Y)*ldb]
+#define CC(X,Y) C[(X)+(Y)*ldc]
+ __kernel void sgemmNN( __global const FPTYPE *A, int lda,
+                        __global const FPTYPE *B, int ldb,
+                        __global FPTYPE *C, int ldc, int k,
+                        FPTYPE alpha, FPTYPE beta )
+ {
+    const int iby = get_group_id(1)*WG_SIZE_1*WI_TILE_SIZE+ get_local_id(1)*WI_TILE_SIZE;
+    const int id = get_local_id(0) + get_group_id(0)*WG_SIZE_0;
+    FPTYPE c[WI_TILE_SIZE] = {0.0};
+    for (int counter=0; counter<k; counter+=WI_TILE_SIZE)
+        for (int j=0; j<WI_TILE_SIZE; j++)
+             for(int i=0; i<WI_TILE_SIZE; i++)
+                 c[j] += AA(id,counter+i)*BB(counter+i,iby+j);
+    for(int i = 0; i < WI_TILE_SIZE; i++)
+        CC(id,iby+i) = alpha*c[i] + beta*CC(id,iby+i);
+ }

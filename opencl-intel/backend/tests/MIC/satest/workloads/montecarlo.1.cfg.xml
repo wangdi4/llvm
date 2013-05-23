@@ -9,11 +9,11 @@
     <LocalWorkSize>16</LocalWorkSize>
     <GlobalWorkSize>16</GlobalWorkSize>
     <GlobalWorkOffset>0</GlobalWorkOffset>
-    <InputDataFile>montecarlo.0.c.dat.xml</InputDataFile>
+    <InputDataFile>montecarlo.1.c.dat.xml</InputDataFile>
     <InputDataFileType>xml</InputDataFileType>
-    <ReferenceDataFile>montecarlo.0.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFile>montecarlo.1.c.ref.xml</ReferenceDataFile>
     <ReferenceDataFileType>xml</ReferenceDataFileType>
-    <NeatDataFile>montecarlo.0.c.neat.xml</NeatDataFile>
+    <NeatDataFile>montecarlo.1.c.neat.xml</NeatDataFile>
     <NeatDataFileType>xml</NeatDataFileType>
   </KernelConfiguration>
 </RunConfiguration>

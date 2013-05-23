@@ -9,11 +9,11 @@
     <LocalWorkSize>16</LocalWorkSize>
     <GlobalWorkSize>16</GlobalWorkSize>
     <GlobalWorkOffset>0</GlobalWorkOffset>
-    <InputDataFile>Sort.0.c.dat.xml</InputDataFile>
+    <InputDataFile>Sort.1.c.dat.xml</InputDataFile>
     <InputDataFileType>xml</InputDataFileType>
-    <ReferenceDataFile>Sort.0.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFile>Sort.1.c.ref.xml</ReferenceDataFile>
     <ReferenceDataFileType>xml</ReferenceDataFileType>
-    <NeatDataFile>Sort.0.c.neat.xml</NeatDataFile>
+    <NeatDataFile>Sort.1.c.neat.xml</NeatDataFile>
     <NeatDataFileType>xml</NeatDataFileType>
   </KernelConfiguration>
 </RunConfiguration>
