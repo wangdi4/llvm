@@ -511,6 +511,7 @@ endforeach (FILE)
 # running build for all supported SIMD architectures 
 if( INCLUDE_ATOM )
   add_subdirectory (ssse3)
+  add_subdirectory (sse42)
 else( INCLUDE_ATOM )
   if( WIN32 AND NOT BUILD_X64 )
     # no corresponding SVML for Win64; hence
