@@ -3,8 +3,15 @@
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; CHECK: @kernel
-; CHECK: %BB4_to_BB6_mask_maskspec
-; CHECK: %BB4_in_mask_maskspec
+; CHECK: header{{[0-9]*}}:
+; CHECK: br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK: br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        
+; CHECK: footer{{[0-9]*}}:                                        
+; CHECK: header{{[0-9]*}}:
+; CHECK: br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:          
 ; CHECK: ret
 
 ; ModuleID = 'c:\work\temp\test.ll'

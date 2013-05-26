@@ -16,7 +16,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Transforms/Scalar.h"
 
@@ -33,6 +32,20 @@ namespace intel {
 class Predicator;
 class FunctionSpecializer {
 public:
+
+  /// Holds the data needed for each bypass
+  struct BypassInfo {
+    BypassInfo(BasicBlock * head, BasicBlock * root) : m_head(head), m_root(root), m_postDom(0), m_foot(0) {}
+    BypassInfo() : m_head(0),m_root(0), m_postDom(0), m_foot(0) {}
+
+    BasicBlock * m_head;    // Single predecessor of the entry node
+    BasicBlock * m_root;    // Entry node
+    BasicBlock * m_postDom; // Exit node
+    BasicBlock * m_foot;    // Single successor of the exit node
+
+    std::set<BasicBlock*> m_skippedBlocks; // All the basic blocks that should be bypasses, including m_root and m_postDom
+  };
+
   /// Short term BB collection
   typedef std::vector<BasicBlock*> BBVector;
 
@@ -46,7 +59,7 @@ public:
   /// @param DT dominator analysis
   FunctionSpecializer(Predicator* pred, Function* func, Function* all_zero,
                       PostDominatorTree* PDT, DominatorTree*  DT,
-                      RegionInfo* RI, LoopInfo *LI, WIAnalysis *WIA);
+                      LoopInfo *LI, WIAnalysis *WIA);
 
   /// @brief Finds a single edge to specialize. This uses
   ///  the control dominance of the block to check.
@@ -85,10 +98,10 @@ private:
   /// @return Block contatning return or Null
   BasicBlock* getAnyReturnBlock();
   /// @brief A heuristic to decide under which conditions
-  ///  do we nneed to specialize the control flow of this region
-  /// @param reg Region to specialize
+  ///  do we need to specialize the control flow of this region
+  /// @param bi bypass information
   /// @return True if specialization if profitable
-  bool shouldSpecialize(Region* reg);
+  bool shouldSpecialize(const BypassInfo & bi) const;
   /// @brief For all regions, if the region contained the old block, add a new block
   /// @param block Old Block to search
   /// @param fresh New block to add
@@ -100,13 +113,8 @@ private:
   /// @param name Name to use
   BasicBlock* createIntermediateBlock(BasicBlock* before, BasicBlock* after, const std::string& name);
   /// @brief Perform the specialization of an edge, from src to dst
-  /// @param reg Region to specialize
-  void specializeEdge(Region* reg);
-  /// @brief Collects the list of blocks which are skipped in the
-  // specialization
-  /// @param Region to consider
-  /// @param List of BB which are skipped
-  void findSkippedBlocks(Region* reg, BBVector& skipped);
+  /// @param bi bypass info
+  void specializeEdge(BypassInfo & bi);
   /// @brief Collects the list of instructions for which we need to
   ///  add a PHINode
   /// @param src Edge source
@@ -114,7 +122,7 @@ private:
   /// @param body block
   /// @param to_add_phi saves the list of instructions to this map
   void findValuesToPhi(
-    Region* reg,
+    BypassInfo & bi,
     std::vector<std::pair<Instruction* , std::set<Instruction*> > > &to_add_phi);
   /// @brief Propagates masks of bypassed region to the 'footer' basic block
   /// @param mask_target mask of a skipped basic block
@@ -123,23 +131,42 @@ private:
   /// @param footer      footer basic block of the bypass
   void propagateMask( Value *mask_target, BasicBlock *header, BasicBlock *exitBlock, 
                       BasicBlock *footer);
-  /// @brief Helper which returns 'true' if region has a successor or 'false' otherwise
-  /// @param reg Region in question
-  bool RegionHasSuccessor( Region * reg);
 
   /// @brief obtains the masks needed to be zeroed in the region header.
-  /// @param reg - current region.
-  /// @param exit - the block inside the region on the exit edge.
-  /// @param foot - the block outside the region on the exit edge.
-  void ObtainMasksToZero(Region *reg, BasicBlock *exit, BasicBlock *foot);
+  /// @param bi - bypass info.
+  void ObtainMasksToZero(BypassInfo & bi);
 
   /// @brief zero masks that are computed inside the region but used outside.
-  /// @param reg - Current region.
+  /// @param bi - Bypass information.
   /// @param src - region header.
   /// @param exit - region exit block.
   /// @param footer - region footer.
-  void ZeroBypassedMasks(Region *reg, BasicBlock *src, BasicBlock *exit,
+  void ZeroBypassedMasks(BypassInfo & bi, BasicBlock *src, BasicBlock *exit,
                          BasicBlock *footer);
+
+  /// @brief Calculating bypass information for a region starting at root
+  /// root is a successor of either a divergent branch or a branch located
+  /// in a divergent block
+  /// @param root - entry point for a potential region
+  /// @return - returns true if root is a potential BB for bypass
+  bool calculateBypassInfoPerBranch(BasicBlock * root);
+
+  /// @brief Giving an entry and an exit point for a region
+  /// this function finds all the nodes inside the region and
+  /// update the skipped set
+  /// @param info - bypass info containing entry and exit blocks
+  /// for the region and a set for adding the region's blocks
+  void getBypassRegion(BypassInfo & info);
+
+  /// @brief Add auxiliary node to allow support of bypass
+  /// with two outgoing edges
+  /// @param info - bypass info
+  void addAuxBBForSingleExitEdge(BypassInfo & info);
+
+  /// @brief A heuristics for adding a bypass for a single basic block
+  /// @param BB - the basic block nominated for a bypass
+  /// @return - returns true if the bypass should be added
+  bool addHeuristics(const BasicBlock *BB) const;
 
 private:
   /// Predicator pass
@@ -152,8 +179,6 @@ private:
   PostDominatorTree* m_PDT;
   /// Dominator tree analysis for function
   DominatorTree* m_DT;
-  // RegionInfo
-  RegionInfo* m_RI;
   // LoopInfo
   LoopInfo *m_LI;
   // Work Item Analysis
@@ -162,20 +187,16 @@ private:
   Value* m_zero;
   /// One
   Value* m_one;
-  /// Region preheader
-  std::map<Region*, BasicBlock*> m_heads;
   /// Region out masks to zero 
   typedef std::vector<std::pair<BasicBlock*, BasicBlock*> > BBPairVec;
-  typedef std::map<Region*, BBPairVec > MapRegToBBPairVec;
+  typedef std::map<BypassInfo*, BBPairVec > MapRegToBBPairVec;
   MapRegToBBPairVec m_outMasksToZero;
   /// Region in masks to zero 
-  std::map<Region*, BasicBlock*> m_inMasksToZero;
-  /// specialization regions
-  std::vector<Region*> m_region_vector;
-  /// All skipped blocks
-  std::map<Region*, BBVector> m_skipped;
-};
+  std::map<BypassInfo*, BasicBlock*> m_inMasksToZero;
 
+  /// A vector containing the info for all the potential bypasses
+  std::vector<BypassInfo> m_bypassInfoContainer;
+};
 
 } // namespace
 

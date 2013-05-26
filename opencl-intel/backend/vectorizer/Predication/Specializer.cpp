@@ -17,6 +17,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Constants.h"
 
+#include <stack>
+
 static cl::opt<unsigned>
 SpecializeThreshold("specialize-threshold", cl::init(10), cl::Hidden,
   cl::desc("The cut-off point for specialization of a single basic block"));
@@ -25,48 +27,50 @@ static cl::opt<bool>
 EnableSpecialization("specialize", cl::init(true), cl::Hidden,
   cl::desc("Enable specialization"));
 
-static cl::opt<bool>
-SpecOnlyAfterBranch("specialize-only-after-branch", cl::init(false), cl::Hidden,
-  cl::desc("Specialize blocks only after a branch"));
-
 namespace intel {
 
 FunctionSpecializer::FunctionSpecializer(Predicator* pred, Function* func,
                                          Function* all_zero,
                                          PostDominatorTree* PDT,
                                          DominatorTree*  DT,
-                                         RegionInfo *RI,
                                          LoopInfo *LI,
                                          WIAnalysis *WIA):
   m_pred(pred), m_func(func),
-  m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_RI(RI), m_LI(LI), m_WIA(WIA),
+  m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_LI(LI), m_WIA(WIA),
   m_zero(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 0))),
   m_one(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 1))){  }
 
-bool FunctionSpecializer::shouldSpecialize(Region *reg) {
 
-  // In case we are specializing a single basic block
-  V_ASSERT(m_skipped.find(reg) != m_skipped.end());
-  V_ASSERT(m_skipped[reg].size() > 0);
-  if (m_skipped[reg].size() < 2) {
-    CodeMetrics Metrics;
-    // Collect instruction amount metrics
-    BasicBlock *entryBB = reg->getEntry();
-    Metrics.analyzeBasicBlock(entryBB);
-    // Check whether there is a function call
-    bool funcCallFound = false;
-    for (BasicBlock::const_iterator it = entryBB->begin(); it != entryBB->end(); it++) {
-      if (dyn_cast<CallInst>(it) || dyn_cast<InvokeInst>(it)) {
-        funcCallFound = true;
-        break;
-      }
+bool FunctionSpecializer::addHeuristics(const BasicBlock *BB) const {
+
+  // Collect instruction amount metrics
+  CodeMetrics Metrics;
+  Metrics.analyzeBasicBlock(BB);
+
+  // Check whether there is a function call
+  bool funcCallFound = false;
+  for (BasicBlock::const_iterator it = BB->begin(); it != BB->end(); it++) {
+    if (dyn_cast<CallInst>(it) || dyn_cast<InvokeInst>(it)) {
+      funcCallFound = true;
+      break;
     }
-    // Check if we are within the threshold of instructions or 
-    if (Metrics.NumInsts < SpecializeThreshold && !funcCallFound) return false;
   }
 
-  // Specialize the region only if we removed its control flow
-  return m_WIA->isDivergentBlock(reg->getEntry());
+  if (Metrics.NumInsts < SpecializeThreshold && !funcCallFound)
+    return false;
+
+  return true;
+}
+
+bool FunctionSpecializer::shouldSpecialize(const BypassInfo & bi) const {
+  // In case we are specializing a single basic block
+  V_ASSERT(bi.m_skippedBlocks.size() > 0);
+  if (bi.m_skippedBlocks.size() < 2 && !addHeuristics(bi.m_root)) {
+    return false;
+  }
+
+  // Specialize only if the root has a a mask
+  return m_WIA->isDivergentBlock(bi.m_root);
 }
 
 BasicBlock* FunctionSpecializer::getAnyReturnBlock() {
@@ -100,32 +104,24 @@ bool FunctionSpecializer::CanSpecialize() {
   return true;
 }
 
-bool FunctionSpecializer::RegionHasSuccessor( Region * reg) {
-	BasicBlock *exit = reg->getExit();
-	if (!exit) return false;
-    if (succ_begin(exit) == succ_end(exit)) return false;
-	return true;
-}
-
-void FunctionSpecializer::ObtainMasksToZero(Region *reg, BasicBlock *exit,
-                                            BasicBlock *foot) {
-  V_ASSERT(reg && exit && foot && "NULL argumnets?");
+void FunctionSpecializer::ObtainMasksToZero(BypassInfo & bi) {
+  V_ASSERT(bi.m_postDom && bi.m_foot && "NULL argumnets?");
   std::vector<std::pair<BasicBlock*, BasicBlock*> > outMasks;
   // We need to make sure the outmask on the region exit edge is zero if 
   // we by pass the region.
-  outMasks.push_back (std::make_pair(exit, foot));
+  outMasks.push_back (std::make_pair(bi.m_postDom, bi.m_foot));
 
   // It can be that we bypass the preheader of a loop but we will not bypass
   // the loop itself when the exit edge is between the loop preheader and the 
   // loop header. The preheader initializes the loop\exit masks of the loop 
   // so we need to enforce them being 0 in case the preheader is skipped (which
   // means the loop should be masked out, and the exit edges are zero also).
-  Loop *footLoop = m_LI->getLoopFor(foot);
-  if (footLoop && footLoop->getLoopPreheader() == exit) {
-    V_ASSERT(footLoop->getHeader() == foot &&
+  Loop *footLoop = m_LI->getLoopFor(bi.m_foot);
+  if (footLoop && footLoop->getLoopPreheader() == bi.m_postDom) {
+    V_ASSERT(footLoop->getHeader() == bi.m_foot &&
           "only edge entering the loop should be from preheader to header");
     // Adding the in mask of the loop header.
-    m_inMasksToZero[reg] = foot;
+    m_inMasksToZero[&bi] = bi.m_foot;
 
     // Adding the out masks of the loop exit edges.
     SmallVector<BasicBlock *, 4> exitingBlocks;
@@ -140,7 +136,167 @@ void FunctionSpecializer::ObtainMasksToZero(Region *reg, BasicBlock *exit,
       }
     }
   }
-  m_outMasksToZero[reg] = outMasks;
+  m_outMasksToZero[&bi] = outMasks;
+}
+
+void FunctionSpecializer::addAuxBBForSingleExitEdge(BypassInfo & info) {
+    BasicBlock* new_block = BasicBlock::Create(info.m_postDom->getContext(), "bypassAuxExitBB", info.m_postDom->getParent(), info.m_foot);
+
+    // Add the new block to the loop info analysis
+    Loop *loop = m_LI->getLoopFor(info.m_postDom);
+    if (loop)
+      loop->addBasicBlockToLoop(new_block, m_LI->getBase());
+
+    TerminatorInst* term = info.m_postDom->getTerminator();
+    assert (isa<BranchInst>(term) && "term should be a branch instruction");
+    BranchInst *br = cast<BranchInst>(term);
+
+    // Move the branch from the post dominator to the new block
+    Value* cond = br->getCondition();
+    BasicBlock *BBsucc0 = br->getSuccessor(0);
+    BasicBlock *BBsucc1 = br->getSuccessor(1);
+
+    BranchInst * newBr = BranchInst::Create(BBsucc0, BBsucc1, cond, new_block);
+
+    // Update the WI analysis with the new branch info
+    m_WIA->setDepend(br, newBr);
+
+    // Update the Phi nodes of info.m_postDom's original successors
+    for (unsigned i=0; i < 2; ++i) {
+      for (BasicBlock::iterator itr = term->getSuccessor(i)->begin();
+          itr != term->getSuccessor(i)->end();
+          ++itr) {
+        if (PHINode* phi = dyn_cast<PHINode>(itr)) {
+          for (unsigned i=0; i < phi->getNumIncomingValues(); ++i) {
+            if (phi->getIncomingBlock(i) == info.m_postDom)
+              phi->setIncomingBlock(i, new_block);
+          }
+        }
+        else
+          break;
+      }
+    }
+
+    // Remove the original branch from the post-dominator
+    term->eraseFromParent();
+
+    // Update the post dominator branch to jump to the new block
+    BranchInst::Create(new_block, info.m_postDom);
+
+    // Update dominance info
+    m_DT->addNewBlock(new_block, info.m_postDom);
+
+    // Update the foot node in the bypass info
+    info.m_foot = new_block;
+}
+
+void FunctionSpecializer::getBypassRegion(BypassInfo & info) {
+
+  std::stack<BasicBlock*> workSet;
+
+  // make sure we do not continue after the last dominated post dominator
+  info.m_skippedBlocks.insert(info.m_postDom);
+
+  // starting the work from the root
+  workSet.push(info.m_root);
+
+  while (!workSet.empty()) {
+    BasicBlock *curBlk = workSet.top();
+    workSet.pop();
+    info.m_skippedBlocks.insert(curBlk); // mark block as skipped
+
+    for (succ_iterator SI = succ_begin(curBlk), E = succ_end(curBlk); SI != E; ++SI) {
+      BasicBlock *succBlk = (*SI);
+      if (!info.m_skippedBlocks.count(succBlk)) {
+        workSet.push(succBlk);
+      }
+    }
+  }
+}
+
+bool FunctionSpecializer::calculateBypassInfoPerBranch(BasicBlock *root) {
+
+  assert(root && "root shouldn't be null");
+
+  BasicBlock * head = root->getSinglePredecessor();
+
+  // A single entry is needed
+  if (!head)
+    return false;
+
+  // find the first post-dom of root that also dominated by root
+
+  m_bypassInfoContainer.push_back(BypassInfo(head, root));
+  BypassInfo & info = m_bypassInfoContainer.back();
+
+  BasicBlock * postDom = root;
+
+  // Basically, what we want to do now is to take the last post dominator
+  // that is both dominated by root and in the same loop as root
+  // (of course no loop means the same loop)
+
+  while(1) {
+    DomTreeNode * currentNode = m_PDT->getNode(postDom);
+    DomTreeNode * postDomNode = 0;
+
+    if (currentNode) // Can be 0 in case of infinite loops
+      postDomNode = currentNode->getIDom();
+
+    if (postDomNode) { // Can be 0 in case of last basic block
+      postDom = postDomNode->getBlock();
+    }
+    else {
+      if (! info.m_postDom) { // root is either an exit block or inside an infinite loop
+        m_bypassInfoContainer.pop_back();
+        return false;
+      }
+      else
+        break;
+    }
+
+    // The postDom should be dominated by root and in the same loop
+    if (m_DT->dominates(root, postDom)) {
+      if (m_LI->getLoopFor(root) == m_LI->getLoopFor(postDom)) {
+        info.m_postDom = postDom;
+      }
+    }
+    else
+      break;
+  }
+
+  if (! info.m_postDom) {   // Bypass a single basic block
+    info.m_postDom = info.m_root;
+    info.m_skippedBlocks.insert(info.m_postDom);
+  }
+  else {
+    getBypassRegion(info);
+  }
+
+  assert (info.m_postDom && "Post dominator is expected");
+
+  llvm::succ_iterator succItr = succ_begin(info.m_postDom);
+  llvm::succ_iterator succEnd = succ_end(info.m_postDom);
+
+  // we already took care of the case of an exit block
+  assert(succItr != succEnd && "The region exit should not be an exit block");
+
+
+  info.m_foot = *succItr;
+  // if postDom has two successors
+  if (++succItr != succEnd) {
+    // if we plan to add a bypass then we need to add an auxiliary BB in this case
+    if (m_DT->dominates(info.m_postDom, info.m_foot) && m_DT->dominates(info.m_postDom, *succItr) &&
+        (info.m_root != info.m_postDom || addHeuristics(info.m_root))) {
+      addAuxBBForSingleExitEdge(info);
+    }
+    else {
+      m_bypassInfoContainer.pop_back();
+      return false;
+    }
+  }
+  assert (info.m_foot && "m_foot was not defined");
+
+  return true;
 }
 
 void FunctionSpecializer::CollectDominanceInfo() {
@@ -152,124 +308,73 @@ void FunctionSpecializer::CollectDominanceInfo() {
   if (! CanSpecialize()) return;
 
   for (Function::iterator bb = m_func->begin(), bbe = m_func->end(); bb != bbe ; ++bb) {
-    Region *reg = m_RI->getRegionFor(bb);
-    V_ASSERT(reg && "getRegionFor failed!");
-    // In release versions, just don't try to specialize...
-    if (!reg)
-      return;
 
-    // Look for every region only once - upon its entry BB
-    if (reg->getEntry() != bb) continue;
-    // Accounting for the case of nested regions, starting from this BB: 
-	  // select the outmost one which has a successor
-    Region *cur_reg = reg;
-    while (cur_reg && cur_reg->getEntry() == bb && RegionHasSuccessor(cur_reg)) {
-      reg = cur_reg;
-      cur_reg = cur_reg->getParent();
+    TerminatorInst* term = bb->getTerminator();
+    BranchInst* br = dyn_cast<BranchInst>(term);
+
+    // we calculate regions either for successors of divergent branches or
+    // for divergent blocks
+    if(!br || ! br->isConditional() ||
+      (!m_WIA->isDivergentBlock(bb) && m_WIA->whichDepend(term) == WIAnalysis::UNIFORM))
+      continue;
+
+    for (unsigned i=0; i < br->getNumSuccessors(); ++i) {
+
+      if (! m_DT->dominates(bb, br->getSuccessor(i)) ||
+          ! calculateBypassInfoPerBranch(br->getSuccessor(i)))
+        continue;
+
+      BypassInfo & info = m_bypassInfoContainer.back();
+
+      ObtainMasksToZero(info);
     }
-
-    // As we ignore nested regions and BBs which are not an entry to a region -
-    // a region can be encountered only once
-    V_ASSERT(std::find(m_region_vector.begin(), m_region_vector.end(), reg) == 
-             m_region_vector.end() && "Nested region or non-entry block!");
-
-    // Has single pred ?
-    BasicBlock *entry = reg->getEntry();
-    V_ASSERT(entry == bb && "This BB should be the entry one!");
-    // Loop over all preds to the first block in entry.
-    // Some of the preds may be backedges. Look for edges from outside
-    // the region. We need to have one.
-    llvm::pred_iterator predIt = pred_begin(entry);
-    llvm::pred_iterator predE  = pred_end(entry);
-    BasicBlock* head = NULL;     
-    for (; predIt!=predE; ++predIt) {
-      if (reg->contains(*predIt) || *predIt == reg->getExit()) continue;
-      if (head) { 
-        // Region's entry has two incoming edges - discard it for specialization
-        head = NULL;
-        break;
-      }       
-      head = *predIt;
-    }
-    if (!head) continue;
-
-    // Region must have single successor. However the last block of a region may
-    // yet have an outgoing back edge to the region's entry block.
-    BasicBlock *exit = reg->getExit();
-    // If a region has an incoming edge to entry block - it should have exit block
-    V_ASSERT(exit && "Broken region - has incoming edge, but no exit block!");
-    llvm::succ_iterator succIt = succ_begin(exit);
-    llvm::succ_iterator succE  = succ_end(exit);
-    BasicBlock* foot = NULL;     
-    for (; succIt!=succE; ++succIt) {
-      if (reg->contains(*succIt)) continue;
-      if (foot) { 
-        // Region's exit has two outgoing edges - discard it for specialization
-        foot = NULL;
-        break;
-      }       
-      foot = *succIt;
-    }
-    if (!foot) continue;
-
-    // Register the region for specialization
-    BranchInst *br = dyn_cast<BranchInst>(head->getTerminator());
-    V_ASSERT(br && "Must have branch inst");
-    // Only specialize after condition
-    if (SpecOnlyAfterBranch && (! br->isConditional())) continue;
-
-    // Register the region
-    m_region_vector.push_back(reg);
-    m_heads[reg] = head;
-    BBVector skipped;
-    findSkippedBlocks(reg, skipped);
-    m_skipped[reg] = skipped;
-    ObtainMasksToZero(reg, reg->getExit(), foot);
   }
 }
 
 void FunctionSpecializer::specializeFunction() {
-
-  for (std::vector<Region*>::iterator it = m_region_vector.begin(),
-      e = m_region_vector.end(); it != e; ++it) {
-      if (shouldSpecialize(*it)) {
-        specializeEdge(*it);
-        V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
-      }
+  for (std::vector<BypassInfo>::iterator itr = m_bypassInfoContainer.begin();
+      itr != m_bypassInfoContainer.end();
+      ++itr) {
+    if (shouldSpecialize(*itr)) {
+      specializeEdge(*itr);
+      V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
+    }
   }
-
 }
 
 void FunctionSpecializer::registerSchedulingScopes(SchedulingScope& parent) {
-  // for all regions
-  for (std::vector<Region*>::iterator rit = m_region_vector.begin(),
-      re = m_region_vector.end(); rit != re; ++rit) {
-    Region* reg = *rit;
-    // if we specialize this region
-    if (! shouldSpecialize(reg)) continue;
-    // create a new region
-    V_ASSERT(m_skipped.find(reg) != m_skipped.end());
-    BBVector skipped = m_skipped[reg];
+  for (std::vector<BypassInfo>::iterator itr = m_bypassInfoContainer.begin();
+        itr != m_bypassInfoContainer.end();
+        ++itr) {
+    BypassInfo & bi = *itr;
+    // if we specialize
+    if (! shouldSpecialize(bi)) continue;
+    // create a scheduling scope
     SchedulingScope *scp = new SchedulingScope(NULL);
-    // insert all basic blocks
-    for(BBVector::iterator bit = skipped.begin(), 
-        be = skipped.end(); bit != be; ++bit) {
-      scp->addBasicBlock(*bit);
+    // insert all basic blocks restrictions from the bypass info
+    for (std::set<BasicBlock*>::iterator itr = bi.m_skippedBlocks.begin();
+        itr != bi.m_skippedBlocks.end();
+        ++itr) {
+      scp->addBasicBlock(*itr);
     }
-    // register region with parent
+    // register the bypass info restrictions with parent
     parent.addSubSchedulingScope(scp);
-  }// regions
+  }
 }
 
 void FunctionSpecializer::addNewToRegion(BasicBlock* old, BasicBlock* fresh) {
   V_ASSERT(old && fresh);
-  for (std::map<Region*, BBVector>::iterator it=m_skipped.begin(), e=m_skipped.end();it!=e;++it) {
+
+  for (std::vector<BypassInfo>::iterator itr =m_bypassInfoContainer.begin();
+      itr != m_bypassInfoContainer.end();
+      ++itr) {
     // if has old, add the new
-    if (std::find(it->second.begin(), it->second.end(), old) != it->second.end()) {
-      it->second.push_back(fresh); 
+    if (itr->m_skippedBlocks.count(old)) {
+      itr->m_skippedBlocks.insert(fresh);
     }
   }
 }
+
 
 BasicBlock* FunctionSpecializer::createIntermediateBlock(
   BasicBlock* before, BasicBlock* after, const std::string& name) {
@@ -302,21 +407,21 @@ BasicBlock* FunctionSpecializer::createIntermediateBlock(
   return new_block;
 }
 
-void FunctionSpecializer::ZeroBypassedMasks(Region *reg, BasicBlock *src,
+void FunctionSpecializer::ZeroBypassedMasks(BypassInfo & bi, BasicBlock *src,
                                     BasicBlock *exit, BasicBlock *footer) {
   // Some mask are initialized or computed inside the region but are used
   // outside the region. These edges, blocks of these masks were collected 
   // in the collectDominanceInfo stage. we use phi node that collect the 
   // value computed inside the region or zero if the region is bypassed, and
   // set the mask in the region footer.
-  std::map<Region*, BasicBlock*>::iterator inIt = m_inMasksToZero.find(reg);
+  std::map<BypassInfo *, BasicBlock*>::iterator inIt = m_inMasksToZero.find(&bi);
   if (inIt != m_inMasksToZero.end()) {
     BasicBlock *BB = inIt->second;
     Value *maskP = m_pred->getInMask(BB);
     V_ASSERT(maskP != NULL && "BB has no in-mask");
     propagateMask(maskP, src, exit, footer);
   }
-  MapRegToBBPairVec::iterator outIt = m_outMasksToZero.find(reg);
+  MapRegToBBPairVec::iterator outIt = m_outMasksToZero.find(&bi);
   if (outIt != m_outMasksToZero.end()) {
     BBPairVec &edges = outIt->second;
     for (unsigned i=0; i<edges.size(); ++i) {
@@ -327,29 +432,21 @@ void FunctionSpecializer::ZeroBypassedMasks(Region *reg, BasicBlock *src,
   }
 }
 
-void FunctionSpecializer::specializeEdge(Region* reg) {
+void FunctionSpecializer::specializeEdge(BypassInfo & bi) {
 
   V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
   
-  V_ASSERT(m_heads.find(reg) != m_heads.end() && "no head!");
-
-  V_ASSERT(m_skipped.find(reg) != m_skipped.end());
-  BBVector skipped = m_skipped[reg];
-
-  std::set<BasicBlock*> skipped_lookup; 
-  for (BBVector::iterator it = skipped.begin(); it != skipped.end(); it++) {
-    skipped_lookup.insert(*it);
-  }
+  V_ASSERT(bi.m_head && "no head!");
 
   // Refining the incoming edge
-  BasicBlock* head = m_heads[reg];
-  BasicBlock* entry = reg->getEntry();
+  BasicBlock* head = bi.m_head;
+  BasicBlock* entry = bi.m_root;
   BasicBlock* before = entry->getSinglePredecessor();
   // if there are two edges entering the region ('loop' case) - take edge coming
   // from outside
   if (!before) {
     for (llvm::pred_iterator it = pred_begin(entry); it != pred_end(entry); ++it) {
-      if (skipped_lookup.find(*it) != skipped_lookup.end()) continue;
+      if (bi.m_skippedBlocks.find(*it) != bi.m_skippedBlocks.end()) continue;
       if (before) {
         // BUGBUG: sometimes linearizer's change of CFG leads to situation
         // when dominance info collected earlier is no valid anymore (e.g., some
@@ -364,12 +461,12 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
   if (!before) return;
 
   // Refining the outgoing edge
-  BasicBlock* exitBlock = reg->getExit();
+  BasicBlock* exitBlock = bi.m_postDom;
   BasicBlock* after = NULL;
   // if there are two edges leaving the region ('loop' case) - take edge going
   // outside of the loop
   for (llvm::succ_iterator it = succ_begin(exitBlock); it != succ_end(exitBlock); ++it) {
-    if (skipped_lookup.find(*it) != skipped_lookup.end()) continue;
+    if (bi.m_skippedBlocks.find(*it) != bi.m_skippedBlocks.end()) continue;
     if (after) {
       // BUGBUG: sometimes linearizer's change of CFG leads to situation
       // when dominance info collected earlier is no valid anymore (e.g., some
@@ -386,14 +483,14 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
   // Creating launching and landing pads for bypass
   BasicBlock* src = createIntermediateBlock(before, entry, "header");
 
-  Value* mask = m_pred->getEdgeMask(head ,reg->getEntry());
+  Value* mask = m_pred->getEdgeMask(head ,bi.m_root);
   V_ASSERT(mask && "unable to find mask");
 
   BasicBlock* footer = createIntermediateBlock(exitBlock, after, "footer");
 
   // Get the list of PHINodes which we need to insert (for skipped instructions)
   std::vector<std::pair<Instruction* , std::set<Instruction*> > > vals;
-  findValuesToPhi(reg,  vals);
+  findValuesToPhi(bi,  vals);
   
   // Create the function call to 'is zero' to test if we need
   // to jump over this section
@@ -405,7 +502,7 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
   // replace previous branch instruction with conditional jump
   BranchInst *branch = dyn_cast<BranchInst>(src->getTerminator());
   V_ASSERT(branch && "This terminator is not a branch!");
-  BranchInst::Create(footer, reg->getEntry(), call_allzero, src);
+  BranchInst::Create(footer, bi.m_root, call_allzero, src);
   branch->eraseFromParent();
 
   // Create the PHINodes for the split values
@@ -432,11 +529,11 @@ void FunctionSpecializer::specializeEdge(Region* reg) {
 
   // Zero masks that are used outside the region but are computed
   // inside the region.
-  ZeroBypassedMasks(reg, src, exitBlock, footer);
+  ZeroBypassedMasks(bi, src, exitBlock, footer);
 
   // New start and end nodes are a part of this region
-  addNewToRegion(reg->getEntry(), src);
-  addNewToRegion(reg->getEntry(), footer);
+  addNewToRegion(bi.m_root, src);
+  addNewToRegion(bi.m_root, footer);
 
   V_ASSERT(!verifyFunction(*m_func) && "I broke this module");
 
@@ -459,24 +556,13 @@ void FunctionSpecializer::propagateMask(Value *mask_target, BasicBlock *header,
   new StoreInst(new_phi, mask_target, footer->getFirstNonPHI());
 }
 
-void FunctionSpecializer::findSkippedBlocks(Region* reg, BBVector& skipped) {
-  
-  V_ASSERT(reg && "bad region");
-  
-  for (Function::iterator it = m_func->begin(), e = m_func->end(); it != e ; ++it) {
-    if (reg->contains(it)) { skipped.push_back(it); }
-  } 
-  skipped.push_back(reg->getExit());
-}
-
 void FunctionSpecializer::findValuesToPhi(
-  Region* reg, std::vector<std::pair<Instruction* , std::set<Instruction*> > > &to_add_phi) {
+  BypassInfo & bi, std::vector<std::pair<Instruction* , std::set<Instruction*> > > &to_add_phi) {
 
-  V_ASSERT(m_skipped.find(reg) != m_skipped.end());
-  BBVector skipped = m_skipped[reg];
   // Find values to protect behind a PHI
   // For each skipped BB
-  for (BBVector::iterator BB = skipped.begin(), BBe = skipped.end(); BB != BBe; ++BB) {
+  for (std::set<BasicBlock*>::iterator BB = bi.m_skippedBlocks.begin();
+      BB != bi.m_skippedBlocks.end(); ++BB) {
     // for each inst
     for (BasicBlock::iterator inst = (*BB)->begin(), inst_e = (*BB)->end(); inst != inst_e; ++inst) {
       // For each skipped instruction
@@ -489,7 +575,7 @@ void FunctionSpecializer::findValuesToPhi(
         if (Instruction* iii = dyn_cast<Instruction>(*us)) {
           // if the user of this instruction is not in skipped region
           // if this is a new BB
-          if (std::find(skipped.begin(), skipped.end(), iii->getParent()) == skipped.end())  { deps.insert(iii);  }
+          if (! bi.m_skippedBlocks.count( iii->getParent()))  { deps.insert(iii);  }
         }
       }
       if (!deps.empty()) {
