@@ -7,8 +7,10 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: @internalDivBranch
+; CHECK-NOT: header:
 ; CHECK-NOT: @masked_load
 ; CHECK: @masked_store
+; CHECK-NOT: footer:
 ; CHECK: ret
 
 define void @internalDivBranch(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
@@ -135,13 +137,11 @@ define void @externalDivBranchNestedUnLoops(i32 addrspace(1)* nocapture %a, i32 
 }
 
 ; CHECK: @externalDivBranchNestedLoops
-; CHECK: header{{[0-9]*}}:
 ; CHECK: @masked_store
-; CHECK: footer{{[0-9]*}}:  
-; CHECK: header{{[0-9]*}}:
+; CHECK: header:
 ; CHECK: @masked_load
 ; CHECK: @masked_store
-; CHECK: footer{{[0-9]*}}:  
+; CHECK: footer:
 ; CHECK: ret
 
 define void @externalDivBranchNestedLoops(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
@@ -243,13 +243,11 @@ define void @internalDivBranchNestedUnLoops(i32 addrspace(1)* nocapture %a, i32 
 }
 
 ; CHECK: @internalDivBranchNestedLoops
-; CHECK: header{{[0-9]*}}:
 ; CHECK: @masked_load
-; CHECK: header{{[0-9]*}}:
 ; CHECK: @masked_load
 ; CHECK: @masked_store
-; CHECK: footer{{[0-9]*}}: 
-; CHECK: footer{{[0-9]*}}: 
+; CHECK: header:
+; CHECK: footer:
 ; CHECK: ret
 
 define void @internalDivBranchNestedLoops(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
@@ -364,12 +362,10 @@ define void @internalDivBranchThreeNestedUnLoops(i32 addrspace(1)* nocapture %a,
 }
 
 ; CHECK: @internalUnBranchDivLoop
-; CHECK: header{{[0-9]*}}:
-; CHECK: header{{[0-9]*}}:
+; CHECK: header:
 ; CHECK: @masked_load
 ; CHECK: @masked_store
-; CHECK: footer{{[0-9]*}}: 
-; CHECK: footer{{[0-9]*}}: 
+; CHECK: footer
 ; CHECK: ret
 
 define void @internalUnBranchDivLoop(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
@@ -406,10 +402,8 @@ define void @internalUnBranchDivLoop(i32 addrspace(1)* nocapture %a, i32 addrspa
 ; CHECK: @externalUnBranchDivLoop
 ; CHECK-NOT: @masked_load
 ; CHECK-NOT: @masked_store
-; CHECK: header{{[0-9]*}}:
 ; CHECK: @masked_load
 ; CHECK: @masked_store
-; CHECK: footer{{[0-9]*}}:
 ; CHECK: ret
 
 define void @externalUnBranchDivLoop(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {

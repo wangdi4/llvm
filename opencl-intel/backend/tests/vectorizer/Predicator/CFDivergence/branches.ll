@@ -8,12 +8,9 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: @divBranchNestedUnLoop
 ; CHECK: header:
-; CHECK: header
 ; CHECK: @masked_store
 ; CHECK: footer:
-; CHECK: header
 ; CHECK: @masked_store
-; CHECK: footer
 ; CHECK: ret
 
 define void @divBranchNestedUnLoop(i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
@@ -45,16 +42,12 @@ define void @divBranchNestedUnLoop(i32 addrspace(1)* nocapture %res, i32 %num) n
 
 declare i64 @get_global_id(i32) nounwind readnone
 
-; CHECK: define void @divBranchNestedUnBranch
+; CHECK: @divBranchNestedUnBranch
 ; CHECK: header:
-; CHECK: header
 ; CHECK-NOT: @masked_load
 ; CHECK: @masked_store
 ; CHECK: footer:
-; CHECK: header
 ; CHECK: @masked_store
-; CHECK: footer
-; CHECK: footer
 ; CHECK: ret
 
 define void @divBranchNestedUnBranch(i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
@@ -84,19 +77,12 @@ define void @divBranchNestedUnBranch(i32 addrspace(1)* nocapture %res, i32 %num)
   ret void
 }
 
-; CHECK: define void @divBranchNestedUnBranchI
+; CHECK: @divBranchNestedUnBranchI
 ; CHECK: header:
 ; CHECK-NOT: @masked_load
-; CHECK: header
 ; CHECK: @masked_store
-; CHECK: footer
-; CHECK: header
 ; CHECK: @masked_store
 ; CHECK: footer:
-; CHECK: header
-; CHECK: @masked_store
-; CHECK: footer
-; CHECK: footer
 ; CHECK: ret
 
 define void @divBranchNestedUnBranchI(i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
@@ -130,11 +116,9 @@ define void @divBranchNestedUnBranchI(i32 addrspace(1)* nocapture %res, i32 %num
   ret void
 }
 
-; CHECK: define void @divBranchedUnBranch
+; CHECK: @divBranchedUnBranch
 ; CHECK-NOT: @masked_load
-; CHECK: header:
 ; CHECK: @masked_store
-; CHECK: footer:
 ; CHECK-NOT: @masked_store
 ; CHECK: ret
 
@@ -166,11 +150,9 @@ define void @divBranchedUnBranch(i32 addrspace(1)* nocapture %res, i32 %num) nou
   ret void
 }
 
-; CHECK: define void @nestedUnBranchedUnBranchDivBranch
+; CHECK: @nestedUnBranchedUnBranchDivBranch
 ; CHECK-NOT: @masked_load
-; CHECK: header:
 ; CHECK: @masked_store
-; CHECK: footer:
 ; CHECK: ret
 
 define void @nestedUnBranchedUnBranchDivBranch(i32 addrspace(1)* nocapture %res, i32 %num) nounwind {

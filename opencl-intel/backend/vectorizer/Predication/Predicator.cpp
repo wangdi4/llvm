@@ -48,6 +48,7 @@ OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(RegionInfo)
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_END(Predicator, "predicate", "Predicate Function", false, false)
 
@@ -117,7 +118,7 @@ bool Predicator::runOnFunction(Function &F) {
 
   ++PredicatorCounter;
 
-  // Predication is needed only in the presence of divergent branch
+  // Only predicate if this function needs masking
   if (needPredication(F)) {
     predicateFunction(&F);
     return true;
@@ -1167,10 +1168,11 @@ void Predicator::predicateFunction(Function *F) {
   // Get Dominator and Post-Dominator analysis passes
   PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
   DominatorTree* DT      = &getAnalysis<DominatorTree>();
+  RegionInfo* RI         = &getAnalysis<RegionInfo>();
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   V_ASSERT(LI && "Unable to get loop analysis");
   FunctionSpecializer specializer(
-    this, F, m_allzero, PDT, DT, LI, m_WIA);
+    this, F, m_allzero, PDT, DT, RI, LI, m_WIA);
 
   V_PRINT(predicate, "Predicating "<<F->getName()<<"\n");
 
