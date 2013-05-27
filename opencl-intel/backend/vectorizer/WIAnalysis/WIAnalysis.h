@@ -79,6 +79,12 @@ public:
     /// @return Dependency kind
     WIDependancy whichDepend(const Value* val);
 
+    /// @brief Set the type of dependency an instruction should have
+    /// and update the data structures accordingly
+    /// @param from - the source instruction
+    /// @param to - the target instruction
+    void setDepend(const Instruction* from, const Instruction* to);
+
     /// @brief Returns whether BB is a divergent block
     /// @param BB the block
     /// @return true for divergent and false otherwise
@@ -93,11 +99,6 @@ public:
     /// as pointer may later be reused
     /// @param val Value to invalidate
     void invalidateDepend(const Value* val);
-
-    /// @brief Checks if all of the control flow in the analized function is uniform.
-    /// @param F function to check
-    /// @return True if masks are needed
-    bool isControlFlowUniform(const Function *F);
 
 private:
     /*! \name Dependency Calculation Functions

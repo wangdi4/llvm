@@ -7,10 +7,10 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: void @internalDivBranchMX
-; CHECK-NOT: header:
 ; CHECK: @masked_load
+; CHECK: header:
 ; CHECK: @masked_store
-; CHECK-NOT: footer:
+; CHECK: footer:
 ; CHECK: ret
 
 define void @internalDivBranchMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
@@ -52,7 +52,7 @@ declare i64 @get_global_id(i32) nounwind readnone
 ; CHECK: @masked_store
 ; CHECK-NOT: @masked_load
 ; CHECK-NOT: @masked_load
-; CHECK-NOT: footer:
+; CHECK: footer:
 ; CHECK: ret
 
 define void @externalDivBranchMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
@@ -97,7 +97,6 @@ define void @externalDivBranchMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1
 ; CHECK: @masked_store
 ; CHECK-NOT: @masked_load
 ; CHECK-NOT: @masked_load
-; CHECK-NOT: footer:
 ; CHECK: ret
 
 define void @externalDivBranchNestedUnLoopsMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {

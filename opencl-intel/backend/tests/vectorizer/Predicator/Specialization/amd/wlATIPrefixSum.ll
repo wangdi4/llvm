@@ -11,12 +11,15 @@ target triple = "i686-pc-win32"
 @lvgv = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
 
 ; CHECK: @prefixSum
-; CHECK-NOT: ^header{{[0-9]*}}:
-; CHECK-NOT:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK-NOT: footer{{[0-9]*}}:                                     ; preds = %header{{[0-9]*}}
-; CHECK-NOT: ^header{{[0-9]*}}:
-; CHECK-NOT:   br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK-NOT: footer{{[0-9]*}}:                                     ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK: br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                     ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK: br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                     ; preds = %header{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK: br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                     ; preds = %header{{[0-9]*}}
 
 
 define void @prefixSum(float addrspace(1)* %output, float addrspace(1)* %input, float addrspace(3)* %block, i32 %length, ...) nounwind {

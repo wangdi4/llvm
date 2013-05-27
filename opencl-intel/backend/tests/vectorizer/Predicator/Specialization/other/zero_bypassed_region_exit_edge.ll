@@ -3,7 +3,13 @@
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; CHECK: @kernel
-; CHECK: %BB3_in_mask_maskspec
+; CHECK: header{{[0-9]*}}:
+; CHECK: br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: header{{[0-9]*}}:
+; CHECK: br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
+; CHECK: footer{{[0-9]*}}:                                        
+; CHECK: %BB2_in_mask_maskspec
+; CHECK: footer{{[0-9]*}}:  
 ; CHECK: ret
 
 

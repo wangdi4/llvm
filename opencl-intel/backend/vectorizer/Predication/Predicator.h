@@ -251,10 +251,8 @@ public:
     AU.addRequired<LoopInfo>();
     // We need dominance frontier to estimate
     // the dominance for specialization
-    AU.addRequired<DominanceFrontier>();
     AU.addRequired<DominatorTree>();
     AU.addRequired<PostDominatorTree>();
-    AU.addRequired<RegionInfo>();
     // we preserve nothing. really.
     AU.addRequired<WIAnalysis>();
   }

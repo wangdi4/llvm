@@ -150,7 +150,7 @@ bool WIAnalysis::runOnFunction(Function &F) {
 
 void WIAnalysis::updateDeps() {
 
-  // As lonst as we have values to update
+  // As long as we have values to update
   while(!m_pChangedNew->empty()) {
     // swap between changedSet pointers - recheck the newChanged(now old)
     std::swap(m_pChangedNew, m_pChangedOld);
@@ -193,6 +193,22 @@ WIAnalysis::WIDependancy WIAnalysis::whichDepend(const Value* val){
   return m_deps[val];
 }
 
+void WIAnalysis::setDepend(const Instruction* from, const Instruction* to) {
+  assert(from && to && "Bad instruction");
+  assert(m_deps.find(from) != m_deps.end() && "Can't find from in m_deps");
+
+  const BasicBlock * fromBB = from->getParent();
+  const BasicBlock * toBB = to->getParent();
+
+  if (m_divBlocks.count(fromBB))
+    m_divBlocks.insert(toBB);
+
+  if (m_divPhiBlocks.count(fromBB))
+    m_divPhiBlocks.insert(toBB);
+
+  m_deps[to] = m_deps[from];
+}
+
 bool WIAnalysis::isDivergentBlock(BasicBlock *BB) {
   return m_divBlocks.count(BB);
 }
@@ -205,21 +221,6 @@ void WIAnalysis::invalidateDepend(const Value* val){
   if (m_deps.find(val) != m_deps.end()) {
     m_deps.erase(val);
   }
-}
-
-bool WIAnalysis::isControlFlowUniform(const Function* F) {
-  V_ASSERT(F && "Bad Function");
-
-  /// Place out-masks
-  for (Function::const_iterator it = F->begin(), e  = F->end(); it != e ; ++it) {
-    WIAnalysis::WIDependancy dep = whichDepend(it->getTerminator());
-    if (dep != WIAnalysis::UNIFORM) {
-      // Found a branch which diverges on the input
-      return false;
-    }
-  }
-  // All branches are uniform
-  return true;
 }
 
 WIAnalysis::WIDependancy WIAnalysis::getDependency(const Value *val) {
