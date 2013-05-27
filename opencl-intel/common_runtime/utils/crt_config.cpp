@@ -21,6 +21,7 @@
 //  Original author: rjiossy
 ///////////////////////////////////////////////////////////
 #include "crt_config.h"
+#include "crt_registry.h"
 
 CrtConfig::CrtConfig()
 {
@@ -42,13 +43,27 @@ std::string& CrtConfig::getPlatformLibName(cl_uint index)
 }
 
 crt_err_code CrtConfig::Init()
-{    
+{
+    crt_err_code err = CRT_SUCCESS;
+    char pCpuPath[MAX_PATH];
+
+    if(OCLCRT::Utils::GetCpuPathFromRegistry(pCpuPath) == true)
+    {
+#if defined(_WIN64)
+        sprintf_s(pCpuPath, MAX_PATH, "%s%s", pCpuPath, "\\bin\\x64");
+#else
+        sprintf_s(pCpuPath, MAX_PATH, "%s%s", pCpuPath, "\\bin\\x86");
+#endif
+        SetDllDirectory(pCpuPath);
+    }
+
 #if defined(_WIN64)
     m_libraryNames.push_back("intelocl64.dll");
     m_libraryNames.push_back("igdrcl64.dll");
 #else
     m_libraryNames.push_back("intelocl32.dll");
     m_libraryNames.push_back("igdrcl32.dll");
-#endif    
-    return CRT_SUCCESS;
+#endif
+
+    return err;
 }
