@@ -374,16 +374,12 @@ const char* NotifierCollection::enableKernelArgumentInfo(const char* options){
 	if ( strstr(options, CL_KERNEL_ARG_INFO_OPTION))
 	{
 		char* newOptions = new char[options_length + 1]; //Dynamic allocation - will be freed in buildProgram
-		newOptions[options_length] = '\0';
-		strncpy(newOptions, options, options_length);
+		STRCPY_S(newOptions, options_length + 1, options);
 		return newOptions; //TODO: fix, you don't need dynamic allocation here...
-	}
-	
+	}	
 	size_t addon_length = strlen(CL_KERNEL_ARG_INFO_OPTION);
 	char* newOptions = new char[options_length + addon_length + 1]; //Dynamic allocation - will be freed in buildProgram
-	newOptions[options_length + addon_length] = '\0';
-	strncpy(newOptions, options, options_length);
-	newOptions[options_length] = '\0';
-	strncat(newOptions, CL_KERNEL_ARG_INFO_OPTION, addon_length); 
+	STRCPY_S(newOptions, options_length + addon_length + 1, options);
+	STRCAT_S(newOptions, options_length + addon_length + 1, CL_KERNEL_ARG_INFO_OPTION); 
 	return newOptions;
 }
