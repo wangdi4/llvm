@@ -27,7 +27,7 @@ bool  Intel::OpenCL::TaskExecutor::TBB_ThreadManager< Data >::m_object_exists = 
 
 template <class Data>
 TBB_ThreadManager<Data>::TBB_ThreadManager() :
-    m_FreeListHead(NULL), m_DescriptorsArray(NULL), m_uiNumberOfStaticEntries(0)
+    m_DescriptorsArray(NULL), m_uiNumberOfStaticEntries(0), m_nextFreeEntry(0), m_bOverflowed(false)
 {
 }
 
@@ -56,13 +56,6 @@ TBB_ThreadManager<Data>::Init( unsigned int uiNumberOfThreads )
             m_uiNumberOfStaticEntries = 0;
             return false;
         }
-
-        for (unsigned int i = 0; i < m_uiNumberOfStaticEntries-1; ++i)
-        {
-            m_DescriptorsArray[i].next_free_entry = &(m_DescriptorsArray[i+1]);
-        }
-
-        m_FreeListHead = &(m_DescriptorsArray[0]);
     }
 
     return true;
@@ -72,26 +65,12 @@ template <class Data>
 TBB_ThreadManager<Data>::~TBB_ThreadManager() 
 {
     m_object_exists = false;
-
-    // find overflowed entries in the free list and delete them
-    TBB_ThreadDescriptor<Data>* next = m_FreeListHead;
-    while (NULL != next)
-    {
-        TBB_ThreadDescriptor<Data>* tmp = next;
-        next = next->next_free_entry;
-
-        if ((NULL == m_DescriptorsArray) || 
-            (tmp < &(m_DescriptorsArray[0])) || (&(m_DescriptorsArray[m_uiNumberOfStaticEntries-1]) < tmp))
-        {
-            // this is an overflow entry
-            delete tmp;
-        }
-    }
-
-    if (NULL != m_DescriptorsArray)
-    {
-        delete [] m_DescriptorsArray;
-    }
+    // Intentionally leak everything. The objects are small. 
+    // If you want to be a hero, you can:
+    // 0. Track "overflow" entries 
+    // 1. Invalidate the thread descriptors held by the threads
+    // 2. Delete[] the descriptor array
+    // 3. Iterate over the overflow entries and delete them
 }
 
 template <class Data>
@@ -103,49 +82,42 @@ Data* TBB_ThreadManager<Data>::RegisterCurrentThread()
         return NULL;
     }
 
-    Intel::OpenCL::Utils::OclAutoMutex lock( &m_lock );
-
-    if (NULL == m_FreeListHead)
+    unsigned int myEntry = m_uiNumberOfStaticEntries;
+    if (!m_bOverflowed)
     {
-        // number of threads overflow - allocate for extra
-        m_CurrentThreadGlobalID         = new TBB_ThreadDescriptor<Data>;
+        myEntry = (unsigned int)m_nextFreeEntry++;
+        if (myEntry >= m_uiNumberOfStaticEntries)
+        {
+            m_bOverflowed = true;
+        }
+    }
+    // m_bOverflowed is a sticky flag indicating entries need to be allocated on demand
+    // The point is to prevent write accesses to a shared location and save atomic operations
+    // Once we've overflowed, we don't use the atomic counter anymore, nor do we write to the bool itself
+
+
+    if (myEntry < m_uiNumberOfStaticEntries)
+    {
+        m_CurrentThreadGlobalID = m_DescriptorsArray + myEntry;
+    }
+    else
+    {
+        // Overflow, allocate on demand
+        // These are not tracked anywhere so they leak, but we don't have to synchronize anything so hurray
+        m_CurrentThreadGlobalID = new TBB_ThreadDescriptor<Data>;
         if (NULL == m_CurrentThreadGlobalID)
         {
             return NULL;
         }
-        m_CurrentThreadGlobalID->m_data.thread_attach();
-        return &(m_CurrentThreadGlobalID->m_data);
     }
 
-    m_CurrentThreadGlobalID = m_FreeListHead;
-    m_FreeListHead          = m_FreeListHead->next_free_entry;
-    m_CurrentThreadGlobalID->next_free_entry = NULL;
     m_CurrentThreadGlobalID->m_data.thread_attach();
-
     return &(m_CurrentThreadGlobalID->m_data);
 }
 
 template <class Data>
 void TBB_ThreadManager<Data>::UnregisterCurrentThread()
 {
-    assert( m_object_exists );
-    if (!m_object_exists)
-    {
-        return;
-    }
-
-    if (NULL == m_CurrentThreadGlobalID)
-    {
-        return;
-    }
-
-    // add overflowed entries to the free list also - to be used later if required 
-
-    Intel::OpenCL::Utils::OclAutoMutex lock( &m_lock );
-
-    // insert into free list
-    m_CurrentThreadGlobalID->next_free_entry = m_FreeListHead;
-    m_FreeListHead                           = m_CurrentThreadGlobalID;
-    m_CurrentThreadGlobalID                  = NULL;
+    // Intentional leak to avoid allocate/deallocate whenever threads join/leave an arena.
 }
 

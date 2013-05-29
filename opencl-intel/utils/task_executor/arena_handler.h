@@ -176,7 +176,7 @@ public:
     virtual void SetObserver(ITaskExecutorObserver* pObserver);
     
     virtual void AttachMasterThread(void* user_tls);
-    virtual void DettachMasterThread();
+    virtual void DetachMasterThread();
 
     /**
 	 * Create Task Execution List to the given sub-device

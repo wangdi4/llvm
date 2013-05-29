@@ -20,11 +20,17 @@
 
 #pragma once
 
+#include <cl_synch_objects.h>
 #include "cl_device_api.h"
 #include "cl_object_pool.h"
 #include "wg_context.h"
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
+
+struct WGContextWrapper
+{
+    WGContext* pContext;
+};
 
 /**
  * This class implements IWGContextPool for CPU device agent
@@ -33,20 +39,32 @@ class WgContextPool : public IWGContextPool
 {
 public:
 
+     WgContextPool();
+     	
+     virtual ~WgContextPool() {}
+     
+    /**
+     * Init a context pool with enough contexts for maxNumWorkers workers
+     */
+     void Init(unsigned int maxNumWorkers);
+
     /**
      * Clear and delete all WG contexts
      */
-    void Clear() { m_wgContextPool.Clear(); }
+    void Clear();
 
     // overriden methods:
 
     virtual WGContextBase* GetWGContext(bool bBelongsToMasterThread);    
 
-    virtual void ReleaseWorkerWGContext(WGContextBase* pWgContext) { m_wgContextPool.Free(static_cast<WGContext*>(pWgContext)); }
+    virtual void ReleaseWorkerWGContext(WGContextBase* pWgContext) {}
 
 private:
 
-    Intel::OpenCL::Utils::ObjectPool<WGContext> m_wgContextPool;
+    WGContext*                          m_wgContextPool;
+    WGContextWrapper*                   m_wgContextWrapperPool;
+    Intel::OpenCL::Utils::AtomicCounter m_nextWorkerContext;
+    unsigned int                        m_maxNumWorkers;
 
 };
 

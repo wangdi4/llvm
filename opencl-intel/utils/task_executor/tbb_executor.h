@@ -77,7 +77,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		bool LoadTBBLibrary();
 
         ThreadManager                       m_threadManager;
-		Intel::OpenCL::Utils::OclDynamicLib	m_dllTBBLib;				
+		Intel::OpenCL::Utils::OclDynamicLib	m_dllTBBLib;				        
 
         /* We need this because of a bug Anton has reported: we should initialize the task_scheduler_init to P+1 threads, instead of P. Apparently, if we explicitly create a task_scheduler_init
            in a certain master thread, TBB creates a global task_scheduler_init object that future created task_arenas will use. Once they fix this bug, we can remove this attribute.

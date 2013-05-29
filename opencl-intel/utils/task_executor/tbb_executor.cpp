@@ -268,12 +268,7 @@ int	TBBTaskExecutor::Init(unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData)
         LOG_ERROR(TEXT("%s"), "Failed to allocate task_scheduler_init");
         return 0;
     }
-// MIC init with P workers while CPU with P + 1, we should consider changing it also on CPU - CSSD100016017.
-#ifdef DEVICE_NATIVE
-    m_pScheduler->initialize(gWorker_threads);   // see comment above the definition of m_pScheduler
-#else
-    m_pScheduler->initialize(gWorker_threads + 1);    // see comment above the definition of m_pScheduler
-#endif
+    m_pScheduler->initialize(gWorker_threads);
     m_threadManager.Init(gWorker_threads + SPARE_STATIC_DATA); // + SPARE to allow temporary oversubscription in flat mode and additional root devices
 
 	LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);

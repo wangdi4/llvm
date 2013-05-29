@@ -35,8 +35,8 @@
 #include "wg_context_pool.h"
 #include "task_dispatcher.h"
 #include <cl_synch_objects.h>
-
-
+#include <map>
+#include <vector>
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -45,7 +45,6 @@ extern const char* VENDOR_STRING;
 
 class ProgramService;
 class MemoryAllocator;
-struct ThreadMapping;
 
 class CPUDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription, public IAffinityChangeObserver
 
@@ -77,14 +76,16 @@ protected:
 	void            ReleaseComputeUnits(unsigned int* which, unsigned int how_many);
 	
 	//Affinity observer interface
-	void            NotifyAffinity(unsigned int tid, unsigned int core);
+	void            NotifyAffinity(threadid_t tid, unsigned int core);
 
 	// A mapping between an OpenCL-defined core ID (1 is first CPU on second socket) and OS-defined core ID
 	unsigned int*    m_pComputeUnitMap;
-	// Indexed by thread ID, contains data on which core the thread is pinned to and whether it's a part of a sub-device
-	ThreadMapping*   m_pComputeUnitScoreboard;
-	// Maps OpenCL core ID to thread id which is pinned to the core, which can then be used access the scoreboard above
-	int*    m_pCoreToThread;
+	// Maps OS thread ID to core ID
+	std::map<threadid_t, int>  m_threadToCore;
+	// Maps OpenCL core ID to OS thread id which is pinned to the core, which can then be used access the scoreboard above
+	std::vector<threadid_t>    m_pCoreToThread;
+    // Keeps track over used compute units to prevent overlap
+    std::vector<bool>        m_pCoreInUse;
 	// Architectural data on the underlying HW
 	unsigned long    m_numNumaNodes;
 	unsigned long    m_numCoresPerL1;

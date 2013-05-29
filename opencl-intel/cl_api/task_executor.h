@@ -347,7 +347,7 @@ public:
 	/**
       * Unegister calling thread (master) to be used by the device
 	  */    
-    virtual void DettachMasterThread() = 0;
+    virtual void DetachMasterThread() = 0;
 
 };
 

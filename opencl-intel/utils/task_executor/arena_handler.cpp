@@ -143,11 +143,6 @@ TEDevice::TEDevice(  const RootDeviceCreationParam& device_desc, void* user_data
 {
     memset( m_lowLevelArenas, 0, sizeof(m_lowLevelArenas) );
 
-    if (isSubDevice())
-    {
-        m_observer = NULL;
-    }
-
     // setup arenas
 
     // setup main arena
@@ -312,7 +307,7 @@ void TEDevice::AttachMasterThread(void* user_tls)
     tls->enter_reported = true;
 }
 
-void TEDevice::DettachMasterThread()
+void TEDevice::DetachMasterThread()
 {
     TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
     TBB_PerActiveThreadData* tls = thread_manager.RegisterAndGetCurrentThreadDescriptor();
@@ -395,12 +390,10 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
            protect ourselves, except by raising a flag in a function registered by atexit. This isn't a perfect protection, since exit can be called while the worker thread is in this method after having
            already checked the flag, but it significantly reduces the probability for it. This also applies to the same flag checking in other methods. */
         {
-            TEDevice* rootDevice = get_root();
-            OclAutoReader  reader_lock( &(rootDevice->m_observerLock) );
-            if ((NULL != rootDevice->m_observer) && (!gIsExiting))
+            if ((NULL != m_observer) && (!gIsExiting))
             {
                 // per thread user data recides inside per-thread descriptor
-                tls->user_tls = rootDevice->m_observer->OnThreadEntry();
+                tls->user_tls = m_observer->OnThreadEntry();
                 tls->enter_reported = true;
             }
         }
@@ -447,12 +440,10 @@ void TEDevice::on_scheduler_exit( bool bIsWorker, ArenaHandler& arena )
     // now the only case - we are leaving our attach_level - out from device
     if (tls->enter_reported)
     {
-        TEDevice* rootDevice = get_root();
-        OclAutoReader  reader_lock( &(rootDevice->m_observerLock) );
-        if ((NULL != rootDevice->m_observer) && (!gIsExiting))
+        if ((NULL != m_observer) && (!gIsExiting))
         {
             // per thread user data recides inside per-thread descriptor
-            rootDevice->m_observer->OnThreadExit( tls->user_tls );
+            m_observer->OnThreadExit( tls->user_tls );
         }
     }
 
@@ -481,12 +472,9 @@ bool TEDevice::on_scheduler_leaving( ArenaHandler& arena )
     {
         assert( (this == tls->device) && "Something wrong with observers - thread tries to leave the wrong device" );
 
-        TEDevice* rootDevice = get_root();
-        OclAutoReader  reader_lock( &(rootDevice->m_observerLock) );
-
-        if ((NULL != rootDevice->m_observer) && (!gIsExiting))
+        if ((NULL != m_observer) && (!gIsExiting))
         {
-            user_answer = rootDevice->m_observer->MayThreadLeaveDevice( &(tls->user_tls) );
+            user_answer = m_observer->MayThreadLeaveDevice( &(tls->user_tls) );
         }
     }
 
@@ -503,30 +491,22 @@ bool TEDevice::on_scheduler_leaving( ArenaHandler& arena )
 
     return may_leave;	
 }
-
 void TEDevice::ResetObserver()
 { 
-    TEDevice* rootDevice = get_root();
-    OclAutoWriter  writer_lock( &(rootDevice->m_observerLock) );
-    rootDevice->m_observer = NULL;
+    m_observer = NULL;
 }
-
 void TEDevice::SetObserver(ITaskExecutorObserver* pObserver)
 {
-    TEDevice* rootDevice = get_root();
-    {
-    	OclAutoWriter  writer_lock( &(rootDevice->m_observerLock) );
-	    if ( (NULL==pObserver) && (NULL != rootDevice->m_observer) )
+	    if ( (NULL==pObserver) && (NULL != m_observer) )
 	    {
 	    	m_mainArena.observe(false);
 	    	m_numOfActiveThreads = 0;
-			rootDevice->m_observer = NULL;
+			m_observer = NULL;
 			return;
 	    }
 		
-       	rootDevice->m_observer = pObserver;
-    }
-	
+       	m_observer = pObserver;
+
 	// Looks a raise in this place, but since it's relevant only for MIC we don't have an issue
     m_mainArena.observe(true);
 }

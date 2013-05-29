@@ -521,7 +521,7 @@ bool ThreadPool::DeactivateCurrentMasterThread()
 	assert(NULL != m_tpMasterCtx && "Master context is not supposed to be NULL");
 	if ( NULL != m_tpMasterCtx )
 	{
-		m_RootDevice->DettachMasterThread();
+		m_RootDevice->DetachMasterThread();
 		delete m_tpMasterCtx;
 		m_tpMasterCtx = NULL;
 	}

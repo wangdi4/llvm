@@ -36,11 +36,6 @@ struct TBB_ThreadDescriptor
 public:
     Data    m_data;
 
-    TBB_ThreadDescriptor() : next_free_entry(NULL) {};
-
-private:
-
-    TBB_ThreadDescriptor<Data>* next_free_entry;
     friend class TBB_ThreadManager<Data>;
 };
 
@@ -76,13 +71,13 @@ public:
 
 private:
 
-    TBB_ThreadDescriptor<Data>*         m_FreeListHead;
     TBB_ThreadDescriptor<Data>*         m_DescriptorsArray;
-    Intel::OpenCL::Utils::OclSpinMutex  m_lock;
 
     static THREAD_LOCAL TBB_ThreadDescriptor<Data>*    m_CurrentThreadGlobalID;
 
     unsigned int                        m_uiNumberOfStaticEntries;
+    Intel::OpenCL::Utils::AtomicCounter m_nextFreeEntry;
+    volatile bool                       m_bOverflowed;
     static bool                         m_object_exists;
 
     // do not implement

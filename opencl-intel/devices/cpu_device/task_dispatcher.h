@@ -67,7 +67,7 @@ typedef struct _cl_dev_internal_subdevice_id
 class IAffinityChangeObserver
 {
 public:
-    virtual void NotifyAffinity(unsigned int tid, unsigned int core) = 0;
+    virtual void NotifyAffinity(threadid_t tid, unsigned int core) = 0;
 };
 
 class TaskDispatcher : public Intel::OpenCL::TaskExecutor::ITaskExecutorObserver
@@ -128,9 +128,6 @@ protected:
     WgContextPool*              m_pWgContextPool;
     unsigned int				m_uiNumThreads;
 	bool						m_bTEActivated;
-
-	// Contexts required for execution of NDRange
-	WGContext*					m_pWGContexts;
 
 	IAffinityChangeObserver*    m_pObserver;
 
@@ -222,9 +219,9 @@ public:
 	
     PREPARE_SHARED_PTR(AffinitizeThreads)
 
-    static SharedPtr<AffinitizeThreads> Allocate(unsigned int numThreads, cl_ulong timeOutInTicks)
+    static SharedPtr<AffinitizeThreads> Allocate(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer)
     {
-        return SharedPtr<AffinitizeThreads>(new AffinitizeThreads(numThreads, timeOutInTicks)); 
+        return SharedPtr<AffinitizeThreads>(new AffinitizeThreads(numThreads, timeOutInTicks, observer)); 
     }
 
 	virtual ~AffinitizeThreads();
@@ -254,7 +251,9 @@ protected:
 
     Intel::OpenCL::Utils::AtomicCounter	m_endBarrier;
 
-    AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks);
+        IAffinityChangeObserver* m_pObserver;
+
+    AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer);
 };
 
 }}}

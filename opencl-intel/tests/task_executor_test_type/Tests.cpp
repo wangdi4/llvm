@@ -48,10 +48,6 @@ struct DeviceAuto
         if (NULL != deviceHandle)
         {
             deviceHandle->ShutDown();
-            if (is_root)
-            {
-                deviceHandle->ResetObserver();
-            }
         }
     }
 private:

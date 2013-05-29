@@ -181,20 +181,6 @@ typedef struct _cl_dev_internal_cmd_list
 	TaskDispatcher*               task_dispatcher;
 } cl_dev_internal_cmd_list;
 
-//A data structure keeping track of which thread ID is which OS-dependent ID and which core it's mapped to
-struct Intel::OpenCL::CPUDevice::ThreadMapping
-{
-	// Int so -1 means no affinity for this thread yet
-	int core;
-
-	// The OS-dependent per-thread ID
-	threadid_t os_tid;
-
-	// A flag indicating whether this core is a part of a sub-device (and thus has a thread pinned to it)
-	bool core_in_use;
-};
-
-
 CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc): 
     m_pProgramService(NULL),
     m_pMemoryAllocator(NULL),
@@ -205,9 +191,7 @@ CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCL
     m_pLogDescriptor(logDesc), 
     m_iLogHandle (0),
 	m_defaultCommandList(NULL),
-	m_pComputeUnitMap(NULL),
-	m_pComputeUnitScoreboard(NULL),
-	m_pCoreToThread(NULL)
+	m_pComputeUnitMap(NULL)
 {
 }
 
@@ -275,32 +259,17 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
-    const size_t szScoreboardSize = m_numCores + 1;   // TODO: return it to m_numCores once the bug in TBB described in TBBTaskExecutor::m_pScheduler is resolved
-	m_pComputeUnitScoreboard = new ThreadMapping[szScoreboardSize];
-	if (NULL == m_pComputeUnitScoreboard)
-	{
-		delete[] m_pComputeUnitMap;
-		return CL_DEV_OUT_OF_MEMORY;
-	}
-	m_pCoreToThread = new int[m_numCores];
-	if (NULL == m_pCoreToThread)
-	{
-		delete[] m_pComputeUnitScoreboard;
-		delete[] m_pComputeUnitMap;
-		return CL_DEV_OUT_OF_MEMORY;
-	}
+	//Todo: m_pComputeUnitScoreboard.reserve(m_numCores);
+
+    m_pCoreToThread.resize(m_numCores);
+    m_pCoreInUse.resize(m_numCores);
 
 	//Todo: calculate the real map here
-	for (unsigned long i = 0; i < szScoreboardSize; ++i)
-	{
-		m_pComputeUnitScoreboard[i].os_tid      = 0;
-		m_pComputeUnitScoreboard[i].core_in_use = false;
-		m_pComputeUnitScoreboard[i].core        = -1;
-	}
     for (unsigned int i = 0; i < m_numCores; i++)
     {
         m_pComputeUnitMap[i] = i;
-        m_pCoreToThread[i] = -1;
+        m_pCoreToThread[i]   = INVALID_THREAD_HANDLE;
+        m_pCoreInUse[i]      = false;
     }
 	return CL_DEV_SUCCESS;
 }
@@ -314,18 +283,18 @@ bool CPUDevice::AcquireComputeUnits(unsigned int* which, unsigned int how_many)
 	Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
 	for (unsigned int i = 0; i < how_many; ++i)
 	{
-		if (m_pComputeUnitScoreboard[which[i]].core_in_use)
+		if (m_pCoreInUse[which[i]])
 		{
 			//Failed, roll back
 			for (unsigned int j = 0; j < i; ++j)
 			{
-				m_pComputeUnitScoreboard[which[j]].core_in_use = false;
+				m_pCoreInUse[which[j]] = false;
 			}
 			return false;
 		}
 		else
 		{
-			m_pComputeUnitScoreboard[which[i]].core_in_use = true;
+			m_pCoreInUse[which[i]] = true;
 		}
 	}
 	return true;
@@ -340,53 +309,57 @@ void CPUDevice::ReleaseComputeUnits(unsigned int* which, unsigned int how_many)
 	Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
 	for (unsigned int i = 0; i < how_many; ++i)
 	{
-		m_pComputeUnitScoreboard[which[i]].core_in_use = false;
+		m_pCoreInUse[which[i]] = false;
 	}
 }
 
-void CPUDevice::NotifyAffinity(unsigned int tid, unsigned int core)
+void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core)
 {
 	Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
 
-	assert(core <m_numCores && "Access outside core map size");
+	assert(core < m_numCores && "Access outside core map size");
 
-	int			 other_tid    = m_pCoreToThread[core];
-	int          my_prev_core = m_pComputeUnitScoreboard[tid].core;
-	bool         other_valid  = (other_tid != -1) && ((unsigned int)other_tid != tid);
-	assert(!other_valid || (int)core == m_pComputeUnitScoreboard[other_tid].core);
-	if (!(!other_valid || (int)core == m_pComputeUnitScoreboard[other_tid].core))
+	threadid_t   other_tid    = m_pCoreToThread[core];
+	int          my_prev_core = m_threadToCore[tid];
+	
+	// The other tid is valid if there was another thread pinned to the core I want to move to
+	bool         other_valid  = (other_tid != INVALID_THREAD_HANDLE) && (other_tid != tid);
+	// Either I'm not relocating another thread, or I am. If I am, make sure that I'm relocating the thread which resides on the core I want to move to
+	// This assertion might fail if there's a bug that makes m_threadToCore desynch from m_pCoreToThread
+	assert(!other_valid || (int)core == m_threadToCore[other_tid]);
+	if (!(!other_valid || (int)core == m_threadToCore[other_tid]))
 	{
 		return;
 	}
 
-	if (0 == m_pComputeUnitScoreboard[tid].os_tid)
-	{
-	    m_pComputeUnitScoreboard[tid].os_tid = clMyThreadId();
-	}
-
 	//Update map with regard to myself
-	m_pComputeUnitScoreboard[tid].core   = core;
-	m_pCoreToThread[core]                = tid;
+	m_threadToCore[tid]   = core;
+	m_pCoreToThread[core] = tid;
 
     //Set the caller's affinity as requested
-    clSetThreadAffinityToCore(core, m_pComputeUnitScoreboard[tid].os_tid);
+    clSetThreadAffinityToCore(core, tid);
 
 	if (other_valid)
 	{
 		//Need to relocate the other thread to my previous core
-		m_pComputeUnitScoreboard[other_tid].core = my_prev_core;
+		m_threadToCore[other_tid] = my_prev_core;
 		if ( -1 != my_prev_core )
 		{
-			m_pCoreToThread[my_prev_core]            = other_tid;
-			clSetThreadAffinityToCore(my_prev_core, m_pComputeUnitScoreboard[other_tid].os_tid);
+			m_pCoreToThread[my_prev_core] = other_tid;
+			clSetThreadAffinityToCore(my_prev_core, other_tid);
 		}
 		else
 		{
 			// If current thread was not affinitize reset others thread affinity mask
 			// TODO: Need to save the original mask of the thread and restore it in this case
-			clResetThreadAffinityMask(m_pComputeUnitScoreboard[other_tid].os_tid);
+			clResetThreadAffinityMask(other_tid);
 		}
 	}
+        else
+        {
+            m_pCoreToThread[my_prev_core] = INVALID_THREAD_HANDLE;      
+        }
+
 }
 
 cl_uint GetNativeVectorWidth(CPUDeviceDataTypes dataType)
@@ -2202,23 +2175,15 @@ void CPUDevice::clDevCloseDevice(void)
         m_pTaskDispatcher = NULL;
     }
 
-	if ( NULL != m_pCoreToThread )
-	{
-		delete[] m_pCoreToThread;
-		m_pCoreToThread = NULL;
-	}
-
 	if ( NULL != m_pComputeUnitMap)
 	{
 		delete[] m_pComputeUnitMap;
 		m_pComputeUnitMap = NULL;
 	}
-	if ( NULL != m_pComputeUnitScoreboard)
-	{
-		delete[] m_pComputeUnitScoreboard;
-		m_pComputeUnitScoreboard = NULL;
-	}
-    
+
+    m_pCoreToThread.clear();
+    m_pCoreInUse.clear();
+    m_threadToCore.clear();
     m_wgContextPool.Clear();    // we have to clear the pool before the BE wrapper is terminated, because ~WGContext still needs it
     m_backendWrapper.Terminate();
 

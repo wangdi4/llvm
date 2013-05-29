@@ -215,7 +215,12 @@ bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len
 
 threadid_t clMyThreadId()
 {
-	return GET_CURRENT_THREAD_ID();
+    static __thread threadid_t myThreadId = (threadid_t)-1;
+    if (-1 == myThreadId)
+    {
+	      myThreadId = GET_CURRENT_THREAD_ID();
+    }
+    return myThreadId;
 }
 
 #endif

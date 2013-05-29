@@ -46,9 +46,11 @@
 
 #ifdef WIN32
 typedef int threadid_t;
+#define INVALID_THREAD_HANDLE ((threadid_t)0)
 #else
 #include <sched.h>
 typedef pid_t  threadid_t;
+#define INVALID_THREAD_HANDLE ((threadid_t)-1)
 #endif
 
 /**************************************************************************************************

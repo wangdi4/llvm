@@ -182,7 +182,7 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 		m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pFrameworkCallBacks(devCallbacks),
 		m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
 		m_pCPUDeviceConfig(cpuDeviceConfig), m_pWgContextPool(NULL), m_uiNumThreads(0), 
-        m_bTEActivated(false), m_pWGContexts(NULL), m_pObserver(pObserver)
+        m_bTEActivated(false), m_pObserver(pObserver)
 #ifdef __INCLUDE_MKL__
 		,m_pOMPExecutionThread(NULL)
 #endif
@@ -208,11 +208,6 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 
 TaskDispatcher::~TaskDispatcher()
 {
-	if ( NULL != m_pWGContexts )
-	{
-		delete []m_pWGContexts;
-		m_pWGContexts = NULL;
-	}
 
 #ifdef __INCLUDE_MKL__
 	m_pOMPExecutionThread->Join();
@@ -260,15 +255,8 @@ cl_dev_err_code TaskDispatcher::init()
 		m_uiNumThreads = uiNumThreads;
 	}
 	
-    // master thread(s) get their context from their TLS
-    // WorkerIds are not realocated for Sub-Device,
-    // Therefore, need allocate full size array, even for SubDevices.
-	m_pWGContexts = new WGContext[uiNumThreads];
-	if ( NULL == m_pWGContexts )
-	{
-		return CL_DEV_OUT_OF_MEMORY;
-	}
-
+	m_pWgContextPool->Init(m_uiNumThreads);
+	
 #ifdef __INCLUDE_MKL__
 	m_pOMPExecutionThread = Intel::OpenCL::BuiltInKernels::OMPExecutorThread::Create(m_uiNumThreads);
 	if ( NULL == m_pOMPExecutionThread )
@@ -282,21 +270,11 @@ cl_dev_err_code TaskDispatcher::init()
 	
 	if (!bInitTasksRequired)
 	{
-		// On linux we should initialize contexts
-		// On Windows it should be done by the pinning threads
-		// Otherwise, init on Affinize threads
-		if ( NULL != m_pWGContexts )
-		{
-			for(cl_uint i =0; i < m_uiNumThreads; ++i)
-			{
-				m_pWGContexts[i].Init();
-			}
-		}
 		return CL_DEV_SUCCESS;
 	}
 
 	//Pin threads
-    SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> pAffinitizeThreads = AffinitizeThreads::Allocate(m_uiNumThreads, 0);
+    SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> pAffinitizeThreads = AffinitizeThreads::Allocate(m_uiNumThreads, 0, m_pObserver);
 	if (NULL == pAffinitizeThreads)
 	{
 		//Todo
@@ -637,15 +615,23 @@ void* TaskDispatcher::OnThreadEntry()
     pCtx->SetThreadId( position_in_device );
 
     if (!pCtx->DoesBelongToMasterThread())
-	{
+    {
+        // We don't affinitize application threads
 	    if ( isThreadAffinityRequired() )
 	    {
-            cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(
-                                                                    m_pTaskExecutor->GetCurrentDevice().user_handle);
+            // Only enter if affinity, in general, is required (OS-dependent)
+            bool bNeedToNotify = false;
+            //We notify only for sub-devices by NAMES or by NUMA - in other cases, the user is not interested which cores to use
+            cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
+            if (NULL != pSubDevID)
+            {
+                bNeedToNotify = pSubDevID->is_numa || pSubDevID->is_by_names;
+            }
 
-            unsigned int coreId = (NULL == pSubDevID) ? 
-            		position_in_device : pSubDevID->legal_core_ids[position_in_device];
-            m_pObserver->NotifyAffinity( position_in_device, coreId );
+            if (bNeedToNotify)
+            {
+                m_pObserver->NotifyAffinity( clMyThreadId(), pSubDevID->legal_core_ids[position_in_device] );
+            }
 	    }
     }
 
@@ -727,8 +713,8 @@ bool SubdeviceTaskDispatcher::isDestributedAllocationRequired()
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-AffinitizeThreads::AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks) :
-	m_numThreads(numThreads), m_timeOut(timeOutInTicks), m_failed(false)
+AffinitizeThreads::AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer) :
+	m_numThreads(numThreads), m_timeOut(timeOutInTicks), m_failed(false), m_pObserver(observer)
 {
 }
 
@@ -782,9 +768,10 @@ bool AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, void* pWg
     assert (NULL!= pContext);
     if (!pContext->DoesBelongToMasterThread())
 	{
-		// Set NUMA node prior to allocation
-		clNUMASetLocalNodeAlloc();
-		pContext->Init();
+        // Set NUMA node prior to allocation
+        clNUMASetLocalNodeAlloc();
+        pContext->Init();
+        m_pObserver->NotifyAffinity(clMyThreadId(), x);
 	}		
 
 	m_barrier--;

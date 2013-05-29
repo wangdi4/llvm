@@ -18,17 +18,95 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#include <cl_thread.h>
 #include "wg_context_pool.h"
 
 using namespace Intel::OpenCL::CPUDevice;
+  
+
+WgContextPool::WgContextPool() : m_wgContextPool(NULL), m_wgContextWrapperPool(NULL), m_nextWorkerContext(0), m_maxNumWorkers(0)
+{
+}
+
+void WgContextPool::Init(unsigned int maxNumWorkers)
+{
+    assert (NULL == m_wgContextPool && "Context pool already initialized");
+    assert (NULL == m_wgContextWrapperPool && "Context pool already initialized");
+    assert (0 < maxNumWorkers && "Zero threads requested");
+
+    m_maxNumWorkers = maxNumWorkers;
+    if (0 == m_maxNumWorkers) return;
+
+    m_wgContextPool        = new WGContext[m_maxNumWorkers];
+    m_wgContextWrapperPool = new WGContextWrapper[m_maxNumWorkers];
+    assert (NULL != m_wgContextPool && "Memory allocation failed");
+    assert (NULL != m_wgContextWrapperPool && "Memory allocation failed");
+
+    for (long i = 0; i < m_maxNumWorkers; ++i)
+    {
+        m_wgContextWrapperPool[i].pContext = m_wgContextPool + i;
+    }
+}
+
+void WgContextPool::Clear()
+{
+    if (NULL != m_wgContextWrapperPool)
+    {
+        for (long i = 0; i < m_maxNumWorkers; ++i)
+        {
+            m_wgContextWrapperPool[i].pContext = NULL;
+        }
+    }
+    if (NULL != m_wgContextPool)
+    {
+        delete[] m_wgContextPool;
+        m_wgContextPool = NULL;
+    }
+    m_maxNumWorkers = 0;
+    m_nextWorkerContext = m_maxNumWorkers;
+}
 
 WGContextBase* WgContextPool::GetWGContext(bool bBelongsToMasterThread)
 {
-    WGContext* const pContext = m_wgContextPool.Malloc();
-    if (NULL != pContext)
+    static THREAD_LOCAL WGContextWrapper* t_pContext = NULL;
+
+    if ((NULL != t_pContext) && (NULL != t_pContext->pContext))
     {
-        pContext->Init();
-        pContext->SetBelongsToMasterThread(bBelongsToMasterThread);
+        return t_pContext->pContext;
     }
-    return pContext;
+    
+    
+    if (bBelongsToMasterThread)
+    {
+        if (NULL == t_pContext)
+        {
+            t_pContext = new WGContextWrapper();
+        }
+        t_pContext->pContext = new WGContext();
+    }
+    else
+    {
+        unsigned int myIndex = m_nextWorkerContext++;
+        assert(myIndex < m_maxNumWorkers);
+        if (myIndex < m_maxNumWorkers)
+        {
+            t_pContext = m_wgContextWrapperPool + myIndex;
+        }
+        else
+        {
+            if (NULL == t_pContext)
+            {
+                t_pContext = new WGContextWrapper();
+            }
+            t_pContext->pContext = new WGContext();
+            // Note: we should never get here, unless more worker contexts were allocated than the maximum defined by the device
+            // Better to leak the worker context above than crash
+        }
+    }
+    if ((NULL != t_pContext) && (NULL != t_pContext->pContext))
+    {
+        t_pContext->pContext->Init();
+        t_pContext->pContext->SetBelongsToMasterThread(bBelongsToMasterThread);
+    }
+    return t_pContext->pContext;
 }
