@@ -74,6 +74,12 @@ public:
     void Release(){};
 
 private:
+    /* 
+     * Initializes the given pointer to 'trap' function.
+     */
+    void InitializeToTrap(void* arr[], size_t) const;
+    void InitializeToTrap(void*&) const;
+
     Intel::CPUId m_CpuId;
 };
 

@@ -145,8 +145,8 @@ typedef struct _image_aux_data
 	void*			soa4_read_img_callback_int[32]; // the list of soa4 integer image reader & filter callbacks
 	void*			soa8_read_img_callback_int[32]; // the list of soa8 integer image reader & filter callbacks
 	void*			write_img_callback;    // the write image sampler callback
-    void*			soa4_write_img_callback;    // the write image sampler callback
-    void*			soa8_write_img_callback;    // the write image sampler callback
+  void*			soa4_write_img_callback;    // the write image sampler callback
+  void*			soa8_write_img_callback;    // the write image sampler callback
 
 	int dimSub1[MAX_WORK_DIM+1] ALIGN16;		// Image size for each dimension subtracted by one
 												// Used to optimize coordinates computation not to subtract by one for each read

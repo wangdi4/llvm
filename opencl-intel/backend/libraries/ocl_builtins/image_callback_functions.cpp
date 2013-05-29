@@ -2408,6 +2408,11 @@ float4 read_sample_UNDEFINED_QUAD_FLOAT(image2d_t image, int4 square0, int4 squa
     return BorderColorNoAlphaFloat;  //return all zeros vector
 }
 
+void trap_function()
+{
+    printf ("***Runtime error: reached an uninitialized image function***\n");
+    __builtin_debugtrap();
+}
 
 #endif // defined (__MIC__) || defined(__MIC2__)
 

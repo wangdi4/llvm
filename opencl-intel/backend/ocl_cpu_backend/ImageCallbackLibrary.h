@@ -221,6 +221,8 @@ public:
         return GetCbkPtr(desc);
     }
 
+    void* GetTrapCbk();
+
 };
 
 /**

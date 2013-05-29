@@ -44,6 +44,7 @@ File Name:  ImageCallbackLibrary.cpp
     #define MAX_PATH PATH_MAX
 #endif
 
+#define TRAP_NAME "trap_function"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -323,6 +324,16 @@ void* ImageCallbackFunctions::GetCbkPtr(const CbkDesc& _desc)
         throw Exceptions::DeviceBackendExceptionBase(ss.str());
     }
     return ptr;
+}
+
+struct TrapDescriptor: public CbkDesc{
+    std::string GetName() const { return TRAP_NAME; }
+};
+
+void* ImageCallbackFunctions::GetTrapCbk()
+{
+    TrapDescriptor Desc;
+    return GetCbkPtr(Desc);
 }
 
 ImageCallbackLibrary::~ImageCallbackLibrary()
