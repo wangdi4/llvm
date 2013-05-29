@@ -392,10 +392,6 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
                 {
                     outAccessFlagArr.push_back(COI_SINK_READ);
                 }
-                else if (CL_MEM_WRITE_ONLY == (CL_MEM_WRITE_ONLY & mem_flags))
-                {
-                    outAccessFlagArr.push_back(COI_SINK_WRITE_ENTIRE);
-                }
                 else
                 {
 					outAccessFlagArr.push_back(COI_SINK_WRITE);
