@@ -352,6 +352,9 @@ void FunctionSpecializer::registerSchedulingScopes(SchedulingScope& parent) {
     BypassInfo & bi = *itr;
     // if we specialize
     if (! shouldSpecialize(bi)) continue;
+    // bypasses over a single BB does not cause to additional linearization constraints
+    if (bi.m_skippedBlocks.size() == 1) continue;
+
     // create a scheduling scope
     SchedulingScope *scp = new SchedulingScope(NULL);
     // insert all basic blocks restrictions from the bypass info
