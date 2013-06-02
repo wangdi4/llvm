@@ -26,6 +26,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/PostDominators.h"
 
 #include <map>
+#include <queue>
 
 using namespace llvm;
 
@@ -196,6 +197,9 @@ private:
 
     // stores the divergent phi block nodes - ones that has divergent output due to the control flow
     DenseSet<const BasicBlock*> m_divPhiBlocks;
+
+    // holds the divergent branches waiting to propagate their divergency
+    std::queue<const BranchInst*> m_divBranchesQueue;
 
     //// branch specific info
 

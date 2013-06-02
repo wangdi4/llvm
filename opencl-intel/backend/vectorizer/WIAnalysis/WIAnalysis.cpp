@@ -271,13 +271,11 @@ void WIAnalysis::calculate_dep(const Value* val) {
 
   // Our initial value
   bool hasOriginal = hasDependency(inst);
-  WIDependancy orig = getDependency(inst);
-
-  // if inst is already marked random, it cannot get better
-  if (orig == WIAnalysis::RANDOM) {
-    return;
-  }
+  WIDependancy orig = hasOriginal ? getDependency(inst) : WIAnalysis::UNIFORM;
   WIDependancy dep = orig;
+
+  if (orig == WIAnalysis::RANDOM)
+    return;
 
   // LLVM does not have compile time polymorphisms
   // TODO: to make things faster we may want to sort the list below according
@@ -300,17 +298,7 @@ void WIAnalysis::calculate_dep(const Value* val) {
   else if (isa<LoadInst>(inst))                                               dep = calculate_dep_simple(inst);
   else if (const VAArgInst *VAI = dyn_cast<VAArgInst>(inst))                  dep = calculate_dep(VAI);
 
-  // If the value was changed in this calculation
-  if (!hasOriginal || dep!=orig) {
-    // Save the new value of this instruction
-    updateDepMap(inst, dep);
-    // divergent branch, trigger updates due to control-dependence
-    const TerminatorInst *term = dyn_cast<TerminatorInst>(inst);
-    if ( term && dep != WIAnalysis::UNIFORM) {
-      // inst is a conditional branch because otherwise its dependency would be uniform
-      updateCfDependency(term);
-    }
-  }
+  updateDepMap(inst, dep);
 }
 
 // Mark each phi node in join or a partial join as divergent
@@ -440,14 +428,38 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
 
 void WIAnalysis::updateDepMap(const Instruction *inst, WIAnalysis::WIDependancy dep)
 {
-  // Save the new value of this instruction
-  m_deps[inst] = dep;
-  // Register for update all of the dependent values of this updated
-  // instruction.
-  Value::const_use_iterator useItr = inst->use_begin();
-  Value::const_use_iterator useEnd  = inst->use_end();
-  for (; useItr != useEnd; ++useItr) {
-    m_pChangedNew->insert(*useItr);
+  // If the value was changed
+  if (!hasDependency(inst) || dep!=getDependency(inst)) {
+    // Save the new value of this instruction
+    m_deps[inst] = dep;
+    // Register for update all of the dependent values of this updated
+    // instruction.
+    Value::const_use_iterator useItr = inst->use_begin();
+    Value::const_use_iterator useEnd  = inst->use_end();
+    for (; useItr != useEnd; ++useItr) {
+      m_pChangedNew->insert(*useItr);
+    }
+
+    // divergent branch, trigger updates due to control-dependence
+    const TerminatorInst *term = dyn_cast<TerminatorInst>(inst);
+    if (term && dep != WIAnalysis::UNIFORM) {
+      const BranchInst* br = dyn_cast<BranchInst>(term);
+      if (br && br->isConditional()) {
+        m_divBranchesQueue.push(br);
+        // Due to data structures sharing, every divergent branch should
+        // be handled separately. Therefore, we use a queue to guarantee that
+        // newly random branches, discovered during branch divergent propagation,
+        // are propagated only on termination of the previous divergent branch
+        // propagation.
+        if (m_divBranchesQueue.size() == 1) {
+          do {
+            br = m_divBranchesQueue.front();
+            updateCfDependency(br);
+            m_divBranchesQueue.pop();
+          } while(m_divBranchesQueue.size() != 0);
+        }
+      }
+    }
   }
 }
 
