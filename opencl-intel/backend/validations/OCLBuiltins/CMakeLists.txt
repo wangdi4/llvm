@@ -88,6 +88,7 @@ endforeach (FILE)
 
   add_library(OCLBuiltins
   ${OCL_SOURCE_FILES}
+  BLTExplMemFenceOps.cpp
   BLTWorkItem.cpp
   Helpers.cpp
   OCLBuiltinParser.cpp

@@ -108,6 +108,7 @@ extern "C" void initOCLBuiltinsMisc();
 extern "C" void initOCLBuiltinsRelational();
 extern "C" void initOCLBuiltinsWorkItem();
 extern "C" void initOCLBuiltinsVLoadStore();
+extern "C" void initOCLBuiltinsExplMemFenceOps();
 
 OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT):
     m_pLLVMContext(NULL),
@@ -135,6 +136,7 @@ OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT):
     initOCLBuiltinsRelational();
     initOCLBuiltinsWorkItem();
     initOCLBuiltinsVLoadStore();
+    initOCLBuiltinsExplMemFenceOps();
 }
 
 OpenCLReferenceRunner::~OpenCLReferenceRunner(void)
