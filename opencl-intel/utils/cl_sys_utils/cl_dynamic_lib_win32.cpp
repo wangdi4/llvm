@@ -26,6 +26,7 @@
 /////////////////////////////////////////////////////////////////////////
 
 #include "cl_dynamic_lib.h"
+#include "cl_sys_info.h"
 
 #include <windows.h>
 
@@ -66,7 +67,18 @@ bool OclDynamicLib::Load(const char* pLibName)
 
 	if ( NULL == m_hLibrary )
 	{
-		return false;
+		// Try to recover
+		char pCpuPath[MAX_PATH];
+
+		Intel::OpenCL::Utils::GetModuleDirectory(pCpuPath, MAX_PATH);
+		SetDllDirectory(pCpuPath);
+
+		m_hLibrary = LoadLibraryA(pLibName);
+
+		if ( NULL == m_hLibrary )
+		{
+			return false;
+		}
 	}
 
 	// Library was succefully loaded
