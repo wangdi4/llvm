@@ -207,8 +207,13 @@ struct CrtUserEvent: public CrtEvent
 
 inline cl_int ValidateMapFlags( cl_map_flags map_flags )
 {
-    cl_int validFlags = ( CL_MAP_READ | CL_MAP_WRITE );
+    cl_int validFlags = ( CL_MAP_READ | CL_MAP_WRITE | CL_MAP_WRITE_INVALIDATE_REGION );
     if( map_flags & ~validFlags )
+    {
+        return CL_INVALID_VALUE;
+    }
+    if( ( ( map_flags & ( CL_MAP_READ | CL_MAP_WRITE ) ) != 0 )
+        && ( ( map_flags & CL_MAP_WRITE_INVALIDATE_REGION ) != 0 ) )
     {
         return CL_INVALID_VALUE;
     }
@@ -557,6 +562,12 @@ public:
         const size_t *          lengths,
         const unsigned char **  binaries,
         cl_int *                binary_status,
+        CrtProgram **           crtProgram );
+
+    cl_int CreateProgramWithBuiltInKernels(
+        cl_uint                 num_devices,
+        const cl_device_id *    device_list,
+        const char *            kernel_names,
         CrtProgram **           crtProgram );
 
     cl_device_id GetDeviceByType( cl_device_type device_type );

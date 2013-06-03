@@ -1884,23 +1884,23 @@ void * CL_API_CALL clEnqueueMapBuffer(
     errCode = ValidateMapFlags( map_flags );
     if( CL_SUCCESS != errCode )
     {
-        return NULL;
+        goto FINISH;
     }
     if( command_queue == NULL )
     {
         errCode = CL_INVALID_COMMAND_QUEUE;
-        return NULL;
+        goto FINISH;
     }
     if( buffer == NULL )
     {
         errCode = CL_INVALID_MEM_OBJECT;
-        return NULL;
+        goto FINISH;
     }
     CrtQueue* queue = reinterpret_cast<CrtQueue*>(((_cl_command_queue_crt*)command_queue)->object);
     if (!queue)
     {
         errCode = CL_INVALID_COMMAND_QUEUE;
-        return NULL;
+        goto FINISH;
     }
 
     CrtBuffer* crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)buffer)->object);
@@ -1983,7 +1983,7 @@ void * CL_API_CALL clEnqueueMapBuffer(
         crtBuffer->m_mappedPointers.push_back(ptr);
         crtBuffer->m_mapCount++;
 
-        if( crtBuffer->HasPrivateCopy() && ( crtBuffer->m_mapCount <= 1 ) )
+        if( crtBuffer->HasPrivateCopy() && ( crtBuffer->m_mapCount <= 1 ) && ( ( map_flags & CL_MAP_WRITE_INVALIDATE_REGION ) == 0 ) )
         {
             // currently we copy all buffer contents and not only the mapped region.
             // copying the mapped region only will be an optimization for the future
@@ -2104,23 +2104,23 @@ void * CL_API_CALL clEnqueueMapImage(
     errCode = ValidateMapFlags(map_flags);
     if( CL_SUCCESS != errCode )
     {
-        return NULL;
+        goto FINISH;
     }
     if (command_queue == NULL)
     {
         errCode = CL_INVALID_COMMAND_QUEUE;
-        return NULL;
+        goto FINISH;
     }
     if (image == NULL)
     {
         errCode = CL_INVALID_MEM_OBJECT;
-        return NULL;
+        goto FINISH;
     }
     CrtQueue* queue = reinterpret_cast<CrtQueue*>(((_cl_command_queue_crt*)command_queue)->object);
     if (!queue)
     {
         errCode = CL_INVALID_COMMAND_QUEUE;
-        return NULL;
+        goto FINISH;
     }
 
     CrtImage* crtImage = reinterpret_cast<CrtImage*>(((_cl_mem_crt*)image)->object);
@@ -2222,7 +2222,7 @@ void * CL_API_CALL clEnqueueMapImage(
         crtImage->m_mapCount++;
         crtImage->m_mappedPointers.push_back(ptr);
 
-        if( crtImage->HasPrivateCopy() && ( crtImage->m_mapCount <= 1 ) )
+        if( crtImage->HasPrivateCopy() && ( crtImage->m_mapCount <= 1 ) && ( ( map_flags & CL_MAP_WRITE_INVALIDATE_REGION ) == 0 ) )
         {
             const size_t origin[3] = {0};
             const size_t region[3] = { crtImage->m_imageDesc.desc.image_width, crtImage->m_imageDesc.desc.image_height, crtImage->m_imageDesc.desc.image_depth };
@@ -2853,18 +2853,50 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProgramWithBuiltInKernels(
     const char *           kernel_names,
     cl_int *               errcode_ret )
 {
-    if( errcode_ret )
+    cl_int errCode = CL_SUCCESS;
+    _cl_program_crt* SharedProgram = NULL;
+
+    if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 )
     {
-        if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 )
+        errCode = CL_INVALID_DEVICE;
+    }
+    else
+    {
+        if( NULL == device_list || 0 == num_devices || NULL == kernel_names )
         {
-            *errcode_ret = CL_INVALID_DEVICE;
+            errCode = CL_INVALID_VALUE;
+            goto FINISH;
         }
-        else
+
+        CrtProgram* pgm = NULL;
+        CrtContext* ctx = ( (CrtContext*)( (_cl_context_crt*)context )->object );
+
+        errCode = ctx->CreateProgramWithBuiltInKernels(
+            num_devices,
+            device_list,
+            kernel_names,
+            &pgm);
+
+        if( CL_SUCCESS == errCode )
         {
-            *errcode_ret = CL_INVALID_OPERATION;
+            SharedProgram = new _cl_program_crt;
+            if( NULL == SharedProgram )
+            {
+                errCode = CL_OUT_OF_HOST_MEMORY;
+            }
+            else
+            {
+                SharedProgram->object = (void *) pgm;
+            }
         }
     }
-    return NULL;
+
+FINISH:
+    if( CL_SUCCESS != errcode_ret )
+    {
+        *errcode_ret = errCode;
+    }
+    return SharedProgram;
 }
 /// ------------------------------------------------------------------------------
 ///
@@ -2912,11 +2944,11 @@ cl_int getAssocDevices(
     cl_uint*                        outNumDevs)
 {
     cl_int errCode = CL_SUCCESS;
+    cl_uint j = 0;
 
     if( NULL != inDevList )
     {
         // devices have been provided by the user
-        cl_uint j = 0;
         for( cl_uint i=0; i < *outNumDevs; i++ )
         {
             if( NULL == inDevList[ i ] )
@@ -2943,8 +2975,6 @@ cl_int getAssocDevices(
     {
         // devices have NOT been provided by the user
         // consider the context devices instead
-
-        cl_uint j = 0;
         DEV_CTX_MAP::iterator itr = crtCtx->m_DeviceToContext.begin();
         for (;itr != crtCtx->m_DeviceToContext.end(); itr++)
         {
@@ -8484,7 +8514,7 @@ CL_API_ENTRY cl_accelerator_intel CL_API_CALL clCreateAcceleratorINTEL(
         &errCode);
 
 FINISH:
-    if (errcode_ret)
+    if( errcode_ret )
     {
         *errcode_ret = errCode;
     }

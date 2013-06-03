@@ -1681,10 +1681,12 @@ size_t GetImageElementSize(const cl_image_format *  format)
         case CL_LUMINANCE:
         case CL_INTENSITY:
         case CL_RGB:    // Special case, must be used only with specific data type
+        case CL_DEPTH:
             stChannels = 1;
             break;
         case CL_RG:
         case CL_RA:
+        case CL_DEPTH_STENCIL:
             stChannels = 2;
             break;
         case CL_RGBA:
@@ -1710,6 +1712,7 @@ size_t GetImageElementSize(const cl_image_format *  format)
         case (CL_HALF_FLOAT):
         case CL_UNORM_SHORT_555:
         case CL_UNORM_SHORT_565:
+        case CL_UNORM_INT24:
                 stChSize = 2;
                 break;
         case (CL_SIGNED_INT32):
@@ -2286,6 +2289,99 @@ FINISH:
     {
         pCrtProgram->Release();
         pCrtProgram->DecPendencyCnt();
+    }
+    *crtProgram = pCrtProgram;
+    return errCode;
+}
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CrtContext::CreateProgramWithBuiltInKernels(
+    cl_uint                 num_devices,
+    const cl_device_id *    device_list,
+    const char *            kernel_names,
+    CrtProgram **           crtProgram )
+{
+    cl_int errCode = CL_SUCCESS;
+    cl_uint* indices = NULL;
+    cl_device_id* outDevices = NULL;
+
+    CrtProgram *pCrtProgram = new CrtProgram(this);
+    if( !pCrtProgram )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    outDevices = new cl_device_id[num_devices];
+    if( NULL == outDevices )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
+    indices = new cl_uint[num_devices];
+    if( NULL == indices )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
+    for( cl_uint i = 0; i <num_devices; i++ )
+    {
+        pCrtProgram->m_assocDevices.push_back( device_list[i] );
+    }
+
+    for( cl_uint i = 0; i < OCLCRT::crt_ocl_module.m_oclPlatforms.size(); i++ )
+    {
+        cl_uint matchDevices = 0;
+        GetDevsIndicesByPlatformId(
+            num_devices,
+            device_list,
+            OCLCRT::crt_ocl_module.m_oclPlatforms[i]->m_platformIdDEV,
+            &matchDevices,
+            indices);
+
+        if( matchDevices == 0 )
+        {
+            continue;
+        }
+
+        for( cl_uint j=0; j < matchDevices; j++ )
+        {
+            cl_uint index = indices[j];
+            outDevices[j]   = device_list[index];
+        }
+
+        cl_context ctx = m_DeviceToContext[outDevices[0]];
+        cl_program prog = ctx->dispatch->clCreateProgramWithBuiltInKernels(
+            ctx,
+            matchDevices,
+            outDevices,
+            kernel_names,
+            &errCode);
+
+        if( CL_SUCCESS != errCode )
+        {
+            goto FINISH;
+        }
+        pCrtProgram->m_ContextToProgram[ctx] = prog;
+    }
+
+FINISH:
+    if( indices )
+    {
+        delete[] indices;
+    }
+    if( outDevices )
+    {
+        delete[] outDevices;
+    }
+    if( ( CL_SUCCESS != errCode ) && pCrtProgram )
+    {
+        pCrtProgram->Release();
+        pCrtProgram->DecPendencyCnt();
+        pCrtProgram = NULL;
     }
     *crtProgram = pCrtProgram;
     return errCode;
