@@ -238,6 +238,20 @@ namespace OCLBuiltins {
     }
 
     template<typename T, int n>
+    llvm::GenericValue lle_X_ctz(llvm::FunctionType *FT,
+        const std::vector<llvm::GenericValue> &Args)
+    {
+        llvm::GenericValue R;
+        R.AggregateVal.resize(n);
+        llvm::GenericValue arg0 = Args[0];
+        for (uint32_t i = 0; i < n; ++i)
+        {
+            getRef<T,n>(R,i) = llvm::APInt(sizeof(T)*8, getRef<T,n>(arg0,i).countTrailingZeros(), isSignedType<T>()); // ctz(getVal<T,n>(arg0,i));
+        }
+        return R;
+    }
+
+    template<typename T, int n>
     llvm::GenericValue lle_X_rotate(llvm::FunctionType *FT,
         const std::vector<llvm::GenericValue> &Args)
     {

@@ -19,6 +19,7 @@ def add_sat   : REF_OclBuiltin<"add_sat",   (outs gentype:$ret), (ins gentype:$x
 def hadd      : REF_OclBuiltin<"hadd",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], MathTemplate>;
 def rhadd     : REF_OclBuiltin<"rhadd",     (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], MathTemplate>;
 def clz       : REF_OclBuiltin<"clz",       (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
+def ctz       : REF_OclBuiltin<"ctz",       (outs gentype:$ret), (ins gentype:$x), [], [], MathTemplate>;
 def mad_hi    : REF_OclBuiltin<"mad_hi",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], [], MathTemplate>;
 def mad_sat   : REF_OclBuiltin<"mad_sat",   (outs gentype:$ret), (ins gentype:$a, gentype:$b, gentype:$c), [], [], MathTemplate>;
 def mul_hi    : REF_OclBuiltin<"mul_hi",    (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], MathTemplate>;
