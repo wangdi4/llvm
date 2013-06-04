@@ -52,6 +52,10 @@ public:
     /// Get local ID for get_local_id() built-in
     /// @param [in]     dimindx dimension number
     virtual uint64_t GetLocalId(const uint32_t dimindx) = 0;
+
+    /// Get enqueued local ID for get_enqueued_local_size() built-in
+    /// @param [in]     dimindx dimension number
+    virtual uint64_t getEnqueuedLocalSize(const uint32_t dimindx) = 0;
   
     /// Get global offset for get_global_offset() built-in
     /// this offset will be added to global ID

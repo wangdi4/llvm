@@ -50,6 +50,14 @@ llvm::GenericValue lle_X_get_group_id_impl(llvm::FunctionType *FT,
 llvm::GenericValue lle_X_get_global_offset_impl(llvm::FunctionType *FT,
                          const std::vector<llvm::GenericValue> &Args);
 
+llvm::GenericValue lle_X_get_global_linear_id_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args);
+
+llvm::GenericValue lle_X_get_local_linear_id_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args);
+
+llvm::GenericValue lle_X_get_enqueued_local_size_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args);
 
 } // namespace OCLBuiltins
 } // namespace Validation

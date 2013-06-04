@@ -13213,5 +13213,40 @@ ulong8 const_func __attribute__((overloadable)) ctz(ulong8 x);
 long16 const_func __attribute__((overloadable)) ctz(long16 x);
 ulong16 const_func __attribute__((overloadable)) ctz(ulong16 x);
 
+/**
+ * Returns the same value as that returned by
+ * get_local_size(dimindx) if the kernel is executed with a
+ * uniform work-group size.
+ * If the kernel is executed with a non-uniform work-group
+ * size, returns the number of local work-items in each of
+ * the work-groups that make up the uniform region of the
+ * global range in the dimension identified by dimindx. If
+ * the local_work_size argument to
+ * clEnqueueNDRangeKernel is not NULL, this value
+ * will match the value specified in
+ * local_work_size[dimindx]. If local_work_size is NULL,
+ * this value will match the local size that the
+ * implementation determined would be most efficient at
+ * implementing the uniform region of the global range.
+ * Valid values of dimindx are 0 to get_work_dim() – 1.
+ * For other values of dimindx, get_enqueud_local_size()
+ * returns 1.
+ * For clEnqueueTask, this always returns 1.
+ */
+size_t get_enqueued_local_size(uint dimindx);
+
+/**
+ * Returns the work-items 1-dimensional global ID. For
+ * 1D work-groups, it is the same value as
+ * get_global_id(0).
+ */
+size_t get_global_linear_id(void);
+
+/**
+ * Returns the work-items 1-dimensional local ID. For 1D
+ * work-groups, it is the same value as get_local_id(0).
+ */
+size_t get_local_linear_id(void);
+
 #endif   // !defined (__MIC__) && !defined(__MIC2__)
 #endif

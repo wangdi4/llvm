@@ -125,7 +125,7 @@ GenericValue lle_X_get_num_groups_impl(FunctionType *FT,
   // Valid values of index are 0 to work_dim.
   // For other values of index get_num_groups() returns 1
   const uint64_t intval = (index < work_dim) ?
-      pI->GetGlobalSize(index) / pI->GetLocalSize(index) : 1;
+      pI->GetGlobalSize(index) / pI->getEnqueuedLocalSize(index) : 1;
   // returns size_t
   gv.IntVal=APInt( SizeTInBits, intval );
   return gv;
@@ -140,7 +140,7 @@ GenericValue lle_X_get_group_id_impl(FunctionType *FT,
   // Valid values of index are 0 to work_dim.
   // For other values of index get_groups_id() returns 0
   const uint64_t intval = (index < work_dim) ?
-      pI->GetGlobalIdNoOffset(index) / pI->GetLocalSize(index) : 0;
+      pI->GetGlobalIdNoOffset(index) / pI->getEnqueuedLocalSize(index) : 0;
   // returns size_t
   gv.IntVal = APInt(SizeTInBits, intval );
   return gv;
@@ -161,6 +161,43 @@ GenericValue lle_X_get_global_offset_impl(FunctionType *FT,
   return gv;
 }
 
+llvm::GenericValue lle_X_get_global_linear_id_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args) {
+  IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
+  GenericValue gv;
+
+  uint32_t lId = pI->GetGlobalIdNoOffset(2)*pI->GetGlobalSize(1)*pI->GetGlobalSize(0) +
+      pI->GetGlobalIdNoOffset(1)*pI->GetGlobalSize(0) + pI->GetGlobalIdNoOffset(0);
+  gv.IntVal = APInt(SizeTInBits, lId);
+  return gv;
+}
+
+llvm::GenericValue lle_X_get_local_linear_id_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args) {
+  IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
+  GenericValue gv;
+
+  uint32_t lId = pI->GetLocalId(2)*pI->GetLocalSize(1)*pI->GetLocalSize(0) +
+      pI->GetLocalId(1)*pI->GetLocalSize(0) + pI->GetLocalId(0);
+  gv.IntVal = APInt(SizeTInBits, lId);
+  return gv;
+}
+
+llvm::GenericValue lle_X_get_enqueued_local_size_impl(llvm::FunctionType *FT,
+                         const std::vector<llvm::GenericValue> &Args) {
+  IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
+  GenericValue gv;
+  uint32_t work_dim = pI->GetWorkDim();
+  uint32_t index = (uint32_t) Args[0].IntVal.getLimitedValue();
+  // Valid values of index are 0 to work_dim.
+  // For other values of index get_local_size() returns 1
+  const uint64_t intval = (index < work_dim) ?
+      pI->getEnqueuedLocalSize(index) : 1;
+  // returns size_t
+  gv.IntVal = APInt( SizeTInBits, intval );
+  return gv;
+}
+
 } // namespace OCLBuiltins
 } // namespace Validation
 
@@ -174,4 +211,7 @@ BUILTINS_API llvm::GenericValue lle_X_get_local_id(llvm::FunctionType *FT,const 
 BUILTINS_API llvm::GenericValue lle_X_get_num_groups(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_num_groups_impl(FT,Args);}
 BUILTINS_API llvm::GenericValue lle_X_get_group_id(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_group_id_impl(FT,Args);}
 BUILTINS_API llvm::GenericValue lle_X_get_global_offset(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_global_offset_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_global_linear_id(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_global_linear_id_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_local_linear_id(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_local_linear_id_impl(FT,Args);}
+BUILTINS_API llvm::GenericValue lle_X_get_enqueued_local_size(llvm::FunctionType *FT,const std::vector<GenericValue> &Args) { return lle_X_get_enqueued_local_size_impl(FT,Args);}
   }
