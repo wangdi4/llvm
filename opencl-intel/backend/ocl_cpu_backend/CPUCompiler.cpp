@@ -379,14 +379,26 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     llvm::Triple triple(pModule->getTargetTriple());
     const llvm::Target *pTarget = llvm::TargetRegistry::lookupTarget(triple.getTriple(), err);
 
+
     if( !err.empty() || NULL == pTarget ) 
     {
         throw Exceptions::CompilerException(std::string("Failed to retrieve the target for given module during dump operation:") + err);
     }
 
-    std::string cpuFeatures( Utils::JoinStrings(m_forcedCpuFeatures, ","));
+    std::vector<std::string> localCpuFeatures = m_forcedCpuFeatures;
+
     std::string cpuName( m_CpuId.GetCPUName());
     TargetOptions Options;
+
+    if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT")) {
+        Options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
+        localCpuFeatures.push_back("+fma"); // otherwise AllowFPOpFusion will not work
+    } else {
+        Options.AllowFPOpFusion = llvm::FPOpFusion::Standard;
+    }
+
+    std::string cpuFeatures( Utils::JoinStrings(localCpuFeatures, ","));
+
     TargetMachine* pTargetMachine = pTarget->createTargetMachine(triple.getTriple(), cpuName, cpuFeatures, Options);
 
     if( NULL == pTargetMachine )
@@ -408,6 +420,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
 
     pTargetMachine->addPassesToEmitFile(pm, fos, TargetMachine::CGFT_AssemblyFile, CodeGenOpt::Default);
     pm.run(*pModule);
+
 }
 
 }}}

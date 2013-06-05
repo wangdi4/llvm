@@ -1,0 +1,47 @@
+<?xml version="1" encoding="UTF-8" ?>
+<ICSCData>
+  <BufferContainerList size="1" version="0.1">
+    <BufferContainer size="4">
+      <Buffer length="8" type="f32" type_size_in_bytes="4" neat="0">
+        <Vector id="0">138206465364745780000.0          </Vector>
+        <Vector id="1">-113890483614254990000000000000.0</Vector>
+        <Vector id="2">-2550033752784896.0              </Vector>
+        <Vector id="3">149301734259496900000000000000.0 </Vector>
+        <Vector id="4">-31012782080.0                   </Vector>
+        <Vector id="5">-1675141465948173600000.0        </Vector>
+        <Vector id="6">-327680.0                        </Vector>
+        <Vector id="7">-13827089061842321000000000.0    </Vector>
+      </Buffer>
+      <Buffer length="8" type="f32" type_size_in_bytes="4" neat="0">
+        <Vector id="0">-797242687160844290.0  </Vector>
+        <Vector id="1">4.313869476318         </Vector>
+        <Vector id="2">15837691904.0          </Vector>
+        <Vector id="3">6.31250                </Vector>
+        <Vector id="4">350488137400481480000.0</Vector>
+        <Vector id="5">9.0                    </Vector>
+        <Vector id="6">-1269612288.0          </Vector>
+        <Vector id="7">-0.000000243626        </Vector>
+      </Buffer>
+      <Buffer length="8" type="f32" type_size_in_bytes="4" neat="0">
+        <Vector id="0">-0.283787846565</Vector>
+        <Vector id="1">-3404448.5</Vector>
+        <Vector id="2">-0.325591564178</Vector>
+        <Vector id="3">-0.060541480780</Vector>
+        <Vector id="4">-0.000000006053</Vector>
+        <Vector id="5">-0.000000001266</Vector>
+        <Vector id="6">-0.000000000473</Vector>
+        <Vector id="7">0.013510598801</Vector>
+      </Buffer>
+      <Buffer length="8" type="f32" type_size_in_bytes="4" neat="0">
+        <Vector id="0">0.0</Vector>
+        <Vector id="1">0.0</Vector>
+        <Vector id="2">0.0</Vector>
+        <Vector id="3">0.0</Vector>
+        <Vector id="4">0.0</Vector>
+        <Vector id="5">0.0</Vector>
+        <Vector id="6">0.0</Vector>
+        <Vector id="7">0.0</Vector>
+      </Buffer>	  
+    </BufferContainer>
+  </BufferContainerList>
+</ICSCData>
