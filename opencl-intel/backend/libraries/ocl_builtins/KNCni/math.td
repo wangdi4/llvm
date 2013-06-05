@@ -270,45 +270,60 @@ code knc_mask_code_3 = [{
     return as_$NativeReturnType(res)$Pattern;
 }];
 
+// WORKAROUND: CSSD100016256, direct SVML call for double16 works up to 70% faster
+//             then two calls to double8 versions
+code svml_v16f64_1 = [{
+    // forward declaration to supress warnings 
+    $ReturnType __ocl_svml_$Target_$Func$SVMLSuffix($Arg0Type);
+
+    return __ocl_svml_$Target_$Func$SVMLSuffix($Arg0VarName);
+}];
+code svml_v16f64_2 = [{
+    // forward declaration to supress warnings 
+    $ReturnType __ocl_svml_$Target_$Func$SVMLSuffix($Arg0Type, $Arg1Type);
+
+    return __ocl_svml_$Target_$Func$SVMLSuffix($Arg0VarName, $Arg1VarName);
+}];
+
 // acos
 OclBuiltinImpl knc_acos         = OclBuiltinImpl<acos, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_acos    = OclBuiltinImpl<acos, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_acos  = OclBuiltinImpl<acos, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_acos  = OclBuiltinImpl<acos, [v16f64], 0, svml_v16f64_1>;
 
 // acosh
 OclBuiltinImpl knc_acosh         = OclBuiltinImpl<acosh, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_acosh    = OclBuiltinImpl<acosh, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_acosh  = OclBuiltinImpl<acosh, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_acosh  = OclBuiltinImpl<acosh, [v16f64], 0, svml_v16f64_1>;
 
 // asin
 OclBuiltinImpl knc_asin        = OclBuiltinImpl<asin, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_asin   = OclBuiltinImpl<asin, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_asin = OclBuiltinImpl<asin, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_asin = OclBuiltinImpl<asin, [v16f64], 0, svml_v16f64_1>;
 
 // asinh
 OclBuiltinImpl knc_asinh        = OclBuiltinImpl<asinh, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_asinh   = OclBuiltinImpl<asinh, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_asinh = OclBuiltinImpl<asinh, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_asinh = OclBuiltinImpl<asinh, [v16f64], 0, svml_v16f64_1>;
 
 // atan
 OclBuiltinImpl knc_atan        = OclBuiltinImpl<atan, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_atan   = OclBuiltinImpl<atan, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_atan = OclBuiltinImpl<atan, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_atan = OclBuiltinImpl<atan, [v16f64], 0, svml_v16f64_1>;
 
 // atan2
 OclBuiltinImpl knc_atan2        = OclBuiltinImpl<atan2, [v16f32, v8f64], 0, knc_code_2>;
 OclBuiltinImpl knc_mask_atan2   = OclBuiltinImpl<atan2, mask_types, 0, knc_mask_code_2>;
-OclBuiltinImpl knc_expand_atan2 = OclBuiltinImpl<atan2, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_expand_atan2 = OclBuiltinImpl<atan2, [v16f64], 0, svml_v16f64_2>;
 
 // atanh
 OclBuiltinImpl knc_atanh        = OclBuiltinImpl<atanh, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_atanh   = OclBuiltinImpl<atanh, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_atanh = OclBuiltinImpl<atanh, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_atanh = OclBuiltinImpl<atanh, [v16f64], 0, svml_v16f64_1>;
 
 // cbrt
 OclBuiltinImpl knc_cbrt        = OclBuiltinImpl<cbrt, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_cbrt   = OclBuiltinImpl<cbrt, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_cbrt = OclBuiltinImpl<cbrt, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_cbrt = OclBuiltinImpl<cbrt, [v16f64], 0, svml_v16f64_1>;
 
 // ceil
 OclBuiltinImpl knc_ceil        = OclBuiltinImpl<ceil, [v16f32, v8f64], 0, knc_code_1>;
@@ -318,12 +333,12 @@ OclBuiltinImpl knc_expand_ceil = OclBuiltinImpl<ceil, [v16f64], 0, Expand1>;
 // cos
 OclBuiltinImpl knc_cos        = OclBuiltinImpl<cos, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_cos   = OclBuiltinImpl<cos, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_cos = OclBuiltinImpl<cos, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_cos = OclBuiltinImpl<cos, [v16f64], 0, svml_v16f64_1>;
 
 // cosh
 OclBuiltinImpl knc_cosh        = OclBuiltinImpl<cosh, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_cosh   = OclBuiltinImpl<cosh, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_cosh = OclBuiltinImpl<cosh, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_cosh = OclBuiltinImpl<cosh, [v16f64], 0, svml_v16f64_1>;
 
 // floor
 OclBuiltinImpl knc_floor        = OclBuiltinImpl<floor, [v16f32, v8f64], 0, knc_code_1>;
@@ -333,7 +348,7 @@ OclBuiltinImpl knc_expand_floor = OclBuiltinImpl<floor, [v16f64], 0, Expand1>;
 // hypot
 OclBuiltinImpl knc_hypot        = OclBuiltinImpl<hypot, [v16f32, v8f64], 0, knc_code_2>;
 OclBuiltinImpl knc_mask_hypot   = OclBuiltinImpl<hypot, mask_types, 0, knc_mask_code_2>;
-OclBuiltinImpl knc_expand_hypot = OclBuiltinImpl<hypot, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_expand_hypot = OclBuiltinImpl<hypot, [v16f64], 0, svml_v16f64_2>;
 
 // erfc
 OclBuiltinImpl knc_erfc        = OclBuiltinImpl<erfc, [v16f32, v8f64], 0, knc_code_1>;
@@ -348,22 +363,22 @@ OclBuiltinImpl knc_expand_erf = OclBuiltinImpl<erf, [v16f64], 0, Expand1>;
 // exp
 OclBuiltinImpl knc_exp        = OclBuiltinImpl<exp, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_exp   = OclBuiltinImpl<exp, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_exp = OclBuiltinImpl<exp, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_exp = OclBuiltinImpl<exp, [v16f64], 0, svml_v16f64_1>;
 
 // exp2
 OclBuiltinImpl knc_exp2        = OclBuiltinImpl<exp2, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_exp2   = OclBuiltinImpl<exp2, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_exp2 = OclBuiltinImpl<exp2, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_exp2 = OclBuiltinImpl<exp2, [v16f64], 0, svml_v16f64_1>;
 
 // exp10
 OclBuiltinImpl knc_exp10        = OclBuiltinImpl<exp10, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_exp10   = OclBuiltinImpl<exp10, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_exp10 = OclBuiltinImpl<exp10, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_exp10 = OclBuiltinImpl<exp10, [v16f64], 0, svml_v16f64_1>;
 
 // expm1
 OclBuiltinImpl knc_expm1        = OclBuiltinImpl<expm1, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_expm1   = OclBuiltinImpl<expm1, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_expm1 = OclBuiltinImpl<expm1, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_expm1 = OclBuiltinImpl<expm1, [v16f64], 0, svml_v16f64_1>;
 
 // fma
 OclBuiltinImpl knc_fma        = OclBuiltinImpl<fma, [v16f32, v8f64], 0, knc_code_3, ["$Func"->"madd213"]>;
@@ -373,47 +388,47 @@ OclBuiltinImpl knc_expand_fma = OclBuiltinImpl<fma, [v16f64], 0, Expand3, ["$Fun
 // log
 OclBuiltinImpl knc_log        = OclBuiltinImpl<log, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_log   = OclBuiltinImpl<log, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_log = OclBuiltinImpl<log, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_log = OclBuiltinImpl<log, [v16f64], 0, svml_v16f64_1>;
 
 // log2
 OclBuiltinImpl knc_log2        = OclBuiltinImpl<log2, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_log2   = OclBuiltinImpl<log2, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_log2 = OclBuiltinImpl<log2, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_log2 = OclBuiltinImpl<log2, [v16f64], 0, svml_v16f64_1>;
 
 // log10
 OclBuiltinImpl knc_log10        = OclBuiltinImpl<log10, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_log10   = OclBuiltinImpl<log10, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_log10 = OclBuiltinImpl<log10, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_log10 = OclBuiltinImpl<log10, [v16f64], 0, svml_v16f64_1>;
 
 // log1p
 OclBuiltinImpl knc_log1p        = OclBuiltinImpl<log1p, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_log1p   = OclBuiltinImpl<log1p, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_log1p = OclBuiltinImpl<log1p, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_log1p = OclBuiltinImpl<log1p, [v16f64], 0, svml_v16f64_1>;
 
 // logb
 OclBuiltinImpl knc_logb        = OclBuiltinImpl<logb, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_logb   = OclBuiltinImpl<logb, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_logb = OclBuiltinImpl<logb, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_logb = OclBuiltinImpl<logb, [v16f64], 0, svml_v16f64_1>;
 
 // pow
 OclBuiltinImpl knc_pow        = OclBuiltinImpl<pow, [v16f32, v8f64], 0, knc_code_2>;
 OclBuiltinImpl knc_mask_pow   = OclBuiltinImpl<pow, mask_types, 0, knc_mask_code_2>;
-OclBuiltinImpl knc_expand_pow = OclBuiltinImpl<pow, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_expand_pow = OclBuiltinImpl<pow, [v16f64], 0, svml_v16f64_2>;
 
 // rint
 OclBuiltinImpl knc_rint        = OclBuiltinImpl<rint, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_rint   = OclBuiltinImpl<rint, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_rint = OclBuiltinImpl<rint, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_rint = OclBuiltinImpl<rint, [v16f64], 0, svml_v16f64_1>;
 
 // sin
 OclBuiltinImpl knc_sin        = OclBuiltinImpl<sin, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_sin   = OclBuiltinImpl<sin, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_sin = OclBuiltinImpl<sin, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_sin = OclBuiltinImpl<sin, [v16f64], 0, svml_v16f64_1>;
 
 // sinh
 OclBuiltinImpl knc_sinh        = OclBuiltinImpl<sinh, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_sinh   = OclBuiltinImpl<sinh, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_sinh = OclBuiltinImpl<sinh, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_sinh = OclBuiltinImpl<sinh, [v16f64], 0, svml_v16f64_1>;
 
 // sqrt
 OclBuiltinImpl knc_sqrt        = OclBuiltinImpl<sqrt, [v16f32, v8f64], 0, knc_code_1>;
@@ -428,7 +443,7 @@ OclBuiltinImpl knc_expand_tan = OclBuiltinImpl<tan, [v16f64], 0, Expand1>;
 // tanh
 OclBuiltinImpl knc_tanh        = OclBuiltinImpl<tanh, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_tanh   = OclBuiltinImpl<tanh, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_tanh = OclBuiltinImpl<tanh, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_tanh = OclBuiltinImpl<tanh, [v16f64], 0, svml_v16f64_1>;
 
 // trunc
 OclBuiltinImpl knc_trunc        = OclBuiltinImpl<trunc, [v16f32, v8f64], 0, knc_code_1>;
@@ -438,93 +453,93 @@ OclBuiltinImpl knc_expand_trunc = OclBuiltinImpl<trunc, [v16f64], 0, Expand1>;
 // acospi
 OclBuiltinImpl knc_acospi        = OclBuiltinImpl<acospi, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_acospi   = OclBuiltinImpl<acospi, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_acospi = OclBuiltinImpl<acospi, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_acospi = OclBuiltinImpl<acospi, [v16f64], 0, svml_v16f64_1>;
 
 // asinpi
 OclBuiltinImpl knc_asinpi        = OclBuiltinImpl<asinpi, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_asinpi   = OclBuiltinImpl<asinpi, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_asinpi = OclBuiltinImpl<asinpi, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_asinpi = OclBuiltinImpl<asinpi, [v16f64], 0, svml_v16f64_1>;
  
 // atanpi
 OclBuiltinImpl knc_atanpi        = OclBuiltinImpl<atanpi, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_atanpi   = OclBuiltinImpl<atanpi, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_atanpi = OclBuiltinImpl<atanpi, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_atanpi = OclBuiltinImpl<atanpi, [v16f64], 0, svml_v16f64_1>;
  
 // atan2pi
 OclBuiltinImpl knc_atan2pi        = OclBuiltinImpl<atan2pi, [v16f32, v8f64], 0, knc_code_2>;
 OclBuiltinImpl knc_mask_atan2pi   = OclBuiltinImpl<atan2pi, mask_types, 0, knc_mask_code_2>;
-OclBuiltinImpl knc_expand_atan2pi = OclBuiltinImpl<atan2pi, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_expand_atan2pi = OclBuiltinImpl<atan2pi, [v16f64], 0, svml_v16f64_2>;
  
 // cospi
 OclBuiltinImpl knc_cospi        = OclBuiltinImpl<cospi, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_cospi   = OclBuiltinImpl<cospi, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_cospi = OclBuiltinImpl<cospi, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_cospi = OclBuiltinImpl<cospi, [v16f64], 0, svml_v16f64_1>;
  
 // fmod
 OclBuiltinImpl knc_fmod        = OclBuiltinImpl<fmod, [v16f32, v8f64], 0, knc_code_2>;
 OclBuiltinImpl knc_mask_fmod   = OclBuiltinImpl<fmod, mask_types, 0, knc_mask_code_2>;
-OclBuiltinImpl knc_expand_fmod = OclBuiltinImpl<fmod, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_expand_fmod = OclBuiltinImpl<fmod, [v16f64], 0, svml_v16f64_2>;
  
 // ilogb
 OclBuiltinImpl knc_ilogb_v8f64  = OclBuiltinImpl<ilogb, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_ilogb   = OclBuiltinImpl<ilogb, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_ilogb = OclBuiltinImpl<ilogb, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_ilogb = OclBuiltinImpl<ilogb, [v16f64], 0, svml_v16f64_1>;
 
 // ldexp
 // ldexp_s will call ldexp with the second argument casted to the vector
 OclBuiltinImpl knc_ldexp_v8f64  = OclBuiltinImpl<ldexp, [v16f32, v8f64], 0, knc_code_2>;
 OclBuiltinImpl knc_mask_ldexp   = OclBuiltinImpl<ldexp, mask_types, 0, knc_mask_code_2>;
-OclBuiltinImpl knc_expand_ldexp = OclBuiltinImpl<ldexp, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_expand_ldexp = OclBuiltinImpl<ldexp, [v16f64], 0, svml_v16f64_2>;
 
 // lgamma
 OclBuiltinImpl knc_lgamma        = OclBuiltinImpl<lgamma, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_lgamma   = OclBuiltinImpl<lgamma, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_lgamma = OclBuiltinImpl<lgamma, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_lgamma = OclBuiltinImpl<lgamma, [v16f64], 0, svml_v16f64_1>;
 
 // nextafter
 OclBuiltinImpl knc_nextafter        = OclBuiltinImpl<nextafter, [v16f32, v8f64], 0, knc_code_2>;
 OclBuiltinImpl knc_mask_nextafter   = OclBuiltinImpl<nextafter, mask_types, 0, knc_mask_code_2>;
-OclBuiltinImpl knc_expand_nextafter = OclBuiltinImpl<nextafter, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_expand_nextafter = OclBuiltinImpl<nextafter, [v16f64], 0, svml_v16f64_2>;
 
 // pown
 OclBuiltinImpl knc_pown_v8f64  = OclBuiltinImpl<pown, [v16f32, v8f64], 0, knc_code_2>;
 OclBuiltinImpl knc_mask_pown   = OclBuiltinImpl<pown, mask_types, 0, knc_mask_code_2>;
-OclBuiltinImpl knc_expand_pown = OclBuiltinImpl<pown, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_expand_pown = OclBuiltinImpl<pown, [v16f64], 0, svml_v16f64_2>;
 
 // powr
 OclBuiltinImpl knc_powr        = OclBuiltinImpl<powr, [v16f32, v8f64], 0, knc_code_2>;
 OclBuiltinImpl knc_mask_powr   = OclBuiltinImpl<powr, mask_types, 0, knc_mask_code_2>;
-OclBuiltinImpl knc_expand_powr = OclBuiltinImpl<powr, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_expand_powr = OclBuiltinImpl<powr, [v16f64], 0, svml_v16f64_2>;
 
 // remainder
 OclBuiltinImpl knc_remainder        = OclBuiltinImpl<remainder, [v16f32, v8f64], 0, knc_code_2>;
 OclBuiltinImpl knc_mask_remainder   = OclBuiltinImpl<remainder, mask_types, 0, knc_mask_code_2>;
-OclBuiltinImpl knc_expand_remainder = OclBuiltinImpl<remainder, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_expand_remainder = OclBuiltinImpl<remainder, [v16f64], 0, svml_v16f64_2>;
 
 // rootn
 OclBuiltinImpl knc_rootn_v8f64  = OclBuiltinImpl<rootn, [v16f32, v8f64], 0, knc_code_2>;
 OclBuiltinImpl knc_mask_rootn   = OclBuiltinImpl<rootn, mask_types, 0, knc_mask_code_2>;
-OclBuiltinImpl knc_expand_rootn = OclBuiltinImpl<rootn, [v16f64], 0, Expand2>;
+OclBuiltinImpl knc_expand_rootn = OclBuiltinImpl<rootn, [v16f64], 0, svml_v16f64_2>;
 
 // rsqrt
 OclBuiltinImpl knc_rsqrt        = OclBuiltinImpl<rsqrt, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_rsqrt   = OclBuiltinImpl<rsqrt, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_rsqrt = OclBuiltinImpl<rsqrt, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_rsqrt = OclBuiltinImpl<rsqrt, [v16f64], 0, svml_v16f64_1>;
 
 // sinpi
 OclBuiltinImpl knc_sinpi        = OclBuiltinImpl<sinpi, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_sinpi   = OclBuiltinImpl<sinpi, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_sinpi = OclBuiltinImpl<sinpi, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_sinpi = OclBuiltinImpl<sinpi, [v16f64], 0, svml_v16f64_1>;
 
 // tanpi
 OclBuiltinImpl knc_tanpi        = OclBuiltinImpl<tanpi, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_tanpi   = OclBuiltinImpl<tanpi, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_tanpi = OclBuiltinImpl<tanpi, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_tanpi = OclBuiltinImpl<tanpi, [v16f64], 0, svml_v16f64_1>;
 
 // tgamma
 OclBuiltinImpl knc_tgamma        = OclBuiltinImpl<tgamma, [v16f32, v8f64], 0, knc_code_1>;
 OclBuiltinImpl knc_mask_tgamma   = OclBuiltinImpl<tgamma, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_tgamma = OclBuiltinImpl<tgamma, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_expand_tgamma = OclBuiltinImpl<tgamma, [v16f64], 0, svml_v16f64_1>;
 
 // round
 OclBuiltinImpl knc_round_mask_f32 = OclBuiltinImpl<round, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
@@ -552,7 +567,7 @@ OclBuiltinImpl knc_round_f32 = OclBuiltinImpl<round, [v16f32], 0, [{
 
 OclBuiltinImpl knc_round_v8_f64 = OclBuiltinImpl<round, [v8f64], 0, knc_code_1, ["$Func"->"svml_round"]>;
 OclBuiltinImpl knc_round_mask_f64 = OclBuiltinImpl<round, mask_f64_types, 0, knc_mask_code_1, ["$Func"->"svml_round"]>;
-OclBuiltinImpl knc_round_expand = OclBuiltinImpl<round, [v16f64], 0, Expand1>;
+OclBuiltinImpl knc_round_expand = OclBuiltinImpl<round, [v16f64], 0, svml_v16f64_1>;
 
 code knc_code_2p = [{
     $Arg1Symm512gentype arg1; 
@@ -690,7 +705,7 @@ OclBuiltinImpl knc_expand_remquo_pas   = OclBuiltinImpl<remquo_pas, [v16f64], 0,
 OclBuiltinImpl knc_expand_remquo_las   = OclBuiltinImpl<remquo_las, [v16f64], 0, knc_expand_code_3p>;
 OclBuiltinImpl knc_expand_remquo_gas   = OclBuiltinImpl<remquo_gas, [v16f64], 0, knc_expand_code_3p>;
 
-// mad, maxmag, minmag, nan are implemented in GENERIC/math.td 
+// mad, maxmag, minmag, nan, copysign are implemented in GENERIC/math.td 
 
 // half builtins
 // half_cos

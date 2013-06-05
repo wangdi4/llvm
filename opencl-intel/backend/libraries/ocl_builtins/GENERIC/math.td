@@ -362,7 +362,7 @@ OclBuiltinImpl mad_impl = OclBuiltinImpl<mad, mad.Types, 0, [{
 OclBuiltinImpl maxmag_impl = OclBuiltinImpl<maxmag, maxmag.Types, 0, [{
     $Arg0Type $ReturnVarName;
   $Arg0Type xabs = fabs($Arg0VarName);
-  $Arg0Type yabs = fabs($Arg1VarName);
+  $Arg1Type yabs = fabs($Arg1VarName);
   $Arg0Type xymax = fmax($Arg0VarName, $Arg1VarName);
   $Arg0igentype xLTy = xabs < yabs;
   $Arg0igentype yLTx = yabs < xabs;
@@ -375,7 +375,7 @@ OclBuiltinImpl maxmag_impl = OclBuiltinImpl<maxmag, maxmag.Types, 0, [{
 OclBuiltinImpl minmag_impl = OclBuiltinImpl<minmag, minmag.Types, 0, [{
     $Arg0Type $ReturnVarName;
   $Arg0Type xabs = fabs($Arg0VarName);
-  $Arg0Type yabs = fabs($Arg1VarName);
+  $Arg1Type yabs = fabs($Arg1VarName);
   $Arg0Type xymin = fmin($Arg0VarName, $Arg1VarName);
   $Arg0igentype xGTy = xabs > yabs;
   $Arg0igentype yGTx = yabs > xabs;
