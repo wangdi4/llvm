@@ -12,12 +12,13 @@
 #define __STDC_LIMIT_MACROS
 
 #include <stdint.h>
-#include <pthread.h>
 #include <vector>
 #include <utility>
 #include <set>
 
 #include "cl_synch_objects.h"
+#include "cl_thread.h"
+#include "cl_shared_ptr.hpp"
 
 #include <common/COITypes_common.h>
 
@@ -26,9 +27,11 @@ using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
-class NotificationPort
+class NotificationPort : private OclThread, public ReferenceCountedObject
 {
 public:
+
+	PREPARE_SHARED_PTR(NotificationPort)
 
 	// CallBack interface
 	class CallBack
@@ -45,6 +48,8 @@ public:
 		CREATE_WORKER_THREAD_FAILURE=4,
 		NOT_INITIASLIZE_FAILURE=5
 	};
+
+	virtual ~NotificationPort();
 	
 	/* Factory for notification port.
 	   Create new NotificationPort object and call to initialize.
@@ -52,15 +57,11 @@ public:
 	   In case of success - the notification port initialization completes and return pointer to NotificationPort object.
 	   In case of failure - return NULL.
 	   Do NOT delete this object it will delete itself when the worker thread will finish its work. */
-	static NotificationPort* notificationPortFactory(uint16_t maxBarriers);
+	static SharedPtr<NotificationPort> notificationPortFactory(uint16_t maxBarriers);
 
 	ERROR_CODE addBarrier(const COIEVENT& barrier, NotificationPort::CallBack* callBack, void* arg);
 
 	ERROR_CODE release();
-
-	/* This method blocks the calling thread until all the notification ports threads finish their life cycle. 
-	   The calling thread have to call release() of each notification port before. */
-	static void waitForAllNotificationPortThreads();
 
 private:
 
@@ -90,8 +91,6 @@ private:
 	};
 
 	typedef pair<COIEVENT, notificationPackage> EventNotificationPackagePair;
-	
-	volatile size_t m_poc;
 
 	bool m_operationMask[AVAILABLE_OPERATIONS_LEN];
 
@@ -100,11 +99,9 @@ private:
 
 	vector<EventNotificationPackagePair> m_pendingNotificationArr;
 
-	pthread_mutex_t m_mutex;
+	OclMutex m_mutex;
 
-	pthread_t m_workerThread;
-
-	pthread_cond_t m_clientCond;
+	OclCondition m_clientCond;
 
 	uint16_t m_maxBarriers;
 	uint16_t m_waitingSize;
@@ -114,23 +111,10 @@ private:
 	
 	volatile WORKER_STATE m_workerState;
 
-	// Set of currently notification port threads.
-	static set<pthread_t>* m_NotificationThreadsSet;
-	static OclMutex*       m_notificationThreadsMutex;
-
-	static void* ThreadEntryPoint( void* threadObject );
-
-	/* Register the new created notification port thread. */
-	static void registerNotificationPortThread(pthread_t threadHandler);
-
-	/* Unregister the notification port thread. */
-	static void unregisterNotificationPortThread(pthread_t threadHandler);
+	RETURN_TYPE_ENTRY_POINT Run();
 
     /* Private constructor in order to avoid construction by the client. */
 	NotificationPort(void);
-
-	/* Private destructor in order to avoid destruction by the client. It will destruct itself when the thread will finish its life. */
-	virtual ~NotificationPort(void);
 
 	/* Init the data structures.
 	Initialize and start the responsible thread.

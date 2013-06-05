@@ -75,7 +75,7 @@
   (MIC_MAX_PARAMETER_SIZE * MAX_WI_DIM_POW_OF_2 * sizeof(size_t)))
 
 //The muximum single buffer memory size (in bytes)
-#define MIC_MAX_BUFFER_ALLOC_SIZE(deviceId) (MAX(128*1024*1024, MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)/4) & ~4095)
+#define MIC_MAX_BUFFER_ALLOC_SIZE(deviceId) (MAX((unsigned long long)(128*1024*1024), MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)/4) & ~4095)
 #define MIC_MAX_GLOBAL_MEM_SIZE(deviceId) (((MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)*3)/4) & ~4095)
 #define MIC_AVAILABLE_PROCESS_MEMORY(deviceId) (MIN(MIC_MAX_GLOBAL_MEM_SIZE(deviceId) + 1024 * 1024 * 100, MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)) & ~4095)
 

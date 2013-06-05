@@ -91,6 +91,7 @@ typedef unsigned long long               affinityMask_t;
 typedef void*							EVENT_STRUCTURE;
 typedef void*							BINARY_SEMAPHORE;
 typedef void*							READ_WRITE_LOCK;
+typedef void*							CONDITION_VAR;
 
 // aligned malloc
 #include <malloc.h>
@@ -182,6 +183,8 @@ typedef struct event_Structure
 	pthread_cond_t condition;
 	volatile bool isFired;
 } EVENT_STRUCTURE;
+
+typedef pthread_cond_t				CONDITION_VAR;
 
 #include <semaphore.h>
 // Type declaration for binary sempahore

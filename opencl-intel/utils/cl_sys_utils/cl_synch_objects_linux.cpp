@@ -110,6 +110,57 @@ void OclMutex::spinCountMutexLock()
 }
 
 /************************************************************************
+ *
+ ************************************************************************/
+OclCondition::OclCondition()
+{
+	int err = 0;
+	err = pthread_cond_init(&m_condVar, NULL);
+	assert(0 == err && "pthread_cond_init failed");
+}
+
+/************************************************************************
+ * Condition distructor must be called when there are no threads waiting
+ * on this condition.
+ * Else, the behavior is undefined.
+ ************************************************************************/
+OclCondition::~OclCondition()
+{
+	int err = 0;
+	err = pthread_cond_destroy(&m_condVar);
+	assert(0 == err && "pthread_cond_destroy failed");
+}
+
+/************************************************************************
+*
+ ************************************************************************/
+COND_RESULT OclCondition::Wait(OclMutex* mutexObj)
+{
+	assert(((mutexObj) && (mutexObj->m_mutexHndl)) && "mutexObj must be valid object");
+	if ((NULL == mutexObj) || (NULL == mutexObj->m_mutexHndl))
+    {
+        return COND_RESULT_FAIL;
+    }
+	if (0 != pthread_cond_wait(&m_condVar, (pthread_mutex_t*)(mutexObj->m_mutexHndl)))
+	{
+		return COND_RESULT_FAIL;
+	}
+    return COND_RESULT_OK;
+}
+
+/************************************************************************
+*
+ ************************************************************************/
+COND_RESULT OclCondition::Signal()
+{
+	if (0 != pthread_cond_broadcast(&m_condVar))
+	{
+		return COND_RESULT_FAIL;
+	}
+    return COND_RESULT_OK;
+}
+
+/************************************************************************
 * OclOsDependentEvent implementation
  ************************************************************************/
 OclOsDependentEvent::OclOsDependentEvent()

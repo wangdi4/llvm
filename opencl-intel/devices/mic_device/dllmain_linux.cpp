@@ -56,7 +56,6 @@ void dll_init(void)
         safeStrCat(clMICDEVICE_CFG_PATH, MAX_PATH-1, "/cl.cfg");
     }
     
-    MICDevice::loadingInit();
 	atexit(MICDevice::unloadRelease);
 }
 

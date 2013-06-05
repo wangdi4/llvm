@@ -76,6 +76,7 @@ void OclThread::Clean()
     }
     m_threadId = MAX_UINT;
     m_join.exchange(0);
+	m_numWaiters.exchange(0);
 }
 
 /************************************************************************
@@ -144,11 +145,12 @@ int OclThread::Join()
 {
     if(m_running)
     {
-	if (0 != m_join.test_and_set(0, 1))
-	{
-	    return THREAD_RESULT_FAIL;
-	}
-	return WaitForCompletion();
+	    // If I called to join myself or more than one thread try to join than return error.
+	    if ((isSelf()) || (0 != m_join.test_and_set(0, 1)))
+	    {
+	        return THREAD_RESULT_FAIL;
+	    }
+	    return WaitForCompletion();
     }
     return THREAD_RESULT_SUCCESS;
 }
@@ -160,12 +162,25 @@ int OclThread::Join()
  ************************************************************************/
 int OclThread::WaitForCompletion()
 {
-    if( NULL == m_threadHandle)
+    // If threadHandle already released or I try to wait for myself, return error.
+	if ((NULL == m_threadHandle) || (isSelf()))
     {
         return THREAD_RESULT_FAIL;
     }
-
-	pthread_join((*(pthread_t*)m_threadHandle), NULL);
+	// If I'm the first thread that try to wait for completion than use join
+	// (If multiple threads simultaneously try to join with the same thread, the results are undefined)
+	if (0 == m_numWaiters.test_and_set(0, 1))
+	{
+		pthread_join((*(pthread_t*)m_threadHandle), NULL);
+	}
+	else
+	{
+		// multiple threads are waiting for completion
+		while (0 != m_numWaiters.operator long())
+		{
+			hw_pause();
+		}
+	}
     Clean();
     return THREAD_RESULT_SUCCESS;
 }
@@ -185,6 +200,17 @@ void OclThread::Terminate(RETURN_TYPE_ENTRY_POINT exitCode)
 		pthread_cancel((*(pthread_t*)m_threadHandle));
 	}
 	Clean();
+}
+
+void OclThread::SelfTerminate(RETURN_TYPE_ENTRY_POINT exitCode)
+{
+	// The exitCode doesn't exist in Linux
+	pthread_cancel(pthread_self());
+}
+
+bool OclThread::isSelf()
+{
+	return (pthread_self() == GetThreadId());
 }
 
 /************************************************************************

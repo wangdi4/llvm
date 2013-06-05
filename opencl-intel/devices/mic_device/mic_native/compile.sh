@@ -1,6 +1,6 @@
 #!/bin/sh
-SRC=$1
-OBJ=$2
+SRC=$2
+OBJ=$3
 
 # All variables in the form of CMake vars will be replaced by CMake
 source "@DEVICE_INIT_ENV_SCRIPT@" intel64

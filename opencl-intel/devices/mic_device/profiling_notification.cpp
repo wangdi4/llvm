@@ -1,7 +1,6 @@
 #include "profiling_notification.h"
 #include "command.h"
 #include <cstddef>
-#include <pthread.h>
 #include <assert.h>
 
 using namespace Intel::OpenCL::MICDevice;

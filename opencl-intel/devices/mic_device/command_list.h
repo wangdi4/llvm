@@ -35,7 +35,7 @@ using namespace Intel::OpenCL::Utils;
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
-class PerformanceDataStore;
+struct PerformanceDataStore;
 
 /* An abstract class with represent command list.
    The implementation is NOT completely thread safe. (commandListExecute is not thread safe, it assume that the R.T. send one series of commands in a time) */
@@ -55,7 +55,7 @@ public:
 	   Return CL_DEV_SUCCESS if succeeded. */
     static cl_dev_err_code commandListFactory(cl_dev_cmd_list_props IN      props, 
                                               cl_dev_subdevice_id           subDeviceId, 
-                                              NotificationPort*             pNotificationPort, 
+                                              const SharedPtr<NotificationPort>&  pNotificationPort, 
                                               DeviceServiceCommunication*   pDeviceServiceComm,
 		                                      IOCLFrameworkCallbacks*       pFrameworkCallBacks, 
 		                                      ProgramService*               pProgramService, 
@@ -107,7 +107,7 @@ public:
                                                                            numBuffers, buffers, bufferAccessFlags, m_pipe ); 
                         };
 
-	NotificationPort* getNotificationPort() { return m_pNotificationPort; };
+	const SharedPtr<NotificationPort>& getNotificationPort() { return m_pNotificationPort; };
 
 	ProgramService* getProgramService() { return m_pProgramService; };
 
@@ -126,7 +126,7 @@ public:
 protected:
 
 	/* It is protected constructor because We want that the client will create CommandList only by the factory method */
-	CommandList(NotificationPort*           pNotificationPort, 
+	CommandList(const SharedPtr<NotificationPort>& pNotificationPort, 
 	            DeviceServiceCommunication* pDeviceServiceComm, 
 	            IOCLFrameworkCallbacks*     pFrameworkCallBacks, 
 	            ProgramService*             pProgramService, 
@@ -166,7 +166,7 @@ private:
 	cl_dev_err_code createCommandObject(cl_dev_cmd_desc* cmd, SharedPtr<Command>& cmdObject);
 
 	// pointer to device notification port object
-	NotificationPort*                 m_pNotificationPort;
+	const SharedPtr<NotificationPort>&      m_pNotificationPort;
 	// pointer to device service communication object
 	DeviceServiceCommunication*       m_pDeviceServiceComm;
 	// pointer to IOCLFrameworkCallbacks object in order to notify framework about completion of command

@@ -72,7 +72,7 @@ private:
     OclDynamicLib                   m_dlRunTime;
     CommandList*                    m_defaultCommandList;
     DeviceServiceCommunication*     m_pDeviceServiceComm;
-    NotificationPort*               m_pNotificationPort;
+    SharedPtr<NotificationPort>     m_pNotificationPort;
 
     set<CommandList*>               m_commandListsSet;
     OclMutex                        m_commandListsSetLock;
@@ -105,7 +105,7 @@ public:
     MICDevice(cl_uint micId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
     cl_dev_err_code                     Init();
 
-    const DeviceServiceCommunication&   GetDeviceService(void) const { return *m_pDeviceServiceComm; };
+    DeviceServiceCommunication&   GetDeviceService(void) const { return *m_pDeviceServiceComm; };
     NotificationPort&                   GetDeviceNotificationPort(void) { return *m_pNotificationPort; };
 
     static cl_dev_err_code   clDevGetDeviceInfo(unsigned int IN	dev_id, cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);

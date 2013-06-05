@@ -76,6 +76,7 @@ void OclThread::Clean()
     }
     m_threadId = MAX_UINT;
     m_join.exchange(0);
+	m_numWaiters.exchange(0);
 }
 
 /************************************************************************
@@ -167,11 +168,12 @@ int OclThread::Join()
 {
     if(m_running)
     {
-	if (0 != m_join.test_and_set(0, 1))
-	{
-	    return THREAD_RESULT_FAIL;
-	}
-	return WaitForCompletion();
+		// If I called to join myself or more than one thread try to join than return error.
+	    if ((isSelf()) || (0 != m_join.test_and_set(0, 1)))
+	    {
+	        return THREAD_RESULT_FAIL;
+	    }
+	    return WaitForCompletion();
     }
     return THREAD_RESULT_SUCCESS;
 }   
@@ -183,16 +185,14 @@ int OclThread::Join()
 /************************************************************************/
 int OclThread::WaitForCompletion()
 {
-    if(!m_running)
+	// If threadHandle already released or I try to wait for myself, return error.
+	if ((NULL == m_threadHandle) || (isSelf()))
     {
         return THREAD_RESULT_FAIL;
     }
-    else
-    {
-        WaitForSingleObject(m_threadHandle, INFINITE);
-        Clean();        
-        return THREAD_RESULT_SUCCESS;
-    }
+    WaitForSingleObject(m_threadHandle, INFINITE);
+    Clean();        
+    return THREAD_RESULT_SUCCESS;
 }
 
 /************************************************************************
@@ -209,6 +209,16 @@ void OclThread::Terminate(RETURN_TYPE_ENTRY_POINT exitCode)
 		TerminateThread(m_threadHandle, exitCode);
 	}
 	Clean();
+}
+
+void OclThread::SelfTerminate(RETURN_TYPE_ENTRY_POINT exitCode)
+{
+	TerminateThread(GetCurrentThread(), exitCode);
+}
+
+bool OclThread::isSelf()
+{
+	return (GetCurrentThreadId() == GetThreadId());
 }
 
 /************************************************************************

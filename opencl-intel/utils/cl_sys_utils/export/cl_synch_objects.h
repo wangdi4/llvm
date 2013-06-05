@@ -187,6 +187,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
      ************************************************************************/
     class OclMutex: public IMutex
     {
+	friend class OclCondition;
     public:
         OclMutex(unsigned int uiSpinCount = 4000);
         virtual ~OclMutex ();
@@ -211,6 +212,37 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		AtomicCounter lMutex;
 		threadid_t threadId;
 	};
+
+
+    /************************************************************************
+     * OclCondition:
+     *      Condition object is a synchronization object that enables a thread to wait on a condition
+     *      until that condition is set.
+     *      The object is attached with an external mutex. When the object enters into wait state,
+     *      the mutex is atomically released and atomically is acquired when the condition is set.
+     *      The condition may be signaled or broadcast. In case of single, only one waiting thread
+     *      is released, otherwise, all threads are released
+                AND THE MUTEX IS NOT AQUIRED???
+     ************************************************************************/
+    enum COND_RESULT
+    {
+        COND_RESULT_OK,                 // Return code on success.
+        COND_RESULT_FAIL                // Return code in case of error.
+    };
+
+
+    class OclCondition
+    {
+    public:
+        OclCondition();
+        ~OclCondition();
+
+        COND_RESULT Wait(OclMutex* m_mutexObj);
+        COND_RESULT Signal();
+
+    private:
+        CONDITION_VAR	m_condVar;
+    };
 
 	// The class below encapsulates an OS-dependent event
 	// Can be used by OclEvent's Wait() method

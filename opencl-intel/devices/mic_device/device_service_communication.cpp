@@ -14,9 +14,19 @@
 #include <source/COIEvent_source.h>
 #include <source/COIBuffer_source.h>
 
+#include "stdafx.h"
+
+#ifndef WIN32
 #include <libgen.h>
+#endif
 #include <string.h>
 #include <assert.h>
+
+#ifndef WIN32
+#include <dlfcn.h> 
+#else
+#define RTLD_NOW 2
+#endif
 
 using namespace std;
 
@@ -52,11 +62,8 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
 
 
 DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId) 
-    : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_initDone(false)
+    : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL)
 {
-    pthread_mutex_init(&m_mutex, NULL);
-    pthread_cond_init(&m_cond, NULL);
-
     memset(m_device_functions, 0, sizeof(m_device_functions));
 }
 
@@ -75,19 +82,13 @@ cl_dev_err_code DeviceServiceCommunication::deviceSeviceCommunicationFactory(uns
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-    pthread_attr_t tattr;
-    pthread_attr_init(&tattr);
-    pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
-
     // create a thread that will initialize the device process and open a service pipeline.
-    int err = pthread_create(&tDeviceServiceComm->m_initializerThread, &tattr, initEntryPoint, tDeviceServiceComm);
-	if (0 != err)
+	int err = tDeviceServiceComm->Start();
+	if (THREAD_RESULT_SUCCESS != err)
 	{
 		delete tDeviceServiceComm;
 		return CL_DEV_ERROR_FAIL;
 	}
-
-    pthread_attr_destroy(&tattr);
 
     *ppDeviceServiceCom = tDeviceServiceComm;
     return CL_DEV_SUCCESS;
@@ -97,7 +98,7 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 {
     COIRESULT result = COI_ERROR;
 
-    waitForInitThread();
+    WaitForCompletion();
 
 	if (releaseCoiObjects)
 	{
@@ -167,20 +168,17 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 			m_process = NULL;
 		}
 	}
-
-    pthread_cond_destroy(&m_cond);
-    pthread_mutex_destroy(&m_mutex);
 }
 
-COIPROCESS DeviceServiceCommunication::getDeviceProcessHandle() const
+COIPROCESS DeviceServiceCommunication::getDeviceProcessHandle() 
 {
-    waitForInitThread();
+    WaitForCompletion();
     return m_process;
 }
 
-COIFUNCTION DeviceServiceCommunication::getDeviceFunction( DEVICE_SIDE_FUNCTION id ) const
+COIFUNCTION DeviceServiceCommunication::getDeviceFunction( DEVICE_SIDE_FUNCTION id ) 
 {
-    waitForInitThread();
+    WaitForCompletion();
     assert( id < LAST_DEVICE_SIDE_FUNCTION && "Too large Device Entry point Function ID" );
     assert( 0 != m_device_functions[id] && "Getting reference to Device Entry point that does not exists" );
 	return (NULL == m_process) ? NULL :  m_device_functions[id];
@@ -222,7 +220,7 @@ bool DeviceServiceCommunication::runServiceFunction(
         bufferAccessFlags = NULL;
     }
 
-    waitForInitThread();
+    WaitForCompletion();
 
     COIPIPELINE pipe = (NULL != use_pipeline) ? use_pipeline : m_pipe;
 
@@ -270,18 +268,17 @@ void DeviceServiceCommunication::getVTuneEnvVars(vector<char*>& additionalEnvVar
 }
 
 
-void* DeviceServiceCommunication::initEntryPoint(void* arg)
+RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
 {
     COIRESULT result = COI_ERROR;
 	cl_dev_err_code err = CL_DEV_SUCCESS;
 	char nativeDirName[MAX_PATH] = {0};
 	char fileNameBuffer[MAX_PATH] = {0};
-    DeviceServiceCommunication* pDevServiceComm = (DeviceServiceCommunication*)arg;
 
     MICSysInfo& info = MICSysInfo::getInstance();
 
     // Get a handle to MIC engine number m_engineId
-    COIENGINE engine = info.getCOIEngineHandle( pDevServiceComm->m_uiMicId );
+    COIENGINE engine = info.getCOIEngineHandle( m_uiMicId );
 
     // The following call creates a process on the sink.
     GetModuleDirectory( (char*)nativeDirName, sizeof(nativeDirName) );
@@ -295,8 +292,8 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 	{
 		const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
 		// Get the amount of compute units in the device
-		unsigned int numOfWorkers   = info.getNumOfComputeUnits(pDevServiceComm->m_uiMicId);
-		unsigned int numOfCores     = info.getNumOfCores(pDevServiceComm->m_uiMicId);
+		unsigned int numOfWorkers   = info.getNumOfComputeUnits(m_uiMicId);
+		unsigned int numOfCores     = info.getNumOfCores(m_uiMicId);
         unsigned int threadsPerCore = numOfWorkers / numOfCores;
 
         if (threadsPerCore > MIC_NATIVE_MAX_THREADS_PER_CORE)
@@ -369,7 +366,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 		// If USE VTUNE need to send some env variables to sink side
 		if (mic_device_options.use_vtune)
 		{
-			pDevServiceComm->getVTuneEnvVars(additionalEnvVars);
+			getVTuneEnvVars(additionalEnvVars);
 			if (additionalEnvVars.size() > 0)
 			{
 				additionalEnvVars.push_back(NULL);
@@ -383,7 +380,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 										 MIC_DEV_IO_PROXY_TO_HOST, NULL,														// I/O proxy required + host root
                                          MIC_DEV_INITIAL_BUFFER_PREALLOCATION,													// reserve inital buffer space
 										 nativeDirName,																			// a path to locate dynamic libraries dependencies for the sink application
-										 &pDevServiceComm->m_process);
+										 &m_process);
 		assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");
 		if (COI_SUCCESS != result)
 		{
@@ -392,7 +389,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 
 		// load additional DLLs required by this specific device
 		const char * const * string_arr = NULL;
-		unsigned int dlls_count = info.getRequiredDeviceDLLs(pDevServiceComm->m_uiMicId, &string_arr);
+		unsigned int dlls_count = info.getRequiredDeviceDLLs(m_uiMicId, &string_arr);
 
 		if ((0 < dlls_count) && (NULL != string_arr))
 		{
@@ -402,10 +399,11 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 				{
 					COILIBRARY lib_handle = NULL;
 					result = COIProcessLoadLibraryFromFile(
-										pDevServiceComm->m_process,             // in_Process
+										m_process,             // in_Process
 										string_arr[i],                          // in_FileName
 										NULL,                                   // in_so-name if not exists in file
 										nativeDirName,                          // in_LibrarySearchPath
+										RTLD_NOW,										//Bitmask of the flags that will be passed in as the dlopen()								
 										&lib_handle );
 
 					assert( ((COI_SUCCESS == result) || (COI_ALREADY_EXISTS == result))
@@ -424,7 +422,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 		result = COI_SUCCESS;
 
 		// We'll need a pipeline to run service functions
-		result = COIPipelineCreate(pDevServiceComm->m_process, NULL, NULL, &pDevServiceComm->m_pipe);
+		result = COIPipelineCreate(m_process, NULL, NULL, &m_pipe);
 		assert(result == COI_SUCCESS && "COIPipelineCreate failed for service pipeline");
 		if (COI_SUCCESS != result)
 		{
@@ -432,10 +430,10 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 		}
 
 		// Get list of entry points
-		result = COIProcessGetFunctionHandles(pDevServiceComm->m_process,
+		result = COIProcessGetFunctionHandles(m_process,
 											  DEVICE_SIDE_FUNCTION_COUNT,
 											  (const char**)m_device_function_names,
-											  pDevServiceComm->m_device_functions );
+											  m_device_functions );
 		assert(result == COI_SUCCESS && "COIProcessGetFunctionHandles failed to find all device entry points");
 		if (COI_SUCCESS != result)
 		{
@@ -445,7 +443,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 		// Run init device function on device side
 		// Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
 		COIEVENT barrier;
-		result = COIPipelineRunFunction(pDevServiceComm->m_pipe, pDevServiceComm->m_device_functions[INIT_DEVICE],
+		result = COIPipelineRunFunction(m_pipe, m_device_functions[INIT_DEVICE],
 										0, NULL, NULL,
 										0, NULL,                    // dependecies
 										&mic_device_options, sizeof(mic_device_options),
@@ -469,7 +467,7 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 			break;
 		}
 
-		if (false == ProfilingNotification::getInstance().registerProfilingNotification(pDevServiceComm->m_process))
+		if (false == ProfilingNotification::getInstance().registerProfilingNotification(m_process))
 		{
 			err = CL_DEV_ERROR_FAIL;
 			break;
@@ -478,40 +476,20 @@ void* DeviceServiceCommunication::initEntryPoint(void* arg)
 	while (0);
 	if ((COI_SUCCESS != result) || (CL_DEV_FAILED(err)))
 	{
-		ProfilingNotification::getInstance().unregisterProfilingNotification(pDevServiceComm->m_process);
+		ProfilingNotification::getInstance().unregisterProfilingNotification(m_process);
 
-		if (NULL != pDevServiceComm->m_pipe)
+		if (NULL != m_pipe)
 		{
-			COIPipelineDestroy(pDevServiceComm->m_pipe);
-			ATOMIC_ASSIGN(pDevServiceComm->m_pipe, NULL);
+			COIPipelineDestroy(m_pipe);
+			m_pipe = NULL;
 		}
 
-		if (NULL != pDevServiceComm->m_process)
+		if (NULL != m_process)
 		{
-			COIProcessDestroy(pDevServiceComm->m_process, -1, false, NULL, NULL);
-			ATOMIC_ASSIGN(pDevServiceComm->m_process, NULL);
+			COIProcessDestroy(m_process, -1, false, NULL, NULL);
+			m_process = NULL;
 		}
 	}
-    // Release the blocked threads that are waiting for me
-    pthread_mutex_lock(&pDevServiceComm->m_mutex);
-    ATOMIC_ASSIGN( pDevServiceComm->m_initDone, true );
-    pthread_cond_broadcast(&pDevServiceComm->m_cond);
-    pthread_mutex_unlock(&pDevServiceComm->m_mutex);
 
-    return NULL;
+    return 0;
 }
-
-inline void DeviceServiceCommunication::waitForInitThread() const
-{
-    // if initializer thread finished, can return.
-    if (m_initDone == false)
-    {
-        pthread_mutex_lock(&m_mutex);
-        while (m_initDone == false)
-        {
-            pthread_cond_wait(&m_cond, &m_mutex);
-        }
-        pthread_mutex_unlock(&m_mutex);
-    }
-}
-

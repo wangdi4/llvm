@@ -8,11 +8,11 @@
 
 #pragma once
 
-#include <pthread.h>
 #include <vector>
 
 #include "cl_device_api.h"
 #include "mic_config.h"
+#include "cl_thread.h"
 
 #include <common/COITypes_common.h>
 #include <source/COIPipeline_source.h>
@@ -20,7 +20,7 @@
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
-class DeviceServiceCommunication
+class DeviceServiceCommunication : private OclThread
 {
 
 public:
@@ -35,7 +35,7 @@ public:
 
     /* Return the created process. (If the creation succeeded, otherwise return NULL)
        If the created thread (in factory) didn't finish, it will wait until the thread will finish it's work. */
-    COIPROCESS getDeviceProcessHandle() const;
+    COIPROCESS getDeviceProcessHandle();
 
     /* Supported Device-side functions */
     enum DEVICE_SIDE_FUNCTION
@@ -64,7 +64,7 @@ public:
         DEVICE_SIDE_FUNCTION_COUNT = LAST_DEVICE_SIDE_FUNCTION // used as a count of functions
     };
 
-    COIFUNCTION getDeviceFunction( DEVICE_SIDE_FUNCTION id ) const;
+    COIFUNCTION getDeviceFunction( DEVICE_SIDE_FUNCTION id );
 
     /* Send function to run through the service pipeline unless use_pipeline is provided
        It is block operation - wait until the function completed on the device.
@@ -88,6 +88,8 @@ private:
     // private constructor in order to use factory only
     DeviceServiceCommunication(unsigned int uiMicId);
 
+	RETURN_TYPE_ENTRY_POINT Run();
+
     /* close the service pipeline and the process on the device.
        If the created thread (in factory) didn't finish, it will wait until the thread will finish it's work.
        Called from destructor only*/
@@ -95,10 +97,6 @@ private:
 
     /* Entry point for the initializer thread. */
     static void* initEntryPoint(void* arg);
-
-    /* The calling thread will wait on this function until the initializer thread will finish it's work.
-       Unless it already finished. */
-    void waitForInitThread() const;
 	
 	/* Set in additionalEnvVars all the VTune env variables (Those starts with __OCL_MIC_INTEL_) as name=value. */
 	void getVTuneEnvVars(vector<char*>& additionalEnvVars);
@@ -110,12 +108,6 @@ private:
 
     static const char* const m_device_function_names[DEVICE_SIDE_FUNCTION_COUNT];
     COIFUNCTION m_device_functions[DEVICE_SIDE_FUNCTION_COUNT];
-
-    volatile bool m_initDone;
-
-    pthread_t m_initializerThread;
-    mutable pthread_mutex_t m_mutex;
-    mutable pthread_cond_t m_cond;
 };
 
 }}}

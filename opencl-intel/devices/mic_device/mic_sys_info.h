@@ -9,9 +9,9 @@
 #pragma once
 
 #include "cl_device_api.h"
+#include "cl_synch_objects.h"
 #include "mic_config.h"
 #include <source/COIEngine_source.h>
-#include <pthread.h>
 #include <string.h>
 #include <map>
 #include <vector>
@@ -39,7 +39,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 
         /* Returns the number of engines in the system that match COI_ISA_KNC.
            Calculate it once (Thread safe) */
-        uint32_t getEngineCount();
+		uint32_t getEngineCount() { return m_numEngines; };
 
         /* Return the number of cores on the device. */
         cl_uint getNumOfCores(uint32_t deviceId);
@@ -183,24 +183,12 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 
         struct guardedInfo
         {
-            pthread_mutex_t      mutex;
+            OclSpinMutex      mutex;
             engineInfo* volatile devInfoStruct;
         };
 
         /* private constructor because I want single instance */
         MICSysInfo();
-
-        enum SINGLETON_KEEPER_STATE
-        {
-            BEFORE_INIT = 0,
-            CREATION,
-            READY
-        };
-        /* Keeper for singleton creation
-           If '0' can create a new instance.
-           If '1' in creation process of other thread.
-           If '2' already created */
-        static volatile unsigned int m_singletonKeeper;
 
         /* Singelton object of MICSysInfo */
         static MICSysInfo* m_singleton;
@@ -212,7 +200,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
         volatile uint32_t m_numEngines;
 
         /* mutex guard */
-        pthread_mutex_t m_mutex;
+        static OclSpinMutex m_mutex;
 
 		// The deviceId represent as index in the array and the CoiEngineId is the content in that index.
 		std::vector<unsigned int> m_deviceIdToCoiEngineId;

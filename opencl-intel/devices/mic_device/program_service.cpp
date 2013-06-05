@@ -37,6 +37,7 @@
 #include "mic_device_interface.h"
 #include "mic_sys_info_internal.h"
 #include "mic_tracer.h"
+#include "cl_sys_defines.h"
 
 #include <source/COIBuffer_source.h>
 #include <source/COIPipeline_source.h>
@@ -45,7 +46,10 @@
 #include <limits.h>
 #include <assert.h>
 #include <math.h>
-#include <alloca.h>
+
+#ifdef WIN32
+#include <Windows.h>
+#endif
 
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL;
@@ -1311,12 +1315,13 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
 
     // allocate output strcut on my stack
     size_t required_output_struct_size = COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT_SIZE( kernels_count );
-    COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* output = (COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT*)alloca( required_output_struct_size );
+    COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* output = (COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT*)STACK_ALLOC( required_output_struct_size );
 
     assert( output && "Cannot allocate space using alloca()" );
     if (NULL == output)
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Program Service failed to allocate space on stack.", "");
+		STACK_FREE(output);
         return false;
     }
 
@@ -1324,6 +1329,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
     {
         // problem copying to device
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Program Service failed to copy program to device.", "");
+		STACK_FREE(output);
         return false;
     }
 
@@ -1333,6 +1339,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
         MicErrLog(m_pLogDescriptor, m_iLogHandle,
             "MICDevice: Program Service create all kernels on device: required %d created %d.",
             kernels_count, output->filled_kernels );
+		STACK_FREE(output);
         return false;
     }
 
@@ -1347,6 +1354,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
         {
           MicErrLog(m_pLogDescriptor, m_iLogHandle,
               TEXT("%s"), "MICDevice: Failed to allocate TKernelEntry");
+		  STACK_FREE(output);
           return false;
         }
 
@@ -1359,24 +1367,26 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
 
         if ( CL_DEV_SUCCEEDED(err_code) && (NULL != kernel_entry->pKernel) )
         {
-		if ( kernel_entry->pKernel->GetKernelID() != info->kernel_id )
-		{
-			assert( 0 && "Kernel IDs are the same on host and device" );
-			MicErrLog(m_pLogDescriptor, m_iLogHandle,
-			    TEXT("MICDevice: Kernel ID on teh device(%lld) and the host(%lld) don't match."),
-		    	info->kernel_id, kernel_entry->pKernel->GetKernelID());
-			return false;
+			if ( kernel_entry->pKernel->GetKernelID() != info->kernel_id )
+			{
+				assert( 0 && "Kernel IDs are the same on host and device" );
+				MicErrLog(m_pLogDescriptor, m_iLogHandle,
+					TEXT("MICDevice: Kernel ID on teh device(%lld) and the host(%lld) don't match."),
+		    		info->kernel_id, kernel_entry->pKernel->GetKernelID());
+				STACK_FREE(output);
+				return false;
+			}
+			// insert entry to the TKernelName2Entry map
+			pEntry->mapName2Kernels[ kernel_entry->pKernel->GetKernelName() ] = kernel_entry;
+
+			// insert entry to the TKernelId2Entry map
+			pEntry->mapId2Kernels[ kernel_entry->pKernel->GetKernelID() ] = kernel_entry;
+
+			kernel_entry->uDevKernelEntry = info->device_info_ptr; // to be updated later
 		}
-		// insert entry to the TKernelName2Entry map
-		pEntry->mapName2Kernels[ kernel_entry->pKernel->GetKernelName() ] = kernel_entry;
-
-		// insert entry to the TKernelId2Entry map
-		pEntry->mapId2Kernels[ kernel_entry->pKernel->GetKernelID() ] = kernel_entry;
-
-		kernel_entry->uDevKernelEntry = info->device_info_ptr; // to be updated later
-    }
     }
 
+	STACK_FREE(output);
     return true;
 }
 

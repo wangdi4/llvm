@@ -1,5 +1,6 @@
 #!/bin/sh
 
+shift
 EXE_NAME=$1
 shift
 OBJS=$*
@@ -10,4 +11,3 @@ source "@DEVICE_INIT_ENV_SCRIPT@" intel64
 
 # icc $OBJS -o "$EXE_NAME"
 exec icc -mmic -o "$EXE_NAME" -Wl,--whole-archive $OBJS -Wl,--no-whole-archive @FINAL_MIC_LINK_FLAGS@
-#exec $ICC                -o "$EXE_NAME" -Wl,--whole-archive $OBJS -Wl,--no-whole-archive @FINAL_MIC_LINK_FLAGS@

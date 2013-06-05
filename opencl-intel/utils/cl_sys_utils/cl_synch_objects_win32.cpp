@@ -83,6 +83,51 @@ void OclMutex::Unlock()
 }
 
 /************************************************************************
+ *
+/************************************************************************/
+OclCondition::OclCondition()
+{
+	STATIC_ASSERT(sizeof(m_condVar)==sizeof(CONDITION_VARIABLE));
+	// Initializing the condition variable
+    InitializeConditionVariable((CONDITION_VARIABLE*)&m_condVar);
+}
+
+/************************************************************************
+ * Condition distructor must be called when there are no threads waiting
+ * on this condition.
+ * Else, the behavior is undefined.
+/************************************************************************/
+OclCondition::~OclCondition()
+{
+}
+
+/************************************************************************
+*
+/************************************************************************/
+COND_RESULT OclCondition::Wait(OclMutex* mutexObj)
+{
+	assert(((mutexObj) && (mutexObj->m_mutexHndl)) && "mutexObj must be valid object");
+	if ((NULL == mutexObj) || (NULL == mutexObj->m_mutexHndl))
+    {
+        return COND_RESULT_FAIL;
+    }
+	if (0 == SleepConditionVariableCS((CONDITION_VARIABLE*)&m_condVar, (PCRITICAL_SECTION)(mutexObj->m_mutexHndl), INFINITE))
+	{
+		return COND_RESULT_FAIL;
+	}
+    return COND_RESULT_OK;
+}
+
+/************************************************************************
+*
+/************************************************************************/
+COND_RESULT OclCondition::Signal()
+{
+	WakeAllConditionVariable((CONDITION_VARIABLE*)&m_condVar);
+    return COND_RESULT_OK;
+}
+
+/************************************************************************
 * OclOsDependentEvent implementation
 /************************************************************************/
 OclOsDependentEvent::OclOsDependentEvent() : m_eventRepresentation(NULL)

@@ -16,20 +16,27 @@ option( ENABLE_MIC_TRACER OFF )
 if ( ENABLE_MIC_TRACER )
 	add_definitions( -DENABLE_MIC_TRACER )
 endif( ENABLE_MIC_TRACER )
-if (NOT WIN32)
-    set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
-    set(HW_UTILS_PROJ_NAME cl_hw_utils)
-endif (NOT WIN32)
 
-set( COI_SDK_PATH           /opt/intel/mic/coi )
+set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
+set(HW_UTILS_PROJ_NAME cl_hw_utils)
+
+if (WIN32)
+	set( COI_SDK_PATH           $ENV{INTEL_MPSS_HOST_SDK} )
+	string ( REGEX REPLACE "[\\]$"  "" COI_SDK_PATH ${COI_SDK_PATH} ) 
+else (WIN32)
+	set( COI_SDK_PATH           /opt/intel/mic/coi )
+endif (WIN32)
+
 add_definitions( -DKNC_CARD )
+
+add_definitions ( -DCOI_LIBRARY_VERSION=2 )
 
 set( MIC_BACKEND_DLL_NAME   OclCpuBackEnd)
 set( MIC_NATIVE_SERVER_EXE  mic_server )
 set( COI_HOST_LIB           coi_host )
 set( MIC_NATIVE_SUBDIR_NAME mic_native )
 
-add_definitions( -DMIC_NATIVE_SERVER_EXE="${MIC_NATIVE_SERVER_EXE}" -DMIC_BACKEND_DLL_NAME="${IMPLIB_PREFIX}${MIC_BACKEND_DLL_NAME}${IMPLIB_SUFFIX}"
+add_definitions( -DMIC_NATIVE_SERVER_EXE="${MIC_NATIVE_SERVER_EXE}" -DMIC_BACKEND_DLL_NAME="${IMPLIB_PREFIX}${MIC_BACKEND_DLL_NAME}${BUILD_PLATFORM}${DLL_SUFIX}"
                  -DMIC_NATIVE_SUBDIR_NAME="${MIC_NATIVE_SUBDIR_NAME}" )
 
 include_directories( BEFORE
@@ -37,7 +44,6 @@ include_directories( BEFORE
                             ${HW_UTILS_HEADERS}
                             ${OCL_BINARY_DIR}
                             ${COI_SDK_PATH}/include
-                            ${CMAKE_CURRENT_SOURCE_DIR}/../../tools/ToolsUtils/
                             mic_native )
 
 include( ../../cmake_utils/itt.cmake )
@@ -48,14 +54,22 @@ set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIB
 # COI stopped releasing their Debug version - only Release
 #string(TOLOWER  ${CMAKE_BUILD_TYPE} DEBUG_RELEASE)
 #set( DEBUG_RELEASE ${CMAKE_BUILD_TYPE} )
-string(TOLOWER ${CMAKE_BUILD_TYPE} DEBUG_RELEASE)
+if (NOT WIN32)
+	string(TOLOWER ${CMAKE_BUILD_TYPE} DEBUG_RELEASE)
+endif (NOT WIN32)
+
+if (WIN32)
+	set( COI_LIB_PATH           ${COI_SDK_PATH}/lib )
+else (WIN32)
+	set( COI_LIB_PATH           ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib )
+endif (WIN32)
 
 FIND_SOURCES( ${IGNORE_SOURCES} )
 CALCULATE_TARGET_SOURCES()
 
 link_directories(   ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
                     ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
-                    ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib
+                    ${COI_LIB_PATH}
                 )
 
 if(WIN32)
@@ -69,6 +83,11 @@ link_directories(
                     ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Linux64
                 )
 endif(WIN32)
+
+if (WIN32)
+    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
+	link_directories( ${TBB_LIB_DIR}	)
+endif (WIN32)
 
 if (WIN32)
      add_definitions( -D_WINDOWS )
@@ -94,7 +113,6 @@ install(TARGETS ${TARGET_NAME}
 
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils
-                                      ToolsUtils
                                       cl_logger
                                       ${COI_HOST_LIB}
                                       ${LINK_LIBS} )
@@ -108,6 +126,24 @@ endif (NOT WIN32)
 add_dependencies( ${TARGET_NAME} LLVM_copy_tools )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
+
+if (WIN32)
+    get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
+    file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
+    # Visual Studio 2010
+    # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
+    # The /DEBUG flag is required in order to create stripped pdbs.	
+	set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCPRTD /NODEFAULTLIB:MSVCRTD /PDBSTRIPPED:${PDB_NAME}")
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}")
+	
+	install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
+    
+    if (INSTALL_PDBS)    
+        install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
+    endif(INSTALL_PDBS)
+    
+endif(WIN32)
+
 
 add_subdirectory( mic_native )
 

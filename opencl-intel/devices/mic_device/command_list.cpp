@@ -29,7 +29,7 @@ CommandList::fnCommandCreate_t* CommandList::m_vCommands[CL_DEV_CMD_MAX_COMMAND_
 };
 
 
-CommandList::CommandList(NotificationPort* pNotificationPort, 
+CommandList::CommandList(const SharedPtr<NotificationPort>& pNotificationPort, 
                          DeviceServiceCommunication* pDeviceServiceComm, 
                          IOCLFrameworkCallbacks* pFrameworkCallBacks, 
                          ProgramService* pProgramService, 
@@ -61,7 +61,7 @@ CommandList::~CommandList()
 
 cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN        props, 
                                                 cl_dev_subdevice_id             subDeviceId, 
-                                                NotificationPort*               pNotificationPort, 
+                                                const SharedPtr<NotificationPort>&    pNotificationPort, 
                                                 DeviceServiceCommunication*     pDeviceServiceComm,
 												IOCLFrameworkCallbacks*         pFrameworkCallBacks, 
 												ProgramService*                 pProgramService, 

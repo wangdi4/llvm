@@ -24,13 +24,6 @@
 //  Implementation of Helper functions for logger
 ///////////////////////////////////////////////////////////
 
-#if defined (_WIN32)
-#define WIDEN2(x) L ## x
-#define WIDEN(x) WIDEN2(x)
-#else
-#define WIDEN(x) x
-#endif
-
 enum MicELogLevel
 	{
 		MIC_LL_DEBUG     = 100,
@@ -43,15 +36,15 @@ enum MicELogLevel
 
 
 #define MicInfoLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(MIC_LL_INFO),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(MIC_LL_INFO),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #ifdef _DEBUG
 #define MicDbgLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(MIC_LL_DEBUG),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(MIC_LL_DEBUG),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #else
 #define MicDbgLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)
 #endif
 
 #define MicErrLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(MIC_LL_ERROR),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(MIC_LL_ERROR),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);
 #define MicCriticLog(CLIENT, CLIENT_ID, DBG_PRINT, ...)			\
-	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(MIC_LL_CRITICAL),WIDEN(__FILE__), WIDEN(__FUNCTION__), __LINE__, DBG_PRINT,  __VA_ARGS__);
+	if (CLIENT && CLIENT_ID) CLIENT->clLogAddLine(CLIENT_ID, cl_int(MIC_LL_CRITICAL),__FILE__, __FUNCTION__, __LINE__, DBG_PRINT,  __VA_ARGS__);

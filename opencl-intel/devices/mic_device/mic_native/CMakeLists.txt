@@ -1,10 +1,17 @@
 #
 # Create native MIC server using icc compiler
 #
+function (SET_NATIVE_PATH ARG PATH1)
+	file( TO_NATIVE_PATH "${PATH1}" MY_TEMP)
+	if (WIN32)	
+		set( ${ARG} \"${MY_TEMP}\" PARENT_SCOPE )
+	endif (WIN32)
+endfunction (SET_NATIVE_PATH)
+
 get_filename_component( TARGET_NAME ${MIC_NATIVE_SERVER_EXE} NAME_WE )
 
 get_filename_component( EXE_FILE_EXTENSION ${MIC_NATIVE_SERVER_EXE} EXT )
-set( BIN_DIR ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR} )
+set( BIN_DIR ${CMAKE_CURRENT_BINARY_DIR}/scripts )
 set( OBJ_FILE_EXTENSION .o )
 
 set( DEVICE   MIC )
@@ -21,7 +28,12 @@ endif ( MIC_USE_OMP)
 # Set Backend dependencies
 #
 set( BACKEND_LIB            OclDeviceExecutor )
-set( BACKEND_LIB_DIR        ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR} )
+if (WIN32)
+	set( BACKEND_LIB_DIR        ${OCL_BINARY_DIR}/${IMPLIB_SUBDIR}/%CONFIG_NAME% )
+else()
+	set( BACKEND_LIB_DIR        ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR} )
+endif (WIN32)
+
 set( BACKEND_SVML_DIR       ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/bin/svml/Linux64 )
 
 set( UTILS_DIR              ${OCL_SOURCE_DIR}/utils )
@@ -33,8 +45,12 @@ set( ITT_DIR                ${OCL_SOURCE_DIR}/externals/itt )
 	
 set( MIC_TBB_PATH            	${OCL_SOURCE_DIR}/externals/tbb )
 set( MIC_TBB_HEADERS_PATH    	${MIC_TBB_PATH}/include )
-set( MIC_TBB_LIB_PATH_DEBUG  	${MIC_TBB_PATH}/bin/Knc_Debug )
-set( MIC_TBB_LIB_PATH_RELEASE	${MIC_TBB_PATH}/bin/Knc_Release )
+if (WIN32)
+	set( MIC_TBB_LIB_PATH  	${MIC_TBB_PATH}/bin/Knc_%CONFIG_NAME% )
+else()
+	set( MIC_TBB_LIB_PATH_DEBUG  	${MIC_TBB_PATH}/bin/Knc_Debug )
+	set( MIC_TBB_LIB_PATH_RELEASE	${MIC_TBB_PATH}/bin/Knc_Release )
+endif (WIN32)
 
 set( BACKEND_FILES_TO_COPY
 						${BACKEND_SVML_DIR}/libsvml.so
@@ -42,7 +58,29 @@ set( BACKEND_FILES_TO_COPY
 
 if (WIN32)
     # Windows
-    message( WARNING "MIC native server creation is not supported on Windows yet!")
+	set( FORCE_LINUX ON )
+    set( ICC_INSTALL_DIR 	"C:\\Program Files (x86)\\Intel\\Composer XE" )
+	if ( NOT EXISTS ${ICC_INSTALL_DIR})
+    		message( FATAL_ERROR "ICC for Xeon Phi(MIC) can't be found")
+	endif ()
+    
+	execute_process(COMMAND ${ICC_INSTALL_DIR}\\bin\\intel64_mic\\icc -dumpversion OUTPUT_VARIABLE MIC_ICC_VERSION)
+	if (  MIC_ICC_VERSION VERSION_LESS 13.0 )
+		message(FATAL_ERROR "ICC ${MIC_ICC_VERSION} found, expected 13.x")
+	endif()
+	
+	message(STATUS "MIC C COMPILER: ${ICC_INSTALL_DIR}\\bin\\intel64_mic\\icc, version ${MIC_ICC_VERSION}" )
+	
+	set( DEVICE_INIT_ENV_SCRIPT "${ICC_INSTALL_DIR}\\bin\\compilervars.bat" )
+	set( DEVICE_LIBS_DIR    ${TMP_ICC_INSTALL_DIR}/lib/mic/ )	
+	
+	set( DEVICE_DEPENDENCY_SCRIPT 	dependency.bat )
+	set( DEVICE_COMPILER_SCRIPT 	compile.bat )
+	set( DEVICE_LINKER_SCRIPT   	link.bat )
+
+	set( DEVICE_DEPENDENCY 	${BIN_DIR}/${DEVICE_DEPENDENCY_SCRIPT} )
+	set( DEVICE_COMPILER 	${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} )
+	set( DEVICE_LINKER   	${BIN_DIR}/${DEVICE_LINKER_SCRIPT} )
 else ()
 	# Linux
 	set( ICC_INSTALL_DIR /opt/intel/composerxe )
@@ -94,16 +132,26 @@ function ( COMPILE_DEVICE_CXX_FILE FILE_FULL_PATH_NAME OBJ_FILE )
 					OUTPUT_VARIABLE   DEPENDENCY_DATA
 					)
 
-	string( STRIP ${DEPENDENCY_DATA} DEPENDENCY_FILES )
-	string( REGEX REPLACE " +" ";" DEPENDENCY_LIST ${DEPENDENCY_FILES} )
+	# replace the spaces with ; in the shell script and remove the next command
+	if (NOT WIN32)
+		string( STRIP ${DEPENDENCY_DATA} DEPENDENCY_FILES )
+		string( REGEX REPLACE " +" ";" DEPENDENCY_LIST ${DEPENDENCY_FILES} )
+		set( FILE_FULL_PATH_NAME_NATIVE ${FILE_FULL_PATH_NAME} )
+		set( OBJ_FILE_NATIVE ${OBJ_FILE} )
+	else()
+		string( REPLACE "#" ";" DEPENDENCY_LIST ${DEPENDENCY_DATA} )
+		file( TO_NATIVE_PATH "${FILE_FULL_PATH_NAME}" FILE_FULL_PATH_NAME_NATIVE)
+		file( TO_NATIVE_PATH "${OBJ_FILE}" OBJ_FILE_NATIVE)
+	endif (NOT WIN32)
 	#message( FATAL_ERROR "|${DEPENDENCY_LIST}|" )				
 
-    add_custom_command( OUTPUT ${OBJ_FILE}
+    add_custom_command( OUTPUT ${OBJ_FILE_NATIVE}
 
                         COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
-                        COMMAND ${DEVICE_COMPILER} ${FILE_FULL_PATH_NAME} ${OBJ_FILE}
+						COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
+                        COMMAND ${DEVICE_COMPILER} ${INSTALL_SUBDIR} ${FILE_FULL_PATH_NAME_NATIVE} ${OBJ_FILE_NATIVE}
 
-                        MAIN_DEPENDENCY ${FILE_FULL_PATH_NAME}
+                        MAIN_DEPENDENCY ${FILE_FULL_PATH_NAME_NATIVE}
                         IMPLICIT_DEPENDS CXX
                         DEPENDS ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} ${DEPENDENCY_LIST}
                         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -126,7 +174,8 @@ function ( LINK_DEVICE_EXE TARGET_EXE )
         add_custom_command( OUTPUT ${TARGET_EXE}
 
                             COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
-                            COMMAND ${DEVICE_LINKER} ${TARGET_EXE} ${OBJ_FILES}
+							COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
+                            COMMAND ${DEVICE_LINKER} ${INSTALL_SUBDIR} ${TARGET_EXE} ${OBJ_FILES}
 
                             DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} ${BACKEND_LIB_DIR}/lib${BACKEND_LIB}.a
                             WORKING_DIRECTORY ${BIN_DIR}
@@ -144,7 +193,7 @@ endfunction ( LINK_DEVICE_EXE )
 #
 function ( add_device_executable TARGET_NAME )
 
-    set( EXE_FILE ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}${EXE_FILE_EXTENSION} )
+    set( EXE_FILE ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}_${TARGET_NAME}${EXE_FILE_EXTENSION} )
     set( OBJ_LIST )
 
     if (${ARGC} GREATER  1)
@@ -152,7 +201,7 @@ function ( add_device_executable TARGET_NAME )
             get_filename_component( FILE_NAME ${SRC_FILE} NAME_WE )
             get_filename_component( FILE_PATH ${SRC_FILE} ABSOLUTE } )
             
-            set( OBJ_FILE ${CMAKE_CURRENT_BINARY_DIR}/${FILE_NAME}${OBJ_FILE_EXTENSION} )
+            set( OBJ_FILE ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}/${FILE_NAME}${OBJ_FILE_EXTENSION} )
 
             COMPILE_DEVICE_CXX_FILE( ${SRC_FILE} ${OBJ_FILE} )
             list( APPEND OBJ_LIST ${OBJ_FILE} )
@@ -204,6 +253,8 @@ set( MIC_FLAGS  -Werror
 set( MIC_DEBUG_FLAGS    -g -O0 -D_DEBUG -DDEBUG )
 set( MIC_RELEASE_FLAGS     -O3 -DNDEBUG )
 
+SET_NATIVE_PATH(COI_SDK_PATH ${COI_SDK_PATH})
+
 # inlcude path
 list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}
@@ -213,9 +264,9 @@ list( APPEND MIC_FLAGS
                 -I ${OCL_SOURCE_DIR}/cl_api
                 -I ${MIC_TBB_HEADERS_PATH}
                 -I ${COI_SDK_PATH}/include
-		-I ${ITT_DIR}/include
-		-I ${ITT_DIR}/ittnotify
-		-I ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
+				-I ${ITT_DIR}/include
+				-I ${ITT_DIR}/ittnotify
+				-I ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
                 )
 
 list( APPEND MIC_FLAGS
@@ -248,19 +299,23 @@ if ( ENABLE_MIC_TBB_TRACER )
                     )
 endif( ENABLE_MIC_TBB_TRACER )
 
-
-if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-    set( MIC_TBB_LIB_PATH ${MIC_TBB_LIB_PATH_DEBUG} )
-    set( TBB_LIB_TO_LINK tbb_preview_debug )
-    set( TBBMALLOC_LIB_TO_LINK tbbmalloc_debug )
-else (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-    set( MIC_TBB_LIB_PATH ${MIC_TBB_LIB_PATH_RELEASE} )
-    set( TBB_LIB_TO_LINK tbb_preview )
-    set( TBBMALLOC_LIB_TO_LINK tbbmalloc )
-endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-
+set( TBB_LIB_TO_LINK tbb_preview )
+set( TBBMALLOC_LIB_TO_LINK tbbmalloc )
+if (NOT WIN32)
+	if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+		set( MIC_TBB_LIB_PATH ${MIC_TBB_LIB_PATH_DEBUG} )
+	else (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+			set( MIC_TBB_LIB_PATH ${MIC_TBB_LIB_PATH_RELEASE} )
+	endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+endif (NOT WIN32)
+	
 # MIC linking flags
 set( MIC_LINK_FLAGS      )
+
+if (NOT WIN32)
+	set (COI_LIB_PATH ${COI_SDK_PATH}/device-linux-${DEBUG_RELEASE}/lib)
+endif (NOT WIN32)
+SET_NATIVE_PATH(COI_LIB_PATH ${COI_LIB_PATH})
 
 # lib path
 list( APPEND MIC_LINK_FLAGS
@@ -270,12 +325,13 @@ list( APPEND MIC_LINK_FLAGS
                 -fnon-call-exceptions
 
                 # library search path at link
-                -L ${COI_SDK_PATH}/device-linux-${DEBUG_RELEASE}/lib
+                -L ${COI_LIB_PATH}
                 -L ${BACKEND_LIB_DIR}
                 -L ${MIC_TBB_LIB_PATH}
                 ${BACKEND_VTUNE_DIR}
 
                 # libs to link
+				-lscif
                 -lcoi_device
                 -l${BACKEND_LIB}
                 -l${TBBMALLOC_LIB_TO_LINK}
@@ -306,20 +362,22 @@ list( APPEND MIC_LINK_FLAGS
 set( MIC_DEBUG_LINK_FLAGS     )
 set( MIC_RELEASE_LINK_FLAGS   )
 
-if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-    # Debug
+if (NOT WIN32)
+	if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+		# Debug
 
-    list( APPEND MIC_FLAGS      ${MIC_DEBUG_FLAGS} )
-    list( APPEND MIC_LINK_FLAGS ${MIC_DEBUG_LINK_FLAGS} )
+		list( APPEND MIC_FLAGS      ${MIC_DEBUG_FLAGS} )
+		list( APPEND MIC_LINK_FLAGS ${MIC_DEBUG_LINK_FLAGS} )
 
-else ()
-    # Release
+	else ()
+		# Release
 
-    list( APPEND MIC_FLAGS      ${MIC_RELEASE_FLAGS} )
-    list( APPEND MIC_LINK_FLAGS ${MIC_RELEASE_LINK_FLAGS} )
+		list( APPEND MIC_FLAGS      ${MIC_RELEASE_FLAGS} )
+		list( APPEND MIC_LINK_FLAGS ${MIC_RELEASE_LINK_FLAGS} )
 
-endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-
+	endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+endif (NOT WIN32)
+	
 # replace ; with spaces
 foreach (FLAG ${MIC_FLAGS})
     set( FINAL_MIC_FLAGS "${FINAL_MIC_FLAGS} ${FLAG}")
@@ -329,15 +387,19 @@ foreach (FLAG ${MIC_LINK_FLAGS})
     set( FINAL_MIC_LINK_FLAGS "${FINAL_MIC_LINK_FLAGS} ${FLAG}")
 endforeach( FLAG )
 
+if (WIN32)
+	string( REPLACE  / \\ FINAL_MIC_FLAGS ${FINAL_MIC_FLAGS} )
+endif(WIN32)
+
 # FINAL_MIC_FLAGS and FINAL_MIC_LINK_FLAGS are used now
 configure_file(${DEVICE_DEPENDENCY_SCRIPT} 	${DEVICE_DEPENDENCY} @ONLY)
 configure_file(${DEVICE_COMPILER_SCRIPT} 	${DEVICE_COMPILER} @ONLY)
 configure_file(${DEVICE_LINKER_SCRIPT} 		${DEVICE_LINKER} @ONLY)
 
 if (MIC_USE_OMP)
-	set(FILES_TO_COPY ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}${EXE_FILE_EXTENSION} ${DEVICE_LIBS_DIR}/libiomp5.so ${DEVICE_LIBS_DIR}/libcilkrts.so.5 )
+	set(FILES_TO_COPY ${DEVICE_LIBS_DIR}/libiomp5.so ${DEVICE_LIBS_DIR}/libcilkrts.so.5 )
 else (MIC_USE_OMP)
-	set(FILES_TO_COPY ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}${EXE_FILE_EXTENSION} )
+	set(FILES_TO_COPY )
 endif ( MIC_USE_OMP)
 
 
@@ -379,8 +441,19 @@ list( APPEND ITT_TARGET_SOURCES ${ITT_DIR}/ittnotify/jitprofiling.c )
 
 add_device_executable(${TARGET_NAME} ${MAIN_TARGET_SOURCES} ${HW_UTILS_TARGET_SOURCES} ${SYS_UTILS_TARGET_SOURCES} ${TASK_EXECUTOR_TARGET_SOURCES} ${ITT_TARGET_SOURCES})
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
+
 install(PROGRAMS ${FILES_TO_COPY} ${BACKEND_FILES_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/Debug_${TARGET_NAME}${EXE_FILE_EXTENSION} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME}
+           CONFIGURATIONS Debug RENAME mic_server  )
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/Release_${TARGET_NAME}${EXE_FILE_EXTENSION} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME}
+           CONFIGURATIONS Release RENAME mic_server  )
+
 add_dependencies( ${TARGET_NAME} ${BACKEND_LIB} cl_sys_utils)
 
-file( GLOB MIC_TBB_LIBS_TO_COPY ${MIC_TBB_LIB_PATH}/*.so ${MIC_TBB_LIB_PATH}/*.so.2 )
-install(FILES ${MIC_TBB_LIBS_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
+if (WIN32)
+    install(DIRECTORY ${MIC_TBB_PATH}/bin/Knc_\${CMAKE_INSTALL_CONFIG_NAME}/ DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} PATTERN .svn EXCLUDE)
+else ()
+	file( GLOB MIC_TBB_LIBS_TO_COPY ${MIC_TBB_LIB_PATH}/*.so ${MIC_TBB_LIB_PATH}/*.so.2 )
+	install(FILES ${MIC_TBB_LIBS_TO_COPY} DESTINATION bin/${MIC_NATIVE_SUBDIR_NAME} )
+endif (WIN32)

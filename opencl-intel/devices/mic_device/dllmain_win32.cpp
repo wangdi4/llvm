@@ -23,23 +23,18 @@
 ///////////////////////////////////////////////////////////
 
 #include "stdafx.h"
-
-#pragma comment(lib, "cl_sys_utils.lib")
-#pragma comment(lib, "cl_logger.lib")
-#pragma comment(lib, "task_executor.lib")
-
-#pragma warning(push)
-  #pragma warning(disable:4391)
-  #include <intrin.h>
-#pragma warning(pop)
 #include "mic_device.h"
-
-#include<stdlib.h>
+#include "cl_sys_info.h"
+#include <stdlib.h>
 
 using namespace Intel::OpenCL::MICDevice;
 
+extern bool gSafeReleaseOfCoiObjects;
 
 extern char clMICDEVICE_CFG_PATH[];
+
+#define MICDEVICE_CFG_PATH_ENV_NAME "MIC_DEVICE_CFG_FILE"
+
 
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -65,6 +60,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_THREAD_DETACH:
         break;
 	case DLL_PROCESS_DETACH:
+		MICDevice::unloadRelease();
+		gSafeReleaseOfCoiObjects = false;
 		break;
 	}
 	return TRUE;

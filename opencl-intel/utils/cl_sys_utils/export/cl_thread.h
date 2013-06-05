@@ -78,6 +78,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
     protected:
         virtual RETURN_TYPE_ENTRY_POINT    Run()=0;          // The actual thread running loop.
         void                Exit(RETURN_TYPE_ENTRY_POINT exitCode);
+		static void			SelfTerminate(RETURN_TYPE_ENTRY_POINT exitCode);
+		bool				isSelf();
 
         static RETURN_TYPE_ENTRY_POINT STDCALL_ENTRY_POINT ThreadEntryPoint( void* threadObject );
 
@@ -85,6 +87,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         unsigned int        m_threadId;
         bool                m_running;
         AtomicCounter       m_join;
+		AtomicCounter       m_numWaiters;
 		bool				m_bAutoDelete;
 		std::string			m_Name;
 

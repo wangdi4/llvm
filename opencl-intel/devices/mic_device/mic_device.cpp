@@ -207,15 +207,7 @@ void MICDevice::unloadRelease()
 	TMicsSet micSet = GetActiveMicDevices(true);
 	TMicsSet::iterator it;
 	TMicsSet::iterator itEnd = micSet.end();
-	// Send release order to all Notification ports
-	for (it = micSet.begin(); it != itEnd; it++)
-	{
-		(*it)->m_pNotificationPort->release();
-		// Nullify it in order to symbol that this object already deleted. (It will delete itself when the Worker thread will complete its work)
-		(*it)->m_pNotificationPort = NULL;
-	}
-	// Wait until all Notificatoin port threads are dieing
-	NotificationPort::waitForAllNotificationPortThreads();
+
 	// Release all mic device instances.
 	for (it = micSet.begin(); it != itEnd; it++)
 	{
@@ -268,7 +260,15 @@ cl_dev_err_code clDevCreateDeviceInstance(  cl_uint        dev_id,
 ****************************************************************************************************************/
 const char* MICDevice::clDevFEModuleName() const
 {
+#if defined (_WIN32)
+#if defined (_M_X64)
+	static const char* sFEModuleName = "clang_compiler64";
+#else
+	static const char* sFEModuleName = "clang_compiler32";
+#endif
+#else
 	static const char* sFEModuleName = "clang_compiler";
+#endif
 	return sFEModuleName;
 }
 
@@ -853,6 +853,7 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
 */
 extern "C" cl_dev_err_code clDevInitDeviceAgent(void)
 {
+	MICDevice::loadingInit();
 #ifdef __INCLUDE_MKL__
 	Intel::OpenCL::MKLKernels::InitLibrary();
 #endif

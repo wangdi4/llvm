@@ -39,7 +39,6 @@
 #include <source/COIProcess_source.h>
 
 #include<stdlib.h>
-#include <alloca.h>
 
 #define KILOBYTE 1024
 #define MEGABYTE (1024*KILOBYTE)
@@ -662,6 +661,10 @@ bool MICDevMemoryObject::MapBuffersMemoryPool::getBuffer(void* ptr, size_t size,
 {
 	map<void*, mem_obj_directive>::iterator iter;
 	OclAutoReader mutex(&m_multiReadSingleWriteMutex);
+	if (0 == m_addressToMemObj.size())
+	{
+		return false;
+	}
 	iter = m_addressToMemObj.lower_bound(ptr);
 	if (((m_addressToMemObj.end() == iter) && (m_addressToMemObj.size() > 0)) || (((size_t)(iter->first) > (size_t)ptr) && (m_addressToMemObj.begin() != iter)))
 	{

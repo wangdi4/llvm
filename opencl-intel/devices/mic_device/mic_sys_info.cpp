@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <algorithm>
+#include <sstream>
+#include "stdafx.h"
 
 #include "mic_sys_info.h"
 #include "mic_sys_info_internal.h"
@@ -18,7 +20,6 @@
 #include "hw_utils.h"
 #include "mic_common_macros.h"
 #include "mic_device_interface.h"
-#include "NumericListParser.h"
 
 #ifdef _DEBUG
     #define PRINT_DEBUG(...) fprintf(stderr, ##__VA_ARGS__)
@@ -30,7 +31,7 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-volatile unsigned int       MICSysInfo::m_singletonKeeper = BEFORE_INIT;
+OclSpinMutex				MICSysInfo::m_mutex;
 MICSysInfo*                 MICSysInfo::m_singleton = NULL;
 MICSysInfo::TSku2DevData*   MICSysInfo::m_info_db = NULL;
 MICDeviceConfig				MICSysInfo::m_MICDeviceConfig;
@@ -210,7 +211,6 @@ MICSysInfo::MICSysInfo()
 {
     m_numEngines = 0;
     m_guardedInfoArr = NULL;
-    pthread_mutex_init(&m_mutex, NULL);
 
 	// Initialize MICDeviceConfig
 	m_MICDeviceConfig.Initialize(clMICDEVICE_CFG_PATH);
@@ -231,12 +231,10 @@ MICSysInfo::~MICSysInfo()
             {
                 delete(m_guardedInfoArr[i].devInfoStruct);
             }
-            pthread_mutex_destroy(&(m_guardedInfoArr[i].mutex));
         }
         delete [] m_guardedInfoArr;
         m_guardedInfoArr = NULL;
     }
-    pthread_mutex_destroy(&m_mutex);
 
 	if (m_info_db)
 	{
@@ -252,80 +250,63 @@ MICSysInfo& MICSysInfo::getInstance()
     {
         return *m_singleton;
     }
-    // try to catch the locker in order to create new instance
-    if (__sync_bool_compare_and_swap(&m_singletonKeeper, BEFORE_INIT, CREATION))
+
+	OclAutoMutex autoMutex(&m_mutex);
+	// if already created
+	if (m_singleton != NULL)
     {
-        m_singleton = new MICSysInfo();
-        assert(m_singleton && "MICSysInfo allocation failed");
-        m_singletonKeeper = READY;
+        return *m_singleton;
+    } 
+	MICSysInfo* tMicSysInfo = new MICSysInfo();
+    assert(tMicSysInfo && "MICSysInfo allocation failed");
+
+    COIRESULT result = COI_ERROR;
+    uint32_t tNumEngines = 0;
+
+    // Let's make sure there is a MIC device available
+    result = COIEngineGetCount(CL_COI_ISA_MIC, &tNumEngines);
+    if( result != COI_SUCCESS )
+    {
+        PRINT_DEBUG("MIC: COIEngineGetCount result %s\n", COIResultGetName(result));
+        tNumEngines = 0;
     }
-    // wait until new instance created
-    while (m_singletonKeeper != READY)
-    {
-        hw_pause();
-    }
-    return *m_singleton;
-}
 
-uint32_t MICSysInfo::getEngineCount()
-{
-    if (m_numEngines > 0)
+    // If there isn't at least one engine, there is something wrong
+    if( tNumEngines < 1)
     {
-        return m_numEngines;
+        //PRINT_DEBUG("MIC: ERROR: Need at least 1 engine\n");
+        tNumEngines = 0;
     }
 
-    pthread_mutex_lock(&m_mutex);
-    if (m_numEngines == 0)
+    if (tNumEngines > 0)
     {
-        COIRESULT result = COI_ERROR;
-        uint32_t tNumEngines = 0;
-
-        // Let's make sure there is a MIC device available
-        result = COIEngineGetCount(CL_COI_ISA_MIC, &tNumEngines);
-        if( result != COI_SUCCESS )
-        {
-            PRINT_DEBUG("MIC: COIEngineGetCount result %s\n", COIResultGetName(result));
-            tNumEngines = 0;
-        }
-
-        // If there isn't at least one engine, there is something wrong
-        if( tNumEngines < 1)
-        {
-            //PRINT_DEBUG("MIC: ERROR: Need at least 1 engine\n");
-            tNumEngines = 0;
-        }
-
-        if (tNumEngines > 0)
-        {
-			// Read "OFFLOAD_DEVICES" environment variable in order to get the devices IDs that specified as available.
-			assert(m_deviceIdToCoiEngineId.size() == 0);
-			getAvailableOffloadDevicesFromEnv(m_deviceIdToCoiEngineId, tNumEngines);
-			// If "OFFLOAD_DEVICES" is not set or it define illegal IDs than set m_restrictsDeviceIDs with device IDs 0..(tNumEngines-1)
-			if (m_deviceIdToCoiEngineId.size() == 0)
+		// Read "OFFLOAD_DEVICES" environment variable in order to get the devices IDs that specified as available.
+		assert(tMicSysInfo->m_deviceIdToCoiEngineId.size() == 0);
+		tMicSysInfo->getAvailableOffloadDevicesFromEnv(tMicSysInfo->m_deviceIdToCoiEngineId, tNumEngines);
+		// If "OFFLOAD_DEVICES" is not set or it define illegal IDs than set m_restrictsDeviceIDs with device IDs 0..(tNumEngines-1)
+		if (tMicSysInfo->m_deviceIdToCoiEngineId.size() == 0)
+		{
+			for (unsigned int i = 0; i < tNumEngines; i++)
 			{
-				for (unsigned int i = 0; i < tNumEngines; i++)
-				{
-					m_deviceIdToCoiEngineId.push_back(i);
-				}
+				tMicSysInfo->m_deviceIdToCoiEngineId.push_back(i);
 			}
-			assert(tNumEngines > 0);
-			// set tNumEngines as the amount of restricts devices
-			tNumEngines = m_deviceIdToCoiEngineId.size();
+		}
+		assert(tNumEngines > 0);
+		// set tNumEngines as the amount of restricts devices
+		tNumEngines = tMicSysInfo->m_deviceIdToCoiEngineId.size();
 
-            m_guardedInfoArr = new guardedInfo[tNumEngines];
-            assert(m_guardedInfoArr && "m_guardedInfoArr allocation failed");
-            for (unsigned int i = 0; i < tNumEngines; i++)
-            {
-                m_guardedInfoArr[i].devInfoStruct = NULL;
-                pthread_mutex_init(&(m_guardedInfoArr[i].mutex), NULL);
-            }
+        tMicSysInfo->m_guardedInfoArr = new guardedInfo[tNumEngines];
+        assert(tMicSysInfo->m_guardedInfoArr && "m_guardedInfoArr allocation failed");
+        for (unsigned int i = 0; i < tNumEngines; i++)
+        {
+            tMicSysInfo->m_guardedInfoArr[i].devInfoStruct = NULL;
         }
-
-        ATOMIC_ASSIGN( m_numEngines, tNumEngines );
     }
-    pthread_mutex_unlock(&m_mutex);
 
-    return m_numEngines;
+    tMicSysInfo->m_numEngines = tNumEngines;
+
+	m_singleton = tMicSysInfo;
+    return *m_singleton;
 }
 
 cl_uint MICSysInfo::getNumOfCores(uint32_t deviceId)
@@ -598,7 +579,7 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
         return true;
     }
 
-    pthread_mutex_lock(&(m_guardedInfoArr[deviceId].mutex));
+	OclAutoMutex autoMutex(&(m_guardedInfoArr[deviceId].mutex));
     if (m_guardedInfoArr[deviceId].devInfoStruct == NULL)
     {
         //TODO - Maybe at the future the engine handle will initialized somewhere else... so we can take it from there instead of get it again
@@ -612,7 +593,6 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
         if( result != COI_SUCCESS )
         {
             PRINT_DEBUG("MIC: COIEngineGetHandle result %s\n", COIResultGetName(result));
-            pthread_mutex_unlock(&(m_guardedInfoArr[deviceId].mutex));
             return false;
         }
 
@@ -623,7 +603,6 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
         {
             delete tEngineInfo;
             PRINT_DEBUG("MIC: COIEngineGetInfo result %s\n", COIResultGetName(result));
-            pthread_mutex_unlock(&(m_guardedInfoArr[deviceId].mutex));
             return false;
         }
 
@@ -638,15 +617,13 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
         {
             delete tEngineInfo;
             PRINT_DEBUG("MIC: cannot find static MICSysInfo table for the SKU %lu\n", sku.full_key );
-            pthread_mutex_unlock(&(m_guardedInfoArr[deviceId].mutex));
             return false;
         }
 
         tEngineInfo->data_table = it->second;
 
-        ATOMIC_ASSIGN( m_guardedInfoArr[deviceId].devInfoStruct, tEngineInfo );
+        m_guardedInfoArr[deviceId].devInfoStruct = tEngineInfo;
     }
-    pthread_mutex_unlock(&(m_guardedInfoArr[deviceId].mutex));
 
     return true;
 }
@@ -728,12 +705,19 @@ void MICSysInfo::clear_sku_info( void )
 void MICSysInfo::getAvailableOffloadDevicesFromEnv(vector<unsigned int>& deviceIdList, unsigned int coiNumEngines)
 {
 	assert(deviceIdList.size() == 0 && "deviceIdList must be empty list");
-	Intel::OpenCL::Tools::NumericListParser numericListParser(m_MICDeviceConfig.Device_offloadDevices());
-	if (false == numericListParser.Valid())
-	{
-		return;
+	stringstream deviceIdStream(m_MICDeviceConfig.Device_offloadDevices());
+	vector<int> idsArr;
+	int tDevId = 0;
+	while (deviceIdStream >> tDevId)
+    {
+        idsArr.push_back(tDevId);
+        char c = deviceIdStream.peek();
+        while (((int)c != -1) && (((int)c < (int)('0')) || ((int)c > (int)('9'))))
+        {
+                deviceIdStream.ignore(1);
+                c = deviceIdStream.peek();
+        }
 	}
-	vector<int> idsArr = numericListParser.GetVector();
 	sort(idsArr.begin(), idsArr.end());
 	for (unsigned int i = 0; i < idsArr.size(); i++)
 	{

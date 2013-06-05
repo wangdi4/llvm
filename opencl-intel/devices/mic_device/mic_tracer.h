@@ -29,7 +29,6 @@
 #include <string.h>
 #include <sstream>
 #include <vector>
-#include <pthread.h>
 #include <stdio.h>
 #include "mic_config.h"
 #include "hw_utils.h"
@@ -44,6 +43,8 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 #define MIC_TRACER_MAX_CHAR_POINTER_SIZE 32
 
 #ifdef ENABLE_MIC_TRACER
+
+#include <pthread.h>
 
 #define TRACE_COMMAND_GENERAL(TYPE, NAME, NUM_OF_COUNTERS, INDEX) private: \
 														static const unsigned int next_to_use_##NAME = INDEX + NUM_OF_COUNTERS; \
