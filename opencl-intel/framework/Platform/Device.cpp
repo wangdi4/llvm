@@ -35,6 +35,7 @@
 #include "enqueue_commands.h"
 #include "command_queue.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_info.h"
 
 using namespace std;
 using namespace Intel::OpenCL::Utils;
@@ -161,7 +162,7 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
 {
 	Intel::OpenCL::Utils::OclDynamicLib dlModule;
 	// Load the DA library (First time); dlModule call to unload at destruction (when exiting from this function) BUT Device::InitDevice() is going to load it again before the unload...
-	if (!dlModule.Load(psDeviceAgentDllPath))
+	if (!dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psDeviceAgentDllPath)))
 	{
 		return CL_ERR_DEVICE_INIT_FAIL;
 	}
@@ -248,7 +249,8 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDev
 
 	// Loading again the library in order to increase the reference counter of the library.
 	LogDebugA("LoadLibrary(%s)", psDeviceAgentDllPath);
-	if (!m_dlModule.Load(psDeviceAgentDllPath))
+
+	if (!m_dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psDeviceAgentDllPath)))
 	{
 		LogErrorA("LoadLibrary(%s) failed", psDeviceAgentDllPath);
 		return CL_ERR_DEVICE_INIT_FAIL;

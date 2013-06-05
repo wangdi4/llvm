@@ -241,3 +241,16 @@ unsigned int Intel::OpenCL::Utils::GetCpuId()
 {
     return GetCurrentProcessorNumber();
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// return the full path to the module that is about to be loaded
+////////////////////////////////////////////////////////////////////
+const char* Intel::OpenCL::Utils::GetFullModuleNameForLoad(const char* moduleName)
+{
+	static _declspec(thread) char sModulePath[MAX_PATH];
+	
+	GetModuleDirectory(sModulePath, MAX_PATH);
+	sprintf_s(sModulePath, MAX_PATH, "%s%s", sModulePath, moduleName);
+
+	return sModulePath;
+}

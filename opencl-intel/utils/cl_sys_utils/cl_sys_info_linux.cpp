@@ -403,3 +403,12 @@ unsigned int Intel::OpenCL::Utils::GetCpuId()
 	assert(id >= 0);
 	return (unsigned int)id;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// return the full path to the module that is about to be loaded
+// In linux returns only the modules name as modules are loaded according to LD_LIBRARY_PATH
+////////////////////////////////////////////////////////////////////
+const char* Intel::OpenCL::Utils::GetFullModuleNameForLoad(const char* moduleName)
+{
+	return moduleName;
+}

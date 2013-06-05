@@ -18,6 +18,7 @@ File Name:  OpenCLBackendWrapper.cpp
 #include <assert.h>
 #include <memory>
 #include "backend_wrapper.h"
+#include "cl_sys_info.h"
 
 #if defined(_WIN32)
 #if defined(_M_X64)
@@ -40,7 +41,7 @@ OpenCLBackendWrapper::OpenCLBackendWrapper(void):
 
 cl_dev_err_code OpenCLBackendWrapper::LoadDll()
 {
-    if( !m_dll.Load(szOclCpuBackendDllName) )
+    if( !m_dll.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(szOclCpuBackendDllName)) )
     {
         return CL_DEV_ERROR_FAIL;
     }

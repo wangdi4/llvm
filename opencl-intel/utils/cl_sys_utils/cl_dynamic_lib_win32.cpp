@@ -63,22 +63,11 @@ bool OclDynamicLib::Load(const char* pLibName)
 	}
 
 	// Load library
-	m_hLibrary = LoadLibraryA(pLibName);
+	m_hLibrary = LoadLibraryEx( pLibName, NULL, LOAD_WITH_ALTERED_SEARCH_PATH );
 
 	if ( NULL == m_hLibrary )
 	{
-		// Try to recover
-		char pCpuPath[MAX_PATH];
-
-		Intel::OpenCL::Utils::GetModuleDirectory(pCpuPath, MAX_PATH);
-		SetDllDirectory(pCpuPath);
-
-		m_hLibrary = LoadLibraryA(pLibName);
-
-		if ( NULL == m_hLibrary )
-		{
-			return false;
-		}
+		return false;
 	}
 
 	// Library was succefully loaded

@@ -53,7 +53,7 @@ crt_err_code OclDynamicLib::Load( const char* pLibName )
     }
 
     // Load library
-    m_hLibrary = LoadLibraryA( pLibName );
+    m_hLibrary = LoadLibraryEx( pLibName, NULL, LOAD_WITH_ALTERED_SEARCH_PATH );
 
     if ( NULL == m_hLibrary )
     {

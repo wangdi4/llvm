@@ -27,6 +27,7 @@
 
 #include "fe_compiler.h"
 #include "observer.h"
+#include "cl_sys_info.h"
 
 #include <cl_sys_defines.h>
 #include <task_executor.h>
@@ -59,7 +60,7 @@ cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *
 
 	INIT_LOGGER_CLIENT(TEXT("FrontEndCompiler"), LL_DEBUG);
 
-	if ( !m_dlModule.Load(psModuleName) )
+	if ( !m_dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psModuleName)) )
 	{
 		LOG_ERROR(TEXT("Can't find compiler module %s)"), psModuleName);
 		return CL_COMPILER_NOT_AVAILABLE;

@@ -50,18 +50,24 @@ crt_err_code CrtConfig::Init()
     if(OCLCRT::Utils::GetCpuPathFromRegistry(pCpuPath) == true)
     {
 #if defined(_WIN64)
-        sprintf_s(pCpuPath, MAX_PATH, "%s%s", pCpuPath, "\\bin\\x64");
+        sprintf_s(pCpuPath, MAX_PATH, "%s%s", pCpuPath, "\\bin\\x64\\intelocl64.dll");
 #else
-        sprintf_s(pCpuPath, MAX_PATH, "%s%s", pCpuPath, "\\bin\\x86");
+        sprintf_s(pCpuPath, MAX_PATH, "%s%s", pCpuPath, "\\bin\\x86\\intelocl32.dll");
 #endif
-        SetDllDirectory(pCpuPath);
+        m_libraryNames.push_back(pCpuPath);
+    }
+    else
+    {
+#if defined(_WIN64)
+    m_libraryNames.push_back("intelocl64.dll");
+#else
+    m_libraryNames.push_back("intelocl32.dll");
+#endif
     }
 
 #if defined(_WIN64)
-    m_libraryNames.push_back("intelocl64.dll");
     m_libraryNames.push_back("igdrcl64.dll");
 #else
-    m_libraryNames.push_back("intelocl32.dll");
     m_libraryNames.push_back("igdrcl32.dll");
 #endif
 
