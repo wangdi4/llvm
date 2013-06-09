@@ -67,7 +67,7 @@ unsigned long long Intel::OpenCL::Utils::TotalVirtualSize()
 		{
 			return 0;
 		}
-		unsigned long long totalPhys = tSysInfoStruct.totalram;
+		unsigned long long totalPhys = tSysInfoStruct.totalram * tSysInfoStruct.mem_unit;
 
 		vsize = min(totalPhys, totalVirtual);
 	}
@@ -84,7 +84,7 @@ unsigned long long Intel::OpenCL::Utils::TotalPhysicalSize()
 		{
 			return 0;
 		}
-		totalPhys = tSysInfoStruct.totalram;
+		totalPhys = tSysInfoStruct.totalram * tSysInfoStruct.mem_unit;
 	}
 
 	return totalPhys;

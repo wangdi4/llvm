@@ -203,7 +203,7 @@ cl_err_code GenericMemObject::Initialize(
 
             if (! is_buffer_ok_for_device(object_size, device_properties))
             {
-                no_devices_error_code = CL_DEVICE_MAX_MEM_ALLOC_SIZE;
+                no_devices_error_code = CL_INVALID_BUFFER_SIZE;
                 continue;
             }
         }
