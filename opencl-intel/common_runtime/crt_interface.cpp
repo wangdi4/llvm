@@ -4027,6 +4027,8 @@ cl_int CL_API_CALL clSetKernelArg(
         }
     }
 
+    bool succeed = false;
+
     itr = crtKernel->m_ContextToKernel.begin();
     for (;itr != crtKernel->m_ContextToKernel.end(); itr++)
     {
@@ -4066,14 +4068,20 @@ cl_int CL_API_CALL clSetKernelArg(
                 arg_size,
                 devObject);
         }
-        if( CL_SUCCESS != errCode )
-            break;
+        if( CL_SUCCESS == errCode )
+        {
+            succeed = true;
+        }
     }
 FINISH:
     if( paramType )
     {
         delete[] paramType;
         paramType = NULL;
+    }
+    if( succeed )
+    {
+        errCode = CL_SUCCESS;
     }
     return errCode;
 }
