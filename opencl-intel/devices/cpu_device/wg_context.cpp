@@ -104,7 +104,8 @@ cl_dev_err_code WGContext::CreateContext(long ndrCmdId, ICLDevBackendBinary_* pB
 
 	InvalidateContext();
 
-	void*	pBuffPtr[CPU_MAX_LOCAL_ARGS+1]; // Additional one for private memory
+  assert( (count<=CPU_MAX_LOCAL_ARGS ) && "Unexpected number of local buffers");
+	void** pBuffPtr = (void**)STACK_ALLOC(sizeof(void*)*(count+1));
 
 	// Allocate local memories
 	char*	pCurrPtr = m_pLocalMem;
@@ -119,6 +120,7 @@ cl_dev_err_code WGContext::CreateContext(long ndrCmdId, ICLDevBackendBinary_* pB
 	// Check allocated size of the private memory, and allocate new if necessary.
 	if ( m_stPrivMemAllocSize < pBuffSizes[count] )
 	{
+	    STACK_FREE(pBuffPtr);
 	    return CL_DEV_OUT_OF_MEMORY;
 	}
 
@@ -127,9 +129,12 @@ cl_dev_err_code WGContext::CreateContext(long ndrCmdId, ICLDevBackendBinary_* pB
 	cl_dev_err_code rc = pBinary->CreateExecutable(pBuffPtr, count+1, &m_pContext);
 	if (CL_DEV_FAILED(rc))
 	{
+    STACK_FREE(pBuffPtr);
 		return CL_DEV_ERROR_FAIL;
 	}
+
 	m_lNDRangeId = ndrCmdId;
+  STACK_FREE(pBuffPtr);
 	return CL_DEV_SUCCESS;
 }
 

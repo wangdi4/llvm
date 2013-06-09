@@ -46,15 +46,15 @@ WGContext::WGContext(): m_pContext(NULL), m_cmdId((cl_dev_cmd_id)-1), m_stPrivMe
 
 WGContext::~WGContext()
 {
-	if ( NULL != m_pLocalMem )
-	{
-		ALIGNED_FREE(m_pLocalMem);
-	}
+    if ( NULL != m_pLocalMem )
+    {
+        ALIGNED_FREE(m_pLocalMem);
+    }
 
-	if ( NULL != m_pPrivateMem )
-	{
-		ALIGNED_FREE(m_pPrivateMem);
-	}
+    if ( NULL != m_pPrivateMem )
+    {
+        ALIGNED_FREE(m_pPrivateMem);
+    }
 	
     if ( NULL != m_pContext )
     {
@@ -72,7 +72,8 @@ cl_dev_err_code WGContext::UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
-	void*	pBuffPtr[MIC_MAX_LOCAL_ARGS+1]; // Additional one for private memory
+  assert( (count<=MIC_MAX_LOCAL_ARGS ) && "Unexpected number of local buffers");
+  void** pBuffPtr = (void**)STACK_ALLOC(sizeof(void*)*(count+1));
 
 	// Allocate local memories
 	char*	pCurrPtr = m_pLocalMem;
@@ -86,6 +87,7 @@ cl_dev_err_code WGContext::UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 
 	if ( m_stPrivMemAllocSize < pBuffSizes[count] )
 	{
+	    STACK_FREE(pBuffPtr);
 			return CL_DEV_OUT_OF_MEMORY;
 	}
 
@@ -94,19 +96,23 @@ cl_dev_err_code WGContext::UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 	cl_dev_err_code rc = m_pContext->Init(pBuffPtr, m_pPrivateMem, pBinary);
 	if (CL_DEV_FAILED(rc))
 	{
-		return CL_DEV_ERROR_FAIL;
+	    STACK_FREE(pBuffPtr);
+		  return CL_DEV_ERROR_FAIL;
 	}
 
 	// Set PrintHandle
 	m_pPrintHandle = pPrintHandle;
 
 	m_cmdId = cmdId;
+
+	STACK_FREE(pBuffPtr);
+
 	return CL_DEV_SUCCESS;
 }
 
 void WGContext::InvalidateContext()
 {
-	m_pPrintHandle = NULL;
+	  m_pPrintHandle = NULL;
     m_cmdId = (cl_dev_cmd_id)-1;
 }
 
