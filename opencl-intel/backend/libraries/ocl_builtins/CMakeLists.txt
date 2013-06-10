@@ -509,19 +509,14 @@ foreach (FILE ${SAVE_HEADER_FILES})
 endforeach (FILE)
 
 # running build for all supported SIMD architectures 
-if( INCLUDE_ATOM )
+if( (INCLUDE_ATOM) OR (WIN32 AND NOT BUILD_X64) )
+  # no corresponding SVML for Win64; hence
+  # we aren't building ssse3 for Win64
   add_subdirectory (ssse3)
-  add_subdirectory (sse42)
-else( INCLUDE_ATOM )
-  if( WIN32 AND NOT BUILD_X64 )
-    # no corresponding SVML for Win64; hence
-    # we aren't building ssse3 for Win64
-    add_subdirectory (ssse3)
-  endif( WIN32 AND NOT BUILD_X64 )
-  add_subdirectory (sse42)
-  add_subdirectory (avx)
-  add_subdirectory (avx2)
-endif( INCLUDE_ATOM )
+endif( (INCLUDE_ATOM) OR (WIN32 AND NOT BUILD_X64) )
+add_subdirectory (sse42)
+add_subdirectory (avx)
+add_subdirectory (avx2)
 
 if (INCLUDE_MIC_DEVICE)
   add_subdirectory (KNCni)
