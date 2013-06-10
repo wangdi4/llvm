@@ -92,6 +92,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/arch_headers
     ${BACKEND_ROOT_DIR}/dynamic_lib
+    ${BACKEND_ROOT_DIR}/name_mangling
     ${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
     ${VALIDATIONS_ROOT}/InterpreterPluggable
     ${VALIDATIONS_ROOT}/PlugInNEAT
@@ -129,6 +130,7 @@ set (TARGET_HEADER_FILES
     DXRunConfiguration.h
     DXProgramConfiguration.h
     WorkItemStorage.h
+    WorkGroupStorage.h
     OpenCLArgsBuffer.h
     OpenCLCPUBackendRunner.h
     OpenCLFactory.h

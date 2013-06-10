@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <string>
 #include <vector>
 #include "Refcount.h"
+#include "ParameterType.h"
 #include "llvm/ADT/StringRef.h"
 
 #ifndef __FDESCRIPTOR_H__
@@ -28,8 +29,6 @@ enum V{
 };
 const size_t OCL_VERSIONS = 6;
 }
-
-struct ParamType;
 
 #define INVALID_ENTRY "<invalid>"
 

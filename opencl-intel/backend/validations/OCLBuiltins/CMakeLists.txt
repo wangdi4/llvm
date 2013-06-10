@@ -72,6 +72,7 @@ list (APPEND TD_FILES
 ./src/BLTMath.td
 ./src/BLTMiscellaneousVector.td
 ./src/BLTRelational.td
+./src/BLTWorkGroup.td
 ./src/VLoadStore.td)
 
 foreach (FILE ${TD_FILES})

@@ -112,17 +112,17 @@ InterpreterPluggable::runFunction(Function *F,
     InterpreterPluggable::RETCODE ret = runWithPlugins();
 
     // if barrier mark flag still Running
-    if(ret == InterpreterPluggable::BARRIER)
+    if(ret == InterpreterPluggable::BARRIER || ret == InterpreterPluggable::BLOCKING_WG_FUNCTION)
     {
         m_stillRunning = true;
-        GenericValue retbarriercode;
-        retbarriercode.IntVal = APInt(8, InterpreterPluggable::BARRIER);
-        return retbarriercode;
+        GenericValue retcode;
+        retcode.IntVal = APInt(8, ret);
+        return retcode;
     }
     
     // if not barrier it is function exit
     // call post function methods
-    if(ret != InterpreterPluggable::BARRIER)
+    if(ret != InterpreterPluggable::BARRIER && ret != InterpreterPluggable::BLOCKING_WG_FUNCTION)
     {
        // if execution is not interrupted and it is normal exit
        // set running flag to false 
@@ -184,12 +184,58 @@ InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
         CallInst *C= cast<CallInst>(&I);
         // To handle indirect function call getOperandValue is used instead of casting to the Function pointer.
         Function *f = (Function*)GVTOP(getOperandValue(C->getCalledValue(), SF));
-
-        if(f->getName() == "barrier")
+        std::string fName = f->getName();
+        if(fName == "barrier")
         {
             DEBUG(dbgs() << "Barrier Detected: " << I << '\n');
             *SF.CurInst++;
             return InterpreterPluggable::BARRIER;
+        }
+        else if(m_WGBuiltinsNames.isWorkGroupBuiltin(fName))
+        {
+            DEBUG(dbgs() << "Blocking Work Group function Detected: " << I << '\n');
+            //*SF.CurInst++; do not increment instruction counter
+            //if flag is false - break execution and wait for WI
+            //true - continue
+            if(m_needToExecutePreMethod)
+            {
+                //create and execute call of _pre_exec method
+                std::string pre_method_name = m_WGBuiltinsNames.getMangledPreExecMethodName(fName);
+                FunctionType *CalledFT = C->getCalledFunction()->getFunctionType();
+                std::vector<Type*> arg_types;
+                for(FunctionType::param_iterator I = CalledFT->param_begin(),
+                    E = CalledFT->param_end(); I!=E; ++I)
+                    arg_types.push_back(*I);
+                //construct function with void return type, call params taken from built-in description
+                FunctionType *FT = FunctionType::get(Type::getVoidTy(C->getContext()), arg_types, false);
+                Function *pre_method = cast<Function>(this->Modules[0]->getOrInsertFunction(pre_method_name, FT));
+                pre_method->setCallingConv(CallingConv::C);
+                std::vector<Value*> args;
+                //provide same param values as in Called built-in
+                for(uint32_t i = 0, e = C->getNumArgOperands(); i<e; ++i)
+                {
+                    args.push_back(C->getArgOperand(i));
+                }
+                Instruction *CIM = CallInst::Create(pre_method, args, "");
+                visit(CIM);//call
+                delete CIM;//cleanup. no-one is referencing to this instruction
+            }
+            else//proceed to built-in execution
+            {
+                // note: do not move following CurInst++ prior to calling NEAT plug-in
+                // Plug ins depends on ExecutionContext unmodified prior to execution in interpreter
+                *SF.CurInst++;
+
+                // Dispatch to one of the visit* methods...
+                visit(I);
+
+            }
+            //invert m_needToExecutePreMethod
+            //next iteration - return InterpreterPluggable::BLOCKING_WG_FUNCTION and
+            //execute function
+            m_needToExecutePreMethod = !m_needToExecutePreMethod;
+            return InterpreterPluggable::BLOCKING_WG_FUNCTION;
+            //as execution of built-in is finished - wait for other work items to proceed
         }
     }
 

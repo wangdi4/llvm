@@ -231,6 +231,48 @@ namespace OCLBuiltins {
     template<> uint32_t intMin<uint32_t>();
     template<> uint64_t intMin<uint64_t>();
 
+    template<typename T> llvm::GenericValue initWithMin(){
+        llvm::report_fatal_error("initWithMin: unsupported data type.");
+    }
+    template<> llvm::GenericValue initWithMin<int8_t>();
+    template<> llvm::GenericValue initWithMin<int16_t>();
+    template<> llvm::GenericValue initWithMin<int32_t>();
+    template<> llvm::GenericValue initWithMin<int64_t>();
+    template<> llvm::GenericValue initWithMin<uint8_t>();
+    template<> llvm::GenericValue initWithMin<uint16_t>();
+    template<> llvm::GenericValue initWithMin<uint32_t>();
+    template<> llvm::GenericValue initWithMin<uint64_t>();
+    template<> llvm::GenericValue initWithMin<float>();
+    template<> llvm::GenericValue initWithMin<double>();
+
+    template<typename T> llvm::GenericValue initWithMax(){
+        llvm::report_fatal_error("initWithMax: unsupported data type.");
+    }
+    template<> llvm::GenericValue initWithMax<int8_t>();
+    template<> llvm::GenericValue initWithMax<int16_t>();
+    template<> llvm::GenericValue initWithMax<int32_t>();
+    template<> llvm::GenericValue initWithMax<int64_t>();
+    template<> llvm::GenericValue initWithMax<uint8_t>();
+    template<> llvm::GenericValue initWithMax<uint16_t>();
+    template<> llvm::GenericValue initWithMax<uint32_t>();
+    template<> llvm::GenericValue initWithMax<uint64_t>();
+    template<> llvm::GenericValue initWithMax<float>();
+    template<> llvm::GenericValue initWithMax<double>();
+
+    template<typename T> llvm::GenericValue initWithZero(){
+        llvm::report_fatal_error("initWithZero: unsupported data type.");
+    }
+    template<> llvm::GenericValue initWithZero<int8_t>();
+    template<> llvm::GenericValue initWithZero<int16_t>();
+    template<> llvm::GenericValue initWithZero<int32_t>();
+    template<> llvm::GenericValue initWithZero<int64_t>();
+    template<> llvm::GenericValue initWithZero<uint8_t>();
+    template<> llvm::GenericValue initWithZero<uint16_t>();
+    template<> llvm::GenericValue initWithZero<uint32_t>();
+    template<> llvm::GenericValue initWithZero<uint64_t>();
+    template<> llvm::GenericValue initWithZero<float>();
+    template<> llvm::GenericValue initWithZero<double>();
+
     template<typename T>
     class superT;
 

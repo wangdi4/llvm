@@ -68,6 +68,7 @@ using std::exception;
 #include "InterpreterPluggable.h"
 #include "PlugInNEAT.h"
 #include "WorkItemStorage.h"
+#include "WorkGroupStorage.h"
 
 using namespace llvm;
 using std::string;
@@ -107,6 +108,7 @@ extern "C" void initOCLBuiltinsMath();
 extern "C" void initOCLBuiltinsMisc();
 extern "C" void initOCLBuiltinsRelational();
 extern "C" void initOCLBuiltinsWorkItem();
+extern "C" void initOCLBuiltinsWorkGroup();
 extern "C" void initOCLBuiltinsVLoadStore();
 extern "C" void initOCLBuiltinsExplMemFenceOps();
 
@@ -135,6 +137,7 @@ OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT):
     initOCLBuiltinsMisc();
     initOCLBuiltinsRelational();
     initOCLBuiltinsWorkItem();
+    initOCLBuiltinsWorkGroup();
     initOCLBuiltinsVLoadStore();
     initOCLBuiltinsExplMemFenceOps();
 }
@@ -887,8 +890,10 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     }
     // work item storage
     Validation::WorkItemStorage wiStorage(workDim, globalWGSizes, localWGSizes, GlobalWorkOffset);
+    Validation::WorkGroupStorage wgStorage;
     // set wiStorage as interface for OCLBuiltins workitem functions
     OCLBuiltins::WorkItemInterfaceSetter::inst()->SetWorkItemInterface(&wiStorage);
+    OCLBuiltins::WorkItemInterfaceSetter::inst()->SetWorkGroupInterface(&wgStorage);
 
     // local engines
     std::vector<ExecutionEngine *> localEngines;
@@ -1017,7 +1022,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                 while( WGNotDone )
                 {
                     // flag barrier was detected during execution
-                    bool FoundBarrier = false;
+                    bool FoundBarrierOrWgFunction = false;
                     // loop over work items
                     FOR3_LOCALWG
                     {
@@ -1039,14 +1044,15 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
 
                         // check return value
                         if( Result.IntVal.getBitWidth() == 8 &&
-                            Result.IntVal == APInt(8, InterpreterPluggable::BARRIER))
+                            ( Result.IntVal == APInt(8, InterpreterPluggable::BARRIER) ||
+                            Result.IntVal == APInt(8, InterpreterPluggable::BLOCKING_WG_FUNCTION)))
                         {
                             // if barrier set flag barrier is found
-                            FoundBarrier = true;
+                            FoundBarrierOrWgFunction = true;
                         }
                     }
                     // if barrier found mark work group execution is not completed
-                    WGNotDone = FoundBarrier ? true : false;
+                    WGNotDone = FoundBarrierOrWgFunction ? true : false;
                 }
 
                 // Run static destructor s

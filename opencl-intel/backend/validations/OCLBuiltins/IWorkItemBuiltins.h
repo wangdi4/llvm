@@ -24,6 +24,45 @@ File Name:  IWorkItemBuiltins.h
 namespace Validation {
 namespace OCLBuiltins {
 
+/// Interface for setting/getting work-group built-in variables
+class IWorkGroupBuiltins
+{
+public:
+
+    ///Report that someone is referencing to instance of class
+    ///if object locked by someone for first time - initialize it
+    ///@param [in] string lock  built-in who is referencing to instance
+    ///@param [in] GenericValue init initialize with this value on very first run
+    virtual void AddRef(const std::string& lock, const llvm::GenericValue init)=0;
+
+    ///Report that reference to instance of supreclass is no longer needed.
+    virtual void DecRef()=0;
+
+    ///Get reference to accumulative value. Needed to collect data
+    ///for work-group built-ins work_group_any, work_group_all
+    ///@return reference to llvm::GenericValue accumulative value for
+    ///work_group_all and work_group_all built-ins
+    virtual llvm::GenericValue& GetValueForWorkGroupAllAnyBuiltin()=0;
+
+    ///Get reference to accumulative value. Needed to collect data
+    ///for work-group built-ins work_group_broadcast
+    ///@return reference to llvm::GenericValue accumulative value for
+    ///work_group_broadcast builtins
+    virtual llvm::GenericValue& GetValueForBroadcastBuiltin()=0;
+
+    ///Get reference to accumulative value. Needed to collect data
+    ///for work-group built-ins work_group_reduce_<op>
+    ///@return reference to llvm::GenericValue accumulative value for
+    ///work_group_reduce_<op> built-ins
+    virtual llvm::GenericValue& GetValueForReduceBuiltin()=0;
+
+    ///Get reference to accumulative value. Needed to collect data
+    ///for work-group built-ins work_group_prefixsum_<inclusive/exclusive>_<op>
+    ///@return reference to llvm::GenericValue accumulative value for
+    ///work_group_prefixsum built-ins
+    virtual llvm::GenericValue& GetValueForPrefixSumBuiltin()=0;
+};
+
 /// Interface for setting/getting work-item built-in variables
 /// This interface is intended to pass work-item variables between OpenCL ReferenceRunner layer
 /// and work-item built-in implementation in OpenCL Reference.
@@ -81,15 +120,27 @@ public:
         m_pWorkItemBuiltins = p;
     }
 
+    /// Set interface to work-group
+    void SetWorkGroupInterface(IWorkGroupBuiltins * p){
+        assert(p);
+        m_pWorkGroupBuiltins = p;
+    }
+
     /// Get interface to work-items
     IWorkItemBuiltins * GetWorkItemInterface(){
         assert(m_pWorkItemBuiltins);
         return m_pWorkItemBuiltins;
     }
 
+    /// Get interface to work-group
+    IWorkGroupBuiltins * GetWorkGroupInterface(){
+        assert(m_pWorkGroupBuiltins);
+        return m_pWorkGroupBuiltins;
+    }
+
 protected:
     /// hide ctor and dtor
-    WorkItemInterfaceSetter() : m_pWorkItemBuiltins(NULL) {};
+    WorkItemInterfaceSetter() : m_pWorkItemBuiltins(NULL), m_pWorkGroupBuiltins(NULL) {};
     ~WorkItemInterfaceSetter(){};
 private:
     /// hide ctors 
@@ -99,6 +150,7 @@ private:
     static WorkItemInterfaceSetter* m_pInst;
     /// workgroup interface
     IWorkItemBuiltins * m_pWorkItemBuiltins;
+    IWorkGroupBuiltins * m_pWorkGroupBuiltins;
 };
 
 } // namespace Validation

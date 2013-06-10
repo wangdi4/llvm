@@ -18,6 +18,7 @@ File Name:  Helpers.cpp
 
 #include "Helpers.h"
 #include "Exception.h"
+#include <limits>
 
 using namespace llvm;
 namespace Validation {
@@ -55,6 +56,69 @@ namespace OCLBuiltins {
     template<> uint16_t intMin<uint16_t>() {return 0;}
     template<> uint32_t intMin<uint32_t>() {return 0;}
     template<> uint64_t intMin<uint64_t>() {return 0;}
+
+    template<> llvm::GenericValue initWithMin<int8_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(8, INT8_MIN, true); return gv;}
+    template<> llvm::GenericValue initWithMin<int16_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(16, INT16_MIN, true); return gv;}
+    template<> llvm::GenericValue initWithMin<int32_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(32, INT32_MIN, true); return gv;}
+    template<> llvm::GenericValue initWithMin<int64_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(64, INT64_MIN, true); return gv;}
+    template<> llvm::GenericValue initWithMin<uint8_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(8, 0, true); return gv;}
+    template<> llvm::GenericValue initWithMin<uint16_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(16, 0, true); return gv;}
+    template<> llvm::GenericValue initWithMin<uint32_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(32, 0, true); return gv;}
+    template<> llvm::GenericValue initWithMin<uint64_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(64, 0, true); return gv;}
+    template<> llvm::GenericValue initWithMin<float>(){
+        llvm::GenericValue gv; gv.FloatVal=-std::numeric_limits<float>::infinity(); return gv;}
+    template<> llvm::GenericValue initWithMin<double>(){
+        llvm::GenericValue gv; gv.DoubleVal=-std::numeric_limits<double>::infinity(); return gv;}
+
+    template<> llvm::GenericValue initWithMax<int8_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(8, INT8_MAX, true); return gv;}
+    template<> llvm::GenericValue initWithMax<int16_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(16, INT16_MAX, true); return gv;}
+    template<> llvm::GenericValue initWithMax<int32_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(32, INT32_MAX, true); return gv;}
+    template<> llvm::GenericValue initWithMax<int64_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(64, INT64_MAX, true); return gv;}
+    template<> llvm::GenericValue initWithMax<uint8_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(8, UINT8_MAX, true); return gv;}
+    template<> llvm::GenericValue initWithMax<uint16_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(16, UINT16_MAX, true); return gv;}
+    template<> llvm::GenericValue initWithMax<uint32_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(32, UINT32_MAX, true); return gv;}
+    template<> llvm::GenericValue initWithMax<uint64_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(64, UINT64_MAX, true); return gv;}
+    template<> llvm::GenericValue initWithMax<float>(){
+        llvm::GenericValue gv; gv.FloatVal=std::numeric_limits<float>::infinity(); return gv;}
+    template<> llvm::GenericValue initWithMax<double>(){
+        llvm::GenericValue gv; gv.DoubleVal=std::numeric_limits<double>::infinity(); return gv;}
+
+    template<> llvm::GenericValue initWithZero<int8_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(8, 0, true); return gv;}
+    template<> llvm::GenericValue initWithZero<int16_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(16, 0, true); return gv;}
+    template<> llvm::GenericValue initWithZero<int32_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(32, 0, true); return gv;}
+    template<> llvm::GenericValue initWithZero<int64_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(64, 0, true); return gv;}
+    template<> llvm::GenericValue initWithZero<uint8_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(8, 0, true); return gv;}
+    template<> llvm::GenericValue initWithZero<uint16_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(16, 0, true); return gv;}
+    template<> llvm::GenericValue initWithZero<uint32_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(32, 0, true); return gv;}
+    template<> llvm::GenericValue initWithZero<uint64_t>(){
+        llvm::GenericValue gv; gv.IntVal=APInt(64, 0, true); return gv;}
+    template<> llvm::GenericValue initWithZero<float>(){
+        llvm::GenericValue gv; gv.FloatVal=0.0f; return gv;}
+    template<> llvm::GenericValue initWithZero<double>(){
+        llvm::GenericValue gv; gv.DoubleVal=0.0f; return gv;}
 
     template<> float getOneMinus1ULP<float>() {
         ::Validation::Utils::FloatParts<float> one(1.f);

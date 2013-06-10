@@ -22,6 +22,7 @@ File Name:  InterpreterPluggable.h
 
 #include "llvm/ExecutionEngine/Interpreter/Interpreter.h"
 #include "InterpreterPlugIn.h"
+#include "WorkGroupBuiltinsNames.h"
 #include <list>
 namespace llvm {
 
@@ -29,9 +30,13 @@ namespace llvm {
 class InterpreterPluggable : public Interpreter
 {
     std::list<InterpreterPlugIn*> m_pPlugins;
+    Validation::WorkGroupBultinsNames m_WGBuiltinsNames;
     typedef std::list<InterpreterPlugIn*>::iterator PlugInIterator;
     // flag if interpreter is still running
     bool m_stillRunning;
+    // in case of blocking work group builtins
+    // wait for all work items in the wg or proceed to builtin execution
+    bool m_needToExecutePreMethod;
 
 public:
     static void Register() {
@@ -43,7 +48,7 @@ public:
     static ExecutionEngine *create(Module *M, std::string *ErrorStr = 0);
 
     InterpreterPluggable(Module *M)
-        : Interpreter(M), m_stillRunning(false)
+        : Interpreter(M), m_stillRunning(false), m_needToExecutePreMethod(true)
     {
     }
     /// run - Start execution with the specified function and arguments.
@@ -55,7 +60,8 @@ public:
     enum RETCODE
     {
         OK = 0,
-        BARRIER = 2
+        BARRIER = 2,
+        BLOCKING_WG_FUNCTION = 3
     };
 
     /// run with plugins call

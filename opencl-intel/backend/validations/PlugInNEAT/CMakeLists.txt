@@ -40,6 +40,7 @@ include_directories (
   ${BACKEND_ROOT_DIR}/validations/NEAT
   ${BACKEND_ROOT_DIR}/validations/REFALU
   ${BACKEND_ROOT_DIR}/validations/ImathLibd
+  ${BACKEND_ROOT_DIR}/name_mangling
   )
 
 #During the compilation of the LLVMInterpreter the Interpreter.h file is copying to the build directory 
