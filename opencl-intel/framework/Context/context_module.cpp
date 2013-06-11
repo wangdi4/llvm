@@ -2181,11 +2181,18 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
 
     if (NULL != clImageFormat)
     {
+        // Check if channel order and data type are in the range of valid numbers, see cl.h
+        if ( !(clImageFormat->image_channel_order >= CL_R &&
+               clImageFormat->image_channel_order < CL_SNORM_INT8 &&
+               clImageFormat->image_channel_data_type >= CL_SNORM_INT8 &&
+               clImageFormat->image_channel_data_type < CL_MEM_OBJECT_BUFFER) ) {
+                return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+        }
+
         size_t pixelBytesCnt = clGetPixelBytesCount(clImageFormat);
-        
         if (0 == pixelBytesCnt)
         {
-            return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+            return CL_IMAGE_FORMAT_NOT_SUPPORTED;
         }
         // Check minimum row pitch size
         size_t szMinRowPitchSize = szImageWidth * pixelBytesCnt;
