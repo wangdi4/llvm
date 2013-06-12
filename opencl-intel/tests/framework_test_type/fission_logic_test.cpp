@@ -176,8 +176,70 @@ bool run_kernel2(cl_context& context,cl_device_id& device,cl_command_queue& cmd_
 }
 #include <iostream>
 using namespace std;
-bool fission_logic_test()
-{
+bool fission_logic_test(){
+#if 0
+//fission start
+    cl_int status = CL_SUCCESS;
+
+    char deviceExtensions[512];
+
+	cl_device_id m_device_id;
+	cl_platform_id m_platform = 0;
+	clGetPlatformIDs(1, &m_platform, NULL);
+	clGetDeviceIDs(m_platform, gDeviceType, 1, &m_device_id, NULL);
+
+    status = clGetDeviceInfo(m_device_id, CL_DEVICE_EXTENSIONS, 512, deviceExtensions, NULL);
+	if(!SilentCheck(L"clGetDeviceInfo 2 failed.(CL_DEVICE_EXTENSIONS)", CL_SUCCESS, status)) return false;
+
+    // Check if device fission is supported
+    if(!strstr(deviceExtensions, "cl_ext_device_fission"))
+    {
+        cout << "Device does not support cl_ext_device_fission extension!" << endl;
+        return false;
+    }
+
+	cl_device_partition_property partitionPrtyEq[3] =
+    {
+        CL_DEVICE_PARTITION_EQUALLY, 1, 0
+    };
+	cl_device_partition_property partitionPrtyAff[3] =
+    {
+        CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT, CL_AFFINITY_DOMAIN_NEXT_FISSIONABLE_EXT, 0
+    };
+
+	bool affinityFissionFlag = false;
+	std::vector<cl_device_id> subDevices;
+	std::vector<cl_command_queue> subCmdQueues;
+
+	size_t numSubDevices = 1;
+
+	status = clCreateSubDevices(m_device_id, partitionPrtyEq, 0, NULL, &numSubDevices);
+	if(!SilentCheck(L"clCreateSubDevices failed.", CL_SUCCESS, status))
+        return false;
+
+	subDevices.resize(numSubDevices);
+    //status = pfn_clCreateSubDevices(m_device_id, partitionPrtyEq, numSubDevices, &subDevices.front(), &numSubDevices); //NULL);
+	status = clCreateSubDevices(m_device_id, partitionPrtyEq, numSubDevices, &subDevices.front(), &numSubDevices); //NULL);
+    if(!SilentCheck(L"clCreateSubDevices failed.", CL_SUCCESS, status))
+        return false;
+
+    cl_context_properties cps[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)m_platform, 0 };
+	// Create context for sub-devices, Setup sub-device cmd queues
+    cl_context subContext = clCreateContext(cps, numSubDevices, &subDevices.front(), NULL, NULL, &status);
+	if(!SilentCheck(L"clCreateContext failed.", CL_SUCCESS, status))
+        return false;
+
+    for(cl_uint i = 0; i < numSubDevices; i++)
+    {
+        // Create command queue 
+        subCmdQueues.push_back( clCreateCommandQueue(subContext, subDevices[i], 0, &status) );
+		if(!SilentCheck(L"clCreateCommandQueue failed.", CL_SUCCESS, status))
+			return false;
+    }
+//fission end
+
+	return true;
+#else
 	printf("---------------------------------------\n");
 	printf("fission logic test\n");
 	printf("---------------------------------------\n");
@@ -199,17 +261,6 @@ bool fission_logic_test()
 	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
 	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
-
-	cl_uint numComputeUnits;
-	err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &numComputeUnits, NULL);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
-	if (!bResult)	return bResult;
-
-	if (numComputeUnits < 5)
-	{
-    	printf("Not enough compute units, tast passing vacuously\n");
-		return true;
-	}
 
 	cl_uint num_entries = 100;
 	cl_device_id out_devices[100];
@@ -277,5 +328,6 @@ bool fission_logic_test()
 	{
 		clReleaseDevice(out_devices[i]);
 	}
-	return bResult;
+	return bResult;;
+#endif
 }
