@@ -670,6 +670,9 @@ TEST(MicDeviceTestType, Test_mapTest)
 	EXPECT_TRUE(mapTest());
 }
 
+
+extern "C" cl_dev_err_code clDevInitDeviceAgent(void);
+
 // To run individual tests, use the --gtest_filter=<pattern> command-line 
 // option. For example, to only Test_EventCallbackTest, use:
 // --gtest_filter=Test_EventCallbackTest
@@ -684,6 +687,7 @@ int main(int argc, char* argv[])
 	::testing::InitGoogleTest(&argc, argv);
 
 	//Create and Init the device
+	clDevInitDeviceAgent();
 	cl_uint					dev_id = 0;
 	static MICTestCallbacks		dev_callbacks;
 	static MICTestLogger		log_desc;

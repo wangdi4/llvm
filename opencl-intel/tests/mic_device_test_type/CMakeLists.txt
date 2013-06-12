@@ -8,20 +8,33 @@ include (../../cmake_utils/CMakeFuncs.txt)
 include( ../../cmake_utils/itt.cmake )
 
 if (KNC_CARD)
-    set( COI_SDK_PATH           /opt/intel/mic/coi )
+	if (WIN32)
+		set( COI_SDK_PATH           $ENV{INTEL_MPSS_HOST_SDK} )
+		string ( REGEX REPLACE "[\\]$"  "" COI_SDK_PATH ${COI_SDK_PATH} ) 
+	else (WIN32)
+		set( COI_SDK_PATH           /opt/intel/mic/coi )
+	endif (WIN32)
 endif (KNC_CARD)
 set( COI_HOST_LIB           coi_host )
 set( DEBUG_RELEASE release )
 
+if (WIN32)
+    # Visual Studio 2010
+    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
+else (WIN32)
+    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
+endif (WIN32)
+
 link_directories( 
     ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
-    ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
+    ${TBB_LIB_DIR}
 )
 
 if(WIN32)
     link_directories(
         ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM/lib/${INSTALL_SUBDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Win32
+		${COI_SDK_PATH}/lib
     )
 else (WIN32)
     link_directories(
@@ -50,7 +63,7 @@ if (NOT WIN32)
     set_target_properties( ${TARGET} PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib" )
 endif (NOT WIN32)
 
-target_link_libraries( ${TARGET}  cl_sys_utils mic_device ${COI_HOST_LIB} task_executor googletest)
+target_link_libraries( ${TARGET}  cl_sys_utils mic_device ${COI_HOST_LIB} googletest)
 
 set( CREATE_DIR_NAME bin/validation/mic_device_test_type)
 
