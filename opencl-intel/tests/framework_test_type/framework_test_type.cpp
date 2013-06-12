@@ -42,7 +42,6 @@ TEST(FrameworkTestType, Test_clfissionOptionsTest)
 
 TEST(FrameworkTestType, Test_clfissionLogicTest)
 {
-    // Disabled because it's buggy, needs to be rewritten.
 	EXPECT_TRUE(fission_logic_test());
 }
 
