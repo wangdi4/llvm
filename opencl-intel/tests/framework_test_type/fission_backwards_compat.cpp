@@ -39,12 +39,6 @@ static bool isLegalPartitionEXT(cl_device_partition_property_ext prop)
 
 static bool isLegalDomainEXT(cl_device_partition_property_ext domain)
 {
-    const cl_device_partition_property_ext legalDomains[] = {CL_AFFINITY_DOMAIN_NUMA_EXT};
-    const size_t numDomains = sizeof(legalDomains) / sizeof(cl_device_partition_property_ext);
-    for (size_t i = 0; i < numDomains; ++i)
-    {
-        if (legalDomains[i] == domain) return true;
-    }
     return false;
 }
 

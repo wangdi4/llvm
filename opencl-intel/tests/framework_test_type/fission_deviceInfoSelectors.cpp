@@ -125,18 +125,6 @@ bool fission_deviceInfoSelectors_test(){
 		}
 	}
 
-	//CL_DEVICE_PARTITION_AFFINITY_DOMAIN
-	cl_device_affinity_domain affinity_domain;
-	err = clGetDeviceInfo(out_devices[num_devices-1], CL_DEVICE_PARTITION_AFFINITY_DOMAIN, sizeof(cl_device_affinity_domain), &affinity_domain, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_AFFINITY_DOMAIN",CL_SUCCESS,err);
-	if (!bResult)	return bResult;
-	if (affinity_domain & (~CL_DEVICE_AFFINITY_DOMAIN_NUMA))
-	{
-			printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_AFFINITY_DOMAIN\n");
-			printf("\t\tinvalid property\n");
-			return false;
-	}
-
 	//CL_DEVICE_REFERENCE_COUNT_EXT for sub device
 	err = clRetainDevice(out_devices[0]);
 	bResult = SilentCheck(L"clRetainDevice",CL_SUCCESS,err);

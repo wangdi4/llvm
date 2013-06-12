@@ -40,18 +40,10 @@ TEST(FrameworkTestType, Test_clfissionOptionsTest)
 	EXPECT_TRUE(fission_options_test());
 }
 
-TEST(FrameworkTestType, DISABLED_Test_clfissionLogicTest)
+TEST(FrameworkTestType, Test_clfissionLogicTest)
 {
     // Disabled because it's buggy, needs to be rewritten.
 	EXPECT_TRUE(fission_logic_test());
-}
-
-TEST(FrameworkTestType, DISABLED_Test_clfissionThreadTest)
-{
-    // Disabled because it's buggy, needs to be rewritten.
-    // As it is it "usually" works but can randomly fail when it in fact passed
-    // CQ ticket CSSD100006157
-	EXPECT_TRUE(fission_thread_test());
 }
 
 TEST(FrameworkTestType, Test_clfissionBuildTest)
@@ -72,11 +64,6 @@ TEST(FrameworkTestType, Test_clfissionDeviceInfoTest)
 TEST(FrameworkTestType, Test_clfissionCommandQTest)
 {
 	EXPECT_TRUE(fission_commandQ_test());
-}
-
-TEST(FrameworkTestType, Test_clfissionNumaTest)
-{
-	EXPECT_TRUE(fission_numa_test());
 }
 
 TEST(FrameworkTestType, Test_clfissionContextTest)
@@ -349,12 +336,6 @@ TEST(FrameworkTestType, Test_EventCallbackTest)
 }
 
 
-TEST(FrameworkTestType, DISABLED_Test_clFinishTest)
-{
-    EXPECT_TRUE(clFinishTest());
-}
-
-
 TEST(FrameworkTestType, Test_MT_order)
 {
     EXPECT_TRUE(MultithreadedOrderViolation());
@@ -365,12 +346,6 @@ TEST(FrameworkTestType, Test_MisalignedHostPtr)
 {
     EXPECT_TRUE(MisalignedUseHostPtrTest());
 }
-
-//extension not supported
-//TEST(FrameworkTestType, Test_overloadingTest)
-//{
-//    EXPECT_TRUE(overloading_test());
-//}
 
 TEST(FrameworkTestType, Test_userDefinedStruct)
 {
