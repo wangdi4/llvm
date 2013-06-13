@@ -70,6 +70,11 @@ namespace Utils
 
                 // close key
                 RegCloseKey( key );
+                
+                if( ERROR_SUCCESS != success )
+				{
+					retVal = false;
+				}
             }
             else
             {
