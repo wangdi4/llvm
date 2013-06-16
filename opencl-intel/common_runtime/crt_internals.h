@@ -549,6 +549,13 @@ public:
         cl_command_queue_properties     properties,
         CrtQueue**                      crtQueue);
 
+    // Command Queue wit Properties and Build
+    cl_int  CreateCommandQueueWithProperties(
+        cl_command_queue                queue_crt_handle,
+        cl_device_id                    device,
+        cl_queue_properties             *properties,
+        CrtQueue**                      crtQueue);
+
     cl_int CreateProgramWithSource(
         cl_uint            count ,
         const char **      strings ,

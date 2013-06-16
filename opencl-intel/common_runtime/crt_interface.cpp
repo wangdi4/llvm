@@ -981,11 +981,11 @@ cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  co
                                                   cl_command_queue_properties properties,
                                                   cl_int *                    errcode_ret)
 {
-    _cl_command_queue_crt*	queue_handle	= NULL;
-    CrtQueue*				queue			= NULL;
-	CrtContext*				ctx				= NULL;
-    cl_int					errCode			= CL_SUCCESS;
-    CrtContextInfo*			ctxInfo			= NULL;
+    _cl_command_queue_crt*  queue_handle    = NULL;
+    CrtQueue*               queue           = NULL;
+    CrtContext*             ctx             = NULL;
+    cl_int                  errCode         = CL_SUCCESS;
+    CrtContextInfo*         ctxInfo         = NULL;
 
     ctxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
     if (!ctxInfo)
@@ -994,12 +994,12 @@ cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  co
         goto FINISH;
     }
 
-	queue_handle = new _cl_command_queue_crt;
-	if( !queue_handle )
-	{
-		errCode = CL_OUT_OF_HOST_MEMORY;
-		goto FINISH;
-	}
+    queue_handle = new _cl_command_queue_crt;
+    if( !queue_handle )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
 
     ctx = (CrtContext*)(ctxInfo->m_object);
     errCode = ctx->CreateCommandQueue(queue_handle, device, properties, &queue);
@@ -1017,6 +1017,52 @@ FINISH:
 
     return queue_handle;
 }
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(
+    cl_context                  context,
+    cl_device_id                device,
+    cl_queue_properties         *properties,
+    cl_int *                    errcode_ret )
+{
+    _cl_command_queue_crt*  queue_handle    = NULL;
+    CrtQueue*               queue           = NULL;
+    CrtContext*             ctx             = NULL;
+    cl_int                  errCode         = CL_SUCCESS;
+    CrtContextInfo*         ctxInfo         = NULL;
+
+    ctxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
+    if( !ctxInfo )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    queue_handle = new _cl_command_queue_crt;
+    if( !queue_handle )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
+    ctx = ( CrtContext* )( ctxInfo->m_object );
+    errCode = ctx->CreateCommandQueueWithProperties( queue_handle, device, properties, &queue );
+    if( CL_SUCCESS != errCode )
+    {
+        goto FINISH;
+    }    
+    queue_handle->object = ( void* ) queue;
+FINISH:
+    if( errcode_ret )
+    {
+        *errcode_ret = errCode;
+    }
+
+    return queue_handle;
+}
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -4442,9 +4488,9 @@ cl_int CL_API_CALL clReleaseEvent(cl_event event)
 /// ------------------------------------------------------------------------------
 cl_int CL_API_CALL clWaitForEvents(cl_uint num_events, const cl_event * event_list)
 {
-    cl_int		errCode		= CL_SUCCESS;
-    CrtContext* crtContext	= NULL;
-    cl_event*	pEvents		= NULL;
+    cl_int      errCode     = CL_SUCCESS;
+    CrtContext* crtContext  = NULL;
+    cl_event*   pEvents     = NULL;
     SHARED_CTX_DISPATCH::iterator itr;
 
     // Implements Option 1 from the Design document
@@ -4558,7 +4604,7 @@ cl_int CL_API_CALL clGetEventInfo(
                 &(crtContext->m_context_handle),
                 sizeof(cl_context));
         }
-		else if( !crtEvent->m_isUserEvent && ( param_name == CL_EVENT_COMMAND_QUEUE ) )
+        else if( !crtEvent->m_isUserEvent && ( param_name == CL_EVENT_COMMAND_QUEUE ) )
         {            
             memcpy_s(param_value,
                 sizeof(cl_command_queue),
@@ -4888,55 +4934,55 @@ cl_int CL_API_CALL clSetEventCallback(
     void *          user_data)
 {
     cl_int errCode = CL_SUCCESS;
-	CrtSetEventCallBackData* crtEvCBackData = NULL;
+    CrtSetEventCallBackData* crtEvCBackData = NULL;
 
     CrtEvent* crtEvent = reinterpret_cast<CrtEvent*>(((_cl_event_crt*)event)->object);
     if (!crtEvent)
     {
         errCode = CL_INVALID_EVENT;
-		goto FINISH;
+        goto FINISH;
     }
     else
     {
-		cl_event tgtEvent = NULL;
+        cl_event tgtEvent = NULL;
         if (false == crtEvent->m_isUserEvent)
-        {			
+        {           
             tgtEvent = crtEvent->m_eventDEV;
         }
         else
         {
             CrtUserEvent* crtUserEvent = (CrtUserEvent*)crtEvent;
-			// No point on registering the callback notification on all
+            // No point on registering the callback notification on all
             // underlying platforms, so we pick randomly the first one. 
             tgtEvent = crtUserEvent->m_ContextToEvent.begin()->second;
         }
-		
-		crtEvCBackData = new CrtSetEventCallBackData;
-		if( NULL == crtEvCBackData )
-		{
-			errCode = CL_OUT_OF_HOST_MEMORY;
-			goto FINISH;
-		}
+        
+        crtEvCBackData = new CrtSetEventCallBackData;
+        if( NULL == crtEvCBackData )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
 
-		crtEvCBackData->m_userData = user_data;
-		crtEvCBackData->m_crtEvent = event;
-		crtEvCBackData->m_userPfnNotify = notify_callback;
+        crtEvCBackData->m_userData = user_data;
+        crtEvCBackData->m_crtEvent = event;
+        crtEvCBackData->m_userPfnNotify = notify_callback;
 
-		errCode = tgtEvent->dispatch->clSetEventCallback(
+        errCode = tgtEvent->dispatch->clSetEventCallback(
                 tgtEvent,
                 command_exec_callback_type,
                 CrtSetEventCallBack,
-                crtEvCBackData);				
+                crtEvCBackData);                
     }
 FINISH:
-	if( CL_SUCCESS != errCode )
-	{
-		if( crtEvCBackData )
-		{
-			delete crtEvCBackData;
-			crtEvCBackData = NULL;
-		}
-	}
+    if( CL_SUCCESS != errCode )
+    {
+        if( crtEvCBackData )
+        {
+            delete crtEvCBackData;
+            crtEvCBackData = NULL;
+        }
+    }
     return errCode;
 }
 
@@ -5292,11 +5338,11 @@ FINISH:
 ///
 /// ------------------------------------------------------------------------------
 cl_int CL_API_CALL EnqueueMarkerOrBarrierWithWaitList(
-    cl_command_type			cmdType,
-    cl_command_queue		command_queue,
-    cl_uint					num_events_in_wait_list,
-    const cl_event *		event_wait_list,
-    cl_event *				event )
+    cl_command_type         cmdType,
+    cl_command_queue        command_queue,
+    cl_uint                 num_events_in_wait_list,
+    const cl_event *        event_wait_list,
+    cl_event *              event )
 {
     cl_int errCode = CL_SUCCESS;
     CrtEvent* crtEvent = NULL;
@@ -6548,7 +6594,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemObjects(
     cl_int errCode              = CL_SUCCESS;
     CrtEvent* crtEvent          = NULL;
     SyncManager* synchHelper    = NULL;
-    cl_mem* crt_mem_list		= NULL;
+    cl_mem* crt_mem_list        = NULL;
 
     if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_1_2 )
     {
@@ -7974,7 +8020,7 @@ FINISH:
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-cl_mem CL_API_CALL CreateFromDX9MediaSurface(	    
+cl_mem CL_API_CALL CreateFromDX9MediaSurface(       
     cl_context              context,
     cl_mem_flags            flags,
     IDirect3DSurface9*      resource,
@@ -8198,7 +8244,7 @@ FINISH:
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-cl_mem CL_API_CALL CreateFromGLBuffer(	
+cl_mem CL_API_CALL CreateFromGLBuffer(  
     bool            is_render_buffer,
     cl_context      context,
     cl_mem_flags    flags,
@@ -8251,7 +8297,7 @@ FINISH:
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-CL_API_ENTRY cl_mem CL_API_CALL clCreateFromGLBuffer(	
+CL_API_ENTRY cl_mem CL_API_CALL clCreateFromGLBuffer(   
     cl_context      context,
     cl_mem_flags    flags,
     GLuint          bufobj,

@@ -1925,6 +1925,48 @@ cl_int  CrtContext::CreateCommandQueue(
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
+cl_int  CrtContext::CreateCommandQueueWithProperties(
+    cl_command_queue            queue_crt_handle,
+    cl_device_id                device,
+    cl_queue_properties         *properties,
+    CrtQueue**                  crtQueue )
+{
+    cl_int errCode = CL_SUCCESS;
+    CrtQueue* pCrtQueue = NULL;
+    *crtQueue = NULL;
+
+    DEV_CTX_MAP::iterator itr = m_DeviceToContext.find( device );
+    if( itr == m_DeviceToContext.end( ) )
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    cl_command_queue queueDEV = itr->second->dispatch->clCreateCommandQueueWithProperties( itr->second,
+                                                                                           device,
+                                                                                           properties,
+                                                                                           &errCode );
+    if( CL_SUCCESS == errCode )
+    {
+        pCrtQueue = new CrtQueue( this );
+        if( NULL == pCrtQueue )
+        {
+            errCode = itr->second->dispatch->clReleaseCommandQueue( queueDEV );
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+        pCrtQueue->m_cmdQueueDEV = queueDEV;
+        pCrtQueue->m_device = device;
+        pCrtQueue->m_queue_handle = queue_crt_handle;
+        *crtQueue = pCrtQueue;
+        {
+            OCLCRT::Utils::OclAutoMutex CS( &m_mutex );   // Critical section
+            m_commandQueues.push_back( queueDEV );
+        }
+    }
+    return errCode;
+}
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
 CrtPlatform::CrtPlatform()
 :m_icdSuffix(NULL),
 m_supportedExtensionsStr(NULL),

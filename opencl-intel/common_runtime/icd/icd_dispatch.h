@@ -149,6 +149,13 @@ typedef CL_API_ENTRY cl_command_queue (CL_API_CALL *KHRpfn_clCreateCommandQueue)
     cl_command_queue_properties    properties,
     cl_int *                       errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
+// Command Queue APIs
+typedef CL_API_ENTRY cl_command_queue (CL_API_CALL *KHRpfn_clCreateCommandQueueWithProperties)(
+    cl_context                     context, 
+    cl_device_id                   device, 
+    cl_queue_properties            *properties,
+    cl_int *                       errcode_ret) CL_API_SUFFIX__VERSION_2_0;
+
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clRetainCommandQueue)(
     cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0;
 
@@ -1226,6 +1233,8 @@ struct KHRicdVendorDispatchRec
     KHRpfn_clEnqueueAcquireDX9MediaSurfacesKHR      clEnqueueAcquireDX9MediaSurfacesKHR;
     KHRpfn_clEnqueueReleaseDX9MediaSurfacesKHR      clEnqueueReleaseDX9MediaSurfacesKHR;
 
+    //OpenCL 2.0 placeholder
+    KHRpfn_clCreateCommandQueueWithProperties       clCreateCommandQueueWithProperties;
 };
 
 /*
