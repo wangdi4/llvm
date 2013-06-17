@@ -61,7 +61,7 @@ NDRangeTask::NDRangeTask( const QueueOnDevice& queue ) : TaskHandler( queue ),
 #ifdef ENABLE_MIC_TRACER
     ,m_tbb_perf_data(*this)
 #endif    
-#ifdef __USE_ITT__
+#ifdef USE_ITT
     ,m_pIttKernelName(NULL), m_pIttKernelDomain(NULL)
 #endif
 {
@@ -367,7 +367,7 @@ int NDRangeTask::Init(size_t region[], unsigned int& regCount)
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
-		__itt_task_begin(m_pIttKernelDomain, __itt_null, __itt_null, m_pIttKernelName);
+        __itt_task_begin(m_pIttKernelDomain, __itt_null, __itt_null, m_pIttKernelName);
     }
 #endif
 
@@ -387,7 +387,7 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
-		__itt_task_begin(m_pIttKernelDomain, __itt_null, __itt_null, m_pIttKernelName);
+        __itt_task_begin(m_pIttKernelDomain, __itt_null, __itt_null, m_pIttKernelName);
     }
 #endif
 
@@ -459,8 +459,7 @@ void NDRangeTask::DetachFromThread(void* pWgContext)
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
-
-		__itt_task_end(m_pIttKernelDomain);
+        __itt_task_end(m_pIttKernelDomain);
     }
 #endif
 
@@ -506,7 +505,7 @@ bool NDRangeTask::Finish(FINISH_REASON reason)
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
-		__itt_task_end(m_pIttKernelDomain);
+        __itt_task_end(m_pIttKernelDomain);
     }
 #endif
 
