@@ -4,14 +4,19 @@ list<OclType> mask_f32_types = [v1f32, v2f32, v3f32, v4f32, v8f32];
 list<OclType> mask_f64_types = [v1f64, v2f64, v3f64, v4f64];
 list<OclType> mask_types = [v1f32, v2f32, v3f32, v4f32, v8f32, v1f64, v2f64, v3f64, v4f64];
 
+// According to OpenCL 1.2 ch. 6.12.2 if arguments to fmin (or fmax) are
+// equal then the first argument has to be returned. Signed zeroes -0.
+// and +0. are considered to be equal. But the standard states fmin and
+// fmax should behave as defined by C99 standard. Which in turn says that
+// "ideally" fmin(+0., -0.) and fmax(-0, +0) whould be sensitive to the sign
+// of zero and could return -0. and +0. respectively. The following
+// implementation of fmin and fmax behaves exactly so.
+
 // fmax
 OclBuiltinImpl knc_fmax = OclBuiltinImpl<fmax, [v16f32, v8f64], 0, [{
     $Arg0Symm512gentype arg0 = ($Arg0Symm512gentype)$Arg0VarName;
     $Arg1Symm512gentype arg1 = ($Arg1Symm512gentype)$Arg1VarName;
-    // according to OpenCL 1.2 ch. 6.12.2
-    // fmax(-0., +0.) has to return -0.
-    $Arg0Symmaskgentype neq_mask = _mm512_cmpneq_$Arg0Sympspdgentype(arg0, arg1);
-    $Arg1Symm512gentype ret = _mm512_mask_max_$Arg0Sympspdgentype(arg0, neq_mask, arg0, arg1);
+    $Arg1Symm512gentype ret = _mm512_max_$Arg0Sympspdgentype(arg0, arg1);
     return as_$ReturnType(ret);
   }]>;
 
@@ -21,10 +26,7 @@ OclBuiltinImpl knc_fmax_mask = OclBuiltinImpl<fmax, mask_types, 0, [{
     $Arg0Symm512gentype arg0 = ($Arg0Symm512gentype)arg;
     arg$Pattern = $Arg1VarName;
     $Arg1Symm512gentype arg1 = ($Arg1Symm512gentype)arg;
-    // according to OpenCL 1.2 ch. 6.12.2
-    // fmax(-0., +0.) has to return -0.
-    $Arg0Symmaskgentype neq_mask = _mm512_mask_cmpneq_$Arg0Sympspdgentype($Mask, arg0, arg1);
-    $ReturnSymm512gentype ret = _mm512_mask_max_$Arg0Sympspdgentype(arg0, neq_mask, arg0, arg1);
+    $ReturnSymm512gentype ret = _mm512_mask_max_$Arg0Sympspdgentype(arg0, $Mask, arg0, arg1);
     return as_$NativeReturnType(ret)$Pattern;
   }]>;
 OclBuiltinImpl knc_fmax_expand = OclBuiltinImpl<fmax, [v16f64], 0, Expand2>;
@@ -33,10 +35,7 @@ OclBuiltinImpl knc_fmax_expand = OclBuiltinImpl<fmax, [v16f64], 0, Expand2>;
 OclBuiltinImpl knc_fmin = OclBuiltinImpl<fmin, [v16f32, v8f64], 0, [{
     $Arg0Symm512gentype arg0 = ($Arg0Symm512gentype)$Arg0VarName;
     $Arg1Symm512gentype arg1 = ($Arg1Symm512gentype)$Arg1VarName;
-    // according to OpenCL 1.2 ch. 6.12.2
-    // fmin(+0., -0.) has to return +0.
-    $Arg0Symmaskgentype neq_mask = _mm512_cmpneq_$Arg0Sympspdgentype(arg0, arg1);
-    $Arg1Symm512gentype ret = _mm512_mask_min_$Arg0Sympspdgentype(arg0, neq_mask, arg0, arg1);
+    $Arg1Symm512gentype ret = _mm512_min_$Arg0Sympspdgentype(arg0, arg1);
     return as_$ReturnType(ret);
   }]>;
 
@@ -46,10 +45,7 @@ OclBuiltinImpl knc_fmin_mask = OclBuiltinImpl<fmin, mask_types, 0, [{
     $Arg0Symm512gentype arg0 = ($Arg0Symm512gentype)arg;
     arg$Pattern = $Arg1VarName;
     $Arg1Symm512gentype arg1 = ($Arg1Symm512gentype)arg;
-    // according to OpenCL 1.2 ch. 6.12.2
-    // fmin(+0., -0.) has to return +0.
-    $Arg0Symmaskgentype neq_mask = _mm512_mask_cmpneq_$Arg0Sympspdgentype($Mask, arg0, arg1);
-    $ReturnSymm512gentype ret = _mm512_mask_min_$Arg0Sympspdgentype(arg0, neq_mask, arg0, arg1);
+    $ReturnSymm512gentype ret = _mm512_mask_min_$Arg0Sympspdgentype(arg0, $Mask, arg0, arg1);
     return as_$NativeReturnType(ret)$Pattern;
   }]>;
 OclBuiltinImpl knc_fmin_expand = OclBuiltinImpl<fmin, [v16f64], 0, Expand2>;
