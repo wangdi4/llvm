@@ -95,8 +95,6 @@ ExecutionModule::ExecutionModule( PlatformModule *pPlatformModule, ContextModule
  ******************************************************************/
 ExecutionModule::~ExecutionModule()
 {
-  RELEASE_LOGGER_CLIENT;
-  // TODO: clear all resources!
 }
 
 /******************************************************************
@@ -120,6 +118,30 @@ cl_err_code ExecutionModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLC
         return CL_ERR_FAILURE;
     }
     return CL_SUCCESS;
+}
+
+cl_err_code ExecutionModule::Release(bool bTerminate)
+{
+	if ( bTerminate )
+	{
+		return CL_SUCCESS;
+	}
+
+	if ( NULL!=	m_pEventsManager )
+	{
+		delete m_pEventsManager;
+		m_pEventsManager = NULL;
+	}
+
+	if ( NULL != m_pOclCommandQueueMap )
+	{
+		delete m_pOclCommandQueueMap;
+		m_pEventsManager = NULL;
+	}
+
+	RELEASE_LOGGER_CLIENT;
+
+	return CL_SUCCESS;
 }
 
 /******************************************************************

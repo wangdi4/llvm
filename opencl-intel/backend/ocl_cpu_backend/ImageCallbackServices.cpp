@@ -354,4 +354,10 @@ cl_dev_err_code ImageCallbackService::DeleteImageObject(cl_mem_obj_descriptor* p
   return CL_DEV_SUCCESS;
 }
 
+
+void ImageCallbackService::Release()
+{
+    delete this;
+}
+
 }}}  //namespace

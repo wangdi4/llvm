@@ -68,10 +68,7 @@ public:
 
     const cl_image_format* GetSupportedImageFormats(unsigned int *numFormats);
  
-    /*releases the services instance. Right now nothing is realeased because all image
-     *resources are stored in imageCallbackLibrary singleton class
-     */
-    void Release(){};
+    void Release();
 
 private:
     /* 
