@@ -831,6 +831,12 @@ MapMemObjCommand::~MapMemObjCommand()
 		assert(m_MemOclObjects.size() == 1);
         m_MemOclObjects[0].pMemObj->ReleaseMappedRegion( m_pMappedRegion, m_pHostDataPtr );
     }
+	// In case that the map command run on different device that enqueued than change the device to m_pActualMappingDevice in order to release the command object from the device it created.
+	if ((m_pActualMappingDevice != m_pDevice) && (NULL != m_pActualMappingDevice))
+	{
+		m_pDevice = m_pActualMappingDevice;
+		m_pActualMappingDevice = NULL;
+	}
 }
 
 /******************************************************************
@@ -1133,6 +1139,13 @@ UnmapMemObjectCommand::~UnmapMemObjectCommand()
 		assert(m_MemOclObjects.size() == 1);
         m_MemOclObjects[0].pMemObj->UndoMappedRegionInvalidation(m_pMappedRegion);
     }
+
+	// In case that the unmap command run on different device that enqueued than change the device to m_pActualMappingDevice in order to release the command object from the device it created.
+	if ((m_pActualMappingDevice != m_pDevice) && (NULL != m_pActualMappingDevice))
+	{
+		m_pDevice = m_pActualMappingDevice;
+		m_pActualMappingDevice = NULL;
+	}
 }
 
 /******************************************************************

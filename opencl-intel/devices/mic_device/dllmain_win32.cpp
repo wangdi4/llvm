@@ -60,7 +60,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_THREAD_DETACH:
         break;
 	case DLL_PROCESS_DETACH:
-		MICDevice::unloadRelease();
+	// Comment all calls from DLL_PROCESS_DETACH, should handle it with shutdown fix.
+//		MICDevice::unloadRelease();
 		gSafeReleaseOfCoiObjects = false;
 		break;
 	}
