@@ -331,7 +331,7 @@ cl_uint MICSysInfo::getGlobalMemCachelineSize(uint32_t deviceId)
 {
     if (initializedInfoStruct(deviceId))
     {
-        //TODO - Currently return garbage, Statically encode (L2)
+        return 64;
     }
     return 0;
 }
@@ -340,7 +340,7 @@ cl_ulong MICSysInfo::getGlobalMemCacheSize(uint32_t deviceId)
 {
     if (initializedInfoStruct(deviceId))
     {
-        //TODO - Currently return garbage, Statically encode (L2)
+        return 256*1024; //(256k)
     }
     return 0;
 }

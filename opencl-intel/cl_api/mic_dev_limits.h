@@ -44,11 +44,18 @@
 #define MIC_MAX_PARAM_COUNT              (MIC_MAX_PARAMETER_SIZE/8)
 #define MIC_KERNEL_MAX_ARG_COUNT         (MIN_PARAM((MIC_MAX_PARAMETER_SIZE/sizeof(void*)), MIC_MAX_PARAM_COUNT))
 #define MIC_MAX_SAMPLERS                 (MIN_PARAM((MIC_MAX_PARAMETER_SIZE/sizeof(void*)), MIC_MAX_PARAM_COUNT))
-#define MIC_IMAGES_SUPPORT				 CL_FALSE
+#define MIC_IMAGES_SUPPORT               CL_FALSE
+#if ( MIC_IMAGES_SUPPORT == CL_TRUE )
 #define MIC_IMAGE3D_MAX_DIM_SIZE         2048
 #define MIC_IMAGE2D_MAX_DIM_SIZE         8192
 #define MIC_MAX_READ_IMAGE_ARGS          (MIN_PARAM((MIC_MAX_PARAMETER_SIZE/sizeof(void*)), MIC_MAX_PARAM_COUNT))
 #define MIC_MAX_WRITE_IMAGE_ARGS         (MIN_PARAM((MIC_MAX_PARAMETER_SIZE/sizeof(void*)), MIC_MAX_PARAM_COUNT))
+#else
+#define MIC_IMAGE3D_MAX_DIM_SIZE         0
+#define MIC_IMAGE2D_MAX_DIM_SIZE         0
+#define MIC_MAX_READ_IMAGE_ARGS          0
+#define MIC_MAX_WRITE_IMAGE_ARGS         0
+#endif
 #define MIC_MAX_CONSTANT_BUFFER_SIZE     (128*1024)
 #define MIC_MAX_CONSTANT_ARGS            (MIN_PARAM((MIC_MAX_PARAMETER_SIZE/sizeof(void*)), MIC_MAX_PARAM_COUNT))
 #define MIC_MAX_LOCAL_ARGS               (MIN_PARAM((MIC_MAX_PARAMETER_SIZE/sizeof(void*)), MIC_MAX_PARAM_COUNT))
@@ -60,7 +67,7 @@
 #define MIC_MIN_ACTUAL_PARAM_PTR         size_t*
 #define MIC_MIN_VECTOR_SIZE              16                // Minimum vector size, XMM == 16bytes
 
-// min 1MB
+// minimum 1MB
 #define MIC_PRINTF_BUFFER_SIZE           (1024*1024)
 
 // Minimum memory size allocate for single WI instance
@@ -71,10 +78,13 @@
 // WG Private memory size +
 // Kernel parameters size (twice to cover the hidden parameters) +
 // Local IDs buffer
+#define MIC_DEV_MAX_WG_TOTAL_SIZE     (MIC_DEV_MAX_WG_PRIVATE_SIZE/4)
+#if 0
 #define MIC_DEV_MAX_WG_TOTAL_SIZE		  (MIC_DEV_MAX_WG_PRIVATE_SIZE + (2*MIC_MAX_PARAMETER_SIZE) + \
-  (MIC_MAX_PARAMETER_SIZE * MAX_WI_DIM_POW_OF_2 * sizeof(size_t)))
+		                                      (MIC_MAX_PARAMETER_SIZE * MAX_WI_DIM_POW_OF_2 * sizeof(size_t)))
+#endif
 
-//The muximum single buffer memory size (in bytes)
+//The maximum single buffer memory size (in bytes)
 #define MIC_MAX_BUFFER_ALLOC_SIZE(deviceId) (MAX((unsigned long long)(128*1024*1024), MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)/4) & ~4095)
 #define MIC_MAX_GLOBAL_MEM_SIZE(deviceId) (((MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)*3)/4) & ~4095)
 #define MIC_AVAILABLE_PROCESS_MEMORY(deviceId) (MIN(MIC_MAX_GLOBAL_MEM_SIZE(deviceId) + 1024 * 1024 * 100, MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)) & ~4095)

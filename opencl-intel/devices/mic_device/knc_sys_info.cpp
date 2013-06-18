@@ -37,13 +37,15 @@ static const size_t MIC_MAX_WORK_ITEM_SIZES[MIC_MAX_WORK_ITEM_DIMENSIONS] =
         MIC_MAX_WORK_GROUP_SIZE
     };
 
+#if 0
 static const cl_device_partition_property MIC_SUPPORTED_FISSION_MODES[] =
     {
         CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN,
         CL_DEVICE_PARTITION_BY_COUNTS,
         CL_DEVICE_PARTITION_EQUALLY,
-		CL_DEVICE_PARTITION_BY_NAMES_INTEL
+        CL_DEVICE_PARTITION_BY_NAMES_INTEL
     };
+#endif
 
 
 static MICSysInfo::SYS_INFO_ENTRY knc_info[] =
