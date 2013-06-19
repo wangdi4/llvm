@@ -4,12 +4,16 @@
 #  OCL_BINARY_DIR    - points to the directory outside of OCL_SOURCE_DIR - root of generated files
 #
 
+if (NOT WIN32)
+    add_definitions( "-Wno-pointer-arith -Wno-reorder" )
+endif(NOT WIN32)
+
 add_subdirectory( utils )
 # set that name of the main output file as a target name
 set( TARGET_NAME common_runtime )
 
 include_directories( BEFORE
-		${CMAKE_CURRENT_SOURCE_DIR}/Utils
+		${CMAKE_CURRENT_SOURCE_DIR}/utils
 		${CMAKE_CURRENT_SOURCE_DIR}
             )
 
@@ -31,9 +35,7 @@ CALCULATE_TARGET_SOURCES()
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
-if (WIN32)
-	install( FILES ${CONFIG_FILES} DESTINATION bin)
-endif (WIN32)
+install( FILES ${CONFIG_FILES} DESTINATION bin)
 
 target_link_libraries( ${TARGET_NAME} common_runtime_utils)
 
@@ -42,9 +44,8 @@ set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "intelopencl${ADDR}"
 
 install( TARGETS ${TARGET_NAME} 
     RUNTIME DESTINATION bin
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib)
-
-#COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )
+    LIBRARY DESTINATION bin 
+    ARCHIVE DESTINATION lib) 
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER common_runtime )
+set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS -Wl,-Bsymbolic )

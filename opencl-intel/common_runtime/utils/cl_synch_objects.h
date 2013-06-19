@@ -54,8 +54,9 @@ public:
     void Unlock();
 protected:
     void* m_mutexHndl;
+    void* m_mutexAttr;
 private:
-unsigned int m_uiSpinCount;
+    unsigned int m_uiSpinCount;
 };
 
 
@@ -86,4 +87,4 @@ protected:
 };
 
 } // namespace Utils
-}; // namespace OCLCRT
+} // namespace OCLCRT

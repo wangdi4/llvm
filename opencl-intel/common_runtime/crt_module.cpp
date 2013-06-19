@@ -28,13 +28,12 @@
 using namespace OCLCRT;
 
 #define REGISTER_DISPATCH_ENTRYPOINT(__NAME__,__ADDRESS__) \
-    m_icdDispatchTable.##__NAME__ = (__ADDRESS__);
+    m_icdDispatchTable . __NAME__ = (__ADDRESS__);
 
 namespace OCLCRT
 {
     extern CrtModule crt_ocl_module;
-};
-
+}
 
 IcdDispatchMgr::IcdDispatchMgr()
 {
@@ -114,12 +113,17 @@ IcdDispatchMgr::IcdDispatchMgr()
     // clEnqueueReleaseGLObjects
     REGISTER_DISPATCH_ENTRYPOINT( clGetGLContextInfoKHR , clGetGLContextInfoKHR )
 
+#ifdef _WIN32
+    REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceIDsFromDX9MediaAdapterKHR , clGetDeviceIDsFromDX9MediaAdapterKHR )
     REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceIDsFromD3D10KHR , clGetDeviceIDsFromD3D10KHR )
     // clCreateFromD3D10BufferKHR
     // clCreateFromD3D10Texture2DKHR
     // clCreateFromD3D10Texture3DKHR
     // clEnqueueAcquireD3D10ObjectsKHR
     // clEnqueueReleaseD3D10ObjectsKHR
+
+    REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceIDsFromD3D11KHR , clGetDeviceIDsFromD3D11KHR )
+#endif
 
     REGISTER_DISPATCH_ENTRYPOINT( clSetEventCallback , clSetEventCallback )
     REGISTER_DISPATCH_ENTRYPOINT( clCreateSubBuffer , clCreateSubBuffer )
@@ -153,18 +157,17 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT( clGetExtensionFunctionAddressForPlatform , clGetExtensionFunctionAddressForPlatform )
     // clCreateFromGLTexture
 
-    REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceIDsFromD3D11KHR , clGetDeviceIDsFromD3D11KHR )
+    
     // clCreateFromD3D11BufferKHR
     // clCreateFromD3D11Texture2DKHR
     // clCreateFromD3D11Texture3DKHR
     // clCreateFromDX9MediaSurfaceKHR
     // clEnqueueAcquireD3D11ObjectsKHR
     // clEnqueueReleaseD3D11ObjectsKHR
-
-    REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceIDsFromDX9MediaAdapterKHR , clGetDeviceIDsFromDX9MediaAdapterKHR )
+    
     // clEnqueueAcquireDX9MediaSurfacesKHR
     // clEnqueueReleaseDX9MediaSurfacesKHR
-};
+}
 
 CrtModule::CrtModule():
 m_deviceInfoMapGuard(m_deviceInfoMap),
@@ -202,11 +205,9 @@ crt_err_code CrtModule::PatchClContextID(cl_context& inContextId, KHRicdVendorDi
 
 bool OCLCRT::isSupportedContextType(const cl_context_properties* properties)
 {
-    cl_int errCode = CL_SUCCESS;
-
     if( properties != NULL )
     {
-        while( *properties != NULL )
+        while( properties[ 0 ] != NULL )
         {
             switch( properties[ 0 ] )
             {
@@ -222,6 +223,7 @@ bool OCLCRT::isSupportedContextType(const cl_context_properties* properties)
                     return false;
                 }
                 break;
+#ifdef _WIN32
             case CL_CONTEXT_D3D10_DEVICE_KHR:
                 if( properties[ 1 ] != NULL )
                 {
@@ -241,6 +243,7 @@ bool OCLCRT::isSupportedContextType(const cl_context_properties* properties)
                     return false;
                 }
                 break;
+#endif
             default:
                 break;
             }
@@ -288,7 +291,7 @@ crt_err_code CrtModule::Initialize()
                 res = CRT_FAIL;
                 break;
             }
-            KHRpfn_clGetPlatformIDs pfn_clGetPlatformIDs =  (KHRpfn_clGetPlatformIDs)clGetExtFuncAddr("clIcdGetPlatformIDsKHR");
+            KHRpfn_clGetPlatformIDs pfn_clGetPlatformIDs =  (KHRpfn_clGetPlatformIDs)(ptrdiff_t)clGetExtFuncAddr("clIcdGetPlatformIDsKHR");
             if (NULL == pfn_clGetPlatformIDs || !(CL_SUCCESS == pfn_clGetPlatformIDs(1, &pCrtPlatform->m_platformIdDEV, NULL)))
             {
                 delete pCrtPlatform;
@@ -378,10 +381,11 @@ crt_err_code CrtModule::Initialize()
                 break;
             }
 
-            OCLCRT::crt_ocl_module.m_CrtPlatformVersion = max(
-                OCLCRT::crt_ocl_module.m_CrtPlatformVersion,
-                curPlatVer );
-
+            OCLCRT::crt_ocl_module.m_CrtPlatformVersion = 
+				( OCLCRT::crt_ocl_module.m_CrtPlatformVersion >= curPlatVer ) ? 
+				OCLCRT::crt_ocl_module.m_CrtPlatformVersion : 
+				curPlatVer;
+                
             cl_uint num_devices = 0;
             pCrtPlatform->m_platformIdDEV->dispatch->clGetDeviceIDs(
                                     pCrtPlatform->m_platformIdDEV,
@@ -479,10 +483,12 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
     cl_bool cl_ctx_interop_user_sync_set    = CL_FALSE;
     cl_bool cl_gl_context_khr_set           = CL_FALSE;
     cl_bool cl_wgl_hdc_khr_set              = CL_FALSE;
+#ifdef _WIN32
     cl_bool cl_d3d10_device_khr_set         = CL_FALSE;
     cl_bool cl_d3d9_device_intel_set        = CL_FALSE;
     cl_bool cl_dxva9_device_intel_set       = CL_FALSE;
     cl_bool cl_d3d11_device_khr_set         = CL_FALSE;
+#endif
 
     if( properties != NULL )
     {
@@ -523,6 +529,7 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 }
                 cl_wgl_hdc_khr_set = CL_TRUE;
                 break;
+#ifdef _WIN32
             case CL_CONTEXT_D3D10_DEVICE_KHR:
                 if( cl_d3d10_device_khr_set == CL_TRUE )
                 {
@@ -555,6 +562,7 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 }
                 cl_dxva9_device_intel_set  = CL_TRUE;
                 break;
+#endif
             default:
                 return CL_INVALID_PROPERTY;
             }

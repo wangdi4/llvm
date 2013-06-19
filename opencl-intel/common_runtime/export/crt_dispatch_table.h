@@ -1,10 +1,14 @@
 #pragma once
 
-#include "icd\icd_dispatch.h"
+#include "icd/icd_dispatch.h"
+
+#ifdef _WIN32
 #include <CL/cl_d3d9.h>
+#endif
 
 namespace CRT_ICD_DISPATCH
 {
+#ifdef _WIN32
     typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueAcquireDX9ObjectsINTEL)(
         cl_command_queue            /* command_queue */,
         cl_uint                     /* num_objects */,
@@ -37,6 +41,13 @@ namespace CRT_ICD_DISPATCH
         cl_uint                     /* num_entries */,
         cl_device_id *              /* devices */,
         cl_uint *                   /* num_devices */ );
+
+#else   //Linux/Android
+    typedef void *INTELpfn_clCreateFromDX9MediaSurfaceINTEL();
+    typedef void *INTELpfn_clEnqueueAcquireDX9ObjectsINTEL();
+    typedef void *INTELpfn_clEnqueueReleaseDX9ObjectsINTEL();
+    typedef void *INTELpfn_clGetDeviceIDsFromDX9INTEL();
+#endif
 
     typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetImageParamsINTEL)(
         cl_context                  context,
@@ -112,4 +123,4 @@ namespace CRT_ICD_DISPATCH
         KHRicdVendorDispatch*                           icdDispatch;
         SOCLCRTDispatchTable*                           crtDispatch;
     };  
-};
+}

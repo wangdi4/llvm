@@ -24,7 +24,7 @@
 #pragma once
 
 #include "crt_types.h"
-#include "export\crt_dispatch_table.h"
+#include "export/crt_dispatch_table.h"
 
 using namespace CRT_ICD_DISPATCH;
 // vendor dispatch table structure

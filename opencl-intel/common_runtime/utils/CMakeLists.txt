@@ -7,11 +7,6 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME common_runtime_utils )
 
-include_directories( AFTER
-            ${CMAKE_CURRENT_SOURCE_DIR}/Utils
-            )
-
-
 set(FILES_TO_COPY 
 		${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} 
 		)
@@ -21,5 +16,4 @@ CALCULATE_TARGET_SOURCES()
 
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
-
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER common_runtime )

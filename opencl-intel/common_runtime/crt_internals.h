@@ -23,7 +23,7 @@
 #pragma once
 
 #include "crt_interface.h"
-
+#include <cstring>
 #include <crt_dynamic_lib.h>
 #include <cl_synch_objects.h>
 #include <list>
@@ -53,6 +53,27 @@ typedef std::vector<void*>                          MEMMAP_PTR_VEC;
 bool operator==(const cl_image_format &rhs1, const cl_image_format &rhs2);
 bool operator<(const cl_image_format &rhs1, const cl_image_format &rhs2);
 
+#ifdef _WIN32
+#define ALIGNED_MALLOC( size, alignment ) _aligned_malloc( size, (alignment) < sizeof(void*) ? sizeof(void*) : (alignment))
+#define ALIGNED_FREE _aligned_free
+#elif defined(__ANDROID__)
+inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
+{
+    return memalign( alignment < sizeof(void*) ? sizeof(void*) : alignment, size);
+}
+#define ALIGNED_FREE free
+#else
+inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
+{
+    void* t = NULL;
+    if (0 != posix_memalign(&t, alignment < sizeof(void*) ? sizeof(void*) : alignment, size))
+    {
+        t = NULL;
+    }
+    return t;
+}
+#define ALIGNED_FREE free
+#endif
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -372,6 +393,7 @@ public:
 };
 
 
+#ifdef _WIN32
 class CrtDX9MediaSurface: public CrtMemObject
 {
 public:
@@ -396,6 +418,7 @@ public:
     HANDLE                  m_sharedHandle;
     UINT                    m_plane;
 };
+#endif
 
 size_t  GetImageElementSize(const cl_image_format * format);
 
@@ -434,7 +457,7 @@ public:
     // overriding CrtMemOBject::Create for creating buffers (not sub-buffers)
     cl_int Create(CrtMemObject** memObj);
 
-    const cl_image_format       m_imageFormat;
+    cl_image_format             m_imageFormat;
     CrtImageDesc                m_imageDesc;
 
     // Parameters provided by the user on image create
@@ -529,13 +552,14 @@ public:
         cl_GLuint               texture,
         CrtMemObject**          memObj);
 
+#ifdef _WIN32
     cl_int CreateFromDX9MediaSurface(
         cl_mem_flags            flags,
         IDirect3DSurface9 *     resource,
         HANDLE                  sharehandle,
         UINT                    plane,
         CrtMemObject**          memObj);
-
+#endif
     cl_int CreateSampler(
         cl_bool                 normalized_coords,
         cl_addressing_mode      addressing_mode,
@@ -791,7 +815,7 @@ public:
     void Remove(TKEY key)
     {
         m_mutex.Lock();
-        std::map<TKEY,TVAL>::iterator itr = m_map.find(key);
+        typename std::map<TKEY,TVAL>::iterator itr = m_map.find(key);
         m_map.erase(itr);
         m_mutex.Unlock();
     }

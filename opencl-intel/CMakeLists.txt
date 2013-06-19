@@ -339,9 +339,9 @@ else(APPLE)
 
     # Common Runime
     option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
-    if (WIN32 AND INCLUDE_CMRT)
+    if ( INCLUDE_CMRT )
       add_subdirectory ( common_runtime )
-    endif(WIN32 AND INCLUDE_CMRT)
+    endif( INCLUDE_CMRT )
     #tools
     if( INCLUDE_TOOLS )
         add_subdirectory ( tools )

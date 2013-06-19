@@ -174,6 +174,8 @@ if (WIN32)
         install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
     endif(INSTALL_PDBS)    
     install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
+else (WIN32)
+    set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
 endif(WIN32)
 
 add_definitions( -D__STDC_LIMIT_MACROS )

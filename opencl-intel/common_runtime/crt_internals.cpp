@@ -20,6 +20,7 @@
 //
 //  Original author: rjiossy
 ///////////////////////////////////////////////////////////
+#include <cl_secure_string.h>
 #include "crt_internals.h"
 #include "crt_module.h"
 #include <iostream>
@@ -30,7 +31,7 @@
 namespace OCLCRT
 {
     extern CrtModule crt_ocl_module;
-};
+}
 
 CrtObject::CrtObject():
 m_refCount(1), m_pendencyCount(1)
@@ -159,7 +160,7 @@ void CopyMemoryObject(MemCpyParams* pCopyCmd)
 /// ------------------------------------------------------------------------------
 // User event Callback, which releases userevent when called by all
 // registered callbacks
-void __stdcall CrtEventCallBack(cl_event e, cl_int status, void* user_data)
+void CL_CALLBACK CrtEventCallBack(cl_event e, cl_int status, void* user_data)
 {
     CrtEventCallBackData* evData = (CrtEventCallBackData*)user_data;
 
@@ -167,7 +168,7 @@ void __stdcall CrtEventCallBack(cl_event e, cl_int status, void* user_data)
     if (0 == atomic_decrement(&(evData->numReqCalls)))
     {
         // Release the crt user event (bridge)
-        cl_int error = evData->m_eventDEV->dispatch->clSetUserEventStatus(
+        evData->m_eventDEV->dispatch->clSetUserEventStatus(
             evData->m_eventDEV, CL_COMPLETE);
 
         evData->m_eventDEV->dispatch->clReleaseEvent(evData->m_eventDEV);
@@ -229,7 +230,6 @@ void CL_CALLBACK CrtMemDtorForwarder(cl_mem m, void* userData)
 
 void CL_CALLBACK buildCompleteFn( cl_program program, void *userData )
 {
-    cl_int errCode              = CL_SUCCESS;
     CrtBuildCallBackData *data  = ( CrtBuildCallBackData* ) userData;
     cl_program pgm              = data->m_clProgramHandle;
 
@@ -548,7 +548,7 @@ CrtMemObject::~CrtMemObject()
     if( m_pBstPtr &&
         ( !( m_flags & CL_MEM_USE_HOST_PTR ) || m_pUsrPtr ) )
     {
-        _aligned_free(m_pBstPtr);
+        ALIGNED_FREE(m_pBstPtr);
         m_pBstPtr = NULL;
     }
     m_pContext->DecPendencyCnt();
@@ -715,7 +715,7 @@ cl_int CrtBuffer::Create(CrtMemObject** bufObj)
     else if( m_pBstPtr == NULL && !m_pContext->memObjectAlwaysNotInSync( CrtObject::CL_BUFFER ) )
     {
         // Convert bits to bytes
-        m_pBstPtr = _aligned_malloc( m_size, m_pContext->getAlignment( CrtObject::CL_BUFFER ) );
+        m_pBstPtr = ALIGNED_MALLOC( m_size, m_pContext->getAlignment( CrtObject::CL_BUFFER ) );
 
         if ( !m_pBstPtr )
         {
@@ -831,8 +831,7 @@ cl_int CrtBuffer::Create(
     CrtMemDtorCallBackData* memData = new CrtMemDtorCallBackData;
     if( NULL == memData )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        return CL_OUT_OF_HOST_MEMORY;
     }
     memData->m_count = 0;
     memData->m_clMemHandle = this;
@@ -1052,6 +1051,7 @@ FINISH:
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
+#ifdef _WIN32
 CrtDX9MediaSurface::CrtDX9MediaSurface(
     cl_mem_flags            flags,
     IDirect3DSurface9*      resource,
@@ -1142,6 +1142,7 @@ FINISH:
     }
     return errCode;
 }
+#endif
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -1385,7 +1386,7 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
              ( m_pContext->memObjectAlwaysNotInSync( CrtObject::CL_IMAGE ) == false ) )
     {
         // Convert bits to bytes
-        m_pBstPtr = _aligned_malloc( m_size, m_pContext->getAlignment( CrtObject::CL_IMAGE ) );
+        m_pBstPtr = ALIGNED_MALLOC( m_size, m_pContext->getAlignment( CrtObject::CL_IMAGE ) );
 
         if( !m_pBstPtr )
         {
@@ -1447,7 +1448,6 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
     memData->m_count = 0;
     memData->m_clMemHandle = this;
 
-    cl_uint numActualImages = 0;
     SHARED_CTX_DISPATCH::iterator itr = m_pContext->m_contexts.begin();
     for( ;itr != m_pContext->m_contexts.end(); itr++ )
     {
@@ -1459,7 +1459,7 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
                                      ((m_flags | CL_MEM_USE_HOST_PTR ) & ~CL_MEM_ALLOC_HOST_PTR) & ~CL_MEM_COPY_HOST_PTR;
         cl_mem memObj  = NULL;        
         cl_image_desc* imageDesc = &m_imageDesc.desc;
-        cl_image_desc imageDescCopy = { 0 };
+        cl_image_desc imageDescCopy;
         if( crtBuffer )
         {
             // In case of Image from Buffer; we need to replace the buffer
@@ -1573,7 +1573,6 @@ cl_int CrtGLImage::Create(CrtMemObject**  imageObj)
     memData->m_count = 0;
     memData->m_clMemHandle = this;
     
-    cl_uint numActualImages = 0;
     SHARED_CTX_DISPATCH::iterator itr = m_pContext->m_contexts.begin(); 
     for( ;itr != m_pContext->m_contexts.end(); itr++ )
     {
@@ -2487,8 +2486,11 @@ cl_int SyncManager::PrepareToExecute(
     cl_uint*        numOutEvents,
     cl_event**      OutEvents)
 {
-    CrtEvent*   nullEvent = NULL;
-    cl_int errCode = CL_SUCCESS;
+    CrtEvent *nullEvent     = NULL;
+    cl_int errCode          = CL_SUCCESS;
+    cl_uint numReqCalls     = 0;
+    cl_context dstContext   = NULL;
+    cl_uint j                = 0;
     
     if( ( ( inEventWaitList == NULL ) && ( NumEventsInWaitList > 0 ) ) || 
         ( ( inEventWaitList != NULL ) && ( NumEventsInWaitList == 0 ) ) )
@@ -2506,7 +2508,7 @@ cl_int SyncManager::PrepareToExecute(
         }
     }
 
-    cl_context dstContext = queue->m_contextCRT->m_DeviceToContext[queue->m_device];
+    dstContext = queue->m_contextCRT->m_DeviceToContext[queue->m_device];
     if( NumEventsInWaitList != 0 )
     {
         m_outEventArray = new cl_event[NumEventsInWaitList];
@@ -2515,8 +2517,7 @@ cl_int SyncManager::PrepareToExecute(
             errCode = CL_OUT_OF_HOST_MEMORY;
             goto FINISH;
         }
-    }
-    cl_uint numReqCalls = 0;
+    }    
     for( cl_uint i=0; i < NumEventsInWaitList; i++ )
     {
         const CrtEvent* waitEvent  = NULL;
@@ -2545,7 +2546,6 @@ cl_int SyncManager::PrepareToExecute(
     }
 
     m_eventRetained = false;
-    cl_uint j = 0;
     for( cl_uint i=0; i < NumEventsInWaitList; i++ )
     {
         const CrtEvent* waitEvent  = NULL;
@@ -2775,6 +2775,7 @@ cl_uint GetPlatformVersion( const char* platform_version )
     return version;
 }
 
+#ifdef _WIN32
 cl_int CrtContext::CreateFromDX9MediaSurface(        
         cl_mem_flags            flags,        
         IDirect3DSurface9 *     resource,
@@ -2803,6 +2804,7 @@ cl_int CrtContext::CreateFromDX9MediaSurface(
     }
     return errCode;
 }
+#endif
 
 cl_int CrtContext::CreateGLBuffer(
     bool                    isRender,
@@ -2824,7 +2826,7 @@ cl_int CrtContext::CreateGLBuffer(
         buffer->DecPendencyCnt();
     }
     return errCode;
-};
+}
 
 cl_int CrtContext::CreateGLImage(
     cl_uint                 dim_count,
@@ -2856,4 +2858,4 @@ cl_int CrtContext::CreateGLImage(
         image->DecPendencyCnt();
     }
     return errCode;
-};
+}

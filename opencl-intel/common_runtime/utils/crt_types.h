@@ -24,9 +24,10 @@
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
 #include <assert.h>
+#ifdef _WIN32
 #include <intrin.h>
 #include <windows.h>
-#pragma intrinsic( _InterlockedCompareExchange )
+#endif
 
 typedef void (CL_CALLBACK *user_func)(void *);
 typedef void (CL_CALLBACK *ctxt_logging_fn)(const char *, const void *, size_t, void *);
@@ -78,23 +79,29 @@ typedef enum
 // Atomic Functions
 inline cl_uint atomic_increment(long* Addend)
 {
+#ifdef _WIN32
     return (long)_InterlockedIncrement( (volatile long*)Addend );
+#else
+    return __sync_add_and_fetch(Addend, 1);
+#endif
 }
 
 inline long atomic_decrement(long* Addend)
 {
+#ifdef _WIN32
     return (long)_InterlockedDecrement( (volatile long*)Addend );
+#else
+    return __sync_sub_and_fetch(Addend, 1);
+#endif
 }
 
-inline cl_uint atomic_add_ret_prev(long* Addend, long num)
-{
-    return (long)InterlockedExchangeAdd( (volatile long*)Addend, num);
-}
-
-inline long test_and_set(long* Addend, long comparand, long exchange)
-{
-    return (long)InterlockedCompareExchange((volatile long*)Addend,exchange,comparand);
-}
+#ifdef _WIN32
+#define SET_ALIAS(func) 
+#define GET_ALIAS(func) (func)
+#else
+#define SET_ALIAS(func) void intel_ocl_crt_##func() __attribute__ ((alias (#func))) 
+#define GET_ALIAS(func) intel_ocl_crt_##func 
+#endif
 
 #define cl_intel_dx9_media_sharing     1
 

@@ -49,7 +49,7 @@ namespace OCLCRT
             INTEL_GPU   =   0x2,    // For Images, means Intel GPU needs synchronization; For Buffer, it doesn't need to synchronize
             INTEL_CPU   =   0x0     // For Images and Buffers, there is not need to synchronize
         };
-    };
+    }
 
     class IcdDispatchMgr
     {
@@ -136,4 +136,4 @@ namespace OCLCRT
     };
 
 
-};
+}
