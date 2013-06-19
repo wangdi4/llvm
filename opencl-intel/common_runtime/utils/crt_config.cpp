@@ -76,8 +76,8 @@ crt_err_code CrtConfig::Init()
 
 
 #else // Linux/Android
-    m_libraryNames.push_back("intelocl.so");
-    m_libraryNames.push_back("igdrcl.so");
+    m_libraryNames.push_back("libintelocl.so");
+    m_libraryNames.push_back("libigdrcl.so");
 #endif
 
     return err;
