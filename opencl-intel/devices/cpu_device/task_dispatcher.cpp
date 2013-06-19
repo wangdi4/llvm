@@ -46,8 +46,6 @@
 #include <assert.h>
 #include <limits.h>
 
-#define SUB_DEVICE_SYNC_COMMAND ((void*)0x1)
-
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::TaskExecutor;
 using Intel::OpenCL::Utils::SharedPtr;
@@ -235,10 +233,12 @@ cl_dev_err_code TaskDispatcher::init()
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Activate();");
 
+    const size_t numMasters = 1;
+
     // create root device in flat mode with maximum threads, support for masters joining and 
     // one reserved position for master in device
     m_pRootDevice = m_pTaskExecutor->CreateRootDevice( 
-                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 1), 
+                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, numMasters), 
                     NULL, this );
 
 	m_bTEActivated = (NULL != m_pRootDevice);
@@ -255,7 +255,7 @@ cl_dev_err_code TaskDispatcher::init()
 		m_uiNumThreads = uiNumThreads;
 	}
 	
-	m_pWgContextPool->Init(m_uiNumThreads);
+	m_pWgContextPool->Init(m_uiNumThreads, numMasters);
 	
 #ifdef __INCLUDE_MKL__
 	m_pOMPExecutionThread = Intel::OpenCL::BuiltInKernels::OMPExecutorThread::Create(m_uiNumThreads);

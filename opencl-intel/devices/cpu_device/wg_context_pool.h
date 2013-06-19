@@ -46,7 +46,7 @@ public:
     /**
      * Init a context pool with enough contexts for maxNumWorkers workers
      */
-     void Init(unsigned int maxNumWorkers);
+     void Init(unsigned int maxNumThreads, unsigned int maxNumMasters);
 
     /**
      * Clear and delete all WG contexts
@@ -64,7 +64,7 @@ private:
     WGContext*                          m_wgContextPool;
     WGContextWrapper*                   m_wgContextWrapperPool;
     Intel::OpenCL::Utils::AtomicCounter m_nextWorkerContext;
-    unsigned int                        m_maxNumWorkers;
+    unsigned int                        m_maxNumThreads;
 
 };
 
