@@ -28,20 +28,20 @@ namespace Intel { namespace OpenCL { namespace Framework {
 /**
  * Represents a 1D image buffer object
  */
-class ImageBuffer : public GenericMemObject
+class Image1DBuffer : public GenericMemObject
 {
 
 public:
 
-    PREPARE_SHARED_PTR(ImageBuffer)
+    PREPARE_SHARED_PTR(Image1DBuffer)
 
-    static SharedPtr<ImageBuffer> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
+    static SharedPtr<Image1DBuffer> Allocate(SharedPtr<Context> pContext, cl_mem_object_type clObjType)
     {
-        return SharedPtr<ImageBuffer>(new ImageBuffer(pContext, clObjType));
+        return SharedPtr<Image1DBuffer>(new Image1DBuffer(pContext, clObjType));
     }
 
     /**
-     * Sets the buffer object from which the ImageBuffer is created and also increment its dependency
+     * Sets the buffer object from which the Image1DBuffer is created and also increment its dependency
      * @param pBuffer the buffer object
      */
     void SetBuffer(SharedPtr<GenericMemObject> pBuffer);
@@ -55,7 +55,7 @@ private:
     /**
      * Constructor
      */
-    ImageBuffer(SharedPtr<Context> pContext, cl_mem_object_type clObjType) : GenericMemObject(pContext, clObjType) { }
+    Image1DBuffer(SharedPtr<Context> pContext, cl_mem_object_type clObjType) : GenericMemObject(pContext, clObjType) { }
 
     SharedPtr<GenericMemObject> m_pBuffer;
 

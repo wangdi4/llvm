@@ -46,11 +46,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Context;
 	class MemoryObject;
 
-#define REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,AUX_ID,CLASS,IMPLEMETATION)	struct CLASS##CreatorRegister\
+#define REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS,IMPLEMETATION)	struct CLASS##CreatorRegister\
 	{\
 		CLASS##CreatorRegister()\
 		{\
-		MemoryObjectFactory::GetInstance()->RegisterMemoryObjectCreator(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,AUX_ID,&CLASS##CreatorRegister::Create);\
+		MemoryObjectFactory::GetInstance()->RegisterMemoryObjectCreator(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,&CLASS##CreatorRegister::Create);\
 		}\
 		static SharedPtr<MemoryObject> Create(SharedPtr<Context> pContext, cl_mem_object_type clObjType)\
 		{\
@@ -71,11 +71,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		void	RegisterMemoryObjectCreator(cl_bitfield iSupportedDevices,
 											int iGfxSysSharing,
 											cl_mem_object_type clObjType,
-											int iAuxId,
 											fn_MemoryObjectCreator* pMemObjCreator);
 
 		cl_err_code CreateMemoryObject( cl_bitfield iRequiredDevices, cl_mem_object_type clObjType, int iGfxSysSharing,
-											SharedPtr<Context> pContext, SharedPtr<MemoryObject> *pMemObject, int iAuxId = 0);
+											SharedPtr<Context> pContext, SharedPtr<MemoryObject> *pMemObject);
 
 	protected:
 		struct FactoryKey
@@ -83,7 +82,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			cl_mem_object_type	clObjType;
 			cl_bitfield			iSupportedDevices;
 			int					iGfxSysSharing;
-			int					iAuxId;	// an auxiliary ID for registering different creators for the same object type
 
 			bool operator<(const FactoryKey& _Right) const;
 		};
@@ -92,15 +90,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	};
 
 // This macro level constructs an object creator class name as a concatenation of a memory object class name and random number
-#define REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL_WRAP(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,AUX_ID,CLASS,NUMBER)\
-	REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,AUX_ID,CLASS##_##NUMBER##_,CLASS)
+#define REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL_WRAP(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS,NUMBER)\
+	REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS##_##NUMBER##_,CLASS)
 
 // This macro level just desacralizes __LINE__ macro and converts it into simple number 
-#define REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL_WRAP1(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,AUX_ID,CLASS,NUMBER)\
-	REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL_WRAP(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,AUX_ID,CLASS,NUMBER)
+#define REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL_WRAP1(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS,NUMBER)\
+	REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL_WRAP(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS,NUMBER)
 
 // This macro level is required to add a __LINE__ macro operand
-#define REGISTER_MEMORY_OBJECT_CREATOR(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,AUX_ID,CLASS)\
-	REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL_WRAP1(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,AUX_ID,CLASS,__LINE__)
+#define REGISTER_MEMORY_OBJECT_CREATOR(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS)\
+	REGISTER_MEMORY_OBJECT_CREATOR_INTERNAL_WRAP1(SUPPORTED_DEVICES,GFX_SHARE,OBJECT_TYPE,CLASS,__LINE__)
 
 }}}

@@ -332,9 +332,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// registered callbacks are called in reverse order.
 		cl_err_code registerDtorNotifierCallback(mem_dtor_fn pfn_notify, void* pUserData);
 
-		// returns the address of the host pointer or NULL if there is none
-		const void* GetHostPtr() const { return m_pHostPtr; }
-
 		protected:
 			MemoryObject(SharedPtr<Context> pContext);
 			virtual ~MemoryObject();

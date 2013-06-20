@@ -104,7 +104,7 @@ typedef struct _cl_image_desc {
     size_t                  image_slice_pitch;
     cl_uint                 num_mip_levels;
     cl_uint                 num_samples;
-	cl_mem					buffer;		// In OpenCL 2.0 it has been renamed "mem_object", but we keep this name for now for backward compatibility. We'll raise this issue with Khronos.
+    cl_mem                  buffer;
 } cl_image_desc;
 
 typedef struct _cl_buffer_region {
@@ -370,12 +370,6 @@ typedef struct _cl_buffer_region {
 #define CL_RGBx                                     0x10BC
 #define CL_DEPTH                                    0x10BD
 #define CL_DEPTH_STENCIL                            0x10BE
-
-#define CL_sRGB										0x10BF
-#define CL_sRGBx									0x10C0
-#define CL_sRGBA									0x10C1
-#define CL_sBGRA									0x10C2
-#define CL_ABGR										0x10C3
 
 /* cl_channel_type */
 #define CL_SNORM_INT8                               0x10D0

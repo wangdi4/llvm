@@ -19,17 +19,17 @@
 // problem reports or change requests be submitted to it directly
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//  ImageBuffer.cpp
+//  Image1DBuffer.cpp
 //  Implementation of the Image1DBufer Class
 //  Created on:      22-Aug-2011
 //  Original author: kdmitry
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "ImageBuffer.h"
+#include "Image1DBuffer.h"
 
 using namespace Intel::OpenCL::Framework;
 
-cl_err_code ImageBuffer::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const
+cl_err_code Image1DBuffer::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const
 {
     if (NULL == pParamValue && NULL == pszParamValueSizeRet)
     {
@@ -54,7 +54,7 @@ cl_err_code ImageBuffer::GetImageInfo(cl_image_info clParamName, size_t szParamV
     return GenericMemObject::GetImageInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
 
-void ImageBuffer::SetBuffer(SharedPtr<GenericMemObject> pBuffer)
+void Image1DBuffer::SetBuffer(SharedPtr<GenericMemObject> pBuffer)
 {
     m_pBuffer = pBuffer;
 }
