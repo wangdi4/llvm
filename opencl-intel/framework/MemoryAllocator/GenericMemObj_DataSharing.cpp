@@ -354,6 +354,20 @@ void GenericMemObject::data_sharing_fsm_process( bool acquire,
             }
         }
 
+		// In case that the user send in parallel buffers with read / write permission but only read is going to be done, We should invalidate the data of the first request in the group that join to MULTIPLE_VALID_WITH_PARALLEL_WRITERS_HISTORY.
+		// if (I'm the first in my sharing group) AND (I didn't get updated data) AND (Joining MULTIPLE_VALID_WITH_PARALLEL_WRITERS_HISTOR)Y AND (not only my sharing group is running now in MULTIPLE_VALID_WITH_PARALLEL_WRITERS_HISTORY state)
+		// AND (nobody copies data from me now)
+		if ((1 == my_group.m_active_users_count) && (false == data_transferred) && (0 < m_data_valid_state.m_groups_with_active_writers_count) 
+			&& (m_data_valid_state.m_groups_with_active_writers_count > my_group.m_active_writers_count) && (false == my_group.m_data_copy_invalidate_asap))
+		{
+			invalidate_data_for_group(my_group);
+			if (false == my_group.m_data_copy_invalidate_asap)
+			{
+				m_pBackingStore->SetDataValid(false);
+				data_sharing_bring_data_to_sharing_group(group_id, &data_transferred, returned_event);
+			}
+		}
+
         // remove deferred invalidation if it was requested for target group
         my_group.m_data_copy_invalidate_asap = false;
 
@@ -423,7 +437,7 @@ void GenericMemObject::data_sharing_fsm_process( bool acquire,
             break;
 
         case MULTIPLE_VALID_WITH_PARALLEL_WRITERS_HISTORY:
-            if ((WRITERS_INCREASED == writers_change) && (1 == m_data_valid_state.m_groups_with_active_writers_count))
+            if ((WRITERS_NOT_CHANGED != writers_change) && (1 == m_data_valid_state.m_groups_with_active_writers_count))
             {
                 // unique writer added 
                 m_data_valid_state.m_data_sharing_state = MULTIPLE_VALID_WITH_SEQUENTIAL_WRITERS_HISTORY;
@@ -499,7 +513,7 @@ void GenericMemObject::invalidate_data_for_group( SharingGroup& group )
 
     group.m_data_copy_invalidate_asap = false;
 
-    assert( (0 == group.m_active_users_count) && "Try to invalidate data while active users exist" );
+    assert( (1 >= group.m_active_users_count) && "Try to invalidate data while active users exist (that is not myself)" );
 
     cl_dev_err_code dev_error = group.m_dev_mem_obj->clDevMemObjInvalidateData();
     assert( CL_DEV_SUCCEEDED(dev_error) && "clDevMemObjInvalidateData() failed" );

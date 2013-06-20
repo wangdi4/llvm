@@ -1,6 +1,7 @@
 #include "CL/cl.h"
 #include "cl_types.h"
 #include <stdio.h>
+#include <cstring>
 #include <time.h>
 #include <algorithm>
 #include "FrameworkTest.h"
@@ -838,6 +839,501 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 
 
 
+
+
+
+/********************************************************************************************************/
+#define NUM_SUB_BUFFERS  6
+#define NUM_BUFFERS  2
+#define BUFFER_SIZE  NUM_SUB_BUFFERS * 1024 * 1024
+bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
+{
+	const char *ocl_test_program[] = {\
+	"__kernel void dot_product (global const float* inArr1, global const float* inArr2, global const float* inArr3, global float* out, float inExp1, float inExp2, float inExp3, float outExpBefore, float outExpAfter, int iter, global int* validationArr)"\
+	"{"\
+	"int tid = get_global_id(0);"\
+	"if (inArr1[tid] != (inExp1))" \
+	"{" \
+	"	validationArr[0] = -1;"\
+	"	validationArr[1] = inExp1;"\
+	"	validationArr[2] = inArr1[tid];"\
+	"}" \
+	"if (inArr2[tid] != (inExp2))" \
+	"{" \
+	"	validationArr[3] = -1;"\
+	"	validationArr[4] = inExp2;"\
+	"	validationArr[5] = inArr2[tid];"\
+	"}" \
+	"if (inArr3[tid] != (inExp3))" \
+	"{" \
+	"	validationArr[6] = -1;"\
+	"	validationArr[7] = inExp3;"\
+	"	validationArr[8] = inArr3[tid];"\
+	"}" \
+	"if (out[tid] != (outExpBefore))" \
+	"{" \
+	"	validationArr[9] = -1;"\
+	"	validationArr[10] = outExpBefore;"\
+	"	validationArr[11] = out[tid];"\
+	"}" \
+	"out[tid] = inArr1[tid] + inArr2[tid] + inArr3[tid];"\
+	"if (out[tid] != (outExpAfter))" \
+	"{" \
+	"	validationArr[9] = -1;"\
+	"	validationArr[10] = outExpAfter;"\
+	"	validationArr[11] = out[tid];"\
+	"}" \
+	"}"
+	};
+
+	bool bResult = true;
+	cl_uint uiNumDevices = 0;
+	cl_device_id * pDevices;
+	size_t * pBinarySizes;
+	cl_int * pBinaryStatus; 
+	cl_context context;
+
+	cl_platform_id platform = 0;
+
+	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
+	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+
+	if (!bResult)
+	{
+		return bResult;
+	}
+
+	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+
+	// get device(s)
+	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ACCELERATOR, 0, NULL, &uiNumDevices);
+	// If CL_DEVICE_TYPE_ACCELERATOR does not exist, skip this test.
+	if ((CL_SUCCESS != iRet) || (0 == uiNumDevices))
+	{
+		return bResult;
+	}
+
+	// One CPU device and One MIC device.
+	uiNumDevices = 2;
+
+	// initialize arrays
+	pDevices = new cl_device_id[uiNumDevices];
+	pBinarySizes = new size_t[uiNumDevices];
+	pBinaryStatus = new cl_int[uiNumDevices];
+
+	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &(pDevices[0]), NULL);
+	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	if (!bResult)
+	{
+		delete []pDevices;
+		delete []pBinarySizes;
+		delete []pBinaryStatus;
+		return bResult;
+	}
+
+	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ACCELERATOR, 1, &(pDevices[1]), NULL);
+	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	if (!bResult)
+	{
+		delete []pDevices;
+		delete []pBinarySizes;
+		delete []pBinaryStatus;
+		return bResult;
+	}
+
+	// create context
+	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
+	bResult &= SilentCheck(L"clCreateContext",CL_SUCCESS, iRet);
+	if (!bResult)
+	{
+		delete []pDevices;
+		delete []pBinarySizes;
+		delete []pBinaryStatus;
+		return bResult;
+	}
+
+	size_t alignment = 1;
+
+    for(cl_uint i = 0; i < uiNumDevices; ++i)
+    {
+        cl_uint device_alignment_in_bits = 1;
+
+        iRet = clGetDeviceInfo(
+            pDevices[i],
+            CL_DEVICE_MEM_BASE_ADDR_ALIGN,
+            sizeof(device_alignment_in_bits),
+            &device_alignment_in_bits,
+            0
+        );
+
+        // Supposing that alignment can be power of 2 only,
+        // we get maximum of all values for all devices to satisfy all of them.
+        alignment = max(alignment, size_t(device_alignment_in_bits/8));
+    }
+
+    assert(alignment % sizeof(float) == 0);
+
+	vector<float*> hostMem(NUM_BUFFERS);
+	for (unsigned int i = 0; i < NUM_BUFFERS; i++)
+	{
+		hostMem[i] = (float*)ALIGNED_MALLOC(BUFFER_SIZE, alignment);
+	}
+
+	size_t num_elements_in_buffer = BUFFER_SIZE / sizeof(float);
+	size_t num_elements_in_subbuffer = num_elements_in_buffer / NUM_SUB_BUFFERS;
+
+	for (unsigned int i = 0; i < NUM_BUFFERS; i++)
+	{
+		for (unsigned int j = 0; j < NUM_SUB_BUFFERS; j++)
+		{
+			for (unsigned int k = 0; k < num_elements_in_subbuffer; k++)
+			{
+				hostMem[i][(j * num_elements_in_subbuffer) + k] = (j + 1);
+			}
+		}
+	}
+
+	vector<cl_mem> buffers(NUM_BUFFERS);
+
+    for(size_t i = 0; i < NUM_BUFFERS; ++i)
+    {
+        buffers[i] = clCreateBuffer(
+            context,
+            CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
+            BUFFER_SIZE,
+            hostMem[i],
+            &iRet
+        );
+		bResult &= SilentCheck(L"clCreateBuffer - srcA", CL_SUCCESS, iRet);
+    }
+
+	// create program with source
+	cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
+	bResult &= SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+
+	iRet = clBuildProgram(program, uiNumDevices, pDevices, "-cl-denorms-are-zero", NULL, NULL);
+	bResult &= SilentCheck(L"clBuildProgram", CL_SUCCESS, iRet);
+
+    //
+    // Create Kernel
+    //
+    cl_kernel kernel1 = clCreateKernel(program, "dot_product", &iRet);
+	bResult &= SilentCheck(L"clCreateKernel - dot_product", CL_SUCCESS, iRet);
+
+    //
+    // Create queue
+    //
+	vector<cl_command_queue> queues(uiNumDevices);
+	for (unsigned int i = 0; i < uiNumDevices; i++)
+	{
+		queues[i] = clCreateCommandQueue (context, pDevices[i], 0 /*no properties*/, &iRet);
+		bResult &= SilentCheck(L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+	}
+
+	vector<cl_mem* > subBuffers(NUM_BUFFERS);
+	for (unsigned int i = 0; i < NUM_BUFFERS; i++)
+	{
+		subBuffers[i] = new cl_mem[ NUM_SUB_BUFFERS ];
+		for (unsigned int j = 0; j < NUM_SUB_BUFFERS; j++)
+		{
+			cl_buffer_region region = {j * (BUFFER_SIZE / NUM_SUB_BUFFERS), (BUFFER_SIZE / NUM_SUB_BUFFERS)};
+			subBuffers[i][j] = clCreateSubBuffer(
+                        buffers[i],
+                        0,
+                        CL_BUFFER_CREATE_TYPE_REGION,
+                        &region,
+                        &iRet
+                    );
+
+			bResult &= SilentCheck(L"clCreateSubBuffer", CL_SUCCESS, iRet);
+		}
+	}
+
+	const unsigned int num_iterations = 2;
+	const unsigned int num_ndranges = num_iterations * uiNumDevices * 2;
+	const unsigned int total_rounds = uiNumDevices * 2 * num_iterations;
+	vector<cl_event> events(total_rounds);
+
+	float resArr[9][2][NUM_SUB_BUFFERS] = {
+		{{1,2,3,4,5,6}, {1,2,3,4,5,6}},
+		{{1,2,3,4,5,6}, {1,2,9,4,5,6}},
+		{{1,2,3,4,5,6}, {1,6,9,4,5,6}},
+		{{1,2,3,4,5,6}, {1,6,9,12,5,6}},
+		{{1,2,3,4,5,6}, {1,6,9,12,15,6}},
+		{{1,2,27,4,5,6}, {1,6,9,12,15,6}},
+		{{1,16,27,4,5,6}, {1,6,9,12,15,6}},
+		{{1,16,27,36,5,6}, {1,6,9,12,15,6}},
+		{{1,16,27,36,33,6}, {1,6,9,12,15,6}}
+	};
+
+	float outResArr[8][2] = {
+		{3, 9},
+		{2, 6},
+		{4, 12},
+		{5, 15},
+		{3, 27},
+		{2, 16},
+		{4, 36},
+		{5, 33}
+	};
+
+	const size_t validationSubBufferSize = MAX(sizeof(int) * 3 * 4, alignment);
+	int* validationBufferPtr = (int*)ALIGNED_MALLOC(validationSubBufferSize * total_rounds, alignment);
+	memset(validationBufferPtr, 0, validationSubBufferSize * total_rounds);
+	cl_mem validationBuffer = clCreateBuffer(
+            context,
+            CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
+            validationSubBufferSize * total_rounds,
+            validationBufferPtr,
+            &iRet
+        );
+	bResult &= SilentCheck(L"clCreateBuffer - validationBuffer", CL_SUCCESS, iRet);
+
+	vector<cl_mem> validationSubBuffers(total_rounds);
+	for (unsigned int i = 0; i < total_rounds; i++)
+	{
+		cl_buffer_region region = {i * validationSubBufferSize, validationSubBufferSize};
+		validationSubBuffers[i] = clCreateSubBuffer(
+                    validationBuffer,
+                    0,
+                    CL_BUFFER_CREATE_TYPE_REGION,
+                    &region,
+                    &iRet
+                );
+
+		bResult &= SilentCheck(L"validationSubBuffers", CL_SUCCESS, iRet);
+	}
+
+	size_t global_work_size[1] = { num_elements_in_subbuffer };
+    size_t local_work_size[1] = { 1 };
+		
+	unsigned int round = 0;
+	for (unsigned int i = 0; i < num_iterations; i++)
+	{
+		for (unsigned int dev = 0; dev < uiNumDevices; dev ++)
+		{
+			iRet = clSetKernelArg(kernel1, 0, sizeof(cl_mem), &(subBuffers[i][1 + dev]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 1, sizeof(cl_mem), &(subBuffers[i][2 + dev]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 2, sizeof(cl_mem), &(subBuffers[i][3 + dev]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 3, sizeof(cl_mem), &(subBuffers[(i + 1) % 2][2 + dev]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 4, sizeof(float), &(resArr[round][i][1 + dev]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 5, sizeof(float), &(resArr[round][i][2 + dev]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 6, sizeof(float), &(resArr[round][i][3 + dev]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 7, sizeof(float), &(outResArr[round][0]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 8, sizeof(float), &(outResArr[round][1]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 9, sizeof(int), &(round));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 10, sizeof(cl_mem), &(validationSubBuffers[round]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+
+			unsigned int num_events = 0;
+			cl_event* currEvent = NULL;
+			if (round == 4)
+			{
+				num_events = 1;
+				currEvent = &(events[2]);
+			}
+			if (round == 6)
+			{
+				num_events = 1;
+				currEvent = &(events[0]);
+			}
+			iRet = clEnqueueNDRangeKernel(queues[dev], kernel1, 1, NULL, global_work_size, local_work_size, num_events, currEvent, &(events[round]));
+			bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+			round ++;
+
+
+			int indexAdd = (dev == 0) ? (-1) : 1;
+
+			iRet = clSetKernelArg(kernel1, 0, sizeof(cl_mem), &(subBuffers[i][1 + dev + indexAdd]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 1, sizeof(cl_mem), &(subBuffers[i][2 + dev  + indexAdd]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 2, sizeof(cl_mem), &(subBuffers[i][3 + dev  + indexAdd]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 3, sizeof(cl_mem), &(subBuffers[(i + 1) % 2][2 + dev  + indexAdd]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 4, sizeof(float), &(resArr[round][i][1 + dev  + indexAdd]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 5, sizeof(float), &(resArr[round][i][2 + dev  + indexAdd]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 6, sizeof(float), &(resArr[round][i][3 + dev  + indexAdd]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 7, sizeof(float), &(outResArr[round][0]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 8, sizeof(float), &(outResArr[round][1]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 9, sizeof(int), &(round));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			iRet = clSetKernelArg(kernel1, 10, sizeof(cl_mem), &(validationSubBuffers[round]));
+			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+
+			num_events = 0;
+			currEvent = NULL;
+
+			iRet = clEnqueueNDRangeKernel(queues[dev], kernel1, 1, NULL, global_work_size, local_work_size, num_events, currEvent, &(events[round]));
+			bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);   
+			round ++;
+		}
+	}
+
+	for(cl_uint i = 0; i < uiNumDevices; ++i)
+    {
+        iRet = clFinish(queues[i]); 
+		bResult &= SilentCheck(L"clFinish", CL_SUCCESS, iRet);    
+    }
+
+	// Read the parent buffer in order to validate results
+	void* ptr1 = clEnqueueMapBuffer(
+        queues[0],  // it doesn't matter which queue is used here
+        buffers[0],
+        true,
+        CL_MAP_READ,    // it is imprortant to use minimal required access for mapping
+        0, BUFFER_SIZE,
+        0, 0,
+        0,
+        &iRet
+    );
+	bResult &= SilentCheck(L"clEnqueueMapBuffer", CL_SUCCESS, iRet);    
+
+	// Read the parent buffer in order to validate results
+	void* ptr2 = clEnqueueMapBuffer(
+        queues[0],  // it doesn't matter which queue is used here
+        buffers[1],
+        true,
+        CL_MAP_READ,    // it is imprortant to use minimal required access for mapping
+        0, BUFFER_SIZE,
+        0, 0,
+        0,
+        &iRet
+    );
+	bResult &= SilentCheck(L"clEnqueueMapBuffer", CL_SUCCESS, iRet);
+
+	// Read the parent buffer in order to validate each round results
+	void* roundValidPtr = clEnqueueMapBuffer(
+        queues[0],  // it doesn't matter which queue is used here
+        validationBuffer,
+        true,
+        CL_MAP_READ,    // it is imprortant to use minimal required access for mapping
+        0, validationSubBufferSize * total_rounds,
+        0, 0,
+        0,
+        &iRet
+    );
+	bResult &= SilentCheck(L"clEnqueueMapBuffer", CL_SUCCESS, iRet);
+
+
+	for (unsigned int i = 0; i < NUM_SUB_BUFFERS; i++)
+	{
+		for (unsigned int j = 0; j < num_elements_in_subbuffer; j++)
+		{
+			if (((float*)ptr1)[(i * num_elements_in_subbuffer) + j] != resArr[round][0][i])
+			{
+				printf("Buffer1 read, invalid value at index %d, expected %f got %f (==> At sub-buffer %d at index %d of %d)\n", (i * num_elements_in_subbuffer) + j, resArr[round][0][i], ((float*)ptr1)[(i * num_elements_in_subbuffer) + j], i, j, num_elements_in_subbuffer - 1); 
+				bResult = false;
+				break;
+			}
+			if (((float*)ptr2)[(i * num_elements_in_subbuffer) + j] != resArr[round][1][i])
+			{
+				printf("Buffer2 read, invalid value at index %d, expected %f got %f (==> At sub-buffer %d at index %d of %d)\n", (i * num_elements_in_subbuffer) + j, resArr[round][0][i], ((float*)ptr1)[(i * num_elements_in_subbuffer) + j], i, j, num_elements_in_subbuffer - 1); 
+				bResult = false;
+				break;
+			}
+		}
+		if (false == bResult)
+		{
+			break;
+		}
+	}
+
+	for (unsigned int i = 0; i < total_rounds; i++)
+	{
+		unsigned int pos = i * (validationSubBufferSize / sizeof(int));
+		for (unsigned int j = 0; j < 4; j++)
+		{
+			if (((int*)roundValidPtr)[pos + (j * 3)] != 0)
+			{
+				printf("Error in round %d at Buffer %s%d, got %d, expexted %d\n", i + 1, (j == 3) ? "OutBuffer" : "InBuffer", (j == 3) ? 1 : (j + 1), ((int*)roundValidPtr)[pos + (j * 3) + 2], ((int*)roundValidPtr)[pos + (j * 3) + 1]); 
+				bResult = false;
+			}
+		}
+	}
+
+	iRet = clEnqueueUnmapMemObject(queues[0], buffers[0], ptr1, 0, 0, 0);
+	bResult &= SilentCheck(L"clEnqueueUnmapMemObject", CL_SUCCESS, iRet);
+
+	iRet = clEnqueueUnmapMemObject(queues[0], buffers[1], ptr2, 0, 0, 0);
+	bResult &= SilentCheck(L"clEnqueueUnmapMemObject", CL_SUCCESS, iRet);
+
+	iRet = clEnqueueUnmapMemObject(queues[0], validationBuffer, roundValidPtr, 0, 0, 0);
+	bResult &= SilentCheck(L"clEnqueueUnmapMemObject", CL_SUCCESS, iRet);
+
+	for(cl_uint i = 0; i < uiNumDevices; ++i)
+    {
+        iRet = clFinish(queues[i]); 
+		bResult &= SilentCheck(L"clFinish", CL_SUCCESS, iRet);    
+    }
+
+	for (unsigned int i = 0; i < total_rounds; i++)
+	{
+		iRet = clReleaseMemObject(validationSubBuffers[i]);
+		bResult &= SilentCheck(L"clReleaseBuffer", CL_SUCCESS, iRet);
+		iRet = clReleaseEvent(events[i]);
+		bResult &= SilentCheck(L"clReleaseEvent", CL_SUCCESS, iRet);
+	}
+
+	iRet = clReleaseMemObject(validationBuffer);
+	bResult &= SilentCheck(L"clReleaseBuffer", CL_SUCCESS, iRet);
+
+	for (unsigned int i = 0; i < NUM_BUFFERS; i++)
+	{
+		for (unsigned int j = 0; j < NUM_SUB_BUFFERS; j++)
+		{
+			iRet = clReleaseMemObject(subBuffers[i][j]);
+			bResult &= SilentCheck(L"clReleaseBuffer", CL_SUCCESS, iRet);
+		}
+		delete (subBuffers[i]);
+
+		iRet = clReleaseMemObject(buffers[i]);
+		bResult &= SilentCheck(L"clReleaseBuffer", CL_SUCCESS, iRet);
+		ALIGNED_FREE(hostMem[i]);
+	}
+
+	for (unsigned int i = 0; i < uiNumDevices; i++)
+	{
+		iRet = clReleaseCommandQueue(queues[i]);
+		bResult &= SilentCheck(L"clReleaseCommandQueue - queue", CL_SUCCESS, iRet);
+	}
+
+	iRet = clReleaseKernel(kernel1);
+	bResult &= SilentCheck(L"clReleaseKernel - kernel1", CL_SUCCESS, iRet);
+
+	iRet = clReleaseProgram(program);
+	bResult &= SilentCheck(L"clReleaseProgram - program", CL_SUCCESS, iRet);
+
+	iRet = clReleaseContext(context);
+	bResult &= SilentCheck(L"clReleaseContext - context", CL_SUCCESS, iRet);
+
+	ALIGNED_FREE(validationBufferPtr);
+
+	return bResult;
+}
+
+
+
+
+
+
+
 /**************************************************************************************************
  * cl_CPU_MIC_Common_RT_SubBuffers_Async
  * -------------------------------------
@@ -881,6 +1377,36 @@ bool cl_CPU_MIC_Common_RT_SubBuffers_Async_With_Buffer_Release()
 	unsigned int num_expected_devices_of_type[2] = {1, 1};
 	unsigned int numDeviceTypes = 2;
 	return run_common_rt_sub_buffers_async_test(__FUNCTION__, dev_types, num_expected_devices_of_type, numDeviceTypes, true);
+}
+
+
+/**************************************************************************************************
+ * cl_CPU_MIC_Parallel_NDRange_Execution_With_Read_Of_Same_Buffer
+ * -------------------------------------
+ * This test create shared context of CPU and MIC device.
+ * Create 2 Parent buffers and 6 subBuffers that cover each parent buffer.
+ * Run NDRanges with 3 input subbuffer (that sent as R/W) but actually only reading the content, and One out buffer that writing to it.
+ * Check inside the NDRange the correctness of the subbuffers content.
+ * Read the parent buffers and validate their content.
+ **************************************************************************************************/
+bool cl_CPU_MIC_Parallel_NDRange_Execution_With_Read_Of_Same_Buffer()
+{
+	printf("---------------------------------------\n");
+	printf("clParallelNDRangeExecutionWithReadOfSameBuffer\n");
+	printf("---------------------------------------\n");
+
+	bool res = true;
+	for (unsigned int i = 0; i < 100; i++)
+	{
+		res &= run_multi_devices_parallel_ndrange_with_read_sub_buffers();
+		printf("."); fflush(0);
+		if (!res)
+		{
+			break;
+		}
+	}
+	printf("\n");
+	return res;
 }
 
 

@@ -509,6 +509,11 @@ TEST(FrameworkTestType, Test_CPU_MIC_Common_RT_SubBuffers_Async_With_Buffer_Rele
     EXPECT_TRUE(cl_CPU_MIC_Common_RT_SubBuffers_Async_With_Buffer_Release());
 }
 
+TEST(FrameworkTestType, cl_CPU_MIC_Parallel_NDRange_Execution_With_Read_Of_Same_Buffer)
+{
+	EXPECT_TRUE(cl_CPU_MIC_Parallel_NDRange_Execution_With_Read_Of_Same_Buffer());
+}
+
 TEST(FrameworkTestType, DISABLED_cl_ALL_Devices_SubBuffer_Simple_Test) //CSSD100015775
 {
     EXPECT_TRUE(cl_ALL_Devices_SubBuffer_Simple_Test());
