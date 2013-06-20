@@ -335,6 +335,12 @@ const string channelOrderToString(const cl_channel_order& co)
 		CASE_DEFINE_RETURN_STRING(CL_Rx);
 		CASE_DEFINE_RETURN_STRING(CL_RGx);
 		CASE_DEFINE_RETURN_STRING(CL_RGBx);
+		CASE_DEFINE_RETURN_STRING(CL_DEPTH);
+		CASE_DEFINE_RETURN_STRING(CL_sRGB);
+		CASE_DEFINE_RETURN_STRING(CL_sRGBx);
+		CASE_DEFINE_RETURN_STRING(CL_sRGBA);
+		CASE_DEFINE_RETURN_STRING(CL_sBGRA);
+		CASE_DEFINE_RETURN_STRING(CL_ABGR);
 	default:
 		return "Not Recognized";
 	}
@@ -751,6 +757,30 @@ cl_channel_order GetChannelOrderFromString(const string& Order)
     {
         return CL_BGRA;
     }
+	else if (Order == "CL_DEPTH")
+	{
+		return CL_DEPTH;
+	}
+	else if (Order == "CL_sRGB")
+	{
+		return CL_sRGB;
+	}
+	else if (Order == "CL_sRGBx")
+	{
+		return CL_sRGBx;
+	}
+	else if (Order == "CL_sRGBA")
+	{
+		return CL_sRGBA;
+	}
+	else if (Order == "CL_sBGRA")
+	{
+		return CL_sBGRA;
+	}
+	else if (Order == "CL_ABGR")
+	{
+		return CL_ABGR;
+	}
     string Error("Unrecognized channel order '");
     Error += Order + "'";
     throw Error;
@@ -1065,14 +1095,42 @@ size_t clGetPixelBytesCount(const cl_image_format* pclImageFormat)
 		szElementsCount = 1;
 		break;
 	case CL_RGBA:
+		szElementsCount = 4;
+		break;
 	case CL_BGRA:
 	case CL_ARGB:
+	case CL_ABGR:
+		if (CL_UNORM_INT8 != pclImageFormat->image_channel_data_type && CL_SNORM_INT8 != pclImageFormat->image_channel_data_type && CL_SIGNED_INT8 != pclImageFormat->image_channel_data_type &&
+			CL_UNSIGNED_INT8 != pclImageFormat->image_channel_data_type)
+		{
+			return 0;
+		}
 		szElementsCount = 4;
 		break;
 	case CL_LUMINANCE:
 	case CL_INTENSITY:
 		szElementsCount = 1;
 		break;
+	case CL_DEPTH:
+		if (CL_UNORM_INT16 != pclImageFormat->image_channel_data_type && CL_FLOAT != pclImageFormat->image_channel_data_type)	// this isn't allowed
+		{
+			return 0;
+		}
+		return 1;
+	case CL_sRGB:
+	case CL_sRGBx:
+		if (CL_UNORM_INT8 != pclImageFormat->image_channel_data_type)
+		{
+			return 0;
+		}
+		return 3;
+	case CL_sRGBA:
+	case CL_sBGRA:
+		if (CL_UNORM_INT8 != pclImageFormat->image_channel_data_type)
+		{
+			return 0;
+		}
+		return 4;
 	default:
 		return 0;
 	}

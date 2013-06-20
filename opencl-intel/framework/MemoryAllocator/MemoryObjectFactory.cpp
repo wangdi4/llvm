@@ -42,12 +42,14 @@ bool MemoryObjectFactory::FactoryKey::operator<(const FactoryKey& _Right) const
 {
 	return ( ( clObjType < _Right.clObjType) ||
 		     ( ( clObjType == _Right.clObjType) && ( iSupportedDevices < _Right.iSupportedDevices) ) ||
-			 ( ( clObjType == _Right.clObjType) && ( iSupportedDevices == _Right.iSupportedDevices) && ( iGfxSysSharing < _Right.iGfxSysSharing) ) );
+			 ( ( clObjType == _Right.clObjType) && ( iSupportedDevices == _Right.iSupportedDevices) && ( iGfxSysSharing < _Right.iGfxSysSharing) ) ) ||
+			 ( ( clObjType == _Right.clObjType) && ( iSupportedDevices == _Right.iSupportedDevices) && ( iGfxSysSharing == _Right.iGfxSysSharing) && ( iAuxId < _Right.iAuxId ) );
 }
 
 void MemoryObjectFactory::RegisterMemoryObjectCreator(cl_bitfield iSupportedDevices,
 											int iGfxSysSharing,
 											cl_mem_object_type clObjType,
+											int iAuxId,
 											fn_MemoryObjectCreator* pMemObjCreator)
 {
 	FactoryKey key;
@@ -55,13 +57,14 @@ void MemoryObjectFactory::RegisterMemoryObjectCreator(cl_bitfield iSupportedDevi
 	key.clObjType = clObjType;
 	key.iSupportedDevices = iSupportedDevices;
 	key.iGfxSysSharing = iGfxSysSharing;
+	key.iAuxId = iAuxId;
 
 	assert(m_memObjMap.find(key) == m_memObjMap.end() );
 	m_memObjMap[key] = pMemObjCreator;
 }
 
 cl_err_code MemoryObjectFactory::CreateMemoryObject( cl_bitfield iRequiredDevices,
-								cl_mem_object_type clObjType, int iGfxSysSharing, SharedPtr<Context> pContext, SharedPtr<MemoryObject>	*pMemObject)
+								cl_mem_object_type clObjType, int iGfxSysSharing, SharedPtr<Context> pContext, SharedPtr<MemoryObject>	*pMemObject, int iAuxId)
 {
 	FactoryKey key;
 
@@ -70,6 +73,7 @@ cl_err_code MemoryObjectFactory::CreateMemoryObject( cl_bitfield iRequiredDevice
 	key.clObjType = clObjType;
 	key.iSupportedDevices = iRequiredDevices;
 	key.iGfxSysSharing = iGfxSysSharing;
+	key.iAuxId = iAuxId;
 
 	std::map<FactoryKey, fn_MemoryObjectCreator*>::iterator it = m_memObjMap.find(key);
 	if ( it == m_memObjMap.end() )

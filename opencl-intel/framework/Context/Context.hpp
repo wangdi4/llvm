@@ -19,6 +19,7 @@
 // problem reports or change requests be submitted to it directly
 
 #include "Context.h"
+#include "ImageBuffer.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -82,7 +83,14 @@ cl_err_code Context::CreateImage(cl_mem_flags	         clFlags,
         return clErr;
     }
 
-    clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, OBJ_TYPE, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage);
+	if (bIsImageBuffer)
+	{
+		clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, OBJ_TYPE, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage, 1);
+	}
+	else
+	{
+		clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, OBJ_TYPE, CL_MEMOBJ_GFX_SHARE_NONE, this, ppImage);
+	}
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("Error creating new Image3D, returned: %s"), ClErrTxt(clErr));
