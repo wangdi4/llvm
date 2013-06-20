@@ -189,6 +189,21 @@ void FunctionSpecializer::addAuxBBForSingleExitEdge(BypassInfo & info) {
 
     // Update the foot node in the bypass info
     info.m_foot = new_block;
+
+    // Update other bypass infos for adding this new basic block
+    for (std::vector<BypassInfo>::iterator itr = m_bypassInfoContainer.begin();
+        itr != m_bypassInfoContainer.end();
+        ++itr) {
+      if (&(*itr) != &info) {
+        // Update the skipped list if needed
+        if (itr->m_skippedBlocks.count(info.m_postDom)){
+          itr->m_skippedBlocks.insert(new_block);
+        }
+        // Update head if needed
+        if (info.m_head == info.m_postDom)
+          info.m_head = new_block;
+      }
+    }
 }
 
 void FunctionSpecializer::getBypassRegion(BypassInfo & info) {
