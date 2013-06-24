@@ -31,10 +31,12 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-OclSpinMutex				MICSysInfo::m_mutex;
+OclSpinMutex*				MICSysInfo::m_mutex = NULL;
 MICSysInfo*                 MICSysInfo::m_singleton = NULL;
 MICSysInfo::TSku2DevData*   MICSysInfo::m_info_db = NULL;
 MICDeviceConfig				MICSysInfo::m_MICDeviceConfig;
+
+MICSysInfo::SInitializer	gSIntializer;
 
 #define __MINUMUM_SUPPORT__
 //#define __TEST__
@@ -251,7 +253,7 @@ MICSysInfo& MICSysInfo::getInstance()
         return *m_singleton;
     }
 
-	OclAutoMutex autoMutex(&m_mutex);
+	OclAutoMutex autoMutex(m_mutex);
 	// if already created
 	if (m_singleton != NULL)
     {

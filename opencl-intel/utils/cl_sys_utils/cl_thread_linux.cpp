@@ -206,6 +206,10 @@ void OclThread::SelfTerminate(RETURN_TYPE_ENTRY_POINT exitCode)
 {
 	// The exitCode doesn't exist in Linux
 	pthread_cancel(pthread_self());
+#ifndef ANDROID
+	// As default, A cancellation request is deferred until the thread next calls a function that is a cancellation point.
+	pthread_testcancel();
+#endif
 }
 
 bool OclThread::isSelf()

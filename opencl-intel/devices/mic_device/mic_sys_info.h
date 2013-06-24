@@ -23,6 +23,20 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 
     public:
 
+		class SInitializer
+		{
+		public:
+
+			SInitializer()
+			{
+				MICSysInfo::m_mutex = new OclSpinMutex;
+			}
+
+			virtual ~SInitializer() {};
+		};
+
+		friend class MICSysInfo::SInitializer;
+
         /* Destructor */
         virtual ~MICSysInfo();
 
@@ -200,7 +214,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
         volatile uint32_t m_numEngines;
 
         /* mutex guard */
-        static OclSpinMutex m_mutex;
+        static OclSpinMutex* m_mutex;
 
 		// The deviceId represent as index in the array and the CoiEngineId is the content in that index.
 		std::vector<unsigned int> m_deviceIdToCoiEngineId;
