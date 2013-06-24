@@ -31,8 +31,17 @@ namespace intel{
         static char ID;
 
     protected:
+
         /// @brief Map for relaxed functions substitution
         std::map<std::string, std::string> m_relaxedFunctions;
+
+        /// @brief Map for OCL 2.0 relaxed functions desribed in table 7.2
+        std::map<std::string, std::string> m_relaxedFunctions_2_0;
+
+        /// @brief input - std::map<std::string, std::string> mapIn 
+        /// this functions seeks key form mapIn in the m_relaxedFunctions and
+        /// if it is found, replaces value in m_relaxedFunctions by value from mapIn
+        void replaceFunctions(std::map<std::string, std::string> &mapIn);
     };
 
 }// namespace intel

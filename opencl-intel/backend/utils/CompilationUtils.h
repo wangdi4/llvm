@@ -106,6 +106,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_PREFETCH;
     static const std::string NAME_ASYNC_WORK_GROUP_STRIDED_COPY;
 
+
+    enum clVersion {
+        CL_VER_1_0,
+        CL_VER_1_1,
+        CL_VER_1_2,
+        CL_VER_2_0,
+        CL_VER_NOT_DETECTED
+    };
+
+    static clVersion getCLVersionFromModule(const Module &M);
+
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

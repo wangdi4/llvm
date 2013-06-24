@@ -444,5 +444,21 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
 
+  CompilationUtils::clVersion CompilationUtils::getCLVersionFromModule(const Module &M) {
+    NamedMDNode* metadata = M.getNamedMetadata("opencl.build.options");
+    if(metadata)
+      for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k) {
+        llvm::MDNode *elt = metadata->getOperand(k);
+        if (elt->getOperand(0)->getName().str().compare("-cl-std=CL1.0") == 0)
+            return CL_VER_1_0;
+        else if (elt->getOperand(0)->getName().str().compare("-cl-std=CL1.1") == 0)
+            return CL_VER_1_1;
+        else if (elt->getOperand(0)->getName().str().compare("-cl-std=CL1.2") == 0)
+            return CL_VER_1_2;
+        else if (elt->getOperand(0)->getName().str().compare("-cl-std=CL2.0") == 0)
+            return CL_VER_2_0;
+      }
+      return CL_VER_NOT_DETECTED;
+  }
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

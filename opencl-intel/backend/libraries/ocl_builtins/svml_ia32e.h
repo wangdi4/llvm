@@ -13852,3 +13852,587 @@
   float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_erff8_native (float8 a);
 
   float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_erfcf8_native (float8 a);
+
+  /****************************************************************************/
+  
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_cosf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_cosf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_cosf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_cosf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_cosf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_cosf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_exp10f1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_exp10f2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_exp10f3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_exp10f4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_exp10f8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_exp10f16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_exp2f1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_exp2f2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_exp2f3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_exp2f4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_exp2f8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_exp2f16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_expf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_expf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_expf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_expf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_expf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_expf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_log2f1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_log2f2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_log2f3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_log2f4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_log2f8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_log2f16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_logf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_logf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_logf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_logf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_logf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_logf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_powf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_powf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_powf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_powf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_powf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_powf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sinf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sinf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sinf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sinf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sinf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sinf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf1_native_rm(float a, float * b);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf2_native_rm(float2 a, float2 * b);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf3_native_rm(float3 a, float3 * b);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf4_native_rm(float4 a, float4 * b);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf8_native_rm(float8 a, float8 * b);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf16_native_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf1_native_rm(float a, float * b);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf2_native_rm(float2 a, float2 * b);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf3_native_rm(float3 a, float3 * b);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf4_native_rm(float4 a, float4 * b);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf8_native_rm(float8 a, float8 * b);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf16_native_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf1_native_rm(float a, float * b);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf2_native_rm(float2 a, float2 * b);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf3_native_rm(float3 a, float3 * b);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf4_native_rm(float4 a, float4 * b);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf8_native_rm(float8 a, float8 * b);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf16_native_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_tanf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_tanf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_tanf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_tanf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_tanf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_tanf16_native_rm(float16 a);
+
+
+
+  
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_cosf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_cosf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_cosf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_cosf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_cosf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_cosf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_exp10f1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_exp10f2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_exp10f3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_exp10f4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_exp10f8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_exp10f16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_exp2f1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_exp2f2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_exp2f3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_exp2f4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_exp2f8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_exp2f16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_expf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_expf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_expf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_expf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_expf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_expf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_log2f1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_log2f2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_log2f3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_log2f4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_log2f8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_log2f16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_logf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_logf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_logf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_logf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_logf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_logf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_powf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_powf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_powf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_powf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_powf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_powf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sinf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sinf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sinf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sinf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sinf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sinf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf1_native_rm(float a, float * b);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf2_native_rm(float2 a, float2 * b);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf3_native_rm(float3 a, float3 * b);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf4_native_rm(float4 a, float4 * b);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf8_native_rm(float8 a, float8 * b);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf16_native_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf1_native_rm(float a, float * b);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf2_native_rm(float2 a, float2 * b);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf3_native_rm(float3 a, float3 * b);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf4_native_rm(float4 a, float4 * b);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf8_native_rm(float8 a, float8 * b);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf16_native_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf1_native_rm(float a, float * b);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf2_native_rm(float2 a, float2 * b);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf3_native_rm(float3 a, float3 * b);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf4_native_rm(float4 a, float4 * b);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf8_native_rm(float8 a, float8 * b);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_sincosf16_native_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_tanf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_tanf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_tanf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_tanf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_tanf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_tanf16_native_rm(float16 a);
+
+
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_cosf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_cosf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_cosf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_cosf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_cosf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_cosf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_exp10f1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_exp10f2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_exp10f3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_exp10f4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_exp10f8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_exp10f16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_exp2f1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_exp2f2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_exp2f3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_exp2f4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_exp2f8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_exp2f16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_expf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_expf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_expf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_expf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_expf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_expf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_log2f1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_log2f2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_log2f3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_log2f4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_log2f8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_log2f16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_logf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_logf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_logf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_logf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_logf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_logf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_powf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_powf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_powf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_powf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_powf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_powf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sinf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sinf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sinf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sinf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sinf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sinf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf1_native_rm(float a, float * b);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf2_native_rm(float2 a, float2 * b);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf3_native_rm(float3 a, float3 * b);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf4_native_rm(float4 a, float4 * b);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf8_native_rm(float8 a, float8 * b);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf16_native_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf1_native_rm(float a, float * b);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf2_native_rm(float2 a, float2 * b);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf3_native_rm(float3 a, float3 * b);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf4_native_rm(float4 a, float4 * b);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf8_native_rm(float8 a, float8 * b);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf16_native_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf1_native_rm(float a, float * b);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf2_native_rm(float2 a, float2 * b);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf3_native_rm(float3 a, float3 * b);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf4_native_rm(float4 a, float4 * b);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf8_native_rm(float8 a, float8 * b);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf16_native_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_tanf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_tanf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_tanf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_tanf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_tanf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_tanf16_native_rm(float16 a);
+
+
+   float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_cosf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_cosf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_cosf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_cosf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_cosf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_cosf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_exp10f1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_exp10f2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_exp10f3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_exp10f4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_exp10f8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_exp10f16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_exp2f1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_exp2f2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_exp2f3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_exp2f4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_exp2f8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_exp2f16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_expf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_expf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_expf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_expf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_expf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_expf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_log2f1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_log2f2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_log2f3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_log2f4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_log2f8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_log2f16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_logf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_logf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_logf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_logf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_logf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_logf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_powf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_powf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_powf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_powf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_powf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_powf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sinf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sinf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sinf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sinf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sinf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sinf16_native_rm(float16 a);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf1_native_rm(float a, float * b);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf2_native_rm(float2 a, float2 * b);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf3_native_rm(float3 a, float3 * b);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf4_native_rm(float4 a, float4 * b);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf8_native_rm(float8 a, float8 * b);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf16_native_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf1_native_rm(float a, float * b);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf2_native_rm(float2 a, float2 * b);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf3_native_rm(float3 a, float3 * b);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf4_native_rm(float4 a, float4 * b);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf8_native_rm(float8 a, float8 * b);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf16_native_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf1_native_rm(float a, float * b);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf2_native_rm(float2 a, float2 * b);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf3_native_rm(float3 a, float3 * b);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf4_native_rm(float4 a, float4 * b);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf8_native_rm(float8 a, float8 * b);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf16_native_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_tanf1_native_rm(float a);
+
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_tanf2_native_rm(float2 a);
+
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_tanf3_native_rm(float3 a);
+
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_tanf4_native_rm(float4 a);
+
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_tanf8_native_rm(float8 a);
+
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_tanf16_native_rm(float16 a);
