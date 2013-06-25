@@ -209,6 +209,8 @@ void OclThread::SelfTerminate(RETURN_TYPE_ENTRY_POINT exitCode)
 #ifndef ANDROID
 	// As default, A cancellation request is deferred until the thread next calls a function that is a cancellation point.
 	pthread_testcancel();
+#else
+	assert(0 && "pthread_testcancel() does not support in ANDROID, consider the use of this method, pthread_cancel does not cancel the thread immediately, the call to pthread_testcancel ensure that it happend at this call");
 #endif
 }
 
