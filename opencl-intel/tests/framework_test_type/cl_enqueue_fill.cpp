@@ -301,7 +301,7 @@ protected:
         m_imgDesc.image_slice_pitch = 0;
         m_imgDesc.num_mip_levels = 0;
         m_imgDesc.num_samples = 0;
-        m_imgDesc.buffer = NULL;
+        m_imgDesc.mem_object = NULL;
     }
 
 	virtual ~ImageFillTest()

@@ -75,12 +75,12 @@ void CheckChangeImage(OpenCLDescriptor ocl_descriptor, cl_image_desc desc, cl_in
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "read_image_kernel.cl"));
 	//create image
 	//create buffer (if needed)
-	if(0 == desc.buffer){
+	if(0 == desc.mem_object){
 	ASSERT_NO_FATAL_FAILURE(createImage(&image,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,&image_format,&desc,image_array.dynamic_array));
 	
 	}else{
 		ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[0],ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int4),output_array.dynamic_array));
-		desc.buffer = ocl_descriptor.buffers[0]; // we need to initialize the buffer into the ocl_descriptor so that it will be released properly
+		desc.mem_object = ocl_descriptor.buffers[0]; // we need to initialize the buffer into the ocl_descriptor so that it will be released properly
 		ASSERT_NO_FATAL_FAILURE(createImage(&image,ocl_descriptor.context,CL_MEM_READ_WRITE,&image_format,&desc,image_array.dynamic_array));
 	}
 
@@ -181,7 +181,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageBufferVisibility1D_VR153){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 
 	//initialize environment 
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "read_image_kernel.cl"));
@@ -190,7 +190,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageBufferVisibility1D_VR153){
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.out_common_buffer,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int4),output_array.dynamic_array));
 
 	//create image TODO what is the meanning of host pointer in here?
-	desc.buffer = ocl_descriptor.out_common_buffer;
+	desc.mem_object = ocl_descriptor.out_common_buffer;
 	ASSERT_NO_FATAL_FAILURE(createImage(&image,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_ALLOC_HOST_PTR,&image_format,&desc,cpu_input_image_array.dynamic_array));
 
 	//create kernel 
@@ -280,7 +280,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageArrayVisibility1D_VR154){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,2};
 	size_t region[]={4,1,1};
 
@@ -379,7 +379,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageVisibility2D_VR155){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[] = {1,1,1};
 
@@ -482,7 +482,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageArrayVisibility2D_VR156){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,3};
 	size_t region[] = {1,1,1};
 
@@ -582,7 +582,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageVisibility3D_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0}; 
 	size_t region[]={1,1,1}; 
 
@@ -682,7 +682,7 @@ TEST_F(CRT12_VR158_173, WriteImage1D_VR158){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[] = {0,0,0}; 
 	size_t region[] = {1,1,1};
 
@@ -788,7 +788,7 @@ TEST_F(CRT12_VR158_173, WriteImage2D_VR159){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[] = {0,0,0}; 
 	size_t region[] = {1,1,1};
 	
@@ -899,7 +899,7 @@ TEST_F(CRT12_VR158_173, BuildInFunction1D_VR160){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[] = {0,0,0}; 
 	size_t region[] = {1,2,1};
 	//initialize image format
@@ -1011,7 +1011,7 @@ TEST_F(CRT12_VR158_173, BuildInFunction2D_VR161){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[] = {0,0,0}; 
 	size_t region[] = {1,1,2};
 
@@ -1096,7 +1096,7 @@ TEST_F(CRT12_VR158_173, CheckChange1dCPUGPU_VR162){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[] = {0,0,0}; 
 	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image1D_int4","change_1_to_2_image1D_int4"));
 
@@ -1138,7 +1138,7 @@ TEST_F(CRT12_VR158_173, CheckChange1dBufferCPUGPU_VR163){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = (cl_mem)1; //this mean that a new buffer will be initialized
+	desc.mem_object = (cl_mem)1; //this mean that a new buffer will be initialized
 
 	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image1D_buffer_int4","change_1_to_2_image1D_buffer_int4"));
 
@@ -1182,7 +1182,7 @@ TEST_F(CRT12_VR158_173, CheckChange1dArrayCPUGPU_VR164){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 
 	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image1D_int4_CPU","change_1_to_2_image_array_1D_int4"));
 
@@ -1225,7 +1225,7 @@ TEST_F(CRT12_VR158_173, CheckChange2dCPUGPU_VR165){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 
 	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image2D_int4","change_1_to_2_image2D_int4"));
 
@@ -1268,7 +1268,7 @@ TEST_F(CRT12_VR158_173, CheckChange2darrayCPUGPU_VR166){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0; 
+	desc.mem_object = 0; 
 
 	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image2D_int4_array","change_1_to_2_image_array_2D_int4"));
 
@@ -1312,7 +1312,7 @@ TEST_F(CRT12_VR158_173, DISABLED_CheckChange3dCPUGPU_VR167){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 
 	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,CPU_DEVICE,GPU_DEVICE,"write_image3D_int4","change_1_to_2_image3D_int4"));
 
@@ -1355,7 +1355,7 @@ TEST_F(CRT12_VR158_173, CheckChange1dGPUCPU_VR168){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[] = {0,0,0}; 
 	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image1D_int4","change_1_to_2_image1D_int4"));
 
@@ -1397,7 +1397,7 @@ TEST_F(CRT12_VR158_173, CheckChange1dBufferGPUCPU_VR169){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = (cl_mem)1; //this mean that a new buffer will be initialized
+	desc.mem_object = (cl_mem)1; //this mean that a new buffer will be initialized
 
 	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image1D_buffer_int4","change_1_to_2_image1D_buffer_int4"));
 
@@ -1441,7 +1441,7 @@ TEST_F(CRT12_VR158_173, CheckChange1dArrayGPUCPU_VR170){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 
 	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image1D_int4_CPU","change_1_to_2_image_array_1D_int4"));
 
@@ -1484,7 +1484,7 @@ TEST_F(CRT12_VR158_173, CheckChange2dGPUCPU_VR171){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 
 	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image2D_int4","change_1_to_2_image2D_int4"));
 
@@ -1527,7 +1527,7 @@ TEST_F(CRT12_VR158_173, CheckChange2dArrayGPUCPU_VR172){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0; 
+	desc.mem_object = 0; 
 
 	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image2D_int4_array","change_1_to_2_image_array_2D_int4"));
 
@@ -1570,7 +1570,7 @@ TEST_F(CRT12_VR158_173, DISABLED_CheckChange3dGPUCPU_VR173){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 
 	ASSERT_NO_FATAL_FAILURE(CheckChangeImage(ocl_descriptor,desc,GPU_DEVICE,CPU_DEVICE,"write_image3D_int4","change_1_to_2_image3D_int4"));
 

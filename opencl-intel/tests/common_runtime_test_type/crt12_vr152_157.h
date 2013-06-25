@@ -89,10 +89,10 @@ void ImageVisibility(OpenCLDescriptor ocl_descriptor, cl_image_format image_form
 	else{
 		
 		ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.buffers[0],ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(T),input_image_array.dynamic_array));
-		desc.buffer = ocl_descriptor.buffers[0];
+		desc.mem_object = ocl_descriptor.buffers[0];
 		ASSERT_NO_FATAL_FAILURE(createImage(&image,ocl_descriptor.context,CL_MEM_READ_WRITE,&image_format,&desc,input_image_array.dynamic_array));
 		desc.image_type = CL_MEM_OBJECT_IMAGE1D;
-		desc.buffer = 0;
+		desc.mem_object = 0;
 	}
 	
 	//create seconed image

@@ -5639,7 +5639,7 @@ cl_mem CL_API_CALL clCreateImage2D(
     image_desc.image_row_pitch = image_row_pitch;
     image_desc.image_slice_pitch = 0;
     image_desc.image_array_size = 1;
-    image_desc.buffer = NULL;
+    image_desc.mem_object = NULL;
     image_desc.num_mip_levels = 0;
     image_desc.num_samples = 0;
 
@@ -5709,7 +5709,7 @@ cl_mem CL_API_CALL clCreateImage3D(
     image_desc.image_row_pitch = image_row_pitch;
     image_desc.image_slice_pitch = image_slice_pitch;
     image_desc.image_array_size = 1;
-    image_desc.buffer = NULL;
+    image_desc.mem_object = NULL;
     image_desc.num_mip_levels = 0;
     image_desc.num_samples = 0;
 

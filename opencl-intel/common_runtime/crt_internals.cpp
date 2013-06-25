@@ -1219,7 +1219,7 @@ m_dimCount(0)
 
     if( m_imageDesc.desc.image_type == CL_MEM_OBJECT_IMAGE1D_BUFFER )
     {
-        m_imageDesc.crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)m_imageDesc.desc.buffer)->object);
+        m_imageDesc.crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)m_imageDesc.desc.mem_object)->object);
         m_imageDesc.crtBuffer->IncPendencyCnt();
         // Don't query GMM for Image From Buffer
         return;
@@ -1227,7 +1227,7 @@ m_dimCount(0)
     else
     {
         m_imageDesc.crtBuffer = NULL;
-        m_imageDesc.desc.buffer = NULL;
+        m_imageDesc.desc.mem_object = NULL;
     }
     cl_device_id gpuDevice = ctx->GetDeviceByType( CL_DEVICE_TYPE_GPU );
     if( gpuDevice != NULL )
@@ -1367,7 +1367,7 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
     //     3. App provided enough space to accommodate the size requirement of underlying devices
     if( m_imageDesc.desc.image_type == CL_MEM_OBJECT_IMAGE1D_BUFFER )
     {
-        crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)m_imageDesc.desc.buffer)->object);
+        crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)m_imageDesc.desc.mem_object)->object);
         m_pBstPtr = crtBuffer->m_pBstPtr;
         m_pUsrPtr = crtBuffer->m_pUsrPtr;
         m_size = crtBuffer->m_size;
@@ -1465,7 +1465,7 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
             // In case of Image from Buffer; we need to replace the buffer
             // handle with the underlying corresponding one.
             imageDescCopy = m_imageDesc.desc;
-            imageDescCopy.buffer = m_imageDesc.crtBuffer->m_ContextToMemObj[ ctx ];
+            imageDescCopy.mem_object = m_imageDesc.crtBuffer->m_ContextToMemObj[ ctx ];
             imageDesc = ( cl_image_desc* )( &imageDescCopy );
         }
 
@@ -1767,14 +1767,14 @@ cl_int CrtContext::CreateImage(
         return CL_INVALID_VALUE;
     }
 
-    if( !( ( image_desc->image_type == CL_MEM_OBJECT_IMAGE1D_BUFFER ) ^ ( image_desc->buffer == NULL ) ) )
+    if( !( ( image_desc->image_type == CL_MEM_OBJECT_IMAGE1D_BUFFER ) ^ ( image_desc->mem_object == NULL ) ) )
     {
         return CL_INVALID_IMAGE_DESCRIPTOR;
     }
 
-    if( image_desc->buffer != NULL )
+    if( image_desc->mem_object != NULL )
     {
-        CrtBuffer* crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)image_desc->buffer)->object);
+        CrtBuffer* crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)image_desc->mem_object)->object);
         host_ptr = crtBuffer->m_pBstPtr;
     }
 

@@ -328,7 +328,7 @@ static void TestBufAnd1DImgBufFlagsMismatch(cl_mem_flags bufFlags, cl_mem_flags 
     clMemWrapper clBuf = clCreateBuffer(context, bufFlags, 1000, NULL, &iRet);
     CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
     localImgDesc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
-    localImgDesc.buffer = clBuf;
+    localImgDesc.mem_object = clBuf;
     clCreateImage(context, imgFlags, &clFormat, &localImgDesc, NULL, &iRet);
     CheckException(L"clCreateImage", CL_INVALID_VALUE, iRet);
 }
@@ -403,7 +403,7 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
     clMemWrapper clBuf = clCreateBuffer(context, CL_MEM_WRITE_ONLY, szBufSize, NULL, &iRet);
     CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
     localImgDesc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
-    localImgDesc.buffer = clBuf;
+    localImgDesc.mem_object = clBuf;
     localImgDesc.image_width = szBufSize / IMAGE_ELEM_SIZE;
     clMemWrapper img1dBuf = clCreateImage(context, CL_MEM_WRITE_ONLY, &clFormat, &localImgDesc, NULL, &iRet);
     CheckException(L"clCreateImage", CL_SUCCESS, iRet);
@@ -462,7 +462,7 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
 
     // trying to create a 1D image buffer with localImgDesc.buffer NULL
     localImgDesc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
-    localImgDesc.buffer = NULL;
+    localImgDesc.mem_object = NULL;
     clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
     CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
 
@@ -480,7 +480,7 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
     TestBufAnd1DImgBufFlagsMismatch(CL_MEM_HOST_NO_ACCESS, CL_MEM_HOST_WRITE_ONLY, context, clImageDesc, clFormat);
 
     // trying to create a 1D image buffer that is larger than its buffer    
-    localImgDesc.buffer = clBuf;
+    localImgDesc.mem_object = clBuf;
     clCreateImage(context, CL_MEM_WRITE_ONLY, &clFormat, &localImgDesc, NULL, &iRet);
     CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
 
@@ -494,7 +494,7 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
         if (CL_OUT_OF_HOST_MEMORY != iRet)
         {
             CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
-            localImgDesc.buffer = clBigBuf;
+            localImgDesc.mem_object = clBigBuf;
             localImgDesc.image_width = szImgMaxBufSize + 1;
             clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
             CheckException(L"clCreateImage", CL_INVALID_IMAGE_SIZE, iRet);
@@ -566,7 +566,7 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
     clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
     CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
     localImgDesc.num_samples = 0;
-    localImgDesc.buffer = clBuf;
+    localImgDesc.mem_object = clBuf;
     clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
     CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
 
@@ -604,7 +604,7 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
     TestInvalidDim(context, clFormat, localImgDesc, szImg3dMaxHeight, localImgDesc.image_height);
     TestInvalidDim(context, clFormat, localImgDesc, szImg3dMaxDepth, localImgDesc.image_depth);  
     localImgDesc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
-    localImgDesc.buffer = clBuf;
+    localImgDesc.mem_object = clBuf;
     TestInvalidDim(context, clFormat, localImgDesc, 0, localImgDesc.image_width);
 
     // pitch different than 0 when hostptr is NULL
@@ -672,10 +672,10 @@ bool clCreateImageTest()
         CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
 
         clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
-        clImageDesc.buffer = clBuffer;
+        clImageDesc.mem_object = clBuffer;
         clImg1DBuffer = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
         CheckException(L"clCreateImage", CL_SUCCESS, iRet);
-        clImageDesc.buffer = NULL;
+        clImageDesc.mem_object = NULL;
 
         TestImageBuffer(queue, clBuffer, clImg1DBuffer, clImageDesc);
 

@@ -75,7 +75,7 @@ TEST_F(CRT12_VR157, DISABLED_ImageVisibility1DCPU_CL_SNORM_INT8_crush_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility1D_crush<cl_char4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -100,7 +100,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_SNORM_INT8_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_char4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -126,7 +126,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_UNORM_INT8_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_char4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -152,7 +152,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_SNORM_INT16_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_short4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -179,7 +179,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_UNORM_INT16_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_short4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -206,7 +206,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_SIGNED_INT32_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_int4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -232,7 +232,7 @@ TEST_F(CRT12_VR157, ImageVisibility1DCL_UNSIGNED_INT32_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_int4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -261,7 +261,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_INTENSITY_CL_UNORM_INT8_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_char4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,1);
@@ -287,7 +287,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_INTENSITY_CL_SNORM_INT8_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_char4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,1);
@@ -314,7 +314,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_INTENSITY_CL_UNORM_INT16_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_short4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,1);
@@ -342,7 +342,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_INTENSITY_CL_SNORM_INT16_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_short4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,1);
@@ -371,7 +371,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_INTENSITY_CL_FLOAT_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_float4>(ocl_descriptor,image_format,desc,"copy_image3D_float",CPU_DEVICE,1);
@@ -398,7 +398,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_INTENSITY_CL_HALF_FLOAT_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_short4>(ocl_descriptor,image_format,desc,"copy_image3D_float",CPU_DEVICE,1);
@@ -428,7 +428,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_LUMINANCE_CL_UNORM_INT8_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_char4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,1);
@@ -454,7 +454,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_LUMINANCE_CL_SNORM_INT8_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_char4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,1);
@@ -481,7 +481,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_LUMINANCE_CL_UNORM_INT16_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_short4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,1);
@@ -509,7 +509,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_LUMINANCE_CL_SNORM_INT16_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_short4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,1);
@@ -538,7 +538,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_LUMINANCE_CL_FLOAT_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_float4>(ocl_descriptor,image_format,desc,"copy_image3D_float",CPU_DEVICE,1);
@@ -565,7 +565,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_LUMINANCE_CL_HALF_FLOAT_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_short4>(ocl_descriptor,image_format,desc,"copy_image3D_float",CPU_DEVICE,1);
@@ -595,7 +595,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_ARGB_CL_UNORM_INT8_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_char4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -621,7 +621,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_ARGB_CL_SNORM_INT8_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_char4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -648,7 +648,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_ARGB_CL_UNORM_INT16_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_short4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -676,7 +676,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_ARGB_CL_SNORM_INT16_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_short4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -707,7 +707,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_BGRA_CL_UNORM_INT8_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_char4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -733,7 +733,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_BGRA_CL_SNORM_INT8_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_char4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -760,7 +760,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_BGRA_CL_UNORM_INT16_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_short4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);
@@ -788,7 +788,7 @@ TEST_F(CRT12_VR157, ImageVisibility1D_CL_BGRA_CL_SNORM_INT16_VR157){
 	desc.image_slice_pitch = 0;
 	desc.num_mip_levels = 0;
 	desc.num_samples = 0;
-	desc.buffer = 0;
+	desc.mem_object = 0;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	ImageVisibility<cl_short4>(ocl_descriptor,image_format,desc,"copy_image3D",CPU_DEVICE,4);

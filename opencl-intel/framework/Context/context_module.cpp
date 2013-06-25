@@ -1365,7 +1365,7 @@ cl_mem ContextModule::CreateImage(cl_context context,
     cl_mem clMemObj = CL_INVALID_HANDLE;
 
     if (!image_desc || 0 != image_desc->num_mip_levels || 0 != image_desc->num_samples ||
-        (CL_MEM_OBJECT_IMAGE1D_BUFFER != image_desc->image_type && NULL != image_desc->buffer))
+        (CL_MEM_OBJECT_IMAGE1D_BUFFER != image_desc->image_type && NULL != image_desc->mem_object))
     {
         if (errcode_ret)
         {
@@ -1379,7 +1379,7 @@ cl_mem ContextModule::CreateImage(cl_context context,
         clMemObj = CreateScalarImage<1, CL_MEM_OBJECT_IMAGE1D>(context, flags, image_format, image_desc->image_width, 0, 0, 0, 0, host_ptr, errcode_ret);
         break;
     case CL_MEM_OBJECT_IMAGE1D_BUFFER:
-        clMemObj = CreateImage1DBuffer(context, flags, image_format, image_desc->image_width, image_desc->buffer, errcode_ret);
+        clMemObj = CreateImage1DBuffer(context, flags, image_format, image_desc->image_width, image_desc->mem_object, errcode_ret);
         break;
     case CL_MEM_OBJECT_IMAGE2D:
         clMemObj = CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, image_format, image_desc->image_width,

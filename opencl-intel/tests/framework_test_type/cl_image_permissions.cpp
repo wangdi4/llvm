@@ -109,7 +109,7 @@ bool clImagePermissions()
     imgDesc.image_slice_pitch = 0;
     imgDesc.num_mip_levels = 0;
     imgDesc.num_samples = 0;
-    imgDesc.buffer = NULL;
+    imgDesc.mem_object = NULL;
 
     //TODO: once new clCreateImage() interface is here, use it!
     //imgForErr = PROV_OBJ( clCreateImage(context, CL_MEM_HOST_NO_ACCESS, &imgFormat, &imgDesc, NULL, &iRet) );

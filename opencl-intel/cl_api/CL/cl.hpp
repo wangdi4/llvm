@@ -3479,7 +3479,7 @@ public:
         desc.image_row_pitch = 0;
         desc.num_mip_levels = 0;
         desc.num_samples = 0;
-        desc.buffer = 0;
+        desc.mem_object = 0;
         object_ = ::clCreateImage(
             context(), 
             flags, 
@@ -3554,7 +3554,7 @@ public:
         desc.image_row_pitch = 0;
         desc.num_mip_levels = 0;
         desc.num_samples = 0;
-        desc.buffer = buffer();
+        desc.mem_object = buffer();
         object_ = ::clCreateImage(
             context(), 
             flags, 
@@ -3614,7 +3614,7 @@ public:
         desc.image_row_pitch = rowPitch;
         desc.num_mip_levels = 0;
         desc.num_samples = 0;
-        desc.buffer = 0;
+        desc.mem_object = 0;
         object_ = ::clCreateImage(
             context(), 
             flags, 
@@ -3684,7 +3684,7 @@ public:
         desc.image_row_pitch = row_pitch;
         desc.num_mip_levels = 0;
         desc.num_samples = 0;
-        desc.buffer = 0;
+        desc.mem_object = 0;
         object_ = ::clCreateImage(
             context(), 
             flags, 
@@ -3857,7 +3857,7 @@ public:
         desc.image_slice_pitch = slicePitch;
         desc.num_mip_levels = 0;
         desc.num_samples = 0;
-        desc.buffer = 0;
+        desc.mem_object = 0;
         object_ = ::clCreateImage(
             context(), 
             flags, 
@@ -3930,7 +3930,7 @@ public:
         desc.image_slice_pitch = slice_pitch;
         desc.num_mip_levels = 0;
         desc.num_samples = 0;
-        desc.buffer = 0;
+        desc.mem_object = 0;
         object_ = ::clCreateImage(
             context(), 
             flags, 

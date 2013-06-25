@@ -104,7 +104,7 @@ typedef struct _cl_image_desc {
     size_t                  image_slice_pitch;
     cl_uint                 num_mip_levels;
     cl_uint                 num_samples;
-    cl_mem                  buffer;
+    cl_mem                  mem_object;
 } cl_image_desc;
 
 typedef struct _cl_buffer_region {
@@ -255,7 +255,7 @@ typedef struct _cl_buffer_region {
 #define CL_DEVICE_EXTENSIONS                        0x1030
 #define CL_DEVICE_PLATFORM                          0x1031
 #define CL_DEVICE_DOUBLE_FP_CONFIG                  0x1032
-/* 0x1033 reserved for CL_DEVICE_HALF_FP_CONFIG */
+#define CL_DEVICE_HALF_FP_CONFIG                    0x1033
 #define CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF       0x1034
 #define CL_DEVICE_HOST_UNIFIED_MEMORY               0x1035
 #define CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR          0x1036
@@ -1208,6 +1208,8 @@ clGetExtensionFunctionAddress(const char * /* func_name */) CL_EXT_SUFFIX__VERSI
 
 //----------------------------------------------------------------------------
 //2.0 stuff PLACEHOLDER
+#define CL_sRGBA                                     0x10BF
+#define CL_sBGRA                                     0x10C0
 #define CL_QUEUE_ON_DEVICE                           ( 1 << 10 )
 #define CL_QUEUE_ON_DEVICE_DEFAULT                   ( 1 << 11 )
 
