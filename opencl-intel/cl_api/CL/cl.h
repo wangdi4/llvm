@@ -1208,8 +1208,11 @@ clGetExtensionFunctionAddress(const char * /* func_name */) CL_EXT_SUFFIX__VERSI
 
 //----------------------------------------------------------------------------
 //2.0 stuff PLACEHOLDER
-#define CL_sRGBA                                     0x10BF
-#define CL_sBGRA                                     0x10C0
+#define CL_sRGB										0x10BF
+#define CL_sRGBx									0x10C0
+#define CL_sRGBA									0x10C1
+#define CL_sBGRA									0x10C2
+#define CL_ABGR										0x10C3
 #define CL_QUEUE_ON_DEVICE                           ( 1 << 10 )
 #define CL_QUEUE_ON_DEVICE_DEFAULT                   ( 1 << 11 )
 

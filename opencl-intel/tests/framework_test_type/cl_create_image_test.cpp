@@ -25,11 +25,12 @@
 #include "TestsHelpClasses.h"
 
 #define IMAGE_ELEM_SIZE     4
-#define IMAGE_WIDTH         1208
+// no real meaning for these numbers, I just need IMAGE_WIDTH * IMAGE_ELEM_SIZE to be a multiple of CL_DEVICE_IMAGE_PITCH_ALIGNMENT
+#define IMAGE_WIDTH         1216
 #define IMAGE_HEIGHT        1507
 #define IMAGE_DEPTH         4
 #define IMAGE_ARRAY_SIZE    10
-#define PITCH_RATIO         1.4
+#define PITCH_RATIO         2
 
 extern cl_device_type gDeviceType;
 
@@ -113,19 +114,28 @@ static void TestWriteReadImgArray(cl_command_queue queue, cl_mem clImgArr, cl_me
     }
 }
 
-static void TestImageBuffer(cl_command_queue queue, cl_mem clBuffer, cl_mem clImg1DBuffer, const cl_image_desc& clImgDesc)
+static void TestImageFromMemObject(cl_command_queue queue, cl_mem clMemObj, cl_mem clImg, const cl_image_desc& clImgDesc, bool bIsFromBuffer)
 {
     bool bResult = true;
-    const size_t szDataSize = clImgDesc.image_width * IMAGE_ELEM_SIZE;
+	const size_t szHeight = CL_MEM_OBJECT_IMAGE1D_BUFFER == clImgDesc.image_type ? 1 : clImgDesc.image_height;
+	const size_t szDataSize = clImgDesc.image_width * szHeight * IMAGE_ELEM_SIZE;
     char* const pSrcData = new char[szDataSize], *const pDstData = new char[szDataSize];
-    const size_t origin[3] = {0}, region[3] = {clImgDesc.image_width, 1, 1};
+	const size_t origin[3] = {0}, region[3] = {clImgDesc.image_width, szHeight, 1};
 
     FillData(pSrcData, szDataSize);
     try
     {
-        cl_int iRet = clEnqueueWriteBuffer(queue, clBuffer, CL_TRUE, 0, szDataSize, pSrcData, 0, NULL, NULL);
+		cl_int iRet;
+		if (bIsFromBuffer)
+		{
+			iRet = clEnqueueWriteBuffer(queue, clMemObj, CL_TRUE, 0, szDataSize, pSrcData, 0, NULL, NULL);
+		}
+		else
+		{
+			iRet = clEnqueueWriteImage(queue, clMemObj, CL_TRUE, origin, region, 0, 0, pSrcData, 0, NULL, NULL);
+		}
         CheckException(L"clEnqueueWriteBuffer", CL_SUCCESS, iRet);
-        iRet = clEnqueueReadImage(queue, clImg1DBuffer, CL_TRUE, origin, region, 0, 0, pDstData, 0, NULL, NULL);
+        iRet = clEnqueueReadImage(queue, clImg, CL_TRUE, origin, region, 0, 0, pDstData, 0, NULL, NULL);
         CheckException(L"clEnqueueReadImage", CL_SUCCESS, iRet);
         bResult = memcmp(pSrcData, pDstData, szDataSize) == 0;
         if (!bResult)
@@ -133,12 +143,15 @@ static void TestImageBuffer(cl_command_queue queue, cl_mem clBuffer, cl_mem clIm
             std::cout << "source data differs from destination data" << std::endl;
         }
 
-        cl_mem clBufInfo;
-        size_t clBufInfoSize;
-        iRet = clGetImageInfo(clImg1DBuffer, CL_IMAGE_BUFFER, sizeof(clBufInfo), &clBufInfo, &clBufInfoSize);
-        CheckException(L"clGetImageInfo", CL_SUCCESS, iRet);
-        CheckException(L"CL_IMAGE_BUFFER", clBuffer, clBufInfo);
-        CheckException(L"clBufInfoSize", sizeof(clBufInfo), clBufInfoSize);
+		if (bIsFromBuffer)
+		{
+			cl_mem clBufInfo;
+			size_t clBufInfoSize;
+			iRet = clGetImageInfo(clImg, CL_IMAGE_BUFFER, sizeof(clBufInfo), &clBufInfo, &clBufInfoSize);
+			CheckException(L"clGetImageInfo", CL_SUCCESS, iRet);
+			CheckException(L"CL_IMAGE_BUFFER", clMemObj, clBufInfo);
+			CheckException(L"clBufInfoSize", sizeof(clBufInfo), clBufInfoSize);
+		}
     }
     catch (const std::exception&)
     {
@@ -460,7 +473,7 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
     iRet = clGetSupportedImageFormats(context, 0, CL_MEM_OBJECT_BUFFER, 0, NULL, &uiNumImageFormats);
     CheckException(L"clGetSupportedImageFormats", CL_INVALID_VALUE, iRet);
 
-    // trying to create a 1D image buffer with localImgDesc.buffer NULL
+    // trying to create a 1D image buffer with localImgDesc.mem_object NULL
     localImgDesc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
     localImgDesc.mem_object = NULL;
     clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
@@ -617,6 +630,117 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
     // row pitch smaller than minimum
     clCreateImage(context, CL_MEM_USE_HOST_PTR, &clFormat, &localImgDesc, &buf, &iRet);
     CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
+
+	// a 2D image from a 1D image	
+	cl_image_desc desc = { 0 };
+	cl_image_format format;
+	desc.image_type = CL_MEM_OBJECT_IMAGE1D;
+	desc.image_width = IMAGE_WIDTH;
+	format.image_channel_order = CL_RGBA;
+    format.image_channel_data_type = CL_UNSIGNED_INT8;
+	
+	img1d = clCreateImage(context, 0, &format, &desc, NULL, &iRet);
+	CheckException(L"clCreateImage", CL_SUCCESS, iRet);
+
+	desc.image_type = CL_MEM_OBJECT_IMAGE2D;
+	desc.mem_object = img1d;
+	clCreateImage(context, 0, &format, &desc, NULL, &iRet);
+	CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
+
+	iRet = clReleaseMemObject(img1d);
+	CheckException("clReleaseMemObject", CL_SUCCESS, iRet);
+
+	// create a 1D image buffer from a buffer whose host pointer isn't aligned to CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT
+	short bufData[(IMAGE_ELEM_SIZE * IMAGE_WIDTH) / 2 + 1];
+	cl_mem memBuf = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(bufData) - 1, (char*)bufData + 1, &iRet);	// I assume that CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT is bigger than 1
+	CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+
+	localImgDesc = clImageDesc;
+	localImgDesc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
+	localImgDesc.mem_object = memBuf;
+	img2d = clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
+	CheckException(L"clCreateImage", CL_INVALID_IMAGE_FORMAT_DESCRIPTOR, iRet);
+
+	iRet = clReleaseMemObject(memBuf);
+	CheckException("clReleaseMemObject", CL_SUCCESS, iRet);	
+
+	// 2D image created from buffer with pitch not a multiple of the maximum of the CL_DEVICE_IMAGE_PITCH_ALIGNMENT value of the device
+	localImgDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+	localImgDesc.image_width = 5;
+	localImgDesc.image_height = IMAGE_HEIGHT;
+	memBuf = clCreateBuffer(context, 0, IMAGE_ELEM_SIZE * localImgDesc.image_width * localImgDesc.image_height, NULL, &iRet);
+	CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+	localImgDesc.mem_object = memBuf;
+
+	img2d = clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
+	CheckException(L"clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
+
+	iRet = clReleaseMemObject(memBuf);
+	CheckException("clReleaseMemObject", CL_SUCCESS, iRet);	
+}
+
+static void TestOpenCL2_0ImageFormats(cl_context context)
+{
+	const struct {
+		cl_image_format m_format;
+		bool m_bExpectSuccess;
+	} formats[] = {
+		{ { CL_DEPTH, CL_UNORM_INT16}, true },
+		{ { CL_DEPTH, CL_SNORM_INT8}, false },
+		{ { CL_sRGB, CL_UNORM_INT8}, true },
+		{ { CL_sRGBx, CL_UNORM_INT8}, true },
+		{ { CL_sRGBA, CL_UNORM_INT8}, true },
+		{ { CL_sBGRA, CL_UNORM_INT8}, true },
+		{ { CL_sBGRA, CL_UNORM_INT16}, false },
+		{ { CL_sRGB, CL_UNORM_INT16}, false },
+		{ { CL_ABGR, CL_UNORM_INT8}, true },
+		{ { CL_ABGR, CL_UNORM_INT16}, false }
+	};
+	cl_image_desc desc = { 0 };
+	cl_int iRet;
+
+	desc.mem_object = NULL;
+	desc.image_type = CL_MEM_OBJECT_IMAGE1D;
+	desc.image_width = IMAGE_WIDTH;	
+
+	cout << "Checking new image formats in OpenCL 2.0: " << endl;
+	for (size_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++)
+	{
+		cout << channelOrderToString(formats[i].m_format.image_channel_order) << endl;
+		cl_mem img = clCreateImage(context, 0, &formats[i].m_format, &desc, NULL, &iRet);
+		CheckException("clCreateImage", CL_SUCCEEDED(iRet), formats[i].m_bExpectSuccess);
+		iRet = clReleaseMemObject(img);
+		CheckException("clReleaseMemObject", CL_SUCCESS, iRet);
+	}
+}
+
+static void Test2DImageFromImage(cl_context context, cl_command_queue queue)
+{
+	cl_image_desc desc = {0};
+	cl_image_format format;
+
+	desc.image_width = IMAGE_WIDTH;
+	desc.image_height = IMAGE_HEIGHT;
+	desc.image_type = CL_MEM_OBJECT_IMAGE2D;
+	format.image_channel_data_type = CL_UNORM_INT8;
+	format.image_channel_order = CL_sRGB;
+
+#if 0	// disabled until BE supports the new formats
+	cl_mem img = clCreateImage(context, 0, &format, &desc, NULL, &iRet);
+	CheckException(L"clCreateImage", CL_SUCCESS, iRet);
+
+	format.image_channel_order = CL_RGB;
+	desc.mem_object = img;
+	cl_mem newImg = clCreateImage(context, 0, &format, &desc, NULL, &iRet);
+	CheckException(L"clCreateImage", CL_SUCCESS, iRet);
+
+	TestImageFromMemObject(queue, img, newImg, desc, false); 
+
+	iRet = clReleaseMemObject(img);
+	CheckException("clReleaseMemObject", CL_SUCCESS, iRet);
+	iRet = clReleaseMemObject(newImg);
+	CheckException("clReleaseMemObject", CL_SUCCESS, iRet);
+#endif	
 }
 
 bool clCreateImageTest()
@@ -629,7 +753,7 @@ bool clCreateImageTest()
     cl_command_queue queue = NULL;
     cl_image_format clFormat = {0};
     cl_image_desc clImageDesc = {0};
-    clMemWrapper clImg1D, clBuffer, clImg1DBuffer, clImg2D, clImg2DOld, clImg3D, clImg3DOld, clImg1DArr, clImg2DArr;
+    clMemWrapper clImg1D, clBuffer, clImg1DBuffer, clImg2D, clImg2DOld, clImg3D, clImg3DOld, clImg1DArr, clImg2DArr, clImg2DBuffer;
     const cl_mem_object_type clImgTypes[] = {
         CL_MEM_OBJECT_IMAGE1D,
         CL_MEM_OBJECT_IMAGE2D,
@@ -677,7 +801,7 @@ bool clCreateImageTest()
         CheckException(L"clCreateImage", CL_SUCCESS, iRet);
         clImageDesc.mem_object = NULL;
 
-        TestImageBuffer(queue, clBuffer, clImg1DBuffer, clImageDesc);
+        TestImageFromMemObject(queue, clBuffer, clImg1DBuffer, clImageDesc, true);
 
         // 2D image
         clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
@@ -688,10 +812,25 @@ bool clCreateImageTest()
         clImg2DOld = clCreateImage2D(context, 0, &clFormat, clImageDesc.image_width, clImageDesc.image_height, clImageDesc.image_row_pitch, NULL, &iRet);
         CheckException(L"clCreateImage2D", CL_SUCCESS, iRet);
 
+		// 2D image buffer
+		clBuffer = clCreateBuffer(context, 0, clImageDesc.image_width * clImageDesc.image_height * IMAGE_ELEM_SIZE, NULL, &iRet);
+		CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+
+		clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+		clImageDesc.mem_object = clBuffer;
+		clImg2DBuffer = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
+		CheckException(L"clCreateImage", CL_SUCCESS, iRet);
+        clImageDesc.mem_object = NULL;
+
+		TestImageFromMemObject(queue, clBuffer, clImg2DBuffer, clImageDesc, true);
+		
+		// 2D image from another 2D image
+		Test2DImageFromImage(context, queue);
+
         // 3D image 
         clImageDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
-        clImg3D = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
-        CheckException(L"clCreateImage", CL_SUCCESS, iRet);
+		clImg3D = clCreateImage(context, CL_MEM_READ_WRITE, &clFormat, &clImageDesc, NULL, &iRet);
+        CheckException(L"clCreateImage", CL_SUCCESS, iRet);		
 
         // 3D image, old API
         clImg3DOld = clCreateImage3D(context, 0, &clFormat, clImageDesc.image_width, clImageDesc.image_height, clImageDesc.image_depth, clImageDesc.image_row_pitch,
@@ -755,6 +894,11 @@ bool clCreateImageTest()
         TestNegative(clFormat, clImageDesc, context, device, queue);
 
         TestInvalidFlags(context, clFormat, clImageDesc);
+
+		// disabled until BE support the new formats
+#if 0
+		TestOpenCL2_0ImageFormats(context);
+#endif
     }
     catch (const std::exception&)
     {

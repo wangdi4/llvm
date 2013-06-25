@@ -30,7 +30,8 @@
 #include "ocl_itt.h"
 #include "cl_objects_map.h"
 #include "Context.h"
-
+#include "GenericMemObj.h"
+#include "ImageBuffer.h"
 #include <Logger.h>
 #if defined (DX_MEDIA_SHARING)
 #include <d3d9.h>
@@ -177,6 +178,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_mem CreateImage2D(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageRowPitch, void * pHostPtr, cl_int * pErrcodeRet);
         virtual cl_mem CreateImage3D(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageDepth, size_t szImageRowPitch, size_t szImageSlicePitch, void * pHostPtr, cl_int * pErrcodeRet);
         virtual cl_mem CreateImage(cl_context context, cl_mem_flags flags, const cl_image_format *image_format, const cl_image_desc *image_desc, void *host_ptr, cl_int *errcode_ret);        
+        virtual cl_mem Create2DImageFromImage(cl_context context, cl_mem_flags flags, const cl_image_format* pImageFormat, const cl_image_desc* pImageDesc, cl_mem otherImgHandle, cl_int* iErrcodeRet);
         virtual cl_mem CreateImageArray(cl_context clContext, cl_mem_flags clFlags, const cl_image_format* clImageFormat, const cl_image_desc* pClImageDesc, void* pHostPtr, cl_int* pErrcodeRet);
 		virtual cl_int RetainMemObject(cl_mem clMemObj);
 		virtual cl_int ReleaseMemObject(cl_mem clMemObj);
@@ -243,6 +245,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		 * @param image_height
 		 * @param image_depth
 		 * @param array_size
+		 * @param pImgBufferHostPtr
 		 * @return CL_SUCCESS if all parameters OK.
 		 */
 		cl_err_code CheckContextSpecificParameters(SharedPtr<Context>pContext,
@@ -250,7 +253,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										const size_t image_width,
 										const size_t image_height,
 										const size_t image_depth,
-										const size_t array_size);
+										const size_t array_size,
+										const void* pImgBufferHostPtr = NULL);
 
 
 		// get pointers to device objects according to the device ids
@@ -259,7 +263,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         template<size_t DIM, cl_mem_object_type OBJ_TYPE> cl_mem CreateScalarImage(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageDepth, size_t szImageRowPitch, size_t szImageSlicePitch, void * pHostPtr, cl_int * pErrcodeRet, bool bIsImageBuffer = false);
 
-        cl_mem CreateImage1DBuffer(cl_context context, cl_mem_flags clFlags, const cl_image_format* clImageFormat, size_t szImageWidth, cl_mem buffer, cl_int* pErrcodeRet);
+        template<size_t DIM, cl_mem_object_type OBJ_TYPE>
+        cl_mem CreateImageBuffer(cl_context context, cl_mem_flags clFlags, const cl_image_format* clImageFormat, const cl_image_desc& desc, cl_mem buffer, cl_int* pErrcodeRet);
+
+        bool Check2DImageFromBufferPitch(const ConstSharedPtr<GenericMemObject>& pBuffer, const cl_image_desc& desc, const cl_image_format& format) const;
 
 #if defined (DX_MEDIA_SHARING)
         template<typename RESOURCE_TYPE, typename DEV_TYPE>
@@ -476,5 +483,98 @@ cl_mem ContextModule::CreateFromD3DResource(cl_context clContext, cl_mem_flags c
 }
 
 #endif
+
+template<size_t DIM, cl_mem_object_type OBJ_TYPE>
+cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags, const cl_image_format* clImageFormat, const cl_image_desc& desc, cl_mem buffer, cl_int* pErrcodeRet)
+{
+	cl_err_code clErr = CL_SUCCESS;    
+
+    SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
+
+	if (NULL == pContext)
+	{
+		LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), context);
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_INVALID_CONTEXT;
+		}
+		return CL_INVALID_HANDLE;
+	}
+
+    SharedPtr<GenericMemObject> pBuffer = m_mapMemObjects.GetOCLObject((_cl_mem_int*)buffer).DynamicCast<GenericMemObject>();
+    if (CL_FAILED(clErr) || NULL == pBuffer)
+    {
+        LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), buffer, &pBuffer, ClErrTxt(clErr));
+        if (pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
+        }
+        return CL_INVALID_HANDLE;
+    }
+
+    const cl_mem_flags bufFlags = pBuffer->GetFlags();
+    if (((bufFlags & CL_MEM_WRITE_ONLY) && (clFlags & (CL_MEM_READ_WRITE | CL_MEM_READ_ONLY))) ||
+        ((bufFlags & CL_MEM_READ_ONLY) && (clFlags & (CL_MEM_READ_WRITE | CL_MEM_WRITE_ONLY))) ||
+        (clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR)) ||
+        ((bufFlags & CL_MEM_HOST_WRITE_ONLY) && (clFlags & CL_MEM_HOST_READ_ONLY)) ||
+        ((bufFlags & CL_MEM_HOST_READ_ONLY) && (clFlags & CL_MEM_HOST_WRITE_ONLY)) ||
+        ((bufFlags & CL_MEM_HOST_NO_ACCESS) && (clFlags & (CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_WRITE_ONLY))))
+    {
+        LOG_ERROR(TEXT("invalid flags (%d)"), clFlags);
+        if (pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
+
+	clErr = CheckContextSpecificParameters(pContext, (cl_mem_object_type)OBJ_TYPE, desc.image_width, desc.image_height, desc.image_depth, desc.image_array_size, pBuffer->GetHostPtr());
+	if (CL_FAILED(clErr))
+	{
+		LOG_ERROR(TEXT("%s"), TEXT("Context specific parameter check failed"), "");
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = clErr;
+		}
+		return CL_INVALID_HANDLE;
+	}
+
+	size_t szDims[] = { desc.image_width, desc.image_height, desc.image_depth},
+		szPitches[] = { desc.image_row_pitch, desc.image_slice_pitch };	
+	if (GenericMemObjectBackingStore::calculate_size(clGetPixelBytesCount(clImageFormat), DIM, szDims, szPitches) > pBuffer->GetSize())
+    {
+        LOG_ERROR(TEXT("Size of image must be <= size of buffer object data store"), "");
+        if (pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
+        }
+        return CL_INVALID_HANDLE;
+    }	
+
+	if (OBJ_TYPE == CL_MEM_OBJECT_IMAGE2D && !Check2DImageFromBufferPitch(pBuffer, desc, *clImageFormat))
+	{
+		LOG_ERROR(TEXT("pitch isn't a multiple of the maximum of the CL_DEVICE_IMAGE_PITCH_ALIGNMENT value for all devices in the context associated with image_desc->buffer"), "");
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
+		}
+		return CL_INVALID_HANDLE;
+	}
+
+    clFlags |= pBuffer->GetFlags(); // if some flags are not specified, they are inherited from buffer
+
+    void* const pBufferData = pBuffer->GetBackingStoreData();
+	const cl_mem clImgBuf = CreateScalarImage<DIM, OBJ_TYPE>(context, clFlags, clImageFormat, desc.image_width, desc.image_height, desc.image_depth, desc.image_row_pitch,
+															 desc.image_slice_pitch, pBufferData, pErrcodeRet, true);
+    if (CL_INVALID_HANDLE == clImgBuf)
+    {
+        return clImgBuf;
+    }
+
+    SharedPtr<ImageBuffer> pImgBuf = m_mapMemObjects.GetOCLObject((_cl_mem_int*)clImgBuf).DynamicCast<ImageBuffer>();
+    assert(pImgBuf);
+    pImgBuf->SetBuffer(pBuffer);
+    return clImgBuf;
+}
 
 }}}

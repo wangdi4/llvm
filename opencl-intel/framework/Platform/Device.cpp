@@ -89,7 +89,7 @@ cl_err_code	Device::GetInfo(cl_int param_name, size_t param_value_size, void * p
 	size_t       szParamValueSize = 0;
     cl_device_id zeroHandle       = (cl_device_id)0;
     cl_uint      one              = 1;
-    const cl_bool clFalse         = CL_FALSE;
+    const cl_bool clFalse         = CL_FALSE;	
     
 	const void * pValue = NULL;
 

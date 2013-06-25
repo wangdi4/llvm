@@ -33,7 +33,7 @@
 #include "cl_sys_defines.h"
 
 #include "MemoryObjectFactory.h"
-#include "Image1DBuffer.h"
+#include "ImageBuffer.h"
 #include "cl_shared_ptr.hpp"
 
 using namespace std;
