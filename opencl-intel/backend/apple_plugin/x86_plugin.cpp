@@ -42,6 +42,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/system_error.h"
 #include "llvm/IRBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetData.h"
@@ -728,6 +729,17 @@ static int compileProgram(
   // Get the runtime module, which contains all the OpenCL runtime functions.
   Module *Runtime = objects->llvm_module;
 
+  if (!Runtime) {
+#if defined(__i386__)
+    char* bitcode_name = (char*)"/System/Library/Frameworks/OpenCL.framework/Resources/runtime.i386.bc";
+#endif
+#if defined(__x86_64__)
+    char* bitcode_name = (char*)"/System/Library/Frameworks/OpenCL.framework/Resources/runtime.x86_64.bc";
+#endif
+    OwningPtr<MemoryBuffer> bc_memory_buffer;
+    MemoryBuffer::getFileOrSTDIN(bitcode_name, bc_memory_buffer);
+    Runtime = getLazyBitcodeModule(bc_memory_buffer.take(), getGlobalContext(), NULL);
+  }
   // Set the triple string based on the architecture we're compiling for.
   std::string triple = Runtime->getTargetTriple();
 
@@ -752,7 +764,7 @@ static int compileProgram(
       return -9;
     }
     std::string ErrMsg;
-    SM = ParseBitcodeFile(memory_buffer, objects->llvm_module->getContext(),&ErrMsg);
+    SM = ParseBitcodeFile(memory_buffer, Runtime->getContext(),&ErrMsg);
     if (!SM && log)
       *log = strdup(ErrMsg.c_str());
     delete memory_buffer;
@@ -772,7 +784,7 @@ static int compileProgram(
   else {
     // Add global variable with local linkage.
     SM = (Module *)cl2module(
-                     objects->llvm_module->getContext(), opt,
+                     Runtime->getContext(), opt,
                      options_str.c_str(), (const char*)source,
                      debug, log, &hdrs);
   }
