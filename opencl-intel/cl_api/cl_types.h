@@ -172,12 +172,14 @@ typedef ALIGN16 struct _image_aux_data
 } image_aux_data;
 
 typedef image_aux_data* image2d_t;
+typedef image_aux_data* image2d_depth_t;
 typedef image_aux_data* image3d_t;
 // Images 1.2 types
 typedef image_aux_data* image1d_t;
 typedef image_aux_data* image1d_buffer_t;
 typedef image_aux_data* image1d_array_t;
 typedef image_aux_data* image2d_array_t;
+typedef image_aux_data* image2d_array_depth_t;
 
 
 typedef struct _cl_llvm_prog_header
@@ -218,7 +220,7 @@ enum cl_dev_sampler_prop
     __FILTER_MASK								= ( ((1<<__FILTER_BITS)-1) << __FILTER_BASE)
 };
 
-// Channel order, must match cl.h
+// Channel order, numbering must be aligned with cl_channel_order in cl.h
 enum {
   CLK_R,
   CLK_A,
@@ -229,7 +231,8 @@ enum {
   CLK_BGRA,
   CLK_ARGB,
   CLK_INTENSITY,
-  CLK_LUMINANCE
+  CLK_LUMINANCE,
+  CLK_DEPTH = CLK_R + 0xD
 };
 
 // Channel Type

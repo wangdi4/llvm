@@ -165,8 +165,8 @@ typedef double double16 __attribute__((ext_vector_type(16)));
  */
 #define NAN as_float(__builtin_nanf((char const *)""))
 
-#define FP_ILOGB0		INT_MIN
-#define FP_ILOGBNAN		INT_MAX
+#define FP_ILOGB0        INT_MIN
+#define FP_ILOGBNAN      INT_MAX
 
 #define FLT_DIG 6
 #define FLT_MANT_DIG 24
@@ -205,35 +205,35 @@ typedef double double16 __attribute__((ext_vector_type(16)));
 #define M_SQRT2_F     1.41421356237309504880168872420969808f
 #define M_SQRT1_2_F   0.707106781186547524400844362104849039f
 
-#define M_E				0x1.5bf0a8b145769p+1
-#define M_LOG2E			0x1.71547652b82fep+0
-#define M_LOG10E		0x1.bcb7b1526e50ep-2
-#define M_LN2			0x1.62e42fefa39efp-1
-#define M_LN10			0x1.26bb1bbb55516p+1
-#define M_PI			0x1.921fb54442d18p+1
-#define M_PI_2			0x1.921fb54442d18p+0
-#define M_PI_4			0x1.921fb54442d18p-1
-#define M_1_PI			0x1.45f306dc9c883p-2
-#define M_2_PI			0x1.45f306dc9c883p-1
-#define M_2_SQRTPI		0x1.20dd750429b6dp+0
-#define M_SQRT2			0x1.6a09e667f3bcdp+0
-#define M_SQRT1_2		0x1.6a09e667f3bcdp-1
+#define M_E               0x1.5bf0a8b145769p+1
+#define M_LOG2E           0x1.71547652b82fep+0
+#define M_LOG10E          0x1.bcb7b1526e50ep-2
+#define M_LN2             0x1.62e42fefa39efp-1
+#define M_LN10            0x1.26bb1bbb55516p+1
+#define M_PI              0x1.921fb54442d18p+1
+#define M_PI_2            0x1.921fb54442d18p+0
+#define M_PI_4            0x1.921fb54442d18p-1
+#define M_1_PI            0x1.45f306dc9c883p-2
+#define M_2_PI            0x1.45f306dc9c883p-1
+#define M_2_SQRTPI        0x1.20dd750429b6dp+0
+#define M_SQRT2           0x1.6a09e667f3bcdp+0
+#define M_SQRT1_2         0x1.6a09e667f3bcdp-1
 
-#define CHAR_BIT    8
-#define	SCHAR_MAX	127
-#define	SCHAR_MIN	(-128)
-#define	UCHAR_MAX	255
-#define	CHAR_MAX	SCHAR_MAX
-#define	CHAR_MIN	SCHAR_MIN
-#define	USHRT_MAX	65535
-#define	SHRT_MAX	32767
-#define	SHRT_MIN	(-32768)
-#define	UINT_MAX	0xffffffff
-#define	INT_MAX		2147483647
-#define	INT_MIN		(-2147483647-1)
-#define	ULONG_MAX	0xffffffffffffffffUL
-#define	LONG_MAX	((long)0x7fffffffffffffffL)
-#define	LONG_MIN	((long)(-0x7fffffffffffffffL-1))
+#define CHAR_BIT     8
+#define SCHAR_MAX    127
+#define SCHAR_MIN    (-128)
+#define UCHAR_MAX    255
+#define CHAR_MAX     SCHAR_MAX
+#define CHAR_MIN     SCHAR_MIN
+#define USHRT_MAX    65535
+#define SHRT_MAX     32767
+#define SHRT_MIN     (-32768)
+#define UINT_MAX     0xffffffff
+#define INT_MAX      2147483647
+#define INT_MIN      (-2147483647-1)
+#define ULONG_MAX    0xffffffffffffffffUL
+#define LONG_MAX     ((long)0x7fffffffffffffffL)
+#define LONG_MIN     ((long)(-0x7fffffffffffffffL-1))
 
 #define DBL_DIG 15
 #define DBL_MANT_DIG 53
@@ -6596,12 +6596,12 @@ unsigned int __attribute__((overloadable)) atom_xor(volatile __local unsigned in
 // Function qualifiers (section 6.7)
 
 #define __kernel_exec(X, typen) __kernel \
-	__attribute__((work_group_size_hint(X, 1, 1))) \
-	__attribute__((vec_type_hint(typen)))
+    __attribute__((work_group_size_hint(X, 1, 1))) \
+    __attribute__((vec_type_hint(typen)))
 
 #define kernel_exec(X, typen) __kernel \
-	__attribute__((work_group_size_hint(X, 1, 1))) \
-	__attribute__((vec_type_hint(typen)))
+    __attribute__((work_group_size_hint(X, 1, 1))) \
+    __attribute__((vec_type_hint(typen)))
 
 // Miscellaneous vector functions
 
@@ -6705,446 +6705,446 @@ int const_func __attribute__((overloadable)) vec_step(double16 a);
  * short8 b;
  * b = shuffle(a, mask); <- not valid
  */
-char2		const_func __attribute__((overloadable)) shuffle(char2 x, uchar2 mask);
-char2		const_func __attribute__((overloadable)) shuffle(char4 x, uchar2 mask);
-char2		const_func __attribute__((overloadable)) shuffle(char8 x, uchar2 mask);
-char2		const_func __attribute__((overloadable)) shuffle(char16 x, uchar2 mask);
-
-uchar2 		const_func __attribute__((overloadable)) shuffle(uchar2 x, uchar2 mask);
-uchar2 		const_func __attribute__((overloadable)) shuffle(uchar4 x, uchar2 mask);
-uchar2 		const_func __attribute__((overloadable)) shuffle(uchar8 x, uchar2 mask);
-uchar2 		const_func __attribute__((overloadable)) shuffle(uchar16 x, uchar2 mask);
-
-short2 		const_func __attribute__((overloadable)) shuffle(short2 x, ushort2 mask);
-short2 		const_func __attribute__((overloadable)) shuffle(short4 x, ushort2 mask);
-short2 		const_func __attribute__((overloadable)) shuffle(short8 x, ushort2 mask);
-short2 		const_func __attribute__((overloadable)) shuffle(short16 x, ushort2 mask);
-
-ushort2 	const_func __attribute__((overloadable)) shuffle(ushort2 x, ushort2 mask);
-ushort2 	const_func __attribute__((overloadable)) shuffle(ushort4 x, ushort2 mask);
-ushort2 	const_func __attribute__((overloadable)) shuffle(ushort8 x, ushort2 mask);
-ushort2 	const_func __attribute__((overloadable)) shuffle(ushort16 x, ushort2 mask);
-
-int2 		const_func __attribute__((overloadable)) shuffle(int2 x, uint2 mask);
-int2 		const_func __attribute__((overloadable)) shuffle(int4 x, uint2 mask);
-int2 		const_func __attribute__((overloadable)) shuffle(int8 x, uint2 mask);
-int2 		const_func __attribute__((overloadable)) shuffle(int16 x, uint2 mask);
-
-uint2 		const_func __attribute__((overloadable)) shuffle(uint2 x, uint2 mask);
-uint2 		const_func __attribute__((overloadable)) shuffle(uint4 x, uint2 mask);
-uint2 		const_func __attribute__((overloadable)) shuffle(uint8 x, uint2 mask);
-uint2 		const_func __attribute__((overloadable)) shuffle(uint16 x, uint2 mask);
-
-long2 		const_func __attribute__((overloadable)) shuffle(long2 x, ulong2 mask);
-long2 		const_func __attribute__((overloadable)) shuffle(long4 x, ulong2 mask);
-long2 		const_func __attribute__((overloadable)) shuffle(long8 x, ulong2 mask);
-long2 		const_func __attribute__((overloadable)) shuffle(long16 x, ulong2 mask);
-
-ulong2 		const_func __attribute__((overloadable)) shuffle(ulong2 x, ulong2 mask);
-ulong2 		const_func __attribute__((overloadable)) shuffle(ulong4 x, ulong2 mask);
-ulong2 		const_func __attribute__((overloadable)) shuffle(ulong8 x, ulong2 mask);
-ulong2 		const_func __attribute__((overloadable)) shuffle(ulong16 x, ulong2 mask);
-
-//half2 		const_func __attribute__((overloadable)) shuffle(half2 x, ushort2 mask);
-//half2 		const_func __attribute__((overloadable)) shuffle(half4 x, ushort2 mask);
-//half2 		const_func __attribute__((overloadable)) shuffle(half8 x, ushort2 mask);
-//half2 		const_func __attribute__((overloadable)) shuffle(half16 x, ushort2 mask);
-
-float2 		const_func __attribute__((overloadable)) shuffle(float2 x, uint2 mask);
-float2 		const_func __attribute__((overloadable)) shuffle(float4 x, uint2 mask);
-float2 		const_func __attribute__((overloadable)) shuffle(float8 x, uint2 mask);
-float2 		const_func __attribute__((overloadable)) shuffle(float16 x, uint2 mask);
-
-double2 	const_func __attribute__((overloadable)) shuffle(double2 x, ulong2 mask);
-double2 	const_func __attribute__((overloadable)) shuffle(double4 x, ulong2 mask);
-double2 	const_func __attribute__((overloadable)) shuffle(double8 x, ulong2 mask);
-double2 	const_func __attribute__((overloadable)) shuffle(double16 x, ulong2 mask);
-
-char4 		const_func __attribute__((overloadable)) shuffle(char2 x, uchar4 mask);
-char4 		const_func __attribute__((overloadable)) shuffle(char4 x, uchar4 mask);
-char4 		const_func __attribute__((overloadable)) shuffle(char8 x, uchar4 mask);
-char4 		const_func __attribute__((overloadable)) shuffle(char16 x, uchar4 mask);
-
-uchar4 		const_func __attribute__((overloadable)) shuffle(uchar2 x, uchar4 mask);
-uchar4 		const_func __attribute__((overloadable)) shuffle(uchar4 x, uchar4 mask);
-uchar4 		const_func __attribute__((overloadable)) shuffle(uchar8 x, uchar4 mask);
-uchar4 		const_func __attribute__((overloadable)) shuffle(uchar16 x, uchar4 mask);
-
-short4 		const_func __attribute__((overloadable)) shuffle(short2 x, ushort4 mask);
-short4 		const_func __attribute__((overloadable)) shuffle(short4 x, ushort4 mask);
-short4 		const_func __attribute__((overloadable)) shuffle(short8 x, ushort4 mask);
-short4 		const_func __attribute__((overloadable)) shuffle(short16 x, ushort4 mask);
-
-ushort4		const_func __attribute__((overloadable)) shuffle(ushort2 x, ushort4 mask);
-ushort4 	const_func __attribute__((overloadable)) shuffle(ushort4 x, ushort4 mask);
-ushort4 	const_func __attribute__((overloadable)) shuffle(ushort8 x, ushort4 mask);
-ushort4 	const_func __attribute__((overloadable)) shuffle(ushort16 x, ushort4 mask);
-
-int4 		const_func __attribute__((overloadable)) shuffle(int2 x, uint4 mask);
-int4 		const_func __attribute__((overloadable)) shuffle(int4 x, uint4 mask);
-int4 		const_func __attribute__((overloadable)) shuffle(int8 x, uint4 mask);
-int4 		const_func __attribute__((overloadable)) shuffle(int16 x, uint4 mask);
-
-uint4 		const_func __attribute__((overloadable)) shuffle(uint2 x, uint4 mask);
-uint4 		const_func __attribute__((overloadable)) shuffle(uint4 x, uint4 mask);
-uint4 		const_func __attribute__((overloadable)) shuffle(uint8 x, uint4 mask);
-uint4 		const_func __attribute__((overloadable)) shuffle(uint16 x, uint4 mask);
-
-long4 		const_func __attribute__((overloadable)) shuffle(long2 x, ulong4 mask);
-long4 		const_func __attribute__((overloadable)) shuffle(long4 x, ulong4 mask);
-long4 		const_func __attribute__((overloadable)) shuffle(long8 x, ulong4 mask);
-long4 		const_func __attribute__((overloadable)) shuffle(long16 x, ulong4 mask);
-
-ulong4 		const_func __attribute__((overloadable)) shuffle(ulong2 x, ulong4 mask);
-ulong4 		const_func __attribute__((overloadable)) shuffle(ulong4 x, ulong4 mask);
-ulong4 		const_func __attribute__((overloadable)) shuffle(ulong8 x, ulong4 mask);
-ulong4 		const_func __attribute__((overloadable)) shuffle(ulong16 x, ulong4 mask);
-
-//half4 		const_func __attribute__((overloadable)) shuffle(half2 x, ushort4 mask);
-//half4 		const_func __attribute__((overloadable)) shuffle(half4 x, ushort4 mask);
-//half4 		const_func __attribute__((overloadable)) shuffle(half8 x, ushort4 mask);
-//half4 		const_func __attribute__((overloadable)) shuffle(half16 x, ushort4 mask);
-
-float4 		const_func __attribute__((overloadable)) shuffle(float2 x, uint4 mask);
-float4 		const_func __attribute__((overloadable)) shuffle(float4 x, uint4 mask);
-float4 		const_func __attribute__((overloadable)) shuffle(float8 x, uint4 mask);
-float4 		const_func __attribute__((overloadable)) shuffle(float16 x, uint4 mask);
-
-double4 	const_func __attribute__((overloadable)) shuffle(double2 x, ulong4 mask);
-double4 	const_func __attribute__((overloadable)) shuffle(double4 x, ulong4 mask);
-double4 	const_func __attribute__((overloadable)) shuffle(double8 x, ulong4 mask);
-double4 	const_func __attribute__((overloadable)) shuffle(double16 x, ulong4 mask);
-
-char8 		const_func __attribute__((overloadable)) shuffle(char2 x, uchar8 mask);
-char8 		const_func __attribute__((overloadable)) shuffle(char4 x, uchar8 mask);
-char8 		const_func __attribute__((overloadable)) shuffle(char8 x, uchar8 mask);
-char8 		const_func __attribute__((overloadable)) shuffle(char16 x, uchar8 mask);
-
-uchar8 		const_func __attribute__((overloadable)) shuffle(uchar2 x, uchar8 mask);
-uchar8 		const_func __attribute__((overloadable)) shuffle(uchar4 x, uchar8 mask);
-uchar8 		const_func __attribute__((overloadable)) shuffle(uchar8 x, uchar8 mask);
-uchar8 		const_func __attribute__((overloadable)) shuffle(uchar16 x, uchar8 mask);
-
-short8 		const_func __attribute__((overloadable)) shuffle(short2 x, ushort8 mask);
-short8 		const_func __attribute__((overloadable)) shuffle(short4 x, ushort8 mask);
-short8 		const_func __attribute__((overloadable)) shuffle(short8 x, ushort8 mask);
-short8 		const_func __attribute__((overloadable)) shuffle(short16 x, ushort8 mask);
-
-ushort8 	const_func __attribute__((overloadable)) shuffle(ushort2 x, ushort8 mask);
-ushort8 	const_func __attribute__((overloadable)) shuffle(ushort4 x, ushort8 mask);
-ushort8 	const_func __attribute__((overloadable)) shuffle(ushort8 x, ushort8 mask);
-ushort8 	const_func __attribute__((overloadable)) shuffle(ushort16 x, ushort8 mask);
-
-int8 		const_func __attribute__((overloadable)) shuffle(int2 x, uint8 mask);
-int8 		const_func __attribute__((overloadable)) shuffle(int4 x, uint8 mask);
-int8 		const_func __attribute__((overloadable)) shuffle(int8 x, uint8 mask);
-int8 		const_func __attribute__((overloadable)) shuffle(int16 x, uint8 mask);
-
-uint8 		const_func __attribute__((overloadable)) shuffle(uint2 x, uint8 mask);
-uint8 		const_func __attribute__((overloadable)) shuffle(uint4 x, uint8 mask);
-uint8 		const_func __attribute__((overloadable)) shuffle(uint8 x, uint8 mask);
-uint8 		const_func __attribute__((overloadable)) shuffle(uint16 x, uint8 mask);
-
-long8 		const_func __attribute__((overloadable)) shuffle(long2 x, ulong8 mask);
-long8 		const_func __attribute__((overloadable)) shuffle(long4 x, ulong8 mask);
-long8 		const_func __attribute__((overloadable)) shuffle(long8 x, ulong8 mask);
-long8		const_func __attribute__((overloadable)) shuffle(long16 x, ulong8 mask);
-
-ulong8 		const_func __attribute__((overloadable)) shuffle(ulong2 x, ulong8 mask);
-ulong8 		const_func __attribute__((overloadable)) shuffle(ulong4 x, ulong8 mask);
-ulong8 		const_func __attribute__((overloadable)) shuffle(ulong8 x, ulong8 mask);
-ulong8 		const_func __attribute__((overloadable)) shuffle(ulong16 x, ulong8 mask);
-
-//half8 		const_func __attribute__((overloadable)) shuffle(half2 x, ushort8 mask);
-//half8 		const_func __attribute__((overloadable)) shuffle(half4 x, ushort8 mask);
-//half8 		const_func __attribute__((overloadable)) shuffle(half8 x, ushort8 mask);
-//half8 		const_func __attribute__((overloadable)) shuffle(half16 x, ushort8 mask);
-
-float8 		const_func __attribute__((overloadable)) shuffle(float2 x, uint8 mask);
-float8 		const_func __attribute__((overloadable)) shuffle(float4 x, uint8 mask);
-float8 		const_func __attribute__((overloadable)) shuffle(float8 x, uint8 mask);
-float8 		const_func __attribute__((overloadable)) shuffle(float16 x, uint8 mask);
-
-double8 	const_func __attribute__((overloadable)) shuffle(double2 x, ulong8 mask);
-double8 	const_func __attribute__((overloadable)) shuffle(double4 x, ulong8 mask);
-double8 	const_func __attribute__((overloadable)) shuffle(double8 x, ulong8 mask);
-double8 	const_func __attribute__((overloadable)) shuffle(double16 x, ulong8 mask);
-
-char16 		const_func __attribute__((overloadable)) shuffle(char2 x, uchar16 mask);
-char16 		const_func __attribute__((overloadable)) shuffle(char4 x, uchar16 mask);
-char16 		const_func __attribute__((overloadable)) shuffle(char8 x, uchar16 mask);
-char16 		const_func __attribute__((overloadable)) shuffle(char16 x, uchar16 mask);
-
-uchar16 	const_func __attribute__((overloadable)) shuffle(uchar2 x, uchar16 mask);
-uchar16 	const_func __attribute__((overloadable)) shuffle(uchar4 x, uchar16 mask);
-uchar16 	const_func __attribute__((overloadable)) shuffle(uchar8 x, uchar16 mask);
-uchar16 	const_func __attribute__((overloadable)) shuffle(uchar16 x, uchar16 mask);
-
-short16 	const_func __attribute__((overloadable)) shuffle(short2 x, ushort16 mask);
-short16 	const_func __attribute__((overloadable)) shuffle(short4 x, ushort16 mask);
-short16 	const_func __attribute__((overloadable)) shuffle(short8 x, ushort16 mask);
-short16 	const_func __attribute__((overloadable)) shuffle(short16 x, ushort16 mask);
-
-ushort16 	const_func __attribute__((overloadable)) shuffle(ushort2 x, ushort16 mask);
-ushort16 	const_func __attribute__((overloadable)) shuffle(ushort4 x, ushort16 mask);
-ushort16 	const_func __attribute__((overloadable)) shuffle(ushort8 x, ushort16 mask);
-ushort16 	const_func __attribute__((overloadable)) shuffle(ushort16 x, ushort16 mask);
-
-int16 		const_func __attribute__((overloadable)) shuffle(int2 x, uint16 mask);
-int16 		const_func __attribute__((overloadable)) shuffle(int4 x, uint16 mask);
-int16 		const_func __attribute__((overloadable)) shuffle(int8 x, uint16 mask);
-int16 		const_func __attribute__((overloadable)) shuffle(int16 x, uint16 mask);
-
-uint16 		const_func __attribute__((overloadable)) shuffle(uint2 x, uint16 mask);
-uint16 		const_func __attribute__((overloadable)) shuffle(uint4 x, uint16 mask);
-uint16 		const_func __attribute__((overloadable)) shuffle(uint8 x, uint16 mask);
-uint16 		const_func __attribute__((overloadable)) shuffle(uint16 x, uint16 mask);
-
-long16 		const_func __attribute__((overloadable)) shuffle(long2 x, ulong16 mask);
-long16 		const_func __attribute__((overloadable)) shuffle(long4 x, ulong16 mask);
-long16 		const_func __attribute__((overloadable)) shuffle(long8 x, ulong16 mask);
-long16 		const_func __attribute__((overloadable)) shuffle(long16 x, ulong16 mask);
-
-ulong16 	const_func __attribute__((overloadable)) shuffle(ulong2 x, ulong16 mask);
-ulong16 	const_func __attribute__((overloadable)) shuffle(ulong4 x, ulong16 mask);
-ulong16 	const_func __attribute__((overloadable)) shuffle(ulong8 x, ulong16 mask);
-ulong16 	const_func __attribute__((overloadable)) shuffle(ulong16 x, ulong16 mask);
-
-//half16 		const_func __attribute__((overloadable)) shuffle(half2 x, ushort16 mask);
-//half16 		const_func __attribute__((overloadable)) shuffle(half4 x, ushort16 mask);
-//half16 		const_func __attribute__((overloadable)) shuffle(half8 x, ushort16 mask);
-//half16 		const_func __attribute__((overloadable)) shuffle(half16 x, ushort16 mask);
-
-float16 	const_func __attribute__((overloadable)) shuffle(float2 x, uint16 mask);
-float16 	const_func __attribute__((overloadable)) shuffle(float4 x, uint16 mask);
-float16 	const_func __attribute__((overloadable)) shuffle(float8 x, uint16 mask);
-float16 	const_func __attribute__((overloadable)) shuffle(float16 x, uint16 mask);
-
-double16 	const_func __attribute__((overloadable)) shuffle(double2 x, ulong16 mask);
-double16 	const_func __attribute__((overloadable)) shuffle(double4 x, ulong16 mask);
-double16 	const_func __attribute__((overloadable)) shuffle(double8 x, ulong16 mask);
-double16 	const_func __attribute__((overloadable)) shuffle(double16 x, ulong16 mask);
-
-
-char2 		const_func __attribute__((overloadable)) shuffle2(char2 x, char2 y, uchar2 mask);
-char2 		const_func __attribute__((overloadable)) shuffle2(char4 x, char4 y, uchar2 mask);
-char2 		const_func __attribute__((overloadable)) shuffle2(char8 x, char8 y, uchar2 mask);
-char2 		const_func __attribute__((overloadable)) shuffle2(char16 x, char16 y, uchar2 mask);
-
-uchar2 		const_func __attribute__((overloadable)) shuffle2(uchar2 x, uchar2 y, uchar2 mask);
-uchar2 		const_func __attribute__((overloadable)) shuffle2(uchar4 x, uchar4 y, uchar2 mask);
-uchar2 		const_func __attribute__((overloadable)) shuffle2(uchar8 x, uchar8 y, uchar2 mask);
-uchar2 		const_func __attribute__((overloadable)) shuffle2(uchar16 x, uchar16 y, uchar2 mask);
-
-short2 		const_func __attribute__((overloadable)) shuffle2(short2 x, short2 y, ushort2 mask);
-short2 		const_func __attribute__((overloadable)) shuffle2(short4 x, short4 y, ushort2 mask);
-short2 		const_func __attribute__((overloadable)) shuffle2(short8 x, short8 y, ushort2 mask);
-short2 		const_func __attribute__((overloadable)) shuffle2(short16 x, short16 y, ushort2 mask);
-
-ushort2 	const_func __attribute__((overloadable)) shuffle2(ushort2 x, ushort2 y, ushort2 mask);
-ushort2 	const_func __attribute__((overloadable)) shuffle2(ushort4 x, ushort4 y, ushort2 mask);
-ushort2 	const_func __attribute__((overloadable)) shuffle2(ushort8 x, ushort8 y, ushort2 mask);
-ushort2 	const_func __attribute__((overloadable)) shuffle2(ushort16 x, ushort16 y, ushort2 mask);
-
-int2 		const_func __attribute__((overloadable)) shuffle2(int2 x, int2 y, uint2 mask);
-int2 		const_func __attribute__((overloadable)) shuffle2(int4 x, int4 y, uint2 mask);
-int2 		const_func __attribute__((overloadable)) shuffle2(int8 x, int8 y, uint2 mask);
-int2 		const_func __attribute__((overloadable)) shuffle2(int16 x, int16 y, uint2 mask);
-
-uint2 		const_func __attribute__((overloadable)) shuffle2(uint2 x, uint2 y, uint2 mask);
-uint2 		const_func __attribute__((overloadable)) shuffle2(uint4 x, uint4 y, uint2 mask);
-uint2 		const_func __attribute__((overloadable)) shuffle2(uint8 x, uint8 y, uint2 mask);
-uint2 		const_func __attribute__((overloadable)) shuffle2(uint16 x, uint16 y, uint2 mask);
-
-long2 		const_func __attribute__((overloadable)) shuffle2(long2 x, long2 y, ulong2 mask);
-long2 		const_func __attribute__((overloadable)) shuffle2(long4 x, long4 y, ulong2 mask);
-long2 		const_func __attribute__((overloadable)) shuffle2(long8 x, long8 y, ulong2 mask);
-long2 		const_func __attribute__((overloadable)) shuffle2(long16 x, long16 y, ulong2 mask);
-
-ulong2 		const_func __attribute__((overloadable)) shuffle2(ulong2 x, ulong2 y, ulong2 mask);
-ulong2 		const_func __attribute__((overloadable)) shuffle2(ulong4 x, ulong4 y, ulong2 mask);
-ulong2 		const_func __attribute__((overloadable)) shuffle2(ulong8 x, ulong8 y, ulong2 mask);
-ulong2 		const_func __attribute__((overloadable)) shuffle2(ulong16 x, ulong16 y, ulong2 mask);
-
-//half2 		const_func __attribute__((overloadable)) shuffle2(half2 x, half2 y, ushort2 mask);
-//half2 		const_func __attribute__((overloadable)) shuffle2(half4 x, half4 y, ushort2 mask);
-//half2 		const_func __attribute__((overloadable)) shuffle2(half8 x, half8 y, ushort2 mask);
-//half2 		const_func __attribute__((overloadable)) shuffle2(half16 x, half16 y, ushort2 mask);
-
-float2 		const_func __attribute__((overloadable)) shuffle2(float2 x, float2 y, uint2 mask);
-float2 		const_func __attribute__((overloadable)) shuffle2(float4 x, float4 y, uint2 mask);
-float2 		const_func __attribute__((overloadable)) shuffle2(float8 x, float8 y, uint2 mask);
-float2 		const_func __attribute__((overloadable)) shuffle2(float16 x, float16 y, uint2 mask);
-
-double2 	const_func __attribute__((overloadable)) shuffle2(double2 x, double2 y, ulong2 mask);
-double2 	const_func __attribute__((overloadable)) shuffle2(double4 x, double4 y, ulong2 mask);
-double2 	const_func __attribute__((overloadable)) shuffle2(double8 x, double8 y, ulong2 mask);
-double2 	const_func __attribute__((overloadable)) shuffle2(double16 x, double16 y, ulong2 mask);
-
-char4 		const_func __attribute__((overloadable)) shuffle2(char2 x, char2 y, uchar4 mask);
-char4 		const_func __attribute__((overloadable)) shuffle2(char4 x, char4 y, uchar4 mask);
-char4 		const_func __attribute__((overloadable)) shuffle2(char8 x, char8 y, uchar4 mask);
-char4 		const_func __attribute__((overloadable)) shuffle2(char16 x, char16 y, uchar4 mask);
-
-uchar4 		const_func __attribute__((overloadable)) shuffle2(uchar2 x, uchar2 y, uchar4 mask);
-uchar4 		const_func __attribute__((overloadable)) shuffle2(uchar4 x, uchar4 y, uchar4 mask);
-uchar4 		const_func __attribute__((overloadable)) shuffle2(uchar8 x, uchar8 y, uchar4 mask);
-uchar4 		const_func __attribute__((overloadable)) shuffle2(uchar16 x, uchar16 y, uchar4 mask);
-
-short4 		const_func __attribute__((overloadable)) shuffle2(short2 x, short2 y, ushort4 mask);
-short4 		const_func __attribute__((overloadable)) shuffle2(short4 x, short4 y, ushort4 mask);
-short4 		const_func __attribute__((overloadable)) shuffle2(short8 x, short8 y, ushort4 mask);
-short4 		const_func __attribute__((overloadable)) shuffle2(short16 x, short16 y, ushort4 mask);
-
-ushort4 	const_func __attribute__((overloadable)) shuffle2(ushort2 x, ushort2 y, ushort4 mask);
-ushort4 	const_func __attribute__((overloadable)) shuffle2(ushort4 x, ushort4 y, ushort4 mask);
-ushort4 	const_func __attribute__((overloadable)) shuffle2(ushort8 x, ushort8 y, ushort4 mask);
-ushort4 	const_func __attribute__((overloadable)) shuffle2(ushort16 x, ushort16 y, ushort4 mask);
-
-int4 		const_func __attribute__((overloadable)) shuffle2(int2 x, int2 y, uint4 mask);
-int4 		const_func __attribute__((overloadable)) shuffle2(int4 x, int4 y, uint4 mask);
-int4 		const_func __attribute__((overloadable)) shuffle2(int8 x, int8 y, uint4 mask);
-int4 		const_func __attribute__((overloadable)) shuffle2(int16 x, int16 y, uint4 mask);
-
-uint4 		const_func __attribute__((overloadable)) shuffle2(uint2 x, uint2 y, uint4 mask);
-uint4 		const_func __attribute__((overloadable)) shuffle2(uint4 x, uint4 y, uint4 mask);
-uint4 		const_func __attribute__((overloadable)) shuffle2(uint8 x, uint8 y, uint4 mask);
-uint4 		const_func __attribute__((overloadable)) shuffle2(uint16 x, uint16 y, uint4 mask);
-
-long4 		const_func __attribute__((overloadable)) shuffle2(long2 x, long2 y, ulong4 mask);
-long4 		const_func __attribute__((overloadable)) shuffle2(long4 x, long4 y, ulong4 mask);
-long4 		const_func __attribute__((overloadable)) shuffle2(long8 x, long8 y, ulong4 mask);
-long4 		const_func __attribute__((overloadable)) shuffle2(long16 x, long16 y, ulong4 mask);
-
-ulong4 		const_func __attribute__((overloadable)) shuffle2(ulong2 x, ulong2 y, ulong4 mask);
-ulong4 		const_func __attribute__((overloadable)) shuffle2(ulong4 x, ulong4 y, ulong4 mask);
-ulong4 		const_func __attribute__((overloadable)) shuffle2(ulong8 x, ulong8 y, ulong4 mask);
-ulong4 		const_func __attribute__((overloadable)) shuffle2(ulong16 x, ulong16 y, ulong4 mask);
-
-//half4 		const_func __attribute__((overloadable)) shuffle2(half2 x, half2 y, ushort4 mask);
-//half4 		const_func __attribute__((overloadable)) shuffle2(half4 x, half4 y, ushort4 mask);
-//half4 		const_func __attribute__((overloadable)) shuffle2(half8 x, half8 y, ushort4 mask);
-//half4 		const_func __attribute__((overloadable)) shuffle2(half16 x, half16 y, ushort4 mask);
-
-float4 		const_func __attribute__((overloadable)) shuffle2(float2 x, float2 y, uint4 mask);
-float4 		const_func __attribute__((overloadable)) shuffle2(float4 x, float4 y, uint4 mask);
-float4 		const_func __attribute__((overloadable)) shuffle2(float8 x, float8 y, uint4 mask);
-float4 		const_func __attribute__((overloadable)) shuffle2(float16 x, float16 y, uint4 mask);
-
-double4 	const_func __attribute__((overloadable)) shuffle2(double2 x, double2 y, ulong4 mask);
-double4 	const_func __attribute__((overloadable)) shuffle2(double4 x, double4 y, ulong4 mask);
-double4 	const_func __attribute__((overloadable)) shuffle2(double8 x, double8 y, ulong4 mask);
-double4 	const_func __attribute__((overloadable)) shuffle2(double16 x, double16 y, ulong4 mask);
-
-char8 		const_func __attribute__((overloadable)) shuffle2(char2 x, char2 y, uchar8 mask);
-char8 		const_func __attribute__((overloadable)) shuffle2(char4 x, char4 y, uchar8 mask);
-char8 		const_func __attribute__((overloadable)) shuffle2(char8 x, char8 y, uchar8 mask);
-char8 		const_func __attribute__((overloadable)) shuffle2(char16 x, char16 y, uchar8 mask);
-
-uchar8 		const_func __attribute__((overloadable)) shuffle2(uchar2 x, uchar2 y, uchar8 mask);
-uchar8 		const_func __attribute__((overloadable)) shuffle2(uchar4 x, uchar4 y, uchar8 mask);
-uchar8 		const_func __attribute__((overloadable)) shuffle2(uchar8 x, uchar8 y, uchar8 mask);
-uchar8 		const_func __attribute__((overloadable)) shuffle2(uchar16 x, uchar16 y, uchar8 mask);
-
-short8 		const_func __attribute__((overloadable)) shuffle2(short2 x, short2 y, ushort8 mask);
-short8 		const_func __attribute__((overloadable)) shuffle2(short4 x, short4 y, ushort8 mask);
-short8 		const_func __attribute__((overloadable)) shuffle2(short8 x, short8 y, ushort8 mask);
-short8 		const_func __attribute__((overloadable)) shuffle2(short16 x, short16 y, ushort8 mask);
-
-ushort8 	const_func __attribute__((overloadable)) shuffle2(ushort2 x, ushort2 y, ushort8 mask);
-ushort8 	const_func __attribute__((overloadable)) shuffle2(ushort4 x, ushort4 y, ushort8 mask);
-ushort8 	const_func __attribute__((overloadable)) shuffle2(ushort8 x, ushort8 y, ushort8 mask);
-ushort8 	const_func __attribute__((overloadable)) shuffle2(ushort16 x, ushort16 y, ushort8 mask);
-
-int8 		const_func __attribute__((overloadable)) shuffle2(int2 x, int2 y, uint8 mask);
-int8 		const_func __attribute__((overloadable)) shuffle2(int4 x, int4 y, uint8 mask);
-int8 		const_func __attribute__((overloadable)) shuffle2(int8 x, int8 y, uint8 mask);
-int8 		const_func __attribute__((overloadable)) shuffle2(int16 x, int16 y, uint8 mask);
-
-uint8 		const_func __attribute__((overloadable)) shuffle2(uint2 x, uint2 y, uint8 mask);
-uint8 		const_func __attribute__((overloadable)) shuffle2(uint4 x, uint4 y, uint8 mask);
-uint8 		const_func __attribute__((overloadable)) shuffle2(uint8 x, uint8 y, uint8 mask);
-uint8 		const_func __attribute__((overloadable)) shuffle2(uint16 x, uint16 y, uint8 mask);
-
-long8 		const_func __attribute__((overloadable)) shuffle2(long2 x, long2 y, ulong8 mask);
-long8 		const_func __attribute__((overloadable)) shuffle2(long4 x, long4 y, ulong8 mask);
-long8 		const_func __attribute__((overloadable)) shuffle2(long8 x, long8 y, ulong8 mask);
-long8 		const_func __attribute__((overloadable)) shuffle2(long16 x, long16 y, ulong8 mask);
-
-ulong8 		const_func __attribute__((overloadable)) shuffle2(ulong2 x, ulong2 y, ulong8 mask);
-ulong8 		const_func __attribute__((overloadable)) shuffle2(ulong4 x, ulong4 y, ulong8 mask);
-ulong8 		const_func __attribute__((overloadable)) shuffle2(ulong8 x, ulong8 y, ulong8 mask);
-ulong8 		const_func __attribute__((overloadable)) shuffle2(ulong16 x, ulong16 y, ulong8 mask);
-
-//half8 		const_func __attribute__((overloadable)) shuffle2(half2 x, half2 y, ushort8 mask);
-//half8 		const_func __attribute__((overloadable)) shuffle2(half4 x, half4 y, ushort8 mask);
-//half8 		const_func __attribute__((overloadable)) shuffle2(half8 x, half8 y, ushort8 mask);
-//half8 		const_func __attribute__((overloadable)) shuffle2(half16 x, half16 y, ushort8 mask);
-
-float8 		const_func __attribute__((overloadable)) shuffle2(float2 x, float2 y, uint8 mask);
-float8 		const_func __attribute__((overloadable)) shuffle2(float4 x, float4 y, uint8 mask);
-float8 		const_func __attribute__((overloadable)) shuffle2(float8 x, float8 y, uint8 mask);
-float8 		const_func __attribute__((overloadable)) shuffle2(float16 x, float16 y, uint8 mask);
-
-double8 	const_func __attribute__((overloadable)) shuffle2(double2 x, double2 y, ulong8 mask);
-double8 	const_func __attribute__((overloadable)) shuffle2(double4 x, double4 y, ulong8 mask);
-double8 	const_func __attribute__((overloadable)) shuffle2(double8 x, double8 y, ulong8 mask);
-double8 	const_func __attribute__((overloadable)) shuffle2(double16 x, double16 y, ulong8 mask);
-
-char16 		const_func __attribute__((overloadable)) shuffle2(char2 x, char2 y, uchar16 mask);
-char16 		const_func __attribute__((overloadable)) shuffle2(char4 x, char4 y, uchar16 mask);
-char16 		const_func __attribute__((overloadable)) shuffle2(char8 x, char8 y, uchar16 mask);
-char16 		const_func __attribute__((overloadable)) shuffle2(char16 x, char16 y, uchar16 mask);
-
-uchar16 	const_func __attribute__((overloadable)) shuffle2(uchar2 x, uchar2 y, uchar16 mask);
-uchar16 	const_func __attribute__((overloadable)) shuffle2(uchar4 x, uchar4 y, uchar16 mask);
-uchar16 	const_func __attribute__((overloadable)) shuffle2(uchar8 x, uchar8 y, uchar16 mask);
-uchar16 	const_func __attribute__((overloadable)) shuffle2(uchar16 x, uchar16 y, uchar16 mask);
-
-short16 	const_func __attribute__((overloadable)) shuffle2(short2 x, short2 y, ushort16 mask);
-short16 	const_func __attribute__((overloadable)) shuffle2(short4 x, short4 y, ushort16 mask);
-short16 	const_func __attribute__((overloadable)) shuffle2(short8 x, short8 y, ushort16 mask);
-short16 	const_func __attribute__((overloadable)) shuffle2(short16 x, short16 y, ushort16 mask);
-
-ushort16 	const_func __attribute__((overloadable)) shuffle2(ushort2 x, ushort2 y, ushort16 mask);
-ushort16 	const_func __attribute__((overloadable)) shuffle2(ushort4 x, ushort4 y, ushort16 mask);
-ushort16 	const_func __attribute__((overloadable)) shuffle2(ushort8 x, ushort8 y, ushort16 mask);
-ushort16 	const_func __attribute__((overloadable)) shuffle2(ushort16 x, ushort16 y, ushort16 mask);
-
-int16 		const_func __attribute__((overloadable)) shuffle2(int2 x, int2 y, uint16 mask);
-int16 		const_func __attribute__((overloadable)) shuffle2(int4 x, int4 y, uint16 mask);
-int16 		const_func __attribute__((overloadable)) shuffle2(int8 x, int8 y, uint16 mask);
-int16 		const_func __attribute__((overloadable)) shuffle2(int16 x, int16 y, uint16 mask);
-
-uint16 		const_func __attribute__((overloadable)) shuffle2(uint2 x, uint2 y, uint16 mask);
-uint16 		const_func __attribute__((overloadable)) shuffle2(uint4 x, uint4 y, uint16 mask);
-uint16 		const_func __attribute__((overloadable)) shuffle2(uint8 x, uint8 y, uint16 mask);
-uint16 		const_func __attribute__((overloadable)) shuffle2(uint16 x, uint16 y, uint16 mask);
-
-long16 		const_func __attribute__((overloadable)) shuffle2(long2 x, long2 y, ulong16 mask);
-long16 		const_func __attribute__((overloadable)) shuffle2(long4 x, long4 y, ulong16 mask);
-long16 		const_func __attribute__((overloadable)) shuffle2(long8 x, long8 y, ulong16 mask);
-long16 		const_func __attribute__((overloadable)) shuffle2(long16 x, long16 y, ulong16 mask);
-
-ulong16 	const_func __attribute__((overloadable)) shuffle2(ulong2 x, ulong2 y, ulong16 mask);
-ulong16 	const_func __attribute__((overloadable)) shuffle2(ulong4 x, ulong4 y, ulong16 mask);
-ulong16 	const_func __attribute__((overloadable)) shuffle2(ulong8 x, ulong8 y, ulong16 mask);
-ulong16 	const_func __attribute__((overloadable)) shuffle2(ulong16 x, ulong16 y, ulong16 mask);
-
-//half16 		const_func __attribute__((overloadable)) shuffle2(half2 x, half2 y, ushort16 mask);
-//half16 		const_func __attribute__((overloadable)) shuffle2(half4 x, half4 y, ushort16 mask);
-//half16 		const_func __attribute__((overloadable)) shuffle2(half8 x, half8 y, ushort16 mask);
-//half16 		const_func __attribute__((overloadable)) shuffle2(half16 x, half16 y, ushort16 mask);
-
-float16 	const_func __attribute__((overloadable)) shuffle2(float2 x, float2 y, uint16 mask);
-float16 	const_func __attribute__((overloadable)) shuffle2(float4 x, float4 y, uint16 mask);
-float16 	const_func __attribute__((overloadable)) shuffle2(float8 x, float8 y, uint16 mask);
-float16 	const_func __attribute__((overloadable)) shuffle2(float16 x, float16 y, uint16 mask);
-
-double16 	const_func __attribute__((overloadable)) shuffle2(double2 x, double2 y, ulong16 mask);
-double16 	const_func __attribute__((overloadable)) shuffle2(double4 x, double4 y, ulong16 mask);
-double16 	const_func __attribute__((overloadable)) shuffle2(double8 x, double8 y, ulong16 mask);
-double16 	const_func __attribute__((overloadable)) shuffle2(double16 x, double16 y, ulong16 mask);
+char2 const_func __attribute__((overloadable)) shuffle(char2 x, uchar2 mask);
+char2 const_func __attribute__((overloadable)) shuffle(char4 x, uchar2 mask);
+char2 const_func __attribute__((overloadable)) shuffle(char8 x, uchar2 mask);
+char2 const_func __attribute__((overloadable)) shuffle(char16 x, uchar2 mask);
+
+uchar2 const_func __attribute__((overloadable)) shuffle(uchar2 x, uchar2 mask);
+uchar2 const_func __attribute__((overloadable)) shuffle(uchar4 x, uchar2 mask);
+uchar2 const_func __attribute__((overloadable)) shuffle(uchar8 x, uchar2 mask);
+uchar2 const_func __attribute__((overloadable)) shuffle(uchar16 x, uchar2 mask);
+
+short2 const_func __attribute__((overloadable)) shuffle(short2 x, ushort2 mask);
+short2 const_func __attribute__((overloadable)) shuffle(short4 x, ushort2 mask);
+short2 const_func __attribute__((overloadable)) shuffle(short8 x, ushort2 mask);
+short2 const_func __attribute__((overloadable)) shuffle(short16 x, ushort2 mask);
+
+ushort2 const_func __attribute__((overloadable)) shuffle(ushort2 x, ushort2 mask);
+ushort2 const_func __attribute__((overloadable)) shuffle(ushort4 x, ushort2 mask);
+ushort2 const_func __attribute__((overloadable)) shuffle(ushort8 x, ushort2 mask);
+ushort2 const_func __attribute__((overloadable)) shuffle(ushort16 x, ushort2 mask);
+
+int2 const_func __attribute__((overloadable)) shuffle(int2 x, uint2 mask);
+int2 const_func __attribute__((overloadable)) shuffle(int4 x, uint2 mask);
+int2 const_func __attribute__((overloadable)) shuffle(int8 x, uint2 mask);
+int2 const_func __attribute__((overloadable)) shuffle(int16 x, uint2 mask);
+
+uint2 const_func __attribute__((overloadable)) shuffle(uint2 x, uint2 mask);
+uint2 const_func __attribute__((overloadable)) shuffle(uint4 x, uint2 mask);
+uint2 const_func __attribute__((overloadable)) shuffle(uint8 x, uint2 mask);
+uint2 const_func __attribute__((overloadable)) shuffle(uint16 x, uint2 mask);
+
+long2 const_func __attribute__((overloadable)) shuffle(long2 x, ulong2 mask);
+long2 const_func __attribute__((overloadable)) shuffle(long4 x, ulong2 mask);
+long2 const_func __attribute__((overloadable)) shuffle(long8 x, ulong2 mask);
+long2 const_func __attribute__((overloadable)) shuffle(long16 x, ulong2 mask);
+
+ulong2 const_func __attribute__((overloadable)) shuffle(ulong2 x, ulong2 mask);
+ulong2 const_func __attribute__((overloadable)) shuffle(ulong4 x, ulong2 mask);
+ulong2 const_func __attribute__((overloadable)) shuffle(ulong8 x, ulong2 mask);
+ulong2 const_func __attribute__((overloadable)) shuffle(ulong16 x, ulong2 mask);
+
+//half2 const_func __attribute__((overloadable)) shuffle(half2 x, ushort2 mask);
+//half2 const_func __attribute__((overloadable)) shuffle(half4 x, ushort2 mask);
+//half2 const_func __attribute__((overloadable)) shuffle(half8 x, ushort2 mask);
+//half2 const_func __attribute__((overloadable)) shuffle(half16 x, ushort2 mask);
+
+float2 const_func __attribute__((overloadable)) shuffle(float2 x, uint2 mask);
+float2 const_func __attribute__((overloadable)) shuffle(float4 x, uint2 mask);
+float2 const_func __attribute__((overloadable)) shuffle(float8 x, uint2 mask);
+float2 const_func __attribute__((overloadable)) shuffle(float16 x, uint2 mask);
+
+double2 const_func __attribute__((overloadable)) shuffle(double2 x, ulong2 mask);
+double2 const_func __attribute__((overloadable)) shuffle(double4 x, ulong2 mask);
+double2 const_func __attribute__((overloadable)) shuffle(double8 x, ulong2 mask);
+double2 const_func __attribute__((overloadable)) shuffle(double16 x, ulong2 mask);
+
+char4 const_func __attribute__((overloadable)) shuffle(char2 x, uchar4 mask);
+char4 const_func __attribute__((overloadable)) shuffle(char4 x, uchar4 mask);
+char4 const_func __attribute__((overloadable)) shuffle(char8 x, uchar4 mask);
+char4 const_func __attribute__((overloadable)) shuffle(char16 x, uchar4 mask);
+
+uchar4 const_func __attribute__((overloadable)) shuffle(uchar2 x, uchar4 mask);
+uchar4 const_func __attribute__((overloadable)) shuffle(uchar4 x, uchar4 mask);
+uchar4 const_func __attribute__((overloadable)) shuffle(uchar8 x, uchar4 mask);
+uchar4 const_func __attribute__((overloadable)) shuffle(uchar16 x, uchar4 mask);
+
+short4 const_func __attribute__((overloadable)) shuffle(short2 x, ushort4 mask);
+short4 const_func __attribute__((overloadable)) shuffle(short4 x, ushort4 mask);
+short4 const_func __attribute__((overloadable)) shuffle(short8 x, ushort4 mask);
+short4 const_func __attribute__((overloadable)) shuffle(short16 x, ushort4 mask);
+
+ushort4	const_func __attribute__((overloadable)) shuffle(ushort2 x, ushort4 mask);
+ushort4 const_func __attribute__((overloadable)) shuffle(ushort4 x, ushort4 mask);
+ushort4 const_func __attribute__((overloadable)) shuffle(ushort8 x, ushort4 mask);
+ushort4 const_func __attribute__((overloadable)) shuffle(ushort16 x, ushort4 mask);
+
+int4 const_func __attribute__((overloadable)) shuffle(int2 x, uint4 mask);
+int4 const_func __attribute__((overloadable)) shuffle(int4 x, uint4 mask);
+int4 const_func __attribute__((overloadable)) shuffle(int8 x, uint4 mask);
+int4 const_func __attribute__((overloadable)) shuffle(int16 x, uint4 mask);
+
+uint4 const_func __attribute__((overloadable)) shuffle(uint2 x, uint4 mask);
+uint4 const_func __attribute__((overloadable)) shuffle(uint4 x, uint4 mask);
+uint4 const_func __attribute__((overloadable)) shuffle(uint8 x, uint4 mask);
+uint4 const_func __attribute__((overloadable)) shuffle(uint16 x, uint4 mask);
+
+long4 const_func __attribute__((overloadable)) shuffle(long2 x, ulong4 mask);
+long4 const_func __attribute__((overloadable)) shuffle(long4 x, ulong4 mask);
+long4 const_func __attribute__((overloadable)) shuffle(long8 x, ulong4 mask);
+long4 const_func __attribute__((overloadable)) shuffle(long16 x, ulong4 mask);
+
+ulong4 const_func __attribute__((overloadable)) shuffle(ulong2 x, ulong4 mask);
+ulong4 const_func __attribute__((overloadable)) shuffle(ulong4 x, ulong4 mask);
+ulong4 const_func __attribute__((overloadable)) shuffle(ulong8 x, ulong4 mask);
+ulong4 const_func __attribute__((overloadable)) shuffle(ulong16 x, ulong4 mask);
+
+//half4 const_func __attribute__((overloadable)) shuffle(half2 x, ushort4 mask);
+//half4 const_func __attribute__((overloadable)) shuffle(half4 x, ushort4 mask);
+//half4 const_func __attribute__((overloadable)) shuffle(half8 x, ushort4 mask);
+//half4 const_func __attribute__((overloadable)) shuffle(half16 x, ushort4 mask);
+
+float4 const_func __attribute__((overloadable)) shuffle(float2 x, uint4 mask);
+float4 const_func __attribute__((overloadable)) shuffle(float4 x, uint4 mask);
+float4 const_func __attribute__((overloadable)) shuffle(float8 x, uint4 mask);
+float4 const_func __attribute__((overloadable)) shuffle(float16 x, uint4 mask);
+
+double4 const_func __attribute__((overloadable)) shuffle(double2 x, ulong4 mask);
+double4 const_func __attribute__((overloadable)) shuffle(double4 x, ulong4 mask);
+double4 const_func __attribute__((overloadable)) shuffle(double8 x, ulong4 mask);
+double4 const_func __attribute__((overloadable)) shuffle(double16 x, ulong4 mask);
+
+char8 const_func __attribute__((overloadable)) shuffle(char2 x, uchar8 mask);
+char8 const_func __attribute__((overloadable)) shuffle(char4 x, uchar8 mask);
+char8 const_func __attribute__((overloadable)) shuffle(char8 x, uchar8 mask);
+char8 const_func __attribute__((overloadable)) shuffle(char16 x, uchar8 mask);
+
+uchar8 const_func __attribute__((overloadable)) shuffle(uchar2 x, uchar8 mask);
+uchar8 const_func __attribute__((overloadable)) shuffle(uchar4 x, uchar8 mask);
+uchar8 const_func __attribute__((overloadable)) shuffle(uchar8 x, uchar8 mask);
+uchar8 const_func __attribute__((overloadable)) shuffle(uchar16 x, uchar8 mask);
+
+short8 const_func __attribute__((overloadable)) shuffle(short2 x, ushort8 mask);
+short8 const_func __attribute__((overloadable)) shuffle(short4 x, ushort8 mask);
+short8 const_func __attribute__((overloadable)) shuffle(short8 x, ushort8 mask);
+short8 const_func __attribute__((overloadable)) shuffle(short16 x, ushort8 mask);
+
+ushort8 const_func __attribute__((overloadable)) shuffle(ushort2 x, ushort8 mask);
+ushort8 const_func __attribute__((overloadable)) shuffle(ushort4 x, ushort8 mask);
+ushort8 const_func __attribute__((overloadable)) shuffle(ushort8 x, ushort8 mask);
+ushort8 const_func __attribute__((overloadable)) shuffle(ushort16 x, ushort8 mask);
+
+int8 const_func __attribute__((overloadable)) shuffle(int2 x, uint8 mask);
+int8 const_func __attribute__((overloadable)) shuffle(int4 x, uint8 mask);
+int8 const_func __attribute__((overloadable)) shuffle(int8 x, uint8 mask);
+int8 const_func __attribute__((overloadable)) shuffle(int16 x, uint8 mask);
+
+uint8 const_func __attribute__((overloadable)) shuffle(uint2 x, uint8 mask);
+uint8 const_func __attribute__((overloadable)) shuffle(uint4 x, uint8 mask);
+uint8 const_func __attribute__((overloadable)) shuffle(uint8 x, uint8 mask);
+uint8 const_func __attribute__((overloadable)) shuffle(uint16 x, uint8 mask);
+
+long8 const_func __attribute__((overloadable)) shuffle(long2 x, ulong8 mask);
+long8 const_func __attribute__((overloadable)) shuffle(long4 x, ulong8 mask);
+long8 const_func __attribute__((overloadable)) shuffle(long8 x, ulong8 mask);
+long8 const_func __attribute__((overloadable)) shuffle(long16 x, ulong8 mask);
+
+ulong8 const_func __attribute__((overloadable)) shuffle(ulong2 x, ulong8 mask);
+ulong8 const_func __attribute__((overloadable)) shuffle(ulong4 x, ulong8 mask);
+ulong8 const_func __attribute__((overloadable)) shuffle(ulong8 x, ulong8 mask);
+ulong8 const_func __attribute__((overloadable)) shuffle(ulong16 x, ulong8 mask);
+
+//half8 const_func __attribute__((overloadable)) shuffle(half2 x, ushort8 mask);
+//half8 const_func __attribute__((overloadable)) shuffle(half4 x, ushort8 mask);
+//half8 const_func __attribute__((overloadable)) shuffle(half8 x, ushort8 mask);
+//half8 const_func __attribute__((overloadable)) shuffle(half16 x, ushort8 mask);
+
+float8 const_func __attribute__((overloadable)) shuffle(float2 x, uint8 mask);
+float8 const_func __attribute__((overloadable)) shuffle(float4 x, uint8 mask);
+float8 const_func __attribute__((overloadable)) shuffle(float8 x, uint8 mask);
+float8 const_func __attribute__((overloadable)) shuffle(float16 x, uint8 mask);
+
+double8 const_func __attribute__((overloadable)) shuffle(double2 x, ulong8 mask);
+double8 const_func __attribute__((overloadable)) shuffle(double4 x, ulong8 mask);
+double8 const_func __attribute__((overloadable)) shuffle(double8 x, ulong8 mask);
+double8 const_func __attribute__((overloadable)) shuffle(double16 x, ulong8 mask);
+
+char16 const_func __attribute__((overloadable)) shuffle(char2 x, uchar16 mask);
+char16 const_func __attribute__((overloadable)) shuffle(char4 x, uchar16 mask);
+char16 const_func __attribute__((overloadable)) shuffle(char8 x, uchar16 mask);
+char16 const_func __attribute__((overloadable)) shuffle(char16 x, uchar16 mask);
+
+uchar16 const_func __attribute__((overloadable)) shuffle(uchar2 x, uchar16 mask);
+uchar16 const_func __attribute__((overloadable)) shuffle(uchar4 x, uchar16 mask);
+uchar16 const_func __attribute__((overloadable)) shuffle(uchar8 x, uchar16 mask);
+uchar16 const_func __attribute__((overloadable)) shuffle(uchar16 x, uchar16 mask);
+
+short16 const_func __attribute__((overloadable)) shuffle(short2 x, ushort16 mask);
+short16 const_func __attribute__((overloadable)) shuffle(short4 x, ushort16 mask);
+short16 const_func __attribute__((overloadable)) shuffle(short8 x, ushort16 mask);
+short16 const_func __attribute__((overloadable)) shuffle(short16 x, ushort16 mask);
+
+ushort16 const_func __attribute__((overloadable)) shuffle(ushort2 x, ushort16 mask);
+ushort16 const_func __attribute__((overloadable)) shuffle(ushort4 x, ushort16 mask);
+ushort16 const_func __attribute__((overloadable)) shuffle(ushort8 x, ushort16 mask);
+ushort16 const_func __attribute__((overloadable)) shuffle(ushort16 x, ushort16 mask);
+
+int16 const_func __attribute__((overloadable)) shuffle(int2 x, uint16 mask);
+int16 const_func __attribute__((overloadable)) shuffle(int4 x, uint16 mask);
+int16 const_func __attribute__((overloadable)) shuffle(int8 x, uint16 mask);
+int16 const_func __attribute__((overloadable)) shuffle(int16 x, uint16 mask);
+
+uint16 const_func __attribute__((overloadable)) shuffle(uint2 x, uint16 mask);
+uint16 const_func __attribute__((overloadable)) shuffle(uint4 x, uint16 mask);
+uint16 const_func __attribute__((overloadable)) shuffle(uint8 x, uint16 mask);
+uint16 const_func __attribute__((overloadable)) shuffle(uint16 x, uint16 mask);
+
+long16 const_func __attribute__((overloadable)) shuffle(long2 x, ulong16 mask);
+long16 const_func __attribute__((overloadable)) shuffle(long4 x, ulong16 mask);
+long16 const_func __attribute__((overloadable)) shuffle(long8 x, ulong16 mask);
+long16 const_func __attribute__((overloadable)) shuffle(long16 x, ulong16 mask);
+
+ulong16 const_func __attribute__((overloadable)) shuffle(ulong2 x, ulong16 mask);
+ulong16 const_func __attribute__((overloadable)) shuffle(ulong4 x, ulong16 mask);
+ulong16 const_func __attribute__((overloadable)) shuffle(ulong8 x, ulong16 mask);
+ulong16 const_func __attribute__((overloadable)) shuffle(ulong16 x, ulong16 mask);
+
+//half16 const_func __attribute__((overloadable)) shuffle(half2 x, ushort16 mask);
+//half16 const_func __attribute__((overloadable)) shuffle(half4 x, ushort16 mask);
+//half16 const_func __attribute__((overloadable)) shuffle(half8 x, ushort16 mask);
+//half16 const_func __attribute__((overloadable)) shuffle(half16 x, ushort16 mask);
+
+float16 const_func __attribute__((overloadable)) shuffle(float2 x, uint16 mask);
+float16 const_func __attribute__((overloadable)) shuffle(float4 x, uint16 mask);
+float16 const_func __attribute__((overloadable)) shuffle(float8 x, uint16 mask);
+float16 const_func __attribute__((overloadable)) shuffle(float16 x, uint16 mask);
+
+double16 const_func __attribute__((overloadable)) shuffle(double2 x, ulong16 mask);
+double16 const_func __attribute__((overloadable)) shuffle(double4 x, ulong16 mask);
+double16 const_func __attribute__((overloadable)) shuffle(double8 x, ulong16 mask);
+double16 const_func __attribute__((overloadable)) shuffle(double16 x, ulong16 mask);
+
+
+char2 const_func __attribute__((overloadable)) shuffle2(char2 x, char2 y, uchar2 mask);
+char2 const_func __attribute__((overloadable)) shuffle2(char4 x, char4 y, uchar2 mask);
+char2 const_func __attribute__((overloadable)) shuffle2(char8 x, char8 y, uchar2 mask);
+char2 const_func __attribute__((overloadable)) shuffle2(char16 x, char16 y, uchar2 mask);
+
+uchar2 const_func __attribute__((overloadable)) shuffle2(uchar2 x, uchar2 y, uchar2 mask);
+uchar2 const_func __attribute__((overloadable)) shuffle2(uchar4 x, uchar4 y, uchar2 mask);
+uchar2 const_func __attribute__((overloadable)) shuffle2(uchar8 x, uchar8 y, uchar2 mask);
+uchar2 const_func __attribute__((overloadable)) shuffle2(uchar16 x, uchar16 y, uchar2 mask);
+
+short2 const_func __attribute__((overloadable)) shuffle2(short2 x, short2 y, ushort2 mask);
+short2 const_func __attribute__((overloadable)) shuffle2(short4 x, short4 y, ushort2 mask);
+short2 const_func __attribute__((overloadable)) shuffle2(short8 x, short8 y, ushort2 mask);
+short2 const_func __attribute__((overloadable)) shuffle2(short16 x, short16 y, ushort2 mask);
+
+ushort2 const_func __attribute__((overloadable)) shuffle2(ushort2 x, ushort2 y, ushort2 mask);
+ushort2 const_func __attribute__((overloadable)) shuffle2(ushort4 x, ushort4 y, ushort2 mask);
+ushort2 const_func __attribute__((overloadable)) shuffle2(ushort8 x, ushort8 y, ushort2 mask);
+ushort2 const_func __attribute__((overloadable)) shuffle2(ushort16 x, ushort16 y, ushort2 mask);
+
+int2 const_func __attribute__((overloadable)) shuffle2(int2 x, int2 y, uint2 mask);
+int2 const_func __attribute__((overloadable)) shuffle2(int4 x, int4 y, uint2 mask);
+int2 const_func __attribute__((overloadable)) shuffle2(int8 x, int8 y, uint2 mask);
+int2 const_func __attribute__((overloadable)) shuffle2(int16 x, int16 y, uint2 mask);
+
+uint2 const_func __attribute__((overloadable)) shuffle2(uint2 x, uint2 y, uint2 mask);
+uint2 const_func __attribute__((overloadable)) shuffle2(uint4 x, uint4 y, uint2 mask);
+uint2 const_func __attribute__((overloadable)) shuffle2(uint8 x, uint8 y, uint2 mask);
+uint2 const_func __attribute__((overloadable)) shuffle2(uint16 x, uint16 y, uint2 mask);
+
+long2 const_func __attribute__((overloadable)) shuffle2(long2 x, long2 y, ulong2 mask);
+long2 const_func __attribute__((overloadable)) shuffle2(long4 x, long4 y, ulong2 mask);
+long2 const_func __attribute__((overloadable)) shuffle2(long8 x, long8 y, ulong2 mask);
+long2 const_func __attribute__((overloadable)) shuffle2(long16 x, long16 y, ulong2 mask);
+
+ulong2 const_func __attribute__((overloadable)) shuffle2(ulong2 x, ulong2 y, ulong2 mask);
+ulong2 const_func __attribute__((overloadable)) shuffle2(ulong4 x, ulong4 y, ulong2 mask);
+ulong2 const_func __attribute__((overloadable)) shuffle2(ulong8 x, ulong8 y, ulong2 mask);
+ulong2 const_func __attribute__((overloadable)) shuffle2(ulong16 x, ulong16 y, ulong2 mask);
+
+//half2 const_func __attribute__((overloadable)) shuffle2(half2 x, half2 y, ushort2 mask);
+//half2 const_func __attribute__((overloadable)) shuffle2(half4 x, half4 y, ushort2 mask);
+//half2 const_func __attribute__((overloadable)) shuffle2(half8 x, half8 y, ushort2 mask);
+//half2 const_func __attribute__((overloadable)) shuffle2(half16 x, half16 y, ushort2 mask);
+
+float2 const_func __attribute__((overloadable)) shuffle2(float2 x, float2 y, uint2 mask);
+float2 const_func __attribute__((overloadable)) shuffle2(float4 x, float4 y, uint2 mask);
+float2 const_func __attribute__((overloadable)) shuffle2(float8 x, float8 y, uint2 mask);
+float2 const_func __attribute__((overloadable)) shuffle2(float16 x, float16 y, uint2 mask);
+
+double2 const_func __attribute__((overloadable)) shuffle2(double2 x, double2 y, ulong2 mask);
+double2 const_func __attribute__((overloadable)) shuffle2(double4 x, double4 y, ulong2 mask);
+double2 const_func __attribute__((overloadable)) shuffle2(double8 x, double8 y, ulong2 mask);
+double2 const_func __attribute__((overloadable)) shuffle2(double16 x, double16 y, ulong2 mask);
+
+char4 const_func __attribute__((overloadable)) shuffle2(char2 x, char2 y, uchar4 mask);
+char4 const_func __attribute__((overloadable)) shuffle2(char4 x, char4 y, uchar4 mask);
+char4 const_func __attribute__((overloadable)) shuffle2(char8 x, char8 y, uchar4 mask);
+char4 const_func __attribute__((overloadable)) shuffle2(char16 x, char16 y, uchar4 mask);
+
+uchar4 const_func __attribute__((overloadable)) shuffle2(uchar2 x, uchar2 y, uchar4 mask);
+uchar4 const_func __attribute__((overloadable)) shuffle2(uchar4 x, uchar4 y, uchar4 mask);
+uchar4 const_func __attribute__((overloadable)) shuffle2(uchar8 x, uchar8 y, uchar4 mask);
+uchar4 const_func __attribute__((overloadable)) shuffle2(uchar16 x, uchar16 y, uchar4 mask);
+
+short4 const_func __attribute__((overloadable)) shuffle2(short2 x, short2 y, ushort4 mask);
+short4 const_func __attribute__((overloadable)) shuffle2(short4 x, short4 y, ushort4 mask);
+short4 const_func __attribute__((overloadable)) shuffle2(short8 x, short8 y, ushort4 mask);
+short4 const_func __attribute__((overloadable)) shuffle2(short16 x, short16 y, ushort4 mask);
+
+ushort4 const_func __attribute__((overloadable)) shuffle2(ushort2 x, ushort2 y, ushort4 mask);
+ushort4 const_func __attribute__((overloadable)) shuffle2(ushort4 x, ushort4 y, ushort4 mask);
+ushort4 const_func __attribute__((overloadable)) shuffle2(ushort8 x, ushort8 y, ushort4 mask);
+ushort4 const_func __attribute__((overloadable)) shuffle2(ushort16 x, ushort16 y, ushort4 mask);
+
+int4 const_func __attribute__((overloadable)) shuffle2(int2 x, int2 y, uint4 mask);
+int4 const_func __attribute__((overloadable)) shuffle2(int4 x, int4 y, uint4 mask);
+int4 const_func __attribute__((overloadable)) shuffle2(int8 x, int8 y, uint4 mask);
+int4 const_func __attribute__((overloadable)) shuffle2(int16 x, int16 y, uint4 mask);
+
+uint4 const_func __attribute__((overloadable)) shuffle2(uint2 x, uint2 y, uint4 mask);
+uint4 const_func __attribute__((overloadable)) shuffle2(uint4 x, uint4 y, uint4 mask);
+uint4 const_func __attribute__((overloadable)) shuffle2(uint8 x, uint8 y, uint4 mask);
+uint4 const_func __attribute__((overloadable)) shuffle2(uint16 x, uint16 y, uint4 mask);
+
+long4 const_func __attribute__((overloadable)) shuffle2(long2 x, long2 y, ulong4 mask);
+long4 const_func __attribute__((overloadable)) shuffle2(long4 x, long4 y, ulong4 mask);
+long4 const_func __attribute__((overloadable)) shuffle2(long8 x, long8 y, ulong4 mask);
+long4 const_func __attribute__((overloadable)) shuffle2(long16 x, long16 y, ulong4 mask);
+
+ulong4 const_func __attribute__((overloadable)) shuffle2(ulong2 x, ulong2 y, ulong4 mask);
+ulong4 const_func __attribute__((overloadable)) shuffle2(ulong4 x, ulong4 y, ulong4 mask);
+ulong4 const_func __attribute__((overloadable)) shuffle2(ulong8 x, ulong8 y, ulong4 mask);
+ulong4 const_func __attribute__((overloadable)) shuffle2(ulong16 x, ulong16 y, ulong4 mask);
+
+//half4 const_func __attribute__((overloadable)) shuffle2(half2 x, half2 y, ushort4 mask);
+//half4 const_func __attribute__((overloadable)) shuffle2(half4 x, half4 y, ushort4 mask);
+//half4 const_func __attribute__((overloadable)) shuffle2(half8 x, half8 y, ushort4 mask);
+//half4 const_func __attribute__((overloadable)) shuffle2(half16 x, half16 y, ushort4 mask);
+
+float4 const_func __attribute__((overloadable)) shuffle2(float2 x, float2 y, uint4 mask);
+float4 const_func __attribute__((overloadable)) shuffle2(float4 x, float4 y, uint4 mask);
+float4 const_func __attribute__((overloadable)) shuffle2(float8 x, float8 y, uint4 mask);
+float4 const_func __attribute__((overloadable)) shuffle2(float16 x, float16 y, uint4 mask);
+
+double4 const_func __attribute__((overloadable)) shuffle2(double2 x, double2 y, ulong4 mask);
+double4 const_func __attribute__((overloadable)) shuffle2(double4 x, double4 y, ulong4 mask);
+double4 const_func __attribute__((overloadable)) shuffle2(double8 x, double8 y, ulong4 mask);
+double4 const_func __attribute__((overloadable)) shuffle2(double16 x, double16 y, ulong4 mask);
+
+char8 const_func __attribute__((overloadable)) shuffle2(char2 x, char2 y, uchar8 mask);
+char8 const_func __attribute__((overloadable)) shuffle2(char4 x, char4 y, uchar8 mask);
+char8 const_func __attribute__((overloadable)) shuffle2(char8 x, char8 y, uchar8 mask);
+char8 const_func __attribute__((overloadable)) shuffle2(char16 x, char16 y, uchar8 mask);
+
+uchar8 const_func __attribute__((overloadable)) shuffle2(uchar2 x, uchar2 y, uchar8 mask);
+uchar8 const_func __attribute__((overloadable)) shuffle2(uchar4 x, uchar4 y, uchar8 mask);
+uchar8 const_func __attribute__((overloadable)) shuffle2(uchar8 x, uchar8 y, uchar8 mask);
+uchar8 const_func __attribute__((overloadable)) shuffle2(uchar16 x, uchar16 y, uchar8 mask);
+
+short8 const_func __attribute__((overloadable)) shuffle2(short2 x, short2 y, ushort8 mask);
+short8 const_func __attribute__((overloadable)) shuffle2(short4 x, short4 y, ushort8 mask);
+short8 const_func __attribute__((overloadable)) shuffle2(short8 x, short8 y, ushort8 mask);
+short8 const_func __attribute__((overloadable)) shuffle2(short16 x, short16 y, ushort8 mask);
+
+ushort8 const_func __attribute__((overloadable)) shuffle2(ushort2 x, ushort2 y, ushort8 mask);
+ushort8 const_func __attribute__((overloadable)) shuffle2(ushort4 x, ushort4 y, ushort8 mask);
+ushort8 const_func __attribute__((overloadable)) shuffle2(ushort8 x, ushort8 y, ushort8 mask);
+ushort8 const_func __attribute__((overloadable)) shuffle2(ushort16 x, ushort16 y, ushort8 mask);
+
+int8 const_func __attribute__((overloadable)) shuffle2(int2 x, int2 y, uint8 mask);
+int8 const_func __attribute__((overloadable)) shuffle2(int4 x, int4 y, uint8 mask);
+int8 const_func __attribute__((overloadable)) shuffle2(int8 x, int8 y, uint8 mask);
+int8 const_func __attribute__((overloadable)) shuffle2(int16 x, int16 y, uint8 mask);
+
+uint8 const_func __attribute__((overloadable)) shuffle2(uint2 x, uint2 y, uint8 mask);
+uint8 const_func __attribute__((overloadable)) shuffle2(uint4 x, uint4 y, uint8 mask);
+uint8 const_func __attribute__((overloadable)) shuffle2(uint8 x, uint8 y, uint8 mask);
+uint8 const_func __attribute__((overloadable)) shuffle2(uint16 x, uint16 y, uint8 mask);
+
+long8 const_func __attribute__((overloadable)) shuffle2(long2 x, long2 y, ulong8 mask);
+long8 const_func __attribute__((overloadable)) shuffle2(long4 x, long4 y, ulong8 mask);
+long8 const_func __attribute__((overloadable)) shuffle2(long8 x, long8 y, ulong8 mask);
+long8 const_func __attribute__((overloadable)) shuffle2(long16 x, long16 y, ulong8 mask);
+
+ulong8 const_func __attribute__((overloadable)) shuffle2(ulong2 x, ulong2 y, ulong8 mask);
+ulong8 const_func __attribute__((overloadable)) shuffle2(ulong4 x, ulong4 y, ulong8 mask);
+ulong8 const_func __attribute__((overloadable)) shuffle2(ulong8 x, ulong8 y, ulong8 mask);
+ulong8 const_func __attribute__((overloadable)) shuffle2(ulong16 x, ulong16 y, ulong8 mask);
+
+//half8 const_func __attribute__((overloadable)) shuffle2(half2 x, half2 y, ushort8 mask);
+//half8 const_func __attribute__((overloadable)) shuffle2(half4 x, half4 y, ushort8 mask);
+//half8 const_func __attribute__((overloadable)) shuffle2(half8 x, half8 y, ushort8 mask);
+//half8 const_func __attribute__((overloadable)) shuffle2(half16 x, half16 y, ushort8 mask);
+
+float8 const_func __attribute__((overloadable)) shuffle2(float2 x, float2 y, uint8 mask);
+float8 const_func __attribute__((overloadable)) shuffle2(float4 x, float4 y, uint8 mask);
+float8 const_func __attribute__((overloadable)) shuffle2(float8 x, float8 y, uint8 mask);
+float8 const_func __attribute__((overloadable)) shuffle2(float16 x, float16 y, uint8 mask);
+
+double8 const_func __attribute__((overloadable)) shuffle2(double2 x, double2 y, ulong8 mask);
+double8 const_func __attribute__((overloadable)) shuffle2(double4 x, double4 y, ulong8 mask);
+double8 const_func __attribute__((overloadable)) shuffle2(double8 x, double8 y, ulong8 mask);
+double8 const_func __attribute__((overloadable)) shuffle2(double16 x, double16 y, ulong8 mask);
+
+char16 const_func __attribute__((overloadable)) shuffle2(char2 x, char2 y, uchar16 mask);
+char16 const_func __attribute__((overloadable)) shuffle2(char4 x, char4 y, uchar16 mask);
+char16 const_func __attribute__((overloadable)) shuffle2(char8 x, char8 y, uchar16 mask);
+char16 const_func __attribute__((overloadable)) shuffle2(char16 x, char16 y, uchar16 mask);
+
+uchar16 const_func __attribute__((overloadable)) shuffle2(uchar2 x, uchar2 y, uchar16 mask);
+uchar16 const_func __attribute__((overloadable)) shuffle2(uchar4 x, uchar4 y, uchar16 mask);
+uchar16 const_func __attribute__((overloadable)) shuffle2(uchar8 x, uchar8 y, uchar16 mask);
+uchar16 const_func __attribute__((overloadable)) shuffle2(uchar16 x, uchar16 y, uchar16 mask);
+
+short16 const_func __attribute__((overloadable)) shuffle2(short2 x, short2 y, ushort16 mask);
+short16 const_func __attribute__((overloadable)) shuffle2(short4 x, short4 y, ushort16 mask);
+short16 const_func __attribute__((overloadable)) shuffle2(short8 x, short8 y, ushort16 mask);
+short16 const_func __attribute__((overloadable)) shuffle2(short16 x, short16 y, ushort16 mask);
+
+ushort16 const_func __attribute__((overloadable)) shuffle2(ushort2 x, ushort2 y, ushort16 mask);
+ushort16 const_func __attribute__((overloadable)) shuffle2(ushort4 x, ushort4 y, ushort16 mask);
+ushort16 const_func __attribute__((overloadable)) shuffle2(ushort8 x, ushort8 y, ushort16 mask);
+ushort16 const_func __attribute__((overloadable)) shuffle2(ushort16 x, ushort16 y, ushort16 mask);
+
+int16 const_func __attribute__((overloadable)) shuffle2(int2 x, int2 y, uint16 mask);
+int16 const_func __attribute__((overloadable)) shuffle2(int4 x, int4 y, uint16 mask);
+int16 const_func __attribute__((overloadable)) shuffle2(int8 x, int8 y, uint16 mask);
+int16 const_func __attribute__((overloadable)) shuffle2(int16 x, int16 y, uint16 mask);
+
+uint16 const_func __attribute__((overloadable)) shuffle2(uint2 x, uint2 y, uint16 mask);
+uint16 const_func __attribute__((overloadable)) shuffle2(uint4 x, uint4 y, uint16 mask);
+uint16 const_func __attribute__((overloadable)) shuffle2(uint8 x, uint8 y, uint16 mask);
+uint16 const_func __attribute__((overloadable)) shuffle2(uint16 x, uint16 y, uint16 mask);
+
+long16 const_func __attribute__((overloadable)) shuffle2(long2 x, long2 y, ulong16 mask);
+long16 const_func __attribute__((overloadable)) shuffle2(long4 x, long4 y, ulong16 mask);
+long16 const_func __attribute__((overloadable)) shuffle2(long8 x, long8 y, ulong16 mask);
+long16 const_func __attribute__((overloadable)) shuffle2(long16 x, long16 y, ulong16 mask);
+
+ulong16 const_func __attribute__((overloadable)) shuffle2(ulong2 x, ulong2 y, ulong16 mask);
+ulong16 const_func __attribute__((overloadable)) shuffle2(ulong4 x, ulong4 y, ulong16 mask);
+ulong16 const_func __attribute__((overloadable)) shuffle2(ulong8 x, ulong8 y, ulong16 mask);
+ulong16 const_func __attribute__((overloadable)) shuffle2(ulong16 x, ulong16 y, ulong16 mask);
+
+//half16 const_func __attribute__((overloadable)) shuffle2(half2 x, half2 y, ushort16 mask);
+//half16 const_func __attribute__((overloadable)) shuffle2(half4 x, half4 y, ushort16 mask);
+//half16 const_func __attribute__((overloadable)) shuffle2(half8 x, half8 y, ushort16 mask);
+//half16 const_func __attribute__((overloadable)) shuffle2(half16 x, half16 y, ushort16 mask);
+
+float16 const_func __attribute__((overloadable)) shuffle2(float2 x, float2 y, uint16 mask);
+float16 const_func __attribute__((overloadable)) shuffle2(float4 x, float4 y, uint16 mask);
+float16 const_func __attribute__((overloadable)) shuffle2(float8 x, float8 y, uint16 mask);
+float16 const_func __attribute__((overloadable)) shuffle2(float16 x, float16 y, uint16 mask);
+
+double16 const_func __attribute__((overloadable)) shuffle2(double2 x, double2 y, ulong16 mask);
+double16 const_func __attribute__((overloadable)) shuffle2(double4 x, double4 y, ulong16 mask);
+double16 const_func __attribute__((overloadable)) shuffle2(double8 x, double8 y, ulong16 mask);
+double16 const_func __attribute__((overloadable)) shuffle2(double16 x, double16 y, ulong16 mask);
 
 // Built-in image functions
 
@@ -7176,26 +7176,57 @@ double16 	const_func __attribute__((overloadable)) shuffle2(double16 x, double16
  * in the description above are undefined.
  */
 
-#define __ADDRESS_BASE					0
-#define CLK_ADDRESS_NONE				0 
-#define CLK_ADDRESS_CLAMP				(1 << __ADDRESS_BASE)
-#define CLK_ADDRESS_CLAMP_TO_EDGE		(2 << __ADDRESS_BASE)
-#define CLK_ADDRESS_REPEAT				(3 << __ADDRESS_BASE)
-#define CLK_ADDRESS_MIRRORED_REPEAT		(4 << __ADDRESS_BASE)
+#define __ADDRESS_BASE                  0
+#define CLK_ADDRESS_NONE                0 
+#define CLK_ADDRESS_CLAMP               (1 << __ADDRESS_BASE)
+#define CLK_ADDRESS_CLAMP_TO_EDGE       (2 << __ADDRESS_BASE)
+#define CLK_ADDRESS_REPEAT              (3 << __ADDRESS_BASE)
+#define CLK_ADDRESS_MIRRORED_REPEAT     (4 << __ADDRESS_BASE)
 
-#define __NORMALIZED_BASE				3
-#define CLK_NORMALIZED_COORDS_FALSE			0
-#define CLK_NORMALIZED_COORDS_TRUE			(1 << __NORMALIZED_BASE)
+#define __NORMALIZED_BASE               3
+#define CLK_NORMALIZED_COORDS_FALSE     0
+#define CLK_NORMALIZED_COORDS_TRUE      (1 << __NORMALIZED_BASE)
 
-#define __FILTER_BASE					4
-#define CLK_FILTER_NEAREST				0
-#define CLK_FILTER_LINEAR				(1 << __FILTER_BASE)
+#define __FILTER_BASE                   4
+#define CLK_FILTER_NEAREST              0
+#define CLK_FILTER_LINEAR               (1 << __FILTER_BASE)
 
 float4 __attribute__((overloadable)) const_func read_imagef(__read_only image2d_t image, sampler_t sampler, int2 coord);
 float4 __attribute__((overloadable)) const_func read_imagef(__read_only image2d_t image, sampler_t sampler, float2 coord);
 //half4 __attribute__((overloadable)) const_func read_imageh(__read_only image2d_t image, sampler_t sampler, int2 coord);
 //half4 __attribute__((overloadable)) const_func read_imageh(__read_only image2d_t image, sampler_t sampler, float2 coord);
 
+// OpenCL C 2.0 introduced new basic types: image2d_depth_t, image2d_array_depth_t
+// TODO: remove the following define as soon as Clang support -cl-std=CL2.0 flag
+#define  CL_VERSION_2_0 200
+#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
+float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_depth_t image, sampler_t sampler, int2 coord);
+float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_depth_t image, sampler_t sampler, float2 coord);
+float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_depth_t image, int2 coord);
+float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_array_depth_t image, sampler_t sampler, int4 coord);
+float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_array_depth_t image, sampler_t sampler, float4 coord);
+float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_array_depth_t image, int4 coord);
+
+void __attribute__((overloadable)) write_imagef(__write_only image2d_depth_t image, int2 coord, float depth);
+void __attribute__((overloadable)) write_imagef (__write_only image2d_array_depth_t image, int4 coord, float depth);
+
+int const_func __attribute__((overloadable)) get_image_width(image2d_depth_t image);
+int const_func __attribute__((overloadable)) get_image_width(image2d_array_depth_t image);
+
+int const_func __attribute__((overloadable)) get_image_height(image2d_depth_t image);
+int const_func __attribute__((overloadable)) get_image_height(image2d_array_depth_t image);
+
+int const_func __attribute__((overloadable)) get_image_channel_data_type(image2d_depth_t image);
+int const_func __attribute__((overloadable)) get_image_channel_data_type(image2d_array_depth_t image);
+
+int const_func __attribute__((overloadable)) get_image_channel_order(image2d_depth_t image);
+int const_func __attribute__((overloadable)) get_image_channel_order(image2d_array_depth_t image);
+
+int2 const_func __attribute__((overloadable)) get_image_dim(image2d_depth_t image);
+int2 const_func __attribute__((overloadable)) get_image_dim(image2d_array_depth_t image);
+
+size_t const_func __attribute__((overloadable)) get_image_array_size(image2d_array_depth_t image_array);
+#endif
 
 /**
  * Use the coordinate (x, y) to do an element lookup in
@@ -7408,8 +7439,7 @@ void __attribute__((overloadable)) write_imagei (__write_only image1d_array_t im
 void __attribute__((overloadable)) write_imageui (__write_only image1d_array_t image, int2 coord, uint4 color);
 
 
-
-#ifdef __WRITE_IMAGE3D__
+#if defined __WRITE_IMAGE3D__ || __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 /**
  * Write color value to location specified by coordinate
  * (x, y, z) in the 3D image object specified by image.
@@ -7450,7 +7480,9 @@ void __attribute__((overloadable)) write_imagef(__write_only image3d_t image, in
 void __attribute__((overloadable)) write_imagei(__write_only image3d_t image, int4 coord, int4 color);
 void __attribute__((overloadable)) write_imageui(__write_only image3d_t image, int4 coord, uint4 color);
 //void __attribute__((overloadable)) write_imageh(__write_only image3d_t image, int4 coord, half4 color);
+
 #endif
+
 /**
  * Return the image width in pixels.
  */
@@ -7492,34 +7524,35 @@ int const_func __attribute__((overloadable)) get_image_depth(image3d_t image);
  * CLK_FLOAT
  */
 
-// Channel order
-#define CLK_R			0
-#define CLK_A			1
-#define CLK_RG			2
-#define CLK_RA			3
-#define CLK_RGB			4
-#define CLK_RGBA		5
-#define CLK_BGRA		6
-#define CLK_ARGB		7
-#define CLK_INTENSITY	8
-#define CLK_LUMINANCE	9
+// Channel order, numbering must be aligned with cl_channel_order in cl.h
+#define CLK_R                   0x0
+#define CLK_A                   0x1
+#define CLK_RG                  0x2
+#define CLK_RA                  0x3
+#define CLK_RGB                 0x4
+#define CLK_RGBA                0x5
+#define CLK_BGRA                0x6
+#define CLK_ARGB                0x7
+#define CLK_INTENSITY           0x8
+#define CLK_LUMINANCE           0x9
+#define CLK_DEPTH               0xD
 
 // Channel Type
-#define CLK_SNORM_INT8			0
-#define CLK_SNORM_INT16			1
-#define CLK_UNORM_INT8			2
-#define CLK_UNORM_INT16			3
-#define CLK_UNORM_SHORT_565		4
-#define CLK_UNORM_SHORT_555		5
-#define CLK_UNORM_INT_101010	6
-#define CLK_SIGNED_INT8			7
-#define CLK_SIGNED_INT16		8
-#define CLK_SIGNED_INT32		9
-#define CLK_UNSIGNED_INT8		10
-#define CLK_UNSIGNED_INT16		11
-#define CLK_UNSIGNED_INT32		12
-#define CLK_HALF_FLOAT			13
-#define CLK_FLOAT				14
+#define CLK_SNORM_INT8          0
+#define CLK_SNORM_INT16         1
+#define CLK_UNORM_INT8          2
+#define CLK_UNORM_INT16         3
+#define CLK_UNORM_SHORT_565     4
+#define CLK_UNORM_SHORT_555     5
+#define CLK_UNORM_INT_101010    6
+#define CLK_SIGNED_INT8         7
+#define CLK_SIGNED_INT16        8
+#define CLK_SIGNED_INT32        9
+#define CLK_UNSIGNED_INT8       10
+#define CLK_UNSIGNED_INT16      11
+#define CLK_UNSIGNED_INT32      12
+#define CLK_HALF_FLOAT          13
+#define CLK_FLOAT               14
 
 int const_func __attribute__((overloadable)) get_image_channel_data_type(image1d_t image);
 int const_func __attribute__((overloadable)) get_image_channel_data_type(image1d_buffer_t image);
@@ -7580,12 +7613,12 @@ size_t const_func __attribute__((overloadable)) get_image_array_size(image1d_arr
 /**
  *  Use coord.xy to do an element lookup in the 2D image layer identified by index coord.z in the 2D image array.
  */
-float4 const_func __attribute__((overloadable)) read_imagef(__read_only image2d_array_t image_array,	sampler_t sampler, int4 coord);
+float4 const_func __attribute__((overloadable)) read_imagef(__read_only image2d_array_t image_array, sampler_t sampler, int4 coord);
 
 /**
  * Use coord.xy to do an element lookup in the 2D image layer identified by index coord.z in the 2D image array.
  */
-float4 const_func __attribute__((overloadable)) read_imagef(__read_only image2d_array_t image_array,	sampler_t sampler, float4 coord);
+float4 const_func __attribute__((overloadable)) read_imagef(__read_only image2d_array_t image_array, sampler_t sampler, float4 coord);
 
 /**
  * Use coord.xy to do an element lookup in the 2D image layer identified by index coord.z in the 2D image array.

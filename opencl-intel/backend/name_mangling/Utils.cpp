@@ -29,10 +29,12 @@ namespace reflection {
     "void",
     "image1d_t",
     "image2d_t",
+    "image2d_depth_t",
     "image3d_t",
     "image1d_buffer_t",
     "image1d_array_t",
     "image2d_array_t",
+    "image2d_array_depth_t",
     "sampler_t"
   };
 
@@ -50,17 +52,19 @@ namespace reflection {
     "f",  //FLOAT
     "d",  //DOUBLE
     "v",  //VOID
-    "11ocl_image1d",       //PRIMITIVE_IMAGE_1D_T,
-    "11ocl_image2d",       //PRIMITIVE_IMAGE_2D_T,
-    "11ocl_image3d",       //PRIMITIVE_IMAGE_3D_T,
-    "17ocl_image1dbuffer", //PRIMITIVE_IMAGE_1D_BUFFER_T,
-    "16ocl_image1darray",  //PRIMITIVE_IMAGE_1D_ARRAY_T,
-    "16ocl_image2darray",  //PRIMITIVE_IMAGE_2D_ARRAY_T,
-    "11ocl_sampler"        //SAMPLER_T
+    "11ocl_image1d",            //PRIMITIVE_IMAGE_1D_T,
+    "11ocl_image2d",            //PRIMITIVE_IMAGE_2D_T,
+    "16ocl_image2ddepth",       //PRIMITIVE_IMAGE_2D_DEPTH_T,
+    "11ocl_image3d",            //PRIMITIVE_IMAGE_3D_T,
+    "17ocl_image1dbuffer",      //PRIMITIVE_IMAGE_1D_BUFFER_T,
+    "16ocl_image1darray",       //PRIMITIVE_IMAGE_1D_ARRAY_T,
+    "16ocl_image2darray",       //PRIMITIVE_IMAGE_2D_ARRAY_T,
+    "21ocl_image2darraydepth",  //PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T,
+    "11ocl_sampler"             //SAMPLER_T
   };
 
   const char* readableAttribute[ATTR_NUM] = {
-   "__private",
+    "__private",
     "__global",
     "__constant",
     "__local",

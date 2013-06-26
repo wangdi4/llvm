@@ -35,6 +35,10 @@
 
 #define SHRT16_MIN    (-32768)
 #define SHRT16_MAX      32767
+#define SNORM_INT16_FACTOR 32767.f
+#define SNORM_INT8_FACTOR  127.f
+#define UNORM_INT16_FACTOR 65535.f
+#define UNORM_INT8_FACTOR  255.f
 
 // Clamp border color used for CL_A, CL_INTENSITY, CL_Rx, CL_RA, CL_RGx, CL_RGBx, CL_ARGB, CL_BGRA, CL_RGBA
 ALIGN16 const constant float4 BorderColorNoAlphaFloat = {0.0f, 0.0f, 0.0f, 0.0f}; 
@@ -105,6 +109,11 @@ float4 load_pixel_RGBA_FLOAT(void* pPixel);
 float4 load_pixel_BGRA_UNORM_INT8(void* pPixel);
 float4 load_pixel_RGBA_UNORM_INT8(void* pPixel);
 float4 load_pixel_RGBA_UNORM_INT16(void* pPixel);
+float4 load_pixel_RGBA_SNORM_INT8(void* pPixel);
+float4 load_pixel_RGBA_SNORM_INT16(void* pPixel);
+
+float4 load_pixel_sRGBA_UNORM_INT8(void* pPixel);
+float4 load_pixel_sBGRA_UNORM_INT8(void* pPixel);
 
 int4 load_pixel_R_SIGNED_INT8(void* pPixel);
 int4 load_pixel_R_SIGNED_INT16(void* pPixel);
@@ -116,6 +125,11 @@ uint4 load_pixel_R_UNSIGNED_INT16(void* pPixel);
 uint4 load_pixel_R_UNSIGNED_INT32(void* pPixel);
 float4 load_pixel_R_UNORM_INT8(void* pPixel);
 float4 load_pixel_R_UNORM_INT16(void* pPixel);
+float4 load_pixel_R_SNORM_INT8(void* pPixel);
+float4 load_pixel_R_SNORM_INT16(void* pPixel);
+
+float4 load_pixel_DEPTH_FLOAT(void* pPixel);
+float4 load_pixel_DEPTH_UNORM_INT16(void* pPixel);
 
 float4 load_pixel_A_FLOAT(void* pPixel);
 float4 load_pixel_A_UNORM_INT8(void* pPixel);
@@ -131,6 +145,8 @@ int4 load_pixel_RG_SIGNED_INT32(void* pPixel);
 float4 load_pixel_RG_FLOAT(void* pPixel);
 float4 load_pixel_RG_UNORM_INT8(void* pPixel);
 float4 load_pixel_RG_UNORM_INT16(void* pPixel);
+float4 load_pixel_RG_SNORM_INT8(void* pPixel);
+float4 load_pixel_RG_SNORM_INT16(void* pPixel);
 float4 load_pixel_RG_HALF_FLOAT(void* pPixel);
 
 float4 SampleImage1DFloat(float4 Ti0, float4 Ti1, float4 frac);
@@ -889,8 +905,12 @@ IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_SIGNED_INT16, int4, BorderColorNoAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST(RGBA_SIGNED_INT32, int4, BorderColorNoAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_UNORM_INT8,  BorderColorNoAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_UNORM_INT16, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_SNORM_INT8,  BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_SNORM_INT16, BorderColorNoAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_FLOAT, BorderColorNoAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RGBA_HALF_FLOAT, BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(sRGBA_UNORM_INT8,  BorderColorNoAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(sBGRA_UNORM_INT8,  BorderColorNoAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(BGRA_UNORM_INT8, BorderColorNoAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(INTENSITY_FLOAT, BorderColorNoAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(INTENSITY_UNORM_INT8, BorderColorNoAlphaFloat)
@@ -903,6 +923,8 @@ IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(LUMINANCE_HALF_FLOAT, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_FLOAT, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_UNORM_INT8, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_UNORM_INT16, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_SNORM_INT8, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(R_SNORM_INT16, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST(R_SIGNED_INT8, int4, BorderColorAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST(R_SIGNED_INT16, int4, BorderColorAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST(R_SIGNED_INT32, int4, BorderColorAlphaInt)
@@ -922,8 +944,12 @@ IMPLEMENT_READ_SAMPLE_NEAREST(RG_SIGNED_INT16, int4, BorderColorAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST(RG_SIGNED_INT32, int4, BorderColorAlphaInt)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_UNORM_INT8, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_UNORM_INT16, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_SNORM_INT8, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_SNORM_INT16, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_FLOAT, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_HALF_FLOAT, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(DEPTH_FLOAT, BorderColorAlphaFloat)
+IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(DEPTH_UNORM_INT16, BorderColorAlphaFloat)
 
 void write_sample_RGBA_UNSIGNED_INT8(void* pixel, uint4 color)
 {
@@ -1163,6 +1189,7 @@ void write_sample_A_UNORM_INT8(void* pixel, float4 color)
     *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
+
 /***************************************RGBA_UNORM16 Image type i/o functions*****************************************************/
 
 float4 load_pixel_RGBA_UNORM_INT16(void* pPixel)
@@ -1200,6 +1227,12 @@ void write_sample_R_UNORM_INT16(void* pixel, float4 color)
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
+void write_sample_DEPTH_UNORM_INT16(void* pixel, float4 color)
+{
+    ushort converted = convert_ushort_sat_rte(color.x * UNORM_INT16_FACTOR);
+    *(ushort*)pixel = converted;
+}
+
 void write_sample_A_UNORM_INT16(void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
@@ -1207,6 +1240,87 @@ void write_sample_A_UNORM_INT16(void* pixel, float4 color)
     *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
+
+
+/*************************************** R, RG, and RGBA with SNORM8 Image type i/o functions*****************************************************/
+
+float4 load_pixel_RGBA_SNORM_INT8(void* pPixel)
+{
+    char4 pixel = vload4(0, (char*)pPixel);
+    float4 converted = convert_float4(pixel) / SNORM_INT8_FACTOR;
+    return max(-1.f, converted);
+}
+
+float4 load_pixel_RG_SNORM_INT8(void* pPixel)
+{
+    char2 pixel = vload2(0, (char*)pPixel);
+    float4 converted = (float4)(convert_float2(pixel) / SNORM_INT8_FACTOR, 0.f, 1.f);
+    return max((float4)(-1.f), converted);
+}
+
+float4 load_pixel_R_SNORM_INT8(void* pPixel)
+{
+    char pixel = *(char*)pPixel;
+    float4 converted = (float4)(convert_float(pixel) / SNORM_INT8_FACTOR, 0.f, 0.f, 1.f);
+    return max((float4)(-1.f), converted);
+}
+
+void write_sample_RGBA_SNORM_INT8(void* pixel, float4 color)
+{
+    char4 converted = convert_char4_sat_rte(color * SNORM_INT8_FACTOR);
+    vstore4(converted, 0, (char*)pixel);
+}
+
+void write_sample_RG_SNORM_INT8(void* pixel, float4 color)
+{
+    char2 converted = convert_char2_sat_rte(color.lo * SNORM_INT8_FACTOR);
+    vstore2(converted, 0, (char*)pixel);
+}
+
+void write_sample_R_SNORM_INT8(void* pixel, float4 color)
+{
+    *(char*)pixel = convert_char_sat_rte(color.x * SNORM_INT8_FACTOR);
+}
+
+/*************************************** R, RG, and RGBA with SNORM16 Image type i/o functions*****************************************************/
+
+float4 load_pixel_RGBA_SNORM_INT16(void* pPixel)
+{
+    short4 pixel = vload4(0, (short*)pPixel);
+    float4 converted = convert_float4(pixel) / SNORM_INT16_FACTOR;
+    return max(-1.f, converted);
+}
+
+float4 load_pixel_RG_SNORM_INT16(void* pPixel)
+{
+    short2 pixel = vload2(0, (short*)pPixel);
+    float4 converted = (convert_float2(pixel) / SNORM_INT16_FACTOR, 0.f, 1.f);
+    return max((float4)(-1.f), converted);
+}
+
+float4 load_pixel_R_SNORM_INT16(void* pPixel)
+{
+    short pixel = *(short*)pPixel;
+    float4 converted = (float4)(convert_float(pixel) / SNORM_INT16_FACTOR, 0.f, 0.f, 1.f);
+    return max((float4)(-1.f), converted);
+}
+
+void write_sample_RGBA_SNORM_INT16(void* pixel, float4 color)
+{
+    short4 converted = convert_short4_sat_rte(color * SNORM_INT16_FACTOR);
+    vstore4(converted, 0, (short*)pixel);
+}
+
+void write_sample_RG_SNORM_INT16(void* pixel, float4 color)
+{
+    short2 converted = convert_short2_sat_rte(color.lo * SNORM_INT16_FACTOR);
+    vstore2(converted, 0, (short*)pixel);
+}
+
+void write_sample_R_SNORM_INT16(void* pixel, float4 color)
+{
+    *(short*)pixel = convert_short_sat_rte(color.x * SNORM_INT16_FACTOR);
+}
 
 
 /***************************************BGRA_UNORM8 Image type i/o functions*****************************************************/
@@ -1480,9 +1594,15 @@ IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(LUMINANCE_HALF_FLOAT, luminance_post_pro
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RGBA_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(BGRA_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RGBA_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RGBA_SNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RGBA_SNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(sRGBA_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(sBGRA_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(R_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(R_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(R_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(R_SNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(R_SNORM_INT16, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(R_HALF_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(A_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(A_UNORM_INT8, dummyFnc)
@@ -1492,7 +1612,8 @@ IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_HALF_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_UNORM_INT16, dummyFnc)
-
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_SNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_SNORM_INT16, dummyFnc)
 
 // definition for linear read callbacks in case of one channel images
 #define IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(TYPE, POST_PROCESSING) \
@@ -1548,9 +1669,15 @@ IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(LUMINANCE_HALF_FLOAT, luminance_post
 IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RGBA_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(BGRA_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RGBA_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RGBA_SNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RGBA_SNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(sRGBA_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(sBGRA_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(R_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(R_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(R_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(R_SNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(R_SNORM_INT16, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(R_HALF_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(A_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(A_UNORM_INT8, dummyFnc)
@@ -1560,6 +1687,10 @@ IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RG_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RG_HALF_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RG_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RG_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RG_SNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(RG_SNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(DEPTH_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(DEPTH_UNORM_INT16, dummyFnc)
 
 
 #define IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(TYPE, POST_PROCESSING) \
@@ -1600,11 +1731,17 @@ IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(LUMINANCE_UNORM_INT8, luminance_post_pro
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(LUMINANCE_UNORM_INT16, luminance_post_process)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(LUMINANCE_HALF_FLOAT, luminance_post_process)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RGBA_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(sRGBA_UNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(sBGRA_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(BGRA_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RGBA_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RGBA_SNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RGBA_SNORM_INT16, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(R_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(R_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(R_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(R_SNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(R_SNORM_INT16, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(R_HALF_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(A_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(A_UNORM_INT8, dummyFnc)
@@ -1613,6 +1750,8 @@ IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(A_HALF_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_FLOAT, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_UNORM_INT16, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_SNORM_INT8, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_SNORM_INT16, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_HALF_FLOAT, dummyFnc)
 
 
@@ -1641,11 +1780,17 @@ IMPLEMENT_read_sample_LINEAR1D_CLAMP(LUMINANCE_UNORM_INT8, BorderColorAlphaFloat
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(LUMINANCE_UNORM_INT16, BorderColorAlphaFloat, luminance_post_process)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(LUMINANCE_HALF_FLOAT, BorderColorAlphaFloat, luminance_post_process)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RGBA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(sRGBA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(sBGRA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(BGRA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RGBA_UNORM_INT16, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(RGBA_SNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(RGBA_SNORM_INT16, BorderColorNoAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(R_FLOAT, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(R_UNORM_INT8, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(R_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(R_SNORM_INT8, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(R_SNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(R_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(A_FLOAT, BorderColorNoAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(A_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
@@ -1654,6 +1799,8 @@ IMPLEMENT_read_sample_LINEAR1D_CLAMP(A_HALF_FLOAT, BorderColorNoAlphaFloat, dumm
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_FLOAT, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_UNORM_INT8, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_SNORM_INT8, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_SNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
 
 
@@ -1706,11 +1853,17 @@ IMPLEMENT_read_sample_LINEAR2D_CLAMP(LUMINANCE_UNORM_INT8, BorderColorAlphaFloat
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(LUMINANCE_UNORM_INT16, BorderColorAlphaFloat, luminance_post_process)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(LUMINANCE_HALF_FLOAT, BorderColorAlphaFloat, luminance_post_process)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(RGBA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_CLAMP(sRGBA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_CLAMP(sBGRA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(BGRA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(RGBA_UNORM_INT16, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_CLAMP(RGBA_SNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_CLAMP(RGBA_SNORM_INT16, BorderColorNoAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(R_FLOAT, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(R_UNORM_INT8, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(R_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_CLAMP(R_SNORM_INT8, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_CLAMP(R_SNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(R_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(A_FLOAT, BorderColorNoAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(A_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
@@ -1719,7 +1872,11 @@ IMPLEMENT_read_sample_LINEAR2D_CLAMP(A_HALF_FLOAT, BorderColorNoAlphaFloat, dumm
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_FLOAT, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_UNORM_INT8, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_SNORM_INT8, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_SNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR2D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_CLAMP(DEPTH_FLOAT, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR2D_CLAMP(DEPTH_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 
 
 #define IMPLEMENT_read_sample_LINEAR3D_CLAMP(TYPE, BORDER_COLOR, POST_PROCESSING) \
@@ -1759,11 +1916,17 @@ IMPLEMENT_read_sample_LINEAR3D_CLAMP(LUMINANCE_UNORM_INT8, BorderColorAlphaFloat
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(LUMINANCE_UNORM_INT16, BorderColorAlphaFloat, luminance_post_process)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(LUMINANCE_HALF_FLOAT, BorderColorAlphaFloat, luminance_post_process)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RGBA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(sRGBA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(sBGRA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(BGRA_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RGBA_UNORM_INT16, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(RGBA_SNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(RGBA_SNORM_INT16, BorderColorNoAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(R_FLOAT, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(R_UNORM_INT8, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(R_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(R_SNORM_INT8, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(R_SNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(R_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(A_FLOAT, BorderColorNoAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(A_UNORM_INT8, BorderColorNoAlphaFloat, dummyFnc)
@@ -1772,6 +1935,8 @@ IMPLEMENT_read_sample_LINEAR3D_CLAMP(A_HALF_FLOAT, BorderColorNoAlphaFloat, dumm
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_FLOAT, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_UNORM_INT8, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_SNORM_INT8, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_SNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
 
 
@@ -1853,6 +2018,21 @@ int4 load_pixel_RG_SIGNED_INT32(void* pPixel)
 //
 // returns a float4 (r, 0, 0, 1.0)
 float4 load_pixel_R_FLOAT(void* pPixel)
+{
+    float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
+    pixel.x = *((float*)pPixel);
+    return pixel;
+}
+
+// loads and converts pixel data from a given pixel pointer when the image has the following properties:
+// Channel Order: CLK_DEPTH
+// Channel Data Type: CLK_FLOAT
+//
+// @param image: the image object
+// @param pPixel: the pointer to the pixel
+//
+// returns a float4 (d, 0, 0, 1.0)
+float4 load_pixel_DEPTH_FLOAT(void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.x = *((float*)pPixel);
@@ -2116,6 +2296,117 @@ float4 load_pixel_R_UNORM_INT8(void* pPixel)
 }
 
 // loads and converts pixel data from a given pixel pointer when the image has the following properties:
+// Channel Order: CL_sRGBA and CL_sBGRA 
+// Channel Data Type: CLK_UNORM_INT8
+//
+// @param image: the image object
+// @param pPixel: the pointer to the pixel
+//
+// returns a float4 (r, g, b, a)
+// 
+// The following is lookup table with precomputed sRGB values for each of possible UNORM_INT8
+// it is aligned by cacheline length 
+//
+// The table was computed with this kernel:
+//  __kernel void calclulate_sRGBA_read_imagef_lut(__global float *out) {
+//      int index = get_global_id(0);
+//      float c = convert_float(index) * 1.f/255.f;
+//      if (c <= 0.04045f)
+//        out[index] = c / 12.92f;
+//      else
+//        out[index] = powr((c + 0.055f) / 1.055f, 2.4f);
+//  }
+ __attribute__ ((aligned(64))) const constant float read_imagef_sRGBA_UNORM_INT8_LUT[256] = {
+0, 0.00030352699104696512, 0.00060705398209393024, 0.00091058103134855628,
+0.0012141079641878605, 0.0015176349552348256, 0.0018211620626971126, 0.0021246890537440777,
+0.002428215928375721, 0.0027317430358380079, 0.0030352699104696512, 0.0033465356100350618,
+0.0036765069235116243, 0.0040247170254588127, 0.0043914420530200005, 0.0047769532538950443,
+0.0051815169863402843, 0.0056053916923701763, 0.0060488325543701649, 0.0065120910294353962,
+0.0069954101927578449, 0.0074990317225456238, 0.0080231921747326851, 0.00856812484562397,
+0.0091340569779276848, 0.0097212176769971848, 0.010329823009669781, 0.010960093699395657,
+0.011612244881689548, 0.01228648703545332, 0.012983030639588833, 0.013702080585062504,
+0.014443843625485897, 0.015208514407277107, 0.015996292233467102, 0.016807375475764275,
+0.017641952261328697, 0.018500218167901039, 0.019382361322641373, 0.020288562402129173,
+0.021219009533524513, 0.022173883393406868, 0.023153364658355713, 0.024157630279660225,
+0.025186857208609581, 0.026241222396492958, 0.027320891618728638, 0.028426038101315498,
+0.029556842520833015, 0.030713450163602829, 0.031896039843559265, 0.033104773610830307,
+0.034339811652898788, 0.035601325333118439, 0.036889452487230301, 0.038204375654459,
+0.039546247571706772, 0.040915209800004959, 0.042311422526836395, 0.043735042214393616,
+0.04518621414899826, 0.046665094792842865, 0.048171833157539368, 0.049706574529409409,
+0.051269467920064926, 0.052860654890537262, 0.054480280727148056, 0.056128494441509247,
+0.057805433869361877, 0.059511240571737289, 0.061246071010828018, 0.063010029494762421,
+0.064803279936313629, 0.06662595272064209, 0.068478181958198547, 0.070360109210014343,
+0.072271861135959625, 0.074213579297065735, 0.07618539035320282, 0.078187428414821625,
+0.080219827592372894, 0.082282714545726776, 0.084376215934753418, 0.086500465869903564,
+0.088655605912208557, 0.090841732919216156, 0.093058981001377106, 0.095307484269142151,
+0.097587361931800842, 0.099898740649223328, 0.10224174708127975, 0.10461649298667908,
+0.10702311247587204, 0.1094617173075676, 0.11193243414163589, 0.11443538218736649,
+0.11697069555521011, 0.11953844875097275, 0.12213881313800812, 0.12477186322212219,
+0.12743772566318512, 0.13013651967048645, 0.13286836445331573, 0.13563336431980133,
+0.13843165338039398, 0.14126332104206085, 0.14412850141525269, 0.14702729880809784,
+0.14995981752872467, 0.15292617678642273, 0.15592649579048157, 0.15896086394786835,
+0.16202943027019501, 0.16513223946094513, 0.16826945543289185, 0.17144115269184113,
+0.17464745044708252, 0.17788846790790558, 0.18116429448127747, 0.18447503447532654,
+0.18782080709934235, 0.19120171666145325, 0.1946178674697876, 0.19806934893131256,
+0.20155629515647888, 0.20507876574993134, 0.20863689482212067, 0.21223078668117523,
+0.21586053073406219, 0.21952623128890991, 0.22322797775268555, 0.22696588933467865,
+0.23074007034301758, 0.23455065488815308, 0.23839765787124634, 0.24228119850158691,
+0.24620139598846436, 0.25015836954116821, 0.25415217876434326, 0.25818291306495667,
+0.26225072145462036, 0.26635566353797913, 0.27049785852432251, 0.27467736601829529,
+0.2788943350315094, 0.28314879536628723, 0.28744089603424072, 0.29177069664001465,
+0.29613831639289856, 0.30054384469985962, 0.30498737096786499, 0.30946895480155945,
+0.31398874521255493, 0.3185468316078186, 0.32314324378967285, 0.32777813076972961,
+0.33245158195495605, 0.33716365694999695, 0.34191444516181946, 0.34670409560203552,
+0.3515326976776123, 0.3564002513885498, 0.36130687594413757, 0.36625269055366516,
+0.37123778462409973, 0.37626221776008606, 0.3813261091709137, 0.38642951846122742,
+0.39157256484031677, 0.39675530791282654, 0.40197786688804626, 0.40724030137062073,
+0.41254270076751709, 0.41788515448570251, 0.42326775193214417, 0.42869055271148682,
+0.43415370583534241, 0.43965724110603333, 0.44520124793052673, 0.45078584551811218,
+0.45641106367111206, 0.46207705140113831, 0.46778383851051331, 0.47353154420852661,
+0.479320228099823, 0.48514997959136963, 0.49102088809013367, 0.49693304300308228,
+0.50288659334182739, 0.50888144969940186, 0.51491779088973999, 0.52099567651748657,
+0.5271153450012207, 0.53327661752700806, 0.53947967290878296, 0.54572468996047974,
+0.55201160907745361, 0.55834060907363892, 0.56471168994903564, 0.57112503051757812,
+0.57758063077926636, 0.58407860994338989, 0.59061902761459351, 0.59720200300216675,
+0.60382753610610962, 0.61049574613571167, 0.61720675230026245, 0.62396055459976196,
+0.63075733184814453, 0.63759702444076538, 0.64447987079620361, 0.65140581130981445,
+0.65837496519088745, 0.66538745164871216, 0.67244333028793335, 0.67954260110855103,
+0.68668544292449951, 0.69387203454971313, 0.70110213756561279, 0.70837604999542236,
+0.71569377183914185, 0.72305536270141602, 0.7304610013961792, 0.7379106879234314,
+0.74540448188781738, 0.75294244289398193, 0.76052474975585938, 0.76815140247344971,
+0.77582246065139771, 0.78353804349899292, 0.79129815101623535, 0.79910296201705933,
+0.80695247650146484, 0.81484681367874146, 0.82278597354888916, 0.83077007532119751,
+0.83879923820495605, 0.84687346220016479, 0.85499280691146851, 0.86315739154815674,
+0.87136733531951904, 0.87962257862091064, 0.88792318105697632, 0.89626955986022949,
+0.90466135740280151, 0.91309899091720581, 0.92158204317092896, 0.93011116981506348,
+0.93868589401245117, 0.94730687141418457, 0.95597350597381592, 0.96468657255172729,
+0.97344547510147095, 0.9822508692741394, 0.99110221862792969, 1
+};
+
+float4 load_pixel_sRGBA_sBGRA_UNORM_INT8_common(uchar4 data)
+{
+    float4 pixel = (float4)(read_imagef_sRGBA_UNORM_INT8_LUT[data.x], 
+                            read_imagef_sRGBA_UNORM_INT8_LUT[data.y],
+                            read_imagef_sRGBA_UNORM_INT8_LUT[data.z],
+                            data.w * 1.f/255.f);
+    return pixel;
+}
+
+float4 load_pixel_sRGBA_UNORM_INT8(void* pPixel)
+{
+    uchar4 data = vload4(0, (uchar*)pPixel);
+    return load_pixel_sRGBA_sBGRA_UNORM_INT8_common(data);
+}
+
+float4 load_pixel_sBGRA_UNORM_INT8(void* pPixel)
+{
+    uchar4 data = vload4(0, (uchar*)pPixel);
+    data = (uchar4)(data.z, data.y, data.x, data.w);
+    return load_pixel_sRGBA_sBGRA_UNORM_INT8_common(data);
+}
+
+
+// loads and converts pixel data from a given pixel pointer when the image has the following properties:
 // Channel Order: CL_RG
 // Channel Data Type: CLK_UNORM_INT16
 //
@@ -2142,10 +2433,22 @@ float4 load_pixel_RG_UNORM_INT16(void* pPixel)
 // returns a float4 (r, 0, 0, 1)
 float4 load_pixel_R_UNORM_INT16(void* pPixel)
 {
-    float4 pixel = (float4)(0.f, 0.f, 0.f, 65535.f); // Make the last value 65535 to have 1 after conversion
-    pixel.x = (float)*((ushort*)pPixel);
-    float4 converted = pixel*(float4)(1.0f/65535.0f);
-    return converted;
+    float r = convert_float(*(ushort*)pPixel) / 65535.f;
+    return (float4)(r, 0.f, 0.f, 1.f);
+}
+
+// loads and converts pixel data from a given pixel pointer when the image has the following properties:
+// Channel Order: CLK_DEPTH 
+// Channel Data Type: CLK_UNORM_INT16
+//
+// @param image: the image object
+// @param pPixel: the pointer to the pixel
+//
+// returns a float4 (d, 0, 0, 1)
+float4 load_pixel_DEPTH_UNORM_INT16(void* pPixel)
+{
+    float d = convert_float(*(ushort*)pPixel) / 65535.f;
+    return (float4)(d, 0.f, 0.f, 1.f);
 }
 
 // loads and converts pixel data from a given pixel pointer when the image has the following properties:
