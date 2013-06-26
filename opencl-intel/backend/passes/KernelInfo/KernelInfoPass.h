@@ -26,7 +26,7 @@ namespace Intel {
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-  /// This pass is Warraper of the Kernel Info Pass, which currently outputs
+  /// This pass is  a wrapper of the Kernel Info Pass, which currently outputs
   /// two information about the kernel: Has Barrier and Execution estimation
   /// This pass should run before the Barrier Pass, createPrepareKernelArgsPass
 

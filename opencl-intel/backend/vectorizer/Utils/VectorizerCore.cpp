@@ -163,15 +163,15 @@ bool VectorizerCore::runOnFunction(Function &F) {
     // In theory this shouldn't matter, since we should never introduce anything
     // that prohibits vectorization in these three passes.
     // In practice, however, phi canonization already had a bug that introduces
-    // irreducible control-flow, so a defensive check appears to be neccesary.
+    // irreducible control-flow, so a defensive check appears to be necessary.
     VectorizationPossibilityPass* vecPossiblity = new VectorizationPossibilityPass();
     fpm1.add(vecPossiblity);
 
     fpm1.run(F);
 
     // Decide on preliminary width.
-    // If the kernel is not vectorizaeble, leave it as 0.
-    // Otherwise, look at the congiruation. If the configuration says 0,
+    // If the kernel is not vectorizable, leave it as 0.
+    // Otherwise, look at the configuration. If the configuration says 0,
     // the width is set automatically, otherwise manually.
     if (vecPossiblity->isVectorizable()) {
       if(autoVec) {

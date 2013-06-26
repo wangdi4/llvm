@@ -14,9 +14,6 @@ target triple = "i686-pc-win32"
 ; CHECK: header{{[0-9]*}}:
 ; CHECK: br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
 ; CHECK: footer{{[0-9]*}}:                                           ; preds = %header{{[0-9]*}}
-; CHECK: header{{[0-9]*}}:
-; CHECK: br i1 %jumpover{{[0-9]*}}, label %footer{{[0-9]*}}
-; CHECK: footer{{[0-9]*}}:                                           ; preds = %header{{[0-9]*}}
 ; CHECK: ret
 
 define void @reduce(<4 x i32> addrspace(1)* %input, <4 x i32> addrspace(1)* %output, <4 x i32> addrspace(3)* %sdata, ...) nounwind {

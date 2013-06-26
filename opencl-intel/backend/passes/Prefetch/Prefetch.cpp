@@ -970,7 +970,7 @@ unsigned int Prefetch::IterLength(Loop *L)
     return it->second;
 
   BranchProbabilityInfo *BPI = &getAnalysis<BranchProbabilityInfo>();
-  assert (BPI && "Branch Probablity is not available");
+  assert (BPI && "Branch Probability is not available");
   unsigned int len = 0;
   BasicBlock *BB = L->getHeader();
   Loop *BBL;

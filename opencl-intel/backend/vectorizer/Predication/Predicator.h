@@ -255,6 +255,8 @@ public:
     AU.addRequired<PostDominatorTree>();
     // we preserve nothing. really.
     AU.addRequired<WIAnalysis>();
+    // for bypasses usage
+    AU.addRequired<BranchProbabilityInfo>();
   }
   /*! \} */
 

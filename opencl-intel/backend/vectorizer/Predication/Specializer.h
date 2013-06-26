@@ -17,6 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
+#include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Transforms/Scalar.h"
 
 using namespace llvm;
@@ -73,7 +74,7 @@ public:
   /// @param DT dominator analysis
   FunctionSpecializer(Predicator* pred, Function* func, Function* all_zero,
                       PostDominatorTree* PDT, DominatorTree*  DT,
-                      LoopInfo *LI, WIAnalysis *WIA);
+                      LoopInfo *LI, WIAnalysis *WIA, BranchProbabilityInfo *BPI);
 
   /// @brief Finds a single edge to specialize. This uses
   ///  the control dominance of the block to check.
@@ -197,6 +198,8 @@ private:
   LoopInfo *m_LI;
   // Work Item Analysis
   WIAnalysis *m_WIA;
+  // Branch probability analysis - for bypasses addition
+  BranchProbabilityInfo *m_BPI;
   /// Zero
   Value* m_zero;
   /// One

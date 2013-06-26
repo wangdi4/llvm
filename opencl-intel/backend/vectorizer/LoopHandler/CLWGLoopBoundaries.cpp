@@ -138,6 +138,7 @@ void CLWGLoopBoundaries::collectTIDData() {
 }
 
 bool CLWGLoopBoundaries::runOnFunction(Function& F) {
+
   m_F = &F;
   m_M = F.getParent();
   m_context = &F.getContext();
@@ -161,7 +162,7 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
 
   // Iteratively examines if the entry block branch is early exit branch,
   // min\max with uniform value.
-  // If so collect the early exit description and and try to collapse the
+  // If so collect the early exit description and try to collapse the
   // code successor into entry block.
   bool earlyExitCollapsed = false;
   bool minMaxBoundaryRemoved = false;
@@ -188,7 +189,7 @@ Function *CLWGLoopBoundaries::createLoopBoundariesFunctionDcl() {
   std::string EEFuncName = CLWGBoundDecoder::encodeWGBound(funcName);
   Type *retTy = ArrayType::get(m_indTy, numEntries);
 
-  // Check if argTypes was already initalized, if not create it.
+  // Check if argTypes was already initialized, if not create it.
   std::vector<Type *> argTypes;
   for(Function::arg_iterator argIt = m_F->arg_begin(), argE = m_F->arg_end();
       argIt != argE; ++argIt) {
@@ -373,12 +374,12 @@ bool CLWGLoopBoundaries::obtainBoundaryCmpSelect(ICmpInst *cmp, Value *bound,
 }
 
 bool CLWGLoopBoundaries::findAndHandleTIDMinMaxBound() {
-  // Incase there are get***id with variable argument, we can not
+  // In case there are get***id with variable argument, we can not
   // know who are the users of each dimension.
   if (m_hasVariableTid) return false;
 
-  // Incase there is an atomic call we cannot avoid running two work items
-  // that use essentialy the same id (due to min(get***id(),uniform) as
+  // In case there is an atomic call we cannot avoid running two work items
+  // that use essentially the same id (due to min(get***id(),uniform) as
   // the atomic call may have different consequences for the same id.
   if (m_hasAtomicCalls) return false;
 
@@ -481,7 +482,7 @@ bool CLWGLoopBoundaries::collectCond(SmallVector<ICmpInst *, 4>& compares,
   assert((rootOp == Instruction::And || rootOp == Instruction::Or) &&
       "supported ops are :and, or ");
   SmallVector<Value *, 4> Cands;
-  // First candiatate are the two operands.
+  // First candidates are the two operands.
   Cands.push_back(root->getOperand(0));
   Cands.push_back(root->getOperand(1));
   do {
@@ -507,7 +508,7 @@ bool CLWGLoopBoundaries::collectCond(SmallVector<ICmpInst *, 4>& compares,
 
 bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
                                         Instruction *loc, Value *&bound, Value *&tid){
-  // The input values should be tid dependebt value compared with uniform one.
+  // The input values should be tid dependent value compared with uniform one.
   // First We find which is uniform and which is tid-dependent and abort otherwise.
   bool isV1Uniform = isUniform(v1);
   bool isV2Uniform = isUniform(v2);
@@ -515,15 +516,15 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
   bound = isV1Uniform ? v1 : v2;
   tid = isV1Uniform ? v2 : v1;
 
-  // The pattern of boundary condition is: comparison between TID , Uniform.
-  // But more genral pattern is comparison between f(TID), Uniform.
+  // The pattern of boundary condition is: comparison between TID and Uniform.
+  // But more general pattern is comparison between f(TID) and Uniform.
   // In that case the bound will be f_inverse(Unifrom). currently we support
   // only truncation but this can be extended to more complex forms of f.
   while (Instruction *tidInst = dyn_cast<Instruction>(tid)) {
     switch (tidInst->getOpcode()) {
       case Instruction::Trunc: {
         // If candidate is trunc instruction than we can safely extend the
-        // bound to have equivalent condition according to sign of comaprison.
+        // bound to have equivalent condition according to sign of comparison.
         tid = tidInst->getOperand(0);
         if (isCmpSigned) {
           bound = new SExtInst(bound, tid->getType(), "sext_cast", loc);
@@ -636,7 +637,7 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value *bound,
       // However, if bound=0 we can treat this as exclusive lower bound since tid is
       // known to be >=0.
       Constant *constBound = dyn_cast<Constant>(bound);
-      // Incase the bound is not a constant try constant fold it.
+      // In case the bound is not a constant try constant fold it.
       if (!constBound) {
         Instruction *instBound = dyn_cast<Instruction>(bound);
         if (instBound) {
@@ -650,7 +651,7 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value *bound,
       }
     }
 
-    // Could not handle non- relational compare.
+    // Could not handle non-relational compare.
     return false;
   }
 
@@ -662,10 +663,10 @@ bool CLWGLoopBoundaries::obtainBoundaryEE(ICmpInst *cmp, Value *bound,
   bool isInclusive = isComparePredicateInclusive(pred); // is pred <=, >=`
   bool isSigned = cmp->isSigned();
 
-  // When decidng whether the uniform value is an upper bound, and whether it
-  // is inclusive we need to take into consideration the index of unifrom value
+  // When deciding whether the uniform value is an upper bound, and whether it
+  // is inclusive we need to take into consideration the index of uniform value
   // and the whether we exit if the condition is met.
-  // for example assuming the compre is pattern is:
+  // for example assuming the compare is pattern is:
   //    %cond = icmp ult %tid, %uni (tid is get***id uni is uniform)
   //    br %cond label %BB1, label %BB2
   // If BB2 is return uni is an upper bound, and exclusive
@@ -686,11 +687,11 @@ bool CLWGLoopBoundaries::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
   Instruction *condInst = dyn_cast<Instruction> (cond);
   // Generally we can handle this but this is unexpected.
   assert(condInst && "i1 are expected only as instructions");
-  // Sanaity for release.
+  // Sanity for release.
   if (!condInst) return false;
 
   // patterns supported are:
-  // 1. Completely unifom test (that don't depend on TID)
+  // 1. Completely uniform test (that don't depend on TID)
   // 2. Icmp of TID against uniform value
   // 3. Ands of (1,2) for branching into the code (avoiding early exit)
   // 4. Or of (1,2) for branch into the early exit
@@ -918,7 +919,7 @@ void CLWGLoopBoundaries::createWGLoopBoundariesFunction() {
   fillInitialBoundaries(BB);
   Value *uniformCond = m_constOne;
   if (m_UniDesc.size() || m_TIDDesc.size() ) {
-    // Incase there are early exits recover Instructions leading to them
+    // In case there are early exits recover Instructions leading to them
     // into the block and update the value map.
     VMap valueMap;
     recoverBoundInstructions(valueMap, BB);
