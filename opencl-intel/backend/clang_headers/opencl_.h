@@ -7536,6 +7536,8 @@ int const_func __attribute__((overloadable)) get_image_depth(image3d_t image);
 #define CLK_INTENSITY           0x8
 #define CLK_LUMINANCE           0x9
 #define CLK_DEPTH               0xD
+#define CLK_sRGBA               0x11
+#define CLK_sBGRA               0x12
 
 // Channel Type
 #define CLK_SNORM_INT8          0

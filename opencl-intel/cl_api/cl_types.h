@@ -232,7 +232,9 @@ enum {
   CLK_ARGB,
   CLK_INTENSITY,
   CLK_LUMINANCE,
-  CLK_DEPTH = CLK_R + 0xD
+  CLK_DEPTH = 0xD,
+  CLK_sRGBA = 0x11,
+  CLK_sBGRA = 0x12
 };
 
 // Channel Type

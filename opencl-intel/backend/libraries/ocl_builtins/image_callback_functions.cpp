@@ -1294,7 +1294,7 @@ float4 load_pixel_RGBA_SNORM_INT16(void* pPixel)
 float4 load_pixel_RG_SNORM_INT16(void* pPixel)
 {
     short2 pixel = vload2(0, (short*)pPixel);
-    float4 converted = (convert_float2(pixel) / SNORM_INT16_FACTOR, 0.f, 1.f);
+    float4 converted = (float4)(convert_float2(pixel) / SNORM_INT16_FACTOR, 0.f, 1.f);
     return max((float4)(-1.f), converted);
 }
 
@@ -2383,26 +2383,24 @@ float4 load_pixel_R_UNORM_INT8(void* pPixel)
 0.97344547510147095, 0.9822508692741394, 0.99110221862792969, 1
 };
 
-float4 load_pixel_sRGBA_sBGRA_UNORM_INT8_common(uchar4 data)
-{
-    float4 pixel = (float4)(read_imagef_sRGBA_UNORM_INT8_LUT[data.x], 
-                            read_imagef_sRGBA_UNORM_INT8_LUT[data.y],
-                            read_imagef_sRGBA_UNORM_INT8_LUT[data.z],
-                            data.w * 1.f/255.f);
-    return pixel;
-}
-
 float4 load_pixel_sRGBA_UNORM_INT8(void* pPixel)
 {
-    uchar4 data = vload4(0, (uchar*)pPixel);
-    return load_pixel_sRGBA_sBGRA_UNORM_INT8_common(data);
+    uchar * data = (uchar*)pPixel;
+    float4 pixel = (float4)(read_imagef_sRGBA_UNORM_INT8_LUT[data[0]], 
+                            read_imagef_sRGBA_UNORM_INT8_LUT[data[1]],
+                            read_imagef_sRGBA_UNORM_INT8_LUT[data[2]],
+                            data[3] * 1.f/255.f);
+    return pixel;
 }
 
 float4 load_pixel_sBGRA_UNORM_INT8(void* pPixel)
 {
-    uchar4 data = vload4(0, (uchar*)pPixel);
-    data = (uchar4)(data.z, data.y, data.x, data.w);
-    return load_pixel_sRGBA_sBGRA_UNORM_INT8_common(data);
+    uchar * data = (uchar*)pPixel;
+    float4 pixel = (float4)(read_imagef_sRGBA_UNORM_INT8_LUT[data[2]], 
+                            read_imagef_sRGBA_UNORM_INT8_LUT[data[1]],
+                            read_imagef_sRGBA_UNORM_INT8_LUT[data[0]],
+                            data[3] * 1.f/255.f);
+    return pixel;
 }
 
 
