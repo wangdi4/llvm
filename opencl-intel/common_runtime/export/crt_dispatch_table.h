@@ -43,10 +43,10 @@ namespace CRT_ICD_DISPATCH
         cl_uint *                   /* num_devices */ );
 
 #else   //Linux/Android
-    typedef void *INTELpfn_clCreateFromDX9MediaSurfaceINTEL();
-    typedef void *INTELpfn_clEnqueueAcquireDX9ObjectsINTEL();
-    typedef void *INTELpfn_clEnqueueReleaseDX9ObjectsINTEL();
-    typedef void *INTELpfn_clGetDeviceIDsFromDX9INTEL();
+    typedef void *INTELpfn_clCreateFromDX9MediaSurfaceINTEL;
+    typedef void *INTELpfn_clEnqueueAcquireDX9ObjectsINTEL;
+    typedef void *INTELpfn_clEnqueueReleaseDX9ObjectsINTEL;
+    typedef void *INTELpfn_clGetDeviceIDsFromDX9INTEL;
 #endif
 
     typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetImageParamsINTEL)(
