@@ -462,11 +462,14 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
     {
         std::vector<size_t> partitionSizes;
         size_t partitionIndex = 1;
+        cl_uint maxSubDevices;
         while (0 != props[partitionIndex])
         {
             partitionSizes.push_back((size_t)props[partitionIndex++]);
         }
-		if (0 == partitionSizes.size())
+		if (0 == partitionSizes.size() ||
+            GetInfo(CL_DEVICE_PARTITION_MAX_SUB_DEVICES, sizeof(maxSubDevices), &maxSubDevices, NULL) != CL_SUCCESS ||
+            partitionSizes.size() > maxSubDevices)
 		{
 			return CL_DEVICE_PARTITION_FAILED;
 		}
@@ -494,7 +497,7 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
         }
         if (0 == partitionSize)
         {
-            return CL_INVALID_VALUE;
+            return CL_DEVICE_PARTITION_FAILED;
         }
 
         dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, &partitionSize, out_devices);
