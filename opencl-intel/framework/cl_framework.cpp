@@ -1042,25 +1042,12 @@ cl_int CL_API_CALL clRetainDevice(cl_device_id devId)
 	CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, clRetainDevice(devId));
 }
 SET_ALIAS(clRetainDevice);
-cl_int CL_API_CALL clRetainDeviceEXT(cl_device_id devId)
-{
-	CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, clRetainDevice(devId));
-}
-SET_ALIAS(clRetainDeviceEXT);
-REGISTER_EXTENSION_FUNCTION(clRetainDeviceEXT, clRetainDeviceEXT);
 
 cl_int CL_API_CALL clReleaseDevice(cl_device_id device)
 {
 	CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, clReleaseDevice(device));
 }
 SET_ALIAS(clReleaseDevice);
-cl_int CL_API_CALL clReleaseDeviceEXT(cl_device_id device)
-{
-	CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, clReleaseDevice(device));
-}
-SET_ALIAS(clReleaseDeviceEXT);
-REGISTER_EXTENSION_FUNCTION(clReleaseDeviceEXT, clReleaseDeviceEXT);
-
 
 cl_int CL_API_CALL clCreateSubDevices(cl_device_id device,
 									  const cl_device_partition_property* properties,
@@ -1072,17 +1059,6 @@ cl_int CL_API_CALL clCreateSubDevices(cl_device_id device,
 }
 SET_ALIAS(clCreateSubDevices);
 
-// Keeping the EXT versions around for backwards compatability in IVB refresh product, will be removed for HSW
-cl_int CL_API_CALL clCreateSubDevicesEXT(cl_device_id device,
-										 const cl_device_partition_property_ext* properties,
-										 cl_uint num_entries,
-										 cl_device_id* out_devices,
-										 cl_uint* num_devices)
-{
-	CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, clCreateSubDevicesEXT(device, properties, num_entries, out_devices, num_devices));
-}
-SET_ALIAS(clCreateSubDevicesEXT);
-REGISTER_EXTENSION_FUNCTION(clCreateSubDevicesEXT, clCreateSubDevicesEXT);
 
 #if defined (DX_MEDIA_SHARING)
 

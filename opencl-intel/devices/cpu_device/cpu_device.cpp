@@ -103,15 +103,6 @@ static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES_NUMA[] =
 		CL_DEVICE_PARTITION_BY_NAMES_INTEL
     };
 
-static const cl_device_partition_property_ext CPU_SUPPORTED_FISSION_MODES_NUMA_EXT[] = 
-    {
-        CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT,
-        CL_DEVICE_PARTITION_BY_COUNTS_EXT,
-        CL_DEVICE_PARTITION_EQUALLY_EXT,
-		CL_DEVICE_PARTITION_BY_NAMES_INTEL
-    };
-
-
 static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] = 
     {
         CL_DEVICE_PARTITION_BY_COUNTS,
@@ -119,15 +110,7 @@ static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] =
 		CL_DEVICE_PARTITION_BY_NAMES_INTEL
     };
 
-static const cl_device_partition_property_ext CPU_SUPPORTED_FISSION_MODES_EXT[] = 
-    {
-        CL_DEVICE_PARTITION_BY_COUNTS_EXT,
-        CL_DEVICE_PARTITION_EQUALLY_EXT,
-		CL_DEVICE_PARTITION_BY_NAMES_INTEL
-    };
-
 static const cl_device_affinity_domain        CPU_SUPPORTED_AFFINITY_DOMAINS       = CL_DEVICE_AFFINITY_DOMAIN_NUMA;
-static const cl_device_partition_property_ext CPU_SUPPORTED_AFFINITY_DOMAINS_EXT[] = {CL_AFFINITY_DOMAIN_NUMA_EXT};
 
 typedef enum 
 {
@@ -510,7 +493,26 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             return CL_DEV_SUCCESS;
         }
 
-        case( CL_DEVICE_PARTITION_MAX_SUB_DEVICES): 
+        case( CL_DEVICE_PARTITION_MAX_SUB_DEVICES):
+        {
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+#ifndef __ANDROID__E
+                *(cl_uint*)paramVal = GetNumberOfProcessors();
+#else
+                // Disable device partition on android
+                *(cl_uint*)paramVal = 0;
+#endif
+            }
+            return CL_DEV_SUCCESS;
+        }
+
         case( CL_DEVICE_MAX_COMPUTE_UNITS):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
@@ -1225,6 +1227,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         
 
         case CL_DEVICE_PARTITION_PROPERTIES:
+#ifndef __ANDROID__
             {
                 const cl_device_partition_property* pSupportedProperties;
                 bool bNumaSupported = (0 < GetMaxNumaNode());
@@ -1250,6 +1253,22 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 }
                 return CL_DEV_SUCCESS;
             }
+#else
+            // Disable device partition on android
+            {
+                *pinternalRetunedValueSize = sizeof(cl_device_partition_property);
+                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                {
+                    return CL_DEV_INVALID_VALUE;
+                }
+                //if OUT paramVal is NULL it should be ignored
+                if(NULL != paramVal)
+                {
+                    *(cl_device_partition_property*)paramVal = (cl_device_partition_property)0;
+                }
+                return CL_DEV_SUCCESS;
+            }
+#endif
 
         case CL_DEVICE_PARTITION_AFFINITY_DOMAIN:
             {
@@ -1270,61 +1289,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                     
                     if (bNumaSupported)
                     {
-                       *((cl_device_affinity_domain*)paramVal) = CPU_SUPPORTED_AFFINITY_DOMAINS;
+                        *((cl_device_affinity_domain*)paramVal) = CPU_SUPPORTED_AFFINITY_DOMAINS;
                     }
                     else
                     {
                         *((cl_device_affinity_domain*)paramVal) = (cl_device_affinity_domain)0;
                     }
-                }
-                return CL_DEV_SUCCESS;
-            }
-
-        case CL_DEVICE_PARTITION_TYPES_EXT: //For backwards compatability with 1.1 EXT
-            {
-                const cl_device_partition_property_ext* pSupportedProperties;
-                bool bNumaSupported = (0 < GetMaxNumaNode());
-                
-                if (bNumaSupported)
-                {
-                    pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES_NUMA_EXT;
-                    *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES_NUMA_EXT);
-                }
-                else
-                {
-                    pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES_EXT;
-                    *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES_EXT);
-                }
-                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
-                {
-                    return CL_DEV_INVALID_VALUE;
-                }
-                //if OUT paramVal is NULL it should be ignored
-                if(NULL != paramVal)
-                {
-                    MEMCPY_S(paramVal, valSize, pSupportedProperties, *pinternalRetunedValueSize);
-                }
-                return CL_DEV_SUCCESS;
-            }
-
-        case CL_DEVICE_AFFINITY_DOMAINS_EXT: //For backwards compatability with 1.1 EXT
-            {
-                bool bNumaSupported = (0 < GetMaxNumaNode());
-                
-                *pinternalRetunedValueSize = bNumaSupported ? sizeof(CPU_SUPPORTED_AFFINITY_DOMAINS_EXT) : 0;
-                if ((NULL != paramVal) && (valSize < *pinternalRetunedValueSize))
-                {
-                    return CL_DEV_INVALID_VALUE;
-                }
-                if (NULL != paramValSizeRet)
-                {
-                    *paramValSizeRet = *pinternalRetunedValueSize;
-                }
-
-                //if OUT paramVal is NULL it should be ignored
-                if ((NULL != paramVal) && bNumaSupported)
-                {
-                    MEMCPY_S(paramVal, valSize, CPU_SUPPORTED_AFFINITY_DOMAINS_EXT, *pinternalRetunedValueSize);
                 }
                 return CL_DEV_SUCCESS;
             }

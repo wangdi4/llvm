@@ -4295,44 +4295,7 @@ CL_API_ENTRY cl_int CL_API_CALL clCreateSubDevices(
     return errCode;
 }
 SET_ALIAS( clCreateSubDevices );
-/// ------------------------------------------------------------------------------
-/// EXT version for backwards compatability
-/// ------------------------------------------------------------------------------
-CL_API_ENTRY cl_int CL_API_CALL clCreateSubDevicesEXT(
-    cl_device_id                                device,
-    const cl_device_partition_property_ext*     properties,
-    cl_uint                                     num_devices,
-    cl_device_id*                               out_devices,
-    cl_uint*                                    num_devices_ret)
-{
-    cl_int errCode = CL_SUCCESS;
 
-    CrtDeviceInfo* parentDevInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(device);
-    if( !parentDevInfo )
-    {
-        return CL_INVALID_DEVICE;
-    }
-
-    cl_uint tmp_num_devices_ret;
-    errCode = parentDevInfo->m_origDispatchTable.clCreateSubDevicesEXT(
-                device,
-                properties,
-                num_devices,
-                out_devices,
-                &tmp_num_devices_ret);
-
-    if( ( CL_SUCCESS == errCode ) && ( out_devices ) )
-    {
-        errCode = updateAddedDevicesInfo( parentDevInfo, out_devices, tmp_num_devices_ret );
-    }
-
-    if( num_devices_ret )
-    {
-        *num_devices_ret = tmp_num_devices_ret;
-    }
-    return errCode;
-}
-SET_ALIAS( clCreateSubDevicesEXT );
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -4364,37 +4327,8 @@ cl_int CL_API_CALL clReleaseDevice(cl_device_id device)
     return errCode;
 }
 SET_ALIAS( clReleaseDevice );
-/// ------------------------------------------------------------------------------
-///
-/// ------------------------------------------------------------------------------
-cl_int CL_API_CALL clReleaseDeviceEXT(cl_device_id device)
-{
-    cl_int errCode = CL_SUCCESS;
 
-    CrtDeviceInfo* devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(device);
 
-    if( devInfo == NULL )
-    {
-        return CL_INVALID_DEVICE;
-    }
-
-    // No need to do anything for Root devices
-    if( devInfo->m_isRootDevice )
-    {
-        return CL_SUCCESS;
-    }
-
-    // If we reached here, then this is a sub-device
-    long refCount = atomic_decrement(&(devInfo->m_refCount));
-    if( refCount == 0 )
-    {
-        errCode = devInfo->m_origDispatchTable.clReleaseDeviceEXT(device);
-        OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Remove(device);
-        delete devInfo;
-    }
-    return errCode;
-}
-SET_ALIAS( clReleaseDeviceEXT );
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -4422,15 +4356,7 @@ cl_int CL_API_CALL clRetainDevice(cl_device_id device)
     return errCode;
 }
 SET_ALIAS( clRetainDevice );
-/// -----------------------------------------------------------------------------
-///
-/// ------------------------------------------------------------------------------
-cl_int CL_API_CALL clRetainDeviceEXT(cl_device_id device)
-{
-    //No actual call into the original dispatch table, so safe to alias the 1.2 function
-    return clRetainDevice(device);
-}
-SET_ALIAS( clRetainDeviceEXT );
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -8736,10 +8662,6 @@ CL_API_ENTRY void * CL_API_CALL clGetExtensionFunctionAddress(
     if( funcname && !strcmp( funcname, "clIcdGetPlatformIDsKHR" ) )
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clGetPlatformIDs ) );
-    }
-    if( funcname && !strcmp( funcname, "clCreateSubDevicesEXT" ) )
-    {
-        return ( ( void* )( ptrdiff_t )GET_ALIAS( clCreateSubDevicesEXT ) );
     }
 #ifdef _WIN32
     if( funcname && !strcmp( funcname, "clGetDeviceIDsFromDX9INTEL" ) )

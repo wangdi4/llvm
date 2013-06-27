@@ -115,7 +115,6 @@ bool fission_subdivision_test();
 bool fission_two_queues_test();
 bool fission_by_names_test();
 bool fission_read_buffer_between_device_test();
-bool fission_backwards_compatability_test();
 bool api_test();
 bool immediateExecutionTest();
 bool clCreateImageTest();

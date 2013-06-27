@@ -76,9 +76,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual IOCLDeviceAgent*    GetDeviceAgent() = 0;
 
         virtual const IOCLDeviceAgent* GetDeviceAgent() const = 0;
-		void AddedToContext();
-		void RemovedFromContext();
-		bool IsInContext() const  { return m_numContexts > 0; }
 
 #if defined (DX_MEDIA_SHARING)
         /**
@@ -140,8 +137,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * @return the cl_dev_subdevice_id associated with this device
          */
         virtual cl_dev_subdevice_id GetSubdeviceId() const { return NULL; }
-
-		Intel::OpenCL::Utils::AtomicCounter m_numContexts;
 
     private:
 

@@ -27,32 +27,26 @@
 #define OCL_COMMON_SUPPORTED_EXTENSIONS "cl_khr_icd cl_khr_global_int32_base_atomics "\
     "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
     "cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store "\
-    "cl_intel_printf cl_ext_device_fission cl_intel_exec_by_local_thread"
+    "cl_intel_printf cl_intel_exec_by_local_thread"
 #define OCL_SUPPORTED_EXTENSIONS_WIN "cl_khr_gl_sharing "\
     OCL_INTEL_DX9_MEDIA_SHARING_EXT " "\
     OCL_KHR_DX9_MEDIA_SHARING_EXT " "\
     OCL_KHR_D3D11_SHARING_EXT
 #define OCL_DOUBLE "cl_khr_fp64"
 
-static const char OCL_SUPPORTED_EXTENSIONS[] = 
+static const char OCL_SUPPORTED_EXTENSIONS[] =
+    OCL_COMMON_SUPPORTED_EXTENSIONS " "
 #if defined __DOUBLE_ENABLED__
-#if (_WIN32)                                                
-    OCL_DOUBLE " " OCL_COMMON_SUPPORTED_EXTENSIONS " " OCL_SUPPORTED_EXTENSIONS_WIN " ";
-#else
-    OCL_DOUBLE " " OCL_COMMON_SUPPORTED_EXTENSIONS " ";
+    OCL_DOUBLE " "
 #endif
-#else
-#if (_WIN32)                                                
-    OCL_COMMON_SUPPORTED_EXTENSIONS " " OCL_SUPPORTED_EXTENSIONS_WIN " ";
-#else
-    OCL_COMMON_SUPPORTED_EXTENSIONS " ";
+#if (_WIN32)
+    OCL_SUPPORTED_EXTENSIONS_WIN " "
 #endif
-#endif
+    ;
 
-static const char OCL_SUPPORTED_EXTENSIONS_ATOM[] = 
-#if (_WIN32)                                                
-    OCL_COMMON_SUPPORTED_EXTENSIONS " " OCL_SUPPORTED_EXTENSIONS_WIN " ";
-#else
-    OCL_COMMON_SUPPORTED_EXTENSIONS " ";
+static const char OCL_SUPPORTED_EXTENSIONS_ATOM[] =
+    OCL_COMMON_SUPPORTED_EXTENSIONS " "
+#if (_WIN32)
+    OCL_SUPPORTED_EXTENSIONS_WIN " "
 #endif
-
+    ;

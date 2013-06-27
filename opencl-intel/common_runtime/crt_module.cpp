@@ -134,10 +134,6 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT( clEnqueueWriteBufferRect , clEnqueueWriteBufferRect )
     REGISTER_DISPATCH_ENTRYPOINT( clEnqueueCopyBufferRect , clEnqueueCopyBufferRect )
 
-    REGISTER_DISPATCH_ENTRYPOINT( clCreateSubDevicesEXT , clCreateSubDevicesEXT )
-    REGISTER_DISPATCH_ENTRYPOINT( clRetainDeviceEXT , clRetainDeviceEXT )
-    REGISTER_DISPATCH_ENTRYPOINT( clReleaseDeviceEXT , clReleaseDeviceEXT )
-
     REGISTER_DISPATCH_ENTRYPOINT( clCreateEventFromGLsyncKHR , clCreateEventFromGLsyncKHR )
 
     REGISTER_DISPATCH_ENTRYPOINT( clCreateSubDevices , clCreateSubDevices )
@@ -186,9 +182,6 @@ crt_err_code CrtModule::PatchClDeviceID(cl_device_id& inDeviceId, KHRicdVendorDi
 
     inDeviceId->dispatch->clCreateContext = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateContext;
     inDeviceId->dispatch->clGetDeviceInfo = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetDeviceInfo;
-    inDeviceId->dispatch->clCreateSubDevicesEXT = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateSubDevicesEXT;
-    inDeviceId->dispatch->clReleaseDeviceEXT = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clReleaseDeviceEXT;
-    inDeviceId->dispatch->clRetainDeviceEXT = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clRetainDeviceEXT;
     inDeviceId->dispatch->clCreateSubDevices = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateSubDevices;
     inDeviceId->dispatch->clReleaseDevice    = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clReleaseDevice;
     inDeviceId->dispatch->clRetainDevice     = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clRetainDevice;

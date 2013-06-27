@@ -166,9 +166,6 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clEnqueueReadBufferRect = (KHRpfn_clEnqueueReadBufferRect)GET_ALIAS(clEnqueueReadBufferRect);
     ICDDispatchTable.clEnqueueWriteBufferRect = (KHRpfn_clEnqueueWriteBufferRect)GET_ALIAS(clEnqueueWriteBufferRect);
     ICDDispatchTable.clEnqueueCopyBufferRect = (KHRpfn_clEnqueueCopyBufferRect)GET_ALIAS(clEnqueueCopyBufferRect);
-    ICDDispatchTable.clCreateSubDevicesEXT = (KHRpfn_clCreateSubDevicesEXT)GET_ALIAS(clCreateSubDevicesEXT);
-    ICDDispatchTable.clRetainDeviceEXT = (KHRpfn_clRetainDeviceEXT)GET_ALIAS(clRetainDeviceEXT);
-    ICDDispatchTable.clReleaseDeviceEXT = (KHRpfn_clReleaseDeviceEXT)GET_ALIAS(clReleaseDeviceEXT);
     ICDDispatchTable.clEnqueueMigrateMemObjects = (KHRpfn_clEnqueueMigrateMemObjects)GET_ALIAS(clEnqueueMigrateMemObjects);
     ICDDispatchTable.clCreateSubDevices = (KHRpfn_clCreateSubDevices)GET_ALIAS(clCreateSubDevices);
     ICDDispatchTable.clRetainDevice = (KHRpfn_clRetainDevice)GET_ALIAS(clRetainDevice);

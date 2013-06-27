@@ -409,11 +409,6 @@ TEST(FrameworkTestType, Test_PredictablePartition)
 	EXPECT_TRUE(predictable_partition_test());
 }
 
-TEST(FrameworkTestType, Test_clfissionBackwardsCompatabilityTest)
-{
-	EXPECT_TRUE(fission_backwards_compatability_test());
-}
-
 TEST(FrameworkTestType, Test_clMultipleExecutionTest)
 {
     EXPECT_TRUE(clMultipleExecutionTest());

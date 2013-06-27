@@ -593,8 +593,8 @@ void releaseDevice(cl_device_id device );
 void retainDevice(cl_device_id device);
 
 // clCreateSubDevices - calls and validates clCreateSubDevices
-void createSubDevices(cl_device_id in_device, 
-	const cl_device_partition_property_ext * properties,
+void createSubDevices(cl_device_id in_device,
+	const cl_device_partition_property * properties,
 	cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices);
 
 // createPartitionByCounts - creates numSubDevices subdevices for root device in_device

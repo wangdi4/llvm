@@ -407,6 +407,12 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
     cl_dev_err_code dev_ret = CL_DEV_SUCCESS;
     //identify the partition mode and translate to device enum
     cl_dev_partition_prop partitionMode;
+
+    // Disable device fission on Android
+#if defined __ANDROID__
+    return CL_INVALID_VALUE;
+#endif
+
     switch (props[0])
     {
     case CL_DEVICE_PARTITION_EQUALLY:
@@ -586,18 +592,6 @@ bool FissionableDevice::IsImageFormatSupported(const cl_image_format& clImgForma
     }
     delete[] pFormats;
     return bSupported;
-}
-
-void FissionableDevice::AddedToContext()
-{ 
-    OclAutoMutex mu(&m_devMutex);
-    m_numContexts++;
-}
-
-void FissionableDevice::RemovedFromContext()
-{ 
-    OclAutoMutex mu(&m_devMutex);
-    --m_numContexts;
 }
 
 SubDevice::SubDevice(SharedPtr<FissionableDevice>pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props) :

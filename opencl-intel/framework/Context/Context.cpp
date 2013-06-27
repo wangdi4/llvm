@@ -136,7 +136,6 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     cl_uint curRoot = 0;
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
-		ppDevices[ui]->AddedToContext();
 		m_mapDevices.AddObject(ppDevices[ui], false);
 		m_ppAllDevices[ui] = ppDevices[ui];
 		m_pDeviceIds[ui] = ppDevices[ui]->GetHandle();
@@ -204,7 +203,6 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 	{
 		for(cl_uint ui=0; ui<(idx-1); ++ui)
 		{
-			ppDevices[ui]->RemovedFromContext();
 	        m_mapDevices.RemoveObject(ppDevices[ui]->GetHandle());
 			if (m_ppAllDevices[ui]->IsRootLevelDevice())
 			{
@@ -238,7 +236,6 @@ void Context::Cleanup( bool bTerminate )
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
         m_mapDevices.RemoveObject(m_ppAllDevices[ui]->GetHandle());
-		m_ppAllDevices[ui]->RemovedFromContext();
 		// The pendency to the device implicitly removed by RemoveObject()
         if (m_ppAllDevices[ui]->IsRootLevelDevice())
         {

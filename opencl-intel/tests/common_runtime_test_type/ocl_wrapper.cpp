@@ -999,25 +999,21 @@ void isExtensionSupportedOnDevice(const char* requiredExtension, int succDevices
 // releaseDevice - calls and validates clReleaseDevice
 void releaseDevice(cl_device_id device )
 {
-	//ASSERT_EQ(CL_SUCCESS, clReleaseDeviceEXT(device ));
+	//ASSERT_EQ(CL_SUCCESS, clReleaseDevice(device ));
 }
 
 // retainDevice - calls and validates clRetainDevice
 void retainDevice(cl_device_id device)
 {
-	//ASSERT_EQ(CL_SUCCESS, clRetainDeviceEXT(device));
+	//ASSERT_EQ(CL_SUCCESS, clRetainDevice(device));
 }
 
 // clCreateSubDevices - calls and validates clCreateSubDevices
 void createSubDevices(cl_device_id in_device, 
-	const cl_device_partition_property_ext * properties,
+	const cl_device_partition_property * properties,
 	cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices)
 {
-	clCreateSubDevicesEXT_fn clCreateSubDevicesEXT_function = NULL;
-	clCreateSubDevicesEXT_function = (clCreateSubDevicesEXT_fn)clGetExtensionFunctionAddress("clCreateSubDevicesEXT");
-	ASSERT_TRUE(NULL != clCreateSubDevicesEXT_function) << "clCreateSubDevicesEXT was returned as NULL from clGetExtensionFunctionAddress";
-
-	cl_int ret_val = clCreateSubDevicesEXT_function(in_device, properties,
+	cl_int ret_val = clCreateSubDevices(in_device, properties,
 		num_entries, out_devices, num_devices);
 	ASSERT_EQ(CL_SUCCESS, ret_val);
 }
@@ -1033,15 +1029,15 @@ void createPartitionByCounts(cl_device_id in_device, cl_device_id* out_devices, 
 	ASSERT_TRUE(0<numSubDevices) << "numSubDevices must be a positive integer"; 
 	// get sub-devices
 	cl_uint actual_num_devices = 0;
-	cl_device_partition_property_ext properties[5];
-	properties[0] = CL_DEVICE_PARTITION_BY_COUNTS_EXT;
+	cl_device_partition_property properties[5];
+	properties[0] = CL_DEVICE_PARTITION_BY_COUNTS;
 	int i=0;
 	for(i=1; i<numSubDevices+1; ++i)
 	{
 		properties[i] = 1;
 	}
-	properties[i] = CL_PARTITION_BY_COUNTS_LIST_END_EXT;
-	properties[i+1] = CL_PROPERTIES_LIST_END_EXT;
+	properties[i] = CL_DEVICE_PARTITION_BY_COUNTS_LIST_END;
+	properties[i+1] = 0;
 
 	// query the number of available sub devices
 	ASSERT_NO_FATAL_FAILURE(createSubDevices(in_device, properties, 0, 
