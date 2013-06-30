@@ -26,7 +26,7 @@
 
 #define IMAGE_ELEM_SIZE     4
 // no real meaning for these numbers, I just need IMAGE_WIDTH * IMAGE_ELEM_SIZE to be a multiple of CL_DEVICE_IMAGE_PITCH_ALIGNMENT
-#define IMAGE_WIDTH         1216
+#define IMAGE_WIDTH         608
 #define IMAGE_HEIGHT        1507
 #define IMAGE_DEPTH         4
 #define IMAGE_ARRAY_SIZE    10
@@ -650,25 +650,11 @@ static void TestNegative(const cl_image_format& clFormat, const cl_image_desc& c
 	iRet = clReleaseMemObject(img1d);
 	CheckException("clReleaseMemObject", CL_SUCCESS, iRet);
 
-	// create a 1D image buffer from a buffer whose host pointer isn't aligned to CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT
-	short bufData[(IMAGE_ELEM_SIZE * IMAGE_WIDTH) / 2 + 1];
-	cl_mem memBuf = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, sizeof(bufData) - 1, (char*)bufData + 1, &iRet);	// I assume that CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT is bigger than 1
-	CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
-
-	localImgDesc = clImageDesc;
-	localImgDesc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
-	localImgDesc.mem_object = memBuf;
-	img2d = clCreateImage(context, 0, &clFormat, &localImgDesc, NULL, &iRet);
-	CheckException(L"clCreateImage", CL_INVALID_IMAGE_FORMAT_DESCRIPTOR, iRet);
-
-	iRet = clReleaseMemObject(memBuf);
-	CheckException("clReleaseMemObject", CL_SUCCESS, iRet);	
-
 	// 2D image created from buffer with pitch not a multiple of the maximum of the CL_DEVICE_IMAGE_PITCH_ALIGNMENT value of the device
 	localImgDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
 	localImgDesc.image_width = 5;
 	localImgDesc.image_height = IMAGE_HEIGHT;
-	memBuf = clCreateBuffer(context, 0, IMAGE_ELEM_SIZE * localImgDesc.image_width * localImgDesc.image_height, NULL, &iRet);
+	cl_mem memBuf = clCreateBuffer(context, 0, IMAGE_ELEM_SIZE * localImgDesc.image_width * localImgDesc.image_height, NULL, &iRet);
 	CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
 	localImgDesc.mem_object = memBuf;
 

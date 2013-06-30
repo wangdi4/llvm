@@ -2351,7 +2351,7 @@ cl_err_code ContextModule::CheckContextSpecificParameters(SharedPtr<Context>pCon
 			maxArraySize = maxArraySize > sz ? sz : maxArraySize;
 		}
 
-		if (NULL != pImgBufferHostPtr)
+		if (NULL != pImgBufferHostPtr && CL_MEM_OBJECT_IMAGE2D == image_type)
 		{
 			cl_uint uiImgBaseAddrAlign;
 			dev->GetInfo(CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT, sizeof(uiImgBaseAddrAlign), &uiImgBaseAddrAlign, NULL);
