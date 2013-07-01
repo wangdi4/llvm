@@ -61,7 +61,7 @@ TEST_F(CRT12_VR153, ImageVisibility1DBuffer_CL_SNORM_INT8_VR153){
 
 	//initialize image format
 	image_format.image_channel_order = CL_RGBA;
-	image_format.image_channel_data_type = CL_SNORM_INT16;
+	image_format.image_channel_data_type = CL_SNORM_INT8;
 
 	// initialize image descriptor
 	desc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
