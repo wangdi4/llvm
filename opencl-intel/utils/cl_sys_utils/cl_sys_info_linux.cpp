@@ -229,7 +229,7 @@ int CharToHexDigit(char c)
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Specific module full path name intended for loaded library full path.
-// On Win32 - it delegates to GetModuleFileNameA method. (modulePtr must be pointer to HMODULE)
+// On Win32 - it asks for the module handle then calls GetModuleFileNameA method.  (modulePtr must be address of method belongs to the loaded library)
 // On Linux - it investigates the loaded library path from /proc/self/maps. (modulePtr must be address of method belongs to the loaded library)
 ////////////////////////////////////////////////////////////////////
 int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileName, size_t strLen)
@@ -411,4 +411,16 @@ unsigned int Intel::OpenCL::Utils::GetCpuId()
 const char* Intel::OpenCL::Utils::GetFullModuleNameForLoad(const char* moduleName)
 {
 	return moduleName;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// return the product version:
+// On Windows: it returns the product version number that is stored in the version info of the shared object
+// On Linux:   not implemented TODO
+// Arguments - someLocalFunc - some function in the requested module
+//             major, minor, revision, build - output version numbers
+////////////////////////////////////////////////////////////////////
+bool Intel::OpenCL::Utils::GetModuleProductVersion(const void* someLocalFunc, int* major, int* minor, int* revision, int* build)
+{
+    return false;
 }

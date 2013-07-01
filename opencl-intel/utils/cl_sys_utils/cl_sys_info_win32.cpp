@@ -26,6 +26,7 @@
 /////////////////////////////////////////////////////////////////////////
 
 #include "cl_sys_info.h"
+#include "cl_sys_defines.h"
 
 #if _MSC_VER == 1600
 #include <intrin.h>
@@ -33,7 +34,7 @@
 
 using namespace Intel::OpenCL::Utils;
 
-#include<windows.h>
+#include <windows.h>
 #include <powrprof.h>
 #include <assert.h>
 
@@ -193,12 +194,16 @@ void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void* addr, char* szModul
 }
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Specific module full path name intended for loaded library full path.
-// On Win32 - it delegates to GetModuleFileNameA method. (modulePtr must be pointer to HMODULE)
+// On Win32 - it asks for the module handle then calls GetModuleFileNameA method.  (modulePtr must be address of method belongs to the loaded library)
 // On Linux - it investigates the loaded library path from /proc/self/maps. (modulePtr must be address of method belongs to the loaded library)
 ////////////////////////////////////////////////////////////////////
 int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileName, size_t strLen)
 {
-	HMODULE hModule = *((HMODULE*)modulePtr);
+	HMODULE hModule = NULL;
+	GetModuleHandleExA(
+		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+		(LPCSTR)modulePtr,
+		&hModule);
 	return GetModuleFileNameA(hModule, fileName, (DWORD)(strLen-1));
 }
 
@@ -250,4 +255,50 @@ const char* Intel::OpenCL::Utils::GetFullModuleNameForLoad(const char* moduleNam
 	sprintf_s(sModulePath, MAX_PATH, "%s%s", sModulePath, moduleName);
 
 	return sModulePath;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// return the product version:
+// On Windows: it returns the product version number that is stored in the version info of the shared object
+// On Linux:   not implemented TODO
+// Arguments - someLocalFunc - some function in the requested module
+//             major, minor, revision, build - output version numbers
+////////////////////////////////////////////////////////////////////
+bool Intel::OpenCL::Utils::GetModuleProductVersion(const void* someLocalFunc, int* major, int* minor, int* revision, int* build)
+{
+    char filePath[MAX_PATH];
+    DWORD  verInfoSize          = 0;
+    BYTE*  verInfo              = NULL;
+    UINT   fileInfoSize         = 0;
+    VS_FIXEDFILEINFO *fileInfo  = NULL;
+
+    GetModulePathName(someLocalFunc, filePath, MAX_PATH - 1);
+
+    verInfoSize = GetFileVersionInfoSize( filePath, NULL );
+    if (0 == verInfoSize)
+    {
+        return false;
+    }
+
+    verInfo = (BYTE*) STACK_ALLOC(sizeof(BYTE)*verInfoSize);
+
+    if (!GetFileVersionInfo(filePath, 0, verInfoSize, verInfo))
+    {
+        STACK_FREE(verInfo);
+        return false;
+    }
+
+    if (!VerQueryValue(verInfo, TEXT("\\"), (LPVOID*) &fileInfo, &fileInfoSize))
+    {
+        STACK_FREE(verInfo);
+        return false;
+    }
+
+    *major    = ( fileInfo->dwProductVersionMS >> 16 ) & 0xff;
+    *minor    = ( fileInfo->dwProductVersionMS) & 0xff;
+    *revision = ( fileInfo->dwProductVersionLS >> 16 ) & 0xff;
+    *build    = ( fileInfo->dwProductVersionLS) & 0xff;
+
+    STACK_FREE(verInfo);
+    return true;
 }

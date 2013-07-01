@@ -1178,7 +1178,24 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DRIVER_VERSION ):
         {
-            *pinternalRetunedValueSize = strlen("1.2") + 1;
+            int major = 0;
+            int minor = 0;
+            int revision = 0;
+            int build = 0;
+            std::stringstream driverVerStream;
+            if (GetModuleProductVersion(__FUNCTION__, &major, &minor, &revision, &build))
+            {
+                // format is (Major version).(Minor version).(Revision number).(Build number)
+                driverVerStream << major << "." << minor << "." << revision << "." << build;
+            }
+            else
+            {
+                // TODO: remove this once GetModuleProductVersion is implemented on Linux
+                driverVerStream << "1.2.0." << (int)BUILDVERSION;
+            }
+            std::string driverVer = driverVerStream.str();
+
+            *pinternalRetunedValueSize = driverVer.length() + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1186,7 +1203,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                STRCPY_S((char*)paramVal, valSize, "1.2");
+                STRCPY_S((char*)paramVal, valSize, driverVer.c_str());
             }
             return CL_DEV_SUCCESS;
         }

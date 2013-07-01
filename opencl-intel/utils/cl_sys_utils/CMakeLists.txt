@@ -33,6 +33,12 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES} ${UTILS_ASM_ADD_TO_SOURCES_LIST})
+
+# add Version.lib in Windows for GetModuleProductVersion()
+if( WIN32 )
+  target_link_libraries( ${TARGET_NAME} Version.lib )
+endif( WIN32 ) 
+
 if( WIN32 OR ANDROID )
   target_link_libraries( ${TARGET_NAME} cl_hw_utils )
 else( WIN32 OR ANDROID )
