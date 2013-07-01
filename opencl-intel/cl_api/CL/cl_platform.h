@@ -75,6 +75,7 @@ extern "C" {
     #define CL_EXT_SUFFIX__VERSION_1_1
     #define CL_API_SUFFIX__VERSION_1_2
     #define CL_EXT_SUFFIX__VERSION_1_2
+	#define CL_API_SUFFIX__VERSION_2_0
     
     #ifdef __GNUC__
         #ifdef CL_USE_DEPRECATED_OPENCL_1_0_APIS
