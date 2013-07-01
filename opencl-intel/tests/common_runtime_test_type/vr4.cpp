@@ -70,7 +70,6 @@ static std::vector<std::string> initExpectedCPUExtenstions()
 	vec.push_back("cl_khr_gl_sharing");
 	vec.push_back("cl_intel_dx9_media_sharing");	
 	#endif
-	vec.push_back("cl_ext_device_fission");
 	vec.push_back("cl_intel_printf");
 	
 
