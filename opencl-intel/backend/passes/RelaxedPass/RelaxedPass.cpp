@@ -260,7 +260,7 @@ namespace intel{
         RELAXED_MATH_2_0_P1_vX(m_relaxedFunctions_2_0, sin, 3, NAME_RELAXED_2_0_LEN_3);
         RELAXED_MATH_2_0_P1_vX(m_relaxedFunctions_2_0, tan, 3, NAME_RELAXED_2_0_LEN_3);
 
-        RELAXED_MATH_2_0_P1_vX(m_relaxedFunctions_2_0, divide, 6, 6 + NAME_RELAXED_2_0_LEN_6);
+        RELAXED_MATH_2_0_P1_vX(m_relaxedFunctions_2_0, divide, 6, NAME_RELAXED_2_0_LEN_6);
 
     }
 
@@ -268,9 +268,7 @@ namespace intel{
 
     void RelaxedPass::replaceFunctions(std::map<std::string, std::string> &mapIn)
     {
-        std::map<std::string, std::string>::iterator it,e,found;
-        for (it = mapIn.begin(), e=mapIn.end(); it != e; ++it)
-            m_relaxedFunctions[it->first] = it->second;
+        m_relaxedFunctions = mapIn;
     }
 
 
