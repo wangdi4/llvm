@@ -218,9 +218,9 @@ PrintIRBefore("dump-IR-before",
 llvm::cl::opt<std::string>
 DumpIRDir("dump-IR-dir",
            llvm::cl::ValueOptional,
-           llvm::cl::desc("The directory for dumping IR files (if dump-IR flags are up, this directory will be used). If '-' direname isn't set, the files will be dumped where SATests.exe is located"),
+           llvm::cl::desc("The directory for dumping IR files (if dump-IR flags are up, this directory will be used). If '-' direname isn't set, the files will be dumped to current directory."),
            llvm::cl::value_desc("dirname"),
-           llvm::cl::init(""));
+           llvm::cl::init("./"));
 
 llvm::cl::opt<bool>
 DumpHeuristicIR("dump-heuristic-IR",

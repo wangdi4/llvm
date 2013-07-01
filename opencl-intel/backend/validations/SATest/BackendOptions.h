@@ -194,6 +194,13 @@ public:
         m_cpuFeatures   = runConfig.GetValue<std::string>(RC_BR_CPU_FEATURES, "");
         m_useVTune      = runConfig.GetValue<bool>(RC_BR_USE_VTUNE, false);
         m_fileName      = runConfig.GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "-");
+
+        m_DumpIROptionAfter = runConfig.GetValue<const std::vector<IRDumpOptions> * >
+                                (RC_BR_DUMP_IR_AFTER, 0);
+        m_DumpIROptionBefore = runConfig.GetValue<const std::vector<IRDumpOptions> * >
+                                (RC_BR_DUMP_IR_BEFORE, 0);
+
+        m_DumpIRDir = runConfig.GetValue<std::string>(RC_BR_DUMP_IR_DIR, "");
     }
 
     bool GetBooleanValue(int optionId, bool defaultValue) const
@@ -244,6 +251,8 @@ public:
             return m_cpuFeatures.c_str();
         //case CL_DEV_BACKEND_OPTION_DUMPFILE :
         //    return m_fileName.c_str();
+        case CL_DEV_BACKEND_OPTION_DUMP_IR_DIR:
+            return m_DumpIRDir.c_str();
         default:
             return defaultValue;
         }
@@ -270,6 +279,12 @@ public:
         }
         switch(optionId)
         {
+        case OPTION_IR_DUMPTYPE_AFTER :
+            *(static_cast<const std::vector<IRDumpOptions>* * >(Value)) = m_DumpIROptionAfter;
+            return true;
+        case OPTION_IR_DUMPTYPE_BEFORE :
+            *(static_cast<const std::vector<IRDumpOptions>* * >(Value)) = m_DumpIROptionBefore;
+            return true;
         case CL_DEV_BACKEND_OPTION_TARGET_DESC_BLOB:
             if(*pSize < m_targetDescSize) return false;
             memcpy(Value, &m_pTargetDesc[0], m_targetDescSize);
@@ -328,6 +343,9 @@ private:
     size_t              m_targetDescSize;
     std::vector<char>   m_pTargetDesc;
 
+    const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
+    const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
+    std::string m_DumpIRDir;
     Intel::OpenCL::DeviceBackend::ETransposeSize m_transposeSize;
     std::string    m_cpu;
     std::string    m_cpuFeatures;
