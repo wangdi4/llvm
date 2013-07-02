@@ -74,7 +74,7 @@
 
 //kernel test for native functions with one argument
 
-#define NATIVE_TEST_FLOAT(func,vec) __kernel void native_test(__global float##vec* pBuff,__global int##vec* pULP )  \
+#define NATIVE_TEST_FLOAT(func,vec) kernel void native_test(__global float##vec* pBuff,__global int##vec* pULP )  \
 {\
 	size_t index = get_global_id(0); \
 	float##vec fres=(func(pBuff[index])); \
@@ -87,7 +87,7 @@
 }
 
 #define NATIVE_TEST_DOUBLE(func,vec) \
-__kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  \
+kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  \
 {\
 	size_t index = get_global_id(0); \
 	double##vec dres=(func(pBuff[index])); \
@@ -99,7 +99,7 @@ __kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  
 	pULP[index] = (-convert_int##vec(abs(isgreater(pBuff[index],fabs(dres/two))))) | convert_int##vec(abs(res - native_res)); \
 }	
 
-#define NATIVE_RECIP(vec) __kernel void native_recip_test(__global float##vec* pBuff,__global int##vec* pULP)  \
+#define NATIVE_RECIP(vec) kernel void native_recip_test(__global float##vec* pBuff,__global int##vec* pULP)  \
 {\
 	size_t index = get_global_id(0); \
 	float##vec one=1.0;	\
@@ -112,7 +112,7 @@ __kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  
 	pULP[index] = (-as_int##vec(abs(isgreater(pBuff[index],fabs(fres/two)))))  | as_int##vec(abs(res-native_res)); \
 }
 
-#define NATIVE_RECIP_DOUBLE(vec) __kernel void native_recip_test(__global double##vec* pBuff,__global int##vec* pULP)  \
+#define NATIVE_RECIP_DOUBLE(vec) kernel void native_recip_test(__global double##vec* pBuff,__global int##vec* pULP)  \
 {\
 	size_t index = get_global_id(0); \
 	double##vec one=1.0;	\
@@ -125,7 +125,7 @@ __kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  
 	pULP[index] = (-convert_int##vec(abs(isgreater(pBuff[index],fabs(fres/two)))))  | convert_int##vec(abs(res-native_res)); \
 }
 
-#define NATIVE_DIVIDE(vec) __kernel void native_divide_test(__global float##vec* pBuffX,__global float##vec* pBuffY,__global int##vec* pULP)  \
+#define NATIVE_DIVIDE(vec) kernel void native_divide_test(__global float##vec* pBuffX,__global float##vec* pBuffY,__global int##vec* pULP)  \
 {\
 	size_t index = get_global_id(0); \
 	float##vec fres=(pBuffX[index]/(pBuffY[index])); \
@@ -137,7 +137,7 @@ __kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  
 	pULP[index] =(-as_int##vec(abs(isgreater(pBuffX[index],fabs(fres/two)))))  | as_int##vec(abs(res-native_res)); \
 }
 
-#define NATIVE_DIVIDE_DOUBLE(vec) __kernel void native_divide_test(__global double##vec* pBuffX,__global double##vec* pBuffY,__global int##vec* pULP)  \
+#define NATIVE_DIVIDE_DOUBLE(vec) kernel void native_divide_test(__global double##vec* pBuffX,__global double##vec* pBuffY,__global int##vec* pULP)  \
 {\
 	size_t index = get_global_id(0); \
 	double##vec fres=(pBuffX[index]/(pBuffY[index])); \
@@ -149,7 +149,7 @@ __kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  
 	pULP[index] =(-convert_int##vec(abs(isgreater(pBuffX[index],fabs(fres/two)))))  | convert_int##vec(abs(res-native_res)); \
 }
 
-#define NATIVE_POWR(vec) __kernel void native_powr_test(__global float##vec* pBuffX,__global float##vec* pBuffY,__global int##vec* pULP)  \
+#define NATIVE_POWR(vec) kernel void native_powr_test(__global float##vec* pBuffX,__global float##vec* pBuffY,__global int##vec* pULP)  \
 {\
 	size_t index = get_global_id(0); \
 	float##vec fres=powr(pBuffX[index],pBuffY[index]); \
@@ -161,7 +161,7 @@ __kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  
 	pULP[index] =(-as_int##vec(abs(isgreater(pBuffX[index],fabs(fres/two)))))  | as_int##vec(abs(res-native_res)); \
 }
 
-#define NATIVE_POWR_DOUBLE(vec) __kernel void native_powr_test(__global double##vec* pBuffX,__global double##vec* pBuffY,__global int##vec* pULP)  \
+#define NATIVE_POWR_DOUBLE(vec) kernel void native_powr_test(__global double##vec* pBuffX,__global double##vec* pBuffY,__global int##vec* pULP)  \
 {\
 	size_t index = get_global_id(0); \
 	double##vec fres=powr(pBuffX[index],pBuffY[index]); \
@@ -212,7 +212,9 @@ __kernel void native_test(__global double##vec* pBuff,__global int##vec* pULP)  
   RunFunctionTest(NAME_VEC(name,double,16),XSTR(NATIVE_##name##_DOUBLE(16)),16,context,queue,buff,buffnum,stBuffSize,bResult,D_##name##_ULP); \
 	//TODO: once convert_int3(long3) implemented uncomment vec 3 and delete the temporary one
 
+#if !defined (__ANDROID__) // Android OS doesn't support fp64
 const char Pragma[] = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable";
+#endif
 
 //runs a kernel and check it's results vs targetULP
 template <typename T>
@@ -231,8 +233,13 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 	cl_program program;
 	cl_kernel kernel;
 	cl_mem clBuff[MAX_BUFFS+1]; //+1 for clULP which is clBuff[numBuffs]
+#if defined (__ANDROID__)
+  char *kernelCode = new char[strlen(ocl_test_program) +10];
+  sprintf(kernelCode, "\n%s\n", ocl_test_program);
+#else
   char *kernelCode = new char[strlen(ocl_test_program) + strlen(Pragma)+10];
   sprintf(kernelCode, "%s\n%s\n", Pragma,  ocl_test_program);
+#endif
 	try{
 	// create program with source
 	if ( !BuildProgramSynch(context, 1, (const char**)&kernelCode, NULL, NULL, &program) ){
@@ -412,37 +419,42 @@ bool clNativeFunctionTest()
 
 	try
 	{
+// Float:
 		RUNTESTS_FLOATS(COS,cos,OneBuffer,1);
-		RUNTESTS_DOUBLES(COS,cos,OneBufferD,1);
-		RUNTESTS_SPECIAL_FLOATS(DIVIDE,divide,TwoBuffers,2);	
-		RUNTESTS_SPECIAL_DOUBLES(DIVIDE,divide,TwoBuffersD,2); 
+ 		RUNTESTS_SPECIAL_FLOATS(DIVIDE,divide,TwoBuffers,2);	
 		RUNTESTS_FLOATS(EXP,exp,OneBuffer,1);
-		RUNTESTS_DOUBLES(EXP,exp,OneBufferD,1);
 		RUNTESTS_FLOATS(EXP2,exp2,OneBuffer,1);
-		RUNTESTS_DOUBLES(EXP2,exp2,OneBufferD,1);
 		RUNTESTS_FLOATS(EXP10,exp10,OneBuffer,1);
-		RUNTESTS_DOUBLES(EXP10,exp10,OneBufferD,1);
 		RUNTESTS_FLOATS(LOG,log,PostiveOneBuffer,1);
-		RUNTESTS_DOUBLES(LOG,log,PostiveOneBufferD,1);
 		RUNTESTS_FLOATS(LOG2,log2,PostiveOneBuffer,1);
-		RUNTESTS_DOUBLES(LOG2,log2,PostiveOneBufferD,1);
 		RUNTESTS_FLOATS(LOG10,log10,PostiveOneBuffer,1);
-		RUNTESTS_DOUBLES(LOG10,log10,PostiveOneBufferD,1);
 #ifndef _M_X64
 		RUNTESTS_SPECIAL_FLOATS(POWR,powr,TwoBuffers,2);
-		RUNTESTS_SPECIAL_DOUBLES(POWR,powr,TwoBuffersD,2);
 #endif
 		RUNTESTS_SPECIAL_FLOATS(RECIP,recip,OneBuffer,1);
-		RUNTESTS_SPECIAL_DOUBLES(RECIP,recip,OneBufferD,1); 
 		RUNTESTS_FLOATS(RSQRT,rsqrt,PostiveOneBuffer,1);
-		RUNTESTS_DOUBLES(RSQRT,rsqrt,PostiveOneBufferD,1);
 		RUNTESTS_FLOATS(SIN,sin,OneBuffer,1);
-		RUNTESTS_DOUBLES(SIN,sin,OneBufferD,1);
 		RUNTESTS_FLOATS(SQRT,sqrt,PostiveOneBuffer,1);
-		RUNTESTS_DOUBLES(SQRT,sqrt,PostiveOneBufferD,1);
 		RUNTESTS_FLOATS(TAN,tan,OneBuffer,1);
+#if !defined (__ANDROID__)
+// Double
+    RUNTESTS_DOUBLES(COS,cos,OneBufferD,1);
+		RUNTESTS_SPECIAL_DOUBLES(DIVIDE,divide,TwoBuffersD,2); 
+		RUNTESTS_DOUBLES(EXP,exp,OneBufferD,1);
+		RUNTESTS_DOUBLES(EXP2,exp2,OneBufferD,1);
+		RUNTESTS_DOUBLES(EXP10,exp10,OneBufferD,1);
+		RUNTESTS_DOUBLES(LOG,log,PostiveOneBufferD,1);
+		RUNTESTS_DOUBLES(LOG2,log2,PostiveOneBufferD,1);
+		RUNTESTS_DOUBLES(LOG10,log10,PostiveOneBufferD,1);
+#ifndef _M_X64
+		RUNTESTS_SPECIAL_DOUBLES(POWR,powr,TwoBuffersD,2);
+#endif
+		RUNTESTS_SPECIAL_DOUBLES(RECIP,recip,OneBufferD,1); 
+		RUNTESTS_DOUBLES(RSQRT,rsqrt,PostiveOneBufferD,1);
+		RUNTESTS_DOUBLES(SIN,sin,OneBufferD,1);
+		RUNTESTS_DOUBLES(SQRT,sqrt,PostiveOneBufferD,1);
 		RUNTESTS_DOUBLES(TAN,tan,OneBufferD,1);		
-		
+#endif		
 	}
 	catch (int error)
 	{
