@@ -42,13 +42,13 @@ entry:
 	store i32 %width, i32* %width.addr
 	store i32 %height, i32* %height.addr
 	store i32 %blockSize, i32* %blockSize.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %globalIdx
-	%call1 = call i32 @get_global_id(i32 1)		; <i32> [#uses=1]
+	%call1 = call i32 @_Z13get_global_idj(i32 1)		; <i32> [#uses=1]
 	store i32 %call1, i32* %globalIdy
-	%call2 = call i32 @get_local_id(i32 0)		; <i32> [#uses=1]
+	%call2 = call i32 @_Z12get_local_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call2, i32* %localIdx
-	%call3 = call i32 @get_local_id(i32 1)		; <i32> [#uses=1]
+	%call3 = call i32 @_Z12get_local_idj(i32 1)		; <i32> [#uses=1]
 	store i32 %call3, i32* %localIdy
 	%tmp = load i32* %localIdy		; <i32> [#uses=1]
 	%tmp4 = load i32* %blockSize.addr		; <i32> [#uses=1]
@@ -66,7 +66,7 @@ entry:
 	%arrayidx13 = getelementptr <4 x i8> addrspace(1)* %tmp12, i32 %add11		; <<4 x i8> addrspace(1)*> [#uses=1]
 	%tmp14 = load <4 x i8> addrspace(1)* %arrayidx13		; <<4 x i8>> [#uses=1]
 	store <4 x i8> %tmp14, <4 x i8> addrspace(3)* %arrayidx
-	call void @barrier(i32 1)
+	call void @_Z7barrierm(i32 1)
 	%tmp16 = load i32* %localIdy		; <i32> [#uses=1]
 	%tmp17 = load i32* %blockSize.addr		; <i32> [#uses=1]
 	%mul18 = mul i32 %tmp16, %tmp17		; <i32> [#uses=1]
@@ -90,11 +90,11 @@ entry:
 	ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 define void @RecursiveGaussian_kernel(<4 x i8> addrspace(1)* %input, <4 x i8> addrspace(1)* %output, i32 %width, i32 %height, float %a0, float %a1, float %a2, float %a3, float %b1, float %b2, float %coefp, float %coefn, ...) nounwind {
 entry:
@@ -144,7 +144,7 @@ entry:
 	store float %b2, float* %b2.addr
 	store float %coefp, float* %coefp.addr
 	store float %coefn, float* %coefn.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %x
 	%tmp = load i32* %x		; <i32> [#uses=1]
 	%tmp1 = load i32* %width.addr		; <i32> [#uses=1]
@@ -266,7 +266,7 @@ for.inc:		; preds = %for.body
 	br label %for.cond
 
 for.end:		; preds = %for.cond
-	call void @barrier(i32 2)
+	call void @_Z7barrierm(i32 2)
 	store <4 x float> zeroinitializer, <4 x float>* %xn
 	store <4 x float> zeroinitializer, <4 x float>* %xa
 	store <4 x float> zeroinitializer, <4 x float>* %yn

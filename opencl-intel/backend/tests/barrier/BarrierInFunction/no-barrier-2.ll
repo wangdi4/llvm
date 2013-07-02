@@ -8,8 +8,8 @@
 ;;    which is calling function "foo" with no barrier instruction as well
 ;; The expected result:
 ;;      1. A call to @dummybarrier.() at the begining of the kernel "main"
-;;      2. A call to @barrier(LOCAL_MEM_FENCE) at the end of the kernel "main"
-;;      3. No calls to @dummybarrier. or @barrier in the function "foo"
+;;      2. A call to @_Z7barrierj(LOCAL_MEM_FENCE) at the end of the kernel "main"
+;;      3. No calls to @dummybarrier. or @_Z7barrierj in the function "foo"
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
@@ -25,7 +25,7 @@ define void @main(i32 %x) nounwind {
 ; CHECK: @dummybarrier.()
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: call void @foo(i32 %x)
-; CHECK: @barrier(i32 1)
+; CHECK: @_Z7barrierj(i32 1)
 ; CHECK: ret
 }
 
@@ -35,7 +35,7 @@ define void @foo(i32 %x) nounwind {
   ret void
 ; CHECK-NOT: @dummybarrier.
 ; CHECK: %y = xor i32 %x, %x
-; CHECK-NOT: @barrier
+; CHECK-NOT: @_Z7barrierj
 ; CHECK: ret
 }
 

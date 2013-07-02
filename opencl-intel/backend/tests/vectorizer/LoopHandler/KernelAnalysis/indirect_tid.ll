@@ -14,14 +14,14 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 
 define void @func_with_gid(i32 addrspace(1)* %out) nounwind alwaysinline {
-  %id = call i32 @get_global_id(i32 1) nounwind
+  %id = call i32 @_Z13get_global_idj(i32 1) nounwind
   %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
 define void @func_with_lid(i32 addrspace(1)* %out) nounwind alwaysinline {
-  %id = call i32 @get_local_id(i32 1) nounwind
+  %id = call i32 @_Z12get_local_idj(i32 1) nounwind
   %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
@@ -73,9 +73,9 @@ define void @kernel_call_func_without_tid(i32 addrspace(1)* %out) nounwind alway
 
 
 
-declare i32 @get_global_id(i32) nounwind readnone
+declare i32 @_Z13get_global_idj(i32) nounwind readnone
 
-declare i32 @get_local_id(i32) nounwind readnone
+declare i32 @_Z12get_local_idj(i32) nounwind readnone
 
 
 

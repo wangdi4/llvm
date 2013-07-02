@@ -16,18 +16,18 @@
 
 ; CHECK: @main
 define void @main() {
-  call void @barrier(i32 1)
+  call void @_Z7barrierj(i32 1)
   call void @fiber.()
-  call void @barrier(i32 2)
+  call void @_Z7barrierj(i32 2)
 
   ret void
-; CHECK-NOT: @barrier
+; CHECK-NOT: @_Z7barrierj
 ; CHECK-NOT: @fiber.
-; CHECK: @barrier(i32 2)
-; CHECK-NOT: @barrier
+; CHECK: @_Z7barrierj(i32 2)
+; CHECK-NOT: @_Z7barrierj
 ; CHECK-NOT: @fiber.
 ; CHECK: ret
 }
 
-declare void @barrier(i32)
+declare void @_Z7barrierj(i32)
 declare void @fiber.()

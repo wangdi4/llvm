@@ -747,7 +747,7 @@ bb.nph:                                           ; preds = %bb.nph.preheader, %
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 ; CHECK: @intel_god_rays_scalar
 ; CHECK-NOT: %{{[a-z\.0-9]}} %{{[a-z\.0-9]}} %{{[a-z\.0-9]}}
@@ -769,7 +769,7 @@ declare i32 @get_global_id(i32)
 
 define void @intel_god_rays_scalar(<4 x float> addrspace(1)* nocapture %inputImage, <4 x float> addrspace(1)* nocapture %output, i32 %width, i32 %height, i32 %blend) nounwind {
 ; <label>:0
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = sdiv i32 %width, 2
   %3 = sdiv i32 %height, 2
   %4 = mul nsw i32 %1, 15

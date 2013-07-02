@@ -31,13 +31,13 @@ for.cond19.preheader:                             ; preds = %for.body
   br label %for.body23
 
 for.cond5.preheader:                              ; preds = %for.body
-  %call = tail call i32 @get_local_id(i32 0) nounwind
+  %call = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv = zext i32 %call to i64
   %tmp14 = load i64* %arrayidx26, align 8
   %add11 = add i64 %tmp14, %n
   %add15 = add i64 %add11, %conv
   store i64 %add15, i64* %arrayidx26, align 8
-  %call.1 = tail call i32 @get_local_id(i32 0) nounwind
+  %call.1 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv.1 = zext i32 %call.1 to i64
   %tmp14.1 = load i64* %arrayidx26, align 8
   %add11.1 = add i64 %tmp14.1, %n
@@ -69,4 +69,4 @@ for.end39:                                        ; preds = %for.end39.loopexit,
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

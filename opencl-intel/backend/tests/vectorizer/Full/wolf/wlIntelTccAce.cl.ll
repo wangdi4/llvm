@@ -1158,7 +1158,7 @@ entry:
   store i16 addrspace(1)* %imageLumaChannel, i16 addrspace(1)** %imageLumaChannel.addr
   store i16 addrspace(1)* %outputHistogram, i16 addrspace(1)** %outputHistogram.addr
   store i32 0, i32* %pix_phase
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %globalId
   %call1 = call i32 @get_global_size(i32 0)       ; <i32> [#uses=1]
   store i32 %call1, i32* %globalSize
@@ -1362,7 +1362,7 @@ for.end114:                                       ; preds = %for.cond
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 
@@ -3458,7 +3458,7 @@ entry:
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  %call12 = call i32 @get_global_id(i32 0)        ; <i32> [#uses=1]
+  %call12 = call i32 @_Z13get_global_idj(i32 0)        ; <i32> [#uses=1]
   %conv = trunc i32 %call12 to i16                ; <i16> [#uses=1]
   store i16 %conv, i16* %ID1
   %arraydecay = getelementptr inbounds [8 x i16]* %histDarkPoint, i32 0, i32 0 ; <i16*> [#uses=1]
@@ -3466,7 +3466,7 @@ if.then:                                          ; preds = %entry
   %tmp14 = load i16 addrspace(1)** %pHistogram    ; <i16 addrspace(1)*> [#uses=1]
   %tmp15 = load i32* %histNumPixels               ; <i32> [#uses=1]
   call void @FindPoint(i16* getelementptr inbounds ([8 x i16]* @g_pui16HistDarkX, i32 0, i32 0), i16* getelementptr inbounds ([8 x i16]* @g_pui16HistDarkY, i32 0, i32 0), i16* %arraydecay, i16* %arraydecay13, i16 addrspace(1)* %tmp14, i32 %tmp15)
-  %call16 = call i32 @get_global_id(i32 1)        ; <i32> [#uses=1]
+  %call16 = call i32 @_Z13get_global_idj(i32 1)        ; <i32> [#uses=1]
   %conv17 = trunc i32 %call16 to i16              ; <i16> [#uses=1]
   store i16 %conv17, i16* %ID2
   %arraydecay18 = getelementptr inbounds [8 x i16]* %histBrightPoint, i32 0, i32 0 ; <i16*> [#uses=1]
@@ -3685,7 +3685,7 @@ entry:
   store i16 addrspace(1)* %imageLumaChannel, i16 addrspace(1)** %imageLumaChannel.addr
   store i16 addrspace(1)* %targetHistogram, i16 addrspace(1)** %targetHistogram.addr
   store i16 addrspace(1)* %outputLumaChannel, i16 addrspace(1)** %outputLumaChannel.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %globalId
   %call1 = call i32 @get_global_size(i32 0)       ; <i32> [#uses=1]
   store i32 %call1, i32* %globalSize
@@ -3823,7 +3823,7 @@ entry:
   store i16 addrspace(1)* %Vout, i16 addrspace(1)** %Vout.addr
   store i32 %bufferSize, i32* %bufferSize.addr
   store i8 addrspace(2)* %SatLUTEntry, i8 addrspace(2)** %SatLUTEntry.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %globalId
   %call1 = call i32 @get_global_size(i32 0)       ; <i32> [#uses=1]
   store i32 %call1, i32* %globalSize

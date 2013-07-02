@@ -71,7 +71,7 @@ entry:
   %gid0_curPix = alloca i32, align 4              ; <i32*> [#uses=3]
   store <4 x float> addrspace(1)* %input, <4 x float> addrspace(1)** %input.addr
   store <4 x float> addrspace(1)* %output, <4 x float> addrspace(1)** %output.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid0_curPix
   %tmp = load i32* %gid0_curPix                   ; <i32> [#uses=1]
   %tmp1 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
@@ -85,7 +85,7 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 ; CHECK: ret
 define void @color_conversion_rgb_to_yuv(<4 x float> addrspace(1)* %input, <4 x float> addrspace(1)* %output, i32 %pixelCount) nounwind {
@@ -103,7 +103,7 @@ entry:
   store i32 %pixelCount, i32* %pixelCount.addr
   %call = call i32 @get_global_size(i32 0)        ; <i32> [#uses=1]
   store i32 %call, i32* %global_size
-  %call1 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %global_id
   %tmp = load i32* %pixelCount.addr               ; <i32> [#uses=1]
   %tmp2 = load i32* %global_size                  ; <i32> [#uses=2]

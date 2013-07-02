@@ -122,7 +122,7 @@ entry:
   store i32 %body_count_per_item, i32* %body_count_per_item.addr
   store float %softening_squared, float* %softening_squared.addr
   store float %time_delta, float* %time_delta.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %index
   %tmp = load <4 x float> addrspace(1)** %input_position_x.addr ; <<4 x float> addrspace(1)*> [#uses=1]
   %0 = bitcast <4 x float> addrspace(1)* %tmp to float addrspace(1)* ; <float addrspace(1)*> [#uses=1]
@@ -755,7 +755,7 @@ for.end577:                                       ; preds = %for.cond
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare <4 x float> @_Z5rsqrtDv4_f(<4 x float>)
 
@@ -817,7 +817,7 @@ entry:
   store i32 %body_count_per_item, i32* %body_count_per_item.addr
   store float %softening_squared, float* %softening_squared.addr
   store float %time_delta, float* %time_delta.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %index
   %tmp = load float addrspace(1)** %input_position_x.addr ; <float addrspace(1)*> [#uses=1]
   store float addrspace(1)* %tmp, float addrspace(1)** %in_position_x

@@ -7,9 +7,9 @@
 
 declare i32 @_Z3minDv4_hS_(i32, i32)
 declare i32 @_Z3maxDv4_hS_(i32, i32)
-declare i64 @get_global_id(i32)
+declare i64 @_Z13get_global_idj(i32)
 define void @__Vectorized_.intel_median_bitonic_vector(i32 addrspace(1)* nocapture %pSrc, i32 addrspace(1)* nocapture %pDst, i32 %iImageWidth, i32 %iImageHeight) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
   %2 = icmp sgt i32 %iImageWidth, 0
   br i1 %2, label %bb.nph, label %._crit_edge
 

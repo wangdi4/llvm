@@ -5,6 +5,7 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "BarrierUtils.h"
+#include "CompilationUtils.h"
 #include "MetaDataApi.h"
 
 #include "llvm/Module.h"
@@ -15,6 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Version.h"
 
 #include <set>
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
 
@@ -205,7 +207,7 @@ namespace intel {
     if ( !m_barrierFunc ) {
       //Barrier function is not initialized yet
       //Check if there is a declaration in the module
-      m_barrierFunc = m_pModule->getFunction(BARRIER_FUNC_NAME);
+      m_barrierFunc = m_pModule->getFunction(CompilationUtils::mangledBarrier());
     }
     if ( !m_barrierFunc ) {
       //Module has no barrier declaration
@@ -214,7 +216,7 @@ namespace intel {
       std::vector<Type*> funcTyArgs;
       funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
       m_barrierFunc =
-        createFunctionDeclaration(BARRIER_FUNC_NAME, pResult, funcTyArgs);
+        createFunctionDeclaration(CompilationUtils::mangledBarrier(), pResult, funcTyArgs);
     }
     if ( !m_localMemFenceValue ) {
       //LocalMemFenceValue is not initialized yet
@@ -306,7 +308,7 @@ namespace intel {
   TInstructionVector& BarrierUtils::getAllGetLocalId() {
     if ( !m_bLIDInitialized ) {
       m_getLIDInstructions.clear();
-      Function *pFunc = m_pModule->getFunction(GET_LID_NAME);
+      Function *pFunc = m_pModule->getFunction(CompilationUtils::mangledGetLID());
       if ( pFunc ) {
         for ( Value::use_iterator ui = pFunc->use_begin(),
           ue = pFunc->use_end(); ui != ue; ++ui ) {
@@ -324,7 +326,7 @@ namespace intel {
   TInstructionVector& BarrierUtils::getAllGetGlobalId() {
     if ( !m_bGIDInitialized ) {
       m_getGIDInstructions.clear();
-      Function *pFunc = m_pModule->getFunction(GET_GID_NAME);
+      Function *pFunc = m_pModule->getFunction(CompilationUtils::mangledGetGID());
       if ( pFunc ) {
         for ( Value::use_iterator ui = pFunc->use_begin(),
           ue = pFunc->use_end(); ui != ue; ++ui ) {
@@ -380,17 +382,17 @@ namespace intel {
   }
 
   Instruction* BarrierUtils::createGetGlobalId(unsigned dim, Instruction* pInsertBefore) {
+    const std::string strGID = CompilationUtils::mangledGetGID();
     if ( !m_getGIDFunc ) {
       // Get existing get_global_id function
-      m_getGIDFunc = m_pModule->getFunction(GET_GID_NAME);
+      m_getGIDFunc = m_pModule->getFunction(strGID);
     }
     if (!m_getGIDFunc) {
       //Create one
       Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
       std::vector<Type*> funcTyArgs;
       funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
-      m_getGIDFunc =
-        createFunctionDeclaration(GET_GID_NAME, pResult, funcTyArgs);
+      m_getGIDFunc = createFunctionDeclaration(strGID, pResult, funcTyArgs);
       SetFunctionAttributeReadNone(m_getGIDFunc);
     }
     Type* uint_type = IntegerType::get(m_pModule->getContext(), 32);
@@ -435,7 +437,7 @@ namespace intel {
       return;
     }
     //Find all calls to barrier()
-    findAllUsesOfFunc(BARRIER_FUNC_NAME, m_barriers);
+    findAllUsesOfFunc(CompilationUtils::mangledBarrier(), m_barriers);
     //Find all calls to dummyBarrier()
     findAllUsesOfFunc(DUMMY_BARRIER_FUNC_NAME, m_dummyBarriers);
     //Find all calls to fiber()

@@ -15,50 +15,50 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 
 define void @variable_gid(i32 addrspace(1)* %out, i32 %dim) nounwind alwaysinline {
-  %id = call i32 @get_global_id(i32 %dim) nounwind
+  %id = call i32 @_Z13get_global_idj(i32 %dim) nounwind
   %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
 define void @variable_lid(i32 addrspace(1)* %out, i32 %dim) nounwind alwaysinline {
-  %id = call i32 @get_local_id(i32 %dim) nounwind
+  %id = call i32 @_Z12get_local_idj(i32 %dim) nounwind
   %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
 define void @out_of_range_gid(i32 addrspace(1)* %out) nounwind alwaysinline {
-  %id = call i32 @get_global_id(i32 10) nounwind
+  %id = call i32 @_Z13get_global_idj(i32 10) nounwind
   %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
 define void @out_of_range_lid(i32 addrspace(1)* %out) nounwind alwaysinline {
-  %id = call i32 @get_local_id(i32 10) nounwind
+  %id = call i32 @_Z12get_local_idj(i32 10) nounwind
   %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
 define void @in_range_gid(i32 addrspace(1)* %out) nounwind alwaysinline {
-  %id = call i32 @get_global_id(i32 1) nounwind
+  %id = call i32 @_Z13get_global_idj(i32 1) nounwind
   %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
 define void @in_range_lid(i32 addrspace(1)* %out) nounwind alwaysinline {
-  %id = call i32 @get_local_id(i32 1) nounwind
+  %id = call i32 @_Z12get_local_idj(i32 1) nounwind
   %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
-declare i32 @get_global_id(i32) nounwind readnone
+declare i32 @_Z13get_global_idj(i32) nounwind readnone
 
-declare i32 @get_local_id(i32) nounwind readnone
+declare i32 @_Z12get_local_idj(i32) nounwind readnone
 
 
 

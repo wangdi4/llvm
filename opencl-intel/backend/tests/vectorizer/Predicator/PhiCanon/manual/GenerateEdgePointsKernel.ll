@@ -27,17 +27,17 @@ target triple = "x86_64-unknown-linux-gnu"
 @opencl_GenerateEdgePointsKernel_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata"
 @opencl_GenerateEdgePointsKernel_parameters = appending global [680 x i8] c"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, Edge __attribute__((address_space(1))) *, Edge __attribute__((address_space(1))) *, Face __attribute__((address_space(1))) *, Face __attribute__((address_space(1))) *, Vertex __attribute__((address_space(1))) *, Vertex __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *, int, int, int\00", section "llvm.metadata"
 
-declare i64 @get_local_id(i32)
+declare i64 @_Z12get_local_idj(i32)
 
-declare i64 @get_local_size(i32)
+declare i64 @_Z14get_local_sizej(i32)
 
 declare i64 @get_group_id(i32)
 
 declare i32 @_Z12atom_cmpxchgPo1iii(i32 addrspace(1)*, i32, i32)
 
 define void @GenerateEdgePointsKernel(i32 addrspace(1)* nocapture %dEdge, i32 addrspace(1)* nocapture %dFace3, i32 addrspace(1)* nocapture %dFace4, i32 addrspace(1)* nocapture %dActive, i32 addrspace(1)* nocapture %dPotentiallyActive, i32 addrspace(1)* nocapture %dNewPotentiallyActive, i32 addrspace(1)* nocapture %dVertex, %struct._Edge addrspace(1)* nocapture %m_pInEB, %struct._Edge addrspace(1)* %m_pOutEB, %struct._Face addrspace(1)* %m_pInFB, %struct._Face addrspace(1)* nocapture %m_pOutFB, %struct._Vertex addrspace(1)* %m_pInVB, %struct._Vertex addrspace(1)* %m_pOutVB, i32 addrspace(1)* nocapture %m_pFace3Scanned, i32 addrspace(1)* nocapture %m_pFace4Scanned, i32 addrspace(1)* nocapture %m_pEdgeScanned, i32 %m_vertices, i32 %m_faces, i32 %m_edges) nounwind {
-  %1 = tail call i64 @get_local_id(i32 0) nounwind
-  %2 = tail call i64 @get_local_size(i32 0) nounwind
+  %1 = tail call i64 @_Z12get_local_idj(i32 0) nounwind
+  %2 = tail call i64 @_Z14get_local_sizej(i32 0) nounwind
   %3 = tail call i64 @get_group_id(i32 0) nounwind
   %4 = mul i64 %3, %2
   %5 = add i64 %4, %1

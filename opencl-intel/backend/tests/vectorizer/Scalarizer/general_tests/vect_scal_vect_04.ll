@@ -20,7 +20,7 @@ target triple = "i686-pc-win32"
 @opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, <8 x float> addrspace(1)*)* @func_vect_scal to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_func_vect_scal_locals to i8*), i8* getelementptr inbounds ([86 x i8]* @opencl_func_vect_scal_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 define void @func_vect_scal(float addrspace(1)* nocapture %in, <8 x float> addrspace(1)* nocapture %out) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind ; <i32> [#uses=2]
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=2]
   %2 = sitofp i32 %1 to float                     ; <float> [#uses=1]
   %3 = insertelement <8 x float> undef, float %2, i32 0 ; <<8 x float>> [#uses=1]
   %4 = load float addrspace(1)* %in               ; <float> [#uses=1]
@@ -38,7 +38,7 @@ define void @func_vect_scal(float addrspace(1)* nocapture %in, <8 x float> addrs
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 
 ;CHECK: fmul float

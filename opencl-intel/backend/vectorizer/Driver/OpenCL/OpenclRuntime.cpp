@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Mangler.h"
 #include "ParameterType.h"
 #include "Logger.h"
+#include "CompilationUtils.h"
 
 #include "llvm/Constants.h"
 #include "llvm/Support/Debug.h"
@@ -170,6 +171,7 @@ OpenclRuntime::findBuiltinFunction(std::string &mangledName) const {
 bool OpenclRuntime::orderedWI() const { return true; }
 
 bool OpenclRuntime::isTIDGenerator(const Instruction * inst, bool * err, unsigned *dim) const {
+  using namespace Intel::OpenCL::DeviceBackend;
   *err = false; // By default, no error expected..
   const CallInst * CI = dyn_cast<CallInst>(inst);
   if (!CI) return false; // ID generator is a function call.
@@ -179,7 +181,8 @@ bool OpenclRuntime::isTIDGenerator(const Instruction * inst, bool * err, unsigne
     funcName = Mangler::demangle(funcName); // Remove mangling (masking) prefix
     ++dimensionIndex; // There is a mask/predicate argument before the dimension
   }
-  if (funcName != GET_GID_NAME && funcName != GET_LID_NAME) return false; // not a get_***_id function
+  if (!CompilationUtils::isGetGlobalId(funcName) && !CompilationUtils::isGetLocalId(funcName))
+    return false; // not a get_***_id function
   Value * inputValue = CI->getArgOperand(dimensionIndex);
 
   // Check if the argument is constant - if not, we cannot determine if
@@ -263,31 +266,52 @@ bool OpenclRuntime::isExpensiveCall(const std::string &func_name) const {
   return stripped.startswith("read_image") || stripped.startswith("write_image");
 }
 
-bool OpenclRuntime::isWorkItemBuiltin(const std::string &func_name) const {
-  if (0 == func_name.compare("get_global_id")) return true;
-  if (0 == func_name.compare("get_local_id")) return true;
-  if (0 == func_name.compare("get_base_global_id.")) return true;
-  if (0 == func_name.compare("get_local_size")) return true;
-  if (0 == func_name.compare("get_global_size")) return true;
-  if (0 == func_name.compare("get_group_id")) return true;
-  if (0 == func_name.compare("get_num_groups")) return true;
-  if (0 == func_name.compare("get_work_dim")) return true;
-  if (0 == func_name.compare("get_global_offset")) return true;
-  return false;
+bool OpenclRuntime::isWorkItemBuiltin(const std::string &name) const {
+  using namespace Intel::OpenCL::DeviceBackend;
+  return CompilationUtils::isGetGlobalId(name) ||
+    CompilationUtils::isGetLocalId(name)   ||
+    CompilationUtils::isGetLocalSize(name) ||
+    CompilationUtils::isGetGlobalSize(name)||
+    CompilationUtils::isGetGroupId(name)   ||
+    CompilationUtils::isGetWorkDim(name)   ||
+    CompilationUtils::isGlobalOffset(name) ||
+    CompilationUtils::isGetNumGroups(name) || 
+    (0 == name.compare("get_base_global_id."));
 }
 
 bool OpenclRuntime::isSyncWithSideEfffect(const std::string &func_name) const {
-  if (std::string::npos != func_name.find("async_work_group_copy")) return true;
-  if (std::string::npos != func_name.find("async_work_group_strided_copy")) return true;
-  if (0 == func_name.compare("_Z17wait_group_eventsiPj")) return true;
+  using namespace Intel::OpenCL::DeviceBackend;
+  if (CompilationUtils::isAsyncWorkGroupCopy(func_name))
+    return true;
+  if (CompilationUtils::isAsyncWorkGroupStridedCopy(func_name))
+    return true;
+  if (CompilationUtils::isWaitGroupEvents(func_name))
+    return true;
   return false;
 }
 
 bool OpenclRuntime::isSyncWithNoSideEfffect(const std::string &func_name) const {
-  if (0 == func_name.compare("barrier")) return true;
-  if (0 == func_name.compare("mem_fence")) return true;
-  if (0 == func_name.compare("read_mem_fence")) return true;
-  if (0 == func_name.compare("write_mem_fence")) return true;
+  using namespace Intel::OpenCL::DeviceBackend;
+  if (func_name == CompilationUtils::mangledBarrier())
+    return true;
+
+  const char* Fname = func_name.c_str();
+  bool IsMangled = isMangledName(Fname);
+
+  //builtin functions are always mangeled
+  if (!IsMangled)
+    return false;
+
+  llvm::StringRef Stripped = stripName(Fname);
+  if (Stripped == "mem_fence")
+    return true;
+
+  if (Stripped  == "read_mem_fence")
+    return true;
+
+  if (Stripped == "write_mem_fence")
+    return true;
+
   return false;
 }
 

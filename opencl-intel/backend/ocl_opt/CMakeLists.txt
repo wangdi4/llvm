@@ -22,6 +22,7 @@ set(OCL_BE_PASSES
     LLVMBarrier
     LLVMVectorizer
     ModuleCleanup
+    Materialize 
 )
 
 # Dependencies of the passes

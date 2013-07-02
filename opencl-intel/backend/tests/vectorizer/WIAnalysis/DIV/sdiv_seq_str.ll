@@ -7,7 +7,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 
 define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocapture %out) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = add nsw i32 %1, 100
   %3 = mul nsw i32 %1, 7
   %4 = add nsw i32 %3, 12
@@ -33,7 +33,7 @@ define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* noca
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 !opencl.kernels = !{!0}
 

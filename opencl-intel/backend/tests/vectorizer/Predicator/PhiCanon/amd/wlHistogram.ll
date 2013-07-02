@@ -59,7 +59,7 @@ target triple = "i686-pc-win32"
 
 define void @histogramScalar(i32 addrspace(1)* %puiInputMatrix, i32 addrspace(1)* %puiOutputArray, i32 %szMatrix, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %cmp = icmp ne i32 %call, 0
   %cmp21 = icmp eq i32 %szMatrix, 0
   %or.cond = or i1 %cmp, %cmp21
@@ -87,12 +87,12 @@ return:                                           ; preds = %return.loopexit, %e
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 define void @histogramGrouped(i32 addrspace(1)* %puiInputMatrix, i32 addrspace(1)* %puiTmpArray, i32 addrspace(1)* %puiGroupOutputArray, i32 %szBin, i32 %szBinsPerItem, i32 %szElemenetsPerItem, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
-  %call1 = call i32 @get_local_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
+  %call1 = call i32 @_Z12get_local_idj(i32 0) nounwind
   %mul = mul i32 %call, %szBin
   %add = add i32 %call, 1
   %mul7 = mul i32 %szBinsPerItem, %szBin
@@ -121,11 +121,11 @@ for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
-  %call26 = call i32 @get_local_size(i32 0) nounwind
+  %call26 = call i32 @_Z14get_local_sizej(i32 0) nounwind
   %add29 = add i32 %call1, 1
   %mul31 = mul i32 %add29, %szElemenetsPerItem
   %call33 = call i32 @get_group_id(i32 0) nounwind
-  %call34 = call i32 @get_local_size(i32 0) nounwind
+  %call34 = call i32 @_Z14get_local_sizej(i32 0) nounwind
   %mul35 = mul i32 %call34, %call33
   %call42 = call i32 @get_group_id(i32 0) nounwind
   %mul44 = mul i32 %call42, %szBin
@@ -172,15 +172,15 @@ for.end83:                                        ; preds = %for.end83.loopexit,
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare i32 @get_local_size(i32)
+declare i32 @_Z14get_local_sizej(i32)
 
 declare i32 @get_group_id(i32)
 
 define void @histogramStep1(i32 addrspace(1)* %puiInputMatrix, i32 addrspace(1)* %puiTmpArray, i32 %szBin, i32 %szBinsPerItem, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %mul = mul i32 %call, %szBin
   %add = add i32 %call, 1
   %mul6 = mul i32 %szBinsPerItem, %szBin
@@ -214,7 +214,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 
 define void @histogramStep2int(i32 addrspace(1)* %puiTmpArray, i32 addrspace(1)* %puiOutputArray, i32 %szBin, i32 %szBinsInTmp, i32 %szElemenetsPerItem, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %add = add i32 %call, 1
   %mul = mul i32 %add, %szElemenetsPerItem
   %cmp4 = icmp eq i32 %szBinsInTmp, 0
@@ -260,7 +260,7 @@ for.end31:                                        ; preds = %for.end31.loopexit,
 
 define void @histogramStep2int2(<2 x i32> addrspace(1)* %puiTmpArray, <2 x i32> addrspace(1)* %puiOutputArray, i32 %szBin, i32 %szBinsInTmp, i32 %szElemenetsPerItem, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %add = add i32 %call, 1
   %mul = mul i32 %add, %szElemenetsPerItem
   %cmp4 = icmp eq i32 %szBinsInTmp, 0
@@ -306,7 +306,7 @@ for.end31:                                        ; preds = %for.end31.loopexit,
 
 define void @histogramStep2int4(<4 x i32> addrspace(1)* %puiTmpArray, <4 x i32> addrspace(1)* %puiOutputArray, i32 %szBin, i32 %szBinsInTmp, i32 %szElemenetsPerItem, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %add = add i32 %call, 1
   %mul = mul i32 %add, %szElemenetsPerItem
   %cmp4 = icmp eq i32 %szBinsInTmp, 0
@@ -352,7 +352,7 @@ for.end31:                                        ; preds = %for.end31.loopexit,
 
 define void @histogramStep2int8(<8 x i32> addrspace(1)* %puiTmpArray, <8 x i32> addrspace(1)* %puiOutputArray, i32 %szBin, i32 %szBinsInTmp, i32 %szElemenetsPerItem, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %add = add i32 %call, 1
   %mul = mul i32 %add, %szElemenetsPerItem
   %cmp4 = icmp eq i32 %szBinsInTmp, 0
@@ -398,7 +398,7 @@ for.end31:                                        ; preds = %for.end31.loopexit,
 
 define void @histogramStep2int16(<16 x i32> addrspace(1)* %puiTmpArray, <16 x i32> addrspace(1)* %puiOutputArray, i32 %szBin, i32 %szBinsInTmp, i32 %szElemenetsPerItem, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %add = add i32 %call, 1
   %mul = mul i32 %add, %szElemenetsPerItem
   %cmp4 = icmp eq i32 %szBinsInTmp, 0

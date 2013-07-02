@@ -613,11 +613,11 @@ do.end175:                                        ; preds = %do.end174
   %tmp322 = load float addrspace(3)** %lp         ; <float addrspace(3)*> [#uses=1]
   %arrayidx323 = getelementptr inbounds float addrspace(3)* %tmp322, i32 3 ; <float addrspace(3)*> [#uses=1]
   store float %tmp321, float addrspace(3)* %arrayidx323
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   ret void
 }
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 ; CHECK: ret
 define void @kfft_pass2(i32 %me, float addrspace(3)* %lds) nounwind alwaysinline {
@@ -1156,7 +1156,7 @@ do.end341:                                        ; preds = %do.body315
   br label %do.end342
 
 do.end342:                                        ; preds = %do.end341
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %tmp343 = load float addrspace(3)** %lds.addr   ; <float addrspace(3)*> [#uses=1]
   %tmp344 = load i32* %me.addr                    ; <i32> [#uses=1]
   %shl345 = shl i32 %tmp344, 2                    ; <i32> [#uses=1]
@@ -1346,7 +1346,7 @@ do.end342:                                        ; preds = %do.end341
   %tmp490 = load float addrspace(3)** %lp         ; <float addrspace(3)*> [#uses=1]
   %arrayidx491 = getelementptr inbounds float addrspace(3)* %tmp490, i32 3 ; <float addrspace(3)*> [#uses=1]
   store float %tmp489, float addrspace(3)* %arrayidx491
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   ret void
 }
 
@@ -1888,7 +1888,7 @@ do.end342:                                        ; preds = %do.body316
   br label %do.end343
 
 do.end343:                                        ; preds = %do.end342
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %tmp344 = load float addrspace(3)** %lds.addr   ; <float addrspace(3)*> [#uses=1]
   %tmp345 = load i32* %me.addr                    ; <i32> [#uses=1]
   %add.ptr346 = getelementptr inbounds float addrspace(3)* %tmp344, i32 %tmp345 ; <float addrspace(3)*> [#uses=1]
@@ -2074,7 +2074,7 @@ do.end343:                                        ; preds = %do.end342
   %tmp487 = load float addrspace(3)** %lp         ; <float addrspace(3)*> [#uses=1]
   %arrayidx488 = getelementptr inbounds float addrspace(3)* %tmp487, i32 198 ; <float addrspace(3)*> [#uses=1]
   store float %tmp486, float addrspace(3)* %arrayidx488
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   ret void
 }
 
@@ -2623,7 +2623,7 @@ do.end348:                                        ; preds = %do.body322
   br label %do.end349
 
 do.end349:                                        ; preds = %do.end348
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %tmp350 = load float addrspace(3)** %lds.addr   ; <float addrspace(3)*> [#uses=1]
   %tmp351 = load i32* %me.addr                    ; <i32> [#uses=1]
   %add.ptr352 = getelementptr inbounds float addrspace(3)* %tmp350, i32 %tmp351 ; <float addrspace(3)*> [#uses=1]
@@ -2809,7 +2809,7 @@ do.end349:                                        ; preds = %do.end348
   %tmp493 = load float addrspace(3)** %lp         ; <float addrspace(3)*> [#uses=1]
   %arrayidx494 = getelementptr inbounds float addrspace(3)* %tmp493, i32 204 ; <float addrspace(3)*> [#uses=1]
   store float %tmp492, float addrspace(3)* %arrayidx494
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   ret void
 }
 
@@ -3415,7 +3415,7 @@ entry:
   %dg = alloca i32, align 4                       ; <i32*> [#uses=3]
   store float addrspace(1)* %greal, float addrspace(1)** %greal.addr
   store float addrspace(1)* %gimag, float addrspace(1)** %gimag.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %gid                           ; <i32> [#uses=1]
   %and = and i32 %tmp, 63                         ; <i32> [#uses=1]
@@ -3878,7 +3878,7 @@ entry:
   %tmp322.i = load float addrspace(3)** %lp.i     ; <float addrspace(3)*> [#uses=1]
   %arrayidx323.i = getelementptr inbounds float addrspace(3)* %tmp322.i, i32 3 ; <float addrspace(3)*> [#uses=1]
   store float %tmp321.i, float addrspace(3)* %arrayidx323.i
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %tmp11 = load i32* %me                          ; <i32> [#uses=1]
   store i32 %tmp11, i32* %me.addr.i814
   store float addrspace(3)* getelementptr inbounds ([2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i815
@@ -4339,7 +4339,7 @@ kfft_pass2.exit:                                  ; preds = %k_sincos.exit527.i,
   store <4 x float> %add339.i, <4 x float>* %zi3.i824
   %tmp340.i = load <4 x float>* %__r317.i         ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp340.i, <4 x float>* %zr3.i820
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %tmp343.i = load float addrspace(3)** %lds.addr.i815 ; <float addrspace(3)*> [#uses=1]
   %tmp344.i1131 = load i32* %me.addr.i814         ; <i32> [#uses=1]
   %shl345.i = shl i32 %tmp344.i1131, 2            ; <i32> [#uses=1]
@@ -4529,7 +4529,7 @@ kfft_pass2.exit:                                  ; preds = %k_sincos.exit527.i,
   %tmp490.i = load float addrspace(3)** %lp.i816  ; <float addrspace(3)*> [#uses=1]
   %arrayidx491.i = getelementptr inbounds float addrspace(3)* %tmp490.i, i32 3 ; <float addrspace(3)*> [#uses=1]
   store float %tmp489.i1219, float addrspace(3)* %arrayidx491.i
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %tmp12 = load i32* %me                          ; <i32> [#uses=1]
   store i32 %tmp12, i32* %me.addr.i400
   store float addrspace(3)* getelementptr inbounds ([2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i401
@@ -4991,7 +4991,7 @@ kfft_pass3.exit:                                  ; preds = %k_sincos.exit524.i,
   store <4 x float> %add340.i, <4 x float>* %zi3.i410
   %tmp341.i724 = load <4 x float>* %__r318.i      ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp341.i724, <4 x float>* %zr3.i406
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %tmp344.i725 = load float addrspace(3)** %lds.addr.i401 ; <float addrspace(3)*> [#uses=1]
   %tmp345.i = load i32* %me.addr.i400             ; <i32> [#uses=1]
   %add.ptr346.i = getelementptr inbounds float addrspace(3)* %tmp344.i725, i32 %tmp345.i ; <float addrspace(3)*> [#uses=1]
@@ -5177,7 +5177,7 @@ kfft_pass3.exit:                                  ; preds = %k_sincos.exit524.i,
   %tmp487.i809 = load float addrspace(3)** %lp.i402 ; <float addrspace(3)*> [#uses=1]
   %arrayidx488.i = getelementptr inbounds float addrspace(3)* %tmp487.i809, i32 198 ; <float addrspace(3)*> [#uses=1]
   store float %tmp486.i, float addrspace(3)* %arrayidx488.i
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %tmp13 = load i32* %me                          ; <i32> [#uses=1]
   store i32 %tmp13, i32* %me.addr.i166
   store float addrspace(3)* getelementptr inbounds ([2176 x float] addrspace(3)* @opencl_kfft_local_lds, i32 0, i32 0), float addrspace(3)** %lds.addr.i167
@@ -5646,7 +5646,7 @@ kfft_pass4.exit:                                  ; preds = %k_sincos.exit530.i,
   store <4 x float> %add346.i, <4 x float>* %zi3.i176
   %tmp347.i = load <4 x float>* %__r324.i         ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp347.i, <4 x float>* %zr3.i172
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %tmp350.i = load float addrspace(3)** %lds.addr.i167 ; <float addrspace(3)*> [#uses=1]
   %tmp351.i = load i32* %me.addr.i166             ; <i32> [#uses=1]
   %add.ptr352.i = getelementptr inbounds float addrspace(3)* %tmp350.i, i32 %tmp351.i ; <float addrspace(3)*> [#uses=1]
@@ -5832,7 +5832,7 @@ kfft_pass4.exit:                                  ; preds = %k_sincos.exit530.i,
   %tmp493.i = load float addrspace(3)** %lp.i168  ; <float addrspace(3)*> [#uses=1]
   %arrayidx494.i = getelementptr inbounds float addrspace(3)* %tmp493.i, i32 204 ; <float addrspace(3)*> [#uses=1]
   store float %tmp492.i, float addrspace(3)* %arrayidx494.i
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %tmp14 = load i32* %me                          ; <i32> [#uses=1]
   %tmp15 = load float addrspace(1)** %gr          ; <float addrspace(1)*> [#uses=1]
   %tmp16 = load float addrspace(1)** %gi          ; <float addrspace(1)*> [#uses=1]
@@ -6181,4 +6181,4 @@ kfft_pass4.exit:                                  ; preds = %k_sincos.exit530.i,
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)

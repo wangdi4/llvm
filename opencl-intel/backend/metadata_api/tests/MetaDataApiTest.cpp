@@ -56,22 +56,15 @@ TEST(MetaDataTest, basic)
             std::cout <<  "VecTypeHist:" << kernel->getVecTypeHint() << std::endl;
         }
 
-        if( kernel->getArgInfo()->hasValue() )
-        {
-            KernelArgInfoMetaDataHandle argInfo = kernel->getArgInfo();
 
-            if( argInfo->isArgNamesHasValue() )
-            {
-                KernelArgInfoMetaData::ArgNamesList::iterator ai = argInfo->begin_ArgNames();
-                KernelArgInfoMetaData::ArgNamesList::iterator ae = argInfo->end_ArgNames();
+       KernelMetaData::ArgNameList::iterator ai = kernel->begin_ArgName();
+       KernelMetaData::ArgNameList::iterator ae = kernel->end_ArgName();
 
-                for(; ai != ae; ++ai)
-                {
-                    std::cout << "arg:" << *ai << std::endl;
-                }
+       for(; ai != ae; ++ai)
+       {
+           std::cout << "arg:" << *ai << std::endl;
+       }
 
-            }
-        }
 
     }
     SUCCEED();

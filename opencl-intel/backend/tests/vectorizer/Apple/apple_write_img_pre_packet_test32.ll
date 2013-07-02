@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %0 = type opaque
 %struct._image2d_t = type opaque
 
-declare i32 @get_global_id(i32) nounwind
+declare i32 @_Z13get_global_idj(i32) nounwind
 
 
 ; CHECK: @__write_imagef_2d_x_cons_y_uni_test
@@ -21,7 +21,7 @@ declare i32 @get_global_id(i32) nounwind
 ; CHECK: ret void
 define void @__write_imagef_2d_x_cons_y_uni_test(%struct._image2d_t addrspace(1)* %img, <4 x float>* nocapture %colors, i32 %ycrd) nounwind {
 entry:
-  %ind = tail call i32 @get_global_id(i32 0)
+  %ind = tail call i32 @_Z13get_global_idj(i32 0)
   %0 = sext i32 %ind to i64
   %colors_ptr = getelementptr <4 x float>* %colors, i64 %0
   %colors_val = load <4 x float>* %colors_ptr, align 16
@@ -46,7 +46,7 @@ entry:
 ; CHECK: ret void
 define void @__write_imagef_2d_x_uni_y_cons_test(%struct._image2d_t addrspace(1)* %img, <4 x float>* nocapture %colors, i32 %ycrd) nounwind {
 entry:
-  %ind = tail call i32 @get_global_id(i32 0)
+  %ind = tail call i32 @_Z13get_global_idj(i32 0)
   %0 = sext i32 %ind to i64
   %colors_ptr = getelementptr <4 x float>* %colors, i64 %0
   %colors_val = load <4 x float>* %colors_ptr, align 16

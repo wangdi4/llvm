@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @kernel(i8 addrspace(1)* nocapture %src, i32 %j) nounwind {
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %0 = mul i64 %call, 7
   %mul = add i64 %0, 56
   %idxprom = and i64 %mul, 4294967295
@@ -26,7 +26,7 @@ entry:
 
 define void @kernel2(i8 addrspace(1)* nocapture %src, i32 %j) nounwind {
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %0 = mul i64 %call, 7
   %mul = add i64 %0, 56
   %idxprom = and i64 %mul, 12345
@@ -41,7 +41,7 @@ entry:
 
 define void @kernel_int(i8 addrspace(1)* nocapture %src, i32 %j) nounwind {
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %mul = mul i64 %call, 30064771072
   %sext = add i64 %mul, 240518168576
   %idxprom = ashr exact i64 %sext, 32
@@ -50,4 +50,4 @@ entry:
   ret void
 }
 
-declare i64 @get_global_id(i32 )
+declare i64 @_Z13get_global_idj(i32 )

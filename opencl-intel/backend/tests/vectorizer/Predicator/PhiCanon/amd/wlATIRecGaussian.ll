@@ -20,10 +20,10 @@ target triple = "i686-pc-win32"
 
 define void @transpose_kernel(<4 x i8> addrspace(1)* %output, <4 x i8> addrspace(1)* %input, <4 x i8> addrspace(3)* %block, i32 %width, i32 %height, i32 %blockSize, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
-  %call1 = call i32 @get_global_id(i32 1) nounwind
-  %call2 = call i32 @get_local_id(i32 0) nounwind
-  %call3 = call i32 @get_local_id(i32 1) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
+  %call1 = call i32 @_Z13get_global_idj(i32 1) nounwind
+  %call2 = call i32 @_Z12get_local_idj(i32 0) nounwind
+  %call3 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %mul = mul i32 %call3, %blockSize
   %add = add i32 %mul, %call2
   %arrayidx = getelementptr <4 x i8> addrspace(3)* %block, i32 %add
@@ -32,7 +32,7 @@ entry:
   %arrayidx13 = getelementptr <4 x i8> addrspace(1)* %input, i32 %add11
   %tmp14 = load <4 x i8> addrspace(1)* %arrayidx13, align 4
   store <4 x i8> %tmp14, <4 x i8> addrspace(3)* %arrayidx, align 4
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %mul25 = mul i32 %call, %height
   %add26 = add i32 %call1, %mul25
   %arrayidx29 = getelementptr <4 x i8> addrspace(1)* %output, i32 %add26
@@ -41,15 +41,15 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 define void @RecursiveGaussian_kernel(<4 x i8> addrspace(1)* %input, <4 x i8> addrspace(1)* %output, i32 %width, i32 %height, float %a0, float %a1, float %a2, float %a3, float %b1, float %b2, float %coefp, float %coefn, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %cmp = icmp ult i32 %call, %width
   br i1 %cmp, label %for.cond.preheader, label %return
 
@@ -118,7 +118,7 @@ for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %for.cond.preheader
-  call void @barrier(i32 2) nounwind
+  call void @_Z7barrierm(i32 2) nounwind
   %storemerge9 = add i32 %height, -1
   %cmp9010 = icmp sgt i32 %storemerge9, -1
   br i1 %cmp9010, label %for.body92.lr.ph, label %return

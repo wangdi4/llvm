@@ -17,7 +17,7 @@ target triple = "i686-pc-win32"
 
 define void @prefixSum(float addrspace(1)* %output, float addrspace(1)* %input, float addrspace(3)* %block, i32 %length, ...) nounwind {
 entry:
-  %call = call i32 @get_local_id(i32 0) nounwind
+  %call = call i32 @_Z12get_local_idj(i32 0) nounwind
   %mul = shl i32 %call, 1
   %arrayidx = getelementptr float addrspace(3)* %block, i32 %mul
   %arrayidx5 = getelementptr float addrspace(1)* %input, i32 %mul
@@ -39,7 +39,7 @@ for.body.lr.ph:                                   ; preds = %entry
 for.body:                                         ; preds = %for.body.lr.ph, %if.end
   %storemerge615 = phi i32 [ %shr, %for.body.lr.ph ], [ %shr48, %if.end ]
   %tmp80914 = phi i32 [ 1, %for.body.lr.ph ], [ %mul46, %if.end ]
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %cmp22 = icmp slt i32 %call, %storemerge615
   br i1 %cmp22, label %if.then, label %if.end
 
@@ -88,7 +88,7 @@ for.body63:                                       ; preds = %for.body63.lr.ph, %
   %storemerge12 = phi i32 [ 1, %for.body63.lr.ph ], [ %mul107, %for.inc105 ]
   %tmp80811 = phi i32 [ %tmp809.lcssa, %for.body63.lr.ph ], [ %shr65, %for.inc105 ]
   %shr65 = ashr i32 %tmp80811, 1
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %cmp68 = icmp slt i32 %call, %storemerge12
   br i1 %cmp68, label %if.then69, label %for.inc105
 
@@ -116,7 +116,7 @@ for.end108.loopexit:                              ; preds = %for.inc105
   br label %for.end108
 
 for.end108:                                       ; preds = %for.end108.loopexit, %for.cond59.preheader
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %arrayidx112 = getelementptr float addrspace(1)* %output, i32 %mul
   %tmp117 = load float addrspace(3)* %arrayidx, align 4
   store float %tmp117, float addrspace(1)* %arrayidx112, align 4
@@ -126,6 +126,6 @@ for.end108:                                       ; preds = %for.end108.loopexit
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)

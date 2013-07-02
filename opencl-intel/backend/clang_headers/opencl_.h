@@ -205,35 +205,35 @@ typedef double double16 __attribute__((ext_vector_type(16)));
 #define M_SQRT2_F     1.41421356237309504880168872420969808f
 #define M_SQRT1_2_F   0.707106781186547524400844362104849039f
 
-#define M_E               0x1.5bf0a8b145769p+1
-#define M_LOG2E           0x1.71547652b82fep+0
-#define M_LOG10E          0x1.bcb7b1526e50ep-2
-#define M_LN2             0x1.62e42fefa39efp-1
-#define M_LN10            0x1.26bb1bbb55516p+1
-#define M_PI              0x1.921fb54442d18p+1
-#define M_PI_2            0x1.921fb54442d18p+0
-#define M_PI_4            0x1.921fb54442d18p-1
-#define M_1_PI            0x1.45f306dc9c883p-2
-#define M_2_PI            0x1.45f306dc9c883p-1
-#define M_2_SQRTPI        0x1.20dd750429b6dp+0
-#define M_SQRT2           0x1.6a09e667f3bcdp+0
-#define M_SQRT1_2         0x1.6a09e667f3bcdp-1
+#define M_E				0x1.5bf0a8b145769p+1
+#define M_LOG2E			0x1.71547652b82fep+0
+#define M_LOG10E		0x1.bcb7b1526e50ep-2
+#define M_LN2			0x1.62e42fefa39efp-1
+#define M_LN10			0x1.26bb1bbb55516p+1
+#define M_PI			0x1.921fb54442d18p+1
+#define M_PI_2			0x1.921fb54442d18p+0
+#define M_PI_4			0x1.921fb54442d18p-1
+#define M_1_PI			0x1.45f306dc9c883p-2
+#define M_2_PI			0x1.45f306dc9c883p-1
+#define M_2_SQRTPI		0x1.20dd750429b6dp+0
+#define M_SQRT2			0x1.6a09e667f3bcdp+0
+#define M_SQRT1_2		0x1.6a09e667f3bcdp-1
 
-#define CHAR_BIT     8
-#define SCHAR_MAX    127
-#define SCHAR_MIN    (-128)
-#define UCHAR_MAX    255
-#define CHAR_MAX     SCHAR_MAX
-#define CHAR_MIN     SCHAR_MIN
-#define USHRT_MAX    65535
-#define SHRT_MAX     32767
-#define SHRT_MIN     (-32768)
-#define UINT_MAX     0xffffffff
-#define INT_MAX      2147483647
-#define INT_MIN      (-2147483647-1)
-#define ULONG_MAX    0xffffffffffffffffUL
-#define LONG_MAX     ((long)0x7fffffffffffffffL)
-#define LONG_MIN     ((long)(-0x7fffffffffffffffL-1))
+#define CHAR_BIT    8
+#define	SCHAR_MAX	127
+#define	SCHAR_MIN	(-128)
+#define	UCHAR_MAX	255
+#define	CHAR_MAX	SCHAR_MAX
+#define	CHAR_MIN	SCHAR_MIN
+#define	USHRT_MAX	65535
+#define	SHRT_MAX	32767
+#define	SHRT_MIN	(-32768)
+#define	UINT_MAX	0xffffffff
+#define	INT_MAX		2147483647
+#define	INT_MIN		(-2147483647-1)
+#define	ULONG_MAX	0xffffffffffffffffUL
+#define	LONG_MAX	((long)0x7fffffffffffffffL)
+#define	LONG_MIN	((long)(-0x7fffffffffffffffL-1))
 
 #define DBL_DIG 15
 #define DBL_MANT_DIG 53
@@ -259,7 +259,7 @@ typedef struct _cl_image_format_t {
  * clEnqueueNDRangeKernel.
  * For clEnqueueTask, this returns 1.
  */
-uint const_func get_work_dim(void);
+uint const_func __attribute__((overloadable)) get_work_dim(void);
 
 /**
  * Returns the number of global work-items specified for
@@ -270,7 +270,7 @@ uint const_func get_work_dim(void);
  * dimindx, get_global_size() returns 1.
  * For clEnqueueTask, this always returns 1.
  */
-size_t const_func get_global_size(uint dimindx);
+size_t const_func __attribute__((overloadable)) get_global_size(uint dimindx);
 
 /**
  * Returns the unique global work-item ID value for
@@ -281,7 +281,7 @@ size_t const_func get_global_size(uint dimindx);
  * other values of dimindx, get_global_id() returns 0.
  * For clEnqueueTask, this returns 0.
  */
-size_t const_func get_global_id(uint dimindx);
+size_t const_func __attribute__((overloadable)) get_global_id(uint dimindx);
 
 /**
  * Returns the number of local work-items specified in
@@ -295,7 +295,7 @@ size_t const_func get_global_id(uint dimindx);
  * get_local_size() returns 1.
  * For clEnqueueTask, this always returns 1.
  */
-size_t const_func get_local_size(uint dimindx);
+size_t const_func __attribute__((overloadable)) get_local_size(uint dimindx);
 
 /**
  * Returns the unique local work-item ID i.e. a work-item
@@ -305,7 +305,7 @@ size_t const_func get_local_size(uint dimindx);
  * get_local_id() returns 0.
  * For clEnqueueTask, this returns 0.
  */
-size_t const_func get_local_id(uint dimindx);
+size_t const_func __attribute__((overloadable)) get_local_id(uint dimindx);
 
 /**
  * Returns the number of work-groups that will execute a
@@ -315,7 +315,7 @@ size_t const_func get_local_id(uint dimindx);
  * 1.
  * For clEnqueueTask, this always returns 1.
  */
-size_t const_func get_num_groups(uint dimindx);
+size_t const_func __attribute__((overloadable)) get_num_groups(uint dimindx);
 
 /**
  * get_group_id returns the work-group ID which is a
@@ -324,7 +324,7 @@ size_t const_func get_num_groups(uint dimindx);
  * For other values, get_group_id() returns 0.
  * For clEnqueueTask, this returns 0.
  */
-size_t const_func get_group_id(uint dimindx);
+size_t const_func __attribute__((overloadable)) get_group_id(uint dimindx);
 
 /**
  * get_global_offset returns the offset values specified in
@@ -334,7 +334,7 @@ size_t const_func get_group_id(uint dimindx);
  * For other values, get_global_offset() returns 0.
  * For clEnqueueTask, this returns 0.
  */
-size_t const_func get_global_offset(uint dimindx);
+size_t const_func __attribute__((overloadable)) get_global_offset(uint dimindx);
 
 int printf(__constant const char* st, ...);
 // Math functions:
@@ -5891,9 +5891,9 @@ void __attribute__((overloadable)) vstorea_half16_rtn(double16 data,size_t offse
  * image objects and then want to read the updated data.
  */
 
-typedef size_t cl_mem_fence_flags;
+typedef uint cl_mem_fence_flags;
 
-void barrier(cl_mem_fence_flags flags);
+void __attribute__((overloadable)) barrier(cl_mem_fence_flags flags);
 
 // Explicit memory fence functions
 
@@ -5910,7 +5910,7 @@ void barrier(cl_mem_fence_flags flags);
  * CLK_LOCAL_MEM_FENCE
  * CLK_GLOBAL_MEM_FENCE.
  */
-void mem_fence(cl_mem_fence_flags flags);
+void __attribute__((overloadable)) mem_fence(cl_mem_fence_flags flags);
 
 /**
  * Read memory barrier that orders only
@@ -5922,7 +5922,7 @@ void mem_fence(cl_mem_fence_flags flags);
  * CLK_LOCAL_MEM_FENCE
  * CLK_GLOBAL_MEM_FENCE.
  */
-void read_mem_fence(cl_mem_fence_flags flags);
+void __attribute__((overloadable)) read_mem_fence(cl_mem_fence_flags flags);
 
 /**
  * Write memory barrier that orders only
@@ -5934,7 +5934,7 @@ void read_mem_fence(cl_mem_fence_flags flags);
  * CLK_LOCAL_MEM_FENCE
  * CLK_GLOBAL_MEM_FENCE.
  */
-void write_mem_fence(cl_mem_fence_flags flags);
+void __attribute__((overloadable)) write_mem_fence(cl_mem_fence_flags flags);
 
 // Flag values for barrier, mem_fence, read_mem_fence, write_mem_fence
 
@@ -6596,12 +6596,12 @@ unsigned int __attribute__((overloadable)) atom_xor(volatile __local unsigned in
 // Function qualifiers (section 6.7)
 
 #define __kernel_exec(X, typen) __kernel \
-    __attribute__((work_group_size_hint(X, 1, 1))) \
-    __attribute__((vec_type_hint(typen)))
+	__attribute__((work_group_size_hint(X, 1, 1))) \
+	__attribute__((vec_type_hint(typen)))
 
 #define kernel_exec(X, typen) __kernel \
-    __attribute__((work_group_size_hint(X, 1, 1))) \
-    __attribute__((vec_type_hint(typen)))
+	__attribute__((work_group_size_hint(X, 1, 1))) \
+	__attribute__((vec_type_hint(typen)))
 
 // Miscellaneous vector functions
 
@@ -6705,15 +6705,15 @@ int const_func __attribute__((overloadable)) vec_step(double16 a);
  * short8 b;
  * b = shuffle(a, mask); <- not valid
  */
-char2 const_func __attribute__((overloadable)) shuffle(char2 x, uchar2 mask);
-char2 const_func __attribute__((overloadable)) shuffle(char4 x, uchar2 mask);
-char2 const_func __attribute__((overloadable)) shuffle(char8 x, uchar2 mask);
-char2 const_func __attribute__((overloadable)) shuffle(char16 x, uchar2 mask);
+char2		const_func __attribute__((overloadable)) shuffle(char2 x, uchar2 mask);
+char2		const_func __attribute__((overloadable)) shuffle(char4 x, uchar2 mask);
+char2		const_func __attribute__((overloadable)) shuffle(char8 x, uchar2 mask);
+char2		const_func __attribute__((overloadable)) shuffle(char16 x, uchar2 mask);
 
-uchar2 const_func __attribute__((overloadable)) shuffle(uchar2 x, uchar2 mask);
-uchar2 const_func __attribute__((overloadable)) shuffle(uchar4 x, uchar2 mask);
-uchar2 const_func __attribute__((overloadable)) shuffle(uchar8 x, uchar2 mask);
-uchar2 const_func __attribute__((overloadable)) shuffle(uchar16 x, uchar2 mask);
+uchar2 		const_func __attribute__((overloadable)) shuffle(uchar2 x, uchar2 mask);
+uchar2 		const_func __attribute__((overloadable)) shuffle(uchar4 x, uchar2 mask);
+uchar2 		const_func __attribute__((overloadable)) shuffle(uchar8 x, uchar2 mask);
+uchar2 		const_func __attribute__((overloadable)) shuffle(uchar16 x, uchar2 mask);
 
 short2 const_func __attribute__((overloadable)) shuffle(short2 x, ushort2 mask);
 short2 const_func __attribute__((overloadable)) shuffle(short4 x, ushort2 mask);

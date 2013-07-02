@@ -26,9 +26,9 @@ entry:
   store float addrspace(1)* %output, float addrspace(1)** %output.addr
   store i32 addrspace(1)* %input, i32 addrspace(1)** %input.addr
   store i32 addrspace(3)* %shared, i32 addrspace(3)** %shared.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %global_id
-  %call1 = call i32 @get_local_id(i32 0)          ; <i32> [#uses=1]
+  %call1 = call i32 @_Z12get_local_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call1, i32* %local_id
   %call2 = call i32 @get_group_id(i32 0)          ; <i32> [#uses=1]
   store i32 %call2, i32* %group_id
@@ -51,7 +51,7 @@ if.then:                                          ; preds = %entry
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   store i32 0, i32* %temp
   store i32 0, i32* %k
   br label %for.cond
@@ -117,12 +117,12 @@ if.end42:                                         ; preds = %if.else, %if.then31
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
 declare i32 @get_group_id(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 declare float @_Z3powff(float, float)

@@ -38,7 +38,7 @@ entry:
 	store float addrspace(1)* %input, float addrspace(1)** %input.addr
 	store float addrspace(3)* %block, float addrspace(3)** %block.addr
 	store i32 %length, i32* %length.addr
-	%call = call i32 @get_local_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z12get_local_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %tid
 	store i32 1, i32* %offset
 	%tmp = load i32* %tid		; <i32> [#uses=1]
@@ -74,7 +74,7 @@ for.cond:		; preds = %for.inc, %entry
 	br i1 %cmp, label %for.body, label %for.end
 
 for.body:		; preds = %for.cond
-	call void @barrier(i32 1)
+	call void @_Z7barrierm(i32 1)
 	%tmp20 = load i32* %tid		; <i32> [#uses=1]
 	%tmp21 = load i32* %d		; <i32> [#uses=1]
 	%cmp22 = icmp slt i32 %tmp20, %tmp21		; <i1> [#uses=1]
@@ -146,7 +146,7 @@ for.body63:		; preds = %for.cond59
 	%tmp64 = load i32* %offset		; <i32> [#uses=1]
 	%shr65 = ashr i32 %tmp64, 1		; <i32> [#uses=1]
 	store i32 %shr65, i32* %offset
-	call void @barrier(i32 1)
+	call void @_Z7barrierm(i32 1)
 	%tmp66 = load i32* %tid		; <i32> [#uses=1]
 	%tmp67 = load i32* %d58		; <i32> [#uses=1]
 	%cmp68 = icmp slt i32 %tmp66, %tmp67		; <i1> [#uses=1]
@@ -199,7 +199,7 @@ for.inc105:		; preds = %if.end104
 	br label %for.cond59
 
 for.end108:		; preds = %for.cond59
-	call void @barrier(i32 1)
+	call void @_Z7barrierm(i32 1)
 	%tmp109 = load i32* %tid		; <i32> [#uses=1]
 	%mul110 = mul i32 2, %tmp109		; <i32> [#uses=1]
 	%tmp111 = load float addrspace(1)** %output.addr		; <float addrspace(1)*> [#uses=1]
@@ -225,6 +225,6 @@ for.end108:		; preds = %for.cond59
 	ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)

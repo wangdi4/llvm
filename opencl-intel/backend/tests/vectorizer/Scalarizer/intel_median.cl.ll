@@ -44,7 +44,7 @@ entry:
   store i32 addrspace(1)* %uiDest, i32 addrspace(1)** %uiDest.addr
   store i32 %uiImageWidth, i32* %uiImageWidth.addr
   store i32 %uiDevImageHeight, i32* %uiDevImageHeight.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %y
   store i32 0, i32* %x
   br label %for.cond
@@ -346,7 +346,7 @@ for.end217:                                       ; preds = %for.cond
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 ; CHECK: ret
 define void @ckMedianScalar(i8 addrspace(1)* %uc4Source, i32 addrspace(1)* %uiDest, i32 %uiImageWidth, i32 %uiDevImageHeight) nounwind {
@@ -379,7 +379,7 @@ entry:
   store i32 addrspace(1)* %uiDest, i32 addrspace(1)** %uiDest.addr
   store i32 %uiImageWidth, i32* %uiImageWidth.addr
   store i32 %uiDevImageHeight, i32* %uiDevImageHeight.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %y
   store i32 0, i32* %x
   br label %for.cond
@@ -664,7 +664,7 @@ entry:
   %sub = sub i32 %tmp1, 1                         ; <i32> [#uses=1]
   %mul = mul i32 %tmp, %sub                       ; <i32> [#uses=1]
   store i32 %mul, i32* %last_row_offset
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %y
   %tmp4 = load i32* %y                            ; <i32> [#uses=1]
   %add = add nsw i32 %tmp4, 2                     ; <i32> [#uses=1]

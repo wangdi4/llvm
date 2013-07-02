@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 declare float @_Z4fabsf(float) nounwind readnone
 declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1) nounwind
 declare i64 @get_global_size(i32) nounwind readnone
-declare i64 @get_global_id(i32) nounwind readnone
+declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
 define void @__Vectorized_.ocl_Kernel1(i32 %iEvalN, i32 %iVarN, i32 addrspace(1)* nocapture %gpiReduceN, float addrspace(1)* nocapture %gpfX, float addrspace(1)* nocapture %gpfV, float addrspace(1)* nocapture %gpfResults) nounwind {
 entry:
@@ -23,7 +23,7 @@ entry:
   %afAbsc.i = alloca [4 x float], align 16
   %call = tail call i64 @get_global_size(i32 0) nounwind readnone
   %conv = trunc i64 %call to i32
-  %call1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %conv2 = trunc i64 %call1 to i32
   %cmp51 = icmp sgt i32 %iVarN, 0
   br i1 %cmp51, label %for.cond4.preheader.lr.ph.split.us, label %for.inc13.preheader

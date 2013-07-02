@@ -74,12 +74,25 @@ set( INCLUDE_HEADERS_PATH ${OCL_CLANG_HEADERS})
 set( INPUT_FILE test.cl )
 set( OUTPUT_FILE test.bc )
 
+if (BUILD_X64)
+set (
+  SPIR_OPT 
+  -triple spir-unkown-unkown -cl-kernel-arg-info -D __x86_64__
+)
+else (BUILD_X64)
+set (
+  SPIR_OPT
+  -triple spir-unkown-unkown -cl-kernel-arg-info -D __i386__
+)
+endif(BUILD_X64)
+
 if ( INCLUDE_MIC_DEVICE ) 
 set( MIC_OUTPUT_FILE mic_test.bc )
 
 set (MIC_OPTIONS
   -cc1 -emit-llvm-bc -x cl -I ${INCLUDE_HEADERS_PATH} -include opencl_.h -o 
-  ${CMAKE_CURRENT_BINARY_DIR}/${MIC_OUTPUT_FILE} 
+  ${CMAKE_CURRENT_BINARY_DIR}/${MIC_OUTPUT_FILE}
+  ${SPIR_OPT}
   ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
 )
 
@@ -88,21 +101,23 @@ add_custom_command( TARGET ${TARGET}
   COMMAND ${CLANG} ${MIC_OPTIONS}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h  
-  COMMENT "Generate optimized ${MIC_OUTPUT_FILE}"
+  COMMENT "Generate spir binary: ${MIC_OUTPUT_FILE}"
   VERBATIM
 )
 
 endif ( INCLUDE_MIC_DEVICE )
 
 add_custom_command( TARGET ${TARGET}
-					POST_BUILD
-                    COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
-                    -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc -include opencl_.h -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
-                    MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-                    DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h
-                    COMMENT "Generate optimized ${OUTPUT_FILE}"
-                    VERBATIM
-                   )
+  POST_BUILD
+  COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
+  -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
+  ${SPIR_OPT}
+  -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
+  MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+  COMMENT "Generate spir binary:  ${OUTPUT_FILE}"
+  VERBATIM
+)
 
 set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} PROPERTIES GENERATED TRUE)
 if ( INCLUDE_MIC_DEVICE )
@@ -114,13 +129,6 @@ if ( INCLUDE_MIC_DEVICE )
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${MIC_OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${MIC_OUTPUT_FILE} DESTINATION bin)
 endif ( INCLUDE_MIC_DEVICE )
-
-#add_custom_target( framework_test_type_kernel ALL
-#                    DEPENDS ${OCL_INSTALL_DIR}/${CREATE_DIR_NAME}/${OUTPUT_FILE} ${TARGET_NAME}
-#                    COMMENT "framework_test_type_kernel: Generate optimized ${OUTPUT_FILE}"
-#                    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-#                    VERBATIM)
-
 
 set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
 #set_target_properties( framework_test_type_kernel PROPERTIES FOLDER "validation/workloads" )

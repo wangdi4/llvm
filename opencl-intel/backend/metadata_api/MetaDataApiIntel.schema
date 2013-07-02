@@ -7,12 +7,62 @@
                             "metatype": "Kernels"
                         },
                         {
+                            "name":     "SpirVersion",
+                            "key":      "opencl.spir.version",
+                            "metatype": "SpirVersion"
+                        },
+                        {
+                            "name":     "OpenCLVersion",
+                            "key":      "opencl.ocl.version",
+                            "metatype": "OpenCLVersion"
+                        },
+                        {
+                            "name":     "UsedExtentions",
+                            "key":      "opencl.used.extensions",
+                            "metatype": "UsedExtentions"
+                        },
+                        {
+                            "name":     "CoreFeatures",
+                            "key":      "opencl.used.optional.core.features",
+                            "metatype": "CoreFeatures"
+                        },
+                        {
+                            "name":     "CompilerOptions",
+                            "key":      "opencl.compiler.options",
+                            "metatype": "CompilerOptions"
+                        },
+                        {
                             "name":     "KernelsInfo",
                             "key":      "opencl.kernel_info",
                             "metatype": "KernelsInfo"
                         }
                     ]
                 },
+    "SpirVersion": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "int32_item"
+    },
+    "OpenCLVersion": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "int32_item"
+    },
+    "UsedExtentions": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "int32_item"
+    },
+    "CoreFeatures": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "str_item"
+    },
+    "CompilerOptions": {
+                    "is_container":    true,
+                    "container_type":  "list",
+                    "item_type":       "StrWrapper"
+    },
     "Kernels" : {
                     "is_container":     true,
                     "container_type":   "list",
@@ -58,20 +108,54 @@
                         },
                         {
                             "location": "named",
-                            "key":      "argument_attribute",
-                            "name":     "ImgAccQuals",
-                            "metatype": "image_access_qualifiers",
-                            "optional": true
+                            "key":      "kernel_arg_addr_space",
+                            "name":     "AddressSpace",
+                            "metatype": "int_list",
+                            "optional": false
                         },
                         {
                             "location": "named",
-                            "key":      "cl_kernel_arg_info",
-                            "name":     "ArgInfo",
-                            "metatype": "KernelArgInfo",
-                            "optional": true
+                            "key":      "kernel_arg_access_qual",
+                            "name":     "ArgAccessQualifier",
+                            "metatype": "str_list",
+                            "optional": false
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_arg_type",
+                            "name":     "ArgTypes",
+                            "metatype": "str_list",
+                            "optional": false
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_arg_type_qual",
+                            "name":     "ArgTypeQualifier",
+                            "metatype": "str_list",
+                            "optional": false
+                        },
+                        {
+                            "location": "named",
+                            "key":      "kernel_arg_name",
+                            "name":     "ArgName",
+                            "metatype": "str_list",
+                            "optional": false
                         }
                     ]
                 },
+    "StrWrapper":  {
+                    "is_container":     true,
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "positional",
+                            "index":    "0",
+                            "name":     "value",
+                            "metatype": "str_item",
+                            "optional": true
+                        }
+                    ]
+    },
     "KernelInfo" :  {
                     "is_container":     true,
                     "container_type":   "struct",
@@ -169,48 +253,11 @@
                     ]
                     
                 },
-    "KernelArgInfo":{
-                    "is_container":     true,
-                    "container_type":   "struct",
-                    "elements": [
-                        {
-                            "location": "positional",
-                            "index":    "0",
-                            "name":     "ArgAddrSpaces",
-                            "metatype": "int_list",
-                            "optional": false
-                        },
-                        {
-                            "location": "positional",
-                            "index":    "1",
-                            "name":     "ArgAccess",
-                            "metatype": "int_list",
-                            "optional": false
-                        },
-                        {
-                            "location": "positional",
-                            "index":    "2",
-                            "name":     "ArgTypes",
-                            "metatype": "str_list",
-                            "optional": false
-                        },
-                        {
-                            "location": "positional",
-                            "index":    "3",
-                            "name":     "ArgTypeQuals",
-                            "metatype": "int_list",
-                            "optional": false
-                        },
-                        {
-                            "location": "positional",
-                            "index":    "3",
-                            "name":     "ArgNames",
-                            "metatype": "str_list",
-                            "optional": false
-                        }
-                    ]
-                    
-                },
+    "kernel_arg_addr_space":{
+                "is_container":         true,
+                "container_type":       "list",
+                "item_type":            "int32_item"
+    },
     "vec_type_hint":{
                     "is_container":     false,
                     "type":             "llvm::UndefValue"
@@ -237,10 +284,10 @@
                     "is_container":     false,
                     "type":             "std::string"
                 },
-    "image_access_qualifiers":  {
+    "argument_access_qualifier":  {
                     "is_container":     true,
                     "container_type":   "list",
-                    "item_type":        "int32_item"
+                    "item_type":        "std::string"
                 },
     "function": {
                     "is_container":     false,

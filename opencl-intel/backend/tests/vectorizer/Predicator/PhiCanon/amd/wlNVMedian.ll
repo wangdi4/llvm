@@ -22,15 +22,15 @@ target triple = "i686-pc-win32"
 
 define void @ckMedian(<4 x i8> addrspace(1)* %uc4Source, i32 addrspace(1)* %uiDest, <4 x i8> addrspace(3)* %uc4LocalData, i32 %iLocalPixPitch, i32 %uiImageWidth, i32 %uiDevImageHeight, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
-  %call1 = call i32 @get_global_id(i32 1) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
+  %call1 = call i32 @_Z13get_global_idj(i32 1) nounwind
   %sub = add i32 %call1, -1
   %call2 = call i32 @get_global_size(i32 0) nounwind
   %call3 = call i32 @__mul24_1i32(i32 %sub, i32 %call2) nounwind
   %add = add i32 %call3, %call
-  %call6 = call i32 @get_local_id(i32 1) nounwind
+  %call6 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %call8 = call i32 @__mul24_1i32(i32 %call6, i32 %iLocalPixPitch) nounwind
-  %call9 = call i32 @get_local_id(i32 0) nounwind
+  %call9 = call i32 @_Z12get_local_idj(i32 0) nounwind
   %add10 = add i32 %call8, 1
   %add11 = add i32 %add10, %call9
   %cmp = icmp sgt i32 %sub, -1
@@ -49,15 +49,15 @@ if.then:                                          ; preds = %entry
 if.end:                                           ; preds = %entry, %if.then
   %storemerge6 = phi <4 x i8> [ %tmp25, %if.then ], [ zeroinitializer, %entry ]
   store <4 x i8> %storemerge6, <4 x i8> addrspace(3)* %arrayidx, align 4
-  %call29 = call i32 @get_local_id(i32 1) nounwind
+  %call29 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %cmp30 = icmp ult i32 %call29, 2
   br i1 %cmp30, label %if.then31, label %if.end63
 
 if.then31:                                        ; preds = %if.end
-  %call33 = call i32 @get_local_size(i32 1) nounwind
+  %call33 = call i32 @_Z14get_local_sizej(i32 1) nounwind
   %call35 = call i32 @__mul24_1i32(i32 %call33, i32 %iLocalPixPitch) nounwind
   %add36 = add i32 %call35, %add11
-  %call38 = call i32 @get_local_size(i32 1) nounwind
+  %call38 = call i32 @_Z14get_local_sizej(i32 1) nounwind
   %add39 = add i32 %call38, %sub
   %cmp41 = icmp ult i32 %add39, %uiDevImageHeight
   %or.cond2 = and i1 %cmp41, %cmp19
@@ -65,7 +65,7 @@ if.then31:                                        ; preds = %if.end
   br i1 %or.cond2, label %if.then46, label %if.else58
 
 if.then46:                                        ; preds = %if.then31
-  %call51 = call i32 @get_local_size(i32 1) nounwind
+  %call51 = call i32 @_Z14get_local_sizej(i32 1) nounwind
   %call52 = call i32 @get_global_size(i32 0) nounwind
   %call53 = call i32 @__mul24_1u32(i32 %call51, i32 %call52) nounwind
   %add54 = add i32 %call53, %add
@@ -79,14 +79,14 @@ if.else58:                                        ; preds = %if.then31
   br label %if.end63
 
 if.end63:                                         ; preds = %if.then46, %if.else58, %if.end
-  %call64 = call i32 @get_local_id(i32 0) nounwind
-  %call65 = call i32 @get_local_size(i32 0) nounwind
+  %call64 = call i32 @_Z12get_local_idj(i32 0) nounwind
+  %call65 = call i32 @_Z14get_local_sizej(i32 0) nounwind
   %sub66 = add i32 %call65, -1
   %cmp67 = icmp eq i32 %call64, %sub66
   br i1 %cmp67, label %if.then68, label %if.else140
 
 if.then68:                                        ; preds = %if.end63
-  %call69 = call i32 @get_local_id(i32 1) nounwind
+  %call69 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %call71 = call i32 @__mul24_1i32(i32 %call69, i32 %iLocalPixPitch) nounwind
   br i1 %or.cond, label %land.lhs.true78, label %if.else96
 
@@ -100,7 +100,7 @@ if.then81:                                        ; preds = %land.lhs.true78
   %call86 = call i32 @get_global_size(i32 0) nounwind
   %call87 = call i32 @__mul24_1i32(i32 %sub, i32 %call86) nounwind
   %call88 = call i32 @get_group_id(i32 0) nounwind
-  %call89 = call i32 @get_local_size(i32 0) nounwind
+  %call89 = call i32 @_Z14get_local_sizej(i32 0) nounwind
   %call90 = call i32 @__mul24_1u32(i32 %call88, i32 %call89) nounwind
   %add91 = add i32 %call87, -1
   %sub92 = add i32 %add91, %call90
@@ -115,15 +115,15 @@ if.else96:                                        ; preds = %land.lhs.true78, %i
   br label %if.end100
 
 if.end100:                                        ; preds = %if.else96, %if.then81
-  %call101 = call i32 @get_local_id(i32 1) nounwind
+  %call101 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %cmp102 = icmp ult i32 %call101, 2
   br i1 %cmp102, label %if.then103, label %if.end226
 
 if.then103:                                       ; preds = %if.end100
-  %call105 = call i32 @get_local_size(i32 1) nounwind
+  %call105 = call i32 @_Z14get_local_sizej(i32 1) nounwind
   %call107 = call i32 @__mul24_1i32(i32 %call105, i32 %iLocalPixPitch) nounwind
   %add108 = add i32 %call107, %call71
-  %call110 = call i32 @get_local_size(i32 1) nounwind
+  %call110 = call i32 @_Z14get_local_sizej(i32 1) nounwind
   %add111 = add i32 %call110, %sub
   %cmp113 = icmp ult i32 %add111, %uiDevImageHeight
   br i1 %cmp113, label %land.lhs.true114, label %if.else134
@@ -135,12 +135,12 @@ land.lhs.true114:                                 ; preds = %if.then103
 
 if.then117:                                       ; preds = %land.lhs.true114
   %arrayidx120 = getelementptr <4 x i8> addrspace(3)* %uc4LocalData, i32 %add108
-  %call122 = call i32 @get_local_size(i32 1) nounwind
+  %call122 = call i32 @_Z14get_local_sizej(i32 1) nounwind
   %add123 = add i32 %call122, %sub
   %call124 = call i32 @get_global_size(i32 0) nounwind
   %call125 = call i32 @__mul24_1i32(i32 %add123, i32 %call124) nounwind
   %call126 = call i32 @get_group_id(i32 0) nounwind
-  %call127 = call i32 @get_local_size(i32 0) nounwind
+  %call127 = call i32 @_Z14get_local_sizej(i32 0) nounwind
   %call128 = call i32 @__mul24_1u32(i32 %call126, i32 %call127) nounwind
   %add129 = add i32 %call125, -1
   %sub130 = add i32 %add129, %call128
@@ -155,12 +155,12 @@ if.else134:                                       ; preds = %land.lhs.true114, %
   br label %if.end226
 
 if.else140:                                       ; preds = %if.end63
-  %call141 = call i32 @get_local_id(i32 0) nounwind
+  %call141 = call i32 @_Z12get_local_idj(i32 0) nounwind
   %cmp142 = icmp eq i32 %call141, 0
   br i1 %cmp142, label %if.then143, label %if.end226
 
 if.then143:                                       ; preds = %if.else140
-  %call144 = call i32 @get_local_id(i32 1) nounwind
+  %call144 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %add145 = add i32 %call144, 1
   %call147 = call i32 @__mul24_1i32(i32 %add145, i32 %iLocalPixPitch) nounwind
   %sub148 = add i32 %call147, -1
@@ -169,7 +169,7 @@ if.then143:                                       ; preds = %if.else140
 land.lhs.true155:                                 ; preds = %if.then143
   %call156 = call i32 @get_group_id(i32 0) nounwind
   %add157 = add i32 %call156, 1
-  %call158 = call i32 @get_local_size(i32 0) nounwind
+  %call158 = call i32 @_Z14get_local_sizej(i32 0) nounwind
   %call159 = call i32 @__mul24_1i32(i32 %add157, i32 %call158) nounwind
   %cmp161 = icmp slt i32 %call159, %uiImageWidth
   br i1 %cmp161, label %if.then162, label %if.else177
@@ -180,7 +180,7 @@ if.then162:                                       ; preds = %land.lhs.true155
   %call168 = call i32 @__mul24_1i32(i32 %sub, i32 %call167) nounwind
   %call169 = call i32 @get_group_id(i32 0) nounwind
   %add170 = add i32 %call169, 1
-  %call171 = call i32 @get_local_size(i32 0) nounwind
+  %call171 = call i32 @_Z14get_local_sizej(i32 0) nounwind
   %call172 = call i32 @__mul24_1u32(i32 %add170, i32 %call171) nounwind
   %add173 = add i32 %call172, %call168
   %arrayidx175 = getelementptr <4 x i8> addrspace(1)* %uc4Source, i32 %add173
@@ -194,15 +194,15 @@ if.else177:                                       ; preds = %land.lhs.true155, %
   br label %if.end181
 
 if.end181:                                        ; preds = %if.else177, %if.then162
-  %call182 = call i32 @get_local_id(i32 1) nounwind
+  %call182 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %cmp183 = icmp ult i32 %call182, 2
   br i1 %cmp183, label %if.then184, label %if.end226
 
 if.then184:                                       ; preds = %if.end181
-  %call186 = call i32 @get_local_size(i32 1) nounwind
+  %call186 = call i32 @_Z14get_local_sizej(i32 1) nounwind
   %call188 = call i32 @__mul24_1i32(i32 %call186, i32 %iLocalPixPitch) nounwind
   %add189 = add i32 %call188, %sub148
-  %call191 = call i32 @get_local_size(i32 1) nounwind
+  %call191 = call i32 @_Z14get_local_sizej(i32 1) nounwind
   %add192 = add i32 %call191, %sub
   %cmp194 = icmp ult i32 %add192, %uiDevImageHeight
   br i1 %cmp194, label %land.lhs.true195, label %if.else219
@@ -210,20 +210,20 @@ if.then184:                                       ; preds = %if.end181
 land.lhs.true195:                                 ; preds = %if.then184
   %call196 = call i32 @get_group_id(i32 0) nounwind
   %add197 = add i32 %call196, 1
-  %call198 = call i32 @get_local_size(i32 0) nounwind
+  %call198 = call i32 @_Z14get_local_sizej(i32 0) nounwind
   %call199 = call i32 @__mul24_1u32(i32 %add197, i32 %call198) nounwind
   %cmp201 = icmp ult i32 %call199, %uiImageWidth
   br i1 %cmp201, label %if.then202, label %if.else219
 
 if.then202:                                       ; preds = %land.lhs.true195
   %arrayidx205 = getelementptr <4 x i8> addrspace(3)* %uc4LocalData, i32 %add189
-  %call207 = call i32 @get_local_size(i32 1) nounwind
+  %call207 = call i32 @_Z14get_local_sizej(i32 1) nounwind
   %add208 = add i32 %call207, %sub
   %call209 = call i32 @get_global_size(i32 0) nounwind
   %call210 = call i32 @__mul24_1i32(i32 %add208, i32 %call209) nounwind
   %call211 = call i32 @get_group_id(i32 0) nounwind
   %add212 = add i32 %call211, 1
-  %call213 = call i32 @get_local_size(i32 0) nounwind
+  %call213 = call i32 @_Z14get_local_sizej(i32 0) nounwind
   %call214 = call i32 @__mul24_1u32(i32 %add212, i32 %call213) nounwind
   %add215 = add i32 %call214, %call210
   %arrayidx217 = getelementptr <4 x i8> addrspace(1)* %uc4Source, i32 %add215
@@ -237,7 +237,7 @@ if.else219:                                       ; preds = %land.lhs.true195, %
   br label %if.end226
 
 if.end226:                                        ; preds = %if.else140, %if.then202, %if.else219, %if.end181, %if.end100, %if.else134, %if.then117
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   br label %for.body
 
 for.body:                                         ; preds = %if.end226, %for.body
@@ -251,9 +251,9 @@ for.body:                                         ; preds = %if.end226, %for.bod
   %6 = phi float [ 2.550000e+02, %if.end226 ], [ %9, %for.body ]
   %7 = phi float [ 2.550000e+02, %if.end226 ], [ %11, %for.body ]
   %8 = phi float [ 2.550000e+02, %if.end226 ], [ %13, %for.body ]
-  %call245 = call i32 @get_local_id(i32 1) nounwind
+  %call245 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %call247 = call i32 @__mul24_1i32(i32 %call245, i32 %iLocalPixPitch) nounwind
-  %call248 = call i32 @get_local_id(i32 0) nounwind
+  %call248 = call i32 @_Z12get_local_idj(i32 0) nounwind
   %add249 = add i32 %call248, %call247
   %arrayidx257 = getelementptr <4 x i8> addrspace(3)* %uc4LocalData, i32 %add249
   %tmp258 = load <4 x i8> addrspace(3)* %arrayidx257, align 4
@@ -457,18 +457,18 @@ if.end786:                                        ; preds = %if.then779, %for.en
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @__mul24_1i32(i32, i32)
 
 declare i32 @get_global_size(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare i32 @get_local_size(i32)
+declare i32 @_Z14get_local_sizej(i32)
 
 declare i32 @__mul24_1u32(i32, i32)
 
 declare i32 @get_group_id(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)

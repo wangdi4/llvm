@@ -7,7 +7,7 @@ target triple = "i686-pc-win32"
 
 declare float @_Z5acoshf(float)
 
-declare i64 @get_global_id(i32)
+declare i64 @_Z13get_global_idj(i32)
 
 ;  make sure that the WIAnalysis detects the ptr as uniform
 ; CHECK: __Vectorized_wlacosh
@@ -16,7 +16,7 @@ declare i64 @get_global_id(i32)
 ; CHECK: ret
 
 define void @__Vectorized_wlacosh(float addrspace(1)* nocapture %input, float addrspace(1)* nocapture %output, i32 %buffer_size) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
   %2 = and i64 %1, 4294967295
   %3 = getelementptr inbounds float addrspace(1)* %input, i64 %2
   %4 = load float addrspace(1)* %3, align 4
@@ -33,7 +33,7 @@ define void @__Vectorized_wlacosh(float addrspace(1)* nocapture %input, float ad
 ; CHECK: ret
 
 define void @__Vectorized_wlacosh2(float addrspace(1)* nocapture %input, float addrspace(1)* nocapture %output, i32 %buffer_size) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
   %2 = and i64 %1, 4294967000  ; <--------notice the constant change
   %3 = getelementptr inbounds float addrspace(1)* %input, i64 %2
   %4 = load float addrspace(1)* %3, align 4
@@ -50,7 +50,7 @@ define void @__Vectorized_wlacosh2(float addrspace(1)* nocapture %input, float a
 ; CHECK: ret
 
 define void @__Vectorized_wlacosh3(float addrspace(1)* nocapture %input, float addrspace(1)* nocapture %output, i32 %buffer_size) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
   %2 = and i64 %1, 123415  ; <--------notice the constant change
   %3 = getelementptr inbounds float addrspace(1)* %input, i64 %2
   %4 = load float addrspace(1)* %3, align 4

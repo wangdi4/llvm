@@ -26,7 +26,7 @@
   
   declare void @math_kernel3(double addrspace(1)* %out, double addrspace(1)* %out2, double addrspace(1)* %in) nounwind
   
-  declare i64 @get_global_id(i32)
+  declare i64 @_Z13get_global_idj(i32)
   
   declare i64 @get_global_size(i32)
   
@@ -36,7 +36,7 @@
   
   declare void @_Z7vstore3Dv3_dmPU3AS1d(<3 x double>* byval align 32, i64, double addrspace(1)*)
   
-  declare i64 @get_local_size(i32)
+  declare i64 @_Z14get_local_sizej(i32)
   
   declare i64 @get_base_global_id.(i32)
   
@@ -47,7 +47,7 @@
      %3 = alloca <3 x double>, align 32
      %iout1 = alloca <3 x double>, align 32
      %4 = alloca <3 x double>, align 32
-     %5 = call i64 @get_global_id(i32 0) nounwind
+     %5 = call i64 @_Z13get_global_idj(i32 0) nounwind
      %6 = add i64 %5, 1
      %7 = call i64 @get_global_size(i32 0) nounwind
      %8 = icmp ult i64 %6, %7

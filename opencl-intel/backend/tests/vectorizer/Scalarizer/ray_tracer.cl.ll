@@ -981,7 +981,7 @@ entry:
   store <4 x float> %lightPos, <4 x float>* %lightPos.addr
   %call = call i32 @get_global_size(i32 0)        ; <i32> [#uses=1]
   store i32 %call, i32* %global_size
-  %call1 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %global_id
   %tmp = load i32* %renderWidth.addr              ; <i32> [#uses=1]
   %tmp2 = load i32* %renderHeight.addr            ; <i32> [#uses=1]
@@ -1083,4 +1083,4 @@ for.end:                                          ; preds = %for.cond
 
 declare i32 @get_global_size(i32)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)

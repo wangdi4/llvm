@@ -13,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @func(i64 %n, i64* %A, i64* %B) nounwind {
 entry:
-  %call = tail call i32 @get_local_id(i32 0) nounwind
+  %call = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv = zext i32 %call to i64
   %cmp3 = icmp slt i64 %conv, %n
   %cmp54 = icmp sgt i64 %n, 0
@@ -30,7 +30,7 @@ while.body:                                       ; preds = %while.body.preheade
   %arrayidx = getelementptr inbounds i64* %A, i64 %inc
   %tmp9 = load i64* %arrayidx, align 8
   %add = add nsw i64 %tmp9, %tmp1617
-  %call11 = tail call i32 @get_local_id(i32 0) nounwind
+  %call11 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv12 = zext i32 %call11 to i64
   %arrayidx15 = getelementptr inbounds i64* %B, i64 %inc
   store i64 %conv12, i64* %arrayidx15, align 8
@@ -50,4 +50,4 @@ while.end:                                        ; preds = %while.end.loopexit,
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

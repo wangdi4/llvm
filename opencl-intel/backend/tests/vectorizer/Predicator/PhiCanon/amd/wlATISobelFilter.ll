@@ -17,8 +17,8 @@ target triple = "i686-pc-win32"
 
 define void @sobel_filter(i8 addrspace(2)* %inputImage, i8 addrspace(1)* %outputImage, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
-  %call1 = call i32 @get_global_id(i32 1) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
+  %call1 = call i32 @_Z13get_global_idj(i32 1) nounwind
   %call2 = call i32 @get_global_size(i32 0) nounwind
   %call3 = call i32 @get_global_size(i32 1) nounwind
   %cmp = icmp ugt i32 %call, 3
@@ -104,7 +104,7 @@ if.end:                                           ; preds = %land.lhs.true, %if.
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 

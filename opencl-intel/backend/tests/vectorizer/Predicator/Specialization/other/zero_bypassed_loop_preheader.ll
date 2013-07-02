@@ -20,7 +20,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @kernel(i32* nocapture %arg0, i32* nocapture %arg1) nounwind uwtable {
 BB0:
-  %call.10.0 = tail call i64 @get_global_id(i32 0) nounwind
+  %call.10.0 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
   %trunc.10.0 = trunc i64 %call.10.0 to i32
   %sext.10.0 = sext i32 %trunc.10.0 to i64
   %getelementptr.14.0 = getelementptr inbounds i32* %arg1, i64 %sext.10.0
@@ -74,7 +74,7 @@ BB8:                                              ; preds = %BB7, %BB6
   ret void
 }
 
-declare i64 @get_global_id(i32)
+declare i64 @_Z13get_global_idj(i32)
 
 !0 = metadata !{metadata !"int", metadata !1}
 !1 = metadata !{metadata !"omnipotent char", metadata !2}

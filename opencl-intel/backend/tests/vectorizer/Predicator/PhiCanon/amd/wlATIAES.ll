@@ -55,8 +55,8 @@ entry:
   %galiosCoeff = alloca [4 x <4 x i8>], align 4
   %call = call i32 @get_group_id(i32 0) nounwind
   %call1 = call i32 @get_group_id(i32 1) nounwind
-  %call2 = call i32 @get_local_id(i32 0) nounwind
-  %call3 = call i32 @get_local_id(i32 1) nounwind
+  %call2 = call i32 @_Z12get_local_idj(i32 0) nounwind
+  %call3 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %mul = mul i32 %call1, %width
   %add1 = shl i32 %call, 2
   %div2 = add i32 %mul, %add1
@@ -132,7 +132,7 @@ shiftRows.exit:                                   ; preds = %shiftRows.exit.loop
   br i1 %cmp, label %for.body, label %for.end643
 
 for.body:                                         ; preds = %shiftRows.exit
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %tmp71 = load <4 x i8> addrspace(3)* %block0, align 4
   %tmp72 = extractelement <4 x i8> %tmp71, i32 0
   %tmp79 = load <4 x i8>* %arrayidx78, align 4
@@ -547,7 +547,7 @@ for.end615:                                       ; preds = %for.body315
   %7 = insertelement <4 x i8> %6, i8 %xor6045, i32 2
   %8 = insertelement <4 x i8> %7, i8 %xor6106, i32 3
   store <4 x i8> %8, <4 x i8> addrspace(3)* %arrayidx618, align 4
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %tmp631 = load <4 x i8> addrspace(3)* %arrayidx618, align 4
   %mul633 = shl i32 %storemerge, 2
   %add635 = add i32 %mul633, %call3
@@ -571,9 +571,9 @@ for.end643:                                       ; preds = %shiftRows.exit
 
 declare i32 @get_group_id(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 define <4 x i8> @shiftRowsInv(<4 x i8> %row, i32 %j) nounwind readnone {
 entry:
@@ -604,8 +604,8 @@ entry:
   %galiosCoeff = alloca [4 x <4 x i8>], align 4
   %call = call i32 @get_group_id(i32 0) nounwind
   %call1 = call i32 @get_group_id(i32 1) nounwind
-  %call2 = call i32 @get_local_id(i32 0) nounwind
-  %call3 = call i32 @get_local_id(i32 1) nounwind
+  %call2 = call i32 @_Z12get_local_idj(i32 0) nounwind
+  %call3 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %mul = mul i32 %call1, %width
   %add1 = shl i32 %call, 2
   %div2 = add i32 %mul, %add1
@@ -684,7 +684,7 @@ shiftRowsInv.exit:                                ; preds = %shiftRowsInv.exit.l
   br i1 %cmp, label %for.end646, label %for.body
 
 for.body:                                         ; preds = %shiftRowsInv.exit
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %tmp70 = load <4 x i8> addrspace(3)* %arrayidx27, align 4
   %mul72 = shl i32 %storemerge, 2
   %add74 = add i32 %mul72, %call3
@@ -692,7 +692,7 @@ for.body:                                         ; preds = %shiftRowsInv.exit
   %tmp77 = load <4 x i8> addrspace(1)* %arrayidx76, align 4
   %xor78 = xor <4 x i8> %tmp70, %tmp77
   store <4 x i8> %xor78, <4 x i8> addrspace(3)* %arrayidx66, align 4
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %tmp89 = load <4 x i8> addrspace(3)* %block1, align 4
   %tmp90 = extractelement <4 x i8> %tmp89, i32 0
   %tmp98 = load <4 x i8>* %arrayidx97, align 4

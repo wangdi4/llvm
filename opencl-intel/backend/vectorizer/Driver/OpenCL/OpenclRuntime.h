@@ -215,10 +215,6 @@ private:
 };
 
 /// @brief OpenCL-specific function names
-#define GET_GID_NAME  "get_global_id"
-#define GET_LID_NAME  "get_local_id"
-#define GET_LOCAL_SIZE "get_local_size"
-#define BARRIER_FUNC_NAME    "barrier"
 #define WG_FUNCS_NAME_PREFIX  "__async"
 
 } // Namespace

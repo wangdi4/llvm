@@ -277,8 +277,11 @@ namespace intel {
   unsigned int DataPerValue::getValueOffset(
     Value* pVal, Type *pType, unsigned int allocaAlignment, SpecialBufferData& bufferData) {
 
-    unsigned int sizeFactor = 1;
-    unsigned int alignmentFactor = 1;
+    //TODO: check what is better to use for alignment?
+    //unsigned int alignment = m_pDL->getABITypeAlignment(pType);
+    unsigned int alignment = (allocaAlignment) ? allocaAlignment : m_pDL->getPrefTypeAlignment(pType);
+    unsigned int sizeInBits = m_pDL->getTypeSizeInBits(pType);
+    
     Type *pElementType = pType;
     VectorType* pVecType = dyn_cast<VectorType>(pType);
     if ( pVecType ) {
@@ -289,18 +292,16 @@ namespace intel {
       //we have a Value with base type i1
       m_oneBitElementValues.insert(pVal);
       //We will extend i1 to i32 before storing to special buffer.
-      sizeFactor = 32; // In bits
-      alignmentFactor = 4; // In bytes
-      assert(m_pDL->getPrefTypeAlignment(pType) ==
-        (pVecType ? pVecType->getNumElements() : 1) &&
-        "assumes alignment of vector of i1 type equals to vector length");
+      alignment = (pVecType ? pVecType->getNumElements() : 1) * 4;
+      sizeInBits = (pVecType ? pVecType->getNumElements() : 1) * 32;
+
+      //This assertion seems to not hold for all Data Layouts
+      //assert(m_pDL->getPrefTypeAlignment(pType) ==
+      //  (pVecType ? pVecType->getNumElements() : 1) &&
+      //  "assumes alignment of vector of i1 type equals to vector length");
     }
-    //TODO: check what is better to use for alignment?
-    //unsigned int alignment = m_pTD->getABITypeAlignment(pType);
-    unsigned int alignment = ((allocaAlignment) ?
-      allocaAlignment : m_pDL->getPrefTypeAlignment(pType)) * alignmentFactor;
+
     assert( alignment && "alignment is 0" );
-    unsigned int sizeInBits = m_pDL->getTypeSizeInBits(pType) * sizeFactor;
 
     unsigned int sizeInBytes = sizeInBits / 8;
     assert( sizeInBytes && "sizeInBytes is 0" );

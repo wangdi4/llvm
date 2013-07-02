@@ -414,8 +414,8 @@ entry:
   %tmp21 = load <4 x float> addrspace(1)* %arrayidx20, align 16
   %arrayidx24 = getelementptr <4 x float> addrspace(1)* %attrib, i32 6
   %tmp25 = load <4 x float> addrspace(1)* %arrayidx24, align 16
-  %call = call i32 @get_global_id(i32 0) nounwind
-  %call28 = call i32 @get_global_id(i32 1) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
+  %call28 = call i32 @_Z13get_global_idj(i32 1) nounwind
   %mul = mul i32 %call28, %width
   %add = add i32 %mul, %call
   %cmp12 = icmp sgt i32 %noOfSum, 1
@@ -787,7 +787,7 @@ calOutputs.exit:                                  ; preds = %if.end79.i, %if.the
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare <4 x float> @__expf4(<4 x float>)
 

@@ -36,7 +36,7 @@ entry:
   %assembled.vect = insertelement <3 x float> undef, float %3, i32 0
   %assembled.vect3 = insertelement <3 x float> %assembled.vect, float %4, i32 1
   %assembled.vect4 = insertelement <3 x float> %assembled.vect3, float %5, i32 2
-  %call1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %temp = insertelement <4 x i64> undef, i64 %call1, i32 0
   %vector = shufflevector <4 x i64> %temp, <4 x i64> undef, <4 x i32> zeroinitializer
   %6 = add <4 x i64> %vector, <i64 0, i64 1, i64 2, i64 3>
@@ -56,7 +56,7 @@ entry:
 }
 
 declare <3 x float> @_Z14fast_normalizeDv3_f(<3 x float>) nounwind readnone
-declare i64 @get_global_id(i32) nounwind readnone
+declare i64 @_Z13get_global_idj(i32) nounwind readnone
 declare <3 x float> @fake.insert.element0(<3 x float>, float, i32) nounwind readnone
 declare <3 x float> @fake.insert.element1(<3 x float>, float, i32) nounwind readnone
 declare <3 x float> @fake.insert.element2(<3 x float>, float, i32) nounwind readnone

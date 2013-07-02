@@ -18,6 +18,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Constants.h"
 #include "llvm/ADT/SetVector.h"
 #include <vector>
+#include <map>
 
 using namespace llvm;
 
@@ -78,6 +79,64 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                                               Function* pFunc, 
                                               std::vector<cl_kernel_argument>& /* OUT */ arguments);
     
+    /// @brief  maps between kernels (both scalar and vectorized) and their metdata
+    /// @param pModule          The module
+    /// @param pVectFunctions   The vectorized kernels, these kernel should be mapped
+    ///                         to their scalar version metadata
+    /// @param pVectFunctions   OUT param, maps between kernels (both scalar and
+    ///                         vectorized) and their metdata
+    static void getKernelsMetadata( Module* pModule, 
+                                    const SmallVectorImpl<Function*>& pVectFunctions, 
+                                    std::map<Function*, MDNode*>& /* OUT */ kernelMetadata);
+
+    static bool isGetWorkDim(const std::string&);
+    static bool isGetGlobalId(const std::string&);
+    static bool isGetGlobalSize(const std::string&);
+    static bool isGetLocalId(const std::string&);
+    static bool isGetLocalSize(const std::string&);
+    static bool isGetNumGroups(const std::string&);
+    static bool isGetGroupId(const std::string&);
+    static bool isGlobalOffset(const std::string&);
+    static bool isAsyncWorkGroupCopy(const std::string&);
+    static bool isWaitGroupEvents(const std::string&);
+    static bool isPrefetch(const std::string&);
+    static bool isAsyncWorkGroupStridedCopy(const std::string&);
+    static bool isMemFence(const std::string&);
+    static bool isReadMemFence(const std::string&);
+    static bool isWriteMemFence(const std::string&);
+
+    static const std::string NAME_GET_ORIG_GID;
+    static const std::string NAME_GET_ORIG_LID;
+
+    static const std::string NAME_GET_WORK_DIM;
+    static const std::string NAME_GET_GLOBAL_SIZE;
+    static const std::string NAME_GET_LOCAL_SIZE;
+    static const std::string NAME_GET_NUM_GROUPS;
+    static const std::string NAME_GET_GROUP_ID;
+    static const std::string NAME_GET_GLOBAL_OFFSET;
+    static const std::string NAME_PRINTF;
+
+    static const std::string NAME_ASYNC_WORK_GROUP_COPY;
+    static const std::string NAME_WAIT_GROUP_EVENTS;
+    static const std::string NAME_PREFETCH;
+    static const std::string NAME_ASYNC_WORK_GROUP_STRIDED_COPY;
+
+    static const std::string NAME_MEM_FENCE;
+    static const std::string NAME_READ_MEM_FENCE;
+    static const std::string NAME_WRITE_MEM_FENCE;
+
+    static const std::string BARRIER_FUNC_NAME;
+    //images
+    static const std::string OCL_IMG_PREFIX;
+    static const std::string IMG_2D;
+    static const std::string IMG_2D_ARRAY;
+    static const std::string IMG_3D;
+    //kernel arg qualifiers
+    static const std::string WRITE_ONLY;
+    static const std::string READ_ONLY;
+    static const std::string NONE;
+    //kernel type qualifiers
+    static const std::string SAMPLER;
   public:
     /// This holds the number of implicite arguments addeded to function
     static const unsigned int NUMBER_IMPLICIT_ARGS;
@@ -93,19 +152,27 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_GET_SPECIAL_BUFFER;
     static const std::string NAME_GET_CURR_WI;
 
-    static const std::string NAME_GET_WORK_DIM;
-    static const std::string NAME_GET_GLOBAL_SIZE;
-    static const std::string NAME_GET_LOCAL_SIZE;
-    static const std::string NAME_GET_NUM_GROUPS;
-    static const std::string NAME_GET_GROUP_ID;
-    static const std::string NAME_GET_GLOBAL_OFFSET;
-    static const std::string NAME_PRINTF;
-
-    static const std::string NAME_ASYNC_WORK_GROUP_COPY;
-    static const std::string NAME_WAIT_GROUP_EVENTS;
-    static const std::string NAME_PREFETCH;
-    static const std::string NAME_ASYNC_WORK_GROUP_STRIDED_COPY;
-
+    //////////////////////////////////////////////////////////////////
+    // @brief returns the mangled name of the function get_global_id
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetGID();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_local_id
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetLID();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_local_size
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetLocalSize();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the barrier funtion
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledBarrier();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the name of the argument metadata node for the
+    //given module
+    //////////////////////////////////////////////////////////////////
+    static std::string argumentAttribute(const llvm::Module&);
 
     enum clVersion {
         CL_VER_1_0,

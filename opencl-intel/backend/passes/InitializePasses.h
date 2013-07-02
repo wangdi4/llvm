@@ -54,6 +54,7 @@ void initializeSoaAllocaAnalysisPass(llvm::PassRegistry&);
 void initializePostDominanceFrontierPass(llvm::PassRegistry&);
 void initializeLocalBuffAnalysisPass(llvm::PassRegistry&);
 void initializeBIImportPass(llvm::PassRegistry&);
+void initializeSpirMaterializerPass(llvm::PassRegistry&);
 }
 
 #endif

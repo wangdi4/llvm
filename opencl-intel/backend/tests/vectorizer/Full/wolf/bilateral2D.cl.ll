@@ -345,9 +345,9 @@ entry:
   %tmp = load %struct._image2d_t** %inputImage.addr ; <%struct._image2d_t*> [#uses=1]
   %call = call <2 x i32> @_Z13get_image_dimP10_image2d_t(%struct._image2d_t* %tmp) ; <<2 x i32>> [#uses=1]
   store <2 x i32> %call, <2 x i32>* %imgSize
-  %call2 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call2 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   %vecinit = insertelement <2 x i32> undef, i32 %call2, i32 0 ; <<2 x i32>> [#uses=1]
-  %call3 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call3 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   %vecinit4 = insertelement <2 x i32> %vecinit, i32 %call3, i32 1 ; <<2 x i32>> [#uses=1]
   store <2 x i32> %vecinit4, <2 x i32>* %curCrd
   %tmp6 = load <2 x i32>* %curCrd                 ; <<2 x i32>> [#uses=1]
@@ -372,7 +372,7 @@ entry:
 
 declare <2 x i32> @_Z13get_image_dimP10_image2d_t(%struct._image2d_t*)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 ; CHECK: ret
 define void @bilateral2D(%struct._image2d_t* %inputImage, <4 x float> addrspace(1)* %output, i32 %rowCountPerGlobalID, %struct.anon addrspace(2)* %pArgs) nounwind {
@@ -392,7 +392,7 @@ entry:
   store <4 x float> addrspace(1)* %output, <4 x float> addrspace(1)** %output.addr
   store i32 %rowCountPerGlobalID, i32* %rowCountPerGlobalID.addr
   store %struct.anon addrspace(2)* %pArgs, %struct.anon addrspace(2)** %pArgs.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %global_id
   %tmp = load i32* %rowCountPerGlobalID.addr      ; <i32> [#uses=1]
   %tmp1 = load i32* %global_id                    ; <i32> [#uses=1]

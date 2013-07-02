@@ -30,7 +30,7 @@ entry:
   store i32 addrspace(1)* %pathBuffer, i32 addrspace(1)** %pathBuffer.addr
   store i32 %width, i32* %width.addr
   store i32 %pass, i32* %pass.addr
-  %call = call i32 @get_local_id(i32 0)           ; <i32> [#uses=1]
+  %call = call i32 @_Z12get_local_idj(i32 0)           ; <i32> [#uses=1]
   store i32 %call, i32* %x
   %call1 = call i32 @get_group_id(i32 0)          ; <i32> [#uses=1]
   store i32 %call1, i32* %y
@@ -152,6 +152,6 @@ cond.end:                                         ; preds = %cond.false, %cond.t
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
 declare i32 @get_group_id(i32)

@@ -49,7 +49,7 @@ target triple = "i686-pc-win32"
 
 define void @tcc_vector8_third_optimization(<8 x i16> addrspace(1)* %Uin, <8 x i16> addrspace(1)* %Vin, <8 x i16> addrspace(1)* %Uout, <8 x i16> addrspace(1)* %Vout, i32 %bufferSize, i8 addrspace(2)* %SatLUTEntry, i32 addrspace(1)* nocapture %timeStamps, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %call1 = call i32 @get_global_size(i32 0) nounwind
   %cmp = icmp ne i32 %call1, 0
   %nonzero = select i1 %cmp, i32 %call1, i32 1
@@ -205,7 +205,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 
@@ -217,7 +217,7 @@ declare <8 x i16> @__max_8i16(<8 x i16>, <8 x i16>)
 
 define void @tcc_scalar_unroll2(i16 addrspace(1)* %Uin, i16 addrspace(1)* %Vin, i16 addrspace(1)* %Uout, i16 addrspace(1)* %Vout, i32 %bufferSize, i8 addrspace(2)* %SatLUTEntry, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %call1 = call i32 @get_global_size(i32 0) nounwind
   %cmp = icmp ne i32 %call1, 0
   %nonzero = select i1 %cmp, i32 %call1, i32 1

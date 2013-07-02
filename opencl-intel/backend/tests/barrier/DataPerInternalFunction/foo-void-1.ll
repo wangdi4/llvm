@@ -43,13 +43,13 @@ L1:
   %y = xor i32 %x, %x
   br label %L2
 L2:
-  call void @barrier(i32 1)
+  call void @_Z7barrierj(i32 1)
   ret void
 ; CHECK: L1:
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: br label %L2
 ; CHECK: L2:
-; CHECK: @barrier(i32 1)
+; CHECK: @_Z7barrierj(i32 1)
 ; CHECK: ret void
 }
 
@@ -69,7 +69,7 @@ L2:
 
 ; CHECK: DONE
 
-declare void @barrier(i32)
+declare void @_Z7barrierj(i32)
 declare void @dummybarrier.()
 
 !opencl.kernels = !{!0}

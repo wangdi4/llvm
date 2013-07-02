@@ -23,7 +23,7 @@ entry:
   store <4 x i32> addrspace(1)* %input, <4 x i32> addrspace(1)** %1
   store <4 x float> addrspace(1)* %output, <4 x float> addrspace(1)** %2
   store i32 %buffer_size, i32* %3
-  %4 = call i32 @get_global_id(i32 0)             ; <i32> [#uses=1]
+  %4 = call i32 @_Z13get_global_idj(i32 0)             ; <i32> [#uses=1]
   store i32 %4, i32* %tid
   %5 = load i32* %tid                             ; <i32> [#uses=1]
   %6 = load <4 x i32> addrspace(1)** %1           ; <<4 x i32> addrspace(1)*> [#uses=1]
@@ -53,7 +53,7 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 !opencl.kernels = !{!0}
 

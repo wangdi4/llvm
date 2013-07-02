@@ -27,8 +27,8 @@ target triple = "x86_64-pc-win32"
 define void @top_scan(i32 addrspace(1)* nocapture %isums, i32 %n, i32 addrspace(3)* nocapture %lmem) nounwind {
 entry:
   store i32 0, i32 addrspace(3)* @top_scan.s_seed, align 4
-  call void @barrier(i64 1) nounwind
-  %call = call i64 @get_local_id(i32 0) nounwind readnone
+  call void @_Z7barrierj(i64 1) nounwind
+  %call = call i64 @_Z12get_local_idj(i32 0) nounwind readnone
   %conv = sext i32 %n to i64
   %cmp = icmp ult i64 %call, %conv
   br i1 %cmp, label %land.rhs, label %land.end
@@ -84,24 +84,24 @@ if.then28:                                        ; preds = %if.end27
   br label %if.end31
 
 if.end31:                                         ; preds = %if.then28, %if.end27
-  call void @barrier(i64 1) nounwind
+  call void @_Z7barrierj(i64 1) nounwind
   %inc = add nsw i32 %d.0, 1
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
   ret void
 }
-declare void @barrier(i64)
+declare void @_Z7barrierj(i64)
 
-declare i64 @get_local_id(i32) nounwind readnone
+declare i64 @_Z12get_local_idj(i32) nounwind readnone
 
 define fastcc i32 @scanLocalMem(i32 %val, i32 addrspace(3)* %lmem) nounwind inlinehint {
 entry:
-  call void @barrier(i64 1)
+  call void @_Z7barrierj(i64 1)
   ret i32 %val
 }
 
-declare i64 @get_local_size(i32) nounwind readnone
+declare i64 @_Z14get_local_sizej(i32) nounwind readnone
 
 !opencl.kernels = !{!0}
 !opencl.cl_kernel_arg_info = !{!1}

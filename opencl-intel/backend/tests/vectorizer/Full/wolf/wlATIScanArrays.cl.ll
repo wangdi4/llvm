@@ -38,9 +38,9 @@ entry:
   store i32 %block_size, i32* %block_size.addr
   store i32 %length, i32* %length.addr
   store float addrspace(1)* %sumBuffer, float addrspace(1)** %sumBuffer.addr
-  %call = call i32 @get_local_id(i32 0)           ; <i32> [#uses=1]
+  %call = call i32 @_Z12get_local_idj(i32 0)           ; <i32> [#uses=1]
   store i32 %call, i32* %tid
-  %call1 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %gid
   %call2 = call i32 @get_group_id(i32 0)          ; <i32> [#uses=1]
   store i32 %call2, i32* %bid
@@ -78,7 +78,7 @@ for.cond:                                         ; preds = %for.inc, %entry
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %tmp22 = load i32* %tid                         ; <i32> [#uses=1]
   %tmp23 = load i32* %d                           ; <i32> [#uses=1]
   %cmp24 = icmp slt i32 %tmp22, %tmp23            ; <i1> [#uses=1]
@@ -124,7 +124,7 @@ for.inc:                                          ; preds = %if.end
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %call52 = call i32 @get_group_id(i32 0)         ; <i32> [#uses=1]
   store i32 %call52, i32* %group_id
   %tmp53 = load i32* %block_size.addr             ; <i32> [#uses=1]
@@ -136,7 +136,7 @@ for.end:                                          ; preds = %for.cond
   %tmp59 = load float addrspace(1)** %sumBuffer.addr ; <float addrspace(1)*> [#uses=1]
   %arrayidx60 = getelementptr inbounds float addrspace(1)* %tmp59, i32 %tmp58 ; <float addrspace(1)*> [#uses=1]
   store float %tmp57, float addrspace(1)* %arrayidx60
-  call void @barrier(i32 3)
+  call void @_Z7barrierm(i32 3)
   %tmp61 = load i32* %block_size.addr             ; <i32> [#uses=1]
   %sub62 = sub i32 %tmp61, 1                      ; <i32> [#uses=1]
   %tmp63 = load float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
@@ -155,7 +155,7 @@ for.body71:                                       ; preds = %for.cond67
   %tmp72 = load i32* %offset                      ; <i32> [#uses=1]
   %shr73 = ashr i32 %tmp72, 1                     ; <i32> [#uses=1]
   store i32 %shr73, i32* %offset
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %tmp74 = load i32* %tid                         ; <i32> [#uses=1]
   %tmp75 = load i32* %d66                         ; <i32> [#uses=1]
   %cmp76 = icmp slt i32 %tmp74, %tmp75            ; <i1> [#uses=1]
@@ -208,7 +208,7 @@ for.inc113:                                       ; preds = %if.end112
   br label %for.cond67
 
 for.end116:                                       ; preds = %for.cond67
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %tmp117 = load i32* %group_id                   ; <i32> [#uses=1]
   %cmp118 = icmp eq i32 %tmp117, 0                ; <i1> [#uses=1]
   br i1 %cmp118, label %if.then119, label %if.else
@@ -267,10 +267,10 @@ if.end160:                                        ; preds = %if.else, %if.then11
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_group_id(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)

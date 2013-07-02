@@ -19,7 +19,7 @@ target triple = "i686-pc-win32"
 @opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (double addrspace(1)*, <4 x double> addrspace(1)*)* @func_abs_diff to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_func_abs_diff_locals to i8*), i8* getelementptr inbounds ([88 x i8]* @opencl_func_abs_diff_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 define void @func_abs_diff(double addrspace(1)* nocapture %in, <4 x double> addrspace(1)* nocapture %out) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind ; <i32> [#uses=3]
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=3]
   %2 = getelementptr inbounds double addrspace(1)* %in, i32 1 ; <double addrspace(1)*> [#uses=1]
   %3 = load double addrspace(1)* %2               ; <double> [#uses=1]
   %4 = insertelement <4 x double> undef, double %3, i32 0 ; <<4 x double>> [#uses=1]
@@ -48,7 +48,7 @@ define void @func_abs_diff(double addrspace(1)* nocapture %in, <4 x double> addr
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 
 ;CHECK: [[NAME1:%[1-9]+]] = load double {{.*}}

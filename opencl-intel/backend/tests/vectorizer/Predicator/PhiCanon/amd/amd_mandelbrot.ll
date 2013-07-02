@@ -17,7 +17,7 @@ target triple = "i686-pc-win32"
 
 define void @mandelbrot(i32 addrspace(1)* %mandelbrotImage, float %scale, i32 %maxIterations, i32 %width, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %ashr = ashr i32 %width, 31
   %cmp = icmp eq i32 %ashr, %width
   %nonzero = select i1 %cmp, i32 1, i32 %width
@@ -82,4 +82,4 @@ for.end:                                          ; preds = %for.cond.for.end_cr
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)

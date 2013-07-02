@@ -846,9 +846,9 @@ entry:
   %tmp1 = load i32* %uiDevImageHeight.addr        ; <i32> [#uses=1]
   %vecinit2 = insertelement <2 x i32> %vecinit, i32 %tmp1, i32 1 ; <<2 x i32>> [#uses=1]
   store <2 x i32> %vecinit2, <2 x i32>* %imgSize
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   %vecinit4 = insertelement <2 x i32> undef, i32 %call, i32 0 ; <<2 x i32>> [#uses=1]
-  %call5 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call5 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   %vecinit6 = insertelement <2 x i32> %vecinit4, i32 %call5, i32 1 ; <<2 x i32>> [#uses=1]
   store <2 x i32> %vecinit6, <2 x i32>* %curCrd
   %tmp8 = load <2 x i32>* %curCrd                 ; <<2 x i32>> [#uses=1]
@@ -872,7 +872,7 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 ; CHECK: ret
 define void @intel_bilateral2DScalar_2D(<4 x float> addrspace(1)* %inputImage, <4 x float> addrspace(1)* %output, i32 %uiImageWidth, i32 %uiDevImageHeight, %struct.anon addrspace(2)* %pArgs) nounwind {
@@ -895,9 +895,9 @@ entry:
   %tmp1 = load i32* %uiDevImageHeight.addr        ; <i32> [#uses=1]
   %vecinit2 = insertelement <2 x i32> %vecinit, i32 %tmp1, i32 1 ; <<2 x i32>> [#uses=1]
   store <2 x i32> %vecinit2, <2 x i32>* %imgSize
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   %vecinit4 = insertelement <2 x i32> undef, i32 %call, i32 0 ; <<2 x i32>> [#uses=1]
-  %call5 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call5 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   %vecinit6 = insertelement <2 x i32> %vecinit4, i32 %call5, i32 1 ; <<2 x i32>> [#uses=1]
   store <2 x i32> %vecinit6, <2 x i32>* %curCrd
   %tmp8 = load <2 x i32>* %curCrd                 ; <<2 x i32>> [#uses=1]
@@ -944,7 +944,7 @@ entry:
   store i32 %uiImageWidth, i32* %uiImageWidth.addr
   store i32 %uiDevImageHeight, i32* %uiDevImageHeight.addr
   store %struct.anon addrspace(2)* %pArgs, %struct.anon addrspace(2)** %pArgs.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %global_id
   %tmp = load i32* %rowCountPerGlobalID.addr      ; <i32> [#uses=1]
   %tmp1 = load i32* %global_id                    ; <i32> [#uses=1]
@@ -1064,7 +1064,7 @@ entry:
   store i32 %uiImageWidth, i32* %uiImageWidth.addr
   store i32 %uiDevImageHeight, i32* %uiDevImageHeight.addr
   store %struct.anon addrspace(2)* %pArgs, %struct.anon addrspace(2)** %pArgs.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %global_id
   %tmp = load i32* %rowCountPerGlobalID.addr      ; <i32> [#uses=1]
   %tmp1 = load i32* %global_id                    ; <i32> [#uses=1]

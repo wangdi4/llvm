@@ -68,13 +68,13 @@ entry:
   store i8 addrspace(1)* %outRgb, i8 addrspace(1)** %outRgb.addr
   store i32 %m_phongThread, i32* %m_phongThread.addr
   store i32 %m_phongConst, i32* %m_phongConst.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %globalIdx
   %call1 = call i32 @get_group_id(i32 0)          ; <i32> [#uses=1]
   store i32 %call1, i32* %groupIdx
-  %call2 = call i32 @get_local_id(i32 0)          ; <i32> [#uses=1]
+  %call2 = call i32 @_Z12get_local_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call2, i32* %localIdx
-  %call3 = call i32 @get_local_size(i32 0)        ; <i32> [#uses=1]
+  %call3 = call i32 @_Z14get_local_sizej(i32 0)        ; <i32> [#uses=1]
   store i32 %call3, i32* %localSize
   %tmp = load i32* %m_num_total_f.addr            ; <i32> [#uses=1]
   %div = udiv i32 %tmp, 3                         ; <i32> [#uses=1]
@@ -376,17 +376,17 @@ for.inc242:                                       ; preds = %if.end197
   br label %for.cond
 
 for.end245:                                       ; preds = %for.cond
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_group_id(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare i32 @get_local_size(i32)
+declare i32 @_Z14get_local_sizej(i32)
 
 declare float @_Z3dotU8__vector4fS_(<4 x float>, <4 x float>)
 
@@ -394,4 +394,4 @@ declare <4 x float> @_Z4fabsU8__vector4f(<4 x float>)
 
 declare <4 x float> @_Z3minU8__vector4fS_(<4 x float>, <4 x float>)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)

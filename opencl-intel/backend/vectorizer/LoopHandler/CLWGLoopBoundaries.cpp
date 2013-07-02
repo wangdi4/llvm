@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CLWGBoundDecoder.h"
 #include "LoopUtils.h"
 #include "MetaDataApi.h"
+#include "CompilationUtils.h"
 
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/ConstantFolding.h"
@@ -20,6 +21,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "OCLPassSupport.h"
 #include <set>
+
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
 
@@ -125,13 +128,13 @@ void CLWGLoopBoundaries::collectTIDData() {
   // Go over all get_global_id
   m_hasVariableTid = false;
   SmallVector<CallInst *, 4> gidCalls;
-  LoopUtils::getAllCallInFunc(GET_GID_NAME, m_F, gidCalls);
+  LoopUtils::getAllCallInFunc(CompilationUtils::mangledGetGID(), m_F, gidCalls);
   for (unsigned i=0; i<gidCalls.size(); ++i) {
     processTIDCall(gidCalls[i], true);
   }
   // Go over all get_local_id
   SmallVector<CallInst *, 4> lidCalls;
-  LoopUtils::getAllCallInFunc(GET_LID_NAME, m_F, lidCalls);
+  LoopUtils::getAllCallInFunc(CompilationUtils::mangledGetLID(), m_F, lidCalls);
   for (unsigned i=0; i<lidCalls.size(); ++i) {
     processTIDCall(lidCalls[i], false);
   }
@@ -562,8 +565,8 @@ void CLWGLoopBoundaries::replaceTidWithBound (bool isGID, unsigned dim,
                                               Value *toRep) {
   assert(toRep->getType() == m_indTy && "bad type");
   SmallVector<CallInst *, 4> tidCalls;
-  if (isGID) LoopUtils::getAllCallInFunc(GET_GID_NAME, m_F, tidCalls);
-  else       LoopUtils::getAllCallInFunc(GET_LID_NAME, m_F, tidCalls);
+  if (isGID) LoopUtils::getAllCallInFunc(CompilationUtils::mangledGetGID(), m_F, tidCalls);
+  else       LoopUtils::getAllCallInFunc(CompilationUtils::mangledGetLID(), m_F, tidCalls);
   for (unsigned i=0; i<tidCalls.size(); ++i) {
     CallInst *tidCall = tidCalls[i];
     assert(isa<ConstantInt>(tidCall->getArgOperand(0)) && "non const dim");
@@ -814,7 +817,12 @@ void CLWGLoopBoundaries::fillInitialBoundaries(BasicBlock *BB) {
   m_loopSizes.clear();
   const char *baseGIDName = m_rtServices->getBaseGIDName();
   for (unsigned dim=0; dim < m_numDim; ++dim) {
-    CallInst *localSize = LoopUtils::getWICall(m_M, GET_LOCAL_SIZE, m_indTy, dim, BB);
+    CallInst *localSize = LoopUtils::getWICall(
+    m_M,
+    CompilationUtils::mangledGetLocalSize(),
+    m_indTy,
+    dim,
+    BB);
     CallInst *baseGID = LoopUtils::getWICall(m_M, baseGIDName, m_indTy, dim, BB, "");
     m_localSizes.push_back(localSize);
     m_baseGIDs.push_back(baseGID);

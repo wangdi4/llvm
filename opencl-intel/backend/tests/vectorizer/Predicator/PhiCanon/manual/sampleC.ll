@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @func(i64 %n, i64* %A, i64* %B) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 2) nounwind
+  %call = tail call i32 @_Z13get_global_idj(i32 2) nounwind
   %tobool = icmp eq i32 %call, 0
   %div25 = sdiv i64 %n, 30
   %cmp2610 = icmp sgt i64 %n, 29
@@ -34,7 +34,7 @@ for.cond3.preheader.preheader:                    ; preds = %for.cond.preheader
 
 for.cond3.preheader:                              ; preds = %for.cond3.preheader.preheader, %for.inc16
   %storemerge18 = phi i64 [ %inc18, %for.inc16 ], [ 0, %for.cond3.preheader.preheader ]
-  %call53 = tail call i32 @get_local_id(i32 0) nounwind
+  %call53 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %cmp65 = icmp eq i32 %call53, 0
   br i1 %cmp65, label %for.inc16, label %for.body8.lr.ph
 
@@ -48,7 +48,7 @@ for.body8:                                        ; preds = %for.body8.lr.ph, %f
   %arrayidx14 = getelementptr inbounds i64* %A, i64 %storemerge26
   store i64 %tmp11, i64* %arrayidx14, align 8
   %inc = add nsw i64 %storemerge26, 1
-  %call5 = tail call i32 @get_local_id(i32 0) nounwind
+  %call5 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv = zext i32 %call5 to i64
   %cmp6 = icmp slt i64 %inc, %conv
   br i1 %cmp6, label %for.body8, label %for.inc16.loopexit
@@ -81,6 +81,6 @@ if.end:                                           ; preds = %if.end.loopexit13, 
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

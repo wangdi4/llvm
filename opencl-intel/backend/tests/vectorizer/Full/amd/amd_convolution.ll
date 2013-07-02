@@ -42,7 +42,7 @@ entry:
 	store float addrspace(1)* %mask, float addrspace(1)** %mask.addr
 	store <2 x i32> %inputDimensions, <2 x i32>* %inputDimensions.addr
 	store <2 x i32> %maskDimensions, <2 x i32>* %maskDimensions.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %tid
 	%tmp = load <2 x i32>* %inputDimensions.addr		; <<2 x i32>> [#uses=1]
 	%tmp1 = extractelement <2 x i32> %tmp, i32 0		; <i32> [#uses=1]
@@ -237,4 +237,4 @@ for.end119:		; preds = %for.cond
 	ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)

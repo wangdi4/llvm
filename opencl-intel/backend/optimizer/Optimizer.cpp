@@ -53,6 +53,8 @@ llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createModuleCleanupPass();
+llvm::ModulePass *createSpirMaterializer();
+void materializeSpirDataLayout(llvm::Module&);
 
 void* destroyOpenclRuntimeSupport();
 #ifdef __APPLE__
@@ -187,7 +189,6 @@ Optimizer::~Optimizer()
 Optimizer::Optimizer( llvm::Module* pModule,
                       llvm::Module* pRtlModule,
                       const intel::OptimizerConfig* pConfig):
-    m_funcPasses(pModule),
     m_pModule(pModule)
 {
   using namespace intel;
@@ -211,7 +212,30 @@ Optimizer::Optimizer( llvm::Module* pModule,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
   }
 #endif //#ifndef __APPLE__
-  // Add an appropriate DataLayout instance for this module...
+
+  unsigned int uiOptLevel;
+  if (pConfig->GetDisableOpt() || debugType != None) {
+    uiOptLevel = 0;
+  } else {
+    uiOptLevel = 3;
+  }
+
+// Materializing the spir datalayout according to the triple.
+  materializeSpirDataLayout(*pModule);
+
+// Adding function passes.
+#if LLVM_VERSION == 3200
+  m_funcPasses.add(new llvm::DataLayout(pModule));
+#else
+  m_funcPasses.add(new llvm::TargetData(pModule));
+#endif
+#ifndef __APPLE__
+  m_funcPasses.add(createSpirMaterializer());
+#endif
+  createStandardVolcanoFunctionPasses(&m_funcPasses, uiOptLevel);
+
+// Adding module passes.
+// Add an appropriate DataLayout instance for this module...
 #if LLVM_VERSION == 3200
   m_modulePasses.add(new llvm::DataLayout(pModule));
 #else
@@ -221,11 +245,6 @@ Optimizer::Optimizer( llvm::Module* pModule,
   m_modulePasses.add(createClangCompatFixerPass());
 #endif
   m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
-#if LLVM_VERSION == 3200
-  m_funcPasses.add(new llvm::DataLayout(pModule));
-#else
-  m_funcPasses.add(new llvm::TargetData(pModule));
-#endif
 #ifndef __APPLE__
   if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
@@ -236,15 +255,6 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #endif //#ifndef __APPLE__
 
   m_modulePasses.add(createShuffleCallToInstPass());
-
-  unsigned int uiOptLevel;
-  if (pConfig->GetDisableOpt() || debugType != None) {
-    uiOptLevel = 0;
-  } else {
-    uiOptLevel = 3;
-  }
-
-  createStandardVolcanoFunctionPasses(&m_funcPasses, uiOptLevel);
 
   bool has_bar = false;
   if (!pConfig->GetLibraryModule())
@@ -468,9 +478,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
 void Optimizer::Optimize()
 {
-    for (llvm::Module::iterator i = m_pModule->begin(), e = m_pModule->end(); i != e; ++i) {
-        m_funcPasses.run(*i);
-    }
+    m_funcPasses.run(*m_pModule);
     m_modulePasses.run(*m_pModule);
 }
 

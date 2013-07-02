@@ -12,13 +12,13 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 
 define void @program(i32 addrspace(1)* %out, <4 x i32> %dim, i32 %uni) nounwind {
-  %id = call i32 @get_global_id(i32 0) nounwind
+  %id = call i32 @_Z13get_global_idj(i32 0) nounwind
   %outptr = getelementptr inbounds i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 !opencl.kernels = !{!0}
 

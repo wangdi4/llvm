@@ -16,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: ret
 define void @BypassCase2(i32 %arg1, i32 %arg2, float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %b) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(1)* %a, i32 %call
   %tmp2 = load float addrspace(1)* %arrayidx, align 4
   %cmp = icmp sgt i32 %arg1, 3
@@ -43,5 +43,5 @@ if.end11:                                         ; preds = %if.else, %if.then7,
   ret void
 }
 
-declare i32 @get_global_id(i32) readnone
+declare i32 @_Z13get_global_idj(i32) readnone
 

@@ -13,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;CHECK: ret void
 
 define void @kernel(i32* nocapture %A, i64 %k) nounwind {
-  %1 = tail call i64 (...)* @get_global_id(i64 0) nounwind
+  %1 = tail call i64 (...)* @_Z13get_global_idj(i64 0) nounwind
   %2 = icmp sgt i64 %1, 70
   br i1 %2, label %Entry1, label %Entry2
 
@@ -42,7 +42,7 @@ Entry5:                                       ; preds = %Entry3, %Entry4
   ret void
 }
 
-declare i64 @get_global_id(...)
+declare i64 @_Z13get_global_idj(...)
 
 !0 = metadata !{metadata !"omnipotent char", metadata !1}
 !1 = metadata !{metadata !"Simple C/C++ TBAA", null}

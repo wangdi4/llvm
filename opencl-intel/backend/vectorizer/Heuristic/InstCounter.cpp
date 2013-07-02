@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OpenclRuntime.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "CompilationUtils.h"
 
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -21,6 +22,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <iomanip>
 #include <sstream>
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
 
@@ -1036,7 +1038,11 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
   roots.insert(kernels.begin(), kernels.end());
 
   // Add all functions that contains barrier/get_local_id/get_global_id to root functions
-  llvm::StringRef oclFunctionName[3] = {BARRIER_FUNC_NAME, GET_LID_NAME, GET_GID_NAME};
+  llvm::StringRef oclFunctionName[3] = {
+    CompilationUtils::mangledBarrier(),
+    CompilationUtils::mangledGetLID(),
+    CompilationUtils::mangledGetGID()
+  };
   for(unsigned int i=0; i<3; i++) {
     Function *F = pM->getFunction(oclFunctionName[i]);
     if (!F) continue;

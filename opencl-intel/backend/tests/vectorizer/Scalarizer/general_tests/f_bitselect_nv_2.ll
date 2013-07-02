@@ -21,7 +21,7 @@ target triple = "i686-pc-win32"
 @opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, float addrspace(1)*)* @func_bitselect to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_func_bitselect_locals to i8*), i8* getelementptr inbounds ([91 x i8]* @opencl_func_bitselect_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 define void @func_bitselect(float addrspace(1)* nocapture %in, float addrspace(1)* nocapture %out) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind ; <i32> [#uses=1]
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
   %2 = tail call <2 x i64> @_Z9bitselectU8__vector2mS_S_(<2 x i64> <i64 -21145345543, i64 14535365159567>, <2 x i64> <i64 -21145345543, i64 14535365159567>, <2 x i64> <i64 -21145345543, i64 14535365159567>) nounwind ; <<2 x i64>> [#uses=1]
   %3 = extractelement <2 x i64> %2, i32 0         ; <i64> [#uses=1]
   %4 = tail call <2 x i64> @_Z9bitselectU8__vector2mS_S_(<2 x i64> <i64 -21145345543, i64 14535365159567>, <2 x i64> <i64 -21145345543, i64 14535365159567>, <2 x i64> <i64 -21145345543, i64 14535365159567>) nounwind ; <<2 x i64>> [#uses=1]
@@ -33,7 +33,7 @@ define void @func_bitselect(float addrspace(1)* nocapture %in, float addrspace(1
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare <2 x i64> @_Z9bitselectU8__vector2mS_S_(<2 x i64>, <2 x i64>, <2 x i64>)
 

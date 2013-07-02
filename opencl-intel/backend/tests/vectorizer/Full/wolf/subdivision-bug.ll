@@ -115,8 +115,8 @@ define i32 @NewFaceIndex(i32 %f, i32 %m_faces, i32 addrspace(1)* nocapture %dFac
 }
 
 define void @TestSubdivisionKernel(i32 addrspace(1)* nocapture %dPotentiallyActive, i32 addrspace(1)* nocapture %dActive, i32 addrspace(1)* nocapture %dVertex, %struct._Vertex addrspace(1)* nocapture %pVB, %struct._Face addrspace(1)* %pFace, float %shadingRate, i32 %faces) nounwind {
-  %1 = tail call i64 @get_local_id(i32 0) nounwind ; <i64> [#uses=1]
-  %2 = tail call i64 @get_local_size(i32 0) nounwind ; <i64> [#uses=1]
+  %1 = tail call i64 @_Z12get_local_idj(i32 0) nounwind ; <i64> [#uses=1]
+  %2 = tail call i64 @_Z14get_local_sizej(i32 0) nounwind ; <i64> [#uses=1]
   %3 = tail call i64 @get_group_id(i32 0) nounwind ; <i64> [#uses=1]
   %4 = mul i64 %3, %2                             ; <i64> [#uses=1]
   %5 = add i64 %4, %1                             ; <i64> [#uses=1]
@@ -302,15 +302,15 @@ define void @TestSubdivisionKernel(i32 addrspace(1)* nocapture %dPotentiallyActi
   ret void
 }
 
-declare i64 @get_local_id(i32)
+declare i64 @_Z12get_local_idj(i32)
 
-declare i64 @get_local_size(i32)
+declare i64 @_Z14get_local_sizej(i32)
 
 declare i64 @get_group_id(i32)
 
 define void @UpdateFacesKernel(i32 addrspace(1)* nocapture %dActive, i32 addrspace(1)* nocapture %dFace3, i32 addrspace(1)* nocapture %dFace4, %struct._Face addrspace(1)* nocapture %m_pInFB, i32 %faces) nounwind {
-  %1 = tail call i64 @get_local_id(i32 0) nounwind ; <i64> [#uses=1]
-  %2 = tail call i64 @get_local_size(i32 0) nounwind ; <i64> [#uses=1]
+  %1 = tail call i64 @_Z12get_local_idj(i32 0) nounwind ; <i64> [#uses=1]
+  %2 = tail call i64 @_Z14get_local_sizej(i32 0) nounwind ; <i64> [#uses=1]
   %3 = tail call i64 @get_group_id(i32 0) nounwind ; <i64> [#uses=1]
   %4 = mul i64 %3, %2                             ; <i64> [#uses=1]
   %5 = add i64 %4, %1                             ; <i64> [#uses=1]
@@ -365,8 +365,8 @@ define void @UpdateFacesKernel(i32 addrspace(1)* nocapture %dActive, i32 addrspa
 }
 
 define void @UpdateEdgesKernel(i32 addrspace(1)* nocapture %dActive, i32 addrspace(1)* nocapture %dVertex, i32 addrspace(1)* nocapture %dEdge, %struct._Edge addrspace(1)* nocapture %pEdges, i32 %edges) nounwind {
-  %1 = tail call i64 @get_local_id(i32 0) nounwind ; <i64> [#uses=1]
-  %2 = tail call i64 @get_local_size(i32 0) nounwind ; <i64> [#uses=1]
+  %1 = tail call i64 @_Z12get_local_idj(i32 0) nounwind ; <i64> [#uses=1]
+  %2 = tail call i64 @_Z14get_local_sizej(i32 0) nounwind ; <i64> [#uses=1]
   %3 = tail call i64 @get_group_id(i32 0) nounwind ; <i64> [#uses=1]
   %4 = mul i64 %3, %2                             ; <i64> [#uses=1]
   %5 = add i64 %4, %1                             ; <i64> [#uses=1]
@@ -417,8 +417,8 @@ define void @UpdateEdgesKernel(i32 addrspace(1)* nocapture %dActive, i32 addrspa
 }
 
 define void @GenerateFacePointsKernel(i32 addrspace(1)* nocapture %dFace3, i32 addrspace(1)* nocapture %dFace4, i32 addrspace(1)* nocapture %dActive, %struct._Face addrspace(1)* %m_pInFB, %struct._Face addrspace(1)* nocapture %m_pOutFB, %struct._Vertex addrspace(1)* nocapture %m_pInVB, %struct._Vertex addrspace(1)* %m_pOutVB, i32 addrspace(1)* nocapture %m_pFace3Scanned, i32 addrspace(1)* nocapture %m_pFace4Scanned, i32 addrspace(1)* nocapture %m_pEdgeScanned, i32 %m_vertices, i32 %faces) nounwind {
-  %1 = tail call i64 @get_local_id(i32 0) nounwind ; <i64> [#uses=4]
-  %2 = tail call i64 @get_local_size(i32 0) nounwind ; <i64> [#uses=4]
+  %1 = tail call i64 @_Z12get_local_idj(i32 0) nounwind ; <i64> [#uses=4]
+  %2 = tail call i64 @_Z14get_local_sizej(i32 0) nounwind ; <i64> [#uses=4]
   %3 = tail call i64 @get_group_id(i32 0) nounwind ; <i64> [#uses=4]
   %4 = mul i64 %3, %2                             ; <i64> [#uses=1]
   %5 = add i64 %4, %1                             ; <i64> [#uses=1]
@@ -768,8 +768,8 @@ bb.nph8:                                          ; preds = %.preheader4
 declare i32 @_Z12atom_cmpxchgPo1iii(i32 addrspace(1)*, i32, i32)
 
 define void @GenerateEdgePointsKernel(i32 addrspace(1)* nocapture %dEdge, i32 addrspace(1)* nocapture %dFace3, i32 addrspace(1)* nocapture %dFace4, i32 addrspace(1)* nocapture %dActive, i32 addrspace(1)* nocapture %dPotentiallyActive, i32 addrspace(1)* nocapture %dNewPotentiallyActive, i32 addrspace(1)* nocapture %dVertex, %struct._Edge addrspace(1)* %m_pInEB, %struct._Edge addrspace(1)* %m_pOutEB, %struct._Face addrspace(1)* %m_pInFB, %struct._Face addrspace(1)* nocapture %m_pOutFB, %struct._Vertex addrspace(1)* %m_pInVB, %struct._Vertex addrspace(1)* %m_pOutVB, i32 addrspace(1)* nocapture %m_pFace3Scanned, i32 addrspace(1)* nocapture %m_pFace4Scanned, i32 addrspace(1)* nocapture %m_pEdgeScanned, i32 %m_vertices, i32 %m_faces, i32 %m_edges) nounwind {
-  %1 = tail call i64 @get_local_id(i32 0) nounwind ; <i64> [#uses=4]
-  %2 = tail call i64 @get_local_size(i32 0) nounwind ; <i64> [#uses=4]
+  %1 = tail call i64 @_Z12get_local_idj(i32 0) nounwind ; <i64> [#uses=4]
+  %2 = tail call i64 @_Z14get_local_sizej(i32 0) nounwind ; <i64> [#uses=4]
   %3 = tail call i64 @get_group_id(i32 0) nounwind ; <i64> [#uses=4]
   %4 = mul i64 %3, %2                             ; <i64> [#uses=1]
   %5 = add i64 %4, %1                             ; <i64> [#uses=1]
@@ -1528,8 +1528,8 @@ NewFaceIndex.exit:                                ; preds = %459, %472
 }
 
 define void @UpdateVerticesKernel(i32 addrspace(1)* nocapture %dVertex, %struct._Vertex addrspace(1)* nocapture %m_pInVB, %struct._Vertex addrspace(1)* nocapture %m_pOutVB, i32 %vertices) nounwind {
-  %1 = tail call i64 @get_local_id(i32 0) nounwind ; <i64> [#uses=2]
-  %2 = tail call i64 @get_local_size(i32 0) nounwind ; <i64> [#uses=2]
+  %1 = tail call i64 @_Z12get_local_idj(i32 0) nounwind ; <i64> [#uses=2]
+  %2 = tail call i64 @_Z14get_local_sizej(i32 0) nounwind ; <i64> [#uses=2]
   %3 = tail call i64 @get_group_id(i32 0) nounwind ; <i64> [#uses=2]
   %4 = mul i64 %3, %2                             ; <i64> [#uses=1]
   %5 = add i64 %4, %1                             ; <i64> [#uses=1]
@@ -1622,8 +1622,8 @@ define void @GetScanTotalsKernel(i32 addrspace(1)* nocapture %dScanTotals, i32 a
 }
 
 define void @ParallelScanKernel(i32 addrspace(1)* nocapture %dIn, i32 addrspace(1)* nocapture %dOut, i32 %start, i32 %numFlags) nounwind {
-  %1 = tail call i64 @get_local_id(i32 0) nounwind ; <i64> [#uses=1]
-  %2 = tail call i64 @get_local_size(i32 0) nounwind ; <i64> [#uses=1]
+  %1 = tail call i64 @_Z12get_local_idj(i32 0) nounwind ; <i64> [#uses=1]
+  %2 = tail call i64 @_Z14get_local_sizej(i32 0) nounwind ; <i64> [#uses=1]
   %3 = tail call i64 @get_group_id(i32 0) nounwind ; <i64> [#uses=1]
   %4 = mul i64 %3, %2                             ; <i64> [#uses=1]
   %5 = add i64 %4, %1                             ; <i64> [#uses=1]

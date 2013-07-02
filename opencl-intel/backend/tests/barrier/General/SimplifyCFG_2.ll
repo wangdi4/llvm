@@ -30,17 +30,17 @@ target triple = "x86_64-unknown-linux-gnu"
 @opencl_spmv_csr_vector_kernel_local_partialSums = internal addrspace(3) global [128 x float] zeroinitializer, align 16
 
 
-declare i64 @get_global_id(i32)
+declare i64 @_Z13get_global_idj(i32)
 
 
 
 
 define void @spmv_csr_vector_kernel(float addrspace(1)* noalias nocapture %val, float addrspace(1)* noalias nocapture %vec, i32 addrspace(1)* noalias nocapture %cols, i32 addrspace(1)* noalias nocapture %rowDelimiters, i32 %dim, float addrspace(1)* noalias nocapture %out) nounwind {
-  %1 = tail call i64 @get_local_id(i32 0) nounwind
+  %1 = tail call i64 @_Z12get_local_idj(i32 0) nounwind
   %2 = trunc i64 %1 to i32
   %3 = and i32 %2, 31
-  %4 = tail call i64 @get_local_size(i32 0) nounwind
-  %5 = tail call i64 @get_group_id(i32 0) nounwind
+  %4 = tail call i64 @_Z14get_local_sizej(i32 0) nounwind
+  %5 = tail call i64 @_Z12get_group_idj(i32 0) nounwind
   %6 = shl i64 %4, 27
   %7 = ashr i64 %6, 32
   %8 = mul i64 %7, %5
@@ -188,18 +188,18 @@ bb.nph:                                           ; preds = %16
 
 
 define void @foo(i64 %x) nounwind {
-  tail call void @barrier(i64 %x) nounwind;
+  tail call void @_Z7barrierj(i64 %x) nounwind;
   ret void;
 }
 
 
-declare i64 @get_local_id(i32)
+declare i64 @_Z12get_local_idj(i32)
 
-declare i64 @get_local_size(i32)
+declare i64 @_Z14get_local_sizej(i32)
 
-declare i64 @get_group_id(i32)
+declare i64 @_Z12get_group_idj(i32)
 
-declare void @barrier(i64)
+declare void @_Z7barrierj(i64)
 
 !opencl.kernels = !{!2}
 !opencl_spmv_csr_vector_kernel_locals_anchor = !{!4}

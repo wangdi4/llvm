@@ -12,7 +12,7 @@ target triple = "x86_64-pc-win32"
 
 define void @math_kernel2(<2 x float> addrspace(1)* nocapture %out, <2 x float> addrspace(1)* nocapture %in1, <2 x i32> addrspace(1)* nocapture %in2) nounwind {
 
-  %1 = tail call i64 @get_global_id(i32 0) nounwind
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
   %sext = shl i64 %1, 32
   %2 = ashr i64 %sext, 32
   %3 = getelementptr inbounds <2 x float> addrspace(1)* %in1, i64 %2
@@ -31,6 +31,6 @@ define void @math_kernel2(<2 x float> addrspace(1)* nocapture %out, <2 x float> 
   ret void
 }
 
-declare i64 @get_global_id(i32)
+declare i64 @_Z13get_global_idj(i32)
 
 declare double @_Z5ldexpDv2_fDv2_i(double, double)

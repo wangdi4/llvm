@@ -24,7 +24,7 @@ entry:
 	%T2 = alloca float, align 4		; <float*> [#uses=3]
 	store float addrspace(1)* %tArray, float addrspace(1)** %tArray.addr
 	store i32 %step, i32* %step.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %tid
 	%tmp = load i32* %tid		; <i32> [#uses=1]
 	%tmp1 = load i32* %step.addr		; <i32> [#uses=2]
@@ -74,4 +74,4 @@ entry:
 	ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)

@@ -7,7 +7,7 @@
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
 target triple = "i686-pc-win32"
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare void @testin1(i32 %x) nounwind 
 
@@ -22,7 +22,7 @@ declare void @testout2(i32 %x) nounwind
 ; CHECK-NOT: @maskedf_{{[0-9]*}}_testout1
 ; CHECK: ret void
 define void @test1(i32 addrspace(1)* nocapture %pOutputs) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds i32 addrspace(1)* %pOutputs, i32 %1
   %3 = load i32 addrspace(1)* %2, align 4
   %4 = icmp ugt i32 %1, 10
@@ -44,7 +44,7 @@ define void @test1(i32 addrspace(1)* nocapture %pOutputs) nounwind {
 ; CHECK-NOT: @maskedf_{{[0-9]*}}_testout2
 ; CHECK: ret void
 define void @test2(i32 addrspace(1)* nocapture %pOutputs) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds i32 addrspace(1)* %pOutputs, i32 %1
   %3 = load i32 addrspace(1)* %2, align 4
   %4 = icmp ugt i32 %1, 10
@@ -75,7 +75,7 @@ define void @test2(i32 addrspace(1)* nocapture %pOutputs) nounwind {
 ; CHECK: ret void
 define void @testloop(i32 addrspace(1)* nocapture %pOutputs) nounwind {
 ; <label>:0
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds i32 addrspace(1)* %pOutputs, i32 %1
   %3 = load i32 addrspace(1)* %2, align 4
   %tmp = icmp ugt i32 %1, 1

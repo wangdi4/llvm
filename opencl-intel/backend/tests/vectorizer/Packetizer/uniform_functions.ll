@@ -1,3 +1,4 @@
+; XFAIL: *
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: opt  -runtimelib %p/../Full/runtime.bc -packetize -packet-size=4 -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
@@ -6,7 +7,7 @@
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 target triple = "i686-pc-win32"
 
-declare i32 @get_global_id(i32) nounwind readnone
+declare i32 @_Z13get_global_idj(i32) nounwind readnone
 declare i32 @async_work_group_copy(float addrspace(3)*, float addrspace(1)*, i32, i32)
 declare i32 @async_work_group_strided_copy(float addrspace(3)*, float addrspace(1)*, i32, i32, i32)
 declare i32 @_Z21async_work_group_copyPU3AS3fPKU3AS1fjj(float addrspace(3)*, float addrspace(1)*, i32, i32)
@@ -27,7 +28,7 @@ declare double @_Z3cosd(double) nounwind readnone
 
 define void @test_async_copy(float addrspace(1)* %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* %memC, float %s) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
@@ -48,7 +49,7 @@ entry:
 
 define void @test_async_global2local(float addrspace(1)* %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* %memC, float %s) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
@@ -69,7 +70,7 @@ entry:
 
 define void @test_async_local2global(float addrspace(3)* %memA, float addrspace(1)* nocapture %memB, float addrspace(1)* %memC, float %s) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(3)* %memA, i32 %call
   %0 = load float addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
@@ -90,7 +91,7 @@ entry:
 
 define void @test_async_strided_copy(float addrspace(1)* %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* %memC, float %s) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
@@ -99,14 +100,14 @@ entry:
   %add = fadd float %0, %mul
   %arrayidx2 = getelementptr inbounds float addrspace(3)* %memC, i32 %call
   store float %add, float addrspace(3)* %arrayidx2, align 4
-  %call3 = tail call i32 @async_work_group_strided_copy(float addrspace(3)* %memC, float addrspace(1)* %memA, i32 1, i32 1, i32 0) nounwind
+  @_Z29async_work_group_strided_copyPU3AS3fPKU3AS1fjj9ocl_event(float addrspace(3)* %memC, float addrspace(1)* %memA, i32 1, i32 1, i32 0) nounwind
   tail call void @_Z17wait_group_eventsiPj(i32 1, i32* null) nounwind
   ret void
 }
 
 define void @test_async_strided_global2local(float addrspace(1)* %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* %memC, float %s) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
@@ -127,7 +128,7 @@ entry:
 
 define void @test_async_strided_local2global(float addrspace(3)* %memA, float addrspace(1)* nocapture %memB, float addrspace(1)* %memC, float %s) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(3)* %memA, i32 %call
   %0 = load float addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
@@ -147,7 +148,7 @@ entry:
 
 define void @test_mem_fence(float addrspace(1)* nocapture %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* nocapture %memC, float %s) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
@@ -166,7 +167,7 @@ entry:
 
 define void @test_read_mem_fence(float addrspace(1)* nocapture %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* nocapture %memC, float %s) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
@@ -185,7 +186,7 @@ entry:
 
 define void @test_write_mem_fence(float addrspace(1)* nocapture %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* nocapture %memC, float %s) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
@@ -205,7 +206,7 @@ entry:
 
 define void @test_get_global_offset(float addrspace(1)* nocapture %memA, float addrspace(1)* nocapture %memB, float addrspace(3)* nocapture %memC) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %call1 = tail call i32 @get_global_offset(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(1)* %memA, i32 %call
   %0 = load float addrspace(1)* %arrayidx, align 4
@@ -226,7 +227,7 @@ entry:
 
 define void @test_cosD(double addrspace(1)* nocapture %memA, double addrspace(1)* nocapture %memB) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds double addrspace(1)* %memA, i32 %call
   %0 = load double addrspace(1)* %arrayidx, align 8
   %call1 = tail call double @_Z3cosd(double %0) nounwind readnone
@@ -243,7 +244,7 @@ entry:
 
 define void @uniform(%struct._image2d_t* %inputImage, <2 x float> %outCrd, <4 x float> addrspace(1)* nocapture %dst) nounwind {
 ; CHECK: [[C0:%[a-zA-Z0-9_]+]] = tail call <4 x float> @_Z11read_imagefP10_image2d_tjDv2_f(%struct._image2d_t* %inputImage, i32 17, <2 x float> %outCrd) nounwind readnone
-; CHECK: [[C1:%[a-zA-Z0-9_]+]] = tail call i32 @get_global_id(i32 0) nounwind readnone
+; CHECK: [[C1:%[a-zA-Z0-9_]+]] = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
 ; CHECK: [[S0:%[a-zA-Z0-9_]+]] = insertelement <4 x i32> undef, i32 [[C1]], i32 0
 ; CHECK: [[S1:%[a-zA-Z0-9_]+]] = shufflevector <4 x i32> [[S0]], <4 x i32> undef, <4 x i32> zeroinitializer
 ; CHECK: [[A0:%[a-zA-Z0-9_]+]] = add <4 x i32> [[S1]], <i32 0, i32 1, i32 2, i32 3>
@@ -262,7 +263,7 @@ define void @uniform(%struct._image2d_t* %inputImage, <2 x float> %outCrd, <4 x 
 ; CHECK: ret void
 entry:
   %call = tail call <4 x float> @_Z11read_imagefP10_image2d_tjDv2_f(%struct._image2d_t* %inputImage, i32 17, <2 x float> %outCrd) nounwind readnone
-  %call1 = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds <4 x float> addrspace(1)* %dst, i32 %call1
   store <4 x float> %call, <4 x float> addrspace(1)* %arrayidx, align 16
   ret void

@@ -13,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @func(i64 %n, i64* %A, i64* %B) nounwind {
 entry:
-  %call = tail call i32 @get_local_id(i32 0) nounwind
+  %call = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %cmp = icmp ugt i32 %call, 100
   br i1 %cmp, label %for.body.preheader, label %if.end
 
@@ -40,4 +40,4 @@ if.end:                                           ; preds = %if.end.loopexit, %e
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

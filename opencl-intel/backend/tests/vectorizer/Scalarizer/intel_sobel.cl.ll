@@ -63,9 +63,9 @@ entry:
   store i32 %OutY_PitchInFloat, i32* %OutY_PitchInFloat.addr
   store i32 %ROIWidth, i32* %ROIWidth.addr
   store i32 %ROIHeight, i32* %ROIHeight.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %yi
-  %call1 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call1, i32* %xi
   %tmp = load i32* %ROIWidth.addr                 ; <i32> [#uses=1]
   store i32 %tmp, i32* %W
@@ -283,7 +283,7 @@ for.end163:                                       ; preds = %for.cond
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 
@@ -340,9 +340,9 @@ entry:
   store <4 x float> <float 2.000000e+000, float 2.000000e+000, float 2.000000e+000, float 2.000000e+000>, <4 x float>* %.compoundliteral
   %tmp = load <4 x float>* %.compoundliteral      ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp, <4 x float>* %two
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %yi
-  %call5 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call5 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call5, i32* %xi
   %tmp7 = load i32* %ROIWidth.addr                ; <i32> [#uses=1]
   store i32 %tmp7, i32* %W
@@ -705,9 +705,9 @@ entry:
   store i32 %OutY_PitchInFloat, i32* %OutY_PitchInFloat.addr
   store i32 %ROIWidth, i32* %ROIWidth.addr
   store i32 %ROIHeight, i32* %ROIHeight.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %x0
-  %call1 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call1, i32* %y0
   %tmp = load float addrspace(1)** %Image.addr    ; <float addrspace(1)*> [#uses=1]
   %tmp2 = load i32* %Image_PitchInFloat.addr      ; <i32> [#uses=1]

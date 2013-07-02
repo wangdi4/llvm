@@ -83,7 +83,7 @@ entry:
   store i32 %bufferSize, i32* %bufferSize.addr
   store i8 addrspace(2)* %SatLUTEntry, i8 addrspace(2)** %SatLUTEntry.addr
   store i64 addrspace(1)* %timeStamps, i64 addrspace(1)** %timeStamps.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %globalId
   %call1 = call i32 @get_global_size(i32 0)       ; <i32> [#uses=1]
   store i32 %call1, i32* %globalSize
@@ -426,7 +426,7 @@ for.end:                                          ; preds = %for.cond
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 
@@ -471,7 +471,7 @@ entry:
   store i16 addrspace(1)* %Vout, i16 addrspace(1)** %Vout.addr
   store i32 %bufferSize, i32* %bufferSize.addr
   store i8 addrspace(2)* %SatLUTEntry, i8 addrspace(2)** %SatLUTEntry.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %globalId
   %call1 = call i32 @get_global_size(i32 0)       ; <i32> [#uses=1]
   store i32 %call1, i32* %globalSize

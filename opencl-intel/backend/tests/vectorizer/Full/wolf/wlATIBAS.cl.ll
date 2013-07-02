@@ -227,9 +227,9 @@ entry:
   store i32 %width, i32* %width.addr
   store <4 x float> addrspace(1)* %call, <4 x float> addrspace(1)** %call.addr
   store <4 x float> addrspace(1)* %put, <4 x float> addrspace(1)** %put.addr
-  %call1 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %xPos
-  %call2 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call2 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call2, i32* %yPos
   store <4 x float> <float 2.000000e+000, float 2.000000e+000, float 2.000000e+000, float 2.000000e+000>, <4 x float>* %two
   %tmp = load i32* %yPos                          ; <i32> [#uses=1]
@@ -359,7 +359,7 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare <4 x float> @_Z4sqrtU8__vector4f(<4 x float>)
 
@@ -481,9 +481,9 @@ entry:
   store i32 %width, i32* %width.addr
   store float addrspace(1)* %call, float addrspace(1)** %call.addr
   store float addrspace(1)* %put, float addrspace(1)** %put.addr
-  %call1 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %xPos
-  %call2 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call2 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call2, i32* %yPos
   store float 2.000000e+000, float* %two
   %tmp = load i32* %yPos                          ; <i32> [#uses=1]

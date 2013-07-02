@@ -23,11 +23,11 @@ target triple = "x86_64-pc-win32"
 define void @main(i64 %x) nounwind {
 L1:
   call void @dummybarrier.()
-  %lid = call i64 @get_local_id(i32 0)
+  %lid = call i64 @_Z12get_local_idj(i32 0)
   %y = xor i64 %x, %lid
   br label %L2
 L2:
-  call void @barrier(i64 1)
+  call void @_Z7barrierj(i64 1)
   %z = call i64 @foo(i64 %x)
   br label %L3
 L3:
@@ -35,15 +35,15 @@ L3:
   %w = and i64 %z, %z
   br label %L4
 L4:
-  call void @barrier(i64 1)
+  call void @_Z7barrierj(i64 1)
   ret void
 ; CHECK-NOT: @dummybarrier.
-; CHECK-NOT: @barrier
+; CHECK-NOT: @_Z7barrierj
 ; CHECK: xor
 ; CHECK: call i64 @foo_New
 ; CHECK: br label %
 ; CHECK-NOT: @dummybarrier.
-; CHECK-NOT: @barrier
+; CHECK-NOT: @_Z7barrierj
 ; CHECK: ret
 }
 
@@ -53,20 +53,20 @@ L1:
   call void @dummybarrier.()
   br label %L2
 L2:
-  call void @barrier(i64 2)
+  call void @_Z7barrierj(i64 2)
   ret i64 %x
 ; CHECK-NOT: @dummybarrier.
-; CHECK-NOT: @barrier
+; CHECK-NOT: @_Z7barrierj
 ; CHECK: ret i64 %x
 }
 
 ; CHECK: @foo_New(i64 %x, i64 %offset)
 ; CHECK-NOT: @dummybarrier.
-; CHECK-NOT: @barrier
+; CHECK-NOT: @_Z7barrierj
 ; CHECK: ret i64 %x
 
-declare void @barrier(i64)
-declare i64 @get_local_id(i32)
+declare void @_Z7barrierj(i64)
+declare i64 @_Z12get_local_idj(i32)
 declare void @dummybarrier.()
 
 !opencl.kernels = !{!0}

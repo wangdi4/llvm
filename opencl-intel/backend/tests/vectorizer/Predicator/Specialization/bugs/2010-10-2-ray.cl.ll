@@ -519,4 +519,4 @@ declare <4 x float> @_Z5clampU8__vector4fff(<4 x float>, float, float)
 
 declare i32 @get_global_size(i32)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)

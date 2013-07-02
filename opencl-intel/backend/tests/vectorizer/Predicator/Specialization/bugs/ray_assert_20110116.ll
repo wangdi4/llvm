@@ -13,7 +13,7 @@ target triple = "i686-pc-win32"
 
 define void @kern(float %Shading, float %T, i32* nocapture %raystart, i32* nocapture %raylen, i128* nocapture %raytemplate, i32* nocapture %visible, float* nocapture %opacity, float* nocapture %color) nounwind {
 ; <label>:0
-  %1 = tail call i32 @get_local_id(i32 0) nounwind
+  %1 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %2 = getelementptr inbounds i32* %raystart, i32 %1
   %3 = load i32* %2
   %4 = getelementptr inbounds i32* %raylen, i32 %1
@@ -69,4 +69,4 @@ define void @kern(float %Shading, float %T, i32* nocapture %raystart, i32* nocap
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

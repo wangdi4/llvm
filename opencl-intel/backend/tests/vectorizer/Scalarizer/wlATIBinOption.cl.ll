@@ -43,7 +43,7 @@ entry:
   store <4 x float> addrspace(1)* %output, <4 x float> addrspace(1)** %output.addr
   store <4 x float> addrspace(3)* %callA, <4 x float> addrspace(3)** %callA.addr
   store <4 x float> addrspace(3)* %callB, <4 x float> addrspace(3)** %callB.addr
-  %call = call i32 @get_local_id(i32 0)           ; <i32> [#uses=1]
+  %call = call i32 @_Z12get_local_idj(i32 0)           ; <i32> [#uses=1]
   store i32 %call, i32* %tid
   %call1 = call i32 @get_group_id(i32 0)          ; <i32> [#uses=1]
   store i32 %call1, i32* %bid
@@ -227,7 +227,7 @@ cond.end136:                                      ; preds = %cond.false135, %con
   %tmp141 = load <4 x float> addrspace(3)* %arrayidx140 ; <<4 x float>> [#uses=1]
   %tmp142 = insertelement <4 x float> %tmp141, float %cond137, i32 3 ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp142, <4 x float> addrspace(3)* %arrayidx140
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %tmp144 = load i32* %numSteps.addr              ; <i32> [#uses=1]
   store i32 %tmp144, i32* %j
   br label %for.cond
@@ -265,7 +265,7 @@ if.then:                                          ; preds = %for.body
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %tmp169 = load i32* %tid                        ; <i32> [#uses=1]
   %tmp170 = load i32* %j                          ; <i32> [#uses=1]
   %sub171 = sub i32 %tmp170, 1                    ; <i32> [#uses=1]
@@ -294,7 +294,7 @@ if.then174:                                       ; preds = %if.end
   br label %if.end192
 
 if.end192:                                        ; preds = %if.then174, %if.end
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   br label %for.inc
 
 for.inc:                                          ; preds = %if.end192
@@ -322,7 +322,7 @@ if.end205:                                        ; preds = %if.then198, %for.en
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
 declare i32 @get_group_id(i32)
 
@@ -330,4 +330,4 @@ declare <4 x float> @_Z4sqrtDv4_f(<4 x float>)
 
 declare <4 x float> @_Z3expDv4_f(<4 x float>)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)

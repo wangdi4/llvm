@@ -49,11 +49,11 @@ target triple = "i686-pc-win32"
 define void @DCT(float addrspace(1)* %output, float addrspace(1)* %input, float addrspace(1)* %dct, i32 %width, ...) nounwind {
 entry:
   %acc = alloca [8 x float], align 4
-  %call = call i32 @get_global_id(i32 0) nounwind
-  %call1 = call i32 @get_global_id(i32 1) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
+  %call1 = call i32 @_Z13get_global_idj(i32 1) nounwind
   %call2 = call i32 @get_group_id(i32 0) nounwind
   %call3 = call i32 @get_group_id(i32 1) nounwind
-  %call4 = call i32 @get_local_id(i32 1) nounwind
+  %call4 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %.array = getelementptr [8 x float]* %acc, i32 0, i32 0
   %.array5 = getelementptr [8 x float]* %acc, i32 0, i32 1
   %.array6 = getelementptr [8 x float]* %acc, i32 0, i32 2
@@ -182,7 +182,7 @@ for.end48:                                        ; preds = %for.cond21.preheade
   %arrayidx95 = getelementptr [64 x float] addrspace(3)* @DCT_cllocal_inter, i32 0, i32 %add9413
   %tmp98 = load float* %.array11, align 4
   store float %tmp98, float addrspace(3)* %arrayidx95, align 4
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   call void @llvm.memset.p0i8.i32(i8* %acc23, i8 0, i32 32, i32 4, i1 false)
   %tmp139.pre = load float addrspace(1)* %arrayidx31, align 4
   %tmp139.1.pre = load float addrspace(1)* %arrayidx31.1, align 4
@@ -287,21 +287,21 @@ for.end151:                                       ; preds = %for.cond121.prehead
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_group_id(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 define void @DCT_VECTOR(<8 x float> addrspace(1)* %output, <8 x float> addrspace(1)* %input, <8 x float> addrspace(1)* %dct, i32 %width, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
-  %call1 = call i32 @get_global_id(i32 1) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
+  %call1 = call i32 @_Z13get_global_idj(i32 1) nounwind
   %call2 = call i32 @get_group_id(i32 0) nounwind
   %call3 = call i32 @get_group_id(i32 1) nounwind
-  %call4 = call i32 @get_local_id(i32 1) nounwind
+  %call4 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %div = lshr i32 %width, 3
   %mul = shl i32 %call3, 3
   %mul11 = mul i32 %mul, %div
@@ -469,7 +469,7 @@ entry:
   %tmp304 = insertelement <8 x float> %tmp267, float %add302, i32 7
   %arrayidx307 = getelementptr [8 x <8 x float>] addrspace(3)* @DCT_VECTOR_cllocal_inter, i32 0, i32 %call4
   store <8 x float> %tmp304, <8 x float> addrspace(3)* %arrayidx307, align 32
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %tmp311 = load <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @DCT_VECTOR_cllocal_inter, i32 0, i32 0), align 32
   %tmp315 = load <8 x float> addrspace(1)* %arrayidx, align 32
   %mul316 = fmul <8 x float> %tmp311, %tmp315
@@ -625,11 +625,11 @@ entry:
 
 define void @DCT_VECTOR_DOT(<8 x float> addrspace(1)* %output, <8 x float> addrspace(1)* %input, <8 x float> addrspace(1)* %dct, i32 %width, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
-  %call1 = call i32 @get_global_id(i32 1) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
+  %call1 = call i32 @_Z13get_global_idj(i32 1) nounwind
   %call2 = call i32 @get_group_id(i32 0) nounwind
   %call3 = call i32 @get_group_id(i32 1) nounwind
-  %call4 = call i32 @get_local_id(i32 1) nounwind
+  %call4 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %div = lshr i32 %width, 3
   %mul = shl i32 %call3, 3
   %mul11 = mul i32 %mul, %div
@@ -748,7 +748,7 @@ entry:
   %tmp232 = insertelement <8 x float> %tmp204, float %add230, i32 7
   %arrayidx235 = getelementptr [8 x <8 x float>] addrspace(3)* @DCT_VECTOR_DOT_cllocal_inter, i32 0, i32 %call4
   store <8 x float> %tmp232, <8 x float> addrspace(3)* %arrayidx235, align 32
-  call void @barrier(i32 2) nounwind
+  call void @_Z7barrierm(i32 2) nounwind
   %tmp239 = load <8 x float> addrspace(3)* getelementptr inbounds ([8 x <8 x float>] addrspace(3)* @DCT_VECTOR_DOT_cllocal_inter, i32 0, i32 0), align 32
   %tmp240 = shufflevector <8 x float> %tmp239, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
   %tmp244 = load <8 x float> addrspace(1)* %arrayidx, align 32

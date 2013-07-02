@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CLWGBoundDecoder.h"
 #include "OCLPassSupport.h"
 #include "MetaDataApi.h"
+#include "CompilationUtils.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/InstIterator.h"
@@ -20,6 +21,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <set>
 
 static unsigned MAX_OCL_NUM_DIM = 3;
+
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
 
@@ -335,8 +338,10 @@ ReturnInst * CLWGLoopCreator::getSingleRet(Function *F) {
 ReturnInst *CLWGLoopCreator::getFunctionData(Function *F, IVecVec &gids,
                                           IVecVec &lids) {
   // Collect all get_local_id, get_global_id and single return.
-  collectTIDCallInst(GET_GID_NAME, gids, F);
-  collectTIDCallInst(GET_LID_NAME, lids, F);
+  std::string GID = CompilationUtils::mangledGetGID();
+  std::string LID = CompilationUtils::mangledGetLID();
+  collectTIDCallInst(GID.c_str(), gids, F);
+  collectTIDCallInst(LID.c_str(), lids, F);
   return getSingleRet(F);
 }
 

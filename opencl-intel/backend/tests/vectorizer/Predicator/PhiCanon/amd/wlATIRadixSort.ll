@@ -24,14 +24,14 @@ target triple = "i686-pc-win32"
 
 define void @histogram(i32 addrspace(1)* %unsortedData, i32 addrspace(1)* %buckets, i32 %shiftCount, i16 addrspace(3)* %sharedArray, ...) nounwind {
 entry:
-  %call = call i32 @get_local_id(i32 0) nounwind
-  %call1 = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z12get_local_idj(i32 0) nounwind
+  %call1 = call i32 @_Z13get_global_idj(i32 0) nounwind
   %call2 = call i32 @get_group_id(i32 0) nounwind
   %0 = shl i32 %call, 8
   %scevgep = getelementptr i16 addrspace(3)* %sharedArray, i32 %0
   %scevgep6 = bitcast i16 addrspace(3)* %scevgep to i8 addrspace(3)*
   call void @llvm.memset.p3i8.i32(i8 addrspace(3)* %scevgep6, i8 0, i32 512, i32 2, i1 false)
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %mul15 = shl i32 %call1, 8
   %and = and i32 %shiftCount, 31
   %mul25 = shl i32 %call, 8
@@ -54,7 +54,7 @@ for.body12:                                       ; preds = %entry, %for.body12
   br i1 %cmp11, label %for.body12, label %for.end35
 
 for.end35:                                        ; preds = %for.body12
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %mul45 = shl i32 %call2, 12
   %add48 = add i32 %mul45, %mul25
   br label %for.body41
@@ -76,19 +76,19 @@ for.end64:                                        ; preds = %for.body41
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_group_id(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 define void @permute(i32 addrspace(1)* %unsortedData, i32 addrspace(1)* %prescanedBuckets, i32 %shiftCount, i16 addrspace(3)* %sharedBuckets, i32 addrspace(1)* %sortedData, ...) nounwind {
 entry:
   %call = call i32 @get_group_id(i32 0) nounwind
-  %call1 = call i32 @get_local_id(i32 0) nounwind
-  %call2 = call i32 @get_global_id(i32 0) nounwind
+  %call1 = call i32 @_Z12get_local_idj(i32 0) nounwind
+  %call2 = call i32 @_Z13get_global_idj(i32 0) nounwind
   %mul5 = shl i32 %call, 12
   %mul7 = shl i32 %call1, 8
   %add = add i32 %mul7, %mul5
@@ -108,7 +108,7 @@ for.body:                                         ; preds = %entry, %for.body
   br i1 %cmp, label %for.body, label %for.end
 
 for.end:                                          ; preds = %for.body
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %mul29 = shl i32 %call2, 8
   %and = and i32 %shiftCount, 31
   br label %for.body26

@@ -444,7 +444,7 @@ entry:
   store %struct.anon addrspace(1)* %pOptionValue, %struct.anon addrspace(1)** %pOptionValue.addr
   store %0 addrspace(1)* %pOptionData, %0 addrspace(1)** %pOptionData.addr
   store i32 %pathN, i32* %pathN.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %optionid
   %tmp = load i32* %optionid                      ; <i32> [#uses=1]
   %tmp1 = load %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]
@@ -883,7 +883,7 @@ for.end340:                                       ; preds = %for.cond260
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare float @_Z4sqrtf(float)
 
@@ -919,7 +919,7 @@ entry:
   store %0 addrspace(1)* %pOptionData, %0 addrspace(1)** %pOptionData.addr
   store float addrspace(1)* %pSamples, float addrspace(1)** %pSamples.addr
   store i32 %pathN, i32* %pathN.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %optionid
   %tmp = load i32* %optionid                      ; <i32> [#uses=1]
   %tmp1 = load %0 addrspace(1)** %pOptionData.addr ; <%0 addrspace(1)*> [#uses=1]

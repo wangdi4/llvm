@@ -20,7 +20,7 @@ target triple = "i686-pc-win32"
 
 define void @prefixSumStep1(i32 addrspace(1)* %puiInputArray, i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)* %puiTmpArray, i32 %szElementsPerItem, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %mul = mul i32 %call, %szElementsPerItem
   %cmp16 = icmp eq i32 %szElementsPerItem, 0
   br i1 %cmp16, label %for.end57, label %for.body.preheader
@@ -93,11 +93,11 @@ for.end57:                                        ; preds = %for.end57.loopexit,
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 define void @prefixSumStep2(i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)* %puiValueToAddArray, i32 %szElementsPerItem, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %mul = mul i32 %call, %szElementsPerItem
   %add.ptr8 = getelementptr i32 addrspace(1)* %puiValueToAddArray, i32 %call
   %shr = lshr i32 %szElementsPerItem, 1

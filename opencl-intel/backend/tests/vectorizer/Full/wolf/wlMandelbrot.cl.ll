@@ -33,7 +33,7 @@ entry:
   store float %scale, float* %scale.addr
   store i32 %maxIterations, i32* %maxIterations.addr
   store i32 %width, i32* %width.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %tid
   %tmp = load i32* %tid                           ; <i32> [#uses=1]
   %tmp1 = load i32* %width.addr                   ; <i32> [#uses=2]
@@ -161,4 +161,4 @@ for.end:                                          ; preds = %land.end
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)

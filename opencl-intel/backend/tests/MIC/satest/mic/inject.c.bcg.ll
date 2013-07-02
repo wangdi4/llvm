@@ -4,11 +4,11 @@ target triple = "x86_64-unknown-linux-gnu"
 
 declare void @__zero_imm_original(double addrspace(1)* nocapture, float addrspace(1)* nocapture, double addrspace(1)* nocapture, float addrspace(1)* nocapture) nounwind
 
-declare i64 @get_global_id(i32) nounwind readnone
+declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
 declare [7 x i64] @__WG.boundaries.zero_imm_original(double addrspace(1)*, float addrspace(1)*, double addrspace(1)*, float addrspace(1)*)
 
-declare i64 @get_local_size(i32)
+declare i64 @_Z14get_local_sizej(i32)
 
 declare i64 @get_base_global_id.(i32)
 

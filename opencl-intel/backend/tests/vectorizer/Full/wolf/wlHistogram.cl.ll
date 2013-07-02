@@ -35,7 +35,7 @@ entry:
   store i32 addrspace(1)* %puiInputMatrix, i32 addrspace(1)** %puiInputMatrix.addr
   store i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)** %puiOutputArray.addr
   store i32 %szMatrix, i32* %szMatrix.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   %cmp = icmp ne i32 0, %call                     ; <i1> [#uses=1]
   br i1 %cmp, label %if.then, label %if.end
 
@@ -74,7 +74,7 @@ for.end:                                          ; preds = %if.then, %for.cond
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 ; CHECK: ret
 define void @histogramGrouped(i32 addrspace(1)* %puiInputMatrix, i32 addrspace(1)* %puiTmpArray, i32 addrspace(1)* %puiGroupOutputArray, i32 %szBin, i32 %szBinsPerItem, i32 %szElemenetsPerItem) nounwind {
@@ -101,9 +101,9 @@ entry:
   store i32 %szBin, i32* %szBin.addr
   store i32 %szBinsPerItem, i32* %szBinsPerItem.addr
   store i32 %szElemenetsPerItem, i32* %szElemenetsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
-  %call1 = call i32 @get_local_id(i32 0)          ; <i32> [#uses=1]
+  %call1 = call i32 @_Z12get_local_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call1, i32* %lid
   %tmp = load i32 addrspace(1)** %puiTmpArray.addr ; <i32 addrspace(1)*> [#uses=1]
   %tmp2 = load i32* %gid                          ; <i32> [#uses=1]
@@ -151,7 +151,7 @@ for.inc:                                          ; preds = %for.body
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
-  %call26 = call i32 @get_local_size(i32 0)       ; <i32> [#uses=1]
+  %call26 = call i32 @_Z14get_local_sizej(i32 0)       ; <i32> [#uses=1]
   store i32 %call26, i32* %outerLastIndex
   %tmp28 = load i32* %lid                         ; <i32> [#uses=1]
   %add29 = add i32 %tmp28, 1                      ; <i32> [#uses=1]
@@ -160,7 +160,7 @@ for.end:                                          ; preds = %for.cond
   store i32 %mul31, i32* %innerLastIndex
   %tmp32 = load i32 addrspace(1)** %puiTmpArray.addr ; <i32 addrspace(1)*> [#uses=1]
   %call33 = call i32 @get_group_id(i32 0)         ; <i32> [#uses=1]
-  %call34 = call i32 @get_local_size(i32 0)       ; <i32> [#uses=1]
+  %call34 = call i32 @_Z14get_local_sizej(i32 0)       ; <i32> [#uses=1]
   %mul35 = mul i32 %call33, %call34               ; <i32> [#uses=1]
   %tmp36 = load i32* %szBin.addr                  ; <i32> [#uses=1]
   %mul37 = mul i32 %mul35, %tmp36                 ; <i32> [#uses=1]
@@ -233,9 +233,9 @@ for.end83:                                        ; preds = %for.cond47
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare i32 @get_local_size(i32)
+declare i32 @_Z14get_local_sizej(i32)
 
 declare i32 @get_group_id(i32)
 
@@ -254,7 +254,7 @@ entry:
   store i32 addrspace(1)* %puiTmpArray, i32 addrspace(1)** %puiTmpArray.addr
   store i32 %szBin, i32* %szBin.addr
   store i32 %szBinsPerItem, i32* %szBinsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32 addrspace(1)** %puiTmpArray.addr ; <i32 addrspace(1)*> [#uses=1]
   %tmp1 = load i32* %gid                          ; <i32> [#uses=1]
@@ -323,7 +323,7 @@ entry:
   store i32 %szBin, i32* %szBin.addr
   store i32 %szBinsInTmp, i32* %szBinsInTmp.addr
   store i32 %szElemenetsPerItem, i32* %szElemenetsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %gid                           ; <i32> [#uses=1]
   %add = add i32 %tmp, 1                          ; <i32> [#uses=1]
@@ -409,7 +409,7 @@ entry:
   store i32 %szBin, i32* %szBin.addr
   store i32 %szBinsInTmp, i32* %szBinsInTmp.addr
   store i32 %szElemenetsPerItem, i32* %szElemenetsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %gid                           ; <i32> [#uses=1]
   %add = add i32 %tmp, 1                          ; <i32> [#uses=1]
@@ -495,7 +495,7 @@ entry:
   store i32 %szBin, i32* %szBin.addr
   store i32 %szBinsInTmp, i32* %szBinsInTmp.addr
   store i32 %szElemenetsPerItem, i32* %szElemenetsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %gid                           ; <i32> [#uses=1]
   %add = add i32 %tmp, 1                          ; <i32> [#uses=1]
@@ -581,7 +581,7 @@ entry:
   store i32 %szBin, i32* %szBin.addr
   store i32 %szBinsInTmp, i32* %szBinsInTmp.addr
   store i32 %szElemenetsPerItem, i32* %szElemenetsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %gid                           ; <i32> [#uses=1]
   %add = add i32 %tmp, 1                          ; <i32> [#uses=1]
@@ -667,7 +667,7 @@ entry:
   store i32 %szBin, i32* %szBin.addr
   store i32 %szBinsInTmp, i32* %szBinsInTmp.addr
   store i32 %szElemenetsPerItem, i32* %szElemenetsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %gid                           ; <i32> [#uses=1]
   %add = add i32 %tmp, 1                          ; <i32> [#uses=1]

@@ -17,7 +17,7 @@ target triple = "i686-pc-win32"
 
 
 define void @program(i32 addrspace(1)* %out, <4 x i32> %dim, i32 %uni) nounwind alwaysinline {
-  %id = call i32 @get_global_id(i32 0) nounwind
+  %id = call i32 @_Z13get_global_idj(i32 0) nounwind
   %thr = extractelement <4 x i32> %dim, i32 0
   %bound_bool = icmp slt i32 %id, %thr
   %uni_bool = icmp sgt i32 %uni, 0 
@@ -33,9 +33,9 @@ ret:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 !opencl.kernels = !{!0}
 !0 = metadata !{void (i32 addrspace(1)* , <4 x i32>, i32)* @program}

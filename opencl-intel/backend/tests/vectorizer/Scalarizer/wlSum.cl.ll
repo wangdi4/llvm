@@ -21,7 +21,7 @@ entry:
   store i32 addrspace(1)* %input, i32 addrspace(1)** %input.addr
   store i32 addrspace(1)* %output, i32 addrspace(1)** %output.addr
   store i32 %buffer_size, i32* %buffer_size.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %tid
   %tmp = load i32* %tid                           ; <i32> [#uses=1]
   %tmp1 = load i32 addrspace(1)** %input.addr     ; <i32 addrspace(1)*> [#uses=1]
@@ -35,4 +35,4 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)

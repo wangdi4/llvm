@@ -29,7 +29,7 @@ entry:
   store i32 %value, i32* %value.addr
   store i32 %arraySize, i32* %arraySize.addr
   store i32 addrspace(1)* %outArray, i32 addrspace(1)** %outArray.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %gid                           ; <i32> [#uses=1]
   %tmp1 = load i32* %arraySize.addr               ; <i32> [#uses=1]
@@ -99,7 +99,7 @@ for.end:                                          ; preds = %if.then, %for.cond
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 
@@ -117,7 +117,7 @@ entry:
   store i32 %value, i32* %value.addr
   store i32 %arraySize, i32* %arraySize.addr
   store i32 addrspace(1)* %outArray, i32 addrspace(1)** %outArray.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %gid                           ; <i32> [#uses=1]
   %tmp1 = load i32* %arraySize.addr               ; <i32> [#uses=1]
@@ -203,7 +203,7 @@ entry:
   store i32 addrspace(1)* %inArray, i32 addrspace(1)** %inArray.addr
   store i32 addrspace(1)* %outArray, i32 addrspace(1)** %outArray.addr
   store i32 %arraySize, i32* %arraySize.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %gid                           ; <i32> [#uses=1]
   %tmp1 = load i32* %arraySize.addr               ; <i32> [#uses=1]

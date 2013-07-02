@@ -20,7 +20,7 @@ entry:
   store i64 %n, i64* %n.addr
   store i64* %A, i64** %A.addr
   store i64* %B, i64** %B.addr
-  %call = call i32 @get_global_id(i32 2)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 2)          ; <i32> [#uses=1]
   %tobool = icmp ne i32 %call, 0                  ; <i1> [#uses=1]
   br i1 %tobool, label %if.then, label %if.else
 
@@ -41,7 +41,7 @@ for.body:                                         ; preds = %for.cond
 
 for.cond3:                                        ; preds = %for.inc, %for.body
   %tmp4 = load i64* %j                            ; <i64> [#uses=1]
-  %call5 = call i32 @get_local_id(i32 0)          ; <i32> [#uses=1]
+  %call5 = call i32 @_Z12get_local_idj(i32 0)          ; <i32> [#uses=1]
   %conv = zext i32 %call5 to i64                  ; <i64> [#uses=1]
   %cmp6 = icmp slt i64 %tmp4, %conv               ; <i1> [#uses=1]
   br i1 %cmp6, label %for.body8, label %for.end
@@ -110,6 +110,6 @@ if.end:                                           ; preds = %for.end39, %for.end
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

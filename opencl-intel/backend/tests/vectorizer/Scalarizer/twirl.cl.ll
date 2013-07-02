@@ -178,9 +178,9 @@ entry:
   store <2 x float> %center, <2 x float>* %center.addr
   store i32 %gaussOrSinc, i32* %gaussOrSinc.addr
   store float %twirlAngle, float* %twirlAngle.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid0_col
-  %call1 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call1, i32* %gid1_row
   %tmp = load %struct._image2d_t** %inputImage.addr ; <%struct._image2d_t*> [#uses=1]
   %call2 = call <2 x i32> @_Z13get_image_dimP10_image2d_t(%struct._image2d_t* %tmp) ; <<2 x i32>> [#uses=1]
@@ -236,7 +236,7 @@ if.end:                                           ; preds = %if.then, %land.lhs.
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare <2 x i32> @_Z13get_image_dimP10_image2d_t(%struct._image2d_t*)
 

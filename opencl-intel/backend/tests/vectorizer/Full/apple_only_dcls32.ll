@@ -1,6 +1,6 @@
-declare i32 @get_local_size(i32) nounwind readonly
+declare i32 @_Z14get_local_sizej(i32) nounwind readonly
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 
 

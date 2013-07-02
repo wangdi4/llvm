@@ -33,7 +33,7 @@ struct MDValueTraits
     // Loads the given value_type from the given node
     static value_type load(llvm::Value* pNode)
     {
-        if( NULL == pNode )
+        if( NULL == pNode || !pNode->hasValueHandle())
         {
             // it is ok to pass NULL nodes - part of support for optional values
             return NULL;
@@ -89,7 +89,7 @@ struct MDValueTraits<std::string, void>
 
     static  value_type load(llvm::Value* pNode)
     {
-        if( NULL == pNode)
+        if( NULL == pNode || !pNode->hasValueHandle())
         {
             return std::string();
         }
@@ -133,7 +133,7 @@ struct MDValueTraits<bool, void>
     static value_type load( llvm::Value* pNode)
     {
         //we allow for NULL value loads
-        if( NULL == pNode )
+        if(NULL == pNode || !pNode->hasValueHandle())
         {
             return value_type();
         }
@@ -177,7 +177,7 @@ struct MDValueTraits<int64_t, void>
     static value_type load( llvm::Value* pNode)
     {
         //we allow for NULL value loads
-        if( NULL == pNode )
+        if( NULL == pNode || !pNode->hasValueHandle())
         {
             return value_type();
         }
@@ -221,7 +221,7 @@ struct MDValueTraits<int32_t, void>
     static value_type load( llvm::Value* pNode)
     {
         //we allow for NULL value loads
-        if( NULL == pNode )
+        if( NULL == pNode || !pNode->hasValueHandle())
         {
             return value_type();
         }
@@ -266,7 +266,7 @@ struct MDValueTraits< T,  typename std::enable_if<std::is_base_of<llvm::Value, T
 
     static value_type load(llvm::Value* pNode)
     {
-        if( NULL == pNode)
+        if(NULL == pNode || !pNode->hasValueHandle())
         {
             return NULL;
         }
@@ -311,7 +311,7 @@ struct MDValueTraits<llvm::Function, void>
 
     static value_type load( llvm::Value* pNode)
     {
-        if( NULL == pNode )
+        if(NULL == pNode || !pNode->hasValueHandle())
         {
             // it is ok to pass NULL nodes - part of support for optional values
             return NULL;

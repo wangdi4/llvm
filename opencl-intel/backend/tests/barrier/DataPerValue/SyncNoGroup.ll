@@ -26,7 +26,7 @@ L1:
   call void @fiber.()
   br label %L2
 L2:
-  call void @barrier(i32 1)
+  call void @_Z7barrierj(i32 1)
   ret void
 ; CHECK: L0:
 ; CHECK: call void @dummybarrier.()
@@ -36,7 +36,7 @@ L2:
 ; CHECK: call void @fiber.()
 ; CHECK: br label %L2
 ; CHECK: L2:
-; CHECK: call void @barrier(i32 1)
+; CHECK: call void @_Z7barrierj(i32 1)
 ; CHECK: ret void
 }
 
@@ -61,7 +61,7 @@ L2:
 ; CHECK-NOT: entry
 ; CHECK: DONE
 
-declare void @barrier(i32)
+declare void @_Z7barrierj(i32)
 declare void @dummybarrier.()
 declare void @fiber.()
 

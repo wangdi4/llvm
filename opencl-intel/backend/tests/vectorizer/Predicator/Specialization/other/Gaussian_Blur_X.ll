@@ -32,24 +32,24 @@ target triple = "x86_64-unknown-linux-gnu"
 @imageSampler = addrspace(2) global i32 1, align 4
 
 define void @GaussianBlur_Clean(%struct._image2d_t* %dst) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = insertelement <2 x i32> undef, i32 %1, i32 0
-  %3 = tail call i32 @get_global_id(i32 1) nounwind
+  %3 = tail call i32 @_Z13get_global_idj(i32 1) nounwind
   %4 = insertelement <2 x i32> %2, i32 %3, i32 1
   tail call void @bar(%struct._image2d_t* %dst, <2 x i32> %4, <4 x i32> zeroinitializer) nounwind
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare void @bar(%struct._image2d_t*, <2 x i32>, <4 x i32>)
 
 define void @GaussianBlur_X(%struct._image2d_t* %src, %struct._image2d_t* %dst, i32 addrspace(1)* %Table, i32 addrspace(1)* %SumWidth, i32 %width, i32 %height, i32 %BlurRadius, i32 %nRealWidth) nounwind {
 ; <label>:0
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
-  %2 = tail call i32 @get_global_id(i32 1) nounwind
-  %3 = tail call i32 @get_global_id(i32 0) nounwind
-  %4 = tail call i32 @get_global_id(i32 1) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
+  %2 = tail call i32 @_Z13get_global_idj(i32 1) nounwind
+  %3 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
+  %4 = tail call i32 @_Z13get_global_idj(i32 1) nounwind
   %5 = mul i32 %4, %nRealWidth
   %6 = add i32 %5, %3
   %7 = icmp eq i32 %nRealWidth, 0
@@ -236,9 +236,9 @@ bb.nph.split.split.bb.nph.split.split.split_crit_edge: ; preds = %bb.nph.split.s
 
 ; <label>:126                                     ; preds = %17, %20, %0, %._crit_edge
   %storemerge1 = phi <4 x i32> [ %125, %._crit_edge ], [ <i32 0, i32 0, i32 0, i32 undef>, %0 ], [ <i32 0, i32 0, i32 0, i32 undef>, %20 ], [ <i32 0, i32 0, i32 0, i32 undef>, %17 ]
-  %127 = tail call i32 @get_global_id(i32 0) nounwind
+  %127 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %128 = insertelement <2 x i32> undef, i32 %127, i32 0
-  %129 = tail call i32 @get_global_id(i32 1) nounwind
+  %129 = tail call i32 @_Z13get_global_idj(i32 1) nounwind
   %130 = insertelement <2 x i32> %128, i32 %129, i32 1
   tail call void @bar(%struct._image2d_t* %dst, <2 x i32> %130, <4 x i32> %storemerge1) nounwind
   ret void

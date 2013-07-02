@@ -758,9 +758,9 @@ entry:
   %curCrd = alloca <2 x float>, align 8           ; <<2 x float>*> [#uses=2]
   store <4 x float> addrspace(1)* %output, <4 x float> addrspace(1)** %output.addr
   store %struct.anon addrspace(2)* %pArgs, %struct.anon addrspace(2)** %pArgs.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid0_col
-  %call1 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call1, i32* %gid1_row
   %call2 = call i32 @get_global_size(i32 0)       ; <i32> [#uses=1]
   store i32 %call2, i32* %imgWidth
@@ -787,7 +787,7 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 
@@ -805,7 +805,7 @@ entry:
   store <4 x float> addrspace(1)* %output, <4 x float> addrspace(1)** %output.addr
   store i32 %rowCountPerGlobalID, i32* %rowCountPerGlobalID.addr
   store %struct.anon addrspace(2)* %pArgs, %struct.anon addrspace(2)** %pArgs.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %global_id
   %tmp = load i32* %rowCountPerGlobalID.addr      ; <i32> [#uses=1]
   %tmp1 = load i32* %global_id                    ; <i32> [#uses=1]

@@ -55,15 +55,15 @@ entry:
 	store float addrspace(1)* %input, float addrspace(1)** %input.addr
 	store float addrspace(1)* %dct, float addrspace(1)** %dct.addr
 	store i32 %width, i32* %width.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %globalIdx
-	%call1 = call i32 @get_global_id(i32 1)		; <i32> [#uses=1]
+	%call1 = call i32 @_Z13get_global_idj(i32 1)		; <i32> [#uses=1]
 	store i32 %call1, i32* %globalIdy
 	%call2 = call i32 @get_group_id(i32 0)		; <i32> [#uses=1]
 	store i32 %call2, i32* %groupIdx
 	%call3 = call i32 @get_group_id(i32 1)		; <i32> [#uses=1]
 	store i32 %call3, i32* %groupIdy
-	%call4 = call i32 @get_local_id(i32 1)		; <i32> [#uses=1]
+	%call4 = call i32 @_Z12get_local_idj(i32 1)		; <i32> [#uses=1]
 	store i32 %call4, i32* %i
 	store i32 0, i32* %idx
 	store i32 0, i32* %index1
@@ -215,7 +215,7 @@ for.end48:		; preds = %for.cond
 	%arrayidx97 = getelementptr float* %arraydecay96, i32 7		; <float*> [#uses=1]
 	%tmp98 = load float* %arrayidx97		; <float> [#uses=1]
 	store float %tmp98, float addrspace(3)* %arrayidx95
-	call void @barrier(i32 1)
+	call void @_Z7barrierm(i32 1)
 	store i32 0, i32* %ind100
 	br label %for.cond101
 
@@ -378,13 +378,13 @@ for.end151:		; preds = %for.cond117
 	ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_group_id(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 define void @DCT_VECTOR(<8 x float> addrspace(1)* %output, <8 x float> addrspace(1)* %input, <8 x float> addrspace(1)* %dct, i32 %width, ...) nounwind {
 entry:
@@ -411,15 +411,15 @@ entry:
 	store <8 x float> addrspace(1)* %input, <8 x float> addrspace(1)** %input.addr
 	store <8 x float> addrspace(1)* %dct, <8 x float> addrspace(1)** %dct.addr
 	store i32 %width, i32* %width.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %globalIdx
-	%call1 = call i32 @get_global_id(i32 1)		; <i32> [#uses=1]
+	%call1 = call i32 @_Z13get_global_idj(i32 1)		; <i32> [#uses=1]
 	store i32 %call1, i32* %globalIdy
 	%call2 = call i32 @get_group_id(i32 0)		; <i32> [#uses=1]
 	store i32 %call2, i32* %groupIdx
 	%call3 = call i32 @get_group_id(i32 1)		; <i32> [#uses=1]
 	store i32 %call3, i32* %groupIdy
-	%call4 = call i32 @get_local_id(i32 1)		; <i32> [#uses=1]
+	%call4 = call i32 @_Z12get_local_idj(i32 1)		; <i32> [#uses=1]
 	store i32 %call4, i32* %i
 	store i32 0, i32* %idx
 	store <8 x float> zeroinitializer, <8 x float>* %acc
@@ -759,7 +759,7 @@ entry:
 	%arrayidx307 = getelementptr <8 x float> addrspace(3)* getelementptr ([8 x <8 x float>] addrspace(3)* @DCT_VECTOR_cllocal_inter, i32 0, i32 0), i32 %tmp306		; <<8 x float> addrspace(3)*> [#uses=1]
 	%tmp308 = load <8 x float>* %acc		; <<8 x float>> [#uses=1]
 	store <8 x float> %tmp308, <8 x float> addrspace(3)* %arrayidx307
-	call void @barrier(i32 1)
+	call void @_Z7barrierm(i32 1)
 	%tmp309 = load i32* %i		; <i32> [#uses=1]
 	store i32 %tmp309, i32* %k2
 	%tmp310 = load i32* %k2		; <i32> [#uses=1]
@@ -1069,15 +1069,15 @@ entry:
 	store <8 x float> addrspace(1)* %input, <8 x float> addrspace(1)** %input.addr
 	store <8 x float> addrspace(1)* %dct, <8 x float> addrspace(1)** %dct.addr
 	store i32 %width, i32* %width.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %globalIdx
-	%call1 = call i32 @get_global_id(i32 1)		; <i32> [#uses=1]
+	%call1 = call i32 @_Z13get_global_idj(i32 1)		; <i32> [#uses=1]
 	store i32 %call1, i32* %globalIdy
 	%call2 = call i32 @get_group_id(i32 0)		; <i32> [#uses=1]
 	store i32 %call2, i32* %groupIdx
 	%call3 = call i32 @get_group_id(i32 1)		; <i32> [#uses=1]
 	store i32 %call3, i32* %groupIdy
-	%call4 = call i32 @get_local_id(i32 1)		; <i32> [#uses=1]
+	%call4 = call i32 @_Z12get_local_idj(i32 1)		; <i32> [#uses=1]
 	store i32 %call4, i32* %i
 	store i32 0, i32* %idx
 	store <8 x float> zeroinitializer, <8 x float>* %acc
@@ -1337,7 +1337,7 @@ entry:
 	%arrayidx235 = getelementptr <8 x float> addrspace(3)* getelementptr ([8 x <8 x float>] addrspace(3)* @DCT_VECTOR_DOT_cllocal_inter, i32 0, i32 0), i32 %tmp234		; <<8 x float> addrspace(3)*> [#uses=1]
 	%tmp236 = load <8 x float>* %acc		; <<8 x float>> [#uses=1]
 	store <8 x float> %tmp236, <8 x float> addrspace(3)* %arrayidx235
-	call void @barrier(i32 2)
+	call void @_Z7barrierm(i32 2)
 	%tmp237 = load i32* %i		; <i32> [#uses=1]
 	store i32 %tmp237, i32* %k2
 	%tmp238 = load i32* %k2		; <i32> [#uses=1]

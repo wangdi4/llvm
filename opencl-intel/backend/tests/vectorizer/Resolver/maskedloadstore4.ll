@@ -14,14 +14,14 @@
 ; CHECK: @__ocl_masked_store_long8
 ; CHECK: ret
 
-declare i32 @get_global_id(i32) nounwind
+declare i32 @_Z13get_global_idj(i32) nounwind
 declare <8 x i64> @masked_load_align8_1(<8 x i1>, <8 x i64> addrspace(1)*)
 declare void @masked_store_align8_2(<8 x i1>, <8 x i64>, <8 x i64> addrspace(1)*)
 declare void @masked_store_align8_3(<8 x i1>, <8 x i64>, <8 x i64> addrspace(1)*)
 
 define void @testldst(i64 addrspace(1)* nocapture %a, i64 addrspace(1)* nocapture %b, i64 addrspace(1)* nocapture %c) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %temp = insertelement <8 x i32> undef, i32 %call, i32 0
   %vector = shufflevector <8 x i32> %temp, <8 x i32> undef, <8 x i32> zeroinitializer
   %0 = add <8 x i32> %vector, <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>

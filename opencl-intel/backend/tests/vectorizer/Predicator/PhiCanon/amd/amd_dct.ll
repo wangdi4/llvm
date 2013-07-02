@@ -29,12 +29,12 @@ entry:
 
 define void @DCT(float addrspace(1)* %output, float addrspace(1)* %input, float addrspace(1)* %dct, float addrspace(1)* %inter, i32 %width, i32 %blockWidth, i32 %inverse, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
-  %call1 = call i32 @get_global_id(i32 1) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
+  %call1 = call i32 @_Z13get_global_idj(i32 1) nounwind
   %call2 = call i32 @get_group_id(i32 0) nounwind
   %call3 = call i32 @get_group_id(i32 1) nounwind
-  %call4 = call i32 @get_local_id(i32 0) nounwind
-  %call5 = call i32 @get_local_id(i32 1) nounwind
+  %call4 = call i32 @_Z12get_local_idj(i32 0) nounwind
+  %call5 = call i32 @_Z12get_local_idj(i32 1) nounwind
   %mul = mul i32 %call1, %width
   %add = add i32 %mul, %call
   %cmp13 = icmp eq i32 %blockWidth, 0
@@ -43,7 +43,7 @@ entry:
 for.end.thread:                                   ; preds = %entry
   %arrayidx4417 = getelementptr float addrspace(1)* %inter, i32 %add
   store float 0.000000e+00, float addrspace(1)* %arrayidx4417, align 4
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   br label %for.end92
 
 for.body.lr.ph:                                   ; preds = %entry
@@ -105,7 +105,7 @@ for.end:                                          ; preds = %for.end.loopexit19,
   %tmp969.lcssa = phi float [ %add40, %for.end.loopexit ], [ %add40.us, %for.end.loopexit19 ]
   %arrayidx44 = getelementptr float addrspace(1)* %inter, i32 %add
   store float %tmp969.lcssa, float addrspace(1)* %arrayidx44, align 4
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   br i1 %cmp13, label %for.end92, label %for.body50.lr.ph
 
 for.body50.lr.ph:                                 ; preds = %for.end
@@ -168,10 +168,10 @@ for.end92:                                        ; preds = %for.end92.loopexit1
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_group_id(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)

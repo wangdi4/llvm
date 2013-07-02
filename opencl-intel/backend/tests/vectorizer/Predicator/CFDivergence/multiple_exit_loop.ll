@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: ret
 
 define void @internalDivBranchMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %1, 32
   %2 = ashr exact i64 %sext, 32
   br label %3
@@ -46,7 +46,7 @@ define void @internalDivBranchMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1
   ret void
 }
 
-declare i64 @get_global_id(i32) nounwind readnone
+declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
 ; CHECK: void @externalDivBranchMX
 ; CHECK: @masked_store
@@ -56,7 +56,7 @@ declare i64 @get_global_id(i32) nounwind readnone
 ; CHECK: ret
 
 define void @externalDivBranchMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = sext i32 %2 to i64
   %4 = getelementptr inbounds i32 addrspace(1)* %a, i64 %3
@@ -100,7 +100,7 @@ define void @externalDivBranchMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1
 ; CHECK: ret
 
 define void @externalDivBranchNestedUnLoopsMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = sext i32 %2 to i64
   %4 = getelementptr inbounds i32 addrspace(1)* %a, i64 %3
@@ -160,7 +160,7 @@ define void @externalDivBranchNestedUnLoopsMX(i32 addrspace(1)* nocapture %a, i3
 ; CHECK: ret
 
 define void @externalDivBranchNestedLoopsMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = sext i32 %2 to i64
   %4 = getelementptr inbounds i32 addrspace(1)* %a, i64 %3
@@ -219,7 +219,7 @@ define void @externalDivBranchNestedLoopsMX(i32 addrspace(1)* nocapture %a, i32 
 ; CHECK: ret
 
 define void @internalDivBranchNestedUnLoopsMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = icmp sgt i32 %num, 0
   br i1 %3, label %.preheader.lr.ph, label %._crit_edge
@@ -271,7 +271,7 @@ define void @internalDivBranchNestedUnLoopsMX(i32 addrspace(1)* nocapture %a, i3
 ; CHECK: ret
 
 define void @internalDivBranchNestedLoopsMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = icmp sgt i32 %num, 0
   br i1 %3, label %.preheader.lr.ph, label %._crit_edge
@@ -323,7 +323,7 @@ define void @internalDivBranchNestedLoopsMX(i32 addrspace(1)* nocapture %a, i32 
 ; CHECK: ret
 
 define void @internalDivBranchThreeNestedUnLoopsMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = icmp sgt i32 %num, 0
   br i1 %3, label %.preheader1.lr.ph, label %._crit_edge4
@@ -384,7 +384,7 @@ define void @internalDivBranchThreeNestedUnLoopsMX(i32 addrspace(1)* nocapture %
 ; CHECK: ret
 
 define void @internalUnBranchDivLoopMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = icmp eq i32 %num, 7
   br label %4
@@ -418,7 +418,7 @@ define void @internalUnBranchDivLoopMX(i32 addrspace(1)* nocapture %a, i32 addrs
 ; CHECK: ret
 
 define void @externalUnBranchDivLoopMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = icmp eq i32 %num, 7
   %4 = sext i32 %2 to i64

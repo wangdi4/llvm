@@ -123,7 +123,7 @@ entry:
   store float addrspace(1)* %diagonal, float addrspace(1)** %diagonal.addr
   store float addrspace(1)* %offDiagonal, float addrspace(1)** %offDiagonal.addr
   store i32 %width, i32* %width.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %threadId
   %tmp = load i32* %threadId                      ; <i32> [#uses=1]
   %mul = mul i32 2, %tmp                          ; <i32> [#uses=1]
@@ -165,7 +165,7 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 define void @recalculateEigenIntervals(float addrspace(1)* %newEigenIntervals, float addrspace(1)* %eigenIntervals, i32 addrspace(1)* %numEigenIntervals, float addrspace(1)* %diagonal, float addrspace(1)* %offDiagonal, i32 %width, float %tolerance) nounwind {
 entry:
@@ -193,7 +193,7 @@ entry:
   store float addrspace(1)* %offDiagonal, float addrspace(1)** %offDiagonal.addr
   store i32 %width, i32* %width.addr
   store float %tolerance, float* %tolerance.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %threadId
   %tmp = load i32* %threadId                      ; <i32> [#uses=1]
   store i32 %tmp, i32* %currentIndex

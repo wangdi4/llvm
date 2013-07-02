@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.8.7)
 
+link_directories(${LLVM_LIBRARY_DIR})
+
 if( ANDROID )
     set( BACKEND_BUILD_TESTS            OFF  CACHE STRING "")
     set( BACKEND_BUILD_VERIFICATION_LIB OFF  CACHE STRING "")
@@ -36,9 +38,9 @@ if (NOT WIN32)
     else (APPLE)
         set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
     if( ANDROID OR CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )   
-	set( WARNING_LEVEL "${WARNING_LEVEL} -w" )
+  set( WARNING_LEVEL "${WARNING_LEVEL} -w" )
     else( )
-	set( WARNING_LEVEL "${WARNING_LEVEL} -Werror" )
+  set( WARNING_LEVEL "${WARNING_LEVEL} -Werror" )
     endif( )
         add_definitions( ${WARNING_LEVEL} )
     
@@ -110,19 +112,19 @@ macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
             set( SRC_FILE ${CMAKE_CURRENT_SOURCE_DIR}/${FILE} )
 
             if (CMAKE_ASM_OUTPUT_NAME_FLAG)
-                                set( OBJ_OUTPUT_NAME_FLAG ${CMAKE_ASM_OUTPUT_NAME_FLAG} ${FILE_NAME}${CMAKE_C_OUTPUT_EXTENSION} )
-                        endif (CMAKE_ASM_OUTPUT_NAME_FLAG)
+              set( OBJ_OUTPUT_NAME_FLAG ${CMAKE_ASM_OUTPUT_NAME_FLAG} ${FILE_NAME}${CMAKE_C_OUTPUT_EXTENSION} )
+            endif (CMAKE_ASM_OUTPUT_NAME_FLAG)
 
             add_custom_command(OUTPUT ${OBJ_FILE}
-                               COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
-                               COMMAND ${CMAKE_COMMAND} -E chdir ${BIN_DIR}
-                                                             ${CMAKE_ASM_COMPILER} ${CMAKE_ASM_FLAGS}
-                                                             ${CMAKE_ASM_INCLUDE_DIR_FLAG} ${CMAKE_CURRENT_SOURCE_DIR}
-                                                             ${OBJ_OUTPUT_NAME_FLAG}
-                                                             ${SRC_FILE}
-                               MAIN_DEPENDENCY ${SRC_FILE}
-                               VERBATIM
-                               )
+              COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
+              COMMAND ${CMAKE_COMMAND} -E chdir ${BIN_DIR}
+                      ${CMAKE_ASM_COMPILER} ${CMAKE_ASM_FLAGS}
+                      ${CMAKE_ASM_INCLUDE_DIR_FLAG} ${CMAKE_CURRENT_SOURCE_DIR}
+                      ${OBJ_OUTPUT_NAME_FLAG}
+                      ${SRC_FILE}
+              MAIN_DEPENDENCY ${SRC_FILE}
+              VERBATIM
+            )
 
             list(APPEND OBJ_FILES ${OBJ_FILE})
             list(APPEND SRC_FILES ${SRC_FILE})
@@ -202,7 +204,7 @@ else(LLVM_BUILD_APPLE_BACKEND)
         add_subdirectory(vectorizer        "${CMAKE_CURRENT_BINARY_DIR}/vectorizer")
         add_subdirectory(barrier           "${CMAKE_CURRENT_BINARY_DIR}/barrier")
         add_subdirectory(MICJITEngine      "${CMAKE_CURRENT_BINARY_DIR}/MICJITEngine")
-       add_subdirectory(utils             "${CMAKE_CURRENT_BINARY_DIR}/utils")
+        add_subdirectory(utils             "${CMAKE_CURRENT_BINARY_DIR}/utils")
         add_subdirectory(metadata_api      "${CMAKE_CURRENT_BINARY_DIR}/metadata_api")
         add_subdirectory(passes            "${CMAKE_CURRENT_BINARY_DIR}/passes")
         add_subdirectory(optimizer         "${CMAKE_CURRENT_BINARY_DIR}/optimizer")
@@ -228,17 +230,17 @@ else(LLVM_BUILD_APPLE_BACKEND)
 
     #removing the test/... directories since it will be incorporated as part of the LIT script support
     if (LLVM_BUILD_OCL_CPU_BACKEND)
-        #add_subdirectory(tests/vectorizer/     	"${CMAKE_CURRENT_BINARY_DIR}/test_vectorizer/")
-        #add_subdirectory(tests/barrier/        	"${CMAKE_CURRENT_BINARY_DIR}/test_barrier/")
-        #add_subdirectory(tests/images/           	"${CMAKE_CURRENT_BINARY_DIR}/test_images/")
-        #add_subdirectory(tests/codegen/          	"${CMAKE_CURRENT_BINARY_DIR}/test_codegen/")
-        #add_subdirectory(tests/regression/     	"${CMAKE_CURRENT_BINARY_DIR}/regression/")
-        #add_subdirectory(tests/ocl_backend_passes/	"${CMAKE_CURRENT_BINARY_DIR}/test_ocl_backend_passes/")
+        #add_subdirectory(tests/vectorizer/       "${CMAKE_CURRENT_BINARY_DIR}/test_vectorizer/")
+        #add_subdirectory(tests/barrier/          "${CMAKE_CURRENT_BINARY_DIR}/test_barrier/")
+        #add_subdirectory(tests/images/           "${CMAKE_CURRENT_BINARY_DIR}/test_images/")
+        #add_subdirectory(tests/codegen/          "${CMAKE_CURRENT_BINARY_DIR}/test_codegen/")
+        #add_subdirectory(tests/regression/       "${CMAKE_CURRENT_BINARY_DIR}/regression/")
+        #add_subdirectory(tests/ocl_backend_passes/ "${CMAKE_CURRENT_BINARY_DIR}/test_ocl_backend_passes/")
     endif (LLVM_BUILD_OCL_CPU_BACKEND)
 
     if (BACKEND_BUILD_VERIFICATION_LIB)
-        #add_subdirectory(tests/opencl/         	"${CMAKE_CURRENT_BINARY_DIR}/test_opencl/")
-        #add_subdirectory(tests/ocl_ref_conf/   	"${CMAKE_CURRENT_BINARY_DIR}/test_ocl_ref_conformance/")
+        #add_subdirectory(tests/opencl/           "${CMAKE_CURRENT_BINARY_DIR}/test_opencl/")
+        #add_subdirectory(tests/ocl_ref_conf/     "${CMAKE_CURRENT_BINARY_DIR}/test_ocl_ref_conformance/")
     endif ()
 
     if (BACKEND_BUILD_VERIFICATION_LIB) 

@@ -12,7 +12,7 @@ target triple = "i686-pc-win32"
 
 define void @simpleConvolution(float addrspace(1)* nocapture %output, i32 addrspace(1)* nocapture %input, float addrspace(1)* nocapture %mask, <2 x i32> %inputDimensions, <2 x i32> %maskDimensions) nounwind {
 ; <label>:0
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = extractelement <2 x i32> %inputDimensions, i32 0
   %3 = extractelement <2 x i32> %inputDimensions, i32 1
   %4 = icmp eq i32 %2, 0
@@ -129,5 +129,5 @@ bb.nph:                                           ; preds = %._crit_edge, %bb.np
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 

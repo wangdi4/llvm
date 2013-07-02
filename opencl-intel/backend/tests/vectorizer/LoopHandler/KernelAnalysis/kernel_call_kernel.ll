@@ -16,7 +16,7 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32) nounwind readnone
+declare i32 @_Z13get_global_idj(i32) nounwind readnone
 
 define void @test_kernel_call_kernel() nounwind {
 entry:

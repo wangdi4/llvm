@@ -43,7 +43,7 @@ entry:
   store i32 addrspace(1)* %puiTmpOutputArray, i32 addrspace(1)** %puiTmpOutputArray.addr
   store i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)** %puiOutputArray.addr
   store i32 %szElementsPerItem, i32* %szElementsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %szElementsPerItem.addr        ; <i32> [#uses=1]
   %shr = lshr i32 %tmp, 1                         ; <i32> [#uses=1]
@@ -143,10 +143,10 @@ for.inc51:                                        ; preds = %for.end50
 for.end54:                                        ; preds = %for.cond23
   %call56 = call i32 @get_group_id(i32 0)         ; <i32> [#uses=1]
   store i32 %call56, i32* %currentIndex
-  %call58 = call i32 @get_local_size(i32 0)       ; <i32> [#uses=1]
+  %call58 = call i32 @_Z14get_local_sizej(i32 0)       ; <i32> [#uses=1]
   store i32 %call58, i32* %lastIndex
-  call void @barrier(i32 2)
-  %call59 = call i32 @get_local_id(i32 0)         ; <i32> [#uses=1]
+  call void @_Z7barrierm(i32 2)
+  %call59 = call i32 @_Z12get_local_idj(i32 0)         ; <i32> [#uses=1]
   %cmp60 = icmp ult i32 0, %call59                ; <i1> [#uses=1]
   br i1 %cmp60, label %if.then, label %if.end
 
@@ -196,15 +196,15 @@ for.end88:                                        ; preds = %if.then, %for.cond6
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_group_id(i32)
 
-declare i32 @get_local_size(i32)
+declare i32 @_Z14get_local_sizej(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
 ; CHECK: ret
 define void @reductionInt(i32 addrspace(1)* %puiInputArray, i32 addrspace(1)* %puiTmpOutputArray, i32 addrspace(1)* %puiOutputArray, i32 %szElementsPerItem) nounwind {
@@ -225,7 +225,7 @@ entry:
   store i32 addrspace(1)* %puiTmpOutputArray, i32 addrspace(1)** %puiTmpOutputArray.addr
   store i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)** %puiOutputArray.addr
   store i32 %szElementsPerItem, i32* %szElementsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %szElementsPerItem.addr        ; <i32> [#uses=1]
   %shr = lshr i32 %tmp, 1                         ; <i32> [#uses=1]
@@ -352,7 +352,7 @@ entry:
   store <2 x i32> addrspace(1)* %puiTmpOutputArray, <2 x i32> addrspace(1)** %puiTmpOutputArray.addr
   store i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)** %puiOutputArray.addr
   store i32 %szElementsPerItem, i32* %szElementsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %szElementsPerItem.addr        ; <i32> [#uses=1]
   %shr = lshr i32 %tmp, 1                         ; <i32> [#uses=1]
@@ -485,7 +485,7 @@ entry:
   store <4 x i32> addrspace(1)* %puiTmpOutputArray, <4 x i32> addrspace(1)** %puiTmpOutputArray.addr
   store i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)** %puiOutputArray.addr
   store i32 %szElementsPerItem, i32* %szElementsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %szElementsPerItem.addr        ; <i32> [#uses=1]
   %shr = lshr i32 %tmp, 1                         ; <i32> [#uses=1]
@@ -628,7 +628,7 @@ entry:
   store <8 x i32> addrspace(1)* %puiTmpOutputArray, <8 x i32> addrspace(1)** %puiTmpOutputArray.addr
   store i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)** %puiOutputArray.addr
   store i32 %szElementsPerItem, i32* %szElementsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %szElementsPerItem.addr        ; <i32> [#uses=1]
   %shr = lshr i32 %tmp, 1                         ; <i32> [#uses=1]
@@ -791,7 +791,7 @@ entry:
   store <16 x i32> addrspace(1)* %puiTmpOutputArray, <16 x i32> addrspace(1)** %puiTmpOutputArray.addr
   store i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)** %puiOutputArray.addr
   store i32 %szElementsPerItem, i32* %szElementsPerItem.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid
   %tmp = load i32* %szElementsPerItem.addr        ; <i32> [#uses=1]
   %shr = lshr i32 %tmp, 1                         ; <i32> [#uses=1]

@@ -17,7 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: ret
 
 define void @divBranchNestedUnLoop(i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = and i32 %2, 1
   %4 = icmp eq i32 %3, 0
@@ -43,7 +43,7 @@ define void @divBranchNestedUnLoop(i32 addrspace(1)* nocapture %res, i32 %num) n
   ret void
 }
 
-declare i64 @get_global_id(i32) nounwind readnone
+declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
 ; CHECK: define void @divBranchNestedUnBranch
 ; CHECK: header:
@@ -58,7 +58,7 @@ declare i64 @get_global_id(i32) nounwind readnone
 ; CHECK: ret
 
 define void @divBranchNestedUnBranch(i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = and i32 %2, 1
   %4 = icmp eq i32 %3, 0
@@ -100,7 +100,7 @@ define void @divBranchNestedUnBranch(i32 addrspace(1)* nocapture %res, i32 %num)
 ; CHECK: ret
 
 define void @divBranchNestedUnBranchI(i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = and i32 %2, 1
   %4 = icmp eq i32 %3, 0
@@ -139,7 +139,7 @@ define void @divBranchNestedUnBranchI(i32 addrspace(1)* nocapture %res, i32 %num
 ; CHECK: ret
 
 define void @divBranchedUnBranch(i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = and i32 %2, 1
   %4 = icmp eq i32 %3, 0
@@ -174,7 +174,7 @@ define void @divBranchedUnBranch(i32 addrspace(1)* nocapture %res, i32 %num) nou
 ; CHECK: ret
 
 define void @nestedUnBranchedUnBranchDivBranch(i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %2 = trunc i64 %1 to i32
   %3 = and i32 %num, 1
   %4 = icmp eq i32 %3, 0

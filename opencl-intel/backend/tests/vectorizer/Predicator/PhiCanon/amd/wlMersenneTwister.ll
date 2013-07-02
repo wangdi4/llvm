@@ -85,8 +85,8 @@ entry:
 define void @gaussianRand(<4 x i32> addrspace(1)* %seedArray, i32 %width, i32 %mulFactor, <4 x float> addrspace(1)* %gaussianRand, ...) nounwind {
 entry:
   %temp = alloca [8 x <4 x i32>], align 16
-  %call = call i32 @get_global_id(i32 0) nounwind
-  %call1 = call i32 @get_global_id(i32 1) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
+  %call1 = call i32 @_Z13get_global_idj(i32 1) nounwind
   %mul = mul i32 %call1, %width
   %add = add i32 %mul, %call
   %arrayidx = getelementptr <4 x i32> addrspace(1)* %seedArray, i32 %add
@@ -353,7 +353,7 @@ for.end328:                                       ; preds = %for.end328.loopexit
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare <4 x float> @__convert_float4_uint4(<4 x i32>)
 

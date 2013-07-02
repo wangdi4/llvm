@@ -24,7 +24,7 @@ target triple = "i686-pc-win32"
 
 ; CHECK: ret
 define void @sepia_OpenCL_C(float addrspace(1)* nocapture %src, float addrspace(1)* nocapture %dest, float addrspace(1)* nocapture %coef, i32 %size, i32 %image_height, i32 %Iterations) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind ; <i32> [#uses=1]
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
   %2 = icmp eq i32 %Iterations, 0                 ; <i1> [#uses=1]
   br i1 %2, label %._crit_edge7, label %bb.nph6
 
@@ -160,12 +160,12 @@ bb.nph:                                           ; preds = %19, %bb.nph
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 
 define void @sepia_OpenCL_float4(<4 x float> addrspace(1)* nocapture %src, <4 x float> addrspace(1)* nocapture %dest, float addrspace(1)* nocapture %coef, i32 %size, i32 %image_height, i32 %Iterations) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind ; <i32> [#uses=2]
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=2]
   %2 = icmp eq i32 %Iterations, 0                 ; <i1> [#uses=1]
   br i1 %2, label %._crit_edge7, label %bb.nph6
 
@@ -324,7 +324,7 @@ bb.nph:                                           ; preds = %.preheader, %bb.nph
 }
 
 define void @sepia_OpenCL_float4_naive(<4 x float> addrspace(1)* nocapture %src, <4 x float> addrspace(1)* nocapture %dest, float addrspace(1)* nocapture %coef, i32 %size, i32 %image_height, i32 %Iterations) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind ; <i32> [#uses=2]
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=2]
   %2 = icmp eq i32 %Iterations, 0                 ; <i1> [#uses=1]
   br i1 %2, label %._crit_edge7, label %bb.nph6
 
@@ -447,7 +447,7 @@ bb.nph:                                           ; preds = %.preheader, %bb.nph
 }
 
 define void @sepia_OpenCL_float4_SSE(<4 x float> addrspace(1)* nocapture %src, <4 x float> addrspace(1)* nocapture %dest, <4 x float> addrspace(1)* nocapture %coef, i32 %size, i32 %image_height, i32 %Iterations) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind ; <i32> [#uses=3]
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=3]
   %2 = icmp eq i32 %Iterations, 0                 ; <i1> [#uses=1]
   br i1 %2, label %._crit_edge, label %bb.nph
 
@@ -538,7 +538,7 @@ bb.nph:                                           ; preds = %0
 }
 
 define void @sepia_OpenCL_float8_AVX(<8 x float> addrspace(1)* nocapture %src, <8 x float> addrspace(1)* nocapture %dest, <8 x float> addrspace(1)* nocapture %coef, i32 %size, i32 %image_height, i32 %Iterations) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind ; <i32> [#uses=3]
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=3]
   %2 = icmp eq i32 %Iterations, 0                 ; <i1> [#uses=1]
   br i1 %2, label %._crit_edge, label %bb.nph
 
@@ -595,7 +595,7 @@ bb.nph:                                           ; preds = %0
 }
 
 define void @sepia_OpenCL_float16_LRBNI(<16 x float> addrspace(1)* nocapture %src, <16 x float> addrspace(1)* nocapture %dest, <16 x float> addrspace(1)* nocapture %coef, i32 %size, i32 %image_height, i32 %Iterations) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind ; <i32> [#uses=2]
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=2]
   %2 = icmp eq i32 %Iterations, 0                 ; <i1> [#uses=1]
   br i1 %2, label %._crit_edge, label %bb.nph
 

@@ -6,7 +6,7 @@
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 target triple = "i686-pc-win32"
 
-declare i32 @get_global_id(i32) nounwind readnone
+declare i32 @_Z13get_global_idj(i32) nounwind readnone
 
 ; CHECK: @test_fptrunc
 ; CHECK:      fptrunc
@@ -15,7 +15,7 @@ declare i32 @get_global_id(i32) nounwind readnone
 
 define void @test_fptrunc(float addrspace(3)* %memA, double addrspace(1)* nocapture %memB, float addrspace(1)* %memC) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(3)* %memA, i32 %call
   %0 = load float addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds double addrspace(1)* %memB, i32 %call
@@ -34,7 +34,7 @@ entry:
 
 define void @test_fpext(double addrspace(3)* %memA, float addrspace(1)* nocapture %memB, double addrspace(1)* %memC) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds double addrspace(3)* %memA, i32 %call
   %0 = load double addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
@@ -53,7 +53,7 @@ entry:
 
 define void @test_trunc(i32 addrspace(3)* %memA, i64 addrspace(1)* nocapture %memB, i32 addrspace(1)* %memC) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i32 addrspace(3)* %memA, i32 %call
   %0 = load i32 addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds i64 addrspace(1)* %memB, i32 %call
@@ -72,7 +72,7 @@ entry:
 
 define void @test_sext(i64 addrspace(3)* %memA, i32 addrspace(1)* nocapture %memB, i64 addrspace(1)* %memC) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i64 addrspace(3)* %memA, i32 %call
   %0 = load i64 addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds i32 addrspace(1)* %memB, i32 %call
@@ -91,7 +91,7 @@ entry:
 
 define void @test_zext(i64 addrspace(3)* %memA, i32 addrspace(1)* nocapture %memB, i64 addrspace(1)* %memC) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i64 addrspace(3)* %memA, i32 %call
   %0 = load i64 addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds i32 addrspace(1)* %memB, i32 %call
@@ -110,7 +110,7 @@ entry:
 
 define void @test_fptosi(i32 addrspace(3)* %memA, float addrspace(1)* nocapture %memB, i32 addrspace(1)* %memC) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i32 addrspace(3)* %memA, i32 %call
   %0 = load i32 addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
@@ -129,7 +129,7 @@ entry:
 
 define void @test_fptoui(i32 addrspace(3)* %memA, float addrspace(1)* nocapture %memB, i32 addrspace(1)* %memC) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i32 addrspace(3)* %memA, i32 %call
   %0 = load i32 addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds float addrspace(1)* %memB, i32 %call
@@ -148,7 +148,7 @@ entry:
 
 define void @test_uitofp(float addrspace(3)* %memA, i32 addrspace(1)* nocapture %memB, float addrspace(1)* %memC) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(3)* %memA, i32 %call
   %0 = load float addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds i32 addrspace(1)* %memB, i32 %call
@@ -167,7 +167,7 @@ entry:
 
 define void @test_sitofp(float addrspace(3)* %memA, i32 addrspace(1)* nocapture %memB, float addrspace(1)* %memC) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(3)* %memA, i32 %call
   %0 = load float addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds i32 addrspace(1)* %memB, i32 %call
@@ -190,7 +190,7 @@ entry:
 
 define void @test_bitcast(float addrspace(3)* %memA, i32 addrspace(1)* nocapture %memB, float addrspace(1)* %memC) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds float addrspace(3)* %memA, i32 %call
   %0 = load float addrspace(3)* %arrayidx, align 4
   %arrayidx1 = getelementptr inbounds i32 addrspace(1)* %memB, i32 %call

@@ -12,7 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;CHECK: ret void
 
 define void @no_mask_ptr_conseq(i32* nocapture %A) nounwind {
-  %1 = tail call i32 (...)* @get_global_id(i32 0) nounwind
+  %1 = tail call i32 (...)* @_Z13get_global_idj(i32 0) nounwind
   %2 = sext i32 %1 to i64
   %3 = getelementptr inbounds i32* %A, i64 %2
   %4 = load i32* %3, align 4, !tbaa !0
@@ -21,7 +21,7 @@ define void @no_mask_ptr_conseq(i32* nocapture %A) nounwind {
   ret void
 }
 
-declare i32 @get_global_id(...)
+declare i32 @_Z13get_global_idj(...)
 
 !0 = metadata !{metadata !"int", metadata !1}
 !1 = metadata !{metadata !"omnipotent char", metadata !2}

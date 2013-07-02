@@ -30,13 +30,13 @@ target triple = "i686-pc-win32"
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
 L0:
-  %lid = call i32 @get_local_id(i32 0)
+  %lid = call i32 @_Z12get_local_idj(i32 0)
   %z = zext i32 %lid to i64
   %y = xor i32 %x, %lid
   %v = add i32 %y, %lid
   br label %L1
 L1:
-  call void @barrier(i32 1)
+  call void @_Z7barrierj(i32 1)
   %w = trunc i64 %z to i32
   %t = add i32 %y, %v
   br label %L2
@@ -44,13 +44,13 @@ L2:
   call void @dummybarrier.()
   ret void
 ; CHECK: L0:
-; CHECK: %lid = call i32 @get_local_id(i32 0)
+; CHECK: %lid = call i32 @_Z12get_local_idj(i32 0)
 ; CHECK: %z = zext i32 %lid to i64
 ; CHECK: %y = xor i32 %x, %lid
 ; CHECK: %v = add i32 %y, %lid
 ; CHECK: br label %L1
 ; CHECK: L1:
-; CHECK: call void @barrier(i32 1)
+; CHECK: call void @_Z7barrierj(i32 1)
 ; CHECK: %w = trunc i64 %z to i32
 ; CHECK: %t = add i32 %y, %v
 ; CHECK: br label %L2
@@ -87,9 +87,9 @@ L2:
 ; CHECK-NOT: entry
 ; CHECK: DONE
 
-declare void @barrier(i32)
+declare void @_Z7barrierj(i32)
 declare void @dummybarrier.()
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
 !opencl.kernels = !{!0}
 !opencl.build.options = !{}

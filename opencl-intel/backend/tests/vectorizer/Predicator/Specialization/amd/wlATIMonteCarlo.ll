@@ -863,9 +863,9 @@ entry:
 	%arrayidx24 = getelementptr <4 x float> addrspace(1)* %tmp23, i32 6		; <<4 x float> addrspace(1)*> [#uses=1]
 	%tmp25 = load <4 x float> addrspace(1)* %arrayidx24		; <<4 x float>> [#uses=1]
 	store <4 x float> %tmp25, <4 x float>* %timeStep
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %xPos
-	%call28 = call i32 @get_global_id(i32 1)		; <i32> [#uses=1]
+	%call28 = call i32 @_Z13get_global_idj(i32 1)		; <i32> [#uses=1]
 	store i32 %call28, i32* %yPos
 	store <4 x float> zeroinitializer, <4 x float>* %temp
 	store <4 x float> zeroinitializer, <4 x float>* %price1
@@ -1068,6 +1068,6 @@ for.end:		; preds = %for.cond
 	ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare <4 x float> @__expf4(<4 x float>)

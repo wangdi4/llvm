@@ -10,7 +10,7 @@ entry:
   store float addrspace(1)* %input, float addrspace(1)** %input.addr, align 4
   store float addrspace(1)* %output, float addrspace(1)** %output.addr, align 4
   store i32 %buffer_size, i32* %buffer_size.addr, align 4
-  %call = call i32 @get_global_id(i32 0)
+  %call = call i32 @_Z13get_global_idj(i32 0)
   store i32 %call, i32* %tid, align 4
   %tmp = load i32* %tid, align 4
   %tmp1 = load float addrspace(1)** %input.addr, align 4
@@ -55,7 +55,7 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 !opencl.kernels = !{!0}
 

@@ -13,7 +13,7 @@ declare void @_Z8prefetchPKU3AS1fm(float addrspace(1)*, i64)
 ; CHECK-NOT: @_Z8prefetchPKU3AS1fm
 define void @test_consecutive(float addrspace(1)* noalias %A, float addrspace(1)* noalias %B) nounwind {
 entry:
-  %call = call i64 @get_global_id(i32 0) nounwind readnone
+  %call = call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %conv = trunc i64 %call to i32
   %idx.ext = sext i32 %conv to i64
   %add.ptr = getelementptr inbounds float addrspace(1)* %A, i64 %idx.ext
@@ -28,14 +28,14 @@ entry:
   ret void
 }
 
-declare i64 @get_global_id(i32) nounwind readnone
+declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
 ; CHECK: @test_consecutive_masked
 ; CHECK: @_Z8prefetchPDv16_fm
 ; CHECK-NOT: @_Z8prefetchPKU3AS1fm
 define void @test_consecutive_masked(float addrspace(1)* noalias %A, float addrspace(1)* noalias %B, i32 %threshold) nounwind {
 entry:
-  %call = call i64 @get_global_id(i32 0) nounwind readnone
+  %call = call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %conv = trunc i64 %call to i32
   %cmp = icmp slt i32 %conv, %threshold
   br i1 %cmp, label %if.then, label %if.end
@@ -62,7 +62,7 @@ if.end:                                           ; preds = %if.then, %entry
 ; CHECK-NOT: @_Z8prefetchPKU3AS1fm
 define void @test_uniform(float addrspace(1)* noalias %A, float addrspace(1)* noalias %B) nounwind {
 entry:
-  %call = call i64 @get_global_id(i32 0) nounwind readnone
+  %call = call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   call void @_Z8prefetchPKU3AS1fm(float addrspace(1)* %A, i64 1) nounwind
   %0 = load float addrspace(1)* %A, align 4
   %mul = fmul float %0, 2.000000e+00
@@ -78,7 +78,7 @@ entry:
 ; CHECK-NOT: @_Z8prefetchPKU3AS1fm
 define void @test_uniform_masked(float addrspace(1)* noalias %A, float addrspace(1)* noalias %B) nounwind {
 entry:
-  %call = call i64 @get_global_id(i32 0) nounwind readnone
+  %call = call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %conv = trunc i64 %call to i32
   %cmp = icmp eq i32 %conv, 0
   br i1 %cmp, label %if.then, label %if.end

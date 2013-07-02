@@ -77,11 +77,11 @@ entry:
   store <4 x float> zeroinitializer, <4 x float>* %.compoundliteral
   %tmp = load <4 x float>* %.compoundliteral      ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp, <4 x float>* %floatZero
-  %call = call i32 (...)* @get_work_dim()         ; <i32> [#uses=1]
+  %call = call i32 (...)* @_Z12get_work_dimv()         ; <i32> [#uses=1]
   store i32 %call, i32* %dims
-  %call3 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call3 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call3, i32* %globalIdx
-  %call5 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call5 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call5, i32* %globalIdy
   %call7 = call i32 @get_global_size(i32 0)       ; <i32> [#uses=1]
   store i32 %call7, i32* %global_szx
@@ -333,9 +333,9 @@ if.end125:                                        ; preds = %if.end124, %if.end9
   ret void
 }
 
-declare i32 @get_work_dim(...)
+declare i32 @_Z12get_work_dimv(...)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 
@@ -410,23 +410,23 @@ entry:
   store <4 x float> zeroinitializer, <4 x float>* %.compoundliteral
   %tmp = load <4 x float>* %.compoundliteral      ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp, <4 x float>* %floatZero
-  %call = call i32 (...)* @get_work_dim()         ; <i32> [#uses=1]
+  %call = call i32 (...)* @_Z12get_work_dimv()         ; <i32> [#uses=1]
   store i32 %call, i32* %dims
-  %call3 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call3 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call3, i32* %globalIdx
-  %call5 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call5 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call5, i32* %globalIdy
-  %call7 = call i32 @get_local_id(i32 0)          ; <i32> [#uses=1]
+  %call7 = call i32 @_Z12get_local_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call7, i32* %localIdx
-  %call9 = call i32 @get_local_id(i32 1)          ; <i32> [#uses=1]
+  %call9 = call i32 @_Z12get_local_idj(i32 1)          ; <i32> [#uses=1]
   store i32 %call9, i32* %localIdy
   %call11 = call i32 @get_global_size(i32 0)      ; <i32> [#uses=1]
   store i32 %call11, i32* %global_szx
   %call13 = call i32 @get_global_size(i32 1)      ; <i32> [#uses=1]
   store i32 %call13, i32* %global_szy
-  %call15 = call i32 @get_local_size(i32 0)       ; <i32> [#uses=1]
+  %call15 = call i32 @_Z14get_local_sizej(i32 0)       ; <i32> [#uses=1]
   store i32 %call15, i32* %local_szx
-  %call17 = call i32 @get_local_size(i32 1)       ; <i32> [#uses=1]
+  %call17 = call i32 @_Z14get_local_sizej(i32 1)       ; <i32> [#uses=1]
   store i32 %call17, i32* %local_szy
   %call19 = call i32 @get_group_id(i32 0)         ; <i32> [#uses=1]
   store i32 %call19, i32* %groupIdx
@@ -776,9 +776,9 @@ for.end285:                                       ; preds = %for.cond
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare i32 @get_local_size(i32)
+declare i32 @_Z14get_local_sizej(i32)
 
 ; CHECK: ret
 define <4 x float> @evaluatePixel(%struct._image2d_t* %inputImage, <2 x float> %outCrd) nounwind {
@@ -850,7 +850,7 @@ entry:
   store float %minVal, float* %minVal.addr
   store float %maxVal, float* %maxVal.addr
   store i32 %rowCountPerGlobalID, i32* %rowCountPerGlobalID.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %global_id
   %tmp = load i32* %rowCountPerGlobalID.addr      ; <i32> [#uses=1]
   %tmp1 = load i32* %global_id                    ; <i32> [#uses=1]
@@ -1242,7 +1242,7 @@ entry:
   store float %minVal, float* %minVal.addr
   store float %maxVal, float* %maxVal.addr
   store i32 %rowCountPerGlobalID, i32* %rowCountPerGlobalID.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %global_id
   %tmp = load i32* %rowCountPerGlobalID.addr      ; <i32> [#uses=1]
   %tmp1 = load i32* %global_id                    ; <i32> [#uses=1]
@@ -1479,9 +1479,9 @@ entry:
   %tmp = load %struct._image2d_t** %inputImage.addr ; <%struct._image2d_t*> [#uses=1]
   %call = call <2 x i32> @_Z13get_image_dimP10_image2d_t(%struct._image2d_t* %tmp) ; <<2 x i32>> [#uses=1]
   store <2 x i32> %call, <2 x i32>* %imgSize
-  %call2 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call2 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call2, i32* %col
-  %call4 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call4 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call4, i32* %row
   %tmp6 = load i32* %row                          ; <i32> [#uses=1]
   %tmp7 = load <2 x i32>* %imgSize                ; <<2 x i32>> [#uses=1]
@@ -1697,7 +1697,7 @@ entry:
   store float %minVal, float* %minVal.addr
   store float %maxVal, float* %maxVal.addr
   store i32 %rowCountPerGlobalID, i32* %rowCountPerGlobalID.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %global_id
   %tmp = load i32* %rowCountPerGlobalID.addr      ; <i32> [#uses=1]
   %tmp1 = load i32* %global_id                    ; <i32> [#uses=1]
@@ -1987,7 +1987,7 @@ entry:
   store <4 x float> %vecinit6, <4 x float>* %.compoundliteral
   %tmp7 = load <4 x float>* %.compoundliteral     ; <<4 x float>> [#uses=1]
   store <4 x float> %tmp7, <4 x float>* %sobelScaleVec
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %global_id
   %tmp10 = load i32* %rowCountPerGlobalID.addr    ; <i32> [#uses=1]
   %tmp11 = load i32* %global_id                   ; <i32> [#uses=1]
@@ -2399,11 +2399,11 @@ entry:
   store i8 0, i8* %bottomEdge
   store i8 0, i8* %leftEdge
   store i8 0, i8* %rightEdge
-  %call = call i32 (...)* @get_work_dim()         ; <i32> [#uses=1]
+  %call = call i32 (...)* @_Z12get_work_dimv()         ; <i32> [#uses=1]
   store i32 %call, i32* %dims
-  %call1 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %globalIdx
-  %call2 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call2 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call2, i32* %globalIdy
   %call3 = call i32 @get_global_size(i32 0)       ; <i32> [#uses=1]
   store i32 %call3, i32* %global_szx

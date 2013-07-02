@@ -14,7 +14,7 @@ target triple = "i686-pc-win32"
 ; CHECK-NOT: _Z3dotff
 ; CHECK: ret void
 define void @test_dot_product_f(float addrspace(1)* nocapture %src1, float addrspace(1)* nocapture %src2, float addrspace(1)* nocapture %dst) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds float addrspace(1)* %src1, i32 %1
   %3 = load float addrspace(1)* %2, align 4
   %4 = getelementptr inbounds float addrspace(1)* %src2, i32 %1
@@ -25,7 +25,7 @@ define void @test_dot_product_f(float addrspace(1)* nocapture %src1, float addrs
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare float @_Z3dotff(float, float)
 
@@ -34,7 +34,7 @@ declare float @_Z3dotff(float, float)
 ; CHECK-NOT: _Z3dotDv2_fS_
 ; CHECK: ret void
 define void @test_dot_product_f2(<2 x float> addrspace(1)* nocapture %src1, <2 x float> addrspace(1)* nocapture %src2, float addrspace(1)* nocapture %dst) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds <2 x float> addrspace(1)* %src1, i32 %1
   %3 = load <2 x float> addrspace(1)* %2, align 8
   %4 = getelementptr inbounds <2 x float> addrspace(1)* %src2, i32 %1
@@ -52,7 +52,7 @@ declare float @_Z3dotDv2_fS_(<2 x float>, <2 x float>)
 ; CHECK-NOT: _Z3dotDv3_fS_
 ; CHECK: ret void
 define void @test_dot_product_f3(<3 x float> addrspace(1)* nocapture %src1, <3 x float> addrspace(1)* nocapture %src2, float addrspace(1)* nocapture %dst) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds <3 x float> addrspace(1)* %src1, i32 %1
   %3 = load <3 x float> addrspace(1)* %2, align 16
   %4 = getelementptr inbounds <3 x float> addrspace(1)* %src2, i32 %1
@@ -70,7 +70,7 @@ declare float @_Z3dotDv3_fS_(<3 x float>, <3 x float>)
 ; CHECK-NOT: _Z3dotDv4_fS_
 ; CHECK: ret void
 define void @test_dot_product_f4(<4 x float> addrspace(1)* nocapture %src1, <4 x float> addrspace(1)* nocapture %src2, float addrspace(1)* nocapture %dst) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds <4 x float> addrspace(1)* %src1, i32 %1
   %3 = load <4 x float> addrspace(1)* %2, align 16
   %4 = getelementptr inbounds <4 x float> addrspace(1)* %src2, i32 %1
@@ -88,7 +88,7 @@ declare float @_Z3dotDv4_fS_(<4 x float>, <4 x float>)
 ; CHECK-NOT: _Z3dotdd
 ; CHECK: ret void
 define void @test_dot_product_d(double addrspace(1)* nocapture %src1, double addrspace(1)* nocapture %src2, double addrspace(1)* nocapture %dst) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds double addrspace(1)* %src1, i32 %1
   %3 = load double addrspace(1)* %2, align 8
   %4 = getelementptr inbounds double addrspace(1)* %src2, i32 %1
@@ -106,7 +106,7 @@ declare double @_Z3dotdd(double, double)
 ; CHECK-NOT: _Z3dotDv2_dS_
 ; CHECK: ret void
 define void @test_dot_product_d2(<2 x double> addrspace(1)* nocapture %src1, <2 x double> addrspace(1)* nocapture %src2, double addrspace(1)* nocapture %dst) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds <2 x double> addrspace(1)* %src1, i32 %1
   %3 = load <2 x double> addrspace(1)* %2, align 16
   %4 = getelementptr inbounds <2 x double> addrspace(1)* %src2, i32 %1
@@ -124,7 +124,7 @@ declare double @_Z3dotDv2_dS_(<2 x double>, <2 x double>)
 ; CHECK-NOT: _Z3dotDv3_dS_
 ; CHECK: ret void
 define void @test_dot_product_d3(<3 x double> addrspace(1)* nocapture %src1, <3 x double> addrspace(1)* nocapture %src2, double addrspace(1)* nocapture %dst) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds <3 x double> addrspace(1)* %src1, i32 %1
   %3 = load <3 x double> addrspace(1)* %2, align 32
   %4 = getelementptr inbounds <3 x double> addrspace(1)* %src2, i32 %1
@@ -142,7 +142,7 @@ declare double @_Z3dotDv3_dS_(<3 x double>, <3 x double>)
 ; CHECK-NOT: _Z3dotDv4_dS_
 ; CHECK: ret void
 define void @test_dot_product_d4(<4 x double> addrspace(1)* nocapture %src1, <4 x double> addrspace(1)* nocapture %src2, double addrspace(1)* nocapture %dst) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds <4 x double> addrspace(1)* %src1, i32 %1
   %3 = load <4 x double> addrspace(1)* %2, align 32
   %4 = getelementptr inbounds <4 x double> addrspace(1)* %src2, i32 %1

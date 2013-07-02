@@ -7,7 +7,7 @@
 ;; The case: kernel "main" with no barrier instruction
 ;; The expected result:
 ;;      1. A call to @dummybarrier.() at the begining of the kernel "main"
-;;      2. A call to @barrier(LOCAL_MEM_FENCE) at the end of the kernel "main"
+;;      2. A call to @_Z7barrierj(LOCAL_MEM_FENCE) at the end of the kernel "main"
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
@@ -21,7 +21,7 @@ define void @main(i32 %x) nounwind {
   ret void
 ; CHECK: @dummybarrier.()
 ; CHECK: %y = xor i32 %x, %x
-; CHECK: @barrier(i32 1)
+; CHECK: @_Z7barrierj(i32 1)
 ; CHECK: ret
 }
 

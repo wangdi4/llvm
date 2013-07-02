@@ -67,19 +67,18 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 	protected:
         virtual ~ClangFECompilerCompileTask();
 
-        void PrepareArgumentList(ArgListType &list, const char *buildOpts);
+        void PrepareArgumentList(ArgListType &list, ArgListType &BEArgList, const char *buildOpts);
 
         Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* m_pProgDesc;
         Intel::OpenCL::ClangFE::CLANG_DEV_INFO	m_sDeviceInfo;
 
+        int  CLSTDSet;
         bool OptDebugInfo;
         bool OptProfiling;
         bool Opt_Disable;
-		bool Denorms_Are_Zeros;
-		bool Fast_Relaxed_Math;
-		bool AndroidCross;
-		std::string m_source_filename;
-		std::string m_triple;
+        bool Denorms_Are_Zeros;
+        bool Fast_Relaxed_Math;
+        std::string m_source_filename;
 
 		char*	m_pOutIR;				// Output IR
 		size_t	m_stOutIRSize;
@@ -191,14 +190,14 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
     bool ParseCompileOptions(const char*  szOptions,
                              char**       szUnrecognizedOptions,
                              ArgListType* pList               = NULL,
-                             bool*        pbCLStdSet          = NULL,
+                             ArgListType* BEArgList           = NULL,
+                             int*         pbCLStdSet          = NULL,
                              bool*        pbOptDebugInfo      = NULL,
                              bool*        pbOptProfiling      = NULL,
                              bool*        pbOptDisable        = NULL,
                              bool*        pbDenormsAreZeros   = NULL,
                              bool*        pbFastRelaxedMath   = NULL,
-                             std::string* pszFileName         = NULL,
-							 std::string* pszTriple           = NULL);
+                             std::string* pszFileName         = NULL);
 
     bool ParseLinkOptions(const char* szOptions,
                           char**      szUnrecognizedOptions,

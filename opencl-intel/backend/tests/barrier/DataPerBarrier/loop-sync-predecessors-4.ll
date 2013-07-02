@@ -24,7 +24,7 @@ L0:
   %isOk = phi i1 [ false, %L1 ], [ true, %Entry ]
   br label %L1
 L1:
-  call void @barrier(i32 2)
+  call void @_Z7barrierj(i32 2)
   br i1 %check, label %L0, label %Exit
 Exit:
   ret void
@@ -34,13 +34,13 @@ Exit:
 ; CHECK: %isOk = phi i1 [ false, %L1 ], [ true, %Entry ]
 ; CHECK: br label %L1
 ; CHECK: L1:
-; CHECK: call void @barrier(i32 2)
+; CHECK: call void @_Z7barrierj(i32 2)
 ; CHECK: br i1 %check, label %L0, label %Exit
 ; CHECK: Exit:
 ; CHECK: ret void
 }
 
-declare void @barrier(i32)
+declare void @_Z7barrierj(i32)
 declare void @fiber.()
 
 ; CHECK: synchronize basic blocks

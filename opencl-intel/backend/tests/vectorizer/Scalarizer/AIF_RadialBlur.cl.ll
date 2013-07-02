@@ -583,9 +583,9 @@ entry:
   store %struct._image2d_t* %inputImage, %struct._image2d_t** %inputImage.addr
   store <4 x float> addrspace(1)* %output, <4 x float> addrspace(1)** %output.addr
   store %struct.anon addrspace(2)* %pArgs, %struct.anon addrspace(2)** %pArgs.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   %vecinit = insertelement <2 x i32> undef, i32 %call, i32 0 ; <<2 x i32>> [#uses=1]
-  %call1 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   %vecinit2 = insertelement <2 x i32> %vecinit, i32 %call1, i32 1 ; <<2 x i32>> [#uses=1]
   store <2 x i32> %vecinit2, <2 x i32>* %gid_pos
   %tmp = load %struct._image2d_t** %inputImage.addr ; <%struct._image2d_t*> [#uses=1]
@@ -633,7 +633,7 @@ if.end:                                           ; preds = %if.then, %land.lhs.
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare <2 x i32> @_Z13get_image_dimP10_image2d_t(%struct._image2d_t*)
 

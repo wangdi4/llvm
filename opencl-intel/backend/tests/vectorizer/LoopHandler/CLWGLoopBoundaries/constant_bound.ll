@@ -15,7 +15,7 @@ target triple = "i686-pc-win32"
 
 
 define void @test(float addrspace(1)* nocapture %paths) nounwind {
-  %1 = call i32 @get_global_id(i32 0) nounwind
+  %1 = call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = icmp sgt i32 %1, 131071
  br i1 %2, label %5, label %3
 
@@ -28,7 +28,7 @@ define void @test(float addrspace(1)* nocapture %paths) nounwind {
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 !opencl.kernels = !{!0}
 !opencl.build.options = !{!2}

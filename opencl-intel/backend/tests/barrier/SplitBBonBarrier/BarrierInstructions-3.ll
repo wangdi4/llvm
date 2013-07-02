@@ -14,40 +14,40 @@
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
   %check = icmp ult i32 %x, 0
-  call void @barrier(i32 2)
+  call void @_Z7barrierj(i32 2)
   br i1 %check, label %L1, label %L2
 L1:
-  call void @barrier(i32 1)
-  call void @barrier(i32 2)
+  call void @_Z7barrierj(i32 1)
+  call void @_Z7barrierj(i32 2)
   br label %L3
 L2:
-  call void @barrier(i32 2)
+  call void @_Z7barrierj(i32 2)
   br label %L3
 L3:
   %isOk = phi i1 [ false, %L1 ], [ true, %L2 ]
-  call void @barrier(i32 1)
+  call void @_Z7barrierj(i32 1)
   ret void
 ; CHECK: %check = icmp ult i32 %x, 0
 ; CHECK: br
 ; CHECK: :
-; CHECK: call void @barrier(i32 2)
+; CHECK: call void @_Z7barrierj(i32 2)
 ; CHECK: br i1 %check, label %L1, label %L2
 ; CHECK: L1:
-; CHECK: call void @barrier(i32 1)
+; CHECK: call void @_Z7barrierj(i32 1)
 ; CHECK: br
 ; CHECK: :
-; CHECK: call void @barrier(i32 2)
+; CHECK: call void @_Z7barrierj(i32 2)
 ; CHECK: br label %L3
 ; CHECK: L2:
-; CHECK: call void @barrier(i32 2)
+; CHECK: call void @_Z7barrierj(i32 2)
 ; CHECK: br label %L3
 ; CHECK: L3:
 ; CHECK: %isOk = phi i1 [ false, %
   ; CHECK: ], [ true, %L2 ]
 ; CHECK: br
 ; CHECK: :
-; CHECK: call void @barrier(i32 1)
+; CHECK: call void @_Z7barrierj(i32 1)
 ; CHECK: ret void
 }
 
-declare void @barrier(i32)
+declare void @_Z7barrierj(i32)

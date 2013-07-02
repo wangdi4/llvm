@@ -12,7 +12,7 @@ define void @sincos_kernel1(double addrspace(1)* nocapture %out, double addrspac
 ; CHECK: store double [[C2]], double addrspace(1)* %add.ptr
 ; CHECK: ret
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds double addrspace(1)* %in, i64 %idxprom
@@ -31,7 +31,7 @@ define void @sincos_kernel16(<16 x double> addrspace(1)* nocapture %out, <16 x d
 ; CHECK: store <16 x double> [[C1]], <16 x double> addrspace(1)* %add.ptr
 ; CHECK: ret
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds <16 x double> addrspace(1)* %in, i64 %idxprom
@@ -50,7 +50,7 @@ define void @native_sincos_kernel1(double addrspace(1)* nocapture %out, double a
 ; CHECK: store double [[C2]], double addrspace(1)* %add.ptr
 ; CHECK: ret
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds double addrspace(1)* %in, i64 %idxprom
@@ -69,7 +69,7 @@ define void @native_sincos_kernel16(<16 x double> addrspace(1)* nocapture %out, 
 ; CHECK: store <16 x double> [[C1]], <16 x double> addrspace(1)* %add.ptr
 ; CHECK: ret
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds <16 x double> addrspace(1)* %in, i64 %idxprom
@@ -80,13 +80,13 @@ entry:
   store <16 x double> %call1, <16 x double> addrspace(1)* %arrayidx3, align 128
   ret void
 }
-declare i64 @get_global_id(i32) nounwind readnone
+declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
 declare double @_Z6sincosdPU3AS1d(double, double addrspace(1)*) nounwind
 declare <16 x double> @_Z6sincosDv16_dPU3AS1S_(<16 x double>, <16 x double> addrspace(1)*)
 declare double @_Z13native_sincosdPU3AS1d(double, double addrspace(1)*) nounwind
 declare <16 x double> @_Z13native_sincosDv16_dPU3AS1S_(<16 x double>, <16 x double> addrspace(1)*)
 
-declare i64 @get_local_size(i32)
+declare i64 @_Z14get_local_sizej(i32)
 
 declare i64 @get_base_global_id.(i32)

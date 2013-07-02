@@ -9,7 +9,7 @@ target triple = "i686-pc-win32"
 ; CHECK: WI-RunOnFunction 4   %x = phi i32 [ %x2.x0, %true ], [ %x1, %false ]
 
 define void @simpleBranch(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocapture %out, i32 %un1, i32 %un2) nounwind {
-  %id = tail call i32 @get_global_id(i32 0) nounwind
+  %id = tail call i32 @_Z13get_global_idj(i32 0) nounwind
 
   %in1 = getelementptr inbounds i32 addrspace(1)* %in, i32 %id
   %in2 = load i32 addrspace(1)* %in1, align 4
@@ -37,5 +37,5 @@ end:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 

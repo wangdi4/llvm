@@ -6,7 +6,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "CompilationUtils.h"
+#include "NameMangleAPI.h"
 #include "MetaDataApi.h"
+#include "ParameterType.h"
 
 #if defined(__APPLE__)
   #include "OpenCL/cl.h"
@@ -29,8 +31,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const unsigned int CompilationUtils::NUMBER_IMPLICIT_ARGS = 9;
   const unsigned int CompilationUtils::LOCL_VALUE_ADDRESS_SPACE = 3;
 
+  const std::string CompilationUtils::NAME_GET_ORIG_GID = "get_global_id";
   const std::string CompilationUtils::NAME_GET_BASE_GID = "get_base_global_id.";
   const std::string CompilationUtils::NAME_GET_GID = "get_new_global_id.";
+  const std::string CompilationUtils::NAME_GET_ORIG_LID = "get_local_id";
   const std::string CompilationUtils::NAME_GET_LID = "get_new_local_id.";
   const std::string CompilationUtils::NAME_GET_ITERATION_COUNT = "get_iter_count.";
   const std::string CompilationUtils::NAME_GET_SPECIAL_BUFFER = "get_special_buffer.";
@@ -44,17 +48,27 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_GET_GLOBAL_OFFSET = "get_global_offset";
   const std::string CompilationUtils::NAME_PRINTF = "printf";
 
-  const std::string CompilationUtils::NAME_ASYNC_WORK_GROUP_COPY = "_Z21async_work_group_copy";
-  const std::string CompilationUtils::NAME_WAIT_GROUP_EVENTS = "_Z17wait_group_events";
-  const std::string CompilationUtils::NAME_PREFETCH = "_Z8prefetch";
-  const std::string CompilationUtils::NAME_ASYNC_WORK_GROUP_STRIDED_COPY = "_Z29async_work_group_strided_copy";
+  const std::string CompilationUtils::NAME_ASYNC_WORK_GROUP_COPY = "async_work_group_copy";
+  const std::string CompilationUtils::NAME_WAIT_GROUP_EVENTS = "wait_group_events";
+  const std::string CompilationUtils::NAME_PREFETCH = "prefetch";
+  const std::string CompilationUtils::NAME_ASYNC_WORK_GROUP_STRIDED_COPY = "async_work_group_strided_copy";
 
-  typedef enum {
-    NONE = 0,
-    READ_ONLY = 1,
-    WRITE_ONLY = 2,
-    SAMPLER = 4
-  } ArgumentAttributes;
+  const std::string CompilationUtils::NAME_MEM_FENCE = "mem_fence";
+  const std::string CompilationUtils::NAME_READ_MEM_FENCE = "read_mem_fence";
+  const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
+
+  const std::string CompilationUtils::BARRIER_FUNC_NAME = "barrier";
+  //Images
+  const std::string CompilationUtils::OCL_IMG_PREFIX  = "opencl.image";
+  const std::string CompilationUtils::IMG_2D        = OCL_IMG_PREFIX + "2d_t";
+  const std::string CompilationUtils::IMG_2D_ARRAY  = OCL_IMG_PREFIX + "2d_array_t";
+  const std::string CompilationUtils::IMG_3D        = OCL_IMG_PREFIX + "3d_t";
+  //Argument qualifiers
+  const std::string CompilationUtils::WRITE_ONLY = "write_only";
+  const std::string CompilationUtils::READ_ONLY  = "read_only";
+  const std::string CompilationUtils::NONE       = "none";
+  //Type qualifiers
+  const std::string CompilationUtils::SAMPLER   = "sampler_t";
 
   BasicBlock::iterator CompilationUtils::removeInstruction(BasicBlock* pBB, BasicBlock::iterator it) {
     BasicBlock::InstListType::iterator prev;
@@ -257,11 +271,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
       MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
       MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-  #ifdef __APPLE__
       if (tag->getString() == "apple.cl.arg_metadata") {
-  #else
-      if (tag->getString() == "argument_attribute") {
-  #endif
         MDImgAccess = tmpMD;
         break;
       }
@@ -350,7 +360,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                 curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY : 
                                 CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
   #else
-                curArg.access = (kmd->getImgAccQualsItem(i) == READ_ONLY) ? 
+                curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ? 
                                 CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
   #endif
                 break;
@@ -407,7 +417,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             }
             if(isSampler)
   #else
-            if (kmd->getImgAccQualsItem(i) == SAMPLER)
+            if (kmd->getArgTypesItem(i) == SAMPLER)
   #endif
             {
               curArg.type = CL_KRNL_ARG_SAMPLER;
@@ -460,5 +470,99 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
       return CL_VER_NOT_DETECTED;
   }
+
+template <reflection::TypePrimitiveEnum Ty>
+static std::string mangleWithParam(const char*const N){
+  reflection::FunctionDescriptor FD;
+  FD.name = N;
+  reflection::ParamType *pTy =
+    new reflection::PrimitiveType(Ty);
+  reflection::RefParamType UI(pTy);
+  FD.parameters.push_back(UI);
+  return mangle(FD);
+}
+
+std::string CompilationUtils::mangledGetGID(){
+  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_GID.c_str());
+}
+
+std::string CompilationUtils::mangledGetLID(){
+  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_LID.c_str());
+}
+
+std::string CompilationUtils::mangledGetLocalSize(){
+  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LOCAL_SIZE.c_str());
+}
+
+std::string CompilationUtils::mangledBarrier(){
+  return mangleWithParam<reflection::PRIMITIVE_UINT>(BARRIER_FUNC_NAME.c_str());
+}
+
+static bool isMangleOf(const std::string& LHS, const std::string& RHS){
+  const char*const LC = LHS.c_str();
+  if (!isMangledName(LC))
+    return false;
+  return stripName(LC).str() == RHS;
+}
+
+bool CompilationUtils::isGetWorkDim(const std::string& S){
+  return isMangleOf(S, NAME_GET_WORK_DIM);
+}
+
+bool CompilationUtils::isGetGlobalId(const std::string& S){
+  return isMangleOf(S, NAME_GET_ORIG_GID);
+}
+
+bool CompilationUtils::isGetLocalId(const std::string& S){
+  return isMangleOf(S, NAME_GET_ORIG_LID);
+}
+
+bool CompilationUtils::isGetGlobalSize(const std::string& S){
+  return isMangleOf(S, NAME_GET_GLOBAL_SIZE);
+}
+
+bool CompilationUtils::isGetLocalSize(const std::string& S){
+  return isMangleOf(S, NAME_GET_LOCAL_SIZE);
+}
+
+bool CompilationUtils::isGetNumGroups(const std::string& S){
+  return isMangleOf(S, NAME_GET_NUM_GROUPS);
+}
+
+bool CompilationUtils::isGetGroupId(const std::string& S){
+  return isMangleOf(S, NAME_GET_GROUP_ID);
+}
+
+bool CompilationUtils::isGlobalOffset(const std::string& S){
+  return isMangleOf(S, NAME_GET_GLOBAL_OFFSET);
+}
+
+bool CompilationUtils::isAsyncWorkGroupCopy(const std::string& S){
+  return isMangleOf(S, NAME_ASYNC_WORK_GROUP_COPY);
+}
+
+bool CompilationUtils::isMemFence(const std::string& S){
+  return isMangleOf(S, NAME_MEM_FENCE);
+}
+
+bool CompilationUtils::isReadMemFence(const std::string& S){
+  return isMangleOf(S, NAME_READ_MEM_FENCE);
+}
+
+bool CompilationUtils::isWriteMemFence(const std::string& S){
+  return isMangleOf(S, NAME_WRITE_MEM_FENCE);
+}
+
+bool CompilationUtils::isWaitGroupEvents(const std::string& S){
+  return isMangleOf(S, NAME_WAIT_GROUP_EVENTS);
+}
+
+bool CompilationUtils::isPrefetch(const std::string& S){
+  return isMangleOf(S, NAME_PREFETCH);
+}
+
+bool CompilationUtils::isAsyncWorkGroupStridedCopy(const std::string& S){
+  return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
+}
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

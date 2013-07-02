@@ -9,12 +9,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "LoopUtils.h"
 #include "OCLPassSupport.h"
 #include "MetaDataApi.h"
+#include "CompilationUtils.h"
 
 #include "llvm/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
 
 #include <string.h>
+
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
 
@@ -32,7 +35,7 @@ KernelAnalysis::~KernelAnalysis()
 }
 
 void KernelAnalysis::fillBarrierUsersFuncs() {
-  Function *barrierDcl = m_M->getFunction(BARRIER_FUNC_NAME);
+  Function *barrierDcl = m_M->getFunction(CompilationUtils::mangledBarrier());
   if (barrierDcl) {
     FSet barrierRootSet;
     barrierRootSet.insert(barrierDcl);
@@ -42,8 +45,10 @@ void KernelAnalysis::fillBarrierUsersFuncs() {
 
 void KernelAnalysis::fillUnsupportedTIDFuncs() {
   FSet directTIDUsers;
-  fillUnsupportedTIDFuncs(GET_LID_NAME, directTIDUsers);
-  fillUnsupportedTIDFuncs(GET_GID_NAME, directTIDUsers);
+  std::string LID = CompilationUtils::mangledGetLID();
+  std::string GID = CompilationUtils::mangledGetGID();
+  fillUnsupportedTIDFuncs(LID.c_str(), directTIDUsers);
+  fillUnsupportedTIDFuncs(GID.c_str(), directTIDUsers);
   LoopUtils::fillFuncUsersSet(directTIDUsers, m_unsupportedFunc);
 }
 

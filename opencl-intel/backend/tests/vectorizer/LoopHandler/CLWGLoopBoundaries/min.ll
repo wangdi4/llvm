@@ -17,8 +17,8 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 
 define void @min_kernel(<4 x i8> addrspace(1)* nocapture %dst, i32 %width, i32 %height) nounwind {
-  %id0 = tail call i32 @get_global_id(i32 0) nounwind readnone
-  %id1 = tail call i32 @get_global_id(i32 1) nounwind readnone
+  %id0 = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
+  %id1 = tail call i32 @_Z13get_global_idj(i32 1) nounwind readnone
   %add0 = add nsw i32 %width, -1
   %min0 = tail call i32 @_Z3minii(i32 %id0, i32 %add0) nounwind readnone
   %add1 = add nsw i32 %height, -1
@@ -30,7 +30,7 @@ define void @min_kernel(<4 x i8> addrspace(1)* nocapture %dst, i32 %width, i32 %
   ret void
 }
 
-declare i32 @get_global_id(i32) nounwind readnone
+declare i32 @_Z13get_global_idj(i32) nounwind readnone
 
 declare i32 @_Z3minii(i32, i32) nounwind readnone
 

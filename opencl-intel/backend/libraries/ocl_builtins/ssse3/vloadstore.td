@@ -676,10 +676,10 @@ code LoadC = [{
 	const void *pSrc = ((char*)$Arg1VarName + ($Arg0VarName * $VecLength  * sizeof($ReturnBaseType)));
 	$ReturnType res;
 	memcpy((void*)&res, pSrc, $VecLength * sizeof($ReturnBaseType));
-    return res;
+  return res;
 }];
 code Load_half = [{
-   return __ocl_HalfToFloat(as_short($Arg1VarName[$Arg0VarName]));
+  return __ocl_HalfToFloat(*((short*)($Arg1VarName+$Arg0VarName)));
 }];
 code Load_half2 = [{
 	short8 tmp;

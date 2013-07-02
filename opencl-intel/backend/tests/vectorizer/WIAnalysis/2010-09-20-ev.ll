@@ -6,12 +6,12 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 ; CHECK: void
 
 define void @recalculateEigenIntervals(float addrspace(1)* %newEigenIntervals, float addrspace(1)* %eigenIntervals, i32 addrspace(1)* %numEigenIntervals, float addrspace(1)* %diagonal, float addrspace(1)* %offDiagonal, i32 %width, float %tolerance) nounwind {
 BB0:
-  %0 = call fastcc i32 @maskedf_1_get_global_id(i1 true, i32 0) nounwind ; <i32> [#uses=4]
+  %0 = call fastcc i32 @maskedf_1__Z13get_global_idj(i1 true, i32 0) nounwind ; <i32> [#uses=4]
   %mul = shl i32 %0, 1                            ; <i32> [#uses=4]
   %add1 = or i32 %mul, 1                          ; <i32> [#uses=4]
   %pLoad = call fastcc i32 @masked_load10(i1 true, i32 addrspace(1)* %numEigenIntervals) nounwind ; <i32> [#uses=3]
@@ -261,7 +261,7 @@ declare fastcc i1 @allOne1(i1)
 
 declare fastcc i1 @allZero2(i1)
 
-declare fastcc i32 @maskedf_0_get_global_id(i1, i32)
+declare fastcc i32 @maskedf_0__Z13get_global_idj(i1, i32)
 
 declare fastcc float @masked_load3(i1, float addrspace(1)*)
 
@@ -283,7 +283,7 @@ declare fastcc i1 @allOne3(i1)
 
 declare fastcc i1 @allZero4(i1)
 
-declare fastcc i32 @maskedf_1_get_global_id(i1, i32)
+declare fastcc i32 @maskedf_1__Z13get_global_idj(i1, i32)
 
 declare fastcc i32 @masked_load10(i1, i32 addrspace(1)*)
 

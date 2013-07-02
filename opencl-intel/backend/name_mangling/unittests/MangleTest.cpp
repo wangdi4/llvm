@@ -114,27 +114,30 @@ struct SizeT<4>{
   static const char* nativeStr(){return "uint";}
 };
 
+static void replaceAll(std::string& src, const std::string& from,
+  const std::string& to) {
+  size_t pos = src.find(from);
+  while (std::string::npos !=  pos){
+    src.erase(pos, from.length());
+    src.insert(pos, to);
+    pos = src.find(from);
+  }
+}
+
 //
 //deletes the _private attribute from the given string if it appears in it
 //
 static void deletePrivate(std::string& s){
-  const std::string strPrivate = "__private ";
-  size_t pos = s.find(strPrivate);
-  while (std::string::npos !=  pos){
-    s.erase(pos, strPrivate.length());
-    pos = s.find(strPrivate);
-  }
+  replaceAll(s, "__private ", "");
 }
 
 static void replaceSizeT(std::string& s){
-  const std::string strSizet = "size_t";
-  size_t pos = s.find(strSizet);
-  while (std::string::npos !=  pos){
-    s.erase(pos, strSizet.length());
-    const std::string strSizeT(SizeT<sizeof(size_t)>::nativeStr());
-    s.insert(pos, strSizeT);
-    pos = s.find(strSizet);
-  }
+  const std::string strSizeT(SizeT<sizeof(size_t)>::nativeStr());
+  replaceAll(s, "size_t", strSizeT);
+}
+
+static void replaceClMemFenceFlags(std::string& s){
+  replaceAll(s, "cl_mem_fence_flags", "uint");
 }
 
 //returns true, if the following function prototypes are semantically the same
@@ -147,6 +150,9 @@ static bool isSematicallyEqual(const std::string& l, const std::string& r){
   std::string left(l), right(r);
   deletePrivate(left);
   deletePrivate(right);
+  //cl_mem_fence_flags are typedef's for int under SPIR SPEC.
+  replaceClMemFenceFlags(left);
+  replaceClMemFenceFlags(right);
   //replacing the size_t argument, since its a typedef, not a real type, and
   //clang treats it that way.
   replaceSizeT(left);

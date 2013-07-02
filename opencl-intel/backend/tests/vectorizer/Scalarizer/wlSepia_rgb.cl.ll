@@ -32,7 +32,7 @@ entry:
   store float addrspace(2)* %inputImage, float addrspace(2)** %inputImage.addr
   store float addrspace(1)* %outputImage, float addrspace(1)** %outputImage.addr
   store i32 %wgRowSize, i32* %wgRowSize.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %wgNum
   %tmp = load i32* %wgRowSize.addr                ; <i32> [#uses=1]
   %tmp1 = load i32* %wgNum                        ; <i32> [#uses=1]
@@ -167,7 +167,7 @@ for.end79:                                        ; preds = %for.cond
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 

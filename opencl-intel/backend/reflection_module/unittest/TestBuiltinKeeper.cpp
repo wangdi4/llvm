@@ -97,8 +97,8 @@ TEST(isBuiltin, unmangledBuiltins){
   PairSW sw = pKeeper->getVersion(allZero, width::TWO);
   ASSERT_EQ(std::string("__ocl_allZero_v2"), sw.first);
   ASSERT_EQ(width::TWO, sw.second);
-  ASSERT_TRUE(pKeeper->isBuiltin("get_global_id"));
-  ASSERT_TRUE(pKeeper->isBuiltin("get_global_size"));
+  ASSERT_TRUE(pKeeper->isBuiltin("_Z13get_global_idj"));
+  ASSERT_TRUE(pKeeper->isBuiltin("_Z15get_global_sizej"));
 }
 
 TEST(getWidth, fromScalar){

@@ -11,14 +11,14 @@
 @lowerBoundY = global float -2.000000e+00, align 4
 @scaleFactor = global float 4.000000e+00, align 4
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 ; CHECK: @root.wrapper.indexed
 ; CHECK-NOT: %new_phi24 = phi i8 [ %merge29, %phi-split-bb15 ], [ -1, %.critedge.i.i ]
 
 define void @root.wrapper.indexed(<4 x i8>* nocapture %out, i32 %x, i32 %y) {
 init:
-  %0 = tail call i32 @get_global_id(i32 0)
+  %0 = tail call i32 @_Z13get_global_idj(i32 0)
   %outElement = getelementptr inbounds <4 x i8>* %out, i32 %0
   %currentX = add i32 %0, %x
   %1 = load float* @lowerBoundX, align 4

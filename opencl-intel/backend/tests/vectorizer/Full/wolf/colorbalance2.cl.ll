@@ -1029,7 +1029,7 @@ entry:
   store <4 x float> addrspace(1)* %input, <4 x float> addrspace(1)** %input.addr
   store <4 x float> addrspace(1)* %output, <4 x float> addrspace(1)** %output.addr
   store %struct.anon addrspace(2)* %pArgs, %struct.anon addrspace(2)** %pArgs.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %gid0_curPix
   %tmp = load i32* %gid0_curPix                   ; <i32> [#uses=1]
   %tmp1 = load <4 x float> addrspace(1)** %input.addr ; <<4 x float> addrspace(1)*> [#uses=1]
@@ -1044,7 +1044,7 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 ; CHECK: ret
 define void @colorbalance2(<4 x float> addrspace(1)* %input, <4 x float> addrspace(1)* %output, i32 %pixelCountPerGlobalID, %struct.anon addrspace(2)* %args) nounwind {
@@ -1060,7 +1060,7 @@ entry:
   store <4 x float> addrspace(1)* %output, <4 x float> addrspace(1)** %output.addr
   store i32 %pixelCountPerGlobalID, i32* %pixelCountPerGlobalID.addr
   store %struct.anon addrspace(2)* %args, %struct.anon addrspace(2)** %args.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %global_id
   %tmp = load i32* %pixelCountPerGlobalID.addr    ; <i32> [#uses=1]
   %tmp1 = load i32* %global_id                    ; <i32> [#uses=1]

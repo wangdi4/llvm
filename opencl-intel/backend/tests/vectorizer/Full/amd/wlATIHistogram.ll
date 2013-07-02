@@ -32,13 +32,13 @@ entry:
 	store i8 addrspace(3)* %sharedArray, i8 addrspace(3)** %sharedArray.addr
 	store i32 addrspace(1)* %binResult, i32 addrspace(1)** %binResult.addr
 	store i32 %BIN_SIZE, i32* %BIN_SIZE.addr
-	%call = call i32 @get_local_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z12get_local_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %localId
-	%call1 = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call1 = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call1, i32* %globalId
 	%call2 = call i32 @get_group_id(i32 0)		; <i32> [#uses=1]
 	store i32 %call2, i32* %groupId
-	%call3 = call i32 @get_local_size(i32 0)		; <i32> [#uses=1]
+	%call3 = call i32 @_Z14get_local_sizej(i32 0)		; <i32> [#uses=1]
 	store i32 %call3, i32* %GROUP_SIZE
 	store i32 0, i32* %i
 	br label %for.cond
@@ -67,7 +67,7 @@ for.inc:		; preds = %for.body
 	br label %for.cond
 
 for.end:		; preds = %for.cond
-	call void @barrier(i32 1)
+	call void @_Z7barrierm(i32 1)
 	store i32 0, i32* %i11
 	br label %for.cond12
 
@@ -106,7 +106,7 @@ for.inc35:		; preds = %for.body16
 	br label %for.cond12
 
 for.end38:		; preds = %for.cond12
-	call void @barrier(i32 1)
+	call void @_Z7barrierm(i32 1)
 	store i32 0, i32* %i40
 	br label %for.cond41
 
@@ -182,12 +182,12 @@ for.end88:		; preds = %for.cond41
 	ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_group_id(i32)
 
-declare i32 @get_local_size(i32)
+declare i32 @_Z14get_local_sizej(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)

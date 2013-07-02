@@ -16,13 +16,13 @@
 ; CHECK: @main
 define void @main() {
   call void @dummybarrier.()
-  call void @barrier(i32 2)
+  call void @_Z7barrierj(i32 2)
 
   ret void
 ; CHECK: @dummybarrier.()
-; CHECK: @barrier(i32 2)
+; CHECK: @_Z7barrierj(i32 2)
 ; CHECK: ret
 }
 
-declare void @barrier(i32)
+declare void @_Z7barrierj(i32)
 declare void @dummybarrier.()

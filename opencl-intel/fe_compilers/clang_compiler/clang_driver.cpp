@@ -1,4 +1,3 @@
-// Copyright (c) 2006-2009 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -43,6 +42,8 @@
 #include "llvm/Linker.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
+#include "llvm/PassManager.h"
+#include "llvm/DataLayout.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -58,13 +59,16 @@
 #include "llvm/Support/IRReader.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Transforms/IPO.h"
+#include "mic_dev_limits.h"
 
 #include "clang_driver.h"
-#include "mic_dev_limits.h"
 
 #include <Logger.h>
 #include <cl_sys_info.h>
 #include <cl_cpu_detect.h>
+#include "MetaDataApi.h"
+
 
 #include <string>
 #include <list>
@@ -86,7 +90,7 @@ using namespace std;
 #define GET_CURR_WORKING_DIR(len, buff) getcwd(buff, len)
 #endif
 
-#define MAX_STR_BUFF	1024
+#define MAX_STR_BUFF    1024
 
 // Declare logger client
 DECLARE_LOGGER_CLIENT;
@@ -96,6 +100,8 @@ OclMutex ClangFETask::s_serializingMutex;
 // We use this ID in order to give each source a unique file name to prevent
 // Multiple compile units with the same ID later
 static int g_uiProgID = 1;
+
+const std::string APFLevelOptionName("-auto-prefetch-level=");
 
 void LLVMErrorHandler(void *UserData, const std::string &Message) {
   DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine*>(UserData);
@@ -211,156 +217,100 @@ ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompiler
 
 ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
 {
-	if ( NULL != m_pOutIR )
-	{
-		delete []m_pOutIR;
-	}
+    if ( NULL != m_pOutIR )
+    {
+        delete []m_pOutIR;
+    }
 
-	if ( NULL != m_pLogString )
-	{
-		delete []m_pLogString;
-	}
+    if ( NULL != m_pLogString )
+    {
+        delete []m_pLogString;
+    }
 }
 
-void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const char *buildOpts)
+void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListType &BEArgList, const char *buildOpts)
 {
-	bool cl_std_set = false;
-	AndroidCross = false;
+    CLSTDSet = 0;
+    
+    ParseCompileOptions(buildOpts,
+                        NULL,
+                        &list,
+                        &BEArgList,
+                        &CLSTDSet,
+                        &OptDebugInfo,
+                        &OptProfiling,
+                        &Opt_Disable,
+                        &Denorms_Are_Zeros,
+                        &Fast_Relaxed_Math,
+                        &m_source_filename);
 
-	ParseCompileOptions(buildOpts,
-		NULL,
-		&list,
-		&cl_std_set,
-		&OptDebugInfo,
-		&OptProfiling,
-		&Opt_Disable,
-		&Denorms_Are_Zeros,
-		&Fast_Relaxed_Math,
-		&m_source_filename,
-		&m_triple);
+    // Add standard OpenCL options
 
-	ParseCompileOptions(buildOpts,
-		NULL,
-		&list,
-		&cl_std_set,
-		&OptDebugInfo,
-		&OptProfiling,
-		&Opt_Disable,
-		&Denorms_Are_Zeros,
-		&Fast_Relaxed_Math,
-		&m_source_filename,
-		&m_triple);
+  if(!CLSTDSet) {
+    list.push_back("-cl-std=CL1.2");
+    list.push_back("-D");
+    list.push_back("__OPENCL_C_VERSION__=120");
+  } else if(CLSTDSet == 120) {
+    list.push_back("-D");
+    list.push_back("__OPENCL_C_VERSION__=120");
+  } else if(CLSTDSet == 110) {
+    list.push_back("-D");
+    list.push_back("__OPENCL_C_VERSION__=110");
+  }
 
-	// Add standard OpenCL options
+    list.push_back("-x");
+    list.push_back("cl");
+    list.push_back("-S");
+    list.push_back("-emit-llvm-bc");
 
-	if(!cl_std_set) {
-		list.push_back("-cl-std=CL1.2");
-		list.push_back("-D");
-		list.push_back("__OPENCL_C_VERSION__=120");
-	}
 
-	list.push_back("-x");
-	list.push_back("cl");
-	list.push_back("-S");
-	list.push_back("-emit-llvm-bc");
+    char    szBinaryPath[MAX_STR_BUFF];
+    char    szCurrDirrPath[MAX_STR_BUFF];
 
-	// Add CPU type
-	unsigned int uFeatures = CPUDetect::GetInstance()->GetCPUFeatureSupport();
-	std::string CPUType = "nocona";
-	if ( uFeatures & CFS_SSE42 )
-	{
-		CPUType = "corei7";
-	}
-	else if ( uFeatures & CFS_SSE41 )
-	{
-		CPUType = "penryn";
-	}
-	else if ( uFeatures & CFS_SSSE3 )
-	{
-		CPUType = "core2";
-	}
-	else if ( uFeatures & CFS_SSE3 )
-	{
-		CPUType = "prescott";
-	}
-
-	list.push_back("-target-cpu");
-	list.push_back(CPUType);
-
-	char	szBinaryPath[MAX_STR_BUFF];
-	char	szCurrDirrPath[MAX_STR_BUFF];
-
-	// Retrieve local relatively to binary directory
-	GetModuleDirectory(szBinaryPath, MAX_STR_BUFF);
+    // Retrieve local relatively to binary directory
+    GetModuleDirectory(szBinaryPath, MAX_STR_BUFF);
 #ifndef PASS_PCH
-	char	szOclIncPath[MAX_STR_BUFF];
-	char	szOclPchPath[MAX_STR_BUFF];
+    char szOclIncPath[MAX_STR_BUFF];
+    char  szOclPchPath[MAX_STR_BUFF];
 
-	SPRINTF_S(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
+  SPRINTF_S(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
+  SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_.pch", szBinaryPath);
 
-#ifndef __ANDROID__
-	if (m_triple != "i686-pc-linux")
-	{
-		AndroidCross = true;
-		SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_.pch", szBinaryPath);
-	}
-	else
-	{
-		SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_android_.pch", szBinaryPath);
-	}
+  list.push_back("-I");
+  list.push_back(szOclIncPath);
+
+  list.push_back("-include-pch");
+  list.push_back(szOclPchPath);
 #else
-	SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_.pch", szBinaryPath);
+  list.push_back("-include-pch");
+  list.push_back("OpenCL_.pch");
 #endif
 
-	list.push_back("-I");
-	list.push_back(szOclIncPath);
+    list.push_back("-fno-validate-pch");
 
-	list.push_back("-I");
-	list.push_back(szOclIncPath);
+    // Add current directory
+    GET_CURR_WORKING_DIR(MAX_STR_BUFF, szCurrDirrPath);
+    list.push_back("-I");
+    list.push_back(szCurrDirrPath);
 
-	list.push_back("-include-pch");
-	list.push_back(szOclPchPath);
-#else
-	if (m_triple != "i686-pc-linux")
-	{
-		list.push_back("-include-pch");
-		list.push_back("OpenCL_.pch");
-	}
-	else {
-		// Android cross-compilation
-		AndroidCross = true;
-		char	szOclPchPath[MAX_STR_BUFF];
-		SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_android_.pch", szBinaryPath);
-		list.push_back("-include-pch");
-		list.push_back(szOclPchPath);
-	}
-#endif
-
-	list.push_back("-fno-validate-pch");
-
-	// Add current directory
-	GET_CURR_WORKING_DIR(MAX_STR_BUFF, szCurrDirrPath);
-	list.push_back("-I");
-	list.push_back(szCurrDirrPath);
-
-	//Add OpenCL predefined macros
-	list.push_back("-D");
-	list.push_back("__OPENCL_VERSION__=120");
-	list.push_back("-D");
-	list.push_back("CL_VERSION_1_0=100");
-	list.push_back("-D");
-	list.push_back("CL_VERSION_1_1=110");
-	list.push_back("-D");
-	list.push_back("CL_VERSION_1_2=120");
-	list.push_back("-D");
-	list.push_back("__ENDIAN_LITTLE__=1");
-	list.push_back("-D");
-	list.push_back("__ROUNDING_MODE__=rte");	
-	if(m_sDeviceInfo.bImageSupport) {
-		list.push_back("-D");
-		list.push_back("__IMAGE_SUPPORT__=1");	
-	}
-	if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) {
+    //Add OpenCL predefined macros
+    list.push_back("-D");
+    list.push_back("__OPENCL_VERSION__=120");
+    list.push_back("-D");
+    list.push_back("CL_VERSION_1_0=100");
+    list.push_back("-D");
+    list.push_back("CL_VERSION_1_1=110");
+    list.push_back("-D");
+    list.push_back("CL_VERSION_1_2=120");
+    list.push_back("-D");
+    list.push_back("__ENDIAN_LITTLE__=1");
+    list.push_back("-D");
+    list.push_back("__ROUNDING_MODE__=rte");    
+    if(m_sDeviceInfo.bImageSupport) {
+        list.push_back("-D");
+        list.push_back("__IMAGE_SUPPORT__=1");  
+    }
+    if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) {
         OptProfiling = true;
 
         if (!OptDebugInfo)
@@ -370,49 +320,43 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, const ch
             list.push_back("-main-file-name");
             list.push_back(m_source_filename.c_str());
         }
-		
-	}
+        
+    }
 
-	// Add extension defines
-	std::string extStr = m_sDeviceInfo.sExtensionStrings;
-	while(extStr != "")
-	{
+    // Add extension defines
+    std::string extStr = m_sDeviceInfo.sExtensionStrings;
+    while(extStr != "")
+    {
         std::string subExtStr;
         std::string::size_type pos = extStr.find(" ", 0);
-		if(pos == string::npos)
-		{
+        if(pos == string::npos)
+        {
             subExtStr = extStr;
-			extStr.clear();
-		}
-		else
-		{
-			subExtStr = extStr.substr(0, pos);
-			extStr = extStr.substr(pos + 1);
-		}
+            extStr.clear();
+        }
+        else
+        {
+            subExtStr = extStr.substr(0, pos);
+            extStr = extStr.substr(pos + 1);
+        }
 
-		list.push_back("-D");
+        list.push_back("-D");
         list.push_back(subExtStr);
 
         //list.push_back("-target-feature");
         //list.push_back('+' + subExtStr);
-	}
+    }
 
-	// Don't optimize in the frontend
-	list.push_back("-O0");
-
-	if (m_triple.empty()) {
-#if defined(__linux__)	
-		list.push_back("-triple");
-#if defined(__ANDROID__)
-		list.push_back("i686-pc-linux");
+    // Don't optimize in the frontend
+    list.push_back("-O0");
+  list.push_back("-triple");
+#if defined(_WIN64) || defined(__x86_64__) || defined(_M_AMD64) || defined (_M_X64)
+    list.push_back("spir64-unknown-unknown");
+#elif defined(_WIN32) || defined(i386) || defined(__i386__) || defined(__x86__) || defined(__ANDROID__)
+    list.push_back("spir-unknown-unknown");
 #else
-		list.push_back("x86_64-unknown-linux-gnu");
-#endif // __ANDROID__
-#endif // __linux__
-	} else {
-		list.push_back("-triple");
-		list.push_back(m_triple);
-	}
+#error "Can't define target triple: unknown architecture."
+#endif
 }
 
 int ClangFECompilerCompileTask::Compile()
@@ -424,8 +368,9 @@ int ClangFECompilerCompileTask::Compile()
 
   // Prepare argument list
   ArgListType ArgList;
+  ArgListType BEArgList;
 
-  PrepareArgumentList(ArgList, m_pProgDesc->pszOptions);
+  PrepareArgumentList(ArgList, BEArgList, m_pProgDesc->pszOptions);
 
   const char **argArray = new const char *[ArgList.size()];
   ArgListType::iterator iter = ArgList.begin();
@@ -442,7 +387,7 @@ int ClangFECompilerCompileTask::Compile()
         m_source_filename);
 
   // Prepare output buffer
-  SmallVector<char, 4096>	IRbinary;
+  SmallVector<char, 4096>   IRbinary;
   llvm::raw_svector_ostream IRStream(IRbinary);
 
   // Prepare error buffer
@@ -485,7 +430,6 @@ int ClangFECompilerCompileTask::Compile()
   bool Success = true;
 
 #ifdef PASS_PCH
-if (!AndroidCross) {
   //prepare pch buffer
   HMODULE hMod = NULL;
   HRSRC hRes = NULL;
@@ -573,7 +517,6 @@ if (!AndroidCross) {
     LOG_ERROR(TEXT("%s"), "pchBuff is NULL");
     Success = false;
   }
-} // if (!AndroidCross)
 #endif
     
     // Execute the frontend actions.
@@ -609,11 +552,29 @@ if (!AndroidCross) {
     {
       return CL_BUILD_PROGRAM_FAILURE;
     }
-
-    size_t stTotSize = 0;
-    if ( !IRbinary.empty() )
+    
+    // Add module level SPIR related stuff
+    string ErrorMessage;
+    const char*  BufferStart = (const char*)IRbinary.begin();
+    size_t BufferSize = IRbinary.size();
+    llvm::OwningPtr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef((const char *)(IRbinary.begin()), IRbinary.size())));
+    llvm::SmallVector<char, 4096>   SPIRbinary;
+    llvm::raw_svector_ostream SPIRstream(SPIRbinary);
     {
-      stTotSize = IRbinary.size()+
+        llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
+        llvm::OwningPtr<PassManager> Passes(new PassManager());
+        Passes->add(new DataLayout(M)); // Use correct DataLayout
+        Passes->add(createSPIRMetadataAdderPass(BEArgList, CLSTDSet));
+        Passes->run(*M);
+        WriteBitcodeToFile(M, SPIRstream);
+        SPIRstream.flush();
+        BufferStart = (const char*)SPIRbinary.begin();
+        BufferSize  = SPIRbinary.size();
+    }
+    size_t stTotSize = 0;
+    if ( BufferSize > 0 )
+    {
+      stTotSize = BufferSize +
         sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header);
       m_pOutIR = new char[stTotSize];
       if ( NULL == m_pOutIR )
@@ -627,9 +588,9 @@ if (!AndroidCross) {
     if ( NULL != m_pOutIR )
     {
       m_stOutIRSize = stTotSize;
-      cl_prog_container_header*	pHeader = (cl_prog_container_header*)m_pOutIR;
+      cl_prog_container_header* pHeader = (cl_prog_container_header*)m_pOutIR;
       MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
-      pHeader->container_size = IRbinary.size()+sizeof(cl_llvm_prog_header);
+      pHeader->container_size = BufferSize+sizeof(cl_llvm_prog_header);
       pHeader->container_type = CL_PROG_CNT_PRIVATE;
       pHeader->description.bin_type = CL_PROG_BIN_COMPILED_LLVM;
       pHeader->description.bin_ver_major = 1;
@@ -644,10 +605,9 @@ if (!AndroidCross) {
       pProgHeader->bEnableLinkOptions = true; // enable link options is true for all compiled objects
       void *pIR = (void*)(pProgHeader+1);
       // Copy IR
-      MEMCPY_S(pIR, IRbinary.size(), IRbinary.begin(), IRbinary.size());
+      MEMCPY_S(pIR, BufferSize, BufferStart, BufferSize);
     }
 
-    IRbinary.clear();
     LOG_INFO(TEXT("%s"), TEXT("Finished"));
 
     delete []argArray;
@@ -666,20 +626,20 @@ ClangFECompilerLinkTask::ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::F
 ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
 {
     if ( NULL != m_pOutIR )
-	{
-		delete []m_pOutIR;
-	}
+    {
+        delete []m_pOutIR;
+    }
 
-	if ( NULL != m_pLogString )
-	{
-		delete []m_pLogString;
-	}
+    if ( NULL != m_pLogString )
+    {
+        delete []m_pLogString;
+    }
 }
 
 int ClangFECompilerLinkTask::Link()
 {
     OclAutoMutex CS(&s_serializingMutex);
-	char* pBinary = NULL;
+    char* pBinary = NULL;
 
     {   // create a new scope to make sure the mutex will be released last
 
@@ -693,19 +653,82 @@ int ClangFECompilerLinkTask::Link()
 
     if (1 == m_pProgDesc->uiNumBinaries)
     {
+        //Don't need actual linker...
+        bool isSPIR = (((const char*)(m_pProgDesc->pBinaryContainers[0]))[0] == 'B') &&
+          (((const char*)(m_pProgDesc->pBinaryContainers[0]))[1] == 'C');
+
         m_stOutIRSize = m_pProgDesc->puiBinariesSizes[0];
+        if (isSPIR) m_stOutIRSize += sizeof(cl_llvm_prog_header) + sizeof(cl_prog_container_header);
 
-        m_pOutIR = new char[m_pProgDesc->puiBinariesSizes[0]];
+        m_pOutIR = new char[m_stOutIRSize];
         if ( NULL == m_pOutIR )
-		{
-			LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
+        {
+            LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
             m_stOutIRSize = 0;
-			return CL_OUT_OF_HOST_MEMORY;
-		}
-    
-        MEMCPY_S(m_pOutIR, m_stOutIRSize, m_pProgDesc->pBinaryContainers[0], m_stOutIRSize);
+            return CL_OUT_OF_HOST_MEMORY;
+        }
 
-        cl_prog_container_header*	pHeader = (cl_prog_container_header*)m_pOutIR;
+        if (isSPIR) 
+        {
+            cl_prog_container_header*   pHeader = (cl_prog_container_header*)m_pOutIR;
+            MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
+            pHeader->container_size = m_pProgDesc->puiBinariesSizes[0]+sizeof(cl_llvm_prog_header);
+            pHeader->container_type = CL_PROG_CNT_PRIVATE;
+            pHeader->description.bin_type = CL_PROG_BIN_COMPILED_LLVM;
+            pHeader->description.bin_ver_major = 1;
+            pHeader->description.bin_ver_minor = 1;
+            // Fill options
+            cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)(m_pOutIR+sizeof(cl_prog_container_header));
+            pProgHeader->bDebugInfo = false;
+            pProgHeader->bProfiling = false;
+            pProgHeader->bDisableOpt = false;
+            pProgHeader->bDenormsAreZero = false;
+            pProgHeader->bFastRelaxedMath = false;
+            pProgHeader->bEnableLinkOptions = false;
+            void *pIR = (void*)(pProgHeader+1);
+
+            string ErrorMessage;
+            MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef((const char *)(m_pProgDesc->pBinaryContainers[0]), m_pProgDesc->puiBinariesSizes[0]));   
+            llvm::Module *M = ParseBitcodeFile(pBinBuff, getGlobalContext(), &ErrorMessage);
+
+            if (NULL == M) 
+            {
+                LOG_ERROR(TEXT("%s"), TEXT("Cannot parse SPIR binary"));
+                m_stOutIRSize = 0;
+                return CL_LINK_PROGRAM_FAILURE;
+            }
+            
+            Intel::MetaDataUtils mdUtils(M);
+            Intel::MetaDataUtils::CompilerOptionsList::iterator it = mdUtils.begin_CompilerOptions();
+            Intel::MetaDataUtils::CompilerOptionsList::iterator e  = mdUtils.end_CompilerOptions();
+            
+            // Iterating the compilation option, in search on 'target-triple'.
+            for(; it != e; ++it) 
+            {
+              if (!(*it)->isvalueHasValue()) 
+                continue;
+              
+              std::string opt((*it)->getvalue());
+              
+              if ( opt == "-cl-opt-disable")
+                pProgHeader->bDisableOpt = true;
+              if ( opt == "-cl-denorms-are-zeros")
+                pProgHeader->bDenormsAreZero = true;
+              if ( opt == "-cl-fast-relaxed-math")
+                pProgHeader->bFastRelaxedMath = true;
+              if ( opt == "-enable-link-options")
+                pProgHeader->bEnableLinkOptions = true;
+            }
+
+            MEMCPY_S(pIR, m_pProgDesc->puiBinariesSizes[0],
+                m_pProgDesc->pBinaryContainers[0], m_pProgDesc->puiBinariesSizes[0]);
+        } 
+        else 
+        {
+            MEMCPY_S(m_pOutIR, m_stOutIRSize, m_pProgDesc->pBinaryContainers[0], m_stOutIRSize);
+        }
+
+        cl_prog_container_header*   pHeader = (cl_prog_container_header*)m_pOutIR;
         pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;
 
         cl_llvm_prog_header* pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
@@ -724,24 +747,24 @@ int ClangFECompilerLinkTask::Link()
     
     string ErrorMessage;
     LLVMContext &Context = getGlobalContext();
-	size_t uiBinarySize = 0;
+    size_t uiBinarySize = 0;
 
     // Initialize the module with the first binary
     cl_prog_container_header* pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[0];
 
     cl_llvm_prog_header* pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
 
-	if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[0], NULL) ) {
-		uiBinarySize = m_pProgDesc->puiBinariesSizes[0];
-		pBinary = (char*)m_pProgDesc->pBinaryContainers[0];
+    if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[0], NULL) ) {
+        uiBinarySize = m_pProgDesc->puiBinariesSizes[0];
+        pBinary = (char*)m_pProgDesc->pBinaryContainers[0];
 
-	} else {
-	    uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
-		pBinary = (char*)pHeader + 
-				  sizeof(cl_prog_container_header) + // Skip the container
-				  sizeof(cl_llvm_prog_header); //Skip the build flags for now
+    } else {
+        uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
+        pBinary = (char*)pHeader + 
+                  sizeof(cl_prog_container_header) + // Skip the container
+                  sizeof(cl_llvm_prog_header); //Skip the build flags for now
 
-	}
+    }
     MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));   
     std::auto_ptr<llvm::Module> composite(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
 
@@ -749,14 +772,14 @@ int ClangFECompilerLinkTask::Link()
     if (composite.get() == 0) 
     {
         if ( !ErrorMessage.empty() )
-	    {
+        {
             m_pLogString = new char[ErrorMessage.length() + 1];
-		    if ( m_pLogString != NULL )
-		    {
+            if ( m_pLogString != NULL )
+            {
                 MEMCPY_S(m_pLogString, ErrorMessage.length(), ErrorMessage.c_str(), ErrorMessage.length());
-			    m_pLogString[ErrorMessage.length()] = '\0';
-		    }
-	    }
+                m_pLogString[ErrorMessage.length()] = '\0';
+            }
+        }
 
         m_stOutIRSize = 0;
         m_pOutIR = NULL;
@@ -767,19 +790,19 @@ int ClangFECompilerLinkTask::Link()
     // Now go over the rest of the binaries and add them
     for (unsigned int i = 1; i < m_pProgDesc->uiNumBinaries; ++i)
     {
-		if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[i], NULL) ) {
-			uiBinarySize = m_pProgDesc->puiBinariesSizes[i];
-			pBinary = (char*)m_pProgDesc->pBinaryContainers[i];
-		} else {
-			pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[i];
-		    pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
+        if ( llvm::isRawBitcode((const unsigned char*)m_pProgDesc->pBinaryContainers[i], NULL) ) {
+            uiBinarySize = m_pProgDesc->puiBinariesSizes[i];
+            pBinary = (char*)m_pProgDesc->pBinaryContainers[i];
+        } else {
+            pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[i];
+            pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
 
-			uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
+            uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
 
-			pBinary = (char*)pHeader + 
-					  sizeof(cl_prog_container_header) + // Skip the container
-					  sizeof(cl_llvm_prog_header); //Skip the build flags for now
-		}
+            pBinary = (char*)pHeader + 
+                      sizeof(cl_prog_container_header) + // Skip the container
+                      sizeof(cl_llvm_prog_header); //Skip the build flags for now
+        }
 
         MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
                
@@ -787,14 +810,14 @@ int ClangFECompilerLinkTask::Link()
         if (M.get() == 0) 
         {
             if ( !ErrorMessage.empty() )
-	        {
+            {
                 m_pLogString = new char[ErrorMessage.length() + 1];
-		        if ( m_pLogString != NULL )
-		        {
+                if ( m_pLogString != NULL )
+                {
                     MEMCPY_S(m_pLogString, ErrorMessage.length(), ErrorMessage.c_str(), ErrorMessage.length());
-			        m_pLogString[ErrorMessage.length()] = '\0';
-		        }
-	        }
+                    m_pLogString[ErrorMessage.length()] = '\0';
+                }
+            }
 
             m_stOutIRSize = 0;
             m_pOutIR = NULL;
@@ -806,14 +829,14 @@ int ClangFECompilerLinkTask::Link()
         {
             // apparently LinkModules returns true on failure and false on success
             if ( !ErrorMessage.empty() )
-	        {
+            {
                 m_pLogString = new char[ErrorMessage.length() + 1];
-		        if ( m_pLogString != NULL )
-		        {
+                if ( m_pLogString != NULL )
+                {
                     MEMCPY_S(m_pLogString, ErrorMessage.length(), ErrorMessage.c_str(), ErrorMessage.length());
-			        m_pLogString[ErrorMessage.length()] = '\0';
-		        }
-	        }
+                    m_pLogString[ErrorMessage.length()] = '\0';
+                }
+            }
 
             m_stOutIRSize = 0;
             m_pOutIR = NULL;
@@ -837,9 +860,9 @@ int ClangFECompilerLinkTask::Link()
     m_pOutIR = new char[m_stOutIRSize];
     if ( NULL == m_pOutIR )
     {
-	    LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
+        LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
         m_stOutIRSize = 0;
-	    return CL_OUT_OF_HOST_MEMORY;
+        return CL_OUT_OF_HOST_MEMORY;
     }
 
     pHeader = (cl_prog_container_header*) m_pOutIR;
@@ -851,11 +874,11 @@ int ClangFECompilerLinkTask::Link()
     MEMCPY_S(pBinary, Buffer.size(), &Buffer.front(), Buffer.size());
 
     MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
-	  pHeader->container_size = Buffer.size() + sizeof(cl_llvm_prog_header);
-	  pHeader->container_type = CL_PROG_CNT_PRIVATE;
-	  pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;
-	  pHeader->description.bin_ver_major = 1;
-	  pHeader->description.bin_ver_minor = 1;
+      pHeader->container_size = Buffer.size() + sizeof(cl_llvm_prog_header);
+      pHeader->container_type = CL_PROG_CNT_PRIVATE;
+      pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;
+      pHeader->description.bin_ver_major = 1;
+      pHeader->description.bin_ver_minor = 1;
 
     pProgHeader->bDebugInfo = bDebugInfoFlag;
     pProgHeader->bProfiling = bProfilingFlag;
@@ -874,7 +897,7 @@ void ClangFECompilerLinkTask::ParseOptions(const char *buildOpts)
     ParseLinkOptions(buildOpts,
                      NULL,
                      &bCreateLibrary,
-	                   &bEnableLinkOptions,
+                     &bEnableLinkOptions,
                      &bDenormsAreZero,
                      &bNoSignedZeroes,
                      &bUnsafeMath,
@@ -1037,7 +1060,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-    NamedMDNode* pKernels = pModule->getNamedMetadata("opencl.kernels");
+    NamedMDNode *pKernels = pModule->getNamedMetadata("opencl.kernels");
     if (!pKernels)
     {
         assert(false && "couldn't find any kernels in the metadata");
@@ -1070,38 +1093,6 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         delete pModule;
         return CL_FE_INTERNAL_ERROR_OHNO;
     }
-
-    MDNode* pKernelArgsInfo = NULL;
-    bool bFoundKernelArgsInfo = false;
-
-    // Go over the kernel metadata and see if it has a kernel_arg_info
-    for (unsigned int i = 0; i < pKernel->getNumOperands(); ++i)
-    {
-        pKernelArgsInfo = dyn_cast<MDNode>(pKernel->getOperand(i));
-        if (NULL == pKernelArgsInfo)
-        {
-            continue;
-        }
-
-        MDString* pName = dyn_cast<MDString>(pKernelArgsInfo->getOperand(0));
-        if (NULL == pName)
-        {
-            continue;
-        }
-
-        if (0 == pName->getString().compare("cl-kernel-arg-info"))
-        {
-            // Kernel has kernel arg info
-            bFoundKernelArgsInfo = true;
-            break;
-        }
-    }
-
-    if (!bFoundKernelArgsInfo)
-    {
-        delete pModule;
-        return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
-    }
       
     MDNode* pAddressQualifiers = NULL;
     MDNode* pAccessQualifiers = NULL;
@@ -1109,9 +1100,9 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     MDNode* pTypeQualifiers = NULL;
     MDNode* pArgNames = NULL;
        
-    for (unsigned int i = 0; i < pKernelArgsInfo->getNumOperands(); ++i)
+    for (unsigned int i = 0; i < pKernel->getNumOperands(); ++i)
     {
-        MDNode* pTemp = dyn_cast<MDNode>(pKernelArgsInfo->getOperand(i));
+        MDNode* pTemp = dyn_cast<MDNode>(pKernel->getOperand(i));
         if (NULL == pTemp){
             continue;
         }
@@ -1121,38 +1112,42 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
             continue;
         }
 
-        if (0 == pName->getString().compare("address_qualifiers")) {
+        if (0 == pName->getString().compare("kernel_arg_addr_space")) {
             pAddressQualifiers = pTemp;
             continue;
         }
 
-        if (0 == pName->getString().compare("access_qualifiers")) {
+        if (0 == pName->getString().compare("kernel_arg_access_qual")) {
             pAccessQualifiers = pTemp;
             continue;
         }
 
-        if (0 == pName->getString().compare("arg_type_names")) {
+        if (0 == pName->getString().compare("kernel_arg_type")) {
             pTypeNames = pTemp;
             continue;
         }
 
-        if (0 == pName->getString().compare("arg_type_qualifiers")) {
+        if (0 == pName->getString().compare("kernel_arg_type_qual")) {
             pTypeQualifiers = pTemp;
             continue;
         }
 
-        if (0 == pName->getString().compare("arg_names")) {
+        if (0 == pName->getString().compare("kernel_arg_name")) {
             pArgNames = pTemp;
             continue;
         }
     }    
 
     // all of the above must be valid
-    assert(pAddressQualifiers && "pAddressQualifiers is NULL");
-    assert(pAccessQualifiers && "pAccessQualifiers is NULL");
-    assert(pTypeNames && "pTypeNames is NULL");
-    assert(pTypeQualifiers && "pTypeQualifiers is NULL");
-    assert(pArgNames && "pArgNames is NULL");
+	if ( !( pAddressQualifiers && pAccessQualifiers && pTypeNames && pTypeQualifiers && pArgNames ) ) {
+        assert(pAddressQualifiers && "pAddressQualifiers is NULL");
+        assert(pAccessQualifiers && "pAccessQualifiers is NULL");
+        assert(pTypeNames && "pTypeNames is NULL");
+        assert(pTypeQualifiers && "pTypeQualifiers is NULL");
+        assert(pArgNames && "pArgNames is NULL");
+        delete pModule;
+        return CL_FE_INTERNAL_ERROR_OHNO;
+	}
 
     m_numArgs = pAddressQualifiers->getNumOperands() - 1;
 
@@ -1191,40 +1186,32 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         }
 
         // Access qualifier
-        ConstantInt* pAccessQualifier = dyn_cast<ConstantInt>(pAccessQualifiers->getOperand(i));
-        assert(pAccessQualifier && "pAccessQualifier is not a valid ConstantInt*");
+        llvm::MDString* pAccessQualifier = dyn_cast<llvm::MDString>(pAccessQualifiers->getOperand(i));
+        assert(pAccessQualifier && "pAccessQualifier is not a valid MDString");
 
-        uint64_t uiAccessQualifier = pAccessQualifier->getZExtValue();
-        switch( uiAccessQualifier )
-        {
-        case 0:
-            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_READ_ONLY;
-            break;
-        case 1:
-            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
-            break;
-        case 2:
-            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_READ_WRITE;
-            break;
-        case 3:
+        if (!pAccessQualifier->getString().compare("none")) {
             argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_NONE;
-            break;
+        } else if (!pAccessQualifier->getString().compare("read_only")) {
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_READ_ONLY;
+        } else if (!pAccessQualifier->getString().compare("write_only")) {
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
+        } else {
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_READ_WRITE;
         }
 
         // Type qualifier
-        ConstantInt* pTypeQualifier = dyn_cast<ConstantInt>(pTypeQualifiers->getOperand(i));
+        llvm::MDString* pTypeQualifier = dyn_cast<llvm::MDString>(pTypeQualifiers->getOperand(i));
         assert(pTypeQualifier && "pTypeQualifier is not a valid ConstantInt*");
-        uint64_t uiTypeQualifier = pTypeQualifier->getZExtValue();
         argInfo.typeQualifier = 0;
-        if (uiTypeQualifier & (1 << 0))
+        if (pTypeQualifier->getString().find("const") != llvm::StringRef::npos)
         {
             argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
         }
-        if (uiTypeQualifier & (1 << 1))
+        if (pTypeQualifier->getString().find("restrict") != llvm::StringRef::npos)
         {
             argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
         }
-        if (uiTypeQualifier & (1 << 2))
+        if (pTypeQualifier->getString().find("volatile") != llvm::StringRef::npos)
         {
             argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
         }
@@ -1275,26 +1262,24 @@ bool Intel::OpenCL::ClangFE::ClangFECompilerCheckLinkOptions(const char* szOptio
 bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                                                  char**       szUnrecognizedOptions,
                                                  ArgListType* pList,
-                                                 bool*        pbCLStdSet,
+                                                 ArgListType* pBEArgList,
+                                                 int*         piCLStdSet,
                                                  bool*        pbOptDebugInfo,
                                                  bool*        pbOptProfiling,
                                                  bool*        pbOptDisable,
                                                  bool*        pbDenormsAreZeros,
                                                  bool*        pbFastRelaxedMath,
-                                                 std::string* pszFileName,
-												 std::string* pszTriple)
+                                                 std::string* pszFileName)
 {
     // Reset options
-    bool bCLStdSet = false;
+    int  iCLStdSet = 0;
     bool bOptDebugInfo = false;
     bool bOptProfiling = false;
     bool bOptDisable = false;
     bool bDenormsAreZeros = false;
     bool bFastRelaxedMath = false;
     std::string szFileName = "";
-	std::string szTriple = "";
-    const char *APFLevelOptionName = "-auto-prefetch-level=";
-	
+    
     if (!szOptions)
         szOptions = "";
 
@@ -1307,6 +1292,11 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     if (NULL == pList)
     {
         pList = &RecognizedArgs;
+    }
+
+    if (NULL == pBEArgList)
+    {
+        pBEArgList = &RecognizedArgs;
     }
 
     // Parse the build options - handle the ones we understand and pass the
@@ -1362,17 +1352,21 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         }
         else if (opt_i->find(APFLevelOptionName) == 0)
         {
+            const size_t AfpLen = APFLevelOptionName.size();
             // expecting only one digit after option name
-            unsigned optNameLength = strlen(APFLevelOptionName);
-            if (opt_i->length() != optNameLength + 1)
-              return false;
+            if (opt_i->length() != AfpLen + 1) {
+              res = false;
+              continue;
+            }
             // set auto-prefetching level. should be one digit number.
-            int val = opt_i->at(optNameLength) - '0';
+            int val = opt_i->at(AfpLen) - '0';
             if (val < APFLEVEL_MIN || val > APFLEVEL_MAX) {
                 string flag = *opt_i;
                 UnrecognizedArgs.push_back(flag);
                 UnrecognizedArgsLength += flag.length() + 1;
                 res = false;
+            } else {
+               pBEArgList->push_back(*opt_i); 
             }
         }
         else if (*opt_i == "-s") {
@@ -1409,13 +1403,6 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 continue;
             }
         }
-		else if (*opt_i == "-triple") {
-			// Expect the target triple as the next token
-			//
-			if (++opt_i != opts.end()) {
-				szTriple = *opt_i;
-			}
-		}
         else if (*opt_i == "-Werror") {
             pList->push_back(*opt_i);
         }
@@ -1444,12 +1431,12 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         }
         else if (*opt_i == "-cl-finite-math-only") {
             pList->push_back("-cl-finite-math-only");
-			      pList->push_back("-D");
+                  pList->push_back("-D");
             pList->push_back("__FINITE_MATH_ONLY__=1");
         }
         else if (*opt_i == "-cl-fast-relaxed-math") {
             pList->push_back("-cl-fast-relaxed-math");
-			      pList->push_back("-D");
+                  pList->push_back("-D");
             pList->push_back("__FAST_RELAXED_MATH__=1");
             bFastRelaxedMath = true;
         }
@@ -1457,17 +1444,27 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             pList->push_back("-cl-kernel-arg-info");
         }
         else if (*opt_i == "-cl-std=CL1.1") {
-            bCLStdSet = true;
+            iCLStdSet = 110;
             pList->push_back("-cl-std=CL1.1");
             pList->push_back("-D");
-	          pList->push_back("__OPENCL_C_VERSION__=110");
+              pList->push_back("__OPENCL_C_VERSION__=110");
         }
         else if (*opt_i == "-cl-std=CL1.2") {
-            bCLStdSet = true;
+            iCLStdSet = 120;
             pList->push_back("-cl-std=CL1.2");
             pList->push_back("-D");
-	          pList->push_back("__OPENCL_C_VERSION__=120");
-        }       
+            pList->push_back("__OPENCL_C_VERSION__=120");
+        }
+        else if (*opt_i == "-target-triple") {
+            if (++opt_i != opts.end()) {
+              // We use 'target-triple' instead of 'triple', since the triple is
+              // SPIR by-definition.
+              pBEArgList->push_back("-target-triple");
+              pBEArgList->push_back(*opt_i);
+            } else {
+                res = false;
+            }
+        }
         else {
             UnrecognizedArgs.push_back(*opt_i);
             UnrecognizedArgsLength += opt_i->length() + 1;
@@ -1519,9 +1516,9 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         pList->push_back(t.str());
     }
 
-    if (pbCLStdSet)
+    if (piCLStdSet)
     {
-        *pbCLStdSet = bCLStdSet;
+        *piCLStdSet = iCLStdSet;
     }
 
     if (pbOptDebugInfo)
@@ -1552,12 +1549,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     if (pszFileName && !szFileName.empty())
     {
         *pszFileName = szFileName;
-	}
-
-	if (pszTriple)
-	{
-		*pszTriple = szTriple;
-	}
+    }
 
     return res;
 }
@@ -1573,14 +1565,14 @@ bool Intel::OpenCL::ClangFE::ParseLinkOptions(const char* szOptions,
                                               bool*       pbFastRelaxedMath)
 {
     // Reset options
-	  bool bCreateLibrary = false;
+      bool bCreateLibrary = false;
     bool bEnableLinkOptions = false;
     bool bDenormsAreZero = false;
     bool bNoSignedZeroes = false;
     bool bUnsafeMath = false;
     bool bFiniteMath = false;
     bool bFastRelaxedMath = false;
-	
+    
     if (!szOptions)
         szOptions = "";
 

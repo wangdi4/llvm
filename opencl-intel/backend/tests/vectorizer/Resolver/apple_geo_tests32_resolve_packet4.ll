@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: ret void
 define void @_Z5crossDv3_fS__test(<3 x float>* nocapture, <3 x float>* nocapture, <3 x float>* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %3 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -92,7 +92,7 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 
 ; CHECK: @_Z5crossDv4_fS__test
@@ -102,7 +102,7 @@ declare i32 @get_global_id(i32)
 ; CHECK: ret void
 define void @_Z5crossDv4_fS__test(<4 x float>* nocapture, <4 x float>* nocapture, <4 x float>* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %3 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -182,7 +182,7 @@ entry:
 ; CHECK: ret void
 define void @_Z13fast_distanceff_test(float* nocapture, float* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %3 = getelementptr float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %3 to <4 x float>*
   %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
@@ -204,7 +204,7 @@ entry:
 ; CHECK: ret void
 define void @_Z13fast_distanceDv2_fS__test(<2 x float>* nocapture, <2 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %3 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -263,7 +263,7 @@ entry:
 ; CHECK: ret void
 define void @_Z13fast_distanceDv3_fS__test(<3 x float>* nocapture, <3 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %3 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -330,7 +330,7 @@ entry:
 ; CHECK: ret void
 define void @_Z13fast_distanceDv4_fS__test(<4 x float>* nocapture, <4 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %3 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -393,7 +393,7 @@ entry:
 ; CHECK: ret void
 define void @_Z8distanceff_test(float* nocapture, float* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %3 = getelementptr float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %3 to <4 x float>*
   %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
@@ -415,7 +415,7 @@ entry:
 ; CHECK: ret void
 define void @_Z6lengthf_test(float* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %2 = getelementptr float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %2 to <4 x float>*
   %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
@@ -434,7 +434,7 @@ entry:
 ; CHECK: ret void
 define void @_Z8distanceDv2_fS__test(<2 x float>* nocapture, <2 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %3 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -493,7 +493,7 @@ entry:
 ; CHECK: ret void
 define void @_Z6lengthDv2_f_test(<2 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %2 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -534,7 +534,7 @@ entry:
 ; CHECK: ret void
 define void @_Z8distanceDv3_fS__test(<3 x float>* nocapture, <3 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %3 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -601,7 +601,7 @@ entry:
 ; CHECK: ret void
 define void @_Z6lengthDv3_f_test(<3 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %2 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -646,7 +646,7 @@ entry:
 ; CHECK: ret void
 define void @_Z8distanceDv4_fS__test(<4 x float>* nocapture, <4 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %3 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -709,7 +709,7 @@ entry:
 ; CHECK: ret void
 define void @_Z6lengthDv4_f_test(<4 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %2 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -752,7 +752,7 @@ entry:
 ; CHECK: ret void
 define void @_Z3dotff_test(float* nocapture, float* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %3 = getelementptr float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %3 to <4 x float>*
   %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
@@ -774,7 +774,7 @@ entry:
 ; CHECK: ret void
 define void @_Z3dotDv2_fS__test(<2 x float>* nocapture, <2 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %3 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -833,7 +833,7 @@ entry:
 ; CHECK: ret void
 define void @_Z3dotDv3_fS__test(<3 x float>* nocapture, <3 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %3 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -900,7 +900,7 @@ entry:
 ; CHECK: ret void
 define void @_Z3dotff4_test(<4 x float>* nocapture, <4 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %3 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -963,7 +963,7 @@ entry:
 ; CHECK: ret void
 define void @_Z11fast_lengthf_test(float* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %2 = getelementptr float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %2 to <4 x float>*
   %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
@@ -982,7 +982,7 @@ entry:
 ; CHECK: ret void
 define void @_Z11fast_lengthDv2_f_test(<2 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %2 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -1023,7 +1023,7 @@ entry:
 ; CHECK: ret void
 define void @_Z11fast_lengthDv3_f_test(<3 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %2 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -1068,7 +1068,7 @@ entry:
 ; CHECK: ret void
 define void @_Z11fast_lengthDv4_f_test(<4 x float>* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %2 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -1111,7 +1111,7 @@ entry:
 ; CHECK: ret void
 define void @_Z14fast_normalizef_test(float* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %2 = getelementptr float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %2 to <4 x float>*
   %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
@@ -1130,7 +1130,7 @@ entry:
 ; CHECK: ret void
 define void @_Z14fast_normalizeDv2_f_test(<2 x float>* nocapture, <2 x float>* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %2 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -1184,7 +1184,7 @@ entry:
 ; CHECK: ret void
 define void @_Z14fast_normalizeDv3_f_test(<3 x float>* nocapture, <3 x float>* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %2 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -1248,7 +1248,7 @@ entry:
 ; CHECK: ret void
 define void @_Z14fast_normalizef4_test(<4 x float>* nocapture, <4 x float>* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %2 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -1308,7 +1308,7 @@ entry:
 ; CHECK: ret void
 define void @_Z9normalizef_test(float* nocapture, float* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %2 = getelementptr float* %0, i32 %gid
   %ptrTypeCast = bitcast float* %2 to <4 x float>*
   %load_arg4 = load <4 x float>* %ptrTypeCast, align 4
@@ -1327,7 +1327,7 @@ entry:
 ; CHECK: ret void
 define void @_Z9normalizeDv2_f_test(<2 x float>* nocapture, <2 x float>* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %2 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -1381,7 +1381,7 @@ entry:
 ; CHECK: ret void
 define void @_Z9normalizeDv3_f_test(<3 x float>* nocapture, <3 x float>* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %2 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -1445,7 +1445,7 @@ entry:
 ; CHECK: ret void
 define void @_Z9normalizeDv4_f_test(<4 x float>* nocapture, <4 x float>* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %2 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>
@@ -1505,7 +1505,7 @@ entry:
 ; CHECK: ret void
 define void @__ci_gamma_scalar_SPI_test(<3 x float>* nocapture, float* nocapture, <3 x float>* nocapture) {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0)
+  %gid = tail call i32 @_Z13get_global_idj(i32 0)
   %broadcast1 = insertelement <4 x i32> undef, i32 %gid, i32 0
   %broadcast2 = shufflevector <4 x i32> %broadcast1, <4 x i32> undef, <4 x i32> zeroinitializer
   %3 = add <4 x i32> %broadcast2, <i32 0, i32 1, i32 2, i32 3>

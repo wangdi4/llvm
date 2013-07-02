@@ -23,7 +23,7 @@ target triple = "x86_64-pc-win32"
 declare void @__test_convert_float2_rtp_double2_original(<2 x double> addrspace(
 1)* nocapture, <2 x float> addrspace(1)* nocapture) nounwind
 
-declare i64 @get_global_id(i32)
+declare i64 @_Z13get_global_idj(i32)
 
 define double @_Z18convert_float2_rtpU8__vector2d(<2 x double> %x) nounwind {
 entry:

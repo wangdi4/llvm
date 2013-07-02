@@ -37,7 +37,7 @@ L0:
   %p2 = alloca [10 x i64], align 8
   br label %L1
 L1:
-  call void @barrier(i32 1)
+  call void @_Z7barrierj(i32 1)
   br label %L2
 L2:
   call void @dummybarrier.()
@@ -47,7 +47,7 @@ L2:
 ; CHECK: %p2 = alloca [10 x i64], align 8
 ; CHECK: br label %L1
 ; CHECK: L1:
-; CHECK: call void @barrier(i32 1)
+; CHECK: call void @_Z7barrierj(i32 1)
 ; CHECK: br label %L2
 ; CHECK: L2:
 ; CHECK: call void @dummybarrier.()
@@ -60,7 +60,7 @@ L0:
   %p1 = alloca i64, align 16
   br label %L1
 L1:
-  call void @barrier(i32 1)
+  call void @_Z7barrierj(i32 1)
   br label %L2
 L2:
   call void @dummybarrier.()
@@ -69,7 +69,7 @@ L2:
 ; CHECK: %p1 = alloca i64, align 16
 ; CHECK: br label %L1
 ; CHECK: L1:
-; CHECK: call void @barrier(i32 1)
+; CHECK: call void @_Z7barrierj(i32 1)
 ; CHECK: br label %L2
 ; CHECK: L2:
 ; CHECK: call void @dummybarrier.()
@@ -101,9 +101,9 @@ L2:
 ; CHECK-NOT: entry
 ; CHECK: DONE
 
-declare void @barrier(i32)
+declare void @_Z7barrierj(i32)
 declare void @dummybarrier.()
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
 !opencl.kernels = !{!0, !6}
 !opencl.build.options = !{}

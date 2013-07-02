@@ -38,18 +38,18 @@
   
   declare void @math_kernel16(<16 x float> addrspace(1)* nocapture %out, <16 x float> addrspace(1)* %out2, <16 x float> addrspace(1)* nocapture %in) nounwind
   
-  declare i64 @get_global_id(i32)
+  declare i64 @_Z13get_global_idj(i32)
   
   declare <16 x float> @_Z6sincosDv16_fPU3AS1S_(<16 x float>* byval align 64, <16 x float> addrspace(1)*)
   
  
-  declare i64 @get_local_size(i32)
+  declare i64 @_Z14get_local_sizej(i32)
   
   declare i64 @get_base_global_id.(i32)
   
   define void @__Vectorized_.math_kernel16(<16 x float> addrspace(1)* nocapture %out, <16 x float> addrspace(1)* %out2, <16 x float> addrspace(1)* nocapture %in) nounwind {
      %1 = alloca <16 x float>, align 64
-     %2 = call i64 @get_global_id(i32 0) nounwind
+     %2 = call i64 @_Z13get_global_idj(i32 0) nounwind
      %sext = shl i64 %2, 32
      %3 = ashr exact i64 %sext, 32
      %4 = getelementptr inbounds <16 x float> addrspace(1)* %in, i64 %3

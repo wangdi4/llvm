@@ -9,7 +9,7 @@ target triple = "i686-pc-win32"
 
 define void @store_float(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocapture %out) nounwind {
 bb.nph:
-  %0 = tail call i32 @get_global_id(i32 0) nounwind
+  %0 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   br label %1
 
 ; <label>:1                                       ; preds = %1, %bb.nph
@@ -36,7 +36,7 @@ bb.nph:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 !opencl.kernels = !{!0}
 

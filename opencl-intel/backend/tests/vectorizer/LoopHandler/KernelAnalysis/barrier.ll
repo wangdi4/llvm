@@ -19,7 +19,7 @@ define void @func_no_call_barrier() nounwind {
 }
 
 define void @func_call_barrier() nounwind {
-  tail call void @barrier(i32 0)
+  tail call void @_Z7barrierj(i32 0)
   ret void
 }
 
@@ -30,7 +30,7 @@ define void @func_call_func_call_barrier() nounwind {
 
 define void @kernel_contains_barrier() nounwind {
 entry:
-  tail call void @barrier(i32 0)
+  tail call void @_Z7barrierj(i32 0)
   ret void
 }
 
@@ -62,7 +62,7 @@ entry:
 
 
 
-declare void @barrier(i32)
+declare void @_Z7barrierj(i32)
 
 
 

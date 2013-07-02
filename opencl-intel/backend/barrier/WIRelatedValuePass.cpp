@@ -8,9 +8,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "WIRelatedValuePass.h"
 #include "BarrierUtils.h"
 #include "OCLPassSupport.h"
+#include "CompilationUtils.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
   char WIRelatedValue::ID = 0;
@@ -138,8 +140,8 @@ namespace intel {
     Function *origFunc = pInst->getCalledFunction();
     std::string origFuncName = origFunc->getName().str();
 
-    if( origFuncName == GET_GID_NAME ||
-      origFuncName == GET_LID_NAME ) {
+    if(CompilationUtils::isGetGlobalId(origFuncName) ||
+       CompilationUtils::isGetLocalId(origFuncName)) {
         //These functions return WI Id, they indeed related on WI Id
         return true;
     }

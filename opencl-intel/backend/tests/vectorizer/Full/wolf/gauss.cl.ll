@@ -273,7 +273,7 @@ entry:
   store %struct._image2d_t* %inputImage, %struct._image2d_t** %inputImage.addr
   store <4 x float> addrspace(1)* %output, <4 x float> addrspace(1)** %output.addr
   store i32 %rowCountPerGlobalID, i32* %rowCountPerGlobalID.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %global_id
   %tmp = load i32* %rowCountPerGlobalID.addr      ; <i32> [#uses=1]
   %tmp1 = load i32* %global_id                    ; <i32> [#uses=1]
@@ -355,7 +355,7 @@ for.end45:                                        ; preds = %for.cond
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare <2 x i32> @_Z13convert_uint2U8__vector2i(<2 x i32>)
 

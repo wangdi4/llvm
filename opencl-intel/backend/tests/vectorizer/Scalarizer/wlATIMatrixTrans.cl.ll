@@ -36,13 +36,13 @@ entry:
   store i32 %width, i32* %width.addr
   store i32 %height, i32* %height.addr
   store i32 %blockSize, i32* %blockSize.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %globalIdx
-  %call1 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call1, i32* %globalIdy
-  %call2 = call i32 @get_local_id(i32 0)          ; <i32> [#uses=1]
+  %call2 = call i32 @_Z12get_local_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call2, i32* %localIdx
-  %call3 = call i32 @get_local_id(i32 1)          ; <i32> [#uses=1]
+  %call3 = call i32 @_Z12get_local_idj(i32 1)          ; <i32> [#uses=1]
   store i32 %call3, i32* %localIdy
   %tmp = load i32* %globalIdy                     ; <i32> [#uses=1]
   %tmp4 = load i32* %width.addr                   ; <i32> [#uses=1]
@@ -60,7 +60,7 @@ entry:
   %tmp13 = load float addrspace(3)** %block.addr  ; <float addrspace(3)*> [#uses=1]
   %arrayidx14 = getelementptr inbounds float addrspace(3)* %tmp13, i32 %add12 ; <float addrspace(3)*> [#uses=1]
   store float %tmp7, float addrspace(3)* %arrayidx14
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %call16 = call i32 @get_group_id(i32 0)         ; <i32> [#uses=1]
   store i32 %call16, i32* %groupIdx
   %call18 = call i32 @get_group_id(i32 1)         ; <i32> [#uses=1]
@@ -100,10 +100,10 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 declare i32 @get_group_id(i32)

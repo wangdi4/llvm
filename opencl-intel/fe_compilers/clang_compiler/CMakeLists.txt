@@ -9,6 +9,8 @@ set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 
 include_directories( AFTER
             ${LLVM_INCLUDE_DIR}
+            ${CMAKE_SOURCE_DIR}/backend/metadata_api/gen
+            ${CMAKE_SOURCE_DIR}/backend/metadata_api
             ${CMAKE_SOURCE_DIR}/backend/plugin_manager
             ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
             ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
@@ -107,7 +109,8 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       clangAST
                                       clangLex
                                       clangBasic
-				      OclPluginManager
+                                      OclPluginManager
+                                      metadataapi
                                       ${LLVM_MODULE_LIBS}
                                       )
 

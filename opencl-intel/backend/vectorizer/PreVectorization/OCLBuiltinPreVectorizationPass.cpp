@@ -124,7 +124,7 @@ void OCLBuiltinPreVectorizationPass::handleWriteImage(CallInst *CI, std::string 
 // but for vector select built-in mask is according to MSB
 // so in case the scalar kernel containing scalar select built-in we need to make sure
 // the mask has the MSB set, so we replace Zext with Sext.
-// if we can not be sure than we replace the scalar select builtin fake builtin
+// if we can not be sure then we replace the scalar select builtin fake builtin
 // so it won't be vectorized but duplicated and then resolved
 void OCLBuiltinPreVectorizationPass::handleScalarSelect(CallInst *CI, std::string &funcName) {
   Value *inputMaskVal = CI->getArgOperand(2);
@@ -139,7 +139,7 @@ void OCLBuiltinPreVectorizationPass::handleScalarSelect(CallInst *CI, std::strin
 		"select func return value type is not the same as xy operands types");
 
     std::string fakeFuncName = Mangler::getFakeBuiltinName(funcName);
-	Function *origFunc = CI->getCalledFunction();
+    Function *origFunc = CI->getCalledFunction();
     Constant * funcConst = m_curModule->getOrInsertFunction(fakeFuncName,
 	  origFunc->getFunctionType(), origFunc->getAttributes());
     V_ASSERT(funcConst && "failed generating function in current module");

@@ -20,7 +20,7 @@ target triple = "i686-pc-win32"
 @opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<2 x float> addrspace(1)*, float addrspace(1)*, <8 x i8>, <8 x i8>)* @mul to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_mul_locals to i8*), i8* getelementptr inbounds ([186 x i8]* @opencl_mul_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 define void @mul(<2 x float> addrspace(1)* nocapture %in, float addrspace(1)* nocapture %out, <8 x i8> %charArg1, <8 x i8> %charArg2) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind ; <i32> [#uses=1]
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
   %2 = mul <8 x i8> %charArg1, %charArg2          ; <<8 x i8>> [#uses=1]
   %3 = extractelement <8 x i8> %2, i32 0          ; <i8> [#uses=1]
   %4 = sext i8 %3 to i32                          ; <i32> [#uses=1]
@@ -31,7 +31,7 @@ define void @mul(<2 x float> addrspace(1)* nocapture %in, float addrspace(1)* no
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 ;CHECK: mul <8 x i8> %charArg1, %charArg2
 ;CHECK: ret

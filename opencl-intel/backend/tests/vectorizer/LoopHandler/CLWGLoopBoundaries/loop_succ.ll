@@ -14,7 +14,7 @@ target triple = "i686-pc-win32"
 
 define void @sample_test(i32 addrspace(1)* nocapture %dst, i32 %count) nounwind {
 entry:
-  %call = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %cmp1 = icmp sgt i32 %count, 0
   br i1 %cmp1, label %for.body, label %for.end
 
@@ -31,7 +31,7 @@ for.end:                                          ; preds = %for.body
   ret void
 }
 
-declare i32 @get_global_id(i32) nounwind readnone
+declare i32 @_Z13get_global_idj(i32) nounwind readnone
 
 !opencl.kernels = !{!0}
 !opencl.build.options = !{!2}

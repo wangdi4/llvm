@@ -644,7 +644,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   TInternalCallType ResolveWICall::getCallFunctionType(std::string calledFuncName) {
 
-    if( calledFuncName == CompilationUtils::NAME_GET_LID ) {
+    if(calledFuncName == CompilationUtils::NAME_GET_LID) {
       return ICT_GET_LOCAL_ID;
     }
     if( calledFuncName == CompilationUtils::NAME_GET_GID ) {
@@ -662,39 +662,28 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     if( calledFuncName == CompilationUtils::NAME_GET_CURR_WI ) {
       return ICT_GET_CURR_WI;
     }
-    if( calledFuncName == CompilationUtils::NAME_GET_WORK_DIM ) {
+    if( CompilationUtils::isGetWorkDim(calledFuncName) )
       return ICT_GET_WORK_DIM;
-    }
-    if( calledFuncName == CompilationUtils::NAME_GET_GLOBAL_SIZE ) {
+    if(CompilationUtils::isGetGlobalSize(calledFuncName))
       return ICT_GET_GLOBAL_SIZE;
-    }
-    if( calledFuncName == CompilationUtils::NAME_GET_LOCAL_SIZE ) {
+    if(CompilationUtils::isGetLocalSize(calledFuncName))
       return ICT_GET_LOCAL_SIZE;
-    }
-    if( calledFuncName == CompilationUtils::NAME_GET_NUM_GROUPS ) {
+    if(CompilationUtils::isGetNumGroups(calledFuncName))
       return ICT_GET_NUM_GROUPS;
-    }
-    if( calledFuncName == CompilationUtils::NAME_GET_GROUP_ID ) {
+    if(CompilationUtils::isGetGroupId(calledFuncName))
       return ICT_GET_GROUP_ID;
-    }
-    if( calledFuncName == CompilationUtils::NAME_GET_GLOBAL_OFFSET ) {
+    if(CompilationUtils::isGlobalOffset(calledFuncName))
       return ICT_GET_GLOBAL_OFFSET;
-    }
-    if( calledFuncName == CompilationUtils::NAME_PRINTF ) {
+    if(calledFuncName == CompilationUtils::NAME_PRINTF)
       return ICT_PRINTF;
-    }
-    if( 0 == calledFuncName.find(CompilationUtils::NAME_ASYNC_WORK_GROUP_COPY) ) {
+    if(CompilationUtils::isAsyncWorkGroupCopy(calledFuncName))
       return ICT_ASYNC_WORK_GROUP_COPY;
-    }
-    if( 0 == calledFuncName.find(CompilationUtils::NAME_WAIT_GROUP_EVENTS) ) {
+    if(CompilationUtils::isWaitGroupEvents(calledFuncName))
       return ICT_WAIT_GROUP_EVENTS;
-    }
-    if( 0 == calledFuncName.find(CompilationUtils::NAME_PREFETCH) ) {
+    if(CompilationUtils::isPrefetch(calledFuncName))
       return ICT_PREFETCH;
-    }
-    if( 0 == calledFuncName.find(CompilationUtils::NAME_ASYNC_WORK_GROUP_STRIDED_COPY) ) {
+    if(CompilationUtils::isAsyncWorkGroupStridedCopy(calledFuncName))
       return ICT_ASYNC_WORK_GROUP_STRIDED;
-    }
     return ICT_NONE;
   }
 

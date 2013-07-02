@@ -6,7 +6,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 
-declare i64 @get_global_id(i32) nounwind readnone
+declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
 define void @__Vectorized_.sincos(<4 x double> addrspace(1)* nocapture %out, <4 x double> addrspace(1)* %out2, <4 x double> addrspace(1)* nocapture %in) nounwind {
 ; CHECK: call void @_Z14sincos_ret2ptrDv4_dPS_S0_(<4 x double> {{%[a-zA-Z0-9_]+}}, <4 x double>* [[S0:%[a-zA-Z0-9_]+]], <4 x double>* [[C0:%[a-zA-Z0-9_]+]])
@@ -23,7 +23,7 @@ define void @__Vectorized_.sincos(<4 x double> addrspace(1)* nocapture %out, <4 
 ; CHECK: load <4 x double>* [[C3]]
 ; CHECK: ret
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds <4 x double> addrspace(1)* %in, i64 %idxprom
@@ -75,7 +75,7 @@ define void @__Vectorized_.native_sincos(<4 x double> addrspace(1)* nocapture %o
 ; CHECK: load <4 x double>* [[C3]]
 ; CHECK: ret
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds <4 x double> addrspace(1)* %in, i64 %idxprom

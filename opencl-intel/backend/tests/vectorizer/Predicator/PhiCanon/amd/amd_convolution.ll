@@ -17,7 +17,7 @@ target triple = "i686-pc-win32"
 
 define void @simpleConvolution(float addrspace(1)* %output, i32 addrspace(1)* %input, float addrspace(1)* %mask, <2 x i32> %inputDimensions, <2 x i32> %maskDimensions, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %tmp1 = extractelement <2 x i32> %inputDimensions, i32 0
   %tmp4 = extractelement <2 x i32> %inputDimensions, i32 1
   %cmp = icmp ne i32 %tmp1, 0
@@ -109,4 +109,4 @@ for.end119:                                       ; preds = %for.end119.loopexit
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)

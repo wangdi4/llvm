@@ -82,8 +82,8 @@ entry:
   store %struct._image2d_t* %outputImage, %struct._image2d_t** %outputImage.addr
   store float %scaling, float* %scaling.addr
   store i32 %buffer_size, i32* %buffer_size.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
-  %call1 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   %call2 = call i32 (...)* @make_int2(i32 %call, i32 %call1) ; <i32> [#uses=1]
   %tmp = insertelement <2 x i32> undef, i32 %call2, i32 0 ; <<2 x i32>> [#uses=2]
   %splat = shufflevector <2 x i32> %tmp, <2 x i32> %tmp, <2 x i32> zeroinitializer ; <<2 x i32>> [#uses=1]
@@ -102,6 +102,6 @@ entry:
 
 declare i32 @make_int2(...)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare void @_Z12write_imagefP10_image2d_tU8__vector2iU8__vector4f(%struct._image2d_t*, <2 x i32>, <4 x float>)

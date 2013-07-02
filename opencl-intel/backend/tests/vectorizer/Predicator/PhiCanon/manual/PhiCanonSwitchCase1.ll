@@ -24,8 +24,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @PhiCanonSwitchCase1(float %arg1, float %arg2, float addrspace(1)* nocapture %a) nounwind {
 entry:
-  %gid = tail call i32 @get_global_id(i32 0) nounwind readnone
-  %lid = tail call i32 @get_local_id(i32 0) nounwind readnone
+  %gid = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
+  %lid = tail call i32 @_Z12get_local_idj(i32 0) nounwind readnone
   br label %BB1
 
 BB1:                                       ; preds = %entry
@@ -50,5 +50,5 @@ END:
   ret void
 }
 
-declare i32 @get_global_id(i32) readnone
-declare i32 @get_local_id(i32) readnone
+declare i32 @_Z13get_global_idj(i32) readnone
+declare i32 @_Z12get_local_idj(i32) readnone

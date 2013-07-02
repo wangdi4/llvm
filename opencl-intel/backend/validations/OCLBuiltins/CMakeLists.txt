@@ -66,6 +66,7 @@ list (APPEND TD_FILES
 ./src/BLTConversionsInt.td
 ./src/BLTConversionsLong.td
 ./src/BLTConversionsFPoint.td
+./src/BLTExplMemFenceOps.td
 ./src/BLTGeometric.td
 ./src/BLTImages.td
 ./src/BLTInteger.td
@@ -73,6 +74,7 @@ list (APPEND TD_FILES
 ./src/BLTMiscellaneousVector.td
 ./src/BLTRelational.td
 ./src/BLTWorkGroup.td
+./src/BLTWorkItem.td
 ./src/VLoadStore.td)
 
 foreach (FILE ${TD_FILES})
@@ -89,8 +91,6 @@ endforeach (FILE)
 
   add_library(OCLBuiltins
   ${OCL_SOURCE_FILES}
-  BLTExplMemFenceOps.cpp
-  BLTWorkItem.cpp
   Helpers.cpp
   OCLBuiltinParser.cpp
   )

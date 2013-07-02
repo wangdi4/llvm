@@ -31,7 +31,7 @@ for.cond:                                         ; preds = %for.inc, %entry
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %call = call i32 @get_local_id(i32 0)           ; <i32> [#uses=1]
+  %call = call i32 @_Z12get_local_idj(i32 0)           ; <i32> [#uses=1]
   %tmp2 = load i64** %A.addr                      ; <i64*> [#uses=1]
   %idxprom = zext i32 %call to i64                ; <i64> [#uses=1]
   %arrayidx = getelementptr inbounds i64* %tmp2, i64 %idxprom ; <i64*> [#uses=1]
@@ -81,4 +81,4 @@ for.end22:                                        ; preds = %for.cond8
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

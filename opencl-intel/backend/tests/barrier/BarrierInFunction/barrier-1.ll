@@ -8,11 +8,11 @@
 ;;    which is calling function "foo" that contains barrier instruction
 ;; The expected result:
 ;;      1. A call to @dummybarrier.() at the begining of the kernel "main"
-;;      2. A call to @barrier(LOCAL_MEM_FENCE) just before calling the function "foo"
+;;      2. A call to @_Z7barrierj(LOCAL_MEM_FENCE) just before calling the function "foo"
 ;;      3. A call to @dummybarrier.() just after calling the function "foo"
-;;      4. A call to @barrier(LOCAL_MEM_FENCE) at the end of the kernel "main"
+;;      4. A call to @_Z7barrierj(LOCAL_MEM_FENCE) at the end of the kernel "main"
 ;;      5. A call to @dummybarrier.() at the begining of the function "foo"
-;;      6. A call to @barrier(LOCAL_MEM_FENCE) at the end of the function "foo"
+;;      6. A call to @_Z7barrierj(LOCAL_MEM_FENCE) at the end of the function "foo"
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
@@ -27,26 +27,26 @@ define void @main(i32 %x) nounwind {
   ret void
 ; CHECK: @dummybarrier.
 ; CHECK: %y = xor i32 %x, %x
-; CHECK: @barrier(i32 1)
+; CHECK: @_Z7barrierj(i32 1)
 ; CHECK: call void @foo(i32 %x)
 ; CHECK: @dummybarrier.
-; CHECK: @barrier(i32 1)
+; CHECK: @_Z7barrierj(i32 1)
 ; CHECK: ret
 }
 
 ; CHECK: @foo
 define void @foo(i32 %x) nounwind {
   %y = xor i32 %x, %x
-  call void @barrier(i32 2)
+  call void @_Z7barrierj(i32 2)
   ret void
 ; CHECK: @dummybarrier.()
 ; CHECK-NEXT: %y = xor i32 %x, %x
-; CHECK: @barrier(i32 2)
-; CHECK: @barrier(i32 1)
+; CHECK: @_Z7barrierj(i32 2)
+; CHECK: @_Z7barrierj(i32 1)
 ; CHECK: ret
 }
 
-declare void @barrier(i32)
+declare void @_Z7barrierj(i32)
 
 !opencl.kernels = !{!0}
 !opencl.build.options = !{}

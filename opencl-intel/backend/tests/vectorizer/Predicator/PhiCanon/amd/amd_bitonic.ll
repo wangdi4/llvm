@@ -17,7 +17,7 @@ target triple = "i686-pc-win32"
 
 define void @bitonicSort(i32 addrspace(1)* %theArray, i32 %stage, i32 %passOfStage, i32 %width, i32 %direction, ...) nounwind {
 entry:
-  %call = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z13get_global_idj(i32 0) nounwind
   %sub = sub i32 %stage, %passOfStage
   %and = and i32 %sub, 31
   %shl = shl i32 1, %and
@@ -49,4 +49,4 @@ entry:
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)

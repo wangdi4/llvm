@@ -33,12 +33,9 @@ using namespace llvm;
 namespace intel {
 
   /// @brief OpenCL-specific barrier function names
-  #define BARRIER_FUNC_NAME       "barrier"
   #define FIBER_FUNC_NAME         "fiber."
   #define DUMMY_BARRIER_FUNC_NAME "dummybarrier."
 
-  #define GET_GID_NAME  "get_global_id"
-  #define GET_LID_NAME  "get_local_id"
   #define GET_NEW_GID_NAME  "get_new_global_id."
   #define GET_NEW_LID_NAME  "get_new_local_id."
 

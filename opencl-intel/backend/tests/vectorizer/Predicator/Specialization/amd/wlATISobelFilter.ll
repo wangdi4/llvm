@@ -32,9 +32,9 @@ entry:
 	%Gy = alloca i32, align 4		; <i32*> [#uses=2]
 	store i8 addrspace(2)* %inputImage, i8 addrspace(2)** %inputImage.addr
 	store i8 addrspace(1)* %outputImage, i8 addrspace(1)** %outputImage.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %x
-	%call1 = call i32 @get_global_id(i32 1)		; <i32> [#uses=1]
+	%call1 = call i32 @_Z13get_global_idj(i32 1)		; <i32> [#uses=1]
 	store i32 %call1, i32* %y
 	%call2 = call i32 @get_global_size(i32 0)		; <i32> [#uses=1]
 	store i32 %call2, i32* %width
@@ -267,7 +267,7 @@ if.end:		; preds = %if.then, %land.lhs.true10, %land.lhs.true7, %land.lhs.true, 
 	ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 

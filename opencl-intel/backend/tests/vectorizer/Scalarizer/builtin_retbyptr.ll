@@ -13,7 +13,7 @@ define void @sincos_kernel(double addrspace(1)* nocapture %out, double addrspace
 ; CHECK: store double [[E0]], double addrspace(1)*
 ; CHECK: ret
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds double addrspace(1)* %in, i64 %idxprom
@@ -52,7 +52,7 @@ define void @sincos4_kernel(<4 x double> addrspace(1)* nocapture %out, <4 x doub
 ; CHECK: store <4 x double> [[A7]], <4 x double> addrspace(1)*
 ; CHECK: store <4 x double> [[A3]], <4 x double> addrspace(1)*
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds <4 x double> addrspace(1)* %in, i64 %idxprom
@@ -75,7 +75,7 @@ define void @native_sincos_kernel(double addrspace(1)* nocapture %out, double ad
 ; CHECK: store double [[E0]], double addrspace(1)*
 ; CHECK: ret
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds double addrspace(1)* %in, i64 %idxprom
@@ -114,7 +114,7 @@ define void @native_sincos4_kernel(<4 x double> addrspace(1)* nocapture %out, <4
 ; CHECK: store <4 x double> [[A7]], <4 x double> addrspace(1)*
 ; CHECK: store <4 x double> [[A3]], <4 x double> addrspace(1)*
 entry:
-  %call = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
   %arrayidx = getelementptr inbounds <4 x double> addrspace(1)* %in, i64 %idxprom
@@ -129,9 +129,9 @@ entry:
   ret void
 }
 
-declare i64 @get_global_id(i32) nounwind readnone
+declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
-declare i64 @get_local_size(i32)
+declare i64 @_Z14get_local_sizej(i32)
 
 declare i64 @get_base_global_id.(i32)
 

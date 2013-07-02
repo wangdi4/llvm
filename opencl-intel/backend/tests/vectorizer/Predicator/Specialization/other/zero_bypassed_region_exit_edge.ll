@@ -17,7 +17,7 @@
 
 define void @kernel(i32* nocapture %arg0, i32 %arg1) nounwind uwtable {
 BB0:
-  %call.10.0 = tail call i32 @get_global_id(i32 0) nounwind
+  %call.10.0 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %icmp.10.0 = icmp sgt i32 %call.10.0, 10
   br i1 %icmp.10.0, label %BB1, label %BB4
 
@@ -38,4 +38,4 @@ BB4:                                              ; preds = %BB3, %BB0
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)

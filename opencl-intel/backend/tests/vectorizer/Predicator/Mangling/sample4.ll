@@ -19,7 +19,7 @@ entry:
   store i64 %n, i64* %n.addr
   store i64* %A, i64** %A.addr
   store i64* %B, i64** %B.addr
-  %call = call i32 @get_local_id(i32 0)           ; <i32> [#uses=1]
+  %call = call i32 @_Z12get_local_idj(i32 0)           ; <i32> [#uses=1]
   %conv = zext i32 %call to i64                   ; <i64> [#uses=1]
   store i64 %conv, i64* %sum
   store i64 0, i64* %i
@@ -51,7 +51,7 @@ while.body:                                       ; preds = %land.end
   %tmp10 = load i64* %sum                         ; <i64> [#uses=1]
   %add = add nsw i64 %tmp10, %tmp9                ; <i64> [#uses=1]
   store i64 %add, i64* %sum
-  %call11 = call i32 @get_local_id(i32 0)         ; <i32> [#uses=1]
+  %call11 = call i32 @_Z12get_local_idj(i32 0)         ; <i32> [#uses=1]
   %conv12 = zext i32 %call11 to i64               ; <i64> [#uses=1]
   %tmp13 = load i64* %i                           ; <i64> [#uses=1]
   %tmp14 = load i64** %B.addr                     ; <i64*> [#uses=1]
@@ -69,4 +69,4 @@ while.end:                                        ; preds = %land.end
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

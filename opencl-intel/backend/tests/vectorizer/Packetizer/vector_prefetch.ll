@@ -9,7 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @vector_prefetch_test(<4 x i32> addrspace(1)* noalias %A, <4 x i32> addrspace(1)* noalias nocapture %B) nounwind {
 ; CHECK: @vector_prefetch_test
 ; CHECK: internal.prefetch.gather.v16i32
-  %1 = tail call i64 @get_global_id(i32 0) nounwind readnone
+  %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %sext = shl i64 %1, 32
   %2 = ashr exact i64 %sext, 32
   %3 = getelementptr inbounds <4 x i32> addrspace(1)* %A, i64 %2
@@ -20,7 +20,7 @@ define void @vector_prefetch_test(<4 x i32> addrspace(1)* noalias %A, <4 x i32> 
   ret void
 }
 
-declare i64 @get_global_id(i32) nounwind readnone
+declare i64 @_Z13get_global_idj(i32) nounwind readnone
 declare void @_Z8prefetchPKU3AS1Dv4_im(<4 x i32> addrspace(1)*, i64)
 
 !opencl.kernels = !{!0}

@@ -38,9 +38,9 @@ entry:
   store i32 %iLocalPixPitch, i32* %iLocalPixPitch.addr
   store i32 %uiImageWidth, i32* %uiImageWidth.addr
   store i32 %uiDevImageHeight, i32* %uiDevImageHeight.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %iImagePosX
-  %call1 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   %sub = sub i32 %call1, 1                        ; <i32> [#uses=1]
   store i32 %sub, i32* %iDevYPrime
   %tmp = load i32* %iDevYPrime                    ; <i32> [#uses=1]
@@ -49,10 +49,10 @@ entry:
   %tmp4 = load i32* %iImagePosX                   ; <i32> [#uses=1]
   %add = add nsw i32 %call3, %tmp4                ; <i32> [#uses=1]
   store i32 %add, i32* %iDevGMEMOffset
-  %call6 = call i32 @get_local_id(i32 1)          ; <i32> [#uses=1]
+  %call6 = call i32 @_Z12get_local_idj(i32 1)          ; <i32> [#uses=1]
   %tmp7 = load i32* %iLocalPixPitch.addr          ; <i32> [#uses=1]
   %call8 = call i32 @_Z5mul24ii(i32 %call6, i32 %tmp7) ; <i32> [#uses=1]
-  %call9 = call i32 @get_local_id(i32 0)          ; <i32> [#uses=1]
+  %call9 = call i32 @_Z12get_local_idj(i32 0)          ; <i32> [#uses=1]
   %add10 = add i32 %call8, %call9                 ; <i32> [#uses=1]
   %add11 = add i32 %add10, 1                      ; <i32> [#uses=1]
   store i32 %add11, i32* %iLocalPixOffset
@@ -91,19 +91,19 @@ if.else:                                          ; preds = %land.lhs.true16, %l
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
-  %call29 = call i32 @get_local_id(i32 1)         ; <i32> [#uses=1]
+  %call29 = call i32 @_Z12get_local_idj(i32 1)         ; <i32> [#uses=1]
   %cmp30 = icmp ult i32 %call29, 2                ; <i1> [#uses=1]
   br i1 %cmp30, label %if.then31, label %if.end63
 
 if.then31:                                        ; preds = %if.end
-  %call32 = call i32 @get_local_size(i32 1)       ; <i32> [#uses=1]
+  %call32 = call i32 @_Z14get_local_sizej(i32 1)       ; <i32> [#uses=1]
   %tmp33 = load i32* %iLocalPixPitch.addr         ; <i32> [#uses=1]
   %call34 = call i32 @_Z5mul24ii(i32 %call32, i32 %tmp33) ; <i32> [#uses=1]
   %tmp35 = load i32* %iLocalPixOffset             ; <i32> [#uses=1]
   %add36 = add nsw i32 %tmp35, %call34            ; <i32> [#uses=1]
   store i32 %add36, i32* %iLocalPixOffset
   %tmp37 = load i32* %iDevYPrime                  ; <i32> [#uses=1]
-  %call38 = call i32 @get_local_size(i32 1)       ; <i32> [#uses=1]
+  %call38 = call i32 @_Z14get_local_sizej(i32 1)       ; <i32> [#uses=1]
   %add39 = add i32 %tmp37, %call38                ; <i32> [#uses=1]
   %tmp40 = load i32* %uiDevImageHeight.addr       ; <i32> [#uses=1]
   %cmp41 = icmp ult i32 %add39, %tmp40            ; <i1> [#uses=1]
@@ -117,7 +117,7 @@ land.lhs.true42:                                  ; preds = %if.then31
 
 if.then46:                                        ; preds = %land.lhs.true42
   %tmp47 = load i32* %iDevGMEMOffset              ; <i32> [#uses=1]
-  %call48 = call i32 @get_local_size(i32 1)       ; <i32> [#uses=1]
+  %call48 = call i32 @_Z14get_local_sizej(i32 1)       ; <i32> [#uses=1]
   %call49 = call i32 @get_global_size(i32 0)      ; <i32> [#uses=1]
   %call50 = call i32 @_Z5mul24jj(i32 %call48, i32 %call49) ; <i32> [#uses=1]
   %add51 = add i32 %tmp47, %call50                ; <i32> [#uses=1]
@@ -141,14 +141,14 @@ if.end62:                                         ; preds = %if.else58, %if.then
   br label %if.end63
 
 if.end63:                                         ; preds = %if.end62, %if.end
-  %call64 = call i32 @get_local_id(i32 0)         ; <i32> [#uses=1]
-  %call65 = call i32 @get_local_size(i32 0)       ; <i32> [#uses=1]
+  %call64 = call i32 @_Z12get_local_idj(i32 0)         ; <i32> [#uses=1]
+  %call65 = call i32 @_Z14get_local_sizej(i32 0)       ; <i32> [#uses=1]
   %sub66 = sub i32 %call65, 1                     ; <i32> [#uses=1]
   %cmp67 = icmp eq i32 %call64, %sub66            ; <i1> [#uses=1]
   br i1 %cmp67, label %if.then68, label %if.else140
 
 if.then68:                                        ; preds = %if.end63
-  %call69 = call i32 @get_local_id(i32 1)         ; <i32> [#uses=1]
+  %call69 = call i32 @_Z12get_local_idj(i32 1)         ; <i32> [#uses=1]
   %tmp70 = load i32* %iLocalPixPitch.addr         ; <i32> [#uses=1]
   %call71 = call i32 @_Z5mul24ii(i32 %call69, i32 %tmp70) ; <i32> [#uses=1]
   store i32 %call71, i32* %iLocalPixOffset
@@ -172,7 +172,7 @@ if.then81:                                        ; preds = %land.lhs.true78
   %call83 = call i32 @get_global_size(i32 0)      ; <i32> [#uses=1]
   %call84 = call i32 @_Z5mul24ii(i32 %tmp82, i32 %call83) ; <i32> [#uses=1]
   %call85 = call i32 @get_group_id(i32 0)         ; <i32> [#uses=1]
-  %call86 = call i32 @get_local_size(i32 0)       ; <i32> [#uses=1]
+  %call86 = call i32 @_Z14get_local_sizej(i32 0)       ; <i32> [#uses=1]
   %call87 = call i32 @_Z5mul24jj(i32 %call85, i32 %call86) ; <i32> [#uses=1]
   %add88 = add i32 %call84, %call87               ; <i32> [#uses=1]
   %sub89 = sub i32 %add88, 1                      ; <i32> [#uses=1]
@@ -193,19 +193,19 @@ if.else96:                                        ; preds = %land.lhs.true78, %l
   br label %if.end100
 
 if.end100:                                        ; preds = %if.else96, %if.then81
-  %call101 = call i32 @get_local_id(i32 1)        ; <i32> [#uses=1]
+  %call101 = call i32 @_Z12get_local_idj(i32 1)        ; <i32> [#uses=1]
   %cmp102 = icmp ult i32 %call101, 2              ; <i1> [#uses=1]
   br i1 %cmp102, label %if.then103, label %if.end139
 
 if.then103:                                       ; preds = %if.end100
-  %call104 = call i32 @get_local_size(i32 1)      ; <i32> [#uses=1]
+  %call104 = call i32 @_Z14get_local_sizej(i32 1)      ; <i32> [#uses=1]
   %tmp105 = load i32* %iLocalPixPitch.addr        ; <i32> [#uses=1]
   %call106 = call i32 @_Z5mul24ii(i32 %call104, i32 %tmp105) ; <i32> [#uses=1]
   %tmp107 = load i32* %iLocalPixOffset            ; <i32> [#uses=1]
   %add108 = add nsw i32 %tmp107, %call106         ; <i32> [#uses=1]
   store i32 %add108, i32* %iLocalPixOffset
   %tmp109 = load i32* %iDevYPrime                 ; <i32> [#uses=1]
-  %call110 = call i32 @get_local_size(i32 1)      ; <i32> [#uses=1]
+  %call110 = call i32 @_Z14get_local_sizej(i32 1)      ; <i32> [#uses=1]
   %add111 = add i32 %tmp109, %call110             ; <i32> [#uses=1]
   %tmp112 = load i32* %uiDevImageHeight.addr      ; <i32> [#uses=1]
   %cmp113 = icmp ult i32 %add111, %tmp112         ; <i1> [#uses=1]
@@ -218,12 +218,12 @@ land.lhs.true114:                                 ; preds = %if.then103
 
 if.then117:                                       ; preds = %land.lhs.true114
   %tmp118 = load i32* %iDevYPrime                 ; <i32> [#uses=1]
-  %call119 = call i32 @get_local_size(i32 1)      ; <i32> [#uses=1]
+  %call119 = call i32 @_Z14get_local_sizej(i32 1)      ; <i32> [#uses=1]
   %add120 = add nsw i32 %tmp118, %call119         ; <i32> [#uses=1]
   %call121 = call i32 @get_global_size(i32 0)     ; <i32> [#uses=1]
   %call122 = call i32 @_Z5mul24ii(i32 %add120, i32 %call121) ; <i32> [#uses=1]
   %call123 = call i32 @get_group_id(i32 0)        ; <i32> [#uses=1]
-  %call124 = call i32 @get_local_size(i32 0)      ; <i32> [#uses=1]
+  %call124 = call i32 @_Z14get_local_sizej(i32 0)      ; <i32> [#uses=1]
   %call125 = call i32 @_Z5mul24jj(i32 %call123, i32 %call124) ; <i32> [#uses=1]
   %add126 = add i32 %call122, %call125            ; <i32> [#uses=1]
   %sub127 = sub i32 %add126, 1                    ; <i32> [#uses=1]
@@ -250,12 +250,12 @@ if.end139:                                        ; preds = %if.end138, %if.end1
   br label %if.end226
 
 if.else140:                                       ; preds = %if.end63
-  %call141 = call i32 @get_local_id(i32 0)        ; <i32> [#uses=1]
+  %call141 = call i32 @_Z12get_local_idj(i32 0)        ; <i32> [#uses=1]
   %cmp142 = icmp eq i32 %call141, 0               ; <i1> [#uses=1]
   br i1 %cmp142, label %if.then143, label %if.end225
 
 if.then143:                                       ; preds = %if.else140
-  %call144 = call i32 @get_local_id(i32 1)        ; <i32> [#uses=1]
+  %call144 = call i32 @_Z12get_local_idj(i32 1)        ; <i32> [#uses=1]
   %add145 = add nsw i32 %call144, 1               ; <i32> [#uses=1]
   %tmp146 = load i32* %iLocalPixPitch.addr        ; <i32> [#uses=1]
   %call147 = call i32 @_Z5mul24ii(i32 %add145, i32 %tmp146) ; <i32> [#uses=1]
@@ -274,7 +274,7 @@ land.lhs.true151:                                 ; preds = %if.then143
 land.lhs.true155:                                 ; preds = %land.lhs.true151
   %call156 = call i32 @get_group_id(i32 0)        ; <i32> [#uses=1]
   %add157 = add nsw i32 %call156, 1               ; <i32> [#uses=1]
-  %call158 = call i32 @get_local_size(i32 0)      ; <i32> [#uses=1]
+  %call158 = call i32 @_Z14get_local_sizej(i32 0)      ; <i32> [#uses=1]
   %call159 = call i32 @_Z5mul24ii(i32 %add157, i32 %call158) ; <i32> [#uses=1]
   %tmp160 = load i32* %uiImageWidth.addr          ; <i32> [#uses=1]
   %cmp161 = icmp slt i32 %call159, %tmp160        ; <i1> [#uses=1]
@@ -286,7 +286,7 @@ if.then162:                                       ; preds = %land.lhs.true155
   %call165 = call i32 @_Z5mul24ii(i32 %tmp163, i32 %call164) ; <i32> [#uses=1]
   %call166 = call i32 @get_group_id(i32 0)        ; <i32> [#uses=1]
   %add167 = add i32 %call166, 1                   ; <i32> [#uses=1]
-  %call168 = call i32 @get_local_size(i32 0)      ; <i32> [#uses=1]
+  %call168 = call i32 @_Z14get_local_sizej(i32 0)      ; <i32> [#uses=1]
   %call169 = call i32 @_Z5mul24jj(i32 %add167, i32 %call168) ; <i32> [#uses=1]
   %add170 = add i32 %call165, %call169            ; <i32> [#uses=1]
   %tmp171 = load <4 x i8> addrspace(1)** %uc4Source.addr ; <<4 x i8> addrspace(1)*> [#uses=1]
@@ -306,19 +306,19 @@ if.else177:                                       ; preds = %land.lhs.true155, %
   br label %if.end181
 
 if.end181:                                        ; preds = %if.else177, %if.then162
-  %call182 = call i32 @get_local_id(i32 1)        ; <i32> [#uses=1]
+  %call182 = call i32 @_Z12get_local_idj(i32 1)        ; <i32> [#uses=1]
   %cmp183 = icmp ult i32 %call182, 2              ; <i1> [#uses=1]
   br i1 %cmp183, label %if.then184, label %if.end224
 
 if.then184:                                       ; preds = %if.end181
-  %call185 = call i32 @get_local_size(i32 1)      ; <i32> [#uses=1]
+  %call185 = call i32 @_Z14get_local_sizej(i32 1)      ; <i32> [#uses=1]
   %tmp186 = load i32* %iLocalPixPitch.addr        ; <i32> [#uses=1]
   %call187 = call i32 @_Z5mul24ii(i32 %call185, i32 %tmp186) ; <i32> [#uses=1]
   %tmp188 = load i32* %iLocalPixOffset            ; <i32> [#uses=1]
   %add189 = add nsw i32 %tmp188, %call187         ; <i32> [#uses=1]
   store i32 %add189, i32* %iLocalPixOffset
   %tmp190 = load i32* %iDevYPrime                 ; <i32> [#uses=1]
-  %call191 = call i32 @get_local_size(i32 1)      ; <i32> [#uses=1]
+  %call191 = call i32 @_Z14get_local_sizej(i32 1)      ; <i32> [#uses=1]
   %add192 = add i32 %tmp190, %call191             ; <i32> [#uses=1]
   %tmp193 = load i32* %uiDevImageHeight.addr      ; <i32> [#uses=1]
   %cmp194 = icmp ult i32 %add192, %tmp193         ; <i1> [#uses=1]
@@ -327,7 +327,7 @@ if.then184:                                       ; preds = %if.end181
 land.lhs.true195:                                 ; preds = %if.then184
   %call196 = call i32 @get_group_id(i32 0)        ; <i32> [#uses=1]
   %add197 = add i32 %call196, 1                   ; <i32> [#uses=1]
-  %call198 = call i32 @get_local_size(i32 0)      ; <i32> [#uses=1]
+  %call198 = call i32 @_Z14get_local_sizej(i32 0)      ; <i32> [#uses=1]
   %call199 = call i32 @_Z5mul24jj(i32 %add197, i32 %call198) ; <i32> [#uses=1]
   %tmp200 = load i32* %uiImageWidth.addr          ; <i32> [#uses=1]
   %cmp201 = icmp ult i32 %call199, %tmp200        ; <i1> [#uses=1]
@@ -335,13 +335,13 @@ land.lhs.true195:                                 ; preds = %if.then184
 
 if.then202:                                       ; preds = %land.lhs.true195
   %tmp203 = load i32* %iDevYPrime                 ; <i32> [#uses=1]
-  %call204 = call i32 @get_local_size(i32 1)      ; <i32> [#uses=1]
+  %call204 = call i32 @_Z14get_local_sizej(i32 1)      ; <i32> [#uses=1]
   %add205 = add nsw i32 %tmp203, %call204         ; <i32> [#uses=1]
   %call206 = call i32 @get_global_size(i32 0)     ; <i32> [#uses=1]
   %call207 = call i32 @_Z5mul24ii(i32 %add205, i32 %call206) ; <i32> [#uses=1]
   %call208 = call i32 @get_group_id(i32 0)        ; <i32> [#uses=1]
   %add209 = add i32 %call208, 1                   ; <i32> [#uses=1]
-  %call210 = call i32 @get_local_size(i32 0)      ; <i32> [#uses=1]
+  %call210 = call i32 @_Z14get_local_sizej(i32 0)      ; <i32> [#uses=1]
   %call211 = call i32 @_Z5mul24jj(i32 %add209, i32 %call210) ; <i32> [#uses=1]
   %add212 = add i32 %call207, %call211            ; <i32> [#uses=1]
   %tmp213 = load <4 x i8> addrspace(1)** %uc4Source.addr ; <<4 x i8> addrspace(1)*> [#uses=1]
@@ -370,7 +370,7 @@ if.end225:                                        ; preds = %if.end224, %if.else
   br label %if.end226
 
 if.end226:                                        ; preds = %if.end225, %if.end139
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %tmp228 = bitcast [3 x float]* %fMedianEstimate to i8* ; <i8*> [#uses=1]
   call void @llvm_memcpy(i8* %tmp228, i8* bitcast ([3 x float]* @ckMedian.fMedianEstimate to i8*), i32 12, i32 4, i1 false)
   %tmp230 = bitcast [3 x float]* %fMinBound to i8* ; <i8*> [#uses=1]
@@ -388,10 +388,10 @@ for.cond:                                         ; preds = %for.inc, %if.end226
 for.body:                                         ; preds = %for.cond
   %tmp237 = bitcast [3 x i32]* %uiHighCount to i8* ; <i8*> [#uses=1]
   call void @llvm_memset(i8* %tmp237, i8 0, i32 12, i32 4, i1 false)
-  %call238 = call i32 @get_local_id(i32 1)        ; <i32> [#uses=1]
+  %call238 = call i32 @_Z12get_local_idj(i32 1)        ; <i32> [#uses=1]
   %tmp239 = load i32* %iLocalPixPitch.addr        ; <i32> [#uses=1]
   %call240 = call i32 @_Z5mul24ii(i32 %call238, i32 %tmp239) ; <i32> [#uses=1]
-  %call241 = call i32 @get_local_id(i32 0)        ; <i32> [#uses=1]
+  %call241 = call i32 @_Z12get_local_idj(i32 0)        ; <i32> [#uses=1]
   %add242 = add i32 %call240, %call241            ; <i32> [#uses=1]
   store i32 %add242, i32* %iLocalPixOffset
   %arraydecay = getelementptr inbounds [3 x float]* %fMedianEstimate, i32 0, i32 0 ; <float*> [#uses=1]
@@ -1041,21 +1041,21 @@ if.end806:                                        ; preds = %if.then799, %land.l
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @_Z5mul24ii(i32, i32)
 
 declare i32 @get_global_size(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare i32 @get_local_size(i32)
+declare i32 @_Z14get_local_sizej(i32)
 
 declare i32 @_Z5mul24jj(i32, i32)
 
 declare i32 @get_group_id(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 declare void @llvm_memcpy(i8* nocapture, i8* nocapture, i32, i32, i1) nounwind
 

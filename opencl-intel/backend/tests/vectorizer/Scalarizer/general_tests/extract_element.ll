@@ -22,7 +22,7 @@ target triple = "i686-pc-win32"
 @opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (<4 x i8>*, <4 x i8>*, i8 addrspace(1)*)* @encountered_not_scal_variable to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] zeroinitializer, i8* bitcast ([1 x i8*]* @opencl_encountered_not_scal_variable_locals to i8*), i8* getelementptr inbounds ([62 x i8]* @opencl_encountered_not_scal_variable_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 
 define void @encountered_not_scal_variable(<4 x i8>* nocapture %in1, <4 x i8>* nocapture %in2, i8 addrspace(1)* nocapture %out) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind ; <i32> [#uses=1]
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind ; <i32> [#uses=1]
   %2 = load <4 x i8>* %in1                        ; <<4 x i8>> [#uses=2]
   %3 = load <4 x i8>* %in2                        ; <<4 x i8>> [#uses=1]
   %4 = mul <4 x i8> %2, %3                        ; <<4 x i8>> [#uses=2]
@@ -37,7 +37,7 @@ define void @encountered_not_scal_variable(<4 x i8>* nocapture %in1, <4 x i8>* n
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare <4 x i8> @_Z5rhaddDv4_hS_(<4 x i8>, <4 x i8>)
 ;CHECK: @_Z5rhadd

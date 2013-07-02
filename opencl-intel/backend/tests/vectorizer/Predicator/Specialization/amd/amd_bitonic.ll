@@ -38,7 +38,7 @@ entry:
 	store i32 %direction, i32* %direction.addr
 	%tmp = load i32* %direction.addr		; <i32> [#uses=1]
 	store i32 %tmp, i32* %sortIncreasing
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %threadId
 	%tmp3 = load i32* %stage.addr		; <i32> [#uses=1]
 	%tmp4 = load i32* %passOfStage.addr		; <i32> [#uses=1]
@@ -151,4 +151,4 @@ if.end72:		; preds = %if.else63, %if.then54
 	ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)

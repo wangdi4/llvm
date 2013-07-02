@@ -14,7 +14,7 @@ target triple = "i686-pc-win32"
 ; CHECK: _Z6selectiii
 ; CHECK: ret void
 define void @test__Z6selectiii_sext(i32 addrspace(1)* nocapture %src1, i32 addrspace(1)* nocapture %src2, i32 addrspace(1)* nocapture %dst) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds i32 addrspace(1)* %src1, i32 %1
   %3 = load i32 addrspace(1)* %2, align 4
   %4 = getelementptr inbounds i32 addrspace(1)* %src2, i32 %1
@@ -33,7 +33,7 @@ define void @test__Z6selectiii_sext(i32 addrspace(1)* nocapture %src1, i32 addrs
 ; CHECK: _Z6selectiii
 ; CHECK: ret void
 define void @test__Z6selectiii_zext(i32 addrspace(1)* nocapture %src1, i32 addrspace(1)* nocapture %src2, i32 addrspace(1)* nocapture %dst) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds i32 addrspace(1)* %src1, i32 %1
   %3 = load i32 addrspace(1)* %2, align 4
   %4 = getelementptr inbounds i32 addrspace(1)* %src2, i32 %1
@@ -48,7 +48,7 @@ define void @test__Z6selectiii_zext(i32 addrspace(1)* nocapture %src1, i32 addrs
 
 declare i32 @_Z6selectiii(i32 %x, i32 %y, i32 %m) nounwind readnone 
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 
 ; CHECK: @test__Z6selectiii_fake
@@ -57,7 +57,7 @@ declare i32 @get_global_id(i32)
 ; CHECK-NOT: _Z6selectiii
 ; CHECK: ret void
 define void @test__Z6selectiii_fake(i32 addrspace(1)* nocapture %src1, i32 addrspace(1)* nocapture %src2, i32 addrspace(1)* nocapture %src3, i32 addrspace(1)* nocapture %dst) nounwind {
-  %1 = tail call i32 @get_global_id(i32 0) nounwind
+  %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = getelementptr inbounds i32 addrspace(1)* %src1, i32 %1
   %3 = load i32 addrspace(1)* %2, align 4
   %4 = getelementptr inbounds i32 addrspace(1)* %src2, i32 %1

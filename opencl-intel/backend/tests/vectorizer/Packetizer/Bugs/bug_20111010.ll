@@ -9,7 +9,7 @@ target triple = "i686-pc-win32"
 
 ; CHECK: ret
 define void @test(i32 addrspace(1)* nocapture %pOutputs) nounwind {
-  %1 = tail call i32 @get_local_id(i32 0) nounwind
+  %1 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %2 = getelementptr inbounds i32 addrspace(1)* %pOutputs, i32 %1
   %3 = load i32 addrspace(1)* %2, align 4
   %4 = tail call i32 @get_global_size(i32 %3) nounwind
@@ -19,4 +19,4 @@ define void @test(i32 addrspace(1)* nocapture %pOutputs) nounwind {
 
 declare i32 @get_global_size(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

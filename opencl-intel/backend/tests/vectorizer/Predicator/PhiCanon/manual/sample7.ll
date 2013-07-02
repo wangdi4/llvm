@@ -28,7 +28,7 @@ for.body12.preheader:                             ; preds = %for.cond8.preheader
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %storemerge19 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
   %tmp2338 = phi i64 [ %add, %for.body ], [ 0, %for.body.preheader ]
-  %call = tail call i32 @get_local_id(i32 0) nounwind
+  %call = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %idxprom = zext i32 %call to i64
   %arrayidx = getelementptr inbounds i64* %A, i64 %idxprom
   %tmp3 = load i64* %arrayidx, align 8
@@ -56,4 +56,4 @@ for.end22:                                        ; preds = %for.end22.loopexit,
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

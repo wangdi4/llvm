@@ -252,7 +252,7 @@ entry:
   store i32 addrspace(1)* %LookUp4, i32 addrspace(1)** %LookUp4.addr
   store i32 %global_number_of_elements, i32* %global_number_of_elements.addr
   store i32 %global_number_of_queries, i32* %global_number_of_queries.addr
-  %call = call i32 @get_global_id(i32 0)          ; <i32> [#uses=1]
+  %call = call i32 @_Z13get_global_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call, i32* %id
   store i32 0, i32* %local_output_size
   %call1 = call i32 @get_global_size(i32 0)       ; <i32> [#uses=1]
@@ -6519,7 +6519,7 @@ for.end:                                          ; preds = %for.cond
   ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 

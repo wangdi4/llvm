@@ -13,7 +13,7 @@
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
   %check = icmp ult i32 %x, 0
-  call void @barrier(i32 2)
+  call void @_Z7barrierj(i32 2)
   br i1 %check, label %L1, label %L2
 L1:
   br label %L3
@@ -25,7 +25,7 @@ L3:
 ; CHECK: %check = icmp ult i32 %x, 0
 ; CHECK: br
 ; CHECK: :
-; CHECK: call void @barrier(i32 2)
+; CHECK: call void @_Z7barrierj(i32 2)
 ; CHECK: br i1 %check, label %L1, label %L2
 ; CHECK: L1:
 ; CHECK: br label %L3
@@ -36,4 +36,4 @@ L3:
 ; CHECK: ret void
 }
 
-declare void @barrier(i32)
+declare void @_Z7barrierj(i32)

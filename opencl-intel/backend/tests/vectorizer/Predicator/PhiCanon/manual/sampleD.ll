@@ -13,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @func(i64 %n, i64* %A, i64* %B) nounwind {
 entry:
-  %call4 = tail call i32 @get_local_id(i32 0) nounwind
+  %call4 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %cmp7 = icmp eq i32 %call4, 0
   br i1 %cmp7, label %for.end26, label %for.cond3.preheader.lr.ph
 
@@ -29,14 +29,14 @@ for.end.preheader:                                ; preds = %for.cond3.preheader
   br label %for.end
 
 for.end.us:                                       ; preds = %for.body8.us
-  %call16.us = tail call i32 @get_local_id(i32 0) nounwind
+  %call16.us = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv17.us = zext i32 %call16.us to i64
   %arrayidx20.us = getelementptr inbounds i64* %B, i64 %storemerge8.us
   %tmp21.us = load i64* %arrayidx20.us, align 8
   %xor22.us = xor i64 %tmp21.us, %conv17.us
   store i64 %xor22.us, i64* %arrayidx20.us, align 8
   %inc25.us = add nsw i64 %storemerge8.us, 1
-  %call.us = tail call i32 @get_local_id(i32 0) nounwind
+  %call.us = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv.us = zext i32 %call.us to i64
   %cmp.us = icmp slt i64 %inc25.us, %conv.us
   br i1 %cmp.us, label %for.body8.lr.ph.us, label %for.end26.loopexit9
@@ -59,14 +59,14 @@ for.body8.lr.ph.us:                               ; preds = %for.body8.lr.ph.us.
 
 for.end:                                          ; preds = %for.end.preheader, %for.end
   %storemerge8 = phi i64 [ %inc25, %for.end ], [ 0, %for.end.preheader ]
-  %call16 = tail call i32 @get_local_id(i32 0) nounwind
+  %call16 = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv17 = zext i32 %call16 to i64
   %arrayidx20 = getelementptr inbounds i64* %B, i64 %storemerge8
   %tmp21 = load i64* %arrayidx20, align 8
   %xor22 = xor i64 %tmp21, %conv17
   store i64 %xor22, i64* %arrayidx20, align 8
   %inc25 = add nsw i64 %storemerge8, 1
-  %call = tail call i32 @get_local_id(i32 0) nounwind
+  %call = tail call i32 @_Z12get_local_idj(i32 0) nounwind
   %conv = zext i32 %call to i64
   %cmp = icmp slt i64 %inc25, %conv
   br i1 %cmp, label %for.end, label %for.end26.loopexit
@@ -78,8 +78,8 @@ for.end26.loopexit9:                              ; preds = %for.end.us
   br label %for.end26
 
 for.end26:                                        ; preds = %for.end26.loopexit9, %for.end26.loopexit, %entry
-  %call27 = tail call i32 @get_local_id(i32 2) nounwind
+  %call27 = tail call i32 @_Z12get_local_idj(i32 2) nounwind
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

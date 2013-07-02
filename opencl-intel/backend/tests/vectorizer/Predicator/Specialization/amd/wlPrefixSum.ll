@@ -36,7 +36,7 @@ entry:
 	store i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)** %puiOutputArray.addr
 	store i32 addrspace(1)* %puiTmpArray, i32 addrspace(1)** %puiTmpArray.addr
 	store i32 %szElementsPerItem, i32* %szElementsPerItem.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %gid
 	store i32 1, i32* %offset
 	%tmp = load i32 addrspace(1)** %puiInputArray.addr		; <i32 addrspace(1)*> [#uses=1]
@@ -154,7 +154,7 @@ for.end57:		; preds = %for.cond23
 	ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 define void @prefixSumStep2(i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)* %puiValueToAddArray, i32 %szElementsPerItem, ...) nounwind {
 entry:
@@ -174,7 +174,7 @@ entry:
 	store i32 addrspace(1)* %puiOutputArray, i32 addrspace(1)** %puiOutputArray.addr
 	store i32 addrspace(1)* %puiValueToAddArray, i32 addrspace(1)** %puiValueToAddArray.addr
 	store i32 %szElementsPerItem, i32* %szElementsPerItem.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %gid
 	%tmp = load i32* %szElementsPerItem.addr		; <i32> [#uses=1]
 	store i32 %tmp, i32* %offset

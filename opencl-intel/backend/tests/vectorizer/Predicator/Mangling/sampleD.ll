@@ -24,7 +24,7 @@ entry:
 
 for.cond:                                         ; preds = %for.inc23, %entry
   %tmp = load i64* %i                             ; <i64> [#uses=1]
-  %call = call i32 @get_local_id(i32 0)           ; <i32> [#uses=1]
+  %call = call i32 @_Z12get_local_idj(i32 0)           ; <i32> [#uses=1]
   %conv = zext i32 %call to i64                   ; <i64> [#uses=1]
   %cmp = icmp slt i64 %tmp, %conv                 ; <i1> [#uses=1]
   br i1 %cmp, label %for.body, label %for.end26
@@ -60,7 +60,7 @@ for.inc:                                          ; preds = %for.body8
   br label %for.cond3
 
 for.end:                                          ; preds = %for.cond3
-  %call16 = call i32 @get_local_id(i32 0)         ; <i32> [#uses=1]
+  %call16 = call i32 @_Z12get_local_idj(i32 0)         ; <i32> [#uses=1]
   %conv17 = zext i32 %call16 to i64               ; <i64> [#uses=1]
   %tmp18 = load i64* %i                           ; <i64> [#uses=1]
   %tmp19 = load i64** %B.addr                     ; <i64*> [#uses=1]
@@ -77,8 +77,8 @@ for.inc23:                                        ; preds = %for.end
   br label %for.cond
 
 for.end26:                                        ; preds = %for.cond
-  %call27 = call i32 @get_local_id(i32 2)         ; <i32> [#uses=0]
+  %call27 = call i32 @_Z12get_local_idj(i32 2)         ; <i32> [#uses=0]
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

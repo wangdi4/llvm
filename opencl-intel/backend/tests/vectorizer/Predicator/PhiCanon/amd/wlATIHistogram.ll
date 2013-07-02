@@ -17,22 +17,22 @@ target triple = "i686-pc-win32"
 
 define void @histogram(i32 addrspace(1)* %data, i8 addrspace(3)* %sharedArray, i32 addrspace(1)* %binResult, i32 %BIN_SIZE, ...) nounwind {
 entry:
-  %call = call i32 @get_local_id(i32 0) nounwind
-  %call1 = call i32 @get_global_id(i32 0) nounwind
+  %call = call i32 @_Z12get_local_idj(i32 0) nounwind
+  %call1 = call i32 @_Z13get_global_idj(i32 0) nounwind
   %call2 = call i32 @get_group_id(i32 0) nounwind
-  %call3 = call i32 @get_local_size(i32 0) nounwind
+  %call3 = call i32 @_Z14get_local_sizej(i32 0) nounwind
   %cmp12 = icmp eq i32 %BIN_SIZE, 0
   br i1 %cmp12, label %for.end.thread, label %for.body16.lr.ph
 
 for.end.thread:                                   ; preds = %entry
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   br label %for.end38
 
 for.body16.lr.ph:                                 ; preds = %entry
   %mul = mul i32 %call, %BIN_SIZE
   %scevgep = getelementptr i8 addrspace(3)* %sharedArray, i32 %mul
   call void @llvm.memset.p3i8.i32(i8 addrspace(3)* %scevgep, i8 0, i32 %BIN_SIZE, i32 1, i1 false)
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %mul20 = mul i32 %call1, %BIN_SIZE
   %mul28 = mul i32 %call, %BIN_SIZE
   br label %for.body16
@@ -55,7 +55,7 @@ for.end38.loopexit:                               ; preds = %for.body16
   br label %for.end38
 
 for.end38:                                        ; preds = %for.end38.loopexit, %for.end.thread
-  call void @barrier(i32 1) nounwind
+  call void @_Z7barrierm(i32 1) nounwind
   %cmp45 = icmp ne i32 %call3, 0
   %nonzero = select i1 %cmp45, i32 %call3, i32 1
   %div = udiv i32 %BIN_SIZE, %nonzero
@@ -119,14 +119,14 @@ for.end88:                                        ; preds = %for.end88.loopexit1
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_group_id(i32)
 
-declare i32 @get_local_size(i32)
+declare i32 @_Z14get_local_sizej(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 declare void @llvm.memset.p3i8.i32(i8 addrspace(3)* nocapture, i8, i32, i32, i1) nounwind

@@ -23,6 +23,8 @@ File Name:  DebugInfoPass.cpp
 #include <llvm/DerivedTypes.h>
 #include <llvm/DebugInfo.h>
 
+#include "CompilationUtils.h"
+
 #include <list>
 #include <vector>
 
@@ -177,14 +179,15 @@ bool DebugInfoPass::runOnModule(Module& M)
 
         runOnUserFunction(&(*func_iter));
     }
-
     return true;
 }
 
 
 void DebugInfoPass::addGlobalIdDeclaration()
 {
-    if (m_pRTModule->getFunction("get_global_id"))
+    std::string gid =
+      Intel::OpenCL::DeviceBackend::CompilationUtils::mangledGetGID();
+    if (m_pRTModule->getFunction(gid))
         return;
 
     // No such declaration; let's add it
@@ -195,8 +198,7 @@ void DebugInfoPass::addGlobalIdDeclaration()
     params.push_back(uint_type);
 
     FunctionType* gid_type = FunctionType::get(i_size_t, params, false);
-    Function::Create(gid_type, Function::ExternalLinkage,
-        "get_global_id", m_pModule);
+    Function::Create(gid_type, Function::ExternalLinkage, gid, m_pModule);
 }
 
 
@@ -265,8 +267,10 @@ void DebugInfoPass::runOnUserFunction(Function* pFunc)
 
 void DebugInfoPass::insertComputeGlobalIds(Function* pFunc, FunctionContext& fContext)
 {
+    const std::string gid =
+      Intel::OpenCL::DeviceBackend::CompilationUtils::mangledGetGID();
     Type* uint_type = IntegerType::get(*m_llvm_context, 32);
-    Function* get_global_id_func = m_pModule->getFunction("get_global_id");
+    Function* get_global_id_func = m_pModule->getFunction(gid);
     assert(get_global_id_func);
 
     // Find the first instruction in the function
@@ -279,7 +283,7 @@ void DebugInfoPass::insertComputeGlobalIds(Function* pFunc, FunctionContext& fCo
         Value* const_dim = ConstantInt::get(uint_type, i, false);
         Value* gid_at_dim = CallInst::Create(
             get_global_id_func, const_dim,
-            Twine("gid") + Twine(i), &first_instr);
+            Twine(gid) + Twine(i), &first_instr);
 
         // get_global_id returns size_t, but we want to always pass a 64-bit
         // number. So we may need to extend the result to 64 bits.

@@ -200,9 +200,9 @@ entry:
 	store i32 %width, i32* %width.addr
 	store i32 %mulFactor, i32* %mulFactor.addr
 	store <4 x float> addrspace(1)* %gaussianRand, <4 x float> addrspace(1)** %gaussianRand.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %xPid
-	%call1 = call i32 @get_global_id(i32 1)		; <i32> [#uses=1]
+	%call1 = call i32 @_Z13get_global_idj(i32 1)		; <i32> [#uses=1]
 	store i32 %call1, i32* %yPid
 	%tmp = load i32* %yPid		; <i32> [#uses=1]
 	%tmp2 = load i32* %width.addr		; <i32> [#uses=1]
@@ -650,7 +650,7 @@ for.end328:		; preds = %for.cond269
 	ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare <4 x float> @__convert_float4_uint4(<4 x i32>)
 

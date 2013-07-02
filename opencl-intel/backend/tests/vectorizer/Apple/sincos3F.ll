@@ -25,7 +25,7 @@
   
   declare void @math_kernel3(float addrspace(1)* %out, float addrspace(1)* %out2, float addrspace(1)* %in) nounwind
   
-  declare i64 @get_global_id(i32)
+  declare i64 @_Z13get_global_idj(i32)
   
   declare i64 @get_global_size(i32)
   
@@ -35,14 +35,14 @@
   
   declare void @_Z7vstore3Dv3_fmPU3AS1f(<2 x double>, i64, float addrspace(1)*)
   
-  declare i64 @get_local_size(i32)
+  declare i64 @_Z14get_local_sizej(i32)
   
   declare i64 @get_base_global_id.(i32)
   
   define void @__Vectorized_.math_kernel3(float addrspace(1)* %out, float addrspace(1)* %out2, float addrspace(1)* %in) nounwind {
      %iout = alloca <3 x float>, align 16
      %iout1 = alloca <3 x float>, align 16
-     %1 = call i64 @get_global_id(i32 0) nounwind
+     %1 = call i64 @_Z13get_global_idj(i32 0) nounwind
      %2 = add i64 %1, 1
      %3 = call i64 @get_global_size(i32 0) nounwind
      %4 = icmp ult i64 %2, %3

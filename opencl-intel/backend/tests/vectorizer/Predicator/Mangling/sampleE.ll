@@ -50,7 +50,7 @@ for.cond5:                                        ; preds = %for.inc, %if.then
 
 for.body9:                                        ; preds = %for.cond5
   %tmp10 = load i64* %n.addr                      ; <i64> [#uses=1]
-  %call = call i32 @get_local_id(i32 0)           ; <i32> [#uses=1]
+  %call = call i32 @_Z12get_local_idj(i32 0)           ; <i32> [#uses=1]
   %conv = zext i32 %call to i64                   ; <i64> [#uses=1]
   %add11 = add nsw i64 %tmp10, %conv              ; <i64> [#uses=1]
   %tmp12 = load i64* %i                           ; <i64> [#uses=1]
@@ -113,4 +113,4 @@ for.end39:                                        ; preds = %for.cond
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

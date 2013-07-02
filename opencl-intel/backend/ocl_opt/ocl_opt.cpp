@@ -37,6 +37,9 @@ extern void* createDXRuntimeSupport(const Module *runtimeModule,
 extern void* createAppleOpenclRuntimeSupport(const Module *runtimeModule,
                                         unsigned packetizationWidth);
 extern void* createBuiltInImportPass(Module* pRTModule);
+
+extern void* createSpirMaterializer();
+
 }
 
 void initializeOCLPasses(PassRegistry &Registry)
@@ -78,6 +81,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeShiftZeroUpperBitsPass(Registry);
     intel::initializePrefetchPass(Registry);
     intel::initializeBIImportPass(Registry);
+    intel::initializeSpirMaterializerPass(Registry);
 }
 
 

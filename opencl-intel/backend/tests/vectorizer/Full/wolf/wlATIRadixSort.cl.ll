@@ -32,9 +32,9 @@ entry:
   store i32 addrspace(1)* %buckets, i32 addrspace(1)** %buckets.addr
   store i32 %shiftCount, i32* %shiftCount.addr
   store i16 addrspace(3)* %sharedArray, i16 addrspace(3)** %sharedArray.addr
-  %call = call i32 @get_local_id(i32 0)           ; <i32> [#uses=1]
+  %call = call i32 @_Z12get_local_idj(i32 0)           ; <i32> [#uses=1]
   store i32 %call, i32* %localId
-  %call1 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %globalId
   %call2 = call i32 @get_group_id(i32 0)          ; <i32> [#uses=1]
   store i32 %call2, i32* %groupId
@@ -63,7 +63,7 @@ for.inc:                                          ; preds = %for.body
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   store i32 0, i32* %i8
   br label %for.cond9
 
@@ -104,7 +104,7 @@ for.inc31:                                        ; preds = %for.body12
   br label %for.cond9
 
 for.end34:                                        ; preds = %for.cond9
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   store i32 0, i32* %i36
   br label %for.cond37
 
@@ -147,13 +147,13 @@ for.end63:                                        ; preds = %for.cond37
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_group_id(i32)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 ; CHECK: ret
 define void @permute(i32 addrspace(1)* %unsortedData, i32 addrspace(1)* %prescanedBuckets, i32 %shiftCount, i16 addrspace(3)* %sharedBuckets, i32 addrspace(1)* %sortedData) nounwind {
@@ -178,9 +178,9 @@ entry:
   store i32 addrspace(1)* %sortedData, i32 addrspace(1)** %sortedData.addr
   %call = call i32 @get_group_id(i32 0)           ; <i32> [#uses=1]
   store i32 %call, i32* %groupId
-  %call1 = call i32 @get_local_id(i32 0)          ; <i32> [#uses=1]
+  %call1 = call i32 @_Z12get_local_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call1, i32* %localId
-  %call2 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call2 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call2, i32* %globalId
   store i32 0, i32* %i
   br label %for.cond
@@ -221,7 +221,7 @@ for.inc:                                          ; preds = %for.body
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   store i32 0, i32* %i21
   br label %for.cond22
 

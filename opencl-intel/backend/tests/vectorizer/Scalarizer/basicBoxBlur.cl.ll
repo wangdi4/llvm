@@ -105,11 +105,11 @@ entry:
   store i32 %width, i32* %width.addr
   store i32 %height, i32* %height.addr
   store float %radius, float* %radius.addr
-  %call = call i32 (...)* @get_work_dim()         ; <i32> [#uses=1]
+  %call = call i32 (...)* @_Z12get_work_dimv()         ; <i32> [#uses=1]
   store i32 %call, i32* %dims
-  %call1 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call1 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call1, i32* %globalIdx
-  %call2 = call i32 @get_global_id(i32 1)         ; <i32> [#uses=1]
+  %call2 = call i32 @_Z13get_global_idj(i32 1)         ; <i32> [#uses=1]
   store i32 %call2, i32* %globalIdy
   %call3 = call i32 @get_global_size(i32 0)       ; <i32> [#uses=1]
   store i32 %call3, i32* %global_szx
@@ -1848,9 +1848,9 @@ if.end1278:                                       ; preds = %for.end1277, %land.
   ret void
 }
 
-declare i32 @get_work_dim(...)
+declare i32 @_Z12get_work_dimv(...)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 

@@ -350,6 +350,7 @@ set( BACKEND_PASSES
     UndefExternalFuncs
     KernelInfo
     Prefetch
+    Materialize
 )
 
 target_link_libraries (${TARGET_NAME}

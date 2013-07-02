@@ -23,16 +23,16 @@
   
   declare void @math_kernel(float addrspace(1)* nocapture %out, float addrspace(1)* %out2, float addrspace(1)* nocapture %in) nounwind
   
-  declare i64 @get_global_id(i32)
+  declare i64 @_Z13get_global_idj(i32)
   
   declare float @_Z6sincosfPU3AS1f(float, float addrspace(1)*)
   
-  declare i64 @get_local_size(i32)
+  declare i64 @_Z14get_local_sizej(i32)
   
   declare i64 @get_base_global_id.(i32)
   
   define void @__Vectorized_.math_kernel(float addrspace(1)* nocapture %out, float addrspace(1)* %out2, float addrspace(1)* nocapture %in) nounwind {
-     %1 = tail call i64 @get_global_id(i32 0) nounwind
+     %1 = tail call i64 @_Z13get_global_idj(i32 0) nounwind
      %sext = shl i64 %1, 32
      %2 = ashr exact i64 %sext, 32
      %3 = getelementptr inbounds float addrspace(1)* %in, i64 %2

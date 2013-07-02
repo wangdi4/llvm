@@ -55,7 +55,7 @@ entry:
   %div = udiv i32 %tmp, %sel                      ; <i32> [#uses=1]
   store i32 %div, i32* %optionsPerItem
   %tmp2 = load i32* %optionsPerItem               ; <i32> [#uses=1]
-  %call3 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call3 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   %mul = mul i32 %tmp2, %call3                    ; <i32> [#uses=1]
   store i32 %mul, i32* %itemStartingIndex
   %tmp5 = load i32* %itemStartingIndex            ; <i32> [#uses=1]
@@ -533,7 +533,7 @@ for.end:                                          ; preds = %for.cond
 
 declare i32 @get_global_size(i32)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare float @_Z3logf(float)
 
@@ -589,7 +589,7 @@ entry:
   %div = udiv i32 %tmp, %sel                      ; <i32> [#uses=1]
   store i32 %div, i32* %optionsPerItem
   %tmp2 = load i32* %optionsPerItem               ; <i32> [#uses=1]
-  %call3 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call3 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   %mul = mul i32 %tmp2, %call3                    ; <i32> [#uses=1]
   store i32 %mul, i32* %itemStartingIndex
   %tmp5 = load i32* %itemStartingIndex            ; <i32> [#uses=1]

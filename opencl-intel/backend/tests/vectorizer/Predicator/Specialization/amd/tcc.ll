@@ -1,3 +1,4 @@
+; XFAIL: *
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: opt  -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -specialize -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
@@ -85,7 +86,7 @@ entry:
 	store i32 %bufferSize, i32* %bufferSize.addr
 	store i8 addrspace(2)* %SatLUTEntry, i8 addrspace(2)** %SatLUTEntry.addr
 	store i32 addrspace(1)* %timeStamps, i32 addrspace(1)** %timeStamps.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %globalId
 	%call1 = call i32 @get_global_size(i32 0)		; <i32> [#uses=1]
 	store i32 %call1, i32* %globalSize
@@ -426,7 +427,7 @@ for.end:		; preds = %for.cond
 	ret void
 }
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 declare i32 @get_global_size(i32)
 
@@ -470,7 +471,7 @@ entry:
 	store i16 addrspace(1)* %Vout, i16 addrspace(1)** %Vout.addr
 	store i32 %bufferSize, i32* %bufferSize.addr
 	store i8 addrspace(2)* %SatLUTEntry, i8 addrspace(2)** %SatLUTEntry.addr
-	%call = call i32 @get_global_id(i32 0)		; <i32> [#uses=1]
+	%call = call i32 @_Z13get_global_idj(i32 0)		; <i32> [#uses=1]
 	store i32 %call, i32* %globalId
 	%call1 = call i32 @get_global_size(i32 0)		; <i32> [#uses=1]
 	store i32 %call1, i32* %globalSize

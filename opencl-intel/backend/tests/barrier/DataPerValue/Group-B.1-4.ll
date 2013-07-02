@@ -33,7 +33,7 @@ define void @main(i32 %arg) nounwind {
   %x = load float* %p, align 4
   br label %L1
 L1:
-  call void @barrier(i32 1)
+  call void @_Z7barrierj(i32 1)
   %y = load float* %p, align 4
   ret void
 ; CHECK: %a = alloca [4 x float], align 4
@@ -41,7 +41,7 @@ L1:
 ; CHECK: %x = load float* %p, align 4
 ; CHECK: br label %L1
 ; CHECK: L1:
-; CHECK: call void @barrier(i32 1)
+; CHECK: call void @_Z7barrierj(i32 1)
 ; CHECK: %y = load float* %p, align 4
 ; CHECK: ret void
 }
@@ -77,9 +77,9 @@ L1:
 ; CHECK-NOT: entry
 ; CHECK: DONE
 
-declare void @barrier(i32)
+declare void @_Z7barrierj(i32)
 declare void @dummybarrier.()
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
 !opencl.kernels = !{!0}
 !opencl.build.options = !{}

@@ -10,7 +10,7 @@ target triple = "i686-pc-win32"
 ; CHECK-NOT: masked_
 ; CHECK: ret
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 define i32 @func(float* nocapture %A) nounwind {
 entry:
   %0 = getelementptr inbounds float* %A, i64 5    ; <float*> [#uses=1]
@@ -36,7 +36,7 @@ return:                                           ; preds = %entry
 
 define i32 @func2(float* nocapture %A) nounwind {
 entry:
-  %0 = tail call i32 @get_global_id(i32 0)        ; <i32> [#uses=1]
+  %0 = tail call i32 @_Z13get_global_idj(i32 0)        ; <i32> [#uses=1]
   %1 = icmp sgt i32 %0, 3                         ; <i1> [#uses=1]
   br i1 %1, label %bb, label %return
 

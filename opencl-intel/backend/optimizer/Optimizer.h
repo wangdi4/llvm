@@ -52,7 +52,7 @@ private:
     
     // hold the collection of passes
     llvm::PassManager m_modulePasses;
-    llvm::FunctionPassManager m_funcPasses;
+    llvm::PassManager m_funcPasses;
     llvm::Module* m_pModule;
 
     std::vector<std::string> m_undefinedExternalFunctions;

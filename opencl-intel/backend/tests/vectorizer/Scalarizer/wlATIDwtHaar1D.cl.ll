@@ -40,13 +40,13 @@ entry:
   store i32 %tLevels, i32* %tLevels.addr
   store i32 %signalLength, i32* %signalLength.addr
   store i32 %levelsDone, i32* %levelsDone.addr
-  %call = call i32 @get_local_id(i32 0)           ; <i32> [#uses=1]
+  %call = call i32 @_Z12get_local_idj(i32 0)           ; <i32> [#uses=1]
   store i32 %call, i32* %localId
   %call1 = call i32 @get_group_id(i32 0)          ; <i32> [#uses=1]
   store i32 %call1, i32* %groupId
-  %call2 = call i32 @get_global_id(i32 0)         ; <i32> [#uses=1]
+  %call2 = call i32 @_Z13get_global_idj(i32 0)         ; <i32> [#uses=1]
   store i32 %call2, i32* %globalId
-  %call3 = call i32 @get_local_size(i32 0)        ; <i32> [#uses=1]
+  %call3 = call i32 @_Z14get_local_sizej(i32 0)        ; <i32> [#uses=1]
   store i32 %call3, i32* %localSize
   %tmp = load i32* %groupId                       ; <i32> [#uses=1]
   %tmp4 = load i32* %localSize                    ; <i32> [#uses=1]
@@ -113,7 +113,7 @@ if.then:                                          ; preds = %entry
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   store i32 9, i32* %mLevels
   %tmp53 = load i32* %tLevels.addr                ; <i32> [#uses=1]
   %cmp54 = icmp ugt i32 %tmp53, 9                 ; <i1> [#uses=1]
@@ -204,7 +204,7 @@ if.end114:                                        ; preds = %if.then72, %for.bod
   %tmp115 = load i32* %activeThreads              ; <i32> [#uses=1]
   %shr116 = lshr i32 %tmp115, 1                   ; <i32> [#uses=1]
   store i32 %shr116, i32* %activeThreads
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   br label %for.inc
 
 for.inc:                                          ; preds = %if.end114
@@ -232,14 +232,14 @@ if.end128:                                        ; preds = %if.then121, %for.en
   ret void
 }
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
 declare i32 @get_group_id(i32)
 
-declare i32 @get_global_id(i32)
+declare i32 @_Z13get_global_idj(i32)
 
-declare i32 @get_local_size(i32)
+declare i32 @_Z14get_local_sizej(i32)
 
 declare float @_Z4sqrtf(float)
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)

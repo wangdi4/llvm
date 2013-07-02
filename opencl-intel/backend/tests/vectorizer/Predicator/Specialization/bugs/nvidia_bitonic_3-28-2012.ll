@@ -24,17 +24,17 @@ target triple = "i686-pc-win32"
 
 declare i32 @get_group_id(i32) readnone
 
-declare i32 @get_local_id(i32) readnone
+declare i32 @_Z12get_local_idj(i32) readnone
 
-declare i32 @get_global_id(i32) readnone
+declare i32 @_Z13get_global_idj(i32) readnone
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 define void @bitonicSortLocal1(i32 addrspace(1)* nocapture %d_DstKey, i32 addrspace(1)* nocapture %d_DstVal, i32 addrspace(1)* nocapture %d_SrcKey, i32 addrspace(1)* nocapture %d_SrcVal) nounwind {
 bb.nph11:
   %call = tail call i32 @get_group_id(i32 0) nounwind readnone
   %mul = shl i32 %call, 10
-  %call1 = tail call i32 @get_local_id(i32 0) nounwind readnone
+  %call1 = tail call i32 @_Z12get_local_idj(i32 0) nounwind readnone
   %add = add i32 %mul, %call1
   %add.ptr = getelementptr inbounds i32 addrspace(1)* %d_SrcKey, i32 %add
   %add.ptr7 = getelementptr inbounds i32 addrspace(1)* %d_SrcVal, i32 %add
@@ -56,7 +56,7 @@ bb.nph11:
   %tmp39 = load i32 addrspace(1)* %arrayidx38, align 4
   %arrayidx42 = getelementptr inbounds [1024 x i32] addrspace(3)* @opencl_bitonicSortLocal1_local_l_val, i32 0, i32 %add35
   store i32 %tmp39, i32 addrspace(3)* %arrayidx42, align 4
-  %call44 = tail call i32 @get_global_id(i32 0) nounwind readnone
+  %call44 = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %and = and i32 %call44, 511
   br label %for.body
 
@@ -75,7 +75,7 @@ bb.nph8:                                          ; preds = %for.body
 
 for.body59:                                       ; preds = %ComparatorLocal.exit, %bb.nph8
   %stride.07 = phi i32 [ %div, %bb.nph8 ], [ %stride.0, %ComparatorLocal.exit ]
-  tail call void @barrier(i32 1) nounwind
+  tail call void @_Z7barrierm(i32 1) nounwind
   %sub = add i32 %stride.07, -1
   %and65 = and i32 %call1, %sub
   %sub66 = sub i32 %mul62, %and65
@@ -118,7 +118,7 @@ for.inc83:                                        ; preds = %for.inc83.loopexit,
 
 bb.nph:                                           ; preds = %for.inc83
   %and89 = and i32 %call, 1
-  tail call void @barrier(i32 1) nounwind
+  tail call void @_Z7barrierm(i32 1) nounwind
   br label %for.body96
 
 for.body96:                                       ; preds = %ComparatorLocal.exit10, %bb.nph
@@ -154,7 +154,7 @@ if.end.i9:                                        ; preds = %for.body96
 
 ComparatorLocal.exit10:                           ; preds = %if.then.i8, %if.end.i9
   %shr123 = lshr i32 %stride91.03, 1
-  tail call void @barrier(i32 1) nounwind
+  tail call void @_Z7barrierm(i32 1) nounwind
   %indvar.next = add i32 %indvar, 1
   %exitcond = icmp eq i32 %indvar.next, 10
   br i1 %exitcond, label %for.end124, label %for.body96

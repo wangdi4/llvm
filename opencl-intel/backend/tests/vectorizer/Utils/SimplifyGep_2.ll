@@ -4,8 +4,8 @@
 
 ; ModuleID = 'Program'
 
-declare i32 @get_global_id(i32) nounwind readnone
-declare i64 @get_local_id(i64) nounwind readnone
+declare i32 @_Z13get_global_idj(i32) nounwind readnone
+declare i64 @_Z12get_local_idj(i64) nounwind readnone
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Check simplified GEP when GEP has two uniform i32 indices

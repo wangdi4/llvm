@@ -117,9 +117,9 @@ entry:
   store i32 %call, i32* %blockIdx
   %call1 = call i32 @get_group_id(i32 1)          ; <i32> [#uses=1]
   store i32 %call1, i32* %blockIdy
-  %call2 = call i32 @get_local_id(i32 0)          ; <i32> [#uses=1]
+  %call2 = call i32 @_Z12get_local_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call2, i32* %localIdx
-  %call3 = call i32 @get_local_id(i32 1)          ; <i32> [#uses=1]
+  %call3 = call i32 @_Z12get_local_idj(i32 1)          ; <i32> [#uses=1]
   store i32 %call3, i32* %localIdy
   %tmp = load i32* %blockIdy                      ; <i32> [#uses=1]
   %tmp4 = load i32* %width.addr                   ; <i32> [#uses=1]
@@ -201,7 +201,7 @@ for.body:                                         ; preds = %for.cond
   %tmp59 = load <4 x i8> addrspace(3)** %block0.addr ; <<4 x i8> addrspace(3)*> [#uses=1]
   %arrayidx60 = getelementptr inbounds <4 x i8> addrspace(3)* %tmp59, i32 %tmp58 ; <<4 x i8> addrspace(3)*> [#uses=1]
   store <4 x i8> %call57, <4 x i8> addrspace(3)* %arrayidx60
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   store i8 0, i8* %p
   store i8 0, i8* %a
   store i8 0, i8* %b
@@ -950,7 +950,7 @@ for.end615:                                       ; preds = %for.cond311
   %tmp626 = load <4 x i8> addrspace(3)** %block1.addr ; <<4 x i8> addrspace(3)*> [#uses=1]
   %arrayidx627 = getelementptr inbounds <4 x i8> addrspace(3)* %tmp626, i32 %tmp625 ; <<4 x i8> addrspace(3)*> [#uses=1]
   store <4 x i8> %tmp624, <4 x i8> addrspace(3)* %arrayidx627
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %tmp628 = load i32* %localIndex                 ; <i32> [#uses=1]
   %tmp629 = load <4 x i8> addrspace(3)** %block1.addr ; <<4 x i8> addrspace(3)*> [#uses=1]
   %arrayidx630 = getelementptr inbounds <4 x i8> addrspace(3)* %tmp629, i32 %tmp628 ; <<4 x i8> addrspace(3)*> [#uses=1]
@@ -1017,7 +1017,7 @@ for.end646:                                       ; preds = %for.cond
 
 declare i32 @get_group_id(i32)
 
-declare i32 @get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
 define available_externally <4 x i8> @sbox(i8 addrspace(1)* %SBox, <4 x i8> %block) nounwind inlinehint {
 entry:
@@ -1062,7 +1062,7 @@ entry:
   ret <4 x i8> %0
 }
 
-declare void @barrier(i32)
+declare void @_Z7barrierm(i32)
 
 define <4 x i8> @shiftRowsInv(<4 x i8> %row, i32 %j) nounwind {
 entry:
@@ -1167,9 +1167,9 @@ entry:
   store i32 %call, i32* %blockIdx
   %call1 = call i32 @get_group_id(i32 1)          ; <i32> [#uses=1]
   store i32 %call1, i32* %blockIdy
-  %call2 = call i32 @get_local_id(i32 0)          ; <i32> [#uses=1]
+  %call2 = call i32 @_Z12get_local_idj(i32 0)          ; <i32> [#uses=1]
   store i32 %call2, i32* %localIdx
-  %call3 = call i32 @get_local_id(i32 1)          ; <i32> [#uses=1]
+  %call3 = call i32 @_Z12get_local_idj(i32 1)          ; <i32> [#uses=1]
   store i32 %call3, i32* %localIdy
   %tmp = load i32* %blockIdy                      ; <i32> [#uses=1]
   %tmp4 = load i32* %width.addr                   ; <i32> [#uses=1]
@@ -1255,7 +1255,7 @@ for.body:                                         ; preds = %for.cond
   %tmp62 = load <4 x i8> addrspace(3)** %block0.addr ; <<4 x i8> addrspace(3)*> [#uses=1]
   %arrayidx63 = getelementptr inbounds <4 x i8> addrspace(3)* %tmp62, i32 %tmp61 ; <<4 x i8> addrspace(3)*> [#uses=1]
   store <4 x i8> %call60, <4 x i8> addrspace(3)* %arrayidx63
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   %tmp64 = load i32* %localIndex                  ; <i32> [#uses=1]
   %tmp65 = load <4 x i8> addrspace(3)** %block0.addr ; <<4 x i8> addrspace(3)*> [#uses=1]
   %arrayidx66 = getelementptr inbounds <4 x i8> addrspace(3)* %tmp65, i32 %tmp64 ; <<4 x i8> addrspace(3)*> [#uses=1]
@@ -1272,7 +1272,7 @@ for.body:                                         ; preds = %for.cond
   %tmp77 = load <4 x i8> addrspace(3)** %block1.addr ; <<4 x i8> addrspace(3)*> [#uses=1]
   %arrayidx78 = getelementptr inbounds <4 x i8> addrspace(3)* %tmp77, i32 %tmp76 ; <<4 x i8> addrspace(3)*> [#uses=1]
   store <4 x i8> %xor75, <4 x i8> addrspace(3)* %arrayidx78
-  call void @barrier(i32 1)
+  call void @_Z7barrierm(i32 1)
   store i8 0, i8* %p
   store i8 0, i8* %a
   store i8 0, i8* %b

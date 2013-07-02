@@ -8,7 +8,7 @@ target triple = "x86_64-pc-win32"
 
 declare void @__test_fn_original(i16 addrspace(1)*, i32 addrspace(1)* nocapture, i32 addrspace(1)* nocapture, i16 addrspace(1)* nocapture) nounwind
 
-declare i64 @get_global_id(i32)
+declare i64 @_Z13get_global_idj(i32)
 
 define double @_Z6vload3mPKU3AS1s(i64 %offset, i16 addrspace(1)* nocapture %ptr) nounwind {
 entry:
@@ -40,7 +40,7 @@ entry:
 
 declare void @dummybarrier.()
 
-declare void @barrier(i64)
+declare void @_Z7barrierm(i64)
 
 declare i8* @get_special_buffer.()
 

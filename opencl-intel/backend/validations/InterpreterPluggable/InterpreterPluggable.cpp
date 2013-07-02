@@ -21,6 +21,7 @@ File Name:  InterpreterPluggable.cpp
 
 #include "InterpreterPlugIn.h"
 #include "InterpreterPluggable.h"
+#include "ParameterType.h"
 
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
@@ -185,7 +186,8 @@ InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
         // To handle indirect function call getOperandValue is used instead of casting to the Function pointer.
         Function *f = (Function*)GVTOP(getOperandValue(C->getCalledValue(), SF));
         std::string fName = f->getName();
-        if(fName == "barrier")
+        std::size_t found = fName.find("barrier");
+        if (found!=std::string::npos)
         {
             DEBUG(dbgs() << "Barrier Detected: " << I << '\n');
             *SF.CurInst++;

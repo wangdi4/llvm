@@ -20,7 +20,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: ret void
 define void @read_2d_ff_test(%struct._image2d_t addrspace(1)* %img, i32 %smp, <2 x float>* %crd, <4 x float>* %dst) nounwind {
 entry:
-  %ind = call i32 @get_global_id(i32 0)
+  %ind = call i32 @_Z13get_global_idj(i32 0)
   %src_ptr = getelementptr  <2 x float>* %crd, i32 %ind
   %src_val = load <2 x float>* %src_ptr 
   %src_extend = shufflevector <2 x float> %src_val, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
@@ -38,7 +38,7 @@ entry:
 ; CHECK: ret void
 define void @read_3d_ff_test(%struct._image3d_t addrspace(1)* %img, i32 %smp, <3 x float>* %crd, <4 x float>* %dst) nounwind {
 entry:
-  %ind = call i32 @get_global_id(i32 0)
+  %ind = call i32 @_Z13get_global_idj(i32 0)
   %src_ptr = getelementptr  <3 x float>* %crd, i32 %ind
   %src_val = load <3 x float>* %src_ptr 
   %src_extend = shufflevector <3 x float> %src_val, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
@@ -56,7 +56,7 @@ entry:
 ; CHECK: ret void
 define void @__write_imagef_2d_test(%struct._image2d_t addrspace(1)* %img, <4 x float>* %colors, i32 %ycrd) nounwind {
 entry:
-  %ind = call i32 @get_global_id(i32 0)
+  %ind = call i32 @_Z13get_global_idj(i32 0)
   %crdvec_x = insertelement <2 x i32> undef, i32 %ind, i32 0
   %crdvec_xy = insertelement <2 x i32> %crdvec_x, i32 %ycrd, i32 1
   %crdvec_xy_extend = shufflevector <2 x i32> %crdvec_xy, <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
@@ -69,7 +69,7 @@ entry:
 
 
 
-declare i32 @get_global_id(i32 %dimindx) nounwind 
+declare i32 @_Z13get_global_idj(i32 %dimindx) nounwind 
 declare <4 x float> @read_2d_ff(%struct._image2d_t addrspace(1)* %image, i32 %sampler, <4 x float>) nounwind 
 declare <4 x float> @read_3d_ff(%struct._image3d_t addrspace(1)* %image, i32 %sampler, <4 x float>) nounwind 
 declare void @__write_imagef_2d(%struct._image2d_t addrspace(1)* %image, <4 x i32>, <4 x float>) nounwind 

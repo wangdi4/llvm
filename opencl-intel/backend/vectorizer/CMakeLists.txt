@@ -17,6 +17,7 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/backend/passes
   ${BACKEND_ROOT_DIR}/metadata_api
   ${BACKEND_ROOT_DIR}/metadata_api/gen
+  ${CMAKE_SOURCE_DIR}/cl_api
 )
 
 if(APPLE)
@@ -145,6 +146,7 @@ target_link_libraries(
   LLVMVectorizer
   reflection_module
   name_mangle
+  OclBackendUtils
 )
 
 add_dependencies(${TARGET_NAME} metadataapi)
