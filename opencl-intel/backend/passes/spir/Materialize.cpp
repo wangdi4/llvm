@@ -20,10 +20,14 @@ using namespace Intel;
 
 namespace intel {
 
-// Supported target triple.
-const char *PC_LIN64 = "x86_64-pc-linux"; //used for RH64/SLES64
-const char *PC_WIN32 = "i686-pc-win32";   //Win 32 bit
-const char *PC_WIN64 = "x86_64-pc-win32"; //Win 64 bit
+// Supported target triples.
+const char *PC_LIN64 = "x86_64-pc-linux"; // Used for RH64/SLES64.
+const char *PC_LIN32 = "i686-pc-linux";   // Used for Android.
+const char *PC_WIN32 = "i686-pc-win32";   // Win 32 bit.
+const char *PC_WIN64 = "x86_64-pc-win32"; // Win 64 bit.
+
+// Command line option used for cross compilation.
+const char *CROSS_SWITCH = "-target-triple";
 
 //Native data layout details for each supported Triple
 const char *Win32Natives = "-a0:0:64-f80:32:32-n8:16:32-S32";
@@ -89,7 +93,6 @@ public:
 char SpirMaterializer::ID = 0;
 
 Maybe<std::string> SpirMaterializer::getCrossTriple(llvm::Module& M) {
-  const char*const CROSS_SWITCH = "-target-triple";
   MetaDataUtils mdUtils(&M);
   MetaDataUtils::CompilerOptionsList::iterator it = mdUtils.begin_CompilerOptions();
   MetaDataUtils::CompilerOptionsList::iterator e  = mdUtils.end_CompilerOptions();
@@ -160,8 +163,12 @@ void  materializeSpirDataLayout(llvm::Module& M) {
      intel::PC_WIN64;
 #elif defined(__LP64__)
      intel::PC_LIN64;
-#else
+#elif defined(_WIN32)
      intel::PC_WIN32;
+#elif defined(__ANDROID__)
+     intel::PC_LIN32;
+#else
+  #error "Unsupported host platform"
 #endif
   }
   M.setTargetTriple(Triple);
@@ -173,7 +180,8 @@ void  materializeSpirDataLayout(llvm::Module& M) {
     NativeSuffix = intel::Win32Natives;
   else {
     //used for Android
-    assert(Triple == "i686-pc-linux" && "Unsupported Triple in cross compilation");
+    assert(Triple == intel::PC_LIN32 &&
+           "Unsupported Triple in cross compilation");
     NativeSuffix = intel::Lin32Natives;
   }
   std::string strDataLayout = M.getDataLayout();
