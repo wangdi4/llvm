@@ -77,7 +77,7 @@ set( OUTPUT_FILE test.bc )
 if (BUILD_X64)
 set (
   SPIR_OPT 
-  -triple spir-unkown-unkown -cl-kernel-arg-info -D __x86_64__
+  -triple spir64-unkown-unkown -cl-kernel-arg-info -D __x86_64__
 )
 else (BUILD_X64)
 set (

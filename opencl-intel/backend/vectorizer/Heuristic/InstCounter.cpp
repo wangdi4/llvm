@@ -1038,7 +1038,7 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
   roots.insert(kernels.begin(), kernels.end());
 
   // Add all functions that contains barrier/get_local_id/get_global_id to root functions
-  llvm::StringRef oclFunctionName[3] = {
+  std::string oclFunctionName[3] = {
     CompilationUtils::mangledBarrier(),
     CompilationUtils::mangledGetLID(),
     CompilationUtils::mangledGetGID()
