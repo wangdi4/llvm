@@ -49,7 +49,7 @@ OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
-OCL_INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(OCLBranchProbability)
 OCL_INITIALIZE_PASS_END(Predicator, "predicate", "Predicate Function", false, false)
 
 Predicator::Predicator() :
@@ -1170,11 +1170,11 @@ void Predicator::predicateFunction(Function *F) {
   DominatorTree* DT      = &getAnalysis<DominatorTree>();
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   V_ASSERT(LI && "Unable to get loop analysis");
-  BranchProbabilityInfo *BPI = &getAnalysis<BranchProbabilityInfo>();
-  assert (BPI && "Branch Probability is not available");
+  OCLBranchProbability *OBP = &getAnalysis<OCLBranchProbability>();
+  assert (OBP && "OpenCL Branch Probability is not available");
 
   FunctionSpecializer specializer(
-    this, F, m_allzero, PDT, DT, LI, m_WIA, BPI);
+    this, F, m_allzero, PDT, DT, LI, m_WIA, OBP);
 
   V_PRINT(predicate, "Predicating "<<F->getName()<<"\n");
 

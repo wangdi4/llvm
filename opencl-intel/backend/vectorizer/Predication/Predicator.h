@@ -256,7 +256,7 @@ public:
     // we preserve nothing. really.
     AU.addRequired<WIAnalysis>();
     // for bypasses usage
-    AU.addRequired<BranchProbabilityInfo>();
+    AU.addRequired<OCLBranchProbability>();
   }
   /*! \} */
 

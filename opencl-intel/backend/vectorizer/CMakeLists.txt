@@ -8,6 +8,7 @@ include_directories(BEFORE "PostDominanceFrontier")
 include_directories(BEFORE "SoaAllocaAnalysis")
 include_directories(BEFORE "Utils")
 include_directories(BEFORE "WIAnalysis")
+include_directories(BEFORE "OCLBranchProbability")
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/backend/arch_headers
@@ -72,7 +73,7 @@ set(TARGET_INCLUDE_FILES
   LoopHandler/KernelAnalysis.h
   LoopHandler/LoopStridedCodeMotion.h
   LoopHandler/LoopWIAnalysis.h
-  Packetizer/Packetizer.h
+    Packetizer/Packetizer.h
   PostDominanceFrontier/PostDominanceFrontier.h
   Predication/Linearizer.h
   Predication/PhiCanon.h
@@ -96,6 +97,7 @@ set(TARGET_INCLUDE_FILES
   Utils/VectorizerFunction.h
   VolcanoWrapper/Main.h
   WIAnalysis/WIAnalysis.h
+  OCLBranchProbability/OCLBranchProbability.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
@@ -132,6 +134,7 @@ set(TARGET_SOURCE_FILES
   Utils/VectorizerCore.cpp
   VolcanoWrapper/Main.cpp
   WIAnalysis/WIAnalysis.cpp
+  OCLBranchProbability/OCLBranchProbability.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 

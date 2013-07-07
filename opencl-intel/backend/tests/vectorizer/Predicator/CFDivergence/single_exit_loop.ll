@@ -365,10 +365,8 @@ define void @internalDivBranchThreeNestedUnLoops(i32 addrspace(1)* nocapture %a,
 
 ; CHECK: @internalUnBranchDivLoop
 ; CHECK: header{{[0-9]*}}:
-; CHECK: header{{[0-9]*}}:
 ; CHECK: @masked_load
 ; CHECK: @masked_store
-; CHECK: footer{{[0-9]*}}: 
 ; CHECK: footer{{[0-9]*}}: 
 ; CHECK: ret
 
@@ -406,10 +404,8 @@ define void @internalUnBranchDivLoop(i32 addrspace(1)* nocapture %a, i32 addrspa
 ; CHECK: @externalUnBranchDivLoop
 ; CHECK-NOT: @masked_load
 ; CHECK-NOT: @masked_store
-; CHECK: header{{[0-9]*}}:
 ; CHECK: @masked_load
 ; CHECK: @masked_store
-; CHECK: footer{{[0-9]*}}:
 ; CHECK: ret
 
 define void @externalUnBranchDivLoop(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {

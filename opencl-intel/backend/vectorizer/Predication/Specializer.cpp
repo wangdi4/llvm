@@ -35,9 +35,9 @@ FunctionSpecializer::FunctionSpecializer(Predicator* pred, Function* func,
                                          DominatorTree*  DT,
                                          LoopInfo *LI,
                                          WIAnalysis *WIA,
-                                         BranchProbabilityInfo *BPI):
+                                         OCLBranchProbability *OBP):
   m_pred(pred), m_func(func),
-  m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_LI(LI), m_WIA(WIA), m_BPI(BPI),
+  m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_LI(LI), m_WIA(WIA), m_OBP(OBP),
   m_zero(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 0))),
   m_one(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 1))){  }
 
@@ -337,29 +337,9 @@ void FunctionSpecializer::CollectDominanceInfo() {
       (!m_WIA->isDivergentBlock(bb) && m_WIA->whichDepend(term) == WIAnalysis::UNIFORM))
       continue;
 
-    // Removing bypasses on branches that occur only when a consecutive equals a uniform
-    // Bypasses never jump in such cases and only generate redundant overhead
-    ICmpInst *cmp = dyn_cast<ICmpInst>(br->getCondition());
-    assert (br->getNumSuccessors() <= 2 && "A branch should have at most two successors");
-    bool shouldBypass[2] = {true, true};
-    if(cmp) {
-      WIAnalysis::WIDependancy op0Dep = m_WIA->whichDepend(cmp->getOperand(0));
-      WIAnalysis::WIDependancy op1Dep = m_WIA->whichDepend(cmp->getOperand(1));
-
-      if ((op0Dep == WIAnalysis::CONSECUTIVE && op1Dep == WIAnalysis::UNIFORM) ||
-          (op1Dep == WIAnalysis::CONSECUTIVE && op0Dep == WIAnalysis::UNIFORM)) {
-        if (cmp->getPredicate() == CmpInst::ICMP_EQ)
-          shouldBypass[1] = false;
-        else
-          if (cmp->getPredicate() == CmpInst::ICMP_NE)
-            shouldBypass[0] = false;
-      }
-    }
-
     for (unsigned i=0; i < br->getNumSuccessors(); ++i) {
       if (! m_DT->dominates(bb, br->getSuccessor(i)) ||
-         (m_BPI->getEdgeProbability(bb, br->getSuccessor(i)) >= BranchProbability(9, 10)) ||
-          ! shouldBypass[i] ||
+          m_OBP->isEdgeHot(bb, br->getSuccessor(i))  ||
           ! calculateBypassInfoPerBranch(br->getSuccessor(i)))
         continue;
 
