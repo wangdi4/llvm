@@ -1003,6 +1003,8 @@ cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  co
     errCode = ctx->CreateCommandQueue(queue_handle, device, properties, &queue);
     if (CL_SUCCESS != errCode)
     {
+        delete queue_handle;
+        queue_handle = NULL;
         goto FINISH;
     }
     queue_handle->object = (void*)queue;
@@ -1049,6 +1051,8 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(
     errCode = ctx->CreateCommandQueueWithProperties( queue_handle, device, properties, &queue );
     if( CL_SUCCESS != errCode )
     {
+        delete queue_handle;
+        queue_handle = NULL;
         goto FINISH;
     }    
     queue_handle->object = ( void* ) queue;
@@ -3391,6 +3395,7 @@ CL_API_ENTRY cl_program CL_API_CALL clLinkProgram(
         if( devPro )
         {
             crtProg->m_ContextToProgram[ itr->first ] = devPro;
+            crtProg->m_buildContexts.push_back( itr->first );
         }
 
         // if ( CL_COMPILE_PROGRAM_FAILURE != errCode ) is True; it means that

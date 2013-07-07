@@ -91,6 +91,10 @@ EXPORTS
     clEnqueueWriteBufferRect
     clEnqueueCopyBufferRect
 
+    ; clCreateSubDevicesEXT
+    ; clRetainDeviceEXT
+    ; clReleaseDeviceEXT
+
     clCreateEventFromGLsyncKHR
 
     clCreateSubDevices
