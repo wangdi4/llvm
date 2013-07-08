@@ -1407,7 +1407,7 @@ cl_dev_err_code MigrateMemObject::execute()
         result = COIBufferSetState(last_buffer_handle, 
                                    targetProcess, COI_BUFFER_VALID, moveDataFlag, 
                                    independent_ops.size(), barrier_list, 
-                                   m_pCommandSynchHandler->registerBarrier(m_completionBarrier, this));
+                                   &(m_completionBarrier.cmdEvent));
         
         if (result != COI_SUCCESS)
         {
