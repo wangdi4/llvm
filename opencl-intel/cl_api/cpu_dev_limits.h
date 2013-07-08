@@ -54,7 +54,11 @@
 #define GEN_IMAGE3D_MAX_DIM_SIZE		2048
 #define CPU_IMAGE3D_MAX_DIM_SIZE		GEN_IMAGE3D_MAX_DIM_SIZE
 // Maximum dimension size (in pixels) for 2D image. Taken from GEN. See comment above.
+#if defined(__ANDROID__)
+#define GEN_IMAGE2D_MAX_DIM_SIZE		8192
+#else
 #define GEN_IMAGE2D_MAX_DIM_SIZE		16384
+#endif
 #define CPU_IMAGE2D_MAX_DIM_SIZE		GEN_IMAGE2D_MAX_DIM_SIZE
 // Maximum image array size. Taken from GEN. See comment above.
 #define GEN_MAX_ARRAY_SIZE              2048
