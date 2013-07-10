@@ -683,6 +683,7 @@ void DebugServer::DebugServerImpl::TerminateCommunicator()
         delete m_comm;
         m_comm = 0;
     }
+    m_initialized = false;
 }
 
 //-----------------------------------------------------------------------------

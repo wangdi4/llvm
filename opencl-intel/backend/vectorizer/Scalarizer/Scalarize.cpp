@@ -975,7 +975,9 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
         return recoverNonScalarizableInst(LI);
     }
     // Apply the bit-cast on the GEP base and add base-offset then fix the index by multiply it with numElements. (assuming one index only).
-    Value *operandBase = BitCastInst::CreatePointerCast(operand->getPointerOperand(), dataType->getScalarType()->getPointerTo(), "ptrVec2ptrScl", LI);
+    Value *GepPtr = operand->getPointerOperand();
+    PointerType *GepPtrType = cast<PointerType>(GepPtr->getType());
+    Value *operandBase = BitCastInst::CreatePointerCast(GepPtr, dataType->getScalarType()->getPointerTo(GepPtrType->getAddressSpace()), "ptrVec2ptrScl", LI);
     Type * indexType = operand->getOperand(1)->getType();
     // Generate new (scalar) instructions
     Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
@@ -1052,7 +1054,9 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
     obtainScalarizedValues(operand0, &opIsConst, SI->getOperand(indexData), SI);
 
     // Apply the bit-cast on the GEP base and add base-offset then fix the index by multiply it with numElements. (assuming one index only).
-    Value *operandBase = BitCastInst::CreatePointerCast(operand1->getPointerOperand(), dataType->getScalarType()->getPointerTo(), "ptrVec2ptrScl", SI);
+    Value *GepPtr = operand1->getPointerOperand();
+    PointerType *GepPtrType = cast<PointerType>(GepPtr->getType());
+    Value *operandBase = BitCastInst::CreatePointerCast(GepPtr, dataType->getScalarType()->getPointerTo(GepPtrType->getAddressSpace()), "ptrVec2ptrScl", SI);
     Type * indexType = operand1->getOperand(1)->getType();
     // Generate new (scalar) instructions
     Constant *elementNumVal = ConstantInt::get(indexType, numElements);

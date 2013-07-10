@@ -506,15 +506,15 @@ Value *VectorizerUtils::getCastedArgIfNeeded(Value *inputVal, Type *targetType, 
 }
 
 
-Instruction *VectorizerUtils::getCastedRetIfNeeded(CallInst *CI, Type *targetType)
+Instruction *VectorizerUtils::getCastedRetIfNeeded(Instruction *I, Type *targetType)
 {
   // incase of same type do noting
-  Type *sourceType = CI->getType();
-  if (sourceType == targetType) return CI;
+  Type *sourceType = I->getType();
+  if (sourceType == targetType) return I;
 
-  BasicBlock::iterator itr = (BasicBlock::iterator)(CI);
+  BasicBlock::iterator itr = (BasicBlock::iterator)(I);
   Instruction *insertPoint = &*(++itr);
-  return TruncValToType(CI, targetType, insertPoint);
+  return TruncValToType(I, targetType, insertPoint);
 }
 
 CallInst *VectorizerUtils::createFunctionCall(Module *pModule, const std::string &name,

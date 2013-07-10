@@ -60,11 +60,11 @@ public:
   /// @return casted value
   static Value *getCastedArgIfNeeded(Value *inputVal, Type *targetType, Instruction *insertPoint);
 
-  /// @brief casts call instruction value into desired type if types put casting instruction after the call 
-  /// @param CI call instruction to cast
-  /// @param targetType "actual" desired type according to calling convention
+  /// @brief casts instruction value into desired type if types are not equal
+  /// @param I instruction to cast
+  /// @param targetType "actual" desired type
   /// @return casted value
-  static Instruction *getCastedRetIfNeeded(CallInst *CI, Type *targetType);
+  static Instruction *getCastedRetIfNeeded(Instruction *I, Type *targetType);
 
   /// @brief Creates a call to function "name" with given args. It also creates
   ///       the function declaration if not already exists in the module.

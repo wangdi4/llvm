@@ -32,7 +32,6 @@ File Name:  dllmain.cpp
 #include "llvm/Support/Mutex.h"
 #include "debuggingservicewrapper.h"
 #include "CPUDetect.h"
-#include "utils/ImplicitArgsUtils.h"
 
 #if defined(_WIN32)
 #include <windows.h>

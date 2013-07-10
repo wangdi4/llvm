@@ -66,7 +66,7 @@ extern "C" {
   void* createVolcanoOpenclRuntimeSupport(const Module *runtimeModule) {
     V_ASSERT(NULL == intel::RuntimeServices::get() && "Trying to re-create singleton!");
     intel::OpenclRuntime * rt =
-    new intel::VolcanoOpenclRuntime(runtimeModule);
+      new intel::VolcanoOpenclRuntime(runtimeModule);
     intel::RuntimeServices::set(rt);
     return (void*)(rt);
   }
