@@ -30,7 +30,7 @@ endif( USE_VALGRIND )
 add_subdirectory(type_conversion)
 
 option(INCLUDE_CONFORMANCE_TESTS "Include Conformance Tests Into Build"  OFF)
-if (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS)
+if (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS OR INCLUDE_CONFORMANCE_ITP_TESTS)
     
     if (WIN32)    
         set(MSVC 1)
@@ -47,7 +47,12 @@ if (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS)
         add_subdirectory( conform1.2 )
     endif (INCLUDE_CONFORMANCE_1_2_TESTS)    
 
-endif (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS)
+    if (INCLUDE_CONFORMANCE_ITP_TESTS)
+        # Add conformance ITP sources
+        add_subdirectory( conform.itp )
+    endif (INCLUDE_CONFORMANCE_ITP_TESTS)
+
+endif (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS OR INCLUDE_CONFORMANCE_ITP_TESTS)
 
 if (INCLUDE_CMRT)
     message (STATUS "Adding Common runtime tests ...")
