@@ -67,6 +67,9 @@ if (NOT WIN32)
         LLVMCppBackendCodeGen
         LLVMCppBackendInfo
       )
+  if (NOT ANDROID)
+     list(APPEND LINK_LIBS pthread)
+  endif (ANDROID)
 endif (NOT WIN32)
 
 
