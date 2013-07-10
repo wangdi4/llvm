@@ -377,3 +377,8 @@ macro(find_host_program)
 endmacro()
 
 MARK_AS_ADVANCED(FORCE_ARM NO_UNDEFINED)
+
+add_custom_target(strip 
+                    ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh 
+                    WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin 
+                    COMMENT "Separating debug symbols from binaries...")
