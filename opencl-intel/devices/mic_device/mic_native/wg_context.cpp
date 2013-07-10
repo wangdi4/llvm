@@ -69,7 +69,7 @@ cl_dev_err_code WGContext::UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 	// Nullify m_pContext in order to be able to use InvalidateContext() in case of failure
 	if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
 	{
-		assert(0);
+		assert(0 && "Memory regions are not allocated");
 		return CL_DEV_OUT_OF_MEMORY;
 	}
 
@@ -87,7 +87,8 @@ cl_dev_err_code WGContext::UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 
 	if ( m_stPrivMemAllocSize < pBuffSizes[count] )
 	{
-			return CL_DEV_OUT_OF_MEMORY;
+      assert(0 && "Private Memory is not enough");
+      return CL_DEV_OUT_OF_MEMORY;
 	}
 
 	pBuffPtr[count] = m_pPrivateMem;
@@ -95,6 +96,7 @@ cl_dev_err_code WGContext::UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 	cl_dev_err_code rc = m_pContext->Init(pBuffPtr, m_pPrivateMem, pBinary);
 	if (CL_DEV_FAILED(rc))
 	{
+		assert(0 && "Context initialization failed");
 		return CL_DEV_ERROR_FAIL;
 	}
 

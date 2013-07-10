@@ -82,6 +82,12 @@ public:
      *  false otherwise
      */
     virtual bool HasKernelCallOperation() const = 0;
+
+    /**
+     * @returns the required minimum group size factorial
+     *  1 when no minimum is required
+     */
+	virtual unsigned int GetMinGroupSizeFactorial() const = 0;
 };
 
 /**

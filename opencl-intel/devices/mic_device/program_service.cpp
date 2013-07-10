@@ -1173,8 +1173,10 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         {
             size_t private_mem_size = pKernelProps->GetPrivateMemorySize();
             ullValue = MIN(MIC_MAX_WORK_GROUP_SIZE, (MIC_DEV_MAX_WG_PRIVATE_SIZE /(private_mem_size ? private_mem_size : 1)) );
+            size_t packSize = pKernelProps->GetMinGroupSizeFactorial();
+            if (ullValue > packSize)
+				ullValue = ( ullValue ) & ~(packSize-1);
         }
-        ullValue = ((unsigned long long)1) << ((unsigned long long)(logf((float)ullValue)/logf(2.f)));
         stValSize = sizeof(size_t);
         break;
 

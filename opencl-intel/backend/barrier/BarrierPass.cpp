@@ -1011,7 +1011,7 @@ namespace intel {
     Intel::MetaDataUtils::KernelsInfoMap::const_iterator itr = mdUtils.begin_KernelsInfo();
     Intel::MetaDataUtils::KernelsInfoMap::const_iterator end = mdUtils.end_KernelsInfo();
     for (; itr != end; ++itr) {
-      unsigned int strideSize = 1; // default value can not be 0
+      unsigned int strideSize = 0;
       Intel::KernelInfoMetaDataHandle kimd = itr->second;
       //Need to check if NoBarrierPath Value exists, it is not guaranteed that
       //KernelAnalysisPass is running in all scenarios.

@@ -28,7 +28,7 @@
 
 #include "common_dev_limits.h"
 
-#define CPU_DEV_MAX_WI_SIZE				1024			// Maximum values that could be specified for WI in one dimension
+#define CPU_DEV_MAX_WI_SIZE				(8*1024)			// Maximum values that could be specified for WI in one dimension
 #define CPU_DEV_LCL_MEM_SIZE			(32*1024)
 #define CPU_DEV_DCU_LINE_SIZE			64
 #define CPU_DEV_MAXIMUM_ALIGN			(DEV_MAXIMUM_ALIGN)
@@ -70,7 +70,7 @@
 #define CPU_MAX_LOCAL_ARGS				(MIN_PARAM((CPU_MAX_PARAMETER_SIZE/sizeof(void*)), CPU_MAX_PARAM_COUNT))
 #define CPU_MEM_BASE_ADDR_ALIGN			(CPU_DEV_MAXIMUM_ALIGN*8) // In bits
 #define CPU_MAX_WORK_ITEM_DIMENSIONS	MAX_WORK_DIM
-#define CPU_MAX_WORK_GROUP_SIZE			1024			// Must be power of 2, No API to get max number of fibers
+#define CPU_MAX_WORK_GROUP_SIZE			(8*1024)			// Must be power of 2, No API to get max number of fibers
 #define CPU_DEFAULT_WG_SIZE				32
 #define CPU_MIN_ACTUAL_PARAM_SIZE		sizeof(size_t)
 #define CPU_MIN_ACTUAL_PARAM_PTR		size_t*
@@ -80,10 +80,11 @@
 // Minimum memory size allocate for single WI instance
 #define CPU_DEV_MIN_WI_PRIVATE_SIZE		(1024*sizeof(size_t))
 // Maximum private memory size that could be allocated for WG execution
-#define CPU_DEV_MAX_WG_PRIVATE_SIZE		(CPU_DEV_MIN_WI_PRIVATE_SIZE*CPU_MAX_WORK_GROUP_SIZE)
+#define CPU_DEV_MAX_WG_PRIVATE_SIZE		(CPU_DEV_MIN_WI_PRIVATE_SIZE*32)
+
 // Maximum memory size that could be allocated for WG execution. This is the sum of
 // WG Private memory size +
 // Kernel parameters size (twice to cover the hidden parameters) +
 // Local IDs buffer
 #define CPU_DEV_MAX_WG_TOTAL_SIZE		  (CPU_DEV_MAX_WG_PRIVATE_SIZE + (2*CPU_MAX_PARAMETER_SIZE) + \
-  (CPU_MAX_PARAMETER_SIZE*MAX_WI_DIM_POW_OF_2*sizeof(size_t)))
+  (CPU_MAX_WORK_GROUP_SIZE*MAX_WI_DIM_POW_OF_2*sizeof(size_t)))

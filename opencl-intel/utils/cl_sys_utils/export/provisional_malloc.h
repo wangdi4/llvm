@@ -346,6 +346,9 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep)
 
 #ifdef GTEST_INCLUDE_GTEST_GTEST_H_
 
+#ifdef PROV_ARRAY_NAME
+#undef PROV_ARRAY_NAME
+#endif
 #define PROV_ARRAY_NAME m_provisionalArray
 /**
  * This is GTEST specific fixture that seamlessly harnesses the PROVISIONAL API.

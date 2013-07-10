@@ -118,9 +118,10 @@ cl_dev_err_code WGContext::CreateContext(long ndrCmdId, ICLDevBackendBinary_* pB
 		pCurrPtr += pBuffSizes[i];
 	}
 
-	// Check allocated size of the private memory, and allocate new if necessary.
+	// Check allocated size of the private memory
 	if ( m_stPrivMemAllocSize < pBuffSizes[count] )
 	{
+		assert(0 && "Reqired private size is greater than allowed one");
 	    return CL_DEV_OUT_OF_MEMORY;
 	}
 

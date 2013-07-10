@@ -200,28 +200,21 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
 		sizeof(cl_ulong), &ullLocalSize, NULL);
 	if ( CL_DEV_FAILED(rc) )
 	{
-		printf("pclDevGetKernelInfo[CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE] failed <%X>\n", rc);
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
-	if ( ullLocalSize == 0 )
-	{
+		printf("pclDevGetKernelInfo[CL_DEV_KERNEL_PRIVATE_SIZE] failed <%X>\n", rc);
 		dev_entry->clDevReleaseProgram(prog);
 		return false;
 	}
 
 	// Get maximum size
-	rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_MAX_WG_SIZE,
-		sizeof(stParamSize), &stParamSize, NULL);
+	size_t stWGMaxSize;
+	rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_MAX_WG_SIZE, sizeof(stWGMaxSize), &stWGMaxSize, NULL);
 	if ( CL_DEV_FAILED(rc) )
 	{
 		printf("pclDevGetKernelInfo[CL_DEV_KERNEL_WG_SIZE] failed <%X>\n", rc);
 		dev_entry->clDevReleaseProgram(prog);
 		return false;
 	}
-	size_t maxWGSize = (size_t) MIN(MIC_MAX_WORK_GROUP_SIZE, (MIC_DEV_MAX_WG_PRIVATE_SIZE /ullLocalSize) );
-	maxWGSize = (size_t)1 << (size_t)(logf((float)maxWGSize)/logf(2.f));
-	if ( stParamSize != maxWGSize )
+	if ( MIC_MAX_WORK_GROUP_SIZE != stWGMaxSize )
 	{
 		dev_entry->clDevReleaseProgram(prog);
 		return false;

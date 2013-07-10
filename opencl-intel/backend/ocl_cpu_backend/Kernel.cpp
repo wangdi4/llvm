@@ -135,11 +135,12 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
             unsigned int workGroupNumMinLimit =
                 (outputWorkSizes.minWorkGroupNum + (globalGroupSizeYZ-1)) / globalGroupSizeYZ;
 
+            unsigned int kernelPrivateMemSize = (unsigned int)m_pProps->GetPrivateMemorySize();
             unsigned int globalGroupSizeX = pInputWorkSizes->globalWorkSize[0];
             unsigned int localSizeMaxLimit =
-                min ( min(CPU_MAX_WORK_GROUP_SIZE, globalGroupSizeX),                // localSizeMaxLimit_1
-                min ( CPU_DEV_MAX_WG_PRIVATE_SIZE / m_pProps->GetPrivateMemorySize(),// localSizeMaxLimit_2
-                      max(1, globalGroupSizeX / workGroupNumMinLimit) ));            // localSizeMaxLimit_3
+                min ( min(CPU_MAX_WORK_GROUP_SIZE, globalGroupSizeX),                                       // localSizeMaxLimit_1
+                min ( CPU_DEV_MAX_WG_PRIVATE_SIZE / (kernelPrivateMemSize > 0 ? kernelPrivateMemSize : 1),  // localSizeMaxLimit_2
+                      max(1, globalGroupSizeX / workGroupNumMinLimit) ));                                   // localSizeMaxLimit_3
 
             unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
             assert( minMultiplyFactor && (minMultiplyFactor & (minMultiplyFactor-1)) == 0 &&

@@ -236,8 +236,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     // Private memory size contains the max size between
     // the needed size for scalar and needed size for vectorized versions.
     unsigned int privateMemorySize = std::max<unsigned int>(scalarBufferStride, vectorBufferStride);
-    // TODO: This is workaround till the SDK hanlde case of zero private memory size!
-    privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, privateMemorySize));
+    privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(privateMemorySize);
 
     KernelProperties* pProps = new KernelProperties();
 
