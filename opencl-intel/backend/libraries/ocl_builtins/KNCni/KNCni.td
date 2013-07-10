@@ -331,58 +331,6 @@ class KNC : Generic {
     #include "generic-builtin-defines.h"
     #include "knc-builtin-defines.h"
     #include "mic_dev_limits.h"
-
-    int16 __attribute__((const)) __attribute__((overloadable)) __ocl_divide(int16 x, int16 y)
-    {
-      return as_int16(_mm512_div_epi32((__m512i)x, (__m512i)y));
-    } 
-
-    uint16 __attribute__((const)) __attribute__((overloadable)) __ocl_divide(uint16 x, uint16 y)
-    {
-      return as_uint16(_mm512_div_epu32((__m512i)x, (__m512i)y));
-    } 
-
-    long16 __attribute__((const)) __attribute__((overloadable)) __ocl_divide(long16 x, long16 y)
-    {
-      long16 ret;
-      ret.lo = as_long8(_mm512_div_epi64((__m512i)x.lo, (__m512i)y.lo));
-      ret.hi = as_long8(_mm512_div_epi64((__m512i)x.hi, (__m512i)y.hi));
-      return ret;
-    } 
-
-    ulong16 __attribute__((const)) __attribute__((overloadable)) __ocl_divide(ulong16 x, ulong16 y)
-    {
-      ulong16 ret;
-      ret.lo = as_ulong8(_mm512_div_epu64((__m512i)x.lo, (__m512i)y.lo));
-      ret.hi = as_ulong8(_mm512_div_epu64((__m512i)x.hi, (__m512i)y.hi));
-      return ret;
-    } 
-
-    int16 __attribute__((const)) __attribute__((overloadable)) __ocl_reminder(int16 x, int16 y)
-    {
-      return as_int16(_mm512_rem_epi32((__m512i)x, (__m512i)y));
-    } 
-
-    uint16 __attribute__((const)) __attribute__((overloadable)) __ocl_reminder(uint16 x, uint16 y)
-    {
-      return as_uint16(_mm512_rem_epu32((__m512i)x, (__m512i)y));
-    } 
-
-    long16 __attribute__((const)) __attribute__((overloadable)) __ocl_reminder(long16 x, long16 y)
-    {
-      long16 ret;
-      ret.lo = as_long8(_mm512_rem_epi64((__m512i)x.lo, (__m512i)y.lo));
-      ret.hi = as_long8(_mm512_rem_epi64((__m512i)x.hi, (__m512i)y.hi));
-      return ret;
-    } 
-
-    ulong16 __attribute__((const)) __attribute__((overloadable)) __ocl_reminder(ulong16 x, ulong16 y)
-    {
-      ulong16 ret;
-      ret.lo = as_ulong8(_mm512_rem_epu64((__m512i)x.lo, (__m512i)y.lo));
-      ret.hi = as_ulong8(_mm512_rem_epu64((__m512i)x.hi, (__m512i)y.hi));
-      return ret;
-    } 
   }];
 
   code Epilog = [{
