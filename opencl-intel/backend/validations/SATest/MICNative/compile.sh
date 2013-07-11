@@ -1,6 +1,6 @@
 #!/bin/sh
-SRC=$1
-OBJ=$2
+SRC=$2
+OBJ=$3
 
 # This is valid only for the current engineering ICC build. 
 # For the real ICC release you will need lines 10 and 13 to be uncommented and 11,14 - removed. 

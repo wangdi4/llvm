@@ -37,6 +37,7 @@ File Name:  MICCompiler.cpp
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Target/TargetMachine.h"
 #include "MICJITEngine/include/MICCodeGenerationEngine.h"
@@ -141,7 +142,13 @@ llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm:
     llvm::StringRef MArch   = "y86-64"; //TODO[MA]: check why we need to send this !
     llvm::SmallVector<std::string, 1> MAttrs(m_forcedCpuFeatures.begin(), m_forcedCpuFeatures.end());
 
-
+    Triple TTriple(MTriple);
+    // MIC device OS is always linux, no matter what the host is
+    if (TTriple.getOS() != Triple::Linux)
+    {
+        TTriple.setOS(Triple::Linux);
+        pRtlModule->setTargetTriple(TTriple.getTriple());
+    }
 
     const char* pMcpu    = m_CpuId.GetCPUName();
     if( NULL == pMcpu )

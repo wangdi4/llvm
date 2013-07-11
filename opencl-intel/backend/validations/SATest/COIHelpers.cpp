@@ -29,6 +29,10 @@ File Name:  COIHelpers.cpp
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif // _WIN32
+
 using namespace Validation;
 
 #define CHECK_COI_RESULT(_COIFUNC)                                                  \
@@ -69,17 +73,34 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
 {
     // SATEST_NATIVE_NAME contains only file name. In order to be able to load SATEST_NATIVE_NAME from arbitrary directory we make obtain we full path the SATEST_NATIVE_NAME.
     // Assume that SATEST_NATIVE_NAME is located in the same directory as SATest.
-    char path[PATH_MAX] = {0};
-    char simlink[] = "/proc/self/exe";
+
     std::string fullName(""), pathName("");
-    ssize_t size = readlink( simlink, path, PATH_MAX - 1);
-    if (size != -1)
+#ifdef _WIN32
     {
-        while(path[size-1] != '/') { --size;}
-        path[size] = '\0';
-        pathName = std::string(path);
-        fullName = pathName;
+        char path[MAX_PATH+1] = {0};
+        int size = GetModuleFileName(NULL, path, MAX_PATH+1);
+        if (size != 0) {
+            while(path[size-1] != '\\') { --size;}
+            path[size] = '\0';
+            pathName = std::string(path);
+            fullName = pathName;
+        }
     }
+#else // _WIN32
+    {
+        char path[PATH_MAX] = {0};
+        char simlink[] = "/proc/self/exe";
+        ssize_t size = readlink( simlink, path, PATH_MAX - 1);
+        if (size != -1)
+        {
+            while(path[size-1] != '/') { --size;}
+            path[size] = '\0';
+            pathName = std::string(path);
+            fullName = pathName;
+        }
+    }
+#endif // _WIN32
+
     // Remove executable name i.e. exctract path to the executable.
     fullName.append(SATEST_NATIVE_NAME);
     // Create a process on the MIC.
@@ -118,6 +139,7 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
         svmlFileName.c_str(),   // in_FileName
         NULL,                   // in_so-name if not exists in file
         svmlPath.c_str(),       // in_LibrarySearchPath
+        2,                      // in_Flags: use dlopen RTLD_NOW
         &m_library );
     if ((COI_SUCCESS != res) && (COI_ALREADY_EXISTS != res))
     {

@@ -50,10 +50,20 @@ endif (NOT WIN32)
 
 if (INCLUDE_MIC_DEVICE)
     if (KNC_CARD)
-        set( COI_DIR               /opt/intel/mic/coi )
-        add_library(../../external/vtune/libknc/jitprofiling.a STATIC IMPORTED)
+        if (WIN32)
+            set( COI_DIR           $ENV{INTEL_MPSS_HOST_SDK} )
+            set( COI_LIB_PATH           ${COI_DIR}/lib )
+            string ( REGEX REPLACE "[\\]$"  "" COI_DIR ${COI_DIR} )
+        else (WIN32)
+            set( COI_DIR               /opt/intel/mic/coi )
+            set( COI_LIB_PATH           ${COI_DIR}/host-linux-release/lib )
+            add_library(../../external/vtune/libknc/jitprofiling.a STATIC IMPORTED)
+        endif(WIN32)
     endif (KNC_CARD)
 endif (INCLUDE_MIC_DEVICE)
+
+add_definitions ( -DCOI_LIBRARY_VERSION=2 )
+
 
 if (WIN32)
     set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
@@ -187,7 +197,7 @@ if (INCLUDE_MIC_DEVICE)
     list (APPEND SATestMICDefs "SATEST_NATIVE_NAME=\"${SATEST_NATIVE_NAME}\"")
     list (APPEND SATestMICDefs "SVML_LIBRARY_PATH=NULL") # SATest will look SVML library in paths defined in SINK_LD_LIBRARY_PATH.
     include_directories(${COI_DIR}/include)
-    link_directories(${COI_DIR}/host-linux-release/lib)
+    link_directories(${COI_LIB_PATH})
     set( BACKEND_SDK_PATH_RELATIVE ../devices/mic_device/BackEnd_SDK )
     set( BACKEND_SDK_PATH       ${BACKEND_ROOT_DIR}/${BACKEND_SDK_PATH_RELATIVE} )
 endif (INCLUDE_MIC_DEVICE)
@@ -221,7 +231,7 @@ target_link_libraries(${TARGET_NAME}
 #if (NOT WIN32)
 #    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} OCLBuiltins_linux_exports.txt )
 #endif (NOT WIN32)
-	
+    
 if (INCLUDE_MIC_DEVICE)
     set_target_properties(${TARGET_NAME} PROPERTIES COMPILE_DEFINITIONS "${SATestMICDefs}")
     target_link_libraries(${TARGET_NAME} coi_host dynamic_load)
