@@ -30,7 +30,7 @@ public:
   /// @brief Search for a builtin function (used by scalarizer abd packetizer)
   /// @param inp_name Function name to look for
   virtual std::auto_ptr<VectorizerFunction>
-  findBuiltinFunction(std::string &inp_name) const;
+  findBuiltinFunction(StringRef inp_name) const;
 
   /// @brief DX is not ordered. WIAnalysis is not needed
   ///  since everything is assumed to be random.

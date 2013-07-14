@@ -12,8 +12,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <string>
 #include <set>
 
-
-
 namespace intel {
 
 /// @brief
@@ -41,7 +39,7 @@ public:
   /// @brief Search for a builtin function (used by scalarizer abd packetizer)
   /// @param inp_name Function name to look for
   virtual std::auto_ptr<VectorizerFunction>
-  findBuiltinFunction(std::string &inp_name) const;
+  findBuiltinFunction(StringRef inp_name) const;
 
   /// @brief OpenCL is an ordered programming language. WIAnalysis is needed
   /// @return True

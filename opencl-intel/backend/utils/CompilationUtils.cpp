@@ -502,7 +502,7 @@ static bool isMangleOf(const std::string& LHS, const std::string& RHS){
   const char*const LC = LHS.c_str();
   if (!isMangledName(LC))
     return false;
-  return stripName(LC).str() == RHS;
+  return stripName(LC) == RHS;
 }
 
 bool CompilationUtils::isGetWorkDim(const std::string& S){

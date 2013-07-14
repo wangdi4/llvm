@@ -19,8 +19,9 @@ Function* DXRuntime::findInRuntimeModule(StringRef Name) const {
 }
 
 std::auto_ptr<VectorizerFunction>
-DXRuntime::findBuiltinFunction(std::string &inp_name) const {
-  funcEntry fe = m_vfh.findFunctionInHash(inp_name);
+DXRuntime::findBuiltinFunction(StringRef inp_name) const {
+  std::string strName = inp_name.str();
+  funcEntry fe = m_vfh.findFunctionInHash(strName);
   return std::auto_ptr<VectorizerFunction>(new funcEntry(fe));
 }
 

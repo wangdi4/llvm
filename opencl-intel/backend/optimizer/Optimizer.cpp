@@ -189,6 +189,7 @@ Optimizer::~Optimizer()
 Optimizer::Optimizer( llvm::Module* pModule,
                       llvm::Module* pRtlModule,
                       const intel::OptimizerConfig* pConfig):
+    m_funcPasses(pModule),
     m_pModule(pModule)
 {
   using namespace intel;
@@ -222,15 +223,11 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
 // Materializing the spir datalayout according to the triple.
   materializeSpirDataLayout(*pModule);
-
 // Adding function passes.
 #if LLVM_VERSION == 3200
   m_funcPasses.add(new llvm::DataLayout(pModule));
 #else
   m_funcPasses.add(new llvm::TargetData(pModule));
-#endif
-#ifndef __APPLE__
-  m_funcPasses.add(createSpirMaterializer());
 #endif
   createStandardVolcanoFunctionPasses(&m_funcPasses, uiOptLevel);
 
@@ -478,7 +475,11 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
 void Optimizer::Optimize()
 {
-    m_funcPasses.run(*m_pModule);
+    std::auto_ptr<llvm::ModulePass> materizlier(createSpirMaterializer());
+    materizlier->runOnModule(*m_pModule);
+    for (llvm::Module::iterator i = m_pModule->begin(), e = m_pModule->end(); i != e; ++i) {
+        m_funcPasses.run(*i);
+    }
     m_modulePasses.run(*m_pModule);
 }
 

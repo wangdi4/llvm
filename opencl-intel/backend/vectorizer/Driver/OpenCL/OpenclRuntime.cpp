@@ -163,7 +163,7 @@ Function * OpenclRuntime::findInRuntimeModule(StringRef Name) const {
 }
 
 std::auto_ptr<VectorizerFunction>
-OpenclRuntime::findBuiltinFunction(std::string &mangledName) const {
+OpenclRuntime::findBuiltinFunction(StringRef mangledName) const {
   std::auto_ptr<VectorizerFunction> ret(new OpenClVFunction(mangledName));
   return ret;
 }

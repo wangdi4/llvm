@@ -201,6 +201,23 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //arrays of vector width
   VWidthArray arrNonScalars(vwidths+1, (sizeof(vwidths)/sizeof(width::V))-1);
   VWidthArray arrAllWidth(vwidths);
+  //
+  // Adding WI and memory functions which accept a single unit.
+  //
+  {
+    llvm::StringRef names[] = {
+      "get_global_id", "get_global_size", "get_local_size", "get_local_id",
+      "get_num_groups", "get_group_id", "get_global_offset", "barrier",
+      "mem_fence", "read_mem_fence", "write_mem_fence"
+    };
+    addExceptionToScalar(StringArray(names), PRIMITIVE_UINT, &m_nullStrategy);
+  }
+  {
+    reflection::FunctionDescriptor fdWorkDim;
+    fdWorkDim.name = "get_work_dim";
+    PairSW key = std::make_pair(mangle(fdWorkDim), width::SCALAR);
+    m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
+  }
   //adding the 'ambiguous scalar' builtin functions
   //
   //fmin/fmax
@@ -361,6 +378,33 @@ void BuiltinKeeper::initHardCodeStrategy(){
       m_exceptionsMap.insert(std::make_pair(key, &m_hardCodedStrategy));
     } while(pairs.next());
   }
+}
+
+void BuiltinKeeper::addExceptionToScalar (const StringArray& names,
+  TypePrimitiveEnum ty, VersionStrategy *s) {
+  width::V vwidths[] = {width::SCALAR};
+  VWidthArray arrAllWidth(vwidths);
+  Cartesian<llvm::ArrayRef, llvm::StringRef, TypePrimitiveEnum> namesXTy(
+    names, PrimitiveArray(ty));
+  do {
+    // Building a function descriptor, to acquire the mangled name.
+    reflection::FunctionDescriptor fd;
+    std::pair<llvm::StringRef,TypePrimitiveEnum> current = namesXTy.get();
+    fd.name = current.first.str();
+    fd.parameters.push_back(RefParamType(new PrimitiveType(current.second)));
+    std::string mangledName = mangle(fd);
+    llvm::StringRef refMangledName(mangledName);
+
+    // Building the key for the exception map (mangled string, width).
+    StringArray arrMangledNames(refMangledName);
+    Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> keys(arrMangledNames,
+      arrAllWidth);
+    do {
+      PairSW key(keys.get());
+      m_exceptionsMap.insert(std::make_pair(key, s));
+    } while(keys.next());
+
+  } while(namesXTy.next());
 }
 
 void BuiltinKeeper::addConversionGroup (const StringArray& names,
@@ -654,11 +698,6 @@ private:
   BuiltinMap::MapRange& m_range;
 };
 
-static bool isOverloaded(const std::string& name){
-  const std::string prefix = "_Z";
-  return prefix == name.substr(0, prefix.length());
-}
-
 bool BuiltinKeeper::isInExceptionMap(const std::string& name)const{
   reflection::width::V allWidth[] = {width::SCALAR, width::TWO, width::FOUR,
     width::EIGHT, width::SIXTEEN, width::THREE};
@@ -675,17 +714,21 @@ bool BuiltinKeeper::isInExceptionMap(const std::string& name)const{
 bool BuiltinKeeper::isBuiltin(const std::string& mangledString)const{
   if (mangledString.empty())
     return false;
-  bool isBi = isInExceptionMap(mangledString);
-  if ( !isOverloaded(mangledString) )
-    return isBi;
+
+  if (isInExceptionMap(mangledString))
+    return true;
+
   //we need to execute isBuiltin(FunctionDescriptor) whenever the function
   //isn't overloaded, since it has a side effect
-  return isBuiltin (demangle(mangledString.c_str())) || isBi;
+  return isBuiltin (demangle(mangledString.c_str()));
 }
 
 #include "BuiltinList.h"
 
 bool BuiltinKeeper::isBuiltin(const FunctionDescriptor& fd)const{
+  if (fd.isNull())
+    return false;
+
   BuiltinMap::MapRange mr = m_descriptorsMap.equalRange(fd.name);
   RangeUtil range(mr);
   //is cache line present?
@@ -728,11 +771,18 @@ PairSW BuiltinKeeper::getVersion(const std::string& name, width::V w) const {
   if (!isBuiltin(name)){
     return nullPair();
   }
-  //now the entire set of overloads is in the cache
+
+  // Now there are two alternatives:
+  //  1. The entire overload set is in the cache.
+  //  2. The given string is in the exception map, but associated to a different
+  //  width.
   FunctionDescriptor original = demangle(name.c_str());
   BuiltinMap::MapRange mr = m_descriptorsMap.equalRange(original.name);
   RangeUtil range(mr);
-  assert(!range.isEmpty() && "cache error: range is empty.");
+
+  // Option (2)... (the string is in the cache, but with a different width).
+  if (range.isEmpty())
+    return nullPair();
   do{
     const FunctionDescriptor candidate = range.getDescriptor();
     //we check that the candidate is in the right width, and that its parameters
