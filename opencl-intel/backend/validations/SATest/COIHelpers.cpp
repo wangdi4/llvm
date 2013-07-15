@@ -28,6 +28,9 @@ File Name:  COIHelpers.cpp
 #define DEBUG_TYPE "COIHelpers"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Path.h"
+
+#define MAX_EXE_PATH 512
 
 #ifdef _WIN32
 #include <windows.h>
@@ -75,31 +78,14 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
     // Assume that SATEST_NATIVE_NAME is located in the same directory as SATest.
 
     std::string fullName(""), pathName("");
-#ifdef _WIN32
+    char argv0[MAX_EXE_PATH];
+    size_t addr = 0;
+    llvm::SmallString<MAX_EXE_PATH> fileName;
+    fileName = llvm::sys::path::parent_path(llvm::sys::Path::GetMainExecutable(argv0, &addr).str());
+    if(!fileName.empty())
     {
-        char path[MAX_PATH+1] = {0};
-        int size = GetModuleFileName(NULL, path, MAX_PATH+1);
-        if (size != 0) {
-            while(path[size-1] != '\\') { --size;}
-            path[size] = '\0';
-            pathName = std::string(path);
-            fullName = pathName;
-        }
+        pathName = fullName = fileName.str();
     }
-#else // _WIN32
-    {
-        char path[PATH_MAX] = {0};
-        char simlink[] = "/proc/self/exe";
-        ssize_t size = readlink( simlink, path, PATH_MAX - 1);
-        if (size != -1)
-        {
-            while(path[size-1] != '/') { --size;}
-            path[size] = '\0';
-            pathName = std::string(path);
-            fullName = pathName;
-        }
-    }
-#endif // _WIN32
 
     // Remove executable name i.e. exctract path to the executable.
     fullName.append(SATEST_NATIVE_NAME);
