@@ -16,6 +16,8 @@ def get_local_id              : REF_OclBuiltin<"get_local_id",            (outs 
 def get_num_groups            : REF_OclBuiltin<"get_num_groups",          (outs size_t:$ret), (ins gentype:$x), [], [], TemplateAttr< [] > >;
 def get_group_id              : REF_OclBuiltin<"get_group_id",            (outs size_t:$ret), (ins gentype:$x), [], [], TemplateAttr< [] > >;
 def get_global_offset         : REF_OclBuiltin<"get_global_offset",       (outs size_t:$ret), (ins gentype:$x), [], [], TemplateAttr< [] > >;
+def get_global_linear_id      : REF_OclBuiltin<"get_global_linear_id",    (outs size_t:$ret), (ins), [], [], TemplateAttr< [] > >;
+def get_local_linear_id       : REF_OclBuiltin<"get_local_linear_id",     (outs size_t:$ret), (ins), [], [], TemplateAttr< [] > >;
 }
 
 class Generic {
@@ -184,7 +186,7 @@ GenericValue lle_X_get_global_offset(FunctionType *FT,
   return gv;
 }
 
-llvm::GenericValue lle_X_get_global_linear_id_impl(llvm::FunctionType *FT,
+llvm::GenericValue lle_X_get_global_linear_id(llvm::FunctionType *FT,
                          const std::vector<llvm::GenericValue> &Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
@@ -195,7 +197,7 @@ llvm::GenericValue lle_X_get_global_linear_id_impl(llvm::FunctionType *FT,
   return gv;
 }
 
-llvm::GenericValue lle_X_get_local_linear_id_impl(llvm::FunctionType *FT,
+llvm::GenericValue lle_X_get_local_linear_id(llvm::FunctionType *FT,
                          const std::vector<llvm::GenericValue> &Args) {
   IWorkItemBuiltins * pI = WorkItemInterfaceSetter::inst()->GetWorkItemInterface();
   GenericValue gv;
@@ -226,9 +228,7 @@ llvm::GenericValue lle_X_get_enqueued_local_size(llvm::FunctionType *FT,
 
 extern "C" {
 BUILTINS_API void initOCLBuiltinsWorkItem() {return;}
-BUILTINS_API llvm::GenericValue lle_X_get_global_linear_id( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_get_global_linear_id_impl(FT,Args);}
-BUILTINS_API llvm::GenericValue lle_X_get_local_linear_id( llvm::FunctionType *FT, const std::vector<llvm::GenericValue> &Args) { return lle_X_get_local_linear_id_impl(FT,Args);}
-  }];
+}];
   
   code Epilog = [{
 

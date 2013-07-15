@@ -50,20 +50,9 @@ namespace Validation{
         reflection::RefParamType SizeTTy(new reflection::PrimitiveType(reflection::PRIMITIVE_ULONG));
 #endif
         reflection::RefParamType pSizeTTy(new reflection::PointerType(SizeTTy));
-        //work_group_all
-        {
-            reflection::FunctionDescriptor fd;
-            fd.name = "work_group_all";
-            fd.parameters.push_back(IntTy);
-            this->m_MangledNames.insert(WGBuiltinsNamesDesc(fd.name, fd));
-        }
-        //work_group_all
-        {
-            reflection::FunctionDescriptor fd;
-            fd.name = "work_group_any";
-            fd.parameters.push_back(IntTy);
-            this->m_MangledNames.insert(WGBuiltinsNamesDesc(fd.name, fd));
-        }
+
+        ONE_ARG_FUNCTION(work_group_all, IntTy)
+        ONE_ARG_FUNCTION(work_group_any, IntTy)
         //work_group_broadcast(gentype, size_t)
         TWO_ARG_FUNTION(work_group_broadcast_1D, HalfTy, SizeTTy)
         TWO_ARG_FUNTION(work_group_broadcast_1D, IntTy, SizeTTy)

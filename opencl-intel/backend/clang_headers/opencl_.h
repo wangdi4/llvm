@@ -13268,20 +13268,20 @@ ulong16 const_func __attribute__((overloadable)) ctz(ulong16 x);
  * returns 1.
  * For clEnqueueTask, this always returns 1.
  */
-size_t get_enqueued_local_size(uint dimindx);
+size_t const_func __attribute__((overloadable)) get_enqueued_local_size(uint dimindx);
 
 /**
  * Returns the work-items 1-dimensional global ID. For
  * 1D work-groups, it is the same value as
  * get_global_id(0).
  */
-size_t get_global_linear_id(void);
+size_t const_func __attribute__((overloadable)) get_global_linear_id(void);
 
 /**
  * Returns the work-items 1-dimensional local ID. For 1D
  * work-groups, it is the same value as get_local_id(0).
  */
-size_t get_local_linear_id(void);
+size_t const_func __attribute__((overloadable)) get_local_linear_id(void);
 
 
 //work group funtions
@@ -13292,7 +13292,7 @@ size_t get_local_linear_id(void);
  * predicate evaluates to non-zero for all workitems
  * in the work-group.
  */
-int const_func work_group_all(int predicate);
+int const_func __attribute__((overloadable)) work_group_all(int predicate);
 
 /**
  * Evaluates predicate for all work-items in the
@@ -13300,7 +13300,7 @@ int const_func work_group_all(int predicate);
  * predicate evaluates to non-zero for any workitems
  * in the work-group.
  */
-int const_func work_group_any(int predicate);
+int const_func __attribute__((overloadable)) work_group_any(int predicate);
 
 /**
  * Broadcast function
