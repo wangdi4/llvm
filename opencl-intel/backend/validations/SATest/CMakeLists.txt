@@ -110,13 +110,13 @@ include_directories(
     ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
     ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
     ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+    ${VALIDATIONS_ROOT}/ProgramConfiguration
 )
 
 set (TARGET_HEADER_FILES
     IRunnerFactory.h
     IProgram.h
     IProgramRunner.h
-    IProgramConfiguration.h
     IRunConfiguration.h
     IRunResult.h
     IRunResultComparator.h
@@ -124,7 +124,6 @@ set (TARGET_HEADER_FILES
     OpenCLProgram.h
     OpenCLReferenceRunner.h
     OpenCLRunConfiguration.h
-    OpenCLProgramConfiguration.h
     OpenCLBackendWrapper.h
     OpenCLComparator.h
     RunResult.h
@@ -138,7 +137,6 @@ set (TARGET_HEADER_FILES
     DXreferenceRunner.h
     DXFactory.h
     DXRunConfiguration.h
-    DXProgramConfiguration.h
     WorkItemStorage.h
     WorkGroupStorage.h
     OpenCLArgsBuffer.h
@@ -164,11 +162,9 @@ set (TARGET_SOURCE_FILES
     DXRunConfiguration.cpp
     DXProgram.cpp
     DXProgramRunner.cpp
-    DXProgramConfiguration.cpp
     OpenCLProgram.cpp
     OpenCLReferenceRunner.cpp
     OpenCLRunConfiguration.cpp
-    OpenCLProgramConfiguration.cpp
     OpenCLBackendWrapper.cpp
     OpenCLComparator.cpp
     OpenCLArgsBuffer.cpp
@@ -225,6 +221,7 @@ target_link_libraries(${TARGET_NAME}
     tinyxml_STL
     ImathLibd
     cl_sys_utils
+    ProgramConfiguration
     ${LLVM_MODULE_LIBS}
     )
 
@@ -252,7 +249,10 @@ if( NOT WIN32)
         )
 endif ()
 
-add_dependencies( ${TARGET_NAME} cl_sys_utils)
+add_dependencies( ${TARGET_NAME}
+    cl_sys_utils
+    ProgramConfiguration
+    )
 
 if (INCLUDE_MIC_DEVICE)
     add_subdirectory(MICNative)
