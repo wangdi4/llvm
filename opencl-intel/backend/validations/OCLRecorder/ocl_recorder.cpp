@@ -26,6 +26,7 @@ File Name:  ocl_recorder.cpp
 #include "llvm/Support/MutexGuard.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Argument.h"
 #include "llvm/Function.h"
 #include "llvm/DerivedTypes.h"
@@ -911,10 +912,19 @@ namespace Validation
                 llvm::SmallString<MAX_LOG_PATH> logpath = (NULL == sz_logdir) ?
                   llvm::StringRef(llvm::sys::Path::GetCurrentDirectory().c_str()):
                   llvm::StringRef(llvm::sys::Path(sz_logdir).c_str());
-                std::string prefix = (NULL == sz_dumpprefix) ? std::string(Validation::FILE_PREFIX)
+
+                char argv0[MAX_LOG_PATH];
+                size_t addr = 0;
+                llvm::SmallString<MAX_LOG_PATH> fileName;
+                fileName = llvm::sys::path::stem(llvm::sys::Path::GetMainExecutable(argv0, &addr).str());
+                if(fileName.empty())
+                {
+                    fileName = (NULL == sz_dumpprefix) ? std::string(Validation::FILE_PREFIX)
                                                          : sz_dumpprefix;
+                }
+
                 llvm::sys::fs::make_absolute(logpath);
-                pOclRecorder = new OCLRecorder(std::string(logpath.c_str()), prefix);
+                pOclRecorder = new OCLRecorder(std::string(logpath.c_str()), fileName.str());
             }
             assignSourceRecorder();
             return pOclRecorder;
