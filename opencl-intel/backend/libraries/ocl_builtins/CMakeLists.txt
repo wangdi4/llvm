@@ -178,7 +178,7 @@ if(INCLUDE_MIC_DEVICE)
 endif(INCLUDE_MIC_DEVICE)
 
 set (CLANG_COMPILER_PARAMS 
-  -cc1 -triple ${TRIPLE} -emit-llvm-bc -O3 -opencl-builtins -fwrapv
+  -cc1 -triple ${TRIPLE} -emit-llvm-bc -O3 -fwrapv
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h )
   
 if (PLATFORM EQUAL Win32)

@@ -11,7 +11,6 @@ code Prolog = [{
     #define ALIGN32 __attribute__((aligned(32)))
 
     #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-    #pragma OPENCL EXTENSION cl_khr_fp16 : enable
     #define __OPENCL__
     #ifdef __APPLE__
       #include <immintrin.h>

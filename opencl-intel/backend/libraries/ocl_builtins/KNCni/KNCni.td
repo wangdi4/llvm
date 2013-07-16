@@ -323,7 +323,6 @@ class KNC : Generic {
     #if defined (__MIC__) || defined(__MIC2__)
 
     #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-    #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 
     #define __OPENCL__
     #include <intrin.h>
