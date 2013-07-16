@@ -1314,36 +1314,7 @@ internal::CartesianProductHolder8<Generator1, Generator2, Generator3,
       g1, g2, g3, g4, g5, g6, g7, g8);
 }
 
-template <typename Generator1, typename Generator2, typename Generator3,
-    typename Generator4, typename Generator5, typename Generator6,
-    typename Generator7, typename Generator8, typename Generator9>
-internal::CartesianProductHolder9<Generator1, Generator2, Generator3,
-    Generator4, Generator5, Generator6, Generator7, Generator8,
-    Generator9> Combine(
-    const Generator1& g1, const Generator2& g2, const Generator3& g3,
-        const Generator4& g4, const Generator5& g5, const Generator6& g6,
-        const Generator7& g7, const Generator8& g8, const Generator9& g9) {
-  return internal::CartesianProductHolder9<Generator1, Generator2, Generator3,
-      Generator4, Generator5, Generator6, Generator7, Generator8, Generator9>(
-      g1, g2, g3, g4, g5, g6, g7, g8, g9);
-}
 
-template <typename Generator1, typename Generator2, typename Generator3,
-    typename Generator4, typename Generator5, typename Generator6,
-    typename Generator7, typename Generator8, typename Generator9,
-    typename Generator10>
-internal::CartesianProductHolder10<Generator1, Generator2, Generator3,
-    Generator4, Generator5, Generator6, Generator7, Generator8, Generator9,
-    Generator10> Combine(
-    const Generator1& g1, const Generator2& g2, const Generator3& g3,
-        const Generator4& g4, const Generator5& g5, const Generator6& g6,
-        const Generator7& g7, const Generator8& g8, const Generator9& g9,
-        const Generator10& g10) {
-  return internal::CartesianProductHolder10<Generator1, Generator2, Generator3,
-      Generator4, Generator5, Generator6, Generator7, Generator8, Generator9,
-      Generator10>(
-      g1, g2, g3, g4, g5, g6, g7, g8, g9, g10);
-}
 #endif  // GTEST_HAS_COMBINE
 
 
