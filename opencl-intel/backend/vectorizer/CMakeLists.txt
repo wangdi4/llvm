@@ -152,6 +152,7 @@ target_link_libraries(
 add_dependencies(${TARGET_NAME} metadataapi)
 
 set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})
 
 if(APPLE)
   file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})

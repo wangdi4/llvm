@@ -49,6 +49,8 @@ endif ()
 
 add_dependencies(${TARGET_NAME} metadataapi)
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
+
 if( CMAKE_CROSSCOMPILING )
     add_custom_target( oclopt_native ALL
       COMMAND make oclopt

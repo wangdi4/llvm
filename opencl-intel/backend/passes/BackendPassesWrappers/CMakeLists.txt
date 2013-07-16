@@ -38,3 +38,5 @@ target_link_libraries(${TARGET_NAME}
 add_dependencies(${TARGET_NAME}
     ${WRAPPER_BACKEND_PASSES}
 )
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})

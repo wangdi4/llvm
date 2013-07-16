@@ -94,7 +94,7 @@ endif()
 if (INCLUDE_TOOLS)
     FIND_PACKAGE(Boost 1.52.0 REQUIRED)
 endif(INCLUDE_TOOLS)
-#PRINT_TOOLS()
+PRINT_TOOLS()
 
 # Project-wise options
 option(SVN_REVISIONS "Make package version from svn revision"  ON)

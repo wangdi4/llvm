@@ -1,7 +1,6 @@
 # Create the passes seperate projects
 use_rtti( FALSE )
 
-set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 
 add_subdirectory(AddImplicitArgs)
 add_subdirectory(BuiltInFuncImport)

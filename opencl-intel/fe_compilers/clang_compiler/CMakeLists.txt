@@ -4,8 +4,53 @@
 #  OCL_BINARY_DIR    - points to the directory outside of OCL_SOURCE_DIR - root of generated files
 #
 
+add_subdirectory( CLElfLib  )
+
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
+
+set(TARGET_INCLUDE_FILES
+    clang_compiler.h
+    clang_device_info.h
+    clang_driver.h
+    os_inc.h
+    resource.h
+    stdafx.h
+    targetver.h
+    tc_common.h
+    translation_chain.h
+    translation_controller.h
+    TranslationBlock.h
+    translator.h
+)
+
+set(TARGET_SOURCE_FILES
+    clang_compiler.cpp
+    clang_driver.cpp
+    stdafx.cpp
+    translation_chain.cpp
+    translation_controller.cpp
+    translator.cpp
+    clang_compiler.rc
+    OpenCL.rc
+)
+
+if (WIN32)
+    list( APPEND TARGET_SOURCE_FILES
+            dllmain_win32.cpp
+        )
+else()
+    list( APPEND TARGET_SOURCE_FILES
+            dllmain_linux.cpp
+        )
+endif()
+
+set( CMAKE_CXX_FLAGS_DEBUG
+  "${CMAKE_CXX_FLAGS_DEBUG} -D OCL_DEV_BACKEND_PLUGINS -D OCLFRONTEND_PLUGINS"
+)
+
+add_definitions( -D__STDC_LIMIT_MACROS )
+add_definitions( -D__STDC_CONSTANT_MACROS )
 
 include_directories( AFTER
             ${LLVM_INCLUDE_DIR}
@@ -15,8 +60,8 @@ include_directories( AFTER
             ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
             ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
             ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+            CLElfLib
             )
-
             
 if (NOT WIN32)
     set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
@@ -42,41 +87,35 @@ endif (WIN32)
 link_directories( 
             ${TBB_LIB_DIR}
             ${LLVM_LIBRARY_DIR}
-            )
+)
 
-set(FILES_TO_COPY 
-        ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} 
-        )
-            
-FIND_SOURCES()
-CALCULATE_TARGET_SOURCES()
-
-# add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
+add_library(${TARGET_NAME} SHARED 
+    ${TARGET_INCLUDE_FILES}
+    ${TARGET_SOURCE_FILES}
+)
 
 install(TARGETS ${TARGET_NAME} 
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
 
-#COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )
-#COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )
-
-if (NOT WIN32) 
-  list(APPEND LINK_LIBS
-        LLVMCppBackendCodeGen
-        LLVMCppBackendInfo
-      )
-endif (NOT WIN32)
-
-
+if (WIN32)
+target_link_libraries( ${TARGET_NAME} 
+                       task_executor${BUILD_PLATFORM}
+                       CLElfLib
+                       OclPluginManager
+                       metadataapi
+                       ${LLVM_MODULE_LIBS}
+)
+else() 
 # The list of clang libraries is taken from clang makefile
 # (build/tools/clang/tools/driver/CMakeFiles/clang.dir/build.make)
 # All duplicate libraries are there on purpose 
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       cl_sys_utils
                                       cl_logger
-                                      ${LINK_LIBS} 
+                                      LLVMCppBackendCodeGen
+                                      LLVMCppBackendInfo
                                       task_executor${BUILD_PLATFORM}
                                       clangFrontendTool
                                       clangAST
@@ -110,9 +149,12 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       clangLex
                                       clangBasic
                                       OclPluginManager
+                                      CLElfLib
                                       metadataapi
                                       ${LLVM_MODULE_LIBS}
                                       )
+endif()
+
 
 set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
 
@@ -121,12 +163,13 @@ if( ANDROID )
 endif( ANDROID )
 
 set( COMPILER_OPTIONS -cc1
-                                          ${TRIPLE}
+                      ${TRIPLE}
                       -x cl
                       -O0
                       -emit-pch 
                       -I ${OCL_CLANG_HEADERS}
-                      )
+)
+
 set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
 )
 
@@ -140,18 +183,20 @@ set( CLANG ${TOOL_BINARY_DIR}/clang )
 
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
-                    COMMAND ${CLANG} ${COMPILER_OPTIONS} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${COMPILER_OPTIONS} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     VERBATIM
-                   )
+)
+
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
                     COMMAND ${CLANG} ${COMPILER_OPTIONS} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     VERBATIM
-                   )
+)
+
 add_dependencies( ${TARGET_NAME}
-	clang
+    clang
 )
 
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
@@ -160,6 +205,9 @@ install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )
 
+#
+# Stripped PDB files 
+#
 if (WIN32)
     get_target_property(RT_OUTPUT_DIRECTORY ${TARGET_NAME} RUNTIME_OUTPUT_DIRECTORY)
     file(TO_NATIVE_PATH ${RT_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${TARGET_NAME}_stripped.pdb PDB_NAME)
@@ -181,10 +229,4 @@ else (WIN32)
     set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
 endif(WIN32)
 
-add_definitions( -D__STDC_LIMIT_MACROS )
-add_definitions( -D__STDC_CONSTANT_MACROS )
-
-set( CMAKE_CXX_FLAGS_DEBUG
-  "${CMAKE_CXX_FLAGS_DEBUG} -D OCL_DEV_BACKEND_PLUGINS -D OCLFRONTEND_PLUGINS"
-)
 

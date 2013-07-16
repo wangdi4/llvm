@@ -34,6 +34,8 @@ if( NOT WIN32)
     target_link_libraries(${TARGET_NAME} dl)
 endif ()
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
+
 if( CMAKE_CROSSCOMPILING )
     add_custom_target( ocloptimg_native ALL
       COMMAND make ocloptimg

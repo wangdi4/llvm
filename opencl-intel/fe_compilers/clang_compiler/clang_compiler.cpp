@@ -15,6 +15,9 @@
 #include "llvm/Module.h"
 #include "llvm/Metadata.h"
 #endif //OCLFRONTEND_PLUGINS
+#ifdef _WIN32
+#include "translation_controller.h"
+#endif
 
 #include <Logger.h>
 #include <cl_sys_defines.h>
@@ -74,29 +77,36 @@ using namespace Intel::OpenCL::FECompilerAPI;
 
 extern DECLARE_LOGGER_CLIENT;
 
+#ifdef _WIN32
+namespace TC
+{
+    CTranslationController* g_pTranslationController = NULL;
+}
+#else
 int InitClangDriver()
 {
-	INIT_LOGGER_CLIENT("ClangCompiler", LL_DEBUG);
-	LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - start"));
+    INIT_LOGGER_CLIENT("ClangCompiler", LL_DEBUG);
+    LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - start"));
 
-	llvm::InitializeAllTargets();
-	llvm::InitializeAllAsmPrinters();
-	llvm::InitializeAllAsmParsers();
-  llvm::InitializeAllTargetMCs();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllAsmPrinters();
+    llvm::InitializeAllAsmParsers();
+    llvm::InitializeAllTargetMCs();
 
-	LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - Finish"));
-	return 0;
+    LOG_INFO(TEXT("%s"), TEXT("Initialize ClangCompiler - Finish"));
+    return 0;
 }
+#endif
 
 int CloseClangDriver()
 {
-	llvm::llvm_shutdown();
+    llvm::llvm_shutdown();
 
-	LOG_INFO(TEXT("%s"), TEXT("Close ClangCompiler - done"));
+    LOG_INFO(TEXT("%s"), TEXT("Close ClangCompiler - done"));
 
-	RELEASE_LOGGER_CLIENT;
+    RELEASE_LOGGER_CLIENT;
 
-	return 0;
+    return 0;
 }
 
 Intel::OpenCL::Utils::AtomicCounter Intel::OpenCL::ClangFE::ClangFECompiler::s_llvmReferenceCount(0);
@@ -104,33 +114,45 @@ Intel::OpenCL::Utils::AtomicCounter Intel::OpenCL::ClangFE::ClangFECompiler::s_l
 // ClangFECompiler class implementation
 ClangFECompiler::ClangFECompiler(const void* pszDeviceInfo)
 {
-	long prev = s_llvmReferenceCount++;
-	if ( 0 == prev )
-	{
-		InitClangDriver();
-	}
+    long prev = s_llvmReferenceCount++;
+    if ( 0 == prev )
+    {
+#ifdef _WIN32
+        // Create the translation controller
+        TC::g_pTranslationController = TC::CTranslationController::Create();
+#else
+        InitClangDriver();
+#endif
+    }
 
-	CLANG_DEV_INFO *pDevInfo = (CLANG_DEV_INFO *)pszDeviceInfo;
+    CLANG_DEV_INFO *pDevInfo = (CLANG_DEV_INFO *)pszDeviceInfo;
 
-	memset(&m_sDeviceInfo, 0, sizeof(CLANG_DEV_INFO));
+    memset(&m_sDeviceInfo, 0, sizeof(CLANG_DEV_INFO));
 
-	m_sDeviceInfo.sExtensionStrings = STRDUP(pDevInfo->sExtensionStrings);
-	m_sDeviceInfo.bImageSupport     = pDevInfo->bImageSupport;
-	m_sDeviceInfo.bDoubleSupport    = pDevInfo->bDoubleSupport;
-	m_sDeviceInfo.bEnableSourceLevelProfiling = pDevInfo->bEnableSourceLevelProfiling;
+    m_sDeviceInfo.sExtensionStrings = STRDUP(pDevInfo->sExtensionStrings);
+    m_sDeviceInfo.bImageSupport     = pDevInfo->bImageSupport;
+    m_sDeviceInfo.bDoubleSupport    = pDevInfo->bDoubleSupport;
+    m_sDeviceInfo.bEnableSourceLevelProfiling = pDevInfo->bEnableSourceLevelProfiling;
 }
 
 ClangFECompiler::~ClangFECompiler()
 {
-	if ( NULL != m_sDeviceInfo.sExtensionStrings )
-	{
-		free((void *)m_sDeviceInfo.sExtensionStrings);
-	}
-	long prev = s_llvmReferenceCount--;
-	if ( 1 == prev )
-	{
-		CloseClangDriver();
-	}
+    if ( NULL != m_sDeviceInfo.sExtensionStrings )
+    {
+        free((void *)m_sDeviceInfo.sExtensionStrings);
+    }
+    long prev = s_llvmReferenceCount--;
+    if ( 1 == prev )
+    {
+#ifdef _WIN32
+        if( TC::g_pTranslationController )
+        {
+            TC::CTranslationController::Delete( TC::g_pTranslationController );
+        }
+#else
+        CloseClangDriver();
+#endif        
+    }
 }
 
 #ifdef OCLFRONTEND_PLUGINS
@@ -183,17 +205,17 @@ static Intel::OpenCL::Frontend::SourceFile createSourceFile(
 
 int ClangFECompiler::CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult)
 {
-	assert(NULL != pProgDesc);
-	assert(NULL != pBinaryResult);
-	// Create new compile task
-	ClangFECompilerCompileTask* pCompileTask = new ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo);
-	if ( NULL == pCompileTask )
-	{
-		*pBinaryResult = NULL;
-		return CL_OUT_OF_HOST_MEMORY;
-	}
+    assert(NULL != pProgDesc);
+    assert(NULL != pBinaryResult);
+    // Create new compile task
+    ClangFECompilerCompileTask* pCompileTask = new ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo);
+    if ( NULL == pCompileTask )
+    {
+        *pBinaryResult = NULL;
+        return CL_OUT_OF_HOST_MEMORY;
+    }
   cl_err_code ret = pCompileTask->Compile();
-	*pBinaryResult = pCompileTask;
+    *pBinaryResult = pCompileTask;
 #ifdef OCLFRONTEND_PLUGINS
   if (getenv("OCLBACKEND_PLUGINS") && NULL == getenv("OCL_DISABLE_SOURCE_RECORDER")){
     Intel::OpenCL::Frontend::CompileData compileData;
@@ -213,26 +235,26 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLF
     m_pluginManager.OnCompile(&compileData);
   }
 #endif //OCLFRONTEND_PLUGINS
-	return ret;
+    return ret;
 }
 
 int ClangFECompiler::LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc, 
                          Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult* *pBinaryResult)
 {
-  assert(NULL != pProgDesc);
-	assert(NULL != pBinaryResult);
+    assert(NULL != pProgDesc);
+    assert(NULL != pBinaryResult);
 
-	// Create new link task
-	ClangFECompilerLinkTask* pLinkTask = new ClangFECompilerLinkTask(pProgDesc);
-	if ( NULL == pLinkTask )
-	{
-		*pBinaryResult = NULL;
-		return CL_OUT_OF_HOST_MEMORY;
-	}
+    // Create new link task
+    ClangFECompilerLinkTask* pLinkTask = new ClangFECompilerLinkTask(pProgDesc);
+    if ( NULL == pLinkTask )
+    {
+        *pBinaryResult = NULL;
+        return CL_OUT_OF_HOST_MEMORY;
+    }
 
     cl_err_code ret = pLinkTask->Link();
-	*pBinaryResult = pLinkTask;
-	return ret;
+    *pBinaryResult = pLinkTask;
+    return ret;
 }
 
 int ClangFECompiler::GetKernelArgInfo(const void*       pBin, 
@@ -240,20 +262,20 @@ int ClangFECompiler::GetKernelArgInfo(const void*       pBin,
                                       FEKernelArgInfo*  *pArgInfo)
 {
     assert(NULL != pBin);
-	assert(NULL != szKernelName);
+    assert(NULL != szKernelName);
     assert(NULL != pArgInfo);
 
-	// Create new GetKernelArgInfo task
-	ClangFECompilerGetKernelArgInfoTask* pGetKernelArgInfoTask = new ClangFECompilerGetKernelArgInfoTask();
-	if ( NULL == pGetKernelArgInfoTask )
-	{
-		*pArgInfo = NULL;
-		return CL_OUT_OF_HOST_MEMORY;
-	}
+    // Create new GetKernelArgInfo task
+    ClangFECompilerGetKernelArgInfoTask* pGetKernelArgInfoTask = new ClangFECompilerGetKernelArgInfoTask();
+    if ( NULL == pGetKernelArgInfoTask )
+    {
+        *pArgInfo = NULL;
+        return CL_OUT_OF_HOST_MEMORY;
+    }
 
     cl_err_code ret = pGetKernelArgInfoTask->GetKernelArgInfo(pBin, szKernelName);
-	*pArgInfo = pGetKernelArgInfoTask;
-	return ret;
+    *pArgInfo = pGetKernelArgInfoTask;
+    return ret;
 }
 
 bool ClangFECompiler::CheckCompileOptions(const char* szOptions, char** szUnrecognizedOptions)
@@ -268,16 +290,16 @@ bool ClangFECompiler::CheckLinkOptions(const char* szOptions, char** szUnrecogni
 
 extern "C" DLL_EXPORT int CreateFrontEndInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler)
 {
-	assert(NULL != pFECompiler);
+    assert(NULL != pFECompiler);
   assert(devInfoSize == sizeof(CLANG_DEV_INFO));
 
-	IOCLFECompiler* pNewCompiler = new ClangFECompiler(pDeviceInfo);
-	if ( NULL == pNewCompiler )
-	{
-		LOG_ERROR(TEXT("%S"), TEXT("Cann't allocate compiler instance"));
-		return CL_OUT_OF_HOST_MEMORY;
-	}
-	
-	*pFECompiler = pNewCompiler;
-	return CL_SUCCESS;
+    IOCLFECompiler* pNewCompiler = new ClangFECompiler(pDeviceInfo);
+    if ( NULL == pNewCompiler )
+    {
+        LOG_ERROR(TEXT("%S"), TEXT("Cann't allocate compiler instance"));
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    
+    *pFECompiler = pNewCompiler;
+    return CL_SUCCESS;
 }

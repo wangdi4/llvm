@@ -1,3 +1,4 @@
+// Copyright (c) 2006-2009 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -62,7 +63,16 @@
 #include "llvm/Transforms/IPO.h"
 #include "mic_dev_limits.h"
 
+#ifdef _WIN32
+#include "ElfWriter.h"
+#include "os_inc.h"
+#include "tc_common.h"
+#include "translator.h"
+#include "translation_controller.h"
+#endif
+
 #include "clang_driver.h"
+#include "mic_dev_limits.h"
 
 #include <Logger.h>
 #include <cl_sys_info.h>
@@ -80,6 +90,10 @@ using namespace llvm;
 using namespace clang;
 using namespace clang::frontend;
 using namespace Intel::OpenCL::Utils;
+
+#ifdef _WIN32
+using namespace TC;
+#endif
 
 using namespace std;
 
@@ -208,7 +222,7 @@ static vector<string> quoted_tokenize(string str, string delims, char quote, cha
 
 // ClangFECompilerCompileTask calls implementation
 ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
-																												Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo)
+                                                       Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo)
 : m_pProgDesc(pProgDesc), m_sDeviceInfo(sDeviceInfo), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
 {
   Twine t(g_uiProgID++);
@@ -242,7 +256,8 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
                         &Opt_Disable,
                         &Denorms_Are_Zeros,
                         &Fast_Relaxed_Math,
-                        &m_source_filename);
+                        &m_source_filename,
+                        &m_triple);
 
     // Add standard OpenCL options
 
@@ -359,6 +374,156 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 #endif
 }
 
+void *ClangFECompilerCompileTask::LoadPchResourceBuffer ()
+{
+#ifdef PASS_PCH
+  //prepare pch buffer
+  HMODULE hMod = NULL;
+  HRSRC hRes = NULL;
+  HGLOBAL hBytes = NULL;
+  char *pData = NULL;
+  size_t dResSize = NULL;
+  llvm::MemoryBuffer *pchBuff = NULL;
+
+#if defined (_WIN32)
+#if defined (_M_X64)
+  static const char* sFEModuleName = "clang_compiler64";
+#else
+  static const char* sFEModuleName = "clang_compiler32";
+#endif
+#else
+  static const char* sFEModuleName = "clang_compiler";
+#endif
+
+  // Get the handle to the current module
+  GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
+                    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
+                    sFEModuleName,
+                    &hMod);
+
+  // Locate the resource
+  if( NULL != hMod )
+  {
+    hRes = FindResource(hMod, "#101", "PCH");
+  }
+  else
+  {
+    LOG_ERROR(TEXT("%s"), "hMod is NULL");
+  }
+
+  // Load the resource
+  if( NULL != hRes )
+  {
+    hBytes = LoadResource(hMod, hRes);
+  }
+  else
+  {
+    LOG_ERROR(TEXT("%s"), "hRes is NULL");
+  }
+
+  // Get the base address to the resource. This call doesn't really lock it
+  if( NULL != hBytes )
+  {
+    pData = (char *)LockResource(hBytes);
+  }
+  else
+  {
+    LOG_ERROR(TEXT("%s"), "hBytes is NULL");
+  }
+
+  // Get the buffer size
+  if( NULL != pData )
+  {
+    dResSize = SizeofResource(hMod, hRes);
+  }
+  else
+  {
+    LOG_ERROR(TEXT("%s"), "pData is NULL");
+  }
+
+  if( dResSize > 0 )
+  {
+    pchBuff = llvm::MemoryBuffer::getMemBufferCopy(StringRef(pData, dResSize));
+  }
+  else
+  {
+    LOG_ERROR(TEXT("%s"), "dResSize <= 0");
+  }
+#endif
+
+  return pchBuff;
+}
+
+int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType)
+{
+#ifdef _WIN32
+    if ( pOutputArgs->pErrorString )
+    {
+      m_pLogString = new char[strlen(pOutputArgs->pErrorString)+1];
+      if ( m_pLogString != NULL )
+      {
+        strcpy(m_pLogString, pOutputArgs->pErrorString);
+      }
+    }
+
+    size_t stTotSize = 0;
+    if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
+    {
+      stTotSize = pOutputArgs->OutputSize+
+        sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header);
+      m_pOutIR = new char[stTotSize];
+      if ( NULL == m_pOutIR )
+      {
+        LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
+        return CL_OUT_OF_HOST_MEMORY;
+      }
+    }
+
+    if ( NULL != m_pOutIR )
+    {
+      m_stOutIRSize = stTotSize;
+      cl_prog_container_header*    pHeader = (cl_prog_container_header*)m_pOutIR;
+      MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
+      pHeader->container_size = pOutputArgs->OutputSize+sizeof(cl_llvm_prog_header);
+      pHeader->container_type = CL_PROG_CNT_PRIVATE;
+      pHeader->description.bin_type = CL_PROG_BIN_COMPILED_LLVM;                            // = TB_DATA_FORMAT_LLVM_BINARY
+      pHeader->description.bin_ver_major = 1;
+      pHeader->description.bin_ver_minor = 1;
+      // Fill options
+      cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)(m_pOutIR+sizeof(cl_prog_container_header));
+      pProgHeader->bDebugInfo = OptDebugInfo;
+      pProgHeader->bProfiling = OptProfiling;
+      pProgHeader->bDisableOpt = Opt_Disable;
+      pProgHeader->bDenormsAreZero = Denorms_Are_Zeros;
+      pProgHeader->bFastRelaxedMath = Fast_Relaxed_Math;
+      pProgHeader->bEnableLinkOptions = true; // enable link options is true for all compiled objects
+
+      void *pIR = (void*)(pProgHeader+1);
+      // Copy IR
+      MEMCPY_S(pIR, pOutputArgs->OutputSize, pOutputArgs->pOutput, pOutputArgs->OutputSize);
+    }
+
+#endif
+    return CL_SUCCESS;
+}
+
+void ClangFECompilerCompileTask::ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs )
+{
+#ifdef _WIN32
+    if ( pOutputArgs->pErrorString )
+    {
+      m_pLogString = new char[strlen(pOutputArgs->pErrorString)+1];
+      if ( m_pLogString != NULL )
+      {
+        strcpy(m_pLogString, pOutputArgs->pErrorString);
+      }
+    }
+
+    m_stOutIRSize = 0;
+    m_pOutIR = NULL;
+#endif
+}
+
 int ClangFECompilerCompileTask::Compile()
 {
   LOG_INFO(TEXT("%s"), TEXT("enter"));
@@ -371,6 +536,160 @@ int ClangFECompilerCompileTask::Compile()
   ArgListType BEArgList;
 
   PrepareArgumentList(ArgList, BEArgList, m_pProgDesc->pszOptions);
+
+#ifdef _WIN32
+    cl_int retVal = CL_SUCCESS;
+    CLElfLib::CElfWriter* pElfWriter = NULL;
+    char *pCompileData = NULL;
+    cl_uint CompileDataSize = 0;
+    TC::STC_TranslateArgs TranslateArgs;
+    char *pCompileOptions;
+    cl_uint OptionsStrLen = 0;
+
+    // Calculate new options string size
+    ArgListType::iterator iter = ArgList.begin();
+    for(unsigned int i=0; i<ArgList.size(); i++)
+    {
+       OptionsStrLen += strlen(iter->c_str())+1;
+       iter++;
+    }
+
+    // Allocate the new options string and fill it
+    pCompileOptions = new char[OptionsStrLen+1];
+    if ( pCompileOptions )
+    {
+        pCompileOptions[0] = '\0';
+
+        iter = ArgList.begin();
+        for(unsigned int i=0; i<ArgList.size(); i++)
+        {
+            strcat(pCompileOptions, iter->c_str());
+            // If the string is "-D" or "-I" - it is not allowed to add a space
+            if( strcmp("-D", iter->c_str()) && strcmp("-I", iter->c_str()) )
+            {
+                strcat(pCompileOptions, " ");
+            }
+            iter++;
+        }
+    }
+    else {
+        retVal = CL_OUT_OF_HOST_MEMORY;
+    }
+
+    // Create the input ELF binary
+    pElfWriter = CLElfLib::CElfWriter::Create( 
+            CLElfLib::EH_TYPE_OPENCL_SOURCE, CLElfLib::EH_MACHINE_NONE, 0 );
+    llvm::MemoryBuffer *pchBuff = (llvm::MemoryBuffer *)LoadPchResourceBuffer();
+
+    if( pElfWriter != NULL)
+    {
+        CLElfLib::SSectionNode sectionNode;
+
+        // create main section
+        sectionNode.Name = "CLMain";
+        sectionNode.pData = (char *)m_pProgDesc->pProgramSource;
+        sectionNode.DataSize = strlen( m_pProgDesc->pProgramSource );
+        sectionNode.Flags = 0;
+        sectionNode.Type = CLElfLib::SH_TYPE_OPENCL_SOURCE;
+
+        // add main program's source
+        pElfWriter->AddSection( &sectionNode );
+
+        // add each header
+        for( UINT i = 0; i < m_pProgDesc->uiNumInputHeaders; i++ )
+        {
+            sectionNode.Name = m_pProgDesc->pszInputHeadersNames[i];
+            sectionNode.pData = (char *)m_pProgDesc->pInputHeaders[i];
+            sectionNode.DataSize = strlen( m_pProgDesc->pInputHeaders[i] );
+            sectionNode.Type  = CLElfLib::SH_TYPE_OPENCL_HEADER;
+            sectionNode.Flags = 0;
+
+            if( pElfWriter->AddSection( &sectionNode ) != CLElfLib::SUCCESS )
+            {
+                retVal = CL_OUT_OF_HOST_MEMORY;
+            }
+        }
+
+        if( retVal == CL_SUCCESS )
+        {
+            // create PCH section
+            if( NULL != pchBuff )
+            {
+                sectionNode.Name = "CLPCH";
+                sectionNode.pData = const_cast<char*>(pchBuff->getBufferStart());
+                sectionNode.DataSize = pchBuff->getBufferSize();
+                sectionNode.Flags = 0;
+                sectionNode.Type = CLElfLib::SH_TYPE_OPENCL_PCH;
+
+                if( pElfWriter->AddSection( &sectionNode ) != CLElfLib::SUCCESS )
+                {
+                    retVal = CL_OUT_OF_HOST_MEMORY;
+                }
+            }
+            else
+            {
+                retVal = CL_BUILD_PROGRAM_FAILURE;
+                LOG_ERROR(TEXT("%s"), "Failed to load pchBuff");
+            }
+        }
+
+        if( retVal == CL_SUCCESS )
+        {
+            TC::STB_TranslationCode code = { TC::TB_DATA_FORMAT_ELF, TC::TB_DATA_FORMAT_LLVM_BINARY };
+
+            // Get resolved compiled data size and allocate
+            if( pElfWriter->ResolveBinary( pCompileData, CompileDataSize ) == CLElfLib::SUCCESS )
+            {
+                if( CompileDataSize )
+                {
+                    pCompileData = new char[CompileDataSize];
+                }
+            }
+
+            if( ( CompileDataSize && pCompileData ) &&
+                ( pElfWriter->ResolveBinary( pCompileData, CompileDataSize ) == CLElfLib::SUCCESS ) )
+            {
+                // create unique data for new thread
+                TranslateArgs.pInput = pCompileData;
+                TranslateArgs.InputSize = CompileDataSize;
+                TranslateArgs.ChainType = TC::TC_CHAIN_COMPILE;
+                TranslateArgs.Code = code;
+                TranslateArgs.Options = pCompileOptions;
+                TranslateArgs.pTask = this;
+
+                retVal = TC::CTranslationController::ProcessTranslation( &TranslateArgs);
+            }
+            else
+            {
+                retVal = CL_OUT_OF_HOST_MEMORY;
+            }
+        }
+
+        if( CompileDataSize )
+        {
+            delete[] pCompileData;
+            pCompileData = NULL;
+        }
+
+        if ( pchBuff )
+        {
+            delete pchBuff;
+        }
+        CLElfLib::CElfWriter::Delete( pElfWriter );
+    }
+    else
+    {
+        retVal = CL_OUT_OF_HOST_MEMORY;
+    }
+
+    if( pCompileOptions )
+    {
+        delete[] pCompileOptions;
+        pCompileOptions = NULL;
+    }
+    LOG_INFO(TEXT("%s"), TEXT("Finished"));
+    return retVal;
+#else
 
   const char **argArray = new const char *[ArgList.size()];
   ArgListType::iterator iter = ArgList.begin();
@@ -613,6 +932,7 @@ int ClangFECompilerCompileTask::Compile()
     delete []argArray;
 
     return CL_SUCCESS;
+#endif
   }
 }
 
@@ -634,6 +954,76 @@ ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
     {
         delete []m_pLogString;
     }
+}
+
+int ClangFECompilerLinkTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType)
+{
+#ifdef _WIN32
+    if ( pOutputArgs->pErrorString )
+    {
+      m_pLogString = new char[strlen(pOutputArgs->pErrorString)+1];
+      if ( m_pLogString != NULL )
+      {
+        strcpy(m_pLogString, pOutputArgs->pErrorString);
+      }
+    }
+
+    m_stOutIRSize = 0;
+    if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
+    {
+      m_stOutIRSize = sizeof(cl_prog_container_header) + 
+                      sizeof(cl_llvm_prog_header) + 
+                      pOutputArgs->OutputSize;
+
+      m_pOutIR = new char[m_stOutIRSize];
+      if ( NULL == m_pOutIR )
+      {
+        LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
+        m_stOutIRSize = 0;
+        return CL_OUT_OF_HOST_MEMORY;
+      }
+    }
+
+    cl_prog_container_header* pHeader = (cl_prog_container_header*)m_pOutIR;
+    cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
+    char *pBinary = (char*)pProgHeader + sizeof(cl_llvm_prog_header);
+
+    MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
+    pHeader->container_size = pOutputArgs->OutputSize + sizeof(cl_llvm_prog_header);
+    pHeader->container_type = CL_PROG_CNT_PRIVATE;
+    pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;                            // = TB_DATA_FORMAT_LLVM_BINARY
+    pHeader->description.bin_ver_major = 1;
+    pHeader->description.bin_ver_minor = 1;
+
+    pProgHeader->bDebugInfo = bDebugInfoFlag;
+    pProgHeader->bProfiling = bProfilingFlag;
+    pProgHeader->bDenormsAreZero = bDenormsAreZeroFlag;
+    pProgHeader->bDisableOpt = bDisableOptFlag;
+    pProgHeader->bFastRelaxedMath = bFastRelaxedMathFlag;
+    pProgHeader->bEnableLinkOptions = bEnableLinkOptionsFlag;
+
+      // Copy IR
+    MEMCPY_S(pBinary, pOutputArgs->OutputSize, pOutputArgs->pOutput, pOutputArgs->OutputSize);
+
+    return CL_SUCCESS;
+#endif
+}
+
+void ClangFECompilerLinkTask::ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs )
+{
+#ifdef _WIN32
+    if ( pOutputArgs->pErrorString )
+    {
+      m_pLogString = new char[strlen(pOutputArgs->pErrorString)+1];
+      if ( m_pLogString != NULL )
+      {
+        strcpy(m_pLogString, pOutputArgs->pErrorString);
+      }
+    }
+
+    m_stOutIRSize = 0;
+    m_pOutIR = NULL;
+#endif
 }
 
 int ClangFECompilerLinkTask::Link()
@@ -745,6 +1135,117 @@ int ClangFECompilerLinkTask::Link()
 
     // We have more the one binary so we need to link
     
+#ifdef _WIN32
+    bool createLibrary = false;
+    cl_int retVal = CL_SUCCESS;
+    size_t uiBinarySize = 0;
+
+    // Create the input ELF binary
+    CLElfLib::CElfWriter* pElfWriter = CLElfLib::CElfWriter::Create( 
+        CLElfLib::EH_TYPE_OPENCL_OBJECTS, CLElfLib::EH_MACHINE_NONE, 0 );
+
+    if( pElfWriter )
+    {
+        CLElfLib::SSectionNode sectionNode;
+
+        createLibrary = ( m_pProgDesc->pszOptions && ( strstr( m_pProgDesc->pszOptions, "create-library" ) != NULL ) );
+
+        // add each input program
+        for( UINT i = 0; i < m_pProgDesc->uiNumBinaries; i++ )
+        {
+            size_t headerLength = sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
+
+            // Initialize the module with the first binary
+            cl_prog_container_header* pHeader = (cl_prog_container_header*) m_pProgDesc->pBinaryContainers[i];
+            cl_llvm_prog_header* pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
+
+            uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
+            
+             pBinary = (char*)pHeader + headerLength; // Skip the container and the build flags for now
+                  
+            if( ( pBinary != NULL ) )
+            {
+                // make sure we get the required data from the program
+                sectionNode.Name = "";
+                sectionNode.Type  = (pHeader->description.bin_type == CL_PROG_BIN_LINKED_LLVM) ? CLElfLib::SH_TYPE_OPENCL_LLVM_ARCHIVE : CLElfLib::SH_TYPE_OPENCL_LLVM_BINARY;
+                sectionNode.Flags = 0;
+                sectionNode.pData = pBinary;
+                sectionNode.DataSize = m_pProgDesc->puiBinariesSizes[i] - headerLength;
+
+                if( pElfWriter->AddSection( &sectionNode ) != CLElfLib::SUCCESS )
+                {
+                    retVal = CL_OUT_OF_HOST_MEMORY;
+                }
+            }
+            else
+            {
+                retVal = CL_INVALID_PROGRAM;
+            }
+        }
+    }
+    else
+    {
+        retVal = CL_OUT_OF_HOST_MEMORY;
+    }
+
+    if( retVal == CL_SUCCESS )
+    {
+        TC::TC_CHAIN_TYPE chainType;
+        TC::STB_TranslationCode code;
+        char *pLinkData = NULL;
+        cl_uint LinkDataSize;
+        TC::STC_TranslateArgs TranslateArgs;
+
+        code.InputType = TC::TB_DATA_FORMAT_ELF;
+
+        if( createLibrary )
+        {
+            chainType = TC::TC_CHAIN_LINK_LIB;
+            code.OutputType = TC::TB_DATA_FORMAT_LLVM_ARCHIVE;
+        }
+        else
+        {
+            chainType = TC::TC_CHAIN_CPU_LINK_EXE;
+            code.OutputType = TC::TB_DATA_FORMAT_LLVM_BINARY;
+        }
+
+        // Get resolved link data size and allocate
+        if( pElfWriter->ResolveBinary( pLinkData, LinkDataSize ) == CLElfLib::SUCCESS )
+        {
+            if( LinkDataSize )
+            {
+                pLinkData = new char[LinkDataSize];
+            }
+        }
+
+        if( ( LinkDataSize && pLinkData ) &&
+            ( pElfWriter->ResolveBinary( pLinkData, LinkDataSize ) == CLElfLib::SUCCESS ) )
+        {
+            // create unique data for new thread
+            TranslateArgs.pInput = pLinkData;
+            TranslateArgs.InputSize = LinkDataSize;
+            TranslateArgs.ChainType = chainType;
+            TranslateArgs.Code = code;
+            TranslateArgs.Options = m_pProgDesc->pszOptions;
+            TranslateArgs.pTask = this;
+
+            retVal = TC::CTranslationController::ProcessTranslation( &TranslateArgs );
+        }
+        else
+        {
+            retVal = CL_OUT_OF_HOST_MEMORY;
+        }
+
+        if( LinkDataSize )
+        {
+            delete[] pLinkData;
+            pLinkData = NULL;
+        }
+    }
+
+    CLElfLib::CElfWriter::Delete( pElfWriter );
+    return retVal;
+#else
     string ErrorMessage;
     LLVMContext &Context = getGlobalContext();
     size_t uiBinarySize = 0;
@@ -888,7 +1389,7 @@ int ClangFECompilerLinkTask::Link()
     pProgHeader->bEnableLinkOptions = bEnableLinkOptionsFlag;
 
     return CL_SUCCESS;
-
+#endif
   }
 }
 
@@ -1033,6 +1534,88 @@ ClangFECompilerGetKernelArgInfoTask::~ClangFECompilerGetKernelArgInfoTask()
     }
 }
 
+int ClangFECompilerGetKernelArgInfoTask::TranslateArgsInfoValues (STB_GetKernelArgsInfoArgs* pKernelArgsInfo)
+{
+    switch (pKernelArgsInfo->m_retValue)
+    {
+    case 0:
+        break;
+    case -1:
+        return CL_OUT_OF_HOST_MEMORY;
+    case -2:
+        return CL_FE_INTERNAL_ERROR_OHNO;
+    case -3:
+    default:
+        return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
+    }
+
+    this->m_numArgs = pKernelArgsInfo->m_numArgs;
+
+    m_argsInfo = new ARG_INFO[m_numArgs];
+    if (!m_argsInfo)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+        
+    for (unsigned int i = 1; i < pKernelArgsInfo->m_numArgs + 1; ++i)
+    {
+        // Since the arg info in the metadata have a string field before the operands
+        // Now we have an off by one that we need to compensate for
+        ARG_INFO &argInfo = m_argsInfo[i - 1];
+
+        // Adress qualifier
+        switch( pKernelArgsInfo->m_argsInfo[i - 1].adressQualifier )
+        {
+        case 0:
+            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
+            break;
+        case 1:
+            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
+            break;
+        case 2:
+            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
+            break;
+        case 3:
+            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
+            break;
+        }
+
+        // Access qualifier
+        switch( pKernelArgsInfo->m_argsInfo[i - 1].accessQualifier )
+        {
+        case 0:
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_READ_ONLY;
+            break;
+        case 1:
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
+            break;
+        case 2:
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_READ_WRITE;
+            break;
+        case 3:
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_NONE;
+            break;
+        }
+
+        // Type qualifier
+        if (pKernelArgsInfo->m_argsInfo[i - 1].typeQualifier & (1 << 0))
+        {
+            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
+        }
+        if (pKernelArgsInfo->m_argsInfo[i - 1].typeQualifier & (1 << 1))
+        {
+            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
+        }
+        if (pKernelArgsInfo->m_argsInfo[i - 1].typeQualifier & (1 << 2))
+        {
+            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
+        }
+
+    }
+
+    return CL_SUCCESS;
+}
+
 int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, const char *szKernelName)
 {
     OclAutoMutex CS(&s_serializingMutex);
@@ -1053,6 +1636,14 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
 
     MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
 
+    #ifdef _WIN32
+    if( pBin && TC::GetKernelArgsInfoPlugin )
+    {
+        struct STB_GetKernelArgsInfoArgs KernelArgsInfo;
+        TC::GetKernelArgsInfoPlugin(pBinBuff, szKernelName, &KernelArgsInfo);
+        return TranslateArgsInfoValues(&KernelArgsInfo);
+    }
+    #else
     llvm::Module* pModule = ParseIR(pBinBuff, Err, Context);
 
     if (NULL == pModule) 
@@ -1139,7 +1730,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     }    
 
     // all of the above must be valid
-	if ( !( pAddressQualifiers && pAccessQualifiers && pTypeNames && pTypeQualifiers && pArgNames ) ) {
+    if ( !( pAddressQualifiers && pAccessQualifiers && pTypeNames && pTypeQualifiers && pArgNames ) ) {
         assert(pAddressQualifiers && "pAddressQualifiers is NULL");
         assert(pAccessQualifiers && "pAccessQualifiers is NULL");
         assert(pTypeNames && "pTypeNames is NULL");
@@ -1147,7 +1738,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         assert(pArgNames && "pArgNames is NULL");
         delete pModule;
         return CL_FE_INTERNAL_ERROR_OHNO;
-	}
+    }
 
     m_numArgs = pAddressQualifiers->getNumOperands() - 1;
 
@@ -1201,7 +1792,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
 
         // Type qualifier
         llvm::MDString* pTypeQualifier = dyn_cast<llvm::MDString>(pTypeQualifiers->getOperand(i));
-        assert(pTypeQualifier && "pTypeQualifier is not a valid ConstantInt*");
+        assert(pTypeQualifier && "pTypeQualifier is not a valid MDString*");
         argInfo.typeQualifier = 0;
         if (pTypeQualifier->getString().find("const") != llvm::StringRef::npos)
         {
@@ -1245,6 +1836,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
 
     delete pModule;
     return CL_SUCCESS;
+    #endif
     }
 }
 
@@ -1269,7 +1861,8 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                                                  bool*        pbOptDisable,
                                                  bool*        pbDenormsAreZeros,
                                                  bool*        pbFastRelaxedMath,
-                                                 std::string* pszFileName)
+                                                 std::string* pszFileName,
+                                                 std::string* pszTriple)
 {
     // Reset options
     int  iCLStdSet = 0;
@@ -1279,6 +1872,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     bool bDenormsAreZeros = false;
     bool bFastRelaxedMath = false;
     std::string szFileName = "";
+    std::string szTriple = "";
     
     if (!szOptions)
         szOptions = "";
@@ -1401,6 +1995,13 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 UnrecognizedArgsLength += flag.length() + 1;
                 res = false;
                 continue;
+            }
+        }
+        else if (*opt_i == "-triple") {
+            // Expect the target triple as the next token
+            //
+            if (++opt_i != opts.end()) {
+                szTriple = *opt_i;
             }
         }
         else if (*opt_i == "-Werror") {
@@ -1549,6 +2150,11 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     if (pszFileName && !szFileName.empty())
     {
         *pszFileName = szFileName;
+    }
+
+    if (pszTriple)
+    {
+        *pszTriple = szTriple;
     }
 
     return res;

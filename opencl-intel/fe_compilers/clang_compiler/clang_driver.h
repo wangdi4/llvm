@@ -25,6 +25,7 @@
 #pragma once
 
 #include "clang_device_info.h"
+#include "TranslationBlock.h"
 #include <frontend_api.h>
 #include <cl_synch_objects.h>
 
@@ -42,35 +43,38 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         cl_kernel_arg_type_qualifier typeQualifier;
     };
 
-    typedef std::list<std::string> ArgListType;		
+    typedef std::list<std::string> ArgListType;        
 
     class ClangFETask
     {
     protected:
-		static Intel::OpenCL::Utils::OclMutex		s_serializingMutex;
+        static Intel::OpenCL::Utils::OclMutex        s_serializingMutex;
     };
 
     class ClangFECompilerCompileTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult, ClangFETask
-	{
-	public:
-		ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
-																Intel::OpenCL::ClangFE::CLANG_DEV_INFO pszDeviceInfo);
-		
-		int Compile();
+    {
+    public:
+        ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
+                                                                Intel::OpenCL::ClangFE::CLANG_DEV_INFO pszDeviceInfo);
+        
+        int Compile();
+        int StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType);
+        void ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs );
 
-		// IOCLFEBinaryResult
-		size_t	GetIRSize() {return m_stOutIRSize;}
-		const void*	GetIR() { return m_pOutIR;}
-		const char* GetErrorLog() {return m_pLogString;}
-		long Release() { delete this; return 0; }
+        // IOCLFEBinaryResult
+        size_t    GetIRSize() {return m_stOutIRSize;}
+        const void*    GetIR() { return m_pOutIR;}
+        const char* GetErrorLog() {return m_pLogString;}
+        long Release() { delete this; return 0; }
 
-	protected:
+    protected:
         virtual ~ClangFECompilerCompileTask();
 
         void PrepareArgumentList(ArgListType &list, ArgListType &BEArgList, const char *buildOpts);
+        void* LoadPchResourceBuffer();
 
         Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* m_pProgDesc;
-        Intel::OpenCL::ClangFE::CLANG_DEV_INFO	m_sDeviceInfo;
+        Intel::OpenCL::ClangFE::CLANG_DEV_INFO    m_sDeviceInfo;
 
         int  CLSTDSet;
         bool OptDebugInfo;
@@ -79,46 +83,49 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         bool Denorms_Are_Zeros;
         bool Fast_Relaxed_Math;
         std::string m_source_filename;
+        std::string m_triple;
 
-		char*	m_pOutIR;				// Output IR
-		size_t	m_stOutIRSize;
-		char*	m_pLogString;			// Output log
-		size_t	m_stLogSize;
+        char*    m_pOutIR;                // Output IR
+        size_t    m_stOutIRSize;
+        char*    m_pLogString;            // Output log
+        size_t    m_stLogSize;
     private:
       // private copy constructor to prevent wrong assignment
       ClangFECompilerCompileTask(const ClangFECompilerCompileTask&) {}
       // private operator= constructor to prevent wrong assignment
       ClangFECompilerCompileTask& 
         operator= (ClangFECompilerCompileTask const &) {return *this;}
-	};
+    };
 
 
     class ClangFECompilerLinkTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult, ClangFETask
-	{
-	public:
-		ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc);
-		
-		int Link();
+    {
+    public:
+        ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc);
+        
+        int Link();
+        int StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType);
+        void ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs );
 
-		// IOCLFEBinaryResult
-		size_t	GetIRSize() {return m_stOutIRSize;}
-		const void*	GetIR() { return m_pOutIR;}
-		const char* GetErrorLog() {return m_pLogString;}
-		long Release() { delete this; return 0;}
+        // IOCLFEBinaryResult
+        size_t    GetIRSize() {return m_stOutIRSize;}
+        const void*    GetIR() { return m_pOutIR;}
+        const char* GetErrorLog() {return m_pLogString;}
+        long Release() { delete this; return 0;}
         bool IsLibrary() {return bCreateLibrary;}
 
-	protected:
+    protected:
         virtual ~ClangFECompilerLinkTask();
 
         void ParseOptions(const char *buildOpts);
         void ResolveFlags();
 
-		Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* m_pProgDesc;
+        Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* m_pProgDesc;
 
-		char*	m_pOutIR;				// Output IR
-		size_t	m_stOutIRSize;
-		char*	m_pLogString;			// Output log
-		size_t	m_stLogSize;
+        char*    m_pOutIR;                // Output IR
+        size_t    m_stOutIRSize;
+        char*    m_pLogString;            // Output log
+        size_t    m_stLogSize;
 
         bool bCreateLibrary;
         bool bEnableLinkOptions;
@@ -141,7 +148,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
       // private operator= constructor to prevent wrong assignment
       ClangFECompilerLinkTask& 
         operator= (ClangFECompilerLinkTask const &) {return *this;}
-	};
+    };
 
     class ClangFECompilerGetKernelArgInfoTask : public Intel::OpenCL::FECompilerAPI::FEKernelArgInfo, ClangFETask
     {
@@ -150,7 +157,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 
         int GetKernelArgInfo(const void*    pBin,
                              const char*    szKernelName);
-
+        int TranslateArgsInfoValues(TC::STB_GetKernelArgsInfoArgs* pKernelArgsInfo);
         unsigned int getNumArgs() const { return m_numArgs; }
         const char* getArgName(unsigned int index) const { return m_argsInfo[index].name; }
         const char* getArgTypeName(unsigned int index) const { return m_argsInfo[index].typeName; }
@@ -197,7 +204,8 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
                              bool*        pbOptDisable        = NULL,
                              bool*        pbDenormsAreZeros   = NULL,
                              bool*        pbFastRelaxedMath   = NULL,
-                             std::string* pszFileName         = NULL);
+                             std::string* pszFileName         = NULL,
+                             std::string* pszTriple           = NULL);
 
     bool ParseLinkOptions(const char* szOptions,
                           char**      szUnrecognizedOptions,
