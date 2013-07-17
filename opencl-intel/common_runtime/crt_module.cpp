@@ -508,6 +508,10 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
     cl_bool cl_d3d9_device_intel_set        = CL_FALSE;
     cl_bool cl_dxva9_device_intel_set       = CL_FALSE;
     cl_bool cl_d3d11_device_khr_set         = CL_FALSE;
+#else
+#ifdef LIBVA_SHARING
+    cl_bool cl_va_api_display_intel_set     = CL_FALSE;
+#endif
 #endif
 
     if( properties != NULL )
@@ -582,7 +586,17 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 }
                 cl_dxva9_device_intel_set  = CL_TRUE;
                 break;
+#else
+#ifdef LIBVA_SHARING
+            case CL_CONTEXT_VA_API_DISPLAY_INTEL:
+                if( cl_va_api_display_intel_set == CL_TRUE )
+                {
+                    return CL_INVALID_PROPERTY;
+                }
+                cl_va_api_display_intel_set = CL_TRUE;
+                break;
 #endif
+#endif     
             default:
                 return CL_INVALID_PROPERTY;
             }

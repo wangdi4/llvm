@@ -4,6 +4,10 @@
 
 #ifdef _WIN32
 #include <CL/cl_d3d9.h>
+#else
+#ifdef LIBVA_SHARING
+#include <va_ext.h>
+#endif
 #endif
 
 namespace CRT_ICD_DISPATCH
@@ -43,11 +47,42 @@ namespace CRT_ICD_DISPATCH
         cl_uint *                   /* num_devices */ );
 
 #else   //Linux/Android
-    typedef void *INTELpfn_clCreateFromDX9MediaSurfaceINTEL;
-    typedef void *INTELpfn_clEnqueueAcquireDX9ObjectsINTEL;
-    typedef void *INTELpfn_clEnqueueReleaseDX9ObjectsINTEL;
-    typedef void *INTELpfn_clGetDeviceIDsFromDX9INTEL;
-#endif
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clCreateFromDX9MediaSurfaceINTEL)();
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueAcquireDX9ObjectsINTEL)();
+    typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clEnqueueReleaseDX9ObjectsINTEL)();
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetDeviceIDsFromDX9INTEL)();
+#ifdef LIBVA_SHARING
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueAcquireVAMediaSurfacesINTEL)( 
+        cl_command_queue command_queue,
+        cl_uint          num_objects,
+        const cl_mem     *mem_objects,
+        cl_uint          num_events_in_wait_list,
+        const cl_event   *event_wait_list,
+        cl_event         *ocl_event );
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueReleaseVAMediaSurfacesINTEL)( 
+        cl_command_queue command_queue,
+        cl_uint          num_objects,
+        const cl_mem     *mem_objects,
+        cl_uint          num_events_in_wait_list,
+        const cl_event   *event_wait_list,
+        cl_event         *ocl_event );
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetDeviceIDsFromVAMediaAdapterINTEL)( 
+        cl_platform_id                platform,
+        cl_va_api_device_source_intel media_adapter_type,
+        void                          *media_adapter,
+        cl_va_api_device_set_intel    media_adapter_set,
+        cl_uint                       num_entries,
+        cl_device_id                  *devices,
+        cl_uint                       *num_devices );
+    typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreateFromVAMediaSurfaceINTEL)( 
+        cl_context   context,
+        cl_mem_flags flags,
+        VASurfaceID  *surface,
+        VADisplay    display,
+        cl_uint      plane,
+        cl_int       *errcode_ret );
+#endif //LIBVA_SHARING
+#endif // Linux and android
 
     typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetImageParamsINTEL)(
         cl_context                  context,
@@ -116,6 +151,12 @@ namespace CRT_ICD_DISPATCH
         // API to expose the Kernel Instrumentation Query to applications
         INTELpfn_clCreateProfiledProgramWithSourceINTEL clCreateProfiledProgramWithSourceINTEL;
         INTELpfn_clCreateKernelProfilingJournalINTEL    clCreateKernelProfilingJournalINTEL;
+#ifdef LIBVA_SHARING
+        INTELpfn_clCreateFromVAMediaSurfaceINTEL        clCreateFromVAMediaSurfaceINTEL;
+        INTELpfn_clGetDeviceIDsFromVAMediaAdapterINTEL  clGetDeviceIDsFromVAMediaAdapterINTEL;
+        INTELpfn_clEnqueueReleaseVAMediaSurfacesINTEL   clEnqueueReleaseVAMediaSurfacesINTEL;
+        INTELpfn_clEnqueueAcquireVAMediaSurfacesINTEL   clEnqueueAcquireVAMediaSurfacesINTEL;
+#endif
     };
 
     struct SOCLEntryPointsTable

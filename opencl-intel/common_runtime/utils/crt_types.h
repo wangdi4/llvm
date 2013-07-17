@@ -46,6 +46,12 @@ typedef int crt_err_code;
 #define INTEL_PLATFORM_VENDOR       "Intel(R) Corporation"
 #define INTEL_ICD_EXTENSIONS_STRING "INTEL"
 
+#ifdef _WIN32 
+    #define CLAPI_EXPORT
+#else
+    #define CLAPI_EXPORT __attribute__((visibility("default")))
+#endif
+
 typedef enum
 {    
     OPENCL_INVALID = 0,

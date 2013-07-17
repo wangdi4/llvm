@@ -31,8 +31,6 @@
 #include <vector>
 #include <sstream>
 #include <iterator>
-
-
 namespace OCLCRT
 {
     CrtModule crt_ocl_module;
@@ -40,8 +38,6 @@ namespace OCLCRT
     // Globally Initialized Variable
     char* CrtModule::m_common_extensions = NULL;
 }
-
-
 #define isValidPlatform(X) ((X) == OCLCRT::crt_ocl_module.m_crtPlatformId || NULL == (X))
 
 // Defined CRT CL handles
@@ -4332,7 +4328,6 @@ cl_int CL_API_CALL clReleaseDevice(cl_device_id device)
     return errCode;
 }
 SET_ALIAS( clReleaseDevice );
-
 
 /// ------------------------------------------------------------------------------
 ///
@@ -8657,11 +8652,214 @@ cl_int CL_API_CALL clReleaseAcceleratorINTEL( cl_accelerator_intel accelerator )
 FINISH:
     return errCode;
 }
+#ifdef LIBVA_SHARING
 
+/******************************************************************************\
+
+Function:
+    clGetDeviceIDsFromVAMediaAdapterINTEL
+
+\******************************************************************************/
+CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromVAMediaAdapterINTEL(
+        cl_platform_id                platform,
+        cl_va_api_device_source_intel media_adapter_type,
+        void                          *media_adapter,
+        cl_va_api_device_set_intel    media_adapter_set,
+        cl_uint                       num_entries,
+        cl_device_id                  *devices,
+        cl_uint                       *num_devices )
+{
+    cl_int errorCode = CL_SUCCESS;
+    cl_int  ErrorCode   = CL_SUCCESS;
+    VADisplay dpy       = NULL;
+
+    if( !isValidPlatform( platform ) )
+    {
+        return CL_INVALID_PLATFORM;
+    }
+
+    if( media_adapter_type != CL_VA_API_DISPLAY_INTEL )
+    {
+            ErrorCode = CL_INVALID_VALUE;
+            goto ERROR_HANDLER;
+    }
+
+    // Lock Devices Map, devices might be concurrently modified
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
+
+    for( OCLCRT::DEV_INFO_MAP::const_iterator itr = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
+         itr != OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().end();
+         itr++ )
+    {
+        const cl_device_id& devIdDEV = itr->first;
+
+        CrtDeviceInfo* devInfo = itr->second;
+
+        if( num_devices != NULL )
+        {
+            *num_devices = 0;
+        }
+
+        if ( devInfo->m_devType != CL_DEVICE_TYPE_GPU )
+        {
+            continue;
+        }
+
+        dpy = (VADisplay) media_adapter;
+
+        switch( media_adapter_set )
+        {
+        case CL_PREFERRED_DEVICES_FOR_VA_API_INTEL:
+        case CL_ALL_DEVICES_FOR_VA_API_INTEL:
+            if( devices != NULL )
+            {
+                *devices = devIdDEV;
+            }
+            if( num_devices != NULL )
+            {
+                *num_devices = 1;
+            }
+            break;
+        default:
+            ErrorCode = CL_INVALID_VALUE;
+            break;
+        }
+    }
+    
+ERROR_HANDLER:
+    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
+    return ErrorCode;
+}
+
+/******************************************************************************\
+
+Function:
+    clEnqueueReleaseVAMediaSurfacesINTEL
+
+\******************************************************************************/
+CL_API_ENTRY cl_int CL_API_CALL clEnqueueReleaseVAMediaSurfacesINTEL(
+                                      cl_command_queue command_queue,
+                                      cl_uint          num_objects,
+                                      const cl_mem     *mem_objects,
+                                      cl_uint          num_events_in_wait_list,
+                                      const cl_event   *event_wait_list,
+                                      cl_event         *ocl_event )
+{
+    cl_int errorCode = CL_SUCCESS;
+    if( command_queue == NULL )
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    CrtQueue* queue = reinterpret_cast<CrtQueue*>(((_cl_command_queue_crt*)command_queue)->object);
+    if( !queue )
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    errorCode = ( (SOCLEntryPointsTable*)queue->m_cmdQueueDEV )->crtDispatch->clEnqueueReleaseVAMediaSurfacesINTEL(
+                                                                command_queue,
+                                                                num_objects,
+                                                                mem_objects,
+                                                                num_events_in_wait_list,
+                                                                event_wait_list,
+                                                                ocl_event );
+
+    return errorCode;
+}
+
+/******************************************************************************\
+
+Function:
+    clEnqueueAcquireVAMediaSurfacesINTEL
+
+\******************************************************************************/
+CL_API_ENTRY cl_int CL_API_CALL clEnqueueAcquireVAMediaSurfacesINTEL(
+                                    cl_command_queue command_queue,
+                                    cl_uint          num_objects,
+                                    const cl_mem     *mem_objects,
+                                    cl_uint          num_events_in_wait_list,
+                                    const cl_event   *event_wait_list,
+                                    cl_event         *ocl_event )
+{
+    cl_int errorCode   = CL_SUCCESS;
+
+    if( command_queue == NULL )
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    CrtQueue* queue = reinterpret_cast<CrtQueue*>(((_cl_command_queue_crt*)command_queue)->object);
+    if( !queue )
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    errorCode = ( (SOCLEntryPointsTable*)queue->m_cmdQueueDEV )->crtDispatch->clEnqueueAcquireVAMediaSurfacesINTEL(
+                                                                    command_queue,
+                                                                    num_objects,
+                                                                    mem_objects,
+                                                                    num_events_in_wait_list,
+                                                                    event_wait_list,
+                                                                    ocl_event );
+
+    return errorCode;
+}
+
+/******************************************************************************\
+
+Function:
+    clCreateFromVAMediaSurfaceINTEL
+
+\******************************************************************************/
+CL_API_ENTRY cl_mem CL_API_CALL clCreateFromVAMediaSurfaceINTEL(
+                                                    cl_context   context,
+                                                    cl_mem_flags flags,
+                                                    VASurfaceID  *surface,
+                                                    VADisplay    display,
+                                                    cl_uint      plane,
+                                                    cl_int       *errcode_ret )
+{
+    cl_int errorCode = CL_SUCCESS;
+    cl_mem CLMem     = NULL;
+    CrtContextInfo* pCtxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
+
+    if( pCtxInfo == NULL )
+    {
+        errorCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    if (pCtxInfo->m_contextType == CrtContextInfo::SharedPlatformContext)
+    {
+        errorCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+    else
+    {
+        CLMem = ( (SOCLEntryPointsTable* ) context)->crtDispatch->clCreateFromVAMediaSurfaceINTEL(
+                                                                            context,
+                                                                            flags,
+                                                                            surface,
+                                                                            display,
+                                                                            plane,
+                                                                            &errorCode );
+    }
+
+FINISH:
+    if( errcode_ret )
+    {
+        *errcode_ret = errorCode;
+    }
+    
+    return CLMem;
+}
+
+#endif
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
-CL_API_ENTRY void * CL_API_CALL clGetExtensionFunctionAddress(
+CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     const char *funcname)
 {
     if( funcname && !strcmp( funcname, "clIcdGetPlatformIDsKHR" ) )
@@ -8713,6 +8911,26 @@ CL_API_ENTRY void * CL_API_CALL clGetExtensionFunctionAddress(
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clCreateKernelProfilingJournalINTEL ) );
     }
+#else
+#ifdef LIBVA_SHARING
+//INTEL vendor extensions for Linux
+    if( funcname && !strcmp( funcname, "clGetDeviceIDsFromVAMediaAdapterINTEL" ) )
+    {
+        return ( ( void* )( ptrdiff_t )( clGetDeviceIDsFromVAMediaAdapterINTEL ) );
+    }
+    if( funcname && !strcmp( funcname, "clCreateFromVAMediaSurfaceINTEL" ) )
+    {
+        return ( ( void* )( ptrdiff_t )( clCreateFromVAMediaSurfaceINTEL ) );
+    }
+    if( funcname && !strcmp( funcname, "clEnqueueAcquireVAMediaSurfacesINTEL" ) )
+    {
+        return ( ( void* )( ptrdiff_t )( clEnqueueAcquireVAMediaSurfacesINTEL ) );
+    }
+    if( funcname && !strcmp( funcname, "clEnqueueReleaseVAMediaSurfacesINTEL" ) )
+    {
+        return ( ( void* )( ptrdiff_t )( clEnqueueReleaseVAMediaSurfacesINTEL ) );
+    }
+#endif
 #endif
     return NULL;
 }
