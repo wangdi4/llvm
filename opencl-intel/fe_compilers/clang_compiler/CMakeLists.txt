@@ -13,7 +13,6 @@ set(TARGET_INCLUDE_FILES
     clang_compiler.h
     clang_device_info.h
     clang_driver.h
-    os_inc.h
     resource.h
     stdafx.h
     targetver.h
@@ -53,15 +52,25 @@ add_definitions( -D__STDC_LIMIT_MACROS )
 add_definitions( -D__STDC_CONSTANT_MACROS )
 
 include_directories( AFTER
-            ${LLVM_INCLUDE_DIR}
-            ${CMAKE_SOURCE_DIR}/backend/metadata_api/gen
-            ${CMAKE_SOURCE_DIR}/backend/metadata_api
-            ${CMAKE_SOURCE_DIR}/backend/plugin_manager
-            ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
-            ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
-            ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
-            CLElfLib
-            )
+    ${LLVM_INCLUDE_DIR}
+    ${CMAKE_SOURCE_DIR}/backend/metadata_api/gen
+    ${CMAKE_SOURCE_DIR}/backend/metadata_api
+    ${CMAKE_SOURCE_DIR}/backend/plugin_manager
+    ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
+    ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
+    ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+    CLElfLib
+)
+            
+if (WIN32)
+    include_directories( AFTER
+        ../common/windows/headers
+    )
+else()
+    include_directories( AFTER
+        ../common/linux/headers
+    )
+endif()    
             
 if (NOT WIN32)
     set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
@@ -85,8 +94,8 @@ else (WIN32)
 endif (WIN32)
 
 link_directories( 
-            ${TBB_LIB_DIR}
-            ${LLVM_LIBRARY_DIR}
+    ${TBB_LIB_DIR}
+    ${LLVM_LIBRARY_DIR}
 )
 
 add_library(${TARGET_NAME} SHARED 
@@ -154,7 +163,6 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       ${LLVM_MODULE_LIBS}
                                       )
 endif()
-
 
 set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
 

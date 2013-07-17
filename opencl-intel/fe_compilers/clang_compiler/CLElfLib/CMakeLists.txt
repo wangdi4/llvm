@@ -2,13 +2,23 @@ set(TARGET_NAME CLElfLib)
 
 set(TARGET_INCLUDE_FILES
     ElfReader.h
-	ElfWriter.h
+    ElfWriter.h
 )
 
 set(TARGET_SOURCE_FILES
-	ElfReader.cpp
-	ElfWriter.cpp
+    ElfReader.cpp
+    ElfWriter.cpp
 )
+
+if (WIN32)
+    include_directories( AFTER
+        ../../common/windows/headers
+    )
+else()
+    include_directories( AFTER
+        ../../common/linux/headers
+    )
+endif()    
 
 add_library(${TARGET_NAME}
     ${TARGET_INCLUDE_FILES}
