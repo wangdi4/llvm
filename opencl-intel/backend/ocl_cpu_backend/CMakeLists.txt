@@ -301,6 +301,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/metadata_api/gen
+    ${OCL_BINARY_DIR}
 )
 
 link_directories( 

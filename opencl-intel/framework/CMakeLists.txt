@@ -6,7 +6,8 @@ include_directories ( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}/Platform
         ${CMAKE_CURRENT_SOURCE_DIR}/Context
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution
-	${CMAKE_CURRENT_SOURCE_DIR}/MemoryAllocator
+        ${CMAKE_CURRENT_SOURCE_DIR}/MemoryAllocator
+        ${OCL_BINARY_DIR}
     )
 
 if (WIN32 AND (DEFINED ENV{DXSDK_DIR}) )	

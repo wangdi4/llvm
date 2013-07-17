@@ -19,12 +19,13 @@
 // problem reports or change requests be submitted to it directly
 
 #include <windows.h>
+#include <buildversion.h>
 
 #ifdef RC_INVOKED
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION    1,1,0
-PRODUCTVERSION 1,1,0
+PRODUCTVERSION 4,0,0,BUILDVERSION16BIT
 FILETYPE       VFT_DLL
 
 BEGIN

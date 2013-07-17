@@ -16,7 +16,10 @@ if (WIN32 AND NOT BUILD_X64)
     string( REPLACE /Ob2  "/Ob1" CMAKE_CXX_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
 endif (WIN32 AND NOT BUILD_X64)
 
-include_directories( BEFORE . )
+include_directories( BEFORE 
+        .
+        ${OCL_BINARY_DIR}        
+ )
 
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)

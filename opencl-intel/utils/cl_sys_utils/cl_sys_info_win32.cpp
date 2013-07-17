@@ -294,10 +294,10 @@ bool Intel::OpenCL::Utils::GetModuleProductVersion(const void* someLocalFunc, in
         return false;
     }
 
-    *major    = ( fileInfo->dwProductVersionMS >> 16 ) & 0xff;
-    *minor    = ( fileInfo->dwProductVersionMS) & 0xff;
-    *revision = ( fileInfo->dwProductVersionLS >> 16 ) & 0xff;
-    *build    = ( fileInfo->dwProductVersionLS) & 0xff;
+    *major    = ( fileInfo->dwProductVersionMS >> 16 ) & 0xffff;
+    *minor    = ( fileInfo->dwProductVersionMS) & 0xffff;
+    *revision = ( fileInfo->dwProductVersionLS >> 16 ) & 0xffff;
+    *build    = ( fileInfo->dwProductVersionLS) & 0xffff;
 
     STACK_FREE(verInfo);
     return true;
