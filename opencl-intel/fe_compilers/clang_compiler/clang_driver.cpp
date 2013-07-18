@@ -1447,13 +1447,22 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             iCLStdSet = 110;
             pList->push_back("-cl-std=CL1.1");
             pList->push_back("-D");
-              pList->push_back("__OPENCL_C_VERSION__=110");
+            pList->push_back("__OPENCL_C_VERSION__=110");
+            pBEArgList->push_back("-cl-std=CL1.1");
         }
         else if (*opt_i == "-cl-std=CL1.2") {
             iCLStdSet = 120;
             pList->push_back("-cl-std=CL1.2");
             pList->push_back("-D");
             pList->push_back("__OPENCL_C_VERSION__=120");
+            pBEArgList->push_back("-cl-std=CL1.2");
+        }
+        else if (*opt_i == "-cl-std=CL2.0") {
+            iCLStdSet = 120;
+            pList->push_back("-cl-std=CL2.0");
+            pList->push_back("-D");
+            pList->push_back("__OPENCL_C_VERSION__=200");
+            pBEArgList->push_back("-cl-std=CL2.0");
         }
         else if (*opt_i == "-target-triple") {
             if (++opt_i != opts.end()) {

@@ -13446,5 +13446,58 @@ float const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_ad
 double const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(double x);
 //half const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(half x);
 
+#if __OPENCL_C_VERSION__ >= 200
+
+// OpenCL 2.0
+
+#define NULL                              0
+#define CLK_ENQUEUE_FLAGS_WAIT_KERNEL     0
+#define CLK_ENQUEUE_FLAGS_NO_WAIT         1
+#define CLK_ENQUEUE_FLAGS_WAIT_WORKGROUP  2
+
+// Address Space Qualifier Functions 6.13.9
+bool __attribute__((overloadable)) is_global (const void *ptr);
+bool __attribute__((overloadable)) is_local (const void *ptr);
+bool __attribute__((overloadable)) is_private (const void *ptr);
+cl_mem_fence_flags get_fence (const void *ptr);
+
+// Enqueuing Kernels  6.13.17
+
+typedef int kernel_enqueue_flags_t;
+typedef int clk_profiling_info;
+
+int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(void));
+int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(void));
+int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ...), uint size0,...);
+int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ...), uint size0, ...);
+
+int enqueue_marker(queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret);
+
+queue_t get_default_queue(void);
+
+ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size);
+ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size, size_t local_work_size);
+ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_offset, size_t global_work_size, size_t local_work_size);
+
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_size[2], size_t local_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_offset[2], size_t global_work_size[2], size_t local_work_size[2]);
+
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3], size_t local_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_offset[3], size_t global_work_size[3], size_t local_work_size[3]);
+
+void retain_event(clk_event_t event);
+void release_event(clk_event_t event);
+clk_event_t create_user_event();
+void set_user_event_status(clk_event_t event, int status);
+void capture_event_profiling_info(clk_event_t event, clk_profiling_info name, global ulong *value);
+
+uint __attribute__((overloadable)) get_kernel_work_group_size(void (^block)(void));
+//uint __attribute__((overloadable)) get_kernel_work_group_size(void (^block)(local void *,...));
+uint __attribute__((overloadable)) get_kernel_preferred_work_group_size_multiple(void (^block)(void));
+//uint __attribute__((overloadable)) get_kernel_preferred_work_group_size_multiple(void (^block)(local void *,...));
+
+#endif   // __OPENCL_C_VERSION__ >= 200
 #endif   // !defined (__MIC__) && !defined(__MIC2__)
 #endif
