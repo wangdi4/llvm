@@ -162,7 +162,7 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
                 if ( globalGroupSizeX % localSizeMaxLimit == 0 ) break;
             }
             unsigned int newHeuristic = max(1, minMultiplyFactor * localSizeMaxLimit);
-
+#if 0 // 0 to Disable old heuristic - 1 to choose wisely between old and new heuristic
             unsigned int oldHeuristic = GCD(pInputWorkSizes->globalWorkSize[0], m_pProps->GetOptWGSize());
             globalGroupSizeX = pInputWorkSizes->globalWorkSize[0];
             workGroupNumMinLimit = max(1, (outputWorkSizes.minWorkGroupNum/2 + (globalGroupSizeYZ-1)) / globalGroupSizeYZ);
@@ -202,6 +202,9 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
             //printf("heuristic = %d, newF=%d, oldF=%d, new=%d, old=%d, tsize=%d, minGroupNum=%d, global_size=%d\n",
             //  outputWorkSizes.localWorkSize[0],newHeuristicFactor, oldHeuristicFactor, newHeuristic, oldHeuristic,
             //  minMultiplyFactor, workGroupNumMinLimit, globalGroupSizeX);
+#else
+            outputWorkSizes.localWorkSize[0] = newHeuristic;
+#endif
         }
     }
 }
