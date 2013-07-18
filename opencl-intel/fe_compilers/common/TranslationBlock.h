@@ -28,6 +28,7 @@ Notes:
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdio.h>
 
 #if defined(_WIN32)
     #include <windows.h>
@@ -49,24 +50,40 @@ Notes:
 
 namespace TC
 {
-static const uint32_t STB_VERSION = 1003UL;
+static const uint32_t STB_VERSION = 1004UL;
 static const uint32_t STB_MAX_ERROR_STRING_SIZE = 1024UL;
 
 // Forward prototyping
 struct STB_RegisterArgs;
 struct STB_CreateArgs;
 class  CTranslationBlock;
+struct STB_GetKernelArgsInfoArgs;
 
 #ifdef _MSC_VER
 extern "C" TRANSLATION_BLOCK_API void __cdecl Register( STB_RegisterArgs* pRegisterArgs );
 extern "C" TRANSLATION_BLOCK_API CTranslationBlock* __cdecl Create( STB_CreateArgs* pCreateArgs );
 extern "C" TRANSLATION_BLOCK_API void __cdecl Delete( CTranslationBlock* pBlock );
+extern "C" TRANSLATION_BLOCK_API void __cdecl GetKernelArgsInfo( const void *pBin, const char *szKernelName, STB_GetKernelArgsInfoArgs* pKernelArgsInfo );
 #else 
 // Functions required to be defined by all translation blocks
 extern "C" TRANSLATION_BLOCK_API void __attribute__((cdecl))  Register( STB_RegisterArgs* pRegisterArgs );
 extern "C" TRANSLATION_BLOCK_API CTranslationBlock* __attribute__((cdecl))  Create( STB_CreateArgs* pCreateArgs );
 extern "C" TRANSLATION_BLOCK_API void __attribute__((cdecl))  Delete( CTranslationBlock* pBlock );
+extern "C" TRANSLATION_BLOCK_API void __attribute__((cdecl))  GetKernelArgsInfo( const void *pBin, const char *szKernelName, STB_GetKernelArgsInfoArgs* pKernelArgsInfo );
 #endif
+
+/******************************************************************************\
+ENUMERATION: TB_DEVICE_TYPE
+DESCRIPTION: Device type to identify the required operation path
+\******************************************************************************/
+enum TB_DEVICE_TYPE
+{
+    TB_DEVICE_UNKNOWN,
+    TB_DEVICE_GPU,
+    TB_DEVICE_CPU,
+    TB_DEVICE_MIC,
+    TB_NUM_DEVICE_TYPES,
+};
 
 /******************************************************************************\
 
@@ -90,6 +107,8 @@ enum TB_DATA_FORMAT
     TB_DATA_FORMAT_DEVICE_BINARY,
     TB_DATA_FORMAT_LLVM_ARCHIVE,
     TB_DATA_FORMAT_ELF,
+    TB_DATA_FORMAT_X86_BINARY,
+    TB_DATA_FORMAT_Y86_BINARY,
     NUM_TB_DATA_FORMATS
 };
 
@@ -125,11 +144,13 @@ Description:
 struct STB_CreateArgs
 {
     STB_TranslationCode TranslationCode;
+    TB_DEVICE_TYPE      deviceType;
     void*               pCreateData;
 
     STB_CreateArgs()
     {
         TranslationCode.Code = 0;
+        deviceType = TB_DEVICE_CPU;
         pCreateData = NULL;
     }
 };
@@ -219,6 +240,38 @@ struct STB_TranslateOutputArgs
         OutputSize      = 0;
         pErrorString    = NULL;
         ErrorStringSize = 0;
+    }
+};
+
+/******************************************************************************\
+
+Structure:
+    STB_GetKernelArgsInfoArgs
+
+Description:
+    Structure used to hold data returned from the GetKernelArgeInfo
+
+\******************************************************************************/
+struct KERNEL_ARG_INFO
+{
+    char* name;                  // pointer to name specified for the argument
+    char* typeName;              // pointer to type name specified for the argument
+    uint64_t adressQualifier;    // address qualifier specified for the argument
+    uint64_t accessQualifier;    // access qualifier specified for the argument
+    uint64_t typeQualifier;      // type qualifier specified for the argument
+};
+
+struct STB_GetKernelArgsInfoArgs
+{
+    uint32_t         m_numArgs;      // number of arguments to the kernel
+    KERNEL_ARG_INFO* m_argsInfo;     // pointer to argument info structures
+	int32_t          m_retValue;     // return value
+
+    STB_GetKernelArgsInfoArgs()
+    {
+        m_numArgs     = 0;
+        m_argsInfo    = NULL;
+        m_retValue    = 0;
     }
 };
 

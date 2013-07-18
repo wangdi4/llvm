@@ -25,7 +25,9 @@
 #pragma once
 
 #include "clang_device_info.h"
+#ifdef _WIN32
 #include "TranslationBlock.h"
+#endif
 #include <frontend_api.h>
 #include <cl_synch_objects.h>
 
@@ -58,9 +60,10 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
                                                                 Intel::OpenCL::ClangFE::CLANG_DEV_INFO pszDeviceInfo);
         
         int Compile();
+        #ifdef _WIN32
         int StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType);
         void ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs );
-
+        #endif
         // IOCLFEBinaryResult
         size_t    GetIRSize() {return m_stOutIRSize;}
         const void*    GetIR() { return m_pOutIR;}
@@ -104,8 +107,10 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc);
         
         int Link();
+        #ifdef _WIN32
         int StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType);
         void ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs );
+        #endif
 
         // IOCLFEBinaryResult
         size_t    GetIRSize() {return m_stOutIRSize;}
@@ -157,7 +162,11 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 
         int GetKernelArgInfo(const void*    pBin,
                              const char*    szKernelName);
+        
+        #ifdef _WIN32
         int TranslateArgsInfoValues(TC::STB_GetKernelArgsInfoArgs* pKernelArgsInfo);
+        #endif
+        
         unsigned int getNumArgs() const { return m_numArgs; }
         const char* getArgName(unsigned int index) const { return m_argsInfo[index].name; }
         const char* getArgTypeName(unsigned int index) const { return m_argsInfo[index].typeName; }

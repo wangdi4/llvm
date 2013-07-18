@@ -3,8 +3,9 @@
 #  OCL_SOURCE_DIR    - points to the top src directory
 #  OCL_BINARY_DIR    - points to the directory outside of OCL_SOURCE_DIR - root of generated files
 #
-
-add_subdirectory( CLElfLib  )
+if( WIN32 )
+    add_subdirectory( CLElfLib  )
+endif()
 
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
@@ -16,20 +17,12 @@ set(TARGET_INCLUDE_FILES
     resource.h
     stdafx.h
     targetver.h
-    tc_common.h
-    translation_chain.h
-    translation_controller.h
-    TranslationBlock.h
-    translator.h
 )
 
 set(TARGET_SOURCE_FILES
     clang_compiler.cpp
     clang_driver.cpp
     stdafx.cpp
-    translation_chain.cpp
-    translation_controller.cpp
-    translator.cpp
     clang_compiler.rc
     OpenCL.rc
 )
@@ -37,6 +30,16 @@ set(TARGET_SOURCE_FILES
 if (WIN32)
     list( APPEND TARGET_SOURCE_FILES
             dllmain_win32.cpp
+            translation_chain.cpp
+            translation_controller.cpp
+            translator.cpp
+        )
+    list( APPEND TARGET_INCLUDE_FILES
+            tc_common.h
+            translation_chain.h
+            translation_controller.h
+            TranslationBlock.h
+            translator.h
         )
 else()
     list( APPEND TARGET_SOURCE_FILES
@@ -59,12 +62,12 @@ include_directories( AFTER
     ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
     ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
     ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
-    CLElfLib
 )
             
 if (WIN32)
     include_directories( AFTER
         ../common/windows/headers
+        CLElfLib
     )
 else()
     include_directories( AFTER
@@ -72,10 +75,10 @@ else()
     )
 endif()    
             
-if (NOT WIN32)
-    set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
-    set(HW_UTILS_PROJ_NAME cl_hw_utils)
-endif (NOT WIN32)
+#if (NOT WIN32)
+#    set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
+#    set(HW_UTILS_PROJ_NAME cl_hw_utils)
+#endif (NOT WIN32)
 
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -158,7 +161,7 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       clangLex
                                       clangBasic
                                       OclPluginManager
-                                      CLElfLib
+                                      #CLElfLib
                                       metadataapi
                                       ${LLVM_MODULE_LIBS}
                                       )
@@ -170,7 +173,7 @@ if( ANDROID )
   set( TRIPLE -triple i686-pc-linux )
 endif( ANDROID )
 
-set( COMPILER_OPTIONS -cc1
+set( CLANG_OPTIONS -cc1
                       ${TRIPLE}
                       -x cl
                       -O0
@@ -191,21 +194,21 @@ set( CLANG ${TOOL_BINARY_DIR}/clang )
 
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
-                    COMMAND ${CLANG} ${COMPILER_OPTIONS} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${CLANG_OPTIONS} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     VERBATIM
 )
 
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
-                    COMMAND ${CLANG} ${COMPILER_OPTIONS} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${CLANG_OPTIONS} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     VERBATIM
 )
 
-add_dependencies( ${TARGET_NAME}
-    clang
-)
+#add_dependencies( ${TARGET_NAME}
+#    clang
+#)
 
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)

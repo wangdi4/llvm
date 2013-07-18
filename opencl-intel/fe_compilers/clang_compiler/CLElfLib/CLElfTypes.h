@@ -47,7 +47,7 @@ enum E_RETVAL
 {
     SUCCESS               = 0,
     FAILURE               = 1,
-    OUT_OF_MEMORY         = 2,
+    OUT_OF_MEMORY         = 2
 };
 
 // E_ID_IDX - Defines a file as being ELF
@@ -62,7 +62,7 @@ enum E_ID_IDX
     ID_IDX_OSABI          = 6,
     ID_IDX_ABI_VERSION    = 7,
     ID_IDX_PADDING        = 8,
-    ID_IDX_NUM_BYTES      = 16,
+    ID_IDX_NUM_BYTES      = 16
 };
 
 // E_EHT_CLASS - Describes what data types the ELF structures will use.
@@ -70,7 +70,7 @@ enum E_EH_CLASS
 {
     EH_CLASS_NONE         = 0,
     EH_CLASS_32           = 1,    // Use Elf32 data types
-    EH_CLASS_64           = 2,    // Use Elf64 data types
+    EH_CLASS_64           = 2    // Use Elf64 data types
 };
 
 // E_EHT_TYPE - List of pre-defined types header types.
@@ -86,7 +86,7 @@ enum E_EH_TYPE
     EH_TYPE_OPENCL_SOURCE        = 0xff01, // format used to pass CL text sections to FE
     EH_TYPE_OPENCL_OBJECTS       = 0xff02, // format used to pass LLVM objects / store LLVM binary output
     EH_TYPE_OPENCL_LIBRARY       = 0xff03, // format used to store LLVM archive output
-    EH_TYPE_OPENCL_EXECUTABLE    = 0xff04, // format used to store executable output
+    EH_TYPE_OPENCL_EXECUTABLE    = 0xff04 // format used to store executable output
 };
 
 // E_EH_MACHINE - List of pre-defined machine types.
@@ -94,7 +94,7 @@ enum E_EH_TYPE
 //    fully defined.
 enum E_EH_MACHINE
 {
-    EH_MACHINE_NONE       = 0,
+    EH_MACHINE_NONE       = 0
     //EHT_MACHINE_LO_RSVD    = 1,   // Beginning of range of reserved types.
     //EHT_MACHINE_HI_RSVD    = 200, // End of range of reserved types.
 };
@@ -103,7 +103,7 @@ enum E_EH_MACHINE
 enum E_EHT_VERSION
 {
     EH_VERSION_INVALID    = 0,
-    EH_VERSION_CURRENT    = 1,
+    EH_VERSION_CURRENT    = 1
 };
 
 // E_SH_TYPE - List of pre-defined section header types.
@@ -134,7 +134,7 @@ enum E_SH_TYPE
     SH_TYPE_OPENCL_LLVM_ARCHIVE  = 0xff000004, // LLVM archives(s)
     SH_TYPE_OPENCL_DEV_BINARY    = 0xff000005, // Device binary
     SH_TYPE_OPENCL_OPTIONS       = 0xff000006, // CL Options
-	SH_TYPE_OPENCL_PCH           = 0xff000007, // PCH (pre-compiled headers)
+    SH_TYPE_OPENCL_PCH           = 0xff000007 // PCH (pre-compiled headers)
 };
 
 // E_SH_FLAG - List of section header flags.
@@ -151,7 +151,7 @@ enum E_SH_FLAG
     SH_FLAG_GROUP         = 0x200,
     SH_FLAG_TLS           = 0x400,
     SH_FLAG_MASK_OS       = 0x0ff00000,
-    SH_FLAG_MASK_PROC     = 0xf0000000,
+    SH_FLAG_MASK_PROC     = 0xf0000000
 };
 
 /******************************************************************************\

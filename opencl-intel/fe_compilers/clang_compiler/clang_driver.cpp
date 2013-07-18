@@ -376,6 +376,7 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 
 void *ClangFECompilerCompileTask::LoadPchResourceBuffer ()
 {
+  llvm::MemoryBuffer *pchBuff = NULL;
 #ifdef PASS_PCH
   //prepare pch buffer
   HMODULE hMod = NULL;
@@ -383,8 +384,7 @@ void *ClangFECompilerCompileTask::LoadPchResourceBuffer ()
   HGLOBAL hBytes = NULL;
   char *pData = NULL;
   size_t dResSize = NULL;
-  llvm::MemoryBuffer *pchBuff = NULL;
-
+ 
 #if defined (_WIN32)
 #if defined (_M_X64)
   static const char* sFEModuleName = "clang_compiler64";
@@ -454,9 +454,9 @@ void *ClangFECompilerCompileTask::LoadPchResourceBuffer ()
   return pchBuff;
 }
 
+#ifdef _WIN32
 int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType)
 {
-#ifdef _WIN32
     if ( pOutputArgs->pErrorString )
     {
       m_pLogString = new char[strlen(pOutputArgs->pErrorString)+1];
@@ -503,13 +503,11 @@ int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutput
       MEMCPY_S(pIR, pOutputArgs->OutputSize, pOutputArgs->pOutput, pOutputArgs->OutputSize);
     }
 
-#endif
     return CL_SUCCESS;
 }
 
 void ClangFECompilerCompileTask::ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs )
 {
-#ifdef _WIN32
     if ( pOutputArgs->pErrorString )
     {
       m_pLogString = new char[strlen(pOutputArgs->pErrorString)+1];
@@ -521,8 +519,8 @@ void ClangFECompilerCompileTask::ClearOutput( TC::STB_TranslateOutputArgs* pOutp
 
     m_stOutIRSize = 0;
     m_pOutIR = NULL;
-#endif
 }
+#endif
 
 int ClangFECompilerCompileTask::Compile()
 {
@@ -955,10 +953,9 @@ ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
         delete []m_pLogString;
     }
 }
-
+#ifdef _WIN32
 int ClangFECompilerLinkTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType)
 {
-#ifdef _WIN32
     if ( pOutputArgs->pErrorString )
     {
       m_pLogString = new char[strlen(pOutputArgs->pErrorString)+1];
@@ -1006,12 +1003,10 @@ int ClangFECompilerLinkTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutputArg
     MEMCPY_S(pBinary, pOutputArgs->OutputSize, pOutputArgs->pOutput, pOutputArgs->OutputSize);
 
     return CL_SUCCESS;
-#endif
 }
 
 void ClangFECompilerLinkTask::ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs )
 {
-#ifdef _WIN32
     if ( pOutputArgs->pErrorString )
     {
       m_pLogString = new char[strlen(pOutputArgs->pErrorString)+1];
@@ -1023,8 +1018,8 @@ void ClangFECompilerLinkTask::ClearOutput( TC::STB_TranslateOutputArgs* pOutputA
 
     m_stOutIRSize = 0;
     m_pOutIR = NULL;
-#endif
 }
+#endif
 
 int ClangFECompilerLinkTask::Link()
 {
@@ -1533,7 +1528,7 @@ ClangFECompilerGetKernelArgInfoTask::~ClangFECompilerGetKernelArgInfoTask()
         m_argsInfo = NULL;
     }
 }
-
+#ifdef _WIN32
 int ClangFECompilerGetKernelArgInfoTask::TranslateArgsInfoValues (STB_GetKernelArgsInfoArgs* pKernelArgsInfo)
 {
     switch (pKernelArgsInfo->m_retValue)
@@ -1615,6 +1610,7 @@ int ClangFECompilerGetKernelArgInfoTask::TranslateArgsInfoValues (STB_GetKernelA
 
     return CL_SUCCESS;
 }
+#endif
 
 int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, const char *szKernelName)
 {
