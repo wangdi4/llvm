@@ -128,6 +128,7 @@ if (BUILD_QTGUI)
         # by changing the registry information and removing the default paths
         remove_path("c:\\Qt\\${QT_VERSION}\\VS2010-64\\bin")
         remove_path("c:\\Qt\\${QT_VERSION}\\VS2010\\bin")
+		execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions /v DefaultQtVersion /d ${QT_VERSION} /f)
         if(BUILD_X64)
             execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions\\${QT_VERSION} /v InstallDir /d c:\\qt\\${QT_VERSION}\\vs2010-64 /f)
         else(BUILD_X64)
