@@ -595,7 +595,7 @@ def INLINE : OclBuiltinAttr<"__attribute__((always_inline))">;
 def INTERNAL_INLINE : OclBuiltinAttr<"inline __attribute__((always_inline))">;
 
 // OclBuiltin
-class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBuiltinAttr> attrs, bit prefix = 0> {
+class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBuiltinAttr> attrs, bit exclude, bit prefix> {
   string Name = name;
   dag Outs = outs;
   dag Ins = ins;
@@ -607,7 +607,8 @@ class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBu
   list<OclBuiltinAttr> AdditionAttrs = [];
   bit IsDeclOnly = 0; // Just need declaration, e.g. SVML function prototype declaration.
   bit NeedForwardDecl = 0; // Non OCL builtin function need forwarding declaration.
-  bit Prefix = prefix;
+  bit Exclude = exclude; // OCL builtin function that could be excluded from the build.
+  bit Prefix = prefix; // OCL builtin function that could add prefix to its name.
 }
 
 // Helper to add exception type list

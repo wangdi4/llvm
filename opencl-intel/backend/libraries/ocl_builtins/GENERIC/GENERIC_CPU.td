@@ -10,7 +10,7 @@ include "GENERIC/opencl-builtin.td"
 include "GENERIC/opencl-v1.2.td"
 include "GENERIC/opencl-v2.0.td"
 include "GENERIC/ll_intrinsics.td"
-include "helper_function.td"
+include "GENERIC/helper_function.td"
 
 class Generic : TargetImpl {
 include "GENERIC/GENERIC_common.td"

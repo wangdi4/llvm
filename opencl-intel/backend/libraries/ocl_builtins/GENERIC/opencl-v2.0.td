@@ -8,7 +8,7 @@ let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
              v1u64, v2u64, v3u64, v4u64, v8u64, v16u64],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
 let NeedForwardDecl = 1 in {
-def ctz       : OclBuiltin<"ctz",       (outs gentype:$ret), (ins gentype:$x), [], []>;
+def ctz       : OclBuiltin<"ctz",       (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
 }
 }
 
@@ -16,17 +16,17 @@ def ctz       : OclBuiltin<"ctz",       (outs gentype:$ret), (ins gentype:$x), [
 let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32],
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
-def native_cos_rm    : OclBuiltin<"native_cos_rm",    (outs gentype:$ret), (ins gentype:$x), [], []>;
-//def native_divide_rm : OclBuiltin<"native_divide_rm", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
-def native_exp_rm    : OclBuiltin<"native_exp_rm",    (outs gentype:$ret), (ins gentype:$x), [], []>;
-def native_exp2_rm   : OclBuiltin<"native_exp2_rm",   (outs gentype:$ret), (ins gentype:$x), [], []>;
-def native_exp10_rm  : OclBuiltin<"native_exp10_rm",  (outs gentype:$ret), (ins gentype:$x), [], []>;
-def native_log_rm    : OclBuiltin<"native_log_rm",    (outs gentype:$ret), (ins gentype:$x), [], []>;
-def native_log2_rm   : OclBuiltin<"native_log2_rm",   (outs gentype:$ret), (ins gentype:$x), [], []>;
-def native_pow_rm   : OclBuiltin<"native_pow_rm",   (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], []>;
-def native_sin_rm    : OclBuiltin<"native_sin_rm",    (outs gentype:$ret), (ins gentype:$x), [], []>;
-def native_tan_rm    : OclBuiltin<"native_tan_rm",    (outs gentype:$ret), (ins gentype:$x), [], []>;
-def native_sincos_pas_rm    : OclBuiltin<"native_sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-def native_sincos_las_rm    : OclBuiltin<"native_sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, LOCAL;
-def native_sincos_gas_rm    : OclBuiltin<"native_sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], []>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def native_cos_rm    : OclBuiltin<"native_cos_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+//def native_divide_rm : OclBuiltin<"native_divide_rm", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 1, 0>;
+def native_exp_rm    : OclBuiltin<"native_exp_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def native_exp2_rm   : OclBuiltin<"native_exp2_rm",   (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def native_exp10_rm  : OclBuiltin<"native_exp10_rm",  (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def native_log_rm    : OclBuiltin<"native_log_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def native_log2_rm   : OclBuiltin<"native_log2_rm",   (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def native_pow_rm   : OclBuiltin<"native_pow_rm",   (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 1, 0>;
+def native_sin_rm    : OclBuiltin<"native_sin_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def native_tan_rm    : OclBuiltin<"native_tan_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def native_sincos_pas_rm    : OclBuiltin<"native_sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def native_sincos_las_rm    : OclBuiltin<"native_sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
+def native_sincos_gas_rm    : OclBuiltin<"native_sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
 }

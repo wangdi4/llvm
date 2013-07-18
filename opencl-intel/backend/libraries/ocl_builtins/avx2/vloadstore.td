@@ -1,7 +1,7 @@
-OclBuiltinImpl __ocl_HalfToFloatA2 = OclBuiltinImpl<__ocl_HalfToFloat, [v1f16], 0, [{
-	half8 x;
+OclBuiltinImpl __ocl_HalfToFloatA2 = OclBuiltinImpl<__ocl_HalfToFloat, [v1i16], 0, [{
+	short8 x;
 	x.s0 = $Arg0VarName;
-	return __ocl_Half4ToFloat4(as_short8(x)).s0;
+	return __ocl_Half4ToFloat4(x).s0;
 }]>;  
 OclBuiltinImpl __ocl_Half4ToFloat4A2 = OclBuiltinImpl<__ocl_Half4ToFloat4, [v8i16], 0, [{
 	return _mm_cvtph_ps(__builtin_astype($Arg0VarName, __m128i));
@@ -38,7 +38,7 @@ OclBuiltinImpl __ocl_double2ToHalf2_rteA2 = OclBuiltinImpl<__ocl_double2ToHalf2_
 	double2_t x,j;
 	float2 f;
 	float4 res;
-	half2 h;
+	short2 h;
 	x.d = $Arg0VarName;
 	// The key point  is to set the 29 bit to 1 if any of bits 28:0 are 1
 	j.ix = x.ix + 0x1fffffff;
@@ -54,7 +54,7 @@ OclBuiltinImpl __ocl_double4ToHalf4_rteA2 = OclBuiltinImpl<__ocl_double4ToHalf4_
 	typedef union { double4 d; long4 ix; } double4_t;
 	double4_t x,j;
 	float4 f,res;
-	half4 h;
+	short4 h;
 	x.d = $Arg0VarName;
 	// The key point  is to set the 29 bit to 1 if any of bits 28:0 are 1
 	j.ix = x.ix + 0x1fffffff;

@@ -73,6 +73,9 @@ static cl::opt<std::string, false, cl::parser<std::string> >
   GenOCLBuiltinPrefix("gen-ocl-Prefix", cl::NotHidden,
   cl::desc("Add prefix for pre-defined subset of built-ins"), cl::init(""));
 
+static cl::opt<bool>
+  GenOCLBuiltinExclude("gen-ocl-Exclude", cl::NotHidden,
+  cl::desc("Exclude pre-defined subset of built-ins"), cl::init(false));
 
 #define GENOCL_WARNING(X)                                                         \
   do { errs() << (GenOCLBuiltinWerror ? "ERROR: " : "WARNING: ") << X;            \
@@ -319,6 +322,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
 , m_CFunc(R->getValueAsString("Name"))
 , m_IsDeclOnly(R->getValueAsBit("IsDeclOnly"))
 , m_NeedForwardDecl(R->getValueAsBit("NeedForwardDecl"))
+, m_NeedToExclude(R->getValueAsBit("Exclude"))
 , m_NeedPrefix(R->getValueAsBit("Prefix"))
 , m_HasConst(0)
 , m_HasVolatile(0)
@@ -753,7 +757,9 @@ void OclBuiltin::removeAttribute(const OclBuiltinAttr& A){
   }
 }
 
-
+bool OclBuiltin::shouldGenerate() const {
+  return !(GenOCLBuiltinExclude && needToExclude());
+}
 
 /// OclBuiltinImpl
 OclBuiltinImpl::OclBuiltinImpl(const OclBuiltinDB& DB, const Record* R)
@@ -881,7 +887,7 @@ OclBuiltinImpl::getCImpl(const std::string& in) const
       if (Ty != (*J))
         continue;
       std::string ret;
-      if (!(*I)->m_IsDeclOnly) {
+      if (!(*I)->m_IsDeclOnly && m_Proto->shouldGenerate()) {
         ret += m_Proto->getCProto(in);
         ret += "\n{";
         ret += RemoveCommonLeadingSpaces(
@@ -1423,7 +1429,9 @@ OclBuiltinEmitter::run(raw_ostream& OS)
       continue;
 
     for (OclBuiltin::const_type_iterator J = P->type_begin(), E = P->type_end(); J != E; ++J) {
-      OS << P->getCProto((*J)->getName(), true) << '\n';
+      if (P->shouldGenerate()) {
+        OS << P->getCProto((*J)->getName(), true) << '\n';
+      }
     }
     OS << '\n';
   }

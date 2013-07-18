@@ -209,6 +209,8 @@ public:
 
   bool needPrefix() const { return m_NeedPrefix; }
 
+  bool needToExclude() const { return m_NeedToExclude; }
+
   const std::string& getAS() const { return m_AS; }
 
   bool hasConst() const { return m_HasConst; }
@@ -219,6 +221,8 @@ public:
   
   void removeAttribute(const OclBuiltinAttr&);
 
+  bool shouldGenerate() const; 
+
 protected:
   const OclBuiltinDB& m_DB;
   const Record* m_Record;
@@ -226,6 +230,7 @@ protected:
   std::string m_CFunc;
   bool m_IsDeclOnly;
   bool m_NeedForwardDecl;
+  bool m_NeedToExclude;
   bool m_NeedPrefix;
   std::string m_AS;
   bool m_HasConst;

@@ -517,7 +517,7 @@ OclBuiltinImpl __ocl_float2half82 = OclBuiltinImpl<__ocl_float2half8, [v8f32], 0
 OclBuiltinImpl __ocl_double2ToHalf2_rtp2 = OclBuiltinImpl<__ocl_double2ToHalf2_rtp, [v2f64], 0, [{
 	float2 f2 = convert_float2_rtp($Arg0VarName);
 	float4 res;
-	half2 t;
+	short2 t;
 	vstore_half2_rtp(f2, 0, (half*)&t);
 	res.s0 = as_float(t);
 	return res;
@@ -525,7 +525,7 @@ OclBuiltinImpl __ocl_double2ToHalf2_rtp2 = OclBuiltinImpl<__ocl_double2ToHalf2_r
 OclBuiltinImpl __ocl_double2ToHalf2_rtn2 = OclBuiltinImpl<__ocl_double2ToHalf2_rtn, [v2f64], 0, [{
 	float2 f2 = convert_float2_rtn($Arg0VarName);
 	float4 res;
-	half2 t;
+	short2 t;
 	vstore_half2_rtn(f2, 0, (half*)&t);
 	res.s0 = as_float(t);
 	return res;
@@ -533,7 +533,7 @@ OclBuiltinImpl __ocl_double2ToHalf2_rtn2 = OclBuiltinImpl<__ocl_double2ToHalf2_r
 OclBuiltinImpl __ocl_double2ToHalf2_rtz2 = OclBuiltinImpl<__ocl_double2ToHalf2_rtz, [v2f64], 0, [{
 	float2 f2 = convert_float2_rtz($Arg0VarName);
 	float4 res;
-	half2 t;
+	short2 t;
 	vstore_half2_rtz(f2, 0, (half*)&t);
 	res.s0 = as_float(t);
 	return res;
@@ -638,7 +638,7 @@ OclBuiltinImpl __ocl_double4ToHalf4_rte2 = OclBuiltinImpl<__ocl_double4ToHalf4_r
 OclBuiltinImpl __ocl_double4ToHalf4_rtp2 = OclBuiltinImpl<__ocl_double4ToHalf4_rtp, [v4f64], 0, [{
 	float4 f4 = convert_float4_rtp($Arg0VarName);
 	float4 res;
-	half4 t;
+	short4 t;
 	vstore_half4_rtp(f4, 0, (half*)&t);
 	res.s01 = as_float2(t);
 	return res;
@@ -646,7 +646,7 @@ OclBuiltinImpl __ocl_double4ToHalf4_rtp2 = OclBuiltinImpl<__ocl_double4ToHalf4_r
 OclBuiltinImpl __ocl_double4ToHalf4_rtn2 = OclBuiltinImpl<__ocl_double4ToHalf4_rtn, [v4f64], 0, [{
 	float4 f4 = convert_float4_rtn($Arg0VarName);
 	float4 res;
-	half4 t;
+	short4 t;
 	vstore_half4_rtn(f4, 0, (half*)&t);
 	res.s01 = as_float2(t);
 	return res;
@@ -654,7 +654,7 @@ OclBuiltinImpl __ocl_double4ToHalf4_rtn2 = OclBuiltinImpl<__ocl_double4ToHalf4_r
 OclBuiltinImpl __ocl_double4ToHalf4_rtz2 = OclBuiltinImpl<__ocl_double4ToHalf4_rtz, [v4f64], 0, [{
 	float4 f4 = convert_float4_rtz($Arg0VarName);
 	float4 res;
-	half4 t;
+	short4 t;
 	vstore_half4_rtz(f4, 0, (half*)&t);
 	res.s01 = as_float2(t);
 	return res;
