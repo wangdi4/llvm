@@ -304,6 +304,7 @@ include_directories( BEFORE
         utils/cl_hw_utils/export
         utils/cl_sys_utils/export
         externals/tbb/include
+        externals/tbb/enhancements
         ${OCL_GLOBAL_INCLUDE}
         ${LLVM_INCLUDE_DIR}
     )
