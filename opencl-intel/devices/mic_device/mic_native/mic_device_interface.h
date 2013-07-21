@@ -1,5 +1,5 @@
 
-// Copyright (c) 2006-2008 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -29,10 +29,11 @@
 #include <stdint.h>
 #include <cstring>
 #include <assert.h>
+#include <cl_device_api.h>
+#include <cl_types.h>
+#include <task_executor.h>
+
 #include <common/COITypes_common.h>
-#include "cl_device_api.h"
-#include "cl_types.h"
-#include "task_executor.h"
 
 // The maximum amount of worker threads.
 #define MIC_NATIVE_MAX_CORES                64
@@ -359,23 +360,23 @@ struct misc_data
 #define MIC_CPU_ARCH_STR_SIZE 64
 
 struct mic_exec_env_options {
-	bool                stop_at_load;
+    bool                stop_at_load;
     bool                use_affinity;
     bool                ignore_core_0;
     bool                ignore_last_core;
-	bool                kernel_safe_mode;
-	bool                use_vtune;
-	bool                enable_itt;
+    bool                kernel_safe_mode;
+    bool                use_vtune;
+    bool                enable_itt;
     bool                trap_workers;
-	uint32_t            threads_per_core;
-	uint32_t            num_of_cores;
+    uint32_t            threads_per_core;
+    uint32_t            num_of_cores;
     uint32_t            use_TBB_grain_size;
     uint32_t            min_work_groups_number; // recommended amount of workgroups per NDRange
     
     Intel::OpenCL::TaskExecutor::TE_CMD_LIST_PREFERRED_SCHEDULING   tbb_scheduler;
     Intel::OpenCL::TaskExecutor::TASK_SET_OPTIMIZATION              tbb_block_optimization;
     
-	char mic_cpu_arch_str[MIC_CPU_ARCH_STR_SIZE];
+    char mic_cpu_arch_str[MIC_CPU_ARCH_STR_SIZE];
 };
 
 

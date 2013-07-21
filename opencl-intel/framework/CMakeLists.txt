@@ -19,11 +19,14 @@ if (WIN32 AND (DEFINED ENV{DXSDK_DIR}) )
 		link_directories($ENV{DXSDK_DIR}/Lib/x86)
 	endif(${BUILD_X64} STREQUAL "ON")
 
-if (WIN32 AND DEFINED ENV{DXSDK_DIR} )
-	add_definitions (-DDX_MEDIA_SHARING)
-	add_definitions (-DCL_DX9_MEDIA_SHARING_INTEL_EXT)
+	if (WIN32 AND DEFINED ENV{DXSDK_DIR} )
+		add_definitions (-DDX_MEDIA_SHARING)
+		add_definitions (-DCL_DX9_MEDIA_SHARING_INTEL_EXT)
+	endif ()
 endif ()
-endif ()
+
+# For debug only
+#add_definitions (-DUSE_ITT_INTERNAL)
 
 add_subdirectory( icd )
 

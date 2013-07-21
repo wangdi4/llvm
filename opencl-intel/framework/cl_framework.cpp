@@ -1,16 +1,35 @@
-// OpenCL.cpp : Defines the exported functions for the DLL application.
+// Copyright (c) 2006-2013 Intel Corporation
+// All rights reserved.
 //
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
 
 #include "stdafx.h"
+
+#include <cl_cpu_detect.h>
+#include <ocl_itt.h>
+#include <cl_objects_map.h>
+#include <cl_shared_ptr.hpp>
+
 #include "cl_framework.h"
-#include "cl_objects_map.h"
 #include "framework_proxy.h"
-#include "cl_cpu_detect.h"
-#include "cl_linux_utils.h"
-#include "ocl_itt.h"
-#include "cl_shared_ptr.hpp"
 
 #ifndef _WIN32
+#include <cl_linux_utils.h>
 #include "cl_framework_alias_linux.h"
 #endif
 
@@ -19,32 +38,38 @@ using namespace Intel::OpenCL::Utils;
 
 #if defined(USE_ITT)
 
-inline void __startITTTask(ocl_gpa_data *pGPAData, __itt_id &ittID, const char *fnctName)
-{
-    ittID = __itt_id_make(&ittID, (unsigned long long)0);
-	__itt_id_create(pGPAData->pDeviceDomain, ittID);
-	__itt_string_handle* pAPINameHandle = __itt_string_handle_create(fnctName);
-	__itt_task_begin(pGPAData->pAPIDomain, ittID, __itt_null, pAPINameHandle);
-}
+#ifdef WIN32
+#define thread_local __declspec(thread)
+#else
+#define thread_local __thread
+#endif
 
-inline void __endITTTask(ocl_gpa_data *pGPAData, __itt_id &ittID)
-{
-	__itt_task_end(pGPAData->pAPIDomain);
-    __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
-}
+#define __startITTTask(pGPAData, ittID, fnctName)	\
+    ittID = __itt_id_make(&ittID, (unsigned long long)0);\
+	__itt_id_create(pGPAData->pAPIDomain, ittID);\
+	static thread_local __itt_string_handle* pAPINameHandle = NULL;\
+	if ( NULL == pAPINameHandle )\
+	{\
+		pAPINameHandle = __itt_string_handle_create(fnctName);\
+	}\
+	__itt_task_begin(pGPAData->pAPIDomain, ittID, __itt_null, pAPINameHandle);
+
+#define __endITTTask(pGPAData, ittID)	\
+	__itt_task_end(pGPAData->pAPIDomain); \
+    __itt_id_destroy(pGPAData->pAPIDomain, ittID);
 
 #define CALL_INSTRUMENTED_API(module, return_type, function_call) \
-ocl_gpa_data *pGPAData = module->GetGPAData(); \
-if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
-{ \
-    __itt_id ittID; \
-    __startITTTask(pGPAData, ittID, __FUNCTION__); \
-    return_type ret_val = module->function_call; \
-    __endITTTask(pGPAData, ittID); \
-    return ret_val; \
-} else { \
-    return module->function_call; \
-}
+	ocl_gpa_data *pGPAData = module->GetGPAData(); \
+	if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
+	{ \
+		__itt_id ittID; \
+		__startITTTask(pGPAData, ittID, __FUNCTION__); \
+		return_type ret_val = module->function_call; \
+		__endITTTask(pGPAData, ittID); \
+		return ret_val; \
+	} else { \
+		return module->function_call; \
+	}
 
 #define CALL_INSTRUMENTED_API_NO_RET(module, function_call) \
 ocl_gpa_data *pGPAData = module->GetGPAData(); \

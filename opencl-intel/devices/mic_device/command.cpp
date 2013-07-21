@@ -52,6 +52,18 @@ void Command::notifyCommandStatusChanged(unsigned uStatus, cl_ulong timer)
 
 cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bool otherErr)
 {
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("Command::executePostDispatchProcess");
+      }
+      __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+
 	cl_dev_err_code err = m_lastError;
 
 	if ((CL_DEV_SUCCESS == err) && (!otherErr))
@@ -66,6 +78,13 @@ cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bo
         // error path
     	notifyCommandStatusChanged(CL_COMPLETE);
     }
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+  if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+  {
+    __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
+  }
+#endif
 
 	return err;
 }

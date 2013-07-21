@@ -6,6 +6,7 @@ endif()
 
 set( CLANG "${TOOLS_BINARY_DIR}/clang" )
 
+add_subdirectory( tbb_native_test_type )
 add_subdirectory( cpu_device_test_type )
 add_subdirectory( framework_test_type )
 if( BUILD_QTGUI AND INCLUDE_TOOLS )

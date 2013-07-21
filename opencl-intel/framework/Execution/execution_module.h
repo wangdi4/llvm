@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2012 Intel Corporation
+// Copyright (c) 2008-2013 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -90,7 +90,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Out Of Order Execution synch commands
         // ---------------------
-		cl_err_code EnqueueMarker           (cl_command_queue clCommandQueue, cl_event *pEvent);
+        cl_err_code EnqueueMarker           (cl_command_queue clCommandQueue, cl_event *pEvent);
         cl_err_code EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent);
         cl_err_code EnqueueWaitForEvents    (cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* cpEventList);
         cl_err_code EnqueueBarrier          (cl_command_queue clCommandQueue);

@@ -18,7 +18,7 @@ endif (WIN32 AND NOT BUILD_X64)
 
 include_directories( BEFORE 
         .
-        ${OCL_BINARY_DIR}        
+        ${OCL_BINARY_DIR}
  )
 
 if (WIN32)

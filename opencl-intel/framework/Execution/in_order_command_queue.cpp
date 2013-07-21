@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2012 Intel Corporation
+// Copyright (c) 2008-2013 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -54,17 +54,35 @@ InOrderCommandQueue::~InOrderCommandQueue()
 
 cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
 {
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("InOrderCommandQueue::Enqueue()");
+      }
+      __itt_task_begin(GetGPAData()->pAPIDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+
     if ( m_bProfilingEnabled )
     {
         cmd->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
     }
     m_submittedQueue.PushBack(cmd);
 
-	Flush(false);	// Solves the issue of event state reported to user
+    Flush(false);	// Solves the issue of event state reported to user
 					// On this stage event has CL_SUBMITTED state;
 					// However, w/o the flush commands is not submitted to device
 					// and this violates the spec.
 					// The SUBMITTED states identifies that command was submitted to device for execution
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    {
+      __itt_task_end(GetGPAData()->pAPIDomain);
+    }
+#endif
 
 	return CL_SUCCESS;
 }
@@ -97,6 +115,18 @@ cl_err_code InOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>&
 
 cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 {
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("InOrderCommandQueue::SendCommandsToDevice()");
+      }
+      __itt_task_begin(GetGPAData()->pAPIDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+
 	long prev_val = m_submittedQueueGuard++;
 	if (0 == prev_val)
 	{
@@ -199,5 +229,12 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 		} while (--m_submittedQueueGuard > 0);
 	}
 	//else return immediately
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    {
+      __itt_task_end(GetGPAData()->pAPIDomain);
+    }
+#endif
+
 	return CL_SUCCESS;
 }

@@ -22,10 +22,12 @@
 //  thread_pool.cpp
 /////////////////////////////////////////////////////////////
 
+#include <cl_shared_ptr.hpp>
+#include <hw_utils.h>
+#include <cl_synch_objects.h>
+
 #include "native_thread_pool.h"
-#include "cl_shared_ptr.hpp"
 #include "native_common_macros.h"
-#include "hw_utils.h"
 
 #include <map>
 #include <vector>
@@ -356,14 +358,14 @@ bool ThreadPool::init(
         unsigned int core_idx;
         unsigned int worker_idx = 0;
 
-        // assign first all 0 threads, then all 1 threads, etc.
-        for ( thread_idx = 0; thread_idx < useThreadsPerCore(); ++thread_idx )
+        // assign first threads on available core, then all threads on the next available core, etc.
+        for (core_idx = 0; core_idx < MIC_NATIVE_MAX_CORES; ++core_idx)
         {
-            for (core_idx = 0; core_idx < MIC_NATIVE_MAX_CORES; ++core_idx)
+            const CoreAffinityDescriptor& core = get_core_affinity_descriptor(core_idx);
+            if (core.is_enabled_core())
             {
-                const CoreAffinityDescriptor& core = get_core_affinity_descriptor(core_idx);
-                if (core.is_enabled_core())
-                {   
+                for ( thread_idx = 0; thread_idx < useThreadsPerCore(); ++thread_idx )
+                {
                     m_workerId_2_executorCore[worker_idx].hw_2_level_index.hw_core_idx   = core_idx;
                     m_workerId_2_executorCore[worker_idx].hw_2_level_index.hw_thread_idx = thread_idx;
                     ++worker_idx;
@@ -434,7 +436,6 @@ void ThreadPool::release()
 {
     if (NULL != m_task_executor)
     {
-    	//printf("Setback observers");
     	m_shut_down = true;
 	    m_RootDevice->SetObserver(this);
 	    
@@ -562,7 +563,7 @@ void ThreadPool::setCurrentThreadAffinity( unsigned int worker_id )
 		assert( 0 && "Number of workers should not exceed the total amount of workers");
         worker_id = 0;
     }
-    
+
     const TaskExecutorCore& executor_core = m_workerId_2_executorCore[ worker_id ];
     const CoreAffinityDescriptor& core_desc = get_core_affinity_descriptor( executor_core.hw_2_level_index.hw_core_idx );
     cpu_set_t affinity = core_desc.get_thread_affinity_mask( executor_core.hw_2_level_index.hw_thread_idx );
@@ -589,14 +590,14 @@ void ThreadPool::setCurrentThreadAffinity( unsigned int worker_id )
 }
 
 //
-//  Warmup device
+//  Warm-up device
 //
 class WarmUpTask : public ITaskSet
 {
 public:
-    PREPARE_SHARED_PTR(WarmUpTask)
+	PREPARE_SHARED_PTR(WarmUpTask)
     
-    static inline SharedPtr<WarmUpTask> Allocate( unsigned int num_of_workers ) { return new WarmUpTask( num_of_workers ); }
+	static inline SharedPtr<WarmUpTask> Allocate( unsigned int num_of_workers ) { return new WarmUpTask( num_of_workers ); }
 
 	int	    Init(size_t region[], unsigned int& regCount);
 	void*   AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) 
@@ -623,25 +624,37 @@ public:
 	bool	IsCompleted() const { return (0 != m_completed); }
 
 	// Returns true if command is already completed
-	bool	IsAllWorkersJoined() const { return (1 == startup_workers_left); }
+	void	WaitAllWorkersJoined()
+	{
+	  masterWaitEvent.Wait();
+	}
 	
 	// Master operation is ready, workers can be released
-	void	SetMasterReady() { startup_workers_left--; }
-    
-    // Releases task object, shall be called instead of delete operator.
-    long    Release() { delete this; return 0; }
+	void	SetMasterReady()
+	{
+	  long val = --startup_workers_left;
+	  assert(val == 0 && "Expected all workers to wakeup on this stage");
+	  workersWaitEvent.Signal();
+	}
 
-    // Optimize By
-    TASK_PRIORITY         GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-    TASK_SET_OPTIMIZATION OptimizeBy() const { return TASK_SET_OPTIMIZE_DEFAULT; }
-    unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
+	// Releases task object, shall be called instead of delete operator.
+	long    Release() { delete this; return 0; }
+
+	// Optimize By
+	TASK_PRIORITY         GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+	TASK_SET_OPTIMIZATION OptimizeBy() const { return TASK_SET_OPTIMIZE_DEFAULT; }
+	unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
 
 private:
-    WarmUpTask( unsigned int num_of_workers ) : startup_workers_left(num_of_workers) {}
-    ~WarmUpTask() {}
+	WarmUpTask( unsigned int num_of_workers ) :
+		startup_workers_left(num_of_workers), masterWaitEvent(true), workersWaitEvent(false) {}
 
-    AtomicCounter startup_workers_left;
-    AtomicCounter m_completed;
+	~WarmUpTask() {}
+
+	AtomicCounter startup_workers_left;
+	AtomicCounter m_completed;
+	Intel::OpenCL::Utils::OclOsDependentEvent masterWaitEvent;
+	Intel::OpenCL::Utils::OclOsDependentEvent workersWaitEvent;
 };
 
 int WarmUpTask::Init(size_t region[], unsigned int& regCount)
@@ -653,7 +666,7 @@ int WarmUpTask::Init(size_t region[], unsigned int& regCount)
 
 bool WarmUpTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext)
 {
-    long val = startup_workers_left--;
+    long val = --startup_workers_left;
 #if defined(USE_ITT)
     if ( gMicGPAData.bUseGPA )
     {
@@ -671,11 +684,22 @@ bool WarmUpTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext
 		__itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
     }
 #endif
-    while (0 != startup_workers_left)
+    // if single worker left wake-up master
+    if ( val == 1 )
     {
-        hw_pause();
-    }  
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+      masterWaitEvent.Signal();
+    }
+    // If last worker joined wake-up others
+    if ( val == 0 )
+    {
+      workersWaitEvent.Signal();
+    }
+    else
+    {
+      workersWaitEvent.Wait();
+    }
+
+    #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA)
     {
 		__itt_task_end(gMicGPAData.pDeviceDomain);
@@ -710,22 +734,16 @@ void ThreadPool::startup_all_workers()
     list->Flush();
     
     // Wait workers to join execution
-    while ( !warmup_task->IsAllWorkersJoined() )
-    {
-    	hw_pause();
-	}
-	
-	// All workers joined, now we can shutdown observer
+    warmup_task->WaitAllWorkersJoined();
+
+    // All workers joined, now we can shutdown observer
     m_RootDevice->SetObserver(NULL);
     
     // Workers might be released
     warmup_task->SetMasterReady();
-    
-    // Wait until all workers completed
-    while ( !warmup_task->IsCompleted() )
-    {
-    	hw_pause();
-    }
+
+    // Wait for all task completed
+    list->WaitForCompletion(NULL);
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA)

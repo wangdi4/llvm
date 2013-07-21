@@ -1,5 +1,25 @@
+// Copyright (c) 2006-2013 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
+#include <cl_dev_backend_api.h>
 #include "execution_commands.h"
-#include "cl_dev_backend_api.h"
 #include "command_list.h"
 #include "memory_allocator.h"
 #include "mic_device.h"
@@ -15,7 +35,8 @@ extern bool gSafeReleaseOfCoiObjects;
 //  ExecutionCommand Object
 //
 
-ExecutionCommand::ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : Command(pCommandList, pFrameworkCallBacks, pCmd)
+ExecutionCommand::ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) :
+    Command(pCommandList, pFrameworkCallBacks, pCmd)
 {
 }
 
@@ -130,16 +151,58 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
 
 		size_t tCoiBuffsArrSize = coiBuffsArr.size();
 
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("ExecutionCommand::executeInt()->PrepareData");
+      }
+      __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+    void* pDataPtr = m_dispatcherDatahandler.getDispatcherDataPtrForCoiRunFunc();
+    uint16_t pDataSize = m_dispatcherDatahandler.getDispatcherDataSizeForCoiRunFunc();
+    void* pMiscPtr = m_miscDatahandler.getMiscDataPtrForCoiRunFunc();
+    uint16_t pMiscSize = m_miscDatahandler.getMiscDataSizeForCoiRunFunc();
+    COIEVENT* pEvent = m_pCommandSynchHandler->registerBarrier(m_completionBarrier, this);
 		/* Run the function pointed by 'func' on the device with 'numBuffersToDispatch' buffers and with dependency on 'barrier' (Can be NULL) and signal m_completionBarrier.cmdEvent when finish.
 		   'm_pCommandSynchHandler->registerCompletionBarrier(&m_completionBarrier.cmdEvent))' can return NULL, in case of Out of order CommandList */
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+  if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+  {
+    __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
+  }
+#endif
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("ExecutionCommand::executeInt()->COIPipelineRunFunction()");
+      }
+      __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
 		COIRESULT result = COIPipelineRunFunction(pipe,
 												  func,
 												  tCoiBuffsArrSize, (tCoiBuffsArrSize > 0 ? &(coiBuffsArr[0]) : NULL), (tCoiBuffsArrSize > 0 ? &(accessFlagsArr[0]) : NULL),
 												  numDependecies, pBarrier,
-												  m_dispatcherDatahandler.getDispatcherDataPtrForCoiRunFunc(), m_dispatcherDatahandler.getDispatcherDataSizeForCoiRunFunc(),
-												  m_miscDatahandler.getMiscDataPtrForCoiRunFunc(), m_miscDatahandler.getMiscDataSizeForCoiRunFunc(), 
-												  m_pCommandSynchHandler->registerBarrier(m_completionBarrier, this));
-		unregisterProfilingContext();
+												  pDataPtr, pDataSize,
+												  pMiscPtr, pMiscSize,
+												  pEvent);
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+  if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+  {
+    __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
+  }
+#endif
+
+  unregisterProfilingContext();
+
+
 		if (result != COI_SUCCESS)
 		{
             assert( (result == COI_SUCCESS) && "COIPipelineRunFunction() returned error for kernel invoke" );
@@ -154,6 +217,18 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
 
 void ExecutionCommand::fireCallBack(void* arg)
 {
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("ExecutionCommand::fireCallBack()");
+      }
+      __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+
 	misc_data miscData;
 	m_miscDatahandler.readMiscData(&miscData);
 	if (CL_DEV_SUCCESS == m_lastError)
@@ -189,6 +264,12 @@ void ExecutionCommand::fireCallBack(void* arg)
 
 	// Call parent fireCallBack
 	Command::fireCallBack(arg);
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+  if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+  {
+    __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
+  }
+#endif
 }
 
 //
@@ -255,6 +336,18 @@ void NDRange::getKernelArgBuffersCount(const unsigned int numArgs, const cl_kern
 
 cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCESS_FLAGS>& outAccessFlagArr)
 {
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("NDRange::init()");
+      }
+      __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+
 	cl_dev_err_code returnError = CL_DEV_SUCCESS;
 	// array of directive_pack for preExeDirectives
 	directive_pack* preExeDirectives = NULL;
@@ -262,12 +355,13 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 	directive_pack* postExeDirectives = NULL;
 	do
 	{
-        ProgramService* program_service = m_pCommandList->getProgramService();
+	  ProgramService* program_service = m_pCommandList->getProgramService();
 
 		// Get command params
 		cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
 		// Get Kernel from params
 #ifndef NDRANGE_UNIT_TEST
+		// TODO: Why we need conversion? Why ptr is not enough
 		const ICLDevBackendKernel_* pKernel = program_service->GetBackendKernel(cmdParams->kernel);
 #else
 		program_service = NULL;
@@ -287,8 +381,9 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 
 #ifndef NDRANGE_UNIT_TEST
 		// Get device side kernel address and set kernel directive (Also increase the reference counter of the Program.
+		// TODO: Is it long operation? Why we can't just have a remote address
 		dispatcherData.kernelDirective.kernelAddress = program_service->AcquireKernelOnDevice(cmdParams->kernel);
-        m_kernel_locked = (0 != dispatcherData.kernelDirective.kernelAddress);
+    m_kernel_locked = (0 != dispatcherData.kernelDirective.kernelAddress);
 #else
 		// Only for unit test
 		dispatcherData.kernelDirective.kernelAddress = pKernel->GetKernelID();
@@ -301,8 +396,11 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 		}
 		// set unique command identifier
 		dispatcherData.commandIdentifier = m_pCmd->id;
+
+		// TODO: Why need this info, the kernel on device knows its parameters. args size must match
 		// set kernel args blob size in bytes for dispatcherData
 		dispatcherData.kernelArgSize = cmdParams->arg_size;
+		// TODO: The type of the queue is known, why add it?
 		// set isInOrderQueue flag in dispatcherData
 		dispatcherData.isInOrderQueue = m_pCommandList->isInOrderCommandList();
 		// Filling the workDesc structure in dispatcherData
@@ -348,6 +446,7 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 		outCoiBuffsArr.reserve(numOfBuffersInKernelArgs + AMOUNT_OF_OPTIONAL_DISPATCH_BUFFERS);
 		outAccessFlagArr.reserve(numOfBuffersInKernelArgs + AMOUNT_OF_OPTIONAL_DISPATCH_BUFFERS);
 
+		// TODO: the directives are locally used, why not use alloca()?
 		if (numPreDirectives > 0)
 		{
 			preExeDirectives = new directive_pack[numPreDirectives];
@@ -411,6 +510,7 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 		COIPROCESS tProcess = m_pCommandList->getDeviceProcess();
 
 		COIRESULT coi_err = COI_SUCCESS;
+		// TODO: Does printf() is handled by the buffer?
 		// If there is printf operation, add printf directive
 		if (tHasPrintOperation)
 		{
@@ -445,6 +545,7 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 			currPostDirectiveIndex ++;
 		}
 
+		// TODO: do we need these barriers also in in-order queue?
 		// Register start barrier
 		m_pCommandSynchHandler->registerBarrier(m_startBarrier, this);
 		// Register completion barrier
@@ -462,6 +563,7 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 		}
 
 		// initialize the miscDataHandler
+		// TODO: What is this? Do we need this?
 		returnError = m_miscDatahandler.init(!dispatcherData.isInOrderQueue, &tProcess);
 		if (CL_DEV_FAILED(returnError))
 		{
@@ -496,6 +598,13 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
 		outAccessFlagArr.clear();
 	}
 	m_lastError = returnError;
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+	if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+	{
+    __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
+	}
+#endif
 
 	return returnError;
 }

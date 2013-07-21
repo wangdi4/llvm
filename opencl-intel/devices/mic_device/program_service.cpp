@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -1172,10 +1172,10 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
     case CL_DEV_KERNEL_MAX_WG_SIZE:
         {
             size_t private_mem_size = pKernelProps->GetPrivateMemorySize();
-            ullValue = MIN(MIC_MAX_WORK_GROUP_SIZE, (MIC_DEV_MAX_WG_PRIVATE_SIZE /(private_mem_size ? private_mem_size : 1)) );
+            ullValue = MIN(MIC_MAX_WORK_GROUP_SIZE, (MIC_DEV_MAX_WG_PRIVATE_SIZE/((private_mem_size > 0) ? private_mem_size : 1)));
             size_t packSize = pKernelProps->GetMinGroupSizeFactorial();
             if (ullValue > packSize)
-				ullValue = ( ullValue ) & ~(packSize-1);
+                ullValue = ( ullValue ) & ~(packSize-1);
         }
         stValSize = sizeof(size_t);
         break;

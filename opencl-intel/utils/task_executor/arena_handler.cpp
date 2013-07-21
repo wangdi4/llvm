@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -207,7 +207,7 @@ void TEDevice::ShutDown()
     if (!gIsExiting)
     {
         TBB_PerActiveThreadData* tls = m_taskExecutor.GetThreadManager().GetCurrentThreadDescriptor();
-        unsigned int remainder = ((NULL == tls) || (tls->device != this)) ? 0 : 1; // how many threads may remain inside arena
+        int remainder = ((NULL == tls) || (tls->device != this)) ? 0 : 1; // how many threads may remain inside arena
         
         while (m_numOfActiveThreads > remainder)
         {
@@ -541,15 +541,15 @@ SharedPtr<ITaskList> TEDevice::CreateTaskList(const CommandListCreationParam& pa
     switch ( param.cmdListType )
     {
         case TE_CMD_LIST_IN_ORDER:
-            pList = in_order_command_list::Allocate(m_taskExecutor, this, &param);
+            pList = in_order_command_list::Allocate(m_taskExecutor, this, param);
             break;
 
         case TE_CMD_LIST_OUT_OF_ORDER:
-            pList = out_of_order_command_list::Allocate(m_taskExecutor, this, &param);
+            pList = out_of_order_command_list::Allocate(m_taskExecutor, this, param);
             break;
 
         case TE_CMD_LIST_IMMEDIATE:
-            pList = immediate_command_list::Allocate(m_taskExecutor, this, &param);
+            pList = immediate_command_list::Allocate(m_taskExecutor, this, param);
             break;
 
         default:
@@ -557,4 +557,15 @@ SharedPtr<ITaskList> TEDevice::CreateTaskList(const CommandListCreationParam& pa
     }
 
 	return pList;
+}
+
+/**
+	* Retrives concurrency level for the device
+	* @return pointer to the new list or NULL on error
+	*/
+int TEDevice::GetConcurrency()
+{
+	assert ( (1 == m_deviceDescriptor.uiNumOfLevels)  && "Currently only single level devices are supported");
+
+	return m_deviceDescriptor.uiThreadsPerLevel[0];
 }

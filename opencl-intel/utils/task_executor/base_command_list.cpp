@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -36,9 +36,12 @@ void TaskGroup::WaitForAll()
     }
 }
 
-base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device) :
-	m_pTBBExecutor(pTBBExec), m_pMasterSync(SyncTask::Allocate()), 
-    m_device(device), m_taskGroup(device.GetPtr())
+base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
+	m_pTBBExecutor(pTBBExec),
+	m_pMasterSync(SyncTask::Allocate()),
+	m_device(device),
+	m_taskGroup(device.GetPtr()),
+	m_scheduling(param.preferredScheduling)
 {
 	m_execTaskRequests = 0;
 	m_bMasterRunning = false;

@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2012 Intel Corporation
+// Copyright (c) 2008-2013 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -389,7 +389,7 @@ cl_err_code ExecutionModule::Flush ( cl_command_queue clCommandQueue )
  ******************************************************************/
 cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
 {
-    cl_err_code res = CL_SUCCESS;
+	cl_err_code res = CL_SUCCESS;
 	cl_event dummy = NULL;
 	SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
 	if (NULL == pCommandQueue)
@@ -1768,6 +1768,18 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     cl_event*       pEvent
     )
 {
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+      if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+      {
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+          pTaskName = __itt_string_handle_create("ExecutionModule::EnqueueNDRangeKernel()->ArgumentValidation...");
+        }
+        __itt_task_begin(m_pGPAData->pAPIDomain, __itt_null, __itt_null, pTaskName);
+      }
+#endif
+
     cl_err_code errVal = CL_SUCCESS;
 
     if( uiWorkDim < 1 || uiWorkDim > 3)
@@ -1775,18 +1787,18 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         return CL_INVALID_WORK_DIMENSION;
     }
 
-	if ( NULL == cpszGlobalWorkSize )
-	{
-		return CL_INVALID_GLOBAL_WORK_SIZE;
-	}
+    if ( NULL == cpszGlobalWorkSize )
+    {
+		    return CL_INVALID_GLOBAL_WORK_SIZE;
+    }
 
-	for ( cl_uint ui = 0; ui < uiWorkDim; ui++ )
-	{
-		if ( cpszGlobalWorkSize[ui] == 0 )
-		{
-			return CL_INVALID_GLOBAL_WORK_SIZE;
-		}
-	}
+    for ( cl_uint ui = 0; ui < uiWorkDim; ui++ )
+    {
+      if ( cpszGlobalWorkSize[ui] == 0 )
+      {
+        return CL_INVALID_GLOBAL_WORK_SIZE;
+      }
+    }
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
     if (NULL == pCommandQueue)
@@ -1804,7 +1816,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         return CL_INVALID_CONTEXT;
     }
 
-	SharedPtr<FissionableDevice> pDevice = pCommandQueue->GetDefaultDevice();
+    SharedPtr<FissionableDevice> pDevice = pCommandQueue->GetDefaultDevice();
 	
     // CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program
     // executable available for device associated with command_queue.
@@ -1892,16 +1904,16 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
         cl_uint uiMaxWorkItemDim = 0;
         pDevice->GetInfo(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(cl_uint), &uiMaxWorkItemDim, NULL);
-		if (uiMaxWorkItemDim == 0)
-		{
+        if (uiMaxWorkItemDim == 0)
+        {
             /* CL_INVALID_WORK_ITEM_SIZE if the number of work-items specified in any of
              * local_work_size[0], local_work_size[work_dim - 1] is greater than the corresponding
              * values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[0], CL_DEVICE_MAX_WORK_ITEM_SIZES[work_dim - 1].
              */
-			return CL_INVALID_WORK_ITEM_SIZE;
-		}
+            return CL_INVALID_WORK_ITEM_SIZE;
+        }
         clLocalArray<size_t> pszMaxWorkItemSizes(uiMaxWorkItemDim);
-		pDevice->GetInfo(CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t)*uiMaxWorkItemDim, pszMaxWorkItemSizes, NULL);
+        pDevice->GetInfo(CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t)*uiMaxWorkItemDim, pszMaxWorkItemSizes, NULL);
 
         for( ui =0; ui<uiWorkDim; ui++)
         {
@@ -1912,25 +1924,67 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         }
     }
 
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    {
+      __itt_task_end(m_pGPAData->pAPIDomain);
+    }
+#endif
     
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+      if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+      {
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+          pTaskName = __itt_string_handle_create("ExecutionModule::EnqueueNDRangeKernel()->CommandCreation()");
+        }
+        __itt_task_begin(m_pGPAData->pAPIDomain, __itt_null, __itt_null, pTaskName);
+      }
+#endif
+
     // TODO: create buffer resources in advance, if they are not exists,
     //      On error return: CL_OUT_OF_RESOURCES
-
     Command* pNDRangeKernelCmd = new NDRangeKernelCommand(pCommandQueue, m_pOclEntryPoints, pKernel, uiWorkDim, cpszGlobalWorkOffset, cpszGlobalWorkSize, cpszLocalWorkSize); 
-	if ( NULL == pNDRangeKernelCmd )
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
+    if ( NULL == pNDRangeKernelCmd )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
     // Must set device Id before init for buffer resource allocation.
-	pNDRangeKernelCmd->SetDevice(pDevice);
+    pNDRangeKernelCmd->SetDevice(pDevice);
     errVal = pNDRangeKernelCmd->Init();
-	if ( CL_FAILED(errVal) )
-	{
-		delete pNDRangeKernelCmd;
-	    return  errVal;
-	}
+    if ( CL_FAILED(errVal) )
+    {
+        delete pNDRangeKernelCmd;
+        return  errVal;
+    }
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    {
+      __itt_task_end(m_pGPAData->pAPIDomain);
+    }
+#endif
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+      if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+      {
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+          pTaskName = __itt_string_handle_create("ExecutionModule::EnqueueNDRangeKernel()->EnqueueSelf()");
+        }
+        __itt_task_begin(m_pGPAData->pAPIDomain, __itt_null, __itt_null, pTaskName);
+      }
+#endif
 
     errVal = pNDRangeKernelCmd->EnqueueSelf(false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    {
+      __itt_task_end(m_pGPAData->pAPIDomain);
+    }
+#endif
+
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources

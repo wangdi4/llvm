@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -17,12 +17,6 @@
 //
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
-
-/////////////////////////////////////////////////////////////
-//  ExecutionTask.h
-//  Implementation of the Class ExecutionTask
-//  Class Object is responsible on execution of NDRange task
-/////////////////////////////////////////////////////////////
 
 #pragma once
 

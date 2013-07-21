@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -32,6 +32,7 @@
 #include "native_program_service.h"
 #include <malloc.h>
 #include <assert.h>
+#include "native_globals.h"
 
 using namespace Intel::OpenCL::MICDeviceNative;
 
@@ -93,7 +94,26 @@ cl_dev_err_code WGContext::UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinar
 
 	pBuffPtr[count] = m_pPrivateMem;
 
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( gMicGPAData.bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("WGContext::UpdateContext()->ICLDevBackendExecutable()::Init()");
+      }
+      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
 	cl_dev_err_code rc = m_pContext->Init(pBuffPtr, m_pPrivateMem, pBinary);
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    // Monitor only IN-ORDER queue
+    if ( gMicGPAData.bUseGPA )
+    {
+      __itt_task_end(gMicGPAData.pDeviceDomain);
+    }
+#endif
+
 	if (CL_DEV_FAILED(rc))
 	{
 		assert(0 && "Context initialization failed");

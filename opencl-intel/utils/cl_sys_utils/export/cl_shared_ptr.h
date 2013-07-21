@@ -449,14 +449,14 @@ public:
     SharedPtr<S> DynamicCast() const
     {
         S* const pS = dynamic_cast<S*>(this->m_ptr);
-        if (NULL != pS)
-        {
-            return pS;
-        }
-        else
-        {
-            return SharedPtr<S>();
-        }
+        return pS;
+    }
+
+    template<typename S>
+    SharedPtr<S> StaticCast() const
+    {
+        S* const pS = static_cast<S*>(this->m_ptr);
+        return pS;
     }
 
     /**
@@ -542,14 +542,14 @@ public:
     ConstSharedPtr<S> DynamicCast() const
     {
         S* const pS = dynamic_cast<S*>(this->m_ptr);
-        if (NULL != pS)
-        {
-            return pS;
-        }
-        else
-        {
-            return ConstSharedPtr<S>();
-        }
+        return pS;
+    }
+
+    template<typename S>
+    ConstSharedPtr<S> StaticCast() const
+    {
+        S* const pS = static_cast<S*>(this->m_ptr);
+        return pS;
     }
 
 protected:

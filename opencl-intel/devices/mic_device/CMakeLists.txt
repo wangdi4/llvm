@@ -36,8 +36,13 @@ set( MIC_NATIVE_SERVER_EXE  mic_server )
 set( COI_HOST_LIB           coi_host )
 set( MIC_NATIVE_SUBDIR_NAME mic_native )
 
-add_definitions( -DMIC_NATIVE_SERVER_EXE="${MIC_NATIVE_SERVER_EXE}" -DMIC_BACKEND_DLL_NAME="${IMPLIB_PREFIX}${MIC_BACKEND_DLL_NAME}${BUILD_PLATFORM}${DLL_SUFIX}"
-                 -DMIC_NATIVE_SUBDIR_NAME="${MIC_NATIVE_SUBDIR_NAME}" )
+add_definitions( -DMIC_NATIVE_SERVER_EXE="${MIC_NATIVE_SERVER_EXE}"
+                 -DMIC_BACKEND_DLL_NAME="${IMPLIB_PREFIX}${MIC_BACKEND_DLL_NAME}${BUILD_PLATFORM}${DLL_SUFIX}"
+                 -DMIC_NATIVE_SUBDIR_NAME="${MIC_NATIVE_SUBDIR_NAME}"
+                 -DUSE_ITT
+                 # Internal debug only
+                 #-DUSE_ITT_INTERNAL
+               )
 
 include_directories( BEFORE
                             ../../fe_compilers/clang_compiler
@@ -45,8 +50,6 @@ include_directories( BEFORE
                             ${OCL_BINARY_DIR}
                             ${COI_SDK_PATH}/include
                             mic_native )
-
-include( ../../cmake_utils/itt.cmake )
 
 set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} )
 
@@ -67,18 +70,20 @@ endif (WIN32)
 FIND_SOURCES( ${IGNORE_SOURCES} )
 CALCULATE_TARGET_SOURCES()
 
+include( ../../cmake_utils/itt.cmake )
+
 link_directories(   ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
                     ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
                     ${COI_LIB_PATH}
                 )
 
 if(WIN32)
-link_directories(
+	link_directories(
                     ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM_BUILD/lib/${INSTALL_SUBDIR}
                     ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Win32
                 )
 else(WIN32)
-link_directories(
+	link_directories(
                     ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM_BUILD/lib/${INSTALL_SUBDIR}
                     ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Linux64
                 )

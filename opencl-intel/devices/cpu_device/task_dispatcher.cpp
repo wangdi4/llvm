@@ -63,12 +63,12 @@ public:
 	
 	virtual ~InPlaceTaskList();
 
-	virtual unsigned int	Enqueue(const SharedPtr<ITaskBase>& pTaskBase);
-	virtual bool			Flush();
+	virtual unsigned int    Enqueue(const SharedPtr<ITaskBase>& pTaskBase);
+	virtual bool            Flush();
 	//Todo: WaitForCompletion only immediately returns if bImmediate is true
 	virtual te_wait_result  WaitForCompletion(const SharedPtr<ITaskBase>& pTask) { return TE_WAIT_COMPLETED; };
-    virtual void            Retain();
-	virtual void			Release();
+	virtual void            Retain();
+	virtual void            Release();
 
 protected:
 	WGContextBase* const m_pMasterWGContext;
@@ -281,7 +281,8 @@ cl_dev_err_code TaskDispatcher::init()
 		assert(0);
 		return CL_DEV_OUT_OF_MEMORY;
 	}
-    SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList> pTaskList = m_pRootDevice->CreateTaskList( TE_CMD_LIST_IN_ORDER );
+	
+    SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList> pTaskList = m_pRootDevice->CreateTaskList( CommandListCreationParam(TE_CMD_LIST_IN_ORDER, TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC) );
     if (NULL == pTaskList)
     {
 		//Todo
@@ -344,7 +345,7 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
     if (!isInPlace)
     {
         bool isOOO       = (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO));
-	    pList = pDevice->CreateTaskList( isOOO ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER );
+	    pList = pDevice->CreateTaskList( CommandListCreationParam(isOOO ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER, TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC) );
     }
     else
     {
@@ -759,36 +760,36 @@ void AffinitizeThreads::DetachFromThread(void* pWgContext)
 
 bool AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext)
 {
-	if (m_failed)
-	{
-		return false;
-	}
+    if (m_failed)
+    {
+      return false;
+    }
 	
     WGContext* pContext = reinterpret_cast<WGContext*>(pWgContext);
     assert (NULL!= pContext);
     if (!pContext->DoesBelongToMasterThread())
-	{
+    {
         // Set NUMA node prior to allocation
         clNUMASetLocalNodeAlloc();
         pContext->Init();
         m_pObserver->NotifyAffinity(clMyThreadId(), x);
-	}		
+    }
 
-	m_barrier--;
-	cl_ulong start = Intel::OpenCL::Utils::HostTime();
-	while ((m_barrier > 0) && (!m_failed))
-	{
-		if (m_timeOut > 0)
-		{
-			cl_ulong now = Intel::OpenCL::Utils::HostTime();
-			if (now - start > m_timeOut)
-			{
-				m_failed = true;
-				return false;
-			}
-		}
-		hw_pause();
-	}
+    m_barrier--;
+    cl_ulong start = Intel::OpenCL::Utils::HostTime();
+    while ((m_barrier > 0) && (!m_failed))
+    {
+        if (m_timeOut > 0)
+        {
+          cl_ulong now = Intel::OpenCL::Utils::HostTime();
+          if (now - start > m_timeOut)
+          {
+            m_failed = true;
+            return false;
+          }
+        }
+        hw_pause();
+    }
 
     return true;
 }

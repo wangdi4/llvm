@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2009 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -28,10 +28,10 @@
 *		un-ordered - wherein tasks are executed without decencies
 *	b.	Async. execution. The execution function will be returned immediately,
 *		the provided callback function will be called when a task is completed
-*	c.	It’ll be two types of tasks:
-*		I.	Simple – single function task, single instance of function will be executed
-*		II.	Complex (Task Set) – the main function will be executed multiple times.
-*			This complex function will have initialization and finalization stages –
+*	c.	Itâ€™ll be two types of tasks:
+*		I.	Simple â€“ single function task, single instance of function will be executed
+*		II.	Complex (Task Set) â€“ the main function will be executed multiple times.
+*			This complex function will have initialization and finalization stages â€“
 *			single function that should be called before and after the main loop.
 *
 */
@@ -94,14 +94,15 @@ typedef enum
 {
 	TE_CMD_LIST_IN_ORDER            = 0,// Process tasks in order of enqueing
 	TE_CMD_LIST_OUT_OF_ORDER,           // Process tasks in any order
-    TE_CMD_LIST_IMMEDIATE               // Process each task immediately using the caller thread also
+  TE_CMD_LIST_IMMEDIATE               // Process each task immediately using the caller thread also
 } TE_CMD_LIST_TYPE;
 
 // preferred CommandList scheduling type
 typedef enum  
 {
     TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC = 0,             // in TBB case - use auto_partitioner for TaskSets
-    TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY,  // try to preserve task affinities to threads in TaskSet        
+    TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY,  // try to preserve task affinities to threads in TaskSet
+    TE_CMD_LIST_PREFERED_SCHEDULING_UNEVEN_OPENCL,                       // Use OpenCL specific partitioner
 
     TE_CMD_LIST_PREFERRED_SCHEDULING_LAST
 } TE_CMD_LIST_PREFERRED_SCHEDULING;
@@ -207,11 +208,11 @@ public:
     // Return task priority, currently the implementation shall return TASK_PRIORITY_MEDIUM
     virtual TASK_PRIORITY	GetPriority() const = 0; 
 
-	// Returns true in case current task is a syncronization point
+	// Returns true in case current task is a synchronization point
 	// No more tasks will be executed in this case
 	virtual bool	CompleteAndCheckSyncPoint() = 0;
 	
-	// Set current command as syncronization point
+	// Set current command as synchronization point
 	// Returns true if command is already completed
 	virtual bool	SetAsSyncPoint() = 0;
 
@@ -329,10 +330,16 @@ public:
     virtual void SetObserver(ITaskExecutorObserver* pObserver) = 0;
 
     /**
-	 * Create Task Execution List to the given sub-device
+	 * Create Task Execution List to the given device
 	 * @return pointer to the new list or NULL on error
 	 */
 	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param ) = 0;
+
+    /**
+	 * Retrives concurrency level for the device
+	 * @return pointer to the new list or NULL on error
+	 */
+	virtual int GetConcurrency() = 0;
 
     /**
      * Wait until all work in a sub-device is complete and mark device as disabled. No more enqueues are allowed after the ShutDown

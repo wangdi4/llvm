@@ -1,8 +1,29 @@
+// Copyright (c) 2006-2013 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
 #include "command_list.h"
 #include "execution_commands.h"
 #include "buffer_commands.h"
-#include "hw_utils.h"
 #include "memory_allocator.h"
+
+#include <hw_utils.h>
 
 #include <source/COIEvent_source.h>
 
@@ -35,13 +56,19 @@ CommandList::CommandList(const SharedPtr<NotificationPort>& pNotificationPort,
                          ProgramService* pProgramService, 
                          PerformanceDataStore* pOverheadData,
                          cl_dev_subdevice_id subDeviceId,
-						 bool isInOrder) :
-m_validBarrier(false), m_pNotificationPort(pNotificationPort), m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks), 
-m_pProgramService(pProgramService), m_pipe(NULL), m_subDeviceId(subDeviceId), m_pOverhead_data(pOverheadData), m_lastCommand(NULL), m_isInOrderQueue(isInOrder)
+                         bool isInOrder,
+                         const ocl_gpa_data* pGPAData) :
+        m_validBarrier(false), m_pNotificationPort(pNotificationPort),
+        m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks),
+        m_pProgramService(pProgramService), m_pipe(NULL), m_subDeviceId(subDeviceId),
+        m_pOverhead_data(pOverheadData), m_lastCommand(NULL), m_isInOrderQueue(isInOrder)
+#ifdef USE_ITT
+        ,m_pGPAData(pGPAData)
+#endif
 {
-	m_refCounter.exchange(1);
+	m_refCounter = 1;
 #ifdef _DEBUG
-	m_numOfConcurrentExecutions.exchange(0);
+	m_numOfConcurrentExecutions = 0;
 #endif
 }
 
@@ -63,10 +90,14 @@ cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN        
                                                 cl_dev_subdevice_id             subDeviceId, 
                                                 const SharedPtr<NotificationPort>&    pNotificationPort, 
                                                 DeviceServiceCommunication*     pDeviceServiceComm,
-												IOCLFrameworkCallbacks*         pFrameworkCallBacks, 
-												ProgramService*                 pProgramService, 
-												PerformanceDataStore*           pOverheadData,
-												CommandList**                   outCommandList)
+                                                IOCLFrameworkCallbacks*         pFrameworkCallBacks,
+                                                ProgramService*                 pProgramService,
+                                                PerformanceDataStore*           pOverheadData,
+#ifdef USE_ITT
+                                                const ocl_gpa_data*             pGPAData,
+#endif
+
+                                                CommandList**                   outCommandList)
 {
     cl_dev_err_code result = CL_DEV_SUCCESS;
     CommandList* tCommandList = NULL;
@@ -75,13 +106,21 @@ cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN        
 	{
 	    tCommandList = new CommandList(pNotificationPort, pDeviceServiceComm, 
                                                  pFrameworkCallBacks, pProgramService, 
-                                                 pOverheadData, subDeviceId, false);
+                                                 pOverheadData, subDeviceId, false
+#ifdef USE_ITT
+                                                 ,pGPAData
+#endif
+                                                 );
 	}
 	else  // In order command list
 	{
 	    tCommandList = new CommandList(pNotificationPort, pDeviceServiceComm, 
                                               pFrameworkCallBacks, pProgramService, 
-                                              pOverheadData, subDeviceId, true);
+                                              pOverheadData, subDeviceId, true
+#ifdef USE_ITT
+                                              ,pGPAData
+#endif
+                                              );
 	}
 	if (NULL == tCommandList)
 	{
@@ -140,10 +179,22 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
 	assert(oldVal == 0);
 #endif
 
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("CommandList::commandListExecute()");
+      }
+      __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+
 	cl_dev_err_code rc = CL_DEV_SUCCESS;
-    SharedPtr<Command> pCmdObject;
+	SharedPtr<Command> pCmdObject;
 	// run over all the cmds
-    for (unsigned int i = 0; i < count; i++)
+	for (unsigned int i = 0; i < count; i++)
 	{
 	    // Create appropriate Command object, After createCommandObject() complete, Do not change pCmdObject until completion of pCmdObject->execute()!
 		rc = createCommandObject(cmds[i], pCmdObject);
@@ -152,8 +203,25 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
 		{
 			break;
 		}
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+      if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+      {
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+          pTaskName = __itt_string_handle_create("CommandList::commandListExecute()->Command::Execute()");
+        }
+        __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+      }
+#endif
 		// Send the command for execution. pCmdObject will delete itself.
 		rc = pCmdObject->execute();
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    {
+      __itt_task_end(m_pGPAData->pDeviceDomain);
+    }
+#endif
 		if (CL_DEV_FAILED(rc))
 		{
 			break;
@@ -169,11 +237,31 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
 	oldVal = m_numOfConcurrentExecutions--;
 	assert(oldVal == 1);
 #endif
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+  if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+  {
+    __itt_task_end(m_pGPAData->pDeviceDomain);
+  }
+#endif
+
 	return rc;
 }
 
 void CommandList::commandListWaitCompletion(cl_dev_cmd_desc* cmdDescToWait)
 {
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("CommandList::commandListWaitCompletion()");
+      }
+      __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+
 	SharedPtr<Command> waitToCmd = NULL;
 	// Assume that if cmdDescToWait->device_agent_data != NULL than the Command object exist.
 	if ((cmdDescToWait) && (cmdDescToWait->device_agent_data))
@@ -191,10 +279,28 @@ void CommandList::commandListWaitCompletion(cl_dev_cmd_desc* cmdDescToWait)
 		err = COIEventWait(1, &(waitToCmd->getCommandCompletionEvent()), -1, true, NULL, NULL);
 		assert(COI_SUCCESS == err);
 	}	
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+  if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+  {
+    __itt_task_end(m_pGPAData->pDeviceDomain);
+  }
+#endif
 }
 
 cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, SharedPtr<Command>& cmdObject)
 {
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("CommandList::createCommandObject()");
+      }
+      __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+
 	if ((NULL == cmd) || (cmd->type >= CL_DEV_CMD_MAX_COMMAND_TYPE))
 	{
 		return CL_DEV_INVALID_VALUE;
@@ -215,6 +321,13 @@ cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, SharedPtr
 		}
 	}
 	cmdObject = pCmdObject;
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+  if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+  {
+    __itt_task_end(m_pGPAData->pDeviceDomain);
+  }
+#endif
+
 	return rc;
 }
 

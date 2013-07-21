@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -20,13 +20,13 @@
 
 #pragma once
 
-#include "cl_device_api.h"
+#include <cl_device_api.h>
+#include <ocl_itt.h>
+#include <cl_synch_objects.h>
 #include "notification_port.h"
 #include "device_service_communication.h"
 #include "program_service.h"
 #include "command.h"
-
-#include "cl_synch_objects.h"
 
 #include <source/COIPipeline_source.h>
 #include <common/COITypes_common.h>
@@ -57,10 +57,14 @@ public:
                                               cl_dev_subdevice_id           subDeviceId, 
                                               const SharedPtr<NotificationPort>&  pNotificationPort, 
                                               DeviceServiceCommunication*   pDeviceServiceComm,
-		                                      IOCLFrameworkCallbacks*       pFrameworkCallBacks, 
-		                                      ProgramService*               pProgramService, 
-		                                      PerformanceDataStore*         pOverheadData,
-		                                      CommandList**                 outCommandList);
+                                              IOCLFrameworkCallbacks*       pFrameworkCallBacks,
+                                              ProgramService*               pProgramService,
+                                              PerformanceDataStore*         pOverheadData,
+#ifdef USE_ITT
+                                              const ocl_gpa_data* pGPAData,
+#endif
+
+                                              CommandList**                 outCommandList);
 
     /* Do nothing because the COIPipeline send the command as it enter to it. (Flush is redundant) */
 	cl_dev_err_code flushCommandList() { return CL_DEV_SUCCESS; };
@@ -84,7 +88,7 @@ public:
 	/* Return this queue COIPIPLINE */
 	COIPIPELINE getPipelineHandle() const { return m_pipe; };
 
-	/* Return handle to COIFUNCTION according to the appripriate id */
+	/* Return handle to COIFUNCTION according to the appropriate id */
     COIFUNCTION getDeviceFunction( DeviceServiceCommunication::DEVICE_SIDE_FUNCTION id ) const
                                         { return m_pDeviceServiceComm->getDeviceFunction( id ); };
 
@@ -123,6 +127,8 @@ public:
 	/* return true if the queue is InOrder command list */
 	bool isInOrderCommandList() { return m_isInOrderQueue; };
 
+	const ocl_gpa_data* GetGPAInfo() const { return m_pGPAData;}
+
 protected:
 
 	/* It is protected constructor because We want that the client will create CommandList only by the factory method */
@@ -132,7 +138,11 @@ protected:
 	            ProgramService*             pProgramService, 
 	            PerformanceDataStore*       pOverheadData,
 	            cl_dev_subdevice_id subDeviceId,
-				bool isInOrder);
+	            bool isInOrder
+#ifdef USE_ITT
+	            ,const ocl_gpa_data* pGPAData
+#endif
+	            );
 
 	// the last dependency barrier COIBarrier.
 	COIEVENT          m_lastDependentBarrier;
@@ -141,7 +151,7 @@ protected:
 private:
 
 	// definition of static function of Commands that create command object (factory)
-    typedef cl_dev_err_code fnCommandCreate_t(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
+	typedef cl_dev_err_code fnCommandCreate_t(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
 	/* Create new COIPIPELINE for this queue */
 	cl_dev_err_code createPipeline();
@@ -159,39 +169,47 @@ private:
 	                                        void* in_data = NULL, size_t in_data_size = 0 );
 
 	/* Factory for Command objects.
-	   The client responsability is to delete the return object.
+	   The client responsibility is to delete the return object.
 	   cmd - cl_dev_cmd_desc input data structure.
-	   cmdObject - out paramenter for appropriate Command object according to cmd->type or FailureNotification object in case of failure.
+	   cmdObject - out parameter for appropriate Command object according to cmd->type or FailureNotification object in case of failure.
 	   Return CL_DEV_SUCCESS if succeeded */
 	cl_dev_err_code createCommandObject(cl_dev_cmd_desc* cmd, SharedPtr<Command>& cmdObject);
 
 	// pointer to device notification port object
-	const SharedPtr<NotificationPort>&      m_pNotificationPort;
+	const SharedPtr<NotificationPort>&    m_pNotificationPort;
 	// pointer to device service communication object
-	DeviceServiceCommunication*       m_pDeviceServiceComm;
+	DeviceServiceCommunication*           m_pDeviceServiceComm;
 	// pointer to IOCLFrameworkCallbacks object in order to notify framework about completion of command
-	IOCLFrameworkCallbacks*           m_pFrameworkCallBacks;
+	IOCLFrameworkCallbacks*               m_pFrameworkCallBacks;
 	// pointer to ProgramService object
-	ProgramService*                   m_pProgramService;
+	ProgramService*                       m_pProgramService;
 	// reference counter for this object (must be greater than 0 during object lifetime)
-	AtomicCounter		              m_refCounter;
+	// TODO: Why we need it. Ref counter is managed by the runtime
+	AtomicCounter                         m_refCounter;
 	// the pipe line to MIC device
-	COIPIPELINE                       m_pipe;
+	COIPIPELINE                           m_pipe;
 	// pointer to static function that create Command object
-	static fnCommandCreate_t*         m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
+	static fnCommandCreate_t*             m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
 	// Sub device ID
-	cl_dev_subdevice_id				  m_subDeviceId;
-    // per device overhead storage
-    PerformanceDataStore*             m_pOverhead_data;
+	cl_dev_subdevice_id                   m_subDeviceId;
+
+	// TODO: What is this?
+	// per device overhead storage
+	PerformanceDataStore*                 m_pOverhead_data;
 
 	// Shared pointer that store the last command enqueued (Can be NULL)
-	SharedPtr<Command>				  m_lastCommand;
+	SharedPtr<Command>                    m_lastCommand;
 
 	// Spin mutex to guard the last Command object
-	OclSpinMutex					  m_lastCommandMutex;
+	OclSpinMutex                          m_lastCommandMutex;
 
 	// True if this is in order CommandList, otherwise False.
-	bool							  m_isInOrderQueue;
+	bool                                  m_isInOrderQueue;
+
+	// ITT/GPA data
+#ifdef USE_ITT
+	const ocl_gpa_data*                   m_pGPAData;
+#endif
 
 #ifdef _DEBUG
 	AtomicCounter					  m_numOfConcurrentExecutions;

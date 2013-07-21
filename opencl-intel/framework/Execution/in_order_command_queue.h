@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2012 Intel Corporation
+// Copyright (c) 2008-2013 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -41,7 +41,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     class Device;
     class EventsManager;
-	class Context;
+    class Context;
 
     /************************************************************************
      * InOrderCommandQueue is an ICommandQueue that implements the InOrder queue policy
@@ -61,40 +61,39 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         static SharedPtr<InOrderCommandQueue> Allocate(
             SharedPtr<Context>          pContext,
-			cl_device_id                clDefaultDeviceID, 
-			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager)
+            cl_device_id                clDefaultDeviceID,
+            cl_command_queue_properties clProperties,
+            EventsManager*              pEventManager)
         {
             return SharedPtr<InOrderCommandQueue>(new InOrderCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager));
         }
 		
-		virtual ~InOrderCommandQueue();
+        virtual ~InOrderCommandQueue();
 
-		virtual cl_err_code Enqueue(Command* cmd);
-		virtual cl_err_code EnqueueWaitForEvents(Command* cmd) {return Enqueue(cmd);}
+        virtual cl_err_code Enqueue(Command* cmd);
+        virtual cl_err_code EnqueueWaitForEvents(Command* cmd) {return Enqueue(cmd);}
         virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker) { return Enqueue(marker); }
         virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier) { return Enqueue(barrier); }
 
-		virtual cl_err_code Flush(bool bBlocking);
-		virtual cl_err_code NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor);
-		virtual cl_err_code SendCommandsToDevice();
+        virtual cl_err_code Flush(bool bBlocking);
+        virtual cl_err_code NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor);
+        virtual cl_err_code SendCommandsToDevice();
 
 	protected:
 
         InOrderCommandQueue(
-			SharedPtr<Context>                    pContext,
-			cl_device_id                clDefaultDeviceID, 
-			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager
-			);
+            SharedPtr<Context>                    pContext,
+            cl_device_id                clDefaultDeviceID,
+            cl_command_queue_properties clProperties,
+            EventsManager*              pEventManager
+        );
 
 #if defined TBB_BUG_SOLVED
-		Intel::OpenCL::Utils::OclConcurrentQueue<CommandSharedPtr<> >	m_submittedQueue;
+        Intel::OpenCL::Utils::OclConcurrentQueue<CommandSharedPtr<> >	m_submittedQueue;
 #else
-		Intel::OpenCL::Utils::OclNaiveConcurrentQueue<CommandSharedPtr<> > m_submittedQueue;
+        Intel::OpenCL::Utils::OclNaiveConcurrentQueue<CommandSharedPtr<> > m_submittedQueue;
 #endif
-		Intel::OpenCL::Utils::AtomicCounter					m_submittedQueueGuard;
-		Intel::OpenCL::Utils::AtomicCounter					m_commandsInExecution;
+        Intel::OpenCL::Utils::AtomicCounter					m_submittedQueueGuard;
+        Intel::OpenCL::Utils::AtomicCounter					m_commandsInExecution;
 	};
-
 }}}    

@@ -18,27 +18,31 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#include <opencl_partitioner.h>
+#include <vector>
+
+#include "tbb_blocked_ranges.h"
 #include "tbb_execution_schedulers.h"
 #include "arena_handler.h"
-#include "tbb_blocked_ranges.h"
 #include "tbb_executor.h"
-#include <vector>
 
 using namespace Intel::OpenCL::TaskExecutor;
 
 struct TaskLoopBody
 {
 protected:
+    const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  m_task;
 
-    TBBTaskExecutor&   m_executor;
-
-    TaskLoopBody(TBBTaskExecutor& executor) : m_executor(executor) { }
+    TaskLoopBody(
+        const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task
+        ) : m_task(task) { }
 };
 
 template <class blocked_range_3d>
 struct TaskLoopBody3D : public TaskLoopBody {
-    ITaskSet &task;
-    TaskLoopBody3D(TBBTaskExecutor& executor, ITaskSet &t) : TaskLoopBody(executor), task(t) {}
+    TaskLoopBody3D(
+        const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task
+        ) : TaskLoopBody(task) {}
     void operator()(const blocked_range_3d& r) const {
         size_t uiNumberOfWorkGroups;
 
@@ -48,16 +52,17 @@ struct TaskLoopBody3D : public TaskLoopBody {
         uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
-        TBB_PerActiveThreadData* tls = m_executor.GetThreadManager().GetCurrentThreadDescriptor();
+        TBB_PerActiveThreadData* tls = TBB_ThreadManager<TBB_PerActiveThreadData>::GetCurrentThreadDescriptor();
         if (NULL == tls)
         {
             assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
             return;
         }
 
-        void* user_local = task.AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
+        void* user_local = m_task->AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
         if ( NULL == user_local )
         {
+            assert( 0 && "Thread local execution environment is NULL" );
             return;
         }
 
@@ -68,22 +73,31 @@ struct TaskLoopBody3D : public TaskLoopBody {
                 for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
                 {
                     // OpenCL defines dims as (col, row, page)
-                    if (!task.ExecuteIteration(k, j, i, user_local))
+                    if (!m_task->ExecuteIteration(k, j, i, user_local))
                     {
+                        assert( 0 && "Failed to execute iteration" );
                         goto error_exit;
                     }
                 }
             }
         }
         error_exit:
-        task.DetachFromThread(user_local);
+#ifndef __MIC__
+        m_task->DetachFromThread(user_local);
+#else
+        // On MIC we don't need to update thread info
+		// Next kernel will setup requried flags
+        return;
+#endif
     }
 };
 
 template <class blocked_range_2d>
 struct TaskLoopBody2D : public TaskLoopBody {
-    ITaskSet &task;
-    TaskLoopBody2D(TBBTaskExecutor& executor, ITaskSet &t) : TaskLoopBody(executor), task(t) {}
+    TaskLoopBody2D(
+        const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task
+        ) : TaskLoopBody(task) {}
+
     void operator()(const blocked_range_2d& r) const {
         size_t uiNumberOfWorkGroups;
         size_t firstWGID[2] = {r.rows().begin(),r.cols().begin()}; 
@@ -92,16 +106,17 @@ struct TaskLoopBody2D : public TaskLoopBody {
         uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
-        TBB_PerActiveThreadData* tls = m_executor.GetThreadManager().GetCurrentThreadDescriptor();
+        TBB_PerActiveThreadData* tls = TBB_ThreadManager<TBB_PerActiveThreadData>::GetCurrentThreadDescriptor();
         if (NULL == tls)
         {
             assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
             return;
         }
 
-        void* user_local = task.AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
+        void* user_local = m_task->AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
         if ( NULL == user_local )
         {
+            assert( 0 && "Thread local execution environment is NULL" );
             return;
         }
 
@@ -110,21 +125,31 @@ struct TaskLoopBody2D : public TaskLoopBody {
             for(size_t k = r.cols().begin(), f = r.cols().end(); k < f; k++ )
             {
                 // OpenCL defines dims as (col, row, page)
-                if (!task.ExecuteIteration(k, j, 0, user_local))
+                if (!m_task->ExecuteIteration(k, j, 0, user_local))
                 {
+                    assert( 0 && "Failed to execute iteration" );
                     goto error_exit;
                 }
             }
         }
         error_exit:
-        task.DetachFromThread(user_local);
+#ifndef __MIC__
+        // Can be removed. According to TBB when worker thread leaves arena/context it's MXCSR state is restored.
+        m_task->DetachFromThread(user_local);
+#else
+        // On MIC we don't need to update thread info
+		// Next kernel will setup requried flags
+        return;
+#endif
     }
 };    
 
 template <class blocked_range_1d>
 struct TaskLoopBody1D : public TaskLoopBody {
-    ITaskSet &task;
-    TaskLoopBody1D(TBBTaskExecutor& executor, ITaskSet &t) : TaskLoopBody(executor), task(t) {}
+    TaskLoopBody1D(
+        const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task
+        ) : TaskLoopBody(task) {}
+
     void operator()(const blocked_range_1d& r) const {
         size_t uiNumberOfWorkGroups;
         size_t firstWGID[1] = {r.begin()}; 
@@ -133,48 +158,70 @@ struct TaskLoopBody1D : public TaskLoopBody {
         uiNumberOfWorkGroups = r.size();
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
         
-        TBB_PerActiveThreadData* tls = m_executor.GetThreadManager().GetCurrentThreadDescriptor();
+        TBB_PerActiveThreadData* tls = TBB_ThreadManager<TBB_PerActiveThreadData>::GetCurrentThreadDescriptor();
         assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
         if (NULL == tls)
         {
             return;
         }
 
-        void* user_local = task.AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
+        void* user_local = m_task->AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
         if ( NULL == user_local )
         {
+            assert( 0 && "Thread local execution environment is NULL" );
             return;
         }
 
         for(size_t k = r.begin(), f = r.end(); k < f; k++ )
         {
             // OpenCL defines dims as (col, row, page)
-            if (!task.ExecuteIteration(k, 0, 0, user_local))
+            if (!m_task->ExecuteIteration(k, 0, 0, user_local))
             {
+                assert( 0 && "Failed to execute iteration" );
                 break;
             }
         }
-        task.DetachFromThread(user_local);
+
+#ifndef __MIC__
+        // On MIC we don't need to update thread info
+		// Next kernel will setup requried flags
+        m_task->DetachFromThread(user_local);
+#endif
     }
 };
 
-
-template <class BlockedRange, class TaskLoopBodySpecific>        
-void TBB_ExecutionSchedulers::auto_executor( const BlockedRangeBase& range, 
-                                             ITaskSet&               task,
-                                             TBBTaskExecutor&        executor,
-                                             tbb::affinity_partitioner* ap )
+template <class BlockedRange, class TaskLoopBodySpecific>
+void TBB_ExecutionSchedulers::opencl_executor(
+    const size_t                                      dims[],
+    size_t                                            grainsize,
+    const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
+    base_command_list&                                cmdList )
 {
-    tbb::parallel_for(BlockedRange(range), TaskLoopBodySpecific(executor,task), tbb::auto_partitioner());
+    //int nThreads = executor.GetCurrentDevice().teDevice->GetConcurrency();
+    tbb::task_group_context& context = cmdList.GetTBBContext();
+
+    tbb::uneven::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), tbb::opencl_partitioner(), context);
 }
 
 template <class BlockedRange, class TaskLoopBodySpecific>        
-void TBB_ExecutionSchedulers::affinity_executor( const BlockedRangeBase& range, 
-                                                 ITaskSet&               task,
-                                                 TBBTaskExecutor&        executor,
-                                                 tbb::affinity_partitioner* ap )
+void TBB_ExecutionSchedulers::auto_executor(
+    const size_t                                      dims[],
+    size_t                                            grainsize,
+    const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
+    base_command_list&                                cmdList )
 {
-    tbb::parallel_for(BlockedRange(range), TaskLoopBodySpecific(executor,task), *ap);
+    tbb::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), tbb::auto_partitioner());
+}
+
+template <class BlockedRange, class TaskLoopBodySpecific>        
+void TBB_ExecutionSchedulers::affinity_executor(
+    const size_t                                      dims[],
+    size_t                                            grainsize,
+    const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
+    base_command_list&                                cmdList )
+{
+    tbb::affinity_partitioner& ap = cmdList.GetAffinityPartitioner();
+    tbb::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), ap);
 }
 
 #define DEFINE_EXECUTOR_DIMS_ARRAY( name, ExecutorFuncName, BlockedRangeNamePrefix )                  \
@@ -191,22 +238,27 @@ void TBB_ExecutionSchedulers::affinity_executor( const BlockedRangeBase& range,
                         /* 1D,2D,3D array name */  /* use function */ /* use blocked range class */
 DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_default,     auto_executor,      BlockedRangeByDefaultTBB );
 DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_default, affinity_executor,  BlockedRangeByDefaultTBB );
+DEFINE_EXECUTOR_DIMS_ARRAY( opencl_block_default,   opencl_executor,    BlockedRangeByUnevenTBB );
 
 DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_row,         auto_executor,      BlockedRangeByRow );
 DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_row,     affinity_executor,  BlockedRangeByRow );
+DEFINE_EXECUTOR_DIMS_ARRAY( opencl_block_row,       opencl_executor,    BlockedRangeByUnevenTBB );
 
 DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_column,      auto_executor,      BlockedRangeByColumn );   
 DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_column,  affinity_executor,  BlockedRangeByColumn );
+DEFINE_EXECUTOR_DIMS_ARRAY( opencl_block_column,    opencl_executor,    BlockedRangeByUnevenTBB );
 
 DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_tile,        auto_executor,      BlockedRangeByTile );
 DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_tile,    affinity_executor,  BlockedRangeByTile );
+DEFINE_EXECUTOR_DIMS_ARRAY( opencl_block_tile,      opencl_executor,    BlockedRangeByUnevenTBB );
 
 TBB_ExecutionSchedulers::ExecutorFunc*  
 TBB_ExecutionSchedulers::g_executor[TE_CMD_LIST_PREFERRED_SCHEDULING_LAST][TASK_SET_OPTIMIZE_BY_LAST] = 
 {
                   /* default by TBB tile */   /* by_row  */         /* by_column */         /* by_tile */
 /* auto     */{   auto_block_default,         auto_block_row,       auto_block_column,      auto_block_tile         },
-/* affinity */{   affinity_block_default,     affinity_block_row,   affinity_block_column,  affinity_block_tile     }
+/* affinity */{   affinity_block_default,     affinity_block_row,   affinity_block_column,  affinity_block_tile     },
+/* opencl   */{   opencl_block_default,       opencl_block_row,     opencl_block_column,    opencl_block_tile       }
 };
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -214,53 +266,38 @@ TBB_ExecutionSchedulers::g_executor[TE_CMD_LIST_PREFERRED_SCHEDULING_LAST][TASK_
 // Get appropriate executor and run it.
 //
 /////////////////////////////////////////////////////////////////////////////////////
-void TBB_ExecutionSchedulers::parallel_execute( base_command_list& cmdList,
-                                                const size_t       dims[],          // MAX_WORK_DIM size
-                                                unsigned int       actual_dims_size,
-                                                ITaskSet&          task )
+bool TBB_ExecutionSchedulers::parallel_execute( base_command_list& cmdList,
+                                                const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task)
 {
+    size_t dims[MAX_WORK_DIM];
+    unsigned int dimCount;
+
     TE_CMD_LIST_PREFERRED_SCHEDULING scheduler    = cmdList.GetPreferredScheduler();
-    TASK_SET_OPTIMIZATION            optimization = task.OptimizeBy();
-    
-    assert( scheduler < TE_CMD_LIST_PREFERRED_SCHEDULING_LAST );
-    assert( optimization < TASK_SET_OPTIMIZE_BY_LAST );
-    assert( (actual_dims_size > 0) && (actual_dims_size <= 3) );
+    TASK_SET_OPTIMIZATION            optimization = task->OptimizeBy();
 
-    if ((scheduler >= TE_CMD_LIST_PREFERRED_SCHEDULING_LAST) ||
+    int res = task->Init(dims, dimCount);
+
+    assert(res==0 && "TaskSet::Init() Failed");
+    assert( scheduler < TE_CMD_LIST_PREFERRED_SCHEDULING_LAST && "Invalid preferred scheduling" );
+    assert( optimization < TASK_SET_OPTIMIZE_BY_LAST && "Invalid ");
+    assert( (dimCount > 0) && (dimCount <= 3) && "Invalid work dimensions");
+
+    if ((0 != res) ||
+        (scheduler >= TE_CMD_LIST_PREFERRED_SCHEDULING_LAST) ||
         (optimization >= TASK_SET_OPTIMIZE_BY_LAST)          ||
-        ((actual_dims_size == 0) || (actual_dims_size > 3)))
+        ((dimCount == 0) || (dimCount > 3)))
     {
-        return;
+        task->Finish(FINISH_INIT_FAILED);
+        return false;
     }
 
-    tbb::affinity_partitioner*       ap           = cmdList.GetAffinityPartitioner();
-    unsigned int                     grainSize    = task.PreferredSequentialItemsPerThread();
-    TBBTaskExecutor&                 te           = cmdList.GetDevice().GetTaskExecutor();
+    unsigned int grainSize    = task->PreferredSequentialItemsPerThread();
 
-    ExecutorFunc execute = g_executor[scheduler][optimization][actual_dims_size-1];
-    size_t actual_dims[MAX_WORK_DIM] = {dims[0], dims[1], dims[2]};
-  
-    switch (actual_dims_size)
-    {
-        case 1:
-            actual_dims[1] = 1;
-            // pass through
+    ExecutorFunc execute = g_executor[scheduler][optimization][dimCount-1];
 
-        case 2:
-            actual_dims[2] = 1;
-            // pass through
-            
-        case 3:
-        default:
-            ;
-    }
+    execute( dims, grainSize, task, cmdList  );
 
-    assert(actual_dims[0] <= CL_MAX_INT32);
-    assert(actual_dims[1] <= CL_MAX_INT32);
-    assert(actual_dims[2] <= CL_MAX_INT32);
-
-    execute( BlockedRangeBase( actual_dims, grainSize ), task, te, ap  );
-
+    return task->Finish(FINISH_COMPLETED);
 }
 
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -79,7 +79,8 @@ public:
      * Constructor
      * @param device the TEDevice for enqueuing and executing tasks
      */
-    TaskGroup(TEDevice* device) : m_taskGroupContext(tbb::task_group_context::bound, tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait),
+    TaskGroup(TEDevice* device) :
+        m_taskGroupContext(tbb::task_group_context::bound, tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait),
         m_rootTask(*new(tbb::task::allocate_root(m_taskGroupContext)) tbb::empty_task()), m_device(device)
     {
         m_rootTask.increment_ref_count();
@@ -94,6 +95,7 @@ public:
         tbb::task::destroy(m_rootTask);
     }
 
+	tbb::task_group_context& GetContext() {return m_taskGroupContext; }
     /**
      * Enqueue a functor
      * @param F the functor's type
@@ -186,9 +188,10 @@ public:
 
     TEDevice& GetDevice() { return *m_device; }
 
-    virtual TE_CMD_LIST_PREFERRED_SCHEDULING GetPreferredScheduler() { return TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC; }
+    virtual TE_CMD_LIST_PREFERRED_SCHEDULING GetPreferredScheduler() const { return m_scheduling;}
     
-    virtual tbb::affinity_partitioner* GetAffinityPartitioner() { return NULL; }
+    virtual tbb::affinity_partitioner& GetAffinityPartitioner() { return m_part; }
+    virtual tbb::task_group_context&   GetTBBContext() { return m_taskGroup.GetContext(); }
    
     /**
      * Enqueue a functor to be run on the device's arena
@@ -211,7 +214,7 @@ protected:
 	friend class in_order_executor_task;
 	friend class out_of_order_executor_task;
 
-    base_command_list( TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device);	    	
+	base_command_list( TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param);
 
 	virtual unsigned int LaunchExecutorTask(bool blocking,
                                             const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL) = 0;
@@ -230,10 +233,15 @@ protected:
 	// the master if another master is running
 	tbb::atomic<bool>		m_bMasterRunning;
 
-    // In most cases m_device should be a shared pointer, but in the case of default command list this will create a cycle. As default command list is 
-    // invisible from outside, we need it not to cointain pointer to TEDevice.
-    SharedPtr<TEDevice>     m_device;
-    TaskGroup               m_taskGroup;	
+	// In most cases m_device should be a shared pointer, but in the case of default command list this will create a cycle. As default command list is
+	// invisible from outside, we need it not to contain pointer to TEDevice.
+	SharedPtr<TEDevice>     m_device;
+	TaskGroup               m_taskGroup;
+
+	// Affinity partitioner used in execution
+	tbb::affinity_partitioner	m_part;
+
+	TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
 
 private:
 	//Disallow copy constructor
@@ -249,7 +257,7 @@ public:
 
     static SharedPtr<in_order_command_list> Allocate( TBBTaskExecutor& pTBBExec, 
                                                       const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, 
-                                                      const CommandListCreationParam* param = NULL )
+                                                      const CommandListCreationParam& param )
     {
         return new in_order_command_list(pTBBExec, device, param);
     }
@@ -259,14 +267,9 @@ protected:
     virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL );
 
 private:
-    tbb::affinity_partitioner        m_ap;
-    TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
 
-    in_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam* param) : 
-        base_command_list(pTBBExec, device) 
-    {
-        m_scheduling = ( NULL != param ) ? param->preferredScheduling : TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
-    }
+    in_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
+        base_command_list(pTBBExec, device, param) {}
 };
 
 class out_of_order_command_list : public base_command_list
@@ -277,7 +280,7 @@ public:
 
     static SharedPtr<out_of_order_command_list> Allocate( TBBTaskExecutor& pTBBExec, 
                                                           const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, 
-                                                          const CommandListCreationParam* param = NULL )
+                                                          const CommandListCreationParam& param )
     {
         return new out_of_order_command_list(pTBBExec, device, param);
     }
@@ -316,8 +319,8 @@ private:
 
     tbb::task_group m_oooTaskGroup;
 
-    out_of_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam* param) : 
-        base_command_list(pTBBExec, device) { }
+    out_of_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
+        base_command_list(pTBBExec, device, param) { }
 };
 
 class immediate_command_list : public base_command_list
@@ -328,7 +331,7 @@ public:
 
     static SharedPtr<immediate_command_list> Allocate( TBBTaskExecutor& pTBBExec, 
                                                        const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, 
-                                                       const CommandListCreationParam* param )
+                                                       const CommandListCreationParam& param )
     {
         return new immediate_command_list(pTBBExec, device, param);
     }
@@ -348,13 +351,9 @@ protected:
 
 private:
     tbb::affinity_partitioner m_ap;
-    TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
     
-    immediate_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam* param) : 
-        base_command_list(pTBBExec, device) 
-    {
-        m_scheduling = ( NULL != param ) ? param->preferredScheduling : TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
-    }
+    immediate_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
+        base_command_list(pTBBExec, device, param) {}
 };
 
 }}}

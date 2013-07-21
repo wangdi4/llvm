@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2012 Intel Corporation
+// Copyright (c) 2008-2013 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -46,8 +46,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 		virtual cl_err_code Enqueue(Command* command)          = 0;
 		virtual cl_err_code EnqueueWaitForEvents(Command* wfe) = 0;
-        virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker) = 0;
-        virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier) = 0;
+		virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker) = 0;
+		virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier) = 0;
 		virtual cl_err_code	WaitForCompletion(const SharedPtr<QueueEvent>& pEvent ) = 0;
 		
 		virtual cl_err_code Flush(bool bBlocking)  = 0;
@@ -60,29 +60,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	public:
 
         PREPARE_SHARED_PTR(IOclCommandQueueBase) 
-
 		virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
 		virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
-        virtual cl_err_code EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
-        virtual cl_err_code EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
+		virtual cl_err_code EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
+		virtual cl_err_code EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
 		virtual cl_err_code	WaitForCompletion(const SharedPtr<QueueEvent>& pEvent );
 		virtual ocl_gpa_data* GetGPAData() const { return m_pContext->GetGPAData(); }
 
 	protected:
 
-        IOclCommandQueueBase(
-			SharedPtr<Context>                    pContext,
-			cl_device_id                clDefaultDeviceID, 
+		IOclCommandQueueBase(
+			SharedPtr<Context>          pContext,
+			cl_device_id                clDefaultDeviceID,
 			cl_command_queue_properties clProperties,
 			EventsManager*              pEventManager
-			) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager) {}
+		) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager) {}
 
 		virtual ~IOclCommandQueueBase() {}
 
-    private:
-
+	private:
         cl_err_code EnqueueWaitEventsProlog(const SharedPtr<QueueEvent>& pEvent, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
-
 	};
 }}}    // Intel::OpenCL::Framework
 

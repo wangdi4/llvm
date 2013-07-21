@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -79,41 +79,26 @@ volatile bool gIsExiting = false;
 
 static bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list& cmdList)
 {
-	bool runNextCommand = true;
-    ITaskBase* cmd = pCmd.GetPtr();
+    bool runNextCommand = true;
 
+    if ( pCmd->IsTaskSet() )
+    {
+        const SharedPtr<ITaskSet>& pTaskSet = pCmd.StaticCast<ITaskSet>();
+        assert( NULL != pTaskSet.GetPtr() && "Unexpected NULL dynamic cast");
+        runNextCommand = TBB_ExecutionSchedulers::parallel_execute( cmdList, pTaskSet );
+    }
+    else
+    {
+        const SharedPtr<ITask>& pTask = pCmd.StaticCast<ITask>();
+        runNextCommand = pTask->Execute();
+    }
 
-	if ( cmd->IsTaskSet() )
-	{
-		ITaskSet* pTask = static_cast<ITaskSet*>(cmd);
-		size_t dim[MAX_WORK_DIM];
-		unsigned int dimCount;
-		int res = pTask->Init(dim, dimCount);
-		__TBB_ASSERT(res==0, "Init Failed");
-		if (res != 0)
-		{
-			pTask->Finish(FINISH_INIT_FAILED);
-			return false;
-		}
-
-        // fork execution
-        TBB_ExecutionSchedulers::parallel_execute( cmdList, dim, dimCount, *pTask );
-        // join execution
-
-		runNextCommand = pTask->Finish(FINISH_COMPLETED);
-	}
-	else
-	{
-        ITask* pCmd = static_cast<ITask*>(cmd);
-		runNextCommand = pCmd->Execute();
-	}
-
-	runNextCommand &= !cmd->CompleteAndCheckSyncPoint();
-	return runNextCommand;
+    runNextCommand &= !pCmd->CompleteAndCheckSyncPoint();
+    return runNextCommand;
 }
 
 void in_order_executor_task::operator()()
-{    
+{
 	assert(m_list);
 	ConcurrentTaskQueue* work = m_list->GetExecutingContainer();
 	assert(work);
@@ -121,12 +106,12 @@ void in_order_executor_task::operator()()
 
 	while(true)
 	{
-    	SharedPtr<ITaskBase> currentTask;
-		//First check if we need to stop interating, next get next available record
+		SharedPtr<ITaskBase> currentTask;
+		//First check if we need to stop iterating, next get next available record
 		while( !(mustExit && m_list->m_bMasterRunning) && work->TryPop(currentTask))
 		{
 			mustExit = !execute_command(currentTask, *m_list); //stop requested    
-            currentTask = NULL;
+			currentTask = NULL;
 		}
 
 		if ( mustExit )
@@ -150,10 +135,10 @@ struct ExecuteContainerBody
     out_of_order_command_list& m_list;
 
     ExecuteContainerBody(const SharedPtr<ITaskBase>& pTask, out_of_order_command_list& list) :
-			m_pTask(pTask), m_list(list) {}
+            m_pTask(pTask), m_list(list) {}
 
-	void operator()()
-	{
+    void operator()()
+    {
         execute_command(m_pTask, m_list);
     }
 };
@@ -167,7 +152,7 @@ void out_of_order_executor_task::operator()()
         SharedPtr<ITaskBase> pTask = GetTask();
         while (NULL != pTask && NULL == dynamic_cast<SyncTask*>(pTask.GetPtr()))
         {
-			ExecuteContainerBody functor(pTask, *m_list);
+            ExecuteContainerBody functor(pTask, *m_list);
             m_list->ExecOOOFunc<ExecuteContainerBody>(functor);
             pTask = GetTask();
         }
@@ -176,10 +161,10 @@ void out_of_order_executor_task::operator()()
             // synchronization point
             m_list->WaitForAllCommands();
             static_cast<SyncTask*>(pTask.GetPtr())->Execute();
-			if (m_list->m_execTaskRequests.fetch_and_store(0) > 1)
-			{
-				m_list->InternalFlush(false);
-			}
+            if (m_list->m_execTaskRequests.fetch_and_store(0) > 1)
+            {
+                m_list->InternalFlush(false);
+            }
             break;
         }
         if (1 == m_list->m_execTaskRequests--)
@@ -204,7 +189,7 @@ SharedPtr<ITaskBase> out_of_order_executor_task::GetTask()
 
 void immediate_executor_task::operator()()
 {    
-	assert(m_list);
+    assert(m_list);
     assert(m_pTask);
 
     execute_command(m_pTask, *m_list);
@@ -227,7 +212,7 @@ TBBTaskExecutor::TBBTaskExecutor()
 #if _DEBUG
     assert(0 == ret);
 #endif
-    // we delibrately don't delete m_pScheduler (see comment above its definition)
+    // we deliberately don't delete m_pScheduler (see comment above its definition)
 }
 
 TBBTaskExecutor::~TBBTaskExecutor()

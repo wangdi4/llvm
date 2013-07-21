@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2007 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -22,14 +22,16 @@
 //  MICDevice.cpp
 ///////////////////////////////////////////////////////////
 
+#include <cl_sys_info.h>
+#include <mic_dev_limits.h>
+#include <cl_sys_defines.h>
+#include <buildversion.h>
+#include <ocl_itt.h>
+
 #include "mic_tracer.h"
 #include "mic_device.h"
 #include "program_service.h"
 #include "mic_logger.h"
-#include "cl_sys_info.h"
-#include "mic_dev_limits.h"
-#include "cl_sys_defines.h"
-#include "buildversion.h"
 #include "device_service_communication.h"
 #include "memory_allocator.h"
 #include "mic_sys_info.h"
@@ -52,6 +54,10 @@ typedef struct _cl_dev_internal_cmd_list
 } cl_dev_internal_cmd_list;
 
 static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO MICDevInfo = {NULL,0,1,0};
+
+#ifdef USE_ITT
+ocl_gpa_data* MICDevice::g_pGPAData = NULL;
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -129,7 +135,7 @@ MICDevice::MICDevice(cl_uint uiMicId, IOCLFrameworkCallbacks *devCallbacks, IOCL
 
 cl_dev_err_code MICDevice::Init()
 {
-	m_tracer = HostTracer::getHostTracerInstace();
+    m_tracer = HostTracer::getHostTracerInstace();
     if ( NULL != m_pLogDescriptor )
     {
         cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiMicId, "MIC Device", &m_iLogHandle);
@@ -150,11 +156,11 @@ cl_dev_err_code MICDevice::Init()
     {
         return result;
     }
-	assert(m_pDeviceServiceComm);
+    assert(m_pDeviceServiceComm);
 
     // initialize the notificationPort mechanism.
-	m_pNotificationPort = NotificationPort::notificationPortFactory(NOTIFICATION_PORT_MAX_BARRIERS);
-	if (NULL == m_pNotificationPort)
+    m_pNotificationPort = NotificationPort::notificationPortFactory(NOTIFICATION_PORT_MAX_BARRIERS, g_pGPAData);
+    if (NULL == m_pNotificationPort)
     {
         return CL_DEV_ERROR_FAIL;
     }
@@ -195,19 +201,36 @@ void MICDevice::loadingInit()
 {
 	m_mic_instancies = new set<IOCLDeviceAgent*>;
 	m_mic_instancies_mutex = new OclMutex;
+
+#ifdef USE_ITT
+  if ( MICSysInfo::getInstance().getMicDeviceConfig().UseITT() )
+  {
+    g_pGPAData = new ocl_gpa_data;
+    g_pGPAData->bUseGPA = true;
+    g_pGPAData->pDeviceDomain = __itt_domain_create("OpenCL.DeviceAgent.MIC");
+  }
+#endif
+
 }
 
 void MICDevice::unloadRelease()
 {
-    if (isDeviceLibraryUnloaded())
-    {
-        return;
-    }
+  if (isDeviceLibraryUnloaded())
+  {
+      return;
+  }
     
-	TMicsSet micSet = GetActiveMicDevices(true);
-	TMicsSet::iterator it;
-	TMicsSet::iterator itEnd = micSet.end();
+  TMicsSet micSet = GetActiveMicDevices(true);
+  TMicsSet::iterator it;
+  TMicsSet::iterator itEnd = micSet.end();
 
+#ifdef USE_ITT
+  if ( NULL != g_pGPAData )
+  {
+    delete g_pGPAData;
+    g_pGPAData = NULL;
+  }
+#endif
 	// Release all mic device instances.
 	for (it = micSet.begin(); it != itEnd; it++)
 	{
@@ -215,11 +238,11 @@ void MICDevice::unloadRelease()
 	}
 	assert(GetActiveMicDevices().size() == 0);
 
-    delete m_mic_instancies;
-    m_mic_instancies = NULL;
+	delete m_mic_instancies;
+	m_mic_instancies = NULL;
 
-    delete m_mic_instancies_mutex;
-    m_mic_instancies_mutex = NULL;    
+	delete m_mic_instancies_mutex;
+	m_mic_instancies_mutex = NULL;
 }
 
 
@@ -335,6 +358,9 @@ cl_dev_err_code MICDevice::CreateCommandList( bool external_list,
     cl_dev_err_code ret = CommandList::commandListFactory(props, subdevice_id, 
                                                           m_pNotificationPort, m_pDeviceServiceComm, 
                                                           m_pFrameworkCallBacks, m_pProgramService, &m_overhead_data,
+#ifdef USE_ITT
+                                                          g_pGPAData,
+#endif
                                                           &tCommandList);
     if (CL_DEV_FAILED(ret))
     {
@@ -342,6 +368,7 @@ cl_dev_err_code MICDevice::CreateCommandList( bool external_list,
     }
     if (external_list)
     {
+      // TODO: Why we need this, list are handled by the runtime. We can assume no bugs.
         OclAutoMutex lock( &m_commandListsSetLock );
         m_commandListsSet.insert(tCommandList);
     }
@@ -846,6 +873,7 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Static functions
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 //! This function initializes device agent internal data. This function should be called prior to any device agent calls.
 /*!
     \retval     CL_DEV_SUCCESS          If function is executed successfully.
@@ -854,6 +882,7 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
 extern "C" cl_dev_err_code clDevInitDeviceAgent(void)
 {
 	MICDevice::loadingInit();
+
 #ifdef __INCLUDE_MKL__
 	Intel::OpenCL::MKLKernels::InitLibrary();
 #endif

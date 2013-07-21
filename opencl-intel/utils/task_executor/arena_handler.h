@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -174,7 +174,13 @@ public:
 
     // Set observer for the TEDevice
     virtual void SetObserver(ITaskExecutorObserver* pObserver);
-    
+
+    /**
+	 * Retrives concurrency level for the device
+	 * @return pointer to the new list or NULL on error
+	 */
+	virtual int GetConcurrency();
+
     virtual void AttachMasterThread(void* user_tls);
     virtual void DetachMasterThread();
 
@@ -212,7 +218,7 @@ public:
     /**
      * Lock/Unlock current state (working/shutting down)
      */
-    void   LockState() { m_stateLock.EnterRead(); }
+    void LockState() { m_stateLock.EnterRead(); }
     void UnLockState() { m_stateLock.LeaveRead(); }
 
     /**

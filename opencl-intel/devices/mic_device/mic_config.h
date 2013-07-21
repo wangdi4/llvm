@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 Intel Corporation
+// Copyright (c) 2006-20013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -59,16 +59,15 @@ using namespace Intel::OpenCL::Utils;
 #define    OFFLOAD_DEVICES									             "OFFLOAD_DEVICES"							              // string
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
+class MICDeviceConfig
+{
+public:
 
-    class MICDeviceConfig
-    {
-    public:
+    MICDeviceConfig();
+    ~MICDeviceConfig();
 
-        MICDeviceConfig();
-        ~MICDeviceConfig();
-
-        cl_err_code    Initialize(string file_name);
-        void           Release();
+    cl_err_code    Initialize(string file_name);
+    void           Release();
 
 		bool           Device_PrintConfig() const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_PRINT_CONFIG, false); }
 
@@ -95,54 +94,54 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 
 		string		     Device_offloadDevices() const { return m_pConfigFile->Read<string>(OFFLOAD_DEVICES, ""); }
 
-    private:
+private:
 
-        #define MICDeviceConfigPrintKey( name, func, help_msg ) std::cout << std::endl << "# " << help_msg << std::endl << name << "=" << func() << std::endl
-        
-        void PrintConfiguration() 
-        {
-            std::cout << std::endl;
-            std::cout << "-------------MIC Device OpenCL Configuration------------" << std::endl;
+    #define MICDeviceConfigPrintKey( name, func, help_msg ) std::cout << std::endl << "# " << help_msg << std::endl << name << "=" << func() << std::endl
 
-            std::cout << std::endl;
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_PRINT_CONFIG, Device_PrintConfig, "1 - print current configuration at MIC device startup" );
-            std::cout << std::endl;
+    void PrintConfiguration()
+    {
+        std::cout << std::endl;
+        std::cout << "-------------MIC Device OpenCL Configuration------------" << std::endl;
 
-            MICDeviceConfigPrintKey( CL_CONFIG_USE_ITT_API, UseITT, "1 - gather info for ITT interface" );
-            MICDeviceConfigPrintKey( CL_CONFIG_USE_VECTORIZER, UseVectorizer, "1 - try to vectorize kernel during compilation" );
-            MICDeviceConfigPrintKey( CL_CONFIG_USE_VTUNE, UseVTune , "1 - connect to VTune on device");
+        std::cout << std::endl;
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_PRINT_CONFIG, Device_PrintConfig, "1 - print current configuration at MIC device startup" );
+        std::cout << std::endl;
 
-            std::cout << std::endl;
-            
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD, Device_StopAtLoad, "1 - deadloop on device during startup, wait for debugger" );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION, Device_safeKernelExecution, "1 - wrap kernels with try/catch" );
+        MICDeviceConfigPrintKey( CL_CONFIG_USE_ITT_API, UseITT, "1 - gather info for ITT interface" );
+        MICDeviceConfigPrintKey( CL_CONFIG_USE_VECTORIZER, UseVectorizer, "1 - try to vectorize kernel during compilation" );
+        MICDeviceConfigPrintKey( CL_CONFIG_USE_VTUNE, UseVTune , "1 - connect to VTune on device");
 
-            std::cout << std::endl;
-            
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_USE_AFFINITY, Device_UseAffinity, "1 - do not allow TBB workers to switch between HW threads" );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_THREADS_PER_CORE, Device_ThreadsPerCore, "0 - create 1 TBB worker per each HW thread per core, !=0 - limit TBB workers to the given number per core" );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_NUM_CORES, Device_NumCores, "0 - use all MIC cores, !=0 - use specified number of cores" );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0, Device_IgnoreCore0, "1 - do not use 0 (system) MIC core" );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, Device_IgnoreLastCore, "1 - do not use last MIC core" );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB, Device_2MB_BufferMinSizeInKB, "0 - disabled, !=0 - minimum size of buffer in kilobytes to use 2MB pages"  );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, Device_TbbGrainSize, "must not be 0, recommended number of WGs to schedule for same thread" );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, Device_TbbScheduler, "affinity - tbb:affinity_partitioner, other - tbb::auto_partitioner" );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION, Device_TbbBlockOptimization, "default_TBB_tile - optimize by square tiles using TBB default implementation, columns - optimize columns, rows - optimize rows, tiles - optimize square tiles" );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS, Device_TbbTrapWorkers, "1 - do not allow TBB workers to leave arena. Deadlocks if more than a single queue." );
-            MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER, Device_LazyTransfer, "1 - perform host->device transfer only when really required");
-                        
-            std::cout << std::endl;
+        std::cout << std::endl;
 
-			MICDeviceConfigPrintKey( OFFLOAD_DEVICES, Device_offloadDevices, "Restricts the process to use only the MIC cards specified as the value of the variable");
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_STOP_AT_LOAD, Device_StopAtLoad, "1 - deadloop on device during startup, wait for debugger" );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION, Device_safeKernelExecution, "1 - wrap kernels with try/catch" );
 
-			std::cout << std::endl;
-            
-            std::cout << "--------------------------------------------------------" << std::endl << std::endl;
-        }
+        std::cout << std::endl;
 
-        ConfigFile * m_pConfigFile;
-        static bool config_already_printed;
-        
-    };
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_USE_AFFINITY, Device_UseAffinity, "1 - do not allow TBB workers to switch between HW threads" );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_THREADS_PER_CORE, Device_ThreadsPerCore, "0 - create 1 TBB worker per each HW thread per core, !=0 - limit TBB workers to the given number per core" );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_NUM_CORES, Device_NumCores, "0 - use all MIC cores, !=0 - use specified number of cores" );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_IGNORE_CORE_0, Device_IgnoreCore0, "1 - do not use 0 (system) MIC core" );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, Device_IgnoreLastCore, "1 - do not use last MIC core" );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB, Device_2MB_BufferMinSizeInKB, "0 - disabled, !=0 - minimum size of buffer in kilobytes to use 2MB pages"  );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, Device_TbbGrainSize, "must not be 0, recommended number of WGs to schedule for same thread" );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, Device_TbbScheduler, "affinity - tbb:affinity_partitioner, other - tbb::auto_partitioner" );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION, Device_TbbBlockOptimization, "default_TBB_tile - optimize by square tiles using TBB default implementation, columns - optimize columns, rows - optimize rows, tiles - optimize square tiles" );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS, Device_TbbTrapWorkers, "1 - do not allow TBB workers to leave arena. Deadlocks if more than a single queue." );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER, Device_LazyTransfer, "1 - perform host->device transfer only when really required");
+
+        std::cout << std::endl;
+
+        MICDeviceConfigPrintKey( OFFLOAD_DEVICES, Device_offloadDevices, "Restricts the process to use only the MIC cards specified as the value of the variable");
+
+        std::cout << std::endl;
+
+        std::cout << "--------------------------------------------------------" << std::endl << std::endl;
+    }
+
+    ConfigFile * m_pConfigFile;
+    static bool config_already_printed;
+
+};
 
 }}}

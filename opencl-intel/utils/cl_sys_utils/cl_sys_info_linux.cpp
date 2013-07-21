@@ -2,7 +2,7 @@
 // cl_utils.cpp:
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
-// Copyright 2007-2008 Intel Corporation All Rights Reserved.
+// Copyright 2007-2013 Intel Corporation All Rights Reserved.
 //
 // The source code contained or described herein and all documents related
 // to the source code ("Material") are owned by Intel Corporation or its
@@ -38,6 +38,10 @@ using namespace Intel::OpenCL::Utils;
 
 #include <sys/resource.h> 
 #include <sys/sysinfo.h>
+
+#ifndef __ANDROID__
+#include <sys/syscall.h>
+#endif
 
 #ifndef DISABLE_NUMA_SUPPORT
 //cl_numa.h is actually the standard numa.h from numactl. I don't know why our Linux distro doesn't have it and I don't care enough
@@ -423,4 +427,13 @@ const char* Intel::OpenCL::Utils::GetFullModuleNameForLoad(const char* moduleNam
 bool Intel::OpenCL::Utils::GetModuleProductVersion(const void* someLocalFunc, int* major, int* minor, int* revision, int* build)
 {
     return false;
+}
+
+unsigned int Intel::OpenCL::Utils::GetThreadId()
+{
+#if defined(__ANDROID__) //we would like to use CONF but it's buggy on Android
+	return (unsigned int) gettid();
+#else
+    return (unsigned int)syscall(SYS_gettid);
+#endif	
 }

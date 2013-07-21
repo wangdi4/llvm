@@ -115,8 +115,8 @@ private:
 	ICLDevBackendBinary_* m_pBinary;
 
 	// Executable information
-    size_t m_MemBuffCount;
-    size_t* m_pMemBuffSizes;
+	size_t m_MemBuffCount;
+	size_t* m_pMemBuffSizes;
 	
 	// working region
 	uint64_t      m_region[MAX_WORK_DIM];

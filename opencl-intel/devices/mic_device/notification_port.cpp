@@ -1,3 +1,23 @@
+// Copyright (c) 2006-2013 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
 #include "notification_port.h"
 
 #include <common/COIEvent_common.h>
@@ -13,7 +33,10 @@ using namespace Intel::OpenCL::MICDevice;
 
 #define CALL_BACKS_ARRAY_RESIZE_AMOUNT 1024
 
-NotificationPort::NotificationPort(void) : m_barriers(NULL), m_notificationsPackages(NULL), m_maxBarriers(0), m_waitingSize(0), m_lastCallBackAge(0), m_workerState(CREATED)
+NotificationPort::NotificationPort(const ocl_gpa_data* pGPAData) :
+    m_barriers(NULL), m_notificationsPackages(NULL), m_maxBarriers(0),
+    m_waitingSize(0), m_lastCallBackAge(0), m_workerState(CREATED),
+    m_pGPAData(pGPAData)
 {
 }
 
@@ -21,9 +44,9 @@ NotificationPort::~NotificationPort(void)
 {
 }
 
-SharedPtr<NotificationPort> NotificationPort::notificationPortFactory(uint16_t maxBarriers)
+SharedPtr<NotificationPort> NotificationPort::notificationPortFactory(uint16_t maxBarriers, const ocl_gpa_data* pGPAData)
 {
-	NotificationPort* retNotificationPort = new NotificationPort();
+	NotificationPort* retNotificationPort = new NotificationPort(pGPAData);
 	if (NULL == retNotificationPort)
 	{
 		return NULL;
@@ -201,10 +224,38 @@ RETURN_TYPE_ENTRY_POINT NotificationPort::Run()
 		firedAmount = 0;
 		workerThreadSigaled = false;
 
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+      if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+      {
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+          pTaskName = __itt_string_handle_create("NotificationPort::Run()->COIEventWait()");
+        }
+        __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+      }
+#endif
 		// wait for barrier(s) signal(s)
 		result = COIEventWait(m_waitingSize, m_barriers, -1, false, &firedAmount, firedIndicesArr);
 		assert(result == COI_SUCCESS && "COIBarrierWait failed for some reason");
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    {
+      __itt_task_end(m_pGPAData->pDeviceDomain);
+    }
+#endif
 
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+      if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+      {
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+          pTaskName = __itt_string_handle_create("NotificationPort::Run()->ProcessNotification...");
+        }
+        __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+      }
+#endif
 		{
 			OclAutoMutex lock(&m_mutex);
 
@@ -258,6 +309,12 @@ RETURN_TYPE_ENTRY_POINT NotificationPort::Run()
 		{
 			fireCallBacksArr[i].callBack->fireCallBack(fireCallBacksArr[i].arg);
 		}
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    {
+      __itt_task_end(m_pGPAData->pDeviceDomain);
+    }
+#endif
 
 	}
 

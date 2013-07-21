@@ -44,7 +44,6 @@ set( TASK_EXECUTOR_DIR 		${UTILS_DIR}/task_executor )
 set( ITT_DIR                ${OCL_SOURCE_DIR}/externals/itt )
 	
 set( MIC_TBB_PATH            	${OCL_SOURCE_DIR}/externals/tbb )
-set( MIC_TBB_HEADERS_PATH    	${MIC_TBB_PATH}/include )
 if (WIN32)
 	set( MIC_TBB_LIB_PATH  	${MIC_TBB_PATH}/bin/Knc_%CONFIG_NAME% )
 else()
@@ -234,7 +233,9 @@ set( MIC_FLAGS  -Werror
 #                -std=c++0x
                 # next entry - support converting Linux trap signals into C++ exceptions
                 -fnon-call-exceptions
-                -fstack-security-check
+		# enable stack security check, influence performance
+                #-fstack-security-check
+		#enable MASM code inlining in C/C++ code
                 -use-msasm
 # OLD KNF flags                
 #                -mCG_lrb_rex_workaround=F
@@ -242,31 +243,34 @@ set( MIC_FLAGS  -Werror
 #                -mCG_lrb_vgather_b2b_warns=F
 #                -mCG_lrb_workaround_vgather_vscatter_pairing=F
 #                -mCG_lrb_dp_workaround=F
+                
+		# Save compilation option in the executable
                 -sox
                 ${OMP_COMPILER_FLAG}
 
-				# allow exclusion of un-referenced code and data
+		# allow exclusion of un-referenced code and data
                 -fdata-sections
                 -ffunction-sections
             )
 
-set( MIC_DEBUG_FLAGS    -g -O0 -D_DEBUG -DDEBUG )
-set( MIC_RELEASE_FLAGS     -O3 -DNDEBUG )
+set( MIC_DEBUG_FLAGS   -g -O0 -D_DEBUG -DDEBUG )
+set( MIC_RELEASE_FLAGS -O3 -DNDEBUG )
 
 SET_NATIVE_PATH(COI_SDK_PATH ${COI_SDK_PATH})
 
-# inlcude path
+# include path
 list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../
                 -I ${SYS_UTILS_DIR}/export
                 -I ${HW_UTILS_DIR}/export
                 -I ${OCL_SOURCE_DIR}/cl_api
-                -I ${MIC_TBB_HEADERS_PATH}
+                -I ${MIC_TBB_PATH}/include
+                -I ${MIC_TBB_PATH}/enhancements
                 -I ${COI_SDK_PATH}/include
-				-I ${ITT_DIR}/include
-				-I ${ITT_DIR}/ittnotify
-				-I ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
+                -I ${ITT_DIR}/include
+                -I ${ITT_DIR}/ittnotify
+                -I ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
                 )
 
 list( APPEND MIC_FLAGS

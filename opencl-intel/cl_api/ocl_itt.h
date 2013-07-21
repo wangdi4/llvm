@@ -33,8 +33,8 @@ struct ocl_gpa_data
   bool					    bUseGPA;
   bool					    bEnableAPITracing;
   bool					    bEnableContextTracing;
-  unsigned char			cStatusMarkerFlags;
-  unsigned int			iIDCounter;
+  unsigned char				cStatusMarkerFlags;
+  unsigned int				iIDCounter;
 #ifdef USE_ITT
 	__itt_domain*			pDeviceDomain;
 	__itt_domain*			pContextDomain;
@@ -64,7 +64,7 @@ struct ocl_gpa_data
 	__itt_string_handle*	pNumEventsInWaitList;
 #endif
 #if defined(USE_GPA)
-	__itt_track_group*    pContextTrackGroup;
+	__itt_track_group*		pContextTrackGroup;
 	__ittx_task_state*		pWaitingTaskState;
 	__ittx_task_state*		pRunningTaskState;
 #endif

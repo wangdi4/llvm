@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -57,7 +57,7 @@ public:
     Data* RegisterCurrentThread();
     void  UnregisterCurrentThread();
 
-    Data* GetCurrentThreadDescriptor() const
+    static Data* GetCurrentThreadDescriptor()
     {
         return (NULL != m_CurrentThreadGlobalID) ? &(m_CurrentThreadGlobalID->m_data) : NULL; 
     }
