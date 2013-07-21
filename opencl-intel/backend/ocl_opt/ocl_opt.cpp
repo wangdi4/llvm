@@ -81,6 +81,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeShiftZeroUpperBitsPass(Registry);
     intel::initializePrefetchPass(Registry);
     intel::initializeBIImportPass(Registry);
+    intel::initializeGenericAddressStaticResolutionPass(Registry);
     intel::initializeSpirMaterializerPass(Registry);
 }
 

@@ -29,8 +29,7 @@ class OCLAddressSpace
       Global = 1,
       Constant = 2,
       Local = 3,
-      Global_EndianHost = 4,
-      Constant_EndianHost = 5
+      Generic = 4
     };
 };
 
@@ -39,6 +38,12 @@ class OCLAddressSpace
 inline bool isInSpace (int spaceID, int spaceMask) {
   return ((getAddressSpaceMask(spaceID) & spaceMask) != 0);
 }
+
+#define IS_ADDR_SPACE_PRIVATE(space)  (space == Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Private)
+#define IS_ADDR_SPACE_GLOBAL(space)   (space == Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Global)
+#define IS_ADDR_SPACE_CONSTANT(space) (space == Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Constant)
+#define IS_ADDR_SPACE_LOCAL(space)    (space == Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Local)
+#define IS_ADDR_SPACE_GENERIC(space)  (space == Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Generic)
 
 }}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 

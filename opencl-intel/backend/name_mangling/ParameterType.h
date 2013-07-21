@@ -59,7 +59,8 @@ namespace reflection {
     ATTR_GLOBAL,
     ATTR_CONSTANT,
     ATTR_LOCAL,
-    ATTR_ADDR_SPACE_LAST = ATTR_LOCAL,
+    ATTR_GENERIC,
+    ATTR_ADDR_SPACE_LAST = ATTR_GENERIC,
     ATTR_RESTRICT,
     ATTR_VOLATILE,
     ATTR_CONST,
@@ -200,6 +201,10 @@ namespace reflection {
     const std::vector<TypeAttributeEnum>& getAttributes() const {
       return m_attributes;
     }
+
+    ///@brief converts 'from' memory addr space attribute to 'to' value.
+    ///@return 'true' if conversion was done, and 'false' otherwise (e.g., in 'from' no addr space attribute is set)
+    bool convertAddrSpaceAttribute(TypeAttributeEnum from, TypeAttributeEnum to);
 
   private:
     ///the type this pointer is pointing at

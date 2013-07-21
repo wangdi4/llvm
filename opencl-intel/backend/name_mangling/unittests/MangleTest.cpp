@@ -86,6 +86,8 @@ struct AttributeDetector{
       return true;
     if ( "__constant" == s )
       return true;
+    if ( "__generic" == s)
+      return true;
     if ( "volatile" == s )
       return true;
     if ( "const" == s )

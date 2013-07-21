@@ -72,6 +72,21 @@ namespace reflection {
     return (*getPointee()).equals(&*(p->getPointee()));
   }
 
+  bool PointerType::convertAddrSpaceAttribute(TypeAttributeEnum from, TypeAttributeEnum to) {
+    assert((from >= ATTR_ADDR_SPACE_FIRST && from <= ATTR_ADDR_SPACE_LAST) && 
+           "Only addr space attribute can be replaced!");
+    assert((to >= ATTR_ADDR_SPACE_FIRST && to <= ATTR_ADDR_SPACE_LAST) && 
+           "Only addr space attribute can be applied!");
+    for (std::vector<TypeAttributeEnum>::iterator attr_it = m_attributes.begin(),
+                                                  attr_end = m_attributes.end();
+                                                  attr_it != attr_end; attr_it++) {
+      if (*attr_it == from) {
+        *attr_it = to;
+        return true;
+      }
+    }
+    return false;
+  }
 
   //
   //Vector Type

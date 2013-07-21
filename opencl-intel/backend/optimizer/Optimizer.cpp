@@ -30,6 +30,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
+#include "llvm/Metadata.h"
+#include "llvm/Support/Casting.h"
 
 extern "C"{
 
@@ -53,6 +55,7 @@ llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createModuleCleanupPass();
+llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createSpirMaterializer();
 void materializeSpirDataLayout(llvm::Module&);
 
@@ -241,6 +244,21 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #ifdef __APPLE__
   m_modulePasses.add(createClangCompatFixerPass());
 #endif
+  // For OCL2.0 compilation mode - add Generic Address Static Resolution pass
+  bool isOcl20 = false;
+  llvm::NamedMDNode *pOclBuildOpts = pModule->getNamedMetadata("opencl.build.options");
+  if (pOclBuildOpts) {
+    for(int mIdx = 0, mEnd = pOclBuildOpts->getNumOperands(); mIdx < mEnd; mIdx++) {
+      llvm::MDString* pMetadata = llvm::dyn_cast<llvm::MDString>(pOclBuildOpts->getOperand(mIdx));
+      if (pMetadata && pMetadata->getString() == "-cl-std=CL2.0") {
+        isOcl20 = true;
+      }
+    }
+  }
+  if (isOcl20) {
+    m_modulePasses.add(llvm::createPromoteMemoryToRegisterPass());
+    m_modulePasses.add(createGenericAddressStaticResolutionPass());
+  }
   m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
 #ifndef __APPLE__
   if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){

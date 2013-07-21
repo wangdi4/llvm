@@ -14,6 +14,7 @@ add_executable(${TARGET_NAME}
 set(OCL_BE_PASSES
     BuiltInFuncImport
     InstToFuncCall
+    GenericAddressResolution
     PreventDivCrashes
     RelaxedPass
     ShiftZeroUpperBits

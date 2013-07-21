@@ -68,6 +68,7 @@ namespace reflection {
     "__global",
     "__constant",
     "__local",
+    "__generic",
     "restrict",
     "volatile",
     "const"
@@ -78,6 +79,7 @@ namespace reflection {
     "U3AS1",
     "U3AS2",
     "U3AS3",
+    "U3AS4",
     "r",
     "V",
     "K"

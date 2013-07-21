@@ -31,6 +31,8 @@ class ConversionVisitor : public reflection::TypeVisitor{
       return 2U;
     case reflection::ATTR_LOCAL:
       return 3U;
+    case reflection::ATTR_GENERIC:
+      return 4U;
     default:
       assert(false && "unreachable");
       return 42U;

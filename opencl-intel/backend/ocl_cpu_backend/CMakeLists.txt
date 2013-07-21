@@ -337,6 +337,7 @@ set( BACKEND_PASSES
     BuiltInFuncImport
     DebugInfoPass
     InstToFuncCall
+    GenericAddressResolution
     LocalBuffers
     LocalBuffAnalysis
     ModuleCleanup

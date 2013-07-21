@@ -196,9 +196,7 @@ public:
 // Mask of all address spaces from which prefetch is likely to be beneficial
 const int Prefetch::PrefecthedAddressSpaces =
     getAddressSpaceMask(Utils::OCLAddressSpace::Global) |
-    getAddressSpaceMask(Utils::OCLAddressSpace::Constant) |
-    getAddressSpaceMask(Utils::OCLAddressSpace::Global_EndianHost) |
-    getAddressSpaceMask(Utils::OCLAddressSpace::Constant_EndianHost);
+    getAddressSpaceMask(Utils::OCLAddressSpace::Constant);
 
 /// Support for dynamic loading of modules under Linux
 char Prefetch::ID = 0;
