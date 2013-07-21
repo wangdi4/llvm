@@ -46,10 +46,22 @@ if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) 
     return module->function_call; \
 }
 
+#define CALL_INSTRUMENTED_API_NO_RET(module, function_call) \
+ocl_gpa_data *pGPAData = module->GetGPAData(); \
+if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
+{ \
+    __itt_id ittID; \
+    __startITTTask(pGPAData, ittID, __FUNCTION__); \
+    module->function_call; \
+    __endITTTask(pGPAData, ittID); } else { module->function_call; }
+
 #else
 
 #define CALL_INSTRUMENTED_API(module, return_type, function_call) \
 return module->function_call;
+
+#define CALL_INSTRUMENTED_API_NO_RET(module, function_call) \
+	module->function_call;
 
 #endif
 
@@ -1297,8 +1309,6 @@ cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
 }
 SET_ALIAS(clEnqueueMigrateMemObjects);
 
-// the following functions are not implemented yet:
-
 cl_int CL_API_CALL clCompileProgram(cl_program program,
                                     cl_uint num_devices,
                                     const cl_device_id *device_list,
@@ -1329,3 +1339,102 @@ cl_program CL_API_CALL clLinkProgram(cl_context context,
 }
 SET_ALIAS(clLinkProgram);
 
+void* CL_API_CALL clSVMAlloc(cl_context context,
+							 cl_svm_mem_flags flags,
+							 size_t size,
+							 unsigned int alignment)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, void*, SVMAlloc(context, flags, size, alignment));
+}
+SET_ALIAS(clSVMAlloc);
+
+void CL_API_CALL clSVMFree(cl_context context,
+						   void* svm_pointer)
+{
+	CALL_INSTRUMENTED_API_NO_RET(CONTEXT_MODULE, SVMFree(context, svm_pointer));
+}
+SET_ALIAS(clSVMFree);
+
+cl_int CL_API_CALL clEnqueueSVMFree(cl_command_queue command_queue,
+									cl_uint num_svm_pointers,
+									void* svm_pointers[],
+									void (CL_CALLBACK* pfn_free_func)(
+										cl_command_queue queue,
+										cl_uint num_svm_pointers,
+										void* svm_pointers[],
+										void* user_data),
+									void* user_data,
+									cl_uint num_events_in_wait_list,
+									const cl_event* event_wait_list,
+									cl_event* event)
+{
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMFree(command_queue, num_svm_pointers, svm_pointers, pfn_free_func, user_data, num_events_in_wait_list, event_wait_list,
+		event));
+}
+SET_ALIAS(clEnqueueSVMFree);
+
+cl_int CL_API_CALL clEnqueueSVMMemcpy(cl_command_queue command_queue,
+									  cl_bool blocking_copy,
+									  void *dst_ptr,
+									  const void *src_ptr,
+									  size_t size,
+									  cl_uint num_events_in_wait_list,
+									  const cl_event *event_wait_list,
+									 cl_event *event)
+{
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMemcpy(command_queue, blocking_copy, dst_ptr, src_ptr, size, num_events_in_wait_list, event_wait_list, event));
+}
+SET_ALIAS(clEnqueueSVMMemcpy);
+
+cl_int CL_API_CALL clEnqueueSVMMemFill(cl_command_queue command_queue,
+									   void* svm_ptr,
+									   const void* pattern,
+									   size_t pattern_size,
+									   size_t size,
+									   cl_uint num_events_in_wait_list,
+									   const cl_event* event_wait_list,
+									   cl_event* event)
+{
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMemFill(command_queue, svm_ptr, pattern, pattern_size, size, num_events_in_wait_list, event_wait_list, event));
+}
+SET_ALIAS(clEnqueueSVMMemFill);
+
+cl_int CL_API_CALL clEnqueueSVMMap(cl_command_queue command_queue,
+								   cl_bool blocking_map,
+								   cl_map_flags map_flags,
+								   void* svm_ptr,
+								   size_t size,
+								   cl_uint num_events_in_wait_list,
+								   const cl_event* event_wait_list,
+								   cl_event* event)
+{
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMap(command_queue, blocking_map, map_flags, svm_ptr, size, num_events_in_wait_list, event_wait_list, event));
+}
+SET_ALIAS(clEnqueueSVMMap);
+
+cl_int CL_API_CALL clEnqueueSVMUnmap(cl_command_queue command_queue,
+									 void* svm_ptr,
+									 cl_uint num_events_in_wait_list,
+									 const cl_event* event_wait_list,
+									 cl_event* event)
+{
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMUnmap(command_queue, svm_ptr, num_events_in_wait_list, event_wait_list, event));
+}
+SET_ALIAS(clEnqueueSVMUnmap);
+
+cl_int CL_API_CALL clSetKernelArgSVMPointer(cl_kernel kernel,
+											cl_uint arg_index,
+											const void* arg_value)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, SetKernelArgSVMPointer(kernel, arg_index, arg_value));
+}
+SET_ALIAS(clSetKernelArgSVMPointer);
+
+cl_int CL_API_CALL clSetKernelExecInfo(cl_kernel kernel,
+									   cl_kernel_exec_info param_name,
+									   size_t param_value_size,
+									   const void* param_value)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, SetKernelExecInfo(kernel, param_name, param_value_size, param_value));
+}
+SET_ALIAS(clSetKernelExecInfo);

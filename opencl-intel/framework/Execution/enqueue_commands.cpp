@@ -36,6 +36,7 @@
 #include "context_module.h"
 #include "cl_shared_ptr.hpp"
 #include "framework_proxy.h"
+#include "svm_buffer.h"
 
 //For debug
 #include <stdio.h>
@@ -1608,6 +1609,13 @@ cl_err_code NDRangeKernelCommand::Init()
 	size_t stTotalLocalSize = 0;
 
     size_t i;
+
+	cl_device_svm_capabilities svmCaps;
+	res = GetDevice()->GetInfo(CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, NULL);
+	if (CL_SUCCEEDED(res) && m_pKernel->IsSvmFineGrainSystem() && !(svmCaps & CL_DEVICE_SVM_FINE_GRAIN_SYSTEM))
+	{
+		return CL_INVALID_OPERATION;
+	}
     // First calculate location and set objects
 	// TODO: Why we need two expensive passes, access to map, memcpy
 	//		Join to single pass, consider build most of the buffer during SetKernelArgs
@@ -1662,6 +1670,26 @@ cl_err_code NDRangeKernelCommand::Init()
         }
     }
 
+	// non-argument SVM buffers	
+	if (!m_pKernel->IsSvmFineGrainSystem())
+	{
+		std::vector<SharedPtr<SVMBuffer> > nonArgSvmBufs;
+		m_pKernel->GetNonArgSvmBuffers(nonArgSvmBufs);
+		if (nonArgSvmBufs.size() > 0)
+		{
+			m_nonArgSvmBuffersVec.resize(nonArgSvmBufs.size());
+			for (size_t i = 0; i < nonArgSvmBufs.size(); i++)				
+			{
+				m_MemOclObjects.push_back(MemoryObjectArg(nonArgSvmBufs[i], MemoryObject::READ_WRITE));
+				res = GetMemObjectDescriptor(nonArgSvmBufs[i], &m_nonArgSvmBuffersVec[i]);
+				if (CL_FAILED(res))
+				{
+					return res;
+				}
+			}
+		}
+	}
+
 	cl_ulong stImplicitSize = 0;
 	m_pKernel->GetWorkGroupInfo(m_pDevice, CL_KERNEL_LOCAL_MEM_SIZE, sizeof(cl_ulong), &stImplicitSize, NULL);
 	stImplicitSize += stTotalLocalSize;
@@ -1682,6 +1710,16 @@ cl_err_code NDRangeKernelCommand::Init()
 
     pKernelParam->arg_size = szCurrentLocation;
     pKernelParam->arg_values = (void*)pArgValues;
+
+	if (m_nonArgSvmBuffersVec.empty())
+	{
+		pKernelParam->ppNonArgSvmBuffers = NULL;
+	}
+	else
+	{
+		pKernelParam->ppNonArgSvmBuffers = &m_nonArgSvmBuffersVec[0];
+	}	
+	pKernelParam->szNonArgSvmBuffersSize = m_nonArgSvmBuffersVec.size();
 
     size_t szArgSize = 0;
     cl_char* pArgValuesCurrentLocation = pArgValues;

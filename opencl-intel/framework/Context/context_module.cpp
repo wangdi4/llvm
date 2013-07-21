@@ -31,6 +31,7 @@
 #include "GenericMemObj.h"
 #include "ImageBuffer.h"
 #include "cl_shared_ptr.hpp"
+#include "svm_buffer.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -1130,6 +1131,38 @@ cl_int ContextModule::SetKernelArg(cl_kernel clKernel,
 	clErr = pKernel->SetKernelArg(uiArgIndex, szArgSize, pArgValue);
 	return CL_ERR_OUT(clErr);
 }
+
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::SetKernelArgSVMPointer
+//////////////////////////////////////////////////////////////////////////
+
+cl_int ContextModule::SetKernelArgSVMPointer(cl_kernel clKernel, cl_uint uiArgIndex, const void* pArgValue)
+{
+	SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).DynamicCast<Kernel>();
+	if (NULL == pKernel)
+	{
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL"), clKernel, &pKernel);
+		return CL_INVALID_KERNEL;
+	}
+	
+	return pKernel->GetContext()->SetKernelArgSVMPointer(pKernel, uiArgIndex, pArgValue);
+}
+
+cl_int ContextModule::SetKernelExecInfo(cl_kernel clKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue)
+{
+	SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).DynamicCast<Kernel>();
+	if (NULL == pKernel)
+	{
+		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL"), clKernel, &pKernel);
+		return CL_INVALID_KERNEL;
+	}
+	if (NULL == pParamValue)
+	{
+		return CL_INVALID_VALUE;
+	}
+	return pKernel->GetContext()->SetKernelExecInfo(pKernel, paramName, szParamValueSize, pParamValue);		
+}
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::GetKernelInfo
 //////////////////////////////////////////////////////////////////////////
@@ -1211,11 +1244,46 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
 	cl_err_code clErr = CheckMemObjectParameters(clFlags, NULL, CL_MEM_OBJECT_BUFFER, 0, 0, 0, 0, 0, 0, pHostPtr);
 	if ( !((CL_INVALID_IMAGE_FORMAT_DESCRIPTOR == clErr) || (CL_SUCCESS == clErr)) )
 	{
-		*pErrcodeRet =  clErr;
+		if (NULL != pErrcodeRet)
+		{
+			*pErrcodeRet =  clErr;
+		}
 		return CL_INVALID_HANDLE;
 	}
-    SharedPtr<MemoryObject> pBuffer;
-	clErr = pContext->CreateBuffer(clFlags, szSize, pHostPtr, &pBuffer);
+
+	SharedPtr<MemoryObject> pBuffer;
+	SharedPtr<SVMBuffer> pSvmBuf = pContext->GetSVMBufferContainingAddr(pHostPtr);	// we assume that the cl_mem and SVM buffer share the same context
+	if (pSvmBuf != NULL && (clFlags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)))
+	{
+		if (!pSvmBuf->IsContainedInBuffer(pHostPtr, szSize))
+		{
+			if (NULL != pErrcodeRet)
+			{
+				*pErrcodeRet = CL_INVALID_BUFFER_SIZE;	// this error code isn't specified in the spec
+			}
+			return CL_INVALID_HANDLE;
+		}
+	}
+	if (pSvmBuf != NULL && (clFlags & CL_MEM_USE_HOST_PTR))
+	{
+		if (pSvmBuf->GetAddr() == pHostPtr && szSize == pSvmBuf->GetSize())
+		{
+			pBuffer = pSvmBuf;
+			pContext->AddSvmBufferAsMemBuffer(pSvmBuf);
+		}
+		else
+		{
+			cl_buffer_region bufRegion;
+			bufRegion.origin = (char*)pHostPtr - (char*)pSvmBuf->GetAddr();
+			bufRegion.size = szSize;
+			clErr = pContext->CreateSubBuffer(pSvmBuf, clFlags, CL_BUFFER_CREATE_TYPE_REGION, &bufRegion, &pBuffer);
+		}		
+	}
+	else
+	{
+		clErr = pContext->CreateBuffer(clFlags, szSize, pHostPtr, &pBuffer);
+	}
+
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("pContext->CreateBuffer(%d, %d, %d, %d) = %s"), clFlags, szSize, pHostPtr, &pBuffer, ClErrTxt(clErr))
@@ -1224,7 +1292,7 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
 			*pErrcodeRet = CL_ERR_OUT(clErr);
 		}
 		return CL_INVALID_HANDLE;
-	}
+	}	
 	clErr = m_mapMemObjects.AddObject(pBuffer, false);
 	if (CL_FAILED(clErr))
 	{
@@ -1286,8 +1354,14 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem				clBuffer,
 			
 	if (NULL != pMemObj->GetParent())
 	{
-		iErr = CL_INVALID_MEM_OBJECT;
-		return CL_INVALID_HANDLE;
+		if (pMemObj->GetParent().DynamicCast<SVMBuffer>() == NULL)
+		{
+			iErr = CL_INVALID_MEM_OBJECT;
+			return CL_INVALID_HANDLE;
+		}
+		/* When creating a cl_mem buffer from an SVM buffer, if size < SVMBuffer.m_size, we return a sub-buffer of SVMBuffer.m_memObj. However, if the user creates a sub-buffer of
+		   this cl_mem buffer, we can't create a sub-buffer of a sub-buffer. So the solution is to create a sub-buffer of the SVMBuffer itself. */
+		pMemObj = pMemObj->GetParent();
 	}
 
 	SharedPtr<MemoryObject> pBuffer = NULL;
@@ -2579,4 +2653,51 @@ cl_int ContextModule::GetKernelArgInfo(cl_kernel clKernel,
 	}
 
 	return pKernel->GetKernelArgInfo(argIndx, paramName, szParamValueSize, pParamValue, pszParamValueSizeRet);
+}
+
+void* ContextModule::SVMAlloc(cl_context context, cl_svm_mem_flags flags, size_t size, unsigned int uiAlignment)
+{
+	SharedPtr<Context> pContext = GetContext(context);
+	if (pContext == NULL)
+	{
+		LOG_ERROR(TEXT("context is not a valid context"), "");
+		return NULL;
+	}
+	if (flags & CL_MEM_SVM_ATOMICS && !(flags & CL_MEM_SVM_FINE_GRAIN_BUFFER))
+	{
+		LOG_ERROR(TEXT("flags does not contain CL_MEM_SVM_FINE_GRAIN_BUFFER but does contain CL_MEM_SVM_ATOMICS"), "");
+		return NULL;
+	}
+	if ((flags & ~(CL_MEM_READ_WRITE | CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY | CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS)) != 0)
+	{
+		LOG_ERROR(TEXT("The values specified in flags are not valid i.e. don’t match those defined in table 5.13"), "");
+		return NULL;
+	}
+	if (0 == size)
+	{
+		LOG_ERROR(TEXT("size is 0"), "");
+		return NULL;
+	}
+	if (uiAlignment > 0 && (!IsPowerOf2(uiAlignment) || uiAlignment > sizeof(cl_long16)))
+	{
+		LOG_ERROR(TEXT("invalid alignment"), "");
+		return NULL;
+	}
+	return pContext->SVMAlloc(flags, size, uiAlignment);	
+}
+
+void ContextModule::SVMFree(cl_context context, void* pSvmPtr)
+{
+	SharedPtr<Context> pContext = GetContext(context);
+	if (pContext == NULL)
+	{
+		LOG_ERROR(TEXT("context is not a valid context"), "");
+		return;
+	}
+	if (NULL == pSvmPtr)
+	{
+		LOG_INFO(TEXT("pSvmPtr is NULL"), "")
+		return;
+	}
+	pContext->SVMFree(pSvmPtr);
 }

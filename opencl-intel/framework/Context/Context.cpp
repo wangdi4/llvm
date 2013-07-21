@@ -40,6 +40,7 @@
 #include "sampler.h"
 #include "cl_sys_defines.h"
 #include "context_module.h"
+#include "svm_buffer.h"
 #include "MemoryAllocator/MemoryObjectFactory.h"
 #include "MemoryAllocator/MemoryObject.h"
 #include "ocl_itt.h"
@@ -214,6 +215,20 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 		return;
 	}
 	GetMaxImageDimensions(&m_sz2dWidth, &m_sz2dHeight, &m_sz3dWidth, &m_sz3dHeight, &m_sz3dDepth, &m_szArraySize, &m_sz1dImgBufSize);
+
+	// calculate m_bSupportsSvmSystem
+	m_bSupportsSvmSystem = false;
+	const tSetOfDevices* pDevices = GetAllRootDevices();
+	for (tSetOfDevices::const_iterator iter = pDevices->begin(); iter != pDevices->end(); iter++)
+	{
+		cl_device_svm_capabilities svmCaps;
+		const cl_err_code err = (*iter)->GetInfo(CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, NULL);
+		if (CL_SUCCEEDED(err) && (svmCaps & CL_DEVICE_SVM_FINE_GRAIN_SYSTEM))
+		{
+			m_bSupportsSvmSystem = true;
+			break;
+		}
+	}
 
     *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;
 
@@ -838,6 +853,11 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 	m_mapMemObjects.AddObject(*ppBuffer);
 
 	return CL_SUCCESS;
+}
+
+void Context::AddSvmBufferAsMemBuffer(const SharedPtr<SVMBuffer>& pSvmBuffer)
+{
+	m_mapMemObjects.AddObject(pSvmBuffer);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1498,4 +1518,150 @@ cl_err_code Context::CheckSupportedImageFormatByMemFlags(cl_mem_flags clFlags, c
         }
     }
     return CL_SUCCESS;
+}
+
+cl_int Context::SetKernelArgSVMPointer(const SharedPtr<Kernel> pKernel, cl_uint uiArgIndex, const void* pArgValue)
+{
+	SharedPtr<SVMBuffer> pSvmBuf = GetSVMBufferContainingAddr(const_cast<void*>(pArgValue));
+	// It's not stated in the spec, but I believe we can consider NULL pointer as a non-valid pointer. We also currently don't support system pointers.
+	if (NULL == pArgValue || NULL == pSvmBuf)
+	{		
+		return CL_INVALID_VALUE;
+	}
+
+	cl_err_code err = pKernel->SetKernelArg(uiArgIndex, sizeof(void*), pArgValue, true);
+	return CL_ERR_OUT(err);
+}
+
+cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel> pKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue)
+{
+	switch (paramName)
+	{
+	case CL_KERNEL_EXEC_INFO_SVM_PTRS:
+		{
+			if (szParamValueSize == 0 || szParamValueSize % sizeof(void*) != 0)
+			{
+				return CL_INVALID_VALUE;
+			}
+			std::vector<SharedPtr<SVMBuffer> > svmBufs;
+			for (size_t i = 0; i < szParamValueSize / sizeof(void*); i++)
+			{
+				SharedPtr<SVMBuffer> pSvmBuf = GetSVMBufferContainingAddr(((void**)pParamValue)[i]);
+				if (NULL == pSvmBuf)
+				{
+					return CL_INVALID_VALUE;
+				}
+				svmBufs.push_back(pSvmBuf);
+			}
+			pKernel->SetNonArgSvmBuffers(svmBufs);
+			break;
+		}
+	case CL_KERNEL_EXEC_INFO_SVM_FINE_GRAIN_SYSTEM:
+		{
+			if (szParamValueSize < sizeof(cl_bool))
+			{
+				return CL_INVALID_VALUE;
+			}
+			if (CL_TRUE == *(cl_bool*)pParamValue && !pKernel->GetContext()->DoesSupportSvmSystem())
+			{
+				return CL_INVALID_OPERATION;
+			}			
+			pKernel->SetSvmFineGrainSystem(CL_TRUE == *(cl_bool*)pParamValue);
+			break;
+		}
+	default:
+		return CL_INVALID_VALUE;
+	}
+	return CL_SUCCESS;
+}
+
+void* Context::SVMAlloc(cl_svm_mem_flags flags, size_t size, unsigned int uiAlignment)
+{
+	const cl_svm_mem_flags oldMemFlags = flags & (CL_MEM_READ_WRITE | CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY);
+	if (oldMemFlags != 0 && oldMemFlags != CL_MEM_READ_WRITE && oldMemFlags != CL_MEM_WRITE_ONLY && oldMemFlags != CL_MEM_READ_ONLY)
+	{
+		LOG_ERROR(TEXT("CL_MEM_READ_WRITE or CL_MEM_WRITE_ONLY and CL_MEM_READ_ONLY are mutually exclusive"), "");
+		return NULL;
+	}	
+
+	const tSetOfDevices& devices = *GetAllRootDevices();
+	for (tSetOfDevices::const_iterator iter = devices.begin(); iter != devices.end(); iter++)
+	{
+		cl_device_svm_capabilities devSvmCapabilities;
+		cl_err_code err = (*iter)->GetInfo(CL_DEVICE_SVM_CAPABILITIES, sizeof(devSvmCapabilities), &devSvmCapabilities, NULL);
+		ASSERT_RET_VAL(CL_SUCCEEDED(err), "device can't handle CL_DEVICE_SVM_CAPABILITIES query", NULL);
+		if (((flags & CL_MEM_SVM_FINE_GRAIN_BUFFER) && !(devSvmCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER)) ||
+			((flags & CL_MEM_SVM_ATOMICS) && !(devSvmCapabilities & CL_DEVICE_SVM_ATOMICS)))
+		{
+			LOG_ERROR(TEXT("CL_MEM_SVM_FINE_GRAIN_BUFFER or CL_MEM_SVM_ATOMICS is specified in flags and these are not supported by all devices in context"), "");
+			return NULL;
+		}
+
+		cl_ulong ulDevMaxAllocSize;
+		err = (*iter)->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(ulDevMaxAllocSize), &ulDevMaxAllocSize, NULL);
+		ASSERT_RET_VAL(CL_SUCCEEDED(err), "device can't handle CL_DEVICE_MAX_MEM_ALLOC_SIZE query", NULL);
+		if (size > ulDevMaxAllocSize)
+		{
+			LOG_ERROR(TEXT("size is > CL_DEVICE_MAX_ALLOC_SIZE value for a device in context"), "");
+			return NULL;
+		}
+	}
+
+	// do the real work:
+	if (0 == oldMemFlags)
+	{
+		flags |= CL_MEM_READ_WRITE;
+	}
+	if (0 == uiAlignment)
+	{
+		uiAlignment = sizeof(cl_long16);	// this is the default alignment
+	}
+
+	SharedPtr<SVMBuffer> pSvmBuf = SVMBuffer::Allocate(this);
+	if (NULL == pSvmBuf)
+	{
+		return NULL;
+	}		
+	// these flags aren't needed anymore
+	pSvmBuf->Initialize(flags & ~(CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS), NULL, 1, &size, NULL, NULL, 0);
+	
+	OclAutoWriter mu(&m_svmBuffersRwlock);
+	void* pSvmPtr = pSvmBuf->GetBackingStoreData();
+	m_svmBuffers[pSvmPtr] = pSvmBuf;	
+	ASSERT_RET_VAL(IS_ALIGNED_ON(pSvmPtr, uiAlignment), "pSvmPtr isn't aligned as user requested", NULL);
+	return pSvmPtr;
+}
+
+void Context::SVMFree(void* pSvmPtr)
+{
+	OclAutoWriter mu(&m_svmBuffersRwlock);
+	if (m_svmBuffers.find(pSvmPtr) == m_svmBuffers.end())
+	{
+		LOG_ERROR(TEXT("pSvmPtr isn't an SVM buffer"), "");
+		return;
+	}
+	m_svmBuffers.erase(pSvmPtr);
+}
+
+SharedPtr<SVMBuffer> Context::GetSVMBufferContainingAddr(void* ptr)
+{
+	OclAutoReader mu(&m_svmBuffersRwlock);
+	std::map<void*, SharedPtr<SVMBuffer> >::iterator iter = m_svmBuffers.upper_bound(ptr);
+	if (iter == m_svmBuffers.begin())
+	{
+		return NULL;
+	}
+	const SharedPtr<SVMBuffer>& pSvmBuffer = (--iter)->second;
+
+	if (((char*)ptr >= (char*)pSvmBuffer->GetAddr()) &&
+		((char*)ptr < (char*)pSvmBuffer->GetAddr() + pSvmBuffer->GetSize()))
+	{
+		return pSvmBuffer;
+	}
+	return NULL;
+}
+
+ConstSharedPtr<SVMBuffer> Context::GetSVMBufferContainingAddr(const void* ptr) const
+{
+	return const_cast<Context*>(this)->GetSVMBufferContainingAddr(const_cast<void*>(ptr));
 }

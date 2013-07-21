@@ -36,6 +36,8 @@ using namespace Intel::OpenCL;
 
 #ifdef WIN32
 #include <windows.h>
+#include <intrin.h>
+
 bool clIsNumaAvailable()
 {
 	return false;
@@ -1326,6 +1328,15 @@ cl_ushort float2half_rte( float f )
     
         return uu.f;
     }
+
+bool IsPowerOf2(unsigned int uiNum)
+{
+#ifdef WIN32
+	return __popcnt(uiNum) == 1;
+#else
+	return __builtin_popcount(uiNum) == 1;
+#endif
+}
 
 #if defined(_MSC_VER) && !defined(_WIN64)
 //  Returns the number of leading 0-bits in x, 

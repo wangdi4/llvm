@@ -177,6 +177,16 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clLinkProgram = (KHRpfn_clLinkProgram)GET_ALIAS(clLinkProgram);
     ICDDispatchTable.clEnqueueMarkerWithWaitList = (KHRpfn_clEnqueueMarkerWithWaitList)GET_ALIAS(clEnqueueMarkerWithWaitList);
     
+	ICDDispatchTable.clSVMAlloc = (KHRpfn_clSVMAlloc)GET_ALIAS(clSVMAlloc);
+	ICDDispatchTable.clSVMFree = (KHRpfn_clSVMFree)GET_ALIAS(clSVMFree);
+	ICDDispatchTable.clEnqueueSVMFree = (KHRpfn_clEnqueueSVMFree)GET_ALIAS(clEnqueueSVMFree);
+	ICDDispatchTable.clEnqueueSVMMemcpy = (KHRpfn_clEnqueueSVMMemcpy)GET_ALIAS(clEnqueueSVMMemcpy);
+	ICDDispatchTable.clEnqueueSVMMemFill = (KHRpfn_clEnqueueSVMMemFill)GET_ALIAS(clEnqueueSVMMemFill);
+	ICDDispatchTable.clEnqueueSVMMap = (KHRpfn_clEnqueueSVMMap)GET_ALIAS(clEnqueueSVMMap);
+	ICDDispatchTable.clEnqueueSVMUnmap = (KHRpfn_clEnqueueSVMUnmap)GET_ALIAS(clEnqueueSVMUnmap);
+	ICDDispatchTable.clSetKernelArgSVMPointer = (KHRpfn_clSetKernelArgSVMPointer)GET_ALIAS(clSetKernelArgSVMPointer);
+	ICDDispatchTable.clSetKernelExecInfo = (KHRpfn_clSetKernelExecInfo)GET_ALIAS(clSetKernelExecInfo);
+
     /// Extra functions for Common Runtime
     CRTDispatchTable.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);   
     

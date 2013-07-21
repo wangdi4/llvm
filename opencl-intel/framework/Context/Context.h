@@ -52,6 +52,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class Program;
 	class MemoryObject;
     class ContextModule;
+	class SVMBuffer;
 
     typedef std::set<SharedPtr<Device> > tSetOfDevices;
 
@@ -279,6 +280,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// create new sub buffer object
 		cl_err_code CreateSubBuffer(SharedPtr<MemoryObject> buffer, cl_mem_flags clFlags, cl_buffer_create_type szSize, const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer);
 
+		// add an existing SVMBuffer as a cl_mem buffer
+		void AddSvmBufferAsMemBuffer(const SharedPtr<SVMBuffer>& pSvmBuffer);
+
 		// create new image object
         template<size_t DIM, cl_mem_object_type OBJ_TYPE>
 		cl_err_code CreateImage(	cl_mem_flags	        clFlags,
@@ -337,10 +341,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// return context-specific memory objects heap handle
 		Intel::OpenCL::Utils::ClHeap	GetMemoryObjectsHeap( void ) const { return m_MemObjectsHeap; };
 
+		bool DoesSupportSvmSystem() const { return m_bSupportsSvmSystem; }
+
+		/**
+		 * @param ptr some pointer
+		 * @return an SVMBuffer that contains the address pointed to by ptr or NULL if no such SVMBuffer exists
+		 */
+		ConstSharedPtr<SVMBuffer> GetSVMBufferContainingAddr(const void* ptr) const;
+		SharedPtr<SVMBuffer> GetSVMBufferContainingAddr(void* ptr);
+
+		cl_int SetKernelArgSVMPointer(const SharedPtr<Kernel> pKernel, cl_uint uiArgIndex, const void* pArgValue);
+
+		cl_int SetKernelExecInfo(const SharedPtr<Kernel> pKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue);
+
+		void* SVMAlloc(cl_svm_mem_flags flags, size_t size, unsigned int uiAlignment);
+
+		void SVMFree(void* pSvmPtr);
+
 		// return access to context-specific OS event pool
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
 		Intel::OpenCL::Utils::OclOsDependentEvent* GetOSEvent();
-		void	RecycleOSEvent(Intel::OpenCL::Utils::OclOsDependentEvent* pEvent);
+		void	RecycleOSEvent(Intel::OpenCL::Utils::OclOsDependentEvent* pEvent);		
 #endif
 
 	protected:
@@ -428,7 +449,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		tImageFormatMap							m_mapSupportedFormats;
 
 		Intel::OpenCL::Utils::ClHeap			m_MemObjectsHeap;
-        const ContextModule&                    m_contextModule;
+		const ContextModule&                    m_contextModule;
+        bool									m_bSupportsSvmSystem;	// if there is at least one device that supports this
+		std::map<void*, SharedPtr<SVMBuffer> >  m_svmBuffers;
+		mutable Intel::OpenCL::Utils::OclReaderWriterLock m_svmBuffersRwlock;
 
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
 		typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<Intel::OpenCL::Utils::OclOsDependentEvent*> t_OsEventPool;

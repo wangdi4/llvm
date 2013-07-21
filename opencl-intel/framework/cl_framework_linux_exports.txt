@@ -101,6 +101,16 @@ Base {
 
         clCreateSubDevicesEXT;
         clReleaseDeviceEXT;
+
+	clSVMAlloc;
+	clSVMFree;
+	clEnqueueSVMFree;
+	clEnqueueSVMMemcpy;
+	clEnqueueSVMMemFill;
+	clEnqueueSVMMap;
+	clEnqueueSVMUnmap;
+	clSetKernelArgSVMPointer;
+	clSetKernelExecInfo;
 		
     local:
         *;

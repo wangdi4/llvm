@@ -389,6 +389,11 @@ TEST(FrameworkTestType, Test_clMultipleExecutionTest)
     EXPECT_TRUE(clMultipleExecutionTest());
 }
 
+TEST(FrameworkTestType, Test_clSvmTest)
+{
+	EXPECT_TRUE(clSvmTest());
+}
+
 template <typename T>
 class CommandLineOption{
   std::string m_name;

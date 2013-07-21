@@ -171,7 +171,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// Return CL_SUCCSS if flags are adequate for child buffer, or
 		// CL_INVALID_OPERATION if not OK.
-		int ValidateChildFlags( const cl_mem_flags childFlags);
+		virtual int ValidateChildFlags( const cl_mem_flags childFlags);
 
 		// Return CL_SUCCSS if flags are adequate for mapping buffer, or
 		// CL_INVALID_OPERATION if not OK.

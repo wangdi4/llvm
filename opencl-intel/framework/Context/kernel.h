@@ -34,13 +34,14 @@
 #include "Device.h"
 #include "cl_sys_defines.h"
 
-
 namespace Intel { namespace OpenCL { namespace Framework {
 
 	class Program;
 	class DeviceProgram;
 	class Kernel;
 	class Context;
+	class SVMBuffer;
+	class SVMPointerArg;
 
 	/**********************************************************************************************
 	* Class name:	SKernelPrototype
@@ -172,6 +173,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// type of kernel argument
 		cl_kernel_argument	m_clKernelArgType;
 
+		SharedPtr<ReferenceCountedObject> m_pSvmPtrArg;	// we hold a SharedPtr to ReferenceCountedObject because of header dependencies
+
 		KernelArg(const KernelArg&);
 		KernelArg& operator=(const KernelArg&);
 	};
@@ -261,7 +264,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code CreateDeviceKernels(DeviceProgram ** pDevicePrograms);
 
 		// set kernel argument
-		cl_err_code SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue);
+		cl_err_code SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue, bool bIsSvmPtr = false);
 
 		// returns the number of arguments in the kernel
 		size_t GetKernelArgsCount() const;
@@ -286,6 +289,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         SharedPtr<Program> GetProgram() { return m_pProgram; }
 
 		ConstSharedPtr<Context> GetContext() const;
+		SharedPtr<Context> GetContext();
 
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// OpenCL 1.2 functions
@@ -315,6 +319,28 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										void *      pParamValue,
 										size_t *    pszParamValueSizeRet);
 
+		/**
+		 * Set whether this Kernel uses pointers that are fine grain system SVM allocations
+		 * @param bSvmFineGrainSystem whether this Kernel uses pointers that are fine grain system SVM allocations
+		 */
+		void SetSvmFineGrainSystem(bool bSvmFineGrainSystem) { m_bSvmFineGrainSystem = bSvmFineGrainSystem; };
+
+		/**
+		 * @return whether this Kernel uses pointers that are fine grain system SVM allocations
+		 */
+		bool IsSvmFineGrainSystem() const { return m_bSvmFineGrainSystem; }
+
+		/**
+		 * Set SVMBuffers that are used by Kernel, but not passed as arguments to it
+		 * @param svmBufs a vector of SharedPtrs to the SVMBuffers
+		 */
+		void SetNonArgSvmBuffers(const std::vector<SharedPtr<SVMBuffer> >& svmBufs);
+
+		/**
+		 * @param svmBufs a vector of SVMBuffers that are used by Kernel, but not passed as arguments to it
+		 */
+		void GetNonArgSvmBuffers(std::vector<SharedPtr<SVMBuffer> >& svmBufs) const;
+		
         // needed so that DeviceKernel can access the raw program's binary (no const)
         friend class DeviceKernel;
 
@@ -346,8 +372,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// To ensure all args have been set
 		Intel::OpenCL::Utils::AtomicCounter     m_numValidArgs;
+
+		bool m_bSvmFineGrainSystem;
+		mutable Intel::OpenCL::Utils::OclReaderWriterLock m_rwlock;
+		std::vector<SharedPtr<SVMBuffer> >		m_nonArgSvmBufs;
 	};
 
 
 }}}
-

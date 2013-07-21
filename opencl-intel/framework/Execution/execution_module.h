@@ -144,6 +144,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #endif
 
         cl_err_code         Release(bool bTerminate);
+		cl_int EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint uiNumSvmPointers, void* pSvmPointers[],
+							  void (CL_CALLBACK* pfnFreeFunc)(cl_command_queue queue, cl_uint uiNumSvmPointers, void* pSvmPointers[], void* pUserData),
+							  void* pUserData, cl_uint uiNumEventsInWaitList,	const cl_event* pEventWaitList,	cl_event* pEvent);
+		cl_int EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_bool bBlockingCopy, void* pDstPtr, const void* pSrcPtr, size_t size, cl_uint uiNumEventsInWaitList,
+								const cl_event* pEventWaitList, cl_event* pEvent);
+		cl_int EnqueueSVMMemFill(cl_command_queue clCommandQueue, void* pSvmPtr, const void* pPattern, size_t szPatternSize, size_t size, cl_uint uiNumEventsInWaitList,
+								 const cl_event* pEventWaitList, cl_event* pEvent);
+		cl_int EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool bBlockingMap,	cl_map_flags mapflags, void* pSvmPtr, size_t size, cl_uint uiNumEventsInWaitList,
+							 const cl_event* pEventWaitList, cl_event* pEvent);
+		cl_int EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* pSvmPtr, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent);
+
         EventsManager*      GetEventsManager() const { return m_pEventsManager; }
         ocl_entry_points *  GetDispatchTable() const {return m_pOclEntryPoints; }
         ocl_gpa_data *      GetGPAData() const { return m_pGPAData; }

@@ -38,6 +38,8 @@
 #include "MemoryAllocator/MemoryObject.h"
 #include "conversion_rules.h"
 #include "GenericMemObj.h"
+#include "svm_commands.h"
+#include "svm_buffer.h"
 
 #if defined (_WIN32)
 #include "gl_mem_objects.h"
@@ -2844,6 +2846,314 @@ cl_err_code ExecutionModule::GetEventProfilingInfo (cl_event clEvent,
 {
     cl_err_code res = m_pEventsManager->GetEventProfilingInfo(clEvent, clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
     return res;
+}
+
+static cl_int CheckEventList(const SharedPtr<IOclCommandQueueBase>& pQueue, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList)
+{
+	std::vector<SharedPtr<OclEvent> > eventWaitListVec;
+	if (!pQueue->GetEventsManager()->IsValidEventList(uiNumEventsInWaitList, pEventWaitList, &eventWaitListVec))
+	{
+		return CL_INVALID_EVENT_WAIT_LIST;
+	}	
+	return CL_SUCCESS;
+}
+
+cl_int ExecutionModule::EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint uiNumSvmPointers, void* pSvmPointers[],
+									void (CL_CALLBACK* pfnFreeFunc)(cl_command_queue queue, cl_uint uiNumSvmPointers, void* pSvmPointers[],	void* pUserData),
+									void* pUserData, cl_uint uiNumEventsInWaitList,	const cl_event* pEventWaitList,	cl_event* pEvent)
+{
+	SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue);
+	if (NULL == pQueue)
+	{
+		return CL_INVALID_COMMAND_QUEUE;
+	}
+	if (0 == uiNumSvmPointers || NULL == pSvmPointers)
+	{
+		return CL_INVALID_VALUE;
+	}
+	for (cl_uint i = 0; i < uiNumSvmPointers; i++)
+	{
+		if (NULL == pSvmPointers[i])
+		{
+			return CL_INVALID_VALUE;
+		}
+	}
+	
+	cl_err_code err = CheckEventList(pQueue, uiNumEventsInWaitList, pEventWaitList);
+	if (CL_FAILED(err))
+	{
+		return err;
+	}
+
+	SVMFreeCommand* const pSvmFreeCmd = new SVMFreeCommand(uiNumSvmPointers, pSvmPointers, pfnFreeFunc, pUserData, pQueue, uiNumEventsInWaitList > 0);
+	if (NULL == pSvmFreeCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+	
+	err = pSvmFreeCmd->Init();
+	if (CL_FAILED(err))
+	{
+		delete pSvmFreeCmd;
+		return err;
+	}
+	err = pSvmFreeCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent);
+	if (CL_FAILED(err))
+	{
+		pSvmFreeCmd->CommandDone();
+		delete pSvmFreeCmd;
+		return err;
+	}
+	return CL_SUCCESS;
+}
+
+cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_bool bBlockingCopy, void* pDstPtr, const void* pSrcPtr, size_t size, cl_uint uiNumEventsInWaitList,
+	const cl_event* pEventWaitList, cl_event* pEvent)
+{
+	// validate parameters:
+	SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue);
+	if (NULL == pQueue)
+	{
+		return CL_INVALID_COMMAND_QUEUE;
+	}
+	if (NULL == pDstPtr || NULL == pSrcPtr || 0 == size)
+	{
+		return CL_INVALID_VALUE;
+	}
+	if (((char*)pDstPtr >= (char*)pSrcPtr && (char*)pDstPtr < (char*)pSrcPtr + size) || ((char*)pSrcPtr >= (char*)pDstPtr && (char*)pSrcPtr < (char*)pDstPtr + size))
+	{
+		return CL_MEM_COPY_OVERLAP;
+	}
+
+	SharedPtr<Context> pContext = pQueue->GetContext();
+	SharedPtr<SVMBuffer> pSrcSvmBuffer = pContext->GetSVMBufferContainingAddr(const_cast<void*>(pSrcPtr));
+	SharedPtr<SVMBuffer> pDstSvmBuffer = pContext->GetSVMBufferContainingAddr(pDstPtr);
+	if ((pSrcSvmBuffer != NULL && !pSrcSvmBuffer->IsContainedInBuffer(pSrcPtr, size)) || (pDstSvmBuffer != NULL && !pDstSvmBuffer->IsContainedInBuffer(pDstPtr, size)))
+	{
+		LOG_ERROR(TEXT("either source or destination pointers define a region that spans beyond an SVM buffer"), "");
+		return CL_INVALID_VALUE;
+	}
+	if ((pSrcSvmBuffer != NULL && pSrcSvmBuffer->GetContext() != pContext) || (pDstSvmBuffer != NULL && pDstSvmBuffer->GetContext() != pContext))
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	cl_err_code err = CheckEventList(pQueue, uiNumEventsInWaitList, pEventWaitList);
+	if (CL_FAILED(err))
+	{
+		return err;
+	}
+
+	// do the work:
+	Command* pCmd;
+	const size_t
+		pszSrcOrigin[] = { pSrcSvmBuffer != NULL ? (char*)pSrcPtr - (char*)pSrcSvmBuffer->GetAddr() : 0, 0, 0 },
+		pszDstOrigin[] = { pDstSvmBuffer != NULL ? (char*)pDstPtr - (char*)pDstSvmBuffer->GetAddr() : 0, 0, 0 },
+		pszRegion[] = { size, 1, 1 };
+	if (NULL == pSrcSvmBuffer)
+	{
+		if (NULL == pDstSvmBuffer)
+		{
+			pCmd = new RuntimeSVMMemcpyCommand(pDstPtr, pSrcPtr, size, pQueue, uiNumEventsInWaitList > 0);
+		}
+		else
+		{
+			pCmd = new WriteBufferCommand(pQueue, m_pOclEntryPoints, bBlockingCopy, pDstSvmBuffer, pszDstOrigin, pszRegion, pSrcPtr); 
+		}
+	}
+	else
+	{
+		if (NULL == pDstSvmBuffer)
+		{
+			pCmd = new ReadBufferCommand(pQueue, m_pOclEntryPoints, pSrcSvmBuffer, pszSrcOrigin, pszRegion, pDstPtr);
+		}
+		else
+		{
+			pCmd = new CopyBufferCommand(pQueue, m_pOclEntryPoints, pSrcSvmBuffer, pDstSvmBuffer, pszSrcOrigin, pszDstOrigin, pszRegion);
+		}
+	}
+	if (NULL == pCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+	err = pCmd->Init();
+	if (CL_FAILED(err))
+	{
+		delete pCmd;
+		return err;
+	}
+	err = pCmd->EnqueueSelf(bBlockingCopy, uiNumEventsInWaitList, pEventWaitList, pEvent);
+	if (CL_FAILED(err))
+	{
+		pCmd->CommandDone();
+		delete pCmd;
+		return err;
+	}
+	return CL_SUCCESS;
+}
+
+cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void* pSvmPtr, const void* pPattern, size_t szPatternSize, size_t size, cl_uint uiNumEventsInWaitList,
+										  const cl_event* pEventWaitList, cl_event* pEvent)
+{
+	// validate parameters:
+	SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue);
+	if (NULL == pQueue)
+	{
+		return CL_INVALID_COMMAND_QUEUE;
+	}
+	
+	cl_err_code err = CheckEventList(pQueue, uiNumEventsInWaitList, pEventWaitList);
+	if (CL_FAILED(err))
+	{
+		return err;
+	}
+	if (NULL == pSvmPtr || !IS_ALIGNED_ON(pSvmPtr, szPatternSize) || NULL == pPattern || 0 == szPatternSize || !IsPowerOf2(szPatternSize) || szPatternSize > 128 ||
+		size % szPatternSize != 0)
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	SharedPtr<SVMBuffer> pSvmBuf = pQueue->GetContext()->GetSVMBufferContainingAddr(pSvmPtr);
+	if (pSvmBuf != NULL && (pSvmBuf->GetContext() != pQueue->GetContext() || !pSvmBuf->IsContainedInBuffer(pSvmPtr, size)))
+	{
+		return CL_INVALID_VALUE;
+	}
+	
+	// do the work:
+	Command* pCmd;
+	if (pSvmBuf != NULL)
+	{
+		pCmd = new FillBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, pPattern, szPatternSize, (ptrdiff_t)pSvmPtr - (ptrdiff_t)pSvmBuf->GetAddr(), size);
+	}
+	else
+	{
+		pCmd = new RuntimeSVMMemFillCommand(pSvmPtr, pPattern, szPatternSize, size, pQueue, uiNumEventsInWaitList > 0);
+	}
+	if (NULL == pCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+	err = pCmd->Init();
+	if (CL_FAILED(err))
+	{
+		delete pCmd;
+		return err;
+	}
+	err = pCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent);
+	if (CL_FAILED(err))
+	{
+		pCmd->CommandDone();
+		delete pCmd;
+		return err;
+	}
+	return CL_SUCCESS;	
+}
+
+cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool bBlockingMap, cl_map_flags mapflags, void* pSvmPtr, size_t size, cl_uint uiNumEventsInWaitList,
+									  const cl_event* pEventWaitList, cl_event* pEvent)
+{
+	SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue);
+	if (NULL == pQueue)
+	{
+		return CL_INVALID_COMMAND_QUEUE;
+	}
+	
+	cl_err_code err = CheckEventList(pQueue, uiNumEventsInWaitList, pEventWaitList);
+	if (CL_FAILED(err))
+	{
+		return err;
+	}
+	if (NULL == pSvmPtr || 0 == size)
+	{
+		return CL_INVALID_VALUE;
+	}
+	err = checkMapFlagsMutex(mapflags);
+	if (CL_FAILED(err))
+	{
+		return err;
+	}
+
+	SharedPtr<SVMBuffer> pSvmBuf = pQueue->GetContext()->GetSVMBufferContainingAddr(pSvmPtr);
+	if (NULL == pSvmBuf)
+	{
+		// if it's a system pointer, we don't have to do anything
+		return CL_SUCCESS;
+	}
+	if (pSvmBuf->GetContext() != pQueue->GetContext() || !pSvmBuf->IsContainedInBuffer(pSvmPtr, size))
+	{
+		return CL_INVALID_VALUE;
+	}
+	
+	MapBufferCommand* const pCmd = new MapBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, mapflags, (char*)pSvmPtr - (char*)pSvmBuf->GetAddr(), size);
+	if (NULL == pCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+	err = pCmd->Init();
+	if (CL_FAILED(err))
+	{
+		delete pCmd;
+		return err;
+	}
+	assert(pCmd->GetMappedPtr() == pSvmPtr && "pCmd->GetMappedPtr() != pSvmPtr");
+	err = pCmd->EnqueueSelf(bBlockingMap, uiNumEventsInWaitList, pEventWaitList, pEvent);
+	if (CL_FAILED(err))
+	{
+		pCmd->CommandDone();
+		delete pCmd;
+		return err;
+	}	
+	return CL_SUCCESS;
+}
+
+cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* pSvmPtr, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent)
+{
+	SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue);
+	if (NULL == pQueue)
+	{
+		return CL_INVALID_COMMAND_QUEUE;
+	}
+
+	cl_err_code err = CheckEventList(pQueue, uiNumEventsInWaitList, pEventWaitList);
+	if (CL_FAILED(err))
+	{
+		return err;
+	}
+	if (NULL == pSvmPtr)
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	SharedPtr<SVMBuffer> pSvmBuf = pQueue->GetContext()->GetSVMBufferContainingAddr(pSvmPtr);
+	if (NULL == pSvmBuf)
+	{
+		// if it's a system pointer, we don't have to do anything
+		return CL_SUCCESS;
+	}
+	if (pSvmBuf->GetContext() != pQueue->GetContext())
+	{
+		return CL_INVALID_VALUE;
+	}
+
+	UnmapMemObjectCommand* const pCmd = new UnmapMemObjectCommand(pQueue, m_pOclEntryPoints, pSvmBuf, pSvmPtr);
+	if (NULL == pCmd)
+	{
+		return CL_OUT_OF_HOST_MEMORY;
+	}
+	err = pCmd->Init();
+	if (CL_FAILED(err))
+	{
+		delete pCmd;
+		return err;
+	}
+	err = pCmd->EnqueueSelf(false, uiNumEventsInWaitList, pEventWaitList, pEvent);
+	if (CL_FAILED(err))
+	{
+		pCmd->CommandDone();
+		delete pCmd;
+		return err;
+	}
+	return CL_SUCCESS;
 }
 
 /******************************************************************

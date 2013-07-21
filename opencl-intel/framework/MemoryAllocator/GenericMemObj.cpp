@@ -42,11 +42,11 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-GenericMemObject::GenericMemObject(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType) :
+GenericMemObject::GenericMemObject(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType) :	
 	MemoryObject(pContext),
 	m_active_groups_count(0),
     m_BS(NULL),
-	m_hierarchicalMemoryMode(MEMORY_MODE_NORMAL)
+	m_hierarchicalMemoryMode(MEMORY_MODE_NORMAL)	
 {
 	INIT_LOGGER_CLIENT(TEXT("GenericMemObject"), LL_DEBUG);
 

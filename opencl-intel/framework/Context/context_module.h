@@ -172,6 +172,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_int SetKernelArg(cl_kernel clKernel, cl_uint	uiArgIndex, size_t szArgSize, const void * pszArgValue);
 		virtual cl_int GetKernelInfo(cl_kernel clKernel, cl_kernel_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 		virtual cl_int GetKernelWorkGroupInfo(cl_kernel clKernel, cl_device_id pDevice, cl_kernel_work_group_info clParamName, size_t szParamValueSize, void *	pParamValue, size_t * pszParamValueSizeRet);
+		
 		// memory object methods
 		virtual cl_mem CreateBuffer(cl_context clContext, cl_mem_flags clFlags, size_t szSize, void * pHostPtr, cl_int * pErrcodeRet);
 		virtual cl_mem CreateSubBuffer(cl_mem buffer, cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type, const void * buffer_create_info, cl_int * pErrcodeRet);
@@ -220,6 +221,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
 												size_t      szParamValueSize,
 												void *      pParamValue,
 												size_t *    pszParamValueSizeRet);
+
+		/////////////////////////////////////////////////////////////////////
+		// OpenCL 2.0 functions
+		/////////////////////////////////////////////////////////////////////
+
+		// SVM
+
+		void* SVMAlloc(cl_context context, cl_svm_mem_flags flags, size_t size, unsigned int uiAlignment);
+		void SVMFree(cl_context context, void* pSvmPtr);		
+		cl_int SetKernelArgSVMPointer(cl_kernel clKernel, cl_uint uiArgIndex, const void* pArgValue);
+		cl_int SetKernelExecInfo(cl_kernel clKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue);
 
 	private:
 		
@@ -285,7 +297,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		ocl_entry_points *						m_pOclEntryPoints;
 
 		ocl_gpa_data *							m_pGPAData;
-        bool                                    m_bIsTerminating;
+        bool                                    m_bIsTerminating;		
 
 		DECLARE_LOGGER_CLIENT;
 	};

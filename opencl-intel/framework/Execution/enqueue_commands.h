@@ -1008,6 +1008,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const size_t*   m_cpszLocalWorkSize;
         
         std::list<OCLObject<_cl_mem_int>*>  m_NonMemOclObjects;
+		std::vector<IOCLDevMemoryObject*>   m_nonArgSvmBuffersVec;		
         #if defined (USE_ITT)
         void GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* keyStrHandle) const;
         #endif

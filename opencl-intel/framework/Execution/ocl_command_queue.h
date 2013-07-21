@@ -87,6 +87,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_device_id    GetQueueDeviceHandle() const            { return m_clDefaultDeviceHandle;   }
 		SharedPtr<FissionableDevice>	GetDefaultDevice() const			{ return m_pDefaultDevice;		    }
 		EventsManager*  GetEventsManager() const				{ return m_pEventsManager; }
+		ConstSharedPtr<Context> GetContext() const { return m_pContext; } 
+		SharedPtr<Context> GetContext() { return m_pContext; } 
 
         // Create a custom tracker in GAP that correspond to the OCL queue
         cl_err_code GPA_InitializeQueue();

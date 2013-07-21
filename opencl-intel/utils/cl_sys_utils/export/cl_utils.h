@@ -37,12 +37,25 @@
 #include <sstream>
 #include <limits>
 #include <math.h>
+#include <cassert>
 
 #if defined(_WIN32) && defined (_MSC_VER)
     #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
 #else
     #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
 #endif
+
+// assert macroes:
+
+#define ASSERT_RET(exp, msg) \
+	assert((exp) && msg); \
+	if (!(exp)) \
+		return;
+
+#define ASSERT_RET_VAL(exp, msg, retVal) \
+	assert((exp) && msg); \
+	if (!(exp)) \
+		return retVal;
 
 #ifdef WIN32
 typedef int threadid_t;
@@ -342,3 +355,6 @@ float half2float( cl_ushort us );
 // If x is 0, the result is undefined.
 // 
 int __builtin_clz(unsigned int pattern);
+
+// Returns whether ulNum is a power of 2
+bool IsPowerOf2(unsigned int uiNum);

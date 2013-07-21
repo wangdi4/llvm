@@ -498,6 +498,8 @@ struct  cl_dev_cmd_param_kernel
                                                     //!< An order of the values must be the same as the order of parameters in the kernel prototype.
                                                     //!< If an argument is a memory object, a relevant value contains its handle (dev_mem_obj).
     size_t              arg_size;                   //!< Size in bytes of the arg_values array.
+	IOCLDevMemoryObject** ppNonArgSvmBuffers;		//!< an array of pointers to IOCLDevMemoryObjects representing SVM buffers that are used by Kernel, but not passed as arguments to it (or NULL if they are not needed)
+	size_t				szNonArgSvmBuffersSize;		//!< sizeo of ppNonArgSvmBuffers
 } ;
 
 

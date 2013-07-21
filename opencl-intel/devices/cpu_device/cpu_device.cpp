@@ -34,6 +34,7 @@
 
 #include <buildversion.h>
 #include <CL/cl_ext.h>
+#include "CL/cl_2_0.h"
 #include <clang_device_info.h>
 #include <cl_sys_info.h>
 #include <cpu_dev_limits.h>
@@ -1349,6 +1350,17 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 }                
             }
             return CL_DEV_SUCCESS;
+		case CL_DEVICE_SVM_CAPABILITIES:
+			*pinternalRetunedValueSize = sizeof(cl_device_svm_capabilities);
+			if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+			{
+				return CL_DEV_INVALID_VALUE;
+			}
+			if (NULL != paramVal)
+			{
+				*(cl_device_svm_capabilities*)paramVal = CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_ATOMICS;	// currently we support on fine grain buffer
+			}
+			return CL_DEV_SUCCESS;
         default:
             return CL_DEV_INVALID_VALUE;
     };

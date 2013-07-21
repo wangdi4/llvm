@@ -2184,3 +2184,168 @@ clSetUserEventStatus(
         execution_status);
 }
 
+CL_API_ENTRY void* CL_API_CALL
+clSVMAlloc(
+	cl_context context,
+	cl_svm_mem_flags flags,
+	size_t size,
+	unsigned int alignment) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(context, NULL);
+	return context->dispatch->clSVMAlloc(
+		context,
+		flags,
+		size,
+		alignment);
+}
+
+CL_API_ENTRY void CL_API_CALL
+clSVMFree(
+	cl_context context,
+	void* svm_pointer) CL_API_SUFFIX__VERSION_2_0
+{
+	context->dispatch->clSVMFree(
+		context,
+		svm_pointer);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueSVMFree(
+	cl_command_queue command_queue,
+	cl_uint num_svm_pointers,
+	void* svm_pointers[],
+	void (CL_CALLBACK* pfn_free_func)(
+		cl_command_queue queue,
+		cl_uint num_svm_pointers,
+		void* svm_pointers[],
+		void* user_data),
+	void* user_data,
+	cl_uint num_events_in_wait_list,
+	const cl_event* event_wait_list,
+	cl_event* event) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+	return command_queue->dispatch->clEnqueueSVMFree(
+		command_queue,
+		num_svm_pointers,
+		svm_pointers,
+		pfn_free_func,
+		user_data,
+		num_events_in_wait_list,
+		event_wait_list,
+		event);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueSVMMemcpy(
+	cl_command_queue command_queue,
+	cl_bool blocking_copy,
+	void *dst_ptr,
+	const void *src_ptr,
+	size_t size,
+	cl_uint num_events_in_wait_list,
+	const cl_event *event_wait_list,
+	cl_event *event) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+	return command_queue->dispatch->clEnqueueSVMMemcpy(
+		command_queue,
+		blocking_copy,
+		dst_ptr,
+		src_ptr,
+		size,
+		num_events_in_wait_list,
+		event_wait_list,
+		event);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueSVMMemFill(
+	cl_command_queue command_queue,
+	void* svm_ptr,
+	const void* pattern,
+	size_t pattern_size,
+	size_t size,
+	cl_uint num_events_in_wait_list,
+	const cl_event* event_wait_list,
+	cl_event* event) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+	return command_queue->dispatch->clEnqueueSVMMemFill(
+		command_queue,
+		svm_ptr,
+		pattern,
+		pattern_size,
+		size,
+		num_events_in_wait_list,
+		event_wait_list,
+		event);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueSVMMap(
+	cl_command_queue command_queue,
+	cl_bool blocking_map,
+	cl_map_flags map_flags,
+	void* svm_ptr,
+	size_t size,
+	cl_uint num_events_in_wait_list,
+	const cl_event* event_wait_list,
+	cl_event* event) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+	return command_queue->dispatch->clEnqueueSVMMap(
+		command_queue,
+		blocking_map,
+		map_flags,
+		svm_ptr,
+		size,
+		num_events_in_wait_list,
+		event_wait_list,
+		event);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueSVMUnmap(
+	cl_command_queue command_queue,
+	void* svm_ptr,
+	cl_uint num_events_in_wait_list,
+	const cl_event* event_wait_list,
+	cl_event* event) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+	return command_queue->dispatch->clEnqueueSVMUnmap(
+		command_queue,
+		svm_ptr,
+		num_events_in_wait_list,
+		event_wait_list,
+		event);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clSetKernelArgSVMPointer(
+	cl_kernel kernel,
+	cl_uint arg_index,
+	const void* arg_value) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(kernel, CL_INVALID_KERNEL);
+	return kernel->dispatch->clSetKernelArgSVMPointer(
+		kernel,
+		arg_index,
+		arg_value);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clSetKernelExecInfo(
+	cl_kernel kernel,
+	cl_kernel_exec_info param_name,
+	size_t param_value_size,
+	const void* param_value) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(kernel, CL_INVALID_KERNEL);
+	return kernel->dispatch->clSetKernelExecInfo(
+		kernel,
+		param_name,
+		param_value_size,
+		param_value);
+}

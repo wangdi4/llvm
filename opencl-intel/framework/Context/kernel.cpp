@@ -36,6 +36,9 @@
 #include <cl_utils.h>
 #include "sampler.h"
 #include "cl_shared_ptr.hpp"
+#include "svm_buffer.h"
+#include "Context.h"
+#include "context_module.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -255,6 +258,14 @@ m_uiIndex(uiIndex), m_szSize(szSize), m_pValue(pValue), m_clKernelArgType(clKern
 			*((void**)m_pValue) = (void*)m_szSize;
 			m_szSize = sizeof(void*);
 		}
+	}	
+	if ((CL_KRNL_ARG_PTR_GLOBAL == m_clKernelArgType.type || CL_KRNL_ARG_PTR_CONST == m_clKernelArgType.type) && NULL != m_pValue)
+	{
+		SVMPointerArg* pSvmPtrArg = dynamic_cast<SVMPointerArg*>((MemoryObject*)m_pValue);
+		if (NULL != pSvmPtrArg)
+		{
+			m_pSvmPtrArg = pSvmPtrArg;	// KernelArg is the owner of SVMPointerArg objects
+		}
 	}
 }
 KernelArg::~KernelArg()
@@ -309,7 +320,7 @@ bool KernelArg::IsLocalPtr() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Kernel::Kernel(SharedPtr<Program> pProgram, const char * psKernelName, size_t szNumDevices) :
 OCLObject<_cl_kernel_int>(pProgram->GetParentHandle(), "Kernel"),
-m_pProgram(pProgram), m_szAssociatedDevices(szNumDevices), m_ppArgs(NULL), m_numValidArgs(0)
+	m_pProgram(pProgram), m_szAssociatedDevices(szNumDevices), m_ppArgs(NULL), m_numValidArgs(0), m_bSvmFineGrainSystem(false)
 {
 	size_t szNameLength = strlen(psKernelName) + 1;
 	m_sKernelPrototype.m_psKernelName = new char[szNameLength];
@@ -608,7 +619,7 @@ cl_err_code Kernel::SetKernelPrototype(SKernelPrototype sKernelPrototype)
 	//cl_return CL_SUCCESS;
 	return CL_SUCCESS;
 }
-cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue)
+cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue, bool bIsSvmPtr)
 {
 	//cl_start;
 
@@ -719,22 +730,31 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		// TODO: Why we need this check
 		if (NULL != pValue)
 		{
-			// value is not NULL - get memory object from context
-			cl_mem clMemId = *((cl_mem*)(pValue));
-            if (NULL == clMemId)
-            {
-                pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), NULL, clArg);
-            }
-            else
-            {
-                SharedPtr<MemoryObject> pMemObj = pContext->GetMemObject(clMemId);
-                if (NULL == pMemObj)
-                {
-                    return CL_INVALID_MEM_OBJECT;
-                }
-                // TODO: check Memory properties
-                pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), pMemObj.GetPtr(), clArg);
-            }
+			if (bIsSvmPtr)
+			{
+				SharedPtr<SVMBuffer> pSvmBuf = GetContext()->GetSVMBufferContainingAddr(const_cast<void*>(pValue));
+				SharedPtr<SVMPointerArg> pSvmPtrArg = SVMPointerArg::Allocate(pSvmBuf, pValue);
+				pKernelArg = new KernelArg(uiIndex, sizeof(SVMPointerArg*), pSvmPtrArg.GetPtr(), clArg);
+			}
+			else
+			{
+				// value is not NULL - get memory object from context
+				cl_mem clMemId = *((cl_mem*)(pValue));
+				if (NULL == clMemId)
+				{
+					pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), NULL, clArg);
+				}
+				else
+				{
+					SharedPtr<MemoryObject> pMemObj = pContext->GetMemObject(clMemId);
+					if (NULL == pMemObj)
+					{
+						return CL_INVALID_MEM_OBJECT;
+					}
+					// TODO: check Memory properties
+					pKernelArg = new KernelArg(uiIndex, sizeof(MemoryObject*), pMemObj.GetPtr(), clArg);
+				}
+			}			
 		}
 		else
 		{
@@ -803,6 +823,12 @@ ConstSharedPtr<Context> Kernel::GetContext() const
 {
 	return m_pProgram->GetContext(); 
 }
+
+SharedPtr<Context> Kernel::GetContext()
+{
+	return m_pProgram->GetContext();
+}
+
 size_t Kernel::GetKernelArgsCount() const
 {
 	return m_sKernelPrototype.m_uiArgsCount;
@@ -950,4 +976,18 @@ cl_err_code Kernel::GetKernelArgInfo (	cl_uint argIndx,
 	}
 
 	return CL_SUCCESS;
+}
+
+void Kernel::SetNonArgSvmBuffers(const std::vector<SharedPtr<SVMBuffer> >& svmBufs)
+{
+	OclAutoWriter mutex(&m_rwlock);
+	m_nonArgSvmBufs.resize(svmBufs.size());
+	std::copy(svmBufs.begin(), svmBufs.end(), m_nonArgSvmBufs.begin());
+}
+
+void Kernel::GetNonArgSvmBuffers(std::vector<SharedPtr<SVMBuffer> >& svmBufs) const
+{	
+	OclAutoReader mutex(&m_rwlock);
+	svmBufs.resize(m_nonArgSvmBufs.size());
+	std::copy(m_nonArgSvmBufs.begin(), m_nonArgSvmBufs.end(), svmBufs.begin());
 }
