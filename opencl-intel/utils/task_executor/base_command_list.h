@@ -51,6 +51,7 @@ public:
     static Intel::OpenCL::Utils::SharedPtr<SyncTask> Allocate() { return Intel::OpenCL::Utils::SharedPtr<SyncTask>(new SyncTask()); }
 
 	void	Reset() { m_bFired = false;}
+    void    Cancel() { Execute(); }
 
 	// ITask interface
 	bool	        SetAsSyncPoint() {return false;}
@@ -192,6 +193,9 @@ public:
     
     virtual tbb::affinity_partitioner& GetAffinityPartitioner() { return m_part; }
     virtual tbb::task_group_context&   GetTBBContext() { return m_taskGroup.GetContext(); }
+
+    virtual void Cancel() { m_bCanceled = true; }
+    bool         Is_canceled() const { return m_bCanceled; }
    
     /**
      * Enqueue a functor to be run on the device's arena
@@ -242,6 +246,8 @@ protected:
 	tbb::affinity_partitioner	m_part;
 
 	TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
+
+    volatile bool           m_bCanceled;
 
 private:
 	//Disallow copy constructor

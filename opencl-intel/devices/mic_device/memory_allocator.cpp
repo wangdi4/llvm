@@ -34,6 +34,7 @@
 #include "device_service_communication.h"
 #include "mic_common_macros.h"
 #include "mic_sys_info.h"
+#include "command_list.h"
 
 #include <source/COIBuffer_source.h>
 #include <source/COIProcess_source.h>
@@ -661,10 +662,12 @@ bool MICDevMemoryObject::MapBuffersMemoryPool::getBuffer(void* ptr, size_t size,
 {
 	map<void*, mem_obj_directive>::iterator iter;
 	OclAutoReader mutex(&m_multiReadSingleWriteMutex);
-	if (0 == m_addressToMemObj.size())
+
+    if (0 == m_addressToMemObj.size())
 	{
 		return false;
 	}
+
 	iter = m_addressToMemObj.lower_bound(ptr);
 	if (((m_addressToMemObj.end() == iter) && (m_addressToMemObj.size() > 0)) || (((size_t)(iter->first) > (size_t)ptr) && (m_addressToMemObj.begin() != iter)))
 	{
@@ -710,12 +713,18 @@ void MICDevMemoryObject::MapBuffersMemoryPool::removeBufferFromPool(MICDevMemory
 	pMicMemObj->decRefCounter();
 }
 
-void MICDevMemoryObject::MapBuffersMemoryPool::setBufferReady(MICDevMemoryObject* pMicMemObj)
+void MICDevMemoryObject::MapBuffersMemoryPool::setBufferReady(MICDevMemoryObject* pMicMemObj, CommandList* cur_queue)
 {
 	OclAutoWriter mutex(&m_multiReadSingleWriteMutex);
-	assert(m_addressToMemObj.end() != m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData));
 	map<void*, mem_obj_directive>::iterator iter = m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData);
-	iter->second.isReady = true;
+    if (iter != m_addressToMemObj.end())
+    {
+	    iter->second.isReady = true;
+    }
+    else
+    {        
+        assert( cur_queue->isCanceled() );
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -90,6 +90,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code     Execute() = 0;
         
         //
+        // The function that is called when the command is popped out from the queue and ready for the device
+        // INSTEAD of Execute. Default implementation does the generic part - if more is required override it and add more.
+        //
+        virtual cl_err_code     Cancel();
+
+        //
         // Returns the command type for GetInfo requests and execution needs
         //
         virtual cl_command_type GetCommandType() const = 0;
@@ -1233,6 +1239,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool	IsCompleted() const {return m_bIsCompleted;}
 		bool	CompleteAndCheckSyncPoint();
 		bool	Execute();
+		void	Cancel();
 		long	Release(); 
 
         Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const 
@@ -1260,6 +1267,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// called possibly from another thread
 		void					DoAction();
+        void                    CancelAction();
 
 		// called by "related" command if enqueue was unsuccessful 
 		void					ErrorDone();

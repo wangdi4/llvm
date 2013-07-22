@@ -43,7 +43,7 @@ void WgContextPool::Init(unsigned int maxNumThreads, unsigned int maxNumMasters)
     assert (NULL != m_wgContextPool && "Memory allocation failed");
     assert (NULL != m_wgContextWrapperPool && "Memory allocation failed");
 
-    for (long i = maxNumMasters; i < m_maxNumThreads; ++i)
+    for (unsigned int i = maxNumMasters; i < m_maxNumThreads; ++i)
     {
         m_wgContextWrapperPool[i].pContext = m_wgContextPool + i;
     }
@@ -58,7 +58,7 @@ void WgContextPool::Clear()
 {
     if (NULL != m_wgContextWrapperPool)
     {
-        for (long i = 0; i < m_maxNumThreads; ++i)
+        for (unsigned int i = 0; i < m_maxNumThreads; ++i)
         {
             m_wgContextWrapperPool[i].pContext = NULL;
         }

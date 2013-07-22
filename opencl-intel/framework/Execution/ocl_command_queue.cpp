@@ -30,6 +30,7 @@
 
 #include "ocl_command_queue.h"
 #include "Context.h"
+#include "context_module.h"
 #include "events_manager.h"
 #include "enqueue_commands.h"
 #include "ocl_event.h"
@@ -195,9 +196,9 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
 		 return CL_OUT_OF_RESOURCES;
 	 }
 
+     BecomeVisible();
 	 return CL_SUCCESS;
  }
-
 
  cl_int OclCommandQueue::GetContextId() const
  { 

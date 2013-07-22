@@ -30,8 +30,6 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-extern bool gSafeReleaseOfCoiObjects;
-
 extern char clMICDEVICE_CFG_PATH[];
 
 #define MICDEVICE_CFG_PATH_ENV_NAME "MIC_DEVICE_CFG_FILE"
@@ -56,12 +54,6 @@ void dll_init(void)
         safeStrCat(clMICDEVICE_CFG_PATH, MAX_PATH-1, "/cl.cfg");
     }
     
-	atexit(MICDevice::unloadRelease);
-}
-
-void dll_fini(void)
-{
-	gSafeReleaseOfCoiObjects = false;
 }
 
 

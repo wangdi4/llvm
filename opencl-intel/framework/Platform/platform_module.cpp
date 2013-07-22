@@ -879,6 +879,25 @@ cl_err_code PlatformModule::clReleaseDevice(cl_device_id device)
     }
     return m_mapDevices.ReleaseObject((_cl_device_id_int *)device);
 }
+
+void PlatformModule::RemoveAllDevices(bool preserve_user_handles)
+{
+    m_mapDevices.DisableAdding();
+    if (preserve_user_handles)
+    {
+        m_mapDevices.SetPreserveUserHandles();
+    }
+    m_mapDevices.ReleaseAllObjects(false);
+  	m_pDefaultDevice = NULL;
+
+	if (NULL != m_ppRootDevices)
+	{
+		delete[] m_ppRootDevices;
+		m_ppRootDevices      = NULL;
+        m_uiRootDevicesCount = 0;
+	}
+}
+
 cl_err_code PlatformModule::clRetainDevice(cl_device_id device)
 {
     SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();

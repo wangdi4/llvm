@@ -19,17 +19,15 @@
 // problem reports or change requests be submitted to it directly
 
 #include <cl_dev_backend_api.h>
+#include "mic_device.h"
 #include "execution_commands.h"
 #include "command_list.h"
 #include "memory_allocator.h"
-#include "mic_device.h"
 
 #include <source/COIBuffer_source.h>
 
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::DeviceBackend;
-
-extern bool gSafeReleaseOfCoiObjects;
 
 //
 //  ExecutionCommand Object
@@ -283,7 +281,7 @@ m_printfBuffer(NULL), m_kernel_locked(false)
 
 NDRange::~NDRange()
 {
-	releaseResources(gSafeReleaseOfCoiObjects);
+	releaseResources(!MICDevice::isDeviceLibraryUnloaded());
 }
 
 cl_dev_err_code NDRange::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand)

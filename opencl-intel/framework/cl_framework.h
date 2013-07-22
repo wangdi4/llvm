@@ -36,6 +36,7 @@
 #define PLATFORM_MODULE		FrameworkProxy::Instance()->GetPlatformModule()
 #define CONTEXT_MODULE		FrameworkProxy::Instance()->GetContextModule()
 #define EXECUTION_MODULE	FrameworkProxy::Instance()->GetExecutionModule()
+#define API_IS_DISABLED	    FrameworkProxy::Instance()->API_Disabled()
 
 extern "C" int IsCPUSupported(void);
 

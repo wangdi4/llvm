@@ -80,6 +80,11 @@ cl_err_code EventsManager::ReleaseEvent(cl_event clEvent)
 	return m_mapEvents.ReleaseObject((_cl_event_int*)clEvent);
 }
 
+void EventsManager::ReleaseAllEvents( bool bTerminate )
+{
+	return m_mapEvents.ReleaseAllObjects( bTerminate );
+}
+
 /******************************************************************
  *
  ******************************************************************/              

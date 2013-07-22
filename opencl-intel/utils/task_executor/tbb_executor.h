@@ -46,8 +46,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
     /**
      * a global flag indicating whether the program has called function exit
      */
-    extern volatile bool gIsExiting;
-
 	class TBBTaskExecutor : public ITaskExecutor
 	{
 	public:

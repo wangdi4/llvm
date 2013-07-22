@@ -78,8 +78,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code NotifyStateChange(const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor);
 		virtual cl_err_code SendCommandsToDevice();
 
-
-
 	protected:
 
         ImmediateCommandQueue(

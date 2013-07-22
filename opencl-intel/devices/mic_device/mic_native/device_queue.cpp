@@ -46,27 +46,29 @@ TaskHandler::CommandAllocateFunc TaskHandler::m_native_command_allocators[ LAST_
 
 // Initialize current pipeline command queue. Call it after Pipeline creation of Command list.
 COINATIVELIBEXPORT
-void init_commands_queue(
-                 uint32_t         in_BufferCount,
-		         void**           in_ppBufferPointers,
-		         uint64_t*        in_pBufferLengths,
-		         void*            in_pMiscData,
-		         uint16_t         in_MiscDataLength,
-		         void*            in_pReturnValue,
-		         uint16_t         in_ReturnValueLength)
+void init_commands_queue(uint32_t         in_BufferCount,
+                         void**           in_ppBufferPointers,
+                         uint64_t*        in_pBufferLengths,
+                         void*            in_pMiscData,
+                         uint16_t         in_MiscDataLength,
+                         void*            in_pReturnValue,
+                         uint16_t         in_ReturnValueLength)
 {
     assert( sizeof(INIT_QUEUE_ON_DEVICE_STRUCT) == in_MiscDataLength );
     assert( NULL != in_pMiscData );
+    assert( sizeof(INIT_QUEUE_ON_DEVICE_OUTPUT_STRUCT) == in_ReturnValueLength );
+    assert( NULL != in_pReturnValue );
 
-    INIT_QUEUE_ON_DEVICE_STRUCT* data = (INIT_QUEUE_ON_DEVICE_STRUCT*)in_pMiscData;
+    INIT_QUEUE_ON_DEVICE_STRUCT*        data     = (INIT_QUEUE_ON_DEVICE_STRUCT*)in_pMiscData;
+    INIT_QUEUE_ON_DEVICE_OUTPUT_STRUCT* data_out = (INIT_QUEUE_ON_DEVICE_OUTPUT_STRUCT*)in_pReturnValue;
 
     TlsAccessor tlsAccessor;
 
     assert( NULL == QueueOnDevice::getCurrentQueue(&tlsAccessor) && "Queue is already set");
     if ( NULL != QueueOnDevice::getCurrentQueue(&tlsAccessor) )
     {
-    	*((cl_dev_err_code*)in_pReturnValue) = CL_DEV_INVALID_OPERATION;
-    	return;
+        data_out->ret_code = CL_DEV_INVALID_OPERATION;
+        return;
     }
 
     QueueOnDevice* pQueue = NULL;
@@ -75,8 +77,8 @@ void init_commands_queue(
     assert( (NULL != thread_pool) && "Thread pool not exists" );
     if ( NULL == thread_pool )
     {
-    	*((cl_dev_err_code*)in_pReturnValue) = CL_DEV_INVALID_OPERATION;
-    	return;
+        data_out->ret_code = CL_DEV_INVALID_OPERATION;
+        return;
     }
 
     if (data->is_in_order_queue)
@@ -90,15 +92,15 @@ void init_commands_queue(
     
     if ( NULL == pQueue )
     {
-    	*((cl_dev_err_code*)in_pReturnValue) = CL_DEV_OUT_OF_MEMORY;
-    	return;
+        data_out->ret_code = CL_DEV_OUT_OF_MEMORY;
+        return;
     }
 
     if (!pQueue->Init())
     {
-    	*((cl_dev_err_code*)in_pReturnValue) = CL_DEV_OUT_OF_MEMORY;
+        data_out->ret_code = CL_DEV_OUT_OF_MEMORY;
         delete pQueue;
-    	return;        
+        return;        
     }
 
 #if defined(USE_ITT)
@@ -109,18 +111,19 @@ void init_commands_queue(
 #endif
 
     QueueOnDevice::setCurrentQueue( &tlsAccessor, pQueue );
-    *((cl_dev_err_code*)in_pReturnValue) = CL_DEV_SUCCESS;
+    data_out->device_queue_address = (uint64_t)(size_t)pQueue;
+    data_out->ret_code             = CL_DEV_SUCCESS;
 }
 
 // release current pipeline command queue. Call it before Pipeline destruction of Command list.
 COINATIVELIBEXPORT
 void release_commands_queue(uint32_t         in_BufferCount,
-					        void**           in_ppBufferPointers,
-					        uint64_t*        in_pBufferLengths,
-					        void*            in_pMiscData,
-					        uint16_t         in_MiscDataLength,
-					        void*            in_pReturnValue,
-					        uint16_t         in_ReturnValueLength)
+                            void**           in_ppBufferPointers,
+                            uint64_t*        in_pBufferLengths,
+                            void*            in_pMiscData,
+                            uint16_t         in_MiscDataLength,
+                            void*            in_pReturnValue,
+                            uint16_t         in_ReturnValueLength)
 {
     TlsAccessor tlsAccessor;
 
@@ -129,7 +132,7 @@ void release_commands_queue(uint32_t         in_BufferCount,
     assert(NULL != pQueue && "pQueue must be valid");
     if ( NULL != pQueue )
     {
-    	delete pQueue;
+        delete pQueue;
     }
 }
 
@@ -144,7 +147,7 @@ SharedPtr<TaskHandler> TaskHandler::TaskFactory(TASK_TYPES taskType, QueueOnDevi
     assert( taskType < LAST_TASK_TYPE && "Unknown native command taskType in Factory");
     if (taskType >= LAST_TASK_TYPE)
     {
-		miscData->errCode = CL_DEV_OUT_OF_MEMORY;
+        miscData->errCode = CL_DEV_OUT_OF_MEMORY;
         queue.NotifyTaskAllocationFailed( dispatcherData, miscData );
         return NULL;
     }
@@ -152,20 +155,20 @@ SharedPtr<TaskHandler> TaskHandler::TaskFactory(TASK_TYPES taskType, QueueOnDevi
     CommandAllocateFunc allocator = m_native_command_allocators[taskType];
     task = allocator( queue );
     
-	// if task creation failed.
-	if (NULL == task)
-	{
-		miscData->errCode = CL_DEV_OUT_OF_MEMORY;
+    // if task creation failed.
+    if (NULL == task)
+    {
+        miscData->errCode = CL_DEV_OUT_OF_MEMORY;
         queue.NotifyTaskAllocationFailed( dispatcherData, miscData );
-		return NULL;
-	}
+        return NULL;
+    }
     
-	// Set arrival time to device for the tracer
-	task->commandTracer().set_current_time_cmd_run_in_device_time_start();
-	// Set command ID for the tracer
-	task->commandTracer().set_command_id((size_t)(dispatcherData->commandIdentifier));
+    // Set arrival time to device for the tracer
+    task->commandTracer().set_current_time_cmd_run_in_device_time_start();
+    // Set command ID for the tracer
+    task->commandTracer().set_command_id((size_t)(dispatcherData->commandIdentifier));
 
-	return task;
+    return task;
 }
 
 TaskHandler::TaskHandler( const QueueOnDevice& queue ) : 
@@ -178,8 +181,8 @@ TaskHandler::TaskHandler( const QueueOnDevice& queue ) :
 
 TaskHandler::~TaskHandler()
 {
-	// Set leaving time to device for the tracer
-	m_commandTracer.set_current_time_cmd_run_in_device_time_end();
+    // Set leaving time to device for the tracer
+    m_commandTracer.set_current_time_cmd_run_in_device_time_end();
 }
 
 void TaskHandler::setTaskError(cl_dev_err_code errorCode)
@@ -189,11 +192,11 @@ void TaskHandler::setTaskError(cl_dev_err_code errorCode)
     {
       m_errorCode = errorCode;
         
-    	// If m_miscData defined set it
-    	if (m_miscData)
-    	{
-    		m_miscData->errCode = errorCode;
-    	}
+        // If m_miscData defined set it
+        if (m_miscData)
+        {
+            m_miscData->errCode = errorCode;
+        }
     }
 }
 
@@ -201,14 +204,14 @@ void TaskHandler::setTaskError(cl_dev_err_code errorCode)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void QueueOnDevice::execute_command(
-           uint32_t         in_BufferCount,
-					 void**						in_ppBufferPointers,
-					 uint64_t*				in_pBufferLengths,
-					 void*						in_pMiscData,
-					 uint16_t					in_MiscDataLength,
-					 void*						in_pReturnValue,
-					 uint16_t					in_ReturnValueLength,
-					 TASK_TYPES	      taskType)
+            uint32_t         in_BufferCount,
+            void**           in_ppBufferPointers,
+            uint64_t*        in_pBufferLengths,
+            void*            in_pMiscData,
+            uint16_t         in_MiscDataLength,
+            void*            in_pReturnValue,
+            uint16_t         in_ReturnValueLength,
+            TASK_TYPES       taskType)
 {
   TlsAccessor tls;
   QueueOnDevice* queue = QueueOnDevice::getCurrentQueue(&tls);
@@ -290,13 +293,15 @@ void QueueOnDevice::execute_command(
       __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
     }
 #endif
-	// DO NOT delete this object, It will delete itself after kernel execution
+
+    // DO NOT delete this object, It will delete itself after kernel execution
 	SharedPtr<TaskHandler> taskHandler = TaskHandler::TaskFactory(taskType, *queue, tDispatcherData, tMiscData);
 	if (NULL == taskHandler)
 	{
 		NATIVE_PRINTF("TaskHandler::TaskFactory() Failed\n");
 		return;
 	}
+
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     // Monitor only IN-ORDER queue
     if ( gMicGPAData.bUseGPA && queue->isInOrder())
@@ -348,8 +353,8 @@ void QueueOnDevice::execute_command(
     }
 #endif
 
-	// Send the task for execution.
-	queue->RunTask(taskHandler);
+    // Send the task for execution.
+    queue->RunTask(taskHandler);
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     // Monitor only IN-ORDER queue
@@ -372,16 +377,22 @@ void QueueOnDevice::execute_command(
 void QueueOnDevice::RunTask( const SharedPtr<TaskHandler>& task_handler ) const
 {
   const SharedPtr<ITaskBase>& pTask = task_handler.DynamicCast<ITaskBase>();
-	assert(NULL != pTask && "Internal task not supposed to be NULL");
-	if ((NULL == pTask) || (NULL == m_task_list))
-	{
-		task_handler->setTaskError( CL_DEV_ERROR_FAIL );
-		task_handler->FinishTask();
+    assert(NULL != pTask && "Internal task not supposed to be NULL");
+    if ((NULL == pTask) || (NULL == m_task_list))
+    {
+        task_handler->setTaskError( CL_DEV_ERROR_FAIL );
+        task_handler->FinishTask();
     return;
-	}
+    }
 
   m_task_list->Enqueue( pTask );
   m_task_list->Flush();
+}
+
+void QueueOnDevice::Cancel() const
+{
+    m_task_list->Cancel();
+    m_task_list->Flush();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -389,7 +400,7 @@ void QueueOnDevice::RunTask( const SharedPtr<TaskHandler>& task_handler ) const
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 InOrderQueueOnDevice::~InOrderQueueOnDevice()
 {
-  m_thread_pool.DeactivateCurrentMasterThread();
+    m_thread_pool.DeactivateCurrentMasterThread();
 }
 
 // return false on error
@@ -415,19 +426,19 @@ bool InOrderQueueOnDevice::InitTask(const SharedPtr<TaskHandler>& task_handler,
                                     uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, 
                                     void* in_pMiscData, uint16_t in_MiscDataLength) const
 {
-	task_handler->m_dispatcherData = dispatcherData;
-	task_handler->m_miscData = miscData;
-	// Locking of input buffers is not needed in case of blocking task (Only save the pointer in order to use it later).
-	task_handler->m_lockBufferCount = in_BufferCount;
-	task_handler->m_lockBufferPointers = in_ppBufferPointers;
-	task_handler->m_lockBufferLengths = in_pBufferLengths;
+    task_handler->m_dispatcherData = dispatcherData;
+    task_handler->m_miscData = miscData;
+    // Locking of input buffers is not needed in case of blocking task (Only save the pointer in order to use it later).
+    task_handler->m_lockBufferCount = in_BufferCount;
+    task_handler->m_lockBufferPointers = in_ppBufferPointers;
+    task_handler->m_lockBufferLengths = in_pBufferLengths;
 
   return task_handler->InitTask();
 }
 
 void InOrderQueueOnDevice::FinishTask(const SharedPtr<TaskHandler>& task_handler, COIEVENT& completionBarrier, bool isLegalBarrier) const
 {
-	assert(false == isLegalBarrier);
+    assert(false == isLegalBarrier);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -490,55 +501,55 @@ bool OutOfOrderQueueOnDevice::InitTask( const SharedPtr<TaskHandler>& task_handl
 		}
 	}
 
-	// In case of Non blocking task when the dispatcher data was sent by "in_pMiscData" - We have to allocate memory for it and copy its content.
-	// (misc_data will always transfer as COIBuffer in case of NonBlocking command)
-	if (task_handler->m_dispatcherData == in_pMiscData)
-	{
-		task_handler->m_dispatcherData = NULL;
-		task_handler->m_dispatcherData = (dispatcher_data*)(new char[in_MiscDataLength]);
-		if (NULL == task_handler->m_dispatcherData)
-		{
-			task_handler->setTaskError( CL_DEV_OUT_OF_MEMORY );
-			task_handler->FinishTask();
-			return false;
-		}
-		memcpy(task_handler->m_dispatcherData, in_pMiscData, in_MiscDataLength);
-	}
+    // In case of Non blocking task when the dispatcher data was sent by "in_pMiscData" - We have to allocate memory for it and copy its content.
+    // (misc_data will always transfer as COIBuffer in case of NonBlocking command)
+    if (task_handler->m_dispatcherData == in_pMiscData)
+    {
+        task_handler->m_dispatcherData = NULL;
+        task_handler->m_dispatcherData = (dispatcher_data*)(new char[in_MiscDataLength]);
+        if (NULL == task_handler->m_dispatcherData)
+        {
+            task_handler->setTaskError( CL_DEV_OUT_OF_MEMORY );
+            task_handler->FinishTask();
+            return false;
+        }
+        memcpy(task_handler->m_dispatcherData, in_pMiscData, in_MiscDataLength);
+    }
 
-	return task_handler->InitTask();
+    return task_handler->InitTask();
 }
 
 
 void OutOfOrderQueueOnDevice::FinishTask(const SharedPtr<TaskHandler>& task_handler, COIEVENT& completionBarrier, bool isLegalBarrier) const
 {
-	// For asynch task We must have legal COIEVENT to signal.
-	assert(isLegalBarrier);
-	COIRESULT coiErr = COI_SUCCESS;
-	// Release resources.
-	if (task_handler->m_lockBufferPointers)
-	{
-		// If Non blocking task and the dispatcher_data was delivered by in_pMiscData shall delete the allocation in "lockInputBuffers()"
-		if ((task_handler->m_dispatcherData) && (task_handler->m_lockBufferCount > 0) && 
+    // For asynch task We must have legal COIEVENT to signal.
+    assert(isLegalBarrier);
+    COIRESULT coiErr = COI_SUCCESS;
+    // Release resources.
+    if (task_handler->m_lockBufferPointers)
+    {
+        // If Non blocking task and the dispatcher_data was delivered by in_pMiscData shall delete the allocation in "lockInputBuffers()"
+        if ((task_handler->m_dispatcherData) && (task_handler->m_lockBufferCount > 0) && 
             (task_handler->m_dispatcherData != task_handler->m_lockBufferPointers[task_handler->m_lockBufferCount - DISPATCHER_DATA - 1]))
-		{
-			delete [] ((char*)(task_handler->m_dispatcherData));
-		}
-		for (unsigned int i = 0; i < task_handler->m_lockBufferCount; i++)
-		{
-			// decrement ref in order to release the buffer
-			coiErr = COIBufferReleaseRef(task_handler->m_lockBufferPointers[i]);
-			assert(COI_SUCCESS == coiErr);
-		}
-		delete [] task_handler->m_lockBufferPointers;
-	}
-	if (task_handler->m_lockBufferLengths)
-	{
-		delete [] task_handler->m_lockBufferLengths;
-	}
+        {
+            delete [] ((char*)(task_handler->m_dispatcherData));
+        }
+        for (unsigned int i = 0; i < task_handler->m_lockBufferCount; i++)
+        {
+            // decrement ref in order to release the buffer
+            coiErr = COIBufferReleaseRef(task_handler->m_lockBufferPointers[i]);
+            assert(COI_SUCCESS == coiErr);
+        }
+        delete [] task_handler->m_lockBufferPointers;
+    }
+    if (task_handler->m_lockBufferLengths)
+    {
+        delete [] task_handler->m_lockBufferLengths;
+    }
 
-	// Signal user completion barrier
-	coiErr = COIEventSignalUserEvent(completionBarrier);
-	assert(COI_SUCCESS == coiErr);
+    // Signal user completion barrier
+    coiErr = COIEventSignalUserEvent(completionBarrier);
+    assert(COI_SUCCESS == coiErr);
 }
 
 void OutOfOrderQueueOnDevice::SignalTaskStart( const SharedPtr<TaskHandler>& task_handler ) const

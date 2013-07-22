@@ -35,6 +35,7 @@
 
 #include "mic_config.h"
 #include "notification_port.h"
+#include "cl_shutdown.h"
 #include "mic_tracer.h"
 
 #include <set>
@@ -113,7 +114,7 @@ public:
     DeviceServiceCommunication&   GetDeviceService(void) const { return *m_pDeviceServiceComm; };
     NotificationPort&             GetDeviceNotificationPort(void) { return *m_pNotificationPort; };
 
-    static cl_dev_err_code   clDevGetDeviceInfo(unsigned int IN	dev_id, cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);
+    static cl_dev_err_code   clDevGetDeviceInfo(unsigned int IN    dev_id, cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);
 
     //Device Fission support
 
@@ -128,7 +129,8 @@ public:
     cl_dev_err_code clDevReleaseCommandList( cl_dev_cmd_list IN list );
     cl_dev_err_code clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
     cl_dev_err_code clDevCommandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* cmdDesc);
-    void clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease);
+    cl_dev_err_code clDevCommandListCancel( cl_dev_cmd_list IN list );
+	void clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease);
     cl_dev_err_code clDevGetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
                     cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet) const;
     cl_dev_err_code clDevGetMemoryAllocProperties( cl_mem_object_type IN memObjType,    cl_dev_alloc_prop* OUT pAllocProp );
@@ -168,13 +170,13 @@ public:
     //
     const char* clDevFEModuleName() const;
     const void* clDevFEDeviceInfo() const;
-    size_t		clDevFEDeviceInfoSize() const;
+    size_t      clDevFEDeviceInfoSize() const;
 
     // Add Tracer support
     static HostTracer* m_tracer;
 
     // return true if DLL was unloaded
-    static bool  isDeviceLibraryUnloaded() { return (NULL == m_mic_instancies_mutex); };
+    static bool  isDeviceLibraryUnloaded() { return Intel::OpenCL::Utils::IsShutdownMode(); };
 };
 
 }}}

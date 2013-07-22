@@ -30,6 +30,20 @@
 #include <string>
 #include "cl_synch_objects.h"
 
+#ifdef _WIN32
+    #include <windows.h>
+    #define STDCALL_ENTRY_POINT    __stdcall
+    #define RETURN_TYPE_ENTRY_POINT unsigned int
+    #define THREAD_LOCAL            __declspec(thread)
+    #define THREAD_HANDLE           HANDLE
+#else
+    #include <pthread.h>
+    #define STDCALL_ENTRY_POINT
+    #define RETURN_TYPE_ENTRY_POINT void *
+    #define THREAD_LOCAL            __thread
+    #define THREAD_HANDLE           pthread_t
+#endif
+
 namespace Intel { namespace OpenCL { namespace Utils {
 
     /************************************************************************
@@ -39,20 +53,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
      * This class provides basic thread managing methods such as: start, join, terminate
      * Set bAutoDelete to true only for dynamicaly created objects and expected to be terminated by themself
      ************************************************************************/
-
-#if defined (_WIN32)
-#define STDCALL_ENTRY_POINT _stdcall
-#define RETURN_TYPE_ENTRY_POINT unsigned int
-#else
-#define STDCALL_ENTRY_POINT
-#define RETURN_TYPE_ENTRY_POINT void *
-#endif
-
-#if defined(_WIN32)
-#define THREAD_LOCAL __declspec(thread)
-#else
-#define THREAD_LOCAL __thread
-#endif
 
     class OclThread
     {
@@ -67,6 +67,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	    int                 SetAffinity(unsigned char ucAffinity);
         bool                IsRunning() const               {return m_running;}
         unsigned int        GetThreadId() const             {return m_threadId;}
+        THREAD_HANDLE       GetThreadHandle() const;
         void                Clean();
 
 		enum eThreadResult
@@ -74,6 +75,9 @@ namespace Intel { namespace OpenCL { namespace Utils {
 			THREAD_RESULT_SUCCESS = 0,
 			THREAD_RESULT_FAIL = -1
 		};
+
+        static bool IsOsThreadRunning( THREAD_HANDLE handle );
+        static void WaitForOsThreadCompletion( THREAD_HANDLE handle );
 
     protected:
         virtual RETURN_TYPE_ENTRY_POINT    Run()=0;          // The actual thread running loop.

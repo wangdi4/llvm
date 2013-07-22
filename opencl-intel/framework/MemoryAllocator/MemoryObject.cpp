@@ -27,6 +27,7 @@
 #include "MemoryObject.h"
 #include "Context.h"
 #include "cl_shared_ptr.hpp"
+#include "context_module.h"
 
 #include <cl_synch_objects.h>
 #if defined (DX_MEDIA_SHARING)
@@ -41,7 +42,7 @@ MemoryObject::MemoryObject(SharedPtr<Context> pContext):
 	OCLObject<_cl_mem_int>(pContext->GetHandle(), "MemoryObject"),
 	m_pContext(pContext), m_clMemObjectType(0), m_clFlags(0),
 	m_pHostPtr(NULL), m_pBackingStore(NULL), m_uiNumDim(0), m_pMemObjData(NULL), m_pParentObject(NULL),
-	m_mapCount(0), m_pMappedDevice(NULL), m_stMemObjSize(0)
+	m_mapCount(0), m_pMappedDevice(NULL), m_stMemObjSize(0), m_bRegisteredInContextModule(false)
 {
 	assert ( NULL != m_pContext );
 
@@ -390,6 +391,12 @@ cl_err_code MemoryObject::CreateMappedRegion(
 
 	*pMapInfo = &pclDevCmdParamMap->cmd_param_map;
     *pActualMappingDevice = m_pMappedDevice;
+
+    if (!m_bRegisteredInContextModule)
+    {
+        m_bRegisteredInContextModule = true;
+        m_pContext->GetContextModule().RegisterMappedMemoryObject( this );
+    }
 	return CL_SUCCESS;
 }
 
@@ -547,6 +554,35 @@ cl_err_code MemoryObject::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapInfo
 	return err;
 }
 
+void MemoryObject::ReleaseAllMappedRegions()
+{
+	LOG_DEBUG(TEXT("Enter ReleaseAllMappedRegions"), "");
+
+	OclAutoMutex CS(&m_muMappedRegions); // release on return
+
+    if (0 == m_mapCount)
+    {
+        return;
+    }
+
+    Addr2MapRegionMultiMap::iterator it     = m_mapMappedRegions.begin();
+    Addr2MapRegionMultiMap::iterator it_end = m_mapMappedRegions.end();
+
+    for(; it != it_end; ++it)
+    {
+        MapParamPerPtr* info     = it->second;
+        void*           pHostPtr = it->first;
+
+        if (NULL != info)
+        {
+            MemObjReleaseDevMappedRegion(m_pMappedDevice, &(info->cmd_param_map), pHostPtr);
+            delete info;
+        }
+    }
+
+	m_mapMappedRegions.clear();
+    m_mapCount = 0;
+}
 
 int MemoryObject::ValidateChildFlags( const cl_mem_flags childFlags)
 {
@@ -635,3 +671,14 @@ bool MemoryObject::IsWholeObjectCovered( cl_uint dims, const size_t* pszOrigin, 
     return true;
 }
 
+/******************************************************************
+ * This object may hold an extra reference count as it is recorded in ContextModule
+ ******************************************************************/
+void MemoryObject::EnterZombieState( EnterZombieStateLevel call_level ) 
+{
+    if (m_bRegisteredInContextModule)
+    {
+        m_pContext->GetContextModule().UnRegisterMappedMemoryObject( const_cast<MemoryObject*>(this) );
+    }
+    OCLObject<_cl_mem_int>::EnterZombieState(RECURSIVE_CALL);
+}

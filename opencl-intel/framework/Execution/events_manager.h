@@ -28,6 +28,7 @@
 #include "cl_framework.h"
 #include "cl_objects_map.h"
 #include "event_callback.h"
+#include <list>
 
 namespace Intel { namespace OpenCL { namespace Framework {
     // Forward declarations 
@@ -81,8 +82,29 @@ namespace Intel { namespace OpenCL { namespace Framework {
 				return pOclObject.DynamicCast<EventClass>();
 			}
 
+        // return list of existing events. Assumes DisableNewEvents() was called before otherwise races may happen
+		template<class EventClass>
+			void GetAllEventClass(std::list<SharedPtr<EventClass> >& out_list)
+			{
+                cl_uint size = m_mapEvents.Count();
+                for (cl_uint ui = 0; ui < size; ++ui)
+                {
+                    SharedPtr<OCLObject<_cl_event_int> > pOclObject = m_mapEvents.GetObjectByIndex(ui);
+                    SharedPtr<EventClass> pEventClass = (NULL != pOclObject) ? pOclObject.DynamicCast<EventClass>() : SharedPtr<EventClass>(NULL);
+                    if (NULL != pEventClass)
+                    {
+                        out_list.push_back( pEventClass );
+                    }
+                }
+			}
+
         void        RegisterQueueEvent(const SharedPtr<QueueEvent>& pEvent, cl_event* pEventHndl);
         cl_err_code RegisterEvents(const SharedPtr<OclEvent>& pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents = false, cl_int queueId = 0);
+
+        void        ReleaseAllEvents( bool bTerminate );
+        void        DisableNewEvents() { m_mapEvents.DisableAdding(); };
+        void        EnableNewEvents() { m_mapEvents.EnableAdding(); };
+        void        SetPreserveUserHandles() { m_mapEvents.SetPreserveUserHandles(); }
 
 		cl_err_code SetEventCallBack(cl_event evt, cl_int execType, eventCallbackFn fn, void* pUserData);
 

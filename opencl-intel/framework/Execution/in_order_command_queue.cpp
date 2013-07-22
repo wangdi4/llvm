@@ -103,7 +103,10 @@ cl_err_code InOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>&
 	} 
 	else if ( EVENT_STATE_DONE == newColor )
 	{
-		--m_commandsInExecution;
+        if (pEvent->EverIssuedToDevice())
+        {
+    		--m_commandsInExecution;
+        }
 		SendCommandsToDevice();
 		return CL_SUCCESS;
 	}
@@ -147,9 +150,9 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 						{
 							break; // Need to wait all executing commands to complete
 						}
-						m_commandsInExecution++;
+						++m_commandsInExecution;
 						cmd->GetEvent()->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
-						res = cmd->Execute();
+						res = (m_bCancelAll) ? cmd->Cancel() : cmd->Execute();
 						if ( CL_SUCCEEDED(res) )
 						{
 							m_submittedQueue.PopFront();
@@ -173,7 +176,7 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 					if (CL_SUCCEEDED(res))
 					{
 						m_submittedQueue.PopFront();
-						m_commandsInExecution++;
+						++m_commandsInExecution;
 						++cmdListLength;
 					}					
 					else if (res == CL_NOT_READY)

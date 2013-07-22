@@ -369,6 +369,15 @@ void Command::prepare_command_descriptor( cl_dev_cmd_type type, void* params, si
 	m_Event->SetEventQueue(m_pCommandQueue);
 }
 
+cl_err_code Command::Cancel()
+{
+	LogDebugA("Command - Cancel for %s (Id: %d)", GetCommandName(), m_Event->GetId());
+
+	NotifyCmdStatusChanged(0, CL_COMPLETE, CL_CONTEXT_CANCEL_INTEL, Intel::OpenCL::Utils::HostTime());
+
+    return CL_SUCCESS;
+}
+
 void Command::GPA_InitCommand()
 {
 #if defined (USE_ITT)
@@ -832,6 +841,7 @@ MapMemObjCommand::~MapMemObjCommand()
 		assert(m_MemOclObjects.size() == 1);
         m_MemOclObjects[0].pMemObj->ReleaseMappedRegion( m_pMappedRegion, m_pHostDataPtr );
     }
+    
 	// In case that the map command run on different device that enqueued than change the device to m_pActualMappingDevice in order to release the command object from the device it created.
 	if ((m_pActualMappingDevice != m_pDevice) && (NULL != m_pActualMappingDevice))
 	{
@@ -2799,6 +2809,16 @@ void PrePostFixRuntimeCommand::DoAction()
 /******************************************************************
  *
  ******************************************************************/
+void PrePostFixRuntimeCommand::CancelAction()
+{
+	cl_dev_cmd_id id = (cl_dev_cmd_id)m_Event->GetId();
+	LogDebugA("PrePostFixRuntimeCommand - DoAction Canceled: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event->GetId());
+	NotifyCmdStatusChanged(id, CL_COMPLETE, CL_CONTEXT_CANCEL_INTEL, Intel::OpenCL::Utils::HostTime());
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
 cl_err_code PrePostFixRuntimeCommand::Execute()
 {
 	cl_err_code			ret  = CL_SUCCESS;
@@ -2837,6 +2857,12 @@ bool RuntimeCommandTask::Execute()
 	m_owner->DoAction();
 	m_bIsCompleted = true;
 	return true;
+}
+
+void RuntimeCommandTask::Cancel()
+{
+	m_owner->CancelAction();
+	m_bIsCompleted = true;
 }
 
 /******************************************************************

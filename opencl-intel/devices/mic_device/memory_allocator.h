@@ -139,6 +139,7 @@ private:
 
 class DeviceServiceCommunication;
 class MICDevice;
+class CommandList;
 
 class MemoryAllocator
 {
@@ -266,7 +267,7 @@ public:
 	void removeMemObjFromMapBuffersPool() { m_buffersMemoryPool.removeBufferFromPool(this); };
 
 	/* Set this memObj that already inserted to m_buffersMemoryPool, ready to use */
-	void setMemObjInMapBuffersPoolReady() { m_buffersMemoryPool.setBufferReady(this); };
+	void setMemObjInMapBuffersPoolReady( CommandList* cur_queue ) { m_buffersMemoryPool.setBufferReady(this, cur_queue); };
 
 	/* Return true if this mem object is root buffer */
 	virtual bool isRootBuffer() { return true; };
@@ -317,7 +318,7 @@ private:
 
 		void removeBufferFromPool(MICDevMemoryObject* pMicMemObj);
 
-		void setBufferReady(MICDevMemoryObject* pMicMemObj);
+		void setBufferReady(MICDevMemoryObject* pMicMemObj, CommandList* cur_queue);
 
 	private:
 

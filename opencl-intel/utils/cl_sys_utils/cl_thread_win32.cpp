@@ -254,3 +254,28 @@ int OclThread::SetAffinity(unsigned char ucAffinity)
 	return THREAD_RESULT_SUCCESS;
 }
 
+/************************************************************************
+ * 
+ ************************************************************************/
+THREAD_HANDLE OclThread::GetThreadHandle() const
+{
+    return m_threadHandle;
+}
+
+
+/************************************************************************
+ * Check for OS thread
+ ************************************************************************/
+bool OclThread::IsOsThreadRunning( THREAD_HANDLE handle )
+{
+    return ( WAIT_OBJECT_0 != WaitForSingleObject( handle, 0));
+}
+
+/************************************************************************
+ * Wait for OS thread
+ ************************************************************************/
+void OclThread::WaitForOsThreadCompletion( THREAD_HANDLE handle )
+{
+    WaitForSingleObject( handle, INFINITE );
+    return;
+}

@@ -27,6 +27,7 @@
 #include "tbb/task_arena.h"
 #include "cl_device_api.h"
 #include "cl_synch_objects.h"
+#include "cl_shutdown.h"
 #include "task_executor.h"
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
@@ -38,7 +39,7 @@ class in_order_executor_task;
 class base_command_list;
 template<typename T> class command_list;
 
-extern volatile bool gIsExiting;
+using Intel::OpenCL::Utils::IsShutdownMode;
 
 struct TBB_PerActiveThreadData
 {
@@ -117,9 +118,7 @@ private:
 
     void Terminate() 
     {
-        // ALERT!!! DK!!! uncomment as TBB will provide API
-        //m_arena.terminate();
-        m_arena.~task_arena();
+        m_arena.terminate();
     }
 
     /**
@@ -218,7 +217,7 @@ public:
     /**
      * Lock/Unlock current state (working/shutting down)
      */
-    void LockState() { m_stateLock.EnterRead(); }
+    void   LockState() { m_stateLock.EnterRead(); }
     void UnLockState() { m_stateLock.LeaveRead(); }
 
     /**
@@ -274,21 +273,22 @@ private:
         SHUTTED_DOWN
     };
 
-    Intel::OpenCL::Utils::OclReaderWriterLock  m_stateLock;
-    volatile State                             m_state;
+    Intel::OpenCL::Utils::OclReaderWriterLock   m_stateLock;
+    volatile State                              m_state;
 
-    RootDeviceCreationParam m_deviceDescriptor;
-    TBBTaskExecutor&        m_taskExecutor;
-    void*                   m_userData;
+    RootDeviceCreationParam                     m_deviceDescriptor;
+    TBBTaskExecutor&                            m_taskExecutor;
+    void*                                       m_userData;
 
     Intel::OpenCL::Utils::OclReaderWriterLock   m_observerLock;
     ITaskExecutorObserver*                      m_observer;
     Intel::OpenCL::Utils::SharedPtr<TEDevice>   m_pParentDevice;
 
-    ArenaHandler            m_mainArena;
-    ArenaHandler*           m_lowLevelArenas[TE_MAX_LEVELS_COUNT-1]; // arrray or arrys of all levels except of 0
+    ArenaHandler                                m_mainArena;
+    ArenaHandler*                               m_lowLevelArenas[TE_MAX_LEVELS_COUNT-1]; // arrray or arrys of all levels except of 0
 
-    Intel::OpenCL::Utils::AtomicCounter                m_numOfActiveThreads; 
+    Intel::OpenCL::Utils::AtomicCounter         m_numOfActiveThreads; 
+    unsigned int                                m_maxNumOfActiveThreads;
 
     bool new_threads_disabled() const { return (m_state >= DISABLE_NEW_THREADS); }
 
@@ -334,7 +334,7 @@ private:
 inline
 void ArenaHandler::on_scheduler_entry(bool bIsWorker) 
 { 
-    if (!gIsExiting)
+    if (!IsShutdownMode())
     {
         m_device->on_scheduler_entry( bIsWorker, *this ); 
     }
@@ -343,7 +343,7 @@ void ArenaHandler::on_scheduler_entry(bool bIsWorker)
 inline
 void ArenaHandler::on_scheduler_exit(bool bIsWorker) 
 { 
-    if (!gIsExiting)
+    if (!IsShutdownMode())
     {
         m_device->on_scheduler_exit( bIsWorker, *this ); 
     }
@@ -352,7 +352,7 @@ void ArenaHandler::on_scheduler_exit(bool bIsWorker)
 inline
 bool ArenaHandler::on_scheduler_leaving() 
 { 
-    return (gIsExiting) ? true : m_device->on_scheduler_leaving( *this ); 
+    return (IsShutdownMode()) ? true : m_device->on_scheduler_leaving( *this ); 
 }
 
 template <class F>

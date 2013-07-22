@@ -107,6 +107,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		virtual         ~OclCommandQueue();
 
+        virtual  void BecomeVisible() = 0;
+
 		SharedPtr<Context> m_pContext;
 		SharedPtr<FissionableDevice> m_pDefaultDevice;
 		EventsManager*      m_pEventsManager;
@@ -117,6 +119,5 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         ocl_gpa_queue*      m_pOclGpaQueue;
 		ocl_gpa_data*		m_pGPAData;
-
 	};
 }}}    // Intel::OpenCL::Framework

@@ -28,6 +28,8 @@
 #include <cstring>
 #include "ocl_itt.h"
 #include "cl_shared_ptr.hpp"
+#include "Context.h"
+#include "context_module.h"
 
 using namespace Intel::OpenCL::Framework;
 
@@ -253,4 +255,30 @@ cl_err_code IOclCommandQueueBase::WaitForCompletion(const SharedPtr<QueueEvent>&
 
 
 	return CL_DEV_SUCCEEDED(ret) ? CL_SUCCESS : CL_INVALID_OPERATION;
+}
+
+cl_err_code IOclCommandQueueBase::CancelAll()
+{
+    m_bCancelAll = true;
+    if (NULL != m_pDefaultDevice)
+    {
+        m_pDefaultDevice->GetDeviceAgent()->clDevCommandListCancel(m_clDevCmdListId);
+    }
+    return CL_SUCCESS;
+}
+
+ /******************************************************************
+ * This object holds extra reference count as it is recorded in ContextModule
+ ******************************************************************/
+void IOclCommandQueueBase::EnterZombieState( EnterZombieStateLevel call_level )
+{
+    m_pContext->GetContextModule().CommandQueueRemoved( this );
+    OclCommandQueue::EnterZombieState(RECURSIVE_CALL);
+}
+
+void IOclCommandQueueBase::BecomeVisible()
+{
+    // register itself in the context_codule.
+    // Note - this will increase RefCount - need to unregister when refcount drops to 1!
+    m_pContext->GetContextModule().CommandQueueCreated( this );
 }

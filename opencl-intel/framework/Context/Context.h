@@ -84,7 +84,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/		
         static SharedPtr<Context> Allocate(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices,
             SharedPtr<FissionableDevice>*ppDevice, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
-            ocl_gpa_data * pGPAData, const ContextModule& contextModule)
+            ocl_gpa_data * pGPAData, ContextModule& contextModule)
         {
             return SharedPtr<Context>(new Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevice, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData, contextModule));
         }
@@ -101,7 +101,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Date:			December 2008
 		******************************************************************************************/		
 		Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>*ppDevice, logging_fn pfnNotify,
-            void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData, const ContextModule& contextModule);
+            void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData, ContextModule& contextModule);
 
 		/******************************************************************************************
         * Function: 	Cleanup    
@@ -341,6 +341,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// return context-specific memory objects heap handle
 		Intel::OpenCL::Utils::ClHeap	GetMemoryObjectsHeap( void ) const { return m_MemObjectsHeap; };
 
+        // return context module
+        ContextModule&                  GetContextModule( void ) { return m_contextModule; };
+
 		bool DoesSupportSvmSystem() const { return m_bSupportsSvmSystem; }
 
 		/**
@@ -449,7 +452,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		tImageFormatMap							m_mapSupportedFormats;
 
 		Intel::OpenCL::Utils::ClHeap			m_MemObjectsHeap;
-		const ContextModule&                    m_contextModule;
+        ContextModule&                          m_contextModule;
         bool									m_bSupportsSvmSystem;	// if there is at least one device that supports this
 		std::map<void*, SharedPtr<SVMBuffer> >  m_svmBuffers;
 		mutable Intel::OpenCL::Utils::OclReaderWriterLock m_svmBuffersRwlock;

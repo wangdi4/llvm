@@ -22,6 +22,7 @@
 
 #include "cl_device_api.h"
 #include "mic_device_interface.h"
+#include "mic_device.h"
 
 #include <source/COIBuffer_source.h>
 #include <source/COIPipeline_source.h>

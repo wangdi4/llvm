@@ -23,6 +23,7 @@
 #include "tbb_executor.h"
 #include "base_command_list.h"
 #include "cl_sys_info.h"
+#include "cl_shutdown.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
 #include "hw_utils.h"
@@ -139,9 +140,16 @@ TEDevice::TEDevice(  const RootDeviceCreationParam& device_desc, void* user_data
                      TBBTaskExecutor& taskExecutor, const SharedPtr<TEDevice>& parent ) :
   m_state( INITIALIZING ),
   m_deviceDescriptor( device_desc ), m_taskExecutor( taskExecutor ), m_userData( user_data ), m_observer( observer ), 
-  m_pParentDevice( parent )
+  m_pParentDevice( parent ), m_maxNumOfActiveThreads(0)
 {
     memset( m_lowLevelArenas, 0, sizeof(m_lowLevelArenas) );
+
+    // calculate maximum number of threads
+    m_maxNumOfActiveThreads = m_deviceDescriptor.uiThreadsPerLevel[0];
+    for (unsigned int level = 1; level < m_deviceDescriptor.uiNumOfLevels; ++level)
+    {
+        m_maxNumOfActiveThreads *= m_deviceDescriptor.uiThreadsPerLevel[level];
+    }
 
     // setup arenas
 
@@ -204,12 +212,12 @@ void TEDevice::ShutDown()
     }
 
     // 1. Count down until all threads stopped
-    if (!gIsExiting)
+    if (!IsShutdownMode())
     {
         TBB_PerActiveThreadData* tls = m_taskExecutor.GetThreadManager().GetCurrentThreadDescriptor();
         int remainder = ((NULL == tls) || (tls->device != this)) ? 0 : 1; // how many threads may remain inside arena
         
-        while (m_numOfActiveThreads > remainder)
+        while ((m_numOfActiveThreads > remainder) && (m_numOfActiveThreads <= (int)m_maxNumOfActiveThreads))
         {
             hw_pause();
         }
@@ -226,10 +234,9 @@ void TEDevice::ShutDown()
     m_state = DISABLE_NEW_THREADS;
 
     // 3. new threads may enter before disabling - wait all to exit
-    if (!gIsExiting)
+    if (!IsShutdownMode())
     {
-
-        while (m_numOfActiveThreads > 0)
+        while ((m_numOfActiveThreads > 0) && (m_numOfActiveThreads <= (int)m_maxNumOfActiveThreads))
         {
             hw_pause();
         }
@@ -238,16 +245,19 @@ void TEDevice::ShutDown()
 
     // 4. Stop all observers
     //    observer stopping blocks if any observer callback is in process
-    for (unsigned int i =  m_deviceDescriptor.uiNumOfLevels-1; i > 0  ; --i)
+    if (!IsShutdownMode())
     {
-        ArenaHandler* ar = m_lowLevelArenas[i-1];
-        assert( (NULL != ar) && "Low level arena array in NULL for hierarchical arenas?" );
-        for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[ i ]; ++i)
+        for (unsigned int i =  m_deviceDescriptor.uiNumOfLevels-1; i > 0  ; --i)
         {
-            ar[j].StopMonitoring();
+            ArenaHandler* ar = m_lowLevelArenas[i-1];
+            assert( (NULL != ar) && "Low level arena array in NULL for hierarchical arenas?" );
+            for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[ i ]; ++i)
+            {
+                ar[j].StopMonitoring();
+            }
         }
+        m_mainArena.StopMonitoring();
     }
-    m_mainArena.StopMonitoring();
     m_userData = NULL; // to be on the safe side
 
     // 5. Signal all arenas to terminate
@@ -390,7 +400,7 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
            protect ourselves, except by raising a flag in a function registered by atexit. This isn't a perfect protection, since exit can be called while the worker thread is in this method after having
            already checked the flag, but it significantly reduces the probability for it. This also applies to the same flag checking in other methods. */
         {
-            if ((NULL != m_observer) && (!gIsExiting))
+            if ((NULL != m_observer) && (!IsShutdownMode()))
             {
                 // per thread user data recides inside per-thread descriptor
                 tls->user_tls = m_observer->OnThreadEntry();
@@ -433,6 +443,7 @@ void TEDevice::on_scheduler_exit( bool bIsWorker, ArenaHandler& arena )
         if (--m_numOfActiveThreads < 0)
         {
             assert( false && "Thread exits device while device already does not contain running threads while leaving above attach level" );
+            ++m_numOfActiveThreads;
         }
         return;
     }
@@ -440,7 +451,7 @@ void TEDevice::on_scheduler_exit( bool bIsWorker, ArenaHandler& arena )
     // now the only case - we are leaving our attach_level - out from device
     if (tls->enter_reported)
     {
-        if ((NULL != m_observer) && (!gIsExiting))
+        if ((NULL != m_observer) && (!IsShutdownMode()))
         {
             // per thread user data recides inside per-thread descriptor
             m_observer->OnThreadExit( tls->user_tls );
@@ -453,6 +464,7 @@ void TEDevice::on_scheduler_exit( bool bIsWorker, ArenaHandler& arena )
     if (--m_numOfActiveThreads < 0)
     {
         assert( false && "Thread exits device while device already does not contain running threads while leaving normally" );
+        ++m_numOfActiveThreads;
     }
 }
 
@@ -472,7 +484,7 @@ bool TEDevice::on_scheduler_leaving( ArenaHandler& arena )
     {
         assert( (this == tls->device) && "Something wrong with observers - thread tries to leave the wrong device" );
 
-        if ((NULL != m_observer) && (!gIsExiting))
+        if ((NULL != m_observer) && (!IsShutdownMode()))
         {
             user_answer = m_observer->MayThreadLeaveDevice( &(tls->user_tls) );
         }

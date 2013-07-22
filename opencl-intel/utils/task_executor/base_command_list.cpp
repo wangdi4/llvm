@@ -41,7 +41,8 @@ base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::Ope
 	m_pMasterSync(SyncTask::Allocate()),
 	m_device(device),
 	m_taskGroup(device.GetPtr()),
-	m_scheduling(param.preferredScheduling)
+	m_scheduling(param.preferredScheduling), 
+    m_bCanceled(false)
 {
 	m_execTaskRequests = 0;
 	m_bMasterRunning = false;

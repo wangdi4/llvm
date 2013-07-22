@@ -109,33 +109,35 @@ class QueueOnDevice
 public:
     // return false on error
     virtual bool Init() = 0;
-	virtual ~QueueOnDevice() {};
+    virtual ~QueueOnDevice() {};
 
-	/* Initializing the task */
-	virtual bool InitTask(  const SharedPtr<TaskHandler>& task_handler,
-	                        dispatcher_data* dispatcherData, misc_data* miscData, 
-	                        uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, 
-	                        void* in_pMiscData, uint16_t in_MiscDataLength) const = 0;
+    /* Initializing the task */
+    virtual bool InitTask(  const SharedPtr<TaskHandler>& task_handler,
+                            dispatcher_data* dispatcherData, misc_data* miscData, 
+                            uint32_t in_BufferCount, void** in_ppBufferPointers, uint64_t* in_pBufferLengths, 
+                            void* in_pMiscData, uint16_t in_MiscDataLength) const = 0;
 
     /* Task Allocation Failed */
-	virtual void NotifyTaskAllocationFailed(  
-	                        dispatcher_data* dispatcherData, misc_data* miscData ) const = 0;
+    virtual void NotifyTaskAllocationFailed(  
+                            dispatcher_data* dispatcherData, misc_data* miscData ) const = 0;
 
-	/* Run the task */
-	virtual void RunTask( const SharedPtr<TaskHandler>& task_handler ) const;
+    /* Run the task */
+    virtual void RunTask( const SharedPtr<TaskHandler>& task_handler ) const;
 
-	/* It will call from 'run()' method (of m_task) as the first command in order to inform that the command start in case of NonBlocking task. */
-	virtual void SignalTaskStart( const SharedPtr<TaskHandler>& task_handler ) const = 0;
+    /* It will call from 'run()' method (of m_task) as the first command in order to inform that the command start in case of NonBlocking task. */
+    virtual void SignalTaskStart( const SharedPtr<TaskHandler>& task_handler ) const = 0;
 
-	/* It will be call from 'run()' method (of m_task) as the last command,
-	   It will release the resources and singal the user barrier if needed. 
-	   It also delete this object as the last command. 
-	   The FinishTask is not public because We don't want the user to release the resource. (It will release itself when completed)*/
-	virtual void FinishTask(const SharedPtr<TaskHandler>& task_handler, COIEVENT& completionBarrier, bool isLegalBarrier) const = 0;
+    /* It will be call from 'run()' method (of m_task) as the last command,
+       It will release the resources and singal the user barrier if needed. 
+       It also delete this object as the last command. 
+       The FinishTask is not public because We don't want the user to release the resource. (It will release itself when completed)*/
+    virtual void FinishTask(const SharedPtr<TaskHandler>& task_handler, COIEVENT& completionBarrier, bool isLegalBarrier) const = 0;
 
 	virtual bool isInOrder() const = 0;
 
-	static QueueOnDevice* getCurrentQueue( TlsAccessor* tlsAccessor )
+    void Cancel() const;
+
+    static QueueOnDevice* getCurrentQueue( TlsAccessor* tlsAccessor ) 
         {
             assert( NULL != tlsAccessor );
             QueueTls queueTls(tlsAccessor);
@@ -156,15 +158,15 @@ public:
 				uint32_t				in_BufferCount,
 				void**					in_ppBufferPointers,
 				uint64_t*				in_pBufferLengths,
-				void*						in_pMiscData,
+				void*					in_pMiscData,
 				uint16_t				in_MiscDataLength,
-				void*						in_pReturnValue,
+				void*					in_pReturnValue,
 				uint16_t				in_ReturnValueLength,
-				TASK_TYPES	    taskType);
+				TASK_TYPES	            taskType);
 
 protected:
 
-	QueueOnDevice( ThreadPool& thread_pool ) : m_thread_pool(thread_pool) {};
+    QueueOnDevice( ThreadPool& thread_pool ) : m_thread_pool(thread_pool) {};
 
     ThreadPool&                                 m_thread_pool;
     Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList>  m_task_list;

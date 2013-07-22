@@ -44,6 +44,9 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		{
 			delete this;
 		}
+
+        static void ShutDown();
+        
 	protected:
 		virtual ~ClangFECompiler();
 
@@ -51,6 +54,8 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 
 		// Static members
 		static Intel::OpenCL::Utils::AtomicCounter	s_llvmReferenceCount;
+        static volatile bool                        m_bLllvmActive;
+        
     #ifdef OCLFRONTEND_PLUGINS 
     mutable Intel::OpenCL::PluginManager m_pluginManager;
     #endif //OCLFRONTEND_PLUGINS

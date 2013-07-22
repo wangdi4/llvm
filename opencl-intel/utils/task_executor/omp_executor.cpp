@@ -318,13 +318,6 @@ void omp_executor_task::operator()()
 
 OMPTaskExecutor::OMPTaskExecutor()
 {
-#if _DEBUG
-    const int ret =
-#endif
-        atexit(Terminate);
-#if _DEBUG
-    assert(0 == ret);
-#endif
 }
 
 OMPTaskExecutor::~OMPTaskExecutor()

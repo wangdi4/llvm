@@ -32,6 +32,7 @@ File Name:  dllmain.cpp
 #include "llvm/Support/Mutex.h"
 #include "debuggingservicewrapper.h"
 #include "CPUDetect.h"
+#include "cl_shutdown.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -49,6 +50,9 @@ static cl_dev_err_code s_init_result = CL_DEV_SUCCESS;
 
 // flag used to disable the termination sequence
 bool s_ignore_termination = false;
+
+// include shutdown protocol support for runtime
+USE_SHUTDOWN_HANDLER(NULL);
 
 #if defined(_WIN32)
 

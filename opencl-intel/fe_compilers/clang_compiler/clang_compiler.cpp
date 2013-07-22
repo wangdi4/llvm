@@ -19,6 +19,7 @@
 #include <Logger.h>
 #include <cl_sys_defines.h>
 #include <cl_device_api.h>
+#include <cl_shutdown.h>
 
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/ManagedStatic.h>
@@ -72,7 +73,12 @@ using namespace Intel::OpenCL::Utils;
 
 using namespace Intel::OpenCL::FECompilerAPI;
 
+volatile bool ClangFECompiler::m_bLllvmActive = false;
+
+
 extern DECLARE_LOGGER_CLIENT;
+
+USE_SHUTDOWN_HANDLER(ClangFECompiler::ShutDown);
 
 int InitClangDriver()
 {
@@ -104,6 +110,8 @@ Intel::OpenCL::Utils::AtomicCounter Intel::OpenCL::ClangFE::ClangFECompiler::s_l
 // ClangFECompiler class implementation
 ClangFECompiler::ClangFECompiler(const void* pszDeviceInfo)
 {
+     m_bLllvmActive = true;
+
 	long prev = s_llvmReferenceCount++;
 	if ( 0 == prev )
 	{
@@ -130,8 +138,18 @@ ClangFECompiler::~ClangFECompiler()
 	if ( 1 == prev )
 	{
 		CloseClangDriver();
+        m_bLllvmActive = false;
 	}
 }
+
+void ClangFECompiler::ShutDown()
+{
+    while (m_bLllvmActive)
+    {
+        hw_pause();
+    }
+}
+
 
 #ifdef OCLFRONTEND_PLUGINS
 //

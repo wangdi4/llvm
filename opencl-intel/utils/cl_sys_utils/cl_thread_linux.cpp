@@ -26,6 +26,7 @@
 /////////////////////////////////////////////////////////////////////////
 #include "cl_thread.h"
 #include <pthread.h>
+#include <signal.h>
 #include <assert.h>
 #include <stdio.h>
 #include "cl_utils.h"
@@ -219,6 +220,12 @@ bool OclThread::isSelf()
 	return (pthread_self() == GetThreadId());
 }
 
+THREAD_HANDLE  OclThread::GetThreadHandle() const
+{
+    return (NULL != m_threadHandle) ? *(pthread_t*)m_threadHandle : (pthread_t)NULL;
+}
+
+
 /************************************************************************
  *
  ************************************************************************/
@@ -254,4 +261,29 @@ int OclThread::SetAffinity(unsigned char ucAffinity)
     }
 	return THREAD_RESULT_SUCCESS;
 }
+
+
+/************************************************************************
+ * Check for OS thread
+ ************************************************************************/
+bool OclThread::IsOsThreadRunning( THREAD_HANDLE handle )
+{
+    return (ESRCH != pthread_kill(handle, 0));
+}
+
+/************************************************************************
+ * Wait for OS thread
+ ************************************************************************/
+void OclThread::WaitForOsThreadCompletion( THREAD_HANDLE handle )
+{
+    while (IsOsThreadRunning(handle))
+    {
+#ifdef __ANDROID__
+        hw_pause();
+#else
+        pthread_yield();
+#endif
+    }
+}
+
 

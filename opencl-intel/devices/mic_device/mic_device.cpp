@@ -32,6 +32,11 @@
 #include "mic_device.h"
 #include "program_service.h"
 #include "mic_logger.h"
+#include "cl_sys_info.h"
+#include "cl_shutdown.h"
+#include "mic_dev_limits.h"
+#include "cl_sys_defines.h"
+#include "buildversion.h"
 #include "device_service_communication.h"
 #include "memory_allocator.h"
 #include "mic_sys_info.h"
@@ -40,7 +45,7 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-bool gSafeReleaseOfCoiObjects = true;
+USE_SHUTDOWN_HANDLER( MICDevice::unloadRelease );
 
 HostTracer* MICDevice::m_tracer = NULL;
 
@@ -73,8 +78,8 @@ void MICDevice::RegisterMicDevice( MICDevice* dev )
 
 bool MICDevice::UnregisterMicDevice( MICDevice* dev )
 {
-		OclAutoMutex lock( m_mic_instancies_mutex );
-		return (0 != m_mic_instancies->erase( dev ));
+        OclAutoMutex lock( m_mic_instancies_mutex );
+        return (0 != m_mic_instancies->erase( dev ));
 }
 
 MICDevice::TMicsSet MICDevice::GetActiveMicDevices( bool erase )
@@ -91,11 +96,11 @@ MICDevice::TMicsSet MICDevice::GetActiveMicDevices( bool erase )
         ret_list.insert( (MICDevice*)*it );
     }
 
-	// If the client ask to erase than remove the mic devices pointers from the set.
-	if (erase)
-	{
-		m_mic_instancies->clear();
-	}
+    // If the client ask to erase than remove the mic devices pointers from the set.
+    if (erase)
+    {
+        m_mic_instancies->clear();
+    }
 
     return ret_list;
 }
@@ -199,8 +204,8 @@ MICDevice::~MICDevice()
 
 void MICDevice::loadingInit()
 {
-	m_mic_instancies = new set<IOCLDeviceAgent*>;
-	m_mic_instancies_mutex = new OclMutex;
+    m_mic_instancies = new set<IOCLDeviceAgent*>;
+    m_mic_instancies_mutex = new OclMutex;
 
 #ifdef USE_ITT
   if ( MICSysInfo::getInstance().getMicDeviceConfig().UseITT() )
@@ -215,34 +220,23 @@ void MICDevice::loadingInit()
 
 void MICDevice::unloadRelease()
 {
-  if (isDeviceLibraryUnloaded())
-  {
-      return;
-  }
-    
-  TMicsSet micSet = GetActiveMicDevices(true);
-  TMicsSet::iterator it;
-  TMicsSet::iterator itEnd = micSet.end();
+    // Wait until all Notificatoin port threads are dieing
+    NotificationPort::waitForAllNotificationPortThreads();
+    assert(GetActiveMicDevices().size() == 0);
 
 #ifdef USE_ITT
-  if ( NULL != g_pGPAData )
-  {
-    delete g_pGPAData;
-    g_pGPAData = NULL;
-  }
+    if ( NULL != g_pGPAData )
+    {
+        delete g_pGPAData;
+        g_pGPAData = NULL;
+    }
 #endif
-	// Release all mic device instances.
-	for (it = micSet.begin(); it != itEnd; it++)
-	{
-		(*it)->clDevCloseDeviceInt(true);
-	}
-	assert(GetActiveMicDevices().size() == 0);
 
 	delete m_mic_instancies;
 	m_mic_instancies = NULL;
 
-	delete m_mic_instancies_mutex;
-	m_mic_instancies_mutex = NULL;
+    delete m_mic_instancies_mutex;
+    m_mic_instancies_mutex = NULL;   
 }
 
 
@@ -303,12 +297,12 @@ const void* MICDevice::clDevFEDeviceInfo() const
       MICSysInfo::getInstance().getSupportedOclExtensions( m_uiMicId );
   }
 
-	return &MICDevInfo;
+    return &MICDevInfo;
 }
 
 size_t MICDevice::clDevFEDeviceInfoSize() const
 {
-	return sizeof(MICDevInfo);
+    return sizeof(MICDevInfo);
 }
 
 // Device Fission support
@@ -524,6 +518,33 @@ cl_dev_err_code MICDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
     return CL_DEV_NOT_SUPPORTED;
 }
 
+/****************************************************************************************************************
+ clDevCommandListCancel
+********************************************************************************************************************/
+cl_dev_err_code MICDevice::clDevCommandListCancel(cl_dev_cmd_list IN list)
+{
+    if (isDeviceLibraryUnloaded())
+    {
+        return CL_DEV_NOT_SUPPORTED;
+    }
+    
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListCancel Function enter"));
+
+    if (NULL != list)
+    {
+        CommandList* pList = (CommandList*)list;
+        if (NULL == pList)
+        {
+            return CL_DEV_INVALID_VALUE;
+        }
+        return pList->cancelCommandList();
+    }
+    else
+    {
+        return CL_DEV_INVALID_VALUE;
+    }
+}
+
 //! Release a command
     /*!
      * \param[in]   cmdToRelease the command to release
@@ -631,7 +652,7 @@ clDevCreateProgram
 
 cl_dev_err_code MICDevice::clDevCreateBuiltInKernelProgram(const char* szKernelNames, cl_dev_program* OUT prog)
 {
-	return CL_DEV_ERROR_FAIL;
+    return CL_DEV_ERROR_FAIL;
 }
 
 /*******************************************************************************************************************
@@ -819,12 +840,12 @@ void MICDevice::clDevCloseDevice(void)
 
 void MICDevice::clDevCloseDeviceInt(bool preserve_object)
 {
-	// release notification port
-	if (NULL != m_pNotificationPort)
-	{
-		m_pNotificationPort->release();
+    // release notification port
+    if (NULL != m_pNotificationPort)
+    {
+        m_pNotificationPort->release();
         m_pNotificationPort = NULL;
-	}
+    }
 
     if (NULL != m_defaultCommandList)
     {
@@ -877,14 +898,14 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
 //! This function initializes device agent internal data. This function should be called prior to any device agent calls.
 /*!
     \retval     CL_DEV_SUCCESS          If function is executed successfully.
-    \retval     CL_DEV_ERROR_FAIL	    If function failed to figure the IDs of the devices.
+    \retval     CL_DEV_ERROR_FAIL        If function failed to figure the IDs of the devices.
 */
 extern "C" cl_dev_err_code clDevInitDeviceAgent(void)
 {
 	MICDevice::loadingInit();
 
 #ifdef __INCLUDE_MKL__
-	Intel::OpenCL::MKLKernels::InitLibrary();
+    Intel::OpenCL::MKLKernels::InitLibrary();
 #endif
-	return CL_DEV_SUCCESS;
+    return CL_DEV_SUCCESS;
 }

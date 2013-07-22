@@ -50,8 +50,26 @@ HandleType* OCLObjectsMap<HandleType, ParentHandleType>::AddObject(SharedPtr<OCL
 		return CL_ERR_KEY_ALLREADY_EXISTS;
 	}
 	*/
+    if (m_bDisableAdding)
+    {
+        return NULL;
+    }
 	m_mapObjects[hObjectHandle] = pObject;
 	return hObjectHandle;
+}
+
+template <class HandleType, class ParentHandleType>
+void OCLObjectsMap<HandleType, ParentHandleType>::DisableAdding()
+{
+    Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+    m_bDisableAdding = true;
+}
+
+template <class HandleType, class ParentHandleType>
+void OCLObjectsMap<HandleType, ParentHandleType>::EnableAdding()
+{
+    Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+    m_bDisableAdding = false;
 }
 
 template <class HandleType, class ParentHandleType>
@@ -68,6 +86,12 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::AddObject(SharedPtr<OCL
 	}
 
 	Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+
+    if (m_bDisableAdding)
+    {
+        return CL_ERR_FAILURE;
+    }
+
 	HandleTypeMapIterator it = m_mapObjects.find(hObjectHandle);
 	if (it != m_mapObjects.end())
 	{
@@ -133,6 +157,10 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::RemoveObject(HandleType
 	}
 	//This is necessary to prevent a race between object release and object create in the unfortunate event that the OS reuses the pointer used as an object handle
 	SharedPtr<OCLObject<HandleType, ParentHandleType> > obj = it->second;
+    if (m_bPreserveUserHandles)
+    {
+        obj->SetPreserveHandleOnDetele();
+    }
 	m_mapObjects.erase(it);
 	return CL_SUCCESS;
 }
@@ -224,6 +252,10 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::ReleaseObject(HandleTyp
 	{
 		return CL_ERR_KEY_NOT_FOUND;
 	}
+    if (m_bPreserveUserHandles)
+    {
+        it->second->SetPreserveHandleOnDetele();
+    }
 	long newRef = it->second->Release();
 	if (newRef < 0)
 	{
@@ -243,6 +275,10 @@ void OCLObjectsMap<HandleType, ParentHandleType>::ReleaseAllObjects(bool bTermin
 	HandleTypeMapIterator it = m_mapObjects.begin();
 	while (it != m_mapObjects.end())
 	{
+        if (m_bPreserveUserHandles)
+        {
+            it->second->SetPreserveHandleOnDetele();
+        }
 		it->second->SetTerminate(bTerminate);
 		it->second->Release();
 		++it;

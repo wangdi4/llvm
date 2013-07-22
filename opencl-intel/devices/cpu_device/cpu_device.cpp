@@ -40,6 +40,7 @@
 #include <cpu_dev_limits.h>
 #include <cl_sys_defines.h>
 #include <cl_cpu_detect.h>
+#include <cl_shutdown.h>
 #ifdef __INCLUDE_MKL__
 #include <mkl_builtins.h>
 #endif
@@ -52,6 +53,8 @@
 #endif
 
 using namespace Intel::OpenCL::CPUDevice;
+
+USE_SHUTDOWN_HANDLER(CPUDevice::WaitUntilShutdown);
 
 char clCPUDEVICE_CFG_PATH[MAX_PATH];
 
@@ -68,6 +71,8 @@ using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::BuiltInKernels;
 
 const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
+
+volatile bool CPUDevice::m_bDeviceIsRunning = false;
 
 // We put it here, because just here all the required macros are defined.
 #include "ocl_supported_extensions.h"
@@ -177,6 +182,7 @@ CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCL
 	m_defaultCommandList(NULL),
 	m_pComputeUnitMap(NULL)
 {
+    m_bDeviceIsRunning = true;
 }
 
 cl_dev_err_code CPUDevice::Init()
@@ -376,6 +382,20 @@ CPUDeviceDataTypes NativeVectorToCPUDeviceDataType(cl_device_info native_type)
 
 CPUDevice::~CPUDevice()
 {
+    m_bDeviceIsRunning = false;
+}
+
+void CPUDevice::WaitUntilShutdown()
+{
+    //
+    // Actually we need to check here that TBB has shut down but because TBB may handle other
+    // activities also that are still alive (ex. compilation services through framework proxy)
+    // we cannot do here real wait for threads
+    //
+    while (m_bDeviceIsRunning)
+    {
+        hw_pause();
+    }
 }
 
 // ---------------------------------------
@@ -1766,7 +1786,7 @@ cl_dev_err_code CPUDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
 	if (NULL != pSubdeviceData)
 	{
         m_pTaskDispatcher->releaseSubdevice(pSubdeviceData->taskExecutorData);
-		delete pSubdeviceData->legal_core_ids;
+		delete [] pSubdeviceData->legal_core_ids;
 		delete pSubdeviceData;
 	}
     return CL_DEV_SUCCESS;
@@ -1964,6 +1984,21 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
     }
 
 	return pList->task_dispatcher->commandListWaitCompletion(pList->cmd_list, cmdToWait);
+}
+
+/****************************************************************************************************************
+ clDevCommandListCancel
+********************************************************************************************************************/
+cl_dev_err_code CPUDevice::clDevCommandListCancel(cl_dev_cmd_list IN list)
+{
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListCancel Function enter"));
+    cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
+    if (NULL == pList)
+    {
+        return CL_DEV_INVALID_VALUE;
+    }
+
+    return pList->task_dispatcher->cancelCommandList(pList->cmd_list);
 }
 
 //Memory API's

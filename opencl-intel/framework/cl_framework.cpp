@@ -36,6 +36,9 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
+// Error value to return from API calls when process is in the shutdown state
+#define API_DISABLED_USER_RETURN_VALUE  CL_SUCCESS
+
 #if defined(USE_ITT)
 
 #ifdef WIN32
@@ -64,7 +67,7 @@ using namespace Intel::OpenCL::Utils;
 	{ \
 		__itt_id ittID; \
 		__startITTTask(pGPAData, ittID, __FUNCTION__); \
-		return_type ret_val = module->function_call; \
+		return_type ret_val = (API_IS_DISABLED) ? API_DISABLED_USER_RETURN_VALUE : module->function_call; \
 		__endITTTask(pGPAData, ittID); \
 		return ret_val; \
 	} else { \
@@ -83,7 +86,7 @@ if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) 
 #else
 
 #define CALL_INSTRUMENTED_API(module, return_type, function_call) \
-return module->function_call;
+return (API_IS_DISABLED) ? API_DISABLED_USER_RETURN_VALUE : module->function_call;
 
 #define CALL_INSTRUMENTED_API_NO_RET(module, function_call) \
 	module->function_call;

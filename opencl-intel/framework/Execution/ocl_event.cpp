@@ -262,8 +262,10 @@ cl_err_code OclEvent::ObservedEventStateChanged(const SharedPtr<OclEvent>& pEven
 {
 	assert(returnCode <= 0 && "OclEvent got a non complete return code.");
 
+    // ALERT!!!! DK!!!!
 	if (CL_SUCCESS > returnCode)
 	{
+        assert(0 && "The case with event completed with negative value should already be processed" );
 		// a command we depend on has finished with errors.
 		m_returnCode = returnCode;
 		SetEventState(EVENT_STATE_DONE);

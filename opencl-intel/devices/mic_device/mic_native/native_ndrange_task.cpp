@@ -735,3 +735,19 @@ bool NDRangeTask::Finish(FINISH_REASON reason)
     return CL_DEV_SUCCEEDED( getTaskError() );
 }
 
+void NDRangeTask::Cancel()
+{
+    queue().SignalTaskStart( this );
+#ifdef ENABLE_MIC_TRACER
+    commandTracer().set_current_time_tbb_exe_in_device_time_start();
+    commandTracer().set_current_time_tbb_exe_in_device_time_end();
+#endif
+    setTaskError( CL_DEV_COMMAND_CANCELLED );
+#ifdef USE_ITT
+    if ( gMicGPAData.bUseGPA)
+    {
+		__itt_task_end(m_pIttKernelDomain);
+    }
+#endif
+    FinishTask();
+}

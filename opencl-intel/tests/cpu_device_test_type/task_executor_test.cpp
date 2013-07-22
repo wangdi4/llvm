@@ -67,6 +67,8 @@ public:
 		return false;
 	}
 
+    void Cancel() {}
+
 	// ITaskSet interface
 	int		Init(size_t region[], unsigned int &regCount)
 	{

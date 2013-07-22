@@ -49,7 +49,7 @@ void Intel::OpenCL::Utils::InnerSpinloopImpl()
 /************************************************************************
  * Creates the mutex section object.
 /************************************************************************/
-OclMutex::OclMutex(unsigned int uiSpinCount)
+OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive) : m_uiSpinCount(uiSpinCount), m_bRecursive(recursive)
 {
     m_mutexHndl = new CRITICAL_SECTION();
     InitializeCriticalSectionAndSpinCount((LPCRITICAL_SECTION)m_mutexHndl, uiSpinCount);

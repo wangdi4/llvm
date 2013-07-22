@@ -60,6 +60,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		HandleTypeMap									m_mapObjects;
 		static Intel::OpenCL::Utils::AtomicCounter		m_iNextGenKey;
 		mutable Intel::OpenCL::Utils::OclSpinMutex		m_muMapMutex;
+        bool                                            m_bDisableAdding;
+        bool                                            m_bPreserveUserHandles;
 
 	public:
 
@@ -70,7 +72,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/		
-        OCLObjectsMap() : OCLObjectBase("OCLObjectsMap") {}
+        OCLObjectsMap() : OCLObjectBase("OCLObjectsMap"), m_bDisableAdding(false), m_bPreserveUserHandles(false) {}
 		
 		/******************************************************************************************
 		* Function: 	~OCLObjectsMap
@@ -199,7 +201,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		/******************************************************************************************
 		* Function: 	ReleaseAllObjects    
-		* Description:	calls ->Release() on all contained objects, then clears the map
+		* Description:	calls ->Release() on all contained objects, then clears the map.
+		*               If bPreserveHandles==true set PreserveHandles flag in objects before deletion
 		* Author:		Doron Singer
 		* Date:			July 2010
 		******************************************************************************************/	
@@ -217,7 +220,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/	
 		void Clear();
 
-		// check if current object id exists in map list
+		/******************************************************************************************
+		* Function: 	DisableAdding    
+		* Description:	disable AddObject method
+		* Arguments:	
+		* Return value:	
+		* Author:		Dmitry Kaptsenel
+		* Date:			May 2013
+		******************************************************************************************/	
+		void DisableAdding();
+		void EnableAdding();
+        void SetPreserveUserHandles() { m_bPreserveUserHandles = true; }
+
+        // check if current object id exists in map list
 		bool IsExists(HandleType* hObjectHandle);
 
 	};

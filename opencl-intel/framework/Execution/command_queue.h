@@ -53,6 +53,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code Flush(bool bBlocking)  = 0;
 		virtual cl_err_code SendCommandsToDevice() = 0;
 		virtual cl_err_code NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor ) = 0;
+        virtual cl_err_code CancelAll() = 0;
 	};
 
 	class IOclCommandQueueBase : public OclCommandQueue, public ICommandQueue
@@ -64,8 +65,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
 		virtual cl_err_code EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
 		virtual cl_err_code EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
-		virtual cl_err_code	WaitForCompletion(const SharedPtr<QueueEvent>& pEvent );
+		virtual cl_err_code	WaitForCompletion(const SharedPtr<QueueEvent>& pEvent );    
+        virtual cl_err_code CancelAll();
 		virtual ocl_gpa_data* GetGPAData() const { return m_pContext->GetGPAData(); }
+
+        // manage lifetime slightly differently from another ReferenceCounted objects
+        virtual void EnterZombieState( EnterZombieStateLevel call_level );
 
 	protected:
 
@@ -74,11 +79,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			cl_device_id                clDefaultDeviceID,
 			cl_command_queue_properties clProperties,
 			EventsManager*              pEventManager
-		) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager) {}
+		) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager), m_bCancelAll( false ) {}
 
 		virtual ~IOclCommandQueueBase() {}
 
-	private:
+        virtual  void BecomeVisible();
+
+        volatile bool  m_bCancelAll;
+
+    private:
+
         cl_err_code EnqueueWaitEventsProlog(const SharedPtr<QueueEvent>& pEvent, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
 	};
 }}}    // Intel::OpenCL::Framework

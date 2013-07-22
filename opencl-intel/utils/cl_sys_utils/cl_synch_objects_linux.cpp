@@ -47,12 +47,26 @@ void Intel::OpenCL::Utils::InnerSpinloopImpl()
 /************************************************************************
  * Creates the mutex section object.
  ************************************************************************/
-OclMutex::OclMutex(unsigned int uiSpinCount) : m_uiSpinCount(uiSpinCount)
+OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive) : m_uiSpinCount(uiSpinCount), m_bRecursive(recursive)
 {
-    m_mutexHndl = new pthread_mutex_t;
-    if (0 != pthread_mutex_init((pthread_mutex_t*)m_mutexHndl, NULL))
+    pthread_mutexattr_t     attr;
+    pthread_mutexattr_t*    p_attr = NULL;
+
+    if (m_bRecursive)
     {
-	assert(0 && "Failed initialize pthread mutex");
+        p_attr = &attr;
+        pthread_mutexattr_init( p_attr );
+        pthread_mutexattr_settype( p_attr, PTHREAD_MUTEX_RECURSIVE );
+    }
+
+    m_mutexHndl = new pthread_mutex_t;
+    if (0 != pthread_mutex_init((pthread_mutex_t*)m_mutexHndl, p_attr))
+    {
+        assert(0 && "Failed initialize pthread mutex");
+    }
+    if (NULL != p_attr)
+    {
+        pthread_mutexattr_destroy(p_attr);
     }
 }
 
@@ -63,7 +77,7 @@ OclMutex::~OclMutex()
 {
     if (0 != pthread_mutex_destroy((pthread_mutex_t*)m_mutexHndl))
     {
-	assert(0 && "Failed destroy pthread mutex");
+        assert(0 && "Failed destroy pthread mutex");
     }
     delete((pthread_mutex_t*)m_mutexHndl);
     m_mutexHndl = NULL;
@@ -91,20 +105,20 @@ void OclMutex::spinCountMutexLock()
     int err = 0;
     unsigned int i = 0;
     do
-	{
-	    err = pthread_mutex_trylock((pthread_mutex_t*)m_mutexHndl);
-	    // Mutex lock succeded.
-	    if (err == 0)
-	    {
-	        return;
-	    }
-	    // The mutex could not be acquired because it was already locked.
-	    if (err == EBUSY)
-	    {
+    {
+        err = pthread_mutex_trylock((pthread_mutex_t*)m_mutexHndl);
+        // Mutex lock succeded.
+        if (err == 0)
+        {
+            return;
+        }
+        // The mutex could not be acquired because it was already locked.
+        if (err == EBUSY)
+        {
             // In order to improve the performance of spin-wait loops.
             InnerSpinloopImpl();
-	    }
-	    i++;
+        }
+        i++;
     } while (i < m_uiSpinCount);
     pthread_mutex_lock((pthread_mutex_t*)m_mutexHndl);
 }
@@ -232,37 +246,37 @@ void OclOsDependentEvent::Reset()
  ************************************************************************/
 AtomicCounter::operator long() const
 {
-	return __sync_val_compare_and_swap(const_cast<volatile long*>(&m_val), 0, 0);
+    return __sync_val_compare_and_swap(const_cast<volatile long*>(&m_val), 0, 0);
 }
 
 long AtomicCounter::operator ++() //prefix, returns new val
 {
-	return __sync_add_and_fetch(&m_val, 1);
+    return __sync_add_and_fetch(&m_val, 1);
 }
 long AtomicCounter::operator ++(int alwaysZero) //postfix, returns previous val
 {
-	return __sync_fetch_and_add(&m_val, 1);
+    return __sync_fetch_and_add(&m_val, 1);
 }
 long AtomicCounter::operator --() //prefix, returns new val
 {
-	return __sync_sub_and_fetch(&m_val, 1);
+    return __sync_sub_and_fetch(&m_val, 1);
 }
 long AtomicCounter::operator --(int alwaysZero) //postfix, returns previous val
 {
-	return __sync_fetch_and_sub(&m_val, 1);
+    return __sync_fetch_and_sub(&m_val, 1);
 }
 long AtomicCounter::add(long val)
 {
-	return __sync_add_and_fetch(&m_val, val);
+    return __sync_add_and_fetch(&m_val, val);
 }
 long AtomicCounter::test_and_set(long comparand, long exchange)
 {
-	return __sync_val_compare_and_swap(&m_val, comparand, exchange);	// CAS(*ptr, old, new)
+    return __sync_val_compare_and_swap(&m_val, comparand, exchange);    // CAS(*ptr, old, new)
 }
 
 long AtomicCounter::exchange(long val)
 {
-	return __sync_lock_test_and_set(&m_val, val);
+    return __sync_lock_test_and_set(&m_val, val);
 }
 
 /************************************************************************
@@ -270,69 +284,69 @@ long AtomicCounter::exchange(long val)
  ************************************************************************/
 AtomicBitField::AtomicBitField() : m_size(0), m_oneTimeFlag(0), m_isInitialize(false), m_eventLock()
 {
-	m_bitField = NULL;
-	m_eventLock.Init(false);
+    m_bitField = NULL;
+    m_eventLock.Init(false);
 }
  
 AtomicBitField::~AtomicBitField()
 {
-	if (m_bitField)
-	{
-		free(m_bitField);
-	}
+    if (m_bitField)
+    {
+        free(m_bitField);
+    }
 }
 
 void AtomicBitField::init(unsigned int size, bool initVal)
 {
-	// test if already initialized (by other thread)
-	if ((m_oneTimeFlag != 0) || (! __sync_bool_compare_and_swap(&m_oneTimeFlag, 0, 1)))
-	{
-		if (m_isInitialize)
-		{
-			return;
-		}
+    // test if already initialized (by other thread)
+    if ((m_oneTimeFlag != 0) || (! __sync_bool_compare_and_swap(&m_oneTimeFlag, 0, 1)))
+    {
+        if (m_isInitialize)
+        {
+            return;
+        }
         m_eventLock.Wait();
-		return;
-	}
-	if (size <= 0)
-	{
-		assert(0 && "Error occured while trying to create bit field array, invalid size");
-	}
-	m_size = size;
-	m_bitField = (long*)malloc(sizeof(long) * m_size);
-	if (NULL == m_bitField)
-	{
-		assert(0 && "Error occured while trying to create bit field array, malloc failed");
-	}
-	if (initVal)
-	{
-		std::fill_n(m_bitField, m_size, 1);
-	}
-	else
-	{
-		memset(m_bitField, 0, sizeof(long) * m_size);
-	}
-	m_isInitialize = true;
-	m_eventLock.Signal();
+        return;
+    }
+    if (size <= 0)
+    {
+        assert(0 && "Error occured while trying to create bit field array, invalid size");
+    }
+    m_size = size;
+    m_bitField = (long*)malloc(sizeof(long) * m_size);
+    if (NULL == m_bitField)
+    {
+        assert(0 && "Error occured while trying to create bit field array, malloc failed");
+    }
+    if (initVal)
+    {
+        std::fill_n(m_bitField, m_size, 1);
+    }
+    else
+    {
+        memset(m_bitField, 0, sizeof(long) * m_size);
+    }
+    m_isInitialize = true;
+    m_eventLock.Signal();
 }
 
 
 long AtomicBitField::bitTestAndReset(unsigned int bitNum)
 {
-	if ((NULL == m_bitField) || ((int)bitNum < 0) || (bitNum >= m_size))
-	{
-		return -1;
-	}
-	return __sync_val_compare_and_swap((m_bitField + bitNum), 1, 0);
+    if ((NULL == m_bitField) || ((int)bitNum < 0) || (bitNum >= m_size))
+    {
+        return -1;
+    }
+    return __sync_val_compare_and_swap((m_bitField + bitNum), 1, 0);
 }
 
 long AtomicBitField::bitTestAndSet(unsigned int bitNum)
 {
-	if ((NULL == m_bitField) || ((int)bitNum < 0) || (bitNum >= m_size))
-	{
-		return -1;
-	}
-	return __sync_val_compare_and_swap((m_bitField + bitNum), 0, 1);
+    if ((NULL == m_bitField) || ((int)bitNum < 0) || (bitNum >= m_size))
+    {
+        return -1;
+    }
+    return __sync_val_compare_and_swap((m_bitField + bitNum), 0, 1);
 }
 
 /************************************************************************

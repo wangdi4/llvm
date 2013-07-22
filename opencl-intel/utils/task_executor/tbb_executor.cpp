@@ -41,6 +41,7 @@
 #endif
 #include <cl_sys_defines.h>
 #include <cl_sys_info.h>
+#include <cl_shutdown.h>
 #include <tbb/blocked_range.h>
 #include <tbb/atomic.h>
 #include <tbb/tbb.h>
@@ -51,6 +52,9 @@
 #include "cl_shared_ptr.hpp"
 #include "base_command_list.hpp"
 #include "tbb_execution_schedulers.h"
+
+// no local atexit handler - only global
+USE_SHUTDOWN_HANDLER(NULL);
 
 using namespace Intel::OpenCL::Utils;
 
@@ -75,26 +79,45 @@ INSTANTIATE_THREAD_MANAGER( TBB_PerActiveThreadData );
 unsigned int gWorker_threads = 0;
 AtomicCounter	glTaskSchedCounter;
 
-volatile bool gIsExiting = false;
+void TE_RegisterGlobalAtExitNotification( IAtExitCentralPoint* fn )
+{
+    Intel::OpenCL::Utils::RegisterGlobalAtExitNotification(fn);
+}
 
 static bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list& cmdList)
 {
     bool runNextCommand = true;
+    bool cancel = cmdList.Is_canceled();
 
     if ( pCmd->IsTaskSet() )
     {
         const SharedPtr<ITaskSet>& pTaskSet = pCmd.StaticCast<ITaskSet>();
         assert( NULL != pTaskSet.GetPtr() && "Unexpected NULL dynamic cast");
-        runNextCommand = TBB_ExecutionSchedulers::parallel_execute( cmdList, pTaskSet );
+
+        if (cancel)
+        {
+            pTaskSet->Cancel();
+        }
+        else
+        {
+            runNextCommand = TBB_ExecutionSchedulers::parallel_execute( cmdList, pTaskSet );
+        }
     }
     else
     {
         const SharedPtr<ITask>& pTask = pCmd.StaticCast<ITask>();
-        runNextCommand = pTask->Execute();
+        if (cancel)
+        {
+            pTask->Cancel();
+        }
+        else
+        {
+            runNextCommand = pTask->Execute();
+        }
     }
 
     runNextCommand &= !pCmd->CompleteAndCheckSyncPoint();
-    return runNextCommand;
+    return (cancel || runNextCommand);
 }
 
 void in_order_executor_task::operator()()
@@ -195,23 +218,11 @@ void immediate_executor_task::operator()()
     execute_command(m_pTask, *m_list);
 }
 
-static void Terminate()
-{
-    gIsExiting = true;
-}
-
 /////////////// TaskExecutor //////////////////////
 TBBTaskExecutor::TBBTaskExecutor()
 {
 	INIT_LOGGER_CLIENT("TBBTaskExecutor", LL_DEBUG);
 
-#if _DEBUG
-    const int ret =
-#endif
-        atexit(Terminate);
-#if _DEBUG
-    assert(0 == ret);
-#endif
     // we deliberately don't delete m_pScheduler (see comment above its definition)
 }
 

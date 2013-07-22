@@ -39,7 +39,7 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::TaskExecutor;
 
 ThreadPool* ThreadPool::m_threadPool = NULL;
-__thread WGContext*	ThreadPool::m_tpMasterCtx = NULL;
+__thread WGContext*    ThreadPool::m_tpMasterCtx = NULL;
 
 // 
 // CoreAffinityDescriptor
@@ -117,21 +117,21 @@ ThreadPool::ThreadPool() :
 
 ThreadPool* ThreadPool::getInstance()
 {
-	if (NULL == m_threadPool)
-	{
-		m_threadPool = new ThreadPool();
-		assert(m_threadPool);
-	}
-	return m_threadPool;
+    if (NULL == m_threadPool)
+    {
+        m_threadPool = new ThreadPool();
+        assert(m_threadPool);
+    }
+    return m_threadPool;
 }
 
 void ThreadPool::releaseSingletonInstance()
 {
-	if (m_threadPool)
-	{
-		delete m_threadPool;
-		m_threadPool = NULL;
-	}
+    if (m_threadPool)
+    {
+        delete m_threadPool;
+        m_threadPool = NULL;
+    }
 }
 
 bool ThreadPool::read_device_structure()
@@ -144,8 +144,8 @@ bool ThreadPool::read_device_structure()
 
     // map: coreID -> array of 4 thread IDs
     typedef map< unsigned int, vector<unsigned int> >  CoreId2ThreadIsMap;
-	CoreId2ThreadIsMap                                 coreToThreadsMap;
-	CoreId2ThreadIsMap::iterator                       it;
+    CoreId2ThreadIsMap                                 coreToThreadsMap;
+    CoreId2ThreadIsMap::iterator                       it;
 
     string title;
     int coreID = -1;
@@ -238,9 +238,9 @@ bool ThreadPool::init_base( bool use_affinity,
     m_init_done = true;
 
     m_useAffinity       = use_affinity;
-	#ifdef __OMP_EXECUTOR__
-		m_useAffinity = false;
-	#endif
+    #ifdef __OMP_EXECUTOR__
+        m_useAffinity = false;
+    #endif
     m_useNumberOfCores  = ((number_of_cores > 0 ) && (number_of_cores <= MIC_NATIVE_MAX_CORES)) ? number_of_cores  : MIC_NATIVE_MAX_CORES;
     m_useThreadsPerCore = ((threads_per_core > 0) && (threads_per_core <= MIC_NATIVE_MAX_THREADS_PER_CORE)) ? threads_per_core : MIC_NATIVE_MAX_THREADS_PER_CORE;
     m_useIgnoreFirstCore= ignore_first_core; 
@@ -484,7 +484,7 @@ void* ThreadPool::OnThreadEntry()
     assert (NULL != pCtx && "Referenced context is NULL");
     if ( NULL == pCtx )
     {
-    	return NULL;
+        return NULL;
     }
     
     pCtx->SetThreadId( thread_idx );
@@ -505,16 +505,16 @@ void* ThreadPool::OnThreadEntry()
 // Allocate all necessary resources for the current calling thread
 bool ThreadPool::ActivateCurrentMasterThread()
 {
-	if ( NULL == m_tpMasterCtx )
-	{
-		WGContext* pCtx = new WGContext();
-		assert(NULL != pCtx && "Allocation of master WGContext failed");
-		m_tpMasterCtx = pCtx;
-		setCurrentThreadAffinity(0);
-		m_RootDevice->AttachMasterThread(pCtx);
-	}
-	
-	return (NULL != m_tpMasterCtx);
+    if ( NULL == m_tpMasterCtx )
+    {
+        WGContext* pCtx = new WGContext();
+        assert(NULL != pCtx && "Allocation of master WGContext failed");
+        m_tpMasterCtx = pCtx;
+        setCurrentThreadAffinity(0);
+        m_RootDevice->AttachMasterThread(pCtx);
+    }
+    
+    return (NULL != m_tpMasterCtx);
 }
 
 bool ThreadPool::DeactivateCurrentMasterThread()
@@ -535,7 +535,7 @@ WGContext* ThreadPool::findActiveWGContext()
 {
     unsigned int  thread_idx = m_task_executor->GetPosition();
     return (TE_UNKNOWN == thread_idx) ? NULL :
-    		m_task_executor->IsMaster() ? m_tpMasterCtx : &m_contexts[thread_idx];
+            m_task_executor->IsMaster() ? m_tpMasterCtx : &m_contexts[thread_idx];
 }
 
 void  ThreadPool::OnThreadExit( void* currentThreadData )
@@ -544,10 +544,10 @@ void  ThreadPool::OnThreadExit( void* currentThreadData )
 
 Intel::OpenCL::TaskExecutor::TE_BOOLEAN_ANSWER ThreadPool::MayThreadLeaveDevice( void* currentThreadData )
 {
-	if ( !m_shut_down )
-		return Intel::OpenCL::TaskExecutor::TE_NO;
-	else
-		return Intel::OpenCL::TaskExecutor::TE_YES;
+    if ( !m_shut_down )
+        return Intel::OpenCL::TaskExecutor::TE_NO;
+    else
+        return Intel::OpenCL::TaskExecutor::TE_YES;
 }
 
 void ThreadPool::setCurrentThreadAffinity( unsigned int worker_id )
@@ -560,7 +560,7 @@ void ThreadPool::setCurrentThreadAffinity( unsigned int worker_id )
     if (worker_id >= m_numOfActivatedThreads)
     {
         // in most cases this happens when device with single executable thread is requested.
-		assert( 0 && "Number of workers should not exceed the total amount of workers");
+        assert( 0 && "Number of workers should not exceed the total amount of workers");
         worker_id = 0;
     }
 
@@ -599,18 +599,20 @@ public:
     
 	static inline SharedPtr<WarmUpTask> Allocate( unsigned int num_of_workers ) { return new WarmUpTask( num_of_workers ); }
 
-	int	    Init(size_t region[], unsigned int& regCount);
-	void*   AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) 
-	{
+    void    Cancel() { Finish(FINISH_INIT_FAILED); }
+
+    int     Init(size_t region[], unsigned int& regCount);
+    void*   AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) 
+    {
         return (void*)1;
-	}
-	void    DetachFromThread(void * pWgContext) {}
+    }
+    void    DetachFromThread(void * pWgContext) {}
 
-	// "Main loop"
-	// The function is called with different 'inx' parameters for each iteration number
-	bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = NULL);
+    // "Main loop"
+    // The function is called with different 'inx' parameters for each iteration number
+    bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = NULL);
 
-	bool	Finish(FINISH_REASON reason) { m_completed = 1; return true; }
+    bool    Finish(FINISH_REASON reason) { m_completed = 1; return true; }
 
 	// Returns true in case current task is a synchronization point
 	// No more tasks will be executed in this case
@@ -620,8 +622,8 @@ public:
 	// Returns true if command is already completed
 	bool	SetAsSyncPoint() { return false; }
 
-	// Returns true if command is already completed
-	bool	IsCompleted() const { return (0 != m_completed); }
+    // Returns true if command is already completed
+    bool    IsCompleted() const { return (0 != m_completed); }
 
 	// Returns true if command is already completed
 	void	WaitAllWorkersJoined()
@@ -660,7 +662,7 @@ private:
 int WarmUpTask::Init(size_t region[], unsigned int& regCount)
 {
     regCount = 1;
-    region[0] = startup_workers_left-1;	// Less one for the master slot.
+    region[0] = startup_workers_left-1;    // Less one for the master slot.
     return 0;
 }
 

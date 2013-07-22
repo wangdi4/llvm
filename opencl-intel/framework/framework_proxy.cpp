@@ -24,6 +24,7 @@
 #include "cl_sys_defines.h"
 #include <task_executor.h>
 #include <cl_shared_ptr.hpp>
+#include "cl_shutdown.h"
 
 #if defined (_WIN32)
 #include <windows.h>
@@ -35,11 +36,28 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::TaskExecutor;
 
+#ifdef _WIN32
+    // On Windows OS kills all threads at shutdown except of one that is used to call atexit() and DllMain()
+    // As all thread killing is done when threads are in an arbitrary state we cannot assume that they are not
+    // owning some lock or that they freed their per-thread resources. As our OpenCL implementation objects lifetime
+    // is based on reference counted objects we cannot assume that performing normal shutdown will not block or will
+    // free resources. So on Windows we should just block our external APIs to avoid global object destructors from
+    // DLLs to enter our OpenCL DLLs
+    #define JUST_DISABLE_APIS_AT_SHUTDOWN 
+#else
+    // On Linux all threads are alive and fully functional at atexit() time - do the full shutdown
+    // #define JUST_DISABLE_APIS_AT_SHUTDOWN 
+#endif
+
+
+// no local atexit handler - only global
+USE_SHUTDOWN_HANDLER(NULL);
+
 cl_monitor_init
 
 char clFRAMEWORK_CFG_PATH[MAX_PATH];
 
-KHRicdVendorDispatch	    FrameworkProxy::ICDDispatchTable;
+KHRicdVendorDispatch        FrameworkProxy::ICDDispatchTable;
 COCLCRTDispatchTable        FrameworkProxy::CRTDispatchTable;
 ocl_entry_points            FrameworkProxy::OclEntryPoints;
 
@@ -47,30 +65,40 @@ ocl_entry_points            FrameworkProxy::OclEntryPoints;
 FrameworkProxy * FrameworkProxy::m_pInstance = NULL;
 OclSpinMutex FrameworkProxy::m_initializationMutex;
 
-volatile bool FrameworkProxy::gIsExiting = false;
+volatile FrameworkProxy::GLOBAL_STATE FrameworkProxy::gGlobalState = FrameworkProxy::WORKING;
+THREAD_LOCAL bool                     FrameworkProxy::m_bIgnoreAtExit = false;
+
+std::set<Intel::OpenCL::Utils::at_exit_dll_callback_fn>   FrameworkProxy::m_at_exit_cbs;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 FrameworkProxy::FrameworkProxy()
-{	
-	m_pPlatformModule = NULL;
-	m_pContextModule = NULL;
-	m_pExecutionModule = NULL;
-	m_pFileLogHandler = NULL;
-	m_pConfig = NULL;
-	m_pLoggerClient = NULL;
+{    
+    m_pPlatformModule = NULL;
+    m_pContextModule = NULL;
+    m_pExecutionModule = NULL;
+    m_pFileLogHandler = NULL;
+    m_pConfig = NULL;
+    m_pLoggerClient = NULL;
 	m_pTaskExecutor = NULL;
 	m_pTaskList     = NULL;
 	m_uiTEActivationCount = NULL;
-	
-	Initialize();
-}	
+    
+    RegisterGlobalAtExitNotification        ( this );
+#ifndef _WIN32
+    // on Linux Logger is implemented as a separate DLL
+    Logger::RegisterGlobalAtExitNotification( this );
+#endif
+    TE_RegisterGlobalAtExitNotification     ( this );
+
+    Initialize();
+}    
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // ~FrameworkProxy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 FrameworkProxy::~FrameworkProxy()
-{	  
+{      
 }
 
 void FrameworkProxy::InitOCLEntryPoints()
@@ -232,64 +260,64 @@ void FrameworkProxy::Initialize()
     // Initialize entry points table
     InitOCLEntryPoints();
 
-	char szModuleBuff[MAX_PATH] = "";
-	
-	Intel::OpenCL::Utils::GetModuleDirectory(szModuleBuff, MAX_PATH);
-	
-	STRCAT_S(clFRAMEWORK_CFG_PATH, MAX_PATH, szModuleBuff);
-	STRCAT_S(clFRAMEWORK_CFG_PATH, MAX_PATH, "cl.cfg");
+    char szModuleBuff[MAX_PATH] = "";
+    
+    Intel::OpenCL::Utils::GetModuleDirectory(szModuleBuff, MAX_PATH);
+    
+    STRCAT_S(clFRAMEWORK_CFG_PATH, MAX_PATH, szModuleBuff);
+    STRCAT_S(clFRAMEWORK_CFG_PATH, MAX_PATH, "cl.cfg");
 
-	// initialize configuration file
-	m_pConfig = new OCLConfig();
+    // initialize configuration file
+    m_pConfig = new OCLConfig();
     if (NULL == m_pConfig)
     {
         //Todo: terrible crash imminent
         return;
     }
-	m_pConfig->Initialize(clFRAMEWORK_CFG_PATH);
+    m_pConfig->Initialize(clFRAMEWORK_CFG_PATH);
 
-	bool bUseLogger = m_pConfig->UseLogger();
-	if (bUseLogger)
-	{
-		string str = m_pConfig->GetLogFile();
-		if (str != "")
-		{
-			// Construct file name with process ID
-			// Search for file extension
-			size_t ext = str.rfind(".");
-			if ( string::npos == ext )
-			{
-				// If "." not found -> no extension
-				ext = str.length();
-			}
-			// Add Process if before the "."
-			//Calculate Extension lenght
-			std::string procId;
+    bool bUseLogger = m_pConfig->UseLogger();
+    if (bUseLogger)
+    {
+        string str = m_pConfig->GetLogFile();
+        if (str != "")
+        {
+            // Construct file name with process ID
+            // Search for file extension
+            size_t ext = str.rfind(".");
+            if ( string::npos == ext )
+            {
+                // If "." not found -> no extension
+                ext = str.length();
+            }
+            // Add Process if before the "."
+            //Calculate Extension lenght
+            std::string procId;
             const unsigned int pid_length = 16;
-			procId.resize(pid_length);
-			SPRINTF_S(&procId[0], pid_length, "_%d", GetProcessId());
+            procId.resize(pid_length);
+            SPRINTF_S(&procId[0], pid_length, "_%d", GetProcessId());
             procId.resize(strlen(&procId[0]));
-			str.insert(ext, procId);
+            str.insert(ext, procId);
 
-			// Prepare log title
-			char     strProcName[MAX_PATH];
-			GetProcessName(strProcName, MAX_PATH);
-			std::string title = "---------------------------------> ";
-			title += strProcName;
-			title += " <-----------------------------------\n";
+            // Prepare log title
+            char     strProcName[MAX_PATH];
+            GetProcessName(strProcName, MAX_PATH);
+            std::string title = "---------------------------------> ";
+            title += strProcName;
+            title += " <-----------------------------------\n";
 
-			// initialise logger
-			m_pFileLogHandler = new FileLogHandler(TEXT("cl_framework"));
-			cl_err_code clErrRet = m_pFileLogHandler->Init(LL_DEBUG, str.c_str(), title.c_str());
-			if (CL_SUCCEEDED(clErrRet))
-			{
-				Logger::GetInstance().AddLogHandler(m_pFileLogHandler);
-			}
-		}
-	}
-	Logger::GetInstance().SetActive(bUseLogger);
+            // initialise logger
+            m_pFileLogHandler = new FileLogHandler(TEXT("cl_framework"));
+            cl_err_code clErrRet = m_pFileLogHandler->Init(LL_DEBUG, str.c_str(), title.c_str());
+            if (CL_SUCCEEDED(clErrRet))
+            {
+                Logger::GetInstance().AddLogHandler(m_pFileLogHandler);
+            }
+        }
+    }
+    Logger::GetInstance().SetActive(bUseLogger);
 
-	INIT_LOGGER_CLIENT(TEXT("FrameworkProxy"), LL_DEBUG);
+    INIT_LOGGER_CLIENT(TEXT("FrameworkProxy"), LL_DEBUG);
 #if defined(USE_ITT)
 	m_GPAData.bUseGPA = m_pConfig->EnableITT();
 	m_GPAData.bEnableAPITracing = m_pConfig->EnableAPITracing();
@@ -319,12 +347,13 @@ void FrameworkProxy::Initialize()
 			__itt_string_handle* pContextTrackGroupHandle = __itt_string_handle_create("Context Track Group");
 			m_GPAData.pContextTrackGroup = __itt_track_group_create(pContextTrackGroupHandle, __itt_track_group_type_normal);
 
-			// Create task states
-			m_GPAData.pWaitingTaskState = __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Waiting");
-			m_GPAData.pRunningTaskState = __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Running");
-		}
-		#endif
-		m_GPAData.pNDRangeHandle = __itt_string_handle_create("NDRange");
+            // Create task states
+            m_GPAData.pWaitingTaskState = __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Waiting");
+            m_GPAData.pRunningTaskState = __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Running");
+        }
+        #endif
+
+        m_GPAData.pNDRangeHandle = __itt_string_handle_create("NDRange");
 		m_GPAData.pReadHandle = __itt_string_handle_create("Read MemoryObject");
 		m_GPAData.pWriteHandle = __itt_string_handle_create("Write MemoryObject");
 		m_GPAData.pCopyHandle = __itt_string_handle_create("Copy MemoryObject");
@@ -341,30 +370,30 @@ void FrameworkProxy::Initialize()
 		m_GPAData.pLocalWorkSizeHandle = __itt_string_handle_create("Local Work Size W/H/D");
 		m_GPAData.pGlobalWorkOffsetHandle = __itt_string_handle_create("Global Work Offset");
 
-		m_GPAData.pStartPos    = __itt_string_handle_create("Start W/H/D");
-		m_GPAData.pEndPos      = __itt_string_handle_create("End W/H/D");
+        m_GPAData.pStartPos    = __itt_string_handle_create("Start W/H/D");
+        m_GPAData.pEndPos      = __itt_string_handle_create("End W/H/D");
 
-		m_GPAData.pIsBlocking = __itt_string_handle_create("Blocking");
-		m_GPAData.pNumEventsInWaitList = __itt_string_handle_create("#Events in Wait List");
-	}
+        m_GPAData.pIsBlocking = __itt_string_handle_create("Blocking");
+        m_GPAData.pNumEventsInWaitList = __itt_string_handle_create("#Events in Wait List");
+    }
 #endif // ITT
 	
 	LOG_INFO(TEXT("%s"), "Initialize platform module: m_PlatformModule = new PlatformModule()");
 	m_pPlatformModule = new PlatformModule();
 	m_pPlatformModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
 
-	LOG_INFO(TEXT("Initialize context module: m_pContextModule = new ContextModule(%d)"),m_pPlatformModule);
-	m_pContextModule = new ContextModule(m_pPlatformModule);
-	m_pContextModule->Initialize(&OclEntryPoints, &m_GPAData);
+    LOG_INFO(TEXT("Initialize context module: m_pContextModule = new ContextModule(%d)"),m_pPlatformModule);
+    m_pContextModule = new ContextModule(m_pPlatformModule);
+    m_pContextModule->Initialize(&OclEntryPoints, &m_GPAData);
 
-	LOG_INFO(TEXT("Initialize context module: m_pExecutionModule = new ExecutionModule(%d,%d)"), m_pPlatformModule, m_pContextModule);
-	m_pExecutionModule = new ExecutionModule(m_pPlatformModule, m_pContextModule);
-	m_pExecutionModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
+    LOG_INFO(TEXT("Initialize context module: m_pExecutionModule = new ExecutionModule(%d,%d)"), m_pPlatformModule, m_pContextModule);
+    m_pExecutionModule = new ExecutionModule(m_pPlatformModule, m_pContextModule);
+    m_pExecutionModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
 
 	// Initialize TaskExecutor
 	LOG_INFO(TEXT("%s"), "Initialize Executor");
 	m_pTaskExecutor = GetTaskExecutor();
-	m_pTaskExecutor->Init(TE_AUTO_THREADS, &m_GPAData);
+    m_pTaskExecutor->Init(TE_AUTO_THREADS, &m_GPAData);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -372,12 +401,21 @@ void FrameworkProxy::Initialize()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Destroy()
 {
-	if (NULL != m_pInstance)
-	{
-		m_pInstance->Release(true);
-		delete m_pInstance;
-		m_pInstance = NULL;
-	}
+    if (NULL != m_pInstance)
+    {
+#ifdef JUST_DISABLE_APIS_AT_SHUTDOWN
+        // If this function is called during process shutdown AND we should just disable external APIs
+        // do not delete and release anything as it meay deadlock
+        if (TERMINATED != gGlobalState)
+        {
+#endif
+            m_pInstance->Release(true);
+            delete m_pInstance;
+#ifdef JUST_DISABLE_APIS_AT_SHUTDOWN
+        }
+#endif
+        m_pInstance = NULL;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -385,11 +423,13 @@ void FrameworkProxy::Destroy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Release(bool bTerminate)
 {
-	LOG_DEBUG(TEXT("%s"), TEXT("FrameworkProxy::Release enter"));
+    LOG_DEBUG(TEXT("%s"), TEXT("FrameworkProxy::Release enter"));
 
-    if (gIsExiting)
+    if (TERMINATED != gGlobalState)
     {
-        bTerminate = true;
+        // Many modules assume that FrameWorkProxy singleton, execution_module, context_module and platform_module
+        // exist all the time -> we must ensure that everything is shut down before deleting them.
+        m_pInstance->m_pContextModule->ShutDown(true);
     }
 
     if (NULL != m_pExecutionModule)
@@ -403,7 +443,7 @@ void FrameworkProxy::Release(bool bTerminate)
         m_pContextModule->Release(bTerminate);
         delete m_pContextModule;
     }
-	
+    
     if (NULL != m_pPlatformModule)
     {
         m_pPlatformModule->Release(bTerminate);
@@ -423,47 +463,116 @@ void FrameworkProxy::Release(bool bTerminate)
         m_pTaskList     = NULL;
     }
     m_pTaskExecutor = NULL;
-	
-	if (NULL != m_pFileLogHandler)
-	{
-		m_pFileLogHandler->Flush();
-		delete m_pFileLogHandler;
-		m_pFileLogHandler = NULL;
-	}
+    
+    if (NULL != m_pFileLogHandler)
+    {
+        m_pFileLogHandler->Flush();
+        delete m_pFileLogHandler;
+        m_pFileLogHandler = NULL;
+    }
     if (NULL != m_pConfig)
     {
         m_pConfig->Release();
         delete m_pConfig;
         m_pConfig = NULL;
     }
-	cl_monitor_summary;
+    cl_monitor_summary;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::TerminateProcess()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+void FrameworkProxy::RegisterDllCallback( at_exit_dll_callback_fn cb )
+{
+    if (NULL != cb)
+    {
+        OclAutoMutex cs(&m_initializationMutex);
+        m_at_exit_cbs.insert(cb);
+    }
+}
+
+void FrameworkProxy::UnregisterDllCallback( at_exit_dll_callback_fn cb )
+{
+    if (NULL != cb)
+    {
+        OclAutoMutex cs(&m_initializationMutex);
+        m_at_exit_cbs.erase(cb);
+    }
+}
+
+void FrameworkProxy::AtExitTrigger( at_exit_dll_callback_fn cb )
+{
+    if (isDllUnloadingState())
+    {
+        UnregisterDllCallback( cb );
+        cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_DLL_UNLOADING_MODE);
+        cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_DLL_UNLOADING_MODE);
+    }
+    else
+    {
+        TerminateProcess();
+    }
+}
+
 void FrameworkProxy::TerminateProcess()
 {
+    if (WORKING != gGlobalState)
+    {
+        return;
+    }
+    
     // references to other DLLs are not safe on Linux at exit 
-    gIsExiting = true;
+
+    // normal shutdown
+    gGlobalState = TERMINATING;
+
+    // notify all DLLs that at_exit started 
+    {
+        OclAutoMutex cs(&m_initializationMutex);
+        for (std::set<at_exit_dll_callback_fn>::iterator it = m_at_exit_cbs.begin(); it != m_at_exit_cbs.end(); ++it)
+        {
+            at_exit_dll_callback_fn cb = *it;
+            cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_PROCESS_UNLOADING_MODE);
+        }
+    }
+
+#ifndef JUST_DISABLE_APIS_AT_SHUTDOWN
+    if (NULL != m_pInstance)
+    {
+        m_pInstance->m_pContextModule->ShutDown(true);
+    }
+#endif
+
+    gGlobalState = TERMINATED;
+
+    // notify all DLLs that at_exit occured 
+    {
+        OclAutoMutex cs(&m_initializationMutex);
+        for (std::set<at_exit_dll_callback_fn>::iterator it = m_at_exit_cbs.begin(); it != m_at_exit_cbs.end(); ++it)
+        {
+            at_exit_dll_callback_fn cb = *it;
+            cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_PROCESS_UNLOADING_MODE);
+        }
+        m_at_exit_cbs.clear();
+    }
+    
+#if defined(_DEBUG) && !defined(JUST_DISABLE_APIS_AT_SHUTDOWN)    
+    DumpSharedPts("TerminateProcess - only SharedPtrs local to intelocl DLL", true);    
+#endif
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Instance()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 FrameworkProxy* FrameworkProxy::Instance()
 {
-	if (NULL == m_pInstance)
-	{
-		OclAutoMutex cs(&m_initializationMutex);
-		if (NULL == m_pInstance)
-		{
-#ifndef _WIN32            
-            // Linux
-            atexit(TerminateProcess);
-#endif
-			m_pInstance = new FrameworkProxy();
-		}
-	}
-	return m_pInstance;
+    if (NULL == m_pInstance)
+    {
+        OclAutoMutex cs(&m_initializationMutex);
+        if (NULL == m_pInstance)
+        {
+            m_pInstance = new FrameworkProxy();            
+        }
+    }
+    return m_pInstance;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -512,7 +621,7 @@ bool FrameworkProxy::ActivateTaskExecutor() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::DeactivateTaskExecutor() const
 {
-    if (gIsExiting)
+    if (TERMINATED == gGlobalState)
     {
         return;
     }
@@ -546,3 +655,19 @@ bool FrameworkProxy::Execute(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL
     m_pTaskList->Flush();
     return true;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// FrameworkProxy::Execute()
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void  FrameworkProxy::CancelAllTasks(bool wait_for_finish) const
+{
+    if (NULL != m_pTaskList)
+    {
+        m_pTaskList->Cancel();
+        if (wait_for_finish)
+        {
+            m_pTaskList->WaitForCompletion(NULL);
+        }
+    }
+}
+

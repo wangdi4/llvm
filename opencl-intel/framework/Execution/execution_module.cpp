@@ -24,6 +24,7 @@
 //  Created on:      23-Dec-2008 3:23:00 PM
 //  Original author: Peleg, Arnon
 ///////////////////////////////////////////////////////////
+#include "framework_proxy.h"
 #include "execution_module.h"
 #include "platform_module.h"
 #include "context_module.h"
@@ -389,15 +390,21 @@ cl_err_code ExecutionModule::Flush ( cl_command_queue clCommandQueue )
  ******************************************************************/
 cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
 {
-	cl_err_code res = CL_SUCCESS;
-	cl_event dummy = NULL;
 	SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
 	if (NULL == pCommandQueue)
 	{
 		return CL_INVALID_COMMAND_QUEUE;
 	}
 
-	res = EnqueueMarker(clCommandQueue, &dummy);
+    return Finish(pCommandQueue);
+}
+
+cl_err_code ExecutionModule::Finish ( const SharedPtr<IOclCommandQueueBase>& pCommandQueue)
+{
+    cl_err_code res = CL_SUCCESS;
+	cl_event dummy = NULL;
+
+	res = EnqueueMarker(pCommandQueue, &dummy);
 	if (CL_FAILED(res))
 	{
 		return res;
@@ -423,11 +430,16 @@ cl_err_code ExecutionModule::Finish ( cl_command_queue clCommandQueue)
  */
 cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
 {
-    SharedPtr<IOclCommandQueueBase> const pCommandQueue = GetCommandQueue(clCommandQueue);    
+    SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);    
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
+    return EnqueueMarkerWithWaitList(  pCommandQueue, uiNumEvents, pEventList, pEvent);
+}
+
+cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(const SharedPtr<IOclCommandQueueBase>& pCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent)
+{
     if ((NULL == pEventList && uiNumEvents > 0) || (NULL != pEventList && 0 == uiNumEvents))
     {
         return CL_INVALID_EVENT_WAIT_LIST;
@@ -509,6 +521,11 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(cl_command_queue clComma
  * 
  ******************************************************************/
 cl_err_code ExecutionModule::EnqueueMarker(cl_command_queue clCommandQueue, cl_event *pEvent)
+{
+	return EnqueueMarkerWithWaitList(clCommandQueue, 0, NULL, pEvent);
+}
+
+cl_err_code ExecutionModule::EnqueueMarker(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_event *pEvent)
 {
 	return EnqueueMarkerWithWaitList(clCommandQueue, 0, NULL, pEvent);
 }
@@ -625,12 +642,57 @@ cl_err_code ExecutionModule::RetainEvent(cl_event clEevent)
  ******************************************************************/
 cl_err_code ExecutionModule::ReleaseEvent(cl_event clEvent)
 {
+    // Is it a UserEvent? If yes - save its pointer.
+	SharedPtr<UserEvent> pUserEvent = m_pEventsManager->GetEventClass<UserEvent>(clEvent);
+
     cl_err_code res = m_pEventsManager->ReleaseEvent(clEvent);
     if CL_FAILED(res)
     {
         res = CL_INVALID_EVENT;
     }
-    return res;
+
+    if ((NULL != pUserEvent) && (NULL == m_pEventsManager->GetEventClass<UserEvent>(clEvent)))
+    {
+        // it was the last user event reference
+	    if (CL_COMPLETE != pUserEvent->GetEventExecState())
+	    {
+		    pUserEvent->SetComplete(CL_CONTEXT_CANCEL_INTEL);
+	    }
+    }
+
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ * 
+ ******************************************************************/
+typedef std::list<SharedPtr<UserEvent> >  EventsListType;
+void ExecutionModule::ReleaseAllUserEvents( bool preserve_user_handles)
+{
+    EventsListType           event_list;
+    EventsListType::iterator event_list_it;
+    EventsListType::iterator event_list_it_end;
+
+    m_pEventsManager->DisableNewEvents();
+    m_pEventsManager->GetAllEventClass<UserEvent>( event_list );
+    m_pEventsManager->EnableNewEvents(); // finish uses this
+
+    if (preserve_user_handles)
+    {
+        m_pEventsManager->SetPreserveUserHandles();
+    }
+
+    event_list_it_end  = event_list.end();
+    for (event_list_it=event_list.begin(); event_list_it != event_list_it_end; ++event_list_it)
+    {
+        SharedPtr<UserEvent>& pUserEvent = *event_list_it;
+        if (pUserEvent->GetEventExecState() != CL_COMPLETE)
+	    {
+		    pUserEvent->SetComplete(CL_CONTEXT_CANCEL_INTEL);
+	    }
+        
+        m_pEventsManager->ReleaseEvent( pUserEvent->GetHandle() );
+    }
 }
 
 /******************************************************************
@@ -3341,6 +3403,16 @@ cl_err_code ExecutionModule::FlushAllQueuesForContext(cl_context clEventsContext
 		return CL_ERR_KEY_NOT_FOUND;
 	}
 	return CL_SUCCESS;
+}
+
+void ExecutionModule::DeleteAllActiveQueues(bool preserve_user_handles)
+{
+    m_pOclCommandQueueMap->DisableAdding();
+    if (preserve_user_handles)
+    {
+        m_pOclCommandQueueMap->SetPreserveUserHandles();
+    }
+    m_pOclCommandQueueMap->ReleaseAllObjects(false);
 }
 
 /**

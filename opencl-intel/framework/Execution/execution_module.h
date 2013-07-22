@@ -144,6 +144,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #endif
 
         cl_err_code         Release(bool bTerminate);
+        cl_err_code         Finish                  ( const SharedPtr<IOclCommandQueueBase>& pCommandQueue);
+        void                DeleteAllActiveQueues( bool preserve_user_handles );
+
 		cl_int EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint uiNumSvmPointers, void* pSvmPointers[],
 							  void (CL_CALLBACK* pfnFreeFunc)(cl_command_queue queue, cl_uint uiNumSvmPointers, void* pSvmPointers[], void* pUserData),
 							  void* pUserData, cl_uint uiNumEventsInWaitList,	const cl_event* pEventWaitList,	cl_event* pEvent);
@@ -156,9 +159,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_int EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* pSvmPtr, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent);
 
         EventsManager*      GetEventsManager() const { return m_pEventsManager; }
-        ocl_entry_points *  GetDispatchTable() const {return m_pOclEntryPoints; }
-        ocl_gpa_data *      GetGPAData() const { return m_pGPAData; }
+        void                ReleaseAllUserEvents( bool preserve_user_handles );
 
+		ocl_entry_points *  GetDispatchTable() const {return m_pOclEntryPoints; }
+
+		ocl_gpa_data *      GetGPAData() const { return m_pGPAData; }
     private:
 	    // Private functions
         SharedPtr<IOclCommandQueueBase>    GetCommandQueue(cl_command_queue clCommandQueue);
@@ -169,6 +174,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                CheckMemoryObjectOverlapping(SharedPtr<MemoryObject> pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion);
         size_t              CalcRegionSizeInBytes(SharedPtr<MemoryObject> pImage, const size_t* szRegion);
         cl_err_code         FlushAllQueuesForContext(cl_context ctx);
+        cl_err_code         EnqueueMarkerWithWaitList(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent);
+        cl_err_code         EnqueueMarker(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_event *pEvent);
 
         PlatformModule*     m_pPlatfromModule;                                                  // Pointer to the platform operation. This is the internal interface of the module.
         ContextModule*      m_pContextModule;                                                   // Pointer to the context operation. This is the internal interface of the module.

@@ -189,6 +189,8 @@ typedef cl_uint                           cl_accelerator_info_intel;
 #define CL_INVALID_ACCELERATOR_TYPE_INTEL               -6001
 #define CL_INVALID_ACCELERATOR_DESC_INTEL               -6002
 #define CL_ACCELERATOR_TYPE_NOT_SUPPORTED_INTEL         -6003
+/* context is canceled by user or during process shutdown */
+#define CL_CONTEXT_CANCEL_INTEL                         -6004
 
 /* cl_accelerator_type_intel */
 //#define CL_ACCELERATOR_TYPE_MOTION_DETECT_INTEL

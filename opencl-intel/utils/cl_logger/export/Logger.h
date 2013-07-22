@@ -34,6 +34,7 @@
 #include "cl_synch_objects.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
+    class IAtExitCentralPoint;
 
 	/**********************************************************************************************
 	* Class name:	LoggerClient
@@ -189,6 +190,17 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 		bool IsActive() const { return m_bIsActive; }
 
+        /******************************************************************************************
+        * Function:     RegisterAtExitNotification
+        * Description:  store at_exit notification callback to be called immediately when DLL receives atexit() notification
+        *               from OS BEFORE any other internal action.
+        * Arguments:    [in] at_exit_notification_fn. NULL if need to disable callback
+        * Return value:
+        * Author:       Dmitry Kaptsenel
+        * Date:         
+        ******************************************************************************************/
+        static void RegisterGlobalAtExitNotification( IAtExitCentralPoint* fn );
+
 	private:
 
 		// each logging output generator is being represented by a LogHandler. Logger will
@@ -203,6 +215,5 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		OclMutex	m_CS;
 
 	};
-
 
 }}}

@@ -85,6 +85,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		OclEventState           SetEventState(OclEventState newColor); //returns the previous color
 
+        // return true is command was ever executed
+        bool        EverIssuedToDevice() const { return m_bEverIssuedToDevice; }
+
 	protected:
         QueueEvent( SharedPtr<IOclCommandQueueBase> cmdQueue);
 
@@ -104,6 +107,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	
 	private:
 
+        bool                    m_bEverIssuedToDevice;
         void operator delete(void* p);
 
 		ocl_gpa_data*           m_pGPAData;

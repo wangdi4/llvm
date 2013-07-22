@@ -69,6 +69,7 @@ public:
 	virtual te_wait_result  WaitForCompletion(const SharedPtr<ITaskBase>& pTask) { return TE_WAIT_COMPLETED; };
 	virtual void            Retain();
 	virtual void            Release();
+    virtual void	        Cancel() {};
 
 protected:
 	WGContextBase* const m_pMasterWGContext;
@@ -457,6 +458,28 @@ cl_dev_err_code TaskDispatcher::commandListWaitCompletion( cl_dev_cmd_list IN li
 	return retVal;
 }
 
+/******************************************************************************************************************
+cancelCommandList
+	Description
+		This function cancels the content of a list, all waiting commands are sent to execution.
+	Input
+		list						A valid handle to device command list
+	Output
+		None
+	Returns
+		CL_DEV_SUCCESS				The function is executed successfully
+		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
+*******************************************************************************************************************/
+cl_dev_err_code TaskDispatcher::cancelCommandList( cl_dev_cmd_list IN list)
+{
+	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - cancel list %X"), list);
+	// No need in lock
+	((ITaskList*)list)->Cancel();
+	((ITaskList*)list)->Flush();
+	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - cancel list %X"), list);
+	return CL_DEV_SUCCESS;
+}
+
 /********************************************************************************************************************
 commandListExecute
 	Description
@@ -575,7 +598,7 @@ void TaskDispatcher::NotifyCommandStatusChange(const cl_dev_cmd_desc* pCmd, unsi
 	m_pFrameworkCallBacks->clDevCmdStatusChanged(pCmd->id, pCmd->data, uStatus, iErr, timer);
 }
 
-bool TaskDispatcher::TaskFailureNotification::Execute()
+bool TaskDispatcher::TaskFailureNotification::Shoot(cl_dev_err_code err)
 {
 	cl_ulong timer = 0;
 
@@ -586,7 +609,7 @@ bool TaskDispatcher::TaskFailureNotification::Execute()
 		timer = HostTime();
 	}
 
-	m_pTaskDispatcher->m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, CL_COMPLETE, (cl_int)CL_DEV_ERROR_FAIL, timer);
+	m_pTaskDispatcher->m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, CL_COMPLETE, (cl_int)err, timer);
 	return true;
 }
 

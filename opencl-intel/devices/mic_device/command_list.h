@@ -47,54 +47,56 @@ public:
     virtual ~CommandList();
 
     /* Factory for commandList objects (InOrder / OutOfOrder)
-	   props - the properties of the new command list.
-	   pNotificationPort - reference to device NotificationPort object.
-	   pDeviceServiceComm - reference to device DeviceServiceCommunication object.
-	   outCommandList - out parameter which include the new CommandList object if succeeded.
-	   It can fail if COIPipelineCreate create fails.
-	   Return CL_DEV_SUCCESS if succeeded. */
+       props - the properties of the new command list.
+       pNotificationPort - reference to device NotificationPort object.
+       pDeviceServiceComm - reference to device DeviceServiceCommunication object.
+       outCommandList - out parameter which include the new CommandList object if succeeded.
+       It can fail if COIPipelineCreate create fails.
+       Return CL_DEV_SUCCESS if succeeded. */
     static cl_dev_err_code commandListFactory(cl_dev_cmd_list_props IN      props, 
                                               cl_dev_subdevice_id           subDeviceId, 
                                               const SharedPtr<NotificationPort>&  pNotificationPort, 
                                               DeviceServiceCommunication*   pDeviceServiceComm,
-                                              IOCLFrameworkCallbacks*       pFrameworkCallBacks,
-                                              ProgramService*               pProgramService,
+                                              IOCLFrameworkCallbacks*       pFrameworkCallBacks, 
+                                              ProgramService*               pProgramService, 
                                               PerformanceDataStore*         pOverheadData,
 #ifdef USE_ITT
                                               const ocl_gpa_data* pGPAData,
 #endif
-
                                               CommandList**                 outCommandList);
 
     /* Do nothing because the COIPipeline send the command as it enter to it. (Flush is redundant) */
-	cl_dev_err_code flushCommandList() { return CL_DEV_SUCCESS; };
+    cl_dev_err_code flushCommandList() { return CL_DEV_SUCCESS; };
 
-	/* Increment the command list reference counter.
+    /* Increment the command list reference counter.
        Return CL_DEV_SUCCESS if succeeded and CL_DEV_INVALID_OPERATION if failed. */
-	cl_dev_err_code retainCommandList();
+    cl_dev_err_code retainCommandList();
 
-	/* Decrement the command list reference counter.
-	   outDelete - set to true in case of reference counter = 0 and retain operation succeeded.
-	   Return CL_DEV_SUCCESS if succeeded and CL_DEV_INVALID_OPERATION if failed.*/
-	cl_dev_err_code releaseCommandList(bool* outDelete);
+    /* Decrement the command list reference counter.
+       outDelete - set to true in case of reference counter = 0 and retain operation succeeded.
+       Return CL_DEV_SUCCESS if succeeded and CL_DEV_INVALID_OPERATION if failed.*/
+    cl_dev_err_code releaseCommandList(bool* outDelete);
 
-	/* Perform the commands or enqueue it to COIPipeline.
-	   It is NOT thread safe method. */
-	cl_dev_err_code commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
+    /* Set command list to a cancel state */
+    cl_dev_err_code cancelCommandList();
 
-	/* If cmdDescToWait != NULL waiting on the Command that store in cmdDescToWait->device_agent_data, otherwise wait to m_lastCommand Command. */
+    /* Perform the commands or enqueue it to COIPipeline.
+       It is NOT thread safe method. */
+    cl_dev_err_code commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
+
+    /* If cmdDescToWait != NULL waiting on the Command that store in cmdDescToWait->device_agent_data, otherwise wait to m_lastCommand Command. */
 	void commandListWaitCompletion(cl_dev_cmd_desc* cmdDescToWait = NULL);
 
-	/* Return this queue COIPIPLINE */
-	COIPIPELINE getPipelineHandle() const { return m_pipe; };
+    /* Return this queue COIPIPLINE */
+    COIPIPELINE getPipelineHandle() const { return m_pipe; };
 
 	/* Return handle to COIFUNCTION according to the appropriate id */
     COIFUNCTION getDeviceFunction( DeviceServiceCommunication::DEVICE_SIDE_FUNCTION id ) const
                                         { return m_pDeviceServiceComm->getDeviceFunction( id ); };
 
-	/* Return device COIPROCESS handle */
-	COIPROCESS getDeviceProcess() const
-						{ return m_pDeviceServiceComm->getDeviceProcessHandle(); };
+    /* Return device COIPROCESS handle */
+    COIPROCESS getDeviceProcess() const
+                        { return m_pDeviceServiceComm->getDeviceProcessHandle(); };
 
     /* Run service function on a queue pipeline */
     bool runQueueServiceFunction(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION id,
@@ -113,7 +115,7 @@ public:
 
 	const SharedPtr<NotificationPort>& getNotificationPort() { return m_pNotificationPort; };
 
-	ProgramService* getProgramService() { return m_pProgramService; };
+    ProgramService* getProgramService() { return m_pProgramService; };
 
     PerformanceDataStore* getOverheadData() { return m_pOverhead_data; };
 
@@ -126,6 +128,8 @@ public:
 
 	/* return true if the queue is InOrder command list */
 	bool isInOrderCommandList() { return m_isInOrderQueue; };
+
+    bool isCanceled() const { return m_bIsCanceled; }
 
 	const ocl_gpa_data* GetGPAInfo() const { return m_pGPAData;}
 
@@ -144,29 +148,30 @@ protected:
 #endif
 	            );
 
-	// the last dependency barrier COIBarrier.
-	COIEVENT          m_lastDependentBarrier;
-	bool              m_validBarrier;
+    // the last dependency barrier COIBarrier.
+    COIEVENT          m_lastDependentBarrier;
+    bool              m_validBarrier;
 
 private:
 
-	// definition of static function of Commands that create command object (factory)
+    // definition of static function of Commands that create command object (factory)
 	typedef cl_dev_err_code fnCommandCreate_t(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
-	/* Create new COIPIPELINE for this queue */
-	cl_dev_err_code createPipeline();
+    /* Create new COIPIPELINE for this queue */
+    cl_dev_err_code createPipeline();
 
-	/* Call init_commands_queue() on device side. Call it after pipeline creation. */
-	cl_dev_err_code initCommandListOnDevice();
+    /* Call init_commands_queue() on device side. Call it after pipeline creation. */
+    cl_dev_err_code initCommandListOnDevice();
 
-	/* Call release_commands_queue() on device side. Call it before pipeline destruction. */
-	cl_dev_err_code releaseCommandListOnDevice();
+    /* Call release_commands_queue() on device side. Call it before pipeline destruction. */
+    cl_dev_err_code releaseCommandListOnDevice();
 
-	/* Run function on device and wait for completion.
-	   Run it without buffers data.
-	   Run "func" on device side. */
-	cl_dev_err_code runBlockingFuncOnDevice(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION func,
-	                                        void* in_data = NULL, size_t in_data_size = 0 );
+    /* Run function on device and wait for completion.
+       Run it without buffers data.
+       Run "func" on device side. */
+    cl_dev_err_code runBlockingFuncOnDevice(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION func,
+                                            void* in_data = NULL, size_t in_data_size = 0,
+                                            void* out_data = NULL,size_t out_data_size = 0);
 
 	/* Factory for Command objects.
 	   The client responsibility is to delete the return object.
@@ -188,6 +193,7 @@ private:
 	AtomicCounter                         m_refCounter;
 	// the pipe line to MIC device
 	COIPIPELINE                           m_pipe;
+    uint64_t                          m_pDeviceAddress;
 	// pointer to static function that create Command object
 	static fnCommandCreate_t*             m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
 	// Sub device ID
@@ -206,15 +212,16 @@ private:
 	// True if this is in order CommandList, otherwise False.
 	bool                                  m_isInOrderQueue;
 
+    volatile bool                         m_bIsCanceled;
+
 	// ITT/GPA data
 #ifdef USE_ITT
 	const ocl_gpa_data*                   m_pGPAData;
 #endif
 
 #ifdef _DEBUG
-	AtomicCounter					  m_numOfConcurrentExecutions;
+    AtomicCounter                         m_numOfConcurrentExecutions;
 #endif
-
 };
 
 }}}

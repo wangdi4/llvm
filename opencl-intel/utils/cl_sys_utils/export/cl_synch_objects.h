@@ -63,6 +63,10 @@
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
+    const unsigned int DEFAULT_SPIN_COUNT       = 4000;
+    const bool         SUPPORT_RECURSIVE_LOCK   = true;
+    const bool         NO_RECURSIVE_LOCK        = false;
+
     //Call this function from within spinning loops
     void InnerSpinloopImpl();
 
@@ -189,7 +193,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
     {
 	friend class OclCondition;
     public:
-        OclMutex(unsigned int uiSpinCount = 4000);
+        OclMutex(unsigned int uiSpinCount = DEFAULT_SPIN_COUNT, bool recursive = NO_RECURSIVE_LOCK );
         virtual ~OclMutex ();
         void Lock();
         void Unlock();
@@ -200,6 +204,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		OclMutex& operator=(const OclMutex& o);
 		void spinCountMutexLock();
 		unsigned int m_uiSpinCount;
+        bool         m_bRecursive;
     };
 
 	class OclSpinMutex: public IMutex
@@ -208,6 +213,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		OclSpinMutex();
 		void Lock();
 		void Unlock();
+        bool lockedRecursively() const { return (lMutex > 1); }
 	protected:
 		AtomicCounter lMutex;
 		threadid_t threadId;

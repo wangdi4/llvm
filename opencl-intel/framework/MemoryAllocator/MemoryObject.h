@@ -290,6 +290,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		                                        void* IN pHostMapDataPtr, 
 		                                        bool invalidatedBefore = false );
 
+        virtual void        ReleaseAllMappedRegions();
+
 		virtual cl_err_code UndoMappedRegionInvalidation(cl_dev_cmd_param_map* IN pMapInfo );
 
         // In the case when Backing Store region is different from Host Map pointer provided by user
@@ -332,6 +334,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// registered callbacks are called in reverse order.
 		cl_err_code registerDtorNotifierCallback(mem_dtor_fn pfn_notify, void* pUserData);
 
+        // We need to trace all objects that were mapped in order to remove all mappings in the case of shutdown
+        // Implement own life cycle management
+        virtual void EnterZombieState( EnterZombieStateLevel call_level );
+
 		// returns the address of the host pointer or NULL if there is none
 		const void* GetHostPtr() const { return m_pHostPtr; }
 
@@ -370,6 +376,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             SharedPtr<FissionableDevice>            m_pMappedDevice;        // A device that manages mapped regions
 			Intel::OpenCL::Utils::OclSpinMutex		m_muMappedRegions;		// A mutex for accessing Mapped regions
 			size_t									m_stMemObjSize;			// Size of the memory object in bytes
+            volatile mutable bool                   m_bRegisteredInContextModule; // this memory object has an additional reference from context_module
 	};
 
 

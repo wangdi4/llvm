@@ -77,6 +77,8 @@ public:
 
 	ERROR_CODE release();
 
+    static void waitForAllNotificationPortThreads();
+
 private:
 
 	enum AVAILABLE_OPERATIONS{
@@ -146,6 +148,15 @@ private:
 
     class StaticInitializer;
     static StaticInitializer init_statics;
+
+    static void registerNotificationPortThread( THREAD_HANDLE handle );
+    static void unregisterNotificationPortThread(THREAD_HANDLE handle );
+
+    typedef std::set<THREAD_HANDLE> THREAD_SET;
+    
+    static THREAD_SET*     m_NotificationThreadsSet;
+    static OclMutex*       m_notificationThreadsMutex;
+
 };
 
 }}}

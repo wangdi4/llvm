@@ -51,6 +51,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	template <class HandleType, class ObjectType> class OCLObjectsMap;
 	class MemoryObject;
     class Kernel;
+    class IOclCommandQueueBase;
     template<typename T> struct D3DResourceInfo;
 
 	/**********************************************************************************************
@@ -144,6 +145,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
         bool IsTerminating() const { return m_bIsTerminating; }
 
+        /******************************************************************************************
+		* Function: 	ShutDown    
+		* Description:	ShutDown everything
+		* Arguments:	bool to skip waiting for queues               	
+		* Return value:	none
+		******************************************************************************************/
+        void ShutDown( bool wait_for_finish );
+
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// IContext methods
 		///////////////////////////////////////////////////////////////////////////////////////////
@@ -233,6 +242,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_int SetKernelArgSVMPointer(cl_kernel clKernel, cl_uint uiArgIndex, const void* pArgValue);
 		cl_int SetKernelExecInfo(cl_kernel clKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue);
 
+        ///////////////////////////////////////////////////////////////////////
+        // Utility functions
+        ///////////////////////////////////////////////////////////////////////
+        void CommandQueueCreated( IOclCommandQueueBase* queue );
+        void CommandQueueRemoved( IOclCommandQueueBase* queue );
+
+        void RegisterMappedMemoryObject( MemoryObject* pMemObj );
+        void UnRegisterMappedMemoryObject( MemoryObject* pMemObj );
+
 	private:
 		
 		ContextModule(const ContextModule&);
@@ -278,6 +296,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         template<size_t DIM, cl_mem_object_type OBJ_TYPE>
         cl_mem CreateImageBuffer(cl_context context, cl_mem_flags clFlags, const cl_image_format* clImageFormat, const cl_image_desc& desc, cl_mem buffer, cl_int* pErrcodeRet);
 
+        void RemoveAllMemObjects( bool preserve_user_handles );
+        void RemoveAllSamplers( bool preserve_user_handles );
+        void RemoveAllKernels( bool preserve_user_handles );
+        void RemoveAllPrograms( bool preserve_user_handles );
+
         bool Check2DImageFromBufferPitch(const ConstSharedPtr<GenericMemObject>& pBuffer, const cl_image_desc& desc, const cl_image_format& format) const;
 
 #if defined (DX_MEDIA_SHARING)
@@ -294,7 +317,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OCLObjectsMap<_cl_mem_int>      		m_mapMemObjects;	// map list of all memory objects
 		OCLObjectsMap<_cl_sampler_int>			m_mapSamplers;	// map list of all memory objects
 
-		ocl_entry_points *						m_pOclEntryPoints;
+        Intel::OpenCL::Utils::LifetimeObjectContainer<IOclCommandQueueBase> m_setQueues;    // set of all queues including invisible to user
+        Intel::OpenCL::Utils::LifetimeObjectContainer<MemoryObject>    m_setMappedMemObjects; // set of all memory objects that were mapped at least once in a history
+
+        ocl_entry_points *						m_pOclEntryPoints;
 
 		ocl_gpa_data *							m_pGPAData;
         bool                                    m_bIsTerminating;		

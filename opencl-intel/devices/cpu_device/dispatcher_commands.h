@@ -98,6 +98,8 @@ public:
     long            Release() { return 0; }
     TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
 
+    void    Cancel() { NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, cl_int(CL_DEV_COMMAND_CANCELLED)); }
+
 protected:
 	Intel::OpenCL::Utils::AtomicCounter	m_aIsSyncPoint;
 

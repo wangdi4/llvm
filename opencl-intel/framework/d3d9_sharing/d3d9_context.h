@@ -192,7 +192,7 @@ protected:
         cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3DDevice, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3dDefinitions,
-        const ContextModule& contextModule, bool bIsInteropUserSync = false);
+        ContextModule& contextModule, bool bIsInteropUserSync = false);
 
     
     IUnknown* const m_pD3DDevice;
@@ -257,7 +257,7 @@ public:
         cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
-        const ContextModule& contextModule, bool bIsInteropUserSync = false)
+        ContextModule& contextModule, bool bIsInteropUserSync = false)
     {
         return SharedPtr<D3D9Context>(new D3D9Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
             pD3D9Device, iDevType, pd3d9Definitions, contextModule, bIsInteropUserSync));
@@ -336,7 +336,7 @@ private:
         cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
-        const ContextModule& contextModule, bool bIsInteropUserSync = false) :
+        ContextModule& contextModule, bool bIsInteropUserSync = false) :
     D3DContext<IDirect3DResource9, IDirect3DDevice9>(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
         pD3D9Device, iDevType, pd3d9Definitions, contextModule, bIsInteropUserSync) { }
 
@@ -372,7 +372,7 @@ public:
         cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
-        const ContextModule& contextModule, bool bIsInteropUserSync = false)
+        ContextModule& contextModule, bool bIsInteropUserSync = false)
     {        
         return SharedPtr<D3D11Context>(new D3D11Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
             pD3D9Device, iDevType, pd3d9Definitions, contextModule, bIsInteropUserSync));
@@ -416,7 +416,7 @@ private:
         cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
         void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
         ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
-         const ContextModule& contextModule, bool bIsInteropUserSync = false) :
+         ContextModule& contextModule, bool bIsInteropUserSync = false) :
     D3DContext<ID3D11Resource, ID3D11Device>(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData,
         pD3D9Device, iDevType, pd3d9Definitions, contextModule, bIsInteropUserSync) 
     { 

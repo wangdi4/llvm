@@ -83,11 +83,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     // At all times, points to a command that depends on everything enqueued since the last time clEnqueueBarrier/Marker was enqueued to this queue
 		Intel::OpenCL::Utils::AtomicPointer<Command> m_depOnAll;
-		Intel::OpenCL::Utils::AtomicCounter m_commandsInExecution;
-		Intel::OpenCL::Utils::AtomicPointer<Command> m_lastBarrier;
-		Intel::OpenCL::Utils::OclSpinMutex			m_muLastBarrer; //TODO: find better way to handle data race on lastBarrier
+		Intel::OpenCL::Utils::AtomicCounter 		 m_commandsInExecution;
+		Intel::OpenCL::Utils::SharedPtr<OclEvent>    m_lastBarrier;
+		Intel::OpenCL::Utils::OclSpinMutex			 m_muLastBarrer; //TODO: find better way to handle data race on lastBarrier
 		// Is meant to optimize away flushes made to an empty queue
-		Intel::OpenCL::Utils::AtomicCounter m_unflushedCommands;
-
+		Intel::OpenCL::Utils::AtomicCounter 		 m_unflushedCommands;
 	};
 }}}    // Intel::OpenCL::Framework

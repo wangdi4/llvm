@@ -62,6 +62,8 @@ private:
     OpenCLBackendWrapper    m_backendWrapper;
     WgContextPool           m_wgContextPool;
 
+    static volatile bool    m_bDeviceIsRunning;
+
     size_t GetMaxSupportedPixelSize();
 
 protected:
@@ -97,6 +99,8 @@ public:
 	CPUDevice(cl_uint devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
 	cl_dev_err_code	Init();
 
+    static void    WaitUntilShutdown();
+
 	static cl_dev_err_code   clDevGetDeviceInfo(unsigned int IN	dev_id, cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);
 
 	static cl_dev_err_code clDevGetAvailableDeviceList(size_t IN  deviceListSize, unsigned int*   OUT deviceIdsList, size_t*   OUT deviceIdsListSizeRet);
@@ -112,6 +116,7 @@ public:
 	cl_dev_err_code clDevReleaseCommandList( cl_dev_cmd_list IN list );
 	cl_dev_err_code clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
 	cl_dev_err_code clDevCommandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait);
+    cl_dev_err_code clDevCommandListCancel( cl_dev_cmd_list IN list );
 	cl_dev_err_code clDevGetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
 					cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet) const;
 	cl_dev_err_code clDevGetMemoryAllocProperties( cl_mem_object_type IN memObjType,	cl_dev_alloc_prop* OUT pAllocProp );

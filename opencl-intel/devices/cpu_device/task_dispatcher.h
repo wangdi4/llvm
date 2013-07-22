@@ -88,6 +88,7 @@ public:
 	virtual cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
 	virtual cl_dev_err_code commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
 	virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait);
+	virtual cl_dev_err_code cancelCommandList(cl_dev_cmd_list IN list);
 
     virtual ProgramService* getProgramService(){ return m_pProgramService; }
 
@@ -156,13 +157,16 @@ protected:
 		bool	        CompleteAndCheckSyncPoint() {return false;}
 		bool	        SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
 		bool	        IsCompleted() const {assert(0&&"Should not be called");return true;}
-		bool	        Execute();
+        bool	        Execute() { return Shoot( CL_DEV_ERROR_FAIL ); }
+        void            Cancel()  { Shoot( CL_DEV_COMMAND_CANCELLED ); }
 		long	        Release() { return 0; }
         TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
 	protected:
 		TaskDispatcher*			m_pTaskDispatcher;
 		const cl_dev_cmd_desc*	m_pCmd;
 		cl_int					m_retCode;
+
+   		bool	        Shoot(cl_dev_err_code err);
 
         TaskFailureNotification(TaskDispatcher* _this, const cl_dev_cmd_desc* pCmd, cl_int retCode) :
 		  m_pTaskDispatcher(_this), m_pCmd(pCmd), m_retCode(retCode) {}
@@ -236,7 +240,8 @@ public:
 	bool	ExecuteIteration(size_t x, size_t y, size_t z, void* data); 
 	bool	Finish(FINISH_REASON reason) { ++m_endBarrier; return false;}
 	long    Release() { return 0;}
-    
+    void    Cancel() { Finish(FINISH_EXECUTION_FAILED); };
+
     TASK_PRIORITY	      GetPriority()                       const	{ return TASK_PRIORITY_MEDIUM;}
     TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
     unsigned int          PreferredSequentialItemsPerThread() const { return 1; }

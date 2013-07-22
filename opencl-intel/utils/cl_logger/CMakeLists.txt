@@ -12,10 +12,17 @@ CALCULATE_TARGET_SOURCES()
 
 if (WIN32)
 	set( LIB_TYPE STATIC  )
+	set( SYSTEM_LIBS      )
+elseif( ANDROID)
+    # Android
+	set( LIB_TYPE SHARED  )
+	set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+	set( SYSTEM_LIBS      )
 else()
     # Linux
 	set( LIB_TYPE SHARED  )
 	set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+	set( SYSTEM_LIBS rt )
 endif(WIN32)
 
 # add a target named ${TARGET_NAME}
@@ -33,5 +40,5 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 
-target_link_libraries( ${TARGET_NAME} cl_hw_utils cl_sys_utils )
+target_link_libraries( ${TARGET_NAME} cl_hw_utils cl_sys_utils ${SYSTEM_LIBS})
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )

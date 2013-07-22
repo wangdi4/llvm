@@ -44,7 +44,7 @@ using namespace Intel::OpenCL::Utils;
 QueueEvent::QueueEvent(SharedPtr<IOclCommandQueueBase> cmdQueue) :
 	OclEvent(cmdQueue?cmdQueue->GetParentHandle():CL_INVALID_HANDLE),
 	m_bProfilingEnabled(false), m_pCommand(NULL), m_pEventQueue(cmdQueue),
-	m_pEventQueueHandle(m_pEventQueue->GetHandle())
+	m_pEventQueueHandle(m_pEventQueue->GetHandle()), m_bEverIssuedToDevice(false)
 {
 	m_sProfilingInfo.m_ulCommandQueued	= 0;
 	m_sProfilingInfo.m_ulCommandSubmit	= 0;
@@ -331,6 +331,12 @@ cl_err_code QueueEvent::ObservedEventStateChanged(const SharedPtr<OclEvent>& pEv
 OclEventState QueueEvent::SetEventState(OclEventState newColor)
 {
 	OclEventState retval = OclEvent::SetEventState(newColor);
+
+    if (EVENT_STATE_ISSUED_TO_DEVICE == newColor)
+    {
+        m_bEverIssuedToDevice = true;
+    }
+    
 #if defined(USE_ITT)
 	if (EVENT_STATE_READY_TO_EXECUTE == newColor)
 	{
@@ -422,5 +428,5 @@ void QueueEvent::operator delete(void* p)
     {
         delete self->m_pCommand;  // this will delete myself as well, since m_pCommand aggregates me
     }
-    ::operator delete(p);
+    OclEvent::operator delete(p);
 }

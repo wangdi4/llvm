@@ -226,6 +226,7 @@ enum cl_dev_err_code
     CL_DEV_INVALID_KERNEL_NAME,                 //!< Kernel name is not found in the program
     CL_DEV_OBJECT_ALREADY_LOCKED,               //!< Memory object is already locked
     CL_DEV_INVALID_OPERATION_MODE,              //!< Invalid operation mode
+    CL_DEV_COMMAND_CANCELLED,                   //!< Command was canceled for any reason
     CL_DEV_NOT_SUPPORTED                        //!< The operation is not supported by the device
 };
 
@@ -1059,6 +1060,15 @@ public:
     virtual cl_dev_err_code clDevCommandListWaitCompletion( cl_dev_cmd_list IN list,
                                                 cl_dev_cmd_desc* IN cmdToWait
                                                  ) = 0;
+
+    //! Cancel all outstanding and running commands and switch command list to a "cancel" state, where all new commands will be canceled.
+    /*!
+        \param[in]  list        A valid handle to device command list
+        \retval     CL_DEV_SUCCESS                  The command queue successfully created
+        \retval     CL_DEV_INVALID_COMMAND_LIST     If command list is not a valid command list
+        \retval     CL_DEV_NOT_SUPPORTED            The operation is not supported by device. The runtime should handle wait by itself
+    */
+    virtual cl_dev_err_code clDevCommandListCancel( cl_dev_cmd_list IN list ) = 0;
 
     //! Release a command
     /*!

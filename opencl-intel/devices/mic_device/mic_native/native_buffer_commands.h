@@ -53,20 +53,23 @@ public:
 
     // ITask methods 
 
-	// Returns true in case current task is a syncronization point
-	// No more tasks will be executed in this case
-	bool	CompleteAndCheckSyncPoint() { return false; }
-	
-	// Set current command as syncronization point
-	// Returns true if command is already completed
-	bool	SetAsSyncPoint() { return false; }
-
-	// Returns true if command is already completed
-	bool	IsCompleted() const { return false; }
+    // Returns true in case current task is a syncronization point
+    // No more tasks will be executed in this case
+    bool    CompleteAndCheckSyncPoint() { return false; }
     
-	// Task execution routine, will be called by task executor
-	// return false when task execution fails
-	bool	Execute();
+    // Set current command as syncronization point
+    // Returns true if command is already completed
+    bool    SetAsSyncPoint() { return false; }
+
+    // Returns true if command is already completed
+    bool    IsCompleted() const { return false; }
+    
+    // Task execution routine, will be called by task executor
+    // return false when task execution fails
+    bool    Execute();
+
+    // Task execution routine, will be called by task executor instead of Execute() if CommandList is canceled
+    void    Cancel();    
 
     // Releases task object, shall be called instead of delete operator.
     long    Release() { delete this; return 0; }
@@ -78,18 +81,18 @@ protected:
     ~FillMemObjTask() {};
 
 private:
-	// Fill mem obj dispatcher data
-	fill_mem_obj_dispatcher_data*	m_pFillMemObjDispatcherData;
+    // Fill mem obj dispatcher data
+    fill_mem_obj_dispatcher_data*    m_pFillMemObjDispatcherData;
 
-	// The Buffer to fill pointer
-	char*							m_fillBufPtr;
+    // The Buffer to fill pointer
+    char*                            m_fillBufPtr;
     
-	// Struct which define chunk of memory (The ptr and its size)
-	struct chunk_struct
-	{
-		char* fromPtr;
-		uint64_t size;
-	};
+    // Struct which define chunk of memory (The ptr and its size)
+    struct chunk_struct
+    {
+        char* fromPtr;
+        uint64_t size;
+    };
 
     void copyPatternOnContRegion( chunk_struct* chunk, chunk_struct* pattern );
     void executeInternal( char* buffPtr, fill_mem_obj_dispatcher_data* pMemFillInfo, 

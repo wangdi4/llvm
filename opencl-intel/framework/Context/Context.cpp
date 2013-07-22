@@ -69,7 +69,7 @@ static cl_ulong getFormatsKey(cl_mem_object_type clObjType , cl_mem_flags clMemF
 // Context C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>*ppDevices, logging_fn pfnNotify,
-				 void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData, const ContextModule& contextModule)
+				 void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData, ContextModule& contextModule)
 	: OCLObject<_cl_context_int>(NULL, "Context"), // Context doesn't have conext to belong
 	m_bTEActivated(false),m_ppExplicitRootDevices(NULL),m_ppAllDevices(NULL),m_pDeviceIds(NULL), m_pOriginalDeviceIds(NULL),
     m_devTypeMask(0), m_pclContextProperties(NULL), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0),m_MemObjectsHeap(NULL), m_contextModule(contextModule)
