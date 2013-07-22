@@ -50,6 +50,7 @@ llvm::Pass *createPreventDivisionCrashesPass();
 llvm::Pass *createShiftZeroUpperBitsPass();
 llvm::Pass *createShuffleCallToInstPass();
 llvm::Pass *createRelaxedPass();
+llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
@@ -226,6 +227,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
 // Materializing the spir datalayout according to the triple.
   materializeSpirDataLayout(*pModule);
+
 // Adding function passes.
 #if LLVM_VERSION == 3200
   m_funcPasses.add(new llvm::DataLayout(pModule));
@@ -258,6 +260,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
   if (isOcl20) {
     m_modulePasses.add(llvm::createPromoteMemoryToRegisterPass());
     m_modulePasses.add(createGenericAddressStaticResolutionPass());
+    // Flatten get_{local, global}_linear_id()
+    m_funcPasses.add(createLinearIdResolverPass());
   }
   m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
 #ifndef __APPLE__

@@ -19,6 +19,8 @@ add_subdirectory(UndefExternalFuncs)
 add_subdirectory(KernelInfo)
 add_subdirectory(GenericAddressResolution)
 add_subdirectory(spir)
+add_subdirectory(LinearIdResolver)
+
 if(APPLE)
   add_subdirectory(ClangCompatFixer)
 else(APPLE)

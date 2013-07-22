@@ -352,6 +352,7 @@ set( BACKEND_PASSES
     UndefExternalFuncs
     KernelInfo
     Prefetch
+    LinearIdResolver
     Materialize
 )
 

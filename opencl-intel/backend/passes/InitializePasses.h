@@ -56,6 +56,7 @@ void initializeLocalBuffAnalysisPass(llvm::PassRegistry&);
 void initializeBIImportPass(llvm::PassRegistry&);
 void initializeGenericAddressStaticResolutionPass(llvm::PassRegistry&);
 void initializeSpirMaterializerPass(llvm::PassRegistry&);
+void initializeLinearIdResolverPass(llvm::PassRegistry&);
 }
 
 #endif

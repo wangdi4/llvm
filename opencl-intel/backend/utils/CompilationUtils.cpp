@@ -40,6 +40,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_GET_SPECIAL_BUFFER = "get_special_buffer.";
   const std::string CompilationUtils::NAME_GET_CURR_WI = "get_curr_wi.";
 
+  const std::string CompilationUtils::NAME_GET_LINEAR_GID = "get_global_linear_id";
+  const std::string CompilationUtils::NAME_GET_LINEAR_LID = "get_local_linear_id";
+
   const std::string CompilationUtils::NAME_GET_WORK_DIM = "get_work_dim";
   const std::string CompilationUtils::NAME_GET_GLOBAL_SIZE = "get_global_size";
   const std::string CompilationUtils::NAME_GET_LOCAL_SIZE = "get_local_size";
@@ -486,6 +489,10 @@ std::string CompilationUtils::mangledGetGID(){
   return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_GID.c_str());
 }
 
+std::string CompilationUtils::mangledGetGlobalSize(){
+  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GLOBAL_SIZE.c_str());
+}
+
 std::string CompilationUtils::mangledGetLID(){
   return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_LID.c_str());
 }
@@ -515,6 +522,14 @@ bool CompilationUtils::isGetGlobalId(const std::string& S){
 
 bool CompilationUtils::isGetLocalId(const std::string& S){
   return isMangleOf(S, NAME_GET_ORIG_LID);
+}
+
+bool CompilationUtils::isGetGlobalLinearId(const std::string& S){
+  return isMangleOf(S, NAME_GET_LINEAR_GID);
+}
+
+bool CompilationUtils::isGetLocalLinearId(const std::string& S){
+  return isMangleOf(S, NAME_GET_LINEAR_LID);
 }
 
 bool CompilationUtils::isGetGlobalSize(const std::string& S){

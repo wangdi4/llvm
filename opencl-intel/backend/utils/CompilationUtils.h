@@ -94,6 +94,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isGetGlobalSize(const std::string&);
     static bool isGetLocalId(const std::string&);
     static bool isGetLocalSize(const std::string&);
+    static bool isGetGlobalLinearId(const std::string&);
+    static bool isGetLocalLinearId(const std::string&);
     static bool isGetNumGroups(const std::string&);
     static bool isGetGroupId(const std::string&);
     static bool isGlobalOffset(const std::string&);
@@ -125,6 +127,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_READ_MEM_FENCE;
     static const std::string NAME_WRITE_MEM_FENCE;
 
+    static const std::string NAME_GET_LINEAR_GID;
+    static const std::string NAME_GET_LINEAR_LID;
+
     static const std::string BARRIER_FUNC_NAME;
     //images
     static const std::string OCL_IMG_PREFIX;
@@ -138,7 +143,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //kernel type qualifiers
     static const std::string SAMPLER;
   public:
-    /// This holds the number of implicite arguments addeded to function
+    /// Holds the number of implicit arguments added to function
     static const unsigned int NUMBER_IMPLICIT_ARGS;
 
     /// '3' is a magic number for global variables
@@ -157,6 +162,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetGID();
     //////////////////////////////////////////////////////////////////
+   // @brief returns the mangled name of the function get_global_size
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetGlobalSize();
+    //////////////////////////////////////////////////////////////////
     // @brief: returns the mangled name of the function get_local_id
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetLID();
@@ -165,7 +174,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetLocalSize();
     //////////////////////////////////////////////////////////////////
-    // @brief: returns the mangled name of the barrier funtion
+    // @brief: returns the mangled name of the barrier function
     //////////////////////////////////////////////////////////////////
     static std::string mangledBarrier();
     //////////////////////////////////////////////////////////////////
