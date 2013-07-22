@@ -231,6 +231,7 @@ else ()
 endif ()
 
 set( OCL_GLOBAL_INCLUDE  ${OCL_SOURCE_DIR}/cl_api )
+set( OCL_1_2_INCLUDE ${OCL_SOURCE_DIR}/cl_api/CL-1.2 )
 set( OCL_CLANG_HEADERS   ${OCL_SOURCE_DIR}/backend/clang_headers )
 
 # set OS-dependent source tree elements
@@ -305,7 +306,6 @@ include_directories( BEFORE
         utils/cl_sys_utils/export
         externals/tbb/include
         externals/tbb/enhancements
-        ${OCL_GLOBAL_INCLUDE}
         ${LLVM_INCLUDE_DIR}
     )
 
@@ -321,11 +321,21 @@ set( FE_COMPILER_FOLDER_NAME    "${FRAMEWORK_FOLDER_NAME}/Front-end Compiler" )
 set( EXTERNAL_FOLDER_NAME       External )
 
 if (APPLE)
+    include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
     add_subdirectory( backend )
 else(APPLE)
 	if(BUILD_LLVM_FROM_SOURCE)
 		add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
 	endif()
+    
+    #validation
+    add_subdirectory( tests )
+    
+    # The conformance tests must be conpiled with the headers located in
+    # ${OCL_CONFORMANCE_INCLUDE} and not the ones in ${OCL_GLOBAL_INCLUDE}.
+    # Therefore, it must be added to the include directories only after 
+    # the tests subdirectory has been added.
+    include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 
     # externals
     add_subdirectory(externals)
@@ -354,9 +364,6 @@ else(APPLE)
     if( INCLUDE_TOOLS )
         add_subdirectory ( tools )
     endif( INCLUDE_TOOLS )
-
-    #validation
-    add_subdirectory( tests )
 
     #workloads
     add_subdirectory( workloads )

@@ -6,30 +6,6 @@ endif()
 
 set( CLANG "${TOOLS_BINARY_DIR}/clang" )
 
-add_subdirectory( tbb_native_test_type )
-add_subdirectory( cpu_device_test_type )
-add_subdirectory( framework_test_type )
-if( BUILD_QTGUI AND INCLUDE_TOOLS )
-    add_subdirectory( kernel_builder_module)
-endif( BUILD_QTGUI AND INCLUDE_TOOLS )
-add_subdirectory( debugger_test_type )
-if( INCLUDE_TOOLS )
-  add_subdirectory( tools_test_type)
-  add_subdirectory(recorder)
-endif( INCLUDE_TOOLS )
-
-add_subdirectory( task_executor_test_type )
-
-if ( INCLUDE_MIC_DEVICE )
-  add_subdirectory( mic_device_test_type )
-endif( INCLUDE_MIC_DEVICE )
-
-if( USE_VALGRIND )
-    add_subdirectory( valgrind )
-endif( USE_VALGRIND )
-
-add_subdirectory(type_conversion)
-
 option(INCLUDE_CONFORMANCE_TESTS "Include Conformance Tests Into Build"  OFF)
 if (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS OR INCLUDE_CONFORMANCE_ITP_TESTS)
     
@@ -54,6 +30,36 @@ if (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS OR INCLUDE_CONFOR
     endif (INCLUDE_CONFORMANCE_ITP_TESTS)
 
 endif (INCLUDE_CONFORMANCE_TESTS OR INCLUDE_CONFORMANCE_1_2_TESTS OR INCLUDE_CONFORMANCE_ITP_TESTS)
+
+# The conformance tests must be conpiled with the headers located in
+# ${OCL_CONFORMANCE_INCLUDE} and not the ones in ${OCL_GLOBAL_INCLUDE}
+# Therefore, it must be added to the include directories only after 
+# the conformance subdirectory has been added.
+include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
+
+add_subdirectory( tbb_native_test_type )
+add_subdirectory( cpu_device_test_type )
+add_subdirectory( framework_test_type )
+if( BUILD_QTGUI AND INCLUDE_TOOLS )
+    add_subdirectory( kernel_builder_module)
+endif( BUILD_QTGUI AND INCLUDE_TOOLS )
+add_subdirectory( debugger_test_type )
+if( INCLUDE_TOOLS )
+  add_subdirectory( tools_test_type)
+  add_subdirectory(recorder)
+endif( INCLUDE_TOOLS )
+
+add_subdirectory( task_executor_test_type )
+
+if ( INCLUDE_MIC_DEVICE )
+  add_subdirectory( mic_device_test_type )
+endif( INCLUDE_MIC_DEVICE )
+
+if( USE_VALGRIND )
+    add_subdirectory( valgrind )
+endif( USE_VALGRIND )
+
+add_subdirectory(type_conversion)
 
 if (INCLUDE_CMRT)
     message (STATUS "Adding Common runtime tests ...")
