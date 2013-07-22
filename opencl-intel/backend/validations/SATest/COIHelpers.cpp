@@ -82,13 +82,12 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
     size_t addr = 0;
     llvm::SmallString<MAX_EXE_PATH> fileName;
     fileName = llvm::sys::path::parent_path(llvm::sys::Path::GetMainExecutable(argv0, &addr).str());
-    if(!fileName.empty())
-    {
-        pathName = fullName = fileName.str();
-    }
+    pathName = fileName.str();
 
     // Remove executable name i.e. exctract path to the executable.
-    fullName.append(SATEST_NATIVE_NAME);
+    llvm::Twine name = SATEST_NATIVE_NAME;
+    llvm::sys::path::append(fileName, name);
+    fullName = fileName.str();
     // Create a process on the MIC.
     CHECK_COI_RESULT(
         COIProcessCreateFromFile(
