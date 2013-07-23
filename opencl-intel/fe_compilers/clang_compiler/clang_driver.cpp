@@ -67,8 +67,6 @@
 #include <Logger.h>
 #include <cl_sys_info.h>
 #include <cl_cpu_detect.h>
-#include "MetaDataApi.h"
-
 
 #include <string>
 #include <list>
@@ -698,26 +696,18 @@ int ClangFECompilerLinkTask::Link()
                 return CL_LINK_PROGRAM_FAILURE;
             }
             
-            Intel::MetaDataUtils mdUtils(M);
-            Intel::MetaDataUtils::CompilerOptionsList::iterator it = mdUtils.begin_CompilerOptions();
-            Intel::MetaDataUtils::CompilerOptionsList::iterator e  = mdUtils.end_CompilerOptions();
-            
-            // Iterating the compilation option, in search on 'target-triple'.
-            for(; it != e; ++it) 
-            {
-              if (!(*it)->isvalueHasValue()) 
-                continue;
-              
-              std::string opt((*it)->getvalue());
-              
-              if ( opt == "-cl-opt-disable")
-                pProgHeader->bDisableOpt = true;
-              if ( opt == "-cl-denorms-are-zeros")
-                pProgHeader->bDenormsAreZero = true;
-              if ( opt == "-cl-fast-relaxed-math")
-                pProgHeader->bFastRelaxedMath = true;
-              if ( opt == "-enable-link-options")
-                pProgHeader->bEnableLinkOptions = true;
+            if (llvm::NamedMDNode *Opts = M->getNamedMetadata("opencl.compiler.options")){
+                if (llvm::MDNode *OptsMD = Opts->getOperand(0)) {
+                    for (unsigned i=0; i<OptsMD->getNumOperands(); ++i){
+                        MDString *S = dyn_cast_or_null<MDString>(OptsMD->getOperand(i));
+                        assert(S && "Null String value in compiler options");
+                        StringRef opt = S->getString();
+                        pProgHeader->bDisableOpt |= (opt == "-cl-opt-disable");
+                        pProgHeader->bDenormsAreZero |= (opt == "-cl-denorms-are-zeros");
+                        pProgHeader->bFastRelaxedMath |= ( opt == "-cl-fast-relaxed-math");
+                        pProgHeader->bEnableLinkOptions |= ( opt == "-enable-link-options");
+                    }
+                }
             }
 
             MEMCPY_S(pIR, m_pProgDesc->puiBinariesSizes[0],

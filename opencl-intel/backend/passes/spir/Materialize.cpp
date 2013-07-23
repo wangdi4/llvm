@@ -93,19 +93,23 @@ public:
 char SpirMaterializer::ID = 0;
 
 Maybe<std::string> SpirMaterializer::getCrossTriple(llvm::Module& M) {
-  MetaDataUtils mdUtils(&M);
-  MetaDataUtils::CompilerOptionsList::iterator it = mdUtils.begin_CompilerOptions();
-  MetaDataUtils::CompilerOptionsList::iterator e  = mdUtils.end_CompilerOptions();
+  llvm::NamedMDNode *pOpts = M.getNamedMetadata("opencl.compiler.options");
+  if (!pOpts)
+    return Maybe<std::string>::null();
 
-  // Iterating the compilation option, in search on 'target-triple'.
-  while(it != e) {
-    if (!(*it)->isvalueHasValue()) {
-      ++it;
-      continue;
-    }
-    if (CROSS_SWITCH == (*it++)->getvalue()) {
-      assert(it != e && "empty target triple");
-      return Maybe<std::string>((*it)->getvalue());
+  if (llvm::MDNode *pMDOpts = pOpts->getOperand(0)) {
+    // Serching for the cross compilation switch.
+    for (unsigned i=0; i < pMDOpts->getNumOperands(); ++i){
+      llvm::MDString *SVal =
+        llvm::dyn_cast_or_null<llvm::MDString>(pMDOpts->getOperand(i));
+      assert(SVal && "Null operand in compiler option metadata");
+      if (SVal->getString() == CROSS_SWITCH) {
+        // Found it. Next value is the target architechture.
+        llvm::MDString *SArch =
+          dyn_cast_or_null<llvm::MDString>(pMDOpts->getOperand(1+i));
+        assert(SArch && "Null value for target triple");
+        return Maybe<std::string>(SArch->getString().str());
+      }
     }
   }
 
