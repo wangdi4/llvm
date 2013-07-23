@@ -87,126 +87,91 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
     memcpy(&outputWorkSizes, /*sizeof(cl_work_description_type),*/ pInputWorkSizes, sizeof(cl_work_description_type));
 #endif
 
-    for(unsigned int i=1; i<MAX_WORK_DIM; ++i)
-    {
-        outputWorkSizes.localWorkSize[i] = 1;
+    for(unsigned int i=1; i<MAX_WORK_DIM; ++i) {
+      outputWorkSizes.localWorkSize[i] = 1;
     }
 
     bool bLocalZeros = true;
-    for(unsigned int i=0; i<outputWorkSizes.workDimension; ++i)
-    {
-        bLocalZeros &= ( (outputWorkSizes.localWorkSize[i]=pInputWorkSizes->localWorkSize[i]) == 0);
+    for(unsigned int i=0; i<outputWorkSizes.workDimension; ++i) {
+      bLocalZeros &= ( (outputWorkSizes.localWorkSize[i]=pInputWorkSizes->localWorkSize[i]) == 0);
     }
     
-    if ( bLocalZeros )
-    {
-        // Try hint size, find GDC for each dimension
-        if ( m_pProps->GetHintWGSize()[0] != 0 )
-        {
-            for(unsigned int i=0; i<outputWorkSizes.workDimension; ++i)
-            {
-                outputWorkSizes.localWorkSize[i] = GCD(pInputWorkSizes->globalWorkSize[i], m_pProps->GetHintWGSize()[i]);
-            }
+    if ( bLocalZeros ) {
+      // Try hint size, find GDC for each dimension
+      if ( m_pProps->GetHintWGSize()[0] != 0 ) {
+          for(unsigned int i=0; i<outputWorkSizes.workDimension; ++i) {
+            outputWorkSizes.localWorkSize[i] = GCD(pInputWorkSizes->globalWorkSize[i], m_pProps->GetHintWGSize()[i]);
+          }
+      }
+      else {
+        // Old Heuristic
+        // On the last use optimal size
+        // Fill first dimension with WG size
+        //outputWorkSizes.localWorkSize[0] = GCD(pInputWorkSizes->globalWorkSize[0], m_pProps->GetOptWGSize());
+        //
+        //for(unsigned int i=1; i<outputWorkSizes.workDimension; ++i)
+        //{
+        //    outputWorkSizes.localWorkSize[i] = 1;
+        //}
+
+        // New Heuristic
+        outputWorkSizes.minWorkGroupNum = pInputWorkSizes->minWorkGroupNum;
+
+        unsigned int globalGroupSizeYZ = 1;
+        for(unsigned int i=1; i<outputWorkSizes.workDimension; ++i) {
+          // Calculate global group size on dimensions Y & Z
+          globalGroupSizeYZ *= pInputWorkSizes->globalWorkSize[i];
+          // Set local group size on dimensions Y & Z to 1
+          outputWorkSizes.localWorkSize[i] = 1;
         }
-        else
-        {
-            // Old Heuristic
-            // On the last use optimal size
-            // Fill first dimension with WG size
-            //outputWorkSizes.localWorkSize[0] = GCD(pInputWorkSizes->globalWorkSize[0], m_pProps->GetOptWGSize());
-            //
-            //for(unsigned int i=1; i<outputWorkSizes.workDimension; ++i)
-            //{
-            //    outputWorkSizes.localWorkSize[i] = 1;
-            //}
+        //This number can be decreased in case there is globalGroupSizeYZ larger than 1!
+        unsigned int workGroupNumMinLimit =
+          (outputWorkSizes.minWorkGroupNum + (globalGroupSizeYZ-1)) / globalGroupSizeYZ;
 
-            // New Heuristic
-            outputWorkSizes.minWorkGroupNum = pInputWorkSizes->minWorkGroupNum;
+        unsigned int kernelPrivateMemSize = (unsigned int)m_pProps->GetPrivateMemorySize();
+        unsigned int globalGroupSizeX = pInputWorkSizes->globalWorkSize[0];
+        unsigned int localSizeMaxLimit =
+          min ( min(CPU_MAX_WORK_GROUP_SIZE, globalGroupSizeX),                                       // localSizeMaxLimit_1
+          min ( CPU_DEV_MAX_WG_PRIVATE_SIZE / (kernelPrivateMemSize > 0 ? kernelPrivateMemSize : 1),  // localSizeMaxLimit_2
+                max(1, globalGroupSizeX / workGroupNumMinLimit) ));                                   // localSizeMaxLimit_3
 
-            unsigned int globalGroupSizeYZ = 1;
-            for(unsigned int i=1; i<outputWorkSizes.workDimension; ++i)
-            {
-                // Calculate global group size on dimensions Y & Z
-                globalGroupSizeYZ *= pInputWorkSizes->globalWorkSize[i];
-                // Set local group size on dimensions Y & Z to 1
-                outputWorkSizes.localWorkSize[i] = 1;
-            }
-            //This number can be decreased in case there is globalGroupSizeYZ larger than 1!
-            unsigned int workGroupNumMinLimit =
-                (outputWorkSizes.minWorkGroupNum + (globalGroupSizeYZ-1)) / globalGroupSizeYZ;
+        unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
+        assert( minMultiplyFactor && (minMultiplyFactor & (minMultiplyFactor-1)) == 0 &&
+          "minMultiplyFactor assumed to be power of 2 that is not zero!" );
+        assert((!m_pProps->GetJitCreateWIids() ||
+          GetKernelJIT(0)->GetProps()->GetVectorSize() == minMultiplyFactor) &&
+          "GetMinGroupSizeFactorial is not equal to VectorSize!");
 
-            unsigned int kernelPrivateMemSize = (unsigned int)m_pProps->GetPrivateMemorySize();
-            unsigned int globalGroupSizeX = pInputWorkSizes->globalWorkSize[0];
-            unsigned int localSizeMaxLimit =
-                min ( min(CPU_MAX_WORK_GROUP_SIZE, globalGroupSizeX),                                       // localSizeMaxLimit_1
-                min ( CPU_DEV_MAX_WG_PRIVATE_SIZE / (kernelPrivateMemSize > 0 ? kernelPrivateMemSize : 1),  // localSizeMaxLimit_2
-                      max(1, globalGroupSizeX / workGroupNumMinLimit) ));                                   // localSizeMaxLimit_3
-
-            unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
-            assert( minMultiplyFactor && (minMultiplyFactor & (minMultiplyFactor-1)) == 0 &&
-                "minMultiplyFactor assumed to be power of 2 that is not zero!" );
-            if ( (globalGroupSizeX & (minMultiplyFactor-1)) != 0 ) {
-                // globalGroupSize in diminsion x is not multiply of minMultiplyFactor
-                // Cannot satisfy the requist that local group size be multiply of minMultiplyFactor
-                // Thus, need set minMultiplyFactor to 1, and let local size be any high number.
-                minMultiplyFactor = 1;
-            }
-            if (m_pProps->GetJitCreateWIids()) {
-              // In case of one JIT minMultiplyFactor should be equal to 1 for the new heuristic.
-              minMultiplyFactor = 1;
-            }
-
-            globalGroupSizeX /= minMultiplyFactor;
-            localSizeMaxLimit /= minMultiplyFactor;
-            for (; localSizeMaxLimit>0; localSizeMaxLimit--) {
-                if ( globalGroupSizeX % localSizeMaxLimit == 0 ) break;
-            }
-            unsigned int newHeuristic = max(1, minMultiplyFactor * localSizeMaxLimit);
-#if 0 // 0 to Disable old heuristic - 1 to choose wisely between old and new heuristic
-            unsigned int oldHeuristic = GCD(pInputWorkSizes->globalWorkSize[0], m_pProps->GetOptWGSize());
-            globalGroupSizeX = pInputWorkSizes->globalWorkSize[0];
-            workGroupNumMinLimit = max(1, (outputWorkSizes.minWorkGroupNum/2 + (globalGroupSizeYZ-1)) / globalGroupSizeYZ);
-            if (m_pProps->GetJitCreateWIids()) {
-              // In case of one JIT we want to use the vector size used in the vector loop.
-              minMultiplyFactor = GetKernelJIT(0)->GetProps()->GetVectorSize();
-            }
-
-#if 0 // 0 to use second heuristic factor - 1 to use first hueristic factors.
-            // One Option for creating the Heuristic factor: (A + B) where,
-            // A = #WorkGroups * [unutilized lanes in tail scalar loop]
-            // B = #LocalSize * [unutilized cores in last work-group iteration]
-            unsigned int newHeuristicFactor = workGroupNumMinLimit * ((minMultiplyFactor - (newHeuristic % minMultiplyFactor)) % minMultiplyFactor) + 
-                                 minMultiplyFactor * ((workGroupNumMinLimit-((globalGroupSizeX / newHeuristic) % workGroupNumMinLimit)) % workGroupNumMinLimit);
-
-            unsigned int oldHeuristicFactor = workGroupNumMinLimit * ((minMultiplyFactor - (oldHeuristic % minMultiplyFactor)) % minMultiplyFactor) + 
-                                 minMultiplyFactor * ((workGroupNumMinLimit-((globalGroupSizeX / oldHeuristic) % workGroupNumMinLimit)) % workGroupNumMinLimit);
-#else
-            // Second option for creating the Heuristic factor
-            // A = number of iterations in vectorized loop + number of iterations in tail scalar loop.
-            // B = number of iterations in the work-group loop.
-            unsigned int newHeuristicFactor = ((newHeuristic / minMultiplyFactor) + (newHeuristic % minMultiplyFactor)) *
-              (((globalGroupSizeX / newHeuristic) + workGroupNumMinLimit - 1) / workGroupNumMinLimit);
-
-            unsigned int oldHeuristicFactor = ((oldHeuristic / minMultiplyFactor) + (oldHeuristic % minMultiplyFactor)) *
-              (((globalGroupSizeX / oldHeuristic) + workGroupNumMinLimit - 1) / workGroupNumMinLimit);
-#endif
-            // lower factor is better
-            outputWorkSizes.localWorkSize[0] = oldHeuristicFactor < newHeuristicFactor ? oldHeuristic : newHeuristic;
-
-            if( 1 == minMultiplyFactor ) {
-              // No vectorized loop, only scalar -> choose new heuristic
-              outputWorkSizes.localWorkSize[0] = newHeuristic;
-            }
-
-            // This line is for debugging
-            //printf("heuristic = %d, newF=%d, oldF=%d, new=%d, old=%d, tsize=%d, minGroupNum=%d, global_size=%d\n",
-            //  outputWorkSizes.localWorkSize[0],newHeuristicFactor, oldHeuristicFactor, newHeuristic, oldHeuristic,
-            //  minMultiplyFactor, workGroupNumMinLimit, globalGroupSizeX);
-#else
-            outputWorkSizes.localWorkSize[0] = newHeuristic;
-#endif
+        
+        //Try to assure (if possible) the local-size is a multiply of vector width.
+        if (((globalGroupSizeX & (minMultiplyFactor-1)) == 0) && (localSizeMaxLimit > minMultiplyFactor)) {
+          globalGroupSizeX /= minMultiplyFactor;
+          localSizeMaxLimit /= minMultiplyFactor;
+        } else {
+          minMultiplyFactor = 1;
         }
+        //Try to assure (if possible) that the chosen local-size will apply:
+        //  global-size/local-size is a multiply of #work-threads
+        unsigned int numWorkThreads = 
+          outputWorkSizes.minWorkGroupNum / GCD(outputWorkSizes.minWorkGroupNum, globalGroupSizeYZ);
+        if ((globalGroupSizeX % numWorkThreads == 0) && (localSizeMaxLimit > numWorkThreads)) {
+          globalGroupSizeX /= numWorkThreads;
+          localSizeMaxLimit /= numWorkThreads;
+        } else {
+          numWorkThreads = 1;
+        }
+        //Search for max local size that satisfies the constraints
+        for (; localSizeMaxLimit>0; localSizeMaxLimit--) {
+          if ( globalGroupSizeX % localSizeMaxLimit == 0 ) break;
+        }
+        unsigned int newHeuristic = max(1, minMultiplyFactor * localSizeMaxLimit);
+
+        outputWorkSizes.localWorkSize[0] = newHeuristic;
+        //printf("heuristic = %d, global_size=%d = (global_size_to_satisfy=%d) * (tsize=%d) * (numWorkThreads=%d), minGroupNum=%d\n",
+        //  outputWorkSizes.localWorkSize[0], (globalGroupSizeX * minMultiplyFactor * numWorkThreads),
+        //  globalGroupSizeX, minMultiplyFactor, numWorkThreads, workGroupNumMinLimit);
     }
+  }
 }
 
 unsigned long long int Kernel::GetKernelID() const
