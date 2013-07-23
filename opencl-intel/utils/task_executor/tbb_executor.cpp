@@ -89,31 +89,19 @@ static bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list&
     bool runNextCommand = true;
     bool cancel = cmdList.Is_canceled();
 
-    if ( pCmd->IsTaskSet() )
+    if (cancel)
+    {
+        pCmd->Cancel();
+    }
+    else if ( pCmd->IsTaskSet() )
     {
         const SharedPtr<ITaskSet>& pTaskSet = pCmd.StaticCast<ITaskSet>();
-        assert( NULL != pTaskSet.GetPtr() && "Unexpected NULL dynamic cast");
-
-        if (cancel)
-        {
-            pTaskSet->Cancel();
-        }
-        else
-        {
-            runNextCommand = TBB_ExecutionSchedulers::parallel_execute( cmdList, pTaskSet );
-        }
+        runNextCommand = TBB_ExecutionSchedulers::parallel_execute( cmdList, pTaskSet );
     }
     else
     {
         const SharedPtr<ITask>& pTask = pCmd.StaticCast<ITask>();
-        if (cancel)
-        {
-            pTask->Cancel();
-        }
-        else
-        {
-            runNextCommand = pTask->Execute();
-        }
+        runNextCommand = pTask->Execute();
     }
 
     runNextCommand &= !pCmd->CompleteAndCheckSyncPoint();

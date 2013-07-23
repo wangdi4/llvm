@@ -223,6 +223,9 @@ public:
     // Returns true if command is already completed
     virtual bool    IsCompleted() const = 0;
 
+    // Task execution routine called instead of actual execution if CommandList is canceled
+    virtual void    Cancel() = 0;
+
     // Releases task object, shall be called instead of delete operator.
     virtual long    Release() = 0;
 };
@@ -241,7 +244,7 @@ public:
     virtual bool    Execute() = 0;
 
     // Task execution routine, will be called by task executor instead of Execute() if CommandList is canceled
-    virtual void    Cancel() = 0;
+    // virtual void    Cancel() = 0;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -279,7 +282,7 @@ public:
 
     // Task execution routine, will be called by task executor instead of Init() if CommandList is canceled. If Init() was already called,
     // Cancel() is not called - normal processing is continued
-    virtual void    Cancel() = 0;
+    // virtual void    Cancel() = 0;
 
     // Optimize By
     virtual TASK_SET_OPTIMIZATION OptimizeBy()                        const = 0;
