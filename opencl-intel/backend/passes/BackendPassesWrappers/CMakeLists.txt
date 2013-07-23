@@ -25,10 +25,8 @@ add_library(${TARGET_NAME}
 
 # Backend passes
 set(WRAPPER_BACKEND_PASSES
-    AddImplicitArgs
     LocalBuffers
     LocalBuffAnalysis
-    ModuleCleanup
 )
 
 target_link_libraries(${TARGET_NAME}

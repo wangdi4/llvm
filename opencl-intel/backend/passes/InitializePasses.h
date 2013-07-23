@@ -42,8 +42,8 @@ void initializeDataPerInternalFunctionPass(llvm::PassRegistry&);
 void initializePreventDivCrashesPass(llvm::PassRegistry&);
 void initializeShuffleCallToInstPass(llvm::PassRegistry&);
 void initializeInstToFuncCallPass(llvm::PassRegistry&);
-void initializeModuleCleanupWrapperPass(llvm::PassRegistry&);
-void initializeAddImplicitArgsWrapperPass(llvm::PassRegistry&);
+void initializeModuleCleanupPass(llvm::PassRegistry&);
+void initializeAddImplicitArgsPass(llvm::PassRegistry&);
 void initializeLocalBuffersWrapperPass(llvm::PassRegistry&);
 void initializeLocalBuffersWithDebugWrapperPass(llvm::PassRegistry&);
 void initializeRelaxedPassPass(llvm::PassRegistry&);
@@ -57,6 +57,7 @@ void initializeBIImportPass(llvm::PassRegistry&);
 void initializeGenericAddressStaticResolutionPass(llvm::PassRegistry&);
 void initializeSpirMaterializerPass(llvm::PassRegistry&);
 void initializeLinearIdResolverPass(llvm::PassRegistry&);
+void initializePrepareKernelArgsPass(llvm::PassRegistry&);
 }
 
 #endif

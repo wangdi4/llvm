@@ -73,8 +73,8 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializePreventDivCrashesPass(Registry);
     intel::initializeShuffleCallToInstPass(Registry);
     intel::initializeInstToFuncCallPass(Registry);
-    intel::initializeModuleCleanupWrapperPass(Registry);
-    intel::initializeAddImplicitArgsWrapperPass(Registry);
+    intel::initializeModuleCleanupPass(Registry);
+    intel::initializeAddImplicitArgsPass(Registry);
     intel::initializeLocalBuffersWrapperPass(Registry);
     intel::initializeLocalBuffersWithDebugWrapperPass(Registry);
     intel::initializeRelaxedPassPass(Registry);
@@ -84,6 +84,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeGenericAddressStaticResolutionPass(Registry);
     intel::initializeSpirMaterializerPass(Registry);
     intel::initializeLinearIdResolverPass(Registry);
+    intel::initializePrepareKernelArgsPass(Registry);
 }
 
 

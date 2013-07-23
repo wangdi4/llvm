@@ -25,6 +25,9 @@ set(OCL_BE_PASSES
     LLVMVectorizer
     ModuleCleanup
     Materialize 
+    PrepareKernelArgs
+    AddImplicitArgs
+    ModuleCleanup
 )
 
 # Dependencies of the passes

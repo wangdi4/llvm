@@ -58,6 +58,7 @@ llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createModuleCleanupPass();
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createSpirMaterializer();
+llvm::ModulePass *createPrepareKernelArgsPass();
 void materializeSpirDataLayout(llvm::Module&);
 
 void* destroyOpenclRuntimeSupport();
@@ -80,7 +81,7 @@ llvm::ModulePass* createProfilingInfoPass();
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
                                                        const std::vector<llvm::Module*>& runtimeModules );
-llvm::ModulePass *createPrepareKernelArgsPass();
+
 llvm::ModulePass *createKernelInfoWrapperPass();
 
   /// createStandardModulePasses - Add the standard module passes.  This is

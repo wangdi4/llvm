@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "common_dev_limits.h"
-
+#include "OCLPassSupport.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/ADT/ValueMap.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -28,6 +28,9 @@ using namespace Intel::OpenCL::DeviceBackend;
 namespace intel{
 
   char AddImplicitArgs::ID = 0;
+
+  /// Register pass to for opt
+  OCL_INITIALIZE_PASS(AddImplicitArgs, "add-implicit-args", "Adds the implicit arguments to signature of all functions of the module (that are defined inside the module)", false, false)
 
   AddImplicitArgs::AddImplicitArgs() : ModulePass(ID) {
         initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());

@@ -23,8 +23,7 @@ namespace Intel {
   class MetaDataUtils;
 }
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
+namespace intel {
   /// @brief  PrepareKernelArgs changes the way arguments are passed to kernels.
   ///         It changes the kernel to receive as arguments a single buffer
   ///         which contains the the kernel's original and implicit arguments.
@@ -96,6 +95,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 #endif // __PREPARE_KERNEL_ARGS_H__

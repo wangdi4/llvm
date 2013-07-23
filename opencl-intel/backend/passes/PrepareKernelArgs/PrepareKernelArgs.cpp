@@ -10,7 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "ImplicitArgsUtils.h"
 #include "MetaDataApi.h"
-
+#include "OCLPassSupport.h"
 #include "llvm/Attributes.h"
 #include "llvm/Support/ValueHandle.h"
 #include "llvm/Version.h"
@@ -18,15 +18,22 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <memory>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
-  
+extern "C"{
   /// @brief Creates new PrepareKernelArgs module pass
-  /// @returns new PrepareKernelArgs module pass  
+  /// @returns new PrepareKernelArgs module pass
   ModulePass* createPrepareKernelArgsPass() {
-    return new PrepareKernelArgs();
+    return new intel::PrepareKernelArgs();
   }
 
+}
+using namespace Intel::OpenCL::DeviceBackend;
+
+namespace intel{
+
   char PrepareKernelArgs::ID = 0;
+
+ /// Register pass to for opt
+ OCL_INITIALIZE_PASS(PrepareKernelArgs, "prepare-kernel-args", "changes the way arguments are passed to kernels", false, false)
 
   PrepareKernelArgs::PrepareKernelArgs() : ModulePass(ID) {
   }
@@ -159,7 +166,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       case ImplicitArgsUtils::IA_SLM_BUFFER:
         {
           uint64_t slmSizeInBytes = 0;
-          KernelInfoMetaDataHandle kimd = m_mdUtils->getKernelsInfoItem(pFunc);
+          Intel::KernelInfoMetaDataHandle kimd = m_mdUtils->getKernelsInfoItem(pFunc);
           if (NULL == kimd.get()) {
             assert(false && "Function info should be available at this point");
           } else {
@@ -251,8 +258,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     m_pModule->getFunctionList().push_back(pWrapper);
 
     m_mdUtils->getOrInsertKernelsInfoItem(pFunc)->setKernelWrapper(pWrapper);
-      
+
     return true;
   }
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
