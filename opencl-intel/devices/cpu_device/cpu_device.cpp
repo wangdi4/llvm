@@ -524,7 +524,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-#ifndef __ANDROID__E
+#ifndef __ANDROID__
                 *(cl_uint*)paramVal = GetNumberOfProcessors();
 #else
                 // Disable device partition on android
