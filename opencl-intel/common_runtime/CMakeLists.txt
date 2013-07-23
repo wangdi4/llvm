@@ -37,6 +37,9 @@ add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
 install( FILES ${CONFIG_FILES} DESTINATION bin)
 
+if (NOT WIN32 AND NOT ANDROID)
+    target_link_libraries( ${TARGET_NAME} pthread)
+endif (NOT WIN32 AND NOT ANDROID)
 target_link_libraries( ${TARGET_NAME} common_runtime_utils)
 
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "intelopencl${ADDR}")

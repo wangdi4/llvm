@@ -70,7 +70,7 @@ if (NOT WIN32)
       )
   if (NOT ANDROID)
      list(APPEND LINK_LIBS pthread)
-  endif (ANDROID)
+  endif (NOT ANDROID)
 endif (NOT WIN32)
 
 
