@@ -248,12 +248,6 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     list.push_back("-cl-std=CL1.2");
     list.push_back("-D");
     list.push_back("__OPENCL_C_VERSION__=120");
-  } else if(CLSTDSet == 120) {
-    list.push_back("-D");
-    list.push_back("__OPENCL_C_VERSION__=120");
-  } else if(CLSTDSet == 110) {
-    list.push_back("-D");
-    list.push_back("__OPENCL_C_VERSION__=110");
   }
 
     list.push_back("-x");
@@ -291,24 +285,26 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     list.push_back("-I");
     list.push_back(szCurrDirrPath);
 
-    //Add OpenCL predefined macros
-    list.push_back("-D");
-    list.push_back("__OPENCL_VERSION__=120");
-    list.push_back("-D");
-    list.push_back("CL_VERSION_1_0=100");
-    list.push_back("-D");
-    list.push_back("CL_VERSION_1_1=110");
-    list.push_back("-D");
-    list.push_back("CL_VERSION_1_2=120");
-    list.push_back("-D");
-    list.push_back("__ENDIAN_LITTLE__=1");
-    list.push_back("-D");
-    list.push_back("__ROUNDING_MODE__=rte");    
-    if(m_sDeviceInfo.bImageSupport) {
-        list.push_back("-D");
-        list.push_back("__IMAGE_SUPPORT__=1");  
-    }
-    if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) {
+	//Add OpenCL predefined macros
+	list.push_back("-D");
+	list.push_back("__OPENCL_VERSION__=120");
+	list.push_back("-D");
+	list.push_back("CL_VERSION_1_0=100");
+	list.push_back("-D");
+	list.push_back("CL_VERSION_1_1=110");
+	list.push_back("-D");
+	list.push_back("CL_VERSION_1_2=120");
+	list.push_back("-D");
+	list.push_back("CL_VERSION_2_0=200");
+	list.push_back("-D");
+	list.push_back("__ENDIAN_LITTLE__=1");
+	list.push_back("-D");
+	list.push_back("__ROUNDING_MODE__=rte");	
+	if(m_sDeviceInfo.bImageSupport) {
+		list.push_back("-D");
+		list.push_back("__IMAGE_SUPPORT__=1");	
+	}
+	if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) {
         OptProfiling = true;
 
         if (!OptDebugInfo)
@@ -1448,7 +1444,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             pBEArgList->push_back("-cl-std=CL1.2");
         }
         else if (*opt_i == "-cl-std=CL2.0") {
-            iCLStdSet = 120;
+            iCLStdSet = 200;
             pList->push_back("-cl-std=CL2.0");
             pList->push_back("-D");
             pList->push_back("__OPENCL_C_VERSION__=200");
