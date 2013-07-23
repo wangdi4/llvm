@@ -707,7 +707,7 @@ extern "C" {
     const char*  hdr_name;
   };
 
-void *cl2module(LLVMContext &LCTX, cl_bitfield opt, const char* options,
+void *cl2module(LLVMContext &LCTX, cl_bitfield &opt, const char* options,
                 const char *source, int debug, char **compile_log,
                 std::vector<HeaderStruct>* hdrs);
 }

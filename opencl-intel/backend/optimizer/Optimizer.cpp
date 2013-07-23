@@ -57,15 +57,15 @@ llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createModuleCleanupPass();
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
-llvm::ModulePass *createSpirMaterializer();
 llvm::ModulePass *createPrepareKernelArgsPass();
-void materializeSpirDataLayout(llvm::Module&);
 
 void* destroyOpenclRuntimeSupport();
 #ifdef __APPLE__
 void* createAppleOpenclRuntimeSupport(const llvm::Module *runtimeModule);
 llvm::Pass *createClangCompatFixerPass();
 #else
+llvm::ModulePass *createSpirMaterializer();
+void materializeSpirDataLayout(llvm::Module&);
 void* createVolcanoOpenclRuntimeSupport(const llvm::Module *runtimeModule);
 llvm::FunctionPass *createPrefetchPassLevel(int level);
 llvm::ModulePass * createRemovePrefetchPass();
@@ -217,6 +217,9 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
   }
+
+  // Materializing the spir datalayout according to the triple.
+  materializeSpirDataLayout(*pModule);
 #endif //#ifndef __APPLE__
 
   unsigned int uiOptLevel;
@@ -225,9 +228,6 @@ Optimizer::Optimizer( llvm::Module* pModule,
   } else {
     uiOptLevel = 3;
   }
-
-// Materializing the spir datalayout according to the triple.
-  materializeSpirDataLayout(*pModule);
 
 // Adding function passes.
 #if LLVM_VERSION == 3200
@@ -498,8 +498,10 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
 void Optimizer::Optimize()
 {
-    std::auto_ptr<llvm::ModulePass> materizlier(createSpirMaterializer());
-    materizlier->runOnModule(*m_pModule);
+#ifndef __APPLE__
+    std::auto_ptr<llvm::ModulePass> materializer(createSpirMaterializer());
+    materializer->runOnModule(*m_pModule);
+#endif
     for (llvm::Module::iterator i = m_pModule->begin(), e = m_pModule->end(); i != e; ++i) {
         m_funcPasses.run(*i);
     }

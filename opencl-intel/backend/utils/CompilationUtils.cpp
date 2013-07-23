@@ -476,6 +476,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 template <reflection::TypePrimitiveEnum Ty>
 static std::string mangleWithParam(const char*const N){
+#ifdef __APPLE__
+  //Do not mangle
+  return std::string(N);
+#else
   reflection::FunctionDescriptor FD;
   FD.name = N;
   reflection::ParamType *pTy =
@@ -483,6 +487,7 @@ static std::string mangleWithParam(const char*const N){
   reflection::RefParamType UI(pTy);
   FD.parameters.push_back(UI);
   return mangle(FD);
+#endif
 }
 
 std::string CompilationUtils::mangledGetGID(){
@@ -505,7 +510,20 @@ std::string CompilationUtils::mangledBarrier(){
   return mangleWithParam<reflection::PRIMITIVE_UINT>(BARRIER_FUNC_NAME.c_str());
 }
 
-static bool isMangleOf(const std::string& LHS, const std::string& RHS){
+static bool isOptionalMangleOf(const std::string& LHS, const std::string& RHS) {
+#ifdef __APPLE__
+  //LHS should not be mangled
+  return LHS == RHS;
+#else
+  //LHS should be mangled
+  const char*const LC = LHS.c_str();
+  if (!isMangledName(LC))
+    return false;
+  return stripName(LC) == RHS;
+#endif
+}
+
+static bool isMangleOf(const std::string& LHS, const std::string& RHS) {
   const char*const LC = LHS.c_str();
   if (!isMangledName(LC))
     return false;
@@ -513,43 +531,43 @@ static bool isMangleOf(const std::string& LHS, const std::string& RHS){
 }
 
 bool CompilationUtils::isGetWorkDim(const std::string& S){
-  return isMangleOf(S, NAME_GET_WORK_DIM);
+  return isOptionalMangleOf(S, NAME_GET_WORK_DIM);
 }
 
 bool CompilationUtils::isGetGlobalId(const std::string& S){
-  return isMangleOf(S, NAME_GET_ORIG_GID);
+  return isOptionalMangleOf(S, NAME_GET_ORIG_GID);
 }
 
 bool CompilationUtils::isGetLocalId(const std::string& S){
-  return isMangleOf(S, NAME_GET_ORIG_LID);
+  return isOptionalMangleOf(S, NAME_GET_ORIG_LID);
 }
 
 bool CompilationUtils::isGetGlobalLinearId(const std::string& S){
-  return isMangleOf(S, NAME_GET_LINEAR_GID);
+  return isOptionalMangleOf(S, NAME_GET_LINEAR_GID);
 }
 
 bool CompilationUtils::isGetLocalLinearId(const std::string& S){
-  return isMangleOf(S, NAME_GET_LINEAR_LID);
+  return isOptionalMangleOf(S, NAME_GET_LINEAR_LID);
 }
 
 bool CompilationUtils::isGetGlobalSize(const std::string& S){
-  return isMangleOf(S, NAME_GET_GLOBAL_SIZE);
+  return isOptionalMangleOf(S, NAME_GET_GLOBAL_SIZE);
 }
 
 bool CompilationUtils::isGetLocalSize(const std::string& S){
-  return isMangleOf(S, NAME_GET_LOCAL_SIZE);
+  return isOptionalMangleOf(S, NAME_GET_LOCAL_SIZE);
 }
 
 bool CompilationUtils::isGetNumGroups(const std::string& S){
-  return isMangleOf(S, NAME_GET_NUM_GROUPS);
+  return isOptionalMangleOf(S, NAME_GET_NUM_GROUPS);
 }
 
 bool CompilationUtils::isGetGroupId(const std::string& S){
-  return isMangleOf(S, NAME_GET_GROUP_ID);
+  return isOptionalMangleOf(S, NAME_GET_GROUP_ID);
 }
 
 bool CompilationUtils::isGlobalOffset(const std::string& S){
-  return isMangleOf(S, NAME_GET_GLOBAL_OFFSET);
+  return isOptionalMangleOf(S, NAME_GET_GLOBAL_OFFSET);
 }
 
 bool CompilationUtils::isAsyncWorkGroupCopy(const std::string& S){
