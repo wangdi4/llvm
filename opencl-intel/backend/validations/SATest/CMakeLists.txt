@@ -229,7 +229,7 @@ if (INCLUDE_MIC_DEVICE)
 
     if (NOT WIN32)
 	get_target_property( CURR_RPATH ${TARGET_NAME} INSTALL_RPATH )
-	set_target_properties( ${TARGET_NAME} PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_DIR}/host-linux-release/lib" )
+	set_target_properties( ${TARGET_NAME} PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_HOST_LIB_PATH}" )
     endif (NOT WIN32)
 endif (INCLUDE_MIC_DEVICE)
 
