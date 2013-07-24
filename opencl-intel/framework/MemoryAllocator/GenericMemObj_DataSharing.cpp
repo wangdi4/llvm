@@ -32,9 +32,11 @@
 #include "cl_logger.h"
 #include "GenericMemObj.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_shutdown.h"
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 //
 // Lock managent - reuse global generic mem-object lock
@@ -1175,7 +1177,7 @@ void GenericMemObjectSubBuffer::ZombieFlashToParent()
 
     acquireBufferSyncLock();
 
-    if (getUpdateParentFlag() && isSecondLevelBufferSyncLock())
+    if ((getUpdateParentFlag() && isSecondLevelBufferSyncLock()) || (IsShuttingDown()))
     {
         // Ooooops! We entered zombie mode during parent update and from inside thread that already holds 
         //          BufferSyncLock lock. As with current implementation this may happen only because of races between 
