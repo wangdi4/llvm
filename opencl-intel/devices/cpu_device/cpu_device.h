@@ -64,8 +64,6 @@ private:
 
     static volatile bool    m_bDeviceIsRunning;
 
-    size_t GetMaxSupportedPixelSize();
-
 protected:
 	virtual ~CPUDevice();
 

@@ -348,7 +348,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
               else if (imgArg.find("opencl.image2d_t") != std::string::npos)
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
               else if (imgArg.find("opencl.image2d_array_t") != std::string::npos)
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR;
+              else if (imgArg.find("opencl.image2d_depth_t") != std::string::npos)
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_DEPTH;
+              else if (imgArg.find("opencl.image2d_array_depth_t") != std::string::npos)
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH;
               else if (imgArg.find("opencl.image3d_t") != std::string::npos)
                   curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
 

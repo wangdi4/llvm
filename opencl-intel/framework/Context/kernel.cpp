@@ -657,16 +657,17 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 		bIsSampler = true;
 	}
 	// Buffers
-	else if ((clArgType == CL_KRNL_ARG_PTR_GLOBAL)	||
-	    (clArgType == CL_KRNL_ARG_PTR_CONST) )
+	else if ((clArgType == CL_KRNL_ARG_PTR_GLOBAL) ||
+		(clArgType == CL_KRNL_ARG_PTR_CONST) )
 	{
 		if (sizeof(cl_mem) != szSize)
 		{
 			return CL_INVALID_ARG_SIZE;
 		}
 		bIsMemObj = true;
-	} // Images
-	else if ( (clArgType == CL_KRNL_ARG_PTR_IMG_2D)	||
+	}
+	// Images
+	else if ( (clArgType == CL_KRNL_ARG_PTR_IMG_2D) ||
 		(clArgType == CL_KRNL_ARG_PTR_IMG_3D)   ||
 		(clArgType == CL_KRNL_ARG_PTR_IMG_2D_ARR) ||
 		(clArgType == CL_KRNL_ARG_PTR_IMG_1D) ||
@@ -678,6 +679,42 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 			return CL_INVALID_ARG_SIZE;
 		}
 		if (NULL == pValue)
+		{
+			return CL_INVALID_ARG_VALUE;
+		}
+		SharedPtr<MemoryObject> pMemObj = pContext->GetMemObject(*(cl_mem*)pValue);
+		if (NULL == pMemObj)
+		{
+			return CL_INVALID_ARG_VALUE;
+		}     
+		cl_image_format imgFormat;
+		cl_err_code err = pMemObj->GetImageInfo(CL_IMAGE_FORMAT, sizeof(imgFormat), &imgFormat, NULL);
+		if (CL_FAILED(err) || imgFormat.image_channel_order == CL_DEPTH)
+		{
+			return CL_INVALID_ARG_VALUE;
+		}
+		bIsMemObj = true;
+	}
+	// Image depth
+	else if (clArgType == CL_KRNL_ARG_PTR_IMG_2D_DEPTH ||
+		 clArgType == CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH)
+	{
+		if (sizeof(cl_mem) != szSize)
+		{
+			return CL_INVALID_ARG_SIZE;
+		}
+		if (NULL == pValue)
+		{
+			return CL_INVALID_ARG_VALUE;
+		}
+		SharedPtr<MemoryObject> pMemObj = pContext->GetMemObject(*(cl_mem*)pValue);
+		if (NULL == pMemObj)
+		{
+			return CL_INVALID_ARG_VALUE;
+		}     
+		cl_image_format imgFormat;
+		cl_err_code err = pMemObj->GetImageInfo(CL_IMAGE_FORMAT, sizeof(imgFormat), &imgFormat, NULL);
+		if (CL_FAILED(err) || imgFormat.image_channel_order != CL_DEPTH)
 		{
 			return CL_INVALID_ARG_VALUE;
 		}

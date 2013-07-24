@@ -145,7 +145,9 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam)
 			( CL_KRNL_ARG_PTR_IMG_1D_ARR == pArgs[i].type ) ||
 			( CL_KRNL_ARG_PTR_IMG_1D_BUF == pArgs[i].type ) ||
 			( CL_KRNL_ARG_PTR_IMG_2D_ARR == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH == pArgs[i].type ) ||
 			( CL_KRNL_ARG_PTR_IMG_2D == pArgs[i].type ) ||
+			( CL_KRNL_ARG_PTR_IMG_2D_DEPTH == pArgs[i].type ) ||
 			( CL_KRNL_ARG_PTR_IMG_3D == pArgs[i].type )
 			)
 

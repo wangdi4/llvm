@@ -7196,10 +7196,10 @@ float4 __attribute__((overloadable)) const_func read_imagef(__read_only image2d_
 //half4 __attribute__((overloadable)) const_func read_imageh(__read_only image2d_t image, sampler_t sampler, int2 coord);
 //half4 __attribute__((overloadable)) const_func read_imageh(__read_only image2d_t image, sampler_t sampler, float2 coord);
 
-// OpenCL C 2.0 introduced new basic types: image2d_depth_t, image2d_array_depth_t
-// TODO: remove the following define as soon as Clang support -cl-std=CL2.0 flag
-#define  CL_VERSION_2_0 200
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
+// Since OpenCL 2.0 image2d_depth_t and image2d_array_depth_t are mandatory
+#if __OPENCL_C_VERSION__ > CL_VERSION_1_2 || defined ENABLE_OPENCL_20_FOR_OPENCL_H_PCH_GENERATION
+
+#pragma OPENCL EXTENSION cl_khr_depth_images : enable
 float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_depth_t image, sampler_t sampler, int2 coord);
 float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_depth_t image, sampler_t sampler, float2 coord);
 float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_depth_t image, int2 coord);
@@ -7439,7 +7439,11 @@ void __attribute__((overloadable)) write_imagei (__write_only image1d_array_t im
 void __attribute__((overloadable)) write_imageui (__write_only image1d_array_t image, int2 coord, uint4 color);
 
 
-#if defined __WRITE_IMAGE3D__ || __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
+// Since OpenCL 2.0 writes to image3d_t are mandatory
+#if defined __WRITE_IMAGE3D__ || __OPENCL_C_VERSION__ > CL_VERSION_1_2 ||\
+    defined ENABLE_OPENCL_20_FOR_OPENCL_H_PCH_GENERATION
+
+#pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
 /**
  * Write color value to location specified by coordinate
  * (x, y, z) in the 3D image object specified by image.
@@ -7480,7 +7484,6 @@ void __attribute__((overloadable)) write_imagef(__write_only image3d_t image, in
 void __attribute__((overloadable)) write_imagei(__write_only image3d_t image, int4 coord, int4 color);
 void __attribute__((overloadable)) write_imageui(__write_only image3d_t image, int4 coord, uint4 color);
 //void __attribute__((overloadable)) write_imageh(__write_only image3d_t image, int4 coord, half4 color);
-
 #endif
 
 /**

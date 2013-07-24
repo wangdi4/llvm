@@ -9,6 +9,8 @@ const cl_image_format supportedImageFormats[] = {
     // CL_RGBA
     {CL_RGBA, CL_UNORM_INT8},
     {CL_RGBA, CL_UNORM_INT16},
+    {CL_RGBA, CL_SNORM_INT8},
+    {CL_RGBA, CL_SNORM_INT16},
     {CL_RGBA, CL_SIGNED_INT8},
     {CL_RGBA, CL_SIGNED_INT16},
     {CL_RGBA, CL_SIGNED_INT32},
@@ -39,6 +41,8 @@ const cl_image_format supportedImageFormats[] = {
     {CL_R,      CL_FLOAT},
     {CL_R,      CL_UNORM_INT8},
     {CL_R,      CL_UNORM_INT16},
+    {CL_R,      CL_SNORM_INT8},
+    {CL_R,      CL_SNORM_INT16},
     {CL_R,      CL_SIGNED_INT8},
     {CL_R,      CL_SIGNED_INT16},
     {CL_R,      CL_SIGNED_INT32},
@@ -56,6 +60,8 @@ const cl_image_format supportedImageFormats[] = {
     // CL_RG
     {CL_RG,     CL_UNORM_INT8},
     {CL_RG,     CL_UNORM_INT16},
+    {CL_RG,     CL_SNORM_INT8},
+    {CL_RG,     CL_SNORM_INT16},
     {CL_RG,     CL_SIGNED_INT16},
     {CL_RG,     CL_SIGNED_INT32},
     {CL_RG,     CL_SIGNED_INT8},
@@ -63,8 +69,18 @@ const cl_image_format supportedImageFormats[] = {
     {CL_RG,     CL_UNSIGNED_INT16},
     {CL_RG,     CL_UNSIGNED_INT32},
     {CL_RG,     CL_HALF_FLOAT},
-    {CL_RG,     CL_FLOAT}
+    {CL_RG,     CL_FLOAT},
 
+    // CL_sRGBA
+    {CL_sRGBA,  CL_UNORM_INT8},
+
+    // CL_sBGRA
+    {CL_sBGRA,  CL_UNORM_INT8},
+
+    // Keep it at the end of the array; result of GetSupportedImageFormats depends on it
+    // CL_DEPTH
+    {CL_DEPTH,  CL_FLOAT},
+    {CL_DEPTH,  CL_UNORM_INT16}
 };
 
 ImageCallbackService::ImageCallbackService(const CompilerConfig& config, bool isCpu)
@@ -72,8 +88,12 @@ ImageCallbackService::ImageCallbackService(const CompilerConfig& config, bool is
   ImageCallbackManager::GetInstance()->InitLibrary(config, isCpu, m_CpuId);
 }
 
-const cl_image_format* ImageCallbackService::GetSupportedImageFormats(unsigned int *numFormats){
-    *numFormats=ARRAY_SIZE(supportedImageFormats);
+const cl_image_format* ImageCallbackService::GetSupportedImageFormats(unsigned int *numFormats, cl_mem_object_type imageType){
+    if(imageType == CL_MEM_OBJECT_IMAGE2D ||
+       imageType == CL_MEM_OBJECT_IMAGE2D_ARRAY)
+      *numFormats=ARRAY_SIZE(supportedImageFormats);
+    else
+      *numFormats=ARRAY_SIZE(supportedImageFormats) - 2;
     return (&supportedImageFormats[0]);
 }
 

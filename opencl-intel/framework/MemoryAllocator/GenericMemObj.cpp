@@ -1202,14 +1202,23 @@ size_t GenericMemObjectBackingStore::get_element_size(const cl_image_format* for
     size_t stChSize = 0;
     switch (format->image_channel_order)
     {
-    case CL_R:case CL_A:case CL_LUMINANCE:case CL_INTENSITY:
+    case CL_R:
+    case CL_A:
+    case CL_LUMINANCE:
+    case CL_INTENSITY:
+    case CL_DEPTH:
     case CL_RGB:    // Special case, must be used only with specific data type
         stChannels = 1;
         break;
-    case CL_RG:case CL_RA:
+    case CL_RG:
+    case CL_RA:
         stChannels = 2;
         break;
-    case CL_RGBA: case CL_ARGB: case CL_BGRA:
+    case CL_RGBA:
+    case CL_ARGB:
+    case CL_BGRA:
+    case CL_sRGBA:
+    case CL_sBGRA:
         stChannels = 4;
         break;
     default:

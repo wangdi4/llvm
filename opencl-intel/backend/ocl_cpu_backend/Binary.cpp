@@ -135,8 +135,10 @@ void Binary::InitParams(const std::vector<cl_kernel_argument>& args, char* pArgs
       if ((arg.type == CL_KRNL_ARG_PTR_GLOBAL)
             || (arg.type == CL_KRNL_ARG_PTR_CONST) 
             || (arg.type == CL_KRNL_ARG_PTR_IMG_2D) 
+            || (arg.type == CL_KRNL_ARG_PTR_IMG_2D_DEPTH) 
             || (arg.type == CL_KRNL_ARG_PTR_IMG_3D)
             || (arg.type == CL_KRNL_ARG_PTR_IMG_2D_ARR)
+            || (arg.type == CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH)
             || (arg.type == CL_KRNL_ARG_PTR_IMG_1D)
             || (arg.type == CL_KRNL_ARG_PTR_IMG_1D_ARR)
             || (arg.type == CL_KRNL_ARG_PTR_IMG_1D_BUF)) {

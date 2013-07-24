@@ -1351,7 +1351,6 @@ void write_sample_BGRA_UNORM_INT8(void* pixel, float4 color)
 }
 
 
-
 /****************************************************************FLOAT IMAGE TYPES I/O***************************************************************/
 
 
@@ -1544,6 +1543,11 @@ void write_sample_R_FLOAT(void* pixel, float4 color)
     (*(float*)pixel)=color.x;
 }
 
+void write_sample_DEPTH_FLOAT(void* pixel, float4 color)
+{
+    (*(float*)pixel)=color.x;
+}
+
 void write_sample_RG_FLOAT(void* pixel, float4 color)
 {
     (*(float2*)pixel)=color.lo;
@@ -1614,6 +1618,10 @@ IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_UNORM_INT16, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_SNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_SNORM_INT16, dummyFnc)
+// the following implementations are workaround to avoid changes
+// in the image callback library architecture
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(DEPTH_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(DEPTH_UNORM_INT16, dummyFnc)
 
 // definition for linear read callbacks in case of one channel images
 #define IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(TYPE, POST_PROCESSING) \
@@ -1753,6 +1761,10 @@ IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_UNORM_INT16, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_SNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_SNORM_INT16, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_HALF_FLOAT, dummyFnc)
+// the following implementations are workaround to avoid changes
+// in the image callback library architecture
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(DEPTH_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(DEPTH_UNORM_INT16, dummyFnc)
 
 
 #define IMPLEMENT_read_sample_LINEAR1D_CLAMP(TYPE, BORDER_COLOR, POST_PROCESSING) \
@@ -1802,6 +1814,10 @@ IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_UNORM_INT16, BorderColorAlphaFloat, dumm
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_SNORM_INT8, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_SNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
+// the following implementations are workaround to avoid changes
+// in the image callback library architecture
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(DEPTH_FLOAT, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(DEPTH_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 
 
 #define IMPLEMENT_read_sample_LINEAR2D_CLAMP_CH1(TYPE, POST_PROCESSING) \
@@ -1938,6 +1954,10 @@ IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_UNORM_INT16, BorderColorAlphaFloat, dumm
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_SNORM_INT8, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_SNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
+// the following implementations are workaround to avoid changes
+// in the image callback library architecture
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(DEPTH_FLOAT, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(DEPTH_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 
 
 //////////////////////////////////////
@@ -2295,6 +2315,8 @@ float4 load_pixel_R_UNORM_INT8(void* pPixel)
     return converted;
 }
 
+/***************************************sRGB Image type i/o functions*****************************************************/
+
 // loads and converts pixel data from a given pixel pointer when the image has the following properties:
 // Channel Order: CL_sRGBA and CL_sBGRA 
 // Channel Data Type: CLK_UNORM_INT8
@@ -2402,6 +2424,18 @@ float4 load_pixel_sBGRA_UNORM_INT8(void* pPixel)
                             data[3] * 1.f/255.f);
     return pixel;
 }
+
+void write_sample_sRGBA_UNORM_INT8(void* pixel, float4 color)
+{
+  // stubbed: write to sRGBA is optional and not supported
+}
+
+void write_sample_sBGRA_UNORM_INT8(void* pixel, float4 color)
+{
+  // stubbed: write to sBGRA is optional and not supported
+}
+
+/*************************************************************************************************************************/
 
 
 // loads and converts pixel data from a given pixel pointer when the image has the following properties:

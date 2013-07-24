@@ -20,7 +20,8 @@
 
 #if !defined (__MIC__) && !defined(__MIC2__)
 
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#pragma OPENCL EXTENSION cl_khr_fp64         : enable
+#pragma OPENCL EXTENSION cl_khr_depth_images : enable
 
 #define __OPENCL__
 #include <intrin.h>
@@ -63,11 +64,15 @@ IMG_GET_PARAM(get_image_width, image1d_array_t, int, dim[0])
 IMG_GET_PARAM(get_image_width, image1d_buffer_t, int, dim[0])
 IMG_GET_PARAM(get_image_width, image2d_t, int, dim[0])
 IMG_GET_PARAM(get_image_width, image2d_array_t, int, dim[0])
+IMG_GET_PARAM(get_image_width, image2d_depth_t, int, dim[0])
+IMG_GET_PARAM(get_image_width, image2d_array_depth_t, int, dim[0])
 IMG_GET_PARAM(get_image_width, image3d_t, int, dim[0])
 
-IMG_GET_PARAM(get_image_height, image3d_t, int, dim[1])
 IMG_GET_PARAM(get_image_height, image2d_t, int, dim[1])
 IMG_GET_PARAM(get_image_height, image2d_array_t, int, dim[1])
+IMG_GET_PARAM(get_image_height, image2d_depth_t, int, dim[1])
+IMG_GET_PARAM(get_image_height, image2d_array_depth_t, int, dim[1])
+IMG_GET_PARAM(get_image_height, image3d_t, int, dim[1])
 
 IMG_GET_PARAM(get_image_depth, image3d_t, int, dim[2])
 
@@ -76,6 +81,8 @@ IMG_GET_PARAM(get_image_channel_data_type, image1d_array_t, int,  format.image_c
 IMG_GET_PARAM(get_image_channel_data_type, image1d_buffer_t, int, format.image_channel_data_type)
 IMG_GET_PARAM(get_image_channel_data_type, image2d_t, int,        format.image_channel_data_type)
 IMG_GET_PARAM(get_image_channel_data_type, image2d_array_t, int,  format.image_channel_data_type)
+IMG_GET_PARAM(get_image_channel_data_type, image2d_depth_t, int,        format.image_channel_data_type)
+IMG_GET_PARAM(get_image_channel_data_type, image2d_array_depth_t, int,  format.image_channel_data_type)
 IMG_GET_PARAM(get_image_channel_data_type, image3d_t, int,        format.image_channel_data_type)
 
 IMG_GET_PARAM(get_image_channel_order, image1d_t, int,        format.image_channel_order)
@@ -83,6 +90,8 @@ IMG_GET_PARAM(get_image_channel_order, image1d_array_t, int,  format.image_chann
 IMG_GET_PARAM(get_image_channel_order, image1d_buffer_t, int, format.image_channel_order)
 IMG_GET_PARAM(get_image_channel_order, image2d_t, int,        format.image_channel_order)
 IMG_GET_PARAM(get_image_channel_order, image2d_array_t, int,  format.image_channel_order)
+IMG_GET_PARAM(get_image_channel_order, image2d_depth_t, int,        format.image_channel_order)
+IMG_GET_PARAM(get_image_channel_order, image2d_array_depth_t, int,  format.image_channel_order)
 IMG_GET_PARAM(get_image_channel_order, image3d_t, int,        format.image_channel_order)
 
 // this is a common function for image2d_t, image2d_array_t, image2d_depth_t, and image2d_array_depth_t
@@ -94,18 +103,6 @@ int2 __attribute__((overloadable)) __attribute__((const)) get_image2d_dim_raw(im
     return res;
 }
 
-// TODO: remove the following define as soon as Clang support -cl-std=CL2.0 flag
-#define  CL_VERSION_2_0 200
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
-IMG_GET_PARAM(get_image_width, image2d_depth_t, int, dim[0])
-IMG_GET_PARAM(get_image_width, image2d_array_depth_t, int, dim[0])
-IMG_GET_PARAM(get_image_height, image2d_depth_t, int, dim[1])
-IMG_GET_PARAM(get_image_height, image2d_array_depth_t, int, dim[1])
-IMG_GET_PARAM(get_image_channel_order, image2d_depth_t, int,        format.image_channel_order)
-IMG_GET_PARAM(get_image_channel_order, image2d_array_depth_t, int,  format.image_channel_order)
-IMG_GET_PARAM(get_image_channel_data_type, image2d_depth_t, int,        format.image_channel_data_type)
-IMG_GET_PARAM(get_image_channel_data_type, image2d_array_depth_t, int,  format.image_channel_data_type)
-
 int2 __attribute__((overloadable)) __attribute__((const)) get_image_dim(image2d_depth_t img)
 {
     return get_image2d_dim_raw(__builtin_astype(img, image_aux_data*));
@@ -115,7 +112,6 @@ int2 __attribute__((overloadable)) __attribute__((const)) get_image_dim(image2d_
 {
     return get_image2d_dim_raw(__builtin_astype(img, image_aux_data*));
 }
-#endif
 
 int2 __attribute__((overloadable)) __attribute__((const)) get_image_dim(image2d_t img)
 {
@@ -149,13 +145,11 @@ size_t __attribute__((overloadable)) __attribute__((const)) get_image_array_size
         return pImage->array_size;
 }
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 size_t __attribute__((overloadable)) __attribute__((const)) get_image_array_size(image2d_array_depth_t img)
 {
         image_aux_data *pImage = __builtin_astype(img, image_aux_data*);
         return pImage->array_size;
 }
-#endif
 
 //// Auxiliary built-in functions
 
@@ -171,13 +165,11 @@ int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_t image, int4 coord)
 }
 
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_depth_t image, int4 coord)
 {
     image2d_t proxy = __builtin_astype(image, image2d_t);
     return ProjectToEdgeInt(proxy, coord);
 }
-#endif
 // Clamps SOA4 coordinates to be inside image
 //
 // @param [in] image: the image object
@@ -221,13 +213,11 @@ void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d
     return pixel;
 }
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d_depth_t image, int2 coord)
 {
     image2d_t proxy = __builtin_astype(image, image2d_t);
     return extract_pixel(proxy, coord);
 }
-#endif
 
 void __attribute__((overloadable)) soa4_extract_pixel(image2d_t image, int4 coord_x, int4 coord_y, void** p1, void** p2, void** p3, void** p4)
 {
@@ -289,13 +279,11 @@ void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d
 }
 
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d_array_depth_t image, int4 coord)
 {
     image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
     extract_pixel(proxy, coord);
 }
-#endif
 
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image1d_t image, int coord)
 {
@@ -332,13 +320,11 @@ void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image2d_
     return ptr;
 }
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image2d_array_depth_t image, float idxFloat)
 {
     image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
     return GetImagePtr(proxy, idxFloat);
 }
-#endif
 
 void* __attribute__((overloadable)) __attribute__((const))  GetImagePtr(image1d_array_t image, float idxFloat)
 {
@@ -372,13 +358,11 @@ void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr(image2d_a
     return ptr;
 }
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr(image2d_array_depth_t image, int idx)
 {
     image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
     return GetImagePtr(proxy, idx);
 }
-#endif
 
 void* __attribute__((overloadable)) __attribute__((const)) GetImagePtr(image1d_array_t image, int idx)
 {
@@ -696,13 +680,11 @@ float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sam
     return call_Image_FI_READ_CBK(read_cbk, (void*)pImage, trans_position, dummy0, dummy1, pData);
 }
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 float  __attribute__((overloadable)) read_imagef(image2d_depth_t image, sampler_t sampler, int2 coord)
 {
     image2d_t proxy = __builtin_astype(image, image2d_t);
     return read_imagef(proxy, sampler, coord).x;
 }
-#endif
 
 float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image, sampler_t sampler, int2 coord)
 {
@@ -738,13 +720,11 @@ float4  __attribute__((overloadable)) read_imagef(image2d_t image, sampler_t sam
     return call_Image_F_READ_CBK(read_cbk, (void*)pImage, square0, square1, fraction, pData);
 }
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 float  __attribute__((overloadable)) read_imagef(image2d_depth_t image, sampler_t sampler, float2 coord)
 {
     image2d_t proxy = __builtin_astype(image, image2d_t);
     return read_imagef(proxy, sampler, coord).x;
 }
-#endif
 
 float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image, sampler_t sampler, float2 coord)
 {
@@ -773,13 +753,11 @@ void  __attribute__((overloadable)) write_imagef(image2d_t image, int2 coord, fl
     call_Image_F_WRITE_CBK(cbk, pixel, color);
 }
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 void  __attribute__((overloadable)) write_imagef(image2d_depth_t image, int2 coord, float depth)
 {
     image2d_t proxy = __builtin_astype(image, image2d_t);
-    write_imagef(proxy, (float4)(depth));
+    write_imagef(proxy, coord, (float4)(depth));
 }
-#endif
 
 void  __attribute__((overloadable)) mask_write_imagef(int mask, image2d_t image, int2 coord, float4 color)
 {
@@ -821,7 +799,6 @@ float4  __attribute__((overloadable)) read_imagef(image2d_array_t image, sampler
     return val;
 }
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 float  __attribute__((overloadable)) read_imagef(image2d_array_depth_t image, sampler_t sampler, int4 coord)
 {
     image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
@@ -833,7 +810,6 @@ float  __attribute__((overloadable)) read_imagef(image2d_array_depth_t image, sa
     image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
     return read_imagef(proxy, sampler, coord).x;
 }
-#endif
 
 int4  __attribute__((overloadable)) read_imagei(image2d_array_t image, sampler_t sampler, int4 coord)
 {
@@ -1062,13 +1038,11 @@ float4 __attribute__((overloadable)) read_imagef (image2d_t image, int2 coord)
     return call_Image_FI_READ_CBK(read_cbk, (void*)pImage, coord4, dummy0, dummy1, pData);
 }
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 float __attribute__((overloadable)) read_imagef (image2d_depth_t image, int2 coord)
 {
     image2d_t proxy = __builtin_astype(image, image2d_t);
     return read_imagef(proxy, coord).x;
 }
-#endif
 
 float4 __attribute__((overloadable)) mask_read_imagef (int mask, image2d_t image, int2 coord)
 {
@@ -1147,13 +1121,11 @@ float4 __attribute__((overloadable)) read_imagef (image2d_array_t image, int4 co
     return call_Image_FI_READ_CBK(read_cbk, (void*)pImage, internal_coord, dummy0, dummy1, pData);
 }
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 float __attribute__((overloadable)) read_imagef (image2d_array_depth_t image, int4 coord)
 {
     image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
     return read_imagef(proxy, coord).x;
 }
-#endif
 
 int4 __attribute__((overloadable)) read_imagei (image2d_array_t image, int4 coord)
 {
@@ -1271,13 +1243,11 @@ void __attribute__((overloadable)) write_imagef (image2d_array_t image, int4 coo
     call_Image_F_WRITE_CBK(cbk, pixel, color);
 }
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 void __attribute__((overloadable)) write_imagef (image2d_array_depth_t image, int4 coord, float depth)
 {
     image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
     write_imagef(proxy, coord, (float4)(depth));
 }
-#endif
 
 void __attribute__((overloadable)) write_imagei (image2d_array_t image, int4 coord, int4 color)
 {
@@ -1370,13 +1340,12 @@ void __attribute__((overloadable)) write_imageui (image1d_array_t image, int2 co
     call_Image_UI_WRITE_CBK(cbk, pixel, color);
 }
 
-#if defined __WRITE_IMAGE3D__ || __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
 void __attribute__((overloadable)) write_imagef(image3d_t image, int4 coord, float4 color)
 {
     void* pixel = extract_pixel(image, coord);
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     Image_F_WRITE_CBK cbk = (Image_F_WRITE_CBK)pImage->write_img_callback;
-    cbk(pixel, color);
+    call_Image_F_WRITE_CBK(cbk, pixel, color);
 }
 
 void __attribute__((overloadable)) write_imagei(image3d_t image, int4 coord, int4 color)
@@ -1384,7 +1353,7 @@ void __attribute__((overloadable)) write_imagei(image3d_t image, int4 coord, int
     void* pixel = extract_pixel(image, coord);
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     Image_I_WRITE_CBK cbk = (Image_I_WRITE_CBK)pImage->write_img_callback;
-    cbk(pixel, color);
+    call_Image_I_WRITE_CBK(cbk, pixel, color);
 }
 
 void __attribute__((overloadable)) write_imageui(image3d_t image, int4 coord, uint4 color)
@@ -1392,9 +1361,8 @@ void __attribute__((overloadable)) write_imageui(image3d_t image, int4 coord, ui
     void* pixel = extract_pixel(image, coord);
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     Image_UI_WRITE_CBK cbk = (Image_UI_WRITE_CBK)pImage->write_img_callback;
-    cbk(pixel, color);
+    call_Image_UI_WRITE_CBK(cbk, pixel, color);
 }
-#endif
 
 
 // Helper functions to speed up mask analyzing

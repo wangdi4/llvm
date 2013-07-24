@@ -16,26 +16,28 @@ extern "C" {
  */
 enum cl_kernel_arg_type
 {
-    CL_KRNL_ARG_INT     = 0,    //!< Argument is a signed integer.
-    CL_KRNL_ARG_UINT,           //!< Argument is an unsigned integer.
-    CL_KRNL_ARG_FLOAT,          //!< Argument is a float.
-    CL_KRNL_ARG_DOUBLE,         //!< Argument is a double.
-    CL_KRNL_ARG_VECTOR,         //!< Argument is a vector of basic types, like int8, float4, etc.
-    CL_KRNL_ARG_VECTOR_BY_REF,  //!< Argument is a byval pointer to a vector of basic types, like int8, float4, etc.
-    CL_KRNL_ARG_SAMPLER,        //!< Argument is a sampler object
-    CL_KRNL_ARG_COMPOSITE,      //!< Argument is a user defined struct
-    CL_KRNL_ARG_PTR_LOCAL,      //!< Argument is a pointer to array declared in local memory
-                                //!< Memory object types bellow this line
-    CL_KRNL_ARG_PTR_GLOBAL,     //!< Argument is a pointer to array in global memory of various types
-                                //!< The array type could be char, short, int, float or double
-                                //!< User must pass a handle to a memory buffer for this argument type
-    CL_KRNL_ARG_PTR_CONST,      //!< Argument is a pointer to buffer declared in constant(global) memory
-    CL_KRNL_ARG_PTR_IMG_2D,     //!< Argument is a pointer to 2D image
-    CL_KRNL_ARG_PTR_IMG_3D,     //!< Argument is a pointer to 3D image
-    CL_KRNL_ARG_PTR_IMG_2D_ARR, //!< Argument is a pointer to a 2D image array
-    CL_KRNL_ARG_PTR_IMG_1D,     //!< Argument is a pointer to 1D image
-    CL_KRNL_ARG_PTR_IMG_1D_ARR, //!< Argument is a pointer to 1D image array
-    CL_KRNL_ARG_PTR_IMG_1D_BUF  //!< Argument is a pointer to 1D image buffer
+    CL_KRNL_ARG_INT     = 0,          //!< Argument is a signed integer.
+    CL_KRNL_ARG_UINT,                 //!< Argument is an unsigned integer.
+    CL_KRNL_ARG_FLOAT,                //!< Argument is a float.
+    CL_KRNL_ARG_DOUBLE,               //!< Argument is a double.
+    CL_KRNL_ARG_VECTOR,               //!< Argument is a vector of basic types, like int8, float4, etc.
+    CL_KRNL_ARG_VECTOR_BY_REF,        //!< Argument is a byval pointer to a vector of basic types, like int8, float4, etc.
+    CL_KRNL_ARG_SAMPLER,              //!< Argument is a sampler object
+    CL_KRNL_ARG_COMPOSITE,            //!< Argument is a user defined struct
+    CL_KRNL_ARG_PTR_LOCAL,            //!< Argument is a pointer to array declared in local memory
+                                      //!< Memory object types bellow this line
+    CL_KRNL_ARG_PTR_GLOBAL,           //!< Argument is a pointer to array in global memory of various types
+                                      //!< The array type could be char, short, int, float or double
+                                      //!< User must pass a handle to a memory buffer for this argument type
+    CL_KRNL_ARG_PTR_CONST,            //!< Argument is a pointer to buffer declared in constant(global) memory
+    CL_KRNL_ARG_PTR_IMG_2D,           //!< Argument is a pointer to 2D image
+    CL_KRNL_ARG_PTR_IMG_2D_DEPTH,     //!< Argument is a pointer to 2D image depth
+    CL_KRNL_ARG_PTR_IMG_3D,           //!< Argument is a pointer to 3D image
+    CL_KRNL_ARG_PTR_IMG_2D_ARR,       //!< Argument is a pointer to a 2D image array
+    CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH, //!< Argument is a pointer to a 2D image depth array
+    CL_KRNL_ARG_PTR_IMG_1D,           //!< Argument is a pointer to 1D image
+    CL_KRNL_ARG_PTR_IMG_1D_ARR,       //!< Argument is a pointer to 1D image array
+    CL_KRNL_ARG_PTR_IMG_1D_BUF        //!< Argument is a pointer to 1D image buffer
 };
 
 /*! \struct cl_kernel_argument

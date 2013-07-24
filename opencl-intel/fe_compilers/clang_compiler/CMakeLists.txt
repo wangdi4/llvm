@@ -125,11 +125,12 @@ if( ANDROID )
 endif( ANDROID )
 
 set( COMPILER_OPTIONS -cc1
-                                          ${TRIPLE}
+                      ${TRIPLE}
                       -x cl
                       -O0
                       -emit-pch 
                       -I ${OCL_CLANG_HEADERS}
+                      -D ENABLE_OPENCL_20_FOR_OPENCL_H_PCH_GENERATION
                       )
 set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
 )

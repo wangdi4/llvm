@@ -427,24 +427,6 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
     return CL_DEV_SUCCESS;
 }
 
-size_t CPUDevice::GetMaxSupportedPixelSize()
-{ 
-    size_t i = 0, szMaxPixelSize = 0;
-
-    unsigned int uiNumEntries;
-    const cl_image_format* supportedImageFormats = m_pProgramService->GetImageService()->GetSupportedImageFormats(&uiNumEntries);
-
-    for (; i < uiNumEntries; i++)
-    {
-        const size_t szPixelSize = clGetPixelBytesCount(&supportedImageFormats[i]);
-        if (szPixelSize > szMaxPixelSize)
-        {
-            szMaxPixelSize = szPixelSize;
-        }
-    }
-    return szMaxPixelSize;
-}
-
 // Device entry points
 //Device Information function prototypes
 //
