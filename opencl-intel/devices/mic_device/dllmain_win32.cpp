@@ -29,8 +29,6 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-extern bool gSafeReleaseOfCoiObjects;
-
 extern char clMICDEVICE_CFG_PATH[];
 
 #define MICDEVICE_CFG_PATH_ENV_NAME "MIC_DEVICE_CFG_FILE"
@@ -62,7 +60,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_PROCESS_DETACH:
 	// Comment all calls from DLL_PROCESS_DETACH, should handle it with shutdown fix.
 //		MICDevice::unloadRelease();
-		gSafeReleaseOfCoiObjects = false;
 		break;
 	}
 	return TRUE;

@@ -297,6 +297,35 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${OCL_BINARY_DIR}/lib )
 
 SET_UNICODE_OFF()
 
+# define MIC directories
+if (INCLUDE_MIC_DEVICE)
+    if (WIN32)
+# currenlty use absolute path
+#    set     ( COI_SDK_PATH           $ENV{INTEL_MPSS_HOST_SDK} )
+#    # Remove last backslash from the path and replace long name with the short one
+#    string  ( REGEX REPLACE "[\\]$"  "" COI_SDK_PATH ${COI_SDK_PATH} )
+#    string  ( REGEX REPLACE "Program Files"  "PROGRA~1" COI_SDK_PATH ${COI_SDK_PATH} )
+
+        set ( MPSS_PATH               "C:\\PROGRA~1\\Intel\\MPSS" )
+        set ( COI_SDK_PATH            "${MPSS_PATH}\\sdk" )
+        set ( COI_HOST_INCLUDE_PATH   "${COI_SDK_PATH}\\include\\intel-coi" )
+        set ( COI_HOST_LIB_PATH       "${COI_SDK_PATH}\\lib" )
+        set ( COI_DEVICE_INCLUDE_PATH "${COI_SDK_PATH}\\include\\intel-coi" )
+        set ( COI_DEVICE_LIB_PATH     "${MPSS_PATH}\\k1om-mpss-linux\\usr\\lib64")
+    else (WIN32)
+        string(TOLOWER ${CMAKE_BUILD_TYPE} DEBUG_RELEASE)
+        set ( COI_SDK_PATH            /opt/intel/mic/coi )
+        set ( COI_HOST_INCLUDE_PATH   ${COI_SDK_PATH}/include )	
+        set ( COI_HOST_LIB_PATH       ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib )
+        set ( COI_DEVICE_INCLUDE_PATH ${COI_SDK_PATH}/include)
+        set ( COI_DEVICE_LIB_PATH     ${COI_SDK_PATH}/device-linux-${DEBUG_RELEASE}/lib)
+    endif (WIN32)
+
+    message ( "COI host include directory  : ${COI_HOST_INCLUDE_PATH}")
+    message ( "COI host lib directory      : ${COI_HOST_LIB_PATH}")
+    message ( "COI device include directory: ${COI_DEVICE_INCLUDE_PATH}")
+    message ( "COI device lib directory    : ${COI_DEVICE_LIB_PATH}")
+endif (INCLUDE_MIC_DEVICE)
 
 # paths
 #set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES )

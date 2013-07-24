@@ -14,18 +14,11 @@ else (NOT MIC_TESTING_MODE)
 endif (NOT MIC_TESTING_MODE)
 option( ENABLE_MIC_TRACER OFF )
 if ( ENABLE_MIC_TRACER )
-	add_definitions( -DENABLE_MIC_TRACER )
+    add_definitions( -DENABLE_MIC_TRACER )
 endif( ENABLE_MIC_TRACER )
 
 set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
 set(HW_UTILS_PROJ_NAME cl_hw_utils)
-
-if (WIN32)
-	set( COI_SDK_PATH           $ENV{INTEL_MPSS_HOST_SDK} )
-	string ( REGEX REPLACE "[\\]$"  "" COI_SDK_PATH ${COI_SDK_PATH} ) 
-else (WIN32)
-	set( COI_SDK_PATH           /opt/intel/mic/coi )
-endif (WIN32)
 
 add_definitions( -DKNC_CARD )
 
@@ -48,24 +41,12 @@ include_directories( BEFORE
                             ../../fe_compilers/clang_compiler
                             ${HW_UTILS_HEADERS}
                             ${OCL_BINARY_DIR}
-                            ${COI_SDK_PATH}/include
+                            ${COI_HOST_INCLUDE_PATH}
                             mic_native )
 
 set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} )
 
-# for Linux only
-# COI stopped releasing their Debug version - only Release
-#string(TOLOWER  ${CMAKE_BUILD_TYPE} DEBUG_RELEASE)
-#set( DEBUG_RELEASE ${CMAKE_BUILD_TYPE} )
-if (NOT WIN32)
-	string(TOLOWER ${CMAKE_BUILD_TYPE} DEBUG_RELEASE)
-endif (NOT WIN32)
 
-if (WIN32)
-	set( COI_LIB_PATH           ${COI_SDK_PATH}/lib )
-else (WIN32)
-	set( COI_LIB_PATH           ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib )
-endif (WIN32)
 
 FIND_SOURCES( ${IGNORE_SOURCES} )
 CALCULATE_TARGET_SOURCES()
@@ -74,7 +55,7 @@ include( ../../cmake_utils/itt.cmake )
 
 link_directories(   ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
                     ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
-                    ${COI_LIB_PATH}
+                    ${COI_HOST_LIB_PATH}
                 )
 
 if(WIN32)

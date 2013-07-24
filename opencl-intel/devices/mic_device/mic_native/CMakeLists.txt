@@ -267,7 +267,7 @@ list( APPEND MIC_FLAGS
                 -I ${OCL_SOURCE_DIR}/cl_api
                 -I ${MIC_TBB_PATH}/include
                 -I ${MIC_TBB_PATH}/enhancements
-                -I ${COI_SDK_PATH}/include
+                -I ${COI_DEVICE_INCLUDE_PATH}
                 -I ${ITT_DIR}/include
                 -I ${ITT_DIR}/ittnotify
                 -I ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
@@ -316,10 +316,7 @@ endif (NOT WIN32)
 # MIC linking flags
 set( MIC_LINK_FLAGS      )
 
-if (NOT WIN32)
-	set (COI_LIB_PATH ${COI_SDK_PATH}/device-linux-${DEBUG_RELEASE}/lib)
-endif (NOT WIN32)
-SET_NATIVE_PATH(COI_LIB_PATH ${COI_LIB_PATH})
+SET_NATIVE_PATH(COI_DEVICE_LIB_PATH ${COI_DEVICE_LIB_PATH})
 
 # lib path
 list( APPEND MIC_LINK_FLAGS
@@ -329,7 +326,7 @@ list( APPEND MIC_LINK_FLAGS
                 -fnon-call-exceptions
 
                 # library search path at link
-                -L ${COI_LIB_PATH}
+                -L ${COI_DEVICE_LIB_PATH}
                 -L ${BACKEND_LIB_DIR}
                 -L ${MIC_TBB_LIB_PATH}
                 ${BACKEND_VTUNE_DIR}

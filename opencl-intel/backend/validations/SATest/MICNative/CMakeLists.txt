@@ -26,8 +26,6 @@ if (WIN32)
     set( DEVICE_LINKER    ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} )
 
     set( BACKEND_LIB_DIR  ${OCL_BINARY_DIR}/${IMPLIB_SUBDIR}/%CONFIG_NAME% )
-
-    set (COI_LIB_PATH "${COI_DIR}\\lib")
 else (WIN32)
 
     set( DEVICE_COMPILER_SCRIPT compile.sh )
@@ -37,8 +35,6 @@ else (WIN32)
     set( DEVICE_LINKER    ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} )
 
     set( BACKEND_LIB_DIR  ${OCL_BINARY_DIR}/lib )
-
-    set (COI_LIB_PATH "${COI_DIR}/device-linux-release/lib")
 endif (WIN32)
 
 #use the same COI version on linux and windows
@@ -164,8 +160,8 @@ function ( add_device_executable TARGET_NAME )
         add_custom_target( ${TARGET_NAME} ALL DEPENDS ${EXE_FILE} )
         if (NOT WIN32)
             # copy coi libraries to build subdirectory
-            file(COPY ${COI_DIR}/host-linux-release/lib/libcoi_host.so DESTINATION ${OCL_TOOLS_BINARY_DIR})
-            file(COPY ${COI_DIR}/host-linux-release/lib/libcoi_host.so.0 DESTINATION ${OCL_TOOLS_BINARY_DIR})
+            file(COPY ${COI_SDK_PATH}/host-linux-release/lib/libcoi_host.so DESTINATION ${OCL_TOOLS_BINARY_DIR})
+            file(COPY ${COI_SDK_PATH}/host-linux-release/lib/libcoi_host.so.0 DESTINATION ${OCL_TOOLS_BINARY_DIR})
         endif (NOT WIN32)
     else ()
         message( FATAL_ERROR "No input files specified for ${TARGET_NAME}" )
@@ -190,8 +186,8 @@ set( MIC_FLAGS  -Werror -fPIC -wd279)
 set( MIC_DEBUG_FLAGS    -g -O0 -D_DEBUG -DDEBUG )
 set( MIC_RELEASE_FLAGS     -O3 -DNDEBUG )
 
-SET_NATIVE_PATH(COI_DIR ${COI_DIR})
-SET_NATIVE_PATH(COI_LIB_PATH ${COI_LIB_PATH})
+#SET_NATIVE_PATH(COI_DIR ${COI_DIR})
+SET_NATIVE_PATH(COI_DEVICE_LIB_PATH ${COI_DEVICE_LIB_PATH})
 
 # inlcude path
 list( APPEND MIC_FLAGS
@@ -201,7 +197,7 @@ list( APPEND MIC_FLAGS
                 -I ${BACKEND_ROOT_DIR}/ocl_cpu_backend
                 -I ${BACKEND_ROOT_DIR}/ocl_cpu_backend/export
                 -I ${BACKEND_ROOT_DIR}/../cl_api
-                -I ${COI_DIR}/include
+                -I ${COI_DEVICE_INCLUDE_PATH}
                 -I ${BACKEND_ROOT_DIR}/external/vtune/include
                 )
 
@@ -213,7 +209,7 @@ file( TO_NATIVE_PATH "${BACKEND_ROOT_DIR}/external/vtune/libknc" VTUNE_LIB_DIR)
 # lib path
 list( APPEND MIC_LINK_FLAGS
                 # library search path at link
-                -L ${COI_LIB_PATH}
+                -L ${COI_DEVICE_LIB_PATH}
                 #-L ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
                 -L ${BACKEND_LIB_DIR}
                 -L ${VTUNE_LIB_DIR}
