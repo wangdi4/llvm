@@ -1621,11 +1621,12 @@ cl_err_code NDRangeKernelCommand::Init()
     size_t i;
 
 	cl_device_svm_capabilities svmCaps;
-	res = GetDevice()->GetInfo(CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, NULL);
-	if (CL_SUCCEEDED(res) && m_pKernel->IsSvmFineGrainSystem() && !(svmCaps & CL_DEVICE_SVM_FINE_GRAIN_SYSTEM))
+	cl_err_code resSvm = GetDevice()->GetInfo(CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, NULL);
+	if (CL_SUCCEEDED(resSvm) && m_pKernel->IsSvmFineGrainSystem() && !(svmCaps & CL_DEVICE_SVM_FINE_GRAIN_SYSTEM))
 	{
 		return CL_INVALID_OPERATION;
 	}
+
     // First calculate location and set objects
 	// TODO: Why we need two expensive passes, access to map, memcpy
 	//		Join to single pass, consider build most of the buffer during SetKernelArgs
