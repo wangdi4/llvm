@@ -84,18 +84,13 @@ else(APPLE)
     CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
 endif(APPLE)
 
-link_directories(${LLVM_LIBRARY_DIR})
-
 add_library(${TARGET_NAME} STATIC
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
     ${UTILS_ASM_ADD_TO_SOURCES_LIST}
 )
 
-target_link_libraries(${TARGET_NAME}
-  metadataapi
-  LLVMCore
-  LLVMSupport)
+add_dependencies(${TARGET_NAME} metadataapi)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
 

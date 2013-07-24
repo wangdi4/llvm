@@ -8,9 +8,9 @@ project (${TARGET_NAME})
 remove_definitions("-pedantic")
 
 if(NOT APPLE)
-if( NOT ANDROID )
+if(NOT ANDROID)
     add_subdirectory(unittest)
-endif()
+endif(NOT ANDROID)
 
 add_custom_command(
   OUTPUT BuiltinList.h
@@ -99,17 +99,6 @@ include_directories(
   apple_include
 )
 endif(NOT APPLE)
-
-target_link_libraries(
-  ${TARGET_NAME}
-  name_mangle
-)
-
-if (NOT WIN32)
-  if( NOT ANDROID)
-  target_link_libraries(${TARGET_NAME} pthread)
-  endif()
-endif (NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )
 

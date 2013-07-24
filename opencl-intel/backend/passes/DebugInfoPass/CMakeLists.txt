@@ -16,18 +16,6 @@ add_library(${TARGET_NAME}
   ${DEBUGINFOPASS_SOURCE_FILES}
 )
 
-add_dependencies(${TARGET_NAME}
-  metadataapi
-  LLVMCore
-  LLVMSupport
-  OclBackendUtils
-)
-
-target_link_libraries(${TARGET_NAME}
-  metadataapi
-  LLVMCore
-  LLVMSupport
-  OclBackendUtils
-)
+add_dependencies(${TARGET_NAME} metadataapi)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})

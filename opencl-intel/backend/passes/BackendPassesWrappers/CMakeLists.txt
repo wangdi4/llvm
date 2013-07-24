@@ -1,6 +1,3 @@
-# Disable rtti flag to avoid building errors
-use_rtti(FALSE)
-
 set(TARGET_NAME BackendPassesWrappers)
 
 include_directories(
@@ -23,16 +20,3 @@ add_library(${TARGET_NAME}
     ${PASSESWRAPPERS_SOURCE_FILES}
 )
 
-# Backend passes
-set(WRAPPER_BACKEND_PASSES
-    LocalBuffers
-    LocalBuffAnalysis
-)
-
-target_link_libraries(${TARGET_NAME}
-    ${WRAPPER_BACKEND_PASSES}
-)
-
-add_dependencies(${TARGET_NAME}
-    ${WRAPPER_BACKEND_PASSES}
-)

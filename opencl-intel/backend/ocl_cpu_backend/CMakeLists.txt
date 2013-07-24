@@ -360,13 +360,14 @@ target_link_libraries (${TARGET_NAME}
     # Utils lib
     OclPluginManager
     OclOptimizer
-    OclBackendUtils
     LLVMMICCodeGenerationEngine
     
     # internal passes
     ${BACKEND_PASSES}
 
-    name_mangle    
+    OclBackendUtils
+    reflection_module
+    name_mangle
     dynamic_load
     cl_sys_utils
     metadataapi
@@ -375,6 +376,11 @@ target_link_libraries (${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
     )
 
+if(NOT WIN32)
+    if(NOT ANDROID)
+        target_link_libraries(${TARGET_NAME} pthread)
+    endif(NOT ANDROID)
+endif(NOT WIN32)
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 

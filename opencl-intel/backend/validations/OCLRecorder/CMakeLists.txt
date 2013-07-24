@@ -96,13 +96,9 @@ target_link_libraries (${TARGET_NAME}
 
 if(WIN32)
     # Define the dependancy projects
-    add_dependencies(${TARGET_NAME} 
-        NEAT_wrapper
-    )
+    add_dependencies(${TARGET_NAME} NEAT_wrapper)
 else(WIN32)
-    add_dependencies(${TARGET_NAME} 
-        NEAT
-    )
+    add_dependencies(${TARGET_NAME} NEAT)
 endif(WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/plugins )

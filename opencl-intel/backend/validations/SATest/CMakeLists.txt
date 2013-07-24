@@ -211,11 +211,11 @@ target_link_libraries(${TARGET_NAME}
     NEAT
     REFALU
     name_mangle
+    ProgramConfiguration
     dynamic_load
     tinyxml_STL
     ImathLibd
     cl_sys_utils
-    ProgramConfiguration
     ${LLVM_MODULE_LIBS}
     )
 
@@ -225,7 +225,7 @@ target_link_libraries(${TARGET_NAME}
     
 if (INCLUDE_MIC_DEVICE)
     set_target_properties(${TARGET_NAME} PROPERTIES COMPILE_DEFINITIONS "${SATestMICDefs}")
-    target_link_libraries(${TARGET_NAME} coi_host dynamic_load)
+    target_link_libraries(${TARGET_NAME} coi_host dynamic_load cl_sys_utils)
 
     if (NOT WIN32)
 	get_target_property( CURR_RPATH ${TARGET_NAME} INSTALL_RPATH )
@@ -234,21 +234,14 @@ if (INCLUDE_MIC_DEVICE)
 endif (INCLUDE_MIC_DEVICE)
 
 if (NOT WIN32)
-  if( NOT ANDROID)
+  if(NOT ANDROID)
     target_link_libraries(${TARGET_NAME} pthread dl)
-  endif()
+  endif(NOT ANDROID)
 endif (NOT WIN32)
 
-if( NOT WIN32)
-    add_dependencies(${TARGET_NAME}
-        ImathLibd_wrapper
-        )
-endif ()
-
-add_dependencies( ${TARGET_NAME}
-    cl_sys_utils
-    ProgramConfiguration
-    )
+if(NOT WIN32)
+    add_dependencies(${TARGET_NAME} ImathLibd_wrapper)
+endif(NOT WIN32)
 
 if (INCLUDE_MIC_DEVICE)
     add_subdirectory(MICNative)

@@ -19,9 +19,6 @@ add_library(${TARGET_NAME}
     ${TARGET_SOURCE_FILES}
 )
 
-target_link_libraries(${TARGET_NAME}
-    OclBackendUtils
-)
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})
 
 if(APPLE)

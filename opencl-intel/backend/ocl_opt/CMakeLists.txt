@@ -28,13 +28,16 @@ set(OCL_BE_PASSES
     PrepareKernelArgs
     AddImplicitArgs
     ModuleCleanup
+    BackendPassesWrappers
+    LocalBuffers
+    LocalBuffAnalysis
 )
 
 # Dependencies of the passes
 set(OCL_BE_PASSES_DEPS
-    name_mangle
     OclBackendUtils
-    BackendPassesWrappers
+    reflection_module
+    name_mangle
     metadataapi
 )
 
@@ -45,12 +48,12 @@ target_link_libraries(${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
 )
 
-if( NOT WIN32)
-    target_link_libraries(${TARGET_NAME}
-#        pthread
-        dl
-    )
-endif ()
+if(NOT WIN32)
+    if(NOT ANDROID)
+        target_link_libraries(${TARGET_NAME} pthread)
+    endif(NOT ANDROID)
+    target_link_libraries(${TARGET_NAME} dl)
+endif(NOT WIN32)
 
 add_dependencies(${TARGET_NAME} metadataapi)
 

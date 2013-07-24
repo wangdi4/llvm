@@ -145,13 +145,6 @@ add_library(
   ${TARGET_INCLUDE_FILES}
 )
 
-target_link_libraries(
-  LLVMVectorizer
-  reflection_module
-  name_mangle
-  OclBackendUtils
-)
-
 add_dependencies(${TARGET_NAME} metadataapi)
 
 set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )

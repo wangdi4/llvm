@@ -19,7 +19,3 @@ add_library(${TARGET_NAME} STATIC
     DXProgramConfiguration.cpp
 )
 
-target_link_libraries(${TARGET_NAME}
-    tinyxml_STL
-    ${LLVM_MODULE_LIBS}
-    )

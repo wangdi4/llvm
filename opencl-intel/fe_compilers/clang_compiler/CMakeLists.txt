@@ -115,6 +115,8 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       clangBasic
                                       OclPluginManager
                                       metadataapi
+                                      dynamic_load
+                                      cl_sys_utils
                                       ${LLVM_MODULE_LIBS}
                                       )
 

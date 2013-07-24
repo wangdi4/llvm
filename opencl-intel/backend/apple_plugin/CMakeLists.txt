@@ -60,16 +60,19 @@ set (PASSES_LIBS
 
 target_link_libraries(${TARGET_NAME}
     OclOptimizer
-    name_mangle
-    metadataapi
-    OclBackendUtils
     "-framework Foundation"
     "-framework CoreFoundation"
     cl2module
   
     # Backend passes
     ${PASSES_LIBS}
-    
+
+    # Dependencies of the passes
+    OclBackendUtils
+    reflection_module
+    name_mangle
+    metadataapi
+
     # LLVM libs
     LLVMContainer
     )

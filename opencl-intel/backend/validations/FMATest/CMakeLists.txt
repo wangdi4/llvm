@@ -16,9 +16,9 @@ add_executable(${TARGET_NAME}
 )
 
 if (NOT WIN32)
-set(LIBRARIES OclBackendUtils OpenCL googletest pthread)
+  set(LIBRARIES OclBackendUtils OpenCL googletest pthread)
 else (NOT WIN32)
-set(LIBRARIES OclBackendUtils OpenCL googletest)
+  set(LIBRARIES OclBackendUtils OpenCL googletest)
 endif (NOT WIN32)
 
 add_dependencies(${TARGET_NAME}

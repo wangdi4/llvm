@@ -26,14 +26,20 @@ add_executable(
 target_link_libraries(
   ${TARGET_NAME}
   LLVMVectorizer
+  OclBackendUtils
   reflection_module
+  name_mangle
+  metadataapi
   googletest
   ${LLVM_MODULE_LIBS}
 )
 
-if (NOT WIN32)
+if(NOT WIN32)
+  if(NOT ANDROID)
+    target_link_libraries(${TARGET_NAME} pthread)
+  endif(NOT ANDROID)
   target_link_libraries(${TARGET_NAME} dl)
-endif (NOT WIN32)
+endif(NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_TESTS_FOLDER_NAME} )
 

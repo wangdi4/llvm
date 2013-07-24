@@ -27,12 +27,12 @@ target_link_libraries(${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
 )
 
-if( NOT WIN32)
-    if( NOT ANDROID)
+if(NOT WIN32)
+    if(NOT ANDROID)
         target_link_libraries(${TARGET_NAME} pthread)
-    endif()
+    endif(NOT ANDROID)
     target_link_libraries(${TARGET_NAME} dl)
-endif ()
+endif(NOT WIN32)
 
 if( CMAKE_CROSSCOMPILING )
     add_custom_target( ocloptimg_native ALL
