@@ -32,9 +32,6 @@ using namespace Intel::OpenCL::DeviceBackend::Utils;
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes { namespace GenericAddressSpace {
   using namespace llvm;
 
-  /// @brief Suffix for non-kernel functions specialized with resolved GAS pointers addr-space types
-  static const std::string SpecializedNameSuffix("._gas_dup_");
-
   /// @brief Function call classification
   typedef enum {
     CallBuiltIn = 0,
@@ -44,10 +41,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
   typedef std::list<Function*> TFunctionList;
 
-  /// @brief Checks if a function is one of Address Specifier BIs
+  /// @brief Checks if a function is one of Address Space Qualifier BIs
   /// @param pFunc - function to be checked 
   /// @returns true if the check is successful or false otherwise
-  bool isAddressSpecifierBI(const Function *pFunc);
+  bool isAddressQualifierBI(const Function *pFunc);
  
   /// @brief Checks if a function is one of BIs accepting generic addr space pointer
   /// @param pFunc - function to be checked 

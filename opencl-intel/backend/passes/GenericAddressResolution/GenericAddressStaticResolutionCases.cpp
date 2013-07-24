@@ -4,7 +4,6 @@ Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
-#include "GenericAddressResolution.h"
 #include "GenericAddressStaticResolution.h"
 
 #include <OCLPassSupport.h>
@@ -355,9 +354,9 @@ namespace intel {
       return false;
     }
     // Analyze callee of direct call
-    if (isAddressSpecifierBI(pCallee)) {
-      // Replace Address Specifier BI call with constant value
-      foldAddressSpecifierCall(pCallInstr);
+    if (isAddressQualifierBI(pCallee)) {
+      // Replace Address Space Qualifier BI call with constant value
+      foldAddressQualifierCall(pCallInstr);
       return true;
     } else if (isGenericAddrBI(pCallee)) {
       // Replace call to BI using generic address space, with corresponding BI
@@ -390,12 +389,12 @@ namespace intel {
     return false;
   }
 
-  void GenericAddressStaticResolution::foldAddressSpecifierCall(CallInst *pCallInstr) {
+  void GenericAddressStaticResolution::foldAddressQualifierCall(CallInst *pCallInstr) {
 
     // Fetching origin's named address space type
     TPointerMap::const_iterator ptr_it = m_GASEstimate.find(pCallInstr);
     assert(ptr_it != m_GASEstimate.end() && !IS_ADDR_SPACE_GENERIC(ptr_it->second) &&
-      "Parameter of Address Specifier function should be of named-space pointer type");
+      "Parameter of Address Space Qualifier function should be of named-space pointer type");
     OCLAddressSpace::spaces assignedSpace = ptr_it->second;
 
     // Folded constant should be produced out of resolved value!
@@ -441,7 +440,7 @@ namespace intel {
         constVal = 0;
       }
     } else {
-      assert(0 && "Unknown Address Specifier BI function");
+      assert(0 && "Unknown Address Space Qualifier BI function");
     }
 
     // Folding function call to constant
@@ -651,7 +650,6 @@ namespace intel {
           default:
             assert(0 && "Unexpected instruction with generic address space constant expression pointer");
             return NULL;
-            break;
         }
       } else {
         return NULL;

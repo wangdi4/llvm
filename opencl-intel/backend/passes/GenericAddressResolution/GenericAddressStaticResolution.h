@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __GENERIC_ADDRESS_STATIC_RESOLUTION_H__
 #define __GENERIC_ADDRESS_STATIC_RESOLUTION_H__
 
+#include "GenericAddressResolution.h"
 #include <llvm/Pass.h>
 #include <llvm/Value.h>
 #include <llvm/DerivedTypes.h>
@@ -136,7 +137,7 @@ namespace intel {
     ///                    encompassing constant expression)
     /// @returns  true if the check is successful (and the instruction is added to 
     ///           the collection), or false otherwise 
-    bool HandleGASConstantExprIfNeeded(Value *pOperand, Instruction *pInstr);
+    bool handleGASConstantExprIfNeeded(Value *pOperand, Instruction *pInstr);
 
     // Generic-to-named address space resolvers for different instructions
     // --------------------------------------------------------------------
@@ -155,10 +156,10 @@ namespace intel {
     // Helpers for special cases
     // --------------------------
 
-    /// @brief  Helper for folding of an "Address Specifier" BI call
+    /// @brief  Helper for folding of an "Address Space Qualifier" BI call
     /// @brief  into constant value it should produce
     /// @param  pCallInst - call instruction 
-    void foldAddressSpecifierCall(CallInst *pCallInstr);
+    void foldAddressQualifierCall(CallInst *pCallInstr);
 
     /// @brief  Helper for resolution of a function call from generic to named addr space
     /// @param  pCallInst - call instruction

@@ -4,7 +4,6 @@ Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
-#include "GenericAddressResolution.h"
 #include "GenericAddressStaticResolution.h"
 
 #include <OCLPassSupport.h>
@@ -34,7 +33,7 @@ namespace intel {
 
   char GenericAddressStaticResolution::ID = 0;
 
-  OCL_INITIALIZE_PASS(GenericAddressStaticResolution, "generic-addr-static-resolution", "Resolves generic address space pointers to named one", false, false)
+  OCL_INITIALIZE_PASS(GenericAddressStaticResolution, "generic-addr-static-resolution", "Resolves generic address space pointers to named ones", false, false)
 
   GenericAddressStaticResolution::GenericAddressStaticResolution() : ModulePass(ID) {
   }
@@ -72,6 +71,9 @@ namespace intel {
       SmallVector<Value*, 1> count;
       count.push_back(ConstantInt::get(Type::getInt32Ty(*m_pLLVMContext), m_failCount));
       NewNMD->addOperand(MDNode::get(*m_pLLVMContext, count));
+    } else if (NamedMDNode *NMD = m_pModule->getNamedMetadata(MD_GAS_COUNT)) {
+      // ... or remove such metadata if there are no remaining GAS pointers
+      m_pModule->eraseNamedMetadata(NMD);
     }
 
     return changed;
@@ -112,7 +114,7 @@ namespace intel {
       // Then - look for constant expression producing generic addr-space pointer value
       // out of named one (inside a ConstantExpr operand)
       for (unsigned idx = 0; idx < pInstr->getNumOperands(); idx++) {
-        if (HandleGASConstantExprIfNeeded(pInstr->getOperand(idx), pInstr)) {
+        if (handleGASConstantExprIfNeeded(pInstr->getOperand(idx), pInstr)) {
           break;
         }
       }
@@ -236,7 +238,7 @@ namespace intel {
     }
     // Filter-out call instruction, in which multiple addr spaces are allowed
     if (pInstr->getOpcode() == Instruction::Call) {
-      if (!isAddressSpecifierBI(cast<CallInst>(pInstr)->getCalledFunction())) {
+      if (!isAddressQualifierBI(cast<CallInst>(pInstr)->getCalledFunction())) {
         return;
       }
     }
@@ -250,7 +252,7 @@ namespace intel {
     propagateSpace(pInstr, ptr_it->second);
   }
 
-  bool GenericAddressStaticResolution::HandleGASConstantExprIfNeeded(Value *pOperand, Instruction *pInstr) {
+  bool GenericAddressStaticResolution::handleGASConstantExprIfNeeded(Value *pOperand, Instruction *pInstr) {
     // Check that the operand produces GAS pointer
     PointerType *pPtrType = dyn_cast<PointerType>(pOperand->getType());
     if (pPtrType && IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace())) {
@@ -264,7 +266,7 @@ namespace intel {
             OCLAddressSpace::spaces opPtrSpace = (OCLAddressSpace::spaces) pOpPtrType->getAddressSpace();
             if (IS_ADDR_SPACE_GENERIC(opPtrSpace)) { 
               // If the pointer is GAS - look for a named addr-space pointer behind him
-              return HandleGASConstantExprIfNeeded(pOpVal, pInstr);
+              return handleGASConstantExprIfNeeded(pOpVal, pInstr);
             } else {
               // If the pointer is named - add the instruction to the collection
               addGASInstr(pInstr, opPtrSpace);

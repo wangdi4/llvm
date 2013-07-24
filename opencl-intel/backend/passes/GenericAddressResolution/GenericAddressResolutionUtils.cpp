@@ -20,8 +20,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes { namespace GenericAddressSpace {
   using namespace llvm;
 
-  /// @brief Names of Address Specifier OpenCL BI functions
-  static const char *addrSpecifierFunctions[] = {
+  /// @brief Names of Address Space Qualifier OpenCL BI functions
+  static const char *addrQualifierFunctions[] = {
                       "is_global",
                       "is_local",
                       "is_private",
@@ -69,13 +69,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                       "atomic_flag_clear_explicit"
   };
 
-  bool isAddressSpecifierBI(const Function *pFunc) {
+  bool isAddressQualifierBI(const Function *pFunc) {
     StringRef funcName = pFunc->getName();
     std::string tmp = funcName.str();
     const char *funcNameStr = tmp.c_str();
     funcName = isMangledName(funcNameStr)? stripName(funcNameStr) : funcName;
-    for (unsigned idx = 0; idx < sizeof(addrSpecifierFunctions)/sizeof(char*); idx++) {
-      if (funcName == addrSpecifierFunctions[idx]) {
+    for (unsigned idx = 0; idx < sizeof(addrQualifierFunctions)/sizeof(char*); idx++) {
+      if (funcName == addrQualifierFunctions[idx]) {
         return true;
       }
     }
@@ -87,7 +87,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     std::string tmp = funcName.str();
     const char *funcNameStr = tmp.c_str();
     funcName = isMangledName(funcNameStr)? stripName(funcNameStr) : funcName;
-    for (unsigned idx = 0; idx < sizeof(addrSpecifierFunctions)/sizeof(char*); idx++) {
+    for (unsigned idx = 0; idx < sizeof(genericAddrBiFunctions)/sizeof(char*); idx++) {
       if (std::string::npos != funcName.find(genericAddrBiFunctions[idx])) {
         return true;
       }

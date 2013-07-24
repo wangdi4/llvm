@@ -249,17 +249,22 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #endif
   // For OCL2.0 compilation mode - add Generic Address Static Resolution pass
   bool isOcl20 = false;
-  llvm::NamedMDNode *pOclBuildOpts = pModule->getNamedMetadata("opencl.build.options");
-  if (pOclBuildOpts) {
-    for(int mIdx = 0, mEnd = pOclBuildOpts->getNumOperands(); mIdx < mEnd; mIdx++) {
-      llvm::MDString* pMetadata = llvm::dyn_cast<llvm::MDString>(pOclBuildOpts->getOperand(mIdx));
+  if (llvm::NamedMDNode *pOclCompilerOptions = pModule->getNamedMetadata("opencl.compiler.options")) {
+    assert(pOclCompilerOptions && "Metadata 'opencl.compiler.options' is mandatory!");
+    llvm::MDNode *node = pOclCompilerOptions->getOperand(0);
+    assert(node && "Metadata 'opencl.compiler.options' is corrupted!");
+    for(int mIdx = 0, mEnd = node->getNumOperands(); mIdx < mEnd; mIdx++) {
+      llvm::MDString *pMetadata = llvm::dyn_cast<llvm::MDString>(node->getOperand(mIdx));
       if (pMetadata && pMetadata->getString() == "-cl-std=CL2.0") {
         isOcl20 = true;
       }
     }
   }
   if (isOcl20) {
-    m_modulePasses.add(llvm::createPromoteMemoryToRegisterPass());
+    // Static resolution of generic address space pointers
+    if (uiOptLevel > 0) {
+      m_modulePasses.add(llvm::createPromoteMemoryToRegisterPass());
+    }
     m_modulePasses.add(createGenericAddressStaticResolutionPass());
     // Flatten get_{local, global}_linear_id()
     m_funcPasses.add(createLinearIdResolverPass());
@@ -296,6 +301,14 @@ Optimizer::Optimizer( llvm::Module* pModule,
       false,
       allowAllocaModificationOpt,
       debugType != None);
+
+  if (isOcl20) {
+    // Repeat static resolution of generic address space pointers after 
+    // LLVM IR was optimized
+    m_modulePasses.add(createGenericAddressStaticResolutionPass());
+    // No need to run function inlining pass here, because if there are still
+    // non-inlined functions left - then we don't have to inline new ones.
+  }
 
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());
 
