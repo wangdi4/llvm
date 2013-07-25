@@ -48,8 +48,11 @@ namespace intel {
     m_zero = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 0);
     m_one  = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 1);
     m_two  = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 2);
-
+#if LLVM_VERSION == 3200
     m_ret = IntegerType::get(M->getContext(), DataLayout(M).getPointerSizeInBits());
+#else
+    m_ret = IntegerType::get(M->getContext(), TargetData(M).getPointerSizeInBits());
+#endif
 
     // looking for get_{global,local}_linear_id()
     for (inst_iterator itr = inst_begin(F);
