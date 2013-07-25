@@ -31,6 +31,7 @@
 #include <vector>
 #include <sstream>
 #include <iterator>
+
 namespace OCLCRT
 {
     CrtModule crt_ocl_module;
@@ -38,6 +39,7 @@ namespace OCLCRT
     // Globally Initialized Variable
     char* CrtModule::m_common_extensions = NULL;
 }
+
 #define isValidPlatform(X) ((X) == OCLCRT::crt_ocl_module.m_crtPlatformId || NULL == (X))
 
 // Defined CRT CL handles

@@ -499,7 +499,7 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
 {
     cl_int errCode = CL_SUCCESS;
 
-    cl_bool cl_context_platform_set   = CL_FALSE;
+    cl_bool cl_context_platform_set         = CL_FALSE;
     cl_bool cl_ctx_interop_user_sync_set    = CL_FALSE;
     cl_bool cl_gl_context_khr_set           = CL_FALSE;
     cl_bool cl_wgl_hdc_khr_set              = CL_FALSE;
@@ -509,6 +509,9 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
     cl_bool cl_dxva9_device_intel_set       = CL_FALSE;
     cl_bool cl_d3d11_device_khr_set         = CL_FALSE;
 #else
+#ifdef __linux__
+    cl_bool cl_glx_display_khr_set          = CL_FALSE;
+#endif
 #ifdef LIBVA_SHARING
     cl_bool cl_va_api_display_intel_set     = CL_FALSE;
 #endif
@@ -587,6 +590,15 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 cl_dxva9_device_intel_set  = CL_TRUE;
                 break;
 #else
+#ifdef __linux__
+            case CL_GLX_DISPLAY_KHR:
+                if( cl_glx_display_khr_set == CL_TRUE )
+                {
+                    return CL_INVALID_PROPERTY;
+                }
+                cl_glx_display_khr_set = CL_TRUE;
+                break;
+#endif //__linux__
 #ifdef LIBVA_SHARING
             case CL_CONTEXT_VA_API_DISPLAY_INTEL:
                 if( cl_va_api_display_intel_set == CL_TRUE )
