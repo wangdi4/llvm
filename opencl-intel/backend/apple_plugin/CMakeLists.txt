@@ -39,10 +39,13 @@ add_library(${TARGET_NAME} SHARED
 
 set (PASSES_LIBS
     # Backend passes
+    LLVMVectorizer
+    LLVMBarrier
     AddImplicitArgs
     BuiltInFuncImport
     ClangCompatFixer
     InstToFuncCall
+    GenericAddressResolution
     LocalBuffers
     LocalBuffAnalysis
     ModuleCleanup
@@ -54,8 +57,7 @@ set (PASSES_LIBS
     ShuffleCallToInst
     UndefExternalFuncs
     KernelInfo
-    LLVMVectorizer
-    LLVMBarrier
+    LinearIdResolver
     )
 
 target_link_libraries(${TARGET_NAME}
