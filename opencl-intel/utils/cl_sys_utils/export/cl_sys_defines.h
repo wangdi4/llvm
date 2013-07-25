@@ -206,12 +206,14 @@ inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 {
     return memalign( alignment < sizeof(void*) ? sizeof(void*) : alignment, size);
 }
-typedef unsigned long long		affinityMask_t;
+typedef unsigned long long        affinityMask_t;
 #define GET_CURRENT_PROCESS_ID()        getpid()
-#define GET_CURRENT_THREAD_ID()		((int)gettid())
-#define CPU_ZERO(mask)			*(mask) =  0
-#define CPU_SET(cpu, mask)		*(mask) |= (1 << cpu)
-#define CPU_ISSET(cpu, mask)		*(mask) |  (1 << cpu)
+#define GET_CURRENT_THREAD_ID()  ((int)gettid())
+#define CPU_ZERO(mask)          (*(mask)  =  0)
+#define CPU_SET(cpu, mask)      (*(mask) |=  (1 << (cpu)))
+#define CPU_CLR(cpu, mask)      (*(mask) &= ~(1 << (cpu)))
+#define CPU_ISSET(cpu, mask)    (*(mask) |   (1 << (cpu)))
+#define CPU_EQUAL(maskA, maskB) (*(maskA) == *(maskB))
 
 static int sched_setaffinity(pid_t pid, size_t len, affinityMask_t const *cpusetp)
 {
@@ -220,6 +222,26 @@ static int sched_setaffinity(pid_t pid, size_t len, affinityMask_t const *cpuset
 static int sched_getaffinity(pid_t pid, size_t len, affinityMask_t const *cpusetp)
 {
 	return syscall(__NR_sched_getaffinity, pid, len, cpusetp);
+}
+static int CPU_COUNT(affinityMask_t* set)
+{
+    // Pretend the data structure is opaque by using other CPU_ macros to implement
+    if (NULL == set) return 0;
+    int cpu = 0;
+    int result = 0;
+    affinityMask_t  zero;
+    affinityMask_t* zeroSet = &zero;
+    CPU_ZERO(zeroSet);
+    while (!CPU_EQUAL(set, zeroSet))
+    {
+        if (CPU_ISSET(cpu, set))
+        {
+            ++result;
+        }
+        CPU_CLR(cpu, set);
+        ++cpu;
+    }
+    return result;
 }
 
 

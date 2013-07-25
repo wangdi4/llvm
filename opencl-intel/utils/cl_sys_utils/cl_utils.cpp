@@ -129,9 +129,19 @@ threadid_t clMyThreadId()
 	return GetCurrentThreadId();
 }
 
+threadid_t clMyParentThreadId()
+{
+    //No such notion on Windows
+    return clMyThreadId();
+}
+
 #else
 #include <unistd.h>
 #include <sys/syscall.h>
+
+#ifndef DISABLE_NUMA_SUPPORT
+#define DISABLE_NUMA_SUPPORT
+#endif
 
 #ifndef DISABLE_NUMA_SUPPORT
 
@@ -223,6 +233,12 @@ threadid_t clMyThreadId()
 	      myThreadId = GET_CURRENT_THREAD_ID();
     }
     return myThreadId;
+}
+
+threadid_t clMyParentThreadId()
+{
+    //Not an expensive call, no need to cache the return value
+    return getpid();
 }
 
 #endif

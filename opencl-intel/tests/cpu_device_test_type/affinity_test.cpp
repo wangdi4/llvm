@@ -30,8 +30,8 @@ using Intel::OpenCL::Utils::OclBinarySemaphore;
 struct NativeKernelParams
 {
 
-	NativeKernelParams(unsigned long ulNumProcessors, unsigned long ulNumProcessorsInDev, unsigned int uiMasterCpuId) : m_ulNumKernels(ulNumProcessorsInDev), m_processorsOccupied(new bool[ulNumProcessors]),
-			m_bDoubleAffinity(false), m_uiMasterCpuId(uiMasterCpuId)
+    NativeKernelParams(unsigned long ulNumProcessors, unsigned long ulNumProcessorsInDev, unsigned int uiMasterCpuId, affinityMask_t* pMask) : m_ulNumProcessors(ulNumProcessors),m_ulNumKernels(ulNumProcessorsInDev), m_processorsOccupied(new bool[ulNumProcessors]),
+			m_bDoubleAffinity(false), m_uiMasterCpuId(uiMasterCpuId), m_pMask(pMask)
 	{
 		std::fill(m_processorsOccupied, &m_processorsOccupied[ulNumProcessors], false);
 	}
@@ -41,11 +41,13 @@ struct NativeKernelParams
 		delete[] m_processorsOccupied;
 	}
 
-	unsigned long m_ulNumKernels;
-	bool* const m_processorsOccupied;
-	volatile bool m_bDoubleAffinity;
-	volatile unsigned int m_uiMasterCpuId;
-	Intel::OpenCL::Utils::AtomicCounter m_cnt;
+    unsigned long                       m_ulNumProcessors;
+    unsigned long                       m_ulNumKernels;
+    bool* const                         m_processorsOccupied;
+    volatile bool                       m_bDoubleAffinity;
+    volatile unsigned int               m_uiMasterCpuId;
+    affinityMask_t*                     m_pMask;
+    Intel::OpenCL::Utils::AtomicCounter m_cnt;
 };
 
 static void CL_CALLBACK NativeKernel(void* ptr)
@@ -147,6 +149,15 @@ static bool AffinityTestForDevice(cl_dev_subdevice_id dev, NativeKernelParams& p
 		
 		err = dev_entry->clDevReleaseCommandList(list);
 		CheckException(L"clDevReleaseCommandList", CL_DEV_SUCCESS, err);
+#ifndef _WIN32
+        if (NULL != params.m_pMask)
+        {
+            for (unsigned long i = 0; i < params.m_ulNumProcessors; ++i)
+            {
+                bRes &= ((0 != CPU_ISSET(i, params.m_pMask)) == params.m_processorsOccupied[i]);
+            }
+        }
+#endif
 	}
 	catch (const exception&)
 	{
@@ -160,18 +171,46 @@ static bool AffinityTestForDevice(cl_dev_subdevice_id dev, NativeKernelParams& p
 	return bRes;
 }
 
-bool AffinityRootDeviceTest()
+bool AffinityRootDeviceTest(affinityMask_t* pMask)
 {
-	NativeKernelParams rootDevParams(Intel::OpenCL::Utils::GetNumberOfProcessors(), Intel::OpenCL::Utils::GetNumberOfProcessors(), Intel::OpenCL::Utils::GetCpuId());
-	clSetThreadAffinityToCore(rootDevParams.m_uiMasterCpuId, clMyThreadId());
+    unsigned long numProcessors = 0;
+    unsigned long numUsedProcessors = numProcessors; 
+    unsigned long myCPU = 0;
+#ifndef _WIN32
+  #if defined(__ANDROID__) //we would like to use CONF but it's buggy on Android
+        numProcessors = sysconf(_SC_NPROCESSORS_ONLN);
+  #else
+        numProcessors = sysconf(_SC_NPROCESSORS_CONF);
+  #endif
+    numUsedProcessors = numProcessors;
+    if (NULL != pMask) 
+    {
+        numUsedProcessors = CPU_COUNT(pMask);
 
-	return AffinityTestForDevice(NULL, rootDevParams, true);
+        //use the first CPU set in mask
+        //mask is guaranteed to have at least one set bit, so no risk of infinite loop
+        do
+        {
+            if (CPU_ISSET(myCPU, pMask)) break;
+            ++myCPU;
+        } while (true); 
+    } 
+#endif
+    clSetThreadAffinityToCore(myCPU, clMyThreadId());
+    NativeKernelParams rootDevParams(numProcessors, numUsedProcessors, myCPU, pMask);
+
+    return AffinityTestForDevice(NULL, rootDevParams, true);
 }
 
 #define NUM_SUB_DEVS 2
 
-bool AffinitySubDeviceTest()
+bool AffinitySubDeviceTest(affinityMask_t* pMask)
 {
+    if (NULL != pMask)
+    {
+        printf("Not running AffinitySubDeviceTest due to affinity mask being set. Don't mix fission and numactl or similar APIs\n");
+        return true;
+    }
 	const unsigned long ulNumProcessors = Intel::OpenCL::Utils::GetNumberOfProcessors();
 	const unsigned long ulSubDevSize = ulNumProcessors / NUM_SUB_DEVS + 1;	// test overlapping of sub-devices
 	clSetThreadAffinityToCore(Intel::OpenCL::Utils::GetCpuId(), clMyThreadId());
@@ -206,7 +245,7 @@ bool AffinitySubDeviceTest()
 		bool res = true;
 		for (size_t i = 0; i < NUM_SUB_DEVS; i++)
 		{
-			NativeKernelParams subDevParams(ulNumProcessors, ulSubDevSize, Intel::OpenCL::Utils::GetCpuId());
+			NativeKernelParams subDevParams(ulNumProcessors, ulSubDevSize, Intel::OpenCL::Utils::GetCpuId(), pMask);
 			if (!AffinityTestForDevice(subDevs[i], subDevParams, false))
 			{
 				res = false;

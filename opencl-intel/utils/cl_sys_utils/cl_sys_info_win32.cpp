@@ -231,9 +231,28 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return a bitmask representing the processors in a given NUMA node
 ////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask)
+bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize)
 {
-    return 0 != GetNumaNodeProcessorMask((unsigned char)node, pMask); 
+    if (0 == GetNumaNodeProcessorMask((unsigned char)node, pMask))
+    {
+        return false;
+    }
+
+    unsigned int node_size = 0;
+    unsigned long long mask = *pMask;
+    while (0 != mask)
+    {
+        if (mask & 0x1)
+        {
+            ++node_size;
+        }
+        mask >>= 1;
+    }
+    if (NULL != nodeSize)
+    {
+        *nodeSize = node_size;
+    }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

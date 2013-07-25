@@ -137,11 +137,6 @@ bool fission_subdivision_test()
 	bResult = SilentCheck(L"clCreateCommandQueue - first sub-device",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
-	//Create a command queue for the second device
-	cmd_queue[1] = clCreateCommandQueue(context,out_devices[1],0,&err);
-	bResult = SilentCheck(L"clCreateCommandQueue - second sub-device",CL_OUT_OF_RESOURCES,err);
-	if (!bResult) return bResult;
-
 	//Passed all tests, release resources
 	err      = clReleaseCommandQueue(cmd_queue[0]);
 	bResult &= SilentCheck(L"clReleaseCommandQueue",CL_SUCCESS,err);

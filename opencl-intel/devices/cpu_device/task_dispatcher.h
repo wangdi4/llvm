@@ -52,8 +52,6 @@ typedef struct _cl_dev_internal_subdevice_id
 {
 	//Arch. data
 	cl_uint  num_compute_units;
-	cl_uint  numa_id;
-	bool     is_numa;
 	bool     is_by_names;
 	cl_uint* legal_core_ids;
 
@@ -67,7 +65,7 @@ typedef struct _cl_dev_internal_subdevice_id
 class IAffinityChangeObserver
 {
 public:
-    virtual void NotifyAffinity(threadid_t tid, unsigned int core) = 0;
+    virtual void NotifyAffinity(threadid_t tid, unsigned int core_index) = 0;
 };
 
 class TaskDispatcher : public Intel::OpenCL::TaskExecutor::ITaskExecutorObserver

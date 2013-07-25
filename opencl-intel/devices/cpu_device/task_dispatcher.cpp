@@ -645,15 +645,16 @@ void* TaskDispatcher::OnThreadEntry()
 	    {
             // Only enter if affinity, in general, is required (OS-dependent)
             bool bNeedToNotify = false;
-            //We notify only for sub-devices by NAMES or by NUMA - in other cases, the user is not interested which cores to use
+            //We notify only for sub-devices by NAMES - in other cases, the user is not interested which cores to use
             cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
             if (NULL != pSubDevID)
             {
-                bNeedToNotify = pSubDevID->is_numa || pSubDevID->is_by_names;
+                bNeedToNotify = pSubDevID->is_by_names;
             }
 
             if (bNeedToNotify)
             {
+                assert((NULL != pSubDevID->legal_core_ids) && "For BY NAMES there should be an allocated array of legal core indices");
                 m_pObserver->NotifyAffinity( clMyThreadId(), pSubDevID->legal_core_ids[position_in_device] );
             }
 	    }

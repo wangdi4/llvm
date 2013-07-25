@@ -281,6 +281,15 @@ void clResetThreadAffinityMask(threadid_t tid = 0);
 threadid_t clMyThreadId();
 
 /**************************************************************************************************
+* Function: 	clMyParentThreadId
+* Description:	returns the caller's parent thread's OS-specific tid
+* Return value:	threadid_t
+* Author:		Doron Singer
+* Date:			June 2013
+**************************************************************************************************/
+threadid_t clMyParentThreadId();
+
+/**************************************************************************************************
 * Function: 	clCopyMemoryRegion
 * Description:	Copies memory region defined in SMemCpyParams
 * Return value:	void

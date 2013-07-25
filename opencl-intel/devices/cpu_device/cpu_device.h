@@ -75,8 +75,12 @@ protected:
 	bool            AcquireComputeUnits(unsigned int* which, unsigned int how_many);
 	void            ReleaseComputeUnits(unsigned int* which, unsigned int how_many);
 	
-	//Affinity observer interface
-	void            NotifyAffinity(threadid_t tid, unsigned int core);
+	// Affinity observer interface
+	void            NotifyAffinity(threadid_t tid, unsigned int core_index);
+
+    // Translate an "absolute" core (CPU core) to a core index
+    // Needed to allow the user to limit the cores the CPU device will run on
+    bool            CoreToCoreIndex(unsigned int* core);
 
 	// A mapping between an OpenCL-defined core ID (1 is first CPU on second socket) and OS-defined core ID
 	unsigned int*    m_pComputeUnitMap;
@@ -87,8 +91,6 @@ protected:
     // Keeps track over used compute units to prevent overlap
     std::vector<bool>        m_pCoreInUse;
 	// Architectural data on the underlying HW
-	unsigned long    m_numNumaNodes;
-	unsigned long    m_numCoresPerL1;
 	unsigned long    m_numCores;
 
 	Intel::OpenCL::Utils::OclSpinMutex m_ComputeUnitScoreboardMutex;

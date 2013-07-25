@@ -44,6 +44,10 @@ using namespace Intel::OpenCL::Utils;
 #endif
 
 #ifndef DISABLE_NUMA_SUPPORT
+#define DISABLE_NUMA_SUPPORT
+#endif
+
+#ifndef DISABLE_NUMA_SUPPORT
 //cl_numa.h is actually the standard numa.h from numactl. I don't know why our Linux distro doesn't have it and I don't care enough
 #include <numa.h>
 #endif //DISABLE_NUMA_SUPPORT
@@ -326,15 +330,13 @@ int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileNam
 ////////////////////////////////////////////////////////////////////
 unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
 {
-    //Todo: implement a solution based on affinity mask
     static unsigned long numProcessors = 0;
     if (0 == numProcessors)
     {
-#if defined(__ANDROID__) //we would like to use CONF but it's buggy on Android
-        numProcessors = sysconf(_SC_NPROCESSORS_ONLN);
-#else
-        numProcessors = sysconf(_SC_NPROCESSORS_CONF);
-#endif
+        affinityMask_t mask;
+        threadid_t mainThreadTID = getpid();
+        clGetThreadAffinityMask(&mask, mainThreadTID);
+        numProcessors = CPU_COUNT(&mask);
     }
     return numProcessors;        
 }
@@ -355,7 +357,7 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return a bitmask representing the processors in a given NUMA node
 ////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask)
+bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize)
 {
 #ifndef DISABLE_NUMA_SUPPORT
     struct bitmask b;
@@ -369,14 +371,20 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affi
     }
     CPU_ZERO(pMask);
     int cpu = 0;
+    unsigned int node_size = 0;
     while (0 != CPUs)
     {
         if (CPUs & 0x1)
         {
             CPU_SET(cpu, pMask);
+            ++node_size;
         }
         CPUs >>= 1;
         ++cpu;
+    }
+    if (NULL != nodeSize)
+    {
+        *nodeSize = node_size;
     }
     return true;
 #else 
