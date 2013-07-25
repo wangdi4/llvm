@@ -555,7 +555,8 @@ int ClangFECompilerCompileTask::Compile()
     llvm::SmallVector<char, 4096>   SPIRbinary;
     llvm::raw_svector_ostream SPIRstream(SPIRbinary);
     {
-        llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
+        LLVMContext ctx;
+        llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), ctx, &ErrorMessage);
         llvm::OwningPtr<PassManager> Passes(new PassManager());
         Passes->add(new DataLayout(M)); // Use correct DataLayout
         Passes->add(createSPIRMetadataAdderPass(BEArgList, CLSTDSet));
