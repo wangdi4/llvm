@@ -28,6 +28,7 @@ set (TARGET_INCLUDE_FILES
   ImplicitArgProperties.h
   ImplicitArgsUtils.h
   ImplicitArgument.h
+  OCLAddressSpace.h
   TypeAlignment.h
   TypeConversion.h
   VectorizerUtils.h
