@@ -372,7 +372,7 @@ cl_int Intel::OpenCL::Framework::norm_float_to_image(const cl_float4 *color, con
         	return __RGBA_fp_to_NORM<cl_char4>(color, channelOrder, (cl_char4*)trgtColor, 127.0);
             break;
         case CL_SNORM_INT16:
-        	return __RGBA_fp_to_NORM<cl_short4>(color, channelOrder, (cl_short4*)trgtColor, 65535.0);
+        	return __RGBA_fp_to_NORM<cl_short4>(color, channelOrder, (cl_short4*)trgtColor, 32767.0);
             break;
         case CL_UNORM_INT8:
         	return __RGBA_fp_to_NORM<cl_uchar4>(color, channelOrder, (cl_uchar4*)trgtColor, 255.0);
