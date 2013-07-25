@@ -32,6 +32,29 @@ extern "C" {
 
 #define CL_DEVICE_SVM_CAPABILITIES	0x104C
 
+#define CL_COMMAND_SVM_FREE                         0x1209
+#define CL_COMMAND_SVM_MEMCPY                       0x1210
+#define CL_COMMAND_SVM_MEMFILL                      0x1211
+#define CL_COMMAND_SVM_MAP                          0x1212
+#define CL_COMMAND_SVM_UNMAP                        0x1213
+
+#define CL_DEVICE_MAX_PIPE_ARGS                     0x1050
+#define CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS      0x1051
+#define CL_DEVICE_PIPE_MAX_PACKET_SIZE              0x1052
+
+#define CL_MEM_OBJECT_PIPE                          0x10F7
+
+/* cl_pipe_info */
+#define CL_PIPE_PACKET_SIZE                         0x1120
+#define CL_PIPE_MAX_PACKETS                         0x1121
+#define CL_PIPE_UNIFORM_RES_PKT_CNT                 0x1122
+
+#define CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE          0x10000
+#define CL_DEVICE_GLOBAL_VARIABLE_SHARING           0x10001
+#define CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE 0x10002
+
+// #define CL_MEM_OBJECT_IMAGE2D_BUFFER                0x10ABC
+
 // type definitions
 
 typedef int cl_svm_mem_flags;
@@ -39,8 +62,10 @@ typedef int cl_svm_mem_flags;
 CL_MEM_READ_WRITE				= 1 << 0,
 CL_MEM_WRITE_ONLY				= 1 << 1,
 CL_MEM_READ_ONLY				= 1 << 2, */	
-#define	CL_MEM_SVM_FINE_GRAIN_BUFFER	(1 << 3)
-#define CL_MEM_SVM_ATOMICS				(1 << 4)
+
+#define CL_DEVICE_SVM_COARSE_GRAIN_BUFFER               (1 << 0) 
+#define	CL_MEM_SVM_FINE_GRAIN_BUFFER	                (1 << 3)
+#define CL_MEM_SVM_ATOMICS				                (1 << 4)
 
 typedef int cl_device_svm_capabilities;
 #define CL_DEVICE_SVM_FINE_GRAIN_BUFFER	(1 << 0)
@@ -52,6 +77,12 @@ typedef enum cl_kernel_exec_info
 	CL_KERNEL_EXEC_INFO_SVM_PTRS,
 	CL_KERNEL_EXEC_INFO_SVM_FINE_GRAIN_SYSTEM
 } cl_kernel_exec_info;
+
+typedef cl_bitfield         cl_pipe_attributes;
+typedef cl_uint             cl_pipe_info;
+
+typedef intptr_t cl_sampler_properties;
+
 
 // API functions
 
@@ -127,6 +158,21 @@ clSetKernelExecInfo(cl_kernel /*kernel*/,
 					size_t /*param_value_size*/,
 					const void* /*param_value*/) CL_API_SUFFIX__VERSION_2_0;
 
+extern CL_API_ENTRY cl_mem CL_API_CALL
+    clCreatePipe(cl_context context,
+    cl_mem_flags flags, 
+    cl_uint pipe_packet_size,
+    cl_uint pipe_max_packets,
+    const cl_pipe_attributes *attributres,
+    cl_int *errcode_ret) CL_API_SUFFIX__VERSION_2_0;
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+    clGetPipeInfo(cl_mem pipe,
+    cl_pipe_info param_name,
+    size_t param_value_size,
+    void *param_value,
+    size_t *param_value_size_ret) CL_API_SUFFIX__VERSION_2_0;
+					
 #ifdef __cplusplus
 }
 #endif

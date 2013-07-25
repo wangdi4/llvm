@@ -408,6 +408,7 @@ typedef struct _cl_buffer_region {
 #define CL_MEM_CONTEXT                              0x1106
 #define CL_MEM_ASSOCIATED_MEMOBJECT                 0x1107
 #define CL_MEM_OFFSET                               0x1108
+#define CL_MEM_USES_SVM_POINTER                     0x1109
 
 /* cl_image_info */
 #define CL_IMAGE_FORMAT                             0x1110
