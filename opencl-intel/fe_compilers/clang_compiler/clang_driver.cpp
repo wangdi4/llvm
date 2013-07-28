@@ -229,7 +229,8 @@ ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
 void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListType &BEArgList, const char *buildOpts)
 {
     CLSTDSet = 0;
-    
+    std::string triple;
+
     ParseCompileOptions(buildOpts,
                         NULL,
                         &list,
@@ -240,7 +241,8 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
                         &Opt_Disable,
                         &Denorms_Are_Zeros,
                         &Fast_Relaxed_Math,
-                        &m_source_filename);
+                        &m_source_filename,
+                        &triple);
 
     // Add standard OpenCL options
 
@@ -343,14 +345,18 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 
     // Don't optimize in the frontend
     list.push_back("-O0");
-  list.push_back("-triple");
+    list.push_back("-triple");
+    if(triple.empty()) {
 #if defined(_WIN64) || defined(__x86_64__) || defined(_M_AMD64) || defined (_M_X64)
-    list.push_back("spir64-unknown-unknown");
+        list.push_back("spir64-unknown-unknown");
 #elif defined(_WIN32) || defined(i386) || defined(__i386__) || defined(__x86__) || defined(__ANDROID__)
-    list.push_back("spir-unknown-unknown");
+        list.push_back("spir-unknown-unknown");
 #else
-#error "Can't define target triple: unknown architecture."
+  #error "Can't define target triple: unknown architecture."
 #endif
+    } else {
+        list.push_back(triple);
+    }
 }
 
 int ClangFECompilerCompileTask::Compile()
@@ -1256,7 +1262,8 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                                                  bool*        pbOptDisable,
                                                  bool*        pbDenormsAreZeros,
                                                  bool*        pbFastRelaxedMath,
-                                                 std::string* pszFileName)
+                                                 std::string* pszFileName,
+                                                 std::string* pszTriple)
 {
     // Reset options
     int  iCLStdSet = 0;
@@ -1266,6 +1273,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     bool bDenormsAreZeros = false;
     bool bFastRelaxedMath = false;
     std::string szFileName = "";
+    std::string szTriple = "";
     
     if (!szOptions)
         szOptions = "";
@@ -1451,6 +1459,13 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             pList->push_back("__OPENCL_C_VERSION__=200");
             pBEArgList->push_back("-cl-std=CL2.0");
         }
+        else if (*opt_i == "-triple") {
+            // Expect the target triple as the next token
+            //
+            if (++opt_i != opts.end()) {
+                szTriple = *opt_i;
+            }
+        }
         else if (*opt_i == "-target-triple") {
             if (++opt_i != opts.end()) {
               // We use 'target-triple' instead of 'triple', since the triple is
@@ -1546,6 +1561,12 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     {
         *pszFileName = szFileName;
     }
+
+    if (pszTriple)
+    {
+        *pszTriple = szTriple;
+    }
+
 
     return res;
 }

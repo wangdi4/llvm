@@ -197,7 +197,8 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
                              bool*        pbOptDisable        = NULL,
                              bool*        pbDenormsAreZeros   = NULL,
                              bool*        pbFastRelaxedMath   = NULL,
-                             std::string* pszFileName         = NULL);
+                             std::string* pszFileName         = NULL,
+                             std::string* pszTriple           = NULL);
 
     bool ParseLinkOptions(const char* szOptions,
                           char**      szUnrecognizedOptions,
