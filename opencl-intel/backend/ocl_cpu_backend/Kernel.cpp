@@ -117,23 +117,23 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
         // New Heuristic
         outputWorkSizes.minWorkGroupNum = pInputWorkSizes->minWorkGroupNum;
 
-        unsigned int globalGroupSizeYZ = 1;
+        unsigned int globalWorkSizeYZ = 1;
         for(unsigned int i=1; i<outputWorkSizes.workDimension; ++i) {
           // Calculate global group size on dimensions Y & Z
-          globalGroupSizeYZ *= pInputWorkSizes->globalWorkSize[i];
+          globalWorkSizeYZ *= pInputWorkSizes->globalWorkSize[i];
           // Set local group size on dimensions Y & Z to 1
           outputWorkSizes.localWorkSize[i] = 1;
         }
-        //This number can be decreased in case there is globalGroupSizeYZ larger than 1!
+        //This number can be decreased in case there is globalWorkSizeYZ larger than 1!
         unsigned int workGroupNumMinLimit =
-          (outputWorkSizes.minWorkGroupNum + (globalGroupSizeYZ-1)) / globalGroupSizeYZ;
+          (outputWorkSizes.minWorkGroupNum + (globalWorkSizeYZ-1)) / globalWorkSizeYZ;
 
         unsigned int kernelPrivateMemSize = (unsigned int)m_pProps->GetPrivateMemorySize();
-        unsigned int globalGroupSizeX = pInputWorkSizes->globalWorkSize[0];
+        unsigned int globalWorkSizeX = pInputWorkSizes->globalWorkSize[0];
         unsigned int localSizeMaxLimit =
-          min ( min(CPU_MAX_WORK_GROUP_SIZE, globalGroupSizeX),                                       // localSizeMaxLimit_1
+          min ( min(CPU_MAX_WORK_GROUP_SIZE, globalWorkSizeX),                                        // localSizeMaxLimit_1
           min ( CPU_DEV_MAX_WG_PRIVATE_SIZE / (kernelPrivateMemSize > 0 ? kernelPrivateMemSize : 1),  // localSizeMaxLimit_2
-                max(1, globalGroupSizeX / workGroupNumMinLimit) ));                                   // localSizeMaxLimit_3
+                max(1, globalWorkSizeX / workGroupNumMinLimit) ));                                    // localSizeMaxLimit_3
 
         unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
         assert( minMultiplyFactor && (minMultiplyFactor & (minMultiplyFactor-1)) == 0 &&
@@ -142,34 +142,72 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
           GetKernelJIT(0)->GetProps()->GetVectorSize() == minMultiplyFactor) &&
           "GetMinGroupSizeFactorial is not equal to VectorSize!");
 
-        
+        //These two variables hold the max utility of SIMD and work threads
+        //Initialized to 1 by default, assuming utility is satisfied.
+        //If it will not be sutisfied (see below) then we will update these variables.
+        unsigned int simdUtils = 1;
+        unsigned int workThreadUtils = 1;
         //Try to assure (if possible) the local-size is a multiply of vector width.
-        if (((globalGroupSizeX & (minMultiplyFactor-1)) == 0) && (localSizeMaxLimit > minMultiplyFactor)) {
-          globalGroupSizeX /= minMultiplyFactor;
+        if (((globalWorkSizeX & (minMultiplyFactor-1)) == 0) && (localSizeMaxLimit > minMultiplyFactor)) {
+          globalWorkSizeX /= minMultiplyFactor;
           localSizeMaxLimit /= minMultiplyFactor;
         } else {
+          //SIMD utility was not satisfied
+          simdUtils = minMultiplyFactor;
           minMultiplyFactor = 1;
         }
         //Try to assure (if possible) that the chosen local-size will apply:
         //  global-size/local-size is a multiply of #work-threads
         unsigned int numWorkThreads = 
-          outputWorkSizes.minWorkGroupNum / GCD(outputWorkSizes.minWorkGroupNum, globalGroupSizeYZ);
-        if ((globalGroupSizeX % numWorkThreads == 0) && (localSizeMaxLimit > numWorkThreads)) {
-          globalGroupSizeX /= numWorkThreads;
+          outputWorkSizes.minWorkGroupNum / GCD(outputWorkSizes.minWorkGroupNum, globalWorkSizeYZ);
+        if ((globalWorkSizeX % numWorkThreads == 0) && (localSizeMaxLimit > numWorkThreads)) {
+          globalWorkSizeX /= numWorkThreads;
           localSizeMaxLimit /= numWorkThreads;
         } else {
+          //Work thread utility was not satisfied
+          workThreadUtils = numWorkThreads;
           numWorkThreads = 1;
         }
         //Search for max local size that satisfies the constraints
+#define HEURISTIC_FACTOR_THRESHOLD (0.04)
+        unsigned int bestHeuristic = 0;
+        float bestFactor = 0.0;
         for (; localSizeMaxLimit>0; localSizeMaxLimit--) {
-          if ( globalGroupSizeX % localSizeMaxLimit == 0 ) break;
+          if ( globalWorkSizeX % localSizeMaxLimit == 0 ) {
+            //Check cost function
+            const unsigned int numIterVectorizedLoop = (localSizeMaxLimit / simdUtils);
+            const unsigned int numIterScalarizerLoop = (localSizeMaxLimit % simdUtils);
+            const unsigned int numWorkGroups = (globalWorkSizeX / localSizeMaxLimit);
+            const unsigned int numIterWorkGroupLoop = (numWorkGroups + (workThreadUtils - 1)) / workThreadUtils;
+            //Cost function: This is the number of work items that could be executed using the given utils
+            const unsigned int heuristicUtils = 
+              ((numIterVectorizedLoop + numIterScalarizerLoop) * simdUtils) *
+              (numIterWorkGroupLoop * workThreadUtils);
+
+            assert(heuristicUtils >= globalWorkSizeX && "global size must be buttom bound for cost function!");
+            float wasteFactor = (float)(heuristicUtils-globalWorkSizeX)/(float)(globalWorkSizeX);
+            if (bestHeuristic == 0) {
+              //initialize bestHeuristic
+              bestHeuristic = localSizeMaxLimit;
+              bestFactor = wasteFactor;
+            } else if(wasteFactor < bestFactor) {
+              //update bestHeuristic
+              bestHeuristic = localSizeMaxLimit;
+              bestFactor = wasteFactor;
+            }
+            if (wasteFactor < HEURISTIC_FACTOR_THRESHOLD) {
+              //Reached good enough waste-factor, stop searching
+              break;
+            }
+            //not good enough waste-factor keep searching
+          }
         }
-        unsigned int newHeuristic = max(1, minMultiplyFactor * localSizeMaxLimit);
+        unsigned int newHeuristic = max(1, minMultiplyFactor * bestHeuristic);
 
         outputWorkSizes.localWorkSize[0] = newHeuristic;
-        //printf("heuristic = %d, global_size=%d = (global_size_to_satisfy=%d) * (tsize=%d) * (numWorkThreads=%d), minGroupNum=%d\n",
-        //  outputWorkSizes.localWorkSize[0], (globalGroupSizeX * minMultiplyFactor * numWorkThreads),
-        //  globalGroupSizeX, minMultiplyFactor, numWorkThreads, workGroupNumMinLimit);
+        //printf("heuristic = %d, global_size=%d = (global_size_to_satisfy=%d) * (tsize=%d) * (numWorkThreads=%d), minGroupNum=%d, bestHeuristic=%d, bestFactor=%f\n",
+        //  outputWorkSizes.localWorkSize[0], (globalWorkSizeX * minMultiplyFactor * numWorkThreads),
+        //  globalWorkSizeX, minMultiplyFactor, numWorkThreads, workGroupNumMinLimit, bestHeuristic, bestFactor);
     }
   }
 }
