@@ -20,21 +20,27 @@ File Name:  ModuleJITHolder.h
 #ifndef __MODULE_JIT_HOLDER
 #define __MODULE_JIT_HOLDER
 
-#include <string>
-#include <map>
-#include "Serializer.h"
+#include "stddef.h"
 
-#include "assert.h"
+#include <map>
+#include <utility>
+#include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class ICLDevBackendJITAllocator;
+class IInputStream;
+class IOutputStream;
 class SerializationStatus;
+
 typedef unsigned long long int KernelID;
+typedef std::vector<std::pair<int, int> > LineNumberTable;
+
 typedef struct
 {
     int kernelOffset;
     int kernelSize;
+    LineNumberTable lineNumberTable;
 } KernelInfo;
 
 /**
@@ -107,6 +113,12 @@ public:
      * @returns the size (in bytes) of the given kernel JIT code
      */
     virtual int GetKernelJITSize( KernelID kernelId ) const;
+
+    /**
+     * @param kernel identifier
+     * @returns a table mapping code offset from kernel start to line number
+     */
+    virtual const LineNumberTable* GetKernelLineNumberTable(KernelID kernelId) const;
 
     /**
      * @returns the count of kernels in the JIT code

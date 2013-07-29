@@ -119,23 +119,51 @@ void MICKernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
         {
             currentArgument = new MICJITContainer();
             currentArgument->Deserialize(ist, stats);
-#ifdef KNC_CARD 
+#ifdef KNC_CARD
             // Register with VTune
             MICKernelJITProperties* props = static_cast<MICKernelJITProperties*>(currentArgument->GetProps());
             if (props->GetUseVTune()) {
+
+              // Set up line number table
+              ModuleJITHolder* MJH = (ModuleJITHolder*)stats->GetPointerMark("pModuleJITHolder");
+              const LineNumberTable* lineNumberTable = MJH->GetKernelLineNumberTable(
+                  currentArgument->GetFuncID());
+
+              unsigned lineNumberCount = lineNumberTable == NULL ? 0 : lineNumberTable->size();
+              LineNumberInfo* lineNumberTableForVTune = NULL;
+
+              if (lineNumberCount > 0) {
+                  lineNumberTableForVTune = new LineNumberInfo[lineNumberCount];
+                  for (unsigned offsetIndex = 0; offsetIndex < lineNumberCount;
+                      offsetIndex++) {
+
+                      int offset = (*lineNumberTable)[offsetIndex].first;
+                      int lineNum = (*lineNumberTable)[offsetIndex].second;
+                      if (offset < 0) offset = 0;
+                      lineNumberTableForVTune[offsetIndex].Offset = offset;
+                      lineNumberTableForVTune[offsetIndex].LineNumber = lineNum;
+                  }
+              }
+
+              // Set up file name
+              // TODO change to use actual source file name, if available.
+              char* source_file_name = const_cast<char*>("<dynamic>");
+
               iJIT_Method_Load JitData;
               JitData.method_id = currentArgument->GetFuncID();
               JitData.method_name = (char *) GetKernelName();
               JitData.method_load_address = (void *) currentArgument->GetJITCode();
               JitData.method_size = currentArgument->GetJITCodeSize();
-              JitData.line_number_size = 0;
-              JitData.line_number_table = NULL;
+              JitData.line_number_size = lineNumberCount;
+              JitData.line_number_table = lineNumberTableForVTune;
               JitData.class_id = 0;
               JitData.class_file_name = NULL;
-              JitData.source_file_name = NULL;
+              JitData.source_file_name = source_file_name;
               JitData.user_data = NULL;
               JitData.user_data_size = 0;
               (void) ::iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, &JitData);
+
+              delete[] lineNumberTableForVTune;
             }
 #endif
         }

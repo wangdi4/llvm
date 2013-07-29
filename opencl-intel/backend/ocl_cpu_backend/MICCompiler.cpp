@@ -41,7 +41,6 @@ File Name:  MICCompiler.cpp
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Target/TargetMachine.h"
 #include "MICJITEngine/include/MICCodeGenerationEngine.h"
-#include "MICJITEngine/include/ModuleJITHolder.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -130,7 +129,7 @@ unsigned int MICCompiler::GetTypeAllocSize(llvm::Type* pType) const
     return m_pCGEngine->sizeOf(pType);
 }
 
-const llvm::ModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module, const std::string& dumpAsm) const
+const llvm::LLVMModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module, const std::string& dumpAsm) const
 {
     assert(m_pCGEngine);
     return m_pCGEngine->getModuleHolder(module, dumpAsm);
