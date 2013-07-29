@@ -164,7 +164,7 @@ ULP_tolerance("ulp_tol",
 llvm::cl::opt<uint32_t>
 DefaultLocalWGSize("default_wg_size",
                    llvm::cl::desc("Default local work group size used in Validation mode"),
-                   llvm::cl::init(4));
+                   llvm::cl::init(16));
 
 // turn on printing LLVM IR produced by Volcano after all optimization passes applied.
 llvm::cl::opt<std::string>
