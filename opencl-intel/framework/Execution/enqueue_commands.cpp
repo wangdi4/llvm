@@ -2416,7 +2416,7 @@ cl_err_code RuntimeCommand::Execute()
     CommandDone();
 	m_Event->SetEventState(EVENT_STATE_DONE);
     m_Event = NULL;
-    return CL_SUCCESS;
+    return m_returnCode;
 }
 
 
