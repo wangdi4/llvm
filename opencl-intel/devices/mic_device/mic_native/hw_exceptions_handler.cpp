@@ -128,11 +128,6 @@ void HWExceptionsWrapper::setup_signals( bool install )
 
 void HWExceptionsWrapper::thread_init( TlsAccessor* tlsAccessor )
 {
-	if (!gMicExecEnvOptions.kernel_safe_mode)
-	{
-		return;
-	}
-
     if (NULL != tlsAccessor)
     {
         NDrangeTls ndRangeTls(tlsAccessor);
@@ -143,11 +138,6 @@ void HWExceptionsWrapper::thread_init( TlsAccessor* tlsAccessor )
 
 void HWExceptionsWrapper::thread_fini( TlsAccessor* tlsAccessor )
 {
-	if (!gMicExecEnvOptions.kernel_safe_mode)
-	{
-		return;
-	}
-
     if (m_is_attached)
     {
         if (NULL != tlsAccessor)
@@ -170,11 +160,6 @@ cl_dev_err_code HWExceptionsWrapper::Execute(   ICLDevBackendExecutable_* code,
                                                  const size_t* IN pLocalOffset, 
                                                  const size_t* IN pItemsToProcess )
 {
-	if (!gMicExecEnvOptions.kernel_safe_mode)
-	{
-		return code->Execute( pGroupId, pLocalOffset, pItemsToProcess );
-	}
-
 	cl_dev_err_code return_code;
     
 	// save current state including signal handlers state

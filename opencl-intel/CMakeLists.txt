@@ -100,6 +100,7 @@ endif(INCLUDE_TOOLS)
 option(SVN_REVISIONS "Make package version from svn revision"  ON)
 option(BUILD_QTGUI "Build the QT related projects"  OFF)
 option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
+option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
 
 # find the used external packages
 

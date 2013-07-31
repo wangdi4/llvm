@@ -279,10 +279,13 @@ list( APPEND MIC_FLAGS
                 -DDISABLE_NUMA_SUPPORT
                 -DUSE_ITT
                 -D${TASK_EXECUTOR_FLAG} -DTBB_PREVIEW_LOCAL_OBSERVER=1 -DTBB_PREVIEW_TASK_ARENA=1
-                # DEBUG flags
-                #-DUSE_ITT_INTERNAL
 		${MIC_DA_OMP_FLAG}
     )
+
+# DEBUG flags
+if (USE_ITT_INTERNAL)
+	list( APPEND MIC_FLAGS -DUSE_ITT_INTERNAL )
+endif()
 
 list( APPEND MIC_FLAGS -DKNC_CARD )
 

@@ -38,9 +38,12 @@ add_definitions( -DMIC_NATIVE_SERVER_EXE="${MIC_NATIVE_SERVER_EXE}"
                  -DMIC_BACKEND_DLL_NAME="${IMPLIB_PREFIX}${MIC_BACKEND_DLL_NAME}${BUILD_PLATFORM}${DLL_SUFIX}"
                  -DMIC_NATIVE_SUBDIR_NAME="${MIC_NATIVE_SUBDIR_NAME}"
                  -DUSE_ITT
-                 # Internal debug only
-                 #-DUSE_ITT_INTERNAL
                )
+               
+# Internal debug only
+if (USE_ITT_INTERNAL)
+	add_definitions( -DUSE_ITT_INTERNAL )
+endif()
 
 include_directories( BEFORE
                             ../../fe_compilers/clang_compiler

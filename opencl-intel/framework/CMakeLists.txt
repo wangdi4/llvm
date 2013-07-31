@@ -26,7 +26,9 @@ if (WIN32 AND (DEFINED ENV{DXSDK_DIR}) )
 endif ()
 
 # For debug only
-#add_definitions (-DUSE_ITT_INTERNAL)
+if (USE_ITT_INTERNAL)
+	add_definitions (-DUSE_ITT_INTERNAL)
+endif()
 
 add_subdirectory( icd )
 

@@ -483,9 +483,9 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
     // Monitor only IN-ORDER queue
     if ( gMicGPAData.bUseGPA && (master_id==GetThreadId()) )
     {
-      __itt_task_end(gMicGPAData.pDeviceDomain);
-      // notify only once
-      master_id = 0;
+        __itt_task_end(gMicGPAData.pDeviceDomain);
+        // notify only once
+        master_id = 0;
     }
 #endif
 
@@ -514,21 +514,21 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
 		return NULL;
 	}
 
-  WGContext* pContext         = reinterpret_cast<WGContext*>(pWgContextBase);
+    WGContext* pContext = reinterpret_cast<WGContext*>(pWgContextBase);
     
 	// If can NOT recycle the current context - This is the case when my current context is not the context of the next execution
 	if (m_commandIdentifier != pContext->GetCmdId())
 	{
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( gMicGPAData.bUseGPA )
-    {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
-      {
-        pTaskName = __itt_string_handle_create("NDRangeTask::AttachToThread->UpdateContext()");
-      }
-      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
-    }
+        if ( gMicGPAData.bUseGPA )
+        {
+            static __thread __itt_string_handle* pTaskName = NULL;
+            if ( NULL == pTaskName )
+            {
+                pTaskName = __itt_string_handle_create("NDRangeTask::AttachToThread->UpdateContext()");
+            }
+	        __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+        }
 #endif
 
 		// Update context with new binary.
@@ -540,50 +540,53 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
 			return NULL;
 		}
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    // Monitor only IN-ORDER queue
-    if ( gMicGPAData.bUseGPA )
-    {
-      __itt_task_end(gMicGPAData.pDeviceDomain);
-    }
+        // Monitor only IN-ORDER queue
+        if ( gMicGPAData.bUseGPA )
+        {
+            __itt_task_end(gMicGPAData.pDeviceDomain); // "NDRangeTask::AttachToThread->UpdateContext()"
+        }
 #endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( gMicGPAData.bUseGPA )
-    {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
-      {
-        pTaskName = __itt_string_handle_create("NDRangeTask::AttachToThread()->PrepareThreadState()");
-      }
-      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
-    }
+        if ( gMicGPAData.bUseGPA )
+        {
+            static __thread __itt_string_handle* pTaskName = NULL;
+            if ( NULL == pTaskName )
+            {
+                pTaskName = __itt_string_handle_create("NDRangeTask::AttachToThread()->PrepareThreadState()");
+            }
+            __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+        }
 #endif
 
-    // Prepare current thread context for execution
-    // Do it only for the first occurrence
-    error = pContext->GetExecutable()->PrepareThread();
-    if (CL_DEV_FAILED(error))
-    {
-        setTaskError( error );
-        return NULL;
-    }    
+        // Prepare current thread context for execution
+        // Do it only for the first occurrence
+        error = pContext->GetExecutable()->PrepareThread();
+        if (CL_DEV_FAILED(error))
+        {
+            setTaskError( error );
+            return NULL;
+        }    
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    // Monitor only IN-ORDER queue
-    if ( gMicGPAData.bUseGPA )
-    {
-      __itt_task_end(gMicGPAData.pDeviceDomain);
-    }
+        // Monitor only IN-ORDER queue
+        if ( gMicGPAData.bUseGPA )
+        {
+          __itt_task_end(gMicGPAData.pDeviceDomain); // "NDRangeTask::AttachToThread()->PrepareThreadState()"
+        }
 #endif
-
-    TlsAccessor tls;
-    pContext->jitExecWapper().thread_init( &tls );
 	}
 
+	if ( gMicExecEnvOptions.kernel_safe_mode )
+	{
+        TlsAccessor tls;
+        pContext->jitExecWapper().thread_init( &tls );
+	}
+	
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     // Monitor only IN-ORDER queue
     if ( gMicGPAData.bUseGPA )
     {
-      __itt_task_end(gMicGPAData.pDeviceDomain);
+        __itt_task_end(gMicGPAData.pDeviceDomain); // "NDRangeTask::AttachToThread()"
     }
 #endif
 
@@ -598,63 +601,39 @@ void NDRangeTask::DetachFromThread(void* pWgContext)
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
-      {
-        pTaskName = __itt_string_handle_create("NDRangeTask::DettachFromThread()");
-      }
-      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+            pTaskName = __itt_string_handle_create("NDRangeTask::DettachFromThread()");
+        }
+        __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
     }
 #endif
 
-	assert( NULL!=pWgContext && "At this point pWgContext must be valid");
-	if ( NULL == pWgContext)
+    if ( gMicExecEnvOptions.kernel_safe_mode )
 	{
-		setTaskError( CL_DEV_INVALID_OPERATION );
-        return;
-	}
 
-  WGContext* pContext = reinterpret_cast<WGContext*>(pWgContext);
-
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( gMicGPAData.bUseGPA )
-    {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
-      {
-        pTaskName = __itt_string_handle_create("NDRangeTask::DettachToThread()->RestoreThreadState()");
-      }
-      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
-    }
-#endif
-
-	// Restore execution state
-	error = pContext->GetExecutable()->RestoreThreadState();
-    if (CL_DEV_FAILED(error))
-    {
-        setTaskError( error );
-        return;
-    }    
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    // Monitor only IN-ORDER queue
-    if ( gMicGPAData.bUseGPA )
-    {
-      __itt_task_end(gMicGPAData.pDeviceDomain);
-    }
-#endif
-
-    TlsAccessor tls;
-    pContext->jitExecWapper().thread_fini( &tls );
+    	assert( NULL!=pWgContext && "At this point pWgContext must be valid");
+    	if ( NULL == pWgContext)
+    	{
+	    	setTaskError( CL_DEV_INVALID_OPERATION );
+            return;
+	    }
+        WGContext* pContext = reinterpret_cast<WGContext*>(pWgContext);
+        TlsAccessor tls;
+        pContext->jitExecWapper().thread_fini( &tls );
+    }		
 
 #ifdef ENABLE_MIC_TRACER
     m_tbb_perf_data.work_group_end();
     TaskLoopBodyTrace::loop_end();
 #endif
+
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     // Monitor only IN-ORDER queue
     if ( gMicGPAData.bUseGPA )
     {
-      __itt_task_end(gMicGPAData.pDeviceDomain);
+      __itt_task_end(gMicGPAData.pDeviceDomain); // "NDRangeTask::DettachFromThread()"
     }
 #endif
 
@@ -699,11 +678,13 @@ bool NDRangeTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContex
 
 	// Execute WG
 	size_t groupId[MAX_WORK_DIM] = {x, y, z};
-	cl_dev_err_code error = pContext->jitExecWapper().Execute(pExec, groupId, NULL, NULL);
-	if (CL_DEV_FAILED(error))
+	cl_dev_err_code error;
+	if ( !gMicExecEnvOptions.kernel_safe_mode )
 	{
-		setTaskError( error );
-		return false;
+		error = pExec->Execute( groupId, NULL, NULL );
+	} else
+	{
+	    error = pContext->jitExecWapper().Execute(pExec, groupId, NULL, NULL);
 	}
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
@@ -713,6 +694,12 @@ bool NDRangeTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContex
       __itt_task_end(gMicGPAData.pDeviceDomain);
     }
 #endif
+
+	if (CL_DEV_FAILED(error))
+	{
+		setTaskError( error );
+		return false;
+	}
 
     return true;
 }
