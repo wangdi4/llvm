@@ -159,6 +159,8 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
         cpuFeatures |= CFS_AVX1;
         cpuFeatures |= CFS_AVX2;
         cpuFeatures |= CFS_FMA;
+        cpuFeatures |= CFS_BMI;
+        cpuFeatures |= CFS_BMI2;
     }
 
     // Add forced features
@@ -199,6 +201,14 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
     if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-fma" ) != forcedFeatures.end())
     {
         cpuFeatures &= ~CFS_FMA;
+    }
+    if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-bmi" ) != forcedFeatures.end())
+    {
+        cpuFeatures &= ~CFS_BMI;
+    }
+    if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-bmi2" ) != forcedFeatures.end())
+    {
+        cpuFeatures &= ~CFS_BMI2;
     }
 
     return cpuFeatures;
@@ -269,22 +279,26 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
 
     bool DisableAVX = false;
     // if we autodetected the SandyBridge CPU and a user didn't forced us to use AVX256 - disable it if not supported
-    if( CPU_ARCH_AUTO == cpuName)
+    if (cpuName == CPU_ARCH_AUTO)
     {
-        if( Intel::CPU_SANDYBRIDGE == selectedCpuId)
+        CPUId cpuId = Utils::CPUDetect::GetInstance()->GetCPUId();
+        if (selectedCpuId == Intel::CPU_SANDYBRIDGE)
         {
             if( std::find( m_forcedCpuFeatures.begin(), m_forcedCpuFeatures.end(), "+avx" ) == m_forcedCpuFeatures.end() )
             {
                 // check if the OS is AVX ready - if not, need to disable AVX at all
-                bool AVXReadyOS = Utils::CPUDetect::GetInstance()->GetCPUId().HasAVX1();
-
-                // if the OS is not AVX ready so disable AVX code generation
-                if (false == AVXReadyOS)
+                if (!cpuId.HasAVX1())
                 {
                     m_forcedCpuFeatures.push_back("-avx");
                     DisableAVX = true;
                 }
             }
+        }
+        else if (selectedCpuId == Intel::CPU_HASWELL) {
+            if (!cpuId.IsFeatureOn(CFS_BMI))
+                m_forcedCpuFeatures.push_back("-bmi");
+            if (!cpuId.IsFeatureOn(CFS_BMI2))
+                m_forcedCpuFeatures.push_back("-bmi2");
         }
     }
 

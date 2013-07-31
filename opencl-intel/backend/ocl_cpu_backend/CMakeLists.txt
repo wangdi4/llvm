@@ -378,7 +378,7 @@ target_link_libraries (${TARGET_NAME}
 
 if(NOT WIN32)
     if(NOT ANDROID)
-        target_link_libraries(${TARGET_NAME} pthread)
+        target_link_libraries(${TARGET_NAME} pthread rt)
     endif(NOT ANDROID)
 endif(NOT WIN32)
 
