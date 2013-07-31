@@ -61,7 +61,7 @@ namespace OCLCRT
     typedef std::map<cl_device_id,  CrtDeviceInfo*>     DEV_INFO_MAP;
     typedef std::map<cl_context,    CrtContextInfo*>    CTX_INFO_MAP;
 
-    bool isSupportedContextType(const cl_context_properties*   properties);
+    bool isSupportedContextType(const cl_context_properties* properties, cl_uint num_devices, const cl_device_id *devices);
 
     // Fixes the properties flag passed from the app to match the underlying platform properties
     // Like cl_platform_id need to be fixed.
@@ -93,7 +93,7 @@ namespace OCLCRT
 
         // Patches underlying device id allowing the CRT
         // to intercept some of the CL calls.
-        crt_err_code PatchClDeviceID(cl_device_id& inDeviceId, KHRicdVendorDispatch* origDispatchTable);
+        crt_err_code PatchClDeviceID(cl_device_id& inDeviceId);
         crt_err_code PatchClContextID(cl_context& inContextId, KHRicdVendorDispatch* origDispatchTable);
 
         // Common Runtime platform id

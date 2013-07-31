@@ -324,7 +324,8 @@ cl_int CL_API_CALL clGetDeviceIDs(
     if( !( device_type & CL_DEVICE_TYPE_DEFAULT )     &&
         !( device_type & CL_DEVICE_TYPE_CPU )         &&
         !( device_type & CL_DEVICE_TYPE_GPU )         &&
-        !( device_type & CL_DEVICE_TYPE_ACCELERATOR ) )
+        !( device_type & CL_DEVICE_TYPE_ACCELERATOR ) &&
+        !( device_type & CL_DEVICE_TYPE_CUSTOM ) )
     {
         return CL_INVALID_DEVICE_TYPE;
     }
@@ -516,9 +517,10 @@ cl_context CL_API_CALL clCreateContext(
 
         // We don't support GL shared context now!
         // We don't support DX (9/10/11) shared context now!
-        if( !( OCLCRT::isSupportedContextType( properties ) ) )
+        // We don't support devices other than CPU or GPU in shared context now!
+        if( !( OCLCRT::isSupportedContextType( properties, num_devices, devices ) ) )
         {
-            errCode = CL_INVALID_DEVICE;
+            errCode = CL_OUT_OF_RESOURCES;
             goto FINISH;
         }
 
@@ -4241,7 +4243,7 @@ cl_int CL_API_CALL updateAddedDevicesInfo(
         devInfo->m_origDispatchTable = parentDevInfo->m_origDispatchTable;
         // Patch new created device IDs. some platforms don't use the same table
         // for all handles (gpu), so we need to call Patch for each new created handle
-        OCLCRT::crt_ocl_module.PatchClDeviceID(dev, NULL);
+        OCLCRT::crt_ocl_module.PatchClDeviceID(dev);
         OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Add(dev,devInfo);
         numProcessed++;
     }

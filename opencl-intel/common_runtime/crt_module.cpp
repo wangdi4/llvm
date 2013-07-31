@@ -174,12 +174,8 @@ m_CrtPlatformVersion(OPENCL_INVALID)
     m_crtPlatformId     = NULL;
 }
 
-crt_err_code CrtModule::PatchClDeviceID(cl_device_id& inDeviceId, KHRicdVendorDispatch* origDispatchTable)
+crt_err_code CrtModule::PatchClDeviceID(cl_device_id& inDeviceId)
 {
-    // Store original device dispatch table entries
-    if (origDispatchTable)
-        *(origDispatchTable) = *(inDeviceId->dispatch);
-
     inDeviceId->dispatch->clCreateContext = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateContext;
     inDeviceId->dispatch->clGetDeviceInfo = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetDeviceInfo;
     inDeviceId->dispatch->clCreateSubDevices = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateSubDevices;
@@ -196,8 +192,9 @@ crt_err_code CrtModule::PatchClContextID(cl_context& inContextId, KHRicdVendorDi
     return CRT_SUCCESS;
 }
 
-bool OCLCRT::isSupportedContextType(const cl_context_properties* properties)
+bool OCLCRT::isSupportedContextType(const cl_context_properties* properties, cl_uint num_devices, const cl_device_id *devices)
 {
+    // Check for unsupported context properties
     if( properties != NULL )
     {
         while( properties[ 0 ] != NULL )
@@ -270,6 +267,19 @@ bool OCLCRT::isSupportedContextType(const cl_context_properties* properties)
             properties += 2;
         }
     }
+
+    // Check for unsupported devices types for shared context
+    for( cl_uint i = 0; i < num_devices; i++)
+    {
+        cl_device_type deviceType;
+        cl_int error = clGetDeviceInfo(devices[i], CL_DEVICE_TYPE, sizeof(deviceType), &deviceType, NULL);
+        if( CL_SUCCESS != error ||
+            ( CL_DEVICE_TYPE_CPU != deviceType && CL_DEVICE_TYPE_GPU != deviceType ))
+        {
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -409,7 +419,7 @@ crt_err_code CrtModule::Initialize()
             cl_uint num_devices = 0;
             pCrtPlatform->m_platformIdDEV->dispatch->clGetDeviceIDs(
                                     pCrtPlatform->m_platformIdDEV,
-                                    CL_DEVICE_TYPE_DEFAULT,
+                                    CL_DEVICE_TYPE_ALL,
                                     0,
                                     NULL,
                                     &num_devices);
@@ -421,7 +431,7 @@ crt_err_code CrtModule::Initialize()
             cl_device_id* pDevices = new cl_device_id[num_devices];
             if( !(CL_SUCCESS == pCrtPlatform->m_platformIdDEV->dispatch->clGetDeviceIDs(
                                     pCrtPlatform->m_platformIdDEV,
-                                    CL_DEVICE_TYPE_DEFAULT,
+                                    CL_DEVICE_TYPE_ALL,
                                     num_devices,
                                     pDevices,
                                     NULL)) )
@@ -463,13 +473,19 @@ crt_err_code CrtModule::Initialize()
                 // This is not a sub-device
                 pDevInfo->m_isRootDevice = true;
                 pDevInfo->m_crtPlatform = pCrtPlatform;
-                crt_ocl_module.PatchClDeviceID(pDevices[j], &pDevInfo->m_origDispatchTable);
+                // Store original device dispatch table entries
+                pDevInfo->m_origDispatchTable = *(pDevices[j]->dispatch);
 
                 // store the device types we have loaded;
                 // sometimes we load only CPU or GPU; in case the other
                 // doesn't exist
                 m_availableDeviceTypes |= pDevInfo->m_devType;
                 m_deviceInfoMap[pDevices[j]] = pDevInfo;
+            }
+            // Now we have all devices, patch dispatch table
+            for( cl_uint j=0; j < num_devices; j++ )
+            {
+                crt_ocl_module.PatchClDeviceID(pDevices[j]);
             }
 
             delete[] pDevices;
