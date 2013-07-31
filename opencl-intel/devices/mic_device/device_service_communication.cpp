@@ -394,10 +394,49 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
 		if (mic_device_options.use_vtune)
 		{
 			getVTuneEnvVars(additionalEnvVars);
-			if (additionalEnvVars.size() > 0)
-			{
-				additionalEnvVars.push_back(NULL);
-			}
+		}
+
+#ifdef __MIC_DA_OMP__
+		// Set the environment variables that define OMP_SCHEDULE and KMP_AFFINITY
+		char* cStr = NULL;
+		if (tMicConfig.Device_OmpSchedule().size() > 0)
+		{
+			string strSched; 
+			strSched.append("OMP_SCHEDULE=");
+			strSched.append(tMicConfig.Device_OmpSchedule());
+			cStr = new char[strSched.size() + 1];
+			memset((void*)cStr, 0, strSched.size() + 1);
+			memcpy((void*)cStr, (void*)strSched.c_str(), strSched.size());
+			additionalEnvVars.push_back(cStr);
+		}
+		if (tMicConfig.Device_OmpKmpAffinity().size() > 0)
+		{
+			cStr = NULL;
+			string strKmpAff;
+			strKmpAff.append("KMP_AFFINITY=");
+			strKmpAff.append(tMicConfig.Device_OmpKmpAffinity());
+			cStr = new char[strKmpAff.size() + 1];
+			memset((void*)cStr, 0, strKmpAff.size() + 1);
+			memcpy((void*)cStr, (void*)strKmpAff.c_str(), strKmpAff.size());
+			additionalEnvVars.push_back(cStr);
+		}
+		if (tMicConfig.Device_OmpKmpBlockTime().size() > 0)
+		{
+			cStr = NULL;
+			string strKmpBlock;
+			strKmpBlock.append("KMP_BLOCKTIME=");
+			strKmpBlock.append(tMicConfig.Device_OmpKmpBlockTime());
+			cStr = new char[strKmpBlock.size() + 1];
+			memset((void*)cStr, 0, strKmpBlock.size() + 1);
+			memcpy((void*)cStr, (void*)strKmpBlock.c_str(), strKmpBlock.size());
+			additionalEnvVars.push_back(cStr);
+		}
+		//TODO delete those char* allocations after COIProcessCreateFromFile when I will fix getVTuneEnvVars()
+#endif //__MIC_DA_OMP__
+
+		if (additionalEnvVars.size() > 0)
+		{
+			additionalEnvVars.push_back(NULL);
 		}
 
     	// create a process on device and run it's main() function

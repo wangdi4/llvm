@@ -53,6 +53,11 @@ using namespace Intel::OpenCL::Utils;
 #define    CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS	      "CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS"       // bool
 #define    CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER				    "CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER"          // unsigned int
 #define    CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION		"CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION"  // bool
+#ifdef __MIC_DA_OMP__
+	#define    CL_CONFIG_MIC_DEVICE_OMP_SCHEDULE  "CL_CONFIG_MIC_DEVICE_OMP_SCHED" // string
+	#define    CL_CONFIG_MIC_DEVICE_OMP_KMP_AFFINITY  "CL_CONFIG_MIC_DEVICE_OMP_KMP_AFFINITY" // string
+	#define    CL_CONFIG_MIC_DEVICE_OMP_KMP_BLOCKTIME  "CL_CONFIG_MIC_DEVICE_OMP_KMP_BLOCKTIME" // string
+#endif
 
 #define    CL_CONFIG_MIC_DEVICE_PRINT_CONFIG             "CL_CONFIG_MIC_DEVICE_PRINT_CONFIG"          // bool
 
@@ -91,6 +96,12 @@ public:
 		bool           Device_LazyTransfer()    const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER, false); }
 		// Device safe mode setup
 		bool           Device_safeKernelExecution() const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_SAFE_KERNEL_EXECUTION, true); }
+
+#ifdef __MIC_DA_OMP__
+		string         Device_OmpSchedule() const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_OMP_SCHEDULE, "static"); }
+		string         Device_OmpKmpAffinity() const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_OMP_KMP_AFFINITY, "granularity=fine,balanced"); }
+		string         Device_OmpKmpBlockTime() const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_OMP_KMP_BLOCKTIME, "infinite"); }
+#endif
 
 		string		     Device_offloadDevices() const { return m_pConfigFile->Read<string>(OFFLOAD_DEVICES, ""); }
 
@@ -135,6 +146,14 @@ private:
         MICDeviceConfigPrintKey( OFFLOAD_DEVICES, Device_offloadDevices, "Restricts the process to use only the MIC cards specified as the value of the variable");
 
         std::cout << std::endl;
+
+#ifdef __MIC_DA_OMP__
+		MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_OMP_SCHEDULE, Device_OmpSchedule, "Define the OpenMP scheduler to use, the default is \"static\"");
+		MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_OMP_KMP_AFFINITY, Device_OmpKmpAffinity, "Define the OpenMP affinity type, the default is \"granularity=fine,balanced\"");
+		MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_OMP_KMP_BLOCKTIME, Device_OmpKmpBlockTime, "Define the OpenMP blocktime of the threads, the default is \"infinite\"");
+		
+		std::cout << std::endl;
+#endif
 
         std::cout << "--------------------------------------------------------" << std::endl << std::endl;
     }

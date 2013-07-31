@@ -16,11 +16,12 @@ set( OBJ_FILE_EXTENSION .o )
 
 set( DEVICE   MIC )
 
-option( MIC_USE_OMP OFF )
 set ( TASK_EXECUTOR_FLAG __TBB_EXECUTOR__ )
 set( OMP_COMPILER_FLAG  )
+set( MIC_DA_OMP_FLAG  )
 if (MIC_USE_OMP)
 	set ( TASK_EXECUTOR_FLAG __OMP_EXECUTOR__ )
+	set( MIC_DA_OMP_FLAG -D__MIC_DA_OMP__ )
 	set( OMP_COMPILER_FLAG -openmp)
 endif ( MIC_USE_OMP)
 
@@ -71,7 +72,7 @@ if (WIN32)
 	message(STATUS "MIC C COMPILER: ${ICC_INSTALL_DIR}\\bin\\intel64_mic\\icc, version ${MIC_ICC_VERSION}" )
 	
 	set( DEVICE_INIT_ENV_SCRIPT "${ICC_INSTALL_DIR}\\bin\\compilervars.bat" )
-	set( DEVICE_LIBS_DIR    ${TMP_ICC_INSTALL_DIR}/lib/mic/ )	
+	set( DEVICE_LIBS_DIR    ${ICC_INSTALL_DIR}/lib/mic )	
 	
 	set( DEVICE_DEPENDENCY_SCRIPT 	dependency.bat )
 	set( DEVICE_COMPILER_SCRIPT 	compile.bat )
@@ -95,7 +96,7 @@ else ()
 	message(STATUS "MIC C COMPILER: ${ICC_INSTALL_DIR}/bin/icc, version ${MIC_ICC_VERSION}" )
 	
 	set( DEVICE_INIT_ENV_SCRIPT "${ICC_INSTALL_DIR}/bin/compilervars.sh" )
-	set( DEVICE_LIBS_DIR    ${TMP_ICC_INSTALL_DIR}/lib/mic/ )	
+	set( DEVICE_LIBS_DIR    ${ICC_INSTALL_DIR}/lib/mic )	
 	
 	set( DEVICE_DEPENDENCY_SCRIPT 	dependency.sh )
 	set( DEVICE_COMPILER_SCRIPT 	compile.sh )
@@ -280,6 +281,7 @@ list( APPEND MIC_FLAGS
                 -D${TASK_EXECUTOR_FLAG} -DTBB_PREVIEW_LOCAL_OBSERVER=1 -DTBB_PREVIEW_TASK_ARENA=1
                 # DEBUG flags
                 #-DUSE_ITT_INTERNAL
+		${MIC_DA_OMP_FLAG}
     )
 
 list( APPEND MIC_FLAGS -DKNC_CARD )

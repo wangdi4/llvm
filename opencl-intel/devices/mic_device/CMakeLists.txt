@@ -17,6 +17,11 @@ if ( ENABLE_MIC_TRACER )
     add_definitions( -DENABLE_MIC_TRACER )
 endif( ENABLE_MIC_TRACER )
 
+option( MIC_USE_OMP OFF )
+if (MIC_USE_OMP)
+	add_definitions( -D__MIC_DA_OMP__ )
+endif (MIC_USE_OMP)
+
 set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
 set(HW_UTILS_PROJ_NAME cl_hw_utils)
 

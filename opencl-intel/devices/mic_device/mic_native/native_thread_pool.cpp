@@ -415,7 +415,9 @@ bool ThreadPool::init(
         return false;        
     }
 
+#ifndef __MIC_DA_OMP__
     startup_all_workers();
+#endif
 
     if (useAffinity())
     {
@@ -481,6 +483,13 @@ void* ThreadPool::OnThreadEntry()
     }
 
     WGContext* pCtx = m_task_executor->IsMaster() ? m_tpMasterCtx : &m_contexts[thread_idx];
+
+	if ((NULL == pCtx) && (m_task_executor->IsMaster()))
+	{
+		ActivateCurrentMasterThread();
+		pCtx = m_tpMasterCtx;
+	}
+
     assert (NULL != pCtx && "Referenced context is NULL");
     if ( NULL == pCtx )
     {
@@ -662,7 +671,11 @@ private:
 int WarmUpTask::Init(size_t region[], unsigned int& regCount)
 {
     regCount = 1;
-    region[0] = startup_workers_left-1;    // Less one for the master slot.
+#ifdef __MIC_DA_OMP__
+	region[0] = startup_workers_left; // The master also join in OMP
+#else
+    region[0] = startup_workers_left-1;	// Less one for the master slot.
+#endif
     return 0;
 }
 
@@ -730,10 +743,17 @@ void ThreadPool::startup_all_workers()
     }
 #endif
 
-    SharedPtr<ITaskList> list = m_RootDevice->CreateTaskList( TE_CMD_LIST_IN_ORDER );
+#ifdef __MIC_DA_OMP__
+	// __OMP_EXECUTOR__ support only immediate queue
+    SharedPtr<ITaskList> list = m_RootDevice->CreateTaskList( TE_CMD_LIST_IMMEDIATE );
+#else
+	SharedPtr<ITaskList> list = m_RootDevice->CreateTaskList( TE_CMD_LIST_IN_ORDER );
+#endif 
     SharedPtr<WarmUpTask> warmup_task = WarmUpTask::Allocate( m_numOfActivatedThreads );
     list->Enqueue( warmup_task );
     list->Flush();
+
+#ifndef __MIC_DA_OMP__
     
     // Wait workers to join execution
     warmup_task->WaitAllWorkersJoined();
@@ -743,6 +763,7 @@ void ThreadPool::startup_all_workers()
     
     // Workers might be released
     warmup_task->SetMasterReady();
+#endif
 
     // Wait for all task completed
     list->WaitForCompletion(NULL);

@@ -108,7 +108,12 @@ static MICSysInfo::SYS_INFO_ENTRY knc_info[] =
 //    SCAL_VALUE( CL_DEVICE_COMPILER_AVAILABLE,           cl_bool,                        CL_TRUE                        ),  returned by framework - platform_module
 //    SCAL_VALUE( CL_DEVICE_LINKER_AVAILABLE,             cl_bool,                        CL_TRUE                        ), returned by framework - platform_module
     SCAL_VALUE( CL_DEVICE_EXECUTION_CAPABILITIES,       cl_device_exec_capabilities,    CL_EXEC_KERNEL                  ),
-    SCAL_VALUE( CL_DEVICE_QUEUE_PROPERTIES,             cl_command_queue_properties,    CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE ),
+#ifdef __MIC_DA_OMP__ //OMP implementation does not support OOO queue
+	SCAL_VALUE( CL_DEVICE_QUEUE_PROPERTIES,             cl_command_queue_properties,    CL_QUEUE_PROFILING_ENABLE ),
+#else
+	SCAL_VALUE( CL_DEVICE_QUEUE_PROPERTIES,             cl_command_queue_properties,    CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE ),
+#endif
+
     STRG_VALUE( CL_DEVICE_BUILT_IN_KERNELS,                                             ""                              ),
     STRG_VALUE( CL_DEVICE_NAME,                                                         MIC_STRING                      ),
     STRG_VALUE( CL_DEVICE_VENDOR,                                                       VENDOR_STRING                   ),
