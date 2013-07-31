@@ -200,8 +200,8 @@ public:
                   workInfo.globalWorkSize);
 
         //TODO: this number should be similar to how the runtime set it,
-        //      i.e. 2 * number-of-working-threads
-        workInfo.minWorkGroupNum =  2 * (4); //2 * (Intel::OpenCL::Utils::GetNumberOfProcessors());
+        //      i.e. number-of-working-threads
+        workInfo.minWorkGroupNum = 4; //Intel::OpenCL::Utils::GetNumberOfProcessors();
 
         m_dim = workInfo.workDimension = pKernelConfig->GetWorkDimension();
 

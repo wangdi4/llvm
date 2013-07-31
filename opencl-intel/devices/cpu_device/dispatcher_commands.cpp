@@ -977,8 +977,8 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     MEMCPY_S(workDesc.globalWorkSize, sizeof(workDesc.globalWorkSize), cmdParams->glb_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
     MEMCPY_S(workDesc.localWorkSize, sizeof(workDesc.localWorkSize), cmdParams->lcl_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
 
-    //Todo: caliberate
-    workDesc.minWorkGroupNum = 2 * m_pTaskDispatcher->getNumberOfThreads(); 
+    //Todo: calibrate
+    workDesc.minWorkGroupNum = m_pTaskDispatcher->getNumberOfThreads();
 
 
 	// Create an "Binary" for these parameters
