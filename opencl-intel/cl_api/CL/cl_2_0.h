@@ -72,11 +72,9 @@ typedef int cl_device_svm_capabilities;
 #define CL_DEVICE_SVM_FINE_GRAIN_SYSTEM	(1 << 1)
 #define CL_DEVICE_SVM_ATOMICS			(1 << 2)
 
-typedef enum cl_kernel_exec_info
-{
-	CL_KERNEL_EXEC_INFO_SVM_PTRS,
-	CL_KERNEL_EXEC_INFO_SVM_FINE_GRAIN_SYSTEM
-} cl_kernel_exec_info;
+typedef int cl_kernel_exec_info;
+#define CL_KERNEL_EXEC_INFO_SVM_PTRS                  0x10E1 
+#define CL_KERNEL_EXEC_INFO_SVM_FINE_GRAIN_SYSTEM     0x10E2
 
 typedef cl_bitfield         cl_pipe_attributes;
 typedef cl_uint             cl_pipe_info;
