@@ -59,6 +59,10 @@ if (INCLUDE_MIC_DEVICE)
   add_definitions( -DINCLUDE_MIC_DEVICE )
 endif (INCLUDE_MIC_DEVICE)
 
+if (INCLUDE_ISP_DEVICE)
+  add_definitions( -DINCLUDE_ISP_DEVICE )
+endif (INCLUDE_ISP_DEVICE)
+
 if (WIN32)
     list( APPEND CONFIG_FILES register_vendor.reg unregister_vendor.reg)
 

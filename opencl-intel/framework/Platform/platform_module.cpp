@@ -410,7 +410,8 @@ cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
     if (!(clDeviceType & CL_DEVICE_TYPE_DEFAULT)        &&
         !(clDeviceType & CL_DEVICE_TYPE_CPU)            &&
         !(clDeviceType & CL_DEVICE_TYPE_GPU)            &&
-        !(clDeviceType & CL_DEVICE_TYPE_ACCELERATOR))        
+        !(clDeviceType & CL_DEVICE_TYPE_ACCELERATOR)    &&
+        !(clDeviceType & CL_DEVICE_TYPE_CUSTOM))
     {
         return CL_INVALID_DEVICE_TYPE;
     }
