@@ -1097,7 +1097,7 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
                 (CL_RT_MEMOBJ_FORCE_BS & creation_flags) );
         m_pHostPtr = pHostPtr;
 
-        if (CL_RT_MEMOBJ_FORCE_BS & creation_flags)       // force user data as BS regardless of alignment
+        if ((CL_RT_MEMOBJ_FORCE_BS & creation_flags) || (m_user_flags & CL_MEM_USE_HOST_PTR))
         {
             m_ptr = m_pHostPtr;
 #ifndef _WIN32
@@ -1110,16 +1110,8 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
              * Agent that uses DMA. */
             assert( !m_used_by_DMA );
 #endif
-        }
-        else if ( (m_user_flags & CL_MEM_USE_HOST_PTR) &&
-                  (((NULL == pclImageFormat) && IS_ALIGNED_ON(m_pHostPtr, m_alignment)) ||            // For buffers check device aligment
-                   ((NULL != pclImageFormat) && IS_ALIGNED_ON(m_pHostPtr, m_element_size)) )        // For images shall be aligned to element size
-                 )
-        {
-            // pointers may be the same ONLY if m_pHostPtr is aligned.
-            m_ptr = m_pHostPtr;
-        }
-    }
+		}
+	}
 }
 
 GenericMemObjectBackingStore::GenericMemObjectBackingStore(

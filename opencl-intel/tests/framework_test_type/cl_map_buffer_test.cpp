@@ -83,7 +83,8 @@ bool clMapBufferTest()
 		//
 		// From here down it is the program execution implementation
 		//
-		cl_float	buffA[BUFFERS_LENGTH];		// Buffer to use for A storage
+		cl_float*	buffA;	// if I initialized buffA here, I would get an error in gcc: "jump to label ‘release_program’ from here crosses initialization of ‘cl_float* buffA’"
+		buffA = (cl_float*)ALIGNED_MALLOC(BUFFERS_LENGTH * sizeof(cl_float), sizeof(cl_float4));	// Buffer to use for A storage
 		cl_float*	srcA; 
 		cl_float*	srcB; 
 		cl_float*	dsts[NUM_LOOPS];
@@ -227,7 +228,8 @@ bool clMapBufferTest()
 						clReleaseMemObject(buffer_srcB);
 					}
 				release_srcA:
-					clReleaseMemObject(buffer_srcA);
+					clReleaseMemObject(buffer_srcA);					
+					ALIGNED_FREE(buffA);
 				}
 			}
 		release_kernel:

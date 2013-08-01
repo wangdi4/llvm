@@ -95,7 +95,7 @@ typedef void*							CONDITION_VAR;
 
 // aligned malloc
 #include <malloc.h>
-#define ALIGNED_MALLOC( size, alignment ) _aligned_malloc( size, (alignment) < sizeof(void*) ? sizeof(void*) : (alignment))
+#define ALIGNED_MALLOC( size, alignment ) _aligned_malloc( (size), (alignment) < sizeof(void*) ? sizeof(void*) : (alignment))
 #define ALIGNED_FREE                      _aligned_free
 
 // Windows require more sequre function _malloca. When in certain case may allocate on heap and not on stack.
