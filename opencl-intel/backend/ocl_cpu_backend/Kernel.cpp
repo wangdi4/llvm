@@ -115,7 +115,7 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
         //}
 
         // New Heuristic
-#define HEURISTIC_MIN_WG_FACTORIAL (2)
+#define HEURISTIC_MAX_WG_FACTORIAL_EXP (4)
 #define HEURISTIC_FACTOR_THRESHOLD (0.06)
 #define HEURISTIC_INVOCATION_OVERHEAD (2)
         outputWorkSizes.minWorkGroupNum = pInputWorkSizes->minWorkGroupNum;
@@ -127,16 +127,12 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
           // Set local group size on dimensions Y & Z to 1
           outputWorkSizes.localWorkSize[i] = 1;
         }
-        //This number can be decreased in case there is globalWorkSizeYZ larger than 1!
-        unsigned int workGroupNumMinLimit =
-          ((HEURISTIC_MIN_WG_FACTORIAL * outputWorkSizes.minWorkGroupNum) + (globalWorkSizeYZ-1)) / globalWorkSizeYZ;
 
         unsigned int kernelPrivateMemSize = (unsigned int)m_pProps->GetPrivateMemorySize();
         unsigned int globalWorkSizeX = pInputWorkSizes->globalWorkSize[0];
         unsigned int localSizeMaxLimit =
           min ( min(CPU_MAX_WORK_GROUP_SIZE, globalWorkSizeX),                                        // localSizeMaxLimit_1
-          min ( CPU_DEV_MAX_WG_PRIVATE_SIZE / (kernelPrivateMemSize > 0 ? kernelPrivateMemSize : 1),  // localSizeMaxLimit_2
-                max(1, globalWorkSizeX / workGroupNumMinLimit) ));                                    // localSizeMaxLimit_3
+                CPU_DEV_MAX_WG_PRIVATE_SIZE / (kernelPrivateMemSize > 0 ? kernelPrivateMemSize : 1));  // localSizeMaxLimit_2
 
         unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
         assert( minMultiplyFactor && (minMultiplyFactor & (minMultiplyFactor-1)) == 0 &&
@@ -160,6 +156,14 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
           minMultiplyFactor = 1;
         }
         const unsigned int globalWorkSize = globalWorkSizeX * globalWorkSizeYZ;
+        //This number can be decreased in case there is globalWorkSizeYZ larger than 1!
+        const unsigned int workGroupNumMinLimitFactor = (outputWorkSizes.minWorkGroupNum * outputWorkSizes.minWorkGroupNum);
+        for(int i=HEURISTIC_MAX_WG_FACTORIAL_EXP; i>=0; --i) {
+          if ( globalWorkSize > (workGroupNumMinLimitFactor * (1<<(2*i))) ) {
+            localSizeMaxLimit = min(localSizeMaxLimit, globalWorkSize / (outputWorkSizes.minWorkGroupNum * (1<<i)));
+            break;
+          }
+        }
         //Search for max local size that satisfies the constraints
         unsigned int bestHeuristic = 0;
         float bestFactor = 0.0;
@@ -198,7 +202,7 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
         outputWorkSizes.localWorkSize[0] = newHeuristic;
         //printf("heuristic = %d, numOfWG=%d, global_size=%d = (global_size_to_satisfy=%d) * (tsize=%d), minGroupNum=%d, bestHeuristic=%d, bestFactor=%f\n",
         // outputWorkSizes.localWorkSize[0], (globalWorkSize * minMultiplyFactor)/newHeuristic, (globalWorkSize * minMultiplyFactor),
-        //  globalWorkSize, minMultiplyFactor, workGroupNumMinLimit, bestHeuristic, bestFactor);
+        //  globalWorkSize, minMultiplyFactor, outputWorkSizes.minWorkGroupNum, bestHeuristic, bestFactor);
     }
   }
 }
