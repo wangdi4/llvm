@@ -2591,7 +2591,7 @@ void NEATPlugIn::execute_convert_float(Function *F,
             break;
         }
     } else {
-        throw Exception::InvalidArgument("[NEATPlug-in::convert_float]: Not valid data type for convert_float built-in function.");
+        throw Exception::InvalidArgument("[NEATPlug-in::convert_float]: Not valid data type.");
     }
 }
 
@@ -3643,10 +3643,10 @@ else if(Ty->isVectorTy()){\
 else if(TyElem->isDoubleTy()){\
     Result.NEATVec = NEAT_WRAP::_aluname##_d argsvec ;}\
 else{ \
-    throw Exception::IllegalFunctionCall("[NEATPlug-in]: Not valid vector data type for built-in");}\
+    throw Exception::IllegalFunctionCall("[NEATPlug-in::"+std::string(#_aluname)+"]: vector data type is not vector of floats or doubles");}\
 }\
 else{\
-    throw Exception::IllegalFunctionCall("[NEATPlug-in]: Not valid data type for built-in");}
+    throw Exception::IllegalFunctionCall("[NEATPlug-in::"+std::string(#_aluname)+"]: data type is not float or double");}
 
 /// macro to process built-in function argument type :
 /// scalar float or double;
@@ -3672,10 +3672,10 @@ else if(Ty->isVectorTy()){\
 else if(TyElem->isDoubleTy()){\
     Result.NEATVal = NEAT_WRAP::_aluname##_d argsvec ;}\
 else{ \
-    throw Exception::IllegalFunctionCall("[NEATPlug-in]: Not valid vector data type for built-in");}\
+    throw Exception::IllegalFunctionCall("[NEATPlug-in::"+std::string(#_aluname)+"]: vector data type is not vector of floats or doubles");}\
 }\
 else{\
-    throw Exception::IllegalFunctionCall("[NEATPlug-in]: Not valid data type for built-in");}
+    throw Exception::IllegalFunctionCall("[NEATPlug-in::"+std::string(#_aluname)+"]: data type is not float or double");}
 
 /// macro Extracts function argument and its NEATGenericValue from NEAT context
 /// @param idx - number of function argument
