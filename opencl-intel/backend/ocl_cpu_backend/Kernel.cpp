@@ -157,13 +157,19 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
         }
         const unsigned int globalWorkSize = globalWorkSizeX * globalWorkSizeYZ;
         //This number can be decreased in case there is globalWorkSizeYZ larger than 1!
-        const unsigned int workGroupNumMinLimitFactor = (outputWorkSizes.minWorkGroupNum * outputWorkSizes.minWorkGroupNum);
+        const unsigned int workGroupNumMinLimitFactor = (workThreadUtils * workThreadUtils);
         for(int i=HEURISTIC_MAX_WG_FACTORIAL_EXP; i>=0; --i) {
           if ( globalWorkSize > (workGroupNumMinLimitFactor * (1<<(2*i))) ) {
-            localSizeMaxLimit = min(localSizeMaxLimit, globalWorkSize / (outputWorkSizes.minWorkGroupNum * (1<<i)));
+            localSizeMaxLimit = min(localSizeMaxLimit, globalWorkSize / (workThreadUtils * (1<<i)));
+            //Try to assure (if possible) the #work-groups is a multiply of #work-threads.
+            const unsigned int workThreadUtilsX = workThreadUtils / GCD(workThreadUtils, globalWorkSizeYZ);
+            if ((globalWorkSizeX % workThreadUtilsX == 0) && (localSizeMaxLimit * workThreadUtilsX <= globalWorkSizeX)) {
+              globalWorkSizeX /= workThreadUtilsX;
+            }
             break;
           }
         }
+        assert(localSizeMaxLimit <= globalWorkSizeX && "global size in dim X must be upper bound for local size");
         //Search for max local size that satisfies the constraints
         unsigned int bestHeuristic = 0;
         float bestFactor = 0.0;
