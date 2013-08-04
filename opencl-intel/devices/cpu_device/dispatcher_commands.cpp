@@ -1311,7 +1311,7 @@ cl_dev_err_code FillMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 
 bool FillMemObject::Execute()
 {
-	cl_dev_cmd_param_fill*	cmdParams = (cl_dev_cmd_param_fill*)m_pCmd->params;
+	const cl_dev_cmd_param_fill* cmdParams = (cl_dev_cmd_param_fill*)m_pCmd->params;
 	cl_mem_obj_descriptor*  pMemObj;
 
 	NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
@@ -1339,16 +1339,13 @@ bool FillMemObject::Execute()
 	}
 
 	// width, unlike height and depth, is in bytes.
-	size_t width =  cmdParams->region[0] * pMemObj->uiElementSize;
+	const size_t width =  cmdParams->region[0] * pMemObj->uiElementSize;
 
 	// prepare copy buffer:
 	char* fillBuf = (char*)malloc(width);
 	if (NULL == fillBuf) return false;
 
-    for (size_t offset=0 ; offset < width ; offset += cmdParams->pattern_size)
-	{
-		MEMCPY_S((fillBuf + offset), width - offset , cmdParams->pattern, cmdParams->pattern_size);
-	}
+	CopyPattern(cmdParams->pattern, cmdParams->pattern_size, fillBuf, width);
 
 #ifdef _DEBUG_PRINT
 	fprintf(stderr, "Going to fill [%lu,%lu,%lu] to [%lu,%lu,%lu]- with buffer of len %lu bytes\n", cmdParams->offset[0], heightStart, depthStart,

@@ -1198,8 +1198,9 @@ cl_err_code ExecutionModule::EnqueueFillBuffer (cl_command_queue clCommandQueue,
 	cl_start;
     cl_err_code errVal = CL_SUCCESS;
 
-    // Only accept powers of 2, up to 128
-    if (NULL == pattern || 0 >= pattern_size || 128 < pattern_size || 0 != (pattern_size & (pattern_size-1)) )
+    // Only accept powers of 2, up to 128 or vectors of size 3
+	if (NULL == pattern || 0 >= pattern_size || 128 < pattern_size || (pattern_size % 3 != 0 && !IsPowerOf2(pattern_size)) ||
+		(pattern_size % 3 == 0 && (pattern_size > sizeof(cl_long3) || !IsPowerOf2(pattern_size / 3))))
     {
         return CL_INVALID_VALUE;
     }

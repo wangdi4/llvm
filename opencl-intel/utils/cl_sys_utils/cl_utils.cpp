@@ -1354,6 +1354,47 @@ bool IsPowerOf2(unsigned int uiNum)
 #endif
 }
 
+void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size_t szBufferSize)
+{
+	if (szPatternSize > sizeof(long long))
+	{
+		// for long patterns do memcpy
+		for (size_t offset=0 ; offset < szBufferSize ; offset += szPatternSize)
+		{		
+			// using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
+			memcpy((char*)pBuffer + offset, pPattern, szPatternSize);
+		}
+	}
+	else if (szPatternSize > 1)
+	{
+		// for patterns the size of long long or smaller (but not a single byte) do direct assignments and save the overhead of calling memcpy
+		long long llPatten;
+		for (size_t i = 0; i < sizeof(llPatten) / szPatternSize; i++)
+		{
+			// using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
+			memcpy((char*)&llPatten + i * szPatternSize, pPattern, szPatternSize);
+		}
+		for (size_t offset = 0; offset < (szBufferSize % sizeof(llPatten) == 0 ? szBufferSize : szBufferSize - sizeof(llPatten)); offset += sizeof(llPatten))
+		{
+			*(long long*)((char*)pBuffer + offset) = llPatten;
+		}
+		// deal with the reminder
+		if (szBufferSize % sizeof(llPatten) != 0)
+		{
+			for (size_t offset = szBufferSize - szBufferSize % sizeof(llPatten); offset < szBufferSize; offset += szPatternSize)
+			{
+				// using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
+				memcpy((char*)pBuffer + offset, pPattern, szPatternSize);
+			}			
+		}
+	}
+	else
+	{
+		// for single-byte patterns memset is the fastest
+		memset(pBuffer, ((char*)pPattern)[0], szBufferSize);
+	}
+}
+
 #if defined(_MSC_VER) && !defined(_WIN64)
 //  Returns the number of leading 0-bits in x, 
 //  starting at the most significant bit position. 

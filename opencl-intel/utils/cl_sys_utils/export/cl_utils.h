@@ -367,3 +367,12 @@ int __builtin_clz(unsigned int pattern);
 
 // Returns whether ulNum is a power of 2
 bool IsPowerOf2(unsigned int uiNum);
+
+/**
+ * Copy a pattern repeatedly to a buffer
+ * @param pPattern		the pattern
+ * @param szPatternSize the pattern's size
+ * @param pBuffer		a pointer to the buffer
+ * @param szBufferSize  the buffer's size
+ */
+void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size_t szBufferSize);

@@ -49,9 +49,6 @@ cl_err_code RuntimeSVMMemcpyCommand::Execute()
 
 cl_err_code RuntimeSVMMemFillCommand::Execute()
 {
-	for (size_t i = 0; i < m_size / m_szPatternSize; i++)
-	{
-		MEMCPY_S(&((char*)m_pSvmPtr)[i * m_szPatternSize], m_szPatternSize, m_pPattern, m_szPatternSize);
-	}
+	CopyPattern(m_pPattern, m_szPatternSize, m_pSvmPtr, m_size);
 	return RuntimeCommand::Execute();
 }
