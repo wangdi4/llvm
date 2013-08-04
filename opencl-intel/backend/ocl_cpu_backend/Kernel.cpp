@@ -115,9 +115,8 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
         //}
 
         // New Heuristic
-#define HEURISTIC_MAX_WG_FACTORIAL_EXP (4)
 #define HEURISTIC_FACTOR_THRESHOLD (0.06)
-#define HEURISTIC_INVOCATION_OVERHEAD (2)
+#define HEURISTIC_INVOCATION_OVERHEAD (128)
         outputWorkSizes.minWorkGroupNum = pInputWorkSizes->minWorkGroupNum;
 
         unsigned int globalWorkSizeYZ = 1;
@@ -128,24 +127,32 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
           outputWorkSizes.localWorkSize[i] = 1;
         }
 
-        unsigned int kernelPrivateMemSize = (unsigned int)m_pProps->GetPrivateMemorySize();
+        const unsigned int kernelExecutionLength = (unsigned int)m_pProps->GetKernelExecutionLength();
+        const unsigned int kernelPrivateMemSize = (unsigned int)m_pProps->GetPrivateMemorySize();
         unsigned int globalWorkSizeX = pInputWorkSizes->globalWorkSize[0];
         unsigned int localSizeMaxLimit =
           min ( min(CPU_MAX_WORK_GROUP_SIZE, globalWorkSizeX),                                        // localSizeMaxLimit_1
                 CPU_DEV_MAX_WG_PRIVATE_SIZE / (kernelPrivateMemSize > 0 ? kernelPrivateMemSize : 1));  // localSizeMaxLimit_2
 
-        unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
+        const unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
         assert( minMultiplyFactor && (minMultiplyFactor & (minMultiplyFactor-1)) == 0 &&
           "minMultiplyFactor assumed to be power of 2 that is not zero!" );
         assert((!m_pProps->GetJitCreateWIids() ||
           GetKernelJIT(0)->GetProps()->GetVectorSize() == minMultiplyFactor) &&
           "GetMinGroupSizeFactorial is not equal to VectorSize!");
 
+        const unsigned int globalWorkSize = globalWorkSizeX * globalWorkSizeYZ;
         //These two variables hold the max utility of SIMD and work threads
         //Initialized to 1 by default, assuming utility is satisfied.
         //If it will not be sutisfied (see below) then we will update these variables.
         unsigned int workThreadUtils = outputWorkSizes.minWorkGroupNum;
         unsigned int simdUtils = 1;
+        unsigned int simdFactor = minMultiplyFactor;
+        //Try to assure (if possible) the #work-groups is a multiply of #work-threads.
+        const unsigned int workThreadUtilsX = workThreadUtils / GCD(workThreadUtils, globalWorkSizeYZ);
+        if (workThreadUtilsX * minMultiplyFactor <= globalWorkSizeX) {
+          localSizeMaxLimit = min(localSizeMaxLimit, globalWorkSizeX / workThreadUtilsX);
+        }
         //Try to assure (if possible) the local-size is a multiply of vector width.
         if (((globalWorkSizeX & (minMultiplyFactor-1)) == 0) && (localSizeMaxLimit > minMultiplyFactor)) {
           globalWorkSizeX /= minMultiplyFactor;
@@ -153,22 +160,10 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
         } else {
           //SIMD utility was not satisfied
           simdUtils = minMultiplyFactor;
-          minMultiplyFactor = 1;
+          simdFactor = 1;
         }
-        const unsigned int globalWorkSize = globalWorkSizeX * globalWorkSizeYZ;
-        //This number can be decreased in case there is globalWorkSizeYZ larger than 1!
-        const unsigned int workGroupNumMinLimitFactor = (workThreadUtils * workThreadUtils);
-        for(int i=HEURISTIC_MAX_WG_FACTORIAL_EXP; i>=0; --i) {
-          if ( globalWorkSize > (workGroupNumMinLimitFactor * (1<<(2*i))) ) {
-            localSizeMaxLimit = min(localSizeMaxLimit, globalWorkSize / (workThreadUtils * (1<<i)));
-            //Try to assure (if possible) the #work-groups is a multiply of #work-threads.
-            const unsigned int workThreadUtilsX = workThreadUtils / GCD(workThreadUtils, globalWorkSizeYZ);
-            if ((globalWorkSizeX % workThreadUtilsX == 0) && (localSizeMaxLimit * workThreadUtilsX <= globalWorkSizeX)) {
-              globalWorkSizeX /= workThreadUtilsX;
-            }
-            break;
-          }
-        }
+        const unsigned int overheadOfInvocJIT = HEURISTIC_INVOCATION_OVERHEAD / kernelExecutionLength;
+
         assert(localSizeMaxLimit <= globalWorkSizeX && "global size in dim X must be upper bound for local size");
         //Search for max local size that satisfies the constraints
         unsigned int bestHeuristic = 0;
@@ -178,11 +173,11 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
             //Check cost function
             const unsigned int numIterVectorizedLoop = (localSizeMaxLimit / simdUtils);
             const unsigned int numIterScalarizerLoop = (localSizeMaxLimit % simdUtils);
-            const unsigned int numWorkGroups = (globalWorkSize / localSizeMaxLimit);
+            const unsigned int numWorkGroups = (globalWorkSizeX * globalWorkSizeYZ / localSizeMaxLimit);
             const unsigned int numIterWorkGroupLoop = (numWorkGroups + (workThreadUtils - 1)) / workThreadUtils;
             //Cost function: This is the number of work items that could be executed using the given utils
             const unsigned int heuristicUtils =
-              ((numIterVectorizedLoop + numIterScalarizerLoop + HEURISTIC_INVOCATION_OVERHEAD) * simdUtils) *
+              ((numIterVectorizedLoop + numIterScalarizerLoop) * minMultiplyFactor + overheadOfInvocJIT) *
               (numIterWorkGroupLoop * workThreadUtils);
 
             assert(heuristicUtils >= globalWorkSize && "global size must be buttom bound for cost function!");
@@ -203,12 +198,12 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
             //not good enough waste-factor keep searching
           }
         }
-        unsigned int newHeuristic = max(1, minMultiplyFactor * bestHeuristic);
+        unsigned int newHeuristic = max(1, simdFactor * bestHeuristic);
 
         outputWorkSizes.localWorkSize[0] = newHeuristic;
-        //printf("heuristic = %d, numOfWG=%d, global_size=%d = (global_size_to_satisfy=%d) * (tsize=%d), minGroupNum=%d, bestHeuristic=%d, bestFactor=%f\n",
-        // outputWorkSizes.localWorkSize[0], (globalWorkSize * minMultiplyFactor)/newHeuristic, (globalWorkSize * minMultiplyFactor),
-        //  globalWorkSize, minMultiplyFactor, outputWorkSizes.minWorkGroupNum, bestHeuristic, bestFactor);
+        //printf("heuristic = %d, numOfWG=%d, global_size=%d = (global_size_to_satisfy=%d) * (tsize=%d), minGroupNum=%d, bestHeuristic=%d, bestFactor=%f, overhead=%d\n",
+        // outputWorkSizes.localWorkSize[0], globalWorkSize/newHeuristic, (globalWorkSizeX * simdFactor),
+        //  globalWorkSizeX, minMultiplyFactor, outputWorkSizes.minWorkGroupNum, bestHeuristic, bestFactor, overheadOfInvocJIT);
     }
   }
 }
