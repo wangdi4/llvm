@@ -48,6 +48,13 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     return changed;
   }
 
+  static bool isPhiPtrToPrimitive(const PHINode* pPhiNode) {
+    V_ASSERT(pPhiNode && "Got a null argument");
+    PointerType *PT = dyn_cast<PointerType>(pPhiNode->getType());
+    return PT && (PT->getElementType()->isFloatingPointTy() ||
+           PT->getElementType()->isIntegerTy());
+  }
+
   bool SimplifyGEP::FixPhiNodeGEP(Function &F) {
     std::vector< std::pair<PHINode *, unsigned int> > worklist;
 
@@ -77,9 +84,8 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       unsigned int iterEntry = worklist[iter].second;
       unsigned int initEntry = 1-iterEntry;
 
-      V_ASSERT((cast<PointerType>(pPhiNode->getType())->getElementType()->isFloatingPointTy() ||
-        cast<PointerType>(pPhiNode->getType())->getElementType()->isIntegerTy()) &&
-        "PhiNode type is not primitive!");
+      V_ASSERT(isPhiPtrToPrimitive(pPhiNode) &&
+        "PhiNode type is not a pointer to a primitive!");
 
       // pInitialValue - the initial value of the PhiNode.
       // pIterValue - the iteration value of the PhiNode.
@@ -309,9 +315,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
   }
 
   int SimplifyGEP::SimplifiablePhiNode(PHINode *pPhiNode) {
-    if(pPhiNode->getNumIncomingValues() != 2 || !pPhiNode->getType()->isPointerTy()) {
       // This is not a supported case for simplifying PhiNode.
-      return -1;
+      if (pPhiNode->getNumIncomingValues() != 2 || !isPhiPtrToPrimitive(pPhiNode)) {
+	return -1;
     }
     // Now only need to check that one of the entries is a GEP with the PhiNode as its base.
     GetElementPtrInst *pGep1 = dyn_cast<GetElementPtrInst>(pPhiNode->getIncomingValue(0));
