@@ -46,8 +46,8 @@ struct TaskLoopBody3D : public TaskLoopBody {
     void operator()(const blocked_range_3d& r) const {
         size_t uiNumberOfWorkGroups;
 
-        size_t firstWGID[3] = {r.pages().begin(), r.rows().begin(),r.cols().begin()}; 
-        size_t lastWGID[3] = {r.pages().end(),r.rows().end(),r.cols().end()}; 
+        size_t firstWGID[3] = {r.cols().begin(), r.rows().begin(), r.pages().begin()};
+        size_t lastWGID[3] = {r.cols().end(), r.rows().end(), r.pages().end()};
 
         uiNumberOfWorkGroups = (r.pages().size())*(r.rows().size())*(r.cols().size());
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
@@ -82,13 +82,8 @@ struct TaskLoopBody3D : public TaskLoopBody {
             }
         }
         error_exit:
-#ifndef __MIC__
         m_task->DetachFromThread(user_local);
-#else
-        // On MIC we don't need to update thread info
-		// Next kernel will setup requried flags
         return;
-#endif
     }
 };
 
@@ -100,8 +95,8 @@ struct TaskLoopBody2D : public TaskLoopBody {
 
     void operator()(const blocked_range_2d& r) const {
         size_t uiNumberOfWorkGroups;
-        size_t firstWGID[2] = {r.rows().begin(),r.cols().begin()}; 
-        size_t lastWGID[2] = {r.rows().end(),r.cols().end()}; 
+        size_t firstWGID[2] = {r.cols().begin(), r.rows().begin()};
+        size_t lastWGID[2] = {r.cols().end(), r.rows().end()};
 
         uiNumberOfWorkGroups = (r.rows().size())*(r.cols().size());
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
@@ -132,15 +127,10 @@ struct TaskLoopBody2D : public TaskLoopBody {
                 }
             }
         }
+		
         error_exit:
-#ifndef __MIC__
-        // Can be removed. According to TBB when worker thread leaves arena/context it's MXCSR state is restored.
         m_task->DetachFromThread(user_local);
-#else
-        // On MIC we don't need to update thread info
-		// Next kernel will setup requried flags
         return;
-#endif
     }
 };    
 
@@ -182,11 +172,7 @@ struct TaskLoopBody1D : public TaskLoopBody {
             }
         }
 
-#ifndef __MIC__
-        // On MIC we don't need to update thread info
-		// Next kernel will setup requried flags
         m_task->DetachFromThread(user_local);
-#endif
     }
 };
 
@@ -202,6 +188,90 @@ void TBB_ExecutionSchedulers::opencl_executor(
 
     tbb::uneven::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), tbb::opencl_partitioner(), context);
 }
+
+#ifdef __MIC__
+// TODO: Fall back to auto-partitioner, because of the outliers when number of workgoups is bellow concurrency level
+//       until https://bugzilla.inn.intel.com/SSG/bugzilla/show_bug.cgi?id=2002 is resolved.
+// Please don't remove this code
+#if 0
+template <class blocked_range_1d>
+struct TaskLoopBody2D_1D : public TaskLoopBody {
+    TaskLoopBody2D_1D(
+        const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
+        const size_t sizeX
+        ) : TaskLoopBody(task), m_sizeX(sizeX) {}
+
+    void operator()(const blocked_range_1d& r) const {
+        size_t uiNumberOfWorkGroups;
+        size_t startX = r.begin() % m_sizeX;
+        size_t startY = r.begin() / m_sizeX;
+        size_t endX = r.end() % m_sizeX;
+        size_t endY = r.end() / m_sizeX;
+        size_t firstWGID[2] = {startX, startY};
+        size_t lastWGID[2] = {endX, endY};
+
+        uiNumberOfWorkGroups = r.size();
+        assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
+
+        TBB_PerActiveThreadData* tls = TBB_ThreadManager<TBB_PerActiveThreadData>::GetCurrentThreadDescriptor();
+        assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
+        if (NULL == tls)
+        {
+            return;
+        }
+
+        void* user_local = m_task->AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
+        if ( NULL == user_local )
+        {
+            assert( 0 && "Thread local execution environment is NULL" );
+            return;
+        }
+
+        for(size_t k = r.begin(), f = r.end(); k < f; k++ )
+        {
+            size_t x = k / m_sizeX;
+            size_t y = k % m_sizeX;
+            // OpenCL defines dims as (col, row, page)
+            if (!m_task->ExecuteIteration(x, y, 0, user_local))
+            {
+                assert( 0 && "Failed to execute iteration" );
+                break;
+            }
+        }
+
+        m_task->DetachFromThread(user_local);
+    }
+protected:
+    const size_t m_sizeX;
+};
+
+// specialization for 2D case
+template <>
+void TBB_ExecutionSchedulers::opencl_executor<BlockedRangeByUnevenTBB2d, TaskLoopBody2D<BlockedRangeByUnevenTBB2d> >(
+    const size_t                                      dims[],
+    size_t                                            grainsize,
+    const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
+    base_command_list&                                cmdList )
+{
+    TBB_PerActiveThreadData* tls = TBB_ThreadManager<TBB_PerActiveThreadData>::GetCurrentThreadDescriptor();
+
+    unsigned int nThreads = (unsigned int)tls->device->GetConcurrency();
+
+    tbb::task_group_context& context = cmdList.GetTBBContext();
+
+    size_t total_size = dims[0]*dims[1];
+    if ( total_size < nThreads )
+    {
+        tbb::uneven::parallel_for(BlockedRangeByUnevenTBB1d(dims, grainsize), TaskLoopBody2D_1D<BlockedRangeByUnevenTBB1d>(task, dims[0]), tbb::opencl_partitioner(), context);
+    }
+    else
+    {
+        tbb::uneven::parallel_for(BlockedRangeByUnevenTBB2d(dims, grainsize), TaskLoopBody2D<BlockedRangeByUnevenTBB2d>(task), tbb::opencl_partitioner(), context);
+    }
+}
+#endif
+
+#endif
 
 template <class BlockedRange, class TaskLoopBodySpecific>        
 void TBB_ExecutionSchedulers::auto_executor(
@@ -299,5 +369,3 @@ bool TBB_ExecutionSchedulers::parallel_execute( base_command_list& cmdList,
 
     return task->Finish(FINISH_COMPLETED);
 }
-
-

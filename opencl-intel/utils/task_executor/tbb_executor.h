@@ -46,76 +46,73 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
     /**
      * a global flag indicating whether the program has called function exit
      */
-	class TBBTaskExecutor : public ITaskExecutor
-	{
-	public:
-   		TBBTaskExecutor();
-		virtual ~TBBTaskExecutor();
+    class TBBTaskExecutor : public ITaskExecutor
+    {
+    public:
+        TBBTaskExecutor();
+        virtual ~TBBTaskExecutor();
 
         int	 Init(unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL);    
         void Finalize();
 
-		Intel::OpenCL::Utils::SharedPtr<ITEDevice>  CreateRootDevice( 
+        Intel::OpenCL::Utils::SharedPtr<ITEDevice>  CreateRootDevice(
                                                 const RootDeviceCreationParam& device_desc = RootDeviceCreationParam(),  
                                                 void* user_data = NULL, ITaskExecutorObserver* my_observer = NULL );
 
-		unsigned int GetMaxNumOfConcurrentThreads() const;
+        unsigned int GetMaxNumOfConcurrentThreads() const;
 
-		ocl_gpa_data* GetGPAData() const;
+        ocl_gpa_data* GetGPAData() const;
 
-		virtual DeviceHandleStruct GetCurrentDevice() const;
-		virtual bool IsMaster() const;
-		virtual unsigned int GetPosition( unsigned int level = 0 ) const;
+        virtual DeviceHandleStruct GetCurrentDevice() const;
+        virtual bool IsMaster() const;
+        virtual unsigned int GetPosition( unsigned int level = 0 ) const;
 
         typedef TBB_ThreadManager<TBB_PerActiveThreadData> ThreadManager;
         ThreadManager& GetThreadManager() { return m_threadManager; };
 
-	protected:
-		// Load TBB library explicitly
-		bool LoadTBBLibrary();
+    protected:
+        // Load TBB library explicitly
+        bool LoadTBBLibrary();
 
         ThreadManager                       m_threadManager;
-		Intel::OpenCL::Utils::OclDynamicLib	m_dllTBBLib;				        
+        Intel::OpenCL::Utils::OclDynamicLib	m_dllTBBLib;
 
         /* We need this because of a bug Anton has reported: we should initialize the task_scheduler_init to P+1 threads, instead of P. Apparently, if we explicitly create a task_scheduler_init
            in a certain master thread, TBB creates a global task_scheduler_init object that future created task_arenas will use. Once they fix this bug, we can remove this attribute.
            They seem to have another bug in ~task_scheduler_init(), so we work around it by allocating and not deleting it. */
         tbb::task_scheduler_init*           m_pScheduler;	
 
-	private:
-		TBBTaskExecutor(const TBBTaskExecutor&);
-		TBBTaskExecutor& operator=(const TBBTaskExecutor&);
+    private:
+        TBBTaskExecutor(const TBBTaskExecutor&);
+        TBBTaskExecutor& operator=(const TBBTaskExecutor&);
 	};
 
     class in_order_executor_task
     {
     public:
-	    in_order_executor_task(const SharedPtr<base_command_list>& list) : m_list(list){}
+        in_order_executor_task(const SharedPtr<base_command_list>& list) : m_list(list){}
 	
-	    void operator()();
+        void operator()();
 
     protected:
-	    SharedPtr<base_command_list> m_list;
+        SharedPtr<base_command_list> m_list;
 
-	    void FreeCommandBatch(TaskVector* pCmdBatch);
-
+        void FreeCommandBatch(TaskVector* pCmdBatch);
     };
 
     class out_of_order_executor_task
     {
     public:
-		out_of_order_executor_task(const SharedPtr<base_command_list>& list) : m_list(list.DynamicCast<out_of_order_command_list>())
-		{
-			assert(m_list != NULL);
-		}
+        out_of_order_executor_task(const SharedPtr<base_command_list>& list) : m_list(list.DynamicCast<out_of_order_command_list>())
+        {
+            assert(m_list != NULL);
+        }
 
-	    void operator()();
+        void operator()();
 
     private:
-
         SharedPtr<ITaskBase> GetTask();
-
-	    SharedPtr<out_of_order_command_list> m_list;
+        SharedPtr<out_of_order_command_list> m_list;
     };
 
     class immediate_executor_task
@@ -129,7 +126,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
     protected:
         immediate_command_list*     m_list;
         SharedPtr<ITaskBase>        m_pTask;
-        
     };
 
 }}}

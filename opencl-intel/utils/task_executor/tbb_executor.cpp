@@ -39,6 +39,7 @@
 #include <stdafx.h>
 #include <Windows.h>
 #endif
+
 #include <cl_sys_defines.h>
 #include <cl_sys_info.h>
 #include <cl_shutdown.h>
@@ -239,6 +240,22 @@ int	TBBTaskExecutor::Init(unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData)
 		LOG_ERROR(TEXT("%s"), "Failed to load TBB library");
 		return 0;
 	}
+
+	// Check TBB library version
+    if(TBB_INTERFACE_VERSION != tbb::TBB_runtime_interface_version())
+    {
+        LOG_ERROR(TEXT("TBB version doens't match. Required %s, loaded %d."),
+            __TBB_STRING(TBB_INTERFACE_VERSION), tbb::TBB_runtime_interface_version() );
+        return 0;
+    }
+
+#ifdef __MIC__
+    // On MIC enable 2MB pages for tbb allocator, if exists
+    if(tbb::tbb_allocator<int>::allocator_type() == tbb::tbb_allocator<int>::scalable)
+    {
+        scalable_allocation_mode(USE_HUGE_PAGES, 1);
+    }
+#endif
 
 	gWorker_threads = uiNumOfThreads;
 	if (gWorker_threads == TE_AUTO_THREADS)
