@@ -18,10 +18,10 @@
 #pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
 
 /**
- * cpu_error_kernel - kernels intended to fail upon build on CPU and succeed for GPU
+ * mic_error_kernel - kernels intended to fail upon build on MIC and succeed for CPU or GPU
  */
  
- __kernel void cpu_error_kernel(write_only image3d_t output)
+ __kernel void mic_error_kernel(write_only image3d_t output)
 {
 	int tidX = get_global_id(0), tidY = get_global_id(1), tidZ = get_global_id(2);
 	int offset = tidZ * get_image_width(output) * get_image_height(output) + tidY * get_image_width(output) + tidX;

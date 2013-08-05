@@ -111,23 +111,23 @@ TEST_F(VR12, CallbackGPUError)
   ASSERT_EQ(1, callbackTriggerCnt)  << "Callback has not been triggered";
 }
 
-//|	TEST: VR12.CallbackCPUError (TC-73)
+//|	TEST: VR12.CallbackMICError (TC-73)
 //|
 //|	Purpose
 //|	-------
 //|	
 //|	Verify the ability to receive notification with an argument using a callback function
 //|	that an application can register and which will be called when the program executable
-//|	has been built successfully for GPU device(s) and unsuccessfully for CPU device(s)
+//|	has been built successfully for CPU or GPU device(s) and unsuccessfully for MIC device(s)
 //| 
 //|	Method
 //|	------
 //|
 //|	1.	Create a program object and load the source code specified by the text strings into
 //|	    a program object. The source code is the same for both devices (i.e. no ifdef) and 
-//|	    include an erroneous statement for the CPU device
+//|	    include an erroneous statement for the MIC device
 //|	2.	Try to build (compiles & links) a program executable from the program source for both
-//|	    the CPU and the GPU devices using a function pointer to a notification routine.
+//|	    the all devices using a function pointer to a notification routine.
 //|	
 //|	Pass criteria
 //|	-------------
@@ -135,7 +135,7 @@ TEST_F(VR12, CallbackGPUError)
 //|	The notification routine should be called when the program executable has been built (unsuccessfully).
 //|
 
-TEST_F(VR12, CallbackCPUError)
+TEST_F(VR12, CallbackMICError)
 {
   callbackTriggerCnt = 0;
 
@@ -147,9 +147,9 @@ TEST_F(VR12, CallbackCPUError)
   cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)ocl_descriptor.platforms[0], 0};
   ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 2, ocl_descriptor.devices, NULL, NULL));
 
-  // create and build program for CPU and GPU
+  // create and build program for CPU,  GPU, or MIC
   ASSERT_NO_FATAL_FAILURE(createProgramWithSourceFromKernelName(&ocl_descriptor.program, ocl_descriptor.context,
-    "cpu_error_kernel.cl"));
+    "mic_error_kernel.cl"));
 
   cl_int errcode_ret = clBuildProgram (ocl_descriptor.program, 2, ocl_descriptor.devices, NULL, notify_callback, 0);	
 
@@ -160,10 +160,10 @@ TEST_F(VR12, CallbackCPUError)
     sleepMS(100);
     ASSERT_NO_FATAL_FAILURE(getProgramBuildInfo(ocl_descriptor.program, ocl_descriptor.devices[0],
       CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &build_status, NULL));
-    ASSERT_NE(CL_BUILD_SUCCESS, build_status);
+    ASSERT_NE(CL_BUILD_ERROR, build_status);
   }
 
-  // active waiting for GPU
+  // active waiting for GPU or MIC
   build_status = CL_BUILD_IN_PROGRESS;
   while(build_status == CL_BUILD_IN_PROGRESS)
   {
@@ -268,3 +268,4 @@ TEST_F(VR12, CallbackCPUGPUError)
 
   ASSERT_EQ(1, callbackTriggerCnt)  << "Callback has not been triggered";
 }
+
