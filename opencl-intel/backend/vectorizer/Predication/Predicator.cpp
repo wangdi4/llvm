@@ -351,6 +351,32 @@ void Predicator::registerLoopSchedulingScopes(SchedulingScope& parent,
   }
 }
 
+void Predicator::addDivergentBranchesSchedConstraints(SchedulingScope& main_scope) {
+
+  // Getting the scheduling constraints calculated during WIA
+  SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
+
+  // Going over the constraints and add these as scheduling scopes
+  for (SchdConstMap::iterator itr = predSched.begin();
+       itr != predSched.end();
+       ++itr) {
+    assert(itr->second.size() > 1 && "Constraint size should be larger than 1.");
+
+    SchedulingScope *scp = new SchedulingScope(NULL);
+    for (std::vector<BasicBlock*>::iterator bbItr = itr->second.begin();
+         bbItr !=  itr->second.end();
+         ++bbItr) {
+      // If a function has two return statements then the immediate post dom of a branch might be null
+      if (! (*bbItr)) continue;
+
+      scp->addBasicBlock(*bbItr);
+    }
+
+    // register the bypass info restrictions with parent
+    main_scope.addSubSchedulingScope(scp);
+  }
+}
+
 void Predicator::linearizeFunction(Function* F,
                                    FunctionSpecializer& specializer) {
 
@@ -367,6 +393,9 @@ void Predicator::linearizeFunction(Function* F,
 
   // add all linearization scopes to main-scope
   specializer.registerSchedulingScopes(main_scope);
+
+  // add scheduling constraints for the predicated regions
+  addDivergentBranchesSchedConstraints(main_scope);
 
   // Perform the actual scheduling of the blocks
   std::vector<BasicBlock*> schedule;

@@ -28,6 +28,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <map>
 #include <queue>
 
+typedef std::map<BasicBlock*, std::vector<BasicBlock*> > SchdConstMap;
+
 using namespace llvm;
 
 namespace intel {
@@ -95,6 +97,10 @@ public:
     /// @param BB the basic block
     /// @return true for divergent and false otherwise
     bool isDivergentPhiBlocks(BasicBlock *BB);
+
+    /// @brief Returns a map with scheduling contraints
+    /// @return a map with scheduling contraints
+    SchdConstMap & getSchedulingConstraints();
 
     /// @brief Inform analysis that instruction was invalidated
     /// as pointer may later be reused
@@ -217,6 +223,11 @@ private:
 
     // blocks in influenceRegion that are reachable from cbr by two different successors
     SmallPtrSet<BasicBlock*, 4> m_partialJoins;
+
+    // A map that maps a block terminating with a divergent branch to a vector containing the divergent branch basic block
+    // together with its influence region and its immediate post-dominator.
+    // Later on we use it to add scheduling constraints for the linearizer
+    SchdConstMap m_SchedulingConstraints;
   };
 } // namespace
 

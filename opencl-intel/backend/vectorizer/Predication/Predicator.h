@@ -89,6 +89,9 @@ private:
   void registerLoopSchedulingScopes(SchedulingScope& parent, LoopInfo* LI,
                                     Function* F, DenseMap<BasicBlock*,
                                     SchedulingScope*>& headers);
+  /// @brief add scheduling constraints for divergent regions
+  /// @param main_scope - the scope that we should add the constraints to
+  void addDivergentBranchesSchedConstraints(SchedulingScope& main_scope);
   /// @brief Perform Linearization phase on a function
   /// @param F function to flatten
   /// @param specializer Function specializer for scheduling constraints

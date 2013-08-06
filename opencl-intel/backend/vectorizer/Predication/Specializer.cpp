@@ -205,6 +205,20 @@ void FunctionSpecializer::addAuxBBForSingleExitEdge(BypassInfo & info) {
           info.m_head = new_block;
       }
     }
+
+    // Update the scheduling constrains for the predicated regions 
+    SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
+    for (SchdConstMap::iterator itr = predSched.begin();
+           itr != predSched.end();
+           ++itr) {
+
+      std::vector<BasicBlock*>::iterator bbItr = std::find(itr->second.begin(), itr->second.end(), info.m_postDom);
+
+      // if the post dom is part of a scheduling constraint then add the new block
+      // to the scheduling constraint. The new block is added right after the post dom to maintain topological order
+      if (bbItr != itr->second.end())
+        itr->second.insert(++bbItr, new_block);
+    }
 }
 
 void FunctionSpecializer::getBypassRegion(BypassInfo & info) {

@@ -89,6 +89,12 @@ void SchedulingScope::verify() {
 bool
 SchedulingScope::hasUnscheduledPreds(const BBVector& schedule, BasicBlock* bb) {
   V_ASSERT(bb && "invalid bb");
+
+  // This branch guarantees that the linearizer will not get into an infinite loop in case there is a constraint
+  // containing a loop header without its latch node.
+  if (std::find(schedule.begin(), schedule.end(), bb) != schedule.end())
+    return false;
+
   pred_iterator pred = pred_begin(bb);
   pred_iterator pred_e = pred_end(bb);
   for( ; pred != pred_e ; ++pred) {
@@ -100,6 +106,11 @@ SchedulingScope::hasUnscheduledPreds(const BBVector& schedule, BasicBlock* bb) {
 }
 
 bool SchedulingScope::hasUnscheduledPreds(const BBVector& schedule) {
+
+  // This branch guarantees that the linearizer will not get into an infinite loop in case there is a constraint
+  // containing a loop header without its latch node.
+  if (std::find(schedule.begin(), schedule.end(), *(m_blocks.begin())) != schedule.end())
+    return false;
 
   // For each of our instructions
   for (BBVectorIter BB = m_blocks.begin(), BBE = m_blocks.end(); BB != BBE ; ++BB){
