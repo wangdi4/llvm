@@ -161,6 +161,7 @@ IcdDispatchMgr::IcdDispatchMgr()
     // clEnqueueAcquireD3D11ObjectsKHR
     // clEnqueueReleaseD3D11ObjectsKHR
     
+    REGISTER_DISPATCH_ENTRYPOINT( clCreateSamplerWithProperties , clCreateSamplerWithProperties )
     // clEnqueueAcquireDX9MediaSurfacesKHR
     // clEnqueueReleaseDX9MediaSurfacesKHR
 }

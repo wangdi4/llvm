@@ -6744,6 +6744,62 @@ FINISH:
     return sampler_handle;
 }
 SET_ALIAS( clCreateSampler );
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_sampler CL_API_CALL clCreateSamplerWithProperties(
+    cl_context                  context,
+    const cl_sampler_properties *sampler_properties,
+    cl_int                      *errcode_ret)
+{
+    _cl_sampler_crt *sampler_handle = NULL;
+    cl_int          errCode         = CL_SUCCESS;
+    CrtContextInfo  *ctxInfo        = NULL;
+    CrtContext      *ctx            = NULL;
+
+    if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_2_0 )
+    {
+        errCode = CL_INVALID_DEVICE;
+        goto FINISH;
+    }
+
+    ctxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
+    if( !ctxInfo )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    sampler_handle = new _cl_sampler_crt;
+    if( !sampler_handle )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
+    ctx = ( CrtContext * )( ctxInfo->m_object );
+    errCode = ctx->clCreateSamplerWithProperties(
+        sampler_properties,
+        ( CrtSampler ** )( &sampler_handle->object ) );
+
+FINISH:
+    if( CL_SUCCESS != errCode )
+    {
+        if( sampler_handle )
+        {
+            delete sampler_handle;
+            sampler_handle = NULL;
+        }
+    }
+    if( errcode_ret )
+    {
+        *errcode_ret = errCode;
+    }
+    return sampler_handle;
+}
+SET_ALIAS( clCreateSamplerWithProperties );
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------

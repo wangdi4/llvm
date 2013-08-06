@@ -2060,7 +2060,6 @@ cl_int CrtSampler::Release()
     return errCode;
 }
 
-
 cl_int CrtContext::CreateSampler(
     cl_bool                 normalized_coords,
     cl_addressing_mode      addressing_mode,
@@ -2086,6 +2085,51 @@ cl_int CrtContext::CreateSampler(
             normalized_coords,
             addressing_mode,
             filter_mode,
+            &errCode );
+
+        if( CL_SUCCESS == errCode )
+        {
+            crtSampler->m_ContextToSampler[ctx] = sampObj;
+            crtSampler->m_contextCRT = this;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+FINISH:
+    if( ( CL_SUCCESS != errCode ) && crtSampler )
+    {
+        crtSampler->Release();
+        crtSampler->DecPendencyCnt();
+    }
+    *sampler = crtSampler;
+    return errCode;
+
+}
+
+cl_int CrtContext::clCreateSamplerWithProperties(
+    const cl_sampler_properties *sampler_properties,
+    CrtSampler                  **sampler)
+{
+    cl_int     errCode     = CL_SUCCESS;
+    CrtSampler *crtSampler = new CrtSampler;
+
+    if( !crtSampler )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
+    for( SHARED_CTX_DISPATCH::iterator itr = m_contexts.begin();
+        itr != m_contexts.end();
+        itr++ )
+    {
+        cl_context ctx = itr->first;
+        cl_sampler sampObj = ctx->dispatch->clCreateSamplerWithProperties(
+            ctx,
+            sampler_properties,
             &errCode );
 
         if( CL_SUCCESS == errCode )

@@ -51,6 +51,7 @@
 
 // cl.h
 #include <CL/cl.h>
+#include <CL/cl_2_0.h>
 
 // cl_gl.h and required files
 #ifdef _WIN32
@@ -222,6 +223,11 @@ typedef CL_API_ENTRY cl_sampler (CL_API_CALL *KHRpfn_clCreateSampler)(
     cl_addressing_mode  addressing_mode, 
     cl_filter_mode      filter_mode,
     cl_int *            errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+
+typedef CL_API_ENTRY cl_sampler (CL_API_CALL *KHRpfn_clCreateSamplerWithProperties)(
+    cl_context                  context,
+    const cl_sampler_properties *sampler_properties,
+    cl_int *                    errcode_ret ) CL_API_SUFFIX__VERSION_2_0;
 
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clRetainSampler)(cl_sampler sampler) CL_API_SUFFIX__VERSION_1_0;
 
@@ -1237,8 +1243,10 @@ struct KHRicdVendorDispatchRec
     KHRpfn_clEnqueueAcquireDX9MediaSurfacesKHR      clEnqueueAcquireDX9MediaSurfacesKHR;
     KHRpfn_clEnqueueReleaseDX9MediaSurfacesKHR      clEnqueueReleaseDX9MediaSurfacesKHR;
 
+
     //OpenCL 2.0 placeholder
     KHRpfn_clCreateCommandQueueWithProperties       clCreateCommandQueueWithProperties;
+    KHRpfn_clCreateSamplerWithProperties            clCreateSamplerWithProperties;
 };
 
 /*

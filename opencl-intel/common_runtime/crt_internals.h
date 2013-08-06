@@ -566,6 +566,10 @@ public:
         cl_filter_mode          filter_mode,
         CrtSampler**            sampler);
 
+    cl_int clCreateSamplerWithProperties(
+        const cl_sampler_properties *sampler_properties,
+        CrtSampler                  **sampler );
+
     // Command Queue and Build
     cl_int  CreateCommandQueue(
 		cl_command_queue				queue_crt_handle,

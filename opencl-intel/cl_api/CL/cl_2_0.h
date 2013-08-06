@@ -170,7 +170,13 @@ extern CL_API_ENTRY cl_int CL_API_CALL
     size_t param_value_size,
     void *param_value,
     size_t *param_value_size_ret) CL_API_SUFFIX__VERSION_2_0;
-					
+
+extern CL_API_ENTRY cl_sampler CL_API_CALL
+    clCreateSamplerWithProperties(
+    cl_context                  context,
+    const cl_sampler_properties *sampler_properties,
+    cl_int                      *errcode_ret ) CL_API_SUFFIX__VERSION_2_0;
+
 #ifdef __cplusplus
 }
 #endif
