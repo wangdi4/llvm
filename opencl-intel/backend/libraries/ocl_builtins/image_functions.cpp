@@ -282,7 +282,7 @@ void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image2d_array_depth_t image, int4 coord)
 {
     image2d_array_t proxy = __builtin_astype(image, image2d_array_t);
-    extract_pixel(proxy, coord);
+    return extract_pixel(proxy, coord);
 }
 
 void* __attribute__((overloadable)) __attribute__((const)) extract_pixel(image1d_t image, int coord)
