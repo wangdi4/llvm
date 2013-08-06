@@ -70,7 +70,13 @@
 #define CPU_MAX_LOCAL_ARGS				(MIN_PARAM((CPU_MAX_PARAMETER_SIZE/sizeof(void*)), CPU_MAX_PARAM_COUNT))
 #define CPU_MEM_BASE_ADDR_ALIGN			(CPU_DEV_MAXIMUM_ALIGN*8) // In bits
 #define CPU_MAX_WORK_ITEM_DIMENSIONS	MAX_WORK_DIM
-#define CPU_MAX_WORK_GROUP_SIZE			(8*1024)			// Must be power of 2, No API to get max number of fibers
+
+#if defined(__ANDROID__)
+#define CPU_MAX_WORK_GROUP_SIZE			(1024)			// Must be power of 2, No API to get max number of fibers
+#else
+#define CPU_MAX_WORK_GROUP_SIZE			(8*1024)		// Must be power of 2, No API to get max number of fibers
+#endif
+
 #define CPU_DEFAULT_WG_SIZE				32
 #define CPU_MIN_ACTUAL_PARAM_SIZE		sizeof(size_t)
 #define CPU_MIN_ACTUAL_PARAM_PTR		size_t*
