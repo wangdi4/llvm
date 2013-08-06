@@ -113,6 +113,12 @@ void SATest::RunValidation(IRunConfiguration* pRunConfiguration)
                         GetValue<uint64_t>(RC_COMMON_RANDOM_DG_SEED,0) << std::endl;
                     break;
                 }
+                else if((*it)->GetInputFileType() == Config &&
+                    spCompResult->GetComparison((*it)->GetKernelName().c_str())->isFailed())
+                {
+                    std::cout << "Seed = " << (*it)->GetGeneratorConfig()->getSeed() << std::endl;
+                    break;
+                }
             }
             throw Exception::TestFailException("Comparison failed.");
         }

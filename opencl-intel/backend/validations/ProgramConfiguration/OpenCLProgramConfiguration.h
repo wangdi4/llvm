@@ -18,6 +18,7 @@ File Name:  OpenCLProgramConfiguration.h
 #pragma once
 
 #include "IProgramConfiguration.h"
+#include "GeneratorConfig.h"
 #include "mem_utils.h"
 
 #include "CL/cl.h"
@@ -37,7 +38,8 @@ namespace Validation
     {
         Binary,
         Xml,
-        Random
+        Random,
+        Config
     };
 
     /// @brief enum for OpenCL program file type
@@ -55,6 +57,11 @@ namespace Validation
         /// @brief Constructor
         OpenCLKernelConfiguration(const TiXmlElement& root, const std::string& baseDirectory);
 
+        ~OpenCLKernelConfiguration()
+        {
+            if(m_generatorConfig)
+                delete m_generatorConfig;
+        }
         /// @brief Returns work dimension (possible values: 1, 2, 3)
         /// @return Work dimension
         // More details about work dimension at end of file
@@ -171,6 +178,11 @@ namespace Validation
 #endif
         }
 
+        const OCLKernelDataGeneratorConfig* GetGeneratorConfig() const
+        {
+            return this->m_generatorConfig;
+        }
+
     private:
         bool VisitEnter( const TiXmlElement& element, const TiXmlAttribute* firstAttribute);
         DataFileType GetDataFileType(const std::string& strFileType);
@@ -237,6 +249,8 @@ namespace Validation
         // md5 stamp for NEAT file
         std::vector<uint8_t> m_neatStamp;
 
+        //config for kernal arguments generator
+        OCLKernelDataGeneratorConfig* m_generatorConfig;
     };
 
     /// @brief This class contain OpenCL Include Directories

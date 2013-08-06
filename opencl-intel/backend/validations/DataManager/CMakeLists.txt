@@ -11,8 +11,6 @@ set (DM_INCLUDE_FILES
   ${VALIDATIONS_ROOT}/Common/Exception.h
   ${VALIDATIONS_ROOT}/Common/VectorWidth.h
   ${VALIDATIONS_ROOT}/Common/DataType.h
-  ${VALIDATIONS_ROOT}/Common/ImageChannelOrder.h
-  ${VALIDATIONS_ROOT}/Common/ImageChannelDataType.h
   ${VALIDATIONS_ROOT}/Common/BufferDesc.h
   ${VALIDATIONS_ROOT}/Common/ImageDesc.h
   ${VALIDATIONS_ROOT}/Common/TypeDesc.h
@@ -45,6 +43,7 @@ add_library(DataManager
   TypeDesc.cpp
   ImageChannelOrder.cpp
   ImageChannelDataType.cpp
+  ImageType.cpp
   Image.cpp
   XMLDataReadWrite.cpp
   Buffer.cpp

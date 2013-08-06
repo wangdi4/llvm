@@ -20,3 +20,5 @@ GeneratorConfig.h
 OCLKernelBufferContainerListAllocator.h
 OCLKernelBufferContainerListAllocator.cpp
 )
+target_link_libraries(OCLKernelDataGenerator
+DataManager)

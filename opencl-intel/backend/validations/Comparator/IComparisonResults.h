@@ -223,8 +223,6 @@ namespace Validation {
         /// Mismatch information will be stored as the list of the following structures
         struct MismatchedVal
         {
-            MismatchedVal() : pDesc(NULL) {}
-
             template<typename T>
             MismatchedVal(const Index& in_index, const IMemoryObjectDesc *in_pDesc, const T* in_referenceDataPtr,
                 const T* in_actualDataPtr, const NEATValue* in_pNEAT)

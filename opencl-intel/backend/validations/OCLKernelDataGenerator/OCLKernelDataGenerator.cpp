@@ -43,17 +43,18 @@ namespace Validation{
             it != config.getConstConfigVector().end(); ++it, ++cnt)
         {
             IMemoryObjectDescPtr& pDesc = m_KernelArgumentsList[cnt];
-            if(pDesc->GetName() == Image::GetImageName()){
-                throw Exception::GeneratorBadTypeException(
-                    "[OCLKernelDataGenerator::OCLKernelDataGenerator]images are not supported");
+
+            if(pDesc->GetName() == ImageDesc::GetImageDescName()){
+                //assign new image desc taken from xml config
+                pDesc = static_cast<ImageRandomGeneratorConfig*>(*it)->getImageDescriptor();
             }
             // call generator factory for each config
             AbstractGenerator * gen  = GeneratorFactory::create(*it, m_RandomUniformProvider);
             // set generator to vector
             m_GeneratorsVector[cnt] = gen;
 
-            TypeDesc buffElemDesc = static_cast<BufferDesc*>(pDesc.get())->GetElementDescription();
-            checkConfig(&buffElemDesc, *it); //check for config errors
+            IMemoryObjectDesc* elemDesc = pDesc.get();
+            checkConfig(elemDesc, *it); //check for config errors
         }
     }
 
@@ -91,22 +92,33 @@ namespace Validation{
         return;
     }
 
-    void OCLKernelDataGenerator::checkConfig(TypeDesc* elemDesc, AbstractGeneratorConfig* cfg){
-        TypeDesc nextElemDesc = *elemDesc;
-        //order is important
-        if(nextElemDesc.GetType() == TPOINTER)
+    void OCLKernelDataGenerator::checkConfig(IMemoryObjectDesc* elemDesc, AbstractGeneratorConfig* cfg){
+        if(elemDesc->GetName() == BufferDesc::GetBufferDescName())
         {
+            TypeDesc nextElemDesc = (static_cast<BufferDesc*>(elemDesc)->GetElementDescription());
+            //order is important
+            if(nextElemDesc.GetType() == TPOINTER)
+            {
                 nextElemDesc = nextElemDesc.GetSubTypeDesc(0);
+            }
+            if(nextElemDesc.GetType() == TARRAY)
+            {
+                nextElemDesc = nextElemDesc.GetSubTypeDesc(0);
+            }
+            if(nextElemDesc.GetType() == TVECTOR)
+            {
+                nextElemDesc = nextElemDesc.GetSubTypeDesc(0);
+            }
+            cfg->checkConfig(&nextElemDesc);
         }
-        if(nextElemDesc.GetType() == TARRAY)
+        else if(elemDesc->GetName() == ImageDesc::GetImageDescName())
         {
-                nextElemDesc = nextElemDesc.GetSubTypeDesc(0);
+            cfg->checkConfig(static_cast<ImageDesc*>(elemDesc));
         }
-        if(nextElemDesc.GetType() == TVECTOR)
+        else
         {
-                nextElemDesc = nextElemDesc.GetSubTypeDesc(0);
+            throw Exception::InvalidArgument("[OCLKernelDataGenerator]Unsupported Memory object : "+ elemDesc->GetName());
         }
-        cfg->checkConfig(nextElemDesc);
     }
 }
 

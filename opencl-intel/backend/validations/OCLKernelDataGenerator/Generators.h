@@ -96,9 +96,40 @@ namespace Validation
     class AbstractImageGenerator: public AbstractGenerator
     {
     public:
+        ///@brief ctor
+        ///for more info see AbstractGenerator ctor
+        AbstractImageGenerator(const RandomUniformProvider& Randgen)
+            : AbstractGenerator(Randgen)
+        {}
+        ///@brief responsible for data generating preparation
+        ///@param [in] ptr is a pointer to IMemoryObject(buffer of image)
+        virtual void Generate(const IMemoryObject *ptr);
         ///@brief generates data into image
-        virtual void GenerateImage()=0;
+        virtual void GenerateImage(const void* p, const uint64_t pixels_in_row, const ImageDesc &imdesc)=0;
     };
+
+    ///responsible for filling image with random values
+    class ImageRandomGenerator: public AbstractImageGenerator
+    {
+    public:
+        ///@brief ctor
+        ///@param [in] Randgen is a reference to RandomUniformProvider
+        ImageRandomGenerator(const RandomUniformProvider& Randgen)
+            : AbstractImageGenerator(Randgen)
+        {}
+    protected:
+        ///@brief generates data into image
+        ///@param [in out] p is a pointer to image data
+        ///@param [in] pixels_in_row - number of elements to generate
+        ///@param [in] imdesc - image description
+        virtual void GenerateImage(const void* p, const uint64_t pixels_in_row, const ImageDesc &imdesc);
+    private:
+        ///@brief generate and pack one single pixel
+        ///param [in out] p is a pointer to image data
+        ///param [in] imdesc is image description
+        void GenerateAndPackPixel(const void* p, const ImageDesc &imdesc);
+    };
+
     ///responsible for filling buffer with constant value
     template<typename T>
     class BufferConstGenerator: public AbstractBufferGenerator
@@ -137,9 +168,6 @@ namespace Validation
         ///@param [in] n_elems - number of elements to generate
         ///@param [in] stride - stride between these elements
         virtual void GenerateBuffer(void *p, uint64_t n_elems, uint64_t stride);
-    private:
-        // get random sample of type T
-        T GetRandomValue(const RandomUniformProvider& r) const;
     };
 
     ///implements factory method

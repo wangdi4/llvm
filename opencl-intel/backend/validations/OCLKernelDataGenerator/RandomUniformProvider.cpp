@@ -73,6 +73,16 @@ double RandomUniformProvider::Generator(void) const
     return (MPY_DBL * ( local_1 + local_2 ));
 }
 
+uint32_t RandomUniformProvider::sample_u32_unscaled() const
+{
+    return (uint32_t)(UINT32_MAX*Generator());
+}
+
+uint64_t RandomUniformProvider::sample_u64_unscaled() const
+{
+    return (( (uint64_t)sample_u32_unscaled() ) << 32) | (uint64_t)sample_u32_unscaled();
+}
+
 uint64_t RandomUniformProvider::sample_u64(uint64_t min, uint64_t max) const
 {
     uint64_t result;

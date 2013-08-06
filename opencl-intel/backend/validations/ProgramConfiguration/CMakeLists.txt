@@ -6,9 +6,12 @@ set(TARGET_NAME ProgramConfiguration)
 
 include_directories(
     ${VALIDATIONS_ROOT}/SATest
+    ${VALIDATIONS_ROOT}/NEAT
     ${VALIDATIONS_ROOT}/Common
     ${VALIDATIONS_ROOT}/../external/tinyxml
     ${BACKEND_ROOT_DIR}/../cl_api
+    ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
+    ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
 )
 
 add_library(${TARGET_NAME} STATIC
@@ -19,3 +22,6 @@ add_library(${TARGET_NAME} STATIC
     DXProgramConfiguration.cpp
 )
 
+target_link_libraries(${TARGET_NAME}
+    OCLKernelDataGenerator
+	)

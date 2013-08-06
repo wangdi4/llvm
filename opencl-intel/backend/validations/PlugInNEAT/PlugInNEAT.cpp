@@ -3280,10 +3280,18 @@ void NEATPlugIn::execute_read_imagef(Function *F,
 
     cl_image_format im_fmt;
     Conformance::image_descriptor desc = OCLBuiltins::CreateConfImageDesc(*memobj, im_fmt);
-    Conformance::image_sampler_data imageSampler = OCLBuiltins::CreateSamplerData(sampler);
+    Conformance::image_sampler_data imageSampler;
 
     if( IsSamplerLess)
+    {
         imageSampler.addressing_mode = CL_ADDRESS_NONE;
+        imageSampler.filter_mode = CL_FILTER_NEAREST;
+        imageSampler.normalized_coords = false;
+    }
+    else
+    {
+        imageSampler = OCLBuiltins::CreateSamplerData(sampler);
+    }
 
     NEATVector neatPixelVec = NEAT_WRAP::read_imagef_src_noneat_f(
         memobj->pData, // void *imageData,

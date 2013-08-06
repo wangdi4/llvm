@@ -17,6 +17,7 @@ File Name:  NEATALU.cpp
 
 \*****************************************************************************/
 #include "ImagesALU.h"
+#include "cl_types.h"
 #include "NEATALU.h"
 #include "Utils.h"
 
@@ -412,33 +413,33 @@ namespace Validation
 
         switch( imageInfo->format->image_channel_order )
         {
-        case CL_A:
+        case CLK_A:
             retVec[3].SetIntervalVal<float>(accPix.p[3] - maxErrAbs[3], accPix.p[3] + maxErrAbs[3]);
             break;
-        case CL_R:
-        case CL_Rx:
+        case CLK_R:
+        case CLK_DEPTH:
             retVec[0].SetIntervalVal<float>(accPix.p[0] - maxErrAbs[0], accPix.p[0] + maxErrAbs[0]);
             break;
-        case CL_RA:
+        case CLK_RA:
             retVec[0].SetIntervalVal<float>(accPix.p[0] - maxErrAbs[0], accPix.p[0] + maxErrAbs[0]);
             retVec[3].SetIntervalVal<float>(accPix.p[3] - maxErrAbs[3], accPix.p[3] + maxErrAbs[3]);
             break;
-        case CL_RG:
-        case CL_RGx:
+        case CLK_RG:
             retVec[0].SetIntervalVal<float>(accPix.p[0] - maxErrAbs[0], accPix.p[0] + maxErrAbs[0]);
             retVec[1].SetIntervalVal<float>(accPix.p[1] - maxErrAbs[1], accPix.p[1] + maxErrAbs[1]);
             break;
-        case CL_RGB:
-        case CL_RGBx:
-        case CL_LUMINANCE:
+        case CLK_RGB:
+        case CLK_LUMINANCE:
             retVec[0].SetIntervalVal<float>(accPix.p[0] - maxErrAbs[0], accPix.p[0] + maxErrAbs[0]);
             retVec[1].SetIntervalVal<float>(accPix.p[1] - maxErrAbs[1], accPix.p[1] + maxErrAbs[1]);
             retVec[2].SetIntervalVal<float>(accPix.p[2] - maxErrAbs[2], accPix.p[2] + maxErrAbs[2]);
             break;
-        case CL_RGBA:
-        case CL_ARGB:
-        case CL_BGRA:
-        case CL_INTENSITY:
+        case CLK_RGBA:
+        case CLK_sRGBA:
+        case CLK_sBGRA:
+        case CLK_ARGB:
+        case CLK_BGRA:
+        case CLK_INTENSITY:
             retVec[0].SetIntervalVal<float>(accPix.p[0] - maxErrAbs[0], accPix.p[0] + maxErrAbs[0]);
             retVec[1].SetIntervalVal<float>(accPix.p[1] - maxErrAbs[1], accPix.p[1] + maxErrAbs[1]);
             retVec[2].SetIntervalVal<float>(accPix.p[2] - maxErrAbs[2], accPix.p[2] + maxErrAbs[2]);

@@ -60,7 +60,8 @@ namespace Utils
 OpenCLKernelConfiguration::OpenCLKernelConfiguration(const TiXmlElement& root, const string& baseDirectory ):
         m_workDimension(0),
         m_inputFileType(Binary),
-        m_baseDirectory(baseDirectory)
+        m_baseDirectory(baseDirectory),
+        m_generatorConfig(0)
 {
     root.QueryStringAttribute( "Name", &m_kernelName);   
 
@@ -134,7 +135,10 @@ bool OpenCLKernelConfiguration::VisitEnter( const TiXmlElement& element, const T
     {
         m_neatFilePath = Utils::GetDataFilePath(element.GetText(), m_baseDirectory);
     }
-
+    if( element.ValueStr() == "OCLKernelDataGeneratorConfig")
+    {
+        m_generatorConfig = new OCLKernelDataGeneratorConfig(&element);
+    }
     return true;
 }
 
@@ -149,7 +153,10 @@ DataFileType OpenCLKernelConfiguration::GetDataFileType(const string& strFileTyp
     if( strFileType == "random" )
         return Random;
 
-    throw Exception::InvalidArgument("file types other than binary or XML are not supported");
+    if( strFileType == "config" )
+        return Config;
+
+    throw Exception::InvalidArgument("[OpenCLKernelConfiguration]"+strFileType+" is unsupported file type.");
 }
 
 OpenCLIncludeDirs::OpenCLIncludeDirs(const TiXmlElement& root, const string& baseDirectory ):

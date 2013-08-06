@@ -303,10 +303,33 @@ void OpenCLReferenceRunner::ReadInputBuffer(OpenCLKernelConfiguration* pKernelCo
         case Random:
         {
             OpenCLKernelArgumentsParser parser;
+            if(pKernelConfig->GetGeneratorConfig() != 0 )
+            {
+                throw Exception::InvalidArgument("[OpenCLReferenceRunner]Unused OCLKernelDataGeneratorConfig found. \
+                                                 Switch InputDataFileType to \'config\' or remove OCLKernelDataGeneratorConfig block");
+            }
             OCLKernelArgumentsList args = parser.KernelArgumentsParser(pKernelConfig->GetKernelName(), m_pModule);
             args = OpenCLKernelArgumentsParser::KernelArgHeuristics(args, pKernelConfig->GetGlobalWorkSize(), pKernelConfig->GetWorkDimension());
             OCLKernelDataGeneratorConfig *cfg = OCLKernelDataGeneratorConfig::defaultConfig(args);
             cfg->setSeed(seed);
+            OCLKernelDataGenerator gen(args, *cfg);
+
+            gen.Read(pContainer);
+            break;
+        }
+        case Config:
+        {
+            const OCLKernelDataGeneratorConfig *cfg = pKernelConfig->GetGeneratorConfig();
+            //if there is no OCLKernelDataGeneratorConfig in configuration file or it is incorrect
+            //GetGeneratorConfig will return zero value
+            if(cfg == 0)
+            {
+                throw Exception::InvalidArgument("[OpenCLReferenceRunner]No config is provided. \
+                                                 Add OCLKernelDataGeneratorConfig block or try to use another InputDataFileType");
+            }
+            OpenCLKernelArgumentsParser parser;
+            OCLKernelArgumentsList args = parser.KernelArgumentsParser(pKernelConfig->GetKernelName(), m_pModule);
+            args = OpenCLKernelArgumentsParser::KernelArgHeuristics(args, pKernelConfig->GetGlobalWorkSize(), pKernelConfig->GetWorkDimension());
             OCLKernelDataGenerator gen(args, *cfg);
 
             gen.Read(pContainer);

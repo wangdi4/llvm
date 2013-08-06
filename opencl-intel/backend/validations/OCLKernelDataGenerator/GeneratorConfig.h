@@ -24,6 +24,7 @@ File Name: GeneratorConfig.h
 
 #include "FloatOperations.h"
 #include "TypeDesc.h"
+#include "ImageDesc.h"
 #include<vector>
 #include<utility>
 #define TIXML_USE_STL
@@ -46,7 +47,7 @@ namespace Validation
         virtual std::string getName() const =0;
         ///@brief check whether config matches given type or not
         ///@param [in] Ty type descriptor
-        virtual void checkConfig(const TypeDesc Ty)=0;
+        virtual void checkConfig(const IMemoryObjectDesc* elem)=0;
     };
 
     // vector of configs
@@ -162,9 +163,10 @@ namespace Validation
         }
         ///@brief check whether config matches given type or not
         ///@param [in] Ty type descriptor
-        virtual void checkConfig(const TypeDesc Ty){
+        virtual void checkConfig(const IMemoryObjectDesc* elem){
+            const TypeDesc *Ty = static_cast<const TypeDesc*>(elem);
             if(getStaticName() != "BufferConstGenerator" +
-                TypeValWrapper(Ty.GetType()).ToString())
+                TypeValWrapper(Ty->GetType()).ToString())
                 throw Exception::InvalidArgument("[BufferConstGeneratorConfig::checkConfig]\
                                                  config does not match type");
         }
@@ -196,9 +198,10 @@ namespace Validation
         }
         ///@brief check whether config matches given type or not
         ///@param [in] Ty type descriptor
-        virtual void checkConfig(const TypeDesc Ty){
+        virtual void checkConfig(const IMemoryObjectDesc* elem){
+            const TypeDesc *Ty = static_cast<const TypeDesc*>(elem);
             if(getStaticName() != "BufferRandomGenerator" +
-                TypeValWrapper(Ty.GetType()).ToString())
+                TypeValWrapper(Ty->GetType()).ToString())
                 throw Exception::InvalidArgument("[BufferRandomGenerator::checkConfig]\
                                                  config does not match type");
         }
@@ -235,15 +238,16 @@ namespace Validation
         }
         ///@brief check whether config matches given type or not
         ///@param [in] Ty type descriptor
-        virtual void checkConfig(const TypeDesc Ty){
-            if(Ty.GetType() != TSTRUCT)
+        virtual void checkConfig(const IMemoryObjectDesc* elem){
+            const TypeDesc *Ty = static_cast<const TypeDesc*>(elem);
+            if(Ty->GetType() != TSTRUCT)
                 throw Exception::InvalidArgument("[BufferStructureGeneratorConfig::checkConfig]\
                                                  config does not match type");
             AbstractGeneratorConfigVector::const_iterator c_it;
             uint64_t cnt=0;
             for(c_it = m_subConfigs.begin(); c_it != m_subConfigs.end(); ++c_it, ++cnt)
             {
-                TypeDesc nextElemDesc = Ty.GetSubTypeDesc(cnt);
+                TypeDesc nextElemDesc = Ty->GetSubTypeDesc(cnt);
                 if(nextElemDesc.GetType() == TPOINTER)
                 {
                     throw Exception::GeneratorBadTypeException("[BufferStructureGeneratorConfig::checkConfig]\
@@ -257,13 +261,55 @@ namespace Validation
                 {
                     nextElemDesc = nextElemDesc.GetSubTypeDesc(0);
                 }
-                (*c_it)->checkConfig(nextElemDesc);
+                (*c_it)->checkConfig(&nextElemDesc);
             }
         }
     private:
         ///@brief read xml node into config
         virtual bool VisitEnter(const TiXmlElement&, const TiXmlAttribute*);
         AbstractGeneratorConfigVector m_subConfigs; // configs for sub types of structure
+    };
+
+    ///store config of Random Generator
+    class ImageRandomGeneratorConfig : public AbstractGeneratorConfig
+    {
+    public:
+        virtual ~ImageRandomGeneratorConfig()
+        {
+            delete m_ObjDesc;
+        }
+        ///@brief returns name of Image Generator
+        ///@return name of Generator
+        static std::string getStaticName(){
+            return "ImageRandomGenerator";
+        }
+        ///@brief function to determinate generator name
+        /// in runtime
+        ///@return string with generator name
+        virtual std::string getName() const {
+            return getStaticName();
+        }
+        ///@brief check whether config matches given type or not
+        ///@param [in] Ty type descriptor
+        virtual void checkConfig(const IMemoryObjectDesc* elem){
+            const ImageDesc* imdesc = static_cast<const ImageDesc*>(elem);
+            if( (*imdesc) != (*m_ObjDesc) )
+                throw Exception::InvalidArgument("[ImageRandomGeneratorConfig::checkConfig]\
+                                                 Corrupted image descriptor inside config");
+        }
+        ImageDesc* getImageDescriptor()
+        {
+            return m_ObjDesc;
+        }
+    private:
+        ///@brief read xml node into config
+        virtual bool VisitEnter(const TiXmlElement&, const TiXmlAttribute*);
+        ///@brief read xml node into config
+        virtual bool VisitExit(const TiXmlElement& element){
+            return false;
+        }
+        //image descriptor. new image will be created with this one
+        ImageDesc *m_ObjDesc;
     };
 }
 #endif //__GENERATOR_CONFIG_H__

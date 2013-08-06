@@ -46,8 +46,8 @@ namespace Validation
         IMemoryObjectDescWrapper(const IMemoryObjectDescWrapper& r){
             m_p = (r.m_p)?r.m_p->Clone():NULL;
         }
-        IMemoryObjectDescWrapper(const T * pr){
-            m_p = pr ? pr->Clone():NULL;
+        IMemoryObjectDescWrapper(const T & pr){
+            m_p = pr.Clone();
         }
         virtual ~IMemoryObjectDescWrapper()
         {
