@@ -362,6 +362,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   // We need InstructionCombining and GVN passes after ShiftZeroUpperBits, PreventDivisionCrashes passes
   // to optimize redundancy introduced by those passes
   if ( debugType == None ) {
+    m_modulePasses.add(llvm::createScalarReplAggregatesPass(-1, true));
     m_modulePasses.add(llvm::createInstructionCombiningPass());
     m_modulePasses.add(llvm::createGVNPass());
   }
