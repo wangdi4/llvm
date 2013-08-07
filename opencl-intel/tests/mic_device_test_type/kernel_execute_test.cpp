@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
+#include <vector>
 
 extern RTMemObjService localRTMemService;
 
@@ -48,12 +49,10 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 	DECLSPEC(align(16)) float b[] = {2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f};
 	float	res[] = {-1, -1, -1, -1, -1, -1, -1, -1};
 	float	tst[] = {8, 16, 24, 32, 8, 16, 24, 32};
-	float	offset = 2.f;
 
 	size_t	stSizeRes = sizeof(res);
 	size_t	stSizeAB = sizeof(a);
 	size_t	size_res = sizeof(res)/sizeof(float);
-	size_t  objSizeAB = sizeof(a)/sizeof(float);
 
 	if ( !BuildProgram(prog_file, &prog) )
 	{
@@ -121,7 +120,8 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 
 	krnlParam.kernel = kernel;
 	krnlParam.arg_size = 3*sizeof(IOCLDevMemoryObject*);//+sizeof(float);
-	krnlParam.arg_values = new cl_char[krnlParam.arg_size];
+    std::vector<cl_char> arg_values_alloc(krnlParam.arg_size);
+	krnlParam.arg_values = &arg_values_alloc[0];
 	((IOCLDevMemoryObject**)krnlParam.arg_values)[0] = memObjA;
 	((IOCLDevMemoryObject**)krnlParam.arg_values)[1] = memObjB;
 	((IOCLDevMemoryObject**)krnlParam.arg_values)[2] = memObjRes;
@@ -151,7 +151,6 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 	iRes = dev_entry->clDevCommandListExecute(0, &cmdsBuff, 1);
 	if (CL_DEV_FAILED(iRes))
 	{
-		delete []krnlParam.arg_values;
 		memObjA->clDevMemObjRelease();
 		memObjB->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
@@ -166,7 +165,6 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 
 	if(!readMemory(false, memObjRes, res, sizeof(res)))
 	{
-		delete []krnlParam.arg_values;
 		memObjA->clDevMemObjRelease();
 		memObjB->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
@@ -183,7 +181,6 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 		}
 	}
 
-	delete []krnlParam.arg_values;
 	memObjA->clDevMemObjRelease();
 	memObjB->clDevMemObjRelease();
 	dev_entry->clDevReleaseProgram(prog);
@@ -248,13 +245,14 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
 
 	krnlParam.kernel = kernel;
 	krnlParam.arg_size = 2*sizeof(IOCLDevMemoryObject*);//+sizeof(float);
-	krnlParam.arg_values = new cl_char[krnlParam.arg_size];
+    std::vector<cl_char> arg_values_alloc(krnlParam.arg_size);
+	krnlParam.arg_values =  &arg_values_alloc[0];
 	((IOCLDevMemoryObject**)krnlParam.arg_values)[0] = memObjA;
 	((IOCLDevMemoryObject**)krnlParam.arg_values)[1] = memObjB;
-	krnlParam.work_dim = 1;
-	krnlParam.glb_wrk_offs[0] = 0;
-	krnlParam.glb_wrk_size[0] = 20;
-	krnlParam.lcl_wrk_size[0] = 1;
+ krnlParam.work_dim = 1;
+ krnlParam.glb_wrk_offs[0] = 0;
+ krnlParam.glb_wrk_size[0] = 20;
+ krnlParam.lcl_wrk_size[0] = 1;
 
 	// Setup command descriptor
 	cmdDesc.id = (cl_dev_cmd_id)CL_DEV_CMD_EXEC_KERNEL;
@@ -269,7 +267,6 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
 	iRes = dev_entry->clDevCommandListExecute(0, &cmdsBuff, 1);
 	if (CL_DEV_FAILED(iRes))
 	{
-		delete []krnlParam.arg_values;
 		memObjA->clDevMemObjRelease();
 		memObjB->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
@@ -284,7 +281,6 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
 
 	if(!readMemory(false, memObjB, BuffB, sizeAB))
 	{
-		delete []krnlParam.arg_values;
 		memObjA->clDevMemObjRelease();
 		memObjB->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
@@ -296,7 +292,6 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
 	{
 		if ( BuffA[i] == BuffB[i] )
 		{
-			delete []krnlParam.arg_values;
 			memObjA->clDevMemObjRelease();
 			memObjB->clDevMemObjRelease();
 			dev_entry->clDevReleaseProgram(prog);
@@ -304,7 +299,6 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
 		}
 	}
 
-	delete []krnlParam.arg_values;
 	memObjA->clDevMemObjRelease();
 	memObjB->clDevMemObjRelease();
 	dev_entry->clDevReleaseProgram(prog);
@@ -382,7 +376,8 @@ bool KernelExecute_Math_Test(const char* prog_file)
 
 	krnlParam.kernel = kernel;
 	krnlParam.arg_size = 2*sizeof(IOCLDevMemoryObject*);//+sizeof(float);
-	krnlParam.arg_values = new cl_char[krnlParam.arg_size];
+    std::vector<cl_char> arg_values_alloc(krnlParam.arg_size);
+	krnlParam.arg_values = &arg_values_alloc[0];
 	((void**)krnlParam.arg_values)[0] = memObjA;
 	((void**)krnlParam.arg_values)[1] = memObjB;
 	krnlParam.work_dim = 1;
@@ -411,7 +406,6 @@ bool KernelExecute_Math_Test(const char* prog_file)
 	iRes = dev_entry->clDevCommandListExecute(list, &cmdsBuff, 1);
 	if (CL_DEV_FAILED(iRes))
 	{
-		delete []krnlParam.arg_values;
 		memObjA->clDevMemObjRelease();
 		memObjB->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
@@ -432,7 +426,6 @@ bool KernelExecute_Math_Test(const char* prog_file)
 
 	if(!readMemory(false, memObjB, BuffB, sizeAB))
 	{
-		delete []krnlParam.arg_values;
 		memObjA->clDevMemObjRelease();
 		memObjB->clDevMemObjRelease();
 		dev_entry->clDevReleaseProgram(prog);
@@ -444,7 +437,6 @@ bool KernelExecute_Math_Test(const char* prog_file)
 	{
 		if ( abs(((int*)BuffRef)[i] - ((int*)BuffB)[i]) > 3 )
 		{
-			delete []krnlParam.arg_values;
 			memObjA->clDevMemObjRelease();
 			memObjB->clDevMemObjRelease();
 			dev_entry->clDevReleaseProgram(prog);
@@ -452,7 +444,6 @@ bool KernelExecute_Math_Test(const char* prog_file)
 		}
 	}
 
-	delete []krnlParam.arg_values;
 	memObjA->clDevMemObjRelease();
 	memObjB->clDevMemObjRelease();
 	dev_entry->clDevReleaseProgram(prog);
