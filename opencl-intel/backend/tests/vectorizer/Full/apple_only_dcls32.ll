@@ -566,3 +566,10 @@ declare void @_Z14sincos_ret2ptrDv8_dPS_S0_(<8 x double>* nocapture byval align 
 
 declare void @_Z14sincos_ret2ptrDv16_dPS_S0_(<16 x double>* nocapture byval align 128, <16 x double>* nocapture %sinval, <16 x double>* nocapture %cosval) nounwind
 
+;-------------------------------------------------------------------------------------------------------
+;  stream sampler functions
+;-------------------------------------------------------------------------------------------------------
+
+declare i64 @_Z36__async_work_group_stream_from_imagePU3AS110_image2d_tuSamplerDv2_fS1_mPDv4_fS3_S3_S3_(%struct._image2d_t addrspace(1)* %image, i32 %sampler, double %start.coerce, double %stride.coerce, i64 %count, <4 x float>* %r, <4 x float>* %g, <4 x float>* %b, <4 x float>* %a) nounwind
+
+declare i64 @_Z34__async_work_group_stream_to_imagePU3AS110_image2d_tmmmPKDv4_fS2_S2_S2_(%struct._image2d_t addrspace(1)* %image, i64 %x, i64 %y, i64 %count, <4 x float>* %r, <4 x float>* %g, <4 x float>* %b, <4 x float>* %a) nounwind

@@ -388,7 +388,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     CFNumberRef hbarrier = CFNumberCreate(NULL, kCFNumberIntType, hbarrierptr);
 
     //barrier buffer stride, is the size in bytes for barrier buffer stride
-    unsigned int barrierBufferSTride = kimd->getBarrierBufferSize();
+    unsigned int barrierBufferSTride = VWidthMax*kimd->getBarrierBufferSize();
     const void *bbsptr = (const void *)&barrierBufferSTride;
     CFNumberRef bbs = CFNumberCreate(NULL, kCFNumberIntType, bbsptr);
 
@@ -727,7 +727,8 @@ static int compileProgram(
   bool& has_kernel)
 {
   // Get the runtime module, which contains all the OpenCL runtime functions.
-  Module *Runtime = objects->llvm_module;
+  static Module *Runtime = NULL;
+  assert(!objects->llvm_module && "assuming built-in module is not recieved from runtime");
 
   if (!Runtime) {
 #if defined(__i386__)

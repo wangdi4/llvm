@@ -394,6 +394,11 @@ Optimizer::Optimizer( llvm::Module* pModule,
     if( debugType == None ) {
       m_modulePasses.add(createCLBuiltinLICMPass());
       m_modulePasses.add(llvm::createLICMPass());
+#ifdef __APPLE__
+      // Workaround due to a bug in LICM, need to break the Loop passes flow after LICM.
+      // TODO: remove it after fixing the bug in LICM.
+      m_modulePasses.add(llvm::createVerifierPass());
+#endif //#ifdef __APPLE__
       m_modulePasses.add(createLoopStridedCodeMotionPass());
       m_modulePasses.add(createCLStreamSamplerPass());
     }
