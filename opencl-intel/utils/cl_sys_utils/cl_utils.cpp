@@ -1218,14 +1218,23 @@ string GetTempDir()
     }
 #else // Linux
     char *EnvUser = getenv("USER");
-    TmpDir = "/tmp/";
-    if (EnvUser)
-      {
-	TmpDir += EnvUser;
-	TmpDir += "/";
-      }
-    // Just to make sure the directory exists
-    mkdir(TmpDir.c_str(), S_IRWXU);
+    #if defined(__ANDROID__)
+        TmpDir = "/data/tmp/";
+    #else
+        TmpDir = "/tmp/";
+    #endif
+        if (EnvUser)
+          {
+	        TmpDir += EnvUser;
+	        TmpDir += "/";
+          }
+        // Just to make sure the directory exists
+        string command("mkdir -p ");
+        command += TmpDir;
+        if(system(command.c_str()) != 0)
+        {
+            perror("Error creating temp directory");
+        }
 #endif
     return TmpDir;
 }
