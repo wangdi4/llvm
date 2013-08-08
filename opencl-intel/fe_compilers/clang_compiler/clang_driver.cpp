@@ -24,6 +24,7 @@
 
 #include "stdafx.h"
 
+#ifndef _WIN32
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Driver/Arg.h"
 #include "clang/Driver/ArgList.h"
@@ -39,6 +40,7 @@
 #include "clang/Frontend/TextDiagnosticBuffer.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/FrontendTool/Utils.h"
+#endif
 #include "llvm/Constants.h"
 #include "llvm/Linker.h"
 #include "llvm/LLVMContext.h"
@@ -87,8 +89,10 @@
 #include <algorithm>
 using namespace Intel::OpenCL::ClangFE;
 using namespace llvm;
+#ifndef _WIN32
 using namespace clang;
 using namespace clang::frontend;
+#endif
 using namespace Intel::OpenCL::Utils;
 
 #ifdef _WIN32
@@ -118,10 +122,11 @@ static int g_uiProgID = 1;
 const std::string APFLevelOptionName("-auto-prefetch-level=");
 
 void LLVMErrorHandler(void *UserData, const std::string &Message) {
+#ifndef _WIN32
   DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine*>(UserData);
 
   Diags.Report(diag::err_fe_error_backend) << Message;
-
+#endif
   // We cannot recover from llvm errors.
   exit(1);
 }
@@ -265,6 +270,7 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     list.push_back("-cl-std=CL1.2");
     list.push_back("-D");
     list.push_back("__OPENCL_C_VERSION__=120");
+    CLSTDSet = 120;
   } else if(CLSTDSet == 120) {
     list.push_back("-D");
     list.push_back("__OPENCL_C_VERSION__=120");
@@ -278,6 +284,7 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     list.push_back("-S");
     list.push_back("-emit-llvm-bc");
 
+    list.push_back("-cl-kernel-arg-info");
 
     char    szBinaryPath[MAX_STR_BUFF];
     char    szCurrDirrPath[MAX_STR_BUFF];
@@ -467,10 +474,27 @@ int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutput
     }
 
     size_t stTotSize = 0;
+    const char*  BufferStart = (const char*) pOutputArgs->pOutput;
+    size_t BufferSize = pOutputArgs->OutputSize;
+    llvm::SmallVector<char, 4096>   SPIRbinary;
     if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
     {
-      stTotSize = pOutputArgs->OutputSize+
-        sizeof(cl_prog_container_header)+sizeof(cl_llvm_prog_header);
+      // Add module level SPIR related stuff
+      string ErrorMessage;
+      llvm::OwningPtr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(BufferStart, BufferSize)));
+      llvm::raw_svector_ostream SPIRstream(SPIRbinary);
+      llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
+      llvm::OwningPtr<PassManager> Passes(new PassManager());
+      Passes->add(new DataLayout(M)); // Use correct DataLayout
+      Passes->add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
+      Passes->run(*M);
+      WriteBitcodeToFile(M, SPIRstream);
+      SPIRstream.flush();
+      BufferStart = (const char*)SPIRbinary.begin();
+      BufferSize  = SPIRbinary.size();
+
+      stTotSize = BufferSize +
+        sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
       m_pOutIR = new char[stTotSize];
       if ( NULL == m_pOutIR )
       {
@@ -484,7 +508,7 @@ int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutput
       m_stOutIRSize = stTotSize;
       cl_prog_container_header*    pHeader = (cl_prog_container_header*)m_pOutIR;
       MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
-      pHeader->container_size = pOutputArgs->OutputSize+sizeof(cl_llvm_prog_header);
+      pHeader->container_size = BufferSize+sizeof(cl_llvm_prog_header);
       pHeader->container_type = CL_PROG_CNT_PRIVATE;
       pHeader->description.bin_type = CL_PROG_BIN_COMPILED_LLVM;                            // = TB_DATA_FORMAT_LLVM_BINARY
       pHeader->description.bin_ver_major = 1;
@@ -500,7 +524,7 @@ int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutput
 
       void *pIR = (void*)(pProgHeader+1);
       // Copy IR
-      MEMCPY_S(pIR, pOutputArgs->OutputSize, pOutputArgs->pOutput, pOutputArgs->OutputSize);
+      MEMCPY_S(pIR, BufferSize, BufferStart, BufferSize);
     }
 
     return CL_SUCCESS;
@@ -531,9 +555,9 @@ int ClangFECompilerCompileTask::Compile()
 
   // Prepare argument list
   ArgListType ArgList;
-  ArgListType BEArgList;
+  m_BEArgList.clear();
 
-  PrepareArgumentList(ArgList, BEArgList, m_pProgDesc->pszOptions);
+  PrepareArgumentList(ArgList, m_BEArgList, m_pProgDesc->pszOptions);
 
 #ifdef _WIN32
     cl_int retVal = CL_SUCCESS;
@@ -881,7 +905,7 @@ int ClangFECompilerCompileTask::Compile()
         llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
         llvm::OwningPtr<PassManager> Passes(new PassManager());
         Passes->add(new DataLayout(M)); // Use correct DataLayout
-        Passes->add(createSPIRMetadataAdderPass(BEArgList, CLSTDSet));
+        Passes->add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
         Passes->run(*M);
         WriteBitcodeToFile(M, SPIRstream);
         SPIRstream.flush();
@@ -1130,7 +1154,7 @@ int ClangFECompilerLinkTask::Link()
 
     // We have more the one binary so we need to link
     
-#ifdef _WIN32
+#if 0 /*_WIN32*/
     bool createLibrary = false;
     cl_int retVal = CL_SUCCESS;
     size_t uiBinarySize = 0;
@@ -1509,21 +1533,6 @@ ClangFECompilerGetKernelArgInfoTask::~ClangFECompilerGetKernelArgInfoTask()
 {
     if (NULL != m_argsInfo)
     {
-        for (unsigned int i = 0; i < m_numArgs; ++i)
-        {
-            if (m_argsInfo[i].name)
-            {
-                delete[] m_argsInfo[i].name;
-                m_argsInfo[i].name = NULL;
-            }
-
-            if (m_argsInfo[i].typeName)
-            {
-                delete[] m_argsInfo[i].typeName;
-                m_argsInfo[i].typeName = NULL;
-            }
-        }
-
         delete[] m_argsInfo;
         m_argsInfo = NULL;
     }
@@ -1544,7 +1553,7 @@ int ClangFECompilerGetKernelArgInfoTask::TranslateArgsInfoValues (STB_GetKernelA
         return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
     }
 
-    this->m_numArgs = pKernelArgsInfo->m_numArgs;
+    m_numArgs = pKernelArgsInfo->m_numArgs;
 
     m_argsInfo = new ARG_INFO[m_numArgs];
     if (!m_argsInfo)
@@ -1552,60 +1561,62 @@ int ClangFECompilerGetKernelArgInfoTask::TranslateArgsInfoValues (STB_GetKernelA
         return CL_OUT_OF_HOST_MEMORY;
     }
         
-    for (unsigned int i = 1; i < pKernelArgsInfo->m_numArgs + 1; ++i)
+    for (unsigned int i = 0; i < pKernelArgsInfo->m_numArgs; ++i)
     {
-        // Since the arg info in the metadata have a string field before the operands
-        // Now we have an off by one that we need to compensate for
-        ARG_INFO &argInfo = m_argsInfo[i - 1];
-
         // Adress qualifier
-        switch( pKernelArgsInfo->m_argsInfo[i - 1].adressQualifier )
+        switch( pKernelArgsInfo->m_argsInfo[i].adressQualifier )
         {
         case 0:
-            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
+            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
             break;
         case 1:
-            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
+            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
             break;
         case 2:
-            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
+            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
             break;
         case 3:
-            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
+            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
             break;
         }
 
         // Access qualifier
-        switch( pKernelArgsInfo->m_argsInfo[i - 1].accessQualifier )
+        switch( pKernelArgsInfo->m_argsInfo[i].accessQualifier )
         {
         case 0:
-            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_READ_ONLY;
+            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_READ_ONLY;
             break;
         case 1:
-            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
+            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
             break;
         case 2:
-            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_READ_WRITE;
+            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_READ_WRITE;
             break;
         case 3:
-            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_NONE;
+            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_NONE;
             break;
         }
 
         // Type qualifier
-        if (pKernelArgsInfo->m_argsInfo[i - 1].typeQualifier & (1 << 0))
+        m_argsInfo[i].typeQualifier = 0;
+        if (pKernelArgsInfo->m_argsInfo[i].typeQualifier & (1 << 0))
         {
-            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
+            m_argsInfo[i].typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
         }
-        if (pKernelArgsInfo->m_argsInfo[i - 1].typeQualifier & (1 << 1))
+        if (pKernelArgsInfo->m_argsInfo[i].typeQualifier & (1 << 1))
         {
-            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
+            m_argsInfo[i].typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
         }
-        if (pKernelArgsInfo->m_argsInfo[i - 1].typeQualifier & (1 << 2))
+        if (pKernelArgsInfo->m_argsInfo[i].typeQualifier & (1 << 2))
         {
-            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
+            m_argsInfo[i].typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
         }
 
+        // Type name
+        m_argsInfo[i].typeName = pKernelArgsInfo->m_argsInfo[i].typeName;
+
+        // Argument name
+        m_argsInfo[i].name = pKernelArgsInfo->m_argsInfo[i].name;
     }
 
     return CL_SUCCESS;
@@ -1637,7 +1648,12 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     {
         struct STB_GetKernelArgsInfoArgs KernelArgsInfo;
         TC::GetKernelArgsInfoPlugin(pBinBuff, szKernelName, &KernelArgsInfo);
-        return TranslateArgsInfoValues(&KernelArgsInfo);
+        int retVal = TranslateArgsInfoValues(&KernelArgsInfo);
+        if( TC::ReleaseKernelArgsInfoPlugin)
+        {
+            TC::ReleaseKernelArgsInfoPlugin(&KernelArgsInfo);
+        }
+        return retVal;
     }
     #else
     llvm::Module* pModule = ParseIR(pBinBuff, Err, Context);
@@ -2038,7 +2054,8 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             bFastRelaxedMath = true;
         }
         else if (*opt_i == "-cl-kernel-arg-info") {
-            pList->push_back("-cl-kernel-arg-info");
+//            For SPIR, we always create kernel arg info.
+//            pList->push_back("-cl-kernel-arg-info");
         }
         else if (*opt_i == "-cl-std=CL1.1") {
             iCLStdSet = 110;

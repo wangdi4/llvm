@@ -129,6 +129,7 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       LLVMCppBackendCodeGen
                                       LLVMCppBackendInfo
                                       task_executor${BUILD_PLATFORM}
+if ( NOT WIN32 )
                                       clangFrontendTool
                                       clangAST
                                       clangAnalysis
@@ -160,6 +161,7 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       clangAST
                                       clangLex
                                       clangBasic
+endif ()
                                       OclPluginManager
                                       #CLElfLib
                                       metadataapi
@@ -169,12 +171,13 @@ endif()
 
 set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
 
-if( ANDROID )
-  set( TRIPLE -triple i686-pc-linux )
-endif( ANDROID )
+if (BUILD_X64)
+  set( TRIPLE -triple spir64-unknown-unknown )
+else()
+  set( TRIPLE -triple spir-unknown-unknown )
+endif()
 
 set( CLANG_OPTIONS -cc1
-                      ${TRIPLE}
                       -x cl
                       -O0
                       -emit-pch 
@@ -194,17 +197,19 @@ set( CLANG ${TOOL_BINARY_DIR}/clang )
 
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
-                    COMMAND ${CLANG} ${CLANG_OPTIONS} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${CLANG_OPTIONS}  ${TRIPLE} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     VERBATIM
 )
 
+if( NOT ANDROID )
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
                     COMMAND ${CLANG} ${CLANG_OPTIONS} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     VERBATIM
 )
+endif ()
 
 #add_dependencies( ${TARGET_NAME}
 #    clang

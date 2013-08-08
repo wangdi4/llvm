@@ -55,8 +55,10 @@ typedef void (__cdecl  *PFNREGISTERTRANSLATIONPLUGIN )( STB_RegisterArgs* pRegis
 typedef CTranslationBlock* (__cdecl  *PFNCREATETRANSLATIONPLUGIN )( STB_CreateArgs* pCreateArgs );
 typedef void (__cdecl  *PFNDELETETRANSLATIONPLUGIN )( CTranslationBlock* pBlock );
 typedef void (__cdecl  *PFNGETKERNELARGSINFOPLUGIN )( const void *pBin, const char *szKernelName, STB_GetKernelArgsInfoArgs* pKernelArgsInfo );
+typedef void (__cdecl  *PFNRELEASEKERNELARGSINFOPLUGIN )( STB_GetKernelArgsInfoArgs* pKernelArgsInfo );
 
 extern PFNGETKERNELARGSINFOPLUGIN GetKernelArgsInfoPlugin;     // this global is not a member of CTranslator. It is here for convinence only
+extern PFNRELEASEKERNELARGSINFOPLUGIN ReleaseKernelArgsInfoPlugin;     // this global is not a member of CTranslator. It is here for convinence only
 
 /******************************************************************************\
 

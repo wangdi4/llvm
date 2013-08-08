@@ -455,7 +455,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   CompilationUtils::clVersion CompilationUtils::getCLVersionFromModule(const Module &M) {
-    NamedMDNode* metadata = M.getNamedMetadata("opencl.build.options");
+    NamedMDNode* metadata = M.getNamedMetadata("opencl.compiler.options");
     if(metadata)
       for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k) {
         llvm::MDNode *elt = metadata->getOperand(k);

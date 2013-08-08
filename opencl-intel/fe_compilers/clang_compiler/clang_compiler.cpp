@@ -62,6 +62,7 @@ using namespace Intel::OpenCL::Utils;
 #pragma comment (lib, "LLVMInstCombine.lib")
 
 // Clang libraries
+#ifndef _WIN32
 #pragma comment (lib, "clangAST.lib")
 #pragma comment (lib, "clangBasic.lib")
 #pragma comment (lib, "clangCodeGen.lib")
@@ -69,6 +70,7 @@ using namespace Intel::OpenCL::Utils;
 #pragma comment (lib, "clangFrontend.lib")
 #pragma comment (lib, "clangParse.lib")
 #pragma comment (lib, "clangSema.lib")
+#endif
 #else
 #define DLL_EXPORT
 #endif

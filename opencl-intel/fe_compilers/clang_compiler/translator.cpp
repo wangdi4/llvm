@@ -32,6 +32,7 @@ Notes:
 namespace TC
 {
     PFNGETKERNELARGSINFOPLUGIN GetKernelArgsInfoPlugin;     // this global is not a member of CTranslator. It is here for convinence only
+    PFNRELEASEKERNELARGSINFOPLUGIN ReleaseKernelArgsInfoPlugin;     // this global is not a member of CTranslator. It is here for convinence only
 
 /******************************************************************************\
 
@@ -85,6 +86,7 @@ CTranslator::CTranslator( const char* dllName )
     CreatePlugin    = NULL;
     DeletePlugin    = NULL;
     GetKernelArgsInfoPlugin = NULL;
+    ReleaseKernelArgsInfoPlugin = NULL;
 
     m_name     = NULL;
     m_hDll     = (OS_HINSTANCE) OCLRT::OS_HMNULL; // NOTE: C-Style cast is intentional. On Linux we need static_cast<> here, on Windows - reinterpret_cast<>.
@@ -180,12 +182,14 @@ TC_RETVAL CTranslator::Load()
         CreatePlugin   = (PFNCREATETRANSLATIONPLUGIN)OSGetProcAddress( m_hDll, "Create" );
         DeletePlugin   = (PFNDELETETRANSLATIONPLUGIN)OSGetProcAddress( m_hDll, "Delete" );
         GetKernelArgsInfoPlugin = (PFNGETKERNELARGSINFOPLUGIN)OSGetProcAddress( m_hDll, "GetKernelArgsInfo" );
+        ReleaseKernelArgsInfoPlugin = (PFNRELEASEKERNELARGSINFOPLUGIN)OSGetProcAddress( m_hDll, "ReleaseKernelArgsInfo" );
 
         // ensure all functions exist
         assert( RegisterPlugin && "ERROR: Failed to register fe dll" );
         assert( CreatePlugin && "ERROR: Failed to register fe dll" );
         assert( DeletePlugin && "ERROR: Failed to register fe dll" );
         assert( GetKernelArgsInfoPlugin && "ERROR: Failed to register fe dll" );
+        assert( ReleaseKernelArgsInfoPlugin && "ERROR: Failed to register fe dll" );
 
         // First call is made with pTranslationCodes = NULL so we get the number of codes we
         // need to allocate room for...
