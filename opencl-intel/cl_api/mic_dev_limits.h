@@ -72,8 +72,9 @@
 
 // Minimum memory size allocate for single WI instance when "barrier" is used
 #define MIC_DEV_MIN_WI_PRIVATE_SIZE      (1024*sizeof(size_t))
-// Maximum memory size that could be allocated for WG execution, allow max 32 concurrent WG that utilize full "barrier" buffer
-#define MIC_DEV_MAX_WG_PRIVATE_SIZE      (MIC_DEV_MIN_WI_PRIVATE_SIZE*32)
+// Maximum memory size that could be allocated for WG execution
+// allow max 64 concurrent WG that utilize full "barrier" buffer, total 512kB/WG
+#define MIC_DEV_MAX_WG_PRIVATE_SIZE      (MIC_DEV_MIN_WI_PRIVATE_SIZE*64)
 // Maximum memory size that could be allocated for WG execution. This is the sum of
 // WG Private memory size +
 // Kernel parameters size (twice to cover the hidden parameters) +

@@ -85,8 +85,9 @@
 
 // Minimum memory size allocate for single WI instance
 #define CPU_DEV_MIN_WI_PRIVATE_SIZE		(1024*sizeof(size_t))
-// Maximum private memory size that could be allocated for WG execution
-#define CPU_DEV_MAX_WG_PRIVATE_SIZE		(CPU_DEV_MIN_WI_PRIVATE_SIZE*32)
+// Maximum memory size that could be allocated for WG execution
+// allow max 64 concurrent WG that utilize full "barrier" buffer, total 512kB/WG
+#define CPU_DEV_MAX_WG_PRIVATE_SIZE		(CPU_DEV_MIN_WI_PRIVATE_SIZE*64)
 
 // Maximum memory size that could be allocated for WG execution. This is the sum of
 // WG Private memory size +
