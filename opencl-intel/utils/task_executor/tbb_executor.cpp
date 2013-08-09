@@ -242,7 +242,7 @@ int	TBBTaskExecutor::Init(unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData)
 	}
 
 	// Check TBB library version
-    if(TBB_INTERFACE_VERSION != tbb::TBB_runtime_interface_version())
+    if(TBB_INTERFACE_VERSION > tbb::TBB_runtime_interface_version())
     {
         LOG_ERROR(TEXT("TBB version doens't match. Required %s, loaded %d."),
             __TBB_STRING(TBB_INTERFACE_VERSION), tbb::TBB_runtime_interface_version() );

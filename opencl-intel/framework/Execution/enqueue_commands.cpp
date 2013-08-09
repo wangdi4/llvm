@@ -1616,22 +1616,22 @@ cl_err_code NDRangeKernelCommand::Init()
     const KernelArg* pArg = NULL;
     size_t szCurrentLocation =0;
     size_t szSize = 0;
-	size_t stTotalLocalSize = 0;
+    size_t stTotalLocalSize = 0;
 
     size_t i;
 
-	cl_device_svm_capabilities svmCaps;
-	cl_err_code resSvm = GetDevice()->GetInfo(CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, NULL);
-	if (CL_SUCCEEDED(resSvm) && m_pKernel->IsSvmFineGrainSystem() && !(svmCaps & CL_DEVICE_SVM_FINE_GRAIN_SYSTEM))
-	{
-		return CL_INVALID_OPERATION;
-	}
+    cl_device_svm_capabilities svmCaps;
+    cl_err_code resSvm = GetDevice()->GetInfo(CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, NULL);
+    if (CL_SUCCEEDED(resSvm) && m_pKernel->IsSvmFineGrainSystem() && !(svmCaps & CL_DEVICE_SVM_FINE_GRAIN_SYSTEM))
+    {
+        return CL_INVALID_OPERATION;
+    }
 
     // First calculate location and set objects
-	// TODO: Why we need two expensive passes, access to map, memcpy
-	//		Join to single pass, consider build most of the buffer during SetKernelArgs
-	//		Consider to add KernelArgument class, that can handle all argument cases
-	//		Open engeneering note for further optiomization, include TODO in line 1637
+    // TODO: Why we need two expensive passes, access to map, memcpy
+    //		Join to single pass, consider build most of the buffer during SetKernelArgs
+    //		Consider to add KernelArgument class, that can handle all argument cases
+    //		Open engeneering note for further optiomization, include TODO in line 1637
     for(i=0; i< szArgCount; i++)
     {
         pArg = m_pKernel->GetKernelArg(i);
@@ -1648,71 +1648,71 @@ cl_err_code NDRangeKernelCommand::Init()
                 {
                     break;
                 }                
-				// TODO: Check why we always pass READ_WRITE as usage. Why we need it at all
+                // TODO: Check why we always pass READ_WRITE as usage. Why we need it at all
                 m_MemOclObjects.push_back(MemoryObjectArg(pMemObj, MemoryObject::READ_WRITE));
             }
-			else
-			{
-				if ( !pArg->IsBuffer() )
-				{
-					assert(0 && "Providing NULL argument for non-buffers is not allowed");
-					res = CL_INVALID_ARG_VALUE;
-					break;
-				}
-			}
+            else
+            {
+              if ( !pArg->IsBuffer() )
+              {
+                assert(0 && "Providing NULL argument for non-buffers is not allowed");
+                res = CL_INVALID_ARG_VALUE;
+                break;
+              }
+            }
             szCurrentLocation += szSize;
         }
-		else if ( pArg->IsSampler() )
-		{
-            szSize   = sizeof(cl_uint);
-			OCLObject<_cl_sampler_int>* pSampler = reinterpret_cast<OCLObject<_cl_sampler_int>*>(pArg->GetValue());
-            szCurrentLocation += szSize;
-            m_NonMemOclObjects.push_back(reinterpret_cast<OCLObject<_cl_mem_int> *>(pSampler));
-		}
-		else if ( pArg->IsLocalPtr() )
-		{
-			stTotalLocalSize += *((size_t*)pArg->GetValue());
-			szCurrentLocation += pArg->GetSize();
-		}
-		else
+        else if ( pArg->IsSampler() )
+        {
+                szSize   = sizeof(cl_uint);
+          OCLObject<_cl_sampler_int>* pSampler = reinterpret_cast<OCLObject<_cl_sampler_int>*>(pArg->GetValue());
+                szCurrentLocation += szSize;
+                m_NonMemOclObjects.push_back(reinterpret_cast<OCLObject<_cl_mem_int> *>(pSampler));
+        }
+        else if ( pArg->IsLocalPtr() )
+        {
+          stTotalLocalSize += *((size_t*)pArg->GetValue());
+          szCurrentLocation += pArg->GetSize();
+        }
+        else
         {
             //Just calculate the size for allocation
             szCurrentLocation += pArg->GetSize();
         }
     }
 
-	// non-argument SVM buffers	
-	if (!m_pKernel->IsSvmFineGrainSystem())
-	{
-		std::vector<SharedPtr<SVMBuffer> > nonArgSvmBufs;
-		m_pKernel->GetNonArgSvmBuffers(nonArgSvmBufs);
-		if (nonArgSvmBufs.size() > 0)
-		{
-			m_nonArgSvmBuffersVec.resize(nonArgSvmBufs.size());
-			for (size_t i = 0; i < nonArgSvmBufs.size(); i++)				
-			{
-				m_MemOclObjects.push_back(MemoryObjectArg(nonArgSvmBufs[i], MemoryObject::READ_WRITE));
-				res = GetMemObjectDescriptor(nonArgSvmBufs[i], &m_nonArgSvmBuffersVec[i]);
-				if (CL_FAILED(res))
-				{
-					return res;
-				}
-			}
-		}
-	}
+    // non-argument SVM buffers
+    if (!m_pKernel->IsSvmFineGrainSystem())
+    {
+        std::vector<SharedPtr<SVMBuffer> > nonArgSvmBufs;
+        m_pKernel->GetNonArgSvmBuffers(nonArgSvmBufs);
+        if (nonArgSvmBufs.size() > 0)
+        {
+            m_nonArgSvmBuffersVec.resize(nonArgSvmBufs.size());
+            for (size_t i = 0; i < nonArgSvmBufs.size(); i++)
+            {
+                m_MemOclObjects.push_back(MemoryObjectArg(nonArgSvmBufs[i], MemoryObject::READ_WRITE));
+                res = GetMemObjectDescriptor(nonArgSvmBufs[i], &m_nonArgSvmBuffersVec[i]);
+                if (CL_FAILED(res))
+                {
+                    return res;
+                }
+            }
+        }
+    }
 
-	cl_ulong stImplicitSize = 0;
-	m_pKernel->GetWorkGroupInfo(m_pDevice, CL_KERNEL_LOCAL_MEM_SIZE, sizeof(cl_ulong), &stImplicitSize, NULL);
-	stImplicitSize += stTotalLocalSize;
-	if ( stImplicitSize > m_pDevice->GetRootDevice()->GetMaxLocalMemorySize() )
-	{
-		res = CL_OUT_OF_RESOURCES;
-	}
+    cl_ulong stImplicitSize = 0;
+    m_pKernel->GetWorkGroupInfo(m_pDevice, CL_KERNEL_LOCAL_MEM_SIZE, sizeof(cl_ulong), &stImplicitSize, NULL);
+    stImplicitSize += stTotalLocalSize;
+    if ( stImplicitSize > m_pDevice->GetRootDevice()->GetMaxLocalMemorySize() )
+    {
+        res = CL_OUT_OF_RESOURCES;
+    }
 
-	if ( CL_FAILED(res) )
-	{
-		return res;
-	}
+    if ( CL_FAILED(res) )
+    {
+        return res;
+    }
     // Setup Kernel parameters
     cl_dev_cmd_param_kernel* pKernelParam = &m_kernelParams;
 
@@ -1722,15 +1722,15 @@ cl_err_code NDRangeKernelCommand::Init()
     pKernelParam->arg_size = szCurrentLocation;
     pKernelParam->arg_values = (void*)pArgValues;
 
-	if (m_nonArgSvmBuffersVec.empty())
-	{
-		pKernelParam->ppNonArgSvmBuffers = NULL;
-	}
-	else
-	{
-		pKernelParam->ppNonArgSvmBuffers = &m_nonArgSvmBuffersVec[0];
-	}	
-	pKernelParam->szNonArgSvmBuffersSize = m_nonArgSvmBuffersVec.size();
+    if (m_nonArgSvmBuffersVec.empty())
+    {
+        pKernelParam->ppNonArgSvmBuffers = NULL;
+    }
+    else
+    {
+        pKernelParam->ppNonArgSvmBuffers = &m_nonArgSvmBuffersVec[0];
+    }
+    pKernelParam->szNonArgSvmBuffersSize = m_nonArgSvmBuffersVec.size();
 
     size_t szArgSize = 0;
     cl_char* pArgValuesCurrentLocation = pArgValues;
@@ -1741,21 +1741,20 @@ cl_err_code NDRangeKernelCommand::Init()
         if(pArg->IsMemObject())
         {
             szArgSize = sizeof(cl_dev_memobj_handle);
-			IOCLDevMemoryObject* *devObjSrc = (IOCLDevMemoryObject**)pArgValuesCurrentLocation;
+            IOCLDevMemoryObject* *devObjSrc = (IOCLDevMemoryObject**)pArgValuesCurrentLocation;
             SharedPtr<MemoryObject> pMemObj = (MemoryObject*)pArg->GetValue();
-			res = GetMemObjectDescriptor(pMemObj, devObjSrc);
-
-			if ( CL_FAILED(res) )
-			{
-				assert( 0 && "GetMemObjectDescriptor() supposed to success" );
-				return res;
-			}
+            res = GetMemObjectDescriptor(pMemObj, devObjSrc);
+            if ( CL_FAILED(res) )
+            {
+                assert( 0 && "GetMemObjectDescriptor() supposed to success" );
+                return res;
+            }
         }
         else if( pArg->IsSampler() )
         {
             szArgSize = sizeof(cl_uint);
             SharedPtr<Sampler> pSampler = (Sampler*)pArg->GetValue();
-			cl_uint value = pSampler->GetValue();
+            cl_uint value = pSampler->GetValue();
             *((cl_uint*)pArgValuesCurrentLocation) = value;
         }
         else
@@ -1773,14 +1772,14 @@ cl_err_code NDRangeKernelCommand::Init()
     pKernelParam->work_dim = m_uiWorkDim;
     for( cl_uint i=0; i < m_uiWorkDim; i++)
     {
-		pKernelParam->glb_wrk_offs[i] = (NULL != m_cpszGlobalWorkOffset) ? m_cpszGlobalWorkOffset[i] : 0;
+        pKernelParam->glb_wrk_offs[i] = (NULL != m_cpszGlobalWorkOffset) ? m_cpszGlobalWorkOffset[i] : 0;
         pKernelParam->glb_wrk_size[i] = m_cpszGlobalWorkSize[i];
         // If m_cpszLocalWorkSize == NULL, set to 0. Agent is expected to handle lcl_wrk_size 0 as NULL
-		pKernelParam->lcl_wrk_size[i] = (NULL != m_cpszLocalWorkSize) ? m_cpszLocalWorkSize[i] : 0;
+        pKernelParam->lcl_wrk_size[i] = (NULL != m_cpszLocalWorkSize) ? m_cpszLocalWorkSize[i] : 0;
     }
 
-	// Set GPA data
-	GPA_InitCommand();
+    // Set GPA data
+    GPA_InitCommand();
 
     return CL_SUCCESS;
 }
