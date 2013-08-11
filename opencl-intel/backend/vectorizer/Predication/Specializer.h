@@ -182,6 +182,11 @@ private:
   /// @return - returns true if the bypass should be added
   bool addHeuristics(const BasicBlock *BB) const;
 
+  /// @brief initialize the cost of some of the built-in function
+  /// To be used by the heuristics that decides whether a bypass should be added
+  /// above a single basic block
+  void initializeBICost();
+
 private:
   /// Predicator pass
   Predicator* m_pred;
@@ -209,6 +214,10 @@ private:
   MapRegToBBPairVec m_outMasksToZero;
   /// Region in masks to zero 
   std::map<BypassInfo, BasicBlock*, BypassInfoComparator> m_inMasksToZero;
+
+  /// A map that maps from a function name to the number of instructions that this function is composed of.
+  /// If a function is not in the map then the number of instruction is inf
+  std::map<std::string, unsigned> m_nameToInstNum;
 
   /// A vector containing the info for all the potential bypasses
   std::vector<BypassInfo> m_bypassInfoContainer;

@@ -87,7 +87,7 @@ std::string Mangler::mangle(const std::string& name) {
       }
     }
   }
-  // Attach a serial number to each function decleration
+  // Attach a serial number to each function declaration
   static unsigned int serial = 0;
   std::string suffix = toString(serial++);
   return mask_prefix_func+suffix+mask_delim+name;
@@ -208,7 +208,7 @@ std::string Mangler::getVectorizedPrefetchName(const std::string& name, int pack
   return ::mangle(prefetchDesc);
 }
 
-std::string Mangler::demangle(const std::string& name) {
+std::string Mangler::demangle(const std::string& name, bool masked) {
   if (::isMangledName(name.c_str())){
     llvm::StringRef stripped = stripName(name.c_str());
     if (stripped.startswith(IMG_MASK_PREFIX)){
@@ -219,7 +219,13 @@ std::string Mangler::demangle(const std::string& name) {
           return name;
       }
     }
+    if (! masked)
+      return stripped;
   }
+
+  if (! masked)
+    return name;
+
   V_ASSERT(name.find(mask_prefix_func) != name.npos && "not a mangled function");
   // Format:
   // masked_83_function

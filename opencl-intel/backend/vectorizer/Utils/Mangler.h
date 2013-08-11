@@ -26,8 +26,9 @@ public:
 
   /// @brief De-Mangle function call
   /// @param name name to de-mangle
+  /// @param masked denotes whether name is a masked version of a function
   /// @return De-mangled name
-  static std::string demangle(const std::string& name);
+  static std::string demangle(const std::string& name, bool masked=true);
   /// @brief Mangle original function call
   /// @param name Name to mangle
   /// @return Mangled name

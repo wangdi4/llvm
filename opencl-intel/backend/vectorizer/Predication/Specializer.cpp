@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Specializer.h"
 #include "Predicator.h"
 #include "Linearizer.h"
+#include "Mangler.h"
 #include "Logger.h"
 
 #include "llvm/Support/CommandLine.h"
@@ -39,28 +40,47 @@ FunctionSpecializer::FunctionSpecializer(Predicator* pred, Function* func,
   m_pred(pred), m_func(func),
   m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_LI(LI), m_WIA(WIA), m_OBP(OBP),
   m_zero(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 0))),
-  m_one(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 1))){  }
+  m_one(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 1)))
+{
+  initializeBICost();
+}
 
+void FunctionSpecializer::initializeBICost() {
+  m_nameToInstNum["max"] = 1;
+  m_nameToInstNum["fabs"] = 1;
+}
 
 bool FunctionSpecializer::addHeuristics(const BasicBlock *BB) const {
-
   // Collect instruction amount metrics
   CodeMetrics Metrics;
   Metrics.analyzeBasicBlock(BB);
 
+  unsigned numInst = Metrics.NumInsts;
+
   // Check whether there is a function call
-  bool funcCallFound = false;
   for (BasicBlock::const_iterator it = BB->begin(); it != BB->end(); it++) {
-    if (dyn_cast<CallInst>(it) || dyn_cast<InvokeInst>(it)) {
-      funcCallFound = true;
-      break;
+    if (isa<InvokeInst>(it))
+      return true;
+
+    if (const CallInst* CI = dyn_cast<CallInst>(it)) {
+      Function* calledFunc = CI->getCalledFunction();
+
+      assert(calledFunc && "Called function should not be null");
+
+      std::string name = Mangler::demangle(calledFunc->getName().str(), false);
+      std::map<std::string, unsigned>::const_iterator itr = m_nameToInstNum.find(name);
+
+      // If the called instruction's penalty is known
+      if (itr != m_nameToInstNum.end()) {
+        numInst += itr->second;
+      }
+      else {
+        return true;
+      }
     }
   }
 
-  if (Metrics.NumInsts < SpecializeThreshold && !funcCallFound)
-    return false;
-
-  return true;
+  return (numInst >= SpecializeThreshold);
 }
 
 bool FunctionSpecializer::shouldSpecialize(const BypassInfo & bi) const {
