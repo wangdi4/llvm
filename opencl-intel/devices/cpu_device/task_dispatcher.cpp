@@ -56,9 +56,9 @@ public:
 
     PREPARE_SHARED_PTR(InPlaceTaskList)
 
-    static SharedPtr<InPlaceTaskList> Allocate(WGContextBase* pMasterWGContext, bool bImmediate = true)
+    static SharedPtr<InPlaceTaskList> Allocate(WGContextBase* pMasterWGContext, const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate = true)
     {
-        return SharedPtr<InPlaceTaskList>(new InPlaceTaskList(pMasterWGContext, bImmediate));
+        return SharedPtr<InPlaceTaskList>(new InPlaceTaskList(pMasterWGContext, ndrangeChildrenTaskGroup, bImmediate));
     }
 	
 	virtual ~InPlaceTaskList();
@@ -71,16 +71,31 @@ public:
 	virtual void            Release();
     virtual void	        Cancel() {};
 
+	virtual SharedPtr<ITEDevice> GetDevice() { return NULL; }
+	virtual ConstSharedPtr<ITEDevice> GetDevice() const { return NULL; }
+
+	virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
+
+	virtual void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) { }
+
+	bool DoesSupportDeviceSideCommandEnqueue() const { return false; }
+
+	virtual bool IsProfilingEnabled() const { return false; }
+
+	virtual bool IsDefaultQueue() const { return false; }
+
 protected:
 	WGContextBase* const m_pMasterWGContext;
     bool m_immediate;    
+	SharedPtr<ITaskGroup> m_ndrangeChildrenTaskGroup;
 
-    InPlaceTaskList(WGContextBase* pMasterWGContext, bool bImmediate = true);
+    InPlaceTaskList(WGContextBase* pMasterWGContext, const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate = true);
 
     virtual void ExecuteInPlace(const SharedPtr<ITaskBase>& pTaskBase);
 };
 
-InPlaceTaskList::InPlaceTaskList(WGContextBase* pMasterWGContext, bool bImmediate) : m_pMasterWGContext(pMasterWGContext), m_immediate(bImmediate)
+InPlaceTaskList::InPlaceTaskList(WGContextBase* pMasterWGContext, const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate) :
+	m_pMasterWGContext(pMasterWGContext), m_immediate(bImmediate), m_ndrangeChildrenTaskGroup(ndrangeChildrenTaskGroup)
 {
     //No support for just synchronous at the moment
     assert(m_immediate);
@@ -167,8 +182,8 @@ fnDispatcherCommandCreate_t* TaskDispatcher::m_vCommands[] =
 	&CopyMemObject::Create,         //	CL_DEV_CMD_COPY,
 	&MapMemObject::Create,          //	CL_DEV_CMD_MAP,
 	&UnmapMemObject::Create,        //	CL_DEV_CMD_UNMAP,
-	&NDRange::Create,               //	CL_DEV_CMD_EXEC_KERNEL,
-	&NDRange::Create,               //	CL_DEV_CMD_EXEC_TASK,
+	&NDRange::Create,				//	CL_DEV_CMD_EXEC_KERNEL,
+	&NDRange::Create,				//	CL_DEV_CMD_EXEC_TASK,
 	&NativeFunction::Create,        //	CL_DEV_CMD_EXEC_NATIVE,
 	&FillMemObject::Create,         //	CL_DEV_CMD_FILL_BUFFER
 	&FillMemObject::Create,         //	CL_DEV_CMD_FILL_IMAGE
@@ -346,12 +361,15 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
     if (!isInPlace)
     {
         bool isOOO       = (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO));
-	    pList = pDevice->CreateTaskList( CommandListCreationParam(isOOO ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER, TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC) );
+	    pList = pDevice->CreateTaskList(CommandListCreationParam(
+			isOOO ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER,
+			TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC,
+			props & CL_DEV_LIST_PROFILING, props & CL_DEV_LIST_QUEUE_DEFAULT));
     }
     else
     {
         //Todo: handle non-immediate lists
-        pList = InPlaceTaskList::Allocate(m_pWgContextPool->GetWGContext(true));
+		pList = InPlaceTaskList::Allocate(m_pWgContextPool->GetWGContext(true), GetTaskExecutor()->CreateTaskGroup(pDevice));
     }
 	*list = pList.GetPtr();    
 	if ( NULL == pList )
@@ -385,6 +403,10 @@ cl_dev_err_code TaskDispatcher::releaseCommandList( cl_dev_cmd_list IN list )
 
 	SharedPtr<ITaskList> pList = (ITaskList*)list;
     pList->Flush();
+	if (pList->IsDefaultQueue())
+	{
+		pList->GetDevice()->ReleaseDefaultQueue();
+	}
     pList.DecRefCnt();
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X"), list);
 	return CL_DEV_SUCCESS;
@@ -567,7 +589,7 @@ cl_dev_err_code TaskDispatcher::SubmitTaskArray(SharedPtr<ITaskList> pList, cl_d
 
 		// Create appropriate command
 		SharedPtr<ITaskBase> pCommand;
-		cl_dev_err_code	rc = fnCreate(this, cmds[i], &pCommand);        
+		cl_dev_err_code	rc = fnCreate(this, cmds[i], &pCommand, pList);        
 		if ( CL_DEV_SUCCEEDED(rc) )
 		{
 			pList->Enqueue(SharedPtr<ITaskBase>(pCommand));

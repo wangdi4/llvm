@@ -36,6 +36,7 @@ extern "C" {
 
 #include <cassert>
 #include "CL/cl.h"
+#include "CL/cl_2_0.h"
 
 #define IN
 #define OUT
@@ -181,7 +182,7 @@ typedef void* cl_dev_program;
 /*! \typedef cl_dev_kernel
  * Kernel handle definition
  */
-typedef void* cl_dev_kernel;
+typedef const void* cl_dev_kernel;
 
 /*! \typedef cl_dev_subdevice_id
  * Sub-device ID definition
@@ -248,7 +249,9 @@ enum cl_dev_cmd_list_props
 {
     CL_DEV_LIST_NONE        =   0,      //!< Determines a list wherein all items will be executed sequentially.
     CL_DEV_LIST_ENABLE_OOO  =   1,      //!< Determines whether the out-of-order optimization could be applied on items in the command list
-    CL_DEV_LIST_IN_PLACE    =   2       //!< Determines whether the command list is executed using the calling thread
+    CL_DEV_LIST_IN_PLACE    =   2,      //!< Determines whether the command list is executed using the calling thread
+	CL_DEV_LIST_PROFILING	=	4,		//!< Determines whether to enable profiling of command in the command queue
+	CL_DEV_LIST_QUEUE_DEFAULT =  8		//!< Determines whether this is the default device queue
 };
 
 /*! \enum cl_dev_cmd_type

@@ -90,7 +90,7 @@ cl_err_code ContextModule::Release(  bool bTerminate )
  * Forcibly shutdown all contextes 
  *
  ******************************************************************/
-typedef std::list<SharedPtr<IOclCommandQueueBase> >  QueueListType;
+typedef std::list<SharedPtr<OclCommandQueue> >  QueueListType;
 void ContextModule::ShutDown(bool wait_for_finish)
 {
     QueueListType           queue_list;
@@ -113,7 +113,7 @@ void ContextModule::ShutDown(bool wait_for_finish)
 
     for ( queue_list_it = queue_list.begin(); queue_list_it != queue_list_it_end; ++queue_list_it)
     {
-        SharedPtr<IOclCommandQueueBase> pQueue = (*queue_list_it);
+        SharedPtr<OclCommandQueue> pQueue = (*queue_list_it);
         pQueue->CancelAll();
     }
 
@@ -126,8 +126,11 @@ void ContextModule::ShutDown(bool wait_for_finish)
     {
         for ( queue_list_it = queue_list.begin(); queue_list_it != queue_list_it_end; ++queue_list_it)
         {
-            SharedPtr<IOclCommandQueueBase> pQueue = (*queue_list_it);
-            execution_module->Finish( pQueue );
+            SharedPtr<OclCommandQueue> pQueue = (*queue_list_it);
+			if (pQueue.DynamicCast<IOclCommandQueueBase>() != NULL)
+			{
+				execution_module->Finish(pQueue.DynamicCast<IOclCommandQueueBase>());
+			}
         }
     }
 
@@ -2948,12 +2951,12 @@ void ContextModule::SVMFree(cl_context context, void* pSvmPtr)
 // Utility functions
 //
 /////////////////////////////////////////////////////////////////////////////
-void ContextModule::CommandQueueCreated( IOclCommandQueueBase* queue )
+void ContextModule::CommandQueueCreated( OclCommandQueue* queue )
 {
     m_setQueues.add( queue );
 }
 
-void ContextModule::CommandQueueRemoved( IOclCommandQueueBase* queue )
+void ContextModule::CommandQueueRemoved( OclCommandQueue* queue )
 {
     m_setQueues.remove( queue );
 }

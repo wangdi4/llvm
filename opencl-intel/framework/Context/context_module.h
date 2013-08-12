@@ -52,6 +52,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	class MemoryObject;
     class Kernel;
     class IOclCommandQueueBase;
+	class OclCommandQueue;
     template<typename T> struct D3DResourceInfo;
 
 	/**********************************************************************************************
@@ -245,8 +246,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ///////////////////////////////////////////////////////////////////////
         // Utility functions
         ///////////////////////////////////////////////////////////////////////
-        void CommandQueueCreated( IOclCommandQueueBase* queue );
-        void CommandQueueRemoved( IOclCommandQueueBase* queue );
+        void CommandQueueCreated( OclCommandQueue* queue );
+        void CommandQueueRemoved( OclCommandQueue* queue );
 
         void RegisterMappedMemoryObject( MemoryObject* pMemObj );
         void UnRegisterMappedMemoryObject( MemoryObject* pMemObj );
@@ -317,7 +318,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OCLObjectsMap<_cl_mem_int>      		m_mapMemObjects;	// map list of all memory objects
 		OCLObjectsMap<_cl_sampler_int>			m_mapSamplers;	// map list of all memory objects
 
-        Intel::OpenCL::Utils::LifetimeObjectContainer<IOclCommandQueueBase> m_setQueues;    // set of all queues including invisible to user
+        Intel::OpenCL::Utils::LifetimeObjectContainer<OclCommandQueue> m_setQueues;    // set of all queues including invisible to user
         Intel::OpenCL::Utils::LifetimeObjectContainer<MemoryObject>    m_setMappedMemObjects; // set of all memory objects that were mapped at least once in a history
 
         ocl_entry_points *						m_pOclEntryPoints;

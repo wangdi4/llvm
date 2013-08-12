@@ -121,7 +121,7 @@ cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList
         return CL_INVALID_EVENT;
     }
 	// 'this' may disapper during Enqueue if it was successful!
-	return GetCommandQueue()->EnqueueCommand( this, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent );
+	return GetCommandQueue().StaticCast<IOclCommandQueueBase>()->EnqueueCommand( this, bBlocking, uNumEventsInWaitList, cpEeventWaitList, pEvent );
 }
 
 /******************************************************************

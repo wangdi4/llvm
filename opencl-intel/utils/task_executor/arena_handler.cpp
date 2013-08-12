@@ -557,7 +557,14 @@ SharedPtr<ITaskList> TEDevice::CreateTaskList(const CommandListCreationParam& pa
             break;
 
         case TE_CMD_LIST_OUT_OF_ORDER:
-            pList = out_of_order_command_list::Allocate(m_taskExecutor, this, param);
+			if (param.isQueueDefault)
+			{
+				pList = AllocateDefaultQueue(param.isProfilingEnabled);
+			}
+			else
+			{
+				pList = out_of_order_command_list::Allocate(m_taskExecutor, this, param);
+			}
             break;
 
         case TE_CMD_LIST_IMMEDIATE:
@@ -580,4 +587,16 @@ int TEDevice::GetConcurrency()
 	assert ( (1 == m_deviceDescriptor.uiNumOfLevels)  && "Currently only single level devices are supported");
 
 	return m_deviceDescriptor.uiThreadsPerLevel[0];
+}
+
+SharedPtr<ITaskList> TEDevice::AllocateDefaultQueue(bool bIsProfilingEnabled)
+{
+	CommandListCreationParam creationParam(TE_CMD_LIST_OUT_OF_ORDER, TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC, bIsProfilingEnabled, true);
+	m_pDefaultQueue = out_of_order_command_list::Allocate(m_taskExecutor, this, creationParam);
+	return m_pDefaultQueue;
+}
+
+void TEDevice::ReleaseDefaultQueue()
+{
+	m_pDefaultQueue = NULL;
 }

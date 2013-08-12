@@ -89,11 +89,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		EventsManager*  GetEventsManager() const				{ return m_pEventsManager; }
 		ConstSharedPtr<Context> GetContext() const { return m_pContext; } 
 		SharedPtr<Context> GetContext() { return m_pContext; } 
+		virtual cl_err_code CancelAll();
+		virtual void	ReleaseQueue() { }	// called when the user calls clReleaesCommandQueue for this OclCommandQueue
 
         // Create a custom tracker in GAP that correspond to the OCL queue
         cl_err_code GPA_InitializeQueue();
         ocl_gpa_queue * GPA_GetQueue() { return m_pOclGpaQueue; }
         cl_err_code GPA_ReleaseQueue();
+		virtual ocl_gpa_data* GetGPAData() const;
 
 	protected:
 
@@ -109,6 +112,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         virtual  void BecomeVisible() = 0;
 
+		/**
+		 * @param iParamName	the parameter's name
+		 * @param pBuf			a buffer into which the parameter's information is to be written
+		 * @param szBuf			pBuf's size
+		 * @return the size of the data or 0 in case of error 
+		 */
+		virtual size_t GetInfoInternal(cl_int iParamName, void* pBuf, size_t szBuf) const;
+
 		SharedPtr<Context> m_pContext;
 		SharedPtr<FissionableDevice> m_pDefaultDevice;
 		EventsManager*      m_pEventsManager;
@@ -119,5 +130,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         ocl_gpa_queue*      m_pOclGpaQueue;
 		ocl_gpa_data*		m_pGPAData;
+		volatile bool		m_bCancelAll;
 	};
 }}}    // Intel::OpenCL::Framework

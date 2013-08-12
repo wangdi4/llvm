@@ -127,6 +127,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
          */
         bool IsImageFormatSupported(const cl_image_format& clImgFormat, cl_mem_flags clMemFlags, cl_mem_object_type clMemObjType) const;
 
+		/**
+		 * Atomically test whether a default device queue does not exist for this FissionableDevice and if not, set that it exists
+		 * @return whether a default device queue did not exist 
+		 */
+		bool TestAndSetDefaultDeviceQueueExists() { return m_DefaultDeviceQueueExists.test_and_set(0, 1) == 0; } 
+
+		/**
+		 * Set that a default device queue does not exists any more for this FissionableDevice
+		 */
+		void SetDefaultDeviceQueueNotExists() { m_DefaultDeviceQueueExists = 0; }
+
     protected:
 
         FissionableDevice(_cl_platform_id_int* platform) :
@@ -152,6 +163,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_context_properties m_iD3DDevType;
 
         Intel::OpenCL::Utils::OclMutex m_devMutex;
+
+		Intel::OpenCL::Utils::AtomicCounter m_DefaultDeviceQueueExists;
 
     };
 

@@ -111,6 +111,8 @@ Base {
 	clEnqueueSVMUnmap;
 	clSetKernelArgSVMPointer;
 	clSetKernelExecInfo;
+
+	clCreateCommandQueueWithProperties;
 		
     local:
         *;

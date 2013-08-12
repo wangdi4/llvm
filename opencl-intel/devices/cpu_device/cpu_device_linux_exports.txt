@@ -6,6 +6,9 @@ Base {
 	clDevGetAvailableDeviceList;
 	clDevInitDeviceAgent;
 	RegisterGlobalAtExitNotification;
+	clDevGetAvailableDeviceList;
+	clDevInitDeviceAgent;
+		
     local:
         *;
 };

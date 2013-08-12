@@ -90,7 +90,7 @@ if ( INCLUDE_MIC_DEVICE )
 set( MIC_OUTPUT_FILE mic_test.bc )
 
 set (MIC_OPTIONS
-  -cc1 -emit-llvm-bc -x cl -I ${INCLUDE_HEADERS_PATH} -include opencl_.h -o 
+  -cc1 -emit-llvm-bc -fblocks -x cl -I ${INCLUDE_HEADERS_PATH} -include opencl_.h -o 
   ${CMAKE_CURRENT_BINARY_DIR}/${MIC_OUTPUT_FILE}
   ${SPIR_OPT}
   ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}

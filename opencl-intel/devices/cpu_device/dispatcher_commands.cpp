@@ -30,6 +30,7 @@
 #include "cpu_logger.h"
 #include "cpu_dev_limits.h"
 #include "wg_context.h"
+#include "cl_shared_ptr.hpp"
 #include <builtin_kernels.h>
 #include <cl_dev_backend_api.h>
 #include <cl_sys_defines.h>
@@ -212,7 +213,7 @@ template <class ITaskClass>
 ///////////////////////////////////////////////////////////////////////////
 // OCL Read/Write buffer execution
 
-cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
+cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
 	ReadWriteMemObject* pCommand = new ReadWriteMemObject(pTD, pCmd);
 	if (NULL == pCommand)
@@ -360,7 +361,7 @@ bool ReadWriteMemObject::Execute()
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Copy memory object execution
-cl_dev_err_code CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
+cl_dev_err_code CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
 	CopyMemObject* pCommand = new CopyMemObject(pTD, pCmd);
 	if (NULL == pCommand)
@@ -515,7 +516,7 @@ bool CopyMemObject::Execute()
 
 ///////////////////////////////////////////////////////////////////////////
 // OCL Native function execution
-cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
+cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
 	NativeFunction* pCommand = new NativeFunction(pTD, pCmd);
 	if (NULL == pCommand)
@@ -613,7 +614,7 @@ bool NativeFunction::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Map buffer execution
 //////////////////////////////////////////////////////////////////////////
-cl_dev_err_code MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
+cl_dev_err_code MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
 	MapMemObject* pCommand = new MapMemObject(pTD, pCmd);
 	if (NULL == pCommand)
@@ -697,7 +698,7 @@ bool MapMemObject::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Unmap buffer execution
 //////////////////////////////////////////////////////////////////////////
-cl_dev_err_code UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
+cl_dev_err_code UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
 	UnmapMemObject* pCommand = new UnmapMemObject(pTD, pCmd);
 	if (NULL == pCommand)
@@ -760,7 +761,7 @@ bool UnmapMemObject::Execute()
 // OCL Kernel execution
 Intel::OpenCL::Utils::AtomicCounter	NDRange::s_lGlbNDRangeId;
 
-cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
+cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
 #ifdef __INCLUDE_MKL__
 	// First to check if the required NDRange is one of the built-in kernels
@@ -775,11 +776,8 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
 		return NativeKernelTask::Create(pTD, pCmd, pTask);
 	}
 #endif
-	NDRange* pCommand = new NDRange(pTD, pCmd);
-	if (NULL == pCommand)
-	{
-		return CL_DEV_OUT_OF_MEMORY;
-	}
+	pCmd->id = (cl_dev_cmd_id)((long)pCmd->id & ~(1L << (sizeof(long) * 8 - 1)));	// device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
+	NDRange* pCommand = new NDRange(pTD, pCmd, pList, NULL, pList->GetNDRangeChildrenTaskGroup());
 #ifdef _DEBUG
 	cl_dev_err_code rc;
 	rc = pCommand->CheckCommandParams(pCmd);
@@ -808,8 +806,17 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
 	return CL_DEV_SUCCESS;
 }
 
-NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-	CommandBaseClass<ITaskSet>(pTD, pCmd), m_lastError(CL_DEV_SUCCESS), m_pBinary(NULL),
+cl_dev_err_code NDRange::CreateBinary(const ICLDevBackendKernel_* kernel, size_t szArgSize, const cl_work_description_type* workDesc, ICLDevBackendBinary_** pBinary)
+{
+	ICLDevBackendExecutionService* pExecutionService = m_pTaskDispatcher->getProgramService()->GetExecutionService();
+	assert( NULL!=pExecutionService && "NULL==pExecutionService is not expected");
+	return pExecutionService->CreateBinary(kernel, m_pLockedParams, szArgSize, workDesc, pBinary);
+}
+
+THREAD_LOCAL WGContext* NDRange::sm_pCurrentWgContext = NULL;
+
+NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, const SharedPtr<ITaskList>& pList, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup) :
+	CommandBaseClass<ITaskSet>(pTD, pCmd), KernelCommand(pList, parent, childrenTaskGroup, this), m_lastError(CL_DEV_SUCCESS), m_pBinary(NULL),
 	m_pMemBuffSizes(NULL), m_numThreads(0), m_bEnablePredictablePartitioning(false)
 {
 #ifdef _DEBUG
@@ -982,13 +989,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 
 
 	// Create an "Binary" for these parameters
-	ICLDevBackendExecutionService* pExecutionService = m_pTaskDispatcher->getProgramService()->GetExecutionService();
-	assert( NULL!=pExecutionService && "NULL==pExecutionService is not expected");
-	clRet = pExecutionService->CreateBinary(pKernel, 
-															m_pLockedParams, 
-															cmdParams->arg_size, 
-															&workDesc, 
-								&m_pBinary);
+	clRet = CreateBinary(pKernel, cmdParams->arg_size, &workDesc, &m_pBinary);
 	if ( CL_DEV_FAILED(clRet) )
 	{
 		m_lastError = clRet;
@@ -1032,6 +1033,9 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 
 bool NDRange::Finish(FINISH_REASON reason)
 {
+	// KernelCommand stuff:
+	WaitForChildrenCompletion();
+	// regular stuff:
 #ifdef _DEBUG
 	long lVal = (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));
 	assert(lVal == 0);
@@ -1048,6 +1052,7 @@ bool NDRange::Finish(FINISH_REASON reason)
 #endif
 
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
+	SignalComplete(FINISH_COMPLETED == reason ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL);	
 #ifdef _DEBUG_PRINT
 	printf("--> Finish(done):%s\n", pKernel->GetKernelName());
 #endif
@@ -1092,7 +1097,10 @@ void* NDRange::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups,
 #endif	
 		return NULL;
 	}
+
     WGContext* pCtx = static_cast<WGContext*>(reinterpret_cast<WGContextBase*>(pWgContextBase));
+	pCtx->SetCurrentNDRange(this);
+	sm_pCurrentWgContext = pCtx;
 	if (m_lNDRangeId != pCtx->GetNDRCmdId() )
 	{
 		cl_dev_err_code ret = pCtx->CreateContext(m_lNDRangeId, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
@@ -1182,6 +1190,9 @@ void NDRange::DetachFromThread(void* pWgContext)
 	}
 
     pCtx->GetExecutable()->RestoreThreadState();
+	WgFinishedExecution();
+	pCtx->SetCurrentNDRange(NULL);
+	sm_pCurrentWgContext = NULL;
 }
 
 bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
@@ -1244,9 +1255,8 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
 			-- m_lExecuting;
 		#endif
 		return true;
-	}
+	}	
 	pExec->Execute(groupId, NULL, NULL);
-
 #ifdef _DEBUG
 	-- m_lExecuting;
 #endif
@@ -1257,7 +1267,7 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
 ///////////////////////////////////////////////////////////////////////////
 // OCL Fill buffer/image execution
 
-cl_dev_err_code FillMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
+cl_dev_err_code FillMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
 	FillMemObject* pCommand = new FillMemObject(pTD, pCmd);
 	if (NULL == pCommand)
@@ -1384,7 +1394,7 @@ bool FillMemObject::Execute()
 ///////////////////////////////////////////////////////////////////////////
 // OCL Migrate buffer/image execution
 
-cl_dev_err_code MigrateMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
+cl_dev_err_code MigrateMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
 	MigrateMemObject* pCommand = new MigrateMemObject(pTD, pCmd);
 	if (NULL == pCommand)
@@ -1448,6 +1458,51 @@ bool MigrateMemObject::Execute()
 
 	NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, CL_DEV_SUCCESS);
 	return true;
+}
+
+// DeviceNDRange:
+
+AtomicCounter DeviceNDRange::sm_cmdIdCnt;
+
+cl_dev_cmd_desc* DeviceNDRange::InitCmdDesc(cl_dev_cmd_param_kernel& paramKernel, cl_dev_cmd_desc& cmdDesc, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
+	const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange, const SharedPtr<ITaskList>& pList)
+{
+	paramKernel.kernel = pKernel;
+	paramKernel.work_dim = pNdrange->workDimension;
+	for (cl_uint i = 0; i < paramKernel.work_dim; i++)
+	{
+		paramKernel.glb_wrk_offs[i] = pNdrange->globalWorkOffset[i];
+		paramKernel.glb_wrk_size[i] = pNdrange->globalWorkSize[i];
+		paramKernel.lcl_wrk_size[i] = pNdrange->localWorkSize[i];
+	}
+	char* const pAllocatedContext = new char[szContextSize];
+	paramKernel.arg_values = pAllocatedContext;
+	paramKernel.arg_size = szContextSize;
+	MEMCPY_S(pAllocatedContext, szContextSize, pContext, szContextSize);
+	
+	cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
+	cmdDesc.id = (cl_dev_cmd_id)(DeviceNDRange::GetNextCmdId() | (1L << (sizeof(long) * 8 - 1)));	// device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
+	cmdDesc.data = cmdDesc.device_agent_data = NULL;
+	cmdDesc.profiling = pList->IsProfilingEnabled();
+	cmdDesc.params = &paramKernel;
+	cmdDesc.param_size = sizeof(paramKernel);
+	return &cmdDesc;
+}
+
+int	DeviceNDRange::Init(size_t region[], unsigned int &regCount)
+{
+	const int res = NDRange::Init(region, regCount);
+	StartExecutionProfiling();
+	return res;
+}
+
+bool DeviceNDRange::Finish(FINISH_REASON reason)
+{
+	StopExecutionProfiling();
+	const bool bRes = NDRange::Finish(reason);
+	// IncRefCnt() was called in CommandBaseClass::CommandBaseClass, but since CPUDevice::clDevReleaseCommand are not called for device-side commands, we decrement the reference counter here
+	DecRefCnt();
+	return bRes;
 }
 
 #ifdef __INCLUDE_MKL__

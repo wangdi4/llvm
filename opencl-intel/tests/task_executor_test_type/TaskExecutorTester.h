@@ -139,6 +139,8 @@ public:
         return true;
     }
 
+	virtual Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+
     
     // Optimize By
     TASK_PRIORITY         GetPriority() const { return TASK_PRIORITY_MEDIUM;}

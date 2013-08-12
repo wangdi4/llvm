@@ -1270,7 +1270,7 @@ struct GetInfoHelper<Func, CPP_TYPE> \
     F(cl_device_info, CL_DEVICE_AVAILABLE, cl_bool) \
     F(cl_device_info, CL_DEVICE_COMPILER_AVAILABLE, cl_bool) \
     F(cl_device_info, CL_DEVICE_EXECUTION_CAPABILITIES, cl_device_exec_capabilities) \
-    F(cl_device_info, CL_DEVICE_QUEUE_PROPERTIES, cl_command_queue_properties) \
+    F(cl_device_info, CL_DEVICE_QUEUE_ON_HOST_PROPERTIES, cl_command_queue_properties) \
     F(cl_device_info, CL_DEVICE_PLATFORM, cl_platform_id) \
     F(cl_device_info, CL_DEVICE_NAME, STRING_CLASS) \
     F(cl_device_info, CL_DEVICE_VENDOR, STRING_CLASS) \

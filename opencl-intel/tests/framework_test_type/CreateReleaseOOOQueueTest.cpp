@@ -76,8 +76,8 @@ bool CreateReleaseOOOQueueTest()
 
 	device_id = pDevices[0];
 
-	iRet = clGetDeviceInfo(device_id, CL_DEVICE_QUEUE_PROPERTIES, sizeof(cl_command_queue_properties), &queue_properties, NULL);
-	bResult &= SilentCheck(L"clGetDeviceInfo (CL_DEVICE_QUEUE_PROPERTIES)", CL_SUCCESS, iRet);
+	iRet = clGetDeviceInfo(device_id, CL_DEVICE_QUEUE_ON_HOST_PROPERTIES, sizeof(cl_command_queue_properties), &queue_properties, NULL);
+	bResult &= SilentCheck(L"clGetDeviceInfo (CL_DEVICE_QUEUE_ON_HOST_PROPERTIES)", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{

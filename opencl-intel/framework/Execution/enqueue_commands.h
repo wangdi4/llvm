@@ -50,6 +50,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class Kernel;
     class IOclCommandQueueBase;
     class ContextModule;
+	class OclCommandQueue;
     
     /******************************************************************
      * This enumeration is used to identify if a command is going to be
@@ -1243,7 +1244,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		long	Release(); 
 
         Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const 
-                        { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;} 
+                        { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
+
+		virtual Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+
 	private:
 
         RuntimeCommandTask() : m_owner(NULL) {};

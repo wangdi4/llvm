@@ -80,7 +80,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         
         // Command Queues functions
-        cl_command_queue    CreateCommandQueue      ( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, cl_int* pErrRet );
+        cl_command_queue    CreateCommandQueue      ( cl_context clContext, cl_device_id clDevice, const cl_command_queue_properties* clQueueProperties, cl_int* pErrRet );
         cl_err_code         RetainCommandQueue      ( cl_command_queue clCommandQueue);
         cl_err_code         ReleaseCommandQueue     ( cl_command_queue clCommandQueue);
         cl_err_code         GetCommandQueueInfo     ( cl_command_queue clCommandQueue, cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet );
@@ -166,10 +166,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		ocl_gpa_data *      GetGPAData() const { return m_pGPAData; }
     private:
 	    // Private functions
-        SharedPtr<IOclCommandQueueBase>    GetCommandQueue(cl_command_queue clCommandQueue);
+        SharedPtr<OclCommandQueue>    GetCommandQueue(cl_command_queue clCommandQueue);
+
+		bool				IsValidQueueHandle(cl_command_queue clCommandQueue);
 
         // Input parameters validation commands
-        cl_err_code         CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, SharedPtr<Context>* ppContext );
+        cl_err_code         CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, const cl_command_queue_properties* clQueueProperties, SharedPtr<Context>* ppContext,
+														   cl_command_queue_properties& queueProps, cl_uint& uiQueueSize);
         cl_err_code         CheckImageFormats( SharedPtr<MemoryObject> pSrcImage, SharedPtr<MemoryObject> pDstImage);
         bool                CheckMemoryObjectOverlapping(SharedPtr<MemoryObject> pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion);
         size_t              CalcRegionSizeInBytes(SharedPtr<MemoryObject> pImage, const size_t* szRegion);
@@ -212,7 +215,7 @@ cl_int ExecutionModule::EnqueueSyncD3DObjects(cl_command_queue clCommandQueue,
         return CL_INVALID_VALUE;
     }
 
-    const SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
+    const SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;

@@ -1,4 +1,5 @@
 add_subdirectory( cpu_device )
+add_subdirectory( device_commands )
 
 if ( INCLUDE_MIC_DEVICE )
     add_subdirectory( mic_device )

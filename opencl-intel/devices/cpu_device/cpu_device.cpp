@@ -31,7 +31,7 @@
 #include "task_dispatcher.h"
 #include "cpu_logger.h"
 #include "builtin_kernels.h"
-
+#include "cl_shared_ptr.hpp"
 #include <buildversion.h>
 #include <CL/cl_ext.h>
 #include "CL/cl_2_0.h"
@@ -47,7 +47,6 @@
 #if defined (__GNUC__) && !(__INTEL_COMPILER)  && !(_WIN32)
 #include "hw_utils.h"
 #endif
-
 #if !defined(__ANDROID__)
   #define __DOUBLE_ENABLED__
 #endif
@@ -93,6 +92,11 @@ struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *GetCPUDevInfo()
     }
     return &CPUDevInfo;
 }
+// explicit instantiation of SharedPtrBase classes (needed for gcc ver. 4.3 on SLES):
+template class Intel::OpenCL::Utils::SharedPtrBase<Intel::OpenCL::DeviceCommands::KernelCommand>;
+template class Intel::OpenCL::Utils::SharedPtrBase<Intel::OpenCL::DeviceCommands::DeviceCommand>;
+template class Intel::OpenCL::Utils::SharedPtrBase<ITaskList>;
+template class Intel::OpenCL::Utils::SharedPtrBase<ITaskGroup>;
 
 static const size_t CPU_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] =
     {
@@ -206,7 +210,7 @@ cl_dev_err_code CPUDevice::Init()
                                            m_pLogDescriptor, 
                                            m_pCPUDeviceConfig,
                                            m_backendWrapper.GetBackendFactory());
-    ret = m_pProgramService->Init();
+    ret = m_pProgramService->Init(this);
     if (CL_DEV_SUCCESS != ret)
     {
         return CL_DEV_ERROR_FAIL;
@@ -1073,7 +1077,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             return CL_DEV_SUCCESS;
 
         }
-        case( CL_DEVICE_QUEUE_PROPERTIES ):
+        case( CL_DEVICE_QUEUE_ON_HOST_PROPERTIES ):
         {
             *pinternalRetunedValueSize = sizeof(cl_command_queue_properties);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
@@ -1339,6 +1343,31 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 			if (NULL != paramVal)
 			{
 				*(cl_device_svm_capabilities*)paramVal = CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_ATOMICS;	// currently we support on fine grain buffer
+			}
+			return CL_DEV_SUCCESS;
+		case CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE:
+		case CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE:
+		case CL_DEVICE_MAX_ON_DEVICE_QUEUES:
+		case CL_DEVICE_MAX_ON_DEVICE_EVENTS:
+			*pinternalRetunedValueSize = sizeof(cl_uint);
+			if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+			{
+				return CL_DEV_INVALID_VALUE;
+			}
+			if (NULL != paramVal)
+			{
+				*(cl_uint*)paramVal = (cl_uint)-1;
+			}
+			return CL_DEV_SUCCESS;
+		case CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES:
+			*pinternalRetunedValueSize = sizeof(cl_command_queue_properties);
+			if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+			{
+				return CL_DEV_INVALID_VALUE;
+			}
+			if (NULL != paramVal)
+			{
+				*(cl_command_queue_properties*)paramVal = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE;
 			}
 			return CL_DEV_SUCCESS;
         default:
@@ -2130,6 +2159,165 @@ const void* CPUDevice::clDevFEDeviceInfo() const
 size_t CPUDevice::clDevFEDeviceInfoSize() const
 {
 	return sizeof(Intel::OpenCL::ClangFE::CLANG_DEV_INFO);
+}
+
+using Intel::OpenCL::DeviceCommands::DeviceCommand;
+
+int CPUDevice::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet,
+		const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel, const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange
+	)
+{	
+	// verify parameters
+	ASSERT_RET_VAL(pKernel != NULL, "pKernel != NULL", CL_INVALID_KERNEL);
+	if (NULL == queue || (NULL == pEventWaitList && uiNumEventsInWaitList > 0) || (NULL != pEventWaitList && 0 == uiNumEventsInWaitList) ||
+		(flags != CLK_ENQUEUE_FLAGS_NO_WAIT && flags != CLK_ENQUEUE_FLAGS_WAIT_KERNEL && flags != CLK_ENQUEUE_FLAGS_WAIT_WORK_GROUP))
+	{
+		return CL_ENQUEUE_FAILURE;
+	}
+		
+	const SharedPtr<ITaskList> pList = (ITaskList*)queue;
+	if (pList->DoesSupportDeviceSideCommandEnqueue())
+	{
+		return CL_INVALID_OPERATION;
+	}
+	const SharedPtr<KernelCommand> pParent = NDRange::GetThreadLocalNDRange();
+	SharedPtr<KernelCommand> pChild;
+#if 0
+		DeviceNDRange* const pChildAddress = m_deviceNDRangeAllocator.allocate(sizeof(DeviceNDRange));	// currently we ignore bad_alloc
+		pChild = ::new(pChildAddress) DeviceNDRange(m_pTaskDispatcher, pList, pParent, pKernel, pContext, szContextSize, pNdrange, m_deviceNDRangeAllocator, m_deviceNDRangeContextAllocator);
+#else
+		pChild = DeviceNDRange::Allocate(m_pTaskDispatcher, pList, pParent, pList->GetNDRangeChildrenTaskGroup(), pKernel, pContext, szContextSize, pNdrange);
+#endif
+	pParent->AddChildKernel(pChild, flags);	
+	const bool bAllEventsCompleted = pChild->AddWaitListDependencies(pEventWaitList, uiNumEventsInWaitList);
+
+	// if no need to wait, enqueue and flush
+	if (CLK_ENQUEUE_FLAGS_NO_WAIT == flags && bAllEventsCompleted)
+	{
+		pList->Launch(pChild->GetMyTaskBase());
+	}
+
+	// update pEventRet
+	if (pEventRet != NULL)
+	{
+		*pEventRet = static_cast<DeviceCommand*>(pChild.GetPtr());
+		pChild.IncRefCnt();	// it will decremeneted in release_event
+	}
+	return CL_SUCCESS;
+}
+
+int CPUDevice::EnqueueMarker(queue_t queue, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet)
+{
+	if (NULL == queue || NULL == pEventWaitList || 0 == uiNumEventsInWaitList)
+	{
+		return CL_ENQUEUE_FAILURE;
+	}
+
+	const SharedPtr<ITaskList> pList = (ITaskList*)queue;
+	if (!pList->DoesSupportDeviceSideCommandEnqueue())
+	{
+		return CL_INVALID_OPERATION;
+	}
+	SharedPtr<Marker> marker = Marker::Allocate(pList);	// should we use a pool here too?
+	const bool bAllEventsCompleted = marker->AddWaitListDependencies(pEventWaitList, uiNumEventsInWaitList);
+	if (bAllEventsCompleted)
+	{
+		pList->Launch(marker);
+	}
+	if (pEventRet != NULL)
+	{
+		*pEventRet = static_cast<DeviceCommand*>(marker.GetPtr());
+		marker.IncRefCnt();	// it will decremeneted in release_event
+	}
+	return CL_SUCCESS;
+}
+
+int CPUDevice::RetainEvent(clk_event_t event)
+{
+	if (NULL == event)
+	{
+		return CL_INVALID_EVENT;
+	}
+	SharedPtr<DeviceCommand> pCmd = (DeviceCommand*)event;
+	pCmd.IncRefCnt();
+	return CL_SUCCESS;
+}
+
+int CPUDevice::ReleaseEvent(clk_event_t event)
+{
+	if (NULL == event)
+	{
+		return CL_INVALID_EVENT;
+	}
+	SharedPtr<DeviceCommand> pCmd = (DeviceCommand*)event;
+	pCmd.DecRefCnt();
+	return CL_SUCCESS;
+}
+
+clk_event_t CPUDevice::CreateUserEvent(int* piErrcodeRet)
+{
+	SharedPtr<UserEvent> pUserEvent = UserEvent::Allocate();
+	if (NULL != pUserEvent)
+	{
+		pUserEvent.IncRefCnt();
+	}
+	if (NULL != piErrcodeRet)
+	{
+		if (NULL != pUserEvent)
+		{
+			*piErrcodeRet = CL_SUCCESS;
+		}
+		else
+		{
+			*piErrcodeRet = CL_EVENT_ALLOCATION_FAILURE;
+		}
+	}
+	return (clk_event_t)(pUserEvent.GetPtr());
+}
+	
+int CPUDevice::SetEventStatus(clk_event_t event, int iStatus)
+{	
+	if (NULL == event || !((DeviceCommand*)event)->IsUserCommand())
+	{
+		return CL_INVALID_EVENT;
+	}
+	if (CL_COMPLETE != iStatus && iStatus >= 0)
+	{
+		return CL_INVALID_VALUE;
+	}
+	SharedPtr<UserEvent> pUserEvent = (UserEvent*)event;
+	pUserEvent->SetStatus(iStatus);
+	return CL_SUCCESS;
+}
+
+void CPUDevice::CaptureEventProfilingInfo(clk_event_t event, clk_profiling_info name, volatile void* pValue)
+{
+	if (NULL == event || name != CLK_PROFILING_COMMAND_EXEC_TIME || NULL == pValue)
+	{
+		return;
+	}	
+
+	SharedPtr<DeviceCommand> pCmd = (DeviceCommand*)event;
+	if ((pCmd->GetList() != NULL && !pCmd->GetList()->IsProfilingEnabled()) || pCmd->IsUserCommand())
+	{
+		return;
+	}
+	if (!pCmd->SetExecTimeUserPtr(pValue))	// otherwise the information will be available when the command completes
+	{
+		*(cl_ulong*)pValue = pCmd->GetExecutionTime();
+	}		
+}
+
+queue_t CPUDevice::GetDefaultQueueForDevice() const
+{	
+	const SharedPtr<KernelCommand> pParent = NDRange::GetThreadLocalNDRange();
+	return pParent->GetList()->GetDevice()->GetDefaultQueue();
+}
+
+unsigned int CPUDevice::GetNumComputeUnits() const
+{
+	const SharedPtr<KernelCommand> pParent = NDRange::GetThreadLocalNDRange();
+	return pParent->GetList()->GetDevice()->GetConcurrency();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

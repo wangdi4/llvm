@@ -123,3 +123,4 @@ EXPORTS
 	clEnqueueSVMUnmap
 	clSetKernelArgSVMPointer
 	clSetKernelExecInfo
+	clCreateCommandQueueWithProperties

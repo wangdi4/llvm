@@ -36,6 +36,7 @@ class TBBTaskExecutor;
 class ArenaHandler;
 class TEDevice;
 class in_order_executor_task;
+class out_of_order_command_list;
 class base_command_list;
 template<typename T> class command_list;
 
@@ -262,6 +263,12 @@ public:
 
     bool isSubDevice() const { return (NULL != m_pParentDevice.GetPtr()); }
 
+	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> AllocateDefaultQueue(bool bIsProfilingEnabled);
+
+	virtual void ReleaseDefaultQueue();
+
+	virtual queue_t GetDefaultQueue() { return m_pDefaultQueue.GetPtr(); }	
+
 private:
 
     enum State 
@@ -279,6 +286,7 @@ private:
     RootDeviceCreationParam                     m_deviceDescriptor;
     TBBTaskExecutor&                            m_taskExecutor;
     void*                                       m_userData;
+	Intel::OpenCL::Utils::SharedPtr<ITaskList> m_pDefaultQueue;
 
     Intel::OpenCL::Utils::OclReaderWriterLock   m_observerLock;
     ITaskExecutorObserver*                      m_observer;

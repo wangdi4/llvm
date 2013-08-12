@@ -394,6 +394,11 @@ TEST(FrameworkTestType, Test_clSvmTest)
 	EXPECT_TRUE(clSvmTest());
 }
 
+TEST(FrameWorkTestType, Test_cl20ExecutionModel)
+{
+	EXPECT_TRUE(cl20ExecutionModel());
+}
+
 template <typename T>
 class CommandLineOption{
   std::string m_name;

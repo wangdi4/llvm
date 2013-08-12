@@ -34,6 +34,8 @@
 #include "task_executor.h"
 #include "wg_context_pool.h"
 #include "task_dispatcher.h"
+#include "tbb/scalable_allocator.h"
+#include "IDeviceCommandManager.h"
 #include <cl_synch_objects.h>
 #include <map>
 #include <vector>
@@ -46,7 +48,7 @@ extern const char* VENDOR_STRING;
 class ProgramService;
 class MemoryAllocator;
 
-class CPUDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription, public IAffinityChangeObserver
+class CPUDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription, public IAffinityChangeObserver, public IDeviceCommandManager
 
 {
 private:
@@ -61,6 +63,10 @@ private:
 	cl_dev_cmd_list			m_defaultCommandList;
     OpenCLBackendWrapper    m_backendWrapper;
     WgContextPool           m_wgContextPool;
+#if 0
+	tbb::scalable_allocator<DeviceNDRange> m_deviceNDRangeAllocator;
+	tbb::scalable_allocator<char> m_deviceNDRangeContextAllocator;
+#endif	
 
     static volatile bool    m_bDeviceIsRunning;
 
@@ -96,6 +102,7 @@ protected:
 	Intel::OpenCL::Utils::OclSpinMutex m_ComputeUnitScoreboardMutex;
 
 public:
+
 	CPUDevice(cl_uint devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc);
 	cl_dev_err_code	Init();
 
@@ -148,6 +155,27 @@ public:
 	const char* clDevFEModuleName() const;
 	const void* clDevFEDeviceInfo() const;
 	size_t		clDevFEDeviceInfoSize() const;
+
+	// IDeviceCommandManager
+	int EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet, 
+		const ICLDevBackendKernel_* pKernel, const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange
+		);
+
+	int EnqueueMarker(queue_t queue, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet);
+
+	int RetainEvent(clk_event_t event);
+
+	int ReleaseEvent(clk_event_t event);
+
+	clk_event_t CreateUserEvent(int* piErrcodeRet);
+	
+	int SetEventStatus(clk_event_t event, int iStatus);
+
+	void CaptureEventProfilingInfo(clk_event_t event, clk_profiling_info name, volatile void* pValue);
+
+	queue_t GetDefaultQueueForDevice() const;
+
+	unsigned int GetNumComputeUnits() const;
 };
 
 }}}

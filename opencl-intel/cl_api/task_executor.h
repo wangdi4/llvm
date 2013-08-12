@@ -28,10 +28,10 @@
 *		un-ordered - wherein tasks are executed without decencies
 *	b.	Async. execution. The execution function will be returned immediately,
 *		the provided callback function will be called when a task is completed
-*	c.	Itâ€™ll be two types of tasks:
-*		I.	Simple â€“ single function task, single instance of function will be executed
-*		II.	Complex (Task Set) â€“ the main function will be executed multiple times.
-*			This complex function will have initialization and finalization stages â€“
+*	c.	It’ll be two types of tasks:
+*		I.	Simple – single function task, single instance of function will be executed
+*		II.	Complex (Task Set) – the main function will be executed multiple times.
+*			This complex function will have initialization and finalization stages –
 *			single function that should be called before and after the main loop.
 *
 */
@@ -66,7 +66,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
-class ITaskExecutor; 
+class ITaskExecutor;
 
 // The following enum is used for defining task priority
 typedef enum
@@ -137,8 +137,10 @@ struct CommandListCreationParam
     TE_CMD_LIST_PREFERRED_SCHEDULING    preferredScheduling;
 
     CommandListCreationParam( TE_CMD_LIST_TYPE type, 
-                              TE_CMD_LIST_PREFERRED_SCHEDULING sched = TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC ) :
-        cmdListType(type), preferredScheduling(sched) {}
+                              TE_CMD_LIST_PREFERRED_SCHEDULING sched = TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC, bool bIsProfilingEnabled = false, bool bIsDefaultQueue = false) :
+		cmdListType(type), preferredScheduling(sched), isProfilingEnabled(bIsProfilingEnabled), isQueueDefault(bIsDefaultQueue) {}
+	bool  isProfilingEnabled;
+	bool  isQueueDefault;
 };
 
 // Root device Creation params
@@ -195,6 +197,23 @@ struct RootDeviceCreationParam
     {
         uiThreadsPerLevel[0] = overallThreads;
     }
+
+};
+
+/**
+ * This class represents a group of tasks
+ */
+class ITaskGroup : public Intel::OpenCL::Utils::ReferenceCountedObject
+{
+public:
+
+	PREPARE_SHARED_PTR(ITaskGroup)
+
+	/**
+	 * Wait for the completion of all tasks in the group
+	 */
+	virtual void WaitForAll() = 0;
+
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -209,6 +228,7 @@ public:
 
     // Returns whether the executed task is a task set.
     virtual bool    IsTaskSet() const = 0;
+	
     // Return task priority, currently the implementation shall return TASK_PRIORITY_MEDIUM
     virtual TASK_PRIORITY    GetPriority() const = 0; 
 
@@ -228,6 +248,9 @@ public:
 
     // Releases task object, shall be called instead of delete operator.
     virtual long    Release() = 0;
+
+	// For NDRange commands return the ITaskGroup used to group its children; for other commands return NULL
+	virtual ITaskGroup* GetNDRangeChildrenTaskGroup() = 0;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -245,6 +268,7 @@ public:
 
     // Task execution routine, will be called by task executor instead of Execute() if CommandList is canceled
     // virtual void    Cancel() = 0;
+
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -261,6 +285,8 @@ public:
     // Fills regCount with actual number of regions
     // Returns 0 if initialization success, otherwise an error code
     virtual int        Init(size_t region[], unsigned int& regCount) = 0;
+
+    virtual void*	GetConcreteClass() { return this; }
 
     // Is called when the task is going to be called for the first time within specific thread. 
     // @param currentThreadData - data returned by OnThreadEntry()
@@ -287,11 +313,14 @@ public:
     // Optimize By
     virtual TASK_SET_OPTIMIZATION OptimizeBy()                        const = 0;
     virtual unsigned int          PreferredSequentialItemsPerThread() const = 0;
-    
+
 };
 
 /////////////////////////////////////////////////////////////////////////////
 // ITaskList interface - defines a function set for task list handling
+
+class ITEDevice;
+
 class ITaskList : public Intel::OpenCL::Utils::ReferenceCountedObject
 {
 public:
@@ -314,8 +343,31 @@ public:
     // Function blocks, until the pTask is completed or in case of NULL
     // all tasks belonging to the list are completed.
     // Not supported for immediate lists
+	// Immediately launch a task without enqueuing it first in order to save the lock on the queue.
+	virtual void			Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) = 0;
+
+	// whether this ITaskList supports device-side enqueuing of commands
+	virtual bool			DoesSupportDeviceSideCommandEnqueue() const = 0;
+
+	// Add the calling thread to execution pool
+	// Function blocks, until the pTask is completed or in case of NULL
+	// all tasks belonging to the list are completed.
+	// Not supported for immediate lists
     virtual te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait) = 0;    
 
+	// Returns whether profiling is enabled for this ITaskList
+	virtual bool IsProfilingEnabled() const = 0;
+
+	// Returns whether this is the default queue for its device
+	virtual bool IsDefaultQueue() const = 0;
+
+	// Returns the ITEDevice of this ITaskList
+	virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> GetDevice() = 0;
+	virtual Intel::OpenCL::Utils::ConstSharedPtr<ITEDevice> GetDevice() const = 0;
+
+	// Returns an ITaskGroup for NDRange commands to use to wait for their children
+	virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() = 0;
+	
 };
 
 class ITaskExecutorObserver;
@@ -372,6 +424,24 @@ public:
       * Unegister calling thread (master) to be used by the device
       */    
     virtual void DetachMasterThread() = 0;
+
+
+	/**
+	 * Allocate a default queue for this ITEDevice
+	 * @param bIsProfilingEnabled whether profiling will be enabled for the default queue
+	 * @return the ITaskList of the default queue
+	 */
+	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> AllocateDefaultQueue(bool bIsProfilingEnabled) = 0;
+
+	/**
+	 * Release the default queue for this ITEDevice
+	 */
+	virtual void ReleaseDefaultQueue() = 0;
+
+	/**
+	 * @return the default command queue for this ITEDevice or 0 if no such queue has b
+	 */
+	virtual queue_t GetDefaultQueue() = 0;
 
 };
 
@@ -469,9 +539,15 @@ public:
      * @param  level - request position at the given hierachy level. 0 - top level. Must be 0 in the flat mode.
      * @return 0-based position inside sub-device at given level or TE_UNKNOWN if level is above maximum or 
      *                 thread is outside of any TE Device or sub-device
-     */
-    virtual unsigned int GetPosition( unsigned int level = 0 ) const = 0;
-    
+	 */
+	virtual unsigned int GetPosition( unsigned int level = 0 ) const = 0;
+
+	/**
+	 * @param device a ITEDevice
+	 * @return a new ITaskGroup in device
+	 */
+	virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> CreateTaskGroup(const Intel::OpenCL::Utils::SharedPtr<ITEDevice>& device) = 0;
+	
 protected:
 
     ITaskExecutor() : m_pGPAData(NULL) { }

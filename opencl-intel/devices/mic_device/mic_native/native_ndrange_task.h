@@ -106,6 +106,8 @@ public:
   TASK_SET_OPTIMIZATION OptimizeBy() const { return gMicExecEnvOptions.tbb_block_optimization; }
   unsigned int          PreferredSequentialItemsPerThread() const { return gMicExecEnvOptions.use_TBB_grain_size; }
 
+  ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+
 protected:
     NDRangeTask( const QueueOnDevice& queue );
     ~NDRangeTask();

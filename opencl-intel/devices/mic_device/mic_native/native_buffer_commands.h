@@ -76,6 +76,8 @@ public:
 
     TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
 
+    ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+
 protected:
     FillMemObjTask( const QueueOnDevice& queue );
     ~FillMemObjTask() {};

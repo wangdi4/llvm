@@ -169,6 +169,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const 
                         { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;} 
 
+		virtual Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+
     protected:
 
         BuildTask(_cl_context_int* context,

@@ -27,22 +27,24 @@ using namespace Intel::OpenCL::TaskExecutor;
 
 void TaskGroup::WaitForAll()
 {
-    TEDeviceStateAutoLock lock(*m_device);
+    TEDeviceStateAutoLock lock(m_device);
 
-    if (!m_device->isTerminating())
+    if (!m_device.isTerminating())
     {
         ArenaFunctorWaiter waiter(m_rootTask);
-        m_device->Execute(waiter);
+        m_device.Execute(waiter);
     }
 }
 
-base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
+base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param, bool bProfilingEnabled) :
 	m_pTBBExecutor(pTBBExec),
 	m_pMasterSync(SyncTask::Allocate()),
 	m_device(device),
-	m_taskGroup(device.GetPtr()),
-	m_scheduling(param.preferredScheduling), 
-    m_bCanceled(false)
+	m_taskGroup(TaskGroup::Allocate(*device)),
+	m_bProfilingEnabled(bProfilingEnabled),
+	m_bIsDefaultQueue(param.isQueueDefault),
+	m_scheduling(param.preferredScheduling),
+	m_bCanceled(false)
 {
 	m_execTaskRequests = 0;
 	m_bMasterRunning = false;
@@ -136,7 +138,7 @@ unsigned int in_order_command_list::LaunchExecutorTask(bool blocking, const Inte
 	in_order_executor_task functor(this); 
 	if (!blocking)
 	{
-        m_taskGroup.EnqueueFunc(functor);
+        m_taskGroup->EnqueueFunc(functor);
 		return 1;
 	}
 	else
@@ -153,7 +155,7 @@ unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking, const 
     out_of_order_executor_task functor(this);
     if (!blocking)
     {
-        m_taskGroup.EnqueueFunc(functor);
+        m_taskGroup->EnqueueFunc(functor);
         return 1;
     }
     else
@@ -191,8 +193,34 @@ private:
 void out_of_order_command_list::WaitForIdle()
 {
 	// we wait here for 2 things seperately: commands and execution tasks
-	TaskGroupWaiter waiter(m_oooTaskGroup, m_taskGroup);
+	TaskGroupWaiter waiter(m_oooTaskGroup, *m_taskGroup);
 	m_device->Execute(waiter);	
+}
+
+void in_order_command_list::Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
+{
+	ExecuteContainerBody functor(pTask, *this);
+	if (pTask->GetNDRangeChildrenTaskGroup() == NULL)
+	{
+		m_taskGroup->EnqueueFunc(functor);
+	}
+	else
+	{
+		static_cast<TaskGroup*>(pTask->GetNDRangeChildrenTaskGroup())->EnqueueFunc(functor);
+	}
+}
+
+void out_of_order_command_list::Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
+{
+	ExecuteContainerBody functor(pTask, *this);
+	if (pTask->GetNDRangeChildrenTaskGroup() == NULL)
+	{
+		ExecOOOFunc(functor);
+	}
+	else
+	{
+		static_cast<TaskGroup*>(pTask->GetNDRangeChildrenTaskGroup())->EnqueueFunc(functor);
+	}
 }
 
 unsigned int immediate_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
@@ -209,4 +237,3 @@ unsigned int immediate_command_list::LaunchExecutorTask(bool blocking, const Int
 	m_device->Execute<immediate_executor_task>(functor);
 	return 0;
 }
-

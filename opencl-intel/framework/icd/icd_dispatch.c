@@ -276,6 +276,16 @@ clCreateCommandQueue(cl_context                     context,
         errcode_ret);
 }
 
+CL_API_ENTRY cl_command_queue CL_API_CALL
+clCreateCommandQueueWithProperties(cl_context             context, 
+								   cl_device_id           device, 
+								   cl_queue_properties*   properties,
+								   cl_int *               errcode_ret) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_HANDLE(context, CL_INVALID_CONTEXT);
+	return context->dispatch->clCreateCommandQueueWithProperties(context, device, properties, errcode_ret);
+}
+
 CL_API_ENTRY cl_int CL_API_CALL
 clRetainCommandQueue(cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0
 {

@@ -35,6 +35,8 @@ class TBBTaskExecutor;
 class TEDevice;
 
 using Intel::OpenCL::Utils::SharedPtr;
+using Intel::OpenCL::Utils::ConstSharedPtr;
+using Intel::OpenCL::Utils::ReferenceCountedObject;
 using Intel::OpenCL::Utils::OclOsDependentEvent;
 using Intel::OpenCL::Utils::OclMutex;
 
@@ -60,6 +62,7 @@ public:
 	bool	        Execute() { m_bFired = true; return true;}
 	long	        Release() { return 0; }	//Persistent member, don't release
 	TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+	Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
 protected:
 
@@ -72,20 +75,20 @@ protected:
  * This class represents a group of tasks for which one can wait to their completion. It replaces tbb::task_group, which can't be used the way we need: parallel_for from one task_group might
  * steal the task which starts another parallel_for.
  */
-class TaskGroup
+class TaskGroup : public ITaskGroup
 {
 public:
+    
+	PREPARE_SHARED_PTR(TaskGroup)
 
-    /**
-     * Constructor
-     * @param device the TEDevice for enqueuing and executing tasks
-     */
-    TaskGroup(TEDevice* device) :
-        m_taskGroupContext(tbb::task_group_context::bound, tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait),
-        m_rootTask(*new(tbb::task::allocate_root(m_taskGroupContext)) tbb::empty_task()), m_device(device)
-    {
-        m_rootTask.increment_ref_count();
-    }
+	/**
+	 * @param device the TEDevice for enqueuing and executing tasks
+	 * @return a new TaskGroup
+	 */
+	static SharedPtr<TaskGroup> Allocate(TEDevice& device)
+	{
+		return new TaskGroup(device);
+	}    
 
     /**
      * Destructor
@@ -105,19 +108,29 @@ public:
     template<typename F>
     void EnqueueFunc(const F& f);
 
-    /**
-     * Wait for all functor objects enqueued up to this point to complete
-     */
-    void WaitForAll();
+    // overrriden methods:
+
+    virtual void WaitForAll();
 
 private:
 
+	/**
+     * Constructor
+     * @param device the TEDevice for enqueuing and executing tasks
+     */
+    TaskGroup(TEDevice& device) :
+        m_taskGroupContext(tbb::task_group_context::bound, tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait),
+        m_rootTask(*new(tbb::task::allocate_root(m_taskGroupContext)) tbb::empty_task()), m_device(device)
+    {
+        m_rootTask.increment_ref_count();
+    }
+
     tbb::task_group_context m_taskGroupContext;
     tbb::empty_task& m_rootTask;  // an empty task whose reference count represents the number of enqueued tasks that haven't been completed
-    TEDevice* m_device;
+    TEDevice& m_device;
 
     // auxiliary functor classes to be replaced by lambda functions
-    class ArenaFunctor
+	class ArenaFunctor
     {
     protected:
 
@@ -184,15 +197,19 @@ public:
      */
     virtual void WaitForIdle()
 	{
-		m_taskGroup.WaitForAll();
+		m_taskGroup->WaitForAll();
 	}
 
-    TEDevice& GetDevice() { return *m_device; }
+	TEDevice& GetTEDevice() { return *m_device; }
 
     virtual TE_CMD_LIST_PREFERRED_SCHEDULING GetPreferredScheduler() const { return m_scheduling;}
+	
+	SharedPtr<ITEDevice> GetDevice() { return m_device; }
+
+	ConstSharedPtr<ITEDevice> GetDevice() const { return (const ITEDevice*)m_device.GetPtr(); }
     
     virtual tbb::affinity_partitioner& GetAffinityPartitioner() { return m_part; }
-    virtual tbb::task_group_context&   GetTBBContext() { return m_taskGroup.GetContext(); }
+    virtual tbb::task_group_context&   GetTBBContext() { return m_taskGroup->GetContext(); }
 
     virtual void Cancel() { m_bCanceled = true; }
     bool         Is_canceled() const { return m_bCanceled; }
@@ -205,7 +222,7 @@ public:
     template<typename F>
     void EnqueueFunc(const F& func)
     {
-        m_taskGroup.EnqueueFunc(func);
+        m_taskGroup->EnqueueFunc(func);
     }
 	friend class immediate_executor_task;
 
@@ -214,11 +231,15 @@ public:
 		return !m_quIncomingWork.IsEmpty();
 	}
 
+	virtual bool IsProfilingEnabled() const { return m_bProfilingEnabled; }
+
+	virtual bool IsDefaultQueue() const { return m_bIsDefaultQueue; }
+
 protected:
 	friend class in_order_executor_task;
 	friend class out_of_order_executor_task;
 
-	base_command_list( TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param);
+	base_command_list( TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param, bool bProfilingEnabled = false);
 
 	virtual unsigned int LaunchExecutorTask(bool blocking,
                                             const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL) = 0;
@@ -237,10 +258,12 @@ protected:
 	// the master if another master is running
 	tbb::atomic<bool>		m_bMasterRunning;
 
-	// In most cases m_device should be a shared pointer, but in the case of default command list this will create a cycle. As default command list is
-	// invisible from outside, we need it not to contain pointer to TEDevice.
-	SharedPtr<TEDevice>     m_device;
-	TaskGroup               m_taskGroup;
+    // In most cases m_device should be a shared pointer, but in the case of default command list this will create a cycle. As default command list is 
+    // invisible from outside, we need it not to cointain pointer to TEDevice.
+    SharedPtr<TEDevice>     m_device;
+    SharedPtr<TaskGroup>    m_taskGroup;	
+	const bool				m_bProfilingEnabled;
+	const bool				m_bIsDefaultQueue;
 
 	// Affinity partitioner used in execution
 	tbb::affinity_partitioner	m_part;
@@ -268,14 +291,25 @@ public:
         return new in_order_command_list(pTBBExec, device, param);
     }
 
+	// This is an optimization: since only one NDRange command can Simultaneously run, all NDRange commands can share the same TaskGroup, without the need to allocate a new one for each of them.
+	virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
+
+	virtual void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask);
+
+	virtual bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
+
+	virtual bool IsProfilingEnabled() const { return false; }
+
 protected:
 
     virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL );
 
 private:
+	SharedPtr<TaskGroup>			 m_ndrangeChildrenTaskGroup;
 
     in_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
-        base_command_list(pTBBExec, device, param) {}
+		base_command_list(pTBBExec, device, param), m_ndrangeChildrenTaskGroup(TaskGroup::Allocate(*device))  {}
+
 };
 
 class out_of_order_command_list : public base_command_list
@@ -318,6 +352,12 @@ public:
     // overriden methods:    
 
     void WaitForIdle();
+
+	void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask);
+
+	bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
+
+	virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return TaskGroup::Allocate(GetTEDevice()); }
         
 private:
 
@@ -326,7 +366,23 @@ private:
     tbb::task_group m_oooTaskGroup;
 
     out_of_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
-        base_command_list(pTBBExec, device, param) { }
+		base_command_list(pTBBExec, device, param, param.isProfilingEnabled) { }
+};
+
+bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list& cmdList);
+
+struct ExecuteContainerBody
+{
+    const SharedPtr<ITaskBase> m_pTask;
+    base_command_list& m_list;
+
+    ExecuteContainerBody(const SharedPtr<ITaskBase>& pTask, base_command_list& list) :
+			m_pTask(pTask), m_list(list) {}
+
+	void operator()()
+	{
+        execute_command(m_pTask, m_list);
+    }
 };
 
 class immediate_command_list : public base_command_list
@@ -350,6 +406,14 @@ public:
     }
 
     bool Flush() { return true; }
+
+	virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return TaskGroup::Allocate(GetTEDevice()); }
+
+	virtual void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) { }
+
+	bool DoesSupportDeviceSideCommandEnqueue() const { return false; }
+
+	virtual bool IsProfilingEnabled() const { return false; }
 
 protected:
 

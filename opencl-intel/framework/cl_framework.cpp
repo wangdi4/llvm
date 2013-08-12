@@ -27,7 +27,7 @@
 
 #include "cl_framework.h"
 #include "framework_proxy.h"
-
+#include "CL/cl_2_0.h"
 #ifndef _WIN32
 #include <cl_linux_utils.h>
 #include "cl_framework_alias_linux.h"
@@ -225,7 +225,8 @@ cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  co
 									  cl_command_queue_properties properties, 
 									  cl_int *                    errcode_ret)
 {
-	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, properties, errcode_ret));
+	const cl_command_queue_properties propertiesArr[] = { CL_QUEUE_PROPERTIES, properties, NULL };
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, propertiesArr, errcode_ret));
 }
 SET_ALIAS(clCreateCommandQueue);
 cl_int CL_API_CALL clRetainCommandQueue(cl_command_queue command_queue)
@@ -1466,3 +1467,13 @@ cl_int CL_API_CALL clSetKernelExecInfo(cl_kernel kernel,
 	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, SetKernelExecInfo(kernel, param_name, param_value_size, param_value));
 }
 SET_ALIAS(clSetKernelExecInfo);
+// OpenCL 2.0 functions:
+
+cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context context,
+																cl_device_id device_id,
+																cl_queue_properties* properties,
+																cl_int* errcode_ret)
+{
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, properties, errcode_ret));
+}
+SET_ALIAS(clCreateCommandQueueWithProperties);

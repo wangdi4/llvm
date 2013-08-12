@@ -226,6 +226,12 @@ typedef CL_API_ENTRY cl_command_queue (CL_API_CALL *KHRpfn_clCreateCommandQueue)
     cl_command_queue_properties    properties,
     cl_int *                       errcode_ret) CL_API_SUFFIX__VERSION_1_0;
 
+typedef CL_API_ENTRY cl_command_queue (CL_API_CALL *KHRpfn_clCreateCommandQueueWithProperties)(
+	cl_context             context, 
+	cl_device_id           device,
+	cl_queue_properties*   properties,
+	cl_int *               errcode_ret) CL_API_SUFFIX__VERSION_2_0;
+
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clRetainCommandQueue)(
     cl_command_queue command_queue) CL_API_SUFFIX__VERSION_1_0;
 
@@ -1185,7 +1191,7 @@ struct KHRicdVendorDispatchRec
     KHRpfn_clRetainContext                          clRetainContext;
     KHRpfn_clReleaseContext                         clReleaseContext;
     KHRpfn_clGetContextInfo                         clGetContextInfo;
-    KHRpfn_clCreateCommandQueue                     clCreateCommandQueue;
+    KHRpfn_clCreateCommandQueue                     clCreateCommandQueue;	
     KHRpfn_clRetainCommandQueue                     clRetainCommandQueue;
     KHRpfn_clReleaseCommandQueue                    clReleaseCommandQueue;
     KHRpfn_clGetCommandQueueInfo                    clGetCommandQueueInfo;
@@ -1313,6 +1319,7 @@ struct KHRicdVendorDispatchRec
 	KHRpfn_clSetKernelArgSVMPointer					clSetKernelArgSVMPointer;
 	KHRpfn_clSetKernelExecInfo						clSetKernelExecInfo;
 
+	KHRpfn_clCreateCommandQueueWithProperties		clCreateCommandQueueWithProperties;
 };
 
 /*

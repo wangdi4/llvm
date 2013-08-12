@@ -257,16 +257,6 @@ cl_err_code IOclCommandQueueBase::WaitForCompletion(const SharedPtr<QueueEvent>&
 	return CL_DEV_SUCCEEDED(ret) ? CL_SUCCESS : CL_INVALID_OPERATION;
 }
 
-cl_err_code IOclCommandQueueBase::CancelAll()
-{
-    m_bCancelAll = true;
-    if (NULL != m_pDefaultDevice)
-    {
-        m_pDefaultDevice->GetDeviceAgent()->clDevCommandListCancel(m_clDevCmdListId);
-    }
-    return CL_SUCCESS;
-}
-
  /******************************************************************
  * This object holds extra reference count as it is recorded in ContextModule
  ******************************************************************/

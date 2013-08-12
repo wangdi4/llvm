@@ -25,6 +25,7 @@
 #include "tbb_execution_schedulers.h"
 #include "arena_handler.h"
 #include "tbb_executor.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::TaskExecutor;
 

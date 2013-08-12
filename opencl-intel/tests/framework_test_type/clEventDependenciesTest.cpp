@@ -51,8 +51,8 @@ bool EventDependenciesTest()
     if (!bResult)    return bResult;
 
     // Check for OOO support
-    err     = clGetDeviceInfo(device, CL_DEVICE_QUEUE_PROPERTIES, sizeof(cl_command_queue_properties), &queue_properties, NULL);
-    bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_QUEUE_PROPERTIES)",CL_SUCCESS,err);
+    err     = clGetDeviceInfo(device, CL_DEVICE_QUEUE_ON_HOST_PROPERTIES, sizeof(cl_command_queue_properties), &queue_properties, NULL);
+    bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_QUEUE_ON_HOST_PROPERTIES)",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     if (!(queue_properties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE))

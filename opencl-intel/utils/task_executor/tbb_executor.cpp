@@ -85,7 +85,7 @@ void TE_RegisterGlobalAtExitNotification( IAtExitCentralPoint* fn )
     Intel::OpenCL::Utils::RegisterGlobalAtExitNotification(fn);
 }
 
-static bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list& cmdList)
+bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list& cmdList)
 {
     bool runNextCommand = true;
     bool cancel = cmdList.Is_canceled();
@@ -122,7 +122,17 @@ void in_order_executor_task::operator()()
 		//First check if we need to stop iterating, next get next available record
 		while( !(mustExit && m_list->m_bMasterRunning) && work->TryPop(currentTask))
 		{
-			mustExit = !execute_command(currentTask, *m_list); //stop requested    
+			if (NULL == currentTask->GetNDRangeChildrenTaskGroup())
+			{
+				// task enqueued by the host
+				mustExit = !execute_command(currentTask, *m_list); //stop requested    
+			}
+			else
+			{
+				// child task (GetNDRangeChildrenTaskGroup() returns the parent's TaskGroup)
+				ExecuteContainerBody functor(currentTask, *m_list);
+				static_cast<TaskGroup*>(currentTask->GetNDRangeChildrenTaskGroup())->EnqueueFunc(functor);
+			}						
 			currentTask = NULL;
 		}
 
@@ -141,20 +151,6 @@ void in_order_executor_task::operator()()
 	}
 }
 
-struct ExecuteContainerBody
-{
-    const SharedPtr<ITaskBase> m_pTask;
-    out_of_order_command_list& m_list;
-
-    ExecuteContainerBody(const SharedPtr<ITaskBase>& pTask, out_of_order_command_list& list) :
-            m_pTask(pTask), m_list(list) {}
-
-    void operator()()
-    {
-        execute_command(m_pTask, m_list);
-    }
-};
-
 void out_of_order_executor_task::operator()()
 {
     while (true)
@@ -164,8 +160,17 @@ void out_of_order_executor_task::operator()()
         SharedPtr<ITaskBase> pTask = GetTask();
         while (NULL != pTask && NULL == dynamic_cast<SyncTask*>(pTask.GetPtr()))
         {
-            ExecuteContainerBody functor(pTask, *m_list);
-            m_list->ExecOOOFunc<ExecuteContainerBody>(functor);
+			ExecuteContainerBody functor(pTask, *m_list);
+			if (pTask->GetNDRangeChildrenTaskGroup() != NULL)
+			{
+				// this is a child task - GetNDRangeChildrenTaskGroup() returns its parent TaskGroup
+				static_cast<TaskGroup*>(pTask->GetNDRangeChildrenTaskGroup())->EnqueueFunc(functor);
+			}
+			else
+			{
+				// this is a parent task (enqueued by the host)
+	            m_list->ExecOOOFunc<ExecuteContainerBody>(functor);
+			}            
             pTask = GetTask();
         }
         if (NULL != pTask && NULL != dynamic_cast<SyncTask*>(pTask.GetPtr()))
@@ -376,7 +381,7 @@ bool TBBTaskExecutor::LoadTBBLibrary()
 	if ( !bLoadRes )
 	{
 		LOG_ERROR(TEXT("Failed to load TBB from %s"), tbbPath);
-	}
+	}	
 #endif
 
 	return bLoadRes;
@@ -415,5 +420,9 @@ unsigned int TBBTaskExecutor::GetPosition( unsigned int level ) const
     return (((NULL != tls) && (NULL != tls->device) && (level < tls->device->GetNumOfLevels())) ? tls->position[level] : TE_UNKNOWN);
 }
 
+SharedPtr<ITaskGroup> TBBTaskExecutor::CreateTaskGroup(const SharedPtr<ITEDevice>& device)
+{ 
+	return TaskGroup::Allocate(static_cast<TEDevice&>(*device));
+}
 
 }}}//namespace Intel, namespace OpenCL, namespace TaskExecutor

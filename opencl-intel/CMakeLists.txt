@@ -391,6 +391,7 @@ include_directories( BEFORE
         utils/cl_logger/export
         utils/cl_hw_utils/export
         utils/cl_sys_utils/export
+	devices/device_commands/export
         externals/tbb/include
         externals/tbb/enhancements
         ${LLVM_INCLUDE_DIR}

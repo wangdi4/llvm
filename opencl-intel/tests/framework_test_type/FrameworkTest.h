@@ -121,6 +121,7 @@ bool clGetKernelArgInfoTest();
 bool ShutdownFromChildThread();
 bool predictable_partition_test();
 bool clMultipleExecutionTest();
+bool cl20ExecutionModel();
 bool cl_CPU_MIC_IntegerExecuteTest();
 bool cl_CPU_MIC_MigrateTest();
 bool cl_CPU_MIC_MapUnmapTest_InOrder();

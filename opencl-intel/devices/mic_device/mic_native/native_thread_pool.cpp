@@ -656,6 +656,8 @@ public:
 	TASK_SET_OPTIMIZATION OptimizeBy() const { return TASK_SET_OPTIMIZE_DEFAULT; }
 	unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
 
+	ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+
 private:
 	WarmUpTask( unsigned int num_of_workers ) :
 		startup_workers_left(num_of_workers), masterWaitEvent(true), workersWaitEvent(false) {}

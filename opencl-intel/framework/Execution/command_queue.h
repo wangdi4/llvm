@@ -53,7 +53,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code Flush(bool bBlocking)  = 0;
 		virtual cl_err_code SendCommandsToDevice() = 0;
 		virtual cl_err_code NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor ) = 0;
-        virtual cl_err_code CancelAll() = 0;
 	};
 
 	class IOclCommandQueueBase : public OclCommandQueue, public ICommandQueue
@@ -65,8 +64,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
 		virtual cl_err_code EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
 		virtual cl_err_code EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
-		virtual cl_err_code	WaitForCompletion(const SharedPtr<QueueEvent>& pEvent );    
-        virtual cl_err_code CancelAll();
+		virtual cl_err_code	WaitForCompletion(const SharedPtr<QueueEvent>& pEvent );            
 		virtual ocl_gpa_data* GetGPAData() const { return m_pContext->GetGPAData(); }
 
         // manage lifetime slightly differently from another ReferenceCounted objects
@@ -79,13 +77,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			cl_device_id                clDefaultDeviceID,
 			cl_command_queue_properties clProperties,
 			EventsManager*              pEventManager
-		) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager), m_bCancelAll( false ) {}
+		) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager) {}
 
 		virtual ~IOclCommandQueueBase() {}
 
-        virtual  void BecomeVisible();
-
-        volatile bool  m_bCancelAll;
+        virtual  void BecomeVisible();        
 
     private:
 
