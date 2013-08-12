@@ -24,6 +24,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 
 using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend::Passes::GenericAddressSpace;
 
 namespace intel {
 
@@ -96,8 +97,8 @@ namespace intel {
                 break;
               }
               case Instruction::Select :
-              case Instruction::ICmp :
-              case Instruction::Call : {
+              case Instruction::ICmp   :
+              case Instruction::Call   : {
                 // For Select, Icmp, Call - update corresponding operand(s)
                 assert(pUse->getNumOperands() == repInstr->getNumOperands() &&
                        "Replacement info is broken!");
@@ -406,6 +407,7 @@ namespace intel {
 
     // Fetching function to fold
     const Function *pCallee = pCallInstr->getCalledFunction();
+    assert(pCallee && "Call instruction doesn't have a callee!");
     StringRef funcName = pCallee->getName();
     std::string tmp = funcName.str();
     const char *funcNameStr = tmp.c_str();
@@ -450,7 +452,7 @@ namespace intel {
     m_replaceVector.push_back(TMapPair(pCallInstr, folded));
   }
 
-  Function *GenericAddressStaticResolution::resolveFunctionCall(CallInst *pCallInstr, FuncCallType type) {
+  Function *GenericAddressStaticResolution::resolveFunctionCall(CallInst *pCallInstr, FuncCallType category) {
 
     // Generic address space pointer cannot be returned from a function
     const PointerType *pRetPtrType = dyn_cast<PointerType>(pCallInstr->getType());
@@ -460,8 +462,9 @@ namespace intel {
 
     unsigned numArgs = pCallInstr->getNumArgOperands();
     Function *pCallee = pCallInstr->getCalledFunction();
+    assert(pCallee && "Call instruction doesn't have a callee!");
     std::string funcName = pCallee->getName().str();
-    assert((type != CallBuiltIn || isMangledName(funcName.c_str())) && "Overloaded BI name should be mangled!");
+    assert((category != CallBuiltIn || isMangledName(funcName.c_str())) && "Overloaded BI name should be mangled!");
 
     // At first - produce argument & parameter lists upon resolved values
     SmallVector<Type*,  8>                  argTypes;
@@ -516,17 +519,17 @@ namespace intel {
 
     // Generate new function name:
     std::string newFuncName;
-    if (type == CallBuiltIn) {
+    if (category == CallBuiltIn) {
       // Either upon re-mangling of BI with resolved GAS parameter(s)
       newFuncName = getResolvedMangledName(funcName, spaces);
-    } else if (type == CallNonKernel) {
+    } else if (category == CallNonKernel) {
       // Or upon custom rule: <original-name> + <pointer-arg-mangling>
       newFuncName = getSpecializedFunctionName(funcName, argTypes);
     }
 
     // Get or create function object
     Function *pNewFunc = NULL;
-    if (type == CallIntrinsic) {
+    if (category == CallIntrinsic) {
       SmallVector<Type*, 8> overloadableArgTypes;
       getIntrinsicOverload(pCallee, argTypes, overloadableArgTypes);
       pNewFunc = Intrinsic::getDeclaration(m_pModule, (Intrinsic::ID)pCallee->getIntrinsicID(),
@@ -541,7 +544,7 @@ namespace intel {
     pNewFunc->setCallingConv(pCallee->getCallingConv());
 
     // Generate function body of specialized non-kernel function
-    if (type == CallNonKernel && pNewFunc->isDeclaration()) {
+    if (category == CallNonKernel && pNewFunc->isDeclaration()) {
       // Clone original function into the new one
       ValueToValueMapTy VMap;
       for (Function::arg_iterator src_arg_it = pCallee->arg_begin(),
@@ -648,6 +651,9 @@ namespace intel {
             }
             break;
           default:
+            // A binary or bitwise expression cannot be reached here, because we enter the constant expression
+            // with pointer value, and then stop on IntToPtr and Bitcast (who are the only ones which could 
+            // lead to integer type involved)
             assert(0 && "Unexpected instruction with generic address space constant expression pointer");
             return NULL;
         }

@@ -22,7 +22,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 
 using namespace Intel::OpenCL::DeviceBackend::Utils;
-using namespace Intel::OpenCL::DeviceBackend::Passes::GenericAddressSpace;
+using namespace Intel::OpenCL::DeviceBackend::Passes;
+
+extern "C" {
+  /// Returns an instance of the GenericAddressDynamicResolution pass,
+  /// which will be added to a PassManager and run on a Module.
+  llvm::ModulePass *createGenericAddressStaticResolutionPass();
+}
 
 namespace intel {
 
@@ -80,11 +86,11 @@ namespace intel {
 
     /// @brief  Collection of function and pointer info
     /// @brief  1. Function list in call-graph order
-    TFunctionList m_functionsToHandle;
+    GenericAddressSpace::TFunctionList m_functionsToHandle;
     /// @brief  2. GAS pointers' instructions in data flow order (for one function only!)
-    TPointerList  m_GASPointers;
+    TPointerList                       m_GASPointers;
     /// @brief  3. GAS pointers' instructions' info for quick access (for one function only!)
-    TPointerMap   m_GASEstimate;
+    TPointerMap                        m_GASEstimate;
 
     /// @brief  Instruction Replacement Info Data Model for the following accesses:
     /// @brief  (mapping from old instruction /first element/ to new value /second element/)
@@ -108,12 +114,12 @@ namespace intel {
     /// @brief  Prepares collection of GAS pointers' usages from a function and
     /// @brief  estimates their named address space
     /// @param  curFuncIt - iterator to function to traverse
-    void analyzeGASPointers(TFunctionList::const_iterator curFuncIt);
+    void analyzeGASPointers(GenericAddressSpace::TFunctionList::const_iterator curFuncIt);
 
     /// @brief  Resolves GAS pointers to named address space
     /// @param  curFuncIt - iterator to function to resolve
     /// @returns  true if any pointer was statically resolved, or false otherwise
-    bool resolveGASPointers(TFunctionList::iterator curFuncIt);
+    bool resolveGASPointers(GenericAddressSpace::TFunctionList::iterator curFuncIt);
 
     //  Helpers for GAS pointers' collection processing
     // -------------------------------------------------
@@ -151,7 +157,7 @@ namespace intel {
     bool resolveInstructionOnePointer(Instruction *pInstr, OCLAddressSpace::spaces space);
     bool resolveInstructionTwoPointers(Instruction *pInstr, OCLAddressSpace::spaces space);
     bool resolveInstructionPhiNode(PHINode *pPhiInstr, OCLAddressSpace::spaces space);
-    bool resolveInstructionCall(CallInst *pCallInstr, TFunctionList::iterator curFuncIt);
+    bool resolveInstructionCall(CallInst *pCallInstr, GenericAddressSpace::TFunctionList::iterator curFuncIt);
 
     // Helpers for special cases
     // --------------------------
@@ -163,9 +169,9 @@ namespace intel {
 
     /// @brief  Helper for resolution of a function call from generic to named addr space
     /// @param  pCallInst - call instruction
-    /// @param  type      - classification of the callee type
+    /// @param  type      - category of the callee type: BI, intrinsic, or non-kernel
     /// @returns  pointer to specialized function's object or NULL if no new function was created
-    Function *resolveFunctionCall(CallInst *pCallInstr, FuncCallType type);
+    Function *resolveFunctionCall(CallInst *pCallInstr, GenericAddressSpace::FuncCallType category);
 
     /// @brief  Helper for resolution of GAS pointer constant expression
     /// @brief  to the constant's named address space
@@ -176,13 +182,13 @@ namespace intel {
 
     /// @brief  Helper for retrieval of replacement value for original instruction (from the map)
     /// @param  pInstr - original instruction
-    /// @return  pointer to replacement value or NULL if no replacement is identified
+    /// @returns  pointer to replacement value or NULL if no replacement is identified
     Value *getReplacementForInstr(Instruction *pInstr);
 
     /// @brief  Helper for production of resolved value for instruction operand
     /// @param  pVal  - instruction operand
     /// @param  space - target named space
-    /// @return  pointer to resolved value or NULL if there is no resolved value available
+    /// @returns  pointer to resolved value or NULL if there is no resolved value available
     Value *getResolvedOperand(Value *pOperand, OCLAddressSpace::spaces space);
 
     /// @brief  Helper for fix-up of usages of new instruction pointer result:
@@ -201,10 +207,6 @@ namespace intel {
     bool isAllocaGASPointer(const Type *pType);
 
   };
-
-  /// @brief  Returns an instance of the GenericAddressStaticResolution pass,
-  /// @brief  which will be added to a PassManager and run on a Module.
-  llvm::ModulePass *createGenericAddressStaticResolutionPass();
 
 } // namespace intel
 

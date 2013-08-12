@@ -57,6 +57,7 @@ llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createModuleCleanupPass();
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
+llvm::ModulePass *createGenericAddressDynamicResolutionPass();
 llvm::ModulePass *createPrepareKernelArgsPass();
 
 void* destroyOpenclRuntimeSupport();
@@ -382,6 +383,14 @@ Optimizer::Optimizer( llvm::Module* pModule,
    if(pRtlModule != NULL) {
      m_modulePasses.add(createKernelInfoWrapperPass());
    }
+
+  if (isOcl20) {
+    // Resolve (dynamically) generic address space pointers which are relevant for
+    // correct execution
+    m_modulePasses.add(createGenericAddressDynamicResolutionPass());
+    // No need to run function inlining pass here, because if there are still
+    // non-inlined functions left - then we don't have to inline new ones.
+  }
 
   // Adding WG loops
   if (!pConfig->GetLibraryModule()){

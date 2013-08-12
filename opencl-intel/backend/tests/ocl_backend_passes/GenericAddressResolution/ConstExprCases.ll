@@ -54,7 +54,7 @@ entry:
 !2 = metadata !{void (i32 addrspace(1)*)* @const_select}
 
 ;; ----- ConstExprCases.cl -----
-;; Command line: clang.exe -cc1 -cl-std=CL2.0 -emit-llvm -O0 -x cl -I <clang_headers> -include opencl_.h ConstExprCases.cl -o ConstExprCasesTmp.ll
+;; Command line: clang.exe -cc1 -cl-std=CL2.0 -emit-llvm -O0 -x cl -I <clang_headers> -include opencl_.h  -D__OPENCL_C_VERSION__=200 ConstExprCases.cl -o ConstExprCasesTmp.ll
 ;;               oclopt.exe -mem2reg -verify ConstExprCasesTmp.ll -S -o ConstExprCases.ll
 
 ;;__kernel void const_bitcast(__global int* dst)

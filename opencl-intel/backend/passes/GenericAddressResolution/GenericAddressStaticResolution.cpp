@@ -20,6 +20,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 
 using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend::Passes::GenericAddressSpace;
 
 extern "C" {
   /// @brief Creates new GenericAddressStaticResolution module pass
@@ -170,16 +171,16 @@ namespace intel {
     bool toPropagate = false;
     switch (pInstr->getOpcode()) {
       // Instructions which don't generate new pointer - no propagation
-      case Instruction::Load :
-      case Instruction::Store :
+      case Instruction::Load          :
+      case Instruction::Store         :
       case Instruction::AtomicCmpXchg :
-      case Instruction::AtomicRMW :
-      case Instruction::PtrToInt :
-      case Instruction::ICmp :
-      case Instruction::Call :
+      case Instruction::AtomicRMW     :
+      case Instruction::PtrToInt      :
+      case Instruction::ICmp          :
+      case Instruction::Call          :
         break;
       // Instructions which generate new GAS pointer - propagate to uses
-      case Instruction::PHI :
+      case Instruction::PHI    :
       case Instruction::Select :
         toPropagate = true;
         break;
@@ -238,7 +239,8 @@ namespace intel {
     }
     // Filter-out call instruction, in which multiple addr spaces are allowed
     if (pInstr->getOpcode() == Instruction::Call) {
-      if (!isAddressQualifierBI(cast<CallInst>(pInstr)->getCalledFunction())) {
+      Function *pCallee = cast<CallInst>(pInstr)->getCalledFunction();
+      if (!pCallee || !isAddressQualifierBI(pCallee)) {
         return;
       }
     }
@@ -300,22 +302,22 @@ namespace intel {
       
       // 1. Prepare replacements with named addr space pointers
       switch (pInstr->getOpcode()) {
-        case Instruction::BitCast :
+        case Instruction::BitCast       :
         case Instruction::GetElementPtr :
           changed |= resolveInstructionConvert(pInstr, space);
           break;
-        case Instruction::Load :
-        case Instruction::Store :
+        case Instruction::Load          :
+        case Instruction::Store         :
         case Instruction::AtomicCmpXchg :
-        case Instruction::AtomicRMW :
-        case Instruction::PtrToInt :
+        case Instruction::AtomicRMW     :
+        case Instruction::PtrToInt      :
           changed |= resolveInstructionOnePointer(pInstr, space);
           break;
         case Instruction::PHI :
           changed |= resolveInstructionPhiNode(cast<PHINode>(pInstr), space);
           break;
         case Instruction::Select :
-        case Instruction::ICmp :
+        case Instruction::ICmp   :
           changed |= resolveInstructionTwoPointers(pInstr, space);
           break;
         case Instruction::Call :
@@ -337,17 +339,17 @@ namespace intel {
 
       // Replace uses of original instruction with those of new value
       switch (pOldInstr->getOpcode()) {
-        case Instruction::Load :
-        case Instruction::Store :
+        case Instruction::Load          :
+        case Instruction::Store         :
         case Instruction::AtomicCmpXchg :
-        case Instruction::AtomicRMW :
-        case Instruction::PtrToInt :
-        case Instruction::ICmp :
-        case Instruction::Call :
+        case Instruction::AtomicRMW     :
+        case Instruction::PtrToInt      :
+        case Instruction::ICmp          :
+        case Instruction::Call          :
           // For instruction which doesn't produce a pointer: replace uses with new value
           pOldInstr->replaceAllUsesWith(pNewVal);
           break;
-        case Instruction::BitCast : 
+        case Instruction::BitCast       : 
         case Instruction::GetElementPtr : {
           // For bitcast/GEP instruction which ORIGINALLY produced NAMED addr-space pointer: 
           // replace uses with new value
@@ -371,17 +373,13 @@ namespace intel {
       }
       // Fix-up debug info for new instruction
       if (Instruction *pNewInstr = dyn_cast<Instruction>(pNewVal)) {
-        setDebugLocBy(pNewInstr, pOldInstr);
+        assocDebugLocWith(pNewInstr, pOldInstr);
       }
       // Remove original instruction
       pOldInstr->eraseFromParent();
     }
 
     return changed;
-  }
-
-  ModulePass *createGenericAddressStaticResolutionPass() { 
-    return new GenericAddressStaticResolution(); 
   }
 
 } // namespace intel

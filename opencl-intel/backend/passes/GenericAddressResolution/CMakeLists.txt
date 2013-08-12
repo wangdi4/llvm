@@ -3,12 +3,15 @@ set(TARGET_NAME GenericAddressResolution)
 set(TARGET_INCLUDE_FILES
     GenericAddressResolution.h
     GenericAddressStaticResolution.h
+    GenericAddressDynamicResolution.h
 )
 
 set(TARGET_SOURCE_FILES
     GenericAddressResolutionUtils.cpp
     GenericAddressStaticResolution.cpp
     GenericAddressStaticResolutionCases.cpp
+    GenericAddressDynamicResolution.cpp
+    GenericAddressDynamicResolutionCases.cpp
 )
 
 include_directories(

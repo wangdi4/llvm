@@ -165,7 +165,7 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 !2 = metadata !{metadata !"-cl-std=CL2.0"}
 
 ;;  -----  BasicCases.cl   -------
-;; Command line: clang.exe -cc1 -cl-std=CL2.0 -emit-llvm -O0 -x cl -I <clang_headers> -include opencl_.h BasicCases.cl -o BasicCasesTmp.ll
+;; Command line: clang.exe -cc1 -cl-std=CL2.0 -emit-llvm -O0 -x cl -I <clang_headers> -include opencl_.h  -D__OPENCL_C_VERSION__=200 BasicCases.cl -o BasicCasesTmp.ll
 ;;               oclopt.exe -mem2reg -verify BasicCasesTmp.ll -S -o BasicCases.ll
 
 ;;void test1(int* a) {

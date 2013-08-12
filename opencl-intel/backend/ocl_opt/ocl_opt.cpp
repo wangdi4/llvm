@@ -83,6 +83,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializePrefetchPass(Registry);
     intel::initializeBIImportPass(Registry);
     intel::initializeGenericAddressStaticResolutionPass(Registry);
+    intel::initializeGenericAddressDynamicResolutionPass(Registry);
     intel::initializeSpirMaterializerPass(Registry);
     intel::initializeLinearIdResolverPass(Registry);
     intel::initializePrepareKernelArgsPass(Registry);

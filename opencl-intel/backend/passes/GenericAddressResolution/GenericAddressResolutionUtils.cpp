@@ -153,46 +153,62 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     }   // repeat until all functions are sorted
   }
 
-  void setDebugLocBy(Instruction *pNew, const Instruction *pOld) {
+  void assocDebugLocWith(Instruction *pNew, const Instruction *pOld) {
     if (!pOld->getDebugLoc().isUnknown()) {
       pNew->setDebugLoc(pOld->getDebugLoc());
     }
   }
 
+  static reflection::TypeAttributeEnum translateAddrSpaceToAttr(OCLAddressSpace::spaces space) {
+    reflection::TypeAttributeEnum attr = reflection::ATTR_NONE;
+    switch (space) {
+      case OCLAddressSpace::Private :
+        attr = reflection::ATTR_PRIVATE;
+        break;
+      case OCLAddressSpace::Global :
+        attr = reflection::ATTR_GLOBAL;
+        break;
+      case OCLAddressSpace::Local :
+        attr = reflection::ATTR_LOCAL;
+        break;
+      case OCLAddressSpace::Constant :
+        attr = reflection::ATTR_CONSTANT;
+        break;
+      case OCLAddressSpace::Generic :
+        attr = reflection::ATTR_GENERIC;
+        break;
+      default:
+        assert(0 && "Unsupported type of address space!");
+        break;
+    }
+    return attr;
+  }
+
   std::string getResolvedMangledName(std::string origMangledName,
-                                     SmallVector<OCLAddressSpace::spaces, 8> resolvedSpaces) {
-    
+                                     const SmallVector<OCLAddressSpace::spaces, 8> &resolvedSpaces,
+                                     const SmallVector<OCLAddressSpace::spaces, 8> *originalSpaces) {
+
     assert(isMangledName(origMangledName.c_str()) && "Function name is expected to be mangled!");
-    
+
     reflection::FunctionDescriptor fd = demangle(origMangledName.c_str());
     assert(resolvedSpaces.size() == fd.parameters.size() && "Mismatch between mangled name and amount of parameters");
+    assert((!originalSpaces || originalSpaces->size() == resolvedSpaces.size()) && "Invalid parameters!");
 
     for (unsigned idx = 0; idx < resolvedSpaces.size(); idx++) {
-      OCLAddressSpace::spaces space = resolvedSpaces[idx];
-      if (!IS_ADDR_SPACE_GENERIC(space)) {
+      OCLAddressSpace::spaces resolvedSpace = resolvedSpaces[idx];
+      if (!IS_ADDR_SPACE_GENERIC(resolvedSpace)) {
         // This parameter is a pointer which can be replaced with named addr-space 
         reflection::PointerType *ptrParam = 
               reflection::dyn_cast<reflection::PointerType>(fd.parameters[idx]);
         assert(ptrParam && "The parameter's mangling encoding should be of pointer type!");
         // Replace mangling encoding with its named-space version
-        reflection::TypeAttributeEnum newAttr = reflection::ATTR_GENERIC;
-        switch (space) {
-          case OCLAddressSpace::Private :
-            newAttr = reflection::ATTR_PRIVATE;
-            break;
-          case OCLAddressSpace::Global :
-            newAttr = reflection::ATTR_GLOBAL;
-            break;
-          case OCLAddressSpace::Local :
-            newAttr = reflection::ATTR_LOCAL;
-            break;
-          default:
-            assert(0 && "Unsupported resolution of generic address space!");
-            break;
-        }
-        if (!ptrParam->convertAddrSpaceAttribute(
-                              reflection::ATTR_GENERIC, newAttr)) { 
-          assert(0 && "The original parameter should be a generic address space pointer!");
+        reflection::TypeAttributeEnum newAttr = translateAddrSpaceToAttr(resolvedSpace);
+        reflection::TypeAttributeEnum origAttr = originalSpaces? 
+                                                   translateAddrSpaceToAttr(
+                                                            (*originalSpaces)[idx]) :
+                                                   reflection::ATTR_GENERIC;
+        if (!ptrParam->convertAddrSpaceAttribute(origAttr, newAttr)) {
+          assert(0 && "Addr-space mangling attribute replace failed!");
         }
       }
     }
@@ -200,7 +216,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     return mangle(fd);
   }
 
-  std::string getSpecializedFunctionName(std::string functionName, SmallVector<Type*,  8> argTypes) {
+  std::string getSpecializedFunctionName(std::string functionName, const SmallVector<Type*,  8> &argTypes) {
 
     reflection::FunctionDescriptor fdSpecialized;
     fdSpecialized.name = functionName;
@@ -218,27 +234,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                                             new reflection::PrimitiveType(
                                                   reflection::PRIMITIVE_INT));
       // Add address space attribute according to the argument's addres space
-      reflection::TypeAttributeEnum attr = reflection::ATTR_NONE;
-      switch (cast<PointerType>(argType)->getAddressSpace()) {
-        case OCLAddressSpace::Private :
-          attr = reflection::ATTR_PRIVATE;
-          break;
-        case OCLAddressSpace::Global :
-          attr = reflection::ATTR_GLOBAL;
-          break;
-        case OCLAddressSpace::Local :
-          attr = reflection::ATTR_LOCAL;
-          break;
-        case OCLAddressSpace::Constant :
-          attr = reflection::ATTR_CONSTANT;
-          break;
-        case OCLAddressSpace::Generic :
-          attr = reflection::ATTR_GENERIC;
-          break;
-        default:
-          assert(0 && "Unsupported type of address space!");
-          break;
-      }
+      reflection::TypeAttributeEnum attr = 
+                    translateAddrSpaceToAttr(
+                        (OCLAddressSpace::spaces)cast<PointerType>(argType)->getAddressSpace());
       ptrParam->addAttribute(attr);
       // Add the mangling name of the argument to the function descriptor
       reflection::RefParamType refParam(ptrParam);
@@ -248,7 +246,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     return mangle(fdSpecialized);
   }
 
-  void getIntrinsicOverload(Function *pFunc, SmallVector<Type*, 8> paramTypes, 
+  void getIntrinsicOverload(Function *pFunc, const SmallVector<Type*, 8> &argTypes, 
                                              SmallVector<Type*, 8> &overloadableArgTypes) {
     assert(pFunc->isIntrinsic() && 
            Intrinsic::isOverloaded((Intrinsic::ID)pFunc->getIntrinsicID()) &&
@@ -263,7 +261,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     // part of the overloading signature)
     for (unsigned idx = 0; idx < pFuncType->getNumParams(); idx++) {
       if (intrinsicInfo[idx+1].Kind == Intrinsic::IITDescriptor::Argument) {
-        overloadableArgTypes.push_back(paramTypes[idx]);
+        overloadableArgTypes.push_back(argTypes[idx]);
       }
     }
   }
