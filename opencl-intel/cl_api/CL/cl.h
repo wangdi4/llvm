@@ -246,8 +246,7 @@ typedef struct _cl_buffer_region {
 #define CL_DEVICE_AVAILABLE                         0x1027
 #define CL_DEVICE_COMPILER_AVAILABLE                0x1028
 #define CL_DEVICE_EXECUTION_CAPABILITIES            0x1029
-#define CL_DEVICE_QUEUE_PROPERTIES					0x102A	// deprecated, replaced by CL_DEVICE_QUEUE_ON_HOST_PROPERTIES
-#define CL_DEVICE_QUEUE_ON_HOST_PROPERTIES          0x102A
+#define CL_DEVICE_QUEUE_PROPERTIES                  0x102A
 #define CL_DEVICE_NAME                              0x102B
 #define CL_DEVICE_VENDOR                            0x102C
 #define CL_DRIVER_VERSION                           0x102D
@@ -409,7 +408,6 @@ typedef struct _cl_buffer_region {
 #define CL_MEM_CONTEXT                              0x1106
 #define CL_MEM_ASSOCIATED_MEMOBJECT                 0x1107
 #define CL_MEM_OFFSET                               0x1108
-#define CL_MEM_USES_SVM_POINTER                     0x1109
 
 /* cl_image_info */
 #define CL_IMAGE_FORMAT                             0x1110
@@ -1208,16 +1206,6 @@ clUnloadCompiler(void) CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED;
 extern CL_API_ENTRY CL_EXT_PREFIX__VERSION_1_1_DEPRECATED void * CL_API_CALL
 clGetExtensionFunctionAddress(const char * /* func_name */) CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED;
 
-//----------------------------------------------------------------------------
-//2.0 stuff PLACEHOLDER
-#define CL_sRGB										0x10BF
-#define CL_sRGBx									0x10C0
-#define CL_sRGBA									0x10C1
-#define CL_sBGRA									0x10C2
-#define CL_ABGR										0x10C3
-
-//--------------------------------------------------------------------------
-//END OF 2.0 stuff placeholder 
 #ifdef __cplusplus
 }
 #endif

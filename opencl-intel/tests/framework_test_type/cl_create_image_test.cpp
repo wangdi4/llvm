@@ -21,6 +21,7 @@
 #include <iostream>
 #include "CL/cl_platform.h"
 #include "CL/cl.h"
+#include "CL/cl_2_0.h"
 #include "test_utils.h"
 #include "TestsHelpClasses.h"
 
