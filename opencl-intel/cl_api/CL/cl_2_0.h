@@ -30,7 +30,7 @@ extern "C" {
 
 #define CL_API_SUFFIX__VERSION_2_0
 
-#define CL_DEVICE_SVM_CAPABILITIES	0x104C
+#define CL_DEVICE_SVM_CAPABILITIES                  0x10E0
 
 #define CL_COMMAND_SVM_FREE                         0x1209
 #define CL_COMMAND_SVM_MEMCPY                       0x1210
@@ -99,15 +99,14 @@ typedef int cl_svm_mem_flags;
 CL_MEM_READ_WRITE				= 1 << 0,
 CL_MEM_WRITE_ONLY				= 1 << 1,
 CL_MEM_READ_ONLY				= 1 << 2, */	
-
-#define CL_DEVICE_SVM_COARSE_GRAIN_BUFFER               (1 << 0) 
-#define	CL_MEM_SVM_FINE_GRAIN_BUFFER	                (1 << 3)
-#define CL_MEM_SVM_ATOMICS				                (1 << 4)
+#define CL_MEM_SVM_FINE_GRAIN_BUFFER                  (1 << 10) 
+#define CL_MEM_SVM_ATOMICS                            (1 << 11)
 
 typedef int cl_device_svm_capabilities;
-#define CL_DEVICE_SVM_FINE_GRAIN_BUFFER	(1 << 0)
-#define CL_DEVICE_SVM_FINE_GRAIN_SYSTEM	(1 << 1)
-#define CL_DEVICE_SVM_ATOMICS			(1 << 2)
+#define CL_DEVICE_SVM_COARSE_GRAIN_BUFFER               (1 << 0) 
+#define CL_DEVICE_SVM_FINE_GRAIN_BUFFER	                (1 << 1)
+#define CL_DEVICE_SVM_FINE_GRAIN_SYSTEM	                (1 << 2)
+#define CL_DEVICE_SVM_ATOMICS			                (1 << 3)
 
 typedef int cl_kernel_exec_info;
 #define CL_KERNEL_EXEC_INFO_SVM_PTRS                  0x10E1 
