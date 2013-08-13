@@ -26,6 +26,8 @@ File Name:  Binary.h
 #include "IAbstractBackendFactory.h"
 #include "TargetArch.h"
 #include "ExecutionContext.h"
+#include "ExtendedExecutionContext.h"
+#include "BlockLiteral.h"
 
 #include <vector>
 
@@ -46,6 +48,8 @@ class Binary: public ICLDevBackendBinary_
 public:
     Binary( IAbstractBackendFactory* pBackendFactory, 
             ICLDevBackendBufferPrinter* pPrinter,
+            IDeviceCommandManager* pDeviceCommandManager,
+            const IBlockToKernelMapper *pBlockToKernelMapper,
             const KernelProperties* pKernelProperties,
             const std::vector<cl_kernel_argument>& args,
             const cl_work_description_type* pWorkInfo,
@@ -53,6 +57,8 @@ public:
             const IKernelJITContainer* pVectorJIT,
             char* IN pArgsBuffer, 
             size_t IN ArgBuffSize);
+    
+    virtual ~Binary();
 
     // Returns the required number of memory buffers and their sizes 
     //  pBuffersSizes - an array of sizes of buffers
@@ -95,6 +101,10 @@ public:
     unsigned int GetPointerSize() const    { return m_uiSizeT; }
 
     ICLDevBackendBufferPrinter* GetDevicePrinter() const { return m_pPrinter;}
+    // get extended execution context
+    const ExtendedExecutionContext * GetExtendedExecutionContext() const { 
+        return &m_ExtendedExecutionContext;
+    }
     
 protected:
     // pointer to the Backend Factory, not owned by this class
@@ -110,6 +120,8 @@ private:
 
     // for printer service - not owned by this class
     ICLDevBackendBufferPrinter* m_pPrinter;
+    // ocl20.Extended execution context - owned by this class
+    ExtendedExecutionContext  m_ExtendedExecutionContext;
 
     size_t                  m_stFormalParamSize;
     size_t                  m_stKernelParamSize;
@@ -128,6 +140,8 @@ private:
     unsigned int            m_uiVectorWidth;
     const void*             m_pUsedEntryPoint;
     unsigned int            m_uiSizeT;
+    // pointer to BlockLiteral. Objects own it. Have to free mem
+    BlockLiteral *          m_pBlockLiteral;
 };
 
 

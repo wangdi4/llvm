@@ -23,7 +23,6 @@ set(OCL_BE_PASSES
     LinearIdResolver
     LLVMBarrier
     LLVMVectorizer
-    ModuleCleanup
     Materialize 
     PrepareKernelArgs
     AddImplicitArgs
@@ -31,6 +30,9 @@ set(OCL_BE_PASSES
     BackendPassesWrappers
     LocalBuffers
     LocalBuffAnalysis
+    DetectFunctionPtrCalls
+    ResolveWICall
+    CloneBlockInvokeFuncToKernel
 )
 
 # Dependencies of the passes

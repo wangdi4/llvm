@@ -28,7 +28,8 @@ entry:
 ; CHECK:            <{ [4 x i32] }>* [[P_LOCAL_IDS:%[a-zA-Z0-9]+]], 
 ; CHECK:            i32 [[ITER_COUNT:%[a-zA-Z0-9]+]], 
 ; CHECK:            i8* [[P_SPECIAL_BUFFER:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* [[P_CURRECT_WI:%[a-zA-Z0-9]+]]) {
+; CHECK:            i32* [[P_CURRECT_WI:%[a-zA-Z0-9]+]], 
+; CHECK:            %struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   call void @functionWithoutArgs()
 ; CHECK-NEXT:   %res = call i32 @functionWithArgs(i32 %x, i32 %y)

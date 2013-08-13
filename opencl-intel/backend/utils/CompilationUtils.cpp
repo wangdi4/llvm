@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "CompilationUtils.h"
+#include "ImplicitArgsUtils.h"
 #include "NameMangleAPI.h"
 #include "MetaDataApi.h"
 #include "ParameterType.h"
@@ -25,10 +26,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Target/TargetData.h"
 #endif
 #include "llvm/ADT/SetVector.h"
+#include "BlockUtils.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-  const unsigned int CompilationUtils::NUMBER_IMPLICIT_ARGS = 9;
   const unsigned int CompilationUtils::LOCL_VALUE_ADDRESS_SPACE = 3;
 
   const std::string CompilationUtils::NAME_GET_ORIG_GID = "get_global_id";
@@ -59,6 +60,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_MEM_FENCE = "mem_fence";
   const std::string CompilationUtils::NAME_READ_MEM_FENCE = "read_mem_fence";
   const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
+  const std::string CompilationUtils::NAME_GET_DEFAULT_QUEUE = "get_default_queue";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_BASIC = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE";
+  const std::string CompilationUtils::NAME_NDRANGE_1D = "ndrange_1D";
+  const std::string CompilationUtils::NAME_NDRANGE_2D = "ndrange_2D";
+  const std::string CompilationUtils::NAME_NDRANGE_3D = "ndrange_3D";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvvE";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_ENQUEUE_MARKER = "enqueue_marker";
 
   const std::string CompilationUtils::BARRIER_FUNC_NAME = "barrier";
   //Images
@@ -97,17 +107,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   void CompilationUtils::getImplicitArgs(Function *pFunc,
     Argument **ppLocalMem, Argument **ppWorkDim, Argument **ppWGId,
     Argument **ppBaseGlbId, Argument **ppLocalId, Argument **ppIterCount,
-    Argument **ppSpecialBuf, Argument **ppCurrWI, Argument **ppCtx) {
+    Argument **ppSpecialBuf, Argument **ppCurrWI, Argument **ppCtx,
+    Argument **ppExtExecCtx) {
 
       assert( pFunc && "Function cannot be null" );
-      assert( pFunc->getArgumentList().size() >= NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
+      assert( pFunc->getArgumentList().size() >= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
 
       // Iterating over explicit arguments
       Function::arg_iterator DestI = pFunc->arg_begin();
 
       // Go over the explicit arguments
       for ( unsigned int  i = 0;
-        i < pFunc->getArgumentList().size() - NUMBER_IMPLICIT_ARGS; ++i ) {
+        i < pFunc->getArgumentList().size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i ) {
           ++DestI;
       }
 
@@ -156,6 +167,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       if ( NULL != ppCurrWI ) {
           *ppCurrWI = DestI;
       }
+      ++DestI;
+
+      if ( NULL != ppExtExecCtx ) {
+          *ppExtExecCtx = DestI;
+      }
+
   }
 
   void CompilationUtils::getAllKernels(FunctionSet &functionSet, Module *pModule) {
@@ -280,10 +297,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
     }
 #endif
-    size_t argsCount = pFunc->getArgumentList().size() - NUMBER_IMPLICIT_ARGS;
+    size_t argsCount = pFunc->getArgumentList().size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
 
     unsigned int localMemCount = 0;
-
+    const bool isBlockInvokeKernel = BlockUtils::IsBlockInvocationKernel(*pFunc);
     llvm::Function::arg_iterator arg_it = pFunc->arg_begin();
     for (unsigned i=0; i<argsCount; ++i)
     {
@@ -313,6 +330,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           }
       case llvm::Type::PointerTyID:
         {
+          // check kernel is block_invoke kernel
+          // in that case 0 argument is block_literal pointer
+          // update with special type
+          // should be before handling ptrs by addr space 
+          if((i == 0) && isBlockInvokeKernel){
+            curArg.type = CL_KRNL_ARG_PTR_BLOCK_LITERAL;
+            break;
+          }
+
           llvm::PointerType *PTy = llvm::cast<llvm::PointerType>(arg_it->getType());
           if ( pArg->hasByValAttr() && PTy->getElementType()->getTypeID() == llvm::Type::VectorTyID )
           {
@@ -462,20 +488,32 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   CompilationUtils::clVersion CompilationUtils::getCLVersionFromModule(const Module &M) {
+    /*  
+      Example of metadata with CL version:
+      !opencl.build.options = !{!0}
+      !0 = metadata !{metadata !"-cl-std=CL2.0"}
+    */
     NamedMDNode* metadata = M.getNamedMetadata("opencl.build.options");
-    if(metadata)
+    if(metadata){
       for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k) {
-        llvm::MDNode *elt = metadata->getOperand(k);
-        if (elt->getOperand(0)->getName().str().compare("-cl-std=CL1.0") == 0)
-            return CL_VER_1_0;
-        else if (elt->getOperand(0)->getName().str().compare("-cl-std=CL1.1") == 0)
-            return CL_VER_1_1;
-        else if (elt->getOperand(0)->getName().str().compare("-cl-std=CL1.2") == 0)
-            return CL_VER_1_2;
-        else if (elt->getOperand(0)->getName().str().compare("-cl-std=CL2.0") == 0)
-            return CL_VER_2_0;
+        llvm::MDNode* pNode = metadata->getOperand(k);
+        if(pNode->getNumOperands() < 1)
+          continue;
+        Value * pSubNode = pNode->getOperand(0);
+        if (!isa<MDString>(pSubNode))
+          continue;
+        StringRef s = cast<MDString>(pSubNode)->getString();
+        if (s.equals("-cl-std=CL1.0"))
+          return CL_VER_1_0;
+        else if (s.equals("-cl-std=CL1.1"))
+          return CL_VER_1_1;
+        else if (s.equals("-cl-std=CL1.2"))
+          return CL_VER_1_2;
+        else if (s.equals("-cl-std=CL2.0"))
+          return CL_VER_2_0;
       }
-      return CL_VER_NOT_DETECTED;
+    }
+    return CL_VER_NOT_DETECTED;
   }
 
 template <reflection::TypePrimitiveEnum Ty>
@@ -600,6 +638,42 @@ bool CompilationUtils::isPrefetch(const std::string& S){
 
 bool CompilationUtils::isAsyncWorkGroupStridedCopy(const std::string& S){
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
+}
+
+bool CompilationUtils::isNDRange_1D(const std::string& S){
+  return isMangleOf(S, NAME_NDRANGE_1D);
+}
+
+bool CompilationUtils::isNDRange_2D(const std::string& S){
+  return isMangleOf(S, NAME_NDRANGE_2D);
+}
+
+bool CompilationUtils::isNDRange_3D(const std::string& S){
+  return isMangleOf(S, NAME_NDRANGE_3D);
+}
+
+bool CompilationUtils::isEnqueueMarker(const std::string& S){
+  return isMangleOf(S, NAME_ENQUEUE_MARKER);
+}
+
+bool CompilationUtils::isGetDefaultQueue(const std::string& S){
+  return isMangleOf(S, NAME_GET_DEFAULT_QUEUE);
+}
+
+bool CompilationUtils::isEnqueueKernelBasic(const std::string& S){
+  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_BASIC);
+}
+
+bool CompilationUtils::isEnqueueKernelLocalMem(const std::string& S){
+  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM);
+}
+
+bool CompilationUtils::isEnqueueKernelEvents(const std::string& S){
+  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS);
+}
+
+bool CompilationUtils::isEnqueueKernelEventsLocalMem(const std::string& S){
+  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM);
 }
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

@@ -9,6 +9,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "VecConfig.h"
 #include "CPUDetect.h"
 #include "debuggingservicetype.h"
+#include "CompilationUtils.h"
+#include "MetaDataApi.h"
+
 #ifndef __APPLE__
 #include "PrintIRPass.h"
 #include "mic_dev_limits.h"
@@ -73,13 +76,16 @@ llvm::ModulePass * createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
 #endif
+llvm::ModulePass *createResolveWICallPass();
+llvm::ModulePass *createDetectFuncPtrCalls();
+llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 #ifndef __APPLE__
 llvm::ModulePass* createProfilingInfoPass();
 #endif //#ifndef __APPLE__
-llvm::ModulePass *createResolveWICallPass();
+
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
                                                        const std::vector<llvm::Module*>& runtimeModules );
 
@@ -195,7 +201,8 @@ Optimizer::~Optimizer()
 Optimizer::Optimizer( llvm::Module* pModule,
                       llvm::Module* pRtlModule,
                       const intel::OptimizerConfig* pConfig):
-    m_funcPasses(pModule),
+
+    m_funcStandardLLVMPasses(pModule),
     m_pModule(pModule)
 {
   using namespace intel;
@@ -215,7 +222,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
 
   if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
-    m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
+    m_moduleStandardLLVMPasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
   }
 
@@ -232,55 +239,46 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
 // Adding function passes.
 #if LLVM_VERSION == 3200
-  m_funcPasses.add(new llvm::DataLayout(pModule));
+  m_funcStandardLLVMPasses.add(new llvm::DataLayout(pModule));
 #else
-  m_funcPasses.add(new llvm::TargetData(pModule));
+  m_funcStandardLLVMPasses.add(new llvm::TargetData(pModule));
 #endif
-  createStandardVolcanoFunctionPasses(&m_funcPasses, uiOptLevel);
+  createStandardVolcanoFunctionPasses(&m_funcStandardLLVMPasses, uiOptLevel);
 
 // Adding module passes.
 // Add an appropriate DataLayout instance for this module...
 #if LLVM_VERSION == 3200
-  m_modulePasses.add(new llvm::DataLayout(pModule));
+  m_moduleStandardLLVMPasses.add(new llvm::DataLayout(pModule));
 #else
-  m_modulePasses.add(new llvm::TargetData(pModule));
+  m_moduleStandardLLVMPasses.add(new llvm::TargetData(pModule));
 #endif
 #ifdef __APPLE__
-  m_modulePasses.add(createClangCompatFixerPass());
+  m_moduleStandardLLVMPasses.add(createClangCompatFixerPass());
 #endif
   // For OCL2.0 compilation mode - add Generic Address Static Resolution pass
-  bool isOcl20 = false;
-  if (llvm::NamedMDNode *pOclCompilerOptions = pModule->getNamedMetadata("opencl.compiler.options")) {
-    assert(pOclCompilerOptions && "Metadata 'opencl.compiler.options' is mandatory!");
-    llvm::MDNode *node = pOclCompilerOptions->getOperand(0);
-    assert(node && "Metadata 'opencl.compiler.options' is corrupted!");
-    for(int mIdx = 0, mEnd = node->getNumOperands(); mIdx < mEnd; mIdx++) {
-      llvm::MDString *pMetadata = llvm::dyn_cast<llvm::MDString>(node->getOperand(mIdx));
-      if (pMetadata && pMetadata->getString() == "-cl-std=CL2.0") {
-        isOcl20 = true;
-      }
-    }
-  }
+  const bool isOcl20 =
+    (CompilationUtils::getCLVersionFromModule(*pModule) == CompilationUtils::CL_VER_2_0);
+   
   if (isOcl20) {
     // Static resolution of generic address space pointers
     if (uiOptLevel > 0) {
-      m_modulePasses.add(llvm::createPromoteMemoryToRegisterPass());
+      m_moduleStandardLLVMPasses.add(llvm::createPromoteMemoryToRegisterPass());
     }
-    m_modulePasses.add(createGenericAddressStaticResolutionPass());
+    m_moduleStandardLLVMPasses.add(createGenericAddressStaticResolutionPass());
     // Flatten get_{local, global}_linear_id()
-    m_funcPasses.add(createLinearIdResolverPass());
+    m_funcStandardLLVMPasses.add(createLinearIdResolverPass());
   }
-  m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
+  m_moduleStandardLLVMPasses.add(llvm::createBasicAliasAnalysisPass());
 #ifndef __APPLE__
   if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
-    m_modulePasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
+    m_moduleStandardLLVMPasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
                OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
   }
   if (!pConfig->GetLibraryModule() && getenv("DISMPF") != NULL)
-    m_modulePasses.add(createRemovePrefetchPass());
+    m_moduleStandardLLVMPasses.add(createRemovePrefetchPass());
 #endif //#ifndef __APPLE__
 
-  m_modulePasses.add(createShuffleCallToInstPass());
+  m_moduleStandardLLVMPasses.add(createShuffleCallToInstPass());
 
   bool has_bar = false;
   if (!pConfig->GetLibraryModule())
@@ -294,7 +292,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   // When running the standard optimization passes, do not change the loop-unswitch
   // pass on modules which contain barriers. This pass is illegal for barriers.
   createStandardVolcanoModulePasses(
-      &m_modulePasses,
+      &m_moduleStandardLLVMPasses,
       uiOptLevel,
       has_bar, // This parameter controls the unswitch pass
       UnitAtATime,
@@ -312,8 +310,30 @@ Optimizer::Optimizer( llvm::Module* pModule,
   }
 
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());
+  m_moduleStandardLLVMPasses.add(llvm::createUnifyFunctionExitNodesPass());
+  
+  // check function pointers calls are gone after standard optimizations
+  // if not fail compilation
+  m_DetectFunctionPtrCallsPass = createDetectFuncPtrCalls();
+  m_moduleStandardLLVMPasses.add(m_DetectFunctionPtrCallsPass);
 
-  // Should be called before vectorizer!
+  // add DataLayout analysis to m_modulePasses
+  // we need to add it once again since standardVolcanoModulePasses
+  // has its own datalayout and basic analysis
+  // !!! Volcano m_modulePasses should have its own datalayout analysis pass
+  // since some LLVM optimizations in m_modulePasses (instcombine) are using their info
+#if LLVM_VERSION == 3200
+  m_modulePasses.add(new llvm::DataLayout(pModule));
+#else
+  m_modulePasses.add(new llvm::TargetData(pModule));
+#endif
+  m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
+
+  // OCL2.0 Extexecution.
+  // clone block_invoke functions to kernels
+  m_modulePasses.add(createCloneBlockInvokeFuncToKernelPass());
+  
+    // Should be called before vectorizer!
   m_modulePasses.add((llvm::Pass*)createInstToFuncCallPass(pConfig->GetCpuId().HasGatherScatter()));
 
   if ( debugType == None && !pConfig->GetLibraryModule() ) {
@@ -531,8 +551,19 @@ void Optimizer::Optimize()
     materializer->runOnModule(*m_pModule);
 #endif
     for (llvm::Module::iterator i = m_pModule->begin(), e = m_pModule->end(); i != e; ++i) {
-        m_funcPasses.run(*i);
+        m_funcStandardLLVMPasses.run(*i);
     }
+    m_moduleStandardLLVMPasses.run(*m_pModule);
+    
+    // if there are still unresolved functon pointer calls
+    // after standard LLVM optimizations applied
+    // it means blocks variable call cannot be resolved to static call
+    // Interrupt optimizations and return.
+    // Compilation will report failure
+    if(hasFunctionPtrCalls()){
+      return;
+    }
+
     m_modulePasses.run(*m_pModule);
 }
 
@@ -557,6 +588,34 @@ bool Optimizer::hasUndefinedExternals() const
 const std::vector<std::string>& Optimizer::GetUndefinedExternals() const
 {
     return m_undefinedExternalFunctions;
+}
+
+bool Optimizer::hasFunctionPtrCalls()
+{
+  return !GetFunctionPtrCallNames().empty();
+}
+
+std::vector<std::string> Optimizer::GetFunctionPtrCallNames()
+{
+    assert(m_pModule && "Module is NULL");
+    std::vector<std::string> res;
+    MetaDataUtils mdUtils(m_pModule);
+  
+    // check FunctionInfo exists
+    if(mdUtils.empty_FunctionsInfo())
+        return std::vector<std::string>();
+
+    MetaDataUtils::FunctionsInfoMap::iterator i = mdUtils.begin_FunctionsInfo();
+    MetaDataUtils::FunctionsInfoMap::iterator e = mdUtils.end_FunctionsInfo();
+    for(; i != e; ++i )
+    {
+        llvm::Function * pFunc = i->first;
+        Intel::FunctionInfoMetaDataHandle kimd = i->second;
+        if(kimd->isFuncPtrCallHasValue() && kimd->getFuncPtrCall() == true)
+            res.push_back(pFunc->getName());
+    }
+
+    return res;
 }
 
 }}}

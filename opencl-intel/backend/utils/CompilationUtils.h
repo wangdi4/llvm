@@ -54,10 +54,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param  ppIterCount  The IterCount argument, NULL if this argument shouldn't be retrieved
     /// @param  ppCurrWI     The CurrWI argument, NULL if this argument shouldn't be retrieved
     /// @param  ppCtx        The pCtx argument, NULL if this argument shouldn't be retrieved
+    /// @param  ppExtExecCtx The ExtendedExecutionContext argument, NULL if this argument shouldn't be retrieved
     static void getImplicitArgs(Function *pFunc,
       Argument **ppLocalMem, Argument **ppWorkDim, Argument **ppWGId,
       Argument **ppBaseGlbId, Argument **ppLocalId, Argument **ppIterCount,
-      Argument **ppSpecialBuf, Argument **ppCurrWI, Argument **ppCtx);
+      Argument **ppSpecialBuf, Argument **ppCurrWI, Argument **ppCtx,
+      Argument **ppExtExecCtx);
                     
     /// @brief collect all kernel functions
     /// @param functionSet container to insert all kernel function into
@@ -106,6 +108,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isMemFence(const std::string&);
     static bool isReadMemFence(const std::string&);
     static bool isWriteMemFence(const std::string&);
+    static bool isNDRange_1D(const std::string&);
+    static bool isNDRange_2D(const std::string&);
+    static bool isNDRange_3D(const std::string&);
+    static bool isEnqueueKernelBasic(const std::string&);
+    static bool isEnqueueKernelLocalMem(const std::string&);
+    static bool isEnqueueKernelEvents(const std::string&);
+    static bool isEnqueueKernelEventsLocalMem(const std::string&);
+    static bool isEnqueueMarker(const std::string&);
+    static bool isGetDefaultQueue(const std::string&);
 
     static const std::string NAME_GET_ORIG_GID;
     static const std::string NAME_GET_ORIG_LID;
@@ -190,9 +201,44 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         CL_VER_2_0,
         CL_VER_NOT_DETECTED
     };
+    static const std::string NAME_GET_DEFAULT_QUEUE;
+    
+    /// Basic Enqueue kernel
+    /// int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,
+    ///                     const ndrange_t ndrange,void (^block)(void))
+    static const std::string NAME_ENQUEUE_KERNEL_BASIC;
+    /// ndrange_t ndrange_1D (). matches function with 1, 2, 3 arguments
+    static const std::string NAME_NDRANGE_1D;
+    /// ndrange_t ndrange_2D (). matches function with 1, 2, 3 arguments
+    static const std::string NAME_NDRANGE_2D;
+    /// ndrange_t ndrange_3D (). matches function with 1, 2, 3 arguments
+    static const std::string NAME_NDRANGE_3D;
+    /// Enqueue kernel with local memory
+    /// int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags, 
+    ///     const ndrange_t ndrange, 
+    ///     void (^block)(local void *, ?), uint size0, ?)
+    static const std::string NAME_ENQUEUE_KERNEL_LOCALMEM;
+    /// Enqueue kernel with events
+    /// int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,
+    ///    const ndrange_t ndrange,uint num_events_in_wait_list, 
+    ///    const clk_event_t *event_wait_list,clk_event_t *event_ret,void (^block)(void))
+    static const std::string NAME_ENQUEUE_KERNEL_EVENTS;
+    /// Enqueue kernel with events and local memory
+    /// int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags, 
+    ///    const ndrange_t ndrange, uint num_events_in_wait_list, 
+    ///    const clk_event_t *event_wait_list, clk_event_t *event_ret, 
+    ///    void (^block)(local void *, ?), uint size0, ?)
+    static const std::string NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
+
+    /// int enqueue_marker (
+    ///     queue_t queue,
+    ///     uint num_events_in_wait_list,
+    ///     const clk_event_t *event_wait_list,
+    ///     clk_event_t *event_ret)
+    static const std::string NAME_ENQUEUE_MARKER;
 
     static clVersion getCLVersionFromModule(const Module &M);
-
+    
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

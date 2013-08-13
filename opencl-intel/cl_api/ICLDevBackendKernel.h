@@ -87,7 +87,13 @@ public:
      * @returns the required minimum group size factorial
      *  1 when no minimum is required
      */
-	virtual unsigned int GetMinGroupSizeFactorial() const = 0;
+    virtual unsigned int GetMinGroupSizeFactorial() const = 0;
+    /**
+     * @returns true if the specified kernel is clang's block 
+     *  false otherwise
+     */
+    virtual bool IsBlock() const = 0;
+
 };
 
 /**

@@ -16,6 +16,7 @@ File Name:  ProgramBuilder.cpp
 
 \*****************************************************************************/
 #define NOMINMAX
+#define DEBUG_TYPE "ProgramBuilder"
 
 #include <vector>
 #include <string>
@@ -35,10 +36,12 @@ File Name:  ProgramBuilder.cpp
 #include "plugin_manager.h"
 #include "MetaDataApi.h"
 #include "BitCodeContainer.h"
+#include "BlockUtils.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -73,6 +76,15 @@ llvm::MemoryBuffer* GetProgramMemoryBuffer(Program* pProgram)
 {
     const BitCodeContainer* pCodeContainer = static_cast<const BitCodeContainer*>(pProgram->GetProgramCodeContainer());
     return (llvm::MemoryBuffer*)pCodeContainer->GetMemoryBuffer();
+}
+
+/// @brief helper funtion to set RuntimeService in Kernel objects from KernelSet
+void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelSet * pKernels )
+{
+  for(unsigned cnt = 0; cnt < pKernels->GetCount(); ++cnt){
+    Kernel * pK = pKernels->GetKernel(cnt);
+    pK->SetRuntimeService(rs);
+  }
 }
 
 } //namespace Utils
@@ -110,6 +122,12 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         pProgram->SetExecutionEngine(pCompiler->GetExecutionEngine());
         pProgram->SetBuiltinModule(pCompiler->GetRtlModule());
 
+        // init refcounted runtime service shared storage between program and kernels
+	      RuntimeServiceSharedPtr lRuntimeService =
+                          RuntimeServiceSharedPtr(new RuntimeServiceImpl);
+        // set runtime service for the program
+        pProgram->SetRuntimeService(lRuntimeService);
+
         PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
 
         if (!(pOptions && pOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
@@ -118,10 +136,16 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
             KernelSet* pKernels = CreateKernels( pProgram,
                                                  spModule.get(),
                                                  buildResult);
+            // update kernels with RuntimeService
+            Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pKernels );
 
-            pProgram->SetKernelSet( pKernels);
+            pProgram->SetKernelSet( pKernels );
         }
-        pProgram->SetModule( spModule.release());
+        
+        // call post build method
+        PostBuildProgramStep( pProgram, spModule.get(), pOptions );
+        pProgram->SetModule( spModule.release() );
+
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {
@@ -257,6 +281,9 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     pProps->SetJitCreateWIids(bJitCreateWIids);
 
     pProps->SetPrivateMemorySize(privateMemorySize);
+
+    // set isBlock property
+    pProps->SetIsBlock(BlockUtils::IsBlockInvocationKernel(*func));
 
     return pProps;
 }

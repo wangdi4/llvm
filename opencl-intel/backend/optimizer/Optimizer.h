@@ -48,12 +48,22 @@ public:
 
     const std::vector<std::string>& GetUndefinedExternals() const;
 
+    /// @brief function pointer calls were detected after standard LLVM optimizations
+    /// @return true if function pointer calls were detected
+    bool hasFunctionPtrCalls();
+
+    /// @brief obtain functions names with function pointer calls detected
+    /// @return reference to std::vector with function names
+    std::vector<std::string> GetFunctionPtrCallNames();
+
 private:
     
     // hold the collection of passes
     llvm::PassManager m_modulePasses;
-    llvm::FunctionPassManager m_funcPasses;
+    llvm::PassManager m_moduleStandardLLVMPasses;
+    llvm::FunctionPassManager m_funcStandardLLVMPasses;
     llvm::Module* m_pModule;
+    llvm::Pass* m_DetectFunctionPtrCallsPass;
 
     std::vector<std::string> m_undefinedExternalFunctions;
 };

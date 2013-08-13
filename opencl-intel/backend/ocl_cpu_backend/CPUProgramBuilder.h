@@ -74,6 +74,18 @@ protected:
 
     void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const;
 
+    /// @brief inherited method. create mapper from block to Kernel
+    /// @param pProgram
+    /// @param llvm module
+    /// @return IBlockToKernelMapper object
+    virtual IBlockToKernelMapper * CreateBlockToKernelMapper(Program* pProgram, 
+      const llvm::Module* pModule) const;
+
+    /// @brief Post build step. Used for creating IBlockToKernelMapper object on CPU
+    virtual void PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
+      const ICLDevBackendOptions* pOptions) const ;
+
+
 private:
 
     Kernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const;

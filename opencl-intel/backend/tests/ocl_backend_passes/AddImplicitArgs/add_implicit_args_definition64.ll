@@ -28,7 +28,8 @@ entry:
 ; CHECK:            <{ [4 x i64] }>* [[P_LOCAL_IDS:%[a-zA-Z0-9]+]], 
 ; CHECK:            i64 [[ITER_COUNT:%[a-zA-Z0-9]+]], 
 ; CHECK:            i8* [[P_SPECIAL_BUFFER:%[a-zA-Z0-9]+]], 
-; CHECK:            i64* [[P_CURRECT_WI:%[a-zA-Z0-9]+]]) nounwind {
+; CHECK:            i64* [[P_CURRECT_WI:%[a-zA-Z0-9]+]],
+; CHECK:            %struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) nounwind {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   %x = add i32 100, 10
 ; CHECK-NEXT:   ret void
@@ -41,7 +42,8 @@ entry:
 ; CHECK:            <{ [4 x i64] }>* [[P_LOCAL_IDS]], 
 ; CHECK:            i64 [[ITER_COUNT]], 
 ; CHECK:            i8* [[P_SPECIAL_BUFFER]], 
-; CHECK:            i64* [[P_CURRECT_WI]]) nounwind {
+; CHECK:            i64* [[P_CURRECT_WI]],
+; CHECK:            %struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER]]) nounwind {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   %temp = add i32 %x, 10
 ; CHECK-NEXT:   %res = mul i32 %temp, %y

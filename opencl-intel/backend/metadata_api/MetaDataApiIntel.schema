@@ -35,6 +35,11 @@
                             "name":     "KernelsInfo",
                             "key":      "opencl.kernel_info",
                             "metatype": "KernelsInfo"
+                        },
+                        {
+                            "name":     "FunctionsInfo",
+                            "key":      "llvm.functions_info",
+                            "metatype": "FunctionsInfo"
                         }
                     ]
                 },
@@ -301,5 +306,25 @@
     "argitem": {
                     "is_container":     false,
                     "type":             "std::string"
-                }
+                },
+    "FunctionsInfo" : {
+                    "is_container":     true,
+                    "container_type":   "map",
+                    "key_type":         "function",
+                    "item_type":        "FunctionInfo"
+              },
+    "FunctionInfo": {
+                    "is_container":     true,
+                    "type":             "std::string",
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "named",
+                            "key":      "func_ptr_call",
+                            "name":     "FuncPtrCall",
+                            "metatype": "bool_item",
+                            "optional": true
+                        }
+                    ]
+                }    
 }

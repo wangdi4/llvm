@@ -234,5 +234,12 @@ void MICProgramBuilder::CopyJitHolder(const LLVMModuleJITHolder* from, ModuleJIT
     }
 }
 
+IBlockToKernelMapper * MICProgramBuilder::CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const
+{
+  assert(0 && "CreateBlockToKernelMapper not implemented");
+  abort();
+  return NULL;
+}
+
 }}} // namespace
 

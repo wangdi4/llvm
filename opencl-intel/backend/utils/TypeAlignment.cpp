@@ -58,6 +58,7 @@ size_t TypeAlignment::getSize(const cl_kernel_argument& arg) {
   case CL_KRNL_ARG_PTR_IMG_3D:
   case CL_KRNL_ARG_PTR_IMG_2D_ARR:
   case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
+  case CL_KRNL_ARG_PTR_BLOCK_LITERAL:
     return arg.size_in_bytes;
   
   default:

@@ -69,6 +69,15 @@ protected:
                              ProgramBuildResult& buildResult) const;
 
     void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const;
+    
+    /// @brief create mapper from block to Kernel
+    virtual IBlockToKernelMapper * CreateBlockToKernelMapper(Program* pProgram,
+      const llvm::Module* pModule) const;
+
+    /// @brief Post build step. Used for creating IBlockToKernelMapper object on CPU
+    /// For MIC currently it does nothing
+    virtual void PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
+      const ICLDevBackendOptions* pOptions) const {};
 
 private:
 

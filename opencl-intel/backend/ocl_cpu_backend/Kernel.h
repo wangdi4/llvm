@@ -25,7 +25,7 @@ File Name:  Kernel.h
 #include <map>
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
-
+#include "RuntimeService.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -147,6 +147,20 @@ public:
      */ 
     void CreateWorkDescription( const cl_work_description_type* pInputWorkSizes, 
                                 cl_work_description_type&       outputWorkSizes) const;
+    /**
+     * get RuntimeService
+     */ 
+    RuntimeServiceSharedPtr GetRuntimeService() const{
+      return m_RuntimeService;
+    }
+
+    /**
+     * set RuntimeService
+     */ 
+    void SetRuntimeService(const RuntimeServiceSharedPtr& rs ){
+      assert(rs.get() && "RuntimeService is non-initialized");
+      m_RuntimeService = rs;
+    }
 
 protected:
 
@@ -154,6 +168,8 @@ protected:
     std::vector<cl_kernel_argument> m_args;
     KernelProperties* m_pProps;
     std::vector<IKernelJITContainer*> m_JITs;
+    // RuntimeService. Refcounted
+    RuntimeServiceSharedPtr m_RuntimeService;
 
 private:
     // Disable copy ctor and assignment operator

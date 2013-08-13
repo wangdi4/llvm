@@ -37,7 +37,8 @@ enum cl_kernel_arg_type
     CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH, //!< Argument is a pointer to a 2D image depth array
     CL_KRNL_ARG_PTR_IMG_1D,           //!< Argument is a pointer to 1D image
     CL_KRNL_ARG_PTR_IMG_1D_ARR,       //!< Argument is a pointer to 1D image array
-    CL_KRNL_ARG_PTR_IMG_1D_BUF        //!< Argument is a pointer to 1D image buffer
+    CL_KRNL_ARG_PTR_IMG_1D_BUF,       //!< Argument is a pointer to 1D image buffer
+    CL_KRNL_ARG_PTR_BLOCK_LITERAL     //!< Argument is a pointer to Block Literal structure
 };
 
 /*! \struct cl_kernel_argument

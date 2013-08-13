@@ -83,7 +83,21 @@ protected:
     KernelProperties* CreateKernelProperties(const Program* pProgram, 
                                              Function *func, 
                                              const ProgramBuildResult& buildResult) const;
+   
+    /// @brief abstract factory method to create mapper from block to Kernel.
+    /// Can be implemented differently for CPU and MIC. 
+    /// MIC will probably call this inside deserialization step
+    /// CPU calls it inside PostOptimizationProcessing step
+    /// When Block static resolution pass is ready we can implement is std::vector storage
+    /// this will increase mapping performance in comparison to std::map
+    /// @param pProgram
+    /// @param pModule LLVM module
+    /// @return IBlockToKernelMapper object
+    virtual IBlockToKernelMapper * CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const = 0;
 
+    /// @brief Post build step. Called inside BuildProgram() before exit
+    virtual void PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
+      const ICLDevBackendOptions* pOptions) const = 0;
 
 protected:
 

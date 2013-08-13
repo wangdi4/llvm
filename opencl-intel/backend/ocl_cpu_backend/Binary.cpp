@@ -26,6 +26,7 @@ File Name:  Binary.cpp
 #include "ExplicitLocalMemArgument.h"
 #include "ExplicitGlobalMemArgument.h"
 
+#include "ExplicitBlockLiteralArgument.h"
 #include <assert.h>
 #include <string.h>
 #include <memory>
@@ -53,6 +54,8 @@ size_t align_to<size_t>(size_t addr, size_t alignment)
 
 Binary::Binary(IAbstractBackendFactory* pBackendFactory, 
                ICLDevBackendBufferPrinter* pPrinter,
+               IDeviceCommandManager* pDeviceCommandManager,
+               const IBlockToKernelMapper *pBlockToKernelMapper,
                const KernelProperties* pKernelProperties,
                const std::vector<cl_kernel_argument>& args,
                const cl_work_description_type* pWorkInfo,
@@ -62,6 +65,7 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
                size_t IN ArgBuffSize):
      m_pBackendFactory(pBackendFactory),
      m_pPrinter(pPrinter),
+     m_ExtendedExecutionContext(pDeviceCommandManager, pBlockToKernelMapper),
      m_stFormalParamSize(0),
      m_stKernelParamSize(0),
      m_stAlignedKernelParamSize(0),
@@ -72,7 +76,8 @@ Binary::Binary(IAbstractBackendFactory* pBackendFactory,
      m_bJitCreateWIids(pKernelProperties->GetJitCreateWIids()),
      m_uiVectorWidth(1), 
      m_pUsedEntryPoint(0),
-     m_uiSizeT(pKernelProperties->GetPointerSize())
+     m_uiSizeT(pKernelProperties->GetPointerSize()),
+     m_pBlockLiteral(NULL)
 {
     InitWorkInfo(pWorkInfo);
     
@@ -145,6 +150,25 @@ void Binary::InitParams(const std::vector<cl_kernel_argument>& args, char* pArgs
 
         pArg = std::auto_ptr<ExplicitGlobalMemArgument>(new ExplicitGlobalMemArgument(pArgValueDest, arg));
       } 
+      else if (arg.type == CL_KRNL_ARG_PTR_BLOCK_LITERAL) {
+        assert(argIterator == args.begin() && "Block literal is not 0th argument in kernel");
+        // pArgValueSrc - offset value 
+        // offset value is offset in bytes from the beginning of pArgsBuffer arguments buffer
+        //        to memory location where BlockLiteral is stored
+        // offset value is of unsigned(32bit) type
+        const size_t offs = (size_t)*(unsigned*)(pArgValueSrc);
+        // deserialize in source memory BlockLiteral. 
+        // Actually it updates BlockDesc ptr field in BlockLiteral
+        BlockLiteral * pBL = BlockLiteral::DeserializeInBuffer(pArgsBuffer + offs);
+        
+        // clone BlockLiteral to this Binary object. assume ownership
+        assert(m_pBlockLiteral == NULL && "m_pBlockLiteral should be NULL");
+        m_pBlockLiteral = BlockLiteral::Clone(pBL);
+        
+        // create special type of argument for passing BlockLiteral
+        pArg = std::auto_ptr<ExplicitBlockLiteralArgument>
+          (new ExplicitBlockLiteralArgument(pArgValueDest, arg, m_pBlockLiteral));
+      }
       else if (arg.type == CL_KRNL_ARG_PTR_LOCAL) {
         
         // *((size_t*)pArgValueSrc) : 
@@ -185,7 +209,8 @@ void Binary::InitParams(const std::vector<cl_kernel_argument>& args, char* pArgs
                           ptrSize  + // pWI-ids[]
                           ptrSize  + // Pointer to IDevExecutable
                           ptrSize  + // iterCount
-                          ptrSize;   //  pSpecialBuffer
+                          ptrSize  + //  pSpecialBuffer
+                          ptrSize;   // ExtendedExecutionContext
 
     m_stAlignedKernelParamSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(m_stKernelParamSize);
 }
@@ -281,4 +306,9 @@ void Binary::Release()
     delete this;
 }
 
+Binary::~Binary()
+{
+  if(m_pBlockLiteral)
+    BlockLiteral::FreeMem(m_pBlockLiteral);
+}
 }}}

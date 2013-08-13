@@ -69,7 +69,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
         virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
         {
-#ifdef EXTENDED_EXECUTION
+#if 1
 			if (CL_DEV_BACKEND_OPTION_IDEVICE_COMMAND_MANAGER == optionId)
 			{
 				*(IDeviceCommandManager**)Value = m_pDeviceCommandManager;

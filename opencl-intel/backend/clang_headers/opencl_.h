@@ -13474,9 +13474,9 @@ int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_
 int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ...), uint size0,...);
 int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ...), uint size0, ...);
 
-int enqueue_marker(queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret);
+int __attribute__((overloadable)) enqueue_marker(queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret);
 
-queue_t get_default_queue(void);
+queue_t __attribute__((overloadable)) get_default_queue(void);
 
 ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size);
 ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size, size_t local_work_size);

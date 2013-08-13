@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "ImplicitArgsUtils.h"
+#include "CompilationUtils.h"
 
 #ifndef __APPLE__
 #include "ExecutionContext.h"
@@ -29,15 +30,16 @@ const ArgData impArgs[] = {
   {"pLocalIds",       false},
   {"iterCount",       false},
   {"pSpecialBuf",     false},
-  {"pCurrWI",         true }};
+  {"pCurrWI",         true },
+  {"ExtExecContextPointer", false }};
 
 
 // Initialize the implicit arguments properties
-ImplicitArgProperties ImplicitArgsUtils::m_implicitArgProps[m_numberOfImplicitArgs];
+ImplicitArgProperties ImplicitArgsUtils::m_implicitArgProps[NUMBER_IMPLICIT_ARGS];
 bool ImplicitArgsUtils::m_initialized = false;
 
 const ImplicitArgProperties& ImplicitArgsUtils::getImplicitArgProps(unsigned int arg) {
-  assert(arg < m_numberOfImplicitArgs && "arg is bigger than implicit args number");
+  assert(arg < NUMBER_IMPLICIT_ARGS && "arg is bigger than implicit args number");
   assert(!m_implicitArgProps[arg].m_bInitializedByWrapper &&
     "arg is initialized by wrapper no need for Props!");
   assert(m_initialized);
@@ -45,7 +47,7 @@ const ImplicitArgProperties& ImplicitArgsUtils::getImplicitArgProps(unsigned int
 }
 
 void ImplicitArgsUtils::initImplicitArgProps(unsigned int SizeT) {
-  for(unsigned int i=0; i<m_numberOfImplicitArgs; ++i) {
+  for(unsigned int i=0; i<NUMBER_IMPLICIT_ARGS; ++i) {
     m_implicitArgProps[i].m_name = impArgs[i].name;
     m_implicitArgProps[i].m_size = SizeT;
     m_implicitArgProps[i].m_alignment = SizeT;
@@ -61,7 +63,7 @@ void ImplicitArgsUtils::createImplicitArgs(char* pDest) {
   char* pArgValueDest = pDest;
 
    // go over all implicit arguments' properties
-  for(unsigned int i=0; i<m_numberOfImplicitArgs; ++i) {
+  for(unsigned int i=0; i<NUMBER_IMPLICIT_ARGS; ++i) {
     // Only implicit arguments that are not initialized by the wrapper
     // Should be loaded from the parameter structutre.
     if(!m_implicitArgProps[i].m_bInitializedByWrapper) {
@@ -82,7 +84,9 @@ void ImplicitArgsUtils::setImplicitArgsPerExecutable(
                          unsigned int packetWidth,
                          size_t* pWIids,
                          const size_t iterCounter,
-                         char* pBarrierBuffer) {
+                         char* pBarrierBuffer,
+                         const ExtendedExecutionContext* 
+                                pCallbackExtendedExecutionContext) {
   
   // Set Work Dimension Info pointer
   m_implicitArgs[IA_WORK_GROUP_INFO].setValue(reinterpret_cast<const char *>(&pWorkInfo));
@@ -96,6 +100,10 @@ void ImplicitArgsUtils::setImplicitArgsPerExecutable(
 
   // Setup Context pointer
   m_implicitArgs[IA_CALLBACK_CONTEXT].setValue(reinterpret_cast<const char *>(&pCallBackContext));
+
+  // Setup Extended Execution Context pointer
+  m_implicitArgs[IA_CALLBACK_EXT_EXECUTION_CONTEXT].setValue(
+        reinterpret_cast<const char *>(&pCallbackExtendedExecutionContext));
 
   // Initialize Barrier WI ids variables only if jit is not creating the ids.
   if (!bJitCreateWIids) {

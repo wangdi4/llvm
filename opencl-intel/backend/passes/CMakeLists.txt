@@ -5,6 +5,8 @@ set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 
 add_subdirectory(AddImplicitArgs)
 add_subdirectory(BuiltInFuncImport)
+add_subdirectory(CloneBlockInvokeFuncToKernel)
+add_subdirectory(DetectFunctionPtrCalls)
 add_subdirectory(InstToFuncCall)
 add_subdirectory(LocalBuffAnalysis)
 add_subdirectory(LocalBuffers)

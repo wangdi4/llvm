@@ -87,6 +87,9 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeSpirMaterializerPass(Registry);
     intel::initializeLinearIdResolverPass(Registry);
     intel::initializePrepareKernelArgsPass(Registry);
+    intel::initializeDetectFuncPtrCallsPass(Registry);
+    intel::initializeResolveWICallPass(Registry);
+    intel::initializeCloneBlockInvokeFuncToKernelPass(Registry);
 }
 
 

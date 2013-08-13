@@ -193,6 +193,11 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ImageCallbackServices.h
     debuggingservicewrapper.h
     opencl_printf_ext.h
+    ExtendedExecutionContext.h
+    BlockLiteral.h
+    RuntimeService.h
+    IBlockToKernelMapper.h
+    CPUBlockToKernelMapper.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
     ${BACKEND_ROOT_DIR}/external/vtune/include/jitprofiling.h
   )
@@ -203,6 +208,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     shared_builtin_functions.cpp
     cpu_builtin_functions.cpp
     mic_builtin_functions.cpp
+    opencl20_ext_execution.cpp
     TargetDescription.cpp
     dllmain.cpp
     opencl_printf_ext.cpp
@@ -248,6 +254,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     ImageCallbackServices.cpp
     debuggingservicewrapper.cpp
     ocl_debug_builtins.cpp
+    CPUBlockToKernelMapper.cpp
   )
 
 if (ENABLE_SDE)
@@ -354,6 +361,8 @@ set( BACKEND_PASSES
     Prefetch
     LinearIdResolver
     Materialize
+    DetectFunctionPtrCalls
+    CloneBlockInvokeFuncToKernel
 )
 
 target_link_libraries (${TARGET_NAME}

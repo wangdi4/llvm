@@ -24,6 +24,7 @@ set (BACKEND_TESTS_SOURCE_FILES
     FactoryTest.cpp
     CompilationServiceTest.cpp
     PluginsTest.cpp
+    BlockLiteralTest.cpp
     )
 
 link_directories (

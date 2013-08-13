@@ -221,6 +221,25 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_stoppoin
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_enter_function(uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_exit_function(uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 
+// OpenCL20. Extended execution
+class ExtendedExecutionContext;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE queue_t* ocl20_get_default_queue( ExtendedExecutionContext * pEEC);
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_marker( queue_t* queue, uint32_t num_events_in_wait_list, const clk_event_t* event_wait_list, clk_event_t* event_ret, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_basic( queue_t* queue, kernel_enqueue_flags_t flags, cl_work_description_type* ndrange, 
+  void *block, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_events(queue_t* queue, kernel_enqueue_flags_t flags, cl_work_description_type* ndrange,
+        unsigned num_events_in_wait_list, clk_event_t *in_wait_list, clk_event_t *event_ret,
+        void *block, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_localmem( queue_t* queue, kernel_enqueue_flags_t flags, cl_work_description_type* ndrange, 
+  void *block, unsigned *localbuf_size, unsigned localbuf_size_len, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_events_localmem( queue_t* queue, kernel_enqueue_flags_t flags, cl_work_description_type* ndrange,
+        unsigned num_events_in_wait_list, clk_event_t *in_wait_list, clk_event_t *event_ret,
+        void *block, unsigned *localbuf_size, unsigned localbuf_size_len, ExtendedExecutionContext * pEEC);
+
 //Register BI functions defined above
 #define REGISTER_BI_FUNCTION(name,ptr) \
   llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name), (void*)(intptr_t)ptr);
@@ -242,4 +261,12 @@ void RegisterCPUBIFunctions(void)
     REGISTER_BI_FUNCTION("__opencl_dbg_exit_function",__opencl_dbg_exit_function)
     REGISTER_BI_FUNCTION("__opencl_dbg_declare_global",__opencl_dbg_declare_global)
     REGISTER_BI_FUNCTION("__opencl_dbg_stoppoint",__opencl_dbg_stoppoint)
+    REGISTER_BI_FUNCTION("ocl20_get_default_queue",ocl20_get_default_queue)
+    REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_basic",ocl20_enqueue_kernel_basic)
+    REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_localmem",ocl20_enqueue_kernel_localmem)
+    REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_events",ocl20_enqueue_kernel_events)
+    REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_events_localmem",ocl20_enqueue_kernel_events_localmem)
+    REGISTER_BI_FUNCTION("ocl20_enqueue_marker",ocl20_enqueue_marker)
+
+
 }

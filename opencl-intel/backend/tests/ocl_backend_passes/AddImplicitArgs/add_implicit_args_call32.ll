@@ -37,7 +37,8 @@ entry:
 ; CHECK:            <{ [4 x i32] }>* [[P_LOCAL_IDS:%[a-zA-Z0-9]+]], 
 ; CHECK:            i32 [[ITER_COUNT:%[a-zA-Z0-9]+]], 
 ; CHECK:            i8* [[P_SPECIAL_BUFFER:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* [[P_CURRECT_WI:%[a-zA-Z0-9]+]]) nounwind {
+; CHECK:            i32* [[P_CURRECT_WI:%[a-zA-Z0-9]+]],
+; CHECK:            %struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) nounwind {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   %x = add i32 100, 10
 ; CHECK-NEXT:   ret void
@@ -50,7 +51,8 @@ entry:
 ; CHECK:            <{ [4 x i32] }>* [[P_LOCAL_IDS]], 
 ; CHECK:            i32 [[ITER_COUNT]], 
 ; CHECK:            i8* [[P_SPECIAL_BUFFER]], 
-; CHECK:            i32* [[P_CURRECT_WI]]) nounwind {
+; CHECK:            i32* [[P_CURRECT_WI]],
+; CHECK:            %struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER]]) nounwind {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   %temp = add i32 %x, 10
 ; CHECK-NEXT:   %res = mul i32 %temp, %y
@@ -64,7 +66,8 @@ entry:
 ; CHECK:            <{ [4 x i32] }>* [[P_LOCAL_IDS]], 
 ; CHECK:            i32 [[ITER_COUNT]], 
 ; CHECK:            i8* [[P_SPECIAL_BUFFER]], 
-; CHECK:            i32* [[P_CURRECT_WI]]) {
+; CHECK:            i32* [[P_CURRECT_WI]],
+; CHECK:            %struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER]]) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* [[P_LOCAL_MEM]], i32 0
 ; CHECK-NEXT:   call void @functionWithoutArgs(i8 addrspace(3)* [[VAR0]], 
@@ -75,7 +78,8 @@ entry:
 ; CHECK:            <{ [4 x i32] }>* [[P_LOCAL_IDS]], 
 ; CHECK:            i32 [[ITER_COUNT]], 
 ; CHECK:            i8* [[P_SPECIAL_BUFFER]], 
-; CHECK:            i32* [[P_CURRECT_WI]])
+; CHECK:            i32* [[P_CURRECT_WI]],
+; CHECK:            %struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER]])
 ; CHECK-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* [[P_LOCAL_MEM]], i32 0
 ; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = call i32 @functionWithArgs(i32 %x, i32 %y, i8 addrspace(3)* [[VAR1]], 
 ; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* [[P_WORK_DIM]], 
@@ -85,6 +89,7 @@ entry:
 ; CHECK:            <{ [4 x i32] }>* [[P_LOCAL_IDS]], 
 ; CHECK:            i32 [[ITER_COUNT]], 
 ; CHECK:            i8* [[P_SPECIAL_BUFFER]], 
-; CHECK:            i32* [[P_CURRECT_WI]])
+; CHECK:            i32* [[P_CURRECT_WI]],
+; CHECK:            %struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER]])
 ; CHECK-NEXT:   ret i32 [[VAR2]]
 

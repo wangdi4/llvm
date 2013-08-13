@@ -182,6 +182,8 @@ set( MIC_FLAGS  -Werror
                 -fstack-security-check
                 -use-msasm
                 -wd279
+                -D__STDC_LIMIT_MACROS
+                -D__STDC_CONSTANT_MACROS
             )
 
 list( APPEND MIC_FLAGS -DKNC_CARD )
@@ -250,6 +252,7 @@ set(TARGET_SOURCES
     ../utils/TypeAlignment.cpp
     ../ocl_cpu_backend/Binary.cpp
     ../utils/ImplicitArgsUtils.cpp
+    ../utils/Atomics.cpp
     ../ocl_cpu_backend/Executable.cpp
     ../ocl_cpu_backend/MICExecutable.cpp
     ../utils/FunctionArgument.cpp

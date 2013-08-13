@@ -49,6 +49,8 @@ public:
 
     virtual Binary* CreateBinary(
         ICLDevBackendBufferPrinter* pPrinter,
+        IDeviceCommandManager *pDeviceCommandManager,
+        const IBlockToKernelMapper *pBlockToKernelMapper, 
         const KernelProperties* pKernelProperties,
         const std::vector<cl_kernel_argument>& args,
         const cl_work_description_type* pWorkInfo,

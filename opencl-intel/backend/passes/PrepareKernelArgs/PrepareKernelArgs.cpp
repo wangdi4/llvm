@@ -160,7 +160,7 @@ namespace intel{
     // Handle implicit arguments
     unsigned int ptrSizeInBytes = m_pModule->getPointerSize()*4;
     ImplicitArgsUtils::initImplicitArgProps(ptrSizeInBytes);
-    for(unsigned int i=0; i< ImplicitArgsUtils::m_numberOfImplicitArgs; ++i) {
+    for(unsigned int i=0; i< ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
       Value* pArg = NULL;
       switch(i) {
       case ImplicitArgsUtils::IA_SLM_BUFFER:

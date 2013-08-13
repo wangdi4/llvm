@@ -15,6 +15,7 @@ set(TARGET_EXTRA_INCLUDE_FILES
   ExplicitArgument.h
   ExplicitLocalMemArgument.h
   ExplicitGlobalMemArgument.h
+  ExplicitBlockLiteralArgument.h
   SystemInfo.h
 )
 endif(APPLE)
@@ -32,6 +33,9 @@ set (TARGET_INCLUDE_FILES
   TypeAlignment.h
   TypeConversion.h
   VectorizerUtils.h
+  BlockUtils.h
+  RefcountThreadSafe.h
+  Atomics.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
@@ -44,6 +48,8 @@ set (TARGET_SOURCE_FILES
   TypeAlignment.cpp
   TypeConversion.cpp
   VectorizerUtils.cpp
+  BlockUtils.cpp
+  Atomics.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 
@@ -52,6 +58,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/name_mangling
   ${BACKEND_ROOT_DIR}/metadata_api
   ${BACKEND_ROOT_DIR}/metadata_api/gen
+  ${BACKEND_ROOT_DIR}/utils
 )
 
 if (APPLE)

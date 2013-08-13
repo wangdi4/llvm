@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "AddImplicitArgs.h"
 #include "CompilationUtils.h"
+#include "ImplicitArgsUtils.h"
 #include "InitializePasses.h"
 #include "common_dev_limits.h"
 #include "OCLPassSupport.h"
@@ -47,6 +48,11 @@ namespace intel{
     // Add WI structure declarations to the module
     addWIInfoDeclarations();
 
+    // add ExtendedExecutionContext opaque type 
+    // to use as type for passing 
+    m_struct_ExtendedExecutionContextType = 
+      StructType::create( *m_pLLVMContext, "struct.ExtendedExecutionContext" );
+
     CompilationUtils::FunctionSet kernelsFunctionSet;
     CompilationUtils::getAllKernels(kernelsFunctionSet, m_pModule);
 
@@ -82,20 +88,14 @@ namespace intel{
       SmallVector<Value*, 16> params;
 
       // Go over explicit parameters, they are currently undef and need to be assigned their actual value.
-      for ( unsigned int i = 0; i < pCall->getNumArgOperands() - CompilationUtils::NUMBER_IMPLICIT_ARGS; ++i ) {
+      for ( unsigned int i = 0; i < pCall->getNumArgOperands() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i ) {
         params.push_back(pCall->getArgOperand(i));
       }
 
       // Add implicit parameters
-      params.push_back(pCallArgs[0]);
-      params.push_back(pCallArgs[1]);
-      params.push_back(pCallArgs[2]);
-      params.push_back(pCallArgs[3]);
-      params.push_back(pCallArgs[4]);
-      params.push_back(pCallArgs[5]);
-      params.push_back(pCallArgs[6]);
-      params.push_back(pCallArgs[7]);
-      params.push_back(pCallArgs[8]);
+      for ( unsigned int i = 0; i < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i ) {
+        params.push_back(pCallArgs[i]);
+      }
 
       CallInst *pNewCall = CallInst::Create(pCallee, ArrayRef<Value*>(params), "", pCall);
       pNewCall->setCallingConv(pCall->getCallingConv());
@@ -144,6 +144,8 @@ namespace intel{
     newArgsVec.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
+    // extended execution context
+    newArgsVec.push_back(PointerType::get(m_struct_ExtendedExecutionContextType, 0));
 
     FunctionType *FTy = FunctionType::get( pFunc->getReturnType(),newArgsVec, false);
 
@@ -191,6 +193,10 @@ namespace intel{
     ++DestI;
     DestI->setName("pCurrWI");
     Argument *pCurrWI = DestI;
+    ++DestI;
+    DestI->setName("extExecContextPointer");
+    Argument *pextctx = DestI;
+    ++DestI;
 
 
     SmallVector<ReturnInst*, 8> Returns;
@@ -220,7 +226,7 @@ namespace intel{
         GetElementPtrInst *pNewLocalMem = GetElementPtrInst::Create(
           pLocalMem, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), directLocalSize), "", pCall);
 
-        Value **pCallArgs = new Value*[CompilationUtils::NUMBER_IMPLICIT_ARGS];
+        Value **pCallArgs = new Value*[ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS];
         pCallArgs[0] = pNewLocalMem;
         pCallArgs[1] = pWorkDim;
         pCallArgs[2] = pWGId;
@@ -230,6 +236,7 @@ namespace intel{
         pCallArgs[6] = pIterCount;
         pCallArgs[7] = pSpecialBuf;
         pCallArgs[8] = pCurrWI;
+        pCallArgs[9] = pextctx;
 
         // Memory leak in here. Who deletes this ? Seriously!
         m_fixupCalls[pCall] = pCallArgs;
@@ -240,41 +247,34 @@ namespace intel{
     std::vector<Value*> uses(pFunc->use_begin(), pFunc->use_end());
     for (std::vector<Value*>::const_iterator it = uses.begin(), e = uses.end();
        it != e; ++it) {
-      CallInst *CI = dyn_cast<CallInst>(*it);
-      // We do not handle non CallInst users. Is this okay ?
-      if (!CI) continue;
 
-      std::vector<Value*> arguments;
-      // Push existing arguments
-      for (unsigned i=0; i < CI->getNumArgOperands(); ++i)
-      {
-        arguments.push_back(CI->getArgOperand(i));
+      // handle constant expression with bitcast of function pointer 
+      // it handles cases like block_literal global variable definitions
+      // Example of case:
+      // @__block_literal_global = internal constant { ..., i8*, ... } 
+      //    { ..., i8* bitcast (i32 (i8*, i32)* @globalBlock_block_invoke to i8*), ... }
+      if(ConstantExpr *CE = dyn_cast<ConstantExpr>(*it)){
+          if(CE->getOpcode() == Instruction::BitCast &&
+             CE->getType()->isPointerTy()){
+                 // this case happens when global block variable is used
+                 Constant *newCE = ConstantExpr::getBitCast(pNewF, CE->getType());
+                 CE->replaceAllUsesWith(newCE);
+                 continue;
+          }
       }
-
-      // Push undefs for new arguments
-      unsigned int numOriginalParams = CI->getNumArgOperands();
-      for (unsigned i = numOriginalParams; i < numOriginalParams + CompilationUtils::NUMBER_IMPLICIT_ARGS; ++i) {
-        arguments.push_back(UndefValue::get(newArgsVec[i]));
+      // handle call instruction
+      else if (CallInst *CI = dyn_cast<CallInst>(*it)){
+        replaceCallInst(CI, newArgsVec, pNewF);
       }
-
-      // Replace the original function with a call
-      CallInst* pNewCall = CallInst::Create(pNewF, ArrayRef<Value*>(arguments), "", CI);
-
-      // Copy debug metadata to new function if available
-      if (CI->hasMetadata()) {
-        pNewCall->setDebugLoc(CI->getDebugLoc());
+      // handle metadata
+      else if (isa<MDNode>(*it)){
+          // do nothing 
       }
-
-      // Update CI in the m_fixupCalls, now the map needs to have only the newly created call
-      if (m_fixupCalls.count(CI) > 0) {
-        Value **pCallArgs = m_fixupCalls[CI];
-        m_fixupCalls.erase(CI);
-        m_fixupCalls[pNewCall] = pCallArgs;
+      else{
+          // we should not be here
+          // unhandled case
+          assert(0 && "Unhandled function reference");
       }
-
-      CI->replaceAllUsesWith(pNewCall);
-      // Need to erase from parent to make sure there are no uses for the called function when we delete it
-      CI->eraseFromParent();
     }
 
     // Add declaration of original function with its signature
@@ -377,5 +377,43 @@ namespace intel{
     m_struct_WorkDim = pWorkDimType;
   }
 
+  void AddImplicitArgs::replaceCallInst(CallInst *CI, const std::vector<Type *>& newArgsVec, Function * pNewF) {
+    
+    assert(CI && "CallInst is NULL" );
+    assert(newArgsVec.size() && "size of arguments vector is 0" );
+    assert(pNewF && "function is NULL" );
+    
+    std::vector<Value*> arguments;
+    // Push existing arguments
+    for (unsigned i=0; i < CI->getNumArgOperands(); ++i)
+    {
+      arguments.push_back(CI->getArgOperand(i));
+    }
+
+    // Push undefs for new arguments
+    unsigned int numOriginalParams = CI->getNumArgOperands();
+    for (unsigned i = numOriginalParams; i < numOriginalParams + ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
+      arguments.push_back(UndefValue::get(newArgsVec[i]));
+    }
+
+    // Replace the original function with a call
+    CallInst* pNewCall = CallInst::Create(pNewF, ArrayRef<Value*>(arguments), "", CI);
+
+    // Copy debug metadata to new function if available
+    if (CI->hasMetadata()) {
+      pNewCall->setDebugLoc(CI->getDebugLoc());
+    }
+
+    // Update CI in the m_fixupCalls, now the map needs to have only the newly created call
+    if (m_fixupCalls.count(CI) > 0) {
+      Value **pCallArgs = m_fixupCalls[CI];
+      m_fixupCalls.erase(CI);
+      m_fixupCalls[pNewCall] = pCallArgs;
+    }
+
+    CI->replaceAllUsesWith(pNewCall);
+    // Need to erase from parent to make sure there are no uses for the called function when we delete it
+    CI->eraseFromParent();
+  }
 
 } // namespace intel

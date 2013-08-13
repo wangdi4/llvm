@@ -102,6 +102,20 @@ void LogUndefinedExternals( llvm::raw_ostream& logs, const std::vector<std::stri
     //LLVMBackend::GetInstance()->m_logger->Log(Logger::ERROR_LEVEL, L"implemented function(s) used:\n<%s>", m_strLastError.c_str());
 }
 
+/**
+ * Generates the log record (to the given stream) enumerating function names
+   with unresolved function pointer calls
+ */
+void LogFuncPtrCalls( llvm::raw_ostream& logs, const std::vector<std::string>& externals)
+{
+    logs << "Error: unresolved pointer calls in function(s):\n";
+
+    for( std::vector<std::string>::const_iterator i = externals.begin(), e = externals.end(); i != e; ++i)
+    {
+        logs << *i << "\n";
+    }
+}
+
 bool TerminationBlocker::s_released = false;
 
 } //namespace Utils
@@ -277,6 +291,12 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
         throw Exceptions::CompilerException( "Failed to parse IR", CL_DEV_INVALID_BINARY);
     }
 
+    if( optimizer.hasFunctionPtrCalls())
+    {
+      Utils::LogFuncPtrCalls( pResult->LogS(), optimizer.GetFunctionPtrCallNames());
+      throw Exceptions::CompilerException( "Dynamic block variable call detected.",
+                                            CL_DEV_INVALID_BINARY);
+    }
     //
     // Populate the build results
     //

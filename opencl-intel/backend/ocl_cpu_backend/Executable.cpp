@@ -110,7 +110,9 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
             m_pBinary->m_uiVectorWidth,
             pWIids,
             uiWICount-1,
-            pBarrierBuffer);
+            pBarrierBuffer,
+            m_pBinary->GetExtendedExecutionContext()
+            );
 
 
   // Set CSR flags

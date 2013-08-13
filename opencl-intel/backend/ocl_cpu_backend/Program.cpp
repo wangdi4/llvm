@@ -32,8 +32,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 Program::Program():
     m_pCodeContainer(NULL),
     m_kernels(NULL)
-{
-}
+{}
 
 Program::~Program()
 {

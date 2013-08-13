@@ -55,6 +55,7 @@ File Name:  CPUProgramBuilder.cpp
 #include "CPUJITContainer.h"
 #include "CompilationUtils.h"
 #include "MetaDataApi.h"
+#include "CPUBlockToKernelMapper.h"
 
 using std::string;
 
@@ -254,6 +255,25 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
         pCPUProgram->GetExecutionEngine()->setObjectCache(pObjectLoader.release());
     }
 
-
 }
+
+IBlockToKernelMapper * CPUProgramBuilder::CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const
+{
+    return new CPUBlockToKernelMapper(pProgram, pModule);
+}
+
+
+void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
+  const ICLDevBackendOptions* pOptions) const 
+{
+  assert(pProgram && pModule && "inputs are NULL");
+
+  // create block to kernel mapper
+  IBlockToKernelMapper * pMapper = CreateBlockToKernelMapper(pProgram, pModule);
+  assert(pMapper && "IBlockToKernelMapper object is NULL");
+  assert(!pProgram->GetRuntimeService().isNull() && "RuntimeService in Program is NULL");
+  // set in RuntimeService new BlockToKernelMapper object
+  pProgram->GetRuntimeService()->SetBlockToKernelMapper(pMapper);
+}
+
 }}} // namespace

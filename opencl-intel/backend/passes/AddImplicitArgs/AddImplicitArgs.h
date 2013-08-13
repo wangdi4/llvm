@@ -67,6 +67,13 @@ namespace intel {
     /// @brief Adds implicit arguments structure declarations to the module
     void addWIInfoDeclarations();
 
+    /// @brief helper function. replaces call instruction with call instruction
+    ///        that receives implicit arguments
+    /// @param CI pointer to CallInst
+    /// @param newArgsVec arguments of new function with implicit arguments added
+    /// @param pNewF function with implicit arguments added
+    void replaceCallInst(CallInst *CI, const std::vector<Type *>& newArgsVec, Function * pNewF);
+
   private:
     /// @brief The llvm module this pass needs to update
     Module                     *m_pModule;
@@ -83,6 +90,8 @@ namespace intel {
 
     Type* m_struct_PaddedDimId;
     Type* m_struct_WorkDim;
+    /// ExtendedExecutionContext opaque type
+    Type * m_struct_ExtendedExecutionContextType;
 
     Function* m_pFunc;
     Function* m_pNewF;
