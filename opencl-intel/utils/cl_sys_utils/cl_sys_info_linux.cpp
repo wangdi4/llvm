@@ -169,7 +169,7 @@ unsigned long long Intel::OpenCL::Utils::HostTime()
 {
 	struct timespec tp;
 	clock_gettime(CLOCK_MONOTONIC, &tp);
-	return (unsigned long long)(tp.tv_sec * 1000000000 + tp.tv_nsec);
+	return (unsigned long long)(tp.tv_sec) * 1000000000 + tp.tv_nsec;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
