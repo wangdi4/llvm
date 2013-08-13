@@ -20,8 +20,6 @@
 
 #if !defined (__MIC__) && !defined(__MIC2__)
 
-// overload transpose with naive implementation until optimized one is ready
-#define OVERLOAD_TRANSPOSES
 
 // Enable double support. It is needed for declarations from intrin.h
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
@@ -171,205 +169,6 @@ ALIGN16 const constant int Fvec4Float16ExpBiasDifference[] = {((127 - 15) << 10)
 ALIGN16 const constant int f4minNorm[] = {0x00800000, 0x00800000, 0x00800000, 0x00800000};
 ALIGN16 const constant int mth_signMask[] = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 
-// Helper functions to speed up mask analyzing
-// tblgen generated
-int __attribute__((const)) __attribute__((overloadable)) intel_movemask(int4);
-int __attribute__((const)) __attribute__((overloadable)) intel_movemask(int8);
-
-// Implement naive version of transpose built-ins until we have optimized in built-ins library
-#ifdef OVERLOAD_TRANSPOSES
-
-// if AVX is not defined then simulate missing transposes
-// TODO : move this to transpose_functions.cpp
-#if !defined(__AVX__)
-
-// TODO : move this to transpose_functions.cpp
-// CSSD100015383
-#if !defined(__SSE4_2__) 
-void __ocl_transpose_char4x4(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
-                              char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
- (*xOut).s0 = xyzw0.s0;
- (*xOut).s1 = xyzw1.s0;
- (*xOut).s2 = xyzw2.s0;
- (*xOut).s3 = xyzw3.s0;
-
- (*yOut).s0 = xyzw0.s1;
- (*yOut).s1 = xyzw1.s1;
- (*yOut).s2 = xyzw2.s1;
- (*yOut).s3 = xyzw3.s1;
-
- (*zOut).s0 = xyzw0.s2;
- (*zOut).s1 = xyzw1.s2;
- (*zOut).s2 = xyzw2.s2;
- (*zOut).s3 = xyzw3.s2;
-
- (*wOut).s0 = xyzw0.s3;
- (*wOut).s1 = xyzw1.s3;
- (*wOut).s2 = xyzw2.s3;
- (*wOut).s3 = xyzw3.s3;
-}
-
-void __inline__ __attribute__((always_inline)) __ocl_transpose_char4x8(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
-                              char4 xyzw4, char4 xyzw5, char4 xyzw6, char4 xyzw7,
-                              char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
- char4 xLow;
- char4 yLow;
- char4 zLow;
- char4 wLow;
-
- __ocl_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
-                              &xLow, &yLow, &zLow, &wLow);
-
- char4 xHigh;
- char4 yHigh;
- char4 zHigh;
- char4 wHigh;
-
- __ocl_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
-                              &xHigh, &yHigh, &zHigh, &wHigh);
-
- (*xOut).lo = xLow;
- (*xOut).hi = xHigh;
- (*yOut).lo = yLow;
- (*yOut).hi = yHigh;
- (*zOut).lo = zLow;
- (*zOut).hi = zHigh;
- (*wOut).lo = wLow;
- (*wOut).hi = wHigh;
-}
-
-void __inline__ __attribute__((always_inline)) __ocl_transpose_char8x4( char8 xIn, char8 yIn, char8 zIn, char8 wIn,
-                              char4* xyzw0, char4* xyzw1, char4* xyzw2, char4* xyzw3,
-                              char4* xyzw4, char4* xyzw5, char4* xyzw6, char4* xyzw7) {
- char4 xLow = xIn.lo;
- char4 yLow = yIn.lo;
- char4 zLow = zIn.lo;
- char4 wLow = wIn.lo;
-
- __ocl_transpose_char4x4(xLow, yLow, zLow, wLow,
-                            xyzw0, xyzw1, xyzw2, xyzw3);
-
- char4 xHigh = xIn.hi;
- char4 yHigh = yIn.hi;
- char4 zHigh = zIn.hi;
- char4 wHigh = wIn.hi;
-
- __ocl_transpose_char4x4(xHigh, yHigh, zHigh, wHigh,
-                            xyzw4, xyzw5, xyzw6, xyzw7);
-}
-
-
-void __inline__ __attribute__((always_inline)) __ocl_gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
-                              char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
- char4 xyzw0 = *pLoadAdd0;
- char4 xyzw1 = *pLoadAdd1;
- char4 xyzw2 = *pLoadAdd2;
- char4 xyzw3 = *pLoadAdd3;
-
- __ocl_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
-                              xOut, yOut, zOut, wOut);
-}
-
-void __inline__ __attribute__((always_inline)) __ocl_transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
-                               char4 xIn, char4 yIn, char4 zIn, char4 wIn) {
-  __ocl_transpose_char4x4(xIn, yIn, zIn, wIn,
-                              pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3);
-}
-
-void __inline__ __attribute__((always_inline)) __ocl_gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
-                              char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
-                              char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
- char4 xyzw0 = *pLoadAdd0;
- char4 xyzw1 = *pLoadAdd1;
- char4 xyzw2 = *pLoadAdd2;
- char4 xyzw3 = *pLoadAdd3;
- char4 xyzw4 = *pLoadAdd4;
- char4 xyzw5 = *pLoadAdd5;
- char4 xyzw6 = *pLoadAdd6;
- char4 xyzw7 = *pLoadAdd7;
-
- __ocl_transpose_char4x8( xyzw0, xyzw1, xyzw2, xyzw3,
-                    xyzw4, xyzw5, xyzw6, xyzw7,
-                    xOut, yOut, zOut, wOut);
-}
-
-void __ocl_transpose_scatter_char4x8(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
-                               char4* pStoreAdd4, char4* pStoreAdd5, char4* pStoreAdd6, char4* pStoreAdd7,
-                               char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
-  __ocl_transpose_char8x4(xIn, yIn, zIn, wIn,
-                              pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
-                              pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7);
-}
-
-#endif
-
-// simulate masked transposes. they are not implemented in transpose_functions.cpp
-void __ocl_masked_gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
-                              char4* xOut, char4* yOut, char4* zOut, char4* wOut, int4 mask)
-{
-  // get mask as bits in int
-  const int rescmp = intel_movemask(mask);
-  // ALL 4 elements in mask are -1
-  if(rescmp == 0xF){
-    __ocl_gather_transpose_char4x4(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-                              xOut, yOut, zOut, wOut);
-    return;
-  }
-  // ALL elements in mask are zero
-  if(rescmp == 0){
-      return;
-  }
-  // mask addresses to stub variable
-  char4 stub;
-  pLoadAdd0 = mask.s0 ? pLoadAdd0 : &stub;
-  pLoadAdd1 = mask.s1 ? pLoadAdd1 : &stub;
-  pLoadAdd2 = mask.s2 ? pLoadAdd2 : &stub;
-  pLoadAdd3 = mask.s3 ? pLoadAdd3 : &stub;
-
-  __ocl_gather_transpose_char4x4(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-                              xOut, yOut, zOut, wOut);
-}
-
-void __ocl_masked_gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
-                              char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
-                              char8* xOut, char8* yOut, char8* zOut, char8* wOut, int8 mask)
-{
-  // get mask as bits in int
-  const int rescmp = intel_movemask(mask);
-  
-  // ALL 8 elements in mask are -1
-  if(rescmp == 0xFF){
-       __ocl_gather_transpose_char4x8(
-           pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-           pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
-           xOut, yOut, zOut, wOut);	
-       return;
-  }
-  // ALL elements in mask are zero
-  if(rescmp == 0){
-      return;
-  }
-  // mask addresses to stub variable
-  char4 stub;
-  pLoadAdd0 = mask.s0 ? pLoadAdd0 : &stub;
-  pLoadAdd1 = mask.s1 ? pLoadAdd1 : &stub;
-  pLoadAdd2 = mask.s2 ? pLoadAdd2 : &stub;
-  pLoadAdd3 = mask.s3 ? pLoadAdd3 : &stub;
-  pLoadAdd4 = mask.s4 ? pLoadAdd0 : &stub;
-  pLoadAdd5 = mask.s5 ? pLoadAdd1 : &stub;
-  pLoadAdd6 = mask.s6 ? pLoadAdd2 : &stub;
-  pLoadAdd7 = mask.s7 ? pLoadAdd3 : &stub;
-
-  __ocl_gather_transpose_char4x8(
-       pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-       pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
-       xOut, yOut, zOut, wOut);
-}
-
-#endif // __AVX__
-
-#endif // OVERLOAD_TRANSPOSES
-
 // Auxiliary routines
 __m128i cvt_to_norm(__m128i i4Val, __m128 f4Mul, __m128 lowLimit)
 {
@@ -438,24 +237,24 @@ void __attribute__((overloadable)) soa8_extract_pixel_pointer_quad(image2d_t ima
     return;
 }
 
-void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8(void* p0,void* p1, void* p2, void* p3, void* p4,void* p5, void* p6, void* p7, 
-                                                              uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w)
+void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8(private void* p0, private void* p1, private void* p2, private void* p3, private void* p4, private void* p5, private void* p6, private void* p7, 
+                                                              private uint8* res_x, private uint8* res_y, private uint8* res_z, private uint8* res_w)
 {
     uchar8 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
     __ocl_gather_transpose_char4x8(p0, p1, p2, p3, p4, p5, p6, p7, 
-        (char8*)&color_x, (char8*)&color_y, (char8*)&color_z, (char8*)&color_w);
+        (private char8*)&color_x, (private char8*)&color_y, (private char8*)&color_z, (private char8*)&color_w);
     *res_x = convert_uint8(color_x);
     *res_y = convert_uint8(color_y);
     *res_z = convert_uint8(color_z);
     *res_w = convert_uint8(color_w);
 }
 
-void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8_oob(int8 isNotOOB, void* p0,void* p1, void* p2, void* p3, void* p4,void* p5, void* p6, void* p7, 
-                                                              uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w)
+void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8_oob(int8 isNotOOB, private void* p0, private void* p1, private void* p2, private void* p3, private void* p4, private void* p5, private void* p6, private void* p7, 
+                                                              private uint8* res_x, private uint8* res_y, private uint8* res_z, private uint8* res_w)
 {
     uchar8 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
     __ocl_masked_gather_transpose_char4x8(p0, p1, p2, p3, p4, p5, p6, p7, 
-        (char8*)&color_x, (char8*)&color_y, (char8*)&color_z, (char8*)&color_w, isNotOOB);
+        (private char8*)&color_x, (private char8*)&color_y, (private char8*)&color_z, (private char8*)&color_w, isNotOOB);
 
     *res_x = isNotOOB ? convert_uint8(color_x) : (uint8)BorderColorNoAlphaUint.x ;
     *res_y = isNotOOB ? convert_uint8(color_y) : (uint8)BorderColorNoAlphaUint.y ;
@@ -512,24 +311,24 @@ void __attribute__((overloadable)) soa4_extract_pixel_pointer_quad(image2d_t ima
     return;
 }
 
-void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8(void* pPixel_0,void* pPixel_1, void* pPixel_2, void* pPixel_3, 
-                                                              uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w)
+void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8(private void* pPixel_0, private void* pPixel_1, private void* pPixel_2, private void* pPixel_3, 
+                                                              private uint4* res_x, private uint4* res_y, private uint4* res_z, private uint4* res_w)
 {
     uchar4 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
     __ocl_gather_transpose_char4x4(pPixel_0, pPixel_1, pPixel_2, pPixel_3, 
-        (char4*)&color_x, (char4*)&color_y, (char4*)&color_z, (char4*)&color_w);
+        (private char4*)&color_x, (private char4*)&color_y, (private char4*)&color_z, (private char4*)&color_w);
     *res_x = convert_uint4(color_x);
     *res_y = convert_uint4(color_y);
     *res_z = convert_uint4(color_z);
     *res_w = convert_uint4(color_w);
 }
 
-void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 isNotOOB, void* pPixel_0,void* pPixel_1, void* pPixel_2, void* pPixel_3, 
-                                                              uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w)
+void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 isNotOOB, private void* pPixel_0, private void* pPixel_1, private void* pPixel_2, private void* pPixel_3, 
+                                                              private uint4* res_x, private uint4* res_y, private uint4* res_z, private uint4* res_w)
 {
     uchar4 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
     __ocl_masked_gather_transpose_char4x4(pPixel_0, pPixel_1, pPixel_2, pPixel_3, 
-        (char4*)&color_x, (char4*)&color_y, (char4*)&color_z, (char4*)&color_w, isNotOOB);
+        (private char4*)&color_x, (private char4*)&color_y, (private char4*)&color_z, (private char4*)&color_w, isNotOOB);
     *res_x = isNotOOB ? convert_uint4(color_x) : (uint4)BorderColorNoAlphaUint.x ;
     *res_y = isNotOOB ? convert_uint4(color_y) : (uint4)BorderColorNoAlphaUint.y ;
     *res_z = isNotOOB ? convert_uint4(color_z) : (uint4)BorderColorNoAlphaUint.z ;
@@ -565,7 +364,7 @@ void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 i
 #define SCALARIZE_SOA_CBK(FORMAT, FILTER_TYPE, CLAMP_FLAG, PIX_TYPE, NSOA, COORD_TYPE)\
     PIX_TYPE##4 read_sample_##FILTER_TYPE##_##CLAMP_FLAG##_##FORMAT(image2d_t, COORD_TYPE##4, void*);\
     void soa##NSOA##_read_sample_##FILTER_TYPE##_##CLAMP_FLAG##_##FORMAT( image2d_t image, COORD_TYPE##NSOA coord_x, COORD_TYPE##NSOA coord_y, void* pData,\
-                  PIX_TYPE##NSOA* res_x, PIX_TYPE##NSOA* res_y, PIX_TYPE##NSOA* res_z, PIX_TYPE##NSOA* res_w )\
+                  private PIX_TYPE##NSOA* res_x, private PIX_TYPE##NSOA* res_y, private PIX_TYPE##NSOA* res_z, private PIX_TYPE##NSOA* res_w )\
 {\
     COORD_TYPE *lcoord_x = (COORD_TYPE *)&coord_x, *lcoord_y = (COORD_TYPE *)&coord_y;\
     PIX_TYPE *lpix_x=(PIX_TYPE *)res_x, *lpix_y=(PIX_TYPE *)res_y,\
@@ -589,19 +388,19 @@ void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 i
 /// SOA8 reading functions
 #define IMPLEMENT_SOA8_CBK_NEAREST_NO_CLAMP(FORMAT, RETURN_TYPE)\
     void soa8_read_sample_NEAREST_NO_CLAMP_##FORMAT( image2d_t image, int8 coord_x, int8 coord_y, void* pData,\
-                                                                RETURN_TYPE* res_x, RETURN_TYPE* res_y, RETURN_TYPE* res_z, RETURN_TYPE* res_w )\
+                                                     private RETURN_TYPE* res_x, private RETURN_TYPE* res_y, private RETURN_TYPE* res_z, private RETURN_TYPE* res_w )\
 {\
-    void *p0, *p1, *p2, *p3, *p4, *p5, *p6, *p7;\
+    private void *p0, *p1, *p2, *p3, *p4, *p5, *p6, *p7;\
     soa8_extract_pixel_pointer_quad(image, coord_x, coord_y, pData, &p0, &p1, &p2, &p3, &p4, &p5, &p6, &p7);\
     soa8_load_pixel_##FORMAT(p0, p1, p2, p3, p4, p5, p6, p7, res_x, res_y, res_z, res_w);\
 }
 
 #define IMPLEMENT_SOA8_CBK_NEAREST_CLAMP(FORMAT, RETURN_TYPE)\
     void soa8_read_sample_NEAREST_CLAMP_##FORMAT( image2d_t image, int8 coord_x, int8 coord_y, void* pData,\
-                                                                RETURN_TYPE* res_x, RETURN_TYPE* res_y, RETURN_TYPE* res_z, RETURN_TYPE* res_w )\
+                                                  private RETURN_TYPE* res_x, private RETURN_TYPE* res_y, private RETURN_TYPE* res_z, private RETURN_TYPE* res_w )\
 {\
     int8 isNotOOB = soa8_isInsideBoundsInt(image, coord_x, coord_y);\
-    void *p0, *p1, *p2, *p3, *p4, *p5, *p6, *p7;\
+    private void *p0, *p1, *p2, *p3, *p4, *p5, *p6, *p7;\
     soa8_extract_pixel_pointer_quad(image, coord_x & isNotOOB, coord_y & isNotOOB, pData, &p0, &p1, &p2, &p3, &p4, &p5, &p6, &p7);\
     soa8_load_pixel_##FORMAT##_oob(isNotOOB, p0, p1, p2, p3, p4, p5, p6, p7, res_x, res_y, res_z, res_w);\
 }
@@ -629,19 +428,19 @@ SCALARIZE_SOA_CBK(RG_UNSIGNED_INT32, NEAREST, NO_CLAMP, uint, 8, int)
 /// SOA4 reading functions
 #define IMPLEMENT_SOA4_CBK_NEAREST_NO_CLAMP(FORMAT, RETURN_TYPE)\
     void soa4_read_sample_NEAREST_NO_CLAMP_##FORMAT( image2d_t image, int4 coord_x, int4 coord_y, void* pData,\
-                                                                RETURN_TYPE* res_x, RETURN_TYPE* res_y, RETURN_TYPE* res_z, RETURN_TYPE* res_w )\
+                                                     private RETURN_TYPE* res_x, private RETURN_TYPE* res_y, private RETURN_TYPE* res_z, private RETURN_TYPE* res_w )\
 {\
-    void *p0, *p1, *p2, *p3;\
+    private void *p0, *p1, *p2, *p3;\
     soa4_extract_pixel_pointer_quad(image, coord_x, coord_y, pData, &p0, &p1, &p2, &p3);\
     soa4_load_pixel_##FORMAT(p0, p1, p2, p3, res_x, res_y, res_z, res_w);\
 }
 
 #define IMPLEMENT_SOA4_CBK_NEAREST_CLAMP(FORMAT, RETURN_TYPE)\
     void soa4_read_sample_NEAREST_CLAMP_##FORMAT( image2d_t image, int4 coord_x, int4 coord_y, void* pData,\
-                                                                RETURN_TYPE* res_x, RETURN_TYPE* res_y, RETURN_TYPE* res_z, RETURN_TYPE* res_w )\
+                                                  private RETURN_TYPE* res_x, private RETURN_TYPE* res_y, private RETURN_TYPE* res_z, private RETURN_TYPE* res_w )\
 {\
     int4 isNotOOB = soa4_isInsideBoundsInt(image, coord_x, coord_y);\
-    void *p0, *p1, *p2, *p3;\
+    private void *p0, *p1, *p2, *p3;\
     soa4_extract_pixel_pointer_quad(image, coord_x & isNotOOB, coord_y & isNotOOB, pData, &p0, &p1, &p2, &p3);\
     soa4_load_pixel_##FORMAT##_oob(isNotOOB, p0, p1, p2, p3, res_x, res_y, res_z, res_w);\
 }
@@ -2647,8 +2446,8 @@ float4 SampleImage3DFloat(float4 Ti0j0k0, float4 Ti1j0k0, float4 Ti0j1k0, float4
 /****************************************** SOA image write functions******************************************************/
 
 /// SOA8 write RGBA_UNSIGNED_INT8
-void soa8_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3, 
-                                                                        void* p4, void* p5, void* p6, void* p7, 
+void soa8_write_sample_RGBA_UNSIGNED_INT8(private void* p0, private void* p1, private void* p2, private void* p3, 
+                                                                        private void* p4, private void* p5, private void* p6, private void* p7, 
                                                                         uint8 val_x, uint8 val_y, uint8 val_z, uint8 val_w)
 {
 
@@ -2657,13 +2456,13 @@ void soa8_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3
     uchar8 clr_z = convert_uchar8_sat(val_z);
     uchar8 clr_w = convert_uchar8_sat(val_w);
 
-    __ocl_transpose_scatter_char4x8((char4*)p0, (char4*)p1, (char4*)p2, (char4*)p3,
-                              (char4*)p4, (char4*)p5, (char4*)p6, (char4*)p7,
+    __ocl_transpose_scatter_char4x8((private char4*)p0, (private char4*)p1, (private char4*)p2, (private char4*)p3,
+                              (private char4*)p4, (private char4*)p5, (private char4*)p6, (private char4*)p7,
                               as_char8(clr_x), as_char8(clr_y), as_char8(clr_z), as_char8(clr_w));
 }
 
 /// SOA4 write RGBA_UNSIGNED_INT8
-void soa4_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3, uint4 val_x, uint4 val_y, uint4 val_z, uint4 val_w)
+void soa4_write_sample_RGBA_UNSIGNED_INT8(private void* p0, private void* p1, private void* p2, private void* p3, uint4 val_x, uint4 val_y, uint4 val_z, uint4 val_w)
 {
 
     uchar4 clr_x = convert_uchar4_sat(val_x);
@@ -2671,14 +2470,14 @@ void soa4_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3
     uchar4 clr_z = convert_uchar4_sat(val_z);
     uchar4 clr_w = convert_uchar4_sat(val_w);
 
-    __ocl_transpose_scatter_char4x4((char4*)p0, (char4*)p1, (char4*)p2, (char4*)p3,
+    __ocl_transpose_scatter_char4x4((private char4*)p0, (private char4*)p1, (private char4*)p2, (private char4*)p3,
                               as_char4(clr_x), as_char4(clr_y), as_char4(clr_z), as_char4(clr_w));
 }
 
 
 #define SCALARIZE_SOA4_WRITE_SAMPLE(FORMAT, PIX_TYPE)\
     void soa4_write_sample_##FORMAT(\
-           void* p0, void* p1, void* p2, void* p3,\
+           private void* p0, private void* p1, private void* p2, private void* p3,\
            PIX_TYPE##4 val_x, PIX_TYPE##4 val_y, PIX_TYPE##4 val_z, PIX_TYPE##4 val_w){\
       write_sample_##FORMAT(p0, (PIX_TYPE##4)(val_x.s0, val_y.s0, val_z.s0, val_w.s0));\
       write_sample_##FORMAT(p1, (PIX_TYPE##4)(val_x.s1, val_y.s1, val_z.s1, val_w.s1));\
@@ -2688,8 +2487,8 @@ void soa4_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3
 
 #define SCALARIZE_SOA8_WRITE_SAMPLE(FORMAT, PIX_TYPE)\
     void soa8_write_sample_##FORMAT(\
-           void* p0, void* p1, void* p2, void* p3,\
-           void* p4, void* p5, void* p6, void* p7,\
+           private void* p0, private void* p1, private void* p2, private void* p3,\
+           private void* p4, private void* p5, private void* p6, private void* p7,\
            PIX_TYPE##8 val_x, PIX_TYPE##8 val_y, PIX_TYPE##8 val_z, PIX_TYPE##8 val_w){\
       write_sample_##FORMAT(p0, (PIX_TYPE##4)(val_x.s0, val_y.s0, val_z.s0, val_w.s0));\
       write_sample_##FORMAT(p1, (PIX_TYPE##4)(val_x.s1, val_y.s1, val_z.s1, val_w.s1));\
@@ -2716,7 +2515,7 @@ SCALARIZE_WRITE_SAMPLE(R_UNSIGNED_INT32, uint)
 
 // undefined callbacks implementation
 void soa4_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int4 coord_x, int4 coord_y, void* pData, 
-                                                                               uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w )
+                                          private uint4* res_x, private uint4* res_y, private uint4* res_z, private uint4* res_w )
 {
     *res_x = BorderColorNoAlphaUint.x;
     *res_y = BorderColorNoAlphaUint.y;
@@ -2725,7 +2524,7 @@ void soa4_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int4 coord_x, int4 co
 }
 
 void soa8_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int8 coord_x, int8 coord_y, void* pData, 
-                                                                               uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w )
+                                          private uint8* res_x, private uint8* res_y, private uint8* res_z, private uint8* res_w )
 {
     *res_x = BorderColorNoAlphaUint.x;
     *res_y = BorderColorNoAlphaUint.y;
