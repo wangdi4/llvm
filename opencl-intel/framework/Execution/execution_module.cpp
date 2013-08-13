@@ -3150,18 +3150,18 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
 		}
 		else
 		{
-			pCmd = new WriteSvmBufferCommand(pQueue, m_pOclEntryPoints, bBlockingCopy, pDstSvmBuffer, pszDstOrigin, pszRegion, pSrcPtr); 
+			pCmd = new WriteBufferCommand(pQueue, m_pOclEntryPoints, bBlockingCopy, pDstSvmBuffer, pszDstOrigin, pszRegion, pSrcPtr); 
 		}
 	}
 	else
 	{
 		if (NULL == pDstSvmBuffer)
 		{
-			pCmd = new ReadSvmBufferCommand(pQueue, m_pOclEntryPoints, pSrcSvmBuffer, pszSrcOrigin, pszRegion, pDstPtr);
+			pCmd = new ReadBufferCommand(pQueue, m_pOclEntryPoints, pSrcSvmBuffer, pszSrcOrigin, pszRegion, pDstPtr);
 		}
 		else
 		{
-			pCmd = new CopySvmBufferCommand(pQueue, m_pOclEntryPoints, pSrcSvmBuffer, pDstSvmBuffer, pszSrcOrigin, pszDstOrigin, pszRegion);
+			pCmd = new CopyBufferCommand(pQueue, m_pOclEntryPoints, pSrcSvmBuffer, pDstSvmBuffer, pszSrcOrigin, pszDstOrigin, pszRegion);
 		}
 	}
 	if (NULL == pCmd)
@@ -3215,7 +3215,7 @@ cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void*
 	Command* pCmd;
 	if (pSvmBuf != NULL)
 	{
-		pCmd = new FillSvmBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, pPattern, szPatternSize, (ptrdiff_t)pSvmPtr - (ptrdiff_t)pSvmBuf->GetAddr(), size);
+		pCmd = new FillBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, pPattern, szPatternSize, (ptrdiff_t)pSvmPtr - (ptrdiff_t)pSvmBuf->GetAddr(), size);
 	}
 	else
 	{
@@ -3276,7 +3276,7 @@ cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool b
 		return CL_INVALID_VALUE;
 	}
 	
-	MapBufferCommand* const pCmd = new MapSvmBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, mapflags, (char*)pSvmPtr - (char*)pSvmBuf->GetAddr(), size);
+	MapBufferCommand* const pCmd = new MapBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, mapflags, (char*)pSvmPtr - (char*)pSvmBuf->GetAddr(), size);
 	if (NULL == pCmd)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
@@ -3327,7 +3327,7 @@ cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* p
 		return CL_INVALID_VALUE;
 	}
 
-	UnmapMemObjectCommand* const pCmd = new UnmapSvmBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, pSvmPtr);
+	UnmapMemObjectCommand* const pCmd = new UnmapMemObjectCommand(pQueue, m_pOclEntryPoints, pSvmBuf, pSvmPtr);
 	if (NULL == pCmd)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
