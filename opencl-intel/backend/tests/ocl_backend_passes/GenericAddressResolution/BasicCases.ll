@@ -158,7 +158,7 @@ declare zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)*)
 declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 
 !opencl.kernels = !{!0}
-!opencl.build.options = !{!2}
+!opencl.compiler.options = !{!2}
 
 !0 = metadata !{void (i32 addrspace(1)*, i32 addrspace(3)*, float)* @test, metadata !1}
 !1 = metadata !{metadata !"argument_attribute", i32 0, i32 0, i32 0}

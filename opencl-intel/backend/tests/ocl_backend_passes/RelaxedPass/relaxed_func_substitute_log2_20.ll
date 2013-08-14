@@ -19,7 +19,7 @@ declare <4 x float> @_Z4log2Dv4_f(<4 x float>)
 declare <8 x float> @_Z4log2Dv8_f(<8 x float>)
 declare <16 x float> @_Z4log2Dv16_f(<16 x float>)
 
-!opencl.build.options = !{!0}
+!opencl.compiler.options = !{!0}
 
 !0 = metadata !{metadata !"-cl-std=CL2.0"}
 

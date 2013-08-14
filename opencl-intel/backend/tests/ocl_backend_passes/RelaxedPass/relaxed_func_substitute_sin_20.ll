@@ -19,7 +19,7 @@ declare <4 x float> @_Z3sinDv4_f(<4 x float>)
 declare <8 x float> @_Z3sinDv8_f(<8 x float>)
 declare <16 x float> @_Z3sinDv16_f(<16 x float>)
 
-!opencl.build.options = !{!0}
+!opencl.compiler.options = !{!0}
 
 !0 = metadata !{metadata !"-cl-std=CL2.0"}
 
