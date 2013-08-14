@@ -36,7 +36,9 @@ enum ECPUFeatureSupport {
     CFS_SSE42   = 1 << 4,
     CFS_AVX1	= 1 << 5,
     CFS_AVX2    = 1 << 6,
-    CFS_FMA     = 1 << 7
+    CFS_FMA     = 1 << 7,
+    CFS_BMI     = 1 << 8,
+    CFS_BMI2    = 1 << 9
 };
 class CPUId {
 public:
