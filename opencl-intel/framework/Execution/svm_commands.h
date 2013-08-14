@@ -53,6 +53,10 @@ public:
 
 	cl_err_code Execute();
 
+	cl_command_type GetCommandType() const { return CL_COMMAND_SVM_FREE; }
+
+	const char* GetCommandName() const { return "CL_COMMAND_SVM_FREE"; }
+
 private:
 
 	std::vector<void* > m_svmPtrs;
@@ -82,6 +86,10 @@ public:
 	// overriden methods:
 
 	cl_err_code Execute();
+
+	cl_command_type GetCommandType() const { return CL_COMMAND_SVM_MEMCPY; }
+
+	const char* GetCommandName() const { return "CL_COMMAND_SVM_MEMCPY"; }
 
 private:
 
@@ -113,6 +121,10 @@ public:
 	// overriden methods:
 
 	cl_err_code Execute();
+
+	cl_command_type GetCommandType() const { return CL_COMMAND_SVM_MEMFILL; }
+
+	const char* GetCommandName() const { return "CL_COMMAND_SVM_MEMFILL"; }
 
 private:
 
