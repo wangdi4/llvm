@@ -1213,9 +1213,9 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
   {
     cpuFeatures |= Intel::CFS_AVX1;
     cpuFeatures |= Intel::CFS_AVX2;
-    cpuFeatures |= CFS_FMA;
-    cpuFeatures |= CFS_BMI;
-    cpuFeatures |= CFS_BMI2;
+    cpuFeatures |= Intel::CFS_FMA;
+    cpuFeatures |= Intel::CFS_BMI;
+    cpuFeatures |= Intel::CFS_BMI2;
   }
 
   // Add forced features
@@ -1263,11 +1263,11 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
   }
   if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-bmi" ) != forcedFeatures.end())
   {
-    cpuFeatures &= ~CFS_BMI;
+    cpuFeatures &= ~Intel::CFS_BMI;
   }
   if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-bmi2" ) != forcedFeatures.end())
   {
-    cpuFeatures &= ~CFS_BMI2;
+    cpuFeatures &= ~Intel::CFS_BMI2;
   }
 
 
