@@ -175,7 +175,7 @@ int4 __attribute__((overloadable)) ProjectToEdgeInt(image2d_depth_t image, int4 
 // @param [in] image: the image object
 // @param [in] coord_(x,y) coordinates of the pixel 
 // @param [out] res_(x,y) output coordinates
-void __attribute__((overloadable)) SOA4_ProjectToEdgeInt(image2d_t image, int4 coord_x, int4 coord_y, private int4* res_x, private int4* res_y)
+void __attribute__((overloadable)) SOA4_ProjectToEdgeInt(image2d_t image, int4 coord_x, int4 coord_y, int4* res_x, int4* res_y)
 {
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     int4 upper_x = (int4)(pImage->dimSub1[0]);
@@ -192,7 +192,7 @@ void __attribute__((overloadable)) SOA4_ProjectToEdgeInt(image2d_t image, int4 c
 // @param [in] image: the image object
 // @param [in] coord_(x,y) coordinates of the pixel 
 // @param [out] res_(x,y) output coordinates
-void __attribute__((overloadable)) SOA8_ProjectToEdgeInt(image2d_t image, int8 coord_x, int8 coord_y, private int8* res_x, private int8* res_y)
+void __attribute__((overloadable)) SOA8_ProjectToEdgeInt(image2d_t image, int8 coord_x, int8 coord_y, int8* res_x, int8* res_y)
 {
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     int8 upper_x = (int8)(pImage->dimSub1[0]);
@@ -407,13 +407,13 @@ int4 __attribute__((overloadable)) trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(voi
     return ProjectToEdgeInt(image2d, coord);
 }
 
-void __attribute__((overloadable)) soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int4 coord_x, int4 coord_y, private int4* res_coord_x, private int4* res_coord_y)
+void __attribute__((overloadable)) soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int4 coord_x, int4 coord_y, int4* res_coord_x, int4* res_coord_y)
 {
     image2d_t image2d = __builtin_astype(image, image2d_t);
     return SOA4_ProjectToEdgeInt(image2d, coord_x, coord_y, res_coord_x, res_coord_y);
 }
 
-void __attribute__((overloadable)) soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int8 coord_x, int8 coord_y, private int8* res_coord_x, private int8* res_coord_y)
+void __attribute__((overloadable)) soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int8 coord_x, int8 coord_y, int8* res_coord_x, int8* res_coord_y)
 {
     image2d_t image2d = __builtin_astype(image, image2d_t);
     return SOA8_ProjectToEdgeInt(image2d, coord_x, coord_y, res_coord_x, res_coord_y);
@@ -424,13 +424,13 @@ int4 __attribute__((overloadable)) trans_coord_int_UNDEFINED(void* image, int4 c
     return UndefCoordInt;
 }
 
-void __attribute__((overloadable)) soa4_trans_coord_int_UNDEFINED(void* image, int4 coord_x, int4 coord_y, private int4* res_coord_x, private int4* res_coord_y)
+void __attribute__((overloadable)) soa4_trans_coord_int_UNDEFINED(void* image, int4 coord_x, int4 coord_y, int4* res_coord_x, int4* res_coord_y)
 {
     *res_coord_x = SOA4_UndefCoordIntX;
     *res_coord_y = SOA4_UndefCoordIntY;
 }
 
-void __attribute__((overloadable)) soa8_trans_coord_int_UNDEFINED(void* image, int8 coord_x, int8 coord_y, private int8* res_coord_x, private int8* res_coord_y)
+void __attribute__((overloadable)) soa8_trans_coord_int_UNDEFINED(void* image, int8 coord_x, int8 coord_y, int8* res_coord_x, int8* res_coord_y)
 {
     *res_coord_x = SOA8_UndefCoordIntX;
     *res_coord_y = SOA8_UndefCoordIntY;
@@ -471,7 +471,7 @@ uint4  __attribute__((overloadable)) read_imageui(image2d_t image, sampler_t sam
 }
 
 void __attribute__((overloadable)) soa4_read_imageui(image2d_t image, sampler_t sampler, int4 coord_x, int4 coord_y,
-                                                    private uint4* res_x, private uint4* res_y, private uint4* res_z, private uint4* res_w)
+                                                    uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w)
 {
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     void* pData =pImage->pData;
@@ -485,7 +485,7 @@ void __attribute__((overloadable)) soa4_read_imageui(image2d_t image, sampler_t 
 }
 
 void __attribute__((overloadable)) soa8_read_imageui(image2d_t image, sampler_t sampler, int8 coord_x, int8 coord_y,
-                                                    private uint8* res_x, private uint8* res_y, private uint8* res_z, private uint8* res_w)
+                                                    uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w)
 {
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     void* pData =pImage->pData;

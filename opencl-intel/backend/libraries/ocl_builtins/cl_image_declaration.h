@@ -93,20 +93,20 @@ typedef void *SOA8_Image_I_COORD_CBK;
 int4   call_Image_F_COORD_CBK      (void* cbk, void* image, float4 coord);
 float4 call_Image_FF_COORD_CBK     (void* cbk, void* image, float4 coord, int4* square0, int4* square1);
 uint4  call_Image_UI_READ_CBK      (void* cbk, void* image, int4 coord, void* pData);
-void   call_SOA4_Image_UI_READ_CBK (void* cbk, void* image, int4 coord_x, int4 coord_y, void* pData, private uint4* res_x, private uint4* res_y, private uint4* res_z, private uint4* res_w);
-void   call_SOA8_Image_UI_READ_CBK (void* cbk, void* image, int8 coord_x, int8 coord_y, void* pData, private uint8* res_x, private uint8* res_y, private uint8* res_z, private uint8* res_w);
+void   call_SOA4_Image_UI_READ_CBK (void* cbk, void* image, int4 coord_x, int4 coord_y, void* pData, uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w);
+void   call_SOA8_Image_UI_READ_CBK (void* cbk, void* image, int8 coord_x, int8 coord_y, void* pData, uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w);
 int4   call_Image_I_READ_CBK       (void* cbk, void* image, int4 coord, void* pData);
 float4 call_Image_F_READ_CBK       (void* cbk, void* image, int4 square0, int4 square1, float4 coord, void* pData);
 float4 call_Image_FI_READ_CBK      (void* cbk, void* image, int4 coord, int4 dummy0, float4 dummy1, void* pData);
 void   call_Image_UI_WRITE_CBK     (void* cbk, void* image, uint4 color);
 void   call_Image_I_WRITE_CBK      (void* cbk, void* image, int4 color);
 void   call_Image_F_WRITE_CBK      (void* cbk, void* image, float4 color);
-void   call_SOA4_Image_UI_WRITE_CBK(void* cbk, private void* p1, private void* p2, private void* p3, private void* p4, uint4 val_x, uint4 val_y, uint4 val_z, uint4 val_w);
-void   call_SOA8_Image_UI_WRITE_CBK(void* cbk, private void* p0, private void* p1, private void* p2, private void* p3, private void* p4, private void* p5, private void* p6, private void* p7, uint8 val_x, uint8 val_y, uint8 val_z, uint8 val_w);
+void   call_SOA4_Image_UI_WRITE_CBK(void* cbk, void* p1, void* p2, void* p3, void* p4, uint4 val_x, uint4 val_y, uint4 val_z, uint4 val_w);
+void   call_SOA8_Image_UI_WRITE_CBK(void* cbk, void* p0, void* p1, void* p2, void* p3, void* p4, void* p5, void* p6, void* p7, uint8 val_x, uint8 val_y, uint8 val_z, uint8 val_w);
 
 int4 call_Image_I_COORD_CBK      (void* cbk, void* image, int4 coord);
-void call_SOA4_Image_I_COORD_CBK (void* cbk, void* image, int4 coord_x, int4 coord_y, private int4* translated_coord_x, private int4* translated_coord_y);
-void call_SOA8_Image_I_COORD_CBK (void* cbk, void* image, int8 coord_x, int8 coord_y, private int8* translated_coord_x, private int8* translated_coord_y);
+void call_SOA4_Image_I_COORD_CBK (void* cbk, void* image, int4 coord_x, int4 coord_y, int4* translated_coord_x, int4* translated_coord_y);
+void call_SOA8_Image_I_COORD_CBK (void* cbk, void* image, int8 coord_x, int8 coord_y, int8* translated_coord_x, int8* translated_coord_y);
 Image_I_COORD_CBK const constant call_coord_translate_i_callback(int samplerIndex);
 SOA4_Image_I_COORD_CBK const constant call_soa4_coord_translate_i_callback(int samplerIndex);
 SOA8_Image_I_COORD_CBK const constant call_soa8_coord_translate_i_callback(int samplerIndex);
@@ -114,14 +114,14 @@ SOA8_Image_I_COORD_CBK const constant call_soa8_coord_translate_i_callback(int s
 /// Integer coordinate translation callbacks
 
 int4 __attribute__((overloadable)) trans_coord_int_NONE_FALSE_NEAREST(void* image, int4 coord);
-void __attribute__((overloadable)) soa4_trans_coord_int_NONE_FALSE_NEAREST(void* image, int4 coord_x, int4 coord_y, private int4* res_coord_x, private int4* res_coord_y);
-void __attribute__((overloadable)) soa8_trans_coord_int_NONE_FALSE_NEAREST(void* image, int8 coord_x, int8 coord_y, private int8* res_coord_x, private int8* res_coord_y);
+void __attribute__((overloadable)) soa4_trans_coord_int_NONE_FALSE_NEAREST(void* image, int4 coord_x, int4 coord_y, int4* res_coord_x, int4* res_coord_y);
+void __attribute__((overloadable)) soa8_trans_coord_int_NONE_FALSE_NEAREST(void* image, int8 coord_x, int8 coord_y, int8* res_coord_x, int8* res_coord_y);
 int4 __attribute__((overloadable)) trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int4 coord);
-void __attribute__((overloadable)) soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int4 coord_x, int4 coord_y, private int4* res_coord_x, private int4* res_coord_y);
-void __attribute__((overloadable)) soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int8 coord_x, int8 coord_y, private int8* res_coord_x, private int8* res_coord_y);
+void __attribute__((overloadable)) soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int4 coord_x, int4 coord_y, int4* res_coord_x, int4* res_coord_y);
+void __attribute__((overloadable)) soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int8 coord_x, int8 coord_y, int8* res_coord_x, int8* res_coord_y);
 int4 __attribute__((overloadable)) trans_coord_int_UNDEFINED(void* image, int4 coord);
-void __attribute__((overloadable)) soa4_trans_coord_int_UNDEFINED(void* image, int4 coord_x, int4 coord_y, private int4* res_coord_x, private int4* res_coord_y);
-void __attribute__((overloadable)) soa8_trans_coord_int_UNDEFINED(void* image, int8 coord_x, int8 coord_y, private int8* res_coord_x, private int8* res_coord_y);
+void __attribute__((overloadable)) soa4_trans_coord_int_UNDEFINED(void* image, int4 coord_x, int4 coord_y, int4* res_coord_x, int4* res_coord_y);
+void __attribute__((overloadable)) soa8_trans_coord_int_UNDEFINED(void* image, int8 coord_x, int8 coord_y, int8* res_coord_x, int8* res_coord_y);
 
 
 #define ALIGN16 __attribute__ ((aligned(16)))

@@ -35,113 +35,113 @@
 //                                 char4x4
 // ****************************************************************************
 
-void INLINE_ATTRIBUTE __ocl_masked_load_char4x4(private char4* pLoadAdd, private char4* pLoadedValues, int4 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_char4x4(private char4* pStoreAdd, private char4* pValuesToStore, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_load_char4x4(char4* pLoadAdd, char4* pLoadedValues, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_char4x4(char4* pStoreAdd, char4* pValuesToStore, int4 mask);
 
 
 // ****************************************************************************
 //                                 char4x8
 // ****************************************************************************
 
-void INLINE_ATTRIBUTE __ocl_masked_load_char4x8(private char4* pLoadAdd, private char4* pLoadedValues, int8 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_char4x8(private char4* pStoreAdd, private char4* pValuesToStore, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_load_char4x8(char4* pLoadAdd, char4* pLoadedValues, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_char4x8(char4* pStoreAdd, char4* pValuesToStore, int8 mask);
 
 // ****************************************************************************
 //                                 short4x4
 // ****************************************************************************
 
-void INLINE_ATTRIBUTE __ocl_masked_load_short4x4(private short4* pLoadAdd, private short4* pLoadedValues, int4 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_short4x4(private short4* pStoreAdd, private short4* pValuesToStore, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_load_short4x4(short4* pLoadAdd, short4* pLoadedValues, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_short4x4(short4* pStoreAdd, short4* pValuesToStore, int4 mask);
 
 // ****************************************************************************
 //                                 short4x8
 // ****************************************************************************
 
-void INLINE_ATTRIBUTE __ocl_masked_load_short4x8(private short4* pLoadAdd, private short4* pLoadedValues, int8 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_short4x8(private short4* pStoreAdd, private short4* pValuesToStore, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_load_short4x8(short4* pLoadAdd, short4* pLoadedValues, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_short4x8(short4* pStoreAdd, short4* pValuesToStore, int8 mask);
 
 // ****************************************************************************
 //                                 int4x4
 // ****************************************************************************
 
-void INLINE_ATTRIBUTE __ocl_masked_load_int4x4(private int4* pLoadAdd, private int4* pLoadedValues, int4 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_int4x4(private int4* pStoreAdd, private int4* pValuesToStore, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_load_int4x4(int4* pLoadAdd, int4* pLoadedValues, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_int4x4(int4* pStoreAdd, int4* pValuesToStore, int4 mask);
 
 // ****************************************************************************
 //                                 int4x8
 // ****************************************************************************
 
-void INLINE_ATTRIBUTE __ocl_masked_load_int4x8(private int4* pLoadAdd, private int4* pLoadedValues, int8 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_int4x8(private int4* pStoreAdd, private int4* pValuesToStore, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_load_int4x8(int4* pLoadAdd, int4* pLoadedValues, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_int4x8(int4* pStoreAdd, int4* pValuesToStore, int8 mask);
 
 // ****************************************************************************
 //                                 float4x4
 // ****************************************************************************
 
-void INLINE_ATTRIBUTE __ocl_masked_load_float4x4(private float4* pLoadAdd, private float4* pLoadedValues, int4 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_float4x4(private float4* pStoreAdd, private float4* pValuesToStore, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_load_float4x4(float4* pLoadAdd, float4* pLoadedValues, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_float4x4(float4* pStoreAdd, float4* pValuesToStore, int4 mask);
 
 // ****************************************************************************
 //                                 float4x8
 // ****************************************************************************
 
-void INLINE_ATTRIBUTE __ocl_masked_load_float4x8(private float4* pLoadAdd, private float4* pLoadedValues, int8 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_float4x8(private float4* pStoreAdd, private float4* pValuesToStore, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_load_float4x8(float4* pLoadAdd, float4* pLoadedValues, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_float4x8(float4* pStoreAdd, float4* pValuesToStore, int8 mask);
 
 // ****************************************************************************
 //                                 int4
 // ****************************************************************************
 
-int4 INLINE_ATTRIBUTE __ocl_masked_load_int4(private int4* pLoadAdd, int4 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_int4(private int4* pStoreAdd, int4 data, int4 mask);
+int4 INLINE_ATTRIBUTE __ocl_masked_load_int4(int4* pLoadAdd, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_int4(int4* pStoreAdd, int4 data, int4 mask);
 
 // ****************************************************************************
 //                                 int8
 // ****************************************************************************
 
-int8 INLINE_ATTRIBUTE __ocl_masked_load_int8(private int8* pLoadAdd, int8 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_int8(private int8* pStoreAdd, int8 data, int8 mask);
+int8 INLINE_ATTRIBUTE __ocl_masked_load_int8(int8* pLoadAdd, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_int8(int8* pStoreAdd, int8 data, int8 mask);
 
 // ****************************************************************************
 //                                 long4
 // ****************************************************************************
 
-long4 INLINE_ATTRIBUTE __ocl_masked_load_long4(private long4* pLoadAdd, int4 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_long4(private long4* pStoreAdd, long4 data, int4 mask);
+long4 INLINE_ATTRIBUTE __ocl_masked_load_long4(long4* pLoadAdd, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_long4(long4* pStoreAdd, long4 data, int4 mask);
 
 // ****************************************************************************
 //                                 long8
 // ****************************************************************************
 
-long8 INLINE_ATTRIBUTE __ocl_masked_load_long8(private long8* pLoadAdd, int8 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_long8(private long8* pStoreAdd, long8 data, int8 mask);
+long8 INLINE_ATTRIBUTE __ocl_masked_load_long8(long8* pLoadAdd, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_long8(long8* pStoreAdd, long8 data, int8 mask);
 
 // ****************************************************************************
 //                                 float4
 // ****************************************************************************
 
-float4 INLINE_ATTRIBUTE __ocl_masked_load_float4(private float4* pLoadAdd, int4 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_float4(private float4* pStoreAdd, float4 data, int4 mask);
+float4 INLINE_ATTRIBUTE __ocl_masked_load_float4(float4* pLoadAdd, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_float4(float4* pStoreAdd, float4 data, int4 mask);
 
 // ****************************************************************************
 //                                 float8
 // ****************************************************************************
 
-float8 INLINE_ATTRIBUTE __ocl_masked_load_float8(private float8* pLoadAdd, int8 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_float8(private float8* pStoreAdd, float8 data, int8 mask);
+float8 INLINE_ATTRIBUTE __ocl_masked_load_float8(float8* pLoadAdd, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_float8(float8* pStoreAdd, float8 data, int8 mask);
 
 // ****************************************************************************
 //                                 double4
 // ****************************************************************************
 
-double4 INLINE_ATTRIBUTE __ocl_masked_load_double4(private double4* pLoadAdd, int4 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_double4(private double4* pStoreAdd, double4 data, int4 mask);
+double4 INLINE_ATTRIBUTE __ocl_masked_load_double4(double4* pLoadAdd, int4 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_double4(double4* pStoreAdd, double4 data, int4 mask);
 
 // ****************************************************************************
 //                                 double8
 // ****************************************************************************
 
-double8 INLINE_ATTRIBUTE __ocl_masked_load_double8(private double8* pLoadAdd, int8 mask);
-void INLINE_ATTRIBUTE __ocl_masked_store_double8(private double8* pStoreAdd, double8 data, int8 mask);
+double8 INLINE_ATTRIBUTE __ocl_masked_load_double8(double8* pLoadAdd, int8 mask);
+void INLINE_ATTRIBUTE __ocl_masked_store_double8(double8* pStoreAdd, double8 data, int8 mask);
 
 #endif // defined(__AVX__)
