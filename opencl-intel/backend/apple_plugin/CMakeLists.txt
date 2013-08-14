@@ -58,6 +58,8 @@ set (PASSES_LIBS
     UndefExternalFuncs
     KernelInfo
     LinearIdResolver
+    DetectFunctionPtrCalls
+    CloneBlockInvokeFuncToKernel
     )
 
 target_link_libraries(${TARGET_NAME}
