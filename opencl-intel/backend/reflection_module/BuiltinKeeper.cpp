@@ -7,9 +7,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "BuiltinKeeper.h"
 #include "NameMangleAPI.h"
-#include  "llvm/Support/MutexGuard.h"
-#include  "llvm/Support/raw_ostream.h"
-#include  "llvm/ADT/ArrayRef.h"
+#include "llvm/Support/MutexGuard.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/ArrayRef.h"
 #include <cctype>
 #include <sstream>
 
@@ -701,29 +701,55 @@ private:
 bool BuiltinKeeper::isInExceptionMap(const std::string& name)const{
   reflection::width::V allWidth[] = {width::SCALAR, width::TWO, width::FOUR,
     width::EIGHT, width::SIXTEEN, width::THREE};
-  for (unsigned i=0 ; i<width::OCL_VERSIONS; ++i){
+  for (unsigned i=0 ; i<width::OCL_VERSIONS; ++i) {
     reflection::width::V w = allWidth[i];
     VersionCBMap::const_iterator it =
       m_exceptionsMap.find(std::make_pair(name, w));
+
     if (m_exceptionsMap.end() != it)
       return true;
   }
   return false;
 }
 
+#include "BuiltinList.h"
+
+bool BuiltinKeeper::searchAndCacheUpdate(const FunctionDescriptor& fd) const {
+  bool bFound = false, bLineCached = false;
+
+  // Iterated over the mangledNames array (included in BuiltinList.h), and
+  // search the name. As we go along, we populate the cache.
+  for (size_t i=0 ; i<(sizeof(mangledNames)/sizeof(char*)) ; ++i){
+    llvm::StringRef strippedName = stripName(mangledNames[i]);
+    if (m_descriptorsMap.isInSameCacheLine(fd.name, strippedName)) {
+      // Cache the builtin we demangle.
+      FunctionDescriptor candidate = demangle(mangledNames[i]);
+      candidate.assignAutomaticWidth();
+      m_descriptorsMap.insert(candidate);
+      bLineCached = true;
+      bFound |= (fd == candidate);
+    // If the cache-line was inserted, we can notify the result, since all
+    // overloads are grouped together in the mangled names array.
+    } else if (bLineCached)
+        return bFound;
+  }
+
+  // The mangled name was no where to be found.
+  return false;
+}
+
 bool BuiltinKeeper::isBuiltin(const std::string& mangledString)const{
+
   if (mangledString.empty())
     return false;
 
   if (isInExceptionMap(mangledString))
     return true;
 
-  //we need to execute isBuiltin(FunctionDescriptor) whenever the function
-  //isn't overloaded, since it has a side effect
+  // We need to execute isBuiltin(FunctionDescriptor) whenever the function
+  // isn't overloaded, since it has a side effect.
   return isBuiltin (demangle(mangledString.c_str()));
 }
-
-#include "BuiltinList.h"
 
 bool BuiltinKeeper::isBuiltin(const FunctionDescriptor& fd)const{
   if (fd.isNull())
@@ -731,8 +757,8 @@ bool BuiltinKeeper::isBuiltin(const FunctionDescriptor& fd)const{
 
   BuiltinMap::MapRange mr = m_descriptorsMap.equalRange(fd.name);
   RangeUtil range(mr);
-  //is cache line present?
-  if ( !range.isEmpty() ){
+  // Is cache line resides in cache?
+  if (!range.isEmpty()){
     //Note: the invariant of the cache is, that all the versions of a built-in
     //are either in the cache, or none of them is. (they are all loaded
     //together)
@@ -743,23 +769,9 @@ bool BuiltinKeeper::isBuiltin(const FunctionDescriptor& fd)const{
     } while (!range.isEmpty());
     return false;
   }
+
   assert(range.isEmpty() && "internal bug");
-  bool bFound = false, bLineCached = false;
-  for (size_t i=0 ; i<(sizeof(mangledNames)/sizeof(char*)) ; ++i){
-    llvm::StringRef strippedName = stripName(mangledNames[i]);
-    if ( m_descriptorsMap.isInSameCacheLine(fd.name, strippedName) ){
-      //cache the builtin we demangle
-      FunctionDescriptor candidate = demangle(mangledNames[i]);
-      candidate.assignAutomaticWidth();
-      m_descriptorsMap.insert(candidate);
-      bLineCached = true;
-      bFound |= (fd == candidate);
-    //if the cache-line was inserted, we can notify the result, since all
-    //overloads are grouped together in the mangled names array
-    } else if (bLineCached)
-        return bFound;
-  }
-  return false;
+  return searchAndCacheUpdate(fd);
 }
 
 PairSW BuiltinKeeper::getVersion(const std::string& name, width::V w) const {
@@ -768,21 +780,26 @@ PairSW BuiltinKeeper::getVersion(const std::string& name, width::V w) const {
     VersionStrategy* pCb = it->second;
     return (*pCb)(it->first);
   }
-  if (!isBuiltin(name)){
+
+  // If it is not a built-in function, it cannot be versioned.
+  if (!isBuiltin(name))
     return nullPair();
-  }
 
   // Now there are two alternatives:
-  //  1. The entire overload set is in the cache.
-  //  2. The given string is in the exception map, but associated to a different
-  //  width.
+  // 1. The entire overload set is in the cache.
+  // 2. The given string is in the exception map, but associated to a different
+  //    width.
   FunctionDescriptor original = demangle(name.c_str());
   BuiltinMap::MapRange mr = m_descriptorsMap.equalRange(original.name);
   RangeUtil range(mr);
 
-  // Option (2)... (the string is in the cache, but with a different width).
+  // Option (2)... (the string is in the exception map, but associated to a
+  // different width).
   if (range.isEmpty())
-    return nullPair();
+    return searchAndCacheUpdate(original) ?
+      std::make_pair(original.name, w) : nullPair();
+
+  // The function descriptor resides in the cache, get it from there.
   do{
     const FunctionDescriptor candidate = range.getDescriptor();
     //we check that the candidate is in the right width, and that its parameters
@@ -791,6 +808,7 @@ PairSW BuiltinKeeper::getVersion(const std::string& name, width::V w) const {
       return fdToPair(candidate);
     range.increment();
   } while(!range.isEmpty());
+
   return nullPair();
 }
 

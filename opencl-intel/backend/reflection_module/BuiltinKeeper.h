@@ -128,13 +128,23 @@ private:
   void populateReturnTyMap();
 
   /////////////////////////////////////////////////////////////////////////////
-  //Purpose: indicates whether the given bi name resides within the exception map
+  // Purpose: indicates whether the given bi name resides within the exception map
   /////////////////////////////////////////////////////////////////////////////
   bool isInExceptionMap(const std::string& name)const;
 
+  /////////////////////////////////////////////////////////////////////////////
+  // Purpose: Searched the given name in the built-in repository.
+  // Parameters: The built-in function to be searched.
+  // Return:     true if the name was found, false otherwise.
+  // Remarks:    This function should only be called after the cache (i.e.,
+  // m_descriptorsMap) was searched with the name of the given function desc,
+  // and returned as empty.
+  /////////////////////////////////////////////////////////////////////////////
+  bool searchAndCacheUpdate(const FunctionDescriptor&) const;
+
   static BuiltinKeeper* Instance;
-  //cache for builtins. (contains builtin function which where previously
-  //queried.
+  // Cache for builtins. (contains builtin function which where previously
+  // queried.
   mutable BuiltinMap m_descriptorsMap;
   //
   //Versioning strategies
