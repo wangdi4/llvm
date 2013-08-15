@@ -70,20 +70,3 @@ void Intel::OpenCL::Utils::OclSpinMutex::Unlock()
 #endif  	
 }
 
-/************************************************************************
- * OclAutoMutex
- ************************************************************************/
-Intel::OpenCL::Utils::OclAutoMutex::OclAutoMutex(IMutex* mutexObj, bool bAutoLock)
-{
-    m_mutexObj = mutexObj;
-	if ( bAutoLock )
-	{
-		m_mutexObj->Lock();
-	}
-}
-
-Intel::OpenCL::Utils::OclAutoMutex::~OclAutoMutex()
-{
-    m_mutexObj->Unlock();
-}
-

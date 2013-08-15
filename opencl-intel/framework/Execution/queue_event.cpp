@@ -421,6 +421,29 @@ cl_int QueueEvent::GetReturnCode() const
 	return m_pCommand->GetReturnCode();
 }
 
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+void QueueEvent::Wait()
+{
+    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("QueueEvent::Wait");
+      }
+      __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+
+    OclEvent::Wait();
+    
+    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    {
+      __itt_task_end(m_pGPAData->pDeviceDomain);
+    }
+    
+}
+#endif
+
 void QueueEvent::operator delete(void* p)
 {
     QueueEvent* const self = (QueueEvent*)p;

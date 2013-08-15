@@ -232,8 +232,8 @@ void MICDevice::unloadRelease()
     }
 #endif
 
-	delete m_mic_instancies;
-	m_mic_instancies = NULL;
+    delete m_mic_instancies;
+    m_mic_instancies = NULL;
 
     delete m_mic_instancies_mutex;
     m_mic_instancies_mutex = NULL;   
@@ -279,14 +279,14 @@ const char* MICDevice::clDevFEModuleName() const
 {
 #if defined (_WIN32)
 #if defined (_M_X64)
-	static const char* sFEModuleName = "clang_compiler64";
+    static const char* sFEModuleName = "clang_compiler64";
 #else
-	static const char* sFEModuleName = "clang_compiler32";
+    static const char* sFEModuleName = "clang_compiler32";
 #endif
 #else
-	static const char* sFEModuleName = "clang_compiler";
+    static const char* sFEModuleName = "clang_compiler";
 #endif
-	return sFEModuleName;
+    return sFEModuleName;
 }
 
 const void* MICDevice::clDevFEDeviceInfo() const
@@ -505,16 +505,15 @@ cl_dev_err_code MICDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
     
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevCommandListWaitCompletion Function enter");
 
-	if (NULL != list)
+    if (NULL != list)
     {
         CommandList* pList = (CommandList*)list;
         if (NULL == pList)
         {
             return CL_DEV_INVALID_VALUE;
         }
-        pList->commandListWaitCompletion(cmdDesc);
+        return pList->commandListWaitCompletion(cmdDesc);
     }
-    // Always return CL_DEV_NOT_SUPPORTED in order to avoid race between the notification port and pList->commandListWaitCompletion!
     return CL_DEV_NOT_SUPPORTED;
 }
 
@@ -551,21 +550,24 @@ cl_dev_err_code MICDevice::clDevCommandListCancel(cl_dev_cmd_list IN list)
      */
 void MICDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
 {
-	if (isDeviceLibraryUnloaded())
+    if (isDeviceLibraryUnloaded())
     {
         return;
     }
     
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevReleaseCommand Function enter");
 
-	if (cmdToRelease)
-	{
-		SharedPtr<Command> pCmd = (Command*)cmdToRelease->device_agent_data;
-		if (pCmd)
-		{
-			pCmd->releaseCommand();
-		}
-	}
+    if (cmdToRelease)
+    {
+        Command* pCmd = (Command*)cmdToRelease->device_agent_data;
+
+        cmdToRelease->device_agent_data = NULL;
+
+        if (pCmd)
+        {
+            pCmd->releaseCommand();
+        }
+    }
 }
 
 //Memory API's
@@ -832,10 +834,10 @@ void MICDevice::clDevCloseDevice(void)
 
     // remove Mic device from global set
     if (isDeviceLibraryUnloaded() || UnregisterMicDevice( this ))
-	{
-		// If the device didn't close yet.
-		clDevCloseDeviceInt();
-	}
+    {
+        // If the device didn't close yet.
+        clDevCloseDeviceInt();
+    }
 }
 
 void MICDevice::clDevCloseDeviceInt(bool preserve_object)
@@ -902,10 +904,11 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
 */
 extern "C" cl_dev_err_code clDevInitDeviceAgent(void)
 {
-	MICDevice::loadingInit();
+    MICDevice::loadingInit();
 
 #ifdef __INCLUDE_MKL__
     Intel::OpenCL::MKLKernels::InitLibrary();
 #endif
     return CL_DEV_SUCCESS;
 }
+

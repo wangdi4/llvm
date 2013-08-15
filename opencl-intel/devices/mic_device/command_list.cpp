@@ -65,9 +65,9 @@ CommandList::CommandList(const SharedPtr<NotificationPort>& pNotificationPort,
         ,m_pGPAData(pGPAData)
 #endif
 {
-	m_refCounter = 1;
+    m_refCounter = 1;
 #ifdef _DEBUG
-	m_numOfConcurrentExecutions = 0;
+    m_numOfConcurrentExecutions = 0;
 #endif
 }
 
@@ -176,18 +176,19 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
     }
 #endif
 
-	cl_dev_err_code rc = CL_DEV_SUCCESS;
-	SharedPtr<Command> pCmdObject;
+    cl_dev_err_code rc = CL_DEV_SUCCESS;
+    SharedPtr<Command> pCmdObject;
     // run over all the cmds
-	for (unsigned int i = 0; i < count; i++)
-	{
-	    // Create appropriate Command object, After createCommandObject() complete, Do not change pCmdObject until completion of pCmdObject->execute()!
-		rc = createCommandObject(cmds[i], pCmdObject);
-		// If there is no enough memory for allocating Command object
-		if (CL_DEV_FAILED(rc))
-		{
-			break;
-		}
+    for (unsigned int i = 0; i < count; i++)
+    {
+        
+        // Create appropriate Command object, After createCommandObject() complete, Do not change pCmdObject until completion of pCmdObject->execute()!
+        rc = createCommandObject(cmds[i], pCmdObject);
+        // If there is no enough memory for allocating Command object
+        if (CL_DEV_FAILED(rc))
+        {
+            break;
+        }
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
       if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
       {
@@ -199,25 +200,25 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
         __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
       }
 #endif
-		// Send the command for execution. pCmdObject will delete itself.
-		rc = pCmdObject->execute();
+        // Send the command for execution. pCmdObject will delete itself.
+        rc = pCmdObject->execute();
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
     {
       __itt_task_end(m_pGPAData->pDeviceDomain);
     }
 #endif
-		if (CL_DEV_FAILED(rc))
-		{
-			break;
-		}
-		// Save the new Command pointer in device agent data. ASSUME that calling to clDevReleaseCommand in order to delete this Command!
-		cmds[i]->device_agent_data = pCmdObject.GetPtr();
-		// Incrementing the reference counter because it is a temporary shared pointer instance. (otherwise the Command object can delete before it complete its execution)
-		pCmdObject.IncRefCnt();
-		// In order to decrease the reference count of the last command.
-		pCmdObject = NULL;
-	}
+        if (CL_DEV_FAILED(rc))
+        {
+            break;
+        }
+        // Save the new Command pointer in device agent data. ASSUME that calling to clDevReleaseCommand in order to delete this Command!
+        cmds[i]->device_agent_data = (Command*)(pCmdObject.GetPtr());
+        // Incrementing the reference counter because it is a temporary shared pointer instance. (otherwise the Command object can delete before it complete its execution)
+        pCmdObject->retainCommand();
+        // In order to decrease the reference count of the last command.
+        pCmdObject = NULL;
+    }
 #ifdef _DEBUG
     oldVal = m_numOfConcurrentExecutions--;
     assert(oldVal == 1);
@@ -230,46 +231,57 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
   }
 #endif
 
-	return rc;
+    return rc;
 }
 
-void CommandList::commandListWaitCompletion(cl_dev_cmd_desc* cmdDescToWait)
+cl_dev_err_code CommandList::commandListWaitCompletion(cl_dev_cmd_desc* cmdDescToWait)
 {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
-      {
-        pTaskName = __itt_string_handle_create("CommandList::commandListWaitCompletion()");
-      }
-      __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+            pTaskName = __itt_string_handle_create("CommandList::commandListWaitCompletion()");
+        }
+        __itt_task_begin(m_pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);
     }
 #endif
 
-	SharedPtr<Command> waitToCmd = NULL;
-	// Assume that if cmdDescToWait->device_agent_data != NULL than the Command object exist.
-	if ((cmdDescToWait) && (cmdDescToWait->device_agent_data))
-	{
-		waitToCmd = (Command*)(cmdDescToWait->device_agent_data);
-	}
-	else
-	{
-		// Wait to last Command (if didn't finish yet)
-		waitToCmd = getLastCommand();
-	}
-	if (NULL != waitToCmd)
-	{
-		COIRESULT err = COI_SUCCESS;
-		err = COIEventWait(1, &(waitToCmd->getCommandCompletionEvent()), -1, true, NULL, NULL);
-		assert(COI_SUCCESS == err);
-	}	
+    SharedPtr<Command> waitToCmd = NULL;
+    // Assume that if cmdDescToWait->device_agent_data != NULL than the Command object exist.
+    if ((cmdDescToWait) && (cmdDescToWait->device_agent_data))
+    {
+        waitToCmd = (Command*)(cmdDescToWait->device_agent_data);
+    }
+    else
+    {
+        // Wait to last Command (if didn't finish yet)
+        waitToCmd = getLastCommand();
+    }
+
+    cl_dev_err_code err = CL_DEV_SUCCESS;
+    if (NULL != waitToCmd)
+    {        
+        COIRESULT coi_err = COI_SUCCESS;
+        coi_err = COIEventWait(1, &(waitToCmd->getCommandCompletionEvent()), -1, true, NULL, NULL);
+        if (COI_SUCCESS != coi_err)
+        {
+            assert((COI_SUCCESS == coi_err) || "COIEventWait failed in commandListWaitCompletion");
+            err = CL_DEV_ERROR_FAIL;
+        }
+        else
+        {
+            waitToCmd->waitForCompletion();
+        }
+    }    
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-  if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
-  {
-    __itt_task_end(m_pGPAData->pDeviceDomain);
-  }
+    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    {
+        __itt_task_end(m_pGPAData->pDeviceDomain);
+    }
 #endif
+    return err;
 }
 
 cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, SharedPtr<Command>& cmdObject)
@@ -286,26 +298,26 @@ cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, SharedPtr
     }
 #endif
 
-	if ((NULL == cmd) || (cmd->type >= CL_DEV_CMD_MAX_COMMAND_TYPE))
-	{
-		return CL_DEV_INVALID_VALUE;
-	}
-	// get function pointer to cmd->type factory function
-	fnCommandCreate_t* fnCreate = m_vCommands[cmd->type];
-	assert( (NULL != fnCreate) && "Not implemented");
-	SharedPtr<Command> pCmdObject;
-	// create appropriate command object. In order to delete it call to clDevReleaseCommand()
-	cl_dev_err_code	rc = fnCreate(this, m_pFrameworkCallBacks, cmd, pCmdObject);
+    if ((NULL == cmd) || (cmd->type >= CL_DEV_CMD_MAX_COMMAND_TYPE))
+    {
+        return CL_DEV_INVALID_VALUE;
+    }
+    // get function pointer to cmd->type factory function
+    fnCommandCreate_t* fnCreate = m_vCommands[cmd->type];
+    assert( (NULL != fnCreate) && "Not implemented");
+    SharedPtr<Command> pCmdObject;
+    // create appropriate command object. In order to delete it call to clDevReleaseCommand()
+    cl_dev_err_code    rc = fnCreate(this, m_pFrameworkCallBacks, cmd, pCmdObject);
     // if failed create FailureNotification command object
-	if (CL_DEV_FAILED(rc))
-	{
-	    pCmdObject = FailureNotification::Create(m_pFrameworkCallBacks, cmd, rc);
-		if (NULL == pCmdObject)
-		{
-		    rc = CL_DEV_OUT_OF_MEMORY;
-		}
-	}
-	cmdObject = pCmdObject;
+    if (CL_DEV_FAILED(rc))
+    {
+        pCmdObject = FailureNotification::Create(m_pFrameworkCallBacks, cmd, rc);
+        if (NULL == pCmdObject)
+        {
+            rc = CL_DEV_OUT_OF_MEMORY;
+        }
+    }
+    cmdObject = pCmdObject;
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
   if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
   {
@@ -313,7 +325,7 @@ cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, SharedPtr
   }
 #endif
 
-	return rc;
+    return rc;
 }
 
 cl_dev_err_code CommandList::createPipeline()
@@ -423,23 +435,24 @@ cl_dev_err_code CommandList::runBlockingFuncOnDevice(DeviceServiceCommunication:
 
 SharedPtr<Command> CommandList::getLastCommand()
 {
-	m_lastCommandMutex.Lock();
-	SharedPtr<Command> retCommand = m_lastCommand;
-	m_lastCommandMutex.Unlock();
-	return retCommand;
+    OclAutoMutex lock(&m_lastCommandMutex);
+    SharedPtr<Command> retCommand = m_lastCommand;
+    return retCommand;
 }
 
-void CommandList::setLastCommand(const SharedPtr<Command>& newCommand, const SharedPtr<Command>& oldCommand)
+void CommandList::setLastCommand(const SharedPtr<Command>& newCommand)
 {
-	assert(((NULL != newCommand) || (NULL != oldCommand)) && "If NULL == newCommand than u must supply valid oldCommand");
-	m_lastCommandMutex.Lock();
-	if ((oldCommand == m_lastCommand) && (NULL == newCommand))
-	{
-		m_lastCommand = NULL;
-	}
-	else if (NULL != newCommand)
-	{
-		m_lastCommand = newCommand;
-	}
-	m_lastCommandMutex.Unlock();
+    OclAutoMutex lock(&m_lastCommandMutex);
+    m_lastCommand = newCommand;
 }
+
+void CommandList::resetLastCommand(const SharedPtr<Command>& oldCommand)
+{
+    assert((NULL != oldCommand) && "Cannot reset NULL command");
+    OclAutoMutex lock(&m_lastCommandMutex);
+    if (oldCommand == m_lastCommand)
+    {
+        m_lastCommand = NULL;
+    }
+}
+

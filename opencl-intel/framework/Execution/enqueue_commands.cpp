@@ -139,6 +139,14 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
     {
         ittID = __itt_id_make(&ittID, (unsigned long long)this);
 	    __itt_id_create(pGPAData->pDeviceDomain, ittID);
+#if defined(USE_ITT_INTERNAL)        
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+          pTaskName = __itt_string_handle_create("Command::NotifyCmdStatusChanged");
+        }
+        __itt_task_begin(pGPAData->pDeviceDomain, __itt_null, __itt_null, pTaskName);            
+#endif
     }
 #endif
     cl_err_code res = CL_SUCCESS;
@@ -252,6 +260,14 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
     default:
         break;
     }
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+      if ( (NULL != pGPAData) && pGPAData->bUseGPA )
+      {
+        __itt_task_end(pGPAData->pDeviceDomain);
+      }
+#endif
+    
     return res;
 }
 
