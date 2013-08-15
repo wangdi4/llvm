@@ -34,6 +34,11 @@ void WgContextPool::Init(unsigned int maxNumThreads, unsigned int maxNumMasters)
     assert (NULL == m_wgContextWrapperPool && "Context pool already initialized");
     assert (0 < maxNumThreads && "Zero threads requested");
     assert (1 == maxNumMasters && "Current implementation supports only one master thread at a time");
+    if (maxNumThreads == maxNumMasters)
+    {
+        //Always allow for at least one worker
+        maxNumThreads++; 
+    }
 
     m_maxNumThreads = maxNumThreads;
     if (0 == m_maxNumThreads) return;
