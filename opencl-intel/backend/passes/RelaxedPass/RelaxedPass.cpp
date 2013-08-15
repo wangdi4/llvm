@@ -34,12 +34,12 @@ extern "C" {
     }
 }
 
-#define NAME_RELAXED_2_0 "native_rm_"
+#define NAME_RELAXED_2_0 "_rm"
 
+// the length of "native_" plus the length of "_rm" is 9, the length of "cos" is 3, so NAME_RELAXED_2_0_LEN_3 = 12, these
+// defines are used in macroses like RELAXED_MATH_2_0_P1_vX and if prefixes/postfixes "native_" and "_rm" will be changed 
+// to new ones with different length, it will be enough to change only defines NAME_RELAXED_2_0_LEN_3 ... NAME_RELAXED_2_0_LEN_6
 
-// the length of "native_rm_" is 10, the length of "cos" is 3, so NAME_RELAXED_2_0_LEN_3 = 13 and if prefix "native_rm_", these
-// deines are used in macroses like RELAXED_MATH_2_0_P1_vX and if prefix "native_rm_" will be changed to new one with different length,
-// it will be enough to change only defines NAME_RELAXED_2_0_LEN_3 ... NAME_RELAXED_2_0_LEN_6
 #define NAME_RELAXED_2_0_LEN_3 13
 #define NAME_RELAXED_2_0_LEN_4 14
 #define NAME_RELAXED_2_0_LEN_5 15
@@ -49,7 +49,7 @@ extern "C" {
     map.insert ( pair<std::string, std::string>("_Z" #length #func type, "_Z" #native_length "native_" #func type) );
 
 #define INSERT_MAP_TO_RELAXED_20(map, func, type, length, ocl20_length)        \
-    map.insert ( pair<std::string, std::string>("_Z" #length #func type, "_Z" #ocl20_length NAME_RELAXED_2_0 #func type) );
+    map.insert ( pair<std::string, std::string>("_Z" #length #func type, "_Z" #ocl20_length "native_" #func NAME_RELAXED_2_0 type) );
 
 // native built-ins, one argument, float version
 #define    RELAXED_P1_vX(map, func,           length, native_length)     \
