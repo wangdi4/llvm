@@ -248,16 +248,14 @@ void MICResolver::FixBaseAndIndexIfNeeded(
 
   // Calculate the safe valid bits in index that allows using gather/scatter without modifications
   // This number is refferring to signed index, for unsigned the safe index is one bit less.
-  const unsigned int dataSizeInBytes = cast<PointerType>(Ptr->getType())->getElementType()->getPrimitiveSizeInBits() / 8;
-  V_ASSERT(dataSizeInBytes != 0 && "dataSizeInBytes should not be zero!");
-  const unsigned int safeValidBits = 32 - VectorizerUtils::getLOG(dataSizeInBytes);
+  const unsigned int safeValidBits = 32;// - VectorizerUtils::getLOG(dataSizeInBytes);
   if(uValidBits <= safeValidBits) {
     // In this case it is safe to Bitcast index to 32bit
     Index = BitCastInst::CreateIntegerCast(Index, i32Vec, bIsSigned, "IntegerCaseToi32", caller);
     V_PRINT(gather_scatter_stat, "RESOLVER: TRUNC " << *Index << "\n");
     if((uValidBits ==  safeValidBits) && !bIsSigned) {
       // In this case index is unsigned 32bit (we need to assure value is no higher than 2^31)
-      const unsigned int MaxSignedPosValidNum = ((1 << (safeValidBits-1)) - 1);
+      const unsigned int MaxSignedPosValidNum = 0x7FFFFFFF;
       Value *PosMax32BitInt = ConstantInt::get(i32Ty, MaxSignedPosValidNum);
       Constant *NegMax32BitIntConst = ConstantInt::get(i32Ty, -MaxSignedPosValidNum);
       SmallVector<Constant*, 16> VecNegMax32BitIntConst(IndexType->getNumElements(), NegMax32BitIntConst);
