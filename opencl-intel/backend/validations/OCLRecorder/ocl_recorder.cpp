@@ -266,7 +266,7 @@ namespace Validation
 
         image_aux_data * data = (image_aux_data *)pmem_obj->imageAuxData;
 
-        // see struct image_aux_data in \cl_api\cl_types.h, 
+        // see struct image_aux_data in \cl_api\cl_types.h,
         // array_size is set to -1 if it is not array
         bool isArray = (int(-1) != data->array_size);
 
@@ -612,22 +612,13 @@ namespace Validation
         context.Flush();
     }
 
-    static bool isDot(char c){
-      return '.' == c;
-    }
-
-    static std::string::iterator firstDot(const std::string& cs){
-      std::string& s = const_cast<std::string&>(cs);
-      return std::find_if(s.begin(), s.end(), isDot);
-    }
-
     class SameBase{
       std::string name;
     public:
-      SameBase(const std::string& s):name(s){}
+      SameBase(const std::string& s):name(s.substr(0, s.find_first_of('.'))){}
 
       bool operator()(const std::string& s)const{
-          return s.substr(0, firstDot(s)- s.begin()) == name.substr(0, firstDot(name)- name.begin());
+          return s.substr(0, s.find_first_of('.')) == name;
       }
     };
 
@@ -649,7 +640,7 @@ namespace Validation
         //we append a serial number to name of the file, so it would be unique
         std::string suf = dupNameSuffix(m_recordedFiles, strName);
         if( !suf.empty() )
-          strName.insert(firstDot(strName) - strName.begin(), suf);
+          strName.insert(strName.find_first_of('.'), suf);
         AddRecordedFile(strName);
         strName.insert(0, m_prefix);
         llvm::sys::Path path(m_logsDir.c_str(), m_logsDir.size());

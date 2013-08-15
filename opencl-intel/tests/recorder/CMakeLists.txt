@@ -63,6 +63,8 @@ else (NOT WIN32)
 	)
 endif (NOT WIN32)
 
+set( CMAKE_CXX_FLAGS_DEBUG "-D OCLFRONTEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
+
 #adding dependency to the test subject
 add_dependencies(${TARGET_NAME} OclRecorder)
 

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "FrameworkTest.h"
 #include "cl_utils.h"
+#include "cl_sys_info.h"
 #include <memory>
 #include <fstream>
 #ifdef _WIN32
@@ -198,7 +199,7 @@ bool clBuildProgramMaxArgsTest(){
   //context
   //
   context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-  bResult &= Check((wchar_t*)L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+  bResult &= Check((wchar_t*)L"clCreateContext", CL_SUCCESS, iRet);
   if (!bResult)
     return false;
   cl_command_queue queue = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
@@ -224,27 +225,34 @@ bool clBuildProgramMaxArgsTest(){
   return ret;
 }
 
-#define XSTR(A) STR(A)
-#define STR(A) #A
-
 TEST(OclRecorder, dupKernels){
   const char* BE_PLUGIN = "OCLBACKEND_PLUGINS";
   const char* PREFIX    = "recorder_test";
   const char* BE_PREFIX = "OCLRECORDER_DUMPPREFIX";
+
 #ifdef _WIN32
-  SetEnvironmentVariable(BE_PLUGIN, XSTR(RECORDER));
+  const char* recorderName = "OclRecorder.dll";
+#else
+  const char* recorderName = "libOclRecorder.so";
+#endif
+
+  std::string recorderFullName(Intel::OpenCL::Utils::GetFullModuleNameForLoad(recorderName));
+
+#ifdef _WIN32
+  SetEnvironmentVariable(BE_PLUGIN, recorderFullName.c_str());
   SetEnvironmentVariable(BE_PREFIX, PREFIX);
 #else
-  setenv(BE_PLUGIN, XSTR(RECORDER), 1);
+  setenv(BE_PLUGIN, recorderFullName.c_str(), 1);
   setenv(BE_PREFIX, PREFIX, 1);
 #endif
-  std::cout << XSTR(RECORDER) << std::endl;
+  std::cout << recorderFullName.c_str() << std::endl;
   if (!clBuildProgramMaxArgsTest()){
     FAIL() << "===Failed==";
     return;
   }
-  const char*const REC_FILE = "recorder_testrecorder_test__sample_test0.cl";
-  const char*const REC_FILE1= "recorder_testrecorder_test__sample_test0.1.cl";
+   
+  const char*const REC_FILE = "OclRecorderTestrecorder_test__sample_test0.cl";
+  const char*const REC_FILE1= "OclRecorderTestrecorder_test__sample_test0.1.cl";
   std::fstream file(REC_FILE);
 #if defined(OCLFRONTEND_PLUGINS)
   ASSERT_TRUE(file.good());
