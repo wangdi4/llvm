@@ -30,3 +30,246 @@ def native_sincos_pas_rm    : OclBuiltin<"native_sincos_rm",    (outs gentype:$r
 def native_sincos_las_rm    : OclBuiltin<"native_sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
 def native_sincos_gas_rm    : OclBuiltin<"native_sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
 }
+
+// Implementation of atomic builtins relies on "generic address space" optimization passes
+// There are two of them: Static and Dynamic
+// 1. Static pass is to replace calls to __generic builtin with the source pointer's address space
+// 2. Dynamic pass is to replace all calls which static couldn't.
+//    For CPU it will replace them to __global address space builtins (the most strict for atomics)
+// None of __generic address space builtins must survive the passes.  
+
+let Types = [v1i32, v1u32, v1f32],
+    Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
+def atomic_init_g : OclBuiltin<"atomic_init",  (outs),
+    (ins patomgentype:$object, gentype:$value), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+def atomic_store_g : OclBuiltin<"atomic_store",  (outs),
+    (ins patomgentype:$object, gentype:$desired), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_store_explicit_g : OclBuiltin<"atomic_store_explicit",  (outs),
+    (ins patomgentype:$object, gentype:$desired, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_store_explicit_scope_g : OclBuiltin<"atomic_store_explicit",  (outs),
+    (ins patomgentype:$object, gentype:$desired, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+def atomic_load_g : OclBuiltin<"atomic_load",  (outs gentype:$ret),
+    (ins patomgentype:$object), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_load_explicit_g : OclBuiltin<"atomic_load_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_load_explicit_scope_g : OclBuiltin<"atomic_load_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+def atomic_exchange_g : OclBuiltin<"atomic_exchange",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$desired), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_exchange_explicit_g : OclBuiltin<"atomic_exchange_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$desired, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_exchange_explicit_scope_g : OclBuiltin<"atomic_exchange_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$desired, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+// static pass for generic address space requires us to have all combinations of pointers in argument list
+// SECPTR is used to build gpgentype, lpgentype, ppgentype, and add posfix _gp, _lp, _pp to OclBuiltin define
+foreach SECPTR = ["gp", "lp", "pp"] in {
+  def atomic_compare_exchange_strong_g_#SECPTR : OclBuiltin<"atomic_compare_exchange_strong",  (outs bool:$ret),
+      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired), [], [], 1, 0>, VOLATILE_GLOBAL;
+  def atomic_compare_exchange_strong_explicit_g_#SECPTR : OclBuiltin<"atomic_compare_exchange_strong_explicit",  (outs bool:$ret),
+      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure), [], [], 1, 0>, VOLATILE_GLOBAL;
+  def atomic_compare_exchange_strong_explicit_scope_g_#SECPTR : OclBuiltin<"atomic_compare_exchange_strong_explicit",  (outs bool:$ret),
+      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+  
+  def atomic_compare_exchange_weak_g_#SECPTR : OclBuiltin<"atomic_compare_exchange_weak",  (outs bool:$ret),
+      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired), [], [], 1, 0>, VOLATILE_GLOBAL;
+  def atomic_compare_exchange_weak_explicit_g_#SECPTR : OclBuiltin<"atomic_compare_exchange_weak_explicit",  (outs bool:$ret),
+      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure), [], [], 1, 0>, VOLATILE_GLOBAL;
+  def atomic_compare_exchange_weak_explicit_scope_g_#SECPTR : OclBuiltin<"atomic_compare_exchange_weak_explicit",  (outs bool:$ret),
+      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+  }
+}
+
+let Types = [v1i32, v1u32],
+    Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
+def atomic_fetch_add_g : OclBuiltin<"atomic_fetch_add",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_add_explicit_g : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_add_explicit_scope_g : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+def atomic_fetch_sub_g : OclBuiltin<"atomic_fetch_sub",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_sub_explicit_g : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_sub_explicit_scope_g : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+def atomic_fetch_or_g : OclBuiltin<"atomic_fetch_or",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_or_explicit_g : OclBuiltin<"atomic_fetch_or_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_or_explicit_scope_g : OclBuiltin<"atomic_fetch_or_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+def atomic_fetch_xor_g : OclBuiltin<"atomic_fetch_xor",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_xor_explicit_g : OclBuiltin<"atomic_fetch_xor_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_xor_explicit_scope_g : OclBuiltin<"atomic_fetch_xor_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+def atomic_fetch_and_g : OclBuiltin<"atomic_fetch_and",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_and_explicit_g : OclBuiltin<"atomic_fetch_and_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_and_explicit_scope_g : OclBuiltin<"atomic_fetch_and_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+def atomic_fetch_min_g : OclBuiltin<"atomic_fetch_min",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_min_explicit_g : OclBuiltin<"atomic_fetch_min_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_min_explicit_scope_g : OclBuiltin<"atomic_fetch_min_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+def atomic_fetch_max_g : OclBuiltin<"atomic_fetch_max",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_max_explicit_g : OclBuiltin<"atomic_fetch_max_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_max_explicit_scope_g : OclBuiltin<"atomic_fetch_max_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+}
+
+// atomic_flag and atomic_work_item_fence builtins
+let Types = [atom_flag],
+    Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
+def atomic_flag_test_and_set_g : OclBuiltin<"atomic_flag_test_and_set",  (outs bool:$ret),
+    (ins pgentype:$object), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_flag_test_and_set_explicit_g : OclBuiltin<"atomic_flag_test_and_set_explicit",  (outs bool:$ret),
+    (ins pgentype:$object, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_flag_test_and_set_explicit_scope_g : OclBuiltin<"atomic_flag_test_and_set_explicit",  (outs bool:$ret),
+    (ins pgentype:$object, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+
+def atomic_flag_clear_g : OclBuiltin<"atomic_flag_clear",  (outs),
+    (ins pgentype:$object), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_flag_clear_explicit_g : OclBuiltin<"atomic_flag_clear_explicit",  (outs),
+    (ins pgentype:$object, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_flag_clear_explicit_scope_g : OclBuiltin<"atomic_flag_clear_explicit",  (outs),
+  (ins pgentype:$object, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+}
+
+// VOLATILE_LOCAL
+let Types = [v1i32, v1u32, v1f32],
+    Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
+def atomic_init_l : OclBuiltin<"atomic_init",  (outs),
+    (ins patomgentype:$object, gentype:$value), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_store_l : OclBuiltin<"atomic_store",  (outs),
+    (ins patomgentype:$object, gentype:$desired), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_store_explicit_l : OclBuiltin<"atomic_store_explicit",  (outs),
+    (ins patomgentype:$object, gentype:$desired, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_store_explicit_scope_l : OclBuiltin<"atomic_store_explicit",  (outs),
+    (ins patomgentype:$object, gentype:$desired, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_load_l : OclBuiltin<"atomic_load",  (outs gentype:$ret),
+    (ins patomgentype:$object), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_load_explicit_l : OclBuiltin<"atomic_load_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_load_explicit_scope_l : OclBuiltin<"atomic_load_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_exchange_l : OclBuiltin<"atomic_exchange",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$desired), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_exchange_explicit_l : OclBuiltin<"atomic_exchange_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$desired, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_exchange_explicit_scope_l : OclBuiltin<"atomic_exchange_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$desired, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+// static pass for generic address space requires us to have all combinations of pointers in argument list
+// SECPTR is used to build gpgentype, lpgentype, ppgentype, and add posfix _gp, _lp, _pp to OclBuiltin define
+foreach SECPTR = ["gp", "lp", "pp"] in {
+  def atomic_compare_exchange_strong_l_#SECPTR : OclBuiltin<"atomic_compare_exchange_strong",  (outs bool:$ret),
+      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired), [], [], 1, 0>, VOLATILE_LOCAL;
+  def atomic_compare_exchange_strong_explicit_l_#SECPTR : OclBuiltin<"atomic_compare_exchange_strong_explicit",  (outs bool:$ret),
+      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure), [], [], 1, 0>, VOLATILE_LOCAL;
+  def atomic_compare_exchange_strong_explicit_scope_l_#SECPTR : OclBuiltin<"atomic_compare_exchange_strong_explicit",  (outs bool:$ret),
+      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+  
+  def atomic_compare_exchange_weak_l_#SECPTR : OclBuiltin<"atomic_compare_exchange_weak",  (outs bool:$ret),
+      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired), [], [], 1, 0>, VOLATILE_LOCAL;
+  def atomic_compare_exchange_weak_explicit_l_#SECPTR : OclBuiltin<"atomic_compare_exchange_weak_explicit",  (outs bool:$ret),
+      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure), [], [], 1, 0>, VOLATILE_LOCAL;
+  def atomic_compare_exchange_weak_explicit_scope_l_#SECPTR : OclBuiltin<"atomic_compare_exchange_weak_explicit",  (outs bool:$ret),
+      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+  }
+}
+
+let Types = [v1i32, v1u32],
+    Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
+def atomic_fetch_add_l : OclBuiltin<"atomic_fetch_add",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_add_explicit_l : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_add_explicit_scope_l : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_fetch_sub_l : OclBuiltin<"atomic_fetch_sub",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_sub_explicit_l : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_sub_explicit_scope_l : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_fetch_or_l : OclBuiltin<"atomic_fetch_or",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_or_explicit_l : OclBuiltin<"atomic_fetch_or_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_or_explicit_scope_l : OclBuiltin<"atomic_fetch_or_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_fetch_xor_l : OclBuiltin<"atomic_fetch_xor",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_xor_explicit_l : OclBuiltin<"atomic_fetch_xor_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_xor_explicit_scope_l : OclBuiltin<"atomic_fetch_xor_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_fetch_and_l : OclBuiltin<"atomic_fetch_and",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_and_explicit_l : OclBuiltin<"atomic_fetch_and_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_and_explicit_scope_l : OclBuiltin<"atomic_fetch_and_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_fetch_min_l : OclBuiltin<"atomic_fetch_min",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_min_explicit_l : OclBuiltin<"atomic_fetch_min_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_min_explicit_scope_l : OclBuiltin<"atomic_fetch_min_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_fetch_max_l : OclBuiltin<"atomic_fetch_max",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_max_explicit_l : OclBuiltin<"atomic_fetch_max_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_max_explicit_scope_l : OclBuiltin<"atomic_fetch_max_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+}
+
+// atomic_flag and atomic_work_item_fence builtins
+let Types = [atom_flag],
+    Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
+def atomic_flag_test_and_set_l : OclBuiltin<"atomic_flag_test_and_set",  (outs bool:$ret),
+    (ins pgentype:$object), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_flag_test_and_set_explicit_l : OclBuiltin<"atomic_flag_test_and_set_explicit",  (outs bool:$ret),
+    (ins pgentype:$object, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_flag_test_and_set_explicit_scope_l : OclBuiltin<"atomic_flag_test_and_set_explicit",  (outs bool:$ret),
+    (ins pgentype:$object, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_flag_clear_l : OclBuiltin<"atomic_flag_clear",  (outs),
+    (ins pgentype:$object), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_flag_clear_explicit_l : OclBuiltin<"atomic_flag_clear_explicit",  (outs),
+    (ins pgentype:$object, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_flag_clear_explicit_scope_l : OclBuiltin<"atomic_flag_clear_explicit",  (outs),
+  (ins pgentype:$object, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_work_item_fence_ord : OclBuiltin<"atomic_work_item_fence", (outs), (ins memory_order:$order), [], [], 1, 0>;
+def atomic_work_item_fence_ord_sco : OclBuiltin<"atomic_work_item_fence", (outs), (ins memory_order:$order, memory_scope:$scope), [], [], 1, 0>;
+def atomic_work_item_fence_flag_ord : OclBuiltin<"atomic_work_item_fence", (outs), (ins cl_mem_fence_flags:$flags, memory_order:$order), [], [], 1, 0>;
+def atomic_work_item_fence_flag_ord_sco : OclBuiltin<"atomic_work_item_fence", (outs), (ins cl_mem_fence_flags:$flags, memory_order:$order, memory_scope:$scope), [], [], 1, 0>;
+}

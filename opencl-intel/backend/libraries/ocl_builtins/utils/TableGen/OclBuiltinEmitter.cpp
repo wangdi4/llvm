@@ -370,7 +370,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
 
     assert(dyn_cast<DefInit>(Ins->getOperator()) && 
       dyn_cast<DefInit>(Ins->getOperator())->getDef()->getName() == "ins" && 
-      "Invalid OclBuiltin record with invalid outputs.");
+      "Invalid OclBuiltin record with invalid inputs.");
     for (unsigned i = 0, e = Ins->getNumArgs(); i != e; ++i) {
       const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Ins->getArg(i))->getDef()->getName());
       const std::string& ArgName = Ins->getArgName(i);
@@ -561,7 +561,7 @@ OclBuiltin::getArgumentCGenType(unsigned i, const std::string& Generator, const 
   const OclType* T = m_DB.getOclType(GT2);
   assert(T && "Invalid type found.");
 
-  return T->getCType(this, true);
+  return T->getCType(this);
 }
 
 std::string
@@ -573,7 +573,7 @@ OclBuiltin::getReturnCGenType(const std::string& Generator, const std::string& T
   const OclType* T = m_DB.getOclType(GT2);
   assert(T && "Invalid type found.");
 
-  return T->getCType(this, true);
+  return T->getCType(this);
 }
 
 std::string

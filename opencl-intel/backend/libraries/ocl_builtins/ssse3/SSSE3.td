@@ -2,6 +2,20 @@
 
 include "GENERIC/GENERIC_CPU.td"
 
+
+// auxiliary functions used in atomic.td 
+let Types = [v1i32, v1u32],
+    Attrs = [OVERLOADABLE, INLINE],
+    NeedForwardDecl = 1  in {
+    def ocl20_add : OclBuiltin<"__ocl20_add", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
+    def ocl20_sub : OclBuiltin<"__ocl20_sub", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
+    def ocl20_or  : OclBuiltin<"__ocl20_or",  (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
+    def ocl20_xor : OclBuiltin<"__ocl20_xor", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
+    def ocl20_and : OclBuiltin<"__ocl20_and", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
+    def ocl20_min : OclBuiltin<"__ocl20_min", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
+    def ocl20_max : OclBuiltin<"__ocl20_max", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
+}
+
 class SSSE3 : Generic {
 // Native types for SSSE3. Used in "Promote" calls
 let NativeTypes = [v16i8, v16u8, v8i16, v8u16, v4i32, v4u32, v2i64, v2u64, v4f32, v2f64];

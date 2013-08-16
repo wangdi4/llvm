@@ -7,13 +7,14 @@
 
 static std::string getZeroLiteral(const std::string& type){
   if ("char" == type || "short" == type || "int" == type ||
-      "uchar" == type || "ushort" == type || "uint" == type)
+      "uchar" == type || "ushort" == type || "uint" == type ||
+      "bool" == type)
     return "0";
-  if ("long" == type || "ulong" == type)
+  else if ("long" == type || "ulong" == type)
     return "0L";
-  if ("float" == type)
+  else if ("float" == type)
     return "0.0f";
-  if ("double" == type)
+  else if ("double" == type)
     return "0.0";
   llvm::errs() << "unhandled type " << type << "\n";
   assert (0 && "unrecognized type");
@@ -23,7 +24,8 @@ static std::string getZeroLiteral(const std::string& type){
 //builds the given code to a file with a given name
 void build(const std::string& code, std::string fileName){
   const char* clangpath = XSTR(CLANG_BIN_PATH);
-  const char* options = "-cc1 -emit-llvm -include opencl_.h -opencl-builtins";
+  const char* options = "-cc1 -x cl -emit-llvm -include opencl_.h -opencl-builtins "
+                        "-D __OPENCL_2__";
   const char* include_dir = XSTR(CLANG_INCLUDE_PATH);
   const char* tmpfile = "tmp.cl";
   assert(fileName != tmpfile && "tmp.cl is reserved!");

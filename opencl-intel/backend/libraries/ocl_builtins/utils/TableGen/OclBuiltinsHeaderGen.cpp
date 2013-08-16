@@ -97,7 +97,7 @@ typedef TypedBiList::const_iterator TypedBiIter;
     for(typeit = typedbiList.begin(); typeit != typee ; ++typeit){
       OclBuiltin *B = const_cast<OclBuiltin*>(typeit->first);
       B->removeAttribute(IA);
-      code += generateBuiltinOverload(B, typeit->second);
+      code += generateBuiltinOverload(B, typeit->second).append("\n");
     }
     build(code, fileName);
     pModule = llvm::ParseIRFile(fileName, errDiagnostic, context);

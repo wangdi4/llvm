@@ -162,6 +162,24 @@ def image1d_array: OclType<"image1d_array", "image1d_array_t", 1, 0, 0>;
 def image2d_array: OclType<"image2d_array", "image2d_array_t", 1, 0, 0>;
 def sampler_t : OclType<"sampler_t", "sampler_t", 1, 0, 0>;
 def void: OclType<"void", "void", 1, 0, 0>;
+defm atom_i32 : _OCLTYPE1_<"atom_i32", 1, 32, "atomic_int">;
+defm atom_u32 : _OCLTYPE1_<"atom_u32", 1, 32, "atomic_uint">;
+defm atom_f32 : _OCLTYPE1_<"atom_f32", 1, 32, "atomic_float">;
+defm atom_flag  : _OCLTYPE1_<"atom_flag", 1, 32, "atomic_flag">;
+def memory_order : OclType<"memory_order", "memory_order", 1, 32, 0>;
+def memory_scope : OclType<"memory_scope", "memory_scope", 1, 32, 0>;
+def bool : OclType<"bool", "bool", 1, 32, 0>;
+// the current implementation doesn't allow us to use two pointer arguments with
+// different mem-scopes or cv-cvalifiers
+def gpv1i32 : OclType<"gpv1i32", "__global int *", 1, 32, 0>;
+def gpv1u32 : OclType<"gpv1u32", "__global uint *", 1, 32, 0>;
+def gpv1f32 : OclType<"gpv1f32", "__global float *", 1, 32, 0>;
+def lpv1i32 : OclType<"lpv1i32", "__local int *", 1, 32, 0>;
+def lpv1u32 : OclType<"lpv1u32", "__local uint *", 1, 32, 0>;
+def lpv1f32 : OclType<"lpv1f32", "__local float *", 1, 32, 0>;
+def ppv1i32 : OclType<"ppv1i32", "__private int *", 1, 32, 0>;
+def ppv1u32 : OclType<"ppv1u32", "__private uint *", 1, 32, 0>;
+def ppv1f32 : OclType<"ppv1f32", "__private float *", 1, 32, 0>;
 
 class TypeNameList<list<string> names> {
   list<string> Names = names;
@@ -178,6 +196,7 @@ def ocl_types : TypeNameList<[
   v1f16.TypeName, v2f16.TypeName, v3f16.TypeName, v4f16.TypeName, v8f16.TypeName, v16f16.TypeName,
   v1f32.TypeName, v2f32.TypeName, v3f32.TypeName, v4f32.TypeName, v8f32.TypeName, v16f32.TypeName,
   v1f64.TypeName, v2f64.TypeName, v3f64.TypeName, v4f64.TypeName, v8f64.TypeName, v16f64.TypeName,
+  atom_i32.TypeName, atom_u32.TypeName, atom_f32.TypeName, atom_flag.TypeName,
 
    pv1i8.TypeName,  pv2i8.TypeName,  pv3i8.TypeName,  pv4i8.TypeName,  pv8i8.TypeName,  pv16i8.TypeName,
    pv1u8.TypeName,  pv2u8.TypeName,  pv3u8.TypeName,  pv4u8.TypeName,  pv8u8.TypeName,  pv16u8.TypeName,
@@ -191,7 +210,8 @@ def ocl_types : TypeNameList<[
   pv1f32.TypeName, pv2f32.TypeName, pv3f32.TypeName, pv4f32.TypeName, pv8f32.TypeName, pv16f32.TypeName,
   pv1f64.TypeName, pv2f64.TypeName, pv3f64.TypeName, pv4f64.TypeName, pv8f64.TypeName, pv16f64.TypeName,
   image1d.TypeName, image2d.TypeName, image3d.TypeName, image1d_buffer.TypeName, image1d_array.TypeName,
-  image2d_array.TypeName, sampler_t.TypeName 
+  image2d_array.TypeName, sampler_t.TypeName,
+  patom_i32.TypeName, patom_u32.TypeName, patom_f32.TypeName, patom_flag.TypeName
 ]>;
 
 class OclGenType<string name>
@@ -203,10 +223,10 @@ class OclGenType<string name>
 def gentype : OclGenType<"gentype"> {
   list<string> Tout = Tin;
 }
-// pgentype
+// converts a type to a pointer (pointer types are not affected)
 def pgentype : OclGenType<"pgentype"> {
-  list<string> T0 = !foreach(n, Tin, !strconcat("p", n));
-  list<string> Tout = T0;
+  list<string> T0   = !foreach(n, Tin, !subst("p", "", n));
+  list<string> Tout = !foreach(n, T0,  !strconcat("p", n));
 }
 // sgentype: 'vNtM' -> 'v1tM'
 def sgentype : OclGenType<"sgentype"> {
@@ -583,6 +603,43 @@ def v2gentype : OclGenType<"v2gentype"> {
   list<string> Tout = !foreach(n, T3, !subst("v16", "v2", n));
 }
 
+// converts a type to a pointer atomic type
+def patomgentype : OclGenType<"patomgentype"> {
+  list<string> T0   = !foreach(n, Tin, !subst("p", "", n));
+  list<string> T1   = !foreach(n, T0,  !subst("v1i32", "patom_i32", n));
+  list<string> T2   = !foreach(n, T1,  !subst("v1u32", "patom_u32", n));
+  list<string> Tout = !foreach(n, T2,  !subst("v1f32", "patom_f32", n));
+}
+// converts an atomic type (or pointer) to its basic type
+def atom2gentype : OclGenType<"atom2gentype"> {
+  list<string> T0   = !foreach(n, Tin, !subst("atom_i32", "v1i32", n));
+  list<string> T1   = !foreach(n, T0,  !subst("atom_u32", "v1u32", n));
+  list<string> Tout = !foreach(n, T1,  !subst("atom_f32", "v1f32", n));
+}
+// the following two gentypes are needed for builtins with the second pointer
+// different from the first pointer in the arguments list
+// converts a type to a __global pointer
+def gpgentype : OclGenType<"gpgentype"> {
+  list<string> T0   = !foreach(n, Tin, !subst("p", "", n));
+  list<string> T1   = !foreach(n, T0,  !subst("v1i32", "gpv1i32", n));
+  list<string> T2   = !foreach(n, T1,  !subst("v1u32", "gpv1u32", n));
+  list<string> Tout = !foreach(n, T2,  !subst("v1f32", "gpv1f32", n));
+}
+// converts a type to a __local pointer
+def lpgentype : OclGenType<"lpgentype"> {
+  list<string> T0   = !foreach(n, Tin, !subst("p", "", n));
+  list<string> T1   = !foreach(n, T0,  !subst("v1i32", "lpv1i32", n));
+  list<string> T2   = !foreach(n, T1,  !subst("v1u32", "lpv1u32", n));
+  list<string> Tout = !foreach(n, T2,  !subst("v1f32", "lpv1f32", n));
+}
+// converts a type to a __private pointer
+def ppgentype : OclGenType<"ppgentype"> {
+  list<string> T0   = !foreach(n, Tin, !subst("p", "", n));
+  list<string> T1   = !foreach(n, T0,  !subst("v1i32", "ppv1i32", n));
+  list<string> T2   = !foreach(n, T1,  !subst("v1u32", "ppv1u32", n));
+  list<string> Tout = !foreach(n, T2,  !subst("v1f32", "ppv1f32", n));
+}
+
 // OclBuiltinAttr
 class OclBuiltinAttr<string attr> {
   string Attr = attr;
@@ -637,6 +694,7 @@ class OclAddressSpace<string name, bit hasConst, bit hasVolatile> {
   bit HasConst = hasConst;
   bit HasVolatile = hasVolatile;
 }
+
 class PRIVATE       : OclAddressSpace<"__private",  0, 0>;
 class LOCAL         : OclAddressSpace<"__local",    0, 0>;
 class GLOBAL        : OclAddressSpace<"__global",   0, 0>;

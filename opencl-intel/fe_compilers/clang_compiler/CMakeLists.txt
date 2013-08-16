@@ -132,7 +132,7 @@ set( COMPILER_OPTIONS -cc1
                       -O0
                       -emit-pch 
                       -I ${OCL_CLANG_HEADERS}
-                      -D ENABLE_OPENCL_20_FOR_OPENCL_H_PCH_GENERATION
+                      -D __OPENCL_2__
                       )
 set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
 )
