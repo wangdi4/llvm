@@ -38,9 +38,9 @@
 
 #if ! defined( __INTEL_COMPILER )
     // If compiler does not support hex floating point literals:
-    #define HEX_FLT(  sm, int, fract, se, exp ) sm ldexpf(       (float)( 0x ## int ## fract ## UL  ), se exp + ilogbf(       (float) 0x ## int ) - ilogbf(       ( float )( 0x ## int ## fract ## UL  ) ) )
-    #define HEX_DBL(  sm, int, fract, se, exp ) sm ldexp(       (double)( 0x ## int ## fract ## ULL ), se exp + ilogb(       (double) 0x ## int ) - ilogb(       ( double )( 0x ## int ## fract ## ULL ) ) )
-    #define HEX_LDBL( sm, int, fract, se, exp ) sm ldexpl( (long double)( 0x ## int ## fract ## ULL ), se exp + ilogbl( (long double) 0x ## int ) - ilogbl( ( long double )( 0x ## int ## fract ## ULL ) ) )
+    #define HEX_FLT(  sm, int, fract, se, exp ) sm ::ldexpf(       (float)( 0x ## int ## fract ## UL  ), se exp + ::ilogbf(       (float) 0x ## int ) - ::ilogbf(       ( float )( 0x ## int ## fract ## UL  ) ) )
+    #define HEX_DBL(  sm, int, fract, se, exp ) sm ::ldexp(       (double)( 0x ## int ## fract ## ULL ), se exp + ::ilogb(       (double) 0x ## int ) - ::ilogb(       ( double )( 0x ## int ## fract ## ULL ) ) )
+    #define HEX_LDBL( sm, int, fract, se, exp ) sm ::ldexpl( (long double)( 0x ## int ## fract ## ULL ), se exp + ::ilogbl( (long double) 0x ## int ) - ::ilogbl( ( long double )( 0x ## int ## fract ## ULL ) ) )
 #else    
     // If compiler supports hex floating point literals: just concatenate all the parts into a literal.
     #define HEX_FLT(  sm, int, fract, se, exp ) sm 0x ## int ## . ## fract ## p ## se ## exp ## F

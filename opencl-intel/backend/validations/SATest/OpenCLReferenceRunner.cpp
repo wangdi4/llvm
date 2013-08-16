@@ -63,6 +63,7 @@ using std::exception;
 #include "ContainerCopier.h"
 #include "OpenCLKernelArgumentsParser.h"
 #include "OCLKernelDataGenerator.h"
+#include "OpenCLCompilationFlags.h"
 
 #include "InterpreterPlugIn.h"
 #include "InterpreterPluggable.h"
@@ -922,6 +923,9 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     std::vector<ExecutionEngine *> localEngines;
     std::vector<NEATPlugIn *> localNEATs;
 
+    //program compilation flags
+    CompilationFlagsList cFlags = GetCompilationFlags(m_pModule);
+
     // total number of local workitems
     const uint32_t totalLocalWIs = localWGSizes[0] * localWGSizes[1] * localWGSizes[2];
     // vector of kernel arguments. used for multiple execution arguments
@@ -957,7 +961,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         if(m_bUseNEAT)
         {
             // create NEAT plug in
-            pNEAT = new NEATPlugIn(m_bUseFmaNEAT, NEATlocalMap);
+            pNEAT = new NEATPlugIn(m_bUseFmaNEAT, NEATlocalMap, cFlags);
             InterpreterPluggable *pInterp = static_cast<InterpreterPluggable*>(pExecEngine);
             pInterp->addPlugIn(*pNEAT);
             // set arguments for NEAT

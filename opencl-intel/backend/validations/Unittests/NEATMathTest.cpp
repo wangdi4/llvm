@@ -162,6 +162,7 @@ public:
 
 // To enable double testing, add double to Types template arguments parameter
 typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false>,ValueTypeContainer<double,true>,ValueTypeContainer<double,false> > FloatTypesCommon;
+typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false> > Float32Types;
 TYPED_TEST_CASE(NEATMathTestOneArg, FloatTypesCommon);
 TYPED_TEST_CASE(NEATMathTestTwoArgs, FloatTypesCommon);
 TYPED_TEST_CASE(NEATMathTestThreeArgs, FloatTypesCommon);
@@ -985,10 +986,108 @@ public:
     } // void TestExp(NEATFuncP NEATFunc, NEATFuncVecP NEATFuncVec, RefFuncP RefFunc, float ulps)
 
 };
+template <typename T>
+class NEATExpFrmTest : public NEATExpTest<T>{
+public:
+    void TestExp( typename NEATExpFrmTest<T>::NEATFuncP NEATFunc, typename NEATExpFrmTest<T>::NEATFuncVecP NEATFuncVec, typename NEATExpFrmTest<T>::RefFuncP RefFunc)
+    {
+        // 1.a Test special statuses
+        // Test special NEAT values: UNKNOWN, UNWRITTEN and ANY.
+        EXPECT_TRUE(TestUnknown(NEATFunc));
+        EXPECT_TRUE(TestUnwritten(NEATFunc));
+        EXPECT_TRUE(TestAny(NEATFunc));
 
+        // 1.b Test special floating point values: NaNs.
+        NEATValue nan = NEATValue::NaN<T>();
+        NEATValue testVal;
+        // Test NaN as input
+        testVal = NEATFunc(nan);
+        EXPECT_TRUE(testVal.IsNaN<T>());
+        for (uint32_t i = 0; i < (this->NUM_TESTS)*(this->vectorWidth); ++i)
+        {
+            // Test NaN value as input.
+            // For binary or unary function you can include test that includes all combinations
+            // of NaNs and non-NaN values
+            NEATValue notNAN = NEATValue(this->Arg1Min[i]);
+            testVal = NEATFunc(notNAN);
+            EXPECT_FALSE(testVal.IsNaN<T>());
+        }
+
+        VectorWidth Width = VectorWidthWrapper::ValueOf(this->vectorWidth);
+
+        // Done with corner cases. Now go to testing scalar and vector functions for randomized values
+        for(uint32_t testIdx = 0; testIdx < this->NUM_TESTS; ++testIdx)
+        {
+            // 2. Test on accurate values.
+            NEATVector x(Width);
+            for(uint32_t i = 0; i < NEATExpFrmTest<T>::vectorWidth; ++i)
+            {
+                x[i] = NEATValue(this->Arg1Min[testIdx*this->vectorWidth+i]);
+            }
+
+            // 2.a Test single accurate value
+            NEATValue xVal = x[0];
+
+            // Determine edge case inputs for which interval shouldn't be expanded
+            const uint32_t NUM_EDGE_VALS = 2;
+            typename NEATExpFrmTest<T>::sT edgeVals[NUM_EDGE_VALS] = { (typename NEATExpFrmTest<T>::sT)0.0, (typename NEATExpFrmTest<T>::sT)-0.0 };
+
+            testVal = NEATFunc(xVal);
+            typename NEATExpFrmTest<T>::sT refAccValFloat;
+
+            refAccValFloat = RefFunc(typename NEATExpFrmTest<T>::sT(*xVal.GetAcc<T>()));
+            EXPECT_TRUE(TestNeatAcc<typename NEATExpFrmTest<T>::sT>(xVal, testVal, refAccValFloat, IntervalError<T>::expFrmSetUlps(xVal), edgeVals, NUM_EDGE_VALS));
+
+            // 2.b Test vector of accurate values
+            NEATVector testVec = NEATFuncVec(x);
+            for(uint32_t i = 0; i < this->vectorWidth; ++i) {
+                refAccValFloat = RefFunc(typename NEATExpFrmTest<T>::sT(*x[i].GetAcc<T>()));
+                EXPECT_TRUE(TestNeatAcc<typename NEATExpFrmTest<T>::sT>(x[i], testVec[i], refAccValFloat, IntervalError<T>::expFrmSetUlps(x[i]), edgeVals, NUM_EDGE_VALS));
+            }
+
+            // 3. Test interval input
+            for(uint32_t i = 0; i < this->vectorWidth; ++i)
+            {
+                x[i] = NEATValue(this->Arg1Min[testIdx*this->vectorWidth+i], this->Arg1Max[testIdx*this->vectorWidth+i]);
+            }
+
+            // 3.a single interval testing
+            typename NEATExpFrmTest<T>::sT refMin, refMax;
+            xVal = x[0];
+
+            testVal = NEATFunc(xVal);
+            /// Arg1Min == Arg1Max has already been tested
+            if(!xVal.IsAcc())
+            {
+                refMin = RefFunc(typename NEATExpFrmTest<T>::sT(*xVal.GetMax<T>()));
+                refMax = RefFunc(typename NEATExpFrmTest<T>::sT(*xVal.GetMin<T>()));
+                bool passed = TestIntExpanded(refMin, refMax, testVal, IntervalError<T>::expFrmSetUlps(xVal));
+                EXPECT_TRUE(passed);
+            }
+
+            // 3.b test vector of interval values
+
+            testVec = NEATFuncVec(x);
+            for(uint32_t i = 0; i < this->vectorWidth; ++i)
+            {
+                if(!testVec[i].IsAcc())
+                {
+                    refMax = RefFunc(typename NEATExpFrmTest<T>::sT(*x[i].GetMax<T>()));
+                    refMin = RefFunc(typename NEATExpFrmTest<T>::sT(*x[i].GetMin<T>()));
+                    bool passed = TestIntExpanded(refMin, refMax, testVec[i], IntervalError<T>::expFrmSetUlps(x[i]));
+                    EXPECT_TRUE(passed);
+                }
+            }
+        }
+    } // void TestExp(NEATFuncP NEATFunc, NEATFuncVecP NEATFuncVec, RefFuncP RefFunc, float ulps)
+
+};
 
 template <typename T>
 class NEATExpTestRun : public ALUTest {
+};
+template <typename T>
+class NEATExpFrmTestRun : public ALUTest {
 };
 
 
@@ -1016,6 +1115,53 @@ TYPED_TEST(NEATExpTestRun, exp)
     expTest.TestPreciseExp(NEATFunc);
     expTest.TestExp(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::EXP_ERROR));
 }
+
+TYPED_TEST_CASE(NEATExpFrmTestRun, Float32Types);
+TYPED_TEST(NEATExpFrmTestRun, exp_frm)
+{
+    RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
+    typedef typename TypeParam::Type TypeP;
+    typedef typename superT<TypeP>::type sT;
+    typedef NEATValue (*NEATFuncP)(const NEATValue&);
+    typedef NEATVector (*NEATFuncVecP)(const NEATVector&);
+    typedef sT (*RefFuncP) (const sT&);
+
+    /// If your test doesn't currently support doubles, use DkipDoubleTest
+    if (SkipDoubleTest<TypeP>()){
+        return;
+    }
+
+    NEATFuncP NEATFunc = &NEATALU::exp_frm<TypeP>;
+    NEATFuncVecP NEATFuncVec = &NEATALU::exp_frm<TypeP>;
+    RefFuncP RefFunc = &RefALU::exp<sT>;
+
+    NEATExpFrmTest<TypeP> expTest;
+
+    expTest.TestExp(NEATFunc, NEATFuncVec, RefFunc);
+}
+TYPED_TEST(NEATExpFrmTestRun, exp2_frm)
+{
+    RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
+    typedef typename TypeParam::Type TypeP;
+    typedef typename superT<TypeP>::type sT;
+    typedef NEATValue (*NEATFuncP)(const NEATValue&);
+    typedef NEATVector (*NEATFuncVecP)(const NEATVector&);
+    typedef sT (*RefFuncP) (const sT&);
+
+    /// If your test doesn't currently support doubles, use DkipDoubleTest
+    if (SkipDoubleTest<TypeP>()){
+        return;
+    }
+
+    NEATFuncP NEATFunc = &NEATALU::exp2_frm<TypeP>;
+    NEATFuncVecP NEATFuncVec = &NEATALU::exp2_frm<TypeP>;
+    RefFuncP RefFunc = &RefALU::exp2<sT>;
+
+    NEATExpFrmTest<TypeP> expTest;
+
+    expTest.TestExp(NEATFunc, NEATFuncVec, RefFunc);
+}
+
 
 TYPED_TEST(NEATExpTestRun, native_exp)
 {
@@ -1416,7 +1562,143 @@ public:
 };
 
 template <typename T>
+class NEATLogFrmTest : public NEATLogTest<T> {
+public:
+
+    void TestLog(typename NEATLogFrmTest<T>::NEATFuncP NEATFunc, typename NEATLogFrmTest<T>::NEATFuncVecP NEATFuncVec, typename NEATLogFrmTest<T>::RefFuncP RefFunc, T edgeConst)
+    {
+        // -1.0 is for log1p, 0.0 is for the rest of logs
+        EXPECT_TRUE((edgeConst == T(0.0)) || (edgeConst == T(-1.0)));
+
+        // Test special NEAT values: UNKNOWN, UNWRITTEN and ANY.
+        EXPECT_TRUE(TestUnknown(NEATFunc));
+        EXPECT_TRUE(TestUnwritten(NEATFunc));
+        EXPECT_TRUE(TestAny(NEATFunc));
+
+        // Test special floating point values: NaNs.
+        NEATValue nan = NEATValue::NaN<T>();
+        NEATValue testVal;
+        testVal = NEATFunc(nan);
+        EXPECT_TRUE(testVal.IsNaN<T>());
+        for (uint32_t i = 0; i < (this->NUM_TESTS)*(this->vectorWidth); ++i)
+        {
+            NEATValue notNAN = NEATValue(this->Arg1Min[i]);
+            /// C99 - log returns NaN for x < 0
+            /// C99 - log1p returns NaN for x < -1
+            testVal = NEATFunc(notNAN);
+                if(this->Arg1Min[i] < edgeConst)
+                EXPECT_TRUE(testVal.IsNaN<T>());
+            else
+                EXPECT_FALSE(testVal.IsNaN<T>());
+        }
+
+        VectorWidth Width = VectorWidthWrapper::ValueOf(this->vectorWidth);
+
+        // Done with corner cases. Now go to testing scalar and vector functions
+        for(uint32_t testIdx = 0; testIdx < this->NUM_TESTS; ++testIdx)
+        {
+            // Test on accurate values.
+            NEATVector x(Width);
+
+            for(uint32_t i = 0; i < this->vectorWidth; ++i)
+            {
+                x[i] = NEATValue(this->Arg1Min[testIdx*this->vectorWidth+i]);
+            }
+
+            /* test for single accurate NEAT value*/
+            NEATValue xVal = x[0];
+
+            const uint32_t NUM_EDGE_VALS = 3;
+            typename NEATLogFrmTest<T>::sT edgeVals[NUM_EDGE_VALS] = { (typename NEATLogFrmTest<T>::sT)0.0, (typename NEATLogFrmTest<T>::sT)-0.0, (typename NEATLogFrmTest<T>::sT)1.0 };
+
+            // if log1p function is tested, -1.0 is an edge val instead of 1.0
+            if(edgeConst == T(-1.0)) {
+                edgeVals[2] = (typename NEATLogFrmTest<T>::sT)(-1.0);
+            }
+
+            testVal = NEATFunc(xVal);
+            typename NEATLogFrmTest<T>::sT refAccValFloat;
+
+            refAccValFloat = RefFunc(typename NEATLogFrmTest<T>::sT(*xVal.GetAcc<T>()));
+            bool res_log = TestNeatAcc<typename NEATLogFrmTest<T>::sT>(xVal, testVal, refAccValFloat, IntervalError<T>::logFrmSetUlps(xVal), edgeVals, NUM_EDGE_VALS);
+            EXPECT_TRUE(res_log);
+
+            /* test for vector of NEAT accurate */
+            NEATVector testVec = NEATFuncVec(x);
+            for(uint32_t i = 0; i < this->vectorWidth; ++i) {
+                refAccValFloat = RefFunc(typename NEATLogFrmTest<T>::sT(*x[i].GetAcc<T>()));
+                EXPECT_TRUE(TestNeatAcc<typename NEATLogFrmTest<T>::sT>(x[i], testVec[i], refAccValFloat, IntervalError<T>::logFrmSetUlps(x[i]), edgeVals, NUM_EDGE_VALS));
+            }
+
+            // Test on interval values.
+            for(uint32_t i = 0; i < this->vectorWidth; ++i)
+            {
+                x[i] = NEATValue(this->Arg1Min[testIdx*this->vectorWidth+i], this->Arg1Max[testIdx*this->vectorWidth+i]);
+            }
+
+            // Test for single interval NEAT value */
+            typename NEATLogFrmTest<T>::sT refMin, refMax;
+
+            xVal = x[0];
+
+            testVal = NEATFunc(xVal);
+
+            /// Arg1Min == Arg1Max has already been tested
+            if(!xVal.IsAcc())
+            {
+                refMax = RefFunc(typename NEATLogFrmTest<T>::sT(*xVal.GetMax<T>()));
+                refMin = RefFunc(typename NEATLogFrmTest<T>::sT(*xVal.GetMin<T>()));
+                if(*xVal.GetMin<T>() >= edgeConst)
+                {
+                    bool passed = TestIntExpanded(refMin, refMax, testVal, IntervalError<T>::logFrmSetUlps(xVal));
+                    EXPECT_TRUE(passed);
+                }
+            else
+            {
+                if(*xVal.GetMax<T>() < edgeConst)
+                {
+                    EXPECT_TRUE(testVal.IsAcc());
+                    EXPECT_TRUE(testVal.IsNaN<T>());
+                }
+                else
+                    EXPECT_TRUE(testVal.IsUnknown());
+            }
+            }
+
+            testVec = NEATFuncVec(x);
+            for(uint32_t i = 0; i < this->vectorWidth; ++i)
+            {
+                if(!testVec[i].IsAcc())
+                {
+                    refMax = RefFunc(typename NEATLogFrmTest<T>::sT(*x[i].GetMax<T>()));
+                    refMin = RefFunc(typename NEATLogFrmTest<T>::sT(*x[i].GetMin<T>()));
+                    if(*x[i].GetMin<T>() >= edgeConst)
+                    {
+                        bool passed = TestIntExpanded(refMin, refMax, testVec[i], IntervalError<T>::logFrmSetUlps(x[i]));
+                        EXPECT_TRUE(passed);
+                    }
+                    else
+                    {
+                        if(*x[i].GetMax<T>() < edgeConst)
+                        {
+                            EXPECT_TRUE(testVec[i].IsAcc());
+                            EXPECT_TRUE(testVec[i].IsNaN<T>());
+                        }
+                    else
+                        EXPECT_TRUE(testVec[i].IsUnknown());
+                    }
+                }
+            }
+        }
+    } // void TestLog(NEATFuncP NEATFunc, NEATFuncVecP NEATFuncVec, RefFuncP RefFunc, float ulps)
+
+};
+
+template <typename T>
 class NEATLogTestRun : public ALUTest {
+};
+template <typename T>
+class NEATLogFrmTestRun : public ALUTest {
 };
 TYPED_TEST_CASE(NEATLogTestRun, FloatTypesCommon);
 
@@ -1440,6 +1722,48 @@ TYPED_TEST(NEATLogTestRun, log)
     NEATLogTest<TypeP> logTest;
     logTest.TestPreciseLog(NEATFunc);
     logTest.TestLog(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::LOG_ERROR), TypeP(0.0));
+}
+
+TYPED_TEST_CASE(NEATLogFrmTestRun, Float32Types);
+TYPED_TEST(NEATLogFrmTestRun, log_frm)
+{
+    RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
+    typedef typename TypeParam::Type TypeP;
+    typedef typename superT<TypeP>::type sT;
+    typedef NEATValue (*NEATFuncP)(const NEATValue&);
+    typedef NEATVector (*NEATFuncVecP)(const NEATVector&);
+    typedef sT (*RefFuncP) (const sT&);
+
+    if (SkipDoubleTest<TypeP>()){
+        return;
+    }
+
+    NEATFuncP NEATFunc = &NEATALU::log_frm<TypeP>;
+    NEATFuncVecP NEATFuncVec = &NEATALU::log_frm<TypeP>;
+    RefFuncP RefFunc = &RefALU::log<sT>;
+
+    NEATLogFrmTest<TypeP> logTest;
+    logTest.TestLog(NEATFunc, NEATFuncVec, RefFunc, TypeP(0.0));
+}
+TYPED_TEST(NEATLogFrmTestRun, log2_frm)
+{
+    RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
+    typedef typename TypeParam::Type TypeP;
+    typedef typename superT<TypeP>::type sT;
+    typedef NEATValue (*NEATFuncP)(const NEATValue&);
+    typedef NEATVector (*NEATFuncVecP)(const NEATVector&);
+    typedef sT (*RefFuncP) (const sT&);
+
+    if (SkipDoubleTest<TypeP>()){
+        return;
+    }
+
+    NEATFuncP NEATFunc = &NEATALU::log2_frm<TypeP>;
+    NEATFuncVecP NEATFuncVec = &NEATALU::log2_frm<TypeP>;
+    RefFuncP RefFunc = &RefALU::log2<sT>;
+
+    NEATLogFrmTest<TypeP> logTest;
+    logTest.TestLog(NEATFunc, NEATFuncVec, RefFunc, TypeP(0.0));
 }
 
 TYPED_TEST(NEATLogTestRun, native_log)
@@ -2788,9 +3112,16 @@ TYPED_TEST(NEATMathTestTwoArgs, hypot)
     nx.SetIntervalVal<TypeP>(xmin, xmax);
     ny.SetIntervalVal<TypeP>(ymin, ymax);
     nres = NEATALU::hypot<TypeP>(nx, ny);
-    EXPECT_TRUE(
-        TestIntExpanded<SuperT>(0.0,
-        RefALU::hypot<SuperT>(xmin, ymax), nres, NEATALU::HYPOT_ERROR));
+
+    {
+        EXPECT_TRUE(*nres.GetMin<TypeP>() == 0.0f);
+        float diff = Utils::ulpsDiff(RefALU::hypot<SuperT>(xmin, ymax),*nres.GetMax<TypeP>());
+        bool res = true;
+        res &= (fabs(diff) <= NEATALU::HYPOT_ERROR);
+        res &= (fabs(diff) >= (NEATALU::HYPOT_ERROR-diffLimit));
+
+        EXPECT_TRUE(res);
+    }
 
     // all positive boundaries with positive inf
     xmin = 2.0; xmax = 3.0; ymin = 45.0; ymax = pi;

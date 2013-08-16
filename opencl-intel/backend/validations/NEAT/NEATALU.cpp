@@ -83,6 +83,9 @@ namespace Validation
           return NEATValue(NEATValue::UNKNOWN);
       }
 
+      if(Utils::IsInf<float>(ulps))
+          return NEATValue(NEATValue::ANY);
+
       const int RES_COUNT = 8;
       double val[RES_COUNT];
  
@@ -95,7 +98,7 @@ namespace Validation
       val[6] = RefALU::mul((double)*a.GetMax<float>(), RefALU::div((double)1.0L,(double)*b.GetMin<float>()) );
       val[7] = RefALU::mul((double)*a.GetMax<float>(), RefALU::div((double)1.0L,(double)*b.GetMax<float>()) );
  
-      return NEATALU::ComputeResult<double>(val, RES_COUNT, ulps);
+      return NEATALU::CreateNEATValue<double>(val, RES_COUNT, IntervalError<float>(ulps));
   }
 
   // division for doubles has zero ulps and performs in doubles with no extending the
@@ -135,7 +138,7 @@ namespace Validation
       val[2] = (long double)RefALU::div(*a.GetMax<double>(),*b.GetMin<double>());
       val[3] = (long double)RefALU::div(*a.GetMax<double>(),*b.GetMax<double>());
 
-      return NEATALU::ComputeResult<long double>(val, RES_COUNT, ulps);
+      return NEATALU::CreateNEATValue<long double>(val, RES_COUNT, IntervalError<double>(ulps));
   }
 
   NEATVector NEATALU::processVector(const NEATVector& vec1, const NEATVector& vec2, const NEATValue& val, NEATScalarTernaryOp f)

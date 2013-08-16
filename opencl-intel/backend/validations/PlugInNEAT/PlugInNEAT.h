@@ -37,6 +37,7 @@ File Name:  PlugInNEAT.h
 #include "NEATValue.h"
 #include "NEATVector.h"
 #include "OCLBuiltinParser.h"
+#include "OpenCLCompilationFlags.h"
 
 namespace llvm {
 
@@ -146,8 +147,8 @@ namespace llvm {
             GlobalAddressMapTy;
 
         /// ctor
-        NEATPlugIn (bool bUseFmaNEAT, NEATPlugIn::GlobalAddressMapTy &GlobalMap) :
-            m_pInterp(NULL), m_pECStack(NULL), m_bUseFmaNEAT(bUseFmaNEAT), m_GlobalAddressMap(GlobalMap)
+        NEATPlugIn (bool bUseFmaNEAT, NEATPlugIn::GlobalAddressMapTy &GlobalMap, CompilationFlagsList& cFlags) :
+            m_pInterp(NULL), m_pECStack(NULL), m_bUseFmaNEAT(bUseFmaNEAT), m_cFlags(cFlags), m_GlobalAddressMap(GlobalMap)
         {
             m_CurEvent = BAD_EVENT;
             m_NECStack.clear();
@@ -335,6 +336,7 @@ namespace llvm {
         /// setup function call
         void callFunction( Function *F,
             const std::map<Value *, NEATGenericValue> &ArgVals );
+        bool isFRMPrecisionOn();
         /// ptr to interpreter
         InterpreterPluggable *m_pInterp;
         /// ptr to interpreter context
@@ -347,6 +349,7 @@ namespace llvm {
         NEATDataLayout  m_NTD;
         /// Use interval for mul in the NEAT if specified
         bool const m_bUseFmaNEAT;
+        CompilationFlagsList m_cFlags;
         /// current event being handled by NEAT
         enum CurEvent {PRE_INST, POST_INST, PRE_FUNC, POST_FUNC, BAD_EVENT} m_CurEvent;
         /// get current event

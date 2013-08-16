@@ -7,6 +7,8 @@ include_directories(
 )
 
 add_library(${TARGET_NAME}
+  OpenCLCompilationFlags.h
+  OpenCLCompilationFlags.cpp
   InterpreterPluggable.cpp
   WorkGroupBuiltinsNames.cpp
   )

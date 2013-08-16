@@ -270,14 +270,14 @@ TYPED_TEST(NEATAluTyped, TestExpanded)
     SuperT refMinExp = refMinIn;
     SuperT refMaxExp = refMaxIn;
 
-    NEATALU::ExpandFloatInterval(&refMinExp, &refMaxExp, ulps);
+    IntervalError<TypeParam>::ExpandFPInterval(&refMinExp, &refMaxExp, IntervalError<TypeParam>(ulps));
     NEATValue intervalExp = NEATValue(TypeParam(refMinExp),TypeParam(refMaxExp));
 
 
     SuperT refAccExpMin = refAcc;
     SuperT refAccExpMax = refAcc;
 
-    NEATALU::ExpandFloatInterval(&refAccExpMin, &refAccExpMax, ulps);
+    IntervalError<TypeParam>::ExpandFPInterval(&refAccExpMin, &refAccExpMax, IntervalError<TypeParam>(ulps));
     NEATValue accExp = NEATValue(TypeParam(refAccExpMin),TypeParam(refAccExpMax));
 
     EXPECT_FALSE(TestAccExpanded<SuperT>(refAcc, unwr, ulps));
@@ -1750,8 +1750,14 @@ public:
     }
 };
 
+template <typename T>
+class NEATAluTypedFastRelaxedMath : public NEATAluTypedMath<T> {
+};
+
 typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false>,ValueTypeContainer<double,true>,ValueTypeContainer<double,false> > FloatTypesMathFTZ;
+typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false> > Float32TypeMathFTZ;
 TYPED_TEST_CASE(NEATAluTypedMath, FloatTypesMathFTZ);
+TYPED_TEST_CASE(NEATAluTypedFastRelaxedMath, Float32TypeMathFTZ);
 
 template <typename T>
 class NEATDivTest {
@@ -1922,9 +1928,159 @@ public:
 
 
 template <typename T>
-class NEATDivTestRun : public ALUTest {
+class NEATDivFrmTest : public NEATDivTest<T> {
+public:
+    typedef IntervalError<T> (*GetDivErrorFuncP)(const NEATValue&, const NEATValue&);
+
+    void TestDiv(typename NEATDivFrmTest<T>::NEATFuncP NEATFunc, typename NEATDivFrmTest<T>::NEATFuncVecP NEATFuncVec, typename NEATDivFrmTest<T>::RefFuncP RefFunc, typename NEATDivFrmTest<T>::GetDivErrorFuncP error)
+    {
+        // Test corner cases first
+        NEATValue unkn = NEATValue(NEATValue::UNKNOWN);
+        NEATValue unwr = NEATValue(NEATValue::UNWRITTEN);
+        NEATValue any  = NEATValue(NEATValue::ANY);
+        NEATValue nan  = NEATValue::NaN<T>();
+        NEATValue zero = NEATValue((T)0.0f);
+        NEATValue zeroNeg = NEATValue((T)-0.0f);
+        NEATValue pInf(Utils::GetPInf<T>());
+        NEATValue nInf(Utils::GetNInf<T>());
+        NEATValue one((T)1.0f);
+        NEATValue nOne((T)-1.0f);
+        NEATValue tmp;
+
+        //domains with guaranteed ulps
+        NEATValue interval1( HEX_DBL(+, 2, 0, -, 126), HEX_DBL(+, 2, 0, +, 126)),
+            interval2( HEX_DBL(+, 2, 0, -, 62), HEX_DBL(+, 2, 0, +, 62));
+
+        tmp = NEATFunc(unkn, unkn);
+        EXPECT_TRUE(tmp.IsUnknown());
+        tmp = NEATFunc(unkn, unwr);
+        EXPECT_TRUE(tmp.IsUnknown());
+        tmp = NEATFunc(unwr, unwr);
+        EXPECT_TRUE(tmp.IsUnknown());
+        tmp = NEATFunc(unwr, unkn); 
+        EXPECT_TRUE(tmp.IsUnknown());
+        tmp = NEATFunc(nan, any);
+        EXPECT_TRUE(tmp.IsNaN<T>());
+        tmp = NEATFunc(any, any);
+        EXPECT_TRUE(tmp.IsUnknown());
+        tmp = NEATFunc(nan, nan);
+        EXPECT_TRUE(tmp.IsNaN<T>());
+        // Division specific cases with zeros
+        // 0/0 both are out of domen 2**-62,2**62
+        tmp = NEATFunc(zero, zero);
+        EXPECT_TRUE(tmp.IsAny());
+        // +-Inf/+-Inf = Any
+        tmp = NEATFunc(pInf, pInf);
+        EXPECT_TRUE(tmp.IsAny());
+        tmp = NEATFunc(pInf, nInf);
+        EXPECT_TRUE(tmp.IsAny());
+        tmp = NEATFunc(nInf, pInf);
+        EXPECT_TRUE(tmp.IsAny());
+        tmp = NEATFunc(nInf, nInf);
+        EXPECT_TRUE(tmp.IsAny());
+        // (-+)1/(+-)0 = Any
+        tmp = NEATFunc(one, zero);
+        EXPECT_TRUE(tmp.IsAny());
+        tmp = NEATFunc(nOne, zero);
+        EXPECT_TRUE(tmp.IsAny());
+        tmp = NEATFunc(one, zeroNeg);
+        EXPECT_TRUE(tmp.IsAny());
+        tmp = NEATFunc(nOne, zeroNeg);
+        EXPECT_TRUE(tmp.IsAny());
+ 
+        VectorWidth Width = VectorWidthWrapper::ValueOf(this->vectorWidth);
+
+        for(uint32_t testIdx = 0; testIdx < this->NUM_TESTS; testIdx ++)
+        {
+            // Test result for given operation of accurate values or intervals
+            NEATValue accVal, intVal;
+            NEATValue testAccVal, testIntVal;
+            NEATValue refAccVal, refIntVal;
+    
+            T minRef[this->vectorWidth];
+            T maxRef[this->vectorWidth];
+    
+            for(uint32_t i = 0; i<this->vectorWidth; i++)
+            {
+                uint32_t idx = testIdx * this->vectorWidth + i;
+    
+                // Test for accurate operation (input is accurate values, output - interval)
+                NEATValue aAcc = NEATValue(this->Arg1Min[idx]);
+                NEATValue bAcc = NEATValue(this->Arg2Min[idx]);
+                // NEAT division for two accurate values
+                NEATValue accRes = NEATFunc(aAcc,bAcc);
+                typename NEATDivFrmTest<T>::sT refRes = typename NEATDivFrmTest<T>::sT(RefFunc(this->Arg1Min[idx], this->Arg2Min[idx])); 
+                EXPECT_TRUE(TestAccExpanded<typename NEATDivFrmTest<T>::sT>(refRes, accRes, error(aAcc, bAcc)));
+
+                // Now test intervals as input
+                // Calc expected result
+                const uint32_t RES_COUNT = 4;
+                typename NEATDivFrmTest<T>::sT allResults[RES_COUNT] = { typename NEATDivFrmTest<T>::sT(RefFunc(this->Arg1Min[idx], this->Arg2Min[idx])), typename NEATDivFrmTest<T>::sT(RefFunc(this->Arg1Max[idx], this->Arg2Min[idx])),
+                typename NEATDivFrmTest<T>::sT(RefFunc(this->Arg1Min[idx], this->Arg2Max[idx])), typename NEATDivFrmTest<T>::sT(RefFunc(this->Arg1Max[idx], this->Arg2Max[idx]))};
+
+                minRef[i] = FindMin(allResults, RES_COUNT);
+                maxRef[i] = FindMax(allResults, RES_COUNT);
+    
+                // Reference interval borders calulated
+    
+                // Test interval
+                NEATValue a = NEATValue(this->Arg1Min[idx], this->Arg1Max[idx]);
+                NEATValue b = NEATValue(this->Arg2Min[idx], this->Arg2Max[idx]);
+                NEATValue res = NEATFunc(a,b);
+                bool passed = false;
+                if(res.GetStatus() != NEATValue::UNKNOWN && res.GetStatus() != NEATValue::ANY)
+                    passed = TestIntExpanded<typename NEATDivFrmTest<T>::sT>(minRef[i], maxRef[i], res, error(a, b));
+                else
+                    // result unknown.
+                    passed = ( !( a.GetStatus() == NEATValue::ACCURATE && *a.GetAcc<float>() == float(1.0f) &&
+                            interval1.Includes(*b.GetMin<float>()) && interval1.Includes(*b.GetMax<float>())    )
+                        ||
+                    !( interval2.Includes(*a.GetMin<float>()) && interval2.Includes(*a.GetMax<float>()) &&
+                            interval2.Includes(*b.GetMin<float>()) && interval2.Includes(*b.GetMax<float>())    )
+                    );
+                // Probably test for non-interval value
+                EXPECT_TRUE(passed);
+            }
+            // Test vector
+            NEATVector a(Width);
+            NEATVector b(Width);
+            for(uint32_t i = 0; i<this->vectorWidth; i++)
+            {
+                uint32_t idx = testIdx * this->vectorWidth + i;
+                a[i] = NEATValue(this->Arg1Min[idx], this->Arg1Max[idx]);
+                b[i] = NEATValue(this->Arg2Min[idx], this->Arg2Max[idx]);
+            }
+            // Call NEAT
+            NEATVector res = NEATFuncVec(a,b);
+            // Verify the result
+            for(uint32_t i = 0; i<this->vectorWidth; i++)
+            {
+                bool passed;
+                if(res[i].GetStatus() != NEATValue::UNKNOWN && res[i].GetStatus() != NEATValue::ANY)
+                    passed = TestIntExpanded<typename NEATDivFrmTest<T>::sT>(minRef[i], maxRef[i], res[i], error(a[i], b[i]));
+                else
+                {
+                    passed = !( b[i].IsInterval() && a[i].IsAcc() && (*a[i].GetAcc<float>() == float(1.0f)) &&
+                        interval1.Includes((double)*b[i].GetMin<float>())  && interval1.Includes((double)*b[i].GetMax<float>()));
+                    passed &= !( a[i].IsInterval() && b[i].IsInterval() &&
+                        interval2.Includes((double)*a[i].GetMin<float>()) && interval2.Includes((double)*a[i].GetMax<float>()) &&
+                        interval2.Includes((double)*b[i].GetMin<float>()) && interval2.Includes((double)*b[i].GetMax<float>()) );
+                }
+
+                EXPECT_TRUE(passed);
+            }
+        }
+    } // void TestDiv(NEATFuncP NEATFunc, NEATFuncVecP NEATFuncVec, RefFuncP RefFunc, float ulps)
+
 };
 
+
+template <typename T>
+class NEATDivTestRun : public ALUTest {
+};
+template <typename T>
+class NEATDivFrmTestRun : public ALUTest {
+};
 
 TYPED_TEST_CASE(NEATDivTestRun, FloatTypesMathFTZ);
 TYPED_TEST(NEATDivTestRun, div)
@@ -1949,6 +2105,35 @@ TYPED_TEST(NEATDivTestRun, div)
     RefFuncP RefFunc = &RefALU::div<TypeP>;
 
     NEATDivTest<TypeP> divTest;
+
+    divTest.TestDiv(NEATFunc, NEATFuncVec, RefFunc, divError);
+}
+
+
+TYPED_TEST_CASE(NEATDivFrmTestRun, Float32TypeMathFTZ);
+TYPED_TEST(NEATDivFrmTestRun, div_frm)
+{
+    RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
+    typedef typename TypeParam::Type TypeP;
+    typedef typename superT<TypeP>::type sT;
+    typedef NEATValue (*NEATFuncP)(const NEATValue&, const NEATValue&);
+    typedef NEATVector (*NEATFuncVecP)(const NEATVector&, const NEATVector&);
+    typedef IntervalError<TypeP> (*GetDivErrorFuncP)(const NEATValue&, const NEATValue&);
+    // we use the same precision reference for div
+    typedef TypeP (*RefFuncP) (const TypeP&, const TypeP&);
+
+    /// If your test doesn't currently support doubles, use SkipDoubleTest
+    if (SkipDoubleTest<TypeP>()){
+        return;
+    }
+
+    GetDivErrorFuncP divError = &IntervalError<TypeP>::divFrmSetUlps;
+
+    NEATFuncP NEATFunc = &NEATALU::div_frm<TypeP>;
+    NEATFuncVecP NEATFuncVec = &NEATALU::div_frm<TypeP>;
+    RefFuncP RefFunc = &RefALU::div<TypeP>;
+
+    NEATDivFrmTest<TypeP> divTest;
 
     divTest.TestDiv(NEATFunc, NEATFuncVec, RefFunc, divError);
 }
@@ -2004,7 +2189,7 @@ static bool TestExpandInterval(T firstIn, T secondIn, float ulps) {
                SuperT first = firstRef;
                SuperT second = secondRef;
 
-               NEATALU::ExpandFloatInterval(&first, &second, ulps);
+               IntervalError<T>::ExpandFPInterval(&first, &second, IntervalError<T>(ulps));
                T min = NEATALU::castDown(first);
                T max = NEATALU::castDown(second);
 
@@ -2045,7 +2230,7 @@ static bool TestExpandInterval(T firstIn, T secondIn, float ulps) {
 
 // TODO: long double data generation is not supported so far,
 // currently long doubles are produced from doubles
-TYPED_TEST(NEATAluTypedMath, ExpandFloatInterval)
+TYPED_TEST(NEATAluTypedMath, ExpandFPInterval)
 {
     typedef typename  TypeParam::Type TypeP;
     // Check if we are able to test double built-in function.
@@ -2164,6 +2349,7 @@ TYPED_TEST(NEATAluTypedMath, sin)
     }
     const int NUM_TESTS = 500;
     VectorWidth curWidth = V8;
+    IntervalError<TypeP> error(NEATALU::SIN_ERROR);
 
     TypeP firstFloat[NUM_TESTS*8];
     TypeP secondFloat[NUM_TESTS*8];
@@ -2258,7 +2444,7 @@ TYPED_TEST(NEATAluTypedMath, sin)
             EXPECT_TRUE(TestAccValue<TypeP>(testAccVal,TypeP(-0.0)));
             // sin(-0) == -0
         } else {
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::SIN_ERROR);
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,error);
             EXPECT_TRUE(passed);
         }
 
@@ -2304,8 +2490,8 @@ TYPED_TEST(NEATAluTypedMath, sin)
                 refIntValMin = a;
             }
 
-            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::SIN_ERROR*NEATALU::ComputeUlp(refIntValMin));
-            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::SIN_ERROR*NEATALU::ComputeUlp(refIntValMax));
+            TypeP dMin = NEATALU::castDown(refIntValMin-error.getExpandValue(ComputeUlp(refIntValMin), true));
+            TypeP dMax = NEATALU::castDown(refIntValMax+error.getExpandValue(ComputeUlp(refIntValMax), false));
 
             if(hasMinPoint) {
                 if( *testIntVal.GetMin<TypeP>() != TypeP(-1.0))
@@ -2366,8 +2552,8 @@ TYPED_TEST(NEATAluTypedMath, sin)
                 refIntValMin = a;
             }
 
-            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::SIN_ERROR*NEATALU::ComputeUlp(refIntValMin));
-            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::SIN_ERROR*NEATALU::ComputeUlp(refIntValMax));
+            TypeP dMin = NEATALU::castDown(refIntValMin-error.getExpandValue(ComputeUlp(refIntValMin), true));
+            TypeP dMax = NEATALU::castDown(refIntValMax+error.getExpandValue(ComputeUlp(refIntValMax), false));
 
             if(hasMinPoint) {
                 if( *testIntVec1[i].GetMin<TypeP>() != TypeP(-1.0))
@@ -2412,6 +2598,246 @@ TYPED_TEST(NEATAluTypedMath, sin)
             refIntValMax = RefALU::sin(SuperT(*intervalRanged[i].GetMax<TypeP>()));
 
             bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::SIN_ERROR);
+            EXPECT_TRUE(passed);
+        }
+    }
+}
+
+TYPED_TEST(NEATAluTypedFastRelaxedMath, sin_frm)
+{
+    typedef typename  TypeParam::Type TypeP;
+    typedef typename  superT<TypeP>::type SuperT;
+
+    // Check if we are able to test double built-in function.
+    if (SkipDoubleTest<TypeP>()){
+        return;
+    }
+    const int NUM_TESTS = 500;
+    VectorWidth curWidth = V8;
+
+    TypeP firstFloat[NUM_TESTS*8];
+    TypeP secondFloat[NUM_TESTS*8];
+
+    TypeP firstFloatRanged[NUM_TESTS*8];
+    TypeP secondFloatRanged[NUM_TESTS*8];
+
+
+    GenerateRandomVectorsAutoSeed(this->dataTypeVal, &firstFloat[0], curWidth,
+                                    NUM_TESTS);
+    GenerateRandomVectorsAutoSeed(this->dataTypeVal, &secondFloat[0],
+                                      curWidth, NUM_TESTS);
+
+    GenerateRangedVectorsAutoSeed(this->dataTypeVal, &firstFloatRanged[0],
+                                      curWidth, NUM_TESTS, TypeP(-NEATALU::pi_2+0.01),
+                                      TypeP(NEATALU::pi_2-0.01));
+
+    // +- 0.01 to avoid including PI/2 to interval max amd min points are tested
+    // on not ranged vectors (firstFloat, secondFloat)
+    GenerateRangedVectorsAutoSeed(this->dataTypeVal, &secondFloatRanged[0], curWidth,
+                              NUM_TESTS,TypeP(-NEATALU::pi_2+0.01),TypeP(NEATALU::pi_2-0.01));
+
+    IntervalError<TypeP> sinErr;
+    /* test for specific values */
+    NEATValue testAccVal = NEATALU::sin_frm<TypeP>(NEATValue(NEATValue::ANY));
+    EXPECT_TRUE(testAccVal.IsUnknown());
+
+    testAccVal = NEATALU::sin_frm<TypeP>(NEATValue(NEATValue::UNWRITTEN));
+    EXPECT_TRUE(testAccVal.IsUnknown());
+
+    testAccVal = NEATALU::sin_frm<TypeP>(NEATValue(NEATValue::UNKNOWN));
+    EXPECT_TRUE(testAccVal.IsUnknown());
+
+    testAccVal = NEATALU::sin_frm<TypeP>(NEATValue::NaN<TypeP>());
+    EXPECT_TRUE(testAccVal.IsNaN<TypeP>());
+
+    testAccVal = NEATALU::sin_frm<TypeP>(NEATValue(TypeP(+0.0),TypeP(+0.0)));
+    sinErr = IntervalError<TypeP>::sinFrmSetUlps(NEATValue(TypeP(+0.0),TypeP(+0.0)));
+    EXPECT_TRUE(TestIntExpanded<SuperT>(RefALU::sin(SuperT(+0.0)), RefALU::sin(SuperT(+0.0)), testAccVal, sinErr));
+
+    testAccVal = NEATALU::sin_frm<TypeP>(NEATValue(TypeP(-0.0),TypeP(-0.0)));
+    sinErr = IntervalError<TypeP>::sinFrmSetUlps(NEATValue(TypeP(-0.0),TypeP(-0.0)));
+    EXPECT_TRUE(TestIntExpanded<SuperT>(RefALU::sin(SuperT(-0.0)), RefALU::sin(SuperT(-0.0)), testAccVal, sinErr));
+    
+    testAccVal = NEATALU::sin_frm<TypeP>(NEATValue(Utils::GetPInf<TypeP>(),Utils::GetPInf<TypeP>()));
+    EXPECT_TRUE(testAccVal.IsAny());
+
+    testAccVal = NEATALU::sin_frm<TypeP>(NEATValue(Utils::GetNInf<TypeP>(),Utils::GetNInf<TypeP>()));
+    EXPECT_TRUE(testAccVal.IsAny());
+
+    VectorWidthWrapper wrap(curWidth);
+    for(int testIdx = 0; testIdx < NUM_TESTS; testIdx ++)
+    {
+        NEATValue accVal, intVal;
+        NEATValue testAccVal, testIntVal;
+        SuperT refAccValFloat;
+
+        /* load data for interval from min TypeP to max TypeP */
+        NEATVector accurate(curWidth);
+        NEATVector interval(curWidth);
+
+        NEATVector accurateRanged(curWidth);
+        NEATVector intervalRanged(curWidth);
+
+        for(uint32_t i = 0; i<wrap.GetSize(); i++)
+        {
+            accurate[i] = NEATValue(firstFloat[testIdx*wrap.GetSize()+i]);
+            if(firstFloat[testIdx*wrap.GetSize()+i] < secondFloat[testIdx*wrap.GetSize()+i])
+                interval[i] = NEATValue(firstFloat[testIdx*wrap.GetSize()+i], secondFloat[testIdx*wrap.GetSize()+i]);
+            else
+                interval[i] = NEATValue(secondFloat[testIdx*wrap.GetSize()+i], firstFloat[testIdx*wrap.GetSize()+i]);
+        }
+
+        /* load data for monotonic interval from -pi/2 to pi/2 */
+        for(uint32_t i = 0; i<wrap.GetSize(); i++)
+        {
+            accurateRanged[i] = NEATValue(firstFloatRanged[testIdx*wrap.GetSize()+i]);
+            if(firstFloatRanged[testIdx*wrap.GetSize()+i] < secondFloatRanged[testIdx*wrap.GetSize()+i])
+                intervalRanged[i] = NEATValue(firstFloatRanged[testIdx*wrap.GetSize()+i], secondFloatRanged[testIdx*wrap.GetSize()+i]);
+            else
+                intervalRanged[i] = NEATValue(secondFloatRanged[testIdx*wrap.GetSize()+i], firstFloatRanged[testIdx*wrap.GetSize()+i]);
+        }
+
+        /* test for single accurate NEAT value*/
+        accVal = accurate[0];
+
+        testAccVal = NEATALU::sin_frm<TypeP>(accVal);
+        refAccValFloat = RefALU::sin(SuperT(*accVal.GetAcc<TypeP>()));
+        bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,IntervalError<TypeP>::sinFrmSetUlps(accVal));
+        EXPECT_TRUE(passed);
+
+        /* test for single interval NEAT value */
+        SuperT refIntValMin, refIntValMax;
+
+        intVal = interval[0];
+        testIntVal = NEATALU::sin_frm<TypeP>(intVal);
+
+        passed = true;
+
+        {
+            bool hasMinPoint = false;
+            bool hasMaxPoint = false;
+
+            TypeP diff = RefALU::add(*intVal.GetMax<TypeP>(),
+                         RefALU::neg(*intVal.GetMin<TypeP>()) );
+
+            if(Utils::ge(diff, (TypeP)NEATALU::two_pi))
+            {
+                hasMinPoint = true;
+                hasMaxPoint = true;
+            } else {
+                TypeP offStart = RefALU::mul<TypeP>( RefALU::frc<TypeP>(
+                                 RefALU::div<TypeP>(*intVal.GetMin<TypeP>(),
+                                 (TypeP)NEATALU::two_pi ) ), (TypeP)NEATALU::two_pi );
+
+                TypeP offEnd= RefALU::add<TypeP>( offStart, diff );
+
+                NEATValue range(offStart, offEnd);
+                hasMinPoint |= range.Includes<TypeP>( (TypeP)(3.0/2.0*NEATALU::pi) );
+                hasMinPoint |= range.Includes<TypeP>( (TypeP)(7.0/2.0*NEATALU::pi) );
+                hasMaxPoint |= range.Includes<TypeP>( (TypeP)(NEATALU::pi_2) );
+                hasMaxPoint |= range.Includes<TypeP>( (TypeP)(5.0/2.0*NEATALU::pi) );
+            }
+
+            refIntValMax = RefALU::sin(SuperT(*intVal.GetMax<TypeP>()));
+            refIntValMin = RefALU::sin(SuperT(*intVal.GetMin<TypeP>()));
+
+            if(hasMinPoint)
+                    refIntValMin = SuperT(-1.0);
+            if(hasMaxPoint) 
+                    refIntValMax = SuperT(+1.0);
+
+            if(refIntValMin > refIntValMax)
+            {
+                SuperT a = refIntValMin;
+                refIntValMin = refIntValMax;
+                refIntValMax = a;
+            }
+
+            IntervalError<TypeP> error = IntervalError<TypeP>::sinFrmSetUlps(intVal);
+
+            if(!error.isInfiniteError())
+            {
+                if(fabs( refIntValMin - *testIntVal.GetMin<TypeP>()) > error.getAbsoluteError())
+                    passed = false;
+                if(fabs(refIntValMax - *testIntVal.GetMax<TypeP>()) > error.getAbsoluteError())
+                    passed = false;
+            }
+        }
+
+        EXPECT_TRUE(passed);
+
+        /* test for vector of NEAT intervals */
+        passed = true;
+        NEATVector testIntVec1 = NEATALU::sin_frm<TypeP>(interval);
+
+        for(uint32_t i = 0; i<wrap.GetSize(); i++) {
+
+            bool hasMinPoint = false;
+            bool hasMaxPoint = false;
+
+            TypeP diff = RefALU::add(*interval[i].GetMax<TypeP>(),
+                         RefALU::neg(*interval[i].GetMin<TypeP>()) );
+
+            if(Utils::ge(diff, (TypeP)NEATALU::two_pi))
+            {
+                hasMinPoint = true;
+                hasMaxPoint = true;
+            } else {
+                TypeP offStart = RefALU::mul<TypeP>( RefALU::frc<TypeP>(
+                                 RefALU::div<TypeP>(*interval[i].GetMin<TypeP>(),
+                                 (TypeP)NEATALU::two_pi ) ), (TypeP)NEATALU::two_pi );
+
+                TypeP offEnd= RefALU::add<TypeP>( offStart, diff );
+
+                NEATValue range(offStart, offEnd);
+
+                hasMinPoint |= range.Includes<TypeP>( (TypeP)(3.0/2.0*NEATALU::pi) );
+                hasMinPoint |= range.Includes<TypeP>( (TypeP)(7.0/2.0*NEATALU::pi) );
+                hasMaxPoint |= range.Includes<TypeP>( (TypeP)(NEATALU::pi_2) );
+                hasMaxPoint |= range.Includes<TypeP>( (TypeP)(5.0/2.0*NEATALU::pi) );
+            }
+
+            refIntValMax = RefALU::sin(SuperT(*interval[i].GetMax<TypeP>()));
+            refIntValMin = RefALU::sin(SuperT(*interval[i].GetMin<TypeP>()));
+
+            if(hasMinPoint)
+                    refIntValMin = SuperT(-1.0);
+            if(hasMaxPoint) 
+                    refIntValMax = SuperT(+1.0);
+
+            if(refIntValMin > refIntValMax)
+            {
+                SuperT a = refIntValMin;
+                refIntValMin = refIntValMax;
+                refIntValMax = a;
+            }
+
+            IntervalError<TypeP> error = IntervalError<TypeP>::sinFrmSetUlps(interval[i]);
+            if(!error.isInfiniteError())
+            {
+                if(fabs( refIntValMin - *testIntVec1[i].GetMin<TypeP>()) > error.getAbsoluteError())
+                    passed = false;
+                if(fabs( refIntValMax - *testIntVec1[i].GetMax<TypeP>()) > error.getAbsoluteError())
+                    passed = false;
+            }
+        }
+        EXPECT_TRUE(passed);
+
+        /* test for vector of NEAT accurate in range */
+        NEATVector testAccVec = NEATALU::sin_frm<TypeP>(accurateRanged);
+        for(uint32_t i = 0; i<wrap.GetSize(); i++) {
+            refAccValFloat = RefALU::sin(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],IntervalError<TypeP>::sinFrmSetUlps(accurateRanged[i]));
+            EXPECT_TRUE(passed);
+        }
+
+        /* test for vector of NEAT intervals in range */
+        NEATVector testIntVec = NEATALU::sin_frm<TypeP>(intervalRanged);
+        for(uint32_t i = 0; i<wrap.GetSize(); i++) {
+            refIntValMin = RefALU::sin(SuperT(*intervalRanged[i].GetMin<TypeP>()));
+            refIntValMax = RefALU::sin(SuperT(*intervalRanged[i].GetMax<TypeP>()));
+
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],IntervalError<TypeP>::sinFrmSetUlps(intervalRanged[i]));
             EXPECT_TRUE(passed);
         }
     }
@@ -2569,8 +2995,8 @@ TYPED_TEST(NEATAluTypedMath, native_sin)
                 refIntValMin = a;
             }
 
-            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::NATIVE_SIN_ERROR*NEATALU::ComputeUlp(refIntValMin));
-            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::NATIVE_SIN_ERROR*NEATALU::ComputeUlp(refIntValMax));
+            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::NATIVE_SIN_ERROR*ComputeUlp(refIntValMin));
+            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::NATIVE_SIN_ERROR*ComputeUlp(refIntValMax));
 
             if(hasMinPoint) {
                 if( *testIntVal.GetMin<TypeP>() != TypeP(-1.0))
@@ -2631,8 +3057,8 @@ TYPED_TEST(NEATAluTypedMath, native_sin)
                 refIntValMin = a;
             }
 
-            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::NATIVE_SIN_ERROR*NEATALU::ComputeUlp(refIntValMin));
-            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::NATIVE_SIN_ERROR*NEATALU::ComputeUlp(refIntValMax));
+            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::NATIVE_SIN_ERROR*ComputeUlp(refIntValMin));
+            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::NATIVE_SIN_ERROR*ComputeUlp(refIntValMax));
 
             if(hasMinPoint) {
                 if( *testIntVec1[i].GetMin<TypeP>() != TypeP(-1.0))
@@ -2836,8 +3262,8 @@ TYPED_TEST(NEATAluTypedMath, half_sin)
                 refIntValMin = a;
             }
 
-            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::HALF_SIN_ERROR*NEATALU::ComputeUlp(refIntValMin));
-            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::HALF_SIN_ERROR*NEATALU::ComputeUlp(refIntValMax));
+            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::HALF_SIN_ERROR*ComputeUlp(refIntValMin));
+            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::HALF_SIN_ERROR*ComputeUlp(refIntValMax));
 
             if(hasMinPoint) {
                 if( *testIntVal.GetMin<TypeP>() != TypeP(-1.0))
@@ -2898,8 +3324,8 @@ TYPED_TEST(NEATAluTypedMath, half_sin)
                 refIntValMin = a;
             }
 
-            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::HALF_SIN_ERROR*NEATALU::ComputeUlp(refIntValMin));
-            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::HALF_SIN_ERROR*NEATALU::ComputeUlp(refIntValMax));
+            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::HALF_SIN_ERROR*ComputeUlp(refIntValMin));
+            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::HALF_SIN_ERROR*ComputeUlp(refIntValMax));
 
             if(hasMinPoint) {
                 if( *testIntVec1[i].GetMin<TypeP>() != TypeP(-1.0))
@@ -3099,8 +3525,8 @@ TYPED_TEST(NEATAluTypedMath, cos)
                 refIntValMin = a;
             }
 
-            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::COS_ERROR*NEATALU::ComputeUlp(refIntValMin));
-            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::COS_ERROR*NEATALU::ComputeUlp(refIntValMax));
+            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::COS_ERROR*ComputeUlp(refIntValMin));
+            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::COS_ERROR*ComputeUlp(refIntValMax));
 
             if(hasMinPoint) {
                 if( *testIntVal.GetMin<TypeP>() != TypeP(-1.0))
@@ -3161,8 +3587,8 @@ TYPED_TEST(NEATAluTypedMath, cos)
                 refIntValMin = a;
             }
 
-            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::COS_ERROR*NEATALU::ComputeUlp(refIntValMin));
-            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::COS_ERROR*NEATALU::ComputeUlp(refIntValMax));
+            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::COS_ERROR*ComputeUlp(refIntValMin));
+            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::COS_ERROR*ComputeUlp(refIntValMax));
 
             if(hasMinPoint) {
                 if( *testIntVec1[i].GetMin<TypeP>() != TypeP(-1.0))
@@ -3204,6 +3630,245 @@ TYPED_TEST(NEATAluTypedMath, cos)
             refIntValMin = RefALU::cos(SuperT(*intervalRanged[i].GetMin<TypeP>()));
             refIntValMax = RefALU::cos(SuperT(*intervalRanged[i].GetMax<TypeP>()));
             bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::COS_ERROR);
+            EXPECT_TRUE(passed);
+        }
+    }
+}
+
+TYPED_TEST(NEATAluTypedFastRelaxedMath, cos_frm)
+{
+    typedef typename  TypeParam::Type TypeP;
+    typedef typename  superT<TypeP>::type SuperT;
+
+    // Check if we are able to test double built-in function.
+    if (SkipDoubleTest<TypeP>()){
+        return;
+    }
+
+    const int NUM_TESTS = 500;
+
+    TypeP firstFloat[NUM_TESTS*8];
+    TypeP secondFloat[NUM_TESTS*8];
+
+    TypeP firstFloatRanged[NUM_TESTS*8];
+    TypeP secondFloatRanged[NUM_TESTS*8];
+
+    VectorWidth curWidth = V8;
+
+
+    GenerateRandomVectorsAutoSeed(this->dataTypeVal, &firstFloat[0], curWidth, NUM_TESTS);
+
+    GenerateRandomVectorsAutoSeed(this->dataTypeVal, &secondFloat[0], curWidth, NUM_TESTS);
+
+    GenerateRangedVectorsAutoSeed(this->dataTypeVal, &firstFloatRanged[0], curWidth,
+                        NUM_TESTS,TypeP(-NEATALU::pi+0.01),TypeP(0-0.01));
+    // +- 0.01 to avoid including PI to interval max amd min points are tested
+    // on not ranged vectors (firstFloat, secondFloat)
+    GenerateRangedVectorsAutoSeed(this->dataTypeVal, &secondFloatRanged[0], curWidth,
+                              NUM_TESTS,TypeP(-NEATALU::pi+0.01),TypeP(0-0.01));
+
+    IntervalError<TypeP> cosErr;
+    /* test for specific values */
+    NEATValue testAccVal = NEATALU::cos_frm<TypeP>(NEATValue(NEATValue::ANY));
+    EXPECT_TRUE(testAccVal.IsUnknown());
+
+    testAccVal = NEATALU::cos_frm<TypeP>(NEATValue(NEATValue::UNWRITTEN));
+    EXPECT_TRUE(testAccVal.IsUnknown());
+
+    testAccVal = NEATALU::cos_frm<TypeP>(NEATValue(NEATValue::UNKNOWN));
+    EXPECT_TRUE(testAccVal.IsUnknown());
+
+    testAccVal = NEATALU::cos_frm<TypeP>(NEATValue::NaN<TypeP>());
+    EXPECT_TRUE(testAccVal.IsNaN<TypeP>());
+
+    testAccVal = NEATALU::cos_frm<TypeP>(NEATValue(TypeP(+0.0),TypeP(+0.0)));
+    cosErr = IntervalError<TypeP>::cosFrmSetUlps(NEATValue(TypeP(+0.0),TypeP(+0.0)));
+    EXPECT_TRUE(TestIntExpanded<SuperT>(RefALU::cos(SuperT(+0.0)), RefALU::cos(SuperT(+0.0)), testAccVal, cosErr));
+
+    testAccVal = NEATALU::cos_frm<TypeP>(NEATValue(TypeP(-0.0),TypeP(-0.0)));
+    cosErr = IntervalError<TypeP>::cosFrmSetUlps(NEATValue(TypeP(-0.0),TypeP(-0.0)));
+    EXPECT_TRUE(TestIntExpanded<SuperT>(RefALU::cos(SuperT(-0.0)), RefALU::cos(SuperT(-0.0)), testAccVal, cosErr));
+
+    testAccVal = NEATALU::cos_frm<TypeP>(NEATValue(Utils::GetPInf<TypeP>(),Utils::GetPInf<TypeP>()));
+    EXPECT_TRUE(testAccVal.IsAny());
+
+    testAccVal = NEATALU::cos_frm<TypeP>(NEATValue(Utils::GetNInf<TypeP>(),Utils::GetNInf<TypeP>()));
+    EXPECT_TRUE(testAccVal.IsAny());
+
+    VectorWidthWrapper wrap(curWidth);
+    for(int testIdx = 0; testIdx < NUM_TESTS; testIdx ++)
+    {
+        NEATValue accVal, intVal;
+        NEATValue testAccVal, testIntVal;
+
+        /* load data for interval from min TypeP to max TypeP */
+        NEATVector accurate(curWidth);
+        NEATVector interval(curWidth);
+
+        NEATVector accurateRanged(curWidth);
+        NEATVector intervalRanged(curWidth);
+
+        for(uint32_t i = 0; i<wrap.GetSize(); i++)
+        {
+            accurate[i] = NEATValue(firstFloat[testIdx*wrap.GetSize()+i]);
+            if(firstFloat[testIdx*wrap.GetSize()+i] < secondFloat[testIdx*wrap.GetSize()+i])
+                interval[i] = NEATValue(firstFloat[testIdx*wrap.GetSize()+i], secondFloat[testIdx*wrap.GetSize()+i]);
+            else
+                interval[i] = NEATValue(secondFloat[testIdx*wrap.GetSize()+i], firstFloat[testIdx*wrap.GetSize()+i]);
+        }
+
+        /* load data for monotonic interval from 0 to pi */
+        for(uint32_t i = 0; i<wrap.GetSize(); i++)
+        {
+            accurateRanged[i] = NEATValue(firstFloatRanged[testIdx*wrap.GetSize()+i]);
+            if(firstFloatRanged[testIdx*wrap.GetSize()+i] < secondFloatRanged[testIdx*wrap.GetSize()+i])
+                intervalRanged[i] = NEATValue(firstFloatRanged[testIdx*wrap.GetSize()+i], secondFloatRanged[testIdx*wrap.GetSize()+i]);
+            else
+                intervalRanged[i] = NEATValue(secondFloatRanged[testIdx*wrap.GetSize()+i], firstFloatRanged[testIdx*wrap.GetSize()+i]);
+        }
+
+        /* test for single accurate NEAT value*/
+        SuperT refAccValFloat;
+        accVal = accurate[0];
+
+        testAccVal = NEATALU::cos_frm<TypeP>(accVal);
+
+        refAccValFloat = RefALU::cos(SuperT(*accVal.GetAcc<TypeP>()));
+        bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,IntervalError<TypeP>::cosFrmSetUlps(accVal));
+        EXPECT_TRUE(passed);
+
+        /* test for single interval NEAT value */
+        SuperT refIntValMin, refIntValMax;
+
+        intVal = interval[0];
+        testIntVal = NEATALU::cos_frm<TypeP>(intVal);
+
+        passed = true;
+
+        {
+            bool hasMinPoint = false;
+            bool hasMaxPoint = false;
+
+            TypeP diff = RefALU::add(*intVal.GetMax<TypeP>(),
+                         RefALU::neg(*intVal.GetMin<TypeP>()) );
+
+            if(Utils::ge(diff, (TypeP)NEATALU::two_pi))
+            {
+                hasMinPoint = true;
+                hasMaxPoint = true;
+            } else {
+                TypeP offStart = RefALU::mul<TypeP>( RefALU::frc<TypeP>(
+                                 RefALU::div<TypeP>(*intVal.GetMin<TypeP>(),
+                                 (TypeP)NEATALU::two_pi ) ), (TypeP)NEATALU::two_pi );
+
+                TypeP offEnd= RefALU::add<TypeP>( offStart, diff );
+
+                NEATValue range(offStart, offEnd);
+                hasMinPoint |= range.Includes<TypeP>( (TypeP)(NEATALU::pi) );
+                hasMinPoint |= range.Includes<TypeP>( (TypeP)(3.0*NEATALU::pi) );
+                hasMaxPoint |= range.Includes<TypeP>( (TypeP)(0.0) );
+                hasMaxPoint |= range.Includes<TypeP>( (TypeP)(NEATALU::two_pi) );
+            }
+
+            refIntValMax = RefALU::cos(SuperT(*intVal.GetMax<TypeP>()));
+            refIntValMin = RefALU::cos(SuperT(*intVal.GetMin<TypeP>()));
+
+            if(hasMinPoint)
+                    refIntValMin = SuperT(-1.0);
+            if(hasMaxPoint) 
+                    refIntValMax = SuperT(+1.0);
+
+            if(refIntValMin > refIntValMax)
+            {
+                SuperT a = refIntValMin;
+                refIntValMin = refIntValMax;
+                refIntValMax = a;
+            }
+
+            IntervalError<TypeP> error = IntervalError<TypeP>::cosFrmSetUlps(intVal);
+            if(!error.isInfiniteError())
+            {
+                if(fabs( refIntValMin - *testIntVal.GetMin<TypeP>()) > error.getAbsoluteError())
+                            passed = false;    
+                if(fabs( refIntValMax - *testIntVal.GetMax<TypeP>()) > error.getAbsoluteError())
+                            passed = false;
+            }
+            EXPECT_TRUE(passed);
+        }
+
+
+        /* test for vector of NEAT intervals */
+        passed = true;
+        NEATVector testIntVec1 = NEATALU::cos_frm<TypeP>(interval);
+
+        for(uint32_t i = 0; i<wrap.GetSize(); i++) {
+
+            bool hasMinPoint = false;
+            bool hasMaxPoint = false;
+
+            TypeP diff = RefALU::add(*interval[i].GetMax<TypeP>(),
+                         RefALU::neg(*interval[i].GetMin<TypeP>()) );
+
+            if(Utils::ge(diff, (TypeP)NEATALU::two_pi))
+            {
+                hasMinPoint = true;
+                hasMaxPoint = true;
+            } else {
+                TypeP offStart = RefALU::mul<TypeP>( RefALU::frc<TypeP>(
+                                 RefALU::div<TypeP>(*interval[i].GetMin<TypeP>(),
+                                 (TypeP)NEATALU::two_pi ) ), (TypeP)NEATALU::two_pi );
+
+                TypeP offEnd= RefALU::add<TypeP>( offStart, diff );
+
+                NEATValue range(offStart, offEnd);
+                hasMinPoint |= range.Includes<TypeP>( (TypeP)(NEATALU::pi) );
+                hasMinPoint |= range.Includes<TypeP>( (TypeP)(3.0*NEATALU::pi) );
+                hasMaxPoint |= range.Includes<TypeP>( (TypeP)(0.0) );
+                hasMaxPoint |= range.Includes<TypeP>( (TypeP)(NEATALU::two_pi) );
+            }
+
+            refIntValMax = RefALU::cos(SuperT(*interval[i].GetMax<TypeP>()));
+            refIntValMin = RefALU::cos(SuperT(*interval[i].GetMin<TypeP>()));
+            
+            if(hasMinPoint)
+                refIntValMin = SuperT(-1.0);
+            if(hasMaxPoint)
+                refIntValMax = SuperT(+1.0);
+
+            if(refIntValMin > refIntValMax)
+            {
+                SuperT a = refIntValMin;
+                refIntValMin = refIntValMax;
+                refIntValMax = a;
+            }
+
+            IntervalError<TypeP> error = IntervalError<TypeP>::cosFrmSetUlps(interval[i]);
+            
+            if(!error.isInfiniteError())
+            {
+                if(fabs( refIntValMin - *testIntVec1[i].GetMin<TypeP>()) > error.getAbsoluteError())
+                            passed = false;
+                if(fabs( refIntValMax - *testIntVec1[i].GetMax<TypeP>()) > error.getAbsoluteError())
+                            passed = false;
+            }
+        }
+
+        EXPECT_TRUE(passed);
+
+        /* test for vector of NEAT accurate in range */
+        NEATVector testAccVec = NEATALU::cos_frm<TypeP>(accurateRanged);
+        for(uint32_t i = 0; i<wrap.GetSize(); i++) {
+            refAccValFloat = RefALU::cos(SuperT(*accurateRanged[i].GetAcc<TypeP>()));
+            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],IntervalError<TypeP>::cosFrmSetUlps(accurateRanged[i]));
+            EXPECT_TRUE(passed);
+        }
+
+        /* test for vector of NEAT intervals in range */
+        NEATVector testIntVec = NEATALU::cos_frm<TypeP>(intervalRanged);
+        for(uint32_t i = 0; i<wrap.GetSize(); i++) {
+            refIntValMin = RefALU::cos(SuperT(*intervalRanged[i].GetMin<TypeP>()));
+            refIntValMax = RefALU::cos(SuperT(*intervalRanged[i].GetMax<TypeP>()));
+            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],IntervalError<TypeP>::cosFrmSetUlps(intervalRanged[i]));
             EXPECT_TRUE(passed);
         }
     }
@@ -3357,8 +4022,8 @@ TYPED_TEST(NEATAluTypedMath, native_cos)
                 refIntValMin = a;
             }
 
-            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::NATIVE_COS_ERROR*NEATALU::ComputeUlp(refIntValMin));
-            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::NATIVE_COS_ERROR*NEATALU::ComputeUlp(refIntValMax));
+            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::NATIVE_COS_ERROR*ComputeUlp(refIntValMin));
+            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::NATIVE_COS_ERROR*ComputeUlp(refIntValMax));
 
             if(hasMinPoint) {
                 if( *testIntVal.GetMin<TypeP>() != TypeP(-1.0))
@@ -3419,8 +4084,8 @@ TYPED_TEST(NEATAluTypedMath, native_cos)
                 refIntValMin = a;
             }
 
-            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::NATIVE_COS_ERROR*NEATALU::ComputeUlp(refIntValMin));
-            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::NATIVE_COS_ERROR*NEATALU::ComputeUlp(refIntValMax));
+            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::NATIVE_COS_ERROR*ComputeUlp(refIntValMin));
+            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::NATIVE_COS_ERROR*ComputeUlp(refIntValMax));
 
             if(hasMinPoint) {
                 if( *testIntVec1[i].GetMin<TypeP>() != TypeP(-1.0))
@@ -3615,8 +4280,8 @@ TYPED_TEST(NEATAluTypedMath, half_cos)
                 refIntValMin = a;
             }
 
-            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::HALF_COS_ERROR*NEATALU::ComputeUlp(refIntValMin));
-            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::HALF_COS_ERROR*NEATALU::ComputeUlp(refIntValMax));
+            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::HALF_COS_ERROR*ComputeUlp(refIntValMin));
+            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::HALF_COS_ERROR*ComputeUlp(refIntValMax));
 
             if(hasMinPoint) {
                 if( *testIntVal.GetMin<TypeP>() != TypeP(-1.0))
@@ -3677,8 +4342,8 @@ TYPED_TEST(NEATAluTypedMath, half_cos)
                 refIntValMin = a;
             }
 
-            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::HALF_COS_ERROR*NEATALU::ComputeUlp(refIntValMin));
-            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::HALF_COS_ERROR*NEATALU::ComputeUlp(refIntValMax));
+            TypeP dMin = NEATALU::castDown(refIntValMin-NEATALU::HALF_COS_ERROR*ComputeUlp(refIntValMin));
+            TypeP dMax = NEATALU::castDown(refIntValMax+NEATALU::HALF_COS_ERROR*ComputeUlp(refIntValMax));
 
             if(hasMinPoint) {
                 if( *testIntVec1[i].GetMin<TypeP>() != TypeP(-1.0))

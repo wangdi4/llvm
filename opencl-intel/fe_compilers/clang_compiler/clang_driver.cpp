@@ -1433,6 +1433,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             pList->push_back("-cl-fast-relaxed-math");
                   pList->push_back("-D");
             pList->push_back("__FAST_RELAXED_MATH__=1");
+            pBEArgList->push_back("-cl-fast-relaxed-math");
             bFastRelaxedMath = true;
         }
         else if (*opt_i == "-cl-kernel-arg-info") {

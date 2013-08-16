@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include "NEATValue.h"
+#include "NEATALUUtils.h"
+#include "RefALU.h"
 #include <iostream>
 #include <fstream>
 
@@ -78,3 +80,26 @@ TEST(NEATValue, SerializationCheck) {
 
 }
 
+TEST(NEATValue, ExpandIntervalTest) {
+    double fmin = -32.4901;
+    double fmax = -12.345;
+
+    double fmin_out = fmin, fmax_out = fmax;
+    IntervalError<float> error(3.0f);
+
+    IntervalError<float>::ExpandFPInterval(&fmin_out, &fmax_out, error);
+    NEATValue test_int((float)fmin_out, (float)fmax_out);
+
+    bool res_int = TestIntExpanded<double>(fmin, fmax, test_int, error);
+    EXPECT_TRUE(res_int);
+
+    double facc = 13.14873;
+
+    double facc_min = facc, facc_max = facc;
+
+    IntervalError<float>::ExpandFPInterval(&facc_min, &facc_max, error);
+    NEATValue test_acc((float)facc_min, (float)facc_max);
+
+    bool res_acc = TestNeatAcc<double>(NEATValue(0.0f), test_acc, facc, error, NULL, NULL);
+    EXPECT_TRUE(res_acc);
+}
