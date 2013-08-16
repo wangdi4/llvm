@@ -195,11 +195,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static std::string argumentAttribute(const llvm::Module&);
 
     enum clVersion {
-        CL_VER_1_0,
-        CL_VER_1_1,
-        CL_VER_1_2,
-        CL_VER_2_0,
-        CL_VER_NOT_DETECTED
+        CL_VER_NOT_DETECTED = -1,
+        CL_VER_1_0 = 0,
+        CL_VER_1_1 = 1,
+        CL_VER_1_2 = 2,
+        CL_VER_2_0 = 3
     };
     static const std::string NAME_GET_DEFAULT_QUEUE;
     

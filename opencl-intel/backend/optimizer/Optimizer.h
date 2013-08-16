@@ -63,7 +63,6 @@ private:
     llvm::PassManager m_moduleStandardLLVMPasses;
     llvm::FunctionPassManager m_funcStandardLLVMPasses;
     llvm::Module* m_pModule;
-    llvm::Pass* m_DetectFunctionPtrCallsPass;
 
     std::vector<std::string> m_undefinedExternalFunctions;
 };

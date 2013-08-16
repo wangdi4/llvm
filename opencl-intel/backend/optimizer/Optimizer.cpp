@@ -257,7 +257,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #endif
   // For OCL2.0 compilation mode - add Generic Address Static Resolution pass
   const bool isOcl20 =
-    (CompilationUtils::getCLVersionFromModule(*pModule) == CompilationUtils::CL_VER_2_0);
+    (CompilationUtils::getCLVersionFromModule(*pModule) >= CompilationUtils::CL_VER_2_0);
    
   if (isOcl20) {
     // Static resolution of generic address space pointers
@@ -314,8 +314,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   
   // check function pointers calls are gone after standard optimizations
   // if not fail compilation
-  m_DetectFunctionPtrCallsPass = createDetectFuncPtrCalls();
-  m_moduleStandardLLVMPasses.add(m_DetectFunctionPtrCallsPass);
+  m_moduleStandardLLVMPasses.add(createDetectFuncPtrCalls());
 
   // add DataLayout analysis to m_modulePasses
   // we need to add it once again since standardVolcanoModulePasses
@@ -329,11 +328,13 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #endif
   m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
 
-  // OCL2.0 Extexecution.
-  // clone block_invoke functions to kernels
-  m_modulePasses.add(createCloneBlockInvokeFuncToKernelPass());
+  if (isOcl20) {
+    // OCL2.0 Extexecution.
+    // clone block_invoke functions to kernels
+    m_modulePasses.add(createCloneBlockInvokeFuncToKernelPass());
+  }
   
-    // Should be called before vectorizer!
+  // Should be called before vectorizer!
   m_modulePasses.add((llvm::Pass*)createInstToFuncCallPass(pConfig->GetCpuId().HasGatherScatter()));
 
   if ( debugType == None && !pConfig->GetLibraryModule() ) {

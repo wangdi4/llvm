@@ -770,25 +770,28 @@ namespace intel {
       return ICT_PREFETCH;
     if(CompilationUtils::isAsyncWorkGroupStridedCopy(calledFuncName))
       return ICT_ASYNC_WORK_GROUP_STRIDED;
-    if( CompilationUtils::isGetDefaultQueue(calledFuncName))
-      return ICT_GET_DEFAULT_QUEUE;
-    if( CompilationUtils::isNDRange_1D(calledFuncName))
-      return ICT_NDRANGE_1D;
-    if( CompilationUtils::isNDRange_2D(calledFuncName))
-      return ICT_NDRANGE_2D;
-    if( CompilationUtils::isNDRange_3D(calledFuncName))
-      return ICT_NDRANGE_3D;
-    if( CompilationUtils::isEnqueueKernelBasic(calledFuncName))
-      return ICT_ENQUEUE_KERNEL_BASIC;
-    if( CompilationUtils::isEnqueueKernelLocalMem(calledFuncName))
-      return ICT_ENQUEUE_KERNEL_LOCALMEM;
-    if( CompilationUtils::isEnqueueKernelEvents(calledFuncName))
-      return ICT_ENQUEUE_KERNEL_EVENTS;
-    if( CompilationUtils::isEnqueueKernelEventsLocalMem(calledFuncName))
-      return ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
-    if( CompilationUtils::isEnqueueMarker(calledFuncName))
-      return ICT_ENQUEUE_MARKER;
 
+    // OpenCL2.0 extended execution built-ins
+    if(CompilationUtils::getCLVersionFromModule(*m_pModule) >= CompilationUtils::CL_VER_2_0){
+      if( CompilationUtils::isGetDefaultQueue(calledFuncName))
+        return ICT_GET_DEFAULT_QUEUE;
+      if( CompilationUtils::isNDRange_1D(calledFuncName))
+        return ICT_NDRANGE_1D;
+      if( CompilationUtils::isNDRange_2D(calledFuncName))
+        return ICT_NDRANGE_2D;
+      if( CompilationUtils::isNDRange_3D(calledFuncName))
+        return ICT_NDRANGE_3D;
+      if( CompilationUtils::isEnqueueKernelBasic(calledFuncName))
+        return ICT_ENQUEUE_KERNEL_BASIC;
+      if( CompilationUtils::isEnqueueKernelLocalMem(calledFuncName))
+        return ICT_ENQUEUE_KERNEL_LOCALMEM;
+      if( CompilationUtils::isEnqueueKernelEvents(calledFuncName))
+        return ICT_ENQUEUE_KERNEL_EVENTS;
+      if( CompilationUtils::isEnqueueKernelEventsLocalMem(calledFuncName))
+        return ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
+      if( CompilationUtils::isEnqueueMarker(calledFuncName))
+        return ICT_ENQUEUE_MARKER;
+    }
     return ICT_NONE;
   }
 

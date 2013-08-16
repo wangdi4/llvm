@@ -19,3 +19,6 @@ entry:
 
 ; CHECK: declare i32 @ocl20_enqueue_marker
 declare i32 @_Z14enqueue_marker9ocl_queuejPK13ocl_clk_eventP13ocl_clk_event(%opencl.queue_t*, i32, %opencl.clk_event_t**, %opencl.clk_event_t**)
+
+!opencl.compiler.options = !{!2}
+!2 = metadata !{metadata !"-cl-std=CL2.0"}
