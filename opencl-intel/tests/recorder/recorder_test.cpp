@@ -260,13 +260,15 @@ TEST(OclRecorder, dupKernels){
   ASSERT_FALSE(file.good());
 #endif// defined(OCLFRONTEND_PLUGINS)
   file.close();
+  remove(REC_FILE);
+
   file.open(REC_FILE1);
 #if defined(OCLFRONTEND_PLUGINS)
   ASSERT_TRUE(file.good());
 #else
   ASSERT_FALSE(file.good());
 #endif// defined(OCLFRONTEND_PLUGINS)
-  remove(REC_FILE);
+  file.close();
   remove(REC_FILE1);
 }
 
