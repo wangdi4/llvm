@@ -139,15 +139,16 @@ namespace intel{
       struct memAccess {
         Instruction *I;
         const SCEV *S;
+        const SCEV *origS;
         int step;
         int offset;
         int factor;
         int flags;
 
         memAccess () {}
-        memAccess (Instruction *i, const SCEV *s, int _step, int _offset,
-            bool random, bool exclusive) :
-            I(i), S(s), step(_step), offset(_offset), flags(0) {
+        memAccess (Instruction *i, const SCEV *s, const SCEV *os, int _step,
+            int _offset, bool random, bool exclusive) :
+            I(i), S(s), origS(os), step(_step), offset(_offset), flags(0) {
           if (random) setRandom();
           if (exclusive) setExclusive();
         }

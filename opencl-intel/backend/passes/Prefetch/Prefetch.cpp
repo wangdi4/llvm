@@ -549,6 +549,7 @@ bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
           // same direction) is better, since the back access will catch up in
           // later iterations
           if ((constDiff < 0) == (access.step < 0)) {
+            MAV[i].origS = access.origS;
             MAV[i].S = access.S;
             MAV[i].offset = access.offset;
           }
@@ -708,6 +709,8 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
         continue;
       }
 
+      const SCEV *origSAddr = SAddr;
+
       // if this is not an Add Recurrence expression already
       // simplify address scev so step is always assumed to be non wrapping.
       // this works with the vectorizer assumption of element consecutivity
@@ -729,14 +732,15 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
           step = getConstStep(SAddr, *m_SE);
           offset = getOffsetOfSCEV(SAddr, *m_SE);
         }
-        MAV.push_back(memAccess(I, SAddr, step, offset, isRandom, pfExclusive));
+        MAV.push_back(memAccess(I, SAddr, origSAddr, step, offset, isRandom,
+            pfExclusive));
 
         // if access is for more than one cache line record references for all
         // accessed cache lines
         assert (accessSize <= 2 * UarchInfo::CacheLineSize &&
             "Accesses larger than 128 bytes are not expected");
         if (accessSize > UarchInfo::CacheLineSize) {
-          memAccess access (I, SAddr, step, offset, isRandom, pfExclusive);
+          memAccess access (I, SAddr, origSAddr, step, offset, isRandom, pfExclusive);
           const SCEV *nextSAddr = SAddr;
           for (int i = UarchInfo::CacheLineSize; i < accessSize;
               i+= UarchInfo::CacheLineSize) {
@@ -756,7 +760,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       memAccessV &MAV = it->second;
 
       // if no overlapping access was found add this one to the list
-      memAccess access (I, SAddr, 0, 0, isRandom, pfExclusive);
+      memAccess access (I, SAddr, origSAddr, 0, 0, isRandom, pfExclusive);
       if (!memAccessExists(access, MAV, false)) {
         MAV.push_back(access);
         DEBUG (dbgs() << "Found new access of " << accessSize << " bytes\n   ";
@@ -891,8 +895,8 @@ void Prefetch::countPFPerLoop () {
           numRandom++;
         TUNEPF (
           int accessSize = 0;
-        StoreInst *pStoreInst;
-        LoadInst *pLoadInst;
+          StoreInst *pStoreInst;
+          LoadInst *pLoadInst;
           if ((pStoreInst = dyn_cast<StoreInst>(MAV[i].I)) != NULL)
             accessSize = getSize(pStoreInst->getValueOperand()->getType());
           else if ((pLoadInst = dyn_cast<LoadInst>(MAV[i].I)) != NULL)
@@ -1306,7 +1310,7 @@ void Prefetch::emitPrefetches() {
       Instruction *I = MAV[i].I;
 
       if (!MAV[i].isRandom()) {
-        const SCEV *SAddr = MAV[i].S;
+        const SCEV *SAddr = MAV[i].origS;
 
         // do not insert L1 prefetch if it was disabled
         if (PFL1Type > 0)
