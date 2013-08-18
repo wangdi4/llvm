@@ -862,7 +862,7 @@ void isImageFormatSupported(cl_context context, cl_mem_flags flags, cl_mem_objec
 		num_image_formats, image_formats, NULL));
 	
 	// check if wanted_image_format is supported
-	for(int i=0; i<num_image_formats; ++i)
+	for(cl_uint i=0; i<num_image_formats; ++i)
 	{
 		if(wanted_image_format.image_channel_order == image_formats[i].image_channel_order &&
 			wanted_image_format.image_channel_data_type == image_formats[i].image_channel_data_type)
@@ -1031,7 +1031,7 @@ void createPartitionByCounts(cl_device_id in_device, cl_device_id* out_devices, 
 	cl_uint actual_num_devices = 0;
 	cl_device_partition_property properties[5];
 	properties[0] = CL_DEVICE_PARTITION_BY_COUNTS;
-	int i=0;
+	cl_uint i=0;
 	for(i=1; i<numSubDevices+1; ++i)
 	{
 		properties[i] = 1;

@@ -78,7 +78,7 @@ void checkMigrateObj(OpenCLDescriptor ocl_descriptor, cl_int device){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],1,sizeof(cl_int),&num));
 
 	//migrate mem object
-	ASSERT_NO_FATAL_FAILURE(enqueueMigrateMemObjects(ocl_descriptor.queues[device],1,&ocl_descriptor.in_common_buffer,NULL,1,&user_event,&migration_event));
+	ASSERT_NO_FATAL_FAILURE(enqueueMigrateMemObjects(ocl_descriptor.queues[device],1,&ocl_descriptor.in_common_buffer,0,1,&user_event,&migration_event));
 	
 	// enqueue kernel on CPU with use event
 

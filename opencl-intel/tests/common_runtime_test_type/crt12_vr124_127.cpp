@@ -182,10 +182,10 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadWrite_vr126){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_int), &num));
 
 	// enqueue kernel on CPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,0 ,NULL,NULL));
 
 	//validate result
 	ASSERT_EQ(num,buffer1.dynamic_array[0]) << "result is not 1 as expected";
@@ -194,11 +194,11 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadWrite_vr126){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),(void*)&ocl_descriptor.buffers[1]));
 
 	// enqueue and run kernel on CPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,0 ,NULL,NULL));
 	ASSERT_EQ(num,buffer2.dynamic_array[0]) << "result is not 1 as expected";
 }
 
@@ -255,10 +255,10 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadOnly_vr126){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_mem), (void*)&ocl_descriptor.out_common_buffer));
 
 	// enqueue kernel on CPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.out_common_buffer,CL_TRUE,0,sizeof(int)*1,buffer3.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.out_common_buffer,CL_TRUE,0,sizeof(int)*1,buffer3.dynamic_array,0 ,NULL,NULL));
 
 	//validate result
 	ASSERT_EQ(num,buffer3.dynamic_array[0]) << "result is not 1 as expected";
@@ -268,11 +268,11 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityReadOnly_vr126){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),(void*)&ocl_descriptor.buffers[1]));
 
 	// enqueue kernel on CPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
   finish(ocl_descriptor.queues[1]);
 	num = 2;
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.out_common_buffer,CL_TRUE,0,sizeof(int)*1,buffer3.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.out_common_buffer,CL_TRUE,0,sizeof(int)*1,buffer3.dynamic_array,0 ,NULL,NULL));
   finish(ocl_descriptor.queues[1]);
 	ASSERT_EQ(num,buffer3.dynamic_array[0]) << "result is not 1 as expected";
 }
@@ -323,10 +323,10 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityWriteOnly_vr126){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_int), &num));
 
 	// enqueue kernel on CPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,0 ,NULL,NULL));
 
 	//validate result
 	ASSERT_EQ(num,buffer1.dynamic_array[0]) << "result is not 1 as expected";
@@ -335,10 +335,10 @@ TEST_F(CRT12_VR_124_127, MemoryObjectVisibilityWriteOnly_vr126){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),(void*)&ocl_descriptor.buffers[1]));
 
 	// enqueue and run kernel on GPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,0 ,NULL,NULL));
 	ASSERT_EQ(num,buffer2.dynamic_array[0]) << "result is not 1 as expected";
 }
 
@@ -397,10 +397,10 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityReadWrite_VR127){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_int), &num));
 
 	// enqueue kernel on CPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,0 ,NULL,NULL));
 
 	//validate result
 	ASSERT_EQ(num,buffer1.dynamic_array[0]) << "result is not 1 as expected";
@@ -414,10 +414,10 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityReadWrite_VR127){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),(void*)&ocl_descriptor.in_common_sub_buffer));
 
 	// enqueue kernel on GPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 
 	//read from GPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,0 ,NULL,NULL));
 	ASSERT_EQ(num,buffer2.dynamic_array[0]) << "result is not 1 as expected";
 }
 
@@ -474,10 +474,10 @@ TEST_F(CRT12_VR_124_127, DISABLED_SubBufferVisibilityReadOnly_VR127){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_int), &num));
 
 	// enqueue kernel on CPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,0 ,NULL,NULL));
 
 	//validate result
 	ASSERT_EQ(num,buffer1.dynamic_array[0]) << "result is not 1 as expected";
@@ -491,10 +491,10 @@ TEST_F(CRT12_VR_124_127, DISABLED_SubBufferVisibilityReadOnly_VR127){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),(void*)&ocl_descriptor.in_common_sub_buffer));
 
 	// enqueue kernel on GPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 
 	//read from GPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,0 ,NULL,NULL));
 	ASSERT_EQ(num,buffer2.dynamic_array[0]) << "result is not 1 as expected";
 }
 
@@ -549,10 +549,10 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityWriteOnly_VR127){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_int), &num));
 
 	// enqueue kernel on CPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[0],CL_TRUE,0,sizeof(int)*1,buffer1.dynamic_array,0 ,NULL,NULL));
 
 	//validate result
 	ASSERT_EQ(num,buffer1.dynamic_array[0]) << "result is not 1 as expected";
@@ -565,10 +565,10 @@ TEST_F(CRT12_VR_124_127, SubBufferVisibilityWriteOnly_VR127){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),(void*)&ocl_descriptor.in_common_sub_buffer));
 
 	// enqueue kernel on GPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 
 	//read from GPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[1],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*1,buffer2.dynamic_array,0 ,NULL,NULL));
 	ASSERT_EQ(num,buffer2.dynamic_array[0]) << "result is not 1 as expected";
 }
 //|	TEST: CRT12_VR_124_127.subBufferSync
@@ -612,7 +612,7 @@ cl_uint work_dim = 1;
 	}
 	DynamicArray<cl_int> buffer1(device_align_size*2);
 	DynamicArray<cl_int> buffer2(device_align_size*2);
-	for(int i =0; i < device_align_size; i++){
+	for(cl_uint i =0; i < device_align_size; i++){
 		buffer1.dynamic_array[i] = 1;
 		buffer1.dynamic_array[i+device_align_size] = 2;
 	}
@@ -658,11 +658,11 @@ cl_uint work_dim = 1;
 	finish(ocl_descriptor.queues[second_device]);
 
 	//read the complete buffer with CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*2,buffer2.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*2,buffer2.dynamic_array,0 ,NULL,NULL));
 	finish(ocl_descriptor.queues[0]);
 
 	//validate result
-	for(int i = 0; i < device_align_size; i++){
+	for(cl_uint i = 0; i < device_align_size; i++){
 		ASSERT_EQ(2,buffer2.dynamic_array[i]) << "result is not 2 as expected";
 		ASSERT_EQ(1,buffer2.dynamic_array[device_align_size+i]) << "result is not 1 as expected";	
 	}
@@ -712,7 +712,7 @@ cl_uint work_dim = 1;
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_mem), (void*)&sub_buffers[3]));
 	
 	// enqueue kernel on first device and run on first device
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[first_device], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[first_device], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 	finish(ocl_descriptor.queues[first_device]);
 	
 	//set new arguments
@@ -720,11 +720,11 @@ cl_uint work_dim = 1;
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(cl_mem), (void*)&sub_buffers[2]));
 	
 	// enqueue kernel on second device and run on second device
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[second_device], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[second_device], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0 ,NULL,NULL));
 	finish(ocl_descriptor.queues[second_device]);
 
 	//read the complete buffer with CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*2,buffer2.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*2,buffer2.dynamic_array,0 ,NULL,NULL));
 	finish(ocl_descriptor.queues[0]);
 
 	//validate result

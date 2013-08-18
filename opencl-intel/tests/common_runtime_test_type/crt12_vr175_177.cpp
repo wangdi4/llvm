@@ -24,7 +24,7 @@ class CRT12_VR175_177: public CommonRuntime{};
 
 
 static bool isFormatInList(cl_channel_order order, cl_channel_type data_type, cl_uint list_size, cl_image_format *list){
-	for(int i=0; i < list_size; i++){
+	for(cl_uint i=0; i < list_size; i++){
 		if(list[i].image_channel_data_type==data_type && list[i].image_channel_order==order){
 			return true;
 		}
@@ -56,7 +56,6 @@ static bool isFormatInList(cl_channel_order order, cl_channel_type data_type, cl
 
 void checkSupportedFormats(cl_mem_object_type mem_type, OpenCLDescriptor ocl_descriptor){
 	cl_image_format image_formats_array[100];
-	bool available_formats[100];
 	cl_uint number_of_suported_formats;
 	// set up platform and CPU and GPU  devices 
 	//	CPU is at index 0, GPU is at index 1

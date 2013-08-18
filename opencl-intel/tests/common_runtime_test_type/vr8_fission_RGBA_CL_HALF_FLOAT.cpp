@@ -30,6 +30,10 @@ public:
 		this->image_format.image_channel_order = CL_RGBA;
 		this->image_format.image_channel_data_type = CL_HALF_FLOAT;
 	}
+    virtual void TearDown()
+    {
+        FissionWrapper::TearDown();
+    }
 };
 // Do not add other types here
 typedef ::testing::Types<cl_half> Fission_VR8_RGBA_CL_HALF_FLOATTypes;

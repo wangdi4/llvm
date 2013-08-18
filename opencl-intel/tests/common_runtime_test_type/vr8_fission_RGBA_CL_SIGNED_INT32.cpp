@@ -30,6 +30,10 @@ public:
 		this->image_format.image_channel_order = CL_RGBA;
 		this->image_format.image_channel_data_type = CL_SIGNED_INT32;
 	}
+    virtual void TearDown()
+    {
+        FissionWrapper::TearDown();
+    }
 };
 // Do not add other types here
 typedef ::testing::Types<cl_int4> Fission_VR8_RGBA_CL_SIGNED_INT32Types;

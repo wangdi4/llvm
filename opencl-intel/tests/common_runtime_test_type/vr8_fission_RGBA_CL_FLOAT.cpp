@@ -30,6 +30,10 @@ public:
 		this->image_format.image_channel_order = CL_RGBA;
 		this->image_format.image_channel_data_type = CL_FLOAT;
 	}
+    virtual void TearDown()
+    {
+        FissionWrapper::TearDown();
+    }
 };
 
 // Do not add other types here

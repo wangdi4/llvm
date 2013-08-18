@@ -54,7 +54,7 @@
 //|
 
 template<typename T>
-void ImageVisibility(OpenCLDescriptor ocl_descriptor, cl_image_format image_format, cl_image_desc desc, char* kernel_name, cl_int device_type, cl_int chanel_order){
+void ImageVisibility(OpenCLDescriptor ocl_descriptor, cl_image_format image_format, cl_image_desc desc, const char* kernel_name, cl_int device_type, cl_int chanel_order){
 	
 	 // dont cheack unsupporetd formats
 	bool cpu_supported = false, gpu_supported;
@@ -125,7 +125,7 @@ void ImageVisibility(OpenCLDescriptor ocl_descriptor, cl_image_format image_form
 
 
 template<typename T>
-void ImageVisibility1D_crush(OpenCLDescriptor ocl_descriptor, cl_image_format image_format, cl_image_desc desc, char* kernel_name, cl_int device_type, cl_int chanel_order){
+void ImageVisibility1D_crush(OpenCLDescriptor ocl_descriptor, cl_image_format image_format, cl_image_desc desc, const char* kernel_name, cl_int device_type, cl_int chanel_order){
 	cl_uint work_dim = 1;
 	size_t global_work_size = 1;
 	size_t local_work_size = 1;

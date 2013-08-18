@@ -60,7 +60,6 @@ static void testCPUGPUsamplerBody(OpenCLDescriptor& ocl_descriptor)
 	DynamicArray<cl_float> cpuOutput_image(numPixels*numChnl,0.0f);
 	DynamicArray<cl_float> gpuOutput_image(numPixels*numChnl,0.0f);
 	cl_float imInCpy[4*4*4*3];
-	cl_float imOutCpy[4*4*4*3];
 	cl_mem buffers[4];
 	for(i=0;i<numPixels*numChnl;i++)
 	{
@@ -169,7 +168,7 @@ static void testCPUGPUsamplerBody(OpenCLDescriptor& ocl_descriptor)
 		NULL,
 		wkGrpDim,
 		NULL,
-		NULL,
+		0,
 		NULL,
 		NULL));
 	// Read from the output buffer
@@ -213,7 +212,7 @@ static void testCPUGPUsamplerBody(OpenCLDescriptor& ocl_descriptor)
 		NULL,
 		wkGrpDim,
 		NULL,
-		NULL,
+		0,
 		NULL,
 		NULL));
 	// Read from the output buffer

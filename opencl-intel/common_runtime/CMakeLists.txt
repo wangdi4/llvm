@@ -51,4 +51,7 @@ install( TARGETS ${TARGET_NAME}
     ARCHIVE DESTINATION lib) 
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER common_runtime )
-set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS -Wl,-Bsymbolic )
+
+if (NOT WIN32)
+    set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS -Wl,-Bsymbolic )
+endif (NOT WIN32)

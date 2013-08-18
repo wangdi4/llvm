@@ -47,7 +47,7 @@ class CRT12_VR158_173: public CommonRuntime{};
 //|	image array should change according to both devices kernel. 
 //|
 
-void CheckChangeImage(OpenCLDescriptor ocl_descriptor, cl_image_desc desc, cl_int first_device_type, cl_int second_device_type, char* first_device_kernel, char* second_device_kernel){
+void CheckChangeImage(OpenCLDescriptor ocl_descriptor, cl_image_desc desc, cl_int first_device_type, cl_int second_device_type, const char* first_device_kernel, const char* second_device_kernel){
 
 	cl_uint work_dim = 1;
 	size_t global_work_size = 1;
@@ -106,7 +106,7 @@ void CheckChangeImage(OpenCLDescriptor ocl_descriptor, cl_image_desc desc, cl_in
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[second_device_type]));
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,output_array.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,output_array.dynamic_array,0,NULL,NULL));
 	
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
 	
@@ -205,7 +205,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageBufferVisibility1D_VR153){
 
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,0,NULL,NULL));
 
 	for(int i = 0; i < 2 ; i++){
 		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
@@ -308,7 +308,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageArrayVisibility1D_VR154){
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,0,NULL,NULL));
 
 	for(int i = 0; i < 2 ; i++){
 		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
@@ -408,7 +408,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageVisibility2D_VR155){
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,0,NULL,NULL));
 
 	for(int i = 0; i < 2 ; i++){
 		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
@@ -511,7 +511,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageArrayVisibility2D_VR156){
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,0,NULL,NULL));
 
 	for(int i = 0; i < 2 ; i++){
 		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
@@ -611,7 +611,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageVisibility3D_VR157){
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,cpu_input_image_array.dynamic_array,0,NULL,NULL));
 
 	for(int i = 0; i < 2 ; i++){
 		ASSERT_EQ(0,cpu_input_image_array.dynamic_array[0].s[i]) << "image was not copyed properly";
@@ -717,7 +717,7 @@ TEST_F(CRT12_VR158_173, WriteImage1D_VR158){
 	
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,output_array.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,output_array.dynamic_array,0,NULL,NULL));
 	
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 	for(int i = 0; i < 2 ; i++){
@@ -823,7 +823,7 @@ TEST_F(CRT12_VR158_173, WriteImage2D_VR159){
 	
 
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,output_array.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,output_array.dynamic_array,0,NULL,NULL));
 	
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 	for(int i = 0; i < 2 ; i++){
@@ -875,8 +875,6 @@ TEST_F(CRT12_VR158_173, BuildInFunction1D_VR160){
 	cl_image_desc desc;
 	cl_mem image;
 	cl_event user_event;
-	cl_event CPU_event;
-	cl_event GPU_event;
 	//initialize arrays
 	for(int j = 0 ; j < 4 ; j++){
 		for(int i = 0; i < 4 ; i++){
@@ -936,7 +934,7 @@ TEST_F(CRT12_VR158_173, BuildInFunction1D_VR160){
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,output_array.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,output_array.dynamic_array,0,NULL,NULL));
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 	for(int i = 0; i < 2 ; i++){
 		for(int j = 0; j < 4 ; j++){
@@ -988,8 +986,6 @@ TEST_F(CRT12_VR158_173, BuildInFunction2D_VR161){
 	cl_image_desc desc;
 	cl_mem image;
 	cl_event user_event;
-	cl_event CPU_event;
-	cl_event GPU_event;
 	//initialize arrays
 	for(int j = 0 ; j < 4 ; j++){
 		for(int i = 0; i < 4 ; i++){
@@ -1049,7 +1045,7 @@ TEST_F(CRT12_VR158_173, BuildInFunction2D_VR161){
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[1]));
 	//read from CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,output_array.dynamic_array,NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[0],image,CL_TRUE,origin,region,0,0,output_array.dynamic_array,0,NULL,NULL));
 	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 	for(int i = 0; i < 2 ; i++){
 		for(int j = 0; j < 4 ; j++){
