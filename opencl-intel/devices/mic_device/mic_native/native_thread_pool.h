@@ -179,7 +179,14 @@ private:
     // set thread affinity
     // worker_id == 0 means master thread
     void setCurrentThreadAffinity( unsigned int thread_idx );
+
+#ifdef __MIC_DA_OMP__
+	public:
+#endif
     void startup_all_workers();
+#ifdef __MIC_DA_OMP__
+	private:
+#endif
 
 #if (defined(ENABLE_TBB_TRACER) || defined(ENABLE_MIC_TBB_TRACER))
     void setWorkerID();

@@ -53,6 +53,8 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
                     			 const size_t* IN pLocalOffset, 
                     			 const size_t* IN pItemsToProcess ) __attribute__((noinline));
 
+        void SetKernel(ICLDevBackendKernel_* pKernel) { m_kernel = pKernel; }
+
         // setup global HW exception handling in a process
         // Convert all exceptions into std::runtime_error C++ exceptions
         static void Init( void ) { setup_signals( true ); }
@@ -62,6 +64,8 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
         sigjmp_buf setjump_buffer;
         bool       m_bInside_JIT;
         bool       m_is_attached;
+
+        ICLDevBackendKernel_* m_kernel;
 
         static void catch_signal(int signum, siginfo_t *siginfo, void *context);
         static void setup_signals( bool install );

@@ -64,12 +64,13 @@ void HWExceptionsWrapper::catch_signal(int signum, siginfo_t *siginfo, void *con
 	NDrangeTls ndRangeTls(&tlsAccessor);
     HWExceptionsWrapper* exec_wrapper = (HWExceptionsWrapper*)ndRangeTls.getTls( NDrangeTls::HW_EXCEPTION );
 
+	void *frames[64];
+	int n = backtrace(&frames[0],(int)(sizeof(frames)/sizeof(frames[0])));
+
     if ((NULL == exec_wrapper) || (false == exec_wrapper->m_bInside_JIT))
     {
 
 		fprintf(stderr,"\nBACKTRACE:\n");
-		void *frames[16];
-		int n = backtrace(&frames[0],(int)(sizeof(frames)/sizeof(frames[0])));
 		if (n > 0) {
 			// Flush needed since we must write symbols to a raw fd
 			fflush(stderr);
@@ -84,8 +85,24 @@ void HWExceptionsWrapper::catch_signal(int signum, siginfo_t *siginfo, void *con
     }
     else
     {
-        // exception inside JIT
-        longjmp(exec_wrapper->setjump_buffer, 1);        
+		// exception inside JIT
+		ICLDevBackendKernel_* pKernel = exec_wrapper->m_kernel;
+		if (pKernel)
+		{	
+			int lineNum = -1;
+			for (unsigned int i = 0; i < n; i++)
+			{
+				lineNum = pKernel->GetLineNumber(frames[i]);
+				if (-1 != lineNum)
+				{
+					fprintf(stderr, "EXECEPTION OCCURED IN KERNEL \"%s\" AT LINE %d\n", pKernel->GetKernelName(), lineNum);
+					fflush(stderr);
+					break;
+				}
+			}
+		}
+
+		longjmp(exec_wrapper->setjump_buffer, 1);        
     }
 
     return;

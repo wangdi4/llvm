@@ -532,7 +532,7 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
 #endif
 
 		// Update context with new binary.
-		error = pContext->UpdateContext(m_commandIdentifier, m_pBinary, m_pMemBuffSizes, m_MemBuffCount, &m_printHandle);
+		error = pContext->UpdateContext(m_commandIdentifier, m_kernel, m_pBinary, m_pMemBuffSizes, m_MemBuffCount, &m_printHandle);
 		if (CL_DEV_FAILED(error))
 		{
 			pContext->InvalidateContext();

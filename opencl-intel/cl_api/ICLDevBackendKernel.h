@@ -24,6 +24,16 @@ public:
      * @returns the size of the JIT buffer
      */
     virtual size_t GetJITCodeSize() const = 0;
+
+    /**
+     * @param pointer Pointer to an instruction contained in this kernel's
+     * JITted code.
+     * @returns the the source line number from which the instruction
+     * pointed to was compiled. If the pointer does not point to an
+     * instruction in this kernel, or if line number information is missing,
+     * this returns -1.
+     */
+    virtual int GetLineNumber(void* pointer) const = 0;
 };
 
 
@@ -148,6 +158,17 @@ public:
      * @returns reference to IKernelDescription object
      */
     virtual const ICLDevBackendKernelProporties* GetKernelProporties() const = 0;
+
+
+    /**
+     * @param pointer Pointer to an instruction contained in this kernel's
+     * JITted code.
+     * @returns the the source line number from which the instruction
+     * pointed to was compiled. If the pointer does not point to an
+     * instruction in this kernel, or if line number information is missing,
+     * this returns -1.
+     */
+     virtual int GetLineNumber(void* pointer) const = 0;
 
 };
 

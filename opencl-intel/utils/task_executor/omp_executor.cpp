@@ -64,7 +64,7 @@ static void parallel_execute(	omp_command_list& cmdList,
 	
 	
 	OMPTaskExecutor& te = cmdList.GetTaskExecutor();
-	ITaskExecutorObserver* pObserver = cmdList.GetDevice()->getObserver();
+	ITaskExecutorObserver* pObserver = (dynamic_cast< OMPTEDevice* >(cmdList.GetDevice().GetPtr()))->getObserver();
 #ifdef OMP_MULTI_ITERATIONS_PER_THREAD
 	//implementation of parralel for iterations as minimum between 1)#work groups and 2)#working threads
 	int totalIterations = 1;

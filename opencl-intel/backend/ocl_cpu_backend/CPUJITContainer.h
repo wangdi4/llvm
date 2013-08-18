@@ -43,6 +43,7 @@ public:
      */
     virtual const void* GetJITCode() const { return m_pFuncCode; }
     virtual size_t GetJITCodeSize() const { return 0; } // TODO: Check this later
+    virtual int GetLineNumber(void* pointer) const { return -1; }
 
     /*
      * IJITContainer methods
@@ -70,3 +71,4 @@ private:
     CPUJITContainer& operator= ( const CPUJITContainer& x );
 };
 }}} // namespace
+

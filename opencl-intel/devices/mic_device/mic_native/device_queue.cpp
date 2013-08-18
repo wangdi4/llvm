@@ -37,6 +37,10 @@ using namespace Intel::OpenCL::MICDeviceNative;
 using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::Utils;
 
+#ifdef __MIC_DA_OMP__
+    Intel::OpenCL::Utils::AtomicCounter QueueOnDevice::m_sNumQueuesCreated;
+#endif
+
 // Note: this array must be parallel to TASK_TYPES enumerator
 TaskHandler::CommandAllocateFunc TaskHandler::m_native_command_allocators[ LAST_TASK_TYPE ] = 
 {
@@ -80,6 +84,16 @@ void init_commands_queue(uint32_t         in_BufferCount,
         data_out->ret_code = CL_DEV_INVALID_OPERATION;
         return;
     }
+
+#ifdef __MIC_DA_OMP__
+    if (0 < QueueOnDevice::m_sNumQueuesCreated++)
+    {
+        // At least one queue already created during the lifetime of this process
+        data_out->ret_code = CL_DEV_INVALID_OPERATION;
+        return;
+    }
+    thread_pool->startup_all_workers();
+#endif
 
     if (data->is_in_order_queue)
     {

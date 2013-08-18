@@ -76,6 +76,12 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		
 		virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param );
 
+		virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> AllocateDefaultQueue(bool bIsProfilingEnabled) { return NULL; };
+
+		virtual void ReleaseDefaultQueue() {};
+
+		virtual queue_t GetDefaultQueue() { return NULL; };
+
 		ITaskExecutorObserver* getObserver() { return m_observer; };
 
 		void* GetUserData() const { return m_userData; };
@@ -148,6 +154,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateRootDevice( const RootDeviceCreationParam& device_desc = RootDeviceCreationParam(),  
 			void* user_data = NULL, ITaskExecutorObserver* my_observer = NULL );
 
+		virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> CreateTaskGroup(const Intel::OpenCL::Utils::SharedPtr<ITEDevice>& device) { return NULL; };
+
 		ocl_gpa_data* GetGPAData() const { return m_pGPAData; };
 
 		unsigned int GetMaxNumOfConcurrentThreads() const;
@@ -185,7 +193,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		OMPTaskExecutor& GetTaskExecutor() { return m_pOMPExecutor; };
 		
-		Intel::OpenCL::Utils::SharedPtr<OMPTEDevice> GetDevice() { return m_pDevice; };
+		Intel::OpenCL::Utils::SharedPtr<ITEDevice> GetDevice() { return m_pDevice; };
+		Intel::OpenCL::Utils::ConstSharedPtr<ITEDevice> GetDevice() const { return (const ITEDevice*)m_pDevice.GetPtr(); };
 		
 		unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask);
 
@@ -195,6 +204,16 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		bool Flush() { return true; }
 
 		virtual void Cancel() { /*TODO Implement Cancel for Shutdown support. */ };
+
+		virtual void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) {};
+
+		virtual bool DoesSupportDeviceSideCommandEnqueue() const { return false; };
+
+		virtual bool IsProfilingEnabled() const { return true; };
+
+		virtual bool IsDefaultQueue() const { return false; };
+
+		virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return NULL; };
 
 	private:
 

@@ -164,6 +164,10 @@ public:
 				uint16_t				in_ReturnValueLength,
 				TASK_TYPES	            taskType);
 
+#ifdef __MIC_DA_OMP__
+    static Intel::OpenCL::Utils::AtomicCounter m_sNumQueuesCreated;
+#endif
+
 protected:
 
     QueueOnDevice( ThreadPool& thread_pool ) : m_thread_pool(thread_pool) {};

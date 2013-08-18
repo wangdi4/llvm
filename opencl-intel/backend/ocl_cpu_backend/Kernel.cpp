@@ -215,6 +215,17 @@ const ICLDevBackendKernelProporties* Kernel::GetKernelProporties() const
     return m_pProps;
 }
 
+int Kernel::GetLineNumber(void* pointer) const
+{
+    const unsigned int tNumJits = GetKernelJITCount();
+    int lineNum = -1;
+    for (unsigned int i = 0; (i < tNumJits) && (-1 == lineNum); i++)
+    {
+        lineNum = GetKernelJIT(i)->GetLineNumber(pointer);
+    }
+    return lineNum;
+}
+
 const std::vector<cl_kernel_argument>* Kernel::GetKernelParamsVector() const
 {
     return &m_args;

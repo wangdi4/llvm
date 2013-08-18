@@ -238,13 +238,21 @@ bool ThreadPool::init_base( bool use_affinity,
     m_init_done = true;
 
     m_useAffinity       = use_affinity;
-    #ifdef __OMP_EXECUTOR__
-        m_useAffinity = false;
-    #endif
     m_useNumberOfCores  = ((number_of_cores > 0 ) && (number_of_cores <= MIC_NATIVE_MAX_CORES)) ? number_of_cores  : MIC_NATIVE_MAX_CORES;
     m_useThreadsPerCore = ((threads_per_core > 0) && (threads_per_core <= MIC_NATIVE_MAX_THREADS_PER_CORE)) ? threads_per_core : MIC_NATIVE_MAX_THREADS_PER_CORE;
     m_useIgnoreFirstCore= ignore_first_core; 
     m_useIgnoreLastCore = ignore_last_core;
+	#ifdef __OMP_EXECUTOR__
+        m_useAffinity = false;
+		if (m_useIgnoreFirstCore)
+		{
+			m_useNumberOfCores --;
+		}
+		if (m_useIgnoreLastCore)
+		{
+			m_useNumberOfCores --;
+		}
+    #endif
 
     bool ok = read_device_structure();
     assert( (true == ok) && "ThreadPool cannot read device structure" );

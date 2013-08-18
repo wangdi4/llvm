@@ -42,7 +42,7 @@ public:
 	WGContext();
 	virtual ~WGContext();
 
-	cl_dev_err_code			UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary_* pExec, size_t* pBuffSizes, size_t count, Intel::OpenCL::MICDeviceNative::PrintfHandle* pPrintHandle);
+	cl_dev_err_code			UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendKernel_* pKernel, ICLDevBackendBinary_* pExec, size_t* pBuffSizes, size_t count, Intel::OpenCL::MICDeviceNative::PrintfHandle* pPrintHandle);
 	cl_dev_cmd_id			GetCmdId() const {return m_cmdId;}
 	inline ICLDevBackendExecutable_*	GetExecutable() const {return m_pContext;}
     // This function is used by master threads when they're done executing, to prevent a race condition where the library is next shut down and reloaded
