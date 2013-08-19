@@ -42,11 +42,11 @@ using namespace Intel::OpenCL::Framework;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-GenericMemObject::GenericMemObject(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType) :	
+GenericMemObject::GenericMemObject(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType) :    
     MemoryObject(pContext),
     m_active_groups_count(0),
     m_BS(NULL),
-	m_hierarchicalMemoryMode(MEMORY_MODE_NORMAL)	
+	m_hierarchicalMemoryMode(MEMORY_MODE_NORMAL)    
 {
     INIT_LOGGER_CLIENT(TEXT("GenericMemObject"), LL_DEBUG);
 
@@ -60,7 +60,6 @@ GenericMemObject::~GenericMemObject()
 {
     LOG_DEBUG(TEXT("%s"), TEXT("Enter GenericMemObject D'tor"));
 
-    NotifyDestruction();
     remove_device_objects();
 
     if ( NULL != m_pBackingStore )
@@ -73,6 +72,8 @@ GenericMemObject::~GenericMemObject()
         m_BS->RemovePendency();
     }
 
+    // Notify user that memory object was already destructed and raw data may be deleted
+    NotifyDestruction();
     RELEASE_LOGGER_CLIENT;
 }
 
@@ -332,6 +333,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
     // just start with both pointers equal
     m_BS->AddPendency();
     m_pBackingStore = m_BS;
+    m_pBackingStore->AddPendency();
 
     m_pHostPtr = m_BS->GetUserProvidedHostMapPtr();
     m_uiNumDim = (cl_uint)m_BS->GetDimCount();
@@ -1100,18 +1102,8 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
         if ((CL_RT_MEMOBJ_FORCE_BS & creation_flags) || (m_user_flags & CL_MEM_USE_HOST_PTR))
         {
             m_ptr = m_pHostPtr;
-#ifndef _WIN32
-
-            /* on Linux each BS physical memory must be marked as SafeForDMA.
-             * assuming that CL_RT_MEMOBJ_FORCE_BS is passed only when OpenGL object shares its own BS
-             * this BS memory should not be marked additionally but either reference counted or
-             * ensured that real OpenGL object will be released last.
-             * Defer implementation until OpenGL will be implemented on Linux together with any Device
-             * Agent that uses DMA. */
-            assert( !m_used_by_DMA );
-#endif
-		}
-	}
+        }
+    }
 }
 
 GenericMemObjectBackingStore::GenericMemObjectBackingStore(
@@ -1180,7 +1172,7 @@ int GenericMemObjectBackingStore::RemovePendency()
     if ( 1 == prevVal )
     {
         delete this;
-    }
+}
     return prevVal;
 }
 size_t GenericMemObjectBackingStore::get_element_size(const cl_image_format* format)
