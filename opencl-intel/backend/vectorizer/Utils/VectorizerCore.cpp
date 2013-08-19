@@ -131,7 +131,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
     fpm1.add(createLowerSwitchPass());
 
     // Register Scalarizer
-    fpm1.add(createScalarReplAggregatesPass(1024, true, 2, 2, 64));
+    fpm1.add(createScalarReplAggregatesPass(1024, true, -1, -1, 64));
     fpm1.add(createInstructionCombiningPass());
     fpm1.add(createOCLBuiltinPreVectorizationPass());
     if (m_pConfig->GetDumpHeuristicIRFlag())

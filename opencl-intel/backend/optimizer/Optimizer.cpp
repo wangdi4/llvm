@@ -121,7 +121,7 @@ llvm::ModulePass *createKernelInfoWrapperPass();
       PM->add(llvm::createArgumentPromotionPass());   // Scalarize uninlined fn args
 
     // Start of function pass.
-    PM->add(llvm::createScalarReplAggregatesPass(256, true, 2, 2, 64));  // Break up aggregate allocas
+    PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, -1, 64));  // Break up aggregate allocas
     if (SimplifyLibCalls)
       PM->add(llvm::createSimplifyLibCallsPass());    // Library Call Optimizations
     PM->add(llvm::createEarlyCSEPass());              // Catch trivial redundancies
@@ -147,7 +147,7 @@ llvm::ModulePass *createKernelInfoWrapperPass();
     }
     if (!isDBG)
       PM->add(llvm::createFunctionInliningPass(4096)); //Inline (not only small) functions
-    PM->add(llvm::createScalarReplAggregatesPass(256, true, 2, 2, 64));  // Break up aggregate allocas
+    PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, -1, 64));  // Break up aggregate allocas
 	PM->add(llvm::createInstructionCombiningPass());  // Clean up after the unroller
     PM->add(llvm::createInstructionSimplifierPass());
     if (allowAllocaModificationOpt){
@@ -187,7 +187,7 @@ llvm::ModulePass *createKernelInfoWrapperPass();
       if (OptimizationLevel == 1)
         PM->add(llvm::createPromoteMemoryToRegisterPass());
       else
-        PM->add(llvm::createScalarReplAggregatesPass(256, true, 2, 2, 64));
+        PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, -1, 64));
       PM->add(llvm::createInstructionCombiningPass());
       PM->add(llvm::createInstructionSimplifierPass());
     }
@@ -384,7 +384,6 @@ Optimizer::Optimizer( llvm::Module* pModule,
   // We need InstructionCombining and GVN passes after ShiftZeroUpperBits, PreventDivisionCrashes passes
   // to optimize redundancy introduced by those passes
   if ( debugType == None ) {
-    m_modulePasses.add(llvm::createScalarReplAggregatesPass(-1, true));
     m_modulePasses.add(llvm::createInstructionCombiningPass());
     m_modulePasses.add(llvm::createGVNPass());
   }
