@@ -139,7 +139,6 @@ void ${class_name(typename)}::save(llvm::LLVMContext& context, llvm::MDNode* pNo
     if( !compatibleWith(pNode) )
     {
         pNode->replaceAllUsesWith(generateNode(context));
-        llvm::MDNode::deleteTemporary(pNode);
         return;
     }
 

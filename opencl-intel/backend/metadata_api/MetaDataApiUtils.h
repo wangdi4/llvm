@@ -191,6 +191,8 @@ public:
 
     virtual llvm::Value* generateNode(llvm::LLVMContext &context) const
     {
+		lazyLoad();
+
         llvm::SmallVector< llvm::Value*, 5> args;
 
         llvm::Value* pIDNode = _Mybase::generateNode(context);
