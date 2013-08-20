@@ -549,7 +549,6 @@ bool Prefetch::memAccessExists (memAccess &access, memAccessV &MAV,
           // same direction) is better, since the back access will catch up in
           // later iterations
           if ((constDiff < 0) == (access.step < 0)) {
-            MAV[i].origS = access.origS;
             MAV[i].S = access.S;
             MAV[i].offset = access.offset;
           }
@@ -709,8 +708,6 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
         continue;
       }
 
-      const SCEV *origSAddr = SAddr;
-
       // if this is not an Add Recurrence expression already
       // simplify address scev so step is always assumed to be non wrapping.
       // this works with the vectorizer assumption of element consecutivity
@@ -733,7 +730,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
           step = getConstStep(SAddr, *m_SE);
           offset = getOffsetOfSCEV(SAddr, *m_SE);
         }
-        MAV.push_back(memAccess(I, SAddr, origSAddr, step, offset, isRandom,
+        MAV.push_back(memAccess(I, SAddr, step, offset, isRandom,
             pfExclusive));
 
         // if access is for more than one cache line record references for all
@@ -741,17 +738,13 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
         assert (accessSize <= 2 * UarchInfo::CacheLineSize &&
             "Accesses larger than 128 bytes are not expected");
         if (accessSize > UarchInfo::CacheLineSize) {
-          memAccess access (I, SAddr, origSAddr, step, offset, isRandom, pfExclusive);
+          memAccess access (I, SAddr, step, offset, isRandom, pfExclusive);
           const SCEV *nextSAddr = SAddr;
-          const SCEV *nextOrigSAddr = origSAddr;
           for (int i = UarchInfo::CacheLineSize; i < accessSize;
               i+= UarchInfo::CacheLineSize) {
             nextSAddr =
                 m_SE->getAddExpr(nextSAddr, m_SE->getConstant(m_i64, 64));
             access.S = nextSAddr;
-            nextOrigSAddr =
-                m_SE->getAddExpr(nextOrigSAddr, m_SE->getConstant(m_i64, 64));
-            access.origS = nextOrigSAddr;
             MAV.push_back(access);
             DEBUG (dbgs() << "Added access at offset " << i <<
                 " bytes from base\n   ";
@@ -765,7 +758,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       memAccessV &MAV = it->second;
 
       // if no overlapping access was found add this one to the list
-      memAccess access (I, SAddr, origSAddr, 0, 0, isRandom, pfExclusive);
+      memAccess access (I, SAddr, 0, 0, isRandom, pfExclusive);
       if (!memAccessExists(access, MAV, false)) {
         MAV.push_back(access);
         DEBUG (dbgs() << "Found new access of " << accessSize << " bytes\n   ";
@@ -779,13 +772,10 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
           "Accesses larger than 128 bytes are not expected");
       if (accessSize > UarchInfo::CacheLineSize) {
         const SCEV *nextSAddr = SAddr;
-        const SCEV *nextOrigSAddr = origSAddr;
         for (int i = UarchInfo::CacheLineSize; i < accessSize;
             i+= UarchInfo::CacheLineSize) {
           nextSAddr = m_SE->getAddExpr(nextSAddr, m_SE->getConstant(m_i64, 64));
           access.S = nextSAddr;
-          nextOrigSAddr = m_SE->getAddExpr(nextOrigSAddr, m_SE->getConstant(m_i64, 64));
-          access.origS = nextOrigSAddr;
           if (!memAccessExists(access, MAV, true)) {
             MAV.push_back(access);
             DEBUG (dbgs() << "Added access at offset " << i <<
@@ -1258,8 +1248,6 @@ void Prefetch::insertPF (Instruction *I, Loop *L, int PFType,
   std::vector<Value*> args;
   std::vector<Type *> types;
 
-  count++;
-
   // get the expression for the address count iteration ahead
   SAddr = PromoteSCEV(SAddr, L, *m_SE, count);
 
@@ -1320,7 +1308,7 @@ void Prefetch::emitPrefetches() {
       Instruction *I = MAV[i].I;
 
       if (!MAV[i].isRandom()) {
-        const SCEV *SAddr = MAV[i].origS;
+        const SCEV *SAddr = MAV[i].S;
 
         // do not insert L1 prefetch if it was disabled
         if (PFL1Type > 0)
