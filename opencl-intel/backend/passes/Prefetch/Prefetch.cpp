@@ -1001,13 +1001,19 @@ unsigned int Prefetch::IterLength(Loop *L)
       assert (BBL->getHeader() == BB &&
           "expected to enter subloop from its header");
       unsigned internalLoopLen = IterLength(BBL);
-      //unsigned tripCount = BBL->getSmallConstantTripCount();
-      // TODO : make sure the tripCount is still correct, as it now looks on one exit block (what if there are several exit blocks?)
-      ScalarEvolution *SE = &getAnalysis<ScalarEvolution>();
-      unsigned tripCount = SE->getSmallConstantTripCount(L, L->getExitBlock());
-      if (tripCount == 0)
-        tripCount = defaultTripCount;
-      len += internalLoopLen * tripCount;
+      {
+        ScalarEvolution *SE = &getAnalysis<ScalarEvolution>();
+        SmallVector<BasicBlock *, 8> ExitBlocks;
+        L->getExitBlocks(ExitBlocks);
+        unsigned tripCount = 0;
+        for (unsigned i = 0; i < ExitBlocks.size(); ++i)
+        {
+          tripCount = std::max(tripCount, SE->getSmallConstantTripMultiple(L, ExitBlocks[i]));
+        }
+        if (tripCount == 0)
+            tripCount = defaultTripCount;
+        len += internalLoopLen * tripCount;
+      }
 
       SmallVector<BasicBlock *, 8> ExitBlocks;
       BBL->getExitBlocks(ExitBlocks);
