@@ -719,6 +719,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       if (!isRandom && SAddr->getSCEVType() != scAddRecExpr)
         SAddr = SimplifySCEV(SAddr, *m_SE);
 
+      // if this is the first access detected for this BB insert it t the list
       BBAccesses::iterator it = m_addresses.find(BB);
       if (it == m_addresses.end()) {
         DEBUG (dbgs() << "Found first SCEV in this BB of size " << accessSize <<
@@ -742,11 +743,15 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
         if (accessSize > UarchInfo::CacheLineSize) {
           memAccess access (I, SAddr, origSAddr, step, offset, isRandom, pfExclusive);
           const SCEV *nextSAddr = SAddr;
+          const SCEV *nextOrigSAddr = origSAddr;
           for (int i = UarchInfo::CacheLineSize; i < accessSize;
               i+= UarchInfo::CacheLineSize) {
             nextSAddr =
                 m_SE->getAddExpr(nextSAddr, m_SE->getConstant(m_i64, 64));
             access.S = nextSAddr;
+            nextOrigSAddr =
+                m_SE->getAddExpr(nextOrigSAddr, m_SE->getConstant(m_i64, 64));
+            access.origS = nextOrigSAddr;
             MAV.push_back(access);
             DEBUG (dbgs() << "Added access at offset " << i <<
                 " bytes from base\n   ";
@@ -774,10 +779,13 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
           "Accesses larger than 128 bytes are not expected");
       if (accessSize > UarchInfo::CacheLineSize) {
         const SCEV *nextSAddr = SAddr;
+        const SCEV *nextOrigSAddr = origSAddr;
         for (int i = UarchInfo::CacheLineSize; i < accessSize;
             i+= UarchInfo::CacheLineSize) {
           nextSAddr = m_SE->getAddExpr(nextSAddr, m_SE->getConstant(m_i64, 64));
           access.S = nextSAddr;
+          nextOrigSAddr = m_SE->getAddExpr(nextOrigSAddr, m_SE->getConstant(m_i64, 64));
+          access.origS = nextOrigSAddr;
           if (!memAccessExists(access, MAV, true)) {
             MAV.push_back(access);
             DEBUG (dbgs() << "Added access at offset " << i <<
@@ -1249,6 +1257,8 @@ void Prefetch::insertPF (Instruction *I, Loop *L, int PFType,
                          const SCEV *SAddr, unsigned count, bool pfExclusive) {
   std::vector<Value*> args;
   std::vector<Type *> types;
+
+  count++;
 
   // get the expression for the address count iteration ahead
   SAddr = PromoteSCEV(SAddr, L, *m_SE, count);
