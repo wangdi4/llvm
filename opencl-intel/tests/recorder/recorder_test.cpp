@@ -251,25 +251,39 @@ TEST(OclRecorder, dupKernels){
     return;
   }
    
-  const char*const REC_FILE = "OclRecorderTestrecorder_test__sample_test0.cl";
-  const char*const REC_FILE1= "OclRecorderTestrecorder_test__sample_test0.1.cl";
+
+  const char*const REC_FILE = "OclRecorderTest.recorder_testrecorder_test__sample_test0.cl";
+  const char*const REC_FILE1= "OclRecorderTest.recorder_testrecorder_test__sample_test0.1.cl";
+  const char*const REC_CFG= "OclRecorderTest.recorder_test.cfg";
+  const char*const REC_CFG1= "OclRecorderTest.recorder_test.2.cfg";
+
   std::fstream file(REC_FILE);
+  std::fstream cfg_file(REC_CFG);
 #if defined(OCLFRONTEND_PLUGINS)
   ASSERT_TRUE(file.good());
+  ASSERT_TRUE(cfg_file.good());
 #else
   ASSERT_FALSE(file.good());
+  ASSERT_FALSE(cfg_file.good());
 #endif// defined(OCLFRONTEND_PLUGINS)
   file.close();
+  cfg_file.close();
   remove(REC_FILE);
+  remove(REC_CFG);
 
   file.open(REC_FILE1);
+  cfg_file.open(REC_CFG1);
 #if defined(OCLFRONTEND_PLUGINS)
   ASSERT_TRUE(file.good());
+  ASSERT_TRUE(cfg_file.good());
 #else
+  ASSERT_FALSE(cfg_file.good());
   ASSERT_FALSE(file.good());
 #endif// defined(OCLFRONTEND_PLUGINS)
   file.close();
+  cfg_file.close();
   remove(REC_FILE1);
+  remove(REC_CFG1);
 }
 
 int main(int argc, char** argv){

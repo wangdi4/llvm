@@ -908,11 +908,10 @@ namespace Validation
                 size_t addr = 0;
                 llvm::SmallString<MAX_LOG_PATH> fileName;
                 fileName = llvm::sys::path::stem(llvm::sys::Path::GetMainExecutable(argv0, &addr).str());
-                if(fileName.empty())
-                {
-                    fileName = (NULL == sz_dumpprefix) ? std::string(Validation::FILE_PREFIX)
-                                                         : sz_dumpprefix;
-                }
+
+                std::string prefix = (NULL == sz_dumpprefix) ? std::string(Validation::FILE_PREFIX): sz_dumpprefix;
+
+                fileName = fileName.empty() ? prefix : std::string(fileName.c_str()) + "." + prefix;
 
                 llvm::sys::fs::make_absolute(logpath);
                 pOclRecorder = new OCLRecorder(std::string(logpath.c_str()), fileName.str());
