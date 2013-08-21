@@ -6,8 +6,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #pragma once
 
-#include <assert.h>
-#include <string>
 #include "llvm/PassManager.h"
 #include "llvm/ADT/SmallVector.h"
 

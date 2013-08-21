@@ -493,7 +493,14 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(llvm::createAggressiveDCEPass());          // Delete dead instructions
     m_modulePasses.add(llvm::createCFGSimplificationPass());      // Merge & remove BBs
     m_modulePasses.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
+#ifdef __APPLE__
+    //Due to none default ABI, some built-ins are creating an allaca in middle of function.
+    //Need to run scalar aggregation to get red of these alloca (after built-in import).
+    //mem2reg pass is not enough! as it only handles alloca in first basic block.
+    m_modulePasses.add(llvm::createScalarReplAggregatesPass());
+#else
     m_modulePasses.add(llvm::createPromoteMemoryToRegisterPass());
+#endif
   }
 
   // PrepareKernelArgsPass must run in debugging mode as well
