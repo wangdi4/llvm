@@ -95,7 +95,15 @@ void HWExceptionsWrapper::catch_signal(int signum, siginfo_t *siginfo, void *con
 				lineNum = pKernel->GetLineNumber(frames[i]);
 				if (-1 != lineNum)
 				{
-					fprintf(stderr, "EXECEPTION OCCURED IN KERNEL \"%s\" AT LINE %d\n", pKernel->GetKernelName(), lineNum);
+					// If the kernel didn't build with "-profiling" flag;
+					if (0 == lineNum)
+					{
+						fprintf(stderr, "Exception occured in kernel \"%s\", To print to faulty line number, please compile the kernel with \"-profiling\"\n", pKernel->GetKernelName());
+					}
+					else
+					{
+						fprintf(stderr, "EXECEPTION OCCURED IN KERNEL \"%s\" AT LINE %d\n", pKernel->GetKernelName(), lineNum);
+					}
 					fflush(stderr);
 					break;
 				}

@@ -85,6 +85,7 @@ private:
     // static set to handle all existing MIC DA instances
     static set<IOCLDeviceAgent*>*    m_mic_instancies;
     static OclMutex*                 m_mic_instancies_mutex;
+	static Intel::OpenCL::Utils::OclDynamicLib	m_sDllCOILib;
     // manage multiple DAs
     static void RegisterMicDevice( MICDevice* dev );
     // Return true if dev exist in m_mic_instancies
@@ -156,7 +157,7 @@ public:
     const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const { return *this; };
     void        clDevCloseDevice(void);
 
-    static void loadingInit();
+    static bool loadingInit();
     static void unloadRelease();
 
     // manage multiple DAs

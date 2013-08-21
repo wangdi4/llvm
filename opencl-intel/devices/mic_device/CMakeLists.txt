@@ -33,10 +33,17 @@ set( MIC_BACKEND_DLL_NAME   OclCpuBackEnd)
 set( MIC_NATIVE_SERVER_EXE  mic_server )
 set( COI_HOST_LIB           coi_host )
 set( MIC_NATIVE_SUBDIR_NAME mic_native )
+if (WIN32)
+    set( COI_HOST_DLL_NAME		coi_host.dll )
+else (WIN32)
+    set( COI_HOST_DLL_NAME		libcoi_host.so )
+endif(WIN32)
+
 
 add_definitions( -DMIC_NATIVE_SERVER_EXE="${MIC_NATIVE_SERVER_EXE}"
                  -DMIC_BACKEND_DLL_NAME="${IMPLIB_PREFIX}${MIC_BACKEND_DLL_NAME}${BUILD_PLATFORM}${DLL_SUFIX}"
                  -DMIC_NATIVE_SUBDIR_NAME="${MIC_NATIVE_SUBDIR_NAME}"
+                 -DCOI_HOST_DLL_NAME="${COI_HOST_DLL_NAME}"
                  -DUSE_ITT
                )
                
@@ -105,12 +112,6 @@ install(TARGETS ${TARGET_NAME}
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
 
-target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
-                                      cl_sys_utils
-                                      cl_logger
-                                      ${COI_HOST_LIB}
-                                      ${LINK_LIBS} )
-
 if (NOT WIN32)
     if (NOT MIC_TESTING_MODE)
         SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} MicDefice_linux_exports.txt )
@@ -127,17 +128,25 @@ if (WIN32)
     # Visual Studio 2010
     # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
     # The /DEBUG flag is required in order to create stripped pdbs.	
-	set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCPRTD /NODEFAULTLIB:MSVCRTD /PDBSTRIPPED:${PDB_NAME}")
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DEBUG /PDBSTRIPPED:${PDB_NAME}")
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} ${COI_HOST_LIB}.lib /DELAYLOAD:${COI_HOST_LIB}.dll /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCPRTD /NODEFAULTLIB:MSVCRTD /PDBSTRIPPED:${PDB_NAME}")
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} ${COI_HOST_LIB}.lib /DELAYLOAD:${COI_HOST_LIB}.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
 	
 	install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
     
     if (INSTALL_PDBS)    
         install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
     endif(INSTALL_PDBS)
+	
+else (WIN32)
+
+	list(APPEND LINK_LIBS ${COI_HOST_LIB} )
     
 endif(WIN32)
 
+target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
+                                      cl_sys_utils
+                                      cl_logger
+                                      ${LINK_LIBS} )
 
 add_subdirectory( mic_native )
 

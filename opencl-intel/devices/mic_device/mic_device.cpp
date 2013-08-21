@@ -51,6 +51,7 @@ HostTracer* MICDevice::m_tracer = NULL;
 
 set<IOCLDeviceAgent*>* MICDevice::m_mic_instancies = NULL;
 OclMutex*              MICDevice::m_mic_instancies_mutex = NULL;
+Intel::OpenCL::Utils::OclDynamicLib	MICDevice::m_sDllCOILib;
 
 typedef struct _cl_dev_internal_cmd_list
 {
@@ -202,10 +203,26 @@ MICDevice::~MICDevice()
 {
 }
 
-void MICDevice::loadingInit()
+bool MICDevice::loadingInit()
 {
+	bool bLoadRes = true;
+	bLoadRes = m_sDllCOILib.Load(COI_HOST_DLL_NAME);
+	if (!bLoadRes)
+	{
+		return false;
+	}
+
     m_mic_instancies = new set<IOCLDeviceAgent*>;
+	if (NULL == m_mic_instancies)
+	{
+		return false;
+	}
     m_mic_instancies_mutex = new OclMutex;
+	if (NULL == m_mic_instancies_mutex)
+	{
+		delete m_mic_instancies;
+		return false;
+	}
 
 #ifdef USE_ITT
   if ( MICSysInfo::getInstance().getMicDeviceConfig().UseITT() )
@@ -216,6 +233,7 @@ void MICDevice::loadingInit()
   }
 #endif
 
+  return true;
 }
 
 void MICDevice::unloadRelease()
@@ -904,7 +922,10 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
 */
 extern "C" cl_dev_err_code clDevInitDeviceAgent(void)
 {
-    MICDevice::loadingInit();
+    if (!MICDevice::loadingInit())
+	{
+		return CL_DEV_ERROR_FAIL;
+	}
 
 #ifdef __INCLUDE_MKL__
     Intel::OpenCL::MKLKernels::InitLibrary();
