@@ -96,9 +96,6 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
     memcpy(&outputWorkSizes, /*sizeof(cl_work_description_type),*/ pInputWorkSizes, sizeof(cl_work_description_type));
 #endif
 
-    for(unsigned int i=1; i<MAX_WORK_DIM; ++i) {
-      outputWorkSizes.localWorkSize[i] = 1;
-    }
 
     bool bLocalZeros = true;
     for(unsigned int i=0; i<outputWorkSizes.workDimension; ++i) {
@@ -135,7 +132,7 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
         //const unsigned int kernelExecutionLength = (unsigned int)m_pProps->GetKernelExecutionLength();
         const unsigned int kernelPrivateMemSize = (unsigned int)m_pProps->GetPrivateMemorySize();
         unsigned int globalWorkSizeX = pInputWorkSizes->globalWorkSize[0];
-        unsigned int localSizeMaxLimit =
+        unsigned int localSizeUpperLimit =
           min ( min(CPU_MAX_WORK_GROUP_SIZE, globalWorkSizeX),                                        // localSizeMaxLimit_1
                 CPU_DEV_MAX_WG_PRIVATE_SIZE / (kernelPrivateMemSize > 0 ? kernelPrivateMemSize : 1)); // localSizeMaxLimit_2
 
@@ -152,18 +149,23 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
         const unsigned int workThreadUtils = outputWorkSizes.minWorkGroupNum;
         const unsigned int simdUtilsLog = minMultiplyFactorLog;
         //Try to assure (if possible) the local-size is a multiply of vector width.
-        if (((globalWorkSizeX & (minMultiplyFactor-1)) == 0) && (localSizeMaxLimit > minMultiplyFactor)) {
+        if (((globalWorkSizeX & (minMultiplyFactor-1)) == 0) && (localSizeUpperLimit > minMultiplyFactor)) {
           globalWorkSizeX = globalWorkSizeX >> minMultiplyFactorLog;
-          localSizeMaxLimit = localSizeMaxLimit >> minMultiplyFactorLog;
+          localSizeUpperLimit = localSizeUpperLimit >> minMultiplyFactorLog;
         }
         else {
           //SIMD utility was not satisfied
           minMultiplyFactor = 1;
           minMultiplyFactorLog = 0;
         }
+        unsigned int localSizeMaxLimit = localSizeUpperLimit;
         if ((workThreadUtils << simdUtilsLog) < globalWorkSize) {
           localSizeMaxLimit = min(localSizeMaxLimit,
             ((unsigned int)sqrt((float)(globalWorkSize/(workThreadUtils << simdUtilsLog)))) << (simdUtilsLog-minMultiplyFactorLog) );
+        } else {
+          //In this case we have few work-items, try satisfy as much as possible of work threads.
+          const unsigned int workGroupNumMinLimit = (workThreadUtils + (globalWorkSizeYZ-1)) / globalWorkSizeYZ;
+          localSizeMaxLimit = max(1, localSizeMaxLimit / workGroupNumMinLimit);
         }
         assert(localSizeMaxLimit <= globalWorkSizeX && "global size in dim X must be upper bound for local size");
         //Search for max local size that satisfies the constraints
@@ -173,13 +175,38 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
             break;
           }
         }
-        newHeuristic = max(1, newHeuristic << minMultiplyFactorLog);
+        newHeuristic = newHeuristic << minMultiplyFactorLog;
+        //Cost function: check if we found a balanced local size compared to number of work groups
+#define BALANCE_FACTOR (2)
+        const unsigned int workGroups = globalWorkSize / newHeuristic;
+        const int balanceFactor = (workGroups << simdUtilsLog) - BALANCE_FACTOR * (newHeuristic * workThreadUtils);
+        if ( balanceFactor > 0 ) {
+          localSizeUpperLimit = min(localSizeUpperLimit, (unsigned int)sqrt((float)globalWorkSize));
+          assert(localSizeUpperLimit <= globalWorkSizeX && "global size in dim X must be upper bound for local size");
+          //Try to search better local size
+          unsigned int newHeuristicUp = localSizeMaxLimit+1;
+          for (; newHeuristicUp<=localSizeUpperLimit; newHeuristicUp++) {
+            if ( globalWorkSizeX % newHeuristicUp == 0 ) {
+              newHeuristicUp = newHeuristicUp << minMultiplyFactorLog;
+              //Check cost function and update heuristic if needed
+              const unsigned int workGroupsUp = globalWorkSize / newHeuristicUp;
+              assert((newHeuristicUp * workThreadUtils) > (workGroupsUp << simdUtilsLog) && "Wrong balance factor calculation!");
+              const int balanceFactorUp = (newHeuristicUp * workThreadUtils) - BALANCE_FACTOR * (workGroupsUp << simdUtilsLog);
+              if (balanceFactorUp < balanceFactor) {
+                //Found better local size
+                newHeuristic = newHeuristicUp;
+              }
+              break;
+            }
+          }
+        }
         outputWorkSizes.localWorkSize[0] = newHeuristic;
+        assert(outputWorkSizes.localWorkSize[0] > 0 && "local size must be positive number");
         //printf(
         //  "heuristic = %d, numOfWG = %d, max_local_size = %d, #WorkThreads = %d, "
-        //  "(global_size = %d)=(global_size_to_satisfy = %d)*(tsize = %d)\n",
+        //  "(global_size = %d)=(global_size_to_satisfy = %d)*(tsize = %d), balanceFactor = %d\n",
         //  newHeuristic, globalWorkSize/newHeuristic, localSizeMaxLimit, workThreadUtils,
-        //  (globalWorkSizeX << minMultiplyFactorLog), globalWorkSizeX, minMultiplyFactor);
+        //  (globalWorkSizeX << minMultiplyFactorLog), globalWorkSizeX, minMultiplyFactor, balanceFactor);
     }
   }
 }

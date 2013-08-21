@@ -387,7 +387,7 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         }
 
         mic_device_options.min_work_groups_number   = 
-            MIC_DEV_MIN_WORK_GROUPS_NUMBER( mic_device_options.num_of_cores * mic_device_options.threads_per_core );
+            mic_device_options.num_of_cores * mic_device_options.threads_per_core;
 
 		vector<char*> additionalEnvVars;
 		// If USE VTUNE need to send some env variables to sink side
