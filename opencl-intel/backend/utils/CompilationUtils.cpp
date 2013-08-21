@@ -69,6 +69,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvvE";
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
   const std::string CompilationUtils::NAME_ENQUEUE_MARKER = "enqueue_marker";
+  const std::string CompilationUtils::NAME_RETAIN_EVENT = "retain_event";
+  const std::string CompilationUtils::NAME_RELEASE_EVENT = "release_event";
+  const std::string CompilationUtils::NAME_CREATE_USER_EVENT = "create_user_event";
+  const std::string CompilationUtils::NAME_SET_USER_EVENT_STATUS = "set_user_event_status";
+  const std::string CompilationUtils::NAME_CAPTURE_EVENT_PROFILING_INFO = "capture_event_profiling_info";
+  const std::string CompilationUtils::NAME_GET_KERNEL_WG_SIZE = "_Z26get_kernel_work_group_sizeU13block_pointerFvvE";
+  const std::string CompilationUtils::NAME_GET_KERNEL_WG_SIZE_LOCAL = "_Z26get_kernel_work_group_sizeU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE = "_Z45get_kernel_preferred_work_group_size_multipleU13block_pointerFvvE";
+  const std::string CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE_LOCAL = "_Z45get_kernel_preferred_work_group_size_multipleU13block_pointerFvPU3AS3vzEjz";
 
   const std::string CompilationUtils::BARRIER_FUNC_NAME = "barrier";
   //Images
@@ -674,6 +683,42 @@ bool CompilationUtils::isEnqueueKernelEvents(const std::string& S){
 
 bool CompilationUtils::isEnqueueKernelEventsLocalMem(const std::string& S){
   return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM);
+}
+
+bool CompilationUtils::isGetKernelWorkGroupSize(const std::string& S){
+  return (S == CompilationUtils::NAME_GET_KERNEL_WG_SIZE);
+}
+
+bool CompilationUtils::isGetKernelWorkGroupSizeLocal(const std::string& S){
+  return (S == CompilationUtils::NAME_GET_KERNEL_WG_SIZE_LOCAL);
+}
+
+bool CompilationUtils::isGetKernelPreferredWorkGroupSizeMultiple(const std::string& S){
+  return (S == CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE);
+}
+
+bool CompilationUtils::isGetKernelPreferredWorkGroupSizeMultipleLocal(const std::string& S){
+  return (S == CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE_LOCAL);
+}
+
+bool CompilationUtils::isRetainEvent(const std::string& S){
+    return isMangleOf(S, NAME_RETAIN_EVENT);
+}
+
+bool CompilationUtils::isReleaseEvent(const std::string& S){
+    return isMangleOf(S, NAME_RELEASE_EVENT);
+}
+
+bool CompilationUtils::isCreateUserEvent(const std::string& S){
+    return isMangleOf(S, NAME_CREATE_USER_EVENT);
+}
+
+bool CompilationUtils::isSetUserEventStatus(const std::string& S){
+    return isMangleOf(S, NAME_SET_USER_EVENT_STATUS);
+}
+
+bool CompilationUtils::isCaptureEventProfilingInfo(const std::string& S){
+    return isMangleOf(S, NAME_CAPTURE_EVENT_PROFILING_INFO);
 }
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

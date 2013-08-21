@@ -240,6 +240,24 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_e
         unsigned num_events_in_wait_list, clk_event_t *in_wait_list, clk_event_t *event_ret,
         void *block, unsigned *localbuf_size, unsigned localbuf_size_len, ExtendedExecutionContext * pEEC);
 
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_retain_event( clk_event_t* event, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_release_event( clk_event_t* event, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE clk_event_t ocl20_create_user_event(ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void ocl20_set_user_event_status(clk_event_t* event, uint32_t status, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void ocl20_capture_event_profiling_info(clk_event_t* event, clk_profiling_info name, uint64_t *value, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t ocl20_get_kernel_wg_size(void *block, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t ocl20_get_kernel_wg_size_local(void *block, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t ocl20_get_kernel_preferred_wg_size_multiple(void *block, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t ocl20_get_kernel_preferred_wg_size_multiple_local(void *block, ExtendedExecutionContext * pEEC);
+
 //Register BI functions defined above
 #define REGISTER_BI_FUNCTION(name,ptr) \
   llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name), (void*)(intptr_t)ptr);
@@ -267,6 +285,13 @@ void RegisterCPUBIFunctions(void)
     REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_events",ocl20_enqueue_kernel_events)
     REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_events_localmem",ocl20_enqueue_kernel_events_localmem)
     REGISTER_BI_FUNCTION("ocl20_enqueue_marker",ocl20_enqueue_marker)
-
-
+    REGISTER_BI_FUNCTION("ocl20_retain_event",ocl20_retain_event)
+    REGISTER_BI_FUNCTION("ocl20_release_event",ocl20_release_event)
+    REGISTER_BI_FUNCTION("ocl20_create_user_event",ocl20_create_user_event)
+    REGISTER_BI_FUNCTION("ocl20_set_user_event_status",ocl20_set_user_event_status)
+    REGISTER_BI_FUNCTION("ocl20_capture_event_profiling_info",ocl20_capture_event_profiling_info)
+    REGISTER_BI_FUNCTION("ocl20_get_kernel_wg_size",ocl20_get_kernel_wg_size)
+    REGISTER_BI_FUNCTION("ocl20_get_kernel_wg_size_local",ocl20_get_kernel_wg_size_local)
+    REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple",ocl20_get_kernel_preferred_wg_size_multiple)
+    REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple_local",ocl20_get_kernel_preferred_wg_size_multiple_local)
 }

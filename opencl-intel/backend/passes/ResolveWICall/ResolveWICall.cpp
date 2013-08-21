@@ -137,11 +137,22 @@ namespace intel {
           break;
 
         case ICT_ENQUEUE_KERNEL_BASIC:
+        case ICT_ENQUEUE_KERNEL_EVENTS:
+        case ICT_ENQUEUE_MARKER:
+        case ICT_GET_KERNEL_WORK_GROUP_SIZE:
+        case ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL:
+        case ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE:
+        case ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL:
+        case ICT_RETAIN_EVENT:
+        case ICT_RELEASE_EVENT:
+        case ICT_CREATE_USER_EVENT:
+        case ICT_SET_USER_EVENT_STATUS:
+        case ICT_CAPTURE_EVENT_PROFILING_INFO:
           addExtExecFunctionDeclaration(calledFuncType);
           pNewRes = updateExtExecFunction(getExtExecFunctionParams(pCall),
             getExtExecCallbackName(calledFuncType),
             pCall);
-          assert(pNewRes && "Expected updateGetEnqueueKernelBasic to succeed");
+          assert(pNewRes && "ExtExecution. Expected non-NULL results");
           break;
 
         case ICT_ENQUEUE_KERNEL_LOCALMEM: {
@@ -153,14 +164,6 @@ namespace intel {
           assert(pNewRes && "Expected updateGetEnqueueKernelLocalMem to succeed");
           break;
                                           }
-        case ICT_ENQUEUE_KERNEL_EVENTS:
-          addExtExecFunctionDeclaration(calledFuncType);
-          pNewRes = updateExtExecFunction(getExtExecFunctionParams(pCall),
-            getExtExecCallbackName(calledFuncType),
-            pCall);
-          assert(pNewRes && "Expected updateGetEnqueueKernelEvents to succeed");
-          break;
-
         case ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM: {
           const uint32_t ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM_ARG_POS = 7;
           addExtExecFunctionDeclaration(calledFuncType);
@@ -170,27 +173,11 @@ namespace intel {
           assert(pNewRes && "Expected updateGetEnqueueKernelEvents to succeed");
           break;
                                                  }
-        case ICT_ENQUEUE_MARKER:
-          addExtExecFunctionDeclaration(calledFuncType);
-          pNewRes = updateExtExecFunction(getExtExecFunctionParams(pCall),
-            getExtExecCallbackName(calledFuncType),
-            pCall);
-          assert(pNewRes && "Expected updateEnqueueMarker to succeed");
-          break;
-
         case ICT_NDRANGE_1D:
-          pNewRes = updateNDRangeND(pCall, 1);
-          assert(pNewRes && "Expected updateNDRange1D to succeed");
-          break;
-
         case ICT_NDRANGE_2D:
-          pNewRes = updateNDRangeND(pCall, 2);
-          assert(pNewRes && "Expected updateNDRange2D to succeed");
-          break;
-
         case ICT_NDRANGE_3D:
-          pNewRes = updateNDRangeND(pCall, 3);
-          assert(pNewRes && "Expected updateNDRange3D to succeed");
+          pNewRes = updateNDRangeND(calledFuncType, pCall);
+          assert(pNewRes && "Expected updateNDRange1D to succeed");
           break;
 
         case ICT_ASYNC_WORK_GROUP_COPY:
@@ -791,6 +778,24 @@ namespace intel {
         return ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
       if( CompilationUtils::isEnqueueMarker(calledFuncName))
         return ICT_ENQUEUE_MARKER;
+      if( CompilationUtils::isGetKernelWorkGroupSize(calledFuncName))
+        return ICT_GET_KERNEL_WORK_GROUP_SIZE;
+      if( CompilationUtils::isGetKernelWorkGroupSizeLocal(calledFuncName))
+        return ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL;
+      if( CompilationUtils::isGetKernelPreferredWorkGroupSizeMultiple(calledFuncName))
+        return ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE;
+      if( CompilationUtils::isGetKernelPreferredWorkGroupSizeMultipleLocal(calledFuncName))
+        return ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL;
+      if( CompilationUtils::isReleaseEvent(calledFuncName))
+        return ICT_RELEASE_EVENT;
+      if( CompilationUtils::isRetainEvent(calledFuncName))
+        return ICT_RETAIN_EVENT;
+      if( CompilationUtils::isCreateUserEvent(calledFuncName))
+        return ICT_CREATE_USER_EVENT;
+      if( CompilationUtils::isSetUserEventStatus(calledFuncName))
+        return ICT_SET_USER_EVENT_STATUS;
+      if( CompilationUtils::isCaptureEventProfilingInfo(calledFuncName))
+        return ICT_CAPTURE_EVENT_PROFILING_INFO;
     }
     return ICT_NONE;
   }
@@ -801,6 +806,10 @@ namespace intel {
 
   Type * ResolveWICall::getClkEventType() const {
     return PointerType::get(m_pModule->getTypeByName("opencl.clk_event_t"), 0);
+  }
+
+  Type * ResolveWICall::getClkProfilingInfo() const {
+    return IntegerType::get(*m_pLLVMContext, 32);
   }
 
   Type * ResolveWICall::getKernelEnqueueFlagsType() const {
@@ -910,9 +919,25 @@ namespace intel {
     return (argsNum == 3)?(Index + 1) : ( Index + 2);
   }
 
-  Value* ResolveWICall::updateNDRangeND(CallInst *pCall, const uint32_t WorkDim) {
+  Value* ResolveWICall::updateNDRangeND(const TInternalCallType type, CallInst *pCall) {
     assert(m_pLLVMContext  && "m_pLLVMContext is NULL");
-    assert( ((WorkDim > 0) && (WorkDim <= MAX_WORK_DIM)) && "Incorrect number of dimentions in ndrange_ND call, where N > 1");
+    uint32_t WorkDim = 0;
+
+    switch(type)
+    {
+    case ICT_NDRANGE_1D:
+      WorkDim = 1;
+      break;
+    case ICT_NDRANGE_2D:
+      WorkDim = 2;
+      break;
+    case ICT_NDRANGE_3D:
+      WorkDim = 3;
+      break;
+    default:
+        assert(0 && "Incorrect Call Function type. NDRange_[1|2|3]D expected");
+    }
+
     uint32_t argsNum = pCall->getNumArgOperands();
     const unsigned int MAX_ARGS = 3;
     assert( (argsNum > 0) && (argsNum <= MAX_ARGS) && "Incorrect number of input arguments");
@@ -1121,7 +1146,102 @@ namespace intel {
       params,
       false);
   }
-  
+  FunctionType* ResolveWICall::getGetKernelQueryFunctionType(const TInternalCallType type)
+  {
+    // The prototype of ocl20_get_kernel_wg_size is:
+    // void ocl20_get_kernel_wg_size(void*, uint32_t, ExtendedExecutionContext * pEEC)
+    //
+    std::vector<Type*> params;
+    // void*
+    if(type == ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL || type == ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL)
+      params.push_back(getBlockLocalMemType());
+    else if(type == ICT_GET_KERNEL_WORK_GROUP_SIZE || type == ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE)
+      params.push_back(getBlockNoArgumentsType());
+    else
+      assert( 0 && "Incorrect Call Function type. Expected Function type that represents one of \
+                    the Kernel Query Functions");
+    // ExtendedExecutionContext *
+    params.push_back(getExtendedExecContextType());
+    // create function type
+    return FunctionType::get(
+      IntegerType::get(*m_pLLVMContext, 32), // return type
+      params,
+      false);
+  }
+
+  FunctionType* ResolveWICall::getRetainAndReleaseEventFunctionType()
+  {
+    // The prototype of ocl20_retain_event is:
+    // void ocl20_[retain|release]_event(clk_event_t,  ExtendedExecutionContext * pEEC)
+    //
+    std::vector<Type*> params;
+    // clk_event_t
+    params.push_back(getClkEventType());
+    // ExtendedExecutionContext *
+    params.push_back(getExtendedExecContextType());
+    // create function type
+    return FunctionType::get(
+      Type::getVoidTy(*m_pLLVMContext), // return type
+      params, 
+      false);
+  }
+
+  FunctionType* ResolveWICall::getCreateUserEventFunctionType()
+  {
+    // The prototype of ocl20_create_user_event is:
+    // clk_event_t ocl20_create_user_event ( ExtendedExecutionContext * pEEC)
+
+    std::vector<Type*> params;
+    // ExtendedExecutionContext *
+    params.push_back(getExtendedExecContextType());
+    // create function type
+    return FunctionType::get(
+      this->getClkEventType(),// return type
+      params,
+      false);
+  }
+
+  FunctionType* ResolveWICall::getSetUserEventStatusFunctionType()
+  {
+    // The prototype of ocl20_set_user_event_status is:
+    // void ocl20_set_user_event_status(clk_event_t, int status,  ExtendedExecutionContext * pEEC)
+
+    std::vector<Type*> params;
+    // clk_event_t
+    params.push_back(getClkEventType());
+    // int status
+    params.push_back(IntegerType::get(*m_pLLVMContext, 32));
+    // ExtendedExecutionContext *
+    params.push_back(getExtendedExecContextType());
+    // create function type
+    return FunctionType::get(
+      Type::getVoidTy(*m_pLLVMContext), // return type
+      params,
+      false);
+  }
+
+  FunctionType* ResolveWICall::getCaptureEventProfilingInfoFunctionType()
+  {
+    // The prototype of ocl20_capture_event_profiling_info is:
+    // void ocl20_capture_event_profiling_info(clk_event_t, clk_profiling_info name,
+    // global ulong *value, ExtendedExecutionContext * pEEC)
+
+    std::vector<Type*> params;
+    // clk_event_t
+    params.push_back(getClkEventType());
+    // clk_profiling_info name
+    params.push_back(getClkProfilingInfo());
+    // global ulong* value
+    params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 64), Utils::OCLAddressSpace::Global) );
+    // ExtendedExecutionContext *
+    params.push_back(getExtendedExecContextType());
+    // create function type
+    return FunctionType::get(
+      Type::getVoidTy(*m_pLLVMContext), // return type
+      params,
+      false);
+  }
+
   void ResolveWICall::addExtExecFunctionDeclaration(const TInternalCallType type)
   {
     // check declaration exists
@@ -1150,7 +1270,27 @@ namespace intel {
       return "ocl20_enqueue_kernel_events_localmem";
     else if(type == ICT_ENQUEUE_MARKER)
       return "ocl20_enqueue_marker";
-    else 
+    else if(type == ICT_ENQUEUE_MARKER)
+      return "ocl20_enqueue_marker";
+    else if(type == ICT_GET_KERNEL_WORK_GROUP_SIZE)
+      return "ocl20_get_kernel_wg_size";
+    else if(type == ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL)
+      return "ocl20_get_kernel_wg_size_local";
+    else if(type == ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE)
+      return "ocl20_get_kernel_preferred_wg_size_multiple";
+    else if(type == ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL)
+      return "ocl20_get_kernel_preferred_wg_size_multiple_local";
+    else if(type == ICT_RETAIN_EVENT)
+      return "ocl20_retain_event";
+    else if(type == ICT_RELEASE_EVENT)
+      return "ocl20_release_event";
+    else if(type == ICT_CREATE_USER_EVENT)
+      return "ocl20_create_user_event";
+    else if(type == ICT_SET_USER_EVENT_STATUS)
+      return "ocl20_set_user_event_status";
+    else if(type == ICT_CAPTURE_EVENT_PROFILING_INFO)
+      return "ocl20_capture_event_profiling_info";
+    else
       assert(0);
     return "";
   }
@@ -1165,6 +1305,19 @@ namespace intel {
       return getEnqueueKernelType(type);
     else if(type == ICT_ENQUEUE_MARKER)
       return getEnqueueMarkerFunctionType();
+    else if(type == ICT_GET_KERNEL_WORK_GROUP_SIZE ||
+            type == ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL ||
+            type == ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE ||
+            type == ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL)
+      return getGetKernelQueryFunctionType(type);
+    else if(type == ICT_RETAIN_EVENT || type == ICT_RELEASE_EVENT)
+      return getRetainAndReleaseEventFunctionType();
+    else if(type == ICT_CREATE_USER_EVENT)
+      return getCreateUserEventFunctionType();
+    else if(type == ICT_SET_USER_EVENT_STATUS)
+      return getSetUserEventStatusFunctionType();
+    else if(type == ICT_CAPTURE_EVENT_PROFILING_INFO)
+      return getCaptureEventProfilingInfoFunctionType();
     else 
       assert(0);
     return NULL;

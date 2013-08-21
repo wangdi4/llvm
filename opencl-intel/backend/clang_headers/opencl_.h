@@ -13982,16 +13982,16 @@ ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_wor
 ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3], size_t local_work_size[3]);
 ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_offset[3], size_t global_work_size[3], size_t local_work_size[3]);
 
-void retain_event(clk_event_t event);
-void release_event(clk_event_t event);
-clk_event_t create_user_event();
-void set_user_event_status(clk_event_t event, int status);
-void capture_event_profiling_info(clk_event_t event, clk_profiling_info name, global ulong *value);
+void __attribute__((overloadable)) retain_event(clk_event_t event);
+void  __attribute__((overloadable)) release_event(clk_event_t event);
+clk_event_t  __attribute__((overloadable)) create_user_event();
+void __attribute__((overloadable)) set_user_event_status(clk_event_t event, int status);
+void  __attribute__((overloadable)) capture_event_profiling_info(clk_event_t event, clk_profiling_info name, global ulong *value);
 
 uint __attribute__((overloadable)) get_kernel_work_group_size(void (^block)(void));
-//uint __attribute__((overloadable)) get_kernel_work_group_size(void (^block)(local void *,...));
+uint __attribute__((overloadable)) get_kernel_work_group_size(void (^block)(local void *,...));
 uint __attribute__((overloadable)) get_kernel_preferred_work_group_size_multiple(void (^block)(void));
-//uint __attribute__((overloadable)) get_kernel_preferred_work_group_size_multiple(void (^block)(local void *,...));
+uint __attribute__((overloadable)) get_kernel_preferred_work_group_size_multiple(void (^block)(local void *,...));
 
 #endif   // __OPENCL_C_VERSION__ >= 200
 #endif   // !defined (__MIC__) && !defined(__MIC2__)

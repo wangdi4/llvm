@@ -20,6 +20,7 @@ File Name:  opencl20_ext_execution.cpp
 
 #include <string.h>
 #include "cl_dev_backend_api.h"
+#include "cpu_dev_limits.h"
 #include "ICLDevBackendServiceFactory.h"
 #include "ExtendedExecutionContext.h"
 #include "BlockLiteral.h"
@@ -118,6 +119,71 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_marker(
         clk_event_t* event_ret,
         ExtendedExecutionContext * pEEC);
 
+/// @brief callback for
+///  int retain_event (
+///     clk_event_t event)
+extern "C" LLVM_BACKEND_API void ocl20_retain_event(
+        clk_event_t *event,
+        ExtendedExecutionContext * pEEC);
+
+/// @brief callback for
+///  int release_event (
+///     clk_event_t event)
+extern "C" LLVM_BACKEND_API void ocl20_release_event(
+        clk_event_t *event,
+        ExtendedExecutionContext * pEEC);
+
+/// @brief callback for
+///  clk_event_t create_user_event ()
+extern "C" LLVM_BACKEND_API clk_event_t* ocl20_create_user_event(ExtendedExecutionContext * pEEC);
+
+/// @brief callback for
+///  void set_user_event_status (
+///     clk_event_t event,
+///     int status)
+extern "C" LLVM_BACKEND_API void ocl20_set_user_event_status(
+        clk_event_t *event,
+        uint32_t status,
+        ExtendedExecutionContext * pEEC);
+
+/// @brief callback for
+///  void capture_event_profiling_info (
+///     clk_event_t event,
+///     clk_profiling_info name,
+///     global ulong *value)
+extern "C" LLVM_BACKEND_API void ocl20_capture_event_profiling_info(
+        clk_event_t *event,
+        clk_profiling_info name,
+        uint64_t *value,
+        ExtendedExecutionContext * pEEC);
+
+/// @brief callback for
+///  uint get_kernel_work_group_size (
+///     void (^block)(void))
+extern "C" LLVM_BACKEND_API uint32_t ocl20_get_kernel_wg_size(
+        void *block,
+        ExtendedExecutionContext * pEEC);
+
+/// @brief callback for
+///  uint get_kernel_work_group_size (
+///     void (^block)(local void *, ...))
+extern "C" LLVM_BACKEND_API uint32_t ocl20_get_kernel_wg_size_local(
+        void *block,
+        ExtendedExecutionContext * pEEC);
+
+///@brief callback for
+///  uint get_kernel_preferred_work_group_size_multiple (
+///     void (^block)(void))
+extern "C" LLVM_BACKEND_API uint32_t ocl20_get_kernel_preferred_wg_size_multiple(
+        void *block,
+        ExtendedExecutionContext * pEEC);
+
+///@brief callback for
+///  uint get_kernel_preferred_work_group_size_multiple (
+///     void (^block)(local void *, ...))
+extern "C" LLVM_BACKEND_API uint32_t ocl20_get_kernel_preferred_wg_size_multiple_local(
+        void *block,
+        ExtendedExecutionContext * pEEC);
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation section
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -346,4 +412,167 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_marker(
       );
   DEBUG(dbgs() << "ocl20_enqueue_marker. Called EnqueueMarker\n");
   return res;
+}
+
+extern "C" LLVM_BACKEND_API void ocl20_retain_event(
+        clk_event_t *event,
+        ExtendedExecutionContext * pEEC)
+{
+  DEBUG(dbgs() << "ocl20_retain_event. Entry point \n");
+  assert(pEEC && "ExtendedExecutionContext is NULL");
+  IDeviceCommandManager *pDCM = pEEC->GetDeviceCommandManager();
+  assert(pDCM && "IDeviceCommandManager is NULL");
+
+  int err_code = pDCM->RetainEvent(reinterpret_cast<clk_event_t>(event));
+  // spec neither provides interface to return error code nor
+  // declares special behavior when error is occured.
+  // Lets output error code in debug stream
+  if(CL_SUCCESS != err_code)
+      DEBUG(dbgs() << "ocl20_retain_event. Failed to execute RetainEvent with Error Code " << err_code << "\n");
+
+  DEBUG(dbgs() << "ocl20_retain_event. Called RetainEvent\n");
+  return;
+}
+
+extern "C" LLVM_BACKEND_API void ocl20_release_event(
+        clk_event_t *event,
+        ExtendedExecutionContext * pEEC)
+{
+  DEBUG(dbgs() << "ocl20_release_event. Entry point \n");
+  assert(pEEC && "ExtendedExecutionContext is NULL");
+  IDeviceCommandManager *pDCM = pEEC->GetDeviceCommandManager();
+  assert(pDCM && "IDeviceCommandManager is NULL");
+
+  int err_code = pDCM->ReleaseEvent(reinterpret_cast<clk_event_t>(event));
+  // spec neither provides interface to return error code nor
+  // declares special behavior when error is occured.
+  // Lets output error code in debug stream
+  if(CL_SUCCESS != err_code)
+      DEBUG(dbgs() << "ocl20_release_event. Failed to execute ReleaseEvent with Error Code " << err_code << "\n");
+
+  DEBUG(dbgs() << "ocl20_release_event. Called ReleaseEvent\n");
+  return;
+}
+
+extern "C" LLVM_BACKEND_API clk_event_t* ocl20_create_user_event(ExtendedExecutionContext * pEEC)
+{
+  DEBUG(dbgs() << "ocl20_create_user_event. Entry point \n");
+  assert(pEEC && "ExtendedExecutionContext is NULL");
+  IDeviceCommandManager *pDCM = pEEC->GetDeviceCommandManager();
+  assert(pDCM && "IDeviceCommandManager is NULL");
+
+  int err_code = CL_SUCCESS;
+  clk_event_t ret = pDCM->CreateUserEvent(&err_code);
+  // CreateUserEvent returns error code through argument.
+  // spec neither provides interface to return error code nor
+  // declares special behavior when error is occured.
+  // Lets output error code in debug stream
+  if(CL_SUCCESS != err_code)
+      DEBUG(dbgs() << "ocl20_create_user_event. Failed to execute CreateUserEvent with Error Code " << err_code << "\n");
+
+  DEBUG(dbgs() << "ocl20_create_user_event. Called CreateUserEvent\n");
+  return reinterpret_cast<clk_event_t*>(ret);
+}
+
+extern "C" LLVM_BACKEND_API void ocl20_set_user_event_status(
+        clk_event_t *event,
+        uint32_t status,
+        ExtendedExecutionContext * pEEC)
+{
+  DEBUG(dbgs() << "ocl20_set_user_event_status. Entry point \n");
+  assert(pEEC && "ExtendedExecutionContext is NULL");
+  IDeviceCommandManager *pDCM = pEEC->GetDeviceCommandManager();
+  assert(pDCM && "IDeviceCommandManager is NULL");
+
+  int err_code = pDCM->SetEventStatus(reinterpret_cast<clk_event_t>(event), status);
+  // spec neither provides interface to return error code nor
+  // declares special behavior when error is occured.
+  // Lets output error code in debug stream
+  if(CL_SUCCESS != err_code)
+      DEBUG(dbgs() << "ocl20_create_user_event. Failed to execute CreateUserEvent with Error Code " << err_code << "\n");
+
+  DEBUG(dbgs() << "ocl20_set_user_event_status. Called SetEventStatus\n");
+  return;
+}
+
+extern "C" LLVM_BACKEND_API void ocl20_capture_event_profiling_info(
+        clk_event_t *event,
+        clk_profiling_info name,
+        uint64_t *value,
+        ExtendedExecutionContext * pEEC)
+{
+  DEBUG(dbgs() << "ocl20_capture_event_profiling_info. Entry point \n");
+  assert(pEEC && "ExtendedExecutionContext is NULL");
+  IDeviceCommandManager *pDCM = pEEC->GetDeviceCommandManager();
+  assert(pDCM && "IDeviceCommandManager is NULL");
+
+  pDCM->CaptureEventProfilingInfo(reinterpret_cast<clk_event_t>(event), name, value);
+
+  DEBUG(dbgs() << "ocl20_capture_event_profiling_info. Called CaptureEventProfilingInfo\n");
+  return;
+}
+
+extern "C" LLVM_BACKEND_API uint32_t ocl20_get_kernel_wg_size(
+        void *block,
+        ExtendedExecutionContext * pEEC)
+{
+  DEBUG(dbgs() << "ocl20_get_kernel_wg_size. Entry point \n");
+  uint32_t ret;
+  assert(pEEC && "ExtendedExecutionContext is NULL");
+  
+  const BlockLiteral * pBlockLiteral = static_cast<BlockLiteral*>(block);
+  const IBlockToKernelMapper * pMapper = pEEC->GetBlockToKernelMapper();
+  assert(pMapper && "IBlockToKernelMapper is NULL");
+  
+  // obtain entry point as key
+  void * key = pBlockLiteral->GetInvoke();
+  const ICLDevBackendKernel_ * pKernel = pMapper->Map(key);
+  const ICLDevBackendKernelProporties* pKernelProps = pKernel->GetKernelProporties();
+
+  //logic taken from \cpu_device\program_service.cpp file ProgramService::GetKernelInfo function
+  // SVN rev. 74469
+  ret = std::min<uint64_t>(CPU_MAX_WORK_GROUP_SIZE, (CPU_DEV_MAX_WG_PRIVATE_SIZE / pKernelProps->GetPrivateMemorySize()) );
+  ret = ((uint64_t)1) << ((uint64_t)(logf((float)ret)/logf(2.f)));
+
+  DEBUG(dbgs() << "ocl20_get_kernel_wg_size. Called GetKernelWorkGroupSize\n");
+  return ret;
+}
+
+extern "C" LLVM_BACKEND_API uint32_t ocl20_get_kernel_wg_size_local(
+        void *block,
+        ExtendedExecutionContext * pEEC)
+{
+    return ocl20_get_kernel_wg_size(block, pEEC);
+}
+
+extern "C" LLVM_BACKEND_API uint32_t ocl20_get_kernel_preferred_wg_size_multiple(
+        void *block,
+        ExtendedExecutionContext * pEEC)
+{
+  DEBUG(dbgs() << "ocl20_get_kernel_preferred_wg_size_multiple. Entry point \n");
+  uint32_t ret;
+  assert(pEEC && "ExtendedExecutionContext is NULL");
+  
+  const BlockLiteral * pBlockLiteral = static_cast<BlockLiteral*>(block);
+  const IBlockToKernelMapper * pMapper = pEEC->GetBlockToKernelMapper();
+  assert(pMapper && "IBlockToKernelMapper is NULL");
+  
+  // obtain entry point as key
+  void * key = pBlockLiteral->GetInvoke();
+  const ICLDevBackendKernel_ * pKernel = pMapper->Map(key);
+  const ICLDevBackendKernelProporties* pKernelProps = pKernel->GetKernelProporties();
+
+  //logic taken from \cpu_device\program_service.cpp file ProgramService::GetKernelInfo function
+  // SVN rev. 74469
+  ret = pKernelProps->GetKernelPackCount();
+
+  DEBUG(dbgs() << "ocl20_get_kernel_preferred_wg_size_multiple. Called GetKernelPreferredWorkGroupSizeMultiple\n");
+  return ret;
+}
+
+extern "C" LLVM_BACKEND_API uint32_t ocl20_get_kernel_preferred_wg_size_multiple_local(
+        void *block,
+        ExtendedExecutionContext * pEEC)
+{
+    return ocl20_get_kernel_preferred_wg_size_multiple(block, pEEC);
 }

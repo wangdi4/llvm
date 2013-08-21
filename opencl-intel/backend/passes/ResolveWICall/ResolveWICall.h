@@ -49,8 +49,26 @@ namespace intel {
     ICT_ENQUEUE_KERNEL_EVENTS,
     // int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ?), uint size0, ?)
     ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM,
+    // uint get_kernel_work_group_size (void (^block)(void))
+    ICT_GET_KERNEL_WORK_GROUP_SIZE,
+    // uint get_kernel_work_group_size (void (^block)(local void *, ...))
+    ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL,
+    // uint get_kernel_preferred_work_group_size_multiple(void (^block)(void))
+    ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+    // uint get_kernel_preferred_work_group_size_multiple(void (^block)(local void *, ...));
+    ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL,
     // int enqueue_marker ( queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret)
     ICT_ENQUEUE_MARKER,
+    // void retain_event (clk_event_t event)
+    ICT_RETAIN_EVENT,
+    // void release_event (clk_event_t event)
+    ICT_RELEASE_EVENT,
+    // clk_event_t create_user_event ()
+    ICT_CREATE_USER_EVENT,
+    // void set_user_event_status ( clk_event_t event, int status)
+    ICT_SET_USER_EVENT_STATUS,
+    // void capture_event_profiling_info ( clk_event_t event, clk_profiling_info name, global ulong *value)
+    ICT_CAPTURE_EVENT_PROFILING_INFO,
     // ndrange_1D
     ICT_NDRANGE_1D,
     // ndrange_2D
@@ -133,11 +151,11 @@ namespace intel {
     void  addExtendedExecutionDeclarations();
 
     /// @brief calculates ndrange_1D(), ndrange_2D() or ndrange_3D()
+    /// @param type          The call instruction type that represents one of the ndrange BIs
     /// @param pCall         The call instruction that calls a work item function
-    /// @param dim           Number of Dimentions( 1, 2 or 3)
     /// @returns The result value of the ndrange_ND call, where N = [1,2,3]
-    Value* updateNDRangeND(CallInst *pCall, const uint32_t WorkDim);
-        
+    Value* updateNDRangeND(const TInternalCallType type, CallInst *pCall);
+
     /// @brief add declaration of Extended Execution callback to Module
     /// @param type - callback type
     void addExtExecFunctionDeclaration(const TInternalCallType type);
@@ -153,6 +171,8 @@ namespace intel {
     Type * getQueueType() const;
     /// @brief constructs type for clk_event_t
     Type * getClkEventType() const;
+    /// @brief constructs type for clk_profiling_info
+    Type * getClkProfilingInfo() const;
     /// @brief constructs type for kernel_enqueue_flags_t
     Type * getKernelEnqueueFlagsType() const;
     /// @brief constructs type for ndrange_t
@@ -192,6 +212,16 @@ namespace intel {
     FunctionType* getEnqueueKernelType(const TInternalCallType type);
     ///@brief returns description of DefaultQueue callback
     FunctionType* getDefaultQueueFunctionType();
+    ///@brief returns description of GetKernelWGSize and GerKernelPreferredWGSizeMultiple callbacks
+    FunctionType* getGetKernelQueryFunctionType(const TInternalCallType type);
+    ///@brief return description of ReleaseEvent and RetainEvent callbacks
+    FunctionType* getRetainAndReleaseEventFunctionType();
+    ///@brief returns description of CreateUserEvent callback
+    FunctionType* getCreateUserEventFunctionType();
+    ///@brief returns description of SetUserEventStatus callback
+    FunctionType* getSetUserEventStatusFunctionType();
+    ///@brief returns description of CaptureEventProfilingInfo callback
+    FunctionType* getCaptureEventProfilingInfoFunctionType();
     ///@brief returns type of extended execution callback
     FunctionType* getExtExecFunctionType(const TInternalCallType type);
 

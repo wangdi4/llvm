@@ -115,8 +115,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isEnqueueKernelLocalMem(const std::string&);
     static bool isEnqueueKernelEvents(const std::string&);
     static bool isEnqueueKernelEventsLocalMem(const std::string&);
+    static bool isGetKernelWorkGroupSize(const std::string&);
+    static bool isGetKernelWorkGroupSizeLocal(const std::string&);
+    static bool isGetKernelPreferredWorkGroupSizeMultiple(const std::string&);
+    static bool isGetKernelPreferredWorkGroupSizeMultipleLocal(const std::string&);
     static bool isEnqueueMarker(const std::string&);
     static bool isGetDefaultQueue(const std::string&);
+    static bool isRetainEvent(const std::string&);
+    static bool isReleaseEvent(const std::string&);
+    static bool isCreateUserEvent(const std::string&);
+    static bool isSetUserEventStatus(const std::string&);
+    static bool isCaptureEventProfilingInfo(const std::string&);
 
     static const std::string NAME_GET_ORIG_GID;
     static const std::string NAME_GET_ORIG_LID;
@@ -230,12 +239,44 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///    void (^block)(local void *, ?), uint size0, ?)
     static const std::string NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
 
+    /// get maximum work-group size that can be used
+    /// to execute a block on a specific device
+    /// uint get_kernel_work_group_size
+    static const std::string NAME_GET_KERNEL_WG_SIZE;
+    static const std::string NAME_GET_KERNEL_WG_SIZE_LOCAL;
+
+    /// Returns the preferred multiple of work-group
+    /// size for launch
+    /// uint get_kernel_preferred_work_group_size_multiple
+    static const std::string NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE;
+    static const std::string NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE_LOCAL;
+
     /// int enqueue_marker (
     ///     queue_t queue,
     ///     uint num_events_in_wait_list,
     ///     const clk_event_t *event_wait_list,
     ///     clk_event_t *event_ret)
     static const std::string NAME_ENQUEUE_MARKER;
+
+    /// void retain_event (clk_event_t event)
+    static const std::string NAME_RETAIN_EVENT;
+
+    /// void release_event (clk_event_t event)
+    static const std::string NAME_RELEASE_EVENT;
+
+    /// clk_event_t create_user_event ()
+    static const std::string NAME_CREATE_USER_EVENT;
+
+    /// void set_user_event_status (
+    ///     clk_event_t event,
+    ///     int status)
+    static const std::string NAME_SET_USER_EVENT_STATUS;
+
+    /// void capture_event_profiling_info (
+    ///     clk_event_t event,
+    ///     clk_profiling_info name,
+    ///     global ulong *value)
+    static const std::string NAME_CAPTURE_EVENT_PROFILING_INFO;
 
     static clVersion getCLVersionFromModule(const Module &M);
     
