@@ -77,15 +77,13 @@ private:
   void initHardCodeStrategy();
   
   /////////////////////////////////////////////////////////////////////////////
-  //Purpose: Adds a group of a builtins with a single parameter, to scalar
-  //  width only. (Useful for non-versioned WI functions).
+  //Purpose: Adds the behavior expected from WI functions. (i.e., NULL strategy
+  // for all non-scalar widths, and identity strategy for scalar width.
   //Parameters:
   //  names: Builtins names.
   //  ty:    The type of the parameter of the builtins.
-  //  s:     Strategy to be associated to the added functions.
   /////////////////////////////////////////////////////////////////////////////
-  void addExceptionToScalar (const StringArray& names, TypePrimitiveEnum ty,
-  VersionStrategy *s);
+  void addExceptionToWIFunctions (const StringArray& names, TypePrimitiveEnum ty);
 
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: a specialization for addConversionGroup with three parameter. The
@@ -152,6 +150,7 @@ private:
   NullDescriptorStrategy m_nullStrategy;
   SoaDescriptorStrategy  m_soaStrategy;
   HardCodedVersionStrategy m_hardCodedStrategy;
+  IdentityStrategy m_indentityStrategy;
   
   //Maps a function descriptor to its return type
   ReturnTypeMap m_fdToRetTy;

@@ -210,7 +210,7 @@ void BuiltinKeeper::initNullStrategyEntries(){
       "get_num_groups", "get_group_id", "get_global_offset", "barrier",
       "mem_fence", "read_mem_fence", "write_mem_fence"
     };
-    addExceptionToScalar(StringArray(names), PRIMITIVE_UINT, &m_nullStrategy);
+    addExceptionToWIFunctions(StringArray(names), PRIMITIVE_UINT);
   }
   {
     reflection::FunctionDescriptor fdWorkDim;
@@ -380,12 +380,15 @@ void BuiltinKeeper::initHardCodeStrategy(){
   }
 }
 
-void BuiltinKeeper::addExceptionToScalar (const StringArray& names,
-  TypePrimitiveEnum ty, VersionStrategy *s) {
-  width::V vwidths[] = {width::SCALAR};
-  VWidthArray arrAllWidth(vwidths);
+void BuiltinKeeper::addExceptionToWIFunctions (const StringArray& names,
+                                          TypePrimitiveEnum ty) {
+  width::V vwidths[] = {width::TWO, width::THREE, width::FOUR, width::EIGHT,
+                        width::SIXTEEN};
+  VWidthArray arrVWidth(vwidths);
+  VWidthArray arrScalarWidth(width::SCALAR);
   Cartesian<llvm::ArrayRef, llvm::StringRef, TypePrimitiveEnum> namesXTy(
     names, PrimitiveArray(ty));
+
   do {
     // Building a function descriptor, to acquire the mangled name.
     reflection::FunctionDescriptor fd;
@@ -395,15 +398,25 @@ void BuiltinKeeper::addExceptionToScalar (const StringArray& names,
     std::string mangledName = mangle(fd);
     llvm::StringRef refMangledName(mangledName);
 
-    // Building the key for the exception map (mangled string, width).
+    // Assigning null strategy, for all non-scalar width.
     StringArray arrMangledNames(refMangledName);
+    {
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> keys(arrMangledNames,
-      arrAllWidth);
+      arrVWidth);
     do {
       PairSW key(keys.get());
-      m_exceptionsMap.insert(std::make_pair(key, s));
+      m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
     } while(keys.next());
-
+    }
+    // Assiging identity stratefy for the scalar width.
+    {
+    Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> keys(arrMangledNames,
+      arrScalarWidth);
+    do {
+      PairSW key(keys.get());
+      m_exceptionsMap.insert(std::make_pair(key, &m_indentityStrategy));
+    } while(keys.next());
+    }
   } while(namesXTy.next());
 }
 
@@ -681,6 +694,10 @@ const BuiltinKeeper* BuiltinKeeper::instance(){
 struct RangeUtil{
   RangeUtil(BuiltinMap::MapRange& mr): m_range(mr){}
 
+  void reset(BuiltinMap::MapRange& mr){
+    m_range = mr;
+  }
+
   //indicates whether the given range is empty
   bool isEmpty()const{
     return (m_range.first == m_range.second);
@@ -795,11 +812,13 @@ PairSW BuiltinKeeper::getVersion(const std::string& name, width::V w) const {
 
   // Option (2)... (the string is in the exception map, but associated to a
   // different width).
-  if (range.isEmpty())
-    return searchAndCacheUpdate(original) ?
-      std::make_pair(original.name, w) : nullPair();
+  if (range.isEmpty() && !searchAndCacheUpdate(original))
+    return nullPair();
 
+  // Reasgin the range, since the cache has been updated.
   // The function descriptor resides in the cache, get it from there.
+  mr = m_descriptorsMap.equalRange(original.name);
+  range.reset(mr);
   do{
     const FunctionDescriptor candidate = range.getDescriptor();
     //we check that the candidate is in the right width, and that its parameters

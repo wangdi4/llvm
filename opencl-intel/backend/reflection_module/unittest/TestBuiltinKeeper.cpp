@@ -223,6 +223,10 @@ TEST(Functionality, VShapeBuiltiins) {
     "_Z4fmaxDv8_ff",
     "_Z4fminDv8_ff",
     "_Z5ldexpDv8_fi",
+    "_Z5clampDv8_fff",
+    "_Z3mixDv8_fS_f",
+    "_Z4stepfDv8_f",
+    "_Z10smoothstepffDv8_f"
   };
   // Mangled names of the scalar functions.
   const char *scalarFunctions[] = {
@@ -231,6 +235,10 @@ TEST(Functionality, VShapeBuiltiins) {
     "_Z4fmaxff",
     "_Z4fminff",
     "_Z5ldexpfi",
+    "_Z5clampfff",
+    "_Z3mixfff",
+    "_Z4stepff",
+    "_Z10smoothstepfff"
   };
   // Mangled names of the functions, in the symmetric flavor (both args are
   // vectors).
@@ -240,6 +248,10 @@ TEST(Functionality, VShapeBuiltiins) {
     "_Z4fmaxDv8_fS_",
     "_Z4fminDv8_fS_",
     "_Z5ldexpDv8_fDv8_i",
+    "_Z5clampDv8_fS_S_",
+    "_Z3mixDv8_fS_S_",
+    "_Z4stepDv8_fS_",
+    "_Z10smoothstepDv8_fS_S_"
   };
   const BuiltinKeeper* pKeeper = BuiltinKeeper::instance();
   // Testing the function can be scalarized.
