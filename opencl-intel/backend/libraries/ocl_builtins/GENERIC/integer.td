@@ -139,20 +139,19 @@ OclBuiltinImpl clz_igeneric = OclBuiltinImpl<clz, [ v1i8,  v2i8,  v3i8,  v4i8,  
   }]>;
 // clz on scalar uchar
 OclBuiltinImpl clz_v1char = OclBuiltinImpl<clz, [v1u8], 0, [{
-    //return __builtin_clzc($Arg0VarName);
-    return __builtin_clz((uint)$Arg0VarName)-24;
+    return __ocl_helper_clz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // clz on scalar ushort
 OclBuiltinImpl clz_v1short = OclBuiltinImpl<clz, [v1u16], 0, [{
-    return __builtin_clzs($Arg0VarName);
+    return __ocl_helper_clz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // clz on scalar uint
 OclBuiltinImpl clz_v1int = OclBuiltinImpl<clz, [v1u32], 0, [{
-    return __builtin_clz($Arg0VarName);
+    return __ocl_helper_clz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // clz on scalar ulong
 OclBuiltinImpl clz_v1long = OclBuiltinImpl<clz, [v1u64], 0, [{
-    return __builtin_clzl($Arg0VarName);
+    return __ocl_helper_clz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // clz expand unsigned vectors to scalar
 OclBuiltinImpl clz_expand = OclBuiltinImpl<clz, [v2u8,  v3u8,  v4u8,  v8u8,  v16u8,

@@ -544,20 +544,19 @@ OclBuiltinImpl ctz_igeneric = OclBuiltinImpl<ctz, [ v1i8,  v2i8,  v3i8,  v4i8,  
   }]>;
 // ctz on scalar uchar
 OclBuiltinImpl ctz_v1char = OclBuiltinImpl<ctz, [v1u8], 0, [{
-    //return __builtin_ctzc($Arg0VarName); //There is no ctz implementation for char in the open source
-	return (($Arg0VarName == 0) ? 8 : __builtin_ctz((uint)$Arg0VarName));//uchar as uint
+    return __ocl_helper_ctz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // ctz on scalar ushort
 OclBuiltinImpl ctz_v1short = OclBuiltinImpl<ctz, [v1u16], 0, [{
-    return __builtin_ctzs($Arg0VarName);
+    return __ocl_helper_ctz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // ctz on scalar uint
 OclBuiltinImpl ctz_v1int = OclBuiltinImpl<ctz, [v1u32], 0, [{
-    return __builtin_ctz($Arg0VarName);
+    return __ocl_helper_ctz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // ctz on scalar ulong
 OclBuiltinImpl ctz_v1long = OclBuiltinImpl<ctz, [v1u64], 0, [{
-    return __builtin_ctzl($Arg0VarName);
+    return __ocl_helper_ctz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // ctz expand unsigned vectors to scalar
 OclBuiltinImpl ctz_expand = OclBuiltinImpl<ctz, [v2u8,  v3u8,  v4u8,  v8u8,  v16u8,

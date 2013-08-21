@@ -49,3 +49,9 @@ let Types = [v16i32, v8i64],
     IsDeclOnly = 1, NeedForwardDecl = 1 in {
 def __ocl_select : OclBuiltin<"__ocl_select_$Arg0Symgentype", (outs gentype:$ret), (ins gentype:$x, gentype:$y, gentype:$c), [], [], 0, 0>;
 }
+
+let Types = [v1u8, v1u16, v1u32, v1u64],
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
+def helper_clz : OclBuiltin<"__ocl_helper_clz_$Arg0Symgentype", (outs gentype:$x), (ins gentype:$x), [], [], 0, 0>;
+def helper_ctz : OclBuiltin<"__ocl_helper_ctz_$Arg0Symgentype", (outs gentype:$x), (ins gentype:$x), [], [], 0, 0>;
+}
