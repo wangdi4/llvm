@@ -147,6 +147,9 @@ add_library(
 
 add_dependencies(${TARGET_NAME} metadataapi)
 
+set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})
+
 set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
 
 if(APPLE)
