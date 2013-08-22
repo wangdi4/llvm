@@ -151,41 +151,9 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     }
 #endif
 
-    // Get the kernel arguments info
-    std::vector<cl_kernel_argument> arguments;
-    Intel::OpenCL::DeviceBackend::CompilationUtils::parseKernelArguments(M,  pFunc, arguments);
-
-    CFMutableArrayRef kf_argsizes = CFArrayCreateMutable(NULL,
-        arguments.size(), &kCFTypeArrayCallBacks);
-
-    CFMutableArrayRef kf_argalignments = CFArrayCreateMutable(NULL,
-        arguments.size(), &kCFTypeArrayCallBacks);
-
-    //Calculate the size and alignment of each argument from the arguments info
-    for(unsigned int j=0; j<arguments.size(); ++j) {
-        cl_kernel_argument arg = arguments[j];
-    
-        // Create a CFNumber to hold the size value.
-        int size = ((int)Intel::OpenCL::DeviceBackend::TypeAlignment::getSize(arg));
-        const void *vptrsize = (const void *)&size;
-        CFNumberRef valsizeref = CFNumberCreate(NULL, kCFNumberIntType, vptrsize);
-
-        // Append size value to the function arg sizes array.
-        CFArrayAppendValue(kf_argsizes, valsizeref);
-        CFRelease(valsizeref);
-
-        // Create a CFNumber to hold the alignment value.
-        int alignment = ((int)Intel::OpenCL::DeviceBackend::TypeAlignment::getAlignment(arg));
-        const void *vptralignment = (const void *)&alignment;
-        CFNumberRef valalignmentref = CFNumberCreate(NULL, kCFNumberIntType, vptralignment);
-
-        // Append size value to the function arg sizes array.
-        CFArrayAppendValue(kf_argalignments, valalignmentref);
-        CFRelease(valalignmentref);
-    }
-
+    // Get the kernel desc
     ConstantStruct *elt = cast<ConstantStruct>(init->getOperand(i));
-    Function *kf = cast<Function>(elt->getOperand(0)->stripPointerCasts());
+    //Function *kf = cast<Function>(elt->getOperand(0)->stripPointerCasts());
     //assert(kf->getName().str() == pWrapperFunc->getName().str() && "annotcation has differemt kernel order than metadata!");
 
     // This is a function, pull out the arg info string.
@@ -200,115 +168,145 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     if (f1arr->isString())
       args_desc = f1arr->getAsString();
 
-    // Create and fill in the kernel args description structure.
-    CFMutableArrayRef kfinfo = CFArrayCreateMutable(NULL, kf->arg_size(),
-                                                    &kCFTypeArrayCallBacks);
+    // Get the kernel arguments info
+    std::vector<cl_kernel_argument> arguments;
+    Intel::OpenCL::DeviceBackend::CompilationUtils::parseKernelArguments(M,  pFunc, arguments);
 
-    CFMutableArrayRef kf_argnames = CFArrayCreateMutable(NULL, kf->arg_size(),
-                                                         &kCFTypeArrayCallBacks);
+    CFMutableArrayRef kf_argsizes = CFArrayCreateMutable(NULL,
+      arguments.size(), &kCFTypeArrayCallBacks);
+
+    CFMutableArrayRef kf_argalignments = CFArrayCreateMutable(NULL,
+      arguments.size(), &kCFTypeArrayCallBacks);
+
+    // Create and fill in the kernel args description structure.
+    CFMutableArrayRef kfinfo = CFArrayCreateMutable(NULL,
+      arguments.size(), &kCFTypeArrayCallBacks);
+
+    CFMutableArrayRef kf_argnames = CFArrayCreateMutable(NULL,
+      arguments.size(), &kCFTypeArrayCallBacks);
 
     CFMutableArrayRef kf_argtypes = CFArrayCreateMutable(NULL,
-                                                         kf->arg_size(),
-                                                         &kCFTypeArrayCallBacks);
+      arguments.size(), &kCFTypeArrayCallBacks);
 
     CFMutableArrayRef kf_argtypequals = CFArrayCreateMutable(NULL,
-                                                          kf->arg_size(),
-                                                          &kCFTypeArrayCallBacks);
+      arguments.size(), &kCFTypeArrayCallBacks);
 
-    unsigned j = 0;
-    for (Function::arg_iterator ai = kf->arg_begin(), ae = kf->arg_end(); ai != ae; ++ai, ++j) {
-    Type *Ty = ai->getType();
+    //Calculate the size and alignment of each argument from the arguments info.
+    //And capture other argument info if exists, like name, type, etc.
+    Function::arg_iterator ai = pFunc->arg_begin();
+    assert(arguments.size() <= pFunc->arg_size() && "There is not enough arguments!");
+    for(unsigned int j=0; j<arguments.size(); ++j, ++ai) {
+      cl_kernel_argument arg = arguments[j];
+    
+      // Create a CFNumber to hold the size value.
+      int size = ((int)Intel::OpenCL::DeviceBackend::TypeAlignment::getSize(arg));
+      const void *vptrsize = (const void *)&size;
+      CFNumberRef valsizeref = CFNumberCreate(NULL, kCFNumberIntType, vptrsize);
 
-    // If this is a byval argument, it is always a pointer type.  We actually
-    // care about the type of the argument being pointed to by the byval arg.
-    if (ai->hasByValAttr())
-      Ty = cast<PointerType>(Ty)->getElementType();
+      // Append size value to the function arg sizes array.
+      CFArrayAppendValue(kf_argsizes, valsizeref);
+      CFRelease(valsizeref);
 
-    unsigned desc = args_desc.empty() ? 0 : args_desc[j];
+      // Create a CFNumber to hold the alignment value.
+      int alignment = ((int)Intel::OpenCL::DeviceBackend::TypeAlignment::getAlignment(arg));
+      const void *vptralignment = (const void *)&alignment;
+      CFNumberRef valalignmentref = CFNumberCreate(NULL, kCFNumberIntType, vptralignment);
 
-    // The size of the argument in bytes, if requested.
-    uint32_t size = TD.getTypeAllocSize(Ty);
+      // Append size value to the function arg sizes array.
+      CFArrayAppendValue(kf_argalignments, valalignmentref);
+      CFRelease(valalignmentref);
 
-    // If the argument is a pointer, it is a stream. If the pointer type has
-    // an address space qualifier of 3 (local), then set the local flag on the
-    // stream as well.
-    unsigned flags = 0;
-    switch (desc)  {
-      case '1': flags = CLD_ARGS_FLAGS_GLOBAL | CLD_ARGS_FLAGS_RD; break;
-      case '2': flags = CLD_ARGS_FLAGS_GLOBAL | CLD_ARGS_FLAGS_WR; break;
-      case '4': flags = CLD_ARGS_FLAGS_SAMPLER; break;
-      case '5': flags = CLD_ARGS_FLAGS_IMAGE | CLD_ARGS_FLAGS_RD; break;
-      case '6': flags = CLD_ARGS_FLAGS_IMAGE | CLD_ARGS_FLAGS_WR; break;
-      case '8': flags = CLD_ARGS_FLAGS_CONST; break;
-      case '9': flags = CLD_ARGS_FLAGS_LOCAL; break;
-      case 'a': flags = CLD_ARGS_FLAGS_IMAGE | CLD_ARGS_FLAGS_RD | CLD_ARGS_FLAGS_WR; break;
-      default: break;
-    }
+      Type *Ty = ai->getType();
 
-    assert(sizeof(uint64_t) == 2 * sizeof(size));
-    assert(sizeof(uint64_t) == 2 * sizeof(flags));
+      // If this is a byval argument, it is always a pointer type.  We actually
+      // care about the type of the argument being pointed to by the byval arg.
+      if (ai->hasByValAttr())
+        Ty = cast<PointerType>(Ty)->getElementType();
 
-    // Create a CFNumber to hold the values we calculated.
-    uint64_t val = ((uint64_t)size) << 32 | (uint64_t)flags;
-    const void *vptr = (const void *)&val;
-    CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+      unsigned desc = args_desc.empty() ? 0 : args_desc[j];
 
-    // Append to info value to the function arg info array.
-    CFArrayAppendValue(kfinfo, valref);
-    CFRelease(valref);
+      // The size of the argument in bytes, if requested.
+      uint32_t size = TD.getTypeAllocSize(Ty);
 
-    // Append the argument name to kf_argnames
-    if (kmd->isArgNamesHasValue()) {
-      std::string argname = kmd->getArgNamesItem(j);
-      CFStringRef cfargname = CFStringCreateWithCString(NULL, argname.c_str(),
-                                                        kCFStringEncodingUTF8);
-      CFArrayAppendValue(kf_argnames, cfargname);
-      CFRelease(cfargname);
-    }
+      // If the argument is a pointer, it is a stream. If the pointer type has
+      // an address space qualifier of 3 (local), then set the local flag on the
+      // stream as well.
+      unsigned flags = 0;
+      switch (desc)  {
+        case '1': flags = CLD_ARGS_FLAGS_GLOBAL | CLD_ARGS_FLAGS_RD; break;
+        case '2': flags = CLD_ARGS_FLAGS_GLOBAL | CLD_ARGS_FLAGS_WR; break;
+        case '4': flags = CLD_ARGS_FLAGS_SAMPLER; break;
+        case '5': flags = CLD_ARGS_FLAGS_IMAGE | CLD_ARGS_FLAGS_RD; break;
+        case '6': flags = CLD_ARGS_FLAGS_IMAGE | CLD_ARGS_FLAGS_WR; break;
+        case '8': flags = CLD_ARGS_FLAGS_CONST; break;
+        case '9': flags = CLD_ARGS_FLAGS_LOCAL; break;
+        case 'a': flags = CLD_ARGS_FLAGS_IMAGE | CLD_ARGS_FLAGS_RD | CLD_ARGS_FLAGS_WR; break;
+        default: break;
+      }
 
-    // Remember the type of the argument.
-    if (kmd->isArgTypesHasValue()) {
-      std::string tyname = kmd->getArgTypesItem(j);
-      CFStringRef cfargtype = CFStringCreateWithCString(NULL, tyname.c_str(),
-                                                          kCFStringEncodingUTF8);
-      CFArrayAppendValue(kf_argtypes, cfargtype);
-      CFRelease(cfargtype);
-    }
-
-    // Remember the type qual of the arg.
-    if (kmd->isArgTypeQualsHasValue()) {
-      std::string quals = kmd->getArgTypeQualsItem(j);
-
-      // Given the string, convert to numerical representation.
-      unsigned qualflags = 0;
-      if (quals.find("const") != std::string::npos)
-        qualflags |= CLD_ARGS_FLAGS_TYPE_QUAL_CONST;
-      if (quals.find("volatile") != std::string::npos)
-        qualflags |= CLD_ARGS_FLAGS_TYPE_QUAL_VOLATILE;
-      if (quals.find("restrict") != std::string::npos)
-        qualflags |= CLD_ARGS_FLAGS_TYPE_QUAL_RESTRICT;
+      assert(sizeof(uint64_t) == 2 * sizeof(size));
+      assert(sizeof(uint64_t) == 2 * sizeof(flags));
 
       // Create a CFNumber to hold the values we calculated.
-      uint64_t val = (uint64_t)qualflags;
+      uint64_t val = ((uint64_t)size) << 32 | (uint64_t)flags;
       const void *vptr = (const void *)&val;
-      valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+      CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
 
       // Append to info value to the function arg info array.
-      CFArrayAppendValue(kf_argtypequals, valref);
+      CFArrayAppendValue(kfinfo, valref);
       CFRelease(valref);
-    }
-  }
 
-  // Insert work group dimensions.
-  const unsigned max_wg_dim = 3;
-  CFMutableArrayRef kf_wg_dims = CFArrayCreateMutable(NULL, max_wg_dim,
+      // Append the argument name to kf_argnames
+      if (kmd->isArgNamesHasValue()) {
+        std::string argname = kmd->getArgNamesItem(j);
+        CFStringRef cfargname = CFStringCreateWithCString(NULL, argname.c_str(),
+                                                          kCFStringEncodingUTF8);
+        CFArrayAppendValue(kf_argnames, cfargname);
+        CFRelease(cfargname);
+      }
+
+      // Remember the type of the argument.
+      if (kmd->isArgTypesHasValue()) {
+        std::string tyname = kmd->getArgTypesItem(j);
+        CFStringRef cfargtype = CFStringCreateWithCString(NULL, tyname.c_str(),
+                                                            kCFStringEncodingUTF8);
+        CFArrayAppendValue(kf_argtypes, cfargtype);
+        CFRelease(cfargtype);
+      }
+
+      // Remember the type qual of the arg.
+      if (kmd->isArgTypeQualsHasValue()) {
+        std::string quals = kmd->getArgTypeQualsItem(j);
+
+        // Given the string, convert to numerical representation.
+        unsigned qualflags = 0;
+        if (quals.find("const") != std::string::npos)
+          qualflags |= CLD_ARGS_FLAGS_TYPE_QUAL_CONST;
+        if (quals.find("volatile") != std::string::npos)
+          qualflags |= CLD_ARGS_FLAGS_TYPE_QUAL_VOLATILE;
+        if (quals.find("restrict") != std::string::npos)
+          qualflags |= CLD_ARGS_FLAGS_TYPE_QUAL_RESTRICT;
+
+        // Create a CFNumber to hold the values we calculated.
+        uint64_t val = (uint64_t)qualflags;
+        const void *vptr = (const void *)&val;
+        valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+
+        // Append to info value to the function arg info array.
+        CFArrayAppendValue(kf_argtypequals, valref);
+        CFRelease(valref);
+      }
+    }
+
+    // Insert work group dimensions.
+    const unsigned max_wg_dim = 3;
+    CFMutableArrayRef kf_wg_dims = CFArrayCreateMutable(NULL, max_wg_dim,
                                                       &kCFTypeArrayCallBacks);
 
-
 #ifdef REQD_WORK_GROUP_SIZE
-  // TODO: enable this code when required work group size will be passed by metadata
-  //       instead of in "llvm.global.annotations", which will be deprecated
-  if (KernelRWGsize) {
+    // TODO: enable this code when required work group size will be passed by metadata
+    //       instead of in "llvm.global.annotations", which will be deprecated
+    if (KernelRWGsize) {
       // Get Required work group size.
       for (unsigned k = 0; k < max_wg_dim; ++k) {
         // With this MDNode, there is a key followed by max_wg_dim number of type WG sizes 
@@ -332,6 +330,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     }
 #else
     // TODO: Remove this code when "llvm.global.annotations" is deprecated
+    unsigned int j = arguments.size();
     if (!args_desc.empty() && args_desc[j] == 'R') {
       // Get Required work group size.
       assert(args_desc[j+1] == 'W' && args_desc[j+2] == 'G' &&
@@ -1204,7 +1203,7 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
     cpuFeatures |= Intel::CFS_SSE41 | Intel::CFS_SSE42;
   }
 
-  if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("sandybridge"))
+  if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("corei7-avx"))
   {
     cpuFeatures |= Intel::CFS_AVX1;
   }
