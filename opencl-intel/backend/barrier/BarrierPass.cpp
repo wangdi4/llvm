@@ -15,8 +15,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
-#include <set>
-
 namespace intel {
 
   char Barrier::ID = 0;
@@ -64,13 +62,15 @@ namespace intel {
   }
 
   bool Barrier::runOnFunction(Function &F) {
-    m_pSyncInstructions = &m_pDataPerBarrier->getSyncInstructions(&F);
+    if (F.isDeclaration())
+      return false;
 
     //Check if function has no synchronize instructions!
     if ( !m_pDataPerBarrier->hasSyncInstruction(&F) ) {
       //Function has no barrier: do nothing!
-      return true;
+      return false;
     }
+    m_pSyncInstructions = &m_pDataPerBarrier->getSyncInstructions(&F);
 
     m_pSpecialValues = &m_pDataPerValue->getValuesToHandle(&F);
     m_pAllocaValues = &m_pDataPerValue->getAllocaValuesToHandle(&F);
@@ -199,7 +199,7 @@ namespace intel {
       //Run over all saved uses instructions and handle them
       for ( TInstructionVector::iterator ui = userInsts.begin(),
         ue = userInsts.end(); ui != ue; ) {
-          Instruction *pUserInst = dyn_cast<Instruction>(*ui);
+          Instruction *pUserInst = *ui;
           Instruction *pInsertBefore = getInstructionToInsertBefore(pAllocaInst, pUserInst, false);
           assert( pInsertBefore && "pInsertBefore is NULL, update getInstructionToInsertBefore()!" );
           //Calculate the pointer of the current alloca in the special buffer
@@ -236,7 +236,7 @@ namespace intel {
       //Get offset of special value in special buffer
       unsigned int offset = m_pDataPerValue->getOffset(pInst);
       //Find next instruction so we can create new instruction before it
-      Instruction *pNextInst = dyn_cast<Instruction>(&*(++BasicBlock::iterator(pInst)));
+      Instruction *pNextInst = &*(++BasicBlock::iterator(pInst));
       if ( isa<PHINode>(pNextInst) ) {
         //pNextInst is a PHINode, find first non PHINode to add instructions before it
         pNextInst = pNextInst->getParent()->getFirstNonPHI();
@@ -246,7 +246,7 @@ namespace intel {
       //Handle Special buffer only if it is not a call instruction.
       //Special buffer value of call instruction will be handled in the callee.
       if( !( isa<CallInst>(pInst) &&
-        m_pDataPerInternalFunction->needToBeFixed(dyn_cast<CallInst>(pInst)) ) ) {
+        m_pDataPerInternalFunction->needToBeFixed(cast<CallInst>(pInst)) ) ) {
           //Calculate the pointer of the current special in the special buffer
           Value *pAddrInSpecialBuffer = getAddressInSpecialBuffer(offset, pType, pNextInst);
           Instruction *pInstToStore = !oneBitBaseType ? pInst :
@@ -279,7 +279,7 @@ namespace intel {
       //load instruction before each value use
       for ( TInstructionVector::iterator ui = userInsts.begin(),
         ue = userInsts.end(); ui != ue; ) {
-          Instruction *pUserInst = dyn_cast<Instruction>(*ui);
+          Instruction *pUserInst = *ui;
           Instruction *pInsertBefore = getInstructionToInsertBefore(pInst, pUserInst, true);
           if ( !pInsertBefore ) {
             //as no barrier in the middle, no need to load & replace the origin value
@@ -305,7 +305,7 @@ namespace intel {
       Instruction *pInst = dyn_cast<Instruction>(*vi);
       assert( pInst && "container of special values has non Instruction value!" );
       //Find next instruction so we can create new instruction before it
-      Instruction *pNextInst = dyn_cast<Instruction>(&*(++BasicBlock::iterator(pInst)));
+      Instruction *pNextInst = &*(++BasicBlock::iterator(pInst));
       if ( isa<PHINode>(pNextInst) ) {
         //pNextInst is a PHINode, find first non PHINode to add instructions before it
         pNextInst = pNextInst->getParent()->getFirstNonPHI();
@@ -331,7 +331,7 @@ namespace intel {
       //load instruction before each value use
       for ( TInstructionVector::iterator ui = userInsts.begin(),
         ue = userInsts.end(); ui != ue; ) {
-          Instruction *pUserInst = dyn_cast<Instruction>(*ui);
+          Instruction *pUserInst = *ui;
           Instruction *pInsertBefore = getInstructionToInsertBefore(pInst, pUserInst, true);
           if ( !pInsertBefore ) {
             //as no barrier in the middle, no need to load & replace the origin value
@@ -362,8 +362,7 @@ namespace intel {
     }
     for ( TInstructionSet::iterator ii = m_pSyncInstructions->begin(),
       ie = m_pSyncInstructions->end(); ii != ie; ++ii ) {
-        Instruction *pInst = dyn_cast<Instruction>(*ii);
-        assert( pInst && "sync instruction container contains non instruction!" );
+        Instruction *pInst = *ii;
         unsigned int id = m_pDataPerBarrier->getUniqueID(pInst);
         SYNC_TYPE type = m_pDataPerBarrier->getSyncType(pInst);
         BasicBlock *pSyncBB = pInst->getParent();
@@ -437,7 +436,7 @@ namespace intel {
           m_pStructureSizeValue, "loadedCurrSB+Stride", pThenBB);
         new StoreInst(pUpdatedCurrSB, m_pCurrSBValue, pThenBB);
 
-        Instruction *pFirstSyncInst = dyn_cast<Instruction>(*pSyncPreds->begin());
+        Instruction *pFirstSyncInst = *pSyncPreds->begin();
         if ( numCases == 1 ) {
           //Only one case, no need for switch, create unconditional jump
           BranchInst::Create(pFirstSyncInst->getParent(), pThenBB);
@@ -448,7 +447,7 @@ namespace intel {
           SwitchInst *pSwitch = SwitchInst::Create(pLoadedCurrBarrier, pFirstSyncInst->getParent(), numCases-1, pThenBB);
           for ( TInstructionVector::iterator ii = pSyncPreds->begin(),
             ie = pSyncPreds->end(); (++ii) != ie; ) {
-              Instruction *pSyncInst = dyn_cast<Instruction>(*ii);
+              Instruction *pSyncInst = *ii;
               unsigned int predId = m_pDataPerBarrier->getUniqueID(pSyncInst);
               pSwitch->addCase(ConstantInt::get(*m_pContext, APInt(32, predId)), pSyncInst->getParent());
           }
@@ -465,12 +464,14 @@ namespace intel {
           m_pCurrSBValue, pElseBB);
         new StoreInst(ConstantInt::get(Type::getInt32Ty(*m_pContext), APInt(32, id)),
           m_pCurrBarrierValue, pElseBB);
-        CallInst *pBarrier = dyn_cast<CallInst>(pInst);
-        assert( pBarrier && "Barrier instruction is not a CallInst!" );
+        assert(isa<CallInst>(pInst) &&
+               "Barrier instruction is not a CallInst!");
+        CallInst *pBarrier = cast<CallInst>(pInst);
         Value *pArg1 = pBarrier->getOperand(0);
         assert( pArg1 && "Barrier instruction has no first argument!" );
-        ConstantInt *pMemFence = dyn_cast<ConstantInt>(pArg1);
-        assert( pMemFence && "Barrier instruction has non constant first argument (memory fence)!" );
+        assert(isa<ConstantInt>(pArg1) &&
+               "Barrier first argument (memory fence) must be const!");
+        ConstantInt *pMemFence = cast<ConstantInt>(pArg1);
         if ( pMemFence->getZExtValue() & CLK_GLOBAL_MEM_FENCE ) {
           //barrier(global): add mem_fence instruction!
           m_util.createMemFence(pElseBB);
@@ -540,7 +541,7 @@ namespace intel {
       // Move alloca instructions for locals/parameters for debugging purposes
       for (TValueVector::iterator vi = m_pAllocaValues->begin(), ve = m_pAllocaValues->end();
            vi != ve; ++vi ) {
-        AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(*vi);
+        AllocaInst *pAllocaInst = cast<AllocaInst>(*vi);
         pAllocaInst->moveBefore(pInsertBefore);
       }
     }
@@ -634,7 +635,7 @@ namespace intel {
     //Run over all functions to be fixed in the right order (from leaf to root)
     for ( TFunctionVector::iterator fi = functionsTofix.begin(),
       fe = functionsTofix.end(); fi != fe; ++fi ) {
-        Function *pFuncToFix = dyn_cast<Function>(*fi);
+        Function *pFuncToFix = *fi;
         //Create fixed version of the function with extra offset parameters
         Function *pNewFunc = createFixFunctionVersion(pFuncToFix);
 
@@ -643,7 +644,7 @@ namespace intel {
         //Run over old uses of pFuncToFix and replace with call to pNewFunc
         for ( Value::use_iterator ui = pFuncToFix->use_begin(),
           ue = pFuncToFix->use_end(); ui != ue; ++ui ) {
-            CallInst *pCallInst = dyn_cast<CallInst>(*ui);
+            CallInst *pCallInst = cast<CallInst>(*ui);
             //Create call instruction to new function version
             if ( createFixedCallInstruction(pCallInst, pFuncToFix, pNewFunc) ) {
               //If new call instruction created we can remove the old one
@@ -786,12 +787,12 @@ namespace intel {
 
       std::vector<BasicBlock*> pVecBB;
       for ( Function::iterator bi = pNewFunc->begin(), be = pNewFunc->end(); bi != be; ++bi ) {
-        BasicBlock *pBB = dyn_cast<BasicBlock>(&*bi);
+        BasicBlock *pBB = &*bi;
         pVecBB.push_back(pBB);
       }
       //Run over all basic blocks of the new function and handle return terminators
       for ( std::vector<BasicBlock*>::iterator bi = pVecBB.begin(), be = pVecBB.end(); bi != be; ++bi ) {
-        BasicBlock *pBB = dyn_cast<BasicBlock>(*bi);
+        BasicBlock *pBB = *bi;
         ReturnInst *pRetInst = dyn_cast<ReturnInst>(pBB->getTerminator());
         if ( !pRetInst ) {
           //It is not return instruction terminator, check next basic block
@@ -801,7 +802,7 @@ namespace intel {
         Value *pRetVal = pRetInst->getOperand(0);
         if ( Instruction *pInst = dyn_cast<Instruction>(pRetVal) ) {
           //Find next instruction so we can create new instruction before it
-          Instruction *pNextInst = dyn_cast<Instruction>(&*(++BasicBlock::iterator(pInst)));
+          Instruction *pNextInst = &*(++BasicBlock::iterator(pInst));
           if ( isa<PHINode>(pNextInst) ) {
             //pNextInst is a PHINode, find first non PHINode to add instructions before it
             pNextInst = pNextInst->getParent()->getFirstNonPHI();
@@ -940,7 +941,7 @@ namespace intel {
     //in such case no need to handle it here as it will be saved
     //to the special buffer by the called function itself.
     if ( !( isa<CallInst>(pRetVal) &&
-      m_pDataPerInternalFunction->needToBeFixed(dyn_cast<CallInst>(pRetVal)) ) ) {
+      m_pDataPerInternalFunction->needToBeFixed(cast<CallInst>(pRetVal)) ) ) {
         //Calculate the pointer of the current special in the special buffer
         Value *Idxs[1];
         Value *pLoadedCurrSB = new LoadInst(m_pCurrSBValue, "loadedCurrSB", pNextInst);

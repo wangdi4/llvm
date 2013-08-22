@@ -36,7 +36,7 @@ namespace intel {
 
         BasicBlock::iterator bb_prevIt(pInst);
         if ( bb_prevIt != pInst->getParent()->begin() ) {
-          Instruction *pPrevInst = dyn_cast<Instruction>(--bb_prevIt);
+          Instruction *pPrevInst = &*(--bb_prevIt);
           if( SYNC_TYPE_NONE != m_util.getSynchronizeType(pPrevInst) ) {
             //This is not first synchronize instruction in the sequence
             continue;

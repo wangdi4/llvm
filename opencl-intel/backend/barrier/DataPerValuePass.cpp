@@ -14,6 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/raw_ostream.h"
 
+
 namespace intel {
   char DataPerValue::ID = 0;
 
@@ -65,7 +66,8 @@ namespace intel {
   }
 
   bool DataPerValue::runOnFunction(Function &F) {
-    m_pSyncInstructions = &m_pDataPerBarrier->getSyncInstructions(&F);
+    if (F.isDeclaration())
+      return false;
 
     //Check if function has no synchronize instruction!
     if ( !m_pDataPerBarrier->hasSyncInstruction(&F) ) {
@@ -73,13 +75,15 @@ namespace intel {
       return false;
     }
 
+    m_pSyncInstructions = &m_pDataPerBarrier->getSyncInstructions(&F);
+
     //run over all the values of the function and Cluster into 3 groups
     //Group-A   : Alloca instructions
     //Group-B.1 : Values crossed barriers and the value is
     //            related to WI-Id or initialized inside a loop
     //Group-B.2 : Value crossed barrier but does not suit Group-B.2
     for ( inst_iterator ii = inst_begin(F), ie = inst_end(F); ii != ie; ++ii ) {
-      Instruction *pInst = dyn_cast<Instruction>(&*ii);
+      Instruction *pInst = &*ii;
       if ( isa<AllocaInst>(pInst) ) {
         //It is an alloca value, add it to Group_A container
         m_allocaValuesPerFuncMap[&F].push_back(pInst);
@@ -161,7 +165,7 @@ namespace intel {
       TInstructionSet::iterator ii = m_pSyncInstructions->begin();
       TInstructionSet::iterator ie = m_pSyncInstructions->end();
       for ( ; ii != ie; ++ii ) {
-        Instruction *pSyncInst = dyn_cast<Instruction>(*ii);
+        Instruction *pSyncInst = *ii;
         BasicBlock *pSyncBB = pSyncInst->getParent();
         if ( pSyncBB->getParent() != pValBB->getParent() ) {
           assert(false && "can we reach sync instructions from other functions?!" );
@@ -223,13 +227,13 @@ namespace intel {
     while ( !basicBlocksToHandle.empty() ) {
       BasicBlock *pBBToHandle = basicBlocksToHandle.back();
       basicBlocksToHandle.pop_back();
-      Instruction *pFirstInst = dyn_cast<Instruction>(pBBToHandle->begin());
+      Instruction *pFirstInst = &*(pBBToHandle->begin());
       if ( m_pSyncInstructions->count(pFirstInst) ) {
         //Found a barrier
         return true;
       }
       for (pred_iterator i = pred_begin(pBBToHandle), e = pred_end(pBBToHandle); i != e; ++i) {
-        BasicBlock *pred_bb = dyn_cast<BasicBlock>(*i);
+        BasicBlock *pred_bb = *i;
         if ( pred_bb == pValBB ) {
           //Reached pValBB stop recursive at this direction!
           continue;
@@ -256,7 +260,7 @@ namespace intel {
     //Run over all special values in function
     for ( TValueVector::iterator vi = specialValues.begin(),
       ve = specialValues.end(); vi != ve; ++vi ) {
-        Value *pVal = dyn_cast<Value>(*vi);
+        Value *pVal = *vi;
         //Get Offset of special value type
         m_valueToOffsetMap[pVal] = getValueOffset(pVal, pVal->getType(), 0, bufferData);
     }
@@ -266,8 +270,8 @@ namespace intel {
     //Run over all special values in function
     for ( TValueVector::iterator vi = allocaValues.begin(),
       ve = allocaValues.end(); vi != ve; ++vi ) {
-        Value *pVal = dyn_cast<Value>(*vi);
-        AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(pVal);
+        Value *pVal = *vi;
+        AllocaInst *pAllocaInst = cast<AllocaInst>(pVal);
         //Get Offset of alloca instruction contained type
         m_valueToOffsetMap[pVal] = getValueOffset(pVal,
           pVal->getType()->getContainedType(0), pAllocaInst->getAlignment(), bufferData);
@@ -333,7 +337,7 @@ namespace intel {
 
     //Run on all functions in module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
-      Function* pFunc = dyn_cast<Function>(fi);
+      Function* pFunc = fi;
       if ( pFunc->isDeclaration() ) {
         //Skip non defined functions
         continue;
@@ -395,7 +399,7 @@ namespace intel {
     TValuesPerFunctionMap::const_iterator fi = m_allocaValuesPerFuncMap.begin();
     TValuesPerFunctionMap::const_iterator fe = m_allocaValuesPerFuncMap.end();
     for ( ; fi != fe; ++fi ) {
-      Function *pFunc = dyn_cast<Function>(fi->first);
+      Function *pFunc = fi->first;
       const TValueVector &vv = fi->second;
       if ( vv.empty() ) {
         // Function has no values of Group-A
@@ -404,7 +408,7 @@ namespace intel {
       //Print function name
       OS << "+" << pFunc->getName() << "\n";
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
-        Value *pValue = dyn_cast<Value>(*vi);
+        Value *pValue = *vi;
         //Print alloca value name
         OS << "\t-" << pValue->getName() << "\t(" << m_valueToOffsetMap.find(pValue)->second << ")\n";
       }
@@ -416,7 +420,7 @@ namespace intel {
     fi = m_specialValuesPerFuncMap.begin();
     fe = m_specialValuesPerFuncMap.end();
     for ( ; fi != fe; ++fi ) {
-      Function *pFunc = dyn_cast<Function>(fi->first);
+      Function *pFunc = fi->first;
       const TValueVector &vv = fi->second;
       if ( vv.empty() ) {
         // Function has no values of Group-B.1
@@ -425,7 +429,7 @@ namespace intel {
       //Print function name
       OS << "+" << pFunc->getName() << "\n";
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
-        Value *pValue = dyn_cast<Value>(*vi);
+        Value *pValue = *vi;
         //Print special value name
         OS << "\t-" << pValue->getName() << "\t(" << m_valueToOffsetMap.find(pValue)->second << ")\n";
       }
@@ -437,7 +441,7 @@ namespace intel {
     fi = m_crossBarrierValuesPerFuncMap.begin();
     fe = m_crossBarrierValuesPerFuncMap.end();
     for ( ; fi != fe; ++fi ) {
-      Function *pFunc = dyn_cast<Function>(fi->first);
+      Function *pFunc = fi->first;
       const TValueVector &vv = fi->second;
       if ( vv.empty() ) {
         // Function has no values of Group-B.2
@@ -446,7 +450,7 @@ namespace intel {
       //Print function name
       OS << "+" << pFunc->getName() << "\n";
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
-        Value *pValue = dyn_cast<Value>(*vi);
+        Value *pValue = *vi;
         //Print cross barrier uniform value name
         OS << "\t-" << pValue->getName() << "\n";
       }

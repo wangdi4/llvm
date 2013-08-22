@@ -110,7 +110,7 @@ namespace intel {
     // Add barrier call before each ret instruction in pFunc
     for ( TInstructionVector::iterator ii = retInstructions.begin(),
       ie = retInstructions.end(); ii != ie; ++ii ) {
-        Instruction *pRetInst = dyn_cast<Instruction>(*ii);
+        Instruction *pRetInst = *ii;
         m_util.createBarrier(pRetInst);
     }
   }
@@ -142,7 +142,7 @@ namespace intel {
     TInstructionVector::iterator ii = fibersToRemove.begin();
     TInstructionVector::iterator ie = fibersToRemove.end();
     for( ;ii != ie; ++ii ) {
-      Instruction *pInstToRemove = dyn_cast<Instruction>(*ii);
+      Instruction *pInstToRemove = *ii;
       pInstToRemove->eraseFromParent();
     }
   }

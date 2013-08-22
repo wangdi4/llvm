@@ -116,38 +116,56 @@ namespace intel {
     return false;
   }
 
-  void DataPerInternalFunction::calculateCallingOrder() {
-    TFunctionSet functionsToHandle;
-    //Initialize functionToHandle container with functions that need to be fixed
-    for ( TDataPerFunctionMap::iterator fi = m_dataPerFuncMap.begin(),
-      fe = m_dataPerFuncMap.end(); fi != fe; ++fi ) {
-        if( fi->second.m_needToBeFixed ) {
-          functionsToHandle.insert(fi->first);
-        }
+  /// FuncNameComp - compare two Function's by their names
+  struct FuncNameComp {
+    bool operator()(const Function *A, const Function *B) const {
+      return A->getName() < B->getName();
     }
-    while ( !functionsToHandle.empty() ) {
-      for ( TFunctionSet::iterator fi = functionsToHandle.begin(),
-        fe = functionsToHandle.end(); fi != fe; ++fi )
-      {
-        Function *pFunc = dyn_cast<Function>(*fi);
+  };
+
+  void DataPerInternalFunction::calculateCallingOrder() {
+    // SetStableIterFunc sorts functions in alphabetical order and not by the
+    // pointer to the function, which gurantees a stable iterator. This relies
+    // on the assumption that there are no two functions in the module with the
+    // same name.
+    typedef std::set<Function *, FuncNameComp> SetStableIterFunc;
+    SetStableIterFunc functionsToHandle;
+    // Initialize functionToHandle container with functions that need to be
+    // fixed
+    for (TDataPerFunctionMap::iterator fi = m_dataPerFuncMap.begin(),
+                                       fe = m_dataPerFuncMap.end();
+         fi != fe; ++fi) {
+      if (fi->second.m_needToBeFixed) {
+        functionsToHandle.insert(fi->first);
+      }
+    }
+    while (!functionsToHandle.empty()) {
+      for (SetStableIterFunc::iterator fi = functionsToHandle.begin(),
+                                       fe = functionsToHandle.end();
+           fi != fe; ++fi) {
+        Function *pFunc = *fi;
         bool isRoot = true;
-        for ( Value::use_iterator ui = pFunc->use_begin(),
-          ue = pFunc->use_end(); ui != ue; ++ui ) {
-            CallInst *pCallInst = dyn_cast<CallInst>(*ui);
-            assert(pCallInst && "Something other than CallInst is using function!");
-            Function *pCallerFunc = pCallInst->getParent()->getParent();
-            if ( functionsToHandle.count(pCallerFunc) ) {
-              isRoot = false;
-              break;
-            }
+        for (Value::use_iterator ui = pFunc->use_begin(), ue = pFunc->use_end();
+             ui != ue; ++ui) {
+          assert(isa<CallInst>(*ui) &&
+                 "Something other than CallInst is using function!");
+          CallInst *pCallInst = cast<CallInst>(*ui);
+          Function *pCallerFunc = pCallInst->getParent()->getParent();
+          if (functionsToHandle.count(pCallerFunc)) {
+            isRoot = false;
+            break;
+          }
         }
-        if ( isRoot ) {
-          m_orderedFunctionsToFix.insert(m_orderedFunctionsToFix.begin(), pFunc);
-          functionsToHandle.erase(fi);
+        if (isRoot) {
+          m_orderedFunctionsToFix.push_back(pFunc);
+          functionsToHandle.erase(*fi);
           break;
         }
       }
     }
+    // We want the elements later in reversed topological order
+    std::reverse(m_orderedFunctionsToFix.begin(),
+                 m_orderedFunctionsToFix.end());
   }
 
   void DataPerInternalFunction::print(raw_ostream &OS, const Module *M) const {
@@ -193,7 +211,7 @@ namespace intel {
     for ( TFunctionVector::const_iterator fi = m_orderedFunctionsToFix.begin(),
       fe = m_orderedFunctionsToFix.end(); fi != fe; ++fi ) {
         //Print call instruction
-        Function *pFunc = dyn_cast<Function>(*fi);
+        Function *pFunc = *fi;
         OS << "\t" << pFunc->getName() << "\n";
     }
 

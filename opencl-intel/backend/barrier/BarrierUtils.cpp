@@ -78,11 +78,11 @@ namespace intel {
       return pUserInst->getParent();
     }
     //Usage is a PHINode, find previous basic block according to pVal
-    PHINode *pPhiNode =  dyn_cast<PHINode>(pUserInst);
+    PHINode *pPhiNode = cast<PHINode>(pUserInst);
     BasicBlock *pPrevBB = NULL;
     for ( pred_iterator bi = pred_begin(pPhiNode->getParent()),
       be = pred_end(pPhiNode->getParent()); bi != be; ++bi ) {
-        BasicBlock *pBB = dyn_cast<BasicBlock>(*bi);
+        BasicBlock *pBB = *bi;
         Value *pPHINodeVal = pPhiNode->getIncomingValueForBlock(pBB);
         if ( pPHINodeVal == pVal ) {
           //pBB is the previous basic block
@@ -407,7 +407,7 @@ namespace intel {
       //functions that calls other functions from this module
       for ( Module::iterator fi = m_pModule->begin(),
         fe = m_pModule->end(); fi != fe; ++fi ) {
-          Function *pCalledFunc = dyn_cast<Function>(&*fi);
+          Function *pCalledFunc = &*fi;
           if ( pCalledFunc->isDeclaration() ) {
             //It is not an internal function, only delaration
             continue;

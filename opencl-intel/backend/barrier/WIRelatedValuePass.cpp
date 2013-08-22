@@ -39,11 +39,11 @@ namespace intel {
     //As lonst as we have values to update
     while(!m_changed.empty()) {
       //copy the list aside
-      std::set<Value*> changed(m_changed.begin(), m_changed.end());
+      std::vector<Value*> changed(m_changed.begin(), m_changed.end());
       //clear the original list, for next iteration
       m_changed.clear();
       //update all changed values
-      for ( std::set<Value*>::iterator vi = changed.begin(), ve = changed.end();
+      for ( std::vector<Value*>::iterator vi = changed.begin(), ve = changed.end();
           vi != ve; ++vi) {
         //remove first instruction
         //calculate its new dependencey value

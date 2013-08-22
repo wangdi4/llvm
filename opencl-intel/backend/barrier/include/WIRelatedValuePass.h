@@ -11,9 +11,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
+#include "llvm/ADT/SetVector.h"
 
 #include <map>
-#include <set>
 
 using namespace llvm;
 
@@ -112,10 +112,9 @@ namespace intel {
 
   private:
     typedef std::map<Value*, bool> TValuesMap;
-
     // Internal Data used to calculate user Analysis Data
     /// Saves which values changed in this round
-    std::set<Value*> m_changed;
+    SetVector<Value*> m_changed;
 
     // Analysis Data for pass user
     /// This holds a map between value and it relation on WI-id (related or not)

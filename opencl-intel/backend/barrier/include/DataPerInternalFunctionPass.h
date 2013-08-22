@@ -13,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/Function.h"
+#include "llvm/ADT/MapVector.h"
 
 using namespace llvm;
 
@@ -28,7 +29,7 @@ namespace intel {
       TCounterVector m_argsInSpecialBuffer;
       bool m_needToBeFixed;
     } TInternalFunctionData;
-    typedef std::map<Function*, TInternalFunctionData> TDataPerFunctionMap;
+    typedef MapVector<Function*, TInternalFunctionData> TDataPerFunctionMap;
     typedef struct {
       TCounterVector m_argsOffsets;
     } TInternalCallData;
@@ -83,6 +84,7 @@ namespace intel {
     /// @param argIndex function argument index
     /// @returns container with in special buffer counters of pFunc arguments
     bool alwaysInSpecialBuffer(Function *pFunc, unsigned int argIndex) {
+      assert(m_dataPerFuncMap.count(pFunc) && "Function has no sync data!");
       assert( m_dataPerFuncMap[pFunc].m_numberOfUses >=
         m_dataPerFuncMap[pFunc].m_argsInSpecialBuffer[argIndex] &&
         "number of usages of pFunc is smaller than number of calls to pFunc!" );
@@ -97,6 +99,7 @@ namespace intel {
     /// @returns true if and only if there is a call to pFunc
     ///  with special buffer value passed to argIndex
     bool isInSpecialBuffer(Function *pFunc, unsigned int argIndex) {
+      assert(m_dataPerFuncMap.count(pFunc) && "Function has no sync data!");
       return ( 0 != m_dataPerFuncMap[pFunc].m_argsInSpecialBuffer[argIndex] );
     }
 

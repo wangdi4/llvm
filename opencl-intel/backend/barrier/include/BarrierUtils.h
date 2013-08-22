@@ -14,6 +14,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #endif
 #include "llvm/Constants.h"
 
+#include "llvm/ADT/SetVector.h"
+
 //Forward declaration
 namespace llvm {
   class Module;
@@ -26,7 +28,6 @@ namespace llvm {
   class Twine;
 }
 
-#include <set>
 #include <vector>
 using namespace llvm;
 
@@ -64,9 +65,9 @@ namespace intel {
   typedef std::vector<BasicBlock*> TBasicBlockVector;
   typedef std::vector<Function*> TFunctionVector;
 
-  typedef std::set<Instruction*> TInstructionSet;
-  typedef std::set<Function*> TFunctionSet;
-  typedef std::set<BasicBlock*> TBasicBlockSet;
+  typedef SetVector<Instruction*> TInstructionSet;
+  typedef SetVector<Function*> TFunctionSet;
+  typedef SetVector<BasicBlock*> TBasicBlockSet;
 
   /// @brief BarrierUtils is utility class that collects several data
   /// and processes several functionality on a given module
