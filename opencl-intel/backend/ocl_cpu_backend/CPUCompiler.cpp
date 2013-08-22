@@ -149,7 +149,7 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
         cpuFeatures |= CFS_SSE41 | CFS_SSE42;
     }
 
-    if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("sandybridge"))
+    if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("corei7-avx"))
     {
         cpuFeatures |= CFS_AVX1;
     }
