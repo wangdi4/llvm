@@ -91,7 +91,7 @@ if(CMAKE_CROSSCOMPILING)
   set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
 endif()
 
-if (INCLUDE_TOOLS)
+if(INCLUDE_TOOLS)
     if(WIN32)
         if(BUILD_X64)
             set(BOOST_LIB_DIR_SUFFIX x64)
@@ -107,8 +107,11 @@ if (INCLUDE_TOOLS)
     endif(WIN32)
     
     set (BOOST_LIBRARYDIR ${BOOST_ROOT}/lib/${BOOST_LIB_DIR_SUFFIX})
-    set (Boost_NO_SYSTEM_PATHS ON)
+    set (Boost_NO_SYSTEM_PATHS ON) # Don't search PATH
+    
+# To add new components for Boost simply add to BOOST_COMPONENTS below
     set (BOOST_COMPONENTS regex system filesystem date_time signals)
+    
     if(NOT ANDROID)
         FIND_PACKAGE(Boost 1.52.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
         set(Boost_USE_STATIC_RUNTIME OFF)
@@ -121,10 +124,8 @@ if (INCLUDE_TOOLS)
         set(Boost_USE_STATIC_RUNTIME ON)
         set(BOOST_ALL_DYN_LINK OFF)
     endif(NOT ANDROID)
-    add_definitions(-DBOOST_ALL_NO_LIB)  # tell the compiler to undefine this boost macro
+    add_definitions(-DBOOST_ALL_NO_LIB)  # Tell the compiler to undefine this boost macro
     add_definitions( -DBOOST_SYSTEM_NO_DEPRECATED )
-    set(Boost_USE_STATIC_RUNTIME OFF)
-    set(BOOST_ALL_DYN_LINK ON)
     set(BOOST_INSTALL_LIBS ${Boost_SYSTEM_LIBRARY} 
                            ${Boost_FILESYSTEM_LIBRARY} 
                            ${Boost_DATE_TIME_LIBRARY} 
@@ -133,13 +134,12 @@ if (INCLUDE_TOOLS)
                            )
     list(REMOVE_ITEM BOOST_INSTALL_LIBS debug optimized)
     if(WIN32)
+        string(REPLACE ".lib" ".dll;" BOOST_INSTALL_LIBS ${BOOST_INSTALL_LIBS} )
         set (BOOST_INSTALL_LIBS_RELEASE ${BOOST_INSTALL_LIBS})
         set (BOOST_INSTALL_LIBS_DEBUG ${BOOST_INSTALL_LIBS})
         # If adding more libs just add the right index to be removed in the 2 following lines:
         list(REMOVE_AT BOOST_INSTALL_LIBS_RELEASE 1 3 5 7 9) # Debug libs have 'gd' so they apear in the odd spaces
         list(REMOVE_AT BOOST_INSTALL_LIBS_DEBUG 0 2 4 6 8) # Release libs don't have 'gd' so they apear in the even spaces
-        string(REPLACE ".lib" ".dll;" BOOST_INSTALL_LIBS_RELEASE ${BOOST_INSTALL_LIBS_RELEASE} )
-        string(REPLACE ".lib" ".dll;" BOOST_INSTALL_LIBS_DEBUG ${BOOST_INSTALL_LIBS_DEBUG} )
         INSTALL(FILES ${BOOST_INSTALL_LIBS_RELEASE} DESTINATION bin CONFIGURATIONS Release)
         INSTALL(FILES ${BOOST_INSTALL_LIBS_DEBUG} DESTINATION bin CONFIGURATIONS Debug)
     else(WIN32)
@@ -149,8 +149,6 @@ if (INCLUDE_TOOLS)
             string(REPLACE ".so" ".so.${BOOST_VER};" BOOST_INSTALL_LIBS_LINKS ${BOOST_INSTALL_LIBS_LINKS} )
             INSTALL(FILES ${BOOST_INSTALL_LIBS} DESTINATION bin)
             INSTALL(FILES ${BOOST_INSTALL_LIBS_LINKS} DESTINATION bin)
-        else(NOT ANDROID)
-            # INSTALL(FILES ${BOOST_INSTALL_LIBS} DESTINATION bin)
         endif(NOT ANDROID)
     endif(WIN32)
 endif(INCLUDE_TOOLS)
@@ -482,7 +480,7 @@ if (WIN32)
 	install(FILES externals/crt/x64/msvcr100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x64)
 	
 	# maybe can delete below
-	install(FILES tools/OfflineCompiler/iocQtgui/kernelbuilder.ico DESTINATION ${MISC_INSTALLER_FOLDER})
+	install(FILES tools/OfflineCompiler/KernelBuilder/kernelbuilder.ico DESTINATION ${MISC_INSTALLER_FOLDER})
 		
 	install(DIRECTORY cl_api DESTINATION ${MISC_INSTALLER_FOLDER}/cl_api PATTERN .svn EXCLUDE)	
 	install(DIRECTORY utils/cl_sys_utils/export DESTINATION ${MISC_INSTALLER_FOLDER}/cl_sys_utils/export PATTERN .svn EXCLUDE)
