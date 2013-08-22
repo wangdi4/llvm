@@ -226,7 +226,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
       unsigned desc = args_desc.empty() ? 0 : args_desc[j];
 
       // The size of the argument in bytes, if requested.
-      uint32_t size = TD.getTypeAllocSize(Ty);
+      uint32_t arg_size = TD.getTypeAllocSize(Ty);
 
       // If the argument is a pointer, it is a stream. If the pointer type has
       // an address space qualifier of 3 (local), then set the local flag on the
@@ -244,11 +244,11 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
         default: break;
       }
 
-      assert(sizeof(uint64_t) == 2 * sizeof(size));
+      assert(sizeof(uint64_t) == 2 * sizeof(arg_size));
       assert(sizeof(uint64_t) == 2 * sizeof(flags));
 
       // Create a CFNumber to hold the values we calculated.
-      uint64_t val = ((uint64_t)size) << 32 | (uint64_t)flags;
+      uint64_t val = ((uint64_t)arg_size) << 32 | (uint64_t)flags;
       const void *vptr = (const void *)&val;
       CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
 
