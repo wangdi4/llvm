@@ -62,6 +62,7 @@ llvm::ModulePass *createModuleCleanupPass();
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
 llvm::ModulePass *createPrepareKernelArgsPass();
+llvm::Pass *createDebugFunctionInliningPass();
 
 void* destroyOpenclRuntimeSupport();
 #ifdef __APPLE__
@@ -480,6 +481,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
       m_modulePasses.add(llvm::createFunctionInliningPass(4096));     // Inline (not only small) functions.
     else
       m_modulePasses.add(llvm::createFunctionInliningPass());     // Inline small functions
+  } else {
+    m_modulePasses.add(createDebugFunctionInliningPass());
   }
 
   if ( debugType == None ) {
