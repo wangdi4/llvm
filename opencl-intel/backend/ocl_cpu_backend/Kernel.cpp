@@ -149,7 +149,7 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
         const unsigned int workThreadUtils = outputWorkSizes.minWorkGroupNum;
         const unsigned int simdUtilsLog = minMultiplyFactorLog;
         //Try to assure (if possible) the local-size is a multiply of vector width.
-        if (((globalWorkSizeX & (minMultiplyFactor-1)) == 0) && (localSizeUpperLimit > minMultiplyFactor)) {
+        if (((globalWorkSizeX & (minMultiplyFactor-1)) == 0) && (localSizeUpperLimit >= minMultiplyFactor)) {
           globalWorkSizeX = globalWorkSizeX >> minMultiplyFactorLog;
           localSizeUpperLimit = localSizeUpperLimit >> minMultiplyFactorLog;
         }
@@ -159,7 +159,8 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
           minMultiplyFactorLog = 0;
         }
         unsigned int localSizeMaxLimit = localSizeUpperLimit;
-        if ((workThreadUtils << simdUtilsLog) < globalWorkSize) {
+        const bool isLargeGlobalWGsize = ((workThreadUtils << simdUtilsLog) < globalWorkSize);
+        if (isLargeGlobalWGsize) {
           localSizeMaxLimit = min(localSizeMaxLimit,
             ((unsigned int)sqrt((float)(globalWorkSize/(workThreadUtils << simdUtilsLog)))) << (simdUtilsLog-minMultiplyFactorLog) );
         } else {
@@ -176,27 +177,30 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
           }
         }
         newHeuristic = newHeuristic << minMultiplyFactorLog;
-        //Cost function: check if we found a balanced local size compared to number of work groups
-#define BALANCE_FACTOR (2)
-        const unsigned int workGroups = globalWorkSize / newHeuristic;
-        const int balanceFactor = (workGroups << simdUtilsLog) - BALANCE_FACTOR * (newHeuristic * workThreadUtils);
-        if ( balanceFactor > 0 ) {
-          localSizeUpperLimit = min(localSizeUpperLimit, (unsigned int)sqrt((float)globalWorkSize));
-          assert(localSizeUpperLimit <= globalWorkSizeX && "global size in dim X must be upper bound for local size");
-          //Try to search better local size
-          unsigned int newHeuristicUp = localSizeMaxLimit+1;
-          for (; newHeuristicUp<=localSizeUpperLimit; newHeuristicUp++) {
-            if ( globalWorkSizeX % newHeuristicUp == 0 ) {
-              newHeuristicUp = newHeuristicUp << minMultiplyFactorLog;
-              //Check cost function and update heuristic if needed
-              const unsigned int workGroupsUp = globalWorkSize / newHeuristicUp;
-              assert((newHeuristicUp * workThreadUtils) > (workGroupsUp << simdUtilsLog) && "Wrong balance factor calculation!");
-              const int balanceFactorUp = (newHeuristicUp * workThreadUtils) - BALANCE_FACTOR * (workGroupsUp << simdUtilsLog);
-              if (balanceFactorUp < balanceFactor) {
-                //Found better local size
-                newHeuristic = newHeuristicUp;
+        //For small global WG size no need for checking the balance cost function
+        if(isLargeGlobalWGsize) {
+          //Cost function: check if we found a balanced local size compared to number of work groups
+          #define BALANCE_FACTOR (2)
+          const unsigned int workGroups = globalWorkSize / newHeuristic;
+          const int balanceFactor = (workGroups << simdUtilsLog) - BALANCE_FACTOR * (newHeuristic * workThreadUtils);
+          if ( balanceFactor > 0 ) {
+            localSizeUpperLimit = min(localSizeUpperLimit, (unsigned int)sqrt((float)globalWorkSize));
+            assert(localSizeUpperLimit <= globalWorkSizeX && "global size in dim X must be upper bound for local size");
+            //Try to search better local size
+            unsigned int newHeuristicUp = localSizeMaxLimit+1;
+            for (; newHeuristicUp<=localSizeUpperLimit; newHeuristicUp++) {
+              if ( globalWorkSizeX % newHeuristicUp == 0 ) {
+                newHeuristicUp = newHeuristicUp << minMultiplyFactorLog;
+                //Check cost function and update heuristic if needed
+                const unsigned int workGroupsUp = globalWorkSize / newHeuristicUp;
+                assert((newHeuristicUp * workThreadUtils) > (workGroupsUp << simdUtilsLog) && "Wrong balance factor calculation!");
+                const int balanceFactorUp = (newHeuristicUp * workThreadUtils) - BALANCE_FACTOR * (workGroupsUp << simdUtilsLog);
+                if (balanceFactorUp < balanceFactor) {
+                  //Found better local size
+                  newHeuristic = newHeuristicUp;
+                }
+                break;
               }
-              break;
             }
           }
         }
