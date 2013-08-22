@@ -413,6 +413,7 @@ cl_context CL_API_CALL clCreateContext(
     cl_context ctx                  = NULL;
     cl_uint numPlatforms            = 0;
     cl_platform_id *pPlatformIdDEV  = NULL;
+    bool isGPUPlatform              = false;
 
     errCode = OCLCRT::crt_ocl_module.isValidProperties( properties );
     if( CL_SUCCESS != errCode )
@@ -455,6 +456,11 @@ cl_context CL_API_CALL clCreateContext(
             }
         }
         numPlatforms++;
+
+        if( CL_DEVICE_TYPE_GPU == OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( devIdDEV )->m_devType )
+        {
+            isGPUPlatform = true;
+        }
     }
 
     if( ( errCode == CL_SUCCESS ) && ( numPlatforms == 1 ) )
@@ -493,7 +499,15 @@ cl_context CL_API_CALL clCreateContext(
                     ctx,
                     &OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( devices[0])->m_origDispatchTable );
 
-                pContextInfo->m_contextType = CrtContextInfo::SinglePlatformContext;
+                if( isGPUPlatform )
+                {
+                    pContextInfo->m_contextType = CrtContextInfo::SinglePlatformGPUContext;
+                }
+                else
+                {
+                    pContextInfo->m_contextType = CrtContextInfo::SinglePlatformCPUContext;
+                }
+
                 pContextInfo->m_crtPlatform = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(devices[0])->m_crtPlatform;
                 pContextInfo->m_object = (void*)( &( OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( devices[0] )->m_origDispatchTable ) );
                 OCLCRT::crt_ocl_module.m_contextInfoGuard.Add( ctx, pContextInfo );
@@ -713,7 +727,7 @@ cl_int CL_API_CALL clGetContextInfo(
         return CL_INVALID_CONTEXT;
     }
 
-    if (ctxInfo->m_contextType == CrtContextInfo::SinglePlatformContext)
+    if (ctxInfo->m_contextType != CrtContextInfo::SharedPlatformContext)
     {
         // Single Platform Context
 
@@ -2603,7 +2617,7 @@ cl_int CL_API_CALL clRetainContext(cl_context context)
     {
         return CL_INVALID_CONTEXT;
     }
-    if (ctxInfo->m_contextType == CrtContextInfo::SinglePlatformContext)
+    if (ctxInfo->m_contextType != CrtContextInfo::SharedPlatformContext)
     {
         // Single Platform Context
         KHRicdVendorDispatch* dTable = (KHRicdVendorDispatch*)(ctxInfo->m_object);
@@ -2633,7 +2647,7 @@ cl_int CL_API_CALL clReleaseContext(cl_context context)
 
     long refCount = 0;
     // Single Platform Context
-    if (ctxInfo->m_contextType == CrtContextInfo::SinglePlatformContext)
+    if (ctxInfo->m_contextType != CrtContextInfo::SharedPlatformContext)
     {
         KHRicdVendorDispatch* dTable = (KHRicdVendorDispatch*)(ctxInfo->m_object);
 
@@ -6798,7 +6812,7 @@ FINISH:
     }
     return sampler_handle;
 }
-SET_ALIAS( clCreateSamplerWithProperties );
+
 
 /// ------------------------------------------------------------------------------
 ///
@@ -8208,7 +8222,7 @@ CL_API_ENTRY cl_command_queue CL_API_CALL clCreatePerfCountersCommandQueueINTEL(
                 goto FINISH;
             }
 
-            if( ctxInfo->m_contextType == CrtContextInfo::SinglePlatformContext )
+            if( ctxInfo->m_contextType == CrtContextInfo::SinglePlatformGPUContext )
             {
                 commandQueue = ( (SOCLEntryPointsTable*)context )->crtDispatch->clCreatePerfCountersCommandQueueINTEL(
                     context,
@@ -8554,7 +8568,7 @@ CL_API_ENTRY cl_accelerator_intel CL_API_CALL clCreateAcceleratorINTEL(
 
     CrtContextInfo* ctxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
     if( ( !ctxInfo ) ||
-        ( ctxInfo->m_contextType == CrtContextInfo::SharedPlatformContext ) )
+        ( ctxInfo->m_contextType != CrtContextInfo::SinglePlatformGPUContext ) )
     {
         errCode = CL_INVALID_CONTEXT;
         goto FINISH;
@@ -8595,7 +8609,8 @@ CL_API_ENTRY cl_program CL_API_CALL clCreateProfiledProgramWithSourceINTEL(
     cl_program program = NULL;
     CrtContextInfo* pCtxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
 
-    if( pCtxInfo == NULL )
+    if( NULL == pCtxInfo ||
+        pCtxInfo->m_contextType != CrtContextInfo::SinglePlatformGPUContext )
     {
         errorCode = CL_INVALID_CONTEXT;
         goto FINISH;
@@ -8631,7 +8646,8 @@ CL_API_ENTRY cl_int CL_API_CALL clCreateKernelProfilingJournalINTEL(
     cl_int errorCode = CL_SUCCESS;
     CrtContextInfo* pCtxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
 
-    if( pCtxInfo == NULL )
+    if( NULL == pCtxInfo ||
+        pCtxInfo->m_contextType != CrtContextInfo::SinglePlatformGPUContext )
     {
         errorCode = CL_INVALID_CONTEXT;
         goto FINISH;
@@ -8884,27 +8900,20 @@ CL_API_ENTRY cl_mem CL_API_CALL clCreateFromVAMediaSurfaceINTEL(
     cl_mem CLMem     = NULL;
     CrtContextInfo* pCtxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
 
-    if( pCtxInfo == NULL )
+    if( NULL == pCtxInfo ||
+        pCtxInfo->m_contextType != CrtContextInfo::SinglePlatformGPUContext )
     {
         errorCode = CL_INVALID_CONTEXT;
         goto FINISH;
     }
 
-    if (pCtxInfo->m_contextType == CrtContextInfo::SharedPlatformContext)
-    {
-        errorCode = CL_INVALID_CONTEXT;
-        goto FINISH;
-    }
-    else
-    {
-        CLMem = ( (SOCLEntryPointsTable* ) context)->crtDispatch->clCreateFromVAMediaSurfaceINTEL(
-                                                                            context,
-                                                                            flags,
-                                                                            surface,
-                                                                            display,
-                                                                            plane,
-                                                                            &errorCode );
-    }
+    CLMem = ( (SOCLEntryPointsTable* ) context)->crtDispatch->clCreateFromVAMediaSurfaceINTEL(
+                                                                        context,
+                                                                        flags,
+                                                                        surface,
+                                                                        display,
+                                                                        plane,
+                                                                        &errorCode );
 
 FINISH:
     if( errcode_ret )

@@ -144,7 +144,8 @@ struct CrtContextInfo
     // Specifies the type of context, whether its
     enum ContextType
     {
-        SinglePlatformContext,
+        SinglePlatformCPUContext,
+        SinglePlatformGPUContext,
         SharedPlatformContext
     };
     // Context Type
