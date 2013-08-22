@@ -226,6 +226,37 @@ extern CL_API_ENTRY cl_int CL_API_CALL
 clReleaseAcceleratorINTEL(
     cl_accelerator_intel        /* accelerator */ ) CL_EXT_SUFFIX__VERSION_1_2;
 
+#ifdef  CL_VERSION_2_0
+    /***************************** 
+    * cl_khr_subgroups extension *
+    ******************************/
+    #define cl_khr_subgroups 1
+    typedef cl_uint             cl_kernel_sub_group_info;
+
+    #define CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE    0x11B6
+    #define CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE       0x11B7
+
+    extern CL_API_ENTRY cl_int CL_API_CALL
+    clGetKernelSubGroupInfoKHR(cl_kernel                /* kernel */,
+                               cl_device_id             /* device */,
+                               cl_kernel_sub_group_info /* param_name */,
+                               size_t                   /* input_value_size */,
+                               const void *             /* input_value */,
+                               size_t                   /* param_value_size */,
+                               void *                   /* param_value */,
+                               size_t *                 /* param_value_size_ret */);
+
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *clGetKernelSubGroupInfoKHR_fn)(
+        cl_kernel                /* kernel */,
+        cl_device_id             /* device */,
+        cl_kernel_sub_group_info /* param_name */,
+        size_t                   /* input_value_size */,
+        const void *             /* input_value */,
+        size_t                   /* param_value_size */,
+        void *                   /* param_value */,
+        size_t *                 /* param_value_size_ret */);
+#endif
+
 #ifdef CL_VERSION_1_1
    /***********************************
     * cl_ext_device_fission extension *
