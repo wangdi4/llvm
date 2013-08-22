@@ -262,10 +262,10 @@ math(EXPR BUILDVER_16_BIT "${BUILDVER_WC_REVISION} % 65535")
 # write a file with the BUILDVERSION define
 file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n#ifndef\ _DEBUG\n#define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"\n#else\n#define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"\n#endif\n\n#define BUILDVERSION16BIT ${BUILDVER_16_BIT}\n#define VERSIONSTRING \"4.0.0.${BUILDVER_16_BIT}\"\n\n")
 if(WIN32)
-	file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=3.0.${BUILDVER_WC_REVISION}")
+	file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=3.1.${BUILDVER_WC_REVISION}")
 	install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
-file(WRITE ${OCL_BINARY_DIR}/version.txt "3.0.${BUILDVER_WC_REVISION}")
+file(WRITE ${OCL_BINARY_DIR}/version.txt "3.1.${BUILDVER_WC_REVISION}")
 #copy the version file to install folder
 install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
 # copy the file to the final header only if the version changes
