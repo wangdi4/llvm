@@ -49,7 +49,9 @@ bool ImplicitGlobalIdPass::runOnModule(Module& M)
 bool ImplicitGlobalIdPass::runOnFunction(Function& F)
 {
   if (!F.isDeclaration()) {
-      m_pSyncInstSet = &m_pDataPerBarrier->getSyncInstructions(&F);
+      m_pSyncInstSet = 0;
+      if (m_pDataPerBarrier->hasSyncInstruction(&F))
+        m_pSyncInstSet = &m_pDataPerBarrier->getSyncInstructions(&F);
       insertComputeGlobalIds(&F);
   }
   return true;
@@ -76,7 +78,7 @@ void ImplicitGlobalIdPass::runOnBasicBlock(unsigned i, Instruction *pGIDAlloca, 
 
 void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
 {
-    bool functionHasBarriers = !m_pSyncInstSet->empty();
+    const bool functionHasBarriers = m_pSyncInstSet != 0;
     // Find the first and second instructions in the function
     //
     BasicBlock& entry_block = pFunc->getEntryBlock();
@@ -110,7 +112,7 @@ void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
       Instruction *gid_declare =
           m_pDIB->insertDeclare(gid_alloca, div, insert_before);
       gid_declare->setDebugLoc(loc);
-      if (m_pSyncInstSet->empty()) {
+      if (!functionHasBarriers) {
         runOnBasicBlock(i, gid_alloca, insert_before);
       } else {
         for (TInstructionSet::iterator ii = m_pSyncInstSet->begin(),
