@@ -182,6 +182,9 @@ namespace Validation
 
         ~RecorderContext();
 
+        ///\brief returns the base file name
+        const std::string getBaseName() const;
+
         ///\brief returns the file path for byte code file
         const std::string getByteCodeFilePath() const;
 

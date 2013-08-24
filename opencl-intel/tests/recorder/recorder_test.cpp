@@ -250,10 +250,9 @@ TEST(OclRecorder, dupKernels){
     FAIL() << "===Failed==";
     return;
   }
-   
 
-  const char*const REC_FILE = "OclRecorderTest.recorder_testrecorder_test__sample_test0.cl";
-  const char*const REC_FILE1= "OclRecorderTest.recorder_testrecorder_test__sample_test0.1.cl";
+  const char*const REC_FILE = "OclRecorderTest.recorder_test.sample_test0.cl";
+  const char*const REC_FILE1= "OclRecorderTest.recorder_test.2.sample_test0.1.cl";
   const char*const REC_CFG= "OclRecorderTest.recorder_test.cfg";
   const char*const REC_CFG1= "OclRecorderTest.recorder_test.2.cfg";
 

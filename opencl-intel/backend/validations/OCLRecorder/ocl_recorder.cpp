@@ -384,6 +384,11 @@ namespace Validation
         return getFileName(BINFILE_SUFFIX);
     }
 
+    const std::string RecorderContext::getBaseName() const
+    {
+        return m_baseName;
+    }
+
     const std::string RecorderContext::getConfigFilePath() const
     {
         return getPath(CFGFILE_SUFFIX);
@@ -642,7 +647,7 @@ namespace Validation
         if( !suf.empty() )
           strName.insert(strName.find_first_of('.'), suf);
         AddRecordedFile(strName);
-        strName.insert(0, m_prefix);
+        strName.insert(0, (context.getBaseName() + "."));
         llvm::sys::Path path(m_logsDir.c_str(), m_logsDir.size());
         path.appendComponent (strName.c_str());
         llvm::raw_fd_ostream clStream(path.c_str(), error);

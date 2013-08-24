@@ -162,10 +162,7 @@ static Intel::OpenCL::Frontend::SourceFile createSourceFile(
   IOCLFEBinaryResult* pBinary = NULL)
 {
   //composing a file name based on the current time
-  const char* strPrefix = getenv("OCLRECORDER_DUMPPREFIX");
   std::stringstream fileName;
-  if (strPrefix)
-    fileName << strPrefix << "_";
   std::string strContents(contents);
   Intel::OpenCL::Frontend::BinaryBuffer buffer;
   if (pBinary){
@@ -186,7 +183,7 @@ static Intel::OpenCL::Frontend::SourceFile createSourceFile(
     llvm::MDNode *elt = metadata->getOperand(0);
     llvm::Function* pKernel =
       llvm::dyn_cast<llvm::Function>(elt->getOperand(0)->stripPointerCasts());
-    fileName << "_" << pKernel->getName().str();
+    fileName <<  pKernel->getName().str();
   }
   fileName  << serial << ".cl";
   Intel::OpenCL::Frontend::SourceFile ret = Intel::OpenCL::Frontend::SourceFile(
