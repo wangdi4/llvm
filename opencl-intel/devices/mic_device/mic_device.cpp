@@ -205,22 +205,11 @@ MICDevice::~MICDevice()
 
 bool MICDevice::loadingInit()
 {
-	bool bLoadRes = true;
-	bLoadRes = m_sDllCOILib.Load(COI_HOST_DLL_NAME);
-	if (!bLoadRes)
-	{
-		return false;
-	}
-
     m_mic_instancies = new set<IOCLDeviceAgent*>;
-	if (NULL == m_mic_instancies)
-	{
-		return false;
-	}
     m_mic_instancies_mutex = new OclMutex;
-	if (NULL == m_mic_instancies_mutex)
+
+	if (!m_sDllCOILib.Load(COI_HOST_DLL_NAME))
 	{
-		delete m_mic_instancies;
 		return false;
 	}
 
