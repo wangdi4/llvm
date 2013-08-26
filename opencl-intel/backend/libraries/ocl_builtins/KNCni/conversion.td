@@ -252,15 +252,29 @@ OclBuiltinImpl cvt_i64_rtz_v1f_v4f = OclBuiltinImpl<convert_i64_rtz,
 OclBuiltinImpl cvt_i64_rtz_v16f  = OclBuiltinImpl<convert_i64_rtz, [v16f64, v16f32], 0, Expand1>;
 
 // convert_i64_rte
+// WORKAROUND: conversion intrisnsics from f32 to i64/u64 produce incorrect results for rte rounding mode
+//             remove it and uncomment instrinsics code after PCG is fixed.
+OclBuiltinImpl cvt_i64_rte_workaround = OclBuiltinImpl<convert_i64_rte, [v1f32, v2f32, v3f32, v4f32,
+                                                                         v8f32, v16f32], 0, [{
+  return $Func(convert_$Arg0f64gentype($Arg0VarName));
+}]>;
 OclBuiltinImpl cvt_i64_rte_v8f = OclBuiltinImpl<convert_i64_rte,
-                                          [v8f64, v8f32], 0, convert_ui64_code,
+                                          [v8f64], 0, convert_ui64_code,
                                           ["$Rounding"->"NEAREST_INT"]>;
 OclBuiltinImpl cvt_i64_rte_v1f_v4f = OclBuiltinImpl<convert_i64_rte,
-                                          [v1f64, v2f64, v3f64, v4f64,
-                                           v1f32, v2f32, v3f32, v4f32],
+                                          [v1f64, v2f64, v3f64, v4f64],
                                            0, convert_ui64_mask_code,
                                           ["$Rounding"->"NEAREST_INT"]>;
-OclBuiltinImpl cvt_i64_rte_v16f  = OclBuiltinImpl<convert_i64_rte, [v16f64, v16f32], 0, Expand1>;
+OclBuiltinImpl cvt_i64_rte_v16f  = OclBuiltinImpl<convert_i64_rte, [v16f64], 0, Expand1>;
+// OclBuiltinImpl cvt_i64_rte_v8f = OclBuiltinImpl<convert_i64_rte,
+//                                           [v8f64, v8f32], 0, convert_ui64_code,
+//                                           ["$Rounding"->"NEAREST_INT"]>;
+// OclBuiltinImpl cvt_i64_rte_v1f_v4f = OclBuiltinImpl<convert_i64_rte,
+//                                           [v1f64, v2f64, v3f64, v4f64,
+//                                            v1f32, v2f32, v3f32, v4f32],
+//                                            0, convert_ui64_mask_code,
+//                                           ["$Rounding"->"NEAREST_INT"]>;
+// OclBuiltinImpl cvt_i64_rte_v16f  = OclBuiltinImpl<convert_i64_rte, [v16f64, v16f32], 0, Expand1>;
 
 // convert_i64_rtp
 OclBuiltinImpl cvt_i64_rtp_v8f = OclBuiltinImpl<convert_i64_rtp,
@@ -301,15 +315,29 @@ OclBuiltinImpl cvt_u64_rtz_v1f_v4f = OclBuiltinImpl<convert_u64_rtz,
 OclBuiltinImpl cvt_u64_rtz_v16f  = OclBuiltinImpl<convert_u64_rtz, [v16f64, v16f32], 0, Expand1>;
 
 // convert_u64_rte
+// WORKAROUND: conversion intrisnsics from f32 to i64/u64 produce incorrect results for rte rounding mode
+//             remove it and uncomment instrinsics code after PCG is fixed.
+OclBuiltinImpl cvt_u64_rte_workaround = OclBuiltinImpl<convert_u64_rte, [v1f32, v2f32, v3f32, v4f32,
+                                                                         v8f32, v16f32], 0, [{
+  return $Func(convert_$Arg0f64gentype($Arg0VarName));
+}]>;
 OclBuiltinImpl cvt_u64_rte_v8f = OclBuiltinImpl<convert_u64_rte,
-                                          [v8f64, v8f32], 0, convert_ui64_code,
+                                          [v8f64], 0, convert_ui64_code,
                                           ["$Rounding"->"NEAREST_INT"]>;
 OclBuiltinImpl cvt_u64_rte_v1f_v4f = OclBuiltinImpl<convert_u64_rte,
-                                          [v1f64, v2f64, v3f64, v4f64,
-                                           v1f32, v2f32, v3f32, v4f32],
+                                          [v1f64, v2f64, v3f64, v4f64],
                                            0, convert_ui64_mask_code,
                                           ["$Rounding"->"NEAREST_INT"]>;
-OclBuiltinImpl cvt_u64_rte_v16f  = OclBuiltinImpl<convert_u64_rte, [v16f64, v16f32], 0, Expand1>;
+OclBuiltinImpl cvt_u64_rte_v16f  = OclBuiltinImpl<convert_u64_rte, [v16f64], 0, Expand1>;
+// OclBuiltinImpl cvt_u64_rte_v8f = OclBuiltinImpl<convert_u64_rte,
+//                                           [v8f64, v8f32], 0, convert_ui64_code,
+//                                           ["$Rounding"->"NEAREST_INT"]>;
+// OclBuiltinImpl cvt_u64_rte_v1f_v4f = OclBuiltinImpl<convert_u64_rte,
+//                                           [v1f64, v2f64, v3f64, v4f64,
+//                                            v1f32, v2f32, v3f32, v4f32],
+//                                            0, convert_ui64_mask_code,
+//                                           ["$Rounding"->"NEAREST_INT"]>;
+// OclBuiltinImpl cvt_u64_rte_v16f  = OclBuiltinImpl<convert_u64_rte, [v16f64, v16f32], 0, Expand1>;
 
 // convert_u64_rtp
 OclBuiltinImpl cvt_u64_rtp_v8f = OclBuiltinImpl<convert_u64_rtp,
