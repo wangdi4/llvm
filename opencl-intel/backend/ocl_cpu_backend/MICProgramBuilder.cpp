@@ -229,6 +229,7 @@ void MICProgramBuilder::CopyJitHolder(const LLVMModuleJITHolder* from, ModuleJIT
         kernelInfo.kernelOffset = it->second.offset;
         kernelInfo.kernelSize   = it->second.size;
         kernelInfo.lineNumberTable = it->second.lineNumberTable;
+        kernelInfo.filename = it->second.filename;
         KernelID kernelID = (const KernelID)it->first;
         to->RegisterKernel(kernelID, kernelInfo);
     }

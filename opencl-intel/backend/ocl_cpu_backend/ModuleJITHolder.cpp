@@ -122,12 +122,14 @@ void ModuleJITHolder::Serialize(IOutputStream& ost, SerializationStatus* stats)
             Serializer::SerialPrimitive<int>(&(kernelInfo.lineNumberTable[i].first), ost);
             Serializer::SerialPrimitive<int>(&(kernelInfo.lineNumberTable[i].second), ost);
         }
+        Serializer::SerialString(kernelInfo.filename, ost);
     }
     
     for(size_t i = 0; i < m_JITCodeSize; i++)
     {
         Serializer::SerialPrimitive<char>(&(m_pJITCode[i]), ost);
     }
+
 
 }
 
@@ -160,9 +162,12 @@ void ModuleJITHolder::Deserialize(IInputStream& ist, SerializationStatus* stats)
             Serializer::DeserialPrimitive<int>(&lineNum, ist);
             kernelInfo.lineNumberTable.push_back(std::pair<int, int>(offset, lineNum));
         }
+        Serializer::DeserialString(kernelInfo.filename, ist);
+
         m_KernelsMap[kernelID] = kernelInfo;
     }
     
+
     // Deserialize the JIT code itself
     ICLDevBackendJITAllocator* pAllocator = stats->GetJITAllocator();
     if(NULL == pAllocator) throw Exceptions::SerializationException("Cannot Get JIT Allocator");
@@ -227,6 +232,16 @@ const LineNumberTable* ModuleJITHolder::GetKernelLineNumberTable(KernelID kernel
         return NULL;
     }
     return &(it->second.lineNumberTable);
+}
+
+const char * ModuleJITHolder::GetKernelFilename(KernelID kernelId) const {
+    std::map<KernelID, KernelInfo>::const_iterator it = m_KernelsMap.find(kernelId);
+    if ( m_KernelsMap.end() == it )
+    {
+        assert( false && "Kernel not found");
+        return NULL;
+    }
+    return it->second.filename.c_str();
 }
 
 int ModuleJITHolder::GetKernelCount() const

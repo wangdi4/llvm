@@ -146,8 +146,8 @@ void MICKernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
               }
 
               // Set up file name
-              // TODO change to use actual source file name, if available.
-              char* source_file_name = const_cast<char*>("<dynamic>");
+              char* source_file_name = const_cast<char*>(
+                  MJH->GetKernelFilename(currentArgument->GetFuncID()));
 
               iJIT_Method_Load JitData;
               JitData.method_id = currentArgument->GetFuncID();

@@ -23,6 +23,7 @@ File Name:  ModuleJITHolder.h
 #include "stddef.h"
 
 #include <map>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -41,6 +42,7 @@ typedef struct
     int kernelOffset;
     int kernelSize;
     LineNumberTable lineNumberTable;
+    std::string filename;
 } KernelInfo;
 
 /**
@@ -119,6 +121,12 @@ public:
      * @returns a table mapping code offset from kernel start to line number
      */
     virtual const LineNumberTable* GetKernelLineNumberTable(KernelID kernelId) const;
+
+    /**
+     * @param kernel identifier
+     * @returns the name of the file in which the kernel was defined
+     */
+    virtual const char* GetKernelFilename(KernelID kernelId) const;
 
     /**
      * @returns the count of kernels in the JIT code
