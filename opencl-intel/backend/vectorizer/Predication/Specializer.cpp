@@ -21,7 +21,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <stack>
 
 static cl::opt<unsigned>
-SpecializeThreshold("specialize-threshold", cl::init(10), cl::Hidden,
+SpecializeThreshold("specialize-threshold", cl::init(15), cl::Hidden,
   cl::desc("The cut-off point for specialization of a single basic block"));
 
 static cl::opt<bool>
