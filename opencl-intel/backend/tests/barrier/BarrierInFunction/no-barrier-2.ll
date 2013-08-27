@@ -40,7 +40,7 @@ define void @foo(i32 %x) nounwind {
 }
 
 !opencl.kernels = !{!0}
-!opencl.build.options = !{}
+!opencl.compiler.options = !{}
 !opencl.kernel_info = !{!6}
 !opencl.disabled.FP_CONTRACT = !{}
 

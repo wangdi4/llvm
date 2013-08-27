@@ -105,7 +105,7 @@ declare i64 @_Z14get_local_sizej(i32) nounwind readnone
 
 !opencl.kernels = !{!0}
 !opencl.cl_kernel_arg_info = !{!1}
-!opencl.build.options = !{!7}
+!opencl.compiler.options = !{!7}
 
 !0 = metadata !{void (i32 addrspace(1)*, i32, i32 addrspace(3)*)* @top_scan}
 !1 = metadata !{metadata !"cl_kernel_arg_info", void (i32 addrspace(1)*, i32, i32 addrspace(3)*)* @top_scan, metadata !2, metadata !3, metadata !4, metadata !5, metadata !6}

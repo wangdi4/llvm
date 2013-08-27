@@ -456,7 +456,7 @@ define void @externalUnBranchDivLoopMX(i32 addrspace(1)* nocapture %a, i32 addrs
 }
 
 !opencl.kernels = !{!0, !2, !3, !4, !5, !6, !7, !8, !9}
-!opencl.build.options = !{!10}
+!opencl.compiler.options = !{!10}
 
 !0 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @internalDivBranchMX, metadata !1}
 !1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3, i32 3}

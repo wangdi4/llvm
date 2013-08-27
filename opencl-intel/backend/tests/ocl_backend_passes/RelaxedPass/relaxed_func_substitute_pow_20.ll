@@ -19,7 +19,7 @@ declare <4 x float> @_Z3powDv4_fS_(<4 x float>, <4 x float>)
 declare <8 x float> @_Z3powDv8_fS_(<8 x float>, <8 x float>)
 declare <16 x float> @_Z3powDv16_fS_(<16 x float>, <16 x float>)
 
-!opencl.build.options = !{!0}
+!opencl.compiler.options = !{!0}
 
 !0 = metadata !{metadata !"-cl-std=CL2.0"}
 

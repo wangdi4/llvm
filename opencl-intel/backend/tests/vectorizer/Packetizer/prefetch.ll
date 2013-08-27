@@ -97,7 +97,7 @@ if.end:                                           ; preds = %if.then, %entry
 }
 
 !opencl.kernels = !{!0, !2, !4, !5}
-!opencl.build.options = !{!6}
+!opencl.compiler.options = !{!6}
 
 !0 = metadata !{void (float addrspace(1)*, float addrspace(1)*)* @test_consecutive, metadata !1}
 !1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3}

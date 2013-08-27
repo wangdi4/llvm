@@ -82,7 +82,7 @@ declare void @dummybarrier.()
 declare i32 @_Z12get_local_idj(i32)
 
 !opencl.kernels = !{!0}
-!opencl.build.options = !{}
+!opencl.compiler.options = !{}
 
 !0 = metadata !{void (i32)* @main, metadata !1, metadata !1, metadata !"", metadata !"int", metadata !"opencl_main_locals_anchor", metadata !2, metadata !3, metadata !4, metadata !5, metadata !""}
 !1 = metadata !{i32 0, i32 0, i32 0}

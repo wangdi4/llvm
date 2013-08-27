@@ -24,7 +24,7 @@ declare i64 @_Z13get_global_idj(i32) nounwind readnone
 declare void @_Z8prefetchPKU3AS1Dv4_im(<4 x i32> addrspace(1)*, i64)
 
 !opencl.kernels = !{!0}
-!opencl.build.options = !{!2}
+!opencl.compiler.options = !{!2}
 !opencl.kernel_info = !{!4}
 
 !0 = metadata !{void (<4 x i32> addrspace(1)*, <4 x i32> addrspace(1)*)* @vector_prefetch_test, metadata !1}

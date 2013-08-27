@@ -198,7 +198,7 @@ define void @nestedUnBranchedUnBranchDivBranch(i32 addrspace(1)* nocapture %res,
 }
 
 !opencl.kernels = !{!0, !2, !3, !4, !5}
-!opencl.build.options = !{!6}
+!opencl.compiler.options = !{!6}
 
 !0 = metadata !{void (i32 addrspace(1)*, i32)* @divBranchNestedUnLoop, metadata !1}
 !1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3}

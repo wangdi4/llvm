@@ -207,7 +207,7 @@ declare i1 @allZero(i1)
 
 !opencl.kernels = !{!0}
 !opencl_bitonicSortLocal1_locals_anchor = !{!6, !7}
-!opencl.build.options = !{}
+!opencl.compiler.options = !{}
 
 !0 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*)* @bitonicSortLocal1, metadata !1, metadata !1, metadata !"", metadata !"uint __attribute__((address_space(1))) *, uint __attribute__((address_space(1))) *, uint __attribute__((address_space(1))) *, uint __attribute__((address_space(1))) *", metadata !"opencl_bitonicSortLocal1_locals_anchor", metadata !2, metadata !3, metadata !4, metadata !5, metadata !""}
 !1 = metadata !{i32 0, i32 0, i32 0}

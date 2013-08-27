@@ -485,7 +485,7 @@ declare i1 @__ocl_allOne(i1)
 declare i1 @__ocl_allZero(i1)
 
 !opencl.kernels = !{!0}
-!opencl.build.options = !{!2}
+!opencl.compiler.options = !{!2}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.kernel_info = !{!3}
 

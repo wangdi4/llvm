@@ -49,7 +49,7 @@ define void @foo(i32 %x) nounwind {
 declare void @_Z7barrierj(i32)
 
 !opencl.kernels = !{!0}
-!opencl.build.options = !{}
+!opencl.compiler.options = !{}
 !opencl.kernel_info = !{!6}
 !opencl.disabled.FP_CONTRACT = !{}
 

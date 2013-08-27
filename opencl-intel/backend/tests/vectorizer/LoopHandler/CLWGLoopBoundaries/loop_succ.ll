@@ -34,7 +34,7 @@ for.end:                                          ; preds = %for.body
 declare i32 @_Z13get_global_idj(i32) nounwind readnone
 
 !opencl.kernels = !{!0}
-!opencl.build.options = !{!2}
+!opencl.compiler.options = !{!2}
 
 !0 = metadata !{void (i32 addrspace(1)*, i32)* @sample_test, metadata !1}
 !1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3}
