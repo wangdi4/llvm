@@ -2081,7 +2081,7 @@ TYPED_TEST(NEATMathTestOneArg, logb)
     }
 }
 
-TYPED_TEST(NEATMathTestOneArg, DISABLED_cbrt)
+TYPED_TEST(NEATMathTestOneArg, cbrt)
 {
     typedef typename TypeParam::Type TypeP;
     typedef typename superT<TypeP>::type sT;
@@ -3927,8 +3927,7 @@ static void PownIntervalTest( T refMinIn, T refMaxIn, NEATValue xVal, NEATValue 
     EXPECT_TRUE(TestIntExpanded<T>(refMin, refMax, testVal, NEATALU::POWN_ERROR));
 }
 
-// disabled until CSSD100014772 will be fixed
-TYPED_TEST(NEATMathTestOneArg, DISABLED_pown)
+TYPED_TEST(NEATMathTestOneArg, pown)
 {
     typedef typename TypeParam::Type TypeP;
     typedef typename superT<TypeP>::type sT;

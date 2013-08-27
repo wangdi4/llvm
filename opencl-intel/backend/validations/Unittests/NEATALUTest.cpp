@@ -4982,9 +4982,14 @@ TYPED_TEST(NEATAluTypedMath, tanpi)
     testAccVal = NEATALU::tanpi<TypeP>(accVal);
     EXPECT_TRUE(Utils::IsNInf(*testAccVal.GetAcc<TypeP>()));
 
-//TODO:
     // tanpi ( n ) is RefCopysign( 0.0, n) for even integers n.
     // tanpi ( n ) is RefCopysign( 0.0, - n) for odd integers n.
+    TypeP evenTestVal = 123456;
+    testAccVal = NEATALU::tanpi<TypeP>(NEATValue(evenTestVal));
+    EXPECT_TRUE(testAccVal.IsAcc() && Utils::eq<TypeP>(*testAccVal.GetAcc<TypeP>(), RefALU::copysign(TypeP(0.0), evenTestVal)));
+    TypeP oddTestVal = 15647321;
+    testAccVal = NEATALU::tanpi<TypeP>(NEATValue(oddTestVal));
+    EXPECT_TRUE(testAccVal.IsAcc() && Utils::eq<TypeP>(*testAccVal.GetAcc<TypeP>(), RefALU::copysign(TypeP(0.0), -oddTestVal)));
 
     testAccVal = NEATALU::tanpi<TypeP>(NEATValue(NEATValue::ANY));
     EXPECT_TRUE(testAccVal.IsUnknown());
@@ -5033,44 +5038,88 @@ TYPED_TEST(NEATAluTypedMath, tanpi)
 
        /* test for single accurate NEAT value*/
         accVal = accurate[0];
+        bool passed = true;
+        SuperT refAccValFloat = SuperT(0.0);
 
         testAccVal = NEATALU::tanpi<TypeP>(accVal);
-        SuperT refAccValFloat;
+        TypeP acc = *accVal.GetAcc<TypeP>();
+        if(Utils::IsEven(acc))
+        {
+            EXPECT_TRUE(Utils::eq<TypeP>(*testAccVal.GetAcc<TypeP>(), RefALU::copysign(TypeP(0.0), acc)));
+        }
+        else if(Utils::IsOdd(acc))
+        {
+            EXPECT_TRUE(Utils::eq<TypeP>(*testAccVal.GetAcc<TypeP>(), RefALU::copysign(TypeP(0.0), -acc)));
+        }
+        else
+        {
+            refAccValFloat = RefALU::tanpi(SuperT(acc));
 
-        refAccValFloat = RefALU::tanpi(SuperT(*accVal.GetAcc<TypeP>()));
-
-        bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::TANPI_ERROR);
-        EXPECT_TRUE(passed);
-
+            passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVal,NEATALU::TANPI_ERROR);
+            EXPECT_TRUE(passed);
+        }
 
         /* test for single interval NEAT value */
         SuperT refIntValMin, refIntValMax;
 
         intVal = interval[0];
         testIntVal = NEATALU::tanpi<TypeP>(intVal);
+        
+        TypeP intValMin = *intVal.GetMin<TypeP>();
+        TypeP intValMax = *intVal.GetMax<TypeP>();
+        TypeP shift = RefALU::round(intValMin);
+        intValMin -= shift;
+        intValMax -= shift;
+        if(Utils::le(intValMin, TypeP(-0.5)) || Utils::ge(intValMax, TypeP(0.5)))
+            EXPECT_TRUE(testIntVal.IsUnknown());
+        else
+        {
+            refIntValMax = RefALU::tanpi(SuperT(*intVal.GetMax<TypeP>()));
+            refIntValMin = RefALU::tanpi(SuperT(*intVal.GetMin<TypeP>()));
 
-        refIntValMax = RefALU::tanpi(SuperT(*intVal.GetMax<TypeP>()));
-        refIntValMin = RefALU::tanpi(SuperT(*intVal.GetMin<TypeP>()));
-
-        passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::TANPI_ERROR);
-        EXPECT_TRUE(passed);
+            passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVal,NEATALU::TANPI_ERROR);
+            EXPECT_TRUE(passed);
+        }
 
         /* test for vector of NEAT accurate */
         NEATVector testAccVec = NEATALU::tanpi<TypeP>(accurate);
         for(uint32_t i = 0; i<wrap.GetSize(); i++) {
-            refAccValFloat = RefALU::tanpi(SuperT(*accurate[i].GetAcc<TypeP>()));
-            bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::TANPI_ERROR);
-            EXPECT_TRUE(passed);
+
+            TypeP acc = *accurate[i].GetAcc<TypeP>();
+            if(Utils::IsEven(acc))
+            {
+                EXPECT_TRUE(Utils::eq<TypeP>(*testAccVec[i].GetAcc<TypeP>(), RefALU::copysign(TypeP(0.0), acc)));
+            }
+            else if(Utils::IsOdd(acc))
+            {
+                EXPECT_TRUE(Utils::eq<TypeP>(*testAccVec[i].GetAcc<TypeP>(), RefALU::copysign(TypeP(0.0), -acc)));
+            }
+            else
+            {
+                refAccValFloat = RefALU::tanpi(SuperT(*accurate[i].GetAcc<TypeP>()));
+                bool passed = TestAccExpanded<SuperT>(refAccValFloat,testAccVec[i],NEATALU::TANPI_ERROR);
+                EXPECT_TRUE(passed);
+            }
         }
 
         /* test for vector of NEAT intervals */
         NEATVector testIntVec = NEATALU::tanpi<TypeP>(interval);
         for(uint32_t i = 0; i<wrap.GetSize(); i++) {
-            refIntValMin = RefALU::tanpi(SuperT(*interval[i].GetMin<TypeP>()));
-            refIntValMax = RefALU::tanpi(SuperT(*interval[i].GetMax<TypeP>()));
+            TypeP intValMin = *interval[i].GetMin<TypeP>();
+            TypeP intValMax = *interval[i].GetMax<TypeP>();
+            TypeP shift = RefALU::round(intValMin);
+            intValMin -= shift;
+            intValMax -= shift;
+            if(Utils::le(intValMin, TypeP(-0.5)) || Utils::ge(intValMax, TypeP(0.5)))
+                EXPECT_TRUE(testIntVec[i].IsUnknown());
+            else
+            {
+                refIntValMin = RefALU::tanpi(SuperT(*interval[i].GetMin<TypeP>()));
+                refIntValMax = RefALU::tanpi(SuperT(*interval[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::TANPI_ERROR);
-            EXPECT_TRUE(passed);
+                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::TANPI_ERROR);
+                EXPECT_TRUE(passed);
+            }
         }
 
 

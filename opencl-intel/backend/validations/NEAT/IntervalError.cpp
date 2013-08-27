@@ -51,12 +51,15 @@ namespace Validation
         if(Utils::lt<long double>(a, CimathLibd::imf_ldexp(1.0L,-1022))) // x < 2**(-1022)
         {
             oneUlp = CimathLibd::imf_ldexp(1.0L,-1074); // oneUlp = 2**(-1022-52)
+        } else if( Utils::IsNaN<long double>(a) || Utils::IsInf<long double>(a) )
+        {
+            //ulps for NaNs and INFs are unknown
+            oneUlp = 0.0f;
         } else {
-            // oneUlp = 2**(floor(log2(abs(x)))-52)
-            long double b = CimathLibd::imf_log2(a);
-            long double c = CimathLibd::imf_floor(b) - 52.0L;
+            // oneUlp = 2**(ilogb(abs(x))-52)
+            int c = CimathLibd::imf_ilogb(a) - (DBL_MANT_DIG - 1);
             //oneUlp = pow(2, c);
-            oneUlp = CimathLibd::imf_ldexp(1.0L,int(c));
+            oneUlp = CimathLibd::imf_ldexp(1.0L, c);
         }
 
         return oneUlp;

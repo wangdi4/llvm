@@ -2525,9 +2525,9 @@ public:
         return processVector(vec,cospi<T>);
     }
 
-    //TODO: it is not clear what should be output range if input range includes
+    //NOTE: it is not clear what should be output range if input range includes
     // n*pi/2, because tan(pi/2) == INF, so current implementation is correct for
-    // range [-pi/2;pi/2] only
+    // range [-pi/2;pi/2], in other case NEATValue::UNKNOWN
     template<typename T>
     static NEATValue tanpi(const NEATValue& a)
     {
@@ -2541,6 +2541,18 @@ public:
         if (!flushed.IsFinite<T>())
             return NEATValue::NaN<T>();
 
+        // check if all points of the input interval don't belong to (n - 1/2;n + 1/2), where n is integer number
+        // if so then we cannot guarantee any result, return NEATValue::UNKNOWN
+        if(flushed.IsInterval())
+        {
+            T min = *flushed.GetMin<T>();
+            T max = *flushed.GetMax<T>();
+            T shift = RefALU::round(min);
+            min-= shift;
+            max-= shift;
+            if( Utils::le<T>(min, T(-0.5)) || Utils::ge(max, T(+0.5)))
+                return NEATValue(NEATValue::UNKNOWN);
+        }
         // for 0.0 we must return exactly 0
         if (flushed.IsAcc() && Utils::eq<T>(*flushed.GetAcc<T>(), -0.0))
         {
@@ -2551,27 +2563,17 @@ public:
              return NEATValue(T(+0.0));
         }
 
-        // TODO: implement this:
         // tanpi (n) is copysign(0.0, n) for even integers n.
         // tanpi (n) is copysign(0.0, -n) for odd integers n.
-        // CSSD100013299
 
         if (flushed.IsAcc()) {
-            T data = ::fabs(*flushed.GetAcc<T>());
-            double intpartF;
-            T fractpart = ::modf(double(data), &intpartF);
-            if( Utils::eq<T>(fractpart, T(0.0)))
+            if(Utils::IsEven(*flushed.GetAcc<T>()))
             {
-                int64_t intpartI = int64_t(intpartF);
-                int64_t intpart2 = intpartI >> 1;
-                if((intpart2 << 1) == intpartI)
-                {
-                    // even
-                    //return NEATValue(RefALU::copysign(T(0.0), T(1)));
-                } else {
-                    // odd
-                    //return NEATValue(RefALU::copysign(T(0.0), T(-1)));
-                }
+                // even
+                return NEATValue(RefALU::copysign(T(0.0), *flushed.GetAcc<T>()));
+            } else if(Utils::IsOdd(*flushed.GetAcc<T>())) {
+                // odd
+                return NEATValue(RefALU::copysign(T(0.0), -*flushed.GetAcc<T>()));
             }
         }
 
