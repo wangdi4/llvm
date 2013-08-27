@@ -71,7 +71,7 @@ using namespace Intel::OpenCL::Utils;
 		__endITTTask(pGPAData, ittID); \
 		return ret_val; \
 	} else { \
-		return module->function_call; \
+		return (API_IS_DISABLED) ? API_DISABLED_USER_RETURN_VALUE : module->function_call; \
 	}
 
 #define CALL_INSTRUMENTED_API_NO_RET(module, function_call) \
