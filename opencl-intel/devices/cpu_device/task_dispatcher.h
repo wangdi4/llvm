@@ -105,6 +105,8 @@ public:
 
     ITaskExecutor&          getTaskExecutor() { return *m_pTaskExecutor; }
 
+    queue_t                 GetDefaultQueue() { return m_pDefaultQueue.GetPtr(); }
+
     // ITaskExecutorObserver
     virtual void*           OnThreadEntry();
     virtual void            OnThreadExit( void* currentThreadData );
@@ -127,6 +129,7 @@ protected:
     WgContextPool*              m_pWgContextPool;
     unsigned int				m_uiNumThreads;
 	bool						m_bTEActivated;
+    Intel::OpenCL::Utils::SharedPtr<ITaskList> m_pDefaultQueue;
 
 	IAffinityChangeObserver*    m_pObserver;
 

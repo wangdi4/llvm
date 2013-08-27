@@ -97,7 +97,12 @@ public:
 	/**
 	 * @return a pointer to this DeviceCommand as an ITaskBase object or NULL if it does not inherit from ITaskBase
 	 */
-	ITaskBase* GetMyTaskBase() { return m_pMyTaskBase; };	
+	ITaskBase* GetMyTaskBase() { return m_pMyTaskBase; };
+
+    /**
+     * Launch this DeviceCommand for execution
+     */
+    virtual void Launch() = 0;
 
 protected:
 
@@ -129,7 +134,7 @@ protected:
 	/**
 	 * Signal that this DeviceCommand's execution has ended
 	 */
-	void StopExecutionProfiling();
+	void StopExecutionProfiling();    
 
 private:
 
@@ -191,6 +196,8 @@ public:
 
 	virtual Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
+    virtual void Launch() { Execute(); }
+
 private:
 
 	Marker(const SharedPtr<ITaskList>& list) : DeviceCommand(list, this) { }
@@ -231,6 +238,11 @@ public:
 	// inherited methods
 
 	bool IsUserCommand() const { return true; }
+
+    virtual void Launch()
+    {
+        assert(false && "UserEvent shouldn't be launched");
+    }
 
 private:
 

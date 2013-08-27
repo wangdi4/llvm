@@ -2194,7 +2194,7 @@ int CPUDevice::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl_uin
 	// if no need to wait, enqueue and flush
 	if (CLK_ENQUEUE_FLAGS_NO_WAIT == flags && bAllEventsCompleted)
 	{
-		pList->Launch(pChild->GetMyTaskBase());
+		pChild->Launch();
 	}
 
 	// update pEventRet
@@ -2222,7 +2222,7 @@ int CPUDevice::EnqueueMarker(queue_t queue, cl_uint uiNumEventsInWaitList, const
 	const bool bAllEventsCompleted = marker->AddWaitListDependencies(pEventWaitList, uiNumEventsInWaitList);
 	if (bAllEventsCompleted)
 	{
-		pList->Launch(marker);
+		marker->Launch();
 	}
 	if (pEventRet != NULL)
 	{
@@ -2310,14 +2310,14 @@ void CPUDevice::CaptureEventProfilingInfo(clk_event_t event, clk_profiling_info 
 
 queue_t CPUDevice::GetDefaultQueueForDevice() const
 {	
-	const SharedPtr<KernelCommand> pParent = NDRange::GetThreadLocalNDRange();
-	return pParent->GetList()->GetDevice()->GetDefaultQueue();
+    NDRange* pParent = NDRange::GetThreadLocalNDRange();
+    return pParent->GetTaskDispatcher()->GetDefaultQueue();
 }
 
 unsigned int CPUDevice::GetNumComputeUnits() const
 {
-	const SharedPtr<KernelCommand> pParent = NDRange::GetThreadLocalNDRange();
-	return pParent->GetList()->GetDevice()->GetConcurrency();
+    KernelCommand* pParent = NDRange::GetThreadLocalNDRange();
+    return pParent->GetList()->GetDevice()->GetConcurrency();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

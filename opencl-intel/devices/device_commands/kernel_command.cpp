@@ -99,3 +99,9 @@ void KernelCommand::SignalComplete(cl_dev_err_code err)
 		GetParent()->ChildCompleted(GetError());
 	}
 }
+
+void KernelCommand::Launch()
+{
+    assert(GetParentTaskGroup() != NULL && "Launch shouldn't be called for KernelCommands enqueued from the host");
+    GetList()->Spawn(GetMyTaskBase(), *GetParentTaskGroup());
+}

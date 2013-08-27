@@ -214,7 +214,7 @@ public:
 	/**
 	 * @return the NDRange that is currently running on the local thread
 	 */
-	static SharedPtr<NDRange> GetThreadLocalNDRange() { return sm_pCurrentWgContext->GetCurrentNDRange(); }
+	static NDRange* GetThreadLocalNDRange() { return sm_pCurrentWgContext->GetCurrentNDRange(); }
 
     // DispatcherCommand interface
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);

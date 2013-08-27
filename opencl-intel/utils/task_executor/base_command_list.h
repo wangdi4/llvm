@@ -233,7 +233,7 @@ public:
 
 	virtual bool IsProfilingEnabled() const { return m_bProfilingEnabled; }
 
-	virtual bool IsDefaultQueue() const { return m_bIsDefaultQueue; }
+    void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup);
 
 protected:
 	friend class in_order_executor_task;
@@ -294,8 +294,6 @@ public:
 	// This is an optimization: since only one NDRange command can Simultaneously run, all NDRange commands can share the same TaskGroup, without the need to allocate a new one for each of them.
 	virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
 
-	virtual void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask);
-
 	virtual bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
 
 	virtual bool IsProfilingEnabled() const { return false; }
@@ -353,8 +351,6 @@ public:
 
     void WaitForIdle();
 
-	void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask);
-
 	bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
 
 	virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return TaskGroup::Allocate(GetTEDevice()); }
@@ -408,8 +404,6 @@ public:
     bool Flush() { return true; }
 
 	virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return TaskGroup::Allocate(GetTEDevice()); }
-
-	virtual void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) { }
 
 	bool DoesSupportDeviceSideCommandEnqueue() const { return false; }
 

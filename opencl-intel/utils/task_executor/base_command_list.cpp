@@ -197,30 +197,10 @@ void out_of_order_command_list::WaitForIdle()
 	m_device->Execute(waiter);	
 }
 
-void in_order_command_list::Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
+void base_command_list::Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup)
 {
 	ExecuteContainerBody functor(pTask, *this);
-	if (pTask->GetNDRangeChildrenTaskGroup() == NULL)
-	{
-		m_taskGroup->EnqueueFunc(functor);
-	}
-	else
-	{
-		static_cast<TaskGroup*>(pTask->GetNDRangeChildrenTaskGroup())->EnqueueFunc(functor);
-	}
-}
-
-void out_of_order_command_list::Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
-{
-	ExecuteContainerBody functor(pTask, *this);
-	if (pTask->GetNDRangeChildrenTaskGroup() == NULL)
-	{
-		ExecOOOFunc(functor);
-	}
-	else
-	{
-		static_cast<TaskGroup*>(pTask->GetNDRangeChildrenTaskGroup())->EnqueueFunc(functor);
-	}
+	static_cast<TaskGroup&>(taskGroup).EnqueueFunc(functor);
 }
 
 unsigned int immediate_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)

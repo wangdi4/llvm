@@ -337,15 +337,10 @@ public:
     virtual void            Cancel() = 0; 
 
     // Ensures that all task were send to execution, non-blocking function
-    virtual bool            Flush() = 0;
+    virtual bool            Flush() = 0;    
 
-    // Add the calling thread to execution pool
-    // Function blocks, until the pTask is completed or in case of NULL
-    // all tasks belonging to the list are completed.
-    // Not supported for immediate lists
-	// Immediately launch a task without enqueuing it first in order to save the lock on the queue.
-	virtual void			Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) = 0;
-
+	// Immediately spawn a task without enqueuing it first in order to save the lock on the queue.
+	virtual void			Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup) = 0;
 	// whether this ITaskList supports device-side enqueuing of commands
 	virtual bool			DoesSupportDeviceSideCommandEnqueue() const = 0;
 
@@ -357,9 +352,6 @@ public:
 
 	// Returns whether profiling is enabled for this ITaskList
 	virtual bool IsProfilingEnabled() const = 0;
-
-	// Returns whether this is the default queue for its device
-	virtual bool IsDefaultQueue() const = 0;
 
 	// Returns the ITEDevice of this ITaskList
 	virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> GetDevice() = 0;
@@ -424,24 +416,6 @@ public:
       * Unegister calling thread (master) to be used by the device
       */    
     virtual void DetachMasterThread() = 0;
-
-
-	/**
-	 * Allocate a default queue for this ITEDevice
-	 * @param bIsProfilingEnabled whether profiling will be enabled for the default queue
-	 * @return the ITaskList of the default queue
-	 */
-	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> AllocateDefaultQueue(bool bIsProfilingEnabled) = 0;
-
-	/**
-	 * Release the default queue for this ITEDevice
-	 */
-	virtual void ReleaseDefaultQueue() = 0;
-
-	/**
-	 * @return the default command queue for this ITEDevice or 0 if no such queue has b
-	 */
-	virtual queue_t GetDefaultQueue() = 0;
 
 };
 

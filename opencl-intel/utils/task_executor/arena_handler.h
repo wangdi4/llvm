@@ -261,13 +261,7 @@ public:
     void on_scheduler_exit(bool bIsWorker, ArenaHandler& arena );
     bool on_scheduler_leaving( ArenaHandler& arena );
 
-    bool isSubDevice() const { return (NULL != m_pParentDevice.GetPtr()); }
-
-	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> AllocateDefaultQueue(bool bIsProfilingEnabled);
-
-	virtual void ReleaseDefaultQueue();
-
-	virtual queue_t GetDefaultQueue() { return m_pDefaultQueue.GetPtr(); }	
+    bool isSubDevice() const { return (NULL != m_pParentDevice.GetPtr()); }	
 
 private:
 

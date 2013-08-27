@@ -60,6 +60,10 @@ public:
 		return NULL;
 	}
 
+    // inherited methods:
+    
+    virtual void Launch();
+
 protected:
 
 	/**

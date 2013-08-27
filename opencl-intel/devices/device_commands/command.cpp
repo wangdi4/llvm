@@ -69,9 +69,7 @@ void DeviceCommand::NotifyCommandFinished(cl_dev_err_code err)
 	{
 		if (CL_DEV_SUCCEEDED(GetError()))
 		{
-			ITaskBase* const pTask = GetMyTaskBase();
-			ASSERT_RET(pTask != NULL, "trying to launch a DeviceCommand that isn't an ITaskBase");
-			m_list->Launch(pTask);
+			Launch();
 		}
 		else
 		{

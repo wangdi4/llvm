@@ -82,7 +82,10 @@ public:
 
 	virtual bool IsProfilingEnabled() const { return false; }
 
-	virtual bool IsDefaultQueue() const { return false; }
+    void Spawn(const SharedPtr<ITaskBase> &,Intel::OpenCL::TaskExecutor::ITaskGroup &)
+    {
+        assert(false && "Spawn shouldn't be called for InPlaceTaskList");
+    }
 
 protected:
 	WGContextBase* const m_pMasterWGContext;
@@ -365,6 +368,10 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
 			isOOO ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER,
 			TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC,
 			props & CL_DEV_LIST_PROFILING, props & CL_DEV_LIST_QUEUE_DEFAULT));
+	    if (props & CL_DEV_LIST_QUEUE_DEFAULT)
+	    {
+	        m_pDefaultQueue = pList;
+	    }
     }
     else
     {
@@ -403,10 +410,6 @@ cl_dev_err_code TaskDispatcher::releaseCommandList( cl_dev_cmd_list IN list )
 
 	SharedPtr<ITaskList> pList = (ITaskList*)list;
     pList->Flush();
-	if (pList->IsDefaultQueue())
-	{
-		pList->GetDevice()->ReleaseDefaultQueue();
-	}
     pList.DecRefCnt();
 	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X"), list);
 	return CL_DEV_SUCCESS;
