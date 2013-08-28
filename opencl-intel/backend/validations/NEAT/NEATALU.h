@@ -155,6 +155,7 @@ namespace Validation
         static const int NEXTAFTER_ERROR = 0;
         static const int FMA_ERROR = 0;
         static const int FRACT_ERROR = 0;
+        static const int FRACT_SECOND_ARG_ERROR = 0;
         static const int FMAX_ERROR = 0;
         static const int SQRT_ERROR = 3;
         static const int SQRT_ERROR_DOUBLE = 0; // sqrt is correctly rounded for doubles
@@ -6017,20 +6018,66 @@ public:
         *iptr = NEATALU::floor<T>(a);
 
         // check for ANY,UNWRITTEN,UNKNOWN
-        if(CheckAUU(a)) return NEATValue(NEATValue::UNKNOWN);
-
-        // if NaN, return NaN
-        if (a.IsNaN<T>())
-            return NEATValue::NaN<T>();
+        if(CheckAUU(a))
+        {
+            *iptr = NEATValue(NEATValue::UNKNOWN);
+            return NEATValue(NEATValue::UNKNOWN);
+        }
 
         // Flush denormals to zero
         NEATValue flushed = flush<T>(a);
 
-        if (Utils::ge<SuperT>(SuperT(*flushed.GetMax<T>()) - SuperT(*flushed.GetMin<T>()), SuperT(1)))
+        // corner cases
+        if(flushed.IsAcc())
         {
-            Utils::FloatParts<T> one(T(1));
-            one.AddUlps(-1);
-            return NEATValue(T(0), T(one.val()));
+            if(Utils::IsPInf(*flushed.GetAcc<T>()))
+            {
+                *iptr = NEATValue(T(+INFINITY));
+                return NEATValue(T(+0.0));
+            }
+            else if(Utils::IsNInf(*flushed.GetAcc<T>()))
+            {
+                *iptr = NEATValue(T(-INFINITY));
+                return NEATValue(T(-0.0));
+            }
+            else if(Utils::IsNaN(*flushed.GetAcc<T>()))
+            {
+                *iptr = NEATValue::NaN<T>();
+                return NEATValue::NaN<T>();
+            }
+        }
+
+        if( flushed.IsInterval())
+        {
+            // The fract funtion is discontinious. Multiple non-intersecting intervals cannot be represented by current implementation 
+            // To get defined resut we need to ensure that output values Y = {y = fract(x), x from Min to Max }
+            // belong to continuous interval
+            // 
+            // diff is difference between floor(min) and floor(max)
+            // min = floor(min)+fract(min)
+            SuperT diff = RefALU::fabs(RefALU::floor(SuperT(*flushed.GetMax<T>())) - RefALU::floor(SuperT(*flushed.GetMin<T>())));
+            // if diff greater then 1 - output interval is continuous and defined as [0; 1)
+            // if diff equal 1 and (Max - Min) greater then 1 - output interval is continuous and defined as [0; 1)
+            if (Utils::gt<SuperT>(diff, SuperT(1)) ||
+                (Utils::eq<SuperT>(diff, SuperT(1)) && Utils::ge<SuperT>(RefALU::fabs(SuperT(*flushed.GetMax<T>()) - SuperT(*flushed.GetMin<T>())), SuperT(1.0))))
+            {
+                Utils::FloatParts<T> one(T(1));
+                one.AddUlps(-1);
+                *iptr = NEATALU::floor<T>(flushed);
+                return NEATValue(T(0), T(one.val()));
+            }
+            // Multiple intervals cannot be represented. So, if diff equals 1 and (Max - Min) is less than 1 - output interval is discontinious
+            else if(Utils::eq<SuperT>(diff, SuperT(1)) &&
+                Utils::lt<SuperT>(RefALU::fabs(SuperT(*flushed.GetMax<T>()) - SuperT(*flushed.GetMin<T>())), SuperT(1.0)) )
+            {
+                // floor(max) - floor(min) = 1
+                // so iptr = {N, N + 1} which is two points
+                // it couldn't be represented by NEATValue
+                *iptr = NEATValue(NEATValue::UNKNOWN);
+                return NEATValue(NEATValue::UNKNOWN);
+            }
+            // in other cases ( diff equals to zero) interval is continuous
+            // continue calculation of output interval
         }
 
         // compute boundaries for reference

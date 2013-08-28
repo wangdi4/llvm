@@ -3030,6 +3030,189 @@ TYPED_TEST(NEATRoundingTestRun, trunc)
     truncTest.TestRounding(NEATFuncVec, NEATFunc, RefFunc);
 }
 
+
+TYPED_TEST(NEATMathTestTwoArgs, fract)
+{
+    typedef typename TypeParam::Type TypeP;
+    typedef typename  superT<TypeP>::type SuperT;
+    // Check if we are able to test double built-in function.
+    if (SkipDoubleTest<TypeP>()){
+        return;
+    }
+    
+    /* test for specific values */
+    NEATValue accValx, accValy;
+    NEATValue testAccVal;
+
+    NEATValue unknown(NEATValue::UNKNOWN);
+    NEATValue any(NEATValue::ANY);
+    NEATValue unwritten(NEATValue::UNWRITTEN);
+    // Test special NEAT values: UNKNOWN, UNWRITTEN and ANY.
+
+    testAccVal = NEATALU::fract<TypeP>(unknown, &accValy);
+    EXPECT_TRUE(testAccVal.IsUnknown());
+    EXPECT_TRUE(accValy.IsUnknown());
+    testAccVal = NEATALU::fract<TypeP>(any, &accValy);
+    EXPECT_TRUE(testAccVal.IsUnknown());
+    EXPECT_TRUE(accValy.IsUnknown());
+    testAccVal = NEATALU::fract<TypeP>(unwritten, &accValy);
+    EXPECT_TRUE(testAccVal.IsUnknown());
+    EXPECT_TRUE(accValy.IsUnknown());
+
+    // corner cases tests
+    // test fract( ±0 , iptr)
+    const TypeP Pz = +0.0;
+    const TypeP Nz = -0.0;
+    const NEATValue pzero = NEATValue(Pz);
+    const NEATValue nzero = NEATValue(Nz);
+    testAccVal = NEATALU::fract<TypeP>(pzero, &accValy);
+    EXPECT_TRUE(TestAccValue<TypeP>(testAccVal,Pz));
+    EXPECT_TRUE(TestAccValue<TypeP>(accValy,Pz));
+
+    testAccVal = NEATALU::fract<TypeP>(nzero, &accValy);
+    EXPECT_TRUE(TestAccValue<TypeP>(testAccVal,Nz));
+    EXPECT_TRUE(TestAccValue<TypeP>(accValy,Nz));
+
+    testAccVal = NEATALU::fract<TypeP>(pzero, &accValy);
+    EXPECT_TRUE(TestAccValue<TypeP>(testAccVal,Pz));
+    EXPECT_TRUE(TestAccValue<TypeP>(accValy,Pz));
+
+    // test fract( ±INF , iptr)
+    const TypeP pi = Utils::GetPInf<TypeP>();
+    const TypeP ni = Utils::GetNInf<TypeP>();
+    const NEATValue pinf = NEATValue(pi);
+    const NEATValue ninf = NEATValue(ni);
+
+    testAccVal = NEATALU::fract<TypeP>(pinf, &accValy);
+    EXPECT_TRUE(TestAccValue<TypeP>(testAccVal,Pz));
+    EXPECT_TRUE(TestAccValue<TypeP>(accValy,pi));
+
+    testAccVal = NEATALU::fract<TypeP>(ninf, &accValy);
+    EXPECT_TRUE(TestAccValue<TypeP>(testAccVal,Nz));
+    EXPECT_TRUE(TestAccValue<TypeP>(accValy,ni));
+
+    // test fract( NaN, iptr)
+    NEATValue nan = NEATValue::NaN<TypeP>();
+    testAccVal = NEATALU::fract<TypeP>(nan, &accValy);
+    EXPECT_TRUE(testAccVal.IsNaN<TypeP>());
+    EXPECT_TRUE(accValy.IsNaN<TypeP>());
+
+    for(uint32_t testIdx = 0; testIdx < this->NUM_TESTS; ++testIdx)
+    {
+        const int32_t vw = VectorWidthWrapper(this->currWidth).GetSize();
+
+        // Test on accurate values.
+        NEATVector x(this->currWidth);
+        NEATVector y(this->currWidth);
+        NEATVector xv(this->currWidth);
+        NEATVector yv(this->currWidth);
+
+        for(int32_t i = 0; i < vw; ++i)
+        {
+            x[i] = NEATValue(this->Arg1Min[testIdx*vw+i]);
+            xv[i] = NEATValue(this->Arg1Min[testIdx*vw+i], this->Arg1Max[testIdx*vw+i]);
+        }
+
+        /* test for single accurate NEAT value*/
+        NEATValue xVal = x[0];
+        NEATValue yVal;
+
+        NEATValue testVal = NEATALU::fract<TypeP>(xVal, &yVal);
+        SuperT refAccValFloat, refAccOutVal;
+
+        refAccValFloat = RefALU::fract(
+            SuperT(*xVal.GetAcc<TypeP>()),
+            &refAccOutVal);
+
+        EXPECT_TRUE(TestAccExpanded<SuperT>(refAccValFloat, testVal, NEATALU::FRACT_ERROR) );
+        EXPECT_TRUE(TestAccExpanded<SuperT>(refAccOutVal, yVal, NEATALU::FRACT_SECOND_ARG_ERROR ));
+
+        /* test for vector accurate NEAT value*/
+        xVal = xv[0];
+
+        testVal = NEATALU::fract<TypeP>(xVal, &yVal);
+        SuperT refMinValFloat, refMaxValFloat, refMinOutVal, refMaxOutVal;
+        refMinValFloat = RefALU::fract(
+            SuperT(*xVal.GetMin<TypeP>()),
+            &refMinOutVal);
+        refMaxValFloat = RefALU::fract(
+            SuperT(*xVal.GetMax<TypeP>()),
+            &refMaxOutVal);
+        // The fract funtion is discontinious. Multiple non-intersecting intervals cannot be represented by current implementation 
+        // To get defined resut we need to ensure that output values Y = {y = fract(x), x from Min to Max }
+        // belong to continuous interval
+        // 
+        // diff is difference between floor(min) and floor(max)
+        // min = floor(min)+fract(min)
+        SuperT diff = RefALU::fabs( RefALU::floor((SuperT)*xVal.GetMin<TypeP>()) - RefALU::floor((SuperT)*xVal.GetMax<TypeP>()) );
+        // Multiple intervals cannot be represented. So, if diff equals 1 and (Max - Min) is less than 1 - output interval is discontinious
+        if( Utils::eq<SuperT>(diff, SuperT(1.0)) && Utils::lt<SuperT>(RefALU::fabs((SuperT)*xVal.GetMin<TypeP>() - (SuperT)*xVal.GetMax<TypeP>()), SuperT(1.0)) )
+        {
+            EXPECT_TRUE(yVal.IsUnknown());
+            EXPECT_TRUE(testVal.IsUnknown());
+        }
+        // if diff greater then 1 - output interval is continuous and defined as [0; 1)
+        // if diff equal 1 and (Max - Min) greater then 1 - output interval is continuous and defined as [0; 1)
+        else if ( Utils::gt<SuperT>(diff, SuperT(1.0)) ||
+            ( Utils::eq<SuperT>(diff, SuperT(1.0)) && Utils::ge<SuperT>(RefALU::fabs((SuperT)*xVal.GetMin<TypeP>() - (SuperT)*xVal.GetMax<TypeP>()), SuperT(1.0)) ))
+        {
+            Utils::FloatParts<TypeP> one(TypeP(1));
+            one.AddUlps(-1);
+            EXPECT_TRUE( Utils::eq<TypeP>(*testVal.GetMin<TypeP>(), TypeP(0.0)));
+            EXPECT_TRUE( Utils::eq<TypeP>(*testVal.GetMax<TypeP>(), TypeP(one.val())));
+            EXPECT_TRUE( TestIntExpanded<SuperT>(refMinOutVal, refMaxOutVal, yVal, NEATALU::FRACT_SECOND_ARG_ERROR) || yVal.IsUnknown());
+        }
+        // in other cases ( diff equals to zero) interval is continuous
+        // continue validation of output interval
+        else
+        {
+            EXPECT_TRUE( TestIntExpanded<SuperT>(refMinValFloat, refMaxValFloat, testVal, NEATALU::FRACT_ERROR) );
+            EXPECT_TRUE( TestIntExpanded<SuperT>(refMinOutVal, refMaxOutVal, yVal, NEATALU::FRACT_SECOND_ARG_ERROR) || yVal.IsUnknown());
+        }
+
+        /* test for vector of NEAT accurate */
+        NEATVector testVec = NEATALU::fract<TypeP>(x, y);
+        for(int32_t i = 0; i < vw; ++i) {
+            SuperT refValFloat = RefALU::fract(
+                SuperT(*x[i].GetAcc<TypeP>()),
+                &refAccOutVal);
+            EXPECT_TRUE(TestAccExpanded<SuperT>(refValFloat, testVec[i], NEATALU::FRACT_ERROR));
+            EXPECT_TRUE(TestAccExpanded<SuperT>(refAccOutVal, y[i], NEATALU::FRACT_SECOND_ARG_ERROR ));
+        }
+
+        /* test for vector of NEAT interval */
+        testVec = NEATALU::fract<TypeP>(xv, yv);
+        for(int32_t i = 0; i < vw; ++i) {
+            refMinValFloat = RefALU::fract(
+                SuperT(*xv[i].GetMin<TypeP>()),
+                &refMinOutVal);
+            refMaxValFloat = RefALU::fract(
+                SuperT(*xv[i].GetMax<TypeP>()),
+                &refMaxOutVal);
+            diff = RefALU::fabs( RefALU::floor((SuperT)*xv[i].GetMin<TypeP>()) - RefALU::floor((SuperT)*xv[i].GetMax<TypeP>()) );
+            if( Utils::eq<SuperT>(diff, SuperT(1.0)) && Utils::lt<SuperT>(RefALU::fabs((SuperT)*xv[i].GetMin<TypeP>() - (SuperT)*xv[i].GetMax<TypeP>()), SuperT(1.0)) )
+            {
+                EXPECT_TRUE(yv[i].IsUnknown());
+                EXPECT_TRUE(testVec[i].IsUnknown());
+            }
+            else if ( Utils::gt<SuperT>(diff, SuperT(1.0)) ||
+                ( Utils::eq<SuperT>(diff, SuperT(1.0)) && Utils::ge<SuperT>(RefALU::fabs((SuperT)*xv[i].GetMin<TypeP>() - (SuperT)*xv[i].GetMax<TypeP>()), SuperT(1.0)) ))
+            {
+                Utils::FloatParts<TypeP> one(TypeP(1));
+                one.AddUlps(-1);
+                EXPECT_TRUE( Utils::eq<TypeP>(*testVec[i].GetMin<TypeP>(), TypeP(0.0)));
+                EXPECT_TRUE( Utils::eq<TypeP>(*testVec[i].GetMax<TypeP>(), TypeP(one.val())));
+                EXPECT_TRUE(TestIntExpanded<SuperT>(refMinOutVal, refMaxOutVal, yv[i], NEATALU::FRACT_SECOND_ARG_ERROR) || yv[i].IsUnknown());
+            }
+            else
+            {
+                EXPECT_TRUE(TestIntExpanded<SuperT>(refMinValFloat, refMaxValFloat, testVec[i], NEATALU::FRACT_ERROR));
+                EXPECT_TRUE(TestIntExpanded<SuperT>(refMinOutVal, refMaxOutVal, yv[i], NEATALU::FRACT_SECOND_ARG_ERROR) || yv[i].IsUnknown());
+            }
+        }
+    }
+}
+
 // hypot test
 TYPED_TEST(NEATMathTestTwoArgs, hypot)
 {
