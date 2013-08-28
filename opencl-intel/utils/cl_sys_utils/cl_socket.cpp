@@ -103,7 +103,9 @@ struct OclSocket::OclSocketImpl
 
     void system_error(const string& msg)
     {
-        throw OclSocketError(msg + ": " + get_last_socket_error());
+		string full_msg;
+		full_msg = msg + ": " + get_last_socket_error();
+        throw OclSocketError(full_msg);
     }
 
     SOCKET_T sock;

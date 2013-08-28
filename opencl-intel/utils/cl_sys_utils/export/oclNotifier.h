@@ -14,6 +14,9 @@ typedef struct CommandData {
 	bool ownEvent;	//a flag to know if it is our responsibility to free the event monitoring this command
 	long key;	// a unique key that represent this command
 	Intel::OpenCL::Utils::AtomicCounter refCounter; //holds the number of callbacks that will use this struct
+	cl_event *pEvent;	// pointer to the event that we create if user hasn't provided one
+	bool needRelease;	// determines if we need to release the CL resources of the event
+	const char* funcName;	// useful for functions that do not appear in CL_EVENT_COMMAND_TYPE
 } CommandData;
 
 //a struct to help send function parameters in a more elegant way 
@@ -53,7 +56,7 @@ public:
 
 	/* Event Callbacks */
 
-	virtual void EventCreate (cl_event event, bool internalEvent)=0;
+	virtual void EventCreate (cl_event, bool, string* cmdName = NULL)=0;
 
 	virtual void EventFree (cl_event event)=0;
 
@@ -79,7 +82,7 @@ public:
 
 	/* Program Callbacks */
 
-	virtual void ProgramCreate (cl_program /* program */, cl_context)=0;
+	virtual void ProgramCreate (cl_program /* program */, cl_context, bool, bool)=0;
 
 	virtual void ProgramFree (cl_program /* program */)=0;
 
@@ -139,8 +142,7 @@ public:
 	void createCommandEvents(cl_event *event, CommandData *data);
 
 	const char* enableKernelArgumentInfo(const char* options);
-	static void releaseCommandData(cl_event *event, CommandData* data);
-	static void releaseCommandData(cl_event event, CommandData* data);
+	static void releaseCommandData(CommandData* data);
 
 
 	/* Platform Callbacks */
@@ -169,7 +171,7 @@ public:
 
 	/* Event Callbacks */
 
-	virtual void EventCreate (cl_event event, bool internalEvent);
+	virtual void EventCreate (cl_event, bool, string* cmdName = NULL);
 
 	virtual void EventFree (cl_event event);
 
@@ -195,7 +197,7 @@ public:
 
 	/* Program Callbacks */
 
-	virtual void ProgramCreate (cl_program /* program */, cl_context);
+	virtual void ProgramCreate (cl_program /* program */, cl_context, bool, bool );
 
 	virtual void ProgramFree (cl_program /* program */);
 
