@@ -61,7 +61,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		// IOCLFEBinaryResult
 		size_t	GetIRSize() {return m_stOutIRSize;}
 		const void*	GetIR() { return m_pOutIR;}
-		const char* GetErrorLog() {return m_pLogString;}
+		const char*	GetErrorLog() {return m_pLogString;}
 		long Release() { delete this; return 0; }
 
 	protected:

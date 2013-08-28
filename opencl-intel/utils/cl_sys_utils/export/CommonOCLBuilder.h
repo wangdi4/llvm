@@ -57,6 +57,8 @@ public:
 
 private:
   CommonOCLBuilder();
+  // Prevent misuse, can't be stack allocated
+  CommonOCLBuilder(const CommonOCLBuilder& builder);
 
   Intel::OpenCL::FECompilerAPI::IOCLFECompiler* createCompiler(const char* lib);
 
