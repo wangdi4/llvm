@@ -94,6 +94,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         bool			m_bIsGenuineIntel;
         unsigned char	m_ucStepping;
         unsigned char	m_ucModel;
+        unsigned char	m_ucExtendedModel;
         unsigned char	m_ucFamily;
         unsigned char	m_ucType;
         char *			m_szCPUString;

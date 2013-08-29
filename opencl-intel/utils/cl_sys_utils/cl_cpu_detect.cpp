@@ -114,8 +114,9 @@ bool CPUDetect::IsProcessorType(EProcessorType processorType)
     	break;
     case PT_ATOM:
         if (m_ucFamily == 0x6 &&
-             (m_ucModel == 0x6 ||
-              m_ucModel == 0x7))
+             (m_ucExtendedModel == 0x35 ||  // CloverTrail
+              m_ucExtendedModel == 0x36 ||  // CedarTrail
+              m_ucExtendedModel == 0x37))   // Baytrail
         {
             return true;
         }
@@ -182,6 +183,7 @@ CPUDetect::CPUDetect(void) :
 	m_bIsGenuineIntel (false),
 	m_ucStepping(0),
 	m_ucModel(0),
+	m_ucExtendedModel(0),
 	m_ucFamily(0),
 	m_ucType(0),
 	m_szCPUString(NULL),
@@ -244,6 +246,7 @@ void CPUDetect::GetCPUInfo()
     CPUID(viCPUInfo, 1);
     m_ucStepping = viCPUInfo[0] & 0xf;
     m_ucModel = (viCPUInfo[0] >> 4) & 0xf;
+    m_ucExtendedModel = ((viCPUInfo[0] >> 12) & 0xf0) | m_ucModel;
     m_ucFamily = (viCPUInfo[0] >> 8) & 0xf;
     m_ucType = (viCPUInfo[0] >> 12) & 0x3;
 	m_uiCoreCount = (viCPUInfo[1] >> 16) & 0xff;
