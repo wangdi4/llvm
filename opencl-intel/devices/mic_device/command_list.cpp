@@ -97,8 +97,14 @@ cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN        
 #endif
                                                 CommandList**                   outCommandList)
 {
+    const int MIC_SUPPORTED_COMMAND_QUEUE_PROPERTIES = CL_DEV_LIST_ENABLE_OOO | CL_DEV_LIST_PROFILING;
     cl_dev_err_code result = CL_DEV_SUCCESS;
     bool isOOO = (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO) );
+    //Check for unsupported properties
+    if (0 != ((int)props & ~MIC_SUPPORTED_COMMAND_QUEUE_PROPERTIES))
+    {
+        return CL_DEV_INVALID_PROPERTIES;
+    }
 
     CommandList* tCommandList = new CommandList(pNotificationPort, pDeviceServiceComm, 
                                                 pFrameworkCallBacks, pProgramService, 
