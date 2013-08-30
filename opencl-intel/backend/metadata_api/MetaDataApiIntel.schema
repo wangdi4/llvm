@@ -37,6 +37,11 @@
                             "metatype": "KernelsInfo"
                         },
                         {
+                            "name":     "ModuleInfoList",
+                            "key":      "opencl.module_info_list",
+                            "metatype": "ModuleInfoList"
+                        },
+                        {
                             "name":     "FunctionsInfo",
                             "key":      "llvm.functions_info",
                             "metatype": "FunctionsInfo"
@@ -257,6 +262,31 @@
                         }
                     ]
                     
+                },
+    "ModuleInfoList":{
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "ModuleInfo"
+                },
+    "ModuleInfo":{
+                    "is_container":     true,
+                    "container_type":   "struct",
+                    "elements": [
+                        {
+                            "location": "named",
+                            "key":      "gen_addr_space_pointer_counter",
+                            "name":     "GAScounter",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "gen_addr_space_pointer_warnings",
+                            "name":     "GASwarnings",
+                            "metatype": "int_list",
+                            "optional": true
+                        }
+                    ]
                 },
     "kernel_arg_addr_space":{
                 "is_container":         true,

@@ -6,65 +6,75 @@
 ; CHECK-NOT: @test2
 
 ; CHECK: @test
-; CHECK: %AddrSpace3 = alloca i32
-; CHECK: %AddrSpace2 = alloca i32
-; CHECK: %AddrSpace1 = alloca i32
-; CHECK: %AddrSpace = alloca i32
+; CHECK: %AllocaSpace3 = alloca i32
+; CHECK: %AllocaSpace2 = alloca i32
+; CHECK: %AllocaSpace1 = alloca i32
+; CHECK: %AllocaSpace = alloca i32
 ; CHECK-NOT: call void @test1(i32 addrspace(4)* %1)
 ; CHECK: call void @_Z5test1PU3AS4i(i32 addrspace(4)* %1, i32 1)
 ; CHECK-NOT: call void @test1(i32 addrspace(4)* %3)
 ; CHECK: call void @_Z5test1PU3AS4i(i32 addrspace(4)* %3, i32 3)
 ; CHECK: store i32 addrspace(4)* %5, i32 addrspace(4)** %pGen1, align 4
-; CHECK: store i32 1, i32* %AddrSpace
+; CHECK: store i32 1, i32* %AllocaSpace
 ; CHECK: %6 = load i32 addrspace(4)** %pGen1, align 4
-; CHECK: %AddrSpace12 = load i32* %AddrSpace
+; CHECK: %AddrSpace11 = load i32* %AllocaSpace
 ; CHECK-NOT: %call = call zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)* %7)
-; CHECK: %AddrSpace13 = icmp eq i32 %AddrSpace12, 1
+; CHECK: %AddrSpace12 = icmp eq i32 %AddrSpace11, 1
 ; CHECK: store i32 addrspace(4)* %10, i32 addrspace(4)** %pGen1, align 4
-; CHECK: store i32 1, i32* %AddrSpace
+; CHECK: store i32 1, i32* %AllocaSpace
 ; CHECK: store i32 addrspace(4)* %12, i32 addrspace(4)** %pGen1, align 4
-; CHECK: store i32 3, i32* %AddrSpace
+; CHECK: store i32 3, i32* %AllocaSpace
 ; CHECK: %13 = load i32 addrspace(4)** %pGen1, align 4
-; CHECK: %AddrSpace11 = load i32* %AddrSpace
+; CHECK: %AddrSpace10 = load i32* %AllocaSpace
 ; CHECK-NOT: %call1 = call zeroext i1 @_Z8is_localPKU3AS4v(i8 addrspace(4)* %14)
-; CHECK: %AddrSpace14 = icmp eq i32 %AddrSpace11, 3
+; CHECK: %AddrSpace13 = icmp eq i32 %AddrSpace10, 3
 ; CHECK: store i32 addrspace(4)* %16, i32 addrspace(4)** %pGen1, align 4
-; CHECK: store i32 1, i32* %AddrSpace
+; CHECK: store i32 1, i32* %AllocaSpace
 ; CHECK: %17 = load i32 addrspace(4)** %pGen1, align 4
-; CHECK: %AddrSpace6 = load i32* %AddrSpace
+; CHECK: %AddrSpace5 = load i32* %AllocaSpace
 ; CHECK: store i32 addrspace(4)* %17, i32 addrspace(4)** %pGen2, align 4
-; CHECK: store i32 %AddrSpace6, i32* %AddrSpace
+; CHECK: store i32 %AddrSpace5, i32* %AllocaSpace1
 ; CHECK: %18 = load i32 addrspace(4)** %pGen2, align 4
-; CHECK: %AddrSpace10 = load i32* %AddrSpace
+; CHECK: %AddrSpace9 = load i32* %AllocaSpace1
 ; CHECK-NOT: %call3 = call zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)* %19)
-; CHECK: %AddrSpace15 = icmp eq i32 %AddrSpace10, 0
+; CHECK: %AddrSpace14 = icmp eq i32 %AddrSpace9, 0
 ; CHECK-NOT: %call5 = call i32 @get_fence(i8 addrspace(4)* %25)
-; CHECK: %AddrSpace16 = icmp eq i32 %AddrSpace9, 1
-; CHECK: %AddrSpace17 = icmp eq i32 %AddrSpace9, 3
-; CHECK: %AddrSpace18 = select i1 %AddrSpace16, i32 2, i32 0
-; CHECK: %AddrSpace19 = select i1 %AddrSpace17, i32 1, i32 %AddrSpace18
+; CHECK: %AddrSpace15 = icmp eq i32 %AddrSpace8, 1
+; CHECK: %AddrSpace16 = icmp eq i32 %AddrSpace8, 3
+; CHECK: %AddrSpace17 = select i1 %AddrSpace15, i32 2, i32 0
+; CHECK: %AddrSpace18 = select i1 %AddrSpace16, i32 1, i32 %AddrSpace17
 ; CHECK-NOT: %call6 = call zeroext i1 @test2(i32 addrspace(4)* %27, i32 addrspace(4)* %29)
 ; CHECK: %30 = call zeroext i1 @_Z5test2PU3AS4iS_(i32 addrspace(4)* %27, i32 addrspace(4)* %29, i32 1, i32 3)
+; CHECK: %32 = load i32 addrspace(4)** %pGen3, align 4
+; CHECK: %AddrSpace7 = load i32* %AllocaSpace2
+; CHECK-NOT: %call10 = call zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)* %32)
+; CHECK: %AddrSpace19 = icmp eq i32 %AddrSpace7, 0
+; CHECK: %34 = load i32 addrspace(4)** %pGen3, align 4
+; CHECK: %35 = load i32 addrspace(4)** %pGen1, align 4
+; CHECK: %cmp = icmp eq i32 addrspace(4)* %34, %35
+; CHECK: %36 = load i32 addrspace(4)** %pGen1, align 4
+; CHECK: %AddrSpace6 = load i32* %AllocaSpace
+; CHECK: %AddrSpace20 = icmp eq i32 %AddrSpace6, 0
 ; CHECK: bitcast float addrspace(4)* %add.ptr to float*
 ; CHECK-NOT: %call17 = call float @_Z5fractfPU3AS4f(float %39, float addrspace(4)* %add.ptr)
-; CHECK: %42 = call float @_Z5fractfPU3AS0f(float %40, float* %AddrSpace22)
+; CHECK: %42 = call float @_Z5fractfPU3AS0f(float %40, float* %AddrSpace21)
 ; CHECK: ret
 
 ; CHECK: @_Z5test2PU3AS4iS_(i32 addrspace(4)* %p1, i32 addrspace(4)* %p2, i32 %ArgSpace, i32 %ArgSpace2)
 ; CHECK: store i32 addrspace(4)* %p1, i32 addrspace(4)** %p1.addr, align 4
-; CHECK: store i32 %ArgSpace, i32* %AddrSpace
+; CHECK: store i32 %ArgSpace, i32* %AllocaSpace
 ; CHECK: store i32 addrspace(4)* %p2, i32 addrspace(4)** %p2.addr, align 4
-; CHECK: store i32 %ArgSpace2, i32* %AddrSpace
+; CHECK: store i32 %ArgSpace2, i32* %AllocaSpace1
 ; CHECK: %2 = load i32 addrspace(4)** %p1.addr, align 4
-; CHECK: %AddrSpace4 = load i32* %AddrSpace
+; CHECK: %AddrSpace3 = load i32* %AllocaSpace
 ; CHECK: %3 = bitcast i32 addrspace(4)* %2 to i8 addrspace(4)*
-; CHECK: %AddrSpace5 = icmp eq i32 %AddrSpace4, 1
-; CHECK: store i1 %AddrSpace5, i1* %retval
+; CHECK: %AddrSpace4 = icmp eq i32 %AddrSpace3, 1
+; CHECK: store i1 %AddrSpace4, i1* %retval
 ; CHECK: %4 = load i32 addrspace(4)** %p2.addr, align 4
-; CHECK: %AddrSpace3 = load i32* %AddrSpace
+; CHECK: %AddrSpace = load i32* %AllocaSpace1
 ; CHECK: %5 = bitcast i32 addrspace(4)* %4 to i8 addrspace(4)*
-; CHECK: %AddrSpace6 = icmp eq i32 %AddrSpace3, 3
-; CHECK: store i1 %AddrSpace6, i1* %retval
+; CHECK: %AddrSpace5 = icmp eq i32 %AddrSpace, 3
+; CHECK: store i1 %AddrSpace5, i1* %retval
 ; CHECK: ret
 
 ; CHECK: declare float @_Z5fractfPU3AS0f(float, float*)
@@ -256,7 +266,7 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 
 !0 = metadata !{void (i32 addrspace(1)*, i32 addrspace(3)*, float)* @test}
 
-;;  -----  BasicCasesDynamic.cl   -------
+;;  -----  BasicCasesDynamicAlloca.cl   -------
 ;; Command line: clang.exe -cc1 -cl-std=CL2.0 -emit-llvm -O0 -x cl -I <clang_headers> -include opencl_.h -D__OPENCL_C_VERSION__=200 BasicCasesDynamic.cl -o BasicCasesDynamicAlloca.ll
 
 ;;void test1(int* p) {

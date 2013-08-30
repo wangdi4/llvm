@@ -48,6 +48,10 @@ namespace intel {
     bool changed = false;
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
+    m_PointerSlotType = 
+      (m_pModule->getPointerSize() == Module::Pointer64)? 
+                                          Type::getInt64Ty(*m_pLLVMContext): 
+                                          Type::getInt32Ty(*m_pLLVMContext);
     m_functionsToHandle.clear();
     m_GASFunctions.clear();
 
@@ -61,11 +65,15 @@ namespace intel {
       m_GASPointers.clear();
       m_GASPointerDefs.clear();
       m_GASDefSpaces.clear();
+      m_GASAllocaUsages.clear();
       m_GASAllocaDefs.clear();
+      m_GASAllocaVector.clear();
+      m_GASAllocaStores.clear();
       m_BiPoints.clear();
       m_IntrinPoints.clear();
       m_AddrQualifierBICalls.clear();
       m_NonKernelCalls.clear();
+      m_ReturnGAS.clear();
 
       Function *pFunc = *func_it;
       // Collect per-function GAS pointers
@@ -88,6 +96,16 @@ namespace intel {
 
   bool GenericAddressDynamicResolution::analyzeGASPointers(Function *pFunc) {
 
+    // Collect usage tree of Loads/Stores for GAS pointer array arguments
+    for (Function::arg_iterator arg_it = pFunc->arg_begin(),
+                                arg_end = pFunc->arg_end();
+                                arg_it != arg_end; arg_it++) {
+      Type *pArgType = arg_it->getType();
+      if (isGASPtrArray(pArgType)) {
+        collectLoadAndStoreUsagesFor(arg_it, arg_it);
+      }
+    }
+
     // Collect calls with GAS pointers in the function (together with their immediate defs')
     for (inst_iterator inst_it = inst_begin(pFunc), 
                        inst_it_end = inst_end(pFunc); 
@@ -95,7 +113,44 @@ namespace intel {
 
       Instruction *pInstr = &(*inst_it);
 
-      // Filter-out all instructions but calls
+      if (pInstr->getOpcode() == Instruction::Ret) {
+        // Ret instruction - check return value (if any) for GAS pointer
+        ReturnInst *pRetInstr = cast<ReturnInst>(pInstr);
+        if (Value *pRetVal = pRetInstr->getReturnValue()) {
+          // Note that we assume that GAS pointer return value will always
+          // feed its value to a Address Qualifier BI function call, however 
+          // this case is not expected to be frequent. That assumption significantly
+          // simplifies the analysis: otherwise the analysis should be delegated 
+          // to caller, and then we will need yet more rounds over all functions
+          // in order to resolve new (circular) dependencies:
+          //  - caller will detect that callee's return GAS return value is of interest,
+          //  - callee analysis will look for "named" origin(s) of return value,
+          //  - that analysis may add new space-value argument(s) to caller-to-callee function call
+          //  - call parameter(s) which correspond(s) to argument(s) should be analyzed for "named" origin(s)
+          //  - on the way we can find dependency on pointer result value of yet another callee, 
+          //  - the latter may produce yet new space-value argument(s) to be resolved 
+          //  - the latter may produce yet another dependency on return value and so on.
+          // In worst case, amount of rounds will reach amount of functions with GAS pointer
+          // return value. Compile-time vs. optimization gain trade-off can be negative here.
+          const PointerType *pPtrType = dyn_cast<PointerType>(pRetVal->getType());
+          if (pPtrType && IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace())) {
+            // Returns GAS pointer: start BOTTOM-UP data flow analysis in search
+            // for its definition point
+            addGASPointer(pRetVal);
+            m_ReturnGAS.push_back(pRetInstr);
+          }
+        }
+        continue;
+      }
+
+      const AllocaInst *pAlloca = dyn_cast<const AllocaInst>(pInstr);
+      if (pAlloca && isGASPointer(pAlloca->getAllocatedType())) {
+        // Collect usage tree of Loads/Stores for this 'alloca'
+        collectLoadAndStoreUsagesFor(pAlloca, pAlloca);
+        continue;
+      }
+
+      // Filter-out all other instructions but calls
       CallInst *pCallInstr = dyn_cast<CallInst>(pInstr);
       if (!pCallInstr) {
         continue;
@@ -106,7 +161,7 @@ namespace intel {
       assert(pCallee && "Call instruction doesn't have a callee!");
       if (isAddressQualifierBI(pCallee)) {
         // Address Qualifier BI function call - start BOTTOM-UP data flow
-        // analysis is search for definition point of its (single) parameter
+        // analysis in search for definition point of its (single) parameter
         const Value *pSrcVal = pCallInstr->getArgOperand(0);
         const PointerType *pSrcType = dyn_cast<PointerType>(pSrcVal->getType());
         if (!pSrcType || !IS_ADDR_SPACE_GENERIC(pSrcType->getAddressSpace())) {
@@ -127,20 +182,51 @@ namespace intel {
         TGASFuncMap::const_iterator func_it = m_GASFunctions.find(pCallee);
         if (func_it != m_GASFunctions.end()) {
           // Callee function has GAS pointer arguments which must be resolved -
-          // start BOTTOM-UP data flow analysis is search for definition points
+          // start BOTTOM-UP data flow analysis in search for definition points
           // of its parameters whose corresponding arguments are reported as
           // "must be resolved"
           const SmallVector<unsigned, 8> &GASargIndices = func_it->second;
           // Scanning "must be resolved" arguments
           for (unsigned idx = 0; idx < GASargIndices.size(); idx++) {
-            const Value *pSrcVal = pCallInstr->getArgOperand(GASargIndices[idx]);
-            const PointerType *pSrcType = dyn_cast<PointerType>(pSrcVal->getType());
-            if (pSrcType && !IS_ADDR_SPACE_GENERIC(pSrcType->getAddressSpace())) {
-              assert(0 && "Function GAS argument collection is broken!");
+            Value *pSrcVal = pCallInstr->getArgOperand(GASargIndices[idx]);
+            Type *pArgType = pSrcVal->getType();
+            const PointerType *pSrcType = dyn_cast<PointerType>(pArgType);
+            if ((!pSrcType || IS_ADDR_SPACE_GENERIC(pSrcType->getAddressSpace())) && 
+                                                                !isGASPtrArray(pArgType)) {
+              // We don't consider GAS array parameter as a value to be traced bottom-up...
+              addGASPointer(pSrcVal);
+            } else {
+              // ... instead - we add it to the collection of must-be-resolved
+              // GAS pointer arrays and schedule its Stores for traversal
+              // Check whether this array area was already encountered
+              SpaceArrayDef spaceArray = {NULL, NULL};
+              TAllocaUsageMap::const_iterator alloca_it = m_GASAllocaUsages.find(pSrcVal);
+              assert(alloca_it != m_GASAllocaUsages.end() && "GAS pointer array collection is broken!");
+              Value *pGASArray = const_cast<Value*>(alloca_it->second);
+              std::pair<TAllocaSpaceMap::iterator,bool> res =
+                      m_GASAllocaDefs.insert(TAllocaSpacePair(pGASArray, spaceArray));
+              if (res.second) {
+                // This array area wasn't encountered yet - schedule all inputs of Stores to
+                // the same array area for BOTTOM-UP traversal
+                TAllocaStoresMap::const_iterator stores_it = m_GASAllocaStores.find(pGASArray);
+                if (stores_it != m_GASAllocaStores.end()) {
+                  const std::vector<StoreInst*> &stores = stores_it->second;
+                  for (unsigned idx = 0; idx < stores.size(); idx++) {
+                    addGASPointer(stores[idx]->getValueOperand());
+                  }             
+                }
+                // Also remember this Alloca/argument for future deterministic iterations
+                m_GASAllocaVector.push_back(pGASArray);
+              }
             }
-            addGASPointer(pSrcVal);
           }
           m_NonKernelCalls.push_back(pCallInstr);
+        } else {
+          // Remember the function call if it returns GAS pointer
+          PointerType *pPtrType = dyn_cast<PointerType>(pCallee->getReturnType());
+          if (pPtrType && IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace())) {
+            m_NonKernelCalls.push_back(pCallInstr);
+          }
         }
       } else {
         // This is a call to a function which is only declared in the module: do nothing
@@ -159,7 +245,97 @@ namespace intel {
     }
 
     // Check whether this function's GAS pointer definition depends on argument(s)
-    return m_GASFunctions.find(pFunc) != m_GASFunctions.end();
+    return m_GASFunctions.find(pFunc) != m_GASFunctions.end() || m_ReturnGAS.size();
+  }
+
+  bool GenericAddressDynamicResolution::isGASPointer(const Type *pType) {
+    // There is an assumption that no structs with GAS pointers or their
+    // aggregates at this point (validated by static GAS pointer resolution pass).
+    // Note that integer arrays with pointer-size elements are also of interest,
+    // because they may serve for storing of pointers.
+    if (pType->isArrayTy()) {
+      // Look into the array element for GAS pointer
+      const Type *pArrayElemType = pType->getArrayElementType();
+      if (pArrayElemType->isArrayTy() && isGASPointer(pArrayElemType)) {
+        return true;
+      } else if (pArrayElemType == m_PointerSlotType ||
+                 (pArrayElemType->isPointerTy() && 
+                  IS_ADDR_SPACE_GENERIC(
+                    cast<const PointerType>(pArrayElemType)->getAddressSpace()))) {
+        return true;
+      }
+    } else if (pType == m_PointerSlotType ||
+               (pType->isPointerTy() &&
+                IS_ADDR_SPACE_GENERIC(
+                   cast<const PointerType>(pType)->getAddressSpace()))) {
+      return true;
+    }
+    return false;
+  }
+
+  bool GenericAddressDynamicResolution::isGASPtrArray(const Type *pType) {
+    return (pType->isArrayTy() && isGASPointer(pType->getArrayElementType())) ||
+           (pType->isPointerTy() && !isSinglePtr(pType) && 
+                                isGASPointer(pType->getPointerElementType()));
+  }
+
+  void GenericAddressDynamicResolution::collectLoadAndStoreUsagesFor(
+                                            const Value *pArray, 
+                                            const Value *pCurVal) {
+    for (Value::const_use_iterator use_it = pCurVal->use_begin(),
+                                   use_end = pCurVal->use_end();
+                                   use_it != use_end; use_it++) {
+
+      const Instruction *pUse = dyn_cast<Instruction>(*use_it);
+      assert(pUse && "Array uses must be instructions!");
+      switch (pUse->getOpcode()) {
+        case Instruction::Load  :
+        case Instruction::Store :
+          if (m_GASAllocaUsages.find(pUse) == m_GASAllocaUsages.end()) {
+            // First-time encountered Load/Store instruction - keep its mapping to Alloca/array-argument
+            m_GASAllocaUsages.insert(TAllocaUsagePair(pUse, pArray));
+            if (pUse->getOpcode() == Instruction::Store) {
+              // For Store instruction - keep mapping from Alloca/array-argument to it
+              TAllocaStoresMap::iterator store_it = m_GASAllocaStores.find(pArray); 
+              if (store_it == m_GASAllocaStores.end()) {
+                std::vector<StoreInst*> stores;
+                std::pair<TAllocaStoresMap::iterator, bool> res = m_GASAllocaStores.insert(TAllocaStoresPair(pArray, stores));
+                store_it = res.first;
+              }
+              const StoreInst *pStore = cast<StoreInst>(pUse);
+              store_it->second.push_back(const_cast<StoreInst*>(pStore));
+            }
+          }
+          // Nothing to DFS after Load and Store
+          break;
+        case Instruction::Call :
+          // Call is also a terminal usage (when parameter is a GAS pointer array)
+          // We should map GAS pointer array parameter to its GAS pointer array 'alloca'/argument
+          if (m_GASAllocaUsages.find(pCurVal) == m_GASAllocaUsages.end()) {
+            // First-time encountered array usage instruction - keep its mapping to Alloca/array-argument
+            m_GASAllocaUsages.insert(TAllocaUsagePair(pCurVal, pArray));
+          }
+          // Nothing to DFS after Call
+          break;
+        case Instruction::GetElementPtr :
+        case Instruction::IntToPtr      :
+        case Instruction::PtrToInt      :
+        case Instruction::BitCast       :
+          // For GEP/Bitcast/Int2Ptr/ptr2int instruction - continue to search
+          collectLoadAndStoreUsagesFor(pArray, pUse);
+          break;
+        default:
+          if (pUse->isBinaryOp()) {
+            // For binary operation upon pointer's integer holder - continue to search
+            collectLoadAndStoreUsagesFor(pArray, pUse);
+          }
+          // We expect GAS pointer arrays to be represented by 'alloca', rather than 
+          // by LLVM array aggregate value or by vector, hence we don't expect 'extractvalue' 
+          // and 'insertvalue' instructions.
+          // For other usages (e.g., ICmp) there is nothing to DFS further.
+          break;
+      }
+    }
   }
 
   void GenericAddressDynamicResolution::addGASPointer(const Value *pPtrVal) {
@@ -181,22 +357,30 @@ namespace intel {
                                                     OCLAddressSpace::Global :
                                                     OCLAddressSpace::Private; 
     // Check for pointer arguments
-    bool isGASParam = false;
+    bool isGASParam  = false;
+    bool hasMismatch = false;
+    bool isFirst     = true;
     OCLAddressSpace::spaces foundSpace = OCLAddressSpace::Generic;
     for (unsigned idx = 0; idx < pCallInstr->getNumOperands(); idx++) {
       if (const PointerType *pSrcType = 
               dyn_cast<PointerType>(pCallInstr->getArgOperand(idx)->getType())) {
         // Check for pointer address space
-        OCLAddressSpace::spaces space = 
+        OCLAddressSpace::spaces curSpace = 
                   (OCLAddressSpace::spaces) pSrcType->getAddressSpace();
-        if (IS_ADDR_SPACE_GENERIC(space)) {
+        if (IS_ADDR_SPACE_GENERIC(curSpace)) {
           // GAS pointer found - mark this call for future resolution
           isGASParam = true;
         } else {
           // Named-space pointer found - remember it (unless we already found
           // highest-priority space)
-          if (foundSpace != hiPriSpace) {
-            foundSpace = space;
+          if (isFirst) {
+            foundSpace = curSpace;
+            isFirst = false;
+          } else if (curSpace != foundSpace) {
+            hasMismatch = true;
+            if (foundSpace != hiPriSpace) {
+              foundSpace = curSpace;
+            }
           }
         }
       }
@@ -205,9 +389,10 @@ namespace intel {
       // Set default to the highest priority target space
       foundSpace = hiPriSpace;
     }
-    if (isGASParam) {
-      // GAS pointer discovered - this function call should be scheduled for conversion
-      // into its named-space pointer overload
+    if (isGASParam || hasMismatch) {
+      // GAS pointer discovered or there is a mismatch between 'named' address 
+      // space types of different parameters - this function call should be scheduled
+      // for conversion into its named-space pointer overload
       if (category == CallBuiltIn) {
         m_BiPoints.push_back(TBiIntrinPair(pCallInstr, foundSpace));
       } else {
@@ -232,6 +417,8 @@ namespace intel {
       // which are definition points of GAS pointers)
       PointerType *pPtrType = dyn_cast<PointerType>(pArg->getType());
       bool toBeDefinedByCaller = !pPtrType || IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace());
+      // Note that GAS pointer arrays are effectively filtered-out as well, because they cannot be
+      // generic (they are generated by 'alloca' and thus are of Private space)
       if (toBeDefinedByCaller) {
         TGASFuncMap::iterator func_it = m_GASFunctions.find(pArg->getParent());
         if (func_it == m_GASFunctions.end()) {
@@ -249,7 +436,10 @@ namespace intel {
           // For unary instruction which may define address space of the value of
           // interest - either collect the definition, or traverse BOTTOM-UP
           const Value *pOperand = pInstr->getOperand(0);
-          if (const PointerType *pPtrType = dyn_cast<PointerType>(pOperand->getType())) {
+          const Type *pOperandType = pOperand->getType();
+          if (const PointerType *pPtrType = dyn_cast<PointerType>(pOperandType)) {
+            assert(isSinglePtr(pOperandType) && 
+                   "Bitcast/GEP/Ptr2Int from GAS 'alloca'/argument array value cannot be reached during bottom-up traversal!");
             // Bitcast/GEP/Ptr2Int from pointer - check if it has named address space
             if (!IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace())) {
               // We identified a definition point - collect it
@@ -275,26 +465,46 @@ namespace intel {
         }
         case Instruction::Load : {
           // Load - keep track on all stores to the same address
-          const AllocaInst *pAllocaPtr = dyn_cast<AllocaInst>(pInstr->getOperand(0));
-          assert(pAllocaPtr && "GAS pointer can be loaded from value of Alloca only!");
+          TAllocaUsageMap::const_iterator alloca_it = m_GASAllocaUsages.find(pInstr);
+          assert(alloca_it != m_GASAllocaUsages.end() && 
+                 "GAS pointer can be originated from value of Alloca/argument only!");
           // Consider this instruction as a definition point for current GAS pointer
           collectDefPoint(pPtrVal, pCurVal);
-          // Check whether the input pointer was already encountered
-          std::pair<TAllocaMap::iterator,bool> res = 
-                         m_GASAllocaDefs.insert(TAllocaPair(pAllocaPtr, (AllocaInst*) NULL));
+          Value *pArrayPtr = const_cast<Value*>(alloca_it->second);
+          // Check whether this array area was already encountered
+          SpaceArrayDef spaceArray = {NULL, NULL};
+          std::pair<TAllocaSpaceMap::iterator,bool> res =
+                  m_GASAllocaDefs.insert(TAllocaSpacePair(pArrayPtr, spaceArray));
           if (res.second) {
-            // The input pointer wasn't encountered yet - schedule all inputs of Stores to
-            // the same 'Alloca' slot for BOTTOM-UP traversal
-            for (Value::const_use_iterator use_it = pAllocaPtr->use_begin(), 
-                                           use_end = pAllocaPtr->use_end();
-                                           use_it != use_end; use_it++) {
-              const Instruction *pUse = dyn_cast<Instruction>(*use_it);
-              assert(pUse && "Alloca uses must be instructions!");
-              if (pUse->getOpcode() == Instruction::Store) {
-                 addGASPointer(pUse->getOperand(0));
-              }
+            // This array area wasn't encountered yet - schedule all inputs of Stores to
+            // the same array area for BOTTOM-UP traversal
+            TAllocaStoresMap::const_iterator stores_it = m_GASAllocaStores.find(pArrayPtr);
+            if (stores_it != m_GASAllocaStores.end()) {
+              const std::vector<StoreInst*> &stores = stores_it->second;
+              for (unsigned idx = 0; idx < stores.size(); idx++) {
+                addGASPointer(stores[idx]->getValueOperand());
+              }             
             }
+            // Also remember this Alloca/argument for future deterministic iterations
+            m_GASAllocaVector.push_back(pArrayPtr);
           }
+          break;
+        }
+        case Instruction::Call : {
+          // Call instruction can be reached only if its GAS pointer result value is in use
+          PointerType *pPtrType = dyn_cast<PointerType>(pInstr->getType());
+          if (pPtrType) {
+            // We can pick that point as definition point only if it is a pointer
+            assert(IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace()) && 
+                   "A pointer should have generic address space at this point!");
+            collectDefPoint(pPtrVal, pCurVal);
+          }
+          // If the function returns integer rather than the pointer - the corresponding
+          // value will be left undefined, and will be resolved to 'Generic' space in
+          // the course of resolution. This is a trade-off vs. time-consuming handling
+          // of circular dependencies between caller(s) and callee(s). We assume that
+          // Pointer<->Integer conversions are used for pointer arithmetic only, and not
+          // for purpose of storing & conveying pointer values across function boundaries.
           break;
         }
         case Instruction::IntToPtr :
@@ -345,7 +555,7 @@ namespace intel {
   void GenericAddressDynamicResolution::collectDefPoint(const Value *pPtrVal, const Value *pDefPoint) {
     TPointerDefMap::iterator def_it = m_GASPointerDefs.find(pPtrVal);
     assert(def_it != m_GASPointerDefs.end() && "Collection of GAS pointers is broken!");
-    def_it->second = const_cast<Value*>(pDefPoint);
+    def_it->second = pDefPoint;
     m_GASDefSpaces.insert(TDefSpacePair(pDefPoint, (Value*)NULL));
   }
 
@@ -363,21 +573,44 @@ namespace intel {
 
     bool changed = false;
 
-    // At first - allocate 'Alloca' slots (if needed) for addr-space qualifier of the 
-    // pointer values in 'alloca' slots
-    for (TAllocaMap::iterator alloca_it = m_GASAllocaDefs.begin(),
-                              alloca_end = m_GASAllocaDefs.end();
-                              alloca_it != alloca_end; alloca_it++) {
-      alloca_it->second = new AllocaInst(IntegerType::get(*m_pLLVMContext, 32),
-                                         GAS_INSTRUCTION_NAME, pFunc->begin()->begin());
-      assocDebugLocWith(alloca_it->second, pFunc->begin()->begin());
-      changed = true;
+    // At first - generate addr-space qualifiers' arrays from the
+    // corresponding 'Alloca' GAS pointer arrays
+    for (unsigned idx = 0; idx < m_GASAllocaVector.size(); idx++) {
+      Value *pArray= m_GASAllocaVector[idx];
+      if (AllocaInst *pAlloca = dyn_cast<AllocaInst>(pArray)) {
+        // For GAS pointer array/scalar represented by 'alloca' - generate addr-space 
+        // qualifier 'alloca' array/scalar and calculate its offset (for array case only!) 
+        TAllocaSpaceMap::iterator alloca_it = m_GASAllocaDefs.find(pAlloca);
+        assert(alloca_it != m_GASAllocaDefs.end() && 
+               "Collection of GAS pointer arrays is broken!");
+        if (!pAlloca->getAllocatedType()->isArrayTy() && !pAlloca->isArrayAllocation()) {
+          // Optimization for 'alloca' scalar case - we can omit offset generation
+          Instruction *pFuncStart = pFunc->getEntryBlock().begin();
+          AllocaInst *pSpaceArray = new AllocaInst(m_PointerSlotType, GAS_ALLOCA_NAME, pFuncStart);
+          alloca_it->second.pSpace = pSpaceArray;
+          assocDebugLocWith(pSpaceArray, pFuncStart);
+          // We leave offset value as NULL
+        } else {
+          // Common case - generate addr-space qualifier 'alloca' array and calculate its offset
+          alloca_it->second = getArrayToSpaceOffset(pAlloca, pAlloca);
+        }
+        changed = true;
+      } else if (dyn_cast<Argument>(pArray)) {
+        // For array - just prepare to further GAS pointer argument resolution
+        TGASFuncMap::iterator func_it = m_GASFunctions.find(pFunc);
+        if (func_it == m_GASFunctions.end()) {
+          SmallVector<unsigned, 8> indices;
+          m_GASFunctions.insert(TGASFuncPair(pFunc, indices));
+        }
+      } else {
+        assert(0 && "Only 'alloca' or array argument may produce GAS pointer array!");
+      }
     }
 
-    // Then - generate LLVM virtual registers for addr-space qualifiers. Such variable
-    // will reflect changes in addr-space qualifier of respective GAS pointer, so that
-    // its currect value can be used by an Address Space Qualifier BI for querry about
-    // addr-space qualifier of that pointer in run-time.
+    // Then - generate LLVM virtual registers for addr-space qualifiers. Such
+    // variable will reflect changes in addr-space qualifier of respective GAS pointer,
+    // so that its current value can be used by an Address Space Qualifier BI for
+    // querry about addr-space qualifier of that pointer in run-time.
 
     // Starting from arguments - we need their addr-space variables (if any) in the same
     // order as they appear in the function's signature, otherwise we would follow the
@@ -388,42 +621,55 @@ namespace intel {
       pIndices = &func_it->second;
       assert(pIndices->size() == 0 && "Function argument indices collection is broken!");
     }
-    SmallVector<TDefSpaceMap::iterator, 8> extraArgs;
+    SmallVector<Argument*, 8> funcArgs;
+    for (Function::arg_iterator arg_it = pFunc->arg_begin(),
+                                arg_end = pFunc->arg_end();
+                                arg_it != arg_end; arg_it++) {
+      funcArgs.push_back(arg_it);
+    }
 
-    unsigned idx = 0;
-    for (Function::arg_iterator arg_it = pFunc->arg_begin(), 
-                                arg_end = pFunc->arg_end(); 
-                                arg_it != arg_end; arg_it++, idx++) {
-      TDefSpaceMap::iterator space_it = m_GASDefSpaces.find(arg_it);
+    for (unsigned idx = 0; idx < funcArgs.size(); idx++) {
+      Argument *pArg = funcArgs[idx];
+      TDefSpaceMap::iterator space_it = m_GASDefSpaces.find(pArg);
       if (space_it != m_GASDefSpaces.end()) {
         assert(!space_it->second && "GAS Pointer collection is broken!");
         // This argument serves as a definition point - check if it's addr-space
         // is expected to be defined by function's caller(s).
         // The criteria is: the argument is an integer or a pointer of generic type
-        PointerType *pPtrType = dyn_cast<PointerType>(arg_it->getType());
+        PointerType *pPtrType = dyn_cast<PointerType>(pArg->getType());
         bool toBeDefinedByCaller = !pPtrType || IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace());
+        // Note that GAS pointer arrays are effectively filtered-out as well, because they cannot be
+        // generic (they are generated by 'alloca' and thus are of Private space).
         if (toBeDefinedByCaller) {
           assert(pIndices && "Function argument indices collection is broken!");
           // For defined-by-caller argument - add GAS argument index to
-          // existing per-function "vector of indices"
+          // existing per-function "vector of indices" ...
           pIndices->push_back(idx);
-          // ... and collect the argument's definition for further resolution
-          extraArgs.push_back(space_it);
+          // ... and create new address space qualifier argument for the current function.
+          // It will serve as a container for addr-space qualifier of GAS pointer.
+          space_it->second = 
+                   new Argument(Type::getInt32Ty(*m_pLLVMContext), GAS_ARG_NAME, pFunc);
         } else {
           // For argument which defines addr-space - resolve the definition point
           // with corresponding constant value of addr-space enumerator
           space_it->second = ConstantInt::get(Type::getInt32Ty(*m_pLLVMContext), 
                                               pPtrType->getAddressSpace());
-          changed = true;
         }
+        changed = true;
+        continue;
       }
-    }
-    // Finally - create new address space qualifier arguments (if any) for the current function.
-    // They will serve as containers for addr-space qualifiers of GAS pointers.
-    for (unsigned idx = 0; idx < extraArgs.size(); idx++) {
-      extraArgs[idx]->second = 
-            new Argument(IntegerType::get(*m_pLLVMContext, 32), GAS_ARG_NAME, pFunc);
-      changed = true;
+      TAllocaSpaceMap::iterator alloca_it = m_GASAllocaDefs.find(pArg);
+      if (alloca_it != m_GASAllocaDefs.end()) {
+        // If argument represents GAS pointer array - generate addr-space 
+        // qualifier array argument and calculate its offset
+        assert(pIndices && "Function argument indices collection is broken!");
+        // For defined-by-caller argument - add GAS argument index to
+        // existing per-function "vector of indices" ...
+        pIndices->push_back(idx);
+        // ... and create new address space qualifier argument for the current function.
+        // It will serve as a container for addr-space qualifier of GAS pointer array.
+        alloca_it->second = getArrayToSpaceOffset(pArg, pFunc->getEntryBlock().begin());
+      }
     }
 
     // For all definition points other than arguments
@@ -477,17 +723,28 @@ namespace intel {
                 isDeferred = true;
               }
               break;
-            case Instruction::Load : {
-              // Load: create Load instruction from 'alloca' slot for address space 
-              // qualifier value
-              TAllocaMap::iterator alloca_it = m_GASAllocaDefs.find(
-                                                  cast<AllocaInst>(pInstr->getOperand(0)));
-              assert(alloca_it != m_GASAllocaDefs.end() && "Alloca collection is broken!");
-              AllocaInst *pNewAllocaInstr = alloca_it->second;
-              assert(pNewAllocaInstr && "Alloca collection is broken!");
-              Instruction *pNewInstr = new LoadInst(pNewAllocaInstr, GAS_INSTRUCTION_NAME);
+            case Instruction::Load :
+              // Load: create Load instruction from 'alloca' or array argument slot for
+              // address space qualifier value
+              changed |= resolveLoadInstr(space_it);
+              break;
+            case Instruction::Call : {
+              // Call with GAS pointer return value: resolve to 'alloca' slot which will
+              // be passed (by pointer) to the callee, and then assigned inside the callee
+              Instruction *pFuncStart = pFunc->getEntryBlock().begin();
+              Instruction *pAlocaInstr = new AllocaInst(Type::getInt32Ty(*m_pLLVMContext),
+                                                        GAS_ALLOCA_NAME, pFuncStart);
+              assocDebugLocWith(pAlocaInstr, pFuncStart);
+              // We yet have to generate Load from that alloca slot
+              Instruction *pNewInstr = new LoadInst(pAlocaInstr, GAS_INSTRUCTION_NAME);
+              // Insert the new instruction immediately after Call
               pNewInstr->insertAfter(const_cast<Instruction*>(pInstr));
               assocDebugLocWith(pNewInstr, pInstr);
+              // We intentionally assume Load to be addr-space modifier value (rather than 
+              // the function parameter with addr-space qualifier itself), because this
+              // is the value which will be used for resolution of downstream usages of GAS.
+              // Still, resolution of the function call itself will use the pointer operand
+              // of Load as a parameter.
               space_it->second = pNewInstr;
               changed = true;
               break;
@@ -525,49 +782,48 @@ namespace intel {
       }
     }
 
-    // Resolve all Store instructions which depend on 'Alloca' GAS pointers used by 
-    // Address Space Qualifier BIs
-    changed |= resolveStoreInstructions();    
-
-    return changed; 
+    return changed;
   }
 
   bool GenericAddressDynamicResolution::resolveGASUsages(Function *pFunc) {
 
     bool changed = false;
 
+    // Resolve all Store instructions which depend on 'Alloca'/argument GAS pointers 
+    // used by Address Space Qualifier BIs
+    if (m_GASAllocaStores.size()) {
+      changed |= resolveStoreInstructions();
+    }
+
     // Resolve Calls to Addr Space Qualifier BIs
-    for (SmallVector<CallInst*, 16>::iterator call_it = m_AddrQualifierBICalls.begin(),
-                                              call_end = m_AddrQualifierBICalls.end();
-                                              call_it != call_end; call_it++) {
+    for (unsigned idx = 0; idx < m_AddrQualifierBICalls.size(); idx++) {
       // Inlining the function call to instructions which calculate the function result
-      resolveAddrSpaceQualifierBICall(*call_it);
+      resolveAddrSpaceQualifierBICall(m_AddrQualifierBICalls[idx]);
       changed = true;
     }
     // Resolve BI function calls with GAS pointers
-    for (TBiIntrinVector::iterator call_it = m_BiPoints.begin(),
-                                   call_end = m_BiPoints.end();
-                                   call_it != call_end; call_it++) {
-      // Enforcing named address space to the function call
-      resolveBIorIntrinsicCall(call_it->first, CallBuiltIn, call_it->second);
+    for (unsigned idx = 0; idx < m_BiPoints.size(); idx++) {
+     // Enforcing named address space to the function call
+      resolveBIorIntrinsicCall(m_BiPoints[idx].first, CallBuiltIn, m_BiPoints[idx].second);
       changed = true;
     }
     // Resolve Intrinsic function calls with GAS pointers
-    for (TBiIntrinVector::iterator call_it = m_IntrinPoints.begin(),
-                                   call_end = m_IntrinPoints.end();
-                                   call_it != call_end; call_it++) {
+    for (unsigned idx = 0; idx < m_IntrinPoints.size(); idx++) {
       // Enforcing named address space to the function call
-      resolveBIorIntrinsicCall(call_it->first, CallIntrinsic, call_it->second);
+      resolveBIorIntrinsicCall(m_IntrinPoints[idx].first, CallIntrinsic, m_IntrinPoints[idx].second);
       changed = true;
     }
     // Resolve non-kernel function calls with GAS pointers
-    for (SmallVector<CallInst*, 16>::iterator call_it = m_NonKernelCalls.begin(),
-                                              call_end = m_NonKernelCalls.end();
-                                              call_it != call_end; call_it++) {
+    for (unsigned idx = 0; idx < m_NonKernelCalls.size(); idx++) {
       // Replacing original function call with the one extended with addr-space qualifier parameters
-      resolveNonKernelFunctionCall(*call_it);
+      resolveNonKernelFunctionCall(m_NonKernelCalls[idx]);
       changed = true;
     }
+    // Resolve Ret instructions with GAS pointer return values
+    if (m_ReturnGAS.size()) {
+      changed |= resolveRetInstructions();
+    }
+
     return changed;
   }
 

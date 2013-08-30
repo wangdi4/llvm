@@ -9,10 +9,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <NameMangleAPI.h>
 #include <FunctionDescriptor.h>
 #include <ParameterType.h>
+#include <MetaDataApi.h>
 #include <llvm/Type.h>
 #include <llvm/DerivedTypes.h>
 #include <llvm/Function.h>
 #include <llvm/Intrinsics.h>
+#include <llvm/Instructions.h>
+#include <llvm/Support/raw_ostream.h>
 #include <set>
 #include <assert.h>
 
@@ -118,17 +121,20 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
         Function *pFunc = *func_it;
         bool isRoot = true;
-        // Looking for callers to the function 
+        // Looking for callers to the function
         for (Value::use_iterator use_it = pFunc->use_begin(),
                                  use_end = pFunc->use_end(); 
                                  use_it != use_end; use_it++) {
 
-          Instruction *pInstr = dyn_cast<Instruction>(*use_it);
-          assert(pInstr && "Something other than instruction is using function!");
-          Function *pCallerFunc = pInstr->getParent()->getParent();
-          if (functionCache.count(pCallerFunc)) {
-            isRoot = false;
-            break;
+          CallInst *pInstr = dyn_cast<CallInst>(*use_it);
+          if (pInstr) {
+            // Only direct Call to the function matters for ordering
+            // (because only that call is to be resolved later)
+            Function *pCallerFunc = pInstr->getParent()->getParent();
+            if (functionCache.count(pCallerFunc)) {
+              isRoot = false;
+              break;
+            }
           }
         }
 
@@ -265,6 +271,35 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
       }
     }
   }
+
+  void emitWarning(std::string warning, Instruction *pInstr, 
+                   Module *pModule, LLVMContext *pLLVMContext) {
+
+    assert(pModule && pLLVMContext && "emitWarning parameters are invalid!");
+    // Print-out the message ...
+    errs() << "WARNING: " << warning << ": line# ";
+    unsigned lineNo = 0;
+    if (pInstr && !pInstr->getDebugLoc().isUnknown()) {
+      lineNo = pInstr->getDebugLoc().getLine();
+      errs() << lineNo << "\n";
+    } else {
+      errs() << "Unknown\n";
+    }
+    // ... and record to metadata
+    Intel::MetaDataUtils mdUtils(pModule);
+    if (mdUtils.empty_ModuleInfoList()) {
+        mdUtils.addModuleInfoListItem(Intel::ModuleInfoMetaDataHandle(Intel::ModuleInfoMetaData::get()));
+    }
+    Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
+    //handle->addGASwarningsItem(lineNo); BUGBUG in Metadata (CQ CSSD100017034)
+    mdUtils.save(*pLLVMContext);
+  }
+
+  bool isSinglePtr(const Type *pPtrType) {
+    Type *pPtrElementType = pPtrType->getPointerElementType();
+    return !pPtrElementType->isArrayTy() && !pPtrElementType->isPointerTy();
+  }
+
 
 } // namespace GenericAddressSpace
 } // namespace Passes

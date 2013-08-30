@@ -6,36 +6,40 @@
 ; CHECK-NOT: @test2
 
 ; CHECK: @test
+; CHECK: %AllocaSpace = alloca i32
 ; CHECK: call void @_Z5test1PU3AS4i(i32 addrspace(4)* %0, i32 1)
 ; CHECK: call void @_Z5test1PU3AS4i(i32 addrspace(4)* %1, i32 3)
-; CHECK: %AddrSpace1 = icmp eq i32 1, 1
 ; CHECK-NOT: %call = call zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)* %3)
-; CHECK: %AddrSpace = phi i32 [ 1, %if.then ], [ 3, %if.else ]
-; CHECK: %AddrSpace2 = icmp eq i32 %AddrSpace, 3
+; CHECK: %AddrSpace2 = icmp eq i32 1, 1
+; CHECK: %AddrSpace1 = phi i32 [ 1, %if.then ], [ 3, %if.else ]
 ; CHECK-NOT: %call1 = call zeroext i1 @_Z8is_localPKU3AS4v(i8 addrspace(4)* %6)
-; CHECK: %AddrSpace3 = icmp eq i32 1, 0
+; CHECK: %AddrSpace3 = icmp eq i32 %AddrSpace1, 3
 ; CHECK-NOT: %call3 = call zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)* %8)
+; CHECK: %AddrSpace4 = icmp eq i32 1, 0
 ; CHECK-NOT: %call5 = call i32 @get_fence(i8 addrspace(4)* %11)
-; CHECK: %AddrSpace4 = icmp eq i32 1, 1
-; CHECK: %AddrSpace5 = icmp eq i32 1, 3
-; CHECK: %AddrSpace6 = select i1 %AddrSpace4, i32 2, i32 0
-; CHECK: %AddrSpace7 = select i1 %AddrSpace5, i32 1, i32 %AddrSpace6
-; CHECK-NOT: %call6 = call zeroext i1 @test2(i32 addrspace(4)* %12, i32 addrspace(4)* %13)
-; CHECK: %14 = call zeroext i1 @_Z5test2PU3AS4iS_(i32 addrspace(4)* %12, i32 addrspace(4)* %13, i32 1, i32 3)
-; CHECK-NOT: %call10 = call zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)* %14)
-; CHECK: %AddrSpace9 = icmp eq i32 1, 0
-; CHECK: %AddrSpace10 = bitcast float addrspace(4)* %add.ptr to float*
-; CHECK-NOT: %call17 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr)
-; CHECK: %18 = call float @_Z5fractfPU3AS0f(float %param, float* %AddrSpace10)
+; CHECK: %AddrSpace5 = icmp eq i32 1, 1
+; CHECK: %AddrSpace6 = icmp eq i32 1, 3
+; CHECK: %AddrSpace7 = select i1 %AddrSpace5, i32 2, i32 0
+; CHECK: %AddrSpace8 = select i1 %AddrSpace6, i32 1, i32 %AddrSpace7
+; CHECK-NOT: %call6 = call i32 addrspace(4)* @test2(i32 addrspace(4)* %12, i32 addrspace(4)* %13)
+; CHECK: %14 = call i32 addrspace(4)* @_Z5test2PU3AS4iS_PU3AS0i(i32 addrspace(4)* %12, i32 addrspace(4)* %13, i32 1, i32 3, i32* %AllocaSpace)
+; CHECK: %AddrSpace = load i32* %AllocaSpace
+; CHECK-NOT: %call7 = call zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)* %14)
+; CHECK: %AddrSpace9 = icmp eq i32 %AddrSpace, 0
+; CHECK-NOT: %call10 = call zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)* %15)
+; CHECK: %AddrSpace10 = icmp eq i32 1, 0
+; CHECK: %AddrSpace11 = bitcast float addrspace(4)* %add.ptr to float*
+; CHECK-NOT: %call13 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr)
+; CHECK: %18 = call float @_Z5fractfPU3AS0f(float %param, float* %AddrSpace11)
 ; CHECK: ret
 
-; CHECK: @_Z5test2PU3AS4iS_(i32 addrspace(4)* %p1, i32 addrspace(4)* %p2, i32 %ArgSpace, i32 %ArgSpace1)
+; CHECK: define i32 addrspace(4)* @_Z5test2PU3AS4iS_PU3AS0i(i32 addrspace(4)* %p1, i32 addrspace(4)* %p2, i32 %ArgSpace, i32 %ArgSpace1, i32* %ArgSpace3)
 ; CHECK: %0 = bitcast i32 addrspace(4)* %p1 to i8 addrspace(4)*
-; CHECK: %AddrSpace = icmp eq i32 %ArgSpace, 1
-; CHECK: %1 = bitcast i32 addrspace(4)* %p2 to i8 addrspace(4)*
-; CHECK: %AddrSpace2 = icmp eq i32 %ArgSpace1, 3
-; CHECK: %retval.0 = phi i1 [ %AddrSpace, %if.then ], [ %AddrSpace2, %if.end ]
-; CHECK: ret i1 %retval.0
+; CHECK: %AddrSpace2 = icmp eq i32 %ArgSpace, 1
+; CHECK: %retval.0 = phi i32 addrspace(4)* [ %p1, %if.then ], [ %p2, %if.end ]
+; CHECK: %AddrSpace = phi i32 [ %ArgSpace, %if.then ], [ %ArgSpace1, %if.end ]
+; CHECK: store i32 %AddrSpace, i32* %ArgSpace3
+; CHECK: ret i32 addrspace(4)* %retval.0
 
 ; CHECK: declare float @_Z5fractfPU3AS0f(float, float*)
 
@@ -54,24 +58,21 @@ declare zeroext i1 @_Z8is_localPKU3AS4v(i8 addrspace(4)*)
 
 declare zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)*)
 
-define zeroext i1 @test2(i32 addrspace(4)* %p1, i32 addrspace(4)* %p2) nounwind {
+define i32 addrspace(4)* @test2(i32 addrspace(4)* %p1, i32 addrspace(4)* %p2) nounwind {
 entry:
-  %cmp = icmp eq i32 addrspace(4)* %p1, %p2
-  br i1 %cmp, label %if.then, label %if.end
-
-if.then:                                          ; preds = %entry
   %0 = bitcast i32 addrspace(4)* %p1 to i8 addrspace(4)*
   %call = call zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)* %0)
+  br i1 %call, label %if.then, label %if.end
+
+if.then:                                          ; preds = %entry
   br label %return
 
 if.end:                                           ; preds = %entry
-  %1 = bitcast i32 addrspace(4)* %p2 to i8 addrspace(4)*
-  %call1 = call zeroext i1 @_Z8is_localPKU3AS4v(i8 addrspace(4)* %1)
   br label %return
 
 return:                                           ; preds = %if.end, %if.then
-  %retval.0 = phi i1 [ %call, %if.then ], [ %call1, %if.end ]
-  ret i1 %retval.0
+  %retval.0 = phi i32 addrspace(4)* [ %p1, %if.then ], [ %p2, %if.end ]
+  ret i32 addrspace(4)* %retval.0
 }
 
 define void @test(i32 addrspace(1)* %pGlobal, i32 addrspace(3)* %pLocal, float %param) nounwind {
@@ -110,31 +111,23 @@ if.end:                                           ; preds = %if.else, %if.then
   %call5 = call i32 @get_fence(i8 addrspace(4)* %11)
   %12 = bitcast i32 addrspace(1)* %pGlobal to i32 addrspace(4)*
   %13 = bitcast i32 addrspace(3)* %pLocal to i32 addrspace(4)*
-  %call6 = call zeroext i1 @test2(i32 addrspace(4)* %12, i32 addrspace(4)* %13)
-  %frombool7 = zext i1 %call6 to i8
-  %tobool8 = trunc i8 %frombool7 to i1
-  br i1 %tobool8, label %if.then9, label %if.end12
+  %call6 = call i32 addrspace(4)* @test2(i32 addrspace(4)* %12, i32 addrspace(4)* %13)
+  %14 = bitcast i32 addrspace(4)* %call6 to i8 addrspace(4)*
+  %call7 = call zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)* %14)
+  %frombool8 = zext i1 %call7 to i8
+  %cmp = icmp eq i32 addrspace(4)* %10, %7
+  br i1 %cmp, label %if.then9, label %if.end12
 
 if.then9:                                         ; preds = %if.end
-  %14 = bitcast i32 addrspace(4)* %10 to i8 addrspace(4)*
-  %call10 = call zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)* %14)
+  %15 = bitcast i32 addrspace(4)* %7 to i8 addrspace(4)*
+  %call10 = call zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)* %15)
   %frombool11 = zext i1 %call10 to i8
   br label %if.end12
 
 if.end12:                                         ; preds = %if.then9, %if.end
-  %cmp = icmp eq i32 addrspace(4)* %10, %7
-  br i1 %cmp, label %if.then13, label %if.end16
-
-if.then13:                                        ; preds = %if.end12
-  %15 = bitcast i32 addrspace(4)* %7 to i8 addrspace(4)*
-  %call14 = call zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)* %15)
-  %frombool15 = zext i1 %call14 to i8
-  br label %if.end16
-
-if.end16:                                         ; preds = %if.then13, %if.end12
   %16 = bitcast i32 addrspace(1)* %pGlobal to float addrspace(4)*
   %add.ptr = getelementptr inbounds float addrspace(4)* %16, i32 10
-  %call17 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr)
+  %call13 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr)
   ret void
 }
 
@@ -158,10 +151,10 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 ;;  bool b = is_global(p);
 ;;}
 
-;;bool test2(int *p1, int *p2) {
-;;  if (p1 == p2)
-;;    return is_global(p1);
-;;  return is_local(p2);
+;;int* test2(int *p1, int *p2) {
+;;  if (is_global(p1))
+;;    return p1;
+;;  return p2;
 ;;}
 
 ;;__kernel void test(__global int* pGlobal, __local int* pLocal, float param) {
@@ -193,10 +186,8 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 ;;  cl_mem_fence_flags foo = get_fence(pGen3);
 
 ;;  // Corner case
-;;  bool b1 = test2(pGlobal, pLocal);
-;;  if (b1) {
-;;    bool d = is_private(pGen3);
-;;  }
+;;  int* pGen5 = test2(pGlobal, pLocal);
+;;  bool d = is_private(pGen5);
 
 ;;  // ICMP, load
 ;;  if (pGen3 == pGen1) {

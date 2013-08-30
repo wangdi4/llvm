@@ -23,10 +23,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define CLK_LOCAL_MEM_FENCE (CL_LOCAL)
 #define CLK_GLOBAL_MEM_FENCE (CL_GLOBAL)
 
-#define MD_GAS_COUNT    "opencl.compiler.2_0.gen_addr_space_pointer_counter"
-#define MD_GAS_WARNINGS "opencl.compiler.2_0.gen_addr_space_pointer_warnings"
-
-
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes { namespace GenericAddressSpace {
@@ -88,6 +84,20 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
   /// @returns list of argument types for overloaded signature (in overloadableArgTypes)  
   void getIntrinsicOverload(Function *pFunc, const SmallVector<Type*, 8> &argTypes, 
                                              SmallVector<Type*, 8> &overloadableArgTypes);
+
+  /// @brief  Helper for printing-out of a warning and appending corresponding
+  /// @brief  line number to metadata
+  /// @param  warning  - warning to print
+  /// @param  pInstr   - instruction of the warning, or NULL
+  /// @param  pModule  - module whose metadata should be created/appended
+  /// @param  pContext - current context
+  void emitWarning(std::string warning, Instruction *pInstr, Module *pModule, LLVMContext *pContext);
+
+  /// @brief  Helper for check of pointer array case
+  /// @param  pPtrType - pointer to check
+  /// @returns  true if this is a pointer to scalar, or false otherwise
+  bool isSinglePtr(const Type *pPtrType);
+
 
 } // namespace GenericAddressSpace
 } // namespace Passes

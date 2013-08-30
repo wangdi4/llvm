@@ -64,10 +64,8 @@ namespace intel {
       assert(pUse && "All uses of instruction should be instructions!");
       uses.push_back(pUse);
     }
-    for (SmallVector<Instruction*,16>::iterator use_it = uses.begin(),
-                                                use_end = uses.end();
-                                                use_it != use_end; use_it++) {
-      Instruction *pUse = *use_it;
+    for (unsigned useIdx = 0; useIdx < uses.size(); useIdx++) {
+      Instruction *pUse = uses[useIdx];
       // Check whether we should update this usage
       TPointerMap::const_iterator ptr_it = m_GASEstimate.find(pUse);
       if (ptr_it != m_GASEstimate.end()) {
@@ -79,7 +77,7 @@ namespace intel {
                                                 PointerType::get(
                                                     pSrcType->getElementType(), 
                                                     OCLAddressSpace::Generic),
-                                                "", pOldInstr);
+                                                    pOldInstr->getName(), pOldInstr);
           // Replace uses of original instruction with bitcast
           pUse->replaceUsesOfWith(pOldInstr, pInducedBitcast);          
         } else {
@@ -124,28 +122,37 @@ namespace intel {
     // Fetch source value
     Value *pPrevValue = pInstr->getOperand(0);
     const PointerType *pSrcType = dyn_cast<PointerType>(pPrevValue->getType());
-    assert(pSrcType && "Only pointer conversion can be resolved!");
     PointerType *pDestType = dyn_cast<PointerType>(pInstr->getType());
-    assert(pDestType && "At this point pointer can be converted only to pointer!");
 
-    assert((IS_ADDR_SPACE_GENERIC(pSrcType->getAddressSpace()) || 
-            IS_ADDR_SPACE_GENERIC(pDestType->getAddressSpace())) &&
-           "Cannot reach this point with named-to-named conversion!");
+    if (pSrcType && pDestType) {
+      assert((IS_ADDR_SPACE_GENERIC(pSrcType->getAddressSpace()) || 
+              IS_ADDR_SPACE_GENERIC(pDestType->getAddressSpace())) &&
+             "Cannot reach this point with named-to-named conversion!");
+    }
 
     Instruction *pNewInstr = NULL;
-    if (IS_ADDR_SPACE_GENERIC(pDestType->getAddressSpace())) {
-      // Original conversion is to GAS: produce bitcast/GEP for <named>-to-<named> 
-      //                                                    out of <named/generic>-to-<generic>
+    if (pDestType && IS_ADDR_SPACE_GENERIC(pDestType->getAddressSpace())) {
+      // Original conversion is to GAS pointer:
+      //   - produce BitCast/GEP for <named>-to-<named> out of <named/generic>-to-<generic>
+      //                     OR
+      //   - produce Int2Ptr for <int>-to<named> out of <int>-to<generic>
+
       // At first - try to find a resolved value for source operand
       if (Value *pNewPrevValue = getResolvedOperand(pPrevValue, space)) {
         pPrevValue = pNewPrevValue;
       }
       // Then - generate the instruction
       switch (pInstr->getOpcode()) {
+        case Instruction::IntToPtr: {
+          pNewInstr = new IntToPtrInst(pPrevValue,
+                                       PointerType::get(pDestType->getElementType(), space),
+                                       pInstr->getName(), pInstr);
+          break;
+        }
         case Instruction::BitCast : {
           pNewInstr = new BitCastInst(pPrevValue,
                                       PointerType::get(pDestType->getElementType(), space),
-                                      "", pInstr);
+                                      pInstr->getName(), pInstr);
 
           break;
         }
@@ -158,21 +165,22 @@ namespace intel {
             idxList.push_back(*idx_it);
           }
           GetElementPtrInst *pNewGEP = 
-                  GetElementPtrInst::Create(pPrevValue,
-                                            idxList, "", pInstr);
+                  GetElementPtrInst::Create(pPrevValue, idxList,
+                                            pInstr->getName(), pInstr);
           pNewGEP->setIsInBounds(pGepInstr->isInBounds());
           pNewInstr = pNewGEP;
           break;
         }
         default:
-          assert(0 && "Unexpected instruction with generic address space pointer");
+          assert(0 && "Unexpected instruction with generic address space pointer target");
           break;
       }
       // Fix-up pointer usages
       fixUpPointerUsages(pNewInstr, pInstr);
-    } else if (IS_ADDR_SPACE_GENERIC(pSrcType->getAddressSpace())) {
+    } else if (pSrcType && IS_ADDR_SPACE_GENERIC(pSrcType->getAddressSpace())) {
       // Original bitcast is from generic to named: check validity of the conversion 
       //                                            and produce named-to-named anyway
+
       // At first - find a resolution for source value
       assert(pInstr->getOpcode() == Instruction::BitCast &&
              "Only Bitcast can convert pointer with named space to another named space");
@@ -181,22 +189,37 @@ namespace intel {
       // Then - generate the instruction
       const PointerType *pNewType = dyn_cast<PointerType>(pPrevValue->getType());
       assert(pNewType && "Replacement for pointer should be a pointer!");
-      if (pNewType->getAddressSpace() != pDestType->getAddressSpace()) {
-        errs() << "WARNING: Illegal conversion from generic address space pointer: line# ";
-        unsigned lineNo = 0;
-        if (!pInstr->getDebugLoc().isUnknown()) {
-          lineNo = pInstr->getDebugLoc().getLine();
-          errs() << lineNo << "\n";
-        } else {
-          errs() << "Unknown\n";
-        }
-        NamedMDNode *NewNMD = m_pModule->getOrInsertNamedMetadata(MD_GAS_WARNINGS);
-        SmallVector<Value*, 1> warning;
-        warning.push_back(ConstantInt::get(Type::getInt32Ty(*m_pLLVMContext), lineNo));
-        NewNMD->addOperand(MDNode::get(*m_pLLVMContext, warning));
+      if (pDestType && pNewType->getAddressSpace() != pDestType->getAddressSpace()) {
+        // Conflict between addr-space types of source and destination - report
+        emitWarning("Illegal conversion from generic address space pointer",
+                     pInstr, m_pModule, m_pLLVMContext);
       }
-      pNewInstr = new BitCastInst(pPrevValue, pDestType, "", pInstr);
+      pNewInstr = new BitCastInst(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
+    } else if (!pDestType || !IS_ADDR_SPACE_GENERIC(pDestType->getAddressSpace())) {
+      // The only reasons for that case are:
+      // - BitCast from named addr-space pointer to non-pointer
+      // - Int2Ptr to named addr-space
+      // In both case we just need to generate new instruction on the basis of replaced operand
+
+      // At first - find a resolution for source value
+      pPrevValue = getResolvedOperand(pPrevValue, space);
+      assert(pPrevValue && "Cannot reach this point without resolved value for GAS pointer!");
+      // Then - generate the instruction
+      switch (pInstr->getOpcode()) {
+        case Instruction::BitCast:
+          pNewInstr = new BitCastInst(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
+          break;
+        case Instruction::IntToPtr:
+          pNewInstr = new IntToPtrInst(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
+          break;
+        default:
+          assert(0 && "Unexpected instruction with named address space pointer or integer target!");
+          break;
+      }
+    } else {
+      assert(0 && "Unexpected convert instruction!");
     }
+
     // Schedule the original instruction for replacement
     m_replaceMap.insert(TMapPair(pInstr, pNewInstr));
     m_replaceVector.push_back(TMapPair(pInstr, pNewInstr));
@@ -220,7 +243,7 @@ namespace intel {
     switch (pInstr->getOpcode()) {
       case Instruction::Load : {
         LoadInst *pLoadInstr = cast<LoadInst>(pInstr);
-        LoadInst *pNewLoad = new LoadInst(pNewValue, "", 
+        LoadInst *pNewLoad = new LoadInst(pNewValue, pLoadInstr->getName(), 
                                     pLoadInstr->isVolatile(),  pLoadInstr->getAlignment(),
                                     pLoadInstr->getOrdering(), pLoadInstr->getSynchScope(),
                                     pLoadInstr);
@@ -257,7 +280,7 @@ namespace intel {
         break;
       }
       case Instruction::PtrToInt : {
-        pNewInstr = new PtrToIntInst(pNewValue, pInstr->getType(), "", pInstr);
+        pNewInstr = new PtrToIntInst(pNewValue, pInstr->getType(), pInstr->getName(), pInstr);
         break;
       }
       default:
@@ -273,14 +296,19 @@ namespace intel {
   bool GenericAddressStaticResolution::resolveInstructionPhiNode(PHINode *pPhiInstr, OCLAddressSpace::spaces space) {
 
     const PointerType *pDestType = dyn_cast<PointerType>(pPhiInstr->getType());
-    assert((pDestType && IS_ADDR_SPACE_GENERIC(pDestType->getAddressSpace())) &&
+    if (!pDestType) {
+      // Nothing to resolve for integer PHI - it served only as transit
+      // node for propagation of integer-out-of-GAS-pointer
+      return false;
+    }
+    assert(IS_ADDR_SPACE_GENERIC(pDestType->getAddressSpace()) &&
            "Only GAS pointer is expected here!");
 
     // At first - create empty PHI node of required type
     unsigned numIncoming = pPhiInstr->getNumIncomingValues();
     PHINode *pNewPHI = PHINode::Create(
                           PointerType::get(pDestType->getElementType(), space), 
-                          numIncoming, "", pPhiInstr);
+                          numIncoming, pPhiInstr->getName(), pPhiInstr);
     // Then - add all incoming edges which can be resolved
     for (unsigned idx = 0; idx < numIncoming; idx++) {
       Value *pPrevValue = pPhiInstr->getIncomingValue(idx);
@@ -302,7 +330,13 @@ namespace intel {
 
     unsigned firstIdx = pInstr->getOpcode() == Instruction::ICmp? 0 : 1;
     const PointerType *pSrcType = dyn_cast<PointerType>(pInstr->getOperand(firstIdx)->getType());
-    assert((pSrcType && IS_ADDR_SPACE_GENERIC(pSrcType->getAddressSpace())) &&
+    if (!pSrcType) {
+      // Nothing to resolve for integer Select/ICmp - it served only as transit
+      // node for propagation of integer-out-of-GAS-pointer
+      return false;
+    }
+
+    assert(IS_ADDR_SPACE_GENERIC(pSrcType->getAddressSpace()) &&
            "Only GAS pointer is expected here!");
 
     // At first - check available resolution(s) and complement them by NULL pointer if required
@@ -324,7 +358,8 @@ namespace intel {
       case Instruction::Select : {
         SelectInst *pSelectInstr = cast<SelectInst>(pInstr);
         SelectInst *pNewSelect = SelectInst::Create(pSelectInstr->getCondition(), 
-                                                pVal[0], pVal[1], "", pSelectInstr);
+                                                    pVal[0], pVal[1], pSelectInstr->getName(), 
+                                                    pSelectInstr);
         pNewInstr = pNewSelect;
         // Fix-up pointer usages
         fixUpPointerUsages(pNewSelect, pInstr);
@@ -332,7 +367,8 @@ namespace intel {
       }
       case Instruction::ICmp : {
         ICmpInst *pIcmpInstr = cast<ICmpInst>(pInstr);
-        ICmpInst *pNewICmp = new ICmpInst(pInstr, pIcmpInstr->getPredicate(), pVal[0], pVal[1]);
+        ICmpInst *pNewICmp = new ICmpInst(pInstr, pIcmpInstr->getPredicate(), pVal[0], pVal[1],
+                                          pInstr->getName());
         pNewInstr = pNewICmp;
         break;
       }
@@ -454,12 +490,6 @@ namespace intel {
 
   Function *GenericAddressStaticResolution::resolveFunctionCall(CallInst *pCallInstr, FuncCallType category) {
 
-    // Generic address space pointer cannot be returned from a function
-    const PointerType *pRetPtrType = dyn_cast<PointerType>(pCallInstr->getType());
-    if (pRetPtrType && IS_ADDR_SPACE_GENERIC(pRetPtrType->getAddressSpace())) {
-      assert(0 && "Generic address space pointer cannot be returned from a function");
-    }
-
     unsigned numArgs = pCallInstr->getNumArgOperands();
     Function *pCallee = pCallInstr->getCalledFunction();
     assert(pCallee && "Call instruction doesn't have a callee!");
@@ -515,6 +545,33 @@ namespace intel {
     // Function call didn't change - do nothing
     if (isGasPointersOnly) {
       return NULL;
+    }
+
+    // Alert if BI or Intrinsic function has pointer parameters of heterogeneous address space
+    if (category == CallBuiltIn || category == CallIntrinsic) {
+      bool isFirst     = true;
+      bool hasMismatch = false;
+      OCLAddressSpace::spaces foundSpace = OCLAddressSpace::Generic;
+      for (unsigned idx = 0; idx < argTypes.size(); idx++) {
+        if (const PointerType *pPtrType = dyn_cast<PointerType>(argTypes[idx])) {
+          OCLAddressSpace::spaces curSpace = 
+                            (OCLAddressSpace::spaces) pPtrType->getAddressSpace();
+          // Only named addr-space may be conflicting
+          if (!IS_ADDR_SPACE_GENERIC(curSpace)) {
+            if (isFirst) {
+              foundSpace = curSpace;
+              isFirst = false;
+            } else if (curSpace != foundSpace) {
+              hasMismatch = true;
+            }
+          }
+        }
+      }
+      if (hasMismatch) {
+        // Conflict between add-space names of different parameters - report
+        emitWarning("Built-in or Intrinsic call with parameters of different address spaces",
+                    pCallInstr, m_pModule, m_pLLVMContext);
+      }
     }
 
     // Generate new function name:
@@ -573,8 +630,9 @@ namespace intel {
         assert(pOrigPtrType && IS_ADDR_SPACE_GENERIC(pOrigPtrType->getAddressSpace()) &&
                "Argument of original function should be a GAS pointer!");
         // Produce and insert bitcast
-        BitCastInst *pNewBitCast = new BitCastInst(new_arg_it, pOrigPtrType, "",
-                                                   pNewFunc->begin()->begin());
+        BitCastInst *pNewBitCast = new BitCastInst(new_arg_it, pOrigPtrType, 
+                                                   new_arg_it->getName(),
+                                                   pNewFunc->getEntryBlock().begin());
         // Replace usages of the argument with those of bitcast
         SmallVector<Instruction*,16> uses;
         for (Value::use_iterator use_it = new_arg_it->use_begin(), 
@@ -585,17 +643,15 @@ namespace intel {
             uses.push_back(pUse);
           }
         }
-        for (SmallVector<Instruction*,16>::iterator inst_it = uses.begin(),
-                                                    inst_end = uses.end();
-                                                    inst_it != inst_end; inst_it++) {
-          Instruction *pUse = *inst_it;
-          pUse->replaceUsesOfWith(new_arg_it, pNewBitCast);
+        for (unsigned idx = 0; idx < uses.size(); idx++) {
+          uses[idx]->replaceUsesOfWith(new_arg_it, pNewBitCast);
         }
       }     // iteration through arguments    
     }       // new function cloning
 
     // Generate replacement for Call instruction    
-    CallInst *pNewCall = CallInst::Create(pNewFunc, ArrayRef<Value*>(params), "", pCallInstr);
+    CallInst *pNewCall = CallInst::Create(pNewFunc, ArrayRef<Value*>(params), 
+                                          pCallInstr->getName(), pCallInstr);
     assert(pNewCall && "Couldn't create resolved CALL instruction!");
     pNewCall->setAttributes(pCallInstr->getAttributes());
     pNewCall->setCallingConv(pCallInstr->getCallingConv());

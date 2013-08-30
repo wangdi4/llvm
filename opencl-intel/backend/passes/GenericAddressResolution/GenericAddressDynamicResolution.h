@@ -27,6 +27,7 @@ using namespace Intel::OpenCL::DeviceBackend::Utils;
 using namespace Intel::OpenCL::DeviceBackend::Passes;
 
 #define GAS_INSTRUCTION_NAME "AddrSpace"
+#define GAS_ALLOCA_NAME      "AllocaSpace"
 #define GAS_ARG_NAME         "ArgSpace"
 
 extern "C" {
@@ -88,6 +89,9 @@ namespace intel {
     /// @brief  The llvm context
     LLVMContext *m_pLLVMContext;
 
+    /// @brief  Type of pointer holder slot
+    IntegerType *m_PointerSlotType;
+
     /// @brief  Data Model for GAS Pointers' Def-Use Collection.
     /// @brief  Note: The collection contains only GAS pointers which are eventually
     /// @brief        used by Address Space Qualifier BI calls.
@@ -96,19 +100,13 @@ namespace intel {
     /// @brief   2. Quick access to GAS pointer addr space definition point
     /// @brief      (mapping from pointer value /first element/ to its 
     /// @brief       definition point /second element/)
-    typedef std::pair<const Value*, Value*>           TPointerDefPair;
-    typedef std::map<const Value*,  Value*>           TPointerDefMap;
+    typedef std::pair<const Value*, const Value*>           TPointerDefPair;
+    typedef std::map<const Value*,  const Value*>           TPointerDefMap;
     /// @brief   3. Quick access to GAS pointer's addr-space qualifier variable
     /// @brief      (mapping between GAS pointer's definition point /first element/
-    /// @brief      and addr-space qualifier variable for this GAS pointer /second element/)
+    /// @brief       and addr-space qualifier variable for this GAS pointer /second element/)
     typedef std::pair<const Value*, Value*>           TDefSpacePair;
     typedef std::map<const Value*, Value*>            TDefSpaceMap;
-    /// @brief   4. Quick access to GAS pointer addr-space qualifier alloca slot
-    /// @brief      (mapping between GAS pointer's 'alloca' slot /first element/
-    /// @brief      and an 'alloca' slot assigned for addr-space qualifier of the 
-    /// @brief      pointer value /second element/
-    typedef std::pair<const AllocaInst*, AllocaInst*> TAllocaPair;
-    typedef std::map<const AllocaInst*, AllocaInst*>  TAllocaMap;
 
     /// @brief  Collection of function and GAS pointer info
     /// @brief   1. Function list in callee-to-caller (i.e., reversed call-graph) order
@@ -119,8 +117,47 @@ namespace intel {
     TPointerDefMap                     m_GASPointerDefs;
     /// @brief   4. GAS pointers' addr-space qualifier variables for quick access (for one function only!)
     TDefSpaceMap                       m_GASDefSpaces;
-    /// @brief   5. Info about GAS pointers' Alloca slots for quick access (for one function only!)
-    TAllocaMap                         m_GASAllocaDefs;
+
+    /// @brief  Data Model for Collection of GAS Pointer Array/Scalar Allocas
+    /// @brief   1. Quick access to GAS pointer alloca/array-argument upon its Load/Store usage
+    /// @brief      (mapping between GAS pointer's Load/Store instruction /first element/
+    /// @brief       and GAS pointer array 'alloca' area or array argument /second element/)
+    /// @brief      Special case: Call parameter usage may not be an instruction!
+    typedef std::pair<const Value*, const Value*> TAllocaUsagePair;
+    typedef std::map<const Value*, const Value*>  TAllocaUsageMap;
+    /// @brief   2. Quick access to GAS pointer addr-space qualifiers' alloca area or array argument
+    /// @brief      (mapping between GAS pointer's 'alloca' area or array argument /first element/
+    /// @brief       and 'alloca' area or array argument assigned for addr-space qualifiers of the pointers
+    /// @brief       together with offsets between these areas /second element/)
+    typedef struct {   // Information about 'alloca' or array argument with addr-space qualifier:
+      Value       *pSpace;  // Array/scalar 'alloca' / array-argument value of addr-space qualifier
+      Instruction *pOffset; // Offset (in bytes) from the corresponding GAS
+                            // pointer array (NULL for scalar)
+    } SpaceArrayDef;
+    typedef std::pair<Value*, SpaceArrayDef> TAllocaSpacePair;
+    typedef std::map<Value*, SpaceArrayDef>  TAllocaSpaceMap;
+    /// @brief   3. Quick access to Store instructions to 'alloca' scalar/array
+    /// @brief      of GAS pointers or array argument (mapping between GAS pointer's
+    /// @brief      'alloca' area or array argument /first element/ and vector of Store
+    /// @brief      instructions to that area /second element/)
+    typedef std::pair<const Value*, std::vector<StoreInst*> > TAllocaStoresPair;
+    typedef std::map<const Value*, std::vector<StoreInst*> >  TAllocaStoresMap;
+
+    /// @brief  Collection of info about GAS pointer array's and scalar's 'alloca' or argument areas
+    /// @brief   1. Info about ALL GAS pointers' Alloca/argument usages for quick access
+    /// @brief      (for one function only!)
+    TAllocaUsageMap         m_GASAllocaUsages;
+    /// @brief   2. Info about GAS pointer addr-space qualifiers' 'alloca' or array argument
+    /// @brief      and its offset from corresponding GAS pointer array 'alloca' or array
+    /// @brief      argument for quick access (for one function only!)
+    /// @brief      Note: only GAS pointers used by Address Qualifier BIs are collected here
+    TAllocaSpaceMap         m_GASAllocaDefs;
+    /// @brief   3. GAS pointer 'allocas' of arrays/scalars or array arguments used by
+    /// @brief      Address Qualifier BIs - in deterministic iteration order (for one function only!)
+    SmallVector<Value*, 16> m_GASAllocaVector;
+    /// @brief   4. Info about ALL GAS pointers' Store instructions for quick access
+    /// @brief      (for one function only!)
+    TAllocaStoresMap        m_GASAllocaStores;
 
     /// @brief  Function call collection data model for the following accesses:
     /// @brief   1. Iteration through BI and Intrinsic calls with GAS parameters.
@@ -147,9 +184,11 @@ namespace intel {
 
     /// @brief  Collection of GAS pointers' usage points for fix-up
     /// @brief   1. Calls to Address Qualifier BI
-    SmallVector<CallInst*, 16> m_AddrQualifierBICalls;
+    SmallVector<CallInst*, 16>   m_AddrQualifierBICalls;
     /// @brief   2. Calls to non-kernel functions
-    SmallVector<CallInst*, 16> m_NonKernelCalls;
+    SmallVector<CallInst*, 16>   m_NonKernelCalls;
+    /// @brief   3. Return instructions with GAS pointers
+    SmallVector<ReturnInst*, 16> m_ReturnGAS;
 
   private:
 
@@ -200,6 +239,14 @@ namespace intel {
     /// @param  pDefPoint - Instruction or formal argument which produces named address space pointer
     void collectDefPoint(const Value *pPtrVal, const Value *pDefPoint);
 
+    /// @brief  Helper for collection of Load and Store instructions from/to memory
+    /// @brief  area specified by an 'alloca' instruction or array argument and depending
+    /// @brief  on a specific instruction
+    /// @param  pArrayPtr - 'alloca'/argument which defines the memory area used by Loads and Stores
+    /// @param  pCurVal   - instruction whose usages are traversed (recursively) in search
+    ///                     for depending Load and Store instructions
+    void collectLoadAndStoreUsagesFor(const Value *pArrayPtr, const Value *pCurVal);
+
     /// @brief  Given a GAS pointer, looks for addr-space qualifier variable for it 
     /// @param  pVal - GAS pointer of interest
     /// @returns  pointer to the GAS pointer's addr-space qualifier variable
@@ -220,6 +267,26 @@ namespace intel {
     /// @returns  addr-space qualifiers' constant (expression), or NULL
     Constant *checkAndResolveConstantOperand(const Constant *pOperand);
 
+    /// @brief  Helper for generation of 'alloca' or array argument of addr-space
+    /// @brief  qualifiers for a GAS pointer array, and calculation of offset between
+    /// @brief  both of them
+    /// @param  pArrayPtr    - 'Alloca'/argument of GAS pointer array
+    /// @param  pInsertAfter - where to insert new instructions
+    /// @returns  values of the addr-space qualifiers' 'alloca'/argument and its offset 
+    ///           from GAS pointers' array
+    SpaceArrayDef getArrayToSpaceOffset(Value *pArrayPtr, Instruction *pInsertAfter);
+
+    /// @brief  Helper for generation of pointer to slot in 'alloca'/argument array with
+    /// @brief  addr-space qualifiers upon pointer to slot in corresponding
+    /// @brief  GAS pointer array 'alloca'/argument
+    /// @param  pArrayPtr    - 'Alloca' slot / array argument for Load/Store
+    /// @param  pOffset      - offset from the array pointer to a pointer to
+    ///                        corresponding array of addr-space qualifiers
+    /// @param  pInsertAfter - where to insert new instructions
+    /// @returns  value of pointer to addr-space qualifier slot
+    Instruction *mapArrayPtrToSpacePtr(Value *pArrayPtr, Instruction *pOffset, 
+                                       Instruction *pInsertAfter);
+
     // Generic-to-named address space resolvers for different instructions using GAS pointers
     // --------------------------------------------------------------------------------------
 
@@ -233,7 +300,9 @@ namespace intel {
     /// @brief  GAS pointer resolvers for LLVM instructions other than call 
     /// @param  space_it - iterator pointing to the GAS pointer definition
     /// @returns  true if resolution succeeded, or false if it is deferred
+    bool resolveLoadInstr(TDefSpaceMap::iterator space_it);
     bool resolveStoreInstructions();
+    bool resolveRetInstructions();
     bool resolvePhiOrSelectInstr(TDefSpaceMap::iterator space_it);
 
     /// @brief  GAS pointer resolvers for call instructions
@@ -243,6 +312,19 @@ namespace intel {
     void resolveAddrSpaceQualifierBICall(CallInst *pCallInstr);
     void resolveBIorIntrinsicCall(CallInst *pCallInstr, GenericAddressSpace::FuncCallType category, OCLAddressSpace::spaces targetSpace);
     void resolveNonKernelFunctionCall(CallInst *pCallInstr);
+
+    // Checkers for special cases
+    // ---------------------------
+
+    /// @brief  Checks whether given type is a scalar/array with GAS pointer 
+    /// @brief  pType - type to check
+    /// @returns  true/false according to result of the check
+    bool isGASPointer(const Type *pType);
+
+    /// @brief  Helper for check of GAS pointer array case
+    /// @param  pType - type to check
+    /// @returns  true if this is a GAS pointer array, or false otherwise
+    bool isGASPtrArray(const Type *pType);
 
   };
 

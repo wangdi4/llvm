@@ -201,10 +201,12 @@ namespace intel {
     // Checkers for special cases
     // ---------------------------
 
-    /// @brief  Checks whether given type is alloca's GAS pointer or an aggregate of it
-    /// @brief  pType - type to check
+    /// @brief  Checks whether given type is an alloca of struct with GAS pointer
+    /// @brief  pType            - type to check
+    /// @brief  isStructDetected - true if we already identified 'struct' in
+    ///         the course of recursion, or false otherwise
     /// @returns  true/false according to result of the check
-    bool isAllocaGASPointer(const Type *pType);
+    bool isAllocaStructGASPointer(const Type *pType, bool isStructDetected);
 
   };
 

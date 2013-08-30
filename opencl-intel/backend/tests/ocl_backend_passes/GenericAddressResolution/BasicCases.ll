@@ -7,45 +7,47 @@
 ; CHECK: call void @_Z5test1PU3AS1i(i32 addrspace(1)* %0)
 ; CHECK: %1 = bitcast i32 addrspace(3)* %pLocal to i32 addrspace(3)
 ; CHECK: call void @_Z5test1PU3AS3i(i32 addrspace(3)* %1)
-; CHECK: %3 = getelementptr inbounds i32 addrspace(1)* %2, i32 2
-; CHECK: store i32 2, i32 addrspace(1)* %3, align 4
-; CHECK: %4 = bitcast i32 addrspace(1)* %2 to i32 addrspace(1)*
-; CHECK: %5 = bitcast i32 addrspace(1)* %2 to i32 addrspace(3)*
-; CHECK: %7 = bitcast i32 addrspace(1)* %6 to i32 addrspace(4)*
-; CHECK: %pGen1.0 = phi i32 addrspace(4)* [ %7, %if.then ], [ %9, %if.else ]
-; CHECK: %12 = ptrtoint i32 addrspace(1)* %10 to i32
-; CHECK: %13 = inttoptr i32 %12 to i32 addrspace(4)*
-; CHECK: %16 = call zeroext i1 @_Z5test2PU3AS1iPU3AS3i(i32 addrspace(1)* %14, i32 addrspace(3)* %15)
+; CHECK: %arrayidx7 = getelementptr inbounds i32 addrspace(1)* %2, i32 2
+; CHECK: store i32 2, i32 addrspace(1)* %arrayidx7, align 4
+; CHECK: %3 = bitcast i32 addrspace(1)* %2 to i32 addrspace(1)*
+; CHECK: %4 = bitcast i32 addrspace(1)* %2 to i32 addrspace(3)*
+; CHECK: %6 = bitcast i32 addrspace(1)* %5 to i32 addrspace(4)*
+; CHECK: %pGen1.0 = phi i32 addrspace(4)* [ %6, %if.then ], [ %8, %if.else ]
+; CHECK: %10 = ptrtoint i32 addrspace(1)* %9 to i32
+; CHECK: %11 = inttoptr i32 %10 to i32 addrspace(1)*
+; CHECK: %call11 = call i32 addrspace(4)* @_Z5test2PU3AS1iPU3AS3i(i32 addrspace(1)* %12, i32 addrspace(3)* %13)
+; CHECK: %arrayidx6 = getelementptr inbounds i32 addrspace(4)* %call11, i32 8
+; CHECK: store i32 8, i32 addrspace(4)* %arrayidx6, align 4
 ; CHECK-NOT: call zeroext i1 @_Z9is_globalPKU3AS4v
-; CHECK: %frombool11 = zext i1 true to i8
-; CHECK: %20 = icmp eq i32 addrspace(1)* %17, %10
-; CHECK: %22 = load i32 addrspace(1)* %21, align 4
-; CHECK: %26 = call float @_Z5fractfPU3AS1f(float %param, float addrspace(1)* %25)
+; CHECK: %frombool = zext i1 true to i8
+; CHECK: %cmp9 = icmp eq i32 addrspace(1)* %14, %9
+; CHECK: %16 = load i32 addrspace(1)* %arrayidx1312, align 4
+; CHECK: %call1615 = call float @_Z5fractfPU3AS1f(float %param, float addrspace(1)* %add.ptr14)
 ; CHECK: ret
 
 ; CHECK: @_Z5test1PU3AS1i
-; CHECK: %0 = bitcast i32 addrspace(1)* %a to i32 addrspace(1)*
-; CHECK: %1 = getelementptr inbounds i32 addrspace(1)* %0, i32 0
-; CHECK: store i32 0, i32 addrspace(1)* %1, align 4
+; CHECK: %a12 = bitcast i32 addrspace(1)* %a to i32 addrspace(1)*
+; CHECK: %arrayidx3 = getelementptr inbounds i32 addrspace(1)* %a12, i32 0
+; CHECK: store i32 0, i32 addrspace(1)* %arrayidx3, align 4
 ; CHECK: ret
 
 ; CHECK: @_Z5test1PU3AS3i
-; CHECK: %0 = bitcast i32 addrspace(3)* %a to i32 addrspace(3)*
-; CHECK: %1 = getelementptr inbounds i32 addrspace(3)* %0, i32 0
-; CHECK: store i32 0, i32 addrspace(3)* %1, align 4
+; CHECK: %a12 = bitcast i32 addrspace(3)* %a to i32 addrspace(3)*
+; CHECK: %arrayidx3 = getelementptr inbounds i32 addrspace(3)* %a12, i32 0
+; CHECK: store i32 0, i32 addrspace(3)* %arrayidx3, align 4
 ; CHECK: ret
 
-; CHECK: @_Z5test2PU3AS1iPU3AS3i
-; CHECK: %1 = bitcast i32 addrspace(3)* %0 to i32 addrspace(4)*
-; CHECK: %3 = bitcast i32 addrspace(1)* %2 to i32 addrspace(4)*
-; CHECK: %cmp = icmp eq i32 addrspace(4)* %3, %1
+; CHECK: addrspace(4)* @_Z5test2PU3AS1iPU3AS3i
+; CHECK: %p224 = bitcast i32 addrspace(3)* %p223 to i32 addrspace(4)*
+; CHECK: %p117 = bitcast i32 addrspace(1)* %p116 to i32 addrspace(4)*
+; CHECK: %cmp = icmp eq i32 addrspace(4)* %p117, %p224
 ; CHECK: ret
 
 ; CHECK: declare float @_Z5fractfPU3AS1f(float, float addrspace(1)*)
-; CHECK: !opencl.compiler.2_0.gen_addr_space_pointer_warnings = !{!3}
-; CHECK: !opencl.compiler.2_0.gen_addr_space_pointer_counter = !{!4}
-; CHECK: !3 = metadata !{i32 0}
-; CHECK: !4 = metadata !{i32 2}
+
+; BUGBUG: !3 = metadata !{metadata !4, metadata !5}                             BUGBUG in Metadata (CQ CSSD100017034)
+; BUGBUG: !4 = metadata !{metadata !"gen_addr_space_pointer_counter", i32 3}    BUGBUG in Metadata (CQ CSSD100017034)
+; BUGBUG: !5 = metadata !{metadata !"gen_addr_space_pointer_warnings", i32 0}   BUGBUG in Metadata (CQ CSSD100017034)
   
 
 define void @test1(i32 addrspace(4)* %a) nounwind {
@@ -57,7 +59,7 @@ entry:
   ret void
 }
 
-define zeroext i1 @test2(i32 addrspace(4)* %p1, i32 addrspace(4)* %p2) nounwind {
+define i32 addrspace(4)* @test2(i32 addrspace(4)* %p1, i32 addrspace(4)* %p2) nounwind {
 entry:
   %cmp = icmp eq i32 addrspace(4)* %p1, %p2
   br i1 %cmp, label %if.then, label %if.end
@@ -69,8 +71,8 @@ if.end:                                           ; preds = %entry
   br label %return
 
 return:                                           ; preds = %if.end, %if.then
-  %retval.0 = phi i1 [ true, %if.then ], [ false, %if.end ]
-  ret i1 %retval.0
+  %retval.0 = phi i32 addrspace(4)* [ %p1, %if.then ], [ %p2, %if.end ]
+  ret i32 addrspace(4)* %retval.0
 }
 
 define void @test(i32 addrspace(1)* %pGlobal, i32 addrspace(3)* %pLocal, float %param) nounwind {
@@ -112,44 +114,36 @@ if.end:                                           ; preds = %if.else, %if.then
   store i32 7, i32 addrspace(4)* %arrayidx5, align 4
   %10 = bitcast i32 addrspace(1)* %pGlobal to i32 addrspace(4)*
   %11 = bitcast i32 addrspace(3)* %pLocal to i32 addrspace(4)*
-  %call = call zeroext i1 @test2(i32 addrspace(4)* %10, i32 addrspace(4)* %11)
-  %frombool = zext i1 %call to i8
-  %tobool6 = trunc i8 %frombool to i1
-  br i1 %tobool6, label %if.then7, label %if.end9
-
-if.then7:                                         ; preds = %if.end
-  %arrayidx8 = getelementptr inbounds i32 addrspace(4)* %9, i32 8
-  store i32 8, i32 addrspace(4)* %arrayidx8, align 4
-  br label %if.end9
-
-if.end9:                                          ; preds = %if.then7, %if.end
+  %call = call i32 addrspace(4)* @test2(i32 addrspace(4)* %10, i32 addrspace(4)* %11)
+  %arrayidx6 = getelementptr inbounds i32 addrspace(4)* %call, i32 8
+  store i32 8, i32 addrspace(4)* %arrayidx6, align 4
   %12 = bitcast i32 addrspace(1)* %pGlobal to i32 addrspace(4)*
   %13 = bitcast i32 addrspace(4)* %12 to i8 addrspace(4)*
-  %call10 = call zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)* %13)
-  %frombool11 = zext i1 %call10 to i8
-  %tobool12 = trunc i8 %frombool11 to i1
-  br i1 %tobool12, label %if.then13, label %if.end15
+  %call7 = call zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)* %13)
+  %frombool = zext i1 %call7 to i8
+  %tobool8 = trunc i8 %frombool to i1
+  br i1 %tobool8, label %if.then9, label %if.end11
 
-if.then13:                                        ; preds = %if.end9
-  %arrayidx14 = getelementptr inbounds i32 addrspace(4)* %12, i32 9
-  store i32 9, i32 addrspace(4)* %arrayidx14, align 4
+if.then9:                                         ; preds = %if.end
+  %arrayidx10 = getelementptr inbounds i32 addrspace(4)* %12, i32 9
+  store i32 9, i32 addrspace(4)* %arrayidx10, align 4
+  br label %if.end11
+
+if.end11:                                         ; preds = %if.then9, %if.end
+  %cmp = icmp eq i32 addrspace(4)* %12, %7
+  br i1 %cmp, label %if.then12, label %if.end15
+
+if.then12:                                        ; preds = %if.end11
+  %arrayidx13 = getelementptr inbounds i32 addrspace(4)* %12, i32 8
+  %14 = load i32 addrspace(4)* %arrayidx13, align 4
+  %arrayidx14 = getelementptr inbounds i32 addrspace(4)* %7, i32 10
+  store i32 %14, i32 addrspace(4)* %arrayidx14, align 4
   br label %if.end15
 
-if.end15:                                         ; preds = %if.then13, %if.end9
-  %cmp = icmp eq i32 addrspace(4)* %12, %7
-  br i1 %cmp, label %if.then16, label %if.end19
-
-if.then16:                                        ; preds = %if.end15
-  %arrayidx17 = getelementptr inbounds i32 addrspace(4)* %12, i32 8
-  %14 = load i32 addrspace(4)* %arrayidx17, align 4
-  %arrayidx18 = getelementptr inbounds i32 addrspace(4)* %7, i32 10
-  store i32 %14, i32 addrspace(4)* %arrayidx18, align 4
-  br label %if.end19
-
-if.end19:                                         ; preds = %if.then16, %if.end15
+if.end15:                                         ; preds = %if.then12, %if.end11
   %15 = bitcast i32 addrspace(1)* %pGlobal to float addrspace(4)*
   %add.ptr = getelementptr inbounds float addrspace(4)* %15, i32 10
-  %call20 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr)
+  %call16 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr)
   ret void
 }
 
@@ -173,10 +167,10 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 ;;  a[1] = 1;
 ;;}
 
-;;bool test2(int *p1, int *p2) {
+;;int* test2(int *p1, int *p2) {
 ;;  if (p1 == p2)
-;;    return true;
-;;  return false;
+;;    return p1;
+;;  return p2;
 ;;}
 
 ;;__kernel void test(__global int* pGlobal, __local int* pLocal, float param) {
@@ -216,10 +210,8 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 ;;  pGen3[7] = 7;
 
 ;;  // Corner case
-;;  bool b1 = test2(pGlobal, pLocal);
-;;  if (b1) {
-;;    pGen3[8] = 8;
-;;  }
+;;  int* pGen5 = test2(pGlobal, pLocal);
+;;  pGen5[8] = 8;
 
 ;;  // Address Specifier BI
 ;;  pGen3 = pGlobal;
