@@ -180,7 +180,8 @@ endif(INCLUDE_MIC_DEVICE)
 set (CLANG_COMPILER_PARAMS 
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -O3 -fwrapv
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h 
-  -D __OPENCL_2__)
+  -fblocks -D__OPENCL_C_VERSION__=200 
+  )
   
 if (PLATFORM EQUAL Win32)
   set (CLANG_COMPILER_PARAMS ${CLANG_COMPILER_PARAMS} -target=i686-pc-win32-OpenCL)

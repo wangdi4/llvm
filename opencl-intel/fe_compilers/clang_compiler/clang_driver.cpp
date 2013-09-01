@@ -263,12 +263,20 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 
     // Retrieve local relatively to binary directory
     GetModuleDirectory(szBinaryPath, MAX_STR_BUFF);
+
+    const char* pchFileName;
+    if ( CLSTDSet >= 200 ) {
+      pchFileName = "opencl20_.pch";
+    } else {
+      pchFileName = "opencl_.pch";
+    }
+
 #ifndef PASS_PCH
     char szOclIncPath[MAX_STR_BUFF];
     char  szOclPchPath[MAX_STR_BUFF];
 
   SPRINTF_S(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
-  SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_.pch", szBinaryPath);
+  SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%s%s", szBinaryPath, pchFileName);
 
   list.push_back("-I");
   list.push_back(szOclIncPath);
@@ -277,7 +285,7 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
   list.push_back(szOclPchPath);
 #else
   list.push_back("-include-pch");
-  list.push_back("OpenCL_.pch");
+  list.push_back(pchFileName);
 #endif
 
     list.push_back("-fno-validate-pch");
@@ -457,7 +465,11 @@ int ClangFECompilerCompileTask::Compile()
   // Locate the resource
   if( NULL != hMod )
   {
-    hRes = FindResource(hMod, "#101", "PCH");
+    if ( CLSTDSet >= 200 ) {
+      hRes = FindResource(hMod, "#102", "PCH");
+    } else {
+      hRes = FindResource(hMod, "#101", "PCH");
+    }
   }
   else
   {

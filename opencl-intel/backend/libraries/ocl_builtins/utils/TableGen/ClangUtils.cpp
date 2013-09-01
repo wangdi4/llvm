@@ -24,8 +24,7 @@ static std::string getZeroLiteral(const std::string& type){
 //builds the given code to a file with a given name
 void build(const std::string& code, std::string fileName){
   const char* clangpath = XSTR(CLANG_BIN_PATH);
-  const char* options = "-cc1 -x cl -emit-llvm -include opencl_.h -opencl-builtins "
-                        "-D __OPENCL_2__";
+  const char* options = "-cc1 -x cl -emit-llvm -include opencl_.h -opencl-builtins -fblocks -D__OPENCL_C_VERSION__=200";
   const char* include_dir = XSTR(CLANG_INCLUDE_PATH);
   const char* tmpfile = "tmp.cl";
   assert(fileName != tmpfile && "tmp.cl is reserved!");

@@ -6594,7 +6594,7 @@ int __attribute__((overloadable)) atom_xor(volatile __local int *p, int val);
 unsigned int __attribute__((overloadable)) atom_xor(volatile __local unsigned int *p, unsigned int val);
 
 #if !defined (__MIC__) && !defined(__MIC2__)
-#if __OPENCL_C_VERSION__ > CL_VERSION_1_2 || defined __OPENCL_2__
+#if __OPENCL_C_VERSION__ >= 200
 
 typedef atomic_int atomic_flag;
 #define ATOMIC_VAR_INIT(C)  (C)
@@ -7689,8 +7689,8 @@ float4 __attribute__((overloadable)) const_func read_imagef(__read_only image2d_
 //half4 __attribute__((overloadable)) const_func read_imageh(__read_only image2d_t image, sampler_t sampler, float2 coord);
 
 // Since OpenCL 2.0 image2d_depth_t and image2d_array_depth_t are mandatory
-#if __OPENCL_C_VERSION__ > CL_VERSION_1_2 || defined __OPENCL_2__
-
+#if defined __IMAGE2D_DEPTH__ || __OPENCL_C_VERSION__ >= 200
+// Enable the extension to make compilation of PCH possible for all supported standartds
 #pragma OPENCL EXTENSION cl_khr_depth_images : enable
 float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_depth_t image, sampler_t sampler, int2 coord);
 float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_depth_t image, sampler_t sampler, float2 coord);
@@ -7718,6 +7718,11 @@ int2 const_func __attribute__((overloadable)) get_image_dim(image2d_depth_t imag
 int2 const_func __attribute__((overloadable)) get_image_dim(image2d_array_depth_t image);
 
 size_t const_func __attribute__((overloadable)) get_image_array_size(image2d_array_depth_t image_array);
+
+#if __OPENCL_C_VERSION__ < 200
+// Disable the extension for standards below 2.0
+#pragma OPENCL EXTENSION cl_khr_depth_images : disable
+#endif    // __OPENCL_C_VERSION__ < 200
 #endif
 
 /**
@@ -7932,9 +7937,8 @@ void __attribute__((overloadable)) write_imageui (__write_only image1d_array_t i
 
 
 // Since OpenCL 2.0 writes to image3d_t are mandatory
-#if defined __WRITE_IMAGE3D__ || __OPENCL_C_VERSION__ > CL_VERSION_1_2 ||\
-    defined __OPENCL_2__
-
+#if defined __WRITE_IMAGE3D__ || __OPENCL_C_VERSION__ >= 200
+// Enable the extension to make compilation of PCH possible for all supported standartds
 #pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
 /**
  * Write color value to location specified by coordinate
@@ -7976,6 +7980,10 @@ void __attribute__((overloadable)) write_imagef(__write_only image3d_t image, in
 void __attribute__((overloadable)) write_imagei(__write_only image3d_t image, int4 coord, int4 color);
 void __attribute__((overloadable)) write_imageui(__write_only image3d_t image, int4 coord, uint4 color);
 //void __attribute__((overloadable)) write_imageh(__write_only image3d_t image, int4 coord, half4 color);
+#if __OPENCL_C_VERSION__ < 200
+//  disable the extension for standards below 2.0
+#pragma OPENCL EXTENSION cl_khr_3d_image_writes : disable
+#endif      // __OPENCL_C_VERSION__ < 200
 #endif
 
 /**

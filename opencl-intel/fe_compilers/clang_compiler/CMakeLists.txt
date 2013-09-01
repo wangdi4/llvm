@@ -132,8 +132,22 @@ set( COMPILER_OPTIONS -cc1
                       -O0
                       -emit-pch 
                       -I ${OCL_CLANG_HEADERS}
-                      -D __OPENCL_2__
+                      -D __IMAGE2D_DEPTH__
+                      -D __WRITE_IMAGE3D__
                       )
+
+set( COMPILER_OPTIONS_OPENCL_12
+					${COMPILER_OPTIONS}
+					-cl-std=CL1.2
+					-D__OPENCL_C_VERSION__=120
+                      )
+
+set( COMPILER_OPTIONS_OPENCL_20 
+					${COMPILER_OPTIONS}
+					-cl-std=CL2.0
+					-D__OPENCL_C_VERSION__=200
+                      )
+
 set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
 )
 
@@ -147,21 +161,37 @@ set( CLANG ${TOOL_BINARY_DIR}/clang )
 
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
-                    COMMAND ${CLANG} ${COMPILER_OPTIONS} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${COMPILER_OPTIONS_OPENCL_12} -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     VERBATIM
                    )
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
-                    COMMAND ${CLANG} ${COMPILER_OPTIONS} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${COMPILER_OPTIONS_OPENCL_12} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     VERBATIM
                    )
+
+add_custom_command( TARGET ${TARGET_NAME}
+                    PRE_BUILD
+                    COMMAND ${CLANG} ${COMPILER_OPTIONS_OPENCL_20} -o ${OPENCL_PCH_OUT_DIR}/opencl20_.pch ${REDIRECTION_OPTION}
+                    COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
+                    VERBATIM
+                   )
+add_custom_command( TARGET ${TARGET_NAME}
+                    PRE_BUILD
+                    COMMAND ${CLANG} ${COMPILER_OPTIONS_OPENCL_20} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch ${REDIRECTION_OPTION}
+                    COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
+                    VERBATIM
+                   )
+
 add_dependencies( ${TARGET_NAME}
 	clang
+	${OCL_CLANG_HEADERS}/opencl_.h
 )
 
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_.pch DESTINATION bin)
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
 

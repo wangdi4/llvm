@@ -53,6 +53,7 @@ END
 //
 
 IDR_PCH1                PCH                     "opencl_.pch"
+IDR_PCH2                PCH                     "opencl20_.pch"
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 
