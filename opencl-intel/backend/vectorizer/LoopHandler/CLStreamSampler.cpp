@@ -25,7 +25,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 //    Error! Target max loop size not defined!
 //  #endif
 //#else
-  #define MAX_LOOP_SIZE 128
+  #define MAX_LOOP_SIZE 1024
 //#endif
 
 #define FLOAT_X_WIDTH__ALIGNMENT 16

@@ -62,7 +62,6 @@ llvm::ModulePass *createModuleCleanupPass();
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
 llvm::ModulePass *createPrepareKernelArgsPass();
-llvm::Pass *createDebugFunctionInliningPass();
 
 void* destroyOpenclRuntimeSupport();
 #ifdef __APPLE__
@@ -76,6 +75,7 @@ llvm::FunctionPass *createPrefetchPassLevel(int level);
 llvm::ModulePass * createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
+llvm::Pass *createDebugFunctionInliningPass();
 #endif
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectFuncPtrCalls();
@@ -144,12 +144,13 @@ llvm::ModulePass *createKernelInfoWrapperPass();
     PM->add(llvm::createIndVarSimplifyPass());        // Canonicalize indvars
     PM->add(llvm::createLoopDeletionPass());          // Delete dead loops
     if (UnrollLoops) {
-      PM->add(llvm::createLoopUnrollPass(512, 0, 0));          // Unroll small loops
+      PM->add(llvm::createLoopUnrollPass(512, 0, 0)); // Unroll small loops
     }
-    if (!isDBG)
+    if (!isDBG) {
       PM->add(llvm::createFunctionInliningPass(4096)); //Inline (not only small) functions
+    }
     PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, -1, 64));  // Break up aggregate allocas
-	PM->add(llvm::createInstructionCombiningPass());  // Clean up after the unroller
+    PM->add(llvm::createInstructionCombiningPass());  // Clean up after the unroller
     PM->add(llvm::createInstructionSimplifierPass());
     if (allowAllocaModificationOpt){
       if (OptimizationLevel > 1)
@@ -482,7 +483,9 @@ Optimizer::Optimizer( llvm::Module* pModule,
     else
       m_modulePasses.add(llvm::createFunctionInliningPass());     // Inline small functions
   } else {
+#ifndef __APPLE__
     m_modulePasses.add(createDebugFunctionInliningPass());
+#endif
   }
 
   if ( debugType == None ) {

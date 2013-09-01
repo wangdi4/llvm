@@ -92,6 +92,7 @@ int cld_link(Module *M, Module *Runtime);
 __END_DECLS
 
 Intel::CPUId selectCPU();
+std::string getBuiltinName(Intel::CPUId);
 
 /// Used to keep the plugin instance specific data
 /// allocated by cvmsPluginServiceInitialize
@@ -725,17 +726,23 @@ static int compileProgram(
   bool link_multiple,
   bool& has_kernel)
 {
+  CPUPluginPrivateData* pluginData = (CPUPluginPrivateData*)objects->private_service;
+  Intel::CPUId cpuId;
+    
+  if( pluginData != NULL)
+    cpuId = pluginData->cpuId;
+  else
+    cpuId = selectCPU();
+    
   // Get the runtime module, which contains all the OpenCL runtime functions.
   static Module *Runtime = NULL;
   assert(!objects->llvm_module && "assuming built-in module is not recieved from runtime");
 
   if (!Runtime) {
-#if defined(__i386__)
-    char* bitcode_name = (char*)"/System/Library/Frameworks/OpenCL.framework/Resources/runtime.i386.bc";
-#endif
-#if defined(__x86_64__)
-    char* bitcode_name = (char*)"/System/Library/Frameworks/OpenCL.framework/Resources/runtime.x86_64.bc";
-#endif
+      std::string bitcode_name =
+        std::string("/System/Library/Frameworks/OpenCL.framework/Resources/runtime.") +
+        getBuiltinName(cpuId) + std::string(".bc");
+      
     OwningPtr<MemoryBuffer> bc_memory_buffer;
     MemoryBuffer::getFileOrSTDIN(bitcode_name, bc_memory_buffer);
     Runtime = getLazyBitcodeModule(bc_memory_buffer.take(), getGlobalContext(), NULL);
@@ -745,7 +752,9 @@ static int compileProgram(
 
   // Prepend "-triple {$TRIPLE} " onto the options string.
   std::string options_str;
-  options_str = std::string("-triple ") + triple + " " + options;
+  options_str = std::string("-triple ") + triple +
+    std::string(" -target-cpu ") + std::string(cpuId.GetCPUName()) +
+    std::string(" ") + options;
 
   // Determine if optimizations are disabled, in which case we should also turn
   // on debug info.
@@ -841,22 +850,19 @@ static int compileProgram(
   }
 
   // Optimize the whole module
-  int vectorWidth = 1;
+  int vectorWidth = 0;
 
-  if (!(opt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE) && !debug && !disable_opt) {
+  //if (!(opt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE) && !debug && !disable_opt) {
     // FIXME: replace with sysctl check for avx when available.
-    vectorWidth = 4;
-    if (getenv("CL_VWIDTH_8"))
+    if (getenv("CL_VWIDTH_1"))
+      vectorWidth = 1;
+    else if (getenv("CL_VWIDTH_4"))
+      vectorWidth = 4;
+    else if (getenv("CL_VWIDTH_8"))
       vectorWidth = 8;
-    }
-
-  CPUPluginPrivateData* pluginData = (CPUPluginPrivateData*)objects->private_service;
-  Intel::CPUId cpuId;
-
-  if( pluginData != NULL)
-    cpuId = pluginData->cpuId;
-  else
-    cpuId = selectCPU();
+    else if (getenv("CL_VWIDTH_AUTO"))
+      vectorWidth = 0;
+  //}
 
   intel::OptimizerConfig optimizerConfig(cpuId,
                                          vectorWidth,
@@ -1290,6 +1296,46 @@ Intel::CPUId selectCPU()
 
   unsigned int selectedCpuFeatures = SelectCpuFeatures( selectedCpuId, forcedCpuFeatures );
   return Intel::CPUId(selectedCpuId, selectedCpuFeatures, sizeof(void*)==8);
+}
+
+std::string getBuiltinName(Intel::CPUId cpuId)
+{
+  std::string name = "";
+#if defined(__i386__)
+  switch(cpuId.GetCPU()) {
+  case Intel::CPU_CORE2:
+  case Intel::CPU_PENRYN:
+    name = "v8";
+    break;
+  case Intel::CPU_COREI7:
+    name = "n8";
+    break;
+  case Intel::CPU_SANDYBRIDGE:
+    name = "g9";
+    break;
+  case Intel::CPU_HASWELL:
+    name = "s9";
+    break;
+  }
+#elif defined(__x86_64__)
+  switch(cpuId.GetCPU()) {
+  case Intel::CPU_CORE2:
+  case Intel::CPU_PENRYN:
+    name = "u8";
+    break;
+  case Intel::CPU_COREI7:
+    name = "h8";
+    break;
+  case Intel::CPU_SANDYBRIDGE:
+    name = "e9";
+    break;
+  case Intel::CPU_HASWELL:
+    name = "l9";
+    break;
+  }
+#endif
+  assert(!name.empty() && "Could not determine built-in package name!");
+  return name;
 }
 
 /// cvmsPluginElementBuild - Plugin interface to CVMS invoked when CVMS has been
