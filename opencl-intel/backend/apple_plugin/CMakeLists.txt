@@ -28,8 +28,8 @@ include_directories(
 
 # link_directories should be before add_library
 link_directories(
-	${OPENCL_LIBRARIES}/Libraries 
-	${OPENGL_LIBRARIES}/Libraries
+  ${OPENCL_LIBRARIES}/Libraries 
+  ${OPENGL_LIBRARIES}/Libraries
 )
 
 add_library(${TARGET_NAME} SHARED 

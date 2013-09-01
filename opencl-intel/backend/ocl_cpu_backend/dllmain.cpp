@@ -84,10 +84,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             s_ignore_termination = true;
         }
 
-		if( !s_ignore_termination)
-		{
-			Compiler::Terminate();
-		}
+        if( !s_ignore_termination)
+        {
+            Compiler::Terminate();
+        }
         break;
     }
     return TRUE;
@@ -108,10 +108,10 @@ void __attribute__ ((destructor)) dll_fini(void)
         s_ignore_termination = true;
     }
 
-	if( !s_ignore_termination)
-	{
+    if( !s_ignore_termination)
+    {
         Compiler::Terminate();
-	}
+    }
 }
 #endif
 

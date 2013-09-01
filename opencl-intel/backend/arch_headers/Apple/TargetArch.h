@@ -34,7 +34,7 @@ enum ECPUFeatureSupport {
     CFS_SSSE3   = 1 << 2,
     CFS_SSE41   = 1 << 3,
     CFS_SSE42   = 1 << 4,
-    CFS_AVX1	= 1 << 5,
+    CFS_AVX1    = 1 << 5,
     CFS_AVX2    = 1 << 6,
     CFS_FMA     = 1 << 7,
     CFS_BMI     = 1 << 8,

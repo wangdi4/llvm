@@ -36,7 +36,7 @@ public:
   static unsigned getUniformIndex();
 
   ///@brief returns the number of entries in the work group boundaries array.
-  ///@param numDim - number of jit dimension (apple-1 , volcano-3).
+  ///@param numDim - number of dimensions.
   ///@retruns as above.
   static unsigned getNumWGBoundArrayEntries(unsigned numDim);
 

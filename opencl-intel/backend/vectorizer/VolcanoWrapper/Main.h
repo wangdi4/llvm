@@ -40,23 +40,6 @@ public:
         return "Intel OpenCL Vectorizer";
     }
 
-    /// @brief In the odd case where the get_global_id is given a parameter
-    ///  which is not constant, we are unable (actually, don't want to) vectorize.
-    ///  in here we check if we need to vectorize.
-    /// @param F function to check
-    /// @return True if need to vectorize
-    bool shouldVectorize(Function* f);
-
-    /// @brief Checks if any the function uses barriers
-    /// @param F function to check
-    /// @return True if barriers are used
-    bool hasBarriers(Function* f);
-
-    /// @brief Checks if any masks are needed in the vectorization of this kernel.
-    /// @param F function to check
-    /// @return True if masks are needed
-    bool masksNeeded(Function* f);
-
     /// @brief execute pass on given module
     /// @param M module to optimize
     /// @returns True if module was modified

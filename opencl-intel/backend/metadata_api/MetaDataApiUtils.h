@@ -191,7 +191,7 @@ public:
 
     virtual llvm::Value* generateNode(llvm::LLVMContext &context) const
     {
-		lazyLoad();
+        lazyLoad();
 
         llvm::SmallVector< llvm::Value*, 5> args;
 

@@ -33,7 +33,7 @@ public:
 
     ProgramBuilder* GetProgramBuilder() { return &m_programBuilder; }
 
-	  cl_dev_err_code DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
+    cl_dev_err_code DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
                                           const std::string& filePath) const;
 
 private:

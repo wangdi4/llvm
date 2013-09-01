@@ -12,6 +12,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ParameterType.h"
 #include "Logger.h"
 #include "CompilationUtils.h"
+#include "common_dev_limits.h"
 
 #include "llvm/Constants.h"
 #include "llvm/Support/Debug.h"
@@ -112,15 +113,15 @@ struct dotProdInlineData {
 };
 
 const dotProdInlineData dotInlineTable [] = {
-	{"_Z3dotff",1},
-	{"_Z3dotdd",1},
-	{"_Z3dotDv2_fS_",2},
-	{"_Z3dotDv2_dS_",2},
-	{"_Z3dotDv3_fS_",3},
-	{"_Z3dotDv3_dS_",3},
-	{"_Z3dotDv4_fS_",4},
-	{"_Z3dotDv4_dS_",4},
-    {NULL,0}
+  {"_Z3dotff",1},
+  {"_Z3dotdd",1},
+  {"_Z3dotDv2_fS_",2},
+  {"_Z3dotDv2_dS_",2},
+  {"_Z3dotDv3_fS_",3},
+  {"_Z3dotDv3_dS_",3},
+  {"_Z3dotDv4_fS_",4},
+  {"_Z3dotDv4_dS_",4},
+  {NULL,0}
 };
   
 const char* BuiltinReturnByPtr[] = {
@@ -153,7 +154,7 @@ void OpenclRuntime::initDotMap() {
 
 void OpenclRuntime::initScalarSelectSet(const char **scalarSelects) {
   while (*scalarSelects) {
-	m_scalarSelectSet.insert(*scalarSelects);
+    m_scalarSelectSet.insert(*scalarSelects);
     ++scalarSelects;
   }
 }
@@ -206,7 +207,7 @@ unsigned OpenclRuntime::getPacketizationWidth() const {
 }
 
 unsigned OpenclRuntime::getNumJitDimensions() const {
-  return 3;
+  return MAX_WORK_DIM;
 }
 
 const char *OpenclRuntime::getBaseGIDName() const {

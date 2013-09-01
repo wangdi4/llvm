@@ -74,7 +74,7 @@ class FakeExtract : public FakeVectorOp {
     attrs.push_back(Attribute::NoUnwind);
 #endif
     return VectorizerUtils::createFunctionCall(insertBefore->getParent()->getParent()->getParent(),
-		Mangler::getFakeExtractName(), vec->getType()->getScalarType(), args, attrs, insertBefore);
+    Mangler::getFakeExtractName(), vec->getType()->getScalarType(), args, attrs, insertBefore);
   }
 };
 /// Fake call that mimics insert element that is used

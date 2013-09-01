@@ -35,10 +35,10 @@ public:
     virtual const char *getPassName() const {
         return "Intel OpenCL VectorizerCore";
     }
-	
+
     /// @brief execute pass on given module
     /// @param M module to optimize
-	/// @returns True if module was modified
+    /// @returns True if module was modified
     virtual bool runOnFunction(Function &F);
     
     /// @brief Inform about usage/mofication/dependency of this pass

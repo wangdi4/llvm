@@ -271,7 +271,7 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
       }
     }//end of for
 
-	phi->addIncoming(getDefaultValForType(insts[i]->getType()), header);
+    phi->addIncoming(getDefaultValForType(insts[i]->getType()), header);
     phi->addIncoming(insts[i], body);
   }
 }

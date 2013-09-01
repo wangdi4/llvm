@@ -45,7 +45,7 @@ using namespace llvm;
 //  void __kernel foo( int4 dim, .... ) {
 //    kernel code..
 //
-//  on Volcano environment (Jit on 3 dimensions) we will get following work
+//  In case (Jit on 3 dimensions) we will get following work
 //  group boundaries function:
 //  [7 x size_t] __kernel WG.boundaries.foo( int4 dim, .... ) {
 //    size_t dim0_lower = get_base_gid(0);
@@ -60,7 +60,7 @@ using namespace llvm;
 //    retrun [uni, dim0_lower, dim0_size, dim1_lower, dim1_size, dim2_lower, dim2_size];
 //  }
 //
-//  on Apple environment (Jit on 1 dimension) we will get following work
+//  In case (Jit on 1 dimension) we will get following work
 //  group boundaries function:
 //  [3 x size_t] __kernel WG.boundaries.foo( int4 dim, .... ) {
 //    size_t dim0_lower = get_base_gid(0);
@@ -92,8 +92,6 @@ public:
   virtual bool runOnModule(Module &M);
   
   ///@brief additional interface to be on a function not as Pass. 
-  ///       needed since on apple environment and volcano different 
-  ///       functions are processed.
   ///@param F - function to process.
   ///@returns true if the function changed
   virtual bool runOnFunction(Function &F);

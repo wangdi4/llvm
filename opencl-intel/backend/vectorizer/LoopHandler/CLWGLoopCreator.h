@@ -23,7 +23,7 @@ namespace intel {
 // create WG loops around the vector kernel and remainder loops around the 
 // scalar kernel. WG loops are created with canonical induction variable 
 // (satrts in 0 and incremented by 1) as it allows loop optimizations after
-// (e.g. stream samplers in apple environment).
+// (e.g. stream samplers).
 //
 // for example on the following kernel
 //
@@ -93,7 +93,7 @@ public:
   } 
 
   ///@brief public interface that allows running on pair of scalar - vector
-  ///       kernels not through pass manager - used for apple.
+  ///       kernels not through pass manager.
   bool runOnFunction(Function &F, Function *vectorFunc, unsigned packetWidth);
 
   ///@brief LLVM interface.

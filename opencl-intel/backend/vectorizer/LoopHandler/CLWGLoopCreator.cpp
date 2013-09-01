@@ -514,7 +514,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   Function::arg_iterator argIt = m_F->arg_begin();
   Function::arg_iterator argE = m_F->arg_end();
   for (; argIt != argE; ++argIt, ++VArgIt) {
- 	VArgIt->replaceAllUsesWith(argIt);
+  VArgIt->replaceAllUsesWith(argIt);
   }
   assert (!m_vectorFunc->getNumUses() && "vector kernel should have no use");
   if (!m_vectorFunc->getNumUses()) {
@@ -533,7 +533,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   Function::arg_iterator argIt = m_F->arg_begin();
   Function::arg_iterator argE = m_F->arg_end();
   for (; argIt != argE; ++argIt, ++VArgIt) {
- 	valueMap[VArgIt] = argIt;
+  valueMap[VArgIt] = argIt;
   }
   // create a list for return values
   SmallVector<ReturnInst*, 2> returns;

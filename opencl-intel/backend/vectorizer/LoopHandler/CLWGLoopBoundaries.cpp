@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "LoopUtils.h"
 #include "MetaDataApi.h"
 #include "CompilationUtils.h"
+#include "common_dev_limits.h"
 
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/ConstantFolding.h"
@@ -111,9 +112,8 @@ void CLWGLoopBoundaries::processTIDCall(CallInst *CI, bool isGID) {
     return;
   }
   unsigned dim = static_cast<unsigned>(dimC->getValue().getZExtValue());
-  assert (dim < 3 && "get***id with dim > 2");
+  assert (dim < MAX_WORK_DIM && "get***id with dim > (MAX_WORK_DIM-1)");
   // All dimension above m_numDim are uniform so we don't need to add them.
-  // In apple we currently create loop only over 0 dimension.
   if (dim < m_numDim) {
     m_TIDs[CI] = std::pair<unsigned , bool>(dim, isGID);
     m_TIDByDim[dim].push_back(CI);

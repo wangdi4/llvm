@@ -315,9 +315,9 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
   }
 
   int SimplifyGEP::SimplifiablePhiNode(PHINode *pPhiNode) {
-      // This is not a supported case for simplifying PhiNode.
-      if (pPhiNode->getNumIncomingValues() != 2 || !isPhiPtrToPrimitive(pPhiNode)) {
-	return -1;
+    // This is not a supported case for simplifying PhiNode.
+    if (pPhiNode->getNumIncomingValues() != 2 || !isPhiPtrToPrimitive(pPhiNode)) {
+      return -1;
     }
     // Now only need to check that one of the entries is a GEP with the PhiNode as its base.
     GetElementPtrInst *pGep1 = dyn_cast<GetElementPtrInst>(pPhiNode->getIncomingValue(0));

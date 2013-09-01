@@ -103,10 +103,10 @@ void MICCompiler::CreateExecutionEngine(llvm::Module* m)
     // optimizer output to create execution engine in compiler
     // spModule is now owned by the execution engine
 
-	if(!m_needLoadBuiltins)
-	{
-		m_pCGEngine = CreateMICCodeGenerationEngine( m );
-	}
+    if(!m_needLoadBuiltins)
+    {
+        m_pCGEngine = CreateMICCodeGenerationEngine( m );
+    }
 }
 
 MICCompiler::~MICCompiler()

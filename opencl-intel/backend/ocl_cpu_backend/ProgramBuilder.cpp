@@ -123,7 +123,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         pProgram->SetBuiltinModule(pCompiler->GetRtlModule());
 
         // init refcounted runtime service shared storage between program and kernels
-	      RuntimeServiceSharedPtr lRuntimeService =
+        RuntimeServiceSharedPtr lRuntimeService =
                           RuntimeServiceSharedPtr(new RuntimeServiceImpl);
         // set runtime service for the program
         pProgram->SetRuntimeService(lRuntimeService);

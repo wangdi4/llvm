@@ -136,16 +136,16 @@ void OCLBuiltinPreVectorizationPass::handleScalarSelect(CallInst *CI, std::strin
     maskInst->getOperand(0)->getType() != Type::getInt1Ty(CI->getContext())) {
     V_ASSERT(CI->getType() == CI->getArgOperand(0)->getType() &&
              CI->getType() == CI->getArgOperand(1)->getType() &&
-		"select func return value type is not the same as xy operands types");
+    "select func return value type is not the same as xy operands types");
 
     std::string fakeFuncName = Mangler::getFakeBuiltinName(funcName);
     Function *origFunc = CI->getCalledFunction();
     Constant * funcConst = m_curModule->getOrInsertFunction(fakeFuncName,
-	  origFunc->getFunctionType(), origFunc->getAttributes());
+    origFunc->getFunctionType(), origFunc->getAttributes());
     V_ASSERT(funcConst && "failed generating function in current module");
     Function *fakeFunc = dyn_cast<Function>(funcConst);
     V_ASSERT(fakeFunc && "Function type mismatch, caused a constant expression cast!");
-  	CI->setCalledFunction(fakeFunc);
+    CI->setCalledFunction(fakeFunc);
     return;
   }
   if (isa<ZExtInst>(maskInst)) {
@@ -199,7 +199,7 @@ Function *OCLBuiltinPreVectorizationPass::getOrInsertFakeDeclarationToModule(con
   if (!FuncRT) return NULL;
 
   Constant * funcConst = m_curModule->getOrInsertFunction(MangledFuncName,
-	  FuncRT->getFunctionType(), FuncRT->getAttributes());
+    FuncRT->getFunctionType(), FuncRT->getAttributes());
   V_ASSERT(funcConst && "failed generating function in current module");
   Function *func = dyn_cast<Function>(funcConst);
   V_ASSERT(func && "Function type mismatch, caused a constant expression cast!");

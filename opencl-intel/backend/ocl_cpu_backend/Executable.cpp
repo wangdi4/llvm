@@ -32,7 +32,7 @@ using namespace Intel::OpenCL::DeviceBackend;
 #define FORCE_INLINE_PRE __forceinline
 #define FORCE_INLINE_POST 
 #else
-#define FORCE_INLINE_PRE	inline
+#define FORCE_INLINE_PRE inline
 #define FORCE_INLINE_POST  __attribute__((always_inline))
 #endif
 
@@ -62,9 +62,9 @@ void Executable::Release()
 // Initialize context to use specific binary with specific number of WorkItems 
 cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, const ICLDevBackendBinary_* pBin) {
 
-	m_pBinary = static_cast<const Binary*>(pBin);
-	
-	return Init(pLocalMemoryBuffers, pWGStackFrame, m_pBinary->m_uiWGSize);
+  m_pBinary = static_cast<const Binary*>(pBin);
+
+  return Init(pLocalMemoryBuffers, pWGStackFrame, m_pBinary->m_uiWGSize);
 }
 
 // Initialize context to with specific number of WorkItems 
