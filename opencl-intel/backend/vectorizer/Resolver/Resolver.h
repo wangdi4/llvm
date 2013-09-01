@@ -24,7 +24,6 @@ namespace intel {
 /// 'masked' function calls. It is similar to the Inliner pass,
 ///  however, unlike the inliner, it actually creates the implementation
 ///  of these functions, based on their naming convention.
-/// @author Nadav Rotem
 class FuncResolver : public FunctionPass {
 public:
   /// @brief C'tor

@@ -20,7 +20,6 @@ namespace intel {
 ///  detection of Thread-ID creation instructions, and Scalar/Vector
 ///  mapping of builtin
 ///  functions.
-/// @Author Sion Berkowits
 
 class OpenclRuntime : public RuntimeServices {
 public:

@@ -22,7 +22,6 @@ namespace intel {
 
   /// @brief  AddImplicitArgs class adds the implicit arguments to signature
   ///         of all function of the module (that are defined inside the module)
-  /// @Author Marina Yatsina
   class AddImplicitArgs : public ModulePass {
 
   public:

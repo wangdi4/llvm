@@ -28,7 +28,6 @@ namespace intel {
 ///  First, before the predication, it collects dominance info from the original
 ///  control flow. Second, after the linearization
 ///  the actual specialization happens.
-/// @author Nadav Rotem
 class Predicator;
 class FunctionSpecializer {
 public:

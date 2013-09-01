@@ -30,7 +30,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   /// @brief  CompilationUtils class used to provide helper utilies that are
   ///         used by several other classes.
-  /// @Author Marina Yatsina
   class CompilationUtils {
 
   public:

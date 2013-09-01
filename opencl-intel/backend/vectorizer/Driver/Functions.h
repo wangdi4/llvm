@@ -36,7 +36,6 @@ private:
 
 /// @brief
 ///  Functions mapping for Intel's Opencl builtin functions
-/// @Author Sion Berkowits, Nadav Rotem
 class VFH {
 public:
 

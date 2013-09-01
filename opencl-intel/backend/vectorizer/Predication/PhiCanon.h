@@ -29,7 +29,6 @@ namespace intel {
 ///  splitting two of the edges and creating an additional basic block.
 ///  This trashes the CFG. However, future passes can easily go over the
 ///  CFG and clean it.
-/// @author Nadav Rotem
 class PhiCanon : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid

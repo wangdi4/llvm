@@ -20,7 +20,6 @@ namespace intel {
 ///  These are services for runtime-specific information. Such services include
 ///  detection of Thread-ID creation instructions, and Scalar/Vector mapping of builtin
 ///  functions.
-/// @Author Sion Berkowits
 class RuntimeServices {
 public:
 

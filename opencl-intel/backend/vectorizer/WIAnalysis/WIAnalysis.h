@@ -39,7 +39,6 @@ namespace intel {
 ///  depend in work-item and describe their dependency.
 ///  The algorithm used is recursive and new instructions are updated
 ///  according to their operands (which are already calculated).
-///  @Author: Nadav Rotem
 class WIAnalysis : public FunctionPass {
 public:
     static char ID; // Pass identification, replacement for typeid

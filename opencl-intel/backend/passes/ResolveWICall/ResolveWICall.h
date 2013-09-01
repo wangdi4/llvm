@@ -79,7 +79,6 @@ namespace intel {
   } TInternalCallType;
 
   /// @brief  ResolveWICall class used resolve work item function calls
-  /// @Author Marina Yatsina
   class ResolveWICall : public ModulePass {
 
   public:

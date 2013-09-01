@@ -15,7 +15,6 @@ using namespace llvm;
 
 /// @brief A utility class for mangling names
 ///  for function calls and load/store operations
-/// @author Nadav Rotem
 class Mangler {
 public:
 

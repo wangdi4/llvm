@@ -19,7 +19,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   /// @brief  ImplicitArgsUtils class used to provide helper utilies for handling
   ///         implicit arguments.
-  /// @Author Marina Yatsina
   class ImplicitArgsUtils {
   
   public:

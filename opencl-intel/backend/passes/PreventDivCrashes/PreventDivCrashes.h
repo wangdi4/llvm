@@ -22,7 +22,6 @@ namespace intel {
   ///         In case the divisor is 0, PreventDivCrashes or there is integer overflow the pass
   ///         replaces the divisor with 1.
   ///         PreventDivCrashes is intendent to prevent crashes during division.
-  /// @Author Marina Yatsina
   class PreventDivCrashes : public FunctionPass {
 
   public:

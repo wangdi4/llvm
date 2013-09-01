@@ -25,7 +25,6 @@ namespace intel{
   ///         number of bits in the element. For example, if we shift an int4 left by 33 bits,
   ///         OpenCL treats this as shift left by 33%32 = 1 bit.
   ///         ShiftZeroUpperBits is intendent to prevent crashes in case the dividor is 0.
-  /// @Author Marina Yatsina
   class ShiftZeroUpperBits : public FunctionPass {
 
   public:

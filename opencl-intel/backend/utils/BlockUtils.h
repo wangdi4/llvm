@@ -24,7 +24,6 @@ File Name:  BlockUtils.h
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
   /// @brief  BlockUtils class used to provide helper utilies handling block_invoke functions
   ///         used in several modules related to OCL2.0 Extended Execution 
-  /// @Author Oleg Maslov
   class BlockUtils {
 
   public:

@@ -39,7 +39,6 @@ namespace intel {
 ///  to several scalar operations).
 ///  Functions are also replaced (similar to instructions), according
 ///  to data received from RuntimeServices.
-///  @Author: Sion Berkowits
 class ScalarizeFunction : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid

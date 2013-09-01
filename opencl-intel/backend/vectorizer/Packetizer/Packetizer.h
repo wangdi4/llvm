@@ -58,7 +58,6 @@ struct MemoryOperation {
 ///  data from a different work-item.
 ///  Code which cannot be packetized this way, is simply duplicated
 ///  for all packed work items.
-///  @Author: Sion Berkowits
 class PacketizeFunction : public FunctionPass {
 
   /// @brief vector conversions map entry

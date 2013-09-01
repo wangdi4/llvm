@@ -30,7 +30,6 @@ namespace intel {
   ///         loads the arguments and calls the originaol kernel.
   ///         The position of the arguments in the buffer is calcilated based on
   ///         the arguments' alignment, which in non LLVM dependant.
-  /// @Author Marina Yatsina
   class PrepareKernelArgs : public ModulePass {
 
   public:

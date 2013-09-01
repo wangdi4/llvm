@@ -9,7 +9,6 @@ namespace intel {
 extern hashEntry DXEntryDB[];
 
 /// @brief Runtime services for DX
-///  @Author Sion Berkowitz, Nadav Rotem
 class DXRuntime : public RuntimeServices {
 public:
 

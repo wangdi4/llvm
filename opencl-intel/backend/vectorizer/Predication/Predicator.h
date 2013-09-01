@@ -33,7 +33,6 @@ namespace intel {
 ///  After this pass, many allocas are left in the code. It is essential to run
 ///  the following transformation (optimization passes): mem2rem, cfg_simplify,
 ///  dce
-/// @author Nadav Rotem
 class Predicator : public FunctionPass {
 
 public:

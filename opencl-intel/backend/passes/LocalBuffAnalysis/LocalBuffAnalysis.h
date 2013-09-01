@@ -22,7 +22,6 @@ namespace intel{
   ///         local values each function uses directly.
   ///         The analysis class goes over all local values and over all their direct
   ///         users and maps between functions and the local values they uses.
-  /// @Author Marina Yatsina
   class LocalBuffAnalysis : public ModulePass {
   public:
     /// @brief  A set of local values used by a function
