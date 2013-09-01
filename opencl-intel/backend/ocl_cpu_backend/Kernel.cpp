@@ -162,7 +162,8 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
         const bool isLargeGlobalWGsize = ((workThreadUtils << simdUtilsLog) < globalWorkSize);
         if (isLargeGlobalWGsize) {
           localSizeMaxLimit = min(localSizeMaxLimit,
-            ((unsigned int)sqrt((float)(globalWorkSize/(workThreadUtils << simdUtilsLog)))) << (simdUtilsLog-minMultiplyFactorLog) );
+            // calculating upper bound for [sqrt(global/(WT*SIMD))*SIMD]
+            ((unsigned int)(sqrt((float)((globalWorkSize+(workThreadUtils << simdUtilsLog)-1)/(workThreadUtils << simdUtilsLog)))+1.0)) << (simdUtilsLog-minMultiplyFactorLog) );
         } else {
           //In this case we have few work-items, try satisfy as much as possible of work threads.
           const unsigned int workGroupNumMinLimit = (workThreadUtils + (globalWorkSizeYZ-1)) / globalWorkSizeYZ;
@@ -193,7 +194,7 @@ void Kernel::CreateWorkDescription( const cl_work_description_type* pInputWorkSi
                 newHeuristicUp = newHeuristicUp << minMultiplyFactorLog;
                 //Check cost function and update heuristic if needed
                 const unsigned int workGroupsUp = globalWorkSize / newHeuristicUp;
-                assert((newHeuristicUp * workThreadUtils) > (workGroupsUp << simdUtilsLog) && "Wrong balance factor calculation!");
+                assert((newHeuristicUp * workThreadUtils) >= (workGroupsUp << simdUtilsLog) && "Wrong balance factor calculation!");
                 const int balanceFactorUp = (newHeuristicUp * workThreadUtils) - BALANCE_FACTOR * (workGroupsUp << simdUtilsLog);
                 if (balanceFactorUp < balanceFactor) {
                   //Found better local size
@@ -238,7 +239,7 @@ const cl_kernel_argument* Kernel::GetKernelParams() const
 
 const cl_kernel_argument_info* Kernel::GetKernelArgInfo() const
 {
-	return NULL;
+    return NULL;
 }
 
 const ICLDevBackendKernelProporties* Kernel::GetKernelProporties() const
