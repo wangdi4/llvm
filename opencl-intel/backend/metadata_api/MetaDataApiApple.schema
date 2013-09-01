@@ -222,6 +222,11 @@
                     "is_container":     false,
                     "type":             "llvm::UndefValue"
                 },
+    "int_list":  {
+                    "is_container":     true,
+                    "container_type":   "list",
+                    "item_type":        "int32_item"
+                },
     "int32_item": {
                     "is_container":     false,
                     "type":             "int32_t"
