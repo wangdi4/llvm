@@ -5950,6 +5950,12 @@ void __attribute__((overloadable)) write_mem_fence(cl_mem_fence_flags flags);
  */
 #define CLK_GLOBAL_MEM_FENCE   2
 
+/**
+ * The work_group_barrier function will ensure that all
+ * image memory accesses become visible to all workitems
+ * in the work-group
+ */
+#define CLK_IMAGE_MEM_FENCE   3
 
 // Async copies from global to local memory, local to global memory, and prefetch
 
