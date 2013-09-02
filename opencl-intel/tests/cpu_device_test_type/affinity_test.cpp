@@ -199,7 +199,9 @@ bool AffinityRootDeviceTest(affinityMask_t* pMask)
     clSetThreadAffinityToCore(myCPU, clMyThreadId());
     NativeKernelParams rootDevParams(numProcessors, numUsedProcessors, myCPU, pMask);
 
-    return AffinityTestForDevice(NULL, rootDevParams, true);
+    const bool res = AffinityTestForDevice(NULL, rootDevParams, true);
+    clResetThreadAffinityMask(clMyThreadId());
+    return res;
 }
 
 #define NUM_SUB_DEVS 2
@@ -212,7 +214,7 @@ bool AffinitySubDeviceTest(affinityMask_t* pMask)
         return true;
     }
 	const unsigned long ulNumProcessors = Intel::OpenCL::Utils::GetNumberOfProcessors();
-	const unsigned long ulSubDevSize = ulNumProcessors / NUM_SUB_DEVS + 1;	// test overlapping of sub-devices
+	const unsigned long ulSubDevSize = ulNumProcessors / NUM_SUB_DEVS;
 	clSetThreadAffinityToCore(Intel::OpenCL::Utils::GetCpuId(), clMyThreadId());
 
 	try
@@ -225,17 +227,10 @@ bool AffinitySubDeviceTest(affinityMask_t* pMask)
 		{
 			std::vector<size_t> requestedUnits;
 
-			for (size_t j = i * ulNumProcessors / NUM_SUB_DEVS; j < (i + 1) * (ulNumProcessors / NUM_SUB_DEVS) + 1; j++)
+			for (size_t j = i * ulNumProcessors / NUM_SUB_DEVS; j < (i + 1) * (ulNumProcessors / NUM_SUB_DEVS); j++)
 			{
-				if (j < ulNumProcessors)
-				{
-					requestedUnits.push_back(j);
-				}
-				else
-				{
-					assert(ulNumProcessors == j);
-					requestedUnits.push_back(0);
-				}
+				assert(j < ulNumProcessors);
+				requestedUnits.push_back(j);
 			}
 
 			err = dev_entry->clDevPartition(CL_DEV_PARTITION_BY_NAMES, 1, NULL, &uiNumDevices, &requestedUnits, &subDevs[i]);
@@ -258,6 +253,7 @@ bool AffinitySubDeviceTest(affinityMask_t* pMask)
 			CheckException(L"clDevReleaseSubdevice", CL_DEV_SUCCESS, err);		
 		}
 
+		clResetThreadAffinityMask(clMyThreadId());
 		return res;
 	}
 	catch (const exception&)

@@ -198,13 +198,13 @@ void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
 }
 void clResetThreadAffinityMask(threadid_t tid)
 {
-// Yes, this is a hack, but I am not going to create multithreading bugs just to cater to some Linux ADT ideal
-// affinityMask_t is a bitmask and I'm going to abuse that knowledge
-
-// This should be long enough
-static const unsigned long long allOnes[] = {ULLONG_MAX, ULLONG_MAX, ULLONG_MAX, ULLONG_MAX};
-static const affinityMask_t* allMask = reinterpret_cast<const affinityMask_t*>(allOnes);
-sched_setaffinity(tid, sizeof(affinityMask_t), allMask);
+	affinityMask_t mask;
+	CPU_ZERO(&mask);
+	for (size_t i = 0; i < 4 * sizeof(unsigned long long) * 8; i++)	// we assume no more than 256 HW threads (writing generic code is too much effort)
+	{
+		CPU_SET(i, &mask);
+	}
+	sched_setaffinity(tid, sizeof(affinityMask_t), &mask);
 }
 bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len)
 {
