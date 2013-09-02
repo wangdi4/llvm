@@ -536,7 +536,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT):  //FALL THROUGH
         case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT):    //FALL THROUGH
         case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG):   //FALL THROUGH
-        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE): //FALL THROUGH
         {
             //For all supported types, we currently prefer scalars so the vectorizer doesn't have to scalarize
             *pinternalRetunedValueSize = sizeof(cl_uint);
@@ -563,6 +562,32 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             if(NULL != paramVal)
             {
                 *(cl_uint*)paramVal = 0;
+            }
+            return CL_DEV_SUCCESS;
+        }
+        case( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE): //Keeping double separate to allow control via the __DOUBLE_ENABLED__ macro
+        {
+            //For all supported types, we currently prefer scalars so the vectorizer doesn't have to scalarize
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+#ifdef __DOUBLE_ENABLED__
+                if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
+                {
+                    *(cl_uint*)paramVal = 0;
+                }
+                else
+                {
+                    *(cl_uint*)paramVal = 1;
+                }
+#else
+                *(cl_uint*)paramVal = 0;
+#endif
             }
             return CL_DEV_SUCCESS;
         }
