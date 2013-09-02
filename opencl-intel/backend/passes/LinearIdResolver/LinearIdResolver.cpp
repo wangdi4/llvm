@@ -62,7 +62,10 @@ namespace intel {
       CallInst * CI = dyn_cast<CallInst>(&(*itr));
       if (!CI) continue;
 
-      std::string funcName = CI->getCalledFunction()->getName().str();
+      Function * func = CI->getCalledFunction();
+      if (!func) continue;
+
+      std::string funcName = func->getName().str();
 
       if(CompilationUtils::isGetGlobalLinearId(funcName)) {
         idName = CompilationUtils::mangledGetGID();
