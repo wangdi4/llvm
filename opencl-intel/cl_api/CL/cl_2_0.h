@@ -99,6 +99,11 @@ CL_MEM_READ_ONLY                = 1 << 2, */
 #define CL_MEM_SVM_FINE_GRAIN_BUFFER                (1 << 10)
 #define CL_MEM_SVM_ATOMICS                          (1 << 11)
 
+typedef int cl_program_variable_sharing;
+/* cl_program_variable_sharing */
+#define CL_PROGRAM_VARIABLE_SHARING_NONE            (1 << 0)       
+#define CL_PROGRAM_VARIABLE_SHARING_UNIFIED_HOST    (1 << 1)       
+
 typedef int                 cl_device_svm_capabilities;
 #define CL_DEVICE_SVM_COARSE_GRAIN_BUFFER           (1 << 0)
 #define CL_DEVICE_SVM_FINE_GRAIN_BUFFER             (1 << 1)
