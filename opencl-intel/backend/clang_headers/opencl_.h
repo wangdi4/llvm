@@ -1047,6 +1047,21 @@ double16 const_func __attribute__((overloadable)) fmod(double16 x, double16 y);
  * Returns fmin( x – floor (x), 0x1.fffffep-1f ).
  * floor(x) is returned in iptr.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) fract(float x, float *iptr);
+float2 __attribute__((overloadable)) fract(float2 x, float2 *iptr);
+float3 __attribute__((overloadable)) fract(float3 x, float3 *iptr);
+float4 __attribute__((overloadable)) fract(float4 x, float4 *iptr);
+float8 __attribute__((overloadable)) fract(float8 x, float8 *iptr);
+float16 __attribute__((overloadable)) fract(float16 x, float16 *iptr);
+double __attribute__((overloadable)) fract(double x, double *iptr);
+double2 __attribute__((overloadable)) fract(double2 x, double2 *iptr);
+double3 __attribute__((overloadable)) fract(double3 x, double3 *iptr);
+double4 __attribute__((overloadable)) fract(double4 x, double4 *iptr);
+double8 __attribute__((overloadable)) fract(double8 x, double8 *iptr);
+double16 __attribute__((overloadable)) fract(double16 x, double16 *iptr);
+#endif // __OPENCL_C_VERSION__ >= 200
+
 float __attribute__((overloadable)) fract(float x, __global float *iptr);
 float2 __attribute__((overloadable)) fract(float2 x, __global float2 *iptr);
 float3 __attribute__((overloadable)) fract(float3 x, __global float3 *iptr);
@@ -1108,6 +1123,21 @@ double16 __attribute__((overloadable)) fract(double16 x, __private double16 *ipt
  * magnitude in the interval [1/2, 1) or 0. Each
  * component of x equals mantissa returned * 2^exp.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) frexp(float x, int *exp);
+float2 __attribute__((overloadable)) frexp(float2 x, int2 *exp);
+float3 __attribute__((overloadable)) frexp(float3 x, int3 *exp);
+float4 __attribute__((overloadable)) frexp(float4 x, int4 *exp);
+float8 __attribute__((overloadable)) frexp(float8 x, int8 *exp);
+float16 __attribute__((overloadable)) frexp(float16 x, int16 *exp);
+double __attribute__((overloadable)) frexp(double x, int *exp);
+double2 __attribute__((overloadable)) frexp(double2 x, int2 *exp);
+double3 __attribute__((overloadable)) frexp(double3 x, int3 *exp);
+double4 __attribute__((overloadable)) frexp(double4 x, int4 *exp);
+double8 __attribute__((overloadable)) frexp(double8 x, int8 *exp);
+double16 __attribute__((overloadable)) frexp(double16 x, int16 *exp);
+#endif // __OPENCL_C_VERSION__ >= 200
+
 float __attribute__((overloadable)) frexp(float x, __global int *exp);
 float2 __attribute__((overloadable)) frexp(float2 x, __global int2 *exp);
 float3 __attribute__((overloadable)) frexp(float3 x, __global int3 *exp);
@@ -1252,6 +1282,21 @@ double16 const_func __attribute__((overloadable)) ldexp(double16 x, int n);
  * function. The sign of the gamma function is
  * returned in the signp argument of lgamma_r.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) lgamma_r(float x, int *signp);
+float2 __attribute__((overloadable)) lgamma_r(float2 x, int2 *signp);
+float3 __attribute__((overloadable)) lgamma_r(float3 x, int3 *signp);
+float4 __attribute__((overloadable)) lgamma_r(float4 x, int4 *signp);
+float8 __attribute__((overloadable)) lgamma_r(float8 x, int8 *signp);
+float16 __attribute__((overloadable)) lgamma_r(float16 x, int16 *signp);
+double __attribute__((overloadable)) lgamma_r(double x, int *signp);
+double2 __attribute__((overloadable)) lgamma_r(double2 x, int2 *signp);
+double3 __attribute__((overloadable)) lgamma_r(double3 x, int3 *signp);
+double4 __attribute__((overloadable)) lgamma_r(double4 x, int4 *signp);
+double8 __attribute__((overloadable)) lgamma_r(double8 x, int8 *signp);
+double16 __attribute__((overloadable)) lgamma_r(double16 x, int16 *signp);
+#endif // __OPENCL_C_VERSION__ >= 200
+
 float const_func __attribute__((overloadable)) lgamma(float x);
 float2 const_func __attribute__((overloadable)) lgamma(float2 x);
 float3 const_func __attribute__((overloadable)) lgamma(float3 x);
@@ -1515,6 +1560,21 @@ double16 const_func __attribute__((overloadable)) minmag(double16 x, double16 y)
  * the argument. It stores the integral part in the object
  * pointed to by iptr.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) modf(float x, float *iptr);
+float2 __attribute__((overloadable)) modf(float2 x, float2 *iptr);
+float3 __attribute__((overloadable)) modf(float3 x, float3 *iptr);
+float4 __attribute__((overloadable)) modf(float4 x, float4 *iptr);
+float8 __attribute__((overloadable)) modf(float8 x, float8 *iptr);
+float16 __attribute__((overloadable)) modf(float16 x, float16 *iptr);
+double __attribute__((overloadable)) modf(double x, double *iptr);
+double2 __attribute__((overloadable)) modf(double2 x, double2 *iptr);
+double3 __attribute__((overloadable)) modf(double3 x, double3 *iptr);
+double4 __attribute__((overloadable)) modf(double4 x, double4 *iptr);
+double8 __attribute__((overloadable)) modf(double8 x, double8 *iptr);
+double16 __attribute__((overloadable)) modf(double16 x, double16 *iptr);
+#endif // __OPENCL_C_VERSION__ >= 200
+
 float __attribute__((overloadable)) modf(float x, __global float *iptr);
 float2 __attribute__((overloadable)) modf(float2 x, __global float2 *iptr);
 float3 __attribute__((overloadable)) modf(float3 x, __global float3 *iptr);
@@ -1722,6 +1782,21 @@ double16 const_func __attribute__((overloadable)) remainder(double16 x, double16
  * sign as x/y. It stores this signed value in the object
  * pointed to by quo.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) remquo(float x, float y, int *quo);
+float2 __attribute__((overloadable)) remquo(float2 x, float2 y, int2 *quo);
+float3 __attribute__((overloadable)) remquo(float3 x, float3 y, int3 *quo);
+float4 __attribute__((overloadable)) remquo(float4 x, float4 y, int4 *quo);
+float8 __attribute__((overloadable)) remquo(float8 x, float8 y, int8 *quo);
+float16 __attribute__((overloadable)) remquo(float16 x, float16 y, int16 *quo);
+double __attribute__((overloadable)) remquo(double x, double y, int *quo);
+double2 __attribute__((overloadable)) remquo(double2 x, double2 y, int2 *quo);
+double3 __attribute__((overloadable)) remquo(double3 x, double3 y, int3 *quo);
+double4 __attribute__((overloadable)) remquo(double4 x, double4 y, int4 *quo);
+double8 __attribute__((overloadable)) remquo(double8 x, double8 y, int8 *quo);
+double16 __attribute__((overloadable)) remquo(double16 x, double16 y, int16 *quo);
+#endif // __OPENCL_C_VERSION__ >= 200
+
 float __attribute__((overloadable)) remquo(float x, float y, __global int *quo);
 float2 __attribute__((overloadable)) remquo(float2 x, float2 y, __global int2 *quo);
 float3 __attribute__((overloadable)) remquo(float3 x, float3 y, __global int3 *quo);
@@ -1897,6 +1972,21 @@ float16 const_func __attribute__((overloadable)) sin(float16);
  * is the return value and computed cosine is returned
  * in cosval.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) sincos(float x, float *cosval);
+float2 __attribute__((overloadable)) sincos(float2 x, float2 *cosval);
+float3 __attribute__((overloadable)) sincos(float3 x, float3 *cosval);
+float4 __attribute__((overloadable)) sincos(float4 x, float4 *cosval);
+float8 __attribute__((overloadable)) sincos(float8 x, float8 *cosval);
+float16 __attribute__((overloadable)) sincos(float16 x, float16 *cosval);
+double __attribute__((overloadable)) sincos(double x, double *cosval);
+double2 __attribute__((overloadable)) sincos(double2 x, double2 *cosval);
+double3 __attribute__((overloadable)) sincos(double3 x, double3 *cosval);
+double4 __attribute__((overloadable)) sincos(double4 x, double4 *cosval);
+double8 __attribute__((overloadable)) sincos(double8 x, double8 *cosval);
+double16 __attribute__((overloadable)) sincos(double16 x, double16 *cosval);
+#endif // __OPENCL_C_VERSION__ >= 200
+
 float __attribute__((overloadable)) sincos(float x, __global float *cosval);
 float2 __attribute__((overloadable)) sincos(float2 x, __global float2 *cosval);
 float3 __attribute__((overloadable)) sincos(float3 x, __global float3 *cosval);
@@ -4946,6 +5036,59 @@ double16 const_func __attribute__((overloadable)) select(double16 a, double16 b,
  * aligned if gentype is int, uint, float; 64-bit
  * aligned if gentype is long, ulong.
  */
+#if __OPENCL_C_VERSION__ >= 200
+char2 __attribute__((overloadable)) vload2(size_t offset, const char *p);
+uchar2 __attribute__((overloadable)) vload2(size_t offset, const uchar *p);
+short2 __attribute__((overloadable)) vload2(size_t offset, const short *p);
+ushort2 __attribute__((overloadable)) vload2(size_t offset, const ushort *p);
+int2 __attribute__((overloadable)) vload2(size_t offset, const int *p);
+uint2 __attribute__((overloadable)) vload2(size_t offset, const uint *p);
+long2 __attribute__((overloadable)) vload2(size_t offset, const long *p);
+ulong2 __attribute__((overloadable)) vload2(size_t offset, const ulong *p);
+float2 __attribute__((overloadable)) vload2(size_t offset, const float *p);
+char3 __attribute__((overloadable)) vload3(size_t offset, const char *p);
+uchar3 __attribute__((overloadable)) vload3(size_t offset, const uchar *p);
+short3 __attribute__((overloadable)) vload3(size_t offset, const short *p);
+ushort3 __attribute__((overloadable)) vload3(size_t offset, const ushort *p);
+int3 __attribute__((overloadable)) vload3(size_t offset, const int *p);
+uint3 __attribute__((overloadable)) vload3(size_t offset, const uint *p);
+long3 __attribute__((overloadable)) vload3(size_t offset, const long *p);
+ulong3 __attribute__((overloadable)) vload3(size_t offset, const ulong *p);
+float3 __attribute__((overloadable)) vload3(size_t offset, const float *p);
+char4 __attribute__((overloadable)) vload4(size_t offset, const char *p);
+uchar4 __attribute__((overloadable)) vload4(size_t offset, const uchar *p);
+short4 __attribute__((overloadable)) vload4(size_t offset, const short *p);
+ushort4 __attribute__((overloadable)) vload4(size_t offset, const ushort *p);
+int4 __attribute__((overloadable)) vload4(size_t offset, const int *p);
+uint4 __attribute__((overloadable)) vload4(size_t offset, const uint *p);
+long4 __attribute__((overloadable)) vload4(size_t offset, const long *p);
+ulong4 __attribute__((overloadable)) vload4(size_t offset, const ulong *p);
+float4 __attribute__((overloadable)) vload4(size_t offset, const float *p);
+char8 __attribute__((overloadable)) vload8(size_t offset, const char *p);
+uchar8 __attribute__((overloadable)) vload8(size_t offset, const uchar *p);
+short8 __attribute__((overloadable)) vload8(size_t offset, const short *p);
+ushort8 __attribute__((overloadable)) vload8(size_t offset, const ushort *p);
+int8 __attribute__((overloadable)) vload8(size_t offset, const int *p);
+uint8 __attribute__((overloadable)) vload8(size_t offset, const uint *p);
+long8 __attribute__((overloadable)) vload8(size_t offset, const long *p);
+ulong8 __attribute__((overloadable)) vload8(size_t offset, const ulong *p);
+float8 __attribute__((overloadable)) vload8(size_t offset, const float *p);
+char16 __attribute__((overloadable)) vload16(size_t offset, const char *p);
+uchar16 __attribute__((overloadable)) vload16(size_t offset, const uchar *p);
+short16 __attribute__((overloadable)) vload16(size_t offset, const short *p);
+ushort16 __attribute__((overloadable)) vload16(size_t offset, const ushort *p);
+int16 __attribute__((overloadable)) vload16(size_t offset, const int *p);
+uint16 __attribute__((overloadable)) vload16(size_t offset, const uint *p);
+long16 __attribute__((overloadable)) vload16(size_t offset, const long *p);
+ulong16 __attribute__((overloadable)) vload16(size_t offset, const ulong *p);
+float16 __attribute__((overloadable)) vload16(size_t offset, const float *p);
+double2 __attribute__((overloadable)) vload2(size_t offset, const double *p);
+double3 __attribute__((overloadable)) vload3(size_t offset, const double *p);
+double4 __attribute__((overloadable)) vload4(size_t offset, const double *p);
+double8 __attribute__((overloadable)) vload8(size_t offset, const double *p);
+double16 __attribute__((overloadable)) vload16(size_t offset, const double *p);
+#endif // __OPENCL_C_VERSION__ >= 200
+
 char2 __attribute__((overloadable)) vload2(size_t offset, const __global char *p);
 uchar2 __attribute__((overloadable)) vload2(size_t offset, const __global uchar *p);
 short2 __attribute__((overloadable)) vload2(size_t offset, const __global short *p);
@@ -5180,6 +5323,59 @@ double16 __attribute__((overloadable)) vload16(size_t offset, const __private do
  * aligned if gentype is int, uint, float; 64-bit
  * aligned if gentype is long, ulong.
  */
+#if __OPENCL_C_VERSION__ >= 200
+void __attribute__((overloadable)) vstore2(char2 data, size_t offset, char *p);
+void __attribute__((overloadable)) vstore2(uchar2 data, size_t offset, uchar *p);
+void __attribute__((overloadable)) vstore2(short2 data, size_t offset, short *p);
+void __attribute__((overloadable)) vstore2(ushort2 data, size_t offset, ushort *p);
+void __attribute__((overloadable)) vstore2(int2 data, size_t offset, int *p);
+void __attribute__((overloadable)) vstore2(uint2 data, size_t offset, uint *p);
+void __attribute__((overloadable)) vstore2(long2 data, size_t offset, long *p);
+void __attribute__((overloadable)) vstore2(ulong2 data, size_t offset, ulong *p);
+void __attribute__((overloadable)) vstore2(float2 data, size_t offset, float *p);
+void __attribute__((overloadable)) vstore3(char3 data, size_t offset, char *p);
+void __attribute__((overloadable)) vstore3(uchar3 data, size_t offset, uchar *p);
+void __attribute__((overloadable)) vstore3(short3 data, size_t offset, short *p);
+void __attribute__((overloadable)) vstore3(ushort3 data, size_t offset, ushort *p);
+void __attribute__((overloadable)) vstore3(int3 data, size_t offset, int *p);
+void __attribute__((overloadable)) vstore3(uint3 data, size_t offset, uint *p);
+void __attribute__((overloadable)) vstore3(long3 data, size_t offset, long *p);
+void __attribute__((overloadable)) vstore3(ulong3 data, size_t offset, ulong *p);
+void __attribute__((overloadable)) vstore3(float3 data, size_t offset, float *p);
+void __attribute__((overloadable)) vstore4(char4 data, size_t offset, char *p);
+void __attribute__((overloadable)) vstore4(uchar4 data, size_t offset, uchar *p);
+void __attribute__((overloadable)) vstore4(short4 data, size_t offset, short *p);
+void __attribute__((overloadable)) vstore4(ushort4 data, size_t offset, ushort *p);
+void __attribute__((overloadable)) vstore4(int4 data, size_t offset, int *p);
+void __attribute__((overloadable)) vstore4(uint4 data, size_t offset, uint *p);
+void __attribute__((overloadable)) vstore4(long4 data, size_t offset, long *p);
+void __attribute__((overloadable)) vstore4(ulong4 data, size_t offset, ulong *p);
+void __attribute__((overloadable)) vstore4(float4 data, size_t offset, float *p);
+void __attribute__((overloadable)) vstore8(char8 data, size_t offset, char *p);
+void __attribute__((overloadable)) vstore8(uchar8 data, size_t offset, uchar *p);
+void __attribute__((overloadable)) vstore8(short8 data, size_t offset, short *p);
+void __attribute__((overloadable)) vstore8(ushort8 data, size_t offset, ushort *p);
+void __attribute__((overloadable)) vstore8(int8 data, size_t offset, int *p);
+void __attribute__((overloadable)) vstore8(uint8 data, size_t offset, uint *p);
+void __attribute__((overloadable)) vstore8(long8 data, size_t offset, long *p);
+void __attribute__((overloadable)) vstore8(ulong8 data, size_t offset, ulong *p);
+void __attribute__((overloadable)) vstore8(float8 data, size_t offset, float *p);
+void __attribute__((overloadable)) vstore16(char16 data, size_t offset, char *p);
+void __attribute__((overloadable)) vstore16(uchar16 data, size_t offset, uchar *p);
+void __attribute__((overloadable)) vstore16(short16 data, size_t offset, short *p);
+void __attribute__((overloadable)) vstore16(ushort16 data, size_t offset, ushort *p);
+void __attribute__((overloadable)) vstore16(int16 data, size_t offset, int *p);
+void __attribute__((overloadable)) vstore16(uint16 data, size_t offset, uint *p);
+void __attribute__((overloadable)) vstore16(long16 data, size_t offset, long *p);
+void __attribute__((overloadable)) vstore16(ulong16 data, size_t offset, ulong *p);
+void __attribute__((overloadable)) vstore16(float16 data, size_t offset, float *p);
+void __attribute__((overloadable)) vstore2(double2 data, size_t offset, double *p);
+void __attribute__((overloadable)) vstore3(double3 data, size_t offset, double *p);
+void __attribute__((overloadable)) vstore4(double4 data, size_t offset, double *p);
+void __attribute__((overloadable)) vstore8(double8 data, size_t offset, double *p);
+void __attribute__((overloadable)) vstore16(double16 data, size_t offset, double *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+
 void __attribute__((overloadable)) vstore2(char2 data, size_t offset, __global char *p);
 void __attribute__((overloadable)) vstore2(uchar2 data, size_t offset, __global uchar *p);
 void __attribute__((overloadable)) vstore2(short2 data, size_t offset, __global short *p);
@@ -5357,6 +5553,10 @@ void __attribute__((overloadable)) vstore16(double16 data, size_t offset, __priv
  * The read address computed as (p + offset)
  * must be 16-bit aligned.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) vload_half(size_t offset, const half *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+
 float __attribute__((overloadable)) vload_half(size_t offset, const __global half *p);
 float __attribute__((overloadable)) vload_half(size_t offset, const __local half *p);
 float __attribute__((overloadable)) vload_half(size_t offset, const __constant half *p);
@@ -5370,6 +5570,14 @@ float __attribute__((overloadable)) vload_half(size_t offset, const __private ha
  * value is returned. The read address computed
  * as (p + (offset * n)) must be 16-bit aligned.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float2 __attribute__((overloadable)) vload_half2(size_t offset, const half *p);
+float3 __attribute__((overloadable)) vload_half3(size_t offset, const half *p);
+float4 __attribute__((overloadable)) vload_half4(size_t offset, const half *p);
+float8 __attribute__((overloadable)) vload_half8(size_t offset, const half *p);
+float16 __attribute__((overloadable)) vload_half16(size_t offset, const half *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+
 float2 __attribute__((overloadable)) vload_half2(size_t offset, const __global half *p);
 float3 __attribute__((overloadable)) vload_half3(size_t offset, const __global half *p);
 float4 __attribute__((overloadable)) vload_half4(size_t offset, const __global half *p);
@@ -5402,6 +5610,19 @@ float16 __attribute__((overloadable)) vload_half16(size_t offset, const __privat
  * The default current rounding mode is round to
  * nearest even.
  */
+#if __OPENCL_C_VERSION__ >= 200
+void __attribute__((overloadable)) vstore_half(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rte(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rtz(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rtp(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rtn(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rte(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rtz(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rtp(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rtn(double data, size_t offset, half *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+
 void __attribute__((overloadable)) vstore_half(float data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstore_half_rte(float data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstore_half_rtz(float data, size_t offset, __global half *p);
@@ -5444,6 +5665,59 @@ void __attribute__((overloadable)) vstore_half_rtn(double data, size_t offset, _
  * The default current rounding mode is round to
  * nearest even.
  */
+#if __OPENCL_C_VERSION__ >= 200
+void __attribute__((overloadable)) vstore_half2(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16(float16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rte(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rte(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rte(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rte(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rte(float16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rtz(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rtz(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rtz(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rtz(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rtz(float16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rtp(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rtp(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rtp(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rtp(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rtp(float16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rtn(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rtn(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rtn(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rtn(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rtn(float16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16(double16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rte(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rte(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rte(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rte(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rte(double16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rtz(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rtz(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rtz(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rtz(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rtz(double16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rtp(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rtp(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rtp(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rtp(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rtp(double16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rtn(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rtn(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rtn(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rtn(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rtn(double16 data, size_t offset, half *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+
 void __attribute__((overloadable)) vstore_half2(float2 data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstore_half3(float3 data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstore_half4(float4 data, size_t offset, __global half *p);
@@ -5608,6 +5882,15 @@ void __attribute__((overloadable)) vstore_half16_rtn(double16 data, size_t offse
  * The address computed as (p + (offset * 4))
  * must be aligned to sizeof (half) * 4 bytes.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) vloada_half(size_t offset, const half *p);
+float2 __attribute__((overloadable)) vloada_half2(size_t offset, const half *p);
+float3 __attribute__((overloadable)) vloada_half3(size_t offset, const half *p);
+float4 __attribute__((overloadable)) vloada_half4(size_t offset, const half *p);
+float8 __attribute__((overloadable)) vloada_half8(size_t offset, const half *p);
+float16 __attribute__((overloadable)) vloada_half16(size_t offset, const half *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+
 float __attribute__((overloadable)) vloada_half(size_t offset, const __global half *p);
 float2 __attribute__((overloadable)) vloada_half2(size_t offset, const __global half *p);
 float3 __attribute__((overloadable)) vloada_half3(size_t offset, const __global half *p);
@@ -5649,6 +5932,77 @@ float16 __attribute__((overloadable)) vloada_half16(size_t offset, const __priva
  * mode. The default current rounding mode is
  * round to nearest even.
  */
+#if __OPENCL_C_VERSION__ >= 200
+void __attribute__((overloadable)) vstorea_half(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16(float16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rte(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rte(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rte(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rte(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rte(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rte(float16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rtz(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rtz(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rtz(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rtz(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rtz(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rtz(float16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rtp(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rtp(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rtp(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rtp(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rtp(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rtp(float16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rtn(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rtn(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rtn(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rtn(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rtn(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rtn(float16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16(double16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rte(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rte(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rte(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rte(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rte(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rte(double16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rtz(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rtz(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rtz(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rtz(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rtz(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rtz(double16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rtp(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rtp(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rtp(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rtp(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rtp(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rtp(double16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rtn(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rtn(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rtn(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rtn(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rtn(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rtn(double16 data, size_t offset, half *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+ 
 void __attribute__((overloadable)) vstorea_half(float data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstorea_half2(float2 data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstorea_half3(float3 data, size_t offset, __global half *p);
