@@ -10,13 +10,13 @@
 define <8 x i8> @foo(<4 x i8>* %pStoreAdd, <8 x i8> %xIn, <8 x i8> %yIn, <8 x i8> %zIn, <8 x i8> %wIn) nounwind{
 entry:
 
-    call void @__ocl_transpose_store_char4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn, <8 x i8> %yIn, <8 x i8> %zIn, <8 x i8> %wIn) nounwind
+    call void @__ocl_transpose_store_char_4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn, <8 x i8> %yIn, <8 x i8> %zIn, <8 x i8> %wIn) nounwind
     %re0 = add <8 x i8> %xIn, %yIn
     %re1 = add <8 x i8> %zIn, %wIn
     %ret0 = add <8 x i8> %re0, %re1
     ret <8 x i8> %ret0
 }
-declare void @__ocl_transpose_store_char4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn, <8 x i8> %yIn, <8 x i8> %zIn, <8 x i8> %wIn) nounwind
+declare void @__ocl_transpose_store_char_4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn, <8 x i8> %yIn, <8 x i8> %zIn, <8 x i8> %wIn) nounwind
 
 
 
@@ -33,7 +33,7 @@ declare void @__ocl_transpose_store_char4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn,
 ;CHECK-AVX:	vpunpckhwd	[[XMM1]], [[XMM5]], [[XMM7:%xmm[0-9]+]]
 ;CHECK-AVX:	vmovdqu	[[XMM7]], 16([[MEM]])
 ;CHECK-AVX:	ret
-;CHECK-AVX:	.type	 [[TRANSPOSE:[_a-z]+]]_store_char4x8,@function
+;CHECK-AVX:	.type	 [[TRANSPOSE:[_a-z]+]]_store_char_4x8,@function
 
 
 ;CHECK-AVX2:   .type    [[FOO:[_a-z]+]],@function
@@ -50,4 +50,4 @@ declare void @__ocl_transpose_store_char4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn,
 ;CHECK-AVX2:   vpaddw	[[XMM10:%xmm[0-9]+]], [[XMM3:%xmm[0-9]+]], [[XMM1:%xmm[0-9]+]]
 ;CHECK-AVX2:   vpaddw	[[XMM0]], [[XMM1]], [[XMM01:%xmm[0-9]+]]
 ;CHECK-AVX2:   ret
-;CHECK-AVX2:   .type	 [[TRANSPOSE:[_a-z]+]]_store_char4x8,@function
+;CHECK-AVX2:   .type	 [[TRANSPOSE:[_a-z]+]]_store_char_4x8,@function

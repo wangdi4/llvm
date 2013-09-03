@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -41,13 +41,13 @@
 #define UNORM_INT8_FACTOR  255.f
 
 // Clamp border color used for CL_A, CL_INTENSITY, CL_Rx, CL_RA, CL_RGx, CL_RGBx, CL_ARGB, CL_BGRA, CL_RGBA
-ALIGN16 const constant float4 BorderColorNoAlphaFloat = {0.0f, 0.0f, 0.0f, 0.0f}; 
-ALIGN16 const constant int4 BorderColorNoAlphaInt = {0, 0, 0, 0}; 
-ALIGN16 const constant uint4 BorderColorNoAlphaUint = {0, 0, 0, 0}; 
+ALIGN16 const constant float4 BorderColorNoAlphaFloat = {0.0f, 0.0f, 0.0f, 0.0f};
+ALIGN16 const constant int4 BorderColorNoAlphaInt = {0, 0, 0, 0};
+ALIGN16 const constant uint4 BorderColorNoAlphaUint = {0, 0, 0, 0};
 ALIGN16 const constant float4 halfhalfhalfzero = {0.5f, 0.5f, 0.5f, 0.0f};
 ALIGN16 const constant float4 f4half = {0.5f, 0.5f, 0.5f, 0.5f};
 ALIGN16 const constant float4 f4two = {2.f, 2.f, 2.f, 2.f};
-/// Minimal representative float. It is represented as zero mantissa 
+/// Minimal representative float. It is represented as zero mantissa
 /// and exponenta with only last bit set to one
 ALIGN16 const constant int4 oneOneOneZero = {1, 1, 1, 0};
 ALIGN16 const constant int4   int4AllZeros = {0, 0, 0, 0};
@@ -64,10 +64,10 @@ ALIGN16 const constant int4 i4int16Max = {SHRT16_MAX, SHRT16_MAX, SHRT16_MAX, SH
 ALIGN16 const constant uint4 i4uint16Max = {USHRT_MAX, USHRT_MAX, USHRT_MAX, USHRT_MAX};
 
 // Clamp Border color used for CL_R, CL_RG, CL_RGB, CL_LUMINANCE
-ALIGN16 const constant float4 BorderColorAlphaFloat = {0.0f, 0.0f, 0.0f, 1.0f}; 
-ALIGN16 const constant int4 BorderColorAlphaInt = {0, 0, 0, 1}; 
+ALIGN16 const constant float4 BorderColorAlphaFloat = {0.0f, 0.0f, 0.0f, 1.0f};
+ALIGN16 const constant int4 BorderColorAlphaInt = {0, 0, 0, 1};
 
-ALIGN16 const constant uint4 BorderColorAlphaUint = {0, 0, 0, 1}; 
+ALIGN16 const constant uint4 BorderColorAlphaUint = {0, 0, 0, 1};
 ALIGN16 const constant float f4SignMask[] = {-0.f, -0.f, -0.f, -0.f};
 
 // utility functions declarations
@@ -176,199 +176,6 @@ ALIGN16 const constant int mth_signMask[] = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF,
 int __attribute__((const)) __attribute__((overloadable)) intel_movemask(int4);
 int __attribute__((const)) __attribute__((overloadable)) intel_movemask(int8);
 
-// Implement naive version of transpose built-ins until we have optimized in built-ins library
-#ifdef OVERLOAD_TRANSPOSES
-
-// if AVX is not defined then simulate missing transposes
-// TODO : move this to transpose_functions.cpp
-#if !defined(__AVX__)
-
-// TODO : move this to transpose_functions.cpp
-// CSSD100015383
-#if !defined(__SSE4_2__) 
-void __ocl_transpose_char4x4(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
-                              char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
- (*xOut).s0 = xyzw0.s0;
- (*xOut).s1 = xyzw1.s0;
- (*xOut).s2 = xyzw2.s0;
- (*xOut).s3 = xyzw3.s0;
-
- (*yOut).s0 = xyzw0.s1;
- (*yOut).s1 = xyzw1.s1;
- (*yOut).s2 = xyzw2.s1;
- (*yOut).s3 = xyzw3.s1;
-
- (*zOut).s0 = xyzw0.s2;
- (*zOut).s1 = xyzw1.s2;
- (*zOut).s2 = xyzw2.s2;
- (*zOut).s3 = xyzw3.s2;
-
- (*wOut).s0 = xyzw0.s3;
- (*wOut).s1 = xyzw1.s3;
- (*wOut).s2 = xyzw2.s3;
- (*wOut).s3 = xyzw3.s3;
-}
-
-void __inline__ __attribute__((always_inline)) __ocl_transpose_char4x8(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
-                              char4 xyzw4, char4 xyzw5, char4 xyzw6, char4 xyzw7,
-                              char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
- char4 xLow;
- char4 yLow;
- char4 zLow;
- char4 wLow;
-
- __ocl_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
-                              &xLow, &yLow, &zLow, &wLow);
-
- char4 xHigh;
- char4 yHigh;
- char4 zHigh;
- char4 wHigh;
-
- __ocl_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
-                              &xHigh, &yHigh, &zHigh, &wHigh);
-
- (*xOut).lo = xLow;
- (*xOut).hi = xHigh;
- (*yOut).lo = yLow;
- (*yOut).hi = yHigh;
- (*zOut).lo = zLow;
- (*zOut).hi = zHigh;
- (*wOut).lo = wLow;
- (*wOut).hi = wHigh;
-}
-
-void __inline__ __attribute__((always_inline)) __ocl_transpose_char8x4( char8 xIn, char8 yIn, char8 zIn, char8 wIn,
-                              char4* xyzw0, char4* xyzw1, char4* xyzw2, char4* xyzw3,
-                              char4* xyzw4, char4* xyzw5, char4* xyzw6, char4* xyzw7) {
- char4 xLow = xIn.lo;
- char4 yLow = yIn.lo;
- char4 zLow = zIn.lo;
- char4 wLow = wIn.lo;
-
- __ocl_transpose_char4x4(xLow, yLow, zLow, wLow,
-                            xyzw0, xyzw1, xyzw2, xyzw3);
-
- char4 xHigh = xIn.hi;
- char4 yHigh = yIn.hi;
- char4 zHigh = zIn.hi;
- char4 wHigh = wIn.hi;
-
- __ocl_transpose_char4x4(xHigh, yHigh, zHigh, wHigh,
-                            xyzw4, xyzw5, xyzw6, xyzw7);
-}
-
-
-void __inline__ __attribute__((always_inline)) __ocl_gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
-                              char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
- char4 xyzw0 = *pLoadAdd0;
- char4 xyzw1 = *pLoadAdd1;
- char4 xyzw2 = *pLoadAdd2;
- char4 xyzw3 = *pLoadAdd3;
-
- __ocl_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
-                              xOut, yOut, zOut, wOut);
-}
-
-void __inline__ __attribute__((always_inline)) __ocl_transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
-                               char4 xIn, char4 yIn, char4 zIn, char4 wIn) {
-  __ocl_transpose_char4x4(xIn, yIn, zIn, wIn,
-                              pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3);
-}
-
-void __inline__ __attribute__((always_inline)) __ocl_gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
-                              char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
-                              char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
- char4 xyzw0 = *pLoadAdd0;
- char4 xyzw1 = *pLoadAdd1;
- char4 xyzw2 = *pLoadAdd2;
- char4 xyzw3 = *pLoadAdd3;
- char4 xyzw4 = *pLoadAdd4;
- char4 xyzw5 = *pLoadAdd5;
- char4 xyzw6 = *pLoadAdd6;
- char4 xyzw7 = *pLoadAdd7;
-
- __ocl_transpose_char4x8( xyzw0, xyzw1, xyzw2, xyzw3,
-                    xyzw4, xyzw5, xyzw6, xyzw7,
-                    xOut, yOut, zOut, wOut);
-}
-
-void __ocl_transpose_scatter_char4x8(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
-                               char4* pStoreAdd4, char4* pStoreAdd5, char4* pStoreAdd6, char4* pStoreAdd7,
-                               char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
-  __ocl_transpose_char8x4(xIn, yIn, zIn, wIn,
-                              pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
-                              pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7);
-}
-
-#endif
-
-// simulate masked transposes. they are not implemented in transpose_functions.cpp
-void __ocl_masked_gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
-                              char4* xOut, char4* yOut, char4* zOut, char4* wOut, int4 mask)
-{
-  // get mask as bits in int
-  const int rescmp = intel_movemask(mask);
-  // ALL 4 elements in mask are -1
-  if(rescmp == 0xF){
-    __ocl_gather_transpose_char4x4(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-                              xOut, yOut, zOut, wOut);
-    return;
-  }
-  // ALL elements in mask are zero
-  if(rescmp == 0){
-      return;
-  }
-  // mask addresses to stub variable
-  char4 stub;
-  pLoadAdd0 = mask.s0 ? pLoadAdd0 : &stub;
-  pLoadAdd1 = mask.s1 ? pLoadAdd1 : &stub;
-  pLoadAdd2 = mask.s2 ? pLoadAdd2 : &stub;
-  pLoadAdd3 = mask.s3 ? pLoadAdd3 : &stub;
-
-  __ocl_gather_transpose_char4x4(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-                              xOut, yOut, zOut, wOut);
-}
-
-void __ocl_masked_gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
-                              char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
-                              char8* xOut, char8* yOut, char8* zOut, char8* wOut, int8 mask)
-{
-  // get mask as bits in int
-  const int rescmp = intel_movemask(mask);
-  
-  // ALL 8 elements in mask are -1
-  if(rescmp == 0xFF){
-       __ocl_gather_transpose_char4x8(
-           pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-           pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
-           xOut, yOut, zOut, wOut);	
-       return;
-  }
-  // ALL elements in mask are zero
-  if(rescmp == 0){
-      return;
-  }
-  // mask addresses to stub variable
-  char4 stub;
-  pLoadAdd0 = mask.s0 ? pLoadAdd0 : &stub;
-  pLoadAdd1 = mask.s1 ? pLoadAdd1 : &stub;
-  pLoadAdd2 = mask.s2 ? pLoadAdd2 : &stub;
-  pLoadAdd3 = mask.s3 ? pLoadAdd3 : &stub;
-  pLoadAdd4 = mask.s4 ? pLoadAdd0 : &stub;
-  pLoadAdd5 = mask.s5 ? pLoadAdd1 : &stub;
-  pLoadAdd6 = mask.s6 ? pLoadAdd2 : &stub;
-  pLoadAdd7 = mask.s7 ? pLoadAdd3 : &stub;
-
-  __ocl_gather_transpose_char4x8(
-       pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-       pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
-       xOut, yOut, zOut, wOut);
-}
-
-#endif // __AVX__
-
-#endif // OVERLOAD_TRANSPOSES
 
 // Auxiliary routines
 __m128i cvt_to_norm(__m128i i4Val, __m128 f4Mul, __m128 lowLimit)
@@ -419,10 +226,10 @@ int8 __attribute__((overloadable)) soa8_isInsideBoundsInt(image2d_t image, int8 
 void __attribute__((overloadable)) soa8_extract_pixel_pointer_quad(image2d_t image, int8 coord_x, int8 coord_y, void* pData,
                                    void** p0, void** p1, void** p2, void** p3, void** p4, void** p5, void** p6, void** p7)
 {
-    image_aux_data *pImage = __builtin_astype(image, image_aux_data*); 
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     uint8 offset_x = (uint8)(pImage->offset[0]);
     uint8 offset_y = (uint8)(pImage->offset[1]);
-    
+
     uint8 ocoord_x = (as_uint8(coord_x)) * offset_x;
     uint8 ocoord_y = (as_uint8(coord_y)) * offset_y;
 
@@ -438,11 +245,11 @@ void __attribute__((overloadable)) soa8_extract_pixel_pointer_quad(image2d_t ima
     return;
 }
 
-void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8(void* p0,void* p1, void* p2, void* p3, void* p4,void* p5, void* p6, void* p7, 
+void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8(void* p0,void* p1, void* p2, void* p3, void* p4,void* p5, void* p6, void* p7,
                                                               uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w)
 {
     uchar8 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
-    __ocl_gather_transpose_char4x8(p0, p1, p2, p3, p4, p5, p6, p7, 
+    __ocl_gather_transpose_char_4x8(p0, p1, p2, p3, p4, p5, p6, p7,
         (char8*)&color_x, (char8*)&color_y, (char8*)&color_z, (char8*)&color_w);
     *res_x = convert_uint8(color_x);
     *res_y = convert_uint8(color_y);
@@ -450,11 +257,11 @@ void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8(void* p0,v
     *res_w = convert_uint8(color_w);
 }
 
-void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8_oob(int8 isNotOOB, void* p0,void* p1, void* p2, void* p3, void* p4,void* p5, void* p6, void* p7, 
+void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8_oob(int8 isNotOOB, void* p0,void* p1, void* p2, void* p3, void* p4,void* p5, void* p6, void* p7,
                                                               uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w)
 {
     uchar8 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
-    __ocl_masked_gather_transpose_char4x8(p0, p1, p2, p3, p4, p5, p6, p7, 
+    __ocl_masked_gather_transpose_char_4x8(p0, p1, p2, p3, p4, p5, p6, p7,
         (char8*)&color_x, (char8*)&color_y, (char8*)&color_z, (char8*)&color_w, isNotOOB);
 
     *res_x = isNotOOB ? convert_uint8(color_x) : (uint8)BorderColorNoAlphaUint.x ;
@@ -473,7 +280,7 @@ void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8_oob(int8 i
 //         or all ones otherwise
 int4 __attribute__((overloadable)) soa4_isInsideBoundsInt(image2d_t image, int4 coord_x, int4 coord_y)
 {
-    image_aux_data *pImage = __builtin_astype(image, image_aux_data*); 
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     int4 upper_x = (int4)(pImage->dimSub1[0]);
     int4 upper_y = (int4)(pImage->dimSub1[1]);
     int4 lower_x = (int4)(0,0,0,0);
@@ -497,10 +304,10 @@ int4 __attribute__((overloadable)) soa4_isInsideBoundsInt(image2d_t image, int4 
 // return: pointer to the begining of the pixel in memory
 void __attribute__((overloadable)) soa4_extract_pixel_pointer_quad(image2d_t image, int4 coord_x, int4 coord_y, void* pData, void** p1, void** p2, void** p3, void** p4)
 {
-    image_aux_data *pImage = __builtin_astype(image, image_aux_data*); 
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     uint4 offset_x = (uint4)(pImage->offset[0]);
     uint4 offset_y = (uint4)(pImage->offset[1]);
-    
+
     uint4 ocoord_x = (as_uint4(coord_x)) * offset_x;
     uint4 ocoord_y = (as_uint4(coord_y)) * offset_y;
 
@@ -512,11 +319,11 @@ void __attribute__((overloadable)) soa4_extract_pixel_pointer_quad(image2d_t ima
     return;
 }
 
-void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8(void* pPixel_0,void* pPixel_1, void* pPixel_2, void* pPixel_3, 
+void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8(void* pPixel_0,void* pPixel_1, void* pPixel_2, void* pPixel_3,
                                                               uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w)
 {
     uchar4 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
-    __ocl_gather_transpose_char4x4(pPixel_0, pPixel_1, pPixel_2, pPixel_3, 
+    __ocl_gather_transpose_char_4x4(pPixel_0, pPixel_1, pPixel_2, pPixel_3,
         (char4*)&color_x, (char4*)&color_y, (char4*)&color_z, (char4*)&color_w);
     *res_x = convert_uint4(color_x);
     *res_y = convert_uint4(color_y);
@@ -524,11 +331,11 @@ void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8(void* pPix
     *res_w = convert_uint4(color_w);
 }
 
-void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 isNotOOB, void* pPixel_0,void* pPixel_1, void* pPixel_2, void* pPixel_3, 
+void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 isNotOOB, void* pPixel_0,void* pPixel_1, void* pPixel_2, void* pPixel_3,
                                                               uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w)
 {
     uchar4 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
-    __ocl_masked_gather_transpose_char4x4(pPixel_0, pPixel_1, pPixel_2, pPixel_3, 
+    __ocl_masked_gather_transpose_char_4x4(pPixel_0, pPixel_1, pPixel_2, pPixel_3,
         (char4*)&color_x, (char4*)&color_y, (char4*)&color_z, (char4*)&color_w, isNotOOB);
     *res_x = isNotOOB ? convert_uint4(color_x) : (uint4)BorderColorNoAlphaUint.x ;
     *res_y = isNotOOB ? convert_uint4(color_y) : (uint4)BorderColorNoAlphaUint.y ;
@@ -702,7 +509,7 @@ int4 trans_coord_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord)
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dimSub1)));
     int4 urcoord = ProjectNearest(Unnormalize(image, coord-floor(coord)));  //unrepeated coords
-    
+
     urcoord = urcoord <= upper ? urcoord : 0;
 
     return urcoord;
@@ -800,7 +607,7 @@ float4 trans_coord_float_float_NONE_FALSE_LINEAR(image2d_t image, float4 coord, 
 
 
 float4 trans_coord_float_float_CLAMP_TO_EDGE_FALSE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
-{    
+{
     *square0 = ProjectToEdgeInt(image, ProjectNearest(coord - halfhalfhalfzero));
     *square1 = ProjectToEdgeInt(image, ProjectNearest(coord - halfhalfhalfzero) + oneOneOneZero);
     return frac(coord-halfhalfhalfzero);
@@ -2318,16 +2125,16 @@ float4 load_pixel_R_UNORM_INT8(void* pPixel)
 /***************************************sRGB Image type i/o functions*****************************************************/
 
 // loads and converts pixel data from a given pixel pointer when the image has the following properties:
-// Channel Order: CL_sRGBA and CL_sBGRA 
+// Channel Order: CL_sRGBA and CL_sBGRA
 // Channel Data Type: CLK_UNORM_INT8
 //
 // @param image: the image object
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, g, b, a)
-// 
+//
 // The following is lookup table with precomputed sRGB values for each of possible UNORM_INT8
-// it is aligned by cacheline length 
+// it is aligned by cacheline length
 //
 // The table was computed with this kernel:
 //  __kernel void calclulate_sRGBA_read_imagef_lut(__global float *out) {
@@ -2408,7 +2215,7 @@ float4 load_pixel_R_UNORM_INT8(void* pPixel)
 float4 load_pixel_sRGBA_UNORM_INT8(void* pPixel)
 {
     uchar * data = (uchar*)pPixel;
-    float4 pixel = (float4)(read_imagef_sRGBA_UNORM_INT8_LUT[data[0]], 
+    float4 pixel = (float4)(read_imagef_sRGBA_UNORM_INT8_LUT[data[0]],
                             read_imagef_sRGBA_UNORM_INT8_LUT[data[1]],
                             read_imagef_sRGBA_UNORM_INT8_LUT[data[2]],
                             data[3] * 1.f/255.f);
@@ -2418,7 +2225,7 @@ float4 load_pixel_sRGBA_UNORM_INT8(void* pPixel)
 float4 load_pixel_sBGRA_UNORM_INT8(void* pPixel)
 {
     uchar * data = (uchar*)pPixel;
-    float4 pixel = (float4)(read_imagef_sRGBA_UNORM_INT8_LUT[data[2]], 
+    float4 pixel = (float4)(read_imagef_sRGBA_UNORM_INT8_LUT[data[2]],
                             read_imagef_sRGBA_UNORM_INT8_LUT[data[1]],
                             read_imagef_sRGBA_UNORM_INT8_LUT[data[0]],
                             data[3] * 1.f/255.f);
@@ -2470,7 +2277,7 @@ float4 load_pixel_R_UNORM_INT16(void* pPixel)
 }
 
 // loads and converts pixel data from a given pixel pointer when the image has the following properties:
-// Channel Order: CLK_DEPTH 
+// Channel Order: CLK_DEPTH
 // Channel Data Type: CLK_UNORM_INT16
 //
 // @param image: the image object
@@ -2560,7 +2367,7 @@ int4 ProjectToEdgeInt(image2d_t image, int4 coord)
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dimSub1)));
     int4 lower = (int4)(0, 0, 0, 0);
-    
+
     int4 correctCoord=min(coord, upper);
     correctCoord=max(correctCoord,lower);
     return correctCoord;
@@ -2574,7 +2381,7 @@ float4 Unnormalize(image2d_t image,float4 coord)
     return fupper*coord;
 }
 
-    
+
 //the coordinate here should be unnormalized already
 int4 ProjectNearest(float4 coord)
 {
@@ -2647,8 +2454,8 @@ float4 SampleImage3DFloat(float4 Ti0j0k0, float4 Ti1j0k0, float4 Ti0j1k0, float4
 /****************************************** SOA image write functions******************************************************/
 
 /// SOA8 write RGBA_UNSIGNED_INT8
-void soa8_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3, 
-                                                                        void* p4, void* p5, void* p6, void* p7, 
+void soa8_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3,
+                                                                        void* p4, void* p5, void* p6, void* p7,
                                                                         uint8 val_x, uint8 val_y, uint8 val_z, uint8 val_w)
 {
 
@@ -2657,7 +2464,7 @@ void soa8_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3
     uchar8 clr_z = convert_uchar8_sat(val_z);
     uchar8 clr_w = convert_uchar8_sat(val_w);
 
-    __ocl_transpose_scatter_char4x8((char4*)p0, (char4*)p1, (char4*)p2, (char4*)p3,
+    __ocl_transpose_scatter_char_4x8((char4*)p0, (char4*)p1, (char4*)p2, (char4*)p3,
                               (char4*)p4, (char4*)p5, (char4*)p6, (char4*)p7,
                               as_char8(clr_x), as_char8(clr_y), as_char8(clr_z), as_char8(clr_w));
 }
@@ -2671,7 +2478,7 @@ void soa4_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3
     uchar4 clr_z = convert_uchar4_sat(val_z);
     uchar4 clr_w = convert_uchar4_sat(val_w);
 
-    __ocl_transpose_scatter_char4x4((char4*)p0, (char4*)p1, (char4*)p2, (char4*)p3,
+    __ocl_transpose_scatter_char_4x4((char4*)p0, (char4*)p1, (char4*)p2, (char4*)p3,
                               as_char4(clr_x), as_char4(clr_y), as_char4(clr_z), as_char4(clr_w));
 }
 
@@ -2715,7 +2522,7 @@ SCALARIZE_WRITE_SAMPLE(RG_UNSIGNED_INT32, uint)
 SCALARIZE_WRITE_SAMPLE(R_UNSIGNED_INT32, uint)
 
 // undefined callbacks implementation
-void soa4_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int4 coord_x, int4 coord_y, void* pData, 
+void soa4_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int4 coord_x, int4 coord_y, void* pData,
                                                                                uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w )
 {
     *res_x = BorderColorNoAlphaUint.x;
@@ -2724,7 +2531,7 @@ void soa4_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int4 coord_x, int4 co
     *res_w = BorderColorNoAlphaUint.w;
 }
 
-void soa8_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int8 coord_x, int8 coord_y, void* pData, 
+void soa8_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int8 coord_x, int8 coord_y, void* pData,
                                                                                uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w )
 {
     *res_x = BorderColorNoAlphaUint.x;

@@ -160,6 +160,8 @@ public:
 
   std::string getArgumentCType(unsigned, const std::string&) const;
 
+  std::string getPtrArgumentCType(unsigned, const std::string&) const;
+
   std::string getArgumentBaseCType(unsigned i, const std::string& TyName) const;
 
   std::string getArgumentCVecType(unsigned, const std::string&, int) const;

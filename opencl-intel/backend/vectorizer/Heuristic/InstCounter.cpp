@@ -50,18 +50,18 @@ const float WeightedInstCounter::TID_EQUALITY_PENALTY = 0.1f;
 
 // Costs for transpose functions
 WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB[] = {
-   { "__ocl_load_transpose_char4x4", 8 },
-   { "__ocl_transpose_store_char4x4", 8 },
-   { "__ocl_masked_load_transpose_char4x4", 12 },
-   { "__ocl_masked_transpose_store_char4x4", 12 },
-   { "__ocl_load_transpose_float4x8", 70 },
-   { "__ocl_transpose_store_float4x8", 70 },
-   { "__ocl_gather_transpose_float4x8", 75 },
-   { "__ocl_transpose_scatter_float4x8", 75 },
-   { "__ocl_masked_load_transpose_float4x8", 80},
-   { "__ocl_masked_transpose_store_float4x8", 80},
-   { "__ocl_masked_gather_transpose_float4x8", 90},
-   { "__ocl_masked_transpose_scatter_float4x8", 90},
+   { "__ocl_load_transpose_char_4x4", 8 },
+   { "__ocl_transpose_store_char_4x4", 8 },
+   { "__ocl_masked_load_transpose_char_4x4", 12 },
+   { "__ocl_masked_transpose_store_char_4x4", 12 },
+   { "__ocl_load_transpose_float_4x8", 70 },
+   { "__ocl_transpose_store_float_4x8", 70 },
+   { "__ocl_gather_transpose_float_4x8", 75 },
+   { "__ocl_transpose_scatter_float_4x8", 75 },
+   { "__ocl_masked_load_transpose_float_4x8", 80},
+   { "__ocl_masked_transpose_store_float_4x8", 80},
+   { "__ocl_masked_gather_transpose_float_4x8", 90},
+   { "__ocl_masked_transpose_scatter_float_4x8", 90},
 
 
    // The line below must be the last line in the DB,
@@ -921,7 +921,7 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT)
     dbgPrint() << "Has direct calls to stream functions, can not vectorize\n";
     return false;
   }
-  
+
   return true;
 }
 
@@ -1060,13 +1060,13 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
   LoopUtils::fillFuncUsersSet(roots, unsupportedFunctions);
   return unsupportedFunctions.count(&F);
 }
-  
+
 bool CanVectorizeImpl::hasDirectStreamCalls(Function &F) {
   Module *pM = F.getParent();
   bool isPointer64 = (pM->getPointerSize() == Module::Pointer64);
   std::set<Function *> streamFunctions;
   std::set<Function *> unsupportedFunctions;
-  
+
   Function* readStreamFunc = ((OpenclRuntime*)RuntimeServices::get())->getReadStream(isPointer64);
   if (readStreamFunc) {
     // This returns the read stream function *from the runtime module*.
@@ -1075,7 +1075,7 @@ bool CanVectorizeImpl::hasDirectStreamCalls(Function &F) {
     if (readStreamFunc)
       streamFunctions.insert(readStreamFunc);
   }
-  
+
   Function* writeStreamFunc = ((OpenclRuntime*)RuntimeServices::get())->getWriteStream(isPointer64);
   if (writeStreamFunc) {
     // This returns the write stream function *from the runtime module*.
@@ -1084,11 +1084,11 @@ bool CanVectorizeImpl::hasDirectStreamCalls(Function &F) {
     if (writeStreamFunc)
       streamFunctions.insert(writeStreamFunc);
   }
-  
+
   // If we have stream functions in the module, don't vectorize their users.
   if (streamFunctions.size())
     LoopUtils::fillFuncUsersSet(streamFunctions, unsupportedFunctions);
-  
+
   return unsupportedFunctions.count(&F);
 
 }

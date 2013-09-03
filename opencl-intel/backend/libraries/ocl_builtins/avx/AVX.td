@@ -3,7 +3,7 @@
 include "sse42/SSE42.td"
 
 class AVX : SSE42 {
-  
+
   // copy paste from SSE42 plus AVX native types
   // TODO: how to use Native types from parent class SSE42 w/o copy-paste
   let NativeTypes = [
@@ -17,4 +17,6 @@ class AVX : SSE42 {
   include "avx/conversion.td"
   include "avx/conversion_sat.td"
   include "avx/relational.td"
+  include "avx/transpose.td"
+  include "avx/masked_load_store.td"
 }

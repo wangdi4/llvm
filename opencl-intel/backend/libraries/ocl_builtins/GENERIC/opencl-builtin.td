@@ -602,6 +602,24 @@ def v2gentype : OclGenType<"v2gentype"> {
   list<string> T3 = !foreach(n, T2, !subst("v8", "v2", n));
   list<string> Tout = !foreach(n, T3, !subst("v16", "v2", n));
 }
+//converts the given typed to v8 vNxT -> v8XT e.g. v1f32 -> v8f32
+def v8gentype : OclGenType<"v8gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst("v1", "v8", n));
+  list<string> T1 = !foreach(n, T0, !subst("v2", "v8", n));
+  list<string> T2 = !foreach(n, T1, !subst("v3", "v8", n));
+  list<string> T3 = !foreach(n, T2, !subst("v4", "v8", n));
+  list<string> Tout = !foreach(n, T3, !subst("v16", "v8", n));
+}
+//converts the given typed to pv8 vNxT -> pv8XT e.g. v1f32 -> pv8f32 (pointer)
+def pv8gentype : OclGenType<"pv8gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst("v1", "v8", n));
+  list<string> T1 = !foreach(n, T0, !subst("v2", "v8", n));
+  list<string> T2 = !foreach(n, T1, !subst("v3", "v8", n));
+  list<string> T3 = !foreach(n, T2, !subst("v4", "v8", n));
+  list<string> T4 = !foreach(n, T3, !subst("v16", "v8", n));
+  list<string> T5 = !foreach(n, T4, !strconcat("p", n));
+  list<string> Tout = T5;
+}
 
 // converts a type to a pointer atomic type
 def patomgentype : OclGenType<"patomgentype"> {
@@ -769,6 +787,10 @@ class TargetImpl {
   // $NativeArg1Type
   // ..
   // $NativeArg9Type
+  // $PtrArg0Type
+  // $PtrArg1Type
+  // ..
+  // $PtrArg9Type
   //
   // $ExpandLoPattern
   // $ExpandHiPattern

@@ -3,7 +3,7 @@
 include "GENERIC/GENERIC_CPU.td"
 
 
-// auxiliary functions used in atomic.td 
+// auxiliary functions used in atomic.td
 let Types = [v1i32, v1u32],
     Attrs = [OVERLOADABLE, INLINE],
     NeedForwardDecl = 1  in {
@@ -50,4 +50,6 @@ include "ssse3/conversion.td"
 include "ssse3/conversion_sat.td"
 include "ssse3/vloadstore.td"
 include "ssse3/relational.td"
+include "ssse3/transpose.td"
+include "ssse3/masked_load_store.td"
 }

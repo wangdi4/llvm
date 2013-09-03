@@ -69,7 +69,7 @@ inline std::string toString (const T& elem) {
 
 std::string Mangler::mangle(const std::string& name) {
   if (::isMangledName(name.c_str())){
-    llvm::StringRef stripped = stripName(name.c_str()); 
+    llvm::StringRef stripped = stripName(name.c_str());
     for (unsigned i=0 ; i<IMG_SIZE ; ++i){
       if (imageFunctions[i] == stripped){
         reflection::FunctionDescriptor fdesc = ::demangle(name.c_str());
@@ -118,9 +118,9 @@ std::string Mangler::getGatherScatterName(bool isMasked, GatherScatterType gathe
     result << "masked_";
 
   const char *type = 0;
-  
+
   switch (gatherType) {
-  case Gather: 
+  case Gather:
     type = "gather.v";
     break;
   case Scatter:
@@ -152,7 +152,7 @@ std::string Mangler::getGatherScatterInternalName(GatherScatterType gatherType, 
   const char *prefix = 0;
 
   switch (gatherType) {
-  case Gather: 
+  case Gather:
     prefix = prefix_gather.c_str();
     break;
   case Scatter:
@@ -167,7 +167,7 @@ std::string Mangler::getGatherScatterInternalName(GatherScatterType gatherType, 
   default:
     V_ASSERT(false && "Invalid GatherScatter type");
   };
-  
+
   result << prefix;
   result << ".v" << numElements << elemRetTyName << "[" << elemIndexTyName << "].m";
   result << (isa<VectorType>(maskType) ? cast<VectorType>(maskType)->getNumElements() : 1);
@@ -328,7 +328,7 @@ std::string Mangler::demangle_fake_builtin(const std::string& name) {
   // Format:
   // _f_v.function
   size_t start = name.find(fake_builtin_prefix);
-  // when demangle_fake_builtin is called fake_builtin_pefix should be at start 
+  // when demangle_fake_builtin is called fake_builtin_pefix should be at start
   V_ASSERT(start == 0);
   start += fake_builtin_prefix.length();
   return name.substr(start);
@@ -385,7 +385,7 @@ std::string Mangler::getTransposeBuiltinName(bool isLoad, bool isScatterGather, 
   }
 
   std::stringstream funcName;
-  funcName << "__ocl_" << maskedName << baseFuncName << typeName << origVecType->getNumElements() << "x" << packetWidth;
+  funcName << "__ocl_" << maskedName << baseFuncName << typeName << "_" << origVecType->getNumElements() << "x" << packetWidth;
 
   return funcName.str();
 }

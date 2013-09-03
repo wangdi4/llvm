@@ -8,13 +8,13 @@
 define <8 x float> @foo(<4 x float>* nocapture %pStoreAdd, <8 x float> %xIn, <8 x float> %yIn, <8 x float> %zIn, <8 x float> %wIn) nounwind{
 entry:
 
-    call void @__ocl_transpose_store_float4x8(<4 x float>* nocapture %pStoreAdd, <8 x float> %xIn, <8 x float> %yIn, <8 x float> %zIn, <8 x float> %wIn) nounwind
+    call void @__ocl_transpose_store_float_4x8(<4 x float>* nocapture %pStoreAdd, <8 x float> %xIn, <8 x float> %yIn, <8 x float> %zIn, <8 x float> %wIn) nounwind
     %re0 = fadd <8 x float> %xIn, %yIn
     %re1 = fadd <8 x float> %zIn, %wIn
     %ret0 = fadd <8 x float> %re0, %re1
     ret <8 x float> %ret0
 }
- declare void @__ocl_transpose_store_float4x8(<4 x float>* nocapture %pStoreAdd, <8 x float> %xIn, <8 x float> %yIn, <8 x float> %zIn, <8 x float> %wIn) nounwind
+ declare void @__ocl_transpose_store_float_4x8(<4 x float>* nocapture %pStoreAdd, <8 x float> %xIn, <8 x float> %yIn, <8 x float> %zIn, <8 x float> %wIn) nounwind
 
 
 ;CHECK:	.type    [[FOO:[_a-z]+]],@function
@@ -34,4 +34,4 @@ entry:
 ;CHECK:	vextractf128	$1, [[YMM41]], 80([[RCX]])
 ;CHECK:	vextractf128	$1, [[YMM51]], 96([[RCX]])
 ;CHECK:	vextractf128	$1, [[YMM71]], 112([[RCX]])
-;CHECK:	.type	    [[TRANSPOSE:[_a-z]+]]_store_float4x8,@function
+;CHECK:	.type	    [[TRANSPOSE:[_a-z]+]]_store_float_4x8,@function

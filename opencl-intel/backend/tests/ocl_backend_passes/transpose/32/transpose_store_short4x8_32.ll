@@ -19,11 +19,11 @@ entry:
   store <8 x i16> %zIn, <8 x i16>* %zIn.addr, align 4
   %wIn.addr = alloca <8 x i16>, align 4
   store <8 x i16> %wIn, <8 x i16>* %wIn.addr, align 4
-  call void @__ocl_transpose_store_short4x8(<4 x i16>* nocapture %pStoreAdd, <8 x i16> %xIn, <8 x i16> %yIn, <8 x i16> %zIn, <8 x i16> %wIn) nounwind
+  call void @__ocl_transpose_store_short_4x8(<4 x i16>* nocapture %pStoreAdd, <8 x i16> %xIn, <8 x i16> %yIn, <8 x i16> %zIn, <8 x i16> %wIn) nounwind
   ret void
 }
 
-declare void @__ocl_transpose_store_short4x8(<4 x i16>* nocapture %pStoreAdd, <8 x i16> %xIn, <8 x i16> %yIn, <8 x i16> %zIn, <8 x i16> %wIn) nounwind
+declare void @__ocl_transpose_store_short_4x8(<4 x i16>* nocapture %pStoreAdd, <8 x i16> %xIn, <8 x i16> %yIn, <8 x i16> %zIn, <8 x i16> %wIn) nounwind
 
 
 ;-------------------------------------------------------------------------------
