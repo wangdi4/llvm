@@ -26,6 +26,7 @@ extern "C" {
   FunctionPass* createPhiCanon();
 
   void* createRedundantPhiNodePass();
+  void* createGroupBuiltinPass();
   void* createBarrierInFunctionPass();
   void* createRemoveDuplicationBarrierPass();
   void* createSplitBBonBarrierPass();
@@ -64,6 +65,7 @@ namespace intel {
     barrierModulePM.add(createPhiCanon());
     //Register barrier module passes
     barrierModulePM.add((FunctionPass*)createRedundantPhiNodePass());
+    barrierModulePM.add((ModulePass*)createGroupBuiltinPass());
     barrierModulePM.add((ModulePass*)createBarrierInFunctionPass());
 
     // Only run this when not debugging or when not in native (gdb) debugging

@@ -63,6 +63,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeIRInjectModulePass(Registry);
     intel::initializenameByInstTypePass(Registry);
     intel::initializeRedundantPhiNodePass(Registry);
+    intel::initializeGroupBuiltinPass(Registry);
     intel::initializeBarrierInFunctionPass(Registry);
     intel::initializeRemoveDuplicationBarrierPass(Registry);
     intel::initializeSplitBBonBarrierPass(Registry);

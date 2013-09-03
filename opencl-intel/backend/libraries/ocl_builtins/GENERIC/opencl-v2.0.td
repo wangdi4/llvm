@@ -66,20 +66,22 @@ def atomic_exchange_explicit_scope_g : OclBuiltin<"atomic_exchange_explicit",  (
 
 // static pass for generic address space requires us to have all combinations of pointers in argument list
 // SECPTR is used to build gpgentype, lpgentype, ppgentype, and add posfix _gp, _lp, _pp to OclBuiltin define
+// VOLATILE_GLOBAL is applied to all arguments pointers of the function. Thus, it is not allowed
+// to use it on function that takes two pointer arguments with different address space or qualifiers.
 foreach SECPTR = ["gp", "lp", "pp"] in {
   def atomic_compare_exchange_strong_g_#SECPTR : OclBuiltin<"atomic_compare_exchange_strong",  (outs bool:$ret),
-      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired), [], [], 1, 0>, VOLATILE_GLOBAL;
+      (ins vgpatomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired), [], [], 1, 0>;
   def atomic_compare_exchange_strong_explicit_g_#SECPTR : OclBuiltin<"atomic_compare_exchange_strong_explicit",  (outs bool:$ret),
-      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure), [], [], 1, 0>, VOLATILE_GLOBAL;
+      (ins vgpatomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure), [], [], 1, 0>;
   def atomic_compare_exchange_strong_explicit_scope_g_#SECPTR : OclBuiltin<"atomic_compare_exchange_strong_explicit",  (outs bool:$ret),
-      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+      (ins vgpatomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure, memory_scope:$scope), [], [], 1, 0>;
   
   def atomic_compare_exchange_weak_g_#SECPTR : OclBuiltin<"atomic_compare_exchange_weak",  (outs bool:$ret),
-      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired), [], [], 1, 0>, VOLATILE_GLOBAL;
+      (ins vgpatomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired), [], [], 1, 0>;
   def atomic_compare_exchange_weak_explicit_g_#SECPTR : OclBuiltin<"atomic_compare_exchange_weak_explicit",  (outs bool:$ret),
-      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure), [], [], 1, 0>, VOLATILE_GLOBAL;
+      (ins vgpatomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure), [], [], 1, 0>;
   def atomic_compare_exchange_weak_explicit_scope_g_#SECPTR : OclBuiltin<"atomic_compare_exchange_weak_explicit",  (outs bool:$ret),
-      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
+      (ins vgpatomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure, memory_scope:$scope), [], [], 1, 0>;
   }
 }
 
@@ -182,20 +184,22 @@ def atomic_exchange_explicit_scope_l : OclBuiltin<"atomic_exchange_explicit",  (
 
 // static pass for generic address space requires us to have all combinations of pointers in argument list
 // SECPTR is used to build gpgentype, lpgentype, ppgentype, and add posfix _gp, _lp, _pp to OclBuiltin define
+// VOLATILE_LOCAL is applied to all arguments pointers of the function. Thus, it is not allowed
+// to use it on function that takes two pointer arguments with different address space or qualifiers.
 foreach SECPTR = ["gp", "lp", "pp"] in {
   def atomic_compare_exchange_strong_l_#SECPTR : OclBuiltin<"atomic_compare_exchange_strong",  (outs bool:$ret),
-      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired), [], [], 1, 0>, VOLATILE_LOCAL;
+      (ins vlpatomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired), [], [], 1, 0>;
   def atomic_compare_exchange_strong_explicit_l_#SECPTR : OclBuiltin<"atomic_compare_exchange_strong_explicit",  (outs bool:$ret),
-      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure), [], [], 1, 0>, VOLATILE_LOCAL;
+      (ins vlpatomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure), [], [], 1, 0>;
   def atomic_compare_exchange_strong_explicit_scope_l_#SECPTR : OclBuiltin<"atomic_compare_exchange_strong_explicit",  (outs bool:$ret),
-      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+      (ins vlpatomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure, memory_scope:$scope), [], [], 1, 0>;
   
   def atomic_compare_exchange_weak_l_#SECPTR : OclBuiltin<"atomic_compare_exchange_weak",  (outs bool:$ret),
-      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired), [], [], 1, 0>, VOLATILE_LOCAL;
+      (ins vlpatomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired), [], [], 1, 0>;
   def atomic_compare_exchange_weak_explicit_l_#SECPTR : OclBuiltin<"atomic_compare_exchange_weak_explicit",  (outs bool:$ret),
-      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure), [], [], 1, 0>, VOLATILE_LOCAL;
+      (ins vlpatomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure), [], [], 1, 0>;
   def atomic_compare_exchange_weak_explicit_scope_l_#SECPTR : OclBuiltin<"atomic_compare_exchange_weak_explicit",  (outs bool:$ret),
-      (ins patomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+      (ins vlpatomgentype:$object, !cast<OclGenType>(SECPTR#gentype):$expected, gentype:$desired, memory_order:$success, memory_order:$failure, memory_scope:$scope), [], [], 1, 0>;
   }
 }
 

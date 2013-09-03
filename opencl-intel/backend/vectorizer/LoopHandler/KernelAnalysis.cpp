@@ -43,6 +43,23 @@ void KernelAnalysis::fillBarrierUsersFuncs() {
   }
 }
 
+void KernelAnalysis::fillAsyncCopyUsersFuncs() {
+  FSet asyncCopyRootSet;
+  for ( Module::iterator fi = m_M->begin(), fe = m_M->end(); fi != fe; ++fi ) {
+    Function *pFunc = &*fi;
+    if( !pFunc->isDeclaration() ) {
+      //Built-in functions assumed to be declarations at this point.
+      continue;
+    }
+    std::string funcName = pFunc->getName().str();
+    if(CompilationUtils::isAsyncWorkGroupCopy(funcName) || CompilationUtils::isAsyncWorkGroupStridedCopy(funcName)) {
+      //Module contains declaration of an async copy built-in, add it to unsupported root set.
+      asyncCopyRootSet.insert(pFunc);
+    }
+  }
+  LoopUtils::fillFuncUsersSet(asyncCopyRootSet, m_unsupportedFunc);
+}
+
 void KernelAnalysis::fillUnsupportedTIDFuncs() {
   FSet directTIDUsers;
   std::string LID = CompilationUtils::mangledGetLID();
@@ -111,6 +128,7 @@ bool KernelAnalysis::runOnModule(Module& M) {
 
   fillKernelCallers();
   fillBarrierUsersFuncs();
+  fillAsyncCopyUsersFuncs();
   fillUnsupportedTIDFuncs();
 
   for (FVec::iterator fit = m_kernels.begin(), fe = m_kernels.end();

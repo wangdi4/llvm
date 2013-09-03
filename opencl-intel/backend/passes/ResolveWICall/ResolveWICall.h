@@ -34,9 +34,6 @@ namespace intel {
     ICT_GET_GROUP_ID,
     ICT_GET_GLOBAL_OFFSET,
     ICT_PRINTF,
-    ICT_ASYNC_WORK_GROUP_COPY,
-    ICT_ASYNC_WORK_GROUP_STRIDED,
-    ICT_WAIT_GROUP_EVENTS,
     ICT_PREFETCH,
     // get_default_queue()
     ICT_GET_DEFAULT_QUEUE,
@@ -136,13 +133,10 @@ namespace intel {
     /// @returns Internal Call Type for given function name
     TInternalCallType getCallFunctionType(std::string calledFuncName);
 
-    // printf/AsyncCopy/Wait
+    // printf/prefetch
     Value*  updatePrintf(llvm::CallInst *pCall);
-    Value*  updateAsyncCopy(llvm::CallInst *pCall, bool strided);
-    void  updateWaitGroup(llvm::CallInst *pCall);
     void  updatePrefetch(llvm::CallInst *pCall);
 
-    void  addAsyncCopyDeclaration();
     void  addPrefetchDeclaration();
     void  addPrintfDeclaration();
     
@@ -266,8 +260,6 @@ namespace intel {
     /// This holds the pExtExecutionContext implicit argument of current handled function
     Argument *m_pExtendedExecutionCtx;
 
-    /// This is flag indicates that AsyncCopy declarations already added to module
-    bool m_bAsyncCopyDecl;
     /// This is flag indicates that Prefetch declarations already added to module
     bool m_bPrefetchDecl;
     /// This is flag indicates that Printf declarations already added to module

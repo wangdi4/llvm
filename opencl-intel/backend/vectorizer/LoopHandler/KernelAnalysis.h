@@ -69,6 +69,10 @@ private:
   //        barrier.
   void fillBarrierUsersFuncs();
 
+  ///@brief fills the unsupported set with function that call (also indirectly)
+  //        async_copy.
+  void fillAsyncCopyUsersFuncs();
+
   ///@brief fills the unsupported set with function that have non constant
   ///       dimension get***id calls, or indirect calls to get***id.
   void fillUnsupportedTIDFuncs();

@@ -56,34 +56,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     // Reset Callback context
     void Reset() {
-      m_bIsFirst.clear();
-    }
-
-    // Returns true if copy procedure to be done, false if not
-    bool SetAndCheckAsyncCopy(unsigned int uiKey) {
-        // if uiKey is not in set
-        if(!m_bIsFirst.count(uiKey)) {
-            // add uiKey to set
-            m_bIsFirst.insert(uiKey);
-            // return copy needs to be done
-            return true;
-        }
-        else {
-            // uiKey is in set. No need to do copying
-            return false;
-        }
-    }
-
-    // Returns true if barrier() should be applied to make WI switch
-    // TODO: This function always returns false! Do we really need it?!
-    bool ResetAsyncCopy(unsigned int uiKey) {
-        if(!m_bIsFirst.count(uiKey)) {
-            // repetitive work_group_events() call is treated as no-op 
-            return false;
-        }
-        // erase element from set
-        m_bIsFirst.erase(uiKey);
-        return false;
     }
 
     // Initialize Device backend buffer printer (is not needed for CPU)
@@ -97,13 +69,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
 
   private:
-    // Set for checking if async_wg_copy built-ins in executed workitem should 
-    // perform copying or it was already done
-    // set stores event numbers (unsigned int) produced by async_wg_copy functions
-    // if event is present in this set it means coping has already been done and
-    // no need to perform copying within executed workgroup
-    std::set<unsigned int> m_bIsFirst;
-
     // for printer service - not owned by this class
     ICLDevBackendBufferPrinter* m_pPrinter;
   };

@@ -16,6 +16,11 @@ static std::string getZeroLiteral(const std::string& type){
     return "0.0f";
   else if ("double" == type)
     return "0.0";
+  else if ("event_t" == type)
+    //This is a work around:
+    // 1. there is no zero value for event_t
+    // 2. built-ins that need to return event_t has an argument of type event_t called "event".
+    return "event";
   llvm::errs() << "unhandled type " << type << "\n";
   assert (0 && "unrecognized type");
   return "";
@@ -54,12 +59,17 @@ std::string generateDummyBody(const std::string& type, size_t veclen){
     return sstream.str();
   }
   std::string zeroLiteral = getZeroLiteral(type);
-  sstream << "(" << type;
-  if (veclen > 1)
-    sstream << veclen;
-   sstream << ")" << " (" << zeroLiteral;
-  for (size_t i = 1 ; i<veclen ; i++)
-    sstream << "," << zeroLiteral;
-  sstream << ");}";
+  if ("event_t" == type) {
+    //Cannot cast to event_t type, just return the "ZeroLiteral" value.
+    sstream << zeroLiteral << ";}";
+  } else {
+    sstream << "(" << type;
+    if (veclen > 1)
+      sstream << veclen;
+     sstream << ")" << " (" << zeroLiteral;
+    for (size_t i = 1 ; i<veclen ; i++)
+      sstream << "," << zeroLiteral;
+    sstream << ");}";
+  }
   return sstream.str();
 }

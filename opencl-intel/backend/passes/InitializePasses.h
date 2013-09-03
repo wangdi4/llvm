@@ -38,6 +38,7 @@ void initializeKernelAnalysisPass(llvm::PassRegistry&);
 void initializeIRInjectModulePass(llvm::PassRegistry&);
 void initializenameByInstTypePass(llvm::PassRegistry&);
 void initializeRedundantPhiNodePass(llvm::PassRegistry&);
+void initializeGroupBuiltinPass(llvm::PassRegistry&);
 void initializeBarrierInFunctionPass(llvm::PassRegistry&);
 void initializeRemoveDuplicationBarrierPass(llvm::PassRegistry&);
 void initializeSplitBBonBarrierPass(llvm::PassRegistry&);

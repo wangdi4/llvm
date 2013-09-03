@@ -230,10 +230,11 @@ namespace intel {
   Instruction* BarrierUtils::createDummyBarrier(Instruction *pInsertBefore){
     if ( !m_dummyBarrierFunc ) {
       //Dummy Barrier function is not initialized yet
-      //There should not be dummyBarrier function declaration in the module
-      assert( !m_pModule->getFunction(DUMMY_BARRIER_FUNC_NAME) &&
-        "dummyBarrier() instruction is origanlity declared by the module!!!" );
-
+      //Check if there is a declaration in the module
+      m_dummyBarrierFunc = m_pModule->getFunction(DUMMY_BARRIER_FUNC_NAME);
+    }
+    if ( !m_dummyBarrierFunc ) {
+      //Module has no Dummy barrier declaration
       //Create one
       Type *pResult = Type::getVoidTy(m_pModule->getContext());
       std::vector<Type*> funcTyArgs;

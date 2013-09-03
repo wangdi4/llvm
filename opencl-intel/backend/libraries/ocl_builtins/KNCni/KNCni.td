@@ -7,6 +7,7 @@ def m16 : OclType<"m16", "ushort", 1, 16, 0>;
 
 // masktype: 'v8xM' -> 'm8', 'v16xM' -> 'm16'
 def masktype: OclGenType<"masktype"> {
+  list<string> Tin  = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "", n));
@@ -77,11 +78,13 @@ class SubSt_delUIWidth<list<string> IN>
 
 // expand integer type to 32-bit values
 def ui32gentype : OclGenType<"ui32gentype"> {
+  list<string> Tin  = Torig;
   list<string> Tout = SubSt_ui32<ocl_types.Names>.res;
 }
 
 // generate v16<u|i>32  type
 def v16ui32gentype : OclGenType<"v16ui32gentype"> {
+  list<string> Tin  = Torig;
   list<string> T1   = SubSt_ui32<ocl_types.Names>.res;
   list<string> Tout = SubSt_v16<T1>.res;
 }
@@ -89,6 +92,7 @@ def v16ui32gentype : OclGenType<"v16ui32gentype"> {
 // generate "epu32", "epi32", "epu64","epi64" suffixes
 // Can only be used with $ArgXSym macro
 def epuigentype : OclGenType<"epuigentype"> {
+  list<string> Tin  = Torig;
   list<string> T1   = SubSt_delVecLength<Tin>.res;
   list<string> T2   = !foreach(n, T1, !subst("u",  "epu", n));
   list<string> T3   = !foreach(n, T2, !subst("i",  "epi", n));
@@ -99,6 +103,7 @@ def epuigentype : OclGenType<"epuigentype"> {
 // generate short or char mask 
 // Can only be used with $ArgXSym macro
 def maskgentype: OclGenType<"maskgentype"> {
+  list<string> Tin  = Torig;
   list<string> T1   = SubSt_delVecLength<Tin>.res;
   list<string> T2   = !foreach(n, T1,  !subst("i32", "short", n));
   list<string> T3   = !foreach(n, T2,  !subst("u32", "short", n));
@@ -111,6 +116,7 @@ def maskgentype: OclGenType<"maskgentype"> {
 // generate "ps" and "pd" suffixes
 // Can only be used with $ArgXSym macro
 def pspdgentype : OclGenType<"pspdgentype"> {
+  list<string> Tin  = Torig;
   list<string> T1   = SubSt_delVecLength<Tin>.res;
   list<string> T2   = !foreach(n, T1,  !subst("f32", "ps", n));
   list<string> Tout = !foreach(n, T2,  !subst("f64", "pd", n));
@@ -119,6 +125,7 @@ def pspdgentype : OclGenType<"pspdgentype"> {
 // generate "__m512", "__m512d", and "__m512i" types
 // Can only be used with $ArgXSym macro
 def m512gentype : OclGenType<"m512gentype"> {
+  list<string> Tin  = Torig;
   list<string> T1   = SubSt_delVecLength<Tin>.res;
   list<string> T2   = SubSt_delUIWidth<T1>.res;
   list<string> T3   = !foreach(n, T2,  !subst("p",   "", n));
@@ -131,6 +138,7 @@ def m512gentype : OclGenType<"m512gentype"> {
 // generate MIC native types from any type
 // Can only be used with $ArgXSym macro
 def micnativegentype : OclGenType<"micnativegentype"> {
+  list<string> Tin  = Torig;
   list<string> T1   = SubSt_delVecLength<Tin>.res;
   list<string> T2   = !foreach(n, T1,  !subst("p",   "", n));
   list<string> T3   = !foreach(n, T2,  !subst("f32", "float16", n));

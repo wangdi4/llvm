@@ -12,6 +12,7 @@ include_directories(
     )
 
 set(TARGET_SOURCE_FILES
+  GroupBuiltinPass.cpp
   BarrierInFunctionPass.cpp
   BarrierMain.cpp
   BarrierPass.cpp

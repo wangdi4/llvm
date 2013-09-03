@@ -46,7 +46,6 @@ namespace intel {
       m_pModule = &M;
       m_pLLVMContext = &M.getContext();
 
-      m_bAsyncCopyDecl = false;
       m_bPrefetchDecl = false;
       m_bPrintfDecl = false;
       m_pStructNDRangeType = NULL;
@@ -178,27 +177,6 @@ namespace intel {
         case ICT_NDRANGE_3D:
           pNewRes = updateNDRangeND(calledFuncType, pCall);
           assert(pNewRes && "Expected updateNDRange1D to succeed");
-          break;
-
-        case ICT_ASYNC_WORK_GROUP_COPY:
-          addAsyncCopyDeclaration();
-          // Substitute extern operand with function parameter
-          pNewRes = updateAsyncCopy(pCall, false);
-          assert(pNewRes && "Expected updateAsyncCopy to succeed");
-          break;
-
-        case ICT_ASYNC_WORK_GROUP_STRIDED:
-          addAsyncCopyDeclaration();
-          // Substitute extern operand with function parameter
-          pNewRes = updateAsyncCopy(pCall, true);
-          assert(pNewRes && "Expected updateAsyncCopy to succeed");
-          break;
-
-        case ICT_WAIT_GROUP_EVENTS:
-          addAsyncCopyDeclaration();
-          // Substitute extern operand with function parameter
-          updateWaitGroup(pCall);
-          // Wait* function returns void, no need to replace its usages!
           break;
 
         case ICT_PREFETCH:
@@ -524,76 +502,6 @@ namespace intel {
     return res;
   }
 
-  Value* ResolveWICall::updateAsyncCopy(llvm::CallInst *pCall, bool strided) {
-#if LLVM_VERSION == 3200
-    DataLayout DL(m_pModule);
-#else
-    TargetData DL(m_pModule);
-#endif
-
-    assert( m_pCtx && "Context pointer m_pCtx created as expected" );
-
-    // Create new call instruction with extended parameters
-    SmallVector<Value*, 8> params;
-    // push original parameters
-    // Need bitcast to a general pointer
-    CastInst *pBCDst = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(0),
-      PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0), "", pCall);
-    params.push_back(pBCDst);
-    CastInst *pBCSrc = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(1),
-      PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0), "", pCall);
-    params.push_back(pBCSrc);
-    params.push_back(pCall->getArgOperand(2));
-    unsigned int eventIndex = 3;
-    if ( strided ) {
-      params.push_back(pCall->getArgOperand(3));
-      eventIndex++;
-    }
-    //The reason for this change is because implementation of Event_t type in CLANG has changed. It is not void* anymore, 
-    //and hence the bitcast was required in order to comply with function signature.
-    CastInst *Event = CastInst::Create(Instruction::PtrToInt, pCall->getArgOperand(eventIndex),
-      IntegerType::get(*m_pLLVMContext,  sizeof(size_t) * BYTE_SIZE),"", pCall);
-    params.push_back(Event);
-
-    // Distinguish operator size
-    PointerType *pPTy = dyn_cast<PointerType>(pCall->getArgOperand(0)->getType());
-    assert(pPTy && "Must be a pointer");
-    Type *pPT = pPTy->getElementType();
-
-
-    assert(pPT->getPrimitiveSizeInBits() && "Not primitive type, not valid calculation");
-    unsigned int uiSize = DL.getPrefTypeAlignment(pPT);
-
-    params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext,  sizeof(size_t) * BYTE_SIZE), uiSize));
-    params.push_back(m_pCtx);
-    assert(pPTy && "Must by a pointer type");
-
-    Function *pNewAsyncCopy = NULL;
-    if ( strided ) {
-      pNewAsyncCopy = m_pModule->getFunction(pPTy->getAddressSpace() == 3 ? "lasync_wg_copy_strided_g2l" : "lasync_wg_copy_strided_l2g");
-    } else {
-      pNewAsyncCopy = m_pModule->getFunction(pPTy->getAddressSpace() == 3 ? "lasync_wg_copy_g2l" : "lasync_wg_copy_l2g");
-    }
-    Value *res = CallInst::Create(pNewAsyncCopy, ArrayRef<Value*>(params), "", pCall);
-    CastInst *resCasted = CastInst::Create(Instruction::IntToPtr, res, pCall->getType(),"", pCall);
-    return resCasted;
-  }
-
-  void ResolveWICall::updateWaitGroup(llvm::CallInst *pCall) {
-
-    assert( m_pCtx && "Context pointer m_pCtx created as expected" );
-
-    // Create new call instruction with extended parameters
-    SmallVector<Value*, 4> params;
-    params.push_back(pCall->getArgOperand(0));
-    CastInst *pEvent = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(1),
-      PointerType::get(IntegerType::get(*m_pLLVMContext,  sizeof(size_t) * BYTE_SIZE), 0), "", pCall);
-    params.push_back(pEvent);
-    params.push_back(m_pCtx);
-    Function *pNewWait = m_pModule->getFunction("lwait_group_events");
-    CallInst::Create(pNewWait, ArrayRef<Value*>(params), "", pCall);
-  }
-
   void ResolveWICall::updatePrefetch(llvm::CallInst *pCall) {
 
 #if LLVM_VERSION == 3200
@@ -624,53 +532,6 @@ namespace intel {
     params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, uiSizeT), uiSize));
     Function *pPrefetch = m_pModule->getFunction("lprefetch");
     CallInst::Create(pPrefetch, ArrayRef<Value*>(params), "", pCall);
-  }
-
-  void ResolveWICall::addAsyncCopyDeclaration() {
-    if ( m_bAsyncCopyDecl ) {
-      // Async copy declarations already added
-      return;
-    }
-
-    unsigned int uiSizeT = m_pModule->getPointerSize()*32;
-
-    //event_t async_work_group_copy(void *pDst, void *pSrc, size_t numElem, event_t event,
-    //                 size_t elemSize, LLVMExecMultipleWIWithBarrier **ppExec);
-    std::vector<Type*> params;
-    params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
-    params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
-    params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
-    params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
-    params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
-    params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
-    FunctionType *pNewType = FunctionType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), params, false);
-    Function::Create(pNewType, Function::ExternalLinkage, "lasync_wg_copy_l2g", m_pModule);
-    Function::Create(pNewType, Function::ExternalLinkage, "lasync_wg_copy_g2l", m_pModule);
-
-    //event_t async_work_group_strided_copy(void *pDst, void *pSrc, size_t numElem, size_t stride, event_t event,
-    //                 size_t elemSize, LLVMExecMultipleWIWithBarrier **ppExec);
-    params.clear();
-    params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
-    params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
-    params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
-    params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
-    params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
-    params.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
-    params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
-    pNewType = FunctionType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), params, false);
-    Function::Create(pNewType, Function::ExternalLinkage, "lasync_wg_copy_strided_l2g", m_pModule);
-    Function::Create(pNewType, Function::ExternalLinkage, "lasync_wg_copy_strided_g2l", m_pModule);
-
-
-    // void wait_group_events(int num_events, event_t event_list)
-    params.clear();
-    params.push_back(IntegerType::get(*m_pLLVMContext, 32));
-    params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
-    params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
-    FunctionType *pWaitType = FunctionType::get(Type::getVoidTy(*m_pLLVMContext), params, false);
-    Function::Create(pWaitType, Function::ExternalLinkage, "lwait_group_events", m_pModule);
-
-    m_bAsyncCopyDecl = true;
   }
 
   void ResolveWICall::addPrintfDeclaration() {
@@ -749,14 +610,8 @@ namespace intel {
       return ICT_GET_GLOBAL_OFFSET;
     if(calledFuncName == CompilationUtils::NAME_PRINTF)
       return ICT_PRINTF;
-    if(CompilationUtils::isAsyncWorkGroupCopy(calledFuncName))
-      return ICT_ASYNC_WORK_GROUP_COPY;
-    if(CompilationUtils::isWaitGroupEvents(calledFuncName))
-      return ICT_WAIT_GROUP_EVENTS;
     if(CompilationUtils::isPrefetch(calledFuncName))
       return ICT_PREFETCH;
-    if(CompilationUtils::isAsyncWorkGroupStridedCopy(calledFuncName))
-      return ICT_ASYNC_WORK_GROUP_STRIDED;
 
     // OpenCL2.0 extended execution built-ins
     if(CompilationUtils::getCLVersionFromModule(*m_pModule) >= CompilationUtils::CL_VER_2_0){

@@ -976,6 +976,31 @@ let Types = [v1i64],
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// OpenCL 1.2 rev 15, Table 6.18
+// Async copy built-ins
+let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
+              v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
+             v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
+             v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
+             v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
+             v1u32, v2u32, v3u32, v4u32, v8u32, v16u32,
+             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
+             v1u64, v2u64, v3u64, v4u64, v8u64, v16u64,
+             v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+    Attrs = [OVERLOADABLE] in {
+  def async_work_group_copy_l2g : OclBuiltin<"async_work_group_copy", (outs event_t:$ret), (ins gpgentype:$dst, clpgentype:$src, size_t:$num_elements, event_t:$event), [], [], 0, 0>;
+  def async_work_group_copy_g2l : OclBuiltin<"async_work_group_copy", (outs event_t:$ret), (ins lpgentype:$dst, cgpgentype:$src, size_t:$num_elements, event_t:$event), [], [], 0, 0>;
+  def async_work_group_strided_copy_l2g : OclBuiltin<"async_work_group_strided_copy", (outs event_t:$ret), (ins gpgentype:$dst, clpgentype:$src, size_t:$num_elements, size_t:$dst_stride, event_t:$event), [], [], 0, 0>;
+  def async_work_group_strided_copy_g2l : OclBuiltin<"async_work_group_strided_copy", (outs event_t:$ret), (ins lpgentype:$dst, cgpgentype:$src, size_t:$num_elements, size_t:$src_stride, event_t:$event), [], [], 0, 0>;
+}
+
+let Types = [ void ],
+    Attrs = [OVERLOADABLE] in {
+  def wait_group_events : OclBuiltin<"wait_group_events", (outs), (ins v1i32:$num_events, pevent_t:$event_list), [], [], 0, 0>;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Helper built-ins
 // intel_movemask
 // custom BI used in GENERIC and CPU for fast detecting analyzing mask in if()

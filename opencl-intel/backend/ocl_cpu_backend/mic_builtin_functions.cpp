@@ -47,17 +47,6 @@ using namespace Intel::OpenCL::DeviceBackend;
 #define OclCpuBackEnd_EXPORTS
 #endif
 
-// macro will return the address of instruction which will be 
-// run after return from current function
-// reason for using macro instead of inline function is
-// that inlined function returns address from caller function of inlined function
-// not the caller function of function which invoked inlined function
-// using macro makes sure correct _ReturnAddress of caller will be obtained
-#if defined(_WIN32)
-#define GET_RET_ADDR() ((size_t)_ReturnAddress())
-#else
-#define GET_RET_ADDR() ((size_t) __builtin_return_address(0))
-#endif
 
 /*****************************************************************************************************************************
 *    Synchronization functions (Section 6.11.9)
@@ -65,80 +54,6 @@ using namespace Intel::OpenCL::DeviceBackend;
 extern "C" LLVM_BACKEND_API void mic_dbg_print(const char* fmt, ...)
 {
   assert(false && "Need to Implement mic_dbg_print");
-}
-
-typedef size_t event_t;
-extern "C" LLVM_BACKEND_API void shared_lwait_group_events(int num_events, event_t *event_list, CallbackContext* pContext);
-
-// usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy_l2g(char* pDst, char* pSrc, size_t numElem, event_t event,
-                                size_t elemSize, CallbackContext* pContext) LLVM_BACKEND_NOINLINE_POST;
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy_l2g(char* pDst, char* pSrc, size_t numElem, event_t event,
-                                size_t elemSize, CallbackContext* pContext)
-{
-  assert(pContext && "Invalid context pointer");
-  
-  // make event ID as instruction address in caller function that
-  // will be executed after built-in returns
-  
-  // purpose of int_event is to handle situations when input event is not zero
-  // this means that some previous async_copy call created event
-  // we need to make sure that current async_copying was done and
-  // not only async_copying that created event
-  event_t int_event = GET_RET_ADDR();
-  
-  // if input event is zero create event from internal event
-  if ( 0 == event )
-  {
-    event = int_event;
-  }
-
-  // Check if copy is required for this invokation of BI
-  if ( !pContext->SetAndCheckAsyncCopy(int_event) )
-    return event;
-
-  size_t  uiBytesToCopy = numElem*elemSize;
-
-  // use memcpy
-  std::copy(pSrc, pSrc + uiBytesToCopy, pDst);
-  //memcpy(pDst, pSrc, uiBytesToCopy);
-
-  return event;
-}
-
-// usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy_g2l(char* pDst, char* pSrc, size_t numElem, event_t event,
-                              size_t elemSize, CallbackContext* pContext) LLVM_BACKEND_NOINLINE_POST;
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t mic_lasync_wg_copy_g2l(char* pDst, char* pSrc, size_t numElem, event_t event,
-                              size_t elemSize, CallbackContext* pContext)
-{
-  assert(pContext && "Invalid context pointer");
-
-  // make event ID as instruction address in caller function that
-  // will be executed after built-in returns
-  
-  // purpose of int_event is to handle situations when input event is not zero
-  // this means that some previous async_copy call created event
-  // we need to make sure that current async_copying was done and
-  // not only async_copying that created event
-  event_t int_event = GET_RET_ADDR();
-  
-  // if input event is zero create event from internal event
-  if ( 0 == event )
-  {
-    event = int_event;
-  }
-
-  // Check if copy is required for this invokation of BI
-  if ( !pContext->SetAndCheckAsyncCopy(int_event) )
-    return event;
-
-  size_t  uiBytesToCopy = numElem*elemSize;
-
-  // use memcpy
-  std::copy(pSrc, pSrc + uiBytesToCopy, pDst);
-  //memcpy(pDst, pSrc, uiBytesToCopy);
-  return event;
 }
 
 // set the rounding mode to the given one, and return the previous mode.
@@ -159,20 +74,10 @@ extern "C" LLVM_BACKEND_API unsigned long long mic_get_time_counter()
 extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args, CallbackContext* pContext);
 extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, CallbackContext* pContext);
 
-// New functions for 1.1
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_l2g(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event, size_t elemSize, CallbackContext* pContext) ;
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_g2l(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event,size_t elemSize, CallbackContext* pContext);
-
 void RegisterMICBIFunctions(std::map<std::string, unsigned long long int>& functionsTable)
 {
     functionsTable["dbg_print"] = (unsigned long long int)(intptr_t)mic_dbg_print;
-    functionsTable["lwait_group_events"] = (unsigned long long int)(intptr_t)shared_lwait_group_events;
-    functionsTable["lasync_wg_copy_l2g"] = (unsigned long long int)(intptr_t)mic_lasync_wg_copy_l2g;
-    functionsTable["lasync_wg_copy_g2l"] = (unsigned long long int)(intptr_t)mic_lasync_wg_copy_g2l;
     functionsTable["get_time_counter"] = (unsigned long long int)(intptr_t)mic_get_time_counter;
-    functionsTable["lasync_wg_copy_strided_l2g"] = (unsigned long long int)(intptr_t)shared_lasync_wg_copy_strided_l2g;
-    functionsTable["lasync_wg_copy_strided_g2l"] = (unsigned long long int)(intptr_t)shared_lasync_wg_copy_strided_g2l;
     functionsTable["opencl_printf"] = (unsigned long long int)(intptr_t)opencl_mic_printf;
     functionsTable["opencl_snprintf"] = (unsigned long long int)(intptr_t)opencl_snprintf;
     functionsTable["set_rounding_mode"] = (unsigned long long int)(intptr_t)set_rounding_mode;
