@@ -394,6 +394,11 @@ TEST(FrameworkTestType, Test_clSvmTest)
 	EXPECT_TRUE(clSvmTest());
 }
 
+TEST(FrameworkTestType, Test_clPipes)
+{
+	EXPECT_TRUE(clPipes());
+}
+
 TEST(FrameWorkTestType, Test_cl20ExecutionModel)
 {
 	EXPECT_TRUE(cl20ExecutionModel());

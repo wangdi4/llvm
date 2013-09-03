@@ -391,7 +391,7 @@ typedef struct _cl_buffer_region {
 #define CL_UNORM_INT24                              0x10DF
 
 /* cl_mem_object_type */
-#define CL_MEM_OBJECT_BUFFER                        0x10F0
+#define CL_MEM_OBJECT_BUFFER                        0x10F0	// we assume that image types have values greater than buffer and pipe
 #define CL_MEM_OBJECT_IMAGE2D                       0x10F1
 #define CL_MEM_OBJECT_IMAGE3D                       0x10F2
 #define CL_MEM_OBJECT_IMAGE2D_ARRAY                 0x10F3

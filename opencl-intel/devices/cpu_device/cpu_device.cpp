@@ -1370,6 +1370,18 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 				*(cl_device_svm_capabilities*)paramVal = CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_ATOMICS;	// currently we support on fine grain buffer
 			}
 			return CL_DEV_SUCCESS;
+		case CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS:
+		case CL_DEVICE_PIPE_MAX_PACKET_SIZE:
+			*pinternalRetunedValueSize = sizeof(cl_uint);
+			if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+			{
+				return CL_DEV_INVALID_VALUE;
+			}
+			if (NULL != paramVal)
+			{
+				*(cl_uint*)paramVal = (cl_uint)-1;	// I don't see a reason to limit this
+			}
+			return CL_DEV_SUCCESS;
 		case CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE:
 		case CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE:
 		case CL_DEVICE_MAX_ON_DEVICE_QUEUES:

@@ -361,6 +361,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		void SVMFree(void* pSvmPtr);
 
+		cl_err_code CreatePipe(cl_uint uiPipePacketSize, cl_uint uiPipeMaxPackets, SharedPtr<MemoryObject>& pPipe);
+
 		// return access to context-specific OS event pool
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
 		Intel::OpenCL::Utils::OclOsDependentEvent* GetOSEvent();

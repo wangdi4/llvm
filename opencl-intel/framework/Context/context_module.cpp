@@ -37,6 +37,7 @@
 #include "user_event.h"
 #include "cl_sys_info.h"
 #include "svm_buffer.h"
+#include "pipe.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -1324,6 +1325,89 @@ cl_int ContextModule::SetKernelExecInfo(cl_kernel clKernel, cl_kernel_exec_info 
 		return CL_INVALID_VALUE;
 	}
 	return pKernel->GetContext()->SetKernelExecInfo(pKernel, paramName, szParamValueSize, pParamValue);		
+}
+
+cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint uiPipePacketSize, cl_uint uiPipeMaxPackets, const cl_pipe_properties* pProperties, cl_int* piErrcodeRet)
+{
+	SharedPtr<Context> pContext = GetContext(context);
+	if (NULL == pContext)
+	{
+		if (NULL != piErrcodeRet)
+		{
+			*piErrcodeRet = CL_INVALID_CONTEXT;
+		}
+		return CL_INVALID_HANDLE;
+	}		
+	if (flags != (CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS) || NULL != pProperties)
+	{
+		if (NULL != piErrcodeRet)
+		{
+			*piErrcodeRet = CL_INVALID_VALUE;
+		}
+		return CL_INVALID_HANDLE;
+	}
+
+	cl_uint uiMinPipeMaxPacketSize = 0;
+	const tSetOfDevices* pDevs = pContext->GetAllRootDevices();
+	for (tSetOfDevices::const_iterator iter = pDevs->begin(); iter != pDevs->end(); iter++)
+	{
+		cl_uint uiPipeMaxPacketSize;
+		const cl_err_code err = (*iter)->GetInfo(CL_DEVICE_PIPE_MAX_PACKET_SIZE, sizeof(uiPipeMaxPacketSize), &uiPipeMaxPacketSize, NULL);		
+		if (CL_FAILED(err))
+		{
+			if (NULL != piErrcodeRet)
+			{
+				*piErrcodeRet = err;
+			}
+			return CL_INVALID_HANDLE;
+		}
+		if (0 == uiMinPipeMaxPacketSize || uiPipeMaxPacketSize < uiMinPipeMaxPacketSize)
+		{
+			uiMinPipeMaxPacketSize = uiPipeMaxPacketSize;
+		}
+	}
+	if (0 == uiPipePacketSize || 0 == uiPipeMaxPackets || uiPipePacketSize > uiMinPipeMaxPacketSize)
+	{
+		if (NULL != piErrcodeRet)
+		{
+			*piErrcodeRet = CL_INVALID_PIPE_SIZE;
+		}
+		return CL_INVALID_HANDLE;
+	}
+	SharedPtr<MemoryObject> pPipe;
+	cl_err_code err = pContext->CreatePipe(uiPipePacketSize, uiPipeMaxPackets, pPipe);
+	if (CL_FAILED(err))
+	{
+		if (NULL != piErrcodeRet)
+		{
+			*piErrcodeRet = err;
+		}
+		return CL_INVALID_HANDLE;
+	}
+	err = m_mapMemObjects.AddObject(pPipe, false);
+	if (CL_FAILED(err))
+	{
+		if (NULL != piErrcodeRet)
+		{
+			*piErrcodeRet = err;
+		}
+		return CL_INVALID_HANDLE;
+	}
+	if (NULL != piErrcodeRet)
+	{
+		*piErrcodeRet = CL_SUCCESS;
+	}
+	return pPipe->GetHandle();
+}
+
+cl_int ContextModule::GetPipeInfo(cl_mem pipe, cl_pipe_info paramName, size_t szParamValueSize, void *pParamValue, size_t* pszParamValueSizeRet)
+{
+	SharedPtr<Pipe> pPipe = m_mapMemObjects.GetOCLObject((_cl_mem_int*)pipe).StaticCast<Pipe>();
+	if (NULL == pPipe)
+	{
+		return CL_INVALID_MEM_OBJECT;
+	}
+	return pPipe->GetPipeInfo(paramName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
 
 //////////////////////////////////////////////////////////////////////////

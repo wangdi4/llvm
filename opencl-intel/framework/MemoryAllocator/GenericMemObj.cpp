@@ -198,7 +198,7 @@ cl_err_code GenericMemObject::Initialize(
         unsigned int sharingGroupId;
 
         // filter out devices that do not support this memory object
-        if (CL_MEM_OBJECT_BUFFER == m_clMemObjectType)
+        if (CL_MEM_OBJECT_BUFFER == m_clMemObjectType || CL_MEM_OBJECT_PIPE == m_clMemObjectType)
         {
             sharingGroupId = (unsigned int)device_properties.bufferSharingGroupId;
 
@@ -790,7 +790,7 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
         return CL_INVALID_VALUE;
     }
 
-    if (CL_MEM_OBJECT_BUFFER == m_clMemObjectType)
+	if (CL_MEM_OBJECT_BUFFER == m_clMemObjectType || CL_MEM_OBJECT_PIPE == m_clMemObjectType)
     {
         return CL_INVALID_MEM_OBJECT;
     }

@@ -831,7 +831,7 @@ cl_dev_err_code ProgramService::GetSupportedImageFormats( cl_mem_flags IN flags,
                 cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
 {
     //image_type describes the image type and must be either an image object
-    if(imageType == CL_MEM_OBJECT_BUFFER)
+	if(imageType == CL_MEM_OBJECT_BUFFER || imageType == CL_MEM_OBJECT_PIPE)
     {
         return CL_DEV_INVALID_VALUE;
     }

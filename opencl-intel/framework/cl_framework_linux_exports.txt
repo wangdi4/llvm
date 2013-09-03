@@ -112,6 +112,9 @@ Base {
 	clSetKernelArgSVMPointer;
 	clSetKernelExecInfo;
 
+	clCreatePipe;
+	clGetPipeInfo;
+
 	clCreateCommandQueueWithProperties;
 		
     local:

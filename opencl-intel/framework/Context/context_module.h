@@ -243,6 +243,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_int SetKernelArgSVMPointer(cl_kernel clKernel, cl_uint uiArgIndex, const void* pArgValue);
 		cl_int SetKernelExecInfo(cl_kernel clKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue);
 
+		// pipes
+
+		cl_mem CreatePipe(cl_context context, cl_mem_flags flags, cl_uint uiPipePacketSize,	cl_uint uiPipeMaxPackets, const cl_pipe_properties* pProperties, cl_int* piErrcodeRet);
+		cl_int GetPipeInfo(cl_mem pipe, cl_pipe_info paramName, size_t szParamValueSize, void *pParamValue, size_t* pszParamValueSizeRet);
+
         ///////////////////////////////////////////////////////////////////////
         // Utility functions
         ///////////////////////////////////////////////////////////////////////

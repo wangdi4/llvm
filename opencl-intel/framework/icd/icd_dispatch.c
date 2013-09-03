@@ -2359,3 +2359,39 @@ clSetKernelExecInfo(
 		param_value_size,
 		param_value);
 }
+
+CL_API_ENTRY cl_mem CL_API_CALL
+clCreatePipe(
+	cl_context context,
+    cl_mem_flags flags, 
+    cl_uint pipe_packet_size,
+    cl_uint pipe_max_packets,
+    const cl_pipe_properties *properties,
+    cl_int *errcode_ret) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_HANDLE(context, CL_INVALID_CONTEXT);
+	return context->dispatch->clCreatePipe(
+		context,
+		flags,
+		pipe_packet_size,
+		pipe_max_packets,
+		properties,
+		errcode_ret);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clGetPipeInfo(
+	cl_mem pipe,
+    cl_pipe_info param_name,
+    size_t param_value_size,
+    void *param_value,
+    size_t *param_value_size_ret) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(pipe, CL_INVALID_MEM_OBJECT);
+	return pipe->dispatch->clGetPipeInfo(
+		pipe,
+		param_name,
+		param_value_size,
+		param_value,
+		param_value_size_ret);
+}

@@ -219,6 +219,21 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clSetKernelExecInfo)(
 	size_t param_value_size,
 	const void* param_value) CL_API_SUFFIX__VERSION_2_0;
 
+typedef CL_API_ENTRY cl_mem (CL_API_CALL *KHRpfn_clCreatePipe)(
+	cl_context context,
+    cl_mem_flags flags, 
+    cl_uint pipe_packet_size,
+    cl_uint pipe_max_packets,
+    const cl_pipe_properties *properties,
+    cl_int *errcode_ret) CL_API_SUFFIX__VERSION_2_0;
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetPipeInfo)(
+	cl_mem pipe,
+    cl_pipe_info param_name,
+    size_t param_value_size,
+    void *param_value,
+    size_t *param_value_size_ret) CL_API_SUFFIX__VERSION_2_0;
+
 // Command Queue APIs
 typedef CL_API_ENTRY cl_command_queue (CL_API_CALL *KHRpfn_clCreateCommandQueue)(
     cl_context                     context, 
@@ -1318,6 +1333,9 @@ struct KHRicdVendorDispatchRec
 	KHRpfn_clEnqueueSVMUnmap						clEnqueueSVMUnmap;
 	KHRpfn_clSetKernelArgSVMPointer					clSetKernelArgSVMPointer;
 	KHRpfn_clSetKernelExecInfo						clSetKernelExecInfo;
+
+	KHRpfn_clCreatePipe								clCreatePipe;
+	KHRpfn_clGetPipeInfo							clGetPipeInfo;
 
 	KHRpfn_clCreateCommandQueueWithProperties		clCreateCommandQueueWithProperties;
 };

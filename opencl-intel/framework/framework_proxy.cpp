@@ -228,6 +228,9 @@ void FrameworkProxy::InitOCLEntryPoints()
 	ICDDispatchTable.clSetKernelArgSVMPointer = (KHRpfn_clSetKernelArgSVMPointer)GET_ALIAS(clSetKernelArgSVMPointer);
 	ICDDispatchTable.clSetKernelExecInfo = (KHRpfn_clSetKernelExecInfo)GET_ALIAS(clSetKernelExecInfo);
 
+	ICDDispatchTable.clCreatePipe = (KHRpfn_clCreatePipe)GET_ALIAS(clCreatePipe);
+	ICDDispatchTable.clGetPipeInfo = (KHRpfn_clGetPipeInfo)GET_ALIAS(clGetPipeInfo);
+
     /// Extra functions for Common Runtime
     CRTDispatchTable.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);   
     

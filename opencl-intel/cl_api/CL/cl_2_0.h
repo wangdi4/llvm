@@ -34,6 +34,7 @@ extern "C" {
 #define CL_EVENT_ALLOCATION_FAILURE                 -100
 #define CL_ENQUEUE_FAILURE                          -101
 #define CL_INVALID_QUEUE                            -102
+#define CL_INVALID_PIPE_SIZE						-103
 
 #define CL_sRGB                                     0x10BF
 #define CL_sRGBx                                    0x10C0
@@ -67,7 +68,7 @@ extern "C" {
 #define CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS      0x1051
 #define CL_DEVICE_PIPE_MAX_PACKET_SIZE              0x1052
 
-#define CL_MEM_OBJECT_PIPE                          0x10F7
+#define CL_MEM_OBJECT_PIPE                          0x10EF  // we assume that image types have values greater than buffer and pipe
 
 /* cl_pipe_info */
 #define CL_PIPE_PACKET_SIZE                         0x1120
@@ -114,7 +115,7 @@ typedef int                 cl_kernel_exec_info;
 #define CL_KERNEL_EXEC_INFO_SVM_PTRS                0x10E1 
 #define CL_KERNEL_EXEC_INFO_SVM_FINE_GRAIN_SYSTEM   0x10E2
 
-typedef cl_bitfield         cl_pipe_attributes;
+typedef cl_bitfield         cl_pipe_properties;
 typedef cl_uint             cl_pipe_info;
 
 typedef void*               queue_t;
@@ -207,7 +208,7 @@ clCreatePipe(cl_context                 /* context */,
              cl_mem_flags               /* flags */, 
              cl_uint                    /* pipe_packet_size */,
              cl_uint                    /* pipe_max_packets */,
-             const cl_pipe_attributes * /* attributres */,
+             const cl_pipe_properties * /* properties */,
              cl_int *                   /* errcode_ret */) CL_API_SUFFIX__VERSION_2_0;
 
 extern CL_API_ENTRY cl_int CL_API_CALL

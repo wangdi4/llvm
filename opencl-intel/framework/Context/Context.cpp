@@ -49,6 +49,7 @@
 #include <cl_objects_map.h>
 #include <cl_local_array.h>
 #include <framework_proxy.h>
+#include "pipe.h"
 
 using namespace std;
 using namespace Intel::OpenCL::Utils;
@@ -1014,7 +1015,7 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
 		return CL_INVALID_VALUE;
 	}
 
-	if (clType == CL_MEM_OBJECT_BUFFER)
+	if (CL_MEM_OBJECT_BUFFER == clType || CL_MEM_OBJECT_PIPE == clType)
 	{
 		LOG_ERROR(TEXT("%s"), TEXT("clType != CL_MEM_OBJECT_IMAGE2D && clType != CL_MEM_OBJECT_IMAGE3D"));
 		return CL_INVALID_VALUE;
@@ -1664,4 +1665,20 @@ SharedPtr<SVMBuffer> Context::GetSVMBufferContainingAddr(void* ptr)
 ConstSharedPtr<SVMBuffer> Context::GetSVMBufferContainingAddr(const void* ptr) const
 {
 	return const_cast<Context*>(this)->GetSVMBufferContainingAddr(const_cast<void*>(ptr));
+}
+
+cl_err_code Context::CreatePipe(cl_uint uiPipePacketSize, cl_uint uiPipeMaxPackets, SharedPtr<MemoryObject>& pPipe)
+{
+	cl_err_code err = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_PIPE, CL_MEMOBJ_GFX_SHARE_NONE, this, &pPipe);
+	if (CL_FAILED(err))
+	{
+		return err;
+	}
+	err = pPipe.StaticCast<Pipe>()->Initialize(uiPipePacketSize, uiPipeMaxPackets);
+	if (CL_FAILED(err))
+	{
+		return err;
+	}
+	m_mapMemObjects.AddObject(pPipe);
+	return CL_SUCCESS;
 }

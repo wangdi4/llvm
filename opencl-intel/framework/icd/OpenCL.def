@@ -152,6 +152,6 @@ clEnqueueSVMMap
 clEnqueueSVMUnmap
 clSetKernelArgSVMPointer
 clSetKernelExecInfo
-
-; OpenCL 2.0 API
+clCreatePipe
+clGetPipeInfo
 clCreateCommandQueueWithProperties

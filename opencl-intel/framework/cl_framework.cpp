@@ -1467,6 +1467,27 @@ cl_int CL_API_CALL clSetKernelExecInfo(cl_kernel kernel,
 	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, SetKernelExecInfo(kernel, param_name, param_value_size, param_value));
 }
 SET_ALIAS(clSetKernelExecInfo);
+
+cl_mem CL_API_CALL clCreatePipe(cl_context context,
+								cl_mem_flags flags, 
+								cl_uint pipe_packet_size,
+								cl_uint pipe_max_packets,
+								const cl_pipe_properties *properties,
+								cl_int *errcode_ret)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, errcode_ret));
+}
+SET_ALIAS(clCreatePipe);
+
+cl_int CL_API_CALL clGetPipeInfo(cl_mem pipe,
+								 cl_pipe_info param_name,
+								 size_t param_value_size,
+								 void *param_value,
+								 size_t *param_value_size_ret)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetPipeInfo(pipe, param_name, param_value_size, param_value, param_value_size_ret));
+}
+SET_ALIAS(clGetPipeInfo);
 // OpenCL 2.0 functions:
 
 cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context context,

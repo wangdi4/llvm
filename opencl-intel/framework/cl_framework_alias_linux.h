@@ -135,5 +135,7 @@ DECLARE_ALIAS(clEnqueueSVMMap);
 DECLARE_ALIAS(clEnqueueSVMUnmap);
 DECLARE_ALIAS(clSetKernelArgSVMPointer);
 DECLARE_ALIAS(clSetKernelExecInfo);
+DECLARE_ALIAS(clCreatePipe);
+DECLARE_ALIAS(clGetPipeInfo);
 DECLARE_ALIAS(clCreateCommandQueueWithProperties);
 }}}
