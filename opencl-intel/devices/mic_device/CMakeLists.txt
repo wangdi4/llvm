@@ -57,6 +57,7 @@ include_directories( BEFORE
                             ${HW_UTILS_HEADERS}
                             ${OCL_BINARY_DIR}
                             ${COI_HOST_INCLUDE_PATH}
+                            ${COI_YOCTO_HOST_INCLUDE_PATH}
                             mic_native )
 
 set(FILES_TO_COPY ${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} )
@@ -71,6 +72,7 @@ include( ../../cmake_utils/itt.cmake )
 link_directories(   ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/llvm_wrap/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR}
                     ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
                     ${COI_HOST_LIB_PATH}
+                    ${COI_YOCTO_HOST_LIB_PATH}
                 )
 
 if(WIN32)

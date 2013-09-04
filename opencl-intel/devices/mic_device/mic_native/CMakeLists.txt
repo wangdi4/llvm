@@ -257,8 +257,6 @@ set( MIC_FLAGS  -Werror
 set( MIC_DEBUG_FLAGS   -g -O0 -D_DEBUG -DDEBUG )
 set( MIC_RELEASE_FLAGS -O3 -DNDEBUG )
 
-SET_NATIVE_PATH(COI_SDK_PATH ${COI_SDK_PATH})
-
 # include path
 list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}
@@ -269,6 +267,7 @@ list( APPEND MIC_FLAGS
                 -I ${MIC_TBB_PATH}/include
                 -I ${MIC_TBB_PATH}/enhancements
                 -I ${COI_DEVICE_INCLUDE_PATH}
+                -I ${COI_YOCTO_DEVICE_INCLUDE_PATH}
                 -I ${ITT_DIR}/include
                 -I ${ITT_DIR}/ittnotify
                 -I ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
@@ -322,6 +321,7 @@ endif (NOT WIN32)
 set( MIC_LINK_FLAGS      )
 
 SET_NATIVE_PATH(COI_DEVICE_LIB_PATH ${COI_DEVICE_LIB_PATH})
+SET_NATIVE_PATH(COI_YOCTO_DEVICE_LIB_PATH ${COI_YOCTO_DEVICE_LIB_PATH})
 
 # lib path
 list( APPEND MIC_LINK_FLAGS
@@ -332,6 +332,7 @@ list( APPEND MIC_LINK_FLAGS
 
                 # library search path at link
                 -L ${COI_DEVICE_LIB_PATH}
+                -L ${COI_YOCTO_DEVICE_LIB_PATH}
                 -L ${BACKEND_LIB_DIR}
                 -L ${MIC_TBB_LIB_PATH}
                 ${BACKEND_VTUNE_DIR}
