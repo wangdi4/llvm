@@ -40,6 +40,8 @@ public:
 
 	virtual void DeviceInit(cl_device_id /* device */, cl_platform_id /* platform */)=0;
 
+	virtual void SubDeviceCreate(cl_device_id /* parent device */, cl_device_id /* sub device */)=0;
+
 	virtual void DeviceFree(cl_device_id /* device */)=0;
 
 	/* Context Callbacks */
@@ -65,6 +67,11 @@ public:
 	/* Memory Object Callbacks */
 
 	virtual void BufferCreate (cl_mem /* memobj */, cl_context /* context */)=0;
+
+	virtual void SubBufferCreate (cl_mem /* parent buffer */, cl_mem /* sub buffer */,
+								  cl_buffer_create_type /* buffer create type */,
+								  const void* /* buffer create info */)=0;
+
 
 	//virtual void BufferAcquired (cl_mem /* memobj */, cl_device_id /* device */, cl_long /* elapsed_time */)=0;
 
@@ -155,6 +162,8 @@ public:
 
 	virtual void DeviceInit(cl_device_id /* device */, cl_platform_id /* platform */);
 
+	virtual void SubDeviceCreate(cl_device_id /* parent device */, cl_device_id /* sub device */);
+
 	virtual void DeviceFree(cl_device_id /* device */);
 
 	/* Context Callbacks */
@@ -180,6 +189,10 @@ public:
 	/* Memory Object Callbacks */
 
 	virtual void BufferCreate (cl_mem /* memobj */, cl_context /* context */);
+
+	virtual void SubBufferCreate (cl_mem /* parent buffer */, cl_mem /* sub buffer */,
+								  cl_buffer_create_type /* buffer create type */,
+								  const void* /* buffer create info */);
 
 	//virtual void BufferAcquired (cl_mem /* memobj */, cl_device_id /* device */, cl_long /* elapsed_time */);
 

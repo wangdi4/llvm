@@ -114,6 +114,13 @@ void NotifierCollection::DeviceInit( cl_device_id device, cl_platform_id platfor
 	NOTIFY(DeviceInit, device, platform);
 }
 
+void NotifierCollection::SubDeviceCreate( cl_device_id parent_device, cl_device_id sub_device){
+	CHECK_FOR_NULL(parent_device);
+	CHECK_FOR_NULL(sub_device);
+	NOTIFY(SubDeviceCreate, parent_device, sub_device);
+}
+
+
 void NotifierCollection::DeviceFree( cl_device_id device )
 {
 	CHECK_FOR_NULL(device);
@@ -167,6 +174,15 @@ void NotifierCollection::BufferCreate( cl_mem memobj, cl_context context )
 	CHECK_FOR_NULL(memobj);
 	CHECK_FOR_NULL(context);
 	NOTIFY(BufferCreate, memobj, context);	
+}
+
+void NotifierCollection::SubBufferCreate(cl_mem parentBuffer, cl_mem subBuffer,
+										 cl_buffer_create_type bufferCreateType,
+										 const void* bufferCreateInfo)
+{
+	CHECK_FOR_NULL(parentBuffer);
+	CHECK_FOR_NULL(subBuffer);
+	NOTIFY(SubBufferCreate, parentBuffer, subBuffer, bufferCreateType, bufferCreateInfo);
 }
 
 void NotifierCollection::ImageCreate( cl_mem memobj, cl_context context )
