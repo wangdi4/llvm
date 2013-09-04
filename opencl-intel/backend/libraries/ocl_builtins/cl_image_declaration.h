@@ -129,36 +129,35 @@ void __attribute__((overloadable)) soa8_trans_coord_int_UNDEFINED(void* image, i
 // !!!DUPLICATE!!! Has duplicate function in cl_api/cl_types.h
 typedef struct _image_aux_data
 {
-	uint			dim_count;				// A number of dimensions in the memory object.
-	size_t			pitch[MAX_WORK_DIM-1];	// Multi-dimensional pitch of the object, valid only for images (2D/3D).
-	cl_image_format_t	format;			// Format of the memory object,valid only for images (2D/3D).
-										/* cl_image_format fields:
-											unsigned int image_channel_order;
-											unsigned int image_channel_data_type; */
-	void*			pData;					// A pointer to the object wherein the object data is stored.
-											// Could be a valid memory pointer or a handle to other object.
-	unsigned		uiElementSize;			// Size of image pixel element.
-	
-	void*			coord_translate_f_callback[32];    //the list of float coordinate translation callback
-	void*			read_img_callback_int[32];   // the list of integer image reader & filter callbacks
-	void*			read_img_callback_float[32]; // the list of float   image reader & filter callbacks
-	void*			soa4_read_img_callback_int[32]; // the list of soa4 integer image reader & filter callbacks
-	void*			soa8_read_img_callback_int[32]; // the list of soa8 integer image reader & filter callbacks
-	void*			write_img_callback;    // the write image sampler callback
-  void*			soa4_write_img_callback;    // the write image sampler callback
-  void*			soa8_write_img_callback;    // the write image sampler callback
+  uint              dim_count;                // A number of dimensions in the memory object.
+  size_t            pitch[MAX_WORK_DIM-1];    // Multi-dimensional pitch of the object, valid only for images (2D/3D).
+  cl_image_format_t format;                   // Format of the memory object,valid only for images (2D/3D).
+                                              /* cl_image_format fields:
+                                                unsigned int image_channel_order;
+                                                unsigned int image_channel_data_type; */
+  void*             pData;                    // A pointer to the object wherein the object data is stored.
+                                              // Could be a valid memory pointer or a handle to other object.
+  unsigned          uiElementSize;            // Size of image pixel element.
 
-	int dimSub1[MAX_WORK_DIM+1] ALIGN16;		// Image size for each dimension subtracted by one
-												// Used to optimize coordinates computation not to subtract by one for each read
-	int dim[MAX_WORK_DIM+1] ALIGN16;			// Image size for each dimension
-	unsigned int offset[MAX_WORK_DIM+1] ALIGN16;// the offset to extract pixels
-	float dimf[MAX_WORK_DIM+1] ALIGN16;			// Float image size for each dimension.
-												// Used in coordinates computation to avoid
-												// int->float type conversion for each read call
-	int array_size;     // size of array for 1D and 2d array types, otherwise is set to -1
-	int dimmask;		// Mask for dimensions in images
-						// Contains ones at dim_count first bytes. Other bytes are zeros.
-						// Used for coordinates clamping
+  void*             coord_translate_f_callback[32]; //the list of float coordinate translation callback
+  void*             read_img_callback_int[32];      // the list of integer image reader & filter callbacks
+  void*             read_img_callback_float[32];    // the list of float   image reader & filter callbacks
+  void*             soa4_read_img_callback_int[32]; // the list of soa4 integer image reader & filter callbacks
+  void*             soa8_read_img_callback_int[32]; // the list of soa8 integer image reader & filter callbacks
+  void*             write_img_callback;             // the write image sampler callback
+  void*             soa4_write_img_callback;        // the write image sampler callback
+  void*             soa8_write_img_callback;        // the write image sampler callback
 
+  int dimSub1[MAX_WORK_DIM+1] ALIGN16;        // Image size for each dimension subtracted by one
+                                              // Used to optimize coordinates computation not to subtract by one for each read
+  int dim[MAX_WORK_DIM+1] ALIGN16;            // Image size for each dimension
+  unsigned int offset[MAX_WORK_DIM+1] ALIGN16;// the offset to extract pixels
+  float dimf[MAX_WORK_DIM+1] ALIGN16;         // Float image size for each dimension.
+                                              // Used in coordinates computation to avoid
+                                              // int->float type conversion for each read call
+  int array_size;     // size of array for 1D and 2d array types, otherwise is set to -1
+  int dimmask;        // Mask for dimensions in images
+                      // Contains ones at dim_count first bytes. Other bytes are zeros.
+                      // Used for coordinates clamping
 } image_aux_data;
 

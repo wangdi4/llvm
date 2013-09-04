@@ -891,8 +891,7 @@ extern "C"
 
   float1_sse __ocl_svml_n8_remainderf1 (float1_sse a, float1_sse b);
 
-  float1_sse __ocl_svml_n8_remquof1 (float1_sse a, float1_sse b,
-				     int1_sse * c);
+  float1_sse __ocl_svml_n8_remquof1 (float1_sse a, float1_sse b, int1_sse * c);
 
   float1_sse __ocl_svml_n8_copysignf1 (float1_sse a, float1_sse b);
 
@@ -1044,8 +1043,7 @@ extern "C"
 
   float1_avx __ocl_svml_g9_remainderf1 (float1_avx a, float1_avx b);
 
-  float1_avx __ocl_svml_g9_remquof1 (float1_avx a, float1_avx b,
-				     int1_avx * c);
+  float1_avx __ocl_svml_g9_remquof1 (float1_avx a, float1_avx b, int1_avx * c);
 
   float1_avx __ocl_svml_g9_copysignf1 (float1_avx a, float1_avx b);
 
@@ -1197,8 +1195,7 @@ extern "C"
 
   float1_avx __ocl_svml_s9_remainderf1 (float1_avx a, float1_avx b);
 
-  float1_avx __ocl_svml_s9_remquof1 (float1_avx a, float1_avx b,
-				     int1_avx * c);
+  float1_avx __ocl_svml_s9_remquof1 (float1_avx a, float1_avx b, int1_avx * c);
 
   float1_avx __ocl_svml_s9_copysignf1 (float1_avx a, float1_avx b);
 
@@ -1576,8 +1573,7 @@ extern "C"
 
   double1_avx __ocl_svml_s9_erfc1 (double1_avx a);
 
-  double1_sse __ocl_svml_n8_fma1 (double1_sse a, double1_sse b,
-				  double1_sse c);
+  double1_sse __ocl_svml_n8_fma1 (double1_sse a, double1_sse b, double1_sse c);
 
   double1_sse __ocl_svml_n8_fabs1 (double1_sse a);
 
@@ -1609,8 +1605,7 @@ extern "C"
 
   double1_sse __ocl_svml_n8_remainder1 (double1_sse a, double1_sse b);
 
-  double1_sse __ocl_svml_n8_remquo1 (double1_sse a, double1_sse b,
-				     int1_sse * c);
+  double1_sse __ocl_svml_n8_remquo1 (double1_sse a, double1_sse b, int1_sse * c);
 
   double1_sse __ocl_svml_n8_copysign1 (double1_sse a, double1_sse b);
 
@@ -1738,8 +1733,7 @@ extern "C"
 
   float1_sse __ocl_svml_n8_cvtfp64tofp32rtz1 (double1_sse a);
 
-  double1_avx __ocl_svml_g9_fma1 (double1_avx a, double1_avx b,
-				  double1_avx c);
+  double1_avx __ocl_svml_g9_fma1 (double1_avx a, double1_avx b, double1_avx c);
 
   double1_avx __ocl_svml_g9_fabs1 (double1_avx a);
 
@@ -1771,8 +1765,7 @@ extern "C"
 
   double1_avx __ocl_svml_g9_remainder1 (double1_avx a, double1_avx b);
 
-  double1_avx __ocl_svml_g9_remquo1 (double1_avx a, double1_avx b,
-				     int1_avx * c);
+  double1_avx __ocl_svml_g9_remquo1 (double1_avx a, double1_avx b, int1_avx * c);
 
   double1_avx __ocl_svml_g9_copysign1 (double1_avx a, double1_avx b);
 
@@ -1900,8 +1893,7 @@ extern "C"
 
   float1_avx __ocl_svml_g9_cvtfp64tofp32rtz1 (double1_avx a);
 
-  double1_avx __ocl_svml_s9_fma1 (double1_avx a, double1_avx b,
-				  double1_avx c);
+  double1_avx __ocl_svml_s9_fma1 (double1_avx a, double1_avx b, double1_avx c);
 
   double1_avx __ocl_svml_s9_fabs1 (double1_avx a);
 
@@ -1933,8 +1925,7 @@ extern "C"
 
   double1_avx __ocl_svml_s9_remainder1 (double1_avx a, double1_avx b);
 
-  double1_avx __ocl_svml_s9_remquo1 (double1_avx a, double1_avx b,
-				     int1_avx * c);
+  double1_avx __ocl_svml_s9_remquo1 (double1_avx a, double1_avx b, int1_avx * c);
 
   double1_avx __ocl_svml_s9_copysign1 (double1_avx a, double1_avx b);
 
@@ -2388,8 +2379,7 @@ extern "C"
 
   float2_sse __ocl_svml_n8_remainderf2 (float2_sse a, float2_sse b);
 
-  float2_sse __ocl_svml_n8_remquof2 (float2_sse a, float2_sse b,
-				     int2_sse * c);
+  float2_sse __ocl_svml_n8_remquof2 (float2_sse a, float2_sse b, int2_sse * c);
 
   float2_sse __ocl_svml_n8_copysignf2 (float2_sse a, float2_sse b);
 
@@ -2541,8 +2531,7 @@ extern "C"
 
   float2_avx __ocl_svml_g9_remainderf2 (float2_avx a, float2_avx b);
 
-  float2_avx __ocl_svml_g9_remquof2 (float2_avx a, float2_avx b,
-				     int2_avx * c);
+  float2_avx __ocl_svml_g9_remquof2 (float2_avx a, float2_avx b, int2_avx * c);
 
   float2_avx __ocl_svml_g9_copysignf2 (float2_avx a, float2_avx b);
 
@@ -2694,8 +2683,7 @@ extern "C"
 
   float2_avx __ocl_svml_s9_remainderf2 (float2_avx a, float2_avx b);
 
-  float2_avx __ocl_svml_s9_remquof2 (float2_avx a, float2_avx b,
-				     int2_avx * c);
+  float2_avx __ocl_svml_s9_remquof2 (float2_avx a, float2_avx b, int2_avx * c);
 
   float2_avx __ocl_svml_s9_copysignf2 (float2_avx a, float2_avx b);
 
@@ -3073,8 +3061,7 @@ extern "C"
 
   double2_avx __ocl_svml_s9_erfc2 (double2_avx a);
 
-  double2_sse __ocl_svml_n8_fma2 (double2_sse a, double2_sse b,
-				  double2_sse c);
+  double2_sse __ocl_svml_n8_fma2 (double2_sse a, double2_sse b, double2_sse c);
 
   double2_sse __ocl_svml_n8_fabs2 (double2_sse a);
 
@@ -3106,8 +3093,7 @@ extern "C"
 
   double2_sse __ocl_svml_n8_remainder2 (double2_sse a, double2_sse b);
 
-  double2_sse __ocl_svml_n8_remquo2 (double2_sse a, double2_sse b,
-				     int2_sse * c);
+  double2_sse __ocl_svml_n8_remquo2 (double2_sse a, double2_sse b, int2_sse * c);
 
   double2_sse __ocl_svml_n8_copysign2 (double2_sse a, double2_sse b);
 
@@ -3235,8 +3221,7 @@ extern "C"
 
   float2_sse __ocl_svml_n8_cvtfp64tofp32rtz2 (double2_sse a);
 
-  double2_avx __ocl_svml_g9_fma2 (double2_avx a, double2_avx b,
-				  double2_avx c);
+  double2_avx __ocl_svml_g9_fma2 (double2_avx a, double2_avx b, double2_avx c);
 
   double2_avx __ocl_svml_g9_fabs2 (double2_avx a);
 
@@ -3268,8 +3253,7 @@ extern "C"
 
   double2_avx __ocl_svml_g9_remainder2 (double2_avx a, double2_avx b);
 
-  double2_avx __ocl_svml_g9_remquo2 (double2_avx a, double2_avx b,
-				     int2_avx * c);
+  double2_avx __ocl_svml_g9_remquo2 (double2_avx a, double2_avx b, int2_avx * c);
 
   double2_avx __ocl_svml_g9_copysign2 (double2_avx a, double2_avx b);
 
@@ -3397,8 +3381,7 @@ extern "C"
 
   float2_avx __ocl_svml_g9_cvtfp64tofp32rtz2 (double2_avx a);
 
-  double2_avx __ocl_svml_s9_fma2 (double2_avx a, double2_avx b,
-				  double2_avx c);
+  double2_avx __ocl_svml_s9_fma2 (double2_avx a, double2_avx b, double2_avx c);
 
   double2_avx __ocl_svml_s9_fabs2 (double2_avx a);
 
@@ -3430,8 +3413,7 @@ extern "C"
 
   double2_avx __ocl_svml_s9_remainder2 (double2_avx a, double2_avx b);
 
-  double2_avx __ocl_svml_s9_remquo2 (double2_avx a, double2_avx b,
-				     int2_avx * c);
+  double2_avx __ocl_svml_s9_remquo2 (double2_avx a, double2_avx b, int2_avx * c);
 
   double2_avx __ocl_svml_s9_copysign2 (double2_avx a, double2_avx b);
 
@@ -3885,8 +3867,7 @@ extern "C"
 
   float3_sse __ocl_svml_n8_remainderf3 (float3_sse a, float3_sse b);
 
-  float3_sse __ocl_svml_n8_remquof3 (float3_sse a, float3_sse b,
-				     int3_sse * c);
+  float3_sse __ocl_svml_n8_remquof3 (float3_sse a, float3_sse b, int3_sse * c);
 
   float3_sse __ocl_svml_n8_copysignf3 (float3_sse a, float3_sse b);
 
@@ -4038,8 +4019,7 @@ extern "C"
 
   float3_avx __ocl_svml_g9_remainderf3 (float3_avx a, float3_avx b);
 
-  float3_avx __ocl_svml_g9_remquof3 (float3_avx a, float3_avx b,
-				     int3_avx * c);
+  float3_avx __ocl_svml_g9_remquof3 (float3_avx a, float3_avx b, int3_avx * c);
 
   float3_avx __ocl_svml_g9_copysignf3 (float3_avx a, float3_avx b);
 
@@ -4191,8 +4171,7 @@ extern "C"
 
   float3_avx __ocl_svml_s9_remainderf3 (float3_avx a, float3_avx b);
 
-  float3_avx __ocl_svml_s9_remquof3 (float3_avx a, float3_avx b,
-				     int3_avx * c);
+  float3_avx __ocl_svml_s9_remquof3 (float3_avx a, float3_avx b, int3_avx * c);
 
   float3_avx __ocl_svml_s9_copysignf3 (float3_avx a, float3_avx b);
 
@@ -4600,8 +4579,7 @@ extern "C"
 
   double3_sse __ocl_svml_n8_remainder3 (double3_sse a, double3_sse b);
 
-  double3_sse __ocl_svml_n8_remquo3 (double3_sse a, double3_sse b,
-				     int3_sse * c);
+  double3_sse __ocl_svml_n8_remquo3 (double3_sse a, double3_sse b, int3_sse * c);
 
   double3_sse __ocl_svml_n8_copysign3 (double3_sse a, double3_sse b);
 
@@ -4729,8 +4707,7 @@ extern "C"
 
   float3_sse __ocl_svml_n8_cvtfp64tofp32rtz3 (double3_sse a);
 
-  double3_avx __ocl_svml_g9_fma3 (double3_avx a, double3_avx b,
-				  double3_avx c);
+  double3_avx __ocl_svml_g9_fma3 (double3_avx a, double3_avx b, double3_avx c);
 
   double3_avx __ocl_svml_g9_fabs3 (double3_avx a);
 
@@ -4762,8 +4739,7 @@ extern "C"
 
   double3_avx __ocl_svml_g9_remainder3 (double3_avx a, double3_avx b);
 
-  double3_avx __ocl_svml_g9_remquo3 (double3_avx a, double3_avx b,
-				     int3_avx * c);
+  double3_avx __ocl_svml_g9_remquo3 (double3_avx a, double3_avx b, int3_avx * c);
 
   double3_avx __ocl_svml_g9_copysign3 (double3_avx a, double3_avx b);
 
@@ -4891,8 +4867,7 @@ extern "C"
 
   float3_avx __ocl_svml_g9_cvtfp64tofp32rtz3 (double3_avx a);
 
-  double3_avx __ocl_svml_s9_fma3 (double3_avx a, double3_avx b,
-				  double3_avx c);
+  double3_avx __ocl_svml_s9_fma3 (double3_avx a, double3_avx b, double3_avx c);
 
   double3_avx __ocl_svml_s9_fabs3 (double3_avx a);
 
@@ -4924,8 +4899,7 @@ extern "C"
 
   double3_avx __ocl_svml_s9_remainder3 (double3_avx a, double3_avx b);
 
-  double3_avx __ocl_svml_s9_remquo3 (double3_avx a, double3_avx b,
-				     int3_avx * c);
+  double3_avx __ocl_svml_s9_remquo3 (double3_avx a, double3_avx b, int3_avx * c);
 
   double3_avx __ocl_svml_s9_copysign3 (double3_avx a, double3_avx b);
 
@@ -5379,8 +5353,7 @@ extern "C"
 
   float4_sse __ocl_svml_n8_remainderf4 (float4_sse a, float4_sse b);
 
-  float4_sse __ocl_svml_n8_remquof4 (float4_sse a, float4_sse b,
-				     int4_sse * c);
+  float4_sse __ocl_svml_n8_remquof4 (float4_sse a, float4_sse b, int4_sse * c);
 
   float4_sse __ocl_svml_n8_copysignf4 (float4_sse a, float4_sse b);
 
@@ -5532,8 +5505,7 @@ extern "C"
 
   float4_avx __ocl_svml_g9_remainderf4 (float4_avx a, float4_avx b);
 
-  float4_avx __ocl_svml_g9_remquof4 (float4_avx a, float4_avx b,
-				     int4_avx * c);
+  float4_avx __ocl_svml_g9_remquof4 (float4_avx a, float4_avx b, int4_avx * c);
 
   float4_avx __ocl_svml_g9_copysignf4 (float4_avx a, float4_avx b);
 
@@ -5685,8 +5657,7 @@ extern "C"
 
   float4_avx __ocl_svml_s9_remainderf4 (float4_avx a, float4_avx b);
 
-  float4_avx __ocl_svml_s9_remquof4 (float4_avx a, float4_avx b,
-				     int4_avx * c);
+  float4_avx __ocl_svml_s9_remquof4 (float4_avx a, float4_avx b, int4_avx * c);
 
   float4_avx __ocl_svml_s9_copysignf4 (float4_avx a, float4_avx b);
 
@@ -6094,8 +6065,7 @@ extern "C"
 
   double4_sse __ocl_svml_n8_remainder4 (double4_sse a, double4_sse b);
 
-  double4_sse __ocl_svml_n8_remquo4 (double4_sse a, double4_sse b,
-				     int4_sse * c);
+  double4_sse __ocl_svml_n8_remquo4 (double4_sse a, double4_sse b, int4_sse * c);
 
   double4_sse __ocl_svml_n8_copysign4 (double4_sse a, double4_sse b);
 
@@ -6223,8 +6193,7 @@ extern "C"
 
   float4_sse __ocl_svml_n8_cvtfp64tofp32rtz4 (double4_sse a);
 
-  double4_avx __ocl_svml_g9_fma4 (double4_avx a, double4_avx b,
-				  double4_avx c);
+  double4_avx __ocl_svml_g9_fma4 (double4_avx a, double4_avx b, double4_avx c);
 
   double4_avx __ocl_svml_g9_fabs4 (double4_avx a);
 
@@ -6256,8 +6225,7 @@ extern "C"
 
   double4_avx __ocl_svml_g9_remainder4 (double4_avx a, double4_avx b);
 
-  double4_avx __ocl_svml_g9_remquo4 (double4_avx a, double4_avx b,
-				     int4_avx * c);
+  double4_avx __ocl_svml_g9_remquo4 (double4_avx a, double4_avx b, int4_avx * c);
 
   double4_avx __ocl_svml_g9_copysign4 (double4_avx a, double4_avx b);
 
@@ -6385,8 +6353,7 @@ extern "C"
 
   float4_avx __ocl_svml_g9_cvtfp64tofp32rtz4 (double4_avx a);
 
-  double4_avx __ocl_svml_s9_fma4 (double4_avx a, double4_avx b,
-				  double4_avx c);
+  double4_avx __ocl_svml_s9_fma4 (double4_avx a, double4_avx b, double4_avx c);
 
   double4_avx __ocl_svml_s9_fabs4 (double4_avx a);
 
@@ -6418,8 +6385,7 @@ extern "C"
 
   double4_avx __ocl_svml_s9_remainder4 (double4_avx a, double4_avx b);
 
-  double4_avx __ocl_svml_s9_remquo4 (double4_avx a, double4_avx b,
-				     int4_avx * c);
+  double4_avx __ocl_svml_s9_remquo4 (double4_avx a, double4_avx b, int4_avx * c);
 
   double4_avx __ocl_svml_s9_copysign4 (double4_avx a, double4_avx b);
 
@@ -6871,8 +6837,7 @@ extern "C"
 
   float8_sse __ocl_svml_n8_remainderf8 (float8_sse a, float8_sse b);
 
-  float8_sse __ocl_svml_n8_remquof8 (float8_sse a, float8_sse b,
-				     int8_sse * c);
+  float8_sse __ocl_svml_n8_remquof8 (float8_sse a, float8_sse b, int8_sse * c);
 
   float8_sse __ocl_svml_n8_copysignf8 (float8_sse a, float8_sse b);
 
@@ -7024,8 +6989,7 @@ extern "C"
 
   float8_avx __ocl_svml_g9_remainderf8 (float8_avx a, float8_avx b);
 
-  float8_avx __ocl_svml_g9_remquof8 (float8_avx a, float8_avx b,
-				     int8_avx * c);
+  float8_avx __ocl_svml_g9_remquof8 (float8_avx a, float8_avx b, int8_avx * c);
 
   float8_avx __ocl_svml_g9_copysignf8 (float8_avx a, float8_avx b);
 
@@ -7177,8 +7141,7 @@ extern "C"
 
   float8_avx __ocl_svml_s9_remainderf8 (float8_avx a, float8_avx b);
 
-  float8_avx __ocl_svml_s9_remquof8 (float8_avx a, float8_avx b,
-				     int8_avx * c);
+  float8_avx __ocl_svml_s9_remquof8 (float8_avx a, float8_avx b, int8_avx * c);
 
   float8_avx __ocl_svml_s9_copysignf8 (float8_avx a, float8_avx b);
 
@@ -7500,8 +7463,7 @@ extern "C"
 
   double8_avx __ocl_svml_g9_remainder8 (double8_avx a, double8_avx b);
 
-  double8_avx __ocl_svml_g9_remquo8 (double8_avx a, double8_avx b,
-				     int8_avx * c);
+  double8_avx __ocl_svml_g9_remquo8 (double8_avx a, double8_avx b, int8_avx * c);
 
   double8_avx __ocl_svml_g9_copysign8 (double8_avx a, double8_avx b);
 
@@ -7659,8 +7621,7 @@ extern "C"
 
   double8_avx __ocl_svml_s9_remainder8 (double8_avx a, double8_avx b);
 
-  double8_avx __ocl_svml_s9_remquo8 (double8_avx a, double8_avx b,
-				     int8_avx * c);
+  double8_avx __ocl_svml_s9_remquo8 (double8_avx a, double8_avx b, int8_avx * c);
 
   double8_avx __ocl_svml_s9_copysign8 (double8_avx a, double8_avx b);
 
@@ -8026,8 +7987,7 @@ extern "C"
 
   float16_avx __ocl_svml_g9_remainderf16 (float16_avx a, float16_avx b);
 
-  float16_avx __ocl_svml_g9_remquof16 (float16_avx a, float16_avx b,
-				       int16_avx * c);
+  float16_avx __ocl_svml_g9_remquof16 (float16_avx a, float16_avx b, int16_avx * c);
 
   float16_avx __ocl_svml_g9_copysignf16 (float16_avx a, float16_avx b);
 
@@ -8177,8 +8137,7 @@ extern "C"
 
   float16_avx __ocl_svml_s9_remainderf16 (float16_avx a, float16_avx b);
 
-  float16_avx __ocl_svml_s9_remquof16 (float16_avx a, float16_avx b,
-				       int16_avx * c);
+  float16_avx __ocl_svml_s9_remquof16 (float16_avx a, float16_avx b, int16_avx * c);
 
   float16_avx __ocl_svml_s9_copysignf16 (float16_avx a, float16_avx b);
 
@@ -11910,4 +11869,4 @@ extern "C"
 }
 #endif
 
-#endif	/* __OCL_SVML_H__ */
+#endif /* __OCL_SVML_H__ */

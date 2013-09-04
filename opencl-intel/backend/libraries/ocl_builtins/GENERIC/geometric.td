@@ -26,21 +26,21 @@ OclBuiltinImpl length_v2v3v4f64 = OclBuiltinImpl<length, [v2f64, v3f64, v4f64], 
 
     if( res == INFINITY )
     {
-        $Arg0VarName = $Arg0VarName * expMinus600;
-        res = dot($Arg0VarName, $Arg0VarName);
-        res = sqrt(res);
-        res = res * exp600;
+      $Arg0VarName = $Arg0VarName * expMinus600;
+      res = dot($Arg0VarName, $Arg0VarName);
+      res = sqrt(res);
+      res = res * exp600;
     }
     else if( res < $VecLength * DBL_MIN / DBL_EPSILON )
     {
-        $Arg0VarName = $Arg0VarName * exp700;
-        res = dot($Arg0VarName, $Arg0VarName);
-        res = sqrt(res);
-        res = res * expMinus700;
+      $Arg0VarName = $Arg0VarName * exp700;
+      res = dot($Arg0VarName, $Arg0VarName);
+      res = sqrt(res);
+      res = res * expMinus700;
     }
     else
     {
-        res = sqrt(res);
+      res = sqrt(res);
     }
 
     return res;
@@ -58,13 +58,13 @@ OclBuiltinImpl length_v2v3v4f64 = OclBuiltinImpl<length, [v2f64, v3f64, v4f64], 
 OclBuiltinImpl normalize_f32f64_scalar = OclBuiltinImpl<normalize, [v1f32, v1f64], 0, [{
     if( 0 == $Arg0VarName)
     {
-        // Special edge case: copy vector over without change
-        return $Arg0VarName;
+      // Special edge case: copy vector over without change
+      return $Arg0VarName;
     }
     if( $Arg0VarName != $Arg0VarName)
     {
-        //$Arg0VarName is Nan: return $Arg0VarName
-        return $Arg0VarName;
+      //$Arg0VarName is Nan: return $Arg0VarName
+      return $Arg0VarName;
     }
     return ($Arg0VarName > 0.f) ? 1.f : -1.f;
   }]>;
@@ -80,17 +80,17 @@ OclBuiltinImpl normalize_v2v3v4f64 = OclBuiltinImpl<normalize, [v2f64, v3f64, v4
     double res = dot($Arg0VarName, $Arg0VarName);
     if( res == INFINITY )
     {
-        $Arg0VarName = $Arg0VarName * expMinus512_2;
-        res = dot($Arg0VarName, $Arg0VarName);
+      $Arg0VarName = $Arg0VarName * expMinus512_2;
+      res = dot($Arg0VarName, $Arg0VarName);
     }
     else if( res < $VecLength * DBL_MIN / DBL_EPSILON )
     {
-        $Arg0VarName = $Arg0VarName * exp700;
-        res = dot($Arg0VarName, $Arg0VarName);
-        if( res == 0 )
-        {
-            return $Arg0VarName;
-        }
+      $Arg0VarName = $Arg0VarName * exp700;
+      res = dot($Arg0VarName, $Arg0VarName);
+      if( res == 0 )
+      {
+        return $Arg0VarName;
+      }
     }
     res = sqrt(res);
     return $Arg0VarName / res;

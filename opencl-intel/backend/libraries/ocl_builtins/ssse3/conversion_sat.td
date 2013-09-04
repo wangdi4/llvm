@@ -51,7 +51,8 @@ code Promote_sat_rte = [{
     $Arg0BaseType#4 n$Arg0VarName;
     n$Arg0VarName$Pattern = $Arg0VarName;
     $ReturnBaseType#4 res = convert_$ReturnBaseType#4_sat_rte(n$Arg0VarName);
-    return res$Pattern;  }];
+    return res$Pattern;
+  }];
 
 code Promote_sat_rtz = [{
     $Arg0BaseType#4 n$Arg0VarName;
@@ -111,8 +112,8 @@ OclBuiltinImpl ssse3_conv_i8_sat_rtp = OclBuiltinImpl<convert_i8_sat_rtp, conv_s
 OclBuiltinImpl ssse3_conv_i8_sat_rtn = OclBuiltinImpl<convert_i8_sat_rtn, conv_sat_ssse3_fp_types, 0, fclamp_then_call_nonsat_conv_rtn>;
 // double1 & double4 are inherited from generic which call SVML
 // convert_charn - expand
-list<OclType> conv_char_ssse3_Expand_types  =  [v8f64, v16f64]; 
-OclBuiltinImpl ssse3_expand_conv_i8_sat  = OclBuiltinImpl<convert_i8_sat, conv_char_ssse3_Expand_types , 0, Expand_default_sat>;
+list<OclType> conv_char_ssse3_Expand_types = [v8f64, v16f64];
+OclBuiltinImpl ssse3_expand_conv_i8_sat = OclBuiltinImpl<convert_i8_sat, conv_char_ssse3_Expand_types , 0, Expand_default_sat>;
 OclBuiltinImpl ssse3_expend_conv_i8_sat_rte = OclBuiltinImpl<convert_i8_sat_rte, conv_char_ssse3_Expand_types, 0, Expand_sat_rte>;
 OclBuiltinImpl ssse3_expand_conv_i8_sat_rtz = OclBuiltinImpl<convert_i8_sat_rtz, conv_char_ssse3_Expand_types, 0, Expand_sat_rtz>;
 OclBuiltinImpl ssse3_expand_conv_i8_sat_rtp = OclBuiltinImpl<convert_i8_sat_rtp, conv_char_ssse3_Expand_types, 0, Expand_sat_rtp>;
@@ -283,14 +284,14 @@ code ssse3_convert_float_to_int_sat = [{
 OclBuiltinImpl ssse3_conv_i32_sat = OclBuiltinImpl<convert_i32_sat, [v4f32], 0, ssse3_convert_float_to_int_sat>;
 OclBuiltinImpl ssse3_conv_i32_sat_rtz = OclBuiltinImpl<convert_i32_sat_rtz, [v4f32], 0, ssse3_convert_float_to_int_sat>;
 // convert intn - expand
-list<OclType> conv_int_ssse3_Expand_types  =  [v16f32, v8f64, v16f64];
+list<OclType> conv_int_ssse3_Expand_types = [v16f32, v8f64, v16f64];
 OclBuiltinImpl ssse3_expand_conv_i32_sat = OclBuiltinImpl<convert_i32_sat, [v8f32, v16f32, v8f64, v16f64], 0, Expand_default_sat>;
 OclBuiltinImpl ssse3_expand_conv_i32_sat_rte = OclBuiltinImpl<convert_i32_sat_rte, conv_int_ssse3_Expand_types, 0, Expand_sat_rte>;
 OclBuiltinImpl ssse3_expand_conv_i32_sat_rtz = OclBuiltinImpl<convert_i32_sat_rtz, [v8f32, v16f32, v8f64, v16f64], 0, Expand_sat_rtz>;
 OclBuiltinImpl ssse3_expand_conv_i32_sat_rtp = OclBuiltinImpl<convert_i32_sat_rtp, conv_int_ssse3_Expand_types, 0, Expand_sat_rtp>;
 OclBuiltinImpl ssse3_expand_conv_i32_sat_rtn = OclBuiltinImpl<convert_i32_sat_rtn, conv_int_ssse3_Expand_types, 0, Expand_sat_rtn>;
 // convert intn - promote
-list<OclType> conv_int_ssse3_Promote_types =  [v2f32, v3f32, v2f64, v3f64];
+list<OclType> conv_int_ssse3_Promote_types = [v2f32, v3f32, v2f64, v3f64];
 OclBuiltinImpl ssse3_promote_conv_i32_sat = OclBuiltinImpl<convert_i32_sat, [v1f32, v2f32, v3f32, v2f64, v3f64], 0, Promote_default_sat>;
 OclBuiltinImpl ssse3_promote_conv_i32_sat_rte = OclBuiltinImpl<convert_i32_sat_rte, conv_int_ssse3_Promote_types, 0, Promote_sat_rte>;
 OclBuiltinImpl ssse3_promote_conv_i32_sat_rtz = OclBuiltinImpl<convert_i32_sat_rtz, [v1f32, v2f32, v3f32, v8f32, v16f32, v2f64, v3f64], 0, Promote_sat_rtz>;
@@ -303,7 +304,7 @@ OclBuiltinImpl ssse3_promote_conv_i32_sat_rtn = OclBuiltinImpl<convert_i32_sat_r
 \*****************************************************************/
 // convert uintn - float scalar
 code ssse3_convert_float_to_uint_sat = [{
-    const float maxUintAsFloat =  4294967040.0f;
+    const float maxUintAsFloat = 4294967040.0f;
     return ($Arg0VarName < 0.0f) ? 0 : (($Arg0VarName > maxUintAsFloat) ? 4294967295 : (uint) $Arg0VarName);
   }];
 OclBuiltinImpl ssse3_conv_u32_sat = OclBuiltinImpl<convert_u32_sat, [v1f32], 0, ssse3_convert_float_to_uint_sat>;
@@ -330,14 +331,14 @@ OclBuiltinImpl ssse3_promote_conv_u32_sat_rtn = OclBuiltinImpl<convert_u32_sat_r
  * convert_longn_sat:                                            *
 \*****************************************************************/
 // convert_longn - expand
-list<OclType> conv_long_ssse3_Expand_types  =  [v16f32, v8f64, v16f64];
+list<OclType> conv_long_ssse3_Expand_types = [v16f32, v8f64, v16f64];
 OclBuiltinImpl ssse3_expand_conv_i64_sat = OclBuiltinImpl<convert_i64_sat, conv_long_ssse3_Expand_types, 0, Expand_default_sat>;
 OclBuiltinImpl ssse3_expand_conv_i64_sat_rte = OclBuiltinImpl<convert_i64_sat_rte, conv_long_ssse3_Expand_types, 0, Expand_sat_rte>;
 OclBuiltinImpl ssse3_expand_conv_i64_sat_rtz = OclBuiltinImpl<convert_i64_sat_rtz, conv_long_ssse3_Expand_types, 0, Expand_sat_rtz>;
 OclBuiltinImpl ssse3_expand_conv_i64_sat_rtp = OclBuiltinImpl<convert_i64_sat_rtp, conv_long_ssse3_Expand_types, 0, Expand_sat_rtp>;
 OclBuiltinImpl ssse3_expand_conv_i64_sat_rtn = OclBuiltinImpl<convert_i64_sat_rtn, conv_long_ssse3_Expand_types, 0, Expand_sat_rtn>;
 // convert_longn - promote
-list<OclType> conv_long_ssse3_Promote_types =  [v2f32, v3f32, v2f64, v3f64];
+list<OclType> conv_long_ssse3_Promote_types = [v2f32, v3f32, v2f64, v3f64];
 OclBuiltinImpl ssse3_promote_conv_i64_sat = OclBuiltinImpl<convert_i64_sat, conv_long_ssse3_Promote_types, 0, Promote_default_sat>;
 OclBuiltinImpl ssse3_promote_conv_i64_sat_rte = OclBuiltinImpl<convert_i64_sat_rte, conv_long_ssse3_Promote_types, 0, Promote_sat_rte>;
 OclBuiltinImpl ssse3_promote_conv_i64_sat_rtz = OclBuiltinImpl<convert_i64_sat_rtz, conv_long_ssse3_Promote_types, 0, Promote_sat_rtz>;

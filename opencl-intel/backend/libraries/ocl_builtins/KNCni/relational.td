@@ -294,9 +294,10 @@ OclBuiltinImpl all_f64_expand = OclBuiltinImpl<all, [v16f64, v16u64, v16i64], 0,
 
 code select_native_vector = [{
     $Arg0igentype ret =
-      __ocl_select_$ReturnSymigentype(as_$Arg0igentype($Arg0VarName),
-                                      as_$Arg1igentype($Arg1VarName),
-                                      as_$Arg2igentype($Arg2VarName));
+      __ocl_select_$ReturnSymigentype(
+                    as_$Arg0igentype($Arg0VarName),
+                    as_$Arg1igentype($Arg1VarName),
+                    as_$Arg2igentype($Arg2VarName));
     return as_$ReturnType(ret);
   }];
 

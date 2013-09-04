@@ -9,7 +9,7 @@
 // floats dont call SVML so no need to overload here
 // change the double8 to call SVML instead of expanding to 2 double4 calls
 // dp2signed_down_sat is defined in the generic section
-OclBuiltinImpl avx_v8f64_conv_i8_sat  = OclBuiltinImpl<convert_i8_sat, [v8f64] , 0, dp2signed_down_sat>;
+OclBuiltinImpl avx_v8f64_conv_i8_sat = OclBuiltinImpl<convert_i8_sat, [v8f64] , 0, dp2signed_down_sat>;
 OclBuiltinImpl avx_v8f64_conv_i8_sat_rte = OclBuiltinImpl<convert_i8_sat_rte, [v8f64], 0, dp2signed_down_sat_rte>;
 OclBuiltinImpl avx_v8f64_conv_i8_sat_rtz = OclBuiltinImpl<convert_i8_sat_rtz, [v8f64], 0, dp2signed_down_sat_rtz>;
 OclBuiltinImpl avx_v8f64_conv_i8_sat_rtp = OclBuiltinImpl<convert_i8_sat_rtp, [v8f64], 0, dp2signed_down_sat_rtp>;
@@ -22,7 +22,7 @@ OclBuiltinImpl avx_v8f64_conv_i8_sat_rtn = OclBuiltinImpl<convert_i8_sat_rtn, [v
 // floats dont call SVML so no need to overload here
 // change the double8 to call SVML instead of expanding to 2 double4 calls
 // dp2unsigned_down_sat is defined in the generic section
-OclBuiltinImpl avx_v8f64_conv_u8_sat  = OclBuiltinImpl<convert_u8_sat, [v8f64] , 0, dp2unsigned_down_sat>;
+OclBuiltinImpl avx_v8f64_conv_u8_sat = OclBuiltinImpl<convert_u8_sat, [v8f64] , 0, dp2unsigned_down_sat>;
 OclBuiltinImpl avx_v8f64_conv_u8_sat_rte = OclBuiltinImpl<convert_u8_sat_rte, [v8f64], 0, dp2unsigned_down_sat_rte>;
 OclBuiltinImpl avx_v8f64_conv_u8_sat_rtz = OclBuiltinImpl<convert_u8_sat_rtz, [v8f64], 0, dp2unsigned_down_sat_rtz>;
 OclBuiltinImpl avx_v8f64_conv_u8_sat_rtp = OclBuiltinImpl<convert_u8_sat_rtp, [v8f64], 0, dp2unsigned_down_sat_rtp>;

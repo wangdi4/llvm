@@ -7,7 +7,7 @@ def m16 : OclType<"m16", "ushort", 1, 16, 0>;
 
 // masktype: 'v8xM' -> 'm8', 'v16xM' -> 'm16'
 def masktype: OclGenType<"masktype"> {
-  list<string> Tin  = Torig;
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "", n));

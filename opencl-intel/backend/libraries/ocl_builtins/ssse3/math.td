@@ -45,7 +45,7 @@ code hypot_impl_nr = [{
     $Arg0Type lmax = max($Arg0VarName, $Arg1VarName);
     // check corner cases and call SVML in that case
     if (intel_movemask( lmax > $ReturnBaseType_const_tooBig | lmax < $ReturnBaseType_const_tooSmall | isNaNOrInf ))
-        res = __ocl_svml_$Target_hypot$SVMLSuffix($Arg0VarName, $Arg1VarName);
+      res = __ocl_svml_$Target_hypot$SVMLSuffix($Arg0VarName, $Arg1VarName);
     return res;
   }];
 
@@ -118,11 +118,11 @@ OclBuiltinImpl nan_f32_promote = OclBuiltinImpl<nan, [v3f32], 0, Promote1>;
 // this builtin
 code Expand_movemask = [{
     return intel_movemask($Arg0VarName$ExpandLoPattern) | intel_movemask($Arg0VarName$ExpandHiPattern);
-    }];
+  }];
 
 OclBuiltinImpl intel_movemask_v4i32 = OclBuiltinImpl<intel_movemask, [v4i32], 0, [{
     return as_int(_mm_movemask_ps((__m128)$Arg0VarName));
-    }]>;
+  }]>;
 
 OclBuiltinImpl intel_movemask_i32_expand = OclBuiltinImpl<intel_movemask, [v8i32, v16i32], 0, Expand_movemask>;
 
@@ -212,7 +212,7 @@ OclBuiltinImpl nan_f64_promote = OclBuiltinImpl<nan, [v1f64], 0, Promote1>;
 // this builtin
 OclBuiltinImpl intel_movemask_v2i64 = OclBuiltinImpl<intel_movemask, [v2i64], 0, [{
     return as_int(_mm_movemask_pd((__m128d)$Arg0VarName));
-    }]>;
+  }]>;
 
 OclBuiltinImpl intel_movemask_i64_expand = OclBuiltinImpl<intel_movemask, [v4i64, v8i64, v16i64], 0, Expand_movemask>;
 

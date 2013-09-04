@@ -1,15 +1,15 @@
 //===========================select===================================
 code select_vector_v16_8_sse4 = [{ 
-  return as_$ReturnType (_mm_blendv_epi8((__m128i)$Arg0VarName,(__m128i)$Arg1VarName,(__m128i)$Arg2VarName));
-}];
+    return as_$ReturnType (_mm_blendv_epi8((__m128i)$Arg0VarName,(__m128i)$Arg1VarName,(__m128i)$Arg2VarName));
+  }];
 
 code select_vector_v4f32_sse4 = [{ 
-  return _mm_blendv_ps($Arg0VarName, $Arg1VarName, __builtin_astype($Arg2VarName,__m128));
-}];
+    return _mm_blendv_ps($Arg0VarName, $Arg1VarName, __builtin_astype($Arg2VarName,__m128));
+  }];
 
 code select_vector_v2f64_sse4 = [{ 
-  return _mm_blendv_pd($Arg0VarName, $Arg1VarName, __builtin_astype($Arg2VarName, __m128d));
-}];
+    return _mm_blendv_pd($Arg0VarName, $Arg1VarName, __builtin_astype($Arg2VarName, __m128d));
+  }];
 
 
 OclBuiltinImpl iselect_v4f32_sse4 = OclBuiltinImpl<iselect, [v4f32], 0, select_vector_v4f32_sse4>;

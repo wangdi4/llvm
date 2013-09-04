@@ -30,11 +30,11 @@ OclBuiltinImpl dot_v4f32 = OclBuiltinImpl<dot, [v4f32], 0, [{
   }]>;
 
 OclBuiltinImpl dot_v2f64 = OclBuiltinImpl<dot, [v2f64], 0, [{
-   return $Arg0VarName.lo * $Arg1VarName.lo + $Arg0VarName.hi * $Arg1VarName.hi;
+    return $Arg0VarName.lo * $Arg1VarName.lo + $Arg0VarName.hi * $Arg1VarName.hi;
   }]>;
 
 OclBuiltinImpl dot_v3f64 = OclBuiltinImpl<dot, [v3f64], 0, [{
-	 return dot($Arg0VarName.xy, $Arg1VarName.xy) + dot($Arg0VarName.z, $Arg1VarName.z);
+    return dot($Arg0VarName.xy, $Arg1VarName.xy) + dot($Arg0VarName.z, $Arg1VarName.z);
   }]>;
   
 OclBuiltinImpl dot_v4f64 = OclBuiltinImpl<dot, [v4f64], 0, [{
@@ -133,8 +133,8 @@ OclBuiltinImpl cross_v4f64 = OclBuiltinImpl<cross, [v4f64], 0, [{
 OclBuiltinImpl fast_normalize_scalar = OclBuiltinImpl<fast_normalize, [v1f32], 0, [{
    if( $Arg0VarName == 0.f )
     {
-        // Special edge case: copy vector over without change
-        return $Arg0VarName;
+      // Special edge case: copy vector over without change
+      return $Arg0VarName;
     }
     return ($Arg0VarName > 0.f) ? 1.f : -1.f;
   }]>;
@@ -147,8 +147,8 @@ OclBuiltinImpl fast_normalize_v4f32 = OclBuiltinImpl<fast_normalize, [v4f32], 0,
     tmp.s0 = dot($Arg0VarName, $Arg0VarName);
     if( tmp.s0 == 0.f )
     {
-        // Special edge case: copy vector over without change
-        return $Arg0VarName;
+      // Special edge case: copy vector over without change
+      return $Arg0VarName;
     }
 
     tmp = as_float4(_mm_shuffle_ps((__m128)tmp, (__m128)tmp, 0x0));
@@ -194,7 +194,7 @@ OclBuiltinImpl soa_cross3_all = OclBuiltinImpl<soa_cross3, fp_soa_types, 0, [{
 // soa_cross4
 OclBuiltinImpl soa_cross4_all = OclBuiltinImpl<soa_cross4, fp_soa_types, 0, [{
     soa_cross3($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg4VarName, $Arg5VarName, $Arg6VarName, $Arg8VarName, $Arg9VarName, $Arg10VarName);
-    *$Arg11VarName  = ($Arg0Type)0.0;
+    *$Arg11VarName = ($Arg0Type)0.0;
   }]>;
 
 
@@ -212,11 +212,11 @@ OclBuiltinImpl soa_length2_f32 = OclBuiltinImpl<soa_length2 , sp_fp_soa_types, 0
     int$VecLength underflow_mask = sum < (2 * FLT_MIN / FLT_EPSILON);
     if( intel_movemask(overflow_mask) || intel_movemask(underflow_mask) )
     {
-        double$VecLength dp_p0_x = convert_double$VecLength($Arg0VarName);
-        double$VecLength dp_p0_y = convert_double$VecLength($Arg1VarName);
-        double$VecLength dp_sum = (dp_p0_x * dp_p0_x) + (dp_p0_y * dp_p0_y);
-        dp_sum = sqrt( dp_sum );
-        return convert_float$VecLength( dp_sum );
+      double$VecLength dp_p0_x = convert_double$VecLength($Arg0VarName);
+      double$VecLength dp_p0_y = convert_double$VecLength($Arg1VarName);
+      double$VecLength dp_sum = (dp_p0_x * dp_p0_x) + (dp_p0_y * dp_p0_y);
+      dp_sum = sqrt( dp_sum );
+      return convert_float$VecLength( dp_sum );
     }
     return sqrt( sum );
   }]>;
@@ -228,19 +228,19 @@ OclBuiltinImpl soa_length2_f64 = OclBuiltinImpl<soa_length2 , dp_fp_soa_types, 0
     long$VecLength underflow_mask = (sum  < (2 * DBL_MIN / DBL_EPSILON));
     if ( intel_movemask(overflow_mask)  )
     {
-        $Arg0VecType overflow_p0_x = $Arg0VarName * expMinus600;
-        $Arg0VecType overflow_p0_y = $Arg1VarName * expMinus600;
-        $Arg0VecType overflow_sum = overflow_p0_x * overflow_p0_x + overflow_p0_y * overflow_p0_y;
-        sum_multiplier = select( sum_multiplier, exp600, overflow_mask );
-        sum = select( sum, overflow_sum, overflow_mask);
+      $Arg0VecType overflow_p0_x = $Arg0VarName * expMinus600;
+      $Arg0VecType overflow_p0_y = $Arg1VarName * expMinus600;
+      $Arg0VecType overflow_sum = overflow_p0_x * overflow_p0_x + overflow_p0_y * overflow_p0_y;
+      sum_multiplier = select( sum_multiplier, exp600, overflow_mask );
+      sum = select( sum, overflow_sum, overflow_mask);
     }
     if ( intel_movemask(underflow_mask) )
     {
-        $Arg0VecType underflow_p0_x = $Arg0VarName * exp700;
-        $Arg0VecType underflow_p0_y = $Arg1VarName * exp700;
-        $Arg0VecType underflow_sum = underflow_p0_x * underflow_p0_x + underflow_p0_y * underflow_p0_y;
-        sum_multiplier = select( sum_multiplier, expMinus700, underflow_mask );
-        sum = select( sum, underflow_sum, underflow_mask);
+      $Arg0VecType underflow_p0_x = $Arg0VarName * exp700;
+      $Arg0VecType underflow_p0_y = $Arg1VarName * exp700;
+      $Arg0VecType underflow_sum = underflow_p0_x * underflow_p0_x + underflow_p0_y * underflow_p0_y;
+      sum_multiplier = select( sum_multiplier, expMinus700, underflow_mask );
+      sum = select( sum, underflow_sum, underflow_mask);
     }
     return sqrt( sum ) * sum_multiplier;
   }]>;
@@ -251,12 +251,12 @@ OclBuiltinImpl soa_length3_f32 = OclBuiltinImpl<soa_length3 , sp_fp_soa_types, 0
     int$VecLength underflow_mask = sum < (2 * FLT_MIN / FLT_EPSILON);
     if( intel_movemask(overflow_mask) || intel_movemask(underflow_mask) )
     {
-        double$VecLength dp_p0_x = convert_double$VecLength($Arg0VarName);
-        double$VecLength dp_p0_y = convert_double$VecLength($Arg1VarName);
-        double$VecLength dp_p0_z = convert_double$VecLength($Arg2VarName);
-        double$VecLength dp_sum = (dp_p0_x * dp_p0_x) + (dp_p0_y * dp_p0_y) + (dp_p0_z * dp_p0_z);
-        dp_sum = sqrt( dp_sum );
-        return convert_float$VecLength( dp_sum );
+      double$VecLength dp_p0_x = convert_double$VecLength($Arg0VarName);
+      double$VecLength dp_p0_y = convert_double$VecLength($Arg1VarName);
+      double$VecLength dp_p0_z = convert_double$VecLength($Arg2VarName);
+      double$VecLength dp_sum = (dp_p0_x * dp_p0_x) + (dp_p0_y * dp_p0_y) + (dp_p0_z * dp_p0_z);
+      dp_sum = sqrt( dp_sum );
+      return convert_float$VecLength( dp_sum );
     }
     return sqrt( sum );
   }]>;
@@ -268,21 +268,21 @@ OclBuiltinImpl soa_length3_f64 = OclBuiltinImpl<soa_length3 , dp_fp_soa_types, 0
     long$VecLength underflow_mask = (sum  < (2 * DBL_MIN / DBL_EPSILON));
     if ( intel_movemask(overflow_mask)  )
     {
-        $Arg0VecType overflow_p0_x = $Arg0VarName * expMinus600;
-        $Arg0VecType overflow_p0_y = $Arg1VarName * expMinus600;
-        $Arg0VecType overflow_p0_z = $Arg2VarName * expMinus600;
-        $Arg0VecType overflow_sum = overflow_p0_x * overflow_p0_x + overflow_p0_y * overflow_p0_y + overflow_p0_z * overflow_p0_z;
-        sum_multiplier = select( sum_multiplier, exp600, overflow_mask );
-        sum = select( sum, overflow_sum, overflow_mask);
+      $Arg0VecType overflow_p0_x = $Arg0VarName * expMinus600;
+      $Arg0VecType overflow_p0_y = $Arg1VarName * expMinus600;
+      $Arg0VecType overflow_p0_z = $Arg2VarName * expMinus600;
+      $Arg0VecType overflow_sum = overflow_p0_x * overflow_p0_x + overflow_p0_y * overflow_p0_y + overflow_p0_z * overflow_p0_z;
+      sum_multiplier = select( sum_multiplier, exp600, overflow_mask );
+      sum = select( sum, overflow_sum, overflow_mask);
     }
     if ( intel_movemask(underflow_mask) )
     {
-        $Arg0VecType underflow_p0_x = $Arg0VarName * exp700;
-        $Arg0VecType underflow_p0_y = $Arg1VarName * exp700;
-        $Arg0VecType underflow_p0_z = $Arg2VarName * exp700;
-        $Arg0VecType underflow_sum = underflow_p0_x * underflow_p0_x + underflow_p0_y * underflow_p0_y + underflow_p0_z * underflow_p0_z;
-        sum_multiplier = select( sum_multiplier, expMinus700, underflow_mask );
-        sum = select( sum, underflow_sum, underflow_mask);
+      $Arg0VecType underflow_p0_x = $Arg0VarName * exp700;
+      $Arg0VecType underflow_p0_y = $Arg1VarName * exp700;
+      $Arg0VecType underflow_p0_z = $Arg2VarName * exp700;
+      $Arg0VecType underflow_sum = underflow_p0_x * underflow_p0_x + underflow_p0_y * underflow_p0_y + underflow_p0_z * underflow_p0_z;
+      sum_multiplier = select( sum_multiplier, expMinus700, underflow_mask );
+      sum = select( sum, underflow_sum, underflow_mask);
     }
     return sqrt( sum ) * sum_multiplier;
   }]>;
@@ -293,13 +293,13 @@ OclBuiltinImpl soa_length4_f32 = OclBuiltinImpl<soa_length4 , sp_fp_soa_types, 0
     int$VecLength underflow_mask = sum < (2 * FLT_MIN / FLT_EPSILON);
     if( intel_movemask(overflow_mask) || intel_movemask(underflow_mask) )
     {
-        double$VecLength dp_p0_x = convert_double$VecLength($Arg0VarName);
-        double$VecLength dp_p0_y = convert_double$VecLength($Arg1VarName);
-        double$VecLength dp_p0_z = convert_double$VecLength($Arg2VarName);
-        double$VecLength dp_p0_w = convert_double$VecLength($Arg3VarName);
-        double$VecLength dp_sum = (dp_p0_x * dp_p0_x) + (dp_p0_y * dp_p0_y) + (dp_p0_z * dp_p0_z) + (dp_p0_w * dp_p0_w);
-        dp_sum = sqrt( dp_sum );
-        return convert_float$VecLength( dp_sum );
+      double$VecLength dp_p0_x = convert_double$VecLength($Arg0VarName);
+      double$VecLength dp_p0_y = convert_double$VecLength($Arg1VarName);
+      double$VecLength dp_p0_z = convert_double$VecLength($Arg2VarName);
+      double$VecLength dp_p0_w = convert_double$VecLength($Arg3VarName);
+      double$VecLength dp_sum = (dp_p0_x * dp_p0_x) + (dp_p0_y * dp_p0_y) + (dp_p0_z * dp_p0_z) + (dp_p0_w * dp_p0_w);
+      dp_sum = sqrt( dp_sum );
+      return convert_float$VecLength( dp_sum );
     }
     return sqrt( sum );
   }]>;
@@ -311,23 +311,23 @@ OclBuiltinImpl soa_length4_f64 = OclBuiltinImpl<soa_length4 , dp_fp_soa_types, 0
     long$VecLength underflow_mask = (sum  < (2 * DBL_MIN / DBL_EPSILON));
     if ( intel_movemask(overflow_mask)  )
     {
-        $Arg0VecType overflow_p0_x = $Arg0VarName * expMinus600;
-        $Arg0VecType overflow_p0_y = $Arg1VarName * expMinus600;
-        $Arg0VecType overflow_p0_z = $Arg2VarName * expMinus600;
-        $Arg0VecType overflow_p0_w = $Arg3VarName * expMinus600;
-        $Arg0VecType overflow_sum = overflow_p0_x * overflow_p0_x + overflow_p0_y * overflow_p0_y + overflow_p0_z * overflow_p0_z + overflow_p0_w * overflow_p0_w;
-        sum_multiplier = select( sum_multiplier, exp600, overflow_mask );
-        sum = select( sum, overflow_sum, overflow_mask);
+      $Arg0VecType overflow_p0_x = $Arg0VarName * expMinus600;
+      $Arg0VecType overflow_p0_y = $Arg1VarName * expMinus600;
+      $Arg0VecType overflow_p0_z = $Arg2VarName * expMinus600;
+      $Arg0VecType overflow_p0_w = $Arg3VarName * expMinus600;
+      $Arg0VecType overflow_sum = overflow_p0_x * overflow_p0_x + overflow_p0_y * overflow_p0_y + overflow_p0_z * overflow_p0_z + overflow_p0_w * overflow_p0_w;
+      sum_multiplier = select( sum_multiplier, exp600, overflow_mask );
+      sum = select( sum, overflow_sum, overflow_mask);
     }
     if ( intel_movemask(underflow_mask) )
     {
-        $Arg0VecType underflow_p0_x = $Arg0VarName * exp700;
-        $Arg0VecType underflow_p0_y = $Arg1VarName * exp700;
-        $Arg0VecType underflow_p0_z = $Arg2VarName * exp700;
-        $Arg0VecType underflow_p0_w = $Arg3VarName * exp700;
-        $Arg0VecType underflow_sum = underflow_p0_x * underflow_p0_x + underflow_p0_y * underflow_p0_y + underflow_p0_z * underflow_p0_z + underflow_p0_w * underflow_p0_w;
-        sum_multiplier = select( sum_multiplier, expMinus700, underflow_mask );
-        sum = select( sum, underflow_sum, underflow_mask);
+      $Arg0VecType underflow_p0_x = $Arg0VarName * exp700;
+      $Arg0VecType underflow_p0_y = $Arg1VarName * exp700;
+      $Arg0VecType underflow_p0_z = $Arg2VarName * exp700;
+      $Arg0VecType underflow_p0_w = $Arg3VarName * exp700;
+      $Arg0VecType underflow_sum = underflow_p0_x * underflow_p0_x + underflow_p0_y * underflow_p0_y + underflow_p0_z * underflow_p0_z + underflow_p0_w * underflow_p0_w;
+      sum_multiplier = select( sum_multiplier, expMinus700, underflow_mask );
+      sum = select( sum, underflow_sum, underflow_mask);
     }
     return sqrt( sum ) * sum_multiplier;
   }]>;
@@ -391,12 +391,12 @@ OclBuiltinImpl soa_normalize2_f32 = OclBuiltinImpl<soa_normalize2 , sp_fp_soa_ty
 
     if( intel_movemask( inf_mask ) )
     {
-        float$VecLength temp_x = (fabs($Arg0VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg0VarName ) : copysign( (float$VecLength)0.0f, $Arg0VarName );
-        float$VecLength temp_y = (fabs($Arg1VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg1VarName ) : copysign( (float$VecLength)0.0f, $Arg1VarName );
-        double$VecLength temp_x_d = convert_double$VecLength(temp_x);
-        double$VecLength temp_y_d = convert_double$VecLength(temp_y);
-        length_inf = temp_x_d * temp_x_d + temp_y_d * temp_y_d;
-        length_inf = sqrt(length_inf);
+      float$VecLength temp_x = (fabs($Arg0VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg0VarName ) : copysign( (float$VecLength)0.0f, $Arg0VarName );
+      float$VecLength temp_y = (fabs($Arg1VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg1VarName ) : copysign( (float$VecLength)0.0f, $Arg1VarName );
+      double$VecLength temp_x_d = convert_double$VecLength(temp_x);
+      double$VecLength temp_y_d = convert_double$VecLength(temp_y);
+      length_inf = temp_x_d * temp_x_d + temp_y_d * temp_y_d;
+      length_inf = sqrt(length_inf);
     }
 
     length = sqrt(length);
@@ -418,49 +418,49 @@ OclBuiltinImpl soa_normalize2_f64 = OclBuiltinImpl<soa_normalize2 , dp_fp_soa_ty
 
     if( intel_movemask(underflow_mask) )
     {
-        double$VecLength underflow_total = 0.0;
-        double$VecLength t_x, t_y;
-        t_x = $Arg0VarName * exp700;
-        t_y = $Arg1VarName * exp700;
-        underflow_total = t_x * t_x + t_y * t_y;
-        underflow_zero_mask = (underflow_total == 0.0);
-        underflow_zero_mask = underflow_zero_mask;
-        $Arg0VarName = select($Arg0VarName, t_x, underflow_mask);
-        $Arg1VarName = select($Arg1VarName, t_y, underflow_mask);
-        total = select( total, underflow_total, underflow_mask);
+      double$VecLength underflow_total = 0.0;
+      double$VecLength t_x, t_y;
+      t_x = $Arg0VarName * exp700;
+      t_y = $Arg1VarName * exp700;
+      underflow_total = t_x * t_x + t_y * t_y;
+      underflow_zero_mask = (underflow_total == 0.0);
+      underflow_zero_mask = underflow_zero_mask;
+      $Arg0VarName = select($Arg0VarName, t_x, underflow_mask);
+      $Arg1VarName = select($Arg1VarName, t_y, underflow_mask);
+      total = select( total, underflow_total, underflow_mask);
     }
 
     if( intel_movemask(overflow_mask) )
     {
-        double$VecLength scale = expMinus512_2;
-        double$VecLength overflow_total = 0;
-        double$VecLength t_x, t_y;
-        t_x = $Arg0VarName * scale;
-        t_y = $Arg1VarName * scale;
-        overflow_total = t_x * t_x + t_y * t_y;
-        long$VecLength still_overflow_mask = (overflow_total == INFINITY);
+      double$VecLength scale = expMinus512_2;
+      double$VecLength overflow_total = 0;
+      double$VecLength t_x, t_y;
+      t_x = $Arg0VarName * scale;
+      t_y = $Arg1VarName * scale;
+      overflow_total = t_x * t_x + t_y * t_y;
+      long$VecLength still_overflow_mask = (overflow_total == INFINITY);
 
-        if( intel_movemask(still_overflow_mask) )
-        {
-            double$VecLength stil_overflow_total = 0.0;
-            double$VecLength t_of_x, t_of_y;
+      if( intel_movemask(still_overflow_mask) )
+      {
+        double$VecLength stil_overflow_total = 0.0;
+        double$VecLength t_of_x, t_of_y;
 
-            long$VecLength is_inf_mask = isinf( t_x );
-            t_of_x = select( copysign(0.0, $Arg0VarName), copysign(1.0, $Arg0VarName), is_inf_mask);
-            stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
+        long$VecLength is_inf_mask = isinf( t_x );
+        t_of_x = select( copysign(0.0, $Arg0VarName), copysign(1.0, $Arg0VarName), is_inf_mask);
+        stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
-            is_inf_mask = isinf( t_y );
-            t_of_y = select( copysign(0.0, $Arg1VarName), copysign(1.0, $Arg1VarName), is_inf_mask);
-            stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
+        is_inf_mask = isinf( t_y );
+        t_of_y = select( copysign(0.0, $Arg1VarName), copysign(1.0, $Arg1VarName), is_inf_mask);
+        stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
-            t_x = select(t_x, t_of_x, still_overflow_mask);
-            t_y = select(t_y, t_of_y, still_overflow_mask);
-            overflow_total = select(overflow_total, stil_overflow_total, still_overflow_mask);
-        }
+        t_x = select(t_x, t_of_x, still_overflow_mask);
+        t_y = select(t_y, t_of_y, still_overflow_mask);
+        overflow_total = select(overflow_total, stil_overflow_total, still_overflow_mask);
+      }
 
-        $Arg0VarName = select($Arg0VarName, t_x, overflow_mask);
-        $Arg1VarName = select($Arg1VarName, t_y, overflow_mask);
-        total = select(total, overflow_total, overflow_mask);
+      $Arg0VarName = select($Arg0VarName, t_x, overflow_mask);
+      $Arg1VarName = select($Arg1VarName, t_y, overflow_mask);
+      total = select(total, overflow_total, overflow_mask);
     }
 
     value = sqrt( total );
@@ -479,14 +479,14 @@ OclBuiltinImpl soa_normalize3_f32 = OclBuiltinImpl<soa_normalize3 , sp_fp_soa_ty
 
     if( intel_movemask( inf_mask ) )
     {
-        float$VecLength temp_x = (fabs($Arg0VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg0VarName ) : copysign( (float$VecLength)0.0f, $Arg0VarName );
-        float$VecLength temp_y = (fabs($Arg1VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg1VarName ) : copysign( (float$VecLength)0.0f, $Arg1VarName );
-        float$VecLength temp_z = (fabs($Arg2VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg2VarName ) : copysign( (float$VecLength)0.0f, $Arg2VarName );
-        double$VecLength temp_x_d = convert_double$VecLength(temp_x);
-        double$VecLength temp_y_d = convert_double$VecLength(temp_y);
-        double$VecLength temp_z_d = convert_double$VecLength(temp_z);
-        length_inf = temp_x_d * temp_x_d + temp_y_d * temp_y_d + temp_z_d * temp_z_d;
-        length_inf = sqrt(length_inf);
+      float$VecLength temp_x = (fabs($Arg0VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg0VarName ) : copysign( (float$VecLength)0.0f, $Arg0VarName );
+      float$VecLength temp_y = (fabs($Arg1VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg1VarName ) : copysign( (float$VecLength)0.0f, $Arg1VarName );
+      float$VecLength temp_z = (fabs($Arg2VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg2VarName ) : copysign( (float$VecLength)0.0f, $Arg2VarName );
+      double$VecLength temp_x_d = convert_double$VecLength(temp_x);
+      double$VecLength temp_y_d = convert_double$VecLength(temp_y);
+      double$VecLength temp_z_d = convert_double$VecLength(temp_z);
+      length_inf = temp_x_d * temp_x_d + temp_y_d * temp_y_d + temp_z_d * temp_z_d;
+      length_inf = sqrt(length_inf);
     }
 
     length = sqrt(length);
@@ -511,58 +511,58 @@ OclBuiltinImpl soa_normalize3_f64 = OclBuiltinImpl<soa_normalize3 , dp_fp_soa_ty
 
     if( intel_movemask(underflow_mask) )
     {
-        double$VecLength underflow_total = 0.0;
-        double$VecLength t_x, t_y, t_z;
-        t_x = $Arg0VarName * exp700;
-        t_y = $Arg1VarName * exp700;
-        t_z = $Arg2VarName * exp700;
-        underflow_total = t_x * t_x + t_y * t_y + t_z * t_z;
-        underflow_zero_mask = (underflow_total == 0.0);
-        underflow_zero_mask = underflow_zero_mask;
-        $Arg0VarName = select($Arg0VarName, t_x, underflow_mask);
-        $Arg1VarName = select($Arg1VarName, t_y, underflow_mask);
-        $Arg2VarName = select($Arg2VarName, t_z, underflow_mask);
-        total = select( total, underflow_total, underflow_mask);
+      double$VecLength underflow_total = 0.0;
+      double$VecLength t_x, t_y, t_z;
+      t_x = $Arg0VarName * exp700;
+      t_y = $Arg1VarName * exp700;
+      t_z = $Arg2VarName * exp700;
+      underflow_total = t_x * t_x + t_y * t_y + t_z * t_z;
+      underflow_zero_mask = (underflow_total == 0.0);
+      underflow_zero_mask = underflow_zero_mask;
+      $Arg0VarName = select($Arg0VarName, t_x, underflow_mask);
+      $Arg1VarName = select($Arg1VarName, t_y, underflow_mask);
+      $Arg2VarName = select($Arg2VarName, t_z, underflow_mask);
+      total = select( total, underflow_total, underflow_mask);
     }
 
     if( intel_movemask(overflow_mask) )
     {
-        double$VecLength scale = expMinus512_2;
-        double$VecLength overflow_total = 0;
-        double$VecLength t_x, t_y, t_z;
-        t_x = $Arg0VarName * scale;
-        t_y = $Arg1VarName * scale;
-        t_z = $Arg2VarName * scale;
-        overflow_total = t_x * t_x + t_y * t_y + t_z * t_z;
-        long$VecLength still_overflow_mask = (overflow_total == INFINITY);
+      double$VecLength scale = expMinus512_2;
+      double$VecLength overflow_total = 0;
+      double$VecLength t_x, t_y, t_z;
+      t_x = $Arg0VarName * scale;
+      t_y = $Arg1VarName * scale;
+      t_z = $Arg2VarName * scale;
+      overflow_total = t_x * t_x + t_y * t_y + t_z * t_z;
+      long$VecLength still_overflow_mask = (overflow_total == INFINITY);
 
-        if( intel_movemask(still_overflow_mask) )
-        {
-            double$VecLength stil_overflow_total = 0.0;
-            double$VecLength t_of_x, t_of_y, t_of_z;
+      if( intel_movemask(still_overflow_mask) )
+      {
+        double$VecLength stil_overflow_total = 0.0;
+        double$VecLength t_of_x, t_of_y, t_of_z;
 
-            long$VecLength is_inf_mask = isinf( t_x );
-            t_of_x = select( copysign(0.0, $Arg0VarName), copysign(1.0, $Arg0VarName), is_inf_mask);
-            stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
+        long$VecLength is_inf_mask = isinf( t_x );
+        t_of_x = select( copysign(0.0, $Arg0VarName), copysign(1.0, $Arg0VarName), is_inf_mask);
+        stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
-            is_inf_mask = isinf( t_y );
-            t_of_y = select( copysign(0.0, $Arg1VarName), copysign(1.0, $Arg1VarName), is_inf_mask);
-            stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
+        is_inf_mask = isinf( t_y );
+        t_of_y = select( copysign(0.0, $Arg1VarName), copysign(1.0, $Arg1VarName), is_inf_mask);
+        stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
-            is_inf_mask = isinf( t_z );
-            t_of_z = select( copysign(0.0, $Arg2VarName), copysign(1.0, $Arg2VarName), is_inf_mask);
-            stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
+        is_inf_mask = isinf( t_z );
+        t_of_z = select( copysign(0.0, $Arg2VarName), copysign(1.0, $Arg2VarName), is_inf_mask);
+        stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
-            t_x = select(t_x, t_of_x, still_overflow_mask);
-            t_y = select(t_y, t_of_y, still_overflow_mask);
-            t_z = select(t_z, t_of_z, still_overflow_mask);
-            overflow_total = select(overflow_total, stil_overflow_total, still_overflow_mask);
-        }
+        t_x = select(t_x, t_of_x, still_overflow_mask);
+        t_y = select(t_y, t_of_y, still_overflow_mask);
+        t_z = select(t_z, t_of_z, still_overflow_mask);
+        overflow_total = select(overflow_total, stil_overflow_total, still_overflow_mask);
+      }
 
-        $Arg0VarName = select($Arg0VarName, t_x, overflow_mask);
-        $Arg1VarName = select($Arg1VarName, t_y, overflow_mask);
-        $Arg2VarName = select($Arg2VarName, t_z, overflow_mask);
-        total = select(total, overflow_total, overflow_mask);
+      $Arg0VarName = select($Arg0VarName, t_x, overflow_mask);
+      $Arg1VarName = select($Arg1VarName, t_y, overflow_mask);
+      $Arg2VarName = select($Arg2VarName, t_z, overflow_mask);
+      total = select(total, overflow_total, overflow_mask);
     }
 
     value = sqrt( total );
@@ -583,16 +583,16 @@ OclBuiltinImpl soa_normalize4_f32 = OclBuiltinImpl<soa_normalize4 , sp_fp_soa_ty
 
     if( intel_movemask( inf_mask ) )
     {
-        float$VecLength temp_x = (fabs($Arg0VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg0VarName ) : copysign( (float$VecLength)0.0f, $Arg0VarName );
-        float$VecLength temp_y = (fabs($Arg1VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg1VarName ) : copysign( (float$VecLength)0.0f, $Arg1VarName );
-        float$VecLength temp_z = (fabs($Arg2VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg2VarName ) : copysign( (float$VecLength)0.0f, $Arg2VarName );
-        float$VecLength temp_w = (fabs($Arg3VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg3VarName ) : copysign( (float$VecLength)0.0f, $Arg3VarName );
-        double$VecLength temp_x_d = convert_double$VecLength(temp_x);
-        double$VecLength temp_y_d = convert_double$VecLength(temp_y);
-        double$VecLength temp_z_d = convert_double$VecLength(temp_z);
-        double$VecLength temp_w_d = convert_double$VecLength(temp_w);
-        length_inf = temp_x_d * temp_x_d + temp_y_d * temp_y_d + temp_z_d * temp_z_d + temp_w_d * temp_w_d;
-        length_inf = sqrt(length_inf);
+      float$VecLength temp_x = (fabs($Arg0VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg0VarName ) : copysign( (float$VecLength)0.0f, $Arg0VarName );
+      float$VecLength temp_y = (fabs($Arg1VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg1VarName ) : copysign( (float$VecLength)0.0f, $Arg1VarName );
+      float$VecLength temp_z = (fabs($Arg2VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg2VarName ) : copysign( (float$VecLength)0.0f, $Arg2VarName );
+      float$VecLength temp_w = (fabs($Arg3VarName) == INFINITY) ? copysign( (float$VecLength)1.0f, $Arg3VarName ) : copysign( (float$VecLength)0.0f, $Arg3VarName );
+      double$VecLength temp_x_d = convert_double$VecLength(temp_x);
+      double$VecLength temp_y_d = convert_double$VecLength(temp_y);
+      double$VecLength temp_z_d = convert_double$VecLength(temp_z);
+      double$VecLength temp_w_d = convert_double$VecLength(temp_w);
+      length_inf = temp_x_d * temp_x_d + temp_y_d * temp_y_d + temp_z_d * temp_z_d + temp_w_d * temp_w_d;
+      length_inf = sqrt(length_inf);
     }
 
     length = sqrt(length);
@@ -620,67 +620,67 @@ OclBuiltinImpl soa_normalize4_f64 = OclBuiltinImpl<soa_normalize4 , dp_fp_soa_ty
 
     if( intel_movemask(underflow_mask) )
     {
-        double$VecLength underflow_total = 0.0;
-        double$VecLength t_x, t_y, t_z, t_w;
-        t_x = $Arg0VarName * exp700;
-        t_y = $Arg1VarName * exp700;
-        t_z = $Arg2VarName * exp700;
-        t_w = $Arg3VarName * exp700;
-        underflow_total = t_x * t_x + t_y * t_y + t_z * t_z + t_w * t_w;
-        underflow_zero_mask = (underflow_total == 0.0);
-        underflow_zero_mask = underflow_zero_mask;
-        $Arg0VarName = select($Arg0VarName, t_x, underflow_mask);
-        $Arg1VarName = select($Arg1VarName, t_y, underflow_mask);
-        $Arg2VarName = select($Arg2VarName, t_z, underflow_mask);
-        $Arg3VarName = select($Arg3VarName, t_w, underflow_mask);
-        total = select( total, underflow_total, underflow_mask);
+      double$VecLength underflow_total = 0.0;
+      double$VecLength t_x, t_y, t_z, t_w;
+      t_x = $Arg0VarName * exp700;
+      t_y = $Arg1VarName * exp700;
+      t_z = $Arg2VarName * exp700;
+      t_w = $Arg3VarName * exp700;
+      underflow_total = t_x * t_x + t_y * t_y + t_z * t_z + t_w * t_w;
+      underflow_zero_mask = (underflow_total == 0.0);
+      underflow_zero_mask = underflow_zero_mask;
+      $Arg0VarName = select($Arg0VarName, t_x, underflow_mask);
+      $Arg1VarName = select($Arg1VarName, t_y, underflow_mask);
+      $Arg2VarName = select($Arg2VarName, t_z, underflow_mask);
+      $Arg3VarName = select($Arg3VarName, t_w, underflow_mask);
+      total = select( total, underflow_total, underflow_mask);
     }
 
     if( intel_movemask(overflow_mask) )
     {
-        double$VecLength scale = expMinus512_2;
-        double$VecLength overflow_total = 0;
-        double$VecLength t_x, t_y, t_z, t_w;
-        t_x = $Arg0VarName * scale;
-        t_y = $Arg1VarName * scale;
-        t_z = $Arg2VarName * scale;
-        t_w = $Arg3VarName * scale;
-        overflow_total = t_x * t_x + t_y * t_y + t_z * t_z + t_w * t_w;
-        long$VecLength still_overflow_mask = (overflow_total == INFINITY);
+      double$VecLength scale = expMinus512_2;
+      double$VecLength overflow_total = 0;
+      double$VecLength t_x, t_y, t_z, t_w;
+      t_x = $Arg0VarName * scale;
+      t_y = $Arg1VarName * scale;
+      t_z = $Arg2VarName * scale;
+      t_w = $Arg3VarName * scale;
+      overflow_total = t_x * t_x + t_y * t_y + t_z * t_z + t_w * t_w;
+      long$VecLength still_overflow_mask = (overflow_total == INFINITY);
 
-        if( intel_movemask(still_overflow_mask) )
-        {
-            double$VecLength stil_overflow_total = 0.0;
-            double$VecLength t_of_x, t_of_y, t_of_z, t_of_w;
+      if( intel_movemask(still_overflow_mask) )
+      {
+        double$VecLength stil_overflow_total = 0.0;
+        double$VecLength t_of_x, t_of_y, t_of_z, t_of_w;
 
-            long$VecLength is_inf_mask = isinf( t_x );
-            t_of_x = select( copysign(0.0, $Arg0VarName), copysign(1.0, $Arg0VarName), is_inf_mask);
-            stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
+        long$VecLength is_inf_mask = isinf( t_x );
+        t_of_x = select( copysign(0.0, $Arg0VarName), copysign(1.0, $Arg0VarName), is_inf_mask);
+        stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
-            is_inf_mask = isinf( t_y );
-            t_of_y = select( copysign(0.0, $Arg1VarName), copysign(1.0, $Arg1VarName), is_inf_mask);
-            stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
+        is_inf_mask = isinf( t_y );
+        t_of_y = select( copysign(0.0, $Arg1VarName), copysign(1.0, $Arg1VarName), is_inf_mask);
+        stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
-            is_inf_mask = isinf( t_z );
-            t_of_z = select( copysign(0.0, $Arg2VarName), copysign(1.0, $Arg2VarName), is_inf_mask);
-            stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
+        is_inf_mask = isinf( t_z );
+        t_of_z = select( copysign(0.0, $Arg2VarName), copysign(1.0, $Arg2VarName), is_inf_mask);
+        stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
-            is_inf_mask = isinf( t_w );
-            t_of_w = select( copysign(0.0, $Arg3VarName), copysign(1.0, $Arg3VarName), is_inf_mask);
-            stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
+        is_inf_mask = isinf( t_w );
+        t_of_w = select( copysign(0.0, $Arg3VarName), copysign(1.0, $Arg3VarName), is_inf_mask);
+        stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
-            t_x = select(t_x, t_of_x, still_overflow_mask);
-            t_y = select(t_y, t_of_y, still_overflow_mask);
-            t_z = select(t_z, t_of_z, still_overflow_mask);
-            t_w = select(t_w, t_of_w, still_overflow_mask);
-            overflow_total = select(overflow_total, stil_overflow_total, still_overflow_mask);
-        }
+        t_x = select(t_x, t_of_x, still_overflow_mask);
+        t_y = select(t_y, t_of_y, still_overflow_mask);
+        t_z = select(t_z, t_of_z, still_overflow_mask);
+        t_w = select(t_w, t_of_w, still_overflow_mask);
+        overflow_total = select(overflow_total, stil_overflow_total, still_overflow_mask);
+      }
 
-        $Arg0VarName = select($Arg0VarName, t_x, overflow_mask);
-        $Arg1VarName = select($Arg1VarName, t_y, overflow_mask);
-        $Arg2VarName = select($Arg2VarName, t_z, overflow_mask);
-        $Arg3VarName = select($Arg3VarName, t_w, overflow_mask);
-        total = select(total, overflow_total, overflow_mask);
+      $Arg0VarName = select($Arg0VarName, t_x, overflow_mask);
+      $Arg1VarName = select($Arg1VarName, t_y, overflow_mask);
+      $Arg2VarName = select($Arg2VarName, t_z, overflow_mask);
+      $Arg3VarName = select($Arg3VarName, t_w, overflow_mask);
+      total = select(total, overflow_total, overflow_mask);
     }
 
     value = sqrt( total );

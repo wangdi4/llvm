@@ -33,7 +33,7 @@ add_executable(
 )
 
 add_dependencies(${TARGET_NAME} 
-	clang
+  clang
 )
 
 target_link_libraries(${TARGET_NAME}
@@ -57,3 +57,5 @@ if( CMAKE_CROSSCOMPILING )
 endif( CMAKE_CROSSCOMPILING )
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

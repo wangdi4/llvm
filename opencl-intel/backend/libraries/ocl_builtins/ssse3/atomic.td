@@ -223,142 +223,141 @@ OclBuiltinImpl atom_xor_l     = OclBuiltinImpl<atom_xor_local, [v1i32, v1u32], 0
 
 //atomic_init
 code atomic_init_code = [{
-  *($Arg0atom2gentype)$Arg0VarName = $Arg1VarName;
-}];
+    *($Arg0atom2gentype)$Arg0VarName = $Arg1VarName;
+  }];
 OclBuiltinImpl atomic_init_l_impl = OclBuiltinImpl<atomic_init_l, atomic_init_l.Types, 0, atomic_init_code>;
 OclBuiltinImpl atomic_init_g_impl = OclBuiltinImpl<atomic_init_g, atomic_init_g.Types, 0, atomic_init_code>;
 
 // atomic_store
 OclBuiltinImpl atomic_store_g_impl = OclBuiltinImpl<atomic_store_g, atomic_store_g.Types, 0, [{
-  atomic_store_explicit($Arg0VarName, $Arg1VarName, memory_order_seq_cst, memory_scope_device);
-}]>;
+    atomic_store_explicit($Arg0VarName, $Arg1VarName, memory_order_seq_cst, memory_scope_device);
+  }]>;
 
 OclBuiltinImpl atomic_store_expl_g_impl = OclBuiltinImpl<atomic_store_explicit_g, atomic_store_explicit_g.Types, 0, [{
-  atomic_store_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, memory_scope_device);
-}]>;
+    atomic_store_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_store_expl_scope_g_impl = OclBuiltinImpl<atomic_store_explicit_scope_g, atomic_store_explicit_scope_g.Types, 0, [{
-  if($Arg2VarName == memory_order_seq_cst) {
-    (void) atomic_exchange_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
-    atomic_work_item_fence($Arg2VarName, $Arg3VarName);
+    if($Arg2VarName == memory_order_seq_cst) {
+      (void) atomic_exchange_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
+      atomic_work_item_fence($Arg2VarName, $Arg3VarName);
 
-  } else if($Arg2VarName == memory_order_acq_rel ||
-            $Arg2VarName == memory_order_release) {
-    *($Arg0atom2gentype)$Arg0VarName = $Arg1VarName;
-    atomic_work_item_fence($Arg2VarName, $Arg3VarName);
+    } else if($Arg2VarName == memory_order_acq_rel ||
+              $Arg2VarName == memory_order_release) {
+      *($Arg0atom2gentype)$Arg0VarName = $Arg1VarName;
+      atomic_work_item_fence($Arg2VarName, $Arg3VarName);
 
-  } else if($Arg2VarName == memory_order_acquire ||
-            $Arg2VarName == memory_order_relaxed) {     // relaxed is here just for code minimization
-    atomic_work_item_fence($Arg2VarName, $Arg3VarName); // relaxed fence do nothing
-    *($Arg0atom2gentype)$Arg0VarName = $Arg1VarName;
-  }
-
-}]>;
+    } else if($Arg2VarName == memory_order_acquire ||
+              $Arg2VarName == memory_order_relaxed) {     // relaxed is here just for code minimization
+      atomic_work_item_fence($Arg2VarName, $Arg3VarName); // relaxed fence do nothing
+      *($Arg0atom2gentype)$Arg0VarName = $Arg1VarName;
+    }
+  }]>;
 
 OclBuiltinImpl atomic_store_l_impl = OclBuiltinImpl<atomic_store_l, atomic_store_l.Types, 0, [{
-  atomic_store_explicit($Arg0VarName, $Arg1VarName, memory_order_seq_cst, memory_scope_device);
-}]>;
+    atomic_store_explicit($Arg0VarName, $Arg1VarName, memory_order_seq_cst, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_store_expl_l_impl = OclBuiltinImpl<atomic_store_explicit_l, atomic_store_explicit_l.Types, 0, [{
-  atomic_store_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, memory_scope_device);
-}]>;
+    atomic_store_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_store_expl_scope_l_impl = OclBuiltinImpl<atomic_store_explicit_scope_l, atomic_store_explicit_scope_l.Types, 0, [{
-  // this implementation relies on that a workgroup is executed by single phy. thread
-  *(volatile local $Arg1Type *)$Arg0VarName = $Arg1VarName;
-  // avoid warnings about unused variables
-  (void) $Arg2VarName;
-  (void) $Arg3VarName;
-}]>;
+    // this implementation relies on that a workgroup is executed by single phy. thread
+    *(volatile local $Arg1Type *)$Arg0VarName = $Arg1VarName;
+    // avoid warnings about unused variables
+    (void) $Arg2VarName;
+    (void) $Arg3VarName;
+  }]>;
 
 // atomic_load
 OclBuiltinImpl atomic_load_g_impl = OclBuiltinImpl<atomic_load_g, atomic_load_g.Types, 0, [{
-  return atomic_load_explicit($Arg0VarName, memory_order_seq_cst, memory_scope_device);
-}]>;
+    return atomic_load_explicit($Arg0VarName, memory_order_seq_cst, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_load_expl_g_impl = OclBuiltinImpl<atomic_load_explicit_g, atomic_load_explicit_g.Types, 0, [{
-  return atomic_load_explicit($Arg0VarName, $Arg1VarName, memory_scope_device);
-}]>;
+    return atomic_load_explicit($Arg0VarName, $Arg1VarName, memory_scope_device);
+  }]>;
 
 OclBuiltinImpl atomic_load_expl_scope_g_impl = OclBuiltinImpl<atomic_load_explicit_scope_g, atomic_load_explicit_scope_g.Types, 0, [{
-  atomic_work_item_fence($Arg1VarName, $Arg2VarName);
-  return *($Arg0atom2gentype)$Arg0VarName;
-}]>;
+    atomic_work_item_fence($Arg1VarName, $Arg2VarName);
+    return *($Arg0atom2gentype)$Arg0VarName;
+  }]>;
 
 OclBuiltinImpl atomic_load_l_impl = OclBuiltinImpl<atomic_load_l, atomic_load_l.Types, 0, [{
-  return atomic_load_explicit($Arg0VarName, memory_order_seq_cst, memory_scope_device);
-}]>;
+    return atomic_load_explicit($Arg0VarName, memory_order_seq_cst, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_load_expl_l_impl = OclBuiltinImpl<atomic_load_explicit_l, atomic_load_explicit_l.Types, 0, [{
-  return atomic_load_explicit($Arg0VarName, $Arg1VarName, memory_scope_device);
-}]>;
+    return atomic_load_explicit($Arg0VarName, $Arg1VarName, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_load_expl_scope_l_impl = OclBuiltinImpl<atomic_load_explicit_scope_l, atomic_load_explicit_scope_l.Types, 0, [{
-  // this implementation relies on that a workgroup is executed by single phy. thread
-  return *(volatile local $ReturnType *)$Arg0VarName;
-  // avoid warnings about unused variables
-  (void) $Arg1VarName;
-  (void) $Arg2VarName;
-}]>;
+    // this implementation relies on that a workgroup is executed by single phy. thread
+    return *(volatile local $ReturnType *)$Arg0VarName;
+    // avoid warnings about unused variables
+    (void) $Arg1VarName;
+    (void) $Arg2VarName;
+  }]>;
 
 // atomic_exchange
 OclBuiltinImpl atomic_exchange_g_impl = OclBuiltinImpl<atomic_exchange_g, atomic_exchange_g.Types, 0, [{
-  return atomic_exchange_explicit($Arg0VarName, $Arg1VarName, memory_order_seq_cst, memory_scope_device);
-}]>;
+    return atomic_exchange_explicit($Arg0VarName, $Arg1VarName, memory_order_seq_cst, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_exchange_expl_g_impl = OclBuiltinImpl<atomic_exchange_explicit_g, atomic_exchange_explicit_g.Types, 0, [{
-  return atomic_exchange_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, memory_scope_device);
-}]>;
+    return atomic_exchange_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_exchange_expl_scope_g_impl = OclBuiltinImpl<atomic_exchange_explicit_scope_g, atomic_exchange_explicit_scope_g.Types, 0, [{
-  atomic_work_item_fence($Arg2VarName, $Arg3VarName);
-  int old = __sync_lock_test_and_set((int*)$Arg0VarName, as_int($Arg1VarName));
-  return as_$ReturnType(old);
-}]>;
+    atomic_work_item_fence($Arg2VarName, $Arg3VarName);
+    int old = __sync_lock_test_and_set((int*)$Arg0VarName, as_int($Arg1VarName));
+    return as_$ReturnType(old);
+  }]>;
 
 OclBuiltinImpl atomic_exchange_l_impl = OclBuiltinImpl<atomic_exchange_l, atomic_exchange_l.Types, 0, [{
-  return atomic_exchange_explicit($Arg0VarName, $Arg1VarName, memory_order_seq_cst, memory_scope_device);
-}]>;
+    return atomic_exchange_explicit($Arg0VarName, $Arg1VarName, memory_order_seq_cst, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_exchange_expl_l_impl = OclBuiltinImpl<atomic_exchange_explicit_l, atomic_exchange_explicit_l.Types, 0, [{
-  return atomic_exchange_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, memory_scope_device);
-}]>;
+    return atomic_exchange_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_exchange_expl_scope_l_impl = OclBuiltinImpl<atomic_exchange_explicit_scope_l, atomic_exchange_explicit_scope_l.Types, 0, [{
-  // this implementation relies on that a workgroup is executed by single phy. thread
-  $Arg1Type old = *($Arg0atom2gentype)$Arg0VarName;
-  *($Arg0atom2gentype)$Arg0VarName = $Arg1VarName;
-  (void) $Arg2VarName;
-  (void) $Arg3VarName;
-  return old;
-}]>;
+    // this implementation relies on that a workgroup is executed by single phy. thread
+    $Arg1Type old = *($Arg0atom2gentype)$Arg0VarName;
+    *($Arg0atom2gentype)$Arg0VarName = $Arg1VarName;
+    (void) $Arg2VarName;
+    (void) $Arg3VarName;
+    return old;
+  }]>;
 
 // atomic_compare_exchange_<strong|weak> code
 code atomic_compare_exchange_g_code = [{
-  int cmp = as_int(*$Arg1VarName);
-  // this turns into locked instruction which affects the memory in total ordering on Intel CPUs
-  int old = __sync_val_compare_and_swap((int*)$Arg0VarName, cmp, as_int($Arg2VarName));
+    int cmp = as_int(*$Arg1VarName);
+    // this turns into locked instruction which affects the memory in total ordering on Intel CPUs
+    int old = __sync_val_compare_and_swap((int*)$Arg0VarName, cmp, as_int($Arg2VarName));
 
-  if(old != cmp) {
+    if(old != cmp) {
       *$Arg1VarName = as_$Arg2Type(old);
       atomic_work_item_fence($Arg3VarName, $Arg5VarName);
-  } else {
+    } else {
       atomic_work_item_fence($Arg4VarName, $Arg5VarName);
-  }
-  return old == cmp;
-}];
+    }
+    return old == cmp;
+  }];
 code atomic_compare_exchange_l_code = [{
-  (void) $Arg3VarName;
-  (void) $Arg4VarName;
-  (void) $Arg5VarName;
+    (void) $Arg3VarName;
+    (void) $Arg4VarName;
+    (void) $Arg5VarName;
 
-  // this implementation relies on that a workgroup is executed by single phy. thread
-  $Arg2Type oldValue = *($Arg1Type)$Arg0VarName;
-  if(oldValue == *$Arg1VarName) {
-    *($Arg1Type)$Arg0VarName = $Arg2VarName;
-    return true;
-  }
-  *$Arg1VarName = oldValue;
-  return false;
-}];
+    // this implementation relies on that a workgroup is executed by single phy. thread
+    $Arg2Type oldValue = *($Arg1Type)$Arg0VarName;
+    if(oldValue == *$Arg1VarName) {
+      *($Arg1Type)$Arg0VarName = $Arg2VarName;
+      return true;
+    }
+    *$Arg1VarName = oldValue;
+    return false;
+  }];
 code atomic_compare_exchange_disp1st_code = [{
-  return atomic_compare_exchange_strong_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName,
-                                        memory_order_seq_cst, memory_order_relaxed, memory_scope_device);
-}];
+    return atomic_compare_exchange_strong_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName,
+                                          memory_order_seq_cst, memory_order_relaxed, memory_scope_device);
+  }];
 code atomic_compare_exchange_disp2nd_code = [{
-  return atomic_compare_exchange_strong_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName,
-                                        $Arg3VarName, $Arg4VarName, memory_scope_device);
-}];
+    return atomic_compare_exchange_strong_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName,
+                                          $Arg3VarName, $Arg4VarName, memory_scope_device);
+  }];
 
 // atomic_compare_exchange_strong
 // global global
@@ -454,11 +453,11 @@ OclBuiltinImpl atomic_compare_exchange_weak_expl_scope_l_pp_impl =
 
 // auxiliary code
 code ocl20_binop_code = [{
-  return $Arg0VarName $BINOP $Arg1VarName;
-}];
+    return $Arg0VarName $BINOP $Arg1VarName;
+  }];
 code ocl20_relop_code = [{
-  return $Arg0VarName $RELOP $Arg1VarName ? $Arg0VarName : $Arg1VarName;
-}];
+    return $Arg0VarName $RELOP $Arg1VarName ? $Arg0VarName : $Arg1VarName;
+  }];
 
 // auxiliary functions
 OclBuiltinImpl ocl20_add_impl = OclBuiltinImpl<ocl20_add, ocl20_add.Types, 0, ocl20_binop_code, ["$BINOP"->"+"]>;
@@ -471,44 +470,44 @@ OclBuiltinImpl ocl20_max_impl = OclBuiltinImpl<ocl20_max, ocl20_max.Types, 0, oc
 
 // atomic_fetch_key code
 code atomic_fetch_key_code = [{
-  return atomic_fetch_$KEY_explicit($Arg0VarName, $Arg1VarName, memory_order_seq_cst, memory_scope_device);
-}];
+    return atomic_fetch_$KEY_explicit($Arg0VarName, $Arg1VarName, memory_order_seq_cst, memory_scope_device);
+  }];
 code atomic_fetch_key_explicit_code = [{
-  return atomic_fetch_$KEY_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, memory_scope_device);
-}];
+    return atomic_fetch_$KEY_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, memory_scope_device);
+  }];
 code atomic_fetch_binop_explicit_scope_g_code = [{
-  atomic_work_item_fence($Arg2VarName, $Arg3VarName);
-  // this turns into locked instruction which affects the memory in total ordering on Intel CPUs
-  return as_$ReturnType(__sync_fetch_and_$KEY(($Arg1Type*)$Arg0VarName, $Arg1VarName));
-}];
+    atomic_work_item_fence($Arg2VarName, $Arg3VarName);
+    // this turns into locked instruction which affects the memory in total ordering on Intel CPUs
+    return as_$ReturnType(__sync_fetch_and_$KEY(($Arg1Type*)$Arg0VarName, $Arg1VarName));
+  }];
 code atomic_fetch_binop_explicit_scope_l_code = [{
-  (void) $Arg2VarName;
-  (void) $Arg3VarName;
-  // this implementation relies on that a workgroup is executed by single phy. thread
-  $Arg1Type old = *($Arg0atom2gentype)$Arg0VarName;
-  *($Arg0atom2gentype)$Arg0VarName = __ocl20_$KEY(old, $Arg1VarName);
-  return as_$ReturnType(old);
-}];
+    (void) $Arg2VarName;
+    (void) $Arg3VarName;
+    // this implementation relies on that a workgroup is executed by single phy. thread
+    $Arg1Type old = *($Arg0atom2gentype)$Arg0VarName;
+    *($Arg0atom2gentype)$Arg0VarName = __ocl20_$KEY(old, $Arg1VarName);
+    return as_$ReturnType(old);
+  }];
 code atomic_fetch_relop_explicit_scope_g_code = [{
-  // any atomic builtin imply memory fence with the specified memory order and scope
-  // so pass $Arg2VarName and $Arg3VarName to atomic_load_explicit
-  private $ReturnType old = atomic_load_explicit($Arg0VarName, $Arg2VarName, $Arg3VarName);
-  do {
-    if (old == __ocl20_$KEY(old, $Arg1VarName)) break;
-  } while(!atomic_compare_exchange_strong_explicit($Arg0VarName, &old, $Arg1VarName,
-                                                   memory_order_relaxed, memory_order_relaxed, $Arg3VarName));
-  // 1. The old value is result of "$KEY" so nothing has to be written, break and return the old value.
-  // 2. Otherwise if atomic_compare_exchange_strong fails then the old value has been changed, go to the 1st step.
-  // 3. Otherwise the old value wasn't result of "$KEY" and atomic_compare_exchange_strong succeeded.
-  //    So the new value has been written, return the old value
-  return old;
-}];
+    // any atomic builtin imply memory fence with the specified memory order and scope
+    // so pass $Arg2VarName and $Arg3VarName to atomic_load_explicit
+    private $ReturnType old = atomic_load_explicit($Arg0VarName, $Arg2VarName, $Arg3VarName);
+    do {
+      if (old == __ocl20_$KEY(old, $Arg1VarName)) break;
+    } while(!atomic_compare_exchange_strong_explicit($Arg0VarName, &old, $Arg1VarName,
+                                                     memory_order_relaxed, memory_order_relaxed, $Arg3VarName));
+    // 1. The old value is result of "$KEY" so nothing has to be written, break and return the old value.
+    // 2. Otherwise if atomic_compare_exchange_strong fails then the old value has been changed, go to the 1st step.
+    // 3. Otherwise the old value wasn't result of "$KEY" and atomic_compare_exchange_strong succeeded.
+    //    So the new value has been written, return the old value
+    return old;
+  }];
 code atomic_fetch_relop_explicit_scope_l_code = [{
-  // this implementation relies on that a workgroup is executed by single phy. thread
-  $Arg1Type old = *($Arg0atom2gentype)$Arg0VarName;
-  *($Arg0atom2gentype)$Arg0VarName = __ocl20_$KEY(old, $Arg1VarName);
-  return as_$ReturnType(old);
-}];
+    // this implementation relies on that a workgroup is executed by single phy. thread
+    $Arg1Type old = *($Arg0atom2gentype)$Arg0VarName;
+    *($Arg0atom2gentype)$Arg0VarName = __ocl20_$KEY(old, $Arg1VarName);
+    return as_$ReturnType(old);
+  }];
 
 // atomic_fetch_key builtins
 OclBuiltinImpl atomic_fetch_add_g_impl = OclBuiltinImpl<atomic_fetch_add_g, atomic_fetch_add_g.Types, 0, atomic_fetch_key_code, ["$KEY"->"add"]>;
@@ -569,69 +568,68 @@ OclBuiltinImpl atomic_fetch_max_explicit_scope_l_impl = OclBuiltinImpl<atomic_fe
 
 // atomic_flag_test_and_set
 OclBuiltinImpl atomic_flag_test_and_set_g_impl = OclBuiltinImpl<atomic_flag_test_and_set_g, atomic_flag_test_and_set_g.Types, 0, [{
-  return atomic_flag_test_and_set_explicit($Arg0VarName, memory_order_seq_cst, memory_scope_device);
-}]>;
+    return atomic_flag_test_and_set_explicit($Arg0VarName, memory_order_seq_cst, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_flag_test_and_set_explicit_g_impl = OclBuiltinImpl<atomic_flag_test_and_set_explicit_g, atomic_flag_test_and_set_explicit_g.Types, 0, [{
-  return atomic_flag_test_and_set_explicit($Arg0VarName, $Arg1VarName, memory_scope_device);
-}]>;
+    return atomic_flag_test_and_set_explicit($Arg0VarName, $Arg1VarName, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_flag_test_and_set_explicit_scope_g_impl = OclBuiltinImpl<atomic_flag_test_and_set_explicit_scope_g, atomic_flag_test_and_set_explicit_scope_g.Types, 0, [{
-  return atomic_exchange_explicit((volatile global atomic_int*)$Arg0VarName, 1, $Arg1VarName, $Arg2VarName);
-}]>;
+    return atomic_exchange_explicit((volatile global atomic_int*)$Arg0VarName, 1, $Arg1VarName, $Arg2VarName);
+  }]>;
 
 OclBuiltinImpl atomic_flag_test_and_set_l_impl = OclBuiltinImpl<atomic_flag_test_and_set_l, atomic_flag_test_and_set_l.Types, 0, [{
-  return atomic_flag_test_and_set_explicit($Arg0VarName, memory_order_relaxed, memory_scope_work_group);
-}]>;
+    return atomic_flag_test_and_set_explicit($Arg0VarName, memory_order_relaxed, memory_scope_work_group);
+  }]>;
 OclBuiltinImpl atomic_flag_test_and_set_explicit_l_impl = OclBuiltinImpl<atomic_flag_test_and_set_explicit_l, atomic_flag_test_and_set_explicit_l.Types, 0, [{
-  return atomic_flag_test_and_set_explicit($Arg0VarName, $Arg1VarName, memory_scope_work_group);
-}]>;
+    return atomic_flag_test_and_set_explicit($Arg0VarName, $Arg1VarName, memory_scope_work_group);
+  }]>;
 OclBuiltinImpl atomic_flag_test_and_set_explicit_scope_l_impl = OclBuiltinImpl<atomic_flag_test_and_set_explicit_scope_l, atomic_flag_test_and_set_explicit_scope_l.Types, 0, [{
-  return atomic_exchange_explicit((volatile local atomic_int*)$Arg0VarName, 1, $Arg1VarName, $Arg2VarName);
-}]>;
+    return atomic_exchange_explicit((volatile local atomic_int*)$Arg0VarName, 1, $Arg1VarName, $Arg2VarName);
+  }]>;
 
 //atomic_flag_clear
 OclBuiltinImpl atomic_flag_clear_g_impl = OclBuiltinImpl<atomic_flag_clear_g, atomic_flag_clear_g.Types, 0, [{
-  atomic_flag_clear_explicit($Arg0VarName, memory_order_seq_cst, memory_scope_device);
-}]>;
+    atomic_flag_clear_explicit($Arg0VarName, memory_order_seq_cst, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_flag_clear_explicit_g_impl = OclBuiltinImpl<atomic_flag_clear_explicit_g, atomic_flag_clear_explicit_g.Types, 0, [{
-  atomic_flag_clear_explicit($Arg0VarName, $Arg1VarName, memory_scope_device);
-}]>;
+    atomic_flag_clear_explicit($Arg0VarName, $Arg1VarName, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_flag_clear_explicit_scope_g_impl = OclBuiltinImpl<atomic_flag_clear_explicit_scope_g, atomic_flag_clear_explicit_scope_g.Types, 0, [{
-  (void) atomic_exchange_explicit((volatile global atomic_int*)$Arg0VarName, 0, $Arg1VarName, $Arg2VarName);
-}]>;
+    (void) atomic_exchange_explicit((volatile global atomic_int*)$Arg0VarName, 0, $Arg1VarName, $Arg2VarName);
+  }]>;
 
 OclBuiltinImpl atomic_flag_clear_l_impl = OclBuiltinImpl<atomic_flag_clear_l, atomic_flag_clear_l.Types, 0, [{
-  atomic_flag_clear_explicit($Arg0VarName, memory_order_relaxed, memory_scope_work_group);
-}]>;
+    atomic_flag_clear_explicit($Arg0VarName, memory_order_relaxed, memory_scope_work_group);
+  }]>;
 OclBuiltinImpl atomic_flag_clear_explicit_l_impl = OclBuiltinImpl<atomic_flag_clear_explicit_l, atomic_flag_clear_explicit_l.Types, 0, [{
-  atomic_flag_clear_explicit($Arg0VarName, $Arg1VarName, memory_scope_work_group);
-}]>;
+    atomic_flag_clear_explicit($Arg0VarName, $Arg1VarName, memory_scope_work_group);
+  }]>;
 OclBuiltinImpl atomic_flag_clear_explicit_scope_l_impl = OclBuiltinImpl<atomic_flag_clear_explicit_scope_l, atomic_flag_clear_explicit_scope_l.Types, 0, [{
-  (void) atomic_exchange_explicit((volatile local atomic_int*)$Arg0VarName, 0, $Arg1VarName, $Arg2VarName);
-}]>;
+    (void) atomic_exchange_explicit((volatile local atomic_int*)$Arg0VarName, 0, $Arg1VarName, $Arg2VarName);
+  }]>;
 
 // atomic_work_item_fence
 OclBuiltinImpl atomic_work_item_fence_ord_impl = OclBuiltinImpl<atomic_work_item_fence_ord, atomic_work_item_fence_ord.Types, 0, [{
-  atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg0VarName, memory_scope_device);
-}]>;
+    atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg0VarName, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_work_item_fence_ord_sco_impl = OclBuiltinImpl<atomic_work_item_fence_ord_sco, atomic_work_item_fence_ord_sco.Types, 0, [{
-  atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg0VarName, $Arg1VarName);
-}]>;
+    atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg0VarName, $Arg1VarName);
+  }]>;
 OclBuiltinImpl atomic_work_item_fence_flag_ord_impl = OclBuiltinImpl<atomic_work_item_fence_flag_ord, atomic_work_item_fence_flag_ord.Types, 0, [{
-  atomic_work_item_fence($Arg0VarName, $Arg1VarName, memory_scope_device);
-}]>;
+    atomic_work_item_fence($Arg0VarName, $Arg1VarName, memory_scope_device);
+  }]>;
 OclBuiltinImpl atomic_work_item_fence_flag_ord_sco_impl = OclBuiltinImpl<atomic_work_item_fence_flag_ord_sco, atomic_work_item_fence_flag_ord_sco.Types, 0, [{
-  
-  if($Arg0VarName == CLK_GLOBAL_MEM_FENCE &&    // The flag must not be CLK_IMAGE_MEM_FENCE
-     $Arg2VarName != memory_scope_work_group) { // this implementation relies on that a workgroup is executed
-                                                // by single phy. thread
-    if($Arg1VarName == memory_order_acquire) {
-      _mm_lfence();
-    } else if($Arg1VarName == memory_order_release) {
-      _mm_sfence();
-    } else if($Arg1VarName == memory_order_acq_rel ||
-              $Arg1VarName == memory_order_seq_cst) {
-      _mm_mfence();
+    if($Arg0VarName == CLK_GLOBAL_MEM_FENCE &&    // The flag must not be CLK_IMAGE_MEM_FENCE
+       $Arg2VarName != memory_scope_work_group) { // this implementation relies on that a workgroup is executed
+                                                  // by single phy. thread
+      if($Arg1VarName == memory_order_acquire) {
+        _mm_lfence();
+      } else if($Arg1VarName == memory_order_release) {
+        _mm_sfence();
+      } else if($Arg1VarName == memory_order_acq_rel ||
+                $Arg1VarName == memory_order_seq_cst) {
+        _mm_mfence();
+      }
+      // No affect if memory order is relaxed
     }
-    // No affect if memory order is relaxed
-  }
-}]>;
+  }]>;

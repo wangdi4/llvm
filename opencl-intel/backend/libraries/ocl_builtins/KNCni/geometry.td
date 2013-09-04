@@ -489,7 +489,7 @@ OclBuiltinImpl soa_cross3_expand = OclBuiltinImpl<soa_cross3, fp_expand_types, 0
    
 OclBuiltinImpl fp_soa_cross4 = OclBuiltinImpl<soa_cross4, fp_soa_types, 0, [{
     soa_cross3($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg4VarName, $Arg5VarName, $Arg6VarName, $Arg8VarName, $Arg9VarName, $Arg10VarName);
-    *$Arg11VarName  = ($Arg0Type)0.0;
+    *$Arg11VarName = ($Arg0Type)0.0;
   }]>;
 
 // soa_length

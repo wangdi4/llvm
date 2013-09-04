@@ -168,7 +168,7 @@ set (OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
 set (CLANG_LLVM_INCLUDE_DIRS)
 string( REPLACE  \${CMAKE_CFG_INTDIR} ${CMAKE_CFG_INTDIR} LLVM_INCLUDE_DIR "${LLVM_INCLUDE_DIR}" )
 foreach( LLVM_INCLUDE_DIR_ITEM ${LLVM_INCLUDE_DIR} )
-	set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${LLVM_INCLUDE_DIR_ITEM})
+  set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${LLVM_INCLUDE_DIR_ITEM})
 endforeach( LLVM_INCLUDE_DIR_ITEM)
 
 # Adding include path for "micintrin.h", "micintrin_mici64ext.h"
@@ -420,7 +420,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   list(APPEND CMD_ARGS -gen-ocl-bi -inject target.Target=${ARCH})
   # generate OCL builtin implementation
-	tblgenoclblt(OCL_TABLEGEN_SOURCE
+  tblgenoclblt(OCL_TABLEGEN_SOURCE
     ${INTERMEDIATE_OUTPUT_DIR}
     ${TARGET_DIR}
     target-${TARGET_DIR}.td

@@ -519,9 +519,9 @@ std::string
 OclBuiltin::getPtrArgumentCType(unsigned i, const std::string& TyName) const
 {
   assert(i < m_Inputs.size() && "Argument index is out of bound.");
-  std::string tmpTyName=TyName.substr(1);
-  const std::string& GT = m_Inputs[i].first->getGenType(tmpTyName);
-  const OclType* T = m_DB.getOclType(GT);
+  const std::string& GT = m_Inputs[i].first->getGenType(TyName);
+  std::string NoPtrGT = GT.substr(1);
+  const OclType* T = m_DB.getOclType(NoPtrGT);
   assert(T && "Invalid type found.");
 
   return T->getCType(this);
@@ -1234,11 +1234,9 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
         } else if ("$NativeArg" == pat.substr(0, 10) && pat.size() == 15 && "Type" == pat.substr(11)) {
           unsigned i = pat[10] - '0';
           val = OB->getNativeArgumentCType(i, OT->getName());
-    } else if (("$PtrArg" == pat.substr(0, 7)) && ("Type" == pat.substr(8,12)) ) {
-		  unsigned i = pat[7] - '0';
-          std::string tmpval = OB->getArgumentCType(i, OT->getName());
-		  i = tmpval.size() -1;
-		  val=tmpval.substr(0,i);
+        } else if (("$PtrArg" == pat.substr(0, 7)) && ("Type" == pat.substr(8,12)) ) {
+          unsigned i = pat[7] - '0';
+          val = OB->getPtrArgumentCType(i, OT->getName());
         } else if ("$NativeArg" == pat.substr(0, 10) && pat.size() == 20 && "VecLength" == pat.substr(11)) {
           unsigned i = pat[10] - '0';
           val = OB->getNativeArgumentCVecLen(i, OT->getName());

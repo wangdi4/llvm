@@ -10876,8 +10876,7 @@
 
   float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remainderf1 (float a, float b);
 
-  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquof1 (float a, float b,
-				     int * c);
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquof1 (float a, float b, int * c);
 
   float __attribute__((intel_ocl_bicc))  __ocl_svml_u8_copysignf1 (float a, float b);
 
@@ -11082,8 +11081,7 @@
 
   double __attribute__((intel_ocl_bicc))  __ocl_svml_u8_erfc1 (double a);
 
-  double __attribute__((intel_ocl_bicc))  __ocl_svml_u8_fma1 (double a, double b,
-				  double c);
+  double __attribute__((intel_ocl_bicc))  __ocl_svml_u8_fma1 (double a, double b, double c);
 
   double __attribute__((intel_ocl_bicc))  __ocl_svml_u8_fabs1 (double a);
 
@@ -11115,8 +11113,7 @@
 
   double __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remainder1 (double a, double b);
 
-  double __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquo1 (double a, double b,
-				     int * c);
+  double __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquo1 (double a, double b, int * c);
 
   double __attribute__((intel_ocl_bicc))  __ocl_svml_u8_copysign1 (double a, double b);
 
@@ -11369,8 +11366,7 @@
 
   float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remainderf2 (float2 a, float2 b);
 
-  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquof2 (float2 a, float2 b,
-				     int2 * c);
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquof2 (float2 a, float2 b, int2 * c);
 
   float2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_copysignf2 (float2 a, float2 b);
 
@@ -11575,8 +11571,7 @@
 
   double2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_erfc2 (double2 a);
 
-  double2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_fma2 (double2 a, double2 b,
-				  double2 c);
+  double2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_fma2 (double2 a, double2 b, double2 c);
 
   double2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_fabs2 (double2 a);
 
@@ -11608,8 +11603,7 @@
 
   double2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remainder2 (double2 a, double2 b);
 
-  double2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquo2 (double2 a, double2 b,
-				     int2 * c);
+  double2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquo2 (double2 a, double2 b, int2 * c);
 
   double2 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_copysign2 (double2 a, double2 b);
 
@@ -11854,8 +11848,7 @@
 
   float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remainderf3 (float3 a, float3 b);
 
-  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquof3 (float3 a, float3 b,
-				     int3 * c);
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquof3 (float3 a, float3 b, int3 * c);
 
   float3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_copysignf3 (float3 a, float3 b);
 
@@ -12090,8 +12083,7 @@
 
   double3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remainder3 (double3 a, double3 b);
 
-  double3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquo3 (double3 a, double3 b,
-				     int3 * c);
+  double3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquo3 (double3 a, double3 b, int3 * c);
 
   double3 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_copysign3 (double3 a, double3 b);
 
@@ -12335,8 +12327,7 @@
 
   float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remainderf4 (float4 a, float4 b);
 
-  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquof4 (float4 a, float4 b,
-				     int4 * c);
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquof4 (float4 a, float4 b, int4 * c);
 
   float4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_copysignf4 (float4 a, float4 b);
 
@@ -12571,8 +12562,7 @@
 
   double4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remainder4 (double4 a, double4 b);
 
-  double4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquo4 (double4 a, double4 b,
-				     int4 * c);
+  double4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquo4 (double4 a, double4 b, int4 * c);
 
   double4 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_copysign4 (double4 a, double4 b);
 
@@ -12822,8 +12812,7 @@
 
   float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remainderf8 (float8 a, float8 b);
 
-  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquof8 (float8 a, float8 b,
-				     int8 * c);
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_remquof8 (float8 a, float8 b, int8 * c);
 
   float8 __attribute__((intel_ocl_bicc))  __ocl_svml_u8_copysignf8 (float8 a, float8 b);
 

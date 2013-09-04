@@ -4,7 +4,7 @@ if (NOT INCLUDE_MIC_DEVICE)
 endif ()
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-  message (FATAL_ERROR "knc is not supported by 32bit architechtures")	
+  message (FATAL_ERROR "knc is not supported by 32bit architechtures")
 else (CMAKE_SIZEOF_VOID_P EQUAL 4)
   create_target ( knc b2 KNCni FALSE )
 endif(CMAKE_SIZEOF_VOID_P EQUAL 4)
