@@ -201,7 +201,8 @@ public:
 
         //TODO: this number should be similar to how the runtime set it,
         //      i.e. number-of-working-threads
-        workInfo.minWorkGroupNum = 4; //Intel::OpenCL::Utils::GetNumberOfProcessors();
+        //      We actualy are running one thread in SATest!
+        workInfo.minWorkGroupNum = 1; //Intel::OpenCL::Utils::GetNumberOfProcessors();
 
         m_dim = workInfo.workDimension = pKernelConfig->GetWorkDimension();
 
