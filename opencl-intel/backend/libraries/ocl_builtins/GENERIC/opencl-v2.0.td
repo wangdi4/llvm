@@ -16,19 +16,19 @@ def ctz       : OclBuiltin<"ctz",       (outs gentype:$ret), (ins gentype:$x), [
 let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32],
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
-def native_cos_rm    : OclBuiltin<"native_cos_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
-//def native_divide_rm : OclBuiltin<"native_divide_rm", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 1, 0>;
-def native_exp_rm    : OclBuiltin<"native_exp_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
-def native_exp2_rm   : OclBuiltin<"native_exp2_rm",   (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
-def native_exp10_rm  : OclBuiltin<"native_exp10_rm",  (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
-def native_log_rm    : OclBuiltin<"native_log_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
-def native_log2_rm   : OclBuiltin<"native_log2_rm",   (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
-def native_pow_rm   : OclBuiltin<"native_pow_rm",   (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 1, 0>;
-def native_sin_rm    : OclBuiltin<"native_sin_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
-def native_tan_rm    : OclBuiltin<"native_tan_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
-def native_sincos_pas_rm    : OclBuiltin<"native_sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
-def native_sincos_las_rm    : OclBuiltin<"native_sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
-def native_sincos_gas_rm    : OclBuiltin<"native_sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
+def cos_rm    : OclBuiltin<"cos_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+//def divide_rm : OclBuiltin<"divide_rm", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 1, 0>;
+def exp_rm    : OclBuiltin<"exp_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def exp2_rm   : OclBuiltin<"exp2_rm",   (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def exp10_rm  : OclBuiltin<"exp10_rm",  (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def log_rm    : OclBuiltin<"log_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def log2_rm   : OclBuiltin<"log2_rm",   (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def pow_rm   : OclBuiltin<"pow_rm",   (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 1, 0>;
+def sin_rm    : OclBuiltin<"sin_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def tan_rm    : OclBuiltin<"tan_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
+def sincos_pas_rm    : OclBuiltin<"sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, PRIVATE;
+def sincos_las_rm    : OclBuiltin<"sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, LOCAL;
+def sincos_gas_rm    : OclBuiltin<"sincos_rm",    (outs gentype:$ret), (ins gentype:$x, pgentype:$cosval), [], [], 1, 0>, ExceptAttr<[CONSTFUNC]>, GLOBAL;
 }
 
 // Implementation of atomic builtins relies on "generic address space" optimization passes
