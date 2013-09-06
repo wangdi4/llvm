@@ -101,7 +101,8 @@ llvm::ModulePass *createKernelInfoWrapperPass();
                                                 bool UnrollLoops,
                                                 bool SimplifyLibCalls,
                                                 bool allowAllocaModificationOpt,
-                                                bool isDBG) {
+                                                bool isDBG,
+                                                const intel::OptimizerConfig* pConfig) {
     if (OptimizationLevel == 0) {
       return;
     }
@@ -122,7 +123,11 @@ llvm::ModulePass *createKernelInfoWrapperPass();
       PM->add(llvm::createArgumentPromotionPass());   // Scalarize uninlined fn args
 
     // Start of function pass.
-    PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, -1, 64));  // Break up aggregate allocas
+    // A workaround to fix regression in sgemm on CPU and not causing new regression on MIC
+    int sroaArrSize = -1;
+    if (! pConfig->GetCpuId().HasGatherScatter())
+      sroaArrSize = 16;
+    PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));  // Break up aggregate allocas
     if (SimplifyLibCalls)
       PM->add(llvm::createSimplifyLibCallsPass());    // Library Call Optimizations
     PM->add(llvm::createEarlyCSEPass());              // Catch trivial redundancies
@@ -149,7 +154,8 @@ llvm::ModulePass *createKernelInfoWrapperPass();
     if (!isDBG) {
       PM->add(llvm::createFunctionInliningPass(4096)); //Inline (not only small) functions
     }
-    PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, -1, 64));  // Break up aggregate allocas
+    // A workaround to fix regression in sgemm on CPU and not causing new regression on MIC
+    PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));  // Break up aggregate allocas
     PM->add(llvm::createInstructionCombiningPass());  // Clean up after the unroller
     PM->add(llvm::createInstructionSimplifierPass());
     if (allowAllocaModificationOpt){
@@ -183,13 +189,19 @@ llvm::ModulePass *createKernelInfoWrapperPass();
   }
 
   static inline void createStandardVolcanoFunctionPasses(llvm::PassManagerBase *PM,
-                                                  unsigned OptimizationLevel) {
+                                                  unsigned OptimizationLevel,
+                                                  const intel::OptimizerConfig* pConfig) {
     if (OptimizationLevel > 0) {
       PM->add(llvm::createCFGSimplificationPass());
       if (OptimizationLevel == 1)
         PM->add(llvm::createPromoteMemoryToRegisterPass());
-      else
-        PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, -1, 64));
+      else {
+      // A workaround to fix regression in sgemm on CPU and not causing new regression on MIC
+        int sroaArrSize = -1;
+        if (! pConfig->GetCpuId().HasGatherScatter())
+          sroaArrSize = 16;
+        PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));
+      }
       PM->add(llvm::createInstructionCombiningPass());
       PM->add(llvm::createInstructionSimplifierPass());
     }
@@ -245,7 +257,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #else
   m_funcStandardLLVMPasses.add(new llvm::TargetData(pModule));
 #endif
-  createStandardVolcanoFunctionPasses(&m_funcStandardLLVMPasses, uiOptLevel);
+  createStandardVolcanoFunctionPasses(&m_funcStandardLLVMPasses, uiOptLevel, pConfig);
 
 // Adding module passes.
 // Add an appropriate DataLayout instance for this module...
@@ -301,7 +313,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
       unrollLoops,
       false,
       allowAllocaModificationOpt,
-      debugType != None);
+      debugType != None,
+      pConfig);
 
   if (isOcl20) {
     // Repeat static resolution of generic address space pointers after 
