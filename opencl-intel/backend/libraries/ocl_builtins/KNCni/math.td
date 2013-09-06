@@ -957,9 +957,14 @@ OclBuiltinImpl knc_mask_native_tanpi   = OclBuiltinImpl<native_tanpi, mask_types
 OclBuiltinImpl knc_expand_native_tanpi = OclBuiltinImpl<native_tanpi, [v16f64], 0, Expand1>;
 
 // native_recip
-OclBuiltinImpl knc_native_recip        = OclBuiltinImpl<native_recip, [v16f32, v8f64], 0, knc_code_1>;
-OclBuiltinImpl knc_mask_native_recip   = OclBuiltinImpl<native_recip, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_native_recip = OclBuiltinImpl<native_recip, [v16f64], 0, Expand1>;
+// WORKAROUND: CSSD100016998
+//             Remove then PCG is capable to distinguish calls to native SVML functions
+OclBuiltinImpl knc_native_recip        = OclBuiltinImpl<native_recip, native_recip.Types, 0, [{
+    return native_divide(1, $Arg0VarName);
+  }]>;
+//OclBuiltinImpl knc_native_recip        = OclBuiltinImpl<native_recip, [v16f32, v8f64], 0, >;
+//OclBuiltinImpl knc_mask_native_recip   = OclBuiltinImpl<native_recip, mask_types, 0, knc_mask_code_1>;
+//OclBuiltinImpl knc_expand_native_recip = OclBuiltinImpl<native_recip, [v16f64], 0, Expand1>;
 
 // native_rcbrt
 OclBuiltinImpl workaround_mask_native_rcbrt = OclBuiltinImpl<native_rcbrt, native_rcbrt.Types, 0, [{
