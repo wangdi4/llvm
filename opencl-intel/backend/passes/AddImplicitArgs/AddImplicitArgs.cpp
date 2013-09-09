@@ -149,21 +149,23 @@ namespace intel{
 
     FunctionType *FTy = FunctionType::get( pFunc->getReturnType(),newArgsVec, false);
 
+    // Change original function name.
+    std::string name = pFunc->getName().str();
+    pFunc->setName("__" + pFunc->getName() + "_original");
     // Create a new function with explicit and implict arguments types
-    Function *pNewF = Function::Create(FTy, pFunc->getLinkage(), pFunc->getName());
+    Function *pNewF = Function::Create(FTy, pFunc->getLinkage(), name, m_pModule);
+    // Copy old function attributes (including attributes on original arguments) to new function.
+    pNewF->copyAttributesFrom(pFunc);
     if ( isAKernel ) {
       // Only those who are kernel functions need to get this calling convention
       pNewF->setCallingConv(CallingConv::C);
     }
-
-    llvm::ValueToValueMapTy ValueMap;
 
     // Set explict arguments' names
     Function::arg_iterator DestI = pNewF->arg_begin();
     for ( Function::arg_iterator I = pFunc->arg_begin(),
       E = pFunc->arg_end(); I != E; ++I, ++DestI ) {
         DestI->setName(I->getName());
-        ValueMap[I] = DestI;
     }
 
     // Set implict arguments' names
@@ -198,9 +200,21 @@ namespace intel{
     Argument *pextctx = DestI;
     ++DestI;
 
+    // Since we have now created the new function, splice the body of the old
+    // function right into the new function, leaving the old body of the function empty.
+    pNewF->getBasicBlockList().splice(pNewF->begin(), pFunc->getBasicBlockList());
+    assert(pFunc->isDeclaration() && "splice did not work, original function body is not empty!");
+    // Delete original function body - this is needed to remove linkage (if exists)
+    pFunc->deleteBody();
 
-    SmallVector<ReturnInst*, 8> Returns;
-    CloneFunctionInto(pNewF, pFunc, ValueMap, true, Returns, "", NULL);
+
+    // Loop over the argument list, transferring uses of the old arguments over to
+    // the new arguments.
+    Function::arg_iterator currArg = pNewF->arg_begin();
+    for (Function::arg_iterator I = pFunc->arg_begin(), E = pFunc->arg_end(); I != E; ++I, ++currArg) {
+      // Replace the users to the new version.
+      I->replaceAllUsesWith(currArg);
+    }
 
     // Apple LLVM-IR workaround
     // 1.  Pass WI information structure as the next parameter after given function parameters
@@ -245,22 +259,20 @@ namespace intel{
     }
 
     std::vector<Value*> uses(pFunc->use_begin(), pFunc->use_end());
-    for (std::vector<Value*>::const_iterator it = uses.begin(), e = uses.end();
-       it != e; ++it) {
-
+    for (std::vector<Value*>::const_iterator it = uses.begin(), e = uses.end(); it != e; ++it) {
       // handle constant expression with bitcast of function pointer 
       // it handles cases like block_literal global variable definitions
       // Example of case:
       // @__block_literal_global = internal constant { ..., i8*, ... } 
       //    { ..., i8* bitcast (i32 (i8*, i32)* @globalBlock_block_invoke to i8*), ... }
       if(ConstantExpr *CE = dyn_cast<ConstantExpr>(*it)){
-          if(CE->getOpcode() == Instruction::BitCast &&
-             CE->getType()->isPointerTy()){
-                 // this case happens when global block variable is used
-                 Constant *newCE = ConstantExpr::getBitCast(pNewF, CE->getType());
-                 CE->replaceAllUsesWith(newCE);
-                 continue;
-          }
+        if(CE->getOpcode() == Instruction::BitCast &&
+          CE->getType()->isPointerTy()){
+            // this case happens when global block variable is used
+            Constant *newCE = ConstantExpr::getBitCast(pNewF, CE->getType());
+            CE->replaceAllUsesWith(newCE);
+            continue;
+        }
       }
       // handle call instruction
       else if (CallInst *CI = dyn_cast<CallInst>(*it)){
@@ -268,30 +280,21 @@ namespace intel{
       }
       // handle metadata
       else if (isa<MDNode>(*it)){
-          // do nothing 
+        // do nothing 
       }
       else{
-          // we should not be here
-          // unhandled case
-          assert(0 && "Unhandled function reference");
+        // we should not be here
+        // unhandled case
+        assert(0 && "Unhandled function reference");
       }
     }
 
-    // Add declaration of original function with its signature
-    //pFunc->replaceAllUsesWith(pNewF);
-    pFunc->setName("__" + pFunc->getName() + "_original");
-    m_pModule->getFunctionList().push_back(pNewF);
-
-    // Delete original function body
-    pFunc->deleteBody();
-
-    for ( Value::use_iterator UI = pNewF->use_begin(),
-      UE = pNewF->use_end(); UI != UE; ++UI ) {
-       if (CallInst *I = dyn_cast<CallInst>(*UI)) {
-         // Change the calling convention of the call site to match the
-         // calling convention of the called function.
-         I->setCallingConv(pNewF->getCallingConv());
-       }
+    for (Value::use_iterator UI = pNewF->use_begin(), UE = pNewF->use_end(); UI != UE; ++UI) {
+      if (CallInst *I = dyn_cast<CallInst>(*UI)) {
+        // Change the calling convention of the call site to match the
+        // calling convention of the called function.
+        I->setCallingConv(pNewF->getCallingConv());
+      }
     }
 
     Module *pModule = pFunc->getParent();
@@ -300,10 +303,8 @@ namespace intel{
     m_pFunc = pFunc;
     m_pNewF = pNewF;
 
-    for(;MDIter != EndMDIter; MDIter++)
-    {
-      for(int ui = 0, ue = MDIter->getNumOperands(); ui < ue; ui++)
-      {
+    for(; MDIter != EndMDIter; MDIter++) {
+      for(int ui = 0, ue = MDIter->getNumOperands(); ui < ue; ui++) {
         // Replace metadata with metada containing information about the wrapper
         MDNode* pMetadata = MDIter->getOperand(ui);
         std::set<MDNode *> visited;
