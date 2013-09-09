@@ -75,7 +75,6 @@ llvm::FunctionPass *createPrefetchPassLevel(int level);
 llvm::ModulePass * createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
-llvm::Pass *createDebugFunctionInliningPass();
 #endif
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectFuncPtrCalls();
@@ -495,10 +494,6 @@ Optimizer::Optimizer( llvm::Module* pModule,
       m_modulePasses.add(llvm::createFunctionInliningPass(4096));     // Inline (not only small) functions.
     else
       m_modulePasses.add(llvm::createFunctionInliningPass());     // Inline small functions
-  } else {
-#ifndef __APPLE__
-    m_modulePasses.add(createDebugFunctionInliningPass());
-#endif
   }
 
   if ( debugType == None ) {

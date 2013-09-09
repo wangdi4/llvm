@@ -342,7 +342,6 @@ set( BACKEND_PASSES
     LLVMBarrier
     AddImplicitArgs
     BuiltInFuncImport
-    DebugFunctionInliner
     DebugInfoPass
     InstToFuncCall
     GenericAddressResolution

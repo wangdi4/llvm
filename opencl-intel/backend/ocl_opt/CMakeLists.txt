@@ -13,7 +13,6 @@ add_executable(${TARGET_NAME}
 # Backend passes
 set(OCL_BE_PASSES
     BuiltInFuncImport
-    DebugFunctionInliner
     InstToFuncCall
     GenericAddressResolution
     PreventDivCrashes

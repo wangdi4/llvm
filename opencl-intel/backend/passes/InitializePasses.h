@@ -70,7 +70,6 @@ void initializePrepareKernelArgsPass(llvm::PassRegistry&);
 void initializeDetectFuncPtrCallsPass(llvm::PassRegistry&);
 void initializeResolveWICallPass(llvm::PassRegistry&);
 void initializeCloneBlockInvokeFuncToKernelPass(llvm::PassRegistry&);
-void initializeDebugFunctionInlinerPass(llvm::PassRegistry&);
 }
 
 #endif
