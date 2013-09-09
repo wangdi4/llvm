@@ -245,7 +245,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// pipes
 
-		cl_mem CreatePipe(cl_context context, cl_mem_flags flags, cl_uint uiPipePacketSize,	cl_uint uiPipeMaxPackets, const cl_pipe_properties* pProperties, cl_int* piErrcodeRet);
+		cl_mem CreatePipe(cl_context context, cl_mem_flags flags, cl_uint uiPipePacketSize,	cl_uint uiPipeMaxPackets, const cl_pipe_properties* pProperties, void* pHostPtr, size_t* pSizeRet,
+            cl_int* piErrcodeRet);
+
 		cl_int GetPipeInfo(cl_mem pipe, cl_pipe_info paramName, size_t szParamValueSize, void *pParamValue, size_t* pszParamValueSizeRet);
 
         ///////////////////////////////////////////////////////////////////////

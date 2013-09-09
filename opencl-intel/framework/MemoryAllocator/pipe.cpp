@@ -19,16 +19,22 @@
 // problem reports or change requests be submitted to it directly
 
 #include "pipe.h"
-#include "PipeCommon.h"
 
 using namespace Intel::OpenCL::Framework;
 
-cl_err_code Pipe::Initialize(cl_uint uiPacketSize, cl_uint uiMaxPackets)
+cl_err_code Pipe::Initialize(cl_uint uiPacketSize, cl_uint uiMaxPackets, void* pHostPtr)
 {
 	m_uiPacketSize = uiPacketSize;
 	m_uiMaxPackets = uiMaxPackets;
-	const size_t szDim = INTEL_PIPE_HEADER_RESERVED_SPACE + uiPacketSize * uiMaxPackets;
-	return GenericMemObject::Initialize(CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, NULL, 1, &szDim, NULL, NULL, 0);
+	const size_t szDim = CalcPipeSize(uiPacketSize, uiMaxPackets);
+    if (NULL == pHostPtr)
+    {
+        return GenericMemObject::Initialize(CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, NULL, 1, &szDim, NULL, NULL, 0);
+    }
+    else
+    {
+        return GenericMemObject::Initialize(CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, NULL, 1, &szDim, NULL, pHostPtr, 0);
+    }	
 }
 
 cl_int Pipe::GetPipeInfo(cl_pipe_info paramName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet)

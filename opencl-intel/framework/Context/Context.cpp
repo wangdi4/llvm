@@ -1667,14 +1667,14 @@ ConstSharedPtr<SVMBuffer> Context::GetSVMBufferContainingAddr(const void* ptr) c
 	return const_cast<Context*>(this)->GetSVMBufferContainingAddr(const_cast<void*>(ptr));
 }
 
-cl_err_code Context::CreatePipe(cl_uint uiPipePacketSize, cl_uint uiPipeMaxPackets, SharedPtr<MemoryObject>& pPipe)
+cl_err_code Context::CreatePipe(cl_uint uiPipePacketSize, cl_uint uiPipeMaxPackets, SharedPtr<MemoryObject>& pPipe, void* pHostPtr)
 {
 	cl_err_code err = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_PIPE, CL_MEMOBJ_GFX_SHARE_NONE, this, &pPipe);
 	if (CL_FAILED(err))
 	{
 		return err;
 	}
-	err = pPipe.StaticCast<Pipe>()->Initialize(uiPipePacketSize, uiPipeMaxPackets);
+	err = pPipe.StaticCast<Pipe>()->Initialize(uiPipePacketSize, uiPipeMaxPackets, pHostPtr);
 	if (CL_FAILED(err))
 	{
 		return err;

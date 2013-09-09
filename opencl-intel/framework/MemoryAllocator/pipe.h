@@ -21,6 +21,7 @@
 #pragma once
 
 #include "GenericMemObj.h"
+#include "PipeCommon.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -37,13 +38,21 @@ class Pipe : public GenericMemObject
 		return new Pipe(pContext, clObjType);
 	}
 
+    /**
+     * @param uiPacketSize the size in byte of this Pipe's packet
+	 * @param uiMaxPackets the maximum number of packets this Pipe can hold
+     * @return the pipe's size
+     */
+    static size_t CalcPipeSize(cl_uint uiPacketSize, cl_uint uiMaxPackets) { return INTEL_PIPE_HEADER_RESERVED_SPACE + uiPacketSize * uiMaxPackets; }
+
 	/**
 	 * Initialize this Pipe
 	 * @param uiPacketSize the size in byte of this Pipe's packet
 	 * @param uiMaxPackets the maximum number of packets this Pipe can hold
+     * @param pHostPtr     optional pointer coming from CRT
 	 * @return CL_SUCCESS in case of success or error code in case of failure
 	 */
-	cl_err_code Initialize(cl_uint uiPacketSize, cl_uint uiMaxPackets);
+	cl_err_code Initialize(cl_uint uiPacketSize, cl_uint uiMaxPackets, void* pHostPtr);
 
 	/**
 	 * @param paramName				specifies the information to query

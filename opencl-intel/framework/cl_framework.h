@@ -151,6 +151,27 @@ extern CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
     cl_uint* /*num_devices*/);
 
 #endif
+
+typedef CL_API_ENTRY cl_mem (CL_API_CALL *KHRpfn_clCreatePipeINTEL)(
+    cl_context                  /*context*/,
+    cl_mem_flags                /*flags*/,
+    cl_uint                     /*pipe_packet_size*/,
+    cl_uint                     /*pipe_max_packets*/,
+    const cl_pipe_properties *  /*attributes*/,
+    void *                      /*host_ptr*/,
+    size_t *                    /*size_ret*/,
+    cl_int *                    /*errcode_ret*/ );
+
+extern CL_API_ENTRY cl_mem CL_API_CALL clCreatePipeINTEL(
+    cl_context                  /*context*/,
+    cl_mem_flags                /*flags*/,
+    cl_uint                     /*pipe_packet_size*/,
+    cl_uint                     /*pipe_max_packets*/,
+    const cl_pipe_properties*   /*attributes*/,
+    void *                      /*host_ptr*/,
+    size_t *                    /*size_ret*/,
+    cl_int *                    /*errcode_ret*/ );
+
 #ifdef __cplusplus
 }
 #endif
@@ -164,12 +185,13 @@ extern CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
 struct COCLCRTDispatchTable
 {
     KHRpfn_clGetKernelArgInfo                     clGetKernelArgInfo;
+    KHRpfn_clCreatePipeINTEL                      clCreatePipeINTEL;
 #ifdef DX_MEDIA_SHARING
     KHRpfn_clGetDeviceIDsFromDX9INTEL             clGetDeviceIDsFromDX9INTEL;
     KHRpfn_clCreateFromDX9MediaSurfaceINTEL       clCreateFromDX9MediaSurfaceINTEL;
     KHRpfn_clEnqueueAcquireDX9ObjectsINTEL        clEnqueueAcquireDX9ObjectsINTEL;
     KHRpfn_clEnqueueReleaseDX9ObjectsINTEL        clEnqueueReleaseDX9ObjectsINTEL;
-#endif
+#endif    
 };
 
 struct ocl_entry_points

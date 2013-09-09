@@ -232,7 +232,8 @@ void FrameworkProxy::InitOCLEntryPoints()
 	ICDDispatchTable.clGetPipeInfo = (KHRpfn_clGetPipeInfo)GET_ALIAS(clGetPipeInfo);
 
     /// Extra functions for Common Runtime
-    CRTDispatchTable.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);   
+    CRTDispatchTable.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);
+    CRTDispatchTable.clCreatePipeINTEL = (KHRpfn_clCreatePipeINTEL)GET_ALIAS(clCreatePipeINTEL);
     
 #if defined DX_MEDIA_SHARING
     CRTDispatchTable.clGetDeviceIDsFromDX9INTEL = (KHRpfn_clGetDeviceIDsFromDX9INTEL)GET_ALIAS(clGetDeviceIDsFromDX9INTEL);

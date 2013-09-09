@@ -124,5 +124,6 @@ EXPORTS
 	clSetKernelArgSVMPointer
 	clSetKernelExecInfo
 	clCreatePipe
+	clCreatePipeINTEL
 	clGetPipeInfo
 	clCreateCommandQueueWithProperties

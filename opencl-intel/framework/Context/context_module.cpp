@@ -1327,7 +1327,8 @@ cl_int ContextModule::SetKernelExecInfo(cl_kernel clKernel, cl_kernel_exec_info 
 	return pKernel->GetContext()->SetKernelExecInfo(pKernel, paramName, szParamValueSize, pParamValue);		
 }
 
-cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint uiPipePacketSize, cl_uint uiPipeMaxPackets, const cl_pipe_properties* pProperties, cl_int* piErrcodeRet)
+cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint uiPipePacketSize, cl_uint uiPipeMaxPackets, const cl_pipe_properties* pProperties, void* pHostPtr,
+    size_t* pSizeRet, cl_int* piErrcodeRet)
 {
 	SharedPtr<Context> pContext = GetContext(context);
 	if (NULL == pContext)
@@ -1374,8 +1375,38 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
 		}
 		return CL_INVALID_HANDLE;
 	}
+
+    // handling INTEL extension for CRT
+    if (NULL != pSizeRet)
+    {
+        if (NULL == pHostPtr)
+        {
+            *pSizeRet = Pipe::CalcPipeSize(uiPipePacketSize, uiPipeMaxPackets);
+            if (NULL != piErrcodeRet)
+            {
+                *piErrcodeRet = CL_SUCCESS;
+            }
+            return CL_INVALID_HANDLE;
+        }
+        else
+        {
+            if (*pSizeRet != Pipe::CalcPipeSize(uiPipePacketSize, uiPipeMaxPackets))
+            {
+                if (NULL != piErrcodeRet)
+                {
+                    *piErrcodeRet = CL_OUT_OF_RESOURCES;
+                }
+                return CL_INVALID_HANDLE;
+            }
+        }
+    }
+    else
+    {
+        ASSERT_RET_VAL(NULL == pHostPtr, "this combination isn't expected from CRT", CL_INVALID_HANDLE);
+    }
+
 	SharedPtr<MemoryObject> pPipe;
-	cl_err_code err = pContext->CreatePipe(uiPipePacketSize, uiPipeMaxPackets, pPipe);
+	cl_err_code err = pContext->CreatePipe(uiPipePacketSize, uiPipeMaxPackets, pPipe, pHostPtr);
 	if (CL_FAILED(err))
 	{
 		if (NULL != piErrcodeRet)

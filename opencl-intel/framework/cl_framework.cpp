@@ -1475,9 +1475,24 @@ cl_mem CL_API_CALL clCreatePipe(cl_context context,
 								const cl_pipe_properties *properties,
 								cl_int *errcode_ret)
 {
-	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, errcode_ret));
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, NULL, NULL, errcode_ret));
 }
 SET_ALIAS(clCreatePipe);
+
+cl_mem CL_API_CALL clCreatePipeINTEL(
+        cl_context                  context,
+        cl_mem_flags                flags,
+        cl_uint                     pipe_packet_size,
+        cl_uint                     pipe_max_packets,
+        const cl_pipe_properties*   properties,
+        void *                      host_ptr,
+        size_t *                    size_ret,
+        cl_int *                    errcode_ret )
+{
+    CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, host_ptr, size_ret, errcode_ret));
+}
+SET_ALIAS(clCreatePipeINTEL);
+REGISTER_EXTENSION_FUNCTION(clCreatePipeINTEL, clCreatePipeINTEL);
 
 cl_int CL_API_CALL clGetPipeInfo(cl_mem pipe,
 								 cl_pipe_info param_name,
