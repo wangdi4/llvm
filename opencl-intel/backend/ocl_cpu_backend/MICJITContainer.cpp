@@ -81,7 +81,7 @@ int MICJITContainer::GetLineNumber(void* pointer) const
     for (LineNumberTable::const_iterator iter = table.begin(), end = table.end();
         iter != end; iter++)
     {
-        if (offset <= iter->first) return iter->second;
+        if (offset <= iter->offset) return iter->offset;
     }
     return -1;
 }

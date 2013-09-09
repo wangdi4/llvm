@@ -199,7 +199,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     IBlockToKernelMapper.h
     CPUBlockToKernelMapper.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
-    ${BACKEND_ROOT_DIR}/external/vtune/include/jitprofiling.h
+    ${BACKEND_ROOT_DIR}/../externals/itt/include/jitprofiling.h
   )
 
 set (OCL_CPU_BACKEND_SOURCE_FILES
@@ -301,7 +301,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/vectorizer/Utils
     ${BACKEND_ROOT_DIR}/ocl_mic_executor
     ${BACKEND_ROOT_DIR}/plugin_manager
-    ${BACKEND_ROOT_DIR}/external/vtune/include
+    ${BACKEND_ROOT_DIR}/../externals/itt/include
     ${BACKEND_ROOT_DIR}/optimizer
     ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/dynamic_lib

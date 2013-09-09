@@ -35,18 +35,35 @@ class IOutputStream;
 class SerializationStatus;
 
 typedef unsigned long long int KernelID;
-typedef std::vector<std::pair<int, int> > LineNumberTable;
 
-typedef struct
-{
+struct LineNumberEntry {
+    int offset;
+    int line;
+};
+
+struct InlinedFunction {
+    int id;
+    int parentId;
+    int from;
+    unsigned size;
+    std::string funcname;
+    std::string filename;
+};
+
+typedef std::vector<LineNumberEntry> LineNumberTable;
+typedef std::vector<InlinedFunction> InlinedFunctions;
+
+struct KernelInfo {
+    int functionId;
     int kernelOffset;
     int kernelSize;
-    LineNumberTable lineNumberTable;
     std::string filename;
-} KernelInfo;
+    LineNumberTable lineNumberTable;
+    InlinedFunctions inlinedFunctions;
+};
 
 /**
- * Represent JIT Code Holder for Module, which contains the main proporties about
+ * Represent JIT Code Holder for Module, which contains the main properties about
  * the jitted code, used in case the JIT is for the whole module at once
  */
 class ModuleJITHolder
@@ -129,6 +146,18 @@ public:
     virtual const char* GetKernelFilename(KernelID kernelId) const;
 
     /**
+     * @param kernel identifier
+     * @returns a collection with data for all the functions inlined in the kernel
+     */
+    virtual const InlinedFunctions* GetKernelInlinedFunctions(KernelID kernelId) const;
+
+    /**
+     * @param kernel identifier
+     * @returns the function id used for vtune
+     */
+    virtual int GetKernelVtuneFunctionId(KernelID kernelID) const;
+
+    /**
      * @returns the count of kernels in the JIT code
      */
     virtual int GetKernelCount() const;
@@ -152,6 +181,9 @@ private:
 
     // Klockwork Issue
     ModuleJITHolder& operator= ( const ModuleJITHolder& x );
+
+    void SerializeKernelInfo(KernelID id, KernelInfo info, IOutputStream& ost) const;
+    void DeserializeKernelInfo(KernelID& id, KernelInfo& info, IInputStream& ist) const;
 };
 
 }}} // namespace

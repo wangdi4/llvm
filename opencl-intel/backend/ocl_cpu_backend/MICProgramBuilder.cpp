@@ -212,7 +212,8 @@ void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
     static_cast<MICProgram*>(pProgram)->SetModuleJITHolder(pModuleJIT);
 }
 
-void MICProgramBuilder::CopyJitHolder(const LLVMModuleJITHolder* from, ModuleJITHolder* to) const {
+void MICProgramBuilder::CopyJitHolder(const LLVMModuleJITHolder* from, ModuleJITHolder* to) const
+{
     // Copy scalar values
     to->SetJITCodeSize(from->getJITCodeSize());
     to->SetJITCodeStartPoint(from->getJITCodeStartPoint());
@@ -220,16 +221,43 @@ void MICProgramBuilder::CopyJitHolder(const LLVMModuleJITHolder* from, ModuleJIT
     to->SetJITAlignment(from->getJITCodeAlignment());
 
     // Copy kernels
-    for(llvm::KernelMap::const_iterator
-        it = from->getKernelMap().begin();
-        it != from->getKernelMap().end();
-        it++)
+    for(llvm::KernelMap::const_iterator it = from->getKernelMap().begin(),
+        end = from->getKernelMap().end(); it != end; it++)
     {
         KernelInfo kernelInfo;
-        kernelInfo.kernelOffset = it->second.offset;
-        kernelInfo.kernelSize   = it->second.size;
-        kernelInfo.lineNumberTable = it->second.lineNumberTable;
-        kernelInfo.filename = it->second.filename;
+        llvm::KernelInfo llvmKernelInfo = it->second;
+
+        // Copy basic values
+        kernelInfo.functionId   = llvmKernelInfo.functionId;
+        kernelInfo.kernelOffset = llvmKernelInfo.kernelOffset;
+        kernelInfo.kernelSize   = llvmKernelInfo.kernelSize;
+        kernelInfo.filename     = llvmKernelInfo.filename;
+
+        // Copy line number table
+        kernelInfo.lineNumberTable.resize(llvmKernelInfo.lineNumberTable.size());
+        for (unsigned i = 0; i < llvmKernelInfo.lineNumberTable.size(); i++)
+        {
+            const llvm::LineNumberEntry& from = llvmKernelInfo.lineNumberTable[i];
+            LineNumberEntry& to = kernelInfo.lineNumberTable[i];
+            to.line = from.line;
+            to.offset = from.offset;
+        }
+
+        // Copy inlined functions data
+        // (can't use memcpy here as there are strings involved)
+        kernelInfo.inlinedFunctions.resize(llvmKernelInfo.inlinedFunctions.size());
+        for (unsigned i = 0; i < llvmKernelInfo.inlinedFunctions.size(); i++)
+        {
+            const llvm::InlinedFunction& from = llvmKernelInfo.inlinedFunctions[i];
+            InlinedFunction& to = kernelInfo.inlinedFunctions[i];
+            to.id = from.id;
+            to.parentId = from.parentId;
+            to.from = from.from;
+            to.size = from.size;
+            to.funcname = from.funcname;
+            to.filename = from.filename;
+        }
+
         KernelID kernelID = (const KernelID)it->first;
         to->RegisterKernel(kernelID, kernelInfo);
     }

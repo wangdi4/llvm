@@ -24,8 +24,8 @@ File Name:  MICKernel.h
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-class SerializationStatus;
 class MICKernelProperties;
+class SerializationStatus;
 
 class MICKernel : public Kernel
 {
@@ -62,6 +62,7 @@ public:
 
 protected:
     unsigned long long int m_kernelID;
+
 };
 
 }}} // namespace

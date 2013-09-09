@@ -53,19 +53,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   /// This pass is responsible of getting some info about the OCL
   /// kernels in the supplied program (module)
-  class KernelInfo : public FunctionPass {
+  class KernelInfoPass : public FunctionPass {
   public:
     /// Pass identification, replacement for typeid
     static char ID;
 
     /// @brief Constructor 
-    KernelInfo(Intel::MetaDataUtils *mdUtils) : FunctionPass(ID), m_mdUtils(mdUtils) {
+    KernelInfoPass(Intel::MetaDataUtils *mdUtils) : FunctionPass(ID), m_mdUtils(mdUtils) {
       initializeLoopInfoPass(*PassRegistry::getPassRegistry());
     }
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
-      return "KernelInfo";
+      return "KernelInfoPass";
     }
 
     /// @brief gets the required info on specific function
@@ -82,7 +82,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief checks if the function has a barrier in it
     /// @param pFunc ptr to function
-    bool conatinsBarrier(Function *pFunc);
+    bool containsBarrier(Function *pFunc);
 
     /// @brief returns approximation of the execution lenght of the given func
     /// @param pFunc ptr to function
