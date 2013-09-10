@@ -36,24 +36,6 @@ cl_err_code SVMPointerArg::UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr
 	ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
 }
 
-cl_err_code SVMPointerArg::LockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent)
-{
-	if (m_pSvmBuf != NULL)
-	{
-		return m_pSvmBuf->LockOnDevice(dev, usage, pOutActuallyUsage, pOutEvent);
-	}
-	return CL_SUCCESS;
-}
-
-cl_err_code SVMPointerArg::UnLockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage)
-{
-	if (m_pSvmBuf != NULL)
-	{
-		return m_pSvmBuf->UnLockOnDevice(dev, usage);
-	}
-	return CL_SUCCESS;
-}
-
 cl_err_code SVMPointerArg::ReadData(void* pOutData, const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch)
 {
 	ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
@@ -62,106 +44,6 @@ cl_err_code SVMPointerArg::ReadData(void* pOutData, const size_t* pszOrigin, con
 cl_err_code SVMPointerArg::WriteData(const void* pOutData,	const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch)
 {
 	ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
-}
-
-cl_err_code SVMPointerArg::GetDimensionSizes(size_t* pszRegion) const
-{
-	if (m_pSvmBuf != NULL)
-	{
-		return m_pSvmBuf->GetDimensionSizes(pszRegion);
-	}
-	return CL_SUCCESS;
-}
-
-size_t SVMPointerArg::GetRowPitchSize() const
-{
-	if (m_pSvmBuf != NULL)
-	{
-		return m_pSvmBuf->GetRowPitchSize();
-	}
-	return 0;
-}
-
-size_t SVMPointerArg::GetSlicePitchSize() const
-{
-	if (m_pSvmBuf != NULL)
-	{
-		return m_pSvmBuf->GetSlicePitchSize();
-	}
-	return 0;
-}
-
-size_t SVMPointerArg::GetPixelSize() const
-{
-	if (m_pSvmBuf != NULL)
-	{
-		m_pSvmBuf->GetPixelSize();
-	}
-	return 0;
-}
-
-void SVMPointerArg::GetLayout(OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch) const
-{
-	if (m_pSvmBuf != NULL)
-	{
-		m_pSvmBuf->GetLayout(dimensions, rowPitch, slicePitch);
-	}
-}
-
-cl_err_code SVMPointerArg::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
-{
-	if (m_pSvmBuf != NULL)
-	{
-		return m_pSvmBuf->CheckBounds(pszOrigin, pszRegion);
-	}
-	return CL_SUCCESS;
-}
-
-cl_err_code SVMPointerArg::CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const
-{
-	if (m_pSvmBuf != NULL)
-	{
-		return m_pSvmBuf->CheckBoundsRect(pszOrigin, pszRegion, szRowPitch, szSlicePitch);
-	}
-	return CL_SUCCESS;
-}
-
-void* SVMPointerArg::GetBackingStoreData(const size_t* pszOrigin) const
-{
-	return (char*)m_pSvmBuf->GetAddr() + m_szOffset;
-}
-
-cl_err_code SVMPointerArg::CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice)
-{
-	if (m_pSvmBuf != NULL)
-	{
-		return m_pSvmBuf->CreateDeviceResource(pDevice);
-	}
-	return CL_SUCCESS;
-}
-
-cl_err_code SVMPointerArg::GetDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject, SharedPtr<OclEvent> OUT* ppEvent)
-{
-	if (m_pSvmBuf != NULL)
-	{
-		IOCLDevMemoryObject* pSvmBufDevObj;
-		const cl_err_code err = m_pSvmBuf->GetDeviceDescriptor(pDevice, &pSvmBufDevObj, ppEvent);	// what about ppEvent?
-		if (CL_FAILED(err))
-		{
-			return err;
-		}
-		*ppDevObject = new SVMPointerArgDevMemoryObject(this, *pSvmBufDevObj, m_szOffset);
-	}
-	return CL_SUCCESS;
-}
-
-cl_err_code SVMPointerArg::UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject)
-{
-	if (m_pSvmBuf != NULL)
-	{
-		return m_pSvmBuf->UpdateDeviceDescriptor(pDevice, ppDevObject);
-	}
-	return CL_SUCCESS;
 }
 
 bool SVMPointerArg::IsSynchDataWithHostRequired(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr) const
@@ -199,10 +81,84 @@ cl_err_code	SVMPointerArg::MemObjReleaseDevMappedRegion(const SharedPtr<Fissiona
 	ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION);
 }
 
+// SVMBufferPointerArg methods:
+
+cl_err_code SVMBufferPointerArg::LockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent)
+{
+	return m_pSvmBuf->LockOnDevice(dev, usage, pOutActuallyUsage, pOutEvent);
+}
+
+cl_err_code SVMBufferPointerArg::UnLockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage)
+{
+	return m_pSvmBuf->UnLockOnDevice(dev, usage);
+}
+
+cl_err_code SVMBufferPointerArg::GetDimensionSizes(size_t* pszRegion) const
+{
+	return m_pSvmBuf->GetDimensionSizes(pszRegion);
+}
+
+size_t SVMBufferPointerArg::GetRowPitchSize() const
+{
+	return m_pSvmBuf->GetRowPitchSize();
+}
+
+size_t SVMBufferPointerArg::GetSlicePitchSize() const
+{
+	return m_pSvmBuf->GetSlicePitchSize();
+}
+
+size_t SVMBufferPointerArg::GetPixelSize() const
+{
+	return m_pSvmBuf->GetPixelSize();
+}
+
+void SVMBufferPointerArg::GetLayout(OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch) const
+{
+	m_pSvmBuf->GetLayout(dimensions, rowPitch, slicePitch);
+}
+
+cl_err_code SVMBufferPointerArg::CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const
+{
+	return m_pSvmBuf->CheckBounds(pszOrigin, pszRegion);
+}
+
+cl_err_code SVMBufferPointerArg::CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const
+{
+	return m_pSvmBuf->CheckBoundsRect(pszOrigin, pszRegion, szRowPitch, szSlicePitch);
+}
+
+void* SVMBufferPointerArg::GetBackingStoreData(const size_t* pszOrigin) const
+{
+	return (char*)m_pSvmBuf->GetAddr() + m_szOffset;
+}
+
+cl_err_code SVMBufferPointerArg::CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice)
+{
+	return m_pSvmBuf->CreateDeviceResource(pDevice);
+}
+
+cl_err_code SVMBufferPointerArg::GetDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject, SharedPtr<OclEvent> OUT* ppEvent)
+{
+	IOCLDevMemoryObject* pSvmBufDevObj;
+	const cl_err_code err = m_pSvmBuf->GetDeviceDescriptor(pDevice, &pSvmBufDevObj, ppEvent);	// what about ppEvent?
+	if (CL_FAILED(err))
+	{
+		return err;
+	}
+	*ppDevObject = new SVMPointerArgDevMemoryObject(this, pSvmBufDevObj, m_szOffset);
+	return CL_SUCCESS;
+}
+
+cl_err_code SVMBufferPointerArg::UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject)
+{
+	return m_pSvmBuf->UpdateDeviceDescriptor(pDevice, ppDevObject);
+}
+
 // SVMPointerArg::SVMPointerArgDevMemoryObject methods:
 
-SVMPointerArg::SVMPointerArgDevMemoryObject::SVMPointerArgDevMemoryObject(const SharedPtr<SVMPointerArg>& pSvmPtrArg, IOCLDevMemoryObject& svmBufDevMemObj, size_t szOffset) :
-	m_svmBufDevMemObj(svmBufDevMemObj), m_szOffset(szOffset)
+SVMPointerArg::SVMPointerArgDevMemoryObject::SVMPointerArgDevMemoryObject(const SharedPtr<SVMPointerArg>& pSvmPtrArg, IOCLDevMemoryObject* pSvmBufDevMemObj, size_t szOffset) :
+	m_pSvmBufDevMemObj(pSvmBufDevMemObj)
 {
 	m_objDecr.dimensions.buffer_size = 0;	// unknown
 	m_objDecr.dim_count = 1;
@@ -234,20 +190,36 @@ cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjCreateSu
 
 cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjUpdateBackingStore(void* operation_handle, cl_dev_bs_update_state* pUpdateState)
 {
-	return m_svmBufDevMemObj.clDevMemObjUpdateBackingStore(operation_handle, pUpdateState);
+    if (NULL != m_pSvmBufDevMemObj)
+    {
+	    return m_pSvmBufDevMemObj->clDevMemObjUpdateBackingStore(operation_handle, pUpdateState);
+    }
+    return CL_DEV_SUCCESS;
 }
     
 cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjUpdateFromBackingStore(void* operation_handle, cl_dev_bs_update_state* pUpdateState)
 {
-	return m_svmBufDevMemObj.clDevMemObjUpdateFromBackingStore(operation_handle, pUpdateState);
+    if (NULL != m_pSvmBufDevMemObj)
+    {
+        return m_pSvmBufDevMemObj->clDevMemObjUpdateFromBackingStore(operation_handle, pUpdateState);
+    }
+    return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjInvalidateData()
 {
-	return m_svmBufDevMemObj.clDevMemObjInvalidateData();
+    if (NULL != m_pSvmBufDevMemObj)
+    {
+        return m_pSvmBufDevMemObj->clDevMemObjInvalidateData();
+    }
+	return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjRelease()
 {
-	return m_svmBufDevMemObj.clDevMemObjRelease();
+    if (NULL != m_pSvmBufDevMemObj)
+    {
+        return m_pSvmBufDevMemObj->clDevMemObjRelease();
+    }
+	return CL_DEV_SUCCESS;
 }

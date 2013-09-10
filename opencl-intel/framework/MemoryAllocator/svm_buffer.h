@@ -78,59 +78,24 @@ private:
 };
 
 /**
- * This class represents an SVM buffer as an argument to a kernel (in the future it will also be used to encapsulate system pointers)
+ * This class represents an SVM pointer as an argument to a kernel (both a pointer inside an SVM buffer and )
  */
 class SVMPointerArg : public MemoryObject
 {
 public:
 
 	PREPARE_SHARED_PTR(SVMPointerArg)
-
-	/**
-	 * @param pSvmBuf	an SVMBuffer (it will be NULL for system pointers)
-	 * @param pArgValue	pointer to the SVM memory inside pSvmBuf or system pointer
-	 */
-	static SharedPtr<SVMPointerArg> Allocate(const SharedPtr<SVMBuffer>& pSvmBuf, const void* pArgValue)
-	{
-		return new SVMPointerArg(pSvmBuf, pArgValue);
-	}
-
+	
 	// overriden methods:
 
 	virtual cl_err_code Initialize(cl_mem_flags	clMemFlags,	const cl_image_format* pclImageFormat, unsigned int	dim_count, const size_t* dimension,	const size_t* pitches,
 		void* pHostPtr,	cl_rt_memobj_creation_flags	creation_flags);
 
-	virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);
-
-	virtual cl_err_code LockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent);
-
-    virtual cl_err_code UnLockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage);
+	virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);	
 
 	virtual cl_err_code ReadData(void* pOutData, const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch = 0, size_t szSlicePitch = 0);
 
-	virtual cl_err_code WriteData(const void* pOutData,	const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch = 0, size_t szSlicePitch = 0);
-
-	virtual cl_err_code GetDimensionSizes(size_t* pszRegion) const;
-
-    virtual size_t GetRowPitchSize() const;
-
-    virtual size_t GetSlicePitchSize() const;
-
-	virtual size_t GetPixelSize() const;
-
-	virtual void GetLayout(OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch) const;
-
-    virtual cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
-
-	virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
-
-	virtual void* GetBackingStoreData(const size_t* pszOrigin = NULL) const;
-
-	virtual cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice);
-
-	virtual cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject, SharedPtr<OclEvent> OUT* ppEvent);
-
-	virtual cl_err_code UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject);
+	virtual cl_err_code WriteData(const void* pOutData,	const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch = 0, size_t szSlicePitch = 0);	
 
 	virtual bool IsSynchDataWithHostRequired(cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr) const;
 
@@ -148,16 +113,12 @@ protected:
 
 	virtual	cl_err_code	MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice>&, cl_dev_cmd_param_map*	cmd_param_map, void* pHostMapDataPtr);
 
-private:
-
-	SVMPointerArg(const SharedPtr<SVMBuffer>& pSvmBuf, const void* pArgValue) :
-	   MemoryObject(pSvmBuf != NULL ? pSvmBuf->GetContext() : SharedPtr<Context>(NULL)), m_pSvmBuf(pSvmBuf), m_szOffset((char*)pArgValue - (char*)pSvmBuf->GetAddr())
-	   {
-		   assert(pArgValue >= pSvmBuf->GetAddr());
-	   }
-
-	const SharedPtr<SVMBuffer> m_pSvmBuf;
-	const size_t m_szOffset;
+    /**
+	 * @param pSvmBuf	an SVMBuffer (it will be NULL for system pointers)
+	 * @param pArgValue	pointer to the SVM memory inside pSvmBuf or system pointer
+	 */
+	SVMPointerArg(const SharedPtr<SVMBuffer>& pSvmBuf) :
+	   MemoryObject(pSvmBuf != NULL ? pSvmBuf->GetContext() : SharedPtr<Context>(NULL)) { }	
 
 	/**
 	 * This class implements IOCLDevMemoryObject for SVM buffers as an arguments to a kernel
@@ -169,10 +130,10 @@ private:
 		/**
 		 * Constructor
 		 * @param pSvmPtrArg		the SVMPointerArg that creates this SVMPointerArgDevMemoryObject
-		 * @param svmBufDevMemObj	the IOCLDevMemoryObject of the SVMBuffer object
+		 * @param pSvmBufDevMemObj	the IOCLDevMemoryObject of the SVMBuffer object or NULL in case of system pointer
 		 * @param szOffset			offset of the pointer argument relative to the beginning of the SVM buffer
 		 */
-		SVMPointerArgDevMemoryObject(const SharedPtr<SVMPointerArg>& pSvmPtrArg, IOCLDevMemoryObject& svmBufDevMemObj, size_t szOffset);
+		SVMPointerArgDevMemoryObject(const SharedPtr<SVMPointerArg>& pSvmPtrArg, IOCLDevMemoryObject* pSvmBufDevMemObj, size_t szOffset);
 
 		// overriden methods:
 
@@ -195,12 +156,132 @@ private:
 
 	private:
 
-		IOCLDevMemoryObject& m_svmBufDevMemObj;
-		const size_t m_szOffset;
+		IOCLDevMemoryObject* m_pSvmBufDevMemObj;
 		cl_mem_obj_descriptor m_objDecr;
 
 	};
 
+};
+
+/**
+ * This class represents a pointer inside an SVM buffer as an argument to a kernel
+ */
+class SVMBufferPointerArg : public SVMPointerArg
+{
+    PREPARE_SHARED_PTR(SVMBufferPointerArg)
+
+    /**
+	 * @param pSvmBuf	an SVMBuffer (it will be NULL for system pointers)
+	 * @param pArgValue	pointer to the SVM memory inside pSvmBuf or system pointer
+     * @return a new SVMBufferPointerArg
+	 */
+    static SharedPtr<SVMBufferPointerArg> Allocate(const SharedPtr<SVMBuffer>& pSvmBuf, const void* pArgValue)
+    {
+        return new SVMBufferPointerArg(pSvmBuf, pArgValue);
+    }
+
+    // overriden methods:
+
+    virtual cl_err_code LockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent);
+
+    virtual cl_err_code UnLockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage);
+
+    virtual cl_err_code GetDimensionSizes(size_t* pszRegion) const;
+
+    virtual size_t GetRowPitchSize() const;
+
+    virtual size_t GetSlicePitchSize() const;
+
+	virtual size_t GetPixelSize() const;
+
+	virtual void GetLayout(OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch) const;
+
+    virtual cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const;
+
+	virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
+
+	virtual void* GetBackingStoreData(const size_t* pszOrigin = NULL) const;
+
+	virtual cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice);
+
+	virtual cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject, SharedPtr<OclEvent> OUT* ppEvent);
+
+	virtual cl_err_code UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject);
+
+private:
+
+    SVMBufferPointerArg(const SharedPtr<SVMBuffer>& pSvmBuf, const void* pArgValue) :
+	   SVMPointerArg(pSvmBuf), m_pSvmBuf(pSvmBuf), m_szOffset((char*)pArgValue - (char*)pSvmBuf->GetAddr())
+	   {
+		   assert(pArgValue >= pSvmBuf->GetAddr());
+	   }
+
+    const SharedPtr<SVMBuffer> m_pSvmBuf;
+	const size_t m_szOffset;
+
+};
+
+/**
+ * This class represents a system pointer as an argument to a kernel
+ */
+class SVMSystemPointerArg : public SVMPointerArg
+{
+public:
+
+    PREPARE_SHARED_PTR(SVMSystemPointerArg)
+
+    /**
+     * @param pArgValue the system pointer
+     * @return a new SVMSystemPointerArg
+     */
+    static SharedPtr<SVMSystemPointerArg> Allocate(const void* pArgValue)
+    {
+        return new SVMSystemPointerArg(pArgValue);
+    }
+
+    // overriden methods:
+
+    virtual cl_err_code LockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent)
+    { 
+        return CL_SUCCESS;
+    }
+
+    virtual cl_err_code UnLockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage)
+    {
+        return CL_SUCCESS;
+    }
+
+    virtual cl_err_code GetDimensionSizes(size_t* pszRegion) const { ASSERT_RET_VAL(false, "this method should never be called", CL_INVALID_OPERATION); }
+
+    virtual size_t GetRowPitchSize() const { return 0; }
+
+    virtual size_t GetSlicePitchSize() const { return 0; }
+
+    virtual size_t GetPixelSize() const { return 0; }
+
+    virtual void GetLayout(OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch) const { }
+
+    virtual cl_err_code CheckBounds(const size_t* pszOrigin, const size_t* pszRegion) const { return CL_SUCCESS; }
+
+    virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const { return CL_SUCCESS; }
+
+    virtual void* GetBackingStoreData(const size_t* pszOrigin = NULL) const { return const_cast<void*>(m_ptr); }
+
+    virtual cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice) { return CL_SUCCESS; }
+
+    virtual cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject, SharedPtr<OclEvent> OUT* ppEvent)
+    {
+        *ppDevObject = new SVMPointerArgDevMemoryObject(this, NULL, 0);
+        return CL_SUCCESS;
+    }
+
+    virtual cl_err_code UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject) { return CL_SUCCESS; }
+
+private:
+
+    SVMSystemPointerArg(const void* pArgValue) : SVMPointerArg(NULL), m_ptr(pArgValue) { }
+
+    const void* const m_ptr;
 };
 
 }}}

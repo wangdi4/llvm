@@ -39,13 +39,11 @@ using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
 MemoryObject::MemoryObject(SharedPtr<Context> pContext):
-    OCLObject<_cl_mem_int>(pContext->GetHandle(), "MemoryObject"),
+    OCLObject<_cl_mem_int>(pContext != NULL ? pContext->GetHandle() : NULL, "MemoryObject"),
     m_pContext(pContext), m_clMemObjectType(0), m_clFlags(0),
     m_pHostPtr(NULL), m_pBackingStore(NULL), m_uiNumDim(0), m_pMemObjData(NULL), m_pParentObject(NULL),
     m_mapCount(0), m_pMappedDevice(NULL), m_stMemObjSize(0), m_bRegisteredInContextModule(false)
 {
-    assert ( NULL != m_pContext );
-
     memset(m_stOrigin, 0, sizeof(m_stOrigin));
 
     m_mapMappedRegions.clear();

@@ -120,12 +120,12 @@ static void TestSetKernelExecInfo(cl_context context, cl_device_id device, cl_co
 	clSVMFree(context, piResult);
 }
 
-static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device, cl_command_queue queue, cl_program prog)
+static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device, cl_command_queue queue, cl_program prog, bool bSysPtrs)
 {
-	cl_int* const piArr = (cl_int*)clSVMAlloc(context, CL_MEM_SVM_FINE_GRAIN_BUFFER, BUF_SIZE, 0);
-	CheckException(L"clSVMAlloc", piArr != NULL, true);
-	cl_int* const piResult = (cl_int*)clSVMAlloc(context, CL_MEM_SVM_FINE_GRAIN_BUFFER, sizeof(cl_int), 0);
-	CheckException(L"clSVMAlloc", piArr != NULL, true);
+	cl_int* const piArr = bSysPtrs ? (cl_int*)malloc(BUF_SIZE) : (cl_int*)clSVMAlloc(context, CL_MEM_SVM_FINE_GRAIN_BUFFER, BUF_SIZE, 0);
+	CheckException(bSysPtrs ? L"malloc" : L"clSVMAlloc", piArr != NULL, true);
+    cl_int* const piResult = bSysPtrs ? (cl_int*)malloc(BUF_SIZE) : (cl_int*)clSVMAlloc(context, CL_MEM_SVM_FINE_GRAIN_BUFFER, sizeof(cl_int), 0);
+	CheckException(bSysPtrs ? L"malloc" : L"clSVMAlloc", piArr != NULL, true);
 
 	// initialize piArr
 	for (size_t i = 0; i < BUF_SIZE / sizeof(cl_int); i++)
@@ -157,8 +157,16 @@ static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device, 
 	}
 	iRet = clReleaseKernel(kernel);
 	CheckException(L"clReleaseKernel", CL_SUCCESS, iRet);
-	clSVMFree(context, piArr);
-	clSVMFree(context, piResult);
+    if (bSysPtrs)
+    {
+        free(piArr);
+        free(piResult);
+    }
+    else
+    {
+	    clSVMFree(context, piArr);
+	    clSVMFree(context, piResult);
+    }
 }
 
 typedef void (CL_CALLBACK *pfnFreeFunc)(cl_command_queue queue, cl_uint uiNumSvmPtrs, void* pSvmPtrs[], void* pUserData);
@@ -356,7 +364,8 @@ bool clSvmTest()
 		CheckException(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
 		iRet = clBuildProgram(prog, 1, &device, "", NULL, NULL);
 		CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
-		TestSetKernelArgSVMPointer(context, device, queue, prog);
+		TestSetKernelArgSVMPointer(context, device, queue, prog, false);
+        TestSetKernelArgSVMPointer(context, device, queue, prog, true);
 		TestSetKernelExecInfo(context, device, queue, prog);
 	}
 	catch (const std::exception&)

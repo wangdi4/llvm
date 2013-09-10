@@ -770,7 +770,15 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 			if (bIsSvmPtr)
 			{
 				SharedPtr<SVMBuffer> pSvmBuf = GetContext()->GetSVMBufferContainingAddr(const_cast<void*>(pValue));
-				SharedPtr<SVMPointerArg> pSvmPtrArg = SVMPointerArg::Allocate(pSvmBuf, pValue);
+                SharedPtr<SVMPointerArg> pSvmPtrArg;
+                if (NULL != pSvmBuf)
+                {
+                    pSvmPtrArg = SVMBufferPointerArg::Allocate(pSvmBuf, pValue);
+                }
+                else
+                {
+                    pSvmPtrArg = SVMSystemPointerArg::Allocate(pValue);
+                }
 				pKernelArg = new KernelArg(uiIndex, sizeof(SVMPointerArg*), pSvmPtrArg.GetPtr(), clArg);
 			}
 			else
