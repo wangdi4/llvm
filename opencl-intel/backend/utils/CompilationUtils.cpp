@@ -501,27 +501,37 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       Example of metadata with CL version:
       !opencl.compiler.options = !{!0}
       !0 = metadata !{metadata !"-cl-std=CL2.0"}
+
+      !opencl.compiler.options = !{!9}
+      !9 = metadata !{metadata !"-cl-fast-relaxed-math", metadata !"-cl-std=CL2.0"}
     */
-    NamedMDNode* metadata = M.getNamedMetadata("opencl.compiler.options");
-    if(metadata){
-      for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k) {
-        llvm::MDNode* pNode = metadata->getOperand(k);
-        if(pNode->getNumOperands() < 1)
-          continue;
-        Value * pSubNode = pNode->getOperand(0);
-        if (!isa<MDString>(pSubNode))
-          continue;
-        StringRef s = cast<MDString>(pSubNode)->getString();
-        if (s.equals("-cl-std=CL1.0"))
-          return CL_VER_1_0;
-        else if (s.equals("-cl-std=CL1.1"))
-          return CL_VER_1_1;
-        else if (s.equals("-cl-std=CL1.2"))
-          return CL_VER_1_2;
-        else if (s.equals("-cl-std=CL2.0"))
-          return CL_VER_2_0;
-      }
+    NamedMDNode* namedMetadata = M.getNamedMetadata("opencl.compiler.options");
+    
+    if(!namedMetadata)
+      return CL_VER_NOT_DETECTED;
+    
+    if(namedMetadata->getNumOperands() < 1)
+      return CL_VER_NOT_DETECTED;
+
+    MDNode* metadata = namedMetadata->getOperand(0);
+    if(!metadata)
+      return CL_VER_NOT_DETECTED;
+    
+    for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k) {
+      Value * pSubNode = metadata->getOperand(k);
+      if (!isa<MDString>(pSubNode))
+        continue;
+      StringRef s = cast<MDString>(pSubNode)->getString();
+      if (s.equals("-cl-std=CL1.0"))
+        return CL_VER_1_0;
+      else if (s.equals("-cl-std=CL1.1"))
+        return CL_VER_1_1;
+      else if (s.equals("-cl-std=CL1.2"))
+        return CL_VER_1_2;
+      else if (s.equals("-cl-std=CL2.0"))
+        return CL_VER_2_0;
     }
+
     return CL_VER_NOT_DETECTED;
   }
 
