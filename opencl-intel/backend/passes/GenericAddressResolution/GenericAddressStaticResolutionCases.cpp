@@ -180,10 +180,11 @@ namespace intel {
     } else if (pSrcType && IS_ADDR_SPACE_GENERIC(pSrcType->getAddressSpace())) {
       // Original bitcast is from generic to named: check validity of the conversion 
       //                                            and produce named-to-named anyway
+      // Original bitcast to from generic to integer: produce named-to-integer
 
       // At first - find a resolution for source value
       assert(pInstr->getOpcode() == Instruction::BitCast &&
-             "Only Bitcast can convert pointer with named space to another named space");
+             "Only Bitcast can convert pointer with named space to another named space or integer");
       pPrevValue = getResolvedOperand(pPrevValue, space);
       assert(pPrevValue && "Cannot reach this point without resolved value for GAS pointer!");
       // Then - generate the instruction

@@ -311,9 +311,12 @@ namespace intel {
       // Account for failure
       m_failCount++;
     }
-    ptr_it->second = OCLAddressSpace::Generic;
-    // Proceed to uses in order to revert them to generic space as well
-    propagateSpace(pInstr, ptr_it->second);
+    if (ptr_it->second != OCLAddressSpace::Generic) {
+      // In the case of conflict - enforce GAS type and ...
+      ptr_it->second = OCLAddressSpace::Generic;
+      // ... proceed to uses in order to revert them to generic space as well
+      propagateSpace(pInstr, ptr_it->second);
+    }
   }
 
   bool GenericAddressStaticResolution::handleGASConstantExprIfNeeded(Value *pOperand, Instruction *pInstr) {
