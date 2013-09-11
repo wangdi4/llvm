@@ -394,6 +394,11 @@ TEST(FrameworkTestType, Test_clSvmTest)
 	EXPECT_TRUE(clSvmTest());
 }
 
+TEST(FrameworkTestType, DISABLED_Test_clFlexibleNdrange)    // disabled until BE finish their implementation
+{
+	EXPECT_TRUE(clFlexibleNdrange());
+}
+
 TEST(FrameworkTestType, Test_clPipes)
 {
 	EXPECT_TRUE(clPipes());

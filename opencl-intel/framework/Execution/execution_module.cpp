@@ -2002,13 +2002,12 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
         }
     }
-    // Check that if local_work_size is specified and number of work items specified by 
-    // global_work_size is not evenly divisible by size of work-group given by local_work_size
-    if( NULL != cpszGlobalWorkSize && NULL != cpszLocalWorkSize )
+    
+	if( NULL != cpszGlobalWorkSize && NULL != cpszLocalWorkSize )
     {
         for( ui=0; ui<uiWorkDim; ui++)
         {
-            if( ( cpszLocalWorkSize[ui] == 0 ) || ( 0 != (cpszGlobalWorkSize[ui] % cpszLocalWorkSize[ui]) ) )
+            if (cpszLocalWorkSize[ui] == 0)
             {
                 return CL_INVALID_WORK_GROUP_SIZE;
             }
