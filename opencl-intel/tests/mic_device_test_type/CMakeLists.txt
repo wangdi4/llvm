@@ -7,14 +7,6 @@ endif (NOT WIN32)
 include (../../cmake_utils/CMakeFuncs.txt)
 include( ../../cmake_utils/itt.cmake )
 
-if (KNC_CARD)
-	if (WIN32)
-		set( COI_SDK_PATH           $ENV{INTEL_MPSS_HOST_SDK} )
-		string ( REGEX REPLACE "[\\]$"  "" COI_SDK_PATH ${COI_SDK_PATH} ) 
-	else (WIN32)
-		set( COI_SDK_PATH           /opt/intel/mic/coi )
-	endif (WIN32)
-endif (KNC_CARD)
 set( COI_HOST_LIB           coi_host )
 set( DEBUG_RELEASE release )
 
@@ -34,13 +26,15 @@ if(WIN32)
     link_directories(
         ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM/lib/${INSTALL_SUBDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Win32
-		${COI_SDK_PATH}/lib
+        ${COI_HOST_LIB_PATH}
+        ${COI_YOCTO_HOST_LIB_PATH}
     )
 else (WIN32)
     link_directories(
         ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM/lib/${INSTALL_SUBDIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Linux64
-        ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib
+        ${COI_HOST_LIB_PATH}
+        ${COI_YOCTO_HOST_LIB_PATH}
     )
 endif(WIN32)
 

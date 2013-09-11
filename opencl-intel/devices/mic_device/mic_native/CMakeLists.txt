@@ -321,7 +321,6 @@ endif (NOT WIN32)
 set( MIC_LINK_FLAGS      )
 
 SET_NATIVE_PATH(COI_DEVICE_LIB_PATH ${COI_DEVICE_LIB_PATH})
-SET_NATIVE_PATH(COI_YOCTO_DEVICE_LIB_PATH ${COI_YOCTO_DEVICE_LIB_PATH})
 
 # lib path
 list( APPEND MIC_LINK_FLAGS
@@ -332,7 +331,6 @@ list( APPEND MIC_LINK_FLAGS
 
                 # library search path at link
                 -L ${COI_DEVICE_LIB_PATH}
-                -L ${COI_YOCTO_DEVICE_LIB_PATH}
                 -L ${BACKEND_LIB_DIR}
                 -L ${MIC_TBB_LIB_PATH}
                 ${BACKEND_VTUNE_DIR}
