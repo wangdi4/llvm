@@ -629,6 +629,12 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
 }
 
 void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
+
+  // Should be done only for divergent blocks
+  if (! m_WIA->isDivergentBlock(inst->getParent())) {
+    return;
+  }
+
   Value* prev_ptr = new AllocaInst(
     inst->getType(),            // type
     inst->getName() + "_prev",  // name
@@ -648,11 +654,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
 
   V_ASSERT (m_inInst.find(BB) != m_inInst.end() &&
             "Where did we save the mask in this BB ?");
-
-  // Should be done only for divergent blocks
-  if (! m_WIA->isDivergentBlock(BB))
-    return;
-
+ 
   // Load the predicate value and place the select
   // We will place them in the correct place in the next section
   Instruction* predicate  = new LoadInst(pred,"predicate");
@@ -903,10 +905,7 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
   ///
   /// In here we handle simple forking of two basic blocks to non exit blocks.
   //
-  V_ASSERT(m_inMask.find(BB) != m_inMask.end() && "BB has no in-mask");
-  Value* incoming = m_inMask[BB];
-  Value  *l_incoming   = new LoadInst(incoming, "l_inc", br);
-
+ 
   /// One side takes the condition as is,
   /// the other uses the negation of the condition
   BinaryOperator* notCond = BinaryOperator::Create(
@@ -926,6 +925,10 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
   Value* MFalse, *MTrue;
 
   if (m_WIA->isDivergentBlock(BB)) {
+    V_ASSERT(m_inMask.find(BB) != m_inMask.end() && "BB has no in-mask");
+    Value* incoming = m_inMask[BB];
+    Value  *l_incoming   = new LoadInst(incoming, "l_inc", br);
+
     MFalse = BinaryOperator::Create(
       Instruction::And, l_incoming, notCond,
       BB->getName() + "_to_" + BBsucc1->getName(), br);

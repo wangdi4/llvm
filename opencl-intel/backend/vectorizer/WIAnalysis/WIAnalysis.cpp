@@ -395,6 +395,9 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
     // for these as well.
     for (pred_iterator itr = pred_begin(defBlk); itr != pred_end(defBlk); ++itr) {
       if (!isDivergentBlock(*itr) && (*itr != blk)) {
+        // Because defBlk is divergent and *itr is not then the idom of defBlk 
+        // should also be a dom of *itr and therefore, such a dominator exists
+        assert(m_DT->getNode(defBlk) && m_DT->getNode(defBlk)->getIDom() && "dominator cannot be null");
         BasicBlock *immDom = m_DT->getNode(defBlk)->getIDom()->getBlock();
         assert(immDom && "immDom cannot be null");
 
@@ -844,7 +847,19 @@ void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
   assert(dyn_cast<BranchInst>(inst) && dyn_cast<BranchInst>(inst)->isConditional() && "branch has to be a conditional branch");
   assert(inst->getNumSuccessors() == 2 && "supports only for conditional branches with two successors");
 
-  m_fullJoin = m_PDT->getNode((BasicBlock*)(inst->getParent()))->getIDom()->getBlock();
+  DomTreeNode * postDomNode = m_PDT->getNode((BasicBlock*)(inst->getParent()));
+
+ // If we are in an infinite loop then there is no post-dominant
+ // In this case, we mark everything reachable from the divergent branch as its influence region (conservative)
+  if (postDomNode)  {
+    // Because inst is a conditional branch then it is not the last basic block 
+    // and therefore getIDom does not return null
+    assert(postDomNode->getIDom() != 0 && "Post dominator cannot be null");
+    m_fullJoin = postDomNode->getIDom()->getBlock(); 
+  }
+  else {
+    m_fullJoin = 0;
+  }
 
   bool updatedFullJoin = true;
 
@@ -938,7 +953,14 @@ void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
 
       // find the first full join's post-dominator outside the post dominator's loop
       do {
-        nextFullJoin = m_PDT->getNode((BasicBlock*)nextFullJoin)->getIDom()->getBlock();
+        DomTreeNode * postDomNode = m_PDT->getNode((BasicBlock*)nextFullJoin);
+        // if updatedFullJoin is true then we are not in an infinite loop and therefore, getNode 
+        // does not return null
+        assert(postDomNode && "getNode should not return null");
+        // If the post dom is inside the loop then it cannot be the last block and therefore, 
+        // getIDom does not return null
+        assert(postDomNode->getIDom() && "getIDom should not return null");
+        nextFullJoin = postDomNode->getIDom()->getBlock();
         nextFullJoinLoop = m_LI->getLoopFor(nextFullJoin);
       } while (nextFullJoinLoop == fullJoinLoop);
 
