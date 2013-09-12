@@ -1827,6 +1827,10 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
 
     isExclusive = true;
   }
+  else
+    return;
+
+  assert (pfIntrinName != NULL && "Expected gather/scatter intrinsic");
 
   Type *voidTy = Type::getVoidTy(context);
   FunctionType *intr = FunctionType::get(voidTy, types, false);
