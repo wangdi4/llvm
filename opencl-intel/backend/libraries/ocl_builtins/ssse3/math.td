@@ -811,7 +811,7 @@ OclBuiltinImpl log2_svml_rm = OclBuiltinImpl<log2_rm, log2_rm.Types, 0, [{
 
 // pow_rm
 OclBuiltinImpl pow_svml_rm = OclBuiltinImpl<pow_rm, pow_rm.Types, 0, [{
-    return __ocl_svml_$Target_pow$SVMLSuffix_rm($Arg0VarName);
+    return __ocl_svml_$Target_pow$SVMLSuffix_rm($Arg0VarName, $Arg1VarName);
   }]>;
 
 // sin_rm
