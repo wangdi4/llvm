@@ -6213,6 +6213,11 @@ void __attribute__((overloadable)) vstorea_half4_rtn(double4 data,size_t offset,
 void __attribute__((overloadable)) vstorea_half8_rtn(double8 data,size_t offset, __private half *p);
 void __attribute__((overloadable)) vstorea_half16_rtn(double16 data,size_t offset, __private half *p);
 
+#define vstorea_half_rte vstore_half_rte
+#define vstorea_half_rtz vstore_half_rtz
+#define vstorea_half_rtp vstore_half_rtp
+#define vstorea_half_rtn vstore_half_rtn
+
 // Synchronization functions
 
 /**

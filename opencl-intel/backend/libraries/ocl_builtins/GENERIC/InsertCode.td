@@ -35,7 +35,7 @@ def __ocl_masked_load_float_4x4_common: insert_code<"\n"#
 /// @param Arg4  - char8   zIn    - Row 2 of the matrix to be transposed
 /// @param Arg5  - char8   wIn    - Row 3 of the matrix to be transposed
 def __ocl_transpose_store_char4x8_common_sse4:  insert_code<"\n"#
-"   char16 x;\n"#
+"    char16 x;\n"#
 "    char16 y;\n"#
 "    char16 z;\n"#
 "    char16 w;\n"#
