@@ -12,6 +12,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Intrinsics.h"
+#include "llvm/Module.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <string>
 
@@ -90,6 +92,32 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
     return m_allocaSOA[val];
   }
 
+  void SoaAllocaAnalysis::print(raw_ostream &OS, const Module *M) const {
+    if ( !M ) {
+      OS << "No Module!\n";
+      return;
+    }
+    //Print Module
+    OS << *M;
+
+    OS << "SAA-Start\n";
+    for ( Module::const_iterator fi = M->begin(), fe = M->end(); fi != fe; ++fi ) {
+      if (fi->isDeclaration()) continue;
+      OS << fi->getName().str() << "\n";
+      for (const_inst_iterator ii = inst_begin(fi), ie = inst_end(fi); ii != ie; ++ii) {
+        const Value* val = &*ii;
+        bool  bSoaAllocaRelated = const_cast<SoaAllocaAnalysis*>(this)->isSoaAllocaRelated(val);
+        bool  bSoaAllocaScalarRelated = const_cast<SoaAllocaAnalysis*>(this)->isSoaAllocaScalarRelated(val);
+        bool  bSoaAllocaVectorRelated = const_cast<SoaAllocaAnalysis*>(this)->isSoaAllocaVectorRelated(val);
+        bool  bSoaAllocaRelatedPointer = const_cast<SoaAllocaAnalysis*>(this)->isSoaAllocaRelatedPointer(val);
+        if (bSoaAllocaRelated) {
+          OS << *val << " SR:[" << bSoaAllocaScalarRelated << "] VR:[" << bSoaAllocaVectorRelated << "] PR:[" << bSoaAllocaRelatedPointer << "]\n";
+        }
+      }
+    }
+    OS << "SAA-End\n";
+  }
+
   bool SoaAllocaAnalysis::isSupportedAlloca(const AllocaInst *pAI, bool isVectorBasedType,
       unsigned int arrayNestedLevel, std::set<const Value*> &visited) {
     std::vector<const Value*> usages(pAI->use_begin(), pAI->use_end());
@@ -120,7 +148,7 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
         continue;
       }
       else if (const StoreInst *pSI = dyn_cast<StoreInst>(usage)) {
-        if (pSI->getValueOperand() == usage) {
+        if (pSI->getValueOperand() == pAI) {
           V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported usage as store value (" << *usage << ")\n");
           return false;
         }
@@ -153,7 +181,7 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
             continue;
           }
           else if (Mangler::isMangledStore(pCall->getCalledFunction()->getName())) {
-            if (pCall->getArgOperand(2) == usage) {
+            if (pCall->getArgOperand(2) == pAI) {
               V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported usage as store value (" << *usage << ")\n");
               return false;
             }

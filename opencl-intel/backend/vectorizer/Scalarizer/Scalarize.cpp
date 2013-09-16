@@ -900,10 +900,9 @@ void ScalarizeFunction::scalarizeInstruction(GetElementPtrInst *GI) {
 
     SmallVector<Value*, 8> Idx;
     Value * multiPtrOperand[MAX_PACKET_WIDTH];
+    obtainScalarizedValues(multiPtrOperand, NULL, GI->getPointerOperand(), GI);
     for (unsigned int i = 0; i < GI->getNumOperands(); ++i) {
-      if (i == GI->getPointerOperandIndex()) {
-        obtainScalarizedValues(multiPtrOperand, NULL, GI->getOperand(i), GI);
-      } else {
+      if (i != GI->getPointerOperandIndex()) {
         Idx.push_back(GI->getOperand(i));
       }
     }

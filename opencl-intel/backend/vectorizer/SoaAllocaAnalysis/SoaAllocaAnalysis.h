@@ -77,6 +77,11 @@ namespace intel {
     /// @return width of given value
     unsigned int getSoaAllocaVectorWidth(const Value* val);
 
+    /// @brief print data collected by the pass on the given module
+    /// @param OS stream to print the info regarding the module into
+    /// @param M pointer to the Module
+    void print(raw_ostream &OS, const Module *M = 0) const;
+
   private:
     /// @brief Returns true if given alloca instruction is supported.
     /// @param pAI - alloca instruction
