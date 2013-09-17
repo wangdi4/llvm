@@ -14331,6 +14331,16 @@ cl_mem_fence_flags get_fence (const void *ptr);
 
 // Enqueuing Kernels  6.13.17
 
+#define CLK_SUCCESS                    0
+#define CLK_OUT_OF_RESOURCES          -5
+#define CLK_INVALID_ARG_SIZE          -51
+#define CLK_INVALID_EVENT_WAIT_LIST   -57
+#define CLK_EVENT_ALLOCATION_FAILURE  -100
+#define CLK_ENQUEUE_FAILURE           -101
+#define CLK_INVALID_QUEUE             -102
+#define CLK_INVALID_NDRANGE           -160
+#define CLK_DEVICE_QUEUE_FULL         -161
+
 typedef int kernel_enqueue_flags_t;
 typedef int clk_profiling_info;
 
