@@ -14341,6 +14341,9 @@ cl_mem_fence_flags get_fence (const void *ptr);
 #define CLK_INVALID_NDRANGE           -160
 #define CLK_DEVICE_QUEUE_FULL         -161
 
+#define CL_COMPLETE                   0x0
+#define CL_SUBMITTED                  0x2
+
 typedef int kernel_enqueue_flags_t;
 typedef int clk_profiling_info;
 
