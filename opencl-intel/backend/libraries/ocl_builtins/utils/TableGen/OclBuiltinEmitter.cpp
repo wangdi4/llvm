@@ -1209,24 +1209,30 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 9 && "Type" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCType(i, OT->getName());
+        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 10 && "Type" == pat.substr(6)) {
+          unsigned i = (pat[4] - '0')*10 + (pat[5] - '0');
+          val = OB->getArgumentCType(i, OT->getName());
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "BaseType" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentBaseCType(i, OT->getName());
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 && "VecType" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCVecType(i, OT->getName(), OT->getVecLength());
+        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "VecType" == pat.substr(6)) {
+          unsigned i = (pat[4] - '0')*10 + (pat[5] - '0');
+          val = OB->getArgumentCVecType(i, OT->getName(), OT->getVecLength());
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "NoASType" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCNoASType(i, OT->getName());
+        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 && "VarName" == pat.substr(5)) {
+          unsigned i = pat[4] - '0';
+          val = OB->getArgumentCName(i, OT->getName());
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "VarName" == pat.substr(6)) {
           unsigned i = (pat[4] - '0')*10 + (pat[5] - '0');
           val = OB->getArgumentCName(i, OT->getName());
         } else if ("$Arg" == pat.substr(0, 4) &&  pat.substr(5).find("gentype") != std::string::npos) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCGenType(i, pat.substr(5), OT->getName());
-        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 && "VarName" == pat.substr(5)) {
-          unsigned i = pat[4] - '0';
-          val = OB->getArgumentCName(i, OT->getName());
         } else if ("$NativeFunc" == pat) {
           val = OB->getNativeCFunc(OT->getName());
         } else if ("$NativeReturnType" == pat) {

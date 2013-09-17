@@ -189,9 +189,9 @@ namespace intel{
     strippedName = stripName(calledFuncName.c_str());
 
     // Check if its shuffle function and mask is constant
-    if (strippedName == "shuffle") {
+    if (strippedName == "shuffle" || strippedName == "__ocl_helper_shuffle" ) {
         return SHUFFLE1;
-    } else if (strippedName == "shuffle2") {
+    } else if (strippedName == "shuffle2" || strippedName == "__ocl_helper_shuffle2" ) {
         return SHUFFLE2;
     }
     return NOT_SHUFFLE;

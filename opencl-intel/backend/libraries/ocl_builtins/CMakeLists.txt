@@ -178,7 +178,7 @@ if(INCLUDE_MIC_DEVICE)
 endif(INCLUDE_MIC_DEVICE)
 
 set (CLANG_COMPILER_PARAMS
-  -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O0
+  -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h
   -fblocks -D__OPENCL_C_VERSION__=200 
   )
@@ -194,8 +194,7 @@ elseif (PLATFORM EQUAL Android32)
 endif (PLATFORM EQUAL Win32)
 
 # llvm-opt
-# do not change the order: -O3 optimization need to run -shuffle-call-to-inst first!
-set (LLVM_OPT_PARAMS -scalarrepl -functionattrs -shuffle-call-to-inst -O3)
+set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
 
 # images optimization options
 set (LLVM_IMAGES_OPT_PARAMS -builtin-import -shuffle-call-to-inst -O3)
