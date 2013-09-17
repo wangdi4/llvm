@@ -24,7 +24,7 @@ if (TARGET_CPU STREQUAL "Atom")
     set(CMAKE_ASM_FLAGS               ${CMAKE_ASM_FLAGS} ${ATOM_SPECIFIC_FLAGS_ASM}) # Do not quote (CREATE_ASM_RULES)!
 endif (TARGET_CPU STREQUAL "Atom")
 
-message("** ** ** Enable Languages ** ** **")
+message(STATUS "** ** ** Enable Languages ** ** **")
 
 enable_language( C )
 enable_language( CXX )
@@ -183,20 +183,20 @@ set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${A
 
 set( CMAKE_BUILD_TOOL "$(MAKE)")
 
-message("\n\n** ** ** COMPILER Definitions ** ** **")
-message("CMAKE_C_COMPILER = ${CMAKE_C_COMPILER}")
-message("CMAKE_C_FLAGS = ${CMAKE_C_FLAGS}")
-message("")
-message("CMAKE_CXX_COMPILER = ${CMAKE_CXX_COMPILER}")
-message("CMAKE_CXX_FLAGS = ${CMAKE_CXX_FLAGS}")
-message("")
-message("CMAKE_ASM_COMPILER = ${CMAKE_ASM_COMPILER}")
-message("CMAKE_ASM_FLAGS = ${CMAKE_ASM_FLAGS}")
-message("")
-message("CMAKE_FIND_ROOT_PATH = ${CMAKE_FIND_ROOT_PATH}")
-message("CMAKE_EXE_LINKER_FLAGS = ${CMAKE_EXE_LINKER_FLAGS}")
-message("")
-message("CMAKE_BUILD_TOOL = ${CMAKE_BUILD_TOOL}")
+message(STATUS "\n\n** ** ** COMPILER Definitions ** ** **")
+message(STATUS "CMAKE_C_COMPILER = ${CMAKE_C_COMPILER}")
+message(STATUS "CMAKE_C_FLAGS = ${CMAKE_C_FLAGS}")
+message(STATUS "")
+message(STATUS "CMAKE_CXX_COMPILER = ${CMAKE_CXX_COMPILER}")
+message(STATUS "CMAKE_CXX_FLAGS = ${CMAKE_CXX_FLAGS}")
+message(STATUS "")
+message(STATUS "CMAKE_ASM_COMPILER = ${CMAKE_ASM_COMPILER}")
+message(STATUS "CMAKE_ASM_FLAGS = ${CMAKE_ASM_FLAGS}")
+message(STATUS "")
+message(STATUS "CMAKE_FIND_ROOT_PATH = ${CMAKE_FIND_ROOT_PATH}")
+message(STATUS "CMAKE_EXE_LINKER_FLAGS = ${CMAKE_EXE_LINKER_FLAGS}")
+message(STATUS "")
+message(STATUS "CMAKE_BUILD_TOOL = ${CMAKE_BUILD_TOOL}")
 
 add_custom_target(strip 
                     ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh 

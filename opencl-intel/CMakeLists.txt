@@ -386,10 +386,10 @@ if (INCLUDE_MIC_DEVICE)
         set ( COI_YOCTO_DEVICE_LIB_PATH     /opt/mpss/3.1/sysroots/k1om-mpss-linux/usr/lib64 )
     endif (WIN32)
 
-    message ( "COI host include directory  : ${COI_HOST_INCLUDE_PATH}")
-    message ( "COI host lib directory      : ${COI_HOST_LIB_PATH}")
-    message ( "COI device include directory: ${COI_DEVICE_INCLUDE_PATH}")
-    message ( "COI device lib directory    : ${COI_DEVICE_LIB_PATH}")
+    message (STATUS "COI host include directory  : ${COI_HOST_INCLUDE_PATH}")
+    message (STATUS "COI host lib directory      : ${COI_HOST_LIB_PATH}")
+    message (STATUS "COI device include directory: ${COI_DEVICE_INCLUDE_PATH}")
+    message (STATUS "COI device lib directory    : ${COI_DEVICE_LIB_PATH}")
 endif (INCLUDE_MIC_DEVICE)
 
 # paths

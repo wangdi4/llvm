@@ -18,7 +18,7 @@ if(__LINUX_COMPILER_INTEL)
 endif()
 set(__LINUX_COMPILER_INTEL 1)
 
-message("Setting up Intel toolchain")
+message(STATUS "Setting up Intel toolchain")
 
 set(SET_XCOMPILE_SYSROOT_CMD "")
 set(SYSROOT "")
@@ -88,7 +88,7 @@ __linux_compiler_intel(CXX)
 set( CMAKE_ASM_COMPILER  gas PARENT_SCOPE )
 
 if (TARGET_CPU STREQUAL "Atom")
-    message("Setting up ATOM Intel cross-compilation flags and tools")
+    message(STATUS "Setting up ATOM Intel cross-compilation flags and tools")
 
     set(CMAKE_SYSTEM_PROCESSOR ATOM)
     # for gcc > 4.5.0 use "-march=atom" (no -mtune)

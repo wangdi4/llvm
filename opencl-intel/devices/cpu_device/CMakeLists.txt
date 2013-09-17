@@ -57,7 +57,7 @@ list (APPEND LINK_LIBS builtin_kernels device_commands)
 
 # Add MKL library integration	
 if (INCLUDE_MKL)
-	message( "Including MKL library" )
+	message(STATUS "Including MKL library" )
 	add_definitions( -D__INCLUDE_MKL__ )
 
 	add_subdirectory(../common/mkl_kernels ${CMAKE_CURRENT_BINARY_DIR}/mkl_kernels)
