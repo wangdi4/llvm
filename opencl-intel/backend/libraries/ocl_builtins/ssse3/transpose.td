@@ -86,7 +86,7 @@ OclBuiltinImpl transpose_masked_gather_4x4_sse3 = OclBuiltinImpl<__ocl_masked_ga
       return;
     }
 
-    $PtrArg0Type  dummy;
+    $PtrArg0Type  dummy = 0;
 
     $Arg0Type xyzw0 = $Arg8VarName.s0 ? $Arg0VarName : &dummy;
     $Arg0Type xyzw1 = $Arg8VarName.s1 ? $Arg1VarName : &dummy;
@@ -173,7 +173,7 @@ OclBuiltinImpl transpose_masked_gather_4x8_sse3 = OclBuiltinImpl<__ocl_masked_ga
       return;
     }
 
-    $PtrArg0Type  dummy;
+    $PtrArg0Type  dummy = 0;
 
     $Arg0Type xyzw0 = $Arg12VarName.s0 ? $Arg0VarName : &dummy;
     $Arg0Type xyzw1 = $Arg12VarName.s1 ? $Arg1VarName : &dummy;
