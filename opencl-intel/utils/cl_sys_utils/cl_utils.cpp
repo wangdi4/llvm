@@ -1366,7 +1366,7 @@ bool IsPowerOf2(unsigned int uiNum)
 
 void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size_t szBufferSize)
 {
-	if (szPatternSize > sizeof(long long))
+	if (szPatternSize > sizeof(long long) || szBufferSize < sizeof(long long))
 	{
 		// for long patterns do memcpy
 		for (size_t offset=0 ; offset < szBufferSize ; offset += szPatternSize)
