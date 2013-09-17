@@ -21,6 +21,7 @@ add_subdirectory(UndefExternalFuncs)
 add_subdirectory(KernelInfo)
 add_subdirectory(GenericAddressResolution)
 add_subdirectory(LinearIdResolver)
+add_subdirectory(ResolveBlockToStaticCall)
 
 if(APPLE)
   add_subdirectory(ClangCompatFixer)

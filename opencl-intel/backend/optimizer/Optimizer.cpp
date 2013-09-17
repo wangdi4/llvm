@@ -79,6 +79,7 @@ llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llv
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectFuncPtrCalls();
 llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
+llvm::Pass *createResolveBlockToStaticCallPass();
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -256,6 +257,14 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #else
   m_funcStandardLLVMPasses.add(new llvm::TargetData(pModule));
 #endif
+  // Detect OCL2.0 compilation mode
+  const bool isOcl20 =
+    (CompilationUtils::getCLVersionFromModule(*pModule) >= CompilationUtils::CL_VER_2_0);
+  
+  // OCL2.0 resolve block to static call
+  if(isOcl20)
+    m_funcStandardLLVMPasses.add(createResolveBlockToStaticCallPass());
+
   createStandardVolcanoFunctionPasses(&m_funcStandardLLVMPasses, uiOptLevel, pConfig);
 
 // Adding module passes.
@@ -268,10 +277,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #ifdef __APPLE__
   m_moduleStandardLLVMPasses.add(createClangCompatFixerPass());
 #endif
-  // For OCL2.0 compilation mode - add Generic Address Static Resolution pass
-  const bool isOcl20 =
-    (CompilationUtils::getCLVersionFromModule(*pModule) >= CompilationUtils::CL_VER_2_0);
    
+  // OCL2.0 add Generic Address Static Resolution pass
   if (isOcl20) {
     // Static resolution of generic address space pointers
     if (uiOptLevel > 0) {

@@ -91,6 +91,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeDetectFuncPtrCallsPass(Registry);
     intel::initializeResolveWICallPass(Registry);
     intel::initializeCloneBlockInvokeFuncToKernelPass(Registry);
+    intel::initializeResolveBlockToStaticCallPass(Registry);
 }
 
 

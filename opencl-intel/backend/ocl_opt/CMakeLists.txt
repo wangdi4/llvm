@@ -33,6 +33,7 @@ set(OCL_BE_PASSES
     DetectFunctionPtrCalls
     ResolveWICall
     CloneBlockInvokeFuncToKernel
+    ResolveBlockToStaticCall
 )
 
 # Dependencies of the passes

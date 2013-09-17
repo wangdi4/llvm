@@ -363,6 +363,7 @@ set( BACKEND_PASSES
     Materialize
     DetectFunctionPtrCalls
     CloneBlockInvokeFuncToKernel
+    ResolveBlockToStaticCall
 )
 
 target_link_libraries (${TARGET_NAME}
