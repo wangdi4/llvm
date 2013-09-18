@@ -12,8 +12,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Module.h"
 
 /*
-    CloneBlockInvokeFuncToKernelPass pass finds all blockInvoke functions in module
-    -- for each found function F 
+    CloneBlockInvokeFuncToKernelPass pass finds in module
+    all blockInvoke functions that may be enqueued as kernels
+    -- for each found function F
       -- remove internal linkage type from blockInvoke. In order to have it in global values map
       -- creates kernel with name org_name+_kernel. Update opencl.kernels metadata
 */
@@ -23,11 +24,11 @@ namespace intel {
   struct CloneBlockInvokeFuncToKernel : public ModulePass {
     static char ID;
     /// ctor
-    CloneBlockInvokeFuncToKernel() 
+    CloneBlockInvokeFuncToKernel()
       : ModulePass(ID) {}
-    
+
     /// main function
-    virtual bool runOnModule(Module &M); 
+    virtual bool runOnModule(Module &M);
 
   }; // struct CloneBlockInvokeFuncToKernel
 
