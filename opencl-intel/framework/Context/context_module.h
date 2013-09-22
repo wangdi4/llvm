@@ -292,7 +292,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										const size_t image_height,
 										const size_t image_depth,
 										const size_t array_size,
-										const void* pImgBufferHostPtr = NULL);
+										const void* pImgBufferHostPtr = NULL,
+                                        cl_mem_flags bufFlags = 0);
 
 
 		// get pointers to device objects according to the device ids
@@ -574,7 +575,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags
         return CL_INVALID_HANDLE;
     }
 
-	clErr = CheckContextSpecificParameters(pContext, (cl_mem_object_type)OBJ_TYPE, desc.image_width, desc.image_height, desc.image_depth, desc.image_array_size, pBuffer->GetHostPtr());
+	clErr = CheckContextSpecificParameters(pContext, (cl_mem_object_type)OBJ_TYPE, desc.image_width, desc.image_height, desc.image_depth, desc.image_array_size, pBuffer->GetHostPtr(), bufFlags);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("%s"), TEXT("Context specific parameter check failed"), "");
@@ -607,7 +608,21 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags
 		return CL_INVALID_HANDLE;
 	}
 
-    clFlags |= pBuffer->GetFlags(); // if some flags are not specified, they are inherited from buffer
+    /* if the CL_MEM_READ_WRITE, CL_MEM_READ_ONLY or CL_MEM_WRITE_ONLY values are not specified in flags, they are inherited from the corresponding memory access qualifers associated with
+       mem_object */
+    if (0 == (clFlags & (CL_MEM_READ_WRITE | CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY)))
+    {
+        clFlags |= pBuffer->GetFlags() & (CL_MEM_READ_WRITE | CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY);
+    }
+    /* The CL_MEM_USE_HOST_PTR, CL_MEM_ALLOC_HOST_PTR and CL_MEM_COPY_HOST_PTR values cannot be specified in flags but are inherited from the corresponding memory access qualifiers associated with
+       mem_object. */
+    clFlags |= pBuffer->GetFlags() & (CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR);
+    /* If the CL_MEM_HOST_WRITE_ONLY, CL_MEM_HOST_READ_ONLY or CL_MEM_HOST_NO_ACCESS values are not specified in flags, they are inherited from the corresponding memory access qualifiers
+       associated with mem_object. */
+    if (0 == (clFlags & (CL_MEM_HOST_WRITE_ONLY | CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_NO_ACCESS)))
+    {
+        clFlags |= pBuffer->GetFlags() & (CL_MEM_HOST_WRITE_ONLY | CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_NO_ACCESS);
+    }
 
     void* const pBufferData = pBuffer->GetBackingStoreData();
 	const cl_mem clImgBuf = CreateScalarImage<DIM, OBJ_TYPE>(context, clFlags, clImageFormat, desc.image_width, desc.image_height, desc.image_depth, desc.image_row_pitch,

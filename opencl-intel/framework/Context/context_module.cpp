@@ -2732,7 +2732,8 @@ cl_err_code ContextModule::CheckContextSpecificParameters(SharedPtr<Context>pCon
 										const size_t image_height,
 										const size_t image_depth,
 										const size_t array_size,
-										const void* pImgBufferHostPtr)
+										const void* pImgBufferHostPtr,
+                                        cl_mem_flags bufFlags)
 {
     size_t maxW = (size_t)-1;
     size_t maxH = (size_t)-1;
@@ -2784,7 +2785,7 @@ cl_err_code ContextModule::CheckContextSpecificParameters(SharedPtr<Context>pCon
 			maxArraySize = maxArraySize > sz ? sz : maxArraySize;
 		}
 
-		if (NULL != pImgBufferHostPtr && CL_MEM_OBJECT_IMAGE2D == image_type)
+        if (NULL != pImgBufferHostPtr && CL_MEM_OBJECT_IMAGE2D == image_type && (bufFlags & CL_MEM_USE_HOST_PTR))
 		{
 			cl_uint uiImgBaseAddrAlign;
 			dev->GetInfo(CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT, sizeof(uiImgBaseAddrAlign), &uiImgBaseAddrAlign, NULL);
