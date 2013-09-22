@@ -8589,6 +8589,7 @@ FINISH:
 
     return acceleratorObj;
 }
+SET_ALIAS( clCreateAcceleratorINTEL );
 
 /******************************************************************************\
 
@@ -8689,6 +8690,7 @@ CL_API_ENTRY cl_int CL_API_CALL clGetAcceleratorInfoINTEL(
 FINISH:
     return errCode;
 }
+SET_ALIAS( clGetAcceleratorInfoINTEL );
 
 /// ------------------------------------------------------------------------------
 ///
@@ -8708,7 +8710,7 @@ cl_int CL_API_CALL clRetainAcceleratorINTEL( cl_accelerator_intel accelerator )
 FINISH:
     return errCode;
 }
-
+SET_ALIAS( clRetainAcceleratorINTEL );
 
 /// ------------------------------------------------------------------------------
 ///
@@ -8728,6 +8730,8 @@ cl_int CL_API_CALL clReleaseAcceleratorINTEL( cl_accelerator_intel accelerator )
 FINISH:
     return errCode;
 }
+SET_ALIAS( clReleaseAcceleratorINTEL );
+
 #ifdef LIBVA_SHARING
 
 /******************************************************************************\
@@ -8956,6 +8960,9 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clCreatePerfCountersCommandQueueINTEL ) );
     }
+#endif
+// no accelerators for Android
+#ifndef __ANDROID__            
     if( funcname && !strcmp( funcname, "clCreateAcceleratorINTEL" ) )
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clCreateAcceleratorINTEL ) );
@@ -8972,6 +8979,8 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clReleaseAcceleratorINTEL ) );
     }
+#endif //__ANDROID__
+#ifdef _WIN32
     if( funcname && !strcmp( funcname, "clCreateProfiledProgramWithSourceINTEL" ) )
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clCreateProfiledProgramWithSourceINTEL ) );

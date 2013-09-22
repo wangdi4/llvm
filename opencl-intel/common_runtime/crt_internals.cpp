@@ -309,7 +309,7 @@ m_context_handle(context_handle)
                                 props,
                                 matchDevices,
                                 outDevices,
-                                NULL /*pfn_notify*/,
+                                pfn_notify,
                                 user_data,
                                 &errCode);
 
