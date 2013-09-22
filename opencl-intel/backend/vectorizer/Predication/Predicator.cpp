@@ -788,6 +788,49 @@ void Predicator::maskOutgoing_useIncoming(BasicBlock *BB, BasicBlock* SrcBB) {
     m_outMask[std::make_pair(BB, br->getSuccessor(i))] = incoming;
 }
 
+bool Predicator::isAlwaysFollowedBy(Loop *L, BasicBlock* exitBlock) {
+  BasicBlock* loopHeader = L->getHeader();
+  if (loopHeader == exitBlock)
+    return true;
+  std::vector<BasicBlock *> unTracedBlocks;
+  std::set<BasicBlock *> seenBlocks;
+  unTracedBlocks.push_back(loopHeader);
+  while (!unTracedBlocks.empty())
+  {
+    BasicBlock* curr = unTracedBlocks.back();
+    unTracedBlocks.pop_back();
+    
+    TerminatorInst* term = curr->getTerminator();
+    BranchInst* br = dyn_cast<BranchInst>(term);
+    // if we reached a return instruction not via the exitBlock:
+    if (!br)
+      continue;
+
+    for (unsigned int i = 0; i < br->getNumSuccessors(); i++)
+    {
+      BasicBlock* succ = br->getSuccessor(i);
+      // if we reached the header again:
+      if (succ == loopHeader)
+        return false;
+
+      // don't trace through exit block.
+      if (succ == exitBlock)
+        continue;
+
+      // trace only through blocks inside the loop we haven't seen yet.
+      if (!seenBlocks.count(succ) && L->contains(succ))
+      {
+        seenBlocks.insert(succ);
+        unTracedBlocks.push_back(succ);
+      }
+    }
+
+  }
+  // no path from the loop header back to itself without passing through the 
+  // exit block
+  return true;
+}
+
 void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   V_ASSERT(m_inMask.find(BB) != m_inMask.end() && "BB has no in-mask");
 
@@ -828,7 +871,11 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   m_outMask[std::make_pair(BB, BBlocal)] = local_edge_mask_p;
 
   /// Handles out mask for the exit edge.
-  BasicBlock *preHeader = L->getLoopPreheader();
+  Loop* outestLoop = L;
+  while (outestLoop->getParentLoop() && !outestLoop->getParentLoop()->contains(BBexit)) {
+    outestLoop = outestLoop->getParentLoop();
+  }
+  BasicBlock *preHeader = outestLoop->getLoopPreheader();
   Value* who_left_tr = BinaryOperator::Create(Instruction::And,
                                      entry_mask, exitCond , "who_left_tr", br);
   if (L->getExitingBlock()) {
@@ -837,8 +884,10 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     // Incase there is only one exiting block can use the incoming mask
     // of the preheader since all work items entering the loop will exit
     // through this edge.
+    V_ASSERT(L == outestLoop && 
+      "same block can't be the single exit of a loop, and also exit a higher level loop");
     V_ASSERT(preHeader && m_inMask.count(preHeader) && "no in mask for preheader");
-    m_outMask[std::make_pair(BB, BBexit)] = m_inMask[preHeader];
+    m_outMask[std::make_pair(BB, BBexit)] = m_inMask[L->getLoopPreheader()];
   } else {
     // The out mask holds whether the current work item ever left the loop
     // using this edge. we zero the exit edge mask when entering the loop (in
@@ -858,16 +907,16 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
 
   /// Update loop masks for all the loops that BB is exiting (possible parent loops).
   Value *curLoopMask = NULL;
+  bool mostInnerLoop = true;
   do {
     V_ASSERT(m_inMask.count(L->getHeader()) && "header has no in-mask");
-    // If this the common case with one exiting block then the updated
-    // loop mask is simply the local edge value. (and inMask, localCond)
-    // Note that we know that in this case the mask the current block is
-    // the same as the loop header block mask.
+    // If this block (BB) is not nested, then its in mask is
+    // the same as the loop mask, and the new loop mask 
+    // is simply the local edge value. (and inMask, localCond).
     Value *newLoopMask = localOutMask;
     Value* loopMask_p = m_inMask[L->getHeader()];
-    if (!L->getExitingBlock()) {
-      // There are more than one exiting block then we need to update loop
+    if (!mostInnerLoop || !isAlwaysFollowedBy(L, BB)) {
+      // This exit block is nested, and thus we need to update the loop
       // mask with negation of exit edge.
       Value* who_left_tr_not =
           BinaryOperator::CreateNot(who_left_tr, "who_left_tr_not", br);
@@ -879,6 +928,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     if (!curLoopMask) curLoopMask = newLoopMask;
     new StoreInst(newLoopMask, loopMask_p, br);
     L = L->getParentLoop();
+    mostInnerLoop = false;
   } while (L && !L->contains(BBexit));
 
   /// ----  Create the exit condition. When to leave the loop

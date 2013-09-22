@@ -191,6 +191,11 @@ private:
   void maskOutgoing_loopexit(BasicBlock *BB);
   /*! \} */
 
+  /// @brief checks whether in every loop iteration the exit block is reached.
+  /// @param loopHeader the header of the loop.
+  /// @param exitBlock the block to be checked as reached in every iteration.
+  bool isAlwaysFollowedBy(Loop *L, BasicBlock* exitBlock);
+
   /*! \name Create Incoming masks
    * \{ */
   /// @brief Place a dummy in-mask.
