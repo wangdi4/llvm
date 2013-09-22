@@ -60,6 +60,7 @@ set (PASSES_LIBS
     LinearIdResolver
     DetectFunctionPtrCalls
     CloneBlockInvokeFuncToKernel
+    ResolveBlockToStaticCall
     )
 
 target_link_libraries(${TARGET_NAME}

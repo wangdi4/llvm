@@ -16,8 +16,8 @@
 // allocateCVMSReturnData().
 //
 //===----------------------------------------------------------------------===//
-#define GL_TARGET_GL
-#include <OpenGL/gl.h>
+//#define GL_TARGET_GL
+//#include <OpenGL/gl.h>
 #include <OpenGL/cl_driver_types.h>
 #include <dlfcn.h>
 #include <sys/cdefs.h>
@@ -26,6 +26,7 @@
 #include "llvm/DerivedTypes.h"
 #include "llvm/GlobalVariable.h"
 #include "llvm/Instructions.h"
+#include "llvm/IRBuilder.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/ADT/APInt.h"
@@ -42,9 +43,8 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/system_error.h"
-#include "llvm/IRBuilder.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/system_error.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Target/TargetMachine.h"
@@ -54,6 +54,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Version.h"
+#include "llvm/Linker.h"
 
 #include "llvm/Support/TargetRegistry.h"
 
@@ -82,6 +83,10 @@
 
 using namespace llvm;
 
+// Note that the error number returned by the internal functions is used
+// to identify the location of the error.  It is not returned back to the
+// client through CVMS.
+
 __BEGIN_DECLS
 
 int Link(std::vector<std::string*>& objs, const char *path, CFDataRef dict,
@@ -90,6 +95,9 @@ int Link(std::vector<std::string*>& objs, const char *path, CFDataRef dict,
 int cld_link(Module *M, Module *Runtime);
 
 __END_DECLS
+
+/// Contains the LLVM Runtime that we will lazy initialize once.
+static Module *Runtime = NULL;
 
 Intel::CPUId selectCPU();
 std::string getBuiltinName(Intel::CPUId);
@@ -388,7 +396,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     CFNumberRef hbarrier = CFNumberCreate(NULL, kCFNumberIntType, hbarrierptr);
 
     //barrier buffer stride, is the size in bytes for barrier buffer stride
-    unsigned int barrierBufferSTride = VWidthMax*kimd->getBarrierBufferSize();
+    unsigned int barrierBufferSTride = (VWidthMax? VWidthMax : 1) * kimd->getBarrierBufferSize();
     const void *bbsptr = (const void *)&barrierBufferSTride;
     CFNumberRef bbs = CFNumberCreate(NULL, kCFNumberIntType, bbsptr);
 
@@ -713,17 +721,50 @@ void *cl2module(LLVMContext &LCTX, cl_bitfield &opt, const char* options,
 }
 __END_DECLS
 
+#define MERGE_COMP_OPT_ANY(dst, src, flag) { dst = dst | (src & flag); }
+#define MERGE_COMP_OPT_ALL(dst, src, flag) { dst = (dst & ~flag) | ((dst & flag) & (src & flag)); }
+
+static cld_comp_opt mergeCompOpt(cld_comp_opt opt1, cld_comp_opt opt2) {
+  cld_comp_opt res = opt1;
+
+  //TODO: check if this flag is equal to -enable-link-options
+    //CLD_COMP_OPT_FLAGS_ENABLE
+  MERGE_COMP_OPT_ANY(res, opt2, CLD_COMP_OPT_FLAGS_DISABLE);
+  //CLD_COMP_OPT_FLAGS_STRICT_ALIASING
+  //CLD_COMP_OPT_FLAGS_SINGLE_PRECISION_CONSTANT
+  // TODO: should this flag be passed to engine?
+    //CLD_COMP_OPT_FLAGS_DENORMS_ARE_ZERO
+  MERGE_COMP_OPT_ALL(res, opt2, CLD_COMP_OPT_FLAGS_MAD_ENABLE);
+  //CLD_COMP_OPT_FLAGS_NO_SIGNED_ZEROS
+  MERGE_COMP_OPT_ALL(res, opt2, CLD_COMP_OPT_FLAGS_UNSAFE_MATH_OPTIMIZATIONS);
+  MERGE_COMP_OPT_ALL(res, opt2, CLD_COMP_OPT_FLAGS_FINITE_MATH_ONLY);
+  MERGE_COMP_OPT_ALL(res, opt2, CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);
+  MERGE_COMP_OPT_ANY(res, opt2, CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE);
+  //CLD_COMP_OPT_FLAGS_SUPPRESS_WARNINGS
+  //CLD_COMP_OPT_FLAGS_WARNINGS_AS_ERRORS
+  MERGE_COMP_OPT_ALL(res, opt2, CLD_COMP_OPT_FLAGS_DEBUG);
+  // These flags are not needed during build/link, are used only
+  // once to decide what compile/link/build/dag option is needed
+    //CLD_COMP_OPT_FLAGS_DAG
+    //CLD_COMP_OPT_FLAGS_PORT_BINARY
+    //CLD_COMP_OPT_FLAGS_BUILD_PORT_BINARY
+    //CLD_COMP_LINK_CREATE_LIBRARY
+  //CLD_COMP_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT
+  //CLD_COMP_OPT_FLAGS_KERNEL_ARG_INFO
+  MERGE_COMP_OPT_ANY(res, opt2, CLD_COMP_OPT_FLAGS_NO_FP_CONTRACT);
+
+  return res;
+}
 
 /// compileProgram -  called by cmvsModularBuilder.  Turns a program
 /// source string into IR, and records the info dictionary for the program.
 static int compileProgram(
   cvms_plugin_service_t objects,
   CFDictionaryRef *info,
-  const void *source, size_t source_size,
+  std::vector<SrcLenStruct> SrcPtrs,
   std::vector<HeaderStruct>& hdrs,
   cld_comp_opt opt, const char *options, char **log,
   formatted_raw_ostream &os,
-  bool link_multiple,
   bool& has_kernel)
 {
   CPUPluginPrivateData* pluginData = (CPUPluginPrivateData*)objects->private_service;
@@ -735,7 +776,7 @@ static int compileProgram(
     cpuId = selectCPU();
     
   // Get the runtime module, which contains all the OpenCL runtime functions.
-  static Module *Runtime = NULL;
+  // The module will be freed during termination 
   assert(!objects->llvm_module && "assuming built-in module is not recieved from runtime");
 
   if (!Runtime) {
@@ -756,51 +797,78 @@ static int compileProgram(
     std::string(" -target-cpu ") + std::string(cpuId.GetCPUName()) +
     std::string(" ") + options;
 
-  // Determine if optimizations are disabled, in which case we should also turn
-  // on debug info.
-  bool disable_opt = (opt & CLD_COMP_OPT_FLAGS_DISABLE) != 0;
-  bool debug = (opt & CLD_COMP_OPT_FLAGS_DEBUG) != 0;
+  // mergedOpt is initialized to be current optimization flags.
+  // But ends up to be the merge between all optimization flags
+  // in case of linking more than one object.
+  cld_comp_opt mergedOpt = opt;
   Module *SM = NULL;
-
-  if (opt & CLD_COMP_OPT_FLAGS_PORT_BINARY) {
-    // Load LLVM IR; don't include the null byte in size.
-    StringRef ref((const char*)source, source_size-1);
-    MemoryBuffer *memory_buffer = MemoryBuffer::getMemBuffer(ref);
-    if (!memory_buffer) {
-      if (log) {
-       *log = strdup("Cannot load portable binary");
-      }
-      return -9;
-    }
-    std::string ErrMsg;
-    SM = ParseBitcodeFile(memory_buffer, Runtime->getContext(),&ErrMsg);
-    if (!SM && log)
-      *log = strdup(ErrMsg.c_str());
-    delete memory_buffer;
-
-    // If the portable binary has a compiler option associated with it, grab
-    // the value and override the options to be the same as what we compiled.
-    if (SM) {
-      if (GlobalVariable *OptionGV =
-            SM->getGlobalVariable("opencl.com.compiler.option", true)) {
-        assert(OptionGV->hasInitializer() && "OptionGV has no initializer");
-        ConstantInt *init = dyn_cast<ConstantInt>(OptionGV->getInitializer());
-        opt = init->getValue().getZExtValue();
-        OptionGV->eraseFromParent();
-      }
-    }
-  }
-  else {
-    // Add global variable with local linkage.
-    SM = (Module *)cl2module(
-                     Runtime->getContext(), opt,
-                     options_str.c_str(), (const char*)source,
-                     debug, log, &hdrs);
-  }
-  if (!SM)
-    return -2;
-
   OwningPtr<Module> OM(SM);
+
+  std::vector<SrcLenStruct>::iterator iter = SrcPtrs.begin();
+  std::vector<SrcLenStruct>::iterator end = SrcPtrs.end();
+  for (; iter != end; ++iter) {
+    const void *source = iter->src;
+    size_t source_size = iter->src_size;
+
+    cld_comp_opt tempOpt = mergedOpt;
+    Module *tempSM = NULL;
+    if (opt & CLD_COMP_OPT_FLAGS_PORT_BINARY) {
+      // Load LLVM IR; don't include the null byte in size.
+      StringRef ref((const char*)source, source_size);
+      MemoryBuffer *memory_buffer = MemoryBuffer::getMemBuffer(ref, "", false);
+      if (!memory_buffer) {
+        if (log) {
+         *log = strdup("Cannot load portable binary");
+        }
+        return -9;
+      }
+      std::string ErrMsg;
+      tempSM = ParseBitcodeFile(memory_buffer, Runtime->getContext(),&ErrMsg);
+      delete memory_buffer;
+      if (!tempSM && log) {
+        *log = strdup(ErrMsg.c_str());
+        return -10;
+      }
+
+      // If the portable binary has a compiler option associated with it, grab
+      // the value and override the options to be the same as what we compiled.
+      if (tempSM) {
+        if (GlobalVariable *OptionGV =
+              tempSM->getGlobalVariable("opencl.compiler.option", true)) {
+          assert(OptionGV->hasInitializer() && "OptionGV has no initializer");
+          ConstantInt *init = dyn_cast<ConstantInt>(OptionGV->getInitializer());
+          tempOpt = init->getValue().getZExtValue();
+          OptionGV->eraseFromParent();
+        }
+      }
+    }
+    else {
+      bool debug = (opt & CLD_COMP_OPT_FLAGS_DEBUG) != 0;
+      // Add global variable with local linkage.
+      tempSM = (Module *)cl2module(
+                       Runtime->getContext(), opt,
+                       options_str.c_str(), (const char*)source,
+                       debug, log, &hdrs);
+    }
+    if (!tempSM)
+      return -2;
+
+    if(SM == NULL) {
+      SM = tempSM;
+      OM.reset(SM);
+    } else {
+      // This will assure releasing the tempSM after linkage it to SM
+      OwningPtr<Module> tempOM(tempSM);
+      std::string ErrMsg;
+      if(Linker::LinkModules(SM, tempSM, Linker::DestroySource, &ErrMsg)) {
+        if (log) {
+          *log = strdup(ErrMsg.c_str());
+          return -10;
+        }
+      }
+    }
+    mergedOpt = mergeCompOpt(mergedOpt, tempOpt);
+  }
 
   if (getenv("CL_DUMP_IR"))
     errs() << *SM << '\n';
@@ -808,11 +876,18 @@ static int compileProgram(
   // If we are building a portable binary, return the bitcode file after
   // adding a variable to hold the compiler options for this compile.
   if (opt & CLD_COMP_OPT_FLAGS_BUILD_PORT_BINARY) {
-    Type* IntTy = Type::getIntNTy(SM->getContext(), sizeof(opt)*8);
-    (void) new GlobalVariable(*SM, IntTy, true,
-           GlobalValue::InternalLinkage,
-           ConstantInt::get(IntTy, opt & ~CLD_COMP_OPT_FLAGS_BUILD_PORT_BINARY),
-                              "opencl.compiler.option", NULL, GlobalVariable::NotThreadLocal, 0);
+    Type* IntTy = Type::getIntNTy(SM->getContext(), sizeof(mergedOpt)*8);
+    if (GlobalVariable *OptionGV =
+          SM->getGlobalVariable("opencl.compiler.option", true)) {
+      // Reset initializer
+      OptionGV->setInitializer(ConstantInt::get(IntTy, mergedOpt & ~CLD_COMP_OPT_FLAGS_BUILD_PORT_BINARY));
+    } else {
+      (void) new GlobalVariable(*SM, IntTy, true,
+                                GlobalValue::InternalLinkage,
+                                ConstantInt::get(IntTy, mergedOpt & ~CLD_COMP_OPT_FLAGS_BUILD_PORT_BINARY),
+                                "opencl.compiler.option", 0,
+                                GlobalVariable::NotThreadLocal, 0);
+    }
     WriteBitcodeToFile(SM, os);
     os.flush();
     return 0;
@@ -821,7 +896,7 @@ static int compileProgram(
   // Generate the list of kernel names
   GlobalVariable *annotation = SM->getGlobalVariable("llvm.global.annotations");
   bool has_kernel_annotation = annotation && annotation->hasInitializer();
-  if (!has_kernel_annotation && !link_multiple) {
+  if (!has_kernel_annotation) {
     if (log)
       *log = strdup("No kernels or only kernel prototypes found when build executable.");
     return -3;
@@ -852,17 +927,21 @@ static int compileProgram(
   // Optimize the whole module
   int vectorWidth = 0;
 
-  //if (!(opt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE) && !debug && !disable_opt) {
-    // FIXME: replace with sysctl check for avx when available.
-    if (getenv("CL_VWIDTH_1"))
-      vectorWidth = 1;
-    else if (getenv("CL_VWIDTH_4"))
-      vectorWidth = 4;
-    else if (getenv("CL_VWIDTH_8"))
-      vectorWidth = 8;
-    else if (getenv("CL_VWIDTH_AUTO"))
-      vectorWidth = 0;
-  //}
+  if (getenv("CL_VWIDTH_1") || !(mergedOpt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE))
+    vectorWidth = 1;
+  else if (getenv("CL_VWIDTH_4"))
+    vectorWidth = 4;
+  else if (getenv("CL_VWIDTH_8"))
+    vectorWidth = 8;
+  else if (getenv("CL_VWIDTH_AUTO"))
+    vectorWidth = 0;
+
+  // Determine if optimizations are disabled, in which case we should also turn
+  // on debug info.
+  bool disable_opt = (mergedOpt & CLD_COMP_OPT_FLAGS_DISABLE) != 0;
+  bool debug = (mergedOpt & CLD_COMP_OPT_FLAGS_DEBUG) != 0;
+  //TODO: should we enable this optimization here?
+  bool relaxedMath = false;//(mergedOpt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);
 
   intel::OptimizerConfig optimizerConfig(cpuId,
                                          vectorWidth,
@@ -872,7 +951,7 @@ static int compileProgram(
                                          debug, // debug mode
                                          false, // profiling - disabled
                                          disable_opt, // optimizations on/off
-                                         false, // relaxed_math
+                                         relaxedMath, // relaxed_math
                                          false, // create library only
                                          false, // produce heuristics IR
                                          false  // APFLevel
@@ -896,9 +975,27 @@ static int compileProgram(
     return -7;
   }
 
-  TargetOptions toptions;
-  
-  OwningPtr<TargetMachine> Target(T->createTargetMachine(triple, "","", toptions,
+  // Set llvm options for our optimization phases and also set them in
+  // llvm_func so CVMS will set them properly when jitting.
+  TargetOptions targetOpt;
+  targetOpt.NoFramePointerElim = true;
+  targetOpt.UnsafeFPMath =
+    (mergedOpt & CLD_COMP_OPT_FLAGS_UNSAFE_MATH_OPTIMIZATIONS) ||
+    (mergedOpt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);
+  targetOpt.NoInfsFPMath =
+    (mergedOpt & CLD_COMP_OPT_FLAGS_FINITE_MATH_ONLY) ||
+    (mergedOpt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);
+  targetOpt.NoNaNsFPMath =
+    (mergedOpt & CLD_COMP_OPT_FLAGS_FINITE_MATH_ONLY) ||
+    (mergedOpt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);
+  targetOpt.LessPreciseFPMADOption =
+    (mergedOpt & CLD_COMP_OPT_FLAGS_MAD_ENABLE);
+  //targetOpt.AllowFPOpFusion =
+  //  (mergedOpt & CLD_COMP_OPT_FLAGS_NO_FP_CONTRACT) ?
+  //      llvm::FPOpFusion::Fast : llvm::FPOpFusion::Standard;
+
+  OwningPtr<TargetMachine> Target(T->createTargetMachine(triple, "","",
+                                                         targetOpt,
                                                          Reloc::PIC_,
                                                          CodeModel::Default));
 
@@ -1032,8 +1129,8 @@ static int buildSrcFiles(
   //      num_sources bitcode file
   int idx = 1; // used when num_srcs > 1
   do {
-    StringRef ref((const char*)source, source_size-1);
-    MemoryBuffer *memory_buffer = MemoryBuffer::getMemBuffer(ref);
+    StringRef ref((const char*)source, source_size);
+    MemoryBuffer *memory_buffer = MemoryBuffer::getMemBuffer(ref, "", false);
     if (!memory_buffer) {
       if (log)
         *log = strdup("Cannot load source file");
@@ -1098,8 +1195,8 @@ static int buildSrcHeaderFiles(
   strings->offsets[cvmsStringOffsetSource];
 
   {
-    StringRef ref((const char*)source, source_size-1);
-    MemoryBuffer *memory_buffer = MemoryBuffer::getMemBuffer(ref);
+    StringRef ref((const char*)source, source_size);
+    MemoryBuffer *memory_buffer = MemoryBuffer::getMemBuffer(ref, "", false);
     if (!memory_buffer) {
       if (log)
         *log = strdup("Cannot load source file for compile");
@@ -1126,8 +1223,8 @@ static int buildSrcHeaderFiles(
     source = &strings->data[offset];
     source_size = next_offset - offset;
 
-    StringRef ref((const char*)source, source_size-1);
-    MemoryBuffer *memory_buffer = MemoryBuffer::getMemBuffer(ref);
+    StringRef ref((const char*)source, source_size);
+    MemoryBuffer *memory_buffer = MemoryBuffer::getMemBuffer(ref, "", false);
     unsigned char *BufPtr = (unsigned char *)memory_buffer->getBufferStart();
     unsigned char *BufEnd = BufPtr + memory_buffer->getBufferSize();
 
@@ -1159,26 +1256,6 @@ static int buildArchive(cvms_plugin_element_t llvm_func)
   std::vector<SrcLenStruct> SrcPtrs;
   char* log = NULL;
   int err = buildSrcFiles(llvm_func, SrcPtrs, &log);
-
-  if (err || SrcPtrs.size() == 1) {
-    if (!log)
-      log = strdup("");
-    // Return the original source.
-    char *source = (char*) SrcPtrs[0].src;
-    size_t source_size = SrcPtrs[0].src_size;
-    cvmsCPUReturnData *rd;
-    size_t log_len = strlen(log) + 1;
-    size_t rdlen = sizeof *rd + log_len + source_size;
-    rd = (cvmsCPUReturnData *) (*llvm_func->service->content_allocate)(llvm_func, rdlen);
-    rd->err = 0;
-    rd->offsets[0] = log_len;
-    rd->offsets[1] = rd->offsets[0] + 0;
-    rd->offsets[2] = rd->offsets[1] + source_size;
-    strlcpy((char *)rd->data, log, rd->offsets[0]);
-    memcpy(rd->data + rd->offsets[1], source, source_size);
-    free(log);
-    return CVMS_ERROR_NONE;
-  }
 
   // Create the archive
   std::string library_file;
@@ -1365,6 +1442,11 @@ void cvmsPluginServiceTerminate(cvms_plugin_service_t service)
 {
   if( service->private_service )
     delete (CPUPluginPrivateData*)service->private_service;
+  // Free the runtime if necesary
+  if (Runtime) {
+    delete Runtime;
+    Runtime = NULL;
+  }
 }
 
 cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
@@ -1382,22 +1464,7 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
 
   cvmsStrings *strings = (cvmsStrings *) llvm_func->source_addrs[cvmsSrcIdxData];
   options = &strings->data[strings->offsets[cvmsStringOffsetOptions]];
-/*
-  llvm::NoFramePointerElim = true;
 
-  // Set llvm options for our optimization phases and also set them in
-  // llvm_func so CVMS will set them properly when jitting.
-  llvm::UnsafeFPMath =
-    (keys->opt & CLD_COMP_OPT_FLAGS_UNSAFE_MATH_OPTIMIZATIONS) ||
-    (keys->opt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);
-  llvm::NoInfsFPMath =
-     (keys->opt & CLD_COMP_OPT_FLAGS_FINITE_MATH_ONLY) ||
-    (keys->opt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);
-  llvm::NoNaNsFPMath =
-   (keys->opt & CLD_COMP_OPT_FLAGS_FINITE_MATH_ONLY) ||
-     (keys->opt & CLD_COMP_OPT_FLAGS_FAST_RELAXED_MATH);
-  llvm::LessPreciseFPMADOption = keys->opt & CLD_COMP_OPT_FLAGS_MAD_ENABLE;
-*/
   // Turn the source passed to us by cvms into IR.  Collect the list of called
   // functions that survive inlining in spec_funcs, so we can be sure to remove
   // the code that gets generated for them in the JIT.
@@ -1419,46 +1486,46 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
       std::string *object_file = new std::string();
       raw_string_ostream ofile_stream(*object_file);
       formatted_raw_ostream os(ofile_stream);
+      std::vector<SrcLenStruct> SrcPtrs;
+      SrcPtrs.push_back(Source);
       err = compileProgram(
               llvm_func->service,
-              &info, Source.src, Source.src_size,
+              &info, SrcPtrs,
               HdrPtrs, keys->opt, options, &log, os,
-              false, has_kernel);
+              has_kernel);
       if (!err) {
         ObjFileVec.push_back(object_file);
         InfoVec.push_back(info);
       }
     }
   } else {
+    CFDataRef strData = NULL;
     // Building an executable so first get the list of sources
     std::vector<SrcLenStruct> SrcPtrs;
-    std::vector<const char*> HdrNames;
     err = buildSrcFiles(llvm_func, SrcPtrs, &log);
 
+    // old comment
     // Compile each program seperately since we may have different options
     // (if this was not the case, we would have done an LLVM link instead).
-    std::vector<SrcLenStruct>::iterator iter = SrcPtrs.begin();
-    std::vector<SrcLenStruct>::iterator end = SrcPtrs.end();
-    bool link_multiple = SrcPtrs.size() > 1;
-    for (; iter != end; ++iter) {
-      CFDictionaryRef info;
-      std::string *object_file = new std::string();
-      raw_string_ostream ofile_stream(*object_file);
-      formatted_raw_ostream os(ofile_stream);
-      bool local_has_kernel;
-      err = compileProgram(
-              llvm_func->service,
-              &info, iter->src, iter->src_size,
-              HdrPtrs, keys->opt, options, &log, os,
-              link_multiple, local_has_kernel);
-      if (err) {
-        break;
-      }
+    // new comment
+    // TODO: are do we want to build with different options?
+    // Is doing LLVM link instead works?
+
+    CFDictionaryRef info;
+    std::string *object_file = new std::string();
+    raw_string_ostream ofile_stream(*object_file);
+    formatted_raw_ostream os(ofile_stream);
+    bool local_has_kernel;
+    err = compileProgram(
+            llvm_func->service,
+            &info, SrcPtrs,
+            HdrPtrs, keys->opt, options, &log, os,
+            local_has_kernel);
+    if (!err) {
       ObjFileVec.push_back(object_file);
       InfoVec.push_back(info);
       if (local_has_kernel)
         has_kernel = true;
-
     }
 
     if (!err && !has_kernel) {
@@ -1467,7 +1534,6 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
     }
 
     // pack the kernel info into a writestream for later transfer
-    CFDataRef strData = NULL;
     if (!err) {
       CFWriteStreamRef writeStream = NULL;
       if (pack_kernel_info(&writeStream, InfoVec)) {
@@ -1475,10 +1541,11 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
         err = -20;
         if (writeStream)
           CFRelease(writeStream);
-      }
-      strData = (CFDataRef) CFWriteStreamCopyProperty(writeStream,
+      } else if (writeStream) {
+        strData = (CFDataRef) CFWriteStreamCopyProperty(writeStream,
                                                  kCFStreamPropertyDataWritten);
-      CFRelease(writeStream);
+        CFRelease(writeStream);
+      }
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1491,7 +1558,8 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
       const char *path = debug ? source : NULL;
 
       err = Link(ObjFileVec, path, strData, dylib, linklog);
-      CFRelease(strData);
+      if (strData)
+        CFRelease(strData);
 
       if (err && !linklog.empty()) {
         if (!log)
@@ -1521,13 +1589,6 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
   std::string *object_file = ObjFileVec.size() == 0 ? &dummy : ObjFileVec[0];
   allocateCVMSReturnData(llvm_func, log, err, dylib, *object_file);
 
-  // Reset llvm options back as CVMS clients are not aware of certain options.
-  /*
-  llvm::UnsafeFPMath = false;
-  llvm::NoInfsFPMath = false;
-  llvm::NoNaNsFPMath = false;
-  llvm::LessPreciseFPMADOption = false;
-  */
   std::vector<std::string*>::iterator bciter = ObjFileVec.begin();
   std::vector<std::string*>::iterator bcend = ObjFileVec.end();
   for (; bciter != bcend; ++bciter)
