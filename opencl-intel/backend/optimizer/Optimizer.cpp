@@ -123,7 +123,7 @@ llvm::ModulePass *createKernelInfoWrapperPass();
       PM->add(llvm::createArgumentPromotionPass());   // Scalarize uninlined fn args
 
     // Start of function pass.
-    // A workaround to fix regression in sgemm on CPU and not causing new regression on MIC
+    // A workaround to fix regression in sgemm on CPU and not causing new regression on Machine with Gather Scatter
     int sroaArrSize = -1;
     if (! pConfig->GetCpuId().HasGatherScatter())
       sroaArrSize = 16;
@@ -154,7 +154,7 @@ llvm::ModulePass *createKernelInfoWrapperPass();
     if (!isDBG) {
       PM->add(llvm::createFunctionInliningPass(4096)); //Inline (not only small) functions
     }
-    // A workaround to fix regression in sgemm on CPU and not causing new regression on MIC
+    // A workaround to fix regression in sgemm on CPU and not causing new regression on Machine with Gather Scatter
     PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));  // Break up aggregate allocas
     PM->add(llvm::createInstructionCombiningPass());  // Clean up after the unroller
     PM->add(llvm::createInstructionSimplifierPass());
@@ -196,7 +196,7 @@ llvm::ModulePass *createKernelInfoWrapperPass();
       if (OptimizationLevel == 1)
         PM->add(llvm::createPromoteMemoryToRegisterPass());
       else {
-      // A workaround to fix regression in sgemm on CPU and not causing new regression on MIC
+      // A workaround to fix regression in sgemm on CPU and not causing new regression on Machine with Gather Scatter
         int sroaArrSize = -1;
         if (! pConfig->GetCpuId().HasGatherScatter())
           sroaArrSize = 16;

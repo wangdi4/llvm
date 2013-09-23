@@ -16,8 +16,6 @@
 // allocateCVMSReturnData().
 //
 //===----------------------------------------------------------------------===//
-//#define GL_TARGET_GL
-//#include <OpenGL/gl.h>
 #include <OpenGL/cl_driver_types.h>
 #include <dlfcn.h>
 #include <sys/cdefs.h>

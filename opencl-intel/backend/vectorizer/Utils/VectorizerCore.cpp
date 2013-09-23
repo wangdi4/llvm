@@ -131,7 +131,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
     fpm1.add(createLowerSwitchPass());
 
     // Register Scalarizer
-    // A workaround to fix regression in sgemm on CPU and not causing new regression on MIC
+    // A workaround to fix regression in sgemm on CPU and not causing new regression on Machine with Gather Scatter
     int sroaArrSize = -1;
     if (! m_pConfig->GetCpuId().HasGatherScatter())
       sroaArrSize = 16;
