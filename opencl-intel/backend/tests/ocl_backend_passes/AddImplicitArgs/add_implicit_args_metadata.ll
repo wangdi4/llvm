@@ -20,16 +20,16 @@ entry:
 
 ; CHECK:        declare void @functionWithoutBody(i32, i32)
 
-; CHECK:        define void @functionWithBody(i32 %x, i8 addrspace(3)* [[P_LOCAL_MEM:%[a-zA-Z0-9]+]], 
-; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* [[P_WORK_DIM:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* [[P_WORKGROUP_ID:%[a-zA-Z0-9]+]], 
-; CHECK:            <{ [4 x i32] }>* [[P_BASE_GLOBAL_ID:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* [[CONTEXT_POINTER:%[a-zA-Z0-9]+]], 
-; CHECK:            <{ [4 x i32] }>* [[P_LOCAL_IDS:%[a-zA-Z0-9]+]], 
+; CHECK:        define void @functionWithBody(i32 %x, i8 addrspace(3)* noalias [[P_LOCAL_MEM:%[a-zA-Z0-9]+]], 
+; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* noalias [[P_WORK_DIM:%[a-zA-Z0-9]+]], 
+; CHECK:            i32* noalias [[P_WORKGROUP_ID:%[a-zA-Z0-9]+]], 
+; CHECK:            <{ [4 x i32] }>* noalias [[P_BASE_GLOBAL_ID:%[a-zA-Z0-9]+]], 
+; CHECK:            i32* noalias [[CONTEXT_POINTER:%[a-zA-Z0-9]+]], 
+; CHECK:            <{ [4 x i32] }>* noalias [[P_LOCAL_IDS:%[a-zA-Z0-9]+]], 
 ; CHECK:            i32 [[ITER_COUNT:%[a-zA-Z0-9]+]], 
-; CHECK:            i8* [[P_SPECIAL_BUFFER:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* [[P_CURRECT_WI:%[a-zA-Z0-9]+]],
-; CHECK:            %struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) {
+; CHECK:            i8* noalias [[P_SPECIAL_BUFFER:%[a-zA-Z0-9]+]], 
+; CHECK:            i32* noalias [[P_CURRECT_WI:%[a-zA-Z0-9]+]],
+; CHECK:            %struct.ExtendedExecutionContext* noalias [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   %res = add i32 100, 10
 ; CHECK-NEXT:   ret void

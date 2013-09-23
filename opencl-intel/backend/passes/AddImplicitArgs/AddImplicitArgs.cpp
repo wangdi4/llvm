@@ -14,6 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/InstIterator.h"
 #include "llvm/ADT/ValueMap.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Attributes.h"
 
 extern "C"{
   /// @brief Creates new AddImplicitArgs module pass
@@ -169,35 +170,45 @@ namespace intel{
     }
 
     // Set implict arguments' names
+    Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attributes::NoAlias);
     DestI->setName("pLocalMem");
     Argument *pLocalMem = DestI;
+    pLocalMem->addAttr(NoAlias);
     ++DestI;
     DestI->setName("pWorkDim");
     Argument *pWorkDim = DestI;
+    pWorkDim->addAttr(NoAlias);
     ++DestI;
     DestI->setName("pWGId");
     Argument *pWGId = DestI;
+    pWGId->addAttr(NoAlias);
     ++DestI;
     DestI->setName("pBaseGlbId");
     Argument *pBaseGlbId = DestI;
+    pBaseGlbId->addAttr(NoAlias);
     ++DestI;
     DestI->setName("contextpointer");
     Argument *pctx = DestI;
+    pctx->addAttr(NoAlias);
     ++DestI;
     DestI->setName("pLocalIds");
     Argument *pLocalId = DestI;
+    pLocalId->addAttr(NoAlias);
     ++DestI;
     DestI->setName("iterCount");
     Argument *pIterCount = DestI;
     ++DestI;
     DestI->setName("pSpecialBuf");
     Argument *pSpecialBuf = DestI;
+    pSpecialBuf->addAttr(NoAlias);
     ++DestI;
     DestI->setName("pCurrWI");
     Argument *pCurrWI = DestI;
+    pCurrWI->addAttr(NoAlias);
     ++DestI;
     DestI->setName("extExecContextPointer");
     Argument *pextctx = DestI;
+    pextctx->addAttr(NoAlias);
     ++DestI;
 
     // Since we have now created the new function, splice the body of the old

@@ -40,16 +40,16 @@ entry:
 
 
 ; CHECK:        define void @foo(i32 addrspace(1)* %ApInt, i32 addrspace(1)* %BpInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat, 
-; CHECK:            i8 addrspace(3)* [[P_LOCAL_MEM:%[a-zA-Z0-9]+]], 
-; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* [[P_WORK_DIM:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* [[P_WORKGROUP_ID:%[a-zA-Z0-9]+]], 
-; CHECK:            <{ [4 x i32] }>* [[P_BASE_GLOBAL_ID:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* [[CONTEXT_POINTER:%[a-zA-Z0-9]+]], 
-; CHECK:            <{ [4 x i32] }>* [[P_LOCAL_IDS:%[a-zA-Z0-9]+]], 
+; CHECK:            i8 addrspace(3)* noalias [[P_LOCAL_MEM:%[a-zA-Z0-9]+]], 
+; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* noalias [[P_WORK_DIM:%[a-zA-Z0-9]+]], 
+; CHECK:            i32* noalias [[P_WORKGROUP_ID:%[a-zA-Z0-9]+]], 
+; CHECK:            <{ [4 x i32] }>* noalias [[P_BASE_GLOBAL_ID:%[a-zA-Z0-9]+]], 
+; CHECK:            i32* noalias [[CONTEXT_POINTER:%[a-zA-Z0-9]+]], 
+; CHECK:            <{ [4 x i32] }>* noalias [[P_LOCAL_IDS:%[a-zA-Z0-9]+]], 
 ; CHECK:            i32 [[ITER_COUNT:%[a-zA-Z0-9]+]], 
-; CHECK:            i8* [[P_SPECIAL_BUFFER:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* [[P_CURRECT_WI:%[a-zA-Z0-9]+]],
-; CHECK:            %struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) {
+; CHECK:            i8* noalias [[P_SPECIAL_BUFFER:%[a-zA-Z0-9]+]], 
+; CHECK:            i32* noalias [[P_CURRECT_WI:%[a-zA-Z0-9]+]],
+; CHECK:            %struct.ExtendedExecutionContext* noalias [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* [[P_LOCAL_MEM]], i32 0
 ; CHECK-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)*
@@ -71,16 +71,16 @@ entry:
 
 
 ; CHECK:        define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong16, 
-; CHECK:            i8 addrspace(3)* [[P_LOCAL_MEM]], 
-; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* [[P_WORK_DIM]], 
-; CHECK:            i32* [[P_WORKGROUP_ID]], 
-; CHECK:            <{ [4 x i32] }>* [[P_BASE_GLOBAL_ID]], 
-; CHECK:            i32* [[CONTEXT_POINTER]], 
-; CHECK:            <{ [4 x i32] }>* [[P_LOCAL_IDS]], 
+; CHECK:            i8 addrspace(3)* noalias [[P_LOCAL_MEM]], 
+; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* noalias [[P_WORK_DIM]], 
+; CHECK:            i32* noalias [[P_WORKGROUP_ID]], 
+; CHECK:            <{ [4 x i32] }>* noalias [[P_BASE_GLOBAL_ID]], 
+; CHECK:            i32* noalias [[CONTEXT_POINTER]], 
+; CHECK:            <{ [4 x i32] }>* noalias [[P_LOCAL_IDS]], 
 ; CHECK:            i32 [[ITER_COUNT]], 
-; CHECK:            i8* [[P_SPECIAL_BUFFER]], 
-; CHECK:            i32* [[P_CURRECT_WI]], 
-; CHECK:            struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER]]) {
+; CHECK:            i8* noalias [[P_SPECIAL_BUFFER]], 
+; CHECK:            i32* noalias [[P_CURRECT_WI]], 
+; CHECK:            struct.ExtendedExecutionContext* noalias [[EXTCONTEXT_POINTER]]) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* [[P_LOCAL_MEM]], i32 0
 ; CHECK-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR10]] to <4 x i32> addrspace(3)*
