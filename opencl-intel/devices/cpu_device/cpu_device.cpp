@@ -1407,6 +1407,28 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 				*(cl_command_queue_properties*)paramVal = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE;
 			}
 			return CL_DEV_SUCCESS;
+        case CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE:
+            *pinternalRetunedValueSize = sizeof(size_t);
+            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            if (NULL != paramVal)
+            {
+                *(size_t*)paramVal = 64 * 1024; // the same as VPG
+            }
+            return CL_DEV_SUCCESS;
+        case CL_DEVICE_GLOBAL_VARIABLE_SHARING:
+            *pinternalRetunedValueSize = sizeof(int);   // the spec has forgotten to define this query
+            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            if (NULL != paramVal)
+            {
+                *(int*)paramVal = CL_PROGRAM_VARIABLE_SHARING_NONE;
+            }
+            return CL_DEV_SUCCESS;
         default:
             return CL_DEV_INVALID_VALUE;
     };
