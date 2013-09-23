@@ -149,6 +149,21 @@ OPENCL_1.2 {
         clLinkProgram;
         clReleaseDevice;
         clRetainDevice;
-        clUnloadPlatformCompiler;
-        clCreateCommandQueueWithProperties;
+        clUnloadPlatformCompiler;        
 } OPENCL_1.1;
+
+OPENCL_2.0 {
+	global:
+		clCreateCommandQueueWithProperties;
+		clSVMAlloc;
+		clSVMFree;
+		clEnqueueSVMMap;
+		clEnqueueSVMUnmap;
+		clEnqueueSVMFree;
+		clEnqueueSVMMemcpy;
+		clEnqueueSVMMemFill;
+		clSetKernelArgSVMPointer;
+		clSetKernelExecInfo;
+		clCreatePipe;
+		clGetPipeInfo;		
+} OPENCL_1.2;
