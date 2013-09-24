@@ -990,7 +990,8 @@ cl_program ContextModule::LinkProgram(cl_context clContext,
         {
             *pErrcodeRet = clErrRet;
         }
-        return CL_INVALID_HANDLE;
+        // we should return a valid program handle even if the linking has failed
+        return pProgram->GetHandle();
     }
 
     if (NULL != pErrcodeRet)
