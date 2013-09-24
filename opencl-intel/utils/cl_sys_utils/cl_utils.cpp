@@ -31,7 +31,6 @@
 #include <cassert>
 #include <stdint.h>
 #include <sys/stat.h>
-#include <fstream>
 
 using namespace std;
 using namespace Intel::OpenCL;
@@ -1404,69 +1403,6 @@ void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size
 		// for single-byte patterns memset is the fastest
 		memset(pBuffer, ((char*)pPattern)[0], szBufferSize);
 	}
-}
-
-OPENCL_VERSION GetOpenCLVersion()
-{
-    static OPENCL_VERSION s_ver = OPENCL_VERSION_UNKNOWN;
-
-    // OpenCL 1.2 is the default in any case of error
-    if (OPENCL_VERSION_UNKNOWN == s_ver)
-    {
-#ifdef _WIN32
-        const char* sOpenCLverName = "SOFTWARE\\Intel\\OpenCL";
-        HKEY openCLverKey = NULL;
-        LONG res = RegOpenKey(HKEY_LOCAL_MACHINE, sOpenCLverName, &openCLverKey);
-        DWORD regVal;
-
-        if (ERROR_SUCCESS != res)
-        {
-            s_ver = OPENCL_VERSION_1_2;
-            return s_ver;
-        }
-        else
-        {
-            DWORD regValSize = sizeof(regVal);
-            const char* sValue = "ForceOCLCPUVersion";
-            res = RegQueryValueExA(openCLverKey, sValue, NULL, NULL, (BYTE*)&regVal, &regValSize);
-            if (ERROR_SUCCESS != res)
-            {
-                s_ver = OPENCL_VERSION_1_2;
-            }
-            RegCloseKey(openCLverKey);
-            if (ERROR_SUCCESS != res)
-            {
-                return s_ver;
-            }
-        }
-#else
-        const char* sOpenCLverFilename = "/etc/OpenCL/vendors/Intel/ForceOCLCPUVersion";
-        std::ifstream ifs(sOpenCLverFilename);
-        if (!ifs.good())
-        {
-        	s_ver = OPENCL_VERSION_1_2;
-        	return s_ver;
-        }
-        int regVal;
-        ifs >> regVal;
-        if (!ifs.good())
-        {
-        	s_ver = OPENCL_VERSION_1_2;
-        	return s_ver;
-        }
-        ifs.close();
-#endif
-        if (2 == regVal)
-        {
-            s_ver = OPENCL_VERSION_2_0;
-        }
-        else
-        {
-            // actually 0x0 means default (OpenCL 1.2 in our case for now) and 0x1 - force 1.2, but I've decided that any value other than 0x2 will also mean OpenCL 1.2, to make things simple.
-            s_ver = OPENCL_VERSION_1_2;
-        }
-    }
-    return s_ver;
 }
 
 #if defined(_MSC_VER) && !defined(_WIN64)

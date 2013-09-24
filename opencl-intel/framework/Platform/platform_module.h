@@ -227,7 +227,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         static const unsigned int m_uiPlatformInfoStrSize;
 
         // static chars array - holds the platform's version string
-        static const char* m_vPlatformVersionStr;
+        static const char m_vPlatformVersionStr[];
+        // platform's version string length
+        static const unsigned int m_uiPlatformVersionStrSize;
 
         static const char m_vPlatformNameStr[];
         static const unsigned int m_uiPlatformNameStrSize;
