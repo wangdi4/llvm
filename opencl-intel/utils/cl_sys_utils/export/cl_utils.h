@@ -376,3 +376,14 @@ bool IsPowerOf2(unsigned int uiNum);
  * @param szBufferSize  the buffer's size
  */
 void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size_t szBufferSize);
+
+/**
+ * @return the dynamically detected OpenCL version (according to registry in Windows and /etc/ in Linux)
+ */
+enum OPENCL_VERSION
+{
+    OPENCL_VERSION_UNKNOWN,
+    OPENCL_VERSION_1_2,
+    OPENCL_VERSION_2_0
+};
+OPENCL_VERSION GetOpenCLVersion();

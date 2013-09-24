@@ -59,14 +59,12 @@ const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
 const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformInfoStr) / sizeof(char);
 
 #if defined (_WIN32)
-const char PlatformModule::m_vPlatformVersionStr[] = "OpenCL 1.2 WINDOWS";
-const unsigned int PlatformModule::m_uiPlatformVersionStrSize = sizeof(m_vPlatformVersionStr) / sizeof(char);
+const char* PlatformModule::m_vPlatformVersionStr = OPENCL_VERSION_1_2 == GetOpenCLVersion() ? "OpenCL 1.2 WINDOWS" : "OpenCL 2.0 WINDOWS";
 
 const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";
 const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
 #else
-const char PlatformModule::m_vPlatformVersionStr[] = "OpenCL 1.2 LINUX";
-const unsigned int PlatformModule::m_uiPlatformVersionStrSize = sizeof(m_vPlatformVersionStr) / sizeof(char);
+const char* PlatformModule::m_vPlatformVersionStr = OPENCL_VERSION_1_2 == GetOpenCLVersion() ? "OpenCL 1.2 LINUX" : "OpenCL 2.0 LINUX";
 
 const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";
 const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
@@ -321,7 +319,7 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         pValue = (void*)m_vPlatformInfoStr;
         break;
     case CL_PLATFORM_VERSION:
-        szParamSize = m_uiPlatformVersionStrSize;
+        szParamSize = strlen(m_vPlatformVersionStr) + 1;	// it must include the terminating null character
         pValue = (void*)m_vPlatformVersionStr;
         break;
     case CL_PLATFORM_NAME:

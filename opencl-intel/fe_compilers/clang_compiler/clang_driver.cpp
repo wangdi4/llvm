@@ -1465,7 +1465,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             pList->push_back("__OPENCL_C_VERSION__=120");
             pBEArgList->push_back("-cl-std=CL1.2");
         }
-        else if (*opt_i == "-cl-std=CL2.0") {
+        else if (GetOpenCLVersion() == OPENCL_VERSION_2_0 && *opt_i == "-cl-std=CL2.0") {
             iCLStdSet = 200;
             pList->push_back("-cl-std=CL2.0");
             pList->push_back("-D");

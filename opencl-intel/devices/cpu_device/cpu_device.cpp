@@ -83,11 +83,25 @@ struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *GetCPUDevInfo()
     {
         if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
         {
-            CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_ATOM;
+            if (GetOpenCLVersion() == OPENCL_VERSION_1_2)
+            {
+                CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_ATOM_1_2;
+            }
+            else
+            {
+                CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_ATOM_2_0;
+            }
         }
         else
         {
-            CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS;
+            if (GetOpenCLVersion() == OPENCL_VERSION_1_2)
+            {
+                CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_1_2;
+            }
+            else
+            {
+                CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_2_0;
+            }
         }
     }
     return &CPUDevInfo;
@@ -464,6 +478,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         pinternalRetunedValueSize = &internalRetunedValueSize;
     }
 
+    static const char sOpenCL12Str[] = "OpenCL 1.2 ", sOpenCL20Str[] = "OpenCL 2.0 ";
+    static const char sOpenCLC12Str[] = "OpenCL C 1.2 ", sOpenCLC20Str[] = "OpenCL C 2.0 ";
     switch (param)
     {
         case( CL_DEVICE_TYPE):
@@ -1176,8 +1192,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             return CL_DEV_SUCCESS;
         }
         case( CL_DEVICE_OPENCL_C_VERSION):
-            {
-                *pinternalRetunedValueSize = strlen("OpenCL C 1.2 ") + 1;
+            {                
+                OPENCL_VERSION ver = GetOpenCLVersion();
+                *pinternalRetunedValueSize = strlen(OPENCL_VERSION_1_2 == ver ? sOpenCLC12Str : sOpenCLC20Str) + 1;
                 if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
@@ -1185,13 +1202,14 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 //if OUT paramVal is NULL it should be ignored
                 if(NULL != paramVal)
                 {
-                    STRCPY_S((char*)paramVal, valSize, "OpenCL C 1.2 ");
+                    STRCPY_S((char*)paramVal, valSize, OPENCL_VERSION_1_2 == ver ? sOpenCLC12Str : sOpenCLC20Str);
                 }
                 return CL_DEV_SUCCESS;
             }
         case( CL_DEVICE_VERSION):
         {
-            *pinternalRetunedValueSize = strlen("OpenCL 1.2 ") + strlen(BUILDVERSIONSTR) + 1;
+            OPENCL_VERSION ver = GetOpenCLVersion();
+            *pinternalRetunedValueSize = strlen(OPENCL_VERSION_1_2 == ver ? sOpenCL12Str : sOpenCL20Str) + strlen(BUILDVERSIONSTR) + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1199,8 +1217,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                STRCPY_S((char*)paramVal, valSize, "OpenCL 1.2 ");
-                STRCAT_S((char*)paramVal, valSize, BUILDVERSIONSTR);
+                SPRINTF_S((char*)paramVal, valSize, "%s%s", OPENCL_VERSION_1_2 == ver ? sOpenCL12Str : sOpenCL20Str, BUILDVERSIONSTR);
             }
             return CL_DEV_SUCCESS;
         }
@@ -1237,10 +1254,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_EXTENSIONS):
         {
-            const char* oclSupportedExtensions = OCL_SUPPORTED_EXTENSIONS;
+            OPENCL_VERSION ver = GetOpenCLVersion();
+            const char* oclSupportedExtensions = OPENCL_VERSION_1_2 == ver ? OCL_SUPPORTED_EXTENSIONS_1_2 : OCL_SUPPORTED_EXTENSIONS_2_0;
             if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
             {
-                oclSupportedExtensions = OCL_SUPPORTED_EXTENSIONS_ATOM;
+                oclSupportedExtensions = OPENCL_VERSION_1_2 == ver ? OCL_SUPPORTED_EXTENSIONS_ATOM_1_2 : OCL_SUPPORTED_EXTENSIONS_ATOM_2_0;
             }
             *pinternalRetunedValueSize = strlen(oclSupportedExtensions) + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
