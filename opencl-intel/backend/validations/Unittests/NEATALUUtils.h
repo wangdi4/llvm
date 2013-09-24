@@ -140,8 +140,15 @@ namespace Validation {
         {
             T diff1 = fabs(ref - min);
             T diff2 = fabs(ref - max);
-            res &= (ComputeUlp(min) < 2*error.getAbsoluteError())? (diff1 <= error.getAbsoluteError()) : true;
-            res &= (ComputeUlp(max) < 2*error.getAbsoluteError())? (diff2 <= error.getAbsoluteError()) : true;
+            if(Utils::IsInf<dT>(min))
+                res &= Utils::IsInf<dT>(min - error.getAbsoluteError());
+            else
+                res &= (ComputeUlp(min) < 2*error.getAbsoluteError())? (diff1 <= error.getAbsoluteError()) : true;
+
+            if(Utils::IsInf<dT>(max))
+                res &= Utils::IsInf<dT>(max + error.getAbsoluteError());
+            else
+                res &= (ComputeUlp(max) < 2*error.getAbsoluteError())? (diff2 <= error.getAbsoluteError()) : true;
         } else if(ref == 0 && RefALU::GetFTZmode() && error.isAccurateUlps()) {
             // one ulp for zero is denormal in float point precision
             // so, flushed min and max should be zero
@@ -289,7 +296,10 @@ namespace Validation {
         else if(error.getErrorType() == IntervalError<dT>::ERROR_ABSOLUTE)
         {
             T diff1 = fabs(refMin - T(min));
-            res &= (ComputeUlp(min) < error.getAbsoluteError())?(diff1 <= error.getAbsoluteError()):(Utils::ulpsDiff(refMin, min) < 0.5f);
+            if(Utils::IsInf<dT>(min))
+                res &= Utils::IsInf<dT>(min - error.getAbsoluteError());
+            else
+                res &= (ComputeUlp(min) < 2 * error.getAbsoluteError())?(diff1 <= error.getAbsoluteError()):true;
         }
         else if((refMin == 0) && RefALU::GetFTZmode() && error.isAccurateUlps()) {
             // one ulp for zero is denormal in float point precision
@@ -329,8 +339,11 @@ namespace Validation {
                 return false;
         } else if(error.getErrorType() == IntervalError<dT>::ERROR_ABSOLUTE)
         {
-            T diff2 = fabs(refMin - min);
-            res &= (ComputeUlp(max) < error.getAbsoluteError())? (diff2 <= error.getAbsoluteError()) : true;
+            T diff2 = fabs(refMax - max);
+            if(Utils::IsInf<dT>(max))
+                res &= Utils::IsInf<dT>(max + error.getAbsoluteError());
+            else
+                res &= (ComputeUlp(max) < 2 * error.getAbsoluteError())? (diff2 <= error.getAbsoluteError()) : true;
         } else if((refMax == 0) && RefALU::GetFTZmode() && error.isAccurateUlps()) {
             // one ulp for zero is denormal in float point precision
             // so, flushed max and max should be zero

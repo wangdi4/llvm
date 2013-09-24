@@ -26,6 +26,7 @@ namespace Validation
     const double NEATALU::DIV_ERROR = 2.5;
     const double NEATALU::MIX_ERROR = 1.5; // rounding error of sub, mul and add
     const double NEATALU::NORMALIZE_ERROR = 2.5; // 2f + 0.5f  error in rsqrt + error in multiply
+    const double NEATALU::SQRT_ERROR_DOUBLE = 0.5;  // sqrt is correctly rounded for doubles
 
     const long double NEATALU::pi = 3.14159265358979323846264338327950288419716939937510582097494459230781640628620899L;
     const long double NEATALU::two_pi = 2*3.14159265358979323846264338327950288419716939937510582097494459230781640628620899L;

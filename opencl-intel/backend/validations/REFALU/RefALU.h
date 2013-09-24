@@ -405,6 +405,12 @@ namespace Validation
         /// Test for sign bit.
         template<typename T>  static T signbit(const T& x);
 
+/* geometric functions */
+        template<typename T> static void cross(const T *a, const T *b, T *out, const uint32_t n);
+        template<typename T> static T distance(const T *a, const T *b, const uint32_t n);
+        template<typename T> static T dot(const T *a, const T *b, const uint32_t n);
+        template<typename T> static T length(const T *a, const uint32_t n);
+        template<typename T> static void normalize(const T *a, T *out, const uint32_t n);
     };
 }
 

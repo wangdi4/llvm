@@ -73,6 +73,11 @@ public:
        typedef double type ;
 };
 
+
+// auxillary functions for cross and dot
+template <typename T>
+T Ulp1(void);
+
 TEST(NEATAlu, NEATRef)
 {
     EXPECT_EQ(0.6f, RefALU::add<float>(0.2f, 0.4f));
@@ -8581,8 +8586,8 @@ TYPED_TEST(NEATAluTypedMath, dot)
 
     for(uint32_t i = 0; i<wrap.GetSize(); i++)
     {
-        a0[i] = NEATValue(firstFloat0[i]);
-        a1[i] = NEATValue(firstFloat1[i]);
+        a0[i] = NEATValue(firstFloatRanged0[i]);
+        a1[i] = NEATValue(secondFloatRanged1[i]);
     }
 
     NEATVector b0 = a0;
@@ -8671,12 +8676,18 @@ TYPED_TEST(NEATAluTypedMath, dot)
         refForUlps = refForUlps*refForUlps;
 
         refAccValFloat = 0;
+        bool isResultUnknown = false;
         for(uint32_t i = 0; i<wrap.GetSize(); i++) {
             SuperT r = RefALU::mul(SuperT(*accurate0[i].GetAcc<TypeP>()),
                                    SuperT(*accurate1[i].GetAcc<TypeP>()));
+            if( Utils::IsInf<TypeP>(refAccValFloat) && Utils::IsInf<TypeP>(r) && !Utils::eq_float<TypeP>( refAccValFloat, r) )
+                isResultUnknown = true;
             refAccValFloat = RefALU::add(refAccValFloat, r);
         }
-        EXPECT_TRUE(TestAccExpandedDotMix<SuperT>(refAccValFloat,testAcc,refForUlps,ulpErr));
+        if(isResultUnknown)
+            EXPECT_TRUE(testAcc.IsUnknown());
+        else
+            EXPECT_TRUE( TestAccExpanded<SuperT>(refAccValFloat,testAcc, IntervalError<TypeP>::fromAbsoluteError(refForUlps * ulpErr * Ulp1<TypeP>())) );
 
         /* test for NEAT value interval */
         NEATValue testInt = NEATALU::dot<TypeP>(interval0[0], interval1[0]);
@@ -8696,6 +8707,9 @@ TYPED_TEST(NEATAluTypedMath, dot)
         refIntValMin = 0;
         refIntValMax = 0;
         testInt = NEATALU::dot<TypeP>(interval0, interval1);
+
+        isResultUnknown = false;
+
         for(uint32_t i = 0; i<wrap.GetSize(); i++) {
             SuperT r[4];
             r[0] = RefALU::mul(SuperT(*interval0[i].GetMin<TypeP>()), SuperT(*interval1[i].GetMin<TypeP>()));
@@ -8703,12 +8717,20 @@ TYPED_TEST(NEATAluTypedMath, dot)
             r[2] = RefALU::mul(SuperT(*interval0[i].GetMin<TypeP>()), SuperT(*interval1[i].GetMax<TypeP>()));
             r[3] = RefALU::mul(SuperT(*interval0[i].GetMax<TypeP>()), SuperT(*interval1[i].GetMin<TypeP>()));
 
+            if( Utils::IsInf<TypeP>(refIntValMax) && Utils::IsInf<TypeP>(GetMaxValue<SuperT>(r,4)) && !Utils::eq_float<TypeP>( refIntValMax, GetMaxValue<SuperT>(r,4)) )
+                isResultUnknown = true;
+            if( Utils::IsInf<TypeP>(refIntValMin) && Utils::IsInf<TypeP>(GetMinValue<SuperT>(r,4)) && !Utils::eq_float<TypeP>( refIntValMin, GetMinValue<SuperT>(r,4)) )
+                isResultUnknown = true;
+
             refIntValMax = RefALU::add(refIntValMax,GetMaxValue<SuperT>(r,4));
             refIntValMin = RefALU::add(refIntValMin,GetMinValue<SuperT>(r,4));
         }
         refForUlps = (SuperT)GetMaxAbsIntVec<TypeP>(wrap.GetSize(), interval0, interval1);
         refForUlps = refForUlps*refForUlps;
-        EXPECT_TRUE(TestIntExpandedDotMix<SuperT>(refIntValMin,refIntValMax,testInt,refForUlps,ulpErr));
+        if(isResultUnknown)
+            EXPECT_TRUE(testInt.IsUnknown());
+        else
+            EXPECT_TRUE(TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testInt,IntervalError<TypeP>::fromAbsoluteError(refForUlps * ulpErr * Ulp1<TypeP>())));
 
         /* test for NEAT value accurate ranged*/
         testAcc = NEATALU::dot<TypeP>(accurateRanged0[0],accurateRanged1[0]);
@@ -8728,7 +8750,7 @@ TYPED_TEST(NEATAluTypedMath, dot)
                                    SuperT(*accurateRanged1[i].GetAcc<TypeP>()));
             refAccValFloat = RefALU::add(refAccValFloat, r);
         }
-        EXPECT_TRUE(TestAccExpandedDotMix<SuperT>(refAccValFloat,testAcc,refForUlps,ulpErr));
+        EXPECT_TRUE(TestAccExpanded<SuperT>(refAccValFloat,testAcc,IntervalError<TypeP>::fromAbsoluteError(refForUlps * ulpErr * Ulp1<TypeP>())));
 
         /* test for NEAT value intervals ranged*/
         testInt = NEATALU::dot<TypeP>(intervalRanged0[0], intervalRanged1[0]);
@@ -8769,7 +8791,7 @@ TYPED_TEST(NEATAluTypedMath, dot)
         }
         refForUlps = (SuperT)GetMaxAbsIntVec<TypeP>(wrap.GetSize(), intervalRanged0, intervalRanged1);
         refForUlps = refForUlps*refForUlps;
-        EXPECT_TRUE(TestIntExpandedDotMix<SuperT>(refIntValMin,refIntValMax,testInt,refForUlps,ulpErr));
+        EXPECT_TRUE(TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testInt,IntervalError<TypeP>::fromAbsoluteError(refForUlps * ulpErr * Ulp1<TypeP>())));
     }
 }
 
@@ -9280,10 +9302,6 @@ TYPED_TEST(NEATDistanceRun, fast_distance)
     distanceTest.TestDistance(NEATFunc, NEATFuncVec, baseUlpErr);
 }
 
-// auxillary functions for cross
-    template <typename T>
-    T Ulp1(void);
-
     template <>
     float Ulp1(void) {
         return 1.192092896e-07F;        /* smallest such that 1.0+FLT_EPSILON != 1.0 */
@@ -9545,7 +9563,7 @@ public:
 
             for(uint32_t i = 0; i<numMin; i++) 
             {
-                EXPECT_TRUE(TestAccExpanded<sT>(refVec[i], tst[i], float(NEATALU::CROSS_ERROR)));
+                EXPECT_TRUE(TestAccExpanded<sT>(refVec[i], tst[i], IntervalError<T>::fromAbsoluteError(refForUlps[i])));
             }
 
             // test for interval vectors
@@ -9583,7 +9601,7 @@ public:
 
             for(uint32_t i = 0; i<numMin; i++) 
             {
-                EXPECT_TRUE(TestIntExpanded<sT>(refMin[i], refMax[i], tst[i], float(NEATALU::CROSS_ERROR)));
+                EXPECT_TRUE(TestIntExpanded<sT>(refMin[i], refMax[i], tst[i], IntervalError<T>::fromAbsoluteError(refForUlps[i])));
             }
 
         }

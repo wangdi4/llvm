@@ -319,6 +319,8 @@ namespace Validation
     void IntervalError<T>::ExpandFPInterval(typename IntervalError<T>::sT * minInOut, typename IntervalError<T>::sT * maxInOut, IntervalError<T> error)
     {
         typedef typename IntervalError<T>::sT sT;
+        const uint64_t LONG_DOUBLE_MANTISSA_MASK = 0x7fffffffffffffff;
+
         assert(error >= 0 && "[IntervalError] Error value lower than zero");
         if (error == 0.0)
             return;
@@ -390,7 +392,9 @@ namespace Validation
 
         if(maxS > resMax && fabs(ComputeUlp(maxS)) <= fabs(maxS-minS))
         {
-            sT lowUlp = ComputeUlp(maxS);
+            uint64_t maxS_mant = *(uint64_t*)&maxS;
+            maxS_mant &= LONG_DOUBLE_MANTISSA_MASK;
+            sT lowUlp = (maxS_mant == 0) ? ComputeUlp(refMax) : ComputeUlp(maxS);
             maxS -= lowUlp;
         }
 
@@ -398,7 +402,9 @@ namespace Validation
         {
             // if we are, reduce result by one ulp, calculated for
             // downcasted value
-            sT lowUlp = ComputeUlp(minS);
+            uint64_t minS_mant = *(uint64_t*)&minS;
+            minS_mant &= LONG_DOUBLE_MANTISSA_MASK;
+            sT lowUlp = (minS_mant == 0) ? ComputeUlp(refMin) : ComputeUlp(minS);
             minS += lowUlp;        
         }
 

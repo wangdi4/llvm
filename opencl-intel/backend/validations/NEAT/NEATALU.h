@@ -158,7 +158,7 @@ namespace Validation
         static const int FRACT_SECOND_ARG_ERROR = 0;
         static const int FMAX_ERROR = 0;
         static const int SQRT_ERROR = 3;
-        static const int SQRT_ERROR_DOUBLE = 0; // sqrt is correctly rounded for doubles
+        static const double SQRT_ERROR_DOUBLE; // sqrt is correctly rounded for doubles
         static const int CBRT_ERROR = 2;
         static const int COPYSIGN_ERROR = 0;
         static const int FDIM_ERROR = 0;
@@ -4628,6 +4628,14 @@ public:
                 SuperT localMin=SuperT(0), localMax=SuperT(0);
                 Combine(vals, 4, localMin, localMax);
 
+                // return unknown value in case of PINF + NINF operation
+                if(Utils::IsInf<T>(min) && Utils::IsInf<T>(localMin) && !Utils::eq_float<T>(min, localMin))
+                    return NEATValue(NEATValue::UNKNOWN);
+
+                // return unknown value in case of PINF + NINF operation
+                if(Utils::IsInf<T>(max) && Utils::IsInf<T>(localMax) && !Utils::eq_float<T>(max, localMax))
+                    return NEATValue(NEATValue::UNKNOWN);
+
                 // accumulate result
                 min = RefALU::add(min, localMin);
                 max = RefALU::add(max, localMax);
@@ -4639,8 +4647,8 @@ public:
         //ulps is 2*vecSize - 1 (n + n-1 max # of errors)
         SuperT ulps = 2.*SuperT(vec1.GetSize())-1.;
 
-        maxAbs = maxAbs*maxAbs;
-        IntervalError<T>::ExpandFPInterval(&min, &max, maxAbs, IntervalError<T>(ulps));
+        SuperT errorTolerance = maxAbs * maxAbs * ulps * ComputeUlp(T(1.0));
+        IntervalError<T>::ExpandFPInterval(&min, &max, IntervalError<T>::fromAbsoluteError(errorTolerance));
 
         T minD = castDown(min);
         T maxD = castDown(max);
@@ -4666,65 +4674,32 @@ public:
 
         double ulps = double(NEATALU::CROSS_ERROR);
 
-        sT vals[4];
+        sT vals[16];
         sT min0=sT(0), max0=sT(0);
-        sT min1=sT(0), max1=sT(0);
 
-        // res[i] = (vecA[j] * vecB[k]) - (vecA[k] * vecB[j]);
-        NEATValue flushed0 = flush<T>(in0);
-        NEATValue flushed1 = flush<T>(in1);
-        NEATValue flushed2 = flush<T>(in2);
-        NEATValue flushed3 = flush<T>(in3);
+        // calculate all possible combinations of min1*min2 - min3*min4, min1*min2 - min3*max4. etc.
+        // decide what is the min and max result
 
-        sT minA = sT(*flushed0.GetMin<T>());
-        sT maxA = sT(*flushed0.GetMax<T>());
-        sT minB = sT(*flushed1.GetMin<T>());
-        sT maxB = sT(*flushed1.GetMax<T>());
+        for(int i = 0; i < 16; ++i) {
+            vals[i] = Conformance::reference_cross_one_iteml(
+                i & 1 ? *in0.GetMax<T>() : *in0.GetMin<T>(),
+                i & 2 ? *in1.GetMax<T>() : *in1.GetMin<T>(),
+                i & 4 ? *in2.GetMax<T>() : *in2.GetMin<T>(),
+                i & 8 ? *in3.GetMax<T>() : *in3.GetMin<T>()
+                );
+        }
 
-        // (vecA[j] * vecB[k])
-        vals[0] = RefALU::mul<sT>(minA, maxB);
-        vals[1] = RefALU::mul<sT>(minA, minB);
-        vals[2] = RefALU::mul<sT>(maxA, minB);
-        vals[3] = RefALU::mul<sT>(maxA, maxB);
-        
-        res.SetStatus(Combine(vals, 4, min0, max0));
+        res.SetStatus(Combine(vals, 16, min0, max0));
 
-        if(res.GetStatus() != NEATValue::INTERVAL &&
-           res.GetStatus() != NEATValue::ACCURATE)
-        return res;
-
-        minA = sT(*flushed2.GetMin<T>());
-        maxA = sT(*flushed2.GetMax<T>());
-        minB = sT(*flushed3.GetMin<T>());
-        maxB = sT(*flushed3.GetMax<T>());
-
-        // (vecA[k] * vecB[j])
-        vals[0] = RefALU::mul<sT>(minA, maxB);
-        vals[1] = RefALU::mul<sT>(minA, minB);
-        vals[2] = RefALU::mul<sT>(maxA, minB);
-        vals[3] = RefALU::mul<sT>(maxA, maxB);
-
-        res.SetStatus(Combine(vals, 4, min1, max1));
-
-        if(res.GetStatus() != NEATValue::INTERVAL &&
-           res.GetStatus() != NEATValue::ACCURATE)
-        return res;
-
-        // (vecA[j] * vecB[k]) - (vecA[k] * vecB[j]);
-        sT a = RefALU::neg(max1);
-        max1 = RefALU::neg(min1);
-        min1 = a;
-        vals[0] = RefALU::add(min0, min1);
-        vals[1] = RefALU::add(max0, max1);
-
-        res.SetStatus(Combine(vals, 2, min0, max0));
-
-        if(res.GetStatus() != NEATValue::INTERVAL &&
-           res.GetStatus() != NEATValue::ACCURATE)
-        return res;
+        NEATValue in0a = NEATALU::fabs<T>(in0);
+        NEATValue in1a = NEATALU::fabs<T>(in1);
+        NEATValue in2a = NEATALU::fabs<T>(in2);
+        NEATValue in3a = NEATALU::fabs<T>(in3);
+        sT errorTolerance = std::max(*in0a.GetMax<T>(), std::max(*in1a.GetMax<T>(), std::max(*in2a.GetMax<T>(), *in3a.GetMax<T>())));
 
         // expand interval
-        IntervalError<T>::ExpandFPInterval(&min0, &max0, IntervalError<T>(ulps));
+        // approach from conformanse tests is used
+        IntervalError<T>::ExpandFPInterval(&min0, &max0, IntervalError<T>::fromAbsoluteError(errorTolerance * errorTolerance * ( ulps * ComputeUlp(sT(1.0)))));
 
         T minD = castDown(min0);
         if (min0 > sT(minD)) {
@@ -4891,7 +4866,7 @@ public:
     template<typename T>
     static NEATValue length(const NEATVector& vec1)
     {
-        double maxUlps = NEATALU::sqrtSetUlps<T>() +  // error in sqrt
+        double maxUlps = NEATALU::sqrtSetUlps<T>() + // error in sqrt
         0.5 *                                   // effect on e of taking sqrt( x + e )
         ( 0.5 * (double) vec1.GetSize() +       // cumulative error for multiplications
           0.5 * (double) (vec1.GetSize()-1));   // cumulative error for additions
@@ -5115,11 +5090,6 @@ public:
             if(vec1[i].IsAcc() && Utils::IsInf<T>(*vec1[i].GetAcc<T>()))
                 flagINF = true;
         }
-
-        // normalize (v) returns v if all elements of v are zero
-        if (cntZero == vec1.GetSize())
-            return vec1;
-
 
         // special case for infinity
         // normalize ( v ) for which any element in v is infinite shall proceed as if

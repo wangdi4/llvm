@@ -32,14 +32,18 @@ namespace OCLBuiltins {
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
-        R.AggregateVal.resize(n);
         llvm::GenericValue arg0 = Args[0];
         llvm::GenericValue arg1 = Args[1];
-        T dot = T(0);
+
+        T a[n], b[n];
         for (uint32_t i = 0; i < n; ++i)
         {
-            dot += getVal<T,n>(arg0, i) * getVal<T,n>(arg1, i);
+            a[i] = getVal<T,n>(arg0, i);
+            b[i] = getVal<T,n>(arg1, i);
         }
+
+        T dot = RefALU::dot<T>(a, b, n);
+        
         getRef<T>(R) = dot;
         return R;
     }
@@ -51,16 +55,15 @@ namespace OCLBuiltins {
         llvm::GenericValue R;
         R.AggregateVal.resize(n);
         llvm::GenericValue arg0 = Args[0];
-        T len = T(0);
+        T a[n], out[n];
         for (uint32_t i = 0; i < n; ++i)
-        {
-            len = RefALU::add(len, RefALU::mul(getVal<T,n>(arg0, i), getVal<T,n>(arg0, i)));
-        }
-        T norm = RefALU::rsqrt(len);
+            a[i] = getVal<T,n>(arg0, i);
+
+        RefALU::normalize(a, out, n);
+        
         for (uint32_t i = 0; i < n; ++i)
-        {
-            getRef<T,n>(R,i) = RefALU::mul(getVal<T,n>(arg0, i), norm);
-        }
+            getRef<T,n>(R, i) = out[i];
+
         return R;
     }
 
@@ -69,14 +72,12 @@ namespace OCLBuiltins {
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
-        R.AggregateVal.resize(n);
         llvm::GenericValue arg0 = Args[0];
-        T len = T(0);
+        T a[n];
         for (uint32_t i = 0; i < n; ++i)
-        {
-            len = RefALU::add(len, RefALU::mul(getVal<T,n>(arg0, i), getVal<T,n>(arg0, i)));
-        }
-        getRef<T>(R) = RefALU::sqrt(len);
+            a[i] = getVal<T,n>(arg0, i);
+
+        getRef<T>(R) = RefALU::length(a, n);
         return R;
     }
 
@@ -86,16 +87,15 @@ namespace OCLBuiltins {
         const std::vector<llvm::GenericValue> &Args)
     {
         llvm::GenericValue R;
-        R.AggregateVal.resize(n);
         llvm::GenericValue arg0 = Args[0];
         llvm::GenericValue arg1 = Args[1];
-        T len = T(0);
+        T a[n], b[n];
         for (uint32_t i = 0; i < n; ++i)
         {
-            T d = RefALU::sub(getVal<T,n>(arg0, i), getVal<T,n>(arg1, i));
-            len += RefALU::add(len, RefALU::mul(d,d));
+            a[i] = getVal<T,n>(arg0, i);
+            b[i] = getVal<T,n>(arg1, i);
         }
-        getRef<T>(R) = RefALU::sqrt(len);
+        getRef<T>(R) = RefALU::distance(a, b, n);
         return R;
     }
 
@@ -112,13 +112,20 @@ namespace OCLBuiltins {
         // outVector[ 0 ] = ( vecA[ 1 ] * vecB[ 2 ] ) - ( vecA[ 2 ] * vecB[ 1 ] );
         // outVector[ 1 ] = ( vecA[ 2 ] * vecB[ 0 ] ) - ( vecA[ 0 ] * vecB[ 2 ] );
 		// outVector[ 2 ] = ( vecA[ 0 ] * vecB[ 1 ] ) - ( vecA[ 1 ] * vecB[ 0 ] );
+        T a[n], b[n], out[n];
 
-        getRef<T,n>(R,0) = ( getVal<T,n>(arg0, 1) * getVal<T,n>(arg1, 2) ) - ( getVal<T,n>(arg0, 2) * getVal<T,n>(arg1, 1) );
-		getRef<T,n>(R,1) = ( getVal<T,n>(arg0, 2) * getVal<T,n>(arg1, 0) ) - ( getVal<T,n>(arg0, 0) * getVal<T,n>(arg1, 2) );
-        getRef<T,n>(R,2) = ( getVal<T,n>(arg0, 0) * getVal<T,n>(arg1, 1) ) - ( getVal<T,n>(arg0, 1) * getVal<T,n>(arg1, 0) );
+        for (uint32_t i = 0; i < n; ++i)
+        {
+            a[i] = getVal<T,n>(arg0, i);
+            b[i] = getVal<T,n>(arg1, i);
+        }
+        
+        RefALU::cross(a, b, out, n);
 
-        if( n == 4)
-            getRef<T,n>(R,3) = T(0);
+        for (uint32_t i = 0; i < n; ++i)
+        {
+            getRef<T,n>(R,i) = out[i];
+        }
 
         return R;
     }
