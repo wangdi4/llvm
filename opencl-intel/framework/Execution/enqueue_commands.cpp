@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2012 Intel Corporation
+        // Copyright (c) 2008-2012 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -131,14 +131,14 @@ cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList
 cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer)
 {
 #if defined(USE_ITT)
-	ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
+    ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
 
-	/// unique ID to pass all tasks, and markers.
-	__itt_id ittID;
+	  // unique ID to pass all tasks, and markers.
+	  __itt_id ittID;
     if ((NULL != pGPAData) && (pGPAData->bUseGPA)) 
     {
         ittID = __itt_id_make(&ittID, (unsigned long long)this);
-	    __itt_id_create(pGPAData->pDeviceDomain, ittID);
+	      __itt_id_create(pGPAData->pDeviceDomain, ittID);
 #if defined(USE_ITT_INTERNAL)        
         static __thread __itt_string_handle* pTaskName = NULL;
         if ( NULL == pTaskName )
@@ -153,119 +153,60 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
     switch(iCmdStatus)
     {
     case CL_QUEUED:
-		// Nothing to do, not expected to be here at all
-		break;
+        // Nothing to do, not expected to be here at all
+        assert( 0 && "Unexpected state CL_QUEUED was notified");
+        break;
+
     case CL_SUBMITTED:
-		// Nothing to do, not expected to be here at all
-		m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
+        // Nothing to do, not expected to be here at all
+        m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
         m_Event->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
         LogDebugA("Command - SUBMITTED TO DEVICE  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
         break;
+
     case CL_RUNNING:
         LogDebugA("Command - RUNNING  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
-		// Running marker
-#if defined(USE_ITT)
-		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
-		{
-			if (pGPAData->cStatusMarkerFlags & ITT_SHOW_RUNNING_MARKER)
-			{
-				#if defined(USE_GPA)
-				// Write this data to the thread track
-				__itt_set_track(NULL);
-				#endif
-
-				char pMarkerString[ITT_TASK_NAME_LEN];
-				SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "Running - %s", GetCommandName());
-				__itt_string_handle* pMarker = __itt_string_handle_create(pMarkerString);
-
-				//Due to a bug in GPA 4.0 the marker is within a task
-				//Should be removed in GPA 4.1
-				__itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
-				__itt_marker(pGPAData->pDeviceDomain, ittID, pMarker, __itt_marker_scope_global);
-				__itt_task_end(pGPAData->pDeviceDomain);
-			}
-
-		#if defined(USE_GPA)
-			if ((pGPAData->bEnableContextTracing) && (NULL != m_pGpaCommand))
-			{
-				// Set custom track 
-				__itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
-				__ittx_task_set_state(pGPAData->pContextDomain, m_pGpaCommand->m_CmdId, pGPAData->pRunningTaskState);
-				
-				// This feature does not work now due to GPA bug, should be added in later stages.
-				//GPA_WriteCommandMetadata();
-			}
-		#endif
-		}  
-#endif // ITT
-		m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
+        m_Event->AddProfilerMarker("RUNNING", ITT_SHOW_RUNNING_MARKER);
+        if ( m_Event->m_bProfilingEnabled )
+        {
+            m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
+        }
         m_Event->SetEventState(EVENT_STATE_EXECUTING_ON_DEVICE);
         break;
+
     case CL_COMPLETE:
-		assert(EVENT_STATE_DONE != m_Event->GetEventState());
-		m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_END, ulTimer);
-	    // Complete command,
-		// do that before set event, since side effect of SetEvent(black) may be deleting of this instance.
-		// Is error
-		if (CL_FAILED(iCompletionResult))
-		{
-			LogErrorA("Command - DONE - Failure  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
-			//assert(0 && "Command - DONE - Failure");
-		}
-		else
-		{
-			LogDebugA("Command - DONE - SUCCESS : %s (Id: %d)", GetCommandName(), m_Event->GetId());
-		}
-		m_returnCode = iCompletionResult;
+		    assert(EVENT_STATE_DONE != m_Event->GetEventState());
+        if ( m_Event->m_bProfilingEnabled )
+        {
+		        m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_END, ulTimer);
+        }
+	      // Complete command,
+		    // do that before set event, since side effect of SetEvent(black) may be deleting of this instance.
+		    // Is error
+		    if (CL_FAILED(iCompletionResult))
+		    {
+			      LogErrorA("Command - DONE - Failure  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
+		    }
+		    else
+		    {
+			      LogDebugA("Command - DONE - SUCCESS : %s (Id: %d)", GetCommandName(), m_Event->GetId());
+		    }
+		    m_returnCode = iCompletionResult;
         res = CommandDone();
         m_Event->SetEventState(EVENT_STATE_DONE);
-// Complete marker
-#if defined(USE_ITT)
-		if ((NULL != pGPAData) && (pGPAData->bUseGPA))
-		{
-			if (pGPAData->cStatusMarkerFlags & ITT_SHOW_COMPLETED_MARKER)
-			{
-				#if defined(USE_GPA)
-				// Write this data to the thread track
-				__itt_set_track(NULL);
-				#endif
-
-				char pMarkerString[ITT_TASK_NAME_LEN];
-				SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "Completed - %s", GetCommandName());
-				__itt_string_handle* pMarker = __itt_string_handle_create(pMarkerString);
-				//Due to a bug in GPA 4.0 the marker is within a task
-				//Should be removed in GPA 4.1
-				__itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
-				__itt_marker(pGPAData->pDeviceDomain, ittID, pMarker, __itt_marker_scope_global);
-				__itt_task_end(pGPAData->pDeviceDomain);
-			}
-
-			#if defined(USE_GPA)
-			// Complete the running task on the context view and destroy the id
-			if ((pGPAData->bEnableContextTracing) && (NULL != m_pGpaCommand))
-			{
-				// Set custom track 
-				__itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
-
-				// Complete the running task on the context view and destroy the id
-				__itt_task_end_overlapped(pGPAData->pContextDomain, m_pGpaCommand->m_CmdId);
-				__itt_id_destroy(pGPAData->pContextDomain,m_pGpaCommand->m_CmdId);
-			}
-			#endif
-		}
-#endif // ITT
-
+        m_Event->AddProfilerMarker("COMPLETED", ITT_SHOW_COMPLETED_MARKER);
         m_Event.DecRefCnt();    // Since the command holds the shared pointer to the event that is responsible for its own deletion, we need to do this here to break this cycle.
-		break;
+		    break;
+
     default:
         break;
     }
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-      if ( (NULL != pGPAData) && pGPAData->bUseGPA )
-      {
-        __itt_task_end(pGPAData->pDeviceDomain);
-      }
+    if ( (NULL != pGPAData) && pGPAData->bUseGPA )
+    {
+      __itt_task_end(pGPAData->pDeviceDomain);
+    }
 #endif
     
     return res;

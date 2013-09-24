@@ -60,23 +60,31 @@ cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
       static __thread __itt_string_handle* pTaskName = NULL;
       if ( NULL == pTaskName )
       {
-        pTaskName = __itt_string_handle_create("InOrderCommandQueue::Enqueue()");
+          pTaskName = __itt_string_handle_create("InOrderCommandQueue::Enqueue()");
       }
       __itt_task_begin(GetGPAData()->pAPIDomain, __itt_null, __itt_null, pTaskName);
     }
 #endif
 
+    QueueEvent* pEvent = cmd->GetEvent().GetPtr();
     if ( m_bProfilingEnabled )
     {
-        cmd->GetEvent()->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
+        pEvent->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
     }
+    pEvent->AddProfilerMarker("SUBMITTED", ITT_SHOW_SUBMITTED_MARKER);
+
     m_submittedQueue.PushBack(cmd);
 
+    // Not sure need this code. The last submitted command has floating dependency that prevents from sending to the device
+    // When floating dependency reduces, command is sent for execution
+#if 0
     Flush(false);	// Solves the issue of event state reported to user
 					// On this stage event has CL_SUBMITTED state;
 					// However, w/o the flush commands is not submitted to device
 					// and this violates the spec.
 					// The SUBMITTED states identifies that command was submitted to device for execution
+#endif
+
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
     {
@@ -89,31 +97,66 @@ cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
 
 cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 {
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    {
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+            pTaskName = __itt_string_handle_create("InOrderCommandQueue::Flush()");
+        }
+        __itt_task_begin(GetGPAData()->pAPIDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
 	SendCommandsToDevice();
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    {
+      __itt_task_end(GetGPAData()->pAPIDomain);
+    }
+#endif
 	return CL_SUCCESS;
 }
 
 cl_err_code InOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor )
 {
-	if (EVENT_STATE_READY_TO_EXECUTE == newColor)
-	{
-		//one of the commands became ready. Trigger a SendToDevice as it may be on top of the queue. Todo: this can probably be improved
-		SendCommandsToDevice();
-		return CL_SUCCESS;
-	} 
-	else if ( EVENT_STATE_DONE == newColor )
-	{
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    {
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+            pTaskName = __itt_string_handle_create("InOrderCommandQueue::NotifyStateChange()");
+        }
+        __itt_task_begin(GetGPAData()->pAPIDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+    cl_err_code ret = CL_SUCCESS;
+    switch ( newColor )
+    {
+    case EVENT_STATE_DONE:
         if (pEvent->EverIssuedToDevice())
         {
-    		--m_commandsInExecution;
+            --m_commandsInExecution;
         }
-		SendCommandsToDevice();
-		return CL_SUCCESS;
-	}
+        // Fallback to next case
+    case EVENT_STATE_READY_TO_EXECUTE:
+        //one of the commands became ready. Trigger a SendToDevice as it may be on top of the queue. Todo: this can probably be improved
+        SendCommandsToDevice();
+        break;
 
-	//basically we should not be here until we use this interface for more stuff
-	assert(0 && "InOrderCommandQueue::NotifyStateChange called with wrong color");
-	return CL_SUCCESS;
+    default:
+        assert(0 && "InOrderCommandQueue::NotifyStateChange called with wrong color");
+        ret = CL_INVALID_VALUE;
+    }
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    {
+        __itt_task_end(GetGPAData()->pAPIDomain);
+    }
+#endif
+  return ret;
 }
 
 cl_err_code InOrderCommandQueue::SendCommandsToDevice()

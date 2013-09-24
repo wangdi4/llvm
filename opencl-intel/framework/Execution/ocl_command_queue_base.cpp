@@ -35,131 +35,102 @@ using namespace Intel::OpenCL::Framework;
 
 cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pUserEvent)
 {
-#if defined(USE_ITT)
-	ocl_gpa_data* pGPAData = m_pContext->GetGPAData();
-	// unique ID to pass all tasks, and markers.
-	__itt_id ittID;
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+      if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+      {
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+          pTaskName = __itt_string_handle_create("IOclCommandQueueBase::EnqueueCommand()");
+        }
+        __itt_task_begin(m_pGPAData->pAPIDomain, __itt_null, __itt_null, pTaskName);
+      }
+#endif
 
-	if ((NULL != pGPAData) && (pGPAData->bUseGPA))
-	{
-        ittID = __itt_id_make(&ittID, (unsigned long long)pCommand);
-	    __itt_id_create(pGPAData->pDeviceDomain, ittID);
 
-		if (pGPAData->cStatusMarkerFlags & ITT_SHOW_QUEUED_MARKER)
-		{
-			#if defined(USE_GPA)
-			// Write this data to the thread track
-			__itt_set_track(NULL);
-			#endif
-
-			char pMarkerString[ITT_TASK_NAME_LEN];
-			SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "Enqueued - %s", pCommand->GetCommandName());
-
-			__itt_string_handle* pMarker = __itt_string_handle_create(pMarkerString);
-
-			//Due to a bug in GPA 4.0 the marker is within a task
-			//Should be removed in GPA 4.1  
-			__itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
-			__itt_marker(pGPAData->pDeviceDomain, ittID, pMarker, __itt_marker_scope_global);
-			cl_ushort isBlocking = bBlocking ? 1 : 0;
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, ittID, m_pGPAData->pIsBlocking, __itt_metadata_u16, 1, &isBlocking);
-			__itt_metadata_add(m_pGPAData->pDeviceDomain, ittID, m_pGPAData->pNumEventsInWaitList, __itt_metadata_u32 , 1, &uNumEventsInWaitList);
-			__itt_task_end(pGPAData->pDeviceDomain);		
-		}
-
-		#if defined(USE_GPA)
-		if ((pGPAData->bEnableContextTracing) && (NULL != pCommand->GPA_GetCommand()))
-		{
-			// Set custom track 
-			__itt_set_track(pCommand->GetCommandQueue()->GPA_GetQueue()->m_pTrack);
-
-			// Create id for the new task
-			pCommand->GPA_GetCommand()->m_CmdId = __itt_id_make(0, (unsigned long long)pCommand);
-			__itt_id_create(pGPAData->pContextDomain, pCommand->GPA_GetCommand()->m_CmdId);
-        
-			// Begin waiting task
-			__itt_task_begin_overlapped(pGPAData->pContextDomain, pCommand->GPA_GetCommand()->m_CmdId, __itt_null, pCommand->GPA_GetCommand()->m_strCmdName);
-			__ittx_task_set_state(pGPAData->pContextDomain, pCommand->GPA_GetCommand()->m_CmdId, pGPAData->pWaitingTaskState);
-		}
-		#endif
-	
-        __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
-    }
-#endif // ITT
-
-	cl_err_code errVal = CL_SUCCESS;
-	// If blocking and no event, than it is needed to create dummy cl_event for wait
-	cl_event waitEvent = NULL;
-	cl_event* pEvent;
-	if( bBlocking && NULL == pUserEvent)
-	{
-		pEvent = &waitEvent;
-	}
-	else
-	{
-		pEvent = pUserEvent;
-	}
-	SharedPtr<QueueEvent> pQueueEvent = pCommand->GetEvent();
-	m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
-
-	pQueueEvent->AddFloatingDependence();
-	errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, cpEeventWaitList);
-
-	if( CL_FAILED(errVal))
-	{
-		pQueueEvent->RemoveFloatingDependence();
-		if (NULL == pUserEvent)
-		{
-			m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
-		}
-		return errVal;
-	}   
+    SharedPtr<QueueEvent> pQueueEvent = pCommand->GetEvent();
 
     if (m_bProfilingEnabled)
     {
         pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());
     }
+    pQueueEvent->AddProfilerMarker("QUEUED", ITT_SHOW_QUEUED_MARKER);
+
+    cl_err_code errVal = CL_SUCCESS;
+    // If blocking and no event, than it is needed to create dummy cl_event for wait
+    cl_event waitEvent = NULL;
+    cl_event* pEvent;
+    if( bBlocking && NULL == pUserEvent)
+    {
+        pEvent = &waitEvent;
+    }
+    else
+    {
+        pEvent = pUserEvent;
+    }
+    m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
+
+    pQueueEvent->AddFloatingDependence();
+    errVal = m_pEventsManager->RegisterEvents(pQueueEvent, uNumEventsInWaitList, cpEeventWaitList);
+
+    if( CL_FAILED(errVal))
+    {
+        pQueueEvent->RemoveFloatingDependence();
+        if (NULL == pUserEvent)
+        {
+            m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
+        }
+        return errVal;
+    }
 
     errVal = Enqueue(pCommand);
 	
-    // RemoveFloatingDependence() got to be after Enqueue; this prevents a situation where the current
-    // command is dependant on another command which just finished (the other one) After ::RegisterEvents
-    // and before ::Enqueue resulting in a situtation where the same command gets submitted twice; once here
-    // by ::Enqueue and the other one by ::NotifuCommandStatusChange of the other command.
+    // RemoveFloatingDependence() must to be after Enqueue; this prevents a situation where the current
+    // command is dependent on another command which just finished (the other one) After ::RegisterEvents
+    // and before ::Enqueue resulting in a situation where the same command gets submitted twice; once here
+    // by ::Enqueue and the other one by ::NotifyCommandStatusChange of the other command.
     pQueueEvent->RemoveFloatingDependence();
 
-	if (CL_FAILED(errVal))
-	{
-		pCommand->CommandDone();
-		if (NULL == pUserEvent)
-		{
-			m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
-		}
-		return CL_ERR_FAILURE;
-	}
+    if (CL_FAILED(errVal))
+    {
+        pCommand->CommandDone();
+        if (NULL == pUserEvent)
+        {
+            m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
+        }
+        return CL_ERR_FAILURE;
+    }
 
-	// If blocking, wait for object
-	if(bBlocking)
-	{
-		if ( ( RUNTIME_EXECUTION_TYPE == pCommand->GetExecutionType() ) || CL_FAILED(WaitForCompletion(pQueueEvent)) )
-		{
-			pQueueEvent->Wait();
-		}
-		//If the event is not visible to the user, remove its floating reference count and as a result the pendency representing the object is visible to the user
-		if (NULL == pUserEvent) 
-		{
-			m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
-		}
-	}
-	else
-	{
-		//If the event is not visible to the user, remove its floating reference count and as a result the pendency representing the object is visible to the user
-		if (NULL == pUserEvent) 
-		{
-			m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
-		}
-	}
-	return CL_SUCCESS;
+    // If blocking, wait for object
+    if(bBlocking)
+    {
+        if ( ( RUNTIME_EXECUTION_TYPE == pCommand->GetExecutionType() ) || CL_FAILED(WaitForCompletion(pQueueEvent)) )
+        {
+            pQueueEvent->Wait();
+        }
+        //If the event is not visible to the user, remove its floating reference count and as a result the pendency representing the object is visible to the user
+        if (NULL == pUserEvent)
+        {
+            m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
+        }
+    }
+    else
+    {
+        //If the event is not visible to the user, remove its floating reference count and as a result the pendency representing the object is visible to the user
+        if (NULL == pUserEvent)
+        {
+            m_pEventsManager->ReleaseEvent(pQueueEvent->GetHandle());
+        }
+    }
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    {
+      __itt_task_end(m_pGPAData->pAPIDomain); // "ExecutionModule::EnqueueNDRangeKernel()->CommandCreation()"
+    }
+#endif
+
+    return CL_SUCCESS;
 }
 
 /**

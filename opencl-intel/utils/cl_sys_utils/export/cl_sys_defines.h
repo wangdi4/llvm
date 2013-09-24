@@ -112,11 +112,13 @@ typedef void*							CONDITION_VAR;
 #define CL_MAX_UINT32	UINT_MAX
 #define API_FUNCTION
 #define ASM_FUNCTION
+#ifndef CDECL
 // A bug in 4.0 < GCC < 4.6 treats cdecl attribute ignore (on 64 bit) as error.
 #if __x86_64__ && __GNUC__ == 4 &&  __GNUC_MINOR__ < 6
 	#define CDECL
 #else
 	#define CDECL   __attribute__((cdecl))
+#endif
 #endif
 #define STDCALL
 

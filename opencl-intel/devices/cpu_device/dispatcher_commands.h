@@ -60,15 +60,15 @@ public:
     DispatcherCommand(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
     virtual ~DispatcherCommand();
 
-	/**
-	 * @return the DispatcherCommand's TaskDispatcher
-	 */
-	TaskDispatcher* GetTaskDispatcher() { return m_pTaskDispatcher; }
+    /**
+     * @return the DispatcherCommand's TaskDispatcher
+     */
+    TaskDispatcher* GetTaskDispatcher() { return m_pTaskDispatcher; }
 
 protected:
     void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);    
 
-	cl_dev_err_code ExtractNDRangeParams(void* pTargetTaskParam);
+    cl_dev_err_code ExtractNDRangeParams(void* pTargetTaskParam);
 
     TaskDispatcher*             m_pTaskDispatcher;
     MemoryAllocator*            m_pMemAlloc;
@@ -77,46 +77,40 @@ protected:
     cl_dev_cmd_desc*            m_pCmd;
     ocl_gpa_data*               m_pGPAData;
 #if defined(USE_ITT)
-	__itt_id                    m_ittID;
+    __itt_id                    m_ittID;
 #endif
 
-	volatile bool				m_bCompleted;
+    volatile bool				m_bCompleted;
 };
 
 template<class ITaskClass>
-	class CommandBaseClass : public ITaskClass, public DispatcherCommand
+class CommandBaseClass : public ITaskClass, public DispatcherCommand
 {
 public:
-	CommandBaseClass(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-	  DispatcherCommand(pTD, pCmd)
-	{
-		ITaskClass::IncRefCnt();   // since the device commands are stored as void*, we need to manually increment their reference counter here (DecRefCnt is called in CPUDevice::clDevReleaseCommand)
-		m_pCmd->device_agent_data = static_cast<ITaskBase*>(this);
-		m_aIsSyncPoint = FALSE;
-	}
+    CommandBaseClass(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
+	      DispatcherCommand(pTD, pCmd)
+    {
+        ITaskClass::IncRefCnt();   // since the device commands are stored as void*, we need to manually increment their reference counter here (DecRefCnt is called in CPUDevice::clDevReleaseCommand)
+        m_pCmd->device_agent_data = static_cast<ITaskBase*>(this);
+        m_aIsSyncPoint = FALSE;
+    }
 
     ~CommandBaseClass()
     {
     }
 
-	// ITaskBase
-	bool	        SetAsSyncPoint();
-	bool	        CompleteAndCheckSyncPoint();
-	bool	        IsCompleted() const {return m_bCompleted;}
+    // ITaskBase
+    bool	        SetAsSyncPoint();
+    bool	        CompleteAndCheckSyncPoint();
+    bool	        IsCompleted() const {return m_bCompleted;}
     long            Release() { return 0; }
     TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
 
     void    Cancel() { NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, cl_int(CL_DEV_COMMAND_CANCELLED)); }
-	Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
 protected:
-	Intel::OpenCL::Utils::AtomicCounter	m_aIsSyncPoint;
-
-#if defined (USE_ITT)
-	// name string for ITT tasks
-	__itt_string_handle*                        m_pTaskNameHandle;
-#endif
-
+    Intel::OpenCL::Utils::AtomicCounter	m_aIsSyncPoint;
 };
 
 // OCL Read/Write buffer execution

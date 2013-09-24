@@ -232,45 +232,31 @@ void QueueEvent::SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData
 	switch ( clParamName )
 	{
 	case CL_PROFILING_COMMAND_QUEUED:
-		if (m_bCommandQueuedValid)
-		{
-			m_sProfilingInfo.m_ulCommandQueued = MIN( m_sProfilingInfo.m_ulCommandQueued, ulData );
-		}
-
-		else
+		if ( !m_bCommandQueuedValid || (m_sProfilingInfo.m_ulCommandQueued > ulData) )
 		{
 			m_sProfilingInfo.m_ulCommandQueued = ulData;
 			m_bCommandQueuedValid = true;
 		}
 		break;
+
 	case CL_PROFILING_COMMAND_SUBMIT:
-		if (m_bCommandSubmitValid)
-		{
-			m_sProfilingInfo.m_ulCommandSubmit = MIN( m_sProfilingInfo.m_ulCommandSubmit, ulData );
-		}
-		else
+		if ( !m_bCommandSubmitValid || ( m_sProfilingInfo.m_ulCommandSubmit > ulData ))
 		{
 			m_sProfilingInfo.m_ulCommandSubmit = ulData;
 			m_bCommandSubmitValid = true;
 		}
 		break;
+
 	case CL_PROFILING_COMMAND_START:
-		if (m_bCommandStartValid)
-		{
-			m_sProfilingInfo.m_ulCommandStart = MIN( m_sProfilingInfo.m_ulCommandStart, ulData );
-		}
-		else
+		if ( !m_bCommandStartValid || ( m_sProfilingInfo.m_ulCommandStart > ulData ))
 		{
 			m_sProfilingInfo.m_ulCommandStart = ulData;
-			m_bCommandStartValid = true;
+            m_bCommandStartValid = true;
 		}
 		break;
+
 	case CL_PROFILING_COMMAND_END:
-		if (m_bCommandEndValid)
-		{
-			m_sProfilingInfo.m_ulCommandEnd = MAX( m_sProfilingInfo.m_ulCommandEnd, ulData );
-		}
-		else
+		if ( !m_bCommandEndValid || (m_sProfilingInfo.m_ulCommandEnd < ulData))
 		{
 			m_sProfilingInfo.m_ulCommandEnd = ulData;
 			m_bCommandEndValid = true;
@@ -452,4 +438,40 @@ void QueueEvent::operator delete(void* p)
         delete self->m_pCommand;  // this will delete myself as well, since m_pCommand aggregates me
     }
     OclEvent::operator delete(p);
+}
+
+void QueueEvent::AddProfilerMarker(const char* szMarkerName, int iMarkerMask)
+{
+#if defined(USE_ITT)
+    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    {
+        // unique ID to pass all tasks, and markers.
+        __itt_id ittID;
+        ittID = __itt_id_make(&ittID, (unsigned long long)m_pCommand);
+        __itt_id_create(m_pGPAData->pDeviceDomain, ittID);
+
+        if (m_pGPAData->cStatusMarkerFlags & ITT_SHOW_QUEUED_MARKER)
+        {
+            // TODO: No need to create string each time. Could be created per command.
+            //       What about taking kenel name in case of NDRange
+            char pMarkerString[ITT_TASK_NAME_LEN];
+            SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "%s - %s", szMarkerName, m_pCommand->GetCommandName());
+
+            __itt_string_handle* pMarker = __itt_string_handle_create(pMarkerString);
+
+            //Due to a bug in GPA 4.0 the marker is within a task
+            //Should be removed in GPA 4.1
+            __itt_task_begin(m_pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
+            __itt_marker(m_pGPAData->pDeviceDomain, ittID, pMarker, __itt_marker_scope_global);
+#if 0 // Do we realy need this?
+            cl_ushort isBlocking = bBlocking ? 1 : 0;
+            __itt_metadata_add(m_pGPAData->pDeviceDomain, ittID, m_pGPAData->pIsBlocking, __itt_metadata_u16, 1, &isBlocking);
+            __itt_metadata_add(m_pGPAData->pDeviceDomain, ittID, m_pGPAData->pNumEventsInWaitList, __itt_metadata_u32 , 1, &uNumEventsInWaitList);
+#endif
+            __itt_task_end(m_pGPAData->pDeviceDomain);
+        }
+
+        __itt_id_destroy(m_pGPAData->pDeviceDomain, ittID);
+    }
+#endif // ITT
 }

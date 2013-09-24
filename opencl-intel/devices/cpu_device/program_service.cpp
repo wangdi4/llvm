@@ -34,8 +34,7 @@
 #include "builtin_kernels.h"
 
 #include <cpu_dev_limits.h>
-#include <cl_dynamic_lib.h>
-#include <task_executor.h>
+#include <cl_synch_objects.h>
 
 #include <stdlib.h>
 #include <limits.h>
@@ -43,8 +42,7 @@
 #include <math.h>
 
 using namespace Intel::OpenCL::CPUDevice;
-using namespace Intel::OpenCL;
-using namespace Intel::OpenCL::TaskExecutor;
+using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::BuiltInKernels;
 
 // Static members
@@ -418,10 +416,10 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
         m_pBackendCompiler->DumpCodeContainer( pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
     }
 
-	if ( NULL != buildStatus )
-	{
-		*buildStatus = status;
-	}
+    if ( NULL != buildStatus )
+    {
+        *buildStatus = status;
+    }
 
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Exit"));
     return CL_DEV_SUCCESS;
@@ -626,7 +624,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
     nameIt = pEntry->mapKernels.find(name);
     if ( pEntry->mapKernels.end() != nameIt )
     {
-        *kernelId = nameIt->second;
+        *kernelId = (cl_dev_kernel)&nameIt->second;
         pEntry->muMap.Unlock();
         return CL_DEV_SUCCESS;
     }
@@ -644,10 +642,15 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
     }
 
     // Add to program entry map
-    pEntry->mapKernels[name] = (cl_dev_kernel)pKernel;
+    KernelMapEntry mapEntry;
+    mapEntry.pBEKernel = pKernel;
+#ifdef USE_ITT
+    mapEntry.ittTaskNameHandle = __itt_string_handle_create(name);
+#endif
+    pEntry->mapKernels[name] = mapEntry;
     pEntry->muMap.Unlock();
 
-    *kernelId = (cl_dev_kernel)pKernel;
+    *kernelId = (cl_dev_kernel)&(pEntry->mapKernels[name]);
 
     return CL_DEV_SUCCESS;
 }
@@ -684,43 +687,37 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
         return CL_DEV_INVALID_VALUE;
     }
 
-    // Allocate buffer to store all kernels from program
-    const ICLDevBackendKernel_* *pKernels;
-    pKernels = new const ICLDevBackendKernel_*[uiNumProgKernels];
-    if ( NULL == pKernels )
-    {
-        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Can't allocate memory for kernels"));
-        return CL_DEV_OUT_OF_MEMORY;
-    }
-
+    OclAutoMutex mu(&pEntry->muMap);
     // Retrieve kernels from program and store internally
-
     for(unsigned int i=0; i<uiNumProgKernels; ++i)
     {
-        iRet = pEntry->pProgram->GetKernel(i, &pKernels[i]);
+        const ICLDevBackendKernel_* pKernel;
+
+        iRet = pEntry->pProgram->GetKernel(i, &pKernel);
         if ( CL_DEV_FAILED(iRet) )
         {
-            delete []pKernels;
-            CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to retrive kernels<%X>"), iRet);
+            CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to retrieve kernels<%X>"), iRet);
             return iRet;
         }
-        // Check if kernel is already retrieved
-        const char* szKernelName = pKernels[i]->GetKernelName();
+        // Check if kernel handle exists
+        const char* szKernelName = pKernel->GetKernelName();
         TName2IdMap::const_iterator nameIt;
-        pEntry->muMap.Lock();
         nameIt = pEntry->mapKernels.find(szKernelName);
-        pEntry->muMap.Unlock();
 
-        // Kernel already has ID ?
+        // New Kernel ID is required?
         if ( pEntry->mapKernels.end() == nameIt )
         {
+            // Add to program entry map
+            KernelMapEntry mapEntry;
+            mapEntry.pBEKernel = pKernel;
+      #ifdef USE_ITT
+            mapEntry.ittTaskNameHandle = __itt_string_handle_create(szKernelName);
+      #endif
             // Add new ID to program's Name2ID map
-            pEntry->muMap.Lock();
-            pEntry->mapKernels[szKernelName] = (cl_dev_kernel)pKernels[i];
-            pEntry->muMap.Unlock();
+            pEntry->mapKernels[szKernelName] = mapEntry;
         }
 
-        kernels[i] = (cl_dev_kernel)pKernels[i];
+        kernels[i] = (cl_dev_kernel)&(pEntry->mapKernels[szKernelName]);
     }
 
     if ( NULL != numKernelsRet )
@@ -728,7 +725,6 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
         *numKernelsRet = uiNumProgKernels;
     }
 
-    delete []pKernels;
 
     return CL_DEV_SUCCESS;
 }
@@ -737,8 +733,8 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
                     void* OUT value, size_t* OUT valueSizeRet ) const
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetKernelInfo enter"));
-
-    const ICLDevBackendKernel_* pKernel = (const ICLDevBackendKernel_*)kernel;
+    const KernelMapEntry* pKernelEntry = (const KernelMapEntry*)kernel;
+    const ICLDevBackendKernel_* pKernel = pKernelEntry->pBEKernel;
     const ICLDevBackendKernelProporties* pKernelProps = pKernel->GetKernelProporties();
 
     // Set value parameters
@@ -746,8 +742,6 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
     unsigned long long ullValue = 0;
     const void* pValue;
     pValue = &ullValue;
-
-
 
     switch (param)
     {
@@ -774,7 +768,7 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
             ullValue = MIN(CPU_MAX_WORK_GROUP_SIZE, (CPU_DEV_MAX_WG_PRIVATE_SIZE /( (private_mem_size > 0) ? private_mem_size : 1)));
             size_t packSize = pKernelProps->GetMinGroupSizeFactorial();
             if (ullValue > packSize)
-				ullValue = ( ullValue ) & ~(packSize-1);
+                ullValue = ( ullValue ) & ~(packSize-1);
         }
         stValSize = sizeof(size_t);
         break;
@@ -806,22 +800,22 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
 
     if (NULL != value && value_size < stValSize)
     {
-    	return CL_DEV_INVALID_VALUE;
+        return CL_DEV_INVALID_VALUE;
     }
 
     if ( valueSizeRet )
     {
-		*valueSizeRet = stValSize;
+        *valueSizeRet = stValSize;
     }
 
     if ( NULL != value )
     {
-    	if ( NULL != pValue )
-    	{
-    		MEMCPY_S(value, value_size, pValue, stValSize);
-    	} else {
-    		memset(value, 0, stValSize);
-    	}
+        if ( NULL != pValue )
+        {
+            MEMCPY_S(value, value_size, pValue, stValSize);
+        } else {
+           memset(value, 0, stValSize);
+    	  }
     }
 
     return CL_DEV_SUCCESS;

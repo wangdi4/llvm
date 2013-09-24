@@ -2064,7 +2064,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
     {
-      __itt_task_end(m_pGPAData->pAPIDomain);
+        __itt_task_end(m_pGPAData->pAPIDomain); // "ExecutionModule::EnqueueNDRangeKernel()->ArgumentValidation..."
     }
 #endif
     
@@ -2090,6 +2090,12 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     // Must set device Id before init for buffer resource allocation.
     pNDRangeKernelCmd->SetDevice(pDevice);
     errVal = pNDRangeKernelCmd->Init();
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+    {
+        __itt_task_end(m_pGPAData->pAPIDomain); // "ExecutionModule::EnqueueNDRangeKernel()->CommandCreation()"
+    }
+#endif
     if ( CL_FAILED(errVal) )
     {
         delete pNDRangeKernelCmd;
@@ -2098,13 +2104,6 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
     {
-      __itt_task_end(m_pGPAData->pAPIDomain);
-    }
-#endif
-
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-      if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
-      {
         static __thread __itt_string_handle* pTaskName = NULL;
         if ( NULL == pTaskName )
         {
@@ -2113,12 +2112,11 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         __itt_task_begin(m_pGPAData->pAPIDomain, __itt_null, __itt_null, pTaskName);
       }
 #endif
-
     errVal = pNDRangeKernelCmd->EnqueueSelf(false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent);
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
     {
-      __itt_task_end(m_pGPAData->pAPIDomain);
+      __itt_task_end(m_pGPAData->pAPIDomain); // "ExecutionModule::EnqueueNDRangeKernel()->EnqueueSelf()"
     }
 #endif
 

@@ -88,6 +88,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // return true is command was ever executed
         bool        EverIssuedToDevice() const { return m_bEverIssuedToDevice; }
 
+        // Add notification to ITT library when event state change occurs
+        void        AddProfilerMarker(const char* szMarkerName, int iMarkerMask);
+
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
         // Override wait to track it in VTune. Need to track it here and not in parent class as
         // parent class does not contain required data and what we need now is only a Queue Wait.
