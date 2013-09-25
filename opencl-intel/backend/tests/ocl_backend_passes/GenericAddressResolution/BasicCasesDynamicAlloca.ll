@@ -55,9 +55,9 @@
 ; CHECK: %36 = load i32 addrspace(4)** %pGen1, align 4
 ; CHECK: %AddrSpace6 = load i32* %AllocaSpace
 ; CHECK: %AddrSpace20 = icmp eq i32 %AddrSpace6, 0
-; CHECK: bitcast float addrspace(4)* %add.ptr to float*
+; CHECK: %AddrSpace21 = bitcast float addrspace(4)* %add.ptr to float addrspace(1)*
 ; CHECK-NOT: %call17 = call float @_Z5fractfPU3AS4f(float %39, float addrspace(4)* %add.ptr)
-; CHECK: %42 = call float @_Z5fractfPU3AS0f(float %40, float* %AddrSpace21)
+; CHECK: %42 = call float @_Z5fractfPU3AS1f(float %40, float addrspace(1)* %AddrSpace21)
 ; CHECK: ret
 
 ; CHECK: @_Z5test2PU3AS4iS_(i32 addrspace(4)* %p1, i32 addrspace(4)* %p2, i32 %ArgSpace, i32 %ArgSpace2)
@@ -77,7 +77,7 @@
 ; CHECK: store i1 %AddrSpace5, i1* %retval
 ; CHECK: ret
 
-; CHECK: declare float @_Z5fractfPU3AS0f(float, float*)
+; CHECK: declare float @_Z5fractfPU3AS1f(float, float addrspace(1)*)
 
 define void @test1(i32 addrspace(4)* %p) nounwind {
 entry:

@@ -361,7 +361,7 @@ namespace intel {
     bool hasMismatch = false;
     bool isFirst     = true;
     OCLAddressSpace::spaces foundSpace = OCLAddressSpace::Generic;
-    for (unsigned idx = 0; idx < pCallInstr->getNumOperands(); idx++) {
+    for (unsigned idx = 0; idx < pCallInstr->getNumArgOperands(); idx++) {
       if (const PointerType *pSrcType = 
               dyn_cast<PointerType>(pCallInstr->getArgOperand(idx)->getType())) {
         // Check for pointer address space

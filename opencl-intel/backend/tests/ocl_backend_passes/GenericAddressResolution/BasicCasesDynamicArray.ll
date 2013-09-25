@@ -64,8 +64,8 @@
 ; CHECK:  %22 = load i32 addrspace(4)** %arrayidx27, align 4
 ; CHECK:  %cmp28 = icmp eq i32 addrspace(4)* %21, %22
 ; CHECK-NOT: %call36 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr35)
-; CHECK:  %AddrSpace54 = bitcast float addrspace(4)* %add.ptr35 to float*
-; CHECK:  %27 = call float @_Z5fractfPU3AS0f(float %param, float* %AddrSpace54)
+; CHECK:  %AddrSpace54 = bitcast float addrspace(4)* %add.ptr35 to float addrspace(1)*
+; CHECK:  %27 = call float @_Z5fractfPU3AS1f(float %param, float addrspace(1)* %AddrSpace54)
 ; CHECK:  ret
   
 ; CHECK:	define i32 addrspace(4)* @_Z5test2PU3AS4iS_PU3AS0i(i32 addrspace(4)* %p1, i32 addrspace(4)* %p2, i32 %ArgSpace, i32 %ArgSpace1, i32* %ArgSpace3)
@@ -76,7 +76,7 @@
 ; CHECK:  store i32 %AddrSpace, i32* %ArgSpace3
 ; CHECK:  ret i32 addrspace(4)* %retval.0
 
-; CHECK:	declare float @_Z5fractfPU3AS0f(float, float*)	
+; CHECK:	declare float @_Z5fractfPU3AS1f(float, float addrspace(1)*)	
 	
 ; ModuleID = 'BasicCasesDynamicArrayTmp.ll'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
