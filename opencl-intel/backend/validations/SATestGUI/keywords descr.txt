@@ -1,0 +1,96 @@
+Table 4.1. Built-In Scalar Data Types
+bool
+char
+unsigned char, uchar
+short
+unsigned short, ushort
+int
+unsigned int, uint
+long
+unsigned long, ulong
+float
+double
+half
+size_t
+ptrdiff_t
+intptr_t
+uintptr_t
+void
+
+Table 4.2. Built-In Vector Data Types
+
+charn
+ucharn
+shortn
+ushortn
+intn
+uintn
+longn
+ulongn
+floatn
+doublen
+halfn
+
+Table 4.6. Other Built-In Data Types
+
+image2d_t
+image3d_t
+sampler_t
+event_t
+
+Address space qualifiers
+__global
+global
+__local
+local
+__constant
+constant
+__private
+private
+
+Function qualifiers:
+__kernel
+kernel
+
+Access qualifiers:
+__read_only
+read_only
+__write_only
+write_only
+__read_write
+read_write
+
+C99 keywords:
+break
+case
+char
+const
+continue
+default
+do
+double
+else
+enum
+extern
+float
+for
+goto
+if
+inline
+int
+long
+restrict
+return
+short
+signed
+sizeof
+static
+struct
+switch
+typedef
+union
+unsigned
+void
+volatile
+while
+
