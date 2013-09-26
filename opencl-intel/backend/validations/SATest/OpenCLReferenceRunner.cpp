@@ -840,6 +840,14 @@ static void ConvertSizeTtoUint64T(const size_t *pI, std::vector<uint64_t>& O, ui
     for(uint32_t i=0; i < num; ++i)
         O[i] = (uint64_t) pI[i];
 }
+
+static bool isOCL20OrGreater(llvm::Module * module) {
+    CompilationFlagsList flagsList = GetCompilationFlags(module);
+    CompilationFlagsList::iterator it;
+    it = find (flagsList.begin(), flagsList.end(), CL_STD_20);
+    return flagsList.empty() ? false : ((*it) == CL_STD_20);
+}
+
 void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                                        OpenCLKernelConfiguration * pKernelConfig,
                                        const ReferenceRunOptions* runConfig )
@@ -885,6 +893,8 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     // convert size_t to uint64_t
     ConvertSizeTtoUint64T(pKernelConfig->GetGlobalWorkOffset(), GlobalWorkOffset, workDim);
 
+    const bool isCL20 = isOCL20OrGreater(m_pModule);
+
     // check usage of default local work size ( == 0 )
     for(uint32_t i=0; i < workDim; ++i)
     {
@@ -899,7 +909,26 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
             // localWorkSize[0], .., localWorkSize[work_dim - 1]
             if (globalWGSizes[i] % localWGSizes[i] != 0)
             {
+                // SATest could get the value of localSize from .cfg only, so if globalWorkSize
+                // is not evenly divisible by localWorkSize, set localWGSizes to 1, then print 
+                // warning and continue working check 
+                // globalWGSizes[i] % localWGSizes[i] if it is not OCL 2.0
+                if(!isCL20)
+                    llvm::errs() << "[OpenCLReferenceRunner::RunKernel warning] workDim # "
+                    << i << " globalWorkSize = " << globalWGSizes[i] <<
+                    " is not evenly divisible by localWorkSize = " << 
+                    localWGSizes[i] << ", localWorkSize is set to 1 \n";
+
                 localWGSizes[i] = 1;
+            }
+        } else {
+            // throw exeption if it is not OCL 2.0, because 
+            // globalWGSizes[i] % localWGSizes[i] != 0 is valid for OCL2.0
+            if ((!isCL20) && (globalWGSizes[i] % localWGSizes[i] != 0)) {
+                std::ostringstream s;
+                s << "workDim # " << i << " globalWorkSize = " << globalWGSizes[i] << 
+                " is not evenly divisible by localWorkSize = " << localWGSizes[i] << "\n";
+                throw TestReferenceRunnerException(s.str());
             }
         }
     }
