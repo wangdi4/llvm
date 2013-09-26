@@ -185,7 +185,7 @@ OpenCLProgramConfiguration::OpenCLProgramConfiguration(const string& configFile,
 
     if(!configFilePath.isValid())
     {
-        throw Exception::IOError("Configuration file name is invalid");
+        throw Exception::IOError("Configuration file name : " + std::string(configFilePath.c_str()) + " is invalid");
     }
 
     llvm::SmallString<128> configPath(configFile);
@@ -195,10 +195,15 @@ OpenCLProgramConfiguration::OpenCLProgramConfiguration(const string& configFile,
         //llvm::Path::makeAbsolute bug workaround - forces to llvm::Path to flip backslashes
         configFilePath = llvm::sys::Path(configPath.c_str(), configPath.size());
     }
+
     m_programName   = llvm::sys::path::stem(llvm::StringRef(configPath));
     m_configFile    = configFilePath.c_str();
     m_baseDirectory = baseDir.empty() ? llvm::sys::path::parent_path(llvm::StringRef(configPath)).str()
                                       : baseDir;
+
+    if(!configFilePath.exists()) {
+        throw Exception::IOError("Configuration file " + m_configFile + " doesn't exist");
+    }
 
     TiXmlDocument config(m_configFile);
     if (config.LoadFile())
@@ -207,7 +212,19 @@ OpenCLProgramConfiguration::OpenCLProgramConfiguration(const string& configFile,
     }
     else
     {
-        throw Exception::IOError("Unable to load file with run configuration.");
+        std::string errDesc(config.ErrorDesc());
+
+        int errRowNum = config.ErrorRow();
+        if ( errRowNum != 0) {
+            std::string servStr;
+            std::stringstream ss;
+            errDesc.append(" at the row ");
+            ss << errRowNum;
+            ss >> servStr;
+            errDesc.append(servStr);
+        }
+
+        throw Exception::IOError("Configuration file " + m_configFile + " can't be loaded : " + errDesc);
     }
 }
 
