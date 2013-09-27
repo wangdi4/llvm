@@ -7016,6 +7016,8 @@ void __attribute__((overloadable)) atomic_work_item_fence(memory_order order, me
 void __attribute__((overloadable)) atomic_work_item_fence(cl_mem_fence_flags flags, memory_order order);
 void __attribute__((overloadable)) atomic_work_item_fence(cl_mem_fence_flags flags, memory_order order, memory_scope scope);
 
+void __attribute__((overloadable)) atomic_work_item_image_fence(memory_scope scope);
+
 void __attribute__((overloadable)) atomic_init(volatile atomic_int *object, int value);
 void __attribute__((overloadable)) atomic_init(volatile __global atomic_int *object, int value);
 void __attribute__((overloadable)) atomic_init(volatile __local atomic_int *object, int value);
@@ -7189,35 +7191,35 @@ int __attribute__((overloadable)) atomic_exchange_explicit(volatile __global ato
 uint __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_uint *object, uint desired, memory_order order, memory_scope scope);
 float __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_float *object, float desired, memory_order order, memory_scope scope);
 
-bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __global atomic_int *object, int *expected, int desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __global atomic_uint *object, uint *expected, uint desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __global atomic_float *object, float *expected, float desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, int *expected, int desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __global atomic_int *object, __global int *expected, int desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __global atomic_uint *object, __global uint *expected, uint desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __global atomic_float *object, __global float *expected, float desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __global int *expected, int desired,
                                                                            memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, uint *expected, uint desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __global uint *expected, uint desired,
                                                                            memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, float *expected, float desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, __global float *expected, float desired,
                                                                            memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, int *expected, int desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __global int *expected, int desired,
                                                                            memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, uint *expected, uint desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __global uint *expected, uint desired,
                                                                            memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, float *expected, float desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, __global float *expected, float desired,
                                                                            memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __global atomic_int *object, int *expected, int desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __global atomic_uint *object, uint *expected, uint desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __global atomic_float *object, float *expected, float desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, int *expected, int desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __global atomic_int *object, __global int *expected, int desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __global atomic_uint *object, __global uint *expected, uint desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __global atomic_float *object, __global float *expected, float desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, __global int *expected, int desired,
                                                                            memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, uint *expected, uint desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, __global uint *expected, uint desired,
                                                                            memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, float *expected, float desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, __global float *expected, float desired,
                                                                            memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, int *expected, int desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, __global int *expected, int desired,
                                                                            memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, uint *expected, uint desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, __global uint *expected, uint desired,
                                                                            memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, float *expected, float desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, __global float *expected, float desired,
                                                                            memory_order success, memory_order failure, memory_scope scope);
 
 int __attribute__((overloadable)) atomic_fetch_add(volatile __global atomic_int *object, int operand);
@@ -7321,35 +7323,35 @@ int __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atom
 uint __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_uint *object, uint desired, memory_order order, memory_scope scope);
 float __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_float *object, float desired, memory_order order, memory_scope scope);
 
-bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __local atomic_int *object, int *expected, int desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __local atomic_uint *object, uint *expected, uint desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __local atomic_float *object, float *expected, float desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, int *expected, int desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __local atomic_int *object, __local int *expected, int desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __local atomic_uint *object, __local uint *expected, uint desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __local atomic_float *object, __local float *expected, float desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, __local int *expected, int desired,
                                                                            memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, uint *expected, uint desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, __local uint *expected, uint desired,
                                                                            memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, float *expected, float desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, __local float *expected, float desired,
                                                                            memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, int *expected, int desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, __local int *expected, int desired,
                                                                            memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, uint *expected, uint desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, __local uint *expected, uint desired,
                                                                            memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, float *expected, float desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, __local float *expected, float desired,
                                                                            memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __local atomic_int *object, int *expected, int desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __local atomic_uint *object, uint *expected, uint desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __local atomic_float *object, float *expected, float desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, int *expected, int desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __local atomic_int *object, __local int *expected, int desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __local atomic_uint *object, __local uint *expected, uint desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __local atomic_float *object, __local float *expected, float desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, __local int *expected, int desired,
                                                                            memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, uint *expected, uint desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, __local uint *expected, uint desired,
                                                                            memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, float *expected, float desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, __local float *expected, float desired,
                                                                            memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, int *expected, int desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, __local int *expected, int desired,
                                                                            memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, uint *expected, uint desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, __local uint *expected, uint desired,
                                                                            memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, float *expected, float desired,
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, __local float *expected, float desired,
                                                                            memory_order success, memory_order failure, memory_scope scope);
 
 int __attribute__((overloadable)) atomic_fetch_add(volatile __local atomic_int *object, int operand);

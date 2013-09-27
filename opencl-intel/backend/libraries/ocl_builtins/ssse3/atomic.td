@@ -239,7 +239,6 @@ OclBuiltinImpl atomic_store_expl_g_impl = OclBuiltinImpl<atomic_store_explicit_g
 OclBuiltinImpl atomic_store_expl_scope_g_impl = OclBuiltinImpl<atomic_store_explicit_scope_g, atomic_store_explicit_scope_g.Types, 0, [{
     if($Arg2VarName == memory_order_seq_cst) {
       (void) atomic_exchange_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, $Arg3VarName);
-      atomic_work_item_fence($Arg2VarName, $Arg3VarName);
 
     } else if($Arg2VarName == memory_order_acq_rel ||
               $Arg2VarName == memory_order_release) {
@@ -632,4 +631,9 @@ OclBuiltinImpl atomic_work_item_fence_flag_ord_sco_impl = OclBuiltinImpl<atomic_
       }
       // No affect if memory order is relaxed
     }
+  }]>;
+
+// atomic_work_item_image_fence
+OclBuiltinImpl atomic_work_item_image_fence_imp = OclBuiltinImpl<atomic_work_item_image_fence, atomic_work_item_image_fence.Types, 0, [{
+    atomic_work_item_fence(memory_order_seq_cst, $Arg0VarName); 
   }]>;
