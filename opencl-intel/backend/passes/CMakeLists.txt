@@ -22,6 +22,7 @@ add_subdirectory(KernelInfo)
 add_subdirectory(GenericAddressResolution)
 add_subdirectory(LinearIdResolver)
 add_subdirectory(ResolveBlockToStaticCall)
+add_subdirectory(obfuscation)
 
 if(APPLE)
   add_subdirectory(ClangCompatFixer)

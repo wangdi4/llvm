@@ -1,18 +1,18 @@
-set(TARGET_NAME Materialize)
+set(TARGET_NAME Obfuscation)
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/cl_api
   ${CMAKE_SOURCE_DIR}/backend/passes
-  ${CMAKE_SOURCE_DIR}/backend/metadata_api
   ${CMAKE_SOURCE_DIR}/backend/utils
+  ${CMAKE_SOURCE_DIR}/backend/metadata_api
 )
 
 add_library(${TARGET_NAME}
   STATIC
-  Materialize.cpp
-  Materialize.h
+  Obfuscation.cpp
+  Obfuscation.h
 )
-  
+
 add_dependencies(${TARGET_NAME}
   metadataapi
   OclBackendUtils

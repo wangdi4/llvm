@@ -23,7 +23,8 @@ set(OCL_BE_PASSES
     LinearIdResolver
     LLVMBarrier
     LLVMVectorizer
-    Materialize 
+    Materialize
+    Obfuscation
     PrepareKernelArgs
     AddImplicitArgs
     ModuleCleanup

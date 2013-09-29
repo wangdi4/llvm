@@ -149,7 +149,7 @@
                             "key":      "kernel_arg_name",
                             "name":     "ArgName",
                             "metatype": "str_list",
-                            "optional": false
+                            "optional": true
                         }
                     ]
                 },

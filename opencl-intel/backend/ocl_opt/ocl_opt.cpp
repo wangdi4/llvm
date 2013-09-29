@@ -40,6 +40,8 @@ extern void* createBuiltInImportPass(Module* pRTModule);
 
 extern void* createSpirMaterializer();
 
+extern void* createObfuscation();
+
 }
 
 void initializeOCLPasses(PassRegistry &Registry)
@@ -86,6 +88,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeGenericAddressStaticResolutionPass(Registry);
     intel::initializeGenericAddressDynamicResolutionPass(Registry);
     intel::initializeSpirMaterializerPass(Registry);
+    intel::initializeObfuscationPass(Registry);
     intel::initializeLinearIdResolverPass(Registry);
     intel::initializePrepareKernelArgsPass(Registry);
     intel::initializeDetectFuncPtrCallsPass(Registry);

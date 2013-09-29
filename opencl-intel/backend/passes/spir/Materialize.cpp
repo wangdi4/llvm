@@ -9,14 +9,14 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <cstdio>
 
 #include "llvm/Instructions.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/InitializePasses.h"
 
 #include "gen/MetaDataApi.h"
 #include "OCLPassSupport.h"
+#include "CompilationUtils.h"
 
 using namespace llvm;
-using namespace Intel;
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
 
@@ -34,25 +34,9 @@ const char *Win32Natives = "-a0:0:64-f80:32:32-n8:16:32-S32";
 const char *Lin32Natives = "-a0:0:64-f80:32:32-n8:16:32-S128";
 const char *X86_64Natives= "-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128";
 
-// Base class for all functors, which supports immutability query.
-class AbstractFunctor{
-protected:
-  bool IsChanged;
-public:
-  AbstractFunctor(): IsChanged(false){}
-
-  virtual ~AbstractFunctor() = 0;
-
-  bool isChanged()const{
-    return IsChanged;
-  }
-};
-
-AbstractFunctor::~AbstractFunctor(){}
-
 // Basic block functors, to be applied on each block in the module.
 // 1. Replaces calling conventions in calling sites.
-class BBFunctor: public AbstractFunctor {
+class MaterializeBlockFunctor: public BlockFunctor {
 public:
   void operator ()(llvm::BasicBlock& BB){
     llvm::BasicBlock::iterator b = BB.begin(), e = BB.end();
@@ -71,10 +55,10 @@ public:
 // Function functor, to be applied for every function in the module.
 // 1. Delegates call to basic-block functors.
 // 2. Replaces calling conventions of function declarations.
-class FunctionFunctor: public AbstractFunctor {
+class MaterializeFunctionFunctor: public FunctionFunctor {
 public:
   void operator ()(llvm::Function& F){
-    BBFunctor bbMaterializer;
+    MaterializeBlockFunctor bbMaterializer;
     llvm::CallingConv::ID CConv = F.getCallingConv();
     if (llvm::CallingConv::SPIR_FUNC == CConv ||
         llvm::CallingConv::SPIR_KERNEL == CConv) {
@@ -127,7 +111,7 @@ const char* SpirMaterializer::getPassName() const {
 bool SpirMaterializer::runOnModule(llvm::Module& M) {
   bool Ret = false;
 
-  FunctionFunctor fMaterializer;
+  MaterializeFunctionFunctor fMaterializer;
   // Take care of calling conventions
   std::for_each(M.begin(), M.end(), fMaterializer);
 

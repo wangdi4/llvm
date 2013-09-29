@@ -731,4 +731,9 @@ bool CompilationUtils::isCaptureEventProfilingInfo(const std::string& S){
     return isMangleOf(S, NAME_CAPTURE_EVENT_PROFILING_INFO);
 }
 
+//
+// AbstractFunctor
+//
+AbstractFunctor::~AbstractFunctor() {}
+
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

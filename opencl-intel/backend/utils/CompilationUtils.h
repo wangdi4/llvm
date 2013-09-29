@@ -281,6 +281,33 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     
   };
 
+  //
+  // Base class for all functors, which supports immutability query.
+  //
+
+  class AbstractFunctor{
+  protected:
+    bool IsChanged;
+  public:
+    AbstractFunctor(): IsChanged(false){}
+
+    virtual ~AbstractFunctor();
+
+    bool isChanged()const{
+      return IsChanged;
+    }
+  };
+
+  class FunctionFunctor: public AbstractFunctor {
+  public:
+    virtual void operator ()(llvm::Function&) = 0;
+  };
+
+  class BlockFunctor: public AbstractFunctor {
+  public:
+    virtual void operator ()(llvm::BasicBlock&) = 0;
+  };
+
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 #endif // __COMPILATION_UTILS_H__
