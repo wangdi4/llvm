@@ -39,6 +39,8 @@ public:
   ObfuscationBlockFunctor(): m_counter(0) {}
 
   virtual void operator ()(llvm::BasicBlock& BB) {
+    BB.setName(llvm::Twine(""));
+
     for(llvm::BasicBlock::iterator it = BB.begin(), e = BB.end(); it != e;
         ++it) {
       if (!it->getType()->isVoidTy())
@@ -67,7 +69,7 @@ bool Obfuscation::runOnModule(llvm::Module& M) {
   Intel::MetaDataUtils mdUtils(&M);
   for (Intel::MetaDataUtils::KernelsList::iterator it = mdUtils.begin_Kernels(),
                                                     e = mdUtils.end_Kernels();
-      it != e; 
+      it != e;
       it++) {
       Intel::KernelMetaData *KM = it->get();
       for (size_t i=0; i<KM->size_ArgName(); i++)
@@ -75,7 +77,7 @@ bool Obfuscation::runOnModule(llvm::Module& M) {
   }
 
   TrivialFunctionFunctor fFunctor;
-  std::for_each(M.begin(), M.end(), fFunctor);  
+  std::for_each(M.begin(), M.end(), fFunctor);
 
   mdUtils.save(M.getContext());
   return true;

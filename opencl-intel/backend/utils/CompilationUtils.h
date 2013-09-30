@@ -287,14 +287,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   class AbstractFunctor{
   protected:
-    bool IsChanged;
+    bool m_isChanged;
   public:
-    AbstractFunctor(): IsChanged(false){}
+    AbstractFunctor(): m_isChanged(false){}
 
-    virtual ~AbstractFunctor();
+    virtual ~AbstractFunctor() {}
 
     bool isChanged()const{
-      return IsChanged;
+      return m_isChanged;
     }
   };
 

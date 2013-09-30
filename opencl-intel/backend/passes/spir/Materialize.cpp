@@ -44,7 +44,7 @@ public:
       if(llvm::CallInst *CI=llvm::dyn_cast<llvm::CallInst>(&*b)){
         if (llvm::CallingConv::SPIR_FUNC == CI->getCallingConv()){
           CI->setCallingConv(llvm::CallingConv::C);
-          IsChanged = true;
+          m_isChanged = true;
         }
       }
       ++b;
@@ -63,10 +63,10 @@ public:
     if (llvm::CallingConv::SPIR_FUNC == CConv ||
         llvm::CallingConv::SPIR_KERNEL == CConv) {
       F.setCallingConv(llvm::CallingConv::C);
-      IsChanged = true;
+      m_isChanged = true;
     }
     std::for_each(F.begin(), F.end(), bbMaterializer);
-    IsChanged |= bbMaterializer.isChanged();
+    m_isChanged |= bbMaterializer.isChanged();
   }
 };
 
