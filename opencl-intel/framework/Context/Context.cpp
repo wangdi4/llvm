@@ -1527,7 +1527,7 @@ cl_int Context::SetKernelArgSVMPointer(const SharedPtr<Kernel> pKernel, cl_uint 
 	// It's not stated in the spec, but I believe we can consider NULL pointer as a non-valid pointer
 	if (NULL == pArgValue)
 	{		
-		return CL_INVALID_VALUE;
+		return CL_INVALID_ARG_VALUE;
 	}
 
 	cl_err_code err = pKernel->SetKernelArg(uiArgIndex, sizeof(void*), pArgValue, true);

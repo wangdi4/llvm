@@ -1367,7 +1367,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 			}
 			if (NULL != paramVal)
 			{
-				*(cl_device_svm_capabilities*)paramVal = CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_ATOMICS;	// currently we support on fine grain buffer
+                *(cl_device_svm_capabilities*)paramVal = CL_DEVICE_SVM_CAPABILITIES | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS;
 			}
 			return CL_DEV_SUCCESS;
 		case CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS:

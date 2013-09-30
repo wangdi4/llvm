@@ -155,6 +155,12 @@ static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device, 
 	{
 		throw exception();
 	}
+
+    // wrong API check
+
+    iRet = clSetKernelArgSVMPointer(kernel, 0, NULL);
+    CheckException(L"clSetKernelArgSVMPointer", CL_INVALID_ARG_VALUE, iRet);
+
 	iRet = clReleaseKernel(kernel);
 	CheckException(L"clReleaseKernel", CL_SUCCESS, iRet);
     if (bSysPtrs)
@@ -166,7 +172,7 @@ static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device, 
     {
 	    clSVMFree(context, piArr);
 	    clSVMFree(context, piResult);
-    }
+    }    
 }
 
 typedef void (CL_CALLBACK *pfnFreeFunc)(cl_command_queue queue, cl_uint uiNumSvmPtrs, void* pSvmPtrs[], void* pUserData);
@@ -366,7 +372,13 @@ bool clSvmTest()
 		CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
 		TestSetKernelArgSVMPointer(context, device, queue, prog, false);
         TestSetKernelArgSVMPointer(context, device, queue, prog, true);
-		TestSetKernelExecInfo(context, device, queue, prog);
+		TestSetKernelExecInfo(context, device, queue, prog);        
+
+        cl_device_svm_capabilities svmCaps;
+        iRet = clGetDeviceInfo(device, CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, NULL);
+        CheckException(L"clGetDeviceInfo", CL_SUCCESS, iRet);
+        CheckException(L"clGetDeviceInfo", CL_DEVICE_SVM_CAPABILITIES | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS, svmCaps);
+
 	}
 	catch (const std::exception&)
     {
