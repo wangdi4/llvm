@@ -66,7 +66,7 @@ public:
     *  Returns an array of supported image formats
     ***/
 
-    const cl_image_format* GetSupportedImageFormats(unsigned int *numFormats, cl_mem_object_type imageType);
+    const cl_image_format* GetSupportedImageFormats(unsigned int *numFormats, cl_mem_object_type imageType, cl_mem_flags flags);
  
     void Release();
 

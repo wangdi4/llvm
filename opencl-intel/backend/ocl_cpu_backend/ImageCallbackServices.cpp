@@ -4,97 +4,125 @@
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 
-const cl_image_format supportedImageFormats[] = {
-    // Minimum supported image formats
-    // CL_RGBA
-    {CL_RGBA, CL_UNORM_INT8},
-    {CL_RGBA, CL_UNORM_INT16},
-    {CL_RGBA, CL_SNORM_INT8},
-    {CL_RGBA, CL_SNORM_INT16},
-    {CL_RGBA, CL_SIGNED_INT8},
-    {CL_RGBA, CL_SIGNED_INT16},
-    {CL_RGBA, CL_SIGNED_INT32},
-    {CL_RGBA, CL_UNSIGNED_INT8},
-    {CL_RGBA, CL_UNSIGNED_INT16},
-    {CL_RGBA, CL_UNSIGNED_INT32},
-    {CL_RGBA, CL_HALF_FLOAT},
-    {CL_RGBA, CL_FLOAT},
+#define READ_WRITE_FORMATS \
+    {CL_RGBA, CL_UNORM_INT8},\
+    {CL_RGBA, CL_UNORM_INT16},\
+    {CL_RGBA, CL_SNORM_INT8},\
+    {CL_RGBA, CL_SNORM_INT16},\
+    {CL_RGBA, CL_SIGNED_INT8},\
+    {CL_RGBA, CL_SIGNED_INT16},\
+    {CL_RGBA, CL_SIGNED_INT32},\
+    {CL_RGBA, CL_UNSIGNED_INT8},\
+    {CL_RGBA, CL_UNSIGNED_INT16},\
+    {CL_RGBA, CL_UNSIGNED_INT32},\
+    {CL_RGBA, CL_HALF_FLOAT},\
+    {CL_RGBA, CL_FLOAT},\
+    \
+    {CL_BGRA,   CL_UNORM_INT8},\
+    \
+    {CL_INTENSITY,  CL_FLOAT},\
+    {CL_INTENSITY,  CL_UNORM_INT8},\
+    {CL_INTENSITY,  CL_UNORM_INT16},\
+    {CL_INTENSITY,  CL_HALF_FLOAT},\
+    \
+    {CL_LUMINANCE,  CL_FLOAT},\
+    {CL_LUMINANCE,  CL_UNORM_INT8},\
+    {CL_LUMINANCE,  CL_UNORM_INT16},\
+    {CL_LUMINANCE,  CL_HALF_FLOAT},\
+    \
+    \
+    {CL_R,      CL_FLOAT},\
+    {CL_R,      CL_UNORM_INT8},\
+    {CL_R,      CL_UNORM_INT16},\
+    {CL_R,      CL_SNORM_INT8},\
+    {CL_R,      CL_SNORM_INT16},\
+    {CL_R,      CL_SIGNED_INT8},\
+    {CL_R,      CL_SIGNED_INT16},\
+    {CL_R,      CL_SIGNED_INT32},\
+    {CL_R,      CL_UNSIGNED_INT8},\
+    {CL_R,      CL_UNSIGNED_INT16},\
+    {CL_R,      CL_UNSIGNED_INT32},\
+    {CL_R,      CL_HALF_FLOAT},\
+    \
+    {CL_A,      CL_UNORM_INT8},\
+    {CL_A,      CL_UNORM_INT16},\
+    {CL_A,      CL_HALF_FLOAT},\
+    {CL_A,      CL_FLOAT},\
+    \
+    {CL_RG,     CL_UNORM_INT8},\
+    {CL_RG,     CL_UNORM_INT16},\
+    {CL_RG,     CL_SNORM_INT8},\
+    {CL_RG,     CL_SNORM_INT16},\
+    {CL_RG,     CL_SIGNED_INT16},\
+    {CL_RG,     CL_SIGNED_INT32},\
+    {CL_RG,     CL_SIGNED_INT8},\
+    {CL_RG,     CL_UNSIGNED_INT8},\
+    {CL_RG,     CL_UNSIGNED_INT16},\
+    {CL_RG,     CL_UNSIGNED_INT32},\
+    {CL_RG,     CL_HALF_FLOAT},\
+    {CL_RG,     CL_FLOAT}
 
-    // CL_BGRA
-    {CL_BGRA,   CL_UNORM_INT8},
+#define READ_ONLY_FORMATS\
+    {CL_sRGBA,  CL_UNORM_INT8},\
+    {CL_sBGRA,  CL_UNORM_INT8}
 
-    // Additional formats required by users
-    // CL_INTENCITY
-    {CL_INTENSITY,  CL_FLOAT},
-    {CL_INTENSITY,  CL_UNORM_INT8},
-    {CL_INTENSITY,  CL_UNORM_INT16},
-    {CL_INTENSITY,  CL_HALF_FLOAT},
-
-    // CL_LUMINANCE
-    {CL_LUMINANCE,  CL_FLOAT},
-    {CL_LUMINANCE,  CL_UNORM_INT8},
-    {CL_LUMINANCE,  CL_UNORM_INT16},
-    {CL_LUMINANCE,  CL_HALF_FLOAT},
-
-
-    // CL_R
-    {CL_R,      CL_FLOAT},
-    {CL_R,      CL_UNORM_INT8},
-    {CL_R,      CL_UNORM_INT16},
-    {CL_R,      CL_SNORM_INT8},
-    {CL_R,      CL_SNORM_INT16},
-    {CL_R,      CL_SIGNED_INT8},
-    {CL_R,      CL_SIGNED_INT16},
-    {CL_R,      CL_SIGNED_INT32},
-    {CL_R,      CL_UNSIGNED_INT8},
-    {CL_R,      CL_UNSIGNED_INT16},
-    {CL_R,      CL_UNSIGNED_INT32},
-    {CL_R,      CL_HALF_FLOAT},
-
-    // CL_A
-    {CL_A,      CL_UNORM_INT8},
-    {CL_A,      CL_UNORM_INT16},
-    {CL_A,      CL_HALF_FLOAT},
-    {CL_A,      CL_FLOAT},
-
-    // CL_RG
-    {CL_RG,     CL_UNORM_INT8},
-    {CL_RG,     CL_UNORM_INT16},
-    {CL_RG,     CL_SNORM_INT8},
-    {CL_RG,     CL_SNORM_INT16},
-    {CL_RG,     CL_SIGNED_INT16},
-    {CL_RG,     CL_SIGNED_INT32},
-    {CL_RG,     CL_SIGNED_INT8},
-    {CL_RG,     CL_UNSIGNED_INT8},
-    {CL_RG,     CL_UNSIGNED_INT16},
-    {CL_RG,     CL_UNSIGNED_INT32},
-    {CL_RG,     CL_HALF_FLOAT},
-    {CL_RG,     CL_FLOAT},
-
-    // CL_sRGBA
-    {CL_sRGBA,  CL_UNORM_INT8},
-
-    // CL_sBGRA
-    {CL_sBGRA,  CL_UNORM_INT8},
-
-    // Keep it at the end of the array; result of GetSupportedImageFormats depends on it
-    // CL_DEPTH
-    {CL_DEPTH,  CL_FLOAT},
+#define ONLY_2D_FORMATS\
+    {CL_DEPTH,  CL_FLOAT},\
     {CL_DEPTH,  CL_UNORM_INT16}
-};
+
+// supportedRWImageFormats contains readable and writable image formats
+const cl_image_format supportedRWImageFormats1D3D[] = { READ_WRITE_FORMATS };
+const cl_image_format supportedRWImageFormats2D[] = { READ_WRITE_FORMATS, ONLY_2D_FORMATS };
+
+// supportedROImageFormats also contains not writable image formats
+const cl_image_format supportedROImageFormats1D3D[] = { READ_WRITE_FORMATS, READ_ONLY_FORMATS };
+const cl_image_format supportedROImageFormats2D[] = { READ_WRITE_FORMATS, READ_ONLY_FORMATS, ONLY_2D_FORMATS };
+
 
 ImageCallbackService::ImageCallbackService(const CompilerConfig& config, bool isCpu)
 {
   ImageCallbackManager::GetInstance()->InitLibrary(config, isCpu, m_CpuId);
 }
 
-const cl_image_format* ImageCallbackService::GetSupportedImageFormats(unsigned int *numFormats, cl_mem_object_type imageType){
-    if(imageType == CL_MEM_OBJECT_IMAGE2D ||
-       imageType == CL_MEM_OBJECT_IMAGE2D_ARRAY)
-      *numFormats=ARRAY_SIZE(supportedImageFormats);
-    else
-      *numFormats=ARRAY_SIZE(supportedImageFormats) - 2;
-    return (&supportedImageFormats[0]);
+const cl_image_format* ImageCallbackService::GetSupportedImageFormats(unsigned int *numFormats, cl_mem_object_type imageType, cl_mem_flags flags){
+
+    cl_image_format const* ret = NULL;
+    // leave only memory access flags
+    flags &= (CL_MEM_READ_ONLY | CL_MEM_READ_ONLY | CL_MEM_READ_WRITE);
+    // If value specified for flags is 0, the default is used which
+    // is CL_MEM_READ_WRITE.
+    flags = flags ? flags : CL_MEM_READ_WRITE;
+
+    switch(flags) {
+      case CL_MEM_WRITE_ONLY:
+      case CL_MEM_READ_WRITE:
+      {
+        if(imageType == CL_MEM_OBJECT_IMAGE2D ||
+           imageType == CL_MEM_OBJECT_IMAGE2D_ARRAY) {
+          ret = supportedRWImageFormats2D;
+          *numFormats=ARRAY_SIZE(supportedRWImageFormats2D);
+        } else {
+          ret = supportedRWImageFormats1D3D;
+          *numFormats=ARRAY_SIZE(supportedRWImageFormats1D3D);
+        }
+        break;
+      }
+      case CL_MEM_READ_ONLY:
+      {
+        if(imageType == CL_MEM_OBJECT_IMAGE2D ||
+           imageType == CL_MEM_OBJECT_IMAGE2D_ARRAY) {
+          ret = supportedROImageFormats2D;
+          *numFormats=ARRAY_SIZE(supportedROImageFormats2D);
+        } else {
+          ret = supportedROImageFormats1D3D;
+          *numFormats=ARRAY_SIZE(supportedROImageFormats1D3D);
+        }
+        break;
+      }
+      default:
+        assert(false && "unsupported memory flags");
+    }
+    return ret;
 }
 
 bool IsSOASupported(int dt)

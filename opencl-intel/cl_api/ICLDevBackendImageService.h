@@ -42,7 +42,7 @@ public:
     virtual cl_dev_err_code DeleteImageObject(cl_mem_obj_descriptor* pImageObject, void** auxObject) const = 0;
 
 
-    const virtual cl_image_format* GetSupportedImageFormats(unsigned int *numFormats, cl_mem_object_type imageType) =0 ;
+    const virtual cl_image_format* GetSupportedImageFormats(unsigned int *numFormats, cl_mem_object_type imageType, cl_mem_flags flags) =0 ;
 
     /**
      * Releases the Image Service

@@ -836,7 +836,7 @@ cl_dev_err_code ProgramService::GetSupportedImageFormats( cl_mem_flags IN flags,
     }
 
     unsigned int uiNumEntries;
-    const cl_image_format* supportedImageFormats = m_pBackendImageService->GetSupportedImageFormats(&uiNumEntries, imageType);
+    const cl_image_format* supportedImageFormats = m_pBackendImageService->GetSupportedImageFormats(&uiNumEntries, imageType, flags);
 
 	if(NULL != formats)
     {
