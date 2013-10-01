@@ -45,3 +45,5 @@ if (NOT WIN32)
     target_link_libraries(${TARGET_NAME} pthread dl)
   endif(NOT ANDROID)
 endif (NOT WIN32)
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

@@ -45,3 +45,5 @@ add_library(${TARGET_NAME} STATIC
   ./Conformance/test_common/rounding_mode.cpp
   ../Common/FloatOperations.cpp
 )
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

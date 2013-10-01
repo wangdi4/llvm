@@ -72,3 +72,4 @@ endif( CMAKE_CROSSCOMPILING )
 
 install( TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

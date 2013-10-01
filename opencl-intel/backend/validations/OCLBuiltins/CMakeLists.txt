@@ -106,3 +106,5 @@ include_directories (
   ${VALIDATIONS_ROOT}/REFALU
   ${REF_CL_BUILTIN_SOURCE_DIR}
   )
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

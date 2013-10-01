@@ -25,3 +25,5 @@ add_library(${TARGET_NAME} STATIC
 target_link_libraries(${TARGET_NAME}
     OCLKernelDataGenerator
 	)
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

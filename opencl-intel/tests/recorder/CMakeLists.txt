@@ -71,3 +71,4 @@ add_dependencies(${TARGET_NAME} OclRecorder)
 #install the executable
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

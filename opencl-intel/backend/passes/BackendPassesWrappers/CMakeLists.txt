@@ -20,3 +20,4 @@ add_library(${TARGET_NAME}
     ${PASSESWRAPPERS_SOURCE_FILES}
 )
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

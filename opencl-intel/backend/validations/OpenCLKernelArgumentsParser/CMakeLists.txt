@@ -9,3 +9,5 @@ add_library(OpenCLKernelArgumentsParser
   OpenCLKernelArgumentsParser.h
   OpenCLKernelArgumentsParser.cpp
 )
+
+set_target_properties( OpenCLKernelArgumentsParser PROPERTIES FOLDER "Backend" )

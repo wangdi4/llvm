@@ -22,3 +22,5 @@ OCLKernelBufferContainerListAllocator.cpp
 )
 target_link_libraries(OCLKernelDataGenerator
 DataManager)
+
+set_target_properties( OCLKernelDataGenerator PROPERTIES FOLDER "Backend" )
