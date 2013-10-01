@@ -575,7 +575,7 @@ SharedPtr<ITaskList> TEDevice::CreateTaskList(const CommandListCreationParam& pa
 	* Retrives concurrency level for the device
 	* @return pointer to the new list or NULL on error
 	*/
-int TEDevice::GetConcurrency()
+int TEDevice::GetConcurrency() const
 {
 	assert ( (1 == m_deviceDescriptor.uiNumOfLevels)  && "Currently only single level devices are supported");
 

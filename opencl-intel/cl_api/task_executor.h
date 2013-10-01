@@ -28,9 +28,9 @@
 *		un-ordered - wherein tasks are executed without decencies
 *	b.	Async. execution. The execution function will be returned immediately,
 *		the provided callback function will be called when a task is completed
-*	c.	It’ll be two types of tasks:
-*		I.	Simple – single function task, single instance of function will be executed
-*		II.	Complex (Task Set) – the main function will be executed multiple times.
+*	c.	It'll be two types of tasks:
+*		I.	Simple - single function task, single instance of function will be executed
+*		II.	Complex (Task Set) - the main function will be executed multiple times.
 *			This complex function will have initialization and finalization stages –
 *			single function that should be called before and after the main loop.
 *
@@ -331,35 +331,34 @@ public:
     // In immediate list the task is enqueued, flushed and executes immediately. Functions returns only after the task completes.
     // Returns actual number of enqueued tasks
     // Task execution may be started immediately or postponed till Flush() command
-    virtual unsigned int    Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) = 0; // Dynamically detect Task or TaskSet
+    virtual unsigned int      Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) = 0; // Dynamically detect Task or TaskSet
 
     // Make all outstanding and future tasks cancel instead of execute.
-    virtual void            Cancel() = 0; 
+    virtual void              Cancel() = 0;
 
     // Ensures that all task were send to execution, non-blocking function
-    virtual bool            Flush() = 0;    
+    virtual bool              Flush() = 0;
 
-	// Immediately spawn a task without enqueuing it first in order to save the lock on the queue.
-	virtual void			Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup) = 0;
-	// whether this ITaskList supports device-side enqueuing of commands
-	virtual bool			DoesSupportDeviceSideCommandEnqueue() const = 0;
+    // Immediately spawn a task without enqueuing it first in order to save the lock on the queue.
+    virtual void			        Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup) = 0;
+    // whether this ITaskList supports device-side enqueuing of commands
+    virtual bool		    	    DoesSupportDeviceSideCommandEnqueue() const = 0;
 
-	// Add the calling thread to execution pool
-	// Function blocks, until the pTask is completed or in case of NULL
-	// all tasks belonging to the list are completed.
-	// Not supported for immediate lists
-    virtual te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait) = 0;    
+    // Add the calling thread to execution pool
+    // Function blocks, until the pTask is completed or in case of NULL
+    // all tasks belonging to the list are completed.
+    // Not supported for immediate lists
+    virtual te_wait_result  WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait) = 0;
 
-	// Returns whether profiling is enabled for this ITaskList
-	virtual bool IsProfilingEnabled() const = 0;
+    // Returns whether profiling is enabled for this ITaskList
+    virtual bool             IsProfilingEnabled() const = 0;
 
-	// Returns the ITEDevice of this ITaskList
-	virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> GetDevice() = 0;
-	virtual Intel::OpenCL::Utils::ConstSharedPtr<ITEDevice> GetDevice() const = 0;
+    // Returns the ITEDevice of this ITaskList
+    virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice>       GetDevice() = 0;
+    virtual Intel::OpenCL::Utils::ConstSharedPtr<ITEDevice>  GetDevice() const = 0;
 
-	// Returns an ITaskGroup for NDRange commands to use to wait for their children
-	virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() = 0;
-	
+    // Returns an ITaskGroup for NDRange commands to use to wait for their children
+    virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup>      GetNDRangeChildrenTaskGroup() = 0;
 };
 
 class ITaskExecutorObserver;
@@ -397,10 +396,10 @@ public:
     virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param ) = 0;
 
     /**
-	 * Retrives concurrency level for the device
-	 * @return pointer to the new list or NULL on error
-	 */
-	virtual int GetConcurrency() = 0;
+     * Retrives concurrency level for the device
+     * @return pointer to the new list or NULL on error
+     */
+    virtual int GetConcurrency() const = 0;
 
     /**
      * Wait until all work in a sub-device is complete and mark device as disabled. No more enqueues are allowed after the ShutDown
@@ -416,7 +415,6 @@ public:
       * Unegister calling thread (master) to be used by the device
       */    
     virtual void DetachMasterThread() = 0;
-
 };
 
 // ITaskExecutorObserver - recieves notification on ITaskExecutor events
@@ -444,7 +442,7 @@ public:
      */
     virtual void  OnThreadExit( void* currentThreadData ) = 0;
 
-      /**
+    /**
      * Can thread leave the device? The question is asked only when there is no hard demand. If there is high
      *      demand thread leavs the device unconditionally.
      * @param  currentThreadData - per-thread data currently associated with caller thread

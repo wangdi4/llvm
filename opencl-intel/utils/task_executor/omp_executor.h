@@ -65,8 +65,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		virtual void SetObserver(ITaskExecutorObserver* pObserver) { m_observer = pObserver; };
 
-		// Currently the concurrency level in our OMP implementation is 1.
-		virtual int GetConcurrency() { return 1; };
+		virtual int GetConcurrency() const { return omp_in_parallel() ? omp_get_num_threads() : omp_get_max_threads(); };
 		
 		virtual void ShutDown() {};
 

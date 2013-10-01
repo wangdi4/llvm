@@ -30,8 +30,8 @@ const char* szOclCpuBackendDllName = "OclCpuBackEnd32.dll";
 const char* szOclCpuBackendDllName = "libOclCpuBackEnd.so";
 #endif
 
-namespace Intel{ namespace OpenCL { namespace CPUDevice 
-{
+namespace Intel{ namespace OpenCL { namespace CPUDevice {
+
 OpenCLBackendWrapper::OpenCLBackendWrapper(void):
     // ALERT!!! DK!!! Backend sometimes corrups heap on Linux if it unloads in parallel with shutdown
     m_dll(false),

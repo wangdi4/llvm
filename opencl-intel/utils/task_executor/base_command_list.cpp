@@ -46,13 +46,13 @@ base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::Ope
 	m_scheduling(param.preferredScheduling),
 	m_bCanceled(false)
 {
-	m_execTaskRequests = 0;
-	m_bMasterRunning = false;
+    m_execTaskRequests = 0;
+    m_bMasterRunning = false;
 }
 
 base_command_list::~base_command_list()
 {
-	WaitForIdle();
+    WaitForIdle();
 }
 
 unsigned int base_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
@@ -63,94 +63,94 @@ unsigned int base_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<IT
 
 te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& pTaskToWait)
 {
-	if (!m_device->ShouldMasterJoinWork())
+	  if (!m_device->ShouldMasterJoinWork())
     {
         return TE_WAIT_NOT_SUPPORTED;
     }
-	// Request processing task to stop
-	if ( NULL != pTaskToWait )
-	{
-		bool completed = pTaskToWait->SetAsSyncPoint();
-		// If already completed no need to wait
-		if ( completed )
-		{
-			return TE_WAIT_COMPLETED;
-		}
-	}	
+    // Request processing task to stop
+    if ( NULL != pTaskToWait )
+    {
+        bool completed = pTaskToWait->SetAsSyncPoint();
+        // If already completed no need to wait
+        if ( completed )
+        {
+          return TE_WAIT_COMPLETED;
+        }
+    }
 
-	bool bVal = m_bMasterRunning.compare_and_swap(true, false);
-	if (bVal)
-	{
-		// When another master is running we can't block this thread
-		return TE_WAIT_MASTER_THREAD_BLOCKING;
-	}
+    bool bVal = m_bMasterRunning.compare_and_swap(true, false);
+    if (bVal)
+    {
+      // When another master is running we can't block this thread
+      return TE_WAIT_MASTER_THREAD_BLOCKING;
+    }
 
-	if ( NULL == pTaskToWait )
-	{
-		m_pMasterSync->Reset();
-		Enqueue(m_pMasterSync);
-	}
+    if ( NULL == pTaskToWait )
+    {
+      m_pMasterSync->Reset();
+      Enqueue(m_pMasterSync);
+    }
 
-	do
-	{
-		unsigned int ret = InternalFlush(true);
-		if ( ret > 0)
-		{
-			// Someone else started the task, need to wait
+    do
+    {
+        unsigned int ret = InternalFlush(true);
+        if ( ret > 0)
+        {
+            // Someone else started the task, need to wait
             WaitForIdle();
-		}
-	} while ( !(m_pMasterSync->IsCompleted() || ((NULL != pTaskToWait) && (pTaskToWait->IsCompleted()))) );
+        }
+    } while ( !(m_pMasterSync->IsCompleted() || ((NULL != pTaskToWait) && (pTaskToWait->IsCompleted()))) );
 		
-	// Current master is not in charge for the work
-	m_bMasterRunning = false;
+    // Current master is not in charge for the work
+    m_bMasterRunning = false;
 
-	// If there's some incoming work during operation, try to flush it
-	if ( HaveIncomingWork() )
-	{
-		Flush();
-	}
+    // If there's some incoming work during operation, try to flush it
+    if ( HaveIncomingWork() )
+    {
+        Flush();
+    }
 
-	return TE_WAIT_COMPLETED;
+    return TE_WAIT_COMPLETED;
 }
 
 unsigned int base_command_list::InternalFlush(bool blocking)
 {    
-	unsigned int runningTaskRequests = m_execTaskRequests++;    
-	if ( 0 == runningTaskRequests )
-	{
-		//We need to launch the task to handle the existing input
-		return LaunchExecutorTask(blocking);
-	}
-	//Otherwise, the task is already running and will see our input in the next epoch
-	return runningTaskRequests;
+    unsigned int runningTaskRequests = m_execTaskRequests++;
+    if ( 0 == runningTaskRequests )
+    {
+        //We need to launch the task to handle the existing input
+        return LaunchExecutorTask(blocking);
+    }
+    //Otherwise, the task is already running and will see our input in the next epoch
+    return runningTaskRequests;
 }
 
 bool base_command_list::Flush()
 {
-	InternalFlush(false);
-	return true;
+    InternalFlush(false);
+    return true;
 }
 
 unsigned int in_order_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask )
 {
-    assert( NULL == pTask );
+    assert( NULL == pTask && "Target task must be NULL");
     
-	in_order_executor_task functor(this); 
-	if (!blocking)
-	{
+    in_order_executor_task functor(this);
+    if (!blocking)
+    {
         m_taskGroup->EnqueueFunc(functor);
-		return 1;
-	}
-	else
-	{
-		m_device->Execute<in_order_executor_task>(functor);
-		return 0;
-	}
+        return 1;
+    }
+    else
+    {
+        m_device->Execute<in_order_executor_task>(functor);
+        return 0;
+    }
 }
 
 unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
 {
-    assert( NULL == pTask );
+    assert( NULL == pTask && "Target task must be NULL");
     
     out_of_order_executor_task functor(this);
     if (!blocking)
@@ -167,40 +167,38 @@ unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking, const 
 
 out_of_order_command_list::~out_of_order_command_list()
 {
-	/* Although in ~base_command_list we also wait for idle, we need to first wait here, otherwise m_oooTaskGroup might be destroyed before we make sure all tasks are completed in
-	   ~base_command_list */
-	WaitForIdle();
-}
+    /* Although in ~base_command_list we also wait for idle, we need to first wait here, otherwise m_oooTaskGroup might be destroyed before we make sure all tasks are completed in
+       ~base_command_list */
+	  WaitForIdle();
+ }
 
 class TaskGroupWaiter
 {
 public:
+    TaskGroupWaiter(tbb::task_group& tbbTskGrp, TaskGroup& tskGrp) : m_tbbTskGrp(tbbTskGrp), m_tskGrp(tskGrp) { }
 
-	TaskGroupWaiter(tbb::task_group& tbbTskGrp, TaskGroup& tskGrp) : m_tbbTskGrp(tbbTskGrp), m_tskGrp(tskGrp) { }
-
-	void operator()()
-	{
-		m_tbbTskGrp.wait();
-		m_tskGrp.WaitForAll();
-	}
+    void operator()()
+    {
+      m_tbbTskGrp.wait();
+      m_tskGrp.WaitForAll();
+    }
 
 private:
-
-	tbb::task_group& m_tbbTskGrp;
-	TaskGroup& m_tskGrp;
+    tbb::task_group& m_tbbTskGrp;
+    TaskGroup& m_tskGrp;
 };
 
 void out_of_order_command_list::WaitForIdle()
 {
-	// we wait here for 2 things seperately: commands and execution tasks
-	TaskGroupWaiter waiter(m_oooTaskGroup, *m_taskGroup);
-	m_device->Execute(waiter);	
+    // we wait here for 2 things separately: commands and execution tasks
+    TaskGroupWaiter waiter(m_oooTaskGroup, *m_taskGroup);
+    m_device->Execute(waiter);
 }
 
 void base_command_list::Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup)
 {
-	ExecuteContainerBody functor(pTask, *this);
-	static_cast<TaskGroup&>(taskGroup).EnqueueFunc(functor);
+    ExecuteContainerBody functor(pTask, *this);
+    static_cast<TaskGroup&>(taskGroup).EnqueueFunc(functor);
 }
 
 unsigned int immediate_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
@@ -210,10 +208,10 @@ unsigned int immediate_command_list::Enqueue(const Intel::OpenCL::Utils::SharedP
 
 unsigned int immediate_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask )
 {
-    assert( NULL != pTask );
-    assert( true == blocking );
+    assert( NULL != pTask && "Target task is NULL");
+    assert( blocking && "Must be called as blocking");
     
-	immediate_executor_task functor(this, pTask); 
-	m_device->Execute<immediate_executor_task>(functor);
-	return 0;
+    immediate_executor_task functor(this, pTask);
+    m_device->Execute<immediate_executor_task>(functor);
+    return 0;
 }

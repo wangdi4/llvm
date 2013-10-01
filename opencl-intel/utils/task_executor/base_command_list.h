@@ -47,28 +47,26 @@ using Intel::OpenCL::Utils::OclMutex;
 class SyncTask : public ITask
 {
 public:
-
     PREPARE_SHARED_PTR(SyncTask)
 	
     static Intel::OpenCL::Utils::SharedPtr<SyncTask> Allocate() { return Intel::OpenCL::Utils::SharedPtr<SyncTask>(new SyncTask()); }
 
-	void	Reset() { m_bFired = false;}
+    void	Reset() { m_bFired = false;}
     void    Cancel() { Execute(); }
 
-	// ITask interface
-	bool	        SetAsSyncPoint() {return false;}
-	bool	        CompleteAndCheckSyncPoint() { return m_bFired;}
-	bool	        IsCompleted() const {return m_bFired;}
-	bool	        Execute() { m_bFired = true; return true;}
-	long	        Release() { return 0; }	//Persistent member, don't release
-	TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-	Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    // ITask interface
+    bool	        SetAsSyncPoint() {return false;}
+    bool	        CompleteAndCheckSyncPoint() { return m_bFired;}
+    bool	        IsCompleted() const {return m_bFired;}
+    bool	        Execute() { m_bFired = true; return true;}
+    long	        Release() { return 0; }	//Persistent member, don't release
+    TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+    Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
 protected:
-
     SyncTask() {m_bFired = false;}
 
-	volatile bool	m_bFired;
+    volatile bool	m_bFired;
 };
 
 /**
@@ -78,17 +76,16 @@ protected:
 class TaskGroup : public ITaskGroup
 {
 public:
-    
-	PREPARE_SHARED_PTR(TaskGroup)
+    PREPARE_SHARED_PTR(TaskGroup)
 
-	/**
-	 * @param device the TEDevice for enqueuing and executing tasks
-	 * @return a new TaskGroup
-	 */
-	static SharedPtr<TaskGroup> Allocate(TEDevice& device)
-	{
-		return new TaskGroup(device);
-	}    
+    /**
+     * @param device the TEDevice for enqueuing and executing tasks
+     * @return a new TaskGroup
+     */
+    static SharedPtr<TaskGroup> Allocate(TEDevice& device)
+    {
+      return new TaskGroup(device);
+    }
 
     /**
      * Destructor
@@ -99,7 +96,7 @@ public:
         tbb::task::destroy(m_rootTask);
     }
 
-	tbb::task_group_context& GetContext() {return m_taskGroupContext; }
+    tbb::task_group_context& GetContext() {return m_taskGroupContext; }
     /**
      * Enqueue a functor
      * @param F the functor's type
@@ -111,7 +108,6 @@ public:
     // overrriden methods:
 
     virtual void WaitForAll();
-
 private:
 
 	/**
@@ -130,7 +126,7 @@ private:
     TEDevice& m_device;
 
     // auxiliary functor classes to be replaced by lambda functions
-	class ArenaFunctor
+    class ArenaFunctor
     {
     protected:
 
@@ -143,7 +139,6 @@ private:
     class ArenaFunctorRunner : public ArenaFunctor
     {
     public:
-
         ArenaFunctorRunner<F>(tbb::task& rootTask, const F& func) : ArenaFunctor(rootTask), m_func(func) { }
 
         void operator()()
@@ -153,15 +148,12 @@ private:
         }
 
     private:
-
         F m_func;
-
     };
 
     class ArenaFunctorWaiter : public ArenaFunctor
     {
     public:
-
         ArenaFunctorWaiter(tbb::task& rootTask) : ArenaFunctor(rootTask) { }
 
         void operator()()
@@ -183,30 +175,30 @@ public:
 
     unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask);
 
-	te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait);
+    te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait);
 
-	bool Flush();
+    bool Flush();
 
-	ConcurrentTaskQueue* GetExecutingContainer()
-	{
-		return &m_quIncomingWork;
-	}    
+    ConcurrentTaskQueue* GetExecutingContainer()
+    {
+        return &m_quIncomingWork;
+    }
 
 	/**
      * Wait for all tasks (commands and executor tasks) to be completed
      */
     virtual void WaitForIdle()
-	{
-		m_taskGroup->WaitForAll();
-	}
+    {
+        m_taskGroup->WaitForAll();
+    }
 
-	TEDevice& GetTEDevice() { return *m_device; }
+    TEDevice& GetTEDevice() { return *m_device; }
 
     virtual TE_CMD_LIST_PREFERRED_SCHEDULING GetPreferredScheduler() const { return m_scheduling;}
 	
-	SharedPtr<ITEDevice> GetDevice() { return m_device; }
+    SharedPtr<ITEDevice> GetDevice() { return m_device; }
 
-	ConstSharedPtr<ITEDevice> GetDevice() const { return (const ITEDevice*)m_device.GetPtr(); }
+    ConstSharedPtr<ITEDevice> GetDevice() const { return (const ITEDevice*)m_device.GetPtr(); }
     
     virtual tbb::affinity_partitioner& GetAffinityPartitioner() { return m_part; }
     virtual tbb::task_group_context&   GetTBBContext() { return m_taskGroup->GetContext(); }
@@ -224,58 +216,57 @@ public:
     {
         m_taskGroup->EnqueueFunc(func);
     }
-	friend class immediate_executor_task;
+    friend class immediate_executor_task;
 
     bool HaveIncomingWork() const
-	{
-		return !m_quIncomingWork.IsEmpty();
-	}
+    {
+        return !m_quIncomingWork.IsEmpty();
+    }
 
-	virtual bool IsProfilingEnabled() const { return m_bProfilingEnabled; }
+    virtual bool IsProfilingEnabled() const { return m_bProfilingEnabled; }
 
     void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup);
 
 protected:
-	friend class in_order_executor_task;
-	friend class out_of_order_executor_task;
+    friend class in_order_executor_task;
+    friend class out_of_order_executor_task;
 
-	base_command_list( TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param, bool bProfilingEnabled = false);
+    base_command_list( TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param, bool bProfilingEnabled = false);
 
-	virtual unsigned int LaunchExecutorTask(bool blocking,
-                                            const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL) = 0;
+    virtual unsigned int LaunchExecutorTask(bool blocking,
+                                              const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL) = 0;
 
-	unsigned int InternalFlush(bool blocking);
+    unsigned int InternalFlush(bool blocking);
 
-	TBBTaskExecutor&		m_pTBBExecutor;
+    TBBTaskExecutor&		m_pTBBExecutor;
 
-	ConcurrentTaskQueue		m_quIncomingWork;
+    ConcurrentTaskQueue		m_quIncomingWork;
 
-	tbb::atomic<unsigned int>	m_execTaskRequests;
-	Intel::OpenCL::Utils::SharedPtr<SyncTask> m_pMasterSync;
+    tbb::atomic<unsigned int>	m_execTaskRequests;
+    Intel::OpenCL::Utils::SharedPtr<SyncTask> m_pMasterSync;
 
-	// Only single muster thread can join the execution on specific queue
-	// this mutex will block others. The atomic prevents wait on
-	// the master if another master is running
-	tbb::atomic<bool>		m_bMasterRunning;
+    // Only single muster thread can join the execution on specific queue
+    // this mutex will block others. The atomic prevents wait on
+    // the master if another master is running
+    tbb::atomic<bool>		m_bMasterRunning;
 
     // In most cases m_device should be a shared pointer, but in the case of default command list this will create a cycle. As default command list is 
     // invisible from outside, we need it not to cointain pointer to TEDevice.
     SharedPtr<TEDevice>     m_device;
     SharedPtr<TaskGroup>    m_taskGroup;	
-	const bool				m_bProfilingEnabled;
-	const bool				m_bIsDefaultQueue;
+    const bool				m_bProfilingEnabled;
+    const bool				m_bIsDefaultQueue;
 
-	// Affinity partitioner used in execution
-	tbb::affinity_partitioner	m_part;
+    // Affinity partitioner used in execution
+    tbb::affinity_partitioner	m_part;
 
-	TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
+    TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
 
     volatile bool           m_bCanceled;
 
 private:
-	//Disallow copy constructor
-	base_command_list(const base_command_list& l);
-	
+    //Disallow copy constructor
+    base_command_list(const base_command_list& l);
 };
 
 class in_order_command_list : public base_command_list
@@ -291,19 +282,19 @@ public:
         return new in_order_command_list(pTBBExec, device, param);
     }
 
-	// This is an optimization: since only one NDRange command can Simultaneously run, all NDRange commands can share the same TaskGroup, without the need to allocate a new one for each of them.
-	virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
+    // This is an optimization: since only one NDRange command can Simultaneously run, all NDRange commands can share the same TaskGroup, without the need to allocate a new one for each of them.
+    virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
 
-	virtual bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
+    virtual bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
 
-	virtual bool IsProfilingEnabled() const { return false; }
+    virtual bool IsProfilingEnabled() const { return false; }
 
 protected:
 
     virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL );
 
 private:
-	SharedPtr<TaskGroup>			 m_ndrangeChildrenTaskGroup;
+    SharedPtr<TaskGroup>			 m_ndrangeChildrenTaskGroup;
 
     in_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
 		base_command_list(pTBBExec, device, param), m_ndrangeChildrenTaskGroup(TaskGroup::Allocate(*device))  {}
@@ -313,7 +304,6 @@ private:
 class out_of_order_command_list : public base_command_list
 {
 public:
-
     PREPARE_SHARED_PTR(out_of_order_command_list)
 
     static SharedPtr<out_of_order_command_list> Allocate( TBBTaskExecutor& pTBBExec, 
@@ -323,40 +313,39 @@ public:
         return new out_of_order_command_list(pTBBExec, device, param);
     }
 
-	/**
-	 * Destructor
-	 */
-	~out_of_order_command_list();
+    /**
+     * Destructor
+     */
+    ~out_of_order_command_list();
 
     /**
      * Execute a functor for OOO execution (this method should be called only when running inside the arena)
      * @param F the functor's type
      * @param f the functor's object			
      */
-    template<typename F>
-    void ExecOOOFunc(const F& f)
-    {
-        m_oooTaskGroup.run(f);
-    }
+     template<typename F>
+     void ExecOOOFunc(const F& f)
+     {
+         m_oooTaskGroup.run(f);
+     }
 
 	/**
      * Wait for all the enqueued commands to be completed
      */
-	void WaitForAllCommands()
-    {
-        m_oooTaskGroup.wait();
-    }
+     void WaitForAllCommands()
+     {
+         m_oooTaskGroup.wait();
+     }
 
-    // overriden methods:    
+     // overriden methods:
 
-    void WaitForIdle();
+     void WaitForIdle();
 
-	bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
+    bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
 
-	virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return TaskGroup::Allocate(GetTEDevice()); }
-        
+    virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return TaskGroup::Allocate(GetTEDevice()); }
+
 private:
-
     virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL);
 
     tbb::task_group m_oooTaskGroup;
@@ -375,8 +364,8 @@ struct ExecuteContainerBody
     ExecuteContainerBody(const SharedPtr<ITaskBase>& pTask, base_command_list& list) :
 			m_pTask(pTask), m_list(list) {}
 
-	void operator()()
-	{
+    void operator()()
+    {
         execute_command(m_pTask, m_list);
     }
 };
@@ -403,11 +392,11 @@ public:
 
     bool Flush() { return true; }
 
-	virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return TaskGroup::Allocate(GetTEDevice()); }
+    virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return TaskGroup::Allocate(GetTEDevice()); }
 
-	bool DoesSupportDeviceSideCommandEnqueue() const { return false; }
+    bool DoesSupportDeviceSideCommandEnqueue() const { return false; }
 
-	virtual bool IsProfilingEnabled() const { return false; }
+    virtual bool IsProfilingEnabled() const { return false; }
 
 protected:
 
@@ -421,4 +410,3 @@ private:
 };
 
 }}}
-

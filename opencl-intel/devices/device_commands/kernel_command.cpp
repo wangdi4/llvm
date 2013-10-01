@@ -43,21 +43,13 @@ void KernelCommand::AddChildKernel(const SharedPtr<KernelCommand>& child, kernel
 	}
 }
 
-void KernelCommand::ChildCompleted(cl_dev_err_code err)
-{
-	if (CL_DEV_FAILED(err))
-	{
-		SetError(err);
-	}	
-}
-
 void KernelCommand::WaitForChildrenCompletion()
 { 
+	// since new children can't be added anymore at this pointer, there is no need for synchronization
 	if (m_waitingChildrenForKernel.empty())
 	{
 		return;
 	}
-	// since new children can't be added anymore at this pointer, there is no need for synchronization
 	for (std::vector<SharedPtr<KernelCommand> >::iterator iter = m_waitingChildrenForKernel.begin(); iter != m_waitingChildrenForKernel.end(); iter++)
 	{
 		(*iter)->NotifyCommandFinished(GetError());
@@ -76,8 +68,8 @@ void KernelCommand::WgFinishedExecution()
 		std::vector<SharedPtr<KernelCommand> >::iterator listEnd = m_waitingChildrenForKernel.end();
 		m_waitingChildrenForKernel.resize(m_waitingChildrenForKernel.size() + waitingChildrenForParentInWg.size());	
 		std::copy(waitingChildrenForParentInWg.begin(), waitingChildrenForParentInWg.end(), listEnd);
+		waitingChildrenForParentInWg.clear();
 	}
-	waitingChildrenForParentInWg.clear();
 	
 	// since new children can't be added anymore at this pointer, there is no need for synchronization
 	std::vector<SharedPtr<KernelCommand> >& waitingChildrenForWg = GetWaitingChildrenForWG();
@@ -87,17 +79,8 @@ void KernelCommand::WgFinishedExecution()
 		{
 			(*iter)->NotifyCommandFinished(GetError());
 		}
+		waitingChildrenForWg.clear();
 	}	
-	waitingChildrenForWg.clear();
-}
-
-void KernelCommand::SignalComplete(cl_dev_err_code err)
-{
-	DeviceCommand::SignalComplete(err);
-	if (GetParent() != NULL)
-	{
-		GetParent()->ChildCompleted(GetError());
-	}
 }
 
 void KernelCommand::Launch()

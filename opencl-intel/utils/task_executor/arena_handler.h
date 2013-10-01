@@ -176,19 +176,19 @@ public:
     virtual void SetObserver(ITaskExecutorObserver* pObserver);
 
     /**
-	 * Retrives concurrency level for the device
-	 * @return pointer to the new list or NULL on error
-	 */
-	virtual int GetConcurrency();
+     * Retrives concurrency level for the device
+     * @return pointer to the new list or NULL on error
+     */
+    virtual int GetConcurrency() const;
 
     virtual void AttachMasterThread(void* user_tls);
     virtual void DetachMasterThread();
 
     /**
-	 * Create Task Execution List to the given sub-device
-	 * @return pointer to the new list or NULL on error
-	 */
-	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param );
+     * Create Task Execution List to the given sub-device
+     * @return pointer to the new list or NULL on error
+     */
+    virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param );
 
     /**
      * Wait until all work in a sub-device is complete and mark device as disabled. No more enqueues are allowed after the ShutDown
@@ -199,7 +199,7 @@ public:
     //   Extra methods
     //
 
-   /**
+    /**
      * Enqueue a functor on the arena.
      * @param F the type of the functor
      * @param f the functor object
@@ -218,7 +218,7 @@ public:
     /**
      * Lock/Unlock current state (working/shutting down)
      */
-    void   LockState() { m_stateLock.EnterRead(); }
+    void LockState() { m_stateLock.EnterRead(); }
     void UnLockState() { m_stateLock.LeaveRead(); }
 
     /**
@@ -403,6 +403,4 @@ void TBB_PerActiveThreadData::reset()
 
     memset(attached_arenas, 0, sizeof(attached_arenas) );
 }
-
-
 }}}

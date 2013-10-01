@@ -111,14 +111,17 @@ protected:
 	 * @param list			the ITaskList that implements the command-queue on which this DeviceCommand executes
 	 * @param pMyTaskBase	a pointer to itself as ITaskBase or NULL if the concrete class does not inherit from ITaskBase
 	 */
-	DeviceCommand(const SharedPtr<ITaskList>& list, ITaskBase* pMyTaskBase) : m_err(CL_DEV_SUCCESS), m_bCompleted(false), m_ulExecTime(0), m_pExecTimeUserPtr(NULL), m_list(list),
-		m_pMyTaskBase(pMyTaskBase), m_bIsProfilingEnabled(list->IsProfilingEnabled()) { }
+	DeviceCommand(const SharedPtr<ITaskList>& list, ITaskBase* pMyTaskBase) :
+	  m_err(CL_DEV_SUCCESS), m_bCompleted(false), m_ulStartExecTime(0), m_ulExecTime(0),
+	  m_pExecTimeUserPtr(NULL), m_list(list),
+		m_pMyTaskBase(pMyTaskBase), m_bIsProfilingEnabled(list->IsProfilingEnabled())
+    { }
 
 	/**
 	 * Signal that this DeviceCommand is changing its state to CL_COMPLETE
 	 * @param err the error code of the DeviceCommand
 	 */
-	virtual void SignalComplete(cl_dev_err_code err);
+	void SignalComplete(cl_dev_err_code err);
 
 	/**
 	 * Set an error code for this DeviceCommand

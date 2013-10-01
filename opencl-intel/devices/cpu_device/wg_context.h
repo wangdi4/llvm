@@ -83,9 +83,9 @@ protected:
     size_t		m_stPrivMemAllocSize;
     char*		m_pLocalMem;
     void*		m_pPrivateMem;    
-	std::vector<SharedPtr<KernelCommand> > m_waitingChildrenForWg;
-	std::vector<SharedPtr<KernelCommand> > m_waitingChildrenForParent;
-	NDRange*    m_pCurrentNDRange;
+    std::vector<SharedPtr<KernelCommand> > m_waitingChildrenForWg;
+    std::vector<SharedPtr<KernelCommand> > m_waitingChildrenForParent;
+    NDRange*    m_pCurrentNDRange;
 };
 
 }}}

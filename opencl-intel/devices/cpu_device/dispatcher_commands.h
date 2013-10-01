@@ -198,46 +198,46 @@ class NDRange : public CommandBaseClass<ITaskSet>, public KernelCommand
 {
 public:    
 
-	PREPARE_SHARED_PTR(NDRange)
+    PREPARE_SHARED_PTR(NDRange)
 
     static unsigned int RGBTable[COLOR_TABLE_SIZE];
     static AtomicCounter RGBTableCounter;
 
-	static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList);
 
-	/**
-	 * @return the NDRange that is currently running on the local thread
-	 */
-	static NDRange* GetThreadLocalNDRange() { return sm_pCurrentWgContext->GetCurrentNDRange(); }
+    /**
+     * @return the NDRange that is currently running on the local thread
+     */
+    static NDRange* GetThreadLocalNDRange() { return sm_pCurrentWgContext->GetCurrentNDRange(); }
 
     // DispatcherCommand interface
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
-	// ITaskSet interface
-	int	    Init(size_t region[], unsigned int &regCount);
-	void*   AttachToThread(void* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
-	void    DetachFromThread(void* pWgContext);
-	bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext); 
-	bool    Finish(FINISH_REASON reason);
+    // ITaskSet interface
+    int	    Init(size_t region[], unsigned int &regCount);
+    void*   AttachToThread(void* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
+    void    DetachFromThread(void* pWgContext);
+    bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext);
+    bool    Finish(FINISH_REASON reason);
     
     // Optimize By
     TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
     unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
 
-	bool IsCompleted() const { return CommandBaseClass<ITaskSet>::IsCompleted(); }
+    bool IsCompleted() const { return CommandBaseClass<ITaskSet>::IsCompleted(); }
 
-	ITaskGroup* GetNDRangeChildrenTaskGroup() { return GetParentTaskGroup().GetPtr(); }
+    ITaskGroup* GetNDRangeChildrenTaskGroup() { return GetParentTaskGroup().GetPtr(); }
 
 protected:
     NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, const SharedPtr<ITaskList>& pList, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup);
 
-	cl_dev_err_code CreateBinary(const ICLDevBackendKernel_* kernel, size_t szArgSize, const cl_work_description_type* workDesc, ICLDevBackendBinary_** pBinary);
+    cl_dev_err_code CreateBinary(const ICLDevBackendKernel_* kernel, size_t szArgSize, const cl_work_description_type* workDesc, ICLDevBackendBinary_** pBinary);
 
-	// inherited from DeviceCommand and KernelCommand
+    // inherited from DeviceCommand and KernelCommand
 
-	std::vector<SharedPtr<KernelCommand> >& GetWaitingChildrenForWG() { return sm_pCurrentWgContext->GetWaitingChildrenForWg(); }
+    std::vector<SharedPtr<KernelCommand> >& GetWaitingChildrenForWG() { return sm_pCurrentWgContext->GetWaitingChildrenForWg(); }
 
-	std::vector<SharedPtr<KernelCommand> >& GetWaitingChildrenForParentInWg() { return sm_pCurrentWgContext->GetWaitingChildrenForParent(); }
+    std::vector<SharedPtr<KernelCommand> >& GetWaitingChildrenForParentInWg() { return sm_pCurrentWgContext->GetWaitingChildrenForParent(); }
 
     cl_int                      m_lastError;
     char                        m_pLockedParams[CPU_MAX_PARAMETER_SIZE];
@@ -251,15 +251,15 @@ protected:
     unsigned int                m_numThreads;
     bool                        m_bEnablePredictablePartitioning;
 
-	// Used when running in "predictable partitioning" mode (i.e. 1:1 mapping between threads and WGs when using fission)
-	// Ensures no work group is executed twice, regardless of task stealing
-	Intel::OpenCL::Utils::AtomicBitField m_bWGExecuted;
-    
-	// Unique ID of the NDRange command
-	static Intel::OpenCL::Utils::AtomicCounter	s_lGlbNDRangeId;
-	long										m_lNDRangeId;
+    // Used when running in "predictable partitioning" mode (i.e. 1:1 mapping between threads and WGs when using fission)
+    // Ensures no work group is executed twice, regardless of task stealing
+    Intel::OpenCL::Utils::AtomicBitField m_bWGExecuted;
 
-	static THREAD_LOCAL WGContext* sm_pCurrentWgContext;
+    // Unique ID of the NDRange command
+    static Intel::OpenCL::Utils::AtomicCounter	s_lGlbNDRangeId;
+    long										                    m_lNDRangeId;
+
+    static THREAD_LOCAL WGContext* sm_pCurrentWgContext;
 
 #ifdef _DEBUG
     // For debug

@@ -12,7 +12,7 @@
 // suppliers and licensors, and is protected by worldwide copyright and trade
 // secret laws and treaty provisions. No part of the Material may be used, copied,
 // reproduced, modified, published, uploaded, posted, transmitted, distributed,
-// or disclosed in any way without Intel’s prior express written permission.
+// or disclosed in any way without Intel's prior express written permission.
 //
 // No license under any patent, copyright, trade secret or other intellectual
 // property right is granted to or conferred upon you by disclosure or delivery
@@ -21,7 +21,7 @@
 // and approved by Intel in writing.
 //
 // Unless otherwise agreed by Intel in writing, you may not remove or alter this notice
-// or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors
+// or any other notice embedded in Materials by Intel or Intel's suppliers or licensors
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 #include <tbb/concurrent_queue.h>
@@ -354,29 +354,21 @@ long AtomicBitField::bitTestAndSet(unsigned int bitNum)
  ************************************************************************/
 OclBinarySemaphore::OclBinarySemaphore()
 {
-    sem_t* pSemaphore = new sem_t();
-    assert(NULL != pSemaphore);
-
-    sem_init(pSemaphore, 0, 0);
-    m_semaphore = pSemaphore;
+    sem_init(&m_semaphore, 0, 0);
 }
 
 OclBinarySemaphore::~OclBinarySemaphore()
 {
-    if (NULL != m_semaphore)
-    {
-        delete static_cast<sem_t*>(m_semaphore);
-    }
 }
 
 void OclBinarySemaphore::Signal()
 {
-    sem_post((sem_t*)m_semaphore);
+    sem_post(&m_semaphore);
 }
 
 void OclBinarySemaphore::Wait()
 {
-    sem_wait((sem_t*)m_semaphore);
+    sem_wait(&m_semaphore);
 }
 
 /************************************************************************
@@ -384,51 +376,51 @@ void OclBinarySemaphore::Wait()
 ************************************************************************/
 OclReaderWriterLock::OclReaderWriterLock()
 {
-	pthread_rwlock_init(&m_rwLock, NULL);
+    pthread_rwlock_init(&m_rwLock, NULL);
 #ifdef _DEBUG
-	readEnter = 0;
-	writeEnter = 0;
+    readEnter = 0;
+    writeEnter = 0;
 #endif
 }
 
 OclReaderWriterLock::~OclReaderWriterLock()
 {
 #ifdef _DEBUG
-	assert( (writeEnter==0) && (readEnter==0) && "Writers or Readers are active in destructor");
+    assert( (writeEnter==0) && (readEnter==0) && "Writers or Readers are active in destructor");
 #endif
-	pthread_rwlock_destroy(&m_rwLock);
+    pthread_rwlock_destroy(&m_rwLock);
 }
 
 void OclReaderWriterLock::EnterRead()
 {
-	pthread_rwlock_rdlock(&m_rwLock);
+    pthread_rwlock_rdlock(&m_rwLock);
 #ifdef _DEBUG
-	readEnter++;
-	assert( writeEnter == 0 && "No writer is allowed insde EnterRead()");
+    readEnter++;
+    assert( writeEnter == 0 && "No writer is allowed insde EnterRead()");
 #endif
 }
 
 void OclReaderWriterLock::LeaveRead()
 {
 #ifdef _DEBUG
-	readEnter--;
+    readEnter--;
 #endif
-	pthread_rwlock_unlock(&m_rwLock);
+    pthread_rwlock_unlock(&m_rwLock);
 }
 
 void OclReaderWriterLock::EnterWrite()
 {
-	pthread_rwlock_wrlock(&m_rwLock);
+    pthread_rwlock_wrlock(&m_rwLock);
 #ifdef _DEBUG
-	writeEnter++;
-	assert( (writeEnter == 1) && (readEnter==0) && "Only single writer and no readers are allowed insde EnterWrite()");
+    writeEnter++;
+    assert( (writeEnter == 1) && (readEnter==0) && "Only single writer and no readers are allowed insde EnterWrite()");
 #endif
 }
 
 void OclReaderWriterLock::LeaveWrite()
 {
 #ifdef _DEBUG
-	writeEnter--;
+    writeEnter--;
 #endif
-	pthread_rwlock_unlock(&m_rwLock);
+    pthread_rwlock_unlock(&m_rwLock);
 }

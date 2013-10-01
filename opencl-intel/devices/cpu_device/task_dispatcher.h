@@ -50,15 +50,14 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
 typedef struct _cl_dev_internal_subdevice_id
 {
-	//Arch. data
-	cl_uint  num_compute_units;
-	bool     is_by_names;
-	cl_uint* legal_core_ids;
+    //Arch. data
+    cl_uint  num_compute_units;
+    bool     is_by_names;
+    cl_uint* legal_core_ids;
 
-	//Task dispatcher for this sub-device
-	TaskDispatcher*                     task_dispatcher;
-	Intel::OpenCL::Utils::AtomicCounter task_dispatcher_ref_count;
-	volatile bool                       task_dispatcher_init_complete;
+    //Task dispatcher for this sub-device
+    Intel::OpenCL::Utils::AtomicCounter ref_count;
+    volatile bool                       is_acquired;
     void*    taskExecutorData;
 } cl_dev_internal_subdevice_id;
 
@@ -74,27 +73,30 @@ class TaskDispatcher : public Intel::OpenCL::TaskExecutor::ITaskExecutorObserver
 	friend class AffinitizeThreads;
 
 public:
-	TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
-		ProgramService	*programService, MemoryAllocator *memAlloc,
-		IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObsserver);
-	virtual ~TaskDispatcher();
+    TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
+      ProgramService	*programService, MemoryAllocator *memAlloc,
+      IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObsserver);
+    virtual ~TaskDispatcher();
 
-	virtual cl_dev_err_code init();
+    virtual cl_dev_err_code init();
 
-	virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, void* IN pSubdevTaskExecData, void** OUT list);
-	virtual cl_dev_err_code releaseCommandList( cl_dev_cmd_list IN list );
-	virtual cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
-	virtual cl_dev_err_code commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
-	virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait);
-	virtual cl_dev_err_code cancelCommandList(cl_dev_cmd_list IN list);
+    virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, void* IN pSubdevTaskExecData, void** OUT list);
+    virtual cl_dev_err_code releaseCommandList( cl_dev_cmd_list IN list );
+    virtual cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
+    virtual cl_dev_err_code commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
+    virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait);
+    virtual cl_dev_err_code cancelCommandList(cl_dev_cmd_list IN list);
 
     virtual ProgramService* getProgramService(){ return m_pProgramService; }
 
-	virtual bool            isDestributedAllocationRequired();
-	virtual bool			isThreadAffinityRequired();
+    virtual bool            isDestributedAllocationRequired();
+    virtual bool			isThreadAffinityRequired();
 
-    virtual bool            isPredictablePartitioningAllowed()                   { return false;          }
-	virtual unsigned int    getNumberOfThreads() const                           { return m_uiNumThreads; }
+    bool            isPredictablePartitioningAllowed()
+    {
+        cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
+        return ( (NULL!=pSubDevID) && pSubDevID->is_by_names );
+    }
 
     void*                   createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_dev_internal_subdevice_id* dev_ptr);
     void                    releaseSubdevice(void* pSubdevData);
@@ -108,42 +110,43 @@ public:
     queue_t                 GetDefaultQueue() { return m_pDefaultQueue.GetPtr(); }
 
     // ITaskExecutorObserver
-    virtual void*           OnThreadEntry();
-    virtual void            OnThreadExit( void* currentThreadData );
-    TE_BOOLEAN_ANSWER       MayThreadLeaveDevice( void* currentThreadData ) { return TE_USE_DEFAULT; }
+    void*                   OnThreadEntry();
+    void                    OnThreadExit( void* currentThreadData );
+    TE_BOOLEAN_ANSWER       MayThreadLeaveDevice( void* currentThreadData );
 
 #ifdef __INCLUDE_MKL__
-	OMPExecutorThread*			getOmpExecutionThread() const {return m_pOMPExecutionThread;}
+    OMPExecutorThread*			getOmpExecutionThread() const {return m_pOMPExecutionThread;}
 #endif
 protected:
-	cl_int						m_iDevId;
-	IOCLDevLogDescriptor*		m_pLogDescriptor;
-	cl_int						m_iLogHandle;
-	ocl_gpa_data*				m_pGPAData;
-	IOCLFrameworkCallbacks*		m_pFrameworkCallBacks;
-	ProgramService*				m_pProgramService;
-	MemoryAllocator*			m_pMemoryAllocator;
-	CPUDeviceConfig*			m_pCPUDeviceConfig;
-	ITaskExecutor*	            m_pTaskExecutor;
-    SharedPtr<ITEDevice>        m_pRootDevice;
-    WgContextPool*              m_pWgContextPool;
-    unsigned int				m_uiNumThreads;
-	bool						m_bTEActivated;
+    cl_int						        m_iDevId;
+    IOCLDevLogDescriptor*		  m_pLogDescriptor;
+    cl_int						        m_iLogHandle;
+    ocl_gpa_data*				      m_pGPAData;
+    IOCLFrameworkCallbacks*		m_pFrameworkCallBacks;
+    ProgramService*				    m_pProgramService;
+    MemoryAllocator*			    m_pMemoryAllocator;
+    CPUDeviceConfig*			    m_pCPUDeviceConfig;
+    ITaskExecutor*	          m_pTaskExecutor;
+    SharedPtr<ITEDevice>      m_pRootDevice;
+    WgContextPool*            m_pWgContextPool;
+    unsigned int				      m_uiNumThreads;
+    bool						          m_bTEActivated;
+
     Intel::OpenCL::Utils::SharedPtr<ITaskList> m_pDefaultQueue;
 
-	IAffinityChangeObserver*    m_pObserver;
+    IAffinityChangeObserver*    m_pObserver;
 
-	// Internal implementation of functions
-	static fnDispatcherCommandCreate_t*	m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
+    // Internal implementation of functions
+    static fnDispatcherCommandCreate_t*	m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
 
-	cl_dev_err_code	SubmitTaskArray(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* *cmds, cl_uint count);
+    cl_dev_err_code	SubmitTaskArray(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* *cmds, cl_uint count);
 
-	void	NotifyCommandStatusChange(const cl_dev_cmd_desc* pCmd, unsigned uStatus, int iErr);
+    void	NotifyCommandStatusChange(const cl_dev_cmd_desc* pCmd, unsigned uStatus, int iErr);
 
-	// Task failure notification
-	class TaskFailureNotification : public ITask
-	{
-	public:
+    // Task failure notification
+    class TaskFailureNotification : public ITask
+    {
+    public:
 
         PREPARE_SHARED_PTR(TaskFailureNotification)
 
@@ -151,72 +154,37 @@ protected:
         {
             return SharedPtr<TaskFailureNotification>(new TaskFailureNotification(_this, pCmd, retCode));
         }
-		
-		virtual ~TaskFailureNotification() {};
 
-		// ITask interface
-		bool	        CompleteAndCheckSyncPoint() {return false;}
-		bool	        SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
-		bool	        IsCompleted() const {assert(0&&"Should not be called");return true;}
+        virtual ~TaskFailureNotification() {};
+
+        // ITask interface
+        bool	        CompleteAndCheckSyncPoint() {return false;}
+        bool	        SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
+        bool	        IsCompleted() const {assert(0&&"Should not be called");return true;}
         bool	        Execute() { return Shoot( CL_DEV_ERROR_FAIL ); }
         void            Cancel()  { Shoot( CL_DEV_COMMAND_CANCELLED ); }
-		long	        Release() { return 0; }
+        long	        Release() { return 0; }
         TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-		Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
-	protected:
-		TaskDispatcher*			m_pTaskDispatcher;
-		const cl_dev_cmd_desc*	m_pCmd;
-		cl_int					m_retCode;
+        Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    protected:
+        TaskDispatcher*			m_pTaskDispatcher;
+        const cl_dev_cmd_desc*	m_pCmd;
+        cl_int					m_retCode;
 
-   		bool	        Shoot(cl_dev_err_code err);
+        bool	        Shoot(cl_dev_err_code err);
 
         TaskFailureNotification(TaskDispatcher* _this, const cl_dev_cmd_desc* pCmd, cl_int retCode) :
-		  m_pTaskDispatcher(_this), m_pCmd(pCmd), m_retCode(retCode) {}
-	};
-	cl_dev_err_code NotifyFailure(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
+        m_pTaskDispatcher(_this), m_pCmd(pCmd), m_retCode(retCode) {}
+    };
+
+    cl_dev_err_code NotifyFailure(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
 #ifdef __INCLUDE_MKL__
-	OMPExecutorThread*	m_pOMPExecutionThread;
+    OMPExecutorThread*	m_pOMPExecutionThread;
 #endif
 
 private:
-	TaskDispatcher(const TaskDispatcher&);
-	TaskDispatcher& operator=(const TaskDispatcher&);
-};
-
-class SubdeviceTaskDispatcher : public TaskDispatcher
-{
-public:
-    SubdeviceTaskDispatcher(int numThreads, unsigned int* legalCoreIDs, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks,
-        ProgramService	*programService, MemoryAllocator *memAlloc,
-        IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver, void* pSubdevTaskExecData);
-    
-    virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, void* IN pSubdevTaskExecData, cl_dev_cmd_list* OUT list);
-
-  	virtual cl_dev_err_code init();
-
-	virtual bool isPredictablePartitioningAllowed() { return true; }
-    virtual bool isThreadAffinityRequired();
-	virtual bool isDestributedAllocationRequired();
-
-	// Release SubDispatcher Instance
-	// We to handle reference counting in order to be able to release it from different code places
-	void Release();
-
-    void* getSubdevTaskData() { return m_pSubdevTaskExecData; }
-	
-protected:
-	// We don't need direct destroy
-    virtual ~SubdeviceTaskDispatcher();
-
-	OclOsDependentEvent						m_evWaitForCompletion;    
-
-	OclBinarySemaphore      				m_NonEmptyQueue;
-	OclSpinMutex							m_muDestructReady;
-	unsigned int							m_uiRefCount;
-	unsigned int*       					m_legalCoreIDs;
-    void* const                             m_pSubdevTaskExecData;
-
-    virtual cl_dev_err_code internalFlushCommandList( cl_dev_cmd_list IN list);
+    TaskDispatcher(const TaskDispatcher&);
+    TaskDispatcher& operator=(const TaskDispatcher&);
 };
 
 class AffinitizeThreads : public ITaskSet
@@ -230,36 +198,36 @@ public:
         return SharedPtr<AffinitizeThreads>(new AffinitizeThreads(numThreads, timeOutInTicks, observer)); 
     }
 
-	virtual ~AffinitizeThreads();
+    virtual ~AffinitizeThreads();
 
-	// ITaskSet interface
-	bool    SetAsSyncPoint()  { return false;}
-	bool    CompleteAndCheckSyncPoint() { return true;}
-	bool    IsCompleted() const { return true;}
-	int	    Init(size_t region[], unsigned int &regCount);
-	void*   AttachToThread(void* tls, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
-	void	DetachFromThread(void* data);
-	bool	ExecuteIteration(size_t x, size_t y, size_t z, void* data); 
-	bool	Finish(FINISH_REASON reason) { ++m_endBarrier; return false;}
-	long    Release() { return 0;}
+    // ITaskSet interface
+    bool    SetAsSyncPoint()  { return false;}
+    bool    CompleteAndCheckSyncPoint() { return true;}
+    bool    IsCompleted() const { return true;}
+    int	    Init(size_t region[], unsigned int &regCount);
+    void*   AttachToThread(void* tls, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
+    void	  DetachFromThread(void* data);
+    bool	  ExecuteIteration(size_t x, size_t y, size_t z, void* data);
+    bool	  Finish(FINISH_REASON reason) { ++m_endBarrier; return false;}
+    long    Release() { return 0;}
     void    Cancel() { Finish(FINISH_EXECUTION_FAILED); };
-	Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
-    TASK_PRIORITY	      GetPriority()                       const	{ return TASK_PRIORITY_MEDIUM;}
+    TASK_PRIORITY	        GetPriority()                       const	{ return TASK_PRIORITY_MEDIUM;}
     TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
     unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
 
     void WaitForEndOfTask() const;
 
 protected:
-	unsigned int						m_numThreads;
-	cl_ulong      						m_timeOut;
-	Intel::OpenCL::Utils::AtomicCounter	m_barrier;
-	volatile bool 						m_failed;
+    unsigned int						  m_numThreads;
+    cl_ulong      						m_timeOut;
+    Intel::OpenCL::Utils::AtomicCounter	m_barrier;
+    volatile bool 						m_failed;
 
     Intel::OpenCL::Utils::AtomicCounter	m_endBarrier;
 
-        IAffinityChangeObserver* m_pObserver;
+    IAffinityChangeObserver* m_pObserver;
 
     AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer);
 };

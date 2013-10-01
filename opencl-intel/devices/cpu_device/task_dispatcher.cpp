@@ -61,26 +61,26 @@ public:
         return SharedPtr<InPlaceTaskList>(new InPlaceTaskList(pMasterWGContext, ndrangeChildrenTaskGroup, bImmediate));
     }
 	
-	virtual ~InPlaceTaskList();
+    virtual ~InPlaceTaskList();
 
-	virtual unsigned int    Enqueue(const SharedPtr<ITaskBase>& pTaskBase);
-	virtual bool            Flush();
-	//Todo: WaitForCompletion only immediately returns if bImmediate is true
-	virtual te_wait_result  WaitForCompletion(const SharedPtr<ITaskBase>& pTask) { return TE_WAIT_COMPLETED; };
-	virtual void            Retain();
-	virtual void            Release();
+    virtual unsigned int    Enqueue(const SharedPtr<ITaskBase>& pTaskBase);
+    virtual bool            Flush();
+    //Todo: WaitForCompletion only immediately returns if bImmediate is true
+    virtual te_wait_result  WaitForCompletion(const SharedPtr<ITaskBase>& pTask) { return TE_WAIT_COMPLETED; };
+    virtual void            Retain();
+    virtual void            Release();
     virtual void	        Cancel() {};
 
-	virtual SharedPtr<ITEDevice> GetDevice() { return NULL; }
-	virtual ConstSharedPtr<ITEDevice> GetDevice() const { return NULL; }
+    virtual SharedPtr<ITEDevice> GetDevice() { return NULL; }
+    virtual ConstSharedPtr<ITEDevice> GetDevice() const { return NULL; }
 
-	virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
+    virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
 
-	virtual void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) { }
+    virtual void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) { }
 
-	bool DoesSupportDeviceSideCommandEnqueue() const { return false; }
+    bool DoesSupportDeviceSideCommandEnqueue() const { return false; }
 
-	virtual bool IsProfilingEnabled() const { return false; }
+    virtual bool IsProfilingEnabled() const { return false; }
 
     void Spawn(const SharedPtr<ITaskBase> &,Intel::OpenCL::TaskExecutor::ITaskGroup &)
     {
@@ -88,9 +88,9 @@ public:
     }
 
 protected:
-	WGContextBase* const m_pMasterWGContext;
+    WGContextBase* const m_pMasterWGContext;
     bool m_immediate;    
-	SharedPtr<ITaskGroup> m_ndrangeChildrenTaskGroup;
+    SharedPtr<ITaskGroup> m_ndrangeChildrenTaskGroup;
 
     InPlaceTaskList(WGContextBase* pMasterWGContext, const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate = true);
 
@@ -666,15 +666,15 @@ void* TaskDispatcher::OnThreadEntry()
     if (!pCtx->DoesBelongToMasterThread())
     {
         // We don't affinitize application threads
-	    if ( isThreadAffinityRequired() )
-	    {
+        if ( isThreadAffinityRequired() )
+        {
             // Only enter if affinity, in general, is required (OS-dependent)
             bool bNeedToNotify = false;
             //We notify only for sub-devices by NAMES - in other cases, the user is not interested which cores to use
             cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
             if (NULL != pSubDevID)
             {
-                bNeedToNotify = pSubDevID->is_by_names;
+                bNeedToNotify = (NULL != pSubDevID->legal_core_ids);
             }
 
             if (bNeedToNotify)
@@ -682,7 +682,7 @@ void* TaskDispatcher::OnThreadEntry()
                 assert((NULL != pSubDevID->legal_core_ids) && "For BY NAMES there should be an allocated array of legal core indices");
                 m_pObserver->NotifyAffinity( clMyThreadId(), pSubDevID->legal_core_ids[position_in_device] );
             }
-	    }
+        }
     }
 
     return pCtx;
@@ -695,71 +695,15 @@ void  TaskDispatcher::OnThreadExit( void* currentThreadData )
     m_pWgContextPool->ReleaseWorkerWGContext( pCtx );
 }
 
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-SubdeviceTaskDispatcher::SubdeviceTaskDispatcher(int numThreads, unsigned int* legalCoreIDs, cl_int devId, IOCLFrameworkCallbacks *pDevCallbacks, ProgramService *programService,
-    MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver, void* pSubdevTaskExecData) 
-	: TaskDispatcher(devId, pDevCallbacks, programService, memAlloc, logDesc, cpuDeviceConfig, pObserver),
-	m_legalCoreIDs(legalCoreIDs), m_pSubdevTaskExecData(pSubdevTaskExecData)
+TE_BOOLEAN_ANSWER TaskDispatcher::MayThreadLeaveDevice( void* currentThreadData )
 {
-	m_uiRefCount = 2; // We start with reference count of two
-					 // The first item is for cpu device level release
-					 // The second item is for sub-device worker release
-	m_uiNumThreads = numThreads;
-	m_evWaitForCompletion.Init(true); // Auto-reset event
+    cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
+    if ( (NULL!=pSubDevID) && (NULL!=pSubDevID->legal_core_ids) )
+    {
+        return pSubDevID->is_acquired ? TE_NO : TE_YES;
+    }
+    return TE_USE_DEFAULT;
 }
-
-SubdeviceTaskDispatcher::~SubdeviceTaskDispatcher()
-{
-}
-
-void SubdeviceTaskDispatcher::Release()
-{
-	// Must wait until SubDevice worker thread finishes shutdown sequence.
-	// Use thread reentered mutex, to be able to not to wait while shuting down from the same thread
-	m_muDestructReady.Lock();
-	// Check if this call should destroy the task dispatcher
-	bool bDeleteThis = ( (m_uiRefCount)-- == 1);
-	m_muDestructReady.Unlock();
-
-	if ( bDeleteThis )
-	{
-		delete this;
-	}
-}
-
-cl_dev_err_code SubdeviceTaskDispatcher::init()
-{
-	return CL_DEV_SUCCESS;
-}
-
-cl_dev_err_code SubdeviceTaskDispatcher::createCommandList(cl_dev_cmd_list_props props, void* IN pSubdevTaskExecData, cl_dev_cmd_list *list)
-{
-	return TaskDispatcher::createCommandList(props, pSubdevTaskExecData, list);
-}
-
-cl_dev_err_code SubdeviceTaskDispatcher::internalFlushCommandList(cl_dev_cmd_list IN list)
-{
-    cl_dev_err_code err = TaskDispatcher::flushCommandList(list);
-    releaseCommandList(list);
-    return err;
-}
-
-bool SubdeviceTaskDispatcher::isThreadAffinityRequired()
-{
-	// Threads already affinitized
-	return false;
-}
-
-bool SubdeviceTaskDispatcher::isDestributedAllocationRequired()
-{
-	// Always partially allocate resources
-	return true;
-}
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -774,25 +718,25 @@ AffinitizeThreads::~AffinitizeThreads()
 
 void AffinitizeThreads::WaitForEndOfTask() const
 {
-	while ((!m_failed) && (0 == m_endBarrier))
-	{
-		hw_pause();
-	}
+    while ((!m_failed) && (0 == m_endBarrier))
+    {
+        hw_pause();
+    }
 }
 
 int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount)
 {
-	// copy execution parameters
-	unsigned int i;
-	for (i = 1; i < MAX_WORK_DIM; ++i)
-	{
-		region[i] = 1;
-	}
-	dimCount = 1;
-	region[0] = m_numThreads;
-	m_barrier = m_numThreads;
+    // copy execution parameters
+    unsigned int i;
+    for (i = 1; i < MAX_WORK_DIM; ++i)
+    {
+      region[i] = 1;
+    }
+    dimCount = 1;
+    region[0] = m_numThreads;
+    m_barrier = m_numThreads;
 
-	return CL_DEV_SUCCESS;
+    return CL_DEV_SUCCESS;
 }
 
 void* AffinitizeThreads::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])

@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -553,7 +553,8 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCm
 }
 
 NativeFunction::NativeFunction(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-	CommandBaseClass<ITask>(pTD, pCmd)
+	CommandBaseClass<ITask>(pTD, pCmd),
+	m_pArgV(NULL)
 {
 }
 
@@ -803,8 +804,12 @@ cl_dev_err_code NDRange::CreateBinary(const ICLDevBackendKernel_* kernel, size_t
 THREAD_LOCAL WGContext* NDRange::sm_pCurrentWgContext = NULL;
 
 NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, const SharedPtr<ITaskList>& pList, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup) :
-	CommandBaseClass<ITaskSet>(pTD, pCmd), KernelCommand(pList, parent, childrenTaskGroup, this), m_lastError(CL_DEV_SUCCESS), m_pBinary(NULL),
-	m_pMemBuffSizes(NULL), m_numThreads(0), m_bEnablePredictablePartitioning(false)
+	CommandBaseClass<ITaskSet>(pTD, pCmd),
+	KernelCommand(pList, parent, childrenTaskGroup, this),
+	m_lastError(CL_DEV_SUCCESS),
+	m_pBinary(NULL), m_MemBuffCount(0), m_pMemBuffSizes(NULL),
+	m_numThreads(0), m_bEnablePredictablePartitioning(false),
+	m_lNDRangeId(-1)
 {
 #ifdef _DEBUG
 	memset(m_pLockedParams, 0x88, sizeof(m_pLockedParams));
@@ -812,7 +817,8 @@ NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, const SharedPtr<ITa
 	m_lAttaching.exchange(0);
 	m_lExecuting.exchange(0);
 #endif
-	m_numThreads = pTD->getNumberOfThreads();
+    const ITEDevice* pDevice = pList->GetDevice().GetPtr();
+	m_numThreads = NULL!=pDevice ? pDevice->GetConcurrency() : 1;
 }
 
 cl_dev_err_code NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
@@ -939,7 +945,6 @@ cl_dev_err_code NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
 int NDRange::Init(size_t region[], unsigned int &dimCount)
 {
     cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-    const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->pBEKernel;
 
 #ifdef _DEBUG_PRINT
     printf("--> Init(start):%s, id(%d)\n", pKernel->GetKernelName(), (int)m_pCmd->id);
@@ -979,7 +984,9 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     MEMCPY_S(workDesc.localWorkSize, sizeof(workDesc.localWorkSize), cmdParams->lcl_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
 
     //TODO: calibrate
-    workDesc.minWorkGroupNum = m_pTaskDispatcher->getNumberOfThreads();
+    workDesc.minWorkGroupNum = m_numThreads;
+
+    const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->pBEKernel;
 
     // Create an "Binary" for these parameters
     clRet = CreateBinary(pKernel, cmdParams->arg_size, &workDesc, &m_pBinary);
@@ -987,7 +994,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     {
         m_lastError = clRet;
         NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, clRet);
-        return clRet;
+        return -1;
     }
 
     // Update buffer parameters
@@ -996,6 +1003,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     if ( NULL == m_pMemBuffSizes )
     {
         m_lastError = (cl_int)CL_DEV_OUT_OF_MEMORY;
+        NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
         return -1;
     }
     m_pBinary->GetMemoryBuffersDescriptions(m_pMemBuffSizes, &m_MemBuffCount);
@@ -1014,8 +1022,12 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     dimCount = cmdParams->work_dim;
   
     //TODO: might want to revisit these restrictions in the future
-    m_bEnablePredictablePartitioning = ((1 == dimCount) && (region[0] == m_numThreads) && m_pTaskDispatcher->isPredictablePartitioningAllowed() );
-    m_bWGExecuted.init(m_numThreads, false);
+    //TODO: Use direct access to ITEDevice and expose sub device INFO.
+    m_bEnablePredictablePartitioning = ( (1 == dimCount) && (region[0] == m_numThreads) && m_pTaskDispatcher->isPredictablePartitioningAllowed() );
+    if ( m_bEnablePredictablePartitioning )
+    {
+        m_bWGExecuted.init(m_numThreads, false);
+    }
 
 #ifdef _DEBUG_PRINT
     printf("--> Init(done):%s\n", pKernel->GetKernelName());
@@ -1026,8 +1038,11 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 
 bool NDRange::Finish(FINISH_REASON reason)
 {
-    // KernelCommand stuff:
-    WaitForChildrenCompletion();
+    // Need to notify all kernel children and wait for their completion
+    if ( IsWaitingChildExist() )
+    {
+        WaitForChildrenCompletion();
+    }
 
     // regular stuff:
 #ifdef _DEBUG
@@ -1036,32 +1051,32 @@ bool NDRange::Finish(FINISH_REASON reason)
     m_lFinish.exchange(1);
 #endif
 
-#ifdef _DEBUG_PRINT
-    cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-    const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->pBEKernel;
-#endif
 #ifdef _DEBUG
     lVal = (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));
     assert(lVal == 0);
 #endif
 
-    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
-    SignalComplete(FINISH_COMPLETED == reason ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL);
+    //  Need to distinguish between Root and device commands
+    //  RT should be notified only for ROOT commands
+    KernelCommand* pParent = GetParent().GetPtr();
+    if ( NULL == pParent )
+    {
+        NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
+    }
+    else
+    {
+        SignalComplete(FINISH_COMPLETED == reason ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL);
+        pParent->ChildCompleted(GetError());
+    }
+
 #ifdef _DEBUG_PRINT
+    cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
+    const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->pBEKernel;
     printf("--> Finish(done):%s\n", pKernel->GetKernelName());
 #endif
 #ifdef _DEBUG
     m_lFinish.exchange(0);
 #endif
-
-    if ( NULL != m_pBinary )
-    {
-        m_pBinary->Release();
-    }
-    if ( NULL != m_pMemBuffSizes )
-    {
-        delete []m_pMemBuffSizes;
-    }
 
 #if defined(USE_ITT)
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
@@ -1070,9 +1085,19 @@ bool NDRange::Finish(FINISH_REASON reason)
     }
 #endif // ITT
 
-	return true;
-}
+    if ( NULL != m_pBinary )
+    {
+        m_pBinary->Release();
+        m_pBinary = NULL;
+    }
+    if ( NULL != m_pMemBuffSizes )
+    {
+        delete []m_pMemBuffSizes;
+        m_pMemBuffSizes = NULL;
+    }
 
+    return true;
+}
 
 void* NDRange::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
 {
@@ -1088,10 +1113,11 @@ void* NDRange::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups,
     }
     ++m_lAttaching ;
 #endif
-	
+
+    assert( (NULL != pWgContextBase) && "Invalid context provided");
     if ( NULL == pWgContextBase )
     {
-        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to retrive WG context"));
+        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to retrieve WG context"));
         m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
 #ifdef _DEBUG
         --m_lAttaching ;
@@ -1100,8 +1126,10 @@ void* NDRange::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups,
     }
 
     WGContext* pCtx = static_cast<WGContext*>(reinterpret_cast<WGContextBase*>(pWgContextBase));
+
     pCtx->SetCurrentNDRange(this);
     sm_pCurrentWgContext = pCtx;
+
     if (m_lNDRangeId != pCtx->GetNDRCmdId() )
     {
         cl_dev_err_code ret = pCtx->CreateContext(m_lNDRangeId, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
@@ -1116,11 +1144,13 @@ void* NDRange::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups,
         }
     }
 
-    if (NULL == pCtx->GetExecutable())
+    ICLDevBackendExecutable_* pExec = pCtx->GetExecutable();
+    if (NULL == pExec)
     {
+        m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
         return NULL;
     }
-    pCtx->GetExecutable()->PrepareThread();
+    pExec->PrepareThread();
 
 #ifdef USE_ITT
     // Start execution task
@@ -1137,7 +1167,7 @@ void* NDRange::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups,
         {
             uiWorkGroupSize *= (unsigned int)pWGSize[i];
         }
-		
+
         __itt_metadata_add(m_pGPAData->pDeviceDomain, m_ittID, m_pGPAData->pWorkGroupSizeHandle, __itt_metadata_u32 , 1, &uiWorkGroupSize);
 
         cl_ulong numOfWGs64 = uiNumberOfWorkGroups;
@@ -1175,87 +1205,99 @@ void NDRange::DetachFromThread(void* pWgContext)
     }
 #endif // ITT
     
-    WGContext* const pCtx = reinterpret_cast<WGContext*>(pWgContext);
-    assert(NULL != pCtx);
-    if (NULL == pCtx->GetExecutable())
+    WGContext* pCtx = reinterpret_cast<WGContext*>(pWgContext);
+    assert( (NULL != pCtx) && "Invalid context provided");
+    ICLDevBackendExecutable_* pExec = pCtx->GetExecutable();
+    if (NULL == pExec)
     {
         m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
         return;
     }
 
-    pCtx->GetExecutable()->RestoreThreadState();
-    WgFinishedExecution();
+    pExec->RestoreThreadState();
+
+    // Check if needed first, saves few cycles
+    if ( (!pCtx->GetWaitingChildrenForParent().empty()) || (!pCtx->GetWaitingChildrenForWg().empty()) )
+    {
+        WgFinishedExecution();
+    }
     pCtx->SetCurrentNDRange(NULL);
     sm_pCurrentWgContext = NULL;
 }
 
 bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
 {
+    assert(NULL != pWgCtx && "Invalid context provided");
 #ifdef _DEBUG
-	long lVal = m_lFinish.test_and_set(0, 0);
-	assert(lVal == 0);
-	++ m_lExecuting;
+    long lVal = m_lFinish.test_and_set(0, 0);
+    assert(lVal == 0);
+    ++ m_lExecuting;
 #endif
 
-	assert(NULL != pWgCtx);
+
+    // We always start from (0,0,0) and process whole WG
+    // No Need in parameters now
+#ifdef _DEBUG
+    const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
+    cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
+    size_t tDimArr[3] = {x, y, z};
+    for (unsigned int i=0; i<cmdParams->work_dim;++i)
+    {
+        unsigned int val = (unsigned int)((cmdParams->glb_wrk_size[i])/(pWGSize[i]));
+        assert(tDimArr[i]<val);
+    }
+
+    lVal = m_lFinish.test_and_set(0, 0);
+    assert(lVal == 0);
+#endif
+
     WGContext* pWgContext = reinterpret_cast<WGContext*>(pWgCtx);
-    ICLDevBackendExecutable_* pExec = pWgContext->GetExecutable();
-	// We always start from (0,0,0) and process whole WG
-	// No Need in parameters now
-#ifdef _DEBUG
-	const size_t*	pWGSize = m_pBinary->GetWorkGroupSize();
-	cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
-	size_t tDimArr[3] = {x, y, z};
-	for (unsigned int i=0; i<cmdParams->work_dim;++i)
-	{
-		unsigned int val = (unsigned int)((cmdParams->glb_wrk_size[i])/(pWGSize[i]));
-		assert(tDimArr[i]<val);
-	}
-#endif
-
-#ifdef _DEBUG
-	lVal = m_lFinish.test_and_set(0, 0);
-	assert(lVal == 0);
-#endif
-
-	// Execute WG
-	size_t groupId[MAX_WORK_DIM] = {x, y, z};
+    if ( NULL == pWgContext )
+    {
+        return false;
+    }
+    // Execute WG
+    size_t groupId[MAX_WORK_DIM] = {x, y, z};
 #ifndef _WIN32	//Don't support this feature on Windows at the moment   
-				//Optionally override the iteration to be executed if an affinity permutation is defined
-	if (m_bEnablePredictablePartitioning)
-	{
-        assert((0 == y) && (0 == z));
-	    unsigned int myGroupID = pWgContext->GetThreadId();
-	    if (0 == m_bWGExecuted.bitTestAndSet(myGroupID))
-	    {
-		groupId[0] = myGroupID;
-	    }
-	    else // find an available work group
-	    {
-		for (unsigned int ui = 0; ui < m_numThreads; ++ui)
-		{
-	            if (0 == m_bWGExecuted.bitTestAndSet(ui))
-		    {
-		        groupId[0] = ui;
-			break;
-		    }
-		}
-	    }
+				        //Optionally override the iteration to be executed if an affinity permutation is defined
+    if (m_bEnablePredictablePartitioning)
+    {
+        assert((0 == y) && (0 == z) && "predicted partitioning work on 1D only");
+        unsigned int myGroupID = pWgContext->GetThreadId();
+        if (0 == m_bWGExecuted.bitTestAndSet(myGroupID))
+        {
+            groupId[0] = myGroupID;
         }
+        else // find an available work group
+        {
+            for (unsigned int ui = 0; ui < m_numThreads; ++ui)
+            {
+                if (0 == m_bWGExecuted.bitTestAndSet(ui))
+                {
+                    groupId[0] = ui;
+                    break;
+                }
+            }
+        }
+    }
 #endif
-	if (NULL == pExec)
-	{
-		#ifdef _DEBUG
-			-- m_lExecuting;
-		#endif
-		return true;
-	}	
-	pExec->Execute(groupId, NULL, NULL);
+
+    ICLDevBackendExecutable_* pExec = pWgContext->GetExecutable();
+    if (NULL == pExec)
+    {
 #ifdef _DEBUG
-	-- m_lExecuting;
+        -- m_lExecuting;
+#endif
+        return true;
+    }
+
+    // Execute single WG
+    pExec->Execute(groupId, NULL, NULL);
+
+#ifdef _DEBUG
+	  -- m_lExecuting;
 #endif
     return true;
-
 }
 
 ///////////////////////////////////////////////////////////////////////////

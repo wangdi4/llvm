@@ -186,11 +186,11 @@ typedef struct event_Structure
 	volatile bool isFired;
 } EVENT_STRUCTURE;
 
-typedef pthread_cond_t				CONDITION_VAR;
+typedef pthread_cond_t				  CONDITION_VAR;
 
 #include <semaphore.h>
-// Type declaration for binary sempahore
-typedef sem_t							BINARY_SEMAPHORE;
+// Type declaration for binary semaphore
+typedef sem_t							      BINARY_SEMAPHORE;
 typedef pthread_rwlock_t				READ_WRITE_LOCK;
 
 #define CAS(ptr,old_val,new_val)	__sync_val_compare_and_swap(ptr,old_val,new_val)
