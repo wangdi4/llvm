@@ -257,8 +257,8 @@ else ()
 endif (SVN_REVISIONS)
 message(STATUS "Current build version is ${BUILDVER_WC_LAST_CHANGED_REV}")
 
-math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
-math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
+math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65535")
+math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65535")
 
 # write a file with the BUILDVERSION define
 file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n#ifndef\ _DEBUG\n#define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"\n#else\n#define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"\n#endif\n\n#define BUILDVERSION16BIT_MAJOR ${BUILDVER_16_BIT_MAJOR}\n#define BUILDVERSION16BIT_MINOR ${BUILDVER_16_BIT_MINOR}\n#define VERSIONSTRING \"4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n\n")
@@ -386,10 +386,10 @@ if (INCLUDE_MIC_DEVICE)
         set ( COI_YOCTO_DEVICE_LIB_PATH     /opt/mpss/3.1/sysroots/k1om-mpss-linux/usr/lib64 )
     endif (WIN32)
 
-    message (STATUS "COI host include directory  : ${COI_HOST_INCLUDE_PATH}")
-    message (STATUS "COI host lib directory      : ${COI_HOST_LIB_PATH}")
-    message (STATUS "COI device include directory: ${COI_DEVICE_INCLUDE_PATH}")
-    message (STATUS "COI device lib directory    : ${COI_DEVICE_LIB_PATH}")
+    message ( "COI host include directory  : ${COI_HOST_INCLUDE_PATH}")
+    message ( "COI host lib directory      : ${COI_HOST_LIB_PATH}")
+    message ( "COI device include directory: ${COI_DEVICE_INCLUDE_PATH}")
+    message ( "COI device lib directory    : ${COI_DEVICE_LIB_PATH}")
 endif (INCLUDE_MIC_DEVICE)
 
 # paths
@@ -511,6 +511,7 @@ else (WIN32)
 	install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
 	
 	install(FILES setup/Android/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup)	
+	install(FILES setup/LicenseAgreement_Linux.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
 	
 	install(FILES "../utils/RPM_BUILDER/intelocl64.icd" DESTINATION ${MISC_INSTALLER_FOLDER})
 
