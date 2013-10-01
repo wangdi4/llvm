@@ -68,7 +68,7 @@ using namespace Intel::OpenCL::Utils;
  *
  ******************************************************************/
 Command::Command( SharedPtr<IOclCommandQueueBase> cmdQueue ):
-    m_Event(QueueEvent::Allocate(cmdQueue)),
+    m_Event(QueueEvent::Allocate(m_eventPlaceholder, cmdQueue)),
     m_clDevCmdListId(0),
 	m_pDevice(NULL),
 	m_pCommandQueue(cmdQueue),

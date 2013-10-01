@@ -218,6 +218,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code AcquireSingleMemoryObject( MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev );
                 
         bool                        m_memory_objects_acquired;
+
+        // We allocate m_Event here with replacement new in order to save an extra real allocation. We also want to make sure it is aligned to native address size to avoid misaligned loads
+        size_t                      m_eventPlaceholder[(sizeof(QueueEvent) / sizeof(size_t)) + 1];
        
     };
     

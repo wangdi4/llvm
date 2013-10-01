@@ -52,10 +52,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     public:
         PREPARE_SHARED_PTR(QueueEvent)
-        friend class Command;        
-        static SharedPtr<QueueEvent> Allocate(SharedPtr<IOclCommandQueueBase> cmdQueue)
+        friend class Command;
+        /**
+         * @param ptr       pointer to a memory area to initialize the object at
+         * @param cmdQueue  the command queue of this event
+         * @return a new QueueEvent placed in address 'ptr'
+         */
+        static SharedPtr<QueueEvent> Allocate(void* ptr, SharedPtr<IOclCommandQueueBase> cmdQueue)
         {
-            return new QueueEvent(cmdQueue);
+            return ::new(ptr) QueueEvent(cmdQueue);
         }
 
         ~QueueEvent();
@@ -98,6 +103,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual void    Wait();
 #endif
 
+        virtual void Cleanup(bool bIsTerminate = false);
+
     protected:
         QueueEvent( SharedPtr<IOclCommandQueueBase> cmdQueue);
 
@@ -118,7 +125,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
     private:
 
         bool                    m_bEverIssuedToDevice;
-        void operator delete(void* p);
 
         ocl_gpa_data*           m_pGPAData;
     #if defined(USE_ITT)

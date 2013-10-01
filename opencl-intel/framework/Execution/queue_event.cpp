@@ -430,14 +430,13 @@ void QueueEvent::Wait()
 }
 #endif
 
-void QueueEvent::operator delete(void* p)
+void QueueEvent::Cleanup(bool bIsTerminate)
 {
-    QueueEvent* const self = (QueueEvent*)p;
-    if (!self->m_pCommand->IsBeingDeleted())
+    this->~QueueEvent();
+    if (!m_pCommand->IsBeingDeleted())
     {
-        delete self->m_pCommand;  // this will delete myself as well, since m_pCommand aggregates me
+        delete m_pCommand;
     }
-    OclEvent::operator delete(p);
 }
 
 void QueueEvent::AddProfilerMarker(const char* szMarkerName, int iMarkerMask)
