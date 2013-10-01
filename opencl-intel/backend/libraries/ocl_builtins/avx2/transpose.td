@@ -7,26 +7,26 @@
 OclBuiltinImpl transpose_load_char4x8_avx2 = OclBuiltinImpl<__ocl_load_transpose4x8, [v4i8],  0, [{
     // We load "int8", meaning we load the full matrix in a single load
     int* tmpLoadAdd = (int*)$Arg0VarName;
-    my_char32 Arg0 = (my_char32) vload8(0, tmpLoadAdd);                               // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+    ocl_char32 Arg0 = (ocl_char32) vload8(0, tmpLoadAdd);                             // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
     $Arg1Type Arg1 = $Arg1VarName;
     $Arg2Type Arg2 = $Arg2VarName;
     $Arg3Type Arg3 = $Arg3VarName;
     $Arg4Type Arg4 = $Arg4VarName;
 
-    //__ocl_load_transpose_char4x8_common_avx2(my_char32 Arg0, char8* Arg1, char8* Arg2, char8* Arg3, char8* Arg4)
+    //__ocl_load_transpose_char4x8_common_avx2(ocl_char32 Arg0, char8* Arg1, char8* Arg2, char8* Arg3, char8* Arg4)
     #{__ocl_load_transpose_char4x8_common_avx2}#
   }]>;
 
 OclBuiltinImpl transpose_store_char4x8_avx2 = OclBuiltinImpl<__ocl_transpose_store4x8, [v4i8],  0, [{
 
-    my_char32 xyzw;
-    my_char32* Arg0 = &xyzw;
+    ocl_char32 xyzw;
+    ocl_char32* Arg0 = &xyzw;
     $Arg1Type Arg1 = $Arg1VarName;
     $Arg2Type Arg2 = $Arg2VarName;
     $Arg3Type Arg3 = $Arg3VarName;
     $Arg4Type Arg4 = $Arg4VarName;
 
-    //__ocl_transpose_store_char4x8_common_avx2(my_char32* Arg0, char8 Arg1, char8 Arg2, char8 Arg3, char8 Arg4)
+    //__ocl_transpose_store_char4x8_common_avx2(ocl_char32* Arg0, char8 Arg1, char8 Arg2, char8 Arg3, char8 Arg4)
     #{__ocl_transpose_store_char4x8_common_avx2}#
     // We store "int8", meaning we store the full matrix in a single store
     int* tmpStoreAdd = (int*)$Arg0VarName;
@@ -45,7 +45,7 @@ OclBuiltinImpl transpose_gather_char4x8_avx2 = OclBuiltinImpl<__ocl_gather_trans
 
     int8 xyzw = 0;
     // TODO : Replace this blend built-in with ?: when clang bug will be fixed
-    xyzw.s0 = *((int*)$Arg0VarName);                                                     // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
+    xyzw.s0 = *((int*)$Arg0VarName);                                                  // x0 y0 z0 w0  D  D  D  D  D  D  D  D  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
     xyzw = as_int8(_mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw1, 0x2));           // x0 y0 z0 w0 x1 y1 z1 w1  D  D  D  D  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
     xyzw = as_int8(_mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw2, 0x4));           // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2  D  D  D  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
     xyzw = as_int8(_mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw3, 0x8));           // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D
@@ -53,25 +53,25 @@ OclBuiltinImpl transpose_gather_char4x8_avx2 = OclBuiltinImpl<__ocl_gather_trans
     xyzw = as_int8(_mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw5, 0x20));          // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5  D  D  D  D  D  D  D  D
     xyzw = as_int8(_mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw6, 0x40));          // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6  D  D  D  D
     xyzw = as_int8(_mm256_blend_epi32((__m256i)xyzw, (__m256i)xyzw7, 0x80));          // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
-    my_char32 Arg0 = (my_char32)xyzw;
+    ocl_char32 Arg0 = (ocl_char32)xyzw;
     $Arg8Type Arg1 = $Arg8VarName;
     $Arg9Type Arg2 = $Arg9VarName;
     $Arg10Type Arg3 = $Arg10VarName;
     $Arg11Type Arg4 = $Arg11VarName;
 
-    //__ocl_load_transpose_char4x8_common_avx2(my_char32 Arg0, char8* Arg1, char8* Arg2, char8* Arg3, char8* Arg4)
+    //__ocl_load_transpose_char4x8_common_avx2(ocl_char32 Arg0, char8* Arg1, char8* Arg2, char8* Arg3, char8* Arg4)
     #{__ocl_load_transpose_char4x8_common_avx2}#
   }]>;
 
 OclBuiltinImpl transpose_scatter_char4x8_avx2 = OclBuiltinImpl<__ocl_transpose_scatter4x8, [v4i8],  0, [{
     int8 xyzw = 0;
-    my_char32* Arg0 = (my_char32*)&xyzw;
+    ocl_char32* Arg0 = (ocl_char32*)&xyzw;
     $Arg8Type Arg1 = $Arg8VarName;
     $Arg9Type Arg2 = $Arg9VarName;
     $Arg10Type Arg3 = $Arg10VarName;
     $Arg11Type Arg4 = $Arg11VarName;
 
-    //__ocl_transpose_store_char4x8_common_avx2(my_char32* Arg0, char8 Arg1, char8 Arg2, char8 Arg3, char8 Arg4)
+    //__ocl_transpose_store_char4x8_common_avx2(ocl_char32* Arg0, char8 Arg1, char8 Arg2, char8 Arg3, char8 Arg4)
     #{__ocl_transpose_store_char4x8_common_avx2}#
     *((int*)$Arg0VarName) = xyzw.s0;
     *((int*)$Arg1VarName) = xyzw.s1;

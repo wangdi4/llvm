@@ -1,0 +1,5 @@
+if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+	create_target ( knl d3 KNLni FALSE )
+else ()
+	create_target ( knl b3 KNLni FALSE )
+endif(CMAKE_SIZEOF_VOID_P EQUAL 4)

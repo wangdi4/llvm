@@ -556,7 +556,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
     int APFLevel = pConfig->GetAPFLevel();
     // do APF and following cleaning passes only if APF is not disabled
     if (APFLevel != APFLEVEL_0_DISAPF) {
-      m_modulePasses.add(createPrefetchPassLevel(pConfig->GetAPFLevel()));
+      if (pConfig->GetCpuId().RequirePrefetch())
+        m_modulePasses.add(createPrefetchPassLevel(pConfig->GetAPFLevel()));
 
       m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
       m_modulePasses.add(llvm::createInstructionCombiningPass());       // Instruction combining

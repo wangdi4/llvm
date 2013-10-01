@@ -17,6 +17,7 @@ enum ECPU {
     CPU_COREI7,
     CPU_SANDYBRIDGE,
     CPU_HASWELL,
+    CPU_KNL,
     // MIC Cards must appear last
     MIC_KNC,
     MIC_FIRST = MIC_KNC,
@@ -34,7 +35,8 @@ enum ECPUFeatureSupport {
     CFS_AVX2    = 1 << 6,
     CFS_FMA     = 1 << 7,
     CFS_BMI     = 1 << 8,
-    CFS_BMI2    = 1 << 9
+    CFS_BMI2    = 1 << 9,
+    CFS_AVX512F = 1 << 10
 };
 class CPUId {
 public:
@@ -55,6 +57,7 @@ public:
     }
     static ECPU GetCPUByName(const char *CPUName) {
         std::string Name(CPUName);
+        if (Name == "knl") return CPU_KNL;
         if (Name == "knc") return MIC_KNC;
         if (Name == "core-avx2") return CPU_HASWELL;
         if (Name == "corei7-avx") return CPU_SANDYBRIDGE;
@@ -86,6 +89,8 @@ public:
             return "corei7-avx";
         case CPU_HASWELL:
             return "core-avx2";
+        case CPU_KNL:
+            return "knl";
         case MIC_KNC:
             return "knc";
         }
@@ -117,6 +122,8 @@ public:
                 return "g9";
             case CPU_HASWELL:
                 return "s9";
+            case CPU_KNL:
+                return "d3";
             case MIC_KNC:
                 assert(false && "No MIC SVML lib for 32-bit OS!");
                 return 0;
@@ -139,6 +146,8 @@ public:
             return  "e9";
         case CPU_HASWELL:
             return "l9";
+        case CPU_KNL:
+            return "b3";
         case MIC_KNC:
             return "b2";
         }
@@ -159,7 +168,10 @@ public:
         return HasGatherScatter(m_CPU);
     };
     static bool HasGatherScatter(ECPU CPU) {
-        return CPU >= MIC_FIRST && CPU < DEVICE_INVALID;
+        return (CPU == MIC_KNC || CPU == CPU_KNL);
+    };
+    bool RequirePrefetch() const {
+        return m_CPU == MIC_KNC;
     };
     static bool IsValidCPUName(const char* pCPUName) {
         return DEVICE_INVALID != GetCPUByName(pCPUName);

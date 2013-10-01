@@ -126,9 +126,9 @@ const constant char16 g_vls_2x64to2x16 = {0, 1, 8, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 
 // new type for the implementation of the transpose functions- TODO- check if there is a suitable place for it
 #if defined(__AVX__)
-typedef __v32qi my_char32;
+typedef __v32qi ocl_char32;
 
-my_char32 INLINE_ATTRIBUTE as_my_char32(int8 x) {
-  return __builtin_astype(x, my_char32);
+ocl_char32 INLINE_ATTRIBUTE as_ocl_char32(int8 x) {
+  return __builtin_astype(x, ocl_char32);
 }
 #endif

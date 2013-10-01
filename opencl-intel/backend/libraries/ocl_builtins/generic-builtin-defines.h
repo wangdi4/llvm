@@ -79,6 +79,11 @@ const constant double d4const_minusZeroStorage[4] = {-0.0, -0.0, -0.0, -0.0};
 const constant double d4const_minusOneStorage[4]  = {-1.0, -1.0, -1.0, -1.0};
 const constant double d4const_nanStorage[4] = {0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF};
 
+typedef int ocl_int32 __attribute__((ext_vector_type(32)));
+typedef uint ocl_uint32 __attribute__((ext_vector_type(32)));
+typedef float ocl_float32 __attribute__((ext_vector_type(32)));
+
+
 #ifndef INLINE_ATTRIBUTE
 #define INLINE_ATTRIBUTE __attribute__((always_inline))
 #endif

@@ -5,13 +5,13 @@
 //                                 char4x8
 // ****************************************************************************
 OclBuiltinImpl transpose_masked_load_char4x8_avx = OclBuiltinImpl<__ocl_masked_load_transpose4x8, [v4i8], 0, [{
-    my_char32 xyzw;
+    ocl_char32 xyzw;
     __ocl_masked_load_char_4x8($Arg0VarName, (char4*)&xyzw, $Arg5VarName);
     __ocl_load_transpose_char_4x8((char4*)&xyzw, $Arg1VarName, $Arg2VarName, $Arg3VarName, $Arg4VarName);
   }]>;
 
 OclBuiltinImpl transpose_masked_store_char4x8_avx = OclBuiltinImpl<__ocl_masked_transpose_store4x8, [v4i8], 0, [{
-    my_char32 xyzw;
+    ocl_char32 xyzw;
     __ocl_transpose_store_char_4x8((char4*)&xyzw, $Arg1VarName, $Arg2VarName, $Arg3VarName, $Arg4VarName);
     __ocl_masked_store_char_4x8($Arg0VarName, (char4*)&xyzw, $Arg5VarName);
   }]>;

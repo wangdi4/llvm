@@ -14,8 +14,8 @@ OclBuiltinImpl __ocl_masked_store_char_4x4_AVX2 = OclBuiltinImpl<__ocl_masked_st
 //                                 char4x8
 // ****************************************************************************
 OclBuiltinImpl __ocl_masked_load_char_4x8_AVX2 = OclBuiltinImpl<__ocl_masked_load4x8, [v4i8],  0, [{
-    my_char32* tm$Arg1VarName = (my_char32*)$Arg1VarName;
-    *tm$Arg1VarName = (my_char32)_mm256_maskload_epi32((int*)$Arg0VarName, (__m256i)$Arg2VarName);
+    ocl_char32* tm$Arg1VarName = (ocl_char32*)$Arg1VarName;
+    *tm$Arg1VarName = (ocl_char32)_mm256_maskload_epi32((int*)$Arg0VarName, (__m256i)$Arg2VarName);
   }]>;
 
 OclBuiltinImpl __ocl_masked_store_char_4x8_AVX2 = OclBuiltinImpl<__ocl_masked_store4x8, [v4i8],  0, [{
