@@ -1037,17 +1037,24 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
   LoopUtils::GetOCLKernel(*pM, kernels);
   roots.insert(kernels.begin(), kernels.end());
 
-  // Add all functions that contains barrier/get_local_id/get_global_id to root functions
-  std::string oclFunctionName[3] = {
-    CompilationUtils::mangledBarrier(),
-    CompilationUtils::mangledGetLID(),
-    CompilationUtils::mangledGetGID()
-  };
-  for(unsigned int i=0; i<3; i++) {
-    Function *F = pM->getFunction(oclFunctionName[i]);
-    if (!F) continue;
-    for (Function::use_iterator ui = F->use_begin(), ue = F->use_end();
-         ui != ue; ++ui ) {
+  // Add all functions that contains synchronize/get_local_id/get_global_id to root functions
+  CompilationUtils::FunctionSet oclFunction;
+
+  //Get all synchronize built-ins declared in module
+  CompilationUtils::getAllSyncBuiltinsDcls(oclFunction, pM);
+
+  //Get get_local_id built-in if declared in module
+  if ( Function *pF = pM->getFunction(CompilationUtils::mangledGetLID()) ) {
+    oclFunction.insert(pF);
+  }
+  //Get get_global_id built-in if declared in module
+  if ( Function *pF = pM->getFunction(CompilationUtils::mangledGetGID()) ) {
+    oclFunction.insert(pF);
+  }
+
+  for ( CompilationUtils::FunctionSet::iterator fi = oclFunction.begin(), fe = oclFunction.end(); fi != fe; ++fi ) {
+    Function *F = *fi;
+    for (Function::use_iterator ui = F->use_begin(), ue = F->use_end(); ui != ue; ++ui ) {
       CallInst *CI = dyn_cast<CallInst> (*ui);
       if (!CI) continue;
       Function *pCallingFunc = CI->getParent()->getParent();

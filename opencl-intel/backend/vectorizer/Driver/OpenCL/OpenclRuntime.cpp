@@ -219,7 +219,7 @@ void OpenclRuntime::setPacketizationWidth(unsigned width) {
 }
 
 bool OpenclRuntime::isSyncFunc(const std::string &func_name) const {
-  return isSyncWithNoSideEfffect(func_name) || isSyncWithSideEfffect(func_name);
+  return isSyncWithNoSideEffect(func_name) || isSyncWithSideEffect(func_name);
 }
 
 bool OpenclRuntime::hasNoSideEffect(const std::string &func_name) const {
@@ -236,7 +236,7 @@ bool OpenclRuntime::hasNoSideEffect(const std::string &func_name) const {
   if (!funcRT) return false;
 
   // Special case built-ins that access memory but has no side effects.
-  if (isSyncWithNoSideEfffect(func_name)) return true;
+  if (isSyncWithNoSideEffect(func_name)) return true;
   if (isImageDescBuiltin(func_name)) return true;
 
   // All built-ins that does not access memory and does not throw
@@ -280,20 +280,23 @@ bool OpenclRuntime::isWorkItemBuiltin(const std::string &name) const {
     (0 == name.compare("get_base_global_id."));
 }
 
-bool OpenclRuntime::isSyncWithSideEfffect(const std::string &func_name) const {
+bool OpenclRuntime::isSyncWithSideEffect(const std::string &func_name) const {
   using namespace Intel::OpenCL::DeviceBackend;
-  if (CompilationUtils::isAsyncWorkGroupCopy(func_name))
+  if (CompilationUtils::isAsyncWorkGroupCopy(func_name)  ||
+      CompilationUtils::isAsyncWorkGroupStridedCopy(func_name) )
     return true;
-  if (CompilationUtils::isAsyncWorkGroupStridedCopy(func_name))
-    return true;
-  if (CompilationUtils::isWaitGroupEvents(func_name))
-    return true;
+
   return false;
 }
 
-bool OpenclRuntime::isSyncWithNoSideEfffect(const std::string &func_name) const {
+bool OpenclRuntime::isSyncWithNoSideEffect(const std::string &func_name) const {
   using namespace Intel::OpenCL::DeviceBackend;
-  if (func_name == CompilationUtils::mangledBarrier())
+  if (func_name == CompilationUtils::mangledBarrier() ||
+      func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_NO_SCOPE) ||
+      func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_WITH_SCOPE) )
+    return true;
+
+  if (CompilationUtils::isWaitGroupEvents(func_name))
     return true;
 
   const char* Fname = func_name.c_str();

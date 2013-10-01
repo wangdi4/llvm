@@ -66,12 +66,8 @@ private:
   bool isUnsupportedDim(Value *v);
 
   ///@brief fills the unsupported set with function that call (also indirectly)
-  //        barrier.
-  void fillBarrierUsersFuncs();
-
-  ///@brief fills the unsupported set with function that call (also indirectly)
-  //        async_copy.
-  void fillAsyncCopyUsersFuncs();
+  //        barrier (or implemented using barrier).
+  void fillSyncUsersFuncs();
 
   ///@brief fills the unsupported set with function that have non constant
   ///       dimension get***id calls, or indirect calls to get***id.

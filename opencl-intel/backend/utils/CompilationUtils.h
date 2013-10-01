@@ -59,7 +59,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       Argument **ppBaseGlbId, Argument **ppLocalId, Argument **ppIterCount,
       Argument **ppSpecialBuf, Argument **ppCurrWI, Argument **ppCtx,
       Argument **ppExtExecCtx);
-                    
+
+    /// @brief collect built-ins declared in the module and force synchronization.
+    //         I.e. implemented using barrier built-in.
+    /// @param functionSet container to insert all synchronized built-ins into
+    /// @param pModule the module to search synchronize built-ins declarations in
+    static void getAllSyncBuiltinsDcls(FunctionSet &functionSet, Module *pModule);
+
     /// @brief collect all kernel functions
     /// @param functionSet container to insert all kernel function into
     /// @param pModule the module to search kernel function inside
@@ -150,6 +156,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_GET_LINEAR_LID;
 
     static const std::string BARRIER_FUNC_NAME;
+    static const std::string WG_BARRIER_FUNC_NAME;
     //images
     static const std::string OCL_IMG_PREFIX;
     static const std::string IMG_2D;
@@ -196,6 +203,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // @brief: returns the mangled name of the barrier function
     //////////////////////////////////////////////////////////////////
     static std::string mangledBarrier();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the work_group_barrier function
+    // @param wgBarrierType
+    //                      WG_BARRIER_NO_SCOPE - for 
+    // void work_group_barrier (cl_mem_fence_flags flags)
+    //                      WG_BARRIER_WITH_SCOPE - for
+    // void work_group_barrier (cl_mem_fence_flags flags, memory_scope scope)
+    //////////////////////////////////////////////////////////////////
+    typedef enum {
+      WG_BARRIER_NO_SCOPE,
+      WG_BARRIER_WITH_SCOPE
+    } WG_BARRIER_TYPE;
+    static std::string mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType);
     //////////////////////////////////////////////////////////////////
     // @brief: returns the name of the argument metadata node for the
     //given module

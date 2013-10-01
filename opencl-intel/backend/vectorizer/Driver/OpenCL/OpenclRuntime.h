@@ -156,11 +156,11 @@ protected:
 
   /// @brief returns true if func_name is synchronization function with side effects.
   /// @param func_name name of the function.
-  virtual bool isSyncWithSideEfffect(const std::string &func_name) const;
+  virtual bool isSyncWithSideEffect(const std::string &func_name) const;
 
   /// @brief returns true if func_name is synchronization function with no side effects.
   /// @param func_name name of the function.
-  virtual bool isSyncWithNoSideEfffect(const std::string &func_name) const;
+  virtual bool isSyncWithNoSideEffect(const std::string &func_name) const;
 
   /// @brief returns true if func_name is a descriptor of image built-in.
   /// @param func_name name of the function.

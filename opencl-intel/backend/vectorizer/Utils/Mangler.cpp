@@ -74,11 +74,13 @@ std::string Mangler::mangle(const std::string& name) {
       if (imageFunctions[i] == stripped){
         reflection::FunctionDescriptor fdesc = ::demangle(name.c_str());
         V_ASSERT(!fdesc.isNull() && "demangle operation failed!");
-        //Currently, we only support two dimension images to be masked.
+        //Currently, we only support two dimension images masked built-ins.
         reflection::PrimitiveType *pTy = reflection::dyn_cast<reflection::PrimitiveType>(fdesc.parameters[0]);
         bool isImage2d = (pTy && pTy->getPrimitive() == reflection::PRIMITIVE_IMAGE_2D_T);
-        if (!isImage2d)
-          return name;
+        if (!isImage2d) {
+          //Do not have implementation for masked built-ins, break to use create fake mask function.
+          break;
+        }
         fdesc.name = IMG_MASK_PREFIX + fdesc.name;
         reflection::TypeVector& params = fdesc.parameters;
         reflection::RefParamType intType(new reflection::PrimitiveType(reflection::PRIMITIVE_INT));

@@ -437,8 +437,19 @@ namespace intel {
       //Sync data already initialized
       return;
     }
+
+    //Clear old collected data!
+    m_barriers.clear();
+    m_dummyBarriers.clear();
+    m_fibers.clear();
+
     //Find all calls to barrier()
     findAllUsesOfFunc(CompilationUtils::mangledBarrier(), m_barriers);
+    //Find all calls to work_group_barrier()
+    findAllUsesOfFunc(CompilationUtils::mangledWGBarrier(
+      CompilationUtils::WG_BARRIER_NO_SCOPE), m_barriers);
+    findAllUsesOfFunc(CompilationUtils::mangledWGBarrier(
+      CompilationUtils::WG_BARRIER_WITH_SCOPE), m_barriers);
     //Find all calls to dummyBarrier()
     findAllUsesOfFunc(DUMMY_BARRIER_FUNC_NAME, m_dummyBarriers);
     //Find all calls to fiber()
@@ -448,9 +459,6 @@ namespace intel {
   }
 
   void BarrierUtils::findAllUsesOfFunc(const llvm::StringRef& name, TInstructionSet &usesSet) {
-    //Clear old collected data!
-    usesSet.clear();
-
     //Check if given function name is declared in the module
     Function *pFunc = m_pModule->getFunction(name);
     if ( !pFunc ) {

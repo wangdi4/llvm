@@ -80,6 +80,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE_LOCAL = "_Z45get_kernel_preferred_work_group_size_multipleU13block_pointerFvPU3AS3vzEjz";
 
   const std::string CompilationUtils::BARRIER_FUNC_NAME = "barrier";
+  const std::string CompilationUtils::WG_BARRIER_FUNC_NAME = "work_group_barrier";
   //Images
   const std::string CompilationUtils::OCL_IMG_PREFIX  = "opencl.image";
   const std::string CompilationUtils::IMG_2D        = OCL_IMG_PREFIX + "2d_t";
@@ -182,6 +183,28 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           *ppExtExecCtx = DestI;
       }
 
+  }
+
+  void CompilationUtils::getAllSyncBuiltinsDcls(FunctionSet &functionSet, Module *pModule) {
+    //Clear old collected data!
+    functionSet.clear();
+
+    for ( Module::iterator fi = pModule->begin(), fe = pModule->end(); fi != fe; ++fi ) {
+      if ( !fi->isDeclaration() ) continue;
+      llvm::StringRef func_name = fi->getName();
+      if ( /* barrier built-ins */
+          func_name == CompilationUtils::mangledBarrier() ||
+          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_NO_SCOPE) ||
+          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_WITH_SCOPE) ||
+          /* work group built-ins */
+            //TODO: fill it once work-group built-ins are supported
+          /* async copy built-ins */
+          CompilationUtils::isAsyncWorkGroupCopy(func_name)  ||
+          CompilationUtils::isAsyncWorkGroupStridedCopy(func_name) ) {
+            // Found synchronized built-in declared in the module add it to the container set.
+            functionSet.insert(&*fi);
+      }
+    }
   }
 
   void CompilationUtils::getAllKernels(FunctionSet &functionSet, Module *pModule) {
@@ -536,7 +559,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
 template <reflection::TypePrimitiveEnum Ty>
-static std::string mangleWithParam(const char*const N){
+static std::string optionalMangleWithParam(const char*const N){
 #ifdef __APPLE__
   //Do not mangle
   return std::string(N);
@@ -551,24 +574,49 @@ static std::string mangleWithParam(const char*const N){
 #endif
 }
 
-std::string CompilationUtils::mangledGetGID(){
-  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_GID.c_str());
+template <reflection::TypePrimitiveEnum Ty>
+static std::string mangleWithParam(const char*const N, unsigned int numOfParams){
+  reflection::FunctionDescriptor FD;
+  FD.name = N;
+  for(unsigned int i=0; i<numOfParams ; ++i) {
+    reflection::ParamType *pTy =
+      new reflection::PrimitiveType(Ty);
+    reflection::RefParamType UI(pTy);
+    FD.parameters.push_back(UI);
+  }
+  return mangle(FD);
 }
 
-std::string CompilationUtils::mangledGetGlobalSize(){
-  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GLOBAL_SIZE.c_str());
+std::string CompilationUtils::mangledGetGID() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_GID.c_str());
 }
 
-std::string CompilationUtils::mangledGetLID(){
-  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_LID.c_str());
+std::string CompilationUtils::mangledGetGlobalSize() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GLOBAL_SIZE.c_str());
 }
 
-std::string CompilationUtils::mangledGetLocalSize(){
-  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LOCAL_SIZE.c_str());
+std::string CompilationUtils::mangledGetLID() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_LID.c_str());
 }
 
-std::string CompilationUtils::mangledBarrier(){
-  return mangleWithParam<reflection::PRIMITIVE_UINT>(BARRIER_FUNC_NAME.c_str());
+std::string CompilationUtils::mangledGetLocalSize() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LOCAL_SIZE.c_str());
+}
+
+std::string CompilationUtils::mangledBarrier() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(BARRIER_FUNC_NAME.c_str());
+}
+
+std::string CompilationUtils::mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType) {
+  switch(wgBarrierType) {
+  case WG_BARRIER_NO_SCOPE:
+    return mangleWithParam<reflection::PRIMITIVE_UINT>(WG_BARRIER_FUNC_NAME.c_str(), 1);
+  case WG_BARRIER_WITH_SCOPE:
+    return mangleWithParam<reflection::PRIMITIVE_UINT>(WG_BARRIER_FUNC_NAME.c_str(), 2);
+  default:
+    assert(false && "Unknown work_group_barrier version");
+    return "";
+  }
 }
 
 static bool isOptionalMangleOf(const std::string& LHS, const std::string& RHS) {

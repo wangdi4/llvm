@@ -6254,6 +6254,69 @@ typedef uint cl_mem_fence_flags;
 
 void __attribute__((overloadable)) barrier(cl_mem_fence_flags flags);
 
+#if __OPENCL_C_VERSION__ >= 200
+/**
+ * All work-items in a work-group executing the kernel
+ * on a processor must execute this function before any
+ * are allowed to continue execution beyond the
+ * work_group_barrier. This function must be
+ * encountered by all work-items in a work-group
+ * executing the kernel. These rules apply to NDranges
+ * implemented with uniform and non-uniform
+ * work-groups.
+ * If work_group_barrier is inside a conditional
+ * statement, then all work-items must enter the
+ * conditional if any work-item enters the conditional
+ * statement and executes the work_group_barrier.
+ * If work_group_barrier is inside a loop, all workitems
+ * must execute the work_group_barrier for
+ * each iteration of the loop before any are allowed to
+ * continue execution beyond the
+ * work_group_barrier.
+ * The work_group_barrier function also supports a
+ * variant that specifies the memory scope. For the
+ * work_group_barrier variant that does not take a
+ * memory scope, the scope is
+ * memory_scope_work_group.
+ * The scope argument specifies whether the memory
+ * accesses of work-items in the work-group to
+ * memory address space(s) identified by flags become
+ * visible to all work-items in the work-group, the
+ * device or all SVM devices.
+ * The work_group_barrier function can also be used
+ * to specify which memory operations i.e. to global
+ * memory, local memory or images become visible to
+ * the appropriate memory scope identified by scope.
+ * The flags argument specifies the memory address
+ * spaces. This is a bitfield and can be set to 0 or a
+ * combination of the following values ORed together.
+ * CLK_LOCAL_MEM_FENCE - The
+ * work_group_barrier function will ensure that all
+ * local memory accesses become visible to all workitems
+ * in the work-group. Note that the value of
+ * scope is ignored as the memory scope is always
+ * memory_scope_work_group.
+ * CLK_GLOBAL_MEM_FENCE – The
+ * work_group_barrier function ensure that all global
+ * memory accesses become visible to all work-items
+ * in the work-group.
+ * CLK_IMAGE_MEM_FENCE – The
+ * work_group_barrier function will ensure that all
+ * image memory accesses become visible to all workitems
+ * in the work-group. The value of scope must
+ * be memory_scope_work_group or
+ * memory_scope_device.
+ */
+typedef enum {
+  memory_scope_work_group,
+  memory_scope_device,
+  memory_scope_all_svm_devices
+} memory_scope;
+
+void __attribute__((overloadable)) work_group_barrier(cl_mem_fence_flags flags);
+void __attribute__((overloadable)) work_group_barrier(cl_mem_fence_flags flags, memory_scope scope);
+#endif // __OPENCL_C_VERSION__ >= 200
+
 // Explicit memory fence functions
 
 /**
@@ -6301,20 +6364,20 @@ void __attribute__((overloadable)) write_mem_fence(cl_mem_fence_flags flags);
  * Queue a memory fence to ensure correct 
  * ordering of memory operations to local memory
  */
-#define CLK_LOCAL_MEM_FENCE    1
+#define CLK_LOCAL_MEM_FENCE    0x1
 
 /**
  * Queue a memory fence to ensure correct 
  * ordering of memory operations to global memory
  */
-#define CLK_GLOBAL_MEM_FENCE   2
+#define CLK_GLOBAL_MEM_FENCE   0x2
 
 /**
  * The work_group_barrier function will ensure that all
  * image memory accesses become visible to all workitems
  * in the work-group
  */
-#define CLK_IMAGE_MEM_FENCE   3
+#define CLK_IMAGE_MEM_FENCE    0x4
 
 // Async copies from global to local memory, local to global memory, and prefetch
 
@@ -6995,11 +7058,6 @@ typedef enum {
 #define memory_order_acq_rel (memory_order)memory_order_acq_rel
 #define memory_order_seq_cst (memory_order)memory_order_seq_cst
 
-typedef enum {
-  memory_scope_work_group,
-  memory_scope_device,
-  memory_scope_all_svm_devices
-} memory_scope;
 /**
  * In OpenCL like in C enumerated constants are of int type.
  * So to make overloading of atomic_work_item_fence possible convert constants to memory_scope type.
