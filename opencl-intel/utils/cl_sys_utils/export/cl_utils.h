@@ -376,3 +376,11 @@ bool IsPowerOf2(unsigned int uiNum);
  * @param szBufferSize  the buffer's size
  */
 void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size_t szBufferSize);
+
+/////////////////////////////////////////////////////////////////////////
+// getHostName
+// Output: localhost machine name
+// Author: Arik Zur
+// Date:   September 2013
+/////////////////////////////////////////////////////////////////////////
+std::string getLocalHostName();

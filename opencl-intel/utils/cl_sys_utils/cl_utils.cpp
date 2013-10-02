@@ -720,7 +720,7 @@ cl_filter_mode GetFilterModeFromString(const string& Mode)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-// SetKernelArgument
+// GetChannelOrderFromString
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 cl_channel_order GetChannelOrderFromString(const string& Order)
 {
@@ -776,37 +776,37 @@ cl_channel_order GetChannelOrderFromString(const string& Order)
     {
         return CL_BGRA;
     }
-	else if (Order == "CL_DEPTH")
-	{
-		return CL_DEPTH;
-	}
-	else if (Order == "CL_sRGB")
-	{
-		return CL_sRGB;
-	}
-	else if (Order == "CL_sRGBx")
-	{
-		return CL_sRGBx;
-	}
-	else if (Order == "CL_sRGBA")
-	{
-		return CL_sRGBA;
-	}
-	else if (Order == "CL_sBGRA")
-	{
-		return CL_sBGRA;
-	}
-	else if (Order == "CL_ABGR")
-	{
-		return CL_ABGR;
-	}
+    else if (Order == "CL_DEPTH")
+    {
+        return CL_DEPTH;
+    }
+    else if (Order == "CL_sRGB")
+    {
+        return CL_sRGB;
+    }
+    else if (Order == "CL_sRGBx")
+    {
+        return CL_sRGBx;
+    }
+    else if (Order == "CL_sRGBA")
+    {
+        return CL_sRGBA;
+    }
+    else if (Order == "CL_sBGRA")
+    {
+        return CL_sBGRA;
+    }
+    else if (Order == "CL_ABGR")
+    {
+        return CL_ABGR;
+    }
     string Error("Unrecognized channel order '");
     Error += Order + "'";
     throw Error;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-// SetKernelArgument
+// GetChannelTypeFromString
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 cl_channel_type GetChannelTypeFromString(const string& Type)
 {
@@ -876,7 +876,7 @@ cl_channel_type GetChannelTypeFromString(const string& Type)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-// SetKernelArgument
+// GetImageTypeFromString
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 cl_mem_object_type GetImageTypeFromString(const string& Type)
 {
@@ -1226,8 +1226,8 @@ string GetTempDir()
     #endif
         if (EnvUser)
           {
-	        TmpDir += EnvUser;
-	        TmpDir += "/";
+            TmpDir += EnvUser;
+            TmpDir += "/";
           }
         // Just to make sure the directory exists
         string command("mkdir -p ");
@@ -1436,3 +1436,20 @@ int __builtin_clz(unsigned int pattern)
    return count;
 }
 #endif //defined(_MSC_VER) && !defined(_WIN64)
+
+
+std::string getLocalHostName()
+{
+    string computerName("");
+    char buffer[1024];
+#ifdef _WIN32
+    DWORD nameLength = 1024;
+    if(GetComputerName(buffer,&nameLength))
+#else
+    if(!gethostname(buffer,1024))
+#endif
+    {
+        computerName = buffer;
+    }
+    return computerName;
+}
