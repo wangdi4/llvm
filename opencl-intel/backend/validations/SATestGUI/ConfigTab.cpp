@@ -24,7 +24,7 @@ ConfigTab::ConfigTab(ConfigManager* cfg)
     this->cfg = cfg;
     type=Tab::Configuration;
     layout = new QFormLayout(this);
-    vectorizer = new QCheckBox(this);
+    dirs = new QTextEdit(this);
     layout->addRow(new QLabel("Include Dirs"),dirs);
     compFlags = new QLineEdit(this);
     layout->addRow(new QLabel("Compilation flags"),compFlags);
