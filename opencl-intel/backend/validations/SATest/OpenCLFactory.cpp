@@ -84,8 +84,7 @@ IProgramRunner * OpenCLFactory::CreateProgramRunner(const IRunComponentConfigura
 
 IProgramRunner * OpenCLFactory::CreateReferenceRunner(const IRunComponentConfiguration* pRunConfiguration)
 {
-    return new OpenCLReferenceRunner(static_cast<const ReferenceRunOptions*>(pRunConfiguration)->GetValue<bool>(RC_REF_USE_NEAT, false),
-                                     static_cast<const ReferenceRunOptions*>(pRunConfiguration)->GetValue<bool>(RC_REF_USE_FMA_NEAT, false));
+    return new OpenCLReferenceRunner(static_cast<const ReferenceRunOptions*>(pRunConfiguration)->GetValue<bool>(RC_REF_USE_NEAT, false));
 }
 
 IRunResultComparator* OpenCLFactory::CreateComparator(IProgramConfiguration* pProgramConfiguration,

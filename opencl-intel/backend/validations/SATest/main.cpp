@@ -115,11 +115,6 @@ UseNEAT("neat",
         llvm::cl::desc("Use NEAT"),
         llvm::cl::init(false));
 
-llvm::cl::opt<bool>
-UseFmaNEAT("fma-neat",
-        llvm::cl::desc("Set 1 ULP maximum relative error for multiplication in NEAT ALU instead of correctly rounded result. Used for fma support"),
-        llvm::cl::init(false));
-
 
 llvm::cl::opt<uint32_t>
 BuildIterations("build-iterations",

@@ -113,7 +113,8 @@ extern "C" void initOCLBuiltinsWorkGroup();
 extern "C" void initOCLBuiltinsVLoadStore();
 extern "C" void initOCLBuiltinsExplMemFenceOps();
 
-OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT):
+
+OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT):
     m_pLLVMContext(NULL),
     m_pModule(NULL),
     m_pRTModule(NULL),
@@ -121,7 +122,7 @@ OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT):
     m_pExecEngine(NULL),
     m_pNEAT(NULL),
     m_bUseNEAT(bUseNEAT),
-    m_bUseFmaNEAT(bUseFmaNEAT)
+    m_bUseFmaNEAT(false)
 {
     initOCLBuiltinsAsync();
     initOCLBuiltinsAtomic();
@@ -164,6 +165,9 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
     const ReferenceRunOptions *pRunConfig = static_cast<const ReferenceRunOptions *>(runConfig);
 
     m_pModule = static_cast<const OpenCLProgram*>(program)->ParseToModule();
+
+    // if FP_CONTRACT is on, use fma in NEAT
+    m_bUseFmaNEAT = m_pModule->getNamedMetadata("opencl.enable.FP_CONTRACT");
 
     for(OpenCLProgramConfiguration::KernelConfigList::const_iterator it = pProgramConfig->beginKernels();
         it != pProgramConfig->endKernels();

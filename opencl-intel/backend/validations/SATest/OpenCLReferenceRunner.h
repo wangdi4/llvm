@@ -47,7 +47,7 @@ namespace Validation
     {
     public:
         /// @brief Constructor
-        OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT);
+        OpenCLReferenceRunner(bool bUseNEAT);
 
         /// @brief Destructor
         virtual ~OpenCLReferenceRunner(void);
