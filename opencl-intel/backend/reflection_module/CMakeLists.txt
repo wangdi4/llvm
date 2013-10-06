@@ -8,9 +8,9 @@ project (${TARGET_NAME})
 remove_definitions("-pedantic")
 
 if(NOT APPLE)
-if( (NOT ANDROID) AND (NOT BACKEND_BUILD_VERIFICATION_LIB) )
+if( BACKEND_BUILD_VERIFICATION_LIB AND (NOT ANDROID) )
     add_subdirectory(unittest)
-endif( (NOT ANDROID) AND (NOT BACKEND_BUILD_VERIFICATION_LIB))
+endif( BACKEND_BUILD_VERIFICATION_LIB AND (NOT ANDROID) )
 
 add_custom_command(
   OUTPUT BuiltinList.h
