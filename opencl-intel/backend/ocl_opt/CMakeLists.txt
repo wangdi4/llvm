@@ -31,6 +31,7 @@ set(OCL_BE_PASSES
     BackendPassesWrappers
     LocalBuffers
     LocalBuffAnalysis
+    ReduceAlignment
     DetectFunctionPtrCalls
     ResolveWICall
     CloneBlockInvokeFuncToKernel

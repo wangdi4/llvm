@@ -361,6 +361,7 @@ set( BACKEND_PASSES
     Prefetch
     LinearIdResolver
     Materialize
+    ReduceAlignment
     DetectFunctionPtrCalls
     CloneBlockInvokeFuncToKernel
     ResolveBlockToStaticCall

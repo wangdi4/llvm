@@ -75,6 +75,7 @@ llvm::FunctionPass *createPrefetchPassLevel(int level);
 llvm::ModulePass * createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
 llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
+llvm::ModulePass *createReduceAlignmentPass();
 #endif
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectFuncPtrCalls();
@@ -390,6 +391,9 @@ Optimizer::Optimizer( llvm::Module* pModule,
     if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
         m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
                OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
+    }
+    if (!(pConfig->GetCpuId().HasGatherScatter())){
+       m_modulePasses.add(createReduceAlignmentPass());
     }
 #endif //#ifndef __APPLE__
   }

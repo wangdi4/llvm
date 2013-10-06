@@ -34,6 +34,7 @@ else(APPLE)
   add_subdirectory(Prefetch)
   add_subdirectory(BackendPassesWrappers)
   add_subdirectory(PrintIRPass)
+  add_subdirectory(ReduceAlignment)
 endif(APPLE)
 
 if(APPLE)

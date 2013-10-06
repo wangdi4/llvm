@@ -68,6 +68,7 @@ void initializeSpirMaterializerPass(llvm::PassRegistry&);
 void initializeObfuscationPass(llvm::PassRegistry&);
 void initializeLinearIdResolverPass(llvm::PassRegistry&);
 void initializePrepareKernelArgsPass(llvm::PassRegistry&);
+void initializeReduceAlignmentPass(llvm::PassRegistry&);
 void initializeDetectFuncPtrCallsPass(llvm::PassRegistry&);
 void initializeResolveWICallPass(llvm::PassRegistry&);
 void initializeCloneBlockInvokeFuncToKernelPass(llvm::PassRegistry&);
