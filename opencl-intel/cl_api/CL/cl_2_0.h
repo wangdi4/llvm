@@ -82,6 +82,14 @@ extern "C" {
 /* cl_mem_info */
 #define CL_MEM_USES_SVM_POINTER                     0x5101
 
+/* cl_filter_mode */
+#define CL_FILTER_NONE                              0x1142
+
+/* cl_sampler_info */
+#define CL_SAMPLER_MIP_FILTER_MODE                  0x1155
+#define CL_SAMPLER_LOD_MIN                          0x1156
+#define CL_SAMPLER_LOD_MAX                          0x1157
+
 // #define CL_MEM_OBJECT_IMAGE2D_BUFFER                0x10ABC
 
 // type definitions
