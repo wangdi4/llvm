@@ -25,6 +25,7 @@
 #include "crt_internals.h"
 #include <cl_secure_string.h>
 #include <cl_synch_objects.h>
+#include <crt_registry.h>
 #include <algorithm>
 #include <string>
 #include <numeric>
@@ -8935,6 +8936,12 @@ FINISH:
 CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     const char *funcname)
 {
+    if( OCLCRT::Utils::isAPIDebuggingEnabled() )
+    {
+        // API debugging is enabled, refuse to load CRT library
+        return NULL;
+    }
+
     if( funcname && !strcmp( funcname, "clIcdGetPlatformIDsKHR" ) )
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clGetPlatformIDs ) );
@@ -8962,7 +8969,7 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     }
 #endif
 // no accelerators for Android
-#ifndef __ANDROID__            
+#ifndef __ANDROID__
     if( funcname && !strcmp( funcname, "clCreateAcceleratorINTEL" ) )
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clCreateAcceleratorINTEL ) );

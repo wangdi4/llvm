@@ -29,63 +29,68 @@ namespace OCLCRT
 {
 namespace Utils
 {
-    inline bool GetCpuPathFromRegistry( char* pCpuPath )
-    {
+
 #if defined(_WIN32)
-        const char* regPath = "SOFTWARE\\Intel\\OpenCL";
-        HKEY  key           = NULL;
-        void* pData         = NULL;
-        DWORD dataSize      = 0;
-        DWORD regType       = REG_SZ;
-        DWORD success       = ERROR_SUCCESS;
-        bool  retVal        = true;
+inline bool GetStringValueFromRegistry( HKEY top_hkey,
+                                        const char * keyPath,
+                                        const char * valueName,
+                                        char * retValue,
+                                        DWORD size)
+{
+    HKEY hkey;
 
-        // pCpuPath is expected to be MAX_PATH in size
-        if( pCpuPath == NULL )
+    // Open the registry path. hkey will hold the entry
+    LONG rc = RegOpenKeyExA(
+        top_hkey,                   // hkey
+        keyPath,                    // lpSubKey
+        0,                          // ulOptions
+        KEY_READ | KEY_WOW64_64KEY, // samDesired
+        &hkey                       // phkResult
+        );
+
+    if( ERROR_SUCCESS == rc )
+    {
+        // Get the value by name from the key
+        rc = RegQueryValueExA(
+            hkey,                   // hkey
+            valueName,              // lpValueName
+            0,                      // lpReserved
+            NULL,                   // lpType
+            (LPBYTE)retValue,       // lpData
+            &size                   // lpcbData
+            );
+
+        // Close the key - we don't need it any more
+        RegCloseKey( hkey );
+
+        if( ERROR_SUCCESS == rc )
         {
-            retVal = false;
+            return true;
         }
-
-        if( retVal == true )
-        {
-            success = RegOpenKeyExA( 
-                HKEY_LOCAL_MACHINE, 
-                regPath, 
-                0,
-                KEY_READ | KEY_WOW64_64KEY,
-                &key );
-
-            if( ERROR_SUCCESS == success )
-            {
-                // set data and size
-                dataSize = MAX_PATH;
-
-                success = RegQueryValueExA( 
-                    key, 
-                    "cpu_path",
-                    NULL,
-                    NULL,
-                    (BYTE*)pCpuPath,
-                    &dataSize );
-
-                // close key
-                RegCloseKey( key );
-
-                if( ERROR_SUCCESS != success )
-                {
-                    retVal = false;
-                }
-            }
-            else
-            {
-                retVal = false;
-            }
-        }
-
-        return retVal;
-#else
-        return false;
-#endif
     }
+
+    return false;
+}
+
+#endif
+
+inline bool GetCpuPathFromRegistry( char* pCpuPath )
+{
+#if defined(_WIN32)
+    const char* regPath = "SOFTWARE\\Intel\\OpenCL";
+
+    // pCpuPath is expected to be MAX_PATH in size
+    if( NULL != pCpuPath )
+    {
+        return GetStringValueFromRegistry(HKEY_LOCAL_MACHINE, regPath, "cpu_path", pCpuPath, MAX_PATH);
+    }
+#endif
+    return false;
+}
+
+// Will return true when OpenCL API Debugger is enabled
+// Debugger is enabled when a PID-specific or global key exists, with value CL_CONFIG_API_DBG_ENABLE=1
+bool isAPIDebuggingEnabled();
+
 } // namespace Utils
 } // namespace OCLCRT
