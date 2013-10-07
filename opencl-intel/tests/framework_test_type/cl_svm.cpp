@@ -377,7 +377,7 @@ bool clSvmTest()
         cl_device_svm_capabilities svmCaps;
         iRet = clGetDeviceInfo(device, CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, NULL);
         CheckException(L"clGetDeviceInfo", CL_SUCCESS, iRet);
-        CheckException(L"clGetDeviceInfo", CL_DEVICE_SVM_CAPABILITIES | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS, svmCaps);
+        CheckException(L"clGetDeviceInfo", (cl_device_svm_capabilities)(CL_DEVICE_SVM_CAPABILITIES | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS), svmCaps);
 
 	}
 	catch (const std::exception&)
