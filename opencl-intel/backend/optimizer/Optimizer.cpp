@@ -332,7 +332,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     // No need to run function inlining pass here, because if there are still
     // non-inlined functions left - then we don't have to inline new ones.
     // Run the OclFunctionAttrs pass again after GenericAddressStaticResolution
-    //m_modulePasses.add(createOclFunctionAttrsPass());
+    m_modulePasses.add(createOclFunctionAttrsPass());
   }
 
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());
