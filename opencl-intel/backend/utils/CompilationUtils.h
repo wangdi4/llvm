@@ -28,6 +28,29 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   DEFINE_EXCEPTION(CompilerException)
 #endif
 
+  namespace OclVersion {
+    
+    static const unsigned CL_VER_1_0 = 100;
+    static const unsigned CL_VER_1_1 = 110;
+    static const unsigned CL_VER_1_2 = 120;
+    static const unsigned CL_VER_2_0 = 200;
+    /// Convenience constants for OpenCL spec revisions
+    static const unsigned CL_VER_VALS[] = {CL_VER_1_0, CL_VER_1_1, CL_VER_1_2, CL_VER_2_0};
+    // The possible values that can be passed to be -cl-std compile option
+    static StringRef CL_VER_STRINGS[] = { "CL1.0", "CL1.1", "CL1.2", "CL2.0" };
+    // The default revision defined by OpenCL spec
+    static const unsigned CL_VER_DEFAULT = CL_VER_1_2;
+
+    static unsigned CLStrToVal(const char* S) {
+      const StringRef* B = OclVersion::CL_VER_STRINGS;
+      const StringRef* E = B + sizeof(CL_VER_VALS)/sizeof(CL_VER_VALS[0]);
+      const StringRef* I = std::find(B, E, S);
+      if (I == E)
+        assert(false && "Bad Value for -cl-std option");
+      return CL_VER_VALS[I-B];
+    }  
+  }
+    
   /// @brief  CompilationUtils class used to provide helper utilies that are
   ///         used by several other classes.
   class CompilationUtils {
@@ -221,14 +244,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //given module
     //////////////////////////////////////////////////////////////////
     static std::string argumentAttribute(const llvm::Module&);
-
-    enum clVersion {
-        CL_VER_NOT_DETECTED = -1,
-        CL_VER_1_0 = 0,
-        CL_VER_1_1 = 1,
-        CL_VER_1_2 = 2,
-        CL_VER_2_0 = 3
-    };
+  
     static const std::string NAME_GET_DEFAULT_QUEUE;
     
     /// Basic Enqueue kernel
@@ -297,8 +313,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///     global ulong *value)
     static const std::string NAME_CAPTURE_EVENT_PROFILING_INFO;
 
-    static clVersion getCLVersionFromModule(const Module &M);
-    
+    /// getCLVersionFromModule - if the version exists in the module's metadata,
+    /// stores the OpenCL version to 'Result' and returns true.
+    /// Otherwise returns false
+    static bool getCLVersionFromModule(const Module &M, unsigned &Result);
+
+    /// getCLVersionFromModuleOrDefault - Return the version in the module's metadata,
+    /// if it exists, otherwise the default version
+    static unsigned getCLVersionFromModuleOrDefault(const Module &M) {
+      unsigned version;
+      return CompilationUtils::getCLVersionFromModule(M, version) ?
+             version : OclVersion::CL_VER_DEFAULT;
+    }
   };
 
   //

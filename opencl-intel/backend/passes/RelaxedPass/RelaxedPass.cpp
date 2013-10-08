@@ -280,7 +280,8 @@ namespace intel{
     {
         bool changed = false;
 
-        if (Intel::OpenCL::DeviceBackend::CompilationUtils::getCLVersionFromModule(M) == Intel::OpenCL::DeviceBackend::CompilationUtils::CL_VER_2_0)
+        if (Intel::OpenCL::DeviceBackend::CompilationUtils::getCLVersionFromModuleOrDefault(M) ==
+            Intel::OpenCL::DeviceBackend::OclVersion::CL_VER_2_0)
             replaceFunctions(m_relaxedFunctions_2_0);
 
         Module::iterator it,e;

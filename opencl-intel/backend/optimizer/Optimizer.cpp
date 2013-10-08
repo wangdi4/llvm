@@ -259,8 +259,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
   m_funcStandardLLVMPasses.add(new llvm::TargetData(pModule));
 #endif
   // Detect OCL2.0 compilation mode
-  const bool isOcl20 =
-    (CompilationUtils::getCLVersionFromModule(*pModule) >= CompilationUtils::CL_VER_2_0);
+  const bool isOcl20 = CompilationUtils::getCLVersionFromModuleOrDefault(*pModule) >=
+                 OclVersion::CL_VER_2_0;
   
   // OCL2.0 resolve block to static call
   if(isOcl20)

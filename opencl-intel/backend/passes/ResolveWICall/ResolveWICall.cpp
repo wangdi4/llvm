@@ -614,7 +614,8 @@ namespace intel {
       return ICT_PREFETCH;
 
     // OpenCL2.0 extended execution built-ins
-    if(CompilationUtils::getCLVersionFromModule(*m_pModule) >= CompilationUtils::CL_VER_2_0){
+    if(CompilationUtils::getCLVersionFromModuleOrDefault(*m_pModule) >=
+       OclVersion::CL_VER_2_0){
       if( CompilationUtils::isGetDefaultQueue(calledFuncName))
         return ICT_GET_DEFAULT_QUEUE;
       if( CompilationUtils::isNDRange_1D(calledFuncName))
