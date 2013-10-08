@@ -57,7 +57,7 @@ OclBuiltinImpl __ocl_double2ToHalf2_rteA2 = OclBuiltinImpl<__ocl_double2ToHalf2_
     x.ix |= j.ix;
     x.ix &= ~0x1fffffff;
     f = convert_float2_rte(x.d);
-    vstore_half2_rte(f, 0, (half*)&h);
+    vstore_half2_rte(f, 0, (__private half*)&h);
     res.s0 = as_float(h);
     return res;
   }]>;
@@ -74,7 +74,7 @@ OclBuiltinImpl __ocl_double4ToHalf4_rteA2 = OclBuiltinImpl<__ocl_double4ToHalf4_
     x.ix |= j.ix;
     x.ix &= ~0x1fffffff;
     f = convert_float4_rte(x.d);
-    vstore_half4_rte(f, 0, (half*)&h);
+    vstore_half4_rte(f, 0, (__private half*)&h);
     res.s01 = as_float2(h);
     return res;
   }]>;

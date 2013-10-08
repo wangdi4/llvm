@@ -19,8 +19,8 @@ def __ocl_masked_load_float_4x4_common: insert_code<"\n"#
 "    float8 extendedMask = as_float8($Arg2VarName.s01230123);\n"#
 "    float8 maskLow = extendedMask.s00001111;\n"#
 "    float8 maskHigh = extendedMask.s22223333;\n"#
-"    float8* tmpLoadAdd = (float8*)$Arg0VarName;\n"#
-"    float8* tmpLoadedValues = (float8*)$Arg1VarName;\n"#
+"    __private float8* tmpLoadAdd = (__private float8*)$Arg0VarName;\n"#
+"    __private float8* tmpLoadedValues = (__private float8*)$Arg1VarName;\n"#
 "    tmpLoadedValues[0] = as_float8(_mm256_maskload_ps((float*)&(tmpLoadAdd[0]), (__m256)maskLow));\n"#
 "    tmpLoadedValues[1] = as_float8(_mm256_maskload_ps((float*)&(tmpLoadAdd[1]), (__m256)maskHigh));\n">;
 
@@ -353,10 +353,10 @@ def __ocl_transpose_common4_float4x4_avx2: insert_code<"\n"#
 def __ocl_load_transpose_common_float4x4_avx2:  insert_code<"\n"#
 "    float8 xz;\n"#
 "    float8 yw;\n"#
-"    float8* Arg2=&xz;\n"#
-"    float8* Arg3=&yw;\n"#
+"    __private float8* Arg2=&xz;\n"#
+"    __private float8* Arg3=&yw;\n"#
 "    bool Arg4 = true;\n\n"#
-"    // __ocl_transpose_common4_float4x4_avx2(Arg0, Arg1,float8* Arg2,float8* Arg3, bool Arg4)\n"#
+"    // __ocl_transpose_common4_float4x4_avx2(Arg0, Arg1,__private float8* Arg2,__private float8* Arg3, bool Arg4)\n"#
 "    #{__ocl_transpose_common4_float4x4_avx2}#\n"#
 "    *Arg5 = xz.lo;\n"#
 "    *Arg6 = yw.lo;\n"#
@@ -418,10 +418,10 @@ def __ocl_transpose_store_char4x8_common_avx2:  insert_code<"\n"#
 "    w.s02468ACE = Arg4;                                                               // w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D\n"#
 "    ocl_char32 xz;\n"#
 "    ocl_char32 yw;\n"#
-"    (*(int8*)&xz).lo = as_int4(x);                                                    // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D\n"#
-"    (*(int8*)&yw).lo = as_int4(y);                                                    // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D\n"#
-"    (*(int8*)&xz).hi = as_int4(z);                                                    // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D | z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D\n"#
-"    (*(int8*)&yw).hi = as_int4(w);                                                    // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D | w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D\n"#
+"    (*(__private int8*)&xz).lo = as_int4(x);                                          // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D\n"#
+"    (*(__private int8*)&yw).lo = as_int4(y);                                          // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D |  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D  D\n"#
+"    (*(__private int8*)&xz).hi = as_int4(z);                                          // x0  D x1  D x2  D x3  D x4  D x5  D x6  D x7  D | z0  D z1  D z2  D z3  D z4  D z5  D z6  D z7  D\n"#
+"    (*(__private int8*)&yw).hi = as_int4(w);                                          // y0  D y1  D y2  D y3  D y4  D y5  D y6  D y7  D | w0  D w1  D w2  D w3  D w4  D w5  D w6  D w7  D\n"#
 "    // The reason we use here __builtin_shufflevector and not shuffle(), shuffle2() OpenCL functions\n"#
 "    // is because the input typeses here are \"char32\", which are not legal OpenCL built-in types.\n"#
 "    // We do not want to sue \"__builtin_shufflevector\" everywhere because it's not a legal OpenCL function,\n"#

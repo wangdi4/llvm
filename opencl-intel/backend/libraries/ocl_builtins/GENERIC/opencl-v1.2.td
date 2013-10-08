@@ -206,7 +206,7 @@ foreach bi = ["sincos", "native_sincos", "modf", "native_modf", "fract", "native
     !cast<MapCell>("retbyarray_"#bi#"cellv4f32"), //v4
     !cast<MapCell>("retbyarray_"#bi#"cellv8f32"), //v8
     !cast<MapCell>("retbyarray_"#bi#"cellv16f32"), //16
-    !cast<MapCell>("retbyarray_"#bi#"cellv3f32")], //3, 
+    !cast<MapCell>("retbyarray_"#bi#"cellv3f32")], //3,
     1,0>;
 //double:
   //Cells
@@ -223,7 +223,7 @@ foreach bi = ["sincos", "native_sincos", "modf", "native_modf", "fract", "native
     !cast<MapCell>("retbyarray_"#bi#"cellv4f64"), //v4
     !cast<MapCell>("retbyarray_"#bi#"cellv8f64"), //v8
     !cast<MapCell>("retbyarray_"#bi#"cellv16f64"), //16
-    !cast<MapCell>("retbyarray_"#bi#"cellv3f64")], //3, 
+    !cast<MapCell>("retbyarray_"#bi#"cellv3f64")], //3,
     1,0>;
 //float:
   def bi#_ret2ptrv4f32 : MapCell<!cast<OclBuiltin>(bi#"_pas2"), v4f32>;
@@ -711,7 +711,7 @@ def _convert_f64_sat_rtn : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs f64ge
 
 // Extended OpenCL built-in for SOA Geometry functions
 let Types = [v16f32, v8f64, v4f32, v8f32, v4f64, v16f64],
-    Attrs = [OVERLOADABLE], 
+    Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def soa_dot1           : OclBuiltin<"soa_dot1",   (outs gentype:$ret), (ins gentype:$p0, gentype:$p1), [], [], 0, 0>;
 def soa_dot2           : OclBuiltin<"soa_dot2",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p1_x, gentype:$p1_y), [], [], 0, 0>;
@@ -728,16 +728,16 @@ def soa_distance2     : OclBuiltin<"soa_distance2",   (outs gentype:$ret), (ins 
 def soa_distance3     : OclBuiltin<"soa_distance3",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z), [], [], 0, 0>;
 def soa_distance4     : OclBuiltin<"soa_distance4",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z, gentype:$p1_w), [], [], 0, 0>;
 
-def soa_cross3           : OclBuiltin<"soa_cross3", (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z), [], [], 0, 0>;
-def soa_cross4           : OclBuiltin<"soa_cross4", (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z, gentype:$p1_w, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z, pgentype:$res_w), [], [], 0, 0>;
+def soa_cross3           : OclBuiltin<"soa_cross3", (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z), [], [], 0, 0>, PRIVATE;
+def soa_cross4           : OclBuiltin<"soa_cross4", (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z, gentype:$p1_w, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z, pgentype:$res_w), [], [], 0, 0>, PRIVATE;
 
 def soa_normalize1       : OclBuiltin<"soa_normalize1",   (outs gentype:$ret), (ins gentype:$p0), [], [], 0, 0>;
-def soa_normalize2       : OclBuiltin<"soa_normalize2",   (outs), (ins gentype:$p0_x, gentype:$p0_y, pgentype:$res_x, pgentype:$res_y), [], [], 0, 0>;
-def soa_normalize3       : OclBuiltin<"soa_normalize3",   (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z), [], [], 0, 0>;
-def soa_normalize4       : OclBuiltin<"soa_normalize4",   (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z, pgentype:$res_w), [], [], 0, 0>;
+def soa_normalize2       : OclBuiltin<"soa_normalize2",   (outs), (ins gentype:$p0_x, gentype:$p0_y, pgentype:$res_x, pgentype:$res_y), [], [], 0, 0>, PRIVATE;
+def soa_normalize3       : OclBuiltin<"soa_normalize3",   (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z), [], [], 0, 0>, PRIVATE;
+def soa_normalize4       : OclBuiltin<"soa_normalize4",   (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z, pgentype:$res_w), [], [], 0, 0>, PRIVATE;
 }
 let Types = [v16f32, v4f32, v8f32],
-    Attrs = [OVERLOADABLE], 
+    Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def soa_fast_length1   : OclBuiltin<"soa_fast_length1",   (outs gentype:$ret), (ins gentype:$p0), [], [], 0, 0>;
 def soa_fast_length2   : OclBuiltin<"soa_fast_length2",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y), [], [], 0, 0>;
@@ -750,16 +750,16 @@ def soa_fast_distance3 : OclBuiltin<"soa_fast_distance3",   (outs gentype:$ret),
 def soa_fast_distance4 : OclBuiltin<"soa_fast_distance4",   (outs gentype:$ret), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, gentype:$p1_x, gentype:$p1_y, gentype:$p1_z, gentype:$p1_w), [], [], 0, 0>;
 
 def soa_fast_normalize1       : OclBuiltin<"soa_fast_normalize1",   (outs gentype:$ret), (ins gentype:$p0), [], [], 0, 0>;
-def soa_fast_normalize2       : OclBuiltin<"soa_fast_normalize2",   (outs), (ins gentype:$p0_x, gentype:$p0_y, pgentype:$res_x, pgentype:$res_y), [], [], 0, 0>;
-def soa_fast_normalize3       : OclBuiltin<"soa_fast_normalize3",   (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z), [], [], 0, 0>;
-def soa_fast_normalize4       : OclBuiltin<"soa_fast_normalize4",   (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z, pgentype:$res_w), [], [], 0, 0>;
+def soa_fast_normalize2       : OclBuiltin<"soa_fast_normalize2",   (outs), (ins gentype:$p0_x, gentype:$p0_y, pgentype:$res_x, pgentype:$res_y), [], [], 0, 0>, PRIVATE;
+def soa_fast_normalize3       : OclBuiltin<"soa_fast_normalize3",   (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z), [], [], 0, 0>, PRIVATE;
+def soa_fast_normalize4       : OclBuiltin<"soa_fast_normalize4",   (outs), (ins gentype:$p0_x, gentype:$p0_y, gentype:$p0_z, gentype:$p0_w, pgentype:$res_x, pgentype:$res_y, pgentype:$res_z, pgentype:$res_w), [], [], 0, 0>, PRIVATE;
 }
 
 // OpenCL 1.2 rev 15, Section 6.12.11 Explicit Conversions
 //
-// Atomic Functions 
+// Atomic Functions
 let Types = [v1i32, v1u32],
-    Attrs = [OVERLOADABLE], 
+    Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def atomic_add_global : OclBuiltin<"atomic_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
 def atomic_add_local  : OclBuiltin<"atomic_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
@@ -784,14 +784,14 @@ def atomic_xor_local  : OclBuiltin<"atomic_xor", (outs gentype:$ret), (ins pgent
 }
 
 let Types = [v1i32, v1u32, v1f32],
-    Attrs = [OVERLOADABLE], 
+    Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def atomic_xchg_global : OclBuiltin<"atomic_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
 def atomic_xchg_local  : OclBuiltin<"atomic_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
 }
 
 let Types = [v1i32, v1u32],
-    Attrs = [OVERLOADABLE], 
+    Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def atom_add_vol_global     : OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, VOLATILE_GLOBAL;
 def atom_add_global         : OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, GLOBAL;
@@ -837,7 +837,7 @@ def atom_xor_local         : OclBuiltin<"atom_xor", (outs gentype:$ret), (ins pg
 }
 
 let Types = [v1i32, v1u32, v1f32],
-    Attrs = [OVERLOADABLE], 
+    Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def atom_xchg_vol_global    : OclBuiltin<"atom_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, VOLATILE_GLOBAL;
 def atom_xchg_global        : OclBuiltin<"atom_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, GLOBAL;
@@ -860,28 +860,28 @@ let Types = [v4i8,  v8i8,  v16i8,
 def soa_any1 : OclBuiltin<"soa_any1", (outs i32gentype:$ret), (ins gentype:$x0), [], [], 0, 0>;
 def soa_any2 : OclBuiltin<"soa_any2", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1), [], [], 0, 0>;
 def soa_any3 : OclBuiltin<"soa_any3", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, gentype:$x2), [], [], 0, 0>;
-def soa_any4 : OclBuiltin<"soa_any4", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
+def soa_any4 : OclBuiltin<"soa_any4", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1,
   gentype:$x2, gentype:$x3), [], [], 0, 0>;
-def soa_any8 : OclBuiltin<"soa_any8", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
-  gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5, 
+def soa_any8 : OclBuiltin<"soa_any8", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1,
+  gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5,
   gentype:$x6, gentype:$x7), [], [], 0, 0>;
-def soa_any16 : OclBuiltin<"soa_any16", (outs i32gentype:$ret), (ins gentype:$x0,  gentype:$x1, 
-  gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5, 
-  gentype:$x6, gentype:$x7, gentype:$x8, gentype:$x9, 
-  gentype:$x10, gentype:$x11, gentype:$x12, gentype:$x13, 
+def soa_any16 : OclBuiltin<"soa_any16", (outs i32gentype:$ret), (ins gentype:$x0,  gentype:$x1,
+  gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5,
+  gentype:$x6, gentype:$x7, gentype:$x8, gentype:$x9,
+  gentype:$x10, gentype:$x11, gentype:$x12, gentype:$x13,
   gentype:$x14, gentype:$x15), [], [], 0, 0>;
 def soa_all1 : OclBuiltin<"soa_all1", (outs i32gentype:$ret), (ins gentype:$x0), [], [], 0, 0>;
 def soa_all2 : OclBuiltin<"soa_all2", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1), [], [], 0, 0>;
 def soa_all3 : OclBuiltin<"soa_all3", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, gentype:$x2), [], [], 0, 0>;
-def soa_all4 : OclBuiltin<"soa_all4", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
+def soa_all4 : OclBuiltin<"soa_all4", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1,
   gentype:$x2, gentype:$x3), [], [], 0, 0>;
-def soa_all8 : OclBuiltin<"soa_all8", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1, 
-  gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5, 
+def soa_all8 : OclBuiltin<"soa_all8", (outs i32gentype:$ret), (ins gentype:$x0, gentype:$x1,
+  gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5,
   gentype:$x6, gentype:$x7), [], [], 0, 0>;
-def soa_all16 : OclBuiltin<"soa_all16", (outs i32gentype:$ret), (ins gentype:$x0,  gentype:$x1, 
-  gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5, 
-  gentype:$x6, gentype:$x7, gentype:$x8, gentype:$x9, 
-  gentype:$x10, gentype:$x11, gentype:$x12, gentype:$x13, 
+def soa_all16 : OclBuiltin<"soa_all16", (outs i32gentype:$ret), (ins gentype:$x0,  gentype:$x1,
+  gentype:$x2, gentype:$x3, gentype:$x4, gentype:$x5,
+  gentype:$x6, gentype:$x7, gentype:$x8, gentype:$x9,
+  gentype:$x10, gentype:$x11, gentype:$x12, gentype:$x13,
   gentype:$x14, gentype:$x15), [], [], 0, 0>;
 }
 
@@ -1101,25 +1101,25 @@ def soa8_get_image_depth : OclBuiltin<"soa8_get_image_depth", (outs v8i32:$ret),
 
 let Types = [ image2d ],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
-def soa4_read_imageui_2d : OclBuiltin<"soa4_read_imageui", (outs), 
-              (ins image2d:$image, sampler_t:$sampler, v4i32:$coord_x, v4i32:$coord_y, 
-                   pv4u32:$res_x, pv4u32:$res_y, pv4u32:$res_z, pv4u32:$res_w), [], [], 0, 0>;
-def soa8_read_imageui_2d : OclBuiltin<"soa8_read_imageui", (outs), 
-              (ins image2d:$image, sampler_t:$sampler, v8i32:$coord_x, v8i32:$coord_y, 
-                   pv8u32:$res_x, pv8u32:$res_y, pv8u32:$res_z, pv8u32:$res_w), [], [], 0, 0>;
+def soa4_read_imageui_2d : OclBuiltin<"soa4_read_imageui", (outs),
+              (ins image2d:$image, sampler_t:$sampler, v4i32:$coord_x, v4i32:$coord_y,
+                   pv4u32:$res_x, pv4u32:$res_y, pv4u32:$res_z, pv4u32:$res_w), [], [], 0, 0>, PRIVATE;
+def soa8_read_imageui_2d : OclBuiltin<"soa8_read_imageui", (outs),
+              (ins image2d:$image, sampler_t:$sampler, v8i32:$coord_x, v8i32:$coord_y,
+                   pv8u32:$res_x, pv8u32:$res_y, pv8u32:$res_z, pv8u32:$res_w), [], [], 0, 0>, PRIVATE;
 
-def soa4_write_imageui_2d : OclBuiltin<"soa4_write_imageui", (outs), 
-              (ins image2d:$image, v4i32:$coord_x, v4i32:$coord_y, 
+def soa4_write_imageui_2d : OclBuiltin<"soa4_write_imageui", (outs),
+              (ins image2d:$image, v4i32:$coord_x, v4i32:$coord_y,
                    v4u32:$val_x, v4u32:$val_y, v4u32:$val_z, v4u32:$val_w), [], [], 0, 0>;
-def soa8_write_imageui_2d : OclBuiltin<"soa8_write_imageui", (outs), 
-              (ins image2d:$image, v8i32:$coord_x, v8i32:$coord_y, 
+def soa8_write_imageui_2d : OclBuiltin<"soa8_write_imageui", (outs),
+              (ins image2d:$image, v8i32:$coord_x, v8i32:$coord_y,
                    v8u32:$val_x, v8u32:$val_y, v8u32:$val_z, v8u32:$val_w), [], [], 0, 0>;
 
-def mask_soa4_write_imageui_2d : OclBuiltin<"mask_soa4_write_imageui", (outs), 
-              (ins v4i32:$mask, image2d:$image, v4i32:$coord_x, v4i32:$coord_y, 
+def mask_soa4_write_imageui_2d : OclBuiltin<"mask_soa4_write_imageui", (outs),
+              (ins v4i32:$mask, image2d:$image, v4i32:$coord_x, v4i32:$coord_y,
                    v4u32:$val_x, v4u32:$val_y, v4u32:$val_z, v4u32:$val_w), [], [], 0, 0>;
-def mask_soa8_write_imageui_2d : OclBuiltin<"mask_soa8_write_imageui", (outs), 
-              (ins v8i32:$mask, image2d:$image, v8i32:$coord_x, v8i32:$coord_y, 
+def mask_soa8_write_imageui_2d : OclBuiltin<"mask_soa8_write_imageui", (outs),
+              (ins v8i32:$mask, image2d:$image, v8i32:$coord_x, v8i32:$coord_y,
                    v8u32:$val_x, v8u32:$val_y, v8u32:$val_z, v8u32:$val_w), [], [], 0, 0>;
 }
 
@@ -1132,7 +1132,7 @@ foreach imagebi = [ "mask_read_imagef_2d", "mask_read_imagei_2d", "mask_read_ima
     nullCell,      //v4
     nullCell,      //v8
     nullCell,      //16
-    nullCell],     //3 
+    nullCell],     //3
     0,0>;          //not scalarizable, not packetizable
   def imagebi#_i_cell : MapCell<!cast<OclBuiltin>(imagebi), v4i32>;
   def imagebi#_i_vectorized : MapRow<[
@@ -1141,11 +1141,11 @@ foreach imagebi = [ "mask_read_imagef_2d", "mask_read_imagei_2d", "mask_read_ima
     nullCell,      //v4
     nullCell,      //v8
     nullCell,      //16
-    nullCell],     //3, 
+    nullCell],     //3,
     0,0>;          //not scalarizable, not packetizable
 }
 
-foreach imagebi = [ "mask_read_imagef_2d_no_sampler", "mask_read_imagei_2d_no_sampler", 
+foreach imagebi = [ "mask_read_imagef_2d_no_sampler", "mask_read_imagei_2d_no_sampler",
                     "mask_read_imageui_2d_no_sampler" ] in {
   def imagebi#_f_cell : MapCell<!cast<OclBuiltin>(imagebi), v4i32>;
   def imagebi#_f_vectorized : MapRow<[
@@ -1154,7 +1154,7 @@ foreach imagebi = [ "mask_read_imagef_2d_no_sampler", "mask_read_imagei_2d_no_sa
     nullCell,      //v4
     nullCell,      //v8
     nullCell,      //16
-    nullCell],     //3 
+    nullCell],     //3
     0,0>;          //not scalarizable, not packetizable
 }
 
@@ -1166,7 +1166,7 @@ foreach imagebi = [ "mask_write_imagef_2d", "mask_write_imagei_2d" ] in {
     nullCell,      //v4
     nullCell,      //v8
     nullCell,      //16
-    nullCell],     //3 
+    nullCell],     //3
     0,0>;          //not scalarizable, not packetizable
 }
 
@@ -1179,7 +1179,7 @@ def mask_write_imageui_2d_i_vectorized : MapRow<[
   !cast<MapCell>("mask_soa4_write_imageui_2d_i_cell"),      //v4
   !cast<MapCell>("mask_soa8_write_imageui_2d_i_cell"),      //v8
   nullCell,      //16
-  nullCell],     //3 
+  nullCell],     //3
   0,1>;          //not scalarizable, packetizable
 
 // Vectorizer generated table for image properties functions
@@ -1193,7 +1193,7 @@ foreach imagebi = [ "image2d", "image3d", "image2d_array" ] in {
     !cast<MapCell>(imagebi#"_soa4_get_image_height_cell"),      //v4
     !cast<MapCell>(imagebi#"_soa8_get_image_height_cell"),      //v8
     nullCell,      //16
-    nullCell],     //3 
+    nullCell],     //3
     0,1>;          //not scalarizable, packetizable
 }
 
@@ -1207,7 +1207,7 @@ foreach imagebi = [ "image1d", "image2d", "image3d", "image1d_array", "image1d_b
     !cast<MapCell>(imagebi#_soa4_get_image_width_cell),      //v4
     !cast<MapCell>(imagebi#_soa8_get_image_width_cell),      //v8
     nullCell,      //16
-    nullCell],     //3 
+    nullCell],     //3
     0,1>;          //not scalarizable, packetizable
 
   def imagebi#_get_image_channel_order_cell : MapCell<!cast<OclBuiltin>("get_image_channel_order"), !cast<OclType>(imagebi)>;
@@ -1219,7 +1219,7 @@ foreach imagebi = [ "image1d", "image2d", "image3d", "image1d_array", "image1d_b
     !cast<MapCell>(imagebi#_soa4_get_image_channel_order_cell),      //v4
     !cast<MapCell>(imagebi#_soa8_get_image_channel_order_cell),      //v8
     nullCell,      //16
-    nullCell],     //3 
+    nullCell],     //3
     0,1>;          //not scalarizable, packetizable
 
   def imagebi#_get_image_channel_data_type_cell : MapCell<!cast<OclBuiltin>("get_image_channel_data_type"), !cast<OclType>(imagebi)>;
@@ -1231,7 +1231,7 @@ foreach imagebi = [ "image1d", "image2d", "image3d", "image1d_array", "image1d_b
     !cast<MapCell>(imagebi#_soa4_get_image_channel_data_type_cell),      //v4
     !cast<MapCell>(imagebi#_soa8_get_image_channel_data_type_cell),      //v8
     nullCell,      //16
-    nullCell],     //3 
+    nullCell],     //3
     0,1>;          //not scalarizable, packetizable
 }
 
@@ -1244,7 +1244,7 @@ def get_image_depth_vectorized : MapRow<[
   !cast<MapCell>("soa4_get_image_depth_cell"),      //v4
   !cast<MapCell>("soa8_get_image_depth_cell"),      //v8
   nullCell,      //16
-  nullCell],     //3 
+  nullCell],     //3
   0,1>;          //not scalarizable, packetizable
 
 // Vectorizer generated table for image read/write functions
@@ -1257,7 +1257,7 @@ def read_imageui_2d_vectorized : MapRow<[
   !cast<MapCell>("soa4_read_imageui_2d_cell"),      //v4
   !cast<MapCell>("soa8_read_imageui_2d_cell"),      //v8
   nullCell,      //16
-  nullCell],     //3 
+  nullCell],     //3
   0,1>;          //not scalarizable, packetizable
 
 def write_imageui_2d_cell : MapCell<!cast<OclBuiltin>("write_imageui_2d"), v4i32>;
@@ -1269,5 +1269,5 @@ def write_imageui_2d_vectorized : MapRow<[
   !cast<MapCell>("soa4_write_imageui_2d_cell"),      //v4
   !cast<MapCell>("soa8_write_imageui_2d_cell"),      //v8
   nullCell,      //16
-  nullCell],     //3 
+  nullCell],     //3
   0,1>;          //not scalarizable, packetizable

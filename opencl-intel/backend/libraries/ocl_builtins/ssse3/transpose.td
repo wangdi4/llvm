@@ -64,17 +64,17 @@ OclBuiltinImpl transpose_scatter_4x4_sse3 = OclBuiltinImpl<__ocl_transpose_scatt
   }]>;
 
 OclBuiltinImpl transpose_masked_load_4x4_sse3 = OclBuiltinImpl<__ocl_masked_load_transpose4x4, [v4i8, v4i32], 0, [{
-    $PtrArg0Type xyzw[4];
+    __private $PtrArg0Type xyzw[4];
     __ocl_masked_load_$Arg0BaseType_4x4($Arg0VarName, xyzw, $Arg5VarName);
     __ocl_load_transpose_$Arg0BaseType_4x4(xyzw, $Arg1VarName, $Arg2VarName, $Arg3VarName,  $Arg4VarName);
   }]>;
 OclBuiltinImpl transpose_masked_load_float_4x4_sse3 = OclBuiltinImpl<__ocl_masked_load_transpose4x4, [v4f32], 0, [{
-    $PtrArg0Type xyzw[4] = {0};
+    __private $PtrArg0Type xyzw[4] = {0};
     __ocl_masked_load_float_4x4($Arg0VarName, xyzw, $Arg5VarName);
     __ocl_load_transpose_float_4x4(xyzw, $Arg1VarName, $Arg2VarName, $Arg3VarName,  $Arg4VarName);
   }]>;
 OclBuiltinImpl transpose_masked_store_4x4_sse3 = OclBuiltinImpl<__ocl_masked_transpose_store4x4, [v4i8, v4i32, v4f32], 0, [{
-    $PtrArg0Type xyzw[4];
+    __private $PtrArg0Type xyzw[4];
     __ocl_transpose_store_$Arg0BaseType_4x4(xyzw, $Arg1VarName, $Arg2VarName, $Arg3VarName,  $Arg4VarName);
     __ocl_masked_store_$Arg0BaseType_4x4($Arg0VarName, xyzw, $Arg5VarName);
   }]>;
@@ -149,17 +149,17 @@ OclBuiltinImpl transpose_scatter_4x8_sse3 = OclBuiltinImpl<__ocl_transpose_scatt
   }]>;
 
 OclBuiltinImpl transpose_masked_load_4x8_sse3 = OclBuiltinImpl<__ocl_masked_load_transpose4x8, [v4i8, v4i16, v4i32], 0, [{
-    $PtrArg0Type xyzw[8];
+    __private $PtrArg0Type xyzw[8];
     __ocl_masked_load_$Arg0BaseType_4x8($Arg0VarName, xyzw, $Arg5VarName);
     __ocl_load_transpose_$Arg0BaseType_4x8(xyzw, $Arg1VarName, $Arg2VarName, $Arg3VarName, $Arg4VarName);
   }]>;
 OclBuiltinImpl transpose_masked_load_float_4x8_sse3 = OclBuiltinImpl<__ocl_masked_load_transpose4x8, [v4f32], 0, [{
-    $PtrArg0Type xyzw[8] = {0};
+    __private $PtrArg0Type xyzw[8] = {0};
     __ocl_masked_load_float_4x8($Arg0VarName, xyzw, $Arg5VarName);
     __ocl_load_transpose_float_4x8(xyzw, $Arg1VarName, $Arg2VarName, $Arg3VarName, $Arg4VarName);
   }]>;
 OclBuiltinImpl transpose_masked_store_4x8_sse3 = OclBuiltinImpl<__ocl_masked_transpose_store4x8, [v4i8, v4i16, v4i32, v4f32], 0, [{
-    $PtrArg0Type xyzw[8];
+    __private $PtrArg0Type xyzw[8];
     __ocl_transpose_store_$Arg0BaseType_4x8(xyzw, $Arg1VarName, $Arg2VarName, $Arg3VarName,  $Arg4VarName);
     __ocl_masked_store_$Arg0BaseType_4x8($Arg0VarName, xyzw, $Arg5VarName);
 

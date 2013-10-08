@@ -54,74 +54,74 @@
 
 // Coordinate callback typedefs
 // coordinates callback for float input
-typedef void *Image_F_COORD_CBK;
+typedef __constant void *Image_F_COORD_CBK;
 /// coordinates callback should return coordinates of pixel and
 /// i0,j0,k0,i1,k1,j1 components for interpolation
-typedef void *Image_FF_COORD_CBK;
+typedef __constant void *Image_FF_COORD_CBK;
 
 // Image reading callback typedefs
 // Reading from uint32_t image.
-typedef void *Image_UI_READ_CBK;
-typedef void *SOA4_Image_UI_READ_CBK;
-typedef void *SOA8_Image_UI_READ_CBK;
+typedef __constant void *Image_UI_READ_CBK;
+typedef __constant void *SOA4_Image_UI_READ_CBK;
+typedef __constant void *SOA8_Image_UI_READ_CBK;
 
 
 // Reading from signed int image
-typedef void *Image_I_READ_CBK;
+typedef __constant void *Image_I_READ_CBK;
 // read callback for float images and float coordinates takes
 // translated coordinates and i0,j0,k0,i1,j1,k1 components for interpolation
-typedef void *Image_F_READ_CBK;
+typedef __constant void *Image_F_READ_CBK;
 
 // read callback for float images and integer coordinates
-typedef void *Image_FI_READ_CBK;
+typedef __constant void *Image_FI_READ_CBK;
 
 // Write image callback typedefs
-typedef void *Image_UI_WRITE_CBK;
-typedef void *Image_I_WRITE_CBK;
-typedef void *Image_F_WRITE_CBK;
+typedef __constant void *Image_UI_WRITE_CBK;
+typedef __constant void *Image_I_WRITE_CBK;
+typedef __constant void *Image_F_WRITE_CBK;
 
-typedef void *SOA4_Image_UI_WRITE_CBK;
-typedef void *SOA8_Image_UI_WRITE_CBK;
+typedef __constant void *SOA4_Image_UI_WRITE_CBK;
+typedef __constant void *SOA8_Image_UI_WRITE_CBK;
 
 // Coordinates callback for integer input
-typedef int4 *Image_I_COORD_CBK;
+typedef __constant void *Image_I_COORD_CBK;
 // Coordinates callback for SOA4 integer input
-typedef void *SOA4_Image_I_COORD_CBK;
+typedef __constant void *SOA4_Image_I_COORD_CBK;
 // Coordinates callback for SOA8 integer input
-typedef void *SOA8_Image_I_COORD_CBK;
+typedef __constant void *SOA8_Image_I_COORD_CBK;
 
-int4   call_Image_F_COORD_CBK      (void* cbk, void* image, float4 coord);
-float4 call_Image_FF_COORD_CBK     (void* cbk, void* image, float4 coord, int4* square0, int4* square1);
-uint4  call_Image_UI_READ_CBK      (void* cbk, void* image, int4 coord, void* pData);
-void   call_SOA4_Image_UI_READ_CBK (void* cbk, void* image, int4 coord_x, int4 coord_y, void* pData, uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w);
-void   call_SOA8_Image_UI_READ_CBK (void* cbk, void* image, int8 coord_x, int8 coord_y, void* pData, uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w);
-int4   call_Image_I_READ_CBK       (void* cbk, void* image, int4 coord, void* pData);
-float4 call_Image_F_READ_CBK       (void* cbk, void* image, int4 square0, int4 square1, float4 coord, void* pData);
-float4 call_Image_FI_READ_CBK      (void* cbk, void* image, int4 coord, int4 dummy0, float4 dummy1, void* pData);
-void   call_Image_UI_WRITE_CBK     (void* cbk, void* image, uint4 color);
-void   call_Image_I_WRITE_CBK      (void* cbk, void* image, int4 color);
-void   call_Image_F_WRITE_CBK      (void* cbk, void* image, float4 color);
-void   call_SOA4_Image_UI_WRITE_CBK(void* cbk, void* p1, void* p2, void* p3, void* p4, uint4 val_x, uint4 val_y, uint4 val_z, uint4 val_w);
-void   call_SOA8_Image_UI_WRITE_CBK(void* cbk, void* p0, void* p1, void* p2, void* p3, void* p4, void* p5, void* p6, void* p7, uint8 val_x, uint8 val_y, uint8 val_z, uint8 val_w);
+int4   call_Image_F_COORD_CBK      (__constant void* cbk, __private void* image, float4 coord);
+float4 call_Image_FF_COORD_CBK     (__constant void* cbk, __private void* image, float4 coord, __private int4* square0, __private int4* square1);
+uint4  call_Image_UI_READ_CBK      (__constant void* cbk, __private void* image, int4 coord, __private void* pData);
+void   call_SOA4_Image_UI_READ_CBK (__constant void* cbk, __private void* image, int4 coord_x, int4 coord_y, __private void* pData, __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w);
+void   call_SOA8_Image_UI_READ_CBK (__constant void* cbk, __private void* image, int8 coord_x, int8 coord_y, __private void* pData, __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w);
+int4   call_Image_I_READ_CBK       (__constant void* cbk, __private void* image, int4 coord, __private void* pData);
+float4 call_Image_F_READ_CBK       (__constant void* cbk, __private void* image, int4 square0, int4 square1, float4 coord, __private void* pData);
+float4 call_Image_FI_READ_CBK      (__constant void* cbk, __private void* image, int4 coord, int4 dummy0, float4 dummy1, __private void* pData);
+void   call_Image_UI_WRITE_CBK     (__constant void* cbk, __private void* image, uint4 color);
+void   call_Image_I_WRITE_CBK      (__constant void* cbk, __private void* image, int4 color);
+void   call_Image_F_WRITE_CBK      (__constant void* cbk, __private void* image, float4 color);
+void   call_SOA4_Image_UI_WRITE_CBK(__constant void* cbk, __private void* p1, __private void* p2, __private void* p3, __private void* p4, uint4 val_x, uint4 val_y, uint4 val_z, uint4 val_w);
+void   call_SOA8_Image_UI_WRITE_CBK(__constant void* cbk, __private void* p0, __private void* p1, __private void* p2, __private void* p3, __private void* p4, __private void* p5, __private void* p6, __private void* p7, uint8 val_x, uint8 val_y, uint8 val_z, uint8 val_w);
 
-int4 call_Image_I_COORD_CBK      (void* cbk, void* image, int4 coord);
-void call_SOA4_Image_I_COORD_CBK (void* cbk, void* image, int4 coord_x, int4 coord_y, int4* translated_coord_x, int4* translated_coord_y);
-void call_SOA8_Image_I_COORD_CBK (void* cbk, void* image, int8 coord_x, int8 coord_y, int8* translated_coord_x, int8* translated_coord_y);
-Image_I_COORD_CBK const constant call_coord_translate_i_callback(int samplerIndex);
-SOA4_Image_I_COORD_CBK const constant call_soa4_coord_translate_i_callback(int samplerIndex);
-SOA8_Image_I_COORD_CBK const constant call_soa8_coord_translate_i_callback(int samplerIndex);
+int4 call_Image_I_COORD_CBK      (__constant void* cbk, __private void* image, int4 coord);
+void call_SOA4_Image_I_COORD_CBK (__constant void* cbk, __private void* image, int4 coord_x, int4 coord_y, __private int4* translated_coord_x, __private int4* translated_coord_y);
+void call_SOA8_Image_I_COORD_CBK (__constant void* cbk, __private void* image, int8 coord_x, int8 coord_y, __private int8* translated_coord_x, __private int8* translated_coord_y);
+Image_I_COORD_CBK const call_coord_translate_i_callback(int samplerIndex);
+SOA4_Image_I_COORD_CBK const call_soa4_coord_translate_i_callback(int samplerIndex);
+SOA8_Image_I_COORD_CBK const call_soa8_coord_translate_i_callback(int samplerIndex);
 
 /// Integer coordinate translation callbacks
 
-int4 __attribute__((overloadable)) trans_coord_int_NONE_FALSE_NEAREST(void* image, int4 coord);
-void __attribute__((overloadable)) soa4_trans_coord_int_NONE_FALSE_NEAREST(void* image, int4 coord_x, int4 coord_y, int4* res_coord_x, int4* res_coord_y);
-void __attribute__((overloadable)) soa8_trans_coord_int_NONE_FALSE_NEAREST(void* image, int8 coord_x, int8 coord_y, int8* res_coord_x, int8* res_coord_y);
-int4 __attribute__((overloadable)) trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int4 coord);
-void __attribute__((overloadable)) soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int4 coord_x, int4 coord_y, int4* res_coord_x, int4* res_coord_y);
-void __attribute__((overloadable)) soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(void* image, int8 coord_x, int8 coord_y, int8* res_coord_x, int8* res_coord_y);
-int4 __attribute__((overloadable)) trans_coord_int_UNDEFINED(void* image, int4 coord);
-void __attribute__((overloadable)) soa4_trans_coord_int_UNDEFINED(void* image, int4 coord_x, int4 coord_y, int4* res_coord_x, int4* res_coord_y);
-void __attribute__((overloadable)) soa8_trans_coord_int_UNDEFINED(void* image, int8 coord_x, int8 coord_y, int8* res_coord_x, int8* res_coord_y);
+int4 __attribute__((overloadable)) trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int4 coord);
+void __attribute__((overloadable)) soa4_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y);
+void __attribute__((overloadable)) soa8_trans_coord_int_NONE_FALSE_NEAREST(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y);
+int4 __attribute__((overloadable)) trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord);
+void __attribute__((overloadable)) soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y);
+void __attribute__((overloadable)) soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y);
+int4 __attribute__((overloadable)) trans_coord_int_UNDEFINED(__private void* image, int4 coord);
+void __attribute__((overloadable)) soa4_trans_coord_int_UNDEFINED(__private void* image, int4 coord_x, int4 coord_y, __private int4* res_coord_x, __private int4* res_coord_y);
+void __attribute__((overloadable)) soa8_trans_coord_int_UNDEFINED(__private void* image, int8 coord_x, int8 coord_y, __private int8* res_coord_x, __private int8* res_coord_y);
 
 
 #define ALIGN16 __attribute__ ((aligned(16)))
@@ -135,7 +135,7 @@ typedef struct _image_aux_data
                                               /* cl_image_format fields:
                                                 unsigned int image_channel_order;
                                                 unsigned int image_channel_data_type; */
-  void*             pData;                    // A pointer to the object wherein the object data is stored.
+  __private void*             pData;                    // A pointer to the object wherein the object data is stored.
                                               // Could be a valid memory pointer or a handle to other object.
   unsigned          uiElementSize;            // Size of image pixel element.
 

@@ -133,13 +133,13 @@ OclBuiltinImpl native_fmod_f64_expand = OclBuiltinImpl<native_fmod, [v16f64], 0,
 // native_fract
 code native_fract_f32_v16 = [{
     float16 f = _mm512_floor_ps($Arg0VarName);
-    *($Arg1NoASType)$Arg1VarName = f;
+    *(__private $Arg1NoASType)$Arg1VarName = f;
     return _mm512_min_ps(_mm512_sub_ps($Arg0VarName, f), _mm512_set_1to16_ps(0x1.fffffep-1f));
   }];
 code mask_native_fract_f32_v16 = [{
     float16 nx; nx$Pattern = $Arg0VarName;
     float16 f = _mm512_mask_floor_ps(nx, $Mask, nx);
-    *($Arg1NoASType)$Arg1VarName = f$Pattern;
+    *(__private $Arg1NoASType)$Arg1VarName = f$Pattern;
     float16 nret = _mm512_mask_min_ps(nx, $Mask, _mm512_mask_sub_ps(nx, $Mask, nx, f), _mm512_set_1to16_ps(0x1.fffffep-1f));
     return nret$Pattern;
   }];
@@ -152,20 +152,20 @@ OclBuiltinImpl mask_native_fract_f32_v16_gas = OclBuiltinImpl<native_fract_gas, 
 
 code native_fract_f64_v8 = [{
     double8 f = _mm512_floor_pd($Arg0VarName);
-    *($Arg1NoASType)$Arg1VarName = f;
+    *(__private $Arg1NoASType)$Arg1VarName = f;
     return _mm512_min_pd(_mm512_sub_pd($Arg0VarName, f), _mm512_set_1to8_pd(0x1.fffffep-1));
   }];
 code mask_native_fract_f64_v8 = [{
     double8 nx; nx$Pattern = $Arg0VarName;
     double8 f = _mm512_mask_floor_pd(nx, $Mask, nx);
-    *($Arg1NoASType)$Arg1VarName = f$Pattern;
+    *(__private $Arg1NoASType)$Arg1VarName = f$Pattern;
     double8 nret = _mm512_mask_min_pd(nx, $Mask, _mm512_mask_sub_pd(nx, $Mask, nx, f), _mm512_set_1to8_pd(0x1.fffffep-1f));
     return nret$Pattern;
   }];
 code expand_native_fract_f64_v16 = [{
     double16 ret;
-    ret$ExpandLoPattern = native_fract($Arg0VarName$ExpandLoPattern, ((double8*)$Arg1VarName) + 0);
-    ret$ExpandHiPattern = native_fract($Arg0VarName$ExpandHiPattern, ((double8*)$Arg1VarName) + 1);
+    ret.lo = native_fract($Arg0VarName.lo, ($Arg1gentype8)$Arg1VarName);
+    ret.hi = native_fract($Arg0VarName.hi, ($Arg1gentype8)$Arg1VarName + 1);
     return ret;
   }];
 OclBuiltinImpl native_fract_f64_v8_pas = OclBuiltinImpl<native_fract_pas, [v8f64], 0, native_fract_f64_v8>;
@@ -582,8 +582,8 @@ code knc_mask_code_2p = [{
 
 code knc_expand_code_2p = [{
      int16 lo, hi;
-     $Arg1BaseType#8 * p_lo = ($Arg1BaseType#8 *)&lo;
-     $Arg1BaseType#8 * p_hi = ($Arg1BaseType#8 *)&hi;
+     __private $Arg1BaseType#8 * p_lo = (__private $Arg1BaseType#8 *)&lo;
+     __private $Arg1BaseType#8 * p_hi = (__private $Arg1BaseType#8 *)&hi;
      $ReturnBaseType#16 $ReturnVarName = 
          ($ReturnBaseType#16)($Func($Arg0VarName.lo, p_lo), $Func($Arg0VarName.hi, p_hi));
      *$Arg1VarName = ($Arg1BaseType#16)(*p_lo, *p_hi);
