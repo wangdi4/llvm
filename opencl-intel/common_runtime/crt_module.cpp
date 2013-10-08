@@ -160,7 +160,17 @@ IcdDispatchMgr::IcdDispatchMgr()
     // clCreateFromDX9MediaSurfaceKHR
     // clEnqueueAcquireD3D11ObjectsKHR
     // clEnqueueReleaseD3D11ObjectsKHR
-    
+
+    REGISTER_DISPATCH_ENTRYPOINT( clSVMAlloc , clSVMAlloc )
+    REGISTER_DISPATCH_ENTRYPOINT( clSVMFree , clSVMFree )
+    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueSVMFree , clEnqueueSVMFree )
+    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueSVMMemcpy , clEnqueueSVMMemcpy )
+    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueSVMMemFill , clEnqueueSVMMemFill )
+    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueSVMMap , clEnqueueSVMMap )
+    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueSVMUnmap , clEnqueueSVMUnmap )
+    REGISTER_DISPATCH_ENTRYPOINT( clSetKernelArgSVMPointer , clSetKernelArgSVMPointer )
+    REGISTER_DISPATCH_ENTRYPOINT( clSetKernelExecInfo , clSetKernelExecInfo )
+
     REGISTER_DISPATCH_ENTRYPOINT( clCreateSamplerWithProperties , clCreateSamplerWithProperties )
     // clEnqueueAcquireDX9MediaSurfacesKHR
     // clEnqueueReleaseDX9MediaSurfacesKHR

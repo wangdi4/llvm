@@ -660,6 +660,9 @@ public:
     // mutex gaurding context from concurrent accesses
     OCLCRT::Utils::OclMutex          m_mutex;
 
+    // cache of SVM pointers created using clSVMAlloc()
+    std::list<void *>       m_svmPointers;
+
 private:
 
     // Calculate the alignment agreed by all devices
@@ -842,3 +845,24 @@ private:
     std::map<TKEY, TVAL>& m_map;
     OclMutex m_mutex;
 };
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+// EnqueueSVMFree callback:
+struct SVMFreeCallbackData
+{
+    ~SVMFreeCallbackData();
+
+    bool                CopySVMPointers(void** SVMPointers, cl_uint numSVMPointers);
+
+    bool                m_isGpuQueue;
+    bool                m_shouldReleaseEvent;
+    cl_command_queue    m_queue;
+    void **             m_SVMPointers;
+    cl_uint             m_numSVMPointers;
+    CrtEvent *          m_svmFreeUserEvent;
+    void *              m_originalUserData;
+    pfn_free            m_originalCallback;
+};
+void CL_CALLBACK SVMFreeCallbackFunction(cl_event event, cl_int status, void *user_data);

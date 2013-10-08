@@ -127,4 +127,15 @@ EXPORTS
     ; clEnqueueAcquireDX9MediaSurfacesKHR
     ; clEnqueueReleaseDX9MediaSurfacesKHR
 
+    clSVMAlloc
+    clSVMFree
+    clEnqueueSVMFree
+    clEnqueueSVMMemcpy
+    clEnqueueSVMMemFill
+    clEnqueueSVMMap
+    clEnqueueSVMUnmap
+    clSetKernelArgSVMPointer
+    clSetKernelExecInfo
+
     clCreateSamplerWithProperties
+

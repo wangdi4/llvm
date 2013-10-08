@@ -2903,3 +2903,105 @@ cl_int CrtContext::CreateGLImage(
     }
     return errCode;
 }
+
+SVMFreeCallbackData::~SVMFreeCallbackData()
+{
+    if( m_SVMPointers )
+    {
+        delete[] m_SVMPointers;
+    }
+}
+
+bool SVMFreeCallbackData::CopySVMPointers(void** SVMPointers, cl_uint numSVMPointers)
+{
+    if( NULL != m_SVMPointers )
+    {
+        return false;
+    }
+
+    m_SVMPointers = new void*[ numSVMPointers ];
+    if( NULL == m_SVMPointers )
+    {
+        return false;
+    }
+    m_numSVMPointers = numSVMPointers;
+
+    memcpy_s( m_SVMPointers,
+        m_numSVMPointers * sizeof(void*),
+        SVMPointers,
+        numSVMPointers * sizeof(void*) );
+
+    return true;
+}
+
+void CL_CALLBACK SVMFreeCallbackFunction(cl_event event, cl_int status, void *myData)
+{
+    bool        haveSystemPointers  = false;
+
+    assert( CL_COMPLETE == status && "Callback called before event complete!!");
+    assert( myData != NULL && "Invalid data was passed to the callback");
+
+    SVMFreeCallbackData* clbkData = static_cast<SVMFreeCallbackData*>( myData );
+
+    CrtQueue* crtQueue = reinterpret_cast<CrtQueue*>( ( ( _cl_command_queue_crt* )clbkData->m_queue )->object );
+    assert( crtQueue != NULL && "Invalid queue was passed to the callback");
+
+    if( clbkData->m_isGpuQueue )
+    {
+        // Callback called from GPU; only delete SVM pointers from cache
+        for( cl_uint i = 0; i < clbkData->m_numSVMPointers; i++ )
+        {
+            crtQueue->m_contextCRT->m_svmPointers.remove( clbkData->m_SVMPointers[i] );
+        }
+    }
+    else
+    {
+        // Callback called from CPU
+
+        std::list<void *> * svmPointers = &( crtQueue->m_contextCRT->m_svmPointers );
+
+        // Free pointers that were returned by clSVMAlloc
+        for( cl_uint i = 0; i < clbkData->m_numSVMPointers; i++ )
+        {
+            if( svmPointers->end() != std::find( svmPointers->begin(), svmPointers->end(), clbkData->m_SVMPointers[i] ) )
+            {
+                clSVMFree( crtQueue->m_contextCRT->m_context_handle, clbkData->m_SVMPointers[i] );
+            }
+            else
+            {
+                // We have system pointers to free using user's original callback
+                haveSystemPointers = true;
+            }
+        }
+
+        if( NULL != clbkData->m_originalCallback )
+        {
+            // User provided free function to the original clEnqueueSVMFree call
+            clbkData->m_originalCallback(
+                clbkData->m_queue,
+                clbkData->m_numSVMPointers,
+                clbkData->m_SVMPointers,
+                clbkData->m_originalUserData );
+        }
+        else
+        {
+            // User didn't provide free function; Assume no system pointers here
+            assert( !haveSystemPointers && "System pointers were passed to callback without free function! This should have been checked before." );
+        }
+
+        // Mark the event which is returned to user as complete
+        clSetUserEventStatus( clbkData->m_svmFreeUserEvent->m_eventDEV, CL_COMPLETE );
+    }
+
+    // Release the marker that was created in clEnqueueSVMFree
+    clReleaseEvent( event );
+
+    // The event was not returned to user so we must release it here
+    if( clbkData->m_shouldReleaseEvent )
+    {
+        clbkData->m_svmFreeUserEvent->Release();
+        clbkData->m_svmFreeUserEvent->DecPendencyCnt();
+    }
+
+    delete clbkData;
+}

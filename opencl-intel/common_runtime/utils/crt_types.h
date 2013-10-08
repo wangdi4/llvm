@@ -34,6 +34,7 @@ typedef void (CL_CALLBACK *ctxt_logging_fn)(const char *, const void *, size_t, 
 typedef void (CL_CALLBACK *prog_logging_fn)(cl_program, void *);
 typedef void (CL_CALLBACK *mem_dtor_fn)(cl_mem, void *);
 typedef void (CL_CALLBACK *pfn_notify)(cl_event, cl_int, void *);
+typedef void (CL_CALLBACK *pfn_free)(cl_command_queue queue, cl_uint num_svm_pointers, void *svm_pointers[], void *user_data);
 typedef int crt_err_code;
 
 #define CRT_FAIL        0x1
@@ -123,3 +124,12 @@ enum CrtExtension
 
 cl_int GetCrtExtension(const char* str_extensions);
 cl_uint GetPlatformVersion(const char* platform_version_str);
+
+inline bool IsPowerOf2(unsigned int uiNum)
+{
+#ifdef _WIN32
+    return __popcnt(uiNum) == 1;
+#else
+    return __builtin_popcount(uiNum) == 1;
+#endif
+}
