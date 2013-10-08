@@ -27,6 +27,7 @@ set(OCL_BE_PASSES
     Obfuscation
     PrepareKernelArgs
     AddImplicitArgs
+    OclFunctionAttrs
     ModuleCleanup
     BackendPassesWrappers
     LocalBuffers

@@ -58,6 +58,7 @@ llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
+llvm::ModulePass *createOclFunctionAttrsPass();
 llvm::ModulePass *createModuleCleanupPass();
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
@@ -289,6 +290,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
     // Flatten get_{local, global}_linear_id()
     m_funcStandardLLVMPasses.add(createLinearIdResolverPass());
   }
+  m_modulePasses.add(createOclFunctionAttrsPass());
   m_moduleStandardLLVMPasses.add(llvm::createBasicAliasAnalysisPass());
 #ifndef __APPLE__
   if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
@@ -329,6 +331,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
     m_modulePasses.add(createGenericAddressStaticResolutionPass());
     // No need to run function inlining pass here, because if there are still
     // non-inlined functions left - then we don't have to inline new ones.
+    // Run the OclFunctionAttrs pass again after GenericAddressStaticResolution
+    //m_modulePasses.add(createOclFunctionAttrsPass());
   }
 
   m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());

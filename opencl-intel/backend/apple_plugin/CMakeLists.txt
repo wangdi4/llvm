@@ -61,6 +61,7 @@ set (PASSES_LIBS
     DetectFunctionPtrCalls
     CloneBlockInvokeFuncToKernel
     ResolveBlockToStaticCall
+    OclFunctionAttrs
     )
 
 target_link_libraries(${TARGET_NAME}

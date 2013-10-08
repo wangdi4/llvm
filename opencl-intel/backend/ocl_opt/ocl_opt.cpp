@@ -79,6 +79,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeInstToFuncCallPass(Registry);
     intel::initializeModuleCleanupPass(Registry);
     intel::initializeAddImplicitArgsPass(Registry);
+    intel::initializeOclFunctionAttrsPass(Registry);
     intel::initializeLocalBuffersWrapperPass(Registry);
     intel::initializeLocalBuffersWithDebugWrapperPass(Registry);
     intel::initializeRelaxedPassPass(Registry);

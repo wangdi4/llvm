@@ -4,6 +4,7 @@ use_rtti( FALSE )
 set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 
 add_subdirectory(AddImplicitArgs)
+add_subdirectory(OclFunctionAttrs)
 add_subdirectory(BuiltInFuncImport)
 add_subdirectory(CloneBlockInvokeFuncToKernel)
 add_subdirectory(DetectFunctionPtrCalls)

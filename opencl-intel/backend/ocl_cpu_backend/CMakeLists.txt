@@ -341,6 +341,7 @@ set( BACKEND_PASSES
     LLVMVectorizer
     LLVMBarrier
     AddImplicitArgs
+    OclFunctionAttrs
     BuiltInFuncImport
     DebugInfoPass
     InstToFuncCall

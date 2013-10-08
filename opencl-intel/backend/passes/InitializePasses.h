@@ -52,6 +52,7 @@ void initializeShuffleCallToInstPass(llvm::PassRegistry&);
 void initializeInstToFuncCallPass(llvm::PassRegistry&);
 void initializeModuleCleanupPass(llvm::PassRegistry&);
 void initializeAddImplicitArgsPass(llvm::PassRegistry&);
+void initializeOclFunctionAttrsPass(llvm::PassRegistry&);
 void initializeLocalBuffersWrapperPass(llvm::PassRegistry&);
 void initializeLocalBuffersWithDebugWrapperPass(llvm::PassRegistry&);
 void initializeRelaxedPassPass(llvm::PassRegistry&);
