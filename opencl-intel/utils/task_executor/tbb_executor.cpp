@@ -372,9 +372,9 @@ bool TBBTaskExecutor::LoadTBBLibrary()
 	Intel::OpenCL::Utils::GetModuleDirectory(tbbPath, MAX_PATH);
 
 #ifdef _DEBUG
-		STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_preview_debug.dll");
+		STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_debug.dll");
 #else
-		STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_preview.dll");
+		STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb.dll");
 #endif
 
 	bLoadRes = m_dllTBBLib.Load(tbbPath);

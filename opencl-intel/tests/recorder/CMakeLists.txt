@@ -58,8 +58,8 @@ if (NOT WIN32)
 else (NOT WIN32)
 	target_link_libraries( ${TARGET_NAME}  delayimp)
 	set_target_properties(${TARGET_NAME} PROPERTIES
-		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll"
-		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_preview_debug.dll"
+		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb.dll"
+		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug.dll"
 	)
 endif (NOT WIN32)
 

@@ -73,16 +73,16 @@ if (WIN32)
     if (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2008
         set_target_properties(${TARGET_NAME} PROPERTIES
-		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll"
-		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_preview_debug.dll"
+		    LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb.dll"
+		    LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug.dll"
 	    )        
 	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS	"${LINK_FLAGS} /PDBSTRIPPED:${PDB_NAME}")	    
     else (${MSVC_VERSION} EQUAL 1500)
         # Visual Studio 2010 (assumed if not Visual Studio 2008)
         # This is a fix due to a bug in CMake, Does not add the flag /DEBUG to the linker flags in Release mode.
         # The /DEBUG flag is required in order to create stripped pdbs.	
-	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb_preview_debug.lib /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:tbb_preview_debug.dll /PDBSTRIPPED:${PDB_NAME}")
-	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} tbbmalloc.lib tbb_preview.lib /DELAYLOAD:tbbmalloc.dll  /DELAYLOAD:tbb_preview.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
+	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb_debug.lib /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:tbb_debug.dll /PDBSTRIPPED:${PDB_NAME}")
+	    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} tbbmalloc.lib tbb.lib /DELAYLOAD:tbbmalloc.dll  /DELAYLOAD:tbb.dll /DEBUG /PDBSTRIPPED:${PDB_NAME}")
     endif (${MSVC_VERSION} EQUAL 1500)
 	install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
     if (INSTALL_PDBS)
@@ -90,12 +90,12 @@ if (WIN32)
     endif(INSTALL_PDBS)
 else (WIN32)
 	if ( ${CMAKE_BUILD_TYPE} STREQUAL "Debug" )
-		list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_preview_debug${IMPLIB_SUFFIX} )
+		list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX} )
 		if( NOT ANDROID )
 		  list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX} )
 		endif( NOT ANDROID )
 	else ()
-		list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_preview${IMPLIB_SUFFIX} )
+		list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX} )
 		if( NOT ANDROID )
 		  list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX} )
 		endif( NOT ANDROID )
