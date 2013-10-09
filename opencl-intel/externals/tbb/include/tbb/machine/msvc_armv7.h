@@ -29,15 +29,26 @@
 
 #define __TBB_WORDSIZE 4
 
-#define __TBB_BIG_ENDIAN -1 // not currently supported
+#define __TBB_ENDIANNESS __TBB_ENDIAN_UNSUPPORTED
 
-#define __TBB_compiler_fence() __dmb(_ARM_BARRIER_SY)
+#if defined(TBB_WIN32_USE_CL_BUILTINS)
+// We can test this on _M_IX86
+#pragma intrinsic(_ReadWriteBarrier)
+#pragma intrinsic(_mm_mfence)
+#define __TBB_compiler_fence()    _ReadWriteBarrier()
+#define __TBB_full_memory_fence() _mm_mfence()
 #define __TBB_control_consistency_helper() __TBB_compiler_fence()
-
-#define __TBB_armv7_inner_shareable_barrier() __dmb(_ARM_BARRIER_ISH)
-#define __TBB_acquire_consistency_helper() __TBB_armv7_inner_shareable_barrier()
-#define __TBB_release_consistency_helper() __TBB_armv7_inner_shareable_barrier()
-#define __TBB_full_memory_fence() __TBB_armv7_inner_shareable_barrier()
+#define __TBB_acquire_consistency_helper() __TBB_compiler_fence()
+#define __TBB_release_consistency_helper() __TBB_compiler_fence()
+#else
+//Now __dmb(_ARM_BARRIER_SY) is used for both compiler and memory fences
+//This might be changed later after testing
+#define __TBB_compiler_fence()    __dmb(_ARM_BARRIER_SY)
+#define __TBB_full_memory_fence() __dmb(_ARM_BARRIER_SY)
+#define __TBB_control_consistency_helper() __TBB_compiler_fence()
+#define __TBB_acquire_consistency_helper() __TBB_full_memory_fence()
+#define __TBB_release_consistency_helper() __TBB_full_memory_fence()
+#endif
 
 //--------------------------------------------------
 // Compare and swap
@@ -53,12 +64,12 @@
 
 #define __TBB_MACHINE_DEFINE_ATOMICS_CMPSWP(S,T,F)                                               \
 inline T __TBB_machine_cmpswp##S( volatile void *ptr, T value, T comparand ) {                   \
-	return _InterlockedCompareExchange##F(reinterpret_cast<volatile T *>(ptr),comparand,value);  \
+    return _InterlockedCompareExchange##F(reinterpret_cast<volatile T *>(ptr),value,comparand);  \
 }                                                                                                \
-                                                                                                 
+
 #define __TBB_MACHINE_DEFINE_ATOMICS_FETCHADD(S,T,F)                                             \
 inline T __TBB_machine_fetchadd##S( volatile void *ptr, T value ) {                              \
-	return _InterlockedAdd##F(reinterpret_cast<volatile T *>(ptr),value);                        \
+    return _InterlockedExchangeAdd##F(reinterpret_cast<volatile T *>(ptr),value);                \
 }                                                                                                \
 
 __TBB_MACHINE_DEFINE_ATOMICS_CMPSWP(1,char,8)
@@ -66,56 +77,70 @@ __TBB_MACHINE_DEFINE_ATOMICS_CMPSWP(2,short,16)
 __TBB_MACHINE_DEFINE_ATOMICS_CMPSWP(4,long,)
 __TBB_MACHINE_DEFINE_ATOMICS_CMPSWP(8,__int64,64)
 __TBB_MACHINE_DEFINE_ATOMICS_FETCHADD(4,long,)
+#if defined(TBB_WIN32_USE_CL_BUILTINS)
+// No _InterlockedExchangeAdd64 intrinsic on _M_IX86
+#define __TBB_64BIT_ATOMICS 0
+#else
 __TBB_MACHINE_DEFINE_ATOMICS_FETCHADD(8,__int64,64)
-
+#endif
 
 inline void __TBB_machine_pause (int32_t delay )
 {
     while(delay>0)
     {
-	__TBB_compiler_fence();
+        __TBB_compiler_fence();
         delay--;
     }
 }
 
 namespace tbb {
-namespace internal {
-    template <typename T, size_t S>
-    struct machine_load_store_relaxed {
-        static inline T load ( const volatile T& location ) {
-            const T value = location;
+    namespace internal {
+        template <typename T, size_t S>
+        struct machine_load_store_relaxed {
+            static inline T load ( const volatile T& location ) {
+                const T value = location;
 
-            /*
-            * An extra memory barrier is required for errata #761319
-            * Please see http://infocenter.arm.com/help/topic/com.arm.doc.uan0004a
-            */
-            __TBB_armv7_inner_shareable_barrier();
-            return value;
-        }
+                /*
+                * An extra memory barrier is required for errata #761319
+                * Please see http://infocenter.arm.com/help/topic/com.arm.doc.uan0004a
+                */
+                __TBB_acquire_consistency_helper();
+                return value;
+            }
 
-        static inline void store ( volatile T& location, T value ) {
-            location = value;
-        }
-    };
-}} // namespaces internal, tbb
+            static inline void store ( volatile T& location, T value ) {
+                location = value;
+            }
+        };
+    }} // namespaces internal, tbb
 
 // Machine specific atomic operations
-
 #define __TBB_CompareAndSwap4(P,V,C) __TBB_machine_cmpswp4(P,V,C)
 #define __TBB_CompareAndSwap8(P,V,C) __TBB_machine_cmpswp8(P,V,C)
 #define __TBB_Pause(V) __TBB_machine_pause(V)
 
 // Use generics for some things
+#define __TBB_USE_FETCHSTORE_AS_FULL_FENCED_STORE               1
+#define __TBB_USE_GENERIC_HALF_FENCED_LOAD_STORE                1
 #define __TBB_USE_GENERIC_PART_WORD_FETCH_ADD                   1
 #define __TBB_USE_GENERIC_PART_WORD_FETCH_STORE                 1
 #define __TBB_USE_GENERIC_FETCH_STORE                           1
-#define __TBB_USE_GENERIC_HALF_FENCED_LOAD_STORE                1
 #define __TBB_USE_GENERIC_DWORD_LOAD_STORE                      1
 #define __TBB_USE_GENERIC_SEQUENTIAL_CONSISTENCY_LOAD_STORE     1
 
+#if defined(TBB_WIN32_USE_CL_BUILTINS)
+#if !__TBB_WIN8UI_SUPPORT
+extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
+#define __TBB_Yield()  SwitchToThread()
+#else
+#include<thread>
+#define __TBB_Yield()  std::this_thread::yield()
+#endif
+#else
 #define __TBB_Yield() __yield()
+#endif
 
-// API to retrieve/update FPU control setting not implemented
+// API to retrieve/update FPU control setting
 #define __TBB_CPU_CTL_ENV_PRESENT 1
 
 typedef unsigned int __TBB_cpu_ctl_env_t;

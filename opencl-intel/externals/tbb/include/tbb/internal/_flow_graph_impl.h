@@ -518,8 +518,8 @@ namespace internal {
         // as above, but call try_put_task instead, and return the last task we received (if any)
         /*override*/ task * try_put_task( const T &t ) {
             task * last_task = NULL;
-            bool upgraded = false;
-            typename my_mutex_type::scoped_lock l(this->my_mutex, false);
+            bool upgraded = true;
+            typename my_mutex_type::scoped_lock l(this->my_mutex, upgraded);
             typename my_successors_type::iterator i = this->my_successors.begin();
             while ( i != this->my_successors.end() ) {
                 task *new_task = (*i)->try_put_task(t);
@@ -560,8 +560,8 @@ namespace internal {
         }
         
         /*override*/task *try_put_task( const T &t ) {
-            bool upgraded = false;
-            typename my_mutex_type::scoped_lock l(this->my_mutex, false);
+            bool upgraded = true;
+            typename my_mutex_type::scoped_lock l(this->my_mutex, upgraded);
             typename my_successors_type::iterator i = this->my_successors.begin();
             while ( i != this->my_successors.end() ) {
                 task *new_task = (*i)->try_put_task(t);
