@@ -445,25 +445,21 @@ bool CopyMemObject::Execute()
 	sCpyParam.pDst = (cl_char*)MemoryAllocator::CalculateOffsetPointer(pDstMemObj->pData, cmdParams->dst_dim_count, cmdParams->dst_origin, sCpyParam.vDstPitch, pDstMemObj->uiElementSize);
 
 	sCpyParam.uiDimCount = min(cmdParams->src_dim_count, cmdParams->dst_dim_count);
-	if(cmdParams->dst_dim_count != cmdParams->src_dim_count)
+	//Buffer to image
+    if (CL_MEM_OBJECT_BUFFER == pSrcMemObj->memObjType && CL_MEM_OBJECT_BUFFER != pDstMemObj->memObjType)
 	{
-		//Buffer to image
-		if (CL_MEM_OBJECT_BUFFER == pSrcMemObj->memObjType)
-		{
-			uiSrcElementSize = uiDstElementSize;
-			sCpyParam.uiDimCount = cmdParams->dst_dim_count;
-			sCpyParam.vSrcPitch[0] = cmdParams->region[0] * uiDstElementSize;
-			sCpyParam.vSrcPitch[1] = sCpyParam.vSrcPitch[0] * cmdParams->region[1];
-		}
-		if (CL_MEM_OBJECT_BUFFER == pDstMemObj->memObjType)
-		{
-			//When destination is buffer the memcpy will be done as if the buffer is an image with height=1
-			sCpyParam.uiDimCount = cmdParams->src_dim_count;
-			sCpyParam.vDstPitch[0] = cmdParams->region[0] * uiSrcElementSize;
-			sCpyParam.vDstPitch[1] = sCpyParam.vDstPitch[0] * cmdParams->region[1];
-		}
+		uiSrcElementSize = uiDstElementSize;
+		sCpyParam.uiDimCount = cmdParams->dst_dim_count;
+		sCpyParam.vSrcPitch[0] = cmdParams->region[0] * uiDstElementSize;
+		sCpyParam.vSrcPitch[1] = sCpyParam.vSrcPitch[0] * cmdParams->region[1];
 	}
-
+    if (CL_MEM_OBJECT_BUFFER == pDstMemObj->memObjType && CL_MEM_OBJECT_BUFFER != pSrcMemObj->memObjType)
+	{
+		//When destination is buffer the memcpy will be done as if the buffer is an image with height=1
+		sCpyParam.uiDimCount = cmdParams->src_dim_count;
+		sCpyParam.vDstPitch[0] = cmdParams->region[0] * uiSrcElementSize;
+		sCpyParam.vDstPitch[1] = sCpyParam.vDstPitch[0] * cmdParams->region[1];
+	}
 
 	//If row_pitch (or input_row_pitch) is set to 0, the appropriate row pitch is calculated
 	//based on the size of each element in bytes multiplied by width.
