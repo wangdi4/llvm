@@ -13,7 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/raw_ostream.h"
-
+#include "llvm/Version.h"
 
 namespace intel {
   char DataPerValue::ID = 0;
@@ -38,10 +38,10 @@ namespace intel {
     m_util.init(&M);
 
     // obtain DataLayout of the module
-#if LLVM_VERSION == 3200
-    m_pDL = getAnalysisIfAvailable<DataLayout>();
-#else
+#if LLVM_VERSION == 3425
     m_pDL = getAnalysisIfAvailable<TargetData>();
+#else
+    m_pDL = getAnalysisIfAvailable<DataLayout>();
 #endif
     assert( m_pDL && "Failed to obtain instance of DataLayout!" );
 

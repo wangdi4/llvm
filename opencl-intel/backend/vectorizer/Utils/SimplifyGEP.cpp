@@ -10,6 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "llvm/Support/InstIterator.h"
+#include "llvm/Version.h"
 #include <vector>
 
 namespace intel {
@@ -26,10 +27,10 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
   bool SimplifyGEP::runOnFunction(Function &F) {
     // obtain TagetData of the module
-#if LLVM_VERSION == 3200
-    m_pDL = getAnalysisIfAvailable<DataLayout>();
-#else
+#if LLVM_VERSION == 3425
     m_pDL = getAnalysisIfAvailable<TargetData>();
+#else
+    m_pDL = getAnalysisIfAvailable<DataLayout>();
 #endif
 
     // Obtain WIAnalysis of the function

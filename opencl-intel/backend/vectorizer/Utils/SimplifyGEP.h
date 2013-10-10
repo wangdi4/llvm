@@ -14,10 +14,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
 #include "llvm/Version.h"
-#if LLVM_VERSION == 3200
-#include "llvm/DataLayout.h"
-#else
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/DataLayout.h"
 #endif
 
 using namespace llvm;
@@ -86,10 +86,10 @@ namespace intel {
     /// @brief pointer to work-item analysis performed for this function
     WIAnalysis *m_depAnalysis;
     /// @brief This holds DataLayout of processed module
-#if LLVM_VERSION == 3200
-    DataLayout *m_pDL;
-#else
+#if LLVM_VERSION == 3425
     TargetData *m_pDL;
+#else
+    DataLayout *m_pDL;
 #endif
   };
 } // namespace

@@ -21,10 +21,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Version.h"
-#if LLVM_VERSION == 3200
-#include "llvm/DataLayout.h"
-#else
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/DataLayout.h"
 #endif
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
@@ -247,18 +247,24 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #endif //#ifndef __APPLE__
 
   unsigned int uiOptLevel;
-  if (pConfig->GetDisableOpt() || debugType != None) {
+  if (pConfig->GetDisableOpt() || debugType != intel::None) {
     uiOptLevel = 0;
   } else {
     uiOptLevel = 3;
   }
 
-// Adding function passes.
-#if LLVM_VERSION == 3200
-  m_funcStandardLLVMPasses.add(new llvm::DataLayout(pModule));
+#if LLVM_VERSION == 3425
+  llvm::TargetData *pDL1 = new llvm::TargetData(pModule);
+  llvm::TargetData *pDL2 = new llvm::TargetData(pModule);
+  llvm::TargetData *pDL3 = new llvm::TargetData(pModule);
 #else
-  m_funcStandardLLVMPasses.add(new llvm::TargetData(pModule));
+  llvm::DataLayout *pDL1 = new llvm::DataLayout(pModule);
+  llvm::DataLayout *pDL2 = new llvm::DataLayout(pModule);
+  llvm::DataLayout *pDL3 = new llvm::DataLayout(pModule);
 #endif
+
+// Adding function passes.
+  m_funcStandardLLVMPasses.add(pDL1);
   // Detect OCL2.0 compilation mode
   const bool isOcl20 = CompilationUtils::getCLVersionFromModuleOrDefault(*pModule) >=
                  OclVersion::CL_VER_2_0;
@@ -271,11 +277,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
 // Adding module passes.
 // Add an appropriate DataLayout instance for this module...
-#if LLVM_VERSION == 3200
-  m_moduleStandardLLVMPasses.add(new llvm::DataLayout(pModule));
-#else
-  m_moduleStandardLLVMPasses.add(new llvm::TargetData(pModule));
-#endif
+  m_moduleStandardLLVMPasses.add(pDL2);
+
 #ifdef __APPLE__
   m_moduleStandardLLVMPasses.add(createClangCompatFixerPass());
 #endif
@@ -322,7 +325,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
       unrollLoops,
       false,
       allowAllocaModificationOpt,
-      debugType != None,
+      debugType != intel::None,
       pConfig);
 
   if (isOcl20) {
@@ -347,11 +350,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   // has its own datalayout and basic analysis
   // !!! Volcano m_modulePasses should have its own datalayout analysis pass
   // since some LLVM optimizations in m_modulePasses (instcombine) are using their info
-#if LLVM_VERSION == 3200
-  m_modulePasses.add(new llvm::DataLayout(pModule));
-#else
-  m_modulePasses.add(new llvm::TargetData(pModule));
-#endif
+  m_modulePasses.add(pDL3);
   m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
 
   if (isOcl20) {
@@ -363,7 +362,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   // Should be called before vectorizer!
   m_modulePasses.add((llvm::Pass*)createInstToFuncCallPass(pConfig->GetCpuId().HasGatherScatter()));
 
-  if ( debugType == None && !pConfig->GetLibraryModule() ) {
+  if ( debugType == intel::None && !pConfig->GetLibraryModule() ) {
     m_modulePasses.add(createKernelAnalysisPass());
     m_modulePasses.add(createCLWGLoopBoundariesPass());
     m_modulePasses.add(llvm::createDeadCodeEliminationPass());
@@ -373,7 +372,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   // In Apple build TRANSPOSE_SIZE_1 is not declared
   if( pConfig->GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
-    && debugType == None
+    && debugType == intel::None
     && uiOptLevel != 0)
   {
 #ifndef __APPLE__
@@ -412,7 +411,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   m_modulePasses.add(createPreventDivisionCrashesPass());
   // We need InstructionCombining and GVN passes after ShiftZeroUpperBits, PreventDivisionCrashes passes
   // to optimize redundancy introduced by those passes
-  if ( debugType == None ) {
+  if ( debugType == intel::None ) {
     m_modulePasses.add(llvm::createInstructionCombiningPass());
     m_modulePasses.add(llvm::createGVNPass());
   }
@@ -443,13 +442,13 @@ Optimizer::Optimizer( llvm::Module* pModule,
 
   // Adding WG loops
   if (!pConfig->GetLibraryModule()){
-    if ( debugType == None ) {
+    if ( debugType == intel::None ) {
       m_modulePasses.add(createCLWGLoopCreatorPass());
     }
     m_modulePasses.add(createBarrierMainPass(debugType));
 
     // After adding loops run loop optimizations.
-    if( debugType == None ) {
+    if( debugType == intel::None ) {
       m_modulePasses.add(createCLBuiltinLICMPass());
       m_modulePasses.add(llvm::createLICMPass());
 #ifdef __APPLE__
@@ -504,14 +503,14 @@ Optimizer::Optimizer( llvm::Module* pModule,
   m_modulePasses.add(llvm::createVerifierPass());
 #endif
 
-  if ( debugType == None ) {
+  if ( debugType == intel::None ) {
     if (pConfig->GetCpuId().HasGatherScatter())
       m_modulePasses.add(llvm::createFunctionInliningPass(4096));     // Inline (not only small) functions.
     else
       m_modulePasses.add(llvm::createFunctionInliningPass());     // Inline small functions
   }
 
-  if ( debugType == None ) {
+  if ( debugType == intel::None ) {
     m_modulePasses.add(llvm::createArgumentPromotionPass());        // Scalarize uninlined fn args
 
     if ( !DisableSimplifyLibCalls ) {
@@ -536,7 +535,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   if (!pConfig->GetLibraryModule())
     m_modulePasses.add(createPrepareKernelArgsPass());
 
-  if ( debugType == None ) {
+  if ( debugType == intel::None ) {
     // These passes come after PrepareKernelArgs pass to eliminate the redundancy reducced by it
     m_modulePasses.add(llvm::createFunctionInliningPass());           // Inline
     m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions

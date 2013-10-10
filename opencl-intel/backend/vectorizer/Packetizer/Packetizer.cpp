@@ -16,7 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Intrinsics.h"
 #include "llvm/IRBuilder.h"
-
+#include "llvm/Version.h"
 
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
 #define LOG_(x) __logs_vals[x]
@@ -875,7 +875,11 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   std::string name = Mangler::getGatherScatterInternalName(type, MO.Mask->getType(), VecElemTy, IndexTy);
   // Create new gather/scatter/prefetch caller instruction
   Instruction *newCaller = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
       SmallVector<Attributes, 4>(), MO.Orig);
+#else
+      SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
+#endif
 
   // In case the vector size cross cache line we need to also prefetch the next cachelines.
   // According to OCL spec the vectors are aligned to the vector size (except for size 3 which is aligned as size 4)
@@ -886,7 +890,11 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     vecVal = ConstantVector::getSplat(m_packetWidth, vecVal);
     args[2] =  BinaryOperator::CreateNUWAdd(MO.Index, vecVal, "Jump2NextLine", MO.Orig);
     VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
         SmallVector<Attributes, 4>(), MO.Orig);
+#else
+        SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
+#endif
   }
 
   return newCaller;
@@ -952,7 +960,11 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
     args.push_back(obtainNumElemsForConsecutivePrefetch(NumOfElements[0], MO.Orig));
     std::string vectorName = Mangler::getVectorizedPrefetchName(CI->getCalledFunction()->getName(), m_packetWidth);
     return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), vectorName, MO.Orig->getType(), args,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
         SmallVector<Attributes, 4>(), MO.Orig);
+#else
+        SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
+#endif
   }
   default:
     V_ASSERT(false && "unexpected type of memory operation");
@@ -1025,7 +1037,11 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
       break;
   }
   return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, DT, args,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
       SmallVector<Attributes, 4>(), MO.Orig);
+#else
+      SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
+#endif
 }
 
 Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
@@ -1271,7 +1287,11 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
           VCMEntry * newEntry = allocateNewVCMEntry();
           newEntry->isScalarRemoved = false;
           Instruction* unMaskedPrefetch = VectorizerUtils::createFunctionCall(m_currFunc->getParent(),
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
               Mangler::demangle(scalarFuncName), CI->getType(), args, SmallVector<Attributes, 4>(), CI);
+#else
+              Mangler::demangle(scalarFuncName), CI->getType(), args, SmallVector<Attribute::AttrKind, 4>(), CI);
+#endif
           m_VCM.insert(std::pair<Value *, VCMEntry *>(unMaskedPrefetch, newEntry));
           m_removedInsts.insert(CI);
           return;

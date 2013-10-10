@@ -144,8 +144,10 @@ namespace intel{
       Instruction* pLoadedValueInst = cast<Instruction>(pLoadedValue);
 #if LLVM_VERSION == 3200
       if (pFunc->getParamAttributes(ArgNo + 1).hasAttribute(Attributes::NoAlias)) {
-#else
+#elif LLVM_VERSION == 3425
       if (pFunc->paramHasAttr(ArgNo + 1, Attribute::NoAlias)) {
+#else
+      if (pFunc->getArgumentList().getParamAttributes(ArgNo + 1).hasAttribute(Attribute::NoAlias)) {
 #endif
         pLoadedValueInst->setMetadata("restrict", llvm::MDNode::get(*m_pLLVMContext, 0)); 
       }

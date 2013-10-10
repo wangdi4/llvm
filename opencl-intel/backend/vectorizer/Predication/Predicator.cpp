@@ -29,7 +29,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/InstrTypes.h"
 #include "llvm/Type.h"
 #include "llvm/Constants.h"
-
+#include "llvm/Version.h"
 
 static cl::opt<bool>
 EnableOptMasks("optmasks", cl::init(true), cl::Hidden,
@@ -608,6 +608,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
       CallInst::Create(func, ArrayRef<Value*>(params), "", call);
     //Update new call instruction with calling convention and attributes
     pcall->setCallingConv(call->getCallingConv());
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
     for (unsigned int i=0; i < call->getNumArgOperands(); ++i) {
       //Parameter attributes starts with index 1-NumOfParams
       unsigned int idx = i+1;
@@ -618,6 +619,28 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     pcall->addAttribute(~0, call->getAttributes().getFnAttributes());
     //set return value attributes of pcall
     pcall->addAttribute(0, call->getAttributes().getRetAttributes());
+#else
+    AttributeSet callAttr = call->getAttributes();
+    for (unsigned int i=0; i < call->getNumArgOperands(); ++i) {
+      //Parameter attributes starts with index 1-NumOfParams
+      unsigned int idx = i+1;
+      //pcall starts with mask argument, skip it when setting original argument attributes.
+      //pcall->addAttribute(1 + idx, call->getAttributes().getParamAttributes(idx));
+      for(AttributeSet::iterator i=callAttr.begin(idx), e=callAttr.end(idx); i!=e; ++i) {
+        pcall->addAttribute(1 + idx, i->getKindAsEnum());
+      }
+    }
+    //set function attributes of pcall
+    //pcall->addAttribute(~0, call->getAttributes().getFnAttributes());
+    for(AttributeSet::iterator i=callAttr.begin(~0), e=callAttr.end(~0); i!=e; ++i) {
+      pcall->addAttribute(~0, i->getKindAsEnum());
+    }
+    //set return value attributes of pcall
+    //pcall->addAttribute(0, call->getAttributes().getRetAttributes());
+    for(AttributeSet::iterator i=callAttr.begin(0), e=callAttr.end(0); i!=e; ++i) {
+      pcall->addAttribute(0, i->getKindAsEnum());
+    }
+#endif
     VectorizerUtils::SetDebugLocBy(pcall, call);
     call->replaceAllUsesWith(pcall);
     call->eraseFromParent();

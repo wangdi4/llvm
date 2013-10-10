@@ -13,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Constants.h"
 #include "llvm/Module.h"
+#include "llvm/Version.h"
 
 namespace intel{
 
@@ -518,7 +519,11 @@ Instruction *VectorizerUtils::getCastedRetIfNeeded(Instruction *I, Type *targetT
 }
 
 CallInst *VectorizerUtils::createFunctionCall(Module *pModule, const std::string &name,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
   Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attributes>& attrs, Instruction* insertBefore) {
+#else
+  Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attribute::AttrKind>& attrs, Instruction* insertBefore) {
+#endif
   SmallVector<Type *, 8> types;
   
   for(unsigned int i=0; i<args.size(); ++i) {

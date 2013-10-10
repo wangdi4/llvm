@@ -35,7 +35,7 @@ public:
   /// Holds the data needed for each bypass
   struct BypassInfo {
     BypassInfo(BasicBlock * head, BasicBlock * root) : m_head(head), m_root(root), m_postDom(0), m_foot(0) {}
-    BypassInfo() : m_head(0),m_root(0), m_postDom(0), m_foot(0) {}
+    BypassInfo() : m_head(0), m_root(0), m_postDom(0), m_foot(0) {}
 
     BasicBlock * m_head;    // Single predecessor of the entry node
     BasicBlock * m_root;    // Entry node

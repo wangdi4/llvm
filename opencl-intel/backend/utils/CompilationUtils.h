@@ -130,9 +130,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isGetGroupId(const std::string&);
     static bool isGlobalOffset(const std::string&);
     static bool isAsyncWorkGroupCopy(const std::string&);
+    static bool isAsyncWorkGroupStridedCopy(const std::string&);
     static bool isWaitGroupEvents(const std::string&);
     static bool isPrefetch(const std::string&);
-    static bool isAsyncWorkGroupStridedCopy(const std::string&);
     static bool isMemFence(const std::string&);
     static bool isReadMemFence(const std::string&);
     static bool isWriteMemFence(const std::string&);

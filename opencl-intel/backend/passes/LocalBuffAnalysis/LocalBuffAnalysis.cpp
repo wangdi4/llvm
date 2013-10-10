@@ -15,10 +15,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Constant.h"
 #include "llvm/Version.h"
-#if LLVM_VERSION == 3200
-#include "llvm/DataLayout.h"
-#else
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/DataLayout.h"
 #endif
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -106,10 +106,10 @@ namespace intel{
       return m_localSizeMap[pFunc];
     }
 
-#if LLVM_VERSION == 3200
-    llvm::DataLayout DL(m_pModule);
-#else
+#if LLVM_VERSION == 3425
     llvm::TargetData DL(m_pModule);
+#else
+    llvm::DataLayout DL(m_pModule);
 #endif
     size_t localBufferSize = 0;
 

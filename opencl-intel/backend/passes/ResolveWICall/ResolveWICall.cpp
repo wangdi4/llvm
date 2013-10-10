@@ -13,10 +13,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Version.h"
-#if LLVM_VERSION == 3200
-#include "llvm/DataLayout.h"
-#else
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/DataLayout.h"
 #endif
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -402,10 +402,10 @@ namespace intel {
   Value* ResolveWICall::updatePrintf(CallInst *pCall) {
 
     assert( m_pCtx && "Context pointer m_pCtx created as expected" );
-#if LLVM_VERSION == 3200
-    DataLayout DL(m_pModule);
-#else
+#if LLVM_VERSION == 3425
     TargetData DL(m_pModule);
+#else
+    DataLayout DL(m_pModule);
 #endif
 
     // Find out the buffer size required to store all the arguments.
@@ -504,10 +504,10 @@ namespace intel {
 
   void ResolveWICall::updatePrefetch(llvm::CallInst *pCall) {
 
-#if LLVM_VERSION == 3200
-    DataLayout DL(m_pModule);
-#else
+#if LLVM_VERSION == 3425
     TargetData DL(m_pModule);
+#else
+    DataLayout DL(m_pModule);
 #endif
 
     unsigned int uiSizeT = m_pModule->getPointerSize()*32;

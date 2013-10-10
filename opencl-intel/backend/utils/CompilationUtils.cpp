@@ -20,10 +20,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Metadata.h"
 #include "llvm/Instructions.h"
 #include "llvm/Version.h"
-#if LLVM_VERSION == 3200
-#include "llvm/DataLayout.h"
-#else
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/DataLayout.h"
 #endif
 #include "llvm/ADT/SetVector.h"
 #include "BlockUtils.h"
@@ -352,10 +352,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           {
               llvm::StructType *STy = llvm::cast<llvm::StructType>(arg_it->getType());
               curArg.type = CL_KRNL_ARG_COMPOSITE;
-#if LLVM_VERSION == 3200
-              DataLayout dataLayout(pModule);
-#else
+#if LLVM_VERSION == 3425
               TargetData dataLayout(pModule);
+#else
+              DataLayout dataLayout(pModule);
 #endif
               curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
               break;
@@ -440,10 +440,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             if(PTy->getAddressSpace() == 0) //We're dealing with real struct and not struct pointer
             {
               llvm::StructType *STy = llvm::cast<llvm::StructType>(Ty);
-#if LLVM_VERSION == 3200
-              DataLayout dataLayout(pModule);
-#else
+#if LLVM_VERSION == 3425
               TargetData dataLayout(pModule);
+#else
+              DataLayout dataLayout(pModule);
 #endif
               curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
               curArg.type = CL_KRNL_ARG_COMPOSITE;
@@ -680,28 +680,28 @@ bool CompilationUtils::isAsyncWorkGroupCopy(const std::string& S){
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_COPY);
 }
 
+bool CompilationUtils::isAsyncWorkGroupStridedCopy(const std::string& S){
+  return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
+}
+
 bool CompilationUtils::isMemFence(const std::string& S){
-  return isMangleOf(S, NAME_MEM_FENCE);
+  return isOptionalMangleOf(S, NAME_MEM_FENCE);
 }
 
 bool CompilationUtils::isReadMemFence(const std::string& S){
-  return isMangleOf(S, NAME_READ_MEM_FENCE);
+  return isOptionalMangleOf(S, NAME_READ_MEM_FENCE);
 }
 
 bool CompilationUtils::isWriteMemFence(const std::string& S){
-  return isMangleOf(S, NAME_WRITE_MEM_FENCE);
+  return isOptionalMangleOf(S, NAME_WRITE_MEM_FENCE);
 }
 
 bool CompilationUtils::isWaitGroupEvents(const std::string& S){
-  return isMangleOf(S, NAME_WAIT_GROUP_EVENTS);
+  return isOptionalMangleOf(S, NAME_WAIT_GROUP_EVENTS);
 }
 
 bool CompilationUtils::isPrefetch(const std::string& S){
   return isMangleOf(S, NAME_PREFETCH);
-}
-
-bool CompilationUtils::isAsyncWorkGroupStridedCopy(const std::string& S){
-  return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
 }
 
 bool CompilationUtils::isNDRange_1D(const std::string& S){

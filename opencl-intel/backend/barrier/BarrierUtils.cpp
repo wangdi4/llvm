@@ -488,7 +488,11 @@ namespace intel {
       /*Linkage=*/GlobalValue::ExternalLinkage,
       /*Name=*/name, m_pModule); //(external, no body)
     pNewFunc->setCallingConv(CallingConv::C);
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
     AttrListPtr barrier_Func_PAL;
+#else
+    AttributeSet barrier_Func_PAL;
+#endif
     pNewFunc->setAttributes(barrier_Func_PAL);
 
     assert( pNewFunc && "Failed to create new function declaration" );
@@ -497,20 +501,29 @@ namespace intel {
   }
 
   void BarrierUtils::SetFunctionAttributeReadNone(Function* pFunc) {
+#if LLVM_VERSION == 3200
     AttrListPtr func_factorial_PAL;
     SmallVector<AttributeWithIndex, 4> Attrs;
     AttributeWithIndex PAWI;
     PAWI.Index = 4294967295U;
-#if LLVM_VERSION == 3200
     AttrBuilder attBuilder;
     attBuilder.addAttribute(Attributes::None).addAttribute(Attributes::NoUnwind).addAttribute(Attributes::ReadNone) /* .addAttribute(Attribute::UWTable) */;
     PAWI.Attrs = Attributes::get(pFunc->getContext(), attBuilder);
     Attrs.push_back(PAWI);
     func_factorial_PAL = AttrListPtr::get(pFunc->getContext(), Attrs);
-#else
+#elif LLVM_VERSION == 3425
+    AttrListPtr func_factorial_PAL;
+    SmallVector<AttributeWithIndex, 4> Attrs;
+    AttributeWithIndex PAWI;
+    PAWI.Index = 4294967295U;
     PAWI.Attrs = Attribute::None  | Attribute::NoUnwind | Attribute::ReadNone/* | Attribute::UWTable*/;
     Attrs.push_back(PAWI);
     func_factorial_PAL = AttrListPtr::get(Attrs);
+#else
+    AttributeSet func_factorial_PAL;
+    AttrBuilder attBuilder;
+    attBuilder.addAttribute(Attribute::None).addAttribute(Attribute::NoUnwind).addAttribute(Attribute::ReadNone) /* .addAttribute(Attribute::UWTable) */;
+    func_factorial_PAL = AttributeSet::get(pFunc->getContext(), ~0, attBuilder);
 #endif
     pFunc->setAttributes(func_factorial_PAL);
   }

@@ -14,7 +14,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Constants.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"

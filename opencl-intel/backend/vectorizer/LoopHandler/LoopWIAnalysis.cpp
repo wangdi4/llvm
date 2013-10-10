@@ -160,11 +160,7 @@ void LoopWIAnalysis::getHeaderPHiStride() {
       continue;
     
     // For vector values, this works only if the stride is a splat
-#if LLVM_VERSION >= 3425
     ConstantDataVector* vectorStride = dyn_cast<ConstantDataVector>(constStride);
-#else
-    ConstantVector* vectorStride = dyn_cast<ConstantVector>(constStride);
-#endif
 
     if (vectorStride) {
       constStride = vectorStride->getSplatValue();

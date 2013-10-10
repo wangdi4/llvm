@@ -72,10 +72,10 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
 
   // obtain TagetData of the module
-#if LLVM_VERSION == 3200
-  m_pDL = getAnalysisIfAvailable<DataLayout>();
-#else
+#if LLVM_VERSION == 3425
   m_pDL = getAnalysisIfAvailable<TargetData>();
+#else
+  m_pDL = getAnalysisIfAvailable<DataLayout>();
 #endif
 
   // Prepare data structures for scalarizing a new function
@@ -722,7 +722,11 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   std::string strScalarFuncName = foundFunction->getVersion(0);
   const char *scalarFuncName = strScalarFuncName.c_str();
   FunctionType * funcType;
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
   AttrListPtr funcAttr;
+#else
+  AttributeSet funcAttr;
+#endif
   if(!getScalarizedFunctionType(strScalarFuncName, funcType, funcAttr)) {
     V_ASSERT(false && "function hash error");
     // In release mode - fail scalarizing function call "gracefully"
@@ -1335,7 +1339,11 @@ Value *ScalarizeFunction::obtainAssembledVector(Value *vectorVal, Instruction *l
   return assembledVector;
 }
 
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
 bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttrListPtr& funcAttr) {
+#else
+bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttributeSet& funcAttr) {
+#endif
 
   if (Mangler::isRetByVectorBuiltin(strScalarFuncName)) {
     reflection::FunctionDescriptor fdesc = ::demangle(strScalarFuncName.c_str());
@@ -1347,9 +1355,12 @@ bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName
 #if LLVM_VERSION == 3200
     funcAttr.addAttr(m_currFunc->getContext(), ~0, Attributes::get(m_currFunc->getContext(), Attributes::ReadNone));
     funcAttr.addAttr(m_currFunc->getContext(), ~0, Attributes::get(m_currFunc->getContext(), Attributes::NoUnwind));
-#else
+#elif LLVM_VERSION == 3425
     funcAttr.addAttr(~0, Attribute::ReadNone);
     funcAttr.addAttr(~0, Attribute::NoUnwind);
+#else
+    funcAttr.addAttribute(m_currFunc->getContext(), ~0, Attribute::ReadNone);
+    funcAttr.addAttribute(m_currFunc->getContext(), ~0, Attribute::NoUnwind);
 #endif
     return true;
   }

@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Instructions.h"
 #include "llvm/Constants.h"
+#include "llvm/Version.h"
 #include <vector>
 
 
@@ -75,7 +76,11 @@ public:
   /// @param insertBefore instruction to insert new callInst before
   /// @return new call instruction
   static CallInst *createFunctionCall(Module *pModule, const std::string &name,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
     Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attributes>& attrs, Instruction* insertBefore);
+#else
+    Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attribute::AttrKind>& attrs, Instruction* insertBefore);
+#endif
 
   /// @brief Creates a broadcast sequance (InsertElement + Shuffle)
   /// @param pVal value to prodcast

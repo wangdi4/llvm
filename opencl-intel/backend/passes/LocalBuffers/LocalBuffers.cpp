@@ -13,10 +13,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/IRBuilder.h"
 #include "llvm/Version.h"
-#if LLVM_VERSION == 3200
-#include "llvm/DataLayout.h"
-#else
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/DataLayout.h"
 #endif
 
 extern "C"
@@ -268,10 +268,10 @@ namespace intel{
         }
 
         // Calculate required buffer size
-#if LLVM_VERSION == 3200
-        llvm::DataLayout DL(m_pModule);
-#else
+#if LLVM_VERSION == 3425
         llvm::TargetData DL(m_pModule);
+#else
+        llvm::DataLayout DL(m_pModule);
 #endif
         size_t uiArraySize = DL.getTypeSizeInBits(pLclBuff->getType()->getElementType())/8;
         assert(0 != uiArraySize && "zero array size!");

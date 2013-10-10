@@ -43,7 +43,12 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/system_error.h"
+#include "llvm/Version.h"
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/DataLayout.h"
+#endif
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
@@ -51,7 +56,6 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Version.h"
 #include "llvm/Linker.h"
 
 #include "llvm/Support/TargetRegistry.h"
@@ -131,8 +135,12 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
   if (!numKernels) {
     return 0;
   }
-  // Create the TargetData structure from the Module's arch info.
-  TargetData TD(M);
+  // Create the DataLayout structure from the Module's arch info.
+#if LLVM_VERSION == 3425
+  TargetData DL(M);
+#else
+  DataLayout DL(M);
+#endif
 
   Intel::MetaDataUtils::KernelsList::const_iterator iter = mdUtils.begin_Kernels(), end = mdUtils.end_Kernels();
   for(unsigned int i=0; iter != end; ++iter, ++i) {
@@ -233,7 +241,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
       unsigned desc = args_desc.empty() ? 0 : args_desc[j];
 
       // The size of the argument in bytes, if requested.
-      uint32_t arg_size = TD.getTypeAllocSize(Ty);
+      uint32_t arg_size = DL.getTypeAllocSize(Ty);
 
       // If the argument is a pointer, it is a stream. If the pointer type has
       // an address space qualifier of 3 (local), then set the local flag on the
@@ -510,12 +518,16 @@ static void cld_replace_uses(Value* From, Value* To, Instruction* AfterPos) {
 }
 
 static
-Function *cld_genwrapper(Module *M, TargetData &TD, Function *kf,
+#if LLVM_VERSION == 3425
+Function *cld_genwrapper(Module *M, TargetData &DL, Function *kf,
+#else
+Function *cld_genwrapper(Module *M, DataLayout &DL, Function *kf,
+#endif
                          FunctionType *WTy, ConstantArray *LGVs,
                          bool debug, bool vector) {
   LLVMContext &CTX = M->getContext();
   Type *I32Ty = Type::getInt32Ty(CTX);
-  Type *SizeTy = IntegerType::get(CTX, TD.getPointerSizeInBits());
+  Type *SizeTy = IntegerType::get(CTX, DL.getPointerSizeInBits());
 
   // Create a wrapper function which will loop over the kernel in the
   // x-dimension, with the following prototype:
@@ -975,7 +987,7 @@ static int compileProgram(
 
   // Set llvm options for our optimization phases and also set them in
   // llvm_func so CVMS will set them properly when jitting.
-  TargetOptions targetOpt;
+  llvm::TargetOptions targetOpt;
   targetOpt.NoFramePointerElim = true;
   targetOpt.UnsafeFPMath =
     (mergedOpt & CLD_COMP_OPT_FLAGS_UNSAFE_MATH_OPTIMIZATIONS) ||

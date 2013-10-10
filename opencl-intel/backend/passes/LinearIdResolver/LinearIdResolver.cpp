@@ -13,10 +13,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Version.h"
-#if LLVM_VERSION == 3200
-#include "llvm/DataLayout.h"
-#else
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/DataLayout.h"
 #endif
 
 #include <utility>
@@ -48,10 +48,10 @@ namespace intel {
     m_zero = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 0);
     m_one  = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 1);
     m_two  = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 2);
-#if LLVM_VERSION == 3200
-    m_ret = IntegerType::get(M->getContext(), DataLayout(M).getPointerSizeInBits());
-#else
+#if LLVM_VERSION == 3425
     m_ret = IntegerType::get(M->getContext(), TargetData(M).getPointerSizeInBits());
+#else
+    m_ret = IntegerType::get(M->getContext(), DataLayout(M).getPointerSizeInBits());
 #endif
 
     // looking for get_{global,local}_linear_id()

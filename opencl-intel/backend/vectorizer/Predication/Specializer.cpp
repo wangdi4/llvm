@@ -17,6 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Constants.h"
+#include "llvm/Version.h"
 
 #include <stack>
 
@@ -52,10 +53,16 @@ void FunctionSpecializer::initializeBICost() {
 
 bool FunctionSpecializer::addHeuristics(const BasicBlock *BB) const {
   // Collect instruction amount metrics
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
   CodeMetrics Metrics;
   Metrics.analyzeBasicBlock(BB);
-
   unsigned numInst = Metrics.NumInsts;
+#else
+  //TODO: this is a workaround till we solve CQ: CSSD100017577
+  //const TargetTransformInfo &m_TTI;
+  //Metrics.analyzeBasicBlock(BB, m_TTI);
+  unsigned numInst = (unsigned)BB->getInstList().size();
+#endif
 
   // Check whether there is a function call
   for (BasicBlock::const_iterator it = BB->begin(); it != BB->end(); it++) {

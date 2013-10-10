@@ -13,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/Type.h"
 #include "llvm/PassManager.h"
+#include "llvm/Version.h"
 
 using namespace llvm;
 
@@ -42,13 +43,6 @@ public:
   
   virtual bool runOnFunction(Function &M);
 
-#if LLVM_VERSION >= 3425
-  /// @brief LLVM interface.
-  /// @param AU - usage of analysis.
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<TargetLibraryInfo>();
-  };
-#endif
 
 private:
 
@@ -74,7 +68,11 @@ private:
   /// @param attrs - attributeList of function to insert
   /// @return inserted functuion declaration in curModule
   Function *getOrInsertDeclarationToModule(std::string &name, const FunctionType *fType,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
                                            const AttrListPtr &attrs);
+#else
+                                           const AttributeSet &attrs);
+#endif
 
   /// @brief utility function that inserts a fake declaration to into m_curModule
   /// @param name - name of function to insert

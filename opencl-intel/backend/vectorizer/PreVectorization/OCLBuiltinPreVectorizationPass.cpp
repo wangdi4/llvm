@@ -9,7 +9,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Mangler.h"
 #include "OCLPassSupport.h"
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Transforms/Scalar.h"
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
@@ -240,13 +239,18 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
   Type* retType = isOriginalFuncRetVector ?
     static_cast<Type*>(ArrayType::get(retValType, 2)) :
     static_cast<Type*>(VectorType::get(retValType, 2));
-  SmallVector<Attributes, 4> attrs;
 #if LLVM_VERSION == 3200
+  SmallVector<Attributes, 4> attrs;
   attrs.push_back(Attributes::get(CI->getContext(), Attributes::ReadNone));
   attrs.push_back(Attributes::get(CI->getContext(), Attributes::NoUnwind));
-#else
+#elif LLVM_VERSION == 3425
+  SmallVector<Attributes, 4> attrs;
   attrs.push_back(Attribute::ReadNone);
   attrs.push_back(Attribute::NoUnwind);
+#else
+  SmallVector<Attribute::AttrKind, 4> attrs;
+  attrs.push_back(Attributes::get(CI->getContext(), Attributes::ReadNone));
+  attrs.push_back(Attributes::get(CI->getContext(), Attributes::NoUnwind));
 #endif
   CallInst *newCall = VectorizerUtils::createFunctionCall(m_curModule, newFuncName, retType, args, attrs, CI);
   V_ASSERT(newCall && "adding function failed");

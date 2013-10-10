@@ -44,9 +44,6 @@ public:
     /// @brief Inform about usage/mofication/dependency of this pass
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<LoopInfo>();
-#if LLVM_VERSION >= 3425
-      AU.addRequired<TargetLibraryInfo>();
-#endif
   }
 
     /// @brief Function for querying the vectorization result width
