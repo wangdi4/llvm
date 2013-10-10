@@ -213,6 +213,10 @@ if (BUILD_QTGUI AND NOT ANDROID)
             ${QT_BINARY_DIR}/QtXml4.dll
             ${QT_BINARY_DIR}/QtSql4.dll 
         )
+        if(BUILD_X64)
+            SET( SHARED_DEBUG_LIBS ${SHARED_DEBUG_LIBS} ${QT_BINARY_DIR}/QtCommercialChartd.dll)
+            SET( SHARED_RELEASE_LIBS ${SHARED_RELEASE_LIBS} ${QT_BINARY_DIR}/QtCommercialChart.dll)
+        endif(BUILD_X64)
         INSTALL(FILES ${SHARED_DEBUG_LIBS} DESTINATION bin CONFIGURATIONS Debug)
         INSTALL(FILES ${SHARED_RELEASE_LIBS} DESTINATION bin CONFIGURATIONS Release)
     else(WIN32)

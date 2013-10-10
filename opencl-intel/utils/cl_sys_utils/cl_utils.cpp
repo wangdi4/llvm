@@ -675,7 +675,6 @@ const string accessQualifierToString (const cl_kernel_arg_access_qualifier& Acce
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 cl_addressing_mode GetAddressingModeFromString(const std::string& Mode)
 {
-    cout << "Getting address mode from '" << Mode << "'" << endl;
     if(Mode == "CL_ADDRESS_MIRRORED_REPEAT")
     {
         return CL_ADDRESS_MIRRORED_REPEAT;
@@ -1453,3 +1452,4 @@ std::string getLocalHostName()
     }
     return computerName;
 }
+
