@@ -65,7 +65,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code FissionDevice(const cl_device_partition_property* props, cl_uint num_entries, cl_dev_subdevice_id* out_devices, cl_uint* num_devices, size_t* sizes);
 
         // An API to get the root-level device of deriving subclasses
-        virtual SharedPtr<Device>     GetRootDevice() = 0;
+        virtual SharedPtr<Device>      GetRootDevice() = 0;
         virtual ConstSharedPtr<Device> GetRootDevice() const = 0;
 
         // A convenience API to query whether a device is root-level or not
@@ -77,6 +77,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual IOCLDeviceAgent*    GetDeviceAgent() = 0;
 
         virtual const IOCLDeviceAgent* GetDeviceAgent() const = 0;
+
+        virtual cl_ulong GetMaxLocalMemorySize() const = 0;
 
 #if defined (DX_MEDIA_SHARING)
         /**
@@ -127,16 +129,38 @@ namespace Intel { namespace OpenCL { namespace Framework {
          */
         bool IsImageFormatSupported(const cl_image_format& clImgFormat, cl_mem_flags clMemFlags, cl_mem_object_type clMemObjType) const;
 
-		/**
-		 * Atomically test whether a default device queue does not exist for this FissionableDevice and if not, set that it exists
-		 * @return whether a default device queue did not exist 
-		 */
-		bool TestAndSetDefaultDeviceQueueExists() { return m_DefaultDeviceQueueExists.test_and_set(0, 1) == 0; } 
+        /******************************************************************************************
+        * Function:     GetInfo
+        * Description:    get object specific information (inherited from OCLObject) the function
+        *                query the desirable parameter value from the device
+        * Arguments:    param_name [in]                parameter's name
+        *                param_value_size [inout]    parameter's value size (in bytes)
+        *                param_value [out]            parameter's value
+        *                param_value_size_ret [out]    parameter's value return size
+        * Return value:    CL_SUCCESS - operation succeeded
+        * Author:        Uri Levy
+        * Date:            December 2008
+        ******************************************************************************************/
+        virtual cl_err_code GetInfo(cl_int        param_name,
+                            size_t        param_value_size,
+                            void *        param_value,
+                            size_t *    param_value_size_ret) const = 0;
 
-		/**
-		 * Set that a default device queue does not exists any more for this FissionableDevice
-		 */
-		void SetDefaultDeviceQueueNotExists() { m_DefaultDeviceQueueExists = 0; }
+        virtual size_t        GetMaxWorkGroupSize()       const = 0;
+        virtual cl_uint       GetMaxWorkItemDimensions()  const = 0;
+        virtual const size_t* GetMaxWorkItemSizes()       const = 0;
+        virtual bool          GetSVMCapabilities(cl_device_svm_capabilities *svm_cap) const = 0;
+ 
+        /**
+         * Atomically test whether a default device queue does not exist for this FissionableDevice and if not, set that it exists
+         * @return whether a default device queue did not exist 
+         */
+        bool TestAndSetDefaultDeviceQueueExists() { return m_DefaultDeviceQueueExists.test_and_set(0, 1) == 0; } 
+
+        /**
+         * Set that a default device queue does not exists any more for this FissionableDevice
+         */
+        void SetDefaultDeviceQueueNotExists() { m_DefaultDeviceQueueExists = 0; }
 
     protected:
 
@@ -150,6 +174,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
          */
         virtual cl_dev_subdevice_id GetSubdeviceId() const { return NULL; }
 
+        void CacheRequiredInfo();
+
     private:
 
 #if ! defined (DX_MEDIA_SHARING)
@@ -162,9 +188,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         IUnknown* m_pD3DDevice;
         cl_context_properties m_iD3DDevType;
 
-        Intel::OpenCL::Utils::OclMutex m_devMutex;
-
-		Intel::OpenCL::Utils::AtomicCounter m_DefaultDeviceQueueExists;
+        Intel::OpenCL::Utils::OclMutex          m_devMutex;
+        Intel::OpenCL::Utils::AtomicCounter     m_DefaultDeviceQueueExists;
 
     };
 
@@ -241,7 +266,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:        Uri Levy
         * Date:            December 2008
         ******************************************************************************************/
-        void SetFrontEndCompiler(SharedPtr<FrontEndCompiler> pFrontEndCompiler) { m_pFrontEndCompiler = pFrontEndCompiler; }
+        void SetFrontEndCompiler(const SharedPtr<FrontEndCompiler>& pFrontEndCompiler) { m_pFrontEndCompiler = pFrontEndCompiler; }
 
         /******************************************************************************************
         * Function:     GetFrontEndCompiler
@@ -251,7 +276,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:        Uri Levy
         * Date:            December 2008
         ******************************************************************************************/
-        ConstSharedPtr<FrontEndCompiler> GetFrontEndCompiler(){ return m_pFrontEndCompiler; }
+        const SharedPtr<FrontEndCompiler>& GetFrontEndCompiler() const { return m_pFrontEndCompiler; }
 
         IOCLDeviceAgent*    GetDeviceAgent() {return m_pDevice;}
 
@@ -263,6 +288,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
                              { m_hGLContext = hGLCtx; m_hHDC = hHDC;}
 
         cl_ulong GetMaxLocalMemorySize() const {return m_stMaxLocalMemorySize;}
+        
+        size_t                      GetMaxWorkGroupSize()       const { return m_CL_DEVICE_MAX_WORK_GROUP_SIZE; }
+        cl_uint                     GetMaxWorkItemDimensions()  const { return m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS; }
+        const size_t*               GetMaxWorkItemSizes()       const { return m_CL_DEVICE_MAX_WORK_ITEM_SIZES; }
+        bool                        GetSVMCapabilities(cl_device_svm_capabilities *svm_cap) const 
+                                                                    { 
+                                                                        *svm_cap = m_CL_DEVICE_SVM_CAPABILITIES; 
+                                                                        return m_bSvmSupported; 
+                                                                    }
 
         // Inherited from FissionableDevice
         
@@ -328,37 +362,43 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // class private members
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Intel::OpenCL::Utils::OclDynamicLib        m_dlModule;
+        Intel::OpenCL::Utils::OclDynamicLib         m_dlModule;
         // front-end compiler
-        SharedPtr<FrontEndCompiler>                m_pFrontEndCompiler;
+        SharedPtr<FrontEndCompiler>                 m_pFrontEndCompiler;
 
         // Pointer to the device GetInfo function.
-        fn_clDevGetDeviceInfo*                    m_pFnClDevGetDeviceInfo;
+        fn_clDevGetDeviceInfo*                      m_pFnClDevGetDeviceInfo;
 
-        cl_int                                    m_iNextClientId;        // hold the next client logger id
+        cl_int                                      m_iNextClientId;        // hold the next client logger id
 
-        Intel::OpenCL::Utils::AtomicCounter     m_pDeviceRefCount;     // holds the reference count for the associated IOCLDevice
+        Intel::OpenCL::Utils::AtomicCounter         m_pDeviceRefCount;     // holds the reference count for the associated IOCLDevice
 
-        Utils::OclSpinMutex                     m_deviceInitializationMutex;
+        Utils::OclSpinMutex                         m_deviceInitializationMutex;
 
         std::map<cl_int, Intel::OpenCL::Utils::LoggerClient*>    m_mapDeviceLoggerClinets; // OpenCL device's logger clients
 
-        unsigned int                            m_devId;
+        unsigned int                                m_devId;
 
-        IOCLDeviceAgent*                        m_pDevice;
+        IOCLDeviceAgent*                            m_pDevice;
 
         DECLARE_LOGGER_CLIENT;                                            // device's class logger client
 
         // Prefetched data
-        cl_ulong                                m_stMaxLocalMemorySize;
+        cl_ulong                                    m_stMaxLocalMemorySize;
+        size_t                                      m_CL_DEVICE_MAX_WORK_GROUP_SIZE;
+        cl_uint                                     m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS;
+        size_t                                      m_CL_DEVICE_MAX_WORK_ITEM_SIZES[MAX_WORK_DIM];    
+        cl_device_svm_capabilities                  m_CL_DEVICE_SVM_CAPABILITIES;
+        bool                                        m_bSvmSupported;
+        
 
-        cl_device_type                            m_deviceType;
+        cl_device_type                              m_deviceType;
         // GL Sharing info
-        cl_context_properties                    m_hGLContext;
-        cl_context_properties                    m_hHDC;
+        cl_context_properties                       m_hGLContext;
+        cl_context_properties                       m_hHDC;
 
         // cache for platform module pointer
-        static PlatformModule*  volatile        m_pPlatformModule;
+        static PlatformModule*  volatile            m_pPlatformModule;
     };
 
     class SubDevice : public FissionableDevice
@@ -402,6 +442,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
         SharedPtr<FissionableDevice>  GetParentDevice()    { return m_pParentDevice; }
         IOCLDeviceAgent*    GetDeviceAgent()     { return m_pRootDevice->GetDeviceAgent(); }
         const IOCLDeviceAgent* GetDeviceAgent() const { return m_pRootDevice->GetDeviceAgent(); }
+
+        cl_ulong                    GetMaxLocalMemorySize()     const { return m_pRootDevice->GetMaxLocalMemorySize(); }
+        size_t                      GetMaxWorkGroupSize()       const { return m_pRootDevice->GetMaxWorkGroupSize(); }
+        cl_uint                     GetMaxWorkItemDimensions()  const { return m_pRootDevice->GetMaxWorkItemDimensions(); }
+        const size_t*               GetMaxWorkItemSizes()       const { return m_pRootDevice->GetMaxWorkItemSizes(); }
+        bool                        GetSVMCapabilities(cl_device_svm_capabilities *svm_cap) const 
+                                                                      { return m_pRootDevice->GetSVMCapabilities(svm_cap); }
 
     protected:
         

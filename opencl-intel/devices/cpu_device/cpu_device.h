@@ -49,7 +49,6 @@ class ProgramService;
 class MemoryAllocator;
 
 class CPUDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription, public IAffinityChangeObserver, public IDeviceCommandManager
-
 {
 protected:
     ProgramService*			    m_pProgramService;

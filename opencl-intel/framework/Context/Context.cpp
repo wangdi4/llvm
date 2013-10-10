@@ -1204,7 +1204,11 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 SharedPtr<MemoryObject> Context::GetMemObject(cl_mem clMemId)
 {
-    return m_mapMemObjects.GetOCLObject((_cl_mem_int*)clMemId).DynamicCast<MemoryObject>();
+    return m_mapMemObjects.GetOCLObject((_cl_mem_int*)clMemId).StaticCast<MemoryObject>();
+}
+MemoryObject* Context::GetMemObjectPtr(cl_mem clMemId)
+{
+    return (MemoryObject*)(m_mapMemObjects.GetOCLObjectPtr((_cl_mem_int*)clMemId));
 }
 
 void Context::NotifyError(const char * pcErrInfo, const void * pPrivateInfo, size_t szCb)

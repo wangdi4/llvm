@@ -214,14 +214,14 @@ public:
 
 protected:
 
-	/* Calculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset'.
-	   Call it from child struct.
-	   dispatcherDataSize - the size of the child struct (which include my size) */
-	void calcAndSetDirectivesArrOffsets(size_t dispatcherDataSize)
-	{
-		preExeDirectivesArrOffset = dispatcherDataSize;
-		postExeDirectivesArrOffset = preExeDirectivesArrOffset + (preExeDirectivesCount * sizeof(directive_pack));
-	}
+    /* Calculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset'.
+       Call it from child struct.
+       dispatcherDataSize - the size of the child struct (which include my size) */
+    void calcAndSetDirectivesArrOffsets(size_t dispatcherDataSize)
+    {
+        preExeDirectivesArrOffset = dispatcherDataSize;
+        postExeDirectivesArrOffset = preExeDirectivesArrOffset + (preExeDirectivesCount * sizeof(directive_pack));
+    }
 
     /* Copy the appropriate dispatcher data + the tail data which can include 'preExeDirectivesArr' / 'postExeDirectivesArr' + other specific struct data */
     void copyDispatcherDataDirectivesTail(char* dst, const directive_pack* preExeDirectivesTail, const directive_pack* postExeDirectivesTail, const char* lastTail, size_t lastTailSize)
@@ -267,13 +267,13 @@ struct ndrange_dispatcher_data : public dispatcher_data
     // offset of kernel arguments blob
     uint64_t kernelArgBlobOffset;
 
-	/* Calculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset' / 'kernelArgBlobOffset'.
-	   Call it only after u set the parameters - 'preExeDirectivesCount' / 'postExeDirectivesCount' */
-	void calcAndSetOffsets()
-	{
-		calcAndSetDirectivesArrOffsets(sizeof(ndrange_dispatcher_data));
-		kernelArgBlobOffset = postExeDirectivesArrOffset + (postExeDirectivesCount * sizeof(directive_pack));
-	}
+    /* Calculate the offsets of 'preExeDirectivesArrOffset' / 'postExeDirectivesArrOffset' / 'kernelArgBlobOffset'.
+       Call it only after u set the parameters - 'preExeDirectivesCount' / 'postExeDirectivesCount' */
+    void calcAndSetOffsets()
+    {
+        calcAndSetDirectivesArrOffsets(sizeof(ndrange_dispatcher_data));
+        kernelArgBlobOffset = postExeDirectivesArrOffset + (postExeDirectivesCount * sizeof(directive_pack));
+    }
 
     /* Return the size of the "header meta data" (this struct) plus the size of "preExeDirectivesArr" + "postExeDirectivesArr" + kernelArgSize */
     size_t getDispatcherDataSize()
@@ -372,7 +372,7 @@ struct mic_exec_env_options {
     bool                ignore_last_core;
     bool                kernel_safe_mode;
     bool                use_vtune;
-	bool                enable_itt;
+    bool                enable_itt;
     bool                trap_workers;
     uint32_t            threads_per_core;
     uint32_t            num_of_cores;

@@ -92,7 +92,7 @@ cl_err_code    Device::GetInfo(cl_int param_name, size_t param_value_size, void 
     size_t       szParamValueSize = 0;
     cl_device_id zeroHandle       = (cl_device_id)0;
     cl_uint      one              = 1;
-    const cl_bool clFalse         = CL_FALSE;	
+    const cl_bool clFalse         = CL_FALSE;    
     
     const void * pValue = NULL;
 
@@ -163,12 +163,12 @@ cl_err_code    Device::GetInfo(cl_int param_name, size_t param_value_size, void 
 
 cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAgentDllPath, _cl_platform_id_int* pClPlatformId, vector< SharedPtr<Device> >* pOutDevices)
 {
-	Intel::OpenCL::Utils::OclDynamicLib dlModule;
-	// Load the DA library (First time); dlModule call to unload at destruction (when exiting from this function) BUT Device::InitDevice() is going to load it again before the unload...
-	if (!dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psDeviceAgentDllPath)))
-	{
-		return CL_ERR_DEVICE_INIT_FAIL;
-	}
+    Intel::OpenCL::Utils::OclDynamicLib dlModule;
+    // Load the DA library (First time); dlModule call to unload at destruction (when exiting from this function) BUT Device::InitDevice() is going to load it again before the unload...
+    if (!dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psDeviceAgentDllPath)))
+    {
+        return CL_ERR_DEVICE_INIT_FAIL;
+    }
 
     fn_clDevInitDeviceAgent* pFnClDevInitDeviceAgent = (fn_clDevInitDeviceAgent*)dlModule.GetFunctionPtrByName("clDevInitDeviceAgent");
     if ( NULL == pFnClDevInitDeviceAgent )
@@ -250,14 +250,14 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDev
 {
     LogDebugA("Device::InitDevice enter. pwcDllPath=%s", psDeviceAgentDllPath);
 
-	// Loading again the library in order to increase the reference counter of the library.
-	LogDebugA("LoadLibrary(%s)", psDeviceAgentDllPath);
+    // Loading again the library in order to increase the reference counter of the library.
+    LogDebugA("LoadLibrary(%s)", psDeviceAgentDllPath);
 
-	if (!m_dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psDeviceAgentDllPath)))
-	{
-		LogErrorA("LoadLibrary(%s) failed", psDeviceAgentDllPath);
-		return CL_ERR_DEVICE_INIT_FAIL;
-	}
+    if (!m_dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psDeviceAgentDllPath)))
+    {
+        LogErrorA("LoadLibrary(%s) failed", psDeviceAgentDllPath);
+        return CL_ERR_DEVICE_INIT_FAIL;
+    }
 
     m_pFnClDevGetDeviceInfo = pFnClDevGetDeviceInfo;
     m_devId = devId;
@@ -268,6 +268,27 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDev
     if (CL_DEV_SUCCEEDED( dev_err ))
     {
         dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_TYPE, sizeof(cl_device_type), &m_deviceType, NULL);
+    }
+
+    if (CL_DEV_SUCCEEDED( dev_err ))
+    {
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(m_CL_DEVICE_MAX_WORK_GROUP_SIZE), &m_CL_DEVICE_MAX_WORK_GROUP_SIZE, NULL);
+    }
+
+    if (CL_DEV_SUCCEEDED( dev_err ))
+    {
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS), &m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, NULL);
+    }
+
+    if (CL_DEV_SUCCEEDED( dev_err ))
+    {
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(m_CL_DEVICE_MAX_WORK_ITEM_SIZES), &m_CL_DEVICE_MAX_WORK_ITEM_SIZES, NULL);
+    }
+
+    if (CL_DEV_SUCCEEDED( dev_err ))
+    {
+        cl_dev_err_code svm_dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_SVM_CAPABILITIES, sizeof(m_CL_DEVICE_SVM_CAPABILITIES), &m_CL_DEVICE_SVM_CAPABILITIES, NULL);
+        m_bSvmSupported = CL_DEV_SUCCEEDED(svm_dev_err);
     }
 
     // Here we still don't have DeviceAgent instance intialized.
@@ -404,12 +425,12 @@ void Device::clDevBuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_b
 
 void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result, cl_ulong timer)
 {
-	if (NULL == pData)
-	{
-		assert(false);
-		return;
-	}
-	ICmdStatusChangedObserver *pObserver = (ICmdStatusChangedObserver *)pData;
+    if (NULL == pData)
+    {
+        assert(false);
+        return;
+    }
+    ICmdStatusChangedObserver *pObserver = (ICmdStatusChangedObserver *)pData;
 
     pObserver->NotifyCmdStatusChanged(cmd_id, cmd_status, 
                                       (cl_int(CL_DEV_COMMAND_CANCELLED)==status_result) ? CL_CONTEXT_CANCEL_INTEL : status_result, 
@@ -489,12 +510,12 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
         {
             partitionSizes.push_back((size_t)props[partitionIndex++]);
         }
-		if (0 == partitionSizes.size() ||
+        if (0 == partitionSizes.size() ||
             GetInfo(CL_DEVICE_PARTITION_MAX_SUB_DEVICES, sizeof(maxSubDevices), &maxSubDevices, NULL) != CL_SUCCESS ||
             partitionSizes.size() > maxSubDevices)
-		{
-			return CL_DEVICE_PARTITION_FAILED;
-		}
+        {
+            return CL_DEVICE_PARTITION_FAILED;
+        }
         if (NULL != sizes)
         {
             for (size_t i = 0; i < partitionSizes.size(); ++i)

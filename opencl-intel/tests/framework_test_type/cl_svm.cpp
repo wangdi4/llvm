@@ -340,6 +340,8 @@ bool clSvmTest()
     cl_context context = NULL;
     cl_command_queue queue = NULL;
 	cl_program prog = NULL;
+    cl_device_svm_capabilities svm_caps;
+    size_t temp;
 
     std::cout << "=============================================================" << std::endl;
     std::cout << "clTestEnqueueSVMCommands" << std::endl;
@@ -351,6 +353,8 @@ bool clSvmTest()
         CheckException(L"clGetPlatformIDs", CL_SUCCESS, iRet);        
         iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
         CheckException(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+        iRet = clGetDeviceInfo(device, CL_DEVICE_SVM_CAPABILITIES, sizeof(svm_caps), &svm_caps, &temp );
+        CheckException(L"clGetDeviceInfo(CL_DEVICE_SVM_CAPABILITIES)", CL_SUCCESS, iRet);
 
         const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);

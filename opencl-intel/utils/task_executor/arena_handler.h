@@ -23,8 +23,10 @@
 #include <cassert>
 #include <vector>
 #include <set>
-#include "tbb/task_scheduler_observer.h"
-#include "tbb/task_arena.h"
+#include <tbb/task_scheduler_observer.h>
+#include <tbb/task_arena.h>
+#include <harness_trapper.h>
+
 #include "cl_device_api.h"
 #include "cl_synch_objects.h"
 #include "cl_shutdown.h"
@@ -181,6 +183,11 @@ public:
      */
     virtual int GetConcurrency() const;
 
+#ifdef __HARD_TRAPPING__
+    virtual bool AcquireWorkerThreads(int num_workers, int timeout);
+    virtual void RelinquishWorkerThreads();
+#endif // __HARD_TRAPPING__
+
     virtual void AttachMasterThread(void* user_tls);
     virtual void DetachMasterThread();
 
@@ -280,7 +287,6 @@ private:
     RootDeviceCreationParam                     m_deviceDescriptor;
     TBBTaskExecutor&                            m_taskExecutor;
     void*                                       m_userData;
-	Intel::OpenCL::Utils::SharedPtr<ITaskList> m_pDefaultQueue;
 
     Intel::OpenCL::Utils::OclReaderWriterLock   m_observerLock;
     ITaskExecutorObserver*                      m_observer;
@@ -314,6 +320,13 @@ private:
         }
         return device;
     }
+
+#ifdef __HARD_TRAPPING__
+    /**
+     * Required for thread trapping inside the arena
+     */
+    Intel::OpenCL::Utils::AtomicPointer<tbb::Harness::TbbWorkersTrapper> m_worker_trapper;
+#endif // __HARD_TRAPPING__
 };
 
 class TEDeviceStateAutoLock

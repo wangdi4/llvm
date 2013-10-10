@@ -37,7 +37,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     class Device;
     class EventsManager;
-	class Context;
+    class Context;
 
     /************************************************************************
      * InOrderCommandQueue is an ICommandQueue that implements the InOrder queue policy
@@ -49,45 +49,48 @@ namespace Intel { namespace OpenCL { namespace Framework {
      *
      * The list are ordered. Hence, there is no implicit dependency between consecutive commands.
     ************************************************************************/ 
-	class ImmediateCommandQueue : public IOclCommandQueueBase
-	{
-	public:
+    class ImmediateCommandQueue : public IOclCommandQueueBase
+    {
+    public:
 
         PREPARE_SHARED_PTR(ImmediateCommandQueue)
-		
+        
         static SharedPtr<ImmediateCommandQueue> Allocate(
             SharedPtr<Context>          pContext,
-			cl_device_id                clDefaultDeviceID, 
-			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager)
+            cl_device_id                clDefaultDeviceID, 
+            cl_command_queue_properties clProperties,
+            EventsManager*              pEventManager)
         {
             return SharedPtr<ImmediateCommandQueue>(new ImmediateCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager));
         }
 
-		virtual ~ImmediateCommandQueue();
+        virtual ~ImmediateCommandQueue();
 
         virtual cl_err_code Initialize();  
 
         virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-		virtual cl_err_code Enqueue(Command* cmd);
-		virtual cl_err_code EnqueueWaitForEvents(Command* cmd) {return Enqueue(cmd);}
+        virtual cl_err_code Enqueue(Command* cmd);
+        virtual cl_err_code EnqueueWaitForEvents(Command* cmd) {return Enqueue(cmd);}
         virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker);
         virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier);
 
-		virtual cl_err_code Flush(bool bBlocking);
-		virtual cl_err_code NotifyStateChange(const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor);
-		virtual cl_err_code SendCommandsToDevice();
+        virtual cl_err_code Flush(bool bBlocking);
+        virtual cl_err_code NotifyStateChange(const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor);
+        virtual cl_err_code SendCommandsToDevice();
 
-	protected:
+        virtual void        AddFloatingDependence(const SharedPtr<QueueEvent>& pCmdEvent) const {}
+        virtual void        RemoveFloatingDependence(const SharedPtr<QueueEvent>& pCmdEvent) const {}
+
+    protected:
 
         ImmediateCommandQueue(
-			SharedPtr<Context>                    pContext,
-			cl_device_id                clDefaultDeviceID, 
-			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager
-			);
+            SharedPtr<Context>                    pContext,
+            cl_device_id                clDefaultDeviceID, 
+            cl_command_queue_properties clProperties,
+            EventsManager*              pEventManager
+            );
 
         Intel::OpenCL::Utils::OclMutex m_CS;
-	};
+    };
 
 }}}    

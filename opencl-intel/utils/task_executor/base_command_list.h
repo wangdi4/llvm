@@ -105,7 +105,11 @@ public:
     template<typename F>
     void EnqueueFunc(const F& f);
 
-    // overrriden methods:
+#ifdef __HARD_TRAPPING__
+    template<typename F>
+    void EnqueueFuncEx(const F& f);
+#endif
+// overrriden methods:
 
     virtual void WaitForAll();
 private:
@@ -134,6 +138,30 @@ private:
 
         tbb::task& m_rootTask;
     };    
+
+#ifdef __HARD_TRAPPING__
+    template<typename F>
+    class ArenaFunctorSpawner : public ArenaFunctor, public tbb::task
+    {
+    public:
+        ArenaFunctorSpawner<F>(tbb::task& rootTask, const F& func) : ArenaFunctor(rootTask), m_func(func) { }
+
+        void operator()()
+        {
+            m_rootTask.spawn( *(new (m_rootTask.allocate_additional_child_of(m_rootTask)) ArenaFunctorSpawner<F>(m_rootTask, m_func)));
+        }
+
+        tbb::task* execute()
+        {
+            m_func();
+            //m_rootTask.decrement_ref_count();
+            return NULL;
+        }
+
+    private:
+        F m_func;
+    };
+#endif
 
     template<typename F>
     class ArenaFunctorRunner : public ArenaFunctor

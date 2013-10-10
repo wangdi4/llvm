@@ -38,416 +38,463 @@
 #include <math.h>
 #include <vector>
 
+using namespace std;
+
 extern RTMemObjService localRTMemService;
 
 bool KernelExecute_Dot_Test(const char* prog_file)
 {
-	cl_dev_program prog;
-	cl_dev_kernel kernel;
+    cl_dev_program prog;
+    cl_dev_kernel kernel;
 
-	DECLSPEC(align(16)) float a[] = {1.0f, 1.0f, 1.0f, 1.0f, 2.0f, 2.0f, 2.0f, 2.0f, 3.0f, 3.0f, 3.0f, 3.0f, 4.0f, 4.0f, 4.0f, 4.0f, 1.0f, 1.0f, 1.0f, 1.0f, 2.0f, 2.0f, 2.0f, 2.0f, 3.0f, 3.0f, 3.0f, 3.0f, 4.0f, 4.0f, 4.0f, 4.0f};
-	DECLSPEC(align(16)) float b[] = {2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f};
-	float	res[] = {-1, -1, -1, -1, -1, -1, -1, -1};
-	float	tst[] = {8, 16, 24, 32, 8, 16, 24, 32};
+    DECLSPEC(align(16)) float a[] = {1.0f, 1.0f, 1.0f, 1.0f, 2.0f, 2.0f, 2.0f, 2.0f, 3.0f, 3.0f, 3.0f, 3.0f, 4.0f, 4.0f, 4.0f, 4.0f, 1.0f, 1.0f, 1.0f, 1.0f, 2.0f, 2.0f, 2.0f, 2.0f, 3.0f, 3.0f, 3.0f, 3.0f, 4.0f, 4.0f, 4.0f, 4.0f};
+    DECLSPEC(align(16)) float b[] = {2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f};
+    float    res[] = {-1, -1, -1, -1, -1, -1, -1, -1};
+    float    tst[] = {8, 16, 24, 32, 8, 16, 24, 32};
 
-	size_t	stSizeRes = sizeof(res);
-	size_t	stSizeAB = sizeof(a);
-	size_t	size_res = sizeof(res)/sizeof(float);
+    size_t    stSizeRes = sizeof(res);
+    size_t    stSizeAB = sizeof(a);
+    size_t    size_res = sizeof(res)/sizeof(float);
 
-	if ( !BuildProgram(prog_file, &prog) )
-	{
-		return false;
-	}
+    if ( !BuildProgram(prog_file, &prog) )
+    {
+        return false;
+    }
 
-	if ( !CreateKernel(prog, "dot_product_2D", &kernel) )
-	{
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    if ( !CreateKernel(prog, "dot_product_2D", &kernel) )
+    {
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	IOCLDevMemoryObject *memObjA, *memObjB, *memObjRes;
+    IOCLDevMemoryObject *memObjA, *memObjB, *memObjRes;
 
-	//Create Memory Object
-	localRTMemService.SetupState( NULL, 1, &stSizeAB, NULL, CL_MEM_OBJECT_BUFFER );
-	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_ONLY, NULL, 1, &stSizeAB, &localRTMemService, &memObjA);
-	if (CL_DEV_FAILED(iRes))
-	{
-		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
+    //Create Memory Object
+    localRTMemService.SetupState( NULL, 1, &stSizeAB, NULL, CL_MEM_OBJECT_BUFFER );
+    cl_int iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_ONLY, NULL, 1, &stSizeAB, &localRTMemService, &memObjA);
+    if (CL_DEV_FAILED(iRes))
+    {
+        dev_entry->clDevReleaseProgram(prog);
+        printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
 
-	localRTMemService.SetupState( NULL, 1, &stSizeAB, NULL, CL_MEM_OBJECT_BUFFER );
-	iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_ONLY, NULL, 1, &stSizeAB, &localRTMemService, &memObjB);
-	if (CL_DEV_FAILED(iRes))
-	{
-		memObjA->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
+    localRTMemService.SetupState( NULL, 1, &stSizeAB, NULL, CL_MEM_OBJECT_BUFFER );
+    iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_ONLY, NULL, 1, &stSizeAB, &localRTMemService, &memObjB);
+    if (CL_DEV_FAILED(iRes))
+    {
+        memObjA->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
 
-	localRTMemService.SetupState( NULL, 1, &stSizeRes, NULL, CL_MEM_OBJECT_BUFFER );
-	iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_WRITE_ONLY, NULL, 1, &stSizeRes, &localRTMemService, &memObjRes);
-	if (CL_DEV_FAILED(iRes))
-	{
-		memObjA->clDevMemObjRelease();
-		memObjB->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
+    localRTMemService.SetupState( NULL, 1, &stSizeRes, NULL, CL_MEM_OBJECT_BUFFER );
+    iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_WRITE_ONLY, NULL, 1, &stSizeRes, &localRTMemService, &memObjRes);
+    if (CL_DEV_FAILED(iRes))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
 
-	//Enqueue write memory
-	if(!writeMemory(false, memObjA, a, sizeof(a)))
-	{
-		memObjA->clDevMemObjRelease();
-		memObjB->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
-	if(!writeMemory(false, memObjB, b, sizeof(b)))
-	{
-		memObjA->clDevMemObjRelease();
-		memObjB->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    //Enqueue write memory
+    if(!writeMemory(false, memObjA, a, sizeof(a)))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
+    if(!writeMemory(false, memObjB, b, sizeof(b)))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	// Setup Kernel parameters
-	cl_dev_cmd_desc	cmdDesc;
-	cl_dev_cmd_param_kernel krnlParam;
+    // Setup Kernel parameters
+    vector<cl_dev_cmd_memobj_param_kernel> memObjParams;
+    cl_dev_cmd_desc    cmdDesc;
+    cl_dev_cmd_param_kernel krnlParam;
 
-	krnlParam.kernel = kernel;
-	krnlParam.arg_size = 3*sizeof(IOCLDevMemoryObject*);//+sizeof(float);
+    krnlParam.kernel = kernel;
+    krnlParam.arg_size = 3*sizeof(IOCLDevMemoryObject*);//+sizeof(float);
     std::vector<cl_char> arg_values_alloc(krnlParam.arg_size);
-	krnlParam.arg_values = &arg_values_alloc[0];
-	((IOCLDevMemoryObject**)krnlParam.arg_values)[0] = memObjA;
-	((IOCLDevMemoryObject**)krnlParam.arg_values)[1] = memObjB;
-	((IOCLDevMemoryObject**)krnlParam.arg_values)[2] = memObjRes;
-//	*((float*)((cl_char*)krnlParam.arg_values+3*sizeof(IOCLDevMemoryObject*))) = 2.f;
-	krnlParam.work_dim = 2;
-	krnlParam.glb_wrk_offs[0] = 0;
-	krnlParam.glb_wrk_offs[1] = 0;
-	krnlParam.glb_wrk_size[0] = 4;
-	krnlParam.glb_wrk_size[1] = 2;
-	krnlParam.lcl_wrk_size[0] = 2;
-	krnlParam.lcl_wrk_size[1] = 1;
-//	krnlParam.work_dim = 1;
-//	krnlParam.glb_wrk_offs[0] = 0;
-//	krnlParam.glb_wrk_size[0] = 8;
-//	krnlParam.lcl_wrk_size[0] = 1;
+    krnlParam.arg_values = &arg_values_alloc[0];
+    
+    memObjParams.resize(3);
 
-	// Setup command descriptor
-	cmdDesc.id = (cl_dev_cmd_id)CL_DEV_CMD_EXEC_KERNEL;
-	cmdDesc.params = &krnlParam;
-	cmdDesc.param_size = sizeof(cl_dev_cmd_param_kernel);
-	cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
+    for (unsigned int i = 0; i < memObjParams.size(); ++i)
+    {
+        cl_dev_cmd_memobj_param_kernel& cur = memObjParams[i];
+        cur.arg_idx = i;
+        cur.arg_offset = i*sizeof(void*);
+    }
 
-	// Enqueu kernel
-	gExecDone = false;
-	//cl_int clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count );
-	cl_dev_cmd_desc* cmdsBuff = &cmdDesc;
-	iRes = dev_entry->clDevCommandListExecute(0, &cmdsBuff, 1);
-	if (CL_DEV_FAILED(iRes))
-	{
-		memObjA->clDevMemObjRelease();
-		memObjB->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCommandListExecute failed: %s\n", clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
+    memObjParams[0].pMemObject = memObjA;
+    memObjParams[1].pMemObject = memObjB;
+    memObjParams[2].pMemObject = memObjRes;
+    
+    krnlParam.pMemObjParams = &(memObjParams[0]);
+    krnlParam.uiMemObjParams = memObjParams.size();
+    
+//    *((float*)((cl_char*)krnlParam.arg_values+3*sizeof(IOCLDevMemoryObject*))) = 2.f;
+    krnlParam.work_dim = 2;
+    krnlParam.glb_wrk_offs[0] = 0;
+    krnlParam.glb_wrk_offs[1] = 0;
+    krnlParam.glb_wrk_size[0] = 4;
+    krnlParam.glb_wrk_size[1] = 2;
+    krnlParam.lcl_wrk_size[0] = 2;
+    krnlParam.lcl_wrk_size[1] = 1;
+//    krnlParam.work_dim = 1;
+//    krnlParam.glb_wrk_offs[0] = 0;
+//    krnlParam.glb_wrk_size[0] = 8;
+//    krnlParam.lcl_wrk_size[0] = 1;
 
-	while(!gExecDone )
-	{
-		SLEEP(10);
-	}
+    // Setup command descriptor
+    cmdDesc.id = (cl_dev_cmd_id)CL_DEV_CMD_EXEC_KERNEL;
+    cmdDesc.params = &krnlParam;
+    cmdDesc.param_size = sizeof(cl_dev_cmd_param_kernel);
+    cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
 
-	if(!readMemory(false, memObjRes, res, sizeof(res)))
-	{
-		memObjA->clDevMemObjRelease();
-		memObjB->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    // Enqueu kernel
+    gExecDone = false;
+    //cl_int clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count );
+    cl_dev_cmd_desc* cmdsBuff = &cmdDesc;
+    iRes = dev_entry->clDevCommandListExecute(0, &cmdsBuff, 1);
+    if (CL_DEV_FAILED(iRes))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        printf("pclDevCommandListExecute failed: %s\n", clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
 
-	// test result
-	bool bRes = true;
-	for(size_t i=0; i< size_res; ++i)
-	{
-		if ( res[i] != tst[i] )
-		{
-			bRes = false;
-		}
-	}
+    while(!gExecDone )
+    {
+        SLEEP(10);
+    }
 
-	memObjA->clDevMemObjRelease();
-	memObjB->clDevMemObjRelease();
-	dev_entry->clDevReleaseProgram(prog);
+    if(!readMemory(false, memObjRes, res, sizeof(res)))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	return bRes;
+    // test result
+    bool bRes = true;
+    for(size_t i=0; i< size_res; ++i)
+    {
+        if ( res[i] != tst[i] )
+        {
+            bRes = false;
+        }
+    }
+
+    memObjA->clDevMemObjRelease();
+    memObjB->clDevMemObjRelease();
+    dev_entry->clDevReleaseProgram(prog);
+
+    return bRes;
 }
 
 bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
 {
-	cl_dev_program prog;
-	cl_dev_kernel kernel;
+    cl_dev_program prog;
+    cl_dev_kernel kernel;
 
-	char	BuffA[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-	char	BuffB[10];
-	size_t	sizeAB = sizeof(BuffA)/sizeof(char);
+    char    BuffA[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    char    BuffB[10];
+    size_t    sizeAB = sizeof(BuffA)/sizeof(char);
 
-	if ( !BuildProgram(prog_file, &prog) )
-	{
-		return false;
-	}
+    if ( !BuildProgram(prog_file, &prog) )
+    {
+        return false;
+    }
 
-	if ( !CreateKernel(prog, "lcl_mem_test", &kernel) )
-	{
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    if ( !CreateKernel(prog, "lcl_mem_test", &kernel) )
+    {
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	IOCLDevMemoryObject *memObjA, *memObjB;
+    IOCLDevMemoryObject *memObjA, *memObjB;
 
-	//Create Memory Object
-	localRTMemService.SetupState( NULL, 1, &sizeAB, NULL, CL_MEM_OBJECT_BUFFER );
-	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_WRITE, NULL, 1, &sizeAB, &localRTMemService, &memObjA);
-	if (CL_DEV_FAILED(iRes))
-	{
-		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
+    //Create Memory Object
+    localRTMemService.SetupState( NULL, 1, &sizeAB, NULL, CL_MEM_OBJECT_BUFFER );
+    cl_int iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_WRITE, NULL, 1, &sizeAB, &localRTMemService, &memObjA);
+    if (CL_DEV_FAILED(iRes))
+    {
+        dev_entry->clDevReleaseProgram(prog);
+        printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
 
-	localRTMemService.SetupState( NULL, 1, &sizeAB, NULL, CL_MEM_OBJECT_BUFFER );
-	iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_WRITE, NULL, 1, &sizeAB, &localRTMemService, &memObjB);
-	if (CL_DEV_FAILED(iRes))
-	{
-		memObjA->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
+    localRTMemService.SetupState( NULL, 1, &sizeAB, NULL, CL_MEM_OBJECT_BUFFER );
+    iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_WRITE, NULL, 1, &sizeAB, &localRTMemService, &memObjB);
+    if (CL_DEV_FAILED(iRes))
+    {
+        memObjA->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
 
-	//Enqeue write memory
-	if(!writeMemory(false, memObjA, BuffA, sizeAB))
-	{
-		memObjA->clDevMemObjRelease();
-		memObjB->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    //Enqeue write memory
+    if(!writeMemory(false, memObjA, BuffA, sizeAB))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	// Setup Kernel parameters
-	cl_dev_cmd_desc	cmdDesc;
-	cl_dev_cmd_param_kernel krnlParam;
+    // Setup Kernel parameters
+    vector<cl_dev_cmd_memobj_param_kernel> memObjParams;
+    cl_dev_cmd_desc    cmdDesc;
+    cl_dev_cmd_param_kernel krnlParam;
 
-	krnlParam.kernel = kernel;
-	krnlParam.arg_size = 2*sizeof(IOCLDevMemoryObject*);//+sizeof(float);
+    krnlParam.kernel = kernel;
+    krnlParam.arg_size = 2*sizeof(IOCLDevMemoryObject*);//+sizeof(float);
     std::vector<cl_char> arg_values_alloc(krnlParam.arg_size);
-	krnlParam.arg_values =  &arg_values_alloc[0];
-	((IOCLDevMemoryObject**)krnlParam.arg_values)[0] = memObjA;
-	((IOCLDevMemoryObject**)krnlParam.arg_values)[1] = memObjB;
- krnlParam.work_dim = 1;
- krnlParam.glb_wrk_offs[0] = 0;
- krnlParam.glb_wrk_size[0] = 20;
- krnlParam.lcl_wrk_size[0] = 1;
+    krnlParam.arg_values =  &arg_values_alloc[0];
+    
+    memObjParams.resize(2);
 
-	// Setup command descriptor
-	cmdDesc.id = (cl_dev_cmd_id)CL_DEV_CMD_EXEC_KERNEL;
-	cmdDesc.params = &krnlParam;
-	cmdDesc.param_size = sizeof(cl_dev_cmd_param_kernel);
-	cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
+    for (unsigned int i = 0; i < memObjParams.size(); ++i)
+    {
+        cl_dev_cmd_memobj_param_kernel& cur = memObjParams[i];
+        cur.arg_idx = i;
+        cur.arg_offset = i*sizeof(void*);
+    }
 
-	// Enqueu kernel
-	gExecDone = false;
-	//cl_int clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count );
-	cl_dev_cmd_desc* cmdsBuff = &cmdDesc;
-	iRes = dev_entry->clDevCommandListExecute(0, &cmdsBuff, 1);
-	if (CL_DEV_FAILED(iRes))
-	{
-		memObjA->clDevMemObjRelease();
-		memObjB->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCommandListExecute failed: %s\n", clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
+    memObjParams[0].pMemObject = memObjA;
+    memObjParams[1].pMemObject = memObjB;
+    
+    krnlParam.pMemObjParams = &(memObjParams[0]);
+    krnlParam.uiMemObjParams = memObjParams.size();
+    
+    krnlParam.work_dim = 1;
+    krnlParam.glb_wrk_offs[0] = 0;
+    krnlParam.glb_wrk_size[0] = 20;
+    krnlParam.lcl_wrk_size[0] = 1;
 
-	while(!gExecDone )
-	{
-		SLEEP(10);
-	}
+    // Setup command descriptor
+    cmdDesc.id = (cl_dev_cmd_id)CL_DEV_CMD_EXEC_KERNEL;
+    cmdDesc.params = &krnlParam;
+    cmdDesc.param_size = sizeof(cl_dev_cmd_param_kernel);
+    cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
 
-	if(!readMemory(false, memObjB, BuffB, sizeAB))
-	{
-		memObjA->clDevMemObjRelease();
-		memObjB->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    // Enqueu kernel
+    gExecDone = false;
+    //cl_int clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count );
+    cl_dev_cmd_desc* cmdsBuff = &cmdDesc;
+    iRes = dev_entry->clDevCommandListExecute(0, &cmdsBuff, 1);
+    if (CL_DEV_FAILED(iRes))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        printf("pclDevCommandListExecute failed: %s\n", clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
 
-	// test result
-	for (size_t i=0; i<sizeAB; ++i)
-	{
-		if ( BuffA[i] == BuffB[i] )
-		{
-			memObjA->clDevMemObjRelease();
-			memObjB->clDevMemObjRelease();
-			dev_entry->clDevReleaseProgram(prog);
-			return false;
-		}
-	}
+    while(!gExecDone )
+    {
+        SLEEP(10);
+    }
 
-	memObjA->clDevMemObjRelease();
-	memObjB->clDevMemObjRelease();
-	dev_entry->clDevReleaseProgram(prog);
+    if(!readMemory(false, memObjB, BuffB, sizeAB))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	return true;
+    // test result
+    for (size_t i=0; i<sizeAB; ++i)
+    {
+        if ( BuffA[i] == BuffB[i] )
+        {
+            memObjA->clDevMemObjRelease();
+            memObjB->clDevMemObjRelease();
+            dev_entry->clDevReleaseProgram(prog);
+            return false;
+        }
+    }
+
+    memObjA->clDevMemObjRelease();
+    memObjB->clDevMemObjRelease();
+    dev_entry->clDevReleaseProgram(prog);
+
+    return true;
 }
 
 #define TEST_BUFF_SIZE 32
 
 bool KernelExecute_Math_Test(const char* prog_file)
 {
-	cl_dev_program prog;
-	cl_dev_kernel kernel;
+    cl_dev_program prog;
+    cl_dev_kernel kernel;
 
-	float	BuffA[TEST_BUFF_SIZE];
-	float	BuffB[TEST_BUFF_SIZE];
-	float	BuffRef[TEST_BUFF_SIZE];;
-	size_t	sizeAB = sizeof(BuffA);
+    float    BuffA[TEST_BUFF_SIZE];
+    float    BuffB[TEST_BUFF_SIZE];
+    float    BuffRef[TEST_BUFF_SIZE];;
+    size_t    sizeAB = sizeof(BuffA);
 
-	// Fill Source buffer
-	//srand(time(NULL));
-	srand(0);
-	for(int i=0; i<TEST_BUFF_SIZE; ++i)
-	{
-		BuffA[i] = ((float)(rand() % 100)) / 100.f;
-		BuffB[i] = -1.;
-		BuffRef[i] = sqrtf(BuffA[i]);
-	}
+    // Fill Source buffer
+    //srand(time(NULL));
+    srand(0);
+    for(int i=0; i<TEST_BUFF_SIZE; ++i)
+    {
+        BuffA[i] = ((float)(rand() % 100)) / 100.f;
+        BuffB[i] = -1.;
+        BuffRef[i] = sqrtf(BuffA[i]);
+    }
 
-	if ( !BuildProgram(prog_file, &prog) )
-	{
-		return false;
-	}
+    if ( !BuildProgram(prog_file, &prog) )
+    {
+        return false;
+    }
 
-	if ( !CreateKernel(prog, "math_func_test_f4", &kernel) )
-	{
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    if ( !CreateKernel(prog, "math_func_test_f4", &kernel) )
+    {
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	IOCLDevMemoryObject *memObjA, *memObjB;
+    IOCLDevMemoryObject *memObjA, *memObjB;
 
-	//Create Memory Object
-	localRTMemService.SetupState( NULL, 1, &sizeAB, NULL, CL_MEM_OBJECT_BUFFER );
-	cl_int iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_WRITE, NULL, 1, &sizeAB, &localRTMemService, &memObjA);
-	if (CL_DEV_FAILED(iRes))
-	{
-		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
+    //Create Memory Object
+    localRTMemService.SetupState( NULL, 1, &sizeAB, NULL, CL_MEM_OBJECT_BUFFER );
+    cl_int iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_WRITE, NULL, 1, &sizeAB, &localRTMemService, &memObjA);
+    if (CL_DEV_FAILED(iRes))
+    {
+        dev_entry->clDevReleaseProgram(prog);
+        printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
 
-	localRTMemService.SetupState( NULL, 1, &sizeAB, NULL, CL_MEM_OBJECT_BUFFER );
-	iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_WRITE, NULL, 1, &sizeAB, &localRTMemService, &memObjB);
-	if (CL_DEV_FAILED(iRes))
-	{
-		memObjA->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
+    localRTMemService.SetupState( NULL, 1, &sizeAB, NULL, CL_MEM_OBJECT_BUFFER );
+    iRes = dev_entry->clDevCreateMemoryObject(0, CL_MEM_READ_WRITE, NULL, 1, &sizeAB, &localRTMemService, &memObjB);
+    if (CL_DEV_FAILED(iRes))
+    {
+        memObjA->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        printf("pclDevCreateMemoryObject failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
 
-	//Enqueue write memory
-	if(!writeMemory(false, memObjA, BuffA, sizeAB))
-	{
-		memObjA->clDevMemObjRelease();
-		memObjB->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    //Enqueue write memory
+    if(!writeMemory(false, memObjA, BuffA, sizeAB))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
 
-	// Setup Kernel parameters
-	cl_dev_cmd_desc	cmdDesc;
-	cl_dev_cmd_param_kernel krnlParam;
+    // Setup Kernel parameters
+    vector<cl_dev_cmd_memobj_param_kernel> memObjParams;
+    cl_dev_cmd_desc    cmdDesc;
+    cl_dev_cmd_param_kernel krnlParam;
 
-	krnlParam.kernel = kernel;
-	krnlParam.arg_size = 2*sizeof(IOCLDevMemoryObject*);//+sizeof(float);
+    krnlParam.kernel = kernel;
+    krnlParam.arg_size = 2*sizeof(IOCLDevMemoryObject*);//+sizeof(float);
     std::vector<cl_char> arg_values_alloc(krnlParam.arg_size);
-	krnlParam.arg_values = &arg_values_alloc[0];
-	((void**)krnlParam.arg_values)[0] = memObjA;
-	((void**)krnlParam.arg_values)[1] = memObjB;
-	krnlParam.work_dim = 1;
-	krnlParam.glb_wrk_offs[0] = 0;
-	krnlParam.glb_wrk_size[0] = TEST_BUFF_SIZE/4; // Kernel forks on float4
-	krnlParam.lcl_wrk_size[0] = 0;
+    krnlParam.arg_values = &arg_values_alloc[0];
+    
+    memObjParams.resize(2);
 
-	// Setup command descriptor
-	cmdDesc.id = (cl_dev_cmd_id)CL_DEV_CMD_EXEC_KERNEL;
-	cmdDesc.params = &krnlParam;
-	cmdDesc.param_size = sizeof(cl_dev_cmd_param_kernel);
-	cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
+    for (unsigned int i = 0; i < memObjParams.size(); ++i)
+    {
+        cl_dev_cmd_memobj_param_kernel& cur = memObjParams[i];
+        cur.arg_idx = i;
+        cur.arg_offset = i*sizeof(void*);
+    }
 
-	cl_dev_cmd_list_props props = CL_DEV_LIST_ENABLE_OOO;
-	cl_dev_cmd_list list;
-	iRes = dev_entry->clDevCreateCommandList(props, 0, &list);
-	if (CL_DEV_FAILED(iRes))
-	{
-		printf("pclDevCreateCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
-	// Enqueu kernel
-	gExecDone = false;
-	//cl_int clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count );
-	cl_dev_cmd_desc* cmdsBuff = &cmdDesc;
-	iRes = dev_entry->clDevCommandListExecute(list, &cmdsBuff, 1);
-	if (CL_DEV_FAILED(iRes))
-	{
-		memObjA->clDevMemObjRelease();
-		memObjB->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		printf("pclDevCommandListExecute failed: %s\n", clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}
-	iRes = dev_entry->clDevFlushCommandList(list);
-	if (CL_DEV_FAILED(iRes))
-	{
-		printf("clDevFlushCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
-		return false;
-	}	
+    memObjParams[0].pMemObject = memObjA;
+    memObjParams[1].pMemObject = memObjB;
+    
+    krnlParam.pMemObjParams = &(memObjParams[0]);
+    krnlParam.uiMemObjParams = memObjParams.size();
 
-	while(!gExecDone )
-	{
-		SLEEP(10);
-	}
+    krnlParam.work_dim = 1;
+    krnlParam.glb_wrk_offs[0] = 0;
+    krnlParam.glb_wrk_size[0] = TEST_BUFF_SIZE/4; // Kernel forks on float4
+    krnlParam.lcl_wrk_size[0] = 0;
 
-	if(!readMemory(false, memObjB, BuffB, sizeAB))
-	{
-		memObjA->clDevMemObjRelease();
-		memObjB->clDevMemObjRelease();
-		dev_entry->clDevReleaseProgram(prog);
-		return false;
-	}
+    // Setup command descriptor
+    cmdDesc.id = (cl_dev_cmd_id)CL_DEV_CMD_EXEC_KERNEL;
+    cmdDesc.params = &krnlParam;
+    cmdDesc.param_size = sizeof(cl_dev_cmd_param_kernel);
+    cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
 
-	// test result
-	for (int i=0; i<TEST_BUFF_SIZE; ++i)
-	{
-		if ( abs(((int*)BuffRef)[i] - ((int*)BuffB)[i]) > 3 )
-		{
-			memObjA->clDevMemObjRelease();
-			memObjB->clDevMemObjRelease();
-			dev_entry->clDevReleaseProgram(prog);
-			return false;
-		}
-	}
+    cl_dev_cmd_list_props props = CL_DEV_LIST_ENABLE_OOO;
+    cl_dev_cmd_list list;
+    iRes = dev_entry->clDevCreateCommandList(props, 0, &list);
+    if (CL_DEV_FAILED(iRes))
+    {
+        printf("pclDevCreateCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
+    // Enqueu kernel
+    gExecDone = false;
+    //cl_int clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmds, cl_uint IN count );
+    cl_dev_cmd_desc* cmdsBuff = &cmdDesc;
+    iRes = dev_entry->clDevCommandListExecute(list, &cmdsBuff, 1);
+    if (CL_DEV_FAILED(iRes))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        printf("pclDevCommandListExecute failed: %s\n", clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
+    iRes = dev_entry->clDevFlushCommandList(list);
+    if (CL_DEV_FAILED(iRes))
+    {
+        printf("clDevFlushCommandList failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }    
 
-	memObjA->clDevMemObjRelease();
-	memObjB->clDevMemObjRelease();
-	dev_entry->clDevReleaseProgram(prog);
+    while(!gExecDone )
+    {
+        SLEEP(10);
+    }
 
-	return true;
+    if(!readMemory(false, memObjB, BuffB, sizeAB))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        return false;
+    }
+
+    // test result
+    for (int i=0; i<TEST_BUFF_SIZE; ++i)
+    {
+        if ( abs(((int*)BuffRef)[i] - ((int*)BuffB)[i]) > 3 )
+        {
+            memObjA->clDevMemObjRelease();
+            memObjB->clDevMemObjRelease();
+            dev_entry->clDevReleaseProgram(prog);
+            return false;
+        }
+    }
+
+    memObjA->clDevMemObjRelease();
+    memObjB->clDevMemObjRelease();
+    dev_entry->clDevReleaseProgram(prog);
+
+    return true;
 }
 

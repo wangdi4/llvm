@@ -60,8 +60,8 @@ enum cl_prog_binary_type
     CL_PROG_OBJ_X86,                //!< Container holds x86 object code (.obj)
     CL_PROG_BIN_X86,                //!< Container holds x86 binary code
     CL_PROG_BIN_PTX,                //!< Container holds NVidia PTX intermediate
-    CL_PROG_BIN_CUBIN,				//!< Container holds NVidia CUBbinary
-    CL_PROG_BIN_COMPILED_SPIR,		//!< Container holds compiled SPIR intermediate
+    CL_PROG_BIN_CUBIN,                //!< Container holds NVidia CUBbinary
+    CL_PROG_BIN_COMPILED_SPIR,        //!< Container holds compiled SPIR intermediate
     CL_PROG_BIN_LINKED_SPIR        //!< Container holds linked SPIR intermediate
 };
 
@@ -141,7 +141,7 @@ struct cl_prog_program
 /*! \def _CL_LLVM_BITCODE_MASK_
     \brief This header signal LLVM bitcode stream
 */
-#define _CL_LLVM_BITCODE_MASK_		"BC"
+#define _CL_LLVM_BITCODE_MASK_        "BC"
 
 /*! \struct cl_prog_container_header
  *  \brief This structure defines a specific container for binaries or IR of OCL programs
@@ -250,8 +250,8 @@ enum cl_dev_cmd_list_props
     CL_DEV_LIST_NONE        =   0,      //!< Determines a list wherein all items will be executed sequentially.
     CL_DEV_LIST_ENABLE_OOO  =   1,      //!< Determines whether the out-of-order optimization could be applied on items in the command list
     CL_DEV_LIST_IN_PLACE    =   2,      //!< Determines whether the command list is executed using the calling thread
-	CL_DEV_LIST_PROFILING	=	4,		//!< Determines whether to enable profiling of command in the command queue
-	CL_DEV_LIST_QUEUE_DEFAULT =  8		//!< Determines whether this is the default device queue
+    CL_DEV_LIST_PROFILING    =    4,        //!< Determines whether to enable profiling of command in the command queue
+    CL_DEV_LIST_QUEUE_DEFAULT =  8        //!< Determines whether this is the default device queue
 };
 
 /*! \enum cl_dev_cmd_type
@@ -472,6 +472,16 @@ struct  cl_dev_cmd_param_map
 
 };
 
+/*! \struct cl_dev_cmd_memobj_param_kernel
+ * \brief Description of Buffer/Image parameters to kernel
+ */
+struct cl_dev_cmd_memobj_param_kernel
+{
+    IOCLDevMemoryObject* pMemObject;                //!< Pointer to device memory object represention
+    size_t               arg_offset;                //!< Offset in arg_values with parameter start
+    size_t               arg_idx;                   //!< Index of the parameter in kernel prototype
+};
+
 /*! \struct cl_dev_cmd_param_kernel
  * \brief Description of NDRange and TASK commands
  * This structure holds a value of parameters which are passed within cl_dev_cmd_desc and associated with CL_DEV_CMD_KERNEL
@@ -498,12 +508,15 @@ struct  cl_dev_cmd_param_kernel
                                                     //!< work-group size is defined for the kernel, the agent will use these values for execution.
                                                     //!< When the values are 0, and neither hint nor required work-group sizes is not defined,
                                                     //!< the agent will use optimal work-group size.
-    const void*         arg_values;                 //!< An array of argument values of the specific kernel.
+    void*               arg_values;                 //!< An array of argument values of the specific kernel.
                                                     //!< An order of the values must be the same as the order of parameters in the kernel prototype.
                                                     //!< If an argument is a memory object, a relevant value contains its handle (dev_mem_obj).
     size_t              arg_size;                   //!< Size in bytes of the arg_values array.
-	IOCLDevMemoryObject** ppNonArgSvmBuffers;		//!< an array of pointers to IOCLDevMemoryObjects representing SVM buffers that are used by Kernel, but not passed as arguments to it (or NULL if they are not needed)
-	size_t				szNonArgSvmBuffersSize;		//!< sizeo of ppNonArgSvmBuffers
+    IOCLDevMemoryObject** ppNonArgSvmBuffers;       //!< an array of pointers to IOCLDevMemoryObjects representing SVM buffers that are used by Kernel, but not passed as arguments to it (or NULL if they are not needed)
+    size_t                uiNonArgSvmBuffersSize;   //!< number of entries in ppNonArgSvmBuffers
+    cl_dev_cmd_memobj_param_kernel* pMemObjParams;  //!< an array of cl_dev_cmd_memobj_param_kernel structures representing each memory object parameter
+    size_t                uiMemObjParams;           //!< number of entries in pMemObjParams
+    
 } ;
 
 
@@ -573,11 +586,11 @@ class IOCLDevice;
    Description
         Initialize internal state of the device driver, returns a set of device driver entry points.
    Input
-        dev_id				Device identifier as it appears in framework. This value is used in cl_dev_mem object identification.
-        pDevCallBacks		A pointer to an interface for callback functions provided to the device by the framework
-        pLogDesc			A pointer to an interface for logger functions provided to the device by the framework
+        dev_id                Device identifier as it appears in framework. This value is used in cl_dev_mem object identification.
+        pDevCallBacks        A pointer to an interface for callback functions provided to the device by the framework
+        pLogDesc            A pointer to an interface for logger functions provided to the device by the framework
    Output
-        pDevice				A pointer to an interface to the device
+        pDevice                A pointer to an interface to the device
    Returns
         CL_DEV_SUCCESS      The device was successfully created. pDevEntry holds updated pointers
         CL_DEV_ERROR_FAIL   Internal error
@@ -591,7 +604,7 @@ typedef cl_dev_err_code (fn_clDevCreateDeviceInstance)(
 
 //! This function return device specific information defined by cl_device_info enumeration as specified in OCL spec. table 4.3.
 /*!
-	\param[in]	dev_id					The device ID in specific device type.
+    \param[in]    dev_id                    The device ID in specific device type.
     \param[in]  param                   An enumeration that identifies the device information being queried. It can be one of
                                         the following values as specified in OCL spec. table 4.3
     \param[in]  valSize                 Specifies the size in bytes of memory pointed to by paramValue. This size in
@@ -605,7 +618,7 @@ typedef cl_dev_err_code (fn_clDevCreateDeviceInstance)(
                                         paramValSize is < size of return type as specified in OCL spec. table 4.3 and paramVal is not a NULL value.
 */
 typedef cl_dev_err_code (fn_clDevGetDeviceInfo)(
-						unsigned int	IN	dev_id,
+                        unsigned int    IN    dev_id,
                         cl_device_info  IN  param,
                         size_t          IN  valSize,
                         void*           OUT paramVal,
@@ -615,13 +628,13 @@ typedef cl_dev_err_code (fn_clDevGetDeviceInfo)(
 //! This function return IDs list for all devices supported by a device agent.
 /*!
     \param[in]  deviceListSize          Specifies the number of IDs (unsigned int) that can be stored in deviceIdsList.
-	                                    If deviceIdsList != NULL that deviceListSize must be greater than 0.
+                                        If deviceIdsList != NULL that deviceListSize must be greater than 0.
     \param[out] deviceIdsList           A pointer to memory location where appropriate values for each device ID will be store. If paramVal is NULL, it is ignored
     \param[out] deviceIdsListSizeRet    If deviceIdsList!= NULL it store the actual amount of IDs being store in deviceIdsList. 
-	                                    If deviceIdsList == NULL and deviceIdsListSizeRet than it store the amount of available devices.
-										If deviceIdsListSizeRet is NULL, it is ignored.
+                                        If deviceIdsList == NULL and deviceIdsListSizeRet than it store the amount of available devices.
+                                        If deviceIdsListSizeRet is NULL, it is ignored.
     \retval     CL_DEV_SUCCESS          If function is executed successfully.
-    \retval     CL_DEV_ERROR_FAIL	    If function failed to figure the IDs of the devices.
+    \retval     CL_DEV_ERROR_FAIL        If function failed to figure the IDs of the devices.
 */
 typedef cl_dev_err_code (fn_clDevGetAvailableDeviceList)(
                         size_t    IN  deviceListSize,
@@ -633,7 +646,7 @@ typedef cl_dev_err_code (fn_clDevGetAvailableDeviceList)(
 //! This function initializes device agent internal data. This function should be called prior to any device agent calls.
 /*!
     \retval     CL_DEV_SUCCESS          If function is executed successfully.
-    \retval     CL_DEV_ERROR_FAIL	    If function failed to figure the IDs of the devices.
+    \retval     CL_DEV_ERROR_FAIL        If function failed to figure the IDs of the devices.
 */
 typedef cl_dev_err_code (fn_clDevInitDeviceAgent)(void);
 
@@ -999,14 +1012,14 @@ public:
                                            cl_dev_cmd_list* OUT list
                                            ) = 0;
 
-	//! 	This function flushes the content of a list, all waiting commands are sent to execution.
-	/*!
-		\param[in]	list		A valid (non zero) handle to device command list.
-		\retval		CL_DEV_SUCCESS					If the function was successfully executed
-		\retval		CL_DEV_INVALID_COMMAND_LIST		If command list is not a valid command list
-	*/
-	virtual cl_dev_err_code clDevFlushCommandList(	cl_dev_cmd_list IN list
-										  ) = 0;
+    //!     This function flushes the content of a list, all waiting commands are sent to execution.
+    /*!
+        \param[in]    list        A valid (non zero) handle to device command list.
+        \retval        CL_DEV_SUCCESS                    If the function was successfully executed
+        \retval        CL_DEV_INVALID_COMMAND_LIST        If command list is not a valid command list
+    */
+    virtual cl_dev_err_code clDevFlushCommandList(    cl_dev_cmd_list IN list
+                                          ) = 0;
 
     //! After the all commands of the command list have completed (eg. Kernel executions, memory object updates etc.),
     //! the command queue is deleted.
@@ -1349,8 +1362,8 @@ public:
 
     virtual const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const = 0;
 
-	//!	De-initialize internal state of the device agent and releases all allocated data.
-	virtual void clDevCloseDevice() = 0;    
+    //!    De-initialize internal state of the device agent and releases all allocated data.
+    virtual void clDevCloseDevice() = 0;    
 
 };
 

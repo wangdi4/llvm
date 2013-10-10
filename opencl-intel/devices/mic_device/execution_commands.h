@@ -36,31 +36,31 @@ class ExecutionCommand : public Command
 {
 public:
 
-	PREPARE_SHARED_PTR(Command)
+    PREPARE_SHARED_PTR(Command)
 
-	bool commandEnqueuedToPipe() { return true; };
+    bool commandEnqueuedToPipe() { return true; };
 
 protected:
 
-	ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+    ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
-	virtual ~ExecutionCommand() {};
+    virtual ~ExecutionCommand() {};
 
-	/* Execute the command (Send it to execution in the device) */
-	cl_dev_err_code executeInt(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION funcId, char* commandNameStr);
+    /* Execute the command (Send it to execution in the device) */
+    cl_dev_err_code executeInt(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION funcId, char* commandNameStr);
 
-	/* Initialize the appropriate execution command. */
-	virtual cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr) = 0;
+    /* Initialize the appropriate execution command. */
+    virtual cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr) = 0;
 
-	virtual void fireCallBack(void* arg);
+    virtual void fireCallBack(void* arg);
 
     void init_profiling_mode();
 
-	MiscDataHandler m_miscDatahandler;
+    MiscDataHandler m_miscDatahandler;
 
-	DispatcherDataHandler m_dispatcherDatahandler;
+    DispatcherDataHandler m_dispatcherDatahandler;
 
-	// Contains COIEVENT that will signal when the Command will start.
+    // Contains COIEVENT that will signal when the Command will start.
     command_event_struct m_startBarrier;
 };
 
@@ -70,48 +70,31 @@ class NDRange : public ExecutionCommand
 
 public:
 
-	PREPARE_SHARED_PTR(Command)
+    PREPARE_SHARED_PTR(Command)
 
-	/* static function for NDRange Command creation */
+    /* static function for NDRange Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
-	cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::EXECUTE_NDRANGE, (char*)"NDRange"); };
+    cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::EXECUTE_NDRANGE, (char*)"NDRange"); };
 
-	void fireCallBack(void* arg);
+    void fireCallBack(void* arg);
 
 protected:
 
-	virtual ~NDRange();
+    virtual ~NDRange();
 
 private:
 
-	/* information about the buffer arguments in kernel blob */
-	struct kernel_arg_buffer_info
-	{
-		// The offset of the buffer in the blob
-		size_t offsetInBlob;
-		// The index of the buffer in 'cl_kernel_argument' array
-		unsigned int index;
+    static cl_dev_err_code CheckCommandParams(CommandList* pCommandList, cl_dev_cmd_desc* cmd);
 
-		kernel_arg_buffer_info(size_t offset, unsigned int indx)
-		{
-			offsetInBlob = offset;
-			index = indx;
-		}
-	};
-
-	/* Private constructor because We like to create Commands only by the factory method */
+    /* Private constructor because We like to create Commands only by the factory method */
     NDRange(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
-	cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr);
+    cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr);
 
-	void getKernelArgBuffersCount(const unsigned int numArgs, const cl_kernel_argument* pArgs, const char* pKernelParams, vector<kernel_arg_buffer_info>& oBuffsInfo);
-
-	/* Release resources. */
-	void releaseResources(bool releaseCoiObjects = true);
+    /* Release resources. */
+    void releaseResources(bool releaseCoiObjects = true);
     void releaseKernel( void );
-
-	COIBUFFER m_printfBuffer;
 
     bool        m_kernel_locked;
 };
@@ -122,24 +105,24 @@ class FillMemObject : public ExecutionCommand
 {
 public:
 
-	PREPARE_SHARED_PTR(Command)
+    PREPARE_SHARED_PTR(Command)
 
-	/* static function for FillMemObject Command creation */
+    /* static function for FillMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
-	cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::FILL_MEM_OBJECT, (char*)"FillMemObject"); };
+    cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::FILL_MEM_OBJECT, (char*)"FillMemObject"); };
 
 protected:
 
-	virtual ~FillMemObject() {};
+    virtual ~FillMemObject() {};
 
 private:
 
-	/* Private constructor because We like to create Commands only by the factory method */
+    /* Private constructor because We like to create Commands only by the factory method */
     FillMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
-	/* Initialize FillMemObject command. */
-	cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr);
+    /* Initialize FillMemObject command. */
+    cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr);
 };
 
 }}}

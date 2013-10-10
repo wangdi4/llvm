@@ -309,6 +309,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// get memory object according the mem id
 		SharedPtr<MemoryObject> GetMemObject(cl_mem clMemId);
+        MemoryObject*           GetMemObjectPtr(cl_mem clMemId);
 
 		// create new sampler object
 		cl_err_code CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, SharedPtr<Sampler>* ppSampler);

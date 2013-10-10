@@ -58,7 +58,7 @@ typedef struct _cl_dev_internal_subdevice_id
     //Task dispatcher for this sub-device
     Intel::OpenCL::Utils::AtomicCounter ref_count;
     volatile bool                       is_acquired;
-    void*    taskExecutorData;
+    ITEDevice*                          pSubDevice;
 } cl_dev_internal_subdevice_id;
 
 class IAffinityChangeObserver
@@ -80,28 +80,28 @@ public:
 
     virtual cl_dev_err_code init();
 
-    virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, void* IN pSubdevTaskExecData, void** OUT list);
-    virtual cl_dev_err_code releaseCommandList( cl_dev_cmd_list IN list );
-    virtual cl_dev_err_code flushCommandList( cl_dev_cmd_list IN list);
-    virtual cl_dev_err_code commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
-    virtual cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait);
-    virtual cl_dev_err_code cancelCommandList(cl_dev_cmd_list IN list);
+    virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, ITEDevice* IN pDevice, ITaskList** OUT list);
+    virtual cl_dev_err_code releaseCommandList( ITaskList* IN list );
+    virtual cl_dev_err_code flushCommandList( ITaskList* IN list);
+    virtual cl_dev_err_code commandListExecute( ITaskList* IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
+    virtual cl_dev_err_code commandListWaitCompletion(ITaskList* IN list, cl_dev_cmd_desc* IN cmdToWait);
+    virtual cl_dev_err_code cancelCommandList(ITaskList* IN list);
 
     virtual ProgramService* getProgramService(){ return m_pProgramService; }
 
     virtual bool            isDestributedAllocationRequired();
-    virtual bool			isThreadAffinityRequired();
+    virtual bool            isThreadAffinityRequired();
 
-    bool            isPredictablePartitioningAllowed()
+    bool                    isPredictablePartitioningAllowed()
     {
         cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
         return ( (NULL!=pSubDevID) && pSubDevID->is_by_names );
     }
 
-    void*                   createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_dev_internal_subdevice_id* dev_ptr);
-    void                    releaseSubdevice(void* pSubdevData);
+    ITEDevice*              createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_dev_internal_subdevice_id* dev_ptr);
+    void                    releaseSubdevice(ITEDevice* pSubdev);
 
-    void                    waitUntilEmpty(void* pSubdevData);    
+    void                    waitUntilEmpty(ITEDevice* pSubdev);
 
     void                    setWgContextPool(WgContextPool* pWgContextPool) { m_pWgContextPool = pWgContextPool; }
 
@@ -118,8 +118,8 @@ public:
     OMPExecutorThread*			getOmpExecutionThread() const {return m_pOMPExecutionThread;}
 #endif
 protected:
-    cl_int						        m_iDevId;
-    IOCLDevLogDescriptor*		  m_pLogDescriptor;
+    cl_int                    m_iDevId;
+    IOCLDevLogDescriptor*     m_pLogDescriptor;
     cl_int						        m_iLogHandle;
     ocl_gpa_data*				      m_pGPAData;
     IOCLFrameworkCallbacks*		m_pFrameworkCallBacks;
@@ -139,7 +139,7 @@ protected:
     // Internal implementation of functions
     static fnDispatcherCommandCreate_t*	m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
 
-    cl_dev_err_code	SubmitTaskArray(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* *cmds, cl_uint count);
+    cl_dev_err_code	SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds, cl_uint count);
 
     void	NotifyCommandStatusChange(const cl_dev_cmd_desc* pCmd, unsigned uStatus, int iErr);
 
@@ -177,7 +177,8 @@ protected:
         m_pTaskDispatcher(_this), m_pCmd(pCmd), m_retCode(retCode) {}
     };
 
-    cl_dev_err_code NotifyFailure(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
+    cl_dev_err_code NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
+
 #ifdef __INCLUDE_MKL__
     OMPExecutorThread*	m_pOMPExecutionThread;
 #endif

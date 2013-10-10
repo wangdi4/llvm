@@ -23,16 +23,16 @@
 * File task_executor.h
 * Declares an interface for task execution model
 * The task model should satisfy next guidelines:
-*	a.	The task creation order is unknown. Task execution will be handled by list.
-*		Lists are of two types, ordered - wherein the tasks shall be executed by the given order
-*		un-ordered - wherein tasks are executed without decencies
-*	b.	Async. execution. The execution function will be returned immediately,
-*		the provided callback function will be called when a task is completed
-*	c.	It'll be two types of tasks:
-*		I.	Simple - single function task, single instance of function will be executed
-*		II.	Complex (Task Set) - the main function will be executed multiple times.
-*			This complex function will have initialization and finalization stages –
-*			single function that should be called before and after the main loop.
+*    a.  The task creation order is unknown. Task execution will be handled by list.
+*        Lists are of two types, ordered - wherein the tasks shall be executed by the given order
+*        un-ordered - wherein tasks are executed without decencies
+*    b.  Async. execution. The execution function will be returned immediately,
+*        the provided callback function will be called when a task is completed
+*    c.  It'll be two types of tasks:
+*        I.  Simple - single function task, single instance of function will be executed
+*        II. Complex (Task Set) - the main function will be executed multiple times.
+*            This complex function will have initialization and finalization stages –
+*            single function that should be called before and after the main loop.
 *
 */
 
@@ -89,7 +89,7 @@ typedef enum
 typedef enum 
 {
     TE_WAIT_COMPLETED                = 0,// All processing tasks were completed
-    TE_WAIT_MASTER_THREAD_BLOCKING,        // WaitForCompletion was blocked by another master thread
+    TE_WAIT_MASTER_THREAD_BLOCKING,      // WaitForCompletion was blocked by another master thread
     TE_WAIT_NOT_SUPPORTED                // Wait for completion doesn't supported
 } te_wait_result;
 
@@ -98,7 +98,7 @@ typedef enum
 {
     TE_CMD_LIST_IN_ORDER            = 0,// Process tasks in order of enqueing
     TE_CMD_LIST_OUT_OF_ORDER,           // Process tasks in any order
-  TE_CMD_LIST_IMMEDIATE               // Process each task immediately using the caller thread also
+	TE_CMD_LIST_IMMEDIATE               // Process each task immediately using the caller thread also
 } TE_CMD_LIST_TYPE;
 
 // preferred CommandList scheduling type
@@ -106,9 +106,9 @@ typedef enum
 {
     TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC = 0,             // in TBB case - use auto_partitioner for TaskSets
     TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY,  // try to preserve task affinities to threads in TaskSet
-    TE_CMD_LIST_PREFERED_SCHEDULING_UNEVEN_OPENCL,                       // Use OpenCL specific partitioner
-
-    TE_CMD_LIST_PREFERRED_SCHEDULING_LAST
+    TE_CMD_LIST_PREFERED_SCHEDULING_UNEVEN_OPENCL,            // Use OpenCL specific partitioner
+    
+	TE_CMD_LIST_PREFERRED_SCHEDULING_LAST
 } TE_CMD_LIST_PREFERRED_SCHEDULING;
 
 // TaskSets optimizations
@@ -138,9 +138,9 @@ struct CommandListCreationParam
 
     CommandListCreationParam( TE_CMD_LIST_TYPE type, 
                               TE_CMD_LIST_PREFERRED_SCHEDULING sched = TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC, bool bIsProfilingEnabled = false, bool bIsDefaultQueue = false) :
-		cmdListType(type), preferredScheduling(sched), isProfilingEnabled(bIsProfilingEnabled), isQueueDefault(bIsDefaultQueue) {}
-	bool  isProfilingEnabled;
-	bool  isQueueDefault;
+        cmdListType(type), preferredScheduling(sched), isProfilingEnabled(bIsProfilingEnabled), isQueueDefault(bIsDefaultQueue) {}
+    bool  isProfilingEnabled;
+    bool  isQueueDefault;
 };
 
 // Root device Creation params
@@ -207,12 +207,12 @@ class ITaskGroup : public Intel::OpenCL::Utils::ReferenceCountedObject
 {
 public:
 
-	PREPARE_SHARED_PTR(ITaskGroup)
+    PREPARE_SHARED_PTR(ITaskGroup)
 
-	/**
-	 * Wait for the completion of all tasks in the group
-	 */
-	virtual void WaitForAll() = 0;
+    /**
+     * Wait for the completion of all tasks in the group
+     */
+    virtual void WaitForAll() = 0;
 
 };
 
@@ -228,7 +228,7 @@ public:
 
     // Returns whether the executed task is a task set.
     virtual bool    IsTaskSet() const = 0;
-	
+    
     // Return task priority, currently the implementation shall return TASK_PRIORITY_MEDIUM
     virtual TASK_PRIORITY    GetPriority() const = 0; 
 
@@ -249,8 +249,8 @@ public:
     // Releases task object, shall be called instead of delete operator.
     virtual long    Release() = 0;
 
-	// For NDRange commands return the ITaskGroup used to group its children; for other commands return NULL
-	virtual ITaskGroup* GetNDRangeChildrenTaskGroup() = 0;
+    // For NDRange commands return the ITaskGroup used to group its children; for other commands return NULL
+    virtual ITaskGroup* GetNDRangeChildrenTaskGroup() = 0;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -286,7 +286,7 @@ public:
     // Returns 0 if initialization success, otherwise an error code
     virtual int        Init(size_t region[], unsigned int& regCount) = 0;
 
-    virtual void*	GetConcreteClass() { return this; }
+    virtual void*    GetConcreteClass() { return this; }
 
     // Is called when the task is going to be called for the first time within specific thread. 
     // @param currentThreadData - data returned by OnThreadEntry()
@@ -340,9 +340,9 @@ public:
     virtual bool              Flush() = 0;
 
     // Immediately spawn a task without enqueuing it first in order to save the lock on the queue.
-    virtual void			        Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup) = 0;
+    virtual void                    Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup) = 0;
     // whether this ITaskList supports device-side enqueuing of commands
-    virtual bool		    	    DoesSupportDeviceSideCommandEnqueue() const = 0;
+    virtual bool                    DoesSupportDeviceSideCommandEnqueue() const = 0;
 
     // Add the calling thread to execution pool
     // Function blocks, until the pTask is completed or in case of NULL
@@ -372,7 +372,7 @@ public:
     PREPARE_SHARED_PTR(ITEDevice)
 
     /**
-     * @param  uiNumSubdevComputeUnits - number of computing units in the sub-device. In the hiearachical mode it must be a subset of the level 0 units.
+     * @param  uiNumSubdevComputeUnits - number of computing units in the sub-device. In the hierarchical mode it must be a subset of the level 0 units.
      * @return an object representing the sub-device in the TaskExecutor module
      * @param  user_handle - handle to be returned to used during GetCurrentDevice() calls
      */
@@ -396,10 +396,22 @@ public:
     virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param ) = 0;
 
     /**
-     * Retrives concurrency level for the device
+     * Retrieves concurrency level for the device
      * @return pointer to the new list or NULL on error
      */
     virtual int GetConcurrency() const = 0;
+
+#ifdef __HARD_TRAPPING__
+    /**
+     * Trap worker threads in the device
+     */
+    virtual bool AcquireWorkerThreads(int num_workers = -1, int timeout = -1) = 0;
+
+    /**
+     * Release trapped workers
+     */
+    virtual void RelinquishWorkerThreads() = 0;
+#endif // __HARD_TRAPPING__
 
     /**
      * Wait until all work in a sub-device is complete and mark device as disabled. No more enqueues are allowed after the ShutDown
@@ -407,6 +419,7 @@ public:
     virtual void ShutDown() = 0;
 
 
+    // Workaround for MIC slowness
     /**
       * Set-up/Register calling thread (master) to be used by the device
       */    
@@ -415,6 +428,7 @@ public:
       * Unegister calling thread (master) to be used by the device
       */    
     virtual void DetachMasterThread() = 0;
+
 };
 
 // ITaskExecutorObserver - recieves notification on ITaskExecutor events
@@ -511,15 +525,15 @@ public:
      * @param  level - request position at the given hierachy level. 0 - top level. Must be 0 in the flat mode.
      * @return 0-based position inside sub-device at given level or TE_UNKNOWN if level is above maximum or 
      *                 thread is outside of any TE Device or sub-device
-	 */
-	virtual unsigned int GetPosition( unsigned int level = 0 ) const = 0;
+     */
+    virtual unsigned int GetPosition( unsigned int level = 0 ) const = 0;
 
-	/**
-	 * @param device a ITEDevice
-	 * @return a new ITaskGroup in device
-	 */
-	virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> CreateTaskGroup(const Intel::OpenCL::Utils::SharedPtr<ITEDevice>& device) = 0;
-	
+    /**
+     * @param device a ITEDevice
+     * @return a new ITaskGroup in device
+     */
+    virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> CreateTaskGroup(const Intel::OpenCL::Utils::SharedPtr<ITEDevice>& device) = 0;
+    
 protected:
 
     ITaskExecutor() : m_pGPAData(NULL) { }

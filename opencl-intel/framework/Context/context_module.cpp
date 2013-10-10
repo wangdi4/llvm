@@ -1287,10 +1287,10 @@ cl_int ContextModule::SetKernelArg(cl_kernel clKernel,
         clKernel, uiArgIndex, szArgSize, pArgValue);
 
     cl_err_code clErr = CL_SUCCESS;
-    SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).DynamicCast<Kernel>();
+    SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).StaticCast<Kernel>();
     if (NULL == pKernel)
     {
-        LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), clKernel, &pKernel, ClErrTxt(clErr));
+        LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL Object"), clKernel, &pKernel);
         return CL_INVALID_KERNEL;
     }
     clErr = pKernel->SetKernelArg(uiArgIndex, szArgSize, pArgValue);

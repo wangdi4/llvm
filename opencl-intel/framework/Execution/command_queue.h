@@ -41,52 +41,55 @@ namespace Intel { namespace OpenCL { namespace Framework {
      * 
      * 
      */
-	class ICommandQueue
-	{
-	public:
-		virtual cl_err_code Enqueue(Command* command)          = 0;
-		virtual cl_err_code EnqueueWaitForEvents(Command* wfe) = 0;
-		virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker) = 0;
-		virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier) = 0;
-		virtual cl_err_code	WaitForCompletion(const SharedPtr<QueueEvent>& pEvent ) = 0;
-		
-		virtual cl_err_code Flush(bool bBlocking)  = 0;
-		virtual cl_err_code SendCommandsToDevice() = 0;
-		virtual cl_err_code NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor ) = 0;
-	};
+    class ICommandQueue
+    {
+    public:
+        virtual cl_err_code Enqueue(Command* command)          = 0;
+        virtual cl_err_code EnqueueWaitForEvents(Command* wfe) = 0;
+        virtual cl_err_code EnqueueMarkerWaitForEvents(Command* marker) = 0;
+        virtual cl_err_code EnqueueBarrierWaitForEvents(Command* barrier) = 0;
+        virtual cl_err_code WaitForCompletion(const SharedPtr<QueueEvent>& pEvent ) = 0;
+        
+        virtual cl_err_code Flush(bool bBlocking)  = 0;
+        virtual cl_err_code SendCommandsToDevice() = 0;
+        virtual cl_err_code NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor ) = 0;
+    };
 
-	class IOclCommandQueueBase : public OclCommandQueue, public ICommandQueue
-	{
-	public:
+    class IOclCommandQueueBase : public OclCommandQueue, public ICommandQueue
+    {
+    public:
 
         PREPARE_SHARED_PTR(IOclCommandQueueBase) 
-		virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-		virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
-		virtual cl_err_code EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
-		virtual cl_err_code EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
-		virtual cl_err_code	WaitForCompletion(const SharedPtr<QueueEvent>& pEvent );            
-		virtual ocl_gpa_data* GetGPAData() const { return m_pContext->GetGPAData(); }
+        virtual cl_err_code EnqueueCommand(Command* pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+        virtual cl_err_code EnqueueWaitEvents(Command* wfe, cl_uint uNumEventsInWaitList, const cl_event* cpEventWaitList);
+        virtual cl_err_code EnqueueMarkerWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
+        virtual cl_err_code EnqueueBarrierWaitEvents(Command* cmd, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
+        virtual cl_err_code WaitForCompletion(const SharedPtr<QueueEvent>& pEvent );            
+        virtual ocl_gpa_data* GetGPAData() const { return m_pContext->GetGPAData(); }
+
+        virtual void        AddFloatingDependence(const SharedPtr<QueueEvent>& pCmdEvent) const { pCmdEvent->AddFloatingDependence(); }
+        virtual void        RemoveFloatingDependence(const SharedPtr<QueueEvent>& pCmdEvent) const { pCmdEvent->RemoveFloatingDependence(); }
 
         // manage lifetime slightly differently from another ReferenceCounted objects
         virtual void EnterZombieState( EnterZombieStateLevel call_level );
 
-	protected:
+    protected:
 
-		IOclCommandQueueBase(
-			SharedPtr<Context>          pContext,
-			cl_device_id                clDefaultDeviceID,
-			cl_command_queue_properties clProperties,
-			EventsManager*              pEventManager
-		) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager) {}
+        IOclCommandQueueBase(
+            SharedPtr<Context>          pContext,
+            cl_device_id                clDefaultDeviceID,
+            cl_command_queue_properties clProperties,
+            EventsManager*              pEventManager
+        ) : OclCommandQueue(pContext, clDefaultDeviceID, clProperties, pEventManager) {}
 
-		virtual ~IOclCommandQueueBase() {}
+        virtual ~IOclCommandQueueBase() {}
 
         virtual  void BecomeVisible();        
 
     private:
 
         cl_err_code EnqueueWaitEventsProlog(const SharedPtr<QueueEvent>& pEvent, cl_uint uNumEventsInWaitList, const cl_event* pEventWaitList);
-	};
+    };
 }}}    // Intel::OpenCL::Framework
 
 

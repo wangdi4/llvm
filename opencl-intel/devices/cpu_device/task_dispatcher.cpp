@@ -344,18 +344,14 @@ createCommandList
 		CL_DEV_INVALID_PROPERTIES	If values specified in properties are valid but are not supported by the device
 		CL_DEV_OUT_OF_MEMORY		If there is a failure to allocate resources required by the OCL device driver
 **************************************************************************************************************************/
-cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN props, void* IN pSubdevTaskExecData, void** OUT list)
+cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN props, ITEDevice* IN pDevice, ITaskList** OUT list)
 {
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Enter"));
-	assert( list );
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Enter"));
+    assert( list );
     SharedPtr<ITaskList> pList = NULL;
-    ITEDevice*           pDevice = NULL;
 
-    if (NULL != pSubdevTaskExecData)
-    {
-        pDevice = reinterpret_cast<ITEDevice*>(pSubdevTaskExecData);
-    }
-    else
+    // NULL device, meaning submit to Root device
+    if (NULL == pDevice)
     {
         pDevice = m_pRootDevice.GetPtr();
     }
@@ -364,30 +360,31 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
     if (!isInPlace)
     {
         bool isOOO       = (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO));
-	    pList = pDevice->CreateTaskList(CommandListCreationParam(
-			isOOO ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER,
-			TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC,
-			props & CL_DEV_LIST_PROFILING, props & CL_DEV_LIST_QUEUE_DEFAULT));
-	    if (props & CL_DEV_LIST_QUEUE_DEFAULT)
-	    {
-	        m_pDefaultQueue = pList;
-	    }
+        pList = pDevice->CreateTaskList(CommandListCreationParam(
+                                            isOOO ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER,
+                                            TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC,
+                                            props & CL_DEV_LIST_PROFILING, props & CL_DEV_LIST_QUEUE_DEFAULT)
+                                        );
+        if (props & CL_DEV_LIST_QUEUE_DEFAULT)
+        {
+            m_pDefaultQueue = pList;
+        }
     }
     else
     {
         //Todo: handle non-immediate lists
-		pList = InPlaceTaskList::Allocate(m_pWgContextPool->GetWGContext(true), GetTaskExecutor()->CreateTaskGroup(pDevice));
+        pList = InPlaceTaskList::Allocate(m_pWgContextPool->GetWGContext(true), GetTaskExecutor()->CreateTaskGroup(pDevice));
     }
-	*list = pList.GetPtr();    
-	if ( NULL == pList )
-	{
-		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("TaskList creation failed"), list);
-		return CL_DEV_OUT_OF_MEMORY;
-	}
+    *list = pList.GetPtr();
+    if ( NULL == pList )
+    {
+        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("TaskList creation failed"), list);
+        return CL_DEV_OUT_OF_MEMORY;
+    }
     pList.IncRefCnt();
 
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%X"), pList.GetPtr());
-	return CL_DEV_SUCCESS;
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%X"), pList.GetPtr());
+    return CL_DEV_SUCCESS;
 }
 
 /********************************************************************************************************************
@@ -404,15 +401,15 @@ releaseCommandList
 		CL_DEV_SUCCESS				The function is executed successfully
 		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
 ********************************************************************************************************************/
-cl_dev_err_code TaskDispatcher::releaseCommandList( cl_dev_cmd_list IN list )
+cl_dev_err_code TaskDispatcher::releaseCommandList( ITaskList* IN pList )
 {
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), pList);
 
-	SharedPtr<ITaskList> pList = (ITaskList*)list;
+    //TODO: Why we need this manual staff, why just not handle SharedPtr on higher level
     pList->Flush();
-    pList.DecRefCnt();
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X"), list);
-	return CL_DEV_SUCCESS;
+    pList->DecRefCnt();
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X"), pList);
+    return CL_DEV_SUCCESS;
 }
 
 /******************************************************************************************************************
@@ -427,60 +424,59 @@ flushCommandList
 		CL_DEV_SUCCESS				The function is executed successfully
 		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
 *******************************************************************************************************************/
-cl_dev_err_code TaskDispatcher::flushCommandList( cl_dev_cmd_list IN list)
+cl_dev_err_code TaskDispatcher::flushCommandList( ITaskList* IN list)
 {
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
-	// No need in lock
-	((ITaskList*)list)->Flush();
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X"), list);
-	return CL_DEV_SUCCESS;
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
+    // No need in lock
+    list->Flush();
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X"), list);
+    return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code TaskDispatcher::commandListWaitCompletion( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN cmdToWait)
+cl_dev_err_code TaskDispatcher::commandListWaitCompletion( ITaskList* IN list, cl_dev_cmd_desc* IN cmdToWait)
 {
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - list %X"), list);
+    SharedPtr<ITaskBase> pTaskToWait = NULL;
+    if ( NULL != cmdToWait )
+    {
+        // At this stage we assume that cmdToWait is a valid pointer
+        // Appropriate reference count is done in runtime
+        void* pTaskPtr = cmdToWait->device_agent_data;
+        // Check if the command is already completed but it can be just before a call to the notification function.
+        // and we are not sure that RT got the completion notification.
+        // Therefore, we MUST return error value and RT will take appropriate action in order to monitor event status
+        if ( NULL == pTaskPtr )
+        {
+            return CL_DEV_NOT_SUPPORTED;
+        }
+        pTaskToWait = static_cast<ITaskBase*>(pTaskPtr);
+    }
 
-	SharedPtr<ITaskBase> pTaskToWait = NULL;
-	if ( NULL != cmdToWait )
-	{
-		// At this stage we assume that cmdToWait is a valid pointer
-		// Appropriate reference count is done in runtime
-		void* pTaskPtr = cmdToWait->device_agent_data;
-		// Check if the command is already completed but it can be just before a call to the notification function.
-		// and we are not sure that RT got the completion notification.
-		// Therefore, we MUST return error value and RT will take appropriate action in order to monitor event status
-		if ( NULL == pTaskPtr )
-		{
-			return CL_DEV_NOT_SUPPORTED;
-		}
-		pTaskToWait = static_cast<ITaskBase*>(pTaskPtr);
-	}
+    // No need in lock
+    te_wait_result res = list->WaitForCompletion(pTaskToWait);
 
-	// No need in lock
-	te_wait_result res = ((ITaskList*)list)->WaitForCompletion(pTaskToWait);
+    cl_dev_err_code retVal;
+    if ( NULL != pTaskToWait )
+    {
+        // Try to wait for command
+        if ( (!pTaskToWait->IsCompleted() && (TE_WAIT_COMPLETED == res)) || TE_WAIT_NOT_SUPPORTED == res)
+        {
+            list->Flush();
+            res = TE_WAIT_MASTER_THREAD_BLOCKING;
+        }
+        pTaskToWait->Release();
+        // If the task is not completed at this stage we can't make further call to blocking wait
+        // becaue we are not having the task pointer and we can't set it back because its not thread safe
+        retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS : CL_DEV_NOT_SUPPORTED;
+    }
+    else
+    {
+        retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS :
+                  (TE_WAIT_MASTER_THREAD_BLOCKING == res) ? CL_DEV_BUSY : CL_DEV_NOT_SUPPORTED;
+    }
 
-	cl_dev_err_code retVal;
-	if ( NULL != pTaskToWait )
-	{
-		// Try to wait for command
-		if ( (!pTaskToWait->IsCompleted() && (TE_WAIT_COMPLETED == res)) || TE_WAIT_NOT_SUPPORTED == res)
-		{
-			((ITaskList*)list)->Flush();
-			res = TE_WAIT_MASTER_THREAD_BLOCKING;
-		}
-		pTaskToWait->Release();
-		// If the task is not completed at this stage we can't make further call to blocking wait
-		// becaue we are not having the task pointer and we can't set it back because its not thread safe
-		retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS : CL_DEV_NOT_SUPPORTED;
-	}
-	else
-	{
-		retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS :
-				(TE_WAIT_MASTER_THREAD_BLOCKING == res) ? CL_DEV_BUSY : CL_DEV_NOT_SUPPORTED;
-	}
-
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X, res = %d"), list, retVal);
-	return retVal;
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X, res = %d"), list, retVal);
+    return retVal;
 }
 
 /******************************************************************************************************************
@@ -495,14 +491,14 @@ cancelCommandList
 		CL_DEV_SUCCESS				The function is executed successfully
 		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
 *******************************************************************************************************************/
-cl_dev_err_code TaskDispatcher::cancelCommandList( cl_dev_cmd_list IN list)
+cl_dev_err_code TaskDispatcher::cancelCommandList( ITaskList* IN list)
 {
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - cancel list %X"), list);
-	// No need in lock
-	((ITaskList*)list)->Cancel();
-	((ITaskList*)list)->Flush();
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - cancel list %X"), list);
-	return CL_DEV_SUCCESS;
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - cancel list %X"), list);
+    // No need in lock
+    list->Cancel();
+    list->Flush();
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - cancel list %X"), list);
+    return CL_DEV_SUCCESS;
 }
 
 /********************************************************************************************************************
@@ -538,52 +534,50 @@ commandListExecute
 		CL_DEV_INVALID_WRK_ITEM_SIZE	If the number of work-items specified in any of lcl_wrk_size[] is greater than the corresponding
 										values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[]
 ********************************************************************************************************************/
-cl_dev_err_code TaskDispatcher::commandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
+cl_dev_err_code TaskDispatcher::commandListExecute( ITaskList* IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
 {
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - List:%X"), list);
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - List:%X"), list);
 
-	SharedPtr<ITaskList> pList = (ITaskList*)list;
-	// If list id is 0, submit tasks directly to execution
-	if ( NULL == pList )
-	{
-		// Create temporary list
-		pList = m_pRootDevice->CreateTaskList(TE_CMD_LIST_IN_ORDER );
-	}
+    cl_dev_err_code ret = CL_DEV_SUCCESS;
+    // If list id is 0, submit tasks directly to execution
+    if ( NULL != list )
+    {
+        ret = SubmitTaskArray(list, cmds, count);
+    }
+    else
+    {
+      // Create temporary list
+        SharedPtr<ITaskList> pLocalList;
+        pLocalList = m_pRootDevice->CreateTaskList(TE_CMD_LIST_IN_ORDER );
+        list = pLocalList.GetPtr();
+        ret = SubmitTaskArray(pLocalList.GetPtr(), cmds, count);
+        pLocalList->Flush();
+    }
 
-	// Lock current list for insert operations
-	cl_dev_err_code ret;
-
-	ret = SubmitTaskArray(pList, cmds, count);
-	// If in place created list, release it
-	if ( NULL == list )
-	{
-		pList->Flush();
-	}
-
-	CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%X"), list);
-	return CL_DEV_SUCCESS;
+    CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%X"), list);
+    return ret;
 }
 
 //---------------------------------------------------------------------------
 // Private functions
 
-cl_dev_err_code TaskDispatcher::NotifyFailure(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* pCmd, cl_int iRetCode)
+cl_dev_err_code TaskDispatcher::NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* pCmd, cl_int iRetCode)
 {
-	CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to submit command[id:%d,type:%d] to execution, Err:<%d>"),
-		pCmd->id, pCmd->type, iRetCode);
+    CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to submit command[id:%d,type:%d] to execution, Err:<%d>"),
+                pCmd->id, pCmd->type, iRetCode);
 
-    SharedPtr<TaskFailureNotification> pTask = TaskFailureNotification::Allocate(this, pCmd, iRetCode);
-	if ( NULL == pTask )
-	{
-		return CL_DEV_OUT_OF_MEMORY;
-	}
+    SharedPtr<ITaskBase> pTask = TaskFailureNotification::Allocate(this, pCmd, iRetCode);
+    if ( NULL == pTask )
+    {
+        return CL_DEV_OUT_OF_MEMORY;
+    }
 
-	pList->Enqueue(SharedPtr<ITaskBase>(pTask));
+    pList->Enqueue(pTask);
 
-	return CL_DEV_SUCCESS;
+    return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code TaskDispatcher::SubmitTaskArray(SharedPtr<ITaskList> pList, cl_dev_cmd_desc* *cmds, cl_uint count)
+cl_dev_err_code TaskDispatcher::SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds, cl_uint count)
 {
 	for (unsigned int i=0; i<count; ++i)
 	{
@@ -595,10 +589,14 @@ cl_dev_err_code TaskDispatcher::SubmitTaskArray(SharedPtr<ITaskList> pList, cl_d
 		cl_dev_err_code	rc = fnCreate(this, cmds[i], &pCommand, pList);        
 		if ( CL_DEV_SUCCEEDED(rc) )
 		{
+            pCommand->IncRefCnt();
+            cmds[i]->device_agent_data = static_cast<ITaskBase*>(pCommand.GetPtr());
 			pList->Enqueue(SharedPtr<ITaskBase>(pCommand));
-		} else
+        } 
+        else
 		{
 			// Try to notify about the error in the same list
+            cmds[i]->device_agent_data = NULL;
 			rc = NotifyFailure(pList, cmds[i], rc);
 			if ( CL_DEV_FAILED(rc) )
 			{
@@ -638,9 +636,10 @@ bool TaskDispatcher::TaskFailureNotification::Shoot(cl_dev_err_code err)
 	return true;
 }
 
-void* TaskDispatcher::createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_dev_internal_subdevice_id* dev_ptr )
+ITEDevice* TaskDispatcher::createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_dev_internal_subdevice_id* dev_ptr )
 {
-    // we need to return a void* here, but ITEDevice is referenced counted. So do a manual reference counting.
+    // TODO: Why need this manual staff, why not use shared pointer on the upper level
+    // So do a manual reference counting.
     // DecRefCnt() is called in TaskDispatcher::releaseSubdevice(void* pSubdevData)
     SharedPtr<ITEDevice> pSubDev = m_pRootDevice->CreateSubDevice( uiNumSubdevComputeUnits, (void*)dev_ptr );
     ITEDevice* pDev = pSubDev.GetPtr();
@@ -648,13 +647,12 @@ void* TaskDispatcher::createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_d
     return pDev;
 }
 
-void TaskDispatcher::releaseSubdevice(void* pSubdevData)
+void TaskDispatcher::releaseSubdevice(ITEDevice* pSubDevice)
 {
     // Manual IncRefCnt() is called in TaskDispatcher::createSubdevice()
-    assert( NULL != pSubdevData );
-    ITEDevice* pSubDev = reinterpret_cast<ITEDevice*>(pSubdevData);
-    pSubDev->ShutDown();
-    pSubDev->DecRefCnt();
+    assert( NULL != pSubDevice && "Trying to release NULL sub-device" );
+    pSubDevice->ShutDown();
+    pSubDevice->DecRefCnt();
 }
 
 void* TaskDispatcher::OnThreadEntry()
@@ -697,11 +695,13 @@ void  TaskDispatcher::OnThreadExit( void* currentThreadData )
 
 TE_BOOLEAN_ANSWER TaskDispatcher::MayThreadLeaveDevice( void* currentThreadData )
 {
+#ifdef __SOFT_TRAPPING__ // Moving to "hard" trapping
     cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
     if ( (NULL!=pSubDevID) && (NULL!=pSubDevID->legal_core_ids) )
     {
         return pSubDevID->is_acquired ? TE_NO : TE_YES;
     }
+#endif
     return TE_USE_DEFAULT;
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////

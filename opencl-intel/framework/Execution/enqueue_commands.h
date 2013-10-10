@@ -50,7 +50,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class Kernel;
     class IOclCommandQueueBase;
     class ContextModule;
-	class OclCommandQueue;
+    class OclCommandQueue;
     
     /******************************************************************
      * This enumeration is used to identify if a command is going to be
@@ -70,7 +70,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        Command( SharedPtr<IOclCommandQueueBase> cmdQueue );
+        Command( const SharedPtr<IOclCommandQueueBase>& cmdQueue );
         virtual ~Command();
         
         //
@@ -116,33 +116,33 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //
         virtual ECommandExecutionType GetExecutionType() const = 0;
         
-        virtual SharedPtr<IOclCommandQueueBase> GetCommandQueue() { return m_pCommandQueue; }
+        virtual const SharedPtr<IOclCommandQueueBase>& GetCommandQueue() { return m_pCommandQueue; }
         
         // ICmdStatusChangedObserver function
         cl_err_code NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer);
         
         // Command general functions
-        SharedPtr<QueueEvent>     GetEvent    ()                                      { return m_Event; }
+        const SharedPtr<QueueEvent>& GetEvent()                             { return m_Event; }
         void            SetDevCmdListId    (cl_dev_cmd_list clDevCmdListId) { m_clDevCmdListId = clDevCmdListId; }
         cl_dev_cmd_list GetDevCmdListId    () const                         { return m_clDevCmdListId; }
-        void            SetDevice(SharedPtr<FissionableDevice> pDevice)               { m_pDevice = pDevice; }
-        SharedPtr<FissionableDevice> GetDevice() const                                { return m_pDevice; }
+        void            SetDevice(const SharedPtr<FissionableDevice>& pDevice)               { m_pDevice = pDevice; }
+        const SharedPtr<FissionableDevice>& GetDevice() const                                { return m_pDevice; }
 
-		cl_dev_cmd_desc* GetDeviceCommandDescriptor();
+        cl_dev_cmd_desc* GetDeviceCommandDescriptor();
 
-		// wrapper above Enqueue command to allow pre/post-fix commands
-		// pEvent is an external user pointer that will point to the user-wisible command which completion means user command completion
-		// Note: this may disapper during Enqueue if it was successful!
-		virtual cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+        // wrapper above Enqueue command to allow pre/post-fix commands
+        // pEvent is an external user pointer that will point to the user-wisible command which completion means user command completion
+        // Note: this may disapper during Enqueue if it was successful!
+        virtual cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
 
-		// Prefix and Postfix Runtime commands
-		// Each command may schedule prefix and postfix runtime commands for itself. Such commands are invisible for users
-		// and are logical part of the main command that should be executed by RunTime.
-		//   Prefix command is executed Before main command is scheduled to device agent
-		//   Postfix command is executed After main command signals completion
-		// This commands may be long and are executed by task executor
-		virtual cl_err_code	PrefixExecute()  { return CL_SUCCESS; }
-		virtual cl_err_code	PostfixExecute() { return CL_SUCCESS; }
+        // Prefix and Postfix Runtime commands
+        // Each command may schedule prefix and postfix runtime commands for itself. Such commands are invisible for users
+        // and are logical part of the main command that should be executed by RunTime.
+        //   Prefix command is executed Before main command is scheduled to device agent
+        //   Postfix command is executed After main command signals completion
+        // This commands may be long and are executed by task executor
+        virtual cl_err_code    PrefixExecute()  { return CL_SUCCESS; }
+        virtual cl_err_code    PostfixExecute() { return CL_SUCCESS; }
 
         // Returns whether this command has been created dependent on events that need to complete before it can be executed
         virtual bool IsDependentOnEvents() const { return false; }
@@ -180,7 +180,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         {
             SharedPtr<MemoryObject> pMemObj;
             MemoryObject::MemObjUsage access_rights;
-			MemoryObject::MemObjUsage access_rights_realy_used;
+            MemoryObject::MemObjUsage access_rights_realy_used;
 
             MemoryObjectArg( const SharedPtr<MemoryObject>& a, MemoryObject::MemObjUsage b ) : pMemObj(a), access_rights(b), access_rights_realy_used(b) {};
             MemoryObjectArg() : pMemObj(NULL), access_rights(MemoryObject::MEMOBJ_USAGES_COUNT), access_rights_realy_used(MemoryObject::MEMOBJ_USAGES_COUNT) {};
@@ -207,13 +207,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ocl_gpa_command*            m_pGpaCommand;
         bool                        m_bIsBeingDeleted;
 
-		// Intermediate data
+        // Intermediate data
         MemoryObjectArgList                 m_MemOclObjects;
         
         DECLARE_LOGGER_CLIENT;
     private:
 
-		Command& operator=(const Command&);
+        Command& operator=(const Command&);
         // return CL_SUCCESS if ready and succeeded, CL_NOT_READY if not ready yet and succeeded, other error code in case of error
         cl_err_code AcquireSingleMemoryObject( MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev );
                 
@@ -265,15 +265,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class MemoryCommand : public Command
     {
     public:
-        MemoryCommand( SharedPtr<IOclCommandQueueBase> cmdQueue ) : Command(cmdQueue) {}
+        MemoryCommand( const SharedPtr<IOclCommandQueueBase>& cmdQueue ) : Command(cmdQueue) {}
         
     protected:        
         cl_dev_cmd_param_rw m_rwParams;
 
-        void create_dev_cmd_rw( cl_uint				uiDimCount,
+        void create_dev_cmd_rw( cl_uint                uiDimCount,
                                 void*               pPtr,
                                 const size_t*       pszMemObjOrigin,
-                            	const size_t*       pszPtrOrigin,
+                                const size_t*       pszPtrOrigin,
                                 const size_t*       pszRegion,
                                 size_t              szPtrRowPitch,
                                 size_t              szPtrSlicePitch,
@@ -290,9 +290,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         ReadMemObjCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pMemObj,
+            const SharedPtr<MemoryObject>&   pMemObj,
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
             size_t          szRowPitch,
@@ -331,9 +331,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         ReadBufferRectCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>     pBuffer,
+            const SharedPtr<MemoryObject>&     pBuffer,
             const size_t      szBufferOrigin[MAX_WORK_DIM],
             const size_t      szDstOrigin[MAX_WORK_DIM],
             const size_t      szRegion[MAX_WORK_DIM],
@@ -357,9 +357,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         ReadBufferCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>     pBuffer,
+            const SharedPtr<MemoryObject>&     pBuffer,
             const size_t      pszOffset[MAX_WORK_DIM],
             const size_t      pszCb[MAX_WORK_DIM],
             void*             pDst
@@ -377,9 +377,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:        
         ReadSvmBufferCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>     pBuffer,
+            const SharedPtr<MemoryObject>&     pBuffer,
             const size_t      pszOffset[MAX_WORK_DIM],
             const size_t      pszCb[MAX_WORK_DIM],
             void*             pDst
@@ -398,9 +398,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         ReadImageCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pImage,
+            const SharedPtr<MemoryObject>&   pImage,
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
             size_t          szRowPitch,
@@ -424,10 +424,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         WriteMemObjCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
             cl_bool         bBlocking,
-            SharedPtr<MemoryObject>   pMemObj,
+            const SharedPtr<MemoryObject>&   pMemObj,
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
             size_t          szMemObjRowPitch,
@@ -470,22 +470,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-    	/**
-    	 * Multi-dimmensional CTOR, for images.
-    	 *
-    	 * @param cmdQueue
-    	 * @param pOclEntryPoints
-    	 * @param pMemObj
-    	 * @param pszOffset
-    	 * @param pszRegion
-    	 * @param numOfDimms
-    	 * @param pattern
-    	 * @param pattern_size
-    	 */
+        /**
+         * Multi-dimmensional CTOR, for images.
+         *
+         * @param cmdQueue
+         * @param pOclEntryPoints
+         * @param pMemObj
+         * @param pszOffset
+         * @param pszRegion
+         * @param numOfDimms
+         * @param pattern
+         * @param pattern_size
+         */
         FillMemObjCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pMemObj,
+            const SharedPtr<MemoryObject>&   pMemObj,
             const size_t*   pszOffset,
             const size_t*   pszRegion,
             const cl_uint   numOfDimms,
@@ -505,9 +505,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * @param pattern_size
          */
         FillMemObjCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pMemObj,
+            const SharedPtr<MemoryObject>&   pMemObj,
             const size_t    pszOffset,
             const size_t    pszRegion,
             const void*     pattern,
@@ -531,7 +531,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_uint         m_numOfDimms;
 
         char            m_pattern[MAX_PATTERN_SIZE]; /* pattern for fill */
-		size_t          m_pattern_size; /* fill pattern size in bytes */
+        size_t          m_pattern_size; /* fill pattern size in bytes */
 
         const void*     m_cpSrc;
 
@@ -549,10 +549,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         WriteBufferCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
             cl_bool         bBlocking,
-            SharedPtr<MemoryObject>   pBuffer,
+            const SharedPtr<MemoryObject>&   pBuffer,
             const size_t    pszOffset[MAX_WORK_DIM],
             const size_t    pszCb[MAX_WORK_DIM],
             const void*     cpSrc
@@ -573,14 +573,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
 
         WriteSvmBufferCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
             cl_bool         bBlocking,
-            SharedPtr<MemoryObject>   pBuffer,
+            const SharedPtr<MemoryObject>&   pBuffer,
             const size_t    pszOffset[MAX_WORK_DIM],
             const size_t    pszCb[MAX_WORK_DIM],
             const void*     cpSrc
-			) : WriteBufferCommand(cmdQueue, pOclEntryPoints, bBlocking, pBuffer, pszOffset, pszCb, cpSrc) { }
+            ) : WriteBufferCommand(cmdQueue, pOclEntryPoints, bBlocking, pBuffer, pszOffset, pszCb, cpSrc) { }
 
         cl_command_type         GetCommandType() const  { return CL_COMMAND_SVM_MEMCPY; }
         const char*             GetCommandName() const  { return "CL_COMMAND_SVM_MEMCPY"; }        
@@ -591,9 +591,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         FillBufferCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pBuffer,
+            const SharedPtr<MemoryObject>&   pBuffer,
             const void *pattern,
             size_t pattern_size,
             size_t offset,
@@ -613,9 +613,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         FillSvmBufferCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pBuffer,
+            const SharedPtr<MemoryObject>&   pBuffer,
             const void *pattern,
             size_t pattern_size,
             size_t offset,
@@ -631,10 +631,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         WriteBufferRectCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
             cl_bool         bBlocking,
-            SharedPtr<MemoryObject>     pBuffer,
+            const SharedPtr<MemoryObject>&     pBuffer,
             const size_t      szBufferOrigin[MAX_WORK_DIM],
             const size_t      szSrcOrigin[MAX_WORK_DIM],
             const size_t      szRegion[MAX_WORK_DIM],
@@ -661,10 +661,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         WriteImageCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
             cl_bool         bBlocking,
-            SharedPtr<MemoryObject>   pImage,
+            const SharedPtr<MemoryObject>&   pImage,
             const size_t*   pszOrigin,
             const size_t*   pszRegion,
             size_t          szRowPitch,
@@ -693,10 +693,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class FillImageCommand : public FillMemObjCommand
     {
     public:
-    	FillImageCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+        FillImageCommand(
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pImg,
+            const SharedPtr<MemoryObject>&   pImg,
             const void *pattern,
             size_t pattern_size,
             const cl_uint num_of_dimms,
@@ -721,10 +721,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         CopyMemObjCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pSrcMemObj,
-            SharedPtr<MemoryObject>   pDstMemObj,
+            const SharedPtr<MemoryObject>&   pSrcMemObj,
+            const SharedPtr<MemoryObject>&   pDstMemObj,
             const size_t*   szSrcOrigin,
             const size_t*   szDstOrigin,
             const size_t*   szRegion,
@@ -760,7 +760,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t  m_szDstSlicePitch;
         
         // Private functions
-        cl_err_code CopyOnDevice    (SharedPtr<FissionableDevice> pDevice);
+        cl_err_code CopyOnDevice    (const SharedPtr<FissionableDevice>& pDevice);
     };
     
     /******************************************************************
@@ -771,10 +771,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         CopyBufferCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pSrcBuffer,
-            SharedPtr<MemoryObject>   pDstBuffer,
+            const SharedPtr<MemoryObject>&   pSrcBuffer,
+            const SharedPtr<MemoryObject>&   pDstBuffer,
             const size_t    szSrcOrigin[MAX_WORK_DIM],
             const size_t    szDstOrigin[MAX_WORK_DIM],
             const size_t    szRegion[MAX_WORK_DIM]
@@ -794,10 +794,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
 
         CopySvmBufferCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pSrcBuffer,
-            SharedPtr<MemoryObject>   pDstBuffer,
+            const SharedPtr<MemoryObject>&   pSrcBuffer,
+            const SharedPtr<MemoryObject>&   pDstBuffer,
             const size_t    szSrcOrigin[MAX_WORK_DIM],
             const size_t    szDstOrigin[MAX_WORK_DIM],
             const size_t    szRegion[MAX_WORK_DIM]
@@ -816,10 +816,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         CopyBufferRectCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pSrcBuffer,
-            SharedPtr<MemoryObject>   pDstBuffer,
+            const SharedPtr<MemoryObject>&   pSrcBuffer,
+            const SharedPtr<MemoryObject>&   pDstBuffer,
             const size_t    szSrcOrigin[MAX_WORK_DIM],
             const size_t    szDstOrigin[MAX_WORK_DIM],
             const size_t    szRegion[MAX_WORK_DIM],
@@ -846,10 +846,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         CopyImageCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pSrcImage,
-            SharedPtr<MemoryObject>   pDstImage,
+            const SharedPtr<MemoryObject>&   pSrcImage,
+            const SharedPtr<MemoryObject>&   pDstImage,
             const size_t*   pszSrcOrigin,
             const size_t*   pszDstOrigin,
             const size_t*   pszRegion
@@ -870,10 +870,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         CopyImageToBufferCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pSrcImage,
-            SharedPtr<MemoryObject>   pDstBuffer,
+            const SharedPtr<MemoryObject>&   pSrcImage,
+            const SharedPtr<MemoryObject>&   pDstBuffer,
             const size_t*   pszSrcOrigin,
             const size_t*   pszSrcRegion,
             size_t          pszDstOffset[MAX_WORK_DIM]
@@ -895,10 +895,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         CopyBufferToImageCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pSrcBuffer,
-            SharedPtr<MemoryObject>   pDstImage,
+            const SharedPtr<MemoryObject>&   pSrcBuffer,
+            const SharedPtr<MemoryObject>&   pDstImage,
             size_t          pszSrcOffset[MAX_WORK_DIM],
             const size_t*   pszDstOrigin,
             const size_t*   pszDstRegion
@@ -918,14 +918,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
     /******************************************************************
      * 
      ******************************************************************/
-	class PrePostFixRuntimeCommand;
+    class PrePostFixRuntimeCommand;
     class MapMemObjCommand : public Command
     {
     public:
         MapMemObjCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pMemObj,
+            const SharedPtr<MemoryObject>&   pMemObj,
             cl_map_flags    clMapFlags,
             const size_t*   pOrigin,
             const size_t*   pRegion,
@@ -940,8 +940,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         ECommandExecutionType   GetExecutionType() const{ return m_ExecutionType; }
         
-		virtual cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-		virtual cl_err_code	PostfixExecute();
+        virtual cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+        virtual cl_err_code    PostfixExecute();
 
         // Object only function
         void*           GetMappedPtr() const { return m_pHostDataPtr; }
@@ -957,13 +957,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
         SharedPtr<FissionableDevice>      m_pActualMappingDevice;
         ECommandExecutionType   m_ExecutionType;
 
-		// postfix-related. Created in init, pointer zeroed at enqueue.
-		ocl_entry_points *      m_pOclEntryPoints;
-		PrePostFixRuntimeCommand* m_pPostfixCommand;
+        // postfix-related. Created in init, pointer zeroed at enqueue.
+        ocl_entry_points *      m_pOclEntryPoints;
+        PrePostFixRuntimeCommand* m_pPostfixCommand;
         bool                    m_bResourcesAllocated;
-	private:
-		MapMemObjCommand(const MapMemObjCommand&);
-		MapMemObjCommand& operator=(const MapMemObjCommand&);
+    private:
+        MapMemObjCommand(const MapMemObjCommand&);
+        MapMemObjCommand& operator=(const MapMemObjCommand&);
     };
     
     /******************************************************************
@@ -974,9 +974,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         MapBufferCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pBuffer,
+            const SharedPtr<MemoryObject>&   pBuffer,
             cl_map_flags    clMapFlags,
             size_t          szOffset,
             size_t          szCb
@@ -996,9 +996,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
 
         MapSvmBufferCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pBuffer,
+            const SharedPtr<MemoryObject>&   pBuffer,
             cl_map_flags    clMapFlags,
             size_t          szOffset,
             size_t          szCb
@@ -1016,9 +1016,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         MapImageCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>   pImage,
+            const SharedPtr<MemoryObject>&   pImage,
             cl_map_flags    clMapFlags,
             const size_t*   pOrigin,
             const size_t*   pRegion,
@@ -1041,10 +1041,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:
         UnmapMemObjectCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>		  pMemObject,
-            void*				  pMappedRegion
+            const SharedPtr<MemoryObject>&          pMemObject,
+            void*                  pMappedRegion
         );
         virtual ~UnmapMemObjectCommand();
         
@@ -1052,8 +1052,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code             Execute();
         cl_err_code             CommandDone();
 
-		cl_err_code				EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
-		cl_err_code				PrefixExecute();
+        cl_err_code                EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent);
+        cl_err_code                PrefixExecute();
 
         cl_command_type         GetCommandType() const  { return CL_COMMAND_UNMAP_MEM_OBJECT; }
         ECommandExecutionType   GetExecutionType() const{ return m_ExecutionType; }
@@ -1062,18 +1062,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // GPA related functions
         virtual const char*     GPA_GetCommandName() const { return "Unmap"; }
         
-	private:
+    private:
         void*                   m_pMappedPtr;
         cl_dev_cmd_param_map*   m_pMappedRegion;       
         SharedPtr<FissionableDevice>      m_pActualMappingDevice;
         ECommandExecutionType   m_ExecutionType;
 
-		// prefix-related. Created in init, pointer zeroed at enqueue.
-		PrePostFixRuntimeCommand* m_pPrefixCommand;
-		ocl_entry_points *      m_pOclEntryPoints;
+        // prefix-related. Created in init, pointer zeroed at enqueue.
+        PrePostFixRuntimeCommand* m_pPrefixCommand;
+        ocl_entry_points *      m_pOclEntryPoints;
         bool                    m_bResourcesAllocated;
-		UnmapMemObjectCommand(const UnmapMemObjectCommand&);
-		UnmapMemObjectCommand& operator=(const UnmapMemObjectCommand&);
+        UnmapMemObjectCommand(const UnmapMemObjectCommand&);
+        UnmapMemObjectCommand& operator=(const UnmapMemObjectCommand&);
     };
     
     class UnmapSvmBufferCommand : public UnmapMemObjectCommand
@@ -1081,10 +1081,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
 
         UnmapSvmBufferCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
-            SharedPtr<MemoryObject>		  pMemObject,
-            void*				  pMappedRegion
+            const SharedPtr<MemoryObject>&          pMemObject,
+            void*                  pMappedRegion
             ) : UnmapMemObjectCommand(cmdQueue, pOclEntryPoints, pMemObject, pMappedRegion) { }
 
         cl_command_type         GetCommandType() const  { return CL_COMMAND_SVM_UNMAP; }
@@ -1098,7 +1098,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class NDRangeKernelCommand : public Command
     {
     public:
-        NDRangeKernelCommand(SharedPtr<IOclCommandQueueBase> cmdQueue, ocl_entry_points* pOclEntryPoints, SharedPtr<Kernel> pKernel, cl_uint uWorkDim, const size_t* szGlobalWorkOffset, const size_t* szGlobalWorkSize, const size_t* szLocalWorkSize);
+        NDRangeKernelCommand(const SharedPtr<IOclCommandQueueBase>& cmdQueue, ocl_entry_points* pOclEntryPoints, const SharedPtr<Kernel>& pKernel, cl_uint uWorkDim, const size_t* szGlobalWorkOffset, const size_t* szGlobalWorkSize, const size_t* szLocalWorkSize);
         virtual ~NDRangeKernelCommand();
         
         virtual cl_err_code     Init();
@@ -1115,14 +1115,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
     protected:
         cl_dev_cmd_param_kernel m_kernelParams;
         // Private members
-        SharedPtr<Kernel>         m_pKernel;
-        cl_uint         m_uiWorkDim;
-        const size_t*   m_cpszGlobalWorkOffset;
-        const size_t*   m_cpszGlobalWorkSize;
-        const size_t*   m_cpszLocalWorkSize;
+        SharedPtr<Kernel>       m_pKernel;
+        const DeviceKernel*     m_pDeviceKernel;
+        cl_uint                 m_uiWorkDim;
+        const size_t*           m_cpszGlobalWorkOffset;
+        const size_t*           m_cpszGlobalWorkSize;
+        const size_t*           m_cpszLocalWorkSize;
         
-        std::list<OCLObject<_cl_mem_int>*>  m_NonMemOclObjects;
-		std::vector<IOCLDevMemoryObject*>   m_nonArgSvmBuffersVec;		
+        std::vector<IOCLDevMemoryObject*>   m_nonArgSvmBuffersVec;        
+        std::vector<cl_dev_cmd_memobj_param_kernel> m_MemObjParamsVec;
         #if defined (USE_ITT)
         void GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* keyStrHandle) const;
         #endif
@@ -1135,7 +1136,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        TaskCommand( SharedPtr<IOclCommandQueueBase> cmdQueue, ocl_entry_points* pOclEntryPoints, SharedPtr<Kernel> pKernel );
+        TaskCommand( const SharedPtr<IOclCommandQueueBase>& cmdQueue, ocl_entry_points* pOclEntryPoints, const SharedPtr<Kernel>& pKernel );
         virtual ~TaskCommand();
         
         // Override Init only to set a different device type
@@ -1157,7 +1158,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
         typedef void (CL_CALLBACK*pUserFnc_t)(void *);
         NativeKernelCommand(
-            SharedPtr<IOclCommandQueueBase> cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ocl_entry_points *    pOclEntryPoints,
             pUserFnc_t          pUserFnc,
             void*               pArgs,
@@ -1184,8 +1185,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void*                m_pArgs;
         size_t               m_szCbArgs;
         cl_uint              m_uNumMemObjects;
-        SharedPtr<MemoryObject>*       m_ppMemObjList;
-        const void**         m_ppArgsMemLoc;
+        SharedPtr<MemoryObject>*                    m_ppMemObjList;
+        std::vector<cl_dev_cmd_memobj_param_kernel> m_MemObjParamsVec;
+        const void**                                m_ppArgsMemLoc;
     };
 
     
@@ -1197,7 +1199,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     public:
         MigrateMemObjCommand(
-            SharedPtr<IOclCommandQueueBase>  cmdQueue,
+            const SharedPtr<IOclCommandQueueBase>&  cmdQueue,
             ocl_entry_points *     pOclEntryPoints,
             ContextModule*         pContextModule,
             cl_mem_migration_flags clFlags,
@@ -1235,7 +1237,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class RuntimeCommand : public Command
     {
     public:
-		RuntimeCommand( SharedPtr<IOclCommandQueueBase> cmdQueue,
+        RuntimeCommand( const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             bool bIsDependentOnEvents = false) : Command(cmdQueue),
             m_bIsDependentOnEvents(bIsDependentOnEvents) {}
         virtual ~RuntimeCommand()                               {}
@@ -1260,7 +1262,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        MarkerCommand( SharedPtr<IOclCommandQueueBase> cmdQueue, bool bIsDependentOnEvents ) :
+        MarkerCommand( const SharedPtr<IOclCommandQueueBase>& cmdQueue, bool bIsDependentOnEvents ) :
           RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
         virtual ~MarkerCommand() {}
         
@@ -1275,7 +1277,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        WaitForEventsCommand( SharedPtr<IOclCommandQueueBase> cmdQueue, bool bIsDependentOnEvents ) :
+        WaitForEventsCommand( const SharedPtr<IOclCommandQueueBase>& cmdQueue, bool bIsDependentOnEvents ) :
           RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
         virtual ~WaitForEventsCommand() {}
         
@@ -1291,7 +1293,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         
     public:
-        BarrierCommand( SharedPtr<IOclCommandQueueBase> cmdQueue, bool bIsDependentOnEvents ) :
+        BarrierCommand( const SharedPtr<IOclCommandQueueBase>& cmdQueue, bool bIsDependentOnEvents ) :
           RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
         virtual ~BarrierCommand() {}
         
@@ -1301,12 +1303,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
     
     /******************************************************************
      *
-	 * Special internal Runtime commands to perform some async action before/after normal command
-	 *
+     * Special internal Runtime commands to perform some async action before/after normal command
+     *
      ******************************************************************/
-	class ErrorQueueEvent : public OclEvent
-	{
-	public:
+    class ErrorQueueEvent : public OclEvent
+    {
+    public:
 
         PREPARE_SHARED_PTR(ErrorQueueEvent)
 
@@ -1314,76 +1316,76 @@ namespace Intel { namespace OpenCL { namespace Framework {
         {
             return SharedPtr<ErrorQueueEvent>(new ErrorQueueEvent(context));
         }
-		
-		void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
+        
+        void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
 
-		//Override to notify my command about failed events it depended on
-		virtual cl_err_code ObservedEventStateChanged(SharedPtr<OclEvent> pEvent, cl_int returnCode);
+        //Override to notify my command about failed events it depended on
+        virtual cl_err_code ObservedEventStateChanged(const SharedPtr<OclEvent>& pEvent, cl_int returnCode);
 
-		// Get the return code of the command associated with the event.
-		virtual cl_int     GetReturnCode() const; 
+        // Get the return code of the command associated with the event.
+        virtual cl_int     GetReturnCode() const; 
 
-		virtual cl_err_code	GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
+        virtual cl_err_code    GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
-	private:
+    private:
 
         ErrorQueueEvent(_cl_context_int* context) : OclEvent(context), m_owner(NULL) {};
 
-		PrePostFixRuntimeCommand* m_owner;
-	};
+        PrePostFixRuntimeCommand* m_owner;
+    };
 
-	class RuntimeCommandTask : public Intel::OpenCL::TaskExecutor::ITask
-	{
-	public:
+    class RuntimeCommandTask : public Intel::OpenCL::TaskExecutor::ITask
+    {
+    public:
 
         PREPARE_SHARED_PTR(RuntimeCommandTask)
 
         static SharedPtr<RuntimeCommandTask> Allocate() { return SharedPtr<RuntimeCommandTask>(new RuntimeCommandTask()); }
-		
-		void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
+        
+        void Init( PrePostFixRuntimeCommand* owner ) { m_owner = owner; }
 
-		// ITask interface
-		bool	SetAsSyncPoint();
-		bool	IsCompleted() const {return m_bIsCompleted;}
-		bool	CompleteAndCheckSyncPoint();
-		bool	Execute();
-		void	Cancel();
-		long	Release(); 
+        // ITask interface
+        bool    SetAsSyncPoint();
+        bool    IsCompleted() const {return m_bIsCompleted;}
+        bool    CompleteAndCheckSyncPoint();
+        bool    Execute();
+        void    Cancel();
+        long    Release(); 
 
         Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const 
                         { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
 
-		virtual Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+        virtual Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
-	private:
+    private:
 
         RuntimeCommandTask() : m_owner(NULL) {};
 
-		CommandSharedPtr<PrePostFixRuntimeCommand>			m_owner;
-		bool								m_bIsCompleted;
-	};
+        CommandSharedPtr<PrePostFixRuntimeCommand>            m_owner;
+        bool                                m_bIsCompleted;
+    };
 
     class PrePostFixRuntimeCommand : public RuntimeCommand
     {
     public:
-		enum Mode { PREFIX_MODE = 0, POSTFIX_MODE };
+        enum Mode { PREFIX_MODE = 0, POSTFIX_MODE };
 
         PrePostFixRuntimeCommand(Command* relatedUserCommand,
-									Mode working_mode, 
-									SharedPtr<IOclCommandQueueBase> cmdQueue );
+                                    Mode working_mode, 
+                                    const SharedPtr<IOclCommandQueueBase>& cmdQueue );
 
-		cl_err_code             Init();
-		cl_err_code				Execute();
-		cl_err_code             CommandDone();
+        cl_err_code             Init();
+        cl_err_code                Execute();
+        cl_err_code             CommandDone();
 
-		// called possibly from another thread
-		void					DoAction();
+        // called possibly from another thread
+        void                    DoAction();
         void                    CancelAction();
 
-		// called by "related" command if enqueue was unsuccessful 
-		void					ErrorDone();
-		void					ErrorEnqueue(cl_event* intermediate_pEvent, cl_event* user_pEvent, cl_err_code err_to_force_return );
-		cl_err_code				GetForcedErrorCode() const { return m_force_error_return; };
+        // called by "related" command if enqueue was unsuccessful 
+        void                    ErrorDone();
+        void                    ErrorEnqueue(cl_event* intermediate_pEvent, cl_event* user_pEvent, cl_err_code err_to_force_return );
+        cl_err_code                GetForcedErrorCode() const { return m_force_error_return; };
 
         cl_command_type         GetCommandType() const  { return m_relatedUserCommand->GetCommandType(); };
         const char*             GetCommandName() const
@@ -1398,12 +1400,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
             }
         };
 
-	private:
-		 CommandSharedPtr<> m_relatedUserCommand;
-		 Mode				m_working_mode;
-		 cl_err_code		m_force_error_return;
-		 SharedPtr<ErrorQueueEvent>	m_error_event;
-		 SharedPtr<RuntimeCommandTask> m_task;
+    private:
+         CommandSharedPtr<> m_relatedUserCommand;
+         Mode                m_working_mode;
+         cl_err_code        m_force_error_return;
+         SharedPtr<ErrorQueueEvent>    m_error_event;
+         SharedPtr<RuntimeCommandTask> m_task;
     };
 
 }}}    // Intel::OpenCL::Framework

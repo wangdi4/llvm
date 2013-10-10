@@ -25,24 +25,24 @@
 #pragma once
 
 // -----------------------------------------------------------
-// 			Windows
+//             Windows
 // -----------------------------------------------------------
 #if defined (_WIN32)
 #include <basetsd.h>
 #include <intrin.h>
 
 #if defined(_M_AMD64)
-#define CAS(ptr,old_val,new_val)	_InterlockedCompareExchange64((__int64 volatile*)ptr,(__int64)new_val,(__int64)old_val)
-#define TAS(ptr,new_val)			_InterlockedExchange64((__int64 volatile*)ptr,(__int64)new_val)
+#define CAS(ptr,old_val,new_val)    _InterlockedCompareExchange64((__int64 volatile*)ptr,(__int64)new_val,(__int64)old_val)
+#define TAS(ptr,new_val)            _InterlockedExchange64((__int64 volatile*)ptr,(__int64)new_val)
 #else
-#define CAS(ptr,old_val,new_val)	_InterlockedCompareExchange((long volatile*)ptr,(LONG_PTR)new_val,(LONG_PTR)old_val)
-#define TAS(ptr,new_val)			_InterlockedExchange((long volatile*)ptr,(LONG_PTR)new_val)
+#define CAS(ptr,old_val,new_val)    _InterlockedCompareExchange((long volatile*)ptr,(LONG_PTR)new_val,(LONG_PTR)old_val)
+#define TAS(ptr,new_val)            _InterlockedExchange((long volatile*)ptr,(LONG_PTR)new_val)
 #endif
 
-#define INVALID_MUTEX_OWNER			(0)
+#define INVALID_MUTEX_OWNER            (0)
 
 #define CL_MAX_INT32 MAXINT32
-#define CL_MAX_UINT32	MAXUINT32
+#define CL_MAX_UINT32    MAXUINT32
 
 #define API_FUNCTION    __stdcall
 #define ASM_FUNCTION    __stdcall
@@ -88,10 +88,10 @@
 
 typedef unsigned long long               affinityMask_t;
 
-typedef void*							EVENT_STRUCTURE;
-typedef void*							BINARY_SEMAPHORE;
-typedef void*							READ_WRITE_LOCK;
-typedef void*							CONDITION_VAR;
+typedef void*                            EVENT_STRUCTURE;
+typedef void*                            BINARY_SEMAPHORE;
+typedef void*                            READ_WRITE_LOCK;
+typedef void*                            CONDITION_VAR;
 
 // aligned malloc
 #include <malloc.h>
@@ -100,24 +100,24 @@ typedef void*							CONDITION_VAR;
 
 // Windows require more sequre function _malloca. When in certain case may allocate on heap and not on stack.
 // For that reason _freea should be called
-#define STACK_ALLOC( size ) 				_malloca(size)
-#define STACK_FREE( ptr )					_freea(ptr)
+#define STACK_ALLOC( size )                 _malloca(size)
+#define STACK_FREE( ptr )                    _freea(ptr)
 
 // -----------------------------------------------------------
-// 		Not Windows (Linux / Android )	
+//         Not Windows (Linux / Android )    
 // -----------------------------------------------------------
 #else //LINUX
 
 #define CL_MAX_INT32 INT_MAX
-#define CL_MAX_UINT32	UINT_MAX
+#define CL_MAX_UINT32    UINT_MAX
 #define API_FUNCTION
 #define ASM_FUNCTION
 #ifndef CDECL
 // A bug in 4.0 < GCC < 4.6 treats cdecl attribute ignore (on 64 bit) as error.
 #if __x86_64__ && __GNUC__ == 4 &&  __GNUC_MINOR__ < 6
-	#define CDECL
+    #define CDECL
 #else
-	#define CDECL   __attribute__((cdecl))
+    #define CDECL   __attribute__((cdecl))
 #endif
 #endif
 #define STDCALL
@@ -143,7 +143,7 @@ typedef int errno_t;
 #endif
 
 #ifndef FALSE
-#define FALSE	0
+#define FALSE    0
 #endif
 
 #ifdef MAX
@@ -160,9 +160,9 @@ typedef int errno_t;
 #define STRDUP(X) (strdup(X))
 
 #if defined (__INTEL_COMPILER)
-	#define CPUID(cpu_info, type) __cpuid(cpu_info, type)
+    #define CPUID(cpu_info, type) __cpuid(cpu_info, type)
 #else
-	#define CPUID(cpu_info, type) cpuid(cpu_info, type)
+    #define CPUID(cpu_info, type) cpuid(cpu_info, type)
 #endif
 
 #define VA_COPY(dst, src) (va_copy((dst), (src)))
@@ -180,29 +180,29 @@ typedef int errno_t;
 // OS native event structure
 typedef struct event_Structure
 {
-	bool	bAutoReset;
-	pthread_mutex_t mutex;
-	pthread_cond_t condition;
-	volatile bool isFired;
+    bool    bAutoReset;
+    pthread_mutex_t mutex;
+    pthread_cond_t condition;
+    volatile bool isFired;
 } EVENT_STRUCTURE;
 
-typedef pthread_cond_t				  CONDITION_VAR;
+typedef pthread_cond_t                  CONDITION_VAR;
 
 #include <semaphore.h>
 // Type declaration for binary semaphore
-typedef sem_t							      BINARY_SEMAPHORE;
-typedef pthread_rwlock_t				READ_WRITE_LOCK;
-
-#define CAS(ptr,old_val,new_val)	__sync_val_compare_and_swap(ptr,old_val,new_val)
-#define TAS(ptr,new_val)			__sync_lock_test_and_set(ptr,new_val)
+typedef sem_t                       BINARY_SEMAPHORE;
+typedef pthread_rwlock_t            READ_WRITE_LOCK;
+// Bug in ICC13.0, that fails to convert pointers
+#define CAS(ptr,old_val,new_val)    ((long)__sync_val_compare_and_swap((volatile long*)(ptr),(long)(old_val),(long)new_val))
+#define TAS(ptr,new_val)            ((long)__sync_lock_test_and_set((volatile long*)(ptr),(long)(new_val)))
 #define INVALID_MUTEX_OWNER (-1)
 
 #include <unistd.h>
 #include <sys/syscall.h>
 
-	// -----------------------------
-	// Android Sched Utils
-	// -----------------------------
+    // -----------------------------
+    // Android Sched Utils
+    // -----------------------------
 #if defined(__ANDROID__)
 inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 {
@@ -219,11 +219,11 @@ typedef unsigned long long        affinityMask_t;
 
 static int sched_setaffinity(pid_t pid, size_t len, affinityMask_t const *cpusetp)
 {
-	return syscall(__NR_sched_setaffinity, pid, len, cpusetp);
+    return syscall(__NR_sched_setaffinity, pid, len, cpusetp);
 }
 static int sched_getaffinity(pid_t pid, size_t len, affinityMask_t const *cpusetp)
 {
-	return syscall(__NR_sched_getaffinity, pid, len, cpusetp);
+    return syscall(__NR_sched_getaffinity, pid, len, cpusetp);
 }
 static int CPU_COUNT(affinityMask_t* set)
 {
@@ -247,11 +247,11 @@ static int CPU_COUNT(affinityMask_t* set)
 }
 
 
-#define pthread_cancel(...)		assert(0 && "pthread_cancel isn't supported for android")
+#define pthread_cancel(...)        assert(0 && "pthread_cancel isn't supported for android")
 
-	// -----------------------------
-	// Linux (Not Android) Sched Utils
-	// -----------------------------
+    // -----------------------------
+    // Linux (Not Android) Sched Utils
+    // -----------------------------
 #else
 inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 {
@@ -278,15 +278,15 @@ typedef cpu_set_t                      affinityMask_t;
 #define SPRINTF_S                       snprintf
 #define VSPRINTF_S                      Intel::OpenCL::Utils::safeVStrPrintf
 
-#define STACK_ALLOC( size ) 				alloca(size)
-#define STACK_FREE( ptr )					
+#define STACK_ALLOC( size )                 alloca(size)
+#define STACK_FREE( ptr )                    
 #endif
 
 // Define compiler static assert
 #define STATIC_ASSERT(e) typedef char __STATIC_ASSERT__[(e)?1:-1]
 
 #define PAGE_4K_SIZE                    4096
-#define CPU_CACHE_LINE_SIZE				64
+#define CPU_CACHE_LINE_SIZE                64
 
 // assumes alignment is a power of 2
 #define IS_ALIGNED_ON( what, alignment ) (0 == (((size_t)(what)              &  ((size_t)(alignment) - 1))))

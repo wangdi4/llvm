@@ -62,6 +62,7 @@ void ArenaHandler::Init(
         m_freePositions.resize( uiMaxNumThreads );
         for (unsigned int i = 0; i < uiMaxNumThreads; ++i)
         {
+            // TODO: What does it mean? Why assigning always to 0
             m_freePositions[0] = i;
         }
     }
@@ -581,3 +582,41 @@ int TEDevice::GetConcurrency() const
 
 	return m_deviceDescriptor.uiThreadsPerLevel[0];
 }
+
+#ifdef __HARD_TRAPPING__
+bool TEDevice::AcquireWorkerThreads(int num_workers, int timeout)
+{
+    if ( -1 == num_workers )
+    {
+        num_workers = GetConcurrency();
+    } else if ( 0 == num_workers )
+    {
+      num_workers = m_numOfActiveThreads;
+    }
+
+    tbb::Harness::TbbWorkersTrapper* new_trapper = new tbb::Harness::TbbWorkersTrapper(num_workers);
+    tbb::Harness::TbbWorkersTrapper* old_trapper = m_worker_trapper.test_and_set(NULL, new_trapper);
+    assert( NULL == old_trapper && "Another trapper already exists");
+    if ( NULL != old_trapper )
+    {
+        // Another trapper is already running, delete current and continue execution
+        delete new_trapper;
+        return false;
+    }
+
+    // Execute trapper
+    m_mainArena.Execute(*new_trapper);
+    return true;
+}
+
+void TEDevice::RelinquishWorkerThreads()
+{
+    tbb::Harness::TbbWorkersTrapper* trapper = m_worker_trapper.exchange(NULL);
+    assert (NULL!=trapper && "Trying to relinquish from NULL trapper");
+    if ( NULL == trapper )
+      return;
+
+    delete trapper;
+}
+#endif // __HARD_TRAPPING__
+

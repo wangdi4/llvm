@@ -43,7 +43,7 @@ using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::DeviceCommands;
 
 namespace Intel { namespace OpenCL  { namespace BuiltInKernels {
-	class IBuiltInKernel;
+    class IBuiltInKernel;
 }}}
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
@@ -68,7 +68,8 @@ public:
 protected:
     void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);    
 
-    cl_dev_err_code ExtractNDRangeParams(void* pTargetTaskParam);
+    cl_dev_err_code ExtractNDRangeParams(void* pTargetTaskParam, const cl_kernel_argument*   pParams, 
+                                         cl_dev_cmd_memobj_param_kernel* pMemObjParams, size_t stMemObjParams);
 
     TaskDispatcher*             m_pTaskDispatcher;
     MemoryAllocator*            m_pMemAlloc;
@@ -80,18 +81,16 @@ protected:
     __itt_id                    m_ittID;
 #endif
 
-    volatile bool				m_bCompleted;
+    volatile bool                m_bCompleted;
 };
 
 template<class ITaskClass>
-class CommandBaseClass : public ITaskClass, public DispatcherCommand
+    class CommandBaseClass : public ITaskClass, public DispatcherCommand
 {
 public:
     CommandBaseClass(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-	      DispatcherCommand(pTD, pCmd)
+      DispatcherCommand(pTD, pCmd)
     {
-        ITaskClass::IncRefCnt();   // since the device commands are stored as void*, we need to manually increment their reference counter here (DecRefCnt is called in CPUDevice::clDevReleaseCommand)
-        m_pCmd->device_agent_data = static_cast<ITaskBase*>(this);
         m_aIsSyncPoint = FALSE;
     }
 
@@ -100,17 +99,19 @@ public:
     }
 
     // ITaskBase
-    bool	        SetAsSyncPoint();
-    bool	        CompleteAndCheckSyncPoint();
-    bool	        IsCompleted() const {return m_bCompleted;}
+    bool            SetAsSyncPoint();
+    bool            CompleteAndCheckSyncPoint();
+    bool            IsCompleted() const {return m_bCompleted;}
     long            Release() { return 0; }
-    TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+    TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
 
     void    Cancel() { NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, cl_int(CL_DEV_COMMAND_CANCELLED)); }
     Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
 protected:
-    Intel::OpenCL::Utils::AtomicCounter	m_aIsSyncPoint;
+
+    Intel::OpenCL::Utils::AtomicCounter    m_aIsSyncPoint;
+
 };
 
 // OCL Read/Write buffer execution
@@ -214,7 +215,7 @@ public:
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
 
     // ITaskSet interface
-    int	    Init(size_t region[], unsigned int &regCount);
+    int     Init(size_t region[], unsigned int &regCount);
     void*   AttachToThread(void* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
     void    DetachFromThread(void* pWgContext);
     bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext);
@@ -227,6 +228,7 @@ public:
     bool IsCompleted() const { return CommandBaseClass<ITaskSet>::IsCompleted(); }
 
     ITaskGroup* GetNDRangeChildrenTaskGroup() { return GetParentTaskGroup().GetPtr(); }
+    char* GetParamsPtr() { return (char*)(((cl_dev_cmd_param_kernel*)m_pCmd->params)->arg_values); }
 
 protected:
     NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, const SharedPtr<ITaskList>& pList, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup);
@@ -240,7 +242,6 @@ protected:
     std::vector<SharedPtr<KernelCommand> >& GetWaitingChildrenForParentInWg() { return sm_pCurrentWgContext->GetWaitingChildrenForParent(); }
 
     cl_int                      m_lastError;
-    char                        m_pLockedParams[CPU_MAX_PARAMETER_SIZE];
     ICLDevBackendBinary_*       m_pBinary;
 
     // Executable information
@@ -256,8 +257,8 @@ protected:
     Intel::OpenCL::Utils::AtomicBitField m_bWGExecuted;
 
     // Unique ID of the NDRange command
-    static Intel::OpenCL::Utils::AtomicCounter	s_lGlbNDRangeId;
-    long										                    m_lNDRangeId;
+    static Intel::OpenCL::Utils::AtomicCounter    s_lGlbNDRangeId;
+    long                                                            m_lNDRangeId;
 
     static THREAD_LOCAL WGContext* sm_pCurrentWgContext;
 
@@ -276,66 +277,66 @@ class DeviceNDRange : public NDRange
 {
 public:
 
-	PREPARE_SHARED_PTR(DeviceNDRange)
+    PREPARE_SHARED_PTR(DeviceNDRange)
 
-	static SharedPtr<DeviceNDRange> Allocate(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup,
-		const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel, const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange)
-	{
-		return new DeviceNDRange(pTD, pList, parent, childrenTaskGroup, pKernel, pContext, szContextSize, pNdrange);
-	}
+    static SharedPtr<DeviceNDRange> Allocate(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup,
+        const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel, const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange)
+    {
+        return new DeviceNDRange(pTD, pList, parent, childrenTaskGroup, pKernel, pContext, szContextSize, pNdrange);
+    }
 
-	DeviceNDRange(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup,
-		const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel, const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange
+    DeviceNDRange(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup,
+        const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel, const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange
 #if 0
-		, tbb::scalable_allocator<DeviceNDRange>& deviceNDRangeAllocator,
-		tbb::scalable_allocator<char>& deviceNDRangeContextAllocator
+        , tbb::scalable_allocator<DeviceNDRange>& deviceNDRangeAllocator,
+        tbb::scalable_allocator<char>& deviceNDRangeContextAllocator
 #endif
-		) : NDRange(pTD, InitCmdDesc(m_paramKernel, m_cmdDesc, pKernel, pContext, szContextSize, pNdrange, pList), pList, parent, childrenTaskGroup)
+        ) : NDRange(pTD, InitCmdDesc(m_paramKernel, m_cmdDesc, pKernel, pContext, szContextSize, pNdrange, pList), pList, parent, childrenTaskGroup)
 #if 0
-		, m_deviceNDRangeAllocator(deviceNDRangeAllocator),
-		m_deviceNDRangeContextAllocator(deviceNDRangeContextAllocator)
+        , m_deviceNDRangeAllocator(deviceNDRangeAllocator),
+        m_deviceNDRangeContextAllocator(deviceNDRangeContextAllocator)
 #endif
-		{ } 
+        { } 
 
-	/**
-	 * @return the next available command ID for DeviceNDRange commands
-	 */
-	static long GetNextCmdId() { return sm_cmdIdCnt++; }	
+    /**
+     * @return the next available command ID for DeviceNDRange commands
+     */
+    static long GetNextCmdId() { return sm_cmdIdCnt++; }    
 
-	// inherited methods:	
+    // inherited methods:    
 
-	int	Init(size_t region[], unsigned int &regCount);
+    int    Init(size_t region[], unsigned int &regCount);
 
-	bool Finish(FINISH_REASON reason);
+    bool Finish(FINISH_REASON reason);
 
-	void Cleanup(bool bIsTerminate = false)
-	{ 
-		const cl_dev_cmd_param_kernel& paramKerel = *((cl_dev_cmd_param_kernel*)m_cmdDesc.params);
+    void Cleanup(bool bIsTerminate = false)
+    { 
+        const cl_dev_cmd_param_kernel& paramKerel = *((cl_dev_cmd_param_kernel*)m_cmdDesc.params);
 #if 0
-		m_deviceNDRangeContextAllocator.deallocate((char*)paramKerel.arg_values, paramKerel.arg_size);
-		m_deviceNDRangeAllocator.deallocate(this, sizeof(DeviceNDRange));		
+        m_deviceNDRangeContextAllocator.deallocate((char*)paramKerel.arg_values, paramKerel.arg_size);
+        m_deviceNDRangeAllocator.deallocate(this, sizeof(DeviceNDRange));        
 #else
-		delete[] (const char*)(paramKerel.arg_values);
-		delete this;
+        delete[] (const char*)(paramKerel.arg_values);
+        delete this;
 #endif
-	}
+    }
 
 private:
 
-	// dummy classes until we have BE implementation:
+    // dummy classes until we have BE implementation:
 
-	static cl_dev_cmd_desc* InitCmdDesc(cl_dev_cmd_param_kernel& paramKernel, cl_dev_cmd_desc& cmdDesc, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
-		const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange, const SharedPtr<ITaskList>& pList);	
-	
-	static AtomicCounter sm_cmdIdCnt;
+    static cl_dev_cmd_desc* InitCmdDesc(cl_dev_cmd_param_kernel& paramKernel, cl_dev_cmd_desc& cmdDesc, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
+        const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange, const SharedPtr<ITaskList>& pList);    
+    
+    static AtomicCounter sm_cmdIdCnt;
 
-	cl_dev_cmd_param_kernel m_paramKernel;
-	cl_dev_cmd_desc m_cmdDesc;
+    cl_dev_cmd_param_kernel m_paramKernel;
+    cl_dev_cmd_desc m_cmdDesc;
 #if 0
-	tbb::scalable_allocator<DeviceNDRange>& m_deviceNDRangeAllocator;
-	tbb::scalable_allocator<char>& m_deviceNDRangeContextAllocator;
+    tbb::scalable_allocator<DeviceNDRange>& m_deviceNDRangeAllocator;
+    tbb::scalable_allocator<char>& m_deviceNDRangeContextAllocator;
 #endif
-	
+    
 };
 
 // OCL fill buffer/image command
@@ -382,7 +383,7 @@ public:
 protected:
     NativeKernelTask(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
 
-	Intel::OpenCL::BuiltInKernels::IBuiltInKernel* m_pBIKernel;
+    Intel::OpenCL::BuiltInKernels::IBuiltInKernel* m_pBIKernel;
 };
 #endif
 
