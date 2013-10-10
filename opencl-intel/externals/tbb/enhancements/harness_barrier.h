@@ -24,7 +24,7 @@
 #ifndef harness_barrier_H
 #define harness_barrier_H
 
-namespace Harness {
+namespace tbb { namespace Harness {
 
 //! Spin WHILE the value of the variable is equal to a given value
 /** T and U should be comparable types. */
@@ -118,6 +118,6 @@ public:
     }
 };
 
-}
-
+} // namespace Harness
+} // namespace tbb
 #endif //harness_barrier_H

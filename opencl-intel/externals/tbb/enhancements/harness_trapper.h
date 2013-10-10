@@ -27,7 +27,7 @@
 #endif
 #include "harness_barrier.h"
 
-namespace Harness {
+namespace tbb { namespace Harness {
 
 class TbbWorkersTrapper {
     tbb::task *my_root;
@@ -49,24 +49,42 @@ class TbbWorkersTrapper {
         TrapperTask ( TbbWorkersTrapper& owner ) : my_owner(owner) {}
     };
 
+    int           num_threads;
+    volatile bool is_trapped;
 public:
-    TbbWorkersTrapper ( int numThreads )
-        : my_context(tbb::task_group_context::bound, 
-                     tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait)
+    TbbWorkersTrapper ( int _num_threads )
+        : my_root(NULL),
+          my_context(tbb::task_group_context::bound,
+                     tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait),
+          num_threads(_num_threads),
+          is_trapped(false)
     {
-        my_root = new ( tbb::task::allocate_root(my_context) ) tbb::empty_task;
-        my_root->set_ref_count(2);
-        my_barrier.initialize(numThreads);
-        for ( int i = 1; i < numThreads; ++i )
-            tbb::task::spawn( *new(tbb::task::allocate_root()) TrapperTask(*this) );
-        my_barrier.wait(); // Wait util all workers are ready
     }
 
     ~TbbWorkersTrapper () {
+        if ( !is_trapped )
+            return;
+
         my_root->decrement_ref_count();
         my_barrier.wait(); // Make sure no tasks are referencing us
         tbb::task::destroy(*my_root);
     }
+
+    bool  IsTrapped() const { return is_trapped;}
+
+    void operator()(void)
+    {
+        my_root = new ( tbb::task::allocate_root(my_context) ) tbb::empty_task;
+        my_root->set_ref_count(2);
+        my_barrier.initialize(num_threads);
+        for ( int i = 1; i < num_threads; ++i )
+        {
+            tbb::task::spawn( *new(tbb::task::allocate_root()) TrapperTask(*this) );
+        }
+        my_barrier.wait(); // Wait until all workers are ready
+        is_trapped = true;
+    }
+
 }; // TbbWorkersTrapper
 
 class TbbWorkersPrefetcher {
@@ -99,6 +117,7 @@ public:
 }; // TbbWorkersPrefetcher
 
 } // namespace Harness
+} // namespace tbb
 
 #ifdef __TBB_UNDEF_ASSERT
     #undef ASSERT
