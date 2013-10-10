@@ -1200,17 +1200,8 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 	return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context::GetMemObject
+// Context::NotifyError
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-SharedPtr<MemoryObject> Context::GetMemObject(cl_mem clMemId)
-{
-    return m_mapMemObjects.GetOCLObject((_cl_mem_int*)clMemId).StaticCast<MemoryObject>();
-}
-MemoryObject* Context::GetMemObjectPtr(cl_mem clMemId)
-{
-    return (MemoryObject*)(m_mapMemObjects.GetOCLObjectPtr((_cl_mem_int*)clMemId));
-}
-
 void Context::NotifyError(const char * pcErrInfo, const void * pPrivateInfo, size_t szCb)
 {
 	if (NULL != m_pfnNotify)
@@ -1528,7 +1519,7 @@ cl_err_code Context::CheckSupportedImageFormatByMemFlags(cl_mem_flags clFlags, c
 cl_int Context::SetKernelArgSVMPointer(const SharedPtr<Kernel> pKernel, cl_uint uiArgIndex, const void* pArgValue)
 {
 	SharedPtr<SVMBuffer> pSvmBuf = GetSVMBufferContainingAddr(const_cast<void*>(pArgValue));
-	// It's not stated in the spec, but I believe we can consider NULL pointer as a non-valid pointer
+	// It's not stated in the spec, but I believe we can consider NULL pointer as a non-valid pointer. We also currently don't support system pointers.
 	if (NULL == pArgValue)
 	{		
 		return CL_INVALID_ARG_VALUE;

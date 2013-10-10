@@ -1995,7 +1995,12 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     {
         for( ui=0; ui<uiWorkDim; ui++)
         {
+#ifdef __OPENCL_2_0__
             if (cpszLocalWorkSize[ui] == 0)
+#else
+            // In OCL1.x the global size must be multiply of local size
+            if( ( cpszLocalWorkSize[ui] == 0 ) || ( 0 != (cpszGlobalWorkSize[ui] % cpszLocalWorkSize[ui]) ) )
+#endif			
             {
                 return CL_INVALID_WORK_GROUP_SIZE;
             }

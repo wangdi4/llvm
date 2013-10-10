@@ -410,7 +410,7 @@ bool CopyMemObject::Execute()
         sCpyParam.vSrcPitch[0] = cmdParams->region[0] * uiDstElementSize;
         sCpyParam.vSrcPitch[1] = sCpyParam.vSrcPitch[0] * cmdParams->region[1];
     }
-    if (CL_MEM_OBJECT_BUFFER == pDstMemObj->memObjType && CL_MEM_OBJECT_BUFFER != pSrcMemObj->memObjType)
+    else if (CL_MEM_OBJECT_BUFFER == pDstMemObj->memObjType && CL_MEM_OBJECT_BUFFER != pSrcMemObj->memObjType)
     {
         //When destination is buffer the memcpy will be done as if the buffer is an image with height=1
         sCpyParam.uiDimCount = cmdParams->src_dim_count;
@@ -954,7 +954,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     {
         m_lastError = clRet;
         NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, clRet);
-        return -1;
+        return m_lastError;
     }
 
     // Update buffer parameters
@@ -964,7 +964,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     {
         m_lastError = (cl_int)CL_DEV_OUT_OF_MEMORY;
         NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
-        return -1;
+        return m_lastError;
     }
     m_pBinary->GetMemoryBuffersDescriptions(m_pMemBuffSizes, &m_MemBuffCount);
 

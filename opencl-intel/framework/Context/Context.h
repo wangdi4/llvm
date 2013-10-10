@@ -308,8 +308,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
 												cl_uint *			puiNumImageFormats);
 
 		// get memory object according the mem id
-		SharedPtr<MemoryObject> GetMemObject(cl_mem clMemId);
-        MemoryObject*           GetMemObjectPtr(cl_mem clMemId);
+        SharedPtr<MemoryObject> GetMemObject(cl_mem clMemId)
+                { return m_mapMemObjects.GetOCLObject((_cl_mem_int*)clMemId).StaticCast<MemoryObject>(); }
+
+        MemoryObject*           GetMemObjectPtr(cl_mem clMemId)
+                { return (MemoryObject*)(m_mapMemObjects.GetOCLObjectPtr((_cl_mem_int*)clMemId)); }
+
 
 		// create new sampler object
 		cl_err_code CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, SharedPtr<Sampler>* ppSampler);
