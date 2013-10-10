@@ -13,7 +13,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Function.h"
 #include "llvm/Metadata.h"
 #include "llvm/Support/Atomic.h"
-#include <list>
 #include "MetaDataTraits.h"
 
 namespace Intel

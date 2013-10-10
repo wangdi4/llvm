@@ -11,10 +11,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetaDataValue.h"
 #include "MetaDataObject.h"
 #include "MetaDataIterator.h"
+#include "MapList.h"
 #include "llvm/Value.h"
 #include "llvm/Metadata.h"
 #include <vector>
-#include <map>
 
 namespace Intel
 {
@@ -427,8 +427,9 @@ public:
     typedef MetaDataIterator<llvm::MDNode, llvm::NamedMDNode, MDValueTraits<llvm::MDNode> > meta_iterator;
     typedef typename KeyTraits::value_type key_type;
     typedef typename ValTraits::value_type item_type;
-    typedef typename std::map<key_type, item_type>::iterator iterator;
-    typedef typename std::map<key_type, item_type>::const_iterator const_iterator;
+    typedef intel::MapList<key_type, item_type> MapImplType;
+    typedef typename MapImplType::iterator iterator;
+    typedef typename MapImplType::const_iterator const_iterator;
 
     NamedMetaDataMap(const llvm::NamedMDNode* pNode):
         m_pNode(pNode),
@@ -479,14 +480,14 @@ public:
     item_type getItem(const key_type& key)
     {
         lazyLoad();
-        assert(m_data.find(key) != end() && "Trying to get key that does not exists in Metadata map");
+        assert(find(key) != end() && "Trying to get key that does not exists in Metadata map");
         return m_data[key];
     }
 
     item_type getOrInsertItem(const key_type& key)
     {
         lazyLoad();
-        if(m_data.find(key) == end() || m_data[key].get() == NULL)
+        if(find(key) == end() || m_data[key].get() == NULL)
         {
             m_data[key] = ValTraits::load(NULL);
             m_isDirty = true;
@@ -614,7 +615,7 @@ private:
 
 private:
     const llvm::NamedMDNode* m_pNode;
-    mutable std::map<key_type, item_type> m_data;
+    mutable MapImplType m_data;
     bool m_isDirty;
     mutable bool m_isLoaded;
 };

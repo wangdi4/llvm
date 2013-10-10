@@ -15,7 +15,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Type.h"
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/DataTypes.h"
-#include <list>
 
 namespace Intel
 {
