@@ -847,9 +847,8 @@ static void ConvertSizeTtoUint64T(const size_t *pI, std::vector<uint64_t>& O, ui
 
 static bool isOCL20OrGreater(llvm::Module * module) {
     CompilationFlagsList flagsList = GetCompilationFlags(module);
-    CompilationFlagsList::iterator it;
-    it = find (flagsList.begin(), flagsList.end(), CL_STD_20);
-    return flagsList.empty() ? false : ((*it) == CL_STD_20);
+    return find (flagsList.begin(), flagsList.end(), CL_STD_20) !=
+                 flagsList.end();
 }
 
 void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
