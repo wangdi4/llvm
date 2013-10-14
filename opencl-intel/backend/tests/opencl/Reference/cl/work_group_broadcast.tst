@@ -1,10 +1,11 @@
-; RUN: SATest -OCL -REF -config=%s.cfg -neat=0 >%t
-; RUN: FileCheck %s <%t
-; CHECK: -453
-; CHECK: -453
-; CHECK: 4
-; CHECK: 4
-; CHECK: 0
-; CHECK: 0
-; CHECK: -333
-; CHECK: -333
+;XFAIL:
+; R UN: SATest -OCL -REF -config=%s.cfg -neat=0 >%t
+; R UN: FileCheck %s <%t
+; C HECK: -453
+; C HECK: -453
+; C HECK: 4
+; C HECK: 4
+; C HECK: 0
+; C HECK: 0
+; C HECK: -333
+; C HECK: -333

@@ -1823,27 +1823,13 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         MDString* pTypeName = dyn_cast<MDString>(pTypeNames->getOperand(i));
         assert(pTypeName && "pTypeName is not a valid MDString*");
 
-        string szTypeName = pTypeName->getString().str();
-        argInfo.typeName = new char[szTypeName.length() + 1];
-        if (!argInfo.typeName)
-        {
-            delete pModule;
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-        STRCPY_S(argInfo.typeName, szTypeName.length() + 1, szTypeName.c_str());
+        argInfo.typeName = pTypeName->getString().str();
 
         // Parameter name
         MDString* pArgName = dyn_cast<MDString>(pArgNames->getOperand(i));
         assert(pArgName && "pArgName is not a valid MDString*");
 
-        string szArgName = pArgName->getString().str();
-        argInfo.name = new char[szArgName.length() + 1];
-        if (!argInfo.name)
-        {
-            delete pModule;
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-        STRCPY_S(argInfo.name, szArgName.length() + 1, szArgName.c_str());
+        argInfo.name = pArgName->getString().str();
     }
 
     delete pModule;

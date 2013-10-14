@@ -129,7 +129,6 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       LLVMCppBackendCodeGen
                                       LLVMCppBackendInfo
                                       task_executor${BUILD_PLATFORM}
-if ( NOT WIN32 )
                                       clangFrontendTool
                                       clangAST
                                       clangAnalysis
@@ -161,7 +160,6 @@ if ( NOT WIN32 )
                                       clangAST
                                       clangLex
                                       clangBasic
-endif ()
                                       OclPluginManager
                                       #CLElfLib
                                       metadataapi
@@ -216,7 +214,9 @@ endif ()
 #)
 
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
+if( NOT ANDROID )
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
+endif ()
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )
