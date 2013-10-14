@@ -499,13 +499,14 @@ void GenericMemObject::data_sharing_set_init_state( bool valid )
         }
         else
         {
-            cl_dev_err_code dev_error = group.m_dev_mem_obj->clDevMemObjInvalidateData();
-            assert( CL_DEV_SUCCEEDED(dev_error) && "initial clDevMemObjInvalidateData() failed" );
-            
-            if (CL_DEV_FAILED(dev_error))
-            {
-                LOG_ERROR(TEXT("Device Object returned error 0x%X during initial invalidation"), dev_error);
-            }                    
+// BUGBUG: COI BUG 
+//            cl_dev_err_code dev_error = group.m_dev_mem_obj->clDevMemObjInvalidateData();
+//            assert( CL_DEV_SUCCEEDED(dev_error) && "initial clDevMemObjInvalidateData() failed" );
+//            
+//            if (CL_DEV_FAILED(dev_error))
+//            {
+//                LOG_ERROR(TEXT("Device Object returned error 0x%X during initial invalidation"), dev_error);
+//            }                    
             
             group.m_data_copy_state = DATA_COPY_STATE_INVALID;
         }
