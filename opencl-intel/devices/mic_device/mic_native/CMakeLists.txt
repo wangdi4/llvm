@@ -38,9 +38,10 @@ endif (WIN32)
 set( BACKEND_SVML_DIR       ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/bin/svml/Linux64 )
 
 set( UTILS_DIR              ${OCL_SOURCE_DIR}/utils )
-set( SYS_UTILS_DIR 			${UTILS_DIR}/cl_sys_utils )
-set( HW_UTILS_DIR 			${UTILS_DIR}/cl_hw_utils )
-set( TASK_EXECUTOR_DIR 		${UTILS_DIR}/task_executor )
+set( SYS_UTILS_DIR          ${UTILS_DIR}/cl_sys_utils )
+set( HW_UTILS_DIR           ${UTILS_DIR}/cl_hw_utils )
+set( TASK_EXECUTOR_DIR      ${UTILS_DIR}/task_executor )
+set( LOGGER_DIR             ${UTILS_DIR}/cl_logger )
 
 set( ITT_DIR                ${OCL_SOURCE_DIR}/externals/itt )
 	
@@ -263,6 +264,7 @@ list( APPEND MIC_FLAGS
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/../
                 -I ${SYS_UTILS_DIR}/export
                 -I ${HW_UTILS_DIR}/export
+                -I ${LOGGER_DIR}/export
                 -I ${OCL_SOURCE_DIR}/cl_api
                 -I ${MIC_TBB_PATH}/include
                 -I ${MIC_TBB_PATH}/enhancements
@@ -370,21 +372,16 @@ list( APPEND MIC_LINK_FLAGS
                 -Wl,-rpath=\\\$ORIGIN -Wl,--enable-new-dtags
                 )
 
-set( MIC_DEBUG_LINK_FLAGS     )
-set( MIC_RELEASE_LINK_FLAGS   )
-
 if (NOT WIN32)
 	if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
 		# Debug
 
 		list( APPEND MIC_FLAGS      ${MIC_DEBUG_FLAGS} )
-		list( APPEND MIC_LINK_FLAGS ${MIC_DEBUG_LINK_FLAGS} )
 
 	else ()
 		# Release
 
 		list( APPEND MIC_FLAGS      ${MIC_RELEASE_FLAGS} )
-		list( APPEND MIC_LINK_FLAGS ${MIC_RELEASE_LINK_FLAGS} )
 
 	endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
 endif (NOT WIN32)
@@ -437,6 +434,12 @@ set( SYS_UTILS_TARGET_SOURCES ${TARGET_SOURCES} )
 
 #message("Using sources from cl_sys_utils ${SYS_UTILS_TARGET_SOURCES}")
 
+# add cl_logger 
+set( TARGET_SOURCES )
+FIND_SOURCES_EX( ${LOGGER_DIR}  )
+CALCULATE_TARGET_SOURCES()
+set( LOGGER_TARGET_SOURCES ${TARGET_SOURCES} )
+
 # add task_executor
 set( TARGET_SOURCES )
 set( TASK_EXECUTOR_EXCEPTIONS thread_ )
@@ -450,7 +453,7 @@ list( APPEND ITT_TARGET_SOURCES ${ITT_DIR}/ittnotify/jitprofiling.c )
 
 
 
-add_device_executable(${TARGET_NAME} ${MAIN_TARGET_SOURCES} ${HW_UTILS_TARGET_SOURCES} ${SYS_UTILS_TARGET_SOURCES} ${TASK_EXECUTOR_TARGET_SOURCES} ${ITT_TARGET_SOURCES})
+add_device_executable(${TARGET_NAME} ${MAIN_TARGET_SOURCES} ${HW_UTILS_TARGET_SOURCES} ${SYS_UTILS_TARGET_SOURCES} ${LOGGER_TARGET_SOURCES} ${TASK_EXECUTOR_TARGET_SOURCES} ${ITT_TARGET_SOURCES})
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
 

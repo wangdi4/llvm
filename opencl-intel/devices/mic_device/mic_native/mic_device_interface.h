@@ -374,6 +374,7 @@ struct mic_exec_env_options {
     bool                use_vtune;
     bool                enable_itt;
     bool                trap_workers;
+    bool                logger_enable;
     uint32_t            threads_per_core;
     uint32_t            num_of_cores;
     uint32_t            use_TBB_grain_size;

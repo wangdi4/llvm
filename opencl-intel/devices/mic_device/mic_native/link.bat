@@ -18,15 +18,15 @@ REM All variables in the form of CMake vars will be replaced by CMake
 call "@DEVICE_INIT_ENV_SCRIPT@" intel64 > nul
 REM ICC=/opt/intel/mic/Compiler/bin/icc
 
-set CONFIG_LINK_FLAG=@MIC_RELEASE_LINK_FLAGS@;
-if %CONFIG_NAME%==Debug (
-	set CONFIG_LINK_FLAG=@MIC_DEBUG_LINK_FLAGS@;
-)
+set FILE_NAME=link_args_%RANDOM%.txt
 
-REM replace ';' with ' ', It come from the cmake with ';' separation because it is a list
-if NOT CONFIG_LINK_FLAG==[] (
-	set CONFIG_LINK_FLAG=%CONFIG_LINK_FLAG:;= %
-)
+type NUL > %FILE_NAME%
+echo -mmic -o "%EXE_NAME%" -Wl,--whole-archive >> %FILE_NAME%
+echo %OBJS% >> %FILE_NAME%
+echo -Wl,--no-whole-archive >> %FILE_NAME%
+echo @FINAL_MIC_LINK_FLAGS@ >> %FILE_NAME%
 
-%ICC% -mmic -o "%EXE_NAME%" -Wl,--whole-archive %OBJS% -Wl,--no-whole-archive @FINAL_MIC_LINK_FLAGS@ %CONFIG_LINK_FLAG%
+%ICC% @%FILE_NAME%
+
+del %FILE_NAME%
 

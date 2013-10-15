@@ -32,6 +32,8 @@
 #include "hw_exceptions_handler.h"
 #include "thread_local_storage.h"
 #include "cl_shared_ptr.hpp"
+#include "mic_logger.h"
+#include "mic_native_logger.h"
 
 #include <sink/COIBuffer_sink.h>
 #include <common/COIEvent_common.h>
@@ -49,10 +51,12 @@ void execute_NDRange(uint32_t         in_BufferCount,
 					 void*            in_pReturnValue,
 					 uint16_t         in_ReturnValueLength)
 {
+	MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "%s", "[MIC SERVER] enter execute_NDRange");
 	QueueOnDevice::execute_command(in_BufferCount, in_ppBufferPointers, in_pBufferLengths, 
                                    in_pMiscData, in_MiscDataLength, 
                                    in_pReturnValue, in_ReturnValueLength, 
                                    NDRANGE_TASK_TYPE);
+	MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "%s", "[MIC SERVER] exit execute_NDRange");
 }
 
 NDRangeTask::NDRangeTask( const QueueOnDevice& queue ) : TaskHandler( queue ),

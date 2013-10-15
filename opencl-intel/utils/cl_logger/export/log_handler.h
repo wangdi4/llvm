@@ -85,8 +85,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		******************************************************************************************/
 		virtual void Log(LogMessage& message) = 0;
 
-		virtual void LogW(LogMessage& message) = 0;
-
 		/******************************************************************************************
 		* Function: 	Init
 		* Description:	intializes log handler
@@ -100,7 +98,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		virtual cl_err_code Init(ELogLevel level, const char* fileName, const char* title) =0;
+		virtual cl_err_code Init(ELogLevel level, const char* fileName, const char* title, FILE* fileDesc = stderr) =0;
 
 		/******************************************************************************************
 		* Function: 	Flush
@@ -117,7 +115,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 		char*           m_handle;         // unique string handle representation
 		ELogLevel		m_logLevel;       // log handler log level (ignore levels < m_logLevel)
-		OclMutex		m_CS;             // Log function Critical Section object
 	};
 
 	/**********************************************************************************************
@@ -128,7 +125,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	* Author:		Uri Levy
 	* Date:			December 2008
 	**********************************************************************************************/
-	class FileLogHandler : public LogHandler
+	class FileDescriptorLogHandler : public LogHandler
 	{
 
 	public:
@@ -140,7 +137,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		FileLogHandler(const char* handle);
+		FileDescriptorLogHandler(const char* handle);
 
 		/******************************************************************************************
 		* Function: 	~FileLogHandler
@@ -149,7 +146,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		~FileLogHandler();
+		~FileDescriptorLogHandler();
 
 		/******************************************************************************************
 		* Function: 	Init
@@ -162,7 +159,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code Init(ELogLevel level, const char* fileName, const char* title);
+		cl_err_code Init(ELogLevel level, const char* fileName, const char* title, FILE* fileDesc = stderr);
 
 		/******************************************************************************************
 		* Function: 	Log
@@ -174,8 +171,6 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		******************************************************************************************/
 		void Log(LogMessage& logMessage);
 
-		void LogW(LogMessage& logMessage);
-
 		/******************************************************************************************
 		* Function: 	Flush
 		* Description:	dump data to file
@@ -186,9 +181,12 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		******************************************************************************************/
 		void Flush();
 
-	private:
-		char*	m_fileName;             // filename of the logging file
+	protected:
 		FILE*   m_fileHandler;          // file handle of the logging file
+
+	private:
+		int     m_dupStderr;             // duplicate file descriptor of stderr. (stderr redirect to m_fileName in order to get log messages from MIC device)
+
 	};
 
 
@@ -196,11 +194,9 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	* Class name:	ConsoleLogHandler
 	*
 	* Inharit:		LogHandler
-	* Description:	simple file logger. dumps all log messages to stdout
-	* Author:		Uri Levy
-	* Date:			December 2008
+	* Description:	simple file logger. dumps all log messages to stderr (as default) or other file descriptor (i.e.: stdout / file)
 	**********************************************************************************************/
-	class ConsoleLogHandler : public LogHandler
+	class FileLogHandler : public FileDescriptorLogHandler
 	{
 
 	public:
@@ -212,7 +208,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		ConsoleLogHandler(const char* handle);
+		FileLogHandler(const char* handle);
 
 		/******************************************************************************************
 		* Function: 	~ConsoleLogHandler
@@ -221,7 +217,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		~ConsoleLogHandler(){};
+		~FileLogHandler();
 
 		/******************************************************************************************
 		* Function: 	Init
@@ -233,27 +229,12 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code Init(ELogLevel level, const char* fileName, const char* title = NULL);
+		cl_err_code Init(ELogLevel level, const char* fileName, const char* title = NULL, FILE* fileDesc = stderr);
 
-		/******************************************************************************************
-		* Function: 	Log
-		* Description:	log message
-		* Arguments:	logMessage [in] -	wrappes all message info
-		* Return value:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		void Log(LogMessage& logMessage);
+	private:
 
-		/******************************************************************************************
-		* Function: 	Flush
-		* Description:	dump data to file
-		* Arguments:
-		* Return value:
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		void Flush();
+		char*	m_fileName;             // filename of the logging file
+
 	};
 
 }}}

@@ -28,6 +28,7 @@
 #include "mic_device_interface.h"
 #include "mic_sys_info_internal.h"
 #include "profiling_notification.h"
+#include "Logger.h"
 
 #include <source/COIEngine_source.h>
 #include <source/COIProcess_source.h>
@@ -335,6 +336,7 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         mic_device_options.use_vtune                = tMicConfig.UseVTune();
         mic_device_options.enable_itt               = tMicConfig.UseITT();
         mic_device_options.trap_workers             = tMicConfig.Device_TbbTrapWorkers();
+        mic_device_options.logger_enable            = Logger::GetInstance().IsActive();
         
         string tbb_scheduler = tMicConfig.Device_TbbScheduler();
      

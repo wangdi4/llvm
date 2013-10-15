@@ -37,8 +37,10 @@
 
 using namespace Intel::OpenCL::Utils;
 
-// use only global handler - do not use local one
-USE_SHUTDOWN_HANDLER(NULL); 
+#ifndef DEVICE_NATIVE
+	// use only global handler - do not use local one
+	USE_SHUTDOWN_HANDLER(NULL); 
+#endif
 
 void Logger::RegisterGlobalAtExitNotification( IAtExitCentralPoint* fn )
 {

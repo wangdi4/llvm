@@ -30,6 +30,7 @@
 #if defined (_WIN32)
 #include <basetsd.h>
 #include <intrin.h>
+#include <io.h>
 
 #if defined(_M_AMD64)
 #define CAS(ptr,old_val,new_val)    _InterlockedCompareExchange64((__int64 volatile*)ptr,(__int64)new_val,(__int64)old_val)
@@ -73,6 +74,9 @@
 
 #define VA_COPY(dst, src) ((dst) = (src))
 #define VA_END(va)
+
+#define DUP(oldfd) _dup(oldfd)
+#define DUP2(oldfd, newfd) _dup2(oldfd, newfd)
 
 #define GMTIME(tmNow, tNow) (gmtime_s(&(tmNow), &(tNow)))
 #define GET_CURRENT_PROCESS_ID() GetCurrentProcessId()
@@ -167,6 +171,9 @@ typedef int errno_t;
 
 #define VA_COPY(dst, src) (va_copy((dst), (src)))
 #define VA_END(va) (va_end(va))
+
+#define DUP(oldfd) dup(oldfd)
+#define DUP2(oldfd, newfd) dup2(oldfd, newfd)
 
 #define GMTIME(tmNow, tNow) (tmNow) = (*(gmtime(&(tNow))))
 // aligned malloc

@@ -22,6 +22,8 @@
 #include "native_globals.h"
 #include "native_program_service.h"
 #include "native_thread_pool.h"
+#include "mic_native_logger.h"
+#include "mic_logger.h"
 
 #include <sink/COIBuffer_sink.h>
 #include <common/COIEvent_common.h>
@@ -66,6 +68,15 @@ void init_device(uint32_t         in_BufferCount,
         while (resume_server_execution == 0) {};
     }
     gMicExecEnvOptions = *tEnvOptions;
+
+    // create singleton logger descriptor (if logger enabled)
+	if (gMicExecEnvOptions.logger_enable)
+	{
+		bool logInitRes = true;
+		logInitRes = MicNativeLogDescriptor::createLogDescriptor();
+		assert(logInitRes && "MIC logger initialization failed");
+	}
+    MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "[MIC SERVER] mic native logger initialized, pid = %d", getpid());
 
 #ifdef USE_ITT
     memset(&gMicGPAData, sizeof(ocl_gpa_data), 0);
@@ -129,7 +140,13 @@ void release_device(uint32_t         in_BufferCount,
 {
     // Release the thread pool singleton.
     ThreadPool::releaseSingletonInstance();
-    ProgramService::releaseProgramService();    
+    ProgramService::releaseProgramService();
+    MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "[MIC SERVER] going to close mic native logger, pid = %d", getpid());
+	// Release the logger descriptor (if logger enabled)
+	if (gMicExecEnvOptions.logger_enable)
+	{
+		MicNativeLogDescriptor::releaseLogDescriptor();
+	}
 }
 
 // Execute device utility function
