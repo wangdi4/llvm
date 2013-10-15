@@ -41,6 +41,7 @@ set(OCL_BE_PASSES
 
 # Dependencies of the passes
 set(OCL_BE_PASSES_DEPS
+    LoopUtils
     OclBackendUtils
     reflection_module
     name_mangle
@@ -61,7 +62,7 @@ if(NOT WIN32)
     target_link_libraries(${TARGET_NAME} dl)
 endif(NOT WIN32)
 
-add_dependencies(${TARGET_NAME} metadataapi)
+add_dependencies(${TARGET_NAME} metadataapi LoopUtils)
 
 if( CMAKE_CROSSCOMPILING )
     add_custom_target( oclopt_native ALL

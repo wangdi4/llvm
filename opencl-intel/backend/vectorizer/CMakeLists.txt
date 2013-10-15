@@ -86,7 +86,6 @@ set(TARGET_INCLUDE_FILES
   SoaAllocaAnalysis/SoaAllocaAnalysis.h
   Utils/FakeExtractInsert.h
   Utils/Logger.h
-  Utils/LoopUtils.h
   Utils/Mangler.h
   Utils/RuntimeServices.h
   Utils/SimplifyGEP.h
@@ -126,7 +125,6 @@ set(TARGET_SOURCE_FILES
   Scalarizer/PreScalarizeScan.cpp
   Scalarizer/Scalarize.cpp
   SoaAllocaAnalysis/SoaAllocaAnalysis.cpp
-  Utils/LoopUtils.cpp
   Utils/Mangler.cpp
   Utils/RuntimeServices.cpp
   Utils/SimplifyGEP.cpp
@@ -145,7 +143,7 @@ add_library(
   ${TARGET_INCLUDE_FILES}
 )
 
-add_dependencies(${TARGET_NAME} metadataapi)
+add_dependencies(${TARGET_NAME} metadataapi LoopUtils)
 
 set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})

@@ -1,5 +1,6 @@
 set(TARGET_NAME OclBackendUtils)
 
+add_subdirectory(LoopUtils)
 if(APPLE)
 set(TARGET_EXTRA_SOURCE_FILES 
 )

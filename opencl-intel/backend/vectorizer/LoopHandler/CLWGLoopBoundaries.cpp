@@ -6,7 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "CLWGLoopBoundaries.h"
 #include "CLWGBoundDecoder.h"
-#include "LoopUtils.h"
+#include "LoopUtils/LoopUtils.h"
 #include "MetaDataApi.h"
 #include "CompilationUtils.h"
 #include "common_dev_limits.h"

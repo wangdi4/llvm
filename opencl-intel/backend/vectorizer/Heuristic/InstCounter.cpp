@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InstCounter.h"
 #include "WIAnalysis.h"
 #include "Mangler.h"
-#include "LoopUtils.h"
+#include "LoopUtils/LoopUtils.h"
 #include "OpenclRuntime.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"

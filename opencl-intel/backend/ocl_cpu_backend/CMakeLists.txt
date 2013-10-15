@@ -377,6 +377,7 @@ target_link_libraries (${TARGET_NAME}
     # internal passes
     ${BACKEND_PASSES}
 
+    LoopUtils
     OclBackendUtils
     reflection_module
     name_mangle
