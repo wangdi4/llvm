@@ -69,7 +69,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param packetWidth      The packet width for vectorized JIT parameter
     /// @param pWIids           The work item ids buffer parameter
     /// @param iterCounter      The number of iterations parameter
-    /// @param pBarrierBuffer   The barrier buffer parameter
     /// @param pExtendedExecutionContext
     ///                         The callback extended execution context parameter
     void setImplicitArgsPerExecutable(
@@ -80,7 +79,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                          unsigned int packetWidth,
                          size_t* pWIids,
                          const size_t iterCounter,
-                         char* pBarrierBuffer,
                          const ExtendedExecutionContext* 
                                   pCallBackExtendedExecutionContext);
     

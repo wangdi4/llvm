@@ -21,7 +21,6 @@ File Name:  Binary.h
 
 #include "cl_dev_backend_api.h"
 #include "cpu_dev_limits.h"
-#include "ExplicitLocalMemArgument.h"
 #include "TypeAlignment.h"
 #include "IAbstractBackendFactory.h"
 #include "TargetArch.h"
@@ -94,7 +93,6 @@ public:
     size_t GetKernelParametersSize() const {return m_stKernelParamSize;}
     size_t GetAlignedKernelParametersSize() const {return m_stAlignedKernelParamSize;}
     size_t GetLocalWIidsSize() const {return m_stWIidsBufferSize;}
-    size_t GetPrivateMemorySize() const    {return m_stPrivateMemorySize;}
     bool   GetDAZ() const                  {return m_DAZ; }
     const Intel::CPUId &GetCpuId() const   {return m_cpuId; }
     void*  GetFormalParameters() const     {return m_pLocalParams;}
@@ -130,7 +128,7 @@ private:
     size_t                  m_stPrivateMemorySize;
     sWorkInfo               m_WorkInfo;
     char*                   m_pLocalParams;
-    std::vector<ExplicitLocalMemArgument> m_kernelLocalMem;
+    std::vector<size_t>     m_kernelLocalMemSizes;
     char                    m_pLocalParamsBase[CPU_MAX_PARAMETER_SIZE*4 + TypeAlignment::MAX_ALIGNMENT];
     unsigned int            m_uiWGSize;
     bool                    m_DAZ;

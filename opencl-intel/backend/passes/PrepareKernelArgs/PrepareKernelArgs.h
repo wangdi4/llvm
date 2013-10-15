@@ -84,14 +84,21 @@ namespace intel {
 
   private:
     /// @brief The llvm module this pass needs to update
-    Module                     *m_pModule;
+    Module                *m_pModule;
+
+    DataLayout            *m_DL;
 
     /// @brief The llvm context
-    LLVMContext                *m_pLLVMContext;
+    LLVMContext           *m_pLLVMContext;
 
     /// @brief holds Meta Data utils
-    Intel::MetaDataUtils       *m_mdUtils;
+    Intel::MetaDataUtils  *m_mdUtils;
 
+    /// @brief Size of Moudle pointer in bits
+    unsigned              m_PtrSizeInBytes;
+    IntegerType*          m_SizetTy;
+    IntegerType*          m_I8Ty;
+    IntegerType*          m_I32Ty;
   };
 
 } // namespace intel

@@ -16,6 +16,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Version.h"
 #include "llvm/ADT/SetVector.h"
 
+#include <algorithm>
+#include <sstream>
 #include <memory>
 
 extern "C"{
@@ -32,18 +34,22 @@ namespace intel{
 
   char PrepareKernelArgs::ID = 0;
 
- /// Register pass to for opt
- OCL_INITIALIZE_PASS(PrepareKernelArgs, "prepare-kernel-args", "changes the way arguments are passed to kernels", false, false)
+  /// Register pass to for opt
+  OCL_INITIALIZE_PASS(PrepareKernelArgs, "prepare-kernel-args", "changes the way arguments are passed to kernels", false, false)
 
   PrepareKernelArgs::PrepareKernelArgs() : ModulePass(ID) {
   }
 
   bool PrepareKernelArgs::runOnModule(Module &M) {
+    m_DL = getAnalysisIfAvailable<DataLayout>();
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
     Intel::MetaDataUtils mdUtils(&M);
     m_mdUtils = &mdUtils;
-
+    m_PtrSizeInBytes = M.getPointerSize() * 4;
+    m_SizetTy = IntegerType::get(*m_pLLVMContext, m_PtrSizeInBytes*8);
+    m_I32Ty = Type::getInt32Ty(*m_pLLVMContext);
+    m_I8Ty = Type::getInt8Ty(*m_pLLVMContext);
     // Get all kernels (original scalar kernels and vectorized kernels)
     CompilationUtils::FunctionSet kernelsFunctionSet;
     CompilationUtils::getAllKernels(kernelsFunctionSet, m_pModule);
@@ -62,10 +68,10 @@ namespace intel{
     // Create new function's argument type list
     // The new function receives one argument: i8* pBuffer
     std::vector<llvm::Type *> newArgsVec;
-    newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
+    newArgsVec.push_back(PointerType::get(m_I8Ty, 0));
 
     // Create new functions return type
-    FunctionType *FTy = FunctionType::get( pFunc->getReturnType(),newArgsVec, false);
+    FunctionType *FTy = FunctionType::get( pFunc->getReturnType(), newArgsVec, false);
 
     // Create a new function
     Function *pNewF = Function::Create(FTy, pFunc->getLinkage(), pFunc->getName());
@@ -80,6 +86,8 @@ namespace intel{
     std::vector<cl_kernel_argument> arguments;
     CompilationUtils::parseKernelArguments(m_pModule, pFunc, arguments);
     
+    Intel::KernelInfoMetaDataHandle kimd = m_mdUtils->getKernelsInfoItem(pFunc);
+    assert(kimd.get() && "Function info should be available at this point");
     std::vector<Value*> params;
     // assuming pBuffer is initially aligned to TypeAlignment::MAX_ALIGNMENT and 
     // therefore currOffset = 0
@@ -91,7 +99,7 @@ namespace intel{
     // TODO :  get common code from the following 2 for loops into a function
 
     // Handle explicit arguments
-    for(unsigned ArgNo = 0; ArgNo <  arguments.size(); ++ArgNo) {
+    for (unsigned ArgNo = 0; ArgNo < arguments.size(); ++ArgNo) {
         
       cl_kernel_argument arg = arguments[ArgNo];
       
@@ -99,9 +107,9 @@ namespace intel{
       currOffset = TypeAlignment::align(TypeAlignment::getAlignment(arg), currOffset);
       
       //  %0 = getelementptr i8* %pBuffer, i32 currOffset
-      Value* pGEP = builder.CreateGEP(pArgsBuffer, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), currOffset));
+      Value* pGEP = builder.CreateGEP(pArgsBuffer, ConstantInt::get(m_I32Ty, currOffset));
       
-      Value* pLoadedValue;
+      Value* pArg;
       
       if (arg.type == CL_KRNL_ARG_COMPOSITE || arg.type == CL_KRNL_ARG_VECTOR_BY_REF) {
         // If this is a struct argument, then the struct itself is passed by value inside pArgsBuffer
@@ -114,10 +122,30 @@ namespace intel{
         // foo(..., %myStruct, ...)
 
         Value* pBitCast = builder.CreateBitCast(pGEP, callIt->getType());
-        pLoadedValue= pBitCast;
-      } 
-      else
-      {
+        pArg = pBitCast;
+        //TODO: Remove this #ifndef when apple pass local memory buffer size instead of pointer to buffer
+#ifndef __APPLE__
+      } else if (arg.type == CL_KRNL_ARG_PTR_LOCAL) {
+        // The argument is actually the size of the buffer
+        Value *pBitCast = builder.CreateBitCast(pGEP, PointerType::get(m_SizetTy, 0));
+        LoadInst *BufferSize = builder.CreateLoad(pBitCast);
+        // TODO: when buffer size is 0, we might want to set dummy address for debugging!
+        AllocaInst *Allocation = builder.CreateAlloca(m_I8Ty, BufferSize);
+        // Set alignment of buffer to type size.
+        unsigned Alignment = 16; // Cacheline
+        if (m_DL) {
+          Type* EltTy = callIt->getType()->getPointerElementType();
+          // If the kernel was vectorized, choose an alignment that is good for the *vectorized* type. This can
+          // be good for unaligned loads on targets that support instructions such as MOVUPS
+          unsigned VecSize = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
+          if (VecSize != 1 && VectorType::isValidElementType(EltTy))
+            EltTy = VectorType::get(EltTy, VecSize);
+          Alignment = llvm::NextPowerOf2(m_DL->getTypeAllocSize(EltTy) - 1);
+        }
+        Allocation->setAlignment(Alignment);
+        pArg = builder.CreateBitCast(Allocation, callIt->getType());
+#endif
+      } else {
         // Otherwise this is some other type, lets say int4, then int4 itself is passed by value inside pArgsBuffer
         // and the original kernel signature was:
         // foo(..., int4 vec, ...)
@@ -134,14 +162,14 @@ namespace intel{
         if (alignment > 0) {
           pLoad->setAlignment(TypeAlignment::getAlignment(arg));
         }
-        pLoadedValue = pLoad;
+        pArg = pLoad;
       }
      
       // Here we mark the load instructions from the struct that are the actual parameters for 
       // the original kernel's restricted formal parameters  
       // This info is used later on in OpenCLAliasAnalysis to overcome the fact that inlining 
       // does not maintain the restrict information.
-      Instruction* pLoadedValueInst = cast<Instruction>(pLoadedValue);
+      Instruction* pArgInst = cast<Instruction>(pArg);
 #if LLVM_VERSION == 3200
       if (pFunc->getParamAttributes(ArgNo + 1).hasAttribute(Attributes::NoAlias)) {
 #elif LLVM_VERSION == 3425
@@ -149,10 +177,10 @@ namespace intel{
 #else
       if (pFunc->getArgumentList().getParamAttributes(ArgNo + 1).hasAttribute(Attribute::NoAlias)) {
 #endif
-        pLoadedValueInst->setMetadata("restrict", llvm::MDNode::get(*m_pLLVMContext, 0)); 
+        pArgInst->setMetadata("restrict", llvm::MDNode::get(*m_pLLVMContext, 0)); 
       }
 
-      params.push_back(pLoadedValue);
+      params.push_back(pArg);
       
       // Advance the pArgsBuffer offset based on the size
       currOffset += TypeAlignment::getSize(arg);
@@ -160,33 +188,62 @@ namespace intel{
     }
     
     // Handle implicit arguments
-    unsigned int ptrSizeInBytes = m_pModule->getPointerSize()*4;
-    ImplicitArgsUtils::initImplicitArgProps(ptrSizeInBytes);
+    // Set to the Work Group Info implicit arg, as soon as it is known. Used for
+    // computing other arg values
+    Value *WorkInfo = 0;
+    ImplicitArgsUtils::initImplicitArgProps(m_PtrSizeInBytes);
     for(unsigned int i=0; i< ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
       Value* pArg = NULL;
       switch(i) {
       case ImplicitArgsUtils::IA_SLM_BUFFER:
         {
-          uint64_t slmSizeInBytes = 0;
-          Intel::KernelInfoMetaDataHandle kimd = m_mdUtils->getKernelsInfoItem(pFunc);
-          if (NULL == kimd.get()) {
-            assert(false && "Function info should be available at this point");
-          } else {
-            slmSizeInBytes = kimd->getLocalBufferSize();
-          }
+          uint64_t slmSizeInBytes = kimd->getLocalBufferSize();
           //TODO: when slmSizeInBytes equal 0, we might want to set dummy address for debugging!
-          Type *slmType = ArrayType::get(IntegerType::getInt8Ty(*m_pLLVMContext), slmSizeInBytes);
+          Type *slmType = ArrayType::get(m_I8Ty, slmSizeInBytes);
           AllocaInst *slmBuffer = builder.CreateAlloca(slmType);
           //Set alignment of implicit local buffer to max alignment.
+          //TODO: we should choose the min required alignment size
           slmBuffer->setAlignment(TypeAlignment::MAX_ALIGNMENT);
-          pArg = builder.CreateBitCast(slmBuffer, IntegerType::getInt8PtrTy(*m_pLLVMContext, 3));
+          pArg = builder.CreateBitCast(slmBuffer, PointerType::get(m_I8Ty, 3));
         }
         break;
-      case ImplicitArgsUtils::IA_CURRENT_WORK_ITEM:
+        //TODO: Remove this #ifndef when apple no longer pass barrier memory buffer
+#ifndef __APPLE__
+      case ImplicitArgsUtils::IA_BARRIER_BUFFER: 
         {
-          unsigned int uiSizeT = m_pModule->getPointerSize()*32;
-          pArg = builder.CreateAlloca(IntegerType::get(*m_pLLVMContext, uiSizeT));
+          // We obtain the number of bytes needed per item from the Metadata
+          // which is set by the Barrier pass
+          uint64_t SizeInBytes = kimd->getBarrierBufferSize();
+          // BarrierBufferSize := BytesNeededPerWI*GroupSize(0)*GroupSize(1)*GroupSize(2)
+          // GroupSize(i) is loaded directly from the WGInfo implicit argument,
+          // which was already determined in an earlier iteration.
+          Value *BarrierBufferSize = ConstantInt::get(m_SizetTy, SizeInBytes);
+          assert(WorkInfo && "Work Group Info was not initialized");
+          SmallVector<Value *, 4> params(3);
+          params[0] = ConstantInt::get(m_I32Ty, 0);
+          // Element with index=3 in struct is LocalSize
+          // TODO: Make this code a library function
+          params[1] = ConstantInt::get(m_I32Ty, 3);
+          std::stringstream DimStr;
+          for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
+            params[2] = ConstantInt::get(m_I32Ty, Dim);
+            DimStr.str("");
+            DimStr << "LocalSize_dim" << Dim << "_";
+            Value *pAddr = builder.CreateGEP(WorkInfo, params, "p" + DimStr.str());
+            LoadInst *LocalSizeDim = builder.CreateLoad(pAddr, DimStr.str());
+            BarrierBufferSize = builder.CreateMul(BarrierBufferSize, LocalSizeDim);
+          }
+          BarrierBufferSize->setName("BarrierBufferSize");
+          // alloca i8, %BarrierBufferSize
+          AllocaInst *BarrierBuffer = builder.CreateAlloca(m_I8Ty, BarrierBufferSize, "BarrierBuffer");
+          //TODO: we should choose the min required alignment size
+          BarrierBuffer->setAlignment(TypeAlignment::MAX_ALIGNMENT);
+          pArg = BarrierBuffer;
         }
+        break;
+#endif
+      case ImplicitArgsUtils::IA_CURRENT_WORK_ITEM:
+        pArg = builder.CreateAlloca(m_SizetTy);
         break;
       default:
         {
@@ -196,7 +253,7 @@ namespace intel{
           currOffset = TypeAlignment::align(alignment, currOffset);
 
           // %0 = getelementptr i8* %pBuffer, i32 currOffset  
-          Value* pGEP = builder.CreateGEP(pArgsBuffer, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), currOffset));
+          Value* pGEP = builder.CreateGEP(pArgsBuffer, ConstantInt::get(m_I32Ty, currOffset));
           // %1 = bitcast i8* %0 to type *
           Value* pBitCast = builder.CreateBitCast(pGEP, PointerType::get(callIt->getType(), 0));
           //load type * %1
@@ -206,6 +263,10 @@ namespace intel{
             pLoad->setAlignment(alignment);
           }
           pArg = pLoad;
+          // WorkInfo is used as base for retrieving local size which is used
+          // above for computing size of the barrier buffer
+          if (ImplicitArgsUtils::IA_WORK_GROUP_INFO == i)
+            WorkInfo = pArg;
 
           // Advance the pArgsBuffer offset based on the size
           currOffset += implicitArgProp.m_size;

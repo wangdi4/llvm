@@ -13,7 +13,6 @@ set(TARGET_EXTRA_INCLUDE_FILES
   exceptions.h
   ExecutionContext.h 
   ExplicitArgument.h
-  ExplicitLocalMemArgument.h
   ExplicitGlobalMemArgument.h
   ExplicitBlockLiteralArgument.h
   SystemInfo.h

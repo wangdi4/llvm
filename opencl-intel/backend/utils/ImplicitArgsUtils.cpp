@@ -29,7 +29,12 @@ const ArgData impArgs[] = {
   {"contextpointer",  false},
   {"pLocalIds",       false},
   {"iterCount",       false},
-  {"pSpecialBuf",     false},
+  //TODO: Remove this #ifndef when apple no longer pass barrier memory buffer
+#ifndef __APPLE__
+  {"pSpecialBuf",     true },
+#else
+  {"pSpecialBuf",     false },
+#endif
   {"pCurrWI",         true },
   {"ExtExecContextPointer", false }};
 
@@ -84,7 +89,6 @@ void ImplicitArgsUtils::setImplicitArgsPerExecutable(
                          unsigned int packetWidth,
                          size_t* pWIids,
                          const size_t iterCounter,
-                         char* pBarrierBuffer,
                          const ExtendedExecutionContext* 
                                 pCallbackExtendedExecutionContext) {
   
@@ -113,9 +117,6 @@ void ImplicitArgsUtils::setImplicitArgsPerExecutable(
 
     // Setup iterCount
     m_implicitArgs[IA_LOOP_ITER_COUNT].setValue(reinterpret_cast<const char *>(&iterCounter)); /*set iter count*/;
-
-    // Setup pPrivateBuffer 
-    m_implicitArgs[IA_BARRIER_BUFFER].setValue(reinterpret_cast<const char *>(&pBarrierBuffer)) ; /*set pSB*/;
   }
 }
 

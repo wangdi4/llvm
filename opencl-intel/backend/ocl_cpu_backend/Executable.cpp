@@ -87,12 +87,6 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
   std::copy((char*)m_pBinary->GetFormalParameters(), (char*)m_pBinary->GetFormalParameters() + m_pBinary->GetFormalParametersSize(), m_pParameters);
   //memcpy( m_pParameters, m_pBinary->GetFormalParameters(), m_pBinary->GetFormalParametersSize());
 
-  // Update pointers of the local buffers
-  for ( unsigned int i=0; i<m_pBinary->m_kernelLocalMem.size(); ++i ) {
-    ExplicitLocalMemArgument localMemArg = m_pBinary->m_kernelLocalMem[i];
-    localMemArg.setBufferPtr(m_pParameters, pLocalMemoryBuffers[i]);
-  }
-
   char* pWIParams = m_pParameters + m_pBinary->GetFormalParametersSize();
   m_implicitArgsUtils.initImplicitArgProps(m_pBinary->GetPointerSize());
   m_implicitArgsUtils.createImplicitArgs(pWIParams);
@@ -100,7 +94,6 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
   memset(&m_GlobalId[0], 0, sizeof(m_GlobalId));
   size_t* pWIids = (size_t*)(((char*)pWGStackFrame) + m_pBinary->GetAlignedKernelParametersSize());
   assert( (m_pBinary->m_bJitCreateWIids || uiWICount > 0) && "uiWICount is zero!" );
-  char* pBarrierBuffer = ((char*)pWGStackFrame) + m_pBinary->GetAlignedKernelParametersSize() + m_pBinary->GetLocalWIidsSize();
   // Set implicit arguments per executable
   m_implicitArgsUtils.setImplicitArgsPerExecutable(
             &m_pBinary->m_WorkInfo,
@@ -110,7 +103,6 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
             m_pBinary->m_uiVectorWidth,
             pWIids,
             uiWICount-1,
-            pBarrierBuffer,
             m_pBinary->GetExtendedExecutionContext()
             );
 

@@ -23,7 +23,6 @@ File Name:  Binary.cpp
 #include "Executable.h"
 #include "TypeAlignment.h"
 #include "ExplicitArgument.h"
-#include "ExplicitLocalMemArgument.h"
 #include "ExplicitGlobalMemArgument.h"
 
 #include "ExplicitBlockLiteralArgument.h"
@@ -136,62 +135,66 @@ void Binary::InitParams(const std::vector<cl_kernel_argument>& args, char* pArgs
       cl_kernel_argument arg = *argIterator;
       
       std::auto_ptr<IArgument> pArg;
-      
-      if ((arg.type == CL_KRNL_ARG_PTR_GLOBAL)
-            || (arg.type == CL_KRNL_ARG_PTR_CONST) 
-            || (arg.type == CL_KRNL_ARG_PTR_IMG_2D) 
-            || (arg.type == CL_KRNL_ARG_PTR_IMG_2D_DEPTH) 
-            || (arg.type == CL_KRNL_ARG_PTR_IMG_3D)
-            || (arg.type == CL_KRNL_ARG_PTR_IMG_2D_ARR)
-            || (arg.type == CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH)
-            || (arg.type == CL_KRNL_ARG_PTR_IMG_1D)
-            || (arg.type == CL_KRNL_ARG_PTR_IMG_1D_ARR)
-            || (arg.type == CL_KRNL_ARG_PTR_IMG_1D_BUF)) {
 
+      switch (arg.type) {
+      case CL_KRNL_ARG_PTR_GLOBAL:
+      case CL_KRNL_ARG_PTR_CONST:
+      case CL_KRNL_ARG_PTR_IMG_2D:
+      case CL_KRNL_ARG_PTR_IMG_2D_DEPTH:
+      case CL_KRNL_ARG_PTR_IMG_3D:
+      case CL_KRNL_ARG_PTR_IMG_2D_ARR:
+      case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
+      case CL_KRNL_ARG_PTR_IMG_1D:
+      case CL_KRNL_ARG_PTR_IMG_1D_ARR:
+      case CL_KRNL_ARG_PTR_IMG_1D_BUF:
         pArg = std::auto_ptr<ExplicitGlobalMemArgument>(new ExplicitGlobalMemArgument(pArgValueDest, arg));
-      } 
-      else if (arg.type == CL_KRNL_ARG_PTR_BLOCK_LITERAL) {
-        assert(argIterator == args.begin() && "Block literal is not 0th argument in kernel");
-        // pArgValueSrc - offset value 
-        // offset value is offset in bytes from the beginning of pArgsBuffer arguments buffer
-        //        to memory location where BlockLiteral is stored
+        break;
+      case CL_KRNL_ARG_PTR_BLOCK_LITERAL: {
+        assert(argIterator == args.begin() &&
+               "Block literal is not 0th argument in kernel");
+        // pArgValueSrc - offset value
+        // offset value is offset in bytes from the beginning of pArgsBuffer
+        // arguments buffer to memory location where BlockLiteral is stored
         // offset value is of unsigned(32bit) type
-        const size_t offs = (size_t)*(unsigned*)(pArgValueSrc);
-        // deserialize in source memory BlockLiteral. 
+        const size_t offs = (size_t) * (unsigned *)(pArgValueSrc);
+        // deserialize in source memory BlockLiteral.
         // Actually it updates BlockDesc ptr field in BlockLiteral
-        BlockLiteral * pBL = BlockLiteral::DeserializeInBuffer(pArgsBuffer + offs);
-        
+        BlockLiteral *pBL = BlockLiteral::DeserializeInBuffer(pArgsBuffer + offs);
+
         // clone BlockLiteral to this Binary object. assume ownership
         assert(m_pBlockLiteral == NULL && "m_pBlockLiteral should be NULL");
         m_pBlockLiteral = BlockLiteral::Clone(pBL);
-        
+
         // create special type of argument for passing BlockLiteral
-        pArg = std::auto_ptr<ExplicitBlockLiteralArgument>
-          (new ExplicitBlockLiteralArgument(pArgValueDest, arg, m_pBlockLiteral));
+        pArg = std::auto_ptr<ExplicitBlockLiteralArgument>(
+            new ExplicitBlockLiteralArgument(pArgValueDest, arg,
+                                             m_pBlockLiteral));
+        break;
       }
-      else if (arg.type == CL_KRNL_ARG_PTR_LOCAL) {
-        
-        // *((size_t*)pArgValueSrc) : 
-        // pArgValueSrc contains the local buffer size, the local buffer pointer
-        // will be known during creation of Executbale
-        
-        // pArgValueDest - m_pLocalParams:
-        // We want to save the offset of the argument from the beggining of
-        // an arguments buffer, so that we know where to initialize the local buffer
-        // pointer value in the Executable's arguments buffer (which is a copy of m_pLocalParams
-        
-        std::auto_ptr<ExplicitLocalMemArgument> pLocalMemArg(
-                                                  new ExplicitLocalMemArgument(arg, 
-                                                                              *((size_t*)pArgValueSrc), 
-                                                                              pArgValueDest - m_pLocalParams));
-        
-        m_kernelLocalMem.push_back(*pLocalMemArg);
-        pArg = pLocalMemArg;
-      }
-      else {
+      default:
+        switch (arg.type) {
+        case CL_KRNL_ARG_PTR_LOCAL:
+          // Local memory buffers are allocating on the JIT's stack. The value
+          // we get here is not the pointer, but the buffer size. We handle
+          // this parameter like other arguments passed by value
+          // + 16 is for taking alignment padding into consideration
+          m_kernelLocalMemSizes.push_back(*reinterpret_cast<size_t *>(pArgValueSrc) + 16);
+        // Fall through
+        case CL_KRNL_ARG_INT:
+        case CL_KRNL_ARG_UINT:
+        case CL_KRNL_ARG_FLOAT:
+        case CL_KRNL_ARG_DOUBLE:
+        case CL_KRNL_ARG_VECTOR:
+        case CL_KRNL_ARG_VECTOR_BY_REF:
+        case CL_KRNL_ARG_SAMPLER:
+        case CL_KRNL_ARG_COMPOSITE:
+          break;
+        default:
+          assert(false && "Unknown kind of argument");
+        }
         pArg = std::auto_ptr<ExplicitArgument>(new ExplicitArgument(pArgValueDest, arg));
       }
-      
+
       pArg->setValue(pArgValueSrc);
       
       // Advance the src buffer according to argument's size (the sec buffer is packed)
@@ -209,7 +212,6 @@ void Binary::InitParams(const std::vector<cl_kernel_argument>& args, char* pArgs
                           ptrSize  + // pWI-ids[]
                           ptrSize  + // Pointer to IDevExecutable
                           ptrSize  + // iterCount
-                          ptrSize  + //  pSpecialBuffer
                           ptrSize;   // ExtendedExecutionContext
 
     m_stAlignedKernelParamSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(m_stKernelParamSize);
@@ -252,28 +254,25 @@ void Binary::InitWorkInfo(const cl_work_description_type* pWorkInfo)
 cl_dev_err_code Binary::GetMemoryBuffersDescriptions(size_t* IN pBufferSizes, 
                                                      size_t* INOUT pBufferCount ) const
 {
+    // We only require one buffer allocation from the Runtime used for storing the
+    // kernel arguments and the Barrier's local ID indeces
+    // We also report the overall memory needed for local memory even though
+    // we do not need the Runtime to allocate it, because the Runtime needs this
+    // information for OpenCL queries and for the hueristics which computes
+    // work-group size.
     assert(pBufferCount);
-    if ( (NULL == pBufferSizes) )
-    {
-        size_t buffCount = m_kernelLocalMem.size();
+    if (!pBufferSizes) {
         // +1 for additional area for: kernel params + WI ids buffer + private memory [see below]
-        ++buffCount;
-        *pBufferCount = buffCount;
+        *pBufferCount = m_kernelLocalMemSizes.size() + 1;
         return CL_DEV_SUCCESS;
     }
-    assert(pBufferSizes);
-
     // Fill sizes of explicit local buffers
-    unsigned int i;
-    for (i = 0; i < m_kernelLocalMem.size(); ++i)
-    {
-        pBufferSizes[i] = m_kernelLocalMem[i].getBufferSize();
-    }
-
+    std::copy(m_kernelLocalMemSizes.begin(), m_kernelLocalMemSizes.end(), pBufferSizes);
     // Fill size of private area for all work-items
     // [WORK-AROUND] and also the area for kernel params and local WI ids
-    pBufferSizes[i] = m_stAlignedKernelParamSize + m_stWIidsBufferSize +
-      (m_stPrivateMemorySize * m_uiVectorWidth * m_uiWGSize);
+    pBufferSizes[m_kernelLocalMemSizes.size()] =
+        m_stAlignedKernelParamSize + m_stWIidsBufferSize +
+        m_stPrivateMemorySize * m_uiVectorWidth * m_uiWGSize;
 
     return CL_DEV_SUCCESS;
 }
