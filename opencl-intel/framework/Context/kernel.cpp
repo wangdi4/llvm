@@ -517,9 +517,13 @@ cl_err_code    Kernel::GetWorkGroupInfo(const SharedPtr<FissionableDevice>& devi
     {
         pDevice = m_ppDeviceKernels[0]->GetDevice().GetPtr();
     }
-    assert(NULL!=pDevice);
+    assert(NULL!=pDevice && "Device can't be detected");
 
     cl_dev_kernel clDevKernel = GetDeviceKernelId(pDevice);
+    if ( CL_INVALID_HANDLE == clDevKernel )
+    {
+        return CL_INVALID_KERNEL;
+    }
 
     cl_err_code clErr = CL_SUCCESS;
     switch (iParamName)
@@ -581,8 +585,7 @@ cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
         {
             continue;
         }
-        const ConstSharedPtr<FissionableDevice>& pDevice = ppDevicePrograms[i]->GetDevice();
-        
+        const FissionableDevice* pDevice = ppDevicePrograms[i]->GetDevice().GetPtr();
         if (NULL != GetDeviceKernel(pDevice))
         {
             LOG_ERROR(TEXT("Already have a kernel for device ID(%d)"), pDevice->GetId());
@@ -889,30 +892,44 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
 }
 
 
-const DeviceKernel* Kernel::GetDeviceKernel(const ConstSharedPtr<FissionableDevice>& pDevice) const
+const DeviceKernel* Kernel::GetDeviceKernel(const FissionableDevice* pDevice) const
 {
-    assert(m_ppDeviceKernels);
-    assert(pDevice);
-    
-    const FissionableDevice* pRawDevicePtr = pDevice.GetPtr();
+    assert( (NULL!=m_ppDeviceKernels) && "Device kernel array is not available");
+    assert( (NULL!=pDevice) && "Invalid device");
 
+    if ( (m_ppDeviceKernels==NULL) || (NULL==pDevice) )
+    {
+        return NULL;
+    }
+
+    // First look in list of kernel built device
     for (size_t i = 0; i < m_szAssociatedDevices; ++i)
     {
-        if (NULL == m_ppDeviceKernels[i])
-        {
-            break;
-        }
-        
-        if (pRawDevicePtr == m_ppDeviceKernels[i]->GetDevice().GetPtr())
+        if ( (NULL!=m_ppDeviceKernels[i]) && (pDevice == m_ppDeviceKernels[i]->GetDevice().GetPtr()) )
         {
             return m_ppDeviceKernels[i];
         }
     }
 
+    // If not found, need to look into the program, maybe was built on "parent" device
+    cl_int relatedDeviceObjId = 0;
+    const cl_device_id devId = (const cl_device_id)pDevice->GetHandle();
+    // Get the object id of the device that I'm inherit its binary
+    bool isFound = m_pProgram->GetMyRelatedProgramDeviceIDInternal(devId, &relatedDeviceObjId);
+    if (isFound)
+    {
+        for (size_t i = 0; i < m_szAssociatedDevices; ++i)
+        {
+            if (NULL != m_ppDeviceKernels[i] && relatedDeviceObjId == m_ppDeviceKernels[i]->GetDeviceId())
+            {
+                return m_ppDeviceKernels[i];
+            }
+        }
+    }
     return NULL;
 }
 
-cl_dev_kernel Kernel::GetDeviceKernelId(const SharedPtr<FissionableDevice>& pDevice) const
+cl_dev_kernel Kernel::GetDeviceKernelId(const FissionableDevice* pDevice) const
 {
     const DeviceKernel* pDeviceKernel = GetDeviceKernel(pDevice);
     if (pDeviceKernel)
@@ -920,12 +937,6 @@ cl_dev_kernel Kernel::GetDeviceKernelId(const SharedPtr<FissionableDevice>& pDev
         return pDeviceKernel->GetId();
     }
     return CL_INVALID_HANDLE;
-}
-
-bool Kernel::IsValidExecutable(const ConstSharedPtr<FissionableDevice>& pDevice) const
-{
-    const DeviceKernel* pDeviceKernel = GetDeviceKernel(pDevice);
-    return NULL != pDeviceKernel;
 }
 
 /////////////////////////////////////////////////////////////////////

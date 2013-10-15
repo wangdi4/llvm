@@ -290,9 +290,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t GetTotalLocalSize() const { return m_totalLocalSize; }
         void*  GetArgsBlob()       const { return m_pArgsBlob; }
 
-        // Return true if there is a successfully built program executable available for device
-        bool IsValidExecutable(const ConstSharedPtr<FissionableDevice>& pDevice) const;
-
         // get pointer to the kernel argument object of the uiIndex. if no available returns NULL;
         const KernelArg* GetKernelArg(size_t uiIndex) const 
         { 
@@ -301,8 +298,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         }
 
         // Returns non zero handle.
-        cl_dev_kernel GetDeviceKernelId(const SharedPtr<FissionableDevice>& pDevice) const;
-        const DeviceKernel* GetDeviceKernel(const ConstSharedPtr<FissionableDevice>& pDevice) const;
+        cl_dev_kernel GetDeviceKernelId(const FissionableDevice* pDevice) const;
+        const DeviceKernel* GetDeviceKernel(const FissionableDevice* pDevice) const;
 
         // get kernel's name
         const char * GetName() const { return m_sKernelPrototype.m_psKernelName; }

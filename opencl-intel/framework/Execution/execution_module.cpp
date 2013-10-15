@@ -1939,61 +1939,15 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
     const SharedPtr<FissionableDevice>& pDevice = pCommandQueue->GetDefaultDevice();
     
-    // CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program
-    // executable available for device associated with command_queue.
-    if(!pKernel->IsValidExecutable(pDevice))
-    {
-        return CL_INVALID_PROGRAM_EXECUTABLE;
-    }
-    
-
     // CL_INVALID_KERNEL_ARGS if the kernel argument values have not been specified.
     if(!pKernel->IsValidKernelArgs())
     {
         return CL_INVALID_KERNEL_ARGS;
     }
 
-    //
-    // Query kernel info to validate input params
-    //
-    const DeviceKernel* pDeviceKernel = pKernel->GetDeviceKernel( pDevice );
-    assert( NULL != pDeviceKernel && "GetDeviceKernel( pDevice ) returned NULL" );
-    if (NULL == pDeviceKernel)
-    {
-        return CL_INVALID_KERNEL;
-    }
-    
-    size_t        szCompiledWorkGroupMaxSize = pDeviceKernel->GetKernelWorkGroupSize();
-    const size_t* szComplieWorkGroupSize     = pDeviceKernel->GetKernelCompileWorkGroupSize();
-    cl_uint ui=0;
-
-    // If the work-group size is not specified in kernel using the above attribute qualifier (0, 0,0) 
-    // is returned in szComplieWorkGroupSize
-    if( ! ( (0 == szComplieWorkGroupSize[0]) && 
-            (0 == szComplieWorkGroupSize[1]) &&
-            (0 == szComplieWorkGroupSize[2])))
-    {
-        // case kernel using the __attribute__((reqd_work_group_size(X, Y, Z))) qualifier in program source.
-        if (  NULL == cpszLocalWorkSize )
-        {
-            return CL_INVALID_WORK_GROUP_SIZE;
-        }
-        else
-        {
-            for( ui=0; ui<uiWorkDim; ui++)
-            {
-                if( szComplieWorkGroupSize[ui] != cpszLocalWorkSize[ui])
-                {
-                    return CL_INVALID_WORK_GROUP_SIZE;
-                }
-            }
-
-        }
-    }
-    
     if( NULL != cpszGlobalWorkSize && NULL != cpszLocalWorkSize )
     {
-        for( ui=0; ui<uiWorkDim; ui++)
+        for( unsigned int ui=0; ui<uiWorkDim; ui++)
         {
 #ifdef __OPENCL_2_0__
             if (cpszLocalWorkSize[ui] == 0)
@@ -2003,51 +1957,6 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 #endif			
             {
                 return CL_INVALID_WORK_GROUP_SIZE;
-            }
-        }
-    }
-
-    if( NULL != cpszLocalWorkSize )
-    {
-        size_t szDeviceMaxWorkGroupSize = pDevice->GetMaxWorkGroupSize();
-        size_t szWorkGroupSize = 1;
-        for( ui=0; ui<uiWorkDim; ui++)
-        {
-            szWorkGroupSize *= cpszLocalWorkSize[ui];
-        }
-        if( szWorkGroupSize > szDeviceMaxWorkGroupSize )
-        {
-            /* CL_INVALID_WORK_GROUP_SIZE if local_work_size is specified and the total number of work-items
-             * in the work-group computed as local_work_size[0] * local_work_size[work_dim - 1] is greater than
-             * the value specified by CL_DEVICE_MAX_WORK_GROUP_SIZE in table 4.3.
-             */
-            return CL_INVALID_WORK_GROUP_SIZE;
-        }
-
-        if (szWorkGroupSize > szCompiledWorkGroupMaxSize)
-        {
-            // according to spec this is not an invalid WG size error, but it will be manifested
-            // as out of resources.
-            return CL_OUT_OF_RESOURCES;
-        }
-
-        cl_uint uiMaxWorkItemDim = pDevice->GetMaxWorkItemDimensions();
-        if (uiMaxWorkItemDim == 0)
-        {
-            /* CL_INVALID_WORK_ITEM_SIZE if the number of work-items specified in any of
-             * local_work_size[0], local_work_size[work_dim - 1] is greater than the corresponding
-             * values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[0], CL_DEVICE_MAX_WORK_ITEM_SIZES[work_dim - 1].
-             */
-            return CL_INVALID_WORK_ITEM_SIZE;
-        }
-        
-        const size_t* pszMaxWorkItemSizes = pDevice->GetMaxWorkItemSizes();
-
-        for( ui =0; ui<uiWorkDim; ui++)
-        {
-            if( cpszLocalWorkSize[ui] > pszMaxWorkItemSizes[ui])
-            {
-                return CL_INVALID_WORK_ITEM_SIZE;
             }
         }
     }
@@ -2147,7 +2056,7 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
 
     // CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program
     // executable available for device associated with command_queue.
-    if(!pKernel->IsValidExecutable(pCommandQueue->GetDefaultDevice()) )
+    if( NULL==pKernel->GetDeviceKernel(pCommandQueue->GetDefaultDevice().GetPtr()) )
     {
         return CL_INVALID_PROGRAM_EXECUTABLE;
     }
@@ -2159,7 +2068,6 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
     }
 
     // TODO: Handle those error values, probably through the kernel object...
-    // CL_INVALID_PROGRAM_EXECUTABLE
     // CL_INVALID_WORK_GROUP_SIZE
 
     Command* pTaskCommand = new TaskCommand(pCommandQueue, m_pOclEntryPoints, pKernel); 

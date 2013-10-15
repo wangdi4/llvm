@@ -1559,6 +1559,16 @@ cl_err_code NDRangeKernelCommand::Init()
     // We have to use init to create a snapshot of the buffer kernels on enqueue
     // Thus, we also create and set the device command appropriately as much as we can.
 
+    // CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program
+    // executable available for device associated with command_queue.
+    m_pDeviceKernel = m_pKernel->GetDeviceKernel( m_pDevice.GetPtr() );
+    // CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program
+    // executable available for device associated with command_queue.
+    if (NULL == m_pDeviceKernel)
+    {
+        return CL_INVALID_PROGRAM_EXECUTABLE;
+    }
+
     // Create args snapshot
     const KernelArg* pArg    = NULL;
     size_t szArgCount        = m_pKernel->GetKernelArgsCount();
@@ -1569,34 +1579,111 @@ cl_err_code NDRangeKernelCommand::Init()
 
     cl_device_svm_capabilities svmCaps;
     bool svmSupported = GetDevice()->GetSVMCapabilities( &svmCaps );
-    if (svmSupported && m_pKernel->IsSvmFineGrainSystem() && !(svmCaps & CL_DEVICE_SVM_FINE_GRAIN_SYSTEM))
+    if ( svmSupported )
     {
-        return CL_INVALID_OPERATION;
-    }
+        bool bFineGrain = m_pKernel->IsSvmFineGrainSystem();
+        if ( bFineGrain && !(svmCaps & CL_DEVICE_SVM_FINE_GRAIN_SYSTEM) )
+            return CL_INVALID_OPERATION;
 
-    // non-argument SVM buffers
-    if (!m_pKernel->IsSvmFineGrainSystem())
-    {
-        std::vector<SharedPtr<SVMBuffer> > nonArgSvmBufs;
-        m_pKernel->GetNonArgSvmBuffers(nonArgSvmBufs);
-        if (nonArgSvmBufs.size() > 0)
+        if ( !bFineGrain )
         {
-            m_nonArgSvmBuffersVec.resize(nonArgSvmBufs.size());
-            for (size_t i = 0; i < nonArgSvmBufs.size(); i++)
+            std::vector<SharedPtr<SVMBuffer> > nonArgSvmBufs;
+            m_pKernel->GetNonArgSvmBuffers(nonArgSvmBufs);
+            if (nonArgSvmBufs.size() > 0)
             {
-                m_MemOclObjects.push_back(MemoryObjectArg(nonArgSvmBufs[i], MemoryObject::READ_WRITE));
-                res = GetMemObjectDescriptor(nonArgSvmBufs[i], &m_nonArgSvmBuffersVec[i]);
-                if (CL_FAILED(res))
+                m_nonArgSvmBuffersVec.resize(nonArgSvmBufs.size());
+                for (size_t i = 0; i < nonArgSvmBufs.size(); i++)
                 {
-                    return res;
+                    m_MemOclObjects.push_back(MemoryObjectArg(nonArgSvmBufs[i], MemoryObject::READ_WRITE));
+                    res = GetMemObjectDescriptor(nonArgSvmBufs[i], &m_nonArgSvmBuffersVec[i]);
+                    if (CL_FAILED(res))
+                    {
+                        return res;
+                    }
                 }
             }
         }
     }
+	
+    //
+    // Query kernel info to validate input params
+    //
+    size_t        szCompiledWorkGroupMaxSize = m_pDeviceKernel->GetKernelWorkGroupSize();
+    const size_t* szComplieWorkGroupSize     = m_pDeviceKernel->GetKernelCompileWorkGroupSize();
 
-    m_pDeviceKernel = m_pKernel->GetDeviceKernel(m_pDevice);
-    assert( (NULL != m_pDeviceKernel) && "Cannot find Device-specific kernel object for given kernel?");
-    
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // TODO: !!!!! Optimize this code !!!!!!!!
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // If the work-group size is not specified in kernel using the above attribute qualifier (0, 0,0)
+    // is returned in szComplieWorkGroupSize
+    if( ! ( (0 == szComplieWorkGroupSize[0]) &&
+            (0 == szComplieWorkGroupSize[1]) &&
+            (0 == szComplieWorkGroupSize[2])))
+    {
+        // case kernel using the __attribute__((reqd_work_group_size(X, Y, Z))) qualifier in program source.
+        if (  NULL == m_cpszLocalWorkSize )
+        {
+            return CL_INVALID_WORK_GROUP_SIZE;
+        }
+        else
+        {
+            for( unsigned int ui=0; ui<m_uiWorkDim; ui++)
+            {
+                if( szComplieWorkGroupSize[ui] != m_cpszLocalWorkSize[ui])
+                {
+                    return CL_INVALID_WORK_GROUP_SIZE;
+                }
+            }
+
+        }
+    }
+
+
+    if( NULL != m_cpszLocalWorkSize )
+    {
+        size_t szDeviceMaxWorkGroupSize = m_pDevice->GetMaxWorkGroupSize();
+        size_t szWorkGroupSize = 1;
+        for( unsigned int ui=0; ui<m_uiWorkDim; ui++)
+        {
+            szWorkGroupSize *= m_cpszLocalWorkSize[ui];
+        }
+        if( szWorkGroupSize > szDeviceMaxWorkGroupSize )
+        {
+            /* CL_INVALID_WORK_GROUP_SIZE if local_work_size is specified and the total number of work-items
+             * in the work-group computed as local_work_size[0] * local_work_size[work_dim - 1] is greater than
+             * the value specified by CL_DEVICE_MAX_WORK_GROUP_SIZE in table 4.3.
+             */
+            return CL_INVALID_WORK_GROUP_SIZE;
+        }
+
+        if (szWorkGroupSize > szCompiledWorkGroupMaxSize)
+        {
+            // according to spec this is not an invalid WG size error, but it will be manifested
+            // as out of resources.
+            return CL_OUT_OF_RESOURCES;
+        }
+
+        cl_uint uiMaxWorkItemDim = m_pDevice->GetMaxWorkItemDimensions();
+        if (uiMaxWorkItemDim == 0)
+        {
+            /* CL_INVALID_WORK_ITEM_SIZE if the number of work-items specified in any of
+             * local_work_size[0], local_work_size[work_dim - 1] is greater than the corresponding
+             * values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[0], CL_DEVICE_MAX_WORK_ITEM_SIZES[work_dim - 1].
+             */
+            return CL_INVALID_WORK_ITEM_SIZE;
+        }
+
+        const size_t* pszMaxWorkItemSizes = m_pDevice->GetMaxWorkItemSizes();
+
+        for( unsigned int ui =0; ui<m_uiWorkDim; ui++)
+        {
+            if( m_cpszLocalWorkSize[ui] > pszMaxWorkItemSizes[ui])
+            {
+                return CL_INVALID_WORK_ITEM_SIZE;
+            }
+        }
+    }
+
     cl_ulong stImplicitSize = m_pDeviceKernel->GetKernelLocalMemSize();
     stImplicitSize += stTotalLocalSize;
     if ( stImplicitSize > m_pDevice->GetMaxLocalMemorySize() )
