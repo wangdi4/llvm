@@ -75,8 +75,8 @@ class FakeExtract : public FakeVectorOp {
     attrs.push_back(Attribute::NoUnwind);
 #else
     SmallVector<Attribute::AttrKind, 4> attrs;
-    attrs.push_back(Attribute::get(insertBefore->getContext(), Attribute::ReadNone));
-    attrs.push_back(Attribute::get(insertBefore->getContext(), Attribute::NoUnwind));
+    attrs.push_back(Attribute::ReadNone);
+    attrs.push_back(Attribute::NoUnwind);
 #endif
     return VectorizerUtils::createFunctionCall(insertBefore->getParent()->getParent()->getParent(),
     Mangler::getFakeExtractName(), vec->getType()->getScalarType(), args, attrs, insertBefore);
@@ -118,8 +118,8 @@ class FakeInsert : public FakeVectorOp {
     attrs.push_back(Attribute::NoUnwind);
 #else
     SmallVector<Attribute::AttrKind, 4> attrs;
-    attrs.push_back(Attributes::get(insertBefore->getContext(), Attributes::ReadNone));
-    attrs.push_back(Attributes::get(insertBefore->getContext(), Attributes::NoUnwind));
+    attrs.push_back(Attribute::ReadNone);
+    attrs.push_back(Attribute::NoUnwind);
 #endif
     return VectorizerUtils::createFunctionCall(insertBefore->getParent()->getParent()->getParent(),
       Mangler::getFakeInsertName(), vec->getType(), args, attrs, insertBefore);

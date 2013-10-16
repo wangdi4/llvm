@@ -15,6 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/ADT/ValueMap.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Attributes.h"
+#include "llvm/version.h"
 
 extern "C"{
   /// @brief Creates new AddImplicitArgs module pass
@@ -170,7 +171,13 @@ namespace intel{
     }
 
     // Set implict arguments' names
+#if LLVM_VERSION == 3200
     Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attributes::NoAlias);
+#elif LLVM_VERSION == 3425
+    Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attribute::NoAlias);
+#else
+    AttributeSet NoAlias = AttributeSet::get(*m_pLLVMContext, 0, Attribute::NoAlias);
+#endif
     DestI->setName("pLocalMem");
     Argument *pLocalMem = DestI;
     pLocalMem->addAttr(NoAlias);

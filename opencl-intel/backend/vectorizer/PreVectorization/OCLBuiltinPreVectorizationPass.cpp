@@ -249,8 +249,8 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
   attrs.push_back(Attribute::NoUnwind);
 #else
   SmallVector<Attribute::AttrKind, 4> attrs;
-  attrs.push_back(Attributes::get(CI->getContext(), Attributes::ReadNone));
-  attrs.push_back(Attributes::get(CI->getContext(), Attributes::NoUnwind));
+  attrs.push_back(Attribute::ReadNone);
+  attrs.push_back(Attribute::NoUnwind);
 #endif
   CallInst *newCall = VectorizerUtils::createFunctionCall(m_curModule, newFuncName, retType, args, attrs, CI);
   V_ASSERT(newCall && "adding function failed");
