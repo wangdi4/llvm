@@ -13,7 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
 #include "llvm/Support/InstIterator.h"
-#include "llvm/version.h"
+#include "llvm/Version.h"
 
 extern "C" {
   void* createOclFunctionAttrsPass() {
