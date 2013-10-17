@@ -154,12 +154,7 @@ static void TestSetKernelArgSVMPointer(cl_context context, cl_device_id device, 
 	if (iExpected != *piResult)
 	{
 		throw exception();
-	}
-
-    // wrong API check
-
-    iRet = clSetKernelArgSVMPointer(kernel, 0, NULL);
-    CheckException(L"clSetKernelArgSVMPointer", CL_INVALID_ARG_VALUE, iRet);
+	}    
 
 	iRet = clReleaseKernel(kernel);
 	CheckException(L"clReleaseKernel", CL_SUCCESS, iRet);
@@ -381,7 +376,7 @@ bool clSvmTest()
         cl_device_svm_capabilities svmCaps;
         iRet = clGetDeviceInfo(device, CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, NULL);
         CheckException(L"clGetDeviceInfo", CL_SUCCESS, iRet);
-        CheckException(L"clGetDeviceInfo", (cl_device_svm_capabilities)(CL_DEVICE_SVM_CAPABILITIES | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS), svmCaps);
+        CheckException(L"clGetDeviceInfo", (cl_device_svm_capabilities)(CL_DEVICE_SVM_COARSE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS), svmCaps);
 
 	}
 	catch (const std::exception&)

@@ -1001,6 +1001,19 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             return CL_DEV_SUCCESS;
         }
+        case( CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE):
+        {
+            *pinternalRetunedValueSize = sizeof(size_t);
+            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            if (NULL != paramVal)
+            {
+                *(size_t*)paramVal = MAX_MEM_ALLOC_SIZE;
+            }
+            return CL_DEV_SUCCESS;
+        }
         case( CL_DEVICE_MAX_MEM_ALLOC_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(cl_ulong);
@@ -1366,7 +1379,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             if (NULL != paramVal)
             {
-                *(cl_device_svm_capabilities*)paramVal = CL_DEVICE_SVM_CAPABILITIES | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS;
+                *(cl_device_svm_capabilities*)paramVal = CL_DEVICE_SVM_COARSE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS;
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS:

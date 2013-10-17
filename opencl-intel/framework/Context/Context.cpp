@@ -1518,13 +1518,6 @@ cl_err_code Context::CheckSupportedImageFormatByMemFlags(cl_mem_flags clFlags, c
 
 cl_int Context::SetKernelArgSVMPointer(const SharedPtr<Kernel> pKernel, cl_uint uiArgIndex, const void* pArgValue)
 {
-	SharedPtr<SVMBuffer> pSvmBuf = GetSVMBufferContainingAddr(const_cast<void*>(pArgValue));
-	// It's not stated in the spec, but I believe we can consider NULL pointer as a non-valid pointer. We also currently don't support system pointers.
-	if (NULL == pArgValue)
-	{		
-		return CL_INVALID_ARG_VALUE;
-	}
-
 	cl_err_code err = pKernel->SetKernelArg(uiArgIndex, sizeof(void*), pArgValue, true);
 	return CL_ERR_OUT(err);
 }

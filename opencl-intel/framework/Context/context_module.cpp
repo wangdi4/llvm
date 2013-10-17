@@ -1303,19 +1303,20 @@ cl_int ContextModule::SetKernelArg(cl_kernel clKernel,
 
 cl_int ContextModule::SetKernelArgSVMPointer(cl_kernel clKernel, cl_uint uiArgIndex, const void* pArgValue)
 {
-	SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).DynamicCast<Kernel>();
+	SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).StaticCast<Kernel>();
 	if (NULL == pKernel)
 	{
 		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL"), clKernel, &pKernel);
 		return CL_INVALID_KERNEL;
 	}
 	
-	return pKernel->GetContext()->SetKernelArgSVMPointer(pKernel, uiArgIndex, pArgValue);
+    cl_err_code err = pKernel->SetKernelArg(uiArgIndex, sizeof(void*), pArgValue, true);
+	return CL_ERR_OUT(err);
 }
 
 cl_int ContextModule::SetKernelExecInfo(cl_kernel clKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue)
 {
-	SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).DynamicCast<Kernel>();
+	SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)clKernel).StaticCast<Kernel>();
 	if (NULL == pKernel)
 	{
 		LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned NULL"), clKernel, &pKernel);
