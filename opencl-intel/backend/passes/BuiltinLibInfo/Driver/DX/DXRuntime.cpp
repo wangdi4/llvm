@@ -44,15 +44,19 @@ bool DXRuntime::isSyncFunc(const std::string &func_name) const {
   return false;
 }
 
-bool DXRuntime::hasNoSideEffect(const std::string &func_name) const{
+bool DXRuntime::isFakedFunction(StringRef fname) const {
+   return false;
+}
+
+bool DXRuntime::hasNoSideEffect(const std::string &func_name) const {
   return true;
 }
 
-bool DXRuntime::isExpensiveCall(const std::string &func_name) const{
+bool DXRuntime::isExpensiveCall(const std::string &func_name) const {
   return false;
 }
 
-bool DXRuntime::isMaskedFunctionCall(const std::string &func_name) const{
+bool DXRuntime::isMaskedFunctionCall(const std::string &func_name) const {
   return func_name.find("dx_soa") == 0;
 }
 
@@ -61,13 +65,7 @@ bool DXRuntime::isMaskedFunctionCall(const std::string &func_name) const{
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  void* createDXRuntimeSupport(const Module *runtimeModule,
-    unsigned packetizationWidth)
-  {
-    V_ASSERT(NULL == intel::RuntimeServices::get() && "Trying to re-create singleton!");
-    intel::DXRuntime * rt =
-      new intel::DXRuntime(runtimeModule, packetizationWidth);
-    intel::RuntimeServices::set(rt);
-    return (void*)(rt);
+  intel::RuntimeServices* createDXRuntimeSupport(const Module *runtimeModule) {
+    return new intel::DXRuntime(runtimeModule, 4);
   }
 }

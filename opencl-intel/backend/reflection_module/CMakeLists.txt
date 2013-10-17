@@ -64,6 +64,7 @@ set(BUILT_IN_LIST_H
 endif(NOT APPLE)
 
 set(TARGET_SOURCE_FILES
+  Mangler.cpp
   BuiltinKeeper.cpp
   VersionStrategy.cpp
   BuiltinMap.cpp
@@ -71,6 +72,7 @@ set(TARGET_SOURCE_FILES
 )
 
 set(TARGET_INCLUDE_FILES
+  Mangler.h
   BuiltinKeeper.h
   CustomVersionMaping.h
   VersionStrategy.h
@@ -88,6 +90,7 @@ add_library(
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
+  ${CMAKE_SOURCE_DIR}/backend/utils
 )
 
 if(NOT APPLE)

@@ -63,11 +63,7 @@ namespace intel {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  void* createVolcanoOpenclRuntimeSupport(const Module *runtimeModule) {
-    V_ASSERT(NULL == intel::RuntimeServices::get() && "Trying to re-create singleton!");
-    intel::OpenclRuntime * rt =
-      new intel::VolcanoOpenclRuntime(runtimeModule);
-    intel::RuntimeServices::set(rt);
-    return (void*)(rt);
+  intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(const Module *runtimeModule) {
+    return new intel::VolcanoOpenclRuntime(runtimeModule);
   }
 }

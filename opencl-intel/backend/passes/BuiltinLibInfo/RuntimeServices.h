@@ -26,12 +26,6 @@ public:
   RuntimeServices() {}
   virtual ~RuntimeServices() {}
 
-  /// @brief Set the singleton runtime services object
-  static void set(RuntimeServices *obj);
-
-  /// @brief Get pointer to the singleton runtime services object
-  static RuntimeServices *get();
-
   /// @brief Find a function in the runtime's built-in functions
   /// @param Name Function name to look for
   virtual Function *findInRuntimeModule(StringRef Name) const = 0;
@@ -84,7 +78,7 @@ public:
   /// @brief Check if function a 'faked function', (i.e., if the given name is
   //  has a definition in the builtin-runtime module, or is it just a
   //  synthesized name for internal usage.
-  virtual bool isFakedFunction(StringRef)const;
+  virtual bool isFakedFunction(StringRef) const = 0;
 
   /// @brief returns true iff whenever the there is vector argument to 
   ///        a vectorizeable scalar built-in it should be spread for 
@@ -92,8 +86,6 @@ public:
   ///        foo(<2 float> %a) --> foo4(<4 x float> %a.x, <4 xfloat> %a.y)
   virtual bool alwaysSpreadVectorParams() const = 0;
 
-private:
-  static RuntimeServices *m_singleton;
 };
 
 } // Namespace

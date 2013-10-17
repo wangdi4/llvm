@@ -23,6 +23,7 @@ char AppleWIDepPrePacketizationPass::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(AppleWIDepPrePacketizationPass, "AppleWIDepPrePack", "handle pre packetization wi-dep special builtins for apple envioronment", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(AppleWIDepPrePacketizationPass, "AppleWIDepPrePack", "handle pre packetization wi-dep special builtins for apple envioronment", false, false)
 
 AppleWIDepPrePacketizationPass::AppleWIDepPrePacketizationPass():
@@ -36,7 +37,7 @@ AppleWIDepPrePacketizationPass::~AppleWIDepPrePacketizationPass() {
 bool AppleWIDepPrePacketizationPass::runOnFunction(Function& F) {
   bool changed = false;
   m_curModule = F.getParent();
-  m_appleRuntimeServices = (OpenclRuntime*) RuntimeServices::get();
+  m_appleRuntimeServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
   for ( inst_iterator ii = inst_begin(&F), ie = inst_end(&F); ii != ie; ++ii ) {
     if (CallInst *CI = dyn_cast<CallInst>(&*ii))  {
       std::string funcName = CI->getCalledFunction()->getName().str();

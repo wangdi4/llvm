@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __INSTCOUNTER__H__
 #define __INSTCOUNTER__H__
 
-#include "RuntimeServices.h"
+#include "BuiltinLibInfo.h"
 #include "PostDominanceFrontier.h"
 #include "TargetArch.h"
 
@@ -43,6 +43,7 @@ namespace intel {
       AU.addRequired<DominatorTree>();
       AU.addRequired<PostDominatorTree>();
       AU.addRequired<PostDominanceFrontier>();
+      AU.addRequired<BuiltinLibInfo>();
       AU.setPreservesAll();
     }
 
@@ -203,6 +204,7 @@ public:
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<DominatorTree>();
+      AU.addRequired<BuiltinLibInfo>();
     }
 
     // Returns false is the code is essentially non-vectorizeable.
@@ -220,7 +222,7 @@ public:
   public:
     // Checks whether we can (as opposed to should) vectorize
     // this function.
-    static bool canVectorize(Function &F, DominatorTree &DT);
+    static bool canVectorize(Function &F, DominatorTree &DT, RuntimeServices* services);
 
   private:
     // Functions imported as is from old heuristic.
@@ -229,7 +231,7 @@ public:
     static bool isReducibleControlFlow(Function &F, DominatorTree &DT);
 
     // Check if the function has variable access to get_global/loval_id(X)
-    static bool hasVariableGetTIDAccess(Function &F);
+    static bool hasVariableGetTIDAccess(Function &F, RuntimeServices* services);
 
     // Checks if the incoming program has illegal types
     // An illegal type in this context is iX, where X > 64.
@@ -249,7 +251,7 @@ public:
     
     // Checks if the function directly calls stream read/write image functions.
     // We never want to vectorize that, as it doesn't make any sense.
-    static bool hasDirectStreamCalls(Function &F);
+    static bool hasDirectStreamCalls(Function &F, RuntimeServices* services);
   };
 }
 

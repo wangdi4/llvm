@@ -43,6 +43,7 @@ set (PASSES_LIBS
     LLVMBarrier
     AddImplicitArgs
     BuiltInFuncImport
+    BuiltinLibInfo
     ClangCompatFixer
     InstToFuncCall
     GenericAddressResolution

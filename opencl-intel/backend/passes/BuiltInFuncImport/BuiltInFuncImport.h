@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __BUILT_IN_FUNCTION_IMPORT_H__
 #define __BUILT_IN_FUNCTION_IMPORT_H__
 
+#include "BuiltinLibInfo.h"
 #include <llvm/Pass.h>
 #include <llvm/Constants.h>
 #include <llvm/Transforms/Utils/ValueMapper.h>
@@ -36,11 +37,7 @@ namespace intel {
     static char ID;
 
     /// @brief Constructor
-    BIImport(Module* pSourceModule = NULL) : ModulePass(ID),
-      m_pSourceModule(pSourceModule), m_ownerOfSourceModule(false) {}
-
-    /// @brief Destructor
-    ~BIImport();
+    BIImport() : ModulePass(ID) {}
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
@@ -51,6 +48,10 @@ namespace intel {
     ///        Find all builtins to import, and import them along with callees and globals.
     /// @param M The destination module.
     bool runOnModule(Module &M);
+
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<BuiltinLibInfo>();
+    }
 
   protected:
     /// @brief First find all "root" functions that are only declared in
@@ -125,9 +126,6 @@ namespace intel {
 
     /// Source module - conatians the source function definition to import
     Module* m_pSourceModule;
-    /// Indecates if source module is owned by this Built-in import pass or not
-    /// If it is owned by it, then it should be deleted at destructor
-    bool m_ownerOfSourceModule;
     /// Destination module - contains function declarations to resolve from RT module
     Module* m_pModule;
 

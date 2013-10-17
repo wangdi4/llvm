@@ -67,6 +67,7 @@ char PacketizeFunction::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(PacketizeFunction, "packetize", "packetize functions", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
 
 PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(ID)
@@ -80,8 +81,7 @@ PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(I
   m_cannotHandleCtr = 0;
   m_allocaCtr = 0;
   UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
-  m_rtServices = RuntimeServices::get();
-  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+  m_rtServices = NULL;
 
   // VCM buffer allocation
   m_VCMAllocationArray = new VCMEntry[ESTIMATED_INST_NUM];
@@ -101,6 +101,9 @@ PacketizeFunction::~PacketizeFunction()
 
 bool PacketizeFunction::runOnFunction(Function &F)
 {
+  m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
+  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+
   m_currFunc = &F;
   m_moduleContext = &(m_currFunc->getContext());
   m_packetWidth = m_rtServices->getPacketizationWidth();

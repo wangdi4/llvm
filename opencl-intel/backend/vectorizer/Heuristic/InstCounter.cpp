@@ -34,12 +34,14 @@ OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominanceFrontier)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(WeightedInstCounter, "winstcounter", "Weighted Instruction Counter", false, false)
 
 char VectorizationPossibilityPass::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(VectorizationPossibilityPass, "vectorpossible", "Check whether vectorization is possible", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(VectorizationPossibilityPass, "vectorpossible", "Check whether vectorization is possible", false, false)
 
 
@@ -312,7 +314,7 @@ Type* WeightedInstCounter::estimateDominantType(Function &F, DenseMap<Loop*, int
 int WeightedInstCounter::estimateCall(CallInst *Call)
 {
     // TID generators are extremely common and very cheap.
-    RuntimeServices* services = RuntimeServices::get();
+    RuntimeServices* services = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
     bool err = false;
     unsigned dim = 0;
     if(services->isTIDGenerator(Call, &err, &dim))
@@ -710,7 +712,7 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
 
   DenseSet<Instruction*> Visited;
 
-  RuntimeServices* services = RuntimeServices::get();
+  RuntimeServices* services = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   assert(services && "Unable to get runtime services");
 
   // The idea is that some access patterns are good for vectorization and some are bad.
@@ -890,14 +892,15 @@ void WeightedInstCounter::estimateDataDependence(Function &F,
 bool VectorizationPossibilityPass::runOnFunction(Function & F)
 {
   DominatorTree &DT = getAnalysis<DominatorTree>();
-  m_canVectorize = CanVectorizeImpl::canVectorize(F, DT);
+  RuntimeServices* services = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
+  m_canVectorize = CanVectorizeImpl::canVectorize(F, DT, services);
   return false;
 }
 
 
-bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT)
+bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT, RuntimeServices* services)
 {
-  if (hasVariableGetTIDAccess(F)) {
+  if (hasVariableGetTIDAccess(F, services)) {
     dbgPrint() << "Variable TID access, can not vectorize\n";
     return false;
   }
@@ -917,7 +920,7 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT)
     return false;
   }
 
-  if (hasDirectStreamCalls(F)) {
+  if (hasDirectStreamCalls(F, services)) {
     dbgPrint() << "Has direct calls to stream functions, can not vectorize\n";
     return false;
   }
@@ -925,8 +928,7 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT)
   return true;
 }
 
-bool CanVectorizeImpl::hasVariableGetTIDAccess(Function &F) {
-  RuntimeServices* services = RuntimeServices::get();
+bool CanVectorizeImpl::hasVariableGetTIDAccess(Function &F, RuntimeServices* services) {
   assert(services && "Unable to get runtime services");
   for (Function::iterator bbit = F.begin(), bbe=F.end(); bbit != bbe; ++bbit) {
     for (BasicBlock::iterator it = bbit->begin(), e=bbit->end(); it!=e;++it) {
@@ -1068,13 +1070,13 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
   return unsupportedFunctions.count(&F);
 }
 
-bool CanVectorizeImpl::hasDirectStreamCalls(Function &F) {
+bool CanVectorizeImpl::hasDirectStreamCalls(Function &F, RuntimeServices* services) {
   Module *pM = F.getParent();
   bool isPointer64 = (pM->getPointerSize() == Module::Pointer64);
   std::set<Function *> streamFunctions;
   std::set<Function *> unsupportedFunctions;
 
-  Function* readStreamFunc = ((OpenclRuntime*)RuntimeServices::get())->getReadStream(isPointer64);
+  Function* readStreamFunc = ((OpenclRuntime*)services)->getReadStream(isPointer64);
   if (readStreamFunc) {
     // This returns the read stream function *from the runtime module*.
     // We need a function in *this* module with the same name.
@@ -1083,7 +1085,7 @@ bool CanVectorizeImpl::hasDirectStreamCalls(Function &F) {
       streamFunctions.insert(readStreamFunc);
   }
 
-  Function* writeStreamFunc = ((OpenclRuntime*)RuntimeServices::get())->getWriteStream(isPointer64);
+  Function* writeStreamFunc = ((OpenclRuntime*)services)->getWriteStream(isPointer64);
   if (writeStreamFunc) {
     // This returns the write stream function *from the runtime module*.
     // We need a function in *this* module with the same name.

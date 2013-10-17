@@ -7,7 +7,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "AppleOCLRuntime.h"
 #include "Mangler.h"
 #include "Logger.h"
-#include "SpecialCaseFuncs.h"
 
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -228,17 +227,7 @@ Function *AppleOpenclRuntime::getReadStream(bool isPointer64Bit) const {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-    void* createAppleOpenclRuntimeSupport(const Module *runtimeModule) {
-    V_ASSERT(NULL == intel::RuntimeServices::get() && "Trying to re-create singleton!");
-    intel::AppleOpenclRuntime * rt =
-      new intel::AppleOpenclRuntime(runtimeModule);
-    intel::RuntimeServices::set(rt);
-    return (void*)(rt);
-  }
-
-  void* destroyAppleOpenclRuntimeSupport() {
-    delete intel::RuntimeServices::get();
-    intel::RuntimeServices::set(0);
-    return 0;
+  intel::RuntimeServices* createAppleOpenclRuntimeSupport(const Module *runtimeModule) {
+    return new intel::AppleOpenclRuntime(runtimeModule);
   }
 }

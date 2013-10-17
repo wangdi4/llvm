@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __SPECIAL_CASE_BUILTIN_RESOLVER_H__
 #define __SPECIAL_CASE_BUILTIN_RESOLVER_H__
 
+#include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
 #include "Logger.h"
 #include "llvm/Pass.h"
@@ -53,6 +54,11 @@ public:
   }
 
   virtual bool runOnModule(Module &M);
+
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.setPreservesCFG();
+    AU.addRequired<BuiltinLibInfo>();
+  }
 
 private:
 

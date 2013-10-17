@@ -27,7 +27,7 @@ File Name:  ProfilingInfoPass.cpp
 using namespace llvm;
 using namespace std;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend  {
+namespace intel {
 
 
 // Cleans up debug info in the module to be suitable for profiling
@@ -52,13 +52,6 @@ private:
 };
 
 char ProfilingInfoPass::ID = 0;
-
-
-ModulePass* createProfilingInfoPass()
-{
-    return new ProfilingInfoPass();
-}
-
 
 bool ProfilingInfoPass::runOnModule(Module& M)
 {
@@ -100,4 +93,10 @@ void ProfilingInfoPass::runOnUserFunction(Function* pFunc)
     }
 }
 
-}}}
+} // namespace intel {
+
+extern "C"{
+  ModulePass* createProfilingInfoPass() {
+    return new intel::ProfilingInfoPass();
+  }
+}

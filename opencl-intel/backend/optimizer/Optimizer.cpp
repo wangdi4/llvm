@@ -55,7 +55,7 @@ llvm::Pass *createShuffleCallToInstPass();
 llvm::Pass *createRelaxedPass();
 llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createKernelAnalysisPass();
-llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule);
+llvm::ModulePass *createBuiltInImportPass();
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
@@ -63,20 +63,21 @@ llvm::ModulePass *createModuleCleanupPass();
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
 llvm::ModulePass *createPrepareKernelArgsPass();
+llvm::Pass *createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
+llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions);
+llvm::ModulePass *createKernelInfoWrapperPass();
 
-void* destroyOpenclRuntimeSupport();
 #ifdef __APPLE__
-void* createAppleOpenclRuntimeSupport(const llvm::Module *runtimeModule);
 llvm::Pass *createClangCompatFixerPass();
 #else
 llvm::ModulePass *createSpirMaterializer();
 void materializeSpirDataLayout(llvm::Module&);
-void* createVolcanoOpenclRuntimeSupport(const llvm::Module *runtimeModule);
 llvm::FunctionPass *createPrefetchPassLevel(int level);
 llvm::ModulePass * createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string dumpDir);
-llvm::ModulePass* createDebugInfoPass(llvm::LLVMContext* llvm_context, const llvm::Module* pRTModule);
+llvm::ModulePass* createDebugInfoPass();
 llvm::ModulePass *createReduceAlignmentPass();
+llvm::ModulePass* createProfilingInfoPass();
 #endif
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectFuncPtrCalls();
@@ -85,14 +86,6 @@ llvm::Pass *createResolveBlockToStaticCallPass();
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-#ifndef __APPLE__
-llvm::ModulePass* createProfilingInfoPass();
-#endif //#ifndef __APPLE__
-
-llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
-                                                       const std::vector<llvm::Module*>& runtimeModules );
-
-llvm::ModulePass *createKernelInfoWrapperPass();
 
   /// createStandardModulePasses - Add the standard module passes.  This is
   /// expected to be run after the standard function passes.
@@ -211,7 +204,6 @@ llvm::ModulePass *createKernelInfoWrapperPass();
 
 Optimizer::~Optimizer()
 {
-  destroyOpenclRuntimeSupport();
 }
 
 Optimizer::Optimizer( llvm::Module* pModule,
@@ -223,11 +215,6 @@ Optimizer::Optimizer( llvm::Module* pModule,
 {
   using namespace intel;
 
-#ifndef __APPLE__
-  createVolcanoOpenclRuntimeSupport(pRtlModule);
-#else
-  createAppleOpenclRuntimeSupport(pRtlModule);
-#endif
   bool UnitAtATime = true;
   bool DisableSimplifyLibCalls = true;
   DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
@@ -262,6 +249,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   llvm::DataLayout *pDL2 = new llvm::DataLayout(pModule);
   llvm::DataLayout *pDL3 = new llvm::DataLayout(pModule);
 #endif
+  m_modulePasses.add(createBuiltinLibInfoPass(pRtlModule, ""));
 
 // Adding function passes.
   m_funcStandardLLVMPasses.add(pDL1);
@@ -421,7 +409,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
   //
   if (debugType == Simulator) {
     // DebugInfo pass must run before Barrier pass when debugging with simulator
-    m_modulePasses.add(createDebugInfoPass(&pModule->getContext(), pRtlModule));
+    m_modulePasses.add(createDebugInfoPass());
   } else if (isProfiling) {
     m_modulePasses.add(createProfilingInfoPass());
   }
@@ -485,14 +473,11 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #endif
 
   // This pass checks if the module uses an undefined function or not
-  // TODO : need to add the image library also
-  // assumption: should run after WI function inlining
-  std::vector<llvm::Module*> runtimeModules;
-  if(pRtlModule != NULL) runtimeModules.push_back(pRtlModule);
-  m_modulePasses.add(createUndifinedExternalFunctionsPass(m_undefinedExternalFunctions, runtimeModules));
+  // assumption: should run after WI function resolving
+  m_modulePasses.add(createUndifinedExternalFunctionsPass(m_undefinedExternalFunctions));
 
   if(pRtlModule != NULL) {
-    m_modulePasses.add((llvm::ModulePass*)createBuiltInImportPass(pRtlModule)); // Inline BI function
+    m_modulePasses.add(createBuiltInImportPass()); // Inline BI function
     //Need to convert shuffle calls to shuffle IR before running inline pass on built-ins
     m_modulePasses.add(createShuffleCallToInstPass());
   }

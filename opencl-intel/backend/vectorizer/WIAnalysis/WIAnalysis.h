@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __WIANALYSIS_H_
 #define __WIANALYSIS_H_
 
-#include "RuntimeServices.h"
+#include "BuiltinLibInfo.h"
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 
@@ -170,6 +170,7 @@ private:
       AU.addRequired<DominatorTree>();
       AU.addRequired<PostDominatorTree>();
       AU.addRequired<LoopInfo>();
+      AU.addRequired<BuiltinLibInfo>();
     }
 
 private:

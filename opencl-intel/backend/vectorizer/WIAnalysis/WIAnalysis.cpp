@@ -23,6 +23,7 @@ char WIAnalysis::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
 
 
@@ -93,14 +94,15 @@ gep_conversion[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
   /* RND */  {RND, RND, RND, RND, RND}
 };
 
-WIAnalysis::WIAnalysis() : FunctionPass(ID) {
+WIAnalysis::WIAnalysis() : FunctionPass(ID), m_rtServices(NULL) {
     initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
-    m_rtServices = RuntimeServices::get();
-    V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 }
 
 
 bool WIAnalysis::runOnFunction(Function &F) {
+
+  m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
+   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
   if (! m_rtServices->orderedWI()) {
     return false;

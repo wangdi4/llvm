@@ -343,6 +343,7 @@ set( BACKEND_PASSES
     AddImplicitArgs
     OclFunctionAttrs
     BuiltInFuncImport
+    BuiltinLibInfo
     DebugInfoPass
     InstToFuncCall
     GenericAddressResolution

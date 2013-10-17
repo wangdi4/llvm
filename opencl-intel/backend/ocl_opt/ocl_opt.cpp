@@ -15,13 +15,13 @@ int mainImp(int argc, char **argv);
 using namespace llvm;
 
 static cl::opt<std::string>
-VectorizerRuntimeLib("runtimelib",
-                  cl::desc("Runtime declarations (bitCode) library, to be used by vectorizer"),
+RuntimeLib("runtimelib",
+                  cl::desc("Runtime declarations (bitCode) library"),
                   cl::value_desc("filename"), cl::init(""));
 
 static cl::opt<std::string>
-VectorizerServices("runtime",
-                  cl::desc("Runtime services type (ocl/dx)"),
+RuntimeServices("runtime",
+                  cl::desc("Runtime services type (ocl/dx/apple)"),
                   cl::value_desc("runtime_type"), cl::init("ocl"));
 
 static cl::opt<bool>
@@ -29,20 +29,7 @@ MicPasses("mic-passes",
                  cl::desc("Include optimization passes specific for MIC achitecture."));
 
 
-extern "C" {
-extern void* createVolcanoOpenclRuntimeSupport(const Module *runtimeModule,
-                                        unsigned packetizationWidth);
-extern void* createDXRuntimeSupport(const Module *runtimeModule,
-                                        unsigned packetizationWidth);
-extern void* createAppleOpenclRuntimeSupport(const Module *runtimeModule,
-                                        unsigned packetizationWidth);
-extern void* createBuiltInImportPass(Module* pRTModule);
-
-extern void* createSpirMaterializer();
-
-extern void* createObfuscation();
-
-}
+extern "C" Pass* createBuiltinLibInfoPass(Module* pRTModule, std::string type);
 
 void initializeOCLPasses(PassRegistry &Registry)
 {
@@ -80,6 +67,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeModuleCleanupPass(Registry);
     intel::initializeAddImplicitArgsPass(Registry);
     intel::initializeOclFunctionAttrsPass(Registry);
+    intel::initializeBuiltinLibInfoPass(Registry);
     intel::initializeLocalBuffersWrapperPass(Registry);
     intel::initializeLocalBuffersWithDebugWrapperPass(Registry);
     intel::initializeRelaxedPassPass(Registry);
@@ -115,9 +103,9 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
   // Obtain the runtime module (either from input, or generate empty ones)
   std::auto_ptr<llvm::Module> runtimeModule;
 
-  if (VectorizerRuntimeLib != "") {
+  if (RuntimeLib != "") {
 
-    runtimeModule.reset(llvm::ParseIRFile(VectorizerRuntimeLib, Err, context));
+    runtimeModule.reset(llvm::ParseIRFile(RuntimeLib, Err, context));
 
     if (runtimeModule.get() == 0) {
       errs() << "Runtime file error!\n";
@@ -128,17 +116,8 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
     runtimeModule.reset(new Module("empty", context));
   }
 
-  // Generate runtimeSupport object, to be used as input for vectorizer
-  if (VectorizerServices == "ocl") {
-    createVolcanoOpenclRuntimeSupport(runtimeModule.release(), 4);
-  } else if (VectorizerServices == "dx") {
-    createDXRuntimeSupport(runtimeModule.release(), 4);
-  } else if (VectorizerServices == "apple") {
-    createAppleOpenclRuntimeSupport(runtimeModule.release(), 4);
-  } else {
-    errs()<<"Unknown runtime services \""<<VectorizerServices<<"\"\n";
-  }
-
+  //Always add the BuiltinLibInfo Pass to the Pass Manager
+  passMgr.add(createBuiltinLibInfoPass(runtimeModule.release(), RuntimeServices));
 }
 
 int main(int argc, char **argv) {

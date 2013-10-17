@@ -36,6 +36,7 @@ set (TARGET_INCLUDE_FILES
   BlockUtils.h
   RefcountThreadSafe.h
   Atomics.h
+  Logger.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 

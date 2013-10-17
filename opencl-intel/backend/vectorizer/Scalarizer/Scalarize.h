@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __SCALARIZE_H__
 #define __SCALARIZE_H__
 
-#include "RuntimeServices.h"
+#include "BuiltinLibInfo.h"
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 #include "VectorizerCommon.h"
@@ -53,6 +53,7 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesCFG();
     AU.addRequired<SoaAllocaAnalysis>();
+    AU.addRequired<BuiltinLibInfo>();
   }
 
   virtual bool runOnFunction(Function &F);

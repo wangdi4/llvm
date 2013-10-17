@@ -18,6 +18,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __CL_STREAM_SAMPLER_H_
 #define __CL_STREAM_SAMPLER_H_
 
+#include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
 #include "LoopWIAnalysis.h"
 
@@ -50,6 +51,7 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<LoopWIAnalysis>();
       AU.addRequired<DominatorTree>();
+      AU.addRequired<BuiltinLibInfo>();
       AU.setPreservesCFG();
   };
 

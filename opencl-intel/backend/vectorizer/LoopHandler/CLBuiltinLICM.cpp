@@ -16,19 +16,20 @@ char intel::CLBuiltinLICM::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(CLBuiltinLICM, "CLBuiltinLICM", "hoist known uniform openCL builtins out of loops", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLBuiltinLICM, "CLBuiltinLICM", "hoist known uniform openCL builtins out of loops", false, false)
 
-CLBuiltinLICM::CLBuiltinLICM():
-LoopPass(ID),
-m_rtServices(static_cast<OpenclRuntime *>(RuntimeServices::get()))
-{
+CLBuiltinLICM::CLBuiltinLICM() : LoopPass(ID), m_rtServices(NULL) {
   initializeCLBuiltinLICMPass(*PassRegistry::getPassRegistry());
-  assert(m_rtServices && "expected to have openCL runtime");
 }
 
 bool CLBuiltinLICM::runOnLoop(Loop *L, LPPassManager &LPM) {
   //errs() << "CLBuiltinLICM on " << L->getHeader()->getNameStr() << "\n";
   if (!L->isLoopSimplifyForm()) return false;
+
+  m_rtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
+  assert(m_rtServices && "expected to have openCL runtime");
+
   m_preHeader = L->getLoopPreheader();
   m_curLoop = L;
   m_header = m_curLoop->getHeader();

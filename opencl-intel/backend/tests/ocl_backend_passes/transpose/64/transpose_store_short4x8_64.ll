@@ -1,10 +1,10 @@
 ; XFAIL: i686
 
-; RUN: oclopt -builtins-module=clbltfne9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfne9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc %t1.ll -mattr=+avx -mtriple=x86_64 -o %t2.asm
 ; RUN: FileCheck %s --input-file=%t2.asm -check-prefix=CHECK-AVX
 
-; RUN: oclopt -builtins-module=clbltfnl9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t3.ll
+; RUN: oclopt -runtimelib=clbltfnl9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t3.ll
 ; RUN: llc %t3.ll -mattr=+avx2 -mtriple=x86_64 -o %t4.asm
 ; RUN: FileCheck %s --input-file=%t4.asm -check-prefix=CHECK-AVX2
 

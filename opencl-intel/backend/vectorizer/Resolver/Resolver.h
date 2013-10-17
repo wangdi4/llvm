@@ -6,7 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #ifndef __RESOLVER_H_
 #define __RESOLVER_H_
-#include "RuntimeServices.h"
+#include "BuiltinLibInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
@@ -32,7 +32,7 @@ public:
     m_unresolvedLoadCtr = 0;
     m_unresolvedStoreCtr = 0;
     m_unresolvedCallCtr = 0;
-    m_rtServices = RuntimeServices::get();
+    m_rtServices = NULL;
   }
 
   /// @brief LLVM Function pass entry
@@ -40,7 +40,9 @@ public:
   /// @return True if changed
   virtual bool runOnFunction(Function &F);
   /// Standard LLVM interface - Nothing to preserve
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const { }
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const { 
+    AU.addRequired<BuiltinLibInfo>();
+  }
 
 private:
   /// @brief Resolve a call-site. This is a target specific hook.

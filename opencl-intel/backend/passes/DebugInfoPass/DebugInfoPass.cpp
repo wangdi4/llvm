@@ -16,6 +16,9 @@ File Name:  DebugInfoPass.cpp
 
 \*****************************************************************************/
 
+#include "BuiltinLibInfo.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include <llvm/Pass.h>
 #include <llvm/Module.h>
 #include <llvm/Constants.h>
@@ -32,7 +35,7 @@ using namespace llvm;
 using namespace std;
 
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend  {
+namespace intel  {
 
 
 // Inserts debugging information for OpenCL debugging.
@@ -40,13 +43,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend  {
 class DebugInfoPass : public ModulePass
 {
 public:
-    DebugInfoPass(LLVMContext* llvm_context, const Module* pRTModule)
-        : ModulePass(ID), m_llvm_context(llvm_context), m_pRTModule(pRTModule)
+    DebugInfoPass()
+        : ModulePass(ID), m_llvm_context(0), m_pRTModule(0)
     {
     }
 
     bool runOnModule(Module& M);
 
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<BuiltinLibInfo>();
+    }
+
+    static char ID; // LLVM pass ID
 private:
     struct FunctionContext;
 
@@ -114,7 +122,6 @@ private:
     unsigned getCLinenoFromDbgMetadata(Instruction* instr);
 
 private:
-    static char ID; // LLVM pass ID
 
     // Convenience object passed around between methods of this pass.
     // gids:
@@ -158,6 +165,9 @@ const char* DebugInfoPass::BUILTIN_DBG_STOPPOINT_NAME = "__opencl_dbg_stoppoint"
 
 bool DebugInfoPass::runOnModule(Module& M)
 {
+    m_llvm_context = &M.getContext();
+    m_pRTModule = getAnalysis<intel::BuiltinLibInfo>().getBuiltinModule();
+    assert(m_pRTModule && "Null module");
     m_pModule = &M;
 
     // Prime a DebugInfoFinder that can be queried about various bits of
@@ -555,15 +565,17 @@ void DebugInfoPass::insertDbgExitFunctionCall(Instruction* instr, Function* pFun
     CallInst::Create(exit_function_func, params, "", instr);
 }
 
+OCL_INITIALIZE_PASS_BEGIN(DebugInfoPass, "debug-info", "Debug Info", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(DebugInfoPass, "debug-info", "Debug Info", false, false)
 
-}}}
+} // namespace intel {
 
 extern "C"
 {
-    ModulePass* createDebugInfoPass(LLVMContext* llvm_context,
-                                    const Module* pRTModule)
+    ModulePass* createDebugInfoPass()
     {
-        return new Intel::OpenCL::DeviceBackend::DebugInfoPass(llvm_context, pRTModule);
+        return new intel::DebugInfoPass();
     }
 }
 

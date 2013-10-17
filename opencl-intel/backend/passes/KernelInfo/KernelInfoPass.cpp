@@ -14,7 +14,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <string>
 #include <math.h>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+using namespace Intel::OpenCL::DeviceBackend;
+
+namespace intel {
 
   char KernelInfoPass::ID = 0;
 
@@ -53,10 +55,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   char KernelInfoWrapper::ID = 0;
-
-  ModulePass* createKernelInfoWrapperPass() {
-    return new KernelInfoWrapper();
-  }
   
   bool KernelInfoWrapper::runOnModule(Module& M) {
     Intel::MetaDataUtils mdUtils(&M);
@@ -82,5 +80,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
-}}}
+} // namespace intel {
 
+extern "C" {
+  ModulePass* createKernelInfoWrapperPass() {
+    return new intel::KernelInfoWrapper();
+  }
+}

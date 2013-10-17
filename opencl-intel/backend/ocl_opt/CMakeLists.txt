@@ -28,6 +28,7 @@ set(OCL_BE_PASSES
     PrepareKernelArgs
     AddImplicitArgs
     OclFunctionAttrs
+    BuiltinLibInfo
     ModuleCleanup
     BackendPassesWrappers
     LocalBuffers

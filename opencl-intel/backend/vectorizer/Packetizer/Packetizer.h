@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __PACKETIZER_H__
 #define __PACKETIZER_H__
 
-#include "RuntimeServices.h"
+#include "BuiltinLibInfo.h"
 #include "WIAnalysis.h"
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
@@ -85,6 +85,7 @@ public:
     AU.setPreservesCFG();
     AU.addRequired<WIAnalysis>();
     AU.addRequired<SoaAllocaAnalysis>();
+    AU.addRequired<BuiltinLibInfo>();
   }
 
 private:

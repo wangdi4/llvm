@@ -50,16 +50,16 @@ OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(OCLBranchProbability)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(Predicator, "predicate", "Predicate Function", false, false)
 
 Predicator::Predicator() :
   FunctionPass(ID),
-  m_rtServices(RuntimeServices::get()),
   m_maskedLoadCtr(0),
   m_maskedStoreCtr(0),
   m_maskedCallCtr(0){
   initializePredicatorPass(*llvm::PassRegistry::getPassRegistry());
-  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+  m_rtServices = NULL;
 }
 
 void Predicator::createAllOne(Module &M) {
@@ -102,6 +102,9 @@ bool Predicator::needPredication(Function &F) {
 }
 
 bool Predicator::runOnFunction(Function &F) {
+
+  m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
+  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
   /// Work item analysis pointer
   m_WIA = &getAnalysis<WIAnalysis>();

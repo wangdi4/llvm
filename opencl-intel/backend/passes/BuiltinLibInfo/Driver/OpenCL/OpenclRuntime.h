@@ -65,7 +65,7 @@ public:
   /// @brief Checks if function is a 'faked function', (i.e., if the given name is
   //  has a definition in the builtin-runtime module, or is it just a
   //  synthesized name for internal usage.
-  virtual bool isFakedFunction(StringRef fname)const;
+  virtual bool isFakedFunction(StringRef fname) const;
 
   /// @brief returns true if the function has no side effects
   ///  this means it can be safely vectorized regardless if it is being masked
@@ -210,9 +210,6 @@ private:
   /// @brief initate the dot map
   void initDotMap();
 };
-
-/// @brief OpenCL-specific function names
-#define WG_FUNCS_NAME_PREFIX  "__async"
 
 } // Namespace
 

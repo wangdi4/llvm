@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __APPLE_WI_DEP_PRE_PACKETIZATION_PASS_H__
 
 #include "Logger.h"
+#include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
 #include "WIAnalysis.h"
 
@@ -48,6 +49,7 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<WIAnalysis>();
     AU.addRequired<PostDominatorTree>();
+    AU.addRequired<BuiltinLibInfo>();
   }
 
 

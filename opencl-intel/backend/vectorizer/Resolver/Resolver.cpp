@@ -10,6 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Logger.h"
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "FakeExtractInsert.h"
 
 #include "llvm/Support/InstIterator.h"
@@ -25,7 +26,9 @@ namespace intel {
 
 char X86Resolver::ID = 0;
 
-OCL_INITIALIZE_PASS(X86Resolver, "resolve", "Resolves masked and vectorized function calls on x86", false, false)
+OCL_INITIALIZE_PASS_BEGIN(X86Resolver, "resolve", "Resolves masked and vectorized function calls on x86", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(X86Resolver, "resolve", "Resolves masked and vectorized function calls on x86", false, false)
 
 bool FuncResolver::runOnFunction(Function &F) {
 
@@ -35,6 +38,8 @@ bool FuncResolver::runOnFunction(Function &F) {
   )
 
   V_PRINT(resolver, "---------------- Resolver before ---------------\n"<<F<<"\n");
+
+  m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
 
   std::vector<CallInst*> calls;
 

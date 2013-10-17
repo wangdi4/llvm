@@ -10,16 +10,18 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Instructions.h"
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel {
 
   char UndefExternalFuncs::ID = 0;
 
-  ModulePass* createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions,
-    const std::vector<llvm::Module*>& runtimeModules) {
-    return new UndefExternalFuncs(undefinedExternalFunctions, runtimeModules);
-  }
-
   bool UndefExternalFuncs::runOnModule(Module &M) {
+
+    m_RuntimeModules.clear();
+    intel::BuiltinLibInfo &BLI = getAnalysis<intel::BuiltinLibInfo>();
+    llvm::Module *Builtins = BLI.getBuiltinModule();
+    assert(Builtins && "No builtin module");
+    if (!Builtins) return false;
+    m_RuntimeModules.push_back(Builtins);
 
     // Run on all defined function in the module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
@@ -107,4 +109,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel {
+
+extern "C"{
+  ModulePass* createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions) {
+    return new intel::UndefExternalFuncs(undefinedExternalFunctions);
+  }
+}

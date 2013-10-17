@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __MAIN_H__
 #define __MAIN_H__
 
+#include "BuiltinLibInfo.h"
 #include "Logger.h"
 
 #include "llvm/Pass.h"
@@ -45,7 +46,9 @@ public:
     /// @returns True if module was modified
     virtual bool runOnModule(Module &M);
     /// @brief Inform about usage/mofication/dependency of this pass
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const { }
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<BuiltinLibInfo>();
+    }
 
 private:
     Vectorizer(); // Do not implement

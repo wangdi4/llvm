@@ -6,12 +6,12 @@ set(TARGET_NAME ReflectionModuleTest)
 project (${TARGET_NAME})
 
 include_directories(
-  ${BACKEND_ROOT_DIR}/../externals/gtest/include
-  ${CMAKE_SOURCE_DIR}/backend/name_mangling
-  ${CMAKE_SOURCE_DIR}/backend/vectorizer/Driver/OpenCL
-  ${CMAKE_SOURCE_DIR}/backend/vectorizer/Driver/Volcano
-  ${CMAKE_SOURCE_DIR}/backend/vectorizer/Utils
-  ../
+  ${CMAKE_SOURCE_DIR}/externals/gtest/include
+  ${BACKEND_ROOT_DIR}/name_mangling
+  ${BACKEND_ROOT_DIR}/reflection_module
+  ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/
+  ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
+  ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/Volcano
 )
 
 link_directories(
@@ -25,7 +25,7 @@ add_executable(
 
 target_link_libraries(
   ${TARGET_NAME}
-  LLVMVectorizer
+  BuiltinLibInfo
   OclBackendUtils
   reflection_module
   name_mangle

@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "LoopUtils/LoopUtils.h"
 #include "CLWGBoundDecoder.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "MetaDataApi.h"
 #include "CompilationUtils.h"
 
@@ -28,13 +29,12 @@ namespace intel {
 
 char CLWGLoopCreator::ID = 0;
 
-OCL_INITIALIZE_PASS(CLWGLoopCreator, "cl-loop-creator", "create loops opencl kernels", false, false)
+OCL_INITIALIZE_PASS_BEGIN(CLWGLoopCreator, "cl-loop-creator", "create loops opencl kernels", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(CLWGLoopCreator, "cl-loop-creator", "create loops opencl kernels", false, false)
 
-
-CLWGLoopCreator::CLWGLoopCreator() : ModulePass(ID),
-  m_rtServices(static_cast<OpenclRuntime *>(RuntimeServices::get()))
-{
-  assert(m_rtServices);
+CLWGLoopCreator::CLWGLoopCreator() : ModulePass(ID), m_rtServices(NULL) {
+  initializeCLWGLoopCreatorPass(*PassRegistry::getPassRegistry());
 }
 
 CLWGLoopCreator::~CLWGLoopCreator()
@@ -48,6 +48,10 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
     //Module contains no MetaData information, thus it contains no kernels
     return changed;
   }
+
+  m_rtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
+  assert(m_rtServices && "expected to have openCL runtime");
+
   // First obtain original scalar kernels from metadata.
   SmallVector<Function *, 8> kernels;
   LoopUtils::GetOCLKernel(M, kernels);

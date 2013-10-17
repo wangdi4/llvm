@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __CL_WG_LOOP_BOUNDARIES_H__
 #define __CL_WG_LOOP_BOUNDARIES_H__
 
+#include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
 
 #include "llvm/Pass.h"
@@ -97,7 +98,9 @@ public:
   virtual bool runOnFunction(Function &F);
 
   ///@brief LLVM interface.
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {};
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequired<BuiltinLibInfo>();
+  };
 
 private: 
   /// struct that contain boundary early exit description.

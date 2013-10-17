@@ -11,13 +11,16 @@ add_executable(${TARGET_NAME}
 # Backend passes
 set(OCL_BE_PASSES
     BuiltInFuncImport
+    BuiltinLibInfo
     ShuffleCallToInst
 )
 
 # Dependencies of the passes
 set(OCL_BE_PASSES_DEPS
+    reflection_module
     name_mangle
     OclBackendUtils
+    metadataapi
 )
 
 target_link_libraries(${TARGET_NAME}

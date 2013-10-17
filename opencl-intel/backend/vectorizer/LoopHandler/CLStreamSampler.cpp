@@ -36,19 +36,20 @@ char intel::CLStreamSampler::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
 
-CLStreamSampler::CLStreamSampler():
-LoopPass(ID),
-m_rtServices((OpenclRuntime*)RuntimeServices::get())
-{
+CLStreamSampler::CLStreamSampler() : LoopPass(ID), m_rtServices(NULL) {
   initializeCLStreamSamplerPass(*PassRegistry::getPassRegistry());
-  assert(m_rtServices && "runtime services does not exist");
 }
 
 bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   //errs() << "CLStreamSampler on " << L->getHeader()->getNameStr() << "\n";
   if (!L->isLoopSimplifyForm()) return false;
+
+  m_rtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
+  assert(m_rtServices && "runtime services does not exist");
+
   m_curLoop = L;
   m_header = m_curLoop->getHeader();
   m_context = &m_header->getContext();

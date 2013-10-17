@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __OCL_BUILTIN_PRE_VECTORIZATION_PASS_H__
 #define __OCL_BUILTIN_PRE_VECTORIZATION_PASS_H__
 
+#include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
 #include "Logger.h"
 
@@ -43,6 +44,10 @@ public:
   
   virtual bool runOnFunction(Function &M);
 
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.setPreservesCFG();
+    AU.addRequired<BuiltinLibInfo>();
+  }
 
 private:
 

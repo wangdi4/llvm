@@ -27,16 +27,15 @@ char intel::ScalarizeFunction::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 
-ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(ID)
+ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(ID), m_rtServices(NULL)
 {
   initializeScalarizeFunctionPass(*llvm::PassRegistry::getPassRegistry());
 
   for (int i = 0; i < Instruction::OtherOpsEnd; i++) m_transposeCtr[i] = 0;
   UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
-  m_rtServices = RuntimeServices::get();
-  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
   // Initialize SCM buffers and allocation
   m_SCMAllocationArray = new SCMEntry[ESTIMATED_INST_NUM];
@@ -61,6 +60,9 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   if (!F.getReturnType()->isVoidTy())  {
     return false;
   }
+
+  m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
+  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
   m_currFunc = &F;
   m_moduleContext = &(m_currFunc->getContext());

@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #ifndef __PREDICATOR_H_
 #define __PREDICATOR_H_
+#include "BuiltinLibInfo.h"
 #include "WIAnalysis.h"
 #include "PhiCanon.h"
 #include "Linearizer.h"
@@ -264,6 +265,7 @@ public:
     AU.addRequired<WIAnalysis>();
     // for bypasses usage
     AU.addRequired<OCLBranchProbability>();
+    AU.addRequired<BuiltinLibInfo>();
   }
   /*! \} */
 

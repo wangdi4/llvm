@@ -9,6 +9,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "LoopUtils/LoopUtils.h"
 #include "MetaDataApi.h"
 #include "CompilationUtils.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "common_dev_limits.h"
 
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -20,7 +22,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
 
-#include "OCLPassSupport.h"
 #include <set>
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -29,13 +30,12 @@ namespace intel {
 
 char CLWGLoopBoundaries::ID = 0;
 
-OCL_INITIALIZE_PASS(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
+OCL_INITIALIZE_PASS_BEGIN(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
 
-CLWGLoopBoundaries::CLWGLoopBoundaries() :
-ModulePass(ID),
-m_rtServices(static_cast<OpenclRuntime *>(RuntimeServices::get()))
-{
-  assert(m_rtServices && "expected to have openCL runtime");
+CLWGLoopBoundaries::CLWGLoopBoundaries() : ModulePass(ID), m_rtServices(NULL) {
+  initializeCLWGLoopBoundariesPass(*PassRegistry::getPassRegistry());
 }
 
 CLWGLoopBoundaries::~CLWGLoopBoundaries()
@@ -50,6 +50,9 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
     //Module contains no MetaData information, thus it contains no kernels
     return changed;
   }
+
+  m_rtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
+  assert(m_rtServices && "expected to have openCL runtime");
 
   // Get the kernels using the barrier for work group loops.
   Intel::MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();

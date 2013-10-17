@@ -24,7 +24,7 @@ namespace Intel {
   class MetaDataUtils;
 }
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel {
 
   /// This pass is  a wrapper of the Kernel Info Pass, which currently outputs
   /// two information about the kernel: Has Barrier and Execution estimation
@@ -98,7 +98,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     Intel::MetaDataUtils* m_mdUtils;
   };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel {
 
 #endif // __KERNEL_INFO_H__
 

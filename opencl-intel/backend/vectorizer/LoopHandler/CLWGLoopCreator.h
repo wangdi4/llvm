@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __CL_WG_LOOP_CREATOR_H__
 #define __CL_WG_LOOP_CREATOR_H__
 
+#include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
 #include "llvm/Pass.h"
 #include "llvm/Instructions.h"
@@ -100,7 +101,9 @@ public:
   virtual bool runOnModule(Module &M);
 
   ///@brief LLVM interface.
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {};
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequired<BuiltinLibInfo>();
+  };
 
 private:
   

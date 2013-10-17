@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "VectorizerUtils.h"
 #include "Mangler.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
@@ -23,7 +24,9 @@ namespace intel {
 
 char SpecialCaseBuiltinResolver::ID = 0;
 
-OCL_INITIALIZE_PASS(SpecialCaseBuiltinResolver, "CLBltnResolve", "resolve ocl special case builtins", false, false)
+OCL_INITIALIZE_PASS_BEGIN(SpecialCaseBuiltinResolver, "CLBltnResolve", "resolve ocl special case builtins", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(SpecialCaseBuiltinResolver, "CLBltnResolve", "resolve ocl special case builtins", false, false)
 
 SpecialCaseBuiltinResolver::SpecialCaseBuiltinResolver():
 ModulePass(ID) {
@@ -36,7 +39,7 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
   V_PRINT(SpecialCaseBuiltinResolver, "starting bltn resolver\n");
   m_changedKernels.clear();
   m_curModule = &M;
-  m_runtimeServices = (OpenclRuntime *)RuntimeServices::get();
+  m_runtimeServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
   bool changed = false;
   SmallVector<Function *, 8> fakeFunctions;
 
