@@ -462,14 +462,6 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
 	
         MDNode* gv_metadata = *gv_i;
 
-		// Avoid generating a declare call for global variables that were originially local in the kernel.
-		DIGlobalVariable digv = DIGlobalVariable(gv_metadata);
-		const PointerType* TP = cast<PointerType>(digv.getGlobal()->getType());
-		if(TP->getAddressSpace() == CompilationUtils::LOCL_VALUE_ADDRESS_SPACE) {
-        // LOCL_VALUE_ADDRESS_SPACE = '3' is a magic number for global variables that were in origin local kernel variable!
-			continue;
-		}
-
         // Take the var address from the metadata as a Value, and bitcast it
         // to i8*.
         //
