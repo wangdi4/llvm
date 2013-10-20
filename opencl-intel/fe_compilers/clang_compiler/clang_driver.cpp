@@ -206,9 +206,8 @@ static vector<string> quoted_tokenize(string str, string delims, char quote, cha
 
 // ClangFECompilerCompileTask calls implementation
 ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
-																												Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo,
-                                                                                                                const Intel::OpenCL::Utils::BasicCLConfigWrapper& config)
-: m_pProgDesc(pProgDesc), m_sDeviceInfo(sDeviceInfo), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0), m_config(config)
+																												Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo)
+: m_pProgDesc(pProgDesc), m_sDeviceInfo(sDeviceInfo), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
 {
   Twine t(g_uiProgID++);
   m_source_filename = t.str();
@@ -234,7 +233,6 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 
     ParseCompileOptions(buildOpts,
                         NULL,
-                        m_config,
                         &list,
                         &BEArgList,
                         &CLSTDSet,
@@ -1256,10 +1254,9 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
 }
 
 bool Intel::OpenCL::ClangFE::ClangFECompilerCheckCompileOptions(const char*  szOptions,
-                                                                char**       szUnrecognizedOptions,
-                                                                const Intel::OpenCL::Utils::BasicCLConfigWrapper& config)
+                                                                char**       szUnrecognizedOptions)
 {
-    return ParseCompileOptions(szOptions, szUnrecognizedOptions, config);
+    return ParseCompileOptions(szOptions, szUnrecognizedOptions);
 }
 
 bool Intel::OpenCL::ClangFE::ClangFECompilerCheckLinkOptions(const char* szOptions, char** szUnrecognizedOptions)
@@ -1269,7 +1266,6 @@ bool Intel::OpenCL::ClangFE::ClangFECompilerCheckLinkOptions(const char* szOptio
 
 bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                                                  char**       szUnrecognizedOptions,
-                                                 const Intel::OpenCL::Utils::BasicCLConfigWrapper& config,
                                                  ArgListType* pList,
                                                  ArgListType* pBEArgList,
                                                  int*         piCLStdSet,
@@ -1313,7 +1309,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     // Parse the build options - handle the ones we understand and pass the
     // rest into 'ignored'. Use " quoting to accept token with whitespace, but
     // don't use escaping (since we only need path tokens).
-    //    
+    //
     vector<string> opts = quoted_tokenize(szOptions, " \t", '"', '\x00');
     vector<string>::const_iterator opt_i = opts.begin();
     while (opt_i != opts.end()) {
@@ -1469,7 +1465,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             pList->push_back("__OPENCL_C_VERSION__=120");
             pBEArgList->push_back("-cl-std=CL1.2");
         }
-        else if (config.GetOpenCLVersion() == OPENCL_VERSION_2_0 && *opt_i == "-cl-std=CL2.0") {
+        else if (*opt_i == "-cl-std=CL2.0") {
             iCLStdSet = 200;
             pList->push_back("-cl-std=CL2.0");
             pList->push_back("-D");

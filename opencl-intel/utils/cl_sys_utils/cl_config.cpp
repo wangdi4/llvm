@@ -212,31 +212,4 @@ cl_err_code ConfigFile::WriteFile(string fileName, ConfigFile& cf)
 
 }
 
-OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
-{
-    // first look in environment variable or configuration file
-    std::string ver = m_pConfigFile->Read("ForceOCLCPUVersion", std::string(""));   // we are using this name to be aligned with GEN
-    if ("1.2" == ver)
-    {
-        return OPENCL_VERSION_1_2;
-    }
-    if ("2.0" == ver)
-    {
-        return OPENCL_VERSION_2_0;
-    }
-    // else look in registry/etc
-#ifdef _WIN32
-    DWORD iVer = m_pConfigFile->GetRegistryOrEtcValue<DWORD>("ForceOCLCPUVersion", 0);
-#else
-    int iVer = m_pConfigFile->GetRegistryOrEtcValue<int>("ForceOCLCPUVersion", 0);
-#endif
-    switch (iVer)
-    {
-    case 1:
-        return OPENCL_VERSION_1_2;
-    case 2:
-        return OPENCL_VERSION_2_0;
-    default:
-        return OPENCL_VERSION_1_2;  // this is the default if there is nothing else (until we are officially OpenCL 2.0)
-    }
-}
+

@@ -55,6 +55,8 @@ USE_SHUTDOWN_HANDLER(NULL);
 
 cl_monitor_init
 
+char clFRAMEWORK_CFG_PATH[MAX_PATH];
+
 KHRicdVendorDispatch        FrameworkProxy::ICDDispatchTable;
 COCLCRTDispatchTable        FrameworkProxy::CRTDispatchTable;
 ocl_entry_points            FrameworkProxy::OclEntryPoints;
@@ -263,6 +265,13 @@ void FrameworkProxy::Initialize()
     // Initialize entry points table
     InitOCLEntryPoints();
 
+    char szModuleBuff[MAX_PATH] = "";
+    
+    Intel::OpenCL::Utils::GetModuleDirectory(szModuleBuff, MAX_PATH);
+    
+    STRCAT_S(clFRAMEWORK_CFG_PATH, MAX_PATH, szModuleBuff);
+    STRCAT_S(clFRAMEWORK_CFG_PATH, MAX_PATH, "cl.cfg");
+
     // initialize configuration file
     m_pConfig = new OCLConfig();
     if (NULL == m_pConfig)
@@ -270,7 +279,7 @@ void FrameworkProxy::Initialize()
         //Todo: terrible crash imminent
         return;
     }
-    m_pConfig->Initialize(GetConfigFilePath());
+    m_pConfig->Initialize(clFRAMEWORK_CFG_PATH);
 
     bool bUseLogger = m_pConfig->UseLogger();
     if (bUseLogger)

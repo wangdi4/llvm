@@ -117,8 +117,6 @@ cl_err_code ExecutionModule::Initialize(ocl_entry_points * pOclEntryPoints, OCLC
 
     // initialize GPA data
     m_pGPAData = pGPAData;
-
-    m_opencl_ver = pOclConfig->GetOpenCLVersion();
     
     if ( (NULL == m_pOclCommandQueueMap) || ( NULL == m_pEventsManager))
     {
@@ -1951,7 +1949,12 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     {
         for( unsigned int ui=0; ui<uiWorkDim; ui++)
         {
-            if ((cpszLocalWorkSize[ui] == 0) || ((OPENCL_VERSION_1_2 == m_opencl_ver) && (0 != (cpszGlobalWorkSize[ui] % cpszLocalWorkSize[ui]))))
+#ifdef __OPENCL_2_0__
+            if (cpszLocalWorkSize[ui] == 0)
+#else
+            // In OCL1.x the global size must be multiply of local size
+            if( ( cpszLocalWorkSize[ui] == 0 ) || ( 0 != (cpszGlobalWorkSize[ui] % cpszLocalWorkSize[ui]) ) )
+#endif			
             {
                 return CL_INVALID_WORK_GROUP_SIZE;
             }

@@ -27,7 +27,6 @@
 #include "clang_device_info.h"
 #include <frontend_api.h>
 #include <cl_synch_objects.h>
-#include "cl_config.h"
 
 #include <string>
 #include <list>
@@ -55,8 +54,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 	{
 	public:
 		ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
-																Intel::OpenCL::ClangFE::CLANG_DEV_INFO pszDeviceInfo,
-                                                                const Intel::OpenCL::Utils::BasicCLConfigWrapper& config);
+																Intel::OpenCL::ClangFE::CLANG_DEV_INFO pszDeviceInfo);
 		
 		int Compile();
 
@@ -86,10 +84,9 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		size_t	m_stOutIRSize;
 		char*	m_pLogString;			// Output log
 		size_t	m_stLogSize;
-        const Intel::OpenCL::Utils::BasicCLConfigWrapper& m_config;
     private:
       // private copy constructor to prevent wrong assignment
-      ClangFECompilerCompileTask(const ClangFECompilerCompileTask&);
+      ClangFECompilerCompileTask(const ClangFECompilerCompileTask&) {}
       // private operator= constructor to prevent wrong assignment
       ClangFECompilerCompileTask& 
         operator= (ClangFECompilerCompileTask const &) {return *this;}
@@ -181,8 +178,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
     // Output: szUnrecognizedOptions - a new string containing the unrecognized options separated by spaces
     // Returns: 'true' if the compile options are legal and 'false' otherwise
     bool ClangFECompilerCheckCompileOptions(const char*  szOptions,
-                                            char**       szUnrecognizedOptions,
-                                            const Intel::OpenCL::Utils::BasicCLConfigWrapper& config);
+                                            char**       szUnrecognizedOptions);
 
     // ClangFECompilerCheckLinkOptions
     // Input: szOptions - a string representing the link options
@@ -193,7 +189,6 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 
     bool ParseCompileOptions(const char*  szOptions,
                              char**       szUnrecognizedOptions,
-                             const Intel::OpenCL::Utils::BasicCLConfigWrapper& config,
                              ArgListType* pList               = NULL,
                              ArgListType* BEArgList           = NULL,
                              int*         pbCLStdSet          = NULL,

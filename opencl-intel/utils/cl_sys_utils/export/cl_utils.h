@@ -384,8 +384,3 @@ void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size
 // Date:   September 2013
 /////////////////////////////////////////////////////////////////////////
 std::string getLocalHostName();
-
-/**
- * @return the file path of the configuration file
- */
-std::string GetConfigFilePath();

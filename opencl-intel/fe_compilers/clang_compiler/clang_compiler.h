@@ -10,7 +10,6 @@
 #include <cl_synch_objects.h>
 #include <frontend_api.h>
 #include "clang_device_info.h"
-#include "cl_config.h"
 
 #ifdef OCLFRONTEND_PLUGINS 
 #include "plugin_manager.h"
@@ -56,7 +55,6 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 		// Static members
 		static Intel::OpenCL::Utils::AtomicCounter	s_llvmReferenceCount;
         static volatile bool                        m_bLllvmActive;
-        Intel::OpenCL::Utils::BasicCLConfigWrapper  m_config;
         
     #ifdef OCLFRONTEND_PLUGINS 
     mutable Intel::OpenCL::PluginManager m_pluginManager;

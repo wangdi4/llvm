@@ -75,32 +75,18 @@ volatile bool CPUDevice::m_bDeviceIsRunning = false;
 // We put it here, because just here all the required macros are defined.
 #include "ocl_supported_extensions.h"
 
-struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *GetCPUDevInfo(CPUDeviceConfig& config)
+struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *GetCPUDevInfo()
 {
     static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {NULL, 1, 1, 0};
     if (NULL == CPUDevInfo.sExtensionStrings)
     {
         if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
         {
-            if (config.GetOpenCLVersion() == OPENCL_VERSION_1_2)
-            {
-                CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_ATOM_1_2;
-            }
-            else
-            {
-                CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_ATOM_2_0;
-            }
+            CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_ATOM;
         }
         else
         {
-            if (config.GetOpenCLVersion() == OPENCL_VERSION_1_2)
-            {
-                CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_1_2;
-            }
-            else
-            {
-                CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS_2_0;
-            }
+            CPUDevInfo.sExtensionStrings = OCL_SUPPORTED_EXTENSIONS;
         }
     }
     return &CPUDevInfo;
@@ -214,7 +200,7 @@ cl_dev_err_code CPUDevice::Init()
     m_pCPUDeviceConfig->Initialize(clCPUDEVICE_CFG_PATH);
 
     // Enable VTune source level profiling
-    GetCPUDevInfo(*m_pCPUDeviceConfig)->bEnableSourceLevelProfiling = m_pCPUDeviceConfig->UseVTune();
+    GetCPUDevInfo()->bEnableSourceLevelProfiling = m_pCPUDeviceConfig->UseVTune();
 
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateDevice function enter"));
 
@@ -477,8 +463,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         pinternalRetunedValueSize = &internalRetunedValueSize;
     }
 
-    static const char sOpenCL12Str[] = "OpenCL 1.2 ", sOpenCL20Str[] = "OpenCL 2.0 ";
-    static const char sOpenCLC12Str[] = "OpenCL C 1.2 ", sOpenCLC20Str[] = "OpenCL C 2.0 ";
     switch (param)
     {
         case( CL_DEVICE_TYPE):
@@ -1204,11 +1188,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             return CL_DEV_SUCCESS;
         }
         case( CL_DEVICE_OPENCL_C_VERSION):
-            {                
-                CPUDeviceConfig config;
-                config.Initialize(GetConfigFilePath());
-                OPENCL_VERSION ver = config.GetOpenCLVersion();
-                *pinternalRetunedValueSize = strlen(OPENCL_VERSION_1_2 == ver ? sOpenCLC12Str : sOpenCLC20Str) + 1;
+            {
+                *pinternalRetunedValueSize = strlen("OpenCL C 1.2 ") + 1;
                 if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
@@ -1216,16 +1197,13 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 //if OUT paramVal is NULL it should be ignored
                 if(NULL != paramVal)
                 {
-                    STRCPY_S((char*)paramVal, valSize, OPENCL_VERSION_1_2 == ver ? sOpenCLC12Str : sOpenCLC20Str);
+                    STRCPY_S((char*)paramVal, valSize, "OpenCL C 1.2 ");
                 }
                 return CL_DEV_SUCCESS;
             }
         case( CL_DEVICE_VERSION):
         {
-            CPUDeviceConfig config;
-            config.Initialize(GetConfigFilePath());
-            OPENCL_VERSION ver = config.GetOpenCLVersion();
-            *pinternalRetunedValueSize = strlen(OPENCL_VERSION_1_2 == ver ? sOpenCL12Str : sOpenCL20Str) + strlen(BUILDVERSIONSTR) + 1;
+            *pinternalRetunedValueSize = strlen("OpenCL 1.2 ") + strlen(BUILDVERSIONSTR) + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1233,7 +1211,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                SPRINTF_S((char*)paramVal, valSize, "%s%s", OPENCL_VERSION_1_2 == ver ? sOpenCL12Str : sOpenCL20Str, BUILDVERSIONSTR);
+                STRCPY_S((char*)paramVal, valSize, "OpenCL 1.2 ");
+                STRCAT_S((char*)paramVal, valSize, BUILDVERSIONSTR);
             }
             return CL_DEV_SUCCESS;
         }
@@ -1270,13 +1249,10 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_EXTENSIONS):
         {
-            CPUDeviceConfig config;
-            config.Initialize(GetConfigFilePath());
-            OPENCL_VERSION ver = config.GetOpenCLVersion();
-            const char* oclSupportedExtensions = OPENCL_VERSION_1_2 == ver ? OCL_SUPPORTED_EXTENSIONS_1_2 : OCL_SUPPORTED_EXTENSIONS_2_0;
+            const char* oclSupportedExtensions = OCL_SUPPORTED_EXTENSIONS;
             if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
             {
-                oclSupportedExtensions = OPENCL_VERSION_1_2 == ver ? OCL_SUPPORTED_EXTENSIONS_ATOM_1_2 : OCL_SUPPORTED_EXTENSIONS_ATOM_2_0;
+                oclSupportedExtensions = OCL_SUPPORTED_EXTENSIONS_ATOM;
             }
             *pinternalRetunedValueSize = strlen(oclSupportedExtensions) + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
@@ -2247,7 +2223,7 @@ const char* CPUDevice::clDevFEModuleName() const
 
 const void* CPUDevice::clDevFEDeviceInfo() const
 {
-	return GetCPUDevInfo(*m_pCPUDeviceConfig);
+    return GetCPUDevInfo();
 }
 
 size_t CPUDevice::clDevFEDeviceInfoSize() const

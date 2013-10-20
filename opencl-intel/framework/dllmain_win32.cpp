@@ -10,6 +10,9 @@
     #pragma comment(lib, "task_executor32.lib")
 #endif
 
+
+extern char clFRAMEWORK_CFG_PATH[];
+
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
