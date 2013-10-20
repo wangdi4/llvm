@@ -40,7 +40,7 @@ inline bool GetStringValueFromRegistry( HKEY top_hkey,
     HKEY hkey;
 
     // Open the registry path. hkey will hold the entry
-    LONG rc = RegOpenKeyExA(
+    LONG retCode = RegOpenKeyExA(
         top_hkey,                   // hkey
         keyPath,                    // lpSubKey
         0,                          // ulOptions
@@ -48,10 +48,10 @@ inline bool GetStringValueFromRegistry( HKEY top_hkey,
         &hkey                       // phkResult
         );
 
-    if( ERROR_SUCCESS == rc )
+    if( ERROR_SUCCESS == retCode )
     {
         // Get the value by name from the key
-        rc = RegQueryValueExA(
+        retCode = RegQueryValueExA(
             hkey,                   // hkey
             valueName,              // lpValueName
             0,                      // lpReserved
@@ -63,7 +63,7 @@ inline bool GetStringValueFromRegistry( HKEY top_hkey,
         // Close the key - we don't need it any more
         RegCloseKey( hkey );
 
-        if( ERROR_SUCCESS == rc )
+        if( ERROR_SUCCESS == retCode )
         {
             return true;
         }

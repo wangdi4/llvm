@@ -172,6 +172,7 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT( clSetKernelExecInfo , clSetKernelExecInfo )
 
     REGISTER_DISPATCH_ENTRYPOINT( clCreateSamplerWithProperties , clCreateSamplerWithProperties )
+    REGISTER_DISPATCH_ENTRYPOINT( clGetKernelSubGroupInfoKHR , clGetKernelSubGroupInfoKHR )
     // clEnqueueAcquireDX9MediaSurfacesKHR
     // clEnqueueReleaseDX9MediaSurfacesKHR
 }

@@ -368,10 +368,24 @@ cl_int CL_API_CALL clGetDeviceIDs(
         {
             if( devices && ( numRet < num_entries ) )
             {
-                devices[numRet++] = devIdDEV;
+                if( 0 != numRet && devType == OCLCRT::crt_ocl_module.m_defaultDeviceType )
+                {
+                    // place DEFAULT device at the beginning
+                    devices[numRet++] = devices[0];
+                    devices[0] = devIdDEV;
+                }
+                else
+                {
+                    devices[numRet++] = devIdDEV;
+                }
             }
             else
             {
+                if( devType == OCLCRT::crt_ocl_module.m_defaultDeviceType && num_entries > 0 )
+                {
+                    // replace the first entry with DEFAULT device
+                    devices[0] = devIdDEV;
+                }
                 numRet++;
             }
         }
@@ -4157,11 +4171,24 @@ cl_int CL_API_CALL clGetKernelWorkGroupInfo(
     void *                    param_value,
     size_t *                  param_value_size_ret)
 {
-    cl_int errCode = CL_SUCCESS;
+    cl_int errCode    = CL_SUCCESS;
+    cl_context devCtx = NULL;
 
     CrtKernel* crtKernel = reinterpret_cast<CrtKernel*>(((_cl_kernel_crt*)kernel)->object);
 
-    cl_context devCtx = crtKernel->m_programCRT->m_contextCRT->m_DeviceToContext[device];
+    if( NULL == device )
+    {
+        if( crtKernel->m_programCRT->m_buildContexts.size() > 1 )
+        {
+            return CL_INVALID_DEVICE;
+        }
+        devCtx = crtKernel->m_programCRT->m_buildContexts[0];
+    }
+    else
+    {
+        devCtx = crtKernel->m_programCRT->m_contextCRT->m_DeviceToContext[device];
+    }
+
     if (NULL == devCtx)
     {
         return CL_INVALID_DEVICE;
@@ -4185,6 +4212,61 @@ cl_int CL_API_CALL clGetKernelWorkGroupInfo(
     return errCode;
 }
 SET_ALIAS( clGetKernelWorkGroupInfo );
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CL_API_CALL clGetKernelSubGroupInfoKHR(
+    cl_kernel                kernel,
+    cl_device_id             device,
+    cl_kernel_sub_group_info param_name,
+    size_t                   input_value_size,
+    const void *             input_value,
+    size_t                   param_value_size,
+    void *                   param_value,
+    size_t *                 param_value_size_ret)
+{
+    cl_int errCode    = CL_SUCCESS;
+    cl_context devCtx = NULL;
+
+    CrtKernel* crtKernel = reinterpret_cast<CrtKernel*>( ( ( _cl_kernel_crt* )kernel )->object );
+
+    if( NULL == device )
+    {
+        if( crtKernel->m_programCRT->m_buildContexts.size() > 1 )
+        {
+            return CL_INVALID_DEVICE;
+        }
+        devCtx = crtKernel->m_programCRT->m_buildContexts[0];
+    }
+    else
+    {
+        devCtx = crtKernel->m_programCRT->m_contextCRT->m_DeviceToContext[device];
+    }
+    if( NULL == devCtx )
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    if( crtKernel->m_ContextToKernel.find( devCtx ) ==
+        crtKernel->m_ContextToKernel.end() )
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    errCode = device->dispatch->clGetKernelSubGroupInfoKHR(
+        crtKernel->m_ContextToKernel[devCtx],
+        device,
+        param_name,
+        input_value_size,
+        input_value,
+        param_value_size,
+        param_value,
+        param_value_size_ret);
+
+    return errCode;
+}
+SET_ALIAS( clGetKernelSubGroupInfoKHR );
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -6813,8 +6895,7 @@ FINISH:
     }
     return sampler_handle;
 }
-
-
+SET_ALIAS( clCreateSamplerWithProperties );
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
