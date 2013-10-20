@@ -207,15 +207,13 @@ const char* clDevErr2Txt(cl_dev_err_code errorCode)
     }
 }
 
-char clMICDEVICE_CFG_PATH[MAX_PATH];
-
 MICSysInfo::MICSysInfo()
 {
     m_numEngines = 0;
     m_guardedInfoArr = NULL;
 
 	// Initialize MICDeviceConfig
-	m_MICDeviceConfig.Initialize(clMICDEVICE_CFG_PATH);
+	m_MICDeviceConfig.Initialize(GetConfigFilePath());
 
 	// It is thread safe to allocate this static member here because "m_singleton" the only MICSysInfo instance is guarded.
 	m_info_db = new TSku2DevData;

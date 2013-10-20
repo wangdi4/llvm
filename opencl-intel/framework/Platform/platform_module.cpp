@@ -58,16 +58,12 @@ using namespace Intel::OpenCL::Framework;
 const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
 const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformInfoStr) / sizeof(char);
 
+const char* PlatformModule::m_vPlatformVersionStr = NULL;
 #if defined (_WIN32)
-const char PlatformModule::m_vPlatformVersionStr[] = "OpenCL 1.2 WINDOWS";
-const unsigned int PlatformModule::m_uiPlatformVersionStrSize = sizeof(m_vPlatformVersionStr) / sizeof(char);
 
 const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";
 const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
 #else
-const char PlatformModule::m_vPlatformVersionStr[] = "OpenCL 1.2 LINUX";
-const unsigned int PlatformModule::m_uiPlatformVersionStrSize = sizeof(m_vPlatformVersionStr) / sizeof(char);
-
 const char PlatformModule::m_vPlatformNameStr[] = "Intel(R) OpenCL";
 const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
 #endif
@@ -227,6 +223,23 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
         LOG_CRITICAL(TEXT("%s"), TEXT("Failed to initialize devices compilers"));
     }
 
+    if (pConfig->GetOpenCLVersion() == OPENCL_VERSION_1_2)
+    {
+#ifdef _WIN32
+        m_vPlatformVersionStr = "OpenCL 1.2 WINDOWS";
+#else
+        m_vPlatformVersionStr = "OpenCL 1.2 LINUX";
+#endif
+    }
+    else
+    {
+#ifdef _WIN32
+        m_vPlatformVersionStr = "OpenCL 2.0 WINDOWS";
+#else
+        m_vPlatformVersionStr = "OpenCL 2.0 LINUX";
+#endif
+    }   
+
     return clErr;
 
 }
@@ -321,7 +334,7 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         pValue = (void*)m_vPlatformInfoStr;
         break;
     case CL_PLATFORM_VERSION:
-        szParamSize = m_uiPlatformVersionStrSize;
+        szParamSize = strlen(m_vPlatformVersionStr) + 1;	// it must include the terminating null character
         pValue = (void*)m_vPlatformVersionStr;
         break;
     case CL_PLATFORM_NAME:

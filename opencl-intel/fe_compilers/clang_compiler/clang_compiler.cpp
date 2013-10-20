@@ -126,6 +126,7 @@ ClangFECompiler::ClangFECompiler(const void* pszDeviceInfo)
 	m_sDeviceInfo.bImageSupport     = pDevInfo->bImageSupport;
 	m_sDeviceInfo.bDoubleSupport    = pDevInfo->bDoubleSupport;
 	m_sDeviceInfo.bEnableSourceLevelProfiling = pDevInfo->bEnableSourceLevelProfiling;
+    m_config.Initialize(GetConfigFilePath());
 }
 
 ClangFECompiler::~ClangFECompiler()
@@ -201,7 +202,7 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLF
 	assert(NULL != pProgDesc);
 	assert(NULL != pBinaryResult);
 	// Create new compile task
-	ClangFECompilerCompileTask* pCompileTask = new ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo);
+	ClangFECompilerCompileTask* pCompileTask = new ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo, m_config);
 	if ( NULL == pCompileTask )
 	{
 		*pBinaryResult = NULL;
@@ -273,7 +274,7 @@ int ClangFECompiler::GetKernelArgInfo(const void*       pBin,
 
 bool ClangFECompiler::CheckCompileOptions(const char* szOptions, char** szUnrecognizedOptions)
 {
-    return ClangFECompilerCheckCompileOptions(szOptions, szUnrecognizedOptions);
+    return ClangFECompilerCheckCompileOptions(szOptions, szUnrecognizedOptions, m_config);
 }
 
 bool ClangFECompiler::CheckLinkOptions(const char* szOptions, char** szUnrecognizedOptions)
