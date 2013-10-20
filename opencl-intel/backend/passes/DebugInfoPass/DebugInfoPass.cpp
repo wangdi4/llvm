@@ -19,6 +19,7 @@ File Name:  DebugInfoPass.cpp
 #include "BuiltinLibInfo.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "CompilationUtils.h"
 #include <llvm/Pass.h>
 #include <llvm/Module.h>
 #include <llvm/Constants.h>
@@ -33,7 +34,7 @@ File Name:  DebugInfoPass.cpp
 
 using namespace llvm;
 using namespace std;
-
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel  {
 
@@ -458,7 +459,16 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
     for (DebugInfoFinder::iterator gv_i = m_DbgInfoFinder.global_variable_begin(),
          gv_end = m_DbgInfoFinder.global_variable_end();
          gv_i != gv_end; ++gv_i) {
+	
         MDNode* gv_metadata = *gv_i;
+
+		// Avoid generating a declare call for global variables that were originially local in the kernel.
+		DIGlobalVariable digv = DIGlobalVariable(gv_metadata);
+		const PointerType* TP = cast<PointerType>(digv.getGlobal()->getType());
+		if(TP->getAddressSpace() == CompilationUtils::LOCL_VALUE_ADDRESS_SPACE) {
+        // LOCL_VALUE_ADDRESS_SPACE = '3' is a magic number for global variables that were in origin local kernel variable!
+			continue;
+		}
 
         // Take the var address from the metadata as a Value, and bitcast it
         // to i8*.
