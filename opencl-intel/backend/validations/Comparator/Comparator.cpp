@@ -380,9 +380,13 @@ COMP_RESULT Comparator::CompareNScalarElements( const T* pAct,
             pNEATElem = (m_IsNEATSupportedMemObj) ? pNEAT + cntBufferElem : NULL;
 
         COMP_RESULT localres = NOT_PASSED;
+        bool actMissed = false;
+        bool refMissed = false;
+
         if(m_IsNEATSupportedMemObj)
         {
             localres = CompareScalarNEAT<T>(*pActElem, *pNEATElem);
+            actMissed = bool(localres);
 
             // checks if Reference fits into NEAT interval
             // todo: place under some NEAT debug condition
@@ -390,6 +394,7 @@ COMP_RESULT Comparator::CompareNScalarElements( const T* pAct,
                 (NOT_PASSED == CompareScalarNEAT<T>(*pRefElem, *pNEATElem)))
             {
                 localres = NOT_PASSED;
+                refMissed = true;
             }
         }
         else
@@ -399,7 +404,7 @@ COMP_RESULT Comparator::CompareNScalarElements( const T* pAct,
 
         if(NOT_PASSED == localres)
         {
-            ReportMismatch(pActElem, pRefElem, pNEATElem);
+            ReportMismatch(pActElem, pRefElem, pNEATElem, actMissed, refMissed);
             res = NOT_PASSED;
         }
         res = (NOT_PASSED == localres) ? NOT_PASSED : res;

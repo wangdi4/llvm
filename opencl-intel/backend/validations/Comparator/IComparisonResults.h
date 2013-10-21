@@ -225,7 +225,7 @@ namespace Validation {
         {
             template<typename T>
             MismatchedVal(const Index& in_index, const IMemoryObjectDesc *in_pDesc, const T* in_referenceDataPtr,
-                const T* in_actualDataPtr, const NEATValue* in_pNEAT)
+                const T* in_actualDataPtr, const NEATValue* in_pNEAT, bool actMissed, bool refMissed)
             {
                 pDesc = in_pDesc;
                 if(in_actualDataPtr != NULL)
@@ -235,6 +235,8 @@ namespace Validation {
                 if(in_pNEAT != NULL)
                     neat.SetVal<T>(*in_pNEAT);
                 idx = in_index;
+                m_actMissed = actMissed;
+                m_refMissed = refMissed;
             }
 
             bool HasReference() { return ref.IsValid(); }
@@ -262,19 +264,18 @@ namespace Validation {
             std::string ToString() const
             {
                 std::stringstream ss;
-                if((ref.IsValid()) && neat.IsValid() && !act.IsValid())
-                    ss<<"Reference outside NEAT: ";
-                else if(act.IsValid() && neat.IsValid() && !ref.IsValid())
-                    ss<<"Actual outside NEAT:    ";
-                else
-                    ss << "Mismatched values:    ";
-                ss<<" index = "<< idx.ToString();
+
+                ss<<"Mismatched values index = "<< idx.ToString();
                 if(ref.IsValid())
-                    ss<<"; Reference = "<<ref.ToString();
+                    ss<<"; Reference "<< (neat.IsValid() ? ( m_refMissed ? "(Fail, outside NEAT) = " : "(Ok, inside NEAT) = ") : " ")<<ref.ToString();
                 if(act.IsValid())
-                    ss<<"; Actual = "<<act.ToString();
-                if(neat.IsValid())
+                    ss<<"; Actual "<< (neat.IsValid() ? ( m_actMissed ? "(Fail, outside NEAT) = " : "(Ok, inside NEAT) = ")  : " " )<<act.ToString();
+
+                if(neat.IsValid()) {
                     ss<<"; NEAT = "<<neat.ToString();
+                    if( m_refMissed )
+                        ss <<"; SATest is not able to produce correct reference results; a bug in reference compiler/NEAT is supposed.\n";
+                }
                 return ss.str();
             }
 
@@ -350,6 +351,10 @@ namespace Validation {
             NEATValueContainer neat;
             /// @brief  Indexes of mismatched value in containers
             Index idx;
+            /// @brief  does Actual miss the NEAT interval
+            bool m_actMissed;
+            /// @brief  does reference miss the NEAT interval
+            bool m_refMissed;
         };
     };
             template<>
