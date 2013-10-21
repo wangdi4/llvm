@@ -364,7 +364,6 @@ void KernelArg::SetValue( size_t szSize, void * pValue )
 
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel C'tor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1050,4 +1049,10 @@ void Kernel::GetNonArgSvmBuffers(std::vector<SharedPtr<SVMBuffer> >& svmBufs) co
     svmBufs.resize(m_nonArgSvmBufs.size());
     std::copy(m_nonArgSvmBufs.begin(), m_nonArgSvmBufs.end(), svmBufs.begin());
 }
+
+size_t Kernel::GetNonArgSvmBuffersCount() const 
+{ 
+    return m_nonArgSvmBufs.size(); 
+}
+
 

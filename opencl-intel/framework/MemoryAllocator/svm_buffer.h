@@ -182,9 +182,9 @@ class SVMBufferPointerArg : public SVMPointerArg
 
     // overriden methods:
 
-    virtual cl_err_code LockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent);
+    virtual cl_err_code LockOnDevice(IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent);
 
-    virtual cl_err_code UnLockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage);
+    virtual cl_err_code UnLockOnDevice(IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage);
 
     virtual cl_err_code GetDimensionSizes(size_t* pszRegion) const;
 
@@ -241,12 +241,12 @@ public:
 
     // overriden methods:
 
-    virtual cl_err_code LockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent)
+    virtual cl_err_code LockOnDevice(IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent)
     { 
         return CL_SUCCESS;
     }
 
-    virtual cl_err_code UnLockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage)
+    virtual cl_err_code UnLockOnDevice(IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage)
     {
         return CL_SUCCESS;
     }

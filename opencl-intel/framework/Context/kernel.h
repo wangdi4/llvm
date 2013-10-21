@@ -164,7 +164,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         bool                IsValid()     const { return m_bValid; }
 
-        const SharedPtr<ReferenceCountedObject>& GetSvmObject() const   { return m_pSvmPtrArg; }
+        bool                IsSvmPtr()    const { return (NULL != m_pSvmPtrArg); }
         
     private:
 
@@ -360,6 +360,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * @param svmBufs a vector of SVMBuffers that are used by Kernel, but not passed as arguments to it
          */
         void GetNonArgSvmBuffers(std::vector<SharedPtr<SVMBuffer> >& svmBufs) const;
+
+        size_t GetNonArgSvmBuffersCount() const;
         
         // needed so that DeviceKernel can access the raw program's binary (no const)
         friend class DeviceKernel;

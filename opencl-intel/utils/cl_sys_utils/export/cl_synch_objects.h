@@ -219,6 +219,16 @@ namespace Intel { namespace OpenCL { namespace Utils {
         threadid_t threadId;
     };
 
+    class OclNonReentrantSpinMutex: public IMutex
+    {
+    public:
+        OclNonReentrantSpinMutex() : m_val(0) {}
+        void Lock();
+        void Unlock();
+    protected:
+         volatile size_t m_val;
+    };
+
 
     /************************************************************************
      * OclCondition:
@@ -320,8 +330,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
         bool TryPop(T& val);
 
     private:
-        std::queue<T>   m_queue;
-        OclSpinMutex    m_queueLock;
+        std::queue<T>            m_queue;
+        OclNonReentrantSpinMutex m_queueLock;
     };
 
 

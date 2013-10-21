@@ -306,7 +306,7 @@ cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext
  ******************************************************************/
 SharedPtr<OclCommandQueue> ExecutionModule::GetCommandQueue(cl_command_queue clCommandQueue)
 {
-    return m_pOclCommandQueueMap->GetOCLObject((_cl_command_queue_int*)clCommandQueue).DynamicCast<OclCommandQueue>();
+    return m_pOclCommandQueueMap->GetOCLObject((_cl_command_queue_int*)clCommandQueue).StaticCast<OclCommandQueue>();
 }
 
 bool ExecutionModule::IsValidQueueHandle(cl_command_queue clCommandQueue)

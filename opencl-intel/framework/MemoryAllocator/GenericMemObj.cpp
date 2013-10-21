@@ -173,7 +173,7 @@ cl_err_code GenericMemObject::Initialize(
 
     for ( cl_uint dev_idx = 0; dev_idx < dev_count; ++dev_idx)
     {
-        SharedPtr<FissionableDevice> dev = pDevices[ dev_idx ];
+        const SharedPtr<FissionableDevice>& dev = pDevices[ dev_idx ];
         assert( dev );
 
         cl_dev_alloc_prop device_properties;
@@ -230,7 +230,7 @@ cl_err_code GenericMemObject::Initialize(
         DeviceDescriptor& last_added = m_device_descriptors.back();
         
         m_sharing_groups[ sharingGroupId ].m_device_list.push_back( &last_added );
-        m_device_2_descriptor_map[ dev ] = &last_added;
+        m_device_2_descriptor_map[ dev.GetPtr() ] = &last_added;
 
         // add device agent to the list
         m_device_agents.push_back( dev->GetDeviceAgent() );
@@ -372,7 +372,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
 
             grp.m_device_list.push_back( &last_added );            
 
-            m_device_2_descriptor_map[ last_added.m_pDevice ] = &last_added;
+            m_device_2_descriptor_map[ last_added.m_pDevice.GetPtr() ] = &last_added;
             m_device_agents.push_back( p_dev_desc->m_pDevice->GetDeviceAgent() );
             
         }
@@ -415,7 +415,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
 }
 
 
-const GenericMemObject::DeviceDescriptor* GenericMemObject::get_device( const ConstSharedPtr<FissionableDevice>& dev ) const
+const GenericMemObject::DeviceDescriptor* GenericMemObject::get_device( const FissionableDevice* dev ) const
 {
     TDevice2DescPtrMap::const_iterator found = m_device_2_descriptor_map.find( dev );
     return (found != m_device_2_descriptor_map.end()) ? found->second : NULL;
@@ -437,7 +437,7 @@ cl_err_code GenericMemObject::allocate_object_for_sharing_group( unsigned int gr
         return CL_INVALID_VALUE;
     }
 
-    SharedPtr<FissionableDevice> dev = group.m_device_list.front()->m_pDevice;
+    const SharedPtr<FissionableDevice>& dev = group.m_device_list.front()->m_pDevice;
 
     // Pass only R/W values
     cl_mem_flags clMemFlags = m_clFlags & (CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY);
@@ -474,7 +474,7 @@ cl_err_code GenericMemObject::create_device_object( cl_mem_flags clMemFlags,
 
 cl_err_code GenericMemObject::CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice)
 {
-    DeviceDescriptor* desc = get_device( pDevice );
+    DeviceDescriptor* desc = get_device( pDevice.GetPtr() );
 
     if (NULL == desc)
     {
@@ -494,7 +494,7 @@ cl_err_code GenericMemObject::GetDeviceDescriptor(const SharedPtr<FissionableDev
 {
     assert(NULL != ppDevObject);
 
-    DeviceDescriptor* desc = get_device( pDevice );
+    DeviceDescriptor* desc = get_device( pDevice.GetPtr() );
 
     if (NULL == desc)
     {

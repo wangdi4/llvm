@@ -189,6 +189,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         typedef vector<MemoryObjectArg>   MemoryObjectArgList;
 
+        static void AddToMemoryObjectArgList( MemoryObjectArgList& argList, MemoryObject* pMemObj, MemoryObject::MemObjUsage access_rights )
+        {
+            argList.resize( argList.size() + 1 );
+            MemoryObjectArg& arg = argList.back();
+            arg.pMemObj          = pMemObj;
+            arg.access_rights    = access_rights;
+        }
+        
+        static void AddToMemoryObjectArgList( MemoryObjectArgList& argList, const SharedPtr<MemoryObject>& pMemObj, MemoryObject::MemObjUsage access_rights )
+        {
+            AddToMemoryObjectArgList( argList, pMemObj.GetPtr(), access_rights );
+        }
+        
         cl_err_code AcquireMemoryObjects( MemoryObjectArgList& argList, const SharedPtr<FissionableDevice>& pDev = NULL );
  
         void        RelinquishMemoryObjects( MemoryObjectArgList& argList, const SharedPtr<FissionableDevice>& pDev = NULL );

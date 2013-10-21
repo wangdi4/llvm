@@ -35,7 +35,7 @@ OCLObjectsMap<HandleType, ParentHandleType>::~OCLObjectsMap()
 }
 
 template <class HandleType, class ParentHandleType>
-HandleType* OCLObjectsMap<HandleType, ParentHandleType>::AddObject(SharedPtr<OCLObject<HandleType, ParentHandleType> > pObject)
+HandleType* OCLObjectsMap<HandleType, ParentHandleType>::AddObject(const SharedPtr<OCLObject<HandleType, ParentHandleType> >& pObject)
 {
     assert ( NULL != pObject );
     HandleType* hObjectHandle = pObject->GetHandle();
@@ -73,7 +73,7 @@ void OCLObjectsMap<HandleType, ParentHandleType>::EnableAdding()
 }
 
 template <class HandleType, class ParentHandleType>
-cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::AddObject(SharedPtr<OCLObject<HandleType, ParentHandleType> > pObject, bool bAssignId)
+cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::AddObject(const SharedPtr<OCLObject<HandleType, ParentHandleType> >& pObject, bool bAssignId)
 {
     if (NULL == pObject)
     {
@@ -162,10 +162,13 @@ bool OCLObjectsMap<HandleType, ParentHandleType>::ForEach(F& functor)
 template <class HandleType, class ParentHandleType>
 cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::RemoveObject(HandleType* hObjectHandle)
 {
-    Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+    // m_muMapMutex does not support recursive locking. 
+    // Use manual Lock/Unlock to ensure that lock is released before the destructor of SharedPtr is called to avoid deadlocks
+    m_muMapMutex.Lock(); 
     HandleTypeMapIterator it = m_mapObjects.find(hObjectHandle);
     if (it == m_mapObjects.end())
     {
+        m_muMapMutex.Unlock();
         return CL_ERR_KEY_NOT_FOUND;
     }
     //This is necessary to prevent a race between object release and object create in the unfortunate event that the OS reuses the pointer used as an object handle
@@ -175,6 +178,8 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::RemoveObject(HandleType
         obj->SetPreserveHandleOnDetele();
     }
     m_mapObjects.erase(it);
+    m_muMapMutex.Unlock();
+    // destructor of SharedPtr will be called here
     return CL_SUCCESS;
 }
 
@@ -259,10 +264,13 @@ bool OCLObjectsMap<HandleType, ParentHandleType>::IsExists(HandleType* hObjectHa
 template <class HandleType, class ParentHandleType>
 cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::ReleaseObject(HandleType* hObject)
 {
-    Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+    // m_muMapMutex does not support recursive locking. 
+    // Use manual Lock/Unlock to ensure that lock is released before the destructor of SharedPtr is called to avoid deadlocks    
+    m_muMapMutex.Lock();
     HandleTypeMapIterator it = m_mapObjects.find(hObject);
     if (m_mapObjects.end() == it)
     {
+        m_muMapMutex.Unlock();
         return CL_ERR_KEY_NOT_FOUND;
     }
     if (m_bPreserveUserHandles)
@@ -272,12 +280,18 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::ReleaseObject(HandleTyp
     long newRef = it->second->Release();
     if (newRef < 0)
     {
+        m_muMapMutex.Unlock();
         return CL_ERR_FAILURE;
     }
     else if (0 == newRef)
     {
+        SharedPtr<OCLObject<HandleType, ParentHandleType> > obj = it->second;
         m_mapObjects.erase(it);
+        m_muMapMutex.Unlock();
+        // SharedPtr destructor will be called here
+        return CL_SUCCESS;
     }
+    m_muMapMutex.Unlock();
     return CL_SUCCESS;
 }
 

@@ -95,11 +95,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // returns NULL if data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list
         // by the caller
-        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent );
+        virtual cl_err_code LockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent );
 
         // release data locking on device. 
         // MUST pass the same usage value as set in pOutActuallyUsage during LockOnDevice execution.
-        virtual cl_err_code UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
+        virtual cl_err_code UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
 
         cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice);
         cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice, IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent);
@@ -183,7 +183,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                   IOCLDevMemoryObject** dev_object );
 
         // set the sharing group ID of destDev in pSharingGroupId.
-        bool getDeviceSharingGroupId(const ConstSharedPtr<FissionableDevice>& destDev, unsigned int* pSharingGroupId);
+        bool getDeviceSharingGroupId(const SharedPtr<FissionableDevice>& destDev, unsigned int* pSharingGroupId);
 
         // Sync the parent data with its sub-buffers data in case that 'isParent' == true or 'm_updateParentList' is not empty.
         // devSharingGroupId is the destination device that 'this' memory object should move.
@@ -442,8 +442,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         struct DeviceDescriptor
         {
             SharedPtr<FissionableDevice>                m_pDevice;
-            size_t                                        m_sharing_group_id;
-            size_t                                        m_alignment;
+            size_t                                      m_sharing_group_id;
+            size_t                                      m_alignment;
 
             DeviceDescriptor( const SharedPtr<FissionableDevice>& dev, size_t group, size_t alignment ) :
                     m_pDevice(dev), m_sharing_group_id(group), m_alignment(alignment) {};
@@ -453,10 +453,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         };
 
-        typedef std::list<DeviceDescriptor>                                        TDeviceDescList;
-        typedef std::list<DeviceDescriptor*>                                    TDeviceDescPtrList;
-        typedef std::map<ConstSharedPtr<FissionableDevice>,DeviceDescriptor*>    TDevice2DescPtrMap;
-        typedef std::vector<const IOCLDeviceAgent*>                                TDevAgentsVector;
+        typedef std::list<DeviceDescriptor>                            TDeviceDescList;
+        typedef std::list<DeviceDescriptor*>                           TDeviceDescPtrList;
+        typedef std::map<const FissionableDevice*,DeviceDescriptor*>   TDevice2DescPtrMap;
+        typedef std::vector<const IOCLDeviceAgent*>                    TDevAgentsVector;
 
         // data copy state
         enum DataCopyState
@@ -580,13 +580,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
     private:
 
         DataValidState                      m_data_valid_state;    // overall state - sum of all devices
-        OclSpinMutex                        m_global_lock;         // lock for control structures changes
+        OclNonReentrantSpinMutex            m_global_lock;         // lock for control structures changes
 
         cl_err_code allocate_object_for_sharing_group( unsigned int group_id );
-        const DeviceDescriptor* get_device( const ConstSharedPtr<FissionableDevice>& dev ) const;
+        const DeviceDescriptor* get_device( const FissionableDevice* dev ) const;
 
-        DeviceDescriptor* get_device( const ConstSharedPtr<FissionableDevice>& dev )
-        { return const_cast<DeviceDescriptor*>( ConstSharedPtr<GenericMemObject>(this)->get_device(dev) ); };
+        DeviceDescriptor* get_device( const FissionableDevice* dev )
+        { return const_cast<DeviceDescriptor*>( ((const GenericMemObject*)this)->get_device(dev) ); };
 
         IOCLDevMemoryObject* device_object( const SharingGroup& group )
             { return group.m_dev_mem_obj; };
@@ -717,12 +717,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // returns NULL if data is ready and locked on given device, 
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list by the caller
         // Overwrite parent implementation.
-        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent );
+        virtual cl_err_code LockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent );
 
         // release data locking on device. 
         // MUST pass the same usage value as LockOnDevice
         // Overwrite parent implementation.
-        virtual cl_err_code UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
+        virtual cl_err_code UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
 
         // SubBuffers are saved inside parent buffer list using SmartPointers so we need to manage it's lifetime by ourselve
         virtual void EnterZombieState( EnterZombieStateLevel call_level ); // override ReferenceCountedObject method

@@ -53,15 +53,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
         PREPARE_SHARED_PTR(QueueEvent)
         friend class Command;        
-        static SharedPtr<QueueEvent> Allocate(SharedPtr<IOclCommandQueueBase> cmdQueue)
+        static SharedPtr<QueueEvent> Allocate(const SharedPtr<IOclCommandQueueBase>& cmdQueue)
         {
             return new QueueEvent(cmdQueue);
         }
 
         ~QueueEvent();
 
-        SharedPtr<IOclCommandQueueBase>   GetEventQueue() const { return m_pEventQueue;}
-        void SetEventQueue(SharedPtr<IOclCommandQueueBase> pQueue);
+        const SharedPtr<IOclCommandQueueBase>&   GetEventQueue() const { return m_pEventQueue;}
+        void SetEventQueue(const SharedPtr<IOclCommandQueueBase>& pQueue);
 
         cl_command_queue GetEventQueueHandle() const { return m_pEventQueueHandle; }
 
@@ -78,7 +78,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void        SetProfilingInfo(cl_profiling_info clParamName, cl_ulong ulData);
 
         // include times from other command into me
-        void        IncludeProfilingInfo( const ConstSharedPtr<QueueEvent>& other );
+        void        IncludeProfilingInfo( const SharedPtr<QueueEvent>& other );
 
         void        SetCommand(Command* cmd) { m_pCommand = cmd;  }
         Command*    GetCommand() const                                  { return m_pCommand; }
@@ -99,7 +99,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #endif
 
     protected:
-        QueueEvent( SharedPtr<IOclCommandQueueBase> cmdQueue);
+        QueueEvent( const SharedPtr<IOclCommandQueueBase>& cmdQueue);
 
         //overrides from OclEvent
         virtual void   DoneWithDependencies(const SharedPtr<OclEvent>& pEvent);

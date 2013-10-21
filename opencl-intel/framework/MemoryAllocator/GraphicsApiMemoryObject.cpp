@@ -54,7 +54,7 @@ namespace Intel { namespace OpenCL { namespace Framework
      * @fn  cl_err_code GraphicsApiMemoryObject::LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT SharedPtr<OclEvent>* pOutEvent )
      */
 
-	cl_err_code GraphicsApiMemoryObject::LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutUsageLocked, OUT SharedPtr<OclEvent>& pOutEvent )
+	cl_err_code GraphicsApiMemoryObject::LockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutUsageLocked, OUT SharedPtr<OclEvent>& pOutEvent )
     {
 		pOutEvent = NULL;
 		*pOutUsageLocked = usage;
@@ -71,7 +71,7 @@ namespace Intel { namespace OpenCL { namespace Framework
      * @fn  cl_err_code GraphicsApiMemoryObject::UnLockOnDevice( IN ConstSharedPtr<FissionableDevice> dev, IN MemObjUsage usage )
      */
 
-    cl_err_code GraphicsApiMemoryObject::UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage )
+    cl_err_code GraphicsApiMemoryObject::UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage )
     {
 		OclAutoMutex mu(&m_muAcquireRelease);
         if ( m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject )

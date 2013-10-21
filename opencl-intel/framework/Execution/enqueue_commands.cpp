@@ -490,8 +490,8 @@ cl_err_code CopyMemObjCommand::Init()
 
     bool override_target = m_pDstMemObj->IsWholeObjectCovered(m_uiDstNumDims, m_szDstOrigin, m_szRegion);
 
-    m_MemOclObjects.push_back( MemoryObjectArg( m_pSrcMemObj, MemoryObject::READ_ONLY ) );
-    m_MemOclObjects.push_back( MemoryObjectArg( m_pDstMemObj, override_target ? MemoryObject::WRITE_ENTIRE : MemoryObject::READ_WRITE) );
+    AddToMemoryObjectArgList( m_MemOclObjects, m_pSrcMemObj, MemoryObject::READ_ONLY );
+    AddToMemoryObjectArgList( m_MemOclObjects, m_pDstMemObj, override_target ? MemoryObject::WRITE_ENTIRE : MemoryObject::READ_WRITE );
 
     return CL_SUCCESS;
 }
@@ -781,7 +781,7 @@ MapMemObjCommand::MapMemObjCommand(
             m_szRegion[i] = 1;
     }
 
-    m_MemOclObjects.push_back( MemoryObjectArg( pMemObj, MemoryObject::READ_WRITE ) );
+    AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE );
 }
 
 /******************************************************************
@@ -1090,7 +1090,7 @@ UnmapMemObjectCommand::UnmapMemObjectCommand(const SharedPtr<IOclCommandQueueBas
     m_pOclEntryPoints(pOclEntryPoints),
     m_bResourcesAllocated(false)
 {
-    m_MemOclObjects.push_back( MemoryObjectArg( pMemObject, MemoryObject::READ_WRITE ) );
+    AddToMemoryObjectArgList( m_MemOclObjects, pMemObject, MemoryObject::READ_WRITE );
 }
 
 /******************************************************************
@@ -1451,7 +1451,7 @@ cl_err_code NativeKernelCommand::Init()
         *((cl_dev_memobj_handle*)pNewMemObjLocation) = clDevMemHndl;
         ppNewArgsOffset[i] = stObjOffset;
 
-        m_MemOclObjects.push_back( MemoryObjectArg( pMemObj, MemoryObject::READ_WRITE ));
+        AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE );
     }
 
     // Need to rollback in case of error
@@ -1587,24 +1587,28 @@ cl_err_code NDRangeKernelCommand::Init()
 
         if ( !bFineGrain )
         {
-            std::vector<SharedPtr<SVMBuffer> > nonArgSvmBufs;
-            m_pKernel->GetNonArgSvmBuffers(nonArgSvmBufs);
-            if (nonArgSvmBufs.size() > 0)
+            size_t nonArgSvmBuffersCount = m_pKernel->GetNonArgSvmBuffersCount();
+            if (nonArgSvmBuffersCount > 0)
             {
-                m_nonArgSvmBuffersVec.resize(nonArgSvmBufs.size());
-                for (size_t i = 0; i < nonArgSvmBufs.size(); i++)
+                std::vector<SharedPtr<SVMBuffer> > nonArgSvmBufs;
+                m_pKernel->GetNonArgSvmBuffers(nonArgSvmBufs);
+                if (nonArgSvmBufs.size() > 0)
                 {
-                    m_MemOclObjects.push_back(MemoryObjectArg(nonArgSvmBufs[i], MemoryObject::READ_WRITE));
-                    res = GetMemObjectDescriptor(nonArgSvmBufs[i], &m_nonArgSvmBuffersVec[i]);
-                    if (CL_FAILED(res))
+                    m_nonArgSvmBuffersVec.resize(nonArgSvmBufs.size());
+                    for (size_t i = 0; i < nonArgSvmBufs.size(); i++)
                     {
-                        return res;
+                        AddToMemoryObjectArgList( m_MemOclObjects, nonArgSvmBufs[i], MemoryObject::READ_WRITE);
+                        res = GetMemObjectDescriptor(nonArgSvmBufs[i], &m_nonArgSvmBuffersVec[i]);
+                        if (CL_FAILED(res))
+                        {
+                            return res;
+                        }
                     }
                 }
             }
         }
     }
-	
+
     //
     // Query kernel info to validate input params
     //
@@ -1725,7 +1729,7 @@ cl_err_code NDRangeKernelCommand::Init()
         {
             // Create buffer resources here if not available.
             cl_mem clMemId = *(cl_mem*)pArg->GetValue();
-            SharedPtr<MemoryObject> pMemObj;
+            MemoryObject* pMemObj = NULL;
 
             if (NULL != clMemId)
             {
@@ -1733,11 +1737,12 @@ cl_err_code NDRangeKernelCommand::Init()
                 if (NULL == pMemObj)
                 {
                     // may it be an SVM object?
-                    if (NULL != pArg->GetSvmObject())
+                    if (pArg->IsSvmPtr())
                     {
-                        pMemObj = pArg->GetSvmObject().DynamicCast<MemoryObject>();
+                        SVMPointerArg* pSvmPtr = *(SVMPointerArg**)pArg->GetValue();
+                        pMemObj = static_cast<MemoryObject*>( pSvmPtr );
                     }
-                    else
+                    if (NULL == pMemObj)
                     {
                         res = CL_INVALID_KERNEL_ARGS;
                         break;
@@ -1749,11 +1754,16 @@ cl_err_code NDRangeKernelCommand::Init()
 
             if( NULL != pMemObj )    // NULL argument is allowed
             {
+                // increment refcount of memory object and save it
+                // TODO: Check why we always pass READ_WRITE as usage. Why we need it at all
+                AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE);
+
                 // Mark as used
                 res = pMemObj->CreateDeviceResource(m_pDevice);
                 if( CL_FAILED(res))
                 {
-                    break;
+                    assert( 0 && "CreateDeviceResource() supposed to success" );
+                    return res;
                 }                
 
                 res = GetMemObjectDescriptor(pMemObj, devObjSrc);
@@ -1763,9 +1773,6 @@ cl_err_code NDRangeKernelCommand::Init()
                     assert( 0 && "GetMemObjectDescriptor() supposed to success" );
                     return res;
                 }
-
-                // TODO: Check why we always pass READ_WRITE as usage. Why we need it at all
-                m_MemOclObjects.push_back(MemoryObjectArg(pMemObj, MemoryObject::READ_WRITE));
 
                 // add memory object to the list of memobj arguments
                 ++szNumBufs;
@@ -1998,7 +2005,7 @@ ReadMemObjCommand::ReadMemObjCommand(
     m_szDstSlicePitch(szDstSlicePitch)
 {
 //    size_t uiDimCount = m_pMemObj->GetNumDimensions();
-    m_MemOclObjects.push_back( MemoryObjectArg( pMemObj, MemoryObject::READ_ONLY ) );
+    AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_ONLY );
 
     // Set region
     for( cl_uint i =0; i<MAX_WORK_DIM; i++)
@@ -2256,7 +2263,7 @@ WriteMemObjCommand::WriteMemObjCommand(
     m_szSrcRowPitch(szSrcRowPitch),
     m_szSrcSlicePitch(szSrcSlicePitch)
 {
-    m_MemOclObjects.push_back( MemoryObjectArg( pMemObj, MemoryObject::READ_WRITE ) );
+    AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE );
     // Set region
     for( cl_uint i =0; i<MAX_WORK_DIM; i++)
     {
@@ -2477,7 +2484,7 @@ FillMemObjCommand::FillMemObjCommand(
     }
 
     MEMCPY_S(m_pattern, m_pattern_size, pattern, m_pattern_size);
-    m_MemOclObjects.push_back( MemoryObjectArg( pMemObj, MemoryObject::READ_WRITE ) );
+    AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE );
 }
 
 FillMemObjCommand::FillMemObjCommand(
@@ -2500,7 +2507,7 @@ FillMemObjCommand::FillMemObjCommand(
     m_szRegion[0] = pszRegion;
 
     MEMCPY_S(m_pattern, m_pattern_size, pattern, m_pattern_size);
-    m_MemOclObjects.push_back( MemoryObjectArg( pMemObj, MemoryObject::READ_WRITE ) );
+    AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE );
 }
 
 /******************************************************************
@@ -2670,7 +2677,7 @@ cl_err_code MigrateMemObjCommand::Init()
         cl_err = GetMemObjectDescriptor( pMemObj, &( m_migrateCmdParams.memObjs[i]));
         assert( CL_SUCCESS == cl_err );
 
-        m_MemOclObjects.push_back( MemoryObjectArg(pMemObj, access ));
+        AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, access );
     }
     
     // Initialize GPA data

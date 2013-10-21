@@ -57,11 +57,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         typedef typename std::map<HandleType*, SharedPtr<OCLObject<HandleType, ParentHandleType> > >::const_iterator HandleTypeMapConstIterator;
 
         // object's map
-        HandleTypeMap                                    m_mapObjects;
-        static Intel::OpenCL::Utils::AtomicCounter        m_iNextGenKey;
-        mutable Intel::OpenCL::Utils::OclSpinMutex        m_muMapMutex;
-        bool                                            m_bDisableAdding;
-        bool                                            m_bPreserveUserHandles;
+        HandleTypeMap                                          m_mapObjects;
+        static Intel::OpenCL::Utils::AtomicCounter             m_iNextGenKey;
+        mutable Intel::OpenCL::Utils::OclNonReentrantSpinMutex m_muMapMutex;
+        bool                                                   m_bDisableAdding;
+        bool                                                   m_bPreserveUserHandles;
 
     public:
 
@@ -95,7 +95,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:        Uri Levy
         * Date:            December 2008
         ******************************************************************************************/    
-        HandleType* AddObject(SharedPtr<OCLObject<HandleType, ParentHandleType> > pObject);
+        HandleType* AddObject(const SharedPtr<OCLObject<HandleType, ParentHandleType> >& pObject);
 
         /******************************************************************************************
         * Function:     AddObject    
@@ -109,7 +109,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:        Uri Levy
         * Date:            January 2008
         ******************************************************************************************/    
-        cl_err_code AddObject(SharedPtr<OCLObject<HandleType, ParentHandleType> > pObject, bool bAssignId);
+        cl_err_code AddObject(const SharedPtr<OCLObject<HandleType, ParentHandleType> >& pObject, bool bAssignId);
 
         /******************************************************************************************
         * Function:     GetOCLObject    

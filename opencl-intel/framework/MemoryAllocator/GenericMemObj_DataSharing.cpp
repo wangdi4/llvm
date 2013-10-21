@@ -570,11 +570,11 @@ void GenericMemObject::ensure_single_data_copy( unsigned int group_id )
     }
 }
 
-bool GenericMemObject::getDeviceSharingGroupId(const ConstSharedPtr<FissionableDevice>& dev, unsigned int* pSharingGroupId)
+bool GenericMemObject::getDeviceSharingGroupId(const SharedPtr<FissionableDevice>& dev, unsigned int* pSharingGroupId)
 {
     assert(NULL != dev && "LockOnDevice called without device" );
 
-    DeviceDescriptor* desc = get_device(dev);
+    DeviceDescriptor* desc = get_device(dev.GetPtr());
 
     if (NULL == desc)
     {
@@ -590,7 +590,7 @@ bool GenericMemObject::getDeviceSharingGroupId(const ConstSharedPtr<FissionableD
 // Interface implementation
 //
 
-cl_err_code GenericMemObject::LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent )
+cl_err_code GenericMemObject::LockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent )
 {
     pOutEvent = NULL;
     // The default value of *pOutActuallyUsage is usage.
@@ -620,7 +620,7 @@ cl_err_code GenericMemObject::LockOnDevice( IN const ConstSharedPtr<FissionableD
     return retCode;
 }
 
-cl_err_code GenericMemObject::UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage ) 
+cl_err_code GenericMemObject::UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage ) 
 { 
     if (m_active_groups_count <= 1)
     {
@@ -1118,7 +1118,7 @@ unsigned int GenericMemObject::getParentValidSharingGroupId() const
 
 ////////////////////////////////////////// GenericMemObjectSubBuffer ///////////////////////////////////////////
 
-cl_err_code GenericMemObjectSubBuffer::LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent )
+cl_err_code GenericMemObjectSubBuffer::LockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent )
 {
     pOutEvent = NULL;
     // SubBuffers always lock with MemObjUsage = usage
@@ -1149,7 +1149,7 @@ cl_err_code GenericMemObjectSubBuffer::LockOnDevice( IN const ConstSharedPtr<Fis
     return CL_SUCCESS;
 }
 
-cl_err_code GenericMemObjectSubBuffer::UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage )
+cl_err_code GenericMemObjectSubBuffer::UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage )
 {
     if (m_active_groups_count <= 1)
     {

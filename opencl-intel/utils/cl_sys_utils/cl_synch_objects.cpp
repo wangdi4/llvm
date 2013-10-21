@@ -32,41 +32,41 @@
 /////////////////////////////////////////////////////////////////////////////
 Intel::OpenCL::Utils::OclSpinMutex::OclSpinMutex()
 {
-	lMutex.exchange(0);
-	threadId = INVALID_MUTEX_OWNER;
+    lMutex.exchange(0);
+    threadId = INVALID_MUTEX_OWNER;
 }
 void Intel::OpenCL::Utils::OclSpinMutex::Lock()
 {
-	if (threadId == clMyThreadId())
-	{
-		lMutex++;
-		return;
-	}
-	while (lMutex.test_and_set(0, 1))
-	{
-		// In order to improve the performance of spin-wait loops.
+    if (threadId == clMyThreadId())
+    {
+        lMutex++;
+        return;
+    }
+    while (lMutex.test_and_set(0, 1))
+    {
+        // In order to improve the performance of spin-wait loops.
         InnerSpinloopImpl();
-	}
-	threadId = clMyThreadId();
+    }
+    threadId = clMyThreadId();
 }
 void Intel::OpenCL::Utils::OclSpinMutex::Unlock()
 {
-	//Prevent a thread that doesn't own the mutex from unlocking it
-	if (clMyThreadId() != threadId)
-	{
-		return;
-	}
-	if ( 1 == (long)lMutex )
-	{
-		threadId = INVALID_MUTEX_OWNER;
-		lMutex.exchange(0);
-		return;
-	}
-#ifdef _DEBUG	
-	long val = lMutex--;
-	assert(val != 0);
+    //Prevent a thread that doesn't own the mutex from unlocking it
+    if (clMyThreadId() != threadId)
+    {
+        return;
+    }
+    if ( 1 == (long)lMutex )
+    {
+        threadId = INVALID_MUTEX_OWNER;
+        lMutex.exchange(0);
+        return;
+    }
+#ifdef _DEBUG    
+    long val = lMutex--;
+    assert(val != 0);
 #else
   lMutex--;
-#endif  	
+#endif      
 }
 

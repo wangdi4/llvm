@@ -83,12 +83,12 @@ cl_err_code	SVMPointerArg::MemObjReleaseDevMappedRegion(const SharedPtr<Fissiona
 
 // SVMBufferPointerArg methods:
 
-cl_err_code SVMBufferPointerArg::LockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent)
+cl_err_code SVMBufferPointerArg::LockOnDevice(IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent)
 {
 	return m_pSvmBuf->LockOnDevice(dev, usage, pOutActuallyUsage, pOutEvent);
 }
 
-cl_err_code SVMBufferPointerArg::UnLockOnDevice(IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage)
+cl_err_code SVMBufferPointerArg::UnLockOnDevice(IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage)
 {
 	return m_pSvmBuf->UnLockOnDevice(dev, usage);
 }

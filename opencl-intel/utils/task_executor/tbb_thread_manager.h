@@ -59,7 +59,8 @@ public:
 
     static Data* GetCurrentThreadDescriptor()
     {
-        return (NULL != m_CurrentThreadGlobalID) ? &(m_CurrentThreadGlobalID->m_data) : NULL; 
+        TBB_ThreadDescriptor<Data>* cached = m_CurrentThreadGlobalID;
+        return (NULL != cached) ? &(cached->m_data) : NULL; 
     }
 
     // register thread of still integistered

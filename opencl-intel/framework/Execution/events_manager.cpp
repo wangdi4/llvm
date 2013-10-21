@@ -53,7 +53,7 @@ EventsManager::EventsManager()
  ******************************************************************/
 EventsManager::~EventsManager()
 {
-	m_mapEvents.ReleaseAllObjects(false);
+    m_mapEvents.ReleaseAllObjects(false);
 }
 
 
@@ -77,12 +77,12 @@ cl_err_code EventsManager::RetainEvent (cl_event clEvent)
  ******************************************************************/
 cl_err_code EventsManager::ReleaseEvent(cl_event clEvent)
 {
-	return m_mapEvents.ReleaseObject((_cl_event_int*)clEvent);
+    return m_mapEvents.ReleaseObject((_cl_event_int*)clEvent);
 }
 
 void EventsManager::ReleaseAllEvents( bool bTerminate )
 {
-	return m_mapEvents.ReleaseAllObjects( bTerminate );
+    return m_mapEvents.ReleaseAllObjects( bTerminate );
 }
 
 /******************************************************************
@@ -92,14 +92,14 @@ cl_err_code    EventsManager::GetEventInfo(cl_event clEvent , cl_int iParamName,
 {
     cl_err_code res         = CL_SUCCESS;
     SharedPtr<OCLObject<_cl_event_int> > pOclObject = m_mapEvents.GetOCLObject((_cl_event_int*)clEvent);
-	if (pOclObject)
-	{
-		res = pOclObject->GetInfo(iParamName, szParamValueSize, paramValue, szParamValueSizeRet);
-	}   
-	else
-	{
-		res = CL_INVALID_EVENT;
-	}
+    if (pOclObject)
+    {
+        res = pOclObject->GetInfo(iParamName, szParamValueSize, paramValue, szParamValueSizeRet);
+    }   
+    else
+    {
+        res = CL_INVALID_EVENT;
+    }
     return res;
 }
 /******************************************************************
@@ -112,10 +112,10 @@ cl_err_code EventsManager::GetEventProfilingInfo (cl_event clEvent, cl_profiling
     if (pOclObject)
     {
         SharedPtr<QueueEvent> pEvent  = pOclObject.DynamicCast<QueueEvent>();
-		if (NULL == pEvent) //User events have no profiling info
-		{
-			return CL_PROFILING_INFO_NOT_AVAILABLE;
-		}
+        if (NULL == pEvent) //User events have no profiling info
+        {
+            return CL_PROFILING_INFO_NOT_AVAILABLE;
+        }
         res = pEvent->GetProfilingInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
     }   
     else
@@ -137,93 +137,93 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
          return CL_INVALID_EVENT_WAIT_LIST;
 
     // First validate that all ids in the event list exists
-	std::vector<SharedPtr<OclEvent> > vOclEvents, vExplicitWaitEvents;
+    std::vector<SharedPtr<OclEvent> > vOclEvents, vExplicitWaitEvents;
 
-	if(!GetEventsFromList(uiNumEvents, eventList, &vOclEvents))
-	{
+    if(!GetEventsFromList(uiNumEvents, eventList, &vOclEvents))
+    {
         return CL_INVALID_EVENT_WAIT_LIST;
-	}
+    }
 
-	cl_context eventContext;
-	//Ensure all events are in the same context
-	eventContext = vOclEvents[0]->GetParentHandle();
-	for (cl_uint ui = 1; ui < uiNumEvents; ++ui)
-	{
-		if (eventContext != vOclEvents[ui]->GetParentHandle())
-		{
-			return CL_INVALID_CONTEXT;
-		}
-	}
+    cl_context eventContext;
+    //Ensure all events are in the same context
+    eventContext = vOclEvents[0]->GetParentHandle();
+    for (cl_uint ui = 1; ui < uiNumEvents; ++ui)
+    {
+        if (eventContext != vOclEvents[ui]->GetParentHandle())
+        {
+            return CL_INVALID_CONTEXT;
+        }
+    }
 
     // Wait on all events. Order doesn't matter since you always bonded to the longest event.
-	// On the first stage, try to wait for events (commands) that we can join the arena.
-	// For RuntimeCommand or for such command that we can't join execution, call Wait()
-	// method of the event and wait for it's completion.
+    // On the first stage, try to wait for events (commands) that we can join the arena.
+    // For RuntimeCommand or for such command that we can't join execution, call Wait()
+    // method of the event and wait for it's completion.
     // OclEvent wait on event that is done do nothing    
     cl_err_code err = CL_SUCCESS;
-	bool bWaitForEventSuccess = false;
-	std::vector<SharedPtr<OclEvent> >::iterator evtIt = vOclEvents.begin();
-	while ( !vOclEvents.empty() )
-	{
-		if ( vOclEvents.end() == evtIt )
-		{
-			// When one loop fished and no WaitForEvent were executed succesfully
-			// Need to start using explicit Wait()
-			if ( !bWaitForEventSuccess )
-			{
-				break;
-			}
-
-			evtIt = vOclEvents.begin();
-			bWaitForEventSuccess = false;
-		}
-
-		// Execute queue until assosiated command is completed
-
-		// Don't try join master thread for user events,
-		// Don't try join master thread for Runtime Commands,
-		// Or if WaitForCompletion() fails,
-		// Move event to the Explicit Wait list and skip to next event
-        SharedPtr<QueueEvent> pQueueEvent = evtIt->DynamicCast<QueueEvent>();
-		if ( (NULL != pQueueEvent) && (pQueueEvent->GetCommand()->GetExecutionType() == DEVICE_EXECUTION_TYPE))
+    bool bWaitForEventSuccess = false;
+    std::vector<SharedPtr<OclEvent> >::iterator evtIt = vOclEvents.begin();
+    while ( !vOclEvents.empty() )
+    {
+        if ( vOclEvents.end() == evtIt )
         {
-            SharedPtr<IOclCommandQueueBase> pQueueEventQueue = pQueueEvent->GetEventQueue();
-            if ((NULL != pQueueEventQueue) && !CL_FAILED(pQueueEventQueue->WaitForCompletion(pQueueEvent)) ) // CL_SUCCEDDED() != (!CL_FAILED())
-		    {
-			    bWaitForEventSuccess = true;
+            // When one loop fished and no WaitForEvent were executed succesfully
+            // Need to start using explicit Wait()
+            if ( !bWaitForEventSuccess )
+            {
+                break;
+            }
 
-			    // At this stage the event is completed
-			    assert( ((*evtIt)->GetEventExecState() == CL_COMPLETE) && "Event expected to be in COMPLETE state");
-			    // Now check even error code for failure
-			    if ((*evtIt)->GetReturnCode() < 0)
-			    {
-				    err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
-			    }
-		    }
+            evtIt = vOclEvents.begin();
+            bWaitForEventSuccess = false;
         }
-		if (!bWaitForEventSuccess)
-		{
-			vExplicitWaitEvents.push_back(*evtIt);
-		}
 
-		evtIt = vOclEvents.erase(evtIt);
-	}
+        // Execute queue until assosiated command is completed
 
-	vExplicitWaitEvents.insert(vExplicitWaitEvents.end(), vOclEvents.begin(), vOclEvents.end());
+        // Don't try join master thread for user events,
+        // Don't try join master thread for Runtime Commands,
+        // Or if WaitForCompletion() fails,
+        // Move event to the Explicit Wait list and skip to next event
+        SharedPtr<QueueEvent> pQueueEvent = evtIt->DynamicCast<QueueEvent>();
+        if ( (NULL != pQueueEvent) && (pQueueEvent->GetCommand()->GetExecutionType() == DEVICE_EXECUTION_TYPE))
+        {
+            const SharedPtr<IOclCommandQueueBase>& pQueueEventQueue = pQueueEvent->GetEventQueue();
+            if ((NULL != pQueueEventQueue) && !CL_FAILED(pQueueEventQueue->WaitForCompletion(pQueueEvent)) ) // CL_SUCCEDDED() != (!CL_FAILED())
+            {
+                bWaitForEventSuccess = true;
 
-	// For rest of the events need to explicitly wait for each one, don't spent CPU cycles in the loop
-	for ( evtIt = vExplicitWaitEvents.begin(); evtIt != vExplicitWaitEvents.end(); evtIt++)
-	{
-		(*evtIt)->Wait();
-		// Now check even error code for failure
-		if ((*evtIt)->GetReturnCode() < 0)
-		{
-			err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
-		}
-	}
-	vExplicitWaitEvents.clear();
+                // At this stage the event is completed
+                assert( ((*evtIt)->GetEventExecState() == CL_COMPLETE) && "Event expected to be in COMPLETE state");
+                // Now check even error code for failure
+                if ((*evtIt)->GetReturnCode() < 0)
+                {
+                    err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
+                }
+            }
+        }
+        if (!bWaitForEventSuccess)
+        {
+            vExplicitWaitEvents.push_back(*evtIt);
+        }
 
-	return err;
+        evtIt = vOclEvents.erase(evtIt);
+    }
+
+    vExplicitWaitEvents.insert(vExplicitWaitEvents.end(), vOclEvents.begin(), vOclEvents.end());
+
+    // For rest of the events need to explicitly wait for each one, don't spent CPU cycles in the loop
+    for ( evtIt = vExplicitWaitEvents.begin(); evtIt != vExplicitWaitEvents.end(); evtIt++)
+    {
+        (*evtIt)->Wait();
+        // Now check even error code for failure
+        if ((*evtIt)->GetReturnCode() < 0)
+        {
+            err = CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
+        }
+    }
+    vExplicitWaitEvents.clear();
+
+    return err;
 }
 /******************************************************************
  * This function gets an event list and returns true if it is valid
@@ -231,17 +231,17 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
  ******************************************************************/
 bool EventsManager::IsValidEventList(cl_uint uiNumEvents, const cl_event* eventList, std::vector<SharedPtr<OclEvent> >* pvOclEvents)
 {
-	if ( 
-		( (NULL == eventList) && (0 != uiNumEvents) ) ||
-		( (NULL != eventList) && ( 0 == uiNumEvents) ) 
-		)
-		return false;
-	if (0 != uiNumEvents)
-	{
-		if(!GetEventsFromList(uiNumEvents, eventList, pvOclEvents))
-			return false;
-	}
-	return true;
+    if ( 
+        ( (NULL == eventList) && (0 != uiNumEvents) ) ||
+        ( (NULL != eventList) && ( 0 == uiNumEvents) ) 
+        )
+        return false;
+    if (0 != uiNumEvents)
+    {
+        if(!GetEventsFromList(uiNumEvents, eventList, pvOclEvents))
+            return false;
+    }
+    return true;
 }
 /******************************************************************
  * This function gets an handle to event that represents command
@@ -253,13 +253,13 @@ bool EventsManager::IsValidEventList(cl_uint uiNumEvents, const cl_event* eventL
  ******************************************************************/
 cl_err_code EventsManager::RegisterEvents(const SharedPtr<OclEvent>& pEvent, cl_uint uiNumEvents, const cl_event* eventList, bool bRemoveEvents, cl_int queueId)
 {
-	cl_start;
+    cl_start;
     // Check input parameters and validate that all ids in the event list exists
     std::vector<SharedPtr<OclEvent> > vOclEvents;
-	if (NULL == pEvent || !IsValidEventList(uiNumEvents, eventList, &vOclEvents))
-	{
-		return CL_INVALID_EVENT_WAIT_LIST;
-	}
+    if (NULL == pEvent || !IsValidEventList(uiNumEvents, eventList, &vOclEvents))
+    {
+        return CL_INVALID_EVENT_WAIT_LIST;
+    }
 
     // If 0, no event list
     if (0 != uiNumEvents)
@@ -269,7 +269,7 @@ cl_err_code EventsManager::RegisterEvents(const SharedPtr<OclEvent>& pEvent, cl_
         cl_context queueContext = pEvent->GetParentHandle();
         for ( ui =0; ui < uiNumEvents; ui++)
         {
-            SharedPtr<OclEvent> pOclEvent = vOclEvents[ui];
+            const SharedPtr<OclEvent>& pOclEvent = vOclEvents[ui];
             if( queueContext != pOclEvent->GetParentHandle())
             {
                 // Error
@@ -280,24 +280,24 @@ cl_err_code EventsManager::RegisterEvents(const SharedPtr<OclEvent>& pEvent, cl_
         // Register input event in the entire eventList
         // If bRemoveEvents is true, events that were allocated on queueId will not
         // be registered
-		if (bRemoveEvents)
-		{
-			for ( ui =0; ui < uiNumEvents; ui++)
-			{
-				SharedPtr<QueueEvent> pDependOnEvent = vOclEvents[ui].DynamicCast<QueueEvent>();
-				if ( NULL != pDependOnEvent )
-				{
-					if ((pDependOnEvent->GetEventQueue()) && 
-						(queueId == pDependOnEvent->GetEventQueue()->GetId()))
+        if (bRemoveEvents)
+        {
+            for ( ui =0; ui < uiNumEvents; ui++)
+            {
+                SharedPtr<QueueEvent> pDependOnEvent = vOclEvents[ui].DynamicCast<QueueEvent>();
+                if ( NULL != pDependOnEvent )
+                {
+                    if ((pDependOnEvent->GetEventQueue()) && 
+                        (queueId == pDependOnEvent->GetEventQueue()->GetId()))
                     {
                         // Do not register
-						vOclEvents[ui] = NULL;
+                        vOclEvents[ui] = NULL;
                         continue;
                     }
-				}
+                }
             }        
         }
-		pEvent->AddDependentOnMulti(uiNumEvents, &vOclEvents[0]);
+        pEvent->AddDependentOnMulti(uiNumEvents, &vOclEvents[0]);
     }
     cl_return  CL_SUCCESS;    
 }
@@ -312,20 +312,20 @@ cl_err_code EventsManager::RegisterEvents(const SharedPtr<OclEvent>& pEvent, cl_
  ******************************************************************/
 bool EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* eventList, std::vector<SharedPtr<OclEvent> >* pvOclEvents)
 {
-	if(0 == uiNumEvents)
-	{
-		return false;
-	}
+    if(0 == uiNumEvents)
+    {
+        return false;
+    }
     for ( cl_uint ui = 0; ui < uiNumEvents; ui++)
     {
         SharedPtr<OclEvent> pEvent = m_mapEvents.GetOCLObject((_cl_event_int*)eventList[ui]).DynamicCast<OclEvent>();
         if (NULL == pEvent)
         {
             // Not valid, return
-			return false;
+            return false;
         }
-		if (NULL != pvOclEvents)
-			pvOclEvents->push_back(pEvent);
+        if (NULL != pvOclEvents)
+            pvOclEvents->push_back(pEvent);
     } 
     return true;    
 }
@@ -338,12 +338,12 @@ bool EventsManager::GetEventsFromList( cl_uint uiNumEvents, const cl_event* even
  ******************************************************************/
 void EventsManager::RegisterQueueEvent(const SharedPtr<QueueEvent>& pEvent, cl_event* pEventHndl)
 {
-	assert(pEvent);
+    assert(pEvent);
     m_mapEvents.AddObject(pEvent);
-	if (pEventHndl)
-	{
-		*pEventHndl = pEvent->GetHandle();
-	}
+    if (pEventHndl)
+    {
+        *pEventHndl = pEvent->GetHandle();
+    }
 }
 
 /******************************************************************
@@ -351,24 +351,24 @@ void EventsManager::RegisterQueueEvent(const SharedPtr<QueueEvent>& pEvent, cl_e
 ******************************************************************/
 cl_err_code EventsManager::SetEventCallBack(cl_event evt, cl_int execType, Intel::OpenCL::Framework::eventCallbackFn fn, void *pUserData)
 {
-	SharedPtr<OclEvent> pEvent = GetEventClass<OclEvent>(evt);
-	if (NULL == pEvent)
-	{
-		return CL_INVALID_EVENT;
-	}
-	if (!fn)
-	{
-		return CL_INVALID_VALUE;
-	}
-	if (execType != CL_SUBMITTED && execType != CL_RUNNING && execType != CL_COMPLETE)
-	{
-		return CL_INVALID_VALUE;
-	}
+    SharedPtr<OclEvent> pEvent = GetEventClass<OclEvent>(evt);
+    if (NULL == pEvent)
+    {
+        return CL_INVALID_EVENT;
+    }
+    if (!fn)
+    {
+        return CL_INVALID_VALUE;
+    }
+    if (execType != CL_SUBMITTED && execType != CL_RUNNING && execType != CL_COMPLETE)
+    {
+        return CL_INVALID_VALUE;
+    }
     SharedPtr<EventCallback> pNewCallback = EventCallback::Allocate(fn, pUserData, execType);
-	if (NULL == pNewCallback)
-	{
-		return CL_OUT_OF_HOST_MEMORY;
-	}
+    if (NULL == pNewCallback)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
     pEvent->AddObserver(SharedPtr<IEventObserver>(pNewCallback));
-	return CL_SUCCESS;
+    return CL_SUCCESS;
 }

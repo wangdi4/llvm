@@ -188,14 +188,14 @@ private:
 
     long DriveEnterZombieState() const;
 
-    mutable AtomicCounter  m_refCnt;
-    mutable OclSpinMutex   m_zombieLock;     // all zombie-related checks to be done inside lock except m_bCheckZombie
-    mutable long           m_zombieLevelCnt; // when object is considered zombie
+    mutable AtomicCounter            m_refCnt;
+    mutable OclNonReentrantSpinMutex m_zombieLock;     // all zombie-related checks to be done inside lock except m_bCheckZombie
+    mutable long                     m_zombieLevelCnt; // when object is considered zombie
 #ifdef _DEBUG
-    bool                   m_bEnterZombieStateCalled; // for debug - test for zombie protocol implementation
+    bool                             m_bEnterZombieStateCalled; // for debug - test for zombie protocol implementation
 #endif
-    mutable volatile bool  m_bCheckZombie;   // object should support zombies 
-    mutable          State m_state;          // zombie state
+    mutable volatile bool            m_bCheckZombie;   // object should support zombies 
+    mutable          State           m_state;          // zombie state
 
     friend class LifetimeReferenceCountedObjectContainer;
 };

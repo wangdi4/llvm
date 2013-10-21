@@ -148,11 +148,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list
         // by the caller
 		// pOutActuallyUsage is the MemObjUsage that the memory object realy locked on (Can be usage or READ_WRITE)
-        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent ) = 0;
+        virtual cl_err_code LockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent ) = 0;
 
         // release data locking on device. 
         // MUST pass the same usage value as set in pOutActuallyUsage during LockOnDevice execution.
-        virtual cl_err_code UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage ) = 0;
+        virtual cl_err_code UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage ) = 0;
 
         //
         // end of ownership and data validity management
