@@ -27,15 +27,17 @@
 #define OCL_COMMON_SUPPORTED_EXTENSIONS "cl_khr_icd cl_khr_global_int32_base_atomics "\
     "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
     "cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store "\
-    "cl_khr_spir cl_intel_exec_by_local_thread "\
-    "cl_khr_depth_images cl_khr_3d_image_writes cl_khr_image2d_from_buffer"
+    "cl_khr_spir cl_intel_exec_by_local_thread cl_khr_depth_images cl_khr_3d_image_writes"    
+
+#define OCL_COMMON_SUPPORTED_EXTENSTIONS_2_0 "cl_khr_image2d_from_buffer"
+
 #define OCL_SUPPORTED_EXTENSIONS_WIN "cl_khr_gl_sharing "\
     OCL_INTEL_DX9_MEDIA_SHARING_EXT " "\
     OCL_KHR_DX9_MEDIA_SHARING_EXT " "\
     OCL_KHR_D3D11_SHARING_EXT
 #define OCL_DOUBLE "cl_khr_fp64"
 
-static const char OCL_SUPPORTED_EXTENSIONS[] =
+static const char OCL_SUPPORTED_EXTENSIONS_1_2[] =
     OCL_COMMON_SUPPORTED_EXTENSIONS " "
 #if defined __DOUBLE_ENABLED__
     OCL_DOUBLE " "
@@ -45,8 +47,27 @@ static const char OCL_SUPPORTED_EXTENSIONS[] =
 #endif
     ;
 
-static const char OCL_SUPPORTED_EXTENSIONS_ATOM[] =
+static const char OCL_SUPPORTED_EXTENSIONS_2_0[] =
+OCL_COMMON_SUPPORTED_EXTENSIONS " "
+OCL_COMMON_SUPPORTED_EXTENSTIONS_2_0 " "
+#if defined __DOUBLE_ENABLED__
+    OCL_DOUBLE " "
+#endif
+#if (_WIN32)
+    OCL_SUPPORTED_EXTENSIONS_WIN " "
+#endif
+    ;
+
+static const char OCL_SUPPORTED_EXTENSIONS_ATOM_1_2[] =
     OCL_COMMON_SUPPORTED_EXTENSIONS " "
+#if (_WIN32)
+    OCL_SUPPORTED_EXTENSIONS_WIN " "
+#endif
+    ;
+
+static const char OCL_SUPPORTED_EXTENSIONS_ATOM_2_0[] =
+    OCL_COMMON_SUPPORTED_EXTENSIONS " "
+    OCL_COMMON_SUPPORTED_EXTENSTIONS_2_0 " "
 #if (_WIN32)
     OCL_SUPPORTED_EXTENSIONS_WIN " "
 #endif

@@ -189,6 +189,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         ocl_gpa_data *      m_pGPAData;
 
+        OPENCL_VERSION      m_opencl_ver;
+
         DECLARE_LOGGER_CLIENT; // Logger client for logging operations.
 
         // Disable copy consructors

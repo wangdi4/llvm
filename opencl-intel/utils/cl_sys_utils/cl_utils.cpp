@@ -26,6 +26,7 @@
 /////////////////////////////////////////////////////////////////////////
 
 #include "cl_utils.h"
+#include "cl_sys_info.h"
 #include <CL/cl.h>
 #include <CL/cl_2_0.h>
 #include <cassert>
@@ -1402,6 +1403,16 @@ void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size
 		// for single-byte patterns memset is the fastest
 		memset(pBuffer, ((char*)pPattern)[0], szBufferSize);
 	}
+}
+
+std::string GetConfigFilePath()
+{
+    char szModuleBuff[MAX_PATH] = "";
+    
+    Intel::OpenCL::Utils::GetModuleDirectory(szModuleBuff, MAX_PATH);
+    std::string path = szModuleBuff;
+    path.append("cl.cfg");
+    return path;
 }
 
 #if defined(_MSC_VER) && !defined(_WIN64)
