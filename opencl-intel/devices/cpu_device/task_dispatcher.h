@@ -120,17 +120,17 @@ public:
 protected:
     cl_int                    m_iDevId;
     IOCLDevLogDescriptor*     m_pLogDescriptor;
-    cl_int						        m_iLogHandle;
-    ocl_gpa_data*				      m_pGPAData;
-    IOCLFrameworkCallbacks*		m_pFrameworkCallBacks;
-    ProgramService*				    m_pProgramService;
-    MemoryAllocator*			    m_pMemoryAllocator;
-    CPUDeviceConfig*			    m_pCPUDeviceConfig;
+    cl_int                    m_iLogHandle;
+    ocl_gpa_data*             m_pGPAData;
+    IOCLFrameworkCallbacks*   m_pFrameworkCallBacks;
+    ProgramService*           m_pProgramService;
+    MemoryAllocator*          m_pMemoryAllocator;
+    CPUDeviceConfig*          m_pCPUDeviceConfig;
     ITaskExecutor*	          m_pTaskExecutor;
     SharedPtr<ITEDevice>      m_pRootDevice;
     WgContextPool*            m_pWgContextPool;
-    unsigned int				      m_uiNumThreads;
-    bool						          m_bTEActivated;
+    unsigned int              m_uiNumThreads;
+    bool                      m_bTEActivated;
 
     Intel::OpenCL::Utils::SharedPtr<ITaskList> m_pDefaultQueue;
 

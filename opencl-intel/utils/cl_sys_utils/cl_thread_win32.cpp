@@ -247,8 +247,6 @@ int OclThread::SetAffinity(unsigned char ucAffinity)
 	DWORD_PTR affinityMask = (0x1 << ucAffinity) ;
     if (0 == SetThreadAffinityMask(m_threadHandle, affinityMask))
     {
-        //Report Error
-        printf("WorkerThread SetThreadAffinityMask error: %d\n", GetLastError());
         return THREAD_RESULT_FAIL;
     }
 	return THREAD_RESULT_SUCCESS;

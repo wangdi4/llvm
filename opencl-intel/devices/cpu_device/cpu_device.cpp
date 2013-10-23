@@ -54,8 +54,6 @@ using namespace Intel::OpenCL::CPUDevice;
 
 USE_SHUTDOWN_HANDLER(CPUDevice::WaitUntilShutdown);
 
-char clCPUDEVICE_CFG_PATH[MAX_PATH];
-
 #if defined(_M_X64) || defined(__x86_64__)
     #define MEMORY_LIMIT (TotalPhysicalSize())
 #else
@@ -188,6 +186,9 @@ CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCL
     m_defaultCommandList(NULL),
     m_numCores(0),
     m_pComputeUnitMap(NULL)
+#ifdef __HARD_TRAPPING__
+    , m_bUseTrapping(false)
+#endif    
 {
     m_bDeviceIsRunning = true;
 }
@@ -210,12 +211,17 @@ cl_dev_err_code CPUDevice::Init()
         return CL_DEV_ERROR_FAIL;
     }
 
+
+    // Get configuration file name
     m_pCPUDeviceConfig = new CPUDeviceConfig();
-    m_pCPUDeviceConfig->Initialize(clCPUDEVICE_CFG_PATH);
+    m_pCPUDeviceConfig->Initialize("cl.cfg");
 
     // Enable VTune source level profiling
     GetCPUDevInfo(*m_pCPUDeviceConfig)->bEnableSourceLevelProfiling = m_pCPUDeviceConfig->UseVTune();
-
+    
+#ifdef __HARD_TRAPPING__    
+    m_bUseTrapping = m_pCPUDeviceConfig->UseTrapping();
+#endif
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateDevice function enter"));
 
     m_pProgramService = new ProgramService(m_uiCpuId, 
@@ -466,6 +472,15 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
     size_t  internalRetunedValueSize = valSize;
     size_t  *pinternalRetunedValueSize;
     unsigned int viCPUInfo[4] = {(unsigned int)-1};
+
+    // Do static initialize of the OpenCL Version
+    static OPENCL_VERSION ver = OPENCL_VERSION_UNKNOWN;
+    if ( OPENCL_VERSION_UNKNOWN == ver )
+    {
+        CPUDeviceConfig config;
+        config.Initialize(GetConfigFilePath());
+        ver = config.GetOpenCLVersion();
+    }
 
     //if OUT paramValSize_ret is NULL it should be ignopred
     if(paramValSizeRet)
@@ -1205,9 +1220,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_OPENCL_C_VERSION):
             {                
-                CPUDeviceConfig config;
-                config.Initialize(GetConfigFilePath());
-                OPENCL_VERSION ver = config.GetOpenCLVersion();
                 *pinternalRetunedValueSize = strlen(OPENCL_VERSION_1_2 == ver ? sOpenCLC12Str : sOpenCLC20Str) + 1;
                 if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
                 {
@@ -1222,9 +1234,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
         case( CL_DEVICE_VERSION):
         {
-            CPUDeviceConfig config;
-            config.Initialize(GetConfigFilePath());
-            OPENCL_VERSION ver = config.GetOpenCLVersion();
             *pinternalRetunedValueSize = strlen(OPENCL_VERSION_1_2 == ver ? sOpenCL12Str : sOpenCL20Str) + strlen(BUILDVERSIONSTR) + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1832,7 +1841,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
                 }
 #ifdef __HARD_TRAPPING__
                 // Now "trap" threads in device
-                if ( !pSubdeviceData->pSubDevice->AcquireWorkerThreads() )
+                if ( m_bUseTrapping && !pSubdeviceData->pSubDevice->AcquireWorkerThreads() )
                 {
                     assert(0 && "Acquring of the worker threads failed");
                     delete pList;
@@ -1868,7 +1877,10 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
               if ( NULL!=pSubdeviceData->legal_core_ids )
               {
 #ifdef __HARD_TRAPPING__
-                  pSubdeviceData->pSubDevice->RelinquishWorkerThreads();
+                  if ( m_bUseTrapping )
+                  {
+                      pSubdeviceData->pSubDevice->RelinquishWorkerThreads();
+                  }
 #endif // __HARD_TRAPPING__                
                   ReleaseComputeUnits(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units);
               }
@@ -1921,7 +1933,10 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
             if ( NULL != pList->subdevice_id->legal_core_ids )
             {
 #ifdef __HARD_TRAPPING__
-                pList->subdevice_id->pSubDevice->RelinquishWorkerThreads();
+                if ( m_bUseTrapping )
+                {
+                    pList->subdevice_id->pSubDevice->RelinquishWorkerThreads();
+                }
 #endif // __HARD_TRAPPING__
                 ReleaseComputeUnits(pList->subdevice_id->legal_core_ids, pList->subdevice_id->num_compute_units);
             }

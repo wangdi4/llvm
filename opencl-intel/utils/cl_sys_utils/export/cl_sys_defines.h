@@ -228,10 +228,12 @@ static int sched_setaffinity(pid_t pid, size_t len, affinityMask_t const *cpuset
 {
     return syscall(__NR_sched_setaffinity, pid, len, cpusetp);
 }
+
 static int sched_getaffinity(pid_t pid, size_t len, affinityMask_t const *cpusetp)
 {
     return syscall(__NR_sched_getaffinity, pid, len, cpusetp);
 }
+
 static int CPU_COUNT(affinityMask_t* set)
 {
     // Pretend the data structure is opaque by using other CPU_ macros to implement
@@ -252,7 +254,6 @@ static int CPU_COUNT(affinityMask_t* set)
     }
     return result;
 }
-
 
 #define pthread_cancel(...)        assert(0 && "pthread_cancel isn't supported for android")
 

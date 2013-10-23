@@ -68,9 +68,12 @@ protected:
     unsigned int*               m_pComputeUnitMap;    // A mapping between an OpenCL-defined core ID (1 is first CPU on second socket) and OS-defined core ID
     std::map<threadid_t, int>   m_threadToCore;       // Maps OS thread ID to core ID
     std::vector<threadid_t>     m_pCoreToThread;      // Maps OpenCL core ID to OS thread id which is pinned to the core, which can then be used access the scoreboard above
-    std::vector<bool>           m_pCoreInUse;           // Keeps track over used compute units to prevent overlap
+    std::vector<bool>           m_pCoreInUse;         // Keeps track over used compute units to prevent overlap
 
-    Intel::OpenCL::Utils::OclSpinMutex m_ComputeUnitScoreboardMutex;
+#ifdef __HARD_TRAPPING__		
+    bool                        m_bUseTrapping;       // Use worker thread trapping when device fission with core affinity is used
+#endif
+    Intel::OpenCL::Utils::OclNonReentrantSpinMutex m_ComputeUnitScoreboardMutex;
 
 #if 0
 	tbb::scalable_allocator<DeviceNDRange> m_deviceNDRangeAllocator;
@@ -95,7 +98,6 @@ protected:
     // Translate an "absolute" core (CPU core) to a core index
     // Needed to allow the user to limit the cores the CPU device will run on
     bool            CoreToCoreIndex(unsigned int* core);
-
 
 public:
 

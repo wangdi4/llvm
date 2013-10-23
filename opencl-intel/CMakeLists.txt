@@ -53,7 +53,7 @@ if (WIN32)
 
     # C++ flags
     set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   /MTd")
-    set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")    
+    set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
 endif (WIN32)
 
 include( cmake_utils/CMakeFuncs.txt )
@@ -158,6 +158,7 @@ option(SVN_REVISIONS "Make package version from svn revision"  ON)
 option(BUILD_QTGUI "Build the QT related projects"  OFF)
 option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
+option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
 
 # find the used external packages
 
@@ -421,6 +422,11 @@ if (APPLE)
     include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
     add_subdirectory( backend )
 else(APPLE)
+
+    if( (NOT WIN32) AND USE_HARD_TRAPPING )
+        add_definitions(-D__HARD_TRAPPING__)
+    endif((NOT WIN32) AND USE_HARD_TRAPPING)
+
     if(BUILD_LLVM_FROM_SOURCE)
         add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
     endif()
@@ -428,7 +434,7 @@ else(APPLE)
     #validation
     add_subdirectory( tests )
     
-    # The conformance tests must be conpiled with the headers located in
+    # The conformance tests must be compiled with the headers located in
     # ${OCL_CONFORMANCE_INCLUDE} and not the ones in ${OCL_GLOBAL_INCLUDE}.
     # Therefore, it must be added to the include directories only after 
     # the tests subdirectory has been added.
@@ -452,7 +458,7 @@ else(APPLE)
     # Framework
     add_subdirectory( framework )
 
-    # Common Runime
+    # Common Runtime
     option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
     if ( INCLUDE_CMRT )
       add_subdirectory ( common_runtime )
@@ -466,7 +472,7 @@ else(APPLE)
     add_subdirectory( workloads )
 endif(APPLE)
 
-# install addional files requiresd for the installer
+# install additional files required by the installer
 set(MISC_INSTALLER_FOLDER "bin/sdk")
 if (WIN32)  
 

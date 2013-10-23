@@ -169,8 +169,19 @@ namespace Intel { namespace OpenCL { namespace Utils {
     class OclAutoMutex
     {
     public:
-        OclAutoMutex(IMutex* mutexObj, bool bAutoLock = true);
-        ~OclAutoMutex();
+        OclAutoMutex(IMutex* mutexObj, bool bAutoLock = true)
+        {
+            m_mutexObj = mutexObj;
+            if ( bAutoLock )
+            {
+                m_mutexObj->Lock();
+            }
+        }
+
+        ~OclAutoMutex()
+        {
+            m_mutexObj->Unlock();
+        }
 
     private:
         IMutex* m_mutexObj;
@@ -203,6 +214,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         OclMutex(const OclMutex& o);
         OclMutex& operator=(const OclMutex& o);
         void spinCountMutexLock();
+        
         unsigned int m_uiSpinCount;
         bool         m_bRecursive;
     };
@@ -223,10 +235,25 @@ namespace Intel { namespace OpenCL { namespace Utils {
     {
     public:
         OclNonReentrantSpinMutex() : m_val(0) {}
-        void Lock();
-        void Unlock();
+        void Lock()
+        {
+            while (CAS( &m_val, 0, 1 ))
+            {
+                hw_pause();
+            };
+
+            assert( 1 == m_val && "Mutex expected to be in locked");
+        }
+
+        void Unlock()
+        {
+            assert( 1 == m_val && "Mutex expected to be in locked");
+            _mm_mfence(); // ensure all memory accesses inside critical sections are flushed by HW
+            m_val = 0;
+        }
+        
     protected:
-         volatile size_t m_val;
+        volatile size_t m_val;
     };
 
 

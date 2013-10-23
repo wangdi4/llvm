@@ -1407,11 +1407,7 @@ void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size
 
 std::string GetConfigFilePath()
 {
-    char szModuleBuff[MAX_PATH] = "";
-    
-    Intel::OpenCL::Utils::GetModuleDirectory(szModuleBuff, MAX_PATH);
-    std::string path = szModuleBuff;
-    path.append("cl.cfg");
+    std::string path("cl.cfg");
     return path;
 }
 

@@ -26,189 +26,208 @@
 /////////////////////////////////////////////////////////////////////////
 
 #include "cl_config.h"
-#include <cassert>
+#include "cl_sys_defines.h"
+#include "cl_sys_info.h"
 
+#include <cassert>
+#ifdef _WIN32
+#include<Windows.h>
+#endif
 using namespace Intel::OpenCL::Utils;
 using std::string;
 
-ConfigFile::ConfigFile(string filename, string delimiter, string comment, string sentry)
+ConfigFile::ConfigFile(const string& filename, string delimiter, string comment, string sentry)
 {
-	// Construct a ConfigFile, getting keys and values from given file
-	m_sDelimiter = delimiter;
-	m_sComment = comment;
-	m_sSentry = sentry;
+    // Construct a ConfigFile, getting keys and values from given file
+    m_sDelimiter = delimiter;
+    m_sComment = comment;
+    m_sSentry = sentry;
 
-	cl_err_code clErrRet = ReadFile(filename, (*this));
-	if (CL_FAILED(clErrRet))
-	{
-		// set defaults
-	}
+    cl_err_code clErrRet = ReadFile(filename, (*this));
+    if (CL_FAILED(clErrRet))
+    {
+        // set defaults
+    }
 }
 
 ConfigFile::ConfigFile()
 {
-	// Construct a ConfigFile without a file; empty
-	m_sDelimiter = string(1,'=');
-	m_sComment = string(1,'#');
+    // Construct a ConfigFile without a file; empty
+    m_sDelimiter = string(1,'=');
+    m_sComment = string(1,'#');
 }
 
 
 void ConfigFile::Remove(const string& key)
 {
-	// Remove key and its value
-	m_mapContents.erase(m_mapContents.find(key));
-	return;
+    // Remove key and its value
+    m_mapContents.erase(m_mapContents.find(key));
+    return;
 }
 
 
 bool ConfigFile::KeyExists(const string& key) const
 {
-	// Indicate whether key is found
-	mapci p = m_mapContents.find(key);
-	return (p != m_mapContents.end());
+    // Indicate whether key is found
+    mapci p = m_mapContents.find(key);
+    return (p != m_mapContents.end());
 }
 
 /* static */
 int ConfigFile::tokenize(const string & sin, std::vector<string> & tokens)
 {
-	string s = sin;
-	s += char(0);    // add a 0 char for getting end-of-string parsing
-	string seps = ",;|";
-	seps += char(0);
-	string::size_type pos1 = 0;
-	string::size_type pos2 = 0;
-	while ((pos2 = s.find_first_of(seps, pos1)) != string::npos)
-	{
-		if (pos2 > pos1)
-		{
-			string sub = s.substr(pos1, pos2-pos1);
-			trim(sub);
-			tokens.push_back(sub);
-		}
-		pos1 = pos2+1;   // don't forget that or you'll get an infinite loop
-	}
-	// Rami linux-64bit port
-	//assert(tokens.size() <= CL_MAX_INT32);
-	return (int)tokens.size();
+    string s = sin;
+    s += char(0);    // add a 0 char for getting end-of-string parsing
+    string seps = ",;|";
+    seps += char(0);
+    string::size_type pos1 = 0;
+    string::size_type pos2 = 0;
+    while ((pos2 = s.find_first_of(seps, pos1)) != string::npos)
+    {
+        if (pos2 > pos1)
+        {
+            string sub = s.substr(pos1, pos2-pos1);
+            trim(sub);
+            tokens.push_back(sub);
+        }
+        pos1 = pos2+1;   // don't forget that or you'll get an infinite loop
+    }
+    // Rami linux-64bit port
+    //assert(tokens.size() <= CL_MAX_INT32);
+    return (int)tokens.size();
 }
 
 
 /* static */
 void ConfigFile::trim( string& s )
 {
-	// Remove leading and trailing whitespace
-	static const char whitespace[] = " \n\t\v\r\f";
-	s.erase(0, s.find_first_not_of(whitespace));
-	s.erase(s.find_last_not_of(whitespace) + 1U);
+    // Remove leading and trailing whitespace
+    static const char whitespace[] = " \n\t\v\r\f";
+    s.erase(0, s.find_first_not_of(whitespace));
+    s.erase(s.find_last_not_of(whitespace) + 1U);
 }
 
 
-cl_err_code ConfigFile::ReadFile(string fileName, ConfigFile& cfg)
+cl_err_code ConfigFile::ReadFile(const string& fileName, ConfigFile& cfg)
 {
-	std::fstream fsInputStream(fileName.c_str());
-	if (!fsInputStream)
-	{
-		return CL_ERR_FILE_NOT_EXISTS;
-	}
+    std::fstream fsInputStream;
+    
+    fsInputStream.open(fileName.c_str());
+    
+    if ( !fsInputStream.is_open() )
+    {
+        // File doesn't exists in current directory
+        // Check installation path
+        char szModulePath[MAX_PATH] = "";
+    
+        Intel::OpenCL::Utils::GetModuleDirectory(szModulePath, MAX_PATH);
+    
+        STRCAT_S(szModulePath, MAX_PATH, fileName.c_str());
+        fsInputStream.open(szModulePath);
+        if ( !fsInputStream.is_open() )
+        {
+            return CL_ERR_FILE_NOT_EXISTS;
+        }
+    }
 
-	string strNextLine = "";
-	string line;
+    string strNextLine = "";
+    string line;
 
-	const string& strDelimeter  = cfg.m_sDelimiter;
+    const string& strDelimeter  = cfg.m_sDelimiter;
 
-	// get the length of the eparator
-	const string::size_type szSepLength = strDelimeter.length();
+    // get the length of the eparator
+    const string::size_type szSepLength = strDelimeter.length();
 
-	const string& strComment = cfg.m_sComment;
-	const string& strEOF = cfg.m_sSentry;
+    const string& strComment = cfg.m_sComment;
+    const string& strEOF = cfg.m_sSentry;
 
-	while ( (NULL != fsInputStream) || (strNextLine.length() > 0) )
-	{
-		// if the next line is not empty, get its content and mark as empty line
-		if (strNextLine.length() <= 0)
-		{
-			std::getline(fsInputStream, line);
-		}
-		else
-		{
-			line = strNextLine;
-			strNextLine = "";
-		}
+    while ( (NULL != fsInputStream) || (strNextLine.length() > 0) )
+    {
+        // if the next line is not empty, get its content and mark as empty line
+        if (strNextLine.length() <= 0)
+        {
+            std::getline(fsInputStream, line);
+        }
+        else
+        {
+            line = strNextLine;
+            strNextLine = "";
+        }
 
-		// find the first location of the commnet and get the string before it
-		string::size_type szCommentPos = line.find(strComment);
-		line = line.substr(0, szCommentPos);
+        // find the first location of the commnet and get the string before it
+        string::size_type szCommentPos = line.find(strComment);
+        line = line.substr(0, szCommentPos);
 
-		if ( (line.find(strEOF) != string::npos) && (strEOF != "") )
-		{
-			return CL_SUCCESS;
-		}
+        if ( (line.find(strEOF) != string::npos) && (strEOF != "") )
+        {
+            return CL_SUCCESS;
+        }
 
-		bool bFinish = false;
-		// getting the first position of the delimeter
-		string::size_type szDelimeterPos = line.find(strDelimeter);
+        bool bFinish = false;
+        // getting the first position of the delimeter
+        string::size_type szDelimeterPos = line.find(strDelimeter);
 
-		// continue only if the position is not the end of line
-		if (string::npos > szDelimeterPos)
-		{
-			string strKey = line.substr(0, szDelimeterPos);
-			ConfigFile::trim(strKey);
+        // continue only if the position is not the end of line
+        if (string::npos > szDelimeterPos)
+        {
+            string strKey = line.substr(0, szDelimeterPos);
+            ConfigFile::trim(strKey);
 
-			string::size_type szPos = szDelimeterPos + szSepLength;
-			line.replace(0, szPos, "");
+            string::size_type szPos = szDelimeterPos + szSepLength;
+            line.replace(0, szPos, "");
 
-			while ( (false == bFinish) && fsInputStream )
-			{
-				// get new line
-				std::getline(fsInputStream, strNextLine);
+            while ( (false == bFinish) && fsInputStream )
+            {
+                // get new line
+                std::getline(fsInputStream, strNextLine);
 
-				// save the next line
-				string strCopy = strNextLine;
-				ConfigFile::trim(strCopy);
+                // save the next line
+                string strCopy = strNextLine;
+                ConfigFile::trim(strCopy);
 
-				if(strCopy == "")
-				{
-					continue;
-				}
+                if(strCopy == "")
+                {
+                    continue;
+                }
 
-				bFinish = true;
+                bFinish = true;
 
-				strNextLine = strNextLine.substr(0, strNextLine.find(strComment));
-				if ( (string::npos != strNextLine.find(strDelimeter)) ||
-					 ((strEOF != "") && (string::npos != strNextLine.find(strEOF))))
-				{
-					continue;
-				}
+                strNextLine = strNextLine.substr(0, strNextLine.find(strComment));
+                if ( (string::npos != strNextLine.find(strDelimeter)) ||
+                     ((strEOF != "") && (string::npos != strNextLine.find(strEOF))))
+                {
+                    continue;
+                }
 
-				strCopy = strNextLine;
-				ConfigFile::trim(strCopy);
+                strCopy = strNextLine;
+                ConfigFile::trim(strCopy);
 
-				if (strCopy != "")
-				{
-					line += "\n";
-				}
-				line += strNextLine;
-				bFinish = false;
-			}
+                if (strCopy != "")
+                {
+                    line += "\n";
+                }
+                line += strNextLine;
+                bFinish = false;
+            }
 
-			ConfigFile::trim(line);
-			// add the new config param to the container
-			cfg.m_mapContents[strKey] = line;
-		}
-	}
-	fsInputStream.close();
-	return CL_SUCCESS;
+            ConfigFile::trim(line);
+            // add the new config param to the container
+            cfg.m_mapContents[strKey] = line;
+        }
+    }
+    fsInputStream.close();
+    return CL_SUCCESS;
 }
 
 cl_err_code ConfigFile::WriteFile(string fileName, ConfigFile& cf)
 {
-	std::fstream os(fileName.c_str(), std::ios::out);
-	for (ConfigFile::mapci p = cf.m_mapContents.begin(); p != cf.m_mapContents.end(); ++p)
-	{
-		os << p->first << " " << cf.m_sDelimiter << " ";
-		os << p->second << std::endl;
-	}
-	return CL_SUCCESS;
+    std::fstream os(fileName.c_str(), std::ios::out);
+    for (ConfigFile::mapci p = cf.m_mapContents.begin(); p != cf.m_mapContents.end(); ++p)
+    {
+        os << p->first << " " << cf.m_sDelimiter << " ";
+        os << p->second << std::endl;
+    }
+    return CL_SUCCESS;
 
 }
 

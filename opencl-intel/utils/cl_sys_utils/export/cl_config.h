@@ -78,7 +78,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		ConfigFile(string strFileName, string strDelimiter = "=", string strComment = "#", string strSentry = "EndConfigFile" );
+		ConfigFile(const string& strFileName, string strDelimiter = "=", string strComment = "#", string strSentry = "EndConfigFile" );
 
 		/******************************************************************************************
 		* Function: 	ConfigFile
@@ -244,7 +244,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		static cl_err_code ReadFile(string fileName, ConfigFile& cf);
+		static cl_err_code ReadFile(const string& fileName, ConfigFile& cf);
 
 		/******************************************************************************************
 		* Function: 	WriteFile

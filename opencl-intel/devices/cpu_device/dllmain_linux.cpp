@@ -32,8 +32,6 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 
-extern char clCPUDEVICE_CFG_PATH[];
-
 void __attribute__ ((constructor)) dll_init(void);
 void __attribute__ ((destructor)) dll_fini(void);
 
@@ -45,14 +43,8 @@ static void thread_cleanup_callback(void *_NULL)
 
 void dll_init(void)
 {
-	char tBuff[PATH_MAX];
-
 	thkMasterContext = 0;
 	pthread_key_create(&thkMasterContext, thread_cleanup_callback);
-
-	GetModulePathName((void*)(ptrdiff_t)dll_init, tBuff, PATH_MAX-1);
-	safeStrCpy(clCPUDEVICE_CFG_PATH, MAX_PATH-1, dirname(tBuff));
-	safeStrCat(clCPUDEVICE_CFG_PATH, MAX_PATH-1, "/cl.cfg");
 }
 
 void dll_fini(void)
