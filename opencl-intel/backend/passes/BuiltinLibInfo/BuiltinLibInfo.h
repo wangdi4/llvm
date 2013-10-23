@@ -23,6 +23,7 @@ public:
     RTS_OCL,
     RTS_OSX,
     RTS_DX,
+    RTS_RS,
     RTS_NUM
   } RuntimeServicesTypes;
 

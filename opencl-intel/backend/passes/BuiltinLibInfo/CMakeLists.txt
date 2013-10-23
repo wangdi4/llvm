@@ -3,6 +3,7 @@ set(TARGET_NAME BuiltinLibInfo)
 include_directories(BEFORE ".")
 include_directories(BEFORE "Driver")
 include_directories(BEFORE "Driver/OpenCL")
+include_directories(BEFORE "Driver/Shared")
 
 include_directories(
   ${BACKEND_ROOT_DIR}/reflection_module
@@ -29,6 +30,7 @@ set(TARGET_EXTRA_SOURCE_FILES
   Driver/DX/DXRuntime.cpp
   Driver/DX/DXWrapperParamsCheck.cpp
   Driver/Functions.cpp
+  Driver/RenderScript/RenderscriptRuntime.cpp
 )
 set(TARGET_EXTRA_INCLUDE_FILES 
   Driver/Volcano/VolcanoOpenclRuntime.h
@@ -38,6 +40,7 @@ set(TARGET_EXTRA_INCLUDE_FILES
   Driver/DX/DXRuntime.h
   Driver/DX/DXWrapperParamsCheck.h
   Driver/Functions.h
+  Driver/RenderScript/RenderscriptRuntime.h
 )
 endif(APPLE)
 
@@ -46,12 +49,14 @@ set(TARGET_INCLUDE_FILES
   RuntimeServices.h
   VectorizerFunction.h
   Driver/OpenCL/OpenclRuntime.h
+  Driver/Shared/DriverVectorizerFunction.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
 set(TARGET_SOURCE_FILES
   BuiltinLibInfo.cpp
   Driver/OpenCL/OpenclRuntime.cpp
+  Driver/Shared/DriverVectorizerFunction.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 

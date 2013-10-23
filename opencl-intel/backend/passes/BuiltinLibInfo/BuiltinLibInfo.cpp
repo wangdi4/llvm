@@ -22,6 +22,9 @@ extern "C" {
     }
     else if(type == "dx") {
       rtType = intel::BuiltinLibInfo::RTS_DX;
+    }
+    else if(type == "rs") {
+      rtType = intel::BuiltinLibInfo::RTS_RS;
     } else {
       assert(type == "" && "Unknown runtime service type");
 #ifdef __APPLE__
@@ -34,6 +37,8 @@ extern "C" {
   intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(const Module *runtimeModule);
   intel::RuntimeServices* createDXRuntimeSupport(const Module *runtimeModule);
   intel::RuntimeServices* createAppleOpenclRuntimeSupport(const Module *runtimeModule);
+  intel::RuntimeServices* createRenderscriptRuntimeSupport(const Module *runtimeModule);
+
 }
 
 namespace intel{
@@ -60,6 +65,9 @@ namespace intel{
       break;
     case RTS_DX:
       m_pRuntimeServices = createDXRuntimeSupport(m_pBIModule);
+      break;
+    case RTS_RS:
+      m_pRuntimeServices = createRenderscriptRuntimeSupport(m_pBIModule);
       break;
     default:
       assert(false && "Unknown runtime services type.");

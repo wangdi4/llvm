@@ -34,6 +34,7 @@ set(TARGET_EXTRA_SOURCE_FILES
   Utils/IRInjection.cpp
   Utils/Namer.cpp
   Utils/PrintfAdder.cpp
+  Renderscript/RenderscriptDriver.cpp
 #These files are needed only for building opt
   AppleWrapper/AppleWIDepPrePacketizationPass.cpp
 )
@@ -41,6 +42,7 @@ set(TARGET_EXTRA_INCLUDE_FILES
   Resolver/MICResolver.h
   Utils/Namer.h
   Utils/PrintfAdder.h
+  Renderscript/RenderscriptDriver.h
 #These files are needed only for building opt
   AppleWrapper/AppleWIDepPrePacketizationPass.h
 )

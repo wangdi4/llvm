@@ -62,6 +62,9 @@ namespace intel {
     }
 
   private:
+
+    // Indicates if its 64bit arch otherwise it's 32bit
+    bool is64BitArch()const;
     // Indicates whether the architecture supports Vector 16
     bool hasV16Support()const;
     // Indicates whether the architecture supports AVX 256
@@ -148,7 +151,11 @@ namespace intel {
       int cost;
     } FuncCostEntry;
 
-    static FuncCostEntry CostDB[];
+    static FuncCostEntry CostDB32Bit[];
+    static FuncCostEntry CostDB64Bit[];
+
+    // Returns the suitable DB to work with
+    FuncCostEntry* getCostDB() const;
 
     // A map of costs for the load/store transpose functions
     StringMap<int> m_transCosts;

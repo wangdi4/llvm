@@ -23,10 +23,16 @@ static bool peelPrefix(llvm::StringRef& s){
   return true;
 }
 
+// some platforms dont have isdigit defined
+int ISDIGIT( int c) {
+  return (c >= '0' && c <= '9');
+}
+
+
 static llvm::StringRef peelNameLen(llvm::StringRef& s){
   int len = 0;
   llvm::StringRef::const_iterator it = s.begin();
-  while(isdigit(*it++))
+  while(ISDIGIT(*it++))
     ++len;
   llvm::StringRef ret = s.substr(0, len);
   s = s.substr(len, s.size()-len);
@@ -41,7 +47,7 @@ bool isMangledName(const char* rawString){
   const std::string strName(rawString);
   if (strName.substr(0, PREFIX_LEN) != PREFIX)
     return false;
-  return isdigit(strName[PREFIX_LEN]);
+  return ISDIGIT(strName[PREFIX_LEN]);
 }
 
 //

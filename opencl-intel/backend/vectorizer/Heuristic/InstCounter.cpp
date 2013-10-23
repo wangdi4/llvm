@@ -50,21 +50,45 @@ const float WeightedInstCounter::ALL_ZERO_LOOP_PENALTY = 0;
 const float WeightedInstCounter::TID_EQUALITY_PENALTY = 0.1f;
 
 
-// Costs for transpose functions
-WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB[] = {
-   { "__ocl_load_transpose_char_4x4", 8 },
-   { "__ocl_transpose_store_char_4x4", 8 },
-   { "__ocl_masked_load_transpose_char_4x4", 12 },
-   { "__ocl_masked_transpose_store_char_4x4", 12 },
-   { "__ocl_load_transpose_float_4x8", 70 },
-   { "__ocl_transpose_store_float_4x8", 70 },
-   { "__ocl_gather_transpose_float_4x8", 75 },
-   { "__ocl_transpose_scatter_float_4x8", 75 },
-   { "__ocl_masked_load_transpose_float_4x8", 80},
-   { "__ocl_masked_transpose_store_float_4x8", 80},
-   { "__ocl_masked_gather_transpose_float_4x8", 90},
-   { "__ocl_masked_transpose_scatter_float_4x8", 90},
+// Costs for transpose functions for 64bit systems
+WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB64Bit[] = {
 
+   { "__ocl_load_transpose_char4x4", 8 },
+   { "__ocl_transpose_store_char4x4", 8 },
+   { "__ocl_masked_load_transpose_char4x4", 12 },
+   { "__ocl_masked_transpose_store_char4x4", 12 },
+   { "__ocl_load_transpose_float4x8", 70 },
+   { "__ocl_transpose_store_float4x8", 70 },
+   { "__ocl_gather_transpose_float4x8", 75 },
+   { "__ocl_transpose_scatter_float4x8", 75 },
+   { "__ocl_masked_load_transpose_float4x8", 80},
+   { "__ocl_masked_transpose_store_float4x8", 80},
+   { "__ocl_masked_gather_transpose_float4x8", 90},
+   { "__ocl_masked_transpose_scatter_float4x8", 90},
+
+   // The line below must be the last line in the DB,
+   // serving as a terminator.
+   { 0, 0 }
+};
+
+// Costs for transpose functions for 32bit systems
+WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB32Bit[] = {
+   // These numbers tuned for SSE4 in 32bit platform
+   { "__ocl_load_transpose_char4x4", 8 },
+   { "__ocl_transpose_store_char4x4", 8 },
+   { "__ocl_gather_transpose_char4x4", 85},
+   { "__ocl_gather_transpose_char4x8", 85},
+   { "__ocl_masked_load_transpose_char4x4", 12 },
+   { "__ocl_masked_transpose_store_char4x4", 12 },
+   { "__ocl_load_transpose_float4x8", 210 },
+   { "__ocl_transpose_store_float4x8", 210 },
+   { "__ocl_gather_transpose_float4x4", 210},
+   { "__ocl_gather_transpose_float4x8", 210 },
+   { "__ocl_transpose_scatter_float4x8", 210 },
+   { "__ocl_masked_load_transpose_float4x8", 200},
+   { "__ocl_masked_transpose_store_float4x8", 200},
+   { "__ocl_masked_gather_transpose_float4x8", 215},
+   { "__ocl_masked_transpose_scatter_float4x8", 215},
 
    // The line below must be the last line in the DB,
    // serving as a terminator.
@@ -75,6 +99,15 @@ static const bool enableDebugPrints = false;
 static raw_ostream &dbgPrint() {
     static raw_null_ostream devNull;
     return enableDebugPrints ? errs() : devNull;
+}
+
+WeightedInstCounter::FuncCostEntry* WeightedInstCounter::getCostDB() const {
+  if(is64BitArch()) return CostDB64Bit;
+  return CostDB32Bit;
+}
+
+bool WeightedInstCounter::is64BitArch() const {
+  return m_cpuid.Is64BitOS();
 }
 
 bool WeightedInstCounter::hasV16Support() const {
@@ -96,8 +129,9 @@ WeightedInstCounter::WeightedInstCounter(bool preVec, Intel::CPUId cpuId):
   initializeWeightedInstCounterPass(*PassRegistry::getPassRegistry());
 
   int i = 0;
-  while (CostDB[i].name) {
-    const FuncCostEntry* e = &CostDB[i];
+  FuncCostEntry* costDB = getCostDB();
+  while ((costDB[i]).name) {
+    const FuncCostEntry* e = &(costDB[i]);
     m_transCosts[e->name] = e->cost;
     i++;
   }

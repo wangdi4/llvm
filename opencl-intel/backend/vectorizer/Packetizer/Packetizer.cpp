@@ -1360,8 +1360,9 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     unsigned vecWidth = 0;
     const std::auto_ptr<VectorizerFunction> foundFunction =
       m_rtServices->findBuiltinFunction(scalarFuncName);
-    if (!foundFunction->isNull() && foundFunction->isPacketizable())
+    if (!foundFunction->isNull() && foundFunction->isPacketizable()) {
       vecWidth = foundFunction->getWidth();
+    }
 
     // If function was not found in hash (or is not scalar), need to duplicate it
     if (vecWidth != 1){

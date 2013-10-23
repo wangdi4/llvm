@@ -1,11 +1,14 @@
-/*=================================================================================
-Copyright (c) 2012, Intel Corporation
-Subject to the terms and conditions of the Master Development License
-Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
-OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
-==================================================================================*/
-#ifndef __MAIN_H__
-#define __MAIN_H__
+/* ****************************************************************************** *\
+
+INTEL CORPORATION PROPRIETARY INFORMATION
+This software is supplied under the terms of a license agreement or nondisclosure
+agreement with Intel Corporation and may not be copied or disclosed except in accordance with the terms of that agreement
+Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
+
+\* ****************************************************************************** */
+
+#ifndef __RENDERSCRIPT_DRIVER_H__
+#define __RENDERSCRIPT_DRIVER_H__
 
 #include "BuiltinLibInfo.h"
 #include "Logger.h"
@@ -23,20 +26,22 @@ class OptimizerConfig;
 
 /// @brief Vectorizer pass is used to abstract all the Vectorizer's work
 ///  as a single module pass, which is to be scheduled by the compiler
-class Vectorizer : public ModulePass {
+class RenderscriptVectorizer : public ModulePass {
 private:
     typedef SmallVector<Function*, ESTIMATED_NUM_OF_FUNCTIONS> funcsVector;
-    
+
 public:
     static char ID;
     /// @brief C'tor
     /// @param rt Runtime module (contains declarations of all builtin funcs)
-    Vectorizer(const Module * rt, const OptimizerConfig* pConfig);
+    RenderscriptVectorizer(const Module * rt, const OptimizerConfig* pConfig,
+    SmallVectorImpl<Function*> &optimizerFunctions,
+    SmallVectorImpl<int> &optimizerWidths);
     /// @brief D'tor
-    ~Vectorizer();
+    ~RenderscriptVectorizer();
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
-        return "Intel OpenCL Vectorizer";
+        return "Intel RenderScript Vectorizer";
     }
 
     /// @brief execute pass on given module
@@ -49,10 +54,10 @@ public:
     }
 
 private:
-    Vectorizer(); // Do not implement
+    RenderscriptVectorizer(); // Do not implement
 
     /// @brief holds all the "original" (scalar) functions
-    funcsVector m_scalarFuncsList; 
+    funcsVector m_scalarFuncsList;
 
     /// @brief Pointer to runtime module
     const Module * m_runtimeModule;
@@ -68,12 +73,12 @@ private:
 
     /// @brief pointer to optimizer vecorized functions buffer.
     SmallVectorImpl<Function*> *m_optimizerFunctions;
-    
+
     /// @brief pointer to optimizer vector widths buffer.
     SmallVectorImpl<int> *m_optimizerWidths;
 };
 
 } // namespace intel
 
-#endif // __MAIN_H__
+#endif // __RENDERSCRIPT_DRIVER_H__
 

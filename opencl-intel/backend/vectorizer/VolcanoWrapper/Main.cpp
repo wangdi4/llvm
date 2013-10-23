@@ -28,16 +28,12 @@ extern "C" Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string t
 
 namespace intel {
 
-Vectorizer::Vectorizer(const Module * rt, const OptimizerConfig* pConfig,
-  SmallVectorImpl<Function*> &optimizerFunctions,
-  SmallVectorImpl<int> &optimizerWidths) :
+Vectorizer::Vectorizer(const Module * rt, const OptimizerConfig* pConfig) :
   ModulePass(ID),
   m_runtimeModule(rt),
   m_numOfKernels(0),
   m_isModuleVectorized(false),
-  m_pConfig(pConfig),
-  m_optimizerFunctions(&optimizerFunctions),
-  m_optimizerWidths(&optimizerWidths)
+  m_pConfig(pConfig)
 {
   // init debug prints
   initializeLoopInfoPass(*PassRegistry::getPassRegistry());
@@ -181,11 +177,8 @@ bool Vectorizer::runOnModule(Module &M)
 // Interface functions for vectorizer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 extern "C"
-  Pass *createVectorizerPass(const Module *runtimeModule, const intel::OptimizerConfig* pConfig,
-  SmallVectorImpl<Function*> &optimizerFunctions,
-  SmallVectorImpl<int> &optimizerWidths)
+  Pass *createVectorizerPass(const Module *runtimeModule, const intel::OptimizerConfig* pConfig)
 {
-  return new intel::Vectorizer(runtimeModule, pConfig,
-    optimizerFunctions, optimizerWidths);
+  return new intel::Vectorizer(runtimeModule, pConfig);
 }
 
