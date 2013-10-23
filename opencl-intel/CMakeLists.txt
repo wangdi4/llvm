@@ -44,16 +44,16 @@ if (WIN32)
     -wd4065 # Suppress 'switch statement contains 'default' but no 'case' labels'
     -wd4181 # Suppress 'qualifier applied to reference type; ignored'
     -w14062 # Promote "enumerator in switch of enum is not handled" to level 1 warning.
-	  -wd4985 # Supress 'MSVS9 Math.h "ceil": attributes not present on previous declaration'    
+      -wd4985 # Supress 'MSVS9 Math.h "ceil": attributes not present on previous declaration'    
   )
   
-	#C flags
-	set( CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /MTd")
-	set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT")
+    #C flags
+    set( CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /MTd")
+    set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT")
 
-	# C++ flags
-	set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   /MTd")
-	set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")    
+    # C++ flags
+    set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   /MTd")
+    set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")    
 endif (WIN32)
 
 include( cmake_utils/CMakeFuncs.txt )
@@ -186,7 +186,7 @@ if (BUILD_QTGUI AND NOT ANDROID)
         # by changing the registry information and removing the default paths
         remove_path("c:\\Qt\\${QT_VERSION}\\VS2010-64\\bin")
         remove_path("c:\\Qt\\${QT_VERSION}\\VS2010\\bin")
-	execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions /v DefaultQtVersion /d ${QT_VERSION} /f)
+    execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions /v DefaultQtVersion /d ${QT_VERSION} /f)
         if(BUILD_X64)
             execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions\\${QT_VERSION} /v InstallDir /d c:\\qt\\${QT_VERSION}\\vs2010-64 /f)
         else(BUILD_X64)
@@ -265,8 +265,8 @@ math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
 # write a file with the BUILDVERSION define
 file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n#ifndef\ _DEBUG\n#define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"\n#else\n#define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"\n#endif\n\n#define BUILDVERSION16BIT_MAJOR ${BUILDVER_16_BIT_MAJOR}\n#define BUILDVERSION16BIT_MINOR ${BUILDVER_16_BIT_MINOR}\n#define VERSIONSTRING \"4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n\n")
 if(WIN32)
-	file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=3.1.${BUILDVER_WC_REVISION}")
-	install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
+    file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=3.1.${BUILDVER_WC_REVISION}")
+    install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
 file(WRITE ${OCL_BINARY_DIR}/version.txt "4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}")
 #copy the version file to install folder
@@ -378,7 +378,7 @@ if (INCLUDE_MIC_DEVICE)
     else (WIN32)
         string(TOLOWER ${CMAKE_BUILD_TYPE} DEBUG_RELEASE)
         set ( COI_SDK_PATH            /opt/intel/mic/coi )
-        set ( COI_HOST_INCLUDE_PATH   ${COI_SDK_PATH}/include )	
+        set ( COI_HOST_INCLUDE_PATH   ${COI_SDK_PATH}/include ) 
         set ( COI_YOCTO_HOST_INCLUDE_PATH /usr/include/intel-coi )
         set ( COI_HOST_LIB_PATH       ${COI_SDK_PATH}/host-linux-${DEBUG_RELEASE}/lib )
         set ( COI_YOCTO_HOST_LIB_PATH       /usr/lib64 )
@@ -468,55 +468,56 @@ endif(APPLE)
 
 # install addional files requiresd for the installer
 set(MISC_INSTALLER_FOLDER "bin/sdk")
-if (WIN32)	
+if (WIN32)  
 
-	install(DIRECTORY tools/ocl_dev/OpenCL_Tools/Sources DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration PATTERN .svn EXCLUDE)
-	install(DIRECTORY tools/ocl_dev/OpenCL_Extension/bin/Release DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Extension PATTERN .svn EXCLUDE)
-	install(DIRECTORY tools/ocl_dev/OCLConverter/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter PATTERN .svn EXCLUDE)
-	install(DIRECTORY tools/ocl_dev/OCLConverter2012/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter2012 PATTERN .svn EXCLUDE)
-	
-	install(DIRECTORY samples DESTINATION ${MISC_INSTALLER_FOLDER}/samples PATTERN .svn EXCLUDE)
-	
-	install(DIRECTORY setup/AddFiles/PTAC_Tool DESTINATION ${MISC_INSTALLER_FOLDER}/PTAC_Tool)	
-	install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-	install(FILES setup/LicenseAgreement.rtf DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-	install(FILES setup/llvm_release_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES "setup/docs/Intel(R)_SDK_for_OpenCL_Applications_Documentation.htm" DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-	install(FILES setup/Android/OpenCL_Android_Install.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup)	
-	
-	install(FILES externals/crt/x86/msvcp100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x86)
-	install(FILES externals/crt/x86/msvcr100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x86)
-	install(FILES externals/crt/x64/msvcp100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x64)
-	install(FILES externals/crt/x64/msvcr100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x64)
-	
-	# maybe can delete below
-	install(FILES tools/OfflineCompiler/KernelBuilder/kernelbuilder.ico DESTINATION ${MISC_INSTALLER_FOLDER})
-		
-	install(DIRECTORY cl_api DESTINATION ${MISC_INSTALLER_FOLDER}/cl_api PATTERN .svn EXCLUDE)	
-	install(DIRECTORY utils/cl_sys_utils/export DESTINATION ${MISC_INSTALLER_FOLDER}/cl_sys_utils/export PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/ocl_dev/OpenCL_Tools/Sources DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/ocl_dev/OpenCL_Extension/bin/Release DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Extension PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/ocl_dev/OCLConverter/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/ocl_dev/OCLConverter2012/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter2012 PATTERN .svn EXCLUDE)
 
-	install(FILES backend/libraries/ocl_builtins/bin/svml/Win64/__ocl_svml_h8.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES backend/libraries/ocl_builtins/bin/svml/Win64/__ocl_svml_e9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES backend/libraries/ocl_builtins/bin/svml/Win64/__ocl_svml_l9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})	
-	
-	install(FILES backend/libraries/ocl_builtins/bin/svml/Win32/__ocl_svml_n8.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES backend/libraries/ocl_builtins/bin/svml/Win32/__ocl_svml_g9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES backend/libraries/ocl_builtins/bin/svml/Win32/__ocl_svml_s9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
-	
+    install(DIRECTORY samples DESTINATION ${MISC_INSTALLER_FOLDER}/samples PATTERN .svn EXCLUDE)
+
+    install(DIRECTORY setup/AddFiles/PTAC_Tool DESTINATION ${MISC_INSTALLER_FOLDER}/PTAC_Tool)  
+    install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+    install(FILES setup/LicenseAgreement.rtf DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+    install(FILES setup/llvm_release_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES "setup/docs/Intel(R)_SDK_for_OpenCL_Applications_Documentation.htm" DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+    install(FILES setup/Android/OpenCL_Android_Install.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+    install(FILES setup/Android/Android_Setup.bat DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+
+    install(FILES externals/crt/x86/msvcp100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x86)
+    install(FILES externals/crt/x86/msvcr100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x86)
+    install(FILES externals/crt/x64/msvcp100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x64)
+    install(FILES externals/crt/x64/msvcr100.dll DESTINATION ${MISC_INSTALLER_FOLDER}/externals/crt/x64)
+
+    # maybe can delete below
+    install(FILES tools/OfflineCompiler/KernelBuilder/kernelbuilder.ico DESTINATION ${MISC_INSTALLER_FOLDER})
+        
+    install(DIRECTORY cl_api DESTINATION ${MISC_INSTALLER_FOLDER}/cl_api PATTERN .svn EXCLUDE)  
+    install(DIRECTORY utils/cl_sys_utils/export DESTINATION ${MISC_INSTALLER_FOLDER}/cl_sys_utils/export PATTERN .svn EXCLUDE)
+
+    install(FILES backend/libraries/ocl_builtins/bin/svml/Win64/__ocl_svml_h8.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES backend/libraries/ocl_builtins/bin/svml/Win64/__ocl_svml_e9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES backend/libraries/ocl_builtins/bin/svml/Win64/__ocl_svml_l9.pdb DESTINATION ${MISC_INSTALLER_FOLDER}) 
+
+    install(FILES backend/libraries/ocl_builtins/bin/svml/Win32/__ocl_svml_n8.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES backend/libraries/ocl_builtins/bin/svml/Win32/__ocl_svml_g9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES backend/libraries/ocl_builtins/bin/svml/Win32/__ocl_svml_s9.pdb DESTINATION ${MISC_INSTALLER_FOLDER})
+
 
 else (WIN32)
 
-	install(FILES setup/llvm_release_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES setup/apache_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES setup/boost_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-	
-	install(FILES setup/Android/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-	install(FILES setup/Android/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup)	
-	install(FILES setup/LicenseAgreement_Linux.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-	
-	install(FILES "../utils/RPM_BUILDER/intelocl64.icd" DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES setup/llvm_release_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES setup/apache_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES setup/boost_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+
+    install(FILES setup/Android/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+    install(FILES setup/Android/Android_Setup DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+    install(FILES setup/LicenseAgreement_Linux.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+
+    install(FILES "../utils/RPM_BUILDER/intelocl64.icd" DESTINATION ${MISC_INSTALLER_FOLDER})
 
 
 endif (WIN32)
