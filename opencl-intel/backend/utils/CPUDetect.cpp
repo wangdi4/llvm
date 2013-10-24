@@ -173,6 +173,11 @@ CPUDetect::CPUDetect(void)
                     uiCPUFeatures |= CFS_BMI;
                 if ((viCPUInfo[1] & 0x100) == 0x100)
                     uiCPUFeatures |= CFS_BMI2;
+                if ((viCPUInfo[1] & 0x10000) == 0x10000) // EBX.AVX512F[bit 16]
+                {
+                    uiCPUFeatures |= CFS_AVX512F;
+                    CPU = CPU_KNL;
+                }
             }
         }
     }
