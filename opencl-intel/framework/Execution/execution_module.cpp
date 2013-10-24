@@ -100,6 +100,7 @@ ExecutionModule::ExecutionModule( PlatformModule *pPlatformModule, ContextModule
  ******************************************************************/
 ExecutionModule::~ExecutionModule()
 {
+    RELEASE_LOGGER_CLIENT;
 }
 
 /******************************************************************

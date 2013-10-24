@@ -50,7 +50,7 @@ public:
     /**
      * Destructor
      */
-    ~D3d11Mapper();
+    virtual ~D3d11Mapper();
 
     /**
      * map the Direct3D 11 object

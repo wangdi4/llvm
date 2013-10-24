@@ -114,6 +114,10 @@ WGContextBase* WgContextPool::GetWGContext(bool bBelongsToMasterThread)
     {
         t_pContext->pContext->Init();
         t_pContext->pContext->SetBelongsToMasterThread(bBelongsToMasterThread);
+        return t_pContext->pContext;
     }
-    return t_pContext->pContext;
+    else
+    {
+        return NULL;
+    }
 }

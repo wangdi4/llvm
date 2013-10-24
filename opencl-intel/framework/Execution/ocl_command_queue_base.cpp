@@ -50,7 +50,7 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
 
     const SharedPtr<QueueEvent>& pQueueEvent  = pCommand->GetEvent();
     cl_event                     pEventHandle = pQueueEvent->GetHandle();
-
+    assert(NULL != pQueueEvent);    // klocwork
     if (m_bProfilingEnabled)
     {
         pQueueEvent->SetProfilingInfo(CL_PROFILING_COMMAND_QUEUED, m_pDefaultDevice->GetDeviceAgent()->clDevGetPerformanceCounter());

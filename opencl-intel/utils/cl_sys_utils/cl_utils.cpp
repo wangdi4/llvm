@@ -1378,7 +1378,7 @@ void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size
 	else if (szPatternSize > 1)
 	{
 		// for patterns the size of long long or smaller (but not a single byte) do direct assignments and save the overhead of calling memcpy
-		long long llPatten;
+		long long llPatten = 0;
 		for (size_t i = 0; i < sizeof(llPatten) / szPatternSize; i++)
 		{
 			// using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
