@@ -138,8 +138,6 @@ set( COMPILER_OPTIONS -cc1
 
 set( COMPILER_OPTIONS_OPENCL_12
 					${COMPILER_OPTIONS}
-					-cl-std=CL1.2
-					-D__OPENCL_C_VERSION__=120
                       )
 
 set( COMPILER_OPTIONS_OPENCL_20 

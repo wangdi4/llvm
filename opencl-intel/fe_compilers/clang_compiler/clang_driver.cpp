@@ -1493,6 +1493,23 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 res = false;
             }
         }
+        else if ((*opt_i == "-std-spir=1.0") || 
+                 (*opt_i == "-std-spir=1.2")) {
+            //ignore SPIR version flag for now
+        }
+        else if ((*opt_i == "-x")) {
+            if (++opt_i != opts.end()) {
+                if (*opt_i != "spir") {
+                    UnrecognizedArgs.push_back("-x");
+                    UnrecognizedArgsLength += 3;
+                    UnrecognizedArgs.push_back(*opt_i);
+                    UnrecognizedArgsLength += opt_i->length() + 1;
+                }
+            } else {
+                UnrecognizedArgs.push_back("-x");
+                UnrecognizedArgsLength += 3;
+            }
+        }
         else {
             UnrecognizedArgs.push_back(*opt_i);
             UnrecognizedArgsLength += opt_i->length() + 1;
