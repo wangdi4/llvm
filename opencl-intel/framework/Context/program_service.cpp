@@ -1012,10 +1012,11 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
         if (num_input_programs == uiFoundBinaries)
         {
             pbBuildForDevice[devID] = true;
-			continue;
+            continue;
         }
-		delete[] szBuildOptions;
-		delete[] pDevices;
+        delete[] szBuildOptions;
+        delete[] pDevices;
+        delete[] input_programs;
         return CL_INVALID_OPERATION;
     }
 
