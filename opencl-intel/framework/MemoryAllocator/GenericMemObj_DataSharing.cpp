@@ -723,8 +723,9 @@ cl_err_code GenericMemObject::updateParentInt(unsigned int destDevSharingGroupId
         {
             unsigned int tmp_parent_grp = getParentValidSharingGroupIdDuringUpdate();
             unsigned int preferedSharingGroupId = (tmp_parent_grp == MAX_DEVICE_SHARING_GROUP_ID) ? destDevSharingGroupId : tmp_parent_grp;
+            SharedPtr<OclEvent> tEvent = NULL;
             // Find sharing group that the parent device is valid, and lock the parent on it.
-            getParentMemObj().findValidDeviceAndLock(isParent ? READ_WRITE : READ_WRITE, preferedSharingGroupId, &parentValidSharingGroupId);
+            getParentMemObj().findValidDeviceAndLock(isParent ? READ_WRITE : READ_WRITE, preferedSharingGroupId, &parentValidSharingGroupId, tEvent);
 #ifdef _DEBUG
             if ((MAX_DEVICE_SHARING_GROUP_ID != tmp_parent_grp) && (parentValidSharingGroupId != preferedSharingGroupId))
             {
@@ -732,6 +733,24 @@ cl_err_code GenericMemObject::updateParentInt(unsigned int destDevSharingGroupId
             }
 #endif
             setParentValidSharingGroupIdDuringUpdate(parentValidSharingGroupId);
+            if (NULL != tEvent)
+            {
+                releaseBufferSyncLock();
+                if (dataCopyJointEvent == NULL)
+                {
+                    dataCopyJointEvent = DataCopyJointEvent::Allocate(GetParentHandle(), destDevSharingGroupId, usage, isParent, this, parentValidSharingGroupId, pOutEvent);
+                    assert(NULL != dataCopyJointEvent && "Allocation of dataCopyJointEvent failed");
+                    if (NULL == dataCopyJointEvent)
+                    {
+                        return CL_OUT_OF_HOST_MEMORY;
+                    }
+                }
+                dataCopyJointEvent->setNextStageToExecute(PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE);
+                // dataCopyJointEvent depends on the event that return from 'lockOnDeviceInt()' call
+                dataCopyJointEvent->AddDependentOn(tEvent);
+                pOutEvent = dataCopyJointEvent;
+                return CL_SUCCESS;
+                }
         }
 #ifdef _DEBUG
         else
@@ -1025,14 +1044,14 @@ cl_err_code GenericMemObject::updateParentInt(unsigned int destDevSharingGroupId
     return CL_SUCCESS;
 }
 
-void GenericMemObject::findValidDeviceAndLock(MemObjUsage usage, unsigned int preferedDevice, unsigned int* pDeviceLocked)
+void GenericMemObject::findValidDeviceAndLock(MemObjUsage usage, unsigned int preferedDevice, unsigned int* pDeviceLocked, SharedPtr<OclEvent>& outEvent)
 {
     acquire_data_sharing_lock();
     unsigned int validId = MAX_DEVICE_SHARING_GROUP_ID;
     for (unsigned int i = 0; i < MAX_DEVICE_SHARING_GROUP_ID; ++i)
     {
         // if activate and valid
-        if ((m_sharing_groups[i].is_activated()) && (DATA_COPY_STATE_VALID == m_sharing_groups[i].m_data_copy_state))
+        if ((m_sharing_groups[i].is_activated()) && (! m_sharing_groups[i].is_data_copy_invalid()))
         {
             // if the first device that valid
             if (MAX_DEVICE_SHARING_GROUP_ID == validId)
@@ -1054,8 +1073,7 @@ void GenericMemObject::findValidDeviceAndLock(MemObjUsage usage, unsigned int pr
     }
     *pDeviceLocked = validId;
     // Lock the buffer on sharing group validId
-    SharedPtr<OclEvent> tEvent = lockOnDeviceInt(validId, usage, true);
-    assert(NULL == tEvent && "findValidDeviceAndLock - lockOnDeviceInt must return NULL event because the memObject is already on the device or it invalid on all devices");
+    outEvent = lockOnDeviceInt(validId, usage, true);
 }
 
 void GenericMemObject::unlockOnDeviceAndRemoveFromListInt(TSubBufferList* parentList, unsigned int parentValidSharingGroupId, GenericMemObjectSubBuffer* pMemObj)

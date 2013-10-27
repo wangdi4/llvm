@@ -51,7 +51,6 @@ bool CheckHandleImpl(wchar_t * name, void* expected, void* result, bool bRes);
 bool clCreateContextTest();
 bool clGetPlatformInfoTest();
 bool clGetDeviceInfoTest();
-bool clGetDeviceIDsTest();
 bool clBuildProgramWithSourceTest();
 bool clBuildProgramWithBinaryTest(openBcFunc pFunc);
 bool clBuildProgramTwiceTest();

@@ -661,7 +661,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
            esume that the LockOnDevice() operation will not sent async operation because the device is alreay on the device.
            pDeviceLocked will store the index of the sharing group that the device is locked on. 
            Assume that the caller own m_buffersSyncLock mutex */
-        void findValidDeviceAndLock(MemObjUsage usage, unsigned int preferedDevice, unsigned int* pDeviceLocked);
+        void findValidDeviceAndLock(MemObjUsage usage, unsigned int preferedDevice, unsigned int* pDeviceLocked, SharedPtr<OclEvent>& outEvent);
 
         /* UnlockOnDevice with sharing group ID = parentValidSharingGroupId, memObj and remove it from parent m_updateParentList. 
            Assume that the caller own m_buffersSyncLock mutex. */

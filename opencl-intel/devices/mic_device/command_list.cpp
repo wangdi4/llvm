@@ -167,7 +167,7 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
 {
 #ifdef _DEBUG
     long oldVal = m_numOfConcurrentExecutions++;
-    assert(oldVal == 0);
+    assert( ((0 == oldVal) || (false == m_isInOrderQueue)) && "In order commands should not come in parallel" );
 #endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
@@ -227,7 +227,7 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
     }
 #ifdef _DEBUG
     oldVal = m_numOfConcurrentExecutions--;
-    assert(oldVal == 1);
+    assert( ((1 == oldVal) || (false == m_isInOrderQueue)) && "In order commands should not come in parallel" );
 #endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
