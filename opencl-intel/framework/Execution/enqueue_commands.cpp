@@ -59,6 +59,7 @@
 #endif
 #endif
 
+#define WRITE_MEM_OBJ_ALLOC_ALIGNMENT 128
 
 using namespace Intel::OpenCL::Framework;
 
@@ -2334,7 +2335,9 @@ cl_err_code WriteMemObjCommand::Init()
             sCpyParam.vRegion[dim] = m_szRegion[dim];
         }
 
-        m_pTempBuffer = ALIGNED_MALLOC(sizeToAlloc, CPU_CACHE_LINE_SIZE);
+        // nmeraey: changing this allocation alignment from 64 to 128 to fix CSSD100016136
+        //          anyway, couldn't know why 128 would fix it!
+        m_pTempBuffer = ALIGNED_MALLOC(sizeToAlloc, WRITE_MEM_OBJ_ALLOC_ALIGNMENT);
         if ( NULL == m_pTempBuffer )
         {
             LogErrorA("Can't allocate temporary storage for blockng command (%s)", GetCommandName());
