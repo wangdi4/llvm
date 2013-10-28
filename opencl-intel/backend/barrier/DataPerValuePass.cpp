@@ -342,6 +342,11 @@ namespace intel {
         //Skip non defined functions
         continue;
       }
+      //Check if function has no synchronize instruction!
+      if ( !m_pDataPerBarrier->hasSyncInstruction(pFunc) ) {
+        //Function has no synchronize instruction: skip it!
+        continue;
+      }
       if ( m_functionToEntryMap.count(pFunc) ) {
         //pFunc already has an entry number,
         //replace all appears of it with the current entry number.

@@ -110,7 +110,8 @@ L0:
 
 ; CHECK: Buffer Total Size:
 ; CHECK-NOT: entry
-; CHECK: entry(2) : (112)
+; CHECK: entry(0) :
+; CHECK: entry(1) : (16)
 ; CHECK-NOT: entry
 ; CHECK: DONE
 

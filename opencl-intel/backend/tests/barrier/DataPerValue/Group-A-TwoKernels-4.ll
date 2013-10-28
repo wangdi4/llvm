@@ -92,7 +92,7 @@ L0:
 ; CHECK: +foo
 ; CHECK-NOT: +
 ; CHECK-NOT: -
-; CHECK: -p1 (96)
+; CHECK: -p1 (0)
 ; CHECK-NOT: -
 ; CHECK: *
 
@@ -108,7 +108,8 @@ L0:
 
 ; CHECK: Buffer Total Size:
 ; CHECK-NOT: entry
-; CHECK: entry(2) : (112)
+; CHECK: entry(0) : (96)
+; CHECK: entry(1) :
 ; CHECK-NOT: entry
 ; CHECK: DONE
 
