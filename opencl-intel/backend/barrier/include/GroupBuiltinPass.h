@@ -18,8 +18,7 @@ namespace intel {
 
   /// @brief GroupBuiltinHandler pass is a module pass that handles calls to
   /// group built-ins instructions, e.g. async_copy, etc.
-  /// Add barrier call before each call to this async copy built-in
-  /// and dumyBarrier call after each call to it.
+  /// It provides that their execution will be synchronized across all WIs
   class GroupBuiltin : public ModulePass {
 
   public:
@@ -42,8 +41,31 @@ namespace intel {
     virtual bool runOnModule(Module &M);
 
   private:
+    /// This module
+    Module *m_pModule;
+
+    /// This context
+    LLVMContext *m_pLLVMContext;
+
+    /// size_t type
+    IntegerType *m_pSizeT;
+
     /// This is barrier utility class
     BarrierUtils m_util;
+
+    /// Generate initialization value for a WG function
+    Constant *getInitializationValue(Function *pFunc);
+
+    /// Implement call to get_local_linear_id(). 
+    Instruction *getLinearID(CallInst *pWgCallInstr);
+
+    /// Generate linear ID out of ID indices
+    Value *calculateLinearID(CallInst *pWgCallInstr);
+
+    /// Helper for WI function call generation.
+    /// Generates a call to WI function upon its name and dimension index
+    CallInst *getWICall(Instruction *pBefore, std::string funcName, unsigned dimIdx);
+
   };
 
 } // namespace intel

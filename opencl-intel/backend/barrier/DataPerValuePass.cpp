@@ -9,11 +9,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BarrierUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "CompilationUtils.h"
+
 #include "llvm/Instructions.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Version.h"
+
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
   char DataPerValue::ID = 0;
@@ -79,27 +83,74 @@ namespace intel {
 
     //run over all the values of the function and Cluster into 3 groups
     //Group-A   : Alloca instructions
+    //  Important: we make exclusion for Alloca instructions which
+    //             reside between 2 dummyBarrier calls:
+    //             a) one     - the 1st instruction which inserted by BarrierInFunctionPass
+    //             b) another - the instruction which marks the bottom of Allocas 
+    //                          of WG function return value accumulators
     //Group-B.1 : Values crossed barriers and the value is
     //            related to WI-Id or initialized inside a loop
     //Group-B.2 : Value crossed barrier but does not suit Group-B.2
+
+    // At first - collect exclusions from Group-A (allocas for WG function results)
+    std::set<Instruction*> allocaExclusions;
+    inst_iterator firstInstr = inst_begin(F);
+    if (firstInstr != inst_end(F)) {
+      if ( CallInst *pFirstCallInst = dyn_cast<CallInst>(&*firstInstr) ) {
+        if (m_util.isDummyBarrierCall(pFirstCallInst)) {
+          // if 1st instruction is a dummy barrier call
+          for ( inst_iterator ii = ++firstInstr, ie = inst_end(F); ii != ie; ++ii ) {
+            // Collect allocas until next dummy-barrier-call boundary,
+            // or drop the collection altogether if barrier call is encountered
+            Instruction *pInst = &*ii;
+            if ( isa<AllocaInst>(pInst) ) {
+              // This alloca is a candidate for exclusion
+              allocaExclusions.insert(pInst);
+            } else if ( CallInst *pCallInst = dyn_cast<CallInst>(pInst) ) {
+              // Locate boundary of code extent where exclusions are possible: 
+              // next dummy barrier, w/o a barrier call in the way.
+              if (m_util.isDummyBarrierCall(pCallInst)) {
+                break;
+              } else if (m_util.isBarrierCall(pCallInst)) {
+                // If there is a barrier call - discard ALL exclusions
+                allocaExclusions.clear();
+                break;
+              }
+            }
+          }   // end of collect-allocas loop
+        }     // end of 1st-instruction-is-a-dummy-barrier-call case
+      }
+    }         
+
+    // Then - sort-out instructions among Group-A, Group-B.1 and Group-B.2
     for ( inst_iterator ii = inst_begin(F), ie = inst_end(F); ii != ie; ++ii ) {
       Instruction *pInst = &*ii;
       if ( isa<AllocaInst>(pInst) ) {
         //It is an alloca value, add it to Group_A container
-        m_allocaValuesPerFuncMap[&F].push_back(pInst);
+        if (allocaExclusions.find(pInst) == allocaExclusions.end()) {
+          // Filter-out exclusions
+          m_allocaValuesPerFuncMap[&F].push_back(pInst);
+        }
         continue;
       }
-      CallInst *pCallInst = dyn_cast<CallInst>(pInst);
-      if ( pCallInst ) {
+      if ( CallInst *pCallInst = dyn_cast<CallInst>(pInst) ) {
         Function *pCalledFunc = pCallInst->getCalledFunction();
-        if ( pCalledFunc && !pCalledFunc->getReturnType()->isVoidTy() &&
-          m_pDataPerBarrier->hasSyncInstruction(pCalledFunc) ) {
+        if ( pCalledFunc && !pCalledFunc->getReturnType()->isVoidTy() ) {
+          std::string funcName = pCalledFunc->getName().str();
+          if ( CompilationUtils::isWorkGroupUniform( funcName ) ) {
+            // uniform WG functions always produce cross-barrier value
+            m_crossBarrierValuesPerFuncMap[&F].push_back(pInst);
+            continue;
+          } else if ( m_pDataPerBarrier->hasSyncInstruction( pCalledFunc ) ||
+                      CompilationUtils::isWorkGroupScan( funcName ) ) {
             // Call instructions to functions that contains barriers
             // need to be stored in the special buffer.
+            // The same is for WG functions which produce WI-specific result.
             assert(m_pWIRelatedValue->isWIRelated(pInst)
               && "Must be work-item realted value!");
             m_specialValuesPerFuncMap[&F].push_back(pInst);
             continue;
+          }
         }
       }
       switch ( isSpecialValue(pInst, m_pWIRelatedValue->isWIRelated(pInst)) ) {

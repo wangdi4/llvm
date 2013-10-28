@@ -147,6 +147,39 @@ namespace intel {
     return m_syncInstructions;
   }
 
+  TInstructionVector& BarrierUtils::getWGCallInstructions(CALL_BI_TYPE type) {
+    
+    //Clear old collected data
+    m_WGcallInstructions.clear();
+
+    // Scan external function definitions in the module
+    for ( Module::iterator fi = m_pModule->begin(), fe = m_pModule->end(); fi != fe; ++fi ) {
+      Function *pFunc = &*fi;
+      if( !pFunc->isDeclaration() ) {
+        //Built-in functions assumed to be declarations at this point.
+        continue;
+      }
+      std::string funcName = pFunc->getName().str();
+      if((CALL_BI_TYPE_WG == type && CompilationUtils::isWorkGroupBuiltin(funcName)) ||
+         (CALL_BI_TYPE_ASYNC == type && CompilationUtils::isAsyncBuiltin(funcName))) {
+        //Module contains declaration of a WG function built-in, fix its usages.
+        Function::use_iterator ui = pFunc->use_begin();
+        Function::use_iterator ue = pFunc->use_end();
+        for ( ; ui != ue; ++ui ) {
+          CallInst *pCallInst = dyn_cast<CallInst>(*ui);
+          if( !pCallInst ) {
+            assert(false && "usage of work-group built-in is not a call instruction!");
+            continue;
+          }
+          //Found a call instruction to work-group built-in, collect it.
+          m_WGcallInstructions.push_back(pCallInst);
+        }
+      }
+    }
+
+    return m_WGcallInstructions;
+  }
+
   //TBasicBlockVector& BarrierUtils::getAllSynchronizeBasicBlocks() {
   //  //Initialize m_syncInstructions
   //  getAllSynchronizeInstructuons();
@@ -242,6 +275,20 @@ namespace intel {
         DUMMY_BARRIER_FUNC_NAME, pResult, funcTyArgs);
     }
     return CallInst::Create(m_dummyBarrierFunc, "", pInsertBefore);
+  }
+
+  bool BarrierUtils::isDummyBarrierCall(CallInst *pCallInstr) {
+    assert(pCallInstr && "Instruction should not be NULL!");
+    //Initialize sync data if it is not done yet
+    initializeSyncData();
+    return m_dummyBarriers.count(pCallInstr);
+  }
+
+  bool BarrierUtils::isBarrierCall(CallInst *pCallInstr) {
+    assert(pCallInstr && "Instruction should not be NULL!");
+    //Initialize sync data if it is not done yet
+    initializeSyncData();
+    return m_barriers.count(pCallInstr);
   }
 
   Instruction* BarrierUtils::createMemFence(BasicBlock *pAtEnd) {

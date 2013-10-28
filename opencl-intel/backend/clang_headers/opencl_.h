@@ -14212,7 +14212,7 @@ size_t const_func __attribute__((overloadable)) get_global_linear_id(void);
 size_t const_func __attribute__((overloadable)) get_local_linear_id(void);
 
 
-//work group funtions
+// Work group funtions 6.13.15
 
 /**
  * Evaluates predicate for all work-items in the
@@ -14220,7 +14220,7 @@ size_t const_func __attribute__((overloadable)) get_local_linear_id(void);
  * predicate evaluates to non-zero for all workitems
  * in the work-group.
  */
-int const_func __attribute__((overloadable)) work_group_all(int predicate);
+int __attribute__((overloadable)) work_group_all(int predicate);
 
 /**
  * Evaluates predicate for all work-items in the
@@ -14228,155 +14228,152 @@ int const_func __attribute__((overloadable)) work_group_all(int predicate);
  * predicate evaluates to non-zero for any workitems
  * in the work-group.
  */
-int const_func __attribute__((overloadable)) work_group_any(int predicate);
+int __attribute__((overloadable)) work_group_any(int predicate);
 
 /**
  * Broadcast function
  * one dimentional local_id
  */
-int const_func __attribute__((overloadable)) work_group_broadcast_1D(int a, size_t local_id);
-uint const_func __attribute__((overloadable)) work_group_broadcast_1D(uint a, size_t local_id);
-long const_func __attribute__((overloadable)) work_group_broadcast_1D(long a, size_t local_id);
-ulong const_func __attribute__((overloadable)) work_group_broadcast_1D(ulong a, size_t local_id);
-float const_func __attribute__((overloadable)) work_group_broadcast_1D(float a, size_t local_id);
-double const_func __attribute__((overloadable)) work_group_broadcast_1D(double a, size_t local_id);
-//half const_func __attribute__((overloadable)) work_group_broadcast_1D(half a, size_t local_id);
+int    __attribute__((overloadable)) work_group_broadcast(int a,    size_t local_id);
+uint   __attribute__((overloadable)) work_group_broadcast(uint a,   size_t local_id);
+long   __attribute__((overloadable)) work_group_broadcast(long a,   size_t local_id);
+ulong  __attribute__((overloadable)) work_group_broadcast(ulong a,  size_t local_id);
+float  __attribute__((overloadable)) work_group_broadcast(float a,  size_t local_id);
+double __attribute__((overloadable)) work_group_broadcast(double a, size_t local_id);
+//half __attribute__((overloadable)) work_group_broadcast(half a,   size_t local_id);
 
 /**
  * Broadcast function
  * two dimentional local_id
  */
-int const_func __attribute__((overloadable)) work_group_broadcast_2D(int a, size_t local_id[2]);
-uint const_func __attribute__((overloadable)) work_group_broadcast_2D(uint a, size_t local_id[2]);
-long const_func __attribute__((overloadable)) work_group_broadcast_2D(long a, size_t local_id[2]);
-ulong const_func __attribute__((overloadable)) work_group_broadcast_2D(ulong a, size_t local_id[2]);
-float const_func __attribute__((overloadable)) work_group_broadcast_2D(float a, size_t local_id[2]);
-double const_func __attribute__((overloadable)) work_group_broadcast_2D(double a, size_t local_id[2]);
-//half const_func __attribute__((overloadable)) work_group_broadcast_2D(half a, size_t local_id[2]);
+int    __attribute__((overloadable)) work_group_broadcast(int a,    size_t local_id_x, size_t local_id_y);
+uint   __attribute__((overloadable)) work_group_broadcast(uint a,   size_t local_id_x, size_t local_id_y);
+long   __attribute__((overloadable)) work_group_broadcast(long a,   size_t local_id_x, size_t local_id_y);
+ulong  __attribute__((overloadable)) work_group_broadcast(ulong a,  size_t local_id_x, size_t local_id_y);
+float  __attribute__((overloadable)) work_group_broadcast(float a,  size_t local_id_x, size_t local_id_y);
+double __attribute__((overloadable)) work_group_broadcast(double a, size_t local_id_x, size_t local_id_y);
+//half __attribute__((overloadable)) work_group_broadcast(half a,   size_t local_id_x, size_t local_id_y);
 
 /**
  * Broadcast function
  * three dimentional local_id
  */
-int const_func __attribute__((overloadable)) work_group_broadcast_3D(int a, size_t local_id[3]);
-uint const_func __attribute__((overloadable)) work_group_broadcast_3D(uint a, size_t local_id[3]);
-long const_func __attribute__((overloadable)) work_group_broadcast_3D(long a, size_t local_id[3]);
-ulong const_func __attribute__((overloadable)) work_group_broadcast_3D(ulong a, size_t local_id[3]);
-float const_func __attribute__((overloadable)) work_group_broadcast_3D(float a, size_t local_id[3]);
-double const_func __attribute__((overloadable)) work_group_broadcast_3D(double a, size_t local_id[3]);
-//half const_func __attribute__((overloadable)) work_group_broadcast_3D(half a, size_t local_id[3]);
+int    __attribute__((overloadable)) work_group_broadcast(int a,    size_t local_id_x, size_t local_id_y, size_t local_id_z);
+uint   __attribute__((overloadable)) work_group_broadcast(uint a,   size_t local_id_x, size_t local_id_y, size_t local_id_z);
+long   __attribute__((overloadable)) work_group_broadcast(long a,   size_t local_id_x, size_t local_id_y, size_t local_id_z);
+ulong  __attribute__((overloadable)) work_group_broadcast(ulong a,  size_t local_id_x, size_t local_id_y, size_t local_id_z);
+float  __attribute__((overloadable)) work_group_broadcast(float a,  size_t local_id_x, size_t local_id_y, size_t local_id_z);
+double __attribute__((overloadable)) work_group_broadcast(double a, size_t local_id_x, size_t local_id_y, size_t local_id_z);
+//half __attribute__((overloadable)) work_group_broadcast(half a,   size_t local_id_x, size_t local_id_y, size_t local_id_z);
 
 /**
  * reduce functions
  * work_group_reduce_add
  */
-int const_func __attribute__((overloadable)) work_group_reduce_add(int x);
-uint const_func __attribute__((overloadable)) work_group_reduce_add(uint x);
-long const_func __attribute__((overloadable)) work_group_reduce_add(long x);
-ulong const_func __attribute__((overloadable)) work_group_reduce_add(ulong x);
-float const_func __attribute__((overloadable)) work_group_reduce_add(float x);
-double const_func __attribute__((overloadable)) work_group_reduce_add(double x);
-//half const_func __attribute__((overloadable)) work_group_reduce_add(half x);
+int    __attribute__((overloadable)) work_group_reduce_add(int x);
+uint   __attribute__((overloadable)) work_group_reduce_add(uint x);
+long   __attribute__((overloadable)) work_group_reduce_add(long x);
+ulong  __attribute__((overloadable)) work_group_reduce_add(ulong x);
+float  __attribute__((overloadable)) work_group_reduce_add(float x);
+double __attribute__((overloadable)) work_group_reduce_add(double x);
+//half __attribute__((overloadable)) work_group_reduce_add(half x);
 
 /**
  * reduce functions
  * work_group_reduce_min
  */
-int const_func __attribute__((overloadable)) work_group_reduce_min(int x);
-uint const_func __attribute__((overloadable)) work_group_reduce_min(uint x);
-long const_func __attribute__((overloadable)) work_group_reduce_min(long x);
-ulong const_func __attribute__((overloadable)) work_group_reduce_min(ulong x);
-float const_func __attribute__((overloadable)) work_group_reduce_min(float x);
-double const_func __attribute__((overloadable)) work_group_reduce_min(double x);
-//half const_func __attribute__((overloadable)) work_group_reduce_min(half x);
+int    __attribute__((overloadable)) work_group_reduce_min(int x);
+uint   __attribute__((overloadable)) work_group_reduce_min(uint x);
+long   __attribute__((overloadable)) work_group_reduce_min(long x);
+ulong  __attribute__((overloadable)) work_group_reduce_min(ulong x);
+float  __attribute__((overloadable)) work_group_reduce_min(float x);
+double __attribute__((overloadable)) work_group_reduce_min(double x);
+//half __attribute__((overloadable)) work_group_reduce_min(half x);
 
 /**
  * reduce functions
  * work_group_reduce_max
  */
-int const_func __attribute__((overloadable)) work_group_reduce_max(int x);
-uint const_func __attribute__((overloadable)) work_group_reduce_max(uint x);
-long const_func __attribute__((overloadable)) work_group_reduce_max(long x);
-ulong const_func __attribute__((overloadable)) work_group_reduce_max(ulong x);
-float const_func __attribute__((overloadable)) work_group_reduce_max(float x);
-double const_func __attribute__((overloadable)) work_group_reduce_max(double x);
-//half const_func __attribute__((overloadable)) work_group_reduce_max(half x);
+int    __attribute__((overloadable)) work_group_reduce_max(int x);
+uint   __attribute__((overloadable)) work_group_reduce_max(uint x);
+long   __attribute__((overloadable)) work_group_reduce_max(long x);
+ulong  __attribute__((overloadable)) work_group_reduce_max(ulong x);
+float  __attribute__((overloadable)) work_group_reduce_max(float x);
+double __attribute__((overloadable)) work_group_reduce_max(double x);
+//half __attribute__((overloadable)) work_group_reduce_max(half x);
 
 /**
- * prefixsum functions
- * work_group_prefixsum_inclusive_max
+ * scan functions
+ * work_group_scan_inclusive_max
  */
-int const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(int x);
-uint const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(uint x);
-long const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(long x);
-ulong const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(ulong x);
-float const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(float x);
-double const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(double x);
-//half const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(half x);
+int    __attribute__((overloadable)) work_group_scan_inclusive_max(int x);
+uint   __attribute__((overloadable)) work_group_scan_inclusive_max(uint x);
+long   __attribute__((overloadable)) work_group_scan_inclusive_max(long x);
+ulong  __attribute__((overloadable)) work_group_scan_inclusive_max(ulong x);
+float  __attribute__((overloadable)) work_group_scan_inclusive_max(float x);
+double __attribute__((overloadable)) work_group_scan_inclusive_max(double x);
+//half __attribute__((overloadable)) work_group_scan_inclusive_max(half x);
 
 /**
- * prefixsum functions
- * work_group_prefixsum_inclusive_min
+ * scan functions
+ * work_group_scan_inclusive_min
  */
-int const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(int x);
-uint const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(uint x);
-long const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(long x);
-ulong const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(ulong x);
-float const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(float x);
-double const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(double x);
-//half const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(half x);
+int    __attribute__((overloadable)) work_group_scan_inclusive_min(int x);
+uint   __attribute__((overloadable)) work_group_scan_inclusive_min(uint x);
+long   __attribute__((overloadable)) work_group_scan_inclusive_min(long x);
+ulong  __attribute__((overloadable)) work_group_scan_inclusive_min(ulong x);
+float  __attribute__((overloadable)) work_group_scan_inclusive_min(float x);
+double __attribute__((overloadable)) work_group_scan_inclusive_min(double x);
+//half __attribute__((overloadable)) work_group_scan_inclusive_min(half x);
 
 /**
- * prefixsum functions
- * work_group_prefixsum_inclusive_add
+ * scan functions
+ * work_group_scan_inclusive_add
  */
-int const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(int x);
-uint const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(uint x);
-long const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(long x);
-ulong const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(ulong x);
-float const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(float x);
-double const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(double x);
-//half const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(half x);
+int    __attribute__((overloadable)) work_group_scan_inclusive_add(int x);
+uint   __attribute__((overloadable)) work_group_scan_inclusive_add(uint x);
+long   __attribute__((overloadable)) work_group_scan_inclusive_add(long x);
+ulong  __attribute__((overloadable)) work_group_scan_inclusive_add(ulong x);
+float  __attribute__((overloadable)) work_group_scan_inclusive_add(float x);
+double __attribute__((overloadable)) work_group_scan_inclusive_add(double x);
+//half __attribute__((overloadable)) work_group_scan_inclusive_add(half x);
 
 /**
- * prefixsum functions
- * work_group_prefixsum_exclusive_max
+ * scan functions
+ * work_group_scan_exclusive_max
  */
-int const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(int x);
-uint const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(uint x);
-long const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(long x);
-ulong const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(ulong x);
-float const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(float x);
-double const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(double x);
-//half const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(half x);
+int    __attribute__((overloadable)) work_group_scan_exclusive_max(int x);
+uint   __attribute__((overloadable)) work_group_scan_exclusive_max(uint x);
+long   __attribute__((overloadable)) work_group_scan_exclusive_max(long x);
+ulong  __attribute__((overloadable)) work_group_scan_exclusive_max(ulong x);
+float  __attribute__((overloadable)) work_group_scan_exclusive_max(float x);
+double __attribute__((overloadable)) work_group_scan_exclusive_max(double x);
+//half __attribute__((overloadable)) work_group_scan_exclusive_max(half x);
 
 /**
- * prefixsum functions
- * work_group_prefixsum_exclusive_min
+ * scan functions
+ * work_group_scan_exclusive_min
  */
-int const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(int x);
-uint const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(uint x);
-long const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(long x);
-ulong const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(ulong x);
-float const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(float x);
-double const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(double x);
-//half const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(half x);
+int    __attribute__((overloadable)) work_group_scan_exclusive_min(int x);
+uint   __attribute__((overloadable)) work_group_scan_exclusive_min(uint x);
+long   __attribute__((overloadable)) work_group_scan_exclusive_min(long x);
+ulong  __attribute__((overloadable)) work_group_scan_exclusive_min(ulong x);
+float  __attribute__((overloadable)) work_group_scan_exclusive_min(float x);
+double __attribute__((overloadable)) work_group_scan_exclusive_min(double x);
+//half __attribute__((overloadable)) work_group_scan_exclusive_min(half x);
 
 /**
- * prefixsum functions
- * work_group_prefixsum_exclusive_add
+ * scan functions
+ * work_group_scan_exclusive_add
  */
-int const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(int x);
-uint const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(uint x);
-long const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(long x);
-ulong const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(ulong x);
-float const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(float x);
-double const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(double x);
-//half const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(half x);
-
+int    __attribute__((overloadable)) work_group_scan_exclusive_add(int x);
+uint   __attribute__((overloadable)) work_group_scan_exclusive_add(uint x);
+long   __attribute__((overloadable)) work_group_scan_exclusive_add(long x);
+ulong  __attribute__((overloadable)) work_group_scan_exclusive_add(ulong x);
+float  __attribute__((overloadable)) work_group_scan_exclusive_add(float x);
+double __attribute__((overloadable)) work_group_scan_exclusive_add(double x);
+//half __attribute__((overloadable)) work_group_scan_exclusive_add(half x);
 #if __OPENCL_C_VERSION__ >= 200
-
-// OpenCL 2.0
 
 #define NULL                              0
 #define CLK_ENQUEUE_FLAGS_WAIT_KERNEL     0
@@ -14387,7 +14384,7 @@ double const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_a
 bool __attribute__((overloadable)) is_global (const void *ptr);
 bool __attribute__((overloadable)) is_local (const void *ptr);
 bool __attribute__((overloadable)) is_private (const void *ptr);
-cl_mem_fence_flags get_fence (const void *ptr);
+cl_mem_fence_flags __attribute__((overloadable)) get_fence (const void *ptr);
 
 // Enqueuing Kernels  6.13.17
 

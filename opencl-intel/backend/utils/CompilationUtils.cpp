@@ -81,6 +81,21 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   const std::string CompilationUtils::BARRIER_FUNC_NAME = "barrier";
   const std::string CompilationUtils::WG_BARRIER_FUNC_NAME = "work_group_barrier";
+
+  //work-group functions
+  const std::string CompilationUtils::NAME_WORK_GROUP_ALL = "work_group_all";
+  const std::string CompilationUtils::NAME_WORK_GROUP_ANY = "work_group_any";
+  const std::string CompilationUtils::NAME_WORK_GROUP_BROADCAST = "work_group_broadcast";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_ADD = "work_group_reduce_add";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD = "work_group_scan_exclusive_add";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD = "work_group_scan_inclusive_add";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_MIN = "work_group_reduce_min";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MIN = "work_group_scan_exclusive_min";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MIN = "work_group_scan_inclusive_min";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_MAX = "work_group_reduce_max";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX = "work_group_scan_exclusive_max";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX = "work_group_scan_inclusive_max";
+
   //Images
   const std::string CompilationUtils::OCL_IMG_PREFIX  = "opencl.image";
   const std::string CompilationUtils::IMG_2D        = OCL_IMG_PREFIX + "2d_t";
@@ -197,10 +212,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_NO_SCOPE) ||
           func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_WITH_SCOPE) ||
           /* work group built-ins */
-            //TODO: fill it once work-group built-ins are supported
+          CompilationUtils::isWorkGroupBuiltin(func_name)  ||
           /* async copy built-ins */
-          CompilationUtils::isAsyncWorkGroupCopy(func_name)  ||
-          CompilationUtils::isAsyncWorkGroupStridedCopy(func_name) ) {
+          CompilationUtils::isAsyncBuiltin(func_name) ) {
             // Found synchronized built-in declared in the module add it to the container set.
             functionSet.insert(&*fi);
       }
@@ -775,5 +789,94 @@ bool CompilationUtils::isSetUserEventStatus(const std::string& S){
 bool CompilationUtils::isCaptureEventProfilingInfo(const std::string& S){
     return isMangleOf(S, NAME_CAPTURE_EVENT_PROFILING_INFO);
 }
+
+bool CompilationUtils::isWorkGroupAll(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_ALL);
+}
+
+bool CompilationUtils::isWorkGroupAny(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_ANY);
+}
+
+bool CompilationUtils::isWorkGroupBroadCast(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_BROADCAST);
+}
+
+bool CompilationUtils::isWorkGroupReduceAdd(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_ADD);
+}
+
+bool CompilationUtils::isWorkGroupScanExclusiveAdd(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD);
+}
+
+bool CompilationUtils::isWorkGroupScanInclusiveAdd(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD);
+}
+
+bool CompilationUtils::isWorkGroupReduceMin(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MIN);
+}
+
+bool CompilationUtils::isWorkGroupScanExclusiveMin(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_MIN);
+}
+
+bool CompilationUtils::isWorkGroupScanInclusiveMin(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MIN);
+}
+
+bool CompilationUtils::isWorkGroupReduceMax(const std::string& S) {
+  return (S == CompilationUtils::NAME_WORK_GROUP_REDUCE_MAX);
+}
+
+bool CompilationUtils::isWorkGroupScanExclusiveMax(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX);
+}
+
+bool CompilationUtils::isWorkGroupScanInclusiveMax(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX);
+}
+
+bool CompilationUtils::isWorkGroupBuiltin(const std::string& S) {
+  return isWorkGroupUniform(S) ||
+         isWorkGroupScan(S);
+}
+
+bool CompilationUtils::isAsyncBuiltin(const std::string& S) {
+  return CompilationUtils::isAsyncWorkGroupCopy(S) || 
+         CompilationUtils::isAsyncWorkGroupStridedCopy(S);
+}
+
+bool CompilationUtils::isWorkGroupScan(const std::string& S) {
+  return isWorkGroupScanExclusiveAdd(S) ||
+         isWorkGroupScanInclusiveAdd(S) ||
+         isWorkGroupScanExclusiveMin(S) ||
+         isWorkGroupScanInclusiveMin(S) ||
+         isWorkGroupScanExclusiveMax(S) ||
+         isWorkGroupScanInclusiveMax(S);
+}
+
+bool CompilationUtils::isWorkGroupMin(const std::string& S) {
+  return isWorkGroupReduceMin(S)             ||
+         isWorkGroupScanExclusiveMin(S) ||
+         isWorkGroupScanInclusiveMin(S);
+}
+
+bool CompilationUtils::isWorkGroupMax(const std::string& S) {
+  return isWorkGroupReduceMax(S)             ||
+         isWorkGroupScanExclusiveMax(S) ||
+         isWorkGroupScanInclusiveMax(S);
+}
+
+bool CompilationUtils::isWorkGroupUniform(const std::string& S) {
+  return isWorkGroupAll(S)       ||
+         isWorkGroupAny(S)       ||
+         isWorkGroupBroadCast(S) ||
+         isWorkGroupReduceAdd(S) ||
+         isWorkGroupReduceMin(S) ||
+         isWorkGroupReduceMax(S);
+}
+
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

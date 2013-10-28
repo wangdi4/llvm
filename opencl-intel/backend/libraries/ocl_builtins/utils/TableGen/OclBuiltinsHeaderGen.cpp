@@ -133,7 +133,8 @@ typedef TypedBiList::const_iterator TypedBiIter;
 
   virtual void operator () (const std::pair<std::string, llvm::OclBuiltin*>& it){
     const OclBuiltin* pBuiltin = it.second;
-    if (pBuiltin->isSvml() || !pBuiltin->isOverlodable() || !pBuiltin->shouldGenerate())
+    // BUGBUG: isBrokenNameMangling() is a temporary w/around for name mangling in-compat with SPIR (CQ CSSD100017714)
+    if (pBuiltin->isSvml() || !pBuiltin->isOverlodable() || !pBuiltin->shouldGenerate() || pBuiltin->isBrokenNameMangling())
       return;
     m_builtins.push_back(pBuiltin);
   }

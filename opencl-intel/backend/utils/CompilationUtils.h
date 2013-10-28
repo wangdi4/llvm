@@ -154,6 +154,25 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isCreateUserEvent(const std::string&);
     static bool isSetUserEventStatus(const std::string&);
     static bool isCaptureEventProfilingInfo(const std::string&);
+    static bool isWorkGroupAll(const std::string&);
+    static bool isWorkGroupAny(const std::string&);
+    static bool isWorkGroupBroadCast(const std::string&);
+    static bool isWorkGroupReduceAdd(const std::string&);
+    static bool isWorkGroupScanExclusiveAdd(const std::string&);
+    static bool isWorkGroupScanInclusiveAdd(const std::string&);
+    static bool isWorkGroupReduceMin(const std::string&);
+    static bool isWorkGroupScanExclusiveMin(const std::string&);
+    static bool isWorkGroupScanInclusiveMin(const std::string&);
+    static bool isWorkGroupReduceMax(const std::string&);
+    static bool isWorkGroupScanExclusiveMax(const std::string&);
+    static bool isWorkGroupScanInclusiveMax(const std::string&);
+
+    static bool isWorkGroupBuiltin(const std::string&);
+    static bool isAsyncBuiltin(const std::string&);
+    static bool isWorkGroupScan(const std::string&);
+    static bool isWorkGroupMin(const std::string&);
+    static bool isWorkGroupMax(const std::string&);
+    static bool isWorkGroupUniform(const std::string&);
 
     static const std::string NAME_GET_ORIG_GID;
     static const std::string NAME_GET_ORIG_LID;
@@ -180,6 +199,21 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     static const std::string BARRIER_FUNC_NAME;
     static const std::string WG_BARRIER_FUNC_NAME;
+
+    //work-group functions
+    static const std::string NAME_WORK_GROUP_ALL;
+    static const std::string NAME_WORK_GROUP_ANY;
+    static const std::string NAME_WORK_GROUP_BROADCAST;
+    static const std::string NAME_WORK_GROUP_REDUCE_ADD;
+    static const std::string NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD;
+    static const std::string NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD;
+    static const std::string NAME_WORK_GROUP_REDUCE_MIN;
+    static const std::string NAME_WORK_GROUP_SCAN_EXCLUSIVE_MIN;
+    static const std::string NAME_WORK_GROUP_SCAN_INCLUSIVE_MIN;
+    static const std::string NAME_WORK_GROUP_REDUCE_MAX;
+    static const std::string NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX;
+    static const std::string NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX;
+
     //images
     static const std::string OCL_IMG_PREFIX;
     static const std::string IMG_2D;

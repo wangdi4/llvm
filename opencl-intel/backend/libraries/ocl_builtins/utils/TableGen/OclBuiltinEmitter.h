@@ -194,6 +194,8 @@ public:
   bool isSvml()const;
 
   bool isOverlodable()const;
+  // BUGBUG: isBrokenNameMangling() is a temporary w/around for name mangling in-compat with SPIR (CQ CSSD100017714)
+  bool isBrokenNameMangling()const {return strstr(m_Name.c_str(),"work_group_") != NULL;}
 
   typedef std::vector<const OclType*>::const_iterator const_type_iterator;
 

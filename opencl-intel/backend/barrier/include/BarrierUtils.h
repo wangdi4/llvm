@@ -13,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
   #include "CL/cl.h"
 #endif
 #include "llvm/Constants.h"
+#include "llvm/Instructions.h"
 
 #include "llvm/ADT/SetVector.h"
 
@@ -46,6 +47,8 @@ namespace intel {
 
   #define VECTORIZED_KERNEL_PREFIX "__Vectorized_."
 
+  #define FINALIZE_WG_FUNCTION_PREFIX "finalize_."
+
   #define CLK_LOCAL_MEM_FENCE (CL_LOCAL)
   #define CLK_GLOBAL_MEM_FENCE (CL_GLOBAL)
 
@@ -59,6 +62,12 @@ namespace intel {
     SYNC_TYPE_FIBER,
     SYNC_TYPE_NUM
   } SYNC_TYPE;
+
+  typedef enum {
+    CALL_BI_TYPE_WG,
+    CALL_BI_TYPE_ASYNC,
+    CALL_BI_NUM
+  } CALL_BI_TYPE;
 
   typedef std::vector<Value*> TValueVector;
   typedef std::vector<Instruction*> TInstructionVector;
@@ -115,6 +124,11 @@ namespace intel {
     /// @returns TFunctionVector container with found functions
     TFunctionVector& getAllFunctionsWithSynchronization();
 
+    /// @brief Find calls to WG functions upon their type
+    /// @param type - type of WG functions to find
+    /// @returns container with calls to WG functions of requested type
+    TInstructionVector& getWGCallInstructions(CALL_BI_TYPE type);
+
     /// @brief Find all kernel functions in the module
     /// @returns TFunctionVector container with found functions
     TFunctionVector& getAllKernelFunctions();
@@ -124,10 +138,20 @@ namespace intel {
     /// @returns new created call instruction
     Instruction* createBarrier(Instruction *pInsertBefore = 0);
 
+    /// @brief Checks whether call instruction calls barrier()
+    /// @param pCallInstr instruction of interest
+    /// @returns true if this is barrier() call and false otherwise
+    bool isBarrierCall(CallInst *pCallInstr);
+
     /// @brief Create new call instruction to dummyBarrier()
     /// @param pInsertBefore instruction to insert new call instruction before
     /// @returns new created call instruction
     Instruction* createDummyBarrier(Instruction *pInsertBefore = 0);
+
+    /// @brief Checks whether call instruction calls dummyBarrier()
+    /// @param pCallInstr instruction of interest
+    /// @returns true if this is dummyBarrier() call and false otherwise
+    bool isDummyBarrierCall(CallInst *pCallInstr);
 
     /// @brief Create new call instruction to __mm_mfence()
     /// @param pAtEnd basic block to insert new call at its end
@@ -244,6 +268,8 @@ namespace intel {
     TFunctionVector     m_syncFunctions;
     /// This holds the all kernel functions of the module
     TFunctionVector     m_kernelFunctions;
+    /// This holds all the WG function calls in the module
+    TInstructionVector  m_WGcallInstructions;
 
     /// This indecator for synchronize data initialization
     bool m_bSyncDataInitialized;

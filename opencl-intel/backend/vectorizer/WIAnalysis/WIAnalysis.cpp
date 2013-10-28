@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Mangler.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "CompilationUtils.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -623,6 +624,8 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
   return WIAnalysis::RANDOM;
 }
 
+using namespace Intel::OpenCL::DeviceBackend;
+
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
   //TODO: This function requires much more work, to be correct:
   //   2) Some functions (dot_prod, cross_prod) provide "measurable"
@@ -648,6 +651,12 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
   Function *origFunc = inst->getCalledFunction();
   std::string origFuncName = origFunc->getName().str();
 
+  if (CompilationUtils::isWorkGroupBuiltin(origFuncName)) {
+    // WG functions must be packetized (although their results may be uniform) 
+    return WIAnalysis::RANDOM;
+  }
+
+  // Check if the function is in the table of functions
   std::string scalarFuncName = origFuncName;
   bool isMangled = Mangler::isMangledCall(scalarFuncName);
   bool MaskedMemOp = (Mangler::isMangledLoad(scalarFuncName) ||

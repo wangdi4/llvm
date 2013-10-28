@@ -36,6 +36,10 @@ namespace intel {
       if (calledFuncName.find("barrier") != std::string::npos) {
         return true;
       }
+      if (CompilationUtils::isWorkGroupBuiltin(calledFuncName) ||
+          CompilationUtils::isAsyncBuiltin(calledFuncName)) {
+        return true;
+      }
     }
     return false;
   }

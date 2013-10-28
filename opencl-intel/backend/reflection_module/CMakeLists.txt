@@ -44,6 +44,9 @@ add_custom_command(
   DEPENDS ${OCL_TBLGEN_DEP}
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v1.2.td
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0.td
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0WG.td
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/WorkGroupSnippets.td
   COMMENT "generating custom mapping ..."
   VERBATIM
 )

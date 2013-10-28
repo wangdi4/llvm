@@ -146,6 +146,14 @@ namespace intel {
         return true;
     }
 
+    if ( CompilationUtils::isWorkGroupScan(origFuncName) ) {
+      // WG scan functions related to WI Id
+      return true;
+    } else if (CompilationUtils::isWorkGroupUniform(origFuncName) ) {
+      // WG uniform functions unrelated to WI Id
+      return false;
+    }
+
     //Check if function is not declared inside "this" module
     if ( !pInst->getCalledFunction()->isDeclaration() ) {
       //For functions defined (not declared) in this module - it is unsafe to assume anything
