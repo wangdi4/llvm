@@ -3259,6 +3259,10 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
     {
         return CL_INVALID_VALUE;
     }
+    if ((NULL == pclEventWaitList && uiNumEventsInWaitList > 0) || (NULL != pclEventWaitList && 0 == uiNumEventsInWaitList))
+    {
+        return CL_INVALID_EVENT_WAIT_LIST;
+    }
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pCommandQueue)
@@ -3320,6 +3324,7 @@ cl_err_code ExecutionModule::EnqueueSyncGLObjects(cl_command_queue clCommandQueu
     if(CL_FAILED(errVal))
     {
         // Enqueue failed, free resources
+        pAcquireCmd->SetReturnCode(errVal);
         pAcquireCmd->CommandDone();
         delete pAcquireCmd;
     }

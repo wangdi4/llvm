@@ -55,9 +55,9 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     cl_err_code SyncGraphicsApiObjects::Init()
     {
-        for (unsigned int i=0; i<m_uiMemObjNum; ++i)
+        if (m_bIsAcquireCmd)
         {
-            if (m_bIsAcquireCmd)
+            for (unsigned int i=0; i<m_uiMemObjNum; ++i)
             {
                 m_pMemObjects[i]->SetAcquireCmdEvent(m_Event);
             }
@@ -71,12 +71,31 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     cl_err_code SyncGraphicsApiObjects::CommandDone()
     {
-        for (unsigned int i = 0; i < m_uiMemObjNum; i++)
+        if (m_bIsAcquireCmd)
         {
-			if (!m_bIsAcquireCmd || GetReturnCode() != CL_SUCCESS)  // if it m_bIsAcquireCmd and we have a failure, we need to undo what we did in Init
-			{
-                m_pMemObjects[i]->SetAcquireCmdEvent(NULL);
-			}
+            // if Acquire command succeed - do nothing
+
+            if (GetReturnCode() != CL_SUCCESS)
+            {
+                // if Acquire command failed, we need to undo what we did in Init
+                for (unsigned int i = 0; i < m_uiMemObjNum; i++)
+                {
+                    m_pMemObjects[i]->ClearAcquireCmdEvent();
+                }
+            }
+        }
+        else
+        {
+            // not m_bIsAcquireCmd e.g. release
+
+            if (GetReturnCode() == CL_SUCCESS)
+            {
+                for (unsigned int i = 0; i < m_uiMemObjNum; i++)
+                {
+                    m_pMemObjects[i]->SetAcquireCmdEvent(NULL);
+                }
+            }
+            // if release command failed - do nothing
         }
         return CL_SUCCESS;
     }

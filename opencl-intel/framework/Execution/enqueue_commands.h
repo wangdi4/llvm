@@ -108,9 +108,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
         //
         virtual bool isControlCommand() const  { return false; }
         //
-        // Returns the success status of the command
+        // Returns the return code of the command
         //
         virtual cl_int GetReturnCode() const { return m_returnCode; }
+        //
+        // Sets the return code of the command
+        //
+        virtual void SetReturnCode(cl_int returnCode) { m_returnCode = returnCode; }
         //
         // Returns whether a command is going to be executed on the device or not.
         //

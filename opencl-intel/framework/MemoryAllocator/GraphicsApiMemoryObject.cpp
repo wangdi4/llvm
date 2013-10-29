@@ -229,6 +229,26 @@ namespace Intel { namespace OpenCL { namespace Framework
     }
 
     /**
+     * @fn  cl_err_code GraphicsApiMemoryObject::ClearAcquireCmdEvent()
+     */
+    cl_err_code GraphicsApiMemoryObject::ClearAcquireCmdEvent()
+    {
+        // we get there in case of failure - undo what we did in init
+
+        OclAutoMutex mu(&m_muAcquireRelease);
+
+        // release the last object desc - which was insirted in init
+        m_lstAcquiredObjectDescriptors.pop_back();
+
+        if ( m_lstAcquiredObjectDescriptors.empty() )
+        {
+            m_itCurrentAcquriedObject = m_lstAcquiredObjectDescriptors.end();
+        }
+
+        return CL_SUCCESS;
+    }
+
+    /**
      * @fn  cl_err_code GraphicsApiMemoryObject::GetDeviceDescriptor(SharedPtr<FissionableDevice> pDevice,
      *      IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent)
      */

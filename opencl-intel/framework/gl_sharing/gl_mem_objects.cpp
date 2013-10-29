@@ -210,20 +210,20 @@ cl_err_code GLTexture::GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t va
 		return CL_INVALID_VALUE;
 	}
 
-	if ( NULL != pRetSize )
-	{
-		*pRetSize = valSize;
-		return CL_SUCCESS;
-	}
-
-	if ( valSize < intSize )
+	if ( (NULL != pVal && valSize < intSize) ||
+		 (NULL == pVal && NULL == pRetSize) )
 	{
 		return CL_INVALID_VALUE;
 	}
 
+	if ( NULL != pRetSize )
+	{
+		*pRetSize = intSize;
+	}
+
 	if ( NULL != pVal)
 	{
-		MEMCPY_S(pVal, valSize, pIntVal, valSize);
+		MEMCPY_S(pVal, valSize, pIntVal, intSize);
 	}
 	return CL_SUCCESS;
 }
