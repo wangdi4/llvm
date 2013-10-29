@@ -789,9 +789,19 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         break;
 
 	case CL_DEV_KERNEL_ARG_INFO:
-        stValSize = pKernel->GetKernelParamsCount();
-		pValue = (void*)pKernel->GetKernelArgInfo();
-        stValSize *= sizeof(cl_kernel_argument_info);
+        stValSize = pKernel->GetKernelParamsCount() * sizeof(cl_kernel_argument_info);
+        pValue = (void*)pKernel->GetKernelArgInfo();
+        break;
+
+    case CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES:
+        stValSize = pKernel->GetMemoryObjectArgumentCount() * sizeof(unsigned int);
+        pValue = (void*)pKernel->GetMemoryObjectArgumentIndexes();
+        break;
+
+    case CL_DEV_KENREL_ARGUMENT_BUFFER_SIZE:
+        stValSize = sizeof(size_t);
+        ullValue = pKernel->GetArgumentBufferSize();
+        pValue = &ullValue;
         break;
 
     default:

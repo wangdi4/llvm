@@ -358,9 +358,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		ConstSharedPtr<SVMBuffer> GetSVMBufferContainingAddr(const void* ptr) const;
 		SharedPtr<SVMBuffer> GetSVMBufferContainingAddr(void* ptr);
 
-		cl_int SetKernelArgSVMPointer(const SharedPtr<Kernel> pKernel, cl_uint uiArgIndex, const void* pArgValue);
+		cl_int SetKernelArgSVMPointer(const SharedPtr<Kernel>& pKernel, cl_uint uiArgIndex, const void* pArgValue);
 
-		cl_int SetKernelExecInfo(const SharedPtr<Kernel> pKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue);
+		cl_int SetKernelExecInfo(const SharedPtr<Kernel>& pKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue);
 
 		void* SVMAlloc(cl_svm_mem_flags flags, size_t size, unsigned int uiAlignment);
 

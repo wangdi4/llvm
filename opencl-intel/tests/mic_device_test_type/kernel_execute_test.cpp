@@ -117,7 +117,6 @@ bool KernelExecute_Dot_Test(const char* prog_file)
     }
 
     // Setup Kernel parameters
-    vector<cl_dev_cmd_memobj_param_kernel> memObjParams;
     cl_dev_cmd_desc    cmdDesc;
     cl_dev_cmd_param_kernel krnlParam;
 
@@ -126,21 +125,9 @@ bool KernelExecute_Dot_Test(const char* prog_file)
     std::vector<cl_char> arg_values_alloc(krnlParam.arg_size);
     krnlParam.arg_values = &arg_values_alloc[0];
     
-    memObjParams.resize(3);
-
-    for (unsigned int i = 0; i < memObjParams.size(); ++i)
-    {
-        cl_dev_cmd_memobj_param_kernel& cur = memObjParams[i];
-        cur.arg_idx = i;
-        cur.arg_offset = i*sizeof(void*);
-    }
-
-    memObjParams[0].pMemObject = memObjA;
-    memObjParams[1].pMemObject = memObjB;
-    memObjParams[2].pMemObject = memObjRes;
-    
-    krnlParam.pMemObjParams = &(memObjParams[0]);
-    krnlParam.uiMemObjParams = memObjParams.size();
+    ((IOCLDevMemoryObject**)krnlParam.arg_values)[0] = memObjA;
+    ((IOCLDevMemoryObject**)krnlParam.arg_values)[1] = memObjB;
+    ((IOCLDevMemoryObject**)krnlParam.arg_values)[2] = memObjRes;
     
 //    *((float*)((cl_char*)krnlParam.arg_values+3*sizeof(IOCLDevMemoryObject*))) = 2.f;
     krnlParam.work_dim = 2;
@@ -257,7 +244,6 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
     }
 
     // Setup Kernel parameters
-    vector<cl_dev_cmd_memobj_param_kernel> memObjParams;
     cl_dev_cmd_desc    cmdDesc;
     cl_dev_cmd_param_kernel krnlParam;
 
@@ -266,20 +252,8 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
     std::vector<cl_char> arg_values_alloc(krnlParam.arg_size);
     krnlParam.arg_values =  &arg_values_alloc[0];
     
-    memObjParams.resize(2);
-
-    for (unsigned int i = 0; i < memObjParams.size(); ++i)
-    {
-        cl_dev_cmd_memobj_param_kernel& cur = memObjParams[i];
-        cur.arg_idx = i;
-        cur.arg_offset = i*sizeof(void*);
-    }
-
-    memObjParams[0].pMemObject = memObjA;
-    memObjParams[1].pMemObject = memObjB;
-    
-    krnlParam.pMemObjParams = &(memObjParams[0]);
-    krnlParam.uiMemObjParams = memObjParams.size();
+    ((IOCLDevMemoryObject**)krnlParam.arg_values)[0] = memObjA;
+    ((IOCLDevMemoryObject**)krnlParam.arg_values)[1] = memObjB;
     
     krnlParam.work_dim = 1;
     krnlParam.glb_wrk_offs[0] = 0;
@@ -403,7 +377,6 @@ bool KernelExecute_Math_Test(const char* prog_file)
     }
 
     // Setup Kernel parameters
-    vector<cl_dev_cmd_memobj_param_kernel> memObjParams;
     cl_dev_cmd_desc    cmdDesc;
     cl_dev_cmd_param_kernel krnlParam;
 
@@ -412,21 +385,10 @@ bool KernelExecute_Math_Test(const char* prog_file)
     std::vector<cl_char> arg_values_alloc(krnlParam.arg_size);
     krnlParam.arg_values = &arg_values_alloc[0];
     
-    memObjParams.resize(2);
 
-    for (unsigned int i = 0; i < memObjParams.size(); ++i)
-    {
-        cl_dev_cmd_memobj_param_kernel& cur = memObjParams[i];
-        cur.arg_idx = i;
-        cur.arg_offset = i*sizeof(void*);
-    }
-
-    memObjParams[0].pMemObject = memObjA;
-    memObjParams[1].pMemObject = memObjB;
+    ((IOCLDevMemoryObject**)krnlParam.arg_values)[0] = memObjA;
+    ((IOCLDevMemoryObject**)krnlParam.arg_values)[1] = memObjB;
     
-    krnlParam.pMemObjParams = &(memObjParams[0]);
-    krnlParam.uiMemObjParams = memObjParams.size();
-
     krnlParam.work_dim = 1;
     krnlParam.glb_wrk_offs[0] = 0;
     krnlParam.glb_wrk_size[0] = TEST_BUFF_SIZE/4; // Kernel forks on float4

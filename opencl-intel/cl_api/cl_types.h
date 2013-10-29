@@ -220,6 +220,9 @@ enum cl_dev_sampler_prop
     __FILTER_MASK								= ( ((1<<__FILTER_BITS)-1) << __FILTER_BASE)
 };
 
+// Sampler type as defined in OpenCL kernels
+typedef unsigned int _sampler_t;
+
 // Channel order, numbering must be aligned with cl_channel_order in cl.h
 enum {
   CLK_R,

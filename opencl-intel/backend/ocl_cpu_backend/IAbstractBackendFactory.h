@@ -45,6 +45,7 @@ public:
     virtual Kernel* CreateKernel(
         const std::string& name,
         const std::vector<cl_kernel_argument>& args,
+        const std::vector<unsigned int>& memArgs,
         KernelProperties* pProps) = 0;
 
     virtual KernelProperties* CreateKernelProperties() = 0;

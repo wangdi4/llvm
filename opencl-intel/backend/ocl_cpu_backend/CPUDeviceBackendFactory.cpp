@@ -62,9 +62,10 @@ Kernel* CPUDeviceBackendFactory::CreateKernel()
 Kernel* CPUDeviceBackendFactory::CreateKernel(
     const std::string& name,
     const std::vector<cl_kernel_argument>& args,
+    const std::vector<unsigned int>& memArgs,
     KernelProperties* pProps)
 {
-    return new Kernel(name, args, pProps);
+    return new Kernel(name, args, memArgs, pProps);
 }
 
 KernelProperties* CPUDeviceBackendFactory::CreateKernelProperties()

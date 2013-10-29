@@ -1572,11 +1572,7 @@ cl_err_code NDRangeKernelCommand::Init()
 
     // Create args snapshot
     const KernelArg* pArg    = NULL;
-    size_t szArgCount        = m_pKernel->GetKernelArgsCount();
-    size_t stArgsSize        = m_pKernel->GetDeviceArgsSize();
     size_t stTotalLocalSize  = m_pKernel->GetTotalLocalSize();
-
-    size_t i;
 
     cl_device_svm_capabilities svmCaps;
     bool svmSupported = GetDevice()->GetSVMCapabilities( &svmCaps );
@@ -1614,16 +1610,13 @@ cl_err_code NDRangeKernelCommand::Init()
     // Query kernel info to validate input params
     //
     size_t        szCompiledWorkGroupMaxSize = m_pDeviceKernel->GetKernelWorkGroupSize();
-    const size_t* szComplieWorkGroupSize     = m_pDeviceKernel->GetKernelCompileWorkGroupSize();
+    const size_t* szCompliedWorkGroupSize     = m_pDeviceKernel->GetKernelCompileWorkGroupSize();
 
-    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // TODO: !!!!! Optimize this code !!!!!!!!
-    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // If the work-group size is not specified in kernel using the above attribute qualifier (0, 0,0)
     // is returned in szComplieWorkGroupSize
-    if( ! ( (0 == szComplieWorkGroupSize[0]) &&
-            (0 == szComplieWorkGroupSize[1]) &&
-            (0 == szComplieWorkGroupSize[2])))
+    if( ! ( (0 == szCompliedWorkGroupSize[0]) &&
+            (0 == szCompliedWorkGroupSize[1]) &&
+            (0 == szCompliedWorkGroupSize[2])))
     {
         // case kernel using the __attribute__((reqd_work_group_size(X, Y, Z))) qualifier in program source.
         if (  NULL == m_cpszLocalWorkSize )
@@ -1634,7 +1627,7 @@ cl_err_code NDRangeKernelCommand::Init()
         {
             for( unsigned int ui=0; ui<m_uiWorkDim; ui++)
             {
-                if( szComplieWorkGroupSize[ui] != m_cpszLocalWorkSize[ui])
+                if( szCompliedWorkGroupSize[ui] != m_cpszLocalWorkSize[ui])
                 {
                     return CL_INVALID_WORK_GROUP_SIZE;
                 }
@@ -1701,6 +1694,8 @@ cl_err_code NDRangeKernelCommand::Init()
         return res;
     }
 
+    size_t stArgsSize        = m_pKernel->GetDeviceArgsSize();
+
     // Setup Kernel parameters
     cl_dev_cmd_param_kernel* pKernelParam = &m_kernelParams;
     cl_char* pArgValues = new cl_char[stArgsSize];
@@ -1717,95 +1712,69 @@ cl_err_code NDRangeKernelCommand::Init()
     {
         pKernelParam->ppNonArgSvmBuffers = &m_nonArgSvmBuffersVec[0];
     }
-    pKernelParam->uiNonArgSvmBuffersSize = m_nonArgSvmBuffersVec.size();
+    pKernelParam->uiNonArgSvmBuffersCount = m_nonArgSvmBuffersVec.size();
 
     const SharedPtr<Context>& pContext = m_pKernel->GetContext();
-    m_MemObjParamsVec.reserve( szArgCount );
-    size_t szNumBufs = 0;
-    // Here set the arguments.
-    for(i=0; i< szArgCount; i++)
+
+   size_t szMemArgCount        = m_pKernel->GetKernelMemoryArgsCount();
+
+    // Update memory object information
+    for(size_t i=0; i< szMemArgCount; i++)
     {
-        pArg = m_pKernel->GetKernelArg(i);
-        if(pArg->IsMemObject())
+        pArg = m_pKernel->GetKernelMemoryArg(i);
+        MemoryObject* pMemObj = NULL;
+        // may it be an SVM object?
+        if (pArg->IsSvmPtr())
+        {
+            SVMPointerArg* pSvmPtr;
+            pArg->GetValue(sizeof(SVMPointerArg*), &pSvmPtr);
+            pMemObj = static_cast<MemoryObject*>( pSvmPtr );
+        }
+        else
         {
             // Create buffer resources here if not available.
-            cl_mem clMemId = *(cl_mem*)pArg->GetValue();
-            MemoryObject* pMemObj = NULL;
+            cl_mem clMemId;
+            pArg->GetValue(sizeof(cl_mem), &clMemId);
 
-            if (NULL != clMemId)
+            if ( NULL == clMemId )
             {
-                pMemObj = pContext->GetMemObjectPtr(clMemId);
-                if (NULL == pMemObj)
-                {
-                    // may it be an SVM object?
-                    if (pArg->IsSvmPtr())
-                    {
-                        SVMPointerArg* pSvmPtr = *(SVMPointerArg**)pArg->GetValue();
-                        pMemObj = static_cast<MemoryObject*>( pSvmPtr );
-                    }
-                    if (NULL == pMemObj)
-                    {
-                        res = CL_INVALID_KERNEL_ARGS;
-                        break;
-                    }
-                }
+                assert( (pArg->IsBuffer() || pArg->IsSvmPtr()) && "NULL values is allowed only for buffers and SVM pointers");
+                continue;
             }
-            
-            IOCLDevMemoryObject* *devObjSrc = (IOCLDevMemoryObject**)(pArgValues + pArg->GetOffset());
 
-            if( NULL != pMemObj )    // NULL argument is allowed
+            pMemObj = pContext->GetMemObjectPtr(clMemId);
+            if (NULL == pMemObj)
             {
-                // increment refcount of memory object and save it
-                // TODO: Check why we always pass READ_WRITE as usage. Why we need it at all
-                AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE);
-
-                // Mark as used
-                res = pMemObj->CreateDeviceResource(m_pDevice);
-                if( CL_FAILED(res))
-                {
-                    assert( 0 && "CreateDeviceResource() supposed to success" );
-                    return res;
-                }                
-
-                res = GetMemObjectDescriptor(pMemObj, devObjSrc);
-                
-                if ( CL_FAILED(res) )
-                {
-                    assert( 0 && "GetMemObjectDescriptor() supposed to success" );
-                    return res;
-                }
-
-                // add memory object to the list of memobj arguments
-                ++szNumBufs;
-                m_MemObjParamsVec.resize( szNumBufs );
-                cl_dev_cmd_memobj_param_kernel& desc = m_MemObjParamsVec[szNumBufs-1];
-                desc.pMemObject = *devObjSrc;
-                desc.arg_idx    = i;
-                desc.arg_offset = pArg->GetOffset();
-            }
-            else
-            {
-                if ( !pArg->IsBuffer() )
-                {
-                    assert(0 && "Providing NULL argument for non-buffers is not allowed");
-                    res = CL_INVALID_ARG_VALUE;
-                    break;
-                }
-
-                *devObjSrc = NULL;
+                return CL_INVALID_KERNEL_ARGS;
             }
         }
-    }
 
-    if (!m_MemObjParamsVec.empty())
-    {
-        pKernelParam->pMemObjParams = &(m_MemObjParamsVec[0]);
-        pKernelParam->uiMemObjParams = m_MemObjParamsVec.size();
-    }
-    else
-    {
-        pKernelParam->pMemObjParams = NULL;
-        pKernelParam->uiMemObjParams = 0;
+        assert(NULL != pMemObj && "Memory object is not supposed to be NULL on this stage");
+        if( NULL==pMemObj )
+        {
+            continue;
+        }
+
+        // increment refcount of memory object and save it
+        // TODO: Check why we always pass READ_WRITE as usage. Why we need it at all
+        AddToMemoryObjectArgList( m_MemOclObjects, pMemObj, MemoryObject::READ_WRITE);
+
+        // Mark as used
+        res = pMemObj->CreateDeviceResource(m_pDevice);
+        if( CL_FAILED(res))
+        {
+            assert( 0 && "CreateDeviceResource() supposed to success" );
+            return res;
+        }                
+
+        // Get location in the command parameters
+        IOCLDevMemoryObject* *devObjSrc = (IOCLDevMemoryObject**)(pArgValues + pArg->GetOffset());
+        res = GetMemObjectDescriptor(pMemObj, devObjSrc);
+        if ( CL_FAILED(res) )
+        {
+            assert( 0 && "GetMemObjectDescriptor() supposed to success" );
+            return res;
+        }
     }
 
     // Fill specific command values

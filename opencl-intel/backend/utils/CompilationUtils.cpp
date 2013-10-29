@@ -10,6 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "NameMangleAPI.h"
 #include "MetaDataApi.h"
 #include "ParameterType.h"
+#include "cl_types.h"
 
 #if defined(__APPLE__)
   #include "OpenCL/cl.h"
@@ -265,7 +266,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   void CompilationUtils::parseKernelArguments(  Module* pModule,
                                                 Function* pFunc,
-                                                std::vector<cl_kernel_argument>& /* OUT */ arguments) {
+                                                std::vector<cl_kernel_argument>& /* OUT */ arguments,
+                                                std::vector<unsigned int>&       /* OUT */ memoryArguments) {
     // Check maximum number of arguments to kernel
     MetaDataUtils mdUtils(pModule);
     if (!mdUtils.isKernelsHasValue()) {
@@ -346,11 +348,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     size_t argsCount = pFunc->getArgumentList().size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
 
     unsigned int localMemCount = 0;
+#ifndef __APPLE__
+    unsigned int current_offset = 0;
+#endif
     const bool isBlockInvokeKernel = BlockUtils::IsBlockInvocationKernel(*pFunc);
     llvm::Function::arg_iterator arg_it = pFunc->arg_begin();
     for (unsigned i=0; i<argsCount; ++i)
     {
       cl_kernel_argument curArg;
+#ifndef __APPLE__
+      bool               isMemoryObject = false;
+#endif
       curArg.access = CL_KERNEL_ARG_ACCESS_NONE;
 
       llvm::Argument* pArg = arg_it;
@@ -408,6 +416,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             const std::string &imgArg = ST->getName().str();
             if ( std::string::npos != imgArg.find("opencl.image"))    // Image identifier was found
             {
+              // TODO: Why default type is INTEGER????
               curArg.type = CL_KRNL_ARG_INT;
 
               // Get dimension image type
@@ -439,6 +448,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                 curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY : 
                                 CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
   #else
+                isMemoryObject = true;
                 curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ? 
                                 CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
   #endif
@@ -469,9 +479,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           {
           case 0: case 1: // Global Address space
             curArg.type = CL_KRNL_ARG_PTR_GLOBAL;
+#ifndef __APPLE__
+            isMemoryObject = true;
+#endif
             break;
           case 2:
             curArg.type = CL_KRNL_ARG_PTR_CONST;
+#ifndef __APPLE__
+            isMemoryObject = true;
+#endif
             break;
           case 3: // Local Address space
             curArg.type = CL_KRNL_ARG_PTR_LOCAL;
@@ -500,7 +516,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   #endif
             {
               curArg.type = CL_KRNL_ARG_SAMPLER;
-              curArg.size_in_bytes = 0;
+              curArg.size_in_bytes = sizeof(_sampler_t);
             }
             else
             {
@@ -528,6 +544,22 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       default:
         assert(0 && "Unhelded parameter type");
       }
+
+      // update offset
+#ifndef __APPLE__
+      assert( 0 != curArg.size_in_bytes && "argument size must be set");
+      curArg.offset_in_bytes = current_offset;
+      if ( ((CL_KRNL_ARG_VECTOR==curArg.type) || (CL_KRNL_ARG_VECTOR_BY_REF==curArg.type)) && (0 != (curArg.size_in_bytes >> 16)) ) {
+        current_offset += ((curArg.size_in_bytes >> 16) * (curArg.size_in_bytes & 0xFFFF));
+      }
+      else {
+        current_offset += curArg.size_in_bytes;
+      }
+
+      if ( isMemoryObject ) {
+        memoryArguments.push_back(i);
+      }
+#endif
       arguments.push_back(curArg);
       ++arg_it;
     }

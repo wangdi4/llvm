@@ -62,9 +62,10 @@ Kernel* MICDeviceBackendFactory::CreateKernel()
 Kernel* MICDeviceBackendFactory::CreateKernel(
     const std::string& name,
     const std::vector<cl_kernel_argument>& args,
+    const std::vector<unsigned int>& memArgs,
     KernelProperties* pProps)
 {
-    return new MICKernel(name, args, pProps);
+    return new MICKernel(name, args, memArgs, pProps);
 }
 
 KernelProperties* MICDeviceBackendFactory::CreateKernelProperties()

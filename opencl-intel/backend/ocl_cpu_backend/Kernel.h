@@ -60,6 +60,7 @@ public:
 
     Kernel(const std::string& name,
            const std::vector<cl_kernel_argument>& args,
+           const std::vector<unsigned int>& memArgs,
            KernelProperties* pProps);
 
     virtual ~Kernel();
@@ -122,6 +123,21 @@ public:
      */
     virtual int GetLineNumber(void* pointer) const;
 
+     /**
+     * @returns the size of argument/parameter buffer requried by the kernel
+     */
+     virtual size_t GetArgumentBufferSize() const;
+
+     /**
+     * @returns the number of memory object arguments passed to the kernel
+     */
+     virtual unsigned int GetMemoryObjectArgumentCount() const;
+
+     /**
+     * @returns the array of indexes of memory object arguments passed to the kernel
+     */
+     virtual const unsigned int* GetMemoryObjectArgumentIndexes() const;
+
     /*
      * Kernel class methods
      */
@@ -160,7 +176,7 @@ public:
     /**
      * get RuntimeService
      */ 
-    RuntimeServiceSharedPtr GetRuntimeService() const{
+    RuntimeServiceSharedPtr GetRuntimeService() const {
       return m_RuntimeService;
     }
 
@@ -175,11 +191,12 @@ public:
 protected:
 
     std::string m_name;
-    std::vector<cl_kernel_argument> m_args;
-    KernelProperties* m_pProps;
-    std::vector<IKernelJITContainer*> m_JITs;
+    std::vector<cl_kernel_argument>     m_args;
+    std::vector<unsigned int>           m_memArgs;
+    KernelProperties*                   m_pProps;
+    std::vector<IKernelJITContainer*>   m_JITs;
     // RuntimeService. Refcounted
-    RuntimeServiceSharedPtr m_RuntimeService;
+    RuntimeServiceSharedPtr             m_RuntimeService;
 
 private:
     // Disable copy ctor and assignment operator

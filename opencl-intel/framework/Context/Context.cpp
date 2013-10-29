@@ -1516,13 +1516,13 @@ cl_err_code Context::CheckSupportedImageFormatByMemFlags(cl_mem_flags clFlags, c
     return CL_SUCCESS;
 }
 
-cl_int Context::SetKernelArgSVMPointer(const SharedPtr<Kernel> pKernel, cl_uint uiArgIndex, const void* pArgValue)
+cl_int Context::SetKernelArgSVMPointer(const SharedPtr<Kernel>& pKernel, cl_uint uiArgIndex, const void* pArgValue)
 {
 	cl_err_code err = pKernel->SetKernelArg(uiArgIndex, sizeof(void*), pArgValue, true);
 	return CL_ERR_OUT(err);
 }
 
-cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel> pKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue)
+cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel>& pKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue)
 {
 	switch (paramName)
 	{

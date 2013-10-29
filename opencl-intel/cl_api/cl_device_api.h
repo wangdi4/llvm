@@ -306,7 +306,9 @@ enum cl_dev_kernel_info
     CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE,          //!< Specifies size of implicit local memory buffers defined in kernel.
     CL_DEV_KERNEL_PRIVATE_SIZE,                 //!< Specifies size of private memory required for
                                                 //!< execution of singe instance of a kernel
-    CL_DEV_KERNEL_ARG_INFO                      //!< Specifies a list of kernel argument descriptors
+    CL_DEV_KERNEL_ARG_INFO,                     //!< Specifies a list of kernel argument descriptors
+    CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES,        //!< Specifies a list of indexes for arguments, which are memory objects
+    CL_DEV_KENREL_ARGUMENT_BUFFER_SIZE          //!< Specifies size of the argument buffer required for kernel execution
 };
 
 /*! \enum cl_dev_partition_prop
@@ -472,16 +474,6 @@ struct  cl_dev_cmd_param_map
 
 };
 
-/*! \struct cl_dev_cmd_memobj_param_kernel
- * \brief Description of Buffer/Image parameters to kernel
- */
-struct cl_dev_cmd_memobj_param_kernel
-{
-    IOCLDevMemoryObject* pMemObject;                //!< Pointer to device memory object represention
-    size_t               arg_offset;                //!< Offset in arg_values with parameter start
-    size_t               arg_idx;                   //!< Index of the parameter in kernel prototype
-};
-
 /*! \struct cl_dev_cmd_param_kernel
  * \brief Description of NDRange and TASK commands
  * This structure holds a value of parameters which are passed within cl_dev_cmd_desc and associated with CL_DEV_CMD_KERNEL
@@ -513,10 +505,7 @@ struct  cl_dev_cmd_param_kernel
                                                     //!< If an argument is a memory object, a relevant value contains its handle (dev_mem_obj).
     size_t              arg_size;                   //!< Size in bytes of the arg_values array.
     IOCLDevMemoryObject** ppNonArgSvmBuffers;       //!< an array of pointers to IOCLDevMemoryObjects representing SVM buffers that are used by Kernel, but not passed as arguments to it (or NULL if they are not needed)
-    size_t                uiNonArgSvmBuffersSize;   //!< number of entries in ppNonArgSvmBuffers
-    cl_dev_cmd_memobj_param_kernel* pMemObjParams;  //!< an array of cl_dev_cmd_memobj_param_kernel structures representing each memory object parameter
-    size_t                uiMemObjParams;           //!< number of entries in pMemObjParams
-    
+    cl_uint               uiNonArgSvmBuffersCount;  //!< number of entries in ppNonArgSvmBuffers
 } ;
 
 

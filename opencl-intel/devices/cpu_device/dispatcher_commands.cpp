@@ -124,29 +124,22 @@ void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigne
 
 cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam, 
                                                         const cl_kernel_argument*   pParams,
-                                                        cl_dev_cmd_memobj_param_kernel* pMemObjParams, size_t stMemObjParams)
+                                                        const unsigned int* pMemObjectIndx, unsigned int uiMemObjCount)
 {
     char* pLockedParams = (char*)pTargetTaskParam;
 
-    // Lock required memory objects
-    for(unsigned int i=0; i<stMemObjParams; ++i)
+    // Lock required memory objects, in place operation
+    for(unsigned int i=0; i<uiMemObjCount; ++i)
     {
-        IOCLDevMemoryObject *memObj     = pMemObjParams[i].pMemObject;
-        size_t               stOffset   = pMemObjParams[i].arg_offset;
-
-#ifdef _DEBUG        
-        const cl_kernel_argument& param = pParams[pMemObjParams[i].arg_idx];
+        const cl_kernel_argument&   param       = pParams[pMemObjectIndx[i]];
+        size_t                      stOffset    = param.offset_in_bytes;
+        IOCLDevMemoryObject*        memObj     = *(IOCLDevMemoryObject**)(pLockedParams+stOffset);
 
         assert( ((CL_KRNL_ARG_PTR_CONST == param.type) || (CL_KRNL_ARG_PTR_GLOBAL == param.type) || (NULL != memObj)) && "NULL is not allowed for non buffer arguments");
-#endif        
         if (NULL != memObj)
         {
             memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)(pLockedParams+stOffset));
             assert( (*((cl_mem_obj_descriptor**)(pLockedParams+stOffset)))->pData != NULL && "Passing NULL data object for execution");
-        }
-        else
-        {
-            *(cl_dev_memobj_handle*)(pLockedParams + stOffset) = NULL;
         }
     };
 
@@ -929,7 +922,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->pBEKernel;
     const cl_kernel_argument*   pParams = pKernel->GetKernelParams();
 
-    cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, cmdParams->pMemObjParams, cmdParams->uiMemObjParams);
+    cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(), pKernel->GetMemoryObjectArgumentCount());
     if ( CL_DEV_FAILED(clRet) )
     {
         m_lastError = clRet;

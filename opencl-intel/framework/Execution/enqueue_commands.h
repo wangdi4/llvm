@@ -1136,10 +1136,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const size_t*           m_cpszLocalWorkSize;
         
         std::vector<IOCLDevMemoryObject*>   m_nonArgSvmBuffersVec;        
-        std::vector<cl_dev_cmd_memobj_param_kernel> m_MemObjParamsVec;
-        #if defined (USE_ITT)
+#if defined (USE_ITT)
         void GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* keyStrHandle) const;
-        #endif
+#endif
     };
     
     /******************************************************************
@@ -1171,14 +1170,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
         typedef void (CL_CALLBACK*pUserFnc_t)(void *);
         NativeKernelCommand(
-            const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-            ocl_entry_points *    pOclEntryPoints,
-            pUserFnc_t          pUserFnc,
-            void*               pArgs,
-            size_t              szCbArgs,
-            cl_uint             uNumMemObjects,
-            SharedPtr<MemoryObject>*      ppMemObjList,
-            const void**        ppArgsMemLoc
+            const SharedPtr<IOclCommandQueueBase>&  cmdQueue,
+            ocl_entry_points*                       pOclEntryPoints,
+            pUserFnc_t                              pUserFnc,
+            void*                                   pArgs,
+            size_t                                  szCbArgs,
+            cl_uint                                 uNumMemObjects,
+            SharedPtr<MemoryObject>*                ppMemObjList,
+            const void**                            ppArgsMemLoc
         );
         virtual ~NativeKernelCommand();
         
@@ -1194,13 +1193,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
     private:
         
-        pUserFnc_t           m_pUserFnc;
-        void*                m_pArgs;
-        size_t               m_szCbArgs;
-        cl_uint              m_uNumMemObjects;
-        SharedPtr<MemoryObject>*                    m_ppMemObjList;
-        std::vector<cl_dev_cmd_memobj_param_kernel> m_MemObjParamsVec;
-        const void**                                m_ppArgsMemLoc;
+        pUserFnc_t                  m_pUserFnc;
+        void*                       m_pArgs;
+        size_t                      m_szCbArgs;
+        cl_uint                     m_uNumMemObjects;
+        SharedPtr<MemoryObject>*    m_ppMemObjList;
+        const void**                m_ppArgsMemLoc;
     };
 
     

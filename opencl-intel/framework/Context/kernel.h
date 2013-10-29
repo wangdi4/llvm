@@ -31,8 +31,10 @@
 #include <Logger.h>
 #include <cl_device_api.h>
 #include <cl_objects_map.h>
+
 #include "Device.h"
 #include "cl_sys_defines.h"
+//#include "svm_buffer.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -43,22 +45,35 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class SVMBuffer;
     class SVMPointerArg;
 
+    /*! \struct cl_kernel_arg_info
+     *  \brief Defines extended information for a kernel arguments.
+     */
+    struct SKernelArgumentInfo
+    {
+        std::string                     name;               //!< String specifies the name of the argument
+        std::string                     typeName;           //!< String specifies the argument type
+        cl_kernel_arg_address_qualifier adressQualifier;    //!< Argument's address qualifier
+        cl_kernel_arg_access_qualifier  accessQualifier;    //!< Argument's access qualifier
+        cl_kernel_arg_type_qualifier    typeQualifier;      //!< Argument's type qualifier
+    };
+
     /**********************************************************************************************
     * Class name:    SKernelPrototype
     *
     * Description:    contains information on kernel prototype
     * Members:        m_psKernelName    - the name of the kernel
-    *                m_uiArgsCount    - number of arguments in the kernel
-    *                m_pArgs            - list of all kernel's arguments
-    * Author:        Uri Levy
-    * Date:            January 2008
+    *                 m_uiArgsCount    - number of arguments in the kernel
+    *                 m_pArgs            - list of all kernel's arguments
+    *
+    * Author:         Uri Levy
+    * Date:           January 2008
     **********************************************************************************************/    
     struct SKernelPrototype
     {
-        char *                        m_psKernelName;
-        cl_uint                       m_uiArgsCount;
-        cl_kernel_argument*           m_pArgs;
-        cl_kernel_argument_info*      m_pArgsInfo;
+        std::string                             m_szKernelName;
+        size_t                                  m_uiKernelArgBufferSize;
+        std::vector<cl_kernel_argument>         m_vArguments;
+        std::vector<cl_uint>                    m_MemArgumentsIndx;
     };
 
     /**********************************************************************************************
@@ -76,7 +91,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         DeviceKernel(   Kernel*                                pKernel,
                         const SharedPtr<FissionableDevice>&    pDevice,
                         cl_dev_program                         devProgramId,
-                        const char *                           psKernelName,
                         Intel::OpenCL::Utils::LoggerClient *   pLoggerClient,
                         cl_err_code *                          pErr );
 
@@ -92,10 +106,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const SharedPtr<FissionableDevice>& GetDevice() const {return m_pDevice;}
 
         // get kernel prototype
-        const SKernelPrototype GetPrototype() const { return m_sKernelPrototype; }
+        const SKernelPrototype& GetPrototype() const { return m_sKernelPrototype; }
 
         // compare between kernel's prototypes
-        bool CheckKernelDefinition(DeviceKernel * pKernel) const;
+        bool CheckKernelDefinition(const DeviceKernel * pKernel) const;
 
         // get prefetched info
         size_t          GetKernelWorkGroupSize() const { return m_CL_KERNEL_WORK_GROUP_SIZE; }
@@ -139,18 +153,25 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:        
 
-        KernelArg() : m_pValue(NULL), m_bValid(false) {}
+        KernelArg() : m_pValueLocation(NULL), m_bValid(false) {}
         
-        cl_uint             GetIndex() const  { return m_uiIndex; }
-        cl_uint             GetOffset() const { return m_szOffset; }
+        void Init( char* baseAddress, const cl_kernel_argument& clKernelArgType );
+
+        cl_uint             GetOffset() const { return m_clKernelArgType.offset_in_bytes; }
 
         // return the size (in bytes) of the kernel arg's value
         // if Buffer / Image / ... returns sizeof(MemoryObject*)
-        size_t              GetSize()          const { return m_clKernelArgType.size_in_bytes; }
+        size_t              GetSize()          const { return  m_clKernelArgType.size_in_bytes; }
         cl_kernel_arg_type  GetType()          const { return m_clKernelArgType.type; }
 
         // returns the value of the kernel argument
-        void *              GetValue()    const { return m_pValue; }
+        void                GetValue( size_t size, void* pValue ) const;
+        void                SetValue( size_t size, const void* pValue );
+        void                SetValid() { m_bValid = true; }
+        void                SetSvmObject( const SharedPtr<ReferenceCountedObject>& svmMemObj ) { m_pSvmPtrArg = svmMemObj; }
+
+        size_t              GetLocalBufferSize() const
+            { assert( IsLocalPtr() && (NULL!=m_pValueLocation) && "Not a local PTR or value location is not set"); return *(size_t*)m_pValueLocation; }
 
         bool                IsMemObject() const { return (CL_KRNL_ARG_PTR_GLOBAL  <= m_clKernelArgType.type); }
         bool                IsBuffer()    const { return ((CL_KRNL_ARG_PTR_GLOBAL == m_clKernelArgType.type) || 
@@ -160,36 +181,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                IsSampler()   const { return (CL_KRNL_ARG_SAMPLER == m_clKernelArgType.type); }
         bool                IsLocalPtr()  const { return (CL_KRNL_ARG_PTR_LOCAL == m_clKernelArgType.type); }
         
-        size_t              GetLocalBufferSize() const { assert( IsLocalPtr() ); assert( m_pValue); return *(size_t*)m_pValue; }
 
         bool                IsValid()     const { return m_bValid; }
 
         bool                IsSvmPtr()    const { return (NULL != m_pSvmPtrArg); }
-        
+
+
     private:
-
-        void Init( cl_uint uiIndex, const cl_kernel_argument& clKernelArgType );
         void SetValuePlaceHolder( void * pValuePlaceHolder, size_t offset );
-        void SetValue( size_t szSize, void * pValue );
-        void SetSvmObject( const SharedPtr<ReferenceCountedObject>& svmMemObj ) { m_pSvmPtrArg = svmMemObj; }
 
-        void SetValid() { m_bValid = true; }
-
-        // index of kernel argument
-        cl_uint                         m_uiIndex;
-
-        // value of kernel argument
-        void *                          m_pValue;
-        size_t                          m_szOffset;
 
         // type of kernel argument
         cl_kernel_argument              m_clKernelArgType;
 
+        void*                           m_pValueLocation;
         bool                            m_bValid;
 
         SharedPtr<ReferenceCountedObject> m_pSvmPtrArg;    // we hold a SharedPtr to ReferenceCountedObject because of header dependencies
-
-        friend class Kernel;
     };
 
     /**********************************************************************************************
@@ -280,29 +288,36 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue, bool bIsSvmPtr = false);
 
         // returns the number of arguments in the kernel
-        size_t GetKernelArgsCount() const { return m_sKernelPrototype.m_uiArgsCount; }
+        size_t GetKernelArgsCount() const { return m_sKernelPrototype.m_vArguments.size(); }
+
+        // returns memory object argument number in the kernel
+        size_t GetKernelMemoryArgsCount() const { return m_sKernelPrototype.m_MemArgumentsIndx.size();}
 
         // Return true if all kernel arguments were specified
-        bool IsValidKernelArgs() const { return m_numValidArgs == m_sKernelPrototype.m_uiArgsCount; }
+        bool IsValidKernelArgs() const { return m_numValidArgs == m_sKernelPrototype.m_vArguments.size(); }
 
         // Return size in bytes for device arguments area
-        size_t GetDeviceArgsSize() const { return m_deviceArgsSize; }
+        size_t GetDeviceArgsSize() const { return m_sKernelPrototype.m_uiKernelArgBufferSize; }
         size_t GetTotalLocalSize() const { return m_totalLocalSize; }
         void*  GetArgsBlob()       const { return m_pArgsBlob; }
 
-        // get pointer to the kernel argument object of the uiIndex. if no available returns NULL;
         const KernelArg* GetKernelArg(size_t uiIndex) const 
         { 
-            assert (uiIndex < m_sKernelPrototype.m_uiArgsCount); 
+            assert (uiIndex < m_sKernelPrototype.m_vArguments.size() && "Invalide argument index"); 
             return &(m_vecArgs[uiIndex]); 
         }
 
+        const KernelArg* GetKernelMemoryArg(size_t uiIndex) const
+        {
+            assert (uiIndex < m_sKernelPrototype.m_MemArgumentsIndx.size() && "Invalide argument index"); 
+            return &(m_vecArgs[m_sKernelPrototype.m_MemArgumentsIndx[uiIndex]]); 
+        }
         // Returns non zero handle.
         cl_dev_kernel GetDeviceKernelId(const FissionableDevice* pDevice) const;
         const DeviceKernel* GetDeviceKernel(const FissionableDevice* pDevice) const;
 
         // get kernel's name
-        const char * GetName() const { return m_sKernelPrototype.m_psKernelName; }
+        const char * GetName() const { return m_sKernelPrototype.m_szKernelName.c_str(); }
 
         // get kernel's associated program
         ConstSharedPtr<Program> GetProgram() const { return m_pProgram; }
@@ -377,7 +392,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual ~Kernel();
 
         //Kernel prototype
-        cl_err_code SetKernelPrototype(SKernelPrototype sKernelPrototype);
+        cl_err_code SetKernelPrototype(const SKernelPrototype& sKernelPrototype, size_t maxArgumentBufferSize);
+        cl_err_code SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel); 
+
         SKernelPrototype                        m_sKernelPrototype;
 
         SharedPtr<Program>                      m_pProgram;
@@ -389,16 +406,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
         char*                                   m_pArgsBlob;
 
         // Per-device kernels
-        DeviceKernel**                          m_ppDeviceKernels;
+        vector<const DeviceKernel*>             m_vpDeviceKernels;
 
         // To ensure all args have been set
         size_t                                  m_numValidArgs;
-        size_t                                  m_deviceArgsSize;
         size_t                                  m_totalLocalSize;
 
-        bool                                    m_bSvmFineGrainSystem;
-        mutable Intel::OpenCL::Utils::OclReaderWriterLock m_rwlock;
-        std::vector<SharedPtr<SVMBuffer> >      m_nonArgSvmBufs;
+        std::vector<SKernelArgumentInfo>        m_vArgumentsInfo;
+
+        bool                                                m_bSvmFineGrainSystem;
+        mutable Intel::OpenCL::Utils::OclReaderWriterLock   m_rwlock;
+        std::vector<SharedPtr<SVMBuffer> >                  m_nonArgSvmBufs;
 
     };
 

@@ -489,9 +489,23 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
         unsigned int numPostDirectives = 0;
 
         // TODO: SVM non-args support required
-        unsigned int numOfBuffersInKernelArgs = cmdParams->uiMemObjParams;
+        unsigned int numOfBuffersInKernelArgs = pKernel->GetMemoryObjectArgumentCount();
         
-        numPreDirectives += numOfBuffersInKernelArgs;
+        // TODO: Remove this code once dynamic directives build will be removed
+        unsigned int numOfActualBuffers = 0;
+        const unsigned int* pBufferArgsInx = pKernel->GetMemoryObjectArgumentIndexes();
+        for (unsigned int i = 0; i < numOfBuffersInKernelArgs; ++i)
+        {
+            const cl_kernel_argument&             paramDesc = pBEParams[pBufferArgsInx[i]];
+
+            MICDevMemoryObject *memObj = *(MICDevMemoryObject**)(((char*)cmdParams->arg_values)+paramDesc.offset_in_bytes);
+            if ( NULL == memObj )
+                continue;
+            // real buffer passed
+            ++numOfActualBuffers;
+        }
+
+        numPreDirectives += numOfActualBuffers;
 
         // If the CommandList is OOO
         if (false == dispatcherData.isInOrderQueue)
@@ -507,8 +521,8 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
         // calculate and set the offset parameters in 'dispatcherData'
         dispatcherData.calcAndSetOffsets();
 
-        outCoiBuffsArr.reserve(numOfBuffersInKernelArgs + AMOUNT_OF_OPTIONAL_DISPATCH_BUFFERS);
-        outAccessFlagArr.reserve(numOfBuffersInKernelArgs + AMOUNT_OF_OPTIONAL_DISPATCH_BUFFERS);
+        outCoiBuffsArr.reserve(numOfActualBuffers + AMOUNT_OF_OPTIONAL_DISPATCH_BUFFERS);
+        outAccessFlagArr.reserve(numOfActualBuffers + AMOUNT_OF_OPTIONAL_DISPATCH_BUFFERS);
 
         // TODO: the directives are locally used, why not use alloca()?
         if (numPreDirectives > 0)
@@ -534,19 +548,21 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
         unsigned int currPostDirectiveIndex = 0;
 
         // Set the buffer arguments of the kernel as directives and COIBUFFERS
-        assert(numPreDirectives >= numOfBuffersInKernelArgs);        
+        assert(numPreDirectives >= numOfActualBuffers);
+        //const unsigned int* pBufferArgsInx = pKernel->GetMemoryObjectArgumentIndexes();
         for (unsigned int i = 0; i < numOfBuffersInKernelArgs; ++i)
         {
-            const cl_dev_cmd_memobj_param_kernel& bufArg      = cmdParams->pMemObjParams[i];
-            const cl_kernel_argument&             BEParamDesc = pBEParams[bufArg.arg_idx];
+            const cl_kernel_argument&             paramDesc = pBEParams[pBufferArgsInx[i]];
             
-            MICDevMemoryObject *memObj = (MICDevMemoryObject*)(bufArg.pMemObject);
+            MICDevMemoryObject *memObj = *(MICDevMemoryObject**)(((char*)cmdParams->arg_values)+paramDesc.offset_in_bytes);
+            if ( NULL == memObj )
+                continue;
 
             // Set the COIBUFFER of coiBuffsArr[currCoiBuffIndex] to be the COIBUFFER that hold the data of the buffer.
             outCoiBuffsArr.push_back(memObj->clDevMemObjGetCoiBufferHandler());
             
             // TODO - Change the flag according to the information about the argument (Not implemented yet by the BE)            
-            if ( CL_KRNL_ARG_PTR_CONST == BEParamDesc.type )
+            if ( CL_KRNL_ARG_PTR_CONST == paramDesc.type )
             {
                 outAccessFlagArr.push_back(COI_SINK_READ);
             }
@@ -568,7 +584,7 @@ cl_dev_err_code NDRange::init(vector<COIBUFFER>& outCoiBuffsArr, vector<COI_ACCE
             // Set this directive settings
             preExeDirectives[currPreDirectiveIndex].id = BUFFER;
             preExeDirectives[currPreDirectiveIndex].bufferDirective.bufferIndex = outCoiBuffsArr.size() - 1;
-            preExeDirectives[currPreDirectiveIndex].bufferDirective.offset_in_blob = bufArg.arg_offset;
+            preExeDirectives[currPreDirectiveIndex].bufferDirective.offset_in_blob = paramDesc.offset_in_bytes;
             preExeDirectives[currPreDirectiveIndex].bufferDirective.mem_obj_desc = memObj->clDevMemObjGetDescriptorRaw();
 
             currPreDirectiveIndex ++;

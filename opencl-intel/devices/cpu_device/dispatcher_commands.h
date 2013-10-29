@@ -69,7 +69,7 @@ protected:
     void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);    
 
     cl_dev_err_code ExtractNDRangeParams(void* pTargetTaskParam, const cl_kernel_argument*   pParams, 
-                                         cl_dev_cmd_memobj_param_kernel* pMemObjParams, size_t stMemObjParams);
+                                         const unsigned int* pMemObjectIndx, unsigned int uiMemObjCount);
 
     TaskDispatcher*             m_pTaskDispatcher;
     MemoryAllocator*            m_pMemAlloc;

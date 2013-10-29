@@ -84,7 +84,8 @@ namespace intel{
 
     // Get old function's arguments list in the OpenCL level from its metadata
     std::vector<cl_kernel_argument> arguments;
-    CompilationUtils::parseKernelArguments(m_pModule, pFunc, arguments);
+    std::vector<unsigned int>       memoryArguments;
+    CompilationUtils::parseKernelArguments(m_pModule, pFunc, arguments, memoryArguments);
     
     Intel::KernelInfoMetaDataHandle kimd = m_mdUtils->getKernelsInfoItem(pFunc);
     assert(kimd.get() && "Function info should be available at this point");

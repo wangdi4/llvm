@@ -107,7 +107,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///                   OpenCL level argument
     static void parseKernelArguments(  Module* pModule, 
                                               Function* pFunc, 
-                                              std::vector<cl_kernel_argument>& /* OUT */ arguments);
+                                              std::vector<cl_kernel_argument>& /* OUT */ arguments,
+                                              std::vector<unsigned int>&       /* OUT */ memoryArguments);
     
     /// @brief  maps between kernels (both scalar and vectorized) and their metdata
     /// @param pModule          The module

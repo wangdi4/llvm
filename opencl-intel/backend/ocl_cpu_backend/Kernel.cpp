@@ -58,9 +58,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 Kernel::Kernel(const std::string& name, 
                const std::vector<cl_kernel_argument>& args,
+               const std::vector<unsigned int>& memArgs,
                KernelProperties* pProps):
     m_name(name),
     m_args(args),
+    m_memArgs(memArgs),
     m_pProps(pProps)
 {
 }
@@ -243,7 +245,7 @@ int Kernel::GetKernelParamsCount() const
 
 const cl_kernel_argument* Kernel::GetKernelParams() const
 {
-    return m_args.empty() ? NULL : &*m_args.begin();
+    return m_args.empty() ? NULL : &m_args[0];
 }
 
 const cl_kernel_argument_info* Kernel::GetKernelArgInfo() const
@@ -265,6 +267,34 @@ int Kernel::GetLineNumber(void* pointer) const
         lineNum = GetKernelJIT(i)->GetLineNumber(pointer);
     }
     return lineNum;
+}
+
+size_t Kernel::GetArgumentBufferSize() const
+{
+    if ( m_args.empty() )
+        return 0;
+
+    const cl_kernel_argument& arg = m_args[m_args.size()-1];
+    unsigned int mswSize = arg.size_in_bytes >> 16;
+    unsigned int size = mswSize > 0 ? (mswSize * arg.size_in_bytes & 0xFFFF) : arg.size_in_bytes;
+#ifdef __USE_NEW_BACKEND_API__
+    assert( 0 && "This code never tested");
+    // TODO: put here size of the uniform args. To be allocate in one call and minimize memcpy
+    size_t uniformArgSize = 100;
+#else
+    size_t uniformArgSize = 0;
+#endif
+    return arg.offset_in_bytes + size + uniformArgSize;
+}
+
+unsigned int Kernel::GetMemoryObjectArgumentCount() const
+{
+    return m_memArgs.size();
+}
+
+const unsigned int* Kernel::GetMemoryObjectArgumentIndexes() const
+{
+    return m_memArgs.empty() ? NULL : &m_memArgs[0];
 }
 
 const std::vector<cl_kernel_argument>* Kernel::GetKernelParamsVector() const

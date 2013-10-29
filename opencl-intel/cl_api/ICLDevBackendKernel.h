@@ -170,6 +170,21 @@ public:
      */
      virtual int GetLineNumber(void* pointer) const = 0;
 
+     /**
+     * @returns the size of argument/parameter buffer requried by the kernel
+     */
+     virtual size_t GetArgumentBufferSize() const = 0;
+
+     /**
+     * @returns the number of memory object arguments passed to the kernel
+     */
+     virtual unsigned int GetMemoryObjectArgumentCount() const = 0;
+
+     /**
+     * @returns the array of indexes of memory object arguments passed to the kernel
+     */
+     virtual const unsigned int* GetMemoryObjectArgumentIndexes() const = 0;
+
 };
 
 }}} // namespace

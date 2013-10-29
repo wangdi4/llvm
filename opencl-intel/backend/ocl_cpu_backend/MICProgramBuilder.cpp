@@ -72,11 +72,12 @@ MICProgramBuilder::~MICProgramBuilder()
 MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const
 {
     std::vector<cl_kernel_argument> arguments;
+    std::vector<unsigned int>       memoryArguments;
 
     // TODO : consider separating into a different analisys pass
-    CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,  pFunc, arguments);
+    CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,  pFunc, arguments, memoryArguments);
 
-    return static_cast<MICKernel*>(m_pBackendFactory->CreateKernel( funcName, arguments, pProps ));
+    return static_cast<MICKernel*>(m_pBackendFactory->CreateKernel( funcName, arguments, memoryArguments, pProps ));
 }
 
 KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,

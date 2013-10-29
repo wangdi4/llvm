@@ -251,13 +251,11 @@ int ClangFECompiler::LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDe
 	return ret;
 }
 
-int ClangFECompiler::GetKernelArgInfo(const void*       pBin, 
-                                      const char*       szKernelName, 
+int ClangFECompiler::GetKernelArgInfo(const void*             pBin, 
+                                      const char*             szKernelName, 
                                       FEKernelArgInfo*  *pArgInfo)
 {
-    assert(NULL != pBin);
-	assert(NULL != szKernelName);
-    assert(NULL != pArgInfo);
+    assert( (NULL!=pBin) && (NULL!=szKernelName) && (NULL!=pArgInfo) && "Invlaid arguments");
 
 	// Create new GetKernelArgInfo task
 	ClangFECompilerGetKernelArgInfoTask* pGetKernelArgInfoTask = new ClangFECompilerGetKernelArgInfoTask();

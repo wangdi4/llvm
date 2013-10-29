@@ -35,9 +35,11 @@ public:
       m_kernelID(0) 
       { };
 
-    MICKernel(const std::string& name, const std::vector<cl_kernel_argument>& args,
-           KernelProperties* pProps):
-        Kernel(name, args, pProps),
+    MICKernel(const std::string& name,
+        const std::vector<cl_kernel_argument>& args,
+        const std::vector<unsigned int>& memArgs,
+        KernelProperties* pProps) :
+        Kernel(name, args, memArgs, pProps),
         m_kernelID(0)
         { };
 
