@@ -25,9 +25,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
   /// @brief Names of Address Space Qualifier OpenCL BI functions
   static const char *addrQualifierFunctions[] = {
-                      "is_global",
-                      "is_local",
-                      "is_private",
+                      "to_global",
+                      "to_local",
+                      "to_private",
                       "get_fence"
   };
 
@@ -299,6 +299,30 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     Type *pPtrElementType = pPtrType->getPointerElementType();
     return !pPtrElementType->isArrayTy() && !pPtrElementType->isPointerTy();
   }
+
+  Value *getFoldedAddrSpaceCall(CallInst *pCallInstr, Value *pSrcPtr) {
+    // Fetching function to fold
+    const Function *pCallee = pCallInstr->getCalledFunction();
+    assert(pCallee && "Call instruction doesn't have a callee!");
+    StringRef funcName = pCallee->getName();
+    std::string tmp = funcName.str();
+    const char *funcNameStr = tmp.c_str();
+    funcName = isMangledName(funcNameStr)? stripName(funcNameStr) : funcName;
+
+    // Generating bitcast instruction or constant value
+    Value *pFolded = NULL;
+    if (funcName == "get_fence") {
+      // get_fence - always generates CLK_GLOBAL_MEM_FENCE for CPU
+      pFolded = ConstantInt::get(pCallee->getReturnType(), CLK_GLOBAL_MEM_FENCE);
+    } else {
+      // to_XX - always returns XX cast of the input parameter for CPU
+      pFolded = new BitCastInst(pSrcPtr, pCallee->getReturnType(),
+                                "ToNamedPtr", pCallInstr);
+    }
+
+    return pFolded;
+  }
+
 
 
 } // namespace GenericAddressSpace

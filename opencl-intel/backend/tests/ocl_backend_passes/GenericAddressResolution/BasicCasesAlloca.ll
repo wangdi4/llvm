@@ -23,10 +23,10 @@
 ; CHECK: store i32 addrspace(4)* %call1, i32 addrspace(4)** %pGen5, align 4
 ; CHECK: %40 = load i32 addrspace(4)** %pGen3, align 4
 ; CHECK: %41 = bitcast i32 addrspace(4)* %40 to i8 addrspace(4)*
-; CHECK: %call7 = call zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)* %41)
-; CHECK: %53 = load float addrspace(4)** %pGen4, align 4
-; CHECK: %add.ptr = getelementptr inbounds float addrspace(4)* %53, i32 10
-; CHECK: %call16 = call float @_Z5fractfPU3AS4f(float %52, float addrspace(4)* %add.ptr)
+; CHECK: %call7 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %41)
+; CHECK: %54 = load float addrspace(4)** %pGen4, align 4
+; CHECK: %add.ptr = getelementptr inbounds float addrspace(4)* %54, i32 10
+; CHECK: %call16 = call float @_Z5fractfPU3AS4f(float %53, float addrspace(4)* %add.ptr)
 ; CHECK: store float %call16, float* %res, align 4
 ; CHECK: ret
 
@@ -114,7 +114,7 @@ entry:
   %intGen2 = alloca i32, align 4
   %pGen3 = alloca i32 addrspace(4)*, align 4
   %pGen5 = alloca i32 addrspace(4)*, align 4
-  %b2 = alloca i8, align 1
+  %b2 = alloca i32 addrspace(1)*, align 4
   %pGen4 = alloca float addrspace(4)*, align 4
   %res = alloca float, align 4
   store i32 addrspace(1)* %pGlobal, i32 addrspace(1)** %pGlobal.addr, align 4
@@ -195,47 +195,47 @@ if.end:                                           ; preds = %if.else, %if.then
   store i32 addrspace(4)* %34, i32 addrspace(4)** %pGen3, align 4
   %35 = load i32 addrspace(4)** %pGen3, align 4
   %36 = bitcast i32 addrspace(4)* %35 to i8 addrspace(4)*
-  %call7 = call zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)* %36)
-  %frombool = zext i1 %call7 to i8
-  store i8 %frombool, i8* %b2, align 1
-  %37 = load i8* %b2, align 1
-  %tobool8 = trunc i8 %37 to i1
+  %call7 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %36)
+  %37 = bitcast i8 addrspace(1)* %call7 to i32 addrspace(1)*
+  store i32 addrspace(1)* %37, i32 addrspace(1)** %b2, align 4
+  %38 = load i32 addrspace(1)** %b2, align 4
+  %tobool8 = icmp ne i32 addrspace(1)* %38, null
   br i1 %tobool8, label %if.then9, label %if.end11
 
 if.then9:                                         ; preds = %if.end
-  %38 = load i32 addrspace(4)** %pGen3, align 4
-  %arrayidx10 = getelementptr inbounds i32 addrspace(4)* %38, i32 9
+  %39 = load i32 addrspace(4)** %pGen3, align 4
+  %arrayidx10 = getelementptr inbounds i32 addrspace(4)* %39, i32 9
   store i32 9, i32 addrspace(4)* %arrayidx10, align 4
   br label %if.end11
 
 if.end11:                                         ; preds = %if.then9, %if.end
-  %39 = load i32 addrspace(4)** %pGen3, align 4
-  %40 = load i32 addrspace(4)** %pGen1, align 4
-  %cmp = icmp eq i32 addrspace(4)* %39, %40
+  %40 = load i32 addrspace(4)** %pGen3, align 4
+  %41 = load i32 addrspace(4)** %pGen1, align 4
+  %cmp = icmp eq i32 addrspace(4)* %40, %41
   br i1 %cmp, label %if.then12, label %if.end15
 
 if.then12:                                        ; preds = %if.end11
-  %41 = load i32 addrspace(4)** %pGen3, align 4
-  %arrayidx13 = getelementptr inbounds i32 addrspace(4)* %41, i32 8
-  %42 = load i32 addrspace(4)* %arrayidx13, align 4
-  %43 = load i32 addrspace(4)** %pGen1, align 4
-  %arrayidx14 = getelementptr inbounds i32 addrspace(4)* %43, i32 10
-  store i32 %42, i32 addrspace(4)* %arrayidx14, align 4
+  %42 = load i32 addrspace(4)** %pGen3, align 4
+  %arrayidx13 = getelementptr inbounds i32 addrspace(4)* %42, i32 8
+  %43 = load i32 addrspace(4)* %arrayidx13, align 4
+  %44 = load i32 addrspace(4)** %pGen1, align 4
+  %arrayidx14 = getelementptr inbounds i32 addrspace(4)* %44, i32 10
+  store i32 %43, i32 addrspace(4)* %arrayidx14, align 4
   br label %if.end15
 
 if.end15:                                         ; preds = %if.then12, %if.end11
-  %44 = load i32 addrspace(1)** %pGlobal.addr, align 4
-  %45 = bitcast i32 addrspace(1)* %44 to float addrspace(4)*
-  store float addrspace(4)* %45, float addrspace(4)** %pGen4, align 4
-  %46 = load float* %param.addr, align 4
-  %47 = load float addrspace(4)** %pGen4, align 4
-  %add.ptr = getelementptr inbounds float addrspace(4)* %47, i32 10
-  %call16 = call float @_Z5fractfPU3AS4f(float %46, float addrspace(4)* %add.ptr)
+  %45 = load i32 addrspace(1)** %pGlobal.addr, align 4
+  %46 = bitcast i32 addrspace(1)* %45 to float addrspace(4)*
+  store float addrspace(4)* %46, float addrspace(4)** %pGen4, align 4
+  %47 = load float* %param.addr, align 4
+  %48 = load float addrspace(4)** %pGen4, align 4
+  %add.ptr = getelementptr inbounds float addrspace(4)* %48, i32 10
+  %call16 = call float @_Z5fractfPU3AS4f(float %47, float addrspace(4)* %add.ptr)
   store float %call16, float* %res, align 4
   ret void
 }
 
-declare zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)*)
+declare i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)*)
 
 declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 
@@ -302,7 +302,7 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 
 ;;  // Address Specifier BI
 ;;  pGen3 = pGlobal;
-;;  bool b2 = is_global(pGen3);
+;;  __global int*  b2 = to_global(pGen3);
 ;;  if (b2) {
 ;;    pGen3[9] = 9;
 ;;  }

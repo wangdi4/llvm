@@ -435,58 +435,20 @@ namespace intel {
       "Parameter of Address Space Qualifier function should be of named-space pointer type");
     OCLAddressSpace::spaces assignedSpace = ptr_it->second;
 
-    // Folded constant should be produced out of resolved value!
+    // Folded bitcast/constant should be produced out of resolved value!
     Value *pPrevVal = pCallInstr->getArgOperand(0);
     Value *pNewVal = getResolvedOperand(pPrevVal, assignedSpace); 
     if (!pNewVal) {
       assert(0 && "Resolution must be possible at this point!");
     }
+    assert(dyn_cast<PointerType>(pNewVal->getType()) && 
+           "Parameter of Address Space Qualifier function should be a pointer!");
 
-    // Fetching function to fold
-    const Function *pCallee = pCallInstr->getCalledFunction();
-    assert(pCallee && "Call instruction doesn't have a callee!");
-    StringRef funcName = pCallee->getName();
-    std::string tmp = funcName.str();
-    const char *funcNameStr = tmp.c_str();
-    funcName = isMangledName(funcNameStr)? stripName(funcNameStr) : funcName;
+    Value *pFolded = getFoldedAddrSpaceCall(pCallInstr, pNewVal);
 
-    // Calculating constant value
-    int constVal = 0;
-    if (funcName == "is_global") {
-      if (IS_ADDR_SPACE_GLOBAL(assignedSpace)) {
-        constVal = 1;
-      } else {
-        constVal = 0;
-      }
-    } else if (funcName == "is_local") {
-      if (IS_ADDR_SPACE_LOCAL(assignedSpace)) {
-        constVal = 1;
-      } else {
-        constVal = 0;
-      }
-    } else if (funcName == "is_private") {
-      if (IS_ADDR_SPACE_PRIVATE(assignedSpace)) {
-        constVal = 1;
-      } else {
-        constVal = 0;
-      }
-    } else if (funcName == "get_fence") {
-      if (IS_ADDR_SPACE_GLOBAL(assignedSpace)) {
-        constVal = CLK_GLOBAL_MEM_FENCE;
-      } else if (IS_ADDR_SPACE_LOCAL(assignedSpace)) {
-        constVal = CLK_LOCAL_MEM_FENCE;
-      } else {
-        constVal = 0;
-      }
-    } else {
-      assert(0 && "Unknown Address Space Qualifier BI function");
-    }
-
-    // Folding function call to constant
-    Constant *folded = ConstantInt::get(pCallee->getReturnType(), constVal);
     // Schedule the original instruction for replacement
-    m_replaceMap.insert(TMapPair(pCallInstr, folded));
-    m_replaceVector.push_back(TMapPair(pCallInstr, folded));
+    m_replaceMap.insert(TMapPair(pCallInstr, pFolded));
+    m_replaceVector.push_back(TMapPair(pCallInstr, pFolded));
   }
 
   Function *GenericAddressStaticResolution::resolveFunctionCall(CallInst *pCallInstr, FuncCallType category) {

@@ -20,8 +20,9 @@ entry:
   %arrayidx = getelementptr inbounds i32 addrspace(4)* addrspace(4)* %p1, i32 5
   %0 = load i32 addrspace(4)* addrspace(4)* %arrayidx, align 4
   %1 = bitcast i32 addrspace(4)* %0 to i8 addrspace(4)*
-  %call = call zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)* %1)
-  br i1 %call, label %if.then, label %if.end
+  %call = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %1)
+  %tobool = icmp ne i8 addrspace(1)* %call, null
+  br i1 %tobool, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
   %arrayidx1 = getelementptr inbounds i32 addrspace(4)* addrspace(4)* %p1, i32 6
@@ -38,7 +39,7 @@ return:                                           ; preds = %if.end, %if.then
   ret i32 addrspace(4)* %retval.0
 }
 
-declare zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)*)
+declare i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)*)
 
 define void @func(i32 addrspace(1)* %pGlobal, i32 addrspace(3)* %pLocal, float %param) nounwind {
 entry:
@@ -92,12 +93,12 @@ for.end:                                          ; preds = %for.cond
   %5 = bitcast i32 addrspace(4)** %arraydecay7 to i32 addrspace(4)* addrspace(4)*
   %call = call i32 addrspace(4)* @test2(i32 addrspace(4)* addrspace(4)* %4, i32 addrspace(4)* addrspace(4)* %5)
   %6 = bitcast i32 addrspace(4)* %call to i8 addrspace(4)*
-  %call8 = call zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)* %6)
-  %frombool = zext i1 %call8 to i8
+  %call8 = call i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)* %6)
+  %7 = bitcast i8* %call8 to i32*
   ret void
 }
 
-declare zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)*)
+declare i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)*)
 
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
@@ -109,7 +110,7 @@ declare zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)*)
 ;;               oclopt.exe -mem2reg -verify ArrayParameterTmp.ll -S -o ArrayParameter.ll
 
 ;;int* test2(int **p1, int **p2) {
-;;  if (is_global(p1[5]))
+;;  if (to_global(p1[5]))
 ;;    return p1[6];
 ;;  return p2[7];
 ;;}
@@ -130,6 +131,6 @@ declare zeroext i1 @_Z10is_privatePKU3AS4v(i8 addrspace(4)*)
 ;;  }
 
 ;;  int* pGen5 = test2(ptrs1, ptrs2);
-;;  bool d = is_private(pGen5);
+;;  __private int* d = to_private(pGen5);
  
 ;;}

@@ -14381,10 +14381,10 @@ double __attribute__((overloadable)) work_group_scan_exclusive_add(double x);
 #define CLK_ENQUEUE_FLAGS_WAIT_WORKGROUP  2
 
 // Address Space Qualifier Functions 6.13.9
-bool __attribute__((overloadable)) is_global (const void *ptr);
-bool __attribute__((overloadable)) is_local (const void *ptr);
-bool __attribute__((overloadable)) is_private (const void *ptr);
-cl_mem_fence_flags __attribute__((overloadable)) get_fence (const void *ptr);
+global void*       const_func __attribute__((overloadable)) to_global  (const void *ptr);
+local void*        const_func __attribute__((overloadable)) to_local   (const void *ptr);
+private void*      const_func __attribute__((overloadable)) to_private (const void *ptr);
+cl_mem_fence_flags const_func __attribute__((overloadable)) get_fence (const void *ptr);
 
 // Enqueuing Kernels  6.13.17
 

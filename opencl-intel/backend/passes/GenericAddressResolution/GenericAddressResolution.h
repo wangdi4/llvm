@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/Function.h>
 #include <llvm/Module.h>
 #include <llvm/Instruction.h>
+#include <llvm/Instructions.h>
 #include <list>
 #include <string>
 
@@ -97,6 +98,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
   /// @param  pPtrType - pointer to check
   /// @returns  true if this is a pointer to scalar, or false otherwise
   bool isSinglePtr(const Type *pPtrType);
+
+  /// @brief  Helper for generation of CPU-specific code/constant instead of 
+  /// @brief  call to Address Space Qualifier BI function
+  /// @param  pCallInstr - original call to Address Space Qualifier BI function
+  /// @param  pSrcPtr    - input pointer to the call (already resolved if needed) 
+  /// @returns value of generated code/constant
+  Value *getFoldedAddrSpaceCall(CallInst *pCallInstr, Value *pSrcPtr);
 
 
 } // namespace GenericAddressSpace

@@ -18,10 +18,10 @@
 ; CHECK: %call11 = call i32 addrspace(4)* @_Z5test2PU3AS1iPU3AS3i(i32 addrspace(1)* %12, i32 addrspace(3)* %13)
 ; CHECK: %arrayidx6 = getelementptr inbounds i32 addrspace(4)* %call11, i32 8
 ; CHECK: store i32 8, i32 addrspace(4)* %arrayidx6, align 4
-; CHECK-NOT: call zeroext i1 @_Z9is_globalPKU3AS4v
-; CHECK: %frombool = zext i1 true to i8
+; CHECK-NOT: %call7 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %13)
+; CHECK: %ToNamedPtr = bitcast i8 addrspace(1)* %15 to i8 addrspace(1)*
 ; CHECK: %cmp9 = icmp eq i32 addrspace(1)* %14, %9
-; CHECK: %16 = load i32 addrspace(1)* %arrayidx1312, align 4
+; CHECK: %17 = load i32 addrspace(1)* %arrayidx1312, align 4
 ; CHECK: %call1615 = call float @_Z5fractfPU3AS1f(float %param, float addrspace(1)* %add.ptr14)
 ; CHECK: ret
 
@@ -119,9 +119,9 @@ if.end:                                           ; preds = %if.else, %if.then
   store i32 8, i32 addrspace(4)* %arrayidx6, align 4
   %12 = bitcast i32 addrspace(1)* %pGlobal to i32 addrspace(4)*
   %13 = bitcast i32 addrspace(4)* %12 to i8 addrspace(4)*
-  %call7 = call zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)* %13)
-  %frombool = zext i1 %call7 to i8
-  %tobool8 = trunc i8 %frombool to i1
+  %call7 = call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %13)
+  %14 = bitcast i8 addrspace(1)* %call7 to i32 addrspace(1)*
+  %tobool8 = icmp ne i32 addrspace(1)* %14, null
   br i1 %tobool8, label %if.then9, label %if.end11
 
 if.then9:                                         ; preds = %if.end
@@ -135,19 +135,19 @@ if.end11:                                         ; preds = %if.then9, %if.end
 
 if.then12:                                        ; preds = %if.end11
   %arrayidx13 = getelementptr inbounds i32 addrspace(4)* %12, i32 8
-  %14 = load i32 addrspace(4)* %arrayidx13, align 4
+  %15 = load i32 addrspace(4)* %arrayidx13, align 4
   %arrayidx14 = getelementptr inbounds i32 addrspace(4)* %7, i32 10
-  store i32 %14, i32 addrspace(4)* %arrayidx14, align 4
+  store i32 %15, i32 addrspace(4)* %arrayidx14, align 4
   br label %if.end15
 
 if.end15:                                         ; preds = %if.then12, %if.end11
-  %15 = bitcast i32 addrspace(1)* %pGlobal to float addrspace(4)*
-  %add.ptr = getelementptr inbounds float addrspace(4)* %15, i32 10
+  %16 = bitcast i32 addrspace(1)* %pGlobal to float addrspace(4)*
+  %add.ptr = getelementptr inbounds float addrspace(4)* %16, i32 10
   %call16 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr)
   ret void
 }
 
-declare zeroext i1 @_Z9is_globalPKU3AS4v(i8 addrspace(4)*)
+declare i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)*)
 
 declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 
@@ -215,7 +215,7 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 
 ;;  // Address Specifier BI
 ;;  pGen3 = pGlobal;
-;;  bool b2 = is_global(pGen3);
+;;  __global int* b2 = to_global(pGen3);
 ;;  if (b2) {
 ;;    pGen3[9] = 9;
 ;;  }
