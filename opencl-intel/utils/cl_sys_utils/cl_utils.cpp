@@ -952,9 +952,7 @@ cl_mem_flags GetSingleMemoryFlagFromString(const string& OneFlagStr)
     }
     else
     {
-        string Error("Unrecognized memory flags '");
-        Error += OneFlagStr + "'";
-        throw Error;
+        return 0;
     }
 }
 
@@ -962,16 +960,16 @@ cl_mem_flags GetMemFlagsFromString(const string& FlagsStr)
 {
     cl_mem_flags Flags(0);
     size_t Tokenizer = FlagsStr.find_first_of(" ,"), PrevToken = 0; 
-    string iToken; 
-    while (Tokenizer != string::npos) 
+    string iToken;
+    while (Tokenizer != string::npos)
     {
         iToken = FlagsStr.substr(PrevToken, Tokenizer-PrevToken); 
         Flags |= GetSingleMemoryFlagFromString(iToken); 
         PrevToken = Tokenizer+1; 
         Tokenizer = FlagsStr.find_first_of(", ", PrevToken); 
-    } 
+    }
     iToken = FlagsStr.substr(PrevToken); 
-    // Only last value 
+    // Only last value
     Flags |= GetSingleMemoryFlagFromString(iToken);
     return Flags;
 }
