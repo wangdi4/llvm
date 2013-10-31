@@ -477,6 +477,9 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
         BitCastInst* var_addr = new BitCastInst(var_ref, pointer_i8, "var_addr",
             fContext.original_first_instr);
 
+        MDNode *mdn = MDNode::get(*m_llvm_context, ConstantInt::getAllOnesValue(IntegerType::getInt1Ty(*m_llvm_context)));
+        var_addr->setMetadata("dbg_declare_inst", mdn);
+
         // The metadata itself is passed as an address
         //
         Value* metadata_addr = makeAddressValueFromPointer(

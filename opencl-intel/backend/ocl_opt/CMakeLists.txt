@@ -22,6 +22,7 @@ set(OCL_BE_PASSES
     Prefetch
     LinearIdResolver
     LLVMBarrier
+    DebugInfoPass
     LLVMVectorizer
     Materialize
     Obfuscation

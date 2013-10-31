@@ -85,6 +85,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeResolveWICallPass(Registry);
     intel::initializeCloneBlockInvokeFuncToKernelPass(Registry);
     intel::initializeResolveBlockToStaticCallPass(Registry);
+    intel::initializeDebugInfoPassPass(Registry);
 }
 
 

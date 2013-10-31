@@ -56,9 +56,17 @@ namespace intel{
   void LocalBuffAnalysis::updateLocalsMap(GlobalValue* pLocalVal, User * user) {
     // llvm::Instruction, llvm::Operator and llvm::Constant are the only possible subtypes of llvm::user
     if ( isa<Instruction>(user) ) {
+      Instruction *inst = cast<Instruction>(user);
+
+      // declaring variables for debugging purposes shouldn't affect local buffers.
+      if (MDNode *mdn = inst->getMetadata("dbg_declare_inst")) {
+        if (cast<ConstantInt>(mdn->getOperand(0))->isAllOnesValue()) {
+            return;
+        }
+      }
       // Parent of Instruction is BasicBlock
       // Parent of BasicBlock is Function
-      Function* pFunc = cast<Instruction>(user)->getParent()->getParent();
+      Function* pFunc = inst->getParent()->getParent();
       // Add pLocalVal to the set of local values used by pFunc
       m_localUsageMap[pFunc].insert(pLocalVal);
     } else if ( isa<Constant>(user) ) {
