@@ -30,12 +30,12 @@ namespace OCLCRT
 namespace Utils
 {
 
-#if defined(_WIN32)
-inline bool GetStringValueFromRegistry( HKEY top_hkey,
-                                        const char * keyPath,
-                                        const char * valueName,
-                                        char * retValue,
-                                        DWORD size)
+#if defined( _WIN32 )
+inline bool GetStringValueFromRegistry( HKEY       top_hkey,
+                                        const char *keyPath,
+                                        const char *valueName,
+                                        char       *retValue,
+                                        DWORD      size )
 {
     HKEY hkey;
 
@@ -56,7 +56,7 @@ inline bool GetStringValueFromRegistry( HKEY top_hkey,
             valueName,              // lpValueName
             0,                      // lpReserved
             NULL,                   // lpType
-            (LPBYTE)retValue,       // lpData
+            ( LPBYTE )retValue,     // lpData
             &size                   // lpcbData
             );
 
@@ -74,15 +74,15 @@ inline bool GetStringValueFromRegistry( HKEY top_hkey,
 
 #endif
 
-inline bool GetCpuPathFromRegistry( char* pCpuPath )
+inline bool GetCpuPathFromRegistry( char *pCpuPath )
 {
-#if defined(_WIN32)
-    const char* regPath = "SOFTWARE\\Intel\\OpenCL";
+#if defined( _WIN32 )
+    const char *regPath = "SOFTWARE\\Intel\\OpenCL";
 
     // pCpuPath is expected to be MAX_PATH in size
     if( NULL != pCpuPath )
     {
-        return GetStringValueFromRegistry(HKEY_LOCAL_MACHINE, regPath, "cpu_path", pCpuPath, MAX_PATH);
+        return GetStringValueFromRegistry( HKEY_LOCAL_MACHINE, regPath, "cpu_path", pCpuPath, MAX_PATH );
     }
 #endif
     return false;

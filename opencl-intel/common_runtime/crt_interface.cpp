@@ -4201,7 +4201,7 @@ cl_int CL_API_CALL clGetKernelWorkGroupInfo(
         return CL_INVALID_DEVICE;
     }
 
-    errCode = device->dispatch->clGetKernelWorkGroupInfo(
+    errCode = devCtx->dispatch->clGetKernelWorkGroupInfo(
         crtKernel->m_ContextToKernel[devCtx],
         device,
         param_name,
@@ -4253,7 +4253,7 @@ cl_int CL_API_CALL clGetKernelSubGroupInfoKHR(
         return CL_INVALID_DEVICE;
     }
 
-    errCode = device->dispatch->clGetKernelSubGroupInfoKHR(
+    errCode = devCtx->dispatch->clGetKernelSubGroupInfoKHR(
         crtKernel->m_ContextToKernel[devCtx],
         device,
         param_name,

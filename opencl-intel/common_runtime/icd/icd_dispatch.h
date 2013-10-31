@@ -301,6 +301,21 @@ typedef CL_API_ENTRY cl_sampler (CL_API_CALL *KHRpfn_clCreateSamplerWithProperti
     const cl_sampler_properties *sampler_properties,
     cl_int *                    errcode_ret ) CL_API_SUFFIX__VERSION_2_0;
 
+typedef CL_API_ENTRY cl_mem ( CL_API_CALL *KHRpfn_clCreatePipe )(
+    cl_context                 context,
+    cl_mem_flags               flags,
+    cl_uint                    pipe_packet_size,
+    cl_uint                    pipe_max_packets,
+    const cl_pipe_properties * properties,
+    cl_int                   * errcode_ret ) CL_API_SUFFIX__VERSION_2_0;
+
+typedef CL_API_ENTRY cl_int ( CL_API_CALL *KHRpfn_clGetPipeInfo )(
+    cl_mem        image,
+    cl_pipe_info  param_name,
+    size_t        param_value_size,
+    void          *param_value,
+    size_t        *param_value_size_ret ) CL_API_SUFFIX__VERSION_2_0;
+
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clRetainSampler)(cl_sampler sampler) CL_API_SUFFIX__VERSION_1_0;
 
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clReleaseSampler)(cl_sampler sampler) CL_API_SUFFIX__VERSION_1_0;
@@ -434,15 +449,14 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetKernelWorkGroupInfo)(
     size_t *                   param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
 
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetKernelSubGroupInfoKHR)(
-    cl_kernel kernel,
-    cl_device_id device,
+    cl_kernel                kernel,
+    cl_device_id             device,
     cl_kernel_sub_group_info param_name,
-    size_t input_value_size,
-    const void *input_value,
-    size_t param_value_size,
-    void *param_value,
-    size_t *param_value_size_ret) CL_API_SUFFIX__VERSION_2_0;
-
+    size_t                   input_value_size,
+    const void *             input_value,
+    size_t                   param_value_size,
+    void *                   param_value,
+    size_t *                 param_value_size_ret) CL_API_SUFFIX__VERSION_2_0;
 
 // Event Object APIs
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clWaitForEvents)(
@@ -1341,6 +1355,8 @@ struct KHRicdVendorDispatchRec
     KHRpfn_clCreateCommandQueueWithProperties       clCreateCommandQueueWithProperties;
     KHRpfn_clCreateSamplerWithProperties            clCreateSamplerWithProperties;
     KHRpfn_clGetKernelSubGroupInfoKHR               clGetKernelSubGroupInfoKHR;
+    KHRpfn_clCreatePipe                             clCreatePipe;
+    KHRpfn_clGetPipeInfo                            clGetPipeInfo;
 };
 
 /*
