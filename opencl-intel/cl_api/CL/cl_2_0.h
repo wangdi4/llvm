@@ -80,6 +80,7 @@ extern "C" {
 #define CL_PIPE_UNIFORM_RES_PKT_CNT                 0x1122
 
 #define CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE 0x1185
+#define CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE 0x9999 //TODO: assign official value (new enum in OpenCL 2.0 rev.16)
 
 /* cl_filter_mode */
 #define CL_FILTER_NONE                              0x1142
@@ -88,8 +89,6 @@ extern "C" {
 #define CL_SAMPLER_MIP_FILTER_MODE                  0x1155
 #define CL_SAMPLER_LOD_MIN                          0x1156
 #define CL_SAMPLER_LOD_MAX                          0x1157
-// #define CL_MEM_OBJECT_IMAGE2D_BUFFER                0x10ABC
-
 // type definitions
 
 // default is CLK_ENQUEUE_FLAGS_WAIT_KERNEL
