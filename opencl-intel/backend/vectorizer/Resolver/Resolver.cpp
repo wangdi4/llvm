@@ -17,7 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Version.h"
 
 #include <vector>
@@ -576,26 +576,19 @@ void FuncResolver::resolveFunc(CallInst* caller) {
   //set return value attributes of pcall
   pcall->addAttribute(0, caller->getAttributes().getRetAttributes());
 #else
+  AttributeSet as;
   AttributeSet callAttr = caller->getAttributes();
-  for (unsigned int i=1; i < caller->getNumArgOperands(); ++i) {
+  for (unsigned int i=0; i < caller->getNumArgOperands(); ++i) {
     //Parameter attributes starts with index 1-NumOfParams
     unsigned int idx = i+1;
     //pcall starts with mask argument, skip it when setting original argument attributes.
-    //pcall->addAttribute(idx - 1, caller->getAttributes().getParamAttributes(idx));
-    for(AttributeSet::iterator i=callAttr.begin(idx), e=callAttr.end(idx); i!=e; ++i) {
-      pcall->addAttribute(idx - 1, i->getKindAsEnum());
-    }
+	  as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
   }
   //set function attributes of pcall
-  //pcall->addAttribute(~0, caller->getAttributes().getFnAttributes());
-  for(AttributeSet::iterator i=callAttr.begin(~0), e=callAttr.end(~0); i!=e; ++i) {
-    pcall->addAttribute(~0, i->getKindAsEnum());
-  }
+  as.addAttributes(func->getContext(), AttributeSet::FunctionIndex, callAttr.getFnAttributes());
   //set return value attributes of pcall
-  //pcall->addAttribute(0, caller->getAttributes().getRetAttributes());
-  for(AttributeSet::iterator i=callAttr.begin(0), e=callAttr.end(0); i!=e; ++i) {
-    pcall->addAttribute(0, i->getKindAsEnum());
-  }
+  as.addAttributes(func->getContext(), AttributeSet::ReturnIndex, callAttr.getRetAttributes());
+  pcall->setAttributes(as);
 #endif
   VectorizerUtils::SetDebugLocBy(pcall, caller);
   caller->replaceAllUsesWith(pcall);

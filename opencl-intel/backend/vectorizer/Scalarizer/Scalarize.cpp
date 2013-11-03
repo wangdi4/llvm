@@ -15,7 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "NameMangleAPI.h"
 
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Version.h"
 
 extern cl::opt<bool>

@@ -15,7 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
 #else
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 #endif
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"

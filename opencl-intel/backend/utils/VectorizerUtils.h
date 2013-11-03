@@ -7,8 +7,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __VECTORIZER_UTILS_H__
 #define __VECTORIZER_UTILS_H__
 
-#include "llvm/Instructions.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Version.h"
 #include <vector>
 

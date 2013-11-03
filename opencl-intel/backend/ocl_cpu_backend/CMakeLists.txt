@@ -198,6 +198,8 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     RuntimeService.h
     IBlockToKernelMapper.h
     CPUBlockToKernelMapper.h
+    CompiledModule.h
+    StaticObjectLoader.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
     ${BACKEND_ROOT_DIR}/../externals/itt/include/jitprofiling.h
   )

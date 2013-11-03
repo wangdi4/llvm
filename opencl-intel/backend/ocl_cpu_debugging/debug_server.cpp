@@ -17,8 +17,8 @@
 
 #include "llvm/DebugInfo.h"
 #include "llvm/Support/Dwarf.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/Metadata.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Metadata.h"
 #include "google/protobuf/text_format.h"
 #include <string>
 #include <deque>

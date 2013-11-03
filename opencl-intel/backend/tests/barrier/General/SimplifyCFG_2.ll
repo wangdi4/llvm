@@ -13,14 +13,14 @@
 ;;*****************************************************************************
 
 ; CHECK: @spmv_csr_vector_kernel
-; CHECK-NOT: foo(i64 1)
-; CHECK: call void @foo(i64 1) nounwind
-; CHECK: call void @foo(i64 1) nounwind
-; CHECK: call void @foo(i64 1) nounwind
-; CHECK: call void @foo(i64 1) nounwind
-; CHECK: call void @foo(i64 1) nounwind
-; CHECK: call void @foo(i64 1) nounwind
-; CHECK-NOT: foo(i64 1)
+; CHECK-NOT: call void @foo(i64 1)
+; CHECK: call void @foo(i64 1)
+; CHECK: call void @foo(i64 1)
+; CHECK: call void @foo(i64 1)
+; CHECK: call void @foo(i64 1)
+; CHECK: call void @foo(i64 1)
+; CHECK: call void @foo(i64 1)
+; CHECK-NOT: call void @foo(i64 1)
 ; CHECK: !opencl.kernels
 
 ; ModuleID = 'Program'

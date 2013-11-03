@@ -11,7 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ImplicitArgsUtils.h"
 #include "MetaDataApi.h"
 #include "OCLPassSupport.h"
-#include "llvm/Attributes.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/Support/ValueHandle.h"
 #include "llvm/Version.h"
 #include "llvm/ADT/SetVector.h"

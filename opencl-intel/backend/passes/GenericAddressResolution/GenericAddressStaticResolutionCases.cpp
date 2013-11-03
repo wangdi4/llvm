@@ -10,11 +10,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <NameMangleAPI.h>
 #include <FunctionDescriptor.h>
 #include <ParameterType.h>
-#include <llvm/Constants.h>
-#include <llvm/InstrTypes.h>
-#include <llvm/Intrinsics.h>
-#include <llvm/IntrinsicInst.h>
-#include <llvm/GlobalValue.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/IntrinsicInst.h>
+#include <llvm/IR/GlobalValue.h>
 #include <llvm/Support/InstIterator.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/ADT/ValueMap.h>

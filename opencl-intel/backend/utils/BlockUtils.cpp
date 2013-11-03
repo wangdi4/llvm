@@ -22,7 +22,7 @@ File Name:  BlockUtils.cpp
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Function.h"
+#include "llvm/IR/Function.h"
 
 using namespace llvm;
 

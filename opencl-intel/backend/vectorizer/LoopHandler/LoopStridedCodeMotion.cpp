@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "VectorizerUtils.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 
 
 //unsigned counter = 0;

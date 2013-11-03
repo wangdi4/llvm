@@ -8,13 +8,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __RESOLVER_H_
 #include "BuiltinLibInfo.h"
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 using namespace llvm;
 

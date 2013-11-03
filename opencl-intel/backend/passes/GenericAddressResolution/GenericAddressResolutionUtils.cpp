@@ -10,11 +10,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <FunctionDescriptor.h>
 #include <ParameterType.h>
 #include <MetaDataApi.h>
-#include <llvm/Type.h>
-#include <llvm/DerivedTypes.h>
-#include <llvm/Function.h>
-#include <llvm/Intrinsics.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/Support/raw_ostream.h>
 #include <set>
 #include <assert.h>

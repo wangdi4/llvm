@@ -24,9 +24,10 @@ File Name: VectorizerTableGen.cpp
 #include <cstdio>
 #include "llvm/TableGen/Record.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Module.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/SourceMgr.h"
 
 namespace llvm{
 

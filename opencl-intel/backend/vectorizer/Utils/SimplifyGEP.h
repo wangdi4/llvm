@@ -11,13 +11,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Logger.h"
 
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Version.h"
 #if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
 #else
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 #endif
 
 using namespace llvm;

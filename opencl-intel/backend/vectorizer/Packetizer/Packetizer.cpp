@@ -14,8 +14,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Intrinsics.h"
-#include "llvm/IRBuilder.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/Version.h"
 
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};

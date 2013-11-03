@@ -10,9 +10,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "RelaxedPass.h"
 #include "OCLPassSupport.h"
 #include <llvm/Pass.h>
-#include <llvm/Module.h>
-#include <llvm/DerivedTypes.h>
-#include <llvm/Constants.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Constants.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 

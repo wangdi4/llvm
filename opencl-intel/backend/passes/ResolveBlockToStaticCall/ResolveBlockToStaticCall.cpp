@@ -11,7 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/GlobalVariable.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"

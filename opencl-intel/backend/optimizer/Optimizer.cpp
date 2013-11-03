@@ -16,15 +16,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "PrintIRPass.h"
 #include "mic_dev_limits.h"
 #endif //#ifndef __APPLE__
-#include "llvm/Module.h"
-#include "llvm/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Version.h"
 #if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
 #else
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 #endif
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
@@ -33,7 +33,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
-#include "llvm/Metadata.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/Support/Casting.h"
 
 extern "C"{
@@ -543,7 +543,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #ifndef __APPLE__
   // Add prefetches if useful for micro-architecture, if not in debug mode,
   // and don't change libraries
-  if (debugType == None && !pConfig->GetLibraryModule() &&
+  if (debugType == intel::None && !pConfig->GetLibraryModule() &&
       pConfig->GetCpuId().HasGatherScatter()) {
     int APFLevel = pConfig->GetAPFLevel();
     // do APF and following cleaning passes only if APF is not disabled
@@ -559,7 +559,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 #endif
     }
   }
-  if (unrollLoops && debugType == None) {
+  if (unrollLoops && debugType == intel::None) {
     m_modulePasses.add(llvm::createLoopUnrollPass(4, 0, 0));          // Unroll small loops
   }
 #endif

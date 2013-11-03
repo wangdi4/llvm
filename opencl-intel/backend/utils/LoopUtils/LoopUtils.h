@@ -7,8 +7,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __LOOP_UTILS_H__
 #define __LOOP_UTILS_H__
 
-#include "llvm/Instructions.h"
-#include "llvm/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include <set>

@@ -51,7 +51,7 @@ declare <4 x double> @_Z8shuffle2Dv2_dS_Dv4_m(<2 x double>, <2 x double>, <4 x i
 
 
 ; this should not change
-; CHECK:        %call4 = call <4 x i32> @_Z8shuffle2Dv4_iS_Dv4_j(<4 x i32> %x, <4 x i32> %x, <4 x i32> %y) nounwind readnone
+; CHECK:        %call4 = call <4 x i32> @_Z8shuffle2Dv4_iS_Dv4_j(<4 x i32> %x, <4 x i32> %x, <4 x i32> %y)
 ; CHECK:        store <4 x i32> %call4, <4 x i32> addrspace(1)* %p4
 
 ; checking different mask element sizes -- should remain i32

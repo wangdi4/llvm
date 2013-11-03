@@ -58,46 +58,68 @@ endfunction(tblgenrefoclblt)
 #------------------ Main -----------------------
 
 list (APPEND TD_FILES
-./src/BLTAsyncCopiesAndPrefetch.td
-./src/BLTAtomic.td
-./src/BLTCommon.td
-./src/BLTConversionsChar.td
-./src/BLTConversionsShort.td
-./src/BLTConversionsInt.td
-./src/BLTConversionsLong.td
-./src/BLTConversionsFPoint.td
-./src/BLTExplMemFenceOps.td
-./src/BLTGeometric.td
-./src/BLTImages.td
-./src/BLTInteger.td
-./src/BLTMath.td
-./src/BLTMiscellaneousVector.td
-./src/BLTRelational.td
-./src/BLTWorkGroup.td
-./src/BLTWorkItem.td
-./src/VLoadStore.td)
+  ./src/BLTAsyncCopiesAndPrefetch.td
+  ./src/BLTAtomic.td
+  ./src/BLTCommon.td
+  ./src/BLTConversionsChar.td
+  ./src/BLTConversionsShort.td
+  ./src/BLTConversionsInt.td
+  ./src/BLTConversionsLong.td
+  ./src/BLTConversionsFPoint.td
+  ./src/BLTExplMemFenceOps.td
+  ./src/BLTGeometric.td
+  ./src/BLTImages.td
+  ./src/BLTInteger.td
+  ./src/BLTMath.td
+  ./src/BLTMiscellaneousVector.td
+  ./src/BLTRelational.td
+  ./src/BLTWorkGroup.td
+  ./src/BLTWorkItem.td
+  ./src/VLoadStore.td
+)
+
+list (APPEND OCL_INCLUDE_FILES
+  BLTAsyncCopiesAndPrefetch.h
+  BLTAtomic.h
+  BLTCommon.h
+  BLTConversion.h
+  BLTExplMemFenceOps.h
+  BLTGeometric.h
+  BLTImages.h
+  BLTInteger.h
+  BLTMath.h
+  BLTMiscellaneousVector.h
+  BLTRelational.h
+  BLTWorkGroup.h
+  BLTWorkItem.h
+  VLoadStore.h
+)
 
 foreach (FILE ${TD_FILES})
   tblgenrefoclblt(OCL_TABLEGEN_SOURCE ${REF_CL_BUILTIN_SOURCE_DIR} ${FILE} -gen-ocl-src)
   list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
 endforeach (FILE)
 
-  add_custom_target (${TARGET_NAME} ALL
-    DEPENDS ${OCL_SOURCE_FILES} ref-ocl-tblgen
-    COMMENT "Target ${TARGET_NAME} build completed"
-    VERBATIM
-    SOURCES ${OCL_SOURCE_FILES}
-    )
+add_custom_target (${TARGET_NAME} ALL
+  DEPENDS ${OCL_SOURCE_FILES} ref-ocl-tblgen
+  COMMENT "Target ${TARGET_NAME} build completed"
+  VERBATIM
+  SOURCES ${OCL_SOURCE_FILES}
+)
 
-  add_library(OCLBuiltins
+add_library(OCLBuiltins
   ${OCL_SOURCE_FILES}
+  ${OCL_INCLUDE_FILES}
+  Helpers.h
   Helpers.cpp
+  OCLBuiltinParser.h
   OCLBuiltinParser.cpp
-  )
+  IWorkItemBuiltins.h
+)
 
-  add_dependencies(OCLBuiltins
+add_dependencies(OCLBuiltins
   ${TARGET_NAME}
-  )
+)
 
 include_directories (
   ${BACKEND_ROOT_DIR}/../cl_api
@@ -105,6 +127,6 @@ include_directories (
   ${VALIDATIONS_ROOT}/Common
   ${VALIDATIONS_ROOT}/REFALU
   ${REF_CL_BUILTIN_SOURCE_DIR}
-  )
+)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

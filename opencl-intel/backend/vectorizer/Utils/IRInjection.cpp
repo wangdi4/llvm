@@ -27,9 +27,10 @@
 #include "OCLPassSupport.h"
 
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
-#include "llvm/Type.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Support/CommandLine.h"

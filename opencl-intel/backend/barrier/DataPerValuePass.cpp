@@ -11,7 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/raw_ostream.h"

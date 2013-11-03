@@ -142,7 +142,7 @@ File Name:  BLTImages.cpp
 
 
 // debug macros
-#include <llvm/Type.h>
+#include <llvm/IR/Type.h>
 #include <llvm/Support/raw_ostream.h>
 #include "llvm/Support/Debug.h"
 

@@ -23,9 +23,9 @@ File Name:  InterpreterPluggable.cpp
 #include "InterpreterPluggable.h"
 #include "ParameterType.h"
 
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
 #include "llvm/Support/GetElementPtrTypeIterator.h"
 #include "llvm/ADT/APInt.h"
@@ -35,8 +35,8 @@ File Name:  InterpreterPluggable.cpp
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Module.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Module.h"
 #include "llvm/ADT/Statistic.h"
 
 #include <algorithm>

@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __CLONE_BLOCK_INVOKE_FUNC_TO_KERNEL_H__
 
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 /*
     CloneBlockInvokeFuncToKernelPass pass finds in module

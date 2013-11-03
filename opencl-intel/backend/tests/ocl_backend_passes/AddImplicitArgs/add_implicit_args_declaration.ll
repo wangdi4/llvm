@@ -17,8 +17,8 @@ entry:
 }
 
 
-; CHECK:        declare void @functionWithoutArgs() nounwind
-; CHECK:        declare i32 @functionWithArgs(i32, i32) nounwind
+; CHECK:        declare void @functionWithoutArgs()
+; CHECK:        declare i32 @functionWithArgs(i32, i32)
 
 ; CHECK:        define i32 @caller(i32 %x, i32 %y, i8 addrspace(3)* noalias [[P_LOCAL_MEM:%[a-zA-Z0-9]+]], 
 ; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* noalias [[P_WORK_DIM:%[a-zA-Z0-9]+]], 

@@ -34,14 +34,14 @@ BBEndLoop:
 ; CHECK: br label %BBLoop
 ; CHECK: BBLoop:
 ; CHECK: call void @_Z7barrierj(i32 1)
-; CHECK: %event = call %opencl.event_t* @_Z21async_work_group_copyPU3AS3cPKU3AS1cm9ocl_event(i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globalBuffer, i64 %count, %opencl.event_t* null) nounwind
+; CHECK: %event = call %opencl.event_t* @_Z21async_work_group_copyPU3AS3cPKU3AS1cm9ocl_event(i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globalBuffer, i64 %count, %opencl.event_t* null)
 ; CHECK: call void @dummybarrier.
 ; CHECK: store %opencl.event_t* %event, %opencl.event_t** %pEvent, align 8
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: %cond = icmp sgt i64 %count, 0 
 ; CHECK: br i1 %cond, label %BBLoop, label %BBEndLoop
 ; CHECK: BBEndLoop:
-; CHECK: call void @_Z17wait_group_eventsiP9ocl_event(i32 1, %opencl.event_t** %pEvent) nounwind
+; CHECK: call void @_Z17wait_group_eventsiP9ocl_event(i32 1, %opencl.event_t** %pEvent)
 ; CHECK: ret void
 }
 

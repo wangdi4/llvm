@@ -20,6 +20,7 @@ declare void @__ocl_transpose_store_char_4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn
 
 
 
+;-------------------------------------------------------------------------------
 ;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX: [[FOO]]
 ;CHECK-AVX:	vpshufb	 [[SHUF:%xmm[0-9]+]], [[TMP:%xmm[0-9]+]], [[XMM0:%xmm[0-9]+]]
@@ -36,11 +37,12 @@ declare void @__ocl_transpose_store_char_4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn
 ;CHECK-AVX:	.type	 [[TRANSPOSE:[_a-z]+]]_store_char_4x8,@function
 
 
+;-------------------------------------------------------------------------------
 ;CHECK-AVX2:   .type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX2:   [[FOO]]
-;CHECK-AVX2:   vperm2i128	$32, [[YMM0:%ymm[0-9]+]], [[YMM1:%ymm[0-9]+]], [[YMM2:%ymm[0-9]+]]
+;CHECK-AVX2:   vinserti128	$1, [[XMM0:%xmm[0-9]+]], [[YMM1:%ymm[0-9]+]], [[YMM2:%ymm[0-9]+]]
 ;CHECK-AVX2:   vpshufb	[[YMM5:%ymm[0-9]+]], [[YMM2]], [[YMM4:%ymm[0-9]+]]
-;CHECK-AVX2:   vperm2i128	$32, [[YMM24:%ymm[0-9]+]], [[YMM3:%ymm[0-9]+]], [[YMM6:%ymm[0-9]+]]
+;CHECK-AVX2:   vinserti128	$1, [[XMM24:%xmm[0-9]+]], [[YMM3:%ymm[0-9]+]], [[YMM6:%ymm[0-9]+]]
 ;CHECK-AVX2:   vpshufb	[[YMM5]], [[YMM6]], [[YMM51:%ymm[0-9]+]]
 ;CHECK-AVX2:   vpunpcklbw	[[YMM4]], [[YMM51]], [[YMM41:%ymm[0-9]+]]
 ;CHECK-AVX2:   vmovdqa	.[[LCPI0:[_A-Z0-9]+]]([[RIP:%[_a-z]+]]), [[YMM52:%ymm[0-9]+]]

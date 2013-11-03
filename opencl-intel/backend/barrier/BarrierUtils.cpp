@@ -8,10 +8,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "MetaDataApi.h"
 
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Instruction.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Version.h"
 
@@ -569,7 +569,7 @@ namespace intel {
 #else
     AttributeSet func_factorial_PAL;
     AttrBuilder attBuilder;
-    attBuilder.addAttribute(Attribute::None).addAttribute(Attribute::NoUnwind).addAttribute(Attribute::ReadNone) /* .addAttribute(Attribute::UWTable) */;
+    attBuilder.addAttribute(Attribute::NoUnwind).addAttribute(Attribute::ReadNone) /* .addAttribute(Attribute::UWTable) */;
     func_factorial_PAL = AttributeSet::get(pFunc->getContext(), ~0, attBuilder);
 #endif
     pFunc->setAttributes(func_factorial_PAL);

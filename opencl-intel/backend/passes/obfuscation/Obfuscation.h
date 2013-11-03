@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __OBFUSCATION_H__
 #define __OBFUSCATION_H__
 
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 
 namespace intel {

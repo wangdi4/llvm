@@ -25,8 +25,8 @@ File Name:  Prefetch.cpp
 #include "llvm/Support/BranchProbability.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Instructions.h"
-#include "llvm/Type.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Type.h"
 #include "OCLAddressSpace.h"
 #include "mic_dev_limits.h"
 

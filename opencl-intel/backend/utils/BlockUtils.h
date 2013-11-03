@@ -19,7 +19,7 @@ File Name:  BlockUtils.h
 #ifndef __BLOCK_UTILS_H__
 #define __BLOCK_UTILS_H__
 
-#include "llvm/Function.h"
+#include "llvm/IR/Function.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
   /// @brief  BlockUtils class used to provide helper utilies handling block_invoke functions

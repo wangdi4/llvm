@@ -525,7 +525,7 @@ else (WIN32)
 	install(FILES setup/bom_files/installer_content_linux.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
 	
     install(FILES setup/Android/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-	install(FILES setup/Android/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+    install(FILES setup/Android/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
     install(FILES setup/Android/Android_Setup DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
     install(FILES setup/LicenseAgreement_Linux.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
 
