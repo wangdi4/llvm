@@ -415,18 +415,10 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
 	}
 	pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
 
-	if (CL_FAILED(clErrRet))
-	{
-		LOG_ERROR(TEXT("Create Program With Source(%d, %d, %d) = %d"),uiCount, ppcStrings, szLengths, clErrRet);
-		pProgram->Release();
-		*ppProgram = NULL;
-		return clErrRet;
-	}
-
 	// add program object to programs map list
 	m_mapPrograms.AddObject(pProgram);
 	*ppProgram = pProgram;
-	return CL_SUCCESS;
+	return clErrRet;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

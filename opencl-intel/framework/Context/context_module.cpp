@@ -596,6 +596,11 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
             *pErrcodeRet = clErrRet;
         }
         pContext->NotifyError("clCreateProgramWithSource failed", &clErrRet, sizeof(cl_int));
+        if (pProgram)
+        {
+            pContext->RemoveProgram(pProgram->GetHandle());
+            pProgram->Release();
+        }
         return CL_INVALID_HANDLE;
     }
     clErrRet = m_mapPrograms.AddObject(pProgram, false);
@@ -606,6 +611,8 @@ cl_program ContextModule::CreateProgramWithSource(cl_context     clContext,
             *pErrcodeRet = clErrRet;
         }
         pContext->NotifyError("clCreateProgramWithSource failed", &clErrRet, sizeof(cl_int));
+        pContext->RemoveProgram(pProgram->GetHandle());
+        pProgram->Release();
         return CL_INVALID_HANDLE;
     }
     if (NULL != pErrcodeRet)
@@ -660,8 +667,9 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context                clCo
         pContext->NotifyError("clCreateProgramWithBinary failed", &clErrRet, sizeof(cl_int));
         if (pProgram)
         {
+            pContext->RemoveProgram(pProgram->GetHandle());
             pProgram->Release();
-        }        
+        }
         return CL_INVALID_HANDLE;
     }
     clErrRet = m_mapPrograms.AddObject(pProgram, false);
@@ -672,6 +680,7 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context                clCo
             *pErrRet = CL_OUT_OF_HOST_MEMORY;
         }
         pContext->NotifyError("clCreateProgramWithBinary failed", &clErrRet, sizeof(cl_int));
+        pContext->RemoveProgram(pProgram->GetHandle());
         pProgram->Release();
         return CL_INVALID_HANDLE;
     }
@@ -724,8 +733,9 @@ cl_program ContextModule::CreateProgramWithBuiltInKernels(cl_context clContext,
         pContext->NotifyError("CreateProgramWithBuiltInKernels failed", &clErrRet, sizeof(cl_int));
         if (pProgram)
         {
+            pContext->RemoveProgram(pProgram->GetHandle());
             pProgram->Release();
-        }        
+        }
         return CL_INVALID_HANDLE;
     }
     clErrRet = m_mapPrograms.AddObject(pProgram, false);
@@ -736,6 +746,7 @@ cl_program ContextModule::CreateProgramWithBuiltInKernels(cl_context clContext,
             *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
         }
         pContext->NotifyError("CreateProgramWithBuiltInKernels failed", &clErrRet, sizeof(cl_int));
+        pContext->RemoveProgram(pProgram->GetHandle());
         pProgram->Release();
         return CL_INVALID_HANDLE;
     }
@@ -954,6 +965,11 @@ cl_program ContextModule::LinkProgram(cl_context clContext,
             {
                 *pErrcodeRet = clErrRet;
             }
+            if (pProgram)
+            {
+                pContext->RemoveProgram(pProgram->GetHandle());
+                pProgram->Release();
+            }
             return CL_INVALID_HANDLE;
         }
     }
@@ -969,6 +985,11 @@ cl_program ContextModule::LinkProgram(cl_context clContext,
             {
                 *pErrcodeRet = clErrRet;
             }
+            if (pProgram)
+            {
+                pContext->RemoveProgram(pProgram->GetHandle());
+                pProgram->Release();
+            }
             return CL_INVALID_HANDLE;
         }
     }
@@ -980,24 +1001,18 @@ cl_program ContextModule::LinkProgram(cl_context clContext,
         {
             *pErrcodeRet = clErrRet;
         }
+        pContext->RemoveProgram(pProgram->GetHandle());
+        pProgram->Release();
         return CL_INVALID_HANDLE;
     }
 
     clErrRet = pContext->LinkProgram(pProgram->GetHandle(), uiNumDevices, pclDeviceList, uiNumInputPrograms, pclInputPrograms, pcOptions, pfn_notify, pUserData);
-    if (CL_FAILED(clErrRet))
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = clErrRet;
-        }
-        // we should return a valid program handle even if the linking has failed
-        return pProgram->GetHandle();
-    }
 
     if (NULL != pErrcodeRet)
     {
-        *pErrcodeRet = CL_SUCCESS;
+        *pErrcodeRet = clErrRet;
     }
+    // we should return a valid program handle even if the linking has failed
     return pProgram->GetHandle();
 }
 //////////////////////////////////////////////////////////////////////////
