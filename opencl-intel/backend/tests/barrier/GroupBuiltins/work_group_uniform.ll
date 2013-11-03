@@ -126,8 +126,8 @@ declare void @masked_store_align4_3(<4 x i1>, <4 x i32>, <4 x i32> addrspace(1)*
 
 declare void @__ocl_masked_store_int4(<4 x i32>*, <4 x i32>, <4 x i32>)
 
-; CHECK: declare i32 @_Z14work_group_alliPU3AS0i(i32, i32*) nounwind readnone
-; CHECK: declare <4 x i32> @_Z14work_group_allDv4_iPU3AS0S_(<4 x i32>, <4 x i32>*) nounwind readnone
+; CHECK: declare i32 @_Z14work_group_alliPU3AS0i(i32, i32*)
+; CHECK: declare <4 x i32> @_Z14work_group_allDv4_iPU3AS0S_(<4 x i32>, <4 x i32>*)
 ; CHECK: declare <4 x i32> @_Z24finalize_.work_group_allDv4_i(<4 x i32>)
 
 !opencl.kernels = !{!0}

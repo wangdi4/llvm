@@ -5,8 +5,8 @@
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
 #include "llvm/ADT/SmallSet.h"
 
 namespace llvm { 

@@ -20,7 +20,7 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: store i32 0, i32* %AllocaWGResult
 ; CHECK-NEXT: call void @dummybarrier.()
 ; CHECK: WIcall = call i32 @_Z12get_local_idj(i32 0)
-; CHECK-NOT: %call1 = tail call i32 @_Z20work_group_broadcastij(i32 %0, i32 2) nounwind
+; CHECK-NOT: %call1 = tail call i32 @_Z20work_group_broadcastij(i32 %0, i32 2)
 ; CHECK-NEXT: %CallWGForItem = call i32 @_Z20work_group_broadcastijjPU3AS0i(i32 %0, i32 2, i32 %WIcall, i32* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
 ; CHECK: store i32 %CallWGForItem, i32 addrspace(1)* %arrayidx2, align 1

@@ -18,7 +18,7 @@ File Name:  CompiledModule.h
 #pragma once
 
 #include "llvm/ADT/OwningPtr.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 
 namespace llvm {

@@ -13,7 +13,7 @@ define void @test_func(<3 x float> addrspace(1)* nocapture %dst, <3 x float> %cx
 ; CHECK: [[I0:%[a-zA-Z0-9_]+]] = insertelement <3 x float> undef, float %{{[a-zA-Z0-9_]+}}, i32 0
 ; CHECK: [[I1:%[a-zA-Z0-9_]+]] = insertelement <3 x float> [[I0]], float %{{[a-zA-Z0-9_]+}}, i32 1
 ; CHECK: [[I2:%[a-zA-Z0-9_]+]] = insertelement <3 x float> [[I1]], float %{{[a-zA-Z0-9_]+}}, i32 2
-; CHECK: [[C0:%[a-zA-Z0-9_]+]] = tail call <3 x float> @_Z14fast_normalizeDv3_f(<3 x float> [[I2]]) nounwind readnone
+; CHECK: [[C0:%[a-zA-Z0-9_]+]] = tail call <3 x float> @_Z14fast_normalizeDv3_f(<3 x float> [[I2]])
 ; CHECK: [[E0:%[a-zA-Z0-9_]+]] = extractelement <3 x float> [[C0]], i32 0
 ; CHECK: [[E1:%[a-zA-Z0-9_]+]] = extractelement <3 x float> %call_clone, i32 1
 ; CHECK: [[E2:%[a-zA-Z0-9_]+]] = extractelement <3 x float> %call_clone, i32 2

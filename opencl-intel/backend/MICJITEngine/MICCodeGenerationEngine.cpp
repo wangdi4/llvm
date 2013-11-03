@@ -11,8 +11,8 @@
 
 #include "passes/OpenCLAliasAnalysisSupport/OpenCLAliasAnalysis.h"
 
-#include "llvm/DataLayout.h"
-#include "llvm/Module.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/SmallVector.h"
@@ -23,7 +23,7 @@
 #include "llvm/ExecutionEngine/LLVMModuleJITHolder.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"

@@ -8,15 +8,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BuiltInFuncImport.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
-#include <llvm/Module.h>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/Transforms/Utils/Cloning.h>
-#include <llvm/Instruction.h>
+#include <llvm/IR/Instruction.h>
 #include <llvm/Support/InstIterator.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/Support/IRReader.h>
+#include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/SourceMgr.h>
 
 #include <string>

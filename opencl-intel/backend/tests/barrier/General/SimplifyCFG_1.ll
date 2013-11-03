@@ -12,14 +12,14 @@
 ;;*****************************************************************************
 
 ; CHECK: @spmv_csr_vector_kernel
-; CHECK-NOT: barrier(i64 1)
-; CHECK: call void @_Z7barrierj(i64 1) nounwind
-; CHECK: call void @_Z7barrierj(i64 1) nounwind
-; CHECK: call void @_Z7barrierj(i64 1) nounwind
-; CHECK: call void @_Z7barrierj(i64 1) nounwind
-; CHECK: call void @_Z7barrierj(i64 1) nounwind
-; CHECK: call void @_Z7barrierj(i64 1) nounwind
-; CHECK-NOT: barrier(i64 1)
+; CHECK-NOT: call void @_Z7barrierj(i64 1)
+; CHECK: call void @_Z7barrierj(i64 1)
+; CHECK: call void @_Z7barrierj(i64 1)
+; CHECK: call void @_Z7barrierj(i64 1)
+; CHECK: call void @_Z7barrierj(i64 1)
+; CHECK: call void @_Z7barrierj(i64 1)
+; CHECK: call void @_Z7barrierj(i64 1)
+; CHECK-NOT: call void @_Z7barrierj(i64 1)
 ; CHECK: !opencl.kernels
 
 ; ModuleID = 'Program'

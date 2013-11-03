@@ -9,9 +9,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __RESOLVE_WI_CALL_H__
 
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
-#include "llvm/Instructions.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
 
 #include <set>
 

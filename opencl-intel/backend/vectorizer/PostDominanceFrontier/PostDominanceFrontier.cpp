@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 #include "PostDominanceFrontier.h"
 #include "llvm/Analysis/PostDominators.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/DepthFirstIterator.h"

@@ -12,7 +12,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/PassManager.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 // Placeholders for debug log files
 FILE * prtFile;

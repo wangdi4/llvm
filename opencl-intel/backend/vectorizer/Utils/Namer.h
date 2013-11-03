@@ -10,10 +10,10 @@
 // Author: Ran Chachick
 
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 #include <vector>
 

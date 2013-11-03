@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __LOCAL_BUFF_ANALYSIS_H__
 
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/ADT/SmallPtrSet.h"
 
 #include <map>

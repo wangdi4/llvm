@@ -12,8 +12,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetaDataObject.h"
 #include "MetaDataIterator.h"
 #include "MapList.h"
-#include "llvm/Value.h"
-#include "llvm/Metadata.h"
+#include "llvm/IR/Value.h"
+#include "llvm/IR/Metadata.h"
 #include <vector>
 
 namespace Intel

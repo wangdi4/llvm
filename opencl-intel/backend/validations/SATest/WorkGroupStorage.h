@@ -20,7 +20,7 @@ File Name:  WorkGroupStorage.h
 #define WORK_GROUP_STORAGE_H
 
 #include <vector>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/DerivedTypes.h>
 #include "IWorkItemBuiltins.h"
 #include <llvm/ADT/APInt.h>
 

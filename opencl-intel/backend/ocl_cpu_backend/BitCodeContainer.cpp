@@ -18,7 +18,7 @@ File Name:  BitCodeContainer.cpp
 
 #include "ProgramContainerMemoryBuffer.h"
 #include "BitCodeContainer.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

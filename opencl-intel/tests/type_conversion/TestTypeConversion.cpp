@@ -15,8 +15,8 @@
 \****************************************************************************/
 
 #include "gtest/gtest.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/ADT/StringRef.h"
 #include "TypeConversion.h"
 

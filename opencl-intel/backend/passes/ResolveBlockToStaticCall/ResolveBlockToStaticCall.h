@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __RESOLVE_BLOCK_TO_STATIC_CALL_H__
 
 #include "llvm/Pass.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 
 /*===----------------------------------------------------------------------===
 This optimization pass is implementing resolution from indirect call to static call

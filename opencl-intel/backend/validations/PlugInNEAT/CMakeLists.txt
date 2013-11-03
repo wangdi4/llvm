@@ -28,6 +28,7 @@ set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}"
 endif(NOT WIN32)
 
 add_library(${TARGET_NAME}
+  PlugInNEAT.h
   PlugInNEAT.cpp
   )
 include_directories (

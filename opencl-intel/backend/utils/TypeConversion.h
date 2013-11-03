@@ -9,8 +9,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __TYPE_CONVERSION_H__
 
 #include "ParameterType.h"
-#include "llvm/Type.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/LLVMContext.h"
 
 namespace intel{
   llvm::Type* reflectionToLLVM(llvm::LLVMContext&, const reflection::RefParamType&);

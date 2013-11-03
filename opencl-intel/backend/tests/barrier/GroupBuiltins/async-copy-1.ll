@@ -31,12 +31,12 @@ define void @main(i32 %x, i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globa
 
 ; CHECK: %pEvent = alloca %opencl.event_t*, align 8
 ; CHECK: call void @_Z7barrierj(i32 1)
-; CHECK: %event = call %opencl.event_t* @_Z21async_work_group_copyPU3AS3cPKU3AS1cm9ocl_event(i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globalBuffer, i64 %count, %opencl.event_t* null) nounwind
+; CHECK: %event = call %opencl.event_t* @_Z21async_work_group_copyPU3AS3cPKU3AS1cm9ocl_event(i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globalBuffer, i64 %count, %opencl.event_t* null)
 ; CHECK: call void @dummybarrier.
 ; CHECK: store %opencl.event_t* %event, %opencl.event_t** %pEvent, align 8
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: call void @foo(i32 %x, i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globalBuffer, i64 %count)
-; CHECK: call void @_Z17wait_group_eventsiP9ocl_event(i32 1, %opencl.event_t** %pEvent) nounwind
+; CHECK: call void @_Z17wait_group_eventsiP9ocl_event(i32 1, %opencl.event_t** %pEvent)
 ; CHECK: ret void
 }
 
@@ -51,11 +51,11 @@ define void @foo(i32 %x, i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %global
 
 ; CHECK: %pEvent = alloca %opencl.event_t*, align 8
 ; CHECK: call void @_Z7barrierj(i32 1)
-; CHECK: %event = call %opencl.event_t* @_Z29async_work_group_strided_copyPU3AS1cPKU3AS3cmm9ocl_event(i8 addrspace(1)* %globalBuffer, i8 addrspace(3)* %localBuffer, i64 %count, i64 18, %opencl.event_t* null) nounwind
+; CHECK: %event = call %opencl.event_t* @_Z29async_work_group_strided_copyPU3AS1cPKU3AS3cmm9ocl_event(i8 addrspace(1)* %globalBuffer, i8 addrspace(3)* %localBuffer, i64 %count, i64 18, %opencl.event_t* null)
 ; CHECK: call void @dummybarrier.
 ; CHECK: store %opencl.event_t* %event, %opencl.event_t** %pEvent, align 8
 ; CHECK: %y = xor i32 %x, %x
-; CHECK: call void @_Z17wait_group_eventsiP9ocl_event(i32 1, %opencl.event_t** %pEvent) nounwind
+; CHECK: call void @_Z17wait_group_eventsiP9ocl_event(i32 1, %opencl.event_t** %pEvent)
 ; CHECK: ret void
 }
 

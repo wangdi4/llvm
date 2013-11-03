@@ -21,7 +21,7 @@ File Name:  IOpenCLKernelArgumentsParser.h
 #define __IOPENCL_KERNEL_ARGUMENTS_PARSER__
 #include<string>
 #include<vector>
-#include"llvm/Module.h"
+#include"llvm/IR/Module.h"
 #include"IMemoryObjectDesc.h"
 
 namespace Validation

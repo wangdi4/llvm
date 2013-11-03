@@ -19,7 +19,7 @@ File Name:  BLTInteger.h
 #define BLT_INTEGER_H
 
 #include <vector>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Helpers.h"
 

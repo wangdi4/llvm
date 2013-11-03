@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "DetectFunctionPtrCalls.h"
 #include "OCLPassSupport.h"
 #include "MetaDataApi.h"
-#include <llvm/Instructions.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/Support/InstIterator.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>

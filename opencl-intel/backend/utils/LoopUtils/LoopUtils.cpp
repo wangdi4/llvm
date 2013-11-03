@@ -8,9 +8,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "LoopUtils.h"
 #include "MetaDataApi.h"
 
-#include "llvm/Function.h"
-#include "llvm/Module.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Constants.h"
 
 namespace intel {
 

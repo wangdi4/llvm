@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Obfuscation.h"
 
 #include "llvm/InitializePasses.h"
-#include "llvm/Type.h"
+#include "llvm/IR/Type.h"
 
 #include "gen/MetaDataApi.h"
 #include "OCLPassSupport.h"

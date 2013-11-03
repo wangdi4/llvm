@@ -20,7 +20,7 @@ File Name:  BLTWorkGroup.h
 
 #include <map>
 #include <string>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Helpers.h"
 

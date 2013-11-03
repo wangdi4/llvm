@@ -11,8 +11,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Constants.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Version.h"
 
 namespace intel{

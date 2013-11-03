@@ -2,7 +2,7 @@
 #include "debugservermessages.pb.h"
 #include "llvm/DebugInfo.h"
 #include "llvm/Support/Dwarf.h"
-#include "llvm/Metadata.h"
+#include "llvm/IR/Metadata.h"
 #include <iostream>
 
 
@@ -103,7 +103,7 @@ static string DescribeArrayType(const DICompositeType& di_type)
         DIDescriptor elem = ranges_array.getElement(i);
         assert(elem.isSubrange());
         DISubrange subrange_elem(static_cast<MDNode*>(elem));
-        uint64_t high_range = subrange_elem.getHi();
+        uint64_t high_range = subrange_elem.getCount();
 
         type_str += "[" + stringify(high_range + 1) + "]";
     }
@@ -311,7 +311,7 @@ static VarTypeDescriptor GenerateVarTypeTypedef(
     VarTypeDescriptor descriptor;
 
     if (!static_cast<MDNode*>(di_derived_from) ||
-        di_derived_from.getTag() == dwarf::DW_TAG_vector_type) {
+        di_derived_from.isVector()) {
         // A vector typedef
         //
         VarTypeVector vector_descriptor;
@@ -381,7 +381,7 @@ static VarTypeDescriptor GenerateVarTypeArray(const DICompositeType& di_array)
         DIDescriptor di_range_i = di_ranges.getElement(i);
         assert(di_range_i.isSubrange());
         DISubrange di_subrange(static_cast<MDNode*>(di_range_i));
-        uint64_t high_range = di_subrange.getHi();
+        uint64_t high_range = di_subrange.getCount();
         array_descriptor.add_dimensions(high_range + 1);
     }
 

@@ -22,7 +22,7 @@
 #define __DXWRAPPERPARAMSCHECK_H__
 
 #include "RuntimeServices.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 
 using namespace llvm;
 

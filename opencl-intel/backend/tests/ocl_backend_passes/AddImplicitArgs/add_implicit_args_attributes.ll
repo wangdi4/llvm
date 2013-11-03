@@ -14,6 +14,8 @@ entry:
   ret void
 }
 
-; CHECK: declare void @__foo_original(<2 x i8>* byval align 8) nounwind
+; CHECK: declare void @__foo_original(<2 x i8>* byval align 8) #0
 ; CHECK: define internal void @foo(<2 x i8>* byval align 8 %x,
-; CHECK:  nounwind {
+; CHECK:  #0 {
+
+; CHECK:  #0 = { nounwind }
