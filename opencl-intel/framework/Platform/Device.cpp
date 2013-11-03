@@ -433,7 +433,7 @@ void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cm
     ICmdStatusChangedObserver *pObserver = (ICmdStatusChangedObserver *)pData;
 
     pObserver->NotifyCmdStatusChanged(cmd_id, cmd_status, 
-                                      (cl_int(CL_DEV_COMMAND_CANCELLED)==status_result) ? CL_CONTEXT_CANCEL_INTEL : status_result, 
+                                      (cl_int(CL_DEV_COMMAND_CANCELLED)==status_result) ? CL_DEVICE_NOT_AVAILABLE : status_result, 
                                       timer);
     return;
 }

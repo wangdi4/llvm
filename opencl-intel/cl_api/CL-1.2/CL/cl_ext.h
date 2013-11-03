@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008 - 2012 The Khronos Group Inc.
+ * Copyright (c) 2008-2013 The Khronos Group Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and/or associated documentation files (the
@@ -34,10 +34,10 @@ extern "C" {
 #endif
 
 #ifdef __APPLE__
-	#include <OpenCL/cl.h>
+        #include <OpenCL/cl.h>
     #include <AvailabilityMacros.h>
 #else
-	#include <CL/cl.h>
+        #include <CL/cl.h>
 #endif
 
 /* cl_khr_fp16 extension - no extension #define since it has no functions  */
@@ -61,7 +61,7 @@ extern "C" {
  * before using.
  */
 #define cl_APPLE_SetMemObjectDestructor 1
-cl_int	CL_API_ENTRY clSetMemObjectDestructorAPPLE(  cl_mem /* memobj */, 
+cl_int  CL_API_ENTRY clSetMemObjectDestructorAPPLE(  cl_mem /* memobj */, 
                                         void (* /*pfn_notify*/)( cl_mem /* memobj */, void* /*user_data*/), 
                                         void * /*user_data */ )             CL_EXT_SUFFIX__VERSION_1_0;  
 
@@ -169,11 +169,107 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clTerminateContextKHR_fn)(cl_context /
 #define CL_DEVICE_KERNEL_EXEC_TIMEOUT_NV            0x4005
 #define CL_DEVICE_INTEGRATED_MEMORY_NV              0x4006
 
-
 /*********************************
 * cl_amd_device_attribute_query *
 *********************************/
 #define CL_DEVICE_PROFILING_TIMER_OFFSET_AMD        0x4036
+
+/*********************************
+* cl_intel_accelerator extension *
+*********************************/
+#define cl_intel_accelerator 1
+#define cl_intel_motion_estimation 1
+
+typedef struct _cl_accelerator_intel*     cl_accelerator_intel;
+typedef cl_uint                           cl_accelerator_type_intel;
+typedef cl_uint                           cl_accelerator_info_intel;
+
+typedef struct _cl_motion_estimation_desc_intel {
+    cl_uint mb_block_type;
+    cl_uint subpixel_mode;
+    cl_uint sad_adjust_mode;
+    cl_uint search_path_type;
+} cl_motion_estimation_desc_intel;
+
+// Error Codes
+#define CL_INVALID_ACCELERATOR_INTEL                    -6000
+#define CL_INVALID_ACCELERATOR_TYPE_INTEL               -6001
+#define CL_INVALID_ACCELERATOR_DESCRIPTOR_INTEL         -6002
+#define CL_ACCELERATOR_TYPE_NOT_SUPPORTED_INTEL         -6003
+
+/* cl_accelerator_type_intel */
+#define CL_ACCELERATOR_TYPE_MOTION_ESTIMATION_INTEL     0x0
+
+/* cl_accelerator_info_intel */
+#define CL_ACCELERATOR_DESCRIPTOR_INTEL                 0x4090
+#define CL_ACCELERATOR_REFERENCE_COUNT_INTEL            0x4091
+#define CL_ACCELERATOR_CONTEXT_INTEL                    0x4092
+#define CL_ACCELERATOR_TYPE_INTEL                       0x4093
+
+/*cl_motion_detect_desc_intel flags */
+#define CL_ME_MB_TYPE_16x16_INTEL                       0x0
+#define CL_ME_MB_TYPE_8x8_INTEL                         0x1
+#define CL_ME_MB_TYPE_4x4_INTEL                         0x2
+
+#define CL_ME_SUBPIXEL_MODE_INTEGER_INTEL               0x0
+#define CL_ME_SUBPIXEL_MODE_HPEL_INTEL                  0x1
+#define CL_ME_SUBPIXEL_MODE_QPEL_INTEL                  0x2
+
+#define CL_ME_SAD_ADJUST_MODE_NONE_INTEL                0x0
+#define CL_ME_SAD_ADJUST_MODE_HAAR_INTEL                0x1
+
+#define CL_ME_SEARCH_PATH_RADIUS_2_2_INTEL              0x0
+#define CL_ME_SEARCH_PATH_RADIUS_4_4_INTEL              0x1
+#define CL_ME_SEARCH_PATH_RADIUS_16_12_INTEL            0x5
+
+extern CL_API_ENTRY cl_accelerator_intel CL_API_CALL
+clCreateAcceleratorINTEL(
+    cl_context                  /* context */,
+    cl_accelerator_type_intel   /* accelerator_type */,
+    size_t                      /* descriptor_size */,
+    const void*                 /* descriptor */,
+    cl_int*                     /* errcode_ret */ ) CL_EXT_SUFFIX__VERSION_1_2;
+
+typedef CL_API_ENTRY cl_accelerator_intel 
+    (CL_API_CALL *clCreateAcceleratorINTEL_fn)(
+    cl_context                  /* context */,
+    cl_accelerator_type_intel   /* accelerator_type */,
+    size_t                      /* descriptor_size */,
+    const void*                 /* descriptor */,
+    cl_int*                     /* errcode_ret */ ) CL_EXT_SUFFIX__VERSION_1_2;
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+clGetAcceleratorInfoINTEL
+(
+    cl_accelerator_intel        /* accelerator */,
+    cl_accelerator_info_intel   /* param_name */,
+    size_t                      /* param_value_size */,
+    void*                       /* param_value */,
+    size_t*                     /* param_value_size_ret */ ) CL_EXT_SUFFIX__VERSION_1_2;
+
+typedef CL_API_ENTRY cl_int 
+    (CL_API_CALL *clGetAcceleratorInfoINTEL_fn)(
+    cl_accelerator_intel        /* accelerator */,
+    cl_accelerator_info_intel   /* param_name */,
+    size_t                      /* param_value_size */,
+    void*                       /* param_value */,
+    size_t*                     /* param_value_size_ret */ ) CL_EXT_SUFFIX__VERSION_1_2;
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+clRetainAcceleratorINTEL(
+    cl_accelerator_intel        /* accelerator */ ) CL_EXT_SUFFIX__VERSION_1_2;
+
+typedef CL_API_ENTRY cl_int
+    (CL_API_CALL *clRetainAcceleratorINTEL_fn)(
+    cl_accelerator_intel        /* accelerator */ ) CL_EXT_SUFFIX__VERSION_1_2;
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+clReleaseAcceleratorINTEL(
+    cl_accelerator_intel        /* accelerator */ ) CL_EXT_SUFFIX__VERSION_1_2;
+
+typedef CL_API_ENTRY cl_int
+    (CL_API_CALL *clReleaseAcceleratorINTEL_fn)(
+    cl_accelerator_intel        /* accelerator */ ) CL_EXT_SUFFIX__VERSION_1_2;
 
 #ifdef CL_VERSION_1_1
    /***********************************
@@ -242,6 +338,65 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clTerminateContextKHR_fn)(cl_context /
     #define CL_PARTITION_BY_NAMES_LIST_END_INTEL        ((cl_device_partition_property_ext) 0 - 1)
 
     #define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL      (1 << 31)
+
+
+/*********************************
+* cl_qcom_ext_host_ptr extension
+*********************************/
+
+#define CL_MEM_EXT_HOST_PTR_QCOM                  (1 << 29)
+
+#define CL_DEVICE_EXT_MEM_PADDING_IN_BYTES_QCOM   0x40A0      
+#define CL_DEVICE_PAGE_SIZE_QCOM                  0x40A1
+#define CL_IMAGE_ROW_ALIGNMENT_QCOM               0x40A2
+#define CL_IMAGE_SLICE_ALIGNMENT_QCOM             0x40A3
+#define CL_MEM_HOST_UNCACHED_QCOM                 0x40A4
+#define CL_MEM_HOST_WRITEBACK_QCOM                0x40A5
+#define CL_MEM_HOST_WRITETHROUGH_QCOM             0x40A6
+#define CL_MEM_HOST_WRITE_COMBINING_QCOM          0x40A7
+
+typedef cl_uint                                   cl_image_pitch_info_qcom;
+
+extern CL_API_ENTRY cl_int CL_API_CALL
+clGetDeviceImageInfoQCOM(cl_device_id             device,
+                         size_t                   image_width,
+                         size_t                   image_height,
+                         const cl_image_format   *image_format,
+                         cl_image_pitch_info_qcom param_name,
+                         size_t                   param_value_size,
+                         void                    *param_value,
+                         size_t                  *param_value_size_ret);
+
+typedef struct _cl_mem_ext_host_ptr
+{
+    // Type of external memory allocation.
+    // Legal values will be defined in layered extensions.
+    cl_uint  allocation_type;
+            
+    // Host cache policy for this external memory allocation.
+    cl_uint  host_cache_policy;
+
+} cl_mem_ext_host_ptr;
+
+/*********************************
+* cl_qcom_ion_host_ptr extension
+*********************************/
+
+#define CL_MEM_ION_HOST_PTR_QCOM                  0x40A8
+
+typedef struct _cl_mem_ion_host_ptr
+{
+    // Type of external memory allocation.
+    // Must be CL_MEM_ION_HOST_PTR_QCOM for ION allocations.
+    cl_mem_ext_host_ptr  ext_host_ptr;
+
+    // ION file descriptor
+    int                  ion_filedesc;
+            
+    // Host pointer to the ION allocated memory
+    void*                ion_hostptr;
+
+} cl_mem_ion_host_ptr;
 
 #endif /* CL_VERSION_1_1 */
 

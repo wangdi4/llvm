@@ -333,7 +333,7 @@ cl_err_code Command::Cancel()
 {
     LogDebugA("Command - Cancel for %s (Id: %d)", GetCommandName(), m_Event->GetId());
 
-    NotifyCmdStatusChanged(0, CL_COMPLETE, CL_CONTEXT_CANCEL_INTEL, Intel::OpenCL::Utils::HostTime());
+    NotifyCmdStatusChanged(0, CL_COMPLETE, CL_DEVICE_NOT_AVAILABLE, Intel::OpenCL::Utils::HostTime());
 
     return CL_SUCCESS;
 }
@@ -2823,7 +2823,7 @@ void PrePostFixRuntimeCommand::CancelAction()
 {
     cl_dev_cmd_id id = (cl_dev_cmd_id)m_Event->GetId();
     LogDebugA("PrePostFixRuntimeCommand - DoAction Canceled: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event->GetId());
-    NotifyCmdStatusChanged(id, CL_COMPLETE, CL_CONTEXT_CANCEL_INTEL, Intel::OpenCL::Utils::HostTime());
+    NotifyCmdStatusChanged(id, CL_COMPLETE, CL_DEVICE_NOT_AVAILABLE, Intel::OpenCL::Utils::HostTime());
 }
 
 /******************************************************************

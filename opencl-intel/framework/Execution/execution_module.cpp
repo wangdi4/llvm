@@ -748,7 +748,7 @@ void ExecutionModule::ReleaseAllUserEvents( bool preserve_user_handles)
         SharedPtr<UserEvent>& pUserEvent = *event_list_it;
         if (pUserEvent->GetEventExecState() != CL_COMPLETE)
         {
-            pUserEvent->SetComplete(CL_CONTEXT_CANCEL_INTEL);
+            pUserEvent->SetComplete(CL_DEVICE_NOT_AVAILABLE);
         }
         
         m_pEventsManager->ReleaseEvent( pUserEvent->GetHandle() );

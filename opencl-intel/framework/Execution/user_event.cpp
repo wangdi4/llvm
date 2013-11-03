@@ -121,6 +121,6 @@ void UserEvent::NotifyInvisible()
 {
     if (CL_COMPLETE != GetEventExecState())
 	{
-		SetComplete(CL_CONTEXT_CANCEL_INTEL);
+		SetComplete(CL_DEVICE_NOT_AVAILABLE);
 	}
 }
