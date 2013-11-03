@@ -44,7 +44,7 @@ inline bool GetStringValueFromRegistry( HKEY       top_hkey,
         top_hkey,                   // hkey
         keyPath,                    // lpSubKey
         0,                          // ulOptions
-        KEY_READ | KEY_WOW64_64KEY, // samDesired
+        KEY_READ,                   // samDesired
         &hkey                       // phkResult
         );
 
