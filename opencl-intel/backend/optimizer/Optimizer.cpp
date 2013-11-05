@@ -59,6 +59,7 @@ llvm::ModulePass *createBuiltInImportPass();
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
+llvm::ModulePass *createOclSyncFunctionAttrsPass();
 llvm::ModulePass *createModuleCleanupPass();
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
@@ -266,7 +267,7 @@ Optimizer::Optimizer( llvm::Module* pModule,
 // Adding module passes.
 // Add an appropriate DataLayout instance for this module...
   m_moduleStandardLLVMPasses.add(pDL2);
-
+  m_moduleStandardLLVMPasses.add(createOclSyncFunctionAttrsPass());
 #ifdef __APPLE__
   m_moduleStandardLLVMPasses.add(createClangCompatFixerPass());
 #endif

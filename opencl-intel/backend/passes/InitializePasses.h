@@ -53,6 +53,7 @@ void initializeInstToFuncCallPass(llvm::PassRegistry&);
 void initializeModuleCleanupPass(llvm::PassRegistry&);
 void initializeAddImplicitArgsPass(llvm::PassRegistry&);
 void initializeOclFunctionAttrsPass(llvm::PassRegistry&);
+void initializeOclSyncFunctionAttrsPass(llvm::PassRegistry&);
 void initializeBuiltinLibInfoPass(llvm::PassRegistry&);
 void initializeLocalBuffersWrapperPass(llvm::PassRegistry&);
 void initializeLocalBuffersWithDebugWrapperPass(llvm::PassRegistry&);
