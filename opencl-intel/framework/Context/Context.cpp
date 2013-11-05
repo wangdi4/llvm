@@ -138,7 +138,10 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     cl_uint curRoot = 0;
 	for (cl_uint ui = 0; ui < uiNumDevices; ++ui)
 	{
-		m_mapDevices.AddObject(ppDevices[ui], false);
+		if (m_mapDevices.AddObject(ppDevices[ui], false) == CL_ERR_KEY_ALLREADY_EXISTS)
+        {
+            continue;  // the spec says that duplicate devices specified in devices are ignored
+        }
 		m_ppAllDevices[ui] = ppDevices[ui];
 		m_pDeviceIds[ui] = ppDevices[ui]->GetHandle();
         m_pOriginalDeviceIds[ui] = ppDevices[ui]->GetHandle();
@@ -157,6 +160,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 		cl_bitfield devType = ppDevices[ui]->GetRootDevice()->GetDeviceType();
 		m_devTypeMask |= devType;
 	}
+    uiNumDevices = m_mapDevices.Count();    // handle the case of duplicate devices
     m_pOriginalNumDevices = uiNumDevices;
 
 	m_uiContextPropCount = 0;
