@@ -67,6 +67,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeModuleCleanupPass(Registry);
     intel::initializeAddImplicitArgsPass(Registry);
     intel::initializeOclFunctionAttrsPass(Registry);
+    intel::initializeOclSyncFunctionAttrsPass(Registry);
     intel::initializeBuiltinLibInfoPass(Registry);
     intel::initializeLocalBuffersWrapperPass(Registry);
     intel::initializeLocalBuffersWithDebugWrapperPass(Registry);

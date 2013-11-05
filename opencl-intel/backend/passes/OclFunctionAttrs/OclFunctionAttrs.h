@@ -15,8 +15,8 @@ namespace intel {
 using namespace llvm;
 
 /// OclFunctionAttrs - This pass intended to take advantage of OpenCL language
-// features and modify function attributes. Currently, the only modification
-// that is made is setting the NoAlias attribute on local memory arguments.
+/// features and modify function attributes. Currently, the only modification
+/// that is made is setting the NoAlias attribute on local memory arguments.
 class OclFunctionAttrs : public ModulePass {
 
 public:
@@ -25,6 +25,22 @@ public:
   OclFunctionAttrs();
 
   virtual const char *getPassName() const { return "OclFunctionAttrs"; }
+  virtual bool runOnModule(Module &M);
+};
+
+
+/// OclSyncFunctionAttrs - This pass intended to mark synchronize built-ins of
+/// OpenCL language and all functions that calls them direct or indirect,
+/// in order to prevent LLVM Standard passes from brake their symantic. Currently,
+/// the it is only propogate NoDuplicate attribute to all synchronize built-ins.
+class OclSyncFunctionAttrs : public ModulePass {
+
+public:
+  static char ID;
+
+  OclSyncFunctionAttrs();
+
+  virtual const char *getPassName() const { return "OclSyncFunctionAttrs"; }
   virtual bool runOnModule(Module &M);
 };
 

@@ -250,6 +250,10 @@ namespace intel {
       funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
       m_barrierFunc =
         createFunctionDeclaration(CompilationUtils::mangledBarrier(), pResult, funcTyArgs);
+#if (LLVM_VERSION != 3200) && (LLVM_VERSION != 3425)
+      m_barrierFunc->setAttributes(m_barrierFunc->getAttributes().addAttribute(
+        m_barrierFunc->getContext(), AttributeSet::FunctionIndex, Attribute::NoDuplicate));
+#endif
     }
     if ( !m_localMemFenceValue ) {
       //LocalMemFenceValue is not initialized yet
