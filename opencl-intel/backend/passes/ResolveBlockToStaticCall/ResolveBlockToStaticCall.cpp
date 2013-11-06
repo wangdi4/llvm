@@ -137,7 +137,7 @@ namespace intel {
 
     SmallSet<Value*,8> value_visited;
     // loop over instructions in dependency chain
-    while(true)
+    while(I)
     {
       DEBUG(dbgs() << "Processing: " << *I << "\n");
 
