@@ -21,7 +21,7 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: call void @dummybarrier.()
 ; CHECK: WIcall = call i32 @_Z12get_local_idj(i32 0)
 ; CHECK-NOT: %call1 = tail call i32 @_Z20work_group_broadcastij(i32 %0, i32 2) nounwind
-; CHECK-NEXT: %CallWGForItem = call i32 @_Z20work_group_broadcastijjPU3AS0i(i32 %0, i32 2, i32 %WIcall, i32* %AllocaWGResult)
+; CHECK-NEXT: %CallWGForItem = call i32 @_Z20work_group_broadcastijjPi(i32 %0, i32 2, i32 %WIcall, i32* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
 ; CHECK: store i32 %CallWGForItem, i32 addrspace(1)* %arrayidx2, align 1
 
@@ -47,7 +47,7 @@ declare i32 @_Z20work_group_broadcastij(i32, i32)
 ; CHECK-NEXT: call void @dummybarrier.()
 ; CHECK: WIcall = call i32 @_Z12get_local_idj(i32 0)
 ; CHECK-NOT: call <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32> %1, i32 2)
-; CHECK-NEXT: CallWGForItem = call <4 x i32> @_Z20work_group_broadcastDv4_ijjPU3AS0S_(<4 x i32> %1, i32 2, i32 %WIcall, <4 x i32>* %AllocaWGResult)
+; CHECK-NEXT: CallWGForItem = call <4 x i32> @_Z20work_group_broadcastDv4_ijjPS_(<4 x i32> %1, i32 2, i32 %WIcall, <4 x i32>* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
 ; CHECK: store <4 x i32> %CallWGForItem, <4 x i32> addrspace(1)* %ptrTypeCast4, align 1
 
@@ -71,8 +71,8 @@ declare i1 @__ocl_allZero(i1)
 declare <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32>, i32) nounwind readnone
 
 ; CHECK: declare i32 @_Z12get_local_idj(i32)
-; CHECK: declare i32 @_Z20work_group_broadcastijjPU3AS0i(i32, i32, i32, i32*)
-; CHECK: declare <4 x i32> @_Z20work_group_broadcastDv4_ijjPU3AS0S_(<4 x i32>, i32, i32, <4 x i32>*)
+; CHECK: declare i32 @_Z20work_group_broadcastijjPi(i32, i32, i32, i32*)
+; CHECK: declare <4 x i32> @_Z20work_group_broadcastDv4_ijjPS_(<4 x i32>, i32, i32, <4 x i32>*)
 
 
 !opencl.kernels = !{!0}

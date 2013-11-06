@@ -23,7 +23,7 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: store i32 1, i32* %AllocaWGResult
 ; CHECK-NEXT: call void @dummybarrier.()
 ; CHECK-NOT: call2 = tail call i32 @_Z14work_group_alli(i32 %conv)
-; CHECK:  %CallWGForItem = call i32 @_Z14work_group_alliPU3AS0i(i32 %conv, i32* %AllocaWGResult)
+; CHECK:  %CallWGForItem = call i32 @_Z14work_group_alliPi(i32 %conv, i32* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
 ; CHECK: %tobool = icmp eq i32 %CallWGForItem, 0
 
@@ -63,7 +63,7 @@ declare i32 @_Z14work_group_alli(i32) nounwind readnone
 ; CHECK-NEXT: store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %AllocaWGResult
 ; CHECK-NEXT: call void @dummybarrier.()
 ; CHECK-NOT: call <4 x i32> @_Z14work_group_allDv4_i(<4 x i32> %conv10)
-; CHECK:  %CallWGForItem = call <4 x i32> @_Z14work_group_allDv4_iPU3AS0S_(<4 x i32> %conv10, <4 x i32>* %AllocaWGResult)
+; CHECK:  %CallWGForItem = call <4 x i32> @_Z14work_group_allDv4_iPS_(<4 x i32> %conv10, <4 x i32>* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
 ; CHECK-NEXT: %LoadWGFinalResult = load <4 x i32>* %AllocaWGResult
 ; CHECK-NEXT: %CallFinalizeWG = call <4 x i32> @_Z24finalize_.work_group_allDv4_i(<4 x i32> %LoadWGFinalResult)
@@ -126,8 +126,8 @@ declare void @masked_store_align4_3(<4 x i1>, <4 x i32>, <4 x i32> addrspace(1)*
 
 declare void @__ocl_masked_store_int4(<4 x i32>*, <4 x i32>, <4 x i32>)
 
-; CHECK: declare i32 @_Z14work_group_alliPU3AS0i(i32, i32*) nounwind readnone
-; CHECK: declare <4 x i32> @_Z14work_group_allDv4_iPU3AS0S_(<4 x i32>, <4 x i32>*) nounwind readnone
+; CHECK: declare i32 @_Z14work_group_alliPi(i32, i32*) nounwind readnone
+; CHECK: declare <4 x i32> @_Z14work_group_allDv4_iPS_(<4 x i32>, <4 x i32>*) nounwind readnone
 ; CHECK: declare <4 x i32> @_Z24finalize_.work_group_allDv4_i(<4 x i32>)
 
 !opencl.kernels = !{!0}
