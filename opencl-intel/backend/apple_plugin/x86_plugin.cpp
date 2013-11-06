@@ -19,13 +19,13 @@
 #include <OpenGL/cl_driver_types.h>
 #include <dlfcn.h>
 #include <sys/cdefs.h>
-#include "llvm/CallingConv.h"
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/Instructions.h"
-#include "llvm/IRBuilder.h"
-#include "llvm/Module.h"
+#include "llvm/IR/CallingConv.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/DenseMap.h"
@@ -47,7 +47,7 @@
 #if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
 #else
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 #endif
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Target/TargetMachine.h"
@@ -185,7 +185,8 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
 
     // Get the kernel arguments info
     std::vector<cl_kernel_argument> arguments;
-    Intel::OpenCL::DeviceBackend::CompilationUtils::parseKernelArguments(M,  pFunc, arguments);
+    std::vector<unsigned int> memoryAlignment;
+    Intel::OpenCL::DeviceBackend::CompilationUtils::parseKernelArguments(M,  pFunc, arguments, memoryAlignment);
 
     CFMutableArrayRef kf_argsizes = CFArrayCreateMutable(NULL,
       arguments.size(), &kCFTypeArrayCallBacks);

@@ -31,6 +31,7 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp PROP
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h PROPERTIES GENERATED 1)
 
 set(TARGET_INCLUDE_FILES
+  MapList.h
   MetaDataTraits.h
   MetaDataValue.h
   MetaDataObject.h

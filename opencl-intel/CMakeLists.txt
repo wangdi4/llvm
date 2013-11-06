@@ -483,9 +483,9 @@ if (WIN32)
 
     install(DIRECTORY samples DESTINATION ${MISC_INSTALLER_FOLDER}/samples PATTERN .svn EXCLUDE)
 
-	install(FILES setup/bom_files/installer_content_windows.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
-	install(FILES setup/bom_files/installer_content_windows_mic.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
-	
+    install(FILES setup/bom_files/installer_content_windows.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
+    install(FILES setup/bom_files/installer_content_windows_mic.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
+
     install(DIRECTORY setup/AddFiles/PTAC_Tool DESTINATION ${MISC_INSTALLER_FOLDER}/PTAC_Tool)  
     install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
     install(FILES setup/LicenseAgreement.rtf DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
@@ -522,8 +522,8 @@ else (WIN32)
     install(FILES setup/boost_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
 
-	install(FILES setup/bom_files/installer_content_linux.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
-	
+    install(FILES setup/bom_files/installer_content_linux.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
+
     install(FILES setup/Android/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
     install(FILES setup/Android/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
     install(FILES setup/Android/Android_Setup DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
