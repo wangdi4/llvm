@@ -85,122 +85,472 @@ llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
 }
 
+using namespace intel;
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
+static bool hasBarriers(llvm::Module *pModule) {
+  for (llvm::Module::iterator it = pModule->begin(), e = pModule->end();
+       it != e; ++it) {
+    llvm::Function *f = it;
+    // If name of function contain the word 'barrier', assume that
+    // the module calls a 'barrier' function.
+    if (f->getName().find("barrier") != std::string::npos) {
+      return true;
+    }
+  }
+  return false;
+}
 
-  /// createStandardModulePasses - Add the standard module passes.  This is
-  /// expected to be run after the standard function passes.
-  static inline void createStandardVolcanoModulePasses(llvm::PassManagerBase *PM,
-                                                unsigned OptimizationLevel,
-                                                bool OptimizeSize,
-                                                bool UnitAtATime,
-                                                bool UnrollLoops,
-                                                bool SimplifyLibCalls,
-                                                bool allowAllocaModificationOpt,
-                                                bool isDBG,
-                                                const intel::OptimizerConfig* pConfig) {
-    if (OptimizationLevel == 0) {
-      return;
+/// createStandardModulePasses - Add the standard module passes.  This is
+/// expected to be run after the standard function passes.
+static inline void
+createStandardLLVMPasses(llvm::PassManagerBase *PM,
+                         unsigned OptLevel,
+                         bool OptimizeSize,
+                         bool UnitAtATime,
+                         bool UnrollLoops,
+                         bool SimplifyLibCalls,
+                         bool allowAllocaModificationOpt,
+                         bool isDBG,
+                         bool HasGatherScatter) {
+  if (OptLevel == 0) {
+    return;
+  }
+
+  if (UnitAtATime) {
+    PM->add(llvm::createGlobalOptimizerPass()); // Optimize out global vars
+    PM->add(llvm::createIPSCCPPass());             // IP SCCP
+    PM->add(llvm::createDeadArgEliminationPass()); // Dead argument elimination
+  }
+  PM->add(llvm::createInstructionSimplifierPass());
+  PM->add(llvm::createInstructionCombiningPass()); // Clean up after IPCP & DAE
+  PM->add(llvm::createCFGSimplificationPass());    // Clean up after IPCP & DAE
+
+  if (UnitAtATime)
+    PM->add(llvm::createFunctionAttrsPass()); // Set readonly/readnone attrs
+  if (OptLevel > 2)
+    PM->add(llvm::createArgumentPromotionPass()); // Scalarize uninlined fn args
+
+  // A workaround to fix regression in sgemm on CPU and not causing new
+  // regression on Machine with Gather Scatter
+  int sroaArrSize = 16;
+  if (HasGatherScatter)
+    sroaArrSize = -1;
+  // Break up aggregate allocas
+  PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));
+  if (SimplifyLibCalls)
+    PM->add(llvm::createSimplifyLibCallsPass()); // Library Call Optimizations
+  PM->add(llvm::createEarlyCSEPass());           // Catch trivial redundancies
+  PM->add(llvm::createInstructionSimplifierPass());
+  PM->add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
+  PM->add(llvm::createJumpThreadingPass());        // Thread jumps.
+  // Propagate conditionals
+  PM->add(llvm::createCorrelatedValuePropagationPass());
+  PM->add(llvm::createCFGSimplificationPass());      // Merge & remove BBs
+  PM->add(llvm::createInstructionCombiningPass());   // Combine silly seq's
+
+  PM->add(llvm::createTailCallEliminationPass()); // Eliminate tail calls
+  PM->add(llvm::createCFGSimplificationPass());   // Merge & remove BBs
+  PM->add(llvm::createReassociatePass());         // Reassociate expressions
+  PM->add(llvm::createLoopRotatePass());          // Rotate Loop
+  PM->add(llvm::createLICMPass());                // Hoist loop invariants
+  PM->add(llvm::createLoopUnswitchPass(OptimizeSize || OptLevel < 3));
+  PM->add(llvm::createInstructionCombiningPass());
+  PM->add(llvm::createInstructionSimplifierPass());
+  PM->add(llvm::createIndVarSimplifyPass()); // Canonicalize indvars
+  PM->add(llvm::createLoopDeletionPass());   // Delete dead loops
+  if (UnrollLoops) {
+    PM->add(llvm::createLoopUnrollPass(512, 0, 0)); // Unroll small loops
+  }
+  if (!isDBG) {
+    PM->add(llvm::createFunctionInliningPass(4096)); // Inline (not only small)
+                                                     // functions
+  }
+  // A workaround to fix regression in sgemm on CPU and not causing new
+  // regression on Machine with Gather Scatter
+  // Break up aggregate allocas
+  PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));
+  // Clean up after the unroller
+  PM->add(llvm::createInstructionCombiningPass());
+  PM->add(llvm::createInstructionSimplifierPass());
+  if (allowAllocaModificationOpt) {
+    if (OptLevel > 1)
+      PM->add(llvm::createGVNPass());     // Remove redundancies
+    PM->add(llvm::createMemCpyOptPass()); // Remove memcpy / form memset
+  }
+  PM->add(llvm::createSCCPPass()); // Constant prop with SCCP
+
+  // Run instcombine after redundancy elimination to exploit opportunities
+  // opened up by them.
+  PM->add(llvm::createInstructionCombiningPass());
+  PM->add(llvm::createJumpThreadingPass()); // Thread jumps
+  PM->add(llvm::createCorrelatedValuePropagationPass());
+  PM->add(llvm::createDeadStoreEliminationPass()); // Delete dead stores
+  PM->add(llvm::createAggressiveDCEPass());        // Delete dead instructions
+  PM->add(llvm::createCFGSimplificationPass());    // Merge & remove BBs
+  PM->add(llvm::createInstructionCombiningPass()); // Clean up after everything.
+
+  if (UnitAtATime) {
+    // Get rid of dead prototypes
+    PM->add(llvm::createStripDeadPrototypesPass());
+
+    // GlobalOpt already deletes dead functions and globals, at -O3 try a
+    // late pass of GlobalDCE.  It is capable of deleting dead cycles.
+    if (OptLevel > 2)
+      PM->add(llvm::createGlobalDCEPass()); // Remove dead fns and globals.
+
+    if (OptLevel > 1)
+      PM->add(llvm::createConstantMergePass()); // Merge dup global constants
+  }
+  PM->add(llvm::createUnifyFunctionExitNodesPass());
+}
+
+Pass *createDataLayout(Module *M) {
+#if LLVM_VERSION == 3425
+  return new llvm::TargetData(M);
+#else
+  return new llvm::DataLayout(M);
+#endif
+}
+
+static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
+                                       llvm::Module *M,
+                                       unsigned OptLevel,
+                                       const intel::OptimizerConfig *pConfig,
+                                       bool isOcl20,
+                                       bool UnrollLoops) {
+  DebuggingServiceType debugType =
+      getDebuggingServiceType(pConfig->GetDebugInfoFlag());
+  PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
+  PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
+      pConfig->GetIRDumpOptionsBefore());
+  bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
+
+  PM.add(createDataLayout(M));
+  if (isOcl20) {
+    // OCL2.0 resolve block to static call
+    PM.add(createResolveBlockToStaticCallPass());
+  }
+  if (OptLevel > 0) {
+    PM.add(llvm::createCFGSimplificationPass());
+    if (OptLevel == 1)
+      PM.add(llvm::createPromoteMemoryToRegisterPass());
+    else {
+      // A workaround to fix regression in sgemm on CPU and not causing new
+      // regression on Machine with Gather Scatter
+      int sroaArrSize = 16;
+      if (HasGatherScatter)
+        sroaArrSize = -1;
+      PM.add(
+          llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));
+    }
+    PM.add(llvm::createInstructionCombiningPass());
+    PM.add(llvm::createInstructionSimplifierPass());
+  }
+  if (isOcl20) {
+    // Flatten get_{local, global}_linear_id()
+    PM.add(createLinearIdResolverPass());
+  }
+
+  // Adding module passes.
+  if (dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
+    PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_BEFORE,
+                             pConfig->GetDumpIRDir()));
+  }
+#ifdef __APPLE__
+  PM.add(createClangCompatFixerPass());
+#endif
+  // OCL2.0 add Generic Address Static Resolution pass
+  if (isOcl20) {
+    // Static resolution of generic address space pointers
+    if (OptLevel > 0) {
+      PM.add(llvm::createPromoteMemoryToRegisterPass());
+    }
+    PM.add(createGenericAddressStaticResolutionPass());
+  }
+  PM.add(llvm::createBasicAliasAnalysisPass());
+#ifndef __APPLE__
+  if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
+    PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
+                             pConfig->GetDumpIRDir()));
+  }
+  if (!pConfig->GetLibraryModule() && getenv("DISMPF") != NULL)
+    PM.add(createRemovePrefetchPass());
+#endif //#ifndef __APPLE__
+  PM.add(createShuffleCallToInstPass());
+  bool has_bar = false;
+  if (!pConfig->GetLibraryModule())
+    has_bar = hasBarriers(M);
+  bool allowAllocaModificationOpt = true;
+  if (!pConfig->GetLibraryModule() && HasGatherScatter) {
+    allowAllocaModificationOpt = false;
+  }
+  // When running the standard optimization passes, do not change the
+  // loop-unswitch
+  // pass on modules which contain barriers. This pass is illegal for
+  // barriers.
+  bool UnitAtATime = true;
+  createStandardLLVMPasses(
+      &PM, OptLevel, has_bar, // This parameter controls the unswitch pass
+      UnitAtATime, UnrollLoops, false, allowAllocaModificationOpt,
+      debugType != intel::None, HasGatherScatter);
+  // check function pointers calls are gone after standard optimizations
+  // if not compilation will fail
+  PM.add(createDetectFuncPtrCalls());
+}
+
+static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
+                                        llvm::Module *M,
+                                        llvm::Module *pRtlModule,
+                                        unsigned OptLevel,
+                                        const intel::OptimizerConfig *pConfig,
+                                        std::vector<std::string> &UndefinedExternals,
+                                        bool isOcl20,
+                                        bool UnrollLoops) {
+  bool isProfiling = pConfig->GetProfilingFlag();
+  bool DisableSimplifyLibCalls = true;
+  bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
+  DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
+  PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
+  PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
+  PM.add(createDataLayout(M));
+  PM.add(createBuiltinLibInfoPass(pRtlModule, ""));
+
+  if (isOcl20) {
+    // Repeat static resolution of generic address space pointers after 
+    // LLVM IR was optimized
+    PM.add(createGenericAddressStaticResolutionPass());
+    // No need to run function inlining pass here, because if there are still
+    // non-inlined functions left - then we don't have to inline new ones.
+  }
+  // Run the OclFunctionAttrs pass after GenericAddressStaticResolution
+  PM.add(createOclFunctionAttrsPass());
+
+  PM.add(llvm::createUnifyFunctionExitNodesPass());
+  
+
+  PM.add(llvm::createBasicAliasAnalysisPass());
+
+  if (isOcl20) {
+    // OCL2.0 Extexecution.
+    // clone block_invoke functions to kernels
+    PM.add(createCloneBlockInvokeFuncToKernelPass());
+  }
+  
+  // Should be called before vectorizer!
+  PM.add((llvm::Pass*)createInstToFuncCallPass(HasGatherScatter));
+
+  if ( debugType == intel::None && !pConfig->GetLibraryModule() ) {
+    PM.add(createKernelAnalysisPass());
+    PM.add(createCLWGLoopBoundariesPass());
+    PM.add(llvm::createDeadCodeEliminationPass());
+    PM.add(llvm::createCFGSimplificationPass());
+  }
+
+  // In Apple build TRANSPOSE_SIZE_1 is not declared
+  if( pConfig->GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
+    && debugType == intel::None
+    && OptLevel != 0)
+  {
+#ifndef __APPLE__
+    // In profiling mode remove llvm.dbg.value calls
+    // before vectorizer.
+    if (isProfiling) {
+      PM.add(createProfilingInfoPass());
     }
 
-    if (UnitAtATime) {
-      PM->add(llvm::createGlobalOptimizerPass());     // Optimize out global vars
-
-      PM->add(llvm::createIPSCCPPass());              // IP SCCP
-      PM->add(llvm::createDeadArgEliminationPass());  // Dead argument elimination
+    if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
+        PM.add(createPrintIRPass(DUMP_IR_VECTORIZER,
+               OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
     }
-    PM->add(llvm::createInstructionSimplifierPass());
-    PM->add(llvm::createInstructionCombiningPass());  // Clean up after IPCP & DAE
-    PM->add(llvm::createCFGSimplificationPass());     // Clean up after IPCP & DAE
-
-    if (UnitAtATime)
-      PM->add(llvm::createFunctionAttrsPass());       // Set readonly/readnone attrs
-    if (OptimizationLevel > 2)
-      PM->add(llvm::createArgumentPromotionPass());   // Scalarize uninlined fn args
-
-    // Start of function pass.
-    // A workaround to fix regression in sgemm on CPU and not causing new regression on Machine with Gather Scatter
-    int sroaArrSize = -1;
-    if (! pConfig->GetCpuId().HasGatherScatter())
-      sroaArrSize = 16;
-    PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));  // Break up aggregate allocas
-    if (SimplifyLibCalls)
-      PM->add(llvm::createSimplifyLibCallsPass());    // Library Call Optimizations
-    PM->add(llvm::createEarlyCSEPass());              // Catch trivial redundancies
-    PM->add(llvm::createInstructionSimplifierPass());
-    PM->add(llvm::createInstructionCombiningPass());  // Cleanup for scalarrepl.
-    PM->add(llvm::createJumpThreadingPass());         // Thread jumps.
-    PM->add(llvm::createCorrelatedValuePropagationPass()); // Propagate conditionals
-    PM->add(llvm::createCFGSimplificationPass());     // Merge & remove BBs
-    PM->add(llvm::createInstructionCombiningPass());  // Combine silly seq's
-
-    PM->add(llvm::createTailCallEliminationPass());   // Eliminate tail calls
-    PM->add(llvm::createCFGSimplificationPass());     // Merge & remove BBs
-    PM->add(llvm::createReassociatePass());           // Reassociate expressions
-    PM->add(llvm::createLoopRotatePass());            // Rotate Loop
-    PM->add(llvm::createLICMPass());                  // Hoist loop invariants
-    PM->add(llvm::createLoopUnswitchPass(OptimizeSize || OptimizationLevel < 3));
-    PM->add(llvm::createInstructionCombiningPass());
-    PM->add(llvm::createInstructionSimplifierPass());
-    PM->add(llvm::createIndVarSimplifyPass());        // Canonicalize indvars
-    PM->add(llvm::createLoopDeletionPass());          // Delete dead loops
-    if (UnrollLoops) {
-      PM->add(llvm::createLoopUnrollPass(512, 0, 0)); // Unroll small loops
+#endif //#ifndef __APPLE__
+    if(pRtlModule != NULL) {
+        PM.add(createVectorizerPass(pRtlModule, pConfig));
     }
-    if (!isDBG) {
-      PM->add(llvm::createFunctionInliningPass(4096)); //Inline (not only small) functions
+#ifndef __APPLE__
+    if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)) {
+      PM.add(createPrintIRPass(DUMP_IR_VECTORIZER, OPTION_IR_DUMPTYPE_AFTER,
+                               pConfig->GetDumpIRDir()));
     }
-    // A workaround to fix regression in sgemm on CPU and not causing new regression on Machine with Gather Scatter
-    PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));  // Break up aggregate allocas
-    PM->add(llvm::createInstructionCombiningPass());  // Clean up after the unroller
-    PM->add(llvm::createInstructionSimplifierPass());
-    if (allowAllocaModificationOpt){
-      if (OptimizationLevel > 1)
-      PM->add(llvm::createGVNPass());                 // Remove redundancies
-    PM->add(llvm::createMemCpyOptPass());             // Remove memcpy / form memset
+    if (!HasGatherScatter) {
+      PM.add(createReduceAlignmentPass());
     }
-    PM->add(llvm::createSCCPPass());                  // Constant prop with SCCP
+#endif //#ifndef __APPLE__
+  }
+#ifdef _DEBUG
+  PM.add(llvm::createVerifierPass());
+#endif
 
-    // Run instcombine after redundancy elimination to exploit opportunities
-    // opened up by them.
-    PM->add(llvm::createInstructionCombiningPass());
-    PM->add(llvm::createJumpThreadingPass());         // Thread jumps
-    PM->add(llvm::createCorrelatedValuePropagationPass());
-    PM->add(llvm::createDeadStoreEliminationPass());  // Delete dead stores
-    PM->add(llvm::createAggressiveDCEPass());         // Delete dead instructions
-    PM->add(llvm::createCFGSimplificationPass());     // Merge & remove BBs
-    PM->add(llvm::createInstructionCombiningPass());  // Clean up after everything.
+  // The ShiftZeroUpperBits pass should be added after the vectorizer because the vectorizer
+  // may transform scalar shifts into vector shifts, and we want this pass to fix all vector
+  // shift in this module.
+  PM.add(createShiftZeroUpperBitsPass());
+  PM.add(createPreventDivisionCrashesPass());
+  // We need InstructionCombining and GVN passes after ShiftZeroUpperBits, PreventDivisionCrashes passes
+  // to optimize redundancy introduced by those passes
+  if ( debugType == intel::None ) {
+    PM.add(llvm::createInstructionCombiningPass());
+    PM.add(llvm::createGVNPass());
+  }
+#ifndef __APPLE__
+  // The debugType enum and isProfiling flag are mutually exclusive, with precedence
+  // given to debugType.
+  //
+  if (debugType == Simulator) {
+    // DebugInfo pass must run before Barrier pass when debugging with simulator
+    PM.add(createDebugInfoPass());
+  } else if (isProfiling) {
+    PM.add(createProfilingInfoPass());
+  }
+#endif
+   // Get Some info about the kernel
+   // should be called before BarrierPass and createPrepareKernelArgsPass
+   if(pRtlModule != NULL) {
+     PM.add(createKernelInfoWrapperPass());
+   }
 
-    if (UnitAtATime) {
-      PM->add(llvm::createStripDeadPrototypesPass()); // Get rid of dead prototypes
+  if (isOcl20) {
+    // Resolve (dynamically) generic address space pointers which are relevant for
+    // correct execution
+    PM.add(createGenericAddressDynamicResolutionPass());
+    // No need to run function inlining pass here, because if there are still
+    // non-inlined functions left - then we don't have to inline new ones.
+  }
 
-      // GlobalOpt already deletes dead functions and globals, at -O3 try a
-      // late pass of GlobalDCE.  It is capable of deleting dead cycles.
-      if (OptimizationLevel > 2)
-        PM->add(llvm::createGlobalDCEPass());         // Remove dead fns and globals.
+  // Adding WG loops
+  if (!pConfig->GetLibraryModule()){
+    if ( debugType == intel::None ) {
+      PM.add(createCLWGLoopCreatorPass());
+    }
+    PM.add(createBarrierMainPass(debugType));
 
-      if (OptimizationLevel > 1)
-        PM->add(llvm::createConstantMergePass());       // Merge dup global constants
+    // After adding loops run loop optimizations.
+    if( debugType == intel::None ) {
+      PM.add(createCLBuiltinLICMPass());
+      PM.add(llvm::createLICMPass());
+#ifdef __APPLE__
+      // Workaround due to a bug in LICM, need to break the Loop passes flow after LICM.
+      // TODO: remove it after fixing the bug in LICM.
+      PM.add(llvm::createVerifierPass());
+#endif //#ifdef __APPLE__
+      PM.add(createLoopStridedCodeMotionPass());
+      PM.add(createCLStreamSamplerPass());
     }
   }
 
-  static inline void createStandardVolcanoFunctionPasses(llvm::PassManagerBase *PM,
-                                                  unsigned OptimizationLevel,
-                                                  const intel::OptimizerConfig* pConfig) {
-    if (OptimizationLevel > 0) {
-      PM->add(llvm::createCFGSimplificationPass());
-      if (OptimizationLevel == 1)
-        PM->add(llvm::createPromoteMemoryToRegisterPass());
-      else {
-      // A workaround to fix regression in sgemm on CPU and not causing new regression on Machine with Gather Scatter
-        int sroaArrSize = -1;
-        if (! pConfig->GetCpuId().HasGatherScatter())
-          sroaArrSize = 16;
-        PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));
-      }
-      PM->add(llvm::createInstructionCombiningPass());
-      PM->add(llvm::createInstructionSimplifierPass());
+  if( pConfig->GetRelaxedMath() ) {
+    PM.add(createRelaxedPass());
+  }
+
+  // The following three passes (AddImplicitArgs/ResolveWICall/LocalBuffer)
+  // must run before createBuiltInImportPass!
+  if(!pConfig->GetLibraryModule())
+  {
+    PM.add(createAddImplicitArgsPass());
+    PM.add(createResolveWICallPass());
+    PM.add(createLocalBuffersPass(debugType == Native));
+    // clang converts OCL's local to global.
+    // createLocalBuffersPass changes the local allocation from global to a kernel argument.
+    // The next pass createGlobalOptimizerPass cleans the unused global allocation in order to make sure
+    // we will not allocate redundant space on the jit
+    if (debugType != Native)
+      PM.add(llvm::createGlobalOptimizerPass());
+  }
+
+#ifdef _DEBUG
+  PM.add(llvm::createVerifierPass());
+#endif
+
+  // This pass checks if the module uses an undefined function or not
+  // assumption: should run after WI function resolving
+  PM.add(createUndifinedExternalFunctionsPass(UndefinedExternals));
+
+  if(pRtlModule != NULL) {
+    PM.add(createBuiltInImportPass()); // Inline BI function
+    //Need to convert shuffle calls to shuffle IR before running inline pass on built-ins
+    PM.add(createShuffleCallToInstPass());
+  }
+
+  //funcPassMgr->add(new intel::SelectLower());
+
+#ifdef _DEBUG
+  PM.add(llvm::createVerifierPass());
+#endif
+
+  if (debugType == intel::None) {
+    if (HasGatherScatter)
+      PM.add(llvm::createFunctionInliningPass(4096)); // Inline (not only small) functions.
+    else
+      PM.add(llvm::createFunctionInliningPass());     // Inline small functions
+  }
+
+  if (debugType == intel::None) {
+    PM.add(llvm::createArgumentPromotionPass());    // Scalarize uninlined fn args
+
+    if (!DisableSimplifyLibCalls) {
+      PM.add(llvm::createSimplifyLibCallsPass());   // Library Call Optimizations
+    }
+    PM.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
+    PM.add(llvm::createDeadStoreEliminationPass()); // Delete dead stores
+    PM.add(llvm::createAggressiveDCEPass());        // Delete dead instructions
+    PM.add(llvm::createCFGSimplificationPass());    // Merge & remove BBs
+    PM.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
+#ifdef __APPLE__
+    //Due to none default ABI, some built-ins are creating an allaca in middle of function.
+    //Need to run scalar aggregation to get red of these alloca (after built-in import).
+    //mem2reg pass is not enough! as it only handles alloca in first basic block.
+    PM.add(llvm::createScalarReplAggregatesPass());
+#else
+    PM.add(llvm::createPromoteMemoryToRegisterPass());
+#endif
+  }
+
+  // PrepareKernelArgsPass must run in debugging mode as well
+  if (!pConfig->GetLibraryModule())
+    PM.add(createPrepareKernelArgsPass());
+
+  if ( debugType == intel::None ) {
+    // These passes come after PrepareKernelArgs pass to eliminate the redundancy reducced by it
+    PM.add(llvm::createFunctionInliningPass());           // Inline
+    PM.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
+    PM.add(llvm::createCFGSimplificationPass());          // Simplify CFG
+    PM.add(llvm::createInstructionCombiningPass());       // Instruction combining
+    PM.add(llvm::createDeadStoreEliminationPass());       // Eliminated dead stores
+    PM.add(llvm::createEarlyCSEPass());
+    PM.add(llvm::createGVNPass());
+
+#ifdef _DEBUG
+    PM.add(llvm::createVerifierPass());
+#endif
+  }
+
+  // Remove unneeded functions from the module.
+  // *** keep this optimization last, or at least after function inlining! ***
+  if (!pConfig->GetLibraryModule())
+    PM.add(createModuleCleanupPass());
+
+#ifndef __APPLE__
+  // Add prefetches if useful for micro-architecture, if not in debug mode,
+  // and don't change libraries
+  if (debugType == None && !pConfig->GetLibraryModule() && HasGatherScatter) {
+    int APFLevel = pConfig->GetAPFLevel();
+    // do APF and following cleaning passes only if APF is not disabled
+    if (APFLevel != APFLEVEL_0_DISAPF) {
+      if (pConfig->GetCpuId().RequirePrefetch())
+        PM.add(createPrefetchPassLevel(pConfig->GetAPFLevel()));
+
+      PM.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
+      PM.add(llvm::createInstructionCombiningPass());       // Instruction combining
+      PM.add(llvm::createGVNPass());
+#ifdef _DEBUG
+      PM.add(llvm::createVerifierPass());
+#endif
     }
   }
+  if (UnrollLoops && debugType == None) {
+    PM.add(llvm::createLoopUnrollPass(4, 0, 0));          // Unroll small loops
+  }
+#endif
+}
 
 Optimizer::~Optimizer()
 {
@@ -210,359 +560,34 @@ Optimizer::Optimizer( llvm::Module* pModule,
                       llvm::Module* pRtlModule,
                       const intel::OptimizerConfig* pConfig):
 
-    m_funcStandardLLVMPasses(pModule),
     m_pModule(pModule)
 {
-  using namespace intel;
 
-  bool UnitAtATime = true;
-  bool DisableSimplifyLibCalls = true;
-  DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
+  DebuggingServiceType debugType =
+      getDebuggingServiceType(pConfig->GetDebugInfoFlag());
 #ifndef __APPLE__
-  bool isProfiling = pConfig->GetProfilingFlag();
-
-  PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
-  PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
-
-  if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
-    m_moduleStandardLLVMPasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
-               OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
-  }
 
   // Materializing the spir datalayout according to the triple.
   materializeSpirDataLayout(*pModule);
 #endif //#ifndef __APPLE__
 
-  unsigned int uiOptLevel;
-  if (pConfig->GetDisableOpt() || debugType != intel::None) {
-    uiOptLevel = 0;
-  } else {
-    uiOptLevel = 3;
-  }
+  unsigned int OptLevel = 3;
+  if (pConfig->GetDisableOpt() || debugType != intel::None)
+    OptLevel = 0;
 
-#if LLVM_VERSION == 3425
-  llvm::TargetData *pDL1 = new llvm::TargetData(pModule);
-  llvm::TargetData *pDL2 = new llvm::TargetData(pModule);
-  llvm::TargetData *pDL3 = new llvm::TargetData(pModule);
-#else
-  llvm::DataLayout *pDL1 = new llvm::DataLayout(pModule);
-  llvm::DataLayout *pDL2 = new llvm::DataLayout(pModule);
-  llvm::DataLayout *pDL3 = new llvm::DataLayout(pModule);
-#endif
-  m_modulePasses.add(createBuiltinLibInfoPass(pRtlModule, ""));
-
-// Adding function passes.
-  m_funcStandardLLVMPasses.add(pDL1);
   // Detect OCL2.0 compilation mode
-  const bool isOcl20 = CompilationUtils::getCLVersionFromModuleOrDefault(*pModule) >=
-                 OclVersion::CL_VER_2_0;
-  
-  // OCL2.0 resolve block to static call
-  if(isOcl20)
-    m_funcStandardLLVMPasses.add(createResolveBlockToStaticCallPass());
+  const bool isOcl20 = CompilationUtils::getCLVersionFromModuleOrDefault(
+                           *pModule) >= OclVersion::CL_VER_2_0;
+  bool UnrollLoops = true;
+  // Add passes which will run unconditionally
+  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, OptLevel, pConfig,
+                             isOcl20, UnrollLoops);
 
-  createStandardVolcanoFunctionPasses(&m_funcStandardLLVMPasses, uiOptLevel, pConfig);
-
-// Adding module passes.
-// Add an appropriate DataLayout instance for this module...
-  m_moduleStandardLLVMPasses.add(pDL2);
-
-#ifdef __APPLE__
-  m_moduleStandardLLVMPasses.add(createClangCompatFixerPass());
-#endif
-   
-  // OCL2.0 add Generic Address Static Resolution pass
-  if (isOcl20) {
-    // Static resolution of generic address space pointers
-    if (uiOptLevel > 0) {
-      m_moduleStandardLLVMPasses.add(llvm::createPromoteMemoryToRegisterPass());
-    }
-    m_moduleStandardLLVMPasses.add(createGenericAddressStaticResolutionPass());
-    // Flatten get_{local, global}_linear_id()
-    m_funcStandardLLVMPasses.add(createLinearIdResolverPass());
-  }
-  m_modulePasses.add(createOclFunctionAttrsPass());
-  m_moduleStandardLLVMPasses.add(llvm::createBasicAliasAnalysisPass());
-#ifndef __APPLE__
-  if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)){
-    m_moduleStandardLLVMPasses.add(createPrintIRPass(DUMP_IR_TARGERT_DATA,
-               OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
-  }
-  if (!pConfig->GetLibraryModule() && getenv("DISMPF") != NULL)
-    m_moduleStandardLLVMPasses.add(createRemovePrefetchPass());
-#endif //#ifndef __APPLE__
-
-  m_moduleStandardLLVMPasses.add(createShuffleCallToInstPass());
-
-  bool has_bar = false;
-  if (!pConfig->GetLibraryModule())
-    has_bar = hasBarriers(pModule);
-
-  bool allowAllocaModificationOpt = true;
-  if (!pConfig->GetLibraryModule() && pConfig->GetCpuId().HasGatherScatter()) {
-    allowAllocaModificationOpt = false;
-  }
-  const bool unrollLoops = true;
-  // When running the standard optimization passes, do not change the loop-unswitch
-  // pass on modules which contain barriers. This pass is illegal for barriers.
-  createStandardVolcanoModulePasses(
-      &m_moduleStandardLLVMPasses,
-      uiOptLevel,
-      has_bar, // This parameter controls the unswitch pass
-      UnitAtATime,
-      unrollLoops,
-      false,
-      allowAllocaModificationOpt,
-      debugType != intel::None,
-      pConfig);
-
-  if (isOcl20) {
-    // Repeat static resolution of generic address space pointers after 
-    // LLVM IR was optimized
-    m_modulePasses.add(createGenericAddressStaticResolutionPass());
-    // No need to run function inlining pass here, because if there are still
-    // non-inlined functions left - then we don't have to inline new ones.
-    // Run the OclFunctionAttrs pass again after GenericAddressStaticResolution
-    m_modulePasses.add(createOclFunctionAttrsPass());
-  }
-
-  m_modulePasses.add(llvm::createUnifyFunctionExitNodesPass());
-  m_moduleStandardLLVMPasses.add(llvm::createUnifyFunctionExitNodesPass());
-  
-  // check function pointers calls are gone after standard optimizations
-  // if not fail compilation
-  m_moduleStandardLLVMPasses.add(createDetectFuncPtrCalls());
-
-  // add DataLayout analysis to m_modulePasses
-  // we need to add it once again since standardVolcanoModulePasses
-  // has its own datalayout and basic analysis
-  // !!! Volcano m_modulePasses should have its own datalayout analysis pass
-  // since some LLVM optimizations in m_modulePasses (instcombine) are using their info
-  m_modulePasses.add(pDL3);
-  m_modulePasses.add(llvm::createBasicAliasAnalysisPass());
-
-  if (isOcl20) {
-    // OCL2.0 Extexecution.
-    // clone block_invoke functions to kernels
-    m_modulePasses.add(createCloneBlockInvokeFuncToKernelPass());
-  }
-  
-  // Should be called before vectorizer!
-  m_modulePasses.add((llvm::Pass*)createInstToFuncCallPass(pConfig->GetCpuId().HasGatherScatter()));
-
-  if ( debugType == intel::None && !pConfig->GetLibraryModule() ) {
-    m_modulePasses.add(createKernelAnalysisPass());
-    m_modulePasses.add(createCLWGLoopBoundariesPass());
-    m_modulePasses.add(llvm::createDeadCodeEliminationPass());
-    m_modulePasses.add(llvm::createCFGSimplificationPass());
-
-  }
-
-  // In Apple build TRANSPOSE_SIZE_1 is not declared
-  if( pConfig->GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
-    && debugType == intel::None
-    && uiOptLevel != 0)
-  {
-#ifndef __APPLE__
-    // In profiling mode remove llvm.dbg.value calls
-    // before vectorizer.
-    if (isProfiling) {
-      m_modulePasses.add(createProfilingInfoPass());
-    }
-
-    if(dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
-        m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
-               OPTION_IR_DUMPTYPE_BEFORE, pConfig->GetDumpIRDir()));
-    }
-#endif //#ifndef __APPLE__
-    if(pRtlModule != NULL) {
-        m_modulePasses.add(createVectorizerPass(pRtlModule, pConfig));
-    }
-#ifndef __APPLE__
-    if(dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)){
-        m_modulePasses.add(createPrintIRPass(DUMP_IR_VECTORIZER,
-               OPTION_IR_DUMPTYPE_AFTER, pConfig->GetDumpIRDir()));
-    }
-    if (!(pConfig->GetCpuId().HasGatherScatter())){
-       m_modulePasses.add(createReduceAlignmentPass());
-    }
-#endif //#ifndef __APPLE__
-  }
-#ifdef _DEBUG
-  m_modulePasses.add(llvm::createVerifierPass());
-#endif
-
-  // The ShiftZeroUpperBits pass should be added after the vectorizer because the vectorizer
-  // may transform scalar shifts into vector shifts, and we want this pass to fix all vector
-  // shift in this module.
-  m_modulePasses.add(createShiftZeroUpperBitsPass());
-  m_modulePasses.add(createPreventDivisionCrashesPass());
-  // We need InstructionCombining and GVN passes after ShiftZeroUpperBits, PreventDivisionCrashes passes
-  // to optimize redundancy introduced by those passes
-  if ( debugType == intel::None ) {
-    m_modulePasses.add(llvm::createInstructionCombiningPass());
-    m_modulePasses.add(llvm::createGVNPass());
-  }
-#ifndef __APPLE__
-  // The debugType enum and isProfiling flag are mutually exclusive, with precedence
-  // given to debugType.
-  //
-  if (debugType == Simulator) {
-    // DebugInfo pass must run before Barrier pass when debugging with simulator
-    m_modulePasses.add(createDebugInfoPass());
-  } else if (isProfiling) {
-    m_modulePasses.add(createProfilingInfoPass());
-  }
-#endif
-   // Get Some info about the kernel
-   // should be called before BarrierPass and createPrepareKernelArgsPass
-   if(pRtlModule != NULL) {
-     m_modulePasses.add(createKernelInfoWrapperPass());
-   }
-
-  if (isOcl20) {
-    // Resolve (dynamically) generic address space pointers which are relevant for
-    // correct execution
-    m_modulePasses.add(createGenericAddressDynamicResolutionPass());
-    // No need to run function inlining pass here, because if there are still
-    // non-inlined functions left - then we don't have to inline new ones.
-  }
-
-  // Adding WG loops
-  if (!pConfig->GetLibraryModule()){
-    if ( debugType == intel::None ) {
-      m_modulePasses.add(createCLWGLoopCreatorPass());
-    }
-    m_modulePasses.add(createBarrierMainPass(debugType));
-
-    // After adding loops run loop optimizations.
-    if( debugType == intel::None ) {
-      m_modulePasses.add(createCLBuiltinLICMPass());
-      m_modulePasses.add(llvm::createLICMPass());
-#ifdef __APPLE__
-      // Workaround due to a bug in LICM, need to break the Loop passes flow after LICM.
-      // TODO: remove it after fixing the bug in LICM.
-      m_modulePasses.add(llvm::createVerifierPass());
-#endif //#ifdef __APPLE__
-      m_modulePasses.add(createLoopStridedCodeMotionPass());
-      m_modulePasses.add(createCLStreamSamplerPass());
-    }
-  }
-
-  if( pConfig->GetRelaxedMath() ) {
-    m_modulePasses.add(createRelaxedPass());
-  }
-
-  // The following three passes (AddImplicitArgs/ResolveWICall/LocalBuffer)
-  // must run before createBuiltInImportPass!
-  if(!pConfig->GetLibraryModule())
-  {
-    m_modulePasses.add(createAddImplicitArgsPass());
-    m_modulePasses.add(createResolveWICallPass());
-    m_modulePasses.add(createLocalBuffersPass(debugType == Native));
-    // clang converts OCL's local to global.
-    // createLocalBuffersPass changes the local allocation from global to a kernel argument.
-    // The next pass createGlobalOptimizerPass cleans the unused global allocation in order to make sure
-    // we will not allocate redundant space on the jit
-    if (debugType != Native)
-      m_modulePasses.add(llvm::createGlobalOptimizerPass());
-  }
-
-#ifdef _DEBUG
-  m_modulePasses.add(llvm::createVerifierPass());
-#endif
-
-  // This pass checks if the module uses an undefined function or not
-  // assumption: should run after WI function resolving
-  m_modulePasses.add(createUndifinedExternalFunctionsPass(m_undefinedExternalFunctions));
-
-  if(pRtlModule != NULL) {
-    m_modulePasses.add(createBuiltInImportPass()); // Inline BI function
-    //Need to convert shuffle calls to shuffle IR before running inline pass on built-ins
-    m_modulePasses.add(createShuffleCallToInstPass());
-  }
-
-  //funcPassMgr->add(new intel::SelectLower());
-
-#ifdef _DEBUG
-  m_modulePasses.add(llvm::createVerifierPass());
-#endif
-
-  if ( debugType == intel::None ) {
-    if (pConfig->GetCpuId().HasGatherScatter())
-      m_modulePasses.add(llvm::createFunctionInliningPass(4096));     // Inline (not only small) functions.
-    else
-      m_modulePasses.add(llvm::createFunctionInliningPass());     // Inline small functions
-  }
-
-  if ( debugType == intel::None ) {
-    m_modulePasses.add(llvm::createArgumentPromotionPass());        // Scalarize uninlined fn args
-
-    if ( !DisableSimplifyLibCalls ) {
-      m_modulePasses.add(llvm::createSimplifyLibCallsPass());   // Library Call Optimizations
-    }
-    m_modulePasses.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
-    m_modulePasses.add(llvm::createDeadStoreEliminationPass());   // Delete dead stores
-    m_modulePasses.add(llvm::createAggressiveDCEPass());          // Delete dead instructions
-    m_modulePasses.add(llvm::createCFGSimplificationPass());      // Merge & remove BBs
-    m_modulePasses.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
-#ifdef __APPLE__
-    //Due to none default ABI, some built-ins are creating an allaca in middle of function.
-    //Need to run scalar aggregation to get red of these alloca (after built-in import).
-    //mem2reg pass is not enough! as it only handles alloca in first basic block.
-    m_modulePasses.add(llvm::createScalarReplAggregatesPass());
-#else
-    m_modulePasses.add(llvm::createPromoteMemoryToRegisterPass());
-#endif
-  }
-
-  // PrepareKernelArgsPass must run in debugging mode as well
-  if (!pConfig->GetLibraryModule())
-    m_modulePasses.add(createPrepareKernelArgsPass());
-
-  if ( debugType == intel::None ) {
-    // These passes come after PrepareKernelArgs pass to eliminate the redundancy reducced by it
-    m_modulePasses.add(llvm::createFunctionInliningPass());           // Inline
-    m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
-    m_modulePasses.add(llvm::createCFGSimplificationPass());          // Simplify CFG
-    m_modulePasses.add(llvm::createInstructionCombiningPass());       // Instruction combining
-    m_modulePasses.add(llvm::createDeadStoreEliminationPass());       // Eliminated dead stores
-    m_modulePasses.add(llvm::createEarlyCSEPass());
-    m_modulePasses.add(llvm::createGVNPass());
-
-#ifdef _DEBUG
-    m_modulePasses.add(llvm::createVerifierPass());
-#endif
-  }
-
-  // Remove unneeded functions from the module.
-  // *** keep this optimization last, or at least after function inlining! ***
-  if (!pConfig->GetLibraryModule())
-    m_modulePasses.add(createModuleCleanupPass());
-
-#ifndef __APPLE__
-  // Add prefetches if useful for micro-architecture, if not in debug mode,
-  // and don't change libraries
-  if (debugType == None && !pConfig->GetLibraryModule() &&
-      pConfig->GetCpuId().HasGatherScatter()) {
-    int APFLevel = pConfig->GetAPFLevel();
-    // do APF and following cleaning passes only if APF is not disabled
-    if (APFLevel != APFLEVEL_0_DISAPF) {
-      if (pConfig->GetCpuId().RequirePrefetch())
-        m_modulePasses.add(createPrefetchPassLevel(pConfig->GetAPFLevel()));
-
-      m_modulePasses.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
-      m_modulePasses.add(llvm::createInstructionCombiningPass());       // Instruction combining
-      m_modulePasses.add(llvm::createGVNPass());
-#ifdef _DEBUG
-      m_modulePasses.add(llvm::createVerifierPass());
-#endif
-    }
-  }
-  if (unrollLoops && debugType == None) {
-    m_modulePasses.add(llvm::createLoopUnrollPass(4, 0, 0));          // Unroll small loops
-  }
-#endif
+  // Add passes which will be run only if hasFunctionPtrCalls() will return
+  // false
+  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, pRtlModule, OptLevel,
+                              pConfig, m_undefinedExternalFunctions, isOcl20,
+                              UnrollLoops);
 }
 
 void Optimizer::Optimize()
@@ -571,10 +596,7 @@ void Optimizer::Optimize()
     std::auto_ptr<llvm::ModulePass> materializer(createSpirMaterializer());
     materializer->runOnModule(*m_pModule);
 #endif
-    for (llvm::Module::iterator i = m_pModule->begin(), e = m_pModule->end(); i != e; ++i) {
-        m_funcStandardLLVMPasses.run(*i);
-    }
-    m_moduleStandardLLVMPasses.run(*m_pModule);
+    m_PreFailCheckPM.run(*m_pModule);
     
     // if there are still unresolved functon pointer calls
     // after standard LLVM optimizations applied
@@ -585,21 +607,9 @@ void Optimizer::Optimize()
       return;
     }
 
-    m_modulePasses.run(*m_pModule);
+    m_PostFailCheckPM.run(*m_pModule);
 }
 
-bool Optimizer::hasBarriers(llvm::Module *pModule)
-{
-    for (llvm::Module::iterator it = pModule->begin(),e=pModule->end();it!=e;++it) {
-        llvm::Function* f = it;
-        // If name of function contain the word 'barrier', assume that
-        // the module calls a 'barrier' function.
-        if (f->getName().find("barrier") != std::string::npos) {
-            return true;
-        }
-    }
-    return false;
-}
 
 bool Optimizer::hasUndefinedExternals() const
 {
