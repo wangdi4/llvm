@@ -232,9 +232,11 @@ namespace intel {
     /// @brief store value to one of Arrays in ndrange_t struct
     StoreInst* StoreNDRangeArrayElement(Value* Ptr, Value* V, const uint64_t ArrayPosition,
      const uint64_t ElementIndex, const Twine &Name, LLVMContext* pContext, Instruction* InsertBefore);
-    /// @brief helper fucntion. 
+    /// @brief helper function.
     ///    maps ndrange_ built-ins argument index to index of array within ndrange_t struct
     uint32_t MapIndexToIndexOfArray(const uint32_t Index, const uint32_t argsNum);
+    /// @brief get the pointer size for the current target, in bits (32 or 64)
+    unsigned getPointerSize() const;
   protected:
     /// @brief The llvm current processed module
     Module      *m_pModule;

@@ -254,7 +254,7 @@ namespace intel {
       if ( indexValue >= MAX_WORK_DIM ) {
         // return overflow result (OCL SPEC requirement)
         return ConstantInt::get(*m_pLLVMContext,
-          APInt(sizeof(size_t) * BYTE_SIZE, StringRef(overflowValueString), 10));
+          APInt(getPointerSize(), StringRef(overflowValueString), 10));
       }
       return updateGetFunctionInBound(pCall, type, pCall);
     }
@@ -294,9 +294,9 @@ namespace intel {
     Instruction *pInsertBefore = getWIProperties->getTerminator();
     pResult = updateGetFunctionInBound(pCall, type, pInsertBefore);
 
-    // C.Create Phi node at the first of the spiltted BB
-    ConstantInt *const_overflow = ConstantInt::get(*m_pLLVMContext, APInt(sizeof(size_t) * BYTE_SIZE, StringRef(overflowValueString), 10));
-    PHINode *pAttrResult = PHINode::Create(IntegerType::get(*m_pLLVMContext, sizeof(size_t) * BYTE_SIZE), 2, "", splitContinue->getFirstNonPHI());
+    // C.Create Phi node at the first of the splitted BB
+    ConstantInt *const_overflow = ConstantInt::get(*m_pLLVMContext, APInt(getPointerSize(), StringRef(overflowValueString), 10));
+    PHINode *pAttrResult = PHINode::Create(IntegerType::get(*m_pLLVMContext, getPointerSize()), 2, "", splitContinue->getFirstNonPHI());
     pAttrResult->addIncoming(pResult, getWIProperties);
     pAttrResult->addIncoming(const_overflow, pBlock);
 
@@ -547,7 +547,7 @@ namespace intel {
     // The 'format' string is in constant address space (address space 2)
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 2));
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
-    params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, sizeof(size_t) * BYTE_SIZE), 0));
+    params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, getPointerSize()), 0));
 
     FunctionType *pNewType = FunctionType::get(Type::getInt32Ty(*m_pLLVMContext), params, false);
     Function::Create(pNewType, Function::ExternalLinkage, "opencl_printf", m_pModule);
@@ -1177,5 +1177,13 @@ namespace intel {
     else 
       assert(0);
     return NULL;
+  }
+
+  unsigned ResolveWICall::getPointerSize() const {
+    switch (m_pModule->getPointerSize()) {
+    default: assert(false && "unknown pointer size"); return 0;
+    case Module::Pointer32: return 32;
+    case Module::Pointer64: return 64;
+    }
   }
 } // namespace intel
