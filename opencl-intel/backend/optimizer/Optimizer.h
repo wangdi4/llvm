@@ -40,8 +40,6 @@ public:
 
     void Optimize();
 
-    bool hasBarriers(llvm::Module *pModule);
-
     bool hasUndefinedExternals() const;
 
     const std::vector<std::string>& GetUndefinedExternals() const;
@@ -57,9 +55,8 @@ public:
 private:
     
     // hold the collection of passes
-    llvm::PassManager m_modulePasses;
-    llvm::PassManager m_moduleStandardLLVMPasses;
-    llvm::FunctionPassManager m_funcStandardLLVMPasses;
+    llvm::PassManager m_PostFailCheckPM;
+    llvm::PassManager m_PreFailCheckPM;
     llvm::Module* m_pModule;
 
     std::vector<std::string> m_undefinedExternalFunctions;

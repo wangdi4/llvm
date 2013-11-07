@@ -156,13 +156,31 @@ namespace CRT_ICD_DISPATCH
         cl_context          context,
         const void*         configuration );
 
+    typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreatePipeINTEL)(
+        cl_context                  context,
+        cl_mem_flags                flags,
+        cl_uint                     pipe_packet_size,
+        cl_uint                     pipe_max_packets,
+        const cl_pipe_properties *  properties,
+        void *                      host_ptr,
+        size_t *                    size_ret,
+        cl_int *                    errcode_ret );
+
     struct SOCLCRTDispatchTable
     {
+        //-------- Common (CPU & GPU) entries --------
+
         KHRpfn_clGetKernelArgInfo                       clGetKernelArgInfo;
+        // API to create pipe with host pointer
+        INTELpfn_clCreatePipeINTEL                      clCreatePipeINTEL;
+
         INTELpfn_clGetDeviceIDsFromDX9INTEL             clGetDeviceIDsFromDX9INTEL;
         INTELpfn_clCreateFromDX9MediaSurfaceINTEL       clCreateFromDX9MediaSurfaceINTEL;
         INTELpfn_clEnqueueAcquireDX9ObjectsINTEL        clEnqueueAcquireDX9ObjectsINTEL;
         INTELpfn_clEnqueueReleaseDX9ObjectsINTEL        clEnqueueReleaseDX9ObjectsINTEL;
+
+        //-------- GPU-only entries --------
+
         INTELpfn_clGetImageParamsINTEL                  clGetImageParamsINTEL;
         // API to expose the Performance Counters to applications
         INTELpfn_clCreatePerfCountersCommandQueueINTEL  clCreatePerfCountersCommandQueueINTEL;
@@ -173,6 +191,7 @@ namespace CRT_ICD_DISPATCH
         // API to expose the Kernel Instrumentation Query to applications
         INTELpfn_clCreateProfiledProgramWithSourceINTEL clCreateProfiledProgramWithSourceINTEL;
         INTELpfn_clCreateKernelProfilingJournalINTEL    clCreateKernelProfilingJournalINTEL;
+
 #ifdef LIBVA_SHARING
         INTELpfn_clCreateFromVAMediaSurfaceINTEL        clCreateFromVAMediaSurfaceINTEL;
         INTELpfn_clGetDeviceIDsFromVAMediaAdapterINTEL  clGetDeviceIDsFromVAMediaAdapterINTEL;

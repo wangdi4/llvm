@@ -9963,3 +9963,95 @@ FINISH:
     return errCode;
 }
 SET_ALIAS( clSetKernelExecInfo );
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_mem CL_API_CALL clCreatePipe(
+    cl_context                  context,
+    cl_mem_flags                flags,
+    cl_uint                     pipe_packet_size,
+    cl_uint                     pipe_max_packets,
+    const cl_pipe_properties *  properties,
+    cl_int *                    errcode_ret )
+{
+    cl_int          errCode     = CL_SUCCESS;
+    _cl_mem_crt*    mem_handle  = NULL;
+    CrtContextInfo* ctxInfo     = NULL;
+    CrtContext*     ctx         = NULL;
+
+    ctxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
+    if( NULL == ctxInfo )
+    {
+        errCode = CL_INVALID_CONTEXT;
+        goto FINISH;
+    }
+
+    mem_handle = new _cl_mem_crt;
+    if( NULL == mem_handle )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
+    ctx = ( CrtContext* )( ctxInfo->m_object );
+    errCode = ctx->CreatePipe(
+                        flags,
+                        pipe_packet_size,
+                        pipe_max_packets,
+                        properties,
+                        ( CrtMemObject** )( &mem_handle->object ) );
+
+    if( CL_SUCCESS == errCode )
+    {
+        ( ( CrtMemObject* )( mem_handle->object ) )->SetMemHandle( mem_handle );
+    }
+
+FINISH:
+    if( CL_SUCCESS != errCode )
+    {
+        delete mem_handle;
+        mem_handle = NULL;
+    }
+    if( NULL != errcode_ret )
+    {
+        *errcode_ret = errCode;
+    }
+
+    return mem_handle;
+}
+SET_ALIAS( clCreatePipe );
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CL_API_CALL clGetPipeInfo(
+    cl_mem          pipe,
+    cl_pipe_info    param_name,
+    size_t          param_value_size,
+    void *          param_value,
+    size_t *        param_value_size_ret )
+{
+    cl_int      errCode = CL_SUCCESS;
+    CrtPipe*    crtPipe = NULL;
+
+    if( NULL == pipe )
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+
+    crtPipe = reinterpret_cast<CrtPipe*>( ( ( _cl_mem_crt* )pipe )->object );
+    if( NULL == crtPipe )
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+
+    cl_mem devMemObj = crtPipe->getAnyValidDeviceMemObj();
+    errCode = devMemObj->dispatch->clGetMemObjectInfo(
+                                        devMemObj,
+                                        param_name,
+                                        param_value_size,
+                                        param_value,
+                                        param_value_size_ret );
+
+    return errCode;
+}
+SET_ALIAS( clGetPipeInfo );

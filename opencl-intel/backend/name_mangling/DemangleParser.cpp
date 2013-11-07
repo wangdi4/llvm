@@ -343,7 +343,10 @@ namespace reflection {
   bool DemangleParser::getAddressSpace(TypeAttributeEnum& attrAddressSpace) {
     attrAddressSpace = ATTR_NONE;
     //Check if it is an address space
-    if (!match(&g_ADDRESS_SPACE_PREFIX)) return true;
+    if (!match(&g_ADDRESS_SPACE_PREFIX)) {
+      attrAddressSpace = ATTR_PRIVATE;
+      return true;
+    }
     unsigned int addressSpaceLength = 0;
     if (!getNextNumber(addressSpaceLength) ||
         (m_mangledStringLength - m_currentIndex) < addressSpaceLength ||
