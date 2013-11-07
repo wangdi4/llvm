@@ -28,7 +28,7 @@
 #define IMAGE_ELEM_SIZE     4
 // no real meaning for these numbers, I just need IMAGE_WIDTH * IMAGE_ELEM_SIZE to be a multiple of CL_DEVICE_IMAGE_PITCH_ALIGNMENT
 #define IMAGE_WIDTH         608
-#define IMAGE_HEIGHT        1507
+#define IMAGE_HEIGHT        757
 #define IMAGE_DEPTH         4
 #define IMAGE_ARRAY_SIZE    10
 #define PITCH_RATIO         2
