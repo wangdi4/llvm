@@ -75,7 +75,7 @@ namespace reflection {
   };
 
   const char* mangledAttribute[ATTR_NUM] = {
-    "U3AS0",
+    "",
     "U3AS1",
     "U3AS2",
     "U3AS3",

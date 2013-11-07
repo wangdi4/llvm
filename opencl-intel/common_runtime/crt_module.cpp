@@ -175,6 +175,9 @@ IcdDispatchMgr::IcdDispatchMgr()
     REGISTER_DISPATCH_ENTRYPOINT( clGetKernelSubGroupInfoKHR , clGetKernelSubGroupInfoKHR )
     // clEnqueueAcquireDX9MediaSurfacesKHR
     // clEnqueueReleaseDX9MediaSurfacesKHR
+
+    REGISTER_DISPATCH_ENTRYPOINT( clCreatePipe , clCreatePipe )
+    REGISTER_DISPATCH_ENTRYPOINT( clGetPipeInfo , clGetPipeInfo )
 }
 
 CrtModule::CrtModule():
