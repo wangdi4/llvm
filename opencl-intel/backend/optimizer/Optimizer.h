@@ -48,12 +48,19 @@ public:
     /// @return true if function pointer calls were detected
     bool hasFunctionPtrCalls();
 
-    /// @brief obtain functions names with function pointer calls detected
+    /// @brief recursion was detected after standard LLVM optimizations
+    /// @return true if recursion was detected
+    bool hasRecursion();
+
+    /// @brief obtain functions names with function ptr calls/recursion detected
+    /// @param funcsWithFuncPtrCalls true indicates to return function names with
+    ///        function pointer calls detected, false indicates to return function
+    ///        names with recursion detected
     /// @return reference to std::vector with function names
-    std::vector<std::string> GetFunctionPtrCallNames();
+    std::vector<std::string> GetFuncNames(bool funcsWithFuncPtrCalls);
 
 private:
-    
+
     // hold the collection of passes
     llvm::PassManager m_PostFailCheckPM;
     llvm::PassManager m_PreFailCheckPM;

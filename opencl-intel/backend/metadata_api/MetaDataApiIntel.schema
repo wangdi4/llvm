@@ -354,7 +354,14 @@
                             "name":     "FuncPtrCall",
                             "metatype": "bool_item",
                             "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "detect_recursion",
+                            "name":     "HasRecursion",
+                            "metatype": "bool_item",
+                            "optional": true
                         }
                     ]
-                }    
+                }
 }

@@ -81,6 +81,7 @@ llvm::ModulePass* createProfilingInfoPass();
 #endif
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectFuncPtrCalls();
+llvm::ModulePass *createDetectRecursionPass();
 llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
 }
@@ -296,6 +297,8 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   // check function pointers calls are gone after standard optimizations
   // if not compilation will fail
   PM.add(createDetectFuncPtrCalls());
+  // check there is no recursion, if there is fail compilation
+  PM.add(createDetectRecursionPass());
 }
 
 static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
@@ -583,8 +586,8 @@ Optimizer::Optimizer( llvm::Module* pModule,
   populatePassesPreFailCheck(m_PreFailCheckPM, pModule, OptLevel, pConfig,
                              isOcl20, UnrollLoops);
 
-  // Add passes which will be run only if hasFunctionPtrCalls() will return
-  // false
+  // Add passes which will be run only if hasFunctionPtrCalls() and hasRecursion()
+  // will return false
   populatePassesPostFailCheck(m_PostFailCheckPM, pModule, pRtlModule, OptLevel,
                               pConfig, m_undefinedExternalFunctions, isOcl20,
                               UnrollLoops);
@@ -607,6 +610,12 @@ void Optimizer::Optimize()
       return;
     }
 
+    // if there are still recursive calls  after standard
+    // LLVM optimizations applied  Compilation will report failure
+    if(hasRecursion()){
+      return;
+    }
+
     m_PostFailCheckPM.run(*m_pModule);
 }
 
@@ -623,27 +632,43 @@ const std::vector<std::string>& Optimizer::GetUndefinedExternals() const
 
 bool Optimizer::hasFunctionPtrCalls()
 {
-  return !GetFunctionPtrCallNames().empty();
+    return !GetFuncNames(true).empty();
 }
 
-std::vector<std::string> Optimizer::GetFunctionPtrCallNames()
+bool Optimizer::hasRecursion()
 {
+    return !GetFuncNames(false).empty();
+}
+
+std::vector<std::string> Optimizer::GetFuncNames(bool funcsWithFuncPtrCalls)
+{
+    bool returnFunc = false;
     assert(m_pModule && "Module is NULL");
     std::vector<std::string> res;
     MetaDataUtils mdUtils(m_pModule);
-  
+
     // check FunctionInfo exists
-    if(mdUtils.empty_FunctionsInfo())
-        return std::vector<std::string>();
+    if(mdUtils.empty_FunctionsInfo()){
+      return std::vector<std::string>();
+    }
 
     MetaDataUtils::FunctionsInfoMap::iterator i = mdUtils.begin_FunctionsInfo();
     MetaDataUtils::FunctionsInfoMap::iterator e = mdUtils.end_FunctionsInfo();
-    for(; i != e; ++i )
-    {
+    for(; i != e; ++i ){
         llvm::Function * pFunc = i->first;
         Intel::FunctionInfoMetaDataHandle kimd = i->second;
-        if(kimd->isFuncPtrCallHasValue() && kimd->getFuncPtrCall() == true)
-            res.push_back(pFunc->getName());
+        // If additional else-ifs are needed in order to examine other function properties,
+        // better change the "bool callingFunc" to an enum and use switch-case.
+        if(funcsWithFuncPtrCalls == true){  // if calling func = hasFunctionPtrCall
+          returnFunc = kimd->isFuncPtrCallHasValue() && kimd->getFuncPtrCall();
+        }
+        else{ // if calling func = hasRecursion
+          returnFunc = kimd->isHasRecursionHasValue() && kimd->getHasRecursion();
+        }
+        if(returnFunc){
+          res.push_back(pFunc->getName());
+          returnFunc = false;
+        }
     }
 
     return res;

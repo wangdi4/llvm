@@ -345,6 +345,7 @@ set( BACKEND_PASSES
     BuiltInFuncImport
     BuiltinLibInfo
     DebugInfoPass
+    DetectRecursion
     InstToFuncCall
     GenericAddressResolution
     LocalBuffers

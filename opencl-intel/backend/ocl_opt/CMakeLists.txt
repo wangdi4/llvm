@@ -38,6 +38,7 @@ set(OCL_BE_PASSES
     DetectFunctionPtrCalls
     ResolveWICall
     CloneBlockInvokeFuncToKernel
+    DetectRecursion
     ResolveBlockToStaticCall
 )
 
