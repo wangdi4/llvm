@@ -51,6 +51,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeKernelAnalysisPass(Registry);
     intel::initializeIRInjectModulePass(Registry);
     intel::initializenameByInstTypePass(Registry);
+    intel::initializeDuplicateCalledKernelsPass(Registry);
     intel::initializeRedundantPhiNodePass(Registry);
     intel::initializeGroupBuiltinPass(Registry);
     intel::initializeBarrierInFunctionPass(Registry);
@@ -60,7 +61,6 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeWIRelatedValuePass(Registry);
     intel::initializeDataPerBarrierPass(Registry);
     intel::initializeDataPerValuePass(Registry);
-    intel::initializeDataPerInternalFunctionPass(Registry);
     intel::initializePreventDivCrashesPass(Registry);
     intel::initializeShuffleCallToInstPass(Registry);
     intel::initializeInstToFuncCallPass(Registry);
@@ -86,6 +86,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeResolveWICallPass(Registry);
     intel::initializeCloneBlockInvokeFuncToKernelPass(Registry);
     intel::initializeResolveBlockToStaticCallPass(Registry);
+    intel::initializeDetectRecursionPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);
 }
 

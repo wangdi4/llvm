@@ -23,10 +23,12 @@ define void @main(i32 %arg) nounwind {
   %a = alloca [4 x float], align 4
   %p = getelementptr [4 x float]* %a, i32 0, i32 0
   %x = load float* %p, align 4
+  call void @_Z7barrierj(i32 2)
   ret void
 ; CHECK: %a = alloca [4 x float], align 4
 ; CHECK: %p = getelementptr [4 x float]* %a, i32 0, i32 0
 ; CHECK: %x = load float* %p, align 4
+; CHECK: call void @_Z7barrierj(i32 2)
 ; CHECK: ret void
 }
 
@@ -34,6 +36,8 @@ define void @main(i32 %arg) nounwind {
 ; CHECK: a is WI related
 ; CHECK: p is WI related
 ; CHECK: x is WI related
+
+declare void @_Z7barrierj(i32)
 
 !opencl.kernels = !{!0}
 !opencl.build.options = !{}

@@ -37,6 +37,7 @@ void initializeCLStreamSamplerPass(llvm::PassRegistry&);
 void initializeKernelAnalysisPass(llvm::PassRegistry&);
 void initializeIRInjectModulePass(llvm::PassRegistry&);
 void initializenameByInstTypePass(llvm::PassRegistry&);
+void initializeDuplicateCalledKernelsPass(llvm::PassRegistry&);
 void initializeRedundantPhiNodePass(llvm::PassRegistry&);
 void initializeGroupBuiltinPass(llvm::PassRegistry&);
 void initializeBarrierInFunctionPass(llvm::PassRegistry&);
@@ -46,7 +47,6 @@ void initializeBarrierPass(llvm::PassRegistry&);
 void initializeWIRelatedValuePass(llvm::PassRegistry&);
 void initializeDataPerBarrierPass(llvm::PassRegistry&);
 void initializeDataPerValuePass(llvm::PassRegistry&);
-void initializeDataPerInternalFunctionPass(llvm::PassRegistry&);
 void initializePreventDivCrashesPass(llvm::PassRegistry&);
 void initializeShuffleCallToInstPass(llvm::PassRegistry&);
 void initializeInstToFuncCallPass(llvm::PassRegistry&);
@@ -76,6 +76,7 @@ void initializeDetectFuncPtrCallsPass(llvm::PassRegistry&);
 void initializeResolveWICallPass(llvm::PassRegistry&);
 void initializeCloneBlockInvokeFuncToKernelPass(llvm::PassRegistry&);
 void initializeResolveBlockToStaticCallPass(llvm::PassRegistry&);
+void initializeDetectRecursionPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
 }
 

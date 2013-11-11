@@ -9,10 +9,11 @@
 ;;           and receives uniform value "%x" that does not cross barrier.
 ;; The expected result:
 ;;      1. Kernel "main" contains no more barrier/dummybarrier instructions
-;;      2. Kernel "main" replaced the call to function "foo" with a call to "foo_New"
-;;      3. function "foo" contains no more barrier/dummybarrier instructions
-;;      4. function "foo_New" receives these parameters (i32 %x, i32 %offset)
-;;      5. function "foo_New" contains no more barrier/dummybarrier instructions
+;;      2. Kernel "main" is still calling function "foo"
+;;      3. Kernel "main" loads "%z" value from offset 4 in the special buffer after calling "foo".
+;;      4. function "foo" contains no more barrier/dummybarrier instructions
+;;      5. function "foo" stores "%x" value to offset 4 in the special buffer before ret.
+;;      5.1. This store of value "%x" happens in a new created loop over all WIs
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
@@ -40,8 +41,29 @@ L4:
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
 ; CHECK: xor
-; CHECK: call i32 @foo_New
+; CHECK-NOT: store i32 %x
+; CHECK: call i32 @foo
 ; CHECK: br label %
+;;;; TODO: add regular expression for the below values.
+; CHECK: SyncBB11:
+; CHECK:   %loadedCurrSB = load i32* %CurrSBIndex
+; CHECK:   %"&(pSB[currWI].offset)" = add nuw i32 %loadedCurrSB, 4
+; CHECK:   %"&pSB[currWI].offset" = getelementptr inbounds i8* %pSB, i32 %"&(pSB[currWI].offset)"
+; CHECK:   %CastToValueType = bitcast i8* %"&pSB[currWI].offset" to i32*
+; CHECK:   %loadedValue = load i32* %CastToValueType
+; CHECK:   %loadedCurrSB1 = load i32* %CurrSBIndex
+; CHECK:   %"&(pSB[currWI].offset)2" = add nuw i32 %loadedCurrSB1, 0
+; CHECK:   %"&pSB[currWI].offset3" = getelementptr inbounds i8* %pSB, i32 %"&(pSB[currWI].offset)2"
+; CHECK:   %CastToValueType4 = bitcast i8* %"&pSB[currWI].offset3" to i32*
+; CHECK:   store i32 %loadedValue, i32* %CastToValueType4
+; CHECK:   %loadedCurrSB5 = load i32* %CurrSBIndex
+; CHECK:   %"&(pSB[currWI].offset)6" = add nuw i32 %loadedCurrSB5, 0
+; CHECK:   %"&pSB[currWI].offset7" = getelementptr inbounds i8* %pSB, i32 %"&(pSB[currWI].offset)6"
+; CHECK:   %CastToValueType8 = bitcast i8* %"&pSB[currWI].offset7" to i32*
+; CHECK:   %loadedValue9 = load i32* %CastToValueType8
+; CHECK:   %w = and i32 %loadedValue9, %loadedValue9
+; CHECK:   br label %L4
+;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
 ; CHECK: ret
@@ -57,13 +79,24 @@ L2:
   ret i32 %x
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
+;;;; TODO: add regular expression for the below values.
+; CHECK: loopBB:
+; CHECK:   %loadedCurrSB1 = load i32* %CurrSBIndex
+; CHECK:   %"&(pSB[currWI].offset)" = add nuw i32 %loadedCurrSB1, 4
+; CHECK:   %"&pSB[currWI].offset" = getelementptr inbounds i8* %pSB, i32 %"&(pSB[currWI].offset)"
+; CHECK:   %CastToValueType = bitcast i8* %"&pSB[currWI].offset" to i32*
+; CHECK:   store i32 %x, i32* %CastToValueType
+; CHECK:   %loadedCurrWI = load i32* %CurrWI
+; CHECK:   %check.WI.iter = icmp ult i32 %loadedCurrWI, %IterCount
+; CHECK:   %"CurrWI++" = add nuw i32 %loadedCurrWI, 1
+; CHECK:   store i32 %"CurrWI++", i32* %CurrWI
+; CHECK:   %loadedCurrSB = load i32* %CurrSBIndex
+; CHECK:   %"loadedCurrSB+Stride" = add nuw i32 %loadedCurrSB, 8
+; CHECK:   store i32 %"loadedCurrSB+Stride", i32* %CurrSBIndex
+; CHECK:   br i1 %check.WI.iter, label %loopBB, label %RetBB
+;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK: ret i32 %x
 }
-
-; CHECK: @foo_New(i32 %x, i32 %offset)
-; CHECK-NOT: @dummybarrier.
-; CHECK-NOT: @_Z7barrierj
-; CHECK: ret i32 %x
 
 declare void @_Z7barrierj(i32)
 declare i32 @_Z12get_local_idj(i32)

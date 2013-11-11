@@ -21,6 +21,27 @@ namespace intel {
 
   WIRelatedValue::WIRelatedValue() : ModulePass(ID) {}
 
+  bool WIRelatedValue::runOnModule(Module &M) {
+    //Initialize barrier utils class with current module
+    m_util.init(&M);
+
+    //Calculate the calling order for the functions to be analyzed
+    calculateCallingOrder();
+
+    //Run over the functions according to the calling order
+    //i.e. analyze caller function before callee
+    for ( TFunctionVector::iterator fi = m_orderedFunctionsToAnalyze.begin(),
+        fe = m_orderedFunctionsToAnalyze.end(); fi != fe; ++fi ) {
+      Function* pFunc = *fi;
+      //Update function argument dependency based on passed operands.
+      //i.e. if there is one caller that passes non-uniform value to
+      //and argument, then consider that argument non-uniform too.
+      updateArgumentsDep(pFunc);
+      runOnFunction(*pFunc);
+    }
+    return false;
+  }
+
   bool WIRelatedValue::runOnFunction(Function &F) {
     m_changed.clear();
 
@@ -332,6 +353,79 @@ namespace intel {
     return false;
   }
 
+  void WIRelatedValue::updateArgumentsDep(Function* pFunc) {
+
+    unsigned int numOfArgs = pFunc->getFunctionType()->getNumParams();
+
+    Function::arg_iterator argIter = pFunc->arg_begin();
+    for (unsigned int i = 0; i < numOfArgs; ++i, ++argIter) {
+      Argument* pArg = &*argIter;
+      for ( Value::use_iterator ui = pFunc->use_begin(),
+          ue = pFunc->use_end(); ui != ue; ++ui ) {
+
+        CallInst *pCallInst = dyn_cast<CallInst>(*ui);
+        // usage of pFunc can be a global variable!
+        if ( !pCallInst ) continue;
+
+        if (getWIRelation(pCallInst->getOperand(i))) {
+          m_specialValues[pArg] = true;
+        }
+      }
+    }
+  }
+
+  /// FuncNameComp - compare two Function's by their names
+  struct FuncNameComp {
+    bool operator()(const Function *A, const Function *B) const {
+      return A->getName() < B->getName();
+    }
+  };
+
+  void WIRelatedValue::calculateCallingOrder() {
+    // SetStableIterFunc sorts functions in alphabetical order and not by the
+    // pointer to the function, which gurantees a stable iterator. This relies
+    // on the assumption that there are no two functions in the module with the
+    // same name.
+    typedef std::set<Function *, FuncNameComp> SetStableIterFunc;
+    SetStableIterFunc functionsToHandle;
+
+    //Initialize functionToHandle container with functions that need to be analyzed
+    //Find all functions that call synchronize instructions
+    TFunctionSet& functionsWithSync = m_util.getAllFunctionsWithSynchronization();
+    //Collect data for each function with synchronize instruction
+    for ( TFunctionSet::iterator fi = functionsWithSync.begin(),
+        fe = functionsWithSync.end(); fi != fe; ++fi ) {
+      Function* pFunc = *fi;
+      functionsToHandle.insert(pFunc);
+    }
+    while (!functionsToHandle.empty()) {
+      for (SetStableIterFunc::iterator fi = functionsToHandle.begin(),
+                                       fe = functionsToHandle.end();
+           fi != fe; ++fi) {
+        Function *pFunc = *fi;
+        bool isRoot = true;
+        for (Value::use_iterator ui = pFunc->use_begin(), ue = pFunc->use_end();
+             ui != ue; ++ui) {
+          if ( !isa<CallInst>(*ui) ) {
+            //Something other than CallInst is using function!
+            continue;
+          }
+          CallInst *pCallInst = cast<CallInst>(*ui);
+          Function *pCallerFunc = pCallInst->getParent()->getParent();
+          if (functionsToHandle.count(pCallerFunc)) {
+            isRoot = false;
+            break;
+          }
+        }
+        if (isRoot) {
+          m_orderedFunctionsToAnalyze.push_back(pFunc);
+          functionsToHandle.erase(*fi);
+          break;
+        }
+      }
+    }
+  }
+
   void WIRelatedValue::print(raw_ostream &OS, const Module *M) const {
     if ( !M ) {
       OS << "No Module!\n";
@@ -348,7 +442,8 @@ namespace intel {
         //Store and Return instructions has no value (i.e. no name) don't print them!
         if ( isa<StoreInst>(pInst) || isa<ReturnInst>(pInst) ) continue;
         Value* pVal = (Value*)pInst;
-        bool isWIRelated = m_specialValues.find(pVal)->second;
+        bool isWIRelated = m_specialValues.count(pVal) ? 
+          m_specialValues.find(pVal)->second : false;
         //Print vale name is (not) WI related!
         OS << pVal->getName().str();
         OS << ( (isWIRelated) ? " is WI related" : " is not WI related" );

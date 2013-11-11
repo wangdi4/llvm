@@ -121,8 +121,8 @@ namespace intel {
 
     /// @brief Find all functions  in the module
     ///  that contain synchronize instructions
-    /// @returns TFunctionVector container with found functions
-    TFunctionVector& getAllFunctionsWithSynchronization();
+    /// @returns TInstructionSet container with found functions
+    TFunctionSet& getAllFunctionsWithSynchronization();
 
     /// @brief Find calls to WG functions upon their type
     /// @param type - type of WG functions to find
@@ -265,7 +265,7 @@ namespace intel {
     /// This holds the all sync basic blocks of the module
     TBasicBlockVector   m_syncBasicBlocks;
     /// This holds the all functions of the module with sync instruction
-    TFunctionVector     m_syncFunctions;
+    TFunctionSet        m_syncFunctions;
     /// This holds the all kernel functions of the module
     TFunctionVector     m_kernelFunctions;
     /// This holds all the WG function calls in the module

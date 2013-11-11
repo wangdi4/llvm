@@ -10,7 +10,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BarrierUtils.h"
 #include "DataPerBarrierPass.h"
 #include "DataPerValuePass.h"
-#include "DataPerInternalFunctionPass.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
@@ -62,7 +61,6 @@ namespace intel {
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<DataPerBarrier>();
       AU.addRequired<DataPerValue>();
-      AU.addRequired<DataPerInternalFunction>();
     }
 
     /// @brief return special buffer stride size map
@@ -100,20 +98,26 @@ namespace intel {
     /// @brief Handle synchronize value of processed function
     void replaceSyncInstructions();
 
-    /// @brief Initialize general values used to handle
-    ///  special values and synchronize instructions in the processed function
-    /// @param pInsertBefore instruction to insert new instructions before
+    /// @brief Initialize general values used to handle special values
+    ///  and synchronize instructions in the processed function
+    /// @param pFunc function to create key values for.
     /// @param hasNoInternalCalls true if and only if processed function
     ///  has no calls function inside the module
-    void initArgumentValues(Instruction *pInsertBefore, bool hasNoInternalCalls);
+    void createBarrierKeyValues(Function *pFunc, bool hasNoInternalCalls);
+
+    /// @brief Get general values used to handle special values
+    ///   and synchronize instructions in the processed function
+    /// @param pFunc function to get key values for.
+    void getBarrierKeyValues(Function* pFunc);
 
     /// @brief calculate address in special buffer
     /// @param offset offset of the address in the structure
     /// @param pType type of the address to calculate
     /// @param pInsertBefore instruction to insert new instructions before
+    /// @param pDB Debug location, NULL if not available
     /// @returns value represnting the calculated address in the special buffer
     Value* getAddressInSpecialBuffer(
-      unsigned int offset, PointerType *pType, Instruction *pInsertBefore);
+      unsigned int offset, PointerType *pType, Instruction *pInsertBefore, const DebugLoc* pDB);
 
     /// @brief return instruction to insert new instruction before
     ///  if pUserInst is not a PHINode then return pUserInst. Otherwise, 
@@ -131,48 +135,27 @@ namespace intel {
     /// @returns True if module was modified
     bool fixGetWIIdFunctions(Module &M);
 
-    /// @brief fix non inlined internal functions
-    /// @param M module to optimize
-    /// @returns True if module was modified
-    bool fixNonInlinedInternalFunctions(Module &M);
-
-    /// @brief Updates metadata nodes with new Function signature
-    /// @param pMetadata The current metadata node
-    /// @param pFunc The function to be replaced
-    /// @param pNewF The function used for replacing
-    void replaceMDUsesOfFunc(MDNode* pMetadata, Function* pFunc, Function* pNewFunc);
-
-    /// @brief Updates metadata nodes with new Function signature
-    /// @param pMetadata The current metadata node
-    void replaceMDUsesOfFunc(MDNode* pMetadata);
-
     /// @brief create new fixed function with extra offset arguments
     /// @param pFuncToFix original function to clone
-    /// @returns new created function
-    Function* createFixFunctionVersion(Function *pFuncToFix);
+    void fixNonInlineFunction(Function *pFuncToFix);
 
     /// @brief fix usage of argument by loading it from special buffer
     ///  if needed instead of reading it directly from the function arguments
     /// @param pOriginalArg original argument that need to be fix its usages
-    /// @param pOffsetArg offset in special buffer to load the argument value from
-    /// @param alwaysInSB if its true, then argument will always be loaded from
-    ///        special buffer, otherwise need to check bad offset at execute time
-    void fixArgumentUsage(Value *pOriginalArg, Value *pOffsetArg, bool alwaysInSB);
+    /// @param offsetArg offset in special buffer to load the argument value from
+    void fixArgumentUsage(Value *pOriginalArg, unsigned int offsetArg);
 
     /// @brief fix return value by storing it to special buffer at given offset
     /// @param pRetVal value to be saved, it is the function return value
-    /// @param pOffsetArg offset in special buffer to save the return value at
-    /// @param pNextInst new instructions will be added before this instruction
-    void fixReturnValue(Value *pRetVal, Value *pOffsetArg, Instruction* pNextInst);
+    /// @param offsetRet offset in special buffer to save the return value at
+    /// @param pInsertBefore new instructions will be added before this instruction
+    void fixReturnValue(Value *pRetVal, unsigned int offsetRet, Instruction* pInsertBefore);
 
-    /// @brief create new call instruction to new function
-    ///  based on the original call instruction
-    /// @param pOriginalCall original call instruction to replace
-    /// @param pOriginalFunc original cloned function
-    /// @param pNewFunc new function to call
-    /// @returns true if new call instruction created and false otherwise
-    bool createFixedCallInstruction(
-      CallInst *pOriginalCall, Function *pOriginalFunc, Function *pNewFunc);
+    /// @brief handle parameters and return value of call instruction
+    //        store relevent parametrs in sepcial buffer and load result
+    //        from special buffer.
+    /// @param pOriginalCall original call instruction to handle
+    void fixCallInstruction(CallInst *pOriginalCall);
 
     /// @brief Remove all instructions in m_toRemoveInstructions
     void eraseAllToRemoveInstructions();
@@ -190,7 +173,7 @@ namespace intel {
     /// This holds size of size_t of processed module
     unsigned int       m_uiSizeT;
     /// This holds type of size_t of processed module
-    Type         *m_sizeTType;
+    Type               *m_sizeTType;
 
     /// This holds instruction to be removed in the processed function/module
     TInstructionVector m_toRemoveInstructions;
@@ -209,32 +192,26 @@ namespace intel {
     /// This holds the container of all sync instructions in processed function
     TInstructionSet    *m_pSyncInstructions;
 
-    /// This holds the data per internal function analysis pass
-    DataPerInternalFunction *m_pDataPerInternalFunction;
+    typedef struct {
+      /// This holds the address of current WI iteration
+      Value *m_pCurrWIValue;
+      /// This holds the alloca value of processed barrier id
+      Value *m_pCurrBarrierValue;
+      /// This holds the argument value of special buffer address
+      Value *m_pSpecialBufferValue;
+      /// This holds the argument value of number of loop iterations over WIs
+      Value *m_pWIIterationCountValue;
+      /// This holds the alloca value of current stride offset in Special Buffer
+      Value *m_pCurrSBValue;
+      /// This holds the constant value of structure size of Special Buffer
+      Value *m_pStructureSizeValue;
+    } SBarrierKeyValues;
+    typedef std::map<Function*, SBarrierKeyValues> TMapFunctionToKeyValues;
 
-    /// This holds the address of current WI iteration
-    Value              *m_pCurrWIValue;
-    /// This holds the alloca value of processed barrier id
-    Value              *m_pCurrBarrierValue;
-    /// This holds the argument value of special buffer address
-    Value              *m_pSpecialBufferValue;
-    /// This holds the argument value of number of loop iterations over WIs
-    Value              *m_pWIIterationCountValue;
-    /// This holds the value represnt a bad offset
-    Value               *m_pBadOffsetValue;
-
-    /// This holds the alloca value of current stride offset in Special Buffer
-    Value *m_pCurrSBValue;
-    /// This holds the constant value of structure size of Special Buffer
-    Value *m_pStructureSizeValue;
-
-    typedef std::map<Function*, Value*> TMapFunctionToValue;
-    /// This holds a map between function and its m_pCurrWIValue
-    TMapFunctionToValue m_pCurrWIperFunction;
-    /// This holds a map between function and its m_pCurrSBValue
-    TMapFunctionToValue m_pCurrSBPerFunction;
-    /// This holds a map between function and its m_pWIIterationCountValue
-    TMapFunctionToValue m_pIterationCountPerFunction;
+    /// This holds barrier key values for current handled function
+    SBarrierKeyValues *m_currBarrierKeyValues;
+    /// This holds a map between function and its barrier key values
+    TMapFunctionToKeyValues m_pBarrierKeyValuesPerFunction;
 
     typedef std::map<BasicBlock*, BasicBlock*> TMapBasicBlockToBasicBlock;
     /// This holds a map between sync basic block and previous pre sync loop header basic block
@@ -245,12 +222,6 @@ namespace intel {
 
     /// true if and only if we are running in native (gdb) dbg mode
     bool m_isNativeDBG;
-
-    /// This holds the function to be fixed
-    Function *m_pFunc;
-
-    /// This holds the function used for fixing
-    Function *m_pNewF;
   };
 
 } // namespace intel

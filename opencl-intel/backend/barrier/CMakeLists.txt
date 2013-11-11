@@ -20,8 +20,8 @@ set(TARGET_SOURCE_FILES
   BarrierPass.cpp
   BarrierUtils.cpp
   DataPerBarrierPass.cpp
-  DataPerInternalFunctionPass.cpp
   DataPerValuePass.cpp
+  DuplicateCalledKernelsPass.cpp
   ImplicitGIDPass.cpp
   RedundantPhiNodePass.cpp
   RemoveDuplicationBarrierPass.cpp

@@ -7,6 +7,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __WI_RELATED_VALUE_PASS_H__
 #define __WI_RELATED_VALUE_PASS_H__
 
+#include "BarrierUtils.h"
+
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
@@ -40,12 +42,7 @@ namespace intel {
     /// @brief execute pass on given module
     /// @param M module to optimize
     /// @returns True if module was modified
-    virtual bool runOnModule(Module &M) {
-      for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
-        runOnFunction(*fi);
-      }
-      return false;
-    }
+    virtual bool runOnModule(Module &M);
 
     /// @brief execute pass on given function
     /// @param F function to optimize
@@ -110,7 +107,21 @@ namespace intel {
     /// @returns true if and only if value is related on WI Id
     bool getWIRelation(Value *pVal);
 
+    /// @brief updates function argument dependency
+    /// @param pFunc function to update its argument dependency
+    void updateArgumentsDep(Function* pFunc);
+
+    /// @brief calculate the calling order of all functions need to be handled
+    void calculateCallingOrder();
+
   private:
+    /// This is barrier utility class
+    BarrierUtils m_util;
+
+    /// This is a list of all functions to be fixed in processed module
+    /// that are ordered according to call graph from leaf to root
+    TFunctionVector m_orderedFunctionsToAnalyze;
+
     typedef std::map<Value*, bool> TValuesMap;
     // Internal Data used to calculate user Analysis Data
     /// Saves which values changed in this round

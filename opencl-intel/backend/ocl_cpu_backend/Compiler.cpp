@@ -116,6 +116,20 @@ void LogFuncPtrCalls( llvm::raw_ostream& logs, const std::vector<std::string>& e
     }
 }
 
+/**
+ * Generates the log record (to the given stream) enumerating function names
+   with recursive calls
+ */
+void LogHasRecursion( llvm::raw_ostream& logs, const std::vector<std::string>& externals)
+{
+    logs << "Error: recursive call in function(s):\n";
+
+    for( std::vector<std::string>::const_iterator i = externals.begin(), e = externals.end(); i != e; ++i)
+    {
+        logs << *i << "\n";
+    }
+}
+
 bool TerminationBlocker::s_released = false;
 
 } //namespace Utils
@@ -293,8 +307,15 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
 
     if( optimizer.hasFunctionPtrCalls())
     {
-      Utils::LogFuncPtrCalls( pResult->LogS(), optimizer.GetFunctionPtrCallNames());
+      Utils::LogFuncPtrCalls( pResult->LogS(), optimizer.GetFuncNames(true));
       throw Exceptions::CompilerException( "Dynamic block variable call detected.",
+                                            CL_DEV_INVALID_BINARY);
+    }
+
+    if( optimizer.hasRecursion())
+    {
+      Utils::LogHasRecursion( pResult->LogS(), optimizer.GetFuncNames(false));
+      throw Exceptions::CompilerException( "Recursive call detected.",
                                             CL_DEV_INVALID_BINARY);
     }
     //

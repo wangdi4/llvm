@@ -26,7 +26,7 @@ namespace intel {
     TFunctionVector& kernelFunctions = m_util.getAllKernelFunctions();
 
     //Find all functions that call synchronize instructions
-    TFunctionVector& functionsWithSync = m_util.getAllFunctionsWithSynchronization();
+    TFunctionSet& functionsWithSync = m_util.getAllFunctionsWithSynchronization();
 
     //Set of all functions that allready added to handle container
     //Will be used to prevent handling functions more than once

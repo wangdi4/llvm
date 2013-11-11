@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -analyze -B-FunctionAnalysis -verify %t.bc -S -o %t1.ll
+; RUN: opt -analyze -B-ValueAnalysis -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ;;*****************************************************************************
@@ -7,17 +7,13 @@
 ;; The case: kernel "main" with no barier instruction that calls function "foo",
 ;;           which returns void and receives uniform value "%x"
 ;; The expected result:
-;;      0. Kernel "main" and function "foo" were not changed
-;;  Data collected on functions analysis data collected as follow
-;;      1. Data was collected only for function "foo" with the following outputs
-;;         a. need to be fixed: 0
-;;         b. number of usages: 1
-;;         c. In special buffer counters: ( 0 )
-;;  Data collected on calls analysis data collected as follow
-;;      2. Data was collected only for "call void @foo(i32 %x)" with the following outputs
-;;         a. Offsets in special buffer: ( BAD_OFFSET )
-;;  Ordered functions to fix analysis data collected as follow
-;;      3. No data collected for "foo" or "main"
+;;  Group-A Values analysis data collected is as follows
+;;      1. No analysis data was collected to this group
+;;  Group-B.1 Values analysis data collected is as follows
+;;      2. No analysis data was collected to this group
+;;  Group-B.2 Values analysis data collected is as follows
+;;      3. No analysis data was collected to this group
+;;  Buffer Total Size is 0
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
@@ -52,20 +48,24 @@ L2:
 ; CHECK: ret void
 }
 
-; CHECK: Data collected on functions
-; CHECK-NOT: main
-; CHECK: foo
-; CHECK: need to be fixed: 0     number of usages: 0     In special buffer counters: ( 0 )
-; CHECK-NOT: main
+; CHECK: Group-A Values
+; CHECK-NOT: +
+; CHECK-NOT: -
+; CHECK-NOT: *
 
-; CHECK: Data collected on calls
-; CHECK: call void @foo(i32 %x)
-; CHECK: Offsets in special buffer: ( BAD_OFFSET )
+; CHECK: Group-B.1 Values
+; CHECK-NOT: +main
+; CHECK-NOT: +foo
 
-; CHECK: Ordered functions to fix
-; CHECK-NOT: main
-; CHECK-NOT: foo
+; CHECK: Group-B.2 Values
+; CHECK-NOT: +
+; CHECK-NOT: -
+; CHECK-NOT: *
 
+; CHECK: Buffer Total Size:
+; CHECK-NOT: entry
+; CHECK: entry(0) : (0)
+; CHECK-NOT: entry
 ; CHECK: DONE
 
 declare void @_Z7barrierj(i32)

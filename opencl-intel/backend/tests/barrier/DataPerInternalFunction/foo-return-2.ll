@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -analyze -B-FunctionAnalysis -verify %t.bc -S -o %t1.ll
+; RUN: opt -analyze -B-ValueAnalysis -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ;;*****************************************************************************
@@ -8,17 +8,15 @@
 ;;           which returns i32 and receives non-uniform value "%y",  where the return 
 ;;           value is not crossing a barrier (i.e. won't be saved in special buffer)
 ;; The expected result:
-;;      0. Kernel "main" and function "foo" were not changed
-;;  Data collected on functions analysis data collected as follow
-;;      1. Data was collected only for function "foo" with the following outputs
-;;         a. need to be fixed: 1
-;;         b. number of usages: 1
-;;         c. In special buffer counters: ( 1, 1 )
-;;  Data collected on calls analysis data collected as follow
-;;      2. Data was collected only for "call void @foo(i32 %y)" with the following outputs
-;;         a. Offsets in special buffer: ( 0, BAD_OFFSET )
-;;  Ordered functions to fix analysis data collected as follow
-;;      3. Data collected only for "foo"
+;;  Group-A Values analysis data collected is as follows
+;;      1. No analysis data was collected to this group
+;;  Group-B.1 Values analysis data collected is as follows
+;;      2. Data was collected only for function "main"
+;;      3. value "%y" was collected to this group
+;;      4. "%y" value has offset 0 in the special buffer
+;;  Group-B.2 Values analysis data collected is as follows
+;;      7. No analysis data was collected to this group
+;;  Buffer Total Size is 8
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
@@ -67,19 +65,30 @@ L4:
 ; CHECK: ret i32 %y
 }
 
-; CHECK: Data collected on functions
-; CHECK: foo
-; CHECK: need to be fixed: 1     number of usages: 1     In special buffer counters: ( 1, 1 )
+; CHECK: Group-A Values
+; CHECK-NOT: +
+; CHECK-NOT: -
+; CHECK-NOT: *
 
-; CHECK: Data collected on calls
-; CHECK: ret = call i32 @foo(i32 %y)
-; CHECK: Offsets in special buffer: ( 0, 4 )
+; CHECK: Group-B.1 Values
+; CHECK-NOT: +
+; CHECK: +main
+; CHECK-NOT: +
+; CHECK-NOT: -
+; CHECK: -y (0)
+; CHECK-NOT: -
+; CHECK-NOT: +
+; CHECK: *
 
-; CHECK: Ordered functions to fix
-; CHECK-NOT: main
-; CHECK: foo
-; CHECK-NOT: main
+; CHECK: Group-B.2 Values
+; CHECK-NOT: +
+; CHECK-NOT: -
+; CHECK-NOT: *
 
+; CHECK: Buffer Total Size:
+; CHECK-NOT: entry
+; CHECK: entry(1) : (8)
+; CHECK-NOT: entry
 ; CHECK: DONE
 
 declare void @_Z7barrierj(i32)

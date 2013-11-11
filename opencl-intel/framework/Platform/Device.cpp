@@ -163,7 +163,7 @@ cl_err_code    Device::GetInfo(cl_int param_name, size_t param_value_size, void 
 
 cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAgentDllPath, _cl_platform_id_int* pClPlatformId, vector< SharedPtr<Device> >* pOutDevices)
 {
-    Intel::OpenCL::Utils::OclDynamicLib dlModule;
+    Intel::OpenCL::Utils::OclDynamicLib dlModule(false);    // this is a work-around, because Vtune crashes when one of the libraries is loaded and then unloaded.
     // Load the DA library (First time); dlModule call to unload at destruction (when exiting from this function) BUT Device::InitDevice() is going to load it again before the unload...
     if (!dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psDeviceAgentDllPath)))
     {
