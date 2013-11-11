@@ -416,10 +416,10 @@ void executeKernels(uint32_t         in_BufferCount,
             DEBUG_PRINT("Directive[%d] id: %d\n", j, (int)directives[j].id);
             if (directives[j].id == BUFFER)
             {
-                *((void**)(kernelsArgs + directives[j].bufferDirective.offset_in_blob)) = &(directives[j].bufferDirective.mem_obj_desc);
-                DEBUG_PRINT("Pointer value[%d] = %p\n", j, &(directives[j].bufferDirective.mem_obj_desc));
                 size_t padding = directives[j].bufferDirective.isPadded ? PaddingSize : 0;
                 directives[j].bufferDirective.mem_obj_desc.pData = (uint8_t*)(in_ppBufferPointers[directives[j].bufferDirective.bufferIndex]) + padding;
+                *((void**)(kernelsArgs + directives[j].bufferDirective.offset_in_blob)) = directives[j].bufferDirective.mem_obj_desc.pData;
+                DEBUG_PRINT("Pointer value[%d] = %p\n", j, directives[j].bufferDirective.mem_obj_desc.pData);
                 DEBUG_PRINT("Pointer value = %p\n", directives[j].bufferDirective.mem_obj_desc.pData);
                 DEBUG_PRINT("First three values = %f, %f, %f\n", *(float*)directives[j].bufferDirective.mem_obj_desc.pData, *((float*)(directives[j].bufferDirective.mem_obj_desc.pData)+1), *((float*)(directives[j].bufferDirective.mem_obj_desc.pData)+2));
             }

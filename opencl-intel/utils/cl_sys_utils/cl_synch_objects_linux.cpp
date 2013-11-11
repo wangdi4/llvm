@@ -59,8 +59,7 @@ OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive) : m_uiSpinCount(uiS
         pthread_mutexattr_settype( p_attr, PTHREAD_MUTEX_RECURSIVE );
     }
 
-    m_mutexHndl = new pthread_mutex_t;
-    if (0 != pthread_mutex_init((pthread_mutex_t*)m_mutexHndl, p_attr))
+    if (0 != pthread_mutex_init(&m_mutex, p_attr))
     {
         assert(0 && "Failed initialize pthread mutex");
     }
@@ -75,12 +74,10 @@ OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive) : m_uiSpinCount(uiS
  ************************************************************************/
 OclMutex::~OclMutex()
 {
-    if (0 != pthread_mutex_destroy((pthread_mutex_t*)m_mutexHndl))
+    if (0 != pthread_mutex_destroy(&m_mutex))
     {
         assert(0 && "Failed destroy pthread mutex");
     }
-    delete((pthread_mutex_t*)m_mutexHndl);
-    m_mutexHndl = NULL;
 }
 
 /************************************************************************
@@ -97,7 +94,7 @@ void OclMutex::Lock()
  ************************************************************************/
 void OclMutex::Unlock()
 {
-    pthread_mutex_unlock((pthread_mutex_t*)m_mutexHndl);
+    pthread_mutex_unlock(&m_mutex);
 }
 
 void OclMutex::spinCountMutexLock()
@@ -106,7 +103,7 @@ void OclMutex::spinCountMutexLock()
     unsigned int i = 0;
     do
     {
-        err = pthread_mutex_trylock((pthread_mutex_t*)m_mutexHndl);
+        err = pthread_mutex_trylock(&m_mutex);
         // Mutex lock succeded.
         if (err == 0)
         {
@@ -120,7 +117,7 @@ void OclMutex::spinCountMutexLock()
         }
         i++;
     } while (i < m_uiSpinCount);
-    pthread_mutex_lock((pthread_mutex_t*)m_mutexHndl);
+    pthread_mutex_lock(&m_mutex);
 }
 
 /************************************************************************
@@ -150,12 +147,12 @@ OclCondition::~OclCondition()
  ************************************************************************/
 COND_RESULT OclCondition::Wait(OclMutex* mutexObj)
 {
-	assert(((mutexObj) && (mutexObj->m_mutexHndl)) && "mutexObj must be valid object");
-	if ((NULL == mutexObj) || (NULL == mutexObj->m_mutexHndl))
+	assert( mutexObj && "mutexObj must be valid object");
+	if ( NULL == mutexObj )
     {
         return COND_RESULT_FAIL;
     }
-	if (0 != pthread_cond_wait(&m_condVar, (pthread_mutex_t*)(mutexObj->m_mutexHndl)))
+	if (0 != pthread_cond_wait(&m_condVar, &mutexObj->m_mutex))
 	{
 		return COND_RESULT_FAIL;
 	}

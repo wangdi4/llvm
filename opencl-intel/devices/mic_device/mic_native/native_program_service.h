@@ -79,52 +79,48 @@ private:
 // ProgramService class
 class ProgramService
 {
-
 public:
-	// return size of filled area in buffer
-	size_t getBackendTargetDescription( size_t buffer_size, void* buffer ) const;
-	size_t getBackendTargetDescriptionSize( void ) const;
+    // return size of filled area in buffer
+    size_t getBackendTargetDescription( size_t buffer_size, void* buffer ) const;
+    size_t getBackendTargetDescriptionSize( void ) const;
 
-	// add/remove program
-	cl_dev_err_code add_program( size_t prog_blob_size, void* prog_blob,  // serialized prog
+    // add/remove program
+    cl_dev_err_code add_program( size_t prog_blob_size, void* prog_blob,  // serialized prog
                     const COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT* prog_info,
                     COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT*      fill_kernel_info );
 
-	void remove_program( uint64_t be_program_id );
+    void remove_program( uint64_t be_program_id );
 
-	// create binary according to input parameters
-	cl_dev_err_code create_binary( const ICLDevBackendKernel_* pKernel, 
-		                           char* pLockedParams, 
-								   uint64_t argSize,
-								   cl_work_description_type* pWorkDesc,
-								   ICLDevBackendBinary_** ppOutBinary ) const;
+    // create binary according to input parameters
+    cl_dev_err_code create_binary( const ICLDevBackendKernel_* pKernel,
+                               char* pLockedParams,
+                               uint64_t argSize,
+                               cl_work_description_type* pWorkDesc,
+                               ICLDevBackendBinary_** ppOutBinary ) const;
 
 	cl_dev_err_code create_executable(ICLDevBackendExecutable_** ppExecutable) const;
-	
-	// singleton
-	static ProgramService& getInstance( void )
-	{
-	  assert( m_gProgramService && "SINK Native ProgramService not initialized" );
-	  return *m_gProgramService;
-	};
 
-	static cl_dev_err_code createProgramService( void );
-	static void releaseProgramService( void );
+    // singleton
+    static ProgramService& getInstance( void )
+    {
+        assert( m_gProgramService && "SINK Native ProgramService not initialized" );
+        return *m_gProgramService;
+    };
 
-	// get kernel
-	// called by worker and pipeline threads
-	static bool get_kernel( uint64_t device_info_ptr,
-	               const ICLDevBackendKernel_** kernel);
+    static cl_dev_err_code createProgramService( void );
+    static void releaseProgramService( void );
+
+    // called by worker and pipeline threads
+    static  const ICLDevBackendKernel_* GetKernelPointer( uint64_t device_ptr) { return ((TKernelEntry*)((size_t)device_ptr))->kernel; }
 
 #ifdef USE_ITT
-	static __itt_string_handle* get_itt_kernel_name(uint64_t device_info_ptr);
-	static __itt_domain*        get_itt_kernel_domain(uint64_t device_info_ptr);
+    static __itt_string_handle* get_itt_kernel_name(uint64_t device_info_ptr);
+    static __itt_domain*        get_itt_kernel_domain(uint64_t device_info_ptr);
 #endif
 
 private:
     ProgramService();
     ~ProgramService();
-
 
     // compiler interfaces. Initialized on the first access
     struct BackendInterfaces {
@@ -136,35 +132,30 @@ private:
         BackendInterfaces():  pExecutionService(NULL),
                               pSerializationService(NULL)
                               {};
+    };
 
-  };
-
-  struct TKernelEntry
-  {
-      static const uint64_t       marker_value = 0xBEAFF00D;
-      uint64_t                    marker;         // set it to the marker_value at constructor
-
-      const ICLDevBackendKernel_* kernel;         // The pointer is not required to be deleted
-  #ifdef USE_ITT
-      __itt_string_handle*  pIttKernelName;   // The value is not required to freed by the ITT
-      __itt_domain*         pIttKernelDomain;
-  #endif
+    struct TKernelEntry
+    {
+        const ICLDevBackendKernel_* kernel;         // The pointer is not required to be deleted
+#ifdef USE_ITT
+        __itt_string_handle*  pIttKernelName;   // The value is not required to freed by the ITT
+        __itt_domain*         pIttKernelDomain;
+#endif
 
       // constructor
-      TKernelEntry( void ) : marker( marker_value ), kernel(NULL)
-  #ifdef USE_ITT
+      TKernelEntry( void ) : kernel(NULL)
+#ifdef USE_ITT
       , pIttKernelName(NULL)
-  #endif
+#endif
       {}
+    };
 
-  };
-
-  struct TProgramEntry
-  {
-      ICLDevBackendProgram_*  pProgram;
-      ProgramMemoryManager*   exec_memory_manager;
-      TKernelEntry*           pKernels;
-  };
+    struct TProgramEntry
+    {
+        ICLDevBackendProgram_*  pProgram;
+        ProgramMemoryManager*   exec_memory_manager;
+        TKernelEntry*           pKernels;
+    };
 
     typedef std::map<uint64_t, TProgramEntry*> TProgId2Map;
 

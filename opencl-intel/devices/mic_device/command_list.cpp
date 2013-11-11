@@ -56,11 +56,15 @@ CommandList::CommandList(const SharedPtr<NotificationPort>& pNotificationPort,
                          PerformanceDataStore* pOverheadData,
                          cl_dev_subdevice_id subDeviceId,
                          bool isInOrder,
-                         const ocl_gpa_data* pGPAData) :
+                         bool isProfiling
+#ifdef USE_ITT
+                         , const ocl_gpa_data* pGPAData
+#endif
+                         ) :
         m_validBarrier(false), m_pNotificationPort(pNotificationPort),
         m_pDeviceServiceComm(pDeviceServiceComm), m_pFrameworkCallBacks(pFrameworkCallBacks),
         m_pProgramService(pProgramService), m_pipe(NULL), m_pDeviceAddress(0), m_subDeviceId(subDeviceId),
-        m_pOverhead_data(pOverheadData), m_lastCommand(NULL), m_isInOrderQueue(isInOrder), m_bIsCanceled(false)
+        m_pOverhead_data(pOverheadData), m_lastCommand(NULL), m_isInOrderQueue(isInOrder), m_isProfilingEnabled(isProfiling), m_bIsCanceled(false)
 #ifdef USE_ITT
         ,m_pGPAData(pGPAData)
 #endif
@@ -99,18 +103,19 @@ cl_dev_err_code CommandList::commandListFactory(cl_dev_cmd_list_props IN        
 {
     const int MIC_SUPPORTED_COMMAND_QUEUE_PROPERTIES = CL_DEV_LIST_ENABLE_OOO | CL_DEV_LIST_PROFILING;
     cl_dev_err_code result = CL_DEV_SUCCESS;
-    bool isOOO = (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO) );
     //Check for unsupported properties
     if (0 != ((int)props & ~MIC_SUPPORTED_COMMAND_QUEUE_PROPERTIES))
     {
         return CL_DEV_INVALID_PROPERTIES;
     }
 
+    bool isInOrder = (0 == ((int)props & (int)CL_DEV_LIST_ENABLE_OOO) );
+    bool isProfiling = (0 != ((int)props & (int)CL_DEV_LIST_PROFILING) );
     CommandList* tCommandList = new CommandList(pNotificationPort, pDeviceServiceComm, 
                                                 pFrameworkCallBacks, pProgramService, 
-                                                pOverheadData, subDeviceId, !isOOO
+                                                pOverheadData, subDeviceId, isInOrder, isProfiling
 #ifdef USE_ITT
-                                                 ,pGPAData
+                                                ,pGPAData
 #endif
                                                 );
     if (NULL == tCommandList)
@@ -209,10 +214,10 @@ cl_dev_err_code CommandList::commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_ui
         // Send the command for execution. pCmdObject will delete itself.
         rc = pCmdObject->execute();
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
-    {
-      __itt_task_end(m_pGPAData->pDeviceDomain);
-    }
+        if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+        {
+            __itt_task_end(m_pGPAData->pDeviceDomain);
+        }
 #endif
         if (CL_DEV_FAILED(rc))
         {
@@ -331,7 +336,7 @@ cl_dev_err_code CommandList::createCommandObject(cl_dev_cmd_desc* cmd, SharedPtr
   }
 #endif
 
-    return rc;
+	return rc;
 }
 
 cl_dev_err_code CommandList::createPipeline()
@@ -361,24 +366,35 @@ cl_dev_err_code CommandList::initCommandListOnDevice()
     cl_dev_err_code res = runBlockingFuncOnDevice(DeviceServiceCommunication::INIT_COMMANDS_QUEUE,
                                                   &data, sizeof(data),
                                                   &data_out, sizeof(data_out));
-
-    if (CL_DEV_SUCCEEDED(res))
+    if ( CL_DEV_FAILED(res) )
     {
-        res = data_out.ret_code;
-
-        if (CL_DEV_SUCCEEDED(res))
-        {
-            assert( 0 != data_out.device_queue_address );
-            m_pDeviceAddress = data_out.device_queue_address;
-        }
+        assert ( 0 && "Queue creation function call failed" );
+        return res;
     }
 
+    res = data_out.ret_code;
+    if ( CL_DEV_FAILED(res) )
+    {
+        assert ( 0 && "Queue creation failed on device" );
+        return res;
+    }
+
+    assert( 0 != data_out.device_queue_address && "Queue creationFailed to create queue on device");
+    m_pDeviceAddress = data_out.device_queue_address;
     return res;
 }
 
 cl_dev_err_code CommandList::releaseCommandListOnDevice()
 {
-    return runBlockingFuncOnDevice(DeviceServiceCommunication::RELEASE_COMMANDS_QUEUE);
+    cl_dev_err_code res;
+    cl_dev_err_code devRes;
+
+    res = runBlockingFuncOnDevice(DeviceServiceCommunication::RELEASE_COMMANDS_QUEUE,
+        &m_pDeviceAddress, sizeof(m_pDeviceAddress),
+        &devRes, sizeof(devRes));
+
+    assert( CL_DEV_SUCCEEDED(res) && CL_DEV_SUCCEEDED(devRes) && "Failed to release queue");
+    return CL_DEV_SUCCEEDED(res) && CL_DEV_SUCCEEDED(devRes) ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL;
 }
 
 cl_dev_err_code CommandList::cancelCommandList()
@@ -441,6 +457,7 @@ cl_dev_err_code CommandList::runBlockingFuncOnDevice(DeviceServiceCommunication:
 
 SharedPtr<Command> CommandList::getLastCommand()
 {
+  // TODO: not clear why mutex is requried. it's single read operation
     OclAutoMutex lock(&m_lastCommandMutex);
     SharedPtr<Command> retCommand = m_lastCommand;
     return retCommand;
@@ -462,3 +479,30 @@ void CommandList::resetLastCommand(const SharedPtr<Command>& oldCommand)
     }
 }
 
+void CommandList::getLastDependentBarrier(COIEVENT* barrier, unsigned int* numDependencies, bool isExecutionTask)
+{
+    assert( NULL != numDependencies && "invalid input, NULL is not expected" );
+    assert( NULL != barrier         && "invalid input, NULL is not expected" );
+
+    if ( !m_isInOrderQueue )
+    {
+      *numDependencies = 0;
+      return;
+    }
+
+    // Need to obtain local reference to the last command
+    SharedPtr<Command> lastCmd = getLastCommand();
+
+    /* If last command is NULL --> Last command completed or not exist; or the current command is going to enqueue to COIPipe and the last Command also enqueued to COIPipe
+      Then we can return NULL as the barrier. */
+    if ((NULL == lastCmd) || ((isExecutionTask) && (lastCmd->commandEnqueuedToPipe())))
+    {
+      *numDependencies = 0;
+    }
+    else
+    {
+      assert(lastCmd && "lastCmd Must be valid pointer");
+      *barrier = lastCmd->getCommandCompletionEvent();
+      *numDependencies = 1;
+    }
+}

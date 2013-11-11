@@ -1,15 +1,34 @@
-#include "mic_device.h"
+// Copyright (c) 2006-2013 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
 #include "buffer_commands.h"
 #include "memory_allocator.h"
 #include "command_list.h"
-#include "mic_device_interface.h"
-#include "cl_sys_info.h"
+
+#include <cl_sys_info.h>
+#include <cl_types.h>
+#include <cl_utils.h>
 
 #include <source/COIBuffer_source.h>
 #include <source/COIProcess_source.h>
 
-#include "cl_types.h"
-#include "cl_utils.h"
 
 #include <cstring>
 
@@ -456,7 +475,9 @@ void BufferCommands::eventProfilingCall(COI_NOTIFICATIONS& type)
         assert(0 && "This case should be implemented in Command object");
     case BUFFER_OPERATION_READY:
         // Set end coi execution time for the tracer. (COI RUNNING)
+#ifdef ENABLE_MIC_TRACER
         m_commandTracer.set_current_time_coi_execution_time_start();
+#endif
         if ((m_pCmd->profiling) && (m_cmdRunningTime == 0))
         {
             m_cmdRunningTime = HostTime();
@@ -464,7 +485,9 @@ void BufferCommands::eventProfilingCall(COI_NOTIFICATIONS& type)
         break;
     case BUFFER_OPERATION_COMPLETE:
         // Set end coi execution time for the tracer. (COI COMPLETED)
+#ifdef ENABLE_MIC_TRACER
         m_commandTracer.set_current_time_coi_execution_time_end();
+#endif
         if (m_pCmd->profiling) 
         {
             m_cmdCompletionTime = HostTime();
@@ -610,7 +633,7 @@ cl_dev_err_code ReadWriteMemObject::execute()
     do {
         COIEVENT barrier;
         unsigned int numDependecies = 0;
-        m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+        m_pCommandList->getLastDependentBarrier(&barrier, &numDependecies, false);
 
         COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
 
@@ -650,8 +673,10 @@ cl_dev_err_code ReadWriteMemObject::execute()
 
         if ( CL_DEV_CMD_READ == m_pCmd->type )
         {
+#ifdef ENABLE_MIC_TRACER
             // Set command type for the tracer.
             m_commandTracer.set_command_type((char*)"Read");
+#endif
             // set coiBuffer (objPtr) initial offset
             sCpyParam.from_Offset = offset;
             memcpy(sCpyParam.vFromPitch, pObjPitchPtr, sizeof(sCpyParam.vFromPitch));
@@ -662,8 +687,10 @@ cl_dev_err_code ReadWriteMemObject::execute()
         }
         else
         {
+#ifdef ENABLE_MIC_TRACER
             // Set command type for the tracer.
             m_commandTracer.set_command_type((char*)"Write");
+#endif
             // set host pointer with the calculated offset and copy the pitch
             sCpyParam.from_Offset = ptrOffset;
             memcpy(sCpyParam.vFromPitch, cmdParams->pitch, sizeof(sCpyParam.vFromPitch));
@@ -673,9 +700,10 @@ cl_dev_err_code ReadWriteMemObject::execute()
             memcpy(sCpyParam.vToPitch, pObjPitchPtr, sizeof(sCpyParam.vToPitch));
         }
 
+#ifdef ENABLE_MIC_TRACER
         // Set start coi execution time for the tracer.
         m_commandTracer.set_current_time_coi_enqueue_command_time_start();
-
+#endif
         CopyRegion( &sCpyParam, &copier );
 
         m_memObjOfHostPtr = copier.getUsedMemObjOfHostPtr();
@@ -693,18 +721,19 @@ cl_dev_err_code ReadWriteMemObject::execute()
             break;
         }
 
+#ifdef ENABLE_MIC_TRACER
         // Set total amount of buffer operations for the Tracer.
         unsigned int amount = copier.get_total_amount_of_chunks();
         m_commandTracer.add_delta_num_of_buffer_operations(amount);
         // Set total size of buffer operations for the Tracer.
         unsigned long long size = copier.get_total_memory_processed_size();
         m_commandTracer.add_delta_buffer_operation_overall_size(size);
-
-        m_completionBarrier.cmdEvent = copier.get_last_event();
+#endif
+        m_endEvent.cmdEvent = copier.get_last_event();
 
         if (( CL_DEV_CMD_WRITE == m_pCmd->type ) && (0 == pMicMemObj->GetWriteMapsCount()))
         {
-            m_completionBarrier.cmdEvent = ForceTransferToDevice( pMicMemObj, m_completionBarrier.cmdEvent );
+            m_endEvent.cmdEvent = ForceTransferToDevice( pMicMemObj, m_endEvent.cmdEvent );
         }
         
         m_lastError = CL_DEV_SUCCESS;
@@ -835,7 +864,7 @@ cl_dev_err_code CopyMemObject::execute()
 
         COIEVENT barrier;
         unsigned int numDependecies = 0;
-        m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+        m_pCommandList->getLastDependentBarrier(&barrier, &numDependecies, false);
 
         COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
 
@@ -847,9 +876,10 @@ cl_dev_err_code CopyMemObject::execute()
             break;
         }
 
+#ifdef ENABLE_MIC_TRACER
         // Set command type for the tracer.
         m_commandTracer.set_command_type((char*)"Copy");
-
+#endif
         // Work around if the source buffer and the destination buffer are the same COI buffer, then execute the following:
         //  * Read the whole COIBuffer to temporary host buffer.
         //  * Write from the temporary host buffer instead of copy from source COIBuffer.
@@ -866,7 +896,7 @@ cl_dev_err_code CopyMemObject::execute()
                 break;
             }
 
-			COIRESULT coiResult = COIBufferRead ( pMicMemObjSrc->clDevMemObjGetCoiBufferHandler(),					// Buffer to read from.
+            COIRESULT coiResult = COIBufferRead ( pMicMemObjSrc->clDevMemObjGetCoiBufferHandler(),					// Buffer to read from.
 												 0,																	// Location in the buffer to start reading from.
 												 m_srcBufferMirror,													// A pointer to local memory that should be written into.
 												 pMicMemObjSrc->GetRawDataSize(),									// The number of bytes to write from coiBuffer into host
@@ -890,16 +920,16 @@ cl_dev_err_code CopyMemObject::execute()
                                                 false,
                                                 m_pCommandList->getDeviceProcess());
 
-		}
-		else	// Regular copy from different source and destination COIBuffers.
-		{
-			pCopier = new CopyMemoryChunk(
-											pBarrier,
-											pMicMemObjSrc,
-											pMicMemObjDst,
-											m_pCommandList->getDeviceProcess()
-										 );
-		}
+        }
+        else	// Regular copy from different source and destination COIBuffers.
+        {
+            pCopier = new CopyMemoryChunk(
+                          pBarrier,
+                          pMicMemObjSrc,
+                          pMicMemObjDst,
+                          m_pCommandList->getDeviceProcess()
+                         );
+        }
 
         assert(pCopier);
         if (NULL == pCopier)
@@ -908,9 +938,10 @@ cl_dev_err_code CopyMemObject::execute()
             break;
         }
 
+#ifdef ENABLE_MIC_TRACER
         // Set start coi execution time for the tracer.
         m_commandTracer.set_current_time_coi_enqueue_command_time_start();
-
+#endif
         CopyRegion( &sCpyParam, pCopier );
 
         //TODO Remove it when COI will fix the COIBUFFERCOPY in same COIBUFFER.
@@ -929,18 +960,19 @@ cl_dev_err_code CopyMemObject::execute()
             break;
         }
 
+#ifdef ENABLE_MIC_TRACER
         // Set total amount of buffer operations for the Tracer.
         unsigned int amount = pCopier->get_total_amount_of_chunks();
         m_commandTracer.add_delta_num_of_buffer_operations(amount);
         // Set total size of buffer operations for the Tracer.
         unsigned long long size = pCopier->get_total_memory_processed_size();
         m_commandTracer.add_delta_buffer_operation_overall_size(size);
-
-        m_completionBarrier.cmdEvent = pCopier->get_last_event();
+#endif
+        m_endEvent.cmdEvent = pCopier->get_last_event();
         
         if (0 == pMicMemObjDst->GetWriteMapsCount())
         {
-            m_completionBarrier.cmdEvent = ForceTransferToDevice( pMicMemObjDst, m_completionBarrier.cmdEvent );
+            m_endEvent.cmdEvent = ForceTransferToDevice( pMicMemObjDst, m_endEvent.cmdEvent );
         }
 
         m_lastError = CL_DEV_SUCCESS;
@@ -1054,7 +1086,7 @@ cl_dev_err_code MapMemObject::execute()
     {
         COIEVENT barrier;
         unsigned int numDependecies = 0;
-        m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+        m_pCommandList->getLastDependentBarrier(&barrier, &numDependecies, false);
 
         COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
 
@@ -1066,9 +1098,6 @@ cl_dev_err_code MapMemObject::execute()
             break;
         }
 
-        // Set command type for the tracer.
-        m_commandTracer.set_command_type((char*)"Map");
-
         MapMemoryChunk copier(
                                pBarrier,
                                pMicMemObj->clDevMemObjGetCoiBufferHandler(), // Get the COIBUFFER which represent this memory object
@@ -1076,9 +1105,12 @@ cl_dev_err_code MapMemObject::execute()
                                COI_MAP_READ_WRITE, 
                                MemoryAllocator::GetCoiMapParams(cmdParams) ); // Get the 'SMemMapParamsList' pointer of this memory object
 
+#ifdef ENABLE_MIC_TRACER
+        // Set command type for the tracer.
+        m_commandTracer.set_command_type((char*)"Map");
         // Set start coi execution time for the tracer.
         m_commandTracer.set_current_time_coi_enqueue_command_time_start();
-
+#endif
         CopyRegion( &sCpyParam, &copier );
 
         if (copier.error_occured())
@@ -1094,14 +1126,15 @@ cl_dev_err_code MapMemObject::execute()
             break;
         }
 
+#ifdef ENABLE_MIC_TRACER
         // Set total amount of buffer operations for the Tracer.
         unsigned int amount = copier.get_total_amount_of_chunks();
         m_commandTracer.add_delta_num_of_buffer_operations(amount);
         // Set total size of buffer operations for the Tracer.
         unsigned long long size = copier.get_total_memory_processed_size();
         m_commandTracer.add_delta_buffer_operation_overall_size(size);
-
-        m_completionBarrier.cmdEvent = copier.get_last_event();
+#endif
+        m_endEvent.cmdEvent = copier.get_last_event();
         pMicMemObj->IncWriteMapsCount();
         m_lastError = CL_DEV_SUCCESS;
     }
@@ -1182,9 +1215,9 @@ cl_dev_err_code UnmapMemObject::execute()
     {        
         COIEVENT barrier;
         unsigned int numDependecies = 0;
-        m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+        m_pCommandList->getLastDependentBarrier(&barrier, &numDependecies, false);
 
-		COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
+        COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
 
         assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -1205,13 +1238,14 @@ cl_dev_err_code UnmapMemObject::execute()
             break;
         }
 
-        // Set command type for the tracer.
-        m_commandTracer.set_command_type((char*)"Unmap");
-
         UnmapMemoryChunk unmapper( pBarrier );
 
+#ifdef ENABLE_MIC_TRACER
+        // Set command type for the tracer.
+        m_commandTracer.set_command_type((char*)"Unmap");
         // Set start coi execution time for the tracer.
         m_commandTracer.set_current_time_coi_enqueue_command_time_start();
+#endif
 
         // Set this object to be the context when notifying for event status change. (For the first command in case of rectangular operation)
         registerProfilingContext();
@@ -1243,18 +1277,19 @@ cl_dev_err_code UnmapMemObject::execute()
             break;
         }
 
+#ifdef ENABLE_MIC_TRACER
         // Set total amount of buffer operations for the Tracer.
         unsigned int amount = unmapper.get_total_amount_of_chunks();
         m_commandTracer.add_delta_num_of_buffer_operations(amount);
         // Set total size of buffer operations for the Tracer.
         unsigned long long size = unmapper.get_total_memory_processed_size();
         m_commandTracer.add_delta_buffer_operation_overall_size(size);
-
-        m_completionBarrier.cmdEvent = unmapper.get_last_event();
+#endif
+        m_endEvent.cmdEvent = unmapper.get_last_event();
         
         if (0 == pMicMemObj->DecWriteMapsCount())
         {
-            m_completionBarrier.cmdEvent = ForceTransferToDevice( pMicMemObj, m_completionBarrier.cmdEvent );
+            m_endEvent.cmdEvent = ForceTransferToDevice( pMicMemObj, m_endEvent.cmdEvent );
         }
         
         m_lastError = CL_DEV_SUCCESS;
@@ -1356,11 +1391,11 @@ cl_dev_err_code MigrateMemObject::execute()
 
 	do
 	{
-		COIEVENT barrier;
-		unsigned int numDependecies = 0;
-		m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, &barrier, &numDependecies, false);
+        COIEVENT barrier;
+        unsigned int numDependecies = 0;
+        m_pCommandList->getLastDependentBarrier(&barrier, &numDependecies, false);
 
-		COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
+        COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
 
         assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -1370,8 +1405,6 @@ cl_dev_err_code MigrateMemObject::execute()
             break;
         }
 
-        // Set command type for the tracer.
-        m_commandTracer.set_command_type((char*)"MigrateMemObject");
 
         m_lastError = init(coiBuffsArr, moveDataFlag, targetProcess, last_buffer_handle);
         if (m_lastError != CL_DEV_SUCCESS)
@@ -1379,9 +1412,12 @@ cl_dev_err_code MigrateMemObject::execute()
             break;
         }
 
+#ifdef ENABLE_MIC_TRACER
+        // Set command type for the tracer.
+        m_commandTracer.set_command_type((char*)"MigrateMemObject");
         // Set start coi execution time for the tracer.
         m_commandTracer.set_current_time_coi_enqueue_command_time_start();
-
+#endif
         // now enqueue all operations independently, except of the last, that should be dependent on all other
         vector<COIEVENT> independent_ops;
         independent_ops.reserve( coiBuffsArr.size() + numDependecies );
@@ -1425,7 +1461,7 @@ cl_dev_err_code MigrateMemObject::execute()
         result = COIBufferSetState(last_buffer_handle, 
                                    targetProcess, COI_BUFFER_VALID, moveDataFlag, 
                                    independent_ops.size(), barrier_list, 
-                                   &(m_completionBarrier.cmdEvent));
+                                   &(m_endEvent.cmdEvent));
         
         if (result != COI_SUCCESS)
         {

@@ -219,23 +219,23 @@ public:
 
     cl_dev_err_code clDevMemObjUpdateBackingStore( 
 	                            void* operation_handle, cl_dev_bs_update_state* pUpdateState );
-	cl_dev_err_code clDevMemObjUpdateFromBackingStore( 
+    cl_dev_err_code clDevMemObjUpdateFromBackingStore(
                                 void* operation_handle, cl_dev_bs_update_state* pUpdateState );
-	cl_dev_err_code clDevMemObjInvalidateData( );
+    cl_dev_err_code clDevMemObjInvalidateData( );
 
     cl_dev_err_code clDevMemObjRelease();
     cl_dev_err_code clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle *handle);
-	const cl_mem_obj_descriptor& clDevMemObjGetDescriptorRaw() const { return m_objDescr; };
+    const cl_mem_obj_descriptor& clDevMemObjGetDescriptorRaw() const { return m_objDescr; };
 
     cl_dev_err_code clDevMemObjCreateSubObject( cl_mem_flags mem_flags,
                     const size_t *origin, const size_t *size, 
                     IOCLDevRTMemObjectService IN *pBSService,
                     IOCLDevMemoryObject** ppSubObject );
 
-	const COIBUFFER& clDevMemObjGetCoiBufferHandler() const { return m_coi_buffer; };
-	const COIBUFFER& clDevMemObjGetTopLevelCoiBufferHandler() const { return m_coi_top_level_buffer; };
+    const COIBUFFER& clDevMemObjGetCoiBufferHandler() const { return m_coi_buffer; };
+    const COIBUFFER& clDevMemObjGetTopLevelCoiBufferHandler() const { return m_coi_top_level_buffer; };
 
-	const cl_mem_flags& clDevMemObjGetMemoryFlags() const { return m_memFlags; };
+    const cl_mem_flags& clDevMemObjGetMemoryFlags() const { return m_memFlags; };
 
     // NotificationPort::CallBack
     void fireCallBack(void* arg);
@@ -251,26 +251,26 @@ public:
     bool            ImmediateTransferForced( void ) const { return m_Allocator.ImmediateTransferForced(); };
     size_t          GetRawDataSize( void )    const { return m_raw_size; };
 
-	typedef vector<COIPROCESS>  COI_ProcessesArray;
-	COI_ProcessesArray&	get_active_processes( void ) { return m_buffActiveProcesses; };
+    typedef vector<COIPROCESS>  COI_ProcessesArray;
+    COI_ProcessesArray&	get_active_processes( void ) { return m_buffActiveProcesses; };
 
-	/* Check if ptr is mapped OCL Buffer, if yes store in *ppOutMemObj the appropriate MICDevMemoryObject */
-	static bool getMemObjFromMapBuffersPool(void* ptr, size_t size, MICDevMemoryObject** ppOutMemObj);
+    /* Check if ptr is mapped OCL Buffer, if yes store in *ppOutMemObj the appropriate MICDevMemoryObject */
+    static bool getMemObjFromMapBuffersPool(void* ptr, size_t size, MICDevMemoryObject** ppOutMemObj);
 
-	/* If u get MICDevMemoryObject from 'getMemObjFromMapBuffersPool()' return it back when u finish to use it. */
-	void returnMemObjToMapBuffersPool() { decRefCounter(); };
+    /* If u get MICDevMemoryObject from 'getMemObjFromMapBuffersPool()' return it back when u finish to use it. */
+    void returnMemObjToMapBuffersPool() { decRefCounter(); };
 
-	/* Add each OCL Bufer that mapped to m_buffersMemoryPool */
-	void addMemObjToMapBuffersPool() { m_buffersMemoryPool.addBufferToPool(this); };
+    /* Add each OCL Bufer that mapped to m_buffersMemoryPool */
+    void addMemObjToMapBuffersPool() { m_buffersMemoryPool.addBufferToPool(this); };
 
-	/* Remove this object from m_buffersMemoryPool */
-	void removeMemObjFromMapBuffersPool() { m_buffersMemoryPool.removeBufferFromPool(this); };
+    /* Remove this object from m_buffersMemoryPool */
+    void removeMemObjFromMapBuffersPool() { m_buffersMemoryPool.removeBufferFromPool(this); };
 
-	/* Set this memObj that already inserted to m_buffersMemoryPool, ready to use */
-	void setMemObjInMapBuffersPoolReady( CommandList* cur_queue ) { m_buffersMemoryPool.setBufferReady(this, cur_queue); };
+    /* Set this memObj that already inserted to m_buffersMemoryPool, ready to use */
+    void setMemObjInMapBuffersPoolReady( CommandList* cur_queue ) { m_buffersMemoryPool.setBufferReady(this, cur_queue); };
 
-	/* Return true if this mem object is root buffer */
-	virtual bool isRootBuffer() { return true; };
+    /* Return true if this mem object is root buffer */
+    virtual bool isRootBuffer() { return true; };
     
 protected:
     MICDevMemoryObject(MemoryAllocator& allocator) : m_Allocator(allocator),
@@ -292,6 +292,7 @@ protected:
     AtomicCounter               m_write_maps_count;
 
     // sub-buffer support
+    // TODO: Why it's not part of the sub-buffer?
     COIBUFFER                   m_coi_top_level_buffer;
     size_t                      m_coi_top_level_buffer_offset;
 
@@ -300,45 +301,45 @@ protected:
 
 private:
 
-	// Inc this buffer memory counter.
-	void incRefCounter();
+    // Inc this buffer memory counter.
+    void incRefCounter();
 
-	// Dec this buffer memory counter.
-	void decRefCounter();
+    // Dec this buffer memory counter.
+    void decRefCounter();
+
+    ~MICDevMemoryObject() {};
+
+    struct MapBuffersMemoryPool
+    {
+    public:
+
+        bool getBuffer(void* ptr, size_t size, MICDevMemoryObject** ppOutMemObj);
+
+        void addBufferToPool(MICDevMemoryObject* pMicMemObj);
+
+        void removeBufferFromPool(MICDevMemoryObject* pMicMemObj);
     
-	~MICDevMemoryObject() {};
+        void setBufferReady(MICDevMemoryObject* pMicMemObj, CommandList* cur_queue);
 
-	struct MapBuffersMemoryPool
-	{
-	public:
+    private:
 
-		bool getBuffer(void* ptr, size_t size, MICDevMemoryObject** ppOutMemObj);
+        struct mem_obj_directive
+        {
+          mem_obj_directive(MICDevMemoryObject* memObj) : pMemObj(memObj), refCounter(1), isReady(false) {};
+          MICDevMemoryObject* pMemObj;
+          size_t				refCounter;
+          bool				isReady;
+        };
 
-		void addBufferToPool(MICDevMemoryObject* pMicMemObj);
+        map<void*, mem_obj_directive>	m_addressToMemObj;
+        OclReaderWriterLock		m_multiReadSingleWriteMutex;
+    };
 
-		void removeBufferFromPool(MICDevMemoryObject* pMicMemObj);
+    COI_ProcessesArray	m_buffActiveProcesses;
 
-		void setBufferReady(MICDevMemoryObject* pMicMemObj, CommandList* cur_queue);
+    AtomicCounter	m_bufferRefCounter;
 
-	private:
-
-		struct mem_obj_directive
-		{
-			mem_obj_directive(MICDevMemoryObject* memObj) : pMemObj(memObj), refCounter(1), isReady(false) {};
-			MICDevMemoryObject* pMemObj;
-			size_t				refCounter;
-			bool				isReady;
-		};
-
-		map<void*, mem_obj_directive>	m_addressToMemObj;
-		OclReaderWriterLock		m_multiReadSingleWriteMutex;
-	};
-
-	COI_ProcessesArray	m_buffActiveProcesses;
-
-	AtomicCounter	m_bufferRefCounter;
-
-	static MapBuffersMemoryPool m_buffersMemoryPool;
+    static MapBuffersMemoryPool m_buffersMemoryPool;
 };
 
 class MICDevMemorySubObject : public MICDevMemoryObject
@@ -348,7 +349,7 @@ public:
 
     cl_dev_err_code Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size, IOCLDevRTMemObjectService IN *pBSService);
 
-	virtual bool isRootBuffer() { return false; };
+    virtual bool isRootBuffer() { return false; };
 
 protected:
     MICDevMemoryObject& m_Parent;

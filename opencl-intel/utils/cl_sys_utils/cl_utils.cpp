@@ -1272,94 +1272,85 @@ string GetDeviceTypeString(const cl_device_type& Type)
 }
 
 cl_ushort float2half_rte( float f )
-    {
-        union{ float f; cl_uint u; } u = {f};
-        cl_uint sign = (u.u >> 16) & 0x8000;
-        float x = fabsf(f);
-    
-        //Nan
-        if( x != x )
-        {
-            u.u >>= (24-11);
-            u.u &= 0x7fff;
-            u.u |= 0x0200;      //silence the NaN
-            return u.u | sign;
-        }
-    
-        // overflow
-        if( x >= MAKE_HEX_FLOAT(0, 0x1ffeL, 3) )
-            return 0x7c00 | sign;
-    
-        // underflow
-        if( x <= MAKE_HEX_FLOAT(0, 0x1L, -25) )
-            return sign;    // The halfway case can return 0x0001 or 0. 0 is even.
-    
-        // very small
-        if( x < MAKE_HEX_FLOAT(0, 0x18L, -28) )
-            return sign | 1;
-    
-        // half denormal
-        if( x < MAKE_HEX_FLOAT(0, 0x1L, -14) )
-        {
-            u.f = x * MAKE_HEX_FLOAT(0, 0x1L, -125);
-            return sign | u.u;
-        }
-    
-        u.f *= MAKE_HEX_FLOAT(0, 0x1L, 13);
-        u.u &= 0x7f800000;
-        x += u.f;
-        u.f = x - u.f;
-        u.f *= MAKE_HEX_FLOAT(0, 0x1L, -112);
-    
-        return (u.u >> (24-11)) | sign;
-    }
-
-    float half2float( cl_ushort us )
-    {
-        uint32_t u = us;                   
-        uint32_t sign = (u << 16) & 0x80000000;
-        int32_t exponent = (u & 0x7c00) >> 10;     
-        uint32_t mantissa = (u & 0x03ff) << 13;
-        union{ unsigned int u; float f;}uu;
-    
-        if( exponent == 0 )
-        {
-            if( mantissa == 0 )
-                return sign ? -0.0f : 0.0f;
-        
-            int shift = __builtin_clz( mantissa ) - 8;
-            exponent -= shift-1;
-            mantissa <<= shift;
-            mantissa &= 0x007fffff;
-        }
-        else
-            if( exponent == 31)
-            {
-                uu.u = mantissa | sign;
-                if( mantissa )
-                    uu.u |= 0x7fc00000;
-                else
-                    uu.u |= 0x7f800000;
-            
-                return uu.f;
-            }
-    
-        exponent += 127 - 15;
-        exponent <<= 23;
-    
-        exponent |= mantissa;
-        uu.u = exponent | sign;
-    
-        return uu.f;
-    }
-
-bool IsPowerOf2(unsigned int uiNum)
 {
-#ifdef WIN32
-	return __popcnt(uiNum) == 1;
-#else
-	return __builtin_popcount(uiNum) == 1;
-#endif
+    union{ float f; cl_uint u; } u = {f};
+    cl_uint sign = (u.u >> 16) & 0x8000;
+    float x = fabsf(f);
+    
+    //Nan
+    if( x != x )
+    {
+        u.u >>= (24-11);
+        u.u &= 0x7fff;
+        u.u |= 0x0200;      //silence the NaN
+        return u.u | sign;
+    }
+    
+    // overflow
+    if( x >= MAKE_HEX_FLOAT(0, 0x1ffeL, 3) )
+        return 0x7c00 | sign;
+    
+    // underflow
+    if( x <= MAKE_HEX_FLOAT(0, 0x1L, -25) )
+        return sign;    // The halfway case can return 0x0001 or 0. 0 is even.
+    
+    // very small
+    if( x < MAKE_HEX_FLOAT(0, 0x18L, -28) )
+        return sign | 1;
+    
+    // half denormal
+    if( x < MAKE_HEX_FLOAT(0, 0x1L, -14) )
+    {
+        u.f = x * MAKE_HEX_FLOAT(0, 0x1L, -125);
+        return sign | u.u;
+    }
+    
+    u.f *= MAKE_HEX_FLOAT(0, 0x1L, 13);
+    u.u &= 0x7f800000;
+    x += u.f;
+    u.f = x - u.f;
+    u.f *= MAKE_HEX_FLOAT(0, 0x1L, -112);
+    
+    return (u.u >> (24-11)) | sign;
+}
+
+float half2float( cl_ushort us )
+{
+    uint32_t u = us;                   
+    uint32_t sign = (u << 16) & 0x80000000;
+    int32_t exponent = (u & 0x7c00) >> 10;     
+    uint32_t mantissa = (u & 0x03ff) << 13;
+    union{ unsigned int u; float f;}uu;
+    
+    if( exponent == 0 )
+    {
+        if( mantissa == 0 )
+            return sign ? -0.0f : 0.0f;
+        
+        int shift = __builtin_clz( mantissa ) - 8;
+        exponent -= shift-1;
+        mantissa <<= shift;
+        mantissa &= 0x007fffff;
+    }
+    else
+        if( exponent == 31)
+        {
+            uu.u = mantissa | sign;
+            if( mantissa )
+                uu.u |= 0x7fc00000;
+            else
+                uu.u |= 0x7f800000;
+            
+            return uu.f;
+        }
+    
+    exponent += 127 - 15;
+    exponent <<= 23;
+    
+    exponent |= mantissa;
+    uu.u = exponent | sign;
+    
+    return uu.f;
 }
 
 void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size_t szBufferSize)
@@ -1456,5 +1447,62 @@ std::string getLocalHostName()
         computerName = buffer;
     }
     return computerName;
+}
+
+#ifdef WIN32
+bool GetStringValueFromRegistryOrETC( HKEY       top_hkey,
+                                        const char *keyPath,
+                                        const char *valueName,
+                                        char       *retValue,
+                                        DWORD      size )
+{
+    HKEY hkey;
+
+    // Open the registry path. hkey will hold the entry
+    LONG retCode = RegOpenKeyExA(
+        top_hkey,                   // hkey
+        keyPath,                    // lpSubKey
+        0,                          // ulOptions
+        KEY_READ,                   // samDesired
+        &hkey                       // phkResult
+        );
+
+    if( ERROR_SUCCESS == retCode )
+    {
+        // Get the value by name from the key
+        retCode = RegQueryValueExA(
+            hkey,                   // hkey
+            valueName,              // lpValueName
+            0,                      // lpReserved
+            NULL,                   // lpType
+            ( LPBYTE )retValue,     // lpData
+            &size                   // lpcbData
+            );
+
+        // Close the key - we don't need it any more
+        RegCloseKey( hkey );
+
+        if( ERROR_SUCCESS == retCode )
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+#endif
+
+bool GetCpuPath( char *pCpuPath, size_t bufferSize )
+{
+#if defined( _WIN32 )
+    const char *regPath = "SOFTWARE\\Intel\\OpenCL";
+
+    // pCpuPath is expected to be MAX_PATH in size
+    if( NULL != pCpuPath )
+    {
+        return GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, "cpu_path", pCpuPath, bufferSize );
+    }
+#endif
+    return false;
 }
 

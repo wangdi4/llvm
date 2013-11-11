@@ -134,11 +134,17 @@ void MICKernel::Serialize(IOutputStream& ost, SerializationStatus* stats)
     // Serial the kernel arguments (one by one)
     unsigned int vectorSize = m_args.size();
     Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
-    for(std::vector<cl_kernel_argument>::const_iterator it = m_args.begin(); it != m_args.end(); ++it)
+    for(size_t i = 0; i < vectorSize; ++i)
     {
-        cl_kernel_argument currentArgument = *it;
-        Serializer::SerialPrimitive<cl_kernel_arg_type>(&currentArgument.type, ost);
-        Serializer::SerialPrimitive<unsigned int>(&currentArgument.size_in_bytes, ost);
+        Serializer::SerialPrimitive<cl_kernel_argument>(&m_args[i], ost);
+    }
+
+    // Serial memory object information
+    vectorSize = m_memArgs.size();
+    Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
+    for(size_t i = 0; i < vectorSize; ++i)
+    {
+        Serializer::SerialPrimitive<unsigned int>(&m_memArgs[i], ost);
     }
 
     Serializer::SerialPointerHint((const void**)&m_pProps, ost); 
@@ -169,12 +175,18 @@ void MICKernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
     // Deserial the kernel arguments (one by one)
     unsigned int vectorSize = 0;
     Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
-    for(unsigned int i = 0; i < vectorSize; ++i)
+    m_args.resize(vectorSize);
+    for(size_t i = 0; i < vectorSize; ++i)
     {
-        cl_kernel_argument currentArgument;
-        Serializer::DeserialPrimitive<cl_kernel_arg_type>(&currentArgument.type, ist);
-        Serializer::DeserialPrimitive<unsigned int>(&currentArgument.size_in_bytes, ist);
-        m_args.push_back(currentArgument);
+        Serializer::DeserialPrimitive<cl_kernel_argument>(&m_args[i], ist);
+    }
+
+    // Deserial memory object information
+    Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
+    m_memArgs.resize(vectorSize);
+    for(size_t i = 0; i < vectorSize; ++i)
+    {
+        Serializer::DeserialPrimitive<unsigned int>(&m_memArgs[i], ist);
     }
 
     Serializer::DeserialPointerHint((void**)&m_pProps, ist);

@@ -365,9 +365,6 @@ float half2float( cl_ushort us );
 // 
 int __builtin_clz(unsigned int pattern);
 
-// Returns whether ulNum is a power of 2
-bool IsPowerOf2(unsigned int uiNum);
-
 /**
  * Copy a pattern repeatedly to a buffer
  * @param pPattern		the pattern
@@ -389,3 +386,8 @@ std::string getLocalHostName();
  * @return the file path of the configuration file
  */
 std::string GetConfigFilePath();
+
+/**
+ * @return the file path of the CPU runtime
+ */
+bool GetCpuPath( char *pCpuPath, size_t bufferSize );

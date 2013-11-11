@@ -96,49 +96,52 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
         return;
     }
 
+    // Get argument buffer size
+    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES,
+                                                                sizeof(m_sKernelPrototype.m_dispatchBufferProperties), &m_sKernelPrototype.m_dispatchBufferProperties, NULL);
+    if (CL_DEV_FAILED(clErrRet))
+    {
+        LOG_ERROR(TEXT("Device->clDevGetKernelInfo(CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES) failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
+        *pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
+        return;
+    }
+
     size_t argsCount = argsSize / sizeof(cl_kernel_argument);
     assert(argsCount  <= CL_MAX_UINT32 && "Number or arguments is to high");
-    m_sKernelPrototype.m_vArguments.resize(argsCount);
-    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, 
-                                                                argsCount*sizeof(cl_kernel_argument), &(m_sKernelPrototype.m_vArguments[0]), NULL);
-    if (CL_DEV_FAILED(clErrRet))
+    if ( argsCount > 0)
     {
-        LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
-        *pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
-        return;
-    }
-
-    // Get argument buffer size
-    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KENREL_ARGUMENT_BUFFER_SIZE, 
-                                                                sizeof(m_sKernelPrototype.m_uiKernelArgBufferSize), &m_sKernelPrototype.m_uiKernelArgBufferSize, NULL);
-    if (CL_DEV_FAILED(clErrRet))
-    {
-        LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
-        *pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
-        return;
-    }
-
-    // Get memory object arguments
-    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES, 0, NULL, &argsSize);
-    if (CL_DEV_FAILED(clErrRet))
-    {
-        LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
-        *pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
-        return;
-    }
-
-    if ( argsSize > 0 )
-    {
-        argsCount = argsSize / sizeof(unsigned int);
-        assert(argsCount  <= CL_MAX_UINT32 && "Number or arguments is to high");
-        m_sKernelPrototype.m_MemArgumentsIndx.resize(argsCount);
-        clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES, 
-                                                            argsCount*sizeof(unsigned int), &(m_sKernelPrototype.m_MemArgumentsIndx[0]), NULL);
+        m_sKernelPrototype.m_vArguments.resize(argsCount);
+        clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, 
+                                                                    argsCount*sizeof(cl_kernel_argument), &(m_sKernelPrototype.m_vArguments[0]), NULL);
         if (CL_DEV_FAILED(clErrRet))
         {
             LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
             *pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
             return;
+        }
+
+        // Get memory object arguments
+        clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES, 0, NULL, &argsSize);
+        if (CL_DEV_FAILED(clErrRet))
+        {
+            LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
+            *pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
+            return;
+        }
+
+        if ( argsSize > 0 )
+        {
+            argsCount = argsSize / sizeof(unsigned int);
+            assert(argsCount  <= CL_MAX_UINT32 && "Number or arguments is to high");
+            m_sKernelPrototype.m_MemArgumentsIndx.resize(argsCount);
+            clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES, 
+                                                                argsCount*sizeof(unsigned int), &(m_sKernelPrototype.m_MemArgumentsIndx[0]), NULL);
+            if (CL_DEV_FAILED(clErrRet))
+            {
+                LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
+                *pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
+                return;
+            }
         }
     }
 
@@ -359,7 +362,7 @@ Kernel::~Kernel()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::GetInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code    Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
+cl_err_code Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 {
     LOG_DEBUG(TEXT("Enter Kernel::GetInfo (iParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
         iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
@@ -417,7 +420,7 @@ cl_err_code    Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void 
     {
         MEMCPY_S(pParamValue, szParamValueSize, pValue, szParamSize);
     }
-    
+
     return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -501,6 +504,7 @@ cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
     const DeviceKernel* pPrevDeviceKernel = NULL;
     bool            bResult = false;
     size_t          maxArgBufferSize = 0;
+    size_t          maxArgumentBufferAlignment = sizeof(size_t); // Minimum aligment is as size_t
 
     for(size_t i = 0; i < m_szAssociatedDevices; ++i)
     {
@@ -549,9 +553,13 @@ cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
         // update previous device kernel pointer
         pPrevDeviceKernel = pDeviceKernel;
         
-        size_t argBufferSize = pDeviceKernel->GetPrototype().m_uiKernelArgBufferSize;
+        size_t argBufferSize = pDeviceKernel->GetKernelArgBufferSize();
         if ( argBufferSize > maxArgBufferSize )
             maxArgBufferSize = argBufferSize;
+
+        size_t argBufferAlignment = pDeviceKernel->GetKernelArgBufferAlignment();
+        if ( argBufferAlignment > maxArgumentBufferAlignment )
+            maxArgumentBufferAlignment = argBufferAlignment;
 
         // add new device kernel to the objects map list
         m_vpDeviceKernels.push_back(pDeviceKernel);
@@ -572,7 +580,7 @@ cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
     // set the kernel prototype for the current kernel based on its information
     if (NULL != pDeviceKernel)
     {
-        SetKernelPrototype(pDeviceKernel->GetPrototype(), maxArgBufferSize);
+        SetKernelPrototype(pDeviceKernel->GetPrototype(), maxArgBufferSize, maxArgumentBufferAlignment);
         SetKernelArgumentInfo(pDeviceKernel);
     }
 
@@ -655,23 +663,25 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::SetKernelPrototype
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Kernel::SetKernelPrototype(const SKernelPrototype& sKernelPrototype, size_t maxArgumentBufferSize)
+cl_err_code Kernel::SetKernelPrototype(const SKernelPrototype& sKernelPrototype, size_t maxArgumentBufferSize, size_t maxArgumentBufferAlignment)
 {
     m_sKernelPrototype = sKernelPrototype;
 
-    if ((NULL != m_pArgsBlob) && (maxArgumentBufferSize != m_sKernelPrototype.m_uiKernelArgBufferSize))
+    if ( NULL != m_pArgsBlob )
     {
         delete [] m_pArgsBlob;
     }
 
     m_pArgsBlob = new char[maxArgumentBufferSize];
-    memset(m_pArgsBlob, 0, maxArgumentBufferSize);
-
     if ( NULL == m_pArgsBlob )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
-    m_sKernelPrototype.m_uiKernelArgBufferSize = maxArgumentBufferSize;
+    memset(m_pArgsBlob, 0, maxArgumentBufferSize);
+
+    m_sKernelPrototype.m_dispatchBufferProperties.size = maxArgumentBufferSize;
+    m_sKernelPrototype.m_dispatchBufferProperties.argumentOffset = 0;
+    m_sKernelPrototype.m_dispatchBufferProperties.alignment = maxArgumentBufferAlignment;
 
     // allocate and init arguments
     size_t argsCount = m_sKernelPrototype.m_vArguments.size();;

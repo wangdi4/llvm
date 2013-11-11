@@ -209,7 +209,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         void Lock();
         void Unlock();
     protected:
-        void* m_mutexHndl;
+        MUTEX m_mutex;
     private:
         OclMutex(const OclMutex& o);
         OclMutex& operator=(const OclMutex& o);

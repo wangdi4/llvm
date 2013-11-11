@@ -27,54 +27,42 @@
 ///////////////////////////////////////////////////////////
 #pragma once
 
-#include "cl_dev_backend_api.h"
-#include "thread_local_storage.h"
+#include <cl_dev_backend_api.h>
+#include <cl_types.h>
+
 #include <setjmp.h> 
 #include <signal.h>
 
 namespace Intel { namespace OpenCL { namespace UtilsNative {
 
-    class HWExceptionsWrapper 
+    class HWExceptionWrapper
     {
     public:
-        // object is required only for JIT wrapping
-        HWExceptionsWrapper(TlsAccessor* tlsAccessor = NULL) : m_bInside_JIT(false), m_is_attached(false)
-        {
-            thread_init( tlsAccessor );
-        }
-        ~HWExceptionsWrapper() { thread_fini( NULL ); }
+        HWExceptionWrapper() { setup_signals( true ); }
+        ~HWExceptionWrapper() { setup_signals( false ); }
 
-        void thread_init( TlsAccessor* tlsAccessor );
-        void thread_fini( TlsAccessor* tlsAccessor );
-        
         // wrap JIT code execution
-        cl_dev_err_code Execute( ICLDevBackendExecutable_* code, 
-                                 const size_t* IN pGroupId,
-                    			 const size_t* IN pLocalOffset, 
-                    			 const size_t* IN pItemsToProcess ) __attribute__((noinline));
-
-        void SetKernel(ICLDevBackendKernel_* pKernel) { m_kernel = pKernel; }
-
-        // setup global HW exception handling in a process
-        // Convert all exceptions into std::runtime_error C++ exceptions
-        static void Init( void ) { setup_signals( true ); }
-        static void Fini( void ) { setup_signals( false ); }
+        static cl_dev_err_code Execute( 
+                                        const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* kernel,
+                                        Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable_* pExec,
+                                        const cl_uniform_kernel_args* args,
+                                        const size_t* IN pGroupId );
 
     private:
-        sigjmp_buf setjump_buffer;
-        bool       m_bInside_JIT;
-        bool       m_is_attached;
-
-        ICLDevBackendKernel_* m_kernel;
+        struct execution_context
+        {
+          sigjmp_buf                                                setjump_buffer;
+          const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel;
+        };
 
         static void catch_signal(int signum, siginfo_t *siginfo, void *context);
         static void setup_signals( bool install );
 
-        static volatile bool g_finished;
-        static int  g_sigs[];
-        
-    };
+        static __thread execution_context* volatile t_pExecContext;
 
-    typedef HWExceptionsWrapper HWExceptionsJitWrapper;
+        static volatile bool    g_finished;
+        static int              g_sigs[];
+
+    };
 }}}
 

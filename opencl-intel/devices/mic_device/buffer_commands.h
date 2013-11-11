@@ -21,12 +21,11 @@
 #pragma once
 
 #include "command.h"
-#include "exe_cmd_mem_handler.h"
-#include "source/COIEvent_source.h"
+
+#include <source/COIEvent_source.h>
+#include <source/COIBuffer_source.h>
 
 #include <vector>
-
-using namespace std;
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
@@ -82,7 +81,7 @@ private:
         MULTI_CHUNK_MODE
     };
 
-    typedef vector<COIEVENT>   DependeciesArray;
+    typedef std::vector<COIEVENT>   DependeciesArray;
 
     DependeciesArray    m_dependencies;
     COIEVENT            m_last_dependency;
@@ -333,7 +332,7 @@ private:
     MigrateMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
     /* Initialize MigrateMemObject command. */
-    cl_dev_err_code init(vector<COIBUFFER>&    ppOutCoiBuffsArr, 
+    cl_dev_err_code init(std::vector<COIBUFFER>&    ppOutCoiBuffsArr,
                          COI_BUFFER_MOVE_FLAG& outMoveDataFlag, COIPROCESS& outTargetProcess,
                          COIBUFFER&            outLastBufferHandle);
 };

@@ -170,16 +170,28 @@ function ( LINK_DEVICE_EXE TARGET_EXE )
     get_filename_component( FILE_NAME ${TARGET_EXE} NAME )
 
     if (${ARGC} GREATER  1)
-        set( OBJ_FILES ${ARGN})
+	
+		set( OBJ_FILES ${ARGN})
+		
+		if ( WIN32 )
+			set ( OBJ_FILES_PARAM ${CMAKE_CURRENT_BINARY_DIR}/link_objects.txt)
+			file(REMOVE ${OBJ_FILES_PARAM})
+			foreach( obj_file_path IN LISTS OBJ_FILES)
+				get_filename_component( obj_file_name ${obj_file_path} NAME )
+				file(APPEND ${OBJ_FILES_PARAM} "${obj_file_name} ")
+			endforeach(obj_file_path)
+		else()
+			set ( OBJ_FILES_PARAM ${OBJ_FILES})
+		endif (WIN32)
 
         add_custom_command( OUTPUT ${TARGET_EXE}
 
                             COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
 							COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
-                            COMMAND ${DEVICE_LINKER} ${INSTALL_SUBDIR} ${TARGET_EXE} ${OBJ_FILES}
+                            COMMAND ${DEVICE_LINKER} ${INSTALL_SUBDIR} ${TARGET_EXE} ${OBJ_FILES_PARAM}
 
                             DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} ${BACKEND_LIB_DIR}/lib${BACKEND_LIB}.a
-                            WORKING_DIRECTORY ${BIN_DIR}
+                            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
                             COMMENT "Linking ${FILE_NAME} for ${DEVICE}"
                             VERBATIM
                             )

@@ -27,6 +27,7 @@
 
 #include "cl_sys_info.h"
 #include "cl_sys_defines.h"
+#include "cl_utils.h"
 
 #if _MSC_VER == 1600
 #include <intrin.h>

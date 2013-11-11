@@ -27,6 +27,7 @@
 
 #include <sstream>
 #include "cl_sys_info.h"
+#include "cl_utils.h"
 
 using namespace Intel::OpenCL::Utils;
 #include <fstream>

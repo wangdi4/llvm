@@ -724,17 +724,8 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
 #endif
     pCmd->id = (cl_dev_cmd_id)((long)pCmd->id & ~(1L << (sizeof(long) * 8 - 1)));    // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
     NDRange* pCommand = new NDRange(pTD, pCmd, pList, NULL, pList->GetNDRangeChildrenTaskGroup());
-#ifdef _DEBUG
-    cl_dev_err_code rc;
-    rc = pCommand->CheckCommandParams(pCmd);
-    if( CL_DEV_FAILED(rc))
-    {
-        delete pCommand;
-        return rc;
-    }
-#endif
 
-    assert(pTask);
+    assert(pTask && "Invalid task parameter");
     *pTask = static_cast<ITaskBase*>(pCommand);
 
     return CL_DEV_SUCCESS;

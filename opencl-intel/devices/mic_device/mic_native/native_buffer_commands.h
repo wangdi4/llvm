@@ -32,32 +32,26 @@
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
-using namespace Intel::OpenCL::TaskExecutor;
-using namespace Intel::OpenCL::MICDevice;
-
-class FillMemObjTask : virtual public ITask, virtual public TaskHandler
+class FillMemObjTask : virtual public Intel::OpenCL::TaskExecutor::ITask, virtual public TaskHandler<FillMemObjTask, Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data >
 {
 public:
     PREPARE_SHARED_PTR(FillMemObjTask)
-    
-    static inline SharedPtr<TaskHandler> Allocate( const QueueOnDevice& queue ) { return new FillMemObjTask( queue ); }
+
+    FillMemObjTask( uint32_t lockBufferCount, void** pLockBuffers, Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data* pDispatcherData, size_t uiDispatchSize );
     
     // TaskHandler methods
-    
-    // called immediately after creation and after filling the COI-passed data
-    bool InitTask();
+    bool PrepareTask();
 
-    // must be called at the very end of the ITaskBase finish stage and 
-    // must call to QueueOnDevice->FinishTask() at the very end of itself
-    void FinishTask();
+    // TaskHandler methods
+    const FillMemObjTask& GetAsCommandTypeConst() const { return *this; }
+    Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return static_cast<Intel::OpenCL::TaskExecutor::ITaskBase*>(this);}
 
     // ITask methods 
-
-    // Returns true in case current task is a syncronization point
+    // Returns true in case current task is a synchronization point
     // No more tasks will be executed in this case
     bool    CompleteAndCheckSyncPoint() { return false; }
     
-    // Set current command as syncronization point
+    // Set current command as synchronization point
     // Returns true if command is already completed
     bool    SetAsSyncPoint() { return false; }
 
@@ -74,17 +68,16 @@ public:
     // Releases task object, shall be called instead of delete operator.
     long    Release() { delete this; return 0; }
 
-    TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+    Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
 
-    ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+
+    Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL;}
+    typedef Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data dispatcher_data_type;
 
 protected:
-    FillMemObjTask( const QueueOnDevice& queue );
-    ~FillMemObjTask() {};
-
-private:
-    // Fill mem obj dispatcher data
-    fill_mem_obj_dispatcher_data*    m_pFillMemObjDispatcherData;
+    friend class TaskHandler<FillMemObjTask, Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data >;
+    // Copy constructor used for task duplication
+    FillMemObjTask(const FillMemObjTask& o);
 
     // The Buffer to fill pointer
     char*                            m_fillBufPtr;
@@ -97,10 +90,8 @@ private:
     };
 
     void copyPatternOnContRegion( chunk_struct* chunk, chunk_struct* pattern );
-    void executeInternal( char* buffPtr, fill_mem_obj_dispatcher_data* pMemFillInfo, 
+    void executeInternal( char* buffPtr, Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data* pMemFillInfo,
                           chunk_struct* lastChunk, chunk_struct* pattern );
-
-    
 };
 
 }}}

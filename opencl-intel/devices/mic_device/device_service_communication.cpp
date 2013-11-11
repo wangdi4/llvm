@@ -67,14 +67,13 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
     "get_backend_target_description",       // GET_BACKEND_TARGET_DESCRIPTION
     "copy_program_to_device",               // COPY_PROGRAM_TO_DEVICE
     "remove_program_from_device",           // REMOVE_PROGRAM_FROM_DEVICE
-
-    "execute_NDRange",                      // EXECUTE_NDRANGE
+    "execute_command_ndrange",              // EXECUTE_NDRANGE
     "init_device",                          // INIT THE NATIVE PROCESS (Call it only once, after process creation)
     "release_device",                       // CLEAN SOME RESOURCES OF THE NATIVE PROCESS (Call it before closing the process)
     "init_commands_queue",                  // INIT COMMANDS QUEUE ON DEVICE
     "release_commands_queue",               // RELEASE COMMANDS QUEUE ON DEVICE
     "execute_device_utility",               // EXECUTE UTILITY FUNCTION ON DEVICE (as part of some user queue thread)
-    "fill_mem_object"                       // FILL MEM OBJECT
+    "execute_command_fill_mem_object"       // FILL MEM OBJECT
 #ifdef ENABLE_MIC_TRACER
     ,"get_trace_size",
     "get_trace"
@@ -104,12 +103,12 @@ cl_dev_err_code DeviceServiceCommunication::deviceSeviceCommunicationFactory(uns
     }
 
     // create a thread that will initialize the device process and open a service pipeline.
-	int err = tDeviceServiceComm->Start();
-	if (THREAD_RESULT_SUCCESS != err)
-	{
-		delete tDeviceServiceComm;
-		return CL_DEV_ERROR_FAIL;
-	}
+    int err = tDeviceServiceComm->Start();
+    if (THREAD_RESULT_SUCCESS != err)
+    {
+      delete tDeviceServiceComm;
+      return CL_DEV_ERROR_FAIL;
+    }
 
     *ppDeviceServiceCom = tDeviceServiceComm;
     return CL_DEV_SUCCESS;
@@ -309,12 +308,12 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
     STRCAT_S((char*)fileNameBuffer, sizeof(fileNameBuffer), "/" );
     STRCAT_S((char*)fileNameBuffer, sizeof(fileNameBuffer), MIC_NATIVE_SERVER_EXE );
 
-	do
-	{
-		const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
-		// Get the amount of compute units in the device
-		unsigned int numOfWorkers   = info.getNumOfComputeUnits(m_uiMicId);
-		unsigned int numOfCores     = info.getNumOfCores(m_uiMicId);
+    do
+    {
+        const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
+        // Get the amount of compute units in the device
+        unsigned int numOfWorkers   = info.getNumOfComputeUnits(m_uiMicId);
+        unsigned int numOfCores     = info.getNumOfCores(m_uiMicId);
         unsigned int threadsPerCore = numOfWorkers / numOfCores;
 
         if (threadsPerCore > MIC_NATIVE_MAX_THREADS_PER_CORE)
@@ -347,14 +346,15 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         else if ( tbb_scheduler == "dynamic" )
         {
             mic_device_options.tbb_scheduler = TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
-        } else if ( tbb_scheduler == "opencl" )
-		{
+        }
+        else if ( tbb_scheduler == "opencl" )
+        {
+                mic_device_options.tbb_scheduler = TE_CMD_LIST_PREFERED_SCHEDULING_UNEVEN_OPENCL;
+        }
+        else // default
+        {
             mic_device_options.tbb_scheduler = TE_CMD_LIST_PREFERED_SCHEDULING_UNEVEN_OPENCL;
-		}
-		else // default
-		{
-            mic_device_options.tbb_scheduler = TE_CMD_LIST_PREFERED_SCHEDULING_UNEVEN_OPENCL;
-		}
+        }
 
         string block_optimization = tMicConfig.Device_TbbBlockOptimization();
         
@@ -391,12 +391,12 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         mic_device_options.min_work_groups_number   = 
             mic_device_options.num_of_cores * mic_device_options.threads_per_core;
 
-		vector<char*> additionalEnvVars;
-		// If USE VTUNE need to send some env variables to sink side
-		if (mic_device_options.use_vtune)
-		{
-			getVTuneEnvVars(additionalEnvVars);
-		}
+        vector<char*> additionalEnvVars;
+        // If USE VTUNE need to send some env variables to sink side
+        if (mic_device_options.use_vtune)
+        {
+          getVTuneEnvVars(additionalEnvVars);
+        }
 
 #ifdef __MIC_DA_OMP__
 		// Set the environment variables that define OMP_SCHEDULE and KMP_AFFINITY
@@ -455,54 +455,72 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
 			break;
 		}
 
-        if (ReRegisterAtExitAfterCOI_Init)
-        {
-            ReRegisterAtExitAfterCOI_Init = false;
-            UseShutdownHandler::ReRegisterAtExit();
-        }
+    if (ReRegisterAtExitAfterCOI_Init)
+    {
+        ReRegisterAtExitAfterCOI_Init = false;
+        UseShutdownHandler::ReRegisterAtExit();
+    }
 
-        // load additional DLLs required by this specific device
-		const char * const * string_arr = NULL;
-		unsigned int dlls_count = info.getRequiredDeviceDLLs(m_uiMicId, &string_arr);
+    // load additional DLLs required by this specific device
+    const char * const * string_arr = NULL;
+    unsigned int dlls_count = info.getRequiredDeviceDLLs(m_uiMicId, &string_arr);
 
-        if ((0 < dlls_count) && (NULL != string_arr))
+    if ((0 < dlls_count) && (NULL != string_arr))
+    {
+        for (unsigned int i = 0; i < dlls_count; ++i)
         {
-            for (unsigned int i = 0; i < dlls_count; ++i)
+            if (NULL != string_arr[i])
             {
-                if (NULL != string_arr[i])
-                {
-                    COILIBRARY lib_handle = NULL;
-                    result = COIProcessLoadLibraryFromFile(
-										m_process,             // in_Process
-                                        string_arr[i],                          // in_FileName
-                                        NULL,                                   // in_so-name if not exists in file
-                                        nativeDirName,                          // in_LibrarySearchPath
-                                        RTLD_NOW,							    //Bitmask of the flags that will be passed in as the dlopen()
-                                        &lib_handle );
+                COILIBRARY lib_handle = NULL;
+                result = COIProcessLoadLibraryFromFile(
+                m_process,             // in_Process
+                                    string_arr[i],                          // in_FileName
+                                    NULL,                                   // in_so-name if not exists in file
+                                    nativeDirName,                          // in_LibrarySearchPath
+                                    RTLD_NOW,							    //Bitmask of the flags that will be passed in as the dlopen()
+                                    &lib_handle );
 
-                    assert( ((COI_SUCCESS == result) || (COI_ALREADY_EXISTS == result))
-                            && "Cannot load device DLL" );
-                    if ((COI_SUCCESS != result) && (COI_ALREADY_EXISTS == result))
-                    {
-                        break;
-                    }
+                assert( ((COI_SUCCESS == result) || (COI_ALREADY_EXISTS == result))
+                        && "Cannot load device DLL" );
+                if ((COI_SUCCESS != result) && (COI_ALREADY_EXISTS == result))
+                {
+                    break;
                 }
             }
         }
-        if ((COI_SUCCESS != result) && (COI_ALREADY_EXISTS == result))
-        {
-            break;
-        }
-        result = COI_SUCCESS;
+    }
+    if ((COI_SUCCESS != result) && (COI_ALREADY_EXISTS == result))
+    {
+        break;
+    }
+    result = COI_SUCCESS;
 
 		// We'll need a pipeline to run service functions
 		result = COIPipelineCreate(m_process, NULL, NULL, &m_pipe);
 		assert(result == COI_SUCCESS && "COIPipelineCreate failed for service pipeline");
 		if (COI_SUCCESS != result)
 		{
-			break;
+            break;
 		}
 
+#ifdef _DEBUG
+		bool failed = false;
+		// In debug get one by one to report missing names
+		for(size_t i=0; i<DEVICE_SIDE_FUNCTION_COUNT; ++i)
+		{
+        // Get list of entry points
+        result = COIProcessGetFunctionHandles(m_process,
+	                        1,
+	                        (const char**)(m_device_function_names+i),
+	                        m_device_functions+i );
+        if (COI_SUCCESS != result)
+        {
+            failed = true;
+            printf("Failed to retrieve function <%s>\n", m_device_function_names[i]); fflush(0);
+        }
+		}
+    assert( (!failed) && "Failed to retrieve function names");
+#else
 		// Get list of entry points
 		result = COIProcessGetFunctionHandles(m_process,
 											  DEVICE_SIDE_FUNCTION_COUNT,
@@ -511,9 +529,9 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
 		assert(result == COI_SUCCESS && "COIProcessGetFunctionHandles failed to find all device entry points");
 		if (COI_SUCCESS != result)
 		{
-			break;
+            break;
 		}
-
+#endif
 		// Run init device function on device side
 		// Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
 		COIEVENT barrier;

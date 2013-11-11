@@ -26,7 +26,7 @@
 /////////////////////////////////////////////////////////////////////////
 #pragma once
 
-#include "cl_utils.h"
+#include "cl_sys_defines.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 #define GetModuleDirectory(str, strLen) GetModuleDirectoryImp(__FUNCTION__, str, strLen)
@@ -41,7 +41,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
     extern int                   GetModulePathName(const void* modulePtr, char* fileName, size_t strLen);
     extern unsigned long         GetNumberOfProcessors();
     extern unsigned long         GetMaxNumaNode();
-    extern bool                 GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize = NULL);
+    extern bool                  GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize = NULL);
     extern unsigned int          GetCpuId();
     extern const char*           GetFullModuleNameForLoad(const char* moduleName);
     extern bool                  GetModuleProductVersion(const void* someLocalFunc, int* major, int* minor, int* revision, int* build);
