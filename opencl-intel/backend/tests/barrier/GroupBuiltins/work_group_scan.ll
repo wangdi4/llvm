@@ -20,7 +20,7 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: store i32 -2147483648, i32* %AllocaWGResult
 ; CHECK-NEXT: call void @dummybarrier.()
 ; CHECK-NOT: %call1 = tail call i32 @_Z29work_group_scan_exclusive_maxi(i32 %0)
-; CHECK: %CallWGForItem = call i32 @_Z29work_group_scan_exclusive_maxiPU3AS0i(i32 %0, i32* %AllocaWGResult)
+; CHECK: %CallWGForItem = call i32 @_Z29work_group_scan_exclusive_maxiPi(i32 %0, i32* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
 ; CHECK: store i32 %CallWGForItem, i32 addrspace(1)* %arrayidx2, align 1
 
@@ -45,7 +45,7 @@ declare i32 @_Z29work_group_scan_exclusive_maxi(i32)
 ; CHECK-NEXT: store <4 x i32> <i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648>, <4 x i32>* %AllocaWGResult
 ; CHECK-NEXT: call void @dummybarrier.()
 ; CHECK-NOT: call <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_i(<4 x i32> %1)
-; CHECK: %CallWGForItem = call <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_iPU3AS0S_(<4 x i32> %1, <4 x i32>* %AllocaWGResult)
+; CHECK: %CallWGForItem = call <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_iPS_(<4 x i32> %1, <4 x i32>* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
 ; CHECK: store <4 x i32> %CallWGForItem, <4 x i32> addrspace(1)* %ptrTypeCast4, align 1
 
@@ -68,8 +68,8 @@ declare i1 @__ocl_allZero(i1)
 
 declare <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_i(<4 x i32>) nounwind readnone
 
-; CHECK: declare i32 @_Z29work_group_scan_exclusive_maxiPU3AS0i(i32, i32*)
-; CHECK: declare <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_iPU3AS0S_(<4 x i32>, <4 x i32>*)
+; CHECK: declare i32 @_Z29work_group_scan_exclusive_maxiPi(i32, i32*)
+; CHECK: declare <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_iPS_(<4 x i32>, <4 x i32>*)
 
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}

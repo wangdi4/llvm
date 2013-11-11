@@ -134,6 +134,27 @@ typedef double double4 __attribute__((ext_vector_type(4)));
 typedef double double8 __attribute__((ext_vector_type(8)));
 typedef double double16 __attribute__((ext_vector_type(16)));
 
+typedef _Atomic(int) atomic_int;
+typedef _Atomic(uint) atomic_uint;
+typedef _Atomic(long) atomic_long;
+typedef _Atomic(ulong) atomic_ulong;
+typedef _Atomic(float) atomic_float;
+#ifdef cl_khr_fp64
+typedef _Atomic(double) atomic_double;
+#endif
+
+#if __32bit__ == 1
+typedef _Atomic(intptr_t) atomic_intptr_t;
+typedef _Atomic(uintptr_t) atomic_uintptr_t;
+typedef _Atomic(size_t) atomic_size_t;
+typedef _Atomic(ptrdiff_t) atomic_ptrdiff_t;
+#endif
+
+/**
+ * ndrange_t is an opaque struct pointer
+ */
+typedef struct ndrange_s* ndrange_t;
+
 /**
  * Value of maximum non-infinite single-precision floating-point
  * number.

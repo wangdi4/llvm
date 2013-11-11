@@ -1725,6 +1725,140 @@ size_t GetImageElementSize(const cl_image_format *  format)
     }
     return stChannels*stChSize;
 }
+
+CrtPipe::CrtPipe(
+    const cl_uint               packetSize,
+    const cl_uint               maxPackets,
+    const cl_pipe_properties*   properties,
+    cl_mem_flags                flags,
+    CrtContext*                 ctx ):
+CrtMemObject(flags, NULL, ctx),
+m_packetSize(packetSize),
+m_maxPackets(maxPackets),
+m_properties(NULL)
+{
+    m_size = 0; // this will be initilized in CrtPipe::Create
+}
+
+cl_int CrtPipe::Create( CrtMemObject** memObj )
+{
+    cl_int                  errCode   = CL_SUCCESS;
+    size_t                  allocSize = 0;
+    cl_context              ctx       = NULL;
+    CrtMemDtorCallBackData* memData   = NULL;
+
+    CTX_MEM_MAP::iterator           ctx_mem_itr;
+    SHARED_CTX_DISPATCH::iterator   ctx_itr;
+
+    assert( NULL == m_pBstPtr && "Pipe already has backing store!" );
+
+    // Ask underlying context for the required size for the pipe
+    ctx = m_pContext->m_contexts.begin()->first;
+    // TODO: should we check the return value of this?
+    ( (SOCLEntryPointsTable*)ctx )->crtDispatch->clCreatePipeINTEL(
+                                                    ctx,
+                                                    m_flags,
+                                                    m_packetSize,
+                                                    m_maxPackets,
+                                                    m_properties,
+                                                    NULL,
+                                                    &allocSize,
+                                                    &errCode );
+
+    if( CL_SUCCESS != errCode )
+    {
+        goto FINISH;
+    }
+
+    assert( 0 != allocSize && "The required size for the pipe shouldn't be zero!" );
+    m_size = allocSize;
+
+    // Allocate needed memory
+    m_pBstPtr = ALIGNED_MALLOC( m_size, m_pContext->getAlignment( CrtObject::CL_BUFFER ) );
+
+    if( NULL == m_pBstPtr )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    *memObj = this;
+
+    // This is being deallocated in callback 'CrtMemDtorCallBack'
+    memData = new CrtMemDtorCallBackData;
+    if( NULL == memData )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    memData->m_count = 0;
+    memData->m_clMemHandle = this;
+
+    // After we allocated the pipe's buffer in CRT we call both underlying contexts clCreatePipeINTEL
+    // with the pointer to our allocated buffer
+    for( ctx_itr = m_pContext->m_contexts.begin();
+        ctx_itr != m_pContext->m_contexts.end();
+        ctx_itr++ )
+    {
+        ctx = ctx_itr->first;
+
+        cl_mem memObject = ( (SOCLEntryPointsTable*)ctx )->crtDispatch->clCreatePipeINTEL(
+                                                                        ctx,
+                                                                        m_flags,
+                                                                        m_packetSize,
+                                                                        m_maxPackets,
+                                                                        m_properties,
+                                                                        m_pBstPtr,
+                                                                        &allocSize,
+                                                                        &errCode );
+
+        if( CL_SUCCESS == errCode )
+        {
+            m_ContextToMemObj[ctx] = memObject;
+            m_numValidContextObjs++;
+        }
+        else if( CL_INVALID_PIPE_SIZE == errCode )
+        {
+            // there might be other device in the context that
+            // succeed to create the pipe
+            m_ContextToMemObj[ctx] = ( cl_mem )INVALID_MEMOBJ_SIZE;
+            continue;
+        }
+        else
+        {
+            goto FINISH;
+        }
+    }
+
+    ctx_mem_itr = m_ContextToMemObj.begin();
+    for ( ; ctx_mem_itr != m_ContextToMemObj.end(); ctx_mem_itr++ )
+    {
+        if( CL_TRUE == IsValidMemObjSize( ctx_mem_itr->second ) )
+        {
+            errCode = ctx_mem_itr->second->dispatch->clSetMemObjectDestructorCallback(
+                ctx_mem_itr->second,
+                CrtMemDestructorCallBack,
+                ( void* )memData );
+
+            if( CL_SUCCESS != errCode )
+            {
+                goto FINISH;
+            }
+            memData->m_count++;
+        }
+    }
+
+FINISH:
+    if( CL_SUCCESS != errCode )
+    {
+        if( memData->m_count == 0 )
+        {
+            delete memData;
+        }
+        Release();
+        *memObj = NULL;
+    }
+    return errCode;
+}
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -2183,6 +2317,39 @@ cl_int CrtKernel::Release()
     }
     return errCode;
 }
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CrtContext::CreatePipe(
+    cl_mem_flags                flags,
+    cl_uint                     pipe_packet_size,
+    cl_uint                     pipe_max_packets,
+    const cl_pipe_properties *  properties,
+    CrtMemObject**              memObj)
+{
+    cl_int      errCode = CL_SUCCESS;
+    CrtPipe *   pipe    = NULL;
+
+    if( 0 == pipe_packet_size || 0 == pipe_max_packets )
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    pipe = new CrtPipe( pipe_packet_size, pipe_max_packets, properties, flags, this );
+    if( NULL == pipe )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    errCode = pipe->Create( memObj );
+    if( CL_SUCCESS != errCode )
+    {
+        pipe->Release();
+        pipe->DecPendencyCnt();
+    }
+    return errCode;
+}
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------

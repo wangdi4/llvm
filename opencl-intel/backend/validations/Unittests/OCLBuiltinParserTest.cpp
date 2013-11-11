@@ -44,8 +44,7 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     EXPECT_EQ(3U, args.size());
 
     EXPECT_EQ(OCLBuiltinParser::POINTER, args[0].genType);
-    EXPECT_EQ("_image2d_t *", args[0].ptrType.ptrToStr);
-    EXPECT_FALSE(args[0].ptrType.isAddrSpace);
+    EXPECT_EQ("__private _image2d_t *", args[0].ptrType.ptrToStr);
 
     EXPECT_EQ(OCLBuiltinParser::BASIC, args[1].genType);
     EXPECT_EQ(OCLBuiltinParser::UINT,  args[1].basicType);
@@ -95,7 +94,6 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     EXPECT_EQ(OCLBuiltinParser::POINTER, args[2].genType);
     EXPECT_EQ(OCLBuiltinParser::BASIC, args[2].ptrType.ptrType[0].genType);
     EXPECT_EQ(OCLBuiltinParser::USHORT, args[2].ptrType.ptrType[0].basicType);
-    EXPECT_FALSE(args[2].ptrType.isAddrSpace);
 
 ///////////////////////////////////////////////////////////////////////////////////////
     OCLBuiltinParser::ParseOCLBuiltin("_Z5clampDv4_fff", BIStr, args);
@@ -172,7 +170,7 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     EXPECT_EQ(1U, args.size());
 
     EXPECT_EQ(OCLBuiltinParser::POINTER, args[0].genType);
-    EXPECT_EQ("_image3d_t *", args[0].ptrType.ptrToStr);
+    EXPECT_EQ("__private _image3d_t *", args[0].ptrType.ptrToStr);
     EXPECT_EQ("_image3d_t", args[0].ptrType.ptrType[0].imgType.imgStr);
 
 }
