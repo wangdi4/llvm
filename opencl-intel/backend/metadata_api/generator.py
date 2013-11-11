@@ -39,10 +39,10 @@ def main(argv=None):
             schema = json.loads(schema_txt)
             output_txt = render(lookup_path, template, {"schema":schema})
             if None != opts.output_fn:
-                with open(opts.output_fn, 'wb') as output_fo:
+                with open(opts.output_fn, 'w') as output_fo:
                     output_fo.write(output_txt)
             else:
-                print output_text
+                print(output_txt)
 
 if __name__ == "__main__":
     main()

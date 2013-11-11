@@ -75,6 +75,7 @@ target_link_libraries(${TARGET_NAME}
     ${PASSES_LIBS}
 
     # Dependencies of the passes
+    LoopUtils
     OclBackendUtils
     reflection_module
     name_mangle

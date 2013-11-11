@@ -11,6 +11,7 @@ endif (APPLE)
 
 add_custom_command(
    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h
+   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/gen
    COMMAND ${MAKO_GENERATOR_CMD} ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApi.h.mak ${SCHEMA_FILE} -o ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h
    DEPENDS MetaDataApi.h.mak
    DEPENDS MetaDataApi.def.mak
@@ -20,6 +21,7 @@ add_custom_command(
 
 add_custom_command(
    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp
+   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/gen
    COMMAND ${MAKO_GENERATOR_CMD} ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApi.cpp.mak ${SCHEMA_FILE} -o ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp
    DEPENDS MetaDataApi.cpp.mak
    DEPENDS MetaDataApi.def.mak
@@ -31,6 +33,7 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp PROP
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h PROPERTIES GENERATED 1)
 
 set(TARGET_INCLUDE_FILES
+  MapList.h
   MetaDataTraits.h
   MetaDataValue.h
   MetaDataObject.h

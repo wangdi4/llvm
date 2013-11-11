@@ -52,6 +52,9 @@ struct cl_kernel_argument
     unsigned int            offset_in_bytes;    //!< Offset of the argument in argument buffer
 };
 
+// Sampler type as defined in OpenCL kernels
+typedef unsigned int _sampler_t;
+
 #ifdef __cplusplus
 }
 #endif

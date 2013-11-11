@@ -8,11 +8,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ClangCompatFixer.h"
 #include "OCLPassSupport.h"
 
-#include "llvm/Constants.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/IntrinsicInst.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/InstIterator.h"
 
 extern "C" {
