@@ -184,6 +184,23 @@ define void @gatherpf.v16f32(float* %addr, <16 x i32>%index) {
   ret void
 }
 
+define void @gatherpf.v16i8(i8* %ptr, <16 x i32>%index) {
+  call void @llvm.x86.mic.gatherpf.ps(<16 x i32> %index, i8* %ptr,
+                                               i32 1, ; u32 -> u8
+                                               i32 1, ; scale 1
+                                               i32 2) ; prefetch to L2 cache, non exclusive
+  ret void
+}
+
+define void @gatherpf.v16i16(i16* %addr, <16 x i32>%index) {
+  %ptr = bitcast i16 *%addr to i8*
+  call void @llvm.x86.mic.gatherpf.ps(<16 x i32> %index, i8* %ptr,
+                                               i32 3, ; u32 -> u16
+                                               i32 2, ; scale 2
+                                               i32 2) ; prefetch to L2 cache, non exclusive
+  ret void
+}
+
 define void @gatherpf.v16i32(i32* %addr, <16 x i32>%index) {
   %ptr = bitcast i32 *%addr to i8*
   call void @gatherpf.32(i8* %ptr, <16 x i32> %index)
@@ -205,6 +222,25 @@ define void @gatherpf.v16i64(i64* %addr, <16 x i32>%index) {
 define void @masked_gatherpf.v16f32(<16 x i1> %mask, float* %addr, <16 x i32>%index) {
   %ptr = bitcast float *%addr to i8*
   call void @masked_gatherpf.32(<16 x i1> %mask, i8* %ptr, <16 x i32> %index)
+  ret void
+}
+
+define void @masked_gatherpf.v16i8(<16 x i1> %mask, i8* %ptr, <16 x i32>%index) {
+  %imask = bitcast <16 x i1> %mask to i16
+  call void @llvm.x86.mic.mask.gatherpf.ps(<16 x i32> %index, i16 %imask, i8* %ptr,
+                                               i32 1, ; u32 -> u8
+                                               i32 1, ; scale 1
+                                               i32 2) ; prefetch to L2 cache, non exclusive
+  ret void
+}
+
+define void @masked_gatherpf.v16i16(<16 x i1> %mask, i16* %addr, <16 x i32>%index) {
+  %ptr = bitcast i16 *%addr to i8*
+  %imask = bitcast <16 x i1> %mask to i16
+  call void @llvm.x86.mic.mask.gatherpf.ps(<16 x i32> %index, i16 %imask, i8* %ptr,
+                                               i32 3, ; u32 -> u16
+                                               i32 2, ; scale 2
+                                               i32 2) ; prefetch to L2 cache, non exclusive
   ret void
 }
 
@@ -260,6 +296,23 @@ define void @masked_scatterpf.64(<16 x i1> %mask, i8* %addr, <16 x i32>%index) {
  ret void
 }
 
+define void @scatterpf.v16i8 (i8* %ptr, <16 x i32>%index) {
+ call void @llvm.x86.mic.scatterpf.ps(i8* %ptr, <16 x i32> %index,
+                                               i32 1, ; u8 - > u32
+                                               i32 1, ; scale 1
+                                               i32 6) ; prefetch to L2 cache, exclusive
+ ret void
+}
+
+define void @scatterpf.v16i16 (i16* %addr, <16 x i32>%index) {
+ %ptr = bitcast i16 *%addr to i8*
+ call void @llvm.x86.mic.scatterpf.ps(i8* %ptr, <16 x i32> %index,
+                                               i32 3, ; u16 - > u32
+                                               i32 2, ; scale 2
+                                               i32 6) ; prefetch to L2 cache, exclusive
+ ret void
+}
+
 define void @scatterpf.v16i32 (i32* %addr, <16 x i32>%index) {
  %ptr = bitcast i32 *%addr to i8*
  call void @scatterpf.32(i8* %ptr, <16 x i32> %index)
@@ -281,6 +334,25 @@ define void @scatterpf.v16i64 (i64* %addr, <16 x i32>%index) {
 define void @scatterpf.v16f64 (double* %addr, <16 x i32>%index) {
  %ptr = bitcast double *%addr to i8*
  call void @scatterpf.64(i8* %ptr, <16 x i32> %index)
+ ret void
+}
+
+define void @masked_scatterpf.v16i8 (<16 x i1> %mask, i8* %ptr, <16 x i32>%index) {
+ %imask = bitcast <16 x i1> %mask to i16
+ call void @llvm.x86.mic.mask.scatterpf.ps(i8* %ptr, i16 %imask, <16 x i32> %index,
+                                               i32 1, ; u8 -> u32
+                                               i32 1, ; scale 2
+                                               i32 6) ; prefetch to L2 cache, exclusive
+ ret void
+}
+
+define void @masked_scatterpf.v16i16 (<16 x i1> %mask, i16* %addr, <16 x i32>%index) {
+ %ptr = bitcast i16 *%addr to i8*
+ %imask = bitcast <16 x i1> %mask to i16
+ call void @llvm.x86.mic.mask.scatterpf.ps(i8* %ptr, i16 %imask, <16 x i32> %index,
+                                               i32 3, ; u16 -> u32
+                                               i32 2, ; scale 2
+                                               i32 6) ; prefetch to L2 cache, exclusive
  ret void
 }
 
@@ -308,6 +380,50 @@ define void @masked_scatterpf.v16f64 (<16 x i1> %mask, double* %addr, <16 x i32>
  ret void
 }
 
+define <16 x i8> @gather.v16i8 (i8* %ptr, <16 x i32>%index) {
+  %t0 = call <16 x i32> @llvm.x86.mic.gather.pi(<16 x i32> %index, i8* %ptr,
+                                               i32 1, ; u8 -> u32 (zext)
+                                               i32 1, ; scale 1
+                                               i32 0) ; gather to L1 cache
+  %t1 = trunc <16 x i32> %t0 to <16 x i8>
+  ret <16 x i8> %t1
+}
+
+define <16 x i8> @masked_gather.v16i8 (<16 x i1> %mask, i8* %ptr, <16 x i32>%index) {
+  %imask = bitcast <16 x i1> %mask to i16
+  %t0 = call <16 x i32>  @llvm.x86.mic.mask.gather.pi(<16 x i32> undef,
+                                               i16 %imask,
+                                               <16 x i32> %index, i8* %ptr,
+                                               i32 1, ; u8 -> u32
+                                               i32 1, ; scale 1
+                                               i32 0) ; gather to L1 cache
+  %t1 = trunc <16 x i32> %t0 to <16 x i8>
+  ret <16 x i8> %t1
+}
+
+define <16 x i16> @gather.v16i16 (i16* %addr, <16 x i32>%index) {
+  %ptr = bitcast i16 *%addr to i8*
+  %t0 = call <16 x i32> @llvm.x86.mic.gather.pi(<16 x i32> %index, i8* %ptr,
+                                               i32 3, ; u16 -> u32
+                                               i32 2, ; scale 2
+                                               i32 0) ; gather to L1 cache
+  %t1 = trunc <16 x i32> %t0 to <16 x i16>
+  ret <16 x i16> %t1
+}
+
+define <16 x i16> @masked_gather.v16i16 (<16 x i1> %mask, i16* %addr, <16 x i32>%index) {
+  %ptr = bitcast i16 *%addr to i8*
+  %imask = bitcast <16 x i1> %mask to i16
+  %t0 = call <16 x i32>  @llvm.x86.mic.mask.gather.pi(<16 x i32> undef,
+                                               i16 %imask,
+                                               <16 x i32> %index, i8* %ptr,
+                                               i32 3, ; u16 -> u32
+                                               i32 2, ; scale 2
+                                               i32 0) ; gather to L1 cache
+  %t1 = trunc <16 x i32> %t0 to <16 x i16>
+  ret <16 x i16> %t1
+}
+
 define <16 x i32> @gather.v16i32 (i32* %addr, <16 x i32>%index) {
   %ptr = bitcast i32 *%addr to i8*
   %t0 = call <16 x i32> @llvm.x86.mic.gather.pi(<16 x i32> %index, i8* %ptr,
@@ -328,7 +444,6 @@ define <16 x i32> @masked_gather.v16i32 (<16 x i1> %mask, i32* %addr, <16 x i32>
                                                i32 0) ; gather to L1 cache
   ret <16 x i32> %t0
 }
-
 
 define <16 x i64> @gather.v16i64 (i64* %addr, <16 x i32>%index) {
   %ptr = bitcast i64 *%addr to i8*
@@ -445,6 +560,58 @@ define <16 x double> @masked_gather.v16f64 (<16 x i1> %mask, double* %addr, <16 
             <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7,
              i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   ret <16 x double> %t2
+}
+
+define void @scatter.v16i8 (i8* %ptr, <16 x i32>%index, <16 x i8> %data) {
+  %data1 = zext <16 x i8> %data to <16 x i32>
+  call void @llvm.x86.mic.scatter.pi(i8* %ptr,
+                                    <16 x i32> %index,
+                                    <16 x i32> %data1,
+                                    i32 1, ; u32 -> u16
+                                    i32 1, ; scale 1
+                                    i32 0) ; scatter to L1 cache
+  ret void
+}
+
+define void @masked_scatter.v16i8 (<16 x i1> %mask, i8* %ptr, <16 x i32>%index,
+                                <16 x i8> %data) {
+  %imask = bitcast <16 x i1> %mask to i16
+  %data1 = zext <16 x i8> %data to <16 x i32>
+  call void @llvm.x86.mic.mask.scatter.pi(i8* %ptr,
+                                          i16 %imask,
+                                          <16 x i32> %index,
+                                          <16 x i32> %data1,
+                                          i32 1, ; u32 -> u8
+                                          i32 1, ; scale 1
+                                          i32 0) ; scatter to L1 cache
+  ret void
+}
+
+define void @scatter.v16i16 (i16* %addr, <16 x i32>%index, <16 x i16> %data) {
+  %ptr = bitcast i16 *%addr to i8*
+  %data1 = zext <16 x i16> %data to <16 x i32>
+  call void @llvm.x86.mic.scatter.pi(i8* %ptr,
+                                    <16 x i32> %index,
+                                    <16 x i32> %data1,
+                                    i32 3, ; u32 -> u16
+                                    i32 2, ; scale 2
+                                    i32 0) ; scatter to L1 cache
+  ret void
+}
+
+define void @masked_scatter.v16i16 (<16 x i1> %mask, i16* %addr, <16 x i32>%index,
+                                <16 x i16> %data) {
+  %ptr = bitcast i16 *%addr to i8*
+  %imask = bitcast <16 x i1> %mask to i16
+  %data1 = zext <16 x i16> %data to <16 x i32>
+  call void @llvm.x86.mic.mask.scatter.pi(i8* %ptr,
+                                          i16 %imask,
+                                          <16 x i32> %index,
+                                          <16 x i32> %data1,
+                                          i32 3, ; u32 -> u16
+                                          i32 2, ; scale 2
+                                          i32 0) ; scatter to L1 cache
+  ret void
 }
 
 define void @scatter.v16i32 (i32* %addr, <16 x i32>%index, <16 x i32> %data) {

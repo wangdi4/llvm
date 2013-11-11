@@ -13,13 +13,7 @@
 #include <sstream>
 
 static bool isGatherScatterType(VectorType *VecTy) {
-  unsigned NumElements = VecTy->getNumElements();
-  Type *ElemTy = VecTy->getElementType();
-  return ((NumElements == 16) &&
-          (ElemTy->isFloatTy() ||
-           ElemTy->isIntegerTy(32) ||
-           ElemTy->isDoubleTy() ||
-           ElemTy->isIntegerTy(64)));
+  return VecTy->getNumElements() == 16;
 }
 
 namespace intel {
