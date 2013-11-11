@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -analyze -B-FunctionAnalysis -verify %t.bc -S -o %t1.ll
+; RUN: opt -analyze -B-ValueAnalysis -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ;;*****************************************************************************
@@ -23,14 +23,24 @@ define void @main(i32 %x) nounwind {
 ; CHECK: ret void
 }
 
-; CHECK: Data collected on functions
+; CHECK: Group-A Values
+; CHECK-NOT: +
+; CHECK-NOT: -
+; CHECK-NOT: *
+
+; CHECK: Group-B.1 Values
+; CHECK-NOT: +
+; CHECK-NOT: -
+; CHECK-NOT: *
+
+; CHECK: Group-B.2 Values
+; CHECK-NOT: +
+; CHECK-NOT: -
+; CHECK-NOT: *
+
+; CHECK: Buffer Total Size:
 ; CHECK-NOT: main
-
-; CHECK: Data collected on calls
-
-; CHECK: Ordered functions to fix
-; CHECK-NOT: main
-
+; CHECK-NOT: entry
 ; CHECK: DONE
 
 !opencl.kernels = !{!0}

@@ -66,6 +66,7 @@ llvm::ModulePass *createPrepareKernelArgsPass();
 llvm::Pass *createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
+llvm::ModulePass *createDuplicateCalledKernelsPass();
 
 #ifdef __APPLE__
 llvm::Pass *createClangCompatFixerPass();
@@ -341,6 +342,8 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   
   // Should be called before vectorizer!
   PM.add((llvm::Pass*)createInstToFuncCallPass(HasGatherScatter));
+
+  PM.add(createDuplicateCalledKernelsPass());
 
   if ( debugType == intel::None && !pConfig->GetLibraryModule() ) {
     PM.add(createKernelAnalysisPass());

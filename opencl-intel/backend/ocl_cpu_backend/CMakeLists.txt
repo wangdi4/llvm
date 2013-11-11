@@ -338,8 +338,8 @@ endif (NOT WIN32)
 
 
 set( BACKEND_PASSES
-    LLVMVectorizer
     LLVMBarrier
+    LLVMVectorizer
     AddImplicitArgs
     OclFunctionAttrs
     BuiltInFuncImport

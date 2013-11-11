@@ -1,7 +1,8 @@
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: opt -B-RemoveDuplication -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
-
+; XFAIL: *
+;;Don't remove dummyBarrier-any, Barrier pass might fail
 ;;*****************************************************************************
 ;; This test checks the RemoveDuplicationBarrier pass
 ;; The case: function "main" with the following synchronize instruction sequence

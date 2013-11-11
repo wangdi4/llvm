@@ -13,12 +13,16 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/Function.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/Version.h"
 #if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
 #else
 #include "llvm/DataLayout.h"
 #endif
+
+#include <map>
+#include <set>
 
 using namespace llvm;
 
@@ -28,7 +32,7 @@ namespace intel {
   /// data on Values (instructions) that needs special handling
   class DataPerValue : public ModulePass {
   public:
-    typedef std::map<Function*, TValueVector> TValuesPerFunctionMap;
+    typedef MapVector<Function*, TValueVector> TValuesPerFunctionMap;
     typedef std::map<Value*, unsigned int> TValueToOffsetMap;
     typedef std::set<Value*> TValueSet;
 
@@ -178,13 +182,17 @@ namespace intel {
 
     /// @brief Find all connected function into disjoint groups on given module
     /// @param M module to analyze
-    void CalculateConnectedGraph(Module &M);
+    void calculateConnectedGraph(Module &M);
 
     /// @brief replace all entry value equal to "from" in m_functionToEntryMap with value "to"
     /// @param from - the entry value to replace
     /// @param to - the entry value to replace with
-    void FixEntryMap(unsigned int from, unsigned int to);
+    void fixEntryMap(unsigned int from, unsigned int to);
 
+    /// @brief mark special argument and return values for given function
+    ///        by alocating place in special buffer for these values.
+    /// @param F function to process its arguments
+    void markSpecialArguments(Function &F);
   private:
     /// This is barrier utility class
     BarrierUtils m_util;

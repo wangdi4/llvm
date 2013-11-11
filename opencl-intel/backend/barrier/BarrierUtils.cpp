@@ -194,7 +194,7 @@ namespace intel {
   //  return m_syncBasicBlocks;
   //}
 
-  TFunctionVector& BarrierUtils::getAllFunctionsWithSynchronization() {
+  TFunctionSet& BarrierUtils::getAllFunctionsWithSynchronization() {
     //Initialize m_syncInstructions
     getAllSynchronizeInstructuons();
 
@@ -203,7 +203,7 @@ namespace intel {
 
     for ( TInstructionVector::iterator ii = m_syncInstructions.begin(),
       ie = m_syncInstructions.end(); ii != ie; ++ii ) {
-        m_syncFunctions.push_back((*ii)->getParent()->getParent());
+        m_syncFunctions.insert((*ii)->getParent()->getParent());
     }
     return m_syncFunctions;
   }

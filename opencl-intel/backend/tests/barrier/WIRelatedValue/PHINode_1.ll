@@ -28,10 +28,13 @@ L2:
   br label %L3
 L3:
   %isOk = phi i1 [ false, %L1 ], [ true, %L2 ]
+  call void @_Z7barrierj(i32 2)
   ret void
 ; CHECK: WI related Values
 ; CHECK: isOk is not WI related
 }
+
+declare void @_Z7barrierj(i32)
 
 !opencl.kernels = !{!0}
 !opencl.build.options = !{}

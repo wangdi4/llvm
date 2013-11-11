@@ -39,8 +39,8 @@ add_library(${TARGET_NAME} SHARED
 
 set (PASSES_LIBS
     # Backend passes
-    LLVMVectorizer
     LLVMBarrier
+    LLVMVectorizer
     AddImplicitArgs
     BuiltInFuncImport
     BuiltinLibInfo

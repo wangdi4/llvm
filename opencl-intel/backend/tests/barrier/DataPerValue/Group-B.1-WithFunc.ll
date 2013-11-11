@@ -18,7 +18,7 @@
 ;;      4. "%y" value has offset 0 in the special buffer
 ;;  Group-B.2 Values analysis data collected is as follows
 ;;      5. No analysis data was collected to this group
-;;  Buffer Total Size is 4
+;;  Buffer Total Size is 8
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
@@ -90,7 +90,7 @@ L4:
 
 ; CHECK: Buffer Total Size:
 ; CHECK-NOT: entry
-; CHECK: entry(1) : (4)
+; CHECK: entry(1) : (8)
 ; CHECK-NOT: entry
 ; CHECK: DONE
 

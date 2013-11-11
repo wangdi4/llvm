@@ -77,7 +77,8 @@ namespace intel {
               }
             }
             //Otherwise need to remove the next instruction
-            toRemoveInstructions.push_back(pNextInst);
+            //Don't remove dummyBarrier-any, Barrier pass might fail
+            //toRemoveInstructions.push_back(pNextInst);
             continue;
           }
           if ( SYNC_TYPE_FIBER == typeNextInst ) {

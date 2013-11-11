@@ -594,7 +594,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
 
     if ( (NULL != pFECompiler) || (NULL != pBin) )
     {
-        // First use Front-end compiler for teh information
+        // First use Front-end compiler for the information
         FECompilerAPI::FEKernelArgInfo* pArgsInfo;
         clErrCode = pFECompiler->GetKernelArgInfo(pBin, m_sKernelPrototype.m_szKernelName.c_str(), &pArgsInfo );
         if ( CL_FAILED(clErrCode) )

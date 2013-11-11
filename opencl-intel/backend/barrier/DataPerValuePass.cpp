@@ -50,11 +50,22 @@ namespace intel {
     assert( m_pDL && "Failed to obtain instance of DataLayout!" );
 
     // Find and sort all connected function into disjointed groups
-    CalculateConnectedGraph(M);
+    calculateConnectedGraph(M);
 
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
       runOnFunction(*fi);
     }
+
+  /////////////////////////////////////////////////////////////////////////////
+    //Find all functions that call synchronize instructions
+    TFunctionSet& functionsWithSync = m_util.getAllFunctionsWithSynchronization();
+
+    //Collect data for each function with synchronize instruction
+    for ( TFunctionSet::iterator fi = functionsWithSync.begin(),
+      fe = functionsWithSync.end(); fi != fe; ++fi ) {
+        markSpecialArguments(*(*fi));
+    }
+  /////////////////////////////////////////////////////////////////////////////
 
     //Check that stide size is aligned with max alignment
     for ( TEntryToBufferDataMap::iterator di = m_entryToBufferDataMap.begin(),
@@ -141,11 +152,9 @@ namespace intel {
             // uniform WG functions always produce cross-barrier value
             m_crossBarrierValuesPerFuncMap[&F].push_back(pInst);
             continue;
-          } else if ( m_pDataPerBarrier->hasSyncInstruction( pCalledFunc ) ||
-                      CompilationUtils::isWorkGroupScan( funcName ) ) {
-            // Call instructions to functions that contains barriers
-            // need to be stored in the special buffer.
-            // The same is for WG functions which produce WI-specific result.
+          } else if ( CompilationUtils::isWorkGroupScan( funcName ) ) {
+            // Call instructions to WG functions which produce WI-specific
+            //  result, need to be stored in the special buffer.
             assert(m_pWIRelatedValue->isWIRelated(pInst)
               && "Must be work-item realted value!");
             m_specialValuesPerFuncMap[&F].push_back(pInst);
@@ -233,7 +242,7 @@ namespace intel {
               return SPECIAL_VALUE_TYPE_B1;
             }
 
-            if( m_pDataPerBarrier->getPredecessors(pSyncBB).count(pSyncBB) ) {
+            if ( m_pDataPerBarrier->getPredecessors(pSyncBB).count(pSyncBB) ) {
               //pSyncBB is a predecessor of itself
               //means synchronize instruction is inside a loop
 
@@ -383,7 +392,7 @@ namespace intel {
     return offset;
   }
 
-  void DataPerValue::CalculateConnectedGraph(Module &M) {
+  void DataPerValue::calculateConnectedGraph(Module &M) {
     unsigned int currEntry = 0;
 
     //Run on all functions in module
@@ -401,7 +410,7 @@ namespace intel {
       if ( m_functionToEntryMap.count(pFunc) ) {
         //pFunc already has an entry number,
         //replace all appears of it with the current entry number.
-        FixEntryMap(m_functionToEntryMap[pFunc], currEntry);
+        fixEntryMap(m_functionToEntryMap[pFunc], currEntry);
       } else {
         //pFunc has no entry number yet, give it the current entry number
         m_functionToEntryMap[pFunc] = currEntry;
@@ -410,15 +419,13 @@ namespace intel {
         ue = pFunc->use_end(); ui != ue; ++ui ) {
           CallInst *pCallInst = dyn_cast<CallInst>(*ui);
           // usage of pFunc can be a global variable!
-          if( !pCallInst ) {
-            // usage of pFunc is not a CallInst
-            continue;
-          }
+          if ( !pCallInst ) continue;
+
           Function *pCallerFunc = pCallInst->getParent()->getParent();
           if ( m_functionToEntryMap.count(pCallerFunc) ) {
             //pCallerFunc already has an entry number,
             //replace all appears of it with the current entry number.
-            FixEntryMap(m_functionToEntryMap[pCallerFunc], currEntry);
+            fixEntryMap(m_functionToEntryMap[pCallerFunc], currEntry);
           } else {
             //pCallerFunc has no entry number yet, give it the current entry number
             m_functionToEntryMap[pCallerFunc] = currEntry;
@@ -428,7 +435,7 @@ namespace intel {
     }
   }
 
-  void DataPerValue::FixEntryMap(unsigned int from, unsigned int to) {
+  void DataPerValue::fixEntryMap(unsigned int from, unsigned int to) {
     if ( from == to ) {
       //No need to fix anything
       return;
@@ -439,6 +446,54 @@ namespace intel {
         if ( ei->second == from ) {
           ei->second = to;
         }
+    }
+  }
+
+  void DataPerValue::markSpecialArguments(Function &F) {
+
+    unsigned int numOfArgs = F.getFunctionType()->getNumParams();
+    bool hasReturnValue = !(F.getFunctionType()->getReturnType()->isVoidTy());
+    // Keep one last argument for return value
+    unsigned int numOfArgsWithReturnValue = hasReturnValue ? numOfArgs+1 : numOfArgs;
+
+    if ( 0 == numOfArgsWithReturnValue ) {
+      //Function takes no arguments, nothing to check
+      return;
+    }
+
+    unsigned int entry = m_functionToEntryMap[&F];
+    SpecialBufferData& bufferData = m_entryToBufferDataMap[entry];
+
+    std::vector<bool> argsFunction;
+    argsFunction.assign(numOfArgsWithReturnValue, false);
+    //Check each call to F function searching parameters stored in special buffer
+    for ( Value::use_iterator ui = F.use_begin(),
+      ue = F.use_end(); ui != ue; ++ui ) {
+        CallInst *pCallInst = dyn_cast<CallInst>(*ui);
+        // usage of pFunc can be a global variable!
+        if ( !pCallInst ) continue;
+
+        for ( unsigned int i = 0; i < numOfArgsWithReturnValue; ++i ) {
+          Value *pVal = (i == numOfArgs) ?
+            pCallInst : pCallInst->getArgOperand(i);
+          if ( hasOffset(pVal) ) {
+            //If reach here, means that this function has at least
+            //one caller with argument value in special buffer
+            //Set this argument marker for handling
+            argsFunction[i] = true;
+          }
+        }
+    }
+    Function::arg_iterator argIter = F.arg_begin();
+    for (unsigned int i = 0; i < numOfArgs; ++i, ++argIter) {
+      if (!argsFunction[i]) continue;
+      Value *pVal = &*argIter;
+      // Argument is marked for handling, get a new offset for this argument.
+      m_valueToOffsetMap[pVal] = getValueOffset(pVal, pVal->getType(), 0, bufferData);
+    }
+    if (hasReturnValue && argsFunction[numOfArgs]) {
+      // Return value is marked for handling, get new offset for this function.
+      m_valueToOffsetMap[&F] = getValueOffset(NULL, F.getFunctionType()->getReturnType(), 0, bufferData);
     }
   }
 
@@ -466,6 +521,7 @@ namespace intel {
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
         Value *pValue = *vi;
         //Print alloca value name
+        assert(m_valueToOffsetMap.count(pValue) && "pValue has no offset!");
         OS << "\t-" << pValue->getName() << "\t(" << m_valueToOffsetMap.find(pValue)->second << ")\n";
       }
       OS << "*" << "\n";
@@ -487,6 +543,7 @@ namespace intel {
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
         Value *pValue = *vi;
         //Print special value name
+        assert(m_valueToOffsetMap.count(pValue) && "pValue has no offset!");
         OS << "\t-" << pValue->getName() << "\t(" << m_valueToOffsetMap.find(pValue)->second << ")\n";
       }
       OS << "*" << "\n";
@@ -513,7 +570,7 @@ namespace intel {
       OS << "*" << "\n";
     }
 
-    OS << "Buffer Total Size: ";
+    OS << "Buffer Total Size:\n";
     for ( TFunctionToEntryMap::const_iterator ei = m_functionToEntryMap.begin(),
       ee = m_functionToEntryMap.end(); ei != ee; ++ei ) {
         //Print function name & its entry
