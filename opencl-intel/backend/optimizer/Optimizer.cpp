@@ -221,9 +221,11 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
                                        bool UnrollLoops) {
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag());
+#ifndef __APPLE__
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
       pConfig->GetIRDumpOptionsBefore());
+#endif
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
 
   PM.add(createDataLayout(M));
@@ -254,10 +256,12 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   }
 
   // Adding module passes.
+#ifndef __APPLE__
   if (dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_BEFORE,
                              pConfig->GetDumpIRDir()));
   }
+#endif
 #ifdef __APPLE__
   PM.add(createClangCompatFixerPass());
 #endif
@@ -312,8 +316,10 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   bool DisableSimplifyLibCalls = true;
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
   DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
+#ifndef __APPLE__
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
+#endif
   PM.add(createDataLayout(M));
   PM.add(createBuiltinLibInfoPass(pRtlModule, ""));
 
