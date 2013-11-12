@@ -13,9 +13,10 @@ add_subdirectory( utils )
 set( TARGET_NAME common_runtime )
 
 include_directories( BEFORE
-		${CMAKE_CURRENT_SOURCE_DIR}/utils
-		${CMAKE_CURRENT_SOURCE_DIR}
-            )
+        ${CMAKE_CURRENT_SOURCE_DIR}/utils
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${OCL_BINARY_DIR}
+        )
 
 if ( WIN32 AND ( DEFINED ENV{DXSDK_DIR} ) )            
     add_definitions (-DCL_DX9_MEDIA_SHARING_INTEL_EXT)
