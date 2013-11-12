@@ -82,6 +82,13 @@ using namespace Intel::OpenCL::Utils;
 
 using namespace std;
 
+namespace llvm {
+  //===----------------------------------------------------------------------===//
+  // createSPIRMetadataAdderPass - Add SPIR related module scope metadata.
+  //
+  ModulePass *createSPIRMetadataAdderPass(const std::list<std::string> BuildOpt = std::list<std::string>(), int OCLVer = 120 );
+}
+
 #if defined (_WIN32)
 #define GET_CURR_WORKING_DIR(len, buff) GetCurrentDirectoryA(len, buff)
 #define PASS_PCH
