@@ -73,6 +73,28 @@ WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB64Bit[] = {
 
 // Costs for transpose functions for 32bit systems
 WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB32Bit[] = {
+
+   { "__ocl_load_transpose_char_4x4", 8 },
+   { "__ocl_transpose_store_char_4x4", 8 },
+   { "__ocl_masked_load_transpose_char_4x4", 12 },
+   { "__ocl_masked_transpose_store_char_4x4", 12 },
+   { "__ocl_load_transpose_float_4x8", 70 },
+   { "__ocl_transpose_store_float_4x8", 70 },
+   { "__ocl_gather_transpose_float_4x8", 75 },
+   { "__ocl_transpose_scatter_float_4x8", 75 },
+   { "__ocl_masked_load_transpose_float_4x8", 80},
+   { "__ocl_masked_transpose_store_float_4x8", 80},
+   { "__ocl_masked_gather_transpose_float_4x8", 90},
+   { "__ocl_masked_transpose_scatter_float_4x8", 90},
+
+   // The line below must be the last line in the DB,
+   // serving as a terminator.
+   { 0, 0 }
+};
+
+#ifdef __CUSTOM
+// Costs for transpose functions for 32bit systems
+WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB32Bit[] = {
    // These numbers tuned for SSE4 in 32bit platform
    { "__ocl_load_transpose_char_4x4", 8 },
    { "__ocl_transpose_store_char_4x4", 8 },
@@ -94,6 +116,7 @@ WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB32Bit[] = {
    // serving as a terminator.
    { 0, 0 }
 };
+#endif // __CUSTOM
 
 static const bool enableDebugPrints = false;
 static raw_ostream &dbgPrint() {
