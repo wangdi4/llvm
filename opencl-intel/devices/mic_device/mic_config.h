@@ -58,6 +58,9 @@ using namespace Intel::OpenCL::Utils;
 	#define    CL_CONFIG_MIC_DEVICE_OMP_KMP_AFFINITY  "CL_CONFIG_MIC_DEVICE_OMP_KMP_AFFINITY" // string
 	#define    CL_CONFIG_MIC_DEVICE_OMP_KMP_BLOCKTIME  "CL_CONFIG_MIC_DEVICE_OMP_KMP_BLOCKTIME" // string
 #endif
+#define    CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_BUFFER_FROM_SIZE_BYTE    "CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_BUFFER_FROM_SIZE_BYTE"  // int
+#define    CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_TASK_PER_WORKER    "CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_TASK_PER_WORKER"  // int
+#define    CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_WORKERS    "CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_WORKERS"  // int
 
 #define    CL_CONFIG_MIC_DEVICE_PRINT_CONFIG             "CL_CONFIG_MIC_DEVICE_PRINT_CONFIG"          // bool
 
@@ -102,6 +105,10 @@ public:
 		string         Device_OmpKmpAffinity() const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_OMP_KMP_AFFINITY, "granularity=fine,balanced"); }
 		string         Device_OmpKmpBlockTime() const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_OMP_KMP_BLOCKTIME, "infinite"); }
 #endif
+
+		int   Device_ParallelFillBufferFromSize() const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_BUFFER_FROM_SIZE_BYTE, 32768); }
+		int   Device_ParallelFillMaxTaskPerWorker() const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_TASK_PER_WORKER, -1); }
+		int   Device_ParallelFillMaxWorkers() const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_WORKERS, -1); }
 
 		string		     Device_offloadDevices() const { return m_pConfigFile->Read<string>(OFFLOAD_DEVICES, ""); }
 
@@ -154,6 +161,10 @@ private:
 		
 		std::cout << std::endl;
 #endif
+
+		MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_BUFFER_FROM_SIZE_BYTE, Device_ParallelFillBufferFromSize, "Minimum size of buffer in kilobytes to use parallel fill for clEnqueueFillBuffer"  );
+		MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_TASK_PER_WORKER, Device_ParallelFillMaxTaskPerWorker, "Max tasks per worker when calling to clEnqueueFillBuffer"  );
+		MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_WORKERS, Device_ParallelFillMaxWorkers, "Max workers to use when calling to clEnqueueFillBuffer"  );
 
         std::cout << "--------------------------------------------------------" << std::endl << std::endl;
     }
