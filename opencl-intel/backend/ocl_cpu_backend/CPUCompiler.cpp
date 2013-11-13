@@ -432,7 +432,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
 
     llvm::formatted_raw_ostream fos(out);
 
-    pTargetMachine->addPassesToEmitFile(pm, fos, TargetMachine::CGFT_AssemblyFile, CodeGenOpt::Default);
+    pTargetMachine->addPassesToEmitFile(pm, fos, TargetMachine::CGFT_AssemblyFile, /*DisableVerify*/ true);
     pm.run(*pModule);
 
 }
