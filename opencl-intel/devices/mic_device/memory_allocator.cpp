@@ -137,7 +137,7 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, un
 
 MemoryAllocator::~MemoryAllocator()
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "MemoryAllocator Distructed");
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "MemoryAllocator Distracted");
 
     if (0 != m_iLogHandle)
     {
@@ -389,7 +389,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
     {
         coi_err = COIBufferCreateFromMemory(
                                 m_raw_size, COI_BUFFER_OPENCL, 
-								flags[i],
+                                flags[i],
                                 m_objDescr.pData,
                                 m_buffActiveProcesses.size(), &(m_buffActiveProcesses[0]),
                                 &m_coi_buffer);
@@ -402,14 +402,14 @@ cl_dev_err_code MICDevMemoryObject::Init()
 
     if (COI_SUCCESS != coi_err)
     {
-        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "Memory Object COI buffer Allocation failed");
+        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "Memory Object COI buffer Allocation failed, error=%d", coi_err);
         return CL_DEV_OBJECT_ALLOC_FAIL;
     }
 
     m_coi_top_level_buffer        = m_coi_buffer;
     m_coi_top_level_buffer_offset = 0;
-	// Increment ref counter of this buffer.
-	incRefCounter();
+    // Increment ref counter of this buffer.
+    incRefCounter();
     return CL_DEV_SUCCESS;
 }
 
@@ -744,11 +744,11 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
     m_nodeId           = m_Parent.m_nodeId;
 
     m_pRTMemObjService = pBSService;
-	assert( NULL != m_pRTMemObjService);
+    assert( NULL != m_pRTMemObjService);
 
-	// Get backing store.
-	cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
-	assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
+    // Get backing store.
+    cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
+    assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
 
     if (!CL_DEV_SUCCEEDED(bsErr) || (NULL == m_pBackingStore))
     {
@@ -792,13 +792,13 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
 
     if (COI_SUCCESS != coi_err)
     {
-        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "Memory Object COI sub-buffer Allocation failed");
+        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "Memory Object COI sub-buffer Allocation failed, error=%d", coi_err);
         return CL_DEV_OBJECT_ALLOC_FAIL;
     }
 
-	m_buffActiveProcesses = m_Parent.m_buffActiveProcesses;
-	// Increment ref counter of this buffer.
-	incRefCounter();
+    m_buffActiveProcesses = m_Parent.m_buffActiveProcesses;
+    // Increment ref counter of this buffer.
+    incRefCounter();
 
     return CL_DEV_SUCCESS;
 }

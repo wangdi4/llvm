@@ -115,17 +115,31 @@ bool KernelExecute_Dot_Test(const char* prog_file)
         return false;
     }
 
+    // Query device argument parameters
+    cl_dev_dispatch_buffer_prop dispatch_prop;
+    iRes = dev_entry->clDevGetKernelInfo(kernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES, sizeof(dispatch_prop), &dispatch_prop, NULL);
+    if (CL_DEV_FAILED(iRes))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        printf("clDevGetKernelInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
+
     // Setup Kernel parameters
     cl_dev_cmd_desc    cmdDesc;
     cl_dev_cmd_param_kernel krnlParam;
 
     krnlParam.kernel = kernel;
-    krnlParam.arg_size = 3*sizeof(IOCLDevMemoryObject*);//+sizeof(float);
-    krnlParam.arg_values = new cl_char[krnlParam.arg_size];
-
-    ((IOCLDevMemoryObject**)krnlParam.arg_values)[0] = memObjA;
-    ((IOCLDevMemoryObject**)krnlParam.arg_values)[1] = memObjB;
-    ((IOCLDevMemoryObject**)krnlParam.arg_values)[2] = memObjRes;
+    krnlParam.arg_size = dispatch_prop.size;
+    krnlParam.arg_values = ALIGNED_MALLOC(dispatch_prop.size, dispatch_prop.alignment);
+    krnlParam.uiNonArgSvmBuffersCount = 0;
+    krnlParam.ppNonArgSvmBuffers = NULL;
+    
+    ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[0] = memObjA;
+    ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[1] = memObjB;
+    ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[2] = memObjRes;
 
 //    *((float*)((cl_char*)krnlParam.arg_values+3*sizeof(IOCLDevMemoryObject*))) = 2.f;
     krnlParam.work_dim = 2;
@@ -153,7 +167,7 @@ bool KernelExecute_Dot_Test(const char* prog_file)
     iRes = dev_entry->clDevCommandListExecute(0, &cmdsBuff, 1);
     if (CL_DEV_FAILED(iRes))
     {
-        delete [] (char*)(krnlParam.arg_values);
+        ALIGNED_FREE(krnlParam.arg_values);
         memObjA->clDevMemObjRelease();
         memObjB->clDevMemObjRelease();
         dev_entry->clDevReleaseProgram(prog);
@@ -168,7 +182,7 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 
     if(!readMemory(false, memObjRes, res, sizeof(res)))
     {
-        delete [] (char*)(krnlParam.arg_values);
+        ALIGNED_FREE(krnlParam.arg_values);
         memObjA->clDevMemObjRelease();
         memObjB->clDevMemObjRelease();
         dev_entry->clDevReleaseProgram(prog);
@@ -185,7 +199,7 @@ bool KernelExecute_Dot_Test(const char* prog_file)
         }
     }
 
-    delete [] (char*)(krnlParam.arg_values);
+    ALIGNED_FREE(krnlParam.arg_values);
     memObjA->clDevMemObjRelease();
     memObjB->clDevMemObjRelease();
     dev_entry->clDevReleaseProgram(prog);
@@ -247,13 +261,27 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
     // Setup Kernel parameters
     cl_dev_cmd_desc    cmdDesc;
     cl_dev_cmd_param_kernel krnlParam;
+    cl_dev_dispatch_buffer_prop dispatch_prop;
+
+    // Query device argument parameters
+    iRes = dev_entry->clDevGetKernelInfo(kernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES, sizeof(dispatch_prop), &dispatch_prop, NULL);
+    if (CL_DEV_FAILED(iRes))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        printf("clDevGetKernelInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
 
     krnlParam.kernel = kernel;
-    krnlParam.arg_size = 2*sizeof(IOCLDevMemoryObject*);//+sizeof(float);
-    krnlParam.arg_values = new cl_char[krnlParam.arg_size];
-
-    ((IOCLDevMemoryObject**)krnlParam.arg_values)[0] = memObjA;
-    ((IOCLDevMemoryObject**)krnlParam.arg_values)[0] = memObjB;
+    krnlParam.arg_size = dispatch_prop.size;
+    krnlParam.arg_values = ALIGNED_MALLOC(dispatch_prop.size, dispatch_prop.alignment);
+    krnlParam.uiNonArgSvmBuffersCount = 0;
+    krnlParam.ppNonArgSvmBuffers = NULL;
+    
+    ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[0] = memObjA;
+    ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[1] = memObjB;
 
     krnlParam.work_dim = 1;
     krnlParam.glb_wrk_offs[0] = 0;
@@ -273,7 +301,7 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
     iRes = dev_entry->clDevCommandListExecute(0, &cmdsBuff, 1);
     if (CL_DEV_FAILED(iRes))
     {
-        delete [] (char*)(krnlParam.arg_values);
+        ALIGNED_FREE(krnlParam.arg_values);
         memObjA->clDevMemObjRelease();
         memObjB->clDevMemObjRelease();
         dev_entry->clDevReleaseProgram(prog);
@@ -288,7 +316,7 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
 
     if(!readMemory(false, memObjB, BuffB, sizeAB))
     {
-        delete [] (char*)(krnlParam.arg_values);
+        ALIGNED_FREE(krnlParam.arg_values);
         memObjA->clDevMemObjRelease();
         memObjB->clDevMemObjRelease();
         dev_entry->clDevReleaseProgram(prog);
@@ -300,7 +328,7 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
     {
         if ( BuffA[i] == BuffB[i] )
         {
-            delete [] (char*)(krnlParam.arg_values);
+            ALIGNED_FREE(krnlParam.arg_values);
             memObjA->clDevMemObjRelease();
             memObjB->clDevMemObjRelease();
             dev_entry->clDevReleaseProgram(prog);
@@ -308,7 +336,7 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
         }
     }
 
-    delete [] (char*)(krnlParam.arg_values);
+    ALIGNED_FREE(krnlParam.arg_values);
     memObjA->clDevMemObjRelease();
     memObjB->clDevMemObjRelease();
     dev_entry->clDevReleaseProgram(prog);
@@ -383,13 +411,27 @@ bool KernelExecute_Math_Test(const char* prog_file)
     // Setup Kernel parameters
     cl_dev_cmd_desc    cmdDesc;
     cl_dev_cmd_param_kernel krnlParam;
+    cl_dev_dispatch_buffer_prop dispatch_prop;
+
+    // Query device argument parameters
+    iRes = dev_entry->clDevGetKernelInfo(kernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES, sizeof(dispatch_prop), &dispatch_prop, NULL);
+    if (CL_DEV_FAILED(iRes))
+    {
+        memObjA->clDevMemObjRelease();
+        memObjB->clDevMemObjRelease();
+        dev_entry->clDevReleaseProgram(prog);
+        printf("clDevGetKernelInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));
+        return false;
+    }
 
     krnlParam.kernel = kernel;
-    krnlParam.arg_size = 2*sizeof(IOCLDevMemoryObject*);//+sizeof(float);
-    krnlParam.arg_values = new cl_char[krnlParam.arg_size];
-
-    ((IOCLDevMemoryObject**)krnlParam.arg_values)[0] = memObjA;
-    ((IOCLDevMemoryObject**)krnlParam.arg_values)[1] = memObjB;
+    krnlParam.arg_size = dispatch_prop.size;
+    krnlParam.arg_values = ALIGNED_MALLOC(dispatch_prop.size, dispatch_prop.alignment);
+    krnlParam.uiNonArgSvmBuffersCount = 0;
+    krnlParam.ppNonArgSvmBuffers = NULL;
+    
+    ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[0] = memObjA;
+    ((IOCLDevMemoryObject**)((char*)krnlParam.arg_values+dispatch_prop.argumentOffset))[1] = memObjB;
 
     krnlParam.work_dim = 1;
     krnlParam.glb_wrk_offs[0] = 0;
@@ -414,6 +456,7 @@ bool KernelExecute_Math_Test(const char* prog_file)
         memObjB->clDevMemObjRelease();
         dev_entry->clDevReleaseProgram(prog);
         printf("pclDevCommandListExecute failed: %s\n", clDevErr2Txt((cl_dev_err_code)iRes));
+        ALIGNED_FREE(krnlParam.arg_values);
         return false;
     }
 
@@ -428,6 +471,7 @@ bool KernelExecute_Math_Test(const char* prog_file)
         memObjA->clDevMemObjRelease();
         memObjB->clDevMemObjRelease();
         dev_entry->clDevReleaseProgram(prog);
+        ALIGNED_FREE(krnlParam.arg_values);
         return false;
     }
 
@@ -440,14 +484,15 @@ bool KernelExecute_Math_Test(const char* prog_file)
             memObjA->clDevMemObjRelease();
             memObjB->clDevMemObjRelease();
             dev_entry->clDevReleaseProgram(prog);
+            ALIGNED_FREE(krnlParam.arg_values);
             return false;
         }
     }
 
-    delete [] (char*)(krnlParam.arg_values);
     memObjA->clDevMemObjRelease();
     memObjB->clDevMemObjRelease();
     dev_entry->clDevReleaseProgram(prog);
+    ALIGNED_FREE(krnlParam.arg_values);
 
     return true;
 }

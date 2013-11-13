@@ -61,7 +61,7 @@ public:
                                               ProgramService*               pProgramService, 
                                               PerformanceDataStore*         pOverheadData,
 #ifdef USE_ITT
-                                              const ocl_gpa_data* pGPAData,
+                                              const ocl_gpa_data*           pGPAData,
 #endif
                                               CommandList**                 outCommandList);
 
@@ -129,11 +129,17 @@ public:
     void resetLastCommand(const SharedPtr<Command>& oldCommand);
 
     /* return true if the queue is InOrder command list */
-    bool isInOrderCommandList() { return m_isInOrderQueue; };
+    bool isInOrderCommandList() const { return m_isInOrderQueue; };
+
+    bool isProfilingEnabled() const { return m_isProfilingEnabled;}
 
     bool isCanceled() const { return m_bIsCanceled; }
 
     const ocl_gpa_data* GetGPAInfo() const { return m_pGPAData;}
+
+    void getLastDependentBarrier(COIEVENT* barrier, unsigned int* numDependencies, bool isExecutionTask);
+
+    uint64_t getDeviceQueueAddress() const { return m_pDeviceAddress; }
 
 protected:
 
@@ -143,8 +149,9 @@ protected:
                 IOCLFrameworkCallbacks*     pFrameworkCallBacks, 
                 ProgramService*             pProgramService, 
                 PerformanceDataStore*       pOverheadData,
-                cl_dev_subdevice_id subDeviceId,
-                bool isInOrder
+                cl_dev_subdevice_id         subDeviceId,
+                bool                        isInOrder,
+                bool                        isProfilingEnabled
 #ifdef USE_ITT
                 ,const ocl_gpa_data* pGPAData
 #endif
@@ -195,7 +202,7 @@ private:
     AtomicCounter                         m_refCounter;
     // the pipe line to MIC device
     COIPIPELINE                           m_pipe;
-    uint64_t                          m_pDeviceAddress;
+    uint64_t                              m_pDeviceAddress;
     // pointer to static function that create Command object
     static fnCommandCreate_t*             m_vCommands[CL_DEV_CMD_MAX_COMMAND_TYPE];
     // Sub device ID
@@ -213,6 +220,9 @@ private:
 
     // True if this is in order CommandList, otherwise False.
     bool                                  m_isInOrderQueue;
+
+    // True if OCL profiling is enabled on this queue
+    bool                                  m_isProfilingEnabled;
 
     volatile bool                         m_bIsCanceled;
 

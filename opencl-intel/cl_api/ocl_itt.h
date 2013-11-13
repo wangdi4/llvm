@@ -23,7 +23,9 @@
 // This file contains local definitions required for 
 // the GPA instrumentation in the OpenCL framework 
 #if defined(USE_GPA)
+#ifndef USE_ITT
 #define USE_ITT
+#endif
 #define INTEL_ITTNOTIFY_API_PRIVATE
 #include <stdio.h>
 #include <tal.h>

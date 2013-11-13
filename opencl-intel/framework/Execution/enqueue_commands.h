@@ -27,18 +27,20 @@
 
 #pragma once
 
-#include <cl_types.h>
-#include <cl_device_api.h>
-#include <Logger.h>
 #include "cl_object.h"
 #include "observer.h"
 #include "Device.h"
 #include "queue_event.h"
 #include "kernel.h"
-#include <ocl_itt.h>
-#include <list>
 #include "task_executor.h"
 #include "MemoryObject.h"
+
+#include <CL/cl.h>
+#include <cl_types.h>
+#include <cl_device_api.h>
+#include <Logger.h>
+#include <ocl_itt.h>
+#include <list>
 
 namespace Intel { namespace OpenCL { namespace Framework {
     

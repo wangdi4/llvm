@@ -472,57 +472,6 @@ void ProgramService::ReleaseBackendServices(void)
 
 }
 
-// inline utils
-inline
-cl_dev_kernel ProgramService::kernel_entry_2_cl_dev_kernel( const TKernelEntry* e ) const
-{
-    return (cl_dev_kernel)e;
-}
-
-inline
-ProgramService::TKernelEntry* ProgramService::cl_dev_kernel_2_kernel_entry( cl_dev_kernel k ) const
-{
-    TKernelEntry* e = (TKernelEntry*)k;
-
-    assert( TKernelEntry::marker_value == e->marker && "MICDevice: Wrong cl_dev_kernel passed!" );
-    assert( (NULL != e->pProgEntry) && (e->pProgEntry->m_iDevId == m_iDevId) && "MICDevice: Kernel from wrong device passed!" );
-
-    if ((TKernelEntry::marker_value != e->marker) ||
-        (NULL == e->pProgEntry)                   ||
-        (e->pProgEntry->m_iDevId != m_iDevId))
-    {
-        MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Wrong cl_dev_kernel passed: 0x%lx", k );
-        e = NULL;
-    }
-
-    return e;
-}
-
-inline
-cl_dev_program ProgramService::program_entry_2_cl_dev_program( const TProgramEntry* e ) const
-{
-    return (cl_dev_program)e;
-}
-
-inline
-ProgramService::TProgramEntry* ProgramService::cl_dev_program_2_program_entry( cl_dev_program k ) const
-{
-    TProgramEntry* e = (TProgramEntry*)k;
-
-    assert( TProgramEntry::marker_value == e->marker && "MICDevice: Wrong cl_dev_program passed!" );
-    assert( (e->m_iDevId == m_iDevId) && "MICDevice: Program from wrong device passed!" );
-
-    if ((TProgramEntry::marker_value != e->marker) ||
-        (e->m_iDevId != m_iDevId))
-    {
-        MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Wrong cl_dev_program passed: 0x%lx", k );
-        e = NULL;
-    }
-
-    return e;
-}
-
-
 /****************************************************************************************************************
  CheckProgramBinary
     Description
@@ -674,7 +623,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
         return CL_DEV_INVALID_BINARY;
     }
 
-    cl_dev_program newProgId = program_entry_2_cl_dev_program(pEntry);
+    cl_dev_program newProgId = pEntry;
 
     m_muPrograms.Lock();
     m_Programs.push_back(pEntry);
@@ -716,7 +665,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "BuildProgram enter");
 
-    TProgramEntry* pEntry = cl_dev_program_2_program_entry(prog);
+    TProgramEntry* pEntry = (TProgramEntry*)prog;
 
     if (NULL == pEntry)
     {
@@ -819,7 +768,7 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "ReleaseProgram enter");
 
-    TProgramEntry* pEntry = cl_dev_program_2_program_entry(prog);
+    TProgramEntry* pEntry = (TProgramEntry*)prog;
 
     if (NULL == pEntry)
     {
@@ -846,29 +795,13 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
     m_Programs.erase(it);
     m_muPrograms.Unlock();
 
-    // Now we unregistered the program - remove it
-    assert( 0 == pEntry->outanding_usages_count && "MICDevice: trying to remove program from device while kernels are still running" );
-
-    cl_dev_err_code dev_err_code;
-
-    if (0 != pEntry->outanding_usages_count)
+    if (pEntry->pProgram->GetKernelsCount() > 0)
     {
-        MicErrLog(m_pLogDescriptor, m_iLogHandle,
-            "MICDevice: trying to remove program from device while %d kernels are still running", (long)pEntry->outanding_usages_count);
-        dev_err_code = CL_DEV_INVALID_PROGRAM;
-    }
-    else
-    {
-		// In case that the program kernel count is 0, than we didn't pass it to device side, so we should not remove it from device side.
-        if (pEntry->pProgram->GetKernelsCount() > 0)
-		{
-			RemoveProgramFromDevice( pEntry );
-		}
-        DeleteProgramEntry(pEntry);
-        dev_err_code = CL_DEV_SUCCESS;
+        RemoveProgramFromDevice( pEntry );
     }
 
-    return dev_err_code;
+    DeleteProgramEntry(pEntry);
+    return CL_DEV_SUCCESS;
 }
 
 /********************************************************************************************************************
@@ -913,7 +846,7 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "GetProgramBinary enter");
 
-    TProgramEntry* entry = cl_dev_program_2_program_entry( prog );
+    TProgramEntry* entry = (TProgramEntry*)prog;
 
     if( NULL == entry )
     {
@@ -957,7 +890,7 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "GetBuildLog enter");
 
-    TProgramEntry* entry = cl_dev_program_2_program_entry( prog );
+    TProgramEntry* entry = (TProgramEntry*)prog;
 
     if( NULL == entry )
     {
@@ -1048,7 +981,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
         return CL_DEV_INVALID_VALUE;
     }
 
-    TProgramEntry* pEntry = cl_dev_program_2_program_entry( prog );
+    TProgramEntry* pEntry = (TProgramEntry*)prog;
 
     if( NULL == pEntry )
     {
@@ -1070,7 +1003,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
         return CL_DEV_INVALID_KERNEL_NAME;
     }
 
-    *kernelId = kernel_entry_2_cl_dev_kernel(nameIt->second);
+    *kernelId = (cl_dev_kernel)nameIt->second;
     return CL_DEV_SUCCESS;
 }
 
@@ -1079,7 +1012,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "GetProgramKernels enter");
 
-    TProgramEntry* pEntry = cl_dev_program_2_program_entry( prog );
+    TProgramEntry* pEntry = (TProgramEntry*)prog;
 
     if( NULL == pEntry )
     {
@@ -1118,7 +1051,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
     for(unsigned int i=0; kern_it != kern_it_end; ++i, ++kern_it)
     {
         assert( i < uiNumProgKernels && "TKernelName2Entry changed under the hood?");
-        kernels[i] = kernel_entry_2_cl_dev_kernel(kern_it->second);
+        kernels[i] = (cl_dev_kernel)kern_it->second;
     }
 
     if ( NULL != numKernelsRet )
@@ -1134,10 +1067,11 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "GetKernelInfo enter");
 
-    const TKernelEntry* k_entry = cl_dev_kernel_2_kernel_entry( kernel );
+    const TKernelEntry* k_entry = (TKernelEntry*)kernel;
 
     if (NULL == k_entry)
     {
+        assert ( 0 && "Got NULL kernel_id from the runtime");
         return CL_DEV_INVALID_VALUE;
     }
 
@@ -1149,6 +1083,7 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
     unsigned long long ullValue = 0;
     const void*    pValue;
     pValue = &ullValue;
+    cl_dev_dispatch_buffer_prop dispatchProperties;
 
     switch (param)
     {
@@ -1205,10 +1140,12 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         pValue = (void*)pKernel->GetMemoryObjectArgumentIndexes();
         break;
 
-    case CL_DEV_KENREL_ARGUMENT_BUFFER_SIZE:
-        stValSize = sizeof(size_t);
-        ullValue = pKernel->GetArgumentBufferSize();
-        pValue = &ullValue;
+    case CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES:
+        stValSize = sizeof(cl_dev_dispatch_buffer_prop);
+        dispatchProperties.size = pKernel->GetArgumentBufferSize() + sizeof(ndrange_dispatcher_data);
+        dispatchProperties.argumentOffset = sizeof(ndrange_dispatcher_data);
+        dispatchProperties.alignment = 64; // Currently ask for 64 byte aligment. Next BE will provide maximum aligment for the buffer.
+        pValue = &dispatchProperties;
         break;
 
     default:
@@ -1237,55 +1174,6 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
 
     return CL_DEV_SUCCESS;
 }
-
-const ICLDevBackendKernel_* ProgramService::GetBackendKernel( cl_dev_kernel kernel ) const
-{
-    TKernelEntry* k_entry = cl_dev_kernel_2_kernel_entry(kernel);
-
-    if (NULL == k_entry)
-    {
-        assert( NULL != k_entry && "MICDevice: Wrong kernel passed to device" );
-        return 0;
-    }
-
-    return k_entry->pKernel;
-}
-
-uint64_t ProgramService::AcquireKernelOnDevice( cl_dev_kernel kernel )
-{
-    TKernelEntry* k_entry = cl_dev_kernel_2_kernel_entry(kernel);
-
-    if (NULL == k_entry)
-    {
-        assert( NULL != k_entry && "MICDevice: Wrong kernel passed to device" );
-        return 0;
-    }
-
-    ++(k_entry->pProgEntry->outanding_usages_count);
-    return k_entry->uDevKernelEntry;
-}
-
-void ProgramService::releaseKernelOnDevice( cl_dev_kernel kernel )
-{
-    TKernelEntry* k_entry = cl_dev_kernel_2_kernel_entry(kernel);
-
-    if (NULL == k_entry)
-    {
-        assert( NULL != k_entry && "MICDevice: Wrong kernel passed to device" );
-        return;
-    }
-
-    TProgramEntry* p_entry = k_entry->pProgEntry;
-
-    long new_value = --(p_entry->outanding_usages_count);
-    assert( new_value >= 0 && "MICDevice: Program usage counter underloaded" );
-
-    if (new_value < 0)
-    {
-        MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Program outstaning usage counter underloaded: %d", new_value);
-    }
-}
-
 
 //////////////////////////////////////////////////////////////////////////////////////
 //    Private methods

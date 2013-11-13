@@ -83,7 +83,7 @@ typedef struct _cl_work_description_type
     size_t globalWorkOffset[MAX_WORK_DIM];
     size_t globalWorkSize[MAX_WORK_DIM];
     size_t localWorkSize[MAX_WORK_DIM];
-  unsigned int minWorkGroupNum;
+    unsigned int minWorkGroupNum;
 } cl_work_description_type;
 
 /*! \struct cl_kernel_arg_info
@@ -308,7 +308,7 @@ enum cl_dev_kernel_info
                                                 //!< execution of singe instance of a kernel
     CL_DEV_KERNEL_ARG_INFO,                     //!< Specifies a list of kernel argument descriptors
     CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES,        //!< Specifies a list of indexes for arguments, which are memory objects
-    CL_DEV_KENREL_ARGUMENT_BUFFER_SIZE          //!< Specifies size of the argument buffer required for kernel execution
+    CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES    //!< Specifies properties of an argument buffer required for kernel execution
 };
 
 /*! \enum cl_dev_partition_prop
@@ -364,6 +364,17 @@ enum cl_dev_image_sharing_group_id
     CL_DEV_MIC_IMAGE_SHARING_GROUP_ID,      //! All devices that may use the same Image IOCLDevMemoryObject implementation as MIC does
 
     CL_DEV_MAX_IMAGE_SHARING_GROUP_ID       //! Last id
+};
+
+/*! \struct cl_dev_dispatch_buffer_prop
+ * \brief Description of device argument buffer properties
+ * This structure holds a description of properties required for allocation an management of device dispatch buffer
+ */
+struct cl_dev_dispatch_buffer_prop
+{
+    size_t  size;
+    size_t  alignment;
+    size_t  argumentOffset;
 };
 
 /*! \struct cl_dev_alloc_prop

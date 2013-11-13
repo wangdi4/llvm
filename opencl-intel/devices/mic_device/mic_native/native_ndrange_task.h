@@ -25,12 +25,13 @@
 /////////////////////////////////////////////////////////////
 
 #pragma once
-#include "device_queue.h"
-#include "task_executor.h"
-#include "cl_dev_backend_api.h"
+#include "task_handler.h"
 #include "program_memory_manager.h"
 #include "native_printf.h"
 #include "mic_tbb_tracer.h"
+#include "mic_device_interface.h"
+
+#include <task_executor.h>
 
 #ifdef USE_ITT
 #include <ocl_itt.h>
@@ -38,32 +39,27 @@
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
-using namespace Intel::OpenCL::TaskExecutor;
-using namespace Intel::OpenCL::DeviceBackend;
-
-class NDRangeTask : virtual public ITaskSet, virtual public TaskHandler
+class NDRangeTask : virtual public Intel::OpenCL::TaskExecutor::ITaskSet, virtual public TaskHandler<NDRangeTask, Intel::OpenCL::MICDevice::ndrange_dispatcher_data >
 {
 public:
     PREPARE_SHARED_PTR(NDRangeTask)
-    
-    static inline SharedPtr<TaskHandler> Allocate( const QueueOnDevice& queue ) { return new NDRangeTask( queue ); }
+
+    NDRangeTask( uint32_t lockBufferCount, void** pLockBuffers, Intel::OpenCL::MICDevice::ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize );
+    ~NDRangeTask();
+
+    // TaskHandlerBase methods
+    bool PrepareTask();
 
     // TaskHandler methods
-    
-    // called immediately after creation and after filling the COI-passed data
-    bool InitTask();
-
-    // must be called at the very end of the ITaskBase finish stage and 
-    // must call to QueueOnDevice->FinishTask() at the very end of itself
-    void FinishTask();
+    const NDRangeTask& GetAsCommandTypeConst() const { return *this; }
+    Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return static_cast<Intel::OpenCL::TaskExecutor::ITaskBase*>(this);}
 
     // ITaskSet methods 
-    
-    // Returns true in case current task is a syncronization point
+    // Returns true in case current task is a synchronization point
     // No more tasks will be executed in this case
     bool    CompleteAndCheckSyncPoint() { return false; }
     
-    // Set current command as syncronization point
+    // Set current command as synchronization point
     // Returns true if command is already completed
     bool    SetAsSyncPoint() { return false; }
 
@@ -75,7 +71,7 @@ public:
     // Fills the buffer with 3D number of iterations to run
     // Fills regCount with actual number of regions
     // Returns 0 if initialization success, otherwise an error code
-    int        Init(size_t region[], unsigned int& regCount);
+    int     Init(size_t region[], unsigned int& regCount);
 
     // Is called when the task is going to be called for the first time
     // within specific thread. 
@@ -92,53 +88,49 @@ public:
 
    // Final stage, free execution resources
     // Return false when command execution fails
-    bool    Finish(FINISH_REASON reason);
+    bool    Finish(Intel::OpenCL::TaskExecutor::FINISH_REASON reason);
 
     // Task execution routine, will be called by task executor instead of Init() if CommandList is canceled. If Init() was already called,
     // Cancel() is not called - normal processing is continued
     void Cancel();
 
     // Releases task object, shall be called instead of delete operator.
-    long    Release() { delete this; return 0; }
+    long    Release() { if (m_bDuplicated) delete this; return 0; }
 
-  // Optimize By
-  TASK_PRIORITY         GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-  TASK_SET_OPTIMIZATION OptimizeBy() const { return gMicExecEnvOptions.tbb_block_optimization; }
-  unsigned int          PreferredSequentialItemsPerThread() const { return gMicExecEnvOptions.use_TBB_grain_size; }
+    // Optimize By
+    Intel::OpenCL::TaskExecutor::TASK_PRIORITY         GetPriority() const { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
+    Intel::OpenCL::TaskExecutor::TASK_SET_OPTIMIZATION OptimizeBy() const  { return gMicExecEnvOptions.tbb_block_optimization; }
+    unsigned int          PreferredSequentialItemsPerThread() const        { return gMicExecEnvOptions.use_TBB_grain_size; }
 
-  ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL;}
 
+    typedef Intel::OpenCL::MICDevice::ndrange_dispatcher_data dispatcher_data_type;
 protected:
-    NDRangeTask( const QueueOnDevice& queue );
-    ~NDRangeTask();
+    friend class TaskHandler<NDRangeTask, Intel::OpenCL::MICDevice::ndrange_dispatcher_data >;
+    // Copy constructor used for task duplication
+    NDRangeTask(const NDRangeTask& o);
 
-private:
-    
-	// Unique identifier for this task (command)
-	cl_dev_cmd_id m_commandIdentifier;
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*   m_kernel;
+    Intel::OpenCL::DeviceBackend::ICLDevBackendBinary_*         m_pBinary;
 
-    ICLDevBackendKernel_* m_kernel;
-    ICLDevBackendBinary_* m_pBinary;
-
+#ifndef __NEW_BE_API__
+    // !!!!!!
+    // TODO: Remove with new API
     // Executable information
     size_t                m_MemBuffCount;
     size_t*               m_pMemBuffSizes;
-    
-    // working region
-    uint64_t              m_region[MAX_WORK_DIM];
-    // dimensions
-    unsigned int          m_dim;
+    //////////////////////////////////////////
+#endif
 
-	// The kernel arguments blob
-	char*                 m_lockedParams;
-
-	// Print handle for this command.
-	PrintfHandle          m_printHandle;
+    // Print handle for this command
+    PrintfHandle          m_printHandle;
+    bool                  m_bSecureExecution;
 
 #ifdef ENABLE_MIC_TRACER
+    friend class          NDRangePerfData;
     NDRangePerfData       m_tbb_perf_data;
-    friend class NDRangePerfData;
 #endif
+
 #ifdef USE_ITT
     __itt_string_handle*        m_pIttKernelName;
     __itt_domain*               m_pIttKernelDomain;

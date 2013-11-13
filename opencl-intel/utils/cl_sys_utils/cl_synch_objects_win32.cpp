@@ -24,13 +24,14 @@
 // or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors
 // in any way.
 /////////////////////////////////////////////////////////////////////////
-#include "cl_synch_objects.h"
-#include "hw_utils.h"
 
 #include <tbb/concurrent_queue.h>
 #include <windows.h>
 #include <stdio.h>  // Todo: replace printf with log mechanisem
 #include <assert.h>
+
+#include "cl_synch_objects.h"
+#include "hw_utils.h"
 
 /************************************************************************
  * This file is the Windows implementation of the cl_synch_objects interface
@@ -51,8 +52,7 @@ void Intel::OpenCL::Utils::InnerSpinloopImpl()
 /************************************************************************/
 OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive) : m_uiSpinCount(uiSpinCount), m_bRecursive(recursive)
 {
-    m_mutexHndl = new CRITICAL_SECTION();
-    InitializeCriticalSectionAndSpinCount((LPCRITICAL_SECTION)m_mutexHndl, uiSpinCount);
+    InitializeCriticalSectionAndSpinCount((LPCRITICAL_SECTION)&m_mutex, uiSpinCount);
 }
 
 /************************************************************************
@@ -60,9 +60,7 @@ OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive) : m_uiSpinCount(uiS
 /************************************************************************/
 OclMutex::~OclMutex()
 {
-    DeleteCriticalSection((LPCRITICAL_SECTION)m_mutexHndl);
-    delete m_mutexHndl;
-    m_mutexHndl = NULL;
+    DeleteCriticalSection((LPCRITICAL_SECTION)&m_mutex);
 }
 
 /************************************************************************
@@ -72,14 +70,14 @@ OclMutex::~OclMutex()
 /************************************************************************/
 void OclMutex::Lock()
 {
-    EnterCriticalSection((LPCRITICAL_SECTION)m_mutexHndl);
+    EnterCriticalSection((LPCRITICAL_SECTION)&m_mutex);
 }
 /************************************************************************
  * Release the lock
 /************************************************************************/
 void OclMutex::Unlock()
 {
-    LeaveCriticalSection((LPCRITICAL_SECTION)m_mutexHndl);
+    LeaveCriticalSection((LPCRITICAL_SECTION)&m_mutex);
 }
 
 /************************************************************************
@@ -106,12 +104,12 @@ OclCondition::~OclCondition()
 /************************************************************************/
 COND_RESULT OclCondition::Wait(OclMutex* mutexObj)
 {
-	assert(((mutexObj) && (mutexObj->m_mutexHndl)) && "mutexObj must be valid object");
-	if ((NULL == mutexObj) || (NULL == mutexObj->m_mutexHndl))
+	assert( NULL!=mutexObj && "mutexObj must be valid object");
+	if ( NULL == mutexObj )
     {
         return COND_RESULT_FAIL;
     }
-	if (0 == SleepConditionVariableCS((CONDITION_VARIABLE*)&m_condVar, (PCRITICAL_SECTION)(mutexObj->m_mutexHndl), INFINITE))
+	if (0 == SleepConditionVariableCS((CONDITION_VARIABLE*)&m_condVar, (PCRITICAL_SECTION)&(mutexObj->m_mutex), INFINITE))
 	{
 		return COND_RESULT_FAIL;
 	}

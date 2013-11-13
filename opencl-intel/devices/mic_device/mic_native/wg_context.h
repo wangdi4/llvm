@@ -42,7 +42,7 @@ public:
 	WGContext();
 	virtual ~WGContext();
 
-	cl_dev_err_code			UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendKernel_* pKernel, ICLDevBackendBinary_* pExec, size_t* pBuffSizes, size_t count, Intel::OpenCL::MICDeviceNative::PrintfHandle* pPrintHandle);
+	cl_dev_err_code			UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary_* pExec, size_t* pBuffSizes, size_t count, Intel::OpenCL::MICDeviceNative::PrintfHandle* pPrintHandle);
 	cl_dev_cmd_id			GetCmdId() const {return m_cmdId;}
 	inline ICLDevBackendExecutable_*	GetExecutable() const {return m_pContext;}
     // This function is used by master threads when they're done executing, to prevent a race condition where the library is next shut down and reloaded
@@ -50,17 +50,15 @@ public:
     void                        InvalidateContext();
 
 	Intel::OpenCL::MICDeviceNative::PrintfHandle* getPrintHandle() { return m_pPrintHandle; };
-    Intel::OpenCL::UtilsNative::HWExceptionsJitWrapper& jitExecWapper() { return m_hw_wrapper; }
 
 protected:
 	ICLDevBackendExecutable_*		m_pContext;
-	cl_dev_cmd_id					m_cmdId;
-	char*							m_pLocalMem;
-	void*							m_pPrivateMem;
-	size_t							m_stPrivMemAllocSize;
+	cl_dev_cmd_id					      m_cmdId;
+	char*							          m_pLocalMem;
+	void*							          m_pPrivateMem;
+	size_t							        m_stPrivMemAllocSize;
 
-	PrintfHandle*					m_pPrintHandle;
-    Intel::OpenCL::UtilsNative::HWExceptionsJitWrapper m_hw_wrapper;
+	PrintfHandle*					      m_pPrintHandle;
 } __attribute__((aligned(64))); // Align to cache line size
 
 }}}

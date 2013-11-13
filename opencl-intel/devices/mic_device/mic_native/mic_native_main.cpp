@@ -47,7 +47,8 @@ int main(int , char**)
 
 
     // init device
-    HWExceptionsWrapper::Init();
+    HWExceptionWrapper hwExecptions;
+
     TlsAccessor::tls_initialize();
     MemoryManager::createMemoryManager();
 
@@ -69,7 +70,6 @@ int main(int , char**)
     // shutdown
     MemoryManager::releaseMemoryManager();
     TlsAccessor::tls_finalize();
-    HWExceptionsWrapper::Fini();
 
     NATIVE_PRINTF("main shut down on the  sink (device index = %d)\n", out_pIndex);
 

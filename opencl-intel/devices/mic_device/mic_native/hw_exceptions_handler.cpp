@@ -29,28 +29,32 @@
 
 #include "native_common_macros.h"
 #include "hw_exceptions_handler.h"
+#include "native_globals.h"
+
 #include <pthread.h>
 #include <stdexcept> 
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <execinfo.h>
-#include "native_globals.h"
 
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::MICDeviceNative;
 using namespace Intel::OpenCL::UtilsNative;
 
-int HWExceptionsWrapper::g_sigs[] = { 
-    /*SIGFPE,*/  // for some reason (?) STL containers throw this HW exception that is handled internally
-    /*SIGBUS,*/  // triggered by unalined data access (+some other cases, relevant to drivers and OS)
-    SIGILL,      // invalid operation only
-    SIGSEGV      // segmentation fault only
+// Must triger all exception, minimal during execution
+int HWExceptionWrapper::g_sigs[] = {
+    SIGFPE,  // for some reason (?) STL containers throw this HW exception that is handled internally
+    SIGBUS,  // triggered by unaligned data access (+some other cases, relevant to drivers and OS)
+    SIGILL,  // invalid operation only
+    SIGSEGV  // segmentation fault only
 };
 
-volatile bool HWExceptionsWrapper::g_finished = false;
+// Static variable definition
+volatile bool HWExceptionWrapper::g_finished = false;
+__thread HWExceptionWrapper::execution_context* volatile HWExceptionWrapper::t_pExecContext = NULL;
 
-void HWExceptionsWrapper::catch_signal(int signum, siginfo_t *siginfo, void *context)
+void HWExceptionWrapper::catch_signal(int signum, siginfo_t *siginfo, void *context)
 {
     if (g_finished)
     {
@@ -58,66 +62,62 @@ void HWExceptionsWrapper::catch_signal(int signum, siginfo_t *siginfo, void *con
     }
     
     psiginfo(siginfo, "*** OPENCL MIC DEVICE HW EXCEPTION ***");fflush(stderr);
-    //psignal( signum, " ");
 
-	TlsAccessor tlsAccessor;
-	NDrangeTls ndRangeTls(&tlsAccessor);
-    HWExceptionsWrapper* exec_wrapper = (HWExceptionsWrapper*)ndRangeTls.getTls( NDrangeTls::HW_EXCEPTION );
+    execution_context* pExecContext = t_pExecContext;
+    void *frames[64];
+    int n = backtrace(&frames[0],(int)(sizeof(frames)/sizeof(frames[0])));
 
-	void *frames[64];
-	int n = backtrace(&frames[0],(int)(sizeof(frames)/sizeof(frames[0])));
-
-    if ((NULL == exec_wrapper) || (false == exec_wrapper->m_bInside_JIT))
+    if ( NULL ==  pExecContext)
     {
+        fprintf(stderr,"\nBACKTRACE:\n");
+        if (n > 0)
+        {
+              // Flush needed since we must write symbols to a raw fd
+              fflush(stderr);
+              backtrace_symbols_fd(frames, n, 2);
+        }
 
-		fprintf(stderr,"\nBACKTRACE:\n");
-		if (n > 0) {
-			// Flush needed since we must write symbols to a raw fd
-			fflush(stderr);
-			backtrace_symbols_fd(frames, n, 2);
-		}
-
-		fprintf(stderr,"\n******************\n\n");
-		fflush(stderr);
+        fprintf(stderr,"\n******************\n\n");
+        fflush(stderr);
 
         // exception occured outside of JIT
         throw std::runtime_error( strsignal(signum) ); //sys_siglist[signum] );
     }
     else
     {
-		// exception inside JIT
-		ICLDevBackendKernel_* pKernel = exec_wrapper->m_kernel;
-		if (pKernel)
-		{	
-			int lineNum = -1;
-			for (unsigned int i = 0; i < n; i++)
-			{
-				lineNum = pKernel->GetLineNumber(frames[i]);
-				if (-1 != lineNum)
-				{
-					// If the kernel didn't build with "-profiling" flag;
-					if (0 == lineNum)
-					{
-						fprintf(stderr, "Exception occured in kernel \"%s\", To print to faulty line number, please compile the kernel with \"-profiling\"\n", pKernel->GetKernelName());
-					}
-					else
-					{
-						fprintf(stderr, "EXECEPTION OCCURED IN KERNEL \"%s\" AT LINE %d\n", pKernel->GetKernelName(), lineNum);
-					}
-					fflush(stderr);
-					break;
-				}
-			}
-		}
+        // exception inside JIT
+        const ICLDevBackendKernel_* pKernel = pExecContext->pKernel;
+        if ( NULL != pKernel)
+        {
+            int lineNum = -1;
+            for (unsigned int i = 0; i < n; i++)
+            {
+                lineNum = pKernel->GetLineNumber(frames[i]);
+                if (-1 != lineNum)
+                {
+                    // If the kernel didn't build with "-profiling" flag;
+                    if (0 == lineNum)
+                    {
+                        fprintf(stderr, "EXECEPTION OCCURED IN KERNEL \"%s\", To print to faulty line number, please compile the kernel with \"-profiling\"\n", pKernel->GetKernelName());
+                    }
+                    else
+                    {
+                        fprintf(stderr, "EXECEPTION OCCURED IN KERNEL \"%s\" AT LINE %d\n", pKernel->GetKernelName(), lineNum);
+                    }
+                    fflush(stderr);
+                    break;
+                }
+            }
+        }
 
-		longjmp(exec_wrapper->setjump_buffer, 1);        
+        longjmp(pExecContext->setjump_buffer, 1);
     }
 
     return;
 }
 
 
-void HWExceptionsWrapper::setup_signals( bool install )
+void HWExceptionWrapper::setup_signals( bool install )
 {   
     //
     // Setup Linux signal handlers
@@ -151,58 +151,33 @@ void HWExceptionsWrapper::setup_signals( bool install )
     }
 }
 
-void HWExceptionsWrapper::thread_init( TlsAccessor* tlsAccessor )
+cl_dev_err_code HWExceptionWrapper::Execute( const ICLDevBackendKernel_* kernel,
+                                             ICLDevBackendExecutable_* exec,
+                                             const cl_uniform_kernel_args* args,
+                                             const size_t* IN pGroupId
+                                           )
 {
-    if (NULL != tlsAccessor)
+    execution_context ctx;
+
+    cl_dev_err_code return_code = CL_DEV_SUCCESS;
+
+    // save current state including signal handlers state
+    if (0 == setjmp(ctx.setjump_buffer))
     {
-        NDrangeTls ndRangeTls(tlsAccessor);
-        ndRangeTls.setTls( NDrangeTls::HW_EXCEPTION, this );   
-        m_is_attached = true;
+      // normal JIT execution
+        ctx.pKernel = kernel;
+        t_pExecContext = &ctx;
+        exec->Execute( pGroupId, NULL, NULL );
+        t_pExecContext = NULL;
     }
-}
-
-void HWExceptionsWrapper::thread_fini( TlsAccessor* tlsAccessor )
-{
-    if (m_is_attached)
+    else
     {
-        if (NULL != tlsAccessor)
-        {
-            NDrangeTls ndRangeTls(tlsAccessor);
-            ndRangeTls.setTls( NDrangeTls::HW_EXCEPTION, NULL );
-        }
-        else
-        {
-            TlsAccessor tls;
-            NDrangeTls ndRangeTls(&tls);
-            ndRangeTls.setTls( NDrangeTls::HW_EXCEPTION, NULL );
-        }
-        m_is_attached = false;
+        // exception occurred
+        t_pExecContext = NULL;
+        return_code = CL_DEV_ERROR_FAIL;
+        NATIVE_PRINTF("***FATAL***: Most likely exception occurred inside JIT code\n");
     }
-}
 
-cl_dev_err_code HWExceptionsWrapper::Execute(   ICLDevBackendExecutable_* code, 
-                                                 const size_t* IN pGroupId,
-                                                 const size_t* IN pLocalOffset, 
-                                                 const size_t* IN pItemsToProcess )
-{
-	cl_dev_err_code return_code;
-    
-	// save current state including signal handlers state
-	if (0 == setjmp(setjump_buffer))
-	{
-		// normal JIT execution
-		m_bInside_JIT = true;
-		return_code = code->Execute( pGroupId, pLocalOffset, pItemsToProcess );
-		m_bInside_JIT = false;
-	}
-	else
-	{
-		// exception occurred
-		m_bInside_JIT = false;
-		return_code = CL_DEV_ERROR_FAIL;
-		NATIVE_PRINTF("***FATAL***: Most likely exception occured inside JIT code\n");
-	}
-
-	return return_code;
+    return return_code;
 }
 

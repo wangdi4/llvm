@@ -32,6 +32,12 @@
 #include <intrin.h>
 #include <io.h>
 
+#include <Windows.h>
+
+// Those macros are interfer with other definitions
+#undef min
+#undef max
+
 #if defined(_M_AMD64)
 #define CAS(ptr,old_val,new_val)    _InterlockedCompareExchange64((__int64 volatile*)ptr,(__int64)new_val,(__int64)old_val)
 #define TAS(ptr,new_val)            _InterlockedExchange64((__int64 volatile*)ptr,(__int64)new_val)
@@ -66,8 +72,8 @@
 #undef MIN
 #endif // #ifdef MIN
 
-#define MAX(a, b) max(a, b)
-#define MIN(a, b) min(a, b)
+#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
+#define MIN(a, b)  (((a) > (b)) ? (b) : (a))
 
 #define STRDUP(X) (_strdup(X))
 #define CPUID(cpu_info, type) __cpuid((int*)(cpu_info), type)
@@ -93,6 +99,7 @@
 typedef unsigned long long               affinityMask_t;
 
 typedef void*                            EVENT_STRUCTURE;
+typedef CRITICAL_SECTION                 MUTEX;
 typedef void*                            BINARY_SEMAPHORE;
 typedef void*                            READ_WRITE_LOCK;
 typedef void*                            CONDITION_VAR;
@@ -105,7 +112,9 @@ typedef void*                            CONDITION_VAR;
 // Windows require more sequre function _malloca. When in certain case may allocate on heap and not on stack.
 // For that reason _freea should be called
 #define STACK_ALLOC( size )                 _malloca(size)
-#define STACK_FREE( ptr )                    _freea(ptr)
+#define STACK_FREE( ptr )                   _freea(ptr)
+
+#define IsPowerOf2(x)                       (__popcnt((x)) == 1)
 
 // -----------------------------------------------------------
 //         Not Windows (Linux / Android )    
@@ -193,6 +202,7 @@ typedef struct event_Structure
     volatile bool isFired;
 } EVENT_STRUCTURE;
 
+typedef pthread_mutex_t                 MUTEX;
 typedef pthread_cond_t                  CONDITION_VAR;
 
 #include <semaphore.h>
@@ -286,8 +296,11 @@ typedef cpu_set_t                      affinityMask_t;
 #define SPRINTF_S                       snprintf
 #define VSPRINTF_S                      Intel::OpenCL::Utils::safeVStrPrintf
 
-#define STACK_ALLOC( size )                 alloca(size)
-#define STACK_FREE( ptr )                    
+#define STACK_ALLOC( size )             alloca(size)
+#define STACK_FREE( ptr )
+
+#define IsPowerOf2(x)                   (__builtin_popcount((x)) == 1)
+
 #endif
 
 // Define compiler static assert

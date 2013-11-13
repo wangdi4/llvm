@@ -70,10 +70,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
     **********************************************************************************************/    
     struct SKernelPrototype
     {
-        std::string                             m_szKernelName;
-        size_t                                  m_uiKernelArgBufferSize;
-        std::vector<cl_kernel_argument>         m_vArguments;
-        std::vector<cl_uint>                    m_MemArgumentsIndx;
+        std::string                     m_szKernelName;
+        cl_dev_dispatch_buffer_prop     m_dispatchBufferProperties;
+        std::vector<cl_kernel_argument> m_vArguments;
+        std::vector<cl_uint>            m_MemArgumentsIndx;
     };
 
     /**********************************************************************************************
@@ -115,6 +115,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t          GetKernelWorkGroupSize() const { return m_CL_KERNEL_WORK_GROUP_SIZE; }
         const size_t*   GetKernelCompileWorkGroupSize() const { return m_CL_KERNEL_COMPILE_WORK_GROUP_SIZE; }
         cl_ulong        GetKernelLocalMemSize() const { return m_CL_KERNEL_LOCAL_MEM_SIZE; }
+        size_t          GetKernelArgBufferSize() const { return m_sKernelPrototype.m_dispatchBufferProperties.size - m_sKernelPrototype.m_dispatchBufferProperties.argumentOffset;}
+        size_t          GetKernelDispatchBufferSize() const { return m_sKernelPrototype.m_dispatchBufferProperties.size;}
+        size_t          GetArgumentOffset() const { return m_sKernelPrototype.m_dispatchBufferProperties.argumentOffset;}
+        size_t          GetKernelArgBufferAlignment() const { return m_sKernelPrototype.m_dispatchBufferProperties.alignment;}
 
     private:
         bool            CacheRequiredInfo();
@@ -297,7 +301,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool IsValidKernelArgs() const { return m_numValidArgs == m_sKernelPrototype.m_vArguments.size(); }
 
         // Return size in bytes for device arguments area
-        size_t GetDeviceArgsSize() const { return m_sKernelPrototype.m_uiKernelArgBufferSize; }
         size_t GetTotalLocalSize() const { return m_totalLocalSize; }
         void*  GetArgsBlob()       const { return m_pArgsBlob; }
 
@@ -392,7 +395,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual ~Kernel();
 
         //Kernel prototype
-        cl_err_code SetKernelPrototype(const SKernelPrototype& sKernelPrototype, size_t maxArgumentBufferSize);
+        cl_err_code SetKernelPrototype(const SKernelPrototype& sKernelPrototype, size_t maxArgumentBufferSize, size_t maxArgumentBufferAlignment);
         cl_err_code SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel); 
 
         SKernelPrototype                        m_sKernelPrototype;
@@ -417,7 +420,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool                                                m_bSvmFineGrainSystem;
         mutable Intel::OpenCL::Utils::OclReaderWriterLock   m_rwlock;
         std::vector<SharedPtr<SVMBuffer> >                  m_nonArgSvmBufs;
-
     };
 
 

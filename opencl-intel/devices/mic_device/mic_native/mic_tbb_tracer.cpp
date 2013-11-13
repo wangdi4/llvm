@@ -24,6 +24,8 @@
 //  Class Object is responsible on execution of NDRange task
 /////////////////////////////////////////////////////////////
 
+#ifdef ENABLE_MIC_TBB_TRACER
+
 #include "mic_tbb_tracer.h"
 #include "native_ndrange_task.h"
 #include "native_thread_pool.h"
@@ -35,7 +37,6 @@ using namespace Intel::OpenCL::MICDeviceNative;
 //  TBB thacer
 //
 //
-#ifdef ENABLE_MIC_TBB_TRACER
 
 pthread_key_t                               PerfData::g_phys_processor_id_tls_key;
 

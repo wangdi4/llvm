@@ -41,7 +41,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     virtual void setValue(const char* pValue) {
       // The src is a mem descriptor and we need to extract the pointer to memory
       //if it is an image, we suppose the imageAuxData instead
-      void* pGlobalData = NULL;
+#if defined(__MIC__)
+      // When running on MIC we should take the provided pointer
+      const void* pGlobalData = *(void**)pValue;
+#else
+      const void* pGlobalData = NULL;
       cl_mem_obj_descriptor* pMemObj =  !pValue ? NULL : (*(cl_mem_obj_descriptor**)pValue);
       if ( NULL != pMemObj )
       {
@@ -50,6 +54,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         else
           pGlobalData = pMemObj->imageAuxData;
       }
+#endif
       ExplicitArgument::setValue(reinterpret_cast<char *>(&pGlobalData));
     }
   };

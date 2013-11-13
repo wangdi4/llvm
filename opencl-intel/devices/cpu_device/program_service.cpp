@@ -742,6 +742,7 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
     unsigned long long ullValue = 0;
     const void* pValue;
     pValue = &ullValue;
+    cl_dev_dispatch_buffer_prop dispatchProperties;
 
     switch (param)
     {
@@ -798,10 +799,12 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         pValue = (void*)pKernel->GetMemoryObjectArgumentIndexes();
         break;
 
-    case CL_DEV_KENREL_ARGUMENT_BUFFER_SIZE:
-        stValSize = sizeof(size_t);
-        ullValue = pKernel->GetArgumentBufferSize();
-        pValue = &ullValue;
+    case CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES:
+        stValSize = sizeof(cl_dev_dispatch_buffer_prop);
+        dispatchProperties.size = pKernel->GetArgumentBufferSize();
+        dispatchProperties.argumentOffset = 0;
+        dispatchProperties.alignment = 64; // Currently ask for 64 byte aligment. Next BE will provide maximum aligment for the buffer.
+        pValue = &dispatchProperties;
         break;
 
     default:

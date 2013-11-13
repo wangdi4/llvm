@@ -64,9 +64,9 @@ WGContext::~WGContext()
     }
 }
 
-cl_dev_err_code WGContext::UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendKernel_* pKernel, ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count, PrintfHandle* pPrintHandle)
+cl_dev_err_code WGContext::UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count, PrintfHandle* pPrintHandle)
 {
-     assert( (count<=MIC_MAX_LOCAL_ARGS ) && "Unexpected number of local buffers");
+    assert( (count<=MIC_MAX_LOCAL_ARGS ) && "Unexpected number of local buffers");
     // Nullify m_pContext in order to be able to use InvalidateContext() in case of failure
     if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
     {
@@ -122,8 +122,6 @@ cl_dev_err_code WGContext::UpdateContext(cl_dev_cmd_id cmdId, ICLDevBackendKerne
 
     // Set PrintHandle
     m_pPrintHandle = pPrintHandle;
-
-    m_hw_wrapper.SetKernel(pKernel);
 
     m_cmdId = cmdId;
     return CL_DEV_SUCCESS;

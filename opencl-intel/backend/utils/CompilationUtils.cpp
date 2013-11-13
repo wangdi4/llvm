@@ -522,7 +522,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             {
               llvm::IntegerType *ITy = llvm::cast<llvm::IntegerType>(arg_it->getType());
               curArg.type = CL_KRNL_ARG_INT;
-              curArg.size_in_bytes = ITy->getBitWidth()/8;
+              curArg.size_in_bytes =  DataLayout(pModule->getDataLayout()).getTypeAllocSize(ITy);
             }
           }
           break;

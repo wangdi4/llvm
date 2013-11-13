@@ -1,3 +1,23 @@
+// Copyright (c) 2006-2013 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
 #include "command.h"
 #include "command_list.h"
 #include "cl_sys_info.h"
@@ -5,21 +25,17 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-InOrderCommandSynchHandler*        CommandSynchHandler::m_singletonInOrderCommandSynchHandler = NULL;
-OutOfOrderCommandSynchHandler*    CommandSynchHandler::m_singletonOuOfOrderCommandSynchHandler = NULL;
-
-Command::Command(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : NotificationPort::CallBack(), m_pCmd(pCmd), m_lastError(CL_DEV_SUCCESS), 
-m_pCommandList(pCommandList), m_cmdRunningTime(0), m_cmdCompletionTime(0), m_commandCompleted(false), m_pFrameworkCallBacks(pFrameworkCallBacks)
+Command::Command(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) :
+    NotificationPort::CallBack(), m_pCmd(pCmd), m_lastError(CL_DEV_SUCCESS), 
+    m_pCommandList(pCommandList), m_cmdRunningTime(0), m_cmdCompletionTime(0),
+    m_commandCompleted(false), m_pFrameworkCallBacks(pFrameworkCallBacks)
 {
-    // Set command id for the tracer.
+#ifdef ENABLE_MIC_TRACER
+  // Set command id for the tracer.
     m_commandTracer.set_command_id((size_t)(pCmd->id));
     // Set start execution time for the tracer.
     m_commandTracer.set_current_time_command_host_time_start();
-
-    m_pCommandSynchHandler = NULL;
-    // Get CommandSynchHandler singleton according to Queue type.
-    m_pCommandSynchHandler = CommandSynchHandler::getCommandSyncHandler(pCommandList->isInOrderCommandList());
-    assert(m_pCommandSynchHandler);
+#endif
 }
 
 Command::~Command()
@@ -37,8 +53,8 @@ void Command::notifyCommandStatusChanged(unsigned uStatus, cl_ulong timer)
     m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, 
                                                  m_pCmd->data, 
                                                  uStatus, 
-                                                 CL_DEV_SUCCEEDED( m_lastError ) ? CL_SUCCESS : CL_ERR_EXECUTION_FAILED,
-                                                 timer );
+                                                 CL_DEV_SUCCEEDED( m_lastError ) ? CL_SUCCESS : CL_ERR_EXECUTION_FAILED, 
+                                                 timer);
 }
 
 cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bool otherErr)
@@ -62,19 +78,19 @@ cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bo
         // Set this Command as the last command in the queue.
         m_pCommandList->setLastCommand(this);
         // Register m_completionBarrier.cmdEvent to NotificationPort
-        m_pCommandList->getNotificationPort()->addBarrier(m_completionBarrier.cmdEvent, this, NULL);
+        m_pCommandList->getNotificationPort()->addBarrier(m_endEvent.cmdEvent, this, NULL);
     }
     else
     {
-        // error path
+          // error path
         notifyCommandStatusChanged(CL_COMPLETE);
     }
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-  if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
-  {
-    __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
-  }
+    if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+    {
+      __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
+    }
 #endif
 
     return err;
@@ -88,18 +104,20 @@ void Command::registerProfilingContext(bool mayReplaceByUserEvent)
 
 void Command::fireCallBack(void* arg)
 {
+#ifdef ENABLE_MIC_TRACER
     // Set end coi execution time for the tracer. (Notification)
     m_commandTracer.set_current_time_coi_notify_command_time_end();
-
+#endif
     // Remove myself from last command in command list (in case that this command is last command)
     m_pCommandList->resetLastCommand(this);
 
     // Notify runtime that  the command completed
-    assert(m_pCmd->profiling == false || (m_cmdRunningTime > 0 && m_cmdCompletionTime > 0));
+    assert( (m_pCmd->profiling == false || (m_cmdRunningTime > 0 && m_cmdCompletionTime > 0)) && "When profiling is ON, both RUNNING and COMPLETED must be set");
     notifyCommandStatusChanged(CL_RUNNING, m_cmdRunningTime);
 
     // Complete notification may delete this Command. Ensure it will not be deleted before a time
     retainCommand();
+
     notifyCommandStatusChanged(CL_COMPLETE, m_cmdCompletionTime);
 
     // mark itself as completed
@@ -114,13 +132,32 @@ void Command::eventProfilingCall(COI_NOTIFICATIONS& type)
     switch (type)
     {
     case RUN_FUNCTION_START:
-        assert(0 == m_cmdCompletionTime);
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+        if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+        {
+          static __thread __itt_string_handle* pTaskName = NULL;
+          if ( NULL == pTaskName )
+          {
+            pTaskName = __itt_string_handle_create("Command::eventProfilingCall(RUN_FUNCTION_START)");
+          }
+          __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+        }
+#endif
+        assert(0 == m_cmdCompletionTime && "On function start, COMPLETION time must be 0");
+#ifdef ENABLE_MIC_TRACER
         // Set end coi execution time for the tracer. (COI RUNNING)
         m_commandTracer.set_current_time_coi_execution_time_start();
+#endif
         if (m_pCmd->profiling) 
         {
             m_cmdRunningTime = HostTime();
         }
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+        if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+        {
+          __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
+        }
+#endif
         break;
     case BUFFER_OPERATION_READY:
         // This case should be overwrite in Buffer command (In case of Buffer command only)
@@ -129,47 +166,114 @@ void Command::eventProfilingCall(COI_NOTIFICATIONS& type)
         // This case should be overwrite in Buffer command (In case of Buffer command only)
         break;
     case USER_EVENT_SIGNALED:
-        if (0 == m_cmdRunningTime)
+        // If profiling is enabled and RUNNING time is not set, need to update
+        // if profiling is not enabled, probably it's OOO command, so this section should be skipped to RUN_FUNCTION_COMPLETED.
+#ifdef ENABLE_MIC_TRACER
+        if (0 == m_cmdRunningTime )
+#else
+        if ( m_pCmd->profiling && (0 == m_cmdRunningTime) )
+#endif
         {
+            assert(0 == m_cmdCompletionTime && "When proiling is enabled and RUNNING == 0, COMPLETED time must be not set");
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+            if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+            {
+              static __thread __itt_string_handle* pTaskName = NULL;
+              if ( NULL == pTaskName )
+              {
+                pTaskName = __itt_string_handle_create("Command::eventProfilingCall(USER_EVENT_SIGNALED->RUN_FUNCTION_START)");
+              }
+              __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+            }
+#endif
             //change m_cmdRunningTime to 1 in order to ensure that next time this "if" will return false; (otherwise m_commandTracer.set_current_time_coi_execution_time_end(); will not invoke in case that profiling is off)
+#ifdef ENABLE_MIC_TRACER
             m_cmdRunningTime = 1;
-            assert(0 == m_cmdCompletionTime);
             // Set end coi execution time for the tracer. (COI RUNNING)
             m_commandTracer.set_current_time_coi_execution_time_start();
-            if (m_pCmd->profiling) 
+#else
+            // Take current host time
+            m_cmdRunningTime = HostTime();
+#endif
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+            if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
             {
-                m_cmdRunningTime = HostTime();
+              __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
             }
+#endif
             break;
         }
         // Continue to RUN_FUNCTION_COMPLETE functionality if 0 != m_cmdRunningTime
     case RUN_FUNCTION_COMPLETE:
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+        if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+        {
+            static __thread __itt_string_handle* pTaskName = NULL;
+            if ( NULL == pTaskName )
+            {
+                pTaskName = __itt_string_handle_create("Command::eventProfilingCall(RUN_FUNCTION_COMPLETE)");
+            }
+            __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
+        }
+#endif
+#ifdef ENABLE_MIC_TRACER
         // Set end coi execution time for the tracer. (COI COMPLETED)
         m_commandTracer.set_current_time_coi_execution_time_end();
+#endif
         if (m_pCmd->profiling) 
         {
+            assert( m_cmdRunningTime > 0 && "RUNNING must be already set at this point");
             m_cmdCompletionTime = HostTime();
         }
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+        if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+        {
+            __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
+        }
+#endif
         break;
     case RUN_FUNCTION_READY:
         break;
     default:
-        assert(0 && "Unknow COI_NOTIFICATIONS type");
+        assert(0 && "Unknown COI_NOTIFICATIONS type");
     };
 }
 
 void Command::releaseResources()
 {
+    unregisterBarrier(m_endEvent);
+
+#ifdef ENABLE_MIC_TRACER
     // Set end execution time for the tracer.
     m_commandTracer.set_current_time_command_host_time_end();
-    // Delete Synchronization handler
-    assert(m_pCommandSynchHandler);
-    // Unregister the completion barrier
-    m_pCommandSynchHandler->unregisterBarrier(m_completionBarrier);
+#endif
 }
 
+COIEVENT* Command::registerBarrier(command_event_struct& completionBarrier)
+{
+  	// If not register yet
+  	if (false == completionBarrier.isRegistered)
+  	{
+        registerProfilingContext();
+        COIEventRegisterUserEvent(&(completionBarrier.cmdEvent));
+        unregisterProfilingContext();
+        completionBarrier.isRegistered = true;
+    }
+    return NULL;
+}
 
+void Command::unregisterBarrier(command_event_struct& completionBarrier)
+{
+    // If already registered
+    if (completionBarrier.isRegistered)
+    {
+        COIEventUnregisterUserEvent(completionBarrier.cmdEvent);
+        completionBarrier.isRegistered = false;
+    }
+}
 
+//////////////////////////////////////////////////////////////////////////////////
 FailureNotification::FailureNotification(IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, cl_dev_err_code returnCode) : Command(NULL, pFrameworkCallBacks, pCmd)
 {
     m_lastError = returnCode;
@@ -180,7 +284,7 @@ cl_dev_err_code FailureNotification::execute()
     COIEVENT barrier;
     COIEVENT* pBarrier = &barrier;
     unsigned int numDependecies = 0;
-    m_pCommandSynchHandler->getLastDependentBarrier(m_pCommandList, pBarrier, &numDependecies, false);
+    m_pCommandList->getLastDependentBarrier(pBarrier, &numDependecies, false);
     // If OOO or first command fireCallBack in order to complete, otherwise add the last dependent barrier as my callback.
     if (0 == numDependecies)
     {
@@ -191,60 +295,4 @@ cl_dev_err_code FailureNotification::execute()
         m_pCommandList->getNotificationPort()->addBarrier(*pBarrier, this, NULL);
     }
     return CL_DEV_SUCCESS;
-}
-
-
-//
-// Helper class
-//
-class CommandSynchHandler::StaticInitializer
-{
-public:
-    StaticInitializer() 
-    {
-        m_singletonInOrderCommandSynchHandler   = new InOrderCommandSynchHandler;
-        m_singletonOuOfOrderCommandSynchHandler = new OutOfOrderCommandSynchHandler;
-    };
-};
-
-CommandSynchHandler::StaticInitializer CommandSynchHandler::init_statics;
-
-void InOrderCommandSynchHandler::getLastDependentBarrier(CommandList* pCommandList, COIEVENT* barrier, unsigned int* numDependencies, bool isExecutionTask)
-{
-    SharedPtr<Command> lastCmd = pCommandList->getLastCommand();
-    /* If last command is NULL --> Last command completed or not exist; or the current command is going to enqueue to COIPipe and the last Command also enqueued to COIPipe
-        Then we can return NULL as the barrier. */
-    if ((NULL == lastCmd) || ((isExecutionTask) && (lastCmd->commandEnqueuedToPipe())))
-    {
-        *numDependencies = 0;
-    }
-    else
-    {
-        assert(lastCmd && "lastCmd Must be valid pointer");
-        *barrier = lastCmd->getCommandCompletionEvent();
-        *numDependencies = 1;
-    }
-}
-
-COIEVENT* OutOfOrderCommandSynchHandler::registerBarrier(Command::command_event_struct& completionBarrier, Command* pCommand) 
-{ 
-    // If not register yet
-    if (false == completionBarrier.isRegister)
-    {
-        pCommand->registerProfilingContext();
-        COIEventRegisterUserEvent(&(completionBarrier.cmdEvent));
-        pCommand->unregisterProfilingContext();
-        completionBarrier.isRegister = true;
-    }
-    return NULL;
-}
-
-void OutOfOrderCommandSynchHandler::unregisterBarrier(Command::command_event_struct& completionBarrier) 
-{ 
-    // If already registered
-    if (completionBarrier.isRegister)
-    {
-        COIEventUnregisterUserEvent(completionBarrier.cmdEvent);
-        completionBarrier.isRegister = false;
-    }
 }
