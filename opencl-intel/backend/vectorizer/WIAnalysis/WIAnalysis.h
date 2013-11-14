@@ -136,6 +136,12 @@ private:
     ///         are added to m_pChangedNew
     void updateDepMap(const Instruction *inst, WIAnalysis::WIDependancy dep);
 
+    /// @brief look for partial joins reachable from two different successo
+    /// s.t. the path from each successor accesses the partial join from a 
+    /// predecessor
+    /// @return
+    void findDivergePartialJoins(const TerminatorInst *inst);
+
     /// @brief mark all the Phi nodes in full/partial joins as random
     /// @return
     void markDependentPhiRandom();
@@ -223,6 +229,10 @@ private:
 
     // blocks in influenceRegion that are reachable from cbr by two different successors
     SmallPtrSet<BasicBlock*, 4> m_partialJoins;
+
+    // blocks in influenceRegion that are reachable from cbr by its two successors 
+    // and there exists a path from each successors that accesses the block from a different predecessor
+    SmallPtrSet<BasicBlock*, 4> m_divergePartialJoins;
 
     // A map that maps a block terminating with a divergent branch to a vector containing the divergent branch basic block
     // together with its influence region and its immediate post-dominator.

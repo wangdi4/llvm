@@ -957,14 +957,16 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     mostInnerLoop = false;
   } while (L && !L->contains(BBexit));
 
-  /// ----  Create the exit condition. When to leave the loop
-  V_ASSERT(m_allzero && "Unable to find allzero func");
-  CallInst *call_allzero =
-      CallInst::Create(m_allzero, curLoopMask, "shouldexit", br);
+  if (!LI->getLoopFor(BB)->getExitingBlock() || m_WIA->whichDepend(br) != WIAnalysis::UNIFORM) {
+    /// ----  Create the exit condition. When to leave the loop
+    V_ASSERT(m_allzero && "Unable to find allzero func");
+    CallInst *call_allzero =
+        CallInst::Create(m_allzero, curLoopMask, "shouldexit", br);
 
-  // Make sure the exit block is the first successor.
-  BranchInst::Create(BBexit, BBlocal, call_allzero, br);
-  br->eraseFromParent();
+    // Make sure the exit block is the first successor.
+    BranchInst::Create(BBexit, BBlocal, call_allzero, br);
+    br->eraseFromParent();
+  }
 }
 
 void Predicator::maskOutgoing_fork(BasicBlock *BB) {
