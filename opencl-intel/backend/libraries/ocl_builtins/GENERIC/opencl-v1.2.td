@@ -399,7 +399,8 @@ let Types = [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
              v2u64, v3u64, v4u64, v8u64, v16u64,
              v2f32, v3f32, v4f32, v8f32, v16f32,
              v2f64, v3f64, v4f64, v8f64, v16f64],
-    Attrs = [OVERLOADABLE] in {
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def vload_gas   : OclBuiltin<"vload$Suffix",  (outs gentype:$ret), (ins size_t:$offset, psgentype:$p), [], [], 0, 0>, CONST_GLOBAL;
 def vload_cas   : OclBuiltin<"vload$Suffix",  (outs gentype:$ret), (ins size_t:$offset, psgentype:$p), [], [], 0, 0>, CONSTANT;
 def vload_las   : OclBuiltin<"vload$Suffix",  (outs gentype:$ret), (ins size_t:$offset, psgentype:$p), [], [], 0, 0>, CONST_LOCAL;
