@@ -16,20 +16,10 @@
 #include <CL/cl_ext.h>
 
 #define __DOUBLE_ENABLED__
+// We must include it after definition of "__DOUBLE_ENABLED__".
+#include "ocl_supported_extensions.h"
 
 using namespace Intel::OpenCL::MICDevice;
-
-static const char OCL_SUPPORTED_EXTENSIONS[] =
-    "cl_khr_global_int32_base_atomics "
-    "cl_khr_global_int32_extended_atomics "
-    "cl_khr_local_int32_base_atomics "
-    "cl_khr_local_int32_extended_atomics "
-    "cl_khr_byte_addressable_store "
-    "cl_khr_spir "
-#if defined __DOUBLE_ENABLED__
-    "cl_khr_fp64 "
-#endif
-    ;
 
 static const size_t MIC_MAX_WORK_ITEM_SIZES[MIC_MAX_WORK_ITEM_DIMENSIONS] =
     {
@@ -121,7 +111,7 @@ static MICSysInfo::SYS_INFO_ENTRY knc_info[] =
     STRG_VALUE( CL_DRIVER_VERSION,                                                      MIC_DRIVER_VERSION_STRING       ),
     STRG_VALUE( CL_DEVICE_PROFILE,                                                      MIC_DEVICE_PROFILE_STRING       ),
     STRG_VALUE( CL_DEVICE_VERSION,                                                      MIC_DEVICE_VERSION_STRING       ),
-    STRG_VALUE( CL_DEVICE_EXTENSIONS,                                                   OCL_SUPPORTED_EXTENSIONS        ),
+    STRG_VALUE( CL_DEVICE_EXTENSIONS,                                                   OCL_SUPPORTED_EXTENSIONS_KNC_1_2),
 //    SCAL_VALUE( CL_DEVICE_PLATFORM,																					), returned by framework - platform_module
     SCAL_VALUE( CL_DEVICE_HOST_UNIFIED_MEMORY,          cl_bool,                        CL_FALSE                        ),
     STRG_VALUE( CL_DEVICE_OPENCL_C_VERSION,                                             MIC_DEVICE_OPENCL_C_VERSION     ),

@@ -27,8 +27,6 @@
     #define PRINT_DEBUG(...)
 #endif
 
-#define __DOUBLE_ENABLED__
-
 using namespace Intel::OpenCL::MICDevice;
 
 OclSpinMutex*				MICSysInfo::m_mutex = NULL;
