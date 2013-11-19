@@ -186,7 +186,7 @@ const LLVMModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
     PM.add(openCLAA.release());
 
     formatted_raw_ostream FOS;
-    if (LTM.addPassesToEmitFile(PM, FOS, TargetMachine::CGFT_AssemblyFile, false, 0, 0, true)) {
+    if (LTM.addPassesToEmitFile(PM, FOS, TargetMachine::CGFT_AssemblyFile, /*DisableVerify*/ true, 0, 0, true)) {
       errs() << "target does not support generation of this file type!\n";
       return 0;
     }

@@ -7,8 +7,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #ifndef __INSTTOFUNCCALL_H__
 #define __INSTTOFUNCCALL_H__
-#include <llvm/Pass.h>
-#include <llvm/Module.h>
+
+#include "llvm/Pass.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Analysis/CallGraph.h"
 //===----------------------------------------------------------------------===//
 //

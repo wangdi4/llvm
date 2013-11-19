@@ -42,7 +42,7 @@ static bool isGatherScatterType(VectorType *VecTy) {
       (NumElements == 4) &&
       (ElemTy->isIntegerTy(8)))
     return true;
-  return (NumElements == 16); // all types are supported natively for MIC
+  return (NumElements == 16);
 }
 
 // Before packetizing memory operations, replace aligment of zero with an
