@@ -520,6 +520,7 @@ else (WIN32)
     install(FILES setup/llvm_release_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/apache_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/boost_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+	install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
 
 	install(FILES setup/bom_files/installer_content_linux.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
