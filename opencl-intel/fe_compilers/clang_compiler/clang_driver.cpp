@@ -428,6 +428,13 @@ int ClangFECompilerCompileTask::Compile()
   Clang->SetOutputStream(&IRStream);
   Clang->setDiagnostics(Diags.getPtr());
 
+  PreprocessorOptions &PPO = Clang->getPreprocessorOpts();
+
+  // Explicitly set the cl_khr_fp extension to 1, so double variable will be supported while building the PCH file
+  PPO.SupportedPragmas.cl_khr_fp64 = 1;
+  PPO.SupportedPragmas.cl_khr_depth_images = 1;
+  PPO.SupportedPragmas.cl_khr_3d_image_writes = 1;
+
   // Create compiler invocation from user args
   CompilerInvocation::CreateFromArgs(Clang->getInvocation(), argArray, argArray + ArgList.size(),
                                      *Diags);
