@@ -84,7 +84,7 @@ extern cl_int CL_API_CALL clGetKernelArgInfo(
 
 #if defined DX_MEDIA_SHARING
 
-typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueAcquireDX9ObjectsINTEL)(
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueAcquireDX9ObjectsINTEL)(
     cl_command_queue            /* command_queue */,
     cl_uint                     /* num_objects */,
     const cl_mem *              /* mem_objects */,
@@ -92,7 +92,7 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueAcquireDX9ObjectsINTEL
     const cl_event *            /* event_wait_list */,
     cl_event *                  /* ocl_event */ );
 
-typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueReleaseDX9ObjectsINTEL)(
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueReleaseDX9ObjectsINTEL)(
     cl_command_queue            /* command_queue */,
     cl_uint                     /* num_objects */,
     const cl_mem *              /* mem_objects */,
@@ -100,7 +100,7 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueReleaseDX9ObjectsINTEL
     const cl_event *            /* event_wait_list */,
     cl_event *                  /* ocl_event */ );
 
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *KHRpfn_clCreateFromDX9MediaSurfaceINTEL)(
+typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreateFromDX9MediaSurfaceINTEL)(
     cl_context                  /* context */,
     cl_mem_flags                /* flags */,
     IDirect3DSurface9 *         /* resource */,
@@ -108,7 +108,7 @@ typedef CL_API_ENTRY cl_mem (CL_API_CALL *KHRpfn_clCreateFromDX9MediaSurfaceINTE
     UINT                        /* plane */,
     cl_int *                    /* errcode_ret */ );
 
-typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetDeviceIDsFromDX9INTEL)(
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetDeviceIDsFromDX9INTEL)(
     cl_platform_id              /* platform */,
     cl_dx9_device_source_intel /* d3d_device_source */,
     void*                       /* d3d_object */,
@@ -150,9 +150,28 @@ extern CL_API_ENTRY cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(
     cl_device_id* /*devices*/, 
     cl_uint* /*num_devices*/);
 
-#endif
+#else
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueAcquireDX9ObjectsINTEL)();
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueReleaseDX9ObjectsINTEL)();
+typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreateFromDX9MediaSurfaceINTEL)();
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetDeviceIDsFromDX9INTEL)();
+#endif // defined DX_MEDIA_SHARING
 
-typedef CL_API_ENTRY cl_mem (CL_API_CALL *KHRpfn_clCreatePipeINTEL)(
+// Those are dummy entries for GPU in CRT dispatch table
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetImageParamsINTEL)();
+typedef CL_API_ENTRY cl_command_queue (CL_API_CALL *INTELpfn_clCreatePerfCountersCommandQueueINTEL)();
+typedef CL_API_ENTRY cl_accelerator_intel (CL_API_CALL *INTELpfn_clCreateAcceleratorINTEL)();
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetAcceleratorInfoINTEL)();
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clRetainAcceleratorINTEL)();
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clReleaseAcceleratorINTEL)();
+typedef CL_API_ENTRY cl_program (CL_API_CALL *INTELpfn_clCreateProfiledProgramWithSourceINTEL)();
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clCreateKernelProfilingJournalINTEL)();
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueAcquireVAMediaSurfacesINTEL)();
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueReleaseVAMediaSurfacesINTEL)();
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetDeviceIDsFromVAMediaAdapterINTEL)();
+typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreateFromVAMediaSurfaceINTEL)();
+
+typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreatePipeINTEL)(
     cl_context                  /*context*/,
     cl_mem_flags                /*flags*/,
     cl_uint                     /*pipe_packet_size*/,
@@ -176,28 +195,41 @@ extern CL_API_ENTRY cl_mem CL_API_CALL clCreatePipeINTEL(
 }
 #endif
 
-
-
-
 //// ------------------------------------
 //// vendor dispatch table structure
 //
-struct COCLCRTDispatchTable
+// CRT dispatch table: this should be exactly same as in crt_dispatch_table.h
+struct SOCLCRTDispatchTable
 {
-    KHRpfn_clGetKernelArgInfo                     clGetKernelArgInfo;
-    KHRpfn_clCreatePipeINTEL                      clCreatePipeINTEL;
-#ifdef DX_MEDIA_SHARING
-    KHRpfn_clGetDeviceIDsFromDX9INTEL             clGetDeviceIDsFromDX9INTEL;
-    KHRpfn_clCreateFromDX9MediaSurfaceINTEL       clCreateFromDX9MediaSurfaceINTEL;
-    KHRpfn_clEnqueueAcquireDX9ObjectsINTEL        clEnqueueAcquireDX9ObjectsINTEL;
-    KHRpfn_clEnqueueReleaseDX9ObjectsINTEL        clEnqueueReleaseDX9ObjectsINTEL;
-#endif    
+    KHRpfn_clGetKernelArgInfo                       clGetKernelArgInfo;
+
+    INTELpfn_clGetDeviceIDsFromDX9INTEL             clGetDeviceIDsFromDX9INTEL;
+    INTELpfn_clCreateFromDX9MediaSurfaceINTEL       clCreateFromDX9MediaSurfaceINTEL;
+    INTELpfn_clEnqueueAcquireDX9ObjectsINTEL        clEnqueueAcquireDX9ObjectsINTEL;
+    INTELpfn_clEnqueueReleaseDX9ObjectsINTEL        clEnqueueReleaseDX9ObjectsINTEL;
+
+    // GPU entries
+    INTELpfn_clGetImageParamsINTEL                  clGetImageParamsINTEL;
+    INTELpfn_clCreatePerfCountersCommandQueueINTEL  clCreatePerfCountersCommandQueueINTEL;
+    INTELpfn_clCreateAcceleratorINTEL               clCreateAcceleratorINTEL;
+    INTELpfn_clGetAcceleratorInfoINTEL              clGetAcceleratorInfoINTEL;
+    INTELpfn_clRetainAcceleratorINTEL               clRetainAcceleratorINTEL;
+    INTELpfn_clReleaseAcceleratorINTEL              clReleaseAcceleratorINTEL;
+    INTELpfn_clCreateProfiledProgramWithSourceINTEL clCreateProfiledProgramWithSourceINTEL;
+    INTELpfn_clCreateKernelProfilingJournalINTEL    clCreateKernelProfilingJournalINTEL;
+    INTELpfn_clCreateFromVAMediaSurfaceINTEL        clCreateFromVAMediaSurfaceINTEL;
+    INTELpfn_clGetDeviceIDsFromVAMediaAdapterINTEL  clGetDeviceIDsFromVAMediaAdapterINTEL;
+    INTELpfn_clEnqueueReleaseVAMediaSurfacesINTEL   clEnqueueReleaseVAMediaSurfacesINTEL;
+    INTELpfn_clEnqueueAcquireVAMediaSurfacesINTEL   clEnqueueAcquireVAMediaSurfacesINTEL;
+
+    // API to create pipe with host pointer
+    INTELpfn_clCreatePipeINTEL                      clCreatePipeINTEL;
 };
 
 struct ocl_entry_points
 {
     KHRicdVendorDispatch*                           icdDispatch;
-    COCLCRTDispatchTable*                           crtDispatch;
+    SOCLCRTDispatchTable*                           crtDispatch;
 };
 
 struct _cl_object 
@@ -207,7 +239,7 @@ struct _cl_object
 
 struct _crt_dispatch
 {	
-    COCLCRTDispatchTable*       crtDispatch;	
+    SOCLCRTDispatchTable*       crtDispatch;	
 };
 
 struct _cl_platform_id_int : public _cl_platform_id, public _crt_dispatch

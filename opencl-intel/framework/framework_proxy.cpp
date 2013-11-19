@@ -56,7 +56,7 @@ USE_SHUTDOWN_HANDLER(NULL);
 cl_monitor_init
 
 KHRicdVendorDispatch        FrameworkProxy::ICDDispatchTable;
-COCLCRTDispatchTable        FrameworkProxy::CRTDispatchTable;
+SOCLCRTDispatchTable        FrameworkProxy::CRTDispatchTable;
 ocl_entry_points            FrameworkProxy::OclEntryPoints;
 
 
@@ -229,16 +229,7 @@ void FrameworkProxy::InitOCLEntryPoints()
 	ICDDispatchTable.clCreatePipe = (KHRpfn_clCreatePipe)GET_ALIAS(clCreatePipe);
 	ICDDispatchTable.clGetPipeInfo = (KHRpfn_clGetPipeInfo)GET_ALIAS(clGetPipeInfo);
 
-    /// Extra functions for Common Runtime
-    CRTDispatchTable.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);
-    CRTDispatchTable.clCreatePipeINTEL = (KHRpfn_clCreatePipeINTEL)GET_ALIAS(clCreatePipeINTEL);
-    
 #if defined DX_MEDIA_SHARING
-    CRTDispatchTable.clGetDeviceIDsFromDX9INTEL = (KHRpfn_clGetDeviceIDsFromDX9INTEL)GET_ALIAS(clGetDeviceIDsFromDX9INTEL);
-    CRTDispatchTable.clCreateFromDX9MediaSurfaceINTEL = (KHRpfn_clCreateFromDX9MediaSurfaceINTEL)GET_ALIAS(clCreateFromDX9MediaSurfaceINTEL);
-    CRTDispatchTable.clEnqueueAcquireDX9ObjectsINTEL = (KHRpfn_clEnqueueAcquireDX9ObjectsINTEL)GET_ALIAS(clEnqueueAcquireDX9ObjectsINTEL);
-    CRTDispatchTable.clEnqueueReleaseDX9ObjectsINTEL = (KHRpfn_clEnqueueReleaseDX9ObjectsINTEL)GET_ALIAS(clEnqueueReleaseDX9ObjectsINTEL);
-
     ICDDispatchTable.clGetDeviceIDsFromDX9MediaAdapterKHR = (KHRpfn_clGetDeviceIDsFromDX9MediaAdapterKHR)GET_ALIAS(clGetDeviceIDsFromDX9MediaAdapterKHR);
     ICDDispatchTable.clCreateFromDX9MediaSurfaceKHR = (KHRpfn_clCreateFromDX9MediaSurfaceKHR)GET_ALIAS(clCreateFromDX9MediaSurfaceKHR);
     ICDDispatchTable.clEnqueueAcquireDX9MediaSurfacesKHR = (KHRpfn_clEnqueueAcquireDX9MediaSurfacesKHR)GET_ALIAS(clEnqueueAcquireDX9MediaSurfacesKHR);
@@ -251,6 +242,36 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clEnqueueAcquireD3D11ObjectsKHR = (KHRpfn_clEnqueueAcquireD3D11ObjectsKHR)GET_ALIAS(clEnqueueAcquireD3D11ObjectsKHR);
     ICDDispatchTable.clEnqueueReleaseD3D11ObjectsKHR = (KHRpfn_clEnqueueReleaseD3D11ObjectsKHR)GET_ALIAS(clEnqueueReleaseD3D11ObjectsKHR);
 #endif
+
+    /// Extra functions for Common Runtime
+    CRTDispatchTable.clGetKernelArgInfo = (KHRpfn_clGetKernelArgInfo)GET_ALIAS(clGetKernelArgInfo);
+#if defined DX_MEDIA_SHARING
+    CRTDispatchTable.clGetDeviceIDsFromDX9INTEL = (INTELpfn_clGetDeviceIDsFromDX9INTEL)GET_ALIAS(clGetDeviceIDsFromDX9INTEL);
+    CRTDispatchTable.clCreateFromDX9MediaSurfaceINTEL = (INTELpfn_clCreateFromDX9MediaSurfaceINTEL)GET_ALIAS(clCreateFromDX9MediaSurfaceINTEL);
+    CRTDispatchTable.clEnqueueAcquireDX9ObjectsINTEL = (INTELpfn_clEnqueueAcquireDX9ObjectsINTEL)GET_ALIAS(clEnqueueAcquireDX9ObjectsINTEL);
+    CRTDispatchTable.clEnqueueReleaseDX9ObjectsINTEL = (INTELpfn_clEnqueueReleaseDX9ObjectsINTEL)GET_ALIAS(clEnqueueReleaseDX9ObjectsINTEL);
+#else
+    CRTDispatchTable.clGetDeviceIDsFromDX9INTEL = NULL;
+    CRTDispatchTable.clCreateFromDX9MediaSurfaceINTEL = NULL;
+    CRTDispatchTable.clEnqueueAcquireDX9ObjectsINTEL = NULL;
+    CRTDispatchTable.clEnqueueReleaseDX9ObjectsINTEL = NULL;
+#endif
+    // Nullify entries which are not relevant for CPU
+    CRTDispatchTable.clGetImageParamsINTEL = NULL;
+    CRTDispatchTable.clCreatePerfCountersCommandQueueINTEL = NULL;
+    CRTDispatchTable.clCreateAcceleratorINTEL = NULL;
+    CRTDispatchTable.clGetAcceleratorInfoINTEL = NULL;
+    CRTDispatchTable.clRetainAcceleratorINTEL = NULL;
+    CRTDispatchTable.clReleaseAcceleratorINTEL = NULL;
+    CRTDispatchTable.clCreateProfiledProgramWithSourceINTEL = NULL;
+    CRTDispatchTable.clCreateKernelProfilingJournalINTEL = NULL;
+    CRTDispatchTable.clCreateFromVAMediaSurfaceINTEL = NULL;
+    CRTDispatchTable.clGetDeviceIDsFromVAMediaAdapterINTEL = NULL;
+    CRTDispatchTable.clEnqueueReleaseVAMediaSurfacesINTEL = NULL;
+    CRTDispatchTable.clEnqueueAcquireVAMediaSurfacesINTEL = NULL;
+
+    CRTDispatchTable.clCreatePipeINTEL = (INTELpfn_clCreatePipeINTEL)GET_ALIAS(clCreatePipeINTEL);
+
     /// Extra CPU specific functions
 }
 
