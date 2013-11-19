@@ -57,6 +57,34 @@ WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB64Bit[] = {
    { "__ocl_transpose_store_char_4x4", 8 },
    { "__ocl_masked_load_transpose_char_4x4", 12 },
    { "__ocl_masked_transpose_store_char_4x4", 12 },
+   { "__ocl_load_transpose_float4x4", 60 },
+   { "__ocl_transpose_store_float4x4", 60 },
+   { "__ocl_load_transpose_float_4x8", 70 },
+   { "__ocl_transpose_store_float_4x8", 70 },
+   { "__ocl_gather_transpose_float4x4", 200 },
+   { "__ocl_transpose_scatter_float4x4", 200 },
+   { "__ocl_gather_transpose_float4x8", 250 },
+   { "__ocl_transpose_scatter_float4x8", 250 },
+   { "__ocl_masked_load_transpose_float4x4", 70 },
+   { "__ocl_masked_transpose_store_float4x4", 70 },
+   { "__ocl_masked_load_transpose_float_4x8", 80},
+   { "__ocl_masked_transpose_store_float_4x8", 80},
+   { "__ocl_masked_gather_transpose_float4x4", 210},
+   { "__ocl_masked_transpose_scatter_float4x4", 210},
+   { "__ocl_masked_gather_transpose_float4x8", 260},
+   { "__ocl_masked_transpose_scatter_float4x8", 260},
+   // The line below must be the last line in the DB,
+   // serving as a terminator.
+   { 0, 0 }
+};
+
+// Costs for transpose functions for 32bit systems
+WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB32Bit[] = {
+
+   { "__ocl_load_transpose_char_4x4", 8 },
+   { "__ocl_transpose_store_char_4x4", 8 },
+   { "__ocl_masked_load_transpose_char_4x4", 12 },
+   { "__ocl_masked_transpose_store_char_4x4", 12 },
    { "__ocl_load_transpose_float_4x8", 70 },
    { "__ocl_transpose_store_float_4x8", 70 },
    { "__ocl_gather_transpose_float_4x8", 75 },
@@ -71,6 +99,7 @@ WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB64Bit[] = {
    { 0, 0 }
 };
 
+#ifdef __CUSTOM
 // Costs for transpose functions for 32bit systems
 WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB32Bit[] = {
    // These numbers tuned for SSE4 in 32bit platform
@@ -94,6 +123,7 @@ WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB32Bit[] = {
    // serving as a terminator.
    { 0, 0 }
 };
+#endif // __CUSTOM
 
 static const bool enableDebugPrints = false;
 static raw_ostream &dbgPrint() {

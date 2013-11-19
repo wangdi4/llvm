@@ -157,6 +157,10 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clTerminateContextKHR_fn)(cl_context /
  * Standard Portable Intermediate Representation (SPIR) instance
  */
 
+// KHR SPIR extension (Section 9.15.2 in the extension SPEC)
+// TODO: The value of this value is not final, and yet to be determined by Khronos.
+#define CL_DEVICE_SPIR_VERSIONS                     0x104C
+
 /******************************************
 * cl_nv_device_attribute_query extension *
 ******************************************/

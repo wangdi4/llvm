@@ -331,6 +331,71 @@ void WIAnalysis::calculate_dep(const Value* val) {
   updateDepMap(inst, dep);
 }
 
+// Find divergent partial joins
+void WIAnalysis::findDivergePartialJoins(const TerminatorInst *inst) {
+  assert(inst && "inst cannot be null");
+  assert(dyn_cast<BranchInst>(inst) && dyn_cast<BranchInst>(inst)->isConditional() && "branch has to be a conditional branch");
+  assert(inst->getNumSuccessors() == 2 && "supports only for conditional branches with two successors");
+
+  for (SmallPtrSet<BasicBlock*, 4>::iterator blkItr = m_partialJoins.begin();
+       blkItr != m_partialJoins.end();
+       ++blkItr) {
+
+    BasicBlock * partialJoin = *blkItr;
+
+    DenseSet<BasicBlock*> leftSet, rightSet;
+    std::stack<BasicBlock*> workSet;
+
+   
+    // If this partial join does not contain phi nodes then go to the next one 
+    BasicBlock::iterator firstInst = partialJoin->begin();
+    if (!isa<PHINode>(dyn_cast<Instruction>(firstInst)))
+      continue;
+
+    for (int i=0; i < 2; ++i) { // inst->getNumSuccessors() == 2
+
+      if (inst->getSuccessor(i) != partialJoin) {
+        workSet.push(inst->getSuccessor(i));
+
+        while (!workSet.empty()) {
+          BasicBlock *curBlk = workSet.top();
+          workSet.pop();
+
+          DenseSet<BasicBlock*> & blkSet = (i == 0) ? leftSet : rightSet;
+
+          blkSet.insert(curBlk);
+
+          for (succ_iterator SI = succ_begin(curBlk), E = succ_end(curBlk); SI != E; ++SI) {
+            BasicBlock *succBlk = (*SI);
+            if (succBlk != partialJoin && !blkSet.count(succBlk)) {
+              workSet.push(succBlk);
+            }
+          }
+        }
+      }
+    }
+
+    bool reachRight = 0, reachLeft = 0;
+    for (pred_iterator itr = pred_begin(partialJoin); itr != pred_end(partialJoin); ++itr) {
+      BasicBlock * pred = *itr;
+
+      bool isRight = rightSet.count(pred);
+      bool isLeft = leftSet.count(pred);
+
+      // If we saw a path from the left succ of cbr to a predecessor
+      // and now we see a path from the right succ to a different one.
+      // Or the other way around ...
+      if ((isRight && reachLeft) || (isLeft && reachRight)) {
+        m_divergePartialJoins.insert(partialJoin);
+        break;
+      }
+
+      reachRight |= isRight;
+      reachLeft  |= isLeft;
+    }
+  }
+}
+
 // Mark each phi node in join or a partial join as divergent
 void WIAnalysis::markDependentPhiRandom() {
 
@@ -351,8 +416,8 @@ void WIAnalysis::markDependentPhiRandom() {
   }
 
   // partial joins
-  for (SmallPtrSet<BasicBlock*, 4>::iterator blkItr = m_partialJoins.begin();
-       blkItr != m_partialJoins.end();
+  for (SmallPtrSet<BasicBlock*, 4>::iterator blkItr = m_divergePartialJoins.begin();
+       blkItr != m_divergePartialJoins.end();
        ++blkItr) {
     m_divPhiBlocks.insert((*blkItr));
     for (BasicBlock::iterator instItr = (*blkItr)->begin();
@@ -370,6 +435,8 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
   BasicBlock *blk = (BasicBlock *)(inst->getParent());
 
   calcInfoForBranch(inst);
+
+  findDivergePartialJoins(inst);
 
   // Mark each phi node in a join or a partial join as divergent
   markDependentPhiRandom();
@@ -446,10 +513,6 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
 
         if (useBlk == m_fullJoin ||
             m_partialJoins.count(useBlk)) {
-
-          if (isa<PHINode>(useInst)) {
-            continue;
-          }
 
           // We can check whether the (partial) join is a loop exit and change the algorithm
           // This might increase accuracy in case there are gotos but seems like 

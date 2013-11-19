@@ -169,6 +169,15 @@ OclBuiltinImpl fmax_impl = OclBuiltinImpl<fmax, fmax.Types, 0, [{
     return res;
   }]>;
 
+// The following code implements the builtin variants with scalar parameters.
+// The implementation will prompt these scalar parameters into vector ones
+// and call the corresponding builtins with all vector parameters.
+// fmax_s
+OclBuiltinImpl fmax_s_generic = OclBuiltinImpl<fmax_s, fmax_s.Types, 0, [{
+  $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+  return $Func($Arg0VarName, vec$Arg1VarName);
+}]>;
+
 // fmin implementation
 OclBuiltinImpl fmin_impl = OclBuiltinImpl<fmin, fmin.Types, 0, [{
     // according to OpenCL 1.2 ch. 6.12.2
@@ -181,6 +190,12 @@ OclBuiltinImpl fmin_impl = OclBuiltinImpl<fmin, fmin.Types, 0, [{
     res = select(res, $Arg1VarName, nan);
     return res;
   }]>;
+
+// fmin_s
+OclBuiltinImpl fmin_s_generic = OclBuiltinImpl<fmin_s, fmin_s.Types, 0, [{
+  $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+  return $Func($Arg0VarName, vec$Arg1VarName);
+}]>;
 
 // fmod
 OclBuiltinImpl fmod_svml = OclBuiltinImpl<fmod, fmod.Types, 0, [{
@@ -314,6 +329,12 @@ OclBuiltinImpl ilogb_svml_f64 = OclBuiltinImpl<ilogb, [v1f64, v2f64, v3f64, v4f6
 OclBuiltinImpl ldexp_svml = OclBuiltinImpl<ldexp, ldexp.Types, 0, [{
     return __ocl_svml_$Target_ldexp$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
+
+// ldexp_s
+OclBuiltinImpl ldexp_s_generic = OclBuiltinImpl<ldexp_s, ldexp_s.Types, 0, [{
+  $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+  return $Func($Arg0VarName, vec$Arg1VarName);
+}]>;
 
 // lgamma
 OclBuiltinImpl lgamma_svml = OclBuiltinImpl<lgamma, lgamma.Types, 0, [{
@@ -604,11 +625,23 @@ OclBuiltinImpl native_fmax_impl = OclBuiltinImpl<native_fmax, native_fmax.Types,
     return max($Arg0VarName, $Arg1VarName);
   }]>;
 
+// native_fmax_s
+OclBuiltinImpl native_fmax_s_impl = OclBuiltinImpl<native_fmax_s, native_fmax_s.Types, 0, [{
+  $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+  return $Func($Arg0VarName, vec$Arg1VarName);
+}]>;
+
 // native_fmin implementation
 // beyond OpenCL1.2 spec
 OclBuiltinImpl native_fmin_impl = OclBuiltinImpl<native_fmin, native_fmin.Types, 0, [{
     return min($Arg0VarName, $Arg1VarName);
   }]>;
+
+// native_fmin_s
+OclBuiltinImpl native_fmin_s_impl = OclBuiltinImpl<native_fmin_s, native_fmin_s.Types, 0, [{
+  $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
+  return $Func($Arg0VarName, vec$Arg1VarName);
+}]>;
 
 // native_log
 OclBuiltinImpl native_log_svml = OclBuiltinImpl<native_log, native_log.Types, 0, [{

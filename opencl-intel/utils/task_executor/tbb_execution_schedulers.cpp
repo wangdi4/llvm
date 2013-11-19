@@ -348,7 +348,6 @@ bool TBB_ExecutionSchedulers::parallel_execute( base_command_list& cmdList,
 
     int res = task->Init(dims, dimCount);
 
-    assert(res==0 && "TaskSet::Init() Failed");
     assert( scheduler < TE_CMD_LIST_PREFERRED_SCHEDULING_LAST && "Invalid preferred scheduling" );
     assert( optimization < TASK_SET_OPTIMIZE_BY_LAST && "Invalid ");
     assert( (dimCount > 0) && (dimCount <= 3) && "Invalid work dimensions");

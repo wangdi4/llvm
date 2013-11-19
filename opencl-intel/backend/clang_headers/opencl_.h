@@ -1083,6 +1083,7 @@ double8 __attribute__((overloadable)) fract(double8 x, double8 *iptr);
 double16 __attribute__((overloadable)) fract(double16 x, double16 *iptr);
 #endif // __OPENCL_C_VERSION__ >= 200
 
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) fract(float x, __global float *iptr);
 float2 __attribute__((overloadable)) fract(float2 x, __global float2 *iptr);
 float3 __attribute__((overloadable)) fract(float3 x, __global float3 *iptr);
@@ -1137,6 +1138,7 @@ double16 __attribute__((overloadable)) fract(double16 x, __private double16 *ipt
 //half4 __attribute__((overloadable)) fract(half4 x, __private half4 *iptr);
 //half8 __attribute__((overloadable)) fract(half8 x, __private half8 *iptr);
 //half16 __attribute__((overloadable)) fract(half16 x, __private half16 *iptr);
+#endif // __OPENCL_C_VERSION__ < 200
 
 /**
  * Extract mantissa and exponent from x. For each
@@ -1159,6 +1161,7 @@ double8 __attribute__((overloadable)) frexp(double8 x, int8 *exp);
 double16 __attribute__((overloadable)) frexp(double16 x, int16 *exp);
 #endif // __OPENCL_C_VERSION__ >= 200
 
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) frexp(float x, __global int *exp);
 float2 __attribute__((overloadable)) frexp(float2 x, __global int2 *exp);
 float3 __attribute__((overloadable)) frexp(float3 x, __global int3 *exp);
@@ -1213,6 +1216,7 @@ double16 __attribute__((overloadable)) frexp(double16 x, __private int16 *exp);
 //half4 __attribute__((overloadable)) frexp(half4 x, __private int4 *exp);
 //half8 __attribute__((overloadable)) frexp(half8 x, __private int8 *exp);
 //half16 __attribute__((overloadable)) frexp(half16 x, __private int16 *exp);
+#endif //__OPENCL_C_VERSION__ < 200
 
 /**
  * Compute the value of the square root of x^2+ y^2
@@ -1324,6 +1328,7 @@ float3 const_func __attribute__((overloadable)) lgamma(float3 x);
 float4 const_func __attribute__((overloadable)) lgamma(float4 x);
 float8 const_func __attribute__((overloadable)) lgamma(float8 x);
 float16 const_func __attribute__((overloadable)) lgamma(float16 x);
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) lgamma_r(float x, __global int *signp);
 float2 __attribute__((overloadable)) lgamma_r(float2 x, __global int2 *signp);
 float3 __attribute__((overloadable)) lgamma_r(float3 x, __global int3 *signp);
@@ -1342,12 +1347,6 @@ float3 __attribute__((overloadable)) lgamma_r(float3 x, __private int3 *signp);
 float4 __attribute__((overloadable)) lgamma_r(float4 x, __private int4 *signp);
 float8 __attribute__((overloadable)) lgamma_r(float8 x, __private int8 *signp);
 float16 __attribute__((overloadable)) lgamma_r(float16 x, __private int16 *signp);
-double const_func __attribute__((overloadable)) lgamma(double x);
-double2 const_func __attribute__((overloadable)) lgamma(double2 x);
-double3 const_func __attribute__((overloadable)) lgamma(double3 x);
-double4 const_func __attribute__((overloadable)) lgamma(double4 x);
-double8 const_func __attribute__((overloadable)) lgamma(double8 x);
-double16 const_func __attribute__((overloadable)) lgamma(double16 x);
 double __attribute__((overloadable)) lgamma_r(double x, __global int *signp);
 double2 __attribute__((overloadable)) lgamma_r(double2 x, __global int2 *signp);
 double3 __attribute__((overloadable)) lgamma_r(double3 x, __global int3 *signp);
@@ -1366,6 +1365,14 @@ double3 __attribute__((overloadable)) lgamma_r(double3 x, __private int3 *signp)
 double4 __attribute__((overloadable)) lgamma_r(double4 x, __private int4 *signp);
 double8 __attribute__((overloadable)) lgamma_r(double8 x, __private int8 *signp);
 double16 __attribute__((overloadable)) lgamma_r(double16 x, __private int16 *signp);
+#endif // __OPENCL_C_VERSION__ < 200
+double const_func __attribute__((overloadable)) lgamma(double x);
+double2 const_func __attribute__((overloadable)) lgamma(double2 x);
+double3 const_func __attribute__((overloadable)) lgamma(double3 x);
+double4 const_func __attribute__((overloadable)) lgamma(double4 x);
+double8 const_func __attribute__((overloadable)) lgamma(double8 x);
+double16 const_func __attribute__((overloadable)) lgamma(double16 x);
+
 //half const_func __attribute__((overloadable)) lgamma(half x);
 //half2 const_func __attribute__((overloadable)) lgamma(half2 x);
 //half3 const_func __attribute__((overloadable)) lgamma(half3 x);
@@ -1596,6 +1603,7 @@ double8 __attribute__((overloadable)) modf(double8 x, double8 *iptr);
 double16 __attribute__((overloadable)) modf(double16 x, double16 *iptr);
 #endif // __OPENCL_C_VERSION__ >= 200
 
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) modf(float x, __global float *iptr);
 float2 __attribute__((overloadable)) modf(float2 x, __global float2 *iptr);
 float3 __attribute__((overloadable)) modf(float3 x, __global float3 *iptr);
@@ -1650,6 +1658,7 @@ double16 __attribute__((overloadable)) modf(double16 x, __private double16 *iptr
 //half4 __attribute__((overloadable)) modf(half4 x, __private half4 *iptr);
 //half8 __attribute__((overloadable)) modf(half8 x, __private half8 *iptr);
 //half16 __attribute__((overloadable)) modf(half16 x, __private half16 *iptr);
+#endif // __OPENCL_C_VERSION__ < 200
 
 /**
  * Returns a quiet NaN. The nancode may be placed
@@ -1818,6 +1827,7 @@ double8 __attribute__((overloadable)) remquo(double8 x, double8 y, int8 *quo);
 double16 __attribute__((overloadable)) remquo(double16 x, double16 y, int16 *quo);
 #endif // __OPENCL_C_VERSION__ >= 200
 
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) remquo(float x, float y, __global int *quo);
 float2 __attribute__((overloadable)) remquo(float2 x, float2 y, __global int2 *quo);
 float3 __attribute__((overloadable)) remquo(float3 x, float3 y, __global int3 *quo);
@@ -1872,6 +1882,7 @@ double16 __attribute__((overloadable)) remquo(double16 x, double16 y, __private 
 //half4 __attribute__((overloadable)) remquo(half4 x, half4 y, __private int4 *quo);
 //half8 __attribute__((overloadable)) remquo(half8 x, half8 y, __private int8 *quo);
 //half16 __attribute__((overloadable)) remquo(half16 x, half16 y, __private int16 *quo);
+#endif //__OPENCL_C_VERSION__ < 200
 
 /**
  * Round to integral value (using round to nearest
@@ -2008,6 +2019,7 @@ double8 __attribute__((overloadable)) sincos(double8 x, double8 *cosval);
 double16 __attribute__((overloadable)) sincos(double16 x, double16 *cosval);
 #endif // __OPENCL_C_VERSION__ >= 200
 
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) sincos(float x, __global float *cosval);
 float2 __attribute__((overloadable)) sincos(float2 x, __global float2 *cosval);
 float3 __attribute__((overloadable)) sincos(float3 x, __global float3 *cosval);
@@ -2062,6 +2074,7 @@ double16 __attribute__((overloadable)) sincos(double16 x, __private double16 *co
 //half4 __attribute__((overloadable)) sincos(half4 x, __private half4 *cosval);
 //half8 __attribute__((overloadable)) sincos(half8 x, __private half8 *cosval);
 //half16 __attribute__((overloadable)) sincos(half16 x, __private half16 *cosval);
+#endif // __OPENCL_C_VERSION__ < 200
 
 /**
  * Compute hyperbolic sine.
@@ -5110,6 +5123,7 @@ double8 __attribute__((overloadable)) vload8(size_t offset, const double *p);
 double16 __attribute__((overloadable)) vload16(size_t offset, const double *p);
 #endif // __OPENCL_C_VERSION__ >= 200
 
+#if __OPENCL_C_VERSION__ < 200
 char2 __attribute__((overloadable)) vload2(size_t offset, const __global char *p);
 uchar2 __attribute__((overloadable)) vload2(size_t offset, const __global uchar *p);
 short2 __attribute__((overloadable)) vload2(size_t offset, const __global short *p);
@@ -5200,51 +5214,6 @@ uint16 __attribute__((overloadable)) vload16(size_t offset, const __local uint *
 long16 __attribute__((overloadable)) vload16(size_t offset, const __local long *p);
 ulong16 __attribute__((overloadable)) vload16(size_t offset, const __local ulong *p);
 float16 __attribute__((overloadable)) vload16(size_t offset, const __local float *p);
-char2 __attribute__((overloadable)) vload2(size_t offset, const __constant char *p);
-uchar2 __attribute__((overloadable)) vload2(size_t offset, const __constant uchar *p);
-short2 __attribute__((overloadable)) vload2(size_t offset, const __constant short *p);
-ushort2 __attribute__((overloadable)) vload2(size_t offset, const __constant ushort *p);
-int2 __attribute__((overloadable)) vload2(size_t offset, const __constant int *p);
-uint2 __attribute__((overloadable)) vload2(size_t offset, const __constant uint *p);
-long2 __attribute__((overloadable)) vload2(size_t offset, const __constant long *p);
-ulong2 __attribute__((overloadable)) vload2(size_t offset, const __constant ulong *p);
-float2 __attribute__((overloadable)) vload2(size_t offset, const __constant float *p);
-char3 __attribute__((overloadable)) vload3(size_t offset, const __constant char *p);
-uchar3 __attribute__((overloadable)) vload3(size_t offset, const __constant uchar *p);
-short3 __attribute__((overloadable)) vload3(size_t offset, const __constant short *p);
-ushort3 __attribute__((overloadable)) vload3(size_t offset, const __constant ushort *p);
-int3 __attribute__((overloadable)) vload3(size_t offset, const __constant int *p);
-uint3 __attribute__((overloadable)) vload3(size_t offset, const __constant uint *p);
-long3 __attribute__((overloadable)) vload3(size_t offset, const __constant long *p);
-ulong3 __attribute__((overloadable)) vload3(size_t offset, const __constant ulong *p);
-float3 __attribute__((overloadable)) vload3(size_t offset, const __constant float *p);
-char4 __attribute__((overloadable)) vload4(size_t offset, const __constant char *p);
-uchar4 __attribute__((overloadable)) vload4(size_t offset, const __constant uchar *p);
-short4 __attribute__((overloadable)) vload4(size_t offset, const __constant short *p);
-ushort4 __attribute__((overloadable)) vload4(size_t offset, const __constant ushort *p);
-int4 __attribute__((overloadable)) vload4(size_t offset, const __constant int *p);
-uint4 __attribute__((overloadable)) vload4(size_t offset, const __constant uint *p);
-long4 __attribute__((overloadable)) vload4(size_t offset, const __constant long *p);
-ulong4 __attribute__((overloadable)) vload4(size_t offset, const __constant ulong *p);
-float4 __attribute__((overloadable)) vload4(size_t offset, const __constant float *p);
-char8 __attribute__((overloadable)) vload8(size_t offset, const __constant char *p);
-uchar8 __attribute__((overloadable)) vload8(size_t offset, const __constant uchar *p);
-short8 __attribute__((overloadable)) vload8(size_t offset, const __constant short *p);
-ushort8 __attribute__((overloadable)) vload8(size_t offset, const __constant ushort *p);
-int8 __attribute__((overloadable)) vload8(size_t offset, const __constant int *p);
-uint8 __attribute__((overloadable)) vload8(size_t offset, const __constant uint *p);
-long8 __attribute__((overloadable)) vload8(size_t offset, const __constant long *p);
-ulong8 __attribute__((overloadable)) vload8(size_t offset, const __constant ulong *p);
-float8 __attribute__((overloadable)) vload8(size_t offset, const __constant float *p);
-char16 __attribute__((overloadable)) vload16(size_t offset, const __constant char *p);
-uchar16 __attribute__((overloadable)) vload16(size_t offset, const __constant uchar *p);
-short16 __attribute__((overloadable)) vload16(size_t offset, const __constant short *p);
-ushort16 __attribute__((overloadable)) vload16(size_t offset, const __constant ushort *p);
-int16 __attribute__((overloadable)) vload16(size_t offset, const __constant int *p);
-uint16 __attribute__((overloadable)) vload16(size_t offset, const __constant uint *p);
-long16 __attribute__((overloadable)) vload16(size_t offset, const __constant long *p);
-ulong16 __attribute__((overloadable)) vload16(size_t offset, const __constant ulong *p);
-float16 __attribute__((overloadable)) vload16(size_t offset, const __constant float *p);
 char2 __attribute__((overloadable)) vload2(size_t offset, const __private char *p);
 uchar2 __attribute__((overloadable)) vload2(size_t offset, const __private uchar *p);
 short2 __attribute__((overloadable)) vload2(size_t offset, const __private short *p);
@@ -5300,11 +5269,6 @@ double3 __attribute__((overloadable)) vload3(size_t offset, const __local double
 double4 __attribute__((overloadable)) vload4(size_t offset, const __local double *p);
 double8 __attribute__((overloadable)) vload8(size_t offset, const __local double *p);
 double16 __attribute__((overloadable)) vload16(size_t offset, const __local double *p);
-double2 __attribute__((overloadable)) vload2(size_t offset, const __constant double *p);
-double3 __attribute__((overloadable)) vload3(size_t offset, const __constant double *p);
-double4 __attribute__((overloadable)) vload4(size_t offset, const __constant double *p);
-double8 __attribute__((overloadable)) vload8(size_t offset, const __constant double *p);
-double16 __attribute__((overloadable)) vload16(size_t offset, const __constant double *p);
 double2 __attribute__((overloadable)) vload2(size_t offset, const __private double *p);
 double3 __attribute__((overloadable)) vload3(size_t offset, const __private double *p);
 double4 __attribute__((overloadable)) vload4(size_t offset, const __private double *p);
@@ -5322,18 +5286,70 @@ double16 __attribute__((overloadable)) vload16(size_t offset, const __private do
 //half4 __attribute__((overloadable)) vload4(size_t offset, const __local half *p);
 //half8 __attribute__((overloadable)) vload8(size_t offset, const __local half *p);
 //half16 __attribute__((overloadable)) vload16(size_t offset, const __local half *p);
-//half __attribute__((overloadable)) vload(size_t offset, const __constant half *p);
-//half2 __attribute__((overloadable)) vload2(size_t offset, const __constant half *p);
-//half3 __attribute__((overloadable)) vload3(size_t offset, const __constant half *p);
-//half4 __attribute__((overloadable)) vload4(size_t offset, const __constant half *p);
-//half8 __attribute__((overloadable)) vload8(size_t offset, const __constant half *p);
-//half16 __attribute__((overloadable)) vload16(size_t offset, const __constant half *p);
 //half __attribute__((overloadable)) vload(size_t offset, const __private half *p);
 //half2 __attribute__((overloadable)) vload2(size_t offset, const __private half *p);
 //half3 __attribute__((overloadable)) vload3(size_t offset, const __private half *p);
 //half4 __attribute__((overloadable)) vload4(size_t offset, const __private half *p);
 //half8 __attribute__((overloadable)) vload8(size_t offset, const __private half *p);
 //half16 __attribute__((overloadable)) vload16(size_t offset, const __private half *p);
+#endif //__OPENCL_C_VERSION__ < 200
+
+char2 __attribute__((overloadable)) vload2(size_t offset, const __constant char *p);
+uchar2 __attribute__((overloadable)) vload2(size_t offset, const __constant uchar *p);
+short2 __attribute__((overloadable)) vload2(size_t offset, const __constant short *p);
+ushort2 __attribute__((overloadable)) vload2(size_t offset, const __constant ushort *p);
+int2 __attribute__((overloadable)) vload2(size_t offset, const __constant int *p);
+uint2 __attribute__((overloadable)) vload2(size_t offset, const __constant uint *p);
+long2 __attribute__((overloadable)) vload2(size_t offset, const __constant long *p);
+ulong2 __attribute__((overloadable)) vload2(size_t offset, const __constant ulong *p);
+float2 __attribute__((overloadable)) vload2(size_t offset, const __constant float *p);
+char3 __attribute__((overloadable)) vload3(size_t offset, const __constant char *p);
+uchar3 __attribute__((overloadable)) vload3(size_t offset, const __constant uchar *p);
+short3 __attribute__((overloadable)) vload3(size_t offset, const __constant short *p);
+ushort3 __attribute__((overloadable)) vload3(size_t offset, const __constant ushort *p);
+int3 __attribute__((overloadable)) vload3(size_t offset, const __constant int *p);
+uint3 __attribute__((overloadable)) vload3(size_t offset, const __constant uint *p);
+long3 __attribute__((overloadable)) vload3(size_t offset, const __constant long *p);
+ulong3 __attribute__((overloadable)) vload3(size_t offset, const __constant ulong *p);
+float3 __attribute__((overloadable)) vload3(size_t offset, const __constant float *p);
+char4 __attribute__((overloadable)) vload4(size_t offset, const __constant char *p);
+uchar4 __attribute__((overloadable)) vload4(size_t offset, const __constant uchar *p);
+short4 __attribute__((overloadable)) vload4(size_t offset, const __constant short *p);
+ushort4 __attribute__((overloadable)) vload4(size_t offset, const __constant ushort *p);
+int4 __attribute__((overloadable)) vload4(size_t offset, const __constant int *p);
+uint4 __attribute__((overloadable)) vload4(size_t offset, const __constant uint *p);
+long4 __attribute__((overloadable)) vload4(size_t offset, const __constant long *p);
+ulong4 __attribute__((overloadable)) vload4(size_t offset, const __constant ulong *p);
+float4 __attribute__((overloadable)) vload4(size_t offset, const __constant float *p);
+char8 __attribute__((overloadable)) vload8(size_t offset, const __constant char *p);
+uchar8 __attribute__((overloadable)) vload8(size_t offset, const __constant uchar *p);
+short8 __attribute__((overloadable)) vload8(size_t offset, const __constant short *p);
+ushort8 __attribute__((overloadable)) vload8(size_t offset, const __constant ushort *p);
+int8 __attribute__((overloadable)) vload8(size_t offset, const __constant int *p);
+uint8 __attribute__((overloadable)) vload8(size_t offset, const __constant uint *p);
+long8 __attribute__((overloadable)) vload8(size_t offset, const __constant long *p);
+ulong8 __attribute__((overloadable)) vload8(size_t offset, const __constant ulong *p);
+float8 __attribute__((overloadable)) vload8(size_t offset, const __constant float *p);
+char16 __attribute__((overloadable)) vload16(size_t offset, const __constant char *p);
+uchar16 __attribute__((overloadable)) vload16(size_t offset, const __constant uchar *p);
+short16 __attribute__((overloadable)) vload16(size_t offset, const __constant short *p);
+ushort16 __attribute__((overloadable)) vload16(size_t offset, const __constant ushort *p);
+int16 __attribute__((overloadable)) vload16(size_t offset, const __constant int *p);
+uint16 __attribute__((overloadable)) vload16(size_t offset, const __constant uint *p);
+long16 __attribute__((overloadable)) vload16(size_t offset, const __constant long *p);
+ulong16 __attribute__((overloadable)) vload16(size_t offset, const __constant ulong *p);
+float16 __attribute__((overloadable)) vload16(size_t offset, const __constant float *p);
+double2 __attribute__((overloadable)) vload2(size_t offset, const __constant double *p);
+double3 __attribute__((overloadable)) vload3(size_t offset, const __constant double *p);
+double4 __attribute__((overloadable)) vload4(size_t offset, const __constant double *p);
+double8 __attribute__((overloadable)) vload8(size_t offset, const __constant double *p);
+double16 __attribute__((overloadable)) vload16(size_t offset, const __constant double *p);
+//half __attribute__((overloadable)) vload(size_t offset, const __constant half *p);
+//half2 __attribute__((overloadable)) vload2(size_t offset, const __constant half *p);
+//half3 __attribute__((overloadable)) vload3(size_t offset, const __constant half *p);
+//half4 __attribute__((overloadable)) vload4(size_t offset, const __constant half *p);
+//half8 __attribute__((overloadable)) vload8(size_t offset, const __constant half *p);
+//half16 __attribute__((overloadable)) vload16(size_t offset, const __constant half *p);
 
 /**
  * Write sizeof (gentypen) bytes given by data
@@ -5397,6 +5413,7 @@ void __attribute__((overloadable)) vstore8(double8 data, size_t offset, double *
 void __attribute__((overloadable)) vstore16(double16 data, size_t offset, double *p);
 #endif // __OPENCL_C_VERSION__ >= 200 
 
+#if __OPENCL_C_VERSION__ < 200
 void __attribute__((overloadable)) vstore2(char2 data, size_t offset, __global char *p);
 void __attribute__((overloadable)) vstore2(uchar2 data, size_t offset, __global uchar *p);
 void __attribute__((overloadable)) vstore2(short2 data, size_t offset, __global short *p);
@@ -5565,6 +5582,7 @@ void __attribute__((overloadable)) vstore16(double16 data, size_t offset, __priv
 //void __attribute__((overloadable)) vstore4(half4 data, size_t offset, __private half *p);
 //void __attribute__((overloadable)) vstore8(half8 data, size_t offset, __private half *p);
 //void __attribute__((overloadable)) vstore16(half16 data, size_t offset, __private half *p);
+#endif //__OPENCL_C_VERSION__ < 200
 
 /**
  * Read sizeof (half) bytes of data from address
@@ -5578,10 +5596,12 @@ void __attribute__((overloadable)) vstore16(double16 data, size_t offset, __priv
 float __attribute__((overloadable)) vload_half(size_t offset, const half *p);
 #endif // __OPENCL_C_VERSION__ >= 200 
 
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) vload_half(size_t offset, const __global half *p);
 float __attribute__((overloadable)) vload_half(size_t offset, const __local half *p);
-float __attribute__((overloadable)) vload_half(size_t offset, const __constant half *p);
 float __attribute__((overloadable)) vload_half(size_t offset, const __private half *p);
+#endif //__OPENCL_C_VERSION__ < 200
+float __attribute__((overloadable)) vload_half(size_t offset, const __constant half *p);
 
 /**
  * Read sizeof (halfn) bytes of data from address
@@ -5599,6 +5619,7 @@ float8 __attribute__((overloadable)) vload_half8(size_t offset, const half *p);
 float16 __attribute__((overloadable)) vload_half16(size_t offset, const half *p);
 #endif // __OPENCL_C_VERSION__ >= 200 
 
+#if __OPENCL_C_VERSION__ < 200
 float2 __attribute__((overloadable)) vload_half2(size_t offset, const __global half *p);
 float3 __attribute__((overloadable)) vload_half3(size_t offset, const __global half *p);
 float4 __attribute__((overloadable)) vload_half4(size_t offset, const __global half *p);
@@ -5609,16 +5630,18 @@ float3 __attribute__((overloadable)) vload_half3(size_t offset, const __local ha
 float4 __attribute__((overloadable)) vload_half4(size_t offset, const __local half *p);
 float8 __attribute__((overloadable)) vload_half8(size_t offset, const __local half *p);
 float16 __attribute__((overloadable)) vload_half16(size_t offset, const __local half *p);
-float2 __attribute__((overloadable)) vload_half2(size_t offset, const __constant half *p);
-float3 __attribute__((overloadable)) vload_half3(size_t offset, const __constant half *p);
-float4 __attribute__((overloadable)) vload_half4(size_t offset, const __constant half *p);
-float8 __attribute__((overloadable)) vload_half8(size_t offset, const __constant half *p);
-float16 __attribute__((overloadable)) vload_half16(size_t offset, const __constant half *p);
 float2 __attribute__((overloadable)) vload_half2(size_t offset, const __private half *p);
 float3 __attribute__((overloadable)) vload_half3(size_t offset, const __private half *p);
 float4 __attribute__((overloadable)) vload_half4(size_t offset, const __private half *p);
 float8 __attribute__((overloadable)) vload_half8(size_t offset, const __private half *p);
 float16 __attribute__((overloadable)) vload_half16(size_t offset, const __private half *p);
+#endif //__OPENCL_C_VERSION__ < 200
+
+float2 __attribute__((overloadable)) vload_half2(size_t offset, const __constant half *p);
+float3 __attribute__((overloadable)) vload_half3(size_t offset, const __constant half *p);
+float4 __attribute__((overloadable)) vload_half4(size_t offset, const __constant half *p);
+float8 __attribute__((overloadable)) vload_half8(size_t offset, const __constant half *p);
+float16 __attribute__((overloadable)) vload_half16(size_t offset, const __constant half *p);
 
 /**
  * The float value given by data is first
@@ -5644,6 +5667,7 @@ void __attribute__((overloadable)) vstore_half_rtp(double data, size_t offset, h
 void __attribute__((overloadable)) vstore_half_rtn(double data, size_t offset, half *p);
 #endif // __OPENCL_C_VERSION__ >= 200 
 
+#if __OPENCL_C_VERSION__ < 200
 void __attribute__((overloadable)) vstore_half(float data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstore_half_rte(float data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstore_half_rtz(float data, size_t offset, __global half *p);
@@ -5674,6 +5698,7 @@ void __attribute__((overloadable)) vstore_half_rte(double data, size_t offset, _
 void __attribute__((overloadable)) vstore_half_rtz(double data, size_t offset, __private half *p);
 void __attribute__((overloadable)) vstore_half_rtp(double data, size_t offset, __private half *p);
 void __attribute__((overloadable)) vstore_half_rtn(double data, size_t offset, __private half *p);
+#endif // __OPENCL_C_VERSION__ < 200
 
 /**
  * The floatn value given by data is converted to
@@ -5739,6 +5764,7 @@ void __attribute__((overloadable)) vstore_half8_rtn(double8 data, size_t offset,
 void __attribute__((overloadable)) vstore_half16_rtn(double16 data, size_t offset, half *p);
 #endif // __OPENCL_C_VERSION__ >= 200 
 
+#if __OPENCL_C_VERSION__ < 200
 void __attribute__((overloadable)) vstore_half2(float2 data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstore_half3(float3 data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstore_half4(float4 data, size_t offset, __global half *p);
@@ -5889,6 +5915,7 @@ void __attribute__((overloadable)) vstore_half3_rtn(double3 data, size_t offset,
 void __attribute__((overloadable)) vstore_half4_rtn(double4 data, size_t offset, __private half *p);
 void __attribute__((overloadable)) vstore_half8_rtn(double8 data, size_t offset, __private half *p);
 void __attribute__((overloadable)) vstore_half16_rtn(double16 data, size_t offset, __private half *p);
+#endif // __OPENCL_C_VERSION__ < 200
 
 /**
  * For n = 1, 2, 4, 8 and 16 read sizeof (halfn)
@@ -5912,6 +5939,7 @@ float8 __attribute__((overloadable)) vloada_half8(size_t offset, const half *p);
 float16 __attribute__((overloadable)) vloada_half16(size_t offset, const half *p);
 #endif // __OPENCL_C_VERSION__ >= 200 
 
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) vloada_half(size_t offset, const __global half *p);
 float2 __attribute__((overloadable)) vloada_half2(size_t offset, const __global half *p);
 float3 __attribute__((overloadable)) vloada_half3(size_t offset, const __global half *p);
@@ -5924,18 +5952,20 @@ float3 __attribute__((overloadable)) vloada_half3(size_t offset, const __local h
 float4 __attribute__((overloadable)) vloada_half4(size_t offset, const __local half *p);
 float8 __attribute__((overloadable)) vloada_half8(size_t offset, const __local half *p);
 float16 __attribute__((overloadable)) vloada_half16(size_t offset, const __local half *p);
-float __attribute__((overloadable)) vloada_half(size_t offset, const __constant half *p);
-float2 __attribute__((overloadable)) vloada_half2(size_t offset, const __constant half *p);
-float3 __attribute__((overloadable)) vloada_half3(size_t offset, const __constant half *p);
-float4 __attribute__((overloadable)) vloada_half4(size_t offset, const __constant half *p);
-float8 __attribute__((overloadable)) vloada_half8(size_t offset, const __constant half *p);
-float16 __attribute__((overloadable)) vloada_half16(size_t offset, const __constant half *p);
 float __attribute__((overloadable)) vloada_half(size_t offset, const __private half *p);
 float2 __attribute__((overloadable)) vloada_half2(size_t offset, const __private half *p);
 float3 __attribute__((overloadable)) vloada_half3(size_t offset, const __private half *p);
 float4 __attribute__((overloadable)) vloada_half4(size_t offset, const __private half *p);
 float8 __attribute__((overloadable)) vloada_half8(size_t offset, const __private half *p);
 float16 __attribute__((overloadable)) vloada_half16(size_t offset, const __private half *p);
+#endif // __OPENCL_C_VERSION__ < 200
+
+float __attribute__((overloadable)) vloada_half(size_t offset, const __constant half *p);
+float2 __attribute__((overloadable)) vloada_half2(size_t offset, const __constant half *p);
+float3 __attribute__((overloadable)) vloada_half3(size_t offset, const __constant half *p);
+float4 __attribute__((overloadable)) vloada_half4(size_t offset, const __constant half *p);
+float8 __attribute__((overloadable)) vloada_half8(size_t offset, const __constant half *p);
+float16 __attribute__((overloadable)) vloada_half16(size_t offset, const __constant half *p);
 
 /**
  * The floatn value given by data is converted to
@@ -6024,6 +6054,7 @@ void __attribute__((overloadable)) vstorea_half8_rtn(double8 data, size_t offset
 void __attribute__((overloadable)) vstorea_half16_rtn(double16 data, size_t offset, half *p);
 #endif // __OPENCL_C_VERSION__ >= 200 
  
+#if __OPENCL_C_VERSION__ < 200
 void __attribute__((overloadable)) vstorea_half(float data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstorea_half2(float2 data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstorea_half3(float3 data, size_t offset, __global half *p);
@@ -6233,6 +6264,7 @@ void __attribute__((overloadable)) vstorea_half3_rtn(double3 data,size_t offset,
 void __attribute__((overloadable)) vstorea_half4_rtn(double4 data,size_t offset, __private half *p);
 void __attribute__((overloadable)) vstorea_half8_rtn(double8 data,size_t offset, __private half *p);
 void __attribute__((overloadable)) vstorea_half16_rtn(double16 data,size_t offset, __private half *p);
+#endif // __OPENCL_C_VERSION__ < 200
 
 #define vstorea_half_rte vstore_half_rte
 #define vstorea_half_rtz vstore_half_rtz

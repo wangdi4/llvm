@@ -182,6 +182,10 @@ struct mic_exec_env_options {
     uint32_t            use_TBB_grain_size;
     uint32_t            min_work_groups_number; // recommended amount of workgroups per NDRange
     
+    int32_t             min_buffer_size_parallel_fill;
+    int32_t             max_tasks_per_worker_fill_buffer;
+    int32_t             max_workers_fill_buffer;
+    
     Intel::OpenCL::TaskExecutor::TE_CMD_LIST_PREFERRED_SCHEDULING   tbb_scheduler;
     Intel::OpenCL::TaskExecutor::TASK_SET_OPTIMIZATION              tbb_block_optimization;
     

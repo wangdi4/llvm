@@ -536,7 +536,7 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
     SharedPtr<FissionableDevice> pDevice = NULL;
     size_t szParamSize = 0;
     cl_bool bBoolValue = CL_TRUE;
-    void * pValue = NULL;
+    const void * pValue = NULL;
 
     switch(clParamName)
     {
@@ -549,6 +549,16 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
         szParamSize = sizeof(cl_bool);
         bBoolValue = CL_TRUE;
         pValue = &bBoolValue;
+        break;
+    case(CL_DEVICE_SPIR_VERSIONS):
+        // Sanity checks.
+        assert(pParamValue && "Null Value");
+
+        // Regardless to the device, Our SDK suupports SPIR 1.2 (which is the
+        // only existing version ATM).
+        pValue = "1.2";
+        szParamSize = strlen((const char*)pValue);
+
         break;
     default:
         pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDevice).DynamicCast<FissionableDevice>();
