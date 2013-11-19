@@ -324,17 +324,20 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         mic_exec_env_options mic_device_options;
         memset( &mic_device_options, 0, sizeof(mic_device_options) );
         
-        mic_device_options.stop_at_load             = tMicConfig.Device_StopAtLoad();
-        mic_device_options.use_affinity             = tMicConfig.Device_UseAffinity();
-        mic_device_options.threads_per_core         = tMicConfig.Device_ThreadsPerCore();
-        mic_device_options.num_of_cores				= tMicConfig.Device_NumCores();
-        mic_device_options.ignore_core_0            = tMicConfig.Device_IgnoreCore0();
-        mic_device_options.ignore_last_core         = tMicConfig.Device_IgnoreLastCore();
-        mic_device_options.use_TBB_grain_size       = tMicConfig.Device_TbbGrainSize();
-        mic_device_options.kernel_safe_mode         = tMicConfig.Device_safeKernelExecution();
-        mic_device_options.use_vtune                = tMicConfig.UseVTune();
-        mic_device_options.enable_itt               = tMicConfig.UseITT();
-        mic_device_options.trap_workers             = tMicConfig.Device_TbbTrapWorkers();
+        mic_device_options.stop_at_load                        = tMicConfig.Device_StopAtLoad();
+        mic_device_options.use_affinity                        = tMicConfig.Device_UseAffinity();
+        mic_device_options.threads_per_core                    = tMicConfig.Device_ThreadsPerCore();
+        mic_device_options.num_of_cores		               = tMicConfig.Device_NumCores();
+        mic_device_options.ignore_core_0                       = tMicConfig.Device_IgnoreCore0();
+        mic_device_options.ignore_last_core                    = tMicConfig.Device_IgnoreLastCore();
+        mic_device_options.use_TBB_grain_size                  = tMicConfig.Device_TbbGrainSize();
+        mic_device_options.kernel_safe_mode                    = tMicConfig.Device_safeKernelExecution();
+        mic_device_options.use_vtune                           = tMicConfig.UseVTune();
+        mic_device_options.enable_itt                          = tMicConfig.UseITT();
+        mic_device_options.trap_workers                        = tMicConfig.Device_TbbTrapWorkers();
+        mic_device_options.min_buffer_size_parallel_fill       = tMicConfig.Device_ParallelFillBufferFromSize();
+        mic_device_options.max_tasks_per_worker_fill_buffer    = tMicConfig.Device_ParallelFillMaxTaskPerWorker();
+        mic_device_options.max_workers_fill_buffer             = tMicConfig.Device_ParallelFillMaxWorkers();
         mic_device_options.logger_enable            = Logger::GetInstance().IsActive();
         
         string tbb_scheduler = tMicConfig.Device_TbbScheduler();

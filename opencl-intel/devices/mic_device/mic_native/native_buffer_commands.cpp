@@ -41,6 +41,17 @@ using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::UtilsNative;
 #endif
 
+#define USE_SINGLE_WORKER_FOR_BUFF_SIZE 131072
+#define KILOBYTE *1024
+#define MEGABYTE *1024 KILOBYTE
+
+const FillMemObjTask::tasksForWorkerConfStruct FillMemObjTask::m_tasksForWorkerConf[] = { 
+	{ 128 KILOBYTE, 1 },
+	{ 8   MEGABYTE, 4 },
+	{ 64  MEGABYTE, 16 },
+	{ (size_t)-1  , 64 }
+};
+
 COINATIVELIBEXPORT
 void execute_command_fill_mem_object(uint32_t         in_BufferCount,
                      void**           in_ppBufferPointers,
@@ -80,7 +91,7 @@ void execute_command_fill_mem_object(uint32_t         in_BufferCount,
 
 FillMemObjTask::FillMemObjTask( uint32_t lockBufferCount, void** pLockBuffers, fill_mem_obj_dispatcher_data* pDispatcherData, size_t uiDispatchSize) :
     TaskHandler<FillMemObjTask, fill_mem_obj_dispatcher_data >(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize),
-    m_fillBufPtr((char*)(pLockBuffers[0]))
+    m_fillBufPtr((char*)(pLockBuffers[0])), m_fillBufPtrAnchor((char*)(pLockBuffers[0]))
 {
     if ( lockBufferCount!=1 )
     {
@@ -91,7 +102,7 @@ FillMemObjTask::FillMemObjTask( uint32_t lockBufferCount, void** pLockBuffers, f
 
 FillMemObjTask::FillMemObjTask( const FillMemObjTask& o) :
     TaskHandler<FillMemObjTask, fill_mem_obj_dispatcher_data >( o ),
-    m_fillBufPtr(o.m_fillBufPtr)
+    m_fillBufPtr(o.m_fillBufPtr), m_fillBufPtrAnchor(o.m_fillBufPtrAnchor)
 {
 }
 
@@ -108,50 +119,6 @@ bool FillMemObjTask::PrepareTask()
     }
 #endif
 
-    return true;
-}
-
-bool FillMemObjTask::Execute()
-{
-    // Notify start if exists
-    if ( NULL!= m_dispatcherData->startEvent.isRegistered )
-    {
-        COIEventSignalUserEvent(m_dispatcherData->startEvent.cmdEvent);
-    }
-
-#ifdef ENABLE_MIC_TRACER
-    commandTracer().set_current_time_tbb_exe_in_device_time_start();
-#endif
-    
-    // Copy the arrived dispatcher data to memFillInfo which contain the fill mem info. 
-    // TODO: Why need additional record?
-    fill_mem_obj_dispatcher_data memFillInfo;
-    memcpy(&memFillInfo, m_dispatcherData, sizeof(fill_mem_obj_dispatcher_data));
-    // Represent the current pattern
-    chunk_struct pattern;
-    pattern.fromPtr = memFillInfo.pattern;
-    pattern.size = memFillInfo.pattern_size;
-    // Represent the lastChunk that didn't fill yet. (The ptr and its size)
-    chunk_struct lastChunk;
-    lastChunk.fromPtr = m_fillBufPtr + memFillInfo.from_offset;
-    lastChunk.size = 0;
-
-    executeInternal(m_fillBufPtr, &memFillInfo, &lastChunk, &pattern);
-    // Call to fill the last chunk.
-    copyPatternOnContRegion(&lastChunk, &pattern);
-
-    // Release COI resources
-    FiniTask();
-
-#ifdef ENABLE_MIC_TRACER
-    commandTracer().set_current_time_tbb_exe_in_device_time_end();
-#endif
-
-    // Notify finish if exists
-    if ( NULL!= m_dispatcherData->endEvent.isRegistered )
-    {
-        COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
-    }
     return true;
 }
 
@@ -176,53 +143,167 @@ void FillMemObjTask::Cancel()
     }
 }
 
-void FillMemObjTask::copyPatternOnContRegion(chunk_struct* chunk, chunk_struct* pattern)
+int FillMemObjTask::Init(size_t region[], unsigned int& regCount)
 {
-    assert(pattern->size <= chunk->size);
-    assert((chunk->size % pattern->size) == 0);
-    const uint64_t totalSize = chunk->size;
-    const uint64_t patternSize = pattern->size;
-    char* chunkPtr = chunk->fromPtr;
-    const char* patternPtr = pattern->fromPtr;
-    for (uint64_t i = 0; i < totalSize; i += patternSize)
+	// Notify start if exists
+    if ( NULL!= m_dispatcherData->startEvent.isRegistered )
     {
-        memcpy((chunkPtr + i), patternPtr, patternSize);
+        COIEventSignalUserEvent(m_dispatcherData->startEvent.cmdEvent);
     }
+
+#ifdef ENABLE_MIC_TRACER
+    commandTracer().set_current_time_tbb_exe_in_device_time_start();
+#endif
+
+	m_fillBufPtr = m_fillBufPtr + m_dispatcherData->from_offset;
+	unsigned int tPatternSize = m_dispatcherData->pattern_size;
+	assert((tPatternSize >= 1) && (tPatternSize <= MAX_PATTERN_SIZE));
+	size_t tRegion = m_dispatcherData->vRegion[0];
+	assert((tRegion > 0) && (tRegion % tPatternSize == 0));
+	memcpy(m_patternToUse, m_dispatcherData->pattern, tPatternSize);
+    assert(1 == m_dispatcherData->dim_count && "Fill buffer can be one dimension");
+	regCount = 1;
+	while (tPatternSize < MAX_PATTERN_SIZE)
+	{
+		memcpy(&((char*)m_patternToUse)[tPatternSize], &((char*)m_patternToUse)[0], tPatternSize);
+		tPatternSize += tPatternSize;
+	}
+    const size_t alignRestriction = sizeof(double) * 8;
+    assert(alignRestriction <= MAX_PATTERN_SIZE && "Assume that the req. alignment is smaller or equal to MAX_PATTERN_SIZE");
+    //Set buffer allignment if needed.
+    size_t numBytesCpyForAlignFix = 0;
+    if ((tRegion >= (MAX_PATTERN_SIZE + alignRestriction)) && (0 != ((size_t)m_fillBufPtr & (size_t)(alignRestriction - 1))))
+    {
+        numBytesCpyForAlignFix = alignRestriction - ((size_t)m_fillBufPtr & (size_t)(alignRestriction - 1));
+        assert(((numBytesCpyForAlignFix > 0) && (numBytesCpyForAlignFix < alignRestriction)));
+        memcpy(m_fillBufPtr, m_patternToUse, numBytesCpyForAlignFix);
+        // if the amount of copied bytes are not dividing by original size of the pattern than we should arrange the pattern.
+        if (0 != numBytesCpyForAlignFix % m_dispatcherData->pattern_size)
+        {
+            memcpy(m_patternToUse, ((char*)m_patternToUse) + numBytesCpyForAlignFix, MAX_PATTERN_SIZE - numBytesCpyForAlignFix);
+            memcpy(((char*)m_patternToUse) + (MAX_PATTERN_SIZE - numBytesCpyForAlignFix), m_fillBufPtr, numBytesCpyForAlignFix);
+        }
+        m_fillBufPtr += numBytesCpyForAlignFix;
+        tRegion -= numBytesCpyForAlignFix;
+    }
+	// Do serial
+	if ((tRegion < gMicExecEnvOptions.min_buffer_size_parallel_fill) || (tRegion < (MAX_PATTERN_SIZE + alignRestriction)))
+	{
+		m_serialExecution = true;
+		tPatternSize = m_dispatcherData->pattern_size;
+
+		if (tRegion < (MAX_PATTERN_SIZE + alignRestriction))
+		{
+			for (unsigned int i = 0; i < tRegion; i += tPatternSize)
+			{
+				memcpy(&(m_fillBufPtr[i]), m_dispatcherData->pattern, tPatternSize);
+			}
+		}
+		else
+		{
+			int i = intrinCopy(0, tRegion);
+			for (; i <= (tRegion - tPatternSize); i += tPatternSize)
+			{
+				memcpy(&(m_fillBufPtr[i]), m_dispatcherData->pattern, tPatternSize);
+			}
+            if (i < tRegion)
+            {
+                assert((tRegion - i) < tPatternSize);
+                memcpy(&(m_fillBufPtr[i]), m_dispatcherData->pattern, tRegion - i);
+            }
+		}
+		m_coveredSize = tRegion + numBytesCpyForAlignFix;
+		// TODO change the return value
+		return -1;
+	}
+	// Parallel fill path.
+	unsigned int pow2NumWorkers = (tRegion <= USE_SINGLE_WORKER_FOR_BUFF_SIZE) ? 1 : (gMicExecEnvOptions.num_of_cores * gMicExecEnvOptions.threads_per_core);
+	if (gMicExecEnvOptions.max_workers_fill_buffer > 0) 
+	{
+		pow2NumWorkers = (gMicExecEnvOptions.num_of_cores * gMicExecEnvOptions.threads_per_core > gMicExecEnvOptions.max_workers_fill_buffer) ? 
+			gMicExecEnvOptions.max_workers_fill_buffer : (gMicExecEnvOptions.num_of_cores * gMicExecEnvOptions.threads_per_core);
+	}
+	// Find the nearest power of 2 number of num threads.
+	pow2NumWorkers --;
+	pow2NumWorkers |= pow2NumWorkers >> 1;
+	pow2NumWorkers |= pow2NumWorkers >> 2;
+	pow2NumWorkers |= pow2NumWorkers >> 4;
+	pow2NumWorkers |= pow2NumWorkers >> 8;
+	pow2NumWorkers |= pow2NumWorkers >> 16;
+	pow2NumWorkers ++;
+
+	assert((pow2NumWorkers >= 1) && ((tRegion <= USE_SINGLE_WORKER_FOR_BUFF_SIZE) || ((pow2NumWorkers >= gMicExecEnvOptions.num_of_cores * gMicExecEnvOptions.threads_per_core) && (pow2NumWorkers / 2 < gMicExecEnvOptions.num_of_cores * gMicExecEnvOptions.threads_per_core))));
+
+	assert(tRegion >= MAX_PATTERN_SIZE);
+	size_t tNumTasksPerWorker = tRegion / (MAX_PATTERN_SIZE * pow2NumWorkers);
+	if (tNumTasksPerWorker < 1)
+	{
+		tNumTasksPerWorker = 1;
+	}
+
+	int preferedTasksPerWorker = gMicExecEnvOptions.max_tasks_per_worker_fill_buffer;
+	if (preferedTasksPerWorker <= 0)
+	{
+		assert(4 == sizeof(m_tasksForWorkerConf) / sizeof(tasksForWorkerConfStruct));
+		preferedTasksPerWorker = m_tasksForWorkerConf[3].numTasks;
+		for (unsigned int i = 0; i < 3; ++i)
+		{
+			if (tRegion <= m_tasksForWorkerConf[i].buffSize)
+			{
+				preferedTasksPerWorker = m_tasksForWorkerConf[i].numTasks;
+				break;
+			}
+		}
+	}
+
+	m_numIterationsPerWorker = (tNumTasksPerWorker > preferedTasksPerWorker) ? tNumTasksPerWorker / preferedTasksPerWorker : 1;
+
+	region[0] = tRegion / (MAX_PATTERN_SIZE * m_numIterationsPerWorker);
+	m_coveredSize = (region[0] * MAX_PATTERN_SIZE * m_numIterationsPerWorker) + numBytesCpyForAlignFix;
+	
+	return 0;
 }
 
-void FillMemObjTask::executeInternal(char* buffPtr, fill_mem_obj_dispatcher_data* pMemFillInfo, chunk_struct* lastChunk, chunk_struct* pattern)
+bool FillMemObjTask::ExecuteIteration(size_t x, size_t y, size_t z, void* data_from_AttachToThread)
 {
-    // Leaf
-    if (pMemFillInfo->dim_count == 1)
-    {
-        // optimization to accumulate chunks if the last chunk ends in current chunk location.
-        if (lastChunk->fromPtr + lastChunk->size == buffPtr + pMemFillInfo->from_offset)
-        {
-            lastChunk->size += pMemFillInfo->vRegion[0];
-        }
-        else
-        {
-            // First copy the pattern to old chunk
-            copyPatternOnContRegion(lastChunk, pattern);
-            // update the location and size of the new chunk
-            lastChunk->fromPtr = buffPtr + pMemFillInfo->from_offset;
-            lastChunk->size = pMemFillInfo->vRegion[0];
-        }
-        return;
-    }
-    
-    fill_mem_obj_dispatcher_data sRecParam;
+    const int numBytesToCopy = MAX_PATTERN_SIZE * m_numIterationsPerWorker;
+    const int numBytesCopied = intrinCopy(numBytesToCopy * x, numBytesToCopy * (x + 1));
+    assert((numBytesToCopy == numBytesCopied) && "each worker should copy (MAX_PATTERN_SIZE * m_numIterationsPerWorker) bytes");
+    return (numBytesCopied == numBytesToCopy);
+}
 
-    // Copy current parameters
-    // TODO: Why need to copy whole structure if only dim_count is changed
-    //       Maybe pass it as separate paramter
-    memcpy(&sRecParam, pMemFillInfo, sizeof(fill_mem_obj_dispatcher_data));
-    sRecParam.dim_count = pMemFillInfo->dim_count - 1;
+bool FillMemObjTask::Finish(Intel::OpenCL::TaskExecutor::FINISH_REASON reason)
+{
+	const unsigned int tSizeRemain = m_dispatcherData->vRegion[0] - m_coveredSize;
+	if (tSizeRemain > 0)
+	{
+		char* tFillBuffPtr = m_fillBufPtrAnchor + m_dispatcherData->from_offset + m_coveredSize;
+		const unsigned int patternSize = m_dispatcherData->pattern_size;
+		const char* pattern = (char*)m_patternToUse;
+        unsigned int i = 0;
+		for (; i <= (tSizeRemain - patternSize); i += patternSize)
+		{
+			memcpy(&(tFillBuffPtr[i]), pattern, patternSize);
+		}
+        if (i < tSizeRemain)
+        {
+            assert((tSizeRemain - i) < patternSize);
+            memcpy(&(tFillBuffPtr[i]), pattern, tSizeRemain - i);
+        }
+	}
 
-    // Make recursion
-    for(unsigned int i=0; i < pMemFillInfo->vRegion[sRecParam.dim_count]; ++i)
+    // Release COI resources
+    FiniTask();
+
+#ifdef ENABLE_MIC_TRACER
+    commandTracer().set_current_time_tbb_exe_in_device_time_end();
+#endif
+
+    // Notify finish if exists
+    if ( NULL!= m_dispatcherData->endEvent.isRegistered )
     {
-        executeInternal( buffPtr, &sRecParam, lastChunk, pattern);
-        sRecParam.from_offset += pMemFillInfo->vFromPitch[sRecParam.dim_count-1];
+        COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
     }
+
+    return m_serialExecution ? true : CL_DEV_SUCCEEDED( getTaskError() );
 }

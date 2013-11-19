@@ -112,27 +112,6 @@
     $Arg2VarName$ExpandHiPatternPtr = nhi$Arg2VarName;
     return $ReturnVarName;
   }];
-  // The following code implements the builtin variants with scalar parameters.
-  // The implementation will prompt these scalar parameters into vector ones
-  // and call the corresponding builtins with all vector parameters.
-  // fmax_s
-  OclBuiltinImpl fmax_s_generic = OclBuiltinImpl<fmax_s, fmax_s.Types, 0, [{
-    $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
-    return $Func($Arg0VarName, vec$Arg1VarName);
-  }]>;
-
-  // fmin_s
-  OclBuiltinImpl fmin_s_generic = OclBuiltinImpl<fmin_s, fmin_s.Types, 0, [{
-    $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
-    return $Func($Arg0VarName, vec$Arg1VarName);
-  }]>;
-
-  // ldexp_s
-  OclBuiltinImpl ldexp_s_generic = OclBuiltinImpl<ldexp_s, ldexp_s.Types, 0, [{
-    $Arg1VecType vec$Arg1VarName = ($Arg1VecType)$Arg1VarName;
-    return $Func($Arg0VarName, vec$Arg1VarName);
-  }]>;
-
   // clamp_s. for float and double
   // NOTE: integer and common BIs has clamp, min, max BIs.
   OclBuiltinImpl clamp_s_generic = OclBuiltinImpl<clamp_s, clamp_s.Types, 0, [{
