@@ -133,10 +133,10 @@ TableRow mappings[] = {
   {{"_Z20__retbyvector_sincosf" , "_Z19__retbyarray_sincosDv2_f" , "_Z19__retbyarray_sincosDv4_f" , "_Z19__retbyarray_sincosDv8_f" , "_Z19__retbyarray_sincosDv16_f" , "_Z19__retbyarray_sincosDv3_f" }, true, false},
   
   // read / write image
-  {{"_f_v._Z11read_imagefPU3AS110_image2d_tuSamplerDv2_f",INVALID_ENTRY,"_Z33__read_transposed_imagef_resamplePU3AS110_image2d_tuSamplerDv4_fS1_PS1_S2_S2_S2_",
-    "_Z33__read_transposed_imagef_resamplePU3AS110_image2d_tuSamplerDv8_fS1_PS1_S2_S2_S2_",INVALID_ENTRY,INVALID_ENTRY}, false, true},
-  {{"_f_v._Z11read_imagefPU3AS110_image3d_tuSamplerDv4_f",INVALID_ENTRY,"_Z36__read_transposed_3d_imagef_resamplePU3AS110_image3d_tuSamplerDv4_fS1_S1_PS1_S2_S2_S2_",
-    "_Z36__read_transposed_3d_imagef_resamplePU3AS110_image3d_tuSamplerDv8_fS1_S1_PS1_S2_S2_S2_",INVALID_ENTRY,INVALID_ENTRY}, false, true},
+  {{"_f_v._Z11read_imagefPU3AS110_image2d_t11ocl_samplerDv2_f",INVALID_ENTRY,"_Z33__read_transposed_imagef_resamplePU3AS110_image2d_t11ocl_samplerDv4_fS1_PS1_S2_S2_S2_",
+    "_Z33__read_transposed_imagef_resamplePU3AS110_image2d_t11ocl_samplerDv8_fS1_PS1_S2_S2_S2_",INVALID_ENTRY,INVALID_ENTRY}, false, true},
+  {{"_f_v._Z11read_imagefPU3AS110_image3d_t11ocl_samplerDv4_f",INVALID_ENTRY,"_Z36__read_transposed_3d_imagef_resamplePU3AS110_image3d_t11ocl_samplerDv4_fS1_S1_PS1_S2_S2_S2_",
+    "_Z36__read_transposed_3d_imagef_resamplePU3AS110_image3d_t11ocl_samplerDv8_fS1_S1_PS1_S2_S2_S2_",INVALID_ENTRY,INVALID_ENTRY}, false, true},
   {{"_f_v._Z12write_imagefPU3AS110_image2d_tDv2_iDv4_f",INVALID_ENTRY,"_Z23write_transposed_imagefPU3AS110_image2d_tiiDv4_fS1_S1_S1_",
     "_Z23write_transposed_imagefPU3AS110_image2d_tiiDv8_fS1_S1_S1_",INVALID_ENTRY,INVALID_ENTRY}, false, true},
   
