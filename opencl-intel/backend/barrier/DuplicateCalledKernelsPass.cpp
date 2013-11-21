@@ -8,8 +8,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "MetaDataApi.h"
 
+#include "llvm/DebugInfo.h"
 #include "llvm/Instructions.h"
+#include "llvm/Metadata.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+
+#include <vector>
 
 namespace intel {
 
@@ -22,6 +26,9 @@ namespace intel {
   bool DuplicateCalledKernels::runOnModule(Module &M) {
 
     Intel::MetaDataUtils mdUtils(&M);
+    DebugInfoFinder finder;
+    finder.processModule(M);
+    NamedMDNode *pllvmDebugCU = M.getNamedMetadata("llvm.dbg.cu");
 
     TFunctionVector kernelFunctions;
     Intel::MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
@@ -59,38 +66,69 @@ namespace intel {
         pCallInst->replaceUsesOfWith(pFunc, pNewFunc);
       }
 
-      // Since pFunc is being cloned, need to create suitable debug metadata.
-      // TODO: this is a workaround to pass debugger test. Check how to handle it right.
-      NamedMDNode *pllvmDebugCU = M.getNamedMetadata("llvm.dbg.cu");
+      // Since pFunc is being duplicated, need to also duplicate the relevant
+      // debug metadata.
       if (pllvmDebugCU) {
-          for(int ui = 0, ue = pllvmDebugCU->getNumOperands(); ui < ue; ui++) {
-            MDNode* pMetadata = pllvmDebugCU->getOperand(ui);
-            replaceMDUsesOfFunc(pMetadata, pFunc, pNewFunc);
-          }
+        for (unsigned cuIter = 0; cuIter < pllvmDebugCU->getNumOperands(); cuIter++) {
+          duplicateDebugMD(pllvmDebugCU->getOperand(0), finder, pFunc, pNewFunc);
+        }
       }
     }
     return changed;
   }
 
-  void DuplicateCalledKernels::replaceMDUsesOfFunc(MDNode* pMetadata, Function* pFunc, Function* pNewFunc) {
-    SmallVector<Value *, 16> values;
-    for (int i = 0, e = pMetadata->getNumOperands(); i < e; ++i) {
-      Value *elem = pMetadata->getOperand(i);
-      if (elem) {
-        if (MDNode *Node = dyn_cast<MDNode>(elem))
-            replaceMDUsesOfFunc(Node, pFunc, pNewFunc);
-
-        // Elem needs to be set again otherwise changes will be undone.
-        elem = pMetadata->getOperand(i);
-        if (pFunc == dyn_cast<Function>(elem))
-          elem = pNewFunc;
-      }
-      values.push_back(elem);
+  const MDNode* DuplicateCalledKernels::findSubprogram(const DebugInfoFinder& finder,
+      const Function* pFunc) const {
+    for (DebugInfoFinder::iterator iter = finder.subprogram_begin(),
+        end = finder.subprogram_end(); iter != end; iter++) {
+      const MDNode* node = *iter;
+      if (DISubprogram(node).describes(pFunc)) return node;
     }
-    MDNode* pNewMetadata = MDNode::get(pFunc->getContext(), ArrayRef<Value*>(values));
-    // TODO: Why may pMetadata and pNewMetadata be the same value ?
-    if (pMetadata != pNewMetadata)
-      pMetadata->replaceAllUsesWith(pNewMetadata);
+    return NULL;
+  }
+
+  MDNode* DuplicateCalledKernels::duplicateMDnode(MDNode* node,
+                          Value* toReplace,
+                          Value* with) const {
+    std::vector<Value*> operands;
+    for (unsigned i = 0; i < node->getNumOperands(); i++) {
+      Value* op = node->getOperand(i);
+      operands.push_back(op != toReplace ? op : with);
+    }
+    if (toReplace == NULL) operands.push_back(with);
+
+    return MDNode::get(node->getContext(), operands);
+  }
+
+  void DuplicateCalledKernels::duplicateDebugMD(MDNode* cuNode,
+                                                const DebugInfoFinder& finder,
+                                                Function* pFunc,
+                                                Function* pNewFunc) const {
+    // Duplicate the subprogram metadata. This works by changing the original
+    // subprogram metadata to point to the new function, and creating a new
+    // subprogram metadata for the original function. This way all lexical blocks
+    // will point to the new function, which is required because we use those
+    // for adding function-specific locals when debugging (in ImplicitGIDPass).
+    DISubprogram funcSP(findSubprogram(finder, pFunc));
+    funcSP.replaceFunction(pNewFunc);
+    DISubprogram newFuncSP(duplicateMDnode(funcSP, pNewFunc, pFunc));
+
+    // Duplicate the subprogram list and add the new subprogram metadata there
+    DIArray spList = DICompileUnit(cuNode).getSubprograms();
+    DIArray newSpList(duplicateMDnode(spList, NULL, newFuncSP));
+
+    // Replace all uses of the old subprogram list with the new subprogram list
+    spList->replaceAllUsesWith(newSpList);
+
+    // Duplicate function-specific metadata, if any exists.
+    Module& M = *(pFunc->getParent());
+    NamedMDNode* fnSpecificMDNode = getFnSpecificMDNode(M, newFuncSP);
+    if (fnSpecificMDNode) {
+      NamedMDNode* newFnSpecificMDNode = getOrInsertFnSpecificMDNode(M, funcSP);
+      for (unsigned i = 0; i < fnSpecificMDNode->getNumOperands(); i++) {
+        newFnSpecificMDNode->addOperand(fnSpecificMDNode->getOperand(i));
+      }
+    }
   }
 
 } // namespace intel
