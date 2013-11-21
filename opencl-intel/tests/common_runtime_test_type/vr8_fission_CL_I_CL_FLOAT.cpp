@@ -43,7 +43,7 @@ TYPED_TEST_CASE(Fission_VR8_CL_I_CL_FLOAT, Fission_VR8_CL_I_CL_FLOATTypes);
 // if equal to 2 - should succeed on both devices
 // if equal to 0 - should succeed on CPU and fail on GPU
 // if equal to 1 - should succeed on GPU and fail on CPU
-static int succDevicesNum = 2;
+static int succDevicesNum = 0;
 static const char* d2KernelName = "read_image2D_float4_first";
 static const char* d3KernelName = "read_image3D_float4_first";
 
