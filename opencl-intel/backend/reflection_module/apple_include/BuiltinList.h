@@ -7,9 +7,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __MANGLED_BI_NAMES_H__
 #define __MANGLED_BI_NAMES_H__
 #if defined(__LP64__)
-#include "Builtins64.h"
+#include "BuiltinList64.h"
 #else
-#include "Builtins32.h"
+#include "BuiltinList32.h"
 #endif
 
 #endif//__MANGLED_BI_NAMES_H__
