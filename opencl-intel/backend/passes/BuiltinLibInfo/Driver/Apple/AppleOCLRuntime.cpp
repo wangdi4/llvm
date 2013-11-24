@@ -78,8 +78,8 @@ declare [3 x <8 x float>] @_f_v.__ci_gamma_SPI_8(<8 x float>, <8 x float> , <8 x
 ;----------------------------------------------------------------------------------------------------------------------------\n\
 ; read write image\n\
 ;----------------------------------------------------------------------------------------------------------------------------\n\
-declare <4 x float> @_f_v._Z11read_imagefPU3AS110_image2d_tuSamplerDv2_f(%struct._image2d_t addrspace(1)* %image, i32 %sampler, <2 x float>) nounwind\n\
-declare <4 x float> @_f_v._Z11read_imagefPU3AS110_image3d_tuSamplerDv4_f(%struct._image3d_t addrspace(1)* %image, i32 %sampler, <3 x float>) nounwind\n\
+declare <4 x float> @_f_v._Z11read_imagefPU3AS110_image2d_t11ocl_samplerDv2_f(%struct._image2d_t addrspace(1)* %image, i32 %sampler, <2 x float>) nounwind\n\
+declare <4 x float> @_f_v._Z11read_imagefPU3AS110_image3d_t11ocl_samplerDv4_f(%struct._image3d_t addrspace(1)* %image, i32 %sampler, <3 x float>) nounwind\n\
 declare void @_f_v._Z12write_imagefPU3AS110_image2d_tDv2_iDv4_f(%struct._image2d_t addrspace(1)* %image, i32 %x, i32 %y, <4 x float>) nounwind\n\
 \n\
 \n\
@@ -96,7 +96,7 @@ declare <16 x float> @_f_v._Z5fractDv16_fPS_(<16 x float>) nounwind readnone\n\
 \0";
 
 const char *appleNeedPreVectorization[] = {
-  "_Z11read_imagefPU3AS110_image2d_tuSamplerDv2_f","_Z11read_imagefPU3AS110_image3d_tuSamplerDv4_f",
+  "_Z11read_imagefPU3AS110_image2d_t11ocl_samplerDv2_f","_Z11read_imagefPU3AS110_image3d_t11ocl_samplerDv4_f",
   "__ci_gamma_scalar_SPI",
   //TODO: geometric special cases, handle separately
 /*
@@ -124,13 +124,13 @@ const char *appleScalarSelect[] = {
 
 
 const char *APPLE_WRITE_IMG_NAME = "_Z12write_imagefPU3AS110_image2d_tDv2_iDv4_f";
-const char *APPLE_READ_IMG_NAME = "_Z11read_imagefPU3AS110_image2d_tuSamplerDv2_f";
+const char *APPLE_READ_IMG_NAME = "_Z11read_imagefPU3AS110_image2d_t11ocl_samplerDv2_f";
 
 // On volcano sets the __i386 manually
 //TODO: Check whether we need to define __i386
 
-const char *APPLE_STREAM_READ_IMG_NAME_32 = "_Z36__async_work_group_stream_from_imagePU3AS110_image2d_tuSamplerDv2_fS1_jPDv4_fS3_S3_S3_";
-const char *APPLE_STREAM_READ_IMG_NAME_64 = "_Z36__async_work_group_stream_from_imagePU3AS110_image2d_tuSamplerDv2_fS1_mPDv4_fS3_S3_S3_";
+const char *APPLE_STREAM_READ_IMG_NAME_32 = "_Z36__async_work_group_stream_from_imagePU3AS110_image2d_t11ocl_samplerDv2_fS1_jPDv4_fS3_S3_S3_";
+const char *APPLE_STREAM_READ_IMG_NAME_64 = "_Z36__async_work_group_stream_from_imagePU3AS110_image2d_t11ocl_samplerDv2_fS1_mPDv4_fS3_S3_S3_";
 
 const char *APPLE_STREAM_WRITE_IMG_NAME_32 = "_Z34__async_work_group_stream_to_imagePU3AS110_image2d_tjjjPKDv4_fS2_S2_S2_";
 const char *APPLE_STREAM_WRITE_IMG_NAME_64 = "_Z34__async_work_group_stream_to_imagePU3AS110_image2d_tmmmPKDv4_fS2_S2_S2_";

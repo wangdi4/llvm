@@ -28,7 +28,7 @@ Call in example should be resolved to:
 This optimization pass is implementing this resolution.
 
 The pass can be extended to statically resolve enqueued blocks.
-However it is not needed now for CPU. For MIC and GEN it may be useful.
+However it is not needed now for CPU.
 ===----------------------------------------------------------------------===*/
 
 namespace intel {

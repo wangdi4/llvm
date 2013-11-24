@@ -397,7 +397,7 @@ TEST(DemangleTest, addressSpaceAndUserDefTy){
 
 // Test for Apple (deprecated)
 //TEST(DemangleTest, appleImageMangle){
-//  const char*const strImagefunction = "_Z11read_imageiPU3AS110_image2d_tuSamplerDv2_i";
+//  const char*const strImagefunction = "_Z11read_imageiPU3AS110_image2d_t11ocl_samplerDv2_i";
 //  FunctionDescriptor fd = demangle(strImagefunction);
 //  ASSERT_FALSE(fd.isNull());
 //  ASSERT_TRUE(reflection::dyn_cast<PointerType>(fd.parameters[0]));

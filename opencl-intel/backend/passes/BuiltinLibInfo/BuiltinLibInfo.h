@@ -30,7 +30,13 @@ public:
   /// @brief Constructor
   /// @param Builtins Built-in module
   /// @param Builtins Built-in module
-  BuiltinLibInfo(Module *Builtins = 0, RuntimeServicesTypes type = RTS_OCL);
+  BuiltinLibInfo(Module *Builtins, RuntimeServicesTypes type);
+
+  /// @brief Empty Constructor
+  ///   Should not be called, exists only to be able to register it to opt.
+  BuiltinLibInfo() : ImmutablePass(ID), m_pBIModule(NULL), m_pRuntimeServices(NULL) {
+    assert(false && "Default constructor is not supported");
+  }
 
   ~BuiltinLibInfo() {
     delete m_pRuntimeServices;
