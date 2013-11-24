@@ -154,7 +154,7 @@ if(INCLUDE_TOOLS)
 endif(INCLUDE_TOOLS)
 
 # Project-wise options
-option(SVN_REVISIONS "Make package version from svn revision"  ON)
+option(GIT_REVISIONS "Make package version from git revision"  ON)
 option(BUILD_QTGUI "Build the QT related projects"  OFF)
 option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
@@ -162,10 +162,6 @@ option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
 
 # find the used external packages
 
-# Subversion
-if (SVN_REVISIONS)
-    find_package(Subversion 1.6 REQUIRED)
-endif ()
 # LLVM 
 find_package(LLVM REQUIRED)
 # QTGUI
@@ -250,15 +246,28 @@ endif ()
 
 project(OCL)
 
+# GIT
+if (GIT_REVISIONS)
+    #find_package(Subversion 1.6 REQUIRED)
 
-# extract working copy information for all components into variables
-if (SVN_REVISIONS)
-    Subversion_WC_INFO(${OCL_SOURCE_DIR} BUILDVER)
+	set (git_cmd "git")
+	set (git_arg "describe")
+
+	execute_process(COMMAND ${git_cmd} ${git_arg}
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		RESULT_VARIABLE git_result
+		OUTPUT_VARIABLE git_ver)		
+		
+	set(GIT_DESCRIPTION   ${git_ver})
+	set(GIT_VERIONING 0)
+	STRING(REGEX REPLACE "trunk-" "" GIT_VERIONING ${GIT_DESCRIPTION})
+	STRING(REGEX REPLACE "-[0-9a-z]+" "" GIT_VERIONING ${GIT_VERIONING})
+	message(${GIT_VERIONING})
+	math(EXPR BUILDVER_WC_REVISION "0 + ${GIT_VERIONING}")
 else ()
-    set( BUILDVER_WC_LAST_CHANGED_REV 0)
     set( BUILDVER_WC_REVISION 0)
-endif (SVN_REVISIONS)
-message(STATUS "Current build version is ${BUILDVER_WC_LAST_CHANGED_REV}")
+endif (GIT_REVISIONS)
+message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
 
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
