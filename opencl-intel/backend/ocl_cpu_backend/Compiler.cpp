@@ -30,6 +30,7 @@ File Name:  Compiler.cpp
 #include "BuiltinModuleManager.h"
 #include "plugin_manager.h"
 #include "CompilationUtils.h"
+
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -55,12 +56,8 @@ using std::string;
 #include <iostream>
 #include <sstream>
 
-#include <fstream>
-#include <iostream>
-#include <sstream>
 
-
-namespace llvm 
+namespace llvm
 {
   extern bool DisablePrettyStackTrace;
 }
@@ -166,8 +163,8 @@ void ProgramBuildResult::SetBuildResult( cl_dev_err_code code )
 }
 
 cl_dev_err_code ProgramBuildResult::GetBuildResult() const
-{ 
-    return m_result; 
+{
+    return m_result;
 }
 
 bool Compiler::s_globalStateInitialized = false;
@@ -223,8 +220,8 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 
     for(; i != e; ++i )
     {
-        //be carefull here. The pointer returned by c_str() is only guaranteed to remain unchanged 
-        //until the next call to a non-constant member function of the string object.    
+        //be carefull here. The pointer returned by c_str() is only guaranteed to remain unchanged
+        //until the next call to a non-constant member function of the string object.
         argv.push_back( const_cast<char*>(i->c_str()) );
     }
 
@@ -281,11 +278,17 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     std::auto_ptr<llvm::Module> spModule(ParseModuleIR(pIRBuffer));
     assert(spModule.get() && "Cannot Created llvm Module from the Program Bit Code");
 
+    // Check if given program is valid for the target.
+    if (!isProgramValid(spModule.get(), pResult))
+    {
+        throw Exceptions::CompilerException("Program is not valid for this target", CL_DEV_INVALID_BINARY);
+    }
+
     //
     // Apply IR=>IR optimizations
     //
-    intel::OptimizerConfig optimizerConfig( m_CpuId, 
-                                            m_transposeSize, 
+    intel::OptimizerConfig optimizerConfig( m_CpuId,
+                                            m_transposeSize,
                                             m_IRDumpAfter,
                                             m_IRDumpBefore,
                                             m_IRDumpDir,
@@ -298,7 +301,7 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
                                             pOptions->GetAPFLevel());
     Optimizer optimizer( spModule.get(), GetRtlModule(), &optimizerConfig);
     optimizer.Optimize();
-    
+
     if( optimizer.hasUndefinedExternals() && !pOptions->GetlibraryModule())
     {
         Utils::LogUndefinedExternals( pResult->LogS(), optimizer.GetUndefinedExternals());
@@ -373,6 +376,29 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
   UpdateTargetTriple(spModule.get());
   return spModule.release();
 
+}
+
+bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const
+{
+    // Check for the limitation: "Images are not supported on Xeon Phi".
+    if(!m_CpuId.HasGatherScatter()) return true;
+    if (llvm::NamedMDNode* pNode = pModule->getNamedMetadata("opencl.used.optional.core.features"))
+    {
+        assert(pNode->getNumOperands() <= 1 &&
+            "opencl.used.optional.core.features metadata can have one operand at most!");
+        if(!pNode->getNumOperands()) return true;
+
+        MDNode *mdNode = pNode->getOperand(0);
+        for (unsigned i = 0; i < mdNode->getNumOperands(); ++i)
+        {
+            if (mdNode->getOperand(i)->getName() == "cl_images")
+            {
+                pResult->LogS() << "Images are not supported on given device.\n";
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 void UpdateTargetTriple(llvm::Module *pModule)
