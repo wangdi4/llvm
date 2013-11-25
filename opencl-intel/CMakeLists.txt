@@ -248,21 +248,18 @@ project(OCL)
 
 # GIT
 if (GIT_REVISIONS)
-    #find_package(Subversion 1.6 REQUIRED)
 
 	set (git_cmd "git")
 	set (git_arg "describe")
-
+	set (git_ver 0)
 	execute_process(COMMAND ${git_cmd} ${git_arg}
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 		RESULT_VARIABLE git_result
 		OUTPUT_VARIABLE git_ver)		
-		
 	set(GIT_DESCRIPTION   ${git_ver})
 	set(GIT_VERIONING 0)
 	STRING(REGEX REPLACE "trunk-" "" GIT_VERIONING ${GIT_DESCRIPTION})
 	STRING(REGEX REPLACE "-[0-9a-z]+" "" GIT_VERIONING ${GIT_VERIONING})
-	message(${GIT_VERIONING})
 	math(EXPR BUILDVER_WC_REVISION "0 + ${GIT_VERIONING}")
 else ()
     set( BUILDVER_WC_REVISION 0)
