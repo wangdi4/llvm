@@ -1,4 +1,6 @@
 #include "debuggingservicewrapper.h"
+#include "DebuggerPipeWrapper.h"
+#include "cl_utils.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include <string>
 #include <cassert>
@@ -31,15 +33,27 @@ DebuggingServiceWrapper::DebuggingServiceWrapper()
 
 cl_dev_err_code DebuggingServiceWrapper::Init()
 {
+    unsigned int port_number = 0;
+	bool debugging_enabled = false;
     assert(!m_dll_loaded && "DebuggingServiceWrapper::Init called more than once");
 
+#ifdef _WIN32
+    DebuggerPipeWrapper pipeWrapper;
+    bool res = pipeWrapper.init("\\\\.\\pipe\\INTEL_OCL_DBG_PIPE" + stringify(GetCurrentProcessId()));
+    if (res && pipeWrapper.isDebuggingEnabled()) {
+        debugging_enabled = true;
+        port_number = pipeWrapper.getDebuggingPort();
+    }
+#else
     const char* env_val = getenv("CL_CONFIG_DBG_ENABLE");
-    if (env_val && string(env_val) == "1") {
+    debugging_enabled = (env_val && string(env_val) == "1");
+#endif
+    if (debugging_enabled) {
         cl_dev_err_code rc = LoadDll();
         if (CL_DEV_FAILED(rc))
             return rc;
 
-        if (m_init_func() == false)
+        if (m_init_func(port_number) == false)
             return CL_DEV_ERROR_FAIL;
         else
             return CL_DEV_SUCCESS;

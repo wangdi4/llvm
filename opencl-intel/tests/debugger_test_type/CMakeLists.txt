@@ -9,7 +9,9 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 include_directories(../../framework/export 
-                    ../../externals/gtest/include)
+                    ../../externals/gtest/include
+                    ../../utils/cl_sys_utils/export
+                    )
                 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
@@ -35,9 +37,9 @@ if (NOT WIN32)
   if( ANDROID )
     target_link_libraries( ${TARGET} gnustl_shared )
   endif( ANDROID )
-  target_link_libraries(${TARGET} intelocl${BUILD_PLATFORM} cl_logger googletest ${PTHREAD_LIB})
+  target_link_libraries(${TARGET} intelocl${BUILD_PLATFORM} cl_logger googletest ${PTHREAD_LIB} cl_sys_utils)
 else (NOT WIN32)
-  target_link_libraries(${TARGET} intelocl${BUILD_PLATFORM} googletest)
+  target_link_libraries(${TARGET} intelocl${BUILD_PLATFORM} googletest cl_sys_utils)
 endif (NOT WIN32)
 
 #
