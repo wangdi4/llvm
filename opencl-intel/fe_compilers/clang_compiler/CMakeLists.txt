@@ -78,6 +78,7 @@ endif (NOT WIN32)
 # (build/tools/clang/tools/driver/CMakeFiles/clang.dir/build.make)
 # All duplicate libraries are there on purpose 
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
+                                      SPIRMetadataAdder
                                       cl_sys_utils
                                       cl_logger
                                       ${LINK_LIBS} 
