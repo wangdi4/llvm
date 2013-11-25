@@ -439,10 +439,7 @@ cl_err_code GenericMemObject::allocate_object_for_sharing_group( unsigned int gr
 
     const SharedPtr<FissionableDevice>& dev = group.m_device_list.front()->m_pDevice;
 
-    // Pass only R/W values
-    cl_mem_flags clMemFlags = m_clFlags & (CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY);
-
-    cl_err_code err = create_device_object( clMemFlags, dev, m_BS, &obj );
+    cl_err_code err = create_device_object( m_clFlags, dev, m_BS, &obj );
 
     if ( CL_FAILED(err) )
     {
