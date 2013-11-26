@@ -80,6 +80,8 @@ public:
         epoch = 0;
     };
 
+    unsigned GetFinishedThreads() const { return numThreadsFinished; }
+
     // onOpenBarrierCallback is called by last thread arrived on a barrier
     template<typename WaitEq, typename Callback>
     bool custom_wait(const WaitEq &onWaitCallback, const Callback &onOpenBarrierCallback)
