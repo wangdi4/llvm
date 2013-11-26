@@ -44,41 +44,24 @@ std::string& CrtConfig::getPlatformLibName(cl_uint index)
 
 crt_err_code CrtConfig::Init()
 {
-    crt_err_code err = CRT_SUCCESS;
+    std::string cpuRuntimeLibName = "intelocl";
+    std::string gpuRuntimeLibName = "igdrcl";
 
-#if defined(_WIN32)
-// CPU-runtime library
-    char pCpuPath[MAX_PATH];
-    if(OCLCRT::Utils::GetCpuPathFromRegistry(pCpuPath) == true)
+    // CPU-runtime library:
+    std::string libName;
+    if( OCLCRT::Utils::GetCpuPathFromRegistry( libName ) )
     {
-#if defined(_WIN64)
-        sprintf_s(pCpuPath, MAX_PATH, "%s%s", pCpuPath, "\\bin\\x64\\intelocl64.dll");
-#else // _WIN32
-        sprintf_s(pCpuPath, MAX_PATH, "%s%s", pCpuPath, "\\bin\\x86\\intelocl32.dll");
-#endif
-        m_libraryNames.push_back(pCpuPath);
+        // full path library name
+        libName = libName + "\\" + OCLCRT::Utils::FormatLibNameForOS( cpuRuntimeLibName );
     }
     else
     {
-#if defined(_WIN64)
-    m_libraryNames.push_back("intelocl64.dll");
-#else // _WIN32
-    m_libraryNames.push_back("intelocl32.dll");
-#endif
+        libName = OCLCRT::Utils::FormatLibNameForOS( cpuRuntimeLibName );
     }
+    m_libraryNames.push_back( libName );
 
-// GPU-runtime library
-#if defined(_WIN64)
-    m_libraryNames.push_back("igdrcl64.dll");
-#else // _WIN32
-    m_libraryNames.push_back("igdrcl32.dll");
-#endif
+    // GPU-runtime library:
+    m_libraryNames.push_back( OCLCRT::Utils::FormatLibNameForOS( gpuRuntimeLibName ) );
 
-
-#else // Linux/Android
-    m_libraryNames.push_back("libintelocl.so");
-    m_libraryNames.push_back("libigdrcl.so");
-#endif
-
-    return err;
+    return CRT_SUCCESS;
 }
