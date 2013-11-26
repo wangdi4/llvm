@@ -384,17 +384,21 @@ bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult
     if(!m_CpuId.HasGatherScatter()) return true;
     if (llvm::NamedMDNode* pNode = pModule->getNamedMetadata("opencl.used.optional.core.features"))
     {
-        assert(pNode->getNumOperands() <= 1 &&
-            "opencl.used.optional.core.features metadata can have one operand at most!");
-        if(!pNode->getNumOperands()) return true;
-
-        MDNode *mdNode = pNode->getOperand(0);
-        for (unsigned i = 0; i < mdNode->getNumOperands(); ++i)
+        // Usually "opencl.used.optional.core.features" metadata has only one node.
+        // It can have multiple nodes if clCompileProgram/clLinkProgram API is used.
+        // In that case each node represent the features used in its original
+        // binary before linking it into the final module.
+        // We should respect all of them and abort compilation if any of the binaries has images.
+        for (unsigned mdNodeId = 0; mdNodeId < pNode->getNumOperands(); ++mdNodeId)
         {
-            if (mdNode->getOperand(i)->getName() == "cl_images")
+            MDNode *mdNode = pNode->getOperand(mdNodeId);
+            for (unsigned i = 0; i < mdNode->getNumOperands(); ++i)
             {
-                pResult->LogS() << "Images are not supported on given device.\n";
-                return false;
+                if (mdNode->getOperand(i)->getName() == "cl_images")
+                {
+                    pResult->LogS() << "Images are not supported on given device.\n";
+                    return false;
+                }
             }
         }
     }
