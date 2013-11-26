@@ -440,7 +440,7 @@ void FrameworkProxy::Destroy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Release(bool bTerminate)
 {
-    LOG_DEBUG(TEXT("%s"), TEXT("FrameworkProxy::Release enter"));
+    LOG_INFO(TEXT("%s"), TEXT("FrameworkProxy::Release enter"));
 
     if (TERMINATED != gGlobalState)
     {
@@ -609,7 +609,7 @@ bool FrameworkProxy::ActivateTaskExecutor() const
         // create root device in flat mode. Use all available HW threads 
         // and allow non-worker threads to participate in execution but do not assume they will join.
         SharedPtr<ITEDevice> pTERootDevice = m_pTaskExecutor->CreateRootDevice(
-                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 0));
+                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 1));
 
         SharedPtr<ITaskList> pTaskList;
 

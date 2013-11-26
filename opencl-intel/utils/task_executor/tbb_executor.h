@@ -21,7 +21,7 @@
 /*
 *
 * File tbb_executor.h
-*		Implements interface required for task execution on XNTask sub-system
+*        Implements interface required for task execution on XNTask sub-system
 *
 */
 #pragma once
@@ -36,6 +36,18 @@
 #include "base_command_list.h"
 #include "tbb_thread_manager.h"
 #include "arena_handler.h"
+
+#ifdef DEVICE_NATIVE
+    // no logger on discrete device
+    #define LOG_ERROR(...)
+    #define LOG_INFO(...)
+
+    #define DECLARE_LOGGER_CLIENT
+    #define INIT_LOGGER_CLIENT(...)
+    #define RELEASE_LOGGER_CLIENT
+#else
+    #include "Logger.h"
+#endif // DEVICE_NATIVE
 
 using Intel::OpenCL::Utils::SharedPtr;
 using Intel::OpenCL::Utils::AtomicPointer;
@@ -52,7 +64,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         TBBTaskExecutor();
         virtual ~TBBTaskExecutor();
 
-        int	 Init(unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL);    
+        int  Init(unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL);
         void Finalize();
 
         Intel::OpenCL::Utils::SharedPtr<ITEDevice>  CreateRootDevice(
@@ -70,30 +82,33 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         typedef TBB_ThreadManager<TBB_PerActiveThreadData> ThreadManager;
         ThreadManager& GetThreadManager() { return m_threadManager; };
 
-		virtual SharedPtr<ITaskGroup> CreateTaskGroup(const SharedPtr<ITEDevice>& device);
+        virtual SharedPtr<ITaskGroup> CreateTaskGroup(const SharedPtr<ITEDevice>& device);
 
-	protected:
+    protected:
         // Load TBB library explicitly
         bool LoadTBBLibrary();
 
-        ThreadManager                       m_threadManager;
-        Intel::OpenCL::Utils::OclDynamicLib	m_dllTBBLib;
+        ThreadManager                          m_threadManager;
+        Intel::OpenCL::Utils::OclDynamicLib    m_dllTBBLib;
 
         /* We need this because of a bug Anton has reported: we should initialize the task_scheduler_init to P+1 threads, instead of P. Apparently, if we explicitly create a task_scheduler_init
            in a certain master thread, TBB creates a global task_scheduler_init object that future created task_arenas will use. Once they fix this bug, we can remove this attribute.
            They seem to have another bug in ~task_scheduler_init(), so we work around it by allocating and not deleting it. */
-        tbb::task_scheduler_init*           m_pScheduler;	
+        tbb::task_scheduler_init*           m_pScheduler;
+
+        // Logger
+        DECLARE_LOGGER_CLIENT;
 
     private:
         TBBTaskExecutor(const TBBTaskExecutor&);
         TBBTaskExecutor& operator=(const TBBTaskExecutor&);
-	};
+    };
 
     class in_order_executor_task
     {
     public:
         in_order_executor_task(const SharedPtr<base_command_list>& list) : m_list(list){}
-	
+
         void operator()();
 
     protected:

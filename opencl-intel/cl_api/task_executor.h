@@ -30,8 +30,8 @@
 *        the provided callback function will be called when a task is completed
 *    c.  It'll be two types of tasks:
 *        I.  Simple - single function task, single instance of function will be executed
-*        II. Complex (Task Set) - the main function will be executed multiple times.
-*            This complex function will have initialization and finalization stages –
+*        II. Complex (Task Set) - the main function will be executed multiple times
+*            This complex function will have initialization and finalization stages
 *            single function that should be called before and after the main loop.
 *
 */
@@ -98,7 +98,7 @@ typedef enum
 {
     TE_CMD_LIST_IN_ORDER            = 0,// Process tasks in order of enqueing
     TE_CMD_LIST_OUT_OF_ORDER,           // Process tasks in any order
-	TE_CMD_LIST_IMMEDIATE               // Process each task immediately using the caller thread also
+    TE_CMD_LIST_IMMEDIATE               // Process each task immediately using the caller thread also
 } TE_CMD_LIST_TYPE;
 
 // preferred CommandList scheduling type
@@ -108,7 +108,7 @@ typedef enum
     TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY,  // try to preserve task affinities to threads in TaskSet
     TE_CMD_LIST_PREFERED_SCHEDULING_UNEVEN_OPENCL,            // Use OpenCL specific partitioner
     
-	TE_CMD_LIST_PREFERRED_SCHEDULING_LAST
+    TE_CMD_LIST_PREFERRED_SCHEDULING_LAST
 } TE_CMD_LIST_PREFERRED_SCHEDULING;
 
 // TaskSets optimizations
@@ -228,7 +228,7 @@ public:
 
     // Returns whether the executed task is a task set.
     virtual bool    IsTaskSet() const = 0;
-    
+
     // Return task priority, currently the implementation shall return TASK_PRIORITY_MEDIUM
     virtual TASK_PRIORITY    GetPriority() const = 0; 
 

@@ -167,7 +167,7 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
     {
         if ( vOclEvents.end() == evtIt )
         {
-            // When one loop fished and no WaitForEvent were executed succesfully
+            // When one loop fished and no WaitForEvent were executed successfully
             // Need to start using explicit Wait()
             if ( !bWaitForEventSuccess )
             {
@@ -178,7 +178,7 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
             bWaitForEventSuccess = false;
         }
 
-        // Execute queue until assosiated command is completed
+        // Execute queue until associated command is completed
 
         // Don't try join master thread for user events,
         // Don't try join master thread for Runtime Commands,
