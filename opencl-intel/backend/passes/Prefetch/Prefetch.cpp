@@ -980,7 +980,6 @@ unsigned int Prefetch::IterLength(Loop *L)
   do {
     TerminatorInst *TI = BB->getTerminator();
     assert (TI->getNumSuccessors() > 0 && "Not expecting 0 successors");
-    assert (TI->getNumSuccessors() <= 2 && "Not expecting more than 2 successors");
 #ifndef NDEBUG
     assert (walkedBBs.find(BB) == walkedBBs.end() && "this BB length was already taken");
     walkedBBs[BB] = 1;
@@ -990,12 +989,17 @@ unsigned int Prefetch::IterLength(Loop *L)
     if (BBL == L) {
       len += BB->size();
         // select the next BB in the path
-      if (TI->getNumSuccessors() == 2 &&
-          BPI->getEdgeProbability(BB, TI->getSuccessor(0)) < BranchProbability(1, 2)) {
-        BB = TI->getSuccessor(1);
+      unsigned mostProbable = 0;
+      BranchProbability maxProb = BPI->getEdgeProbability(BB, TI->getSuccessor(0));
+
+      for (unsigned i = 1; i < TI->getNumSuccessors(); i++) {
+        BranchProbability iProb = BPI->getEdgeProbability(BB, TI->getSuccessor(i));
+        if (iProb > maxProb) {
+          mostProbable = i;
+          maxProb = iProb;
+        }
       }
-      else
-        BB = TI->getSuccessor(0);
+      BB = TI->getSuccessor(mostProbable);
     }
     else {
       assert (BBL->getHeader() == BB &&
