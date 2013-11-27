@@ -498,17 +498,17 @@ TEST(FrameworkTestType, cl_CPU_MIC_Parallel_NDRange_Execution_With_Read_Of_Same_
     EXPECT_TRUE(cl_CPU_MIC_Parallel_NDRange_Execution_With_Read_Of_Same_Buffer());
 }
 
-TEST(FrameworkTestType, DISABLED_cl_ALL_Devices_SubBuffer_Simple_Test) //CSSD100015775
+TEST(FrameworkTestType, cl_ALL_Devices_SubBuffer_Simple_Test)
 {
     EXPECT_TRUE(cl_ALL_Devices_SubBuffer_Simple_Test());
 }
 
-TEST(FrameworkTestType, DISABLED_cl_ALL_Devices_Common_RT_SubBuffers_Async) //CSSD100015775
+TEST(FrameworkTestType, cl_ALL_Devices_Common_RT_SubBuffers_Async)
 {
     EXPECT_TRUE(cl_ALL_Devices_Common_RT_SubBuffers_Async());
 }
 
-TEST(FrameworkTestType, DISABLED_cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release) //CSSD100015775
+TEST(FrameworkTestType, cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release)
 {
     EXPECT_TRUE(cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release());
 }
