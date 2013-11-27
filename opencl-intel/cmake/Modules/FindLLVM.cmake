@@ -24,6 +24,7 @@ if(WIN32)
             )
     endif()
 	list(APPEND STATIC_LLVM_MODULE_LIBS
+		LLVMIRReader 
 		LLVMAsmParser 
 		LLVMTableGen 
 		LLVMOpenCLAliasAnalysisSupport
@@ -63,7 +64,6 @@ if(WIN32)
 		LLVMObject 
 		LLVMObjCARCOpts 
 		LLVMCore 
-		LLVMIRReader 
 		LLVMSupport
 	)
     if(NOT CMAKE_CROSSCOMPILING)
@@ -92,6 +92,7 @@ else()
             )
     endif()
 	list(APPEND STATIC_LLVM_MODULE_LIBS
+		LLVMIRReader 
 		LLVMAsmParser 
 		LLVMTableGen 
 		LLVMOpenCLAliasAnalysisSupport
@@ -131,7 +132,6 @@ else()
 		LLVMObject 
 		LLVMObjCARCOpts 
 		LLVMCore 
-		LLVMIRReader 
 		LLVMSupport
 		)
     if(NOT CMAKE_CROSSCOMPILING)

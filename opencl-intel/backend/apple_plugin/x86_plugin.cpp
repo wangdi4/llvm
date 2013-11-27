@@ -938,7 +938,7 @@ static int compileProgram(
   // Optimize the whole module
   int vectorWidth = 0;
 
-  if (getenv("CL_VWIDTH_1") || !(mergedOpt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE))
+  if (getenv("CL_VWIDTH_1") || ((mergedOpt & CLD_COMP_OPT_FLAGS_AUTO_VECTORIZE_DISABLE) != 0))
     vectorWidth = 1;
   else if (getenv("CL_VWIDTH_4"))
     vectorWidth = 4;

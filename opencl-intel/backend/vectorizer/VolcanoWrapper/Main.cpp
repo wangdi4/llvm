@@ -158,6 +158,7 @@ bool Vectorizer::runOnModule(Module &M)
 
   {
     PassManager mpm;
+    mpm.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), ""));
     mpm.add(createSpecialCaseBuiltinResolverPass());
     mpm.run(M);
   }

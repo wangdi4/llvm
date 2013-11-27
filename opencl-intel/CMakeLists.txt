@@ -12,6 +12,41 @@ set(CMAKE_MODULE_PATH
     "${CMAKE_SOURCE_DIR}/cmake_utils/"
 )
 
+function(use_rtti val)
+    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+        if( ${val} )
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-fno-rtti" "-frtti")
+        else()
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-frtti" "-fno-rtti" )
+        endif()    
+    else(MSVC)
+        if( ${val} )
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR-" "/GR")
+        else()
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR" "/GR-" )
+        endif()    
+    endif()
+    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE )
+endfunction(use_rtti)
+    
+function(use_eh val)
+    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+        if( ${val} )
+            remove_definitions( -fno-exceptions )
+        else()
+            add_definitions( -fno-exceptions )
+        endif()    
+    else(MSVC)
+        if( ${val} )
+              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHs-c-" "/EHsc" )
+              add_definitions( /D_HAS_EXCEPTIONS=1 )
+        else()
+              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHsc" "/EHs-c-")
+              add_definitions( /D_HAS_EXCEPTIONS=0 )
+        endif()    
+    endif()
+endfunction(use_eh)
+
 if (WIN32)
   # Add definitions that make MSVC much less annoying.
    add_definitions(
@@ -154,7 +189,7 @@ if(INCLUDE_TOOLS)
 endif(INCLUDE_TOOLS)
 
 # Project-wise options
-option(SVN_REVISIONS "Make package version from svn revision"  ON)
+option(GIT_REVISIONS "Make package version from git revision"  ON)
 option(BUILD_QTGUI "Build the QT related projects"  OFF)
 option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
@@ -162,10 +197,6 @@ option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
 
 # find the used external packages
 
-# Subversion
-if (SVN_REVISIONS)
-    find_package(Subversion 1.6 REQUIRED)
-endif ()
 # LLVM 
 find_package(LLVM REQUIRED)
 # QTGUI
@@ -250,15 +281,25 @@ endif ()
 
 project(OCL)
 
+# GIT
+if (GIT_REVISIONS)
 
-# extract working copy information for all components into variables
-if (SVN_REVISIONS)
-    Subversion_WC_INFO(${OCL_SOURCE_DIR} BUILDVER)
+	set (git_cmd "git")
+	set (git_arg "describe")
+	set (git_ver 0)
+	execute_process(COMMAND ${git_cmd} ${git_arg}
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		RESULT_VARIABLE git_result
+		OUTPUT_VARIABLE git_ver)		
+	set(GIT_DESCRIPTION   ${git_ver})
+	set(GIT_VERIONING 0)
+	STRING(REGEX REPLACE "trunk-" "" GIT_VERIONING ${GIT_DESCRIPTION})
+	STRING(REGEX REPLACE "-[0-9a-z]+" "" GIT_VERIONING ${GIT_VERIONING})
+	math(EXPR BUILDVER_WC_REVISION "0 + ${GIT_VERIONING}")
 else ()
-    set( BUILDVER_WC_LAST_CHANGED_REV 0)
     set( BUILDVER_WC_REVISION 0)
-endif (SVN_REVISIONS)
-message(STATUS "Current build version is ${BUILDVER_WC_LAST_CHANGED_REV}")
+endif (GIT_REVISIONS)
+message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
 
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")

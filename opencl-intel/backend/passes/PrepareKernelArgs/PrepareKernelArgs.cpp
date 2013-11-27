@@ -16,7 +16,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Version.h"
 #include "llvm/ADT/SetVector.h"
 
-#include <algorithm>
 #include <sstream>
 #include <memory>
 

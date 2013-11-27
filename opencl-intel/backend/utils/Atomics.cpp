@@ -17,8 +17,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 namespace intel{
 // short implementation of atomics for thread-safe reference counter
 // written on base of llvm/Support/Atomic.h
-// our implementation is needed since this file is used in ocl_mic_executor
-// ocl_mic_executor is NOT using/linking LLVM libraries. That's the reason
+// our implementation is needed since this file is used in ocl_executor
+// that is NOT using/linking LLVM libraries. That's the reason
 // to implement own atomics
 namespace atomics {
 

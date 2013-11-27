@@ -428,6 +428,13 @@ int ClangFECompilerCompileTask::Compile()
   Clang->SetOutputStream(&IRStream);
   Clang->setDiagnostics(Diags.getPtr());
 
+  PreprocessorOptions &PPO = Clang->getPreprocessorOpts();
+
+  // Explicitly set the cl_khr_fp extension to 1, so double variable will be supported while building the PCH file
+  PPO.SupportedPragmas.cl_khr_fp64 = 1;
+  PPO.SupportedPragmas.cl_khr_depth_images = 1;
+  PPO.SupportedPragmas.cl_khr_3d_image_writes = 1;
+
   // Create compiler invocation from user args
   CompilerInvocation::CreateFromArgs(Clang->getInvocation(), argArray, argArray + ArgList.size(),
                                      *Diags);
@@ -1154,12 +1161,12 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     }    
 
     // all of the above must be valid
-	if ( !( pAddressQualifiers && pAccessQualifiers && pTypeNames && pTypeQualifiers && pArgNames ) ) {
+	if ( !( pAddressQualifiers && pAccessQualifiers && pTypeNames && pTypeQualifiers /*&& pArgNames*/ ) ) {
         assert(pAddressQualifiers && "pAddressQualifiers is NULL");
         assert(pAccessQualifiers && "pAccessQualifiers is NULL");
         assert(pTypeNames && "pTypeNames is NULL");
         assert(pTypeQualifiers && "pTypeQualifiers is NULL");
-        assert(pArgNames && "pArgNames is NULL");
+        //assert(pArgNames && "pArgNames is NULL");
         delete pModule;
         return CL_FE_INTERNAL_ERROR_OHNO;
 	}
@@ -1244,18 +1251,28 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         }
         STRCPY_S(argInfo.typeName, szTypeName.length() + 1, szTypeName.c_str());
 
-        // Parameter name
-        MDString* pArgName = dyn_cast<MDString>(pArgNames->getOperand(i));
-        assert(pArgName && "pArgName is not a valid MDString*");
+        if (pArgNames) {
+          // Parameter name
+          MDString* pArgName = dyn_cast<MDString>(pArgNames->getOperand(i));
+          assert(pArgName && "pArgName is not a valid MDString*");
 
-        string szArgName = pArgName->getString().str();
-        argInfo.name = new char[szArgName.length() + 1];
-        if (!argInfo.name)
-        {
-            delete pModule;
-            return CL_OUT_OF_HOST_MEMORY;
+          string szArgName = pArgName->getString().str();
+          argInfo.name = new char[szArgName.length() + 1];
+          if (!argInfo.name)
+          {
+              delete pModule;
+              return CL_OUT_OF_HOST_MEMORY;
+          }
+          STRCPY_S(argInfo.name, szArgName.length() + 1, szArgName.c_str());
+        } else {
+          argInfo.name = new char[1];
+          if (!argInfo.name)
+          {
+              delete pModule;
+              return CL_OUT_OF_HOST_MEMORY;
+          }
+          argInfo.name[0] = 0;
         }
-        STRCPY_S(argInfo.name, szArgName.length() + 1, szArgName.c_str());
     }
 
     delete pModule;

@@ -44,7 +44,7 @@ namespace intel {
   /// @brief       of 'named' pointer parameters
   /// @brief    3) Substitution of intrinsic function call with GAS pointer parameters 
   /// @brief       with that of 'named' parameters
-  /// @brief  All code modifications are done for unified memory case only (i.e., CPU/MIC)
+  /// @brief  All code modifications are done for unified memory case only
   class GenericAddressDynamicResolution : public ModulePass {
 
   public:
