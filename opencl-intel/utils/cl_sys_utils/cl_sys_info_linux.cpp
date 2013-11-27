@@ -335,7 +335,7 @@ unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
     if (0 == numProcessors)
     {
         affinityMask_t mask;
-        threadid_t mainThreadTID = getpid();
+        threadid_t mainThreadTID = (threadid_t)GetProcessId();
         clGetThreadAffinityMask(&mask, mainThreadTID);
         numProcessors = CPU_COUNT(&mask);
     }

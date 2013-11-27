@@ -40,7 +40,15 @@ ArenaHandler::ArenaHandler() :
     m_device(NULL), 
     m_uiMaxNumThreads(0), m_uiLevel(0)
 {
+    INIT_LOGGER_CLIENT("ArenaHandler", LL_INFO);
     memset( m_uiPosition, 0, sizeof(m_uiPosition) );
+}
+
+ArenaHandler::~ArenaHandler()
+{
+    RELEASE_LOGGER_CLIENT;
+    Terminate();
+    StopMonitoring();
 }
 
 void ArenaHandler::Init(
@@ -49,13 +57,15 @@ void ArenaHandler::Init(
             unsigned int uiLevel, const unsigned int p_uiPosition[],
             TEDevice*                     device)
 {
+    LOG_INFO(TEXT("ArenaHandler::Init(uiMaxNumThreads=%d, uiReservedPlacesForMasters=%d, uiLevel=%d)"), uiMaxNumThreads, uiReservedPlacesForMasters, uiLevel);
     m_uiMaxNumThreads = uiMaxNumThreads;
     m_uiLevel         = uiLevel;
     m_device          = device;
 
     MEMCPY_S( m_uiPosition, sizeof(m_uiPosition), p_uiPosition, sizeof(m_uiPosition) ); // assume same size
     
-    uiReservedPlacesForMasters = (uiReservedPlacesForMasters > uiMaxNumThreads) ? uiMaxNumThreads : uiReservedPlacesForMasters;
+    assert ( (uiReservedPlacesForMasters <= uiMaxNumThreads) && "Reserved slot for masters should not exceed the total amount of slots" );
+    assert (uiReservedPlacesForMasters <= 1 && "currently only single reservation is allowed for master"); // until TBB will add default constructor for Arenas
 
     if (m_uiLevel > 0) // position allocations is not used in top level arenas
     {
@@ -67,8 +77,7 @@ void ArenaHandler::Init(
         }
     }
 
-    // until TBB will add default constructor for Arenas
-    uiReservedPlacesForMasters = (uiReservedPlacesForMasters > 0) ? 1 : 0;
+    LOG_INFO(TEXT("Calling to task_arena::initialize(%d, %d)"), uiMaxNumThreads, uiReservedPlacesForMasters);
     m_arena.initialize( uiMaxNumThreads, uiReservedPlacesForMasters );
     StartMonitoring();
 }
@@ -143,6 +152,9 @@ TEDevice::TEDevice(  const RootDeviceCreationParam& device_desc, void* user_data
   m_deviceDescriptor( device_desc ), m_taskExecutor( taskExecutor ), m_userData( user_data ), m_observer( observer ), 
   m_pParentDevice( parent ), m_maxNumOfActiveThreads(0)
 {
+    INIT_LOGGER_CLIENT("TEDevice", LL_INFO);
+    LOG_INFO(TEXT("Initialized with levels=%d, %d threads on level 0"), m_deviceDescriptor.uiNumOfLevels, m_deviceDescriptor.uiThreadsPerLevel[0]);
+
     memset( m_lowLevelArenas, 0, sizeof(m_lowLevelArenas) );
 
     // calculate maximum number of threads
@@ -170,7 +182,9 @@ TEDevice::TEDevice(  const RootDeviceCreationParam& device_desc, void* user_data
         m_deviceDescriptor.uiNumOfExecPlacesForMasters = 0;
     }
 
-    m_mainArena.Init( m_deviceDescriptor.uiThreadsPerLevel[0], m_deviceDescriptor.uiNumOfExecPlacesForMasters, 
+    LOG_INFO(TEXT("Initializing main arena with %d threads, reserved master slots %d, level = %d"),
+        m_maxNumOfActiveThreads, m_deviceDescriptor.uiNumOfExecPlacesForMasters, 0);
+    m_mainArena.Init( m_maxNumOfActiveThreads, m_deviceDescriptor.uiNumOfExecPlacesForMasters,
                       0, position, this );
     if ( m_deviceDescriptor.uiNumOfLevels > 1)
     {
@@ -262,25 +276,27 @@ void TEDevice::ShutDown()
     m_userData = NULL; // to be on the safe side
 
     // 5. Signal all arenas to terminate
-	for (unsigned int i =  m_deviceDescriptor.uiNumOfLevels-1; i > 0  ; --i)
-	{
-		ArenaHandler* ar = m_lowLevelArenas[i-1];
-		assert( (NULL != ar) && "Low level arena array in NULL for hierarchical arenas?" );
-		for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[ i ]; ++i)
-		{
-			ar[j].Terminate();
-		}
-	}
-	m_mainArena.Terminate();
+    for (unsigned int i =  m_deviceDescriptor.uiNumOfLevels-1; i > 0  ; --i)
+    {
+        ArenaHandler* ar = m_lowLevelArenas[i-1];
+        assert( (NULL != ar) && "Low level arena array in NULL for hierarchical arenas?" );
+        for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[ i ]; ++i)
+        {
+            ar[j].Terminate();
+        }
+    }
+    m_mainArena.Terminate();
 
     m_state = SHUTTED_DOWN;
+    LOG_INFO(TEXT("%s"),"Shutdown completed");
+    RELEASE_LOGGER_CLIENT;
 }
 
 bool TEDevice::AreEnqueuedTasks() const
 {
-	// Not used for now. When we use it, we'll implement it with a counter that is incremented whenever a task is enqueued.
-	assert(false && "TEDevice::AreEnqueuedTasks() Not implemented");
-	return false;
+    // Not used for now. When we use it, we'll implement it with a counter that is incremented whenever a task is enqueued.
+    assert(false && "TEDevice::AreEnqueuedTasks() Not implemented");
+    return false;
 }
 
 void TEDevice::free_thread_arenas_resources( TBB_PerActiveThreadData* tls, unsigned int starting_level )
@@ -323,8 +339,8 @@ void TEDevice::DetachMasterThread()
     TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
     TBB_PerActiveThreadData* tls = thread_manager.RegisterAndGetCurrentThreadDescriptor();
 
-	tls->reset();
-	thread_manager.UnregisterCurrentThread();
+    tls->reset();
+    thread_manager.UnregisterCurrentThread();
 }
 
 void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
@@ -502,7 +518,7 @@ bool TEDevice::on_scheduler_leaving( ArenaHandler& arena )
         may_leave = (TE_YES == user_answer);
     }
 
-    return may_leave;	
+    return may_leave;
 }
 void TEDevice::ResetObserver()
 { 
@@ -510,23 +526,25 @@ void TEDevice::ResetObserver()
 }
 void TEDevice::SetObserver(ITaskExecutorObserver* pObserver)
 {
-	    if ( (NULL==pObserver) && (NULL != m_observer) )
-	    {
-	    	m_mainArena.observe(false);
-	    	m_numOfActiveThreads = 0;
-			m_observer = NULL;
-			return;
-	    }
-		
-       	m_observer = pObserver;
+        if ( (NULL==pObserver) && (NULL != m_observer) )
+        {
+            m_mainArena.observe(false);
+            m_numOfActiveThreads = 0;
+            m_observer = NULL;
+            return;
+        }
 
-	// Looks a raise in this place, but since it's relevant only for MIC we don't have an issue
+           m_observer = pObserver;
+
+    // Looks a raise in this place, but since it's relevant only for MIC we don't have an issue
     m_mainArena.observe(true);
 }
 
 
 SharedPtr<ITEDevice> TEDevice::CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_data ) 
 {
+    LOG_INFO(TEXT("Creating sub-device with %d compute units"), uiNumSubdevComputeUnits);
+
     RootDeviceCreationParam device_desc( m_deviceDescriptor );
 
     if ((uiNumSubdevComputeUnits < device_desc.uiThreadsPerLevel[0]) && (uiNumSubdevComputeUnits > 0))
@@ -542,7 +560,7 @@ SharedPtr<ITEDevice> TEDevice::CreateSubDevice( unsigned int uiNumSubdevComputeU
 
 SharedPtr<ITaskList> TEDevice::CreateTaskList(const CommandListCreationParam& param)
 {
-	SharedPtr<ITaskList> pList = NULL;
+    SharedPtr<ITaskList> pList = NULL;
 
     assert( (TE_CMD_LIST_PREFERRED_SCHEDULING_LAST > param.preferredScheduling) && "Trying to create TaskExecutor Command list with unknown scheduler" );
 
@@ -558,7 +576,7 @@ SharedPtr<ITaskList> TEDevice::CreateTaskList(const CommandListCreationParam& pa
             break;
 
         case TE_CMD_LIST_OUT_OF_ORDER:
-			pList = out_of_order_command_list::Allocate(m_taskExecutor, this, param);
+            pList = out_of_order_command_list::Allocate(m_taskExecutor, this, param);
             break;
 
         case TE_CMD_LIST_IMMEDIATE:
@@ -569,23 +587,39 @@ SharedPtr<ITaskList> TEDevice::CreateTaskList(const CommandListCreationParam& pa
             assert( false && "Trying to create TaskExecutor Command list with unknown type");
     }
 
-	return pList;
+    return pList;
 }
 
 /**
-	* Retrives concurrency level for the device
-	* @return pointer to the new list or NULL on error
-	*/
+    * Retrives concurrency level for the device
+    * @return pointer to the new list or NULL on error
+    */
 int TEDevice::GetConcurrency() const
 {
-	assert ( (1 == m_deviceDescriptor.uiNumOfLevels)  && "Currently only single level devices are supported");
+    assert ( (1 == m_deviceDescriptor.uiNumOfLevels)  && "Currently only single level devices are supported");
 
-	return m_deviceDescriptor.uiThreadsPerLevel[0];
+    return m_deviceDescriptor.uiThreadsPerLevel[0];
 }
 
 #ifdef __HARD_TRAPPING__
+
+struct TrapperRunner
+{
+protected:
+    tbb::Harness::TbbWorkersTrapper& my_trapper;
+public:
+    TrapperRunner(tbb::Harness::TbbWorkersTrapper& trapper) : my_trapper(trapper) {};
+
+    void operator()(void)
+    {
+        my_trapper();
+    }
+};
+
 bool TEDevice::AcquireWorkerThreads(int num_workers, int timeout)
 {
+    LOG_INFO(TEXT("Acquiring %d threads, timeout %d"), num_workers, timeout);
+
     if ( -1 == num_workers )
     {
         num_workers = GetConcurrency();
@@ -594,7 +628,7 @@ bool TEDevice::AcquireWorkerThreads(int num_workers, int timeout)
       num_workers = m_numOfActiveThreads;
     }
 
-    tbb::Harness::TbbWorkersTrapper* new_trapper = new tbb::Harness::TbbWorkersTrapper(num_workers);
+    tbb::Harness::TbbWorkersTrapper* new_trapper = new tbb::Harness::TbbWorkersTrapper(num_workers, true);
     tbb::Harness::TbbWorkersTrapper* old_trapper = m_worker_trapper.test_and_set(NULL, new_trapper);
     assert( NULL == old_trapper && "Another trapper already exists");
     if ( NULL != old_trapper )
@@ -605,7 +639,11 @@ bool TEDevice::AcquireWorkerThreads(int num_workers, int timeout)
     }
 
     // Execute trapper
-    m_mainArena.Execute(*new_trapper);
+    TrapperRunner runner(*new_trapper);
+    m_mainArena.Enqueue(runner);
+    new_trapper->Wait();
+
+    LOG_INFO(TEXT("Acquired %d threads"), new_trapper->GetTrappedThreadCount());
     return true;
 }
 
@@ -617,6 +655,7 @@ void TEDevice::RelinquishWorkerThreads()
       return;
 
     delete trapper;
+    LOG_INFO(TEXT("%s"), "Threads Relinquished");
 }
 #endif // __HARD_TRAPPING__
 

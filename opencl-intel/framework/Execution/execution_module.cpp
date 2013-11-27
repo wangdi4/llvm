@@ -683,7 +683,7 @@ cl_err_code ExecutionModule::WaitForEvents( cl_uint uiNumEvents, const cl_event*
     // to flush all queues in the context.
     FlushAllQueuesForContext(clEventsContext);
 
-    // This call is blocking.    
+    // This call is blocking
     errVal = m_pEventsManager->WaitForEvents(uiNumEvents, cpEventList);
     if ( CL_INVALID_EVENT_WAIT_LIST == errVal )
     {

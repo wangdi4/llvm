@@ -85,7 +85,7 @@ TEST_F(CRT12_VR274_280, LinkProgram_vr274){
 	// set up shared context, program and queues with kernel1
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
 
-	//	create and build programs with 2 kernel
+	//	create and compile programs with 2 kernel
 	
 	ASSERT_NO_FATAL_FAILURE(createAndCompileProgramWithSource("simple_kernels.cl", &programs[0], ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
 	ASSERT_NO_FATAL_FAILURE(createAndCompileProgramWithSource("simple_kernels2.cl", &programs[1], ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
@@ -129,21 +129,18 @@ TEST_F(CRT12_VR274_280, LinkProgramForCPU_vr280){
 	// set up shared context, program and queues with kernel1
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
 
-	//	create and build programs with 2 kernel	
+	//	create and compile programs with 2 kernel	
 	ASSERT_NO_FATAL_FAILURE(createAndCompileProgramWithSource("simple_kernels.cl", &programs[0], ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
 	ASSERT_NO_FATAL_FAILURE(createAndCompileProgramWithSource("simple_kernels2.cl", &programs[1], ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
 	
 	//link the two programs
 	ASSERT_NO_FATAL_FAILURE(linkProgram(ocl_descriptor.context,1,&ocl_descriptor.devices[0],NULL,2, programs, &linked_prog));
 
-	//build the linked program
-	//ASSERT_NO_FATAL_FAILURE(buildProgram(&linked_prog,1,&ocl_descriptor.devices[0],NULL,NULL,NULL));
-
 	//create buffer
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.in_common_buffer,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int4),array.dynamic_array));
 
 	//create kernel 
-	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels,linked_prog,"kernel_1"));
+	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels,linked_prog,"kernel_18"));
 
 	//set kernel arg
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),&ocl_descriptor.in_common_buffer));
@@ -176,7 +173,7 @@ TEST_F(CRT12_VR274_280, LinkProgramForCPU_vr280){
 //|	Pass criteria
 //|	-------------
 //|
-//|	kernel should run on CPU and GPU. 
+//|	kernel should run on GPU but not on CPU. 
 //|
 
 
@@ -191,18 +188,14 @@ TEST_F(CRT12_VR274_280, LinkProgramForGPU_vr281){
 	// set up shared context, program and queues with kernel1
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
 
-	//	create and build programs with 2 kernel	
+	//	create and compile programs with 2 kernel	
 	ASSERT_NO_FATAL_FAILURE(createAndCompileProgramWithSource("simple_kernels.cl", &programs[0], ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
 	ASSERT_NO_FATAL_FAILURE(createAndCompileProgramWithSource("simple_kernels2.cl", &programs[1], ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
 	
 	//link the two programs
-	ASSERT_NO_FATAL_FAILURE(linkProgram(ocl_descriptor.context,1,&ocl_descriptor.devices[0],NULL,2, programs, &linked_prog));
-
-	//build the linked program
-
-  //ASSERT_NO_FATAL_FAILURE(buildProgram(&linked_prog,1,&ocl_descriptor.devices[1],NULL,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(linkProgram(ocl_descriptor.context,1,&ocl_descriptor.devices[1],NULL,2, programs, &linked_prog));
 	
-  //create buffer
+	//create buffer
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.in_common_buffer,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int4),array.dynamic_array));
 
 	//create kernel 
@@ -216,7 +209,7 @@ TEST_F(CRT12_VR274_280, LinkProgramForGPU_vr281){
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
 
 	// enqueue kernel on CPU 
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
+	ASSERT_NE(CL_SUCCESS,clEnqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL)) << "clEnqueueNDRangeKernel should not succed";
 
 }
 
@@ -239,7 +232,7 @@ TEST_F(CRT12_VR274_280, LinkProgramForGPU_vr281){
 //|	Pass criteria
 //|	-------------
 //|
-//|	kernel should run on CPU but not on GPU. 
+//|	kernel should run on CPU and on GPU. 
 //|
 
 
@@ -248,24 +241,24 @@ TEST_F(CRT12_VR274_280, LinkProgramForGPUCPU_vr282){
 	size_t global_work_size = 1;
 	size_t local_work_size = 1;
 	DynamicArray<cl_int> array(4);
-	cl_program extra_program;
+	cl_program programs[2];
+	cl_program linked_prog = NULL;
 	cl_int one=1;
 	// set up shared context, program and queues with kernel1
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
 
-	//	create and build program with kernel2
-	ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSource("simple_kernels2.cl", &extra_program, ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
+	//	create and compile programs with 2 kernel	
+	ASSERT_NO_FATAL_FAILURE(createAndCompileProgramWithSource("simple_kernels.cl", &programs[0], ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
+	ASSERT_NO_FATAL_FAILURE(createAndCompileProgramWithSource("simple_kernels2.cl", &programs[1], ocl_descriptor.context, 2, ocl_descriptor.devices, NULL, NULL, NULL));
 
-	cl_program prog_list[2]={extra_program,ocl_descriptor.program};
-	cl_program out_program = NULL;
 	//link the two programs
-	ASSERT_NO_FATAL_FAILURE(linkProgram(ocl_descriptor.context,2,ocl_descriptor.devices,NULL,2, prog_list, &out_program));
+	ASSERT_NO_FATAL_FAILURE(linkProgram(ocl_descriptor.context,2,ocl_descriptor.devices,NULL,2, programs, &linked_prog));
 
 	//create buffer
 	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.in_common_buffer,ocl_descriptor.context,CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,sizeof(cl_int4),array.dynamic_array));
 
 	//create kernel 
-	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels,out_program,"kernel_18"));
+	ASSERT_NO_FATAL_FAILURE(createKernel(ocl_descriptor.kernels,linked_prog,"kernel_18"));
 
 	//set kernel arg
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),&ocl_descriptor.in_common_buffer));
@@ -275,6 +268,6 @@ TEST_F(CRT12_VR274_280, LinkProgramForGPUCPU_vr282){
 	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
 
 	//enqueue kernel on CPU
-	ASSERT_NE(CL_SUCCESS,clEnqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL)) << "clEnqueueNDRangeKernel should not succed";;
+    ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size,0,NULL,NULL));
 
 }

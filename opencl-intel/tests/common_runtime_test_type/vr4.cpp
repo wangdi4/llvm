@@ -301,40 +301,6 @@ if(isAccelerator()){ //MIC has diffrent extentions
 	ASSERT_EQ(CL_INVALID_QUEUE_PROPERTIES, errcode_ret) << "clCreateCommandQueue failed"; 
 }
 
-//|	TEST: VR4.GPUCreateSubDevicesWithNull (TC-23-1)
-//|
-//|	Purpose
-//|	-------
-//|	
-//|	Verify that the extension cl_ext_device_fission is not supported by GPU device when a NULL argument is sent
-//|
-//|	Method
-//|	------
-//|
-//|	1. Call clCreateSubDevices() with NULL arguments
-//|	2. assert the result (should fail)
-//|	
-//|	Pass criteria
-//|	-------------
-//|
-//|	GPU sub-devices should fail.
-//|
-TEST_F(VR4, GPUCreateSubDevicesWithNull){
-	
-	if(isAccelerator()){ //not suported on MIC
-		return;
-	}
-	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_EQUALLY,2,0};
-	
-	//get GPU device
-	ASSERT_NO_FATAL_FAILURE(getGPUDevice(ocl_descriptor.platforms, ocl_descriptor.devices));
-	
-	//try to get sub devices from GPU
-	cl_int errcode_ret = clCreateSubDevices(ocl_descriptor.devices[0],properties,2,NULL,NULL); 
-	ASSERT_EQ(CL_INVALID_DEVICE, errcode_ret) << "clCreateSubDevice did not fail"; 
-}
-
-
 //TODO: Uncomment the following code when this extension is supported
 
 /*

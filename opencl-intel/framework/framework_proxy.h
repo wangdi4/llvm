@@ -190,7 +190,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         static  FrameworkProxy * m_pInstance;
 
         static KHRicdVendorDispatch        ICDDispatchTable;
-        static COCLCRTDispatchTable        CRTDispatchTable;
+        static SOCLCRTDispatchTable        CRTDispatchTable;
         static ocl_entry_points     OclEntryPoints;
 
         static void InitOCLEntryPoints();

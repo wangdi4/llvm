@@ -22,13 +22,28 @@
 ///////////////////////////////////////////////////////////
 #pragma once
 
+#include <string>
+
 #include "crt_types.h"
-#include "stdlib.h"
+
 
 namespace OCLCRT
 {
 namespace Utils
 {
+
+inline std::string FormatLibNameForOS( std::string &libName )
+{
+    std::string retName;
+#if defined( _WIN64 )
+    retName = libName + "64.dll";
+#elif defined( _WIN32 )
+    retName = libName + "32.dll";
+#else // Linux/Android
+    retName = "lib" + libName + ".so";
+#endif
+    return retName;
+}
 
 #if defined( _WIN32 )
 inline bool GetStringValueFromRegistry( HKEY       top_hkey,
@@ -74,16 +89,24 @@ inline bool GetStringValueFromRegistry( HKEY       top_hkey,
 
 #endif
 
-inline bool GetCpuPathFromRegistry( char *pCpuPath )
+inline bool GetCpuPathFromRegistry( std::string &cpuPath )
 {
 #if defined( _WIN32 )
     const char *regPath = "SOFTWARE\\Intel\\OpenCL";
+    char pCpuPath[MAX_PATH];
+    bool retVal = GetStringValueFromRegistry( HKEY_LOCAL_MACHINE, regPath, "cpu_path", pCpuPath, MAX_PATH );
 
-    // pCpuPath is expected to be MAX_PATH in size
-    if( NULL != pCpuPath )
+    if( retVal )
     {
-        return GetStringValueFromRegistry( HKEY_LOCAL_MACHINE, regPath, "cpu_path", pCpuPath, MAX_PATH );
+        cpuPath = pCpuPath;
+#if defined( _WIN64 )
+        cpuPath = cpuPath + "\\bin\\x64";
+#else // _WIN32
+        cpuPath = cpuPath + "\\bin\\x86";
+#endif
     }
+    return retVal;
+
 #endif
     return false;
 }

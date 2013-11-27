@@ -222,14 +222,22 @@ cl_err_code IOclCommandQueueBase::WaitForCompletion(const SharedPtr<QueueEvent>&
     cl_dev_err_code ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(
         m_clDevCmdListId, pCmdDesc);
 
-    OclEventState color = pEvent->GetEventState();
+    // If device does't supporting waiting, need to call explicit Wait() method
+    if ( CL_DEV_NOT_SUPPORTED == ret )
+    {
+        pEvent->Wait();
+        ret = CL_DEV_SUCCESS;
+        // After wait completed we should continue to regular execution path
+    }
+
+    OclEventState state = pEvent->GetEventState();
     
-    while ( CL_DEV_SUCCEEDED(ret) && (EVENT_STATE_DONE != color) )
+    while ( CL_DEV_SUCCEEDED(ret) && (EVENT_STATE_DONE != state) )
     {
         clSleep(0);
         ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(
                 m_clDevCmdListId, pCmdDesc);
-        color = pEvent->GetEventState();
+        state = pEvent->GetEventState();
     }
 
 

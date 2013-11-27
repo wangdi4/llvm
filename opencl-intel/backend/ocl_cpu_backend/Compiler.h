@@ -48,22 +48,22 @@ class ProgramBuildResult;
 namespace Utils
 {
 /**
- * Class used to block the destruction of Compiler internal data 
+ * Class used to block the destruction of Compiler internal data
  * after backend dll unload
  *
- * Problem: 
+ * Problem:
  * OCL SDK permit declaration of static OCL object (like Context)
  * that may hold the pointer to backend object (CompilerService for example)
  * The problem with such approach is that upon application termination the
  * backend dll could be unloaded prior to the above static object destruction.
  *
- * Solution: 
- * We define the special static object ( that would be initilized after 
+ * Solution:
+ * We define the special static object ( that would be initilized after
  * any other static object in OCL SDK ). Upon backend dll unload this static object's
  * destructor will be called first and will set the special flag. Using this flag,
- * other backend objects (Compiler, CompilerService) may decide to abort their 
+ * other backend objects (Compiler, CompilerService) may decide to abort their
  * desctuction in order to avoid crashes.
- * 
+ *
  */
 class TerminationBlocker
 {
@@ -77,7 +77,7 @@ private:
 
 //*****************************************************************************************
 // Represent the build specific options passed to the compiler upon BuildProgram call
-// 
+//
 class CompilerBuildOptions
 {
 public:
@@ -103,7 +103,7 @@ public:
     int  GetAPFLevel()      const { return m_APFLevel; }
 
 private:
-    bool m_debugInfo; 
+    bool m_debugInfo;
     bool m_profiling;
     bool m_disableOpt;
     bool m_relaxedMath;
@@ -115,22 +115,22 @@ private:
 
 //*****************************************************************************************
 // Represents the result of program build Holds the build result code and build log
-// 
+//
 class ProgramBuildResult
 {
 public:
     ProgramBuildResult();
 
     bool Succeeded() const;
-    
+
     bool Failed() const;
-    
+
     std::string GetBuildLog() const;
-    
+
     llvm::raw_ostream& LogS();
 
     void SetBuildResult( cl_dev_err_code code );
-    
+
     cl_dev_err_code GetBuildResult() const;
 
 private:
@@ -140,7 +140,7 @@ private:
 };
 
 //*****************************************************************************************
-// Provides the module optimization and code generation functionality. 
+// Provides the module optimization and code generation functionality.
 //
 class Compiler
 {
@@ -220,7 +220,8 @@ private:
     // Disable copy ctor and assignment operator
     Compiler( const Compiler& );
     bool operator = (const Compiler& );
-
+    // Check if given program is valid for the target.
+    bool isProgramValid(llvm::Module*, ProgramBuildResult*) const;
 };
 
 void UpdateTargetTriple(llvm::Module *pModule);

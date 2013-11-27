@@ -1,6 +1,7 @@
 #include "host_program_common.h"
 #include "test_utils.h"
 #include "cl_utils.h"
+#include "test_pipe_thread.h"
 #include <iostream>
 #include <cstdio>
 #include <fstream>
@@ -89,12 +90,12 @@ HostProgramFunc get_host_program_by_name(string name)
         return host_1d_float4_with_size;
     else if (name == "struct_kernel_arg")
         return host_struct_kernel_arg;
-	else if (name == "images_and_struct")
-		return host_images_and_struct;
-	else if (name == "local_global")
-		return host_local_global;
-	else if (name == "task")
-		return host_task;
+    else if (name == "images_and_struct")
+        return host_images_and_struct;
+    else if (name == "local_global")
+        return host_local_global;
+    else if (name == "task")
+        return host_task;
     throw runtime_error("Unknown host program: '" + name + "'");
 }
 
@@ -104,6 +105,15 @@ int main(int argc, char** argv)
     int rc;
     DTT_LOG("<---------------------------------");
     DTT_LOG("Starting debug_test_type");
+
+#ifdef _WIN32
+    // Create a thread that will simulate client configuration write
+    NamedPipeThread *thread = new NamedPipeThread();
+    thread->Start();
+    
+    // Allow thread to run (write the data)
+    Sleep(1000);
+#endif
 
     vector<string> args = read_commandline(argc, argv);
 
@@ -203,6 +213,11 @@ int main(int argc, char** argv)
         cerr << "Error: " << err.what() << endl;
         rc = 1;
     }
+
+#ifdef _WIN32
+    // Wait for thread to finish
+    thread->Join();
+#endif _WIN32
 
     DTT_LOG("debug_test_type done.");
     DTT_LOG("--------------------------------->");

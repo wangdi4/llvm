@@ -529,7 +529,7 @@ release_end:
 /********************************************************************************************************/
 bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 {
-	const size_t element_size = sizeof(long);
+	const size_t element_size = sizeof(cl_long);
 	const size_t num_element_in_sub_buffer = 512;
 	const size_t sub_buffer_size_in_bytes = num_element_in_sub_buffer * element_size;
 	bool         bResult = true;
@@ -544,8 +544,8 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 	cl_mem clParentBuff = NULL;
 	cl_mem* clSubBuffArr = NULL;
 
-	cl_program program;
-    cl_kernel  kernel;
+        cl_program program = NULL;
+        cl_kernel  kernel = NULL;
 
 	cl_command_queue* clCommandQueues = NULL;
 

@@ -41,6 +41,11 @@
 
 #include<stdlib.h>
 
+// ALERT!!!! DK!!! workaround until MPSS will be updated on all machines
+#ifndef COI_OPTIMIZE_NO_DMA
+    #define COI_OPTIMIZE_NO_DMA 0
+#endif
+
 #define KILOBYTE 1024
 #define MEGABYTE (1024*KILOBYTE)
 
@@ -111,7 +116,7 @@ void MemoryAllocator::Release( void )
 }
 
 MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, unsigned long long maxAllocSize ):
-    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_maxAllocSize(maxAllocSize)
+    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_maxAllocSize(maxAllocSize), m_no_dma_enabled(false)
 {
 	const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
     m_2M_BufferMinSize         = tMicConfig.Device_2MB_BufferMinSizeInKB() * KILOBYTE;
@@ -123,6 +128,7 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, un
     }
     
     m_force_immediate_transfer = !(tMicConfig.Device_LazyTransfer());
+    m_no_dma_enabled           = tMicConfig.Device_UseNoDma();
     
     if ( NULL != logDesc )
     {
@@ -383,13 +389,23 @@ cl_dev_err_code MICDevMemoryObject::Init()
     uint32_t flags[2] = {0, 0}; 
     flags [ (m_Allocator.Use_2M_Pages(m_raw_size)) ? 0 : 1] = (m_Allocator.Use_2M_Pages_Enabled()) ? COI_OPTIMIZE_HUGE_PAGE_SIZE : 0;
 
-    COIRESULT coi_err;
+    //
+    // If user does not request memory usage on host assume the buffer will be mostly used as a temporary device-only buffer.
+    // This will not disable later mappings and buffer relocations to other devices but will perform mamory pinning on the host 
+    // by demand and not upfront.
+    //
+    uint32_t no_dma = 0;
+    if ((0 == ((CL_MEM_USE_HOST_PTR|CL_MEM_ALLOC_HOST_PTR) & m_memFlags)) && m_Allocator.Use_NoDma_Enabled())
+    {
+        no_dma = COI_OPTIMIZE_NO_DMA;
+    }
     
+    COIRESULT coi_err;
     for (unsigned int i = 0; i < ARRAY_ELEMENTS(flags); ++i)
     {
         coi_err = COIBufferCreateFromMemory(
                                 m_raw_size, COI_BUFFER_OPENCL, 
-                                flags[i],
+								flags[i] | no_dma,
                                 m_objDescr.pData,
                                 m_buffActiveProcesses.size(), &(m_buffActiveProcesses[0]),
                                 &m_coi_buffer);

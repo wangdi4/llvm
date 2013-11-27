@@ -332,16 +332,33 @@ void buildProgram (cl_program* program, cl_uint num_devices, const cl_device_id 
 	{
 		if(CL_SUCCESS != errcode_ret)
 		{
-			//	prints build fail log
 			cl_int logStatus;
+            cl_build_status build_status;
+            // check which device failed in build
+            cl_uint chosen_device;
+            for (chosen_device = 0; chosen_device < num_devices; chosen_device++)
+            {
+                logStatus = clGetProgramBuildInfo(*program, device_list[chosen_device], CL_PROGRAM_BUILD_STATUS, sizeof(build_status), &build_status, NULL);
+                ASSERT_EQ(CL_SUCCESS, logStatus)  << "Geting the build status failed";
+
+                if (build_status != CL_BUILD_SUCCESS)
+                {
+                    // found a failing device
+                    break;
+                }
+            }
+
+            ASSERT_TRUE(chosen_device < num_devices)  << "All devices reported build success while clBuildProgram reported failure";
+
+			//	prints build fail log
 			char * buildLog = NULL;
 			size_t buildLogSize = 0;
-			logStatus = clGetProgramBuildInfo(*program, device_list[0], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, &buildLogSize);
+			logStatus = clGetProgramBuildInfo(*program, device_list[chosen_device], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, &buildLogSize);
 
 			buildLog = (char*) malloc(buildLogSize);
 			memset(buildLog, 0, buildLogSize);
 
-			logStatus = clGetProgramBuildInfo(*program, device_list[0], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL);
+			logStatus = clGetProgramBuildInfo(*program, device_list[chosen_device], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL);
 
 			std::cout << " \n\t\t\tBUILD LOG\n";
 			std::cout << " ************************************************\n";

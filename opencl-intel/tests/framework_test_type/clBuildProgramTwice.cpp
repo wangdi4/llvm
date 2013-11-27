@@ -16,116 +16,105 @@
 * (5) build program again
 **************************************************************************************************/
 
+extern cl_device_type gDeviceType;
+
 bool clBuildProgramTwiceTest()
 {
-	bool bResult = true;
-	const char *ocl_test_program[] = {\
-	"__kernel void test_kernel(__global char16* pBuff0, __global char* pBuff1, __global char* pBuff2, image2d_t __read_only test_image)"\
-	"{"\
-	"	size_t id = get_global_id(0);"\
-	"	pBuff0[id] = pBuff1[id] ? pBuff0[id] : pBuff2[id];"\
-	"}"
-	};
+    bool bResult = true;
+    const char *ocl_test_program[] = {\
+    "__kernel void test_kernel(__global char16* pBuff0, __global char* pBuff1, __global char* pBuff2, image2d_t __read_only test_image)"\
+    "{"\
+    "    size_t id = get_global_id(0);"\
+    "    pBuff0[id] = pBuff1[id] ? pBuff0[id] : pBuff2[id];"\
+    "}"
+    };
 
-	printf("clBuildProgramTwiceTest\n");
-	cl_uint uiNumDevices = 0;
-	cl_device_id * pDevices;
-	size_t * pBinarySizes;
-	cl_int * pBinaryStatus; 
-	cl_context context;
-	cl_program clProg;
+    printf("clBuildProgramTwiceTest\n");
 
-	cl_platform_id platform = 0;
+    cl_platform_id platform = 0;
 
-	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
+    bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    if (!bResult)
+    {
+        return bResult;
+    }
 
-	if (!bResult)
-	{
-		return bResult;
-	}
+    cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
-	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+    cl_uint uiNumDevices = 0;
+    // get device(s)
+    iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
+    if (CL_SUCCESS != iRet)
+    {
+        printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
+        return false;
+    }
 
-	// get device(s)
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &uiNumDevices);
-	if (CL_SUCCESS != iRet)
-	{
-		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
-		return false;
-	}
+    std::vector<cl_device_id> devices(uiNumDevices);
+    iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, &devices[0], NULL);
+    if (CL_SUCCESS != iRet)
+    {
+        printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
+        return false;
+    }
 
-	// initialize arrays
-	pDevices = new cl_device_id[uiNumDevices];
-	pBinarySizes = new size_t[uiNumDevices];
-	pBinaryStatus = new cl_int[uiNumDevices];
+    // check if all devices support images
+    cl_bool isImagesSupported = CL_TRUE;
+    for (unsigned int i = 0; i < uiNumDevices; ++i)
+    {
+        iRet = clGetDeviceInfo(devices[i], CL_DEVICE_IMAGE_SUPPORT, sizeof(cl_bool), &isImagesSupported, NULL);
+        bResult = Check(L"clGetDeviceInfo(CL_DEVICE_IMAGE_SUPPORT)", CL_SUCCESS, iRet);
+        if (!bResult)
+        {
+            return bResult;
+        }
+        // We build program on all the devices, so build is expected to fail
+        // if at least one of them doesn't support images.
+        if (isImagesSupported == CL_FALSE) break;
+    }
 
-	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, uiNumDevices, pDevices, NULL);
-	if (CL_SUCCESS != iRet)
-	{
-		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		return false;
-	}
+    // create context
+    cl_context context = clCreateContext(prop, uiNumDevices, &devices[0], NULL, NULL, &iRet);
+    if (CL_SUCCESS != iRet)
+    {
+        printf("clCreateContext = %s\n",ClErrTxt(iRet));
+        return false;
+    }
+    printf("context = %p\n", (void*)context);
 
-	// create context
-	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	if (CL_SUCCESS != iRet)
-	{
-		printf("clCreateContext = %s\n",ClErrTxt(iRet));
-		delete []pDevices;
-		delete []pBinarySizes;
-		delete []pBinaryStatus;
-		return false;
-	}
-	printf("context = %p\n", context);
-
-    clProg = clCreateProgramWithSource(context, 1, ocl_test_program, NULL, &iRet);
-	if (CL_SUCCESS != iRet)
-	{
-		printf("clCreateProgramWithSource = %s\n",ClErrTxt(iRet));
-        delete []pDevices;
-	    delete []pBinarySizes;
-	    delete []pBinaryStatus;
+    cl_program clProg = clCreateProgramWithSource(context, 1, ocl_test_program, NULL, &iRet);
+    if (CL_SUCCESS != iRet)
+    {
+        printf("clCreateProgramWithSource = %s\n",ClErrTxt(iRet));
         clReleaseContext(context);
 
-		return false;
-	}
-	printf("program id = %p\n", clProg);
+        return false;
+    }
+    printf("program id = %p\n", (void*)clProg);
 
-	iRet = clBuildProgram(clProg, uiNumDevices, pDevices, "-cl-denorms-are-zero", NULL, NULL);
-    if (CL_SUCCESS != iRet)
-	{
-		printf("first clBuildProgram = %s\n",ClErrTxt(iRet));
-        delete []pDevices;
-	    delete []pBinarySizes;
-	    delete []pBinaryStatus;
+    iRet = clBuildProgram(clProg, uiNumDevices, &devices[0], "-cl-denorms-are-zero", NULL, NULL);
+    if (((CL_SUCCESS != iRet) && (CL_TRUE == isImagesSupported)) || ((CL_BUILD_PROGRAM_FAILURE != iRet) && (CL_FALSE == isImagesSupported)))
+    {
+        printf("first clBuildProgram = %s\n",ClErrTxt(iRet));
         clReleaseContext(context);
         clReleaseProgram(clProg);
 
-		return false;
-	}
+        return false;
+    }
 
-    iRet = clBuildProgram(clProg, uiNumDevices, pDevices, "-cl-denorms-are-zero", NULL, NULL);
-    if (CL_SUCCESS != iRet)
-	{
-		printf("second clBuildProgram = %s\n",ClErrTxt(iRet));
-        delete []pDevices;
-	    delete []pBinarySizes;
-	    delete []pBinaryStatus;
+    iRet = clBuildProgram(clProg, uiNumDevices, &devices[0], "-cl-denorms-are-zero", NULL, NULL);
+    if (((CL_SUCCESS != iRet) && (CL_TRUE == isImagesSupported)) || ((CL_BUILD_PROGRAM_FAILURE != iRet) && (CL_FALSE == isImagesSupported)))
+    {
+        printf("second clBuildProgram = %s\n",ClErrTxt(iRet));
         clReleaseContext(context);
         clReleaseProgram(clProg);
 
-		return false;
-	}
+        return false;
+    }
 
     // Release objects
-	delete []pDevices;
-	delete []pBinarySizes;
-	delete []pBinaryStatus;
     clReleaseProgram(clProg);
     clReleaseContext(context);
-	return bResult;
+    return bResult;
 }

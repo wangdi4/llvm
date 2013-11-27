@@ -950,7 +950,14 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     mostInnerLoop = false;
   } while (L && !L->contains(BBexit));
 
-  if (!LI->getLoopFor(BB)->getExitingBlock() || m_WIA->whichDepend(br) != WIAnalysis::UNIFORM) {
+  L = LI->getLoopFor(BB);
+
+  // If there is more than on exit block or
+  // the branch is not uniform or
+  // the branch is nested
+  if (!L->getExitingBlock() ||
+      m_WIA->whichDepend(br) != WIAnalysis::UNIFORM ||
+      !isAlwaysFollowedBy(L, BB)) {
     /// ----  Create the exit condition. When to leave the loop
     V_ASSERT(m_allzero && "Unable to find allzero func");
     CallInst *call_allzero =

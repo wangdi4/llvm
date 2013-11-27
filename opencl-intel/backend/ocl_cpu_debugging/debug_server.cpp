@@ -451,14 +451,16 @@ bool DebuggingIsEnabled()
 }
 
 
-bool InitDebugServer()
+bool InitDebugServer(unsigned int port_number)
 {
+#ifndef _WIN32
     if (!DebuggingIsEnabled())
         return true;
+#endif
 
     // Debugging enabled: try to initialize the server.
     //
-    if (!DebugServer::GetInstance().Init())
+    if (!DebugServer::GetInstance().Init(port_number))
         return false;
     DebugServer::GetInstance().WaitForStartCommand();
     return true;
@@ -701,12 +703,18 @@ DebugServer::~DebugServer()
 }
 
 
-bool DebugServer::Init()
+bool DebugServer::Init(unsigned int port_number)
 {
-    if (d->m_initialized || !DebuggingIsEnabled())
+    if (d->m_initialized)
         return true;
     
     unsigned port_num = DEBUG_SERVER_PORT_DEFAULT;
+#ifdef _WIN32
+    port_num = port_number;
+#else
+    if (!DebuggingIsEnabled())
+        return true;
+
     string port_val_str;
     cl_err_code rc = Intel::OpenCL::Utils::GetEnvVar(port_val_str, "CL_CONFIG_DBG_PORT_NUMBER");
 
@@ -717,6 +725,7 @@ bool DebugServer::Init()
         if (ss.fail() || ss.get(c) || port_num > 0xFFFF)
             port_num = DEBUG_SERVER_PORT_DEFAULT;
     }
+#endif
 
     d->m_comm = new DebugCommunicator(port_num);
 #ifdef _WIN32
@@ -941,9 +950,9 @@ void DebugServer::TerminateConnection()
 }
 
 
-DEBUG_SERVICE_API bool InitDebuggingService()
+DEBUG_SERVICE_API bool InitDebuggingService(unsigned int port_number)
 {
-    return InitDebugServer();
+    return InitDebugServer(port_number);
 }
 
 

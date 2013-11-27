@@ -60,7 +60,7 @@ public:
     {
         return SharedPtr<InPlaceTaskList>(new InPlaceTaskList(pMasterWGContext, ndrangeChildrenTaskGroup, bImmediate));
     }
-	
+
     virtual ~InPlaceTaskList();
 
     virtual unsigned int    Enqueue(const SharedPtr<ITaskBase>& pTaskBase);
@@ -69,7 +69,7 @@ public:
     virtual te_wait_result  WaitForCompletion(const SharedPtr<ITaskBase>& pTask) { return TE_WAIT_COMPLETED; };
     virtual void            Retain();
     virtual void            Release();
-    virtual void	        Cancel() {};
+    virtual void            Cancel() {};
 
     virtual SharedPtr<ITEDevice> GetDevice() { return NULL; }
     virtual ConstSharedPtr<ITEDevice> GetDevice() const { return NULL; }
@@ -98,7 +98,7 @@ protected:
 };
 
 InPlaceTaskList::InPlaceTaskList(WGContextBase* pMasterWGContext, const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate) :
-	m_pMasterWGContext(pMasterWGContext), m_immediate(bImmediate), m_ndrangeChildrenTaskGroup(ndrangeChildrenTaskGroup)
+    m_pMasterWGContext(pMasterWGContext), m_immediate(bImmediate), m_ndrangeChildrenTaskGroup(ndrangeChildrenTaskGroup)
 {
     //No support for just synchronous at the moment
     assert(m_immediate);
@@ -123,7 +123,7 @@ unsigned int InPlaceTaskList::Enqueue(const SharedPtr<ITaskBase>& pTaskBase)
 
 bool InPlaceTaskList::Flush()
 {
-	return true;
+    return true;
 }
 
 void InPlaceTaskList::Retain()
@@ -179,78 +179,78 @@ void InPlaceTaskList::ExecuteInPlace(const SharedPtr<Intel::OpenCL::TaskExecutor
 
 fnDispatcherCommandCreate_t* TaskDispatcher::m_vCommands[] =
 {
-	NULL,
-	&ReadWriteMemObject::Create,    // 	CL_DEV_CMD_READ = 1,
-	&ReadWriteMemObject::Create,    //	CL_DEV_CMD_WRITE,
-	&CopyMemObject::Create,         //	CL_DEV_CMD_COPY,
-	&MapMemObject::Create,          //	CL_DEV_CMD_MAP,
-	&UnmapMemObject::Create,        //	CL_DEV_CMD_UNMAP,
-	&NDRange::Create,				//	CL_DEV_CMD_EXEC_KERNEL,
-	&NDRange::Create,				//	CL_DEV_CMD_EXEC_TASK,
-	&NativeFunction::Create,        //	CL_DEV_CMD_EXEC_NATIVE,
-	&FillMemObject::Create,         //	CL_DEV_CMD_FILL_BUFFER
-	&FillMemObject::Create,         //	CL_DEV_CMD_FILL_IMAGE
-	&MigrateMemObject::Create       //  CL_DEV_CMD_MIGRATE
+    NULL,
+    &ReadWriteMemObject::Create,    //     CL_DEV_CMD_READ = 1,
+    &ReadWriteMemObject::Create,    //    CL_DEV_CMD_WRITE,
+    &CopyMemObject::Create,         //    CL_DEV_CMD_COPY,
+    &MapMemObject::Create,          //    CL_DEV_CMD_MAP,
+    &UnmapMemObject::Create,        //    CL_DEV_CMD_UNMAP,
+    &NDRange::Create,                //    CL_DEV_CMD_EXEC_KERNEL,
+    &NDRange::Create,                //    CL_DEV_CMD_EXEC_TASK,
+    &NativeFunction::Create,        //    CL_DEV_CMD_EXEC_NATIVE,
+    &FillMemObject::Create,         //    CL_DEV_CMD_FILL_BUFFER
+    &FillMemObject::Create,         //    CL_DEV_CMD_FILL_IMAGE
+    &MigrateMemObject::Create       //  CL_DEV_CMD_MIGRATE
 };
 
 // Constructor/Dispatcher
-TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, ProgramService	*programService,
-					 MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver) :
-		m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pFrameworkCallBacks(devCallbacks),
-		m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
-		m_pCPUDeviceConfig(cpuDeviceConfig), m_pWgContextPool(NULL), m_uiNumThreads(0), 
+TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, ProgramService    *programService,
+                     MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver) :
+        m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pFrameworkCallBacks(devCallbacks),
+        m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
+        m_pCPUDeviceConfig(cpuDeviceConfig), m_pWgContextPool(NULL), m_uiNumThreads(0),
         m_bTEActivated(false), m_pObserver(pObserver)
 #ifdef __INCLUDE_MKL__
-		,m_pOMPExecutionThread(NULL)
+        ,m_pOMPExecutionThread(NULL)
 #endif
 {
-	// Set Callbacks into the framework: Logger + Info
-	if ( NULL != logDesc )
-	{
-		cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, "CPU Device: TaskDispatcher", &m_iLogHandle);
-		if(CL_DEV_SUCCESS != ret)
-		{
-			//TBD
-			m_iLogHandle = 0;
-		}
-	}
+    // Set Callbacks into the framework: Logger + Info
+    if ( NULL != logDesc )
+    {
+        cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, "CPU Device: TaskDispatcher", &m_iLogHandle);
+        if(CL_DEV_SUCCESS != ret)
+        {
+            //TBD
+            m_iLogHandle = 0;
+        }
+    }
 
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Created"));
-	
-	m_pTaskExecutor = GetTaskExecutor();	
-	m_pGPAData = m_pTaskExecutor->GetGPAData();
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Created"));
 
-	assert(devCallbacks);	// We assume that pointer to callback functions always must be provided
+    m_pTaskExecutor = GetTaskExecutor();
+    m_pGPAData = m_pTaskExecutor->GetGPAData();
+
+    assert(devCallbacks);    // We assume that pointer to callback functions always must be provided
 }
 
 TaskDispatcher::~TaskDispatcher()
 {
 
 #ifdef __INCLUDE_MKL__
-	m_pOMPExecutionThread->Join();
-	delete m_pOMPExecutionThread;
+    m_pOMPExecutionThread->Join();
+    delete m_pOMPExecutionThread;
 #endif
 
-	if (m_bTEActivated)
-	{	
-		CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Deactivate();");
+    if (m_bTEActivated)
+    {
+        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Deactivate();");
         if ((NULL != m_pTaskExecutor) && (NULL != m_pRootDevice ))
         {
             m_pRootDevice->ShutDown();
             m_pRootDevice->ResetObserver();
             m_pRootDevice = NULL;
         }
-	}
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Released"));
-	if (0 != m_iLogHandle)
-	{
-		m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
-	}
+    }
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Released"));
+    if (0 != m_iLogHandle)
+    {
+        m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
+    }
 }
 
 cl_dev_err_code TaskDispatcher::init()
 {
-	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Activate();");
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Activate();");
 
     const size_t numMasters = 1;
 
@@ -260,89 +260,89 @@ cl_dev_err_code TaskDispatcher::init()
                     RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, numMasters), 
                     NULL, this );
 
-	m_bTEActivated = (NULL != m_pRootDevice);
-	if ( !m_bTEActivated )
-	{
-		return CL_DEV_ERROR_FAIL;
-	}
+    m_bTEActivated = (NULL != m_pRootDevice);
+    if ( !m_bTEActivated )
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
 
-	unsigned int uiNumThreads = m_pTaskExecutor->GetMaxNumOfConcurrentThreads();
-	// Init WGContexts
-	// Allocate required number of working contexts
-	if ( 0 == m_uiNumThreads )
-	{
-		m_uiNumThreads = uiNumThreads;
-	}
-	
-	m_pWgContextPool->Init(m_uiNumThreads, numMasters);
-	
+    unsigned int uiNumThreads = m_pTaskExecutor->GetMaxNumOfConcurrentThreads();
+    // Init WGContexts
+    // Allocate required number of working contexts
+    if ( 0 == m_uiNumThreads )
+    {
+        m_uiNumThreads = uiNumThreads;
+    }
+
+    m_pWgContextPool->Init(m_uiNumThreads, numMasters);
+
 #ifdef __INCLUDE_MKL__
-	m_pOMPExecutionThread = Intel::OpenCL::BuiltInKernels::OMPExecutorThread::Create(m_uiNumThreads);
-	if ( NULL == m_pOMPExecutionThread )
-	{
-		return CL_DEV_OUT_OF_MEMORY;
-	}
-	m_pOMPExecutionThread->Start();
+    m_pOMPExecutionThread = Intel::OpenCL::BuiltInKernels::OMPExecutorThread::Create(m_uiNumThreads);
+    if ( NULL == m_pOMPExecutionThread )
+    {
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+    m_pOMPExecutionThread->Start();
 #endif
 
-	bool bInitTasksRequired = isDestributedAllocationRequired() || isThreadAffinityRequired();
-	
-	if (!bInitTasksRequired)
-	{
-		return CL_DEV_SUCCESS;
-	}
+    bool bInitTasksRequired = isDestributedAllocationRequired() || isThreadAffinityRequired();
 
-	//Pin threads
+    if (!bInitTasksRequired)
+    {
+        return CL_DEV_SUCCESS;
+    }
+
+    //Pin threads
     SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> pAffinitizeThreads = AffinitizeThreads::Allocate(m_uiNumThreads, 0, m_pObserver);
-	if (NULL == pAffinitizeThreads)
-	{
-		//Todo
-		assert(0);
-		return CL_DEV_OUT_OF_MEMORY;
-	}
-	
+    if (NULL == pAffinitizeThreads)
+    {
+        //Todo
+        assert(0);
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+
     SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList> pTaskList = m_pRootDevice->CreateTaskList( CommandListCreationParam(TE_CMD_LIST_IN_ORDER, TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC) );
     if (NULL == pTaskList)
     {
-		//Todo
-		assert(0);
-		return CL_DEV_OUT_OF_MEMORY;
+        //Todo
+        assert(0);
+        return CL_DEV_OUT_OF_MEMORY;
     }
     pTaskList->Enqueue(pAffinitizeThreads);
     pTaskList->Flush();
-	pTaskList->WaitForCompletion(NULL);
+    pTaskList->WaitForCompletion(NULL);
  //  pAffinitizeThreads->WaitForEndOfTask();
-	
-	return CL_DEV_SUCCESS;
+
+    return CL_DEV_SUCCESS;
 }
 
 bool TaskDispatcher::isDestributedAllocationRequired()
 {
-	return clIsNumaAvailable();
+    return clIsNumaAvailable();
 }
 
 bool TaskDispatcher::isThreadAffinityRequired()
 {
 #if ( defined(WIN32) || defined(__ANDROID__) ) //Not pinning threads for Windows or Android
-	return false;
+    return false;
 #else
-	return true;
+    return true;
 #endif
 }
 
 /*******************************************************************************************************************
 createCommandList
-	Description
-		This function creates a dependent command list on a device. This function performs an implicit retain of the command list.
-	Input
-		props						Determines whether the out-of-order optimization could be applied on items in the command list.
-	Output
-		list						A valid handle to device command list, on error the value is NULL
-	Returns
-		CL_DEV_SUCCESS				The command queue successfully created
-		CL_DEV_INVALID_VALUE		If values specified in properties are not valid
-		CL_DEV_INVALID_PROPERTIES	If values specified in properties are valid but are not supported by the device
-		CL_DEV_OUT_OF_MEMORY		If there is a failure to allocate resources required by the OCL device driver
+    Description
+        This function creates a dependent command list on a device. This function performs an implicit retain of the command list.
+    Input
+        props                        Determines whether the out-of-order optimization could be applied on items in the command list.
+    Output
+        list                        A valid handle to device command list, on error the value is NULL
+    Returns
+        CL_DEV_SUCCESS                The command queue successfully created
+        CL_DEV_INVALID_VALUE        If values specified in properties are not valid
+        CL_DEV_INVALID_PROPERTIES    If values specified in properties are valid but are not supported by the device
+        CL_DEV_OUT_OF_MEMORY        If there is a failure to allocate resources required by the OCL device driver
 **************************************************************************************************************************/
 cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN props, ITEDevice* IN pDevice, ITaskList** OUT list)
 {
@@ -389,17 +389,17 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
 
 /********************************************************************************************************************
 releaseCommandList
-	Description
-		Decrements the command list reference count. After the command list reference count becomes zero and
-		all commands of the command list have completed (eg. Kernel executions, memory object updates etc.),
-		the command queue is deleted.
-	Input
-		list						A valid handle to device command list
-	Output
-		None
-	Returns
-		CL_DEV_SUCCESS				The function is executed successfully
-		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
+    Description
+        Decrements the command list reference count. After the command list reference count becomes zero and
+        all commands of the command list have completed (eg. Kernel executions, memory object updates etc.),
+        the command queue is deleted.
+    Input
+        list                        A valid handle to device command list
+    Output
+        None
+    Returns
+        CL_DEV_SUCCESS                The function is executed successfully
+        CL_DEV_INVALID_COMMAND_LIST    If command list is not a valid command list
 ********************************************************************************************************************/
 cl_dev_err_code TaskDispatcher::releaseCommandList( ITaskList* IN pList )
 {
@@ -414,15 +414,15 @@ cl_dev_err_code TaskDispatcher::releaseCommandList( ITaskList* IN pList )
 
 /******************************************************************************************************************
 flushCommandList
-	Description
-		This function flushes the content of a list, all waiting commands are sent to execution.
-	Input
-		list						A valid handle to device command list
-	Output
-		None
-	Returns
-		CL_DEV_SUCCESS				The function is executed successfully
-		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
+    Description
+        This function flushes the content of a list, all waiting commands are sent to execution.
+    Input
+        list                        A valid handle to device command list
+    Output
+        None
+    Returns
+        CL_DEV_SUCCESS                The function is executed successfully
+        CL_DEV_INVALID_COMMAND_LIST    If command list is not a valid command list
 *******************************************************************************************************************/
 cl_dev_err_code TaskDispatcher::flushCommandList( ITaskList* IN list)
 {
@@ -466,7 +466,7 @@ cl_dev_err_code TaskDispatcher::commandListWaitCompletion( ITaskList* IN list, c
         }
         pTaskToWait->Release();
         // If the task is not completed at this stage we can't make further call to blocking wait
-        // becaue we are not having the task pointer and we can't set it back because its not thread safe
+        // Because we are not having the task pointer and we can't set it back because its not thread safe
         retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS : CL_DEV_NOT_SUPPORTED;
     }
     else
@@ -481,15 +481,15 @@ cl_dev_err_code TaskDispatcher::commandListWaitCompletion( ITaskList* IN list, c
 
 /******************************************************************************************************************
 cancelCommandList
-	Description
-		This function cancels the content of a list, all waiting commands are sent to execution.
-	Input
-		list						A valid handle to device command list
-	Output
-		None
-	Returns
-		CL_DEV_SUCCESS				The function is executed successfully
-		CL_DEV_INVALID_COMMAND_LIST	If command list is not a valid command list
+    Description
+        This function cancels the content of a list, all waiting commands are sent to execution.
+    Input
+        list                        A valid handle to device command list
+    Output
+        None
+    Returns
+        CL_DEV_SUCCESS                The function is executed successfully
+        CL_DEV_INVALID_COMMAND_LIST    If command list is not a valid command list
 *******************************************************************************************************************/
 cl_dev_err_code TaskDispatcher::cancelCommandList( ITaskList* IN list)
 {
@@ -503,36 +503,36 @@ cl_dev_err_code TaskDispatcher::cancelCommandList( ITaskList* IN list)
 
 /********************************************************************************************************************
 commandListExecute
-	Description
-		Passes a list of dependent commands into a specified command list for execution.
-		The commands are depended by the list index: item[n] depends on item[n-1].
-		First item (item[0]) is dependent on the last item that was passed during previous  function call on with same list identifier.
-	Input
-		list							A valid handle to device command list, where to add list of commands. If value is NULL,
-										the new independent list is created for given commands
-		cmds							A vector of dependent commands, each entry is described by cl_dev_cmd_desc structure
-		count							Number of entries in cmds parameter
-	Output
-		None
-	 Returns
-		CL_DEV_SUCCESS					The function is executed successfully.
-		CL_DEV_INVALID_COMMAND_LIST		If command list is not a valid command list
-		CL_DEV_INVALID_COMMAND_TYPE		If command type specified in one of the cmds entries is not a valid command.
-		CL_DEV_INVALID_COMMAND_PARAM	If one of the parameters submitted within command structure is invalid.
-		CL_DEV_INVALID_MEM_OBJECT		If one or more memory objects specified in parameters in one or more of cmds entries
-										are not valid or are not buffer objects.
-		CL_DEV_INVALID_KERNEL			If kernel identifier specified in execution parameters is not valid.
-		CL_DEV_INVALID_OPERATION		If specific device cannot execute native kernel.
-		CL_DEV_OUT_OF_RESOURCES			Is a failure to queue the execution instance of kernel because of insufficient resources
-										needed to execute the kernel.
-		CL_DEV_INVALID_WRK_DIM			If work_dim is not a valid value (i.e. a value between 1 and 3).
-		CL_DEV_INVALID_WG_SIZE			If lcl_wrk_size is specified and number of work items specified by glb_wrk_size is
-										not evenly divisable by size of work-group given by lcl_wrk_size or does not match
-										the work-group size specified for kernel using the __attribute__((reqd_work_group_size(X, Y, Z)))
-										qualifier in program source.
-		CL_DEV_INVALID_GLB_OFFSET		If glb_wrk_offset is not (0, 0, 0).
-		CL_DEV_INVALID_WRK_ITEM_SIZE	If the number of work-items specified in any of lcl_wrk_size[] is greater than the corresponding
-										values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[]
+    Description
+        Passes a list of dependent commands into a specified command list for execution.
+        The commands are depended by the list index: item[n] depends on item[n-1].
+        First item (item[0]) is dependent on the last item that was passed during previous  function call on with same list identifier.
+    Input
+        list                            A valid handle to device command list, where to add list of commands. If value is NULL,
+                                        the new independent list is created for given commands
+        cmds                            A vector of dependent commands, each entry is described by cl_dev_cmd_desc structure
+        count                            Number of entries in cmds parameter
+    Output
+        None
+     Returns
+        CL_DEV_SUCCESS                    The function is executed successfully.
+        CL_DEV_INVALID_COMMAND_LIST        If command list is not a valid command list
+        CL_DEV_INVALID_COMMAND_TYPE        If command type specified in one of the cmds entries is not a valid command.
+        CL_DEV_INVALID_COMMAND_PARAM    If one of the parameters submitted within command structure is invalid.
+        CL_DEV_INVALID_MEM_OBJECT        If one or more memory objects specified in parameters in one or more of cmds entries
+                                        are not valid or are not buffer objects.
+        CL_DEV_INVALID_KERNEL            If kernel identifier specified in execution parameters is not valid.
+        CL_DEV_INVALID_OPERATION        If specific device cannot execute native kernel.
+        CL_DEV_OUT_OF_RESOURCES            Is a failure to queue the execution instance of kernel because of insufficient resources
+                                        needed to execute the kernel.
+        CL_DEV_INVALID_WRK_DIM            If work_dim is not a valid value (i.e. a value between 1 and 3).
+        CL_DEV_INVALID_WG_SIZE            If lcl_wrk_size is specified and number of work items specified by glb_wrk_size is
+                                        not evenly divisable by size of work-group given by lcl_wrk_size or does not match
+                                        the work-group size specified for kernel using the __attribute__((reqd_work_group_size(X, Y, Z)))
+                                        qualifier in program source.
+        CL_DEV_INVALID_GLB_OFFSET        If glb_wrk_offset is not (0, 0, 0).
+        CL_DEV_INVALID_WRK_ITEM_SIZE    If the number of work-items specified in any of lcl_wrk_size[] is greater than the corresponding
+                                        values specified by CL_DEVICE_MAX_WORK_ITEM_SIZES[]
 ********************************************************************************************************************/
 cl_dev_err_code TaskDispatcher::commandListExecute( ITaskList* IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
 {
@@ -579,61 +579,61 @@ cl_dev_err_code TaskDispatcher::NotifyFailure(ITaskList* pList, cl_dev_cmd_desc*
 
 cl_dev_err_code TaskDispatcher::SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds, cl_uint count)
 {
-	for (unsigned int i=0; i<count; ++i)
-	{
-		assert(cmds[i]->type < CL_DEV_CMD_MAX_COMMAND_TYPE);
-		fnDispatcherCommandCreate_t*	fnCreate = m_vCommands[cmds[i]->type];
+    for (unsigned int i=0; i<count; ++i)
+    {
+        assert(cmds[i]->type < CL_DEV_CMD_MAX_COMMAND_TYPE);
+        fnDispatcherCommandCreate_t*    fnCreate = m_vCommands[cmds[i]->type];
 
-		// Create appropriate command
-		SharedPtr<ITaskBase> pCommand;
-		cl_dev_err_code	rc = fnCreate(this, cmds[i], &pCommand, pList);        
-		if ( CL_DEV_SUCCEEDED(rc) )
-		{
+        // Create appropriate command
+        SharedPtr<ITaskBase> pCommand;
+        cl_dev_err_code    rc = fnCreate(this, cmds[i], &pCommand, pList);
+        if ( CL_DEV_SUCCEEDED(rc) )
+        {
             pCommand->IncRefCnt();
             cmds[i]->device_agent_data = static_cast<ITaskBase*>(pCommand.GetPtr());
-			pList->Enqueue(SharedPtr<ITaskBase>(pCommand));
+            pList->Enqueue(SharedPtr<ITaskBase>(pCommand));
         } 
         else
-		{
-			// Try to notify about the error in the same list
+        {
+            // Try to notify about the error in the same list
             cmds[i]->device_agent_data = NULL;
-			rc = NotifyFailure(pList, cmds[i], rc);
-			if ( CL_DEV_FAILED(rc) )
-			{
-				return rc;
-			}
-		}
-	}
+            rc = NotifyFailure(pList, cmds[i], rc);
+            if ( CL_DEV_FAILED(rc) )
+            {
+                return rc;
+            }
+        }
+    }
 
-	return CL_DEV_SUCCESS;
+    return CL_DEV_SUCCESS;
 }
 
 void TaskDispatcher::NotifyCommandStatusChange(const cl_dev_cmd_desc* pCmd, unsigned uStatus, int iErr)
 {
-	cl_ulong timer = 0;
+    cl_ulong timer = 0;
 
-	//if profiling enabled for the command get timer
-	//notify framework on status change
-	if(pCmd->profiling)
-	{
-		timer = HostTime();
-	}
-	m_pFrameworkCallBacks->clDevCmdStatusChanged(pCmd->id, pCmd->data, uStatus, iErr, timer);
+    //if profiling enabled for the command get timer
+    //notify framework on status change
+    if(pCmd->profiling)
+    {
+        timer = HostTime();
+    }
+    m_pFrameworkCallBacks->clDevCmdStatusChanged(pCmd->id, pCmd->data, uStatus, iErr, timer);
 }
 
 bool TaskDispatcher::TaskFailureNotification::Shoot(cl_dev_err_code err)
 {
-	cl_ulong timer = 0;
+    cl_ulong timer = 0;
 
-	//if profiling enabled for the command get timer
-	//notify framework on status change
-	if(m_pCmd->profiling)
-	{
-		timer = HostTime();
-	}
+    //if profiling enabled for the command get timer
+    //notify framework on status change
+    if(m_pCmd->profiling)
+    {
+        timer = HostTime();
+    }
 
-	m_pTaskDispatcher->m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, CL_COMPLETE, (cl_int)err, timer);
-	return true;
+    m_pTaskDispatcher->m_pFrameworkCallBacks->clDevCmdStatusChanged(m_pCmd->id, m_pCmd->data, CL_COMPLETE, (cl_int)err, timer);
+    return true;
 }
 
 ITEDevice* TaskDispatcher::createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_dev_internal_subdevice_id* dev_ptr )
@@ -708,7 +708,7 @@ TE_BOOLEAN_ANSWER TaskDispatcher::MayThreadLeaveDevice( void* currentThreadData 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 AffinitizeThreads::AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer) :
-	m_numThreads(numThreads), m_timeOut(timeOutInTicks), m_failed(false), m_pObserver(observer)
+    m_numThreads(numThreads), m_timeOut(timeOutInTicks), m_failed(false), m_pObserver(observer)
 {
 }
 
@@ -743,12 +743,12 @@ void* AffinitizeThreads::AttachToThread(void* pWgContextBase, size_t uiNumberOfW
 {
     // cast to WGContext* and only then to void* - in order to pass WGContext* to ExecuteIteration
     // casting to and from void* must be done to the same type
-	return static_cast<WGContext*>(reinterpret_cast<WGContextBase*>(pWgContextBase)); // return non-NULL
+    return static_cast<WGContext*>(reinterpret_cast<WGContextBase*>(pWgContextBase)); // return non-NULL
 }
 
 void AffinitizeThreads::DetachFromThread(void* pWgContext)
 {
-	return;
+    return;
 }
 
 bool AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext)
@@ -757,7 +757,7 @@ bool AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, void* pWg
     {
       return false;
     }
-	
+
     WGContext* pContext = reinterpret_cast<WGContext*>(pWgContext);
     assert (NULL!= pContext);
     if (!pContext->DoesBelongToMasterThread())

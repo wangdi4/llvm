@@ -17,12 +17,12 @@ namespace llvm {
 }
 
 
-// Initialize the debug server if debugging is enabled with an env var.
+// Initialize the debug server if debugging is enabled.
 // Note: this blocks further execution until a client connects to the server
 // and initiates a debugging session.
 // Return false iff debugging is enabled and initialization failed.
 //
-bool InitDebugServer();
+bool InitDebugServer(unsigned int port_number);
 
 
 // Interface of the debug server.
@@ -40,7 +40,7 @@ public:
     // Initialize the server. Note that this blocks until a client is 
     // connected.
     //
-    bool Init();
+    bool Init(unsigned int port_number);
 
     // Explicitly terminate the server connection
     //

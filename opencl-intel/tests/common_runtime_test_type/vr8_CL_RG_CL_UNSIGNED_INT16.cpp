@@ -38,7 +38,7 @@ TYPED_TEST_CASE(VR8_CL_RG_CL_UNSIGNED_INT16, VR8_CL_RG_CL_UNSIGNED_INT16Types);
 // if equal to 2 - should succeed on both devices
 // if equal to 0 - should succeed on CPU and fail on GPU
 // if equal to 1 - should succeed on GPU and fail on CPU
-static int succDevicesNum = 1;
+static int succDevicesNum = 2;
 static const char* d2KernelName = "read_image2D_int4_first_two";
 static const char* d3KernelName = "read_image3D_int4_first_two";
 

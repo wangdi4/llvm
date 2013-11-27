@@ -43,7 +43,7 @@ TYPED_TEST_CASE(Fission_VR8_CL_L_CL_HALF_FLOAT, Fission_VR8_CL_L_CL_HALF_FLOATTy
 // if equal to 2 - should succeed on both devices
 // if equal to 0 - should succeed on CPU and fail on GPU
 // if equal to 1 - should succeed on GPU and fail on CPU
-static int succDevicesNum = 1;
+static int succDevicesNum = 2;
 static const char* d2KernelName = "read_image2D_float4_first";
 static const char* d3KernelName = "read_image3D_float4_first";
 
@@ -53,35 +53,35 @@ static const char* d3KernelName = "read_image3D_float4_first";
 TYPED_TEST(Fission_VR8_CL_L_CL_HALF_FLOAT, Image2DUseHostPtr)
 {
 	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, 1, succDevicesNum));
+	ASSERT_NO_FATAL_FAILURE(test2DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, 1, succDevicesNum, true));
 }
 
 TYPED_TEST(Fission_VR8_CL_L_CL_HALF_FLOAT, Image2AllocHostPtr)
 {
 	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, 1, succDevicesNum));
+	ASSERT_NO_FATAL_FAILURE(test2DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, 1, succDevicesNum, true));
 }
 
 TYPED_TEST(Fission_VR8_CL_L_CL_HALF_FLOAT, Image2CopyHostPtr)
 {
 	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, 1, succDevicesNum));
+	ASSERT_NO_FATAL_FAILURE(test2DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d2KernelName, 1, succDevicesNum, true));
 }
 
 TYPED_TEST(Fission_VR8_CL_L_CL_HALF_FLOAT, Image3DUseHostPtr)
 {
 	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, 1, succDevicesNum));
+	ASSERT_NO_FATAL_FAILURE(test3DUseHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, 1, succDevicesNum, true));
 }
 
 TYPED_TEST(Fission_VR8_CL_L_CL_HALF_FLOAT, Image3DAllocHostPtr)
 {
 	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, 1, succDevicesNum));
+	ASSERT_NO_FATAL_FAILURE(test3DAllocHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, 1, succDevicesNum, true));
 }
 
 TYPED_TEST(Fission_VR8_CL_L_CL_HALF_FLOAT, Image3DCopyHostPtr)
 {
 	ASSERT_NO_FATAL_FAILURE(createAndMergeWithGPU(this->ocl_descriptor));
-	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, 1, succDevicesNum));
+	ASSERT_NO_FATAL_FAILURE(test3DCopyHostPtr<TypeParam>(this->ocl_descriptor, this->image_format, d3KernelName, 1, succDevicesNum, true));
 }

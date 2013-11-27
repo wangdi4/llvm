@@ -49,91 +49,91 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 // used by commands, Struct which represent single map handle.
 struct SMemMapParams
 {
-	SMemMapParams() {}
+    SMemMapParams() {}
 
-	virtual ~SMemMapParams()
-	{
-		m_mapHandlesInstances.clear();
-	}
+    virtual ~SMemMapParams()
+    {
+        m_mapHandlesInstances.clear();
+    }
 
-	// Insert a new COIMAPINSTANCE to the set. (In case of regular map command will be only one, In case of rectangular map can be more than one)
-	bool insertMapHandle(COIMAPINSTANCE& mapInstance)
-	{
-		pair<set<COIMAPINSTANCE>::iterator,bool> ret = m_mapHandlesInstances.insert(mapInstance);
-		return ret.second;
-	}
+    // Insert a new COIMAPINSTANCE to the set. (In case of regular map command will be only one, In case of rectangular map can be more than one)
+    bool insertMapHandle(COIMAPINSTANCE& mapInstance)
+    {
+        pair<set<COIMAPINSTANCE>::iterator,bool> ret = m_mapHandlesInstances.insert(mapInstance);
+        return ret.second;
+    }
 
-	// Initialize iterator to the beginning of this COIMAPINSTANCE set.
-	void initMapHandleIterator()
-	{
-		m_mapHandlesIterator = m_mapHandlesInstances.begin();
-	}
+    // Initialize iterator to the beginning of this COIMAPINSTANCE set.
+    void initMapHandleIterator()
+    {
+        m_mapHandlesIterator = m_mapHandlesInstances.begin();
+    }
 
-	// Return true if the current location of the iterator is not located at the end of this set.
-	// Must call to "initMapHandleIterator()" before using this method.
-	bool hasNextMapHandle()
-	{
-		return m_mapHandlesIterator != m_mapHandlesInstances.end();
-	}
+    // Return true if the current location of the iterator is not located at the end of this set.
+    // Must call to "initMapHandleIterator()" before using this method.
+    bool hasNextMapHandle()
+    {
+        return m_mapHandlesIterator != m_mapHandlesInstances.end();
+    }
 
-	// Return COIMAPINSTANCE which pointed by current iterator location and advance the iterator to the next item.
-	// Must validate that there is next map handle by calling to "hasNextMapHandle()".
-	COIMAPINSTANCE getNextMapHandle()
-	{
-		assert(m_mapHandlesIterator != m_mapHandlesInstances.end());
-		set<COIMAPINSTANCE>::iterator pCurrInstance = m_mapHandlesIterator;
-		m_mapHandlesIterator ++;
-		return (*pCurrInstance);
-	}
+    // Return COIMAPINSTANCE which pointed by current iterator location and advance the iterator to the next item.
+    // Must validate that there is next map handle by calling to "hasNextMapHandle()".
+    COIMAPINSTANCE getNextMapHandle()
+    {
+        assert(m_mapHandlesIterator != m_mapHandlesInstances.end());
+        set<COIMAPINSTANCE>::iterator pCurrInstance = m_mapHandlesIterator;
+        m_mapHandlesIterator ++;
+        return (*pCurrInstance);
+    }
 
-	// Return the size of the COIMAPINSTANCEs set.
-	size_t getNumMapInstances() 
-	{
-		return m_mapHandlesInstances.size();
-	}
+    // Return the size of the COIMAPINSTANCEs set.
+    size_t getNumMapInstances() 
+    {
+        return m_mapHandlesInstances.size();
+    }
 
 private:
-	set<COIMAPINSTANCE> m_mapHandlesInstances;
-	set<COIMAPINSTANCE>::iterator m_mapHandlesIterator;
+    set<COIMAPINSTANCE> m_mapHandlesInstances;
+    set<COIMAPINSTANCE>::iterator m_mapHandlesIterator;
 };
 
 // Struct which contains a list of "SMemMapParams" because many map operations with the same address use the same handle so We should keep all of them.
 struct SMemMapParamsList
 {
-	SMemMapParamsList() {}
+    SMemMapParamsList() {}
 
-	virtual ~SMemMapParamsList()
-	{
-		m_memMapParamsList.clear();
-	}
+    virtual ~SMemMapParamsList()
+    {
+        m_memMapParamsList.clear();
+    }
 
-	// push SMemMapParams to the list
-	void push(SMemMapParams& memMapParams)
-	{
-		m_spinMutex.Lock();
-		m_memMapParamsList.push_front(memMapParams);
-		m_spinMutex.Unlock();
-	}
+    // push SMemMapParams to the list
+    void push(SMemMapParams& memMapParams)
+    {
+        m_spinMutex.Lock();
+        m_memMapParamsList.push_front(memMapParams);
+        m_spinMutex.Unlock();
+    }
 
-	// remove and return one of the instances in the list. (If exists otherwise return false)
-	bool pop(SMemMapParams* pMemMapParams)
-	{
-		assert(pMemMapParams);
-		m_spinMutex.Lock();
-		bool ret = (m_memMapParamsList.size() > 0);
-		if (ret)
-		{
-			*pMemMapParams = m_memMapParamsList.back();
-			m_memMapParamsList.pop_back();
-		}
-		m_spinMutex.Unlock();
-		return ret;
-	}
+    // remove and return one of the instances in the list. (If exists otherwise return false)
+    bool pop(SMemMapParams* pMemMapParams)
+    {
+        assert(pMemMapParams);
+        m_spinMutex.Lock();
+        bool ret = (m_memMapParamsList.size() > 0);
+        if (ret)
+        {
+            *pMemMapParams = m_memMapParamsList.back();
+            m_memMapParamsList.pop_back();
+        }
+        m_spinMutex.Unlock();
+        return ret;
+    }
 
 private:
-	list<SMemMapParams> m_memMapParamsList;
-	// Guard to the list, use spin mutex because the accessibility to this list from more than one thread is rare.
-	OclSpinMutex m_spinMutex;
+    list<SMemMapParams> m_memMapParamsList;
+    // Guard to the list, use spin mutex because the accessibility to this list from more than one thread is rare.
+    OclSpinMutex m_spinMutex;
 };
 
 
@@ -171,6 +171,7 @@ public:
     bool Use_2M_Pages_Enabled( void ) const { return (m_2M_BufferMinSize > 0); };
     bool Use_2M_Pages( size_t size ) const { return Use_2M_Pages_Enabled() && (size >= m_2M_BufferMinSize); };
     bool ImmediateTransferForced( void ) const { return m_force_immediate_transfer; };
+    bool Use_NoDma_Enabled( void ) const { return m_no_dma_enabled; };
 
 private:
     friend class MICDevMemoryObject;
@@ -188,6 +189,7 @@ private:
 
     size_t                   m_2M_BufferMinSize;
     bool                     m_force_immediate_transfer;
+    bool                     m_no_dma_enabled;
 
     // singleton
     MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, unsigned long long maxAllocSize );
@@ -218,7 +220,7 @@ public:
     cl_dev_err_code clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* pMapParams );
 
     cl_dev_err_code clDevMemObjUpdateBackingStore( 
-	                            void* operation_handle, cl_dev_bs_update_state* pUpdateState );
+                                void* operation_handle, cl_dev_bs_update_state* pUpdateState );
     cl_dev_err_code clDevMemObjUpdateFromBackingStore(
                                 void* operation_handle, cl_dev_bs_update_state* pUpdateState );
     cl_dev_err_code clDevMemObjInvalidateData( );
@@ -252,7 +254,7 @@ public:
     size_t          GetRawDataSize( void )    const { return m_raw_size; };
 
     typedef vector<COIPROCESS>  COI_ProcessesArray;
-    COI_ProcessesArray&	get_active_processes( void ) { return m_buffActiveProcesses; };
+    COI_ProcessesArray&    get_active_processes( void ) { return m_buffActiveProcesses; };
 
     /* Check if ptr is mapped OCL Buffer, if yes store in *ppOutMemObj the appropriate MICDevMemoryObject */
     static bool getMemObjFromMapBuffersPool(void* ptr, size_t size, MICDevMemoryObject** ppOutMemObj);
@@ -327,17 +329,17 @@ private:
         {
           mem_obj_directive(MICDevMemoryObject* memObj) : pMemObj(memObj), refCounter(1), isReady(false) {};
           MICDevMemoryObject* pMemObj;
-          size_t				refCounter;
-          bool				isReady;
+          size_t                refCounter;
+          bool                isReady;
         };
 
-        map<void*, mem_obj_directive>	m_addressToMemObj;
-        OclReaderWriterLock		m_multiReadSingleWriteMutex;
+        map<void*, mem_obj_directive>    m_addressToMemObj;
+        OclReaderWriterLock        m_multiReadSingleWriteMutex;
     };
 
-    COI_ProcessesArray	m_buffActiveProcesses;
+    COI_ProcessesArray    m_buffActiveProcesses;
 
-    AtomicCounter	m_bufferRefCounter;
+    AtomicCounter    m_bufferRefCounter;
 
     static MapBuffersMemoryPool m_buffersMemoryPool;
 };

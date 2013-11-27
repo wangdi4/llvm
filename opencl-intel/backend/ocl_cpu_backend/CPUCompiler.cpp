@@ -406,7 +406,6 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
 
     if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT")) {
         Options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
-        localCpuFeatures.push_back("+fma"); // otherwise AllowFPOpFusion will not work
     } else {
         Options.AllowFPOpFusion = llvm::FPOpFusion::Standard;
     }

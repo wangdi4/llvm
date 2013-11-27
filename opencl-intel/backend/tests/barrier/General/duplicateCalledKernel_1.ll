@@ -81,14 +81,17 @@ entry:
 ; CHECK: define void @__internal.bar
 
 ; CHECK: !llvm.dbg.cu = !{!0}
-;;; The following check is disabled till fixing the workaround in the DuplicateCallKernels pass.
-; XCHECK-NOT: __internal.bar
-; CHECK: !5 = metadata !{i32 786478, i32 0, metadata !6, metadata !"bar", metadata !"bar", metadata !"", metadata !6, i32 1, metadata !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @__internal.bar, null, null, metadata !1, i32 1}
 
-;;; The following checks that no metadata nodes were added or removed and that @bar is still a kernel.
-; CHECK-NOT: !29
-; CHECK: !12 = metadata !{void (float addrspace(1)*, float addrspace(1)*)* @bar}
-; CHECK: !28
+;;; Check that that debug info metadata for the old function was changed to the
+;;; new function, but that there's a new debug metadata for the old function.
+; CHECK: !4 = metadata !{metadata !5, metadata !11, metadata [[NewMD:![0-9]+]]}
+; CHECK: !5 = metadata !{i32 786478, i32 0, metadata !6, metadata !"bar", metadata !"bar", metadata !"", metadata !6, i32 1, metadata !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @__internal.bar, null, null, metadata !1, i32 1}
+; CHECK: [[NewMD]] = metadata !{i32 786478, i32 0, metadata !6, metadata !"bar", metadata !"bar", metadata !"", metadata !6, i32 1, metadata !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @bar, null, null, metadata !1, i32 1}
+
+;;; The following checks that exactly one metadata node was added and that @bar is still a kernel.
+; CHECK-NOT: !30
+; CHECK: metadata !{void (float addrspace(1)*, float addrspace(1)*)* @bar}
+; CHECK: !29
 
 !llvm.dbg.cu = !{!0}
 !opencl.kernels = !{!12, !13}
