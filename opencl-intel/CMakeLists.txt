@@ -241,9 +241,6 @@ if (BUILD_QTGUI AND NOT ANDROID)
     endif(WIN32)
 endif ()
 
-
-
-
 #
 # Project defs
 #

@@ -1,3 +1,4 @@
+; XFAIL: *
 ; test get_default_queue() and enqueue_kernel() are replaced with callbacks
 ; RUN: opt -add-implicit-args -resolve-wi-call -S < %s | FileCheck %s
 

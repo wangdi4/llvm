@@ -113,22 +113,21 @@ struct dispatcher_data
 // Defines a list of parameters required for NDRange kernel launch
 struct ndrange_dispatcher_data : public dispatcher_data
 {
-    uint64_t                kernelAddress;      // Dispatcher function pointer
-    cl_uniform_kernel_args  kernelArgs;
+    uint64_t                  kernelAddress;      // Dispatcher function pointer
 
     // Assignment classes
-    void AssignWorkData(const cl_dev_cmd_param_kernel* other)
+    static void AssignWorkData(const cl_dev_cmd_param_kernel* cmdParams, cl_uniform_kernel_args*   kernelArgs)
     {
-        kernelArgs.WorkDim = other->work_dim;
+        kernelArgs->WorkDim = cmdParams->work_dim;
         // we can copy with memcpy if data type size matches
         if ( sizeof(size_t) == sizeof(uint64_t) )
         {
             // Copy data in a single call, hopefully compiler will optimize
-            MEMCPY_S( &kernelArgs.GlobalOffset[0], sizeof(uint64_t)*MAX_WORK_DIM*3, &(other->glb_wrk_offs[0]), sizeof(uint64_t)*MAX_WORK_DIM*3);
+            MEMCPY_S( &kernelArgs->GlobalOffset[0], sizeof(uint64_t)*MAX_WORK_DIM*3, &(cmdParams->glb_wrk_offs[0]), sizeof(uint64_t)*MAX_WORK_DIM*3);
         } else
         {
-            size_t* groupedDlobalWork[3] = {kernelArgs.GlobalOffset, kernelArgs.GlobalSize, kernelArgs.LocalSize};
-            const size_t* otherGroupedDlobalWork[3] = {other->glb_wrk_offs, other->glb_wrk_size, other->lcl_wrk_size};
+            size_t* groupedDlobalWork[3] = {kernelArgs->GlobalOffset, kernelArgs->GlobalSize, kernelArgs->LocalSize};
+            const size_t* otherGroupedDlobalWork[3] = {cmdParams->glb_wrk_offs, cmdParams->glb_wrk_size, cmdParams->lcl_wrk_size};
             for (unsigned int i = 0; i < 3; i++)
             {
                 for (unsigned int j = 0; j < MAX_WORK_DIM; j++)
@@ -139,14 +138,6 @@ struct ndrange_dispatcher_data : public dispatcher_data
         }
     }
 
-    // !!!!!!!!!!
-    // TODO: Remove after moving to new BE API
-    // !!!!!!!!!!
-    void convertToClWorkDescriptionType(cl_work_description_type& workDesc) const
-    {
-        workDesc.workDimension = kernelArgs.WorkDim;
-        MEMCPY_S( &workDesc.globalWorkOffset[0], sizeof(size_t)*MAX_WORK_DIM*3, &kernelArgs.GlobalOffset[0], sizeof(size_t)*MAX_WORK_DIM*3);
-    }
 };
 
 struct fill_mem_obj_dispatcher_data : public dispatcher_data
@@ -213,6 +204,13 @@ struct utility_function_options {
     {
         utility_function_queue_cancel   queue_cancel;
     } options;
+};
+
+// Structure used in initialization process
+struct mic_init_return
+{
+    cl_dev_err_code initError;
+    unsigned int    uiNumActiveThreads;
 };
 
 }}}

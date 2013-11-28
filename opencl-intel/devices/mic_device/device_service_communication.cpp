@@ -82,7 +82,7 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
 
 
 DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId) 
-    : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL)
+    : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_uiNumActiveThreads(0)
 {
     memset(m_device_functions, 0, sizeof(m_device_functions));
 }
@@ -327,7 +327,7 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         mic_device_options.stop_at_load                        = tMicConfig.Device_StopAtLoad();
         mic_device_options.use_affinity                        = tMicConfig.Device_UseAffinity();
         mic_device_options.threads_per_core                    = tMicConfig.Device_ThreadsPerCore();
-        mic_device_options.num_of_cores		               = tMicConfig.Device_NumCores();
+        mic_device_options.num_of_cores		                   = tMicConfig.Device_NumCores();
         mic_device_options.ignore_core_0                       = tMicConfig.Device_IgnoreCore0();
         mic_device_options.ignore_last_core                    = tMicConfig.Device_IgnoreLastCore();
         mic_device_options.use_TBB_grain_size                  = tMicConfig.Device_TbbGrainSize();
@@ -338,7 +338,7 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         mic_device_options.min_buffer_size_parallel_fill       = tMicConfig.Device_ParallelFillBufferFromSize();
         mic_device_options.max_tasks_per_worker_fill_buffer    = tMicConfig.Device_ParallelFillMaxTaskPerWorker();
         mic_device_options.max_workers_fill_buffer             = tMicConfig.Device_ParallelFillMaxWorkers();
-        mic_device_options.logger_enable            = Logger::GetInstance().IsActive();
+        mic_device_options.logger_enable                       = Logger::GetInstance().IsActive();
         
         string tbb_scheduler = tMicConfig.Device_TbbScheduler();
      
@@ -402,190 +402,193 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         }
 
 #ifdef __MIC_DA_OMP__
-		// Set the environment variables that define OMP_SCHEDULE and KMP_AFFINITY
-		char* cStr = NULL;
-		if (tMicConfig.Device_OmpSchedule().size() > 0)
-		{
-			string strSched; 
-			strSched.append("OMP_SCHEDULE=");
-			strSched.append(tMicConfig.Device_OmpSchedule());
-			cStr = new char[strSched.size() + 1];
-			memset((void*)cStr, 0, strSched.size() + 1);
-			memcpy((void*)cStr, (void*)strSched.c_str(), strSched.size());
-			additionalEnvVars.push_back(cStr);
-		}
-		if (tMicConfig.Device_OmpKmpAffinity().size() > 0)
-		{
-			cStr = NULL;
-			string strKmpAff;
-			strKmpAff.append("KMP_AFFINITY=");
-			strKmpAff.append(tMicConfig.Device_OmpKmpAffinity());
-			cStr = new char[strKmpAff.size() + 1];
-			memset((void*)cStr, 0, strKmpAff.size() + 1);
-			memcpy((void*)cStr, (void*)strKmpAff.c_str(), strKmpAff.size());
-			additionalEnvVars.push_back(cStr);
-		}
-		if (tMicConfig.Device_OmpKmpBlockTime().size() > 0)
-		{
-			cStr = NULL;
-			string strKmpBlock;
-			strKmpBlock.append("KMP_BLOCKTIME=");
-			strKmpBlock.append(tMicConfig.Device_OmpKmpBlockTime());
-			cStr = new char[strKmpBlock.size() + 1];
-			memset((void*)cStr, 0, strKmpBlock.size() + 1);
-			memcpy((void*)cStr, (void*)strKmpBlock.c_str(), strKmpBlock.size());
-			additionalEnvVars.push_back(cStr);
-		}
-		//TODO delete those char* allocations after COIProcessCreateFromFile when I will fix getVTuneEnvVars()
+        // Set the environment variables that define OMP_SCHEDULE and KMP_AFFINITY
+        char* cStr = NULL;
+        if (tMicConfig.Device_OmpSchedule().size() > 0)
+        {
+            string strSched;
+            strSched.append("OMP_SCHEDULE=");
+            strSched.append(tMicConfig.Device_OmpSchedule());
+            cStr = new char[strSched.size() + 1];
+            memset((void*)cStr, 0, strSched.size() + 1);
+            memcpy((void*)cStr, (void*)strSched.c_str(), strSched.size());
+            additionalEnvVars.push_back(cStr);
+        }
+        if (tMicConfig.Device_OmpKmpAffinity().size() > 0)
+        {
+            cStr = NULL;
+            string strKmpAff;
+            strKmpAff.append("KMP_AFFINITY=");
+            strKmpAff.append(tMicConfig.Device_OmpKmpAffinity());
+            cStr = new char[strKmpAff.size() + 1];
+            memset((void*)cStr, 0, strKmpAff.size() + 1);
+            memcpy((void*)cStr, (void*)strKmpAff.c_str(), strKmpAff.size());
+            additionalEnvVars.push_back(cStr);
+        }
+        if (tMicConfig.Device_OmpKmpBlockTime().size() > 0)
+        {
+            cStr = NULL;
+            string strKmpBlock;
+            strKmpBlock.append("KMP_BLOCKTIME=");
+            strKmpBlock.append(tMicConfig.Device_OmpKmpBlockTime());
+            cStr = new char[strKmpBlock.size() + 1];
+            memset((void*)cStr, 0, strKmpBlock.size() + 1);
+            memcpy((void*)cStr, (void*)strKmpBlock.c_str(), strKmpBlock.size());
+            additionalEnvVars.push_back(cStr);
+        }
+        //TODO delete those char* allocations after COIProcessCreateFromFile when I will fix getVTuneEnvVars()
 #endif //__MIC_DA_OMP__
 
-		if (additionalEnvVars.size() > 0)
-		{
-			additionalEnvVars.push_back(NULL);
-		}
-
-    	// create a process on device and run it's main() function
-		result = COIProcessCreateFromFile(engine, (char*)fileNameBuffer,
-										 0, NULL,																				// argc, argv
-										 false, additionalEnvVars.size() == 0 ? NULL : (const char**)&(additionalEnvVars[0]),	// duplicate env, additional env vars
-										 MIC_DEV_IO_PROXY_TO_HOST, NULL,														// I/O proxy required + host root
-                                         MIC_DEV_INITIAL_BUFFER_PREALLOCATION,													// reserve inital buffer space
-										 nativeDirName,																			// a path to locate dynamic libraries dependencies for the sink application
-										 &m_process);
-		assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");
-		if (COI_SUCCESS != result)
-		{
-			break;
-		}
-
-    if (ReRegisterAtExitAfterCOI_Init)
-    {
-        ReRegisterAtExitAfterCOI_Init = false;
-        UseShutdownHandler::ReRegisterAtExit();
-    }
-
-    // load additional DLLs required by this specific device
-    const char * const * string_arr = NULL;
-    unsigned int dlls_count = info.getRequiredDeviceDLLs(m_uiMicId, &string_arr);
-
-    if ((0 < dlls_count) && (NULL != string_arr))
-    {
-        for (unsigned int i = 0; i < dlls_count; ++i)
+        if (additionalEnvVars.size() > 0)
         {
-            if (NULL != string_arr[i])
-            {
-                COILIBRARY lib_handle = NULL;
-                result = COIProcessLoadLibraryFromFile(
-                m_process,             // in_Process
-                                    string_arr[i],                          // in_FileName
-                                    NULL,                                   // in_so-name if not exists in file
-                                    nativeDirName,                          // in_LibrarySearchPath
-                                    RTLD_NOW,							    //Bitmask of the flags that will be passed in as the dlopen()
-                                    &lib_handle );
+            additionalEnvVars.push_back(NULL);
+        }
 
-                assert( ((COI_SUCCESS == result) || (COI_ALREADY_EXISTS == result))
-                        && "Cannot load device DLL" );
-                if ((COI_SUCCESS != result) && (COI_ALREADY_EXISTS == result))
+        // create a process on device and run it's main() function
+        result = COIProcessCreateFromFile(engine, (char*)fileNameBuffer,
+                                         0, NULL,                                                                                // argc, argv
+                                         false, additionalEnvVars.size() == 0 ? NULL : (const char**)&(additionalEnvVars[0]),    // duplicate env, additional env vars
+                                         MIC_DEV_IO_PROXY_TO_HOST, NULL,                                                        // I/O proxy required + host root
+                                         MIC_DEV_INITIAL_BUFFER_PREALLOCATION,                                                    // reserve inital buffer space
+                                         nativeDirName,                                                                            // a path to locate dynamic libraries dependencies for the sink application
+                                         &m_process);
+        assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");
+        if (COI_SUCCESS != result)
+        {
+            break;
+        }
+
+        if (ReRegisterAtExitAfterCOI_Init)
+        {
+            ReRegisterAtExitAfterCOI_Init = false;
+            UseShutdownHandler::ReRegisterAtExit();
+        }
+
+        // load additional DLLs required by this specific device
+        const char * const * string_arr = NULL;
+        unsigned int dlls_count = info.getRequiredDeviceDLLs(m_uiMicId, &string_arr);
+
+        if ((0 < dlls_count) && (NULL != string_arr))
+        {
+            for (unsigned int i = 0; i < dlls_count; ++i)
+            {
+                if (NULL != string_arr[i])
                 {
-                    break;
+                    COILIBRARY lib_handle = NULL;
+                    result = COIProcessLoadLibraryFromFile(
+                                        m_process,             // in_Process
+                                        string_arr[i],                          // in_FileName
+                                        NULL,                                   // in_so-name if not exists in file
+                                        nativeDirName,                          // in_LibrarySearchPath
+                                        RTLD_NOW,                                //Bitmask of the flags that will be passed in as the dlopen()
+                                        &lib_handle );
+
+                    assert( ((COI_SUCCESS == result) || (COI_ALREADY_EXISTS == result))
+                            && "Cannot load device DLL" );
+                    if ((COI_SUCCESS != result) && (COI_ALREADY_EXISTS == result))
+                    {
+                        break;
+                    }
                 }
             }
         }
-    }
-    if ((COI_SUCCESS != result) && (COI_ALREADY_EXISTS == result))
-    {
-        break;
-    }
-    result = COI_SUCCESS;
-
-		// We'll need a pipeline to run service functions
-		result = COIPipelineCreate(m_process, NULL, NULL, &m_pipe);
-		assert(result == COI_SUCCESS && "COIPipelineCreate failed for service pipeline");
-		if (COI_SUCCESS != result)
-		{
+        if ((COI_SUCCESS != result) && (COI_ALREADY_EXISTS == result))
+        {
             break;
-		}
+        }
+        result = COI_SUCCESS;
 
-#ifdef _DEBUG
-		bool failed = false;
-		// In debug get one by one to report missing names
-		for(size_t i=0; i<DEVICE_SIDE_FUNCTION_COUNT; ++i)
-		{
-        // Get list of entry points
-        result = COIProcessGetFunctionHandles(m_process,
-	                        1,
-	                        (const char**)(m_device_function_names+i),
-	                        m_device_functions+i );
+        // We'll need a pipeline to run service functions
+        result = COIPipelineCreate(m_process, NULL, NULL, &m_pipe);
+        assert(result == COI_SUCCESS && "COIPipelineCreate failed for service pipeline");
         if (COI_SUCCESS != result)
         {
-            failed = true;
-            printf("Failed to retrieve function <%s>\n", m_device_function_names[i]); fflush(0);
-        }
-		}
-    assert( (!failed) && "Failed to retrieve function names");
-#else
-		// Get list of entry points
-		result = COIProcessGetFunctionHandles(m_process,
-											  DEVICE_SIDE_FUNCTION_COUNT,
-											  (const char**)m_device_function_names,
-											  m_device_functions );
-		assert(result == COI_SUCCESS && "COIProcessGetFunctionHandles failed to find all device entry points");
-		if (COI_SUCCESS != result)
-		{
             break;
-		}
-#endif
-		// Run init device function on device side
-		// Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
-		COIEVENT barrier;
-		result = COIPipelineRunFunction(m_pipe, m_device_functions[INIT_DEVICE],
-										0, NULL, NULL,
-										0, NULL,                    // dependecies
-										&mic_device_options, sizeof(mic_device_options),
-										&err, sizeof(err),
-										&barrier);
-		assert(result == COI_SUCCESS);
-		if (result != COI_SUCCESS)
-		{
-			break;
-		}
-		// Wait until the function execution completed on the sink side.
-		result = COIEventWait(1, &barrier, -1, false, NULL, NULL);
-		assert(result == COI_SUCCESS);
-		if ((result != COI_SUCCESS) && (result != COI_EVENT_CANCELED))
-		{
-			break;
-		}
-		assert(CL_DEV_SUCCESS == err);
-		if (CL_DEV_FAILED(err))
-		{
-			break;
-		}
+        }
 
-		if (false == ProfilingNotification::getInstance().registerProfilingNotification(m_process))
-		{
-			err = CL_DEV_ERROR_FAIL;
-			break;
-		}
-	}
-	while (0);
+#ifdef _DEBUG
+        bool failed = false;
+        // In debug get one by one to report missing names
+        for(size_t i=0; i<DEVICE_SIDE_FUNCTION_COUNT; ++i)
+        {
+            // Get list of entry points
+            result = COIProcessGetFunctionHandles(m_process,
+                                1,
+                                (const char**)(m_device_function_names+i),
+                                m_device_functions+i );
+            if (COI_SUCCESS != result)
+            {
+                failed = true;
+                printf("Failed to retrieve function <%s>\n", m_device_function_names[i]); fflush(0);
+            }
+        }
+        assert( (!failed) && "Failed to retrieve function names");
+#else
+        // Get list of entry points
+        result = COIProcessGetFunctionHandles(m_process,
+                                              DEVICE_SIDE_FUNCTION_COUNT,
+                                              (const char**)m_device_function_names,
+                                              m_device_functions );
+        assert(result == COI_SUCCESS && "COIProcessGetFunctionHandles failed to find all device entry points");
+        if (COI_SUCCESS != result)
+        {
+            break;
+        }
+#endif
+        // Run init device function on device side
+        // Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
+        COIEVENT barrier;
+        mic_init_return retVal;
+        result = COIPipelineRunFunction(m_pipe, m_device_functions[INIT_DEVICE],
+                                        0, NULL, NULL,
+                                        0, NULL,                                      // dependecies
+                                        &mic_device_options, sizeof(mic_device_options),
+                                        &retVal, sizeof(mic_init_return),
+                                        &barrier);
+        assert(result == COI_SUCCESS);
+        if (result != COI_SUCCESS)
+        {
+            break;
+        }
+        // Wait until the function execution completed on the sink side.
+        result = COIEventWait(1, &barrier, -1, false, NULL, NULL);
+        assert(result == COI_SUCCESS);
+        if ((result != COI_SUCCESS) && (result != COI_EVENT_CANCELED))
+        {
+            break;
+        }
+        err = retVal.initError;
+        assert(CL_DEV_SUCCESS == err);
+        if (CL_DEV_FAILED(err))
+        {
+            break;
+        }
+
+        if (false == ProfilingNotification::getInstance().registerProfilingNotification(m_process))
+        {
+            err = CL_DEV_ERROR_FAIL;
+            break;
+        }
+        m_uiNumActiveThreads = retVal.uiNumActiveThreads;
+    }
+    while (0);
 
     if ((COI_SUCCESS != result) || (CL_DEV_FAILED(err)))
-	{
-		ProfilingNotification::getInstance().unregisterProfilingNotification(m_process);
+    {
+        ProfilingNotification::getInstance().unregisterProfilingNotification(m_process);
 
         if (NULL != m_pipe)
-		{
-			COIPipelineDestroy(m_pipe);
-			m_pipe = NULL;
-		}
+        {
+            COIPipelineDestroy(m_pipe);
+            m_pipe = NULL;
+        }
 
-		if (NULL != m_process)
-		{
-			COIProcessDestroy(m_process, -1, false, NULL, NULL);
-			m_process = NULL;
-		}
-	}
+        if (NULL != m_process)
+        {
+            COIProcessDestroy(m_process, -1, false, NULL, NULL);
+            m_process = NULL;
+        }
+    }
 
     return 0;
 }

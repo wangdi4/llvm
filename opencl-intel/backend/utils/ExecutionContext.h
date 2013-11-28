@@ -27,11 +27,12 @@ File Name:  ExecutionContext.h
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   /// @brief  Work Info structure, contains these information:
-  ///         uiWorkDim     - work dimension
-  ///         GlobalOffset  - global offset (for each dimension)
-  ///         GlobalSize    - global size (for each dimension)
-  ///         LocalSize     - local size (for each dimension)
-  ///         WGNumber      - number of work groups (for each dimension)
+  ///         uiWorkDim       - work dimension
+  ///         GlobalOffset    - global offset (for each dimension)
+  ///         GlobalSize      - global size (for each dimension)
+  ///         LocalSize       - local size (for each dimension)
+  ///         WGNumber        - number of work groups (for each dimension)
+  ///         WGLoopIterCount - number of iteration the loop barrier executes
   struct sWorkInfo
   {
       unsigned int    uiWorkDim;
@@ -39,38 +40,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       size_t          GlobalSize[MAX_WORK_DIM];
       size_t          LocalSize[MAX_WORK_DIM];
       size_t          WGNumber[MAX_WORK_DIM];
-  };
-
-  /// @brief Callback Context class contains implementation for some built-ins.
-  ///         An instance of this class should be passed to kernel
-  ///         as implicit parameter at execution time.
-  class CallbackContext {
-  public:
-    // Constructor
-    CallbackContext() : m_pPrinter(NULL){
-      Reset();
-    }
-
-    // Destructor
-    ~CallbackContext() {}
-
-    // Reset Callback context
-    void Reset() {
-    }
-
-    // Initialize Device backend buffer printer (is not needed for CPU)
-    void SetDevicePrinter(ICLDevBackendBufferPrinter* printer) {
-      m_pPrinter = printer;
-    }
-
-    // Get Device backend buffer printer
-    ICLDevBackendBufferPrinter* GetDevicePrinter() {
-      return m_pPrinter;
-    }
-
-  private:
-    // for printer service - not owned by this class
-    ICLDevBackendBufferPrinter* m_pPrinter;
+      size_t          WGLoopIterCount;
   };
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

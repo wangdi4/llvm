@@ -180,9 +180,6 @@ public:
             case CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR:
                 *(void**)Value = (void*)(&m_allocator);
                 return false;
-            case CL_DEV_BACKEND_OPTION_BUFFER_PRINTER:
-                *(void**)Value = (void*)(&m_printer);
-                return true;
             default:
                 return false;
         }
@@ -220,7 +217,6 @@ public:
 
 private:
     MICNativeBackendExecMemoryAllocator  m_allocator;
-    MICBackendPrintfFiller        m_printer;
 
     Intel::OpenCL::DeviceBackend::ETransposeSize m_transposeSize;
     std::string    m_cpu;
@@ -300,6 +296,7 @@ extern void GenINT3();
 
 void ExecuteWorkGroup( size_t x, size_t y, size_t z, WGContext& context, Validation::Sample& timer, bool useTraceMarks)
 {
+#if 0
     size_t groupId[MAX_WORK_DIM] = {x, y, z};
 
     // In production sequence the Runtime calls Executable::PrepareThread()
@@ -323,6 +320,7 @@ void ExecuteWorkGroup( size_t x, size_t y, size_t z, WGContext& context, Validat
     }
 
     CHECK_RESULT(context.GetExecutable()->RestoreThreadState());
+#endif
 }
 
 COINATIVELIBEXPORT
@@ -374,7 +372,7 @@ void executeKernels(uint32_t         in_BufferCount,
         CHECK_RESULT(pProgram->GetKernelByName((const char *)(in_ppBufferPointers[kernelsArgIndex]), &pKernel));
 
         DEBUG_PRINT("Creating binary ... ");
-        ICLDevBackendBinary_* pBinary;
+        //ICLDevBackendBinary_* pBinary;
         cl_work_description_type workDesc;
         dispatchers[i].workDesc.convertToClWorkDescriptionType(&workDesc);
         DEBUG_PRINT("\nWork space params:\nDimension:\t%d\nGlobal work size:\t[%d, %d, %d]\nGlobal work offset:\t[%d, %d, %d]\nLocal work size:\t[%d, %d, %d]\n", workDesc.workDimension, (int)workDesc.globalWorkSize[0], (int)workDesc.globalWorkSize[1], (int)workDesc.globalWorkSize[2], (int)workDesc.globalWorkOffset[0], (int)workDesc.globalWorkOffset[1], (int)workDesc.globalWorkOffset[2], (int)workDesc.localWorkSize[0], (int)workDesc.localWorkSize[1], (int)workDesc.localWorkSize[2]);
@@ -428,15 +426,15 @@ void executeKernels(uint32_t         in_BufferCount,
             }
         }
 
-        CHECK_RESULT(executor->CreateBinary(pKernel, (void*)(kernelsArgs), dispatchers[i].kernelArgSize, &workDesc, &pBinary));
+        //CHECK_RESULT(executor->CreateBinary(pKernel, (void*)(kernelsArgs), dispatchers[i].kernelArgSize, &workDesc, &pBinary));
         DEBUG_PRINT("done.\n");
 
         DEBUG_PRINT("Preparing executable ... ");
-        size_t memBuffCount;
-        CHECK_RESULT(pBinary->GetMemoryBuffersDescriptions(NULL, &memBuffCount));
-        size_t *pMemBuffSizes = new size_t[memBuffCount];
-        CHECK_RESULT(pBinary->GetMemoryBuffersDescriptions(pMemBuffSizes, &memBuffCount));
-        context.CreateContext(pBinary, pMemBuffSizes, memBuffCount);
+        //size_t memBuffCount;
+        //CHECK_RESULT(pBinary->GetMemoryBuffersDescriptions(NULL, &memBuffCount));
+        //size_t *pMemBuffSizes = new size_t[memBuffCount];
+        //CHECK_RESULT(pBinary->GetMemoryBuffersDescriptions(pMemBuffSizes, &memBuffCount));
+        //context.CreateContext(pBinary, pMemBuffSizes, memBuffCount);
         DEBUG_PRINT("done.\n");
 
         DEBUG_PRINT("Executing the kernel ... ");
@@ -525,7 +523,7 @@ void executeKernels(uint32_t         in_BufferCount,
         }
 
         delete [] kernelsArgs;
-        delete [] pMemBuffSizes;
+        //delete [] pMemBuffSizes;
         ++kernelsArgIndex;
     }
 }

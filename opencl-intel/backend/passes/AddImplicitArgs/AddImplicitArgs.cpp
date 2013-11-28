@@ -11,6 +11,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 #include "common_dev_limits.h"
 #include "OCLPassSupport.h"
+#include "ImplicitArgsUtils.h"
+#include "ImplicitArgsAnalysis/ImplicitArgsAnalysis.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/ADT/ValueMap.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -37,23 +39,18 @@ namespace intel{
 
   AddImplicitArgs::AddImplicitArgs() : ModulePass(ID) {
         initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
+        initializeImplicitArgsAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 
   bool AddImplicitArgs::runOnModule(Module &M) {
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
     m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
+    m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
+    m_IAA->initDuringRun(M.getPointerSize() * 32);
 
     // Clear call instruction to fix container
     m_fixupCalls.clear();
-
-    // Add WI structure declarations to the module
-    addWIInfoDeclarations();
-
-    // add ExtendedExecutionContext opaque type 
-    // to use as type for passing 
-    m_struct_ExtendedExecutionContextType = 
-      StructType::create( *m_pLLVMContext, "struct.ExtendedExecutionContext" );
 
     CompilationUtils::FunctionSet kernelsFunctionSet;
     CompilationUtils::getAllKernels(kernelsFunctionSet, m_pModule);
@@ -132,22 +129,8 @@ namespace intel{
     }
 
     // Add implicit arguments to the signature
-
-    unsigned int uiSizeT = m_pModule->getPointerSize()*32;
-
-    newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 3));
-    newArgsVec.push_back(PointerType::get(m_struct_WorkDim, 0));
-    newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
-    //newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.PaddedDimId"), 0));
-    //newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.PaddedDimId"), 0));
-    newArgsVec.push_back(PointerType::get(m_struct_PaddedDimId, 0));
-    newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
-    newArgsVec.push_back(PointerType::get(m_struct_PaddedDimId, 0));
-    newArgsVec.push_back(IntegerType::get(*m_pLLVMContext, uiSizeT));
-    newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
-    newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
-    // extended execution context
-    newArgsVec.push_back(PointerType::get(m_struct_ExtendedExecutionContextType, 0));
+    for (unsigned i=0; i < ImplicitArgsUtils::IA_NUMBER; ++i)
+      newArgsVec.push_back(m_IAA->getArgType(i));
 
     FunctionType *FTy = FunctionType::get( pFunc->getReturnType(),newArgsVec, false);
 
@@ -170,6 +153,8 @@ namespace intel{
         DestI->setName(I->getName());
     }
 
+    // Save location of first Implicit arg
+    Function::arg_iterator ImplicitBegin = DestI;
     // Set implict arguments' names
 #if LLVM_VERSION == 3200
     Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attributes::NoAlias);
@@ -178,45 +163,15 @@ namespace intel{
 #else
     AttributeSet NoAlias = AttributeSet::get(*m_pLLVMContext, 0, Attribute::NoAlias);
 #endif
-    DestI->setName("pLocalMem");
-    Argument *pLocalMem = DestI;
-    pLocalMem->addAttr(NoAlias);
-    ++DestI;
-    DestI->setName("pWorkDim");
-    Argument *pWorkDim = DestI;
-    pWorkDim->addAttr(NoAlias);
-    ++DestI;
-    DestI->setName("pWGId");
-    Argument *pWGId = DestI;
-    pWGId->addAttr(NoAlias);
-    ++DestI;
-    DestI->setName("pBaseGlbId");
-    Argument *pBaseGlbId = DestI;
-    pBaseGlbId->addAttr(NoAlias);
-    ++DestI;
-    DestI->setName("contextpointer");
-    Argument *pctx = DestI;
-    pctx->addAttr(NoAlias);
-    ++DestI;
-    DestI->setName("pLocalIds");
-    Argument *pLocalId = DestI;
-    pLocalId->addAttr(NoAlias);
-    ++DestI;
-    DestI->setName("iterCount");
-    Argument *pIterCount = DestI;
-    ++DestI;
-    DestI->setName("pSpecialBuf");
-    Argument *pSpecialBuf = DestI;
-    pSpecialBuf->addAttr(NoAlias);
-    ++DestI;
-    DestI->setName("pCurrWI");
-    Argument *pCurrWI = DestI;
-    pCurrWI->addAttr(NoAlias);
-    ++DestI;
-    DestI->setName("extExecContextPointer");
-    Argument *pextctx = DestI;
-    pextctx->addAttr(NoAlias);
-    ++DestI;
+    for (unsigned i=0; i < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i, ++DestI) {
+      assert(DestI != pNewF->arg_end());
+      DestI->setName(ImplicitArgsUtils::getArgName(i));
+      // We know that all implicit args that are pointers are non-aliasing, but
+      // we must be careful are review this assumption every time we add a new implicit arg.
+      if (DestI->getType()->isPointerTy())
+        DestI->addAttr(NoAlias);
+    }
+    assert(DestI == pNewF->end());
 
     // Since we have now created the new function, splice the body of the old
     // function right into the new function, leaving the old body of the function empty.
@@ -253,22 +208,20 @@ namespace intel{
       // Check call for not inlined module function
       Function *pCallee = pCall->getCalledFunction();
       if ( NULL != pCallee && !pCallee->isDeclaration() ) {
-
-        // Calculate pointer to the local memory buffer
-        GetElementPtrInst *pNewLocalMem = GetElementPtrInst::Create(
-          pLocalMem, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), directLocalSize), "", pCall);
-
         Value **pCallArgs = new Value*[ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS];
-        pCallArgs[0] = pNewLocalMem;
-        pCallArgs[1] = pWorkDim;
-        pCallArgs[2] = pWGId;
-        pCallArgs[3] = pBaseGlbId;
-        pCallArgs[4] = pctx;
-        pCallArgs[5] = pLocalId;
-        pCallArgs[6] = pIterCount;
-        pCallArgs[7] = pSpecialBuf;
-        pCallArgs[8] = pCurrWI;
-        pCallArgs[9] = pextctx;
+        Function::arg_iterator IA = ImplicitBegin;
+        for (unsigned I = 0; I < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
+             ++I, ++IA) {
+          pCallArgs[I] = static_cast<Value*>(IA);
+        }
+        assert(IA == pNewF->arg_end());
+        // Calculate pointer to the local memory buffer for callee
+        Value *pLocalMem = pCallArgs[ImplicitArgsUtils::IA_SLM_BUFFER];
+        std::string ValName("pLocalMem_");
+        ValName += pCallee->getName();
+        GetElementPtrInst *pNewLocalMem = GetElementPtrInst::Create(
+          pLocalMem, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), directLocalSize), ValName, pCall);
+        pCallArgs[ImplicitArgsUtils::IA_SLM_BUFFER] = pNewLocalMem;
 
         // Memory leak in here. Who deletes this ? Seriously!
         m_fixupCalls[pCall] = pCallArgs;
@@ -357,45 +310,6 @@ namespace intel{
       pMetadata->replaceAllUsesWith(pNewMetadata);
   }
 
-  void AddImplicitArgs::addWIInfoDeclarations() {
-    // Detect size_t size
-    unsigned int uiSizeT = m_pModule->getPointerSize()*32;
-    /*
-      struct sLocalId
-      {
-        size_t  Id[MAX_WORK_DIM];
-      };
-    */
-    // Create Work Group/Work Item info structures
-    std::vector<Type*> members;
-    assert(MAX_WI_DIM_POW_OF_2 == 4 && "MAX_WI_DIM_POW_OF_2 is not equal to 4!");
-    //use 4 instead of MAX_WORK_DIM for alignment & for better calculation of offset in Local ID buffer
-    members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WI_DIM_POW_OF_2)); // Local Id's
-    StructType *PaddedDimId = StructType::get(*m_pLLVMContext, members, true);
-    //m_pModule->addTypeName("struct.PaddedDimId", PaddedDimId);
-    m_struct_PaddedDimId = PaddedDimId;
-
-    /*
-      struct sWorkInfo
-      {
-        unsigned int  uiWorkDim;
-        size_t        GlobalOffset[MAX_WORK_DIM];
-        size_t        GlobalSize[MAX_WORK_DIM];
-        size_t        LocalSize[MAX_WORK_DIM];
-        size_t        WGNumber[MAX_WORK_DIM];
-      };
-    */
-    members.clear();
-    members.push_back(IntegerType::get(*m_pLLVMContext, 32));
-    members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // Global offset
-    members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // Global size
-    members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // WG size/Local size
-    members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // Number of groups
-    StructType *pWorkDimType = StructType::get(*m_pLLVMContext, members, false);
-    //m_pModule->addTypeName("struct.WorkDim", pWorkDimType);
-    m_struct_WorkDim = pWorkDimType;
-  }
-
   void AddImplicitArgs::replaceCallInst(CallInst *CI, const std::vector<Type *>& newArgsVec, Function * pNewF) {
     
     assert(CI && "CallInst is NULL" );
@@ -403,13 +317,13 @@ namespace intel{
     assert(pNewF && "function is NULL" );
     
     std::vector<Value*> arguments;
-    // Push existing arguments
+    // Push explicit arguments
     for (unsigned i=0; i < CI->getNumArgOperands(); ++i)
     {
       arguments.push_back(CI->getArgOperand(i));
     }
 
-    // Push undefs for new arguments
+    // Push undefs for new implicit arguments
     unsigned int numOriginalParams = CI->getNumArgOperands();
     for (unsigned i = numOriginalParams; i < numOriginalParams + ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
       arguments.push_back(UndefValue::get(newArgsVec[i]));

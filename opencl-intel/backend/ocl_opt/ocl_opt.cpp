@@ -97,6 +97,7 @@ void InitOCLOpt(llvm::LLVMContext& context)
     initializeOCLPasses(Registry);
 }
 
+extern "C" llvm::ImmutablePass * createImplicitArgsAnalysisPass(LLVMContext *C);
 void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
 {
   //---=== Post Command Line Initialization ===---
@@ -120,6 +121,7 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
 
   //Always add the BuiltinLibInfo Pass to the Pass Manager
   passMgr.add(createBuiltinLibInfoPass(runtimeModule.release(), RuntimeServices));
+  passMgr.add(createImplicitArgsAnalysisPass(&context));
 }
 
 int main(int argc, char **argv) {

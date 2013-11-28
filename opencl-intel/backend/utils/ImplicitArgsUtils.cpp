@@ -21,24 +21,25 @@ struct ArgData {
   bool        initByWrapper;
 };
 
-const ArgData impArgs[] = {  
-  {"pLocalMem",       true },
-  {"pWorkDim",        false},
-  {"pWGId",           false},
-  {"BaseGlbId",       false},
-  {"contextpointer",  false},
-  {"pLocalIds",       false},
-  {"iterCount",       false},
+const ArgData impArgs[ImplicitArgsUtils::IA_NUMBER] = {  
+  {"pLocalMemBase",   true }, //IA_SLM_BUFFER,
+  {"pWorkDim",        false}, //IA_WORK_GROUP_INFO
+  {"pWGId",           true},  //IA_WORK_GROUP_ID
+  {"BaseGlbId",       true},  //IA_GLOBAL_BASE_ID
   //TODO: Remove this #ifndef when apple no longer pass barrier memory buffer
 #ifndef __APPLE__
   {"pSpecialBuf",     true },
 #else
   {"pSpecialBuf",     false },
 #endif
-  {"pCurrWI",         true },
-  {"ExtExecContextPointer", false }};
+  {"pCurrWI",         true},  //IA_CURRENT_WORK_ITEM
+  {"RuntimeContext",  true}}; //IA_RUNTIME_CONTEXT
 
-
+const char* ImplicitArgsUtils::getArgName(unsigned Idx) {
+    //TODO: maybe we don't need impargs?
+    assert(Idx < NUMBER_IMPLICIT_ARGS);
+    return impArgs[Idx].name;
+}
 // Initialize the implicit arguments properties
 ImplicitArgProperties ImplicitArgsUtils::m_implicitArgProps[NUMBER_IMPLICIT_ARGS];
 bool ImplicitArgsUtils::m_initialized = false;
@@ -53,8 +54,15 @@ const ImplicitArgProperties& ImplicitArgsUtils::getImplicitArgProps(unsigned int
 
 void ImplicitArgsUtils::initImplicitArgProps(unsigned int SizeT) {
   for(unsigned int i=0; i<NUMBER_IMPLICIT_ARGS; ++i) {
+    switch (i) {
+    case IA_WORK_GROUP_INFO:
+      m_implicitArgProps[i].m_size = sizeof(cl_uniform_kernel_args);
+      break;
+    default:
+      m_implicitArgProps[i].m_size = SizeT;
+      break;
+    }
     m_implicitArgProps[i].m_name = impArgs[i].name;
-    m_implicitArgProps[i].m_size = SizeT;
     m_implicitArgProps[i].m_alignment = SizeT;
     m_implicitArgProps[i].m_bInitializedByWrapper = impArgs[i].initByWrapper;
   }
@@ -102,21 +110,11 @@ void ImplicitArgsUtils::setImplicitArgsPerExecutable(
   // Set Global id to (0,0,0,0)
   m_implicitArgs[IA_GLOBAL_BASE_ID].setValue(reinterpret_cast<const char *>(&pGlobalBaseId));
 
-  // Setup Context pointer
-  m_implicitArgs[IA_CALLBACK_CONTEXT].setValue(reinterpret_cast<const char *>(&pCallBackContext));
-
-  // Setup Extended Execution Context pointer
-  m_implicitArgs[IA_CALLBACK_EXT_EXECUTION_CONTEXT].setValue(
-        reinterpret_cast<const char *>(&pCallbackExtendedExecutionContext));
-
   // Initialize Barrier WI ids variables only if jit is not creating the ids.
   if (!bJitCreateWIids) {
     // Initialize and Set Local ids
-    initWILocalIds(pWorkInfo, packetWidth, pWIids);
-    m_implicitArgs[IA_LOCAL_ID_BUFFER].setValue(reinterpret_cast<const char *>(&pWIids));
-
-    // Setup iterCount
-    m_implicitArgs[IA_LOOP_ITER_COUNT].setValue(reinterpret_cast<const char *>(&iterCounter)); /*set iter count*/;
+    initWILocalIds(pWorkInfo->uiWorkDim,pWorkInfo->LocalSize, packetWidth, pWIids);
+    //m_implicitArgs[IA_LOCAL_ID_BUFFER].setValue(reinterpret_cast<const char *>(&pWIids));
   }
 }
 
@@ -137,11 +135,13 @@ void ImplicitArgsUtils::setImplicitArgsPerWG(const void* pParams) {
   }
 }
 
-void ImplicitArgsUtils::initWILocalIds(const sWorkInfo* pWorkInfo, const unsigned int packetWidth, size_t* pWIids) {
+void ImplicitArgsUtils::initWILocalIds(size_t dim, const size_t *pLocalSize, const unsigned int packetWidth, size_t* pWIids) {
   // Initialize local id buffer
-  switch (pWorkInfo->uiWorkDim) {
+  assert(pWIids);
+  assert(pLocalSize);
+  switch (dim) {
   case 1:
-    for ( size_t i=0, j=0;(i + packetWidth - 1)<pWorkInfo->LocalSize[0];i+=packetWidth, j++ ) {
+    for ( size_t i=0, j=0;(i + packetWidth - 1)<pLocalSize[0];i+=packetWidth, j++ ) {
       pWIids[MAX_WI_DIM_POW_OF_2*j+0] = i;
       //Must initialize dimensions y and z to zero for OOB handling
       pWIids[MAX_WI_DIM_POW_OF_2*j+1] = 0;
@@ -150,9 +150,9 @@ void ImplicitArgsUtils::initWILocalIds(const sWorkInfo* pWorkInfo, const unsigne
     break;
   case 2:
     {
-      size_t strideVec = pWorkInfo->LocalSize[0]/packetWidth;
-      for ( size_t y=0; y<pWorkInfo->LocalSize[1]; ++y ) {
-        for ( size_t x=0, j=0; (x + packetWidth - 1)<pWorkInfo->LocalSize[0]; x+=packetWidth, j++ ) {
+      size_t strideVec = pLocalSize[0]/packetWidth;
+      for ( size_t y=0; y<pLocalSize[1]; ++y ) {
+        for ( size_t x=0, j=0; (x + packetWidth - 1)<pLocalSize[0]; x+=packetWidth, j++ ) {
           pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+0] = x;
           pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+1] = y;
           //Must initialize dimension z to zero for OOB handling
@@ -163,11 +163,11 @@ void ImplicitArgsUtils::initWILocalIds(const sWorkInfo* pWorkInfo, const unsigne
     break;
   case 3:
     {
-      size_t strideVec1 = pWorkInfo->LocalSize[0]/packetWidth;
-      size_t strideVec2 = strideVec1*pWorkInfo->LocalSize[1];
-      for ( size_t z=0;z<pWorkInfo->LocalSize[2];++z )
-        for ( size_t y=0;y<pWorkInfo->LocalSize[1];++y )
-          for ( size_t x=0, j=0; (x + packetWidth - 1)<pWorkInfo->LocalSize[0]; x+=packetWidth, j++ ) {
+      size_t strideVec1 = pLocalSize[0]/packetWidth;
+      size_t strideVec2 = strideVec1*pLocalSize[1];
+      for ( size_t z=0;z<pLocalSize[2];++z )
+        for ( size_t y=0;y<pLocalSize[1];++y )
+          for ( size_t x=0, j=0; (x + packetWidth - 1)<pLocalSize[0]; x+=packetWidth, j++ ) {
             pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+0] = x;
             pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+1] = y;
             pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+2] = z;

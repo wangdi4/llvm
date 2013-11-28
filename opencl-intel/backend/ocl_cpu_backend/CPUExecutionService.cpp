@@ -19,7 +19,6 @@ File Name:  CPUExecutionService.cpp
 #include "CPUExecutionService.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "Binary.h"
 #include "CPUDeviceBackendFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

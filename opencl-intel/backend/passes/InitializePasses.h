@@ -77,6 +77,7 @@ void initializeCloneBlockInvokeFuncToKernelPass(llvm::PassRegistry&);
 void initializeResolveBlockToStaticCallPass(llvm::PassRegistry&);
 void initializeDetectRecursionPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
+void initializeImplicitArgsAnalysisPass(llvm::PassRegistry&);
 }
 
 #endif

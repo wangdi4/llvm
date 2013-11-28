@@ -35,13 +35,6 @@ public:
     virtual cl_dev_err_code GetTargetMachineDescription(
         void* pTargetDescription,
         size_t descriptionSize) const;
-
-    virtual cl_dev_err_code CreateExecutable(
-        ICLDevBackendBinary_* pBinary,
-        void** pExecutionMemoryResources,
-        unsigned int resourcesCount,
-        ICLDevBackendExecutable_** ppExecutable) const;
-
 private:
     DynamicLibraryLoader m_Loader;
     TargetDescription m_TargetDescription;

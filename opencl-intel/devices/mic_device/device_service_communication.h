@@ -83,12 +83,13 @@ public:
                             const COI_ACCESS_FLAGS* bufferAccessFlags,
                             COIPIPELINE use_pipeline = NULL );
 
+    unsigned int GetNumActiveThreads() const { return m_uiNumActiveThreads;}
 private:
 
     // private constructor in order to use factory only
     DeviceServiceCommunication(unsigned int uiMicId);
 
-	RETURN_TYPE_ENTRY_POINT Run();
+    RETURN_TYPE_ENTRY_POINT Run();
 
     /* close the service pipeline and the process on the device.
        If the created thread (in factory) didn't finish, it will wait until the thread will finish it's work.
@@ -101,10 +102,12 @@ private:
     /* Set in additionalEnvVars all the VTune env variables (Those starts with __OCL_MIC_INTEL_) as name=value. */
     void getVTuneEnvVars(vector<char*>& additionalEnvVars);
 
-    unsigned int m_uiMicId;
+    unsigned int    m_uiMicId;
 
-    COIPROCESS m_process;
-    COIPIPELINE m_pipe;
+    COIPROCESS      m_process;
+    COIPIPELINE     m_pipe;
+
+    unsigned int m_uiNumActiveThreads;
 
     static const char* const m_device_function_names[DEVICE_SIDE_FUNCTION_COUNT];
     COIFUNCTION m_device_functions[DEVICE_SIDE_FUNCTION_COUNT];

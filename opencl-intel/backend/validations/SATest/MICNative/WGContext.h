@@ -28,11 +28,11 @@ public:
     WGContext();
     virtual ~WGContext();
 
-    cl_dev_err_code CreateContext(ICLDevBackendBinary_* pExec, size_t* pBuffSizes, size_t count);
-    inline ICLDevBackendExecutable_*    GetExecutable() const {return m_pContext;}
+    cl_dev_err_code CreateContext(/*ICLDevBackendBinary_* pExec, */size_t* pBuffSizes, size_t count);
+//    inline ICLDevBackendExecutable_*    GetExecutable() const {return m_pContext;}
 
 protected:
-    ICLDevBackendExecutable_*   m_pContext;
+//    ICLDevBackendExecutable_*   m_pContext;
     char*                       m_pLocalMem;
     void*                       m_pPrivateMem;
     size_t                      m_stPrivMemAllocSize;

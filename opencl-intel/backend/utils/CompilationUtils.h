@@ -175,8 +175,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupMax(const std::string&);
     static bool isWorkGroupUniform(const std::string&);
 
-    static const std::string NAME_GET_ORIG_GID;
-    static const std::string NAME_GET_ORIG_LID;
+    static const std::string NAME_GET_GID;
+    static const std::string NAME_GET_LID;
 
     static const std::string NAME_GET_WORK_DIM;
     static const std::string NAME_GET_GLOBAL_SIZE;
@@ -227,16 +227,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //kernel type qualifiers
     static const std::string SAMPLER;
   public:
-    /// Holds the number of implicit arguments added to function
-    static const unsigned int NUMBER_IMPLICIT_ARGS;
-
     /// '3' is a magic number for global variables
     /// that were in origin kernel local variable!
     static const unsigned int LOCL_VALUE_ADDRESS_SPACE;
 
     static const std::string NAME_GET_BASE_GID;
-    static const std::string NAME_GET_GID;
-    static const std::string NAME_GET_LID;
+    static const std::string NAME_GET_NEW_GID;
+    static const std::string NAME_GET_NEW_LID;
     static const std::string NAME_GET_ITERATION_COUNT;
     static const std::string NAME_GET_SPECIAL_BUFFER;
     static const std::string NAME_GET_CURR_WI;

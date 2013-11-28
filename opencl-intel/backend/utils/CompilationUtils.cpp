@@ -10,6 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "NameMangleAPI.h"
 #include "MetaDataApi.h"
 #include "ParameterType.h"
+#include "TypeAlignment.h"
 #include "cl_types.h"
 
 #if defined(__APPLE__)
@@ -31,13 +32,14 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+  //TODO-MERGE: update value of CompilationUtils::NUMBER_IMPLICIT_ARGS wherever it is now
   const unsigned int CompilationUtils::LOCL_VALUE_ADDRESS_SPACE = 3;
 
-  const std::string CompilationUtils::NAME_GET_ORIG_GID = "get_global_id";
+  const std::string CompilationUtils::NAME_GET_GID = "get_global_id";
   const std::string CompilationUtils::NAME_GET_BASE_GID = "get_base_global_id.";
-  const std::string CompilationUtils::NAME_GET_GID = "get_new_global_id.";
-  const std::string CompilationUtils::NAME_GET_ORIG_LID = "get_local_id";
-  const std::string CompilationUtils::NAME_GET_LID = "get_new_local_id.";
+  const std::string CompilationUtils::NAME_GET_NEW_GID = "get_new_global_id.";
+  const std::string CompilationUtils::NAME_GET_LID = "get_local_id";
+  const std::string CompilationUtils::NAME_GET_NEW_LID = "get_new_local_id.";
   const std::string CompilationUtils::NAME_GET_ITERATION_COUNT = "get_iter_count.";
   const std::string CompilationUtils::NAME_GET_SPECIAL_BUFFER = "get_special_buffer.";
   const std::string CompilationUtils::NAME_GET_CURR_WI = "get_curr_wi.";
@@ -130,11 +132,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return ++prev;
   }
 
-  void CompilationUtils::getImplicitArgs(Function *pFunc,
-    Argument **ppLocalMem, Argument **ppWorkDim, Argument **ppWGId,
-    Argument **ppBaseGlbId, Argument **ppLocalId, Argument **ppIterCount,
-    Argument **ppSpecialBuf, Argument **ppCurrWI, Argument **ppCtx,
-    Argument **ppExtExecCtx) {
+  void CompilationUtils::getImplicitArgs(
+      Function *pFunc, Argument **ppLocalMem, Argument **ppWorkDim,
+      Argument **ppWGId, Argument **ppBaseGlbId, Argument **ppSpecialBuf,
+      Argument **ppCurrWI, Argument **ppRunTimeContext) {
 
       assert( pFunc && "Function cannot be null" );
       assert( pFunc->getArgumentList().size() >= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
@@ -170,21 +171,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
       ++DestI;
 
-      if ( NULL != ppCtx ) {
-          *ppCtx = DestI;
-      }
-      ++DestI;
-
-      if ( NULL != ppLocalId ) {
-          *ppLocalId = DestI;
-      }
-      ++DestI;
-
-      if ( NULL != ppIterCount ) {
-          *ppIterCount = DestI;
-      }
-      ++DestI;
-
       if ( NULL != ppSpecialBuf ) {
           *ppSpecialBuf = DestI;
       }
@@ -195,9 +181,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
       ++DestI;
 
-      if ( NULL != ppExtExecCtx ) {
-          *ppExtExecCtx = DestI;
+      if ( NULL != ppRunTimeContext ) {
+          *ppRunTimeContext = DestI;
       }
+      ++DestI;
+      assert(DestI == pFunc->arg_end());
 
   }
 
@@ -362,7 +350,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       curArg.access = CL_KERNEL_ARG_ACCESS_NONE;
 
       llvm::Argument* pArg = arg_it;
-      // Set argument sizes
+      // Set argument sizes and offsets
       switch (arg_it->getType()->getTypeID())
       {
       case llvm::Type::FloatTyID:
@@ -548,13 +536,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // update offset
 #ifndef __APPLE__
       assert( 0 != curArg.size_in_bytes && "argument size must be set");
+      // Align current location to meet type's requirements
+      current_offset = TypeAlignment::align(TypeAlignment::getAlignment(curArg), current_offset);
       curArg.offset_in_bytes = current_offset;
-      if ( ((CL_KRNL_ARG_VECTOR==curArg.type) || (CL_KRNL_ARG_VECTOR_BY_REF==curArg.type)) && (0 != (curArg.size_in_bytes >> 16)) ) {
-        current_offset += ((curArg.size_in_bytes >> 16) * (curArg.size_in_bytes & 0xFFFF));
-      }
-      else {
-        current_offset += curArg.size_in_bytes;
-      }
+      // Advance offset beyond this argument
+      current_offset += TypeAlignment::getSize(curArg);
 
       if ( isMemoryObject ) {
         memoryArguments.push_back(i);
@@ -628,6 +614,9 @@ static std::string mangleWithParam(const char*const N, unsigned int numOfParams)
     FD.parameters.push_back(UI);
   }
   return mangle(FD);
+
+std::string CompilationUtils::mangledGetGID(){
+  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GID.c_str());
 }
 
 std::string CompilationUtils::mangledGetGID() {
@@ -636,6 +625,9 @@ std::string CompilationUtils::mangledGetGID() {
 
 std::string CompilationUtils::mangledGetGlobalSize() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GLOBAL_SIZE.c_str());
+
+std::string CompilationUtils::mangledGetLID(){
+  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LID.c_str());
 }
 
 std::string CompilationUtils::mangledGetLID() {
@@ -687,11 +679,11 @@ bool CompilationUtils::isGetWorkDim(const std::string& S){
 }
 
 bool CompilationUtils::isGetGlobalId(const std::string& S){
-  return isOptionalMangleOf(S, NAME_GET_ORIG_GID);
+  return isOptionalMangleOf(S, NAME_GET_GID);
 }
 
 bool CompilationUtils::isGetLocalId(const std::string& S){
-  return isOptionalMangleOf(S, NAME_GET_ORIG_LID);
+  return isOptionalMangleOf(S, NAME_GET_LID);
 }
 
 bool CompilationUtils::isGetGlobalLinearId(const std::string& S){

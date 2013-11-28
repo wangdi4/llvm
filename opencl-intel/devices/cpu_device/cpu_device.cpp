@@ -2289,9 +2289,9 @@ int CPUDevice::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl_uin
     {
         return CL_INVALID_OPERATION;
     }
-    KernelCommand* pParent = NDRange::GetThreadLocalNDRange();
+    KernelCommand* pParent = NULL;
     SharedPtr<KernelCommand> pChild;
-#if 0
+#if __USE_TBB_ALLOCATOR__
         DeviceNDRange* const pChildAddress = m_deviceNDRangeAllocator.allocate(sizeof(DeviceNDRange));    // currently we ignore bad_alloc
         pChild = ::new(pChildAddress) DeviceNDRange(m_pTaskDispatcher, pList, pParent, pKernel, pContext, szContextSize, pNdrange, m_deviceNDRangeAllocator, m_deviceNDRangeContextAllocator);
 #else
@@ -2418,14 +2418,16 @@ void CPUDevice::CaptureEventProfilingInfo(clk_event_t event, clk_profiling_info 
 }
 
 queue_t CPUDevice::GetDefaultQueueForDevice() const
-{    
-    NDRange* pParent = NDRange::GetThreadLocalNDRange();
+{
+    assert (0 && "This section must be changed for OCL2.0");
+    NDRange* pParent = NULL;
     return pParent->GetTaskDispatcher()->GetDefaultQueue();
 }
 
 unsigned int CPUDevice::GetNumComputeUnits() const
 {
-    KernelCommand* pParent = NDRange::GetThreadLocalNDRange();
+    assert (0 && "This section must be changed for OCL2.0");
+    KernelCommand* pParent = NULL;
     return pParent->GetList()->GetDevice()->GetConcurrency();
 }
 

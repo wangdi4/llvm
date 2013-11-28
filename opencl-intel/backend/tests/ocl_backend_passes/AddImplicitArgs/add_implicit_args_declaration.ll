@@ -20,16 +20,14 @@ entry:
 ; CHECK:        declare void @functionWithoutArgs() nounwind
 ; CHECK:        declare i32 @functionWithArgs(i32, i32) nounwind
 
-; CHECK:        define i32 @caller(i32 %x, i32 %y, i8 addrspace(3)* noalias [[P_LOCAL_MEM:%[a-zA-Z0-9]+]], 
-; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* noalias [[P_WORK_DIM:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* noalias [[P_WORKGROUP_ID:%[a-zA-Z0-9]+]], 
-; CHECK:            <{ [4 x i32] }>* noalias [[P_BASE_GLOBAL_ID:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* noalias [[CONTEXT_POINTER:%[a-zA-Z0-9]+]], 
-; CHECK:            <{ [4 x i32] }>* noalias [[P_LOCAL_IDS:%[a-zA-Z0-9]+]], 
-; CHECK:            i32 [[ITER_COUNT:%[a-zA-Z0-9]+]], 
-; CHECK:            i8* noalias [[P_SPECIAL_BUFFER:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* noalias [[P_CURRECT_WI:%[a-zA-Z0-9]+]], 
-; CHECK:            %struct.ExtendedExecutionContext* noalias [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) {
+; CHECK:      define i32 @caller(i32 %x, i32 %y,
+; CHECK:          i8 addrspace(3)* %pLocalMemBase,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* %pWorkDim,
+; CHECK:          i32* %pWGId,
+; CHECK:          [4 x i32] %BaseGlbId,
+; CHECK:          i8* %pSpecialBuf,
+; CHECK:          i32* %pCurrWI,
+; CHECK:          {}* %RuntimeContext) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   call void @functionWithoutArgs()
 ; CHECK-NEXT:   %res = call i32 @functionWithArgs(i32 %x, i32 %y)

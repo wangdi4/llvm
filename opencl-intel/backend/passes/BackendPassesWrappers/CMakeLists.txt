@@ -21,3 +21,16 @@ add_library(${TARGET_NAME}
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )
+#TODO: Can this be removed?
+# Backend passes
+set(WRAPPER_BACKEND_PASSES
+    ImplicitArgsAnalysis
+)
+
+target_link_libraries(${TARGET_NAME}
+    ${WRAPPER_BACKEND_PASSES}
+)
+
+add_dependencies(${TARGET_NAME}
+    ${WRAPPER_BACKEND_PASSES}
+)

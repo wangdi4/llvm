@@ -71,8 +71,8 @@ extern "C" LLVM_BACKEND_API unsigned long long mic_get_time_counter()
 }
 
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
-extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args, CallbackContext* pContext);
-extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, CallbackContext* pContext);
+extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args, ICLDevBackendDeviceAgentCallback* pCallback, void* pHandle);
+extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, ICLDevBackendDeviceAgentCallback* pCallback, void* pHandle);
 
 void RegisterMICBIFunctions(std::map<std::string, unsigned long long int>& functionsTable)
 {

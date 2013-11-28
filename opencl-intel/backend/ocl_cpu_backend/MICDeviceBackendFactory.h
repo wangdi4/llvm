@@ -48,21 +48,7 @@ public:
     virtual KernelProperties* CreateKernelProperties();
     virtual KernelJITProperties* CreateKernelJITProperties();
 
-    virtual Binary* CreateBinary( 
-        ICLDevBackendBufferPrinter* pPrinter,
-        IDeviceCommandManager *pDeviceCommandManager,
-        const IBlockToKernelMapper *pBlockToKernelMapper,
-        const KernelProperties* pKernelProperties,
-        const std::vector<cl_kernel_argument>& args,
-        const cl_work_description_type* pWorkInfo,
-        const IKernelJITContainer* pScalarJIT,
-        const IKernelJITContainer* pVectorJIT,
-        char* IN pArgsBuffer, 
-        size_t IN ArgBuffSize);
-
-    virtual Executable* CreateExecutable(const Binary* pBinary);
-
-protected:
+    protected:
     static MICDeviceBackendFactory* s_pInstance;
 };
 

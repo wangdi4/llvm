@@ -45,6 +45,9 @@ namespace intel {
     bool ResolveWICall::runOnModule(Module &M) {
       m_pModule = &M;
       m_pLLVMContext = &M.getContext();
+      m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
+      m_IAA->initDuringRun(M.getPointerSize() * 32);
+      m_sizeTTy = IntegerType::get(*m_pLLVMContext, m_pModule->getPointerSize()*32);
 
       m_bPrefetchDecl = false;
       m_bPrintfDecl = false;
@@ -68,10 +71,11 @@ namespace intel {
 
   Function* ResolveWICall::runOnFunction(Function *pFunc) {
 
+    //m_GetNewLocalIDs.clear()
     // Getting the implicit arguments
     CompilationUtils::getImplicitArgs(pFunc, NULL, &m_pWorkInfo, &m_pWGId,
-      &m_pBaseGlbId, &m_pLocalId, &m_pIterCount, &m_pSpecialBuf, &m_pCurrWI, 
-      &m_pCtx, &m_pExtendedExecutionCtx);
+                                      &m_pBaseGlbId, &m_pSpecialBuf, &m_pCurrWI,
+                                      &m_pRuntimeHandle);
 
     std::vector<Instruction*> toRemoveInstructions;
     std::vector<CallInst*> toHandleCalls;
@@ -90,14 +94,10 @@ namespace intel {
 
         CallInst *pCall = dyn_cast<CallInst>(*ii);
         std::string calledFuncName = pCall->getCalledFunction()->getName().str();
-        TInternalCallType calledFuncType = getCallFunctionType(calledFuncName);
+        unsigned calledFuncType = getCallFunctionType(calledFuncName);
 
         Value *pNewRes = NULL;
         switch ( calledFuncType ) {
-
-        case ICT_GET_ITER_COUNT:
-          pNewRes = m_pIterCount;
-          break;
 
         case ICT_GET_SPECIAL_BUFFER:
           pNewRes = m_pSpecialBuf;
@@ -107,8 +107,9 @@ namespace intel {
           pNewRes = m_pCurrWI;
           break;
 
-        case ICT_GET_LOCAL_ID:
-        case ICT_GET_GLOBAL_ID:
+        case ICT_GET_ITER_COUNT:
+        case ICT_GET_NEW_LOCAL_ID:
+        case ICT_GET_NEW_GLOBAL_ID:
         case ICT_GET_BASE_GLOBAL_ID:
         case ICT_GET_WORK_DIM:
         case ICT_GET_GLOBAL_SIZE:
@@ -128,11 +129,7 @@ namespace intel {
           break;
 
         case ICT_GET_DEFAULT_QUEUE:
-          addExtExecFunctionDeclaration(calledFuncType);
-          pNewRes = updateExtExecFunction(getExtExecFunctionParams(pCall),
-            getExtExecCallbackName(calledFuncType),
-            pCall);
-          assert(pNewRes && "Expected updateGetDefaultQueue to succeed");
+          assert(false && "Not implemented");
           break;
 
         case ICT_ENQUEUE_KERNEL_BASIC:
@@ -147,29 +144,15 @@ namespace intel {
         case ICT_CREATE_USER_EVENT:
         case ICT_SET_USER_EVENT_STATUS:
         case ICT_CAPTURE_EVENT_PROFILING_INFO:
-          addExtExecFunctionDeclaration(calledFuncType);
-          pNewRes = updateExtExecFunction(getExtExecFunctionParams(pCall),
-            getExtExecCallbackName(calledFuncType),
-            pCall);
-          assert(pNewRes && "ExtExecution. Expected non-NULL results");
+          assert(false && "Not implemented");
           break;
 
         case ICT_ENQUEUE_KERNEL_LOCALMEM: {
-          const uint32_t ICT_ENQUEUE_KERNEL_LOCALMEM_ARG_POS = 4;
-          addExtExecFunctionDeclaration(calledFuncType);
-          pNewRes = updateExtExecFunction(getEnqueueKernelLocalMemFunctionParams(pCall, ICT_ENQUEUE_KERNEL_LOCALMEM_ARG_POS),
-            getExtExecCallbackName(calledFuncType),
-            pCall);
-          assert(pNewRes && "Expected updateGetEnqueueKernelLocalMem to succeed");
+          assert(false && "Not implemented");
           break;
                                           }
         case ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM: {
-          const uint32_t ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM_ARG_POS = 7;
-          addExtExecFunctionDeclaration(calledFuncType);
-          pNewRes = updateExtExecFunction(getEnqueueKernelLocalMemFunctionParams(pCall, ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM_ARG_POS),
-            getExtExecCallbackName(calledFuncType),
-            pCall);
-          assert(pNewRes && "Expected updateGetEnqueueKernelEvents to succeed");
+          assert(false && "Not implemented");
           break;
                                                  }
         case ICT_NDRANGE_1D:
@@ -209,28 +192,42 @@ namespace intel {
     return pFunc;
   }
 
-  Value* ResolveWICall::updateGetFunction(CallInst *pCall, TInternalCallType type) {
+  Value* ResolveWICall::updateGetFunction(CallInst *pCall, unsigned type) {
 
     assert(pCall && "Invalid CallInst");
     BasicBlock *pBlock = pCall->getParent();
     Value *pResult = NULL;  // Object that holds the resolved value
 
-    if ( type == ICT_GET_WORK_DIM ) {
-      // Now retrieve address of the DIM count
-      SmallVector<Value*, 4> params;
+    if (type == ICT_GET_WORK_DIM) {
+      SmallVector<Value *, 4> params;
       params.push_back(getConstZeroInt32Value());
-      params.push_back(getConstZeroInt32Value());
-      GetElementPtrInst *pDimCntAddr =
-        GetElementPtrInst::Create(m_pWorkInfo, ArrayRef<Value*>(params), "", pCall);
-      // Load the Value
+      params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32),
+                                        NDInfo::WORK_DIM));
+      GetElementPtrInst *pDimCntAddr = GetElementPtrInst::Create(
+          m_pWorkInfo, ArrayRef<Value *>(params), "", pCall);
       pResult = new LoadInst(pDimCntAddr, "", pCall);
+      // get_work_dim() returns an i32, but we store this is implicit arg as a size_t
+      if (pCall->getType() != pResult->getType())
+        pResult = new TruncInst(pResult, IntegerType::get(*m_pLLVMContext, 32),
+                                "", pCall);
+      pResult->setName("WorkDim");
+      return pResult;
+    }
+    if (type == ICT_GET_ITER_COUNT) {
+      SmallVector<Value *, 4> params;
+      params.push_back(getConstZeroInt32Value());
+      params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32),
+                                        NDInfo::LOOP_ITER_COUNT));
+      GetElementPtrInst *pDimCntAddr = GetElementPtrInst::Create(
+          m_pWorkInfo, ArrayRef<Value *>(params), "", pCall);
+      pResult = new LoadInst(pDimCntAddr, "LoopIterCount", pCall);
       return pResult;
     }
 
-    std::string overflowValueString = "0";
+    uint64_t overflowValue = 0;
     switch( type ) {
-    case ICT_GET_LOCAL_ID:
-    case ICT_GET_GLOBAL_ID:
+    case ICT_GET_NEW_LOCAL_ID:
+    case ICT_GET_NEW_GLOBAL_ID:
     case ICT_GET_BASE_GLOBAL_ID:
     case ICT_GET_GROUP_ID:
     case ICT_GET_GLOBAL_OFFSET:
@@ -238,13 +235,15 @@ namespace intel {
     case ICT_GET_NUM_GROUPS:
     case ICT_GET_LOCAL_SIZE:
     case ICT_GET_GLOBAL_SIZE:
-      overflowValueString = "1";
+      overflowValue = 1;
       break;
     default:
       assert( false && "Unhandled internal call type!" );
     }
 
     // check if the function argument is constant
+    IntegerType *I32Ty = IntegerType::get(*m_pLLVMContext, 32);
+    Constant *const_overflow = ConstantInt::get(pCall->getType(), overflowValue);
     ConstantInt *pVal = dyn_cast<ConstantInt>(pCall->getArgOperand(0));
 
     if ( NULL != pVal ) {
@@ -253,8 +252,7 @@ namespace intel {
 
       if ( indexValue >= MAX_WORK_DIM ) {
         // return overflow result (OCL SPEC requirement)
-        return ConstantInt::get(*m_pLLVMContext,
-          APInt(getPointerSize(), StringRef(overflowValueString), 10));
+        return const_overflow;
       }
       return updateGetFunctionInBound(pCall, type, pCall);
     }
@@ -281,8 +279,8 @@ namespace intel {
     // Entry:1. remove the unconditional jump instruction
     pBlock->getTerminator()->eraseFromParent();
 
-    // Entry:2. add the entry tail code (as described up) 
-    ConstantInt *max_work_dim_i32 = ConstantInt::get(*m_pLLVMContext, APInt(32, MAX_WORK_DIM, false));
+    // Entry:2. add the entry tail code (as described up)
+    ConstantInt *max_work_dim_i32 = ConstantInt::get(I32Ty, MAX_WORK_DIM);
     ICmpInst *checkIndex = new ICmpInst(ICmpInst::ICMP_ULT, pCall->getArgOperand(0), max_work_dim_i32, "check.index.inbound");
     pBlock->getInstList().push_back(checkIndex);
     BranchInst::Create(getWIProperties, splitContinue, checkIndex, pBlock);
@@ -294,114 +292,47 @@ namespace intel {
     Instruction *pInsertBefore = getWIProperties->getTerminator();
     pResult = updateGetFunctionInBound(pCall, type, pInsertBefore);
 
-    // C.Create Phi node at the first of the splitted BB
-    ConstantInt *const_overflow = ConstantInt::get(*m_pLLVMContext, APInt(getPointerSize(), StringRef(overflowValueString), 10));
-    PHINode *pAttrResult = PHINode::Create(IntegerType::get(*m_pLLVMContext, getPointerSize()), 2, "", splitContinue->getFirstNonPHI());
+    // C.Create Phi node at the first of the spiltted BB
+    PHINode *pAttrResult = PHINode::Create(pCall->getType(), 2, "", splitContinue->getFirstNonPHI());
     pAttrResult->addIncoming(pResult, getWIProperties);
     pAttrResult->addIncoming(const_overflow, pBlock);
 
     return pAttrResult;
   }
 
-  Value* ResolveWICall::updateGetFunctionInBound(
-    CallInst *pCall, TInternalCallType type, Instruction *pInsertBefore) {
-
-      int iTableInx = 0;
-      switch ( type ) {
-      case ICT_GET_GLOBAL_OFFSET:
-        iTableInx = 1; break;
-      case ICT_GET_GLOBAL_SIZE:
-        iTableInx = 2; break;
-      case ICT_GET_LOCAL_SIZE:
-        iTableInx = 3; break;
-      case ICT_GET_NUM_GROUPS:
-        iTableInx = 4; break;
-      default:
-        // This to solve compilation warning!
-        iTableInx = 0;
-      }
-
-      if ( iTableInx > 0 || type == ICT_GET_LOCAL_ID ) {
-        Argument *structure = (iTableInx > 0) ? m_pWorkInfo : m_pLocalId;
-        SmallVector<Value*, 4> params;
-        params.push_back( (iTableInx > 0) ?
-          getConstZeroInt32Value() :
-        pCall->getArgOperand(1) );
-        params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), iTableInx));
-        params.push_back(pCall->getArgOperand(0));
-
-        GetElementPtrInst *pAddr =
-          GetElementPtrInst::Create(structure, ArrayRef<Value*>(params), "", pInsertBefore);
-
-        // Load the Value
-        return new LoadInst(pAddr, "", pInsertBefore);
-      }
-      if ( type == ICT_GET_GROUP_ID ) {
-        GetElementPtrInst *pIdAddr = 
-          GetElementPtrInst::Create(m_pWGId, pCall->getArgOperand(0), "", pInsertBefore);
-        // Load the Value
-        return new LoadInst(pIdAddr, "", pInsertBefore);
-      }
-      if ( type == ICT_GET_GLOBAL_ID ) {
-        return calcGlobalId(pCall, pInsertBefore);
-      }
-      if ( type == ICT_GET_BASE_GLOBAL_ID ) {
-        return calcBaseGlobalId(pCall, pInsertBefore);
-      }
-      assert( false && "Unhandled internal call type!" );
-      return NULL; // This to avoid compilation warning
-  }
-
-  Value* ResolveWICall::calcBaseGlobalId(CallInst *pCall, Instruction *pInsertBefore) {
-    SmallVector<Value*, 4> params;
-    // base global values
-    params.push_back(getConstZeroInt32Value());
-    params.push_back(getConstZeroInt32Value());
-    params.push_back(pCall->getArgOperand(0));
-
-    // Calculate the address of base global value
-    GetElementPtrInst *pGlbBaseAddr =
-      GetElementPtrInst::Create(m_pBaseGlbId, ArrayRef<Value*>(params), "", pInsertBefore);
-    // Load the value of base global
-    Value *pBaseGlbIdVal = new LoadInst(pGlbBaseAddr, "", pInsertBefore);
-    return pBaseGlbIdVal;
-  }
-
-  Value* ResolveWICall::calcGlobalId(CallInst *pCall, Instruction *pInsertBefore) {
-
-    SmallVector<Value*, 4> params;
-    // Load local id values
-    params.push_back(pCall->getArgOperand(1));
-    params.push_back(getConstZeroInt32Value());
-    params.push_back(pCall->getArgOperand(0));
-
-    // Calculate the address of local id value
-    GetElementPtrInst *pLclIdAddr =
-      GetElementPtrInst::Create(m_pLocalId, ArrayRef<Value*>(params), "", pInsertBefore);
-    // Load the value of local id
-    Value *pLocalIdVal = new LoadInst(pLclIdAddr, "", pInsertBefore);
-
-    params.clear();
-    // base global values
-    params.push_back(getConstZeroInt32Value());
-    params.push_back(getConstZeroInt32Value());
-    params.push_back(pCall->getArgOperand(0));
-
-    // Calculate the address of base global value
-    GetElementPtrInst *pGlbBaseAddr =
-      GetElementPtrInst::Create(m_pBaseGlbId, ArrayRef<Value*>(params), "", pInsertBefore);
-    // Load the value of base global
-    Value *pBaseGlbIdVal = new LoadInst(pGlbBaseAddr, "", pInsertBefore);
-
-    // Now add these two values
-    Value *pGlbId = BinaryOperator::CreateAdd( pLocalIdVal, pBaseGlbIdVal, "", pInsertBefore);
-
-    return pGlbId;
+  Value *ResolveWICall::updateGetFunctionInBound(CallInst *pCall, unsigned type,
+                                                 Instruction *pInsertBefore) {
+    IRBuilder<> Builder(pInsertBefore);
+    std::string Name;
+    switch (type) {
+    case ICT_GET_GLOBAL_OFFSET:
+    case ICT_GET_GLOBAL_SIZE:
+    case ICT_GET_LOCAL_SIZE:
+    case ICT_GET_NUM_GROUPS:
+      return m_IAA->GenerateGetFromWorkInfo(InternalCall2NDInfo(type),
+                                            m_pWorkInfo,
+                                            pCall->getArgOperand(0), Builder);
+    case ICT_GET_BASE_GLOBAL_ID:
+      return m_IAA->GenerateGetBaseGlobalID(m_pBaseGlbId,
+                                            pCall->getArgOperand(0), Builder);
+    case ICT_GET_NEW_GLOBAL_ID:
+      return m_IAA->GenerateGetNewGlobalID(m_pWorkInfo, m_pBaseGlbId,
+                                           pCall->getOperand(1),
+                                           pCall->getOperand(0), Builder);
+    case ICT_GET_NEW_LOCAL_ID:
+      return m_IAA->GenerateGetNewLocalID(m_pWorkInfo, pCall->getArgOperand(1),
+                                          pCall->getArgOperand(0), Builder);
+    case ICT_GET_GROUP_ID:
+      return m_IAA->GenerateGetGroupID(m_pWGId, pCall->getArgOperand(0),
+                                       Builder);
+    }
+    assert(false && "Unexpected ID function");
+    return 0;
   }
 
   Value* ResolveWICall::updatePrintf(CallInst *pCall) {
 
-    assert( m_pCtx && "Context pointer m_pCtx created as expected" );
+    assert( m_pRuntimeHandle && "Context pointer m_pRuntimeHandle created as expected" );
 #if LLVM_VERSION == 3425
     TargetData DL(m_pModule);
 #else
@@ -493,10 +424,14 @@ namespace intel {
     Function *pFunc = m_pModule->getFunction("opencl_printf");
     assert(pFunc && "Expect builtin printf to be declared before use");
 
+    IRBuilder<> Builder(pCall);
+    Value *pRuntimeCallbacks = m_IAA->GenerateGetFromWorkInfo(NDInfo::RUNTIME_CALLBACKS, m_pWorkInfo, Builder);
+
     std::vector<Value*> params;
     params.push_back(pCall->getArgOperand(0));
     params.push_back(ptr_to_buf);
-    params.push_back(m_pCtx);
+    params.push_back(pRuntimeCallbacks);
+    params.push_back(m_pRuntimeHandle);
     CallInst *res = CallInst::Create(pFunc, ArrayRef<Value*>(params), "translated_opencl_printf_call", pCall);
     res->setDebugLoc(pCall->getDebugLoc());
     return res;
@@ -541,13 +476,14 @@ namespace intel {
     }
 
     // The prototype of opencl_printf is:
-    // int opencl_printf(char *format, char *args, LLVMExecutable **ppExec)
+    // int opencl_printf(__constant char *format, char *args, void *pCallback, void *pRuntimeHandle)
     //
     std::vector<Type*> params;
     // The 'format' string is in constant address space (address space 2)
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 2));
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
-    params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, getPointerSize()), 0));
+    params.push_back(PointerType::get(StructType::get(*m_pLLVMContext), 0));
+    params.push_back(m_pRuntimeHandle->getType());
 
     FunctionType *pNewType = FunctionType::get(Type::getInt32Ty(*m_pLLVMContext), params, false);
     Function::Create(pNewType, Function::ExternalLinkage, "opencl_printf", m_pModule);
@@ -576,13 +512,13 @@ namespace intel {
     m_bPrefetchDecl = true;
   }
 
-  TInternalCallType ResolveWICall::getCallFunctionType(std::string calledFuncName) {
+  unsigned ResolveWICall::getCallFunctionType(std::string calledFuncName) {
 
-    if(calledFuncName == CompilationUtils::NAME_GET_LID) {
-      return ICT_GET_LOCAL_ID;
+    if(calledFuncName == CompilationUtils::NAME_GET_NEW_LID) {
+      return ICT_GET_NEW_LOCAL_ID;
     }
-    if( calledFuncName == CompilationUtils::NAME_GET_GID ) {
-      return ICT_GET_GLOBAL_ID;
+    if( calledFuncName == CompilationUtils::NAME_GET_NEW_GID ) {
+      return ICT_GET_NEW_GLOBAL_ID;
     }
     if( calledFuncName == CompilationUtils::NAME_GET_BASE_GID ) {
       return ICT_GET_BASE_GLOBAL_ID;
@@ -697,10 +633,6 @@ namespace intel {
     return PointerType::get(m_pModule->getTypeByName("struct.ExtendedExecutionContext"), 0);
   }
 
-  Type * ResolveWICall::getSizeTType() const {
-    return IntegerType::get(*m_pLLVMContext, m_pModule->getPointerSize()*32);
-  }
-
   ConstantInt * ResolveWICall::getConstZeroInt32Value() const {
     return ConstantInt::get(Type::getInt32Ty(*m_pLLVMContext), 0);
   }
@@ -713,7 +645,7 @@ namespace intel {
     if(m_pStructNDRangeType)
       return m_pStructNDRangeType;
     // type -  size_t XXX[3]
-    Type * arr3 = ArrayType::get(getSizeTType(), MAX_WORK_DIM);
+    Type * arr3 = ArrayType::get(m_sizeTTy, MAX_WORK_DIM);
 
     /*typedef struct _cl_work_description_type
     {
@@ -775,7 +707,7 @@ namespace intel {
     return (argsNum == 3)?(Index + 1) : ( Index + 2);
   }
 
-  Value* ResolveWICall::updateNDRangeND(const TInternalCallType type, CallInst *pCall) {
+  Value* ResolveWICall::updateNDRangeND(unsigned type, CallInst *pCall) {
     assert(m_pLLVMContext  && "m_pLLVMContext is NULL");
     uint32_t WorkDim = 0;
 
@@ -883,36 +815,6 @@ namespace intel {
       args.push_back(ConstantInt::get(int32_type, numLocalBuffers));
   }
 
-  Value* ResolveWICall::updateExtExecFunction(std::vector<Value*> Params, const StringRef FunctionName, CallInst *InsertBefore)
-  {
-    // implicitly add Extended Execution Context
-    Params.push_back(m_pExtendedExecutionCtx);
-
-    return CallInst::Create(
-      m_pModule->getFunction(FunctionName),
-      ArrayRef<Value*>(Params),
-      "", 
-      InsertBefore);
-  }
-
-  std::vector<Value*> ResolveWICall::getExtExecFunctionParams(CallInst *pCall)
-  {
-    return std::vector<Value*>(pCall->op_begin(), pCall->op_begin() + pCall->getNumArgOperands() );
-  }
-
-  std::vector<Value*> ResolveWICall::getEnqueueKernelLocalMemFunctionParams(CallInst *pCall, const uint32_t FixedArgs){
-    assert( m_pExtendedExecutionCtx && 
-      "Extended Execution Context pointer m_pExtendedExecutionCtx not created as expected" );
-
-    // copy arguments from initial call except size0, size1, ...
-    std::vector<Value*> params(pCall->op_begin(), pCall->op_begin() + FixedArgs);
-
-    // add arguments with local mem
-    addLocalMemArgs(params, pCall, FixedArgs);
-
-    return params;
-  }
-
   FunctionType*  ResolveWICall::getDefaultQueueFunctionType(){
     return FunctionType::get(
       getQueueType(), // return type 
@@ -948,7 +850,7 @@ namespace intel {
   //            ExtendedExecutionContext * pEEC)
   //
   // This function creates LLVM types for ALL 4 above enqueue_kernel callbacks
-  FunctionType*  ResolveWICall::getEnqueueKernelType(const TInternalCallType type ){
+  FunctionType*  ResolveWICall::getEnqueueKernelType(unsigned type ){
     std::vector<Type*> params;
     // queue_t
     params.push_back(getQueueType());
@@ -1002,7 +904,7 @@ namespace intel {
       params,
       false);
   }
-  FunctionType* ResolveWICall::getGetKernelQueryFunctionType(const TInternalCallType type)
+  FunctionType* ResolveWICall::getGetKernelQueryFunctionType(unsigned type)
   {
     // The prototype of ocl20_get_kernel_wg_size is:
     // void ocl20_get_kernel_wg_size(void*, uint32_t, ExtendedExecutionContext * pEEC)
@@ -1098,7 +1000,7 @@ namespace intel {
       false);
   }
 
-  void ResolveWICall::addExtExecFunctionDeclaration(const TInternalCallType type)
+  void ResolveWICall::addExtExecFunctionDeclaration(unsigned type)
   {
     // check declaration exists
     if(m_ExtExecDecls.find(type) != m_ExtExecDecls.end())
@@ -1112,7 +1014,7 @@ namespace intel {
     // mark declaration is done
     m_ExtExecDecls.insert(type);
   }
-  std::string ResolveWICall::getExtExecCallbackName(const TInternalCallType type) const
+  std::string ResolveWICall::getExtExecCallbackName(unsigned type) const
   {
     if(type == ICT_GET_DEFAULT_QUEUE)
       return "ocl20_get_default_queue";
@@ -1150,7 +1052,7 @@ namespace intel {
       assert(0);
     return "";
   }
-  FunctionType* ResolveWICall::getExtExecFunctionType(const TInternalCallType type)
+  FunctionType* ResolveWICall::getExtExecFunctionType(unsigned type)
   {
     if(type == ICT_GET_DEFAULT_QUEUE)
       return getDefaultQueueFunctionType();

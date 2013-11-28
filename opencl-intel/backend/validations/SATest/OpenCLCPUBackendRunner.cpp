@@ -60,6 +60,7 @@ namespace Utils
 extern void GenINT3();
 
 
+#if 0
 class OpenCLExecutionContext
 {
 public:
@@ -75,6 +76,7 @@ public:
         m_pPrivateMem = pPrivateMem;
     }
 
+#if 0
     void CreateContext(ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count)
     {
         m_pContext.reset(NULL);
@@ -107,6 +109,7 @@ public:
             throw Exception::TestRunnerException("Create executable failed\n");
         }
         m_vectorSize = pBinary->GetVectorSize();
+#endif
     }
 
     unsigned int GetVectorSize()
@@ -116,6 +119,7 @@ public:
 
     void ExecuteWorkGroup( size_t x, size_t y, size_t z)
     {
+#if 0
         size_t groupId[MAX_WORK_DIM] = {x, y, z};
 
         // In production sequence the Runtime calls Executable::PrepareThread()
@@ -148,6 +152,7 @@ public:
             throw Exception::TestRunnerException("RestoreThreadState failed\n");
         }
 
+#endif
     }
 
     void ResetSampling()
@@ -161,7 +166,7 @@ public:
     }
 
 private:
-    ICLDevBackendExecutablePtr  m_pContext;
+    //ICLDevBackendExecutablePtr  m_pContext;
     auto_ptr_aligned            m_pLocalMem;
     auto_ptr_aligned            m_pPrivateMem;
     size_t                      m_stPrivMemAllocSize;
@@ -169,7 +174,9 @@ private:
     Sample                      m_sample;
     unsigned int                m_vectorSize; // vector size that was actually used
 };
+#endif
 
+#if 0
 class OpenCLBinaryContext
 {
 public:
@@ -180,6 +187,7 @@ public:
                         uint8_t* pArgsBuffer,
                         size_t argsBufferSize)
     {
+#if 0
         assert(NULL != pArgsBuffer);
         assert(NULL != pKernel);
         assert(NULL != pKernelConfig);
@@ -259,12 +267,17 @@ public:
             m_regions[i] = (size_t)( pKernelConfig->GetGlobalWorkSize()[i]/m_spBinary->GetWorkGroupSize()[i]);
             assert( pKernelConfig->GetGlobalWorkSize()[i]%m_spBinary->GetWorkGroupSize()[i] == 0);
         }
+#endif
     }
 
     const size_t* GetWorkGroupSize() const
     {
+#if 0
         assert( m_spBinary.get() != NULL );
         return m_spBinary->GetWorkGroupSize();
+#else
+        return 0;
+#endif
     }
 
     const size_t* GetWorkGroupRegions() const
@@ -279,9 +292,13 @@ public:
 
     OpenCLExecutionContext* CreateExecutionContext(const BERunOptions* config)
     {
+#if 0
         std::auto_ptr<OpenCLExecutionContext> spContext( new OpenCLExecutionContext(config));
         spContext->CreateContext(m_spBinary.get(), m_spBufferSizes.get(), m_BufferSizesCount);
         return spContext.release();
+#else
+        return 0;
+#endif
     }
 
 private:
@@ -289,9 +306,9 @@ private:
     size_t  m_BufferSizesCount;
     size_t  m_regions[MAX_WORK_DIM];
     size_t  m_dim;
-    ICLDevBackendBinaryPtr m_spBinary;
+    //ICLDevBackendBinaryPtr m_spBinary;
 };
-
+#endif
 OpenCLCPUBackendRunner::OpenCLCPUBackendRunner(const BERunOptions& runConfig):
     OpenCLBackendRunner(runConfig)
 {
@@ -423,6 +440,7 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
                                         OpenCLKernelConfiguration * pKernelConfig,
                                         const BERunOptions* pRunConfig)
 {
+#if 0
     assert( NULL != pProgram);
     assert(pImageService);
 
@@ -534,6 +552,7 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
         IBufferContainerList& output = runResult->GetOutput(kernelName.c_str());
         argsBuffer.CopyOutput(output, &input);
     }
+#endif
 }
 
 } // namespace

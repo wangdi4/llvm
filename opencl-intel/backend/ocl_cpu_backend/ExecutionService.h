@@ -25,63 +25,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class Kernel;
 class KernelProperties;
-class Binary;
 
 class ExecutionService: public ICLDevBackendExecutionService
 {
 public:
-        ExecutionService(const ICLDevBackendOptions* pOptions);
-    /**
-     * Creates binary object from the given kernel code and the context, the generated binary
-     * will be binded for the given work description.
-     *
-     * @param pKernel pointer to the kernel that you want to execute
-     * @param pContext context which contains the argument values as required for the 
-     *  given kernel
-     * @param contextSize context size in bytes
-     * @param pWorkDescription description of the OCL task
-     * @param pBinary will be modified to contain the created binary
-     *
-     * @returns in case of success CL_DEV_SUCCESS and pBinary will point to the created binary
-     *  otherwise pBinary will be NULL and will return:
-     *  CL_DEV_OUT_OF_MEMORY if there's no sufficient memory 
-     *  CL_DEV_INVALID_TARGET if the given kernel compiled for another target and cannot
-     *      executed on this target (target mismatch)
-     *  CL_DEV_INVALID_CONTEXT if the given context do not match the kernel requirements
-     *  CL_DEV_ERROR_FAIL in any other error
-     */
-    virtual cl_dev_err_code CreateBinary(
-        const ICLDevBackendKernel_* pKernel, 
-        void* pContext,
-        size_t contextSize, 
-        const cl_work_description_type* pWorkDescription, 
-        ICLDevBackendBinary_** ppBinary) const;
-    
-    /**
-     * Creates Executable Object, which will be used by specific execution threads
-     *
-     * @param pBinary pointer to binary object to create executable from.
-     * @param pExecutionMemoryResources buffer which should contain pointers to the allocated
-     *  memory buffers as requested in the ExecutionMemoryResourcesDescription (in the same
-     *  order)
-     * @param resourcesCount contains how many entries in the passed buffer
-     * @param pExecutable will point to the created Executable object
-     *
-     * @returns 
-     *  CL_DEV_OUT_OF_MEMORY and pExecutable = NULL in case of memory failure
-     *  CL_DEV_SUCCESS and pExecutable will point the created obj in case of success;
-     *  if the resourcesCount don't match the required ExecutionMemoryResourcesDescription
-     *  or pExecutionMemoryResources is not valid the behavior is undefined
-     *
-     *  NOTE: the execution memory resources should be freed by the user, and should be
-     *      released after releasing all the executables which rely on them
-     */
-    virtual cl_dev_err_code CreateExecutable(
-        ICLDevBackendBinary_* pBinary, 
-        void** pExecutionMemoryResources, 
-        unsigned int resourcesCount, 
-        ICLDevBackendExecutable_** ppExecutable) const;
-        
+    ExecutionService(const ICLDevBackendOptions *pOptions);
     /**
      * @returns the target machine description size in bytes
      */
@@ -111,9 +59,6 @@ public:
 protected:
     // pointer to the Backend Factory, not owned by this class
     IAbstractBackendFactory* m_pBackendFactory; 
-
-    // pointer to the device printer service
-    ICLDevBackendBufferPrinter* m_pPrinter;
 
     // pointer to the device command manager
     // OCL20. Extended execution functionality

@@ -35,8 +35,8 @@ namespace Validation
     typedef auto_ptr_ex<ICLDevBackendExecutionService, ReleaseDP<ICLDevBackendExecutionService> > ICLDevBackendExecutionServicePtr;
     typedef auto_ptr_ex<ICLDevBackendImageService, ReleaseDP<ICLDevBackendImageService> > ICLDevBackendImageServicePtr;
     typedef auto_ptr_ex<ICLDevBackendProgram_, ReleaseDP<ICLDevBackendProgram_> > ICLDevBackendProgramPtr;
-    typedef auto_ptr_ex<ICLDevBackendBinary_, ReleaseDP<ICLDevBackendBinary_> > ICLDevBackendBinaryPtr;
-    typedef auto_ptr_ex<ICLDevBackendExecutable_, ReleaseDP<ICLDevBackendExecutable_> > ICLDevBackendExecutablePtr;
+//    typedef auto_ptr_ex<ICLDevBackendBinary_, ReleaseDP<ICLDevBackendBinary_> > ICLDevBackendBinaryPtr;
+//    typedef auto_ptr_ex<ICLDevBackendExecutable_, ReleaseDP<ICLDevBackendExecutable_> > ICLDevBackendExecutablePtr;
 
     class IBufferContainerList;
 
