@@ -445,9 +445,11 @@ cl_dev_err_code NDRange::init()
 
         std::vector<cl_mem_obj_descriptor*> recorderMemoryObjects;
         bool bRecorderEnabled = false; // TODO: Check with Kernel if recorder enabled
+        cl_mem_obj_descriptor** pRecoderMemoryObjects = NULL;
         if ( bRecorderEnabled )
         {
             recorderMemoryObjects.reserve(maxMemObjCount);
+            pRecoderMemoryObjects = &recorderMemoryObjects[0];
         }
 
         // Now fill the parameters
@@ -493,7 +495,7 @@ cl_dev_err_code NDRange::init()
         assert ( pUniformArgs->minWorkGroupNum > 0 && "Invalid number of active threads on device");
 
         // Now we should call to initialize BE kernel
-        returnError = pKernel->GetKernelRunner()->PrepareKernelArguments((void*)pKernelArgs, ( const cl_mem_obj_descriptor**)&recorderMemoryObjects[0], (unsigned int)recorderMemoryObjects.size());
+        returnError = pKernel->GetKernelRunner()->PrepareKernelArguments((void*)pKernelArgs, ( const cl_mem_obj_descriptor**)pRecoderMemoryObjects, (unsigned int)recorderMemoryObjects.size());
         if ( CL_DEV_FAILED(returnError) )
         {
             assert(0 && "PrepareKernelArguments failed" );

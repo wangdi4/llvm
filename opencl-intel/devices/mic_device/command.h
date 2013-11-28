@@ -43,8 +43,13 @@ public:
     virtual cl_dev_err_code execute() = 0;
 
     // Call to releaseCommand in order to decrease the reference counter in order to delete the Command.
-    void releaseCommand() { DecRefCnt(); }
-    void retainCommand()  { IncRefCnt(); }
+    void releaseCommand() {
+        long val = DecRefCnt();
+        if ( 0 == val ) {
+            Cleanup();
+        }
+    }
+	void retainCommand()  { IncRefCnt(); }
 
     const COIEVENT& getCommandCompletionEvent() { return m_endEvent.cmdEvent; };
 
