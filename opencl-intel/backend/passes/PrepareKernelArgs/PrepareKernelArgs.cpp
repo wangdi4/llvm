@@ -237,21 +237,18 @@ namespace intel{
         break;
       case ImplicitArgsUtils::IA_GLOBAL_BASE_ID: {
         assert(WGInfo && "WGInfo should have already been initialized");
-        assert(MAX_WI_DIM_POW_OF_2 == 4 &&
-               "MAX_WI_DIM_POW_OF_2 is not equal to 4!");
-        // use 4 instead of MAX_WORK_DIM for alignment & for better calculation
-        // of offset in Local ID buffer
-
         // Obtain values of Local Size for each dimension
-        assert(LocalSize.empty() && "Assuming that we are computing Local Sizes here");
+        assert(LocalSize.empty() &&
+               "Assuming that we are computing Local Sizes here");
         for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
           LocalSize.push_back(
               m_IAA->GenerateGetLocalSize(WGInfo, Dim, builder));
         // Obtain values of NDRange Offsets for each dimension
-        SmallVector<Value*,4> GlobalOffsets;
-        for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
+        SmallVector<Value *, 4> GlobalOffsets;
+        for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
           GlobalOffsets.push_back(
               m_IAA->GenerateGetGlobalOffset(WGInfo, Dim, builder));
+        }
         // Obtain values of group ID for each dimension
         SmallVector<Value *, 4> GroupIDs;
         for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
@@ -267,9 +264,10 @@ namespace intel{
         }
         // Collect all values to single array
         Value *U = UndefValue::get(m_IAA->getArgType(i));
-        for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
+        for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
           U = builder.CreateInsertValue(U, Computes[Dim],
                                         ArrayRef<unsigned>(Dim));
+        }
         pArg = U;
         } break;
         //TODO: Remove this #ifndef when apple no longer pass barrier memory buffer

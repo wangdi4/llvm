@@ -46,8 +46,9 @@ namespace intel {
       m_pModule = &M;
       m_pLLVMContext = &M.getContext();
       m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-      m_IAA->initDuringRun(M.getPointerSize() * 32);
-      m_sizeTTy = IntegerType::get(*m_pLLVMContext, m_pModule->getPointerSize()*32);
+      unsigned PointerSize = getAnalysis<DataLayout>().getPointerSize();
+      m_IAA->initDuringRun(PointerSize);
+      m_sizeTTy = IntegerType::get(*m_pLLVMContext, PointerSize);
 
       m_bPrefetchDecl = false;
       m_bPrintfDecl = false;

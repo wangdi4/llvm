@@ -213,6 +213,7 @@ namespace intel{
         for (unsigned I = 0; I < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
              ++I, ++IA) {
           pCallArgs[I] = static_cast<Value*>(IA);
+          //pCallArgs[I] = cast<Value>(IA);
         }
         assert(IA == pNewF->arg_end());
         // Calculate pointer to the local memory buffer for callee

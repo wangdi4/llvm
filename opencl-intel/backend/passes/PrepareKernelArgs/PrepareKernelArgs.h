@@ -52,7 +52,6 @@ namespace intel {
     bool runOnModule(Module &M);
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      // Depends on LocalBuffAnalysis for finding all local buffers each function uses directly
       AU.addRequired<ImplicitArgsAnalysis>();
     }
   protected:

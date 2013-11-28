@@ -98,7 +98,6 @@ public:
       ArgTypes[ID] = PointerType::get(pWorkDimType, 0);
       break;
     case ImplicitArgsUtils::IA_WORK_GROUP_ID:
-      //TODO-NDRANGE: fix to support more than one dimension
       ArgTypes[ID] = SizetPtrTy;
       break;
     case ImplicitArgsUtils::IA_GLOBAL_BASE_ID:
