@@ -258,7 +258,6 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   if (dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_BEFORE,
                              pConfig->GetDumpIRDir()));
-  PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
   }
 #ifdef __APPLE__
   PM.add(createClangCompatFixerPass());
@@ -320,6 +319,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
   PM.add(createDataLayout(M));
   PM.add(createBuiltinLibInfoPass(pRtlModule, ""));
+  PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 
   if (isOcl20) {
     // Repeat static resolution of generic address space pointers after 
