@@ -171,7 +171,7 @@ namespace intel{
       if (DestI->getType()->isPointerTy())
         DestI->addAttr(NoAlias);
     }
-    assert(DestI == pNewF->end());
+    assert(DestI == pNewF->arg_end());
 
     // Since we have now created the new function, splice the body of the old
     // function right into the new function, leaving the old body of the function empty.

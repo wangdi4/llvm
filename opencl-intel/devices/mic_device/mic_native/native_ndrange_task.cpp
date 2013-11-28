@@ -27,11 +27,10 @@
 #include "native_ndrange_task.h"
 #include "native_program_service.h"
 #include "native_thread_pool.h"
-#include "wg_context.h"
 #include "device_queue.h"
 #include "thread_local_storage.h"
 #include "native_common_macros.h"
-
+#include "hw_exceptions_handler.h"
 #include "mic_logger.h"
 
 // TODO: Move to system utils
@@ -44,9 +43,6 @@
 #include <sink/COIBuffer_sink.h>
 #include <sink/COIPipeline_sink.h>
 #include <sink/COIProcess_sink.h>
-
-// TODO: remove from SVN
-// #include "wg_context.h"
 
 using namespace Intel::OpenCL::MICDeviceNative;
 using namespace Intel::OpenCL::MICDevice;

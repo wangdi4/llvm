@@ -2,6 +2,7 @@
 #define ICLDevBackendKernel_H
 
 #include "cl_device_api.h"
+#include "cl_types.h"
 #include "ICLDevBackendProgram.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

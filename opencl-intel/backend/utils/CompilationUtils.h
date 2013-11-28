@@ -77,11 +77,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param  ppCurrWI     The CurrWI argument, NULL if this argument shouldn't be retrieved
     /// @param  ppCtx        The pCtx argument, NULL if this argument shouldn't be retrieved
     /// @param  ppExtExecCtx The ExtendedExecutionContext argument, NULL if this argument shouldn't be retrieved
-    static void getImplicitArgs(Function *pFunc,
-      Argument **ppLocalMem, Argument **ppWorkDim, Argument **ppWGId,
-      Argument **ppBaseGlbId, Argument **ppLocalId, Argument **ppIterCount,
-      Argument **ppSpecialBuf, Argument **ppCurrWI, Argument **ppCtx,
-      Argument **ppExtExecCtx);
+    static void getImplicitArgs(Function *pFunc, Argument **ppLocalMem,
+                                Argument **ppWorkDim, Argument **ppWGId,
+                                Argument **ppBaseGlbId, Argument **ppSpecialBuf,
+                                Argument **ppCurrWI,
+                                Argument **ppRunTimeContext);
 
     /// @brief collect built-ins declared in the module and force synchronization.
     //         I.e. implemented using barrier built-in.

@@ -614,24 +614,18 @@ static std::string mangleWithParam(const char*const N, unsigned int numOfParams)
     FD.parameters.push_back(UI);
   }
   return mangle(FD);
-
-std::string CompilationUtils::mangledGetGID(){
-  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GID.c_str());
 }
 
 std::string CompilationUtils::mangledGetGID() {
-  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_GID.c_str());
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GID.c_str());
 }
 
 std::string CompilationUtils::mangledGetGlobalSize() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GLOBAL_SIZE.c_str());
-
-std::string CompilationUtils::mangledGetLID(){
-  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LID.c_str());
 }
 
 std::string CompilationUtils::mangledGetLID() {
-  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_LID.c_str());
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LID.c_str());
 }
 
 std::string CompilationUtils::mangledGetLocalSize() {

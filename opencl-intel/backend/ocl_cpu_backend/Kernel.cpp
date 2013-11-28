@@ -247,8 +247,6 @@ void Kernel::CreateWorkDescription(
                 }
                 break;
 
-              }
-              break;
             }
           }
         }
