@@ -40,6 +40,13 @@ File Name:  OpenCLCPUBackendRunner.cpp
 #include "Buffer.h"
 #include "mem_utils.h"
 
+
+#include "cpu_dev_limits.h"
+#include "ExplicitArgument.h"
+#include "ExplicitGlobalMemArgument.h"
+#include "BlockLiteral.h"
+#include "ExplicitBlockLiteralArgument.h"
+
 #define DEBUG_TYPE "OpenCLCPUBackendRunner"
 #include <llvm/Support/raw_ostream.h>
 // debug macros
@@ -60,38 +67,42 @@ namespace Utils
 extern void GenINT3();
 
 
-#if 0
 class OpenCLExecutionContext
 {
 public:
-    OpenCLExecutionContext(const BERunOptions* config):
+    OpenCLExecutionContext(const ICLDevBackendKernel_* pKernel, const BERunOptions* config, 
+                           cl_work_description_type workInfo, uint8_t* pArgsBuffer, size_t argsBufferSize):
+
         m_stPrivMemAllocSize(2*CPU_DEV_MIN_WI_PRIVATE_SIZE),
-        m_config(config),
-        m_vectorSize(1)
+        m_uiVectorWidth(1),     // vector size that is actually used, to be updated from kernel arguments
+        m_stFormalParamSize(0), // formal parameters size
+        m_stKernelParamSize(0), // m_stFormalParamSize + OCL specific argument: WG Inf and so on
+        m_stAlignedKernelParamSize(0), // m_stKernelParamSize + aligment
+        m_pBlockLiteral(NULL)   // pointer to BlockLiteral
     {
-        auto_ptr_aligned pLocalMem  ( (char*)align_malloc(CPU_DEV_LCL_MEM_SIZE, CPU_DEV_MAXIMUM_ALIGN));
-        auto_ptr_aligned pPrivateMem( (char*)align_malloc(m_stPrivMemAllocSize, CPU_DEV_MAXIMUM_ALIGN));
-
-        m_pLocalMem   = pLocalMem;
+        // allocate buffer for private memory
+        auto_ptr_aligned pPrivateMem( (char*)align_malloc(m_stPrivMemAllocSize, CPU_DEV_MAXIMUM_ALIGN));        
         m_pPrivateMem = pPrivateMem;
-    }
 
-#if 0
-    void CreateContext(ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count)
-    {
-        m_pContext.reset(NULL);
+        // allocate buffer for kernel's arguments
+        size_t size = pKernel->GetExplicitArgumentBufferSize();
+        auto_ptr_aligned pArgumentBuffer  ( (char*)align_malloc(size + sizeof(cl_uniform_kernel_args), CPU_DEV_MAXIMUM_ALIGN));
+        m_pArgumentBuffer = pArgumentBuffer;        
+        
+        // init kernel parameters
+        InitParams(pKernel,(char*)pArgsBuffer, workInfo);
 
-    	void*	pBuffPtr[CPU_MAX_LOCAL_ARGS+1]; // Additional one for private memory
+        // init the memory buffer sizes
+        auto_ptr_ex< size_t, ArrayDP<size_t> > spBufferSizes;
+        size_t bufferSizesCount = 0;
+        GetMemoryBuffersDescriptions(NULL, &bufferSizesCount);
+        spBufferSizes.reset(new size_t[bufferSizesCount]);
+        GetMemoryBuffersDescriptions(spBufferSizes.get(), &bufferSizesCount);
 
-        // Allocate local memories
-        char*   pCurrPtr = m_pLocalMem.get();
+        size_t* pBuffSizes = spBufferSizes.get();
+
         // The last buffer is private memory (stack) size
-        --count;
-        for(size_t i=0;i<count;++i)
-        {
-            pBuffPtr[i] = pCurrPtr;
-            pCurrPtr += pBuffSizes[i];
-        }
+        size_t count = bufferSizesCount - 1;
 
         // Check allocated size of the private memory, and allocate new if necessary.
         if ( m_stPrivMemAllocSize < pBuffSizes[count] )
@@ -100,33 +111,169 @@ public:
             m_pPrivateMem.reset((char*)align_malloc(m_stPrivMemAllocSize, CPU_DEV_MAXIMUM_ALIGN));
         }
 
-        pBuffPtr[count] = m_pPrivateMem.get();
-        DEBUG(llvm::dbgs() << "Create executable started.\n");
-        int rc = pBinary->CreateExecutable(pBuffPtr, count+1, m_pContext.getOutPtr());
-        DEBUG(llvm::dbgs() << "Create executable finished.\n");
-        if (CL_DEV_FAILED(rc))
-        {
-            throw Exception::TestRunnerException("Create executable failed\n");
-        }
-        m_vectorSize = pBinary->GetVectorSize();
-#endif
+        m_tExecState.MXCSRstate = 0;
+        m_pBuffPtr = m_pPrivateMem.get();
     }
+
+    ~OpenCLExecutionContext() {
+        if(m_pBlockLiteral)
+            BlockLiteral::FreeMem(m_pBlockLiteral);
+    }
+
+    void InitParams(const ICLDevBackendKernel_* pKernel, char* pArgsBuffer, cl_work_description_type workInfo)
+    {
+        char* pArgValueDest = m_pArgumentBuffer.get();
+        
+        const int kernelParamCnt = pKernel->GetKernelParamsCount();
+
+        for (int i = 0; i < kernelParamCnt; i++) {
+            const cl_kernel_argument arg = pKernel->GetKernelParams()[i];
+
+            std::auto_ptr<IArgument> pArg;
+
+            switch (arg.type) {
+                case CL_KRNL_ARG_PTR_GLOBAL:
+                case CL_KRNL_ARG_PTR_CONST:
+                case CL_KRNL_ARG_PTR_IMG_2D:
+                case CL_KRNL_ARG_PTR_IMG_2D_DEPTH:
+                case CL_KRNL_ARG_PTR_IMG_3D:
+                case CL_KRNL_ARG_PTR_IMG_2D_ARR:
+                case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
+                case CL_KRNL_ARG_PTR_IMG_1D:
+                case CL_KRNL_ARG_PTR_IMG_1D_ARR:
+                case CL_KRNL_ARG_PTR_IMG_1D_BUF:
+                    pArg.reset(new ExplicitGlobalMemArgument(pArgValueDest, arg));
+                break;
+                case CL_KRNL_ARG_PTR_BLOCK_LITERAL: {
+
+                    assert(i == 0 && "Block literal is not 0th argument in kernel");
+                    // pArgValueSrc - offset value
+                    // offset value is offset in bytes from the beginning of pArgsBuffer
+                    // arguments buffer to memory location where BlockLiteral is stored
+                    // offset value is of unsigned(32bit) type
+                    
+                    const size_t offs = (size_t) * (unsigned *)(pArgsBuffer);
+                    // deserialize in source memory BlockLiteral.
+                    // Actually it updates BlockDesc ptr field in BlockLiteral
+                    BlockLiteral *pBL = BlockLiteral::DeserializeInBuffer(pArgsBuffer + offs);
+                    
+                    // clone BlockLiteral to this Binary object. assume ownership
+                    assert(m_pBlockLiteral == NULL && "m_pBlockLiteral should be NULL");
+                    m_pBlockLiteral = BlockLiteral::Clone(pBL);
+                    
+                    // create special type of argument for passing BlockLiteral
+                    pArg.reset(new ExplicitBlockLiteralArgument(pArgValueDest, arg, m_pBlockLiteral));                    
+                    break;
+                }
+                default:
+                switch (arg.type) {
+                    case CL_KRNL_ARG_PTR_LOCAL:
+                        // Local memory buffers are allocating on the JIT's stack. The value
+                        // we get here is not the pointer, but the buffer size. We handle
+                        // this parameter like other arguments passed by value
+                        // + 16 is for taking alignment padding into consideration
+                        m_kernelLocalMemSizes.push_back(*reinterpret_cast<size_t *>(pArgsBuffer) + 16);
+
+                    // Fall through
+                    case CL_KRNL_ARG_INT:
+                    case CL_KRNL_ARG_UINT:
+                    case CL_KRNL_ARG_FLOAT:
+                    case CL_KRNL_ARG_DOUBLE:
+                    case CL_KRNL_ARG_VECTOR:
+                    case CL_KRNL_ARG_VECTOR_BY_REF:
+                    case CL_KRNL_ARG_SAMPLER:
+                    case CL_KRNL_ARG_COMPOSITE:
+                        break;
+                    default:
+                        assert(false && "Unknown kind of argument");
+                }
+                pArg.reset(new ExplicitArgument(pArgValueDest, arg));
+            }
+
+            pArg->setValue(pArgsBuffer);
+          
+            // Advance the src buffer according to argument's size (the sec buffer is packed)
+            pArgsBuffer += pArg->getSize();
+            // Advance the dest buffer according to argument's size and alignment
+            pArgValueDest += pArg->getAlignedSize();
+        }
+
+        cl_uniform_kernel_args *pKernelArgs = (cl_uniform_kernel_args *) (m_pArgumentBuffer.get() + pKernel->GetExplicitArgumentBufferSize());        
+
+        size_t sizetMaxWorkDim = sizeof(size_t)*MAX_WORK_DIM;
+
+        memcpy(pKernelArgs->GlobalOffset, workInfo.globalWorkOffset, sizetMaxWorkDim); // Filled by the runtime
+        
+        memcpy(pKernelArgs->GlobalSize, workInfo.globalWorkSize, sizetMaxWorkDim); // Filled by the runtime
+
+        pKernelArgs->LocalIDIndicesRequiredSize = 0; // Updated by the BE, contains size of local index buffer
+
+        memcpy(pKernelArgs->LocalSize, workInfo.localWorkSize, sizetMaxWorkDim); // Filled by the runtime, updated by the BE in case of (0,0,0)
+
+        pKernelArgs->minWorkGroupNum = size_t(workInfo.minWorkGroupNum); // Filled by the runtime, Required by the heuristic
+
+        pKernelArgs->pJITEntryPoint = NULL;// Filled by the BE
+        pKernelArgs->pLocalIDIndices = NULL; // Allocated by the runtime, filled by the BE
+
+        pKernelArgs->VectorWidth = 0;// Filled by the BE
+
+        memset(pKernelArgs->WGCount,0,sizetMaxWorkDim); // Updated by the BE, based on GLOBAL/LOCAL
+
+        pKernelArgs->WGLoopIterCount = 0;// Updated by the BE
+        pKernelArgs->WorkDim = workInfo.workDimension; // Filled by the runtime
+
+       
+        m_pKernelRunner = pKernel->GetKernelRunner();
+
+        m_pKernelRunner->PrepareKernelArguments((void*)(m_pArgumentBuffer.get()), 0, 0);
+
+
+        if ( 0 != pKernelArgs->LocalIDIndicesRequiredSize ) {
+            // Allocate local index buffer
+            pKernelArgs->pLocalIDIndices = new size_t[pKernelArgs->LocalIDIndicesRequiredSize/sizeof(size_t)];
+            // Fill indexes buffer
+            m_pKernelRunner->InitRunner((void*)(m_pArgumentBuffer.get()));
+        } else {
+            pKernelArgs->pLocalIDIndices = NULL;
+        }
+
+        m_uiVectorWidth = pKernelArgs->VectorWidth;
+
+        m_uiWGSize = 1;
+        for(unsigned int i=0; i< pKernelArgs->WorkDim ; ++i)  {
+            m_uiWGSize *= pKernelArgs->LocalSize[i];
+        }
+        m_uiWGSize = m_uiWGSize / m_uiVectorWidth;
+        m_stWIidsBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(m_uiWGSize * sizeof(size_t) * MAX_WI_DIM_POW_OF_2);
+
+        m_stPrivateMemorySize = pKernel->GetKernelProporties()->GetPrivateMemorySize();
+
+        // Calculate parameter sizes
+        m_stFormalParamSize = pArgValueDest - m_pArgumentBuffer.get();
+
+        unsigned int ptrSize = (sizeof(void*));
+        m_stKernelParamSize = m_stFormalParamSize +
+                              3 * ptrSize + // OCL specific argument: WG Info, pWGID, pBaseGlobalID
+                              ptrSize  + // pWI-ids[]
+                              ptrSize  + // Pointer to IDevExecutable
+                              ptrSize  + // iterCount
+                              ptrSize;   // ExtendedExecutionContext
+
+        m_stAlignedKernelParamSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(m_stKernelParamSize);
+    }
+
 
     unsigned int GetVectorSize()
     {
-        return m_vectorSize;
+        return m_uiVectorWidth;
     }
 
     void ExecuteWorkGroup( size_t x, size_t y, size_t z)
     {
-#if 0
+
         size_t groupId[MAX_WORK_DIM] = {x, y, z};
 
-        // In production sequence the Runtime calls Executable::PrepareThread()
-        // and Executable::RestoreThreadState() respectively before and
-        // after executing a work group.
-        // These routines setup and restore the MXCSR register and zero the upper parts of YMMs.
-        int rc = m_pContext->PrepareThread();
+        cl_dev_err_code rc = m_pKernelRunner->PrepareThreadState(m_tExecState);
         if (CL_DEV_FAILED(rc))
         {
             throw Exception::TestRunnerException("PrepareThread failed\n");
@@ -136,7 +283,8 @@ public:
 
         DEBUG(llvm::dbgs() << "Starting execution of the " << x << ", " << y << ", " << z << " group.\n");
 
-        cl_dev_err_code ret = m_pContext->Execute(groupId, NULL, NULL);
+        cl_dev_err_code ret = m_pKernelRunner->RunGroup((const void*)(m_pArgumentBuffer.get()),groupId,m_pBuffPtr);
+
         if (CL_DEV_FAILED(ret))
         {
             throw Exception::TestRunnerException("Execution failed.\n");
@@ -146,13 +294,12 @@ public:
 
         m_sample.Stop();
 
-        rc = m_pContext->RestoreThreadState();
+        rc = m_pKernelRunner->RestoreThreadState(m_tExecState);
         if (CL_DEV_FAILED(rc))
         {
             throw Exception::TestRunnerException("RestoreThreadState failed\n");
         }
 
-#endif
     }
 
     void ResetSampling()
@@ -165,150 +312,55 @@ public:
         return m_sample;
     }
 
-private:
-    //ICLDevBackendExecutablePtr  m_pContext;
-    auto_ptr_aligned            m_pLocalMem;
-    auto_ptr_aligned            m_pPrivateMem;
-    size_t                      m_stPrivMemAllocSize;
-    const BERunOptions*         m_config;
-    Sample                      m_sample;
-    unsigned int                m_vectorSize; // vector size that was actually used
-};
-#endif
 
-#if 0
-class OpenCLBinaryContext
-{
-public:
-    OpenCLBinaryContext(const ICLDevBackendKernel_* pKernel,
-                        const ICLDevBackendExecutionService* pExecutionService,
-                        OpenCLKernelConfiguration * pKernelConfig,
-                        const BERunOptions* pRunConfig,
-                        uint8_t* pArgsBuffer,
-                        size_t argsBufferSize)
+
+    void GetMemoryBuffersDescriptions(size_t* IN pBufferSizes, 
+                                      size_t* INOUT pBufferCount ) const
     {
-#if 0
-        assert(NULL != pArgsBuffer);
-        assert(NULL != pKernel);
-        assert(NULL != pKernelConfig);
-
-        // get local work group sizes
-        cl_work_description_type workInfo;
-
-        std::copy(pKernelConfig->GetLocalWorkSize(),
-                  pKernelConfig->GetLocalWorkSize() + MAX_WORK_DIM,
-                  workInfo.localWorkSize);
-
-        std::copy(pKernelConfig->GetGlobalWorkOffset(),
-                  pKernelConfig->GetGlobalWorkOffset() + MAX_WORK_DIM,
-                  workInfo.globalWorkOffset);
-
-        std::copy(pKernelConfig->GetGlobalWorkSize(),
-                  pKernelConfig->GetGlobalWorkSize() + MAX_WORK_DIM,
-                  workInfo.globalWorkSize);
-
-        //TODO: this number should be similar to how the runtime set it,
-        //      i.e. number-of-working-threads
-        //      We actualy are running one thread in SATest!
-        workInfo.minWorkGroupNum = 1; //Intel::OpenCL::Utils::GetNumberOfProcessors();
-
-        m_dim = workInfo.workDimension = pKernelConfig->GetWorkDimension();
-
-        // adjust the local work group sized in case we are running
-        // in validation mode. Adjusting is mainly selecting the appropriate
-        // local work group size if one was not selected by user. We need
-        // to adjust to be able to use the same value as a reference runner.
-        // In Performance mode no adjustment is needed and we let the Volcano
-        // engine to select one
-        if( !pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false) )
-        {
-            for (size_t i = 0; i < m_dim; ++i)
-            {
-                if(workInfo.localWorkSize[i] == 0)
-                {
-                    workInfo.localWorkSize[i] =
-                        std::min<uint32_t>( static_cast<uint32_t>(pKernelConfig->GetGlobalWorkSize()[i]),
-                         pRunConfig->GetValue<uint32_t>(RC_COMMON_DEFAULT_LOCAL_WG_SIZE, 0));
-                    // the values specified in globalWorkSize[0], ..,
-                    // globalWorkSize[work_dim - 1] must be evenly divisible by
-                    // the corresponding values specified in
-                    // localWorkSize[0], .., localWorkSize[work_dim - 1]
-                    if (static_cast<uint32_t>(pKernelConfig->GetGlobalWorkSize()[i]) % workInfo.localWorkSize[i] != 0)
-                    {
-                        workInfo.localWorkSize[i] = 1;
-                    }
-                }
-            }
+        // We only require one buffer allocation from the Runtime used for storing the
+        // kernel arguments and the Barrier's local ID indeces
+        // We also report the overall memory needed for local memory even though
+        // we do not need the Runtime to allocate it, because the Runtime needs this
+        // information for OpenCL queries and for the hueristics which computes
+        // work-group size.
+        assert(pBufferCount);
+        if (!pBufferSizes) {
+            // +1 for additional area for: kernel params + WI ids buffer + private memory [see below]
+            *pBufferCount = m_kernelLocalMemSizes.size() + 1;
+            return;
         }
-
-        // create the binary
-
-        DEBUG(llvm::dbgs() << "Creating binary started.\n");
-        cl_int ret = pExecutionService->CreateBinary(
-                                           pKernel,
-                                           pArgsBuffer,
-                                           argsBufferSize,
-                                           &workInfo,
-                                           m_spBinary.getOutPtr());
-        DEBUG(llvm::dbgs() << "Creating binary finished.\n");
-        if ( CL_DEV_FAILED(ret) )
-        {
-            throw Exception::TestRunnerException("Create binary failed\n");
-        }
-
-        // init the memory buffer sizes
-        m_spBinary->GetMemoryBuffersDescriptions(NULL, &m_BufferSizesCount);
-        m_spBufferSizes.reset(new size_t[m_BufferSizesCount]);
-        m_spBinary->GetMemoryBuffersDescriptions(m_spBufferSizes.get(), &m_BufferSizesCount);
-
-        // init the work group regions
-        for (size_t i=0; i < m_dim; ++i)
-        {
-            m_regions[i] = (size_t)( pKernelConfig->GetGlobalWorkSize()[i]/m_spBinary->GetWorkGroupSize()[i]);
-            assert( pKernelConfig->GetGlobalWorkSize()[i]%m_spBinary->GetWorkGroupSize()[i] == 0);
-        }
-#endif
-    }
-
-    const size_t* GetWorkGroupSize() const
-    {
-#if 0
-        assert( m_spBinary.get() != NULL );
-        return m_spBinary->GetWorkGroupSize();
-#else
-        return 0;
-#endif
-    }
-
-    const size_t* GetWorkGroupRegions() const
-    {
-        return m_regions;
-    }
-
-    size_t GetWorkDimension() const
-    {
-        return m_dim;
-    }
-
-    OpenCLExecutionContext* CreateExecutionContext(const BERunOptions* config)
-    {
-#if 0
-        std::auto_ptr<OpenCLExecutionContext> spContext( new OpenCLExecutionContext(config));
-        spContext->CreateContext(m_spBinary.get(), m_spBufferSizes.get(), m_BufferSizesCount);
-        return spContext.release();
-#else
-        return 0;
-#endif
+        // Fill sizes of explicit local buffers
+        std::copy(m_kernelLocalMemSizes.begin(), m_kernelLocalMemSizes.end(), pBufferSizes);
+        // Fill size of private area for all work-items
+        // [WORK-AROUND] and also the area for kernel params and local WI ids
+        pBufferSizes[m_kernelLocalMemSizes.size()] =
+            m_stAlignedKernelParamSize + m_stWIidsBufferSize +
+            m_stPrivateMemorySize * m_uiVectorWidth * m_uiWGSize;
     }
 
 private:
-    std::auto_ptr<size_t> m_spBufferSizes; //buffer size info
-    size_t  m_BufferSizesCount;
-    size_t  m_regions[MAX_WORK_DIM];
-    size_t  m_dim;
-    //ICLDevBackendBinaryPtr m_spBinary;
+    const ICLDevBackendKernelRunner * m_pKernelRunner;
+    ICLDevBackendKernelRunner::ICLDevExecutionState m_tExecState;
+    void*                   m_pBuffPtr;
+
+    auto_ptr_aligned        m_pPrivateMem;
+    auto_ptr_aligned        m_pArgumentBuffer;
+    size_t                  m_stPrivMemAllocSize;
+
+    Sample                  m_sample;
+    unsigned int            m_uiVectorWidth; // vector size that was actually used
+
+    size_t                  m_stFormalParamSize;
+    size_t                  m_stKernelParamSize;
+    size_t                  m_stAlignedKernelParamSize;
+    unsigned int            m_uiWGSize;
+    size_t                  m_stPrivateMemorySize;
+    size_t                  m_stWIidsBufferSize;
+    std::vector<size_t>     m_kernelLocalMemSizes;
+    BlockLiteral *          m_pBlockLiteral;
 };
-#endif
+
+
 OpenCLCPUBackendRunner::OpenCLCPUBackendRunner(const BERunOptions& runConfig):
     OpenCLBackendRunner(runConfig)
 {
@@ -408,7 +460,7 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
                                                        pOCLProgramConfig->GetBaseDirectory());
 
         spCompileService->DumpJITCodeContainer(programHolder.getProgram()->GetProgramCodeContainer(),
-                                               filename);
+            filename);
     }
 
     if (pOCLRunConfig->GetValue<bool>(RC_BR_BUILD_ONLY, false))
@@ -426,21 +478,67 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
         PriorityBooster booster(!pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
         for( uint32_t i = 0; i < pOCLRunConfig->GetValue<uint32_t>(RC_BR_EXECUTE_ITERATIONS_COUNT, 1); ++i)
         {
-            ExecuteKernel(input, runResult, programHolder.getProgram(), spExecutionService.get(), spImageService.get(), *it, pOCLRunConfig);
+            ExecuteKernel(input, runResult, programHolder.getProgram(), spImageService.get(), *it, pOCLRunConfig);
         }
     }
     }// ProgramHolder scope end
 }
 
+
+static void initWorkInfo(cl_work_description_type* workInfo, const OpenCLKernelConfiguration * pKernelConfig, const BERunOptions* pRunConfig){
+
+    std::copy(pKernelConfig->GetLocalWorkSize(),
+              pKernelConfig->GetLocalWorkSize() + MAX_WORK_DIM,
+              workInfo->localWorkSize);
+
+    std::copy(pKernelConfig->GetGlobalWorkOffset(),
+              pKernelConfig->GetGlobalWorkOffset() + MAX_WORK_DIM,
+              workInfo->globalWorkOffset);
+
+    std::copy(pKernelConfig->GetGlobalWorkSize(),
+              pKernelConfig->GetGlobalWorkSize() + MAX_WORK_DIM,
+              workInfo->globalWorkSize);
+
+    //TODO: this number should be similar to how the runtime set it,
+    //      i.e. number-of-working-threads
+    workInfo->minWorkGroupNum = 1; //Intel::OpenCL::Utils::GetNumberOfProcessors();
+    workInfo->workDimension = pKernelConfig->GetWorkDimension();
+    // adjust the local work group sized in case we are running
+    // in validation mode. Adjusting is mainly selecting the appropriate
+    // local work group size if one was not selected by user. We need
+    // to adjust to be able to use the same value as a reference runner.
+    // In Performance mode no adjustment is needed and we let the Volcano
+    // engine to select one
+    if( !pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false) )
+    {
+        for (size_t i = 0; i < workInfo->workDimension; ++i)
+        {
+            if(workInfo->localWorkSize[i] == 0)
+            {
+                workInfo->localWorkSize[i] =
+                    std::min<uint32_t>( static_cast<uint32_t>(pKernelConfig->GetGlobalWorkSize()[i]),
+                     pRunConfig->GetValue<uint32_t>(RC_COMMON_DEFAULT_LOCAL_WG_SIZE, 0));
+                // the values specified in globalWorkSize[0], ..,
+                // globalWorkSize[work_dim - 1] must be evenly divisible by
+                // the corresponding values specified in
+                // localWorkSize[0], .., localWorkSize[work_dim - 1]
+                if (static_cast<uint32_t>(pKernelConfig->GetGlobalWorkSize()[i]) % workInfo->localWorkSize[i] != 0)
+                {
+                    workInfo->localWorkSize[i] = 1;
+                }
+            }
+        }
+    }
+}
+
 void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
                                         IRunResult * runResult,
                                         ICLDevBackendProgram_* pProgram,
-                                        ICLDevBackendExecutionService* pExecutionService,
                                         ICLDevBackendImageService* pImageService,
                                         OpenCLKernelConfiguration * pKernelConfig,
                                         const BERunOptions* pRunConfig)
 {
-#if 0
+
     assert( NULL != pProgram);
     assert(pImageService);
 
@@ -472,23 +570,29 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
     OpenCLArgsBuffer argsBuffer(pKernelArgs, kernelNumArgs, &input, pImageService,
             !pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
 
-    OpenCLBinaryContext binary( pKernel,
-                                pExecutionService,
-                                pKernelConfig,
-                                pRunConfig,
-                                argsBuffer.GetArgsBuffer(),
-                                argsBuffer.GetArgsBufferSize());
+    cl_work_description_type workInfo;
+    
+    initWorkInfo(&workInfo, pKernelConfig, pRunConfig);
 
-    // we are using single execution context (single threaded)
-    std::auto_ptr<OpenCLExecutionContext> spContext( binary.CreateExecutionContext( pRunConfig) );
+    OpenCLExecutionContext spContext( pKernel, pRunConfig, workInfo, argsBuffer.GetArgsBuffer(), argsBuffer.GetArgsBufferSize());
+
+    size_t  regions[MAX_WORK_DIM];
+    size_t dim = workInfo.workDimension;
+    // init the work group regions
+    for (size_t i=0; i < dim; ++i)
+    {
+        regions[i] = (size_t)( pKernelConfig->GetGlobalWorkSize()[i] / workInfo.localWorkSize[i]);
+        //TODO: for non-uniform WG size it may not be true
+        assert( pKernelConfig->GetGlobalWorkSize()[i] % workInfo.localWorkSize[i] == 0);
+    }
 
     // Note:
     //     Think of refactoring this code for more elegant solution:
     //     Probably using the task executor model used in OCL SDK
-    const size_t * dims = binary.GetWorkGroupRegions();
+
     if( pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false) )
     {
-        spContext->ResetSampling();
+        spContext.ResetSampling();
     }
 
     if( pRunConfig->GetValue<bool>(RC_BR_USE_PIN_TRACE_MARKS, false))
@@ -498,35 +602,35 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
 
     if (pRunConfig->GetValue<bool>(RC_COMMON_RUN_SINGLE_WG, false))
     {
-        spContext->ExecuteWorkGroup(0, 0, 0);
+        spContext.ExecuteWorkGroup(0, 0, 0);
     }
     else
     {
-        switch( binary.GetWorkDimension())
+        switch( dim )
         {
         case 1:
-            for( size_t x = 0; x < dims[0]; ++x)
+            for( size_t x = 0; x < regions[0]; ++x)
             {
-                spContext->ExecuteWorkGroup( x, 0, 0);
+                spContext.ExecuteWorkGroup( x, 0, 0);
             }
             break;
         case 2:
-            for(size_t y = 0; y < dims[1]; ++y)
+            for(size_t y = 0; y < regions[1]; ++y)
             {
-                for( size_t x = 0; x < dims[0]; ++x)
+                for( size_t x = 0; x < regions[0]; ++x)
                 {
-                    spContext->ExecuteWorkGroup(x, y, 0);
+                    spContext.ExecuteWorkGroup(x, y, 0);
                 }
             }
             break;
         case 3:
-            for(size_t z = 0; z < dims[2]; ++z)
+            for(size_t z = 0; z < regions[2]; ++z)
             {
-                for(size_t y = 0; y < dims[1]; ++y)
+                for(size_t y = 0; y < regions[1]; ++y)
                 {
-                    for( size_t x = 0; x < dims[0]; ++x)
+                    for( size_t x = 0; x < regions[0]; ++x)
                     {
-                        spContext->ExecuteWorkGroup(x, y, z);
+                        spContext.ExecuteWorkGroup(x, y, z);
                     }
                 }
             }
@@ -544,15 +648,16 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
     if( pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false) )
     {
         Performance& perfResults = (Performance&)runResult->GetPerformance();
-        perfResults.SetExecutionTime(kernelName, spContext->GetVectorSize(), spContext->GetSampling());
+        perfResults.SetExecutionTime(kernelName, spContext.GetVectorSize(), spContext.GetSampling());
     }
     else // Do not save output in PERF mode.
     {
         // Copy output into runResult output buffer container list
         IBufferContainerList& output = runResult->GetOutput(kernelName.c_str());
+
         argsBuffer.CopyOutput(output, &input);
     }
-#endif
+
 }
 
 } // namespace
