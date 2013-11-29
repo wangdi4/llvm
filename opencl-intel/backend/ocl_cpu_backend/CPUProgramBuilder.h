@@ -51,8 +51,8 @@ class ProgramBuildResult;
 
 
 //*****************************************************************************************
-// Provides the module optimization and code generation functionality. 
-// 
+// Provides the module optimization and code generation functionality.
+//
 class CPUProgramBuilder : public ProgramBuilder
 {
 
@@ -69,16 +69,21 @@ public:
 protected:
 
     KernelSet* CreateKernels(Program* pProgram,
-                             llvm::Module* pModule, 
+                             llvm::Module* pModule,
                              ProgramBuildResult& buildResult) const;
 
     void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const;
+
+#ifdef ENABLE_KNL
+    void LoadObject(Program* pProgram, llvm::Module* spModule, const char *start,
+                    size_t size) const;
+#endif // ENABLE_KNL
 
     /// @brief inherited method. create mapper from block to Kernel
     /// @param pProgram
     /// @param llvm module
     /// @return IBlockToKernelMapper object
-    virtual IBlockToKernelMapper * CreateBlockToKernelMapper(Program* pProgram, 
+    virtual IBlockToKernelMapper * CreateBlockToKernelMapper(Program* pProgram,
       const llvm::Module* pModule) const;
 
     /// @brief Post build step. Used for creating IBlockToKernelMapper object on CPU
@@ -91,7 +96,7 @@ private:
     Kernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const;
 
 
-    void AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, 
+    void AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm::Module* pModule,
                       llvm::Function* pFunc, KernelJITProperties* pProps) const;
 
     // Klockwork Issue
@@ -102,7 +107,7 @@ private:
 
 private:
     CPUCompiler m_compiler;
-    #ifdef OCL_DEV_BACKEND_PLUGINS  
+    #ifdef OCL_DEV_BACKEND_PLUGINS
     mutable Intel::OpenCL::PluginManager m_pluginManger;
     #endif
 };

@@ -24,6 +24,17 @@ OclBuiltinImpl rsqrt_v8f64_impl = OclBuiltinImpl<rsqrt, [v8f64], 0, [{
     return _mm512_rsqrt14_pd($Arg0VarName);
   }]>;
 
+OclBuiltinImpl native_rsqrt_v1f32_impl = OclBuiltinImpl<native_rsqrt, [v1f32], 0, [{
+    float4 tmp;
+    tmp.s0 = $Arg0VarName;
+    return as_float4(_mm_rsqrt28_ss(tmp)).s0;
+  }]>;
+
+OclBuiltinImpl native_rsqrt_v1f64_impl = OclBuiltinImpl<native_rsqrt, [v1f64], 0, [{
+    double2 tmp;
+    tmp.s0 = $Arg0VarName;
+    return as_double2(_mm_rsqrt28_sd(tmp)).s0;
+  }]>;
 // sqrt
 OclBuiltinImpl sqrt_v8f64_impl = OclBuiltinImpl<sqrt, [v8f64], 0, [{
     return _mm512_sqrt_pd($Arg0VarName);

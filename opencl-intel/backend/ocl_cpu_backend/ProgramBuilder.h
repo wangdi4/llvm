@@ -50,8 +50,8 @@ class BuiltinLibrary;
 class Compiler;
 
 //*****************************************************************************************
-// Provides the module optimization and code generation functionality. 
-// 
+// Provides the module optimization and code generation functionality.
+//
 class ProgramBuilder
 {
 public:
@@ -74,18 +74,23 @@ protected:
 
     virtual void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const = 0;
 
+#ifdef ENABLE_KNL
+    virtual void LoadObject(Program* pProgram, llvm::Module* spModule,
+                            const char *start, size_t size) const {}
+#endif //ENABLE_KNL
+
     virtual KernelSet* CreateKernels(Program* pProgram,
-                             llvm::Module* pModule, 
+                             llvm::Module* pModule,
                              ProgramBuildResult& buildResult) const = 0;
 
     KernelJITProperties* CreateKernelJITProperties(unsigned int vectorSize) const;
-    
-    KernelProperties* CreateKernelProperties(const Program* pProgram, 
-                                             Function *func, 
+
+    KernelProperties* CreateKernelProperties(const Program* pProgram,
+                                             Function *func,
                                              const ProgramBuildResult& buildResult) const;
-   
+
     /// @brief abstract factory method to create mapper from block to Kernel.
-    /// Can be implemented differently for CPU and MIC. 
+    /// Can be implemented differently for CPU and MIC.
     /// MIC will probably call this inside deserialization step
     /// CPU calls it inside PostOptimizationProcessing step
     /// When Block static resolution pass is ready we can implement is std::vector storage
@@ -102,7 +107,7 @@ protected:
 protected:
 
     // pointer to the containers factory (not owned by this class)
-    IAbstractBackendFactory* m_pBackendFactory; 
+    IAbstractBackendFactory* m_pBackendFactory;
     bool m_useVTune;
 };
 

@@ -31,12 +31,12 @@
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-	// IsCPUSupported - Check that the current CPU is alligned with the required HW platform
-	// returncs CL_SUCCESS if the cpu supported
-	// returns CL_ERR_CPU_NOT_SUPPORTED otherwise
-	cl_err_code IsCPUSupported();
+    // IsCPUSupported - Check that the current CPU is alligned with the required HW platform
+    // returncs CL_SUCCESS if the cpu supported
+    // returns CL_ERR_CPU_NOT_SUPPORTED otherwise
+    cl_err_code IsCPUSupported();
 
-	// CPU Features enumeration
+    // CPU Features enumeration
     enum ECPUFeatureSupport
     {
         CFS_NONE    = 0x0000,
@@ -47,10 +47,11 @@ namespace Intel { namespace OpenCL { namespace Utils {
         CFS_SSE42   = 0x0010,
         CFS_AVX10   = 0x0020,
         CFS_AVX20   = 0x0040,
-        CFS_FMA     = 0x0080
+        CFS_FMA     = 0x0080,
+        CFS_AVX512F = 0x0100
     };
 
-	// Processor type enumeration
+    // Processor type enumeration
     enum EProcessorType
     {
         PT_ALL,
@@ -60,50 +61,51 @@ namespace Intel { namespace OpenCL { namespace Utils {
         PT_PENRYN,
         PT_NEHALEM,
         PT_SANDYBRIDGE,
-        PT_HASWELL
+        PT_HASWELL,
+        PT_KNL
     };
 
-	// CPU detection class (singleton)
+    // CPU detection class (singleton)
     class CPUDetect
     {
     public:
 
-		static CPUDetect * GetInstance();
+        static CPUDetect * GetInstance();
 
-		bool IsGenuineIntel();
+        bool IsGenuineIntel();
 
-		bool IsProcessorType(EProcessorType processorType);
+        bool IsProcessorType(EProcessorType processorType);
 
-		bool IsFeatureSupported(ECPUFeatureSupport featureType);
+        bool IsFeatureSupported(ECPUFeatureSupport featureType);
 
-		unsigned char	GetStepping() { return m_ucStepping; }
-		unsigned char	GetModel() { return m_ucModel; }
-		unsigned char	GetFamily() { return m_ucFamily; }
-		unsigned char	GetType() { return m_ucType; }
-		const char *	GetCPUString() { return m_szCPUString; }
-		const char *	GetCPUBrandString() { return m_szCPUBrandString; }
-		unsigned int	GetCPUFeatureSupport() { return m_uiCPUFeatures; }
-		unsigned int	GetCoreCount() { return m_uiCoreCount; }
+        unsigned char   GetStepping() { return m_ucStepping; }
+        unsigned char   GetModel() { return m_ucModel; }
+        unsigned char   GetFamily() { return m_ucFamily; }
+        unsigned char   GetType() { return m_ucType; }
+        const char *    GetCPUString() { return m_szCPUString; }
+        const char *    GetCPUBrandString() { return m_szCPUBrandString; }
+        unsigned int    GetCPUFeatureSupport() { return m_uiCPUFeatures; }
+        unsigned int    GetCoreCount() { return m_uiCoreCount; }
 
-	private:
+    private:
 
-		CPUDetect();
-		~CPUDetect();
+        CPUDetect();
+        ~CPUDetect();
 
-        bool			m_bBypassCPUDetect;
-        bool			m_bIsGenuineIntel;
-        unsigned char	m_ucStepping;
-        unsigned char	m_ucModel;
-        unsigned char	m_ucExtendedModel;
-        unsigned char	m_ucFamily;
-        unsigned char	m_ucType;
-        char *			m_szCPUString;
-        char *			m_szCPUBrandString;
-        unsigned int	m_uiCPUFeatures;
-		unsigned int	m_uiCoreCount;
+        bool            m_bBypassCPUDetect;
+        bool            m_bIsGenuineIntel;
+        unsigned char   m_ucStepping;
+        unsigned char   m_ucModel;
+        unsigned char   m_ucExtendedModel;
+        unsigned char   m_ucFamily;
+        unsigned char   m_ucType;
+        char *          m_szCPUString;
+        char *          m_szCPUBrandString;
+        unsigned int    m_uiCPUFeatures;
+        unsigned int    m_uiCoreCount;
 
-		void			GetCPUInfo();
-		bool			ShouldBypassCPUCheck();
+        void            GetCPUInfo();
+        bool            ShouldBypassCPUCheck();
 
     };
 

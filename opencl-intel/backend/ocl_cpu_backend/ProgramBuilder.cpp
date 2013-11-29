@@ -58,6 +58,13 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/LLVMContext.h"
 #include <algorithm>
 
+#ifdef ENABLE_KNL
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <stdlib.h>
+#include <unistd.h>
+#endif //ENABLE_KNL
 
 using std::string;
 
@@ -127,9 +134,40 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
                           RuntimeServiceSharedPtr(new RuntimeServiceImpl);
         // set runtime service for the program
         pProgram->SetRuntimeService(lRuntimeService);
+#ifdef ENABLE_KNL
+        std::string buffer, filename("/tmp/kernel");
+        llvm::raw_string_ostream stream(buffer);
+        stream << (*spModule.get());
+        std::ostringstream s;
+        s << getpid();
+        filename += s.str();
+        stream.flush();
+        {
+            std::ofstream outf((filename+".ll").c_str());
+            outf << buffer;
+        }
 
+        std::string llcPath(getenv("LLVM_KNL_DIR"));
+        std::string llcOptions("-mcpu=knl -relocation-model=pic -stack-alignment=32 -force-align-stack -fp-contract=fast ");
+        llcOptions += filename + ".ll ";
+        llcOptions += "-filetype=obj -o " + filename + ".o";
+        int res = system((llcPath + "/llc " + llcOptions).c_str());
+        if (res != 0) {
+          system(("mv " + filename + ".ll " + filename + "_fail.ll").c_str());
+          throw Exceptions::DeviceBackendExceptionBase("llc does not work", CL_DEV_ERROR_FAIL);
+        }
+        llvm::OwningPtr<llvm::MemoryBuffer> injectedObject;
+        if (llvm::MemoryBuffer::getFile((filename + ".o").c_str(), injectedObject)) {
+          system(std::string("rm " + filename + ".ll").c_str());
+          throw Exceptions::DeviceBackendExceptionBase("can't find object file",
+                                                       CL_DEV_ERROR_FAIL);
+        }
+        LoadObject(pProgram, spModule.get(), injectedObject->getBufferStart(),
+                   injectedObject->getBufferSize());
+        system(std::string("rm " + filename + ".ll " + filename + ".o").c_str());
+#else // ENABLE_KNL
         PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
-
+#endif // ENABLE_KNL
         if (!(pOptions && pOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
         {
             //LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL, L"Start iterating over kernels");
@@ -141,7 +179,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
             pProgram->SetKernelSet( pKernels );
         }
-        
+
         // call post build method
         PostBuildProgramStep( pProgram, spModule.get(), pOptions );
         pProgram->SetModule( spModule.release() );

@@ -172,7 +172,7 @@ namespace intel{
     private:
       void init();
 
-      // memAccessExists - checks if acccess overlaps with another access
+      // memAccessExists - checks if access overlaps with another access
       // recorded in MAV.
       // accessIsReady tells weather all access details are already calculated
       bool memAccessExists (memAccess &access, memAccessV &MAV,

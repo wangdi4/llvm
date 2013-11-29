@@ -7,5 +7,6 @@ class KNL : AVX2 {
 
   include "KNLni/math.td"
   include "KNLni/common.td"
+  include "KNLni/vloadstore.td"
 }
 

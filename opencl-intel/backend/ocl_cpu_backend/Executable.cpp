@@ -30,25 +30,39 @@ using namespace Intel::OpenCL::DeviceBackend;
 
 #ifdef _WIN32
 #define FORCE_INLINE_PRE __forceinline
-#define FORCE_INLINE_POST 
+#define FORCE_INLINE_POST
 #else
 #define FORCE_INLINE_PRE inline
 #define FORCE_INLINE_POST  __attribute__((always_inline))
 #endif
 
+#define SSC_MARK1     \
+        asm("push %rbx"); \
+        asm("mov $1, %ebx"); \
+        asm __volatile__ (".byte 0x64, 0x67, 0x90"); \
+        asm("pop %rbx");
+
+#define SSC_MARK2     \
+        asm("push %rbx"); \
+        asm("mov $2, %ebx"); \
+        asm __volatile__ (".byte 0x64, 0x67, 0x90"); \
+        asm("pop %rbx");
+
+
 #if defined(ENABLE_SDE)
 // These functions are used as marks for the debug trace of the JIT execution
-extern "C" 
+extern "C"
 {
-void BeforeExecution() { }
-void AfterExecution() { }
+int A = 0;
+void BeforeExecution() {A++; SSC_MARK1; }
+void AfterExecution() {A--; SSC_MARK2; }
 }
 #endif // ENABLE_SDE
 
 Executable::Executable(const Binary* pBin) :
   m_pBinary(pBin), m_pParameters(NULL), m_stParamSize(0),
   m_uiCSRMask(0), m_uiCSRFlags(0)
-{    
+{
 }
 
 Executable::~Executable() {
@@ -59,7 +73,7 @@ void Executable::Release()
     delete this;
 }
 
-// Initialize context to use specific binary with specific number of WorkItems 
+// Initialize context to use specific binary with specific number of WorkItems
 cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, const ICLDevBackendBinary_* pBin) {
 
   m_pBinary = static_cast<const Binary*>(pBin);
@@ -67,13 +81,13 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
   return Init(pLocalMemoryBuffers, pWGStackFrame, m_pBinary->m_uiWGSize);
 }
 
-// Initialize context to with specific number of WorkItems 
+// Initialize context to with specific number of WorkItems
 cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, unsigned int uiWICount) {
 
   // Clear FP configuration flags
   m_uiCSRMask = 0;
   m_uiCSRFlags = 0;
-  
+
   m_DAZ = m_pBinary->GetDAZ();
   // Initialize callback context with device buffer printer from binary
   m_callbackContext.SetDevicePrinter(m_pBinary->GetDevicePrinter());
@@ -85,7 +99,6 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
 
   // Copy parameters to context
   std::copy((char*)m_pBinary->GetFormalParameters(), (char*)m_pBinary->GetFormalParameters() + m_pBinary->GetFormalParametersSize(), m_pParameters);
-  //memcpy( m_pParameters, m_pBinary->GetFormalParameters(), m_pBinary->GetFormalParametersSize());
 
   char* pWIParams = m_pParameters + m_pBinary->GetFormalParametersSize();
   m_implicitArgsUtils.initImplicitArgProps(m_pBinary->GetPointerSize());
@@ -121,17 +134,17 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
   return CL_DEV_SUCCESS;
 }
 
-// usage of the function forward declaration prior to the function definition is because "always_inline" attribute cannot appear with definition 
+// usage of the function forward declaration prior to the function definition is because "always_inline" attribute cannot appear with definition
 FORCE_INLINE_PRE static void InvokeKernel(size_t params_size, void* pParameters, void* pEntryPoint) FORCE_INLINE_POST;
 static void InvokeKernel(size_t params_size, void* pParameters, void* pEntryPoint)
 {
   assert(params_size == sizeof(void*) && "invalid number of arguments");
-  // This union is used to convert between the parameter and the 
-  // function pointer because the c++ standard forbids the casting of the two 
+  // This union is used to convert between the parameter and the
+  // function pointer because the c++ standard forbids the casting of the two
   // and as a result, some versions of g++ fail with a warning.
   union uk {
     void *(*kernel)(void *);
-    const void* ptr; 
+    const void* ptr;
   };
   uk kernel;
   // Set the entry point
@@ -141,13 +154,13 @@ static void InvokeKernel(size_t params_size, void* pParameters, void* pEntryPoin
 }
 
 cl_dev_err_code Executable::Execute( const size_t* IN pGroupId,
-                                   const size_t* IN pLocalOffset, 
+                                   const size_t* IN pLocalOffset,
                                    const size_t* IN pItemsToProcess) {
 
   // Set implicit arguments per work-group
   m_implicitArgsUtils.setImplicitArgsPerWG(reinterpret_cast<const void *>(pGroupId));
-  
-  // clear set checking if async_wg_copy built-ins were executed 
+
+  // clear set checking if async_wg_copy built-ins were executed
   m_callbackContext.Reset();
 
   assert( (m_stParamSize < (1 << 12)) && "Parameters on stack size is more than 4K!" );
@@ -160,6 +173,6 @@ cl_dev_err_code Executable::Execute( const size_t* IN pGroupId,
 #if defined(ENABLE_SDE)
   AfterExecution();
 #endif
-  
+
   return CL_DEV_SUCCESS;
 }

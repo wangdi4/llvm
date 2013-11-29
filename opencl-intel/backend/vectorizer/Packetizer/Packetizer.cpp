@@ -758,7 +758,9 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   obtainMultiScalarValues(SclrBase, MO.Base, MO.Orig);
   MO.Base = SclrBase[0];
 
+  bool masked = false;
   if (MO.Mask) {
+    masked = true;
     // if mask is uniform keep it scalar (will be handled later in resolver)
     if( WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(MO.Mask) ) {
       Value *SclrMask[MAX_PACKET_WIDTH];
@@ -819,7 +821,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     V_ASSERT(MO.Index->getType()->isVectorTy() && "index of scatter/gather is not a vector!");
     Type *indexType = cast<VectorType>(MO.Index->getType())->getElementType();
     Constant *vecWidthVal = ConstantInt::get(indexType, vectorWidth);
-    
+
     // Not replacing with ConstantDataVector here because the type isn't known to be
     // compatible.
     vecWidthVal = ConstantVector::getSplat(m_packetWidth, vecWidthVal);
@@ -870,6 +872,11 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   default:
     V_ASSERT(false && "Invalid memory type");
   }
+
+  std::string gatherScatterName = Mangler::getGatherScatterName(masked, type, VecElemTy);
+  Function* gatherScatterFunc = m_rtServices->findInRuntimeModule(gatherScatterName);
+  // No proper gather/scatter function for this load and packet width
+  if (!gatherScatterFunc) return NULL;
 
   std::string name = Mangler::getGatherScatterInternalName(type, MO.Mask->getType(), VecElemTy, IndexTy);
   // Create new gather/scatter/prefetch caller instruction
@@ -1186,7 +1193,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
     DT = cast<PointerType>(MO.Ptr->getType())->getElementType();
     break;
   default:
-    V_ASSERT(0 && "Unsupported memory operation type");    
+    V_ASSERT(0 && "Unsupported memory operation type");
   }
 
   bool isVectorPrefetch = DT->isVectorTy() &&  MO.type == PREFETCH;

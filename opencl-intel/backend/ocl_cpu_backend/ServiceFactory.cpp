@@ -35,7 +35,7 @@ File Name:  ServiceFactory.cpp
  * dynamic lib and the execution functionality in another static lib (executor)
  * which will be loaded in the device.
  *
- * The main reason for this seperation is because of that Compilation done in
+ * The main reason for this separation is because of that Compilation done in
  * the HOST (CPU regular x86 arch), and the execution will be done in the
  * device (MIC native).
  *

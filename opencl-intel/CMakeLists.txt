@@ -159,6 +159,7 @@ option(BUILD_QTGUI "Build the QT related projects"  OFF)
 option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
 option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
+option(ENABLE_KNL "Enables KNL device development"  OFF)
 
 # find the used external packages
 
@@ -389,11 +390,15 @@ if (INCLUDE_MIC_DEVICE)
         set ( COI_YOCTO_DEVICE_LIB_PATH     /opt/mpss/3.1/sysroots/k1om-mpss-linux/usr/lib64 )
     endif (WIN32)
 
-    message ( "COI host include directory  : ${COI_HOST_INCLUDE_PATH}")
-    message ( "COI host lib directory      : ${COI_HOST_LIB_PATH}")
-    message ( "COI device include directory: ${COI_DEVICE_INCLUDE_PATH}")
-    message ( "COI device lib directory    : ${COI_DEVICE_LIB_PATH}")
+    message (STATUS  "COI host include directory  : ${COI_HOST_INCLUDE_PATH}")
+    message (STATUS  "COI host lib directory      : ${COI_HOST_LIB_PATH}")
+    message (STATUS  "COI device include directory: ${COI_DEVICE_INCLUDE_PATH}")
+    message (STATUS  "COI device lib directory    : ${COI_DEVICE_LIB_PATH}")
 endif (INCLUDE_MIC_DEVICE)
+
+if (ENABLE_KNL)
+    add_definitions(-DENABLE_KNL)
+endif (ENABLE_KNL)
 
 # paths
 #set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES )

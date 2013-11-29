@@ -29,7 +29,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class SerializationStatus;
 
 class TargetDescription : public IDynamicFunctionsResolver
-{    
+{
 public:
     TargetDescription() {}
     virtual ~TargetDescription() {}

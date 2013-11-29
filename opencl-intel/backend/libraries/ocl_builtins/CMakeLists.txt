@@ -228,6 +228,7 @@ function( compile_ocl OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
   set (OUTPUT_FILE ${NAME}${OCL_OUTPUT_EXTENSION} )
 
   add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
+    COMMENT "OCL Compiling ${INPUT_FILE}: ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}"
     COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
     COMMAND ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
     COMMAND ${OPT}  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
@@ -235,8 +236,6 @@ function( compile_ocl OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
     DEPENDS ${HEADER_FILES} ${OPT_DEP}
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
     WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
-    COMMENT "OCL Compiling ${INPUT_FILE}: ${CLANG} ${CLANG_COMPILER_PARAMS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}"
-    COMMENT "OCL Optimize  ${OUTPUT_FILE}: ${OPT}  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}"
     VERBATIM
     )
 
@@ -339,48 +338,34 @@ endfunction( add_ocl_library )
 
 function( install_svml ARCH )
 
-  set(IS_MIC OFF)
+  set(SVML_LIB_NAME ${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
   if(ARCH STREQUAL b2)
-    set(IS_MIC ON)
+    set(SDE_LIB_NAME sdesvml.so)
+    set(SVML_LIB_NAME libsvml.so)
   endif()
-  if(ENABLE_SDE AND IS_MIC)
-    set (SDE_DLL ${SVML_DLL_DIR}/sdesvml.so)
-  endif ()
 
   # SVML binary
-  if(IS_MIC)
-    set (SVML_DLL ${SVML_DLL_DIR}/libsvml.so)
-  else()
-    set (SVML_DLL ${SVML_DLL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
-  endif()
+  set (SVML_DLL ${SVML_DLL_DIR}/${SVML_LIB_NAME})
   if (NOT EXISTS ${SVML_DLL})
     message( FATAL_ERROR "Cannot find ${SVML_DLL}!")
   endif()
 
   # install SVML (and SDE) libraries
-  if(ENABLE_SDE AND IS_MIC)
-    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/sdesvml.so
+  add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${SVML_LIB_NAME}
+    COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR} 
+    VERBATIM
+  )
+  install( FILES ${SVML_DLL} DESTINATION bin )
+
+  if(ENABLE_SDE AND DEFINED ${SDE_LIB_NAME})
+    set (SDE_DLL ${SVML_DLL_DIR}/${SDE_LIB_NAME})
+    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${SDE_LIB_NAME}
       COMMAND ${CMAKE_COMMAND} -E copy ${SDE_DLL} ${BUILTINS_INSTALL_DIR}
       VERBATIM
     )
-  endif()
-  if(IS_MIC)
-    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/libsvml.so
-      COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR}
-      VERBATIM
-    )
-  else()
-    add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX}
-      COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR}
-      VERBATIM
-    )
-  endif()
-
-  install( FILES ${SVML_DLL} DESTINATION bin )
-
-  if(ENABLE_SDE AND IS_MIC)
     install( FILES ${SDE_DLL} DESTINATION bin )
   endif()
+
 endfunction( install_svml )
 
 function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN OFN)
@@ -438,11 +423,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   install_svml( ${ARCH} )
 
   # Unconditional dependent targets
-  if(ARCH STREQUAL b2)
-    set (TARGET_DEPENDENCIES ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${BUILTINS_INSTALL_DIR}/libsvml.so)
-  else ()
-    set (TARGET_DEPENDENCIES ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX})
-  endif ()
+  set (TARGET_DEPENDENCIES ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_LIB} ${BUILTINS_INSTALL_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_LIB} ${BUILTINS_INSTALL_DIR}/${SVML_LIB_NAME})
 
   # If prebuilt library is built, depend on it so it gets built.
   if( PREBUILD_IMAGE_LIBRARY )
@@ -516,9 +497,9 @@ endif( (INCLUDE_ATOM) OR (WIN32 AND NOT BUILD_X64) )
 add_subdirectory (sse42)
 add_subdirectory (avx)
 add_subdirectory (avx2)
-if (BUILD_X64)
+if (ENABLE_KNL AND BUILD_X64)
   add_subdirectory (KNLni)
-endif (BUILD_X64)
+endif (ENABLE_KNL AND BUILD_X64)
 if (INCLUDE_MIC_DEVICE)
   add_subdirectory (KNCni)
 endif()

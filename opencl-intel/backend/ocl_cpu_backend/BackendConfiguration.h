@@ -53,7 +53,7 @@ private:
 //*****************************************************************************************
 // CompilerConfig implementation. 
 // 
-// Responsible for loading both default configuraiton as well as runtime 
+// Responsible for loading both default configuration as well as runtime
 // configuration passed to the backend.
 //
 // This class is used as an adapter from ICLDevBackendOptions to ICompilerConfig 
@@ -145,7 +145,7 @@ protected:
 
 //*****************************************************************************************
 // Represents the global backend configuration. 
-// It is a singletinon that must be initialized explicitly
+// It is a singleton that must be initialized explicitly
 // 
 class BackendConfiguration
 {
@@ -155,7 +155,7 @@ private:
 
 public:
     /**
-     * Statis initialization. Must be called once, in single threaded
+     * Static initialization. Must be called once, in single threaded
      * environment
      */
     static void Init();

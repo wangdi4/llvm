@@ -12,6 +12,12 @@ let Types = [v8i16],
   def __ocl_Half8ToFloat8   : OclBuiltin<"__ocl_Half8ToFloat8",   (outs v8f32:$ret), (ins gentype:$xmm0), [], [], 0, 0>;
 }
 
+let Types = [v16i16],
+    Attrs = [INTERNAL_INLINE, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+  def __ocl_Half16ToFloat16   : OclBuiltin<"__ocl_Half16ToFloat16",   (outs v16f32:$ret), (ins gentype:$xmm0), [], [], 0, 0>;
+}
+
 let Types = [v4f32],
     Attrs = [INTERNAL_INLINE, OVERLOADABLE],
     NeedForwardDecl = 1 in {
@@ -30,6 +36,16 @@ let Types = [v8f32],
   def __ocl_float2half8_rtn   : OclBuiltin<"__ocl_float2half8_rtn",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
   def __ocl_float2half8_rtp   : OclBuiltin<"__ocl_float2half8_rtp",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
   def __ocl_float2half8   : OclBuiltin<"__ocl_float2half8",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+}
+
+let Types = [v16f32],
+    Attrs = [INTERNAL_INLINE, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+  def __ocl_float2half16_rte   : OclBuiltin<"__ocl_float2half16_rte",   (outs v8f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_float2half16_rtz   : OclBuiltin<"__ocl_float2half16_rtz",   (outs v8f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_float2half16_rtn   : OclBuiltin<"__ocl_float2half16_rtn",   (outs v8f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_float2half16_rtp   : OclBuiltin<"__ocl_float2half16_rtp",   (outs v8f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_float2half16       : OclBuiltin<"__ocl_float2half16",       (outs v8f32:$ret), (ins gentype:$param), [], [], 0, 0>;
 }
 
 let Types = [v2f64],
