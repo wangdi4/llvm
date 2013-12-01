@@ -84,8 +84,8 @@ TEST_F(VR24, CL3DImage)
 		0
 	};
 
-
-	if(err==CL_SUCCESS && numdevices > 0)
+	if(err==CL_SUCCESS && numdevices > 0 &&
+           !isAccelerator()) // not supported on MIC
 	{
 		//create device and queue from first device
 		cl_context devcontext = clCreateContext( ctxProps, 1, devices, NULL, NULL, &err);
@@ -161,19 +161,88 @@ TEST_F(VR24, CL3DImage)
 		clReleaseCommandQueue(clq);
 	}
 	
-	/***Same thing for CPU only device (this one should fail)***/
+	/***Same thing for CPU only device***/
 	err = clGetDeviceIDs(platforms[0],CL_DEVICE_TYPE_CPU,maxdevices,devices,&numdevices);
 	ASSERT_EQ(err,CL_SUCCESS)<<"Error getting CPU ONLY DEVICE\n";
 	ASSERT_GT(numdevices,(unsigned int)0)<<"Error No Devices returned";
-	//create device from first device
-	cl_context devcontext = clCreateContext( ctxProps, 1, devices, NULL, NULL, &err);
-	ASSERT_EQ(CL_SUCCESS,err) << "Could not create CPU device context";
-	cl_program program;
-	program = clCreateProgramWithSource(devcontext,1,(const char**)&clsrc,NULL,&err);
-	ASSERT_EQ(CL_SUCCESS,err)<<"Failed to create program from source";
-	err = clBuildProgram(program,1,devices,"",NULL,NULL);
-	EXPECT_NE(CL_SUCCESS,err)<<"Successfully built program with write_only image3D on CPU";
-	clReleaseContext(devcontext);
+        
+	if(err==CL_SUCCESS && numdevices > 0)
+	{
+		//create device and queue from first device
+		cl_context devcontext = clCreateContext( ctxProps, 1, devices, NULL, NULL, &err);
+		ASSERT_EQ(CL_SUCCESS,err)<<"Error creating cpu device context";
+		cl_command_queue clq = clCreateCommandQueue(devcontext,devices[0],0,&err);
+		ASSERT_EQ(CL_SUCCESS,err)<<"Error creating cpu command queue";
+		cl_program program;
+		program = clCreateProgramWithSource(devcontext,1,(const char**)&clsrc,NULL,&err);
+		EXPECT_EQ(CL_SUCCESS,err)<<"Failed to create program from source";
+		err = clBuildProgram(program,1,devices,"",NULL,NULL);
+	        EXPECT_EQ(CL_SUCCESS,err)<<"Failed to built program with write_only image3D on CPU";
+		if(err!=CL_SUCCESS)
+		{
+			//	prints build fail log
+			cl_int logStatus;
+			char * buildLog = NULL;
+			size_t buildLogSize = 0;
+			logStatus = clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, &buildLogSize);
+
+			buildLog = (char*) malloc(buildLogSize);
+			memset(buildLog, 0, buildLogSize);
+
+			logStatus = clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL);
+
+			std::cout << " \n\t\t\tBUILD LOG\n";
+			std::cout << " ************************************************\n";
+			std::cout << buildLog << std::endl;
+			std::cout << " ************************************************\n";
+			free(buildLog);
+		}
+		else
+		{
+			//create kernel
+			cl_kernel kernel = clCreateKernel(program,"volume_kernel",&err);
+			ASSERT_EQ(CL_SUCCESS,err)<<"Failed to create kernel for \"volume_kernel\"";
+			//create 3d image
+			cl_image_format volform;
+			volform.image_channel_order = CL_RGBA;
+			volform.image_channel_data_type = CL_FLOAT;
+			cl_mem devvol = clCreateImage3D(devcontext,CL_MEM_WRITE_ONLY|CL_MEM_COPY_HOST_PTR ,&volform,dimx,dimy,dimz,0,0,vol,&err);
+			ASSERT_EQ(CL_SUCCESS,err)<<"Failed to create 3D Image";
+			//set args
+			err = clSetKernelArg(kernel,0,sizeof(cl_mem),&devvol);
+			err|= clSetKernelArg(kernel,1,sizeof(int),&dimx);
+			err|= clSetKernelArg(kernel,2,sizeof(int),&dimy);
+			err|= clSetKernelArg(kernel,3,sizeof(int),&dimz);
+			ASSERT_EQ(CL_SUCCESS,err)<<"Failed to set kernel args\n";
+			err = clEnqueueNDRangeKernel(clq,kernel,3,NULL,globalWorkSize,NULL,0,0,0);
+			EXPECT_EQ(CL_SUCCESS,err)<<"Failed to enqueue kernel";
+			EXPECT_EQ(CL_SUCCESS,clFinish(clq))<<"Failed to finish kernel";
+			//read in image and check values
+			size_t origin[] = {0,0,0};
+			size_t region[] = {dimx,dimy,dimz};
+			for(int i =0; i < dimx*dimy*dimz*4; i++)
+				test[i] = -1.0f;
+			err = clEnqueueReadImage(clq,devvol,true,origin,region,0,0,test,0,0,0);
+			EXPECT_EQ(CL_SUCCESS,err)<<"Failed to read volume";
+			bool correct = true;
+			int i;
+			for(i=0; i < dimx*dimy*dimz*4; i++)
+				if(test[i]!=1.0f)
+				{
+					correct = false;
+					break;
+				}
+			EXPECT_EQ(true,correct)<<"read in " << test[i] << " instead of 1.0f at index " << i;
+
+			clReleaseKernel(kernel);
+			clReleaseProgram(program);
+			clReleaseMemObject(devvol);
+		}
+		clReleaseContext(devcontext);
+		clReleaseCommandQueue(clq);
+	}
+	
 	delete []vol;
 	delete []test;
 }
+

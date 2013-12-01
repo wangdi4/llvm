@@ -1136,4 +1136,182 @@ namespace Validation
         return Conformance::reference_fmal(a, b, c);
     }
 
+    /* geometric functions */
+    template<>
+    void RefALU::cross(const float *a, const float *b, float *out, const uint32_t n)
+    {
+        out[0] = Conformance::reference_cross_one_item(a[1], b[2], a[2], b[1] );
+        out[1] = Conformance::reference_cross_one_item(a[2], b[0], a[0], b[2] );
+        out[2] = Conformance::reference_cross_one_item(a[0], b[1], a[1], b[0] );
+
+        if( n == 4)
+            out[3] = float(0);
+        return ;
+    }
+    template<>
+    void RefALU::cross(const double *a, const double *b, double *out, const uint32_t n)
+    {
+        out[0] = Conformance::reference_cross_one_iteml(a[1], b[2], a[2], b[1] );
+        out[1] = Conformance::reference_cross_one_iteml(a[2], b[0], a[0], b[2] );
+        out[2] = Conformance::reference_cross_one_iteml(a[0], b[1], a[1], b[0] );
+
+        if( n == 4)
+            out[3] = double(0);
+        return ;
+    }
+    template<>
+    void RefALU::cross(const long double *a, const long double *b, long double *out, const uint32_t n)
+    {
+        out[0] = Conformance::reference_cross_one_iteml(a[1], b[2], a[2], b[1] );
+        out[1] = Conformance::reference_cross_one_iteml(a[2], b[0], a[0], b[2] );
+        out[2] = Conformance::reference_cross_one_iteml(a[0], b[1], a[1], b[0] );
+
+        if( n == 4)
+            out[3] = (long double)(0);
+        return ;
+    }
+    template<>
+    float RefALU::distance(const float *a, const float *b, const uint32_t n)
+    {
+        double res = 0.0;
+        for(uint32_t i = 0; i < n; ++i)
+        {
+            double diff = a[i] - b[i];
+            res += diff * diff;
+        }
+        return RefALU::sqrt(res);
+    }
+    template<>
+    double RefALU::distance(const double *a, const double *b, const uint32_t n)
+    {
+        long double res = 0.0;
+        for(uint32_t i = 0; i < n; ++i)
+        {
+            long double diff = a[i] - b[i];
+            res += diff * diff;
+        }
+        return RefALU::sqrt(res);
+    }
+    template<>
+    long double RefALU::distance(const long double *a, const long double *b, const uint32_t n)
+    {
+        long double res = 0.0;
+        for(uint32_t i = 0; i < n; ++i)
+        {
+            long double diff = a[i] - b[i];
+            res += diff * diff;
+        }
+        return RefALU::sqrt(res);
+    }
+
+    template<>
+    float RefALU::dot(const float *a, const float *b, const uint32_t n)
+    {
+        double res = RefALU::mul((double)a[0], (double)b[0]);
+        for(uint32_t i = 1; i < n; ++i)
+        {
+            res += RefALU::mul((double)a[i], (double)b[i]);
+        }
+        return res;
+    }
+    template<>
+    double RefALU::dot(const double *a, const double *b, const uint32_t n)
+    {
+        long double res = RefALU::mul((long double)a[0], (long double)b[0]);
+        for(uint32_t i = 1; i < n; ++i)
+        {
+            res += RefALU::mul((long double)a[i], (long double)b[i]);
+        }
+        return res;
+    }
+    template<>
+    long double RefALU::dot(const long double *a, const long double *b, const uint32_t n)
+    {
+        long double res = RefALU::mul((long double)a[0], (long double)b[0]);
+        for(uint32_t i = 1; i < n; ++i)
+        {
+            res += RefALU::mul((long double)a[i], (long double)b[i]);
+        }
+        return res;
+    }
+
+    template<>
+    float RefALU::length(const float *a, const uint32_t n)
+    {
+        double res = RefALU::mul((double)a[0], (double)a[0]);
+        for(uint32_t i = 1; i < n; ++i)
+        {
+            res += RefALU::mul((double)a[i], (double)a[i]);
+        }
+        return RefALU::sqrt(res);
+    }
+    template<>
+    double RefALU::length(const double *a, const uint32_t n)
+    {
+        long double res = RefALU::mul((long double)a[0], (long double)a[0]);
+        for(uint32_t i = 1; i < n; ++i)
+        {
+            res += RefALU::mul((long double)a[i], (long double)a[i]);
+        }
+        return RefALU::sqrt(res);
+    }
+    template<>
+    long double RefALU::length(const long double *a, const uint32_t n)
+    {
+        long double res = RefALU::mul((long double)a[0], (long double)a[0]);
+        for(uint32_t i = 1; i < n; ++i)
+        {
+            res += RefALU::mul((long double)a[i], (long double)a[i]);
+        }
+        return RefALU::sqrt(res);
+    }
+
+    template<>
+    void RefALU::normalize(const float *a, float *out, const uint32_t n)
+    {
+        double res = RefALU::mul((double)a[0], (double)a[0]);
+
+        for(uint32_t i = 1; i < n; ++i)
+            res += RefALU::mul((double)a[i], (double)a[i]);
+
+        res = RefALU::sqrt(res);
+
+        if( res == 0.0 )
+            res = 1.0; //keep a[i] unchanged
+        
+        for(uint32_t i = 0; i < n; ++i)
+            out[i] = (double)a[i] / res;
+    }
+    template<>
+    void RefALU::normalize(const double *a, double *out, const uint32_t n)
+    {
+        long double res = RefALU::mul((long double)a[0], (long double)a[0]);
+
+        for(uint32_t i = 1; i < n; ++i)
+            res += RefALU::mul((long double)a[i], (long double)a[i]);
+
+        res =  RefALU::sqrt(res);
+        
+        if( res == 0.0 )
+            res = 1.0; //keep a[i] unchanged
+
+        for(uint32_t i = 0; i < n; ++i)
+            out[i] = (long double)a[i] / res;
+    }
+    template<>
+    void RefALU::normalize(const long double *a, long double *out, const uint32_t n)
+    {
+        long double res = RefALU::mul((long double)a[0], (long double)a[0]);
+
+        for(uint32_t i = 1; i < n; ++i)
+            res += RefALU::mul((long double)a[i], (long double)a[i]);
+
+        res = RefALU::sqrt(res);
+
+        if( res == 0.0 )
+            res = 1.0; //keep a[i] unchanged
+
+        for(uint32_t i = 0; i < n; ++i)
+            out[i] = (long double)a[i] / res;
+    }
 } // end namespace validation

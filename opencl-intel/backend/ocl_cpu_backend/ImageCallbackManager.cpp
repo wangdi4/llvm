@@ -82,6 +82,9 @@ bool ImageCallbackManager::InitLibrary(const ICompilerConfig& config, bool isCpu
   }
   // Retrieve CPU ID
   cpuId = spCompiler->GetCpuId();
+  // KNL is not supported
+  if (cpuId.GetCPU() == CPU_KNL)
+    return true;
 
   // Find library for this platform if it has been built earlier
   ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(cpuId);

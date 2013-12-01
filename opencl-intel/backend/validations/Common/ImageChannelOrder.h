@@ -44,6 +44,9 @@ namespace Validation
         OpenCL_RGBA,
         OpenCL_ARGB,
         OpenCL_BGRA,
+        OpenCL_DEPTH,
+        OpenCL_sRGBA,
+        OpenCL_sBGRA,
 
         // marker for invalid order
         UNSPECIFIED_CHANNEL_ORDER,
@@ -59,6 +62,7 @@ namespace Validation
         case OpenCL_Rx:
         case OpenCL_INTENSITY:
         case OpenCL_LUMINANCE:
+        case OpenCL_DEPTH:
             return 1;
 
         case OpenCL_RG:
@@ -73,6 +77,8 @@ namespace Validation
         case OpenCL_RGBA:
         case OpenCL_ARGB:
         case OpenCL_BGRA:
+        case OpenCL_sRGBA:
+        case OpenCL_sBGRA:
             return 4;
 
         default:

@@ -75,6 +75,15 @@ private:
   void initNullStrategyEntries();
   void initSoaStrategyEntries();
   void initHardCodeStrategy();
+  
+  /////////////////////////////////////////////////////////////////////////////
+  //Purpose: Adds the behavior expected from WI functions. (i.e., NULL strategy
+  // for all non-scalar widths, and identity strategy for scalar width.
+  //Parameters:
+  //  names: Builtins names.
+  //  ty:    The type of the parameter of the builtins.
+  /////////////////////////////////////////////////////////////////////////////
+  void addExceptionToWIFunctions (const StringArray& names, TypePrimitiveEnum ty);
 
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: a specialization for addConversionGroup with three parameter. The
@@ -86,17 +95,17 @@ private:
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: adds a group of conversion functions to the 'exception group', for
   //which vectorization attempts will be denied. The group will be composed of
-  //the cartesian product of names X types X V X s,(where V is a group of all
+  //the Cartesian product of names X types X V X s,(where V is a group of all
   //vector sizes, and s is a singleton group of one type).
   //The prototype of the function will then be: name(tv, s). Each function will
   //then be added to all non-scalar vector widths, so it won't be vectorized.
   //
   //Parameters:
-  //  names: a group of stripped function names.
-  //  types: a group of primitive types to be 
-  //  s:     type of scalar parameter(s)
-  //  fdFactory: a function pointer that produces the FunctionDescriptor, given
-  //  the quartet (name, vtype, width, stype)
+  //  names: A group of stripped function names.
+  //  types: A group of primitive types
+  //  s:     Type of scalar parameter(s).
+  //  fdFactory: A function pointer that produces the FunctionDescriptor, given
+  //  the quartet (name, vtype, width, stype).
   /////////////////////////////////////////////////////////////////////////////
   void addConversionGroup (const StringArray& names, const PrimitiveArray& types
   , TypePrimitiveEnum s, FDFactory fdFactory);
@@ -117,13 +126,23 @@ private:
   void populateReturnTyMap();
 
   /////////////////////////////////////////////////////////////////////////////
-  //Purpose: indicates whether the given bi name resides within the exception map
+  // Purpose: indicates whether the given bi name resides within the exception map
   /////////////////////////////////////////////////////////////////////////////
   bool isInExceptionMap(const std::string& name)const;
 
+  /////////////////////////////////////////////////////////////////////////////
+  // Purpose: Searched the given name in the built-in repository.
+  // Parameters: The built-in function to be searched.
+  // Return:     true if the name was found, false otherwise.
+  // Remarks:    This function should only be called after the cache (i.e.,
+  // m_descriptorsMap) was searched with the name of the given function desc,
+  // and returned as empty.
+  /////////////////////////////////////////////////////////////////////////////
+  bool searchAndCacheUpdate(const FunctionDescriptor&) const;
+
   static BuiltinKeeper* Instance;
-  //cache for builtins. (contains builtin function which where previously
-  //queried.
+  // Cache for builtins. (contains builtin function which where previously
+  // queried.
   mutable BuiltinMap m_descriptorsMap;
   //
   //Versioning strategies
@@ -131,6 +150,7 @@ private:
   NullDescriptorStrategy m_nullStrategy;
   SoaDescriptorStrategy  m_soaStrategy;
   HardCodedVersionStrategy m_hardCodedStrategy;
+  IdentityStrategy m_indentityStrategy;
   
   //Maps a function descriptor to its return type
   ReturnTypeMap m_fdToRetTy;

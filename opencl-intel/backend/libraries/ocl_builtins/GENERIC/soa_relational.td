@@ -2,31 +2,31 @@
 //Scalar relational
 //
 code v1_relational = [{
-  $ReturnType ret = $RemovePrefixFunc($Arg0VarName, $Arg1VarName);
-  return ret * ($ReturnType)-1;
-}];
+    $ReturnType ret = $RemovePrefixFunc($Arg0VarName, $Arg1VarName);
+    return ret * ($ReturnType)-1;
+  }];
 
 code v_relational_d = [{
-  $ReturnType ret = downConvert($RemovePrefixFunc($Arg0VarName, $Arg1VarName));
-  return ret & ($ReturnType)1;
-}];
+    $ReturnType ret = downConvert($RemovePrefixFunc($Arg0VarName, $Arg1VarName));
+    return ret & ($ReturnType)1;
+  }];
 
 code v_relational_f = [{
-  $ReturnType ret = $RemovePrefixFunc($Arg0VarName, $Arg1VarName);
-  return ret & ($ReturnType)1;
-}];
+    $ReturnType ret = $RemovePrefixFunc($Arg0VarName, $Arg1VarName);
+    return ret & ($ReturnType)1;
+  }];
 
 code downCvt4 = [{
-  return convert_int4($Arg0VarName);
-}];
+    return convert_int4($Arg0VarName);
+  }];
 
 code downCvt8 = [{
-  return convert_int8($Arg0VarName);
-}];
+    return convert_int8($Arg0VarName);
+  }];
 
 code downCvt16 = [{
-  return convert_int16($Arg0VarName);
-}];
+    return convert_int16($Arg0VarName);
+  }];
 //
 //downConvert utilty
 //

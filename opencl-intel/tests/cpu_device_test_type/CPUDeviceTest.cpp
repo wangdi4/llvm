@@ -30,6 +30,8 @@
 #include "image_test.h"
 #include "task_executor.h"
 #include "logger_test.h"
+#include "cl_sys_info.h"
+#include "cl_utils.h"
 #include <cl_device_api.h>
 #include <gtest/gtest.h>
 #include <stdio.h>
@@ -38,6 +40,8 @@
 #include <assert.h>
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <sched.h>
 #endif
 
 #define STR_LEN 100
@@ -47,13 +51,14 @@ using namespace Intel::OpenCL::TaskExecutor;
 
 extern bool memoryTest(bool profiling);
 extern bool mapTest();
-extern bool AffinityRootDeviceTest();
-extern bool AffinitySubDeviceTest();
+extern bool AffinityRootDeviceTest(affinityMask_t* pMask);
+extern bool AffinitySubDeviceTest(affinityMask_t* pMask);
 
 IOCLDeviceAgent*		dev_entry;
 cl_ulong profile_run = 0;
 cl_ulong profile_complete = 0;
 RTMemObjService localRTMemService;
+affinityMask_t* pMask = NULL;
 
 // Static variables for testing
 static TestKernel_param_t	gNativeKernelParam;
@@ -665,14 +670,14 @@ TEST(CpuDeviceTestType, Test_KernelExecute_Math)
 }
 
 #ifndef _WIN32
-TEST(CpuDeviceTestType, Test_AffinityRootDevice)	// ticket CSSD100016084 has been opened for this
+TEST(CpuDeviceTestType, Test_AffinityRootDevice)
 {
-	EXPECT_TRUE(AffinityRootDeviceTest());
+	EXPECT_TRUE(AffinityRootDeviceTest(pMask));
 }
 
-TEST(CpuDeviceTestType, DISABLED_Test_AffinitySubDevice)	// I've opened ticket #CSSD100016067 for this
+TEST(CpuDeviceTestType, Test_AffinitySubDevice)
 {
-	EXPECT_TRUE(AffinitySubDeviceTest());
+	EXPECT_TRUE(AffinitySubDeviceTest(pMask));
 }
 #endif
 // Manual test, don't enable
@@ -698,10 +703,9 @@ TEST(CpuDeviceTestType, Test_mapTest)
 
 CPUTestCallbacks g_dev_callbacks;
 
-int main(int argc, char* argv[])
-{	
-	::testing::InitGoogleTest(&argc, argv);
 
+int CPUDeviceTest_Main()
+{
 	ITaskExecutor* pTaskExecutor = GetTaskExecutor();
 	EXPECT_TRUE(pTaskExecutor!=NULL);
 
@@ -719,7 +723,7 @@ int main(int argc, char* argv[])
 	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
 	if (0 == numDevicesInDeviceType)
 	{
-		return false;
+		return -1;
 	}
 
 	size_t deviceIdsListSizeRet = 0;
@@ -728,7 +732,7 @@ int main(int argc, char* argv[])
 	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
 	if (0 == deviceIdsListSizeRet)
 	{
-		return false;
+		return -1;
 	}
 
 	gDeviceIdInType = deviceIdsList[0];
@@ -737,10 +741,119 @@ int main(int argc, char* argv[])
 	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
 
 	int rc = RUN_ALL_TESTS();
-	
-
-	
 	dev_entry->clDevCloseDevice();
+    return rc;
+}
+#ifndef _WIN32
+void printAffinityMask(affinityMask_t* affinityMask)
+{
+  #if defined(__ANDROID__) //no CPU_SETSIZE in bionic
+    int max_cpus = 1024; //This is the value for other Linux distros
+  #else
+    int max_cpus = CPU_SETSIZE;
+  #endif
+
+    unsigned char aff;
+    bool needPrint = false;
+    for (int set = max_cpus; set > 7; set -= 8)
+    {
+        aff = 0;
+        for (int cpu = set - 8; cpu < set; ++cpu)
+        {
+            if (CPU_ISSET(cpu, affinityMask))
+            {
+                aff |= (1 << (cpu - set + 8));
+            }
+        }  
+        needPrint |= (aff != 0);
+        if (needPrint)
+        {
+            printf("%hhx", aff);
+        } 
+    }
+    printf("\n");
+}
+void initAndPrintRandomMask(affinityMask_t* affinityMask)
+{
+    CPU_ZERO(affinityMask);
+    srand(time(NULL));
+    unsigned long numProcessors = Intel::OpenCL::Utils::GetNumberOfProcessors(); 
+    for (unsigned long i = 0; i < numProcessors; ++i)
+    {
+        if (rand() & 0x1)
+        {
+            CPU_SET(i, affinityMask);
+        }
+    }
+    int count = CPU_COUNT(affinityMask);
+    if (0 == count)
+    {
+        CPU_SET(rand() % numProcessors, affinityMask);
+        ++count;
+    }
+
+    printf("Using mask 0x");
+    printAffinityMask(affinityMask);
+}
+
+void translateAndPrintMask(affinityMask_t* affinityMask, unsigned long val)
+{
+    CPU_ZERO(affinityMask);
+    int i = 0;
+    while (val > 0)
+    {
+        if (val & 0x1)
+        {
+            CPU_SET(i, affinityMask);
+        }
+        val >>= 1;
+        ++i;
+    }
+    printf("Using mask 0x");
+    printAffinityMask(affinityMask);
+}
+#endif
+
+int main(int argc, char* argv[])
+{	
+	::testing::InitGoogleTest(&argc, argv);
+#ifndef _WIN32
+    affinityMask_t affinityMask;
+    //Check for parameters not to gtest
+    if (argc > 1)
+    {
+        if (argc != 2)
+        {
+            printf("Usage: %s <-mask=val> where val is a number in hex format or RANDOM\n", argv[0]);
+            return -1;
+        }
+        const char* param = argv[1];
+        if (strlen(param) < strlen("-mask="))
+        {
+            printf("Usage: %s <-mask=val> where val is a number in hex format or RANDOM\n", argv[0]);
+            return -1;
+        }
+
+        if (!strcmp(param, "-mask=RANDOM"))
+        {
+            initAndPrintRandomMask(&affinityMask);
+        }
+        else
+        {
+            unsigned long aff = strtoul(param+6, NULL, 0);
+            if (0 == aff)
+            {
+                printf("illegal value specified for mask (%s)\n", param+6);
+                return -1;
+            }
+            translateAndPrintMask(&affinityMask, aff);
+        }
+
+        sched_setaffinity(0, sizeof(affinityMask), &affinityMask);
+        pMask = &affinityMask;
+    }
+#endif
+    int rc = CPUDeviceTest_Main();
 
 	if (rc == 0) {
 		printf("\n==============\nTEST SUCCEDDED\n==============\n");

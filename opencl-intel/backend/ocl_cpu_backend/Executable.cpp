@@ -32,7 +32,7 @@ using namespace Intel::OpenCL::DeviceBackend;
 #define FORCE_INLINE_PRE __forceinline
 #define FORCE_INLINE_POST 
 #else
-#define FORCE_INLINE_PRE	inline
+#define FORCE_INLINE_PRE inline
 #define FORCE_INLINE_POST  __attribute__((always_inline))
 #endif
 
@@ -62,9 +62,9 @@ void Executable::Release()
 // Initialize context to use specific binary with specific number of WorkItems 
 cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame, const ICLDevBackendBinary_* pBin) {
 
-	m_pBinary = static_cast<const Binary*>(pBin);
-	
-	return Init(pLocalMemoryBuffers, pWGStackFrame, m_pBinary->m_uiWGSize);
+  m_pBinary = static_cast<const Binary*>(pBin);
+
+  return Init(pLocalMemoryBuffers, pWGStackFrame, m_pBinary->m_uiWGSize);
 }
 
 // Initialize context to with specific number of WorkItems 
@@ -87,12 +87,6 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
   std::copy((char*)m_pBinary->GetFormalParameters(), (char*)m_pBinary->GetFormalParameters() + m_pBinary->GetFormalParametersSize(), m_pParameters);
   //memcpy( m_pParameters, m_pBinary->GetFormalParameters(), m_pBinary->GetFormalParametersSize());
 
-  // Update pointers of the local buffers
-  for ( unsigned int i=0; i<m_pBinary->m_kernelLocalMem.size(); ++i ) {
-    ExplicitLocalMemArgument localMemArg = m_pBinary->m_kernelLocalMem[i];
-    localMemArg.setBufferPtr(m_pParameters, pLocalMemoryBuffers[i]);
-  }
-
   char* pWIParams = m_pParameters + m_pBinary->GetFormalParametersSize();
   m_implicitArgsUtils.initImplicitArgProps(m_pBinary->GetPointerSize());
   m_implicitArgsUtils.createImplicitArgs(pWIParams);
@@ -100,7 +94,6 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
   memset(&m_GlobalId[0], 0, sizeof(m_GlobalId));
   size_t* pWIids = (size_t*)(((char*)pWGStackFrame) + m_pBinary->GetAlignedKernelParametersSize());
   assert( (m_pBinary->m_bJitCreateWIids || uiWICount > 0) && "uiWICount is zero!" );
-  char* pBarrierBuffer = ((char*)pWGStackFrame) + m_pBinary->GetAlignedKernelParametersSize() + m_pBinary->GetLocalWIidsSize();
   // Set implicit arguments per executable
   m_implicitArgsUtils.setImplicitArgsPerExecutable(
             &m_pBinary->m_WorkInfo,
@@ -110,7 +103,8 @@ cl_dev_err_code Executable::Init(void* *pLocalMemoryBuffers, void* pWGStackFrame
             m_pBinary->m_uiVectorWidth,
             pWIids,
             uiWICount-1,
-            pBarrierBuffer);
+            m_pBinary->GetExtendedExecutionContext()
+            );
 
 
   // Set CSR flags

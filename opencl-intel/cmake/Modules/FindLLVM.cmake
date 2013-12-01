@@ -7,7 +7,7 @@
 #  LLVM_MODULE_LIBS - list of llvm libs for working with modules.
 #  LLVM_FOUND       - True if llvm found.
 if(WIN32)
-    if( INCLUDE_MIC_DEVICE)
+    if( INCLUDE_MIC_DEVICE AND ( CMAKE_SIZEOF_VOID_P EQUAL 8 ) )
         list(APPEND STATIC_LLVM_MODULE_LIBS
             LLVMY86AsmParser
             LLVMY86CodeGen
@@ -16,15 +16,17 @@ if(WIN32)
             LLVMY86Disassembler
             LLVMY86Info
             LLVMY86Utils
-            pcg
-            svml
-            irc
+            libpcg
+            svml_dispmt
+            libirc
+            libmmt
+            libdecimal
             )
     endif()
 	list(APPEND STATIC_LLVM_MODULE_LIBS
+		LLVMIRReader 
 		LLVMAsmParser 
 		LLVMTableGen 
-		LLVMMICCodeGenerationEngine
 		LLVMOpenCLAliasAnalysisSupport
 		LLVMMICModuleJIT
 		LLVMDebugInfo 
@@ -60,6 +62,7 @@ if(WIN32)
 		LLVMTarget 
 		LLVMMC 
 		LLVMObject 
+		LLVMObjCARCOpts 
 		LLVMCore 
 		LLVMSupport
 	)
@@ -89,9 +92,9 @@ else()
             )
     endif()
 	list(APPEND STATIC_LLVM_MODULE_LIBS
+		LLVMIRReader 
 		LLVMAsmParser 
 		LLVMTableGen 
-		LLVMMICCodeGenerationEngine
 		LLVMOpenCLAliasAnalysisSupport
 		LLVMMICModuleJIT
 		LLVMDebugInfo 
@@ -127,6 +130,7 @@ else()
 		LLVMTarget 
 		LLVMMC 
 		LLVMObject 
+		LLVMObjCARCOpts 
 		LLVMCore 
 		LLVMSupport
 		)
@@ -222,10 +226,11 @@ else(BUILD_LLVM_FROM_SOURCE )
 			set(LLVM_CFLAGS)
 			set(LLVM_LFLAGS)
 			set(LLVM_MODULE_LIBS ${STATIC_LLVM_MODULE_LIBS})
-			
+
 		endif (LLVM_CONFIG_EXECUTABLE)
 
-                message( STATUS "LLVM libs: ${LLVM_MODULE_LIBS}")
 	endif (APPLE)
 
 endif(BUILD_LLVM_FROM_SOURCE )
+
+message( STATUS "LLVM libs: ${LLVM_MODULE_LIBS}")

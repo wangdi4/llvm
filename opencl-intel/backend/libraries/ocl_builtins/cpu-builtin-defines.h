@@ -120,6 +120,15 @@ const constant long xfff0000000000000 = 0xfff0000000000000;
 const constant long xc0f0000000000000 = 0xc0f0000000000000;
 const constant int conversion_ones = 1;
 const constant long dones = 1;
-const constant char16 g_vls_4x32to4x16 = {0,1, 4,5,  8,9, 12,13, 0, 0, 0, 0, 0,0,0,0};
-const constant char16 g_vls_2x64to2x16 = {0,1, 8,9,0,0, 0, 0, 0, 0, 0, 0,0,0,0,0};							
+const constant char16 g_vls_4x32to4x16 = {0, 1, 4, 5, 8, 9, 12, 13, 0, 0, 0, 0, 0, 0, 0, 0};
+const constant char16 g_vls_2x64to2x16 = {0, 1, 8, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
+
+// new type for the implementation of the transpose functions- TODO- check if there is a suitable place for it
+#if defined(__AVX__)
+typedef __v32qi ocl_char32;
+
+ocl_char32 INLINE_ATTRIBUTE as_ocl_char32(int8 x) {
+  return __builtin_astype(x, ocl_char32);
+}
+#endif

@@ -11,9 +11,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "LocalBuffAnalysis.h"
 
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
-#include "llvm/Instructions.h"
-#include "llvm/IRBuilder.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IRBuilder.h"
 
 #include <map>
 
@@ -23,15 +23,13 @@ namespace Intel {
   class MetaDataUtils;
 }
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
+namespace intel {
   /// @brief  PrepareKernelArgs changes the way arguments are passed to kernels.
   ///         It changes the kernel to receive as arguments a single buffer
   ///         which contains the the kernel's original and implicit arguments.
   ///         loads the arguments and calls the originaol kernel.
   ///         The position of the arguments in the buffer is calcilated based on
   ///         the arguments' alignment, which in non LLVM dependant.
-  /// @Author Marina Yatsina
   class PrepareKernelArgs : public ModulePass {
 
   public:
@@ -86,16 +84,23 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   private:
     /// @brief The llvm module this pass needs to update
-    Module                     *m_pModule;
+    Module                *m_pModule;
+
+    DataLayout            *m_DL;
 
     /// @brief The llvm context
-    LLVMContext                *m_pLLVMContext;
+    LLVMContext           *m_pLLVMContext;
 
     /// @brief holds Meta Data utils
-    Intel::MetaDataUtils       *m_mdUtils;
+    Intel::MetaDataUtils  *m_mdUtils;
 
+    /// @brief Size of Moudle pointer in bits
+    unsigned              m_PtrSizeInBytes;
+    IntegerType*          m_SizetTy;
+    IntegerType*          m_I8Ty;
+    IntegerType*          m_I32Ty;
   };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 #endif // __PREPARE_KERNEL_ARGS_H__

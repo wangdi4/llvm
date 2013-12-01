@@ -68,6 +68,9 @@ def vloada_half_pas       : REF_OclBuiltin<"vloada_half$Suffix",      (outs up_g
 def vstoreaf_half_pas     : REF_OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [type0, vec0, arg_true]>>, PRIVATE;
 def vstoreaf_half_las     : REF_OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [type0, vec0, arg_true]>>, LOCAL;
 def vstoreaf_half_gas     : REF_OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [type0, vec0, arg_true]>>, GLOBAL;
+}
+let Types = [v2f16, v3f16, v4f16, v8f16, v16f16],
+    Attrs = [OVERLOADABLE] in {
 def vstoreaf_half_rte_pas : REF_OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [vec0, arg_true]>>, PRIVATE;
 def vstoreaf_half_rte_las : REF_OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [vec0, arg_true]>>, LOCAL;
 def vstoreaf_half_rte_gas : REF_OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [vec0, arg_true]>>, GLOBAL;
@@ -80,9 +83,15 @@ def vstoreaf_half_rtp_gas : REF_OclBuiltin<"vstorea_half$Suffix_rtp", (outs), (i
 def vstoreaf_half_rtn_pas : REF_OclBuiltin<"vstorea_half$Suffix_rtn", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [vec0, arg_true]>>, PRIVATE;
 def vstoreaf_half_rtn_las : REF_OclBuiltin<"vstorea_half$Suffix_rtn", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [vec0, arg_true]>>, LOCAL;
 def vstoreaf_half_rtn_gas : REF_OclBuiltin<"vstorea_half$Suffix_rtn", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [vec0, arg_true]>>, GLOBAL;
+}
+let Types = [v1f16, v2f16, v3f16, v4f16, v8f16, v16f16],
+    Attrs = [OVERLOADABLE] in {
 def vstoread_half_pas     : REF_OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [type0, vec0, arg_true]>>, PRIVATE;
 def vstoread_half_las     : REF_OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [type0, vec0, arg_true]>>, LOCAL;
 def vstoread_half_gas     : REF_OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [type0, vec0, arg_true]>>, GLOBAL;
+}
+let Types = [v2f16, v3f16, v4f16, v8f16, v16f16],
+    Attrs = [OVERLOADABLE] in {
 def vstoread_half_rte_pas : REF_OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [vec0, arg_true]>>, PRIVATE;
 def vstoread_half_rte_las : REF_OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [vec0, arg_true]>>, LOCAL;
 def vstoread_half_rte_gas : REF_OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], TemplateAttr< [vec0, arg_true]>>, GLOBAL;

@@ -54,6 +54,8 @@ public:
 
     virtual size_t GetJITCodeSize() const { return m_pModuleJITHolder->GetKernelJITSize(m_funcID); }
 
+    virtual int GetLineNumber(void* pointer) const;
+
     /*
      * IJITContainer methods
      */

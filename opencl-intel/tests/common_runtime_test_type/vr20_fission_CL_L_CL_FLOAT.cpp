@@ -30,6 +30,10 @@ public:
 		this->image_format.image_channel_order = CL_LUMINANCE;
 		this->image_format.image_channel_data_type = CL_FLOAT;
 	}
+    virtual void TearDown()
+    {
+        FissionWrapper::TearDown();
+    }
 };
 // Do not add other types here
 typedef ::testing::Types<cl_float> Fission_VR20_CL_L_CL_FLOATTypes;

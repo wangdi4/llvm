@@ -28,7 +28,7 @@
 
 #include "common_dev_limits.h"
 
-#define MIC_DEV_MAX_WI_SIZE              1024            // Maximum values that could be specified for WI in one dimension
+#define MIC_DEV_MAX_WI_SIZE              (8*1024)            // Maximum values that could be specified for WI in one dimension
 #define MIC_DEV_LCL_MEM_SIZE             (32*1024)
 #define MIC_DEV_DCU_LINE_SIZE            64
 #define MIC_DEV_MAXIMUM_ALIGN            (DEV_MAXIMUM_ALIGN)
@@ -61,7 +61,7 @@
 #define MIC_MAX_LOCAL_ARGS               (MIN_PARAM((MIC_MAX_PARAMETER_SIZE/sizeof(void*)), MIC_MAX_PARAM_COUNT))
 #define MIC_MEM_BASE_ADDR_ALIGN          (MIC_DEV_MAXIMUM_ALIGN*8) // In bits
 #define MIC_MAX_WORK_ITEM_DIMENSIONS     MAX_WORK_DIM
-#define MIC_MAX_WORK_GROUP_SIZE          1024            // Must be power of 2, No API to get max number of fibers
+#define MIC_MAX_WORK_GROUP_SIZE          (8*1024)            // Must be power of 2, No API to get max number of fibers
 #define MIC_DEFAULT_WG_SIZE              32
 #define MIC_MIN_ACTUAL_PARAM_SIZE        sizeof(size_t)
 #define MIC_MIN_ACTUAL_PARAM_PTR         size_t*
@@ -70,19 +70,17 @@
 // minimum 1MB
 #define MIC_PRINTF_BUFFER_SIZE           (1024*1024)
 
-// Minimum memory size allocate for single WI instance
+// Minimum memory size allocate for single WI instance when "barrier" is used
 #define MIC_DEV_MIN_WI_PRIVATE_SIZE      (1024*sizeof(size_t))
 // Maximum memory size that could be allocated for WG execution
-#define MIC_DEV_MAX_WG_PRIVATE_SIZE      (MIC_DEV_MIN_WI_PRIVATE_SIZE*MIC_MAX_WORK_GROUP_SIZE)
+// allow max 64 concurrent WG that utilize full "barrier" buffer, total 512kB/WG
+#define MIC_DEV_MAX_WG_PRIVATE_SIZE      (MIC_DEV_MIN_WI_PRIVATE_SIZE*64)
 // Maximum memory size that could be allocated for WG execution. This is the sum of
 // WG Private memory size +
 // Kernel parameters size (twice to cover the hidden parameters) +
 // Local IDs buffer
-#define MIC_DEV_MAX_WG_TOTAL_SIZE     (MIC_DEV_MAX_WG_PRIVATE_SIZE/4)
-#if 0
 #define MIC_DEV_MAX_WG_TOTAL_SIZE		  (MIC_DEV_MAX_WG_PRIVATE_SIZE + (2*MIC_MAX_PARAMETER_SIZE) + \
-		                                      (MIC_MAX_PARAMETER_SIZE * MAX_WI_DIM_POW_OF_2 * sizeof(size_t)))
-#endif
+		                                      (MIC_MAX_WORK_GROUP_SIZE * MAX_WI_DIM_POW_OF_2 * sizeof(size_t)))
 
 //The maximum single buffer memory size (in bytes)
 #define MIC_MAX_BUFFER_ALLOC_SIZE(deviceId) (MAX((unsigned long long)(128*1024*1024), MICSysInfo::getInstance().TotalPhysicalMemSize(deviceId)/4) & ~4095)
@@ -91,11 +89,10 @@
 
 #define MIC_DEV_INITIAL_BUFFER_PREALLOCATION (2 * 4096)
 
-// redirect all I/O requests from device to host, includion files and std handles
+// redirect all I/O requests from device to host, inclusion files and std handles
 #define MIC_DEV_IO_PROXY_TO_HOST            true
 
 #define NOTIFICATION_PORT_MAX_BARRIERS      256
-#define MIC_DEV_MIN_WORK_GROUPS_NUMBER(workers) (2*(workers))
 
 #define MIC_DEVICE_EXECUTION_OVERHEAD_LOOP_COUNT 16
 

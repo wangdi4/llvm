@@ -9,16 +9,30 @@ endif ()
 set( TARGET_NAME OclDeviceExecutor )
 set( TARGET_LIB_DIR ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR} )
 
+set( SCRIPT_DIR ${CMAKE_CURRENT_BINARY_DIR}/scripts )
 set( LIB_FILE_EXTENSION .a )
 set( OBJ_FILE_EXTENSION .o )
 
 set( DEVICE MIC )
 
 if (WIN32)
+    set( FORCE_LINUX ON )
     # Windows
-    message( WARNING "MIC executor creation is not supported on Windows yet!")
+    set( LIB_DIR        ${OCL_BINARY_DIR}/${IMPLIB_SUBDIR}/%CONFIG_NAME% )
+
+    set( DEVICE_COMPILER_SCRIPT compile_win64_mic.bat )
+    set( DEVICE_ARCHIVER_SCRIPT archive_win64_mic.bat )
+
+    set( DEVICE_COMPILER ${SCRIPT_DIR}/${DEVICE_COMPILER_SCRIPT} )
+    set( DEVICE_ARCHIVER ${SCRIPT_DIR}/${DEVICE_ARCHIVER_SCRIPT} )
+
+    string( REPLACE  ";" " -I " LLVM_INCLUDE_DIR "${LLVM_INCLUDE_DIR}" )
+    string( REPLACE  \${CMAKE_CFG_INTDIR} %CONFIG_NAME% LLVM_INCLUDE_DIR "${LLVM_INCLUDE_DIR}" )
+
 else ()
     # Linux    
+    set( LIB_DIR        ${OCL_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR} )
+
     set( DEVICE_COMPILER_SCRIPT compile_linux_mic.sh )
     set( DEVICE_ARCHIVER_SCRIPT archive_linux_mic.sh )
 
@@ -34,44 +48,35 @@ endif (WIN32)
 
 if (WIN32)
     # Windows
-    message( WARNING "MIC executor build is not supported on Windows yet!")
+    set( ICC_INSTALL_DIR "C:\\Program Files (x86)\\Intel\\Composer XE" )
+    if ( NOT EXISTS ${ICC_INSTALL_DIR})
+        message( FATAL_ERROR "ICC for Xeon Phi(MIC) can't be found")
+    endif ()
+
+    execute_process(COMMAND ${ICC_INSTALL_DIR}\\bin\\intel64_mic\\icc -dumpversion OUTPUT_VARIABLE MIC_ICC_VERSION)
+    if (  MIC_ICC_VERSION VERSION_LESS 13.0 )
+        message(FATAL_ERROR "ICC ${MIC_ICC_VERSION} found, expected 13.x")
+    endif()
+
+    message(STATUS "MIC C COMPILER: ${ICC_INSTALL_DIR}\\bin\\intel64_mic\\icc, version ${MIC_ICC_VERSION}" )
+
+    set( ICC_MIC_ENV_SCRIPT "${ICC_INSTALL_DIR}\\bin\\compilervars.bat" )
+
 else (WIN32)
   # linux-mic target
-  set (ICC_MIC_CL icpc)
-  set (ICC_MIC_AR ar)
-  # check env. variable for the icc mic compiler
-  set(ICC_MIC_COMPILER $ENV{ICC_MIC_COMPILER_PATH})
-  if(NOT ICC_MIC_COMPILER)
-    if (KNC_CARD)
-	  set (SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe/bin)
-	else (KNC_CARD)
-	  set (SUITABLE_ICC_INSTALL_DIR /opt/intel/composerxe_mic/bin)
-	endif (KNC_CARD)
-    if (EXISTS ${SUITABLE_ICC_INSTALL_DIR})
-      set( ICC_MIC_COMPILER ${SUITABLE_ICC_INSTALL_DIR} )
-	  message (STATUS "ICC MIC Compiler: ${ICC_MIC_COMPILER}")
-	  set(MIC_TARGET "ON")
-    else()
-      message (WARNING "ICC MIC Compiler not found, No MIC target Build. \nIf want to build MIC target set the enviroment variable ICC_MIC_COMPILER_PATH")
-      set(MIC_TARGET "OFF")
-	endif()
-  else()
-    message (STATUS "ICC MIC Compiler: ${ICC_MIC_COMPILER}")
-	set(MIC_TARGET "ON")
-  endif()
-  
-  if(MIC_TARGET)
-    # search for the compilervars script
-    set (ICC_MIC_ENV_SCRIPT compilervars.sh)
-    
-    # check if the script exists
-    if (NOT EXISTS "${ICC_MIC_COMPILER}/${ICC_MIC_ENV_SCRIPT}")
-	  message (FATAL_ERROR "ICC MIC Compiler Script do not exist, please set the enviroment variable ICC_MIC_COMPILER_PATH")
-    else()
-      set(ICC_MIC_ENV_SCRIPT ${ICC_MIC_COMPILER}/${ICC_MIC_ENV_SCRIPT})
+    set( ICC_INSTALL_DIR /opt/intel/composerxe )
+    if ( NOT EXISTS ${ICC_INSTALL_DIR})
+        message( FATAL_ERROR "ICC for Xeon Phi(MIC) can't be found")
+    endif ()
+
+    execute_process(COMMAND ${ICC_INSTALL_DIR}/bin/icc -dumpversion OUTPUT_VARIABLE MIC_ICC_VERSION)
+    if (  MIC_ICC_VERSION VERSION_LESS 13.0 )
+        message(FATAL_ERROR "ICC ${MIC_ICC_VERSION} found, expected 13.x")
     endif()
-	message(STATUS "ICC MIC Compiler Script: ${ICC_MIC_ENV_SCRIPT}")
-  endif()
+
+    message(STATUS "MIC C COMPILER: ${ICC_INSTALL_DIR}/bin/icc, version ${MIC_ICC_VERSION}" )
+
+    set( ICC_MIC_ENV_SCRIPT "${ICC_INSTALL_DIR}/bin/compilervars.sh" )
 endif (WIN32)
 
 #
@@ -92,7 +97,7 @@ function ( COMPILE_DEVICE_CXX_FILE FILE_FULL_PATH_NAME OBJ_FILE )
     get_filename_component( FILE_NAME ${FILE_FULL_PATH_NAME} NAME )
 
     add_custom_command( OUTPUT ${OBJ_FILE}
-                        COMMAND ${DEVICE_COMPILER} ${FILE_FULL_PATH_NAME} ${OBJ_FILE}
+                        COMMAND ${DEVICE_COMPILER} ${INSTALL_SUBDIR} ${FILE_FULL_PATH_NAME} ${OBJ_FILE}
                         MAIN_DEPENDENCY ${FILE_FULL_PATH_NAME}
                         IMPLICIT_DEPENDS CXX
                         DEPENDS ${DEVICE_COMPILER}
@@ -132,6 +137,9 @@ endfunction ( ARCHIVE_DEVICE_LIB )
 function ( add_device_library TARGET_NAME )
 
     set( LIB_FILE ${TARGET_LIB_DIR}/lib${TARGET_NAME}${LIB_FILE_EXTENSION} )
+    if (WIN32)
+        file( TO_NATIVE_PATH "${LIB_FILE}" LIB_FILE)
+    endif(WIN32)
     set( OBJ_LIST )
 
     if (${ARGC} GREATER  1)
@@ -140,6 +148,11 @@ function ( add_device_library TARGET_NAME )
 
             get_filename_component( FILE_NAME ${FILE} NAME_WE )
             set( OBJ_FILE ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${FILE_NAME}${OBJ_FILE_EXTENSION} )
+
+            if (WIN32)
+                file( TO_NATIVE_PATH "${SRC_FILE}" SRC_FILE)
+                file( TO_NATIVE_PATH "${OBJ_FILE}" OBJ_FILE)
+            endif(WIN32)
 
             COMPILE_DEVICE_CXX_FILE( ${SRC_FILE} ${OBJ_FILE} )
             list( APPEND OBJ_LIST ${OBJ_FILE} )
@@ -160,16 +173,21 @@ endfunction ( add_device_library )
 check_file(${CMAKE_CURRENT_SOURCE_DIR}/${DEVICE_COMPILER_SCRIPT})
 check_file(${CMAKE_CURRENT_SOURCE_DIR}/${DEVICE_ARCHIVER_SCRIPT})
 
+if (NOT EXISTS ${SCRIPT_DIR})
+        file(MAKE_DIRECTORY "${SCRIPT_DIR}")
+endif()
+
 # MIC compilation flags
 set( MIC_FLAGS  -Werror
                 -fstack-security-check
                 -use-msasm
                 -wd279
+                -D__STDC_LIMIT_MACROS
+                -D__STDC_CONSTANT_MACROS
             )
-if (KNC_CARD)
-   list( APPEND MIC_FLAGS -DKNC_CARD )
-endif (KNC_CARD)
-			
+
+list( APPEND MIC_FLAGS -DKNC_CARD )
+
 set( MIC_DEBUG_FLAGS    -g -O0 -D_DEBUG )
 set( MIC_RELEASE_FLAGS     -O3 -DNDEBUG )
 
@@ -184,29 +202,32 @@ list( APPEND MIC_FLAGS
                 -I ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
                 -I ${CMAKE_SOURCE_DIR}/backend/plugin_manager
                 -I ${LLVM_INCLUDE_DIR}
-                -I ${CMAKE_CURRENT_SOURCE_DIR}/../external/vtune/include
+                -I ${CMAKE_CURRENT_SOURCE_DIR}/../../externals/itt/include
                 -I ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
                 )
 
-if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-    # Debug
-    list( APPEND MIC_FLAGS      ${MIC_DEBUG_FLAGS} )
-else ()
-    # Release
-    list( APPEND MIC_FLAGS      ${MIC_RELEASE_FLAGS} )
-endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+if (NOT WIN32)
+    if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+        # Debug
+        list( APPEND MIC_FLAGS      ${MIC_DEBUG_FLAGS} )
+    else ()
+        # Release
+        list( APPEND MIC_FLAGS      ${MIC_RELEASE_FLAGS} )
+    endif (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+endif (NOT WIN32)
 
 # replace ; with spaces
 foreach (FLAG ${MIC_FLAGS})
     set( FINAL_MIC_FLAGS "${FINAL_MIC_FLAGS} ${FLAG}")
 endforeach( FLAG )
 
+if (WIN32)
+    string( REPLACE  / \\ FINAL_MIC_FLAGS "${FINAL_MIC_FLAGS}" )
+endif(WIN32)
 
 # FINAL_MIC_FLAGS and FINAL_MIC_LINK_FLAGS are used now
-if(MIC_TARGET)
 configure_file(${DEVICE_COMPILER_SCRIPT} ${DEVICE_COMPILER} @ONLY)
 configure_file(${DEVICE_ARCHIVER_SCRIPT} ${DEVICE_ARCHIVER} @ONLY) 
-endif()
 
 set(TARGET_SOURCES
     MICDeviceServiceFactory.cpp
@@ -231,6 +252,7 @@ set(TARGET_SOURCES
     ../utils/TypeAlignment.cpp
     ../ocl_cpu_backend/Binary.cpp
     ../utils/ImplicitArgsUtils.cpp
+    ../utils/Atomics.cpp
     ../ocl_cpu_backend/Executable.cpp
     ../ocl_cpu_backend/MICExecutable.cpp
     ../utils/FunctionArgument.cpp
@@ -238,6 +260,4 @@ set(TARGET_SOURCES
     ../ocl_cpu_backend/opencl_mic_printf_ext.cpp
     main.cpp)
 
-if(MIC_TARGET) 
 add_device_library(${TARGET_NAME} ${TARGET_SOURCES})
-endif()

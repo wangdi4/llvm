@@ -15,48 +15,39 @@ Copyright (c) Intel Corporation (2010).
 File Name:  MICProgramBuilder.cpp
 
 \*****************************************************************************/
-#include <set>
-#include <vector>
-#include <string>
-#include "cl_types.h"
-#include "cl_dev_backend_api.h"
-#include "cpu_dev_limits.h"
-#include "ProgramBuilder.h"
-#include "Optimizer.h"
-#include "VecConfig.h"
-#include "MICProgram.h"
-#include "MICKernel.h"
-#include "MICKernelProperties.h"
-#include "CPUDetect.h"
-#include "BuiltinModule.h"
-#include "exceptions.h"
-#include "BuiltinModuleManager.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Target/TargetMachine.h"
-#include "MICJITEngine/include/MICCodeGenerationEngine.h"
-#include "MICJITEngine/include/ModuleJITHolder.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Argument.h"
-#include "llvm/Type.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Instructions.h"
-#include "llvm/Instruction.h"
-#include "llvm/LLVMContext.h"
+
 #include "MICProgramBuilder.h"
-#include "ModuleJITHolder.h"
-#include "MICJITContainer.h"
-#include "CompilationUtils.h"
+
+#include "Compiler.h"
+#include "CompilerConfig.h"
+#include "IAbstractBackendFactory.h"
+#include "Kernel.h"
+#include "KernelProperties.h"
 #include "MetaDataApi.h"
+#include "MICCompiler.h"
+#include "MICCompilerConfig.h"
+#include "MICJITContainer.h"
+#include "MICKernel.h"
+#include "MICProgram.h"
+#include "ModuleJITHolder.h"
+#include "Program.h"
+#include "ProgramBuilder.h"
+
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseMapInfo.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ExecutionEngine/LLVMModuleJITHolder.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/raw_ostream.h"
+
+#include <string>
+#include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -81,11 +72,12 @@ MICProgramBuilder::~MICProgramBuilder()
 MICKernel* MICProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const
 {
     std::vector<cl_kernel_argument> arguments;
+    std::vector<unsigned int>       memoryArguments;
 
     // TODO : consider separating into a different analisys pass
-    CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,  pFunc, arguments);
+    CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,  pFunc, arguments, memoryArguments);
 
-    return static_cast<MICKernel*>(m_pBackendFactory->CreateKernel( funcName, arguments, pProps ));
+    return static_cast<MICKernel*>(m_pBackendFactory->CreateKernel( funcName, arguments, memoryArguments, pProps ));
 }
 
 KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
@@ -207,33 +199,76 @@ void MICProgramBuilder::AddKernelJIT( const MICProgram* pProgram, Kernel* pKerne
 void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const
 {
     assert(spModule && "Invalid module for post optimization processing.");
-    ModuleJITHolder* pModuleJIT = new ModuleJITHolder(); 
 
     std::string dumpAsm("");
     if(NULL != pOptions)
     {
       dumpAsm = pOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMPFILE, "");
     }
-    std::auto_ptr<const llvm::ModuleJITHolder> spMICModuleJIT(m_compiler.GetModuleHolder(*spModule, dumpAsm));
+    std::auto_ptr<const llvm::LLVMModuleJITHolder> spMICModuleJIT(m_compiler.GetModuleHolder(*spModule, dumpAsm));
+    ModuleJITHolder* pModuleJIT = new ModuleJITHolder();
 
-    // populate the Module JIT
-    pModuleJIT->SetJITCodeSize(spMICModuleJIT->getJITCodeSize());
-    pModuleJIT->SetJITCodeStartPoint(spMICModuleJIT->getJITCodeStartPoint());
-    pModuleJIT->SetJITBufferPointer(spMICModuleJIT->getJITBufferPointer());
-    pModuleJIT->SetJITAlignment(spMICModuleJIT->getJITCodeAlignment());
+    CopyJitHolder(spMICModuleJIT.get(), pModuleJIT);
 
-    for(llvm::KernelMap::const_iterator 
-        it = spMICModuleJIT->getKernelMap().begin();
-        it != spMICModuleJIT->getKernelMap().end();
-        it++)
+    static_cast<MICProgram*>(pProgram)->SetModuleJITHolder(pModuleJIT);
+}
+
+void MICProgramBuilder::CopyJitHolder(const LLVMModuleJITHolder* from, ModuleJITHolder* to) const
+{
+    // Copy scalar values
+    to->SetJITCodeSize(from->getJITCodeSize());
+    to->SetJITCodeStartPoint(from->getJITCodeStartPoint());
+    to->SetJITBufferPointer(from->getJITBufferPointer());
+    to->SetJITAlignment(from->getJITCodeAlignment());
+
+    // Copy kernels
+    for(llvm::KernelMap::const_iterator it = from->getKernelMap().begin(),
+        end = from->getKernelMap().end(); it != end; it++)
     {
         KernelInfo kernelInfo;
-        kernelInfo.kernelOffset = it->second.offset;
-        kernelInfo.kernelSize   = it->second.size;
+        llvm::KernelInfo llvmKernelInfo = it->second;
+
+        // Copy basic values
+        kernelInfo.functionId   = llvmKernelInfo.functionId;
+        kernelInfo.kernelOffset = llvmKernelInfo.kernelOffset;
+        kernelInfo.kernelSize   = llvmKernelInfo.kernelSize;
+        kernelInfo.filename     = llvmKernelInfo.filename;
+
+        // Copy line number table
+        kernelInfo.lineNumberTable.resize(llvmKernelInfo.lineNumberTable.size());
+        for (unsigned i = 0; i < llvmKernelInfo.lineNumberTable.size(); i++)
+        {
+            const llvm::LineNumberEntry& from = llvmKernelInfo.lineNumberTable[i];
+            LineNumberEntry& to = kernelInfo.lineNumberTable[i];
+            to.line = from.line;
+            to.offset = from.offset;
+        }
+
+        // Copy inlined functions data
+        // (can't use memcpy here as there are strings involved)
+        kernelInfo.inlinedFunctions.resize(llvmKernelInfo.inlinedFunctions.size());
+        for (unsigned i = 0; i < llvmKernelInfo.inlinedFunctions.size(); i++)
+        {
+            const llvm::InlinedFunction& from = llvmKernelInfo.inlinedFunctions[i];
+            InlinedFunction& to = kernelInfo.inlinedFunctions[i];
+            to.id = from.id;
+            to.parentId = from.parentId;
+            to.from = from.from;
+            to.size = from.size;
+            to.funcname = from.funcname;
+            to.filename = from.filename;
+        }
+
         KernelID kernelID = (const KernelID)it->first;
-        pModuleJIT->RegisterKernel(kernelID, kernelInfo);
+        to->RegisterKernel(kernelID, kernelInfo);
     }
-    static_cast<MICProgram*>(pProgram)->SetModuleJITHolder(pModuleJIT);
+}
+
+IBlockToKernelMapper * MICProgramBuilder::CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const
+{
+  assert(0 && "CreateBlockToKernelMapper not implemented");
+  abort();
+  return NULL;
 }
 
 }}} // namespace

@@ -72,8 +72,8 @@ void MICKernelProperties::Serialize(IOutputStream& ost, SerializationStatus* sta
     Serializer::SerialPrimitive<bool>(&m_bJitCreateWIids, ost);
     tmp = (unsigned long long int)m_kernelExecutionLength;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
-    unsigned int ui_tmp = m_uiSizeT;
-    Serializer::SerialPrimitive<unsigned int>(&ui_tmp, ost);
+    Serializer::SerialPrimitive<unsigned int>(&m_minGroupSizeFactorial, ost);
+    Serializer::SerialPrimitive<unsigned int>(&m_uiSizeT, ost);
 }
 
 void MICKernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -107,6 +107,8 @@ void MICKernelProperties::Deserialize(IInputStream& ist, SerializationStatus* st
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_kernelExecutionLength = tmp;
     unsigned int ui_tmp;
+    Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
+    m_minGroupSizeFactorial = ui_tmp;
     Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
     m_uiSizeT = ui_tmp;
 }

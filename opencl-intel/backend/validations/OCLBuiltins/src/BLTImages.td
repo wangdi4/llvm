@@ -9,6 +9,8 @@ def image1d_array: OclType<"image1d_array_t", "image1d_array_t", 1, 0, 0>;
 def image1d_buffer: OclType<"image1d_buffer_t", "image1d_buffer_t", 1, 0, 0>;
 def image3d: OclType<"image3d_t", "image3d_t", 1, 0, 0>;
 def sampler_t : OclType<"sampler_t", "sampler_t", 1, 0, 0>;
+def image2d_depth: OclType<"image2d_depth_t", "image2d_depth_t", 1, 0, 0>;
+def image2d_array_depth: OclType<"image2d_array_depth_t", "image2d_array_depth_t", 1, 0, 0>;
 
 // Table 6.12.14.2 Built-in Image Read Functions
 
@@ -29,6 +31,8 @@ def read_imageui_1d  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (
 def read_imagef_1d_arr  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image1d_array:$image, sampler_t:$sampler, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
 def read_imagei_1d_arr  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image1d_array:$image, sampler_t:$sampler, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
 def read_imageui_1d_arr  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image1d_array:$image, sampler_t:$sampler, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def read_imagef_2d_depth  : REF_OclBuiltin<"read_imagef",  (outs sf32gentype:$ret), (ins image2d_depth:$image, sampler_t:$sampler, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagef_2d_arr_depth  : REF_OclBuiltin<"read_imagef",  (outs sf32gentype:$ret), (ins image2d_array_depth:$image, sampler_t:$sampler, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
 }
 
 // Table 6.12.14.3 Built-in Image Sampler-less Read Functions
@@ -54,6 +58,8 @@ def read_imageui_1d_buff_samplerless  : REF_OclBuiltin<"read_imageui",  (outs u3
 def read_imagef_1d_arr_samplerless  : REF_OclBuiltin<"read_imagef",  (outs f32gentype:$ret), (ins image1d_array:$image, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
 def read_imagei_1d_arr_samplerless  : REF_OclBuiltin<"read_imagei",  (outs i32gentype:$ret), (ins image1d_array:$image, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
 def read_imageui_1d_arr_samplerless  : REF_OclBuiltin<"read_imageui",  (outs u32gentype:$ret), (ins image1d_array:$image, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def read_imagef_2d_depth_samplerless  : REF_OclBuiltin<"read_imagef",  (outs sf32gentype:$ret), (ins image2d_depth:$image, gentype2:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def read_imagef_2d_arr_depth_samplerless  : REF_OclBuiltin<"read_imagef",  (outs sf32gentype:$ret), (ins image2d_array_depth:$image, gentype4:$coord), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
 }
 
 
@@ -76,6 +82,8 @@ def write_imageui_1d_buff  : REF_OclBuiltin<"write_imageui",  (outs), (ins image
 def write_imagef_1d_arr  : REF_OclBuiltin<"write_imagef",  (outs), (ins image1d_array:$image, gentype2:$coord, f32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
 def write_imagei_1d_arr  : REF_OclBuiltin<"write_imagei",  (outs), (ins image1d_array:$image, gentype2:$coord, i32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_int32_t">] > >;
 def write_imageui_1d_arr  : REF_OclBuiltin<"write_imageui",  (outs), (ins image1d_array:$image, gentype2:$coord, u32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_uint32_t">] > >;
+def write_imagef_2d_depth  : REF_OclBuiltin<"write_imagef",  (outs), (ins image2d_depth:$image, gentype2:$coord, sf32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
+def write_imagef_2d_arr_depth  : REF_OclBuiltin<"write_imagef",  (outs), (ins image2d_array_depth:$image, gentype4:$coord, sf32gentype:$color), [], [], TemplateAttr< [OclBuiltinAttr<"u_float">] > >;
 }
 
 // Table 6.12.14.5 Built-in Image Query Functions
@@ -134,7 +142,7 @@ File Name:  BLTImages.cpp
 
 
 // debug macros
-#include <llvm/Type.h>
+#include <llvm/IR/Type.h>
 #include <llvm/Support/raw_ostream.h>
 #include "llvm/Support/Debug.h"
 
@@ -169,58 +177,6 @@ BUILTINS_API void initOCLBuiltinsImages() {return;}
 }
 namespace Validation {
 namespace OCLBuiltins {
-// convert from Intel OpenCL enums with CLK_ prefix to CL_ prefix
-cl_channel_order ConvertChannelOrderFromIntelOCLToCL(const cl_channel_order& val )
-{
-    cl_channel_order ret;
-    switch (val)
-    {
-    case CLK_R:          ret = CL_R; break;
-    // todo: add CL_Rx
-    //case OpenCL_Rx:         ret = CL_Rx; throw; break;
-    case CLK_A:          ret = CL_A; break;
-    case CLK_INTENSITY:  ret = CL_INTENSITY; break;
-    case CLK_LUMINANCE:  ret = CL_LUMINANCE; break;
-    case CLK_RG:         ret = CL_RG; break;
-    // todo: add CL_RGx
-    //case OpenCL_RGx:        ret = CL_RGx; throw; break;
-    case CLK_RA:         ret = CL_RA; break;
-    case CLK_RGB:        ret = CL_RGB; break;
-    // todo: add CL_RGBx
-    //case OpenCL_RGBx:       ret = CL_RGBx; throw; break;
-    case CLK_RGBA:       ret = CL_RGBA; break;
-    case CLK_ARGB:       ret = CL_ARGB; break;
-    case CLK_BGRA:       ret = CL_BGRA; break;
-    default: throw Exception::InvalidArgument("ConvertChannelOrderFromIntelOCLToCL:: Unknown Image pixel data type");
-    }
-    return ret;
-}
-
-// convert from Intel OpenCL enums with CLK_ prefix to CL_ prefix
-cl_channel_type ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type& val )
-{
-    cl_channel_type ret;
-    switch (val)
-    {
-    case CLK_SNORM_INT8:         ret = CL_SNORM_INT8; break;
-    case CLK_SNORM_INT16:        ret = CL_SNORM_INT16; break;
-    case CLK_UNORM_INT8:         ret = CL_UNORM_INT8; break;
-    case CLK_UNORM_INT16:        ret = CL_UNORM_INT16; break;
-    case CLK_UNORM_SHORT_565:    ret = CL_UNORM_SHORT_565; break;
-    case CLK_UNORM_SHORT_555:    ret = CL_UNORM_SHORT_555; break;
-    case CLK_UNORM_INT_101010:   ret = CL_UNORM_INT_101010; break;
-    case CLK_SIGNED_INT8:        ret = CL_SIGNED_INT8; break;
-    case CLK_SIGNED_INT16:       ret = CL_SIGNED_INT16; break;
-    case CLK_SIGNED_INT32:       ret = CL_SIGNED_INT32; break;
-    case CLK_UNSIGNED_INT8:      ret = CL_UNSIGNED_INT8; break;
-    case CLK_UNSIGNED_INT16:     ret = CL_UNSIGNED_INT16; break;
-    case CLK_UNSIGNED_INT32:     ret = CL_UNSIGNED_INT32; break;
-    case CLK_HALF_FLOAT:         ret = CL_HALF_FLOAT; break;
-    case CLK_FLOAT:              ret = CL_FLOAT; break;
-    default: throw Exception::InvalidArgument("ConvertChannelDataTypeFromIntelOCLToCL:: Unknown Image channel data type");
-    }
-    return ret;
-}
 
 Conformance::image_descriptor CreateConfImageDesc(const cl_mem_obj_descriptor& in_Desc, 
                                                          cl_image_format& out_ImageFmt)
@@ -251,9 +207,9 @@ Conformance::image_descriptor CreateConfImageDesc(const cl_mem_obj_descriptor& i
     }
     
     out_ImageFmt.image_channel_data_type = 
-        ConvertChannelDataTypeFromIntelOCLToCL(in_Desc.format.image_channel_data_type);
+        in_Desc.format.image_channel_data_type;
     out_ImageFmt.image_channel_order = 
-        ConvertChannelOrderFromIntelOCLToCL(in_Desc.format.image_channel_order);
+        in_Desc.format.image_channel_order;
     retDesc.format = &out_ImageFmt;
     return retDesc;
 }

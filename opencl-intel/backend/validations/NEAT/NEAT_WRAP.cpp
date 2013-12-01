@@ -51,6 +51,12 @@ namespace Validation
     NEATVector NEAT_WRAP::_fname## _d ( const NEATVector& a ) {\
     return NEATALU::_fname<double>(a);}
 
+#define NEAT_ONEARG_FRM(_fname)  \
+    NEATValue NEAT_WRAP::_fname##_frm_f ( const NEATValue& a ) {\
+    return NEATALU::_fname##_frm<float>(a);}\
+    NEATVector NEAT_WRAP::_fname## _frm_f ( const NEATVector& a ) {\
+    return NEATALU::_fname##_frm<float>(a);}
+
 #define NEAT_TWOARG(_fname)  \
     NEATValue NEAT_WRAP::_fname##_f ( const NEATValue& a, const NEATValue& b ) {\
     return NEATALU::_fname<float>(a,b);}\
@@ -60,6 +66,12 @@ namespace Validation
     return NEATALU::_fname<float>(a,b);}\
     NEATVector NEAT_WRAP::_fname##_d ( const NEATVector& a, const NEATVector& b ) {\
     return NEATALU::_fname<double>(a,b);}
+
+#define NEAT_TWOARG_FRM(_fname)  \
+    NEATValue NEAT_WRAP::_fname##_frm_f ( const NEATValue& a, const NEATValue& b ) {\
+    return NEATALU::_fname##_frm<float>(a,b);}\
+    NEATVector NEAT_WRAP::_fname##_frm_f ( const NEATVector& a, const NEATVector& b ) {\
+    return NEATALU::_fname##_frm<float>(a,b);}
 
 #define NEAT_THREEARG(_fname)  \
     NEATValue NEAT_WRAP::_fname##_f ( const NEATValue& a, const NEATValue& b, const NEATValue& c ) {\
@@ -75,6 +87,7 @@ namespace Validation
     NEAT_TWOARG(mul)
     NEAT_TWOARG(mul_fma)
     NEAT_TWOARG(div)
+    NEAT_TWOARG_FRM(div)
     NEAT_TWOARG(native_divide)
     NEAT_TWOARG(half_divide)
     NEAT_ONEARG(native_recip)
@@ -318,9 +331,11 @@ namespace Validation
     NEAT_ONEARG(sin)
     NEAT_ONEARG(native_sin)
     NEAT_ONEARG(half_sin)
+    NEAT_ONEARG_FRM(sin)
     NEAT_ONEARG(cos)
     NEAT_ONEARG(native_cos)
     NEAT_ONEARG(half_cos)
+    NEAT_ONEARG_FRM(cos)
 
 
     NEATValue NEAT_WRAP::sincos_f(const NEATValue& a, NEATValue * y)
@@ -341,7 +356,17 @@ namespace Validation
         return NEATALU::sincos<double>(vec1,vec2);
     }
 
+    NEATValue NEAT_WRAP::sincos_frm_f(const NEATValue& a, NEATValue * y)
+    {
+        return NEATALU::sincos_frm<float>(a,y);
+    }
+    NEATVector NEAT_WRAP::sincos_frm_f(const NEATVector& vec1, NEATVector& vec2)
+    {
+        return NEATALU::sincos_frm<float>(vec1,vec2);
+    }
+
     NEAT_ONEARG(tan)
+    NEAT_ONEARG_FRM(tan)
     NEAT_ONEARG(native_tan)
     NEAT_ONEARG(half_tan)
     NEAT_ONEARG(asin)
@@ -512,19 +537,24 @@ namespace Validation
     NEAT_ONEARG(exp)
     NEAT_ONEARG(native_exp)
     NEAT_ONEARG(half_exp)
+    NEAT_ONEARG_FRM(exp)
     NEAT_ONEARG(exp2)
     NEAT_ONEARG(native_exp2)
     NEAT_ONEARG(half_exp2)
+    NEAT_ONEARG_FRM(exp2)
     NEAT_ONEARG(exp10)
     NEAT_ONEARG(native_exp10)
     NEAT_ONEARG(half_exp10)
+    NEAT_ONEARG_FRM(exp10)
     NEAT_ONEARG(expm1)
     NEAT_ONEARG(log2)
     NEAT_ONEARG(native_log2)
     NEAT_ONEARG(half_log2)
+    NEAT_ONEARG_FRM(log2)
     NEAT_ONEARG(log)
     NEAT_ONEARG(native_log)
     NEAT_ONEARG(half_log)
+    NEAT_ONEARG_FRM(log)
     NEAT_ONEARG(log10)
     NEAT_ONEARG(native_log10)
     NEAT_ONEARG(half_log10)
@@ -537,6 +567,7 @@ namespace Validation
     NEAT_ONEARG(ilogb)
 
     NEAT_TWOARG(pow)
+    NEAT_TWOARG_FRM(pow)
     NEAT_TWOARG(powr)
     NEAT_TWOARG(native_powr)
     NEAT_TWOARG(half_powr)

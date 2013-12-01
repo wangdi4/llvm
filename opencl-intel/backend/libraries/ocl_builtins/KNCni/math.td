@@ -133,13 +133,13 @@ OclBuiltinImpl native_fmod_f64_expand = OclBuiltinImpl<native_fmod, [v16f64], 0,
 // native_fract
 code native_fract_f32_v16 = [{
     float16 f = _mm512_floor_ps($Arg0VarName);
-    *($Arg1NoASType)$Arg1VarName = f;
+    *(__private $Arg1NoASType)$Arg1VarName = f;
     return _mm512_min_ps(_mm512_sub_ps($Arg0VarName, f), _mm512_set_1to16_ps(0x1.fffffep-1f));
   }];
 code mask_native_fract_f32_v16 = [{
     float16 nx; nx$Pattern = $Arg0VarName;
     float16 f = _mm512_mask_floor_ps(nx, $Mask, nx);
-    *($Arg1NoASType)$Arg1VarName = f$Pattern;
+    *(__private $Arg1NoASType)$Arg1VarName = f$Pattern;
     float16 nret = _mm512_mask_min_ps(nx, $Mask, _mm512_mask_sub_ps(nx, $Mask, nx, f), _mm512_set_1to16_ps(0x1.fffffep-1f));
     return nret$Pattern;
   }];
@@ -152,20 +152,20 @@ OclBuiltinImpl mask_native_fract_f32_v16_gas = OclBuiltinImpl<native_fract_gas, 
 
 code native_fract_f64_v8 = [{
     double8 f = _mm512_floor_pd($Arg0VarName);
-    *($Arg1NoASType)$Arg1VarName = f;
+    *(__private $Arg1NoASType)$Arg1VarName = f;
     return _mm512_min_pd(_mm512_sub_pd($Arg0VarName, f), _mm512_set_1to8_pd(0x1.fffffep-1));
   }];
 code mask_native_fract_f64_v8 = [{
     double8 nx; nx$Pattern = $Arg0VarName;
     double8 f = _mm512_mask_floor_pd(nx, $Mask, nx);
-    *($Arg1NoASType)$Arg1VarName = f$Pattern;
+    *(__private $Arg1NoASType)$Arg1VarName = f$Pattern;
     double8 nret = _mm512_mask_min_pd(nx, $Mask, _mm512_mask_sub_pd(nx, $Mask, nx, f), _mm512_set_1to8_pd(0x1.fffffep-1f));
     return nret$Pattern;
   }];
 code expand_native_fract_f64_v16 = [{
     double16 ret;
-    ret$ExpandLoPattern = native_fract($Arg0VarName$ExpandLoPattern, ((double8*)$Arg1VarName) + 0);
-    ret$ExpandHiPattern = native_fract($Arg0VarName$ExpandHiPattern, ((double8*)$Arg1VarName) + 1);
+    ret.lo = native_fract($Arg0VarName.lo, ($Arg1gentype8)$Arg1VarName);
+    ret.hi = native_fract($Arg0VarName.hi, ($Arg1gentype8)$Arg1VarName + 1);
     return ret;
   }];
 OclBuiltinImpl native_fract_f64_v8_pas = OclBuiltinImpl<native_fract_pas, [v8f64], 0, native_fract_f64_v8>;
@@ -228,13 +228,13 @@ code knc_code_1 = [{
     $ReturnSymm512gentype res =
         _mm512_$Func_$Arg0Sympspdgentype(($Arg0Symm512gentype)$Arg0VarName);
     return as_$NativeReturnType(res)$Pattern;
-}];
+  }];
 code knc_mask_code_1 = [{
     $NativeArg0Type arg0; arg0$Pattern = $Arg0VarName;
     $ReturnSymm512gentype res =
         _mm512_mask_$Func_$Arg0Sympspdgentype(_mm512_undefined_$Arg0Sympspdgentype(), $Mask, ($Arg0Symm512gentype)arg0);
     return as_$NativeReturnType(res)$Pattern;
-}];
+  }];
 
 // two arguments code
 code knc_code_2 = [{
@@ -242,21 +242,21 @@ code knc_code_2 = [{
     $ReturnSymm512gentype res =
         _mm512_$Func_$Arg0Sympspdgentype(($Arg0Symm512gentype)$Arg0VarName, ($Arg1Symm512gentype)arg1);
     return as_$NativeReturnType(res)$Pattern;
-}];
+  }];
 code knc_mask_code_2 = [{
     $NativeArg0Type arg0; arg0$Pattern = $Arg0VarName;
     $NativeArg1Type arg1; arg1$Pattern = $Arg1VarName;
     $ReturnSymm512gentype res =
         _mm512_mask_$Func_$Arg0Sympspdgentype(_mm512_undefined_$Arg0Sympspdgentype(), $Mask, ($Arg0Symm512gentype)arg0, ($Arg1Symm512gentype)arg1);
     return as_$NativeReturnType(res)$Pattern;
-}];
+  }];
 
 // three arguments code
 code knc_code_3 = [{
     $ReturnSymm512gentype res =
         _mm512_$Func_$Arg0Sympspdgentype(($Arg0Symm512gentype)$Arg0VarName, ($Arg1Symm512gentype)$Arg1VarName, ($Arg2Symm512gentype)$Arg2VarName);
     return as_$NativeReturnType(res)$Pattern;
-}];
+  }];
 code knc_mask_code_3 = [{
     $NativeArg0Type arg0; arg0$Pattern = $Arg0VarName;
     $NativeArg1Type arg1; arg1$Pattern = $Arg1VarName;
@@ -264,7 +264,7 @@ code knc_mask_code_3 = [{
     $ReturnSymm512gentype res =
          _mm512_mask_$Func_$Arg0Sympspdgentype(($Arg0Symm512gentype)arg0, $Mask, ($Arg1Symm512gentype)arg1, ($Arg2Symm512gentype)arg2);
     return as_$NativeReturnType(res)$Pattern;
-}];
+  }];
 
 // WORKAROUND: CSSD100016256, direct SVML call for double16 works up to 70% faster
 //             then two calls to double8 versions
@@ -273,13 +273,13 @@ code svml_v16f64_1 = [{
     $ReturnType __ocl_svml_$Target_$Func$SVMLSuffix($Arg0Type);
 
     return __ocl_svml_$Target_$Func$SVMLSuffix($Arg0VarName);
-}];
+  }];
 code svml_v16f64_2 = [{
     // forward declaration to supress warnings 
     $ReturnType __ocl_svml_$Target_$Func$SVMLSuffix($Arg0Type, $Arg1Type);
 
     return __ocl_svml_$Target_$Func$SVMLSuffix($Arg0VarName, $Arg1VarName);
-}];
+  }];
 
 // acos
 OclBuiltinImpl knc_acos         = OclBuiltinImpl<acos, [v16f32, v8f64], 0, knc_code_1>;
@@ -539,27 +539,27 @@ OclBuiltinImpl knc_expand_tgamma = OclBuiltinImpl<tgamma, [v16f64], 0, svml_v16f
 
 // round
 OclBuiltinImpl knc_round_mask_f32 = OclBuiltinImpl<round, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
-  float16 arg0; arg0$Pattern = $Arg0VarName;
-  __m512 rounded_to_zero =
+    float16 arg0; arg0$Pattern = $Arg0VarName;
+    __m512 rounded_to_zero =
     _mm512_mask_round_ps(arg0, $Mask, arg0, _MM_FROUND_TO_ZERO, _MM_EXPADJ_NONE);
-  __m512 diff = _mm512_mask_sub_ps(arg0, $Mask, arg0, rounded_to_zero);
-  __mmask16 to_pos_inf = _mm512_mask_cmpnlt_ps($Mask, diff, (__m512)(float16)(+.5f));
-  __mmask16 to_neg_inf = _mm512_mask_cmple_ps($Mask, diff, (__m512)(float16)(-.5f));
-  __m512 res = _mm512_mask_round_ps(rounded_to_zero, to_pos_inf, arg0, _MM_FROUND_TO_POS_INF, _MM_EXPADJ_NONE);
-  res = _mm512_mask_round_ps(res, to_neg_inf, arg0, _MM_FROUND_TO_NEG_INF, _MM_EXPADJ_NONE);
-  return as_float16(res)$Pattern;
-}]>;
+    __m512 diff = _mm512_mask_sub_ps(arg0, $Mask, arg0, rounded_to_zero);
+    __mmask16 to_pos_inf = _mm512_mask_cmpnlt_ps($Mask, diff, (__m512)(float16)(+.5f));
+    __mmask16 to_neg_inf = _mm512_mask_cmple_ps($Mask, diff, (__m512)(float16)(-.5f));
+    __m512 res = _mm512_mask_round_ps(rounded_to_zero, to_pos_inf, arg0, _MM_FROUND_TO_POS_INF, _MM_EXPADJ_NONE);
+    res = _mm512_mask_round_ps(res, to_neg_inf, arg0, _MM_FROUND_TO_NEG_INF, _MM_EXPADJ_NONE);
+    return as_float16(res)$Pattern;
+  }]>;
 
 OclBuiltinImpl knc_round_f32 = OclBuiltinImpl<round, [v16f32], 0, [{
-  __m512 arg0 = (__m512)$Arg0VarName;
-  __m512 rounded_to_zero = _mm512_round_ps(arg0, _MM_FROUND_TO_ZERO, _MM_EXPADJ_NONE);
-  __m512 diff = _mm512_sub_ps(arg0, rounded_to_zero);
-  __mmask16 to_pos_inf = _mm512_cmpnlt_ps(diff, (__m512)(float16)(+.5f));
-  __mmask16 to_neg_inf = _mm512_cmple_ps(diff, (__m512)(float16)(-.5f));
-  __m512 res = _mm512_mask_round_ps(rounded_to_zero, to_pos_inf, arg0, _MM_FROUND_TO_POS_INF, _MM_EXPADJ_NONE);
-  res = _mm512_mask_round_ps(res, to_neg_inf, arg0, _MM_FROUND_TO_NEG_INF, _MM_EXPADJ_NONE);
-  return as_float16(res);
-}]>;
+    __m512 arg0 = (__m512)$Arg0VarName;
+    __m512 rounded_to_zero = _mm512_round_ps(arg0, _MM_FROUND_TO_ZERO, _MM_EXPADJ_NONE);
+    __m512 diff = _mm512_sub_ps(arg0, rounded_to_zero);
+    __mmask16 to_pos_inf = _mm512_cmpnlt_ps(diff, (__m512)(float16)(+.5f));
+    __mmask16 to_neg_inf = _mm512_cmple_ps(diff, (__m512)(float16)(-.5f));
+    __m512 res = _mm512_mask_round_ps(rounded_to_zero, to_pos_inf, arg0, _MM_FROUND_TO_POS_INF, _MM_EXPADJ_NONE);
+    res = _mm512_mask_round_ps(res, to_neg_inf, arg0, _MM_FROUND_TO_NEG_INF, _MM_EXPADJ_NONE);
+    return as_float16(res);
+  }]>;
 
 OclBuiltinImpl knc_round_v8_f64 = OclBuiltinImpl<round, [v8f64], 0, knc_code_1, ["$Func"->"svml_round"]>;
 OclBuiltinImpl knc_round_mask_f64 = OclBuiltinImpl<round, mask_f64_types, 0, knc_mask_code_1, ["$Func"->"svml_round"]>;
@@ -570,7 +570,7 @@ code knc_code_2p = [{
     $ReturnType ret = _mm512_$Func_$Arg0Sympspdgentype($Arg0VarName, &arg1);
     *$Arg1VarName = as_$Arg1Symmicnativegentype(arg1)$Pattern;
     return ret;
-}];
+  }];
 
 code knc_mask_code_2p = [{
     $NativeArg0Type arg0; arg0$Pattern = $Arg0VarName;
@@ -578,17 +578,17 @@ code knc_mask_code_2p = [{
     $NativeReturnType ret = _mm512_mask_$Func_$Arg0Sympspdgentype(_mm512_undefined_$Arg0Sympspdgentype(), $Mask, arg0, &arg1);
     *$Arg1VarName = as_$Arg1Symmicnativegentype(arg1)$Pattern;
     return ret$Pattern;
-}];
+  }];
 
 code knc_expand_code_2p = [{
      int16 lo, hi;
-     $Arg1BaseType#8 * p_lo = ($Arg1BaseType#8 *)&lo;
-     $Arg1BaseType#8 * p_hi = ($Arg1BaseType#8 *)&hi;
+     __private $Arg1BaseType#8 * p_lo = (__private $Arg1BaseType#8 *)&lo;
+     __private $Arg1BaseType#8 * p_hi = (__private $Arg1BaseType#8 *)&hi;
      $ReturnBaseType#16 $ReturnVarName = 
          ($ReturnBaseType#16)($Func($Arg0VarName.lo, p_lo), $Func($Arg0VarName.hi, p_hi));
      *$Arg1VarName = ($Arg1BaseType#16)(*p_lo, *p_hi);
      return $ReturnVarName;
-}];
+  }];
 
 // fract
 OclBuiltinImpl knc_fract_pas   = OclBuiltinImpl<fract_pas, [v16f32, v8f64], 0, knc_code_2p>;
@@ -649,7 +649,7 @@ code sincos_mask_code = [{
     $NativeReturnType ret = _mm512_mask_$Func_$Arg0Sympspdgentype(_mm512_undefined_$Arg0Sympspdgentype(), _mm512_undefined_$Arg0Sympspdgentype(), $Mask, arg0, &arg1);
     *$Arg1VarName = arg1$Pattern;
     return ret$Pattern;
-}];
+  }];
 OclBuiltinImpl knc_sincos_pas   = OclBuiltinImpl<sincos_pas, [v16f32, v8f64], 0, knc_code_2p>;
 OclBuiltinImpl knc_sincos_las   = OclBuiltinImpl<sincos_las, [v16f32, v8f64], 0, knc_code_2p>;
 OclBuiltinImpl knc_sincos_gas   = OclBuiltinImpl<sincos_gas, [v16f32, v8f64], 0, knc_code_2p>;
@@ -667,7 +667,7 @@ code knc_code_3p = [{
     $ReturnType ret = _mm512_$Func_$Arg0Sympspdgentype($Arg0VarName, $Arg1VarName, &arg2);
     *$Arg2VarName = as_$Arg2Symmicnativegentype(arg2)$Pattern;
     return ret;
-}];
+  }];
 
 code knc_mask_code_3p = [{
     $NativeArg0Type arg0; arg0$Pattern = $Arg0VarName;
@@ -676,7 +676,7 @@ code knc_mask_code_3p = [{
     $NativeReturnType ret = _mm512_mask_$Func_$Arg0Sympspdgentype(_mm512_undefined_$Arg0Sympspdgentype(), $Mask, arg0, arg1, &arg2);
     *$Arg2VarName = as_$Arg2Symmicnativegentype(arg2)$Pattern;
     return ret$Pattern;
-}];
+  }];
 
 code knc_expand_code_3p = [{
      int16 lo, hi;
@@ -686,7 +686,7 @@ code knc_expand_code_3p = [{
          ($ReturnBaseType#16)($Func($Arg0VarName.lo, $Arg1VarName.lo, p_lo), $Func($Arg0VarName.hi, $Arg1VarName.hi, p_hi));
      *$Arg2VarName = ($Arg2BaseType#16)(*p_lo, *p_hi);
      return $ReturnVarName;
-}];
+  }];
 
 // remquo
 OclBuiltinImpl knc_remquo_pas   = OclBuiltinImpl<remquo_pas, [v16f32, v8f64], 0, knc_code_3p>;
@@ -957,14 +957,19 @@ OclBuiltinImpl knc_mask_native_tanpi   = OclBuiltinImpl<native_tanpi, mask_types
 OclBuiltinImpl knc_expand_native_tanpi = OclBuiltinImpl<native_tanpi, [v16f64], 0, Expand1>;
 
 // native_recip
-OclBuiltinImpl knc_native_recip        = OclBuiltinImpl<native_recip, [v16f32, v8f64], 0, knc_code_1>;
-OclBuiltinImpl knc_mask_native_recip   = OclBuiltinImpl<native_recip, mask_types, 0, knc_mask_code_1>;
-OclBuiltinImpl knc_expand_native_recip = OclBuiltinImpl<native_recip, [v16f64], 0, Expand1>;
+// WORKAROUND: CSSD100016998
+//             Remove then PCG is capable to distinguish calls to native SVML functions
+OclBuiltinImpl knc_native_recip        = OclBuiltinImpl<native_recip, native_recip.Types, 0, [{
+    return native_divide(1, $Arg0VarName);
+  }]>;
+//OclBuiltinImpl knc_native_recip        = OclBuiltinImpl<native_recip, [v16f32, v8f64], 0, >;
+//OclBuiltinImpl knc_mask_native_recip   = OclBuiltinImpl<native_recip, mask_types, 0, knc_mask_code_1>;
+//OclBuiltinImpl knc_expand_native_recip = OclBuiltinImpl<native_recip, [v16f64], 0, Expand1>;
 
 // native_rcbrt
 OclBuiltinImpl workaround_mask_native_rcbrt = OclBuiltinImpl<native_rcbrt, native_rcbrt.Types, 0, [{
     return native_recip(native_cbrt($Arg0VarName));
-}]>;
+  }]>;
 
 // native_sincos
 OclBuiltinImpl knc_native_sincos_pas   = OclBuiltinImpl<native_sincos_pas, [v16f32, v8f64], 0, knc_code_2p>;

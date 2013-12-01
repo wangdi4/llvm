@@ -30,6 +30,7 @@ File Name:  Compiler.cpp
 #include "BuiltinModuleManager.h"
 #include "plugin_manager.h"
 #include "CompilationUtils.h"
+
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -37,17 +38,17 @@ File Name:  Compiler.cpp
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Argument.h"
-#include "llvm/Type.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Instructions.h"
-#include "llvm/Instruction.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/CodeGen/CommandFlags.h"
 using std::string;
 
@@ -55,12 +56,8 @@ using std::string;
 #include <iostream>
 #include <sstream>
 
-#include <fstream>
-#include <iostream>
-#include <sstream>
 
-
-namespace llvm 
+namespace llvm
 {
   extern bool DisablePrettyStackTrace;
 }
@@ -102,6 +99,34 @@ void LogUndefinedExternals( llvm::raw_ostream& logs, const std::vector<std::stri
     //LLVMBackend::GetInstance()->m_logger->Log(Logger::ERROR_LEVEL, L"implemented function(s) used:\n<%s>", m_strLastError.c_str());
 }
 
+/**
+ * Generates the log record (to the given stream) enumerating function names
+   with unresolved function pointer calls
+ */
+void LogFuncPtrCalls( llvm::raw_ostream& logs, const std::vector<std::string>& externals)
+{
+    logs << "Error: unresolved pointer calls in function(s):\n";
+
+    for( std::vector<std::string>::const_iterator i = externals.begin(), e = externals.end(); i != e; ++i)
+    {
+        logs << *i << "\n";
+    }
+}
+
+/**
+ * Generates the log record (to the given stream) enumerating function names
+   with recursive calls
+ */
+void LogHasRecursion( llvm::raw_ostream& logs, const std::vector<std::string>& externals)
+{
+    logs << "Error: recursive call in function(s):\n";
+
+    for( std::vector<std::string>::const_iterator i = externals.begin(), e = externals.end(); i != e; ++i)
+    {
+        logs << *i << "\n";
+    }
+}
+
 bool TerminationBlocker::s_released = false;
 
 } //namespace Utils
@@ -138,8 +163,8 @@ void ProgramBuildResult::SetBuildResult( cl_dev_err_code code )
 }
 
 cl_dev_err_code ProgramBuildResult::GetBuildResult() const
-{ 
-    return m_result; 
+{
+    return m_result;
 }
 
 bool Compiler::s_globalStateInitialized = false;
@@ -195,8 +220,8 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 
     for(; i != e; ++i )
     {
-        //be carefull here. The pointer returned by c_str() is only guaranteed to remain unchanged 
-        //until the next call to a non-constant member function of the string object.    
+        //be carefull here. The pointer returned by c_str() is only guaranteed to remain unchanged
+        //until the next call to a non-constant member function of the string object.
         argv.push_back( const_cast<char*>(i->c_str()) );
     }
 
@@ -253,11 +278,17 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
     std::auto_ptr<llvm::Module> spModule(ParseModuleIR(pIRBuffer));
     assert(spModule.get() && "Cannot Created llvm Module from the Program Bit Code");
 
+    // Check if given program is valid for the target.
+    if (!isProgramValid(spModule.get(), pResult))
+    {
+        throw Exceptions::CompilerException("Program is not valid for this target", CL_DEV_INVALID_BINARY);
+    }
+
     //
     // Apply IR=>IR optimizations
     //
-    intel::OptimizerConfig optimizerConfig( m_CpuId, 
-                                            m_transposeSize, 
+    intel::OptimizerConfig optimizerConfig( m_CpuId,
+                                            m_transposeSize,
                                             m_IRDumpAfter,
                                             m_IRDumpBefore,
                                             m_IRDumpDir,
@@ -270,13 +301,26 @@ llvm::Module* Compiler::BuildProgram(llvm::MemoryBuffer* pIRBuffer,
                                             pOptions->GetAPFLevel());
     Optimizer optimizer( spModule.get(), GetRtlModule(), &optimizerConfig);
     optimizer.Optimize();
-    
+
     if( optimizer.hasUndefinedExternals() && !pOptions->GetlibraryModule())
     {
         Utils::LogUndefinedExternals( pResult->LogS(), optimizer.GetUndefinedExternals());
         throw Exceptions::CompilerException( "Failed to parse IR", CL_DEV_INVALID_BINARY);
     }
 
+    if( optimizer.hasFunctionPtrCalls())
+    {
+      Utils::LogFuncPtrCalls( pResult->LogS(), optimizer.GetFuncNames(true));
+      throw Exceptions::CompilerException( "Dynamic block variable call detected.",
+                                            CL_DEV_INVALID_BINARY);
+    }
+
+    if( optimizer.hasRecursion())
+    {
+      Utils::LogHasRecursion( pResult->LogS(), optimizer.GetFuncNames(false));
+      throw Exceptions::CompilerException( "Recursive call detected.",
+                                            CL_DEV_INVALID_BINARY);
+    }
     //
     // Populate the build results
     //
@@ -332,6 +376,33 @@ llvm::Module* Compiler::CreateRTLModule(BuiltinLibrary* pLibrary) const
   UpdateTargetTriple(spModule.get());
   return spModule.release();
 
+}
+
+bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const
+{
+    // Check for the limitation: "Images are not supported on Xeon Phi".
+    if(!m_CpuId.HasGatherScatter()) return true;
+    if (llvm::NamedMDNode* pNode = pModule->getNamedMetadata("opencl.used.optional.core.features"))
+    {
+        // Usually "opencl.used.optional.core.features" metadata has only one node.
+        // It can have multiple nodes if clCompileProgram/clLinkProgram API is used.
+        // In that case each node represent the features used in its original
+        // binary before linking it into the final module.
+        // We should respect all of them and abort compilation if any of the binaries has images.
+        for (unsigned mdNodeId = 0; mdNodeId < pNode->getNumOperands(); ++mdNodeId)
+        {
+            MDNode *mdNode = pNode->getOperand(mdNodeId);
+            for (unsigned i = 0; i < mdNode->getNumOperands(); ++i)
+            {
+                if (mdNode->getOperand(i)->getName() == "cl_images")
+                {
+                    pResult->LogS() << "Images are not supported on given device.\n";
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
 }
 
 void UpdateTargetTriple(llvm::Module *pModule)

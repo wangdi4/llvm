@@ -1,10 +1,23 @@
-/* ************************************************************************* *\
-#               INTEL CORPORATION PROPRIETARY INFORMATION
-#     This software is supplied under the terms of a license agreement or
-#     nondisclosure agreement with Intel Corporation and may not be copied
-#     or disclosed except in accordance with the terms of that agreement.
-#        Copyright (C) 2011 Intel Corporation. All Rights Reserved.
-#\* ************************************************************************* */
+// Copyright (c) 2006-2013 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
 
 #pragma once
 
@@ -16,9 +29,10 @@
 #include <utility>
 #include <set>
 
-#include "cl_synch_objects.h"
-#include "cl_thread.h"
-#include "cl_shared_ptr.hpp"
+#include <ocl_itt.h>
+#include <cl_synch_objects.h>
+#include <cl_thread.h>
+#include <cl_shared_ptr.hpp>
 
 #include <common/COITypes_common.h>
 
@@ -57,11 +71,13 @@ public:
 	   In case of success - the notification port initialization completes and return pointer to NotificationPort object.
 	   In case of failure - return NULL.
 	   Do NOT delete this object it will delete itself when the worker thread will finish its work. */
-	static SharedPtr<NotificationPort> notificationPortFactory(uint16_t maxBarriers);
+	static SharedPtr<NotificationPort> notificationPortFactory(uint16_t maxBarriers, const ocl_gpa_data* pGPAData);
 
 	ERROR_CODE addBarrier(const COIEVENT& barrier, NotificationPort::CallBack* callBack, void* arg);
 
 	ERROR_CODE release();
+
+    static void waitForAllNotificationPortThreads();
 
 private:
 
@@ -111,10 +127,12 @@ private:
 	
 	volatile WORKER_STATE m_workerState;
 
+	const ocl_gpa_data* m_pGPAData;
+
 	RETURN_TYPE_ENTRY_POINT Run();
 
     /* Private constructor in order to avoid construction by the client. */
-	NotificationPort(void);
+	NotificationPort(const ocl_gpa_data* pGPAData);
 
 	/* Init the data structures.
 	Initialize and start the responsible thread.
@@ -130,6 +148,15 @@ private:
 
     class StaticInitializer;
     static StaticInitializer init_statics;
+
+    static void registerNotificationPortThread( THREAD_HANDLE handle );
+    static void unregisterNotificationPortThread(THREAD_HANDLE handle );
+
+    typedef std::set<THREAD_HANDLE> THREAD_SET;
+    
+    static THREAD_SET*     m_NotificationThreadsSet;
+    static OclMutex*       m_notificationThreadsMutex;
+
 };
 
 }}}

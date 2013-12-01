@@ -19,7 +19,7 @@ File Name:  VLoadStore.h
 #define V_LOAD_STORE_H
 
 #include <vector>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Conformance/reference_convert.h"
 #include "Helpers.h"

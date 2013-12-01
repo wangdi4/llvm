@@ -23,10 +23,16 @@ static bool peelPrefix(llvm::StringRef& s){
   return true;
 }
 
+// some platforms dont have isdigit defined
+int ISDIGIT( int c) {
+  return (c >= '0' && c <= '9');
+}
+
+
 static llvm::StringRef peelNameLen(llvm::StringRef& s){
   int len = 0;
   llvm::StringRef::const_iterator it = s.begin();
-  while(isdigit(*it++))
+  while(ISDIGIT(*it++))
     ++len;
   llvm::StringRef ret = s.substr(0, len);
   s = s.substr(len, s.size()-len);
@@ -41,7 +47,7 @@ bool isMangledName(const char* rawString){
   const std::string strName(rawString);
   if (strName.substr(0, PREFIX_LEN) != PREFIX)
     return false;
-  return isdigit(strName[PREFIX_LEN]);
+  return ISDIGIT(strName[PREFIX_LEN]);
 }
 
 //
@@ -60,19 +66,19 @@ reflection::FunctionDescriptor demangle(const char* rawstring){
   llvm::StringRef nameLen = peelNameLen(mangledName);
   //cutting the prefix
   int len = atoi(nameLen.data());
-  std::string functionName = mangledName.substr(0, len);
-  std::string parameters =
+  llvm::StringRef functionName = mangledName.substr(0, len);
+  llvm::StringRef parameters =
     mangledName.substr(len, mangledName.size() - len);
 
   reflection::FunctionDescriptor ret;
 
   reflection::DemangleParser parser(ret.parameters);
 
-  if(!parser.demangle(parameters.c_str())) {
+  if(!parser.demangle(parameters.data())) {
     return reflection::FunctionDescriptor::null();
   }
 
-  ret.name = functionName;
+  ret.name = functionName.str();
 
   return ret;
 }
@@ -91,8 +97,8 @@ llvm::StringRef stripName(const char* rawstring){
   //making sure it starts with _Z
   if (false == peelPrefix(mangledName))
     throw DemanglerException();
-  std::string nameLen = peelNameLen(mangledName);
+  llvm::StringRef nameLen = peelNameLen(mangledName);
   //cutting the prefix
-  int len = atoi(nameLen.c_str());
-  return llvm::StringRef(rawstring + PREFIX_LEN + nameLen.length(), len);
+  int len = atoi(nameLen.data());
+  return llvm::StringRef(rawstring + PREFIX_LEN + nameLen.size(), len);
 }

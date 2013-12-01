@@ -11,8 +11,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Constants.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Version.h"
 
 namespace intel{
 
@@ -194,8 +195,8 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
     else if (InsertElementInst *IE = dyn_cast<InsertElementInst>(currVal)) 
     {
       currVal = isInsertEltExtend(IE, rootType);
-	    if (!currVal)
-	      return canRootInputByShuffle(valInChain, rootType, CI);
+      if (!currVal)
+        return canRootInputByShuffle(valInChain, rootType, CI);
     }
     else
     {
@@ -506,19 +507,23 @@ Value *VectorizerUtils::getCastedArgIfNeeded(Value *inputVal, Type *targetType, 
 }
 
 
-Instruction *VectorizerUtils::getCastedRetIfNeeded(CallInst *CI, Type *targetType)
+Instruction *VectorizerUtils::getCastedRetIfNeeded(Instruction *I, Type *targetType)
 {
   // incase of same type do noting
-  Type *sourceType = CI->getType();
-  if (sourceType == targetType) return CI;
+  Type *sourceType = I->getType();
+  if (sourceType == targetType) return I;
 
-  BasicBlock::iterator itr = (BasicBlock::iterator)(CI);
+  BasicBlock::iterator itr = (BasicBlock::iterator)(I);
   Instruction *insertPoint = &*(++itr);
-  return TruncValToType(CI, targetType, insertPoint);
+  return TruncValToType(I, targetType, insertPoint);
 }
 
 CallInst *VectorizerUtils::createFunctionCall(Module *pModule, const std::string &name,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
   Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attributes>& attrs, Instruction* insertBefore) {
+#else
+  Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attribute::AttrKind>& attrs, Instruction* insertBefore) {
+#endif
   SmallVector<Type *, 8> types;
   
   for(unsigned int i=0; i<args.size(); ++i) {
@@ -683,7 +688,7 @@ Instruction *VectorizerUtils::convertUsingShuffle(Value *v,
   // In order to convert using shuffle both v and realType need to be vectors
   // with the same element type.
   const VectorType *destTy = dyn_cast<VectorType>(realType);
-  VectorType *vTy = dyn_cast<VectorType>(v->getType());	
+  VectorType *vTy = dyn_cast<VectorType>(v->getType());
   if (!destTy || !vTy) return NULL;
   const Type *destElTy = destTy->getElementType();
   const Type *vElTy = vTy->getElementType();
@@ -695,7 +700,7 @@ Instruction *VectorizerUtils::convertUsingShuffle(Value *v,
   std::vector<Constant*> constants;
   unsigned minWidth = destNelts > vNelts ? vNelts : destNelts;
   LLVMContext &context = v->getContext();
-  for (unsigned j=0; j < minWidth; ++j) 	{
+  for (unsigned j=0; j < minWidth; ++j) {
     constants.push_back(ConstantInt::get(context, APInt(32, j)));
   }
   for (unsigned j=minWidth; j<destNelts; ++j) {
@@ -707,7 +712,7 @@ Instruction *VectorizerUtils::convertUsingShuffle(Value *v,
   UndefValue *undefVect = UndefValue::get(vTy);
   return new ShuffleVectorInst(v, undefVect, mask, "", loc);
 }
-	
+
 Value *VectorizerUtils::canRootInputByShuffle(SmallVector<Value *, 4> &valInChain,
                                               const Type * realType,
                                               Instruction *loc) {

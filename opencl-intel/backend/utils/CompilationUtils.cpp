@@ -6,9 +6,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "CompilationUtils.h"
+#include "ImplicitArgsUtils.h"
 #include "NameMangleAPI.h"
 #include "MetaDataApi.h"
 #include "ParameterType.h"
+#include "cl_kernel_arg_type.h"
 
 #if defined(__APPLE__)
   #include "OpenCL/cl.h"
@@ -16,19 +18,19 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
   #include "CL/cl.h"
 #endif
 
-#include "llvm/Metadata.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Version.h"
-#if LLVM_VERSION == 3200
-#include "llvm/DataLayout.h"
-#else
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/IR/DataLayout.h"
 #endif
 #include "llvm/ADT/SetVector.h"
+#include "BlockUtils.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-  const unsigned int CompilationUtils::NUMBER_IMPLICIT_ARGS = 9;
   const unsigned int CompilationUtils::LOCL_VALUE_ADDRESS_SPACE = 3;
 
   const std::string CompilationUtils::NAME_GET_ORIG_GID = "get_global_id";
@@ -39,6 +41,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_GET_ITERATION_COUNT = "get_iter_count.";
   const std::string CompilationUtils::NAME_GET_SPECIAL_BUFFER = "get_special_buffer.";
   const std::string CompilationUtils::NAME_GET_CURR_WI = "get_curr_wi.";
+
+  const std::string CompilationUtils::NAME_GET_LINEAR_GID = "get_global_linear_id";
+  const std::string CompilationUtils::NAME_GET_LINEAR_LID = "get_local_linear_id";
 
   const std::string CompilationUtils::NAME_GET_WORK_DIM = "get_work_dim";
   const std::string CompilationUtils::NAME_GET_GLOBAL_SIZE = "get_global_size";
@@ -56,8 +61,42 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_MEM_FENCE = "mem_fence";
   const std::string CompilationUtils::NAME_READ_MEM_FENCE = "read_mem_fence";
   const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
+  const std::string CompilationUtils::NAME_GET_DEFAULT_QUEUE = "get_default_queue";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_BASIC = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE";
+  const std::string CompilationUtils::NAME_NDRANGE_1D = "ndrange_1D";
+  const std::string CompilationUtils::NAME_NDRANGE_2D = "ndrange_2D";
+  const std::string CompilationUtils::NAME_NDRANGE_3D = "ndrange_3D";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvvE";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_ENQUEUE_MARKER = "enqueue_marker";
+  const std::string CompilationUtils::NAME_RETAIN_EVENT = "retain_event";
+  const std::string CompilationUtils::NAME_RELEASE_EVENT = "release_event";
+  const std::string CompilationUtils::NAME_CREATE_USER_EVENT = "create_user_event";
+  const std::string CompilationUtils::NAME_SET_USER_EVENT_STATUS = "set_user_event_status";
+  const std::string CompilationUtils::NAME_CAPTURE_EVENT_PROFILING_INFO = "capture_event_profiling_info";
+  const std::string CompilationUtils::NAME_GET_KERNEL_WG_SIZE = "_Z26get_kernel_work_group_sizeU13block_pointerFvvE";
+  const std::string CompilationUtils::NAME_GET_KERNEL_WG_SIZE_LOCAL = "_Z26get_kernel_work_group_sizeU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE = "_Z45get_kernel_preferred_work_group_size_multipleU13block_pointerFvvE";
+  const std::string CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE_LOCAL = "_Z45get_kernel_preferred_work_group_size_multipleU13block_pointerFvPU3AS3vzEjz";
 
   const std::string CompilationUtils::BARRIER_FUNC_NAME = "barrier";
+  const std::string CompilationUtils::WG_BARRIER_FUNC_NAME = "work_group_barrier";
+
+  //work-group functions
+  const std::string CompilationUtils::NAME_WORK_GROUP_ALL = "work_group_all";
+  const std::string CompilationUtils::NAME_WORK_GROUP_ANY = "work_group_any";
+  const std::string CompilationUtils::NAME_WORK_GROUP_BROADCAST = "work_group_broadcast";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_ADD = "work_group_reduce_add";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD = "work_group_scan_exclusive_add";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD = "work_group_scan_inclusive_add";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_MIN = "work_group_reduce_min";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MIN = "work_group_scan_exclusive_min";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MIN = "work_group_scan_inclusive_min";
+  const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_MAX = "work_group_reduce_max";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX = "work_group_scan_exclusive_max";
+  const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX = "work_group_scan_inclusive_max";
+
   //Images
   const std::string CompilationUtils::OCL_IMG_PREFIX  = "opencl.image";
   const std::string CompilationUtils::IMG_2D        = OCL_IMG_PREFIX + "2d_t";
@@ -94,17 +133,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   void CompilationUtils::getImplicitArgs(Function *pFunc,
     Argument **ppLocalMem, Argument **ppWorkDim, Argument **ppWGId,
     Argument **ppBaseGlbId, Argument **ppLocalId, Argument **ppIterCount,
-    Argument **ppSpecialBuf, Argument **ppCurrWI, Argument **ppCtx) {
+    Argument **ppSpecialBuf, Argument **ppCurrWI, Argument **ppCtx,
+    Argument **ppExtExecCtx) {
 
       assert( pFunc && "Function cannot be null" );
-      assert( pFunc->getArgumentList().size() >= NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
+      assert( pFunc->getArgumentList().size() >= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
 
       // Iterating over explicit arguments
       Function::arg_iterator DestI = pFunc->arg_begin();
 
       // Go over the explicit arguments
       for ( unsigned int  i = 0;
-        i < pFunc->getArgumentList().size() - NUMBER_IMPLICIT_ARGS; ++i ) {
+        i < pFunc->getArgumentList().size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i ) {
           ++DestI;
       }
 
@@ -153,6 +193,33 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       if ( NULL != ppCurrWI ) {
           *ppCurrWI = DestI;
       }
+      ++DestI;
+
+      if ( NULL != ppExtExecCtx ) {
+          *ppExtExecCtx = DestI;
+      }
+
+  }
+
+  void CompilationUtils::getAllSyncBuiltinsDcls(FunctionSet &functionSet, Module *pModule) {
+    //Clear old collected data!
+    functionSet.clear();
+
+    for ( Module::iterator fi = pModule->begin(), fe = pModule->end(); fi != fe; ++fi ) {
+      if ( !fi->isDeclaration() ) continue;
+      llvm::StringRef func_name = fi->getName();
+      if ( /* barrier built-ins */
+          func_name == CompilationUtils::mangledBarrier() ||
+          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_NO_SCOPE) ||
+          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_WITH_SCOPE) ||
+          /* work group built-ins */
+          CompilationUtils::isWorkGroupBuiltin(func_name)  ||
+          /* async copy built-ins */
+          CompilationUtils::isAsyncBuiltin(func_name) ) {
+            // Found synchronized built-in declared in the module add it to the container set.
+            functionSet.insert(&*fi);
+      }
+    }
   }
 
   void CompilationUtils::getAllKernels(FunctionSet &functionSet, Module *pModule) {
@@ -199,7 +266,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   void CompilationUtils::parseKernelArguments(  Module* pModule,
                                                 Function* pFunc,
-                                                std::vector<cl_kernel_argument>& /* OUT */ arguments) {
+                                                std::vector<cl_kernel_argument>& /* OUT */ arguments,
+                                                std::vector<unsigned int>&       /* OUT */ memoryArguments) {
     // Check maximum number of arguments to kernel
     MetaDataUtils mdUtils(pModule);
     if (!mdUtils.isKernelsHasValue()) {
@@ -277,14 +345,20 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
     }
 #endif
-    size_t argsCount = pFunc->getArgumentList().size() - NUMBER_IMPLICIT_ARGS;
+    size_t argsCount = pFunc->getArgumentList().size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
 
     unsigned int localMemCount = 0;
-
+#ifndef __APPLE__
+    unsigned int current_offset = 0;
+#endif
+    const bool isBlockInvokeKernel = BlockUtils::IsBlockInvocationKernel(*pFunc);
     llvm::Function::arg_iterator arg_it = pFunc->arg_begin();
     for (unsigned i=0; i<argsCount; ++i)
     {
       cl_kernel_argument curArg;
+#ifndef __APPLE__
+      bool               isMemoryObject = false;
+#endif
       curArg.access = CL_KERNEL_ARG_ACCESS_NONE;
 
       llvm::Argument* pArg = arg_it;
@@ -300,16 +374,25 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           {
               llvm::StructType *STy = llvm::cast<llvm::StructType>(arg_it->getType());
               curArg.type = CL_KRNL_ARG_COMPOSITE;
-#if LLVM_VERSION == 3200
-              DataLayout dataLayout(pModule);
-#else
+#if LLVM_VERSION == 3425
               TargetData dataLayout(pModule);
+#else
+              DataLayout dataLayout(pModule);
 #endif
               curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
               break;
           }
       case llvm::Type::PointerTyID:
         {
+          // check kernel is block_invoke kernel
+          // in that case 0 argument is block_literal pointer
+          // update with special type
+          // should be before handling ptrs by addr space 
+          if((i == 0) && isBlockInvokeKernel){
+            curArg.type = CL_KRNL_ARG_PTR_BLOCK_LITERAL;
+            break;
+          }
+
           llvm::PointerType *PTy = llvm::cast<llvm::PointerType>(arg_it->getType());
           if ( pArg->hasByValAttr() && PTy->getElementType()->getTypeID() == llvm::Type::VectorTyID )
           {
@@ -333,6 +416,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             const std::string &imgArg = ST->getName().str();
             if ( std::string::npos != imgArg.find("opencl.image"))    // Image identifier was found
             {
+              // TODO: Why default type is INTEGER????
               curArg.type = CL_KRNL_ARG_INT;
 
               // Get dimension image type
@@ -345,7 +429,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
               else if (imgArg.find("opencl.image2d_t") != std::string::npos)
                   curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
               else if (imgArg.find("opencl.image2d_array_t") != std::string::npos)
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR;
+              else if (imgArg.find("opencl.image2d_depth_t") != std::string::npos)
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_DEPTH;
+              else if (imgArg.find("opencl.image2d_array_depth_t") != std::string::npos)
+                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH;
               else if (imgArg.find("opencl.image3d_t") != std::string::npos)
                   curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
 
@@ -360,6 +448,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                 curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY : 
                                 CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
   #else
+                isMemoryObject = true;
                 curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ? 
                                 CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
   #endif
@@ -375,10 +464,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             if(PTy->getAddressSpace() == 0) //We're dealing with real struct and not struct pointer
             {
               llvm::StructType *STy = llvm::cast<llvm::StructType>(Ty);
-#if LLVM_VERSION == 3200
-              DataLayout dataLayout(pModule);
-#else
+#if LLVM_VERSION == 3425
               TargetData dataLayout(pModule);
+#else
+              DataLayout dataLayout(pModule);
 #endif
               curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
               curArg.type = CL_KRNL_ARG_COMPOSITE;
@@ -390,9 +479,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           {
           case 0: case 1: // Global Address space
             curArg.type = CL_KRNL_ARG_PTR_GLOBAL;
+#ifndef __APPLE__
+            isMemoryObject = true;
+#endif
             break;
           case 2:
             curArg.type = CL_KRNL_ARG_PTR_CONST;
+#ifndef __APPLE__
+            isMemoryObject = true;
+#endif
             break;
           case 3: // Local Address space
             curArg.type = CL_KRNL_ARG_PTR_LOCAL;
@@ -421,13 +516,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   #endif
             {
               curArg.type = CL_KRNL_ARG_SAMPLER;
-              curArg.size_in_bytes = 0;
+              curArg.size_in_bytes = sizeof(_sampler_t);
             }
             else
             {
               llvm::IntegerType *ITy = llvm::cast<llvm::IntegerType>(arg_it->getType());
               curArg.type = CL_KRNL_ARG_INT;
-              curArg.size_in_bytes = ITy->getBitWidth()/8;
+              curArg.size_in_bytes =  DataLayout(pModule->getDataLayout()).getTypeAllocSize(ITy);
             }
           }
           break;
@@ -449,30 +544,69 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       default:
         assert(0 && "Unhelded parameter type");
       }
+
+      // update offset
+#ifndef __APPLE__
+      assert( 0 != curArg.size_in_bytes && "argument size must be set");
+      curArg.offset_in_bytes = current_offset;
+      if ( ((CL_KRNL_ARG_VECTOR==curArg.type) || (CL_KRNL_ARG_VECTOR_BY_REF==curArg.type)) && (0 != (curArg.size_in_bytes >> 16)) ) {
+        current_offset += ((curArg.size_in_bytes >> 16) * (curArg.size_in_bytes & 0xFFFF));
+      }
+      else {
+        current_offset += curArg.size_in_bytes;
+      }
+
+      if ( isMemoryObject ) {
+        memoryArguments.push_back(i);
+      }
+#endif
       arguments.push_back(curArg);
       ++arg_it;
     }
   }
 
-  CompilationUtils::clVersion CompilationUtils::getCLVersionFromModule(const Module &M) {
-    NamedMDNode* metadata = M.getNamedMetadata("opencl.compiler.options");
-    if(metadata)
-      for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k) {
-        llvm::MDNode *elt = metadata->getOperand(k);
-        if (elt->getOperand(0)->getName().str().compare("-cl-std=CL1.0") == 0)
-            return CL_VER_1_0;
-        else if (elt->getOperand(0)->getName().str().compare("-cl-std=CL1.1") == 0)
-            return CL_VER_1_1;
-        else if (elt->getOperand(0)->getName().str().compare("-cl-std=CL1.2") == 0)
-            return CL_VER_1_2;
-        else if (elt->getOperand(0)->getName().str().compare("-cl-std=CL2.0") == 0)
-            return CL_VER_2_0;
-      }
-      return CL_VER_NOT_DETECTED;
+  bool CompilationUtils::getCLVersionFromModule(const Module &M, unsigned &Result) {
+    /*  
+    Example of metadata with CL version:
+    !opencl.compiler.options = !{!0}
+    !0 = metadata !{metadata !"-cl-std=CL2.0"}
+
+    !opencl.compiler.options = !{!9}
+    !9 = metadata !{metadata !"-cl-fast-relaxed-math", metadata !"-cl-std=CL2.0"}
+    */
+    NamedMDNode* namedMetadata = M.getNamedMetadata("opencl.compiler.options");
+
+    if(!namedMetadata)
+      return false;
+
+    if(namedMetadata->getNumOperands() < 1)
+      return false;
+
+    MDNode* metadata = namedMetadata->getOperand(0);
+    if(!metadata)
+      return false;
+
+    for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k) {
+      Value * pSubNode = metadata->getOperand(k);
+      if (!isa<MDString>(pSubNode))
+        continue;
+      StringRef s = cast<MDString>(pSubNode)->getString();
+      const char* optionStr="-cl-std=";
+      if (!s.startswith(optionStr))
+        continue;
+      s = s.drop_front(strlen(optionStr));
+      Result = OclVersion::CLStrToVal(s.data());
+      return true;
+    }
+    return false;
   }
 
 template <reflection::TypePrimitiveEnum Ty>
-static std::string mangleWithParam(const char*const N){
+static std::string optionalMangleWithParam(const char*const N){
+#ifdef __APPLE__
+  //Do not mangle
+  return std::string(N);
+#else
   reflection::FunctionDescriptor FD;
   FD.name = N;
   reflection::ParamType *pTy =
@@ -480,89 +614,301 @@ static std::string mangleWithParam(const char*const N){
   reflection::RefParamType UI(pTy);
   FD.parameters.push_back(UI);
   return mangle(FD);
+#endif
 }
 
-std::string CompilationUtils::mangledGetGID(){
-  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_GID.c_str());
+template <reflection::TypePrimitiveEnum Ty>
+static std::string mangleWithParam(const char*const N, unsigned int numOfParams){
+  reflection::FunctionDescriptor FD;
+  FD.name = N;
+  for(unsigned int i=0; i<numOfParams ; ++i) {
+    reflection::ParamType *pTy =
+      new reflection::PrimitiveType(Ty);
+    reflection::RefParamType UI(pTy);
+    FD.parameters.push_back(UI);
+  }
+  return mangle(FD);
 }
 
-std::string CompilationUtils::mangledGetLID(){
-  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_LID.c_str());
+std::string CompilationUtils::mangledGetGID() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_GID.c_str());
 }
 
-std::string CompilationUtils::mangledGetLocalSize(){
-  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LOCAL_SIZE.c_str());
+std::string CompilationUtils::mangledGetGlobalSize() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GLOBAL_SIZE.c_str());
 }
 
-std::string CompilationUtils::mangledBarrier(){
-  return mangleWithParam<reflection::PRIMITIVE_UINT>(BARRIER_FUNC_NAME.c_str());
+std::string CompilationUtils::mangledGetLID() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ORIG_LID.c_str());
 }
 
-static bool isMangleOf(const std::string& LHS, const std::string& RHS){
+std::string CompilationUtils::mangledGetLocalSize() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LOCAL_SIZE.c_str());
+}
+
+std::string CompilationUtils::mangledBarrier() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(BARRIER_FUNC_NAME.c_str());
+}
+
+std::string CompilationUtils::mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType) {
+  switch(wgBarrierType) {
+  case WG_BARRIER_NO_SCOPE:
+    return mangleWithParam<reflection::PRIMITIVE_UINT>(WG_BARRIER_FUNC_NAME.c_str(), 1);
+  case WG_BARRIER_WITH_SCOPE:
+    return mangleWithParam<reflection::PRIMITIVE_UINT>(WG_BARRIER_FUNC_NAME.c_str(), 2);
+  default:
+    assert(false && "Unknown work_group_barrier version");
+    return "";
+  }
+}
+
+static bool isOptionalMangleOf(const std::string& LHS, const std::string& RHS) {
+#ifdef __APPLE__
+  //LHS should not be mangled
+  return LHS == RHS;
+#else
+  //LHS should be mangled
   const char*const LC = LHS.c_str();
   if (!isMangledName(LC))
     return false;
-  return stripName(LC).str() == RHS;
+  return stripName(LC) == RHS;
+#endif
+}
+
+static bool isMangleOf(const std::string& LHS, const std::string& RHS) {
+  const char*const LC = LHS.c_str();
+  if (!isMangledName(LC))
+    return false;
+  return stripName(LC) == RHS;
 }
 
 bool CompilationUtils::isGetWorkDim(const std::string& S){
-  return isMangleOf(S, NAME_GET_WORK_DIM);
+  return isOptionalMangleOf(S, NAME_GET_WORK_DIM);
 }
 
 bool CompilationUtils::isGetGlobalId(const std::string& S){
-  return isMangleOf(S, NAME_GET_ORIG_GID);
+  return isOptionalMangleOf(S, NAME_GET_ORIG_GID);
 }
 
 bool CompilationUtils::isGetLocalId(const std::string& S){
-  return isMangleOf(S, NAME_GET_ORIG_LID);
+  return isOptionalMangleOf(S, NAME_GET_ORIG_LID);
+}
+
+bool CompilationUtils::isGetGlobalLinearId(const std::string& S){
+  return isOptionalMangleOf(S, NAME_GET_LINEAR_GID);
+}
+
+bool CompilationUtils::isGetLocalLinearId(const std::string& S){
+  return isOptionalMangleOf(S, NAME_GET_LINEAR_LID);
 }
 
 bool CompilationUtils::isGetGlobalSize(const std::string& S){
-  return isMangleOf(S, NAME_GET_GLOBAL_SIZE);
+  return isOptionalMangleOf(S, NAME_GET_GLOBAL_SIZE);
 }
 
 bool CompilationUtils::isGetLocalSize(const std::string& S){
-  return isMangleOf(S, NAME_GET_LOCAL_SIZE);
+  return isOptionalMangleOf(S, NAME_GET_LOCAL_SIZE);
 }
 
 bool CompilationUtils::isGetNumGroups(const std::string& S){
-  return isMangleOf(S, NAME_GET_NUM_GROUPS);
+  return isOptionalMangleOf(S, NAME_GET_NUM_GROUPS);
 }
 
 bool CompilationUtils::isGetGroupId(const std::string& S){
-  return isMangleOf(S, NAME_GET_GROUP_ID);
+  return isOptionalMangleOf(S, NAME_GET_GROUP_ID);
 }
 
 bool CompilationUtils::isGlobalOffset(const std::string& S){
-  return isMangleOf(S, NAME_GET_GLOBAL_OFFSET);
+  return isOptionalMangleOf(S, NAME_GET_GLOBAL_OFFSET);
 }
 
 bool CompilationUtils::isAsyncWorkGroupCopy(const std::string& S){
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_COPY);
 }
 
+bool CompilationUtils::isAsyncWorkGroupStridedCopy(const std::string& S){
+  return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
+}
+
 bool CompilationUtils::isMemFence(const std::string& S){
-  return isMangleOf(S, NAME_MEM_FENCE);
+  return isOptionalMangleOf(S, NAME_MEM_FENCE);
 }
 
 bool CompilationUtils::isReadMemFence(const std::string& S){
-  return isMangleOf(S, NAME_READ_MEM_FENCE);
+  return isOptionalMangleOf(S, NAME_READ_MEM_FENCE);
 }
 
 bool CompilationUtils::isWriteMemFence(const std::string& S){
-  return isMangleOf(S, NAME_WRITE_MEM_FENCE);
+  return isOptionalMangleOf(S, NAME_WRITE_MEM_FENCE);
 }
 
 bool CompilationUtils::isWaitGroupEvents(const std::string& S){
-  return isMangleOf(S, NAME_WAIT_GROUP_EVENTS);
+  return isOptionalMangleOf(S, NAME_WAIT_GROUP_EVENTS);
 }
 
 bool CompilationUtils::isPrefetch(const std::string& S){
   return isMangleOf(S, NAME_PREFETCH);
 }
 
-bool CompilationUtils::isAsyncWorkGroupStridedCopy(const std::string& S){
-  return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
+bool CompilationUtils::isNDRange_1D(const std::string& S){
+  return isMangleOf(S, NAME_NDRANGE_1D);
 }
+
+bool CompilationUtils::isNDRange_2D(const std::string& S){
+  return isMangleOf(S, NAME_NDRANGE_2D);
+}
+
+bool CompilationUtils::isNDRange_3D(const std::string& S){
+  return isMangleOf(S, NAME_NDRANGE_3D);
+}
+
+bool CompilationUtils::isEnqueueMarker(const std::string& S){
+  return isMangleOf(S, NAME_ENQUEUE_MARKER);
+}
+
+bool CompilationUtils::isGetDefaultQueue(const std::string& S){
+  return isMangleOf(S, NAME_GET_DEFAULT_QUEUE);
+}
+
+bool CompilationUtils::isEnqueueKernelBasic(const std::string& S){
+  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_BASIC);
+}
+
+bool CompilationUtils::isEnqueueKernelLocalMem(const std::string& S){
+  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM);
+}
+
+bool CompilationUtils::isEnqueueKernelEvents(const std::string& S){
+  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS);
+}
+
+bool CompilationUtils::isEnqueueKernelEventsLocalMem(const std::string& S){
+  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM);
+}
+
+bool CompilationUtils::isGetKernelWorkGroupSize(const std::string& S){
+  return (S == CompilationUtils::NAME_GET_KERNEL_WG_SIZE);
+}
+
+bool CompilationUtils::isGetKernelWorkGroupSizeLocal(const std::string& S){
+  return (S == CompilationUtils::NAME_GET_KERNEL_WG_SIZE_LOCAL);
+}
+
+bool CompilationUtils::isGetKernelPreferredWorkGroupSizeMultiple(const std::string& S){
+  return (S == CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE);
+}
+
+bool CompilationUtils::isGetKernelPreferredWorkGroupSizeMultipleLocal(const std::string& S){
+  return (S == CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE_LOCAL);
+}
+
+bool CompilationUtils::isRetainEvent(const std::string& S){
+    return isMangleOf(S, NAME_RETAIN_EVENT);
+}
+
+bool CompilationUtils::isReleaseEvent(const std::string& S){
+    return isMangleOf(S, NAME_RELEASE_EVENT);
+}
+
+bool CompilationUtils::isCreateUserEvent(const std::string& S){
+    return isMangleOf(S, NAME_CREATE_USER_EVENT);
+}
+
+bool CompilationUtils::isSetUserEventStatus(const std::string& S){
+    return isMangleOf(S, NAME_SET_USER_EVENT_STATUS);
+}
+
+bool CompilationUtils::isCaptureEventProfilingInfo(const std::string& S){
+    return isMangleOf(S, NAME_CAPTURE_EVENT_PROFILING_INFO);
+}
+
+bool CompilationUtils::isWorkGroupAll(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_ALL);
+}
+
+bool CompilationUtils::isWorkGroupAny(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_ANY);
+}
+
+bool CompilationUtils::isWorkGroupBroadCast(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_BROADCAST);
+}
+
+bool CompilationUtils::isWorkGroupReduceAdd(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_ADD);
+}
+
+bool CompilationUtils::isWorkGroupScanExclusiveAdd(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD);
+}
+
+bool CompilationUtils::isWorkGroupScanInclusiveAdd(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD);
+}
+
+bool CompilationUtils::isWorkGroupReduceMin(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MIN);
+}
+
+bool CompilationUtils::isWorkGroupScanExclusiveMin(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_MIN);
+}
+
+bool CompilationUtils::isWorkGroupScanInclusiveMin(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MIN);
+}
+
+bool CompilationUtils::isWorkGroupReduceMax(const std::string& S) {
+  return (S == CompilationUtils::NAME_WORK_GROUP_REDUCE_MAX);
+}
+
+bool CompilationUtils::isWorkGroupScanExclusiveMax(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX);
+}
+
+bool CompilationUtils::isWorkGroupScanInclusiveMax(const std::string& S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX);
+}
+
+bool CompilationUtils::isWorkGroupBuiltin(const std::string& S) {
+  return isWorkGroupUniform(S) ||
+         isWorkGroupScan(S);
+}
+
+bool CompilationUtils::isAsyncBuiltin(const std::string& S) {
+  return CompilationUtils::isAsyncWorkGroupCopy(S) || 
+         CompilationUtils::isAsyncWorkGroupStridedCopy(S);
+}
+
+bool CompilationUtils::isWorkGroupScan(const std::string& S) {
+  return isWorkGroupScanExclusiveAdd(S) ||
+         isWorkGroupScanInclusiveAdd(S) ||
+         isWorkGroupScanExclusiveMin(S) ||
+         isWorkGroupScanInclusiveMin(S) ||
+         isWorkGroupScanExclusiveMax(S) ||
+         isWorkGroupScanInclusiveMax(S);
+}
+
+bool CompilationUtils::isWorkGroupMin(const std::string& S) {
+  return isWorkGroupReduceMin(S)             ||
+         isWorkGroupScanExclusiveMin(S) ||
+         isWorkGroupScanInclusiveMin(S);
+}
+
+bool CompilationUtils::isWorkGroupMax(const std::string& S) {
+  return isWorkGroupReduceMax(S)             ||
+         isWorkGroupScanExclusiveMax(S) ||
+         isWorkGroupScanInclusiveMax(S);
+}
+
+bool CompilationUtils::isWorkGroupUniform(const std::string& S) {
+  return isWorkGroupAll(S)       ||
+         isWorkGroupAny(S)       ||
+         isWorkGroupBroadCast(S) ||
+         isWorkGroupReduceAdd(S) ||
+         isWorkGroupReduceMin(S) ||
+         isWorkGroupReduceMax(S);
+}
+
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

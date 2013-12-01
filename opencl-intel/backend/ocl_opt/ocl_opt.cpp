@@ -1,9 +1,9 @@
 
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/PassManager.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
@@ -15,13 +15,13 @@ int mainImp(int argc, char **argv);
 using namespace llvm;
 
 static cl::opt<std::string>
-VectorizerRuntimeLib("runtimelib",
-                  cl::desc("Runtime declarations (bitCode) library, to be used by vectorizer"),
+RuntimeLib("runtimelib",
+                  cl::desc("Runtime declarations (bitCode) library"),
                   cl::value_desc("filename"), cl::init(""));
 
 static cl::opt<std::string>
-VectorizerServices("runtime",
-                  cl::desc("Runtime services type (ocl/dx)"),
+RuntimeServices("runtime",
+                  cl::desc("Runtime services type (ocl/dx/apple)"),
                   cl::value_desc("runtime_type"), cl::init("ocl"));
 
 static cl::opt<bool>
@@ -29,18 +29,7 @@ MicPasses("mic-passes",
                  cl::desc("Include optimization passes specific for MIC achitecture."));
 
 
-extern "C" {
-extern void* createVolcanoOpenclRuntimeSupport(const Module *runtimeModule,
-                                        unsigned packetizationWidth);
-extern void* createDXRuntimeSupport(const Module *runtimeModule,
-                                        unsigned packetizationWidth);
-extern void* createAppleOpenclRuntimeSupport(const Module *runtimeModule,
-                                        unsigned packetizationWidth);
-extern void* createBuiltInImportPass(Module* pRTModule);
-
-extern void* createSpirMaterializer();
-
-}
+extern "C" Pass* createBuiltinLibInfoPass(Module* pRTModule, std::string type);
 
 void initializeOCLPasses(PassRegistry &Registry)
 {
@@ -58,10 +47,13 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
     intel::initializeCLWGLoopCreatorPass(Registry);
     intel::initializeCLWGLoopBoundariesPass(Registry);
+    intel::initializeCLStreamSamplerPass(Registry);
     intel::initializeKernelAnalysisPass(Registry);
     intel::initializeIRInjectModulePass(Registry);
     intel::initializenameByInstTypePass(Registry);
+    intel::initializeDuplicateCalledKernelsPass(Registry);
     intel::initializeRedundantPhiNodePass(Registry);
+    intel::initializeGroupBuiltinPass(Registry);
     intel::initializeBarrierInFunctionPass(Registry);
     intel::initializeRemoveDuplicationBarrierPass(Registry);
     intel::initializeSplitBBonBarrierPass(Registry);
@@ -69,19 +61,33 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeWIRelatedValuePass(Registry);
     intel::initializeDataPerBarrierPass(Registry);
     intel::initializeDataPerValuePass(Registry);
-    intel::initializeDataPerInternalFunctionPass(Registry);
     intel::initializePreventDivCrashesPass(Registry);
     intel::initializeShuffleCallToInstPass(Registry);
     intel::initializeInstToFuncCallPass(Registry);
-    intel::initializeModuleCleanupWrapperPass(Registry);
-    intel::initializeAddImplicitArgsWrapperPass(Registry);
+    intel::initializeModuleCleanupPass(Registry);
+    intel::initializeAddImplicitArgsPass(Registry);
+    intel::initializeOclFunctionAttrsPass(Registry);
+    intel::initializeOclSyncFunctionAttrsPass(Registry);
+    intel::initializeBuiltinLibInfoPass(Registry);
     intel::initializeLocalBuffersWrapperPass(Registry);
     intel::initializeLocalBuffersWithDebugWrapperPass(Registry);
     intel::initializeRelaxedPassPass(Registry);
     intel::initializeShiftZeroUpperBitsPass(Registry);
     intel::initializePrefetchPass(Registry);
     intel::initializeBIImportPass(Registry);
+    intel::initializeGenericAddressStaticResolutionPass(Registry);
+    intel::initializeGenericAddressDynamicResolutionPass(Registry);
     intel::initializeSpirMaterializerPass(Registry);
+    intel::initializeObfuscationPass(Registry);
+    intel::initializeLinearIdResolverPass(Registry);
+    intel::initializePrepareKernelArgsPass(Registry);
+    intel::initializeReduceAlignmentPass(Registry);
+    intel::initializeDetectFuncPtrCallsPass(Registry);
+    intel::initializeResolveWICallPass(Registry);
+    intel::initializeCloneBlockInvokeFuncToKernelPass(Registry);
+    intel::initializeResolveBlockToStaticCallPass(Registry);
+    intel::initializeDetectRecursionPass(Registry);
+    intel::initializeDebugInfoPassPass(Registry);
 }
 
 
@@ -100,9 +106,9 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
   // Obtain the runtime module (either from input, or generate empty ones)
   std::auto_ptr<llvm::Module> runtimeModule;
 
-  if (VectorizerRuntimeLib != "") {
+  if (RuntimeLib != "") {
 
-    runtimeModule.reset(llvm::ParseIRFile(VectorizerRuntimeLib, Err, context));
+    runtimeModule.reset(llvm::ParseIRFile(RuntimeLib, Err, context));
 
     if (runtimeModule.get() == 0) {
       errs() << "Runtime file error!\n";
@@ -113,17 +119,8 @@ void InitOCLPasses( llvm::LLVMContext& context, llvm::PassManager& passMgr )
     runtimeModule.reset(new Module("empty", context));
   }
 
-  // Generate runtimeSupport object, to be used as input for vectorizer
-  if (VectorizerServices == "ocl") {
-    createVolcanoOpenclRuntimeSupport(runtimeModule.release(), 4);
-  } else if (VectorizerServices == "dx") {
-    createDXRuntimeSupport(runtimeModule.release(), 4);
-  } else if (VectorizerServices == "apple") {
-    createAppleOpenclRuntimeSupport(runtimeModule.release(), 4);
-  } else {
-    errs()<<"Unknown runtime services \""<<VectorizerServices<<"\"\n";
-  }
-
+  //Always add the BuiltinLibInfo Pass to the Pass Manager
+  passMgr.add(createBuiltinLibInfoPass(runtimeModule.release(), RuntimeServices));
 }
 
 int main(int argc, char **argv) {

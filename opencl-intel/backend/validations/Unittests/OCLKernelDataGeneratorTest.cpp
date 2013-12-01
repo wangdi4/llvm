@@ -25,8 +25,8 @@ File Name: OCLKernelDataGeneratorTest.cpp
 #include<fstream>
 #include "FloatOperations.h"
 
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Assembly/Parser.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/Support/SourceMgr.h"
@@ -63,7 +63,8 @@ namespace{
         int isVar=0;
         for(int i=0;i<sizeInput;i++)
         {
-            if(input[i]=='%')
+            if(input[i] == '%' &&
+                input.find(std::string("%opencl.image2d_t.0*"), i) == std::string::npos )
             {
                 isVar=1;
                 continue;
@@ -81,7 +82,7 @@ namespace{
     void createModule(llvm::LLVMContext &Context, llvm::Module *&M, std::string kernelName, std::string params)
     {
         M = new llvm::Module("test1", Context);
-        std::string program = std::string("define void @") + kernelName + std::string("(") + params + std::string(") { "
+        std::string program = std::string("%opencl.image2d_t.0 = type opaque\n") + std::string("define void @") + kernelName + std::string("(") + params + std::string(") { "
             "  ret void "
             "} "
             "!opencl.kernels = !{!0}"
@@ -738,6 +739,51 @@ namespace{
         delete p_dgConfig;
     }
     //set and check config
+    TEST(OCLKernelDataGenerator, Test_simple_images){
+        llvm::LLVMContext Context;
+        BufferContainerList input;
+        llvm::Module *M = 0;
+
+        std::string kernelName = "testSimpleImages";
+        createModule(Context, M, kernelName, "%opencl.image2d_t.0* %input");
+        OpenCLKernelArgumentsParser parser;
+        OCLKernelArgumentsList argDescriptions = parser.KernelArgumentsParser(kernelName, M);
+
+        std::string ConfigFile =
+"<?xml version=\"1.0\" ?>\
+<OCLKernelDataGeneratorConfig>\
+    <Seed>10232</Seed>\
+    <GeneratorConfiguration Name=\"ImageRandomGenerator\">\
+        <ImageType>CL_MEM_OBJECT_IMAGE2D</ImageType>\
+        <ChannelDataType>CL_UNORM_INT8</ChannelDataType>\
+        <ChannelOrder>CL_sRGBA</ChannelOrder>\
+        <Size>128 64</Size>\
+    </GeneratorConfiguration>\
+</OCLKernelDataGeneratorConfig>";
+        std::fstream io_file;
+        io_file.open("testSimpleImages.cfg", std::fstream::out);
+        io_file << ConfigFile;
+        io_file.close();
+
+        TiXmlDocument config(std::string("testSimpleImages.cfg"));
+        ASSERT_TRUE(config.LoadFile());
+        OCLKernelDataGeneratorConfig cfg(&config);
+
+        OCLKernelDataGenerator gen(argDescriptions, cfg);
+        gen.Read(&input);
+        EXPECT_STREQ(Image::GetImageName().c_str(), input.GetBufferContainer(0)->GetMemoryObject(0)->GetName().c_str());
+        const IMemoryObjectDesc* MemObjDesc = input.GetBufferContainer(0)->GetMemoryObject(0)->GetMemoryObjectDesc();
+        EXPECT_STREQ(ImageDesc::GetImageDescName().c_str(), MemObjDesc->GetName().c_str());
+        const ImageDesc* imDesc = static_cast<const ImageDesc*>(MemObjDesc);
+        EXPECT_EQ(OpenCL_MEM_OBJECT_IMAGE2D, imDesc->GetImageType());
+        EXPECT_EQ(OpenCL_UNORM_INT8, imDesc->GetImageChannelDataType());
+        EXPECT_EQ(OpenCL_sRGBA, imDesc->GetImageChannelOrder());
+
+        ImageSizeDesc sizeDesc = imDesc->GetSizesDesc();
+        EXPECT_EQ( (uint64_t)128,  sizeDesc.width);
+        EXPECT_EQ( (uint64_t)64,   sizeDesc.height);
+    }
+    //set and check config
     TEST(OCLKernelDataGenerator, defaultConfig_Test_pointers){
         llvm::LLVMContext Context;
         llvm::Module *M = 0;
@@ -837,6 +883,12 @@ namespace{
     </GeneratorConfiguration>\
     <GeneratorConfiguration Name=\"BufferRandomGenerator\" Type=\"i32\">\
         </GeneratorConfiguration>\
+    <GeneratorConfiguration Name=\"ImageRandomGenerator\">\
+        <ImageType>CL_MEM_OBJECT_IMAGE2D_ARRAY</ImageType>\
+        <ChannelDataType>CL_UNORM_INT8</ChannelDataType>\
+        <ChannelOrder>CL_RGBA</ChannelOrder>\
+        <Size>1024 1024 0 5</Size>\
+    </GeneratorConfiguration>\
 </OCLKernelDataGeneratorConfig>";
         std::fstream io_file;
         io_file.open("DataGeneratorConfig.cfg", std::fstream::out);
@@ -865,6 +917,18 @@ namespace{
         EXPECT_STREQ(bufferConfig->getConfigVector()[1]->getName().c_str(),BufferConstGeneratorConfig<uint32_t>::getStaticName().c_str());
         EXPECT_EQ(static_cast<BufferConstGeneratorConfig<uint32_t>*>(bufferConfig->getConfigVector()[1])->GetFillValue(), uint32_t(43544));
 
+        ImageRandomGeneratorConfig* imageConfig = static_cast<ImageRandomGeneratorConfig*>(cfg.getConfigVector()[4]);
+        EXPECT_STREQ(imageConfig->getName().c_str(),ImageRandomGeneratorConfig::getStaticName().c_str());
+        ImageDesc* imdesc = imageConfig->getImageDescriptor();
+        EXPECT_EQ(imdesc->GetImageChannelDataType(),OpenCL_UNORM_INT8);
+        EXPECT_EQ(imdesc->GetImageChannelOrder(),OpenCL_RGBA);
+        EXPECT_EQ(imdesc->GetImageType(),OpenCL_MEM_OBJECT_IMAGE2D_ARRAY);
+        EXPECT_EQ(imdesc->GetSizesDesc().width, (uint64_t)1024);
+        EXPECT_EQ(imdesc->GetSizesDesc().height, (uint64_t)1024);
+        EXPECT_EQ(imdesc->GetSizesDesc().width, (uint64_t)1024);
+        EXPECT_EQ(imdesc->GetSizesDesc().array_size, (uint64_t)5);
+        EXPECT_EQ(imdesc->GetSizesDesc().row, (uint64_t)4096);
+        EXPECT_EQ(imdesc->GetSizesDesc().slice, (uint64_t)4194304);
     }
     TEST(OCLKernelDataGenerator, XMLParsingTestMultiplySeed)
     {

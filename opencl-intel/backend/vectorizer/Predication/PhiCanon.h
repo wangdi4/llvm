@@ -7,15 +7,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __PHICANON_H_
 #define __PHICANON_H_
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 #include <vector>
 
@@ -29,7 +29,6 @@ namespace intel {
 ///  splitting two of the edges and creating an additional basic block.
 ///  This trashes the CFG. However, future passes can easily go over the
 ///  CFG and clean it.
-/// @author Nadav Rotem
 class PhiCanon : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid

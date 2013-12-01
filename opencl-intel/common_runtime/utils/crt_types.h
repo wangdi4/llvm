@@ -34,6 +34,7 @@ typedef void (CL_CALLBACK *ctxt_logging_fn)(const char *, const void *, size_t, 
 typedef void (CL_CALLBACK *prog_logging_fn)(cl_program, void *);
 typedef void (CL_CALLBACK *mem_dtor_fn)(cl_mem, void *);
 typedef void (CL_CALLBACK *pfn_notify)(cl_event, cl_int, void *);
+typedef void (CL_CALLBACK *pfn_free)(cl_command_queue queue, cl_uint num_svm_pointers, void *svm_pointers[], void *user_data);
 typedef int crt_err_code;
 
 #define CRT_FAIL        0x1
@@ -45,6 +46,12 @@ typedef int crt_err_code;
 #define INTEL_PLATFORM_NAME         "Intel(R) OpenCL"
 #define INTEL_PLATFORM_VENDOR       "Intel(R) Corporation"
 #define INTEL_ICD_EXTENSIONS_STRING "INTEL"
+
+#ifdef _WIN32 
+    #define CLAPI_EXPORT
+#else
+    #define CLAPI_EXPORT __attribute__((visibility("default")))
+#endif
 
 typedef enum
 {    
@@ -117,3 +124,12 @@ enum CrtExtension
 
 cl_int GetCrtExtension(const char* str_extensions);
 cl_uint GetPlatformVersion(const char* platform_version_str);
+
+inline bool IsPowerOf2(unsigned int uiNum)
+{
+#ifdef _WIN32
+    return __popcnt(uiNum) == 1;
+#else
+    return __builtin_popcount(uiNum) == 1;
+#endif
+}

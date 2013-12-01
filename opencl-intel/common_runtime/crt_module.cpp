@@ -160,9 +160,24 @@ IcdDispatchMgr::IcdDispatchMgr()
     // clCreateFromDX9MediaSurfaceKHR
     // clEnqueueAcquireD3D11ObjectsKHR
     // clEnqueueReleaseD3D11ObjectsKHR
-    
+
+    REGISTER_DISPATCH_ENTRYPOINT( clSVMAlloc , clSVMAlloc )
+    REGISTER_DISPATCH_ENTRYPOINT( clSVMFree , clSVMFree )
+    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueSVMFree , clEnqueueSVMFree )
+    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueSVMMemcpy , clEnqueueSVMMemcpy )
+    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueSVMMemFill , clEnqueueSVMMemFill )
+    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueSVMMap , clEnqueueSVMMap )
+    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueSVMUnmap , clEnqueueSVMUnmap )
+    REGISTER_DISPATCH_ENTRYPOINT( clSetKernelArgSVMPointer , clSetKernelArgSVMPointer )
+    REGISTER_DISPATCH_ENTRYPOINT( clSetKernelExecInfo , clSetKernelExecInfo )
+
+    REGISTER_DISPATCH_ENTRYPOINT( clCreateSamplerWithProperties , clCreateSamplerWithProperties )
+    REGISTER_DISPATCH_ENTRYPOINT( clGetKernelSubGroupInfoKHR , clGetKernelSubGroupInfoKHR )
     // clEnqueueAcquireDX9MediaSurfacesKHR
     // clEnqueueReleaseDX9MediaSurfacesKHR
+
+    REGISTER_DISPATCH_ENTRYPOINT( clCreatePipe , clCreatePipe )
+    REGISTER_DISPATCH_ENTRYPOINT( clGetPipeInfo , clGetPipeInfo )
 }
 
 CrtModule::CrtModule():
@@ -174,12 +189,8 @@ m_CrtPlatformVersion(OPENCL_INVALID)
     m_crtPlatformId     = NULL;
 }
 
-crt_err_code CrtModule::PatchClDeviceID(cl_device_id& inDeviceId, KHRicdVendorDispatch* origDispatchTable)
+crt_err_code CrtModule::PatchClDeviceID(cl_device_id& inDeviceId)
 {
-    // Store original device dispatch table entries
-    if (origDispatchTable)
-        *(origDispatchTable) = *(inDeviceId->dispatch);
-
     inDeviceId->dispatch->clCreateContext = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateContext;
     inDeviceId->dispatch->clGetDeviceInfo = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetDeviceInfo;
     inDeviceId->dispatch->clCreateSubDevices = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateSubDevices;
@@ -196,8 +207,9 @@ crt_err_code CrtModule::PatchClContextID(cl_context& inContextId, KHRicdVendorDi
     return CRT_SUCCESS;
 }
 
-bool OCLCRT::isSupportedContextType(const cl_context_properties* properties)
+bool OCLCRT::isSupportedContextType(const cl_context_properties* properties, cl_uint num_devices, const cl_device_id *devices)
 {
+    // Check for unsupported context properties
     if( properties != NULL )
     {
         while( properties[ 0 ] != NULL )
@@ -210,6 +222,24 @@ bool OCLCRT::isSupportedContextType(const cl_context_properties* properties)
                     return false;
                 }
                 break;
+            case CL_EGL_DISPLAY_KHR:
+                if( properties[ 1 ] != NULL )
+                {
+                    return false;
+                }
+                break;
+            case CL_GLX_DISPLAY_KHR:
+                if( properties[ 1 ] != NULL )
+                {
+                    return false;
+                }
+                break;
+            case CL_CGL_SHAREGROUP_KHR:
+                if( properties[ 1 ] != NULL )
+                {
+                    return false;
+                }
+                break;
             case CL_WGL_HDC_KHR:
                 if( properties[ 1 ] != NULL )
                 {
@@ -217,7 +247,16 @@ bool OCLCRT::isSupportedContextType(const cl_context_properties* properties)
                 }
                 break;
 #ifdef _WIN32
+            case CL_CONTEXT_ADAPTER_D3D9_KHR:
+            case CL_CONTEXT_ADAPTER_D3D9EX_KHR:
+            case CL_CONTEXT_ADAPTER_DXVA_KHR:
+                if( properties[ 1 ] != NULL )
+                {
+                    return false;
+                }
+                break;
             case CL_CONTEXT_D3D10_DEVICE_KHR:
+            case CL_CONTEXT_D3D11_DEVICE_KHR:
                 if( properties[ 1 ] != NULL )
                 {
                     return false;
@@ -243,6 +282,19 @@ bool OCLCRT::isSupportedContextType(const cl_context_properties* properties)
             properties += 2;
         }
     }
+
+    // Check for unsupported devices types for shared context
+    for( cl_uint i = 0; i < num_devices; i++)
+    {
+        cl_device_type deviceType;
+        cl_int error = clGetDeviceInfo(devices[i], CL_DEVICE_TYPE, sizeof(deviceType), &deviceType, NULL);
+        if( CL_SUCCESS != error ||
+            ( CL_DEVICE_TYPE_CPU != deviceType && CL_DEVICE_TYPE_GPU != deviceType ))
+        {
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -382,7 +434,7 @@ crt_err_code CrtModule::Initialize()
             cl_uint num_devices = 0;
             pCrtPlatform->m_platformIdDEV->dispatch->clGetDeviceIDs(
                                     pCrtPlatform->m_platformIdDEV,
-                                    CL_DEVICE_TYPE_DEFAULT,
+                                    CL_DEVICE_TYPE_ALL,
                                     0,
                                     NULL,
                                     &num_devices);
@@ -394,7 +446,7 @@ crt_err_code CrtModule::Initialize()
             cl_device_id* pDevices = new cl_device_id[num_devices];
             if( !(CL_SUCCESS == pCrtPlatform->m_platformIdDEV->dispatch->clGetDeviceIDs(
                                     pCrtPlatform->m_platformIdDEV,
-                                    CL_DEVICE_TYPE_DEFAULT,
+                                    CL_DEVICE_TYPE_ALL,
                                     num_devices,
                                     pDevices,
                                     NULL)) )
@@ -436,13 +488,19 @@ crt_err_code CrtModule::Initialize()
                 // This is not a sub-device
                 pDevInfo->m_isRootDevice = true;
                 pDevInfo->m_crtPlatform = pCrtPlatform;
-                crt_ocl_module.PatchClDeviceID(pDevices[j], &pDevInfo->m_origDispatchTable);
+                // Store original device dispatch table entries
+                pDevInfo->m_origDispatchTable = *(pDevices[j]->dispatch);
 
                 // store the device types we have loaded;
                 // sometimes we load only CPU or GPU; in case the other
                 // doesn't exist
                 m_availableDeviceTypes |= pDevInfo->m_devType;
                 m_deviceInfoMap[pDevices[j]] = pDevInfo;
+            }
+            // Now we have all devices, patch dispatch table
+            for( cl_uint j=0; j < num_devices; j++ )
+            {
+                crt_ocl_module.PatchClDeviceID(pDevices[j]);
             }
 
             delete[] pDevices;
@@ -472,7 +530,7 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
 {
     cl_int errCode = CL_SUCCESS;
 
-    cl_bool cl_context_platform_set   = CL_FALSE;
+    cl_bool cl_context_platform_set         = CL_FALSE;
     cl_bool cl_ctx_interop_user_sync_set    = CL_FALSE;
     cl_bool cl_gl_context_khr_set           = CL_FALSE;
     cl_bool cl_wgl_hdc_khr_set              = CL_FALSE;
@@ -481,6 +539,13 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
     cl_bool cl_d3d9_device_intel_set        = CL_FALSE;
     cl_bool cl_dxva9_device_intel_set       = CL_FALSE;
     cl_bool cl_d3d11_device_khr_set         = CL_FALSE;
+#else
+#ifdef __linux__
+    cl_bool cl_glx_display_khr_set          = CL_FALSE;
+#endif
+#ifdef LIBVA_SHARING
+    cl_bool cl_va_api_display_intel_set     = CL_FALSE;
+#endif
 #endif
 
     if( properties != NULL )
@@ -555,7 +620,26 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 }
                 cl_dxva9_device_intel_set  = CL_TRUE;
                 break;
+#else
+#ifdef __linux__
+            case CL_GLX_DISPLAY_KHR:
+                if( cl_glx_display_khr_set == CL_TRUE )
+                {
+                    return CL_INVALID_PROPERTY;
+                }
+                cl_glx_display_khr_set = CL_TRUE;
+                break;
+#endif //__linux__
+#ifdef LIBVA_SHARING
+            case CL_CONTEXT_VA_API_DISPLAY_INTEL:
+                if( cl_va_api_display_intel_set == CL_TRUE )
+                {
+                    return CL_INVALID_PROPERTY;
+                }
+                cl_va_api_display_intel_set = CL_TRUE;
+                break;
 #endif
+#endif     
             default:
                 return CL_INVALID_PROPERTY;
             }

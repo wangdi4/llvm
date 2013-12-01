@@ -114,6 +114,13 @@ void NotifierCollection::DeviceInit( cl_device_id device, cl_platform_id platfor
 	NOTIFY(DeviceInit, device, platform);
 }
 
+void NotifierCollection::SubDeviceCreate( cl_device_id parent_device, cl_device_id sub_device){
+	CHECK_FOR_NULL(parent_device);
+	CHECK_FOR_NULL(sub_device);
+	NOTIFY(SubDeviceCreate, parent_device, sub_device);
+}
+
+
 void NotifierCollection::DeviceFree( cl_device_id device )
 {
 	CHECK_FOR_NULL(device);
@@ -144,10 +151,10 @@ void NotifierCollection::CommandQueueFree( cl_command_queue queue )
 	NOTIFY(CommandQueueFree, queue);	
 }
 
-void NotifierCollection::EventCreate (cl_event event, bool internalEvent)
+void NotifierCollection::EventCreate (cl_event event, bool internalEvent, string* cmdName)
 {
 	CHECK_FOR_NULL(event);
-	NOTIFY(EventCreate, event, internalEvent);
+	NOTIFY(EventCreate, event, internalEvent, cmdName);
 }
 
 void NotifierCollection::EventFree (cl_event event)
@@ -167,6 +174,15 @@ void NotifierCollection::BufferCreate( cl_mem memobj, cl_context context )
 	CHECK_FOR_NULL(memobj);
 	CHECK_FOR_NULL(context);
 	NOTIFY(BufferCreate, memobj, context);	
+}
+
+void NotifierCollection::SubBufferCreate(cl_mem parentBuffer, cl_mem subBuffer,
+										 cl_buffer_create_type bufferCreateType,
+										 const void* bufferCreateInfo)
+{
+	CHECK_FOR_NULL(parentBuffer);
+	CHECK_FOR_NULL(subBuffer);
+	NOTIFY(SubBufferCreate, parentBuffer, subBuffer, bufferCreateType, bufferCreateInfo);
 }
 
 void NotifierCollection::ImageCreate( cl_mem memobj, cl_context context )
@@ -195,11 +211,11 @@ void NotifierCollection::SamplerFree( cl_sampler sampler )
 	NOTIFY(SamplerFree, sampler);	
 }
 
-void NotifierCollection::ProgramCreate( cl_program program, cl_context context )
+void NotifierCollection::ProgramCreate( cl_program program, cl_context context, bool withBinary, bool withSource=true )
 {
 	CHECK_FOR_NULL(program);
 	CHECK_FOR_NULL(context);
-	NOTIFY(ProgramCreate, program, context);	
+	NOTIFY(ProgramCreate, program, context, withBinary, withSource);	
 }
 
 void NotifierCollection::ProgramFree( cl_program program )
@@ -255,19 +271,24 @@ void NotifierCollection::CommandCallBack( cl_event event, cl_int event_command_e
 	NOTIFY(CommandCallBack, event, event_command_exec_status, data);
 }
 
-void NotifierCollection::releaseCommandData(cl_event *event, CommandData* data){
+// TODO: consider moving this into oclInternalFunctions.h
+CL_API_ENTRY cl_int CL_API_CALL _clReleaseEventINTERNAL(
+    cl_event event, bool sendNotify = true);
+
+
+void NotifierCollection::releaseCommandData(CommandData* data)
+{
 	CHECK_FOR_NULL(data);
-	bool ownEvent = data->ownEvent;
-	releaseCommandData(*event,data);
-	if (ownEvent){
-		delete event;
+	cl_event* pEvent = data->pEvent;
+	if (data->needRelease)
+	{
+		_clReleaseEventINTERNAL(*pEvent);
 	}
-}
-void NotifierCollection::releaseCommandData( cl_event event, CommandData* data ){
-	CHECK_FOR_NULL(data);
+	if (data->ownEvent)
+	{
+		delete pEvent;
+	}
 	delete data;
-	CHECK_FOR_NULL(event);
-	clReleaseEvent(event);
 }
 
 //the callback attached to the event of a command
@@ -279,7 +300,7 @@ void CL_CALLBACK commandCallBack(cl_event event, cl_int event_command_exec_statu
 	notifiers->CommandCallBack(event,event_command_exec_status,commandData); 
 	//delete objects
 	if (--commandData->refCounter == 0){
-		NotifierCollection::releaseCommandData(event, commandData);
+		NotifierCollection::releaseCommandData(commandData);
 	}
 }
 
@@ -315,71 +336,95 @@ CommandData* NotifierCollection::commandEventProfiling( cl_event **pEvent )
 	CHECK_FOR_NULL(pEvent) NULL;
 	CommandData* commandData = new CommandData; //dynamic allocation - should be released in the CommandCallBack
 	commandData->ownEvent = true;
+	commandData->pEvent = NULL;
+	commandData->needRelease = false;	// will change to true if following enqueue operation succeeded
+	commandData->funcName = NULL;
 	if (*pEvent != NULL){ 
 		//user has the event, just retain it so we can release it when we want to (retain is only after event is created)
 		commandData->ownEvent = false;
 	} else {
-	*pEvent = new cl_event; //dynamic allocation - we will need to release it in CommandCallBack
-	**pEvent = NULL;
+		*pEvent = new cl_event; //dynamic allocation - we will need to release it in CommandCallBack (event member)
+		**pEvent = NULL;
+		commandData->pEvent = *pEvent;	// keep track of allocated event to be released in CommandCallBack or releaseCommandData
 	}
 	return commandData;
 }
+
+// TODO: consider moving this into oclInternalFunctions.h
+CL_API_ENTRY cl_int CL_API_CALL _clRetainEventINTERNAL(
+    cl_event event );
+
+// TODO: consider moving this into oclInternalFunctions.h
+CL_API_ENTRY cl_int CL_API_CALL _clSetEventCallbackINTERNAL(
+    cl_event event,
+    cl_int command_exec_callback_type,
+    void (CL_CALLBACK *pfn_notify)( cl_event, cl_int, void * ),
+    void *user_data );
 
 void NotifierCollection::createCommandEvents(cl_event* event, CommandData *commandData){
 	IF_EMPTY_RETURN; //we don't want to change anything if we don't have notifiers...
 	CHECK_FOR_NULL(event);
 	CHECK_FOR_NULL(commandData);
+	// retain is at least 1 since the event can be either the user event
+	// and then we don't want to lose it so we retain it, or it's our event
+	// and the preceding enqueue succeeded so retain is set to 1
+	commandData->needRelease = true;
 	bool isOwnEvent = commandData->ownEvent;
-	EventCreate(*event, isOwnEvent); //TODO: consider moving it...
-	if (isOwnEvent == false){
-		clRetainEvent( *event); //we need to retain it so it won't be released before we have completed with it.
+	string *cmdName = NULL;
+	if (NULL != commandData->funcName) {
+		cmdName = new string(commandData->funcName);
 	}
+	EventCreate(*event, isOwnEvent, cmdName); //TODO: consider moving it...
+	delete cmdName;
+	if (isOwnEvent == false){
+		_clRetainEventINTERNAL( *event); //we need to retain it so it won't be released before we have completed with it.
+		commandData->pEvent = event;	// we'll need it for clReleaseEvent later
+	}
+
 	//take id
 	commandData->key = (long) commandsIDs; //TODO: think about guids
 	++commandsIDs;
 	//set callbacks for all types
 	commandData->refCounter = 3;
-	cl_uint err = -1;
-	err = clSetEventCallback(*event, CL_SUBMITTED, &commandCallBack, (void*) commandData);
+	cl_int err;
+	err = _clSetEventCallbackINTERNAL(*event, CL_SUBMITTED, &commandCallBack, (void*) commandData);
 	if ( err != CL_SUCCESS){
 		//log
 		commandData->refCounter--;
 	}
 
-	err = clSetEventCallback(*event, CL_RUNNING, &commandCallBack, (void*) commandData);
+	err = _clSetEventCallbackINTERNAL(*event, CL_RUNNING, &commandCallBack, (void*) commandData);
 	if ( err != CL_SUCCESS){
 		//log
 		//TODO: think about sending an error notification massage 
 		commandData->refCounter--;
 	}
 
-	err = clSetEventCallback(*event, CL_COMPLETE, &commandCallBack, (void*) commandData);
+	err = _clSetEventCallbackINTERNAL(*event, CL_COMPLETE, &commandCallBack, (void*) commandData);
 	if ( err != CL_SUCCESS){
 		//log 
 		if (--commandData->refCounter == 0){
-		releaseCommandData(*event, commandData);
+			releaseCommandData(commandData);
 		}
 	}
 	//from here commandData considered invalid because all the eventCallbacks might have happened
 
-	if ( isOwnEvent){
-		delete event; //only release the pointer to the event and not the actual object.
-	}
-
 }
 
-#define CL_KERNEL_ARG_INFO_OPTION " -cl-kernel-arg-info"
+const char* CL_KERNEL_ARG_INFO_OPTION = "-cl-kernel-arg-info";
 const char* NotifierCollection::enableKernelArgumentInfo(const char* options){
 	size_t options_length = strlen(options);
-	if ( strstr(options, CL_KERNEL_ARG_INFO_OPTION))
+	if (strstr(options, CL_KERNEL_ARG_INFO_OPTION))
 	{
 		char* newOptions = new char[options_length + 1]; //Dynamic allocation - will be freed in buildProgram
 		STRCPY_S(newOptions, options_length + 1, options);
 		return newOptions; //TODO: fix, you don't need dynamic allocation here...
 	}	
 	size_t addon_length = strlen(CL_KERNEL_ARG_INFO_OPTION);
-	char* newOptions = new char[options_length + addon_length + 1]; //Dynamic allocation - will be freed in buildProgram
-	STRCPY_S(newOptions, options_length + addon_length + 1, options);
-	STRCAT_S(newOptions, options_length + addon_length + 1, CL_KERNEL_ARG_INFO_OPTION); 
+	size_t dstSize = options_length + addon_length + 2;	// space and null terminator
+	char* newOptions = new char[dstSize]; //Dynamic allocation - will be freed in buildProgram
+	STRCPY_S(newOptions, dstSize, options);
+	STRCAT_S(newOptions, dstSize, " ");
+	STRCAT_S(newOptions, dstSize, CL_KERNEL_ARG_INFO_OPTION); 
 	return newOptions;
 }

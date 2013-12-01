@@ -247,6 +247,12 @@ PairSW HardCodedVersionStrategy::operator()(const PairSW& p)const{
 }
 
 //
+// Identity strategy.
+//
+PairSW IdentityStrategy::operator()(const PairSW& sw) const {
+  return sw;
+}
+//
 //Pair conversions
 //
 

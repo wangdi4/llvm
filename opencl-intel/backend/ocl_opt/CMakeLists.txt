@@ -14,22 +14,40 @@ add_executable(${TARGET_NAME}
 set(OCL_BE_PASSES
     BuiltInFuncImport
     InstToFuncCall
+    GenericAddressResolution
     PreventDivCrashes
     RelaxedPass
     ShiftZeroUpperBits
     ShuffleCallToInst
     Prefetch
+    LinearIdResolver
     LLVMBarrier
+    DebugInfoPass
     LLVMVectorizer
+    Materialize
+    Obfuscation
+    PrepareKernelArgs
+    AddImplicitArgs
+    OclFunctionAttrs
+    BuiltinLibInfo
     ModuleCleanup
-    Materialize 
+    BackendPassesWrappers
+    LocalBuffers
+    LocalBuffAnalysis
+    ReduceAlignment
+    DetectFunctionPtrCalls
+    ResolveWICall
+    CloneBlockInvokeFuncToKernel
+    DetectRecursion
+    ResolveBlockToStaticCall
 )
 
 # Dependencies of the passes
 set(OCL_BE_PASSES_DEPS
-    name_mangle
+    LoopUtils
     OclBackendUtils
-    BackendPassesWrappers
+    reflection_module
+    name_mangle
     metadataapi
 )
 
@@ -40,14 +58,14 @@ target_link_libraries(${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
 )
 
-if( NOT WIN32)
-    target_link_libraries(${TARGET_NAME}
-#        pthread
-        dl
-    )
-endif ()
+if(NOT WIN32)
+    if(NOT ANDROID)
+        target_link_libraries(${TARGET_NAME} pthread)
+    endif(NOT ANDROID)
+    target_link_libraries(${TARGET_NAME} dl)
+endif(NOT WIN32)
 
-add_dependencies(${TARGET_NAME} metadataapi)
+add_dependencies(${TARGET_NAME} metadataapi LoopUtils)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
 
@@ -62,3 +80,4 @@ endif( CMAKE_CROSSCOMPILING )
 
 install( TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

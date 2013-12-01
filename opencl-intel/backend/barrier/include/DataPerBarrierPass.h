@@ -10,12 +10,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BarrierUtils.h"
 
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Instruction.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SetVector.h"
 
-#include <map>
 using namespace llvm;
 
 namespace intel {
@@ -24,7 +25,7 @@ namespace intel {
   /// data on barrier/fiber/dummy barrier instructions
   class DataPerBarrier : public ModulePass {
   public:
-    typedef std::set<BasicBlock*> TBasicBlocksSet;
+    typedef SetVector<BasicBlock*> TBasicBlocksSet;
     typedef struct  {
       TInstructionVector m_relatedBarriers;
       bool               m_hasFiberRelated;
@@ -33,10 +34,10 @@ namespace intel {
       unsigned int m_id;
       SYNC_TYPE    m_type;
     } SBarrierData;
-    typedef std::map<BasicBlock*, TBasicBlocksSet> TBasicBlock2BasicBlocksSetMap;
-    typedef std::map<Function*, TInstructionSet> TInstructionSetPerFunctionMap;
-    typedef std::map<Instruction*, SBarrierRelated> TBarrier2BarriersSetMap;
-    typedef std::map<Instruction*, SBarrierData> TDataPerBarrierMap;
+    typedef MapVector<BasicBlock*, TBasicBlocksSet> TBasicBlock2BasicBlocksSetMap;
+    typedef MapVector<Function*, TInstructionSet> TInstructionSetPerFunctionMap;
+    typedef MapVector<Instruction*, SBarrierRelated> TBarrier2BarriersSetMap;
+    typedef MapVector<Instruction*, SBarrierData> TDataPerBarrierMap;
 
   public:
     static char ID;
@@ -80,6 +81,7 @@ namespace intel {
     /// @param pFunc pointer to Function
     /// @returns container of all sync instructions call in pFunc
     TInstructionSet& getSyncInstructions(Function *pFunc) {
+      assert(m_syncsPerFuncMap.count(pFunc) && "Function has no sync data!");
       return m_syncsPerFuncMap[pFunc];
     }
 
@@ -87,7 +89,7 @@ namespace intel {
     /// @param pInst pointer to sync instruction
     /// @returns unique id for given sync instruction
     unsigned int getUniqueID(Instruction *pInst) {
-      assert( m_dataPerBarrierMap.find(pInst) != m_dataPerBarrierMap.end()
+      assert( m_dataPerBarrierMap.count(pInst)
         && "instruction has no sync data!" );
       return m_dataPerBarrierMap[pInst].m_id;
     }
@@ -96,7 +98,7 @@ namespace intel {
     /// @param pInst pointer to sync instruction
     /// @returns unique id for given sync instruction
     SYNC_TYPE getSyncType(Instruction *pInst) {
-      assert( m_dataPerBarrierMap.find(pInst) != m_dataPerBarrierMap.end()
+      assert( m_dataPerBarrierMap.count(pInst)
         && "instruction has no sync data!" );
       return m_dataPerBarrierMap[pInst].m_type;
     }
@@ -105,7 +107,7 @@ namespace intel {
     /// @param pBB pointer to basic block
     /// @returns basic blocks set of Predecessors
     TBasicBlocksSet& getPredecessors(BasicBlock *pBB) {
-      assert( m_predecessorsMap.find(pBB) != m_predecessorsMap.end()
+      assert( m_predecessorsMap.count(pBB)
         && "basic block has no predecessor data!" );
       return m_predecessorsMap[pBB];
     }
@@ -114,7 +116,7 @@ namespace intel {
     /// @param pBB pointer to basic block
     /// @returns basic blocks set of Successors
     TBasicBlocksSet& getSuccessors(BasicBlock *pBB) {
-      assert( m_successorsMap.find(pBB) != m_successorsMap.end()
+      assert( m_successorsMap.count(pBB)
         && "basic block has no successor data!" );
       return m_successorsMap[pBB];
     }
@@ -123,7 +125,7 @@ namespace intel {
     /// @param pInst pointer to sync instruction
     /// @returns basic blocks set of Barrier Predecessors
     SBarrierRelated& getBarrierPredecessors(Instruction *pInst) {
-      assert( m_barrierPredecessorsMap.find(pInst) != m_barrierPredecessorsMap.end()
+      assert( m_barrierPredecessorsMap.count(pInst)
         && "sync instruction has no barrier predecessor data!" );
       return m_barrierPredecessorsMap[pInst];
     }
@@ -141,6 +143,7 @@ namespace intel {
     /// @param pFunc pointer to Function
     /// @returns true if and only if given function contains synchronize instruction
     bool hasSyncInstruction(Function *pFunc) {
+      if( !m_syncsPerFuncMap.count(pFunc)) return false;
       return (m_syncsPerFuncMap[pFunc].size() > 0);
     }
 

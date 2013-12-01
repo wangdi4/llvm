@@ -31,11 +31,13 @@
 #include <map>
 #include <string>
 
-#include "cl_device_api.h"
-#include "handle_allocator.h"
-#include "cl_dev_backend_api.h"
-#include "cl_synch_objects.h"
+#include <ocl_itt.h>
+#include <cl_device_api.h>
+#include <cl_dev_backend_api.h>
+#include <cl_synch_objects.h>
+
 #include "cpu_config.h"
+#include "IDeviceCommandManager.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -52,7 +54,7 @@ public:
     ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *config, ICLDevBackendServiceFactory* pBackendFactory);
     virtual ~ProgramService();
 
-    cl_dev_err_code Init();
+    cl_dev_err_code Init(IDeviceCommandManager* pDeviceCommandManager);
 
     cl_dev_err_code CheckProgramBinary (size_t IN bin_size, const void* IN bin);
     cl_dev_err_code CreateProgram( size_t IN binSize,
@@ -127,18 +129,25 @@ public:
 
     ICLDevBackendImageService*   GetImageService(){ return m_pBackendImageService; }
 
+    struct KernelMapEntry
+    {
+        const ICLDevBackendKernel_*  pBEKernel;
+#if defined (USE_ITT)
+        __itt_string_handle*         ittTaskNameHandle; // name string for ITT tasks
+#endif
+    };
+
 protected:
-    friend class ProgramBuildTask;
-    typedef std::map<std::string, cl_dev_kernel>            TName2IdMap;
-	enum tProgramType
-	{
-		PTCompiledProgram = 0,
-		PTBuiltInProgram
-	};
+    typedef std::map<std::string, KernelMapEntry>            TName2IdMap;
+    enum tProgramType
+    {
+        PTCompiledProgram = 0,
+        PTBuiltInProgram
+    };
     struct  TProgramEntry
     {
         ICLDevBackendProgram_*  pProgram;
-		tProgramType			programType;
+        tProgramType			programType;
         cl_build_status         clBuildStatus;
         TName2IdMap             mapKernels;
         OclMutex                muMap;

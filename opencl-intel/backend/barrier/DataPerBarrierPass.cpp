@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "DataPerBarrierPass.h"
 #include "OCLPassSupport.h"
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -61,7 +61,7 @@ namespace intel {
 
     //Calculate predecessors for all basic blocks
     for ( Function::iterator bi = F.begin(), be = F.end(); bi != be; ++bi ) {
-      BasicBlock *pBB = dyn_cast<BasicBlock>(bi);
+      BasicBlock *pBB = &*bi;
       FindPredecessors(pBB);
     }
 
@@ -69,7 +69,7 @@ namespace intel {
     TInstructionSet::iterator i = m_syncsPerFuncMap[&F].begin();
     TInstructionSet::iterator e = m_syncsPerFuncMap[&F].end();
     for ( ; i != e; ++i ) {
-      Instruction *pSyncInst = dyn_cast<Instruction>(*i);
+      Instruction *pSyncInst = *i;
       BasicBlock *pBB = pSyncInst->getParent();
       FindSuccessors(pBB);
       FindBarrierPredecessors(pSyncInst);
@@ -88,7 +88,7 @@ namespace intel {
       BasicBlock *pBBToHandle = basicBlocksToHandle.back();
       basicBlocksToHandle.pop_back();
       for (pred_iterator i = pred_begin(pBBToHandle), e = pred_end(pBBToHandle); i != e; ++i) {
-        BasicBlock *pred_bb = dyn_cast<BasicBlock>(*i);
+        BasicBlock *pred_bb = *i;
         if ( perdecessors.count(pred_bb) ) {
           //pred_bb was already added to predecessors
           continue;
@@ -114,7 +114,7 @@ namespace intel {
       BasicBlock *pBBToHandle = basicBlocksToHandle.back();
       basicBlocksToHandle.pop_back();
       for (succ_iterator i = succ_begin(pBBToHandle), e = succ_end(pBBToHandle); i != e; ++i) {
-        BasicBlock *succ_bb = dyn_cast<BasicBlock>(*i);
+        BasicBlock *succ_bb = *i;
         if ( successors.count(succ_bb) ) {
           //pred_bb was already added to successors
           continue;
@@ -144,14 +144,14 @@ namespace intel {
       BasicBlock *pBBToHandle = basicBlocksToHandle.back();
       basicBlocksToHandle.pop_back();
       for (pred_iterator i = pred_begin(pBBToHandle), e = pred_end(pBBToHandle); i != e; ++i) {
-        BasicBlock *pred_bb = dyn_cast<BasicBlock>(*i);
+        BasicBlock *pred_bb = *i;
         if ( basicBlocksAddedForHandle.count(pred_bb) ) {
           //pred_bb was already handled
           continue;
         }
         //This is a new predecessor
         basicBlocksAddedForHandle.insert(pred_bb);
-        Instruction *pInst = dyn_cast<Instruction>(&*pred_bb->begin());
+        Instruction *pInst = &*(pred_bb->begin());
         if ( barrierBBSet.count(pInst) ) {
           //This predecessor basic block conatins a barrier
           barrierPerdecessors.push_back(pInst);
@@ -180,12 +180,12 @@ namespace intel {
     TInstructionSetPerFunctionMap::const_iterator fi = m_syncsPerFuncMap.begin();
     TInstructionSetPerFunctionMap::const_iterator fe = m_syncsPerFuncMap.end();
     for ( ; fi != fe; ++fi ) {
-      Function *pFunc = dyn_cast<Function>(fi->first);
+      Function *pFunc = fi->first;
       //Print function name
       OS << "+" <<pFunc->getName() << "\n";
       const TInstructionSet &iiSet = fi->second;
       for ( TInstructionSet::const_iterator ii = iiSet.begin(), ie = iiSet.end();  ii != ie; ++ii ) {
-        Instruction *pSyncInst = dyn_cast<Instruction>(*ii);
+        Instruction *pSyncInst = *ii;
         BasicBlock *pBB = pSyncInst->getParent();
         //Print basic block name
         OS << "\t-" << pBB->getName() << "\n";
@@ -198,12 +198,12 @@ namespace intel {
     TBasicBlock2BasicBlocksSetMap::const_iterator bbi = m_predecessorsMap.begin();
     TBasicBlock2BasicBlocksSetMap::const_iterator bbe = m_predecessorsMap.end();
     for ( ; bbi != bbe; ++bbi ) {
-      BasicBlock *pBBB = dyn_cast<BasicBlock>(bbi->first);
+      BasicBlock *pBBB = bbi->first;
       //Print barrier basic block name
       OS << "+" << pBBB->getName() << "\n";
       const TBasicBlocksSet &bbSet = bbi->second;
       for ( TBasicBlocksSet::const_iterator bi = bbSet.begin(), be = bbSet.end();  bi != be; ++bi ) {
-        BasicBlock *pBB = dyn_cast<BasicBlock>(*bi);
+        BasicBlock *pBB = *bi;
         //Print predecessor basic block name
         OS << "\t-" << pBB->getName() << "\n";
       }
@@ -215,12 +215,12 @@ namespace intel {
     bbi = m_successorsMap.begin();
     bbe = m_successorsMap.end();
     for ( ; bbi != bbe; ++bbi ) {
-      BasicBlock *pBBB = dyn_cast<BasicBlock>(bbi->first);
+      BasicBlock *pBBB = bbi->first;
       //Print barrier basic block name
       OS<< "+" << pBBB->getName() << "\n";
       const TBasicBlocksSet &bbSet = bbi->second;
       for ( TBasicBlocksSet::const_iterator bi = bbSet.begin(), be = bbSet.end();  bi != be; ++bi ) {
-        BasicBlock *pBB = dyn_cast<BasicBlock>(*bi);
+        BasicBlock *pBB = *bi;
         //Print successor basic block name
         OS << "\t-" << pBB->getName() << "\n";
       }
@@ -232,14 +232,14 @@ namespace intel {
     TBarrier2BarriersSetMap::const_iterator iii = m_barrierPredecessorsMap.begin();
     TBarrier2BarriersSetMap::const_iterator iie = m_barrierPredecessorsMap.end();
     for ( ; iii != iie; ++iii ) {
-      Instruction *pInst = dyn_cast<Instruction>(iii->first);
+      Instruction *pInst = iii->first;
       BasicBlock *pBBB = pInst->getParent();
       //Print barrier basic block name
       OS << "+" << pBBB->getName() << "\n";
       OS << "has fiber instruction as predecessors: " << iii->second.m_hasFiberRelated << "\n";
       const TInstructionVector &iiVec = iii->second.m_relatedBarriers;
       for ( TInstructionVector::const_iterator ii = iiVec.begin(), ie = iiVec.end();  ii != ie; ++ii ) {
-        Instruction *pInstPred = dyn_cast<Instruction>(*ii);
+        Instruction *pInstPred = *ii;
         BasicBlock *pBB = pInstPred->getParent();
         //Print barrier predecessor basic block name
         OS << "\t-" << pBB->getName() << "\n";

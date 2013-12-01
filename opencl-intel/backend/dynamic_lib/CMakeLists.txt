@@ -8,9 +8,4 @@ add_library( ${TARGET_NAME} STATIC
   BE_DynamicLib.cpp
 )
 
-link_directories(cl_sys_utils)
-target_link_libraries(${TARGET_NAME} cl_sys_utils)
-
-add_dependencies( ${TARGET_NAME} cl_sys_utils)
-
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

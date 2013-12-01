@@ -50,17 +50,15 @@ public:
     void                        InvalidateContext();
 
 	Intel::OpenCL::MICDeviceNative::PrintfHandle* getPrintHandle() { return m_pPrintHandle; };
-    Intel::OpenCL::UtilsNative::HWExceptionsJitWrapper& jitExecWapper() { return m_hw_wrapper; }
 
 protected:
 	ICLDevBackendExecutable_*		m_pContext;
-	cl_dev_cmd_id					m_cmdId;
-	char*							m_pLocalMem;
-	void*							m_pPrivateMem;
-	size_t							m_stPrivMemAllocSize;
+	cl_dev_cmd_id					      m_cmdId;
+	char*							          m_pLocalMem;
+	void*							          m_pPrivateMem;
+	size_t							        m_stPrivMemAllocSize;
 
-	PrintfHandle*					m_pPrintHandle;
-    Intel::OpenCL::UtilsNative::HWExceptionsJitWrapper m_hw_wrapper;
+	PrintfHandle*					      m_pPrintHandle;
 } __attribute__((aligned(64))); // Align to cache line size
 
 }}}

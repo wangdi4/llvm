@@ -11,13 +11,16 @@ add_executable(${TARGET_NAME}
 # Backend passes
 set(OCL_BE_PASSES
     BuiltInFuncImport
+    BuiltinLibInfo
     ShuffleCallToInst
 )
 
 # Dependencies of the passes
 set(OCL_BE_PASSES_DEPS
+    reflection_module
     name_mangle
     OclBackendUtils
+    metadataapi
 )
 
 target_link_libraries(${TARGET_NAME}
@@ -27,12 +30,12 @@ target_link_libraries(${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
 )
 
-if( NOT WIN32)
-    if( NOT ANDROID)
+if(NOT WIN32)
+    if(NOT ANDROID)
         target_link_libraries(${TARGET_NAME} pthread)
-    endif()
+    endif(NOT ANDROID)
     target_link_libraries(${TARGET_NAME} dl)
-endif ()
+endif(NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
 
@@ -46,3 +49,5 @@ if( CMAKE_CROSSCOMPILING )
 endif( CMAKE_CROSSCOMPILING )
 
 install( TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

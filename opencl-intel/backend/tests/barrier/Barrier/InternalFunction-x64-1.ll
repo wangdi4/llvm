@@ -9,10 +9,10 @@
 ;;           which contains barrier itself and returns void.
 ;; The expected result:
 ;;      1. Kernel "main" contains no more barrier/dummybarrier instructions
-;;      2. Kernel "main" replaced the call to function "foo" with a call to "foo_New"
-;;      3. function "foo" contains no more barrier/dummybarrier instructions
-;;      4. function "foo_New" receives these parameters (i64 %x, i64 %offset)
-;;      5. function "foo_New" contains no more barrier/dummybarrier instructions
+;;      2. Kernel "main" stores "%y" value to offset 8 in the special buffer before calling "foo".
+;;      3. Kernel "main" is still calling function "foo"
+;;      4. function "foo" contains no more barrier/dummybarrier instructions
+;;      5. Kernel "main" loads "%x" value from offset 8 in the special buffer before xor.
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
@@ -27,7 +27,7 @@ L1:
   %y = xor i64 %x, %lid
   br label %L2
 L2:
-  call void @_Z7barrierj(i64 1)
+  call void @_Z7barrierj(i32 1)
   call void @foo(i64 %y)
   br label %L3
 L3:
@@ -36,7 +36,21 @@ L3:
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
 ; CHECK: xor
-; CHECK: call void @foo_New
+;;;; TODO: add regular expression for the below values.
+; CHECK: L2:
+; CHECK:   %loadedCurrSB = load i64* %CurrSBIndex
+; CHECK:   %"&(pSB[currWI].offset)" = add nuw i64 %loadedCurrSB, 8
+; CHECK:   %"&pSB[currWI].offset" = getelementptr inbounds i8* %pSB, i64 %"&(pSB[currWI].offset)"
+; CHECK:   %CastToValueType = bitcast i8* %"&pSB[currWI].offset" to i64*
+; CHECK:   %loadedCurrSB5 = load i64* %CurrSBIndex
+; CHECK:   %"&(pSB[currWI].offset)6" = add nuw i64 %loadedCurrSB5, 0
+; CHECK:   %"&pSB[currWI].offset7" = getelementptr inbounds i8* %pSB, i64 %"&(pSB[currWI].offset)6"
+; CHECK:   %CastToValueType8 = bitcast i8* %"&pSB[currWI].offset7" to i64*
+; CHECK:   %loadedValue = load i64* %CastToValueType8
+; CHECK:   store i64 %loadedValue, i64* %CastToValueType
+; CHECK:   br label %SyncBB
+;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; CHECK: call void @foo
 ; CHECK: br label %
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
@@ -50,25 +64,26 @@ L1:
   %y = xor i64 %x, %x
   br label %L2
 L2:
-  call void @_Z7barrierj(i64 2)
+  call void @_Z7barrierj(i32 2)
   ret void
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
-; CHECK: xor
+;;;; TODO: add regular expression for the below values.
+; CHECK: SyncBB1:
+; CHECK:   %loadedCurrSB = load i64* %CurrSBIndex
+; CHECK:   %"&(pSB[currWI].offset)" = add nuw i64 %loadedCurrSB, 8
+; CHECK:   %"&pSB[currWI].offset" = getelementptr inbounds i8* %pSB, i64 %"&(pSB[currWI].offset)"
+; CHECK:   %CastToValueType = bitcast i8* %"&pSB[currWI].offset" to i64*
+; CHECK:   %loadedValue = load i64* %CastToValueType
+; CHECK:   %y = xor i64 %loadedValue, %loadedValue
+; CHECK:   br label %L2
+;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
 ; CHECK: ret
 }
 
-; CHECK: @foo_New(i64 %x, i64 %offset)
-; CHECK-NOT: @dummybarrier.
-; CHECK-NOT: @_Z7barrierj
-; CHECK: xor
-; CHECK-NOT: @dummybarrier.
-; CHECK-NOT: @_Z7barrierj
-; CHECK: ret
-
-declare void @_Z7barrierj(i64)
+declare void @_Z7barrierj(i32)
 declare i64 @_Z12get_local_idj(i32)
 declare void @dummybarrier.()
 

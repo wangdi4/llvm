@@ -28,6 +28,7 @@
 
 #include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
+#include "IDeviceCommandManager.h"
 #include <string>
 
 
@@ -42,6 +43,9 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
     class ProgramConfig: public ICLDevBackendOptions
     {
     public:
+
+		ProgramConfig(IDeviceCommandManager* pDeviceCommandManager) : m_pDeviceCommandManager(pDeviceCommandManager) { }
+
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
 
         bool GetBooleanValue(int optionId, bool defaultValue) const
@@ -65,12 +69,20 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
         virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
         {
+#if 1
+			if (CL_DEV_BACKEND_OPTION_IDEVICE_COMMAND_MANAGER == optionId)
+			{
+				*(IDeviceCommandManager**)Value = m_pDeviceCommandManager;
+				return true;
+			}
+#endif
             return false;
         }
 
     private:
         bool m_useVectorizer;
         bool m_useVTune;
+		IDeviceCommandManager* m_pDeviceCommandManager;
     };
 
     /**

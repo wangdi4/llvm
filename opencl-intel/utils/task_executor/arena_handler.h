@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -23,22 +23,40 @@
 #include <cassert>
 #include <vector>
 #include <set>
-#include "tbb/task_scheduler_observer.h"
-#include "tbb/task_arena.h"
-#include "cl_device_api.h"
-#include "cl_synch_objects.h"
-#include "task_executor.h"
+#include <tbb/task_scheduler_observer.h>
+#include <tbb/task_arena.h>
+#include <tbb/task.h>
+#include <harness_trapper.h>
+
+#include <cl_device_api.h>
+#include <cl_synch_objects.h>
+#include <cl_shutdown.h>
+#include <task_executor.h>
+
+#ifdef DEVICE_NATIVE
+    // no logger on discrete device
+    #define LOG_ERROR(...)
+    #define LOG_INFO(...)
+
+    #define DECLARE_LOGGER_CLIENT
+    #define INIT_LOGGER_CLIENT(...)
+    #define RELEASE_LOGGER_CLIENT
+#else
+    #include "Logger.h"
+#endif // DEVICE_NATIVE
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
+
 
 class TBBTaskExecutor;
 class ArenaHandler;
 class TEDevice;
 class in_order_executor_task;
+class out_of_order_command_list;
 class base_command_list;
 template<typename T> class command_list;
 
-extern volatile bool gIsExiting;
+using Intel::OpenCL::Utils::IsShutdownMode;
 
 struct TBB_PerActiveThreadData
 {
@@ -77,7 +95,7 @@ public:
     /**
      * Destructor
      */
-    virtual ~ArenaHandler() { Terminate(); StopMonitoring(); }
+    virtual ~ArenaHandler();
 
     /**
      * Enqueue a functor on the arena.
@@ -117,9 +135,7 @@ private:
 
     void Terminate() 
     {
-        // ALERT!!! DK!!! uncomment as TBB will provide API
-        //m_arena.terminate();
-        m_arena.~task_arena();
+        m_arena.terminate();
     }
 
     /**
@@ -134,6 +150,8 @@ private:
 
     Intel::OpenCL::Utils::OclSpinMutex m_lock;
     std::vector<unsigned int> m_freePositions;
+
+    DECLARE_LOGGER_CLIENT;
 
     // do not implement:
     ArenaHandler(const ArenaHandler&);
@@ -174,15 +192,26 @@ public:
 
     // Set observer for the TEDevice
     virtual void SetObserver(ITaskExecutorObserver* pObserver);
-    
+
+    /**
+     * Retrives concurrency level for the device
+     * @return pointer to the new list or NULL on error
+     */
+    virtual int GetConcurrency() const;
+
+#ifdef __HARD_TRAPPING__
+    virtual bool AcquireWorkerThreads(int num_workers, int timeout);
+    virtual void RelinquishWorkerThreads();
+#endif // __HARD_TRAPPING__
+
     virtual void AttachMasterThread(void* user_tls);
     virtual void DetachMasterThread();
 
     /**
-	 * Create Task Execution List to the given sub-device
-	 * @return pointer to the new list or NULL on error
-	 */
-	virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param );
+     * Create Task Execution List to the given sub-device
+     * @return pointer to the new list or NULL on error
+     */
+    virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param );
 
     /**
      * Wait until all work in a sub-device is complete and mark device as disabled. No more enqueues are allowed after the ShutDown
@@ -193,7 +222,7 @@ public:
     //   Extra methods
     //
 
-   /**
+    /**
      * Enqueue a functor on the arena.
      * @param F the type of the functor
      * @param f the functor object
@@ -212,7 +241,7 @@ public:
     /**
      * Lock/Unlock current state (working/shutting down)
      */
-    void   LockState() { m_stateLock.EnterRead(); }
+    void LockState() { m_stateLock.EnterRead(); }
     void UnLockState() { m_stateLock.LeaveRead(); }
 
     /**
@@ -255,7 +284,7 @@ public:
     void on_scheduler_exit(bool bIsWorker, ArenaHandler& arena );
     bool on_scheduler_leaving( ArenaHandler& arena );
 
-    bool isSubDevice() const { return (NULL != m_pParentDevice.GetPtr()); }
+    bool isSubDevice() const { return (NULL != m_pParentDevice.GetPtr()); }	
 
 private:
 
@@ -268,21 +297,22 @@ private:
         SHUTTED_DOWN
     };
 
-    Intel::OpenCL::Utils::OclReaderWriterLock  m_stateLock;
-    volatile State                             m_state;
+    Intel::OpenCL::Utils::OclReaderWriterLock   m_stateLock;
+    volatile State                              m_state;
 
-    RootDeviceCreationParam m_deviceDescriptor;
-    TBBTaskExecutor&        m_taskExecutor;
-    void*                   m_userData;
+    RootDeviceCreationParam                     m_deviceDescriptor;
+    TBBTaskExecutor&                            m_taskExecutor;
+    void*                                       m_userData;
 
     Intel::OpenCL::Utils::OclReaderWriterLock   m_observerLock;
     ITaskExecutorObserver*                      m_observer;
     Intel::OpenCL::Utils::SharedPtr<TEDevice>   m_pParentDevice;
 
-    ArenaHandler            m_mainArena;
-    ArenaHandler*           m_lowLevelArenas[TE_MAX_LEVELS_COUNT-1]; // arrray or arrys of all levels except of 0
+    ArenaHandler                                m_mainArena;
+    ArenaHandler*                               m_lowLevelArenas[TE_MAX_LEVELS_COUNT-1]; // arrray or arrys of all levels except of 0
 
-    Intel::OpenCL::Utils::AtomicCounter                m_numOfActiveThreads; 
+    Intel::OpenCL::Utils::AtomicCounter         m_numOfActiveThreads; 
+    unsigned int                                m_maxNumOfActiveThreads;
 
     bool new_threads_disabled() const { return (m_state >= DISABLE_NEW_THREADS); }
 
@@ -306,6 +336,15 @@ private:
         }
         return device;
     }
+
+    DECLARE_LOGGER_CLIENT;
+
+#ifdef __HARD_TRAPPING__
+    /**
+     * Required for thread trapping inside the arena
+     */
+    Intel::OpenCL::Utils::AtomicPointer<tbb::Harness::TbbWorkersTrapper> m_worker_trapper;
+#endif // __HARD_TRAPPING__
 };
 
 class TEDeviceStateAutoLock
@@ -328,7 +367,7 @@ private:
 inline
 void ArenaHandler::on_scheduler_entry(bool bIsWorker) 
 { 
-    if (!gIsExiting)
+    if (!IsShutdownMode())
     {
         m_device->on_scheduler_entry( bIsWorker, *this ); 
     }
@@ -337,7 +376,7 @@ void ArenaHandler::on_scheduler_entry(bool bIsWorker)
 inline
 void ArenaHandler::on_scheduler_exit(bool bIsWorker) 
 { 
-    if (!gIsExiting)
+    if (!IsShutdownMode())
     {
         m_device->on_scheduler_exit( bIsWorker, *this ); 
     }
@@ -346,41 +385,64 @@ void ArenaHandler::on_scheduler_exit(bool bIsWorker)
 inline
 bool ArenaHandler::on_scheduler_leaving() 
 { 
-    return (gIsExiting) ? true : m_device->on_scheduler_leaving( *this ); 
+    return (IsShutdownMode()) ? true : m_device->on_scheduler_leaving( *this ); 
 }
 
+template<class F > class trapping_delegate_task : public tbb::task
+{
+     F my_functor;
+public:
+     trapping_delegate_task(const F& f) : my_functor(f) {};
+
+     tbb::task* execute()
+       {
+           my_functor();
+           return NULL;
+       }
+};
+
+template<class F > class TrappingEnqueueFunctor
+{
+    F my_functor;
+public:
+    TrappingEnqueueFunctor(const F& f) : my_functor(f) {}
+
+    void operator()(void)
+    {
+        tbb::task::spawn( *new( tbb::task::allocate_root() ) trapping_delegate_task<F>(my_functor) );
+    }
+};
 template <class F>
 inline
 void TEDevice::Enqueue(F& f)
 {
-    // ALERET!!! DK!!! Should we put here tasks also?
-    if (1 == m_deviceDescriptor.uiNumOfLevels)
+    assert (1 == m_deviceDescriptor.uiNumOfLevels && "Currently we support single level arenas");
+
+    // If trapping exists for device, we need to some w/o to submit a task
+#ifdef __HARD_TRAPPING__
+    tbb::Harness::TbbWorkersTrapper* trapper = m_worker_trapper;
+    if ( NULL != trapper )
     {
-        m_mainArena.Enqueue( f );
+        TrappingEnqueueFunctor<F> trapFunctor(f);
+        m_mainArena.Execute(trapFunctor);
+        return;
     }
-    else
-    {
-        // ALERT!!! DK!!!
-        // create hierarchical functor with f
-        // m_mainArena.Enqueue( hierarchical_functor );
-    }
+#endif
+
+    m_mainArena.Enqueue( f );
+
 }
 
 template <class F>
 inline
 void TEDevice::Execute(F& f)
 {
-    // ALERET!!! DK!!! Should we put here tasks also?
-    if (1 == m_deviceDescriptor.uiNumOfLevels)
-    {
-        m_mainArena.Execute( f );
-    }
-    else
-    {
-        // ALERT!!! DK!!!
-        // create hierarchical functor with f
-        // m_mainArena.Execute( hierarchical_functor );
-    }
+    assert (1 == m_deviceDescriptor.uiNumOfLevels && "Currently we support single level arenas");
+#ifdef __HARD_TRAPPING__
+    assert (m_worker_trapper == NULL && "Execute() is not allowed on device with trapped workers");
+#endif
+
+    m_mainArena.Execute( f );
 }
 
 inline
@@ -395,6 +457,4 @@ void TBB_PerActiveThreadData::reset()
 
     memset(attached_arenas, 0, sizeof(attached_arenas) );
 }
-
-
 }}}

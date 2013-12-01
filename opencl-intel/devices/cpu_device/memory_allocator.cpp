@@ -32,6 +32,7 @@
 #include "cpu_dev_limits.h"
 #include "cpu_device.h"
 #include "cl_sys_defines.h"
+#include "CL/cl_2_0.h"
 
 #include<stdlib.h>
 
@@ -209,7 +210,7 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 
 	//allocating the memory on the device by querying the backend for the size
 	void* auxObject = NULL;
-	if (m_objDecr.memObjType != CL_MEM_OBJECT_BUFFER)
+	if (m_objDecr.memObjType != CL_MEM_OBJECT_BUFFER && m_objDecr.memObjType != CL_MEM_OBJECT_PIPE)
 	{
 		size_t auxObjectSize=m_pImageService->GetAuxilarySize();
 		auxObject = ALIGNED_MALLOC( auxObjectSize, CPU_DEV_MAXIMUM_ALIGN);

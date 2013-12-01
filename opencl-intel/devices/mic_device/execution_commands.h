@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -21,9 +21,7 @@
 #pragma once
 
 #include "command.h"
-
 #include "mic_dev_limits.h"
-#include "exe_cmd_mem_handler.h"
 #include "device_service_communication.h"
 
 #include <vector>
@@ -32,114 +30,85 @@ using namespace std;
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
+class MICDevMemoryObject;
+////////////////////////////////////////////////////////////////////////////////////
 class ExecutionCommand : public Command
 {
 public:
 
-	PREPARE_SHARED_PTR(Command)
+    PREPARE_SHARED_PTR(Command)
 
-	bool commandEnqueuedToPipe() { return true; };
+    bool commandEnqueuedToPipe() { return true; };
 
 protected:
+    ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+    virtual ~ExecutionCommand();
 
-	ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+    /* Execute the command (Send it to execution in the device) */
+    cl_dev_err_code executeInt(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION funcId, char* commandNameStr);
 
-	virtual ~ExecutionCommand() {};
+    void AddMemoryObject( MICDevMemoryObject *memObj, bool isConstAccess );
 
-	/* Execute the command (Send it to execution in the device) */
-	cl_dev_err_code executeInt(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION funcId, char* commandNameStr);
+    /* Initialize the appropriate execution command. */
+    virtual cl_dev_err_code init() = 0;
 
-	/* Initialize the appropriate execution command. */
-	virtual cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr) = 0;
-
-	virtual void fireCallBack(void* arg);
+    virtual void fireCallBack(void* arg);
 
     void init_profiling_mode();
 
-	MiscDataHandler m_miscDatahandler;
+    vector<COIBUFFER>           m_coiBuffsArr;           // List of buffers required for COI command
+    vector<COI_ACCESS_FLAGS>    m_accessFlagsArr;        // the access flags of the COIBUFFERs array
 
-	DispatcherDataHandler m_dispatcherDatahandler;
+    // COI events used in profiling and OOO queue
+    command_event_struct        m_startEvent; 
 
-	// Contains COIEVENT that will signal when the Command will start.
-    command_event_struct m_startBarrier;
+    // A pointer used for COIRunFunction
+    const void*                 m_pDispatchData;
+    uint16_t                    m_uiDispatchDataSize;
 };
 
-
+////////////////////////////////////////////////////////////////////////////////////
 class NDRange : public ExecutionCommand
 {
-
 public:
+    PREPARE_SHARED_PTR(Command)
 
-	PREPARE_SHARED_PTR(Command)
-
-	/* static function for NDRange Command creation */
+    /* static function for NDRange Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
-	cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::EXECUTE_NDRANGE, (char*)"NDRange"); };
+    cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::EXECUTE_NDRANGE, (char*)"NDRange"); };
 
-	void fireCallBack(void* arg);
-
-protected:
-
-	virtual ~NDRange();
 
 private:
 
-	/* information about the buffer arguments in kernel blob */
-	struct kernel_arg_buffer_info
-	{
-		// The offset of the buffer in the blob
-		size_t offsetInBlob;
-		// The index of the buffer in 'cl_kernel_argument' array
-		unsigned int index;
-
-		kernel_arg_buffer_info(size_t offset, unsigned int indx)
-		{
-			offsetInBlob = offset;
-			index = indx;
-		}
-	};
-
-	/* Private constructor because We like to create Commands only by the factory method */
+    static cl_dev_err_code CheckCommandParams(CommandList* pCommandList, cl_dev_cmd_desc* cmd);
+    /* Private constructor because We like to create Commands only by the factory method */
     NDRange(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
-	cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr);
-
-	void getKernelArgBuffersCount(const unsigned int numArgs, const cl_kernel_argument* pArgs, const char* pKernelParams, vector<kernel_arg_buffer_info>& oBuffsInfo);
-
-	/* Release resources. */
-	void releaseResources(bool releaseCoiObjects = true);
-    void releaseKernel( void );
-
-	COIBUFFER m_printfBuffer;
-
-    bool        m_kernel_locked;
+    cl_dev_err_code init();
 };
 
-
-
+////////////////////////////////////////////////////////////////////////////////////
 class FillMemObject : public ExecutionCommand
 {
 public:
 
-	PREPARE_SHARED_PTR(Command)
+    PREPARE_SHARED_PTR(Command)
 
 	/* static function for FillMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
-	cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::FILL_MEM_OBJECT, (char*)"FillMemObject"); };
-
-protected:
-
-	virtual ~FillMemObject() {};
+    cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::FILL_MEM_OBJECT, (char*)"FillMemObject"); };
 
 private:
 
 	/* Private constructor because We like to create Commands only by the factory method */
     FillMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
-	/* Initialize FillMemObject command. */
-	cl_dev_err_code init(vector<COIBUFFER>& ppOutCoiBuffsArr, vector<COI_ACCESS_FLAGS>& ppAccessFlagArr);
+    /* Initialize FillMemObject command. */
+    cl_dev_err_code init();
+
+    fill_mem_obj_dispatcher_data        m_fillDispatchData;
 };
 
 }}}

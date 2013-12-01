@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __LOCAL_BUFF_ANALYSIS_H__
 
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/ADT/SmallPtrSet.h"
 
 #include <map>
@@ -22,7 +22,6 @@ namespace intel{
   ///         local values each function uses directly.
   ///         The analysis class goes over all local values and over all their direct
   ///         users and maps between functions and the local values they uses.
-  /// @Author Marina Yatsina
   class LocalBuffAnalysis : public ModulePass {
   public:
     /// @brief  A set of local values used by a function

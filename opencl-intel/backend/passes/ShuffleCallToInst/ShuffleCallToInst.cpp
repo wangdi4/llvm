@@ -10,7 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 
 extern "C" {
   /// @brief Creates new ShuffleCallToInst pass
@@ -189,9 +189,9 @@ namespace intel{
     strippedName = stripName(calledFuncName.c_str());
 
     // Check if its shuffle function and mask is constant
-    if (strippedName == "shuffle") {
+    if (strippedName == "shuffle" || strippedName == "__ocl_helper_shuffle" ) {
         return SHUFFLE1;
-    } else if (strippedName == "shuffle2") {
+    } else if (strippedName == "shuffle2" || strippedName == "__ocl_helper_shuffle2" ) {
         return SHUFFLE2;
     }
     return NOT_SHUFFLE;

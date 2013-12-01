@@ -11,8 +11,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "LocalBuffAnalysis.h"
 
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Instructions.h"
 #include <set>
 #include <map>
 
@@ -22,7 +22,6 @@ namespace intel {
 
   /// @brief  AddImplicitArgs class adds the implicit arguments to signature
   ///         of all function of the module (that are defined inside the module)
-  /// @Author Marina Yatsina
   class AddImplicitArgs : public ModulePass {
 
   public:
@@ -67,6 +66,13 @@ namespace intel {
     /// @brief Adds implicit arguments structure declarations to the module
     void addWIInfoDeclarations();
 
+    /// @brief helper function. replaces call instruction with call instruction
+    ///        that receives implicit arguments
+    /// @param CI pointer to CallInst
+    /// @param newArgsVec arguments of new function with implicit arguments added
+    /// @param pNewF function with implicit arguments added
+    void replaceCallInst(CallInst *CI, const std::vector<Type *>& newArgsVec, Function * pNewF);
+
   private:
     /// @brief The llvm module this pass needs to update
     Module                     *m_pModule;
@@ -83,6 +89,8 @@ namespace intel {
 
     Type* m_struct_PaddedDimId;
     Type* m_struct_WorkDim;
+    /// ExtendedExecutionContext opaque type
+    Type * m_struct_ExtendedExecutionContextType;
 
     Function* m_pFunc;
     Function* m_pNewF;

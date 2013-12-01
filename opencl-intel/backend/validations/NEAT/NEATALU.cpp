@@ -17,6 +17,7 @@ File Name:  NEATALU.cpp
 
 \*****************************************************************************/
 #include "ImagesALU.h"
+#include "cl_types.h"
 #include "NEATALU.h"
 #include "Utils.h"
 
@@ -25,6 +26,7 @@ namespace Validation
     const double NEATALU::DIV_ERROR = 2.5;
     const double NEATALU::MIX_ERROR = 1.5; // rounding error of sub, mul and add
     const double NEATALU::NORMALIZE_ERROR = 2.5; // 2f + 0.5f  error in rsqrt + error in multiply
+    const double NEATALU::SQRT_ERROR_DOUBLE = 0.5;  // sqrt is correctly rounded for doubles
 
     const long double NEATALU::pi = 3.14159265358979323846264338327950288419716939937510582097494459230781640628620899L;
     const long double NEATALU::two_pi = 2*3.14159265358979323846264338327950288419716939937510582097494459230781640628620899L;
@@ -82,6 +84,9 @@ namespace Validation
           return NEATValue(NEATValue::UNKNOWN);
       }
 
+      if(Utils::IsInf<float>(ulps))
+          return NEATValue(NEATValue::ANY);
+
       const int RES_COUNT = 8;
       double val[RES_COUNT];
  
@@ -94,7 +99,7 @@ namespace Validation
       val[6] = RefALU::mul((double)*a.GetMax<float>(), RefALU::div((double)1.0L,(double)*b.GetMin<float>()) );
       val[7] = RefALU::mul((double)*a.GetMax<float>(), RefALU::div((double)1.0L,(double)*b.GetMax<float>()) );
  
-      return NEATALU::ComputeResult<double>(val, RES_COUNT, ulps);
+      return NEATALU::CreateNEATValue<double>(val, RES_COUNT, IntervalError<float>(ulps));
   }
 
   // division for doubles has zero ulps and performs in doubles with no extending the
@@ -134,7 +139,7 @@ namespace Validation
       val[2] = (long double)RefALU::div(*a.GetMax<double>(),*b.GetMin<double>());
       val[3] = (long double)RefALU::div(*a.GetMax<double>(),*b.GetMax<double>());
 
-      return NEATALU::ComputeResult<long double>(val, RES_COUNT, ulps);
+      return NEATALU::CreateNEATValue<long double>(val, RES_COUNT, IntervalError<double>(ulps));
   }
 
   NEATVector NEATALU::processVector(const NEATVector& vec1, const NEATVector& vec2, const NEATValue& val, NEATScalarTernaryOp f)
@@ -412,33 +417,33 @@ namespace Validation
 
         switch( imageInfo->format->image_channel_order )
         {
-        case CL_A:
+        case CLK_A:
             retVec[3].SetIntervalVal<float>(accPix.p[3] - maxErrAbs[3], accPix.p[3] + maxErrAbs[3]);
             break;
-        case CL_R:
-        case CL_Rx:
+        case CLK_R:
+        case CLK_DEPTH:
             retVec[0].SetIntervalVal<float>(accPix.p[0] - maxErrAbs[0], accPix.p[0] + maxErrAbs[0]);
             break;
-        case CL_RA:
+        case CLK_RA:
             retVec[0].SetIntervalVal<float>(accPix.p[0] - maxErrAbs[0], accPix.p[0] + maxErrAbs[0]);
             retVec[3].SetIntervalVal<float>(accPix.p[3] - maxErrAbs[3], accPix.p[3] + maxErrAbs[3]);
             break;
-        case CL_RG:
-        case CL_RGx:
+        case CLK_RG:
             retVec[0].SetIntervalVal<float>(accPix.p[0] - maxErrAbs[0], accPix.p[0] + maxErrAbs[0]);
             retVec[1].SetIntervalVal<float>(accPix.p[1] - maxErrAbs[1], accPix.p[1] + maxErrAbs[1]);
             break;
-        case CL_RGB:
-        case CL_RGBx:
-        case CL_LUMINANCE:
+        case CLK_RGB:
+        case CLK_LUMINANCE:
             retVec[0].SetIntervalVal<float>(accPix.p[0] - maxErrAbs[0], accPix.p[0] + maxErrAbs[0]);
             retVec[1].SetIntervalVal<float>(accPix.p[1] - maxErrAbs[1], accPix.p[1] + maxErrAbs[1]);
             retVec[2].SetIntervalVal<float>(accPix.p[2] - maxErrAbs[2], accPix.p[2] + maxErrAbs[2]);
             break;
-        case CL_RGBA:
-        case CL_ARGB:
-        case CL_BGRA:
-        case CL_INTENSITY:
+        case CLK_RGBA:
+        case CLK_sRGBA:
+        case CLK_sBGRA:
+        case CLK_ARGB:
+        case CLK_BGRA:
+        case CLK_INTENSITY:
             retVec[0].SetIntervalVal<float>(accPix.p[0] - maxErrAbs[0], accPix.p[0] + maxErrAbs[0]);
             retVec[1].SetIntervalVal<float>(accPix.p[1] - maxErrAbs[1], accPix.p[1] + maxErrAbs[1]);
             retVec[2].SetIntervalVal<float>(accPix.p[2] - maxErrAbs[2], accPix.p[2] + maxErrAbs[2]);

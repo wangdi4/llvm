@@ -10,10 +10,10 @@
 #include "Logger.h"
 #include "VectorizerUtils.h"
 
-#include "llvm/Instructions.h"
-#include "llvm/Constants.h"
-#include "llvm/Function.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Version.h"
 
 using namespace llvm;
@@ -65,16 +65,21 @@ class FakeExtract : public FakeVectorOp {
     SmallVector<Value *, 3> args;
     args.push_back(vec);
     args.push_back(indConst);
-    SmallVector<Attributes, 4> attrs;
 #if LLVM_VERSION == 3200
+    SmallVector<Attributes, 4> attrs;
     attrs.push_back(Attributes::get(insertBefore->getContext(), Attributes::ReadNone));
     attrs.push_back(Attributes::get(insertBefore->getContext(), Attributes::NoUnwind));
+#elif LLVM_VERSION == 3425
+    SmallVector<Attributes, 4> attrs;
+    attrs.push_back(Attribute::ReadNone);
+    attrs.push_back(Attribute::NoUnwind);
 #else
+    SmallVector<Attribute::AttrKind, 4> attrs;
     attrs.push_back(Attribute::ReadNone);
     attrs.push_back(Attribute::NoUnwind);
 #endif
     return VectorizerUtils::createFunctionCall(insertBefore->getParent()->getParent()->getParent(),
-		Mangler::getFakeExtractName(), vec->getType()->getScalarType(), args, attrs, insertBefore);
+    Mangler::getFakeExtractName(), vec->getType()->getScalarType(), args, attrs, insertBefore);
   }
 };
 /// Fake call that mimics insert element that is used
@@ -103,11 +108,16 @@ class FakeInsert : public FakeVectorOp {
     args.push_back(vec);
     args.push_back(newElt);
     args.push_back(indConst);
-    SmallVector<Attributes, 4> attrs;
 #if LLVM_VERSION == 3200
+    SmallVector<Attributes, 4> attrs;
     attrs.push_back(Attributes::get(insertBefore->getContext(), Attributes::ReadNone));
     attrs.push_back(Attributes::get(insertBefore->getContext(), Attributes::NoUnwind));
+#elif LLVM_VERSION == 3425
+    SmallVector<Attributes, 4> attrs;
+    attrs.push_back(Attribute::ReadNone);
+    attrs.push_back(Attribute::NoUnwind);
 #else
+    SmallVector<Attribute::AttrKind, 4> attrs;
     attrs.push_back(Attribute::ReadNone);
     attrs.push_back(Attribute::NoUnwind);
 #endif

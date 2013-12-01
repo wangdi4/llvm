@@ -193,6 +193,39 @@ typedef struct _cl_llvm_prog_header
     bool bEnableLinkOptions;
 } cl_llvm_prog_header;
 
+#ifdef _WIN32
+#pragma pack(push, 1)
+#define PACKED 
+#else
+#define PACKED __attribute__((packed)) 
+#endif
+
+/**
+ * This struct hold all the uniform arguments which will be passed to the JIT
+ * to start execution of OCL kernel
+ */
+typedef struct _cl_uniform_kernel_args {
+    size_t WorkDim;
+    size_t GlobalOffset[MAX_WORK_DIM];
+    size_t GlobalSize[MAX_WORK_DIM];
+    size_t LocalSize[MAX_WORK_DIM];
+    size_t WGCount[MAX_WORK_DIM];
+    size_t WGLoopIterCount;
+    size_t *pRuntimeContext;
+    // This buffer to be removed after localID buffer will be handled by BE
+    size_t *pLocalIDIndices;
+    // Kernel explicit arguments in same order as in  kernel declaration
+    // Alignment of type must be same as sizeof returns on the type
+    //gentype arg1;
+    //gentype arg2;
+    // .  .  .
+    //gentype argN;
+} PACKED cl_uniform_kernel_args;
+
+#ifdef _WIN32
+#pragma pack(pop)
+#endif 
+
 /*! \enum cl_dev_sampler_prop
  * Defines possible values of the kernel information that could be retrieved by clDevGetKernelInfo function.
  */

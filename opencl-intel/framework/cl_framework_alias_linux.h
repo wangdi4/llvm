@@ -126,4 +126,17 @@ DECLARE_ALIAS(clCompileProgram);
 DECLARE_ALIAS(clLinkProgram);
 DECLARE_ALIAS(clEnqueueMarkerWithWaitList);
 DECLARE_ALIAS(clEnqueueFillImage);
+DECLARE_ALIAS(clSVMAlloc);
+DECLARE_ALIAS(clSVMFree);
+DECLARE_ALIAS(clEnqueueSVMFree);
+DECLARE_ALIAS(clEnqueueSVMMemcpy);
+DECLARE_ALIAS(clEnqueueSVMMemFill);
+DECLARE_ALIAS(clEnqueueSVMMap);
+DECLARE_ALIAS(clEnqueueSVMUnmap);
+DECLARE_ALIAS(clSetKernelArgSVMPointer);
+DECLARE_ALIAS(clSetKernelExecInfo);
+DECLARE_ALIAS(clCreatePipe);
+DECLARE_ALIAS(clCreatePipeINTEL);
+DECLARE_ALIAS(clGetPipeInfo);
+DECLARE_ALIAS(clCreateCommandQueueWithProperties);
 }}}

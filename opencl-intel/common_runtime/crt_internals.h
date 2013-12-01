@@ -91,7 +91,8 @@ public:
         CL_SUB_BUFFER   = 0x2,
         CL_IMAGE        = 0x4,
         CL_SAMPLER      = 0x8,
-        CL_INVALID      = 0x10
+        CL_PIPE         = 0x10,
+        CL_INVALID      = 0x20
     };
     virtual CrtObjectType getObjectType() const { return CL_INVALID; };
 
@@ -144,7 +145,8 @@ struct CrtContextInfo
     // Specifies the type of context, whether its
     enum ContextType
     {
-        SinglePlatformContext,
+        SinglePlatformCPUContext,
+        SinglePlatformGPUContext,
         SharedPlatformContext
     };
     // Context Type
@@ -496,6 +498,33 @@ public:
     GLuint              m_texture;
 };
 
+class CrtPipe: public CrtMemObject
+{
+public:
+    CrtPipe(
+        const cl_uint               packetSize,
+        const cl_uint               maxPackets,
+        const cl_pipe_properties*   properties,
+        cl_mem_flags                flags,
+        CrtContext*                 ctx);
+
+    CrtObjectType getObjectType() const {  return CrtMemObject::CL_PIPE; }
+
+    void*  GetMapPointer(const size_t* origin, const size_t* region)
+    {
+        assert( 0 && "GetMapPointer is not supported for Pipes!" );
+        return NULL;
+    }
+    cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region){ return CL_SUCCESS; }
+
+    // overriding CrtMemOBject::Create for creating pipes
+    virtual cl_int Create(CrtMemObject** memObj);
+
+    cl_uint             m_packetSize;
+    cl_uint             m_maxPackets;
+    cl_pipe_properties* m_properties;
+};
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -565,6 +594,17 @@ public:
         cl_addressing_mode      addressing_mode,
         cl_filter_mode          filter_mode,
         CrtSampler**            sampler);
+
+    cl_int clCreateSamplerWithProperties(
+        const cl_sampler_properties *sampler_properties,
+        CrtSampler                  **sampler );
+
+    cl_int CreatePipe(
+        cl_mem_flags                flags,
+        cl_uint                     pipe_packet_size,
+        cl_uint                     pipe_max_packets,
+        const cl_pipe_properties *  properties,
+        CrtMemObject**              memObj);
 
     // Command Queue and Build
     cl_int  CreateCommandQueue(
@@ -654,6 +694,9 @@ public:
 
     // mutex gaurding context from concurrent accesses
     OCLCRT::Utils::OclMutex          m_mutex;
+
+    // cache of SVM pointers created using clSVMAlloc()
+    std::list<void *>       m_svmPointers;
 
 private:
 
@@ -837,3 +880,24 @@ private:
     std::map<TKEY, TVAL>& m_map;
     OclMutex m_mutex;
 };
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+// EnqueueSVMFree callback:
+struct SVMFreeCallbackData
+{
+    ~SVMFreeCallbackData();
+
+    bool                CopySVMPointers(void** SVMPointers, cl_uint numSVMPointers);
+
+    bool                m_isGpuQueue;
+    bool                m_shouldReleaseEvent;
+    cl_command_queue    m_queue;
+    void **             m_SVMPointers;
+    cl_uint             m_numSVMPointers;
+    CrtEvent *          m_svmFreeUserEvent;
+    void *              m_originalUserData;
+    pfn_free            m_originalCallback;
+};
+void CL_CALLBACK SVMFreeCallbackFunction(cl_event event, cl_int status, void *user_data);

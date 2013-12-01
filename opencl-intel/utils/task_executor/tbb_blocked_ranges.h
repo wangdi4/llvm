@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 Intel Corporation
+// Copyright (c) 2006-2013 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -26,20 +26,17 @@
 
 #pragma once
 
+// Uneven/OpenCL partitioner
+#include <uneven/blocked_range.h>
+#include <uneven/blocked_range2d.h>
+#include <uneven/blocked_range3d.h>
+
 #include <tbb/tbb.h>
 #include <tbb/task.h>
 
-namespace Intel { namespace OpenCL { namespace TaskExecutor {
+#include <common_dev_limits.h>
 
-class BlockedRangeBase : public tbb::blocked_range3d<int>
-{
-public:
-    // OpenCL defines dims as (col, row, page), while TBB receives them as (page, row, col)
-    BlockedRangeBase( const size_t dims[], size_t grain ) :
-        tbb::blocked_range3d<int>( 0, (int)dims[2], grain,
-                                   0, (int)dims[1], grain,
-                                   0, (int)dims[0], grain ) {};  
-};
+namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 //
 // Represents contiguous range if indices [left,right), including left and excluding right
@@ -47,8 +44,8 @@ public:
 class BlockedRange 
 {
 public:
-    typedef unsigned int BlockedRangeValueType;
-    typedef size_t       BlockedRangeSizeType;
+    typedef size_t    BlockedRangeValueType;
+    typedef size_t    BlockedRangeSizeType;
 
     BlockedRange() : m_min(0), m_max(0), m_grain(0) {};
         
@@ -59,15 +56,15 @@ public:
 
     BlockedRange( const BlockedRange& o ) : 
         m_min(o.m_min), m_max(o.m_max), m_grain(o.m_grain) {};
-    
-    BlockedRange(const tbb::blocked_range3d<int>& tbb_r) :
-        m_min(tbb_r.cols().begin()), m_max(tbb_r.cols().end()), m_grain(tbb_r.cols().grainsize()) {};
 
-    BlockedRange(const tbb::blocked_range<int>& tbb_r) :
+	BlockedRange(const size_t dims[], size_t grainsize) :
+		m_min(0), m_max(dims[0]), m_grain(grainsize) {}
+
+    BlockedRange(const tbb::blocked_range<size_t>& tbb_r) :
         m_min(tbb_r.begin()), m_max(tbb_r.end()), m_grain(tbb_r.grainsize()) {};
 
-    BlockedRange(const tbb::blocked_range<int>& tbb_r, BlockedRangeSizeType grain ) :
-        m_min(tbb_r.begin()), m_max(tbb_r.end()), m_grain(grain) {};
+    BlockedRange(const tbb::blocked_range<size_t>& tbb_r, BlockedRangeSizeType grain ) :
+        m_min(tbb_r.begin()), m_max(tbb_r.end()), m_grain(grain) {}
 
     BlockedRangeValueType begin() const { return m_min; };
     BlockedRangeValueType end()   const { return m_max; };
@@ -115,8 +112,8 @@ public:
     BlockedRange2d( const BlockedRange2d& o ) : 
         m_coord_split_first(o.m_coord_split_first), m_coord_split_second(o.m_coord_split_second) {};
     
-    BlockedRange2d(const tbb::blocked_range<int>&      tbb_coord_split_first, 
-                   const tbb::blocked_range<int>&      tbb_coord_split_second,
+    BlockedRange2d(const tbb::blocked_range<size_t>&      tbb_coord_split_first, 
+                   const tbb::blocked_range<size_t>&      tbb_coord_split_second,
                    BlockedRange::BlockedRangeSizeType  grain = 1 ) :
         m_coord_split_first(tbb_coord_split_first, 1), m_coord_split_second(tbb_coord_split_second, grain) {};
     
@@ -171,9 +168,9 @@ public:
         m_coord_split_second(o.m_coord_split_second), 
         m_coord_split_third(o.m_coord_split_third) {};
     
-    BlockedRange3d(const tbb::blocked_range<int>&      tbb_coord_split_first, 
-                   const tbb::blocked_range<int>&      tbb_coord_split_second,
-                   const tbb::blocked_range<int>&      tbb_coord_split_third,
+    BlockedRange3d(const tbb::blocked_range<size_t>&      tbb_coord_split_first, 
+                   const tbb::blocked_range<size_t>&      tbb_coord_split_second,
+                   const tbb::blocked_range<size_t>&      tbb_coord_split_third,
                    BlockedRange::BlockedRangeSizeType  grain = 1 ) :
         m_coord_split_first (tbb_coord_split_first,  1), 
         m_coord_split_second(tbb_coord_split_second, 1),
@@ -232,11 +229,11 @@ public:
                          BlockedRange::BlockedRangeSizeType  grain = 1 ) : 
         BlockedRange2d( min_rows, max_rows, min_cols, max_cols, grain ) {};
 
-    BlockedRangeByRow2d( const BlockedRangeByRow2d& o ) : BlockedRange2d( o ) {};
-    
-    BlockedRangeByRow2d(const tbb::blocked_range3d<int>& tbb_r) : 
-        BlockedRange2d( tbb_r.rows(), tbb_r.cols(), tbb_r.cols().grainsize() ) {};
-    
+    BlockedRangeByRow2d( const BlockedRangeByRow2d& o ) : BlockedRange2d( o ) {}
+
+	BlockedRangeByRow2d(const size_t dims[], size_t grainsize) :
+        BlockedRange2d( 0, dims[1], 0, dims[0], grainsize ) {}
+
     const BlockedRangeByRow1d& rows() const { return m_coord_split_first; };
     const BlockedRangeByRow1d& cols() const { return m_coord_split_second; };
 
@@ -261,8 +258,9 @@ public:
 
     BlockedRangeByRow3d( const BlockedRangeByRow3d& o ) : BlockedRange3d( o ) {};
     
-    BlockedRangeByRow3d(const tbb::blocked_range3d<int>& tbb_r) : 
-        BlockedRange3d( tbb_r.pages(), tbb_r.rows(), tbb_r.cols(), tbb_r.cols().grainsize() ) {};
+	BlockedRangeByRow3d(const size_t dims[], size_t grainsize) :
+        BlockedRange3d( 0, dims[2], 0, dims[1], 0, dims[0], grainsize ) {}
+
         
     const BlockedRangeByRow1d& pages() const { return m_coord_split_first; };
     const BlockedRangeByRow1d& rows()  const { return m_coord_split_second;  };
@@ -293,9 +291,9 @@ public:
 
     BlockedRangeByColumn2d( const BlockedRangeByColumn2d& o ) : BlockedRange2d( o ) {};
     
-    BlockedRangeByColumn2d(const tbb::blocked_range3d<int>& tbb_r) : 
-        BlockedRange2d( tbb_r.cols(), tbb_r.rows(), tbb_r.rows().grainsize() ) {};
-    
+	BlockedRangeByColumn2d(const size_t dims[], size_t grainsize) :
+        BlockedRange2d( 0, dims[0], 0, dims[1], grainsize ) {}
+
     const BlockedRangeByColumn1d& rows() const { return m_coord_split_second; };
     const BlockedRangeByColumn1d& cols() const { return m_coord_split_first; };
 
@@ -320,9 +318,12 @@ public:
 
     BlockedRangeByColumn3d( const BlockedRangeByColumn3d& o ) : BlockedRange3d( o ) {};
     
-    BlockedRangeByColumn3d(const tbb::blocked_range3d<int>& tbb_r) :
+    BlockedRangeByColumn3d(const tbb::blocked_range3d<size_t>& tbb_r) :
         BlockedRange3d( tbb_r.pages(), tbb_r.cols(), tbb_r.rows(), tbb_r.rows().grainsize() ) {};
-    
+
+	BlockedRangeByColumn3d(const size_t dims[], size_t grainsize) :
+        BlockedRange3d( 0, dims[2], 0, dims[0], 0, dims[1], grainsize ) {}
+
 
     const BlockedRangeByColumn1d& pages() const { return m_coord_split_first;  };
     const BlockedRangeByColumn1d& rows()  const { return m_coord_split_third;  };
@@ -354,9 +355,9 @@ public:
     BlockedRangeByTile2d( const BlockedRangeByTile2d& o ) : 
         m_rows(o.m_rows), m_cols(o.m_cols) {};
     
-    BlockedRangeByTile2d(const tbb::blocked_range3d<int>& tbb_r) :
-        m_rows(tbb_r.rows()), m_cols(tbb_r.cols()) {};
-    
+	BlockedRangeByTile2d(const size_t dims[], size_t grainsize) :
+        m_rows(0, dims[1], grainsize), m_cols(0, dims[0], grainsize) {};
+
     // if any is empty - the whole range is empty
     bool empty()                  const { return (m_rows.empty() || m_cols.empty()); };
     bool is_divisible()           const { return (m_rows.is_divisible() || m_cols.is_divisible()); };
@@ -403,9 +404,9 @@ public:
     BlockedRangeByTile3d( const BlockedRangeByTile3d& o ) : 
         m_pages(o.m_pages), m_rows(o.m_rows), m_cols(o.m_cols) {};
     
-    BlockedRangeByTile3d(const tbb::blocked_range3d<int>& tbb_r) :
-        m_pages(tbb_r.pages()), m_rows(tbb_r.rows()), m_cols(tbb_r.cols()) {};
-    
+	BlockedRangeByTile3d(const size_t dims[], size_t grainsize) :
+        m_pages(0, dims[2], grainsize), m_rows(0, dims[1], grainsize), m_cols(0, dims[0], grainsize) {};
+
     // if any is empty - the whole range is empty
     bool empty()                  const { return (m_pages.empty() || m_rows.empty() || m_cols.empty()); };
     bool is_divisible()           const { return (m_pages.is_divisible() || m_rows.is_divisible() || m_cols.is_divisible()); };
@@ -448,58 +449,56 @@ private:
 //
 //  Just wrapper above default TBB blocked range
 //
-class BlockedRangeByDefaultTBB1d : public tbb::blocked_range<int> 
+class BlockedRangeByDefaultTBB1d : public tbb::blocked_range<size_t>
 {
 public:
-    BlockedRangeByDefaultTBB1d() : tbb::blocked_range<int> () {};
+    BlockedRangeByDefaultTBB1d() : tbb::blocked_range<size_t> () {};
     
-    BlockedRangeByDefaultTBB1d( unsigned int left, 
-                                unsigned int right, 
+    BlockedRangeByDefaultTBB1d( size_t left, 
+                                size_t right, 
                                 size_t grain = 1 ) : 
-        tbb::blocked_range<int> ( left, right, grain ) {};
+        tbb::blocked_range<size_t> ( left, right, grain ) {};
 
     BlockedRangeByDefaultTBB1d( const BlockedRangeByDefaultTBB1d& o ) : 
-        tbb::blocked_range<int> ( o ) {};
+        tbb::blocked_range<size_t> ( o ) {};
     
-    BlockedRangeByDefaultTBB1d(const tbb::blocked_range3d<int>& tbb_r) :
-        tbb::blocked_range<int> ( tbb_r.cols() ) {};
+	BlockedRangeByDefaultTBB1d(const size_t dims[], size_t grainsize) :
+        tbb::blocked_range<size_t> ( 0, dims[0], grainsize ) {};
 
     // make me the right side of the range, update other to be the left side of the range
     BlockedRangeByDefaultTBB1d( BlockedRangeByDefaultTBB1d& o, tbb::split ) : 
-        tbb::blocked_range<int> ( o, tbb::split() ) {};
+        tbb::blocked_range<size_t> ( o, tbb::split() ) {};
 };
 
-class BlockedRangeByDefaultTBB2d : public tbb::blocked_range2d<int> 
+class BlockedRangeByDefaultTBB2d : public tbb::blocked_range2d<size_t> 
 {
 public:
-    BlockedRangeByDefaultTBB2d() : tbb::blocked_range2d<int> (0,0,0,0) {};
+    BlockedRangeByDefaultTBB2d() : tbb::blocked_range2d<size_t> (0,0,0,0) {};
     
     BlockedRangeByDefaultTBB2d( unsigned int min_rows, 
                                 unsigned int max_rows, 
                                 unsigned int min_cols, 
                                 unsigned int max_cols, 
                                 size_t grain = 1 ) : 
-        tbb::blocked_range2d<int> ( min_rows, max_rows, grain, min_cols, max_cols, grain ) {};
+        tbb::blocked_range2d<size_t> ( min_rows, max_rows, grain, min_cols, max_cols, grain ) {};
 
     BlockedRangeByDefaultTBB2d( const BlockedRangeByDefaultTBB2d& o ) : 
-        tbb::blocked_range2d<int> ( o ) {};
+        tbb::blocked_range2d<size_t> ( o ) {};
     
-    BlockedRangeByDefaultTBB2d(const tbb::blocked_range3d<int>& tbb_r) :
-        tbb::blocked_range2d<int> ( tbb_r.rows().begin(), tbb_r.rows().end(), tbb_r.rows().grainsize(),
-                                    tbb_r.cols().begin(), tbb_r.cols().end(), tbb_r.cols().grainsize()
-                                  ) {};
+	BlockedRangeByDefaultTBB2d(const size_t dims[], size_t grainsize) :
+        tbb::blocked_range2d<size_t> ( 0, dims[1], grainsize, 0, dims[0], grainsize ) {};
 
     BlockedRange::BlockedRangeSizeType  grainsize() const { return cols().grainsize(); };
 
     // make me the right side of the range, update other to be the left side of the range
     BlockedRangeByDefaultTBB2d( BlockedRangeByDefaultTBB2d& o, tbb::split ) : 
-        tbb::blocked_range2d<int> ( o, tbb::split() ) {};
+        tbb::blocked_range2d<size_t> ( o, tbb::split() ) {};
 };
 
-class BlockedRangeByDefaultTBB3d : public tbb::blocked_range3d<int> 
+class BlockedRangeByDefaultTBB3d : public tbb::blocked_range3d<size_t> 
 {
 public:
-    BlockedRangeByDefaultTBB3d() : tbb::blocked_range3d<int> (0,0,0,0,0,0) {};
+    BlockedRangeByDefaultTBB3d() : tbb::blocked_range3d<size_t> (0,0,0,0,0,0) {};
     
     BlockedRangeByDefaultTBB3d( unsigned int min_pages, 
                                 unsigned int max_pages, 
@@ -508,20 +507,97 @@ public:
                                 unsigned int min_cols, 
                                 unsigned int max_cols, 
                                 size_t grain = 1 ) : 
-        tbb::blocked_range3d<int> ( min_pages, max_pages, grain, min_rows, max_rows, grain, min_cols, max_cols, grain ) {};
+        tbb::blocked_range3d<size_t> ( min_pages, max_pages, grain, min_rows, max_rows, grain, min_cols, max_cols, grain ) {};
 
     BlockedRangeByDefaultTBB3d( const BlockedRangeByDefaultTBB3d& o ) : 
-        tbb::blocked_range3d<int> ( o ) {};
+        tbb::blocked_range3d<size_t> ( o ) {};
     
-    BlockedRangeByDefaultTBB3d(const tbb::blocked_range3d<int>& tbb_r) :
-        tbb::blocked_range3d<int> ( tbb_r ) {};
+	BlockedRangeByDefaultTBB3d(const size_t dims[], size_t grainsize) :
+        tbb::blocked_range3d<size_t> ( 0, dims[2], grainsize, 0, dims[1], grainsize, 0, dims[0], grainsize ) {};
 
     BlockedRange::BlockedRangeSizeType  grainsize() const { return cols().grainsize(); };
 
     // make me the right side of the range, update other to be the left side of the range
     BlockedRangeByDefaultTBB3d( BlockedRangeByDefaultTBB3d& o, tbb::split ) : 
-        tbb::blocked_range3d<int> ( o, tbb::split() ) {};
+        tbb::blocked_range3d<size_t> ( o, tbb::split() ) {};
 };
 
+
+//
+//  Just wrapper above uneven TBB blocked range
+//
+
+class BlockedRangeByUnevenTBB1d : public tbb::uneven::blocked_range<size_t>
+{
+public:
+    BlockedRangeByUnevenTBB1d() : tbb::uneven::blocked_range<size_t> () {};
+    
+    BlockedRangeByUnevenTBB1d( size_t left, 
+                                size_t right, 
+                                size_t grain = 1 ) : 
+        tbb::uneven::blocked_range<size_t> ( left, right, grain ) {};
+
+    BlockedRangeByUnevenTBB1d( const BlockedRangeByUnevenTBB1d& o ) : 
+        tbb::uneven::blocked_range<size_t> ( o ) {};
+
+    BlockedRangeByUnevenTBB1d(const size_t dims[], size_t grainsize) :
+        tbb::uneven::blocked_range<size_t> ( 0, dims[0], grainsize ) {};
+
+    // make me the right side of the range, update other to be the left side of the range
+    BlockedRangeByUnevenTBB1d( BlockedRangeByUnevenTBB1d& o, const tbb::uneven::split& s) : 
+        tbb::uneven::blocked_range<size_t> ( o, s ) {};
+};
+
+class BlockedRangeByUnevenTBB2d : public tbb::uneven::blocked_range2d<size_t> 
+{
+public:
+    BlockedRangeByUnevenTBB2d() : tbb::uneven::blocked_range2d<size_t> (0,0,0,0) {};
+    
+    BlockedRangeByUnevenTBB2d( size_t min_rows, 
+                                size_t max_rows, 
+                                size_t min_cols, 
+                                size_t max_cols, 
+                                size_t grain = 1 ) : 
+        tbb::uneven::blocked_range2d<size_t> ( min_rows, max_rows, grain, min_cols, max_cols, grain ) {};
+
+    BlockedRangeByUnevenTBB2d( const BlockedRangeByUnevenTBB2d& o ) : 
+        tbb::uneven::blocked_range2d<size_t> ( o ) {};
+    
+    BlockedRangeByUnevenTBB2d(const size_t dims[], size_t grainsize) :
+        tbb::uneven::blocked_range2d<size_t> ( 0, dims[1], grainsize, 0, dims[0], grainsize ) {};
+
+    BlockedRange::BlockedRangeSizeType  grainsize() const { return cols().grainsize(); };
+
+    // make me the right side of the range, update other to be the left side of the range
+    BlockedRangeByUnevenTBB2d( BlockedRangeByUnevenTBB2d& o, const tbb::uneven::split& s ) : 
+        tbb::uneven::blocked_range2d<size_t> ( o, s ) {};
+};
+
+class BlockedRangeByUnevenTBB3d : public tbb::uneven::blocked_range3d<size_t> 
+{
+public:
+    BlockedRangeByUnevenTBB3d() : tbb::uneven::blocked_range3d<size_t> (0,0,0,0,0,0) {};
+    
+    BlockedRangeByUnevenTBB3d( size_t min_pages, 
+                                size_t max_pages, 
+                                size_t min_rows, 
+                                size_t max_rows, 
+                                size_t min_cols, 
+                                size_t max_cols, 
+                                size_t grain = 1 ) : 
+        tbb::uneven::blocked_range3d<size_t> ( min_pages, max_pages, grain, min_rows, max_rows, grain, min_cols, max_cols, grain ) {};
+
+    BlockedRangeByUnevenTBB3d( const BlockedRangeByUnevenTBB3d& o ) : 
+        tbb::uneven::blocked_range3d<size_t> ( o ) {};
+    
+    BlockedRangeByUnevenTBB3d(const size_t dims[], size_t grainsize) :
+        tbb::uneven::blocked_range3d<size_t> (  0, dims[2], grainsize, 0, dims[1], grainsize, 0, dims[0], grainsize ) {};
+
+    BlockedRange::BlockedRangeSizeType  grainsize() const { return cols().grainsize(); };
+
+    // make me the right side of the range, update other to be the left side of the range
+    BlockedRangeByUnevenTBB3d( BlockedRangeByUnevenTBB3d& o, const tbb::uneven::split& s ) : 
+        tbb::uneven::blocked_range3d<size_t> ( o, s ) {};
+};
 }}}
 

@@ -181,6 +181,7 @@ typedef struct _cl_buffer_region {
 #define CL_VERSION_1_0                              1
 #define CL_VERSION_1_1                              1
 #define CL_VERSION_1_2                              1
+#define CL_VERSION_2_0                              1
 
 /* cl_bool */
 #define CL_FALSE                                    0
@@ -390,7 +391,7 @@ typedef struct _cl_buffer_region {
 #define CL_UNORM_INT24                              0x10DF
 
 /* cl_mem_object_type */
-#define CL_MEM_OBJECT_BUFFER                        0x10F0
+#define CL_MEM_OBJECT_BUFFER                        0x10F0	// we assume that image types have values greater than buffer and pipe
 #define CL_MEM_OBJECT_IMAGE2D                       0x10F1
 #define CL_MEM_OBJECT_IMAGE3D                       0x10F2
 #define CL_MEM_OBJECT_IMAGE2D_ARRAY                 0x10F3
@@ -1206,40 +1207,6 @@ clUnloadCompiler(void) CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED;
 extern CL_API_ENTRY CL_EXT_PREFIX__VERSION_1_1_DEPRECATED void * CL_API_CALL
 clGetExtensionFunctionAddress(const char * /* func_name */) CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED;
 
-//----------------------------------------------------------------------------
-//2.0 stuff PLACEHOLDER
-#define CL_sRGB										0x10BF
-#define CL_sRGBx									0x10C0
-#define CL_sRGBA									0x10C1
-#define CL_sBGRA									0x10C2
-#define CL_ABGR										0x10C3
-#define CL_QUEUE_ON_DEVICE                           ( 1 << 10 )
-#define CL_QUEUE_ON_DEVICE_DEFAULT                   ( 1 << 11 )
-
-//this will probably be new token not just rename from  CL_DEVICE_QUEUE_PROPERTIES         0x102A
-#define CL_DEVICE_QUEUE_ON_HOST_PROPERTIES                  0x102A
-
-#define CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES                0x200001
-#define CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE            0x200002
-#define CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE                  0x200003
-#define CL_DEVICE_MAX_ON_DEVICE_QUEUES                      0x200004
-#define CL_DEVICE_MAX_ON_DEVICE_EVENTS                      0x200005
-
-#define CL_QUEUE_SIZE                                       0x200006
-
-#define CL_API_SUFFIX__VERSION_2_0
-typedef intptr_t            cl_queue_properties;
-
-/* Command Queue APIs */
-extern CL_API_ENTRY cl_command_queue CL_API_CALL
-clCreateCommandQueueWithProperties( cl_context                     /* context */, 
-                                    cl_device_id                   /* device */, 
-                                    cl_queue_properties *          /* properties */,
-                                    cl_int *                       /* errcode_ret */) CL_API_SUFFIX__VERSION_2_0;
-
-
-//--------------------------------------------------------------------------
-//END OF 2.0 stuff placeholder 
 #ifdef __cplusplus
 }
 #endif

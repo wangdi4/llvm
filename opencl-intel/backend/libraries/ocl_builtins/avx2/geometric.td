@@ -51,4 +51,4 @@ OclBuiltinImpl cross_v4f64 = OclBuiltinImpl<cross, [v4f64], 0, [{
     res.s3 = 0;
 
     return res;
-}]>;
+  }]>;

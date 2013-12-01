@@ -8,8 +8,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __INSTTOFUNCCALL_H__
 #define __INSTTOFUNCCALL_H__
 #include <llvm/Pass.h>
-#include <llvm/Module.h>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <map>
 #include <iostream>
 
@@ -33,10 +33,6 @@ namespace intel{
             Type2ValueLookup FPToSI_Lookup;
             Type2ValueLookup UIToFP_Lookup;
             Type2ValueLookup SIToFP_Lookup;
-            Type2ValueLookup SDiv_Lookup;
-            Type2ValueLookup SRem_Lookup;
-            Type2ValueLookup UDiv_Lookup;
-            Type2ValueLookup URem_Lookup;
 
             /// Replaces:
             /// %conv = fptoui double %tmp2 to i64
@@ -135,42 +131,6 @@ namespace intel{
                 /// With:
                 /// %call_conv = call float @_Z13convert_floatm(i64 %tmp2) nounwind
                 UIToFP_Lookup[std::make_pair(Float,Integer64)] = std::make_pair("_Z13convert_floatm", CallingConv::C);
-
-                /// Replaces:
-                /// %div = sdiv <16 x i64> %x, %y
-                /// or
-                /// %div = sdiv <16 x i32> %x, %y
-                /// With:
-                /// __ocl_divide(x, y)
-                SDiv_Lookup[std::make_pair(v16xInteger64,v16xInteger64)] = std::make_pair("_Z12__ocl_divideDv16_lS_", CallingConv::C);
-                SDiv_Lookup[std::make_pair(v16xInteger32,v16xInteger32)] = std::make_pair("_Z12__ocl_divideDv16_iS_", CallingConv::C);
-
-                /// Replaces:
-                /// %div = udiv <16 x i64> %x, %y
-                /// or
-                /// %div = udiv <16 x i32> %x, %y
-                /// With:
-                /// __ocl_divide(x, y)
-                UDiv_Lookup[std::make_pair(v16xInteger64,v16xInteger64)] = std::make_pair("_Z12__ocl_divideDv16_mS_", CallingConv::C);
-                UDiv_Lookup[std::make_pair(v16xInteger32,v16xInteger32)] = std::make_pair("_Z12__ocl_divideDv16_jS_", CallingConv::C);
-
-                /// Replaces:
-                /// %rem = srem <16 x i64> %x, %y
-                /// or
-                /// %rem = srem <16 x i32> %x, %y
-                /// With:
-                /// __ocl_reminder(x, y)
-                SRem_Lookup[std::make_pair(v16xInteger64,v16xInteger64)] = std::make_pair("_Z14__ocl_reminderDv16_lS_", CallingConv::C);
-                SRem_Lookup[std::make_pair(v16xInteger32,v16xInteger32)] = std::make_pair("_Z14__ocl_reminderDv16_iS_", CallingConv::C);
-
-                /// Replaces:
-                /// %rem = urem <16 x i64> %x, %y
-                /// or
-                /// %rem = urem <16 x i32> %x, %y
-                /// With:
-                /// __ocl_reminder(x, y)
-                URem_Lookup[std::make_pair(v16xInteger64,v16xInteger64)] = std::make_pair("_Z14__ocl_reminderDv16_mS_", CallingConv::C);
-                URem_Lookup[std::make_pair(v16xInteger32,v16xInteger32)] = std::make_pair("_Z14__ocl_reminderDv16_jS_", CallingConv::C);
             }
 
 
@@ -178,10 +138,6 @@ namespace intel{
             m_Lookup[Instruction::SIToFP] = SIToFP_Lookup;
             m_Lookup[Instruction::FPToUI] = FPToUI_Lookup;
             m_Lookup[Instruction::FPToSI] = FPToSI_Lookup;
-            m_Lookup[Instruction::SDiv]   = SDiv_Lookup;
-            m_Lookup[Instruction::SRem]   = SRem_Lookup;
-            m_Lookup[Instruction::UDiv]   = UDiv_Lookup;
-            m_Lookup[Instruction::URem]   = URem_Lookup;
         }
 
         const LookupValue *operator [](const Instruction &inst) const {
@@ -221,10 +177,9 @@ namespace intel{
             Integer64 = 2,
             Float = 3,
             Double = 4,
-            v16xInteger32 = 5,
-            v16xInteger64 = 6,
-            v16xFloat = 7,
-            v16xDouble = 8
+            v16xInteger64 = 5,
+            v16xFloat = 6,
+            v16xDouble = 7
         };
         Opcode2T2VLookup m_Lookup;
 
@@ -253,13 +208,9 @@ namespace intel{
                     return v16xFloat;
                 if (et->isDoubleTy())
                     return v16xDouble;
-                if (IntegerType * it = dyn_cast<IntegerType>(et)) {
+                if (IntegerType * it = dyn_cast<IntegerType>(et))
                     if (it->getBitWidth() == 64)
                         return v16xInteger64;
-                    else if(it->getBitWidth() == 32)
-                        return v16xInteger32;
-                }
-
             }
 
             return Unknown;

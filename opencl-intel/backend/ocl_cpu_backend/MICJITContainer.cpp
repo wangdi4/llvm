@@ -42,6 +42,50 @@ const void* MICJITContainer::GetJITCode() const
     return pModuleJIT + kernelEntryPoint;
 }
 
+int MICJITContainer::GetLineNumber(void* pointer) const
+{
+    // Pointers are guaranteed to fit in 'unsigned long long'.
+    unsigned long long address = (unsigned long long)pointer;
+    unsigned long long kernelAddress = (unsigned long long)GetJITCode();
+    if (address < kernelAddress || address > kernelAddress + GetJITCodeSize())
+    {
+        // This doesn't point to an instruction in this kernel.
+        return -1;
+    }
+
+    int offset = address - kernelAddress;
+    const LineNumberTable& table =
+        *(m_pModuleJITHolder->GetKernelLineNumberTable(m_funcID));
+
+    // The table is arranged in the same form as VTune expects; so the following:
+    //
+    //    Offset LineNumber
+    //     1       2
+    //     12      4
+    //     15      2
+    //     18      1
+    //     21      30
+    //
+    // Is understood as:
+    //
+    //    Code subrange  Line number
+    //     0-1             2
+    //     1-12            4
+    //     12-15           2
+    //     15-18           1
+    //     18-21           30
+    //
+    // That means that we always pair the *last* offset to the line number,
+    // hence the '<=' condition below.
+
+    for (LineNumberTable::const_iterator iter = table.begin(), end = table.end();
+        iter != end; iter++)
+    {
+        if (offset <= iter->offset) return iter->offset;
+    }
+    return -1;
+}
+
 MICJITContainer::~MICJITContainer()
 {
     delete m_pProps;

@@ -26,8 +26,6 @@
 #include "omp_executor.h"
 
 //OMP parameters
-#define OMP_SCHED "guided"
-#define KMP_AFFINITY "granularity=fine,scatter"
 //#define OMP_MULTI_ITERATIONS_PER_THREAD 
 
 #include <cassert>
@@ -40,12 +38,14 @@
 #include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::Utils;
+using namespace Intel::OpenCL::TaskExecutor;
 
 #if !VECTOR_RESERVE
 #define VECTOR_RESERVE 16
 #endif
 
-bool Intel::OpenCL::TaskExecutor::OMP_TlsManager::m_object_exists = false;
+bool OMP_TlsManager::m_object_exists = false;
+THREAD_LOCAL OMP_PerActiveThreadData* Intel::OpenCL::TaskExecutor::OMP_TlsManager::m_CurrentThreadGlobalID = NULL;
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
@@ -64,6 +64,7 @@ static void parallel_execute(	omp_command_list& cmdList,
 	
 	
 	OMPTaskExecutor& te = cmdList.GetTaskExecutor();
+	ITaskExecutorObserver* pObserver = (dynamic_cast< OMPTEDevice* >(cmdList.GetDevice().GetPtr()))->getObserver();
 #ifdef OMP_MULTI_ITERATIONS_PER_THREAD
 	//implementation of parralel for iterations as minimum between 1)#work groups and 2)#working threads
 	int totalIterations = 1;
@@ -80,126 +81,113 @@ static void parallel_execute(	omp_command_list& cmdList,
 	switch ( dims_size )
     {
         case 1:
-			#pragma omp parallel for 
-			for (unsigned int i = 0; i < workers; i++)
+			#pragma omp parallel
 			{
-				unsigned int firstIteration = i * (perWorkerBase + 1);
-				unsigned int lastIteration = firstIteration + perWorkerBase;
-				if (i >= workersWithExtraIndex) //current worker doesn't have 1 extra work group
+				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor(pObserver);
+				assert(tls);
+				assert(tls->user_tls);
+				void* user_local = task.AttachToThread(tls->user_tls, 1, NULL, NULL);
+				#pragma omp for 
+				for (unsigned int i = 0; i < workers; i++)
 				{
-					firstIteration -= i - workersWithExtraIndex; //fix first iteration due to lower indices workers without extra work group
-					lastIteration = firstIteration + perWorkerBase - 1; //now worker has one work group less to execute (no extra)
-				}
-				int numIterations = lastIteration - firstIteration + 1;
-
-				size_t GID1[1] = {firstIteration};
-				size_t GID2[1] = {lastIteration};
-
-				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor();
-				if (NULL == tls->user_tls)
-				{
-					tls->user_tls = cmdList.GetDevice()->getObserver()->OnThreadEntry();
-				}
-				void* user_local = task.AttachToThread(tls->user_tls, numIterations, GID1, GID2);
-				for (int j = firstIteration; j <= lastIteration; j++) //execute all worker work groups
-				{
-					task.ExecuteIteration(j, 0, 0, user_local); 
-				}
-			}
-			break;
-		
-		case 2:
-			#pragma omp parallel for 
-			for (unsigned int i = 0; i < workers; i++)
-			{
-				unsigned int firstIteration = i * (perWorkerBase + 1);
-				unsigned int lastIteration = firstIteration + perWorkerBase;
-				if (i >= workersWithExtraIndex)
-				{
-					firstIteration -= i - workersWithExtraIndex;
-					lastIteration = firstIteration + perWorkerBase - 1;
-				}
-				int numIterations = lastIteration - firstIteration + 1;
-
-				//transform iteration coordinates from 1d to 2d
-				unsigned int x1 = firstIteration % dims[0];
-				unsigned int y1 = firstIteration / dims[0];
-
-				unsigned int x2 = lastIteration % dims[0];
-				unsigned int y2 = lastIteration / dims[0];
-
-				size_t GID1[2] = {x1,y1};
-				size_t GID2[2] = {x2,y2};
-
-				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor();
-				if (NULL == tls->user_tls)
-				{
-					tls->user_tls = cmdList.GetDevice()->getObserver()->OnThreadEntry();
-				}
-				void* user_local = task.AttachToThread(tls->user_tls, numIterations, GID1, GID2);
-				for (int j = firstIteration; j <= lastIteration; j++)
-				{
-					x1++;
-					if (x1 == dims[0]) 
+					unsigned int firstIteration = i * (perWorkerBase + 1);
+					unsigned int lastIteration = firstIteration + perWorkerBase;
+					if (i >= workersWithExtraIndex) //current worker doesn't have 1 extra work group
 					{
-						y1++;
-						x1 = 0;
+						firstIteration -= i - workersWithExtraIndex; //fix first iteration due to lower indices workers without extra work group
+						lastIteration = firstIteration + perWorkerBase - 1; //now worker has one work group less to execute (no extra)
 					}
-					assert(y1 < dims[1]);
-					task.ExecuteIteration(x1, y1, 0, user_local); 
+					
+					for (int j = firstIteration; j <= lastIteration; j++) //execute all worker work groups
+					{
+						task.ExecuteIteration(j, 0, 0, user_local); 
+					}
 				}
+				task.DetachFromThread(user_local);
 			}
-			break;
+            break;
+
+		case 2:
+			#pragma omp parallel
+			{
+				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor(pObserver);
+				assert(tls);
+				assert(tls->user_tls);
+				void* user_local = task.AttachToThread(tls->user_tls, 1, NULL, NULL);
+				#pragma omp for 
+				for (unsigned int i = 0; i < workers; i++)
+				{
+					unsigned int firstIteration = i * (perWorkerBase + 1);
+					unsigned int lastIteration = firstIteration + perWorkerBase;
+					if (i >= workersWithExtraIndex)
+					{
+						firstIteration -= i - workersWithExtraIndex;
+						lastIteration = firstIteration + perWorkerBase - 1;
+					}
+
+					//transform iteration coordinates from 1d to 2d
+					unsigned int x1 = firstIteration % dims[0];
+					unsigned int y1 = firstIteration / dims[0];
+
+					for (int j = firstIteration; j <= lastIteration; j++)
+					{
+						x1++;
+						if (x1 == dims[0]) 
+						{
+							y1++;
+							x1 = 0;
+						}
+						assert(y1 < dims[1]);
+						task.ExecuteIteration(x1, y1, 0, user_local); 
+					}
+				}
+				task.DetachFromThread(user_local);
+			}
+            break;
 
 		case 3:
-			#pragma omp parallel for 
-			for (unsigned int i = 0; i < workers; i++)
+			#pragma omp parallel
 			{
-				unsigned int firstIteration = i * (perWorkerBase + 1);
-				unsigned int lastIteration = firstIteration + perWorkerBase;
-				if (i >= workersWithExtraIndex)
+				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor(pObserver);
+				assert(tls);
+				assert(tls->user_tls);
+				void* user_local = task.AttachToThread(tls->user_tls, 1, NULL, NULL);
+				#pragma omp for 
+				for (unsigned int i = 0; i < workers; i++)
 				{
-					firstIteration -= i - workersWithExtraIndex;
-					lastIteration = firstIteration + perWorkerBase - 1;
-				}
-				int numIterations = lastIteration - firstIteration + 1;
-				
-				//transform iteration coordinates from 1d to 3d
-				unsigned int x1 = firstIteration % dims[0];
-				unsigned int y1 = (firstIteration % dims[0]*dims[1]) / dims[0];
-				unsigned int z1 = firstIteration / (dims[0]*dims[1]);
-
-				unsigned int x2 = lastIteration % dims[0];
-				unsigned int y2 = (lastIteration % dims[0]*dims[1]) / dims[0];
-				unsigned int z2 = lastIteration / (dims[0]*dims[1]);
-
-				size_t GID1[3] = {x1,y1,z1};
-				size_t GID2[3] = {x2,y2,z2};
-
-				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor();
-				if (NULL == tls->user_tls)
-				{
-					tls->user_tls = cmdList.GetDevice()->getObserver()->OnThreadEntry();
-				}
-				void* user_local = task.AttachToThread(tls->user_tls, numIterations, GID1, GID2);
-				for (int j = firstIteration; j <= lastIteration; j++)
-				{
-					x1++;
-					if (x1 == dims[0]) 
+					unsigned int firstIteration = i * (perWorkerBase + 1);
+					unsigned int lastIteration = firstIteration + perWorkerBase;
+					if (i >= workersWithExtraIndex)
 					{
-						x1 = 0;
-						y1++;
-						if (y1 == dims[1])
-						{
-							y1 = 0;
-							z1++;
-						}
+						firstIteration -= i - workersWithExtraIndex;
+						lastIteration = firstIteration + perWorkerBase - 1;
 					}
-					assert(z1 < dims[2]);
-					task.ExecuteIteration(x1, y1, z1, user_local); 
+					
+					//transform iteration coordinates from 1d to 3d
+					unsigned int x1 = firstIteration % dims[0];
+					unsigned int y1 = (firstIteration % dims[0]*dims[1]) / dims[0];
+					unsigned int z1 = firstIteration / (dims[0]*dims[1]);
+
+					for (int j = firstIteration; j <= lastIteration; j++)
+					{
+						x1++;
+						if (x1 == dims[0]) 
+						{
+							x1 = 0;
+							y1++;
+							if (y1 == dims[1])
+							{
+								y1 = 0;
+								z1++;
+							}
+						}
+						assert(z1 < dims[2]);
+						task.ExecuteIteration(x1, y1, z1, user_local); 
+					}
 				}
+				task.DetachFromThread(user_local);
 			}
-			break;
+            break;
         default:
             assert( (dims_size != 0) && (dims_size <= MAX_WORK_DIM) );
 			break;
@@ -209,53 +197,56 @@ static void parallel_execute(	omp_command_list& cmdList,
 	switch ( dims_size )
     {
         case 1:
-			#pragma omp parallel for 
-            for (unsigned int i=0; i<dims[0]; i++)
+			#pragma omp parallel
 			{
-				unsigned int x = i;
-				size_t GID1[1] = {x};
-				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor();
-				if (NULL == tls->user_tls)
+				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor(pObserver);
+				assert(tls);
+				assert(tls->user_tls);
+				void* user_local = task.AttachToThread(tls->user_tls, 1, NULL, NULL);
+				#pragma omp for 
+				for (unsigned int i = 0; i < dims[0]; i++)
 				{
-					tls->user_tls = cmdList.GetDevice()->getObserver()->OnThreadEntry();
+					unsigned int x = i;
+					task.ExecuteIteration(x, 0, 0, user_local); 
 				}
-				void* user_local = task.AttachToThread(tls->user_tls, 1, GID1, GID1);
-				task.ExecuteIteration(x, 0, 0, user_local); 
+				task.DetachFromThread(user_local);
 			}
             break;
 
         case 2:
-			#pragma omp parallel for 
-            for (unsigned int i=0; i<dims[0]*dims[1]; i++)
+			#pragma omp parallel 
 			{
-				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor();
-				if (NULL == tls->user_tls)
+				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor(pObserver);
+				assert(tls);
+				assert(tls->user_tls);
+				void* user_local = task.AttachToThread(tls->user_tls, 1, NULL, NULL);
+				#pragma omp for 
+				for (unsigned int i=0; i<dims[0]*dims[1]; i++)
 				{
-					tls->user_tls = cmdList.GetDevice()->getObserver()->OnThreadEntry();
+					unsigned int x = i % dims[0];
+					unsigned int y = i / dims[0];
+					task.ExecuteIteration(x, y, 0, user_local); 
 				}
-				unsigned int x = i % dims[0];
-				unsigned int y = i / dims[0];
-				size_t GID2[2] = {x,y};
-				void* user_local = task.AttachToThread(tls->user_tls, 1, GID2, GID2);
-				task.ExecuteIteration(x, y, 0, user_local); 
+				task.DetachFromThread(user_local);
 			}
             break;
 
         case 3:
-			#pragma omp parallel for 
-			for (unsigned int i=0; i<dims[0]*dims[1]*dims[2]; i++)
+			#pragma omp parallel 
 			{
-				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor();
-				if (NULL == tls->user_tls)
+				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor(pObserver);
+				assert(tls);
+				assert(tls->user_tls);
+				void* user_local = task.AttachToThread(tls->user_tls, 1, NULL, NULL);
+				#pragma omp for 
+				for (unsigned int i=0; i<dims[0]*dims[1]*dims[2]; i++)
 				{
-					tls->user_tls = cmdList.GetDevice()->getObserver()->OnThreadEntry();
+					unsigned int x = i % dims[0];
+					unsigned int y = (i % dims[0]*dims[1]) / dims[0];
+					unsigned int z = i / (dims[0]*dims[1]);
+					task.ExecuteIteration(x, y, z, user_local); 
 				}
-				unsigned int x = i % dims[0];
-				unsigned int y = (i % dims[0]*dims[1]) / dims[0];
-				unsigned int z = i / (dims[0]*dims[1]);
-				size_t GID3[3] = {x,y,z};
-				void* user_local = task.AttachToThread(tls->user_tls, 1, GID3, GID3);
-				task.ExecuteIteration(x, y, z, user_local); 
+				task.DetachFromThread(user_local);
 			}
             break;
         default:
@@ -268,11 +259,10 @@ static void parallel_execute(	omp_command_list& cmdList,
 static bool execute_command(const SharedPtr<ITaskBase>& pCmd, omp_command_list& cmdList)
 {
 	bool runNextCommand = true;
-    ITaskBase* cmd = pCmd.GetPtr();
 
-	if ( cmd->IsTaskSet() )
+	if ( pCmd->IsTaskSet() )
 	{
-		ITaskSet* pTask = static_cast<ITaskSet*>(cmd);
+		ITaskSet* pTask = static_cast<ITaskSet*>(pCmd.GetPtr());
 		size_t dim[MAX_WORK_DIM];
 		unsigned int dimCount;
 		int res = pTask->Init(dim, dimCount);
@@ -291,11 +281,11 @@ static bool execute_command(const SharedPtr<ITaskBase>& pCmd, omp_command_list& 
 	}
 	else
 	{
-        ITask* pCmd = static_cast<ITask*>(cmd);
-		runNextCommand = pCmd->Execute();
+        ITask* pTask = static_cast<ITask*>(pCmd.GetPtr());
+		runNextCommand = pTask->Execute();
 	}
 
-	runNextCommand &= !cmd->CompleteAndCheckSyncPoint();
+	runNextCommand &= !pCmd->CompleteAndCheckSyncPoint();
 	return runNextCommand;
 }
 
@@ -304,30 +294,9 @@ static void Terminate()
     gOMPIsExiting = true;
 }
 
-
-void omp_executor_task::operator()()
-{    
-	assert(m_list);
-    assert(m_pTask);
-
-    execute_command(m_pTask, *m_list);
-}
-
-
 /////////////// TaskExecutor //////////////////////
 
 OMPTaskExecutor::OMPTaskExecutor()
-{
-#if _DEBUG
-    const int ret =
-#endif
-        atexit(Terminate);
-#if _DEBUG
-    assert(0 == ret);
-#endif
-}
-
-OMPTaskExecutor::~OMPTaskExecutor()
 {
 }
 
@@ -345,7 +314,7 @@ int	OMPTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 	
 	if (uiNumThreads == TE_AUTO_THREADS)
 	{
-		gOMPWorker_threads = Intel::OpenCL::Utils::GetNumberOfProcessors();
+		gOMPWorker_threads = GetNumberOfProcessors();
 	}
 	
 	InitialOMP();
@@ -355,9 +324,9 @@ int	OMPTaskExecutor::Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData)
 	return gOMPWorker_threads;
 }
 
-void OMPTaskExecutor::Finalize()
-{
-    gOMPWorker_threads = 0;
+void OMPTaskExecutor::Finalize() 
+{ 
+	gOMPWorker_threads = 0; 
 }
 
 SharedPtr<ITEDevice>
@@ -375,12 +344,13 @@ OMPTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, v
     // check params
     if (1 != device.uiNumOfLevels)
     {
+		assert(0 && "Currently Only one level device can create with OMP");
         return NULL;
     }
 	
     if ((device.uiThreadsPerLevel[0] == 0) || (device.uiThreadsPerLevel[0] > gOMPWorker_threads))
     {
-        assert( false && "Too many threads requested - above maximum configured" );
+        assert(0 && "Too many threads requested - above maximum configured" );
         return NULL;
     }
 
@@ -390,14 +360,9 @@ OMPTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, v
 	return root;
 }
 
-unsigned int OMPTaskExecutor::GetMaxNumOfConcurrentThreads() const
-{
-	return gOMPWorker_threads;
-}
-
-ocl_gpa_data* OMPTaskExecutor::GetGPAData() const
-{
-	return m_pGPAData;
+unsigned int OMPTaskExecutor::GetMaxNumOfConcurrentThreads() const 
+{ 
+	return gOMPWorker_threads; 
 }
 
 ITaskExecutor::DeviceHandleStruct OMPTaskExecutor::GetCurrentDevice() const
@@ -414,32 +379,21 @@ ITaskExecutor::DeviceHandleStruct OMPTaskExecutor::GetCurrentDevice() const
 	}
 }
 
-bool OMPTaskExecutor::IsMaster() const
-{
-	return (omp_get_thread_num() == 0) ? true : false;
-}
-
-unsigned int OMPTaskExecutor::GetPosition( unsigned int level ) const
-{
-	if (level != 0)
-	{
-		return TE_UNKNOWN;
-	}
-
-	return omp_get_thread_num();
-}
-
 void OMPTaskExecutor::InitialOMP()
 {
-	setenv("OMP_SCHEDULE", OMP_SCHED, 1);
-	 setenv("KMP_AFFINITY",KMP_AFFINITY, 1);
-    omp_set_num_threads(gOMPWorker_threads);
+	assert(gOMPWorker_threads > 0 && "gOMPWorker_threads must be greater than 0");
+	char numThreadsStr[sizeof(int) * 8 + 1] = {0};
+	int n = sprintf(numThreadsStr, "%d", gOMPWorker_threads);
+	assert(n > 0 && "sprintf(numThreadsStr, %d, gOMPWorker_threads) failed");
+    setenv("KMP_NUM_THREADS", numThreadsStr, 1);
 }
 
 
 /////////////// TlsManager //////////////////////
 
-OMP_TlsManager::OMP_TlsManager(): m_uiNumberOfStaticEntries(0),m_ThreadDataArray(NULL){}
+OMP_TlsManager::OMP_TlsManager() : m_uiNumberOfStaticEntries(0), m_ThreadDataArray(NULL)
+{
+}
 
 OMP_TlsManager::~OMP_TlsManager()
 {
@@ -470,9 +424,10 @@ bool OMP_TlsManager::Init( unsigned int uiNumberOfThreads )
 	return true;
 }
 
-OMP_PerActiveThreadData* OMP_TlsManager::RegisterCurrentThread()
+OMP_PerActiveThreadData* OMP_TlsManager::RegisterCurrentThread() const
 {
 	assert( m_object_exists );
+	OMP_PerActiveThreadData* tThreadData = NULL;
 	if (!m_object_exists)
 	{
 		return NULL;
@@ -481,77 +436,68 @@ OMP_PerActiveThreadData* OMP_TlsManager::RegisterCurrentThread()
 	unsigned int threadId = omp_get_thread_num();
 	if (threadId >= m_uiNumberOfStaticEntries)
 	{
-		return NULL;
+		tThreadData = new OMP_PerActiveThreadData;
+		if (NULL == tThreadData)
+		{
+			return NULL;
+		}
 	}
-	m_ThreadDataArray[threadId].reset();
-	return &(m_ThreadDataArray[threadId]);
-}
-
-void  OMP_TlsManager::UnregisterCurrentThread()
-{
-	assert( m_object_exists );
-    if (!m_object_exists)
-    {
-        return;
-    }
-	unsigned int threadId = omp_get_thread_num();
-	if (threadId >= m_uiNumberOfStaticEntries)
+	else
 	{
-		return;
+		tThreadData = &(m_ThreadDataArray[threadId]);
 	}
-	m_ThreadDataArray[threadId].reset();
+
+	m_CurrentThreadGlobalID = tThreadData;
+
+	return tThreadData;
 }
 
 OMP_PerActiveThreadData* OMP_TlsManager::GetCurrentThreadDescriptor() const
 {
-	unsigned int threadId = omp_get_thread_num();
-	if (threadId >= m_uiNumberOfStaticEntries)
-	{
-		return NULL;
-	}
-	return &(m_ThreadDataArray[threadId]);
+	return (m_CurrentThreadGlobalID) ? m_CurrentThreadGlobalID : RegisterCurrentThread();
 }
 
-OMP_PerActiveThreadData* OMP_TlsManager::RegisterAndGetCurrentThreadDescriptor()
+OMP_PerActiveThreadData* OMP_TlsManager::GetCurrentThreadDescriptor(ITaskExecutorObserver* pObserver) const
 {
-	OMP_PerActiveThreadData* d = GetCurrentThreadDescriptor();
-	return (NULL != d) ? d : RegisterCurrentThread();
+	assert(pObserver);
+	if (NULL == m_CurrentThreadGlobalID)
+	{
+		RegisterCurrentThread();
+		m_CurrentThreadGlobalID->user_tls = pObserver->OnThreadEntry();
+	}
+	else if (NULL == m_CurrentThreadGlobalID->user_tls)
+	{
+		m_CurrentThreadGlobalID->user_tls = pObserver->OnThreadEntry();
+	}
+
+	return m_CurrentThreadGlobalID; 
 }
 
 
 /////////////// TEDevice //////////////////////
 
-Intel::OpenCL::Utils::SharedPtr<ITaskList> OMPTEDevice::CreateTaskList(const CommandListCreationParam& param )
+OMPTEDevice::OMPTEDevice(const RootDeviceCreationParam device_desc, void* user_data, ITaskExecutorObserver* observer, OMPTaskExecutor& taskExecutor, const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& parent)
+: m_userData(user_data),m_observer(observer),m_taskExecutor(taskExecutor)
+{
+}
+
+SharedPtr<ITaskList> OMPTEDevice::CreateTaskList(const CommandListCreationParam& param )
 {
 	SharedPtr<ITaskList> pList = NULL;
+	// Support only TE_CMD_LIST_IMMEDIATE (which is the in order queue of MIC device)
+	assert(TE_CMD_LIST_IMMEDIATE == param.cmdListType && "OMPTEDevice::CreateTaskList support only TE_CMD_LIST_IMMEDIATE (which is the in order queue of MIC device)");
 	pList = omp_command_list::Allocate(m_taskExecutor, this, &param);
-	// TODO check whether list type fits
-	/* 
-    switch ( param.cmdListType )
-    {
-        case TE_CMD_LIST_IMMEDIATE:
-            pList = omp_command_list::Allocate(m_taskExecutor, this, &param);
-            break;
-
-        default:
-            assert( false && "Trying to create OMPTaskExecutor Command list which is not immediate");
-    }
-	*/
+	assert(pList && "omp_command_list::Allocate failed");
 	return pList;
 }
 
-bool OMPTEDevice::Execute(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask )
+omp_command_list::omp_command_list(OMPTaskExecutor& pOMPExec, const SharedPtr<OMPTEDevice>& device, const CommandListCreationParam* param) : m_pOMPExecutor(pOMPExec), m_pDevice(device)
 {
-	return false; //TODO local task list?
 }
 
-unsigned int omp_command_list::LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask )
+unsigned int omp_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
 {
-	assert(NULL != pTask);
-	assert(true == blocking);
-
-	omp_executor_task functor(this, *pTask);
-	functor();
+    execute_command(pTask, *this);
 	return 0;
 }
 

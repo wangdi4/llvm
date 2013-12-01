@@ -20,7 +20,6 @@
  */
 __kernel void init_half(__global half* input, int input_size)
 {
-	for(int i=0; i<input_size; ++i){
-		input[i]=0;		
-	}			
+	for(int i=0; i<input_size; ++i)
+		vstorea_half(0.0f, i, input);
 }

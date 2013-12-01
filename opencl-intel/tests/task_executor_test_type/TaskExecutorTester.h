@@ -111,6 +111,8 @@ public:
 
     virtual long Release() { return 0; }
 
+    virtual void Cancel() {}
+
     virtual int	Init(size_t region[], unsigned int& regCount)
     {
         for (unsigned int i = 0; i < m_uiNumDims; i++)
@@ -136,6 +138,8 @@ public:
         }
         return true;
     }
+
+	virtual Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
     
     // Optimize By

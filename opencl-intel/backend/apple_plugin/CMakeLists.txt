@@ -1,6 +1,6 @@
 set(TARGET_NAME x86_plugin)
 
-set(TARGET_SOURCE_FILES  
+set(TARGET_SOURCE_FILES
     x86_plugin.cpp
     x86_macho_link.cpp
     x86_archive.cpp
@@ -28,8 +28,8 @@ include_directories(
 
 # link_directories should be before add_library
 link_directories(
-	${OPENCL_LIBRARIES}/Libraries 
-	${OPENGL_LIBRARIES}/Libraries
+  ${OPENCL_LIBRARIES}/Libraries 
+  ${OPENGL_LIBRARIES}/Libraries
 )
 
 add_library(${TARGET_NAME} SHARED 
@@ -39,10 +39,14 @@ add_library(${TARGET_NAME} SHARED
 
 set (PASSES_LIBS
     # Backend passes
+    LLVMBarrier
+    LLVMVectorizer
     AddImplicitArgs
     BuiltInFuncImport
+    BuiltinLibInfo
     ClangCompatFixer
     InstToFuncCall
+    GenericAddressResolution
     LocalBuffers
     LocalBuffAnalysis
     ModuleCleanup
@@ -54,22 +58,30 @@ set (PASSES_LIBS
     ShuffleCallToInst
     UndefExternalFuncs
     KernelInfo
-    LLVMVectorizer
-    LLVMBarrier
+    LinearIdResolver
+    DetectFunctionPtrCalls
+    CloneBlockInvokeFuncToKernel
+    ResolveBlockToStaticCall
+    DetectRecursion
+    OclFunctionAttrs
     )
 
 target_link_libraries(${TARGET_NAME}
     OclOptimizer
-    name_mangle
-    metadataapi
-    OclBackendUtils
     "-framework Foundation"
     "-framework CoreFoundation"
     cl2module
   
     # Backend passes
     ${PASSES_LIBS}
-    
+
+    # Dependencies of the passes
+    LoopUtils
+    OclBackendUtils
+    reflection_module
+    name_mangle
+    metadataapi
+
     # LLVM libs
     LLVMContainer
     )

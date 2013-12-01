@@ -20,7 +20,7 @@ File Name:  WorkItemStorage.h
 #define LLI_WORK_ITEM_STORAGE_H
 
 #include <vector>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/DerivedTypes.h>
 #include "IWorkItemBuiltins.h"
 
 namespace Validation{

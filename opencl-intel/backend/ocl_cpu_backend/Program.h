@@ -25,6 +25,7 @@ File Name:  Program.h
 #include "cl_dev_backend_api.h"
 #include "cl_types.h"
 #include "ICLDevBackendProgram.h"
+#include "RuntimeService.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -151,10 +152,22 @@ public:
 
     bool GetDAZ() const;
 
+    /// get runtime service
+    RuntimeServiceSharedPtr GetRuntimeService() const{
+      return m_RuntimeService;
+    }
+
+    /// set runtime service
+    void SetRuntimeService(const RuntimeServiceSharedPtr& rs ) {
+      m_RuntimeService = rs;
+    }
+
 protected:
     BitCodeContainer* m_pCodeContainer;
     std::string       m_buildLog;
     std::auto_ptr<KernelSet> m_kernels;
+    /// Runtime service. Reference counted
+    RuntimeServiceSharedPtr m_RuntimeService;
 
 private:
     // Disable copy ctor and assignment operator

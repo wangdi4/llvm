@@ -26,14 +26,15 @@ File Name:  ocl_recorder.cpp
 #include "llvm/Support/MutexGuard.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Argument.h"
-#include "llvm/Function.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/Support/Path.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/DataLayout.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/DataLayout.h"
 #include "cl_device_api.h"
 #include "IBufferContainerList.h"
 #include "BinaryDataWriter.h"
@@ -265,7 +266,7 @@ namespace Validation
 
         image_aux_data * data = (image_aux_data *)pmem_obj->imageAuxData;
 
-        // see struct image_aux_data in \cl_api\cl_types.h, 
+        // see struct image_aux_data in \cl_api\cl_types.h,
         // array_size is set to -1 if it is not array
         bool isArray = (int(-1) != data->array_size);
 
@@ -381,6 +382,11 @@ namespace Validation
     const std::string RecorderContext::getByteCodeFileName() const
     {
         return getFileName(BINFILE_SUFFIX);
+    }
+
+    const std::string RecorderContext::getBaseName() const
+    {
+        return m_baseName;
     }
 
     const std::string RecorderContext::getConfigFilePath() const
@@ -611,22 +617,13 @@ namespace Validation
         context.Flush();
     }
 
-    static bool isDot(char c){
-      return '.' == c;
-    }
-
-    static std::string::iterator firstDot(const std::string& cs){
-      std::string& s = const_cast<std::string&>(cs);
-      return std::find_if(s.begin(), s.end(), isDot);
-    }
-
     class SameBase{
       std::string name;
     public:
-      SameBase(const std::string& s):name(s){}
+      SameBase(const std::string& s):name(s.substr(0, s.find_first_of('.'))){}
 
       bool operator()(const std::string& s)const{
-          return s.substr(0, firstDot(s)- s.begin()) == name.substr(0, firstDot(name)- name.begin());
+          return s.substr(0, s.find_first_of('.')) == name;
       }
     };
 
@@ -648,9 +645,9 @@ namespace Validation
         //we append a serial number to name of the file, so it would be unique
         std::string suf = dupNameSuffix(m_recordedFiles, strName);
         if( !suf.empty() )
-          strName.insert(firstDot(strName) - strName.begin(), suf);
+          strName.insert(strName.find_first_of('.'), suf);
         AddRecordedFile(strName);
-        strName.insert(0, m_prefix);
+        strName.insert(0, (context.getBaseName() + "."));
         llvm::sys::Path path(m_logsDir.c_str(), m_logsDir.size());
         path.appendComponent (strName.c_str());
         llvm::raw_fd_ostream clStream(path.c_str(), error);
@@ -911,10 +908,18 @@ namespace Validation
                 llvm::SmallString<MAX_LOG_PATH> logpath = (NULL == sz_logdir) ?
                   llvm::StringRef(llvm::sys::Path::GetCurrentDirectory().c_str()):
                   llvm::StringRef(llvm::sys::Path(sz_logdir).c_str());
-                std::string prefix = (NULL == sz_dumpprefix) ? std::string(Validation::FILE_PREFIX)
-                                                         : sz_dumpprefix;
+
+                char argv0[MAX_LOG_PATH];
+                size_t addr = 0;
+                llvm::SmallString<MAX_LOG_PATH> fileName;
+                fileName = llvm::sys::path::stem(llvm::sys::Path::GetMainExecutable(argv0, &addr).str());
+
+                std::string prefix = (NULL == sz_dumpprefix) ? std::string(Validation::FILE_PREFIX): sz_dumpprefix;
+
+                fileName = fileName.empty() ? prefix : std::string(fileName.c_str()) + "." + prefix;
+
                 llvm::sys::fs::make_absolute(logpath);
-                pOclRecorder = new OCLRecorder(std::string(logpath.c_str()), prefix);
+                pOclRecorder = new OCLRecorder(std::string(logpath.c_str()), fileName.str());
             }
             assignSourceRecorder();
             return pOclRecorder;

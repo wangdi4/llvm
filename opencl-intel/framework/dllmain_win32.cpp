@@ -10,9 +10,6 @@
     #pragma comment(lib, "task_executor32.lib")
 #endif
 
-
-extern char clFRAMEWORK_CFG_PATH[];
-
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -21,7 +18,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-#if _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
+#ifdef _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
         InitSharedPtrs();
 #endif
 		break;
@@ -31,7 +28,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_PROCESS_DETACH:
 		// release the framework proxy object 
 		Intel::OpenCL::Framework::FrameworkProxy::Destroy();
-#if _DEBUG
+#ifdef _DEBUG
         FiniSharedPts();
 #endif
 		break;

@@ -309,7 +309,7 @@ m_context_handle(context_handle)
                                 props,
                                 matchDevices,
                                 outDevices,
-                                NULL /*pfn_notify*/,
+                                pfn_notify,
                                 user_data,
                                 &errCode);
 
@@ -1725,6 +1725,140 @@ size_t GetImageElementSize(const cl_image_format *  format)
     }
     return stChannels*stChSize;
 }
+
+CrtPipe::CrtPipe(
+    const cl_uint               packetSize,
+    const cl_uint               maxPackets,
+    const cl_pipe_properties*   properties,
+    cl_mem_flags                flags,
+    CrtContext*                 ctx ):
+CrtMemObject(flags, NULL, ctx),
+m_packetSize(packetSize),
+m_maxPackets(maxPackets),
+m_properties(NULL)
+{
+    m_size = 0; // this will be initilized in CrtPipe::Create
+}
+
+cl_int CrtPipe::Create( CrtMemObject** memObj )
+{
+    cl_int                  errCode   = CL_SUCCESS;
+    size_t                  allocSize = 0;
+    cl_context              ctx       = NULL;
+    CrtMemDtorCallBackData* memData   = NULL;
+
+    CTX_MEM_MAP::iterator           ctx_mem_itr;
+    SHARED_CTX_DISPATCH::iterator   ctx_itr;
+
+    assert( NULL == m_pBstPtr && "Pipe already has backing store!" );
+
+    // Ask underlying context for the required size for the pipe
+    ctx = m_pContext->m_contexts.begin()->first;
+    // TODO: should we check the return value of this?
+    ( (SOCLEntryPointsTable*)ctx )->crtDispatch->clCreatePipeINTEL(
+                                                    ctx,
+                                                    m_flags,
+                                                    m_packetSize,
+                                                    m_maxPackets,
+                                                    m_properties,
+                                                    NULL,
+                                                    &allocSize,
+                                                    &errCode );
+
+    if( CL_SUCCESS != errCode )
+    {
+        goto FINISH;
+    }
+
+    assert( 0 != allocSize && "The required size for the pipe shouldn't be zero!" );
+    m_size = allocSize;
+
+    // Allocate needed memory
+    m_pBstPtr = ALIGNED_MALLOC( m_size, m_pContext->getAlignment( CrtObject::CL_BUFFER ) );
+
+    if( NULL == m_pBstPtr )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    *memObj = this;
+
+    // This is being deallocated in callback 'CrtMemDtorCallBack'
+    memData = new CrtMemDtorCallBackData;
+    if( NULL == memData )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    memData->m_count = 0;
+    memData->m_clMemHandle = this;
+
+    // After we allocated the pipe's buffer in CRT we call both underlying contexts clCreatePipeINTEL
+    // with the pointer to our allocated buffer
+    for( ctx_itr = m_pContext->m_contexts.begin();
+        ctx_itr != m_pContext->m_contexts.end();
+        ctx_itr++ )
+    {
+        ctx = ctx_itr->first;
+
+        cl_mem memObject = ( (SOCLEntryPointsTable*)ctx )->crtDispatch->clCreatePipeINTEL(
+                                                                        ctx,
+                                                                        m_flags,
+                                                                        m_packetSize,
+                                                                        m_maxPackets,
+                                                                        m_properties,
+                                                                        m_pBstPtr,
+                                                                        &allocSize,
+                                                                        &errCode );
+
+        if( CL_SUCCESS == errCode )
+        {
+            m_ContextToMemObj[ctx] = memObject;
+            m_numValidContextObjs++;
+        }
+        else if( CL_INVALID_PIPE_SIZE == errCode )
+        {
+            // there might be other device in the context that
+            // succeed to create the pipe
+            m_ContextToMemObj[ctx] = ( cl_mem )INVALID_MEMOBJ_SIZE;
+            continue;
+        }
+        else
+        {
+            goto FINISH;
+        }
+    }
+
+    ctx_mem_itr = m_ContextToMemObj.begin();
+    for ( ; ctx_mem_itr != m_ContextToMemObj.end(); ctx_mem_itr++ )
+    {
+        if( CL_TRUE == IsValidMemObjSize( ctx_mem_itr->second ) )
+        {
+            errCode = ctx_mem_itr->second->dispatch->clSetMemObjectDestructorCallback(
+                ctx_mem_itr->second,
+                CrtMemDestructorCallBack,
+                ( void* )memData );
+
+            if( CL_SUCCESS != errCode )
+            {
+                goto FINISH;
+            }
+            memData->m_count++;
+        }
+    }
+
+FINISH:
+    if( CL_SUCCESS != errCode )
+    {
+        if( memData->m_count == 0 )
+        {
+            delete memData;
+        }
+        Release();
+        *memObj = NULL;
+    }
+    return errCode;
+}
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -2060,7 +2194,6 @@ cl_int CrtSampler::Release()
     return errCode;
 }
 
-
 cl_int CrtContext::CreateSampler(
     cl_bool                 normalized_coords,
     cl_addressing_mode      addressing_mode,
@@ -2086,6 +2219,51 @@ cl_int CrtContext::CreateSampler(
             normalized_coords,
             addressing_mode,
             filter_mode,
+            &errCode );
+
+        if( CL_SUCCESS == errCode )
+        {
+            crtSampler->m_ContextToSampler[ctx] = sampObj;
+            crtSampler->m_contextCRT = this;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+FINISH:
+    if( ( CL_SUCCESS != errCode ) && crtSampler )
+    {
+        crtSampler->Release();
+        crtSampler->DecPendencyCnt();
+    }
+    *sampler = crtSampler;
+    return errCode;
+
+}
+
+cl_int CrtContext::clCreateSamplerWithProperties(
+    const cl_sampler_properties *sampler_properties,
+    CrtSampler                  **sampler)
+{
+    cl_int     errCode     = CL_SUCCESS;
+    CrtSampler *crtSampler = new CrtSampler;
+
+    if( !crtSampler )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
+    for( SHARED_CTX_DISPATCH::iterator itr = m_contexts.begin();
+        itr != m_contexts.end();
+        itr++ )
+    {
+        cl_context ctx = itr->first;
+        cl_sampler sampObj = ctx->dispatch->clCreateSamplerWithProperties(
+            ctx,
+            sampler_properties,
             &errCode );
 
         if( CL_SUCCESS == errCode )
@@ -2139,6 +2317,39 @@ cl_int CrtKernel::Release()
     }
     return errCode;
 }
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CrtContext::CreatePipe(
+    cl_mem_flags                flags,
+    cl_uint                     pipe_packet_size,
+    cl_uint                     pipe_max_packets,
+    const cl_pipe_properties *  properties,
+    CrtMemObject**              memObj)
+{
+    cl_int      errCode = CL_SUCCESS;
+    CrtPipe *   pipe    = NULL;
+
+    if( 0 == pipe_packet_size || 0 == pipe_max_packets )
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    pipe = new CrtPipe( pipe_packet_size, pipe_max_packets, properties, flags, this );
+    if( NULL == pipe )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    errCode = pipe->Create( memObj );
+    if( CL_SUCCESS != errCode )
+    {
+        pipe->Release();
+        pipe->DecPendencyCnt();
+    }
+    return errCode;
+}
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -2858,4 +3069,106 @@ cl_int CrtContext::CreateGLImage(
         image->DecPendencyCnt();
     }
     return errCode;
+}
+
+SVMFreeCallbackData::~SVMFreeCallbackData()
+{
+    if( m_SVMPointers )
+    {
+        delete[] m_SVMPointers;
+    }
+}
+
+bool SVMFreeCallbackData::CopySVMPointers(void** SVMPointers, cl_uint numSVMPointers)
+{
+    if( NULL != m_SVMPointers )
+    {
+        return false;
+    }
+
+    m_SVMPointers = new void*[ numSVMPointers ];
+    if( NULL == m_SVMPointers )
+    {
+        return false;
+    }
+    m_numSVMPointers = numSVMPointers;
+
+    memcpy_s( m_SVMPointers,
+        m_numSVMPointers * sizeof(void*),
+        SVMPointers,
+        numSVMPointers * sizeof(void*) );
+
+    return true;
+}
+
+void CL_CALLBACK SVMFreeCallbackFunction(cl_event event, cl_int status, void *myData)
+{
+    bool        haveSystemPointers  = false;
+
+    assert( CL_COMPLETE == status && "Callback called before event complete!!");
+    assert( myData != NULL && "Invalid data was passed to the callback");
+
+    SVMFreeCallbackData* clbkData = static_cast<SVMFreeCallbackData*>( myData );
+
+    CrtQueue* crtQueue = reinterpret_cast<CrtQueue*>( ( ( _cl_command_queue_crt* )clbkData->m_queue )->object );
+    assert( crtQueue != NULL && "Invalid queue was passed to the callback");
+
+    if( clbkData->m_isGpuQueue )
+    {
+        // Callback called from GPU; only delete SVM pointers from cache
+        for( cl_uint i = 0; i < clbkData->m_numSVMPointers; i++ )
+        {
+            crtQueue->m_contextCRT->m_svmPointers.remove( clbkData->m_SVMPointers[i] );
+        }
+    }
+    else
+    {
+        // Callback called from CPU
+
+        std::list<void *> * svmPointers = &( crtQueue->m_contextCRT->m_svmPointers );
+
+        // Free pointers that were returned by clSVMAlloc
+        for( cl_uint i = 0; i < clbkData->m_numSVMPointers; i++ )
+        {
+            if( svmPointers->end() != std::find( svmPointers->begin(), svmPointers->end(), clbkData->m_SVMPointers[i] ) )
+            {
+                clSVMFree( crtQueue->m_contextCRT->m_context_handle, clbkData->m_SVMPointers[i] );
+            }
+            else
+            {
+                // We have system pointers to free using user's original callback
+                haveSystemPointers = true;
+            }
+        }
+
+        if( NULL != clbkData->m_originalCallback )
+        {
+            // User provided free function to the original clEnqueueSVMFree call
+            clbkData->m_originalCallback(
+                clbkData->m_queue,
+                clbkData->m_numSVMPointers,
+                clbkData->m_SVMPointers,
+                clbkData->m_originalUserData );
+        }
+        else
+        {
+            // User didn't provide free function; Assume no system pointers here
+            assert( !haveSystemPointers && "System pointers were passed to callback without free function! This should have been checked before." );
+        }
+
+        // Mark the event which is returned to user as complete
+        clSetUserEventStatus( clbkData->m_svmFreeUserEvent->m_eventDEV, CL_COMPLETE );
+    }
+
+    // Release the marker that was created in clEnqueueSVMFree
+    clReleaseEvent( event );
+
+    // The event was not returned to user so we must release it here
+    if( clbkData->m_shouldReleaseEvent )
+    {
+        clbkData->m_svmFreeUserEvent->Release();
+        clbkData->m_svmFreeUserEvent->DecPendencyCnt();
+    }
+
+    delete clbkData;
 }

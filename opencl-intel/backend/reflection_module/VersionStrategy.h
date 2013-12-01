@@ -106,6 +106,13 @@ private:
   FuncName2TableRowLookup m_func2row;
 };
 
+////////////////////////////////////////////////////////////////////////////////
+// "Identity strategy", which returns the pair past as parameter.
+////////////////////////////////////////////////////////////////////////////////
+struct IdentityStrategy: VersionStrategy{
+  PairSW operator()(const PairSW&)const;
+};
+
 std::pair<std::string,width::V> fdToPair(const FunctionDescriptor&);
 std::pair<std::string,width::V> nullPair();
 bool isNullPair(const std::pair<std::string,width::V>&);

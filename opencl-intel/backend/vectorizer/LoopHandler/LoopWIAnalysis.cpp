@@ -5,11 +5,11 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "LoopWIAnalysis.h"
-#include "LoopUtils.h"
+#include "LoopUtils/LoopUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 
 
 namespace intel {
@@ -160,11 +160,7 @@ void LoopWIAnalysis::getHeaderPHiStride() {
       continue;
     
     // For vector values, this works only if the stride is a splat
-#if LLVM_VERSION >= 3425
     ConstantDataVector* vectorStride = dyn_cast<ConstantDataVector>(constStride);
-#else
-    ConstantVector* vectorStride = dyn_cast<ConstantVector>(constStride);
-#endif
 
     if (vectorStride) {
       constStride = vectorStride->getSplatValue();

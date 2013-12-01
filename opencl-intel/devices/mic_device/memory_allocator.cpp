@@ -34,11 +34,17 @@
 #include "device_service_communication.h"
 #include "mic_common_macros.h"
 #include "mic_sys_info.h"
+#include "command_list.h"
 
 #include <source/COIBuffer_source.h>
 #include <source/COIProcess_source.h>
 
 #include<stdlib.h>
+
+// ALERT!!!! DK!!! workaround until MPSS will be updated on all machines
+#ifndef COI_OPTIMIZE_NO_DMA
+    #define COI_OPTIMIZE_NO_DMA 0
+#endif
 
 #define KILOBYTE 1024
 #define MEGABYTE (1024*KILOBYTE)
@@ -110,7 +116,7 @@ void MemoryAllocator::Release( void )
 }
 
 MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, unsigned long long maxAllocSize ):
-    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_maxAllocSize(maxAllocSize)
+    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_maxAllocSize(maxAllocSize), m_no_dma_enabled(false)
 {
 	const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
     m_2M_BufferMinSize         = tMicConfig.Device_2MB_BufferMinSizeInKB() * KILOBYTE;
@@ -122,6 +128,7 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, un
     }
     
     m_force_immediate_transfer = !(tMicConfig.Device_LazyTransfer());
+    m_no_dma_enabled           = tMicConfig.Device_UseNoDma();
     
     if ( NULL != logDesc )
     {
@@ -136,7 +143,7 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, un
 
 MemoryAllocator::~MemoryAllocator()
 {
-    MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "MemoryAllocator Distructed");
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "MemoryAllocator Distracted");
 
     if (0 != m_iLogHandle)
     {
@@ -382,13 +389,23 @@ cl_dev_err_code MICDevMemoryObject::Init()
     uint32_t flags[2] = {0, 0}; 
     flags [ (m_Allocator.Use_2M_Pages(m_raw_size)) ? 0 : 1] = (m_Allocator.Use_2M_Pages_Enabled()) ? COI_OPTIMIZE_HUGE_PAGE_SIZE : 0;
 
-    COIRESULT coi_err;
+    //
+    // If user does not request memory usage on host assume the buffer will be mostly used as a temporary device-only buffer.
+    // This will not disable later mappings and buffer relocations to other devices but will perform mamory pinning on the host 
+    // by demand and not upfront.
+    //
+    uint32_t no_dma = 0;
+    if ((0 == ((CL_MEM_USE_HOST_PTR|CL_MEM_ALLOC_HOST_PTR) & m_memFlags)) && m_Allocator.Use_NoDma_Enabled())
+    {
+        no_dma = COI_OPTIMIZE_NO_DMA;
+    }
     
+    COIRESULT coi_err;
     for (unsigned int i = 0; i < ARRAY_ELEMENTS(flags); ++i)
     {
         coi_err = COIBufferCreateFromMemory(
                                 m_raw_size, COI_BUFFER_OPENCL, 
-								flags[i],
+								flags[i] | no_dma,
                                 m_objDescr.pData,
                                 m_buffActiveProcesses.size(), &(m_buffActiveProcesses[0]),
                                 &m_coi_buffer);
@@ -401,14 +418,14 @@ cl_dev_err_code MICDevMemoryObject::Init()
 
     if (COI_SUCCESS != coi_err)
     {
-        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "Memory Object COI buffer Allocation failed");
+        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "Memory Object COI buffer Allocation failed, error=%d", coi_err);
         return CL_DEV_OBJECT_ALLOC_FAIL;
     }
 
     m_coi_top_level_buffer        = m_coi_buffer;
     m_coi_top_level_buffer_offset = 0;
-	// Increment ref counter of this buffer.
-	incRefCounter();
+    // Increment ref counter of this buffer.
+    incRefCounter();
     return CL_DEV_SUCCESS;
 }
 
@@ -661,10 +678,12 @@ bool MICDevMemoryObject::MapBuffersMemoryPool::getBuffer(void* ptr, size_t size,
 {
 	map<void*, mem_obj_directive>::iterator iter;
 	OclAutoReader mutex(&m_multiReadSingleWriteMutex);
-	if (0 == m_addressToMemObj.size())
+
+    if (0 == m_addressToMemObj.size())
 	{
 		return false;
 	}
+
 	iter = m_addressToMemObj.lower_bound(ptr);
 	if (((m_addressToMemObj.end() == iter) && (m_addressToMemObj.size() > 0)) || (((size_t)(iter->first) > (size_t)ptr) && (m_addressToMemObj.begin() != iter)))
 	{
@@ -710,12 +729,18 @@ void MICDevMemoryObject::MapBuffersMemoryPool::removeBufferFromPool(MICDevMemory
 	pMicMemObj->decRefCounter();
 }
 
-void MICDevMemoryObject::MapBuffersMemoryPool::setBufferReady(MICDevMemoryObject* pMicMemObj)
+void MICDevMemoryObject::MapBuffersMemoryPool::setBufferReady(MICDevMemoryObject* pMicMemObj, CommandList* cur_queue)
 {
 	OclAutoWriter mutex(&m_multiReadSingleWriteMutex);
-	assert(m_addressToMemObj.end() != m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData));
 	map<void*, mem_obj_directive>::iterator iter = m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData);
-	iter->second.isReady = true;
+    if (iter != m_addressToMemObj.end())
+    {
+	    iter->second.isReady = true;
+    }
+    else
+    {        
+        assert( cur_queue->isCanceled() );
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -735,11 +760,11 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
     m_nodeId           = m_Parent.m_nodeId;
 
     m_pRTMemObjService = pBSService;
-	assert( NULL != m_pRTMemObjService);
+    assert( NULL != m_pRTMemObjService);
 
-	// Get backing store.
-	cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
-	assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
+    // Get backing store.
+    cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
+    assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
 
     if (!CL_DEV_SUCCEEDED(bsErr) || (NULL == m_pBackingStore))
     {
@@ -783,13 +808,13 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
 
     if (COI_SUCCESS != coi_err)
     {
-        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "Memory Object COI sub-buffer Allocation failed");
+        MicErrLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "Memory Object COI sub-buffer Allocation failed, error=%d", coi_err);
         return CL_DEV_OBJECT_ALLOC_FAIL;
     }
 
-	m_buffActiveProcesses = m_Parent.m_buffActiveProcesses;
-	// Increment ref counter of this buffer.
-	incRefCounter();
+    m_buffActiveProcesses = m_Parent.m_buffActiveProcesses;
+    // Increment ref counter of this buffer.
+    incRefCounter();
 
     return CL_DEV_SUCCESS;
 }

@@ -32,9 +32,11 @@
 #include "cl_logger.h"
 #include "GenericMemObj.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_shutdown.h"
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 //
 // Lock managent - reuse global generic mem-object lock
@@ -52,14 +54,14 @@ SharedPtr<OclEvent>  GenericMemObject::release_data_sharing_lock(DataCopyEventWr
 
     if (returned_event && returned_event->completionReq)
     {
-		assert(NULL != returned_event->ev && "If returned_event->completionReq == true than returned_event->ev cannot be NULL");
+        assert(NULL != returned_event->ev && "If returned_event->completionReq == true than returned_event->ev cannot be NULL");
         // no races here because pointer to the event was removed from Sharing Group before, 
         // so there is no way to get this pointer in more places
-	    returned_event->ev->SetEventState(EVENT_STATE_DONE);
+        returned_event->ev->SetEventState(EVENT_STATE_DONE);
         returned_event->ev = NULL;
     }
-	
-	return (NULL == returned_event) ? (SharedPtr<OclEvent>)NULL : (SharedPtr<OclEvent>)(returned_event->ev);
+    
+    return (NULL == returned_event) ? (SharedPtr<OclEvent>)NULL : (SharedPtr<OclEvent>)(returned_event->ev);
 }
 
 class GenericMemObject::DataSharingAutoLock{
@@ -83,7 +85,7 @@ private:
 void GenericMemObject::drive_copy_between_groups( DataCopyState starting_state, 
                                                   unsigned int  from_grp_id,
                                                   unsigned int  to_grp_id,
-												  DataCopyEventWrapper* returned_event)
+                                                  DataCopyEventWrapper* returned_event)
 {
     cl_dev_err_code dev_error = CL_DEV_SUCCESS;
     bool            need_event_allocation = false;
@@ -98,10 +100,10 @@ void GenericMemObject::drive_copy_between_groups( DataCopyState starting_state,
         case DATA_COPY_STATE_TO_BS:
             {          
                 assert( MAX_DEVICE_SHARING_GROUP_ID > from_grp_id );
-				if (MAX_DEVICE_SHARING_GROUP_ID <= from_grp_id)
-				{
-					return;
-				}
+                if (MAX_DEVICE_SHARING_GROUP_ID <= from_grp_id)
+                {
+                    return;
+                }
                 SharingGroup& from = m_sharing_groups[ from_grp_id ];
 
                 dev_error = from.m_dev_mem_obj->clDevMemObjUpdateBackingStore( (void*)to_grp_id, &update_mode );
@@ -187,7 +189,7 @@ void GenericMemObject::drive_copy_between_groups( DataCopyState starting_state,
     {
         // allocate event
         assert( NULL == to.m_data_copy_in_process_event );
-		to.m_data_copy_in_process_event = DataCopyEvent::Allocate(GetParentHandle());
+        to.m_data_copy_in_process_event = DataCopyEvent::Allocate(GetParentHandle());
         
         assert( NULL != to.m_data_copy_in_process_event );
         if (NULL == to.m_data_copy_in_process_event)
@@ -198,19 +200,19 @@ void GenericMemObject::drive_copy_between_groups( DataCopyState starting_state,
     }
 
     if (returned_event)
-	{
-		returned_event->ev = to.m_data_copy_in_process_event;
+    {
+        returned_event->ev = to.m_data_copy_in_process_event;
 
-		if (need_event_completion && (NULL != returned_event->ev))
-		{
-			to.m_data_copy_in_process_event = NULL;
+        if (need_event_completion && (NULL != returned_event->ev))
+        {
+            to.m_data_copy_in_process_event = NULL;
         
-			// complete and release event cannot be done inside lock - need to do this after exit from lock
-			// problem - event should be set to NULL inside lock!
-			assert(false == returned_event->completionReq && "returned_event.completionReq should set to true only once");
-			returned_event->completionReq = true;
-		}
-	}
+            // complete and release event cannot be done inside lock - need to do this after exit from lock
+            // problem - event should be set to NULL inside lock!
+            assert(false == returned_event->completionReq && "returned_event.completionReq should set to true only once");
+            returned_event->completionReq = true;
+        }
+    }
 }
     
 //
@@ -218,7 +220,7 @@ void GenericMemObject::drive_copy_between_groups( DataCopyState starting_state,
 //
 void GenericMemObject::data_sharing_bring_data_to_sharing_group( unsigned int group_id, 
                                                                  bool* data_transferred,
-																 DataCopyEventWrapper* returned_event)
+                                                                 DataCopyEventWrapper* returned_event)
 {
     *data_transferred = false;
     
@@ -227,11 +229,11 @@ void GenericMemObject::data_sharing_bring_data_to_sharing_group( unsigned int gr
     if (my_group.m_data_copy_in_process_event)
     {
         // data copy is in process
-		if (returned_event)
-		{
-			returned_event->ev = my_group.m_data_copy_in_process_event;
-		}
-		return;
+        if (returned_event)
+        {
+            returned_event->ev = my_group.m_data_copy_in_process_event;
+        }
+        return;
     }
 
     if (DATA_COPY_STATE_VALID == my_group.m_data_copy_state)
@@ -301,7 +303,7 @@ void GenericMemObject::data_sharing_bring_data_to_sharing_group( unsigned int gr
 void GenericMemObject::data_sharing_fsm_process( bool acquire,
                                                  unsigned int group_id, 
                                                  MemObjUsage access, 
-												 DataCopyEventWrapper* returned_event)
+                                                 DataCopyEventWrapper* returned_event)
 {
     assert( (access >= 0) && (access < MEMOBJ_USAGES_COUNT) && "Wrong MemObjUsage value" );
     
@@ -463,10 +465,10 @@ void GenericMemObject::data_sharing_fsm_process( bool acquire,
 
         default:
             assert( false && "Unknown Data Sharing FSM state" );
-			if (returned_event)
-			{
-				returned_event->ev = NULL;
-			}
+            if (returned_event)
+            {
+                returned_event->ev = NULL;
+            }
             return;
     }
 
@@ -491,8 +493,23 @@ void GenericMemObject::data_sharing_set_init_state( bool valid )
             continue;
         }
 
-        group.m_data_copy_state = valid ? DATA_COPY_STATE_VALID : DATA_COPY_STATE_INVALID;
-
+        if (valid)
+        {
+            group.m_data_copy_state = DATA_COPY_STATE_VALID;            
+        }
+        else
+        {
+// BUGBUG: COI BUG 
+//            cl_dev_err_code dev_error = group.m_dev_mem_obj->clDevMemObjInvalidateData();
+//            assert( CL_DEV_SUCCEEDED(dev_error) && "initial clDevMemObjInvalidateData() failed" );
+//            
+//            if (CL_DEV_FAILED(dev_error))
+//            {
+//                LOG_ERROR(TEXT("Device Object returned error 0x%X during initial invalidation"), dev_error);
+//            }                    
+            
+            group.m_data_copy_state = DATA_COPY_STATE_INVALID;
+        }
     }
 }
 
@@ -553,11 +570,11 @@ void GenericMemObject::ensure_single_data_copy( unsigned int group_id )
     }
 }
 
-bool GenericMemObject::getDeviceSharingGroupId(const ConstSharedPtr<FissionableDevice>& dev, unsigned int* pSharingGroupId)
+bool GenericMemObject::getDeviceSharingGroupId(const SharedPtr<FissionableDevice>& dev, unsigned int* pSharingGroupId)
 {
-	assert(NULL != dev && "LockOnDevice called without device" );
+    assert(NULL != dev && "LockOnDevice called without device" );
 
-	DeviceDescriptor* desc = get_device(dev);
+    DeviceDescriptor* desc = get_device(dev.GetPtr());
 
     if (NULL == desc)
     {
@@ -565,60 +582,60 @@ bool GenericMemObject::getDeviceSharingGroupId(const ConstSharedPtr<FissionableD
         return false;
     }
 
-	*pSharingGroupId = (unsigned int)desc->m_sharing_group_id;
-	return true;
+    *pSharingGroupId = (unsigned int)desc->m_sharing_group_id;
+    return true;
 }
 
 //
 // Interface implementation
 //
 
-cl_err_code GenericMemObject::LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent )
+cl_err_code GenericMemObject::LockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent )
 {
-	pOutEvent = NULL;
-	// The default value of *pOutActuallyUsage is usage.
-	*pOutActuallyUsage = usage;
-	if (m_active_groups_count <= 1)
+    pOutEvent = NULL;
+    // The default value of *pOutActuallyUsage is usage.
+    *pOutActuallyUsage = usage;
+    if (m_active_groups_count <= 1)
     {
         // single device memory object - nothing to do
         return CL_SUCCESS;
     }
 
-	unsigned int devSharingGroupId = 0;
-	bool ret = getDeviceSharingGroupId(dev, &devSharingGroupId);
-	if (false == ret)
-	{
-		return CL_INVALID_VALUE;
-	}
-	acquireBufferSyncLock();
-	if (MEMORY_MODE_OVERLAPPING == getHierarchicalMemoryMode())
-	{
-		*pOutActuallyUsage = READ_WRITE;
-	}
-	cl_err_code retCode = updateParent(devSharingGroupId, *pOutActuallyUsage, true, pOutEvent);
-	if (NULL == pOutEvent)
-	{
-		releaseBufferSyncLock();
-	}
-	return retCode;
+    unsigned int devSharingGroupId = 0;
+    bool ret = getDeviceSharingGroupId(dev, &devSharingGroupId);
+    if (false == ret)
+    {
+        return CL_INVALID_VALUE;
+    }
+    acquireBufferSyncLock();
+    if (MEMORY_MODE_OVERLAPPING == getHierarchicalMemoryMode())
+    {
+        *pOutActuallyUsage = READ_WRITE;
+    }
+    cl_err_code retCode = updateParent(devSharingGroupId, *pOutActuallyUsage, true, pOutEvent);
+    if (NULL == pOutEvent)
+    {
+        releaseBufferSyncLock();
+    }
+    return retCode;
 }
 
-cl_err_code GenericMemObject::UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage ) 
+cl_err_code GenericMemObject::UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage ) 
 { 
-	if (m_active_groups_count <= 1)
+    if (m_active_groups_count <= 1)
     {
         // single device memory object - nothing to do
         return CL_SUCCESS;
     }
 
-	unsigned int devSharingGroupId = 0;
-	bool ret = getDeviceSharingGroupId(dev, &devSharingGroupId);
-	if (false == ret)
-	{
-		return CL_INVALID_VALUE;
-	}
-	unLockOnDeviceInt(devSharingGroupId, usage);
-	return CL_SUCCESS;
+    unsigned int devSharingGroupId = 0;
+    bool ret = getDeviceSharingGroupId(dev, &devSharingGroupId);
+    if (false == ret)
+    {
+        return CL_INVALID_VALUE;
+    }
+    unLockOnDeviceInt(devSharingGroupId, usage);
+    return CL_SUCCESS;
 }
 
 // returns NULL if data is ready and locked on given device, 
@@ -628,10 +645,10 @@ SharedPtr<OclEvent> GenericMemObject::lockOnDeviceInt( IN unsigned int devSharin
 {
     DataCopyEventWrapper returned_event;
 
-	if (!alreadyLock)
-	{
-		acquire_data_sharing_lock();
-	}
+    if (!alreadyLock)
+    {
+        acquire_data_sharing_lock();
+    }
     data_sharing_fsm_process( true, devSharingGroupId, usage, &returned_event ); 
     return release_data_sharing_lock(&returned_event);
 }
@@ -674,448 +691,563 @@ void GenericMemObject::BackingStoreUpdateFinished( IN void* handle, cl_dev_err_c
 
 cl_err_code GenericMemObject::updateParent(unsigned int devSharingGroupId, MemObjUsage usage, bool isParent, SharedPtr<OclEvent>& pOutEvent)
 {
-	// Call to updateParentInt with NULL as dataCopyJointEvent and the initial pipeline stage - MOVE_UPDATE_CHILD_LIST_TO_PARENT_DEVICE
-	return updateParentInt(devSharingGroupId, usage, isParent, NULL, PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE, pOutEvent);
+    // Call to updateParentInt with NULL as dataCopyJointEvent and the initial pipeline stage - MOVE_UPDATE_CHILD_LIST_TO_PARENT_DEVICE
+    return updateParentInt(devSharingGroupId, usage, isParent, NULL, PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE, pOutEvent);
 }
 
 cl_err_code GenericMemObject::updateParentInt(unsigned int destDevSharingGroupId, MemObjUsage usage, bool isParent, SharedPtr<DataCopyJointEvent> dataCopyJointEvent, update_parent_stage stage, SharedPtr<OclEvent>& pOutEvent)
 {
-	unsigned int parentValidSharingGroupId = MAX_DEVICE_SHARING_GROUP_ID;
-	if (dataCopyJointEvent != NULL)
-	{
-		acquireBufferSyncLock();
-		parentValidSharingGroupId = dataCopyJointEvent->getParentValidSharingGroupID();
-	}
-	else
-	{
-		// If this is sub-buffer and there is no buffer in m_updateParentList than finished.
-		if ((false == isParent) && (false == getUpdateParentFlag()))
-		{
-			return CL_SUCCESS;
-		}
-	}
+    unsigned int parentValidSharingGroupId = MAX_DEVICE_SHARING_GROUP_ID;
+    if (dataCopyJointEvent != NULL)
+    {
+        acquireBufferSyncLock();
+        parentValidSharingGroupId = dataCopyJointEvent->getParentValidSharingGroupID();
+    }
+    else
+    {
+        // If this is sub-buffer and there is no buffer in m_updateParentList than finished.
+        if ((false == isParent) && (false == getUpdateParentFlag()) && (false == isZombie()))
+        {
+            return CL_SUCCESS;
+        }
+    }
 
-	TSubBufferList* pSubBuffersList = getSubBuffersListPtr();
-	TSubBufferList* pSubBuffersInUpdateProcessList = getSubBuffersInUpdateProcessListPtr();
-	vector< SharedPtr<OclEvent> >* pEventOfSubBufferInUpdateProcessList = getEventsOfSubBuffersInUpdateProcessListPtr();
+    TSubBufferList* pSubBuffersList = getSubBuffersListPtr();
+    TSubBufferList* pSubBuffersInUpdateProcessList = getSubBuffersInUpdateProcessListPtr();
+    vector< SharedPtr<OclEvent> >* pEventOfSubBufferInUpdateProcessList = getEventsOfSubBuffersInUpdateProcessListPtr();
 
-	// If parentValidSharingGroupId is not valid sharing group ID (only in initial call to updateParentInt)
-	if (MAX_DEVICE_SHARING_GROUP_ID == parentValidSharingGroupId)
-	{
-		if ((PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE == stage) && (NULL == dataCopyJointEvent))
-		{
-			unsigned int preferedSharingGroupId = (getParentValidSharingGroupId() == MAX_DEVICE_SHARING_GROUP_ID) ? destDevSharingGroupId : getParentValidSharingGroupId();
-			// Find sharing group that the parent device is valid, and lock the parent on it.
-			getParentMemObj().findValidDeviceAndLock(isParent ? READ_WRITE : READ_WRITE, preferedSharingGroupId, &parentValidSharingGroupId);
+    // If parentValidSharingGroupId is not valid sharing group ID (only in initial call to updateParentInt)
+    if (MAX_DEVICE_SHARING_GROUP_ID == parentValidSharingGroupId)
+    {
+        if ((PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE == stage) && (NULL == dataCopyJointEvent))
+        {
+            unsigned int tmp_parent_grp = getParentValidSharingGroupIdDuringUpdate();
+            unsigned int preferedSharingGroupId = (tmp_parent_grp == MAX_DEVICE_SHARING_GROUP_ID) ? destDevSharingGroupId : tmp_parent_grp;
+            SharedPtr<OclEvent> tEvent = NULL;
+            // Find sharing group that the parent device is valid, and lock the parent on it.
+            getParentMemObj().findValidDeviceAndLock(isParent ? READ_WRITE : READ_WRITE, preferedSharingGroupId, &parentValidSharingGroupId, tEvent);
 #ifdef _DEBUG
-			if ((MAX_DEVICE_SHARING_GROUP_ID != getParentValidSharingGroupId()) && (parentValidSharingGroupId != preferedSharingGroupId))
-			{
-				assert(0 && "In case that getParentValidSharingGroupId() is valid the lock of the parent must be on the same device");
-			}
+            if ((MAX_DEVICE_SHARING_GROUP_ID != tmp_parent_grp) && (parentValidSharingGroupId != preferedSharingGroupId))
+            {
+                assert(0 && "In case that getParentValidSharingGroupIdDuringUpdate() is valid the lock of the parent must be on the same device");
+            }
 #endif
-			setParentValidSharingGroupId(parentValidSharingGroupId);
-		}
+            setParentValidSharingGroupIdDuringUpdate(parentValidSharingGroupId);
+            if (NULL != tEvent)
+            {
+                releaseBufferSyncLock();
+                if (dataCopyJointEvent == NULL)
+                {
+                    dataCopyJointEvent = DataCopyJointEvent::Allocate(GetParentHandle(), destDevSharingGroupId, usage, isParent, this, parentValidSharingGroupId, pOutEvent);
+                    assert(NULL != dataCopyJointEvent && "Allocation of dataCopyJointEvent failed");
+                    if (NULL == dataCopyJointEvent)
+                    {
+                        return CL_OUT_OF_HOST_MEMORY;
+                    }
+                }
+                dataCopyJointEvent->setNextStageToExecute(PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE);
+                // dataCopyJointEvent depends on the event that return from 'lockOnDeviceInt()' call
+                dataCopyJointEvent->AddDependentOn(tEvent);
+                pOutEvent = dataCopyJointEvent;
+                return CL_SUCCESS;
+                }
+        }
 #ifdef _DEBUG
-		else
-		{
-			assert(0 && "Only the first stage in update parent pipe should be with MAX_DEVICE_SHARING_GROUP_ID == parentValidSharingGroupId");
-		}
+        else
+        {
+            assert(0 && "Only the first stage in update parent pipe should be with MAX_DEVICE_SHARING_GROUP_ID == parentValidSharingGroupId");
+        }
 #endif
-	}
+    }
 
-	// Snapshot vector for m_subBuffersList
-	TSubBufferList subBuffersListSnapshot;
+    // Snapshot vector for m_subBuffersList
+    TSubBufferList subBuffersListSnapshot;
 
-	switch (stage)
-	{
-	case PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE:
-	{
-		vector< SharedPtr<OclEvent> > updateChildEventList;
-		// If some buffers are / were in update process AND I called from event...
-		if ((pEventOfSubBufferInUpdateProcessList->size() > 0) && (NULL != dataCopyJointEvent))
-		{
-			updateChildEventList = dataCopyJointEvent->getUpdateChildEventList();
-			// Unlock from device buffer that their event in updateChildEventList.
-			vector< SharedPtr<OclEvent> >::iterator iter;
-			for (int i = updateChildEventList.size() - 1; i >= 0; i--)
-			{
-				iter = find(pEventOfSubBufferInUpdateProcessList->begin(), pEventOfSubBufferInUpdateProcessList->end(), updateChildEventList[i]);
-				if (pEventOfSubBufferInUpdateProcessList->end() != iter)
-				{
-					pEventOfSubBufferInUpdateProcessList->erase(iter);
-				}
-			}
-		}
+    switch (stage)
+    {
+    case PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE:
+    {
+        vector< SharedPtr<OclEvent> > updateChildEventList;
+        // If some buffers are / were in update process AND I called from event...
+        if ((pEventOfSubBufferInUpdateProcessList->size() > 0) && (NULL != dataCopyJointEvent))
+        {
+            updateChildEventList = dataCopyJointEvent->getUpdateChildEventList();
+            // Unlock from device buffer that their event in updateChildEventList.
+            vector< SharedPtr<OclEvent> >::iterator iter;
+            for (int i = updateChildEventList.size() - 1; i >= 0; i--)
+            {
+                iter = find(pEventOfSubBufferInUpdateProcessList->begin(), pEventOfSubBufferInUpdateProcessList->end(), updateChildEventList[i]);
+                if (pEventOfSubBufferInUpdateProcessList->end() != iter)
+                {
+                    pEventOfSubBufferInUpdateProcessList->erase(iter);
+                }
+            }
+        }
 
-		TSubBufferList* pUpdateParentList = getUpdateParentListPtr();
-		// Lock on parent device all the subBuffer in pUpdateParentList
-		for (unsigned int i = 0; i < pUpdateParentList->size(); i++)
-		{
-			// Because we update the previous command, LockOnDevice must be READ_WRITE. (READ_WRITE is a heaviest)
-			SharedPtr<OclEvent> tEvent = pUpdateParentList->at(i)->lockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
-			// if it is async operation add tEvent to m_eventOfSubBufferInUpdateProcessList
-			if (NULL != tEvent)
-			{
-				pEventOfSubBufferInUpdateProcessList->push_back(tEvent);
-			}
-			// add pUpdateParentList->at(i) to m_updateParentInProcessSubBufferList in order to unlock when all the updates will complete.
-			pSubBuffersInUpdateProcessList->push_back(pUpdateParentList->at(i));
-		}
-		// clear the parent update list
-		pUpdateParentList->clear();
-		bool hasZombieUpdate = (dataCopyJointEvent == NULL) ? false : dataCopyJointEvent->getHasZombieUpdate();
-		// Update the parent with the zombies
-		for (int i = pSubBuffersList->size() - 1; i >= 0; i--)
-		{
-			// if the subBuffer m_subBuffersList[i] is not use any more (released and all the related command completed), than update the parent with its content and remove it from m_subBuffersList.
-			// Actually the destructor of this subBuffer will call when the update fully complete.
-			if (1 == pSubBuffersList->at(i).GetRefCnt())
-			{
-				// Because we update the previous command, LockOnDevice must be READ_WRITE. (READ_WRITE is a heaviest)
-				SharedPtr<OclEvent> tEvent = pSubBuffersList->at(i)->lockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
-				// if it is async operation add tEvent to m_eventOfSubBufferInUpdateProcessList
-				if (NULL != tEvent) 
-				{
-					pEventOfSubBufferInUpdateProcessList->push_back(tEvent);
-				}
-				// add pSubBuffersList->at(i) to m_updateParentInProcessSubBufferList in order to unlock when all the updates will complete.
-				pSubBuffersInUpdateProcessList->push_back(pSubBuffersList->at(i));
-				// delete the buffer from pSubBuffersList (the destructor will call when the update will complete)
-				pSubBuffersList->erase(pSubBuffersList->begin() + i);
-				hasZombieUpdate = true;
-			}
-		}
-		// The update is still in process...
-		if (pEventOfSubBufferInUpdateProcessList->size() > 0)
-		{
-			// Must copy it because it can change after releaseBufferSyncLock()
-			vector< SharedPtr<OclEvent> > eventsListSnapshot = *pEventOfSubBufferInUpdateProcessList;
-			// We need to wait until all the events in pEventOfSubBufferInUpdateProcessList will notify.
-			releaseBufferSyncLock();
-			if (NULL == dataCopyJointEvent)
-			{
-				dataCopyJointEvent = DataCopyJointEvent::Allocate(GetParentHandle(), destDevSharingGroupId, usage, isParent, this, parentValidSharingGroupId, pOutEvent);
-			}
-			assert(NULL != dataCopyJointEvent && "Allocation of dataCopyJointEvent failed");
-			if (NULL == dataCopyJointEvent)
-			{
-				return CL_OUT_OF_HOST_MEMORY;
-			}
-			dataCopyJointEvent->resetUpdateChildEventList();
-			dataCopyJointEvent->setUpdateChildEventList(eventsListSnapshot);
-			if (hasZombieUpdate)
-			{
-				dataCopyJointEvent->setHasZombieUpdate();
-			}
-			dataCopyJointEvent->setNextStageToExecute(PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE);
-			// dataCopyJointEvent depends on all the events that return from 'lockOnDeviceInt()' call
-			dataCopyJointEvent->AddDependentOnMulti(eventsListSnapshot.size(), &(eventsListSnapshot[0]));
-			pOutEvent = dataCopyJointEvent;
-			return CL_SUCCESS;
-		}
-		else
-		{
-			// The UPDATE process completed
-			// UnlockOnDevice all the subBuffers that updated the parent.
-			for (unsigned int i = 0; i < pSubBuffersInUpdateProcessList->size(); i++)
-			{
-				pSubBuffersInUpdateProcessList->at(i)->unLockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
-			}
-			// Update HierarchicalMemoryMode if needed (Do it by one thread only - the first one that reach here [by checking if pSubBuffersInUpdateProcessList->size() > 0])
-			if ((hasZombieUpdate) && (pSubBuffersInUpdateProcessList->size() > 0))
-			{
-				updateHierarchicalMemoryMode();
-			}
-			pSubBuffersInUpdateProcessList->clear();
-			setUpdateParentFlag(false);
-			// invaldiate parent valid sharing group ID that stored in parent object.
-			setParentValidSharingGroupId(MAX_DEVICE_SHARING_GROUP_ID);
-			if (false == isParent)
-			{
-				// If 'this' is sub-buffer mem object.
-				// Unlock parent
-				getParentMemObj().unLockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
-				// If dataCopyJointEvent is NULL than return NULL and the caller will call to LockOnDeviceInt of itself.
-				if (NULL == dataCopyJointEvent)
-				{
-					return CL_SUCCESS;
-				}
-				// We trigerred async operation (that already complete) --> we should lock the child buffer in destination device.
-				SharedPtr<OclEvent> tEvent = lockOnDeviceInt(destDevSharingGroupId, usage);
-				releaseBufferSyncLock();
-				if (NULL != tEvent)
-				{
-					dataCopyJointEvent->setNextStageToExecute(PARENT_STAGE_FINAL);
-					dataCopyJointEvent->AddDependentOn(tEvent);
-				}
-				else
-				{
-					dataCopyJointEvent->SetEventState(EVENT_STATE_DONE);
-				}
-				pOutEvent = dataCopyJointEvent;
-				return CL_SUCCESS;
-			}
-		}
-		// fall through
-	}
-	case PARENT_STAGE_MOVE_ALL_CHILDS_TO_PARENT_DEVICE:
-	{
-		assert(true == isParent && "Only parent can reach this stage");
-		// Lock on parent valid device all the sub-buffers
-		vector< SharedPtr<OclEvent> > eventsList;
-		for (unsigned int i = 0; i < pSubBuffersList->size(); i++)
-		{
-			subBuffersListSnapshot.push_back(pSubBuffersList->at(i));
-			SharedPtr<OclEvent> tEvent = pSubBuffersList->at(i)->lockOnDeviceInt(parentValidSharingGroupId, usage);
-			if (NULL != tEvent)
-			{
-				eventsList.push_back(tEvent);
-			}
-		}
-		// If at least one of the sub-buffers lock is async...
-		if (eventsList.size() > 0)
-		{
-			releaseBufferSyncLock();
-			if (dataCopyJointEvent == NULL)
-			{
-				dataCopyJointEvent = DataCopyJointEvent::Allocate(GetParentHandle(), destDevSharingGroupId, usage, isParent, this, parentValidSharingGroupId, pOutEvent);
-				assert(NULL != dataCopyJointEvent && "Allocation of dataCopyJointEvent failed");
-				if (NULL == dataCopyJointEvent)
-				{
-					return CL_OUT_OF_HOST_MEMORY;
-				}
-			}
-			dataCopyJointEvent->setParentChildList(subBuffersListSnapshot);
-			dataCopyJointEvent->setNextStageToExecute(PARENT_STAGE_MOVE_PARENT_TO_DESTINATION_DEVICE);
-			// dataCopyJointEvent depends on all the events that return from 'lockOnDeviceInt()' call
-			dataCopyJointEvent->AddDependentOnMulti(eventsList.size(), &(eventsList[0]));
-			pOutEvent = dataCopyJointEvent;
-			return CL_SUCCESS;
-		}
-		// fall through
-	}
-	case PARENT_STAGE_MOVE_PARENT_TO_DESTINATION_DEVICE:
-	{
-		assert(true == isParent && "Only parent can reach this stage");
-		// this == parent memory object.
-		if ((parentValidSharingGroupId != destDevSharingGroupId) || (READ_WRITE != usage))
-		{
-			unLockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
-			// Lock the parent on destination device.
-			SharedPtr<OclEvent> tEvent = lockOnDeviceInt(destDevSharingGroupId, usage);
-			if (NULL != tEvent)
-			{
-				releaseBufferSyncLock();
-				if (dataCopyJointEvent == NULL)
-				{
-					dataCopyJointEvent = DataCopyJointEvent::Allocate(GetParentHandle(), destDevSharingGroupId, usage, isParent, this, parentValidSharingGroupId, pOutEvent);
-					assert(NULL != dataCopyJointEvent && "Allocation of dataCopyJointEvent failed");
-					if (NULL == dataCopyJointEvent)
-					{
-						return CL_OUT_OF_HOST_MEMORY;
-					}
-					dataCopyJointEvent->setParentChildList(subBuffersListSnapshot);
-				}
-				dataCopyJointEvent->setNextStageToExecute(PARENT_STAGE_LOCK_CHILDS_ON_DESTINATION_DEVICE);
-				// dataCopyJointEvent depends on the event that return from 'lockOnDeviceInt()' call
-				dataCopyJointEvent->AddDependentOn(tEvent);
-				pOutEvent = dataCopyJointEvent;
-				return CL_SUCCESS;
-			}
-		}
-		// fall through
-	}
-	case PARENT_STAGE_LOCK_CHILDS_ON_DESTINATION_DEVICE:
-	{
-		assert(true == isParent && "Only parent can reach this stage");
-		// this == parent memory object.
-		if (parentValidSharingGroupId != destDevSharingGroupId)
-		{
-			// Unlock all childs from 'parentValidSharingGroupId' device and lock on 'destDevSharingGroupId' (the new location of the parent).
-			if ((subBuffersListSnapshot.size() == 0) && (dataCopyJointEvent != NULL))
-			{
-				subBuffersListSnapshot = dataCopyJointEvent->getParentChildList();
-			}
-			vector< SharedPtr<OclEvent> > eventsList;
-			// for each sub-buffer Unlock from parentValidSharingGroupId and Lock on parent destination sharing group id
-			for (unsigned int i = 0; i < subBuffersListSnapshot.size(); i++)
-			{
-				subBuffersListSnapshot[i]->unLockOnDeviceInt(parentValidSharingGroupId, usage);
-				SharedPtr<OclEvent> tEvent = subBuffersListSnapshot[i]->lockOnDeviceInt(destDevSharingGroupId, usage);
-				if (NULL != tEvent)
-				{
-					eventsList.push_back(tEvent);
-				}
-			}
-			if (eventsList.size() > 0)
-			{
-				releaseBufferSyncLock();
-				if (dataCopyJointEvent == NULL)
-				{
-					dataCopyJointEvent = DataCopyJointEvent::Allocate(GetParentHandle(), destDevSharingGroupId, usage, isParent, this, parentValidSharingGroupId, pOutEvent);
-					assert(NULL != dataCopyJointEvent && "Allocation of dataCopyJointEvent failed");
-					if (NULL == dataCopyJointEvent)
-					{
-						return CL_OUT_OF_HOST_MEMORY;
-					}
-					dataCopyJointEvent->setParentChildList(subBuffersListSnapshot);
-				}
-				dataCopyJointEvent->setNextStageToExecute(PARENT_STAGE_UNLOCK_CHILDS_FROM_DESTINATION_DEVICE);
-				// dataCopyJointEvent depends on all the events that return from 'lockOnDeviceInt()' call
-				dataCopyJointEvent->AddDependentOnMulti(eventsList.size(), &(eventsList[0]));
-				pOutEvent = dataCopyJointEvent;
-				return CL_SUCCESS;
-			}
-		}
-		// fall through
-	}
-	case PARENT_STAGE_UNLOCK_CHILDS_FROM_DESTINATION_DEVICE:
-	{
-		assert(true == isParent && "Only parent can reach this stage");
-		// this == parent memory object.
-		// Unlock all childs from parent 'destDevSharingGroupId' device.
-		if ((subBuffersListSnapshot.size() == 0) && (dataCopyJointEvent != NULL))
-		{
-			subBuffersListSnapshot = dataCopyJointEvent->getParentChildList();
-		}
-		for (unsigned int i = 0; i < subBuffersListSnapshot.size(); i++)
-		{
-			subBuffersListSnapshot[i]->unLockOnDeviceInt(destDevSharingGroupId, usage);
-		}
-		// fall through
-	}
-	case PARENT_STAGE_FINAL:
-	{
-		// If one of the stages was async than notify the events that we return to command.
-		if (NULL != dataCopyJointEvent)
-		{
-			releaseBufferSyncLock();
-			dataCopyJointEvent->SetEventState(EVENT_STATE_DONE);
-		}
-		break;
-	}
-	default:
-		assert(0 && "Unrecognized stage");
-	}
+        TSubBufferList* pUpdateParentList = getUpdateParentListPtr();
+        // Lock on parent device all the subBuffer in pUpdateParentList
+        for (unsigned int i = 0; i < pUpdateParentList->size(); i++)
+        {
+            // Because we update the previous command, LockOnDevice must be READ_WRITE. (READ_WRITE is a heaviest)
+            SharedPtr<OclEvent> tEvent = pUpdateParentList->at(i)->lockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
+            // if it is async operation add tEvent to m_eventOfSubBufferInUpdateProcessList
+            if (NULL != tEvent)
+            {
+                pEventOfSubBufferInUpdateProcessList->push_back(tEvent);
+            }
+            // add pUpdateParentList->at(i) to m_updateParentInProcessSubBufferList in order to unlock when all the updates will complete.
+            pSubBuffersInUpdateProcessList->push_back(pUpdateParentList->at(i));
+        }
+        // clear the parent update list
+        pUpdateParentList->clear();
+        bool hasZombieUpdate = (dataCopyJointEvent == NULL) ? false : dataCopyJointEvent->getHasZombieUpdate();
+        // Update the parent with the zombies
+        for (int i = pSubBuffersList->size() - 1; i >= 0; i--)
+        {
+            // if the subBuffer m_subBuffersList[i] is not use any more (released and all the related command completed), than update the parent with its content and remove it from m_subBuffersList.
+            // Actually the destructor of this subBuffer will call when the update fully complete.
+            if (pSubBuffersList->at(i)->isZombie())
+            {
+                // Because we update the previous command, LockOnDevice must be READ_WRITE. (READ_WRITE is a heaviest)
+                SharedPtr<OclEvent> tEvent = pSubBuffersList->at(i)->lockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
+                // if it is async operation add tEvent to m_eventOfSubBufferInUpdateProcessList
+                if (NULL != tEvent) 
+                {
+                    pEventOfSubBufferInUpdateProcessList->push_back(tEvent);
+                }
+                // add pSubBuffersList->at(i) to m_updateParentInProcessSubBufferList in order to unlock when all the updates will complete.
+                pSubBuffersInUpdateProcessList->push_back(pSubBuffersList->at(i));
+                // delete the buffer from pSubBuffersList (the destructor will call when the update will complete)
+                pSubBuffersList->erase(pSubBuffersList->begin() + i);
+                hasZombieUpdate = true;
+            }
+        }
+        // The update is still in process...
+        if (pEventOfSubBufferInUpdateProcessList->size() > 0)
+        {
+            // Must copy it because it can change after releaseBufferSyncLock()
+            vector< SharedPtr<OclEvent> > eventsListSnapshot = *pEventOfSubBufferInUpdateProcessList;
+            // We need to wait until all the events in pEventOfSubBufferInUpdateProcessList will notify.
+            releaseBufferSyncLock();
+            if (NULL == dataCopyJointEvent)
+            {
+                dataCopyJointEvent = DataCopyJointEvent::Allocate(GetParentHandle(), destDevSharingGroupId, usage, isParent, this, parentValidSharingGroupId, pOutEvent);
+             }
+            assert(NULL != dataCopyJointEvent && "Allocation of dataCopyJointEvent failed");
+            if (NULL == dataCopyJointEvent)
+            {
+                return CL_OUT_OF_HOST_MEMORY;
+            }
+            dataCopyJointEvent->resetUpdateChildEventList();
+            dataCopyJointEvent->setUpdateChildEventList(eventsListSnapshot);
+            if (hasZombieUpdate)
+            {
+                dataCopyJointEvent->setHasZombieUpdate();
+            }
+            dataCopyJointEvent->setNextStageToExecute(PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE);
+            // dataCopyJointEvent depends on all the events that return from 'lockOnDeviceInt()' call
+            dataCopyJointEvent->AddDependentOnMulti(eventsListSnapshot.size(), &(eventsListSnapshot[0]));
+             pOutEvent = dataCopyJointEvent;
+            return CL_SUCCESS;
+        }
+        else
+        {
+            // The UPDATE process completed
+            // UnlockOnDevice all the subBuffers that updated the parent.
+            for (unsigned int i = 0; i < pSubBuffersInUpdateProcessList->size(); i++)
+            {
+                pSubBuffersInUpdateProcessList->at(i)->unLockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
+            }
+            // Update HierarchicalMemoryMode if needed (Do it by one thread only - the first one that reach here [by checking if pSubBuffersInUpdateProcessList->size() > 0])
+            bool doUpdateHierarchicalMemoryMode = ((hasZombieUpdate) && (pSubBuffersInUpdateProcessList->size() > 0));
+            size_t numOfSubBuffers = pSubBuffersList->size();
+            pSubBuffersInUpdateProcessList->clear();
+            if (doUpdateHierarchicalMemoryMode || (numOfSubBuffers != pSubBuffersList->size()))
+            {
+                updateHierarchicalMemoryMode();
+            }
+            if (NULL != dataCopyJointEvent)
+            {
+                dataCopyJointEvent->resetUpdateChildEventList();
+             }
+            setUpdateParentFlag(false);
+            // invaldiate parent valid sharing group ID that stored in parent object.
+            setParentValidSharingGroupIdDuringUpdate(MAX_DEVICE_SHARING_GROUP_ID);
+            if (false == isParent)
+            {
+                // If 'this' is sub-buffer mem object.
+                // Unlock parent
+                getParentMemObj().unLockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
+                // If dataCopyJointEvent is NULL than return NULL and the caller will call to LockOnDeviceInt of itself.
+                if (NULL == dataCopyJointEvent)
+                {
+                    return CL_SUCCESS;
+                }
+                // We trigerred async operation (that already complete) --> we should lock the child buffer in destination device.
+                SharedPtr<OclEvent> tEvent = lockOnDeviceInt(destDevSharingGroupId, usage);
+                releaseBufferSyncLock();
+                if (NULL != tEvent)
+                {
+                    dataCopyJointEvent->setNextStageToExecute(PARENT_STAGE_FINAL);
+                    dataCopyJointEvent->AddDependentOn(tEvent);
+                 }
+                else
+                {
+                    dataCopyJointEvent->SetEventState(EVENT_STATE_DONE); 
+                }
+                pOutEvent = dataCopyJointEvent;
+                return CL_SUCCESS;
+            }
+        }
+        // fall through
+    }
+    case PARENT_STAGE_MOVE_ALL_CHILDS_TO_PARENT_DEVICE:
+    {
+        assert(true == isParent && "Only parent can reach this stage");
+        // Lock on parent valid device all the sub-buffers
+        vector< SharedPtr<OclEvent> > eventsList;
+        for (unsigned int i = 0; i < pSubBuffersList->size(); i++)
+        {
+            subBuffersListSnapshot.push_back(pSubBuffersList->at(i));
+            SharedPtr<OclEvent> tEvent = pSubBuffersList->at(i)->lockOnDeviceInt(parentValidSharingGroupId, usage);
+            if (NULL != tEvent)
+            {
+                eventsList.push_back(tEvent);
+            }
+        }
+        // If at least one of the sub-buffers lock is async...
+        if (eventsList.size() > 0)
+        {
+            releaseBufferSyncLock();
+            if (dataCopyJointEvent == NULL)
+            {
+                dataCopyJointEvent = DataCopyJointEvent::Allocate(GetParentHandle(), destDevSharingGroupId, usage, isParent, this, parentValidSharingGroupId, pOutEvent);
+                assert(NULL != dataCopyJointEvent && "Allocation of dataCopyJointEvent failed");
+                if (NULL == dataCopyJointEvent)
+                {
+                    return CL_OUT_OF_HOST_MEMORY;
+                }
+            }
+            dataCopyJointEvent->setParentChildList(subBuffersListSnapshot);
+            dataCopyJointEvent->setNextStageToExecute(PARENT_STAGE_MOVE_PARENT_TO_DESTINATION_DEVICE);
+            // dataCopyJointEvent depends on all the events that return from 'lockOnDeviceInt()' call
+            dataCopyJointEvent->AddDependentOnMulti(eventsList.size(), &(eventsList[0]));
+            pOutEvent = dataCopyJointEvent;
+            return CL_SUCCESS;
+        }
+        // fall through
+    }
+    case PARENT_STAGE_MOVE_PARENT_TO_DESTINATION_DEVICE:
+    {
+        assert(true == isParent && "Only parent can reach this stage");
+        // this == parent memory object.
+        if ((parentValidSharingGroupId != destDevSharingGroupId) || (READ_WRITE != usage))
+        {
+            unLockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
+            // Lock the parent on destination device.
+            SharedPtr<OclEvent> tEvent = lockOnDeviceInt(destDevSharingGroupId, usage);
+            if (NULL != tEvent)
+            {
+                releaseBufferSyncLock();
+                if (dataCopyJointEvent == NULL)
+                {
+                    dataCopyJointEvent = DataCopyJointEvent::Allocate(GetParentHandle(), destDevSharingGroupId, usage, isParent, this, parentValidSharingGroupId, pOutEvent);
+                    assert(NULL != dataCopyJointEvent && "Allocation of dataCopyJointEvent failed");
+                    if (NULL == dataCopyJointEvent)
+                    {
+                        return CL_OUT_OF_HOST_MEMORY;
+                    }
+                    dataCopyJointEvent->setParentChildList(subBuffersListSnapshot);
+                }
+                dataCopyJointEvent->setNextStageToExecute(PARENT_STAGE_LOCK_CHILDS_ON_DESTINATION_DEVICE);
+                // dataCopyJointEvent depends on the event that return from 'lockOnDeviceInt()' call
+                dataCopyJointEvent->AddDependentOn(tEvent);
+                pOutEvent = dataCopyJointEvent;
+                return CL_SUCCESS;
+            }
+        }
+        // fall through
+    }
+    case PARENT_STAGE_LOCK_CHILDS_ON_DESTINATION_DEVICE:
+    {
+        assert(true == isParent && "Only parent can reach this stage");
+        // this == parent memory object.
+        if (parentValidSharingGroupId != destDevSharingGroupId)
+        {
+            // Unlock all childs from 'parentValidSharingGroupId' device and lock on 'destDevSharingGroupId' (the new location of the parent).
+            if ((subBuffersListSnapshot.size() == 0) && (dataCopyJointEvent != NULL))
+            {
+                subBuffersListSnapshot = dataCopyJointEvent->getParentChildList();
+            }
+            vector< SharedPtr<OclEvent> > eventsList;
+            // for each sub-buffer Unlock from parentValidSharingGroupId and Lock on parent destination sharing group id
+            for (unsigned int i = 0; i < subBuffersListSnapshot.size(); i++)
+            {
+                subBuffersListSnapshot[i]->unLockOnDeviceInt(parentValidSharingGroupId, usage);
+                SharedPtr<OclEvent> tEvent = subBuffersListSnapshot[i]->lockOnDeviceInt(destDevSharingGroupId, usage);
+                if (NULL != tEvent)
+                {
+                    eventsList.push_back(tEvent);
+                }
+            }
+            if (eventsList.size() > 0)
+            {
+                releaseBufferSyncLock();
+                if (dataCopyJointEvent == NULL)
+                {
+                    dataCopyJointEvent = DataCopyJointEvent::Allocate(GetParentHandle(), destDevSharingGroupId, usage, isParent, this, parentValidSharingGroupId, pOutEvent);
+                    assert(NULL != dataCopyJointEvent && "Allocation of dataCopyJointEvent failed");
+                    if (NULL == dataCopyJointEvent)
+                    {
+                        return CL_OUT_OF_HOST_MEMORY;
+                    }
+                    dataCopyJointEvent->setParentChildList(subBuffersListSnapshot);
+                }
+                dataCopyJointEvent->setNextStageToExecute(PARENT_STAGE_UNLOCK_CHILDS_FROM_DESTINATION_DEVICE);
+                // dataCopyJointEvent depends on all the events that return from 'lockOnDeviceInt()' call
+                dataCopyJointEvent->AddDependentOnMulti(eventsList.size(), &(eventsList[0]));
+                pOutEvent = dataCopyJointEvent;
+                return CL_SUCCESS;
+            }
+        }
+        // fall through
+    }
+    case PARENT_STAGE_UNLOCK_CHILDS_FROM_DESTINATION_DEVICE:
+    {
+        assert(true == isParent && "Only parent can reach this stage");
+        // this == parent memory object.
+        // Unlock all childs from parent 'destDevSharingGroupId' device.
+        if ((subBuffersListSnapshot.size() == 0) && (dataCopyJointEvent != NULL))
+        {
+            subBuffersListSnapshot = dataCopyJointEvent->getParentChildList();
+        }
+        for (unsigned int i = 0; i < subBuffersListSnapshot.size(); i++)
+        {
+            subBuffersListSnapshot[i]->unLockOnDeviceInt(destDevSharingGroupId, usage);
+        }
+        // fall through
+    }
+    case PARENT_STAGE_FINAL:
+    {
+        // If one of the stages was async than notify the events that we return to command.
+        if (NULL != dataCopyJointEvent)
+        {
+            releaseBufferSyncLock();
+            dataCopyJointEvent->SetEventState(EVENT_STATE_DONE);
+        }
+        break;
+    }
+    default:
+        assert(0 && "Unrecognized stage");
+    }
 
-	return CL_SUCCESS;
+    return CL_SUCCESS;
 }
 
-void GenericMemObject::findValidDeviceAndLock(MemObjUsage usage, unsigned int preferedDevice, unsigned int* pDeviceLocked)
+void GenericMemObject::findValidDeviceAndLock(MemObjUsage usage, unsigned int preferedDevice, unsigned int* pDeviceLocked, SharedPtr<OclEvent>& outEvent)
 {
-	acquire_data_sharing_lock();
-	unsigned int validId = MAX_DEVICE_SHARING_GROUP_ID;
-	for (unsigned int i = 0; i < MAX_DEVICE_SHARING_GROUP_ID; ++i)
+    acquire_data_sharing_lock();
+    unsigned int validId = MAX_DEVICE_SHARING_GROUP_ID;
+    for (unsigned int i = 0; i < MAX_DEVICE_SHARING_GROUP_ID; ++i)
     {
-		// if activate and valid
-        if ((m_sharing_groups[i].is_activated()) && (DATA_COPY_STATE_VALID == m_sharing_groups[i].m_data_copy_state))
-		{
-			// if the first device that valid
-			if (MAX_DEVICE_SHARING_GROUP_ID == validId)
-			{
-				validId = i;
-			}
-			// if current device is 'preferedDevice' than change validId to be the current device.
-			if (i == preferedDevice)
-			{
-				validId = i;
-				break;
-			}
-		}
+        // if activate and valid
+        if ((m_sharing_groups[i].is_activated()) && (! m_sharing_groups[i].is_data_copy_invalid()))
+        {
+            // if the first device that valid
+            if (MAX_DEVICE_SHARING_GROUP_ID == validId)
+            {
+                validId = i;
+            }
+            // if current device is 'preferedDevice' than change validId to be the current device.
+            if (i == preferedDevice)
+            {
+                validId = i;
+                break;
+            }
+        }
     }
-	// If didn't find valid device, than validId is preferedDevice
-	if (MAX_DEVICE_SHARING_GROUP_ID == validId)
-	{
-		validId = preferedDevice;
-	}
-	*pDeviceLocked = validId;
-	// Lock the buffer on sharing group validId
-	SharedPtr<OclEvent> tEvent = lockOnDeviceInt(validId, usage, true);
-	assert(NULL == tEvent && "findValidDeviceAndLock - lockOnDeviceInt must return NULL event because the memObject is already on the device or it invalid on all devices");
+    // If didn't find valid device, than validId is preferedDevice
+    if (MAX_DEVICE_SHARING_GROUP_ID == validId)
+    {
+        validId = preferedDevice;
+    }
+    *pDeviceLocked = validId;
+    // Lock the buffer on sharing group validId
+    outEvent = lockOnDeviceInt(validId, usage, true);
 }
 
 void GenericMemObject::unlockOnDeviceAndRemoveFromListInt(TSubBufferList* parentList, unsigned int parentValidSharingGroupId, GenericMemObjectSubBuffer* pMemObj)
 {
-	// It must unlock with READ_WRITE as the lock.
-	pMemObj->unLockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
-	SharedPtr<GenericMemObjectSubBuffer> tSharedPtrMemObj(pMemObj);
-	TSubBufferList::iterator it = find(parentList->begin(), parentList->end(), tSharedPtrMemObj);
-	if (it != parentList->end())
-	{
-		parentList->erase(it);
-	}
-	assert(find(parentList->begin(), parentList->end(), tSharedPtrMemObj) == parentList->end() && "Error probably more than one instance of the same MemObject exist in parentList");
+    // It must unlock with READ_WRITE as the lock.
+    pMemObj->unLockOnDeviceInt(parentValidSharingGroupId, READ_WRITE);
+    SharedPtr<GenericMemObjectSubBuffer> tSharedPtrMemObj(pMemObj);
+    TSubBufferList::iterator it = find(parentList->begin(), parentList->end(), tSharedPtrMemObj);
+    if (it != parentList->end())
+    {
+        parentList->erase(it);
+    }
+    assert(find(parentList->begin(), parentList->end(), tSharedPtrMemObj) == parentList->end() && "Error probably more than one instance of the same MemObject exist in parentList");
+}
+
+void GenericMemObject::addToUpdateList( TSubBufferList* parentList, GenericMemObjectSubBuffer* pMemObj)
+{
+    SharedPtr<GenericMemObjectSubBuffer> tSharedPtrGenericMemObj(pMemObj);
+    // If not exist...
+    if (find(parentList->begin(), parentList->end(), tSharedPtrGenericMemObj) == parentList->end())
+    {
+        parentList->push_back(pMemObj);
+        pMemObj->setUpdateParentFlag(true);
+    }
+}
+
+unsigned int GenericMemObject::getParentValidSharingGroupId() const
+{
+    GenericMemObject& parent = const_cast<GenericMemObject*>(this)->getParentMemObj();
+
+    // try to search across all groups
+    for (unsigned int i = 0; i < MAX_DEVICE_SHARING_GROUP_ID; ++i)
+    {
+        if (!parent.m_sharing_groups[i].is_activated())
+        {
+            continue;
+        }
+        
+        if (DATA_COPY_STATE_VALID == parent.m_sharing_groups[i].m_data_copy_state)
+        {
+            return i;
+        }
+    }
+
+    // get the first valid
+    for (unsigned int i = 0; i < MAX_DEVICE_SHARING_GROUP_ID; ++i)
+    {
+        if (!parent.m_sharing_groups[i].is_activated())
+        {
+            continue;
+        }
+        return i;
+    }
+
+    // nothing found ????
+    assert( false && "buffer without any device????" );
+    return MAX_DEVICE_SHARING_GROUP_ID;
 }
 
 
 ////////////////////////////////////////// GenericMemObjectSubBuffer ///////////////////////////////////////////
 
-cl_err_code GenericMemObjectSubBuffer::LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent )
+cl_err_code GenericMemObjectSubBuffer::LockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent )
 {
-	pOutEvent = NULL;
-	// SubBuffers always lock with MemObjUsage = usage
-	*pOutActuallyUsage = usage;
-	if (m_active_groups_count <= 1)
+    pOutEvent = NULL;
+    // SubBuffers always lock with MemObjUsage = usage
+    *pOutActuallyUsage = usage;
+    if (m_active_groups_count <= 1)
     {
         // single device memory object - nothing to do
         return CL_SUCCESS;
     }
-	unsigned int devSharingGroupId = 0;
-	bool ret = getDeviceSharingGroupId(dev, &devSharingGroupId);
-	if (false == ret)
-	{
-		return CL_INVALID_VALUE;
-	}
-	// Call to update parent first
-	SharedPtr<OclEvent> retEvent = NULL;
-	acquireBufferSyncLock();
-	cl_err_code errCode = updateParent(devSharingGroupId, usage, false, retEvent);
-	// If retEvent is NULL it means that the parent updated without calling to async commands so we can continue with locking this buffer on devSharingGroupId.
-	// otherwise the updateParent pipe line will call to lockOnDeviceInt of this buffer.
-	if ((NULL == retEvent) && (CL_SUCCESS == errCode))
-	{
-		retEvent = lockOnDeviceInt(devSharingGroupId, usage);
-		releaseBufferSyncLock();
-	}
-	pOutEvent = retEvent;
-	return CL_SUCCESS;
+    unsigned int devSharingGroupId = 0;
+    bool ret = getDeviceSharingGroupId(dev, &devSharingGroupId);
+    if (false == ret)
+    {
+        return CL_INVALID_VALUE;
+    }
+    // Call to update parent first
+    SharedPtr<OclEvent> retEvent = NULL;
+    acquireBufferSyncLock();
+    cl_err_code errCode = updateParent(devSharingGroupId, usage, false, retEvent);
+    // If retEvent is NULL it means that the parent updated without calling to async commands so we can continue with locking this buffer on devSharingGroupId.
+    // otherwise the updateParent pipe line will call to lockOnDeviceInt of this buffer.
+    if ((NULL == retEvent) && (CL_SUCCESS == errCode))
+    {
+        retEvent = lockOnDeviceInt(devSharingGroupId, usage);
+        releaseBufferSyncLock();
+    }
+    pOutEvent = retEvent;
+    return CL_SUCCESS;
 }
 
-cl_err_code GenericMemObjectSubBuffer::UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage )
+cl_err_code GenericMemObjectSubBuffer::UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage )
 {
-	if (m_active_groups_count <= 1)
+    if (m_active_groups_count <= 1)
     {
         // single device memory object - nothing to do
         return CL_SUCCESS;
     }
 
-	unsigned int devSharingGroupId = 0;
-	bool ret = getDeviceSharingGroupId(dev, &devSharingGroupId);
-	if (true == ret)
-	{
-		acquireBufferSyncLock();
-		// Copy of UnlockOnDeviceInt
-		DataSharingAutoLock data_sharing_lock( *this );
-		data_sharing_fsm_process( false, devSharingGroupId, usage, NULL ); 
-		// unLockOnDeviceInt
-		if (MEMORY_MODE_NORMAL == getHierarchicalMemoryMode())
-		{
-			releaseBufferSyncLock();
-			return CL_SUCCESS; 
-		}
-		TSubBufferList* pUpdateParentList = getUpdateParentListPtr();
-		// If we are in overlap mode, than we shall add this buffer to m_updateParentList in order to update the parent in next memory request.
-		if ((MEMORY_MODE_OVERLAPPING == getHierarchicalMemoryMode()) && (!isInUse()))
-		{
-			SharedPtr<GenericMemObjectSubBuffer> tSharedPtrGenericMemObj(this);
-			// If not exist...
-			if (find(pUpdateParentList->begin(), pUpdateParentList->end(), tSharedPtrGenericMemObj) == pUpdateParentList->end())
-			{
-				pUpdateParentList->push_back(this);
-				setUpdateParentFlag(true);
-			}
-		}
-		releaseBufferSyncLock();
-	}
-	return CL_SUCCESS;
+    unsigned int devSharingGroupId = 0;
+    bool ret = getDeviceSharingGroupId(dev, &devSharingGroupId);
+    if (true == ret)
+    {
+        acquireBufferSyncLock();
+        // Copy of UnlockOnDeviceInt
+        DataSharingAutoLock data_sharing_lock( *this );
+        data_sharing_fsm_process( false, devSharingGroupId, usage, NULL ); 
+        // unLockOnDeviceInt
+        if (MEMORY_MODE_NORMAL == getHierarchicalMemoryMode())
+        {
+            releaseBufferSyncLock();
+            return CL_SUCCESS; 
+        }
+        TSubBufferList* pUpdateParentList = getUpdateParentListPtr();
+        // If we are in overlap mode, than we shall add this buffer to m_updateParentList in order to update the parent in next memory request.
+        if ((MEMORY_MODE_OVERLAPPING == getHierarchicalMemoryMode()) && (!isInUse()))
+        {
+            addToUpdateList( pUpdateParentList, this );
+        }
+        releaseBufferSyncLock();
+    }
+    return CL_SUCCESS;
 }
+
+void GenericMemObjectSubBuffer::ZombieFlashToParent()
+{
+    if (m_active_groups_count <= 1)
+    {
+        // single device memory object - nothing to do
+        return;
+    }
+
+    acquireBufferSyncLock();
+
+    if ((getUpdateParentFlag() && isSecondLevelBufferSyncLock()) || (IsShuttingDown()))
+    {
+        // Ooooops! We entered zombie mode during parent update and from inside thread that already holds 
+        //          BufferSyncLock lock. As with current implementation this may happen only because of races between 
+        //          parent update and SubBuffer deletion and only at the very end of updating process.
+        //          We assume that there is no need in additional parent update, but we need to remove ourselve from
+        //          parent sub-buffers list to force real sub-buffer removal
+        TSubBufferList* pSubBuffersList = getSubBuffersListPtr();
+        SharedPtr<GenericMemObjectSubBuffer> Me = this;
+        for (TSubBufferList::iterator it = pSubBuffersList->begin(); it != pSubBuffersList->end(); ++it)
+        {
+            if ((*it) == Me)
+            {
+                pSubBuffersList->erase( it );
+                break;
+            }
+        }
+
+        releaseBufferSyncLock();
+        return;
+    }
+
+    unsigned int devSharingGroupId = getParentValidSharingGroupId();
+
+    assert((MAX_DEVICE_SHARING_GROUP_ID != devSharingGroupId) && "parent does not have valid devices ???" );
+
+    // Call to update parent first
+    SharedPtr<OclEvent> retEvent = NULL;
+
+    cl_err_code errCode = updateParent(devSharingGroupId, READ_ONLY, false, retEvent);
+    // If retEvent is not NULL it means that asynch operation was launched. We need to wait until it's end.
+    // This operation will also loclOnDeviceInt() on our sub-buffer because we are the initializers, so we need to unlock
+    if ((NULL != retEvent) && (CL_SUCCESS == errCode))
+    {
+        retEvent->Wait();
+        acquireBufferSyncLock();
+        unLockOnDeviceInt( devSharingGroupId, READ_ONLY );
+    }
+    releaseBufferSyncLock();
+}
+

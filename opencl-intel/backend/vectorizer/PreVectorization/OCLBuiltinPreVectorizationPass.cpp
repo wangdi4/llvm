@@ -8,18 +8,20 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "VectorizerUtils.h"
 #include "Mangler.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Version.h"
 
 namespace intel{
 
 char OCLBuiltinPreVectorizationPass::ID = 0;
 
-OCL_INITIALIZE_PASS(OCLBuiltinPreVectorizationPass, "CLBltnPreVec", "prepare ocl builtin for vectoriation", false, false)
+OCL_INITIALIZE_PASS_BEGIN(OCLBuiltinPreVectorizationPass, "CLBltnPreVec", "prepare ocl builtin for vectoriation", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(OCLBuiltinPreVectorizationPass, "CLBltnPreVec", "prepare ocl builtin for vectoriation", false, false)
 
 OCLBuiltinPreVectorizationPass::OCLBuiltinPreVectorizationPass():
 FunctionPass(ID) {
@@ -33,7 +35,7 @@ bool OCLBuiltinPreVectorizationPass::runOnFunction(Function& F) {
   m_removedInsts.clear();
   bool changed = false;
   m_curModule = F.getParent();
-  m_runtimeServices = (OpenclRuntime *)RuntimeServices::get();
+  m_runtimeServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
   for ( inst_iterator ii = inst_begin(&F), ie = inst_end(&F); ii != ie; ++ii ) {
     if (CallInst *CI = dyn_cast<CallInst>(&*ii)) {
       std::string funcName = CI->getCalledFunction()->getName().str();
@@ -136,16 +138,16 @@ void OCLBuiltinPreVectorizationPass::handleScalarSelect(CallInst *CI, std::strin
     maskInst->getOperand(0)->getType() != Type::getInt1Ty(CI->getContext())) {
     V_ASSERT(CI->getType() == CI->getArgOperand(0)->getType() &&
              CI->getType() == CI->getArgOperand(1)->getType() &&
-		"select func return value type is not the same as xy operands types");
+    "select func return value type is not the same as xy operands types");
 
     std::string fakeFuncName = Mangler::getFakeBuiltinName(funcName);
     Function *origFunc = CI->getCalledFunction();
     Constant * funcConst = m_curModule->getOrInsertFunction(fakeFuncName,
-	  origFunc->getFunctionType(), origFunc->getAttributes());
+    origFunc->getFunctionType(), origFunc->getAttributes());
     V_ASSERT(funcConst && "failed generating function in current module");
     Function *fakeFunc = dyn_cast<Function>(funcConst);
     V_ASSERT(fakeFunc && "Function type mismatch, caused a constant expression cast!");
-  	CI->setCalledFunction(fakeFunc);
+    CI->setCalledFunction(fakeFunc);
     return;
   }
   if (isa<ZExtInst>(maskInst)) {
@@ -199,7 +201,7 @@ Function *OCLBuiltinPreVectorizationPass::getOrInsertFakeDeclarationToModule(con
   if (!FuncRT) return NULL;
 
   Constant * funcConst = m_curModule->getOrInsertFunction(MangledFuncName,
-	  FuncRT->getFunctionType(), FuncRT->getAttributes());
+    FuncRT->getFunctionType(), FuncRT->getAttributes());
   V_ASSERT(funcConst && "failed generating function in current module");
   Function *func = dyn_cast<Function>(funcConst);
   V_ASSERT(func && "Function type mismatch, caused a constant expression cast!");
@@ -240,11 +242,16 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
   Type* retType = isOriginalFuncRetVector ?
     static_cast<Type*>(ArrayType::get(retValType, 2)) :
     static_cast<Type*>(VectorType::get(retValType, 2));
-  SmallVector<Attributes, 4> attrs;
 #if LLVM_VERSION == 3200
+  SmallVector<Attributes, 4> attrs;
   attrs.push_back(Attributes::get(CI->getContext(), Attributes::ReadNone));
   attrs.push_back(Attributes::get(CI->getContext(), Attributes::NoUnwind));
+#elif LLVM_VERSION == 3425
+  SmallVector<Attributes, 4> attrs;
+  attrs.push_back(Attribute::ReadNone);
+  attrs.push_back(Attribute::NoUnwind);
 #else
+  SmallVector<Attribute::AttrKind, 4> attrs;
   attrs.push_back(Attribute::ReadNone);
   attrs.push_back(Attribute::NoUnwind);
 #endif

@@ -18,13 +18,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __CL_STREAM_SAMPLER_H_
 #define __CL_STREAM_SAMPLER_H_
 
+#include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
 #include "LoopWIAnalysis.h"
 
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 
 using namespace llvm;
 namespace intel {
@@ -51,9 +51,7 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<LoopWIAnalysis>();
       AU.addRequired<DominatorTree>();
-#if LLVM_VERSION >= 3425
-      AU.addRequired<ScalarEvolution>();
-#endif
+      AU.addRequired<BuiltinLibInfo>();
       AU.setPreservesCFG();
   };
 

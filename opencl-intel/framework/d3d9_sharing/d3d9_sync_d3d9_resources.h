@@ -94,7 +94,10 @@ cl_err_code SyncD3DResources<RESOURCE_TYPE, DEV_TYPE>::Execute()
     {
         for (unsigned int i = 0; i < GetNumMemObjs(); i++)
         {
-            dynamic_cast<D3DResource<RESOURCE_TYPE, DEV_TYPE>&>(GetMemoryObject(i)).AcquireD3D();
+            if (!dynamic_cast<D3DResource<RESOURCE_TYPE, DEV_TYPE>&>(GetMemoryObject(i)).AcquireD3D())
+			{
+				m_returnCode = CL_MAP_FAILURE;
+			}
         }
     }
     else

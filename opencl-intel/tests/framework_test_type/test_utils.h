@@ -71,6 +71,15 @@ void __CheckException__(const char* name, const T& expected, const T& result)
 	__CheckException__(buf, expected, result); \
 }
 
+#define CHECK_COND(name, cond) { \
+	char buf[1024]; \
+	SPRINTF_S(buf, 1024, "%ls (%s:%d)", name, __FILE__, __LINE__); \
+	if (!SilentCheckCondition(name, cond)) \
+	{ \
+		throw std::exception(); \
+	} \
+}
+
 // A simple tokenizer - extracts a vector of tokens from a 
 // string, delimited by any character in delims.
 //

@@ -76,8 +76,8 @@ namespace Intel { namespace OpenCL { namespace Frontend {
   }
 
   bool SourceFile::operator ==(const SourceFile& that) const{
-	if (this == &that)
-	  return true;
+    if (this == &that)
+      return true;
     return m_contents == that.m_contents;
   }
 

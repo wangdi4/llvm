@@ -50,9 +50,9 @@ namespace Validation {
     // class to combine typed tests and value-parameterized tests in googletest framework
     template <typename T, bool inMode>
     class ValueTypeContainer {
-        public:
-            typedef T Type;
-            static const bool mode = inMode;
+    public:
+        typedef T Type;
+        static const bool mode = inMode;
     };
 
     template <typename T> DataTypeVal GetDataTypeVal();
@@ -97,11 +97,13 @@ namespace Validation {
     }
 
     template <typename T>
-    static bool TestAccExpanded(T ref, NEATValue test, float ulps)
+    static bool TestAccExpanded(T ref, NEATValue test, IntervalError<typename downT<T>::type> error)
     {
         bool res = true;
         typedef typename  downT<T>::type dT;
 
+        if(test.IsAny() && error.isInfiniteError())
+            return true;
         if(test.IsUnknown() || test.IsUnwritten() || test.IsAny())
             return false;
 
@@ -111,7 +113,7 @@ namespace Validation {
         min = RefALU::flush<dT>(min);
         max = RefALU::flush<dT>(max);
 
-        if(ulps == (T)0) {
+        if(error == T(0)) {
             dT refDT = RefALU::flush(NEATALU::castDown(RefALU::flush(ref)));
             if ( min == refDT && max == refDT)
                 return true;
@@ -129,65 +131,83 @@ namespace Validation {
                 return false;
             if(! Utils::IsPInf(*test.GetAcc<dT>()))
                 return false;
-        } else if(ref == 0 && RefALU::GetFTZmode()) {
-            // one ulp for zero is denormal in float point precision
-            // so, flushed min and max should be zero
-            if( min != 0 || max != 0)
-                return false;
         } else if(Utils::IsNaN(ref))
         {
             if(!test.IsNaN<dT>())
                 return false;
         }
+        else if(error.getErrorType() == IntervalError<dT>::ERROR_ABSOLUTE)
+        {
+            T diff1 = fabs(ref - min);
+            T diff2 = fabs(ref - max);
+            if(Utils::IsInf<dT>(min))
+                res &= Utils::IsInf<dT>(min - error.getAbsoluteError());
+            else
+                res &= (ComputeUlp(min) < 2*error.getAbsoluteError())? (diff1 <= error.getAbsoluteError()) : true;
+
+            if(Utils::IsInf<dT>(max))
+                res &= Utils::IsInf<dT>(max + error.getAbsoluteError());
+            else
+                res &= (ComputeUlp(max) < 2*error.getAbsoluteError())? (diff2 <= error.getAbsoluteError()) : true;
+        } else if(ref == 0 && RefALU::GetFTZmode() && error.isAccurateUlps()) {
+            // one ulp for zero is denormal in float point precision
+            // so, flushed min and max should be zero
+            if( min != 0 || max != 0)
+                return false;
+        }
         else {
-            dT refMin = NEATALU::castDown(ref-(T)ulps*NEATALU::ComputeUlp(ref));
-            dT refMax = NEATALU::castDown(ref+(T)ulps*NEATALU::ComputeUlp(ref));
+            dT refMin = NEATALU::castDown(ref-(T)error.getExpandValue(ComputeUlp(ref), true));
+            dT refMax = NEATALU::castDown(ref+(T)error.getExpandValue(ComputeUlp(ref), false));
 
-            float diff1 = Utils::ulpsDiff(ref,min);
-            float diff2 = Utils::ulpsDiff(ref,max);
+            double diff1 = Utils::ulpsDiff(ref,min);
+            double diff2 = Utils::ulpsDiff(ref,max);
 
-            res = true;
             // if refMin is INF, min should be INF
             if(Utils::IsInf<dT>(refMin)) {
                 res &= Utils::IsInf<dT>(min);
             } else
-            // if min is denormal, it should be flashed to zero,
-            // otherwise sub ulps
-            if (refMin==0 || Utils::IsDenorm<dT>(refMin)) {
-                if (RefALU::GetFTZmode())
-                    res &= (min==0);
-                else {
-                    float diffDenorm = Utils::ulpsDiffDenormal(ref,min);
-                    res &= (fabs(diffDenorm) <= ulps);
-                    res &= (fabs(diffDenorm) >= (ulps-diffLimit));
+                // if min is denormal, it should be flashed to zero,
+                // otherwise sub ulps
+                if (refMin==0 || Utils::IsDenorm<dT>(refMin)) {
+                    if (RefALU::GetFTZmode())
+                        res &= (min==0);
+                    else {
+                        float diffDenorm = Utils::ulpsDiffDenormal(ref,min);
+                        res &= (fabs(diffDenorm) <= error.getUlpsForMin());
+                        res &= !error.isAccurateUlps() || (fabs(diffDenorm) >= (error.getUlpsForMin()-diffLimit));
+                    }
+                } else {
+                    res &= (fabs(diff1) <= error.getUlpsForMin());
+                    res &= !error.isAccurateUlps() || (fabs(diff1) >= (error.getUlpsForMin()-diffLimit));
                 }
-            } else {
-                res &= (fabs(diff1) <= ulps);
-                res &= (fabs(diff1) >= (ulps-diffLimit));
-            }
 
-            // if refMax is INF, max should be INF
-            if(Utils::IsInf<dT>(refMax)) {
-                res &= Utils::IsInf<dT>(max);
-            } else
-            // if max is denormal, it should be flashed to zero,
-            // otherwise add ulps
-            if (refMax==0 || Utils::IsDenorm<dT>(refMax)) {
-                if (RefALU::GetFTZmode())
-                    res &= (max==0);
-                else {
-                    float diffDenorm = Utils::ulpsDiffDenormal(ref,max);
-                    res &= (fabs(diffDenorm) <= ulps);
-                    res &= (fabs(diffDenorm) >= (ulps-diffLimit));
-                }
-            } else {
-                res &= (fabs(diff2) <= ulps);
-                res &= (fabs(diff2) >= (ulps-diffLimit));
-            }
+                // if refMax is INF, max should be INF
+                if(Utils::IsInf<dT>(refMax)) {
+                    res &= Utils::IsInf<dT>(max);
+                } else
+                    // if max is denormal, it should be flashed to zero,
+                    // otherwise add ulps
+                    if (refMax==0 || Utils::IsDenorm<dT>(refMax)) {
+                        if (RefALU::GetFTZmode())
+                            res &= (max==0);
+                        else {
+                            float diffDenorm = Utils::ulpsDiffDenormal(ref,max);
+                            res &= (fabs(diffDenorm) <= error.getUlpsForMax());
+                            res &= !error.isAccurateUlps() || (fabs(diffDenorm) >= (error.getUlpsForMax()-diffLimit));
+                        }
+                    } else {
+                        res &= (fabs(diff2) <= error.getUlpsForMax());
+                        res &= !error.isAccurateUlps() || (fabs(diff2) >= (error.getUlpsForMax()-diffLimit));
+                    }
         }
         return res;
     }
-
+    template <typename T>
+    static bool TestAccExpanded(T ref, NEATValue test, double ulps)
+    {
+        IntervalError<typename downT<T>::type> error(ulps);
+        return TestAccExpanded<T>(ref, test, error);
+    }
     /// Tests NEAT for accurate NEATValue input.
     /// It takes NEAT input and output values, refernce output, relative error and corner cases for this function
     /// It ensures that in edge case result is equal to reference and accurate.
@@ -199,7 +219,7 @@ namespace Validation {
     /// @param cor      Pointer to buffer with corner case inputs
     /// @param corSize  Size of buffer with corner cases
     template <typename T>
-    static bool TestNeatAcc(NEATValue neatIn, NEATValue neatOut, T ref, float ulpErr, T* cor, uint32_t corSize)
+    static bool TestNeatAcc(NEATValue neatIn, NEATValue neatOut, T ref, IntervalError<typename downT<T>::type> error, T* cor, uint32_t corSize)
     {
         typedef typename  downT<T>::type dT;
         bool isCorner = false;
@@ -218,15 +238,23 @@ namespace Validation {
         }
         else
         {
-            passed &= TestAccExpanded<T>(ref, neatOut, ulpErr);
+            passed &= TestAccExpanded<T>(ref, neatOut, error);
         }
         return passed;
     }
-
     template <typename T>
-    static bool TestIntExpanded(T refMinIn, T refMaxIn, NEATValue test, float ulps)
+    static bool TestNeatAcc(NEATValue neatIn, NEATValue neatOut, T ref, double ulpErr, T* cor, uint32_t corSize)
+    {
+        IntervalError<typename downT<T>::type> error(ulpErr);
+        return TestNeatAcc(neatIn, neatOut, ref, error, cor, corSize);
+    }
+    template <typename T>
+    static bool TestIntExpanded(T refMinIn, T refMaxIn, NEATValue test, IntervalError<typename downT<T>::type> error)
     {
         typedef typename downT<T>::type dT;
+
+        if(test.IsAny() && error.isInfiniteError())
+            return true;
 
         if(test.IsUnknown() || test.IsUnwritten() || test.IsAny())
             return false;
@@ -250,7 +278,7 @@ namespace Validation {
         min = RefALU::flush<dT>(min);
         max = RefALU::flush<dT>(max);
 
-        if(ulps == (T)0) {
+        if(error == T(0)) {
             if ( min == RefALU::flush(NEATALU::castDown(RefALU::flush(refMin))) 
                 && max == RefALU::flush(NEATALU::castDown(RefALU::flush(refMax))))
                 return true;
@@ -264,16 +292,24 @@ namespace Validation {
         } else if (Utils::IsPInf(refMin)) {
             if(! Utils::IsPInf(min))
                 return false;
-        } 
-        else if((refMin == 0) && RefALU::GetFTZmode()) {
+        }
+        else if(error.getErrorType() == IntervalError<dT>::ERROR_ABSOLUTE)
+        {
+            T diff1 = fabs(refMin - T(min));
+            if(Utils::IsInf<dT>(min))
+                res &= Utils::IsInf<dT>(min - error.getAbsoluteError());
+            else
+                res &= (ComputeUlp(min) < 2 * error.getAbsoluteError())?(diff1 <= error.getAbsoluteError()):true;
+        }
+        else if((refMin == 0) && RefALU::GetFTZmode() && error.isAccurateUlps()) {
             // one ulp for zero is denormal in float point precision
             // so, flushed min and max should be zero
             if( min != 0)
                 return false;
-        } else {
-            dT refMinUlps = NEATALU::castDown(refMin-T(ulps)*NEATALU::ComputeUlp(refMin));
+        }
+        else {
+            dT refMinUlps = NEATALU::castDown(refMin-error.getExpandValue(ComputeUlp(refMin), true));
 
-            res = true;
             // if refMinUlps is INF, min should be INF
             if(Utils::IsInf<dT>(refMinUlps)) {
                 res &= Utils::IsInf<dT>(min);
@@ -283,13 +319,15 @@ namespace Validation {
                     res &= (min==0);
                 else {
                     float diff = Utils::ulpsDiffDenormal(refMin,min);
-                    res &= (fabs(diff) <= ulps);
-                    res &= (fabs(diff) >= (ulps-diffLimit));
+                    res &= (fabs(diff) <= error.getUlpsForMin());
+                    //in case isFRMFunction is enabled OneUlp of ulps.getUlpsForMin can be higher then diffLimit
+                    res &= !error.isAccurateUlps() || (fabs(diff) >= (error.getUlpsForMin()-diffLimit));
                 }
             } else {
                 float diff = Utils::ulpsDiff(refMin,min);
-                res &= (fabs(diff) <= ulps);
-                res &= (fabs(diff) >= (ulps-diffLimit));
+                res &= (fabs(diff) <= error.getUlpsForMin());
+                //in case isFRMFunction is enabled OneUlp of ulps.getUlpsForMin can be higher then diffLimit
+                res &= !error.isAccurateUlps() || (fabs(diff) >= (error.getUlpsForMin()-diffLimit));
             }
         }
 
@@ -299,15 +337,22 @@ namespace Validation {
         } else if (Utils::IsPInf(refMax)) {
             if(! Utils::IsPInf(max))
                 return false;
-        } else if((refMax == 0) && RefALU::GetFTZmode()) {
+        } else if(error.getErrorType() == IntervalError<dT>::ERROR_ABSOLUTE)
+        {
+            T diff2 = fabs(refMax - max);
+            if(Utils::IsInf<dT>(max))
+                res &= Utils::IsInf<dT>(max + error.getAbsoluteError());
+            else
+                res &= (ComputeUlp(max) < 2 * error.getAbsoluteError())? (diff2 <= error.getAbsoluteError()) : true;
+        } else if((refMax == 0) && RefALU::GetFTZmode() && error.isAccurateUlps()) {
             // one ulp for zero is denormal in float point precision
             // so, flushed max and max should be zero
             if( max != 0)
                 return false;
-        } else {
-            dT refMaxUlps = NEATALU::castDown(refMax+T(ulps)*NEATALU::ComputeUlp(refMax));
+        }
+        else {
+            dT refMaxUlps = NEATALU::castDown(refMax+error.getExpandValue(ComputeUlp(refMax), false));
 
-            res = true;
             // if refMaxUlps is INF, max should be INF
             if(Utils::IsInf<dT>(refMaxUlps)) {
                 res &= Utils::IsInf<dT>(max);
@@ -317,17 +362,25 @@ namespace Validation {
                     res &= (max==0);
                 else {
                     float diff = Utils::ulpsDiffDenormal(refMax,max);
-                    res &= (fabs(diff) <= ulps);
-                    res &= (fabs(diff) >= (ulps-diffLimit));
+                    res &= (fabs(diff) <= error.getUlpsForMax());
+                    //in case isFRMFunction is enabled OneUlp of ulps.getUlpsForMin can be higher then diffLimit
+                    res &= !error.isAccurateUlps() || (fabs(diff) >= (error.getUlpsForMax()-diffLimit));
                 }
             } else {
                 float diff = Utils::ulpsDiff(refMax,max);
-                res &= (fabs(diff) <= ulps);
-                res &= (fabs(diff) >= (ulps-diffLimit));
+                res &= (fabs(diff) <= error.getUlpsForMax());
+                //in case isFRMFunction is enabled OneUlp of ulps.getUlpsForMin can be higher then diffLimit
+                res &= !error.isAccurateUlps() || (fabs(diff) >= (error.getUlpsForMax()-diffLimit));
             }
-
         }
         return res;
+    }
+
+    template <typename T>
+    static bool TestIntExpanded(T refMinIn, T refMaxIn, NEATValue test, double ulps)
+    {
+        IntervalError<typename downT<T>::type> error(ulps);
+        return TestIntExpanded(refMinIn, refMaxIn, test, error);
     }
     // Tests special NEATValue for function with three arguments.
     // Result must be NEATValue with UNKNOWN status
@@ -379,7 +432,7 @@ namespace Validation {
             if( min != 0 || max != 0)
                 return false;
         } else {
-            T oneUlp = NEATALU::ComputeUlp(ref4ulps);
+            T oneUlp = ComputeUlp(ref4ulps);
 
             T  refMinHigh = ref-T(ulps)*T(oneUlp);
             T  refMaxHigh = ref+T(ulps)*T(oneUlp);
@@ -391,26 +444,26 @@ namespace Validation {
             if(Utils::IsInf<dT>(refMin)) {
                 res &= Utils::IsInf<dT>(min);
             } else {
-            // if refMin is denormal and FTZ mode on, result should be zero
-            // if refMin is zero and FTZ mode on, result should be zero
-            if( (Utils::IsDenorm<dT>(refMin) && RefALU::GetFTZmode()) || (refMin==0 && RefALU::GetFTZmode()))
-                res &= (min==0);
-            // otherwise, refMin should not be greater than result
-            else {
-                     res &= (refMinHigh <= T(min));
-                 }
+                // if refMin is denormal and FTZ mode on, result should be zero
+                // if refMin is zero and FTZ mode on, result should be zero
+                if( (Utils::IsDenorm<dT>(refMin) && RefALU::GetFTZmode()) || (refMin==0 && RefALU::GetFTZmode()))
+                    res &= (min==0);
+                // otherwise, refMin should not be greater than result
+                else {
+                    res &= (refMinHigh <= T(min));
+                }
             }
 
             // if refMax is INF, max should be INF
             if(Utils::IsInf<dT>(refMax)) {
                 res &= Utils::IsInf<dT>(max);
             } else {
-            // if refMax is denormal and FTZ mode on, result should be zero
-            // if refMax is zero and FTZ mode on, result should be zero
-            if( (Utils::IsDenorm<dT>(refMax) && RefALU::GetFTZmode()) || (refMax==0 && RefALU::GetFTZmode()))
-                res &= (max==0);
-            else
-            // otherwise, refMax should not be less than result
+                // if refMax is denormal and FTZ mode on, result should be zero
+                // if refMax is zero and FTZ mode on, result should be zero
+                if( (Utils::IsDenorm<dT>(refMax) && RefALU::GetFTZmode()) || (refMax==0 && RefALU::GetFTZmode()))
+                    res &= (max==0);
+                else
+                    // otherwise, refMax should not be less than result
                 {
                     res &= (refMaxHigh >= T(max));
                 }
@@ -462,7 +515,7 @@ namespace Validation {
             if( min != 0)
                 return false;
         } else {
-            T oneUlp = NEATALU::ComputeUlp(ref4ulps);
+            T oneUlp = ComputeUlp(ref4ulps);
             T  refMinHigh = refMin-T(ulps*oneUlp);
             dT refMinUlps = NEATALU::castDown(refMinHigh);
 
@@ -471,12 +524,12 @@ namespace Validation {
             if(Utils::IsInf<dT>(refMinUlps)) {
                 res &= Utils::IsInf<dT>(min);
             } else if((Utils::IsDenorm<dT>(refMinUlps) && RefALU::GetFTZmode()) || (refMinUlps==0 && RefALU::GetFTZmode()))
-            // if refMin is denormal and FTZ mode on, result should be zero
-            // if refMin is zero and FTZ mode on, result should be zero
+                // if refMin is denormal and FTZ mode on, result should be zero
+                // if refMin is zero and FTZ mode on, result should be zero
             {
                 res &= (min==0);
             } else {
-            // otherwise, refMin should not be greater than result
+                // otherwise, refMin should not be greater than result
                 res &= (refMinHigh <= T(min));
             }
         }
@@ -493,7 +546,7 @@ namespace Validation {
             if( max != 0)
                 return false;
         } else {
-            T oneUlp = NEATALU::ComputeUlp(ref4ulps);
+            T oneUlp = ComputeUlp(ref4ulps);
             T  refMaxHigh = refMax+T(ulps*oneUlp);
             dT refMaxUlps = NEATALU::castDown(refMaxHigh);
 
@@ -502,12 +555,12 @@ namespace Validation {
             if(Utils::IsInf<dT>(refMaxUlps)) {
                 res &= Utils::IsInf<dT>(max);
             } else if((Utils::IsDenorm<dT>(refMaxUlps) && RefALU::GetFTZmode()) || (refMaxUlps==0 && RefALU::GetFTZmode()))
-            // if refMax is denormal and FTZ mode on, result should be zero
-            // if refMax is zero and FTZ mode on, result should be zero
+                // if refMax is denormal and FTZ mode on, result should be zero
+                // if refMax is zero and FTZ mode on, result should be zero
             {
                 res &= (max==0);
             } else {
-            // otherwise, refMax should not be less than result
+                // otherwise, refMax should not be less than result
                 res &= (refMaxHigh >= T(max));
             }
         }
@@ -522,7 +575,7 @@ namespace Validation {
         for( size_t i = 1; i < vecSize; i++ )
             if(vec[i] > max)
                 max = vec[i];
-    
+
         return max;
     }
     template<typename T>
@@ -535,15 +588,15 @@ namespace Validation {
 
         return min;
     }
-    
+
     template<typename T>
     T GetMaxAbsAcc(NEATValue val0, NEATValue val1)
     {
         T aaa;
         if( fabs(*val0.GetAcc<T>()) > fabs(*val1.GetAcc<T>()))
-                aaa = *val0.GetAcc<T>();
-            else
-                aaa = *val1.GetAcc<T>();
+            aaa = *val0.GetAcc<T>();
+        else
+            aaa = *val1.GetAcc<T>();
         return aaa;
     }
 
@@ -557,15 +610,15 @@ namespace Validation {
         }
         return aaa;
     }
-    
+
     template<typename T>
     T GetMaxAbsAccVec(uint32_t size, NEATVector arr0, NEATVector arr1)
     {
         T aaa;
         if( fabs(*arr0[0].GetAcc<T>()) > fabs(*arr1[0].GetAcc<T>()))
-                aaa = *arr0[0].GetAcc<T>();
-            else
-                aaa = *arr1[0].GetAcc<T>();
+            aaa = *arr0[0].GetAcc<T>();
+        else
+            aaa = *arr1[0].GetAcc<T>();
         for(uint32_t i = 1; i<size; i++) {
             if( fabs(*arr0[i].GetAcc<T>()) > fabs(aaa))
                 aaa = *arr0[i].GetAcc<T>();
@@ -579,12 +632,12 @@ namespace Validation {
     T GetMaxAbsInt(NEATValue val0)
     {
         T maxAbs = 0;
-    
+
         T a0 = fabs(*val0.GetMin<T>());
         T a1 = fabs(*val0.GetMax<T>());
-    
+
         maxAbs = (a0 > a1 ? a0 : a1);
-    
+
         return maxAbs;
     }
 
@@ -592,16 +645,16 @@ namespace Validation {
     T GetMaxAbsInt(NEATValue val0, NEATValue val1)
     {
         T maxAbs = 0;
-    
+
         T a0 = fabs(*val0.GetMin<T>());
         T a1 = fabs(*val1.GetMin<T>());
         T a2 = fabs(*val0.GetMax<T>());
         T a3 = fabs(*val1.GetMax<T>());
-    
+
         a0 = (a0 > a1 ? a0 : a1);
         a2 = (a2 > a3 ? a2 : a3);
         maxAbs = (a0 > a2 ? a0 : a2);
-    
+
         return maxAbs;
     }
 
@@ -625,7 +678,7 @@ namespace Validation {
     T GetMaxAbsIntVec(uint32_t size, NEATVector arr0, NEATVector arr1)
     {
         T maxAbs = fabs(*arr0[0].GetMin<T>());
-    
+
         for(uint32_t i = 0; i<size; i++) {
             T a0 = fabs(*arr0[i].GetMin<T>());
             T a1 = fabs(*arr1[i].GetMin<T>());
@@ -650,52 +703,52 @@ namespace Validation {
     template <typename T>
     class TestIntervalRandomly {
     private:
-           DataTypeVal dataTypeVal;
-           bool test;
-           static const uint32_t numMax = 500;
-           T arrA[numMax], arrB[numMax], arrC[numMax];
+        DataTypeVal dataTypeVal;
+        bool test;
+        static const uint32_t numMax = 500;
+        T arrA[numMax], arrB[numMax], arrC[numMax];
     public:
-           typedef T (*RefFuncPOneArg)(const T&);
-           typedef T (*RefFuncPTwoArgs)(const T&, const T&);
-           typedef T (*RefFuncPThreeArgs)(const T&, const T&, const T&);
+        typedef T (*RefFuncPOneArg)(const T&);
+        typedef T (*RefFuncPTwoArgs)(const T&, const T&);
+        typedef T (*RefFuncPThreeArgs)(const T&, const T&, const T&);
 
-           TestIntervalRandomly(RefFuncPOneArg RefFunc, NEATValue testVal, T aMin, T aMax, const uint32_t num) {
-               assert(num <= numMax);
-               dataTypeVal = GetDataTypeVal<T>();
-               GenerateRangedVectorsAutoSeed(dataTypeVal, &arrA[0], V1, num, aMin, aMax);
-               test = true;
-               for(uint32_t j = 0;j<num;j++) {
-                   T refVal = RefFunc( RefALU::flush(arrA[j]) ); 
-                   test &= (refVal >= *testVal.GetMin<T>() && refVal <= *testVal.GetMax<T>());
-               }
-           }
-           TestIntervalRandomly(RefFuncPTwoArgs RefFunc,NEATValue testVal, T aMin, T aMax, T bMin, T bMax, const uint32_t num) {
-               assert(num <= numMax);
-               dataTypeVal = GetDataTypeVal<T>();
-               GenerateRangedVectorsAutoSeed(dataTypeVal, &arrA[0], V1, num, aMin, aMax);
-               GenerateRangedVectorsAutoSeed(dataTypeVal, &arrB[0], V1, num, bMin, bMax);
-               test = true;
-               for(uint32_t j = 0;j<num;j++) {
-                   T refVal = RefFunc( RefALU::flush(arrA[j]), RefALU::flush(arrB[j]) ); 
-                   test &= (refVal >= *testVal.GetMin<T>() && refVal <= *testVal.GetMax<T>());
-               }
-           }
-           TestIntervalRandomly(RefFuncPThreeArgs RefFunc,NEATValue testVal, T aMin, T aMax, T bMin, T bMax, T cMin, T cMax, const uint32_t num) {
-               assert(num <= numMax);
-               dataTypeVal = GetDataTypeVal<T>();                  
-               GenerateRangedVectorsAutoSeed(dataTypeVal, &arrA[0], V1, num, aMin, aMax);
-               GenerateRangedVectorsAutoSeed(dataTypeVal, &arrB[0], V1, num, bMin, bMax);
-               GenerateRangedVectorsAutoSeed(dataTypeVal, &arrC[0], V1, num, cMin, cMax);
-               test = true;
-               for(uint32_t j = 0;j<num;j++) {
-                   T refVal = RefFunc( RefALU::flush(arrA[j]), RefALU::flush(arrB[j]), RefALU::flush(arrC[j]) ); 
-                   test &= (refVal >= *testVal.GetMin<T>() && refVal <= *testVal.GetMax<T>());
-               }
-           }
+        TestIntervalRandomly(RefFuncPOneArg RefFunc, NEATValue testVal, T aMin, T aMax, const uint32_t num) {
+            assert(num <= numMax);
+            dataTypeVal = GetDataTypeVal<T>();
+            GenerateRangedVectorsAutoSeed(dataTypeVal, &arrA[0], V1, num, aMin, aMax);
+            test = true;
+            for(uint32_t j = 0;j<num;j++) {
+                T refVal = RefFunc( RefALU::flush(arrA[j]) ); 
+                test &= (refVal >= *testVal.GetMin<T>() && refVal <= *testVal.GetMax<T>());
+            }
+        }
+        TestIntervalRandomly(RefFuncPTwoArgs RefFunc,NEATValue testVal, T aMin, T aMax, T bMin, T bMax, const uint32_t num) {
+            assert(num <= numMax);
+            dataTypeVal = GetDataTypeVal<T>();
+            GenerateRangedVectorsAutoSeed(dataTypeVal, &arrA[0], V1, num, aMin, aMax);
+            GenerateRangedVectorsAutoSeed(dataTypeVal, &arrB[0], V1, num, bMin, bMax);
+            test = true;
+            for(uint32_t j = 0;j<num;j++) {
+                T refVal = RefFunc( RefALU::flush(arrA[j]), RefALU::flush(arrB[j]) ); 
+                test &= (refVal >= *testVal.GetMin<T>() && refVal <= *testVal.GetMax<T>());
+            }
+        }
+        TestIntervalRandomly(RefFuncPThreeArgs RefFunc,NEATValue testVal, T aMin, T aMax, T bMin, T bMax, T cMin, T cMax, const uint32_t num) {
+            assert(num <= numMax);
+            dataTypeVal = GetDataTypeVal<T>();                  
+            GenerateRangedVectorsAutoSeed(dataTypeVal, &arrA[0], V1, num, aMin, aMax);
+            GenerateRangedVectorsAutoSeed(dataTypeVal, &arrB[0], V1, num, bMin, bMax);
+            GenerateRangedVectorsAutoSeed(dataTypeVal, &arrC[0], V1, num, cMin, cMax);
+            test = true;
+            for(uint32_t j = 0;j<num;j++) {
+                T refVal = RefFunc( RefALU::flush(arrA[j]), RefALU::flush(arrB[j]), RefALU::flush(arrC[j]) ); 
+                test &= (refVal >= *testVal.GetMin<T>() && refVal <= *testVal.GetMax<T>());
+            }
+        }
 
-           bool GetTestResult() {
-               return test;
-           }
+        bool GetTestResult() {
+            return test;
+        }
 
     };
 
@@ -759,7 +812,7 @@ namespace Validation {
     bool TestUnknown(NEATScalarBinaryOp f){
         return TestSpecialNEATValue<T, NEATValue::UNKNOWN>(f);
     }
-    
+
     bool TestUnknown(NEATScalarUnaryOp f);
 
     template <typename T>

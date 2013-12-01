@@ -5,19 +5,18 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "CLStreamSampler.h"
-#include "LoopUtils.h"
+#include "LoopUtils/LoopUtils.h"
 #include "CLWGBoundDecoder.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "VectorizerUtils.h"
 
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 
 // On apple the MAX_LOOP_SIZE should be set, In volcano set it to 128
 //#if defined(__APPLE__)
@@ -25,7 +24,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 //    Error! Target max loop size not defined!
 //  #endif
 //#else
-  #define MAX_LOOP_SIZE 128
+  #define MAX_LOOP_SIZE 1024
 //#endif
 
 #define FLOAT_X_WIDTH__ALIGNMENT 16
@@ -37,19 +36,20 @@ char intel::CLStreamSampler::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
 
-CLStreamSampler::CLStreamSampler():
-LoopPass(ID),
-m_rtServices((OpenclRuntime*)RuntimeServices::get())
-{
+CLStreamSampler::CLStreamSampler() : LoopPass(ID), m_rtServices(NULL) {
   initializeCLStreamSamplerPass(*PassRegistry::getPassRegistry());
-  assert(m_rtServices && "runtime services does not exist");
 }
 
 bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   //errs() << "CLStreamSampler on " << L->getHeader()->getNameStr() << "\n";
   if (!L->isLoopSimplifyForm()) return false;
+
+  m_rtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
+  assert(m_rtServices && "runtime services does not exist");
+
   m_curLoop = L;
   m_header = m_curLoop->getHeader();
   m_context = &m_header->getContext();

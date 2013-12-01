@@ -1,7 +1,7 @@
 ; XFAIL: x86
-; RUN: oclopt -builtins-module=clbltfng9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfng9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc < %t1.ll -mattr=+avx -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK-AVX
-; RUN: oclopt -builtins-module=clbltfns9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
+; RUN: oclopt -runtimelib=clbltfns9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
 ; RUN: llc < %t2.ll -mattr=+avx2 -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK-AVX2
 
 
@@ -11,7 +11,7 @@ entry:
    %yOut = alloca  <8 x i8>
    %zOut = alloca  <8 x i8>
    %wOut = alloca  <8 x i8>
-   call void @__ocl_load_transpose_char4x8(<4 x i8>* %pLoadAdd, <8 x i8>* nocapture %xOut, <8 x i8>* nocapture %yOut, <8 x i8>* nocapture %zOut, <8 x i8>* nocapture %wOut) nounwind
+   call void @__ocl_load_transpose_char_4x8(<4 x i8>* %pLoadAdd, <8 x i8>* nocapture %xOut, <8 x i8>* nocapture %yOut, <8 x i8>* nocapture %zOut, <8 x i8>* nocapture %wOut) nounwind
    %temp1 = load <8 x i8>* %xOut
    %temp2 = load <8 x i8>* %yOut
    %temp3 = load <8 x i8>* %zOut
@@ -22,7 +22,7 @@ entry:
    ret <8 x i8> %ret0
 }
 
-declare  void @__ocl_load_transpose_char4x8(<4 x i8>* %pLoadAdd, <8 x i8>* nocapture %xOut, <8 x i8>* nocapture %yOut, <8 x i8>* nocapture %zOut, <8 x i8>* nocapture %wOut) nounwind
+declare  void @__ocl_load_transpose_char_4x8(<4 x i8>* %pLoadAdd, <8 x i8>* nocapture %xOut, <8 x i8>* nocapture %yOut, <8 x i8>* nocapture %zOut, <8 x i8>* nocapture %wOut) nounwind
 
 
 ;CHECK-AVX:   .type    [[FOO:[_a-z]+]],@function
@@ -37,7 +37,7 @@ declare  void @__ocl_load_transpose_char4x8(<4 x i8>* %pLoadAdd, <8 x i8>* nocap
 ;CHECK-AVX:	  vpunpckldq	[[XMM3]], [[XMM2]], [[XMM7:%xmm[0-9]+]]
 ;CHECK-AVX:	  vpunpckhbw	[[XMM3]], [[XMM7]], [[XMM8:%xmm[0-9]+]]
 ;CHECK-AVX:	  vpmovzxbw	[[XMM7]], [[XMM9:%xmm[0-9]+]]
-;CHECK-AVX:   .type	[[LOAD:[_a-z]+]]_transpose_char4x8,@function
+;CHECK-AVX:   .type	[[LOAD:[_a-z]+]]_transpose_char_4x8,@function
 
 
 ;CHECK-AVX2:  .type    [[FOO:[_a-z]+]],@function
@@ -51,4 +51,4 @@ declare  void @__ocl_load_transpose_char4x8(<4 x i8>* %pLoadAdd, <8 x i8>* nocap
 ;CHECK-AVX2:  vpaddw	[[XMM20:%xmm[0-9]+]], [[XMM3]], [[XMM2:%xmm[0-9]+]]
 ;CHECK-AVX2:  vpaddw	[[XMM00:%xmm[0-9]+]], [[XMM1:%xmm[0-9]+]], [[XMM0:%xmm[0-9]+]]
 ;CHECK-AVX2:  vpaddw	[[XMM2]], [[XMM0]], [[XMM01:%xmm[0-9]+]]
-;CHECK-AVX2:  .type	[[LOAD:[_a-z]+]]_transpose_char4x8,@function
+;CHECK-AVX2:  .type	[[LOAD:[_a-z]+]]_transpose_char_4x8,@function

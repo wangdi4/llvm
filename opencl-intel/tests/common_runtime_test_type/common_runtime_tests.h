@@ -70,7 +70,7 @@ public:
 	{		
 		if(NULL != subdevices)
 		{
-			for(int i =0 ; i < subdevices_size ; i++){
+			for(cl_uint i = 0; i < subdevices_size ; i++){
 				clReleaseDevice(subdevices[i]);
 			}
 		}

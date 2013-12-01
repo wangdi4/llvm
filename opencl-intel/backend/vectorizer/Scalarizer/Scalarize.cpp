@@ -15,7 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "NameMangleAPI.h"
 
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Version.h"
 
 extern cl::opt<bool>
@@ -27,16 +27,15 @@ char intel::ScalarizeFunction::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 
-ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(ID)
+ScalarizeFunction::ScalarizeFunction(bool SupportScatterGather) : FunctionPass(ID), m_rtServices(NULL)
 {
   initializeScalarizeFunctionPass(*llvm::PassRegistry::getPassRegistry());
 
   for (int i = 0; i < Instruction::OtherOpsEnd; i++) m_transposeCtr[i] = 0;
   UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
-  m_rtServices = RuntimeServices::get();
-  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
   // Initialize SCM buffers and allocation
   m_SCMAllocationArray = new SCMEntry[ESTIMATED_INST_NUM];
@@ -62,6 +61,9 @@ bool ScalarizeFunction::runOnFunction(Function &F)
     return false;
   }
 
+  m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
+  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+
   m_currFunc = &F;
   m_moduleContext = &(m_currFunc->getContext());
 
@@ -72,10 +74,10 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
 
   // obtain TagetData of the module
-#if LLVM_VERSION == 3200
-  m_pDL = getAnalysisIfAvailable<DataLayout>();
-#else
+#if LLVM_VERSION == 3425
   m_pDL = getAnalysisIfAvailable<TargetData>();
+#else
+  m_pDL = getAnalysisIfAvailable<DataLayout>();
 #endif
 
   // Prepare data structures for scalarizing a new function
@@ -687,7 +689,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   V_ASSERT(CI && "instruction type dynamic cast failed");
 
   // Find corresponding entry in functions hash (in runtimeServices)
-  std::string funcName = CI->getCalledFunction()->getName().str();
+  llvm::StringRef funcName = CI->getCalledFunction()->getName();
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(funcName);
   if (!foundFunction->isNull() && foundFunction->getWidth() == 1 &&
@@ -722,7 +724,11 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   std::string strScalarFuncName = foundFunction->getVersion(0);
   const char *scalarFuncName = strScalarFuncName.c_str();
   FunctionType * funcType;
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
   AttrListPtr funcAttr;
+#else
+  AttributeSet funcAttr;
+#endif
   if(!getScalarizedFunctionType(strScalarFuncName, funcType, funcAttr)) {
     V_ASSERT(false && "function hash error");
     // In release mode - fail scalarizing function call "gracefully"
@@ -900,10 +906,9 @@ void ScalarizeFunction::scalarizeInstruction(GetElementPtrInst *GI) {
 
     SmallVector<Value*, 8> Idx;
     Value * multiPtrOperand[MAX_PACKET_WIDTH];
+    obtainScalarizedValues(multiPtrOperand, NULL, GI->getPointerOperand(), GI);
     for (unsigned int i = 0; i < GI->getNumOperands(); ++i) {
-      if (i == GI->getPointerOperandIndex()) {
-        obtainScalarizedValues(multiPtrOperand, NULL, GI->getOperand(i), GI);
-      } else {
+      if (i != GI->getPointerOperandIndex()) {
         Idx.push_back(GI->getOperand(i));
       }
     }
@@ -975,7 +980,9 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
         return recoverNonScalarizableInst(LI);
     }
     // Apply the bit-cast on the GEP base and add base-offset then fix the index by multiply it with numElements. (assuming one index only).
-    Value *operandBase = BitCastInst::CreatePointerCast(operand->getPointerOperand(), dataType->getScalarType()->getPointerTo(), "ptrVec2ptrScl", LI);
+    Value *GepPtr = operand->getPointerOperand();
+    PointerType *GepPtrType = cast<PointerType>(GepPtr->getType());
+    Value *operandBase = BitCastInst::CreatePointerCast(GepPtr, dataType->getScalarType()->getPointerTo(GepPtrType->getAddressSpace()), "ptrVec2ptrScl", LI);
     Type * indexType = operand->getOperand(1)->getType();
     // Generate new (scalar) instructions
     Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
@@ -1052,7 +1059,9 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
     obtainScalarizedValues(operand0, &opIsConst, SI->getOperand(indexData), SI);
 
     // Apply the bit-cast on the GEP base and add base-offset then fix the index by multiply it with numElements. (assuming one index only).
-    Value *operandBase = BitCastInst::CreatePointerCast(operand1->getPointerOperand(), dataType->getScalarType()->getPointerTo(), "ptrVec2ptrScl", SI);
+    Value *GepPtr = operand1->getPointerOperand();
+    PointerType *GepPtrType = cast<PointerType>(GepPtr->getType());
+    Value *operandBase = BitCastInst::CreatePointerCast(GepPtr, dataType->getScalarType()->getPointerTo(GepPtrType->getAddressSpace()), "ptrVec2ptrScl", SI);
     Type * indexType = operand1->getOperand(1)->getType();
     // Generate new (scalar) instructions
     Constant *elementNumVal = ConstantInt::get(indexType, numElements);
@@ -1332,7 +1341,11 @@ Value *ScalarizeFunction::obtainAssembledVector(Value *vectorVal, Instruction *l
   return assembledVector;
 }
 
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
 bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttrListPtr& funcAttr) {
+#else
+bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttributeSet& funcAttr) {
+#endif
 
   if (Mangler::isRetByVectorBuiltin(strScalarFuncName)) {
     reflection::FunctionDescriptor fdesc = ::demangle(strScalarFuncName.c_str());
@@ -1344,9 +1357,12 @@ bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName
 #if LLVM_VERSION == 3200
     funcAttr.addAttr(m_currFunc->getContext(), ~0, Attributes::get(m_currFunc->getContext(), Attributes::ReadNone));
     funcAttr.addAttr(m_currFunc->getContext(), ~0, Attributes::get(m_currFunc->getContext(), Attributes::NoUnwind));
-#else
+#elif LLVM_VERSION == 3425
     funcAttr.addAttr(~0, Attribute::ReadNone);
     funcAttr.addAttr(~0, Attribute::NoUnwind);
+#else
+    funcAttr.addAttribute(m_currFunc->getContext(), ~0, Attribute::ReadNone);
+    funcAttr.addAttribute(m_currFunc->getContext(), ~0, Attribute::NoUnwind);
 #endif
     return true;
   }

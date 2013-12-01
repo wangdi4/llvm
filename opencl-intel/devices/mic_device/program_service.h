@@ -129,14 +129,8 @@ public:
     // internal methods to be used for MIC DA
 
     // get Backend kernel object
-    const ICLDevBackendKernel_* GetBackendKernel( cl_dev_kernel kernel ) const;
-
-    // increment reference counter of program and return device pointer
-    uint64_t AcquireKernelOnDevice( cl_dev_kernel kernel );
-
-    // decrement reference counter of program
-    void releaseKernelOnDevice( cl_dev_kernel kernel );
-
+    static const ICLDevBackendKernel_* GetBackendKernel( cl_dev_kernel kernel ) { return ((TKernelEntry*)kernel)->pKernel; }
+    static uint64_t              GetDeviceSideKernel( cl_dev_kernel kernel) { return ((TKernelEntry*)kernel)->uDevKernelEntry; }
 
 private:
     DeviceServiceCommunication&             m_DevService;
@@ -165,15 +159,9 @@ private:
     // kernel info struct
     struct TKernelEntry
     {
-        static const uint64_t       marker_value = 0xBEAFF00D;
-        uint64_t                    marker; // set it to the marker_value at contructor
-
         const ICLDevBackendKernel_* pKernel;
         TProgramEntry*              pProgEntry;
         uint64_t                    uDevKernelEntry; // pointer to the kernel struct on device
-
-        // constructor
-        TKernelEntry( void ) : marker( marker_value ) {};
     };
 
     // 2 parallel maps point tothe same set of structs
@@ -183,20 +171,17 @@ private:
     // program info struct
     struct    TProgramEntry
     {
-        static const uint64_t       marker_value = 0xF00DBEAF;
-        uint64_t                    marker; // set it to the marker_value at contructor
-
         ICLDevBackendProgram_*      pProgram;
         uint64_t                    uid_program_on_device;
         volatile cl_build_status    clBuildStatus;
         bool                        copy_to_device_ok;
         TKernelName2Entry           mapName2Kernels;
         TKernelId2Entry             mapId2Kernels;
-        AtomicCounter               outanding_usages_count;
         cl_int                      m_iDevId;   // created for current device
 
         // constructor
-        TProgramEntry( cl_int dev_id ) : marker( marker_value ), m_iDevId(dev_id)  {};
+        TProgramEntry( cl_int dev_id ) :
+          pProgram(NULL), uid_program_on_device(0), copy_to_device_ok(false), m_iDevId(dev_id)  {};
     };
 
     typedef std::list<TProgramEntry*>    TProgramList;
@@ -217,12 +202,6 @@ private:
 
     void    DeleteProgramEntry(TProgramEntry* pEntry);
     bool    BuildKernelData(TProgramEntry* pEntry);
-
-    cl_dev_kernel kernel_entry_2_cl_dev_kernel( const TKernelEntry* e ) const;
-    TKernelEntry* cl_dev_kernel_2_kernel_entry( cl_dev_kernel k ) const;
-
-    cl_dev_program program_entry_2_cl_dev_program( const TProgramEntry* e ) const;
-    TProgramEntry* cl_dev_program_2_program_entry( cl_dev_program p ) const;
 
     bool    CopyProgramToDevice(
                 const ICLDevBackendProgram_* pProgram,

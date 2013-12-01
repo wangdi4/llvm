@@ -1,7 +1,7 @@
 ; XFAIL: i686-pc-win32
-; RUN: oclopt -builtins-module=clbltfne9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfne9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc < %t1.ll -mattr=+avx -mtriple=x86_64-pc-Win64 | FileCheck %s -check-prefix=CHECK-AVX
-; RUN: oclopt -builtins-module=clbltfnl9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
+; RUN: oclopt -runtimelib=clbltfnl9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
 ; RUN: llc < %t2.ll -mattr=+avx2 -mtriple=x86_64-pc-Win64 | FileCheck %s -check-prefix=CHECK-AVX2
 
 
@@ -12,7 +12,7 @@ entry:
    %yOut = alloca  <4 x i32>
    %zOut = alloca  <4 x i32>
    %wOut = alloca  <4 x i32>
-   call void @__ocl_load_transpose_int4x4(<4 x i32>* nocapture %pLoadAdd, <4 x i32>* nocapture %xOut, <4 x i32>* nocapture %yOut, <4 x i32>* nocapture %zOut, <4 x i32>* nocapture %wOut) nounwind
+   call void @__ocl_load_transpose_int_4x4(<4 x i32>* nocapture %pLoadAdd, <4 x i32>* nocapture %xOut, <4 x i32>* nocapture %yOut, <4 x i32>* nocapture %zOut, <4 x i32>* nocapture %wOut) nounwind
    %temp1 = load <4 x i32>* %xOut
    %temp2 = load <4 x i32>* %yOut
    %temp3 = load <4 x i32>* %zOut
@@ -24,7 +24,7 @@ entry:
 }
 
 
-declare void @__ocl_load_transpose_int4x4(<4 x i32>* nocapture %pLoadAdd, <4 x i32>* nocapture %xOut, <4 x i32>* nocapture %yOut, <4 x i32>* nocapture %zOut, <4 x i32>* nocapture %wOut) nounwind
+declare void @__ocl_load_transpose_int_4x4(<4 x i32>* nocapture %pLoadAdd, <4 x i32>* nocapture %xOut, <4 x i32>* nocapture %yOut, <4 x i32>* nocapture %zOut, <4 x i32>* nocapture %wOut) nounwind
 
 ;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX: [[FOO]]
@@ -40,7 +40,7 @@ declare void @__ocl_load_transpose_int4x4(<4 x i32>* nocapture %pLoadAdd, <4 x i
 ;CHECK-AVX:	vpunpckldq	[[XMM2]], [[XMM0]], [[XMM5:%xmm[0-9]+]]
 ;CHECK-AVX:	vpunpckhdq	[[XMM7]], [[XMM5]], [[XMM10:%xmm[0-9]+]]
 ;CHECK-AVX:	vpunpckldq	[[XMM7]], [[XMM5]], [[XMM11:%xmm[0-9]+]]
-;CHECK-AVX:    .type	[[LOAD:[_a-z]+]]_transpose_int4x4,@function
+;CHECK-AVX:    .type	[[LOAD:[_a-z]+]]_transpose_int_4x4,@function
 
 ;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX2:    [[FOO]]:  
@@ -53,4 +53,4 @@ declare void @__ocl_load_transpose_int4x4(<4 x i32>* nocapture %pLoadAdd, <4 x i
 ;CHECK-AVX2:	vpaddd	[[XMM2]], [[XMM3]], [[XMM21:%xmm[0-9]+]]
 ;CHECK-AVX2:	vpaddd	[[XMM0:%xmm[0-9]+]], [[XMM1:%xmm[0-9]+]], [[XMM01:%xmm[0-9]+]]
 ;CHECK-AVX2:	vpaddd	[[XMM21]], [[XMM01]], [[XMM02:%xmm[0-9]+]]
-;CHECK-AVX2:    .type	[[LOAD:[_a-z]+]]_transpose_int4x4,@function
+;CHECK-AVX2:    .type	[[LOAD:[_a-z]+]]_transpose_int_4x4,@function

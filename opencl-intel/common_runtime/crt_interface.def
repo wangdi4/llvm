@@ -91,6 +91,10 @@ EXPORTS
     clEnqueueWriteBufferRect
     clEnqueueCopyBufferRect
 
+    ; clCreateSubDevicesEXT
+    ; clRetainDeviceEXT
+    ; clReleaseDeviceEXT
+
     clCreateEventFromGLsyncKHR
 
     clCreateSubDevices
@@ -118,6 +122,22 @@ EXPORTS
     ; clEnqueueAcquireD3D11ObjectsKHR
     ; clEnqueueReleaseD3D11ObjectsKHR
 
+
     clGetDeviceIDsFromDX9MediaAdapterKHR
     ; clEnqueueAcquireDX9MediaSurfacesKHR
     ; clEnqueueReleaseDX9MediaSurfacesKHR
+
+    clSVMAlloc
+    clSVMFree
+    clEnqueueSVMFree
+    clEnqueueSVMMemcpy
+    clEnqueueSVMMemFill
+    clEnqueueSVMMap
+    clEnqueueSVMUnmap
+    clSetKernelArgSVMPointer
+    clSetKernelExecInfo
+
+    clCreateSamplerWithProperties
+    clCreatePipe
+    clGetPipeInfo
+

@@ -2,14 +2,14 @@
 
 //promote and expand
 
-	OclBuiltinImpl max_promote 		=	OclBuiltinImpl	<max,		[v2f32, v3f32], 										0, Promote2>;
-	OclBuiltinImpl max_expand 		=	OclBuiltinImpl	<max,		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand2>;
-	OclBuiltinImpl min_promote 		=	OclBuiltinImpl	<min, 		[v2f32, v3f32], 										0, Promote2>;
-	OclBuiltinImpl min_expand 		=	OclBuiltinImpl	<min, 		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand2>;
-	OclBuiltinImpl step_promote 	=	OclBuiltinImpl	<step,		[v2f32, v3f32], 										0, Promote2>;
-	OclBuiltinImpl step_expand 		=	OclBuiltinImpl	<step,		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand2>;
-	OclBuiltinImpl sign_promote 	=	OclBuiltinImpl	<sign,		[v2f32, v3f32], 										0, Promote1>;
-	OclBuiltinImpl sign_expand 		=	OclBuiltinImpl	<sign,		[v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 			0, Expand1>;
+  OclBuiltinImpl max_promote  = OclBuiltinImpl <max,  [v2f32, v3f32],                               0, Promote2>;
+  OclBuiltinImpl max_expand   = OclBuiltinImpl <max,  [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand2>;
+  OclBuiltinImpl min_promote  = OclBuiltinImpl <min,  [v2f32, v3f32],                               0, Promote2>;
+  OclBuiltinImpl min_expand   = OclBuiltinImpl <min,  [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand2>;
+  OclBuiltinImpl step_promote = OclBuiltinImpl <step, [v2f32, v3f32],                               0, Promote2>;
+  OclBuiltinImpl step_expand  = OclBuiltinImpl <step, [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand2>;
+  OclBuiltinImpl sign_promote = OclBuiltinImpl <sign, [v2f32, v3f32],                               0, Promote1>;
+  OclBuiltinImpl sign_expand  = OclBuiltinImpl <sign, [v8f32, v16f32, v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
 
 // ======GENERIC CPU specific implementation=======================
 //  clamp
@@ -80,11 +80,11 @@ OclBuiltinImpl sign_v4f32 = OclBuiltinImpl<sign,[v4f32] , 0, [{
     
     //if x>0 return res=1
     $ReturnType res = _mm_cmpgt_ps($Arg0VarName, _mm_setzero_ps());
-    res =  _mm_and_ps(res, *(($ReturnType *)f4const_oneStorage)); //res = 1 if x>0
+    res = _mm_and_ps(res, *(($ReturnType *)f4const_oneStorage)); //res = 1 if x>0
     
     //if x<-0 return res1=-1
     $ReturnType res1 = _mm_cmplt_ps($Arg0VarName, *(($ReturnType *)f4const_minusZeroStorage)); ////res1 = -1 if x<-0
-    res1 =  _mm_and_ps(res1, *(($ReturnType *)f4const_minusOneStorage));
+    res1 = _mm_and_ps(res1, *(($ReturnType *)f4const_minusOneStorage));
     res = _mm_or_ps(res, res1);
     //if x=0 res=0 (if x=0 res0=res1=0) - no need to do anything
     return res;
@@ -97,11 +97,11 @@ OclBuiltinImpl sign_v2f64 = OclBuiltinImpl<sign,[v2f64] , 0, [{
 
     //if x>0 return res=1
     $ReturnType res = _mm_cmpgt_pd($Arg0VarName, _mm_setzero_pd());
-    res =  _mm_and_pd(res, *(($ReturnType *)d2const_oneStorage)); //res = 1 if x>0
+    res = _mm_and_pd(res, *(($ReturnType *)d2const_oneStorage)); //res = 1 if x>0
 
     //if x<-0 return res1=-1
     $ReturnType res1 = _mm_cmplt_pd($Arg0VarName, *(($ReturnType *)d2const_minusZeroStorage)); ////res1 = -1 if x<-0
-    res1 =  _mm_and_pd(res1, *(($ReturnType *)d2const_minusOneStorage));
+    res1 = _mm_and_pd(res1, *(($ReturnType *)d2const_minusOneStorage));
     res = _mm_or_pd(res, res1);
     //if x=0 res=0 (if x=0 res0=res1=0) - no need to do anything
     return res;

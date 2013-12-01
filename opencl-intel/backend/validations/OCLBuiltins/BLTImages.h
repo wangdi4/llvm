@@ -19,7 +19,7 @@ File Name:  BLTImages.h
 #define BLT_IMAGES_H
 
 #include <vector>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "llvm/Support/Debug.h"
 #include "Helpers.h"
@@ -100,12 +100,16 @@ cl_channel_type ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type& va
             &imageSampler,// image_sampler_data *imageSampler,
             Pixel);
 
-        gv.AggregateVal.resize(4);
-        getRef<T,4>(gv, 0) = derefPointer<T>(Pixel+0);
-        getRef<T,4>(gv, 1) = derefPointer<T>(Pixel+1);
-        getRef<T,4>(gv, 2) = derefPointer<T>(Pixel+2);
-        getRef<T,4>(gv, 3) = derefPointer<T>(Pixel+3);
-
+        if(memobj->format.image_channel_order == CLK_DEPTH)
+            getRef<T>(gv) = derefPointer<T>(Pixel+0);
+        else
+        {
+            gv.AggregateVal.resize(4);
+            getRef<T,4>(gv, 0) = derefPointer<T>(Pixel+0);
+            getRef<T,4>(gv, 1) = derefPointer<T>(Pixel+1);
+            getRef<T,4>(gv, 2) = derefPointer<T>(Pixel+2);
+            getRef<T,4>(gv, 3) = derefPointer<T>(Pixel+3);
+        }
         return gv;
     }
 
@@ -183,7 +187,10 @@ cl_channel_type ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type& va
     
         T val[4];
 
-        getColorForWriteImage<T>(PixelGV,val);
+        if(desc.format->image_channel_order == CLK_DEPTH)
+            val[0] = getVal<T>(PixelGV);
+        else
+            getColorForWriteImage<T>(PixelGV,val);
         Conformance::write_image_pixel<T>(memobj->pData, &desc, u, v, w, val);
         
        return gv;        

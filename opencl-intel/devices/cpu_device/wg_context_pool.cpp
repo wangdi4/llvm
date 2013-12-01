@@ -34,6 +34,11 @@ void WgContextPool::Init(unsigned int maxNumThreads, unsigned int maxNumMasters)
     assert (NULL == m_wgContextWrapperPool && "Context pool already initialized");
     assert (0 < maxNumThreads && "Zero threads requested");
     assert (1 == maxNumMasters && "Current implementation supports only one master thread at a time");
+    if (maxNumThreads == maxNumMasters)
+    {
+        //Always allow for at least one worker
+        maxNumThreads++; 
+    }
 
     m_maxNumThreads = maxNumThreads;
     if (0 == m_maxNumThreads) return;
@@ -43,7 +48,7 @@ void WgContextPool::Init(unsigned int maxNumThreads, unsigned int maxNumMasters)
     assert (NULL != m_wgContextPool && "Memory allocation failed");
     assert (NULL != m_wgContextWrapperPool && "Memory allocation failed");
 
-    for (long i = maxNumMasters; i < m_maxNumThreads; ++i)
+    for (unsigned int i = maxNumMasters; i < m_maxNumThreads; ++i)
     {
         m_wgContextWrapperPool[i].pContext = m_wgContextPool + i;
     }
@@ -58,7 +63,7 @@ void WgContextPool::Clear()
 {
     if (NULL != m_wgContextWrapperPool)
     {
-        for (long i = 0; i < m_maxNumThreads; ++i)
+        for (unsigned int i = 0; i < m_maxNumThreads; ++i)
         {
             m_wgContextWrapperPool[i].pContext = NULL;
         }
@@ -109,6 +114,10 @@ WGContextBase* WgContextPool::GetWGContext(bool bBelongsToMasterThread)
     {
         t_pContext->pContext->Init();
         t_pContext->pContext->SetBelongsToMasterThread(bBelongsToMasterThread);
+        return t_pContext->pContext;
     }
-    return t_pContext->pContext;
+    else
+    {
+        return NULL;
+    }
 }

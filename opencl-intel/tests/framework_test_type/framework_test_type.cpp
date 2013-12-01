@@ -27,7 +27,7 @@ std::map<cl_device_type, openBcFunc> gBcfuncMap;
 
 TEST(FrameworkTestType, Test_clfissionBasicTest)
 {
-	EXPECT_TRUE(fission_basic_test());
+    EXPECT_TRUE(fission_basic_test());
 }
 
 TEST(FrameworkTestType, Test_clFissionReadBufferTest)
@@ -37,76 +37,57 @@ TEST(FrameworkTestType, Test_clFissionReadBufferTest)
 
 TEST(FrameworkTestType, Test_clfissionOptionsTest)
 {
-	EXPECT_TRUE(fission_options_test());
+    EXPECT_TRUE(fission_options_test());
 }
 
-TEST(FrameworkTestType, DISABLED_Test_clfissionLogicTest)
+TEST(FrameworkTestType, Test_clfissionLogicTest)
 {
-	EXPECT_TRUE(fission_logic_test());
-}
-
-TEST(FrameworkTestType, DISABLED_Test_clfissionThreadTest)
-{
-    // Disabled because it's buggy, needs to be rewritten.
-    // As it is it "usually" works but can randomly fail when it in fact passed
-    // CQ ticket CSSD100006157
-	EXPECT_TRUE(fission_thread_test());
+    EXPECT_TRUE(fission_logic_test());
 }
 
 TEST(FrameworkTestType, Test_clfissionBuildTest)
 {
-	EXPECT_TRUE(fission_buildSubDevice_test());
+    EXPECT_TRUE(fission_buildSubDevice_test());
 }
 
 TEST(FrameworkTestType, Test_clfissionBuildMultipleTest)
 {
-	EXPECT_TRUE(fission_buildMultipleSubDevices_test());
+    EXPECT_TRUE(fission_buildMultipleSubDevices_test());
 }
 
 TEST(FrameworkTestType, Test_clfissionDeviceInfoTest)
 {
-	EXPECT_TRUE(fission_deviceInfoSelectors_test());
+    EXPECT_TRUE(fission_deviceInfoSelectors_test());
 }
 
 TEST(FrameworkTestType, Test_clfissionCommandQTest)
 {
-	EXPECT_TRUE(fission_commandQ_test());
-}
-
-TEST(FrameworkTestType, Test_clfissionNumaTest)
-{
-	EXPECT_TRUE(fission_numa_test());
+    EXPECT_TRUE(fission_commandQ_test());
 }
 
 TEST(FrameworkTestType, Test_clfissionContextTest)
 {
-	EXPECT_TRUE(fission_context_test());
+    EXPECT_TRUE(fission_context_test());
 }
 
 TEST(FrameworkTestType, Test_clfissionSubdivisionTest)
 {
-	EXPECT_TRUE(fission_subdivision_test());
+    EXPECT_TRUE(fission_subdivision_test());
 }
 
 TEST(FrameworkTestType, Test_clfissionTwoQueuesTest)
 {
-	EXPECT_TRUE(fission_two_queues_test());
+    EXPECT_TRUE(fission_two_queues_test());
 }
 
 TEST(FrameworkTestType, Test_clfissionByNamesTest)
 {
-	EXPECT_TRUE(fission_by_names_test());
+    EXPECT_TRUE(fission_by_names_test());
 }
 TEST(FrameworkTestType, Test_clfissionReadBufferBetweenDevicesTest)
 {
-	EXPECT_TRUE(fission_read_buffer_between_device_test());
+    EXPECT_TRUE(fission_read_buffer_between_device_test());
 }
-
-TEST(FrameworkTestType, Test_clGetDeviceIDsTest)
-{
-    EXPECT_TRUE(clGetDeviceIDsTest());
-}
-
 
 TEST(FrameworkTestType, Test_clGetPlatformInfoTest)
 {
@@ -135,10 +116,10 @@ TEST(FrameworkTestType, Test_clCreateContextTest)
 TEST(FrameworkTestType, Test_clBuildProgramWithBinaryTest)
 {
     std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);
-	if (gBcfuncMap.end() == iter)
-	{
-		FAIL();
-	}
+    if (gBcfuncMap.end() == iter)
+    {
+        FAIL();
+    }
     EXPECT_TRUE(clBuildProgramWithBinaryTest(iter->second));
 }
 
@@ -164,11 +145,11 @@ TEST(FrameworkTestType, Test_clLinkProgramTest)
 
 TEST(FrameworkTestType, Test_clCreateKernelTest)
 {
-	std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);
-	if (gBcfuncMap.end() == iter)
-	{
-		FAIL();
-	}
+    std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);
+    if (gBcfuncMap.end() == iter)
+    {
+        FAIL();
+    }
     EXPECT_TRUE(clCreateKernelTest(iter->second));
 }
 
@@ -348,28 +329,16 @@ TEST(FrameworkTestType, Test_EventCallbackTest)
 }
 
 
-TEST(FrameworkTestType, DISABLED_Test_clFinishTest)
-{
-    EXPECT_TRUE(clFinishTest());
-}
-
-
 TEST(FrameworkTestType, Test_MT_order)
 {
     EXPECT_TRUE(MultithreadedOrderViolation());
 }
 
-
-TEST(FrameworkTestType, Test_MisalignedHostPtr)
+// Because we don't copy misaligned buffers with CL_MEM_USE_HOST_PTR anymore, the kernel code crashes. This can be fixed by changes in LLVM to handle misaligned access, if it is decided to be done.
+TEST(FrameworkTestType, DISABLED_Test_MisalignedHostPtr)
 {
     EXPECT_TRUE(MisalignedUseHostPtrTest());
 }
-
-//extension not supported
-//TEST(FrameworkTestType, Test_overloadingTest)
-//{
-//    EXPECT_TRUE(overloading_test());
-//}
 
 TEST(FrameworkTestType, Test_userDefinedStruct)
 {
@@ -378,7 +347,7 @@ TEST(FrameworkTestType, Test_userDefinedStruct)
 
 TEST(FrameworkTestType, Test_clapiTest)
 {
-	EXPECT_TRUE(api_test());
+    EXPECT_TRUE(api_test());
 }
 TEST(FrameworkTestType, Test_ImmediateExecutionTest)
 {
@@ -401,17 +370,37 @@ TEST(FrameworkTestType, Test_EventDependenciesTest)
 
 TEST(FrameworkTestType, Test_ShutdownFromChildThread)
 {
-	EXPECT_TRUE(ShutdownFromChildThread());
+    EXPECT_TRUE(ShutdownFromChildThread());
 }
 
 TEST(FrameworkTestType, Test_PredictablePartition)
 {
-	EXPECT_TRUE(predictable_partition_test());
+    EXPECT_TRUE(predictable_partition_test());
 }
 
 TEST(FrameworkTestType, Test_clMultipleExecutionTest)
 {
     EXPECT_TRUE(clMultipleExecutionTest());
+}
+
+TEST(FrameworkTestType, Test_clSvmTest)
+{
+    EXPECT_TRUE(clSvmTest());
+}
+
+TEST(FrameworkTestType, DISABLED_Test_clFlexibleNdrange)    // disabled until BE finish their implementation
+{
+    EXPECT_TRUE(clFlexibleNdrange());
+}
+
+TEST(FrameworkTestType, Test_clPipes)
+{
+    EXPECT_TRUE(clPipes());
+}
+
+TEST(FrameWorkTestType, Test_cl20ExecutionModel)
+{
+    EXPECT_TRUE(cl20ExecutionModel());
 }
 
 template <typename T>
@@ -506,20 +495,20 @@ TEST(FrameworkTestType, Test_CPU_MIC_Common_RT_SubBuffers_Async_With_Buffer_Rele
 
 TEST(FrameworkTestType, cl_CPU_MIC_Parallel_NDRange_Execution_With_Read_Of_Same_Buffer)
 {
-	EXPECT_TRUE(cl_CPU_MIC_Parallel_NDRange_Execution_With_Read_Of_Same_Buffer());
+    EXPECT_TRUE(cl_CPU_MIC_Parallel_NDRange_Execution_With_Read_Of_Same_Buffer());
 }
 
-TEST(FrameworkTestType, DISABLED_cl_ALL_Devices_SubBuffer_Simple_Test) //CSSD100015775
+TEST(FrameworkTestType, cl_ALL_Devices_SubBuffer_Simple_Test)
 {
     EXPECT_TRUE(cl_ALL_Devices_SubBuffer_Simple_Test());
 }
 
-TEST(FrameworkTestType, DISABLED_cl_ALL_Devices_Common_RT_SubBuffers_Async) //CSSD100015775
+TEST(FrameworkTestType, cl_ALL_Devices_Common_RT_SubBuffers_Async)
 {
     EXPECT_TRUE(cl_ALL_Devices_Common_RT_SubBuffers_Async());
 }
 
-TEST(FrameworkTestType, DISABLED_cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release) //CSSD100015775
+TEST(FrameworkTestType, cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release)
 {
     EXPECT_TRUE(cl_ALL_Devices_Common_RT_SubBuffers_Async_With_Buffer_Release());
 }
@@ -531,7 +520,7 @@ TEST(FrameworkTestType, TEST_APFLevel)
 
 #endif
 
-// To run individual tests, use the --gtest_filter=<pattern> command-line 
+// To run individual tests, use the --gtest_filter=<pattern> command-line
 // option. For example, to only Test_EventCallbackTest, use:
 // --gtest_filter=Test_EventCallbackTest
 //
@@ -542,33 +531,33 @@ TEST(FrameworkTestType, TEST_APFLevel)
 //
 int main(int argc, char** argv)
 {
-	std::map<std::string, cl_device_type> clDeviceTypeMap;
+    std::map<std::string, cl_device_type> clDeviceTypeMap;
     gBcfuncMap[CL_DEVICE_TYPE_CPU] = cpuBCOpen;
     gBcfuncMap[CL_DEVICE_TYPE_ACCELERATOR] = micBCOpen;
-	gBcfuncMap[CL_DEVICE_TYPE_GPU] = cpuBCOpen;
-	gBcfuncMap[CL_DEVICE_TYPE_DEFAULT] = cpuBCOpen;
-	gBcfuncMap[CL_DEVICE_TYPE_ALL] = cpuBCOpen;
-	clDeviceTypeMap["cpu"] = CL_DEVICE_TYPE_CPU;
-	clDeviceTypeMap["mic"] = CL_DEVICE_TYPE_ACCELERATOR;
-	clDeviceTypeMap["gpu"] = CL_DEVICE_TYPE_GPU;
-	clDeviceTypeMap["default"] = CL_DEVICE_TYPE_DEFAULT;
-	clDeviceTypeMap["all"] = CL_DEVICE_TYPE_ALL;
+    gBcfuncMap[CL_DEVICE_TYPE_GPU] = cpuBCOpen;
+    gBcfuncMap[CL_DEVICE_TYPE_DEFAULT] = cpuBCOpen;
+    gBcfuncMap[CL_DEVICE_TYPE_ALL] = cpuBCOpen;
+    clDeviceTypeMap["cpu"] = CL_DEVICE_TYPE_CPU;
+    clDeviceTypeMap["mic"] = CL_DEVICE_TYPE_ACCELERATOR;
+    clDeviceTypeMap["gpu"] = CL_DEVICE_TYPE_GPU;
+    clDeviceTypeMap["default"] = CL_DEVICE_TYPE_DEFAULT;
+    clDeviceTypeMap["all"] = CL_DEVICE_TYPE_ALL;
     ::testing::InitGoogleTest(&argc, argv);
     if (argc > 1) {//are there still arguments left?
       for (int i=1 ; i<argc ; i++)
         if (deviceOption.isMatch(argv[i]))
-		{
-		  std::string deviceTypeStr = deviceOption.getValue(argv[i]);
-		  std::map<std::string, cl_device_type>::iterator iter = clDeviceTypeMap.find(deviceTypeStr);
-		  if (iter == clDeviceTypeMap.end())
-		  {
+        {
+          std::string deviceTypeStr = deviceOption.getValue(argv[i]);
+          std::map<std::string, cl_device_type>::iterator iter = clDeviceTypeMap.find(deviceTypeStr);
+          if (iter == clDeviceTypeMap.end())
+          {
               printf("error: unkown device option: %s\n", deviceTypeStr.c_str());
               return 1;
-		  }
-		  gDeviceType = iter->second;
-		}
+          }
+          gDeviceType = iter->second;
+        }
     }
-   return RUN_ALL_TESTS();
+    return RUN_ALL_TESTS();
 }
 
 

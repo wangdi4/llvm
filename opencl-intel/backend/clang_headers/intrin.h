@@ -60,6 +60,10 @@
 #ifdef __FMA__
 #include <fmaintrin.h>
 #endif
+
+#ifdef __AVX512F__
+#include <knlintrin.h>
 #endif
 
+#endif
 #endif

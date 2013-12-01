@@ -22,10 +22,12 @@
 //  thread_pool.cpp
 /////////////////////////////////////////////////////////////
 
+#include <cl_shared_ptr.hpp>
+#include <hw_utils.h>
+#include <cl_synch_objects.h>
+
 #include "native_thread_pool.h"
-#include "cl_shared_ptr.hpp"
 #include "native_common_macros.h"
-#include "hw_utils.h"
 
 #include <map>
 #include <vector>
@@ -37,7 +39,7 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::TaskExecutor;
 
 ThreadPool* ThreadPool::m_threadPool = NULL;
-__thread WGContext*	ThreadPool::m_tpMasterCtx = NULL;
+__thread WGContext*    ThreadPool::m_tpMasterCtx = NULL;
 
 // 
 // CoreAffinityDescriptor
@@ -115,21 +117,21 @@ ThreadPool::ThreadPool() :
 
 ThreadPool* ThreadPool::getInstance()
 {
-	if (NULL == m_threadPool)
-	{
-		m_threadPool = new ThreadPool();
-		assert(m_threadPool);
-	}
-	return m_threadPool;
+    if (NULL == m_threadPool)
+    {
+        m_threadPool = new ThreadPool();
+        assert(m_threadPool);
+    }
+    return m_threadPool;
 }
 
 void ThreadPool::releaseSingletonInstance()
 {
-	if (m_threadPool)
-	{
-		delete m_threadPool;
-		m_threadPool = NULL;
-	}
+    if (m_threadPool)
+    {
+        delete m_threadPool;
+        m_threadPool = NULL;
+    }
 }
 
 bool ThreadPool::read_device_structure()
@@ -142,8 +144,8 @@ bool ThreadPool::read_device_structure()
 
     // map: coreID -> array of 4 thread IDs
     typedef map< unsigned int, vector<unsigned int> >  CoreId2ThreadIsMap;
-	CoreId2ThreadIsMap                                 coreToThreadsMap;
-	CoreId2ThreadIsMap::iterator                       it;
+    CoreId2ThreadIsMap                                 coreToThreadsMap;
+    CoreId2ThreadIsMap::iterator                       it;
 
     string title;
     int coreID = -1;
@@ -236,13 +238,21 @@ bool ThreadPool::init_base( bool use_affinity,
     m_init_done = true;
 
     m_useAffinity       = use_affinity;
-	#ifdef __OMP_EXECUTOR__
-		m_useAffinity = false;
-	#endif
     m_useNumberOfCores  = ((number_of_cores > 0 ) && (number_of_cores <= MIC_NATIVE_MAX_CORES)) ? number_of_cores  : MIC_NATIVE_MAX_CORES;
     m_useThreadsPerCore = ((threads_per_core > 0) && (threads_per_core <= MIC_NATIVE_MAX_THREADS_PER_CORE)) ? threads_per_core : MIC_NATIVE_MAX_THREADS_PER_CORE;
     m_useIgnoreFirstCore= ignore_first_core; 
     m_useIgnoreLastCore = ignore_last_core;
+	#ifdef __OMP_EXECUTOR__
+        m_useAffinity = false;
+		if (m_useIgnoreFirstCore)
+		{
+			m_useNumberOfCores --;
+		}
+		if (m_useIgnoreLastCore)
+		{
+			m_useNumberOfCores --;
+		}
+    #endif
 
     bool ok = read_device_structure();
     assert( (true == ok) && "ThreadPool cannot read device structure" );
@@ -356,14 +366,14 @@ bool ThreadPool::init(
         unsigned int core_idx;
         unsigned int worker_idx = 0;
 
-        // assign first all 0 threads, then all 1 threads, etc.
-        for ( thread_idx = 0; thread_idx < useThreadsPerCore(); ++thread_idx )
+        // assign first threads on available core, then all threads on the next available core, etc.
+        for (core_idx = 0; core_idx < MIC_NATIVE_MAX_CORES; ++core_idx)
         {
-            for (core_idx = 0; core_idx < MIC_NATIVE_MAX_CORES; ++core_idx)
+            const CoreAffinityDescriptor& core = get_core_affinity_descriptor(core_idx);
+            if (core.is_enabled_core())
             {
-                const CoreAffinityDescriptor& core = get_core_affinity_descriptor(core_idx);
-                if (core.is_enabled_core())
-                {   
+                for ( thread_idx = 0; thread_idx < useThreadsPerCore(); ++thread_idx )
+                {
                     m_workerId_2_executorCore[worker_idx].hw_2_level_index.hw_core_idx   = core_idx;
                     m_workerId_2_executorCore[worker_idx].hw_2_level_index.hw_thread_idx = thread_idx;
                     ++worker_idx;
@@ -413,7 +423,9 @@ bool ThreadPool::init(
         return false;        
     }
 
+#ifndef __MIC_DA_OMP__
     startup_all_workers();
+#endif
 
     if (useAffinity())
     {
@@ -434,7 +446,6 @@ void ThreadPool::release()
 {
     if (NULL != m_task_executor)
     {
-    	//printf("Setback observers");
     	m_shut_down = true;
 	    m_RootDevice->SetObserver(this);
 	    
@@ -480,10 +491,17 @@ void* ThreadPool::OnThreadEntry()
     }
 
     WGContext* pCtx = m_task_executor->IsMaster() ? m_tpMasterCtx : &m_contexts[thread_idx];
+
+	if ((NULL == pCtx) && (m_task_executor->IsMaster()))
+	{
+		ActivateCurrentMasterThread();
+		pCtx = m_tpMasterCtx;
+	}
+
     assert (NULL != pCtx && "Referenced context is NULL");
     if ( NULL == pCtx )
     {
-    	return NULL;
+        return NULL;
     }
     
     pCtx->SetThreadId( thread_idx );
@@ -504,16 +522,16 @@ void* ThreadPool::OnThreadEntry()
 // Allocate all necessary resources for the current calling thread
 bool ThreadPool::ActivateCurrentMasterThread()
 {
-	if ( NULL == m_tpMasterCtx )
-	{
-		WGContext* pCtx = new WGContext();
-		assert(NULL != pCtx && "Allocation of master WGContext failed");
-		m_tpMasterCtx = pCtx;
-		setCurrentThreadAffinity(0);
-		m_RootDevice->AttachMasterThread(pCtx);
-	}
-	
-	return (NULL != m_tpMasterCtx);
+    if ( NULL == m_tpMasterCtx )
+    {
+        WGContext* pCtx = new WGContext();
+        assert(NULL != pCtx && "Allocation of master WGContext failed");
+        m_tpMasterCtx = pCtx;
+        setCurrentThreadAffinity(0);
+        m_RootDevice->AttachMasterThread(pCtx);
+    }
+    
+    return (NULL != m_tpMasterCtx);
 }
 
 bool ThreadPool::DeactivateCurrentMasterThread()
@@ -534,7 +552,7 @@ WGContext* ThreadPool::findActiveWGContext()
 {
     unsigned int  thread_idx = m_task_executor->GetPosition();
     return (TE_UNKNOWN == thread_idx) ? NULL :
-    		m_task_executor->IsMaster() ? m_tpMasterCtx : &m_contexts[thread_idx];
+            m_task_executor->IsMaster() ? m_tpMasterCtx : &m_contexts[thread_idx];
 }
 
 void  ThreadPool::OnThreadExit( void* currentThreadData )
@@ -543,10 +561,10 @@ void  ThreadPool::OnThreadExit( void* currentThreadData )
 
 Intel::OpenCL::TaskExecutor::TE_BOOLEAN_ANSWER ThreadPool::MayThreadLeaveDevice( void* currentThreadData )
 {
-	if ( !m_shut_down )
-		return Intel::OpenCL::TaskExecutor::TE_NO;
-	else
-		return Intel::OpenCL::TaskExecutor::TE_YES;
+    if ( !m_shut_down )
+        return Intel::OpenCL::TaskExecutor::TE_NO;
+    else
+        return Intel::OpenCL::TaskExecutor::TE_YES;
 }
 
 void ThreadPool::setCurrentThreadAffinity( unsigned int worker_id )
@@ -559,10 +577,10 @@ void ThreadPool::setCurrentThreadAffinity( unsigned int worker_id )
     if (worker_id >= m_numOfActivatedThreads)
     {
         // in most cases this happens when device with single executable thread is requested.
-		assert( 0 && "Number of workers should not exceed the total amount of workers");
+        assert( 0 && "Number of workers should not exceed the total amount of workers");
         worker_id = 0;
     }
-    
+
     const TaskExecutorCore& executor_core = m_workerId_2_executorCore[ worker_id ];
     const CoreAffinityDescriptor& core_desc = get_core_affinity_descriptor( executor_core.hw_2_level_index.hw_core_idx );
     cpu_set_t affinity = core_desc.get_thread_affinity_mask( executor_core.hw_2_level_index.hw_thread_idx );
@@ -589,27 +607,29 @@ void ThreadPool::setCurrentThreadAffinity( unsigned int worker_id )
 }
 
 //
-//  Warmup device
+//  Warm-up device
 //
 class WarmUpTask : public ITaskSet
 {
 public:
-    PREPARE_SHARED_PTR(WarmUpTask)
+	PREPARE_SHARED_PTR(WarmUpTask)
     
-    static inline SharedPtr<WarmUpTask> Allocate( unsigned int num_of_workers ) { return new WarmUpTask( num_of_workers ); }
+	static inline SharedPtr<WarmUpTask> Allocate( unsigned int num_of_workers ) { return new WarmUpTask( num_of_workers ); }
 
-	int	    Init(size_t region[], unsigned int& regCount);
-	void*   AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) 
-	{
+    void    Cancel() { Finish(FINISH_INIT_FAILED); }
+
+    int     Init(size_t region[], unsigned int& regCount);
+    void*   AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) 
+    {
         return (void*)1;
-	}
-	void    DetachFromThread(void * pWgContext) {}
+    }
+    void    DetachFromThread(void * pWgContext) {}
 
-	// "Main loop"
-	// The function is called with different 'inx' parameters for each iteration number
-	bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = NULL);
+    // "Main loop"
+    // The function is called with different 'inx' parameters for each iteration number
+    bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = NULL);
 
-	bool	Finish(FINISH_REASON reason) { m_completed = 1; return true; }
+    bool    Finish(FINISH_REASON reason) { m_completed = 1; return true; }
 
 	// Returns true in case current task is a synchronization point
 	// No more tasks will be executed in this case
@@ -619,41 +639,59 @@ public:
 	// Returns true if command is already completed
 	bool	SetAsSyncPoint() { return false; }
 
-	// Returns true if command is already completed
-	bool	IsCompleted() const { return (0 != m_completed); }
+    // Returns true if command is already completed
+    bool    IsCompleted() const { return (0 != m_completed); }
 
 	// Returns true if command is already completed
-	bool	IsAllWorkersJoined() const { return (1 == startup_workers_left); }
+	void	WaitAllWorkersJoined()
+	{
+	  masterWaitEvent.Wait();
+	}
 	
 	// Master operation is ready, workers can be released
-	void	SetMasterReady() { startup_workers_left--; }
-    
-    // Releases task object, shall be called instead of delete operator.
-    long    Release() { delete this; return 0; }
+	void	SetMasterReady()
+	{
+	  long val = --startup_workers_left;
+	  assert(val == 0 && "Expected all workers to wakeup on this stage");
+	  workersWaitEvent.Signal();
+	}
 
-    // Optimize By
-    TASK_PRIORITY         GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-    TASK_SET_OPTIMIZATION OptimizeBy() const { return TASK_SET_OPTIMIZE_DEFAULT; }
-    unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
+	// Releases task object, shall be called instead of delete operator.
+	long    Release() { delete this; return 0; }
+
+	// Optimize By
+	TASK_PRIORITY         GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+	TASK_SET_OPTIMIZATION OptimizeBy() const { return TASK_SET_OPTIMIZE_DEFAULT; }
+	unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
+
+	ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
 private:
-    WarmUpTask( unsigned int num_of_workers ) : startup_workers_left(num_of_workers) {}
-    ~WarmUpTask() {}
+	WarmUpTask( unsigned int num_of_workers ) :
+		startup_workers_left(num_of_workers), masterWaitEvent(true), workersWaitEvent(false) {}
 
-    AtomicCounter startup_workers_left;
-    AtomicCounter m_completed;
+	~WarmUpTask() {}
+
+	AtomicCounter startup_workers_left;
+	AtomicCounter m_completed;
+	Intel::OpenCL::Utils::OclOsDependentEvent masterWaitEvent;
+	Intel::OpenCL::Utils::OclOsDependentEvent workersWaitEvent;
 };
 
 int WarmUpTask::Init(size_t region[], unsigned int& regCount)
 {
     regCount = 1;
+#ifdef __MIC_DA_OMP__
+	region[0] = startup_workers_left; // The master also join in OMP
+#else
     region[0] = startup_workers_left-1;	// Less one for the master slot.
+#endif
     return 0;
 }
 
 bool WarmUpTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext)
 {
-    long val = startup_workers_left--;
+    long val = --startup_workers_left;
 #if defined(USE_ITT)
     if ( gMicGPAData.bUseGPA )
     {
@@ -671,11 +709,22 @@ bool WarmUpTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext
 		__itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
     }
 #endif
-    while (0 != startup_workers_left)
+    // if single worker left wake-up master
+    if ( val == 1 )
     {
-        hw_pause();
-    }  
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+      masterWaitEvent.Signal();
+    }
+    // If last worker joined wake-up others
+    if ( val == 0 )
+    {
+      workersWaitEvent.Signal();
+    }
+    else
+    {
+      workersWaitEvent.Wait();
+    }
+
+    #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA)
     {
 		__itt_task_end(gMicGPAData.pDeviceDomain);
@@ -704,28 +753,30 @@ void ThreadPool::startup_all_workers()
     }
 #endif
 
-    SharedPtr<ITaskList> list = m_RootDevice->CreateTaskList( TE_CMD_LIST_IN_ORDER );
+#ifdef __MIC_DA_OMP__
+	// __OMP_EXECUTOR__ support only immediate queue
+    SharedPtr<ITaskList> list = m_RootDevice->CreateTaskList( TE_CMD_LIST_IMMEDIATE );
+#else
+	SharedPtr<ITaskList> list = m_RootDevice->CreateTaskList( TE_CMD_LIST_IN_ORDER );
+#endif 
     SharedPtr<WarmUpTask> warmup_task = WarmUpTask::Allocate( m_numOfActivatedThreads );
     list->Enqueue( warmup_task );
     list->Flush();
+
+#ifndef __MIC_DA_OMP__
     
     // Wait workers to join execution
-    while ( !warmup_task->IsAllWorkersJoined() )
-    {
-    	hw_pause();
-	}
-	
-	// All workers joined, now we can shutdown observer
+    warmup_task->WaitAllWorkersJoined();
+
+    // All workers joined, now we can shutdown observer
     m_RootDevice->SetObserver(NULL);
     
     // Workers might be released
     warmup_task->SetMasterReady();
-    
-    // Wait until all workers completed
-    while ( !warmup_task->IsCompleted() )
-    {
-    	hw_pause();
-    }
+#endif
+
+    // Wait for all task completed
+    list->WaitForCompletion(NULL);
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA)

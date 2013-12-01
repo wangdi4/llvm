@@ -61,7 +61,7 @@ cl_dev_err_code CPUExecutable::PrepareThread()
 {
     // Use vzeroupper to avoid the AVX state transition penalty.
     if (  m_hasAVX1 && !m_hasAVX2 ) 
-	  {
+    {
         Emit_VZeroUpper();
     }
   
@@ -75,7 +75,7 @@ cl_dev_err_code CPUExecutable::PrepareThread()
 cl_dev_err_code CPUExecutable::RestoreThreadState() {
     // Use vzeroupper to avoid the AVX state transition penalty.
     if ( m_hasAVX1 && !m_hasAVX2 ) 
-	  {
+    {
         Emit_VZeroUpper();
     }
   

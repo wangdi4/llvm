@@ -19,7 +19,7 @@ File Name:  BLTConversion.h
 #define BLT_CONVERSION_H
 
 #include <vector>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Helpers.h"
 #include "RefALU.h"

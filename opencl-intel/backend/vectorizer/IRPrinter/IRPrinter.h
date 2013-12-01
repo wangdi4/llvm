@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __IR_PRINTER__H__
 
 #include <llvm/Pass.h>
-#include <llvm/Function.h>
+#include <llvm/IR/Function.h>
 
 #include <vector>
 #include <sstream>

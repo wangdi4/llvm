@@ -8,10 +8,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "MetaDataApi.h"
 
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Instruction.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Version.h"
 
@@ -78,11 +78,11 @@ namespace intel {
       return pUserInst->getParent();
     }
     //Usage is a PHINode, find previous basic block according to pVal
-    PHINode *pPhiNode =  dyn_cast<PHINode>(pUserInst);
+    PHINode *pPhiNode = cast<PHINode>(pUserInst);
     BasicBlock *pPrevBB = NULL;
     for ( pred_iterator bi = pred_begin(pPhiNode->getParent()),
       be = pred_end(pPhiNode->getParent()); bi != be; ++bi ) {
-        BasicBlock *pBB = dyn_cast<BasicBlock>(*bi);
+        BasicBlock *pBB = *bi;
         Value *pPHINodeVal = pPhiNode->getIncomingValueForBlock(pBB);
         if ( pPHINodeVal == pVal ) {
           //pBB is the previous basic block
@@ -147,6 +147,39 @@ namespace intel {
     return m_syncInstructions;
   }
 
+  TInstructionVector& BarrierUtils::getWGCallInstructions(CALL_BI_TYPE type) {
+    
+    //Clear old collected data
+    m_WGcallInstructions.clear();
+
+    // Scan external function definitions in the module
+    for ( Module::iterator fi = m_pModule->begin(), fe = m_pModule->end(); fi != fe; ++fi ) {
+      Function *pFunc = &*fi;
+      if( !pFunc->isDeclaration() ) {
+        //Built-in functions assumed to be declarations at this point.
+        continue;
+      }
+      std::string funcName = pFunc->getName().str();
+      if((CALL_BI_TYPE_WG == type && CompilationUtils::isWorkGroupBuiltin(funcName)) ||
+         (CALL_BI_TYPE_ASYNC == type && CompilationUtils::isAsyncBuiltin(funcName))) {
+        //Module contains declaration of a WG function built-in, fix its usages.
+        Function::use_iterator ui = pFunc->use_begin();
+        Function::use_iterator ue = pFunc->use_end();
+        for ( ; ui != ue; ++ui ) {
+          CallInst *pCallInst = dyn_cast<CallInst>(*ui);
+          if( !pCallInst ) {
+            assert(false && "usage of work-group built-in is not a call instruction!");
+            continue;
+          }
+          //Found a call instruction to work-group built-in, collect it.
+          m_WGcallInstructions.push_back(pCallInst);
+        }
+      }
+    }
+
+    return m_WGcallInstructions;
+  }
+
   //TBasicBlockVector& BarrierUtils::getAllSynchronizeBasicBlocks() {
   //  //Initialize m_syncInstructions
   //  getAllSynchronizeInstructuons();
@@ -161,7 +194,7 @@ namespace intel {
   //  return m_syncBasicBlocks;
   //}
 
-  TFunctionVector& BarrierUtils::getAllFunctionsWithSynchronization() {
+  TFunctionSet& BarrierUtils::getAllFunctionsWithSynchronization() {
     //Initialize m_syncInstructions
     getAllSynchronizeInstructuons();
 
@@ -170,7 +203,7 @@ namespace intel {
 
     for ( TInstructionVector::iterator ii = m_syncInstructions.begin(),
       ie = m_syncInstructions.end(); ii != ie; ++ii ) {
-        m_syncFunctions.push_back((*ii)->getParent()->getParent());
+        m_syncFunctions.insert((*ii)->getParent()->getParent());
     }
     return m_syncFunctions;
   }
@@ -217,6 +250,10 @@ namespace intel {
       funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
       m_barrierFunc =
         createFunctionDeclaration(CompilationUtils::mangledBarrier(), pResult, funcTyArgs);
+#if (LLVM_VERSION != 3200) && (LLVM_VERSION != 3425)
+      m_barrierFunc->setAttributes(m_barrierFunc->getAttributes().addAttribute(
+        m_barrierFunc->getContext(), AttributeSet::FunctionIndex, Attribute::NoDuplicate));
+#endif
     }
     if ( !m_localMemFenceValue ) {
       //LocalMemFenceValue is not initialized yet
@@ -230,10 +267,11 @@ namespace intel {
   Instruction* BarrierUtils::createDummyBarrier(Instruction *pInsertBefore){
     if ( !m_dummyBarrierFunc ) {
       //Dummy Barrier function is not initialized yet
-      //There should not be dummyBarrier function declaration in the module
-      assert( !m_pModule->getFunction(DUMMY_BARRIER_FUNC_NAME) &&
-        "dummyBarrier() instruction is origanlity declared by the module!!!" );
-
+      //Check if there is a declaration in the module
+      m_dummyBarrierFunc = m_pModule->getFunction(DUMMY_BARRIER_FUNC_NAME);
+    }
+    if ( !m_dummyBarrierFunc ) {
+      //Module has no Dummy barrier declaration
       //Create one
       Type *pResult = Type::getVoidTy(m_pModule->getContext());
       std::vector<Type*> funcTyArgs;
@@ -241,6 +279,20 @@ namespace intel {
         DUMMY_BARRIER_FUNC_NAME, pResult, funcTyArgs);
     }
     return CallInst::Create(m_dummyBarrierFunc, "", pInsertBefore);
+  }
+
+  bool BarrierUtils::isDummyBarrierCall(CallInst *pCallInstr) {
+    assert(pCallInstr && "Instruction should not be NULL!");
+    //Initialize sync data if it is not done yet
+    initializeSyncData();
+    return m_dummyBarriers.count(pCallInstr);
+  }
+
+  bool BarrierUtils::isBarrierCall(CallInst *pCallInstr) {
+    assert(pCallInstr && "Instruction should not be NULL!");
+    //Initialize sync data if it is not done yet
+    initializeSyncData();
+    return m_barriers.count(pCallInstr);
   }
 
   Instruction* BarrierUtils::createMemFence(BasicBlock *pAtEnd) {
@@ -407,7 +459,7 @@ namespace intel {
       //functions that calls other functions from this module
       for ( Module::iterator fi = m_pModule->begin(),
         fe = m_pModule->end(); fi != fe; ++fi ) {
-          Function *pCalledFunc = dyn_cast<Function>(&*fi);
+          Function *pCalledFunc = &*fi;
           if ( pCalledFunc->isDeclaration() ) {
             //It is not an internal function, only delaration
             continue;
@@ -436,8 +488,19 @@ namespace intel {
       //Sync data already initialized
       return;
     }
+
+    //Clear old collected data!
+    m_barriers.clear();
+    m_dummyBarriers.clear();
+    m_fibers.clear();
+
     //Find all calls to barrier()
     findAllUsesOfFunc(CompilationUtils::mangledBarrier(), m_barriers);
+    //Find all calls to work_group_barrier()
+    findAllUsesOfFunc(CompilationUtils::mangledWGBarrier(
+      CompilationUtils::WG_BARRIER_NO_SCOPE), m_barriers);
+    findAllUsesOfFunc(CompilationUtils::mangledWGBarrier(
+      CompilationUtils::WG_BARRIER_WITH_SCOPE), m_barriers);
     //Find all calls to dummyBarrier()
     findAllUsesOfFunc(DUMMY_BARRIER_FUNC_NAME, m_dummyBarriers);
     //Find all calls to fiber()
@@ -447,9 +510,6 @@ namespace intel {
   }
 
   void BarrierUtils::findAllUsesOfFunc(const llvm::StringRef& name, TInstructionSet &usesSet) {
-    //Clear old collected data!
-    usesSet.clear();
-
     //Check if given function name is declared in the module
     Function *pFunc = m_pModule->getFunction(name);
     if ( !pFunc ) {
@@ -479,7 +539,11 @@ namespace intel {
       /*Linkage=*/GlobalValue::ExternalLinkage,
       /*Name=*/name, m_pModule); //(external, no body)
     pNewFunc->setCallingConv(CallingConv::C);
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
     AttrListPtr barrier_Func_PAL;
+#else
+    AttributeSet barrier_Func_PAL;
+#endif
     pNewFunc->setAttributes(barrier_Func_PAL);
 
     assert( pNewFunc && "Failed to create new function declaration" );
@@ -488,20 +552,29 @@ namespace intel {
   }
 
   void BarrierUtils::SetFunctionAttributeReadNone(Function* pFunc) {
+#if LLVM_VERSION == 3200
     AttrListPtr func_factorial_PAL;
     SmallVector<AttributeWithIndex, 4> Attrs;
     AttributeWithIndex PAWI;
     PAWI.Index = 4294967295U;
-#if LLVM_VERSION == 3200
     AttrBuilder attBuilder;
     attBuilder.addAttribute(Attributes::None).addAttribute(Attributes::NoUnwind).addAttribute(Attributes::ReadNone) /* .addAttribute(Attribute::UWTable) */;
     PAWI.Attrs = Attributes::get(pFunc->getContext(), attBuilder);
     Attrs.push_back(PAWI);
     func_factorial_PAL = AttrListPtr::get(pFunc->getContext(), Attrs);
-#else
+#elif LLVM_VERSION == 3425
+    AttrListPtr func_factorial_PAL;
+    SmallVector<AttributeWithIndex, 4> Attrs;
+    AttributeWithIndex PAWI;
+    PAWI.Index = 4294967295U;
     PAWI.Attrs = Attribute::None  | Attribute::NoUnwind | Attribute::ReadNone/* | Attribute::UWTable*/;
     Attrs.push_back(PAWI);
     func_factorial_PAL = AttrListPtr::get(Attrs);
+#else
+    AttributeSet func_factorial_PAL;
+    AttrBuilder attBuilder;
+    attBuilder.addAttribute(Attribute::NoUnwind).addAttribute(Attribute::ReadNone) /* .addAttribute(Attribute::UWTable) */;
+    func_factorial_PAL = AttributeSet::get(pFunc->getContext(), ~0, attBuilder);
 #endif
     pFunc->setAttributes(func_factorial_PAL);
   }

@@ -132,12 +132,14 @@ namespace Validation
          /// @param  pRef pointer to reference value
          /// @param  pAct pointer to actual value
          /// @param  pNeat pointer to NEAT Value
+         /// @param  refRes true if reference result misses the NEAT interval
+         /// @param  actRes true if actual result misses the NEAT interval
          template<typename T>
          inline void ReportMismatch(const T* pAct, const T* pRef, 
-             const NEATValue* pNeat)
+             const NEATValue* pNeat, bool refRes, bool actRes)
          {
              IComparisonResults::Index ind = m_indexStack.cpyIndexStack();
-             IComparisonResults::MismatchedVal val(ind, m_pMemObjDescCurrent.get(), pRef, pAct, pNeat);
+             IComparisonResults::MismatchedVal val(ind, m_pMemObjDescCurrent.get(), pRef, pAct, pNeat, refRes, actRes);
              m_pComparisonResults->AddMismatch(val);
          }
 

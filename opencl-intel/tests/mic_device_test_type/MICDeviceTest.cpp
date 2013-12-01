@@ -397,7 +397,7 @@ bool clGetDeviceInfo_QueueProperties()
 	cl_uint input_size = sizeof(cl_command_queue_properties);
 	
 	
-	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_QUEUE_PROPERTIES, input_size, &queueProperties, NULL);
+	cl_int iRes = clDevGetDeviceInfo(gDeviceIdInType, CL_DEVICE_QUEUE_ON_HOST_PROPERTIES, input_size, &queueProperties, NULL);
 	if (CL_DEV_FAILED(iRes))
 	{
 		printf("clDevGetDeviceInfo failed: %s\n",clDevErr2Txt((cl_dev_err_code)iRes));

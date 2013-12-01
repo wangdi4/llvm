@@ -32,70 +32,117 @@
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
-using namespace Intel::OpenCL::TaskExecutor;
-using namespace Intel::OpenCL::MICDevice;
+extern Intel::OpenCL::MICDevice::mic_exec_env_options gMicExecEnvOptions;
 
-class FillMemObjTask : virtual public ITask, virtual public TaskHandler
+class FillMemObjTask : virtual public Intel::OpenCL::TaskExecutor::ITaskSet, virtual public TaskHandler<FillMemObjTask, Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data >
 {
 public:
     PREPARE_SHARED_PTR(FillMemObjTask)
-    
-    static inline SharedPtr<TaskHandler> Allocate( const QueueOnDevice& queue ) { return new FillMemObjTask( queue ); }
+
+    FillMemObjTask( uint32_t lockBufferCount, void** pLockBuffers, Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data* pDispatcherData, size_t uiDispatchSize );
     
     // TaskHandler methods
-    
-    // called immediately after creation and after filling the COI-passed data
-    bool InitTask();
+    bool PrepareTask();
 
-    // must be called at the very end of the ITaskBase finish stage and 
-    // must call to QueueOnDevice->FinishTask() at the very end of itself
-    void FinishTask();
+    // TaskHandler methods
+    const FillMemObjTask& GetAsCommandTypeConst() const { return *this; }
+    Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return static_cast<Intel::OpenCL::TaskExecutor::ITaskBase*>(this);}
 
     // ITask methods 
-
-	// Returns true in case current task is a syncronization point
-	// No more tasks will be executed in this case
-	bool	CompleteAndCheckSyncPoint() { return false; }
-	
-	// Set current command as syncronization point
-	// Returns true if command is already completed
-	bool	SetAsSyncPoint() { return false; }
-
-	// Returns true if command is already completed
-	bool	IsCompleted() const { return false; }
+    // Returns true in case current task is a synchronization point
+    // No more tasks will be executed in this case
+    bool    CompleteAndCheckSyncPoint() { return false; }
     
-	// Task execution routine, will be called by task executor
-	// return false when task execution fails
-	bool	Execute();
+    // Set current command as synchronization point
+    // Returns true if command is already completed
+    bool    SetAsSyncPoint() { return false; }
+
+    // Returns true if command is already completed
+    bool    IsCompleted() const { return false; }
+
+    // Task execution routine, will be called by task executor instead of Execute() if CommandList is canceled
+    void    Cancel();    
 
     // Releases task object, shall be called instead of delete operator.
     long    Release() { delete this; return 0; }
 
-    TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
+    Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
 
+    Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL;}
+	
+	// Initialization function. This functions is called before the "main loop"
+    // Generally initializes internal data structures
+    // Fills the buffer with 3D number of iterations to run
+    // Fills regCount with actual number of regions
+    // Returns 0 if initialization success, otherwise an error code
+    int Init(size_t region[], unsigned int& regCount);
+
+    // Is called when the task is going to be called for the first time within specific thread. 
+    // @param currentThreadData - data returned by OnThreadEntry()
+    // Returns data to be passed to ExecuteIteration methods, if attach process succeeded, otherwise NULL to abort
+	void* AttachToThread(void* currentThreadData, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]) { return this; }
+
+    // Is called when the task will not be executed by the specific thread    
+    // Receives data returned by AttachToThread.
+	void DetachFromThread(void* data_from_AttachToThread) {};
+
+    // "Main loop"
+    // The function is called with different 'inx' parameters for each iteration number
+    // Return false to abort 
+    bool ExecuteIteration(size_t x, size_t y, size_t z, void* data_from_AttachToThread);
+
+    // Final stage, free execution resources
+    // Return false when command execution fails
+    bool Finish(Intel::OpenCL::TaskExecutor::FINISH_REASON reason);
+
+    // Task execution routine, will be called by task executor instead of Init() if CommandList is canceled. If Init() was already called,
+    // Cancel() is not called - normal processing is continued
+    // virtual void    Cancel() = 0;
+
+    // Optimize By
+    Intel::OpenCL::TaskExecutor::TASK_SET_OPTIMIZATION OptimizeBy() const { return gMicExecEnvOptions.tbb_block_optimization; }
+    unsigned int PreferredSequentialItemsPerThread() const { return gMicExecEnvOptions.use_TBB_grain_size; }
+
+    typedef Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data dispatcher_data_type;
+	
 protected:
-    FillMemObjTask( const QueueOnDevice& queue );
-    ~FillMemObjTask() {};
+    friend class TaskHandler<FillMemObjTask, Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data >;
+    // Copy constructor used for task duplication
+    FillMemObjTask(const FillMemObjTask& o);
 
 private:
-	// Fill mem obj dispatcher data
-	fill_mem_obj_dispatcher_data*	m_pFillMemObjDispatcherData;
+    // The Buffer to fill pointer
+    char*                            m_fillBufPtr;
+    char*                            m_fillBufPtrAnchor;
 
-	// The Buffer to fill pointer
-	char*							m_fillBufPtr;
-    
-	// Struct which define chunk of memory (The ptr and its size)
-	struct chunk_struct
+    double                           m_patternToUse[MAX_PATTERN_SIZE / sizeof(double)] __attribute__((aligned(64)));
+    size_t                           m_coveredSize;
+    size_t                           m_numIterationsPerWorker;
+    bool                             m_serialExecution;
+
+	struct tasksForWorkerConfStruct
 	{
-		char* fromPtr;
-		uint64_t size;
+		size_t buffSize;
+		unsigned int numTasks;
 	};
 
-    void copyPatternOnContRegion( chunk_struct* chunk, chunk_struct* pattern );
-    void executeInternal( char* buffPtr, fill_mem_obj_dispatcher_data* pMemFillInfo, 
-                          chunk_struct* lastChunk, chunk_struct* pattern );
-
-    
+	const static tasksForWorkerConfStruct m_tasksForWorkerConf[];
+        
+    inline int intrinCopy(int from, int to)
+    {
+        __m512d paternIntrin1 = _mm512_load_pd(m_patternToUse);
+        __m512d paternIntrin2 = _mm512_load_pd(m_patternToUse + 8);
+        const size_t tHalfStepSize = sizeof(double) * 8;
+        assert(tHalfStepSize == (MAX_PATTERN_SIZE / 2));
+        int fromIndex = from;
+        const int toIndex = to - MAX_PATTERN_SIZE;
+        for (; fromIndex <= toIndex; fromIndex += MAX_PATTERN_SIZE)
+        {
+            _mm512_storenr_pd(m_fillBufPtr + fromIndex, paternIntrin1);
+            _mm512_storenr_pd(m_fillBufPtr + (fromIndex + tHalfStepSize), paternIntrin2);
+        }
+        return (fromIndex - from);
+    }
 };
 
 }}}

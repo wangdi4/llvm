@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -jump-threading -verify %t.bc -S -o %t1.ll
+; RUN: opt -ocl-syncfunctionattrs -jump-threading -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ;;*****************************************************************************

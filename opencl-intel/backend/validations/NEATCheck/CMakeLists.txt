@@ -23,14 +23,9 @@ target_link_libraries(${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
 )
 
-if( NOT WIN32)
-    target_link_libraries(${TARGET_NAME}
-        pthread
-    )
-
-    add_dependencies(${TARGET_NAME}
-        ImathLibd_wrapper
-    )
-endif ()
+if(NOT WIN32)
+    target_link_libraries(${TARGET_NAME} pthread)
+    add_dependencies(${TARGET_NAME} ImathLibd_wrapper)
+endif(NOT WIN32)
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)

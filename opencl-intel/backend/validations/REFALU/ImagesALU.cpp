@@ -17,7 +17,6 @@ File Name:  ImagesALU.cpp
 \*****************************************************************************/
 #include <math.h>
 #include <limits.h>
-#include "CL/cl.h"
 #include "ImagesALU.h"
 #include "Conformance/test_common/compat.h"
 #include "Conformance/test_common/errorHelpers.h"
@@ -105,35 +104,34 @@ namespace Conformance
     {
         switch (format->image_channel_order) 
         {
-        case CL_R:
+        case CLK_R:
             return 0;
-        case CL_A:
-        case CL_Rx:
+        case CLK_A:
             return 1;
-        case CL_RG:
+        case CLK_RG:
             return 0;
-        case CL_RA:
-        case CL_RGx:
+        case CLK_RA:
             return 1;
-        case CL_RGB:
+        case CLK_RGB:
             return 0;
-        case CL_RGBx:
+        case CLK_RGBA:
+        case CLK_sRGBA:
+        case CLK_sBGRA:
             return 1;
-        case CL_RGBA:
+        case CLK_BGRA:
             return 1;
-        case CL_BGRA:
+        case CLK_ARGB:
             return 1;
-        case CL_ARGB:
+        case CLK_INTENSITY:
             return 1;
-        case CL_INTENSITY:
-            return 1;
-        case CL_LUMINANCE:
+        case CLK_LUMINANCE:
+        case CLK_DEPTH:
             return 0;
 #ifdef CL_BGR1_APPLE
-        case CL_BGR1_APPLE: return 1;
+        case CLK_BGR1_APPLE: return 1;
 #endif
 #ifdef CL_1RGB_APPLE
-        case CL_1RGB_APPLE: return 1;
+        case CLK_1RGB_APPLE: return 1;
 #endif
         default:
             ::log_error("Invalid image channel order: %d\n", format->image_channel_order);
@@ -157,44 +155,44 @@ namespace Conformance
     {
         switch( channelType )
         {
-        case CL_SNORM_INT8:
-        case CL_UNORM_INT8:
-        case CL_SIGNED_INT8:
-        case CL_UNSIGNED_INT8:
+        case CLK_SNORM_INT8:
+        case CLK_UNORM_INT8:
+        case CLK_SIGNED_INT8:
+        case CLK_UNSIGNED_INT8:
             return 1;
 
-        case CL_SNORM_INT16:
-        case CL_UNORM_INT16:
-        case CL_SIGNED_INT16:
-        case CL_UNSIGNED_INT16:
-        case CL_HALF_FLOAT:
+        case CLK_SNORM_INT16:
+        case CLK_UNORM_INT16:
+        case CLK_SIGNED_INT16:
+        case CLK_UNSIGNED_INT16:
+        case CLK_HALF_FLOAT:
             return sizeof( cl_short );
 
-        case CL_SIGNED_INT32:
-        case CL_UNSIGNED_INT32:
+        case CLK_SIGNED_INT32:
+        case CLK_UNSIGNED_INT32:
             return sizeof( cl_int );
 
-        case CL_UNORM_SHORT_565:
-        case CL_UNORM_SHORT_555:
+        case CLK_UNORM_SHORT_565:
+        case CLK_UNORM_SHORT_555:
 #ifdef OBSOLETE_FORAMT
-        case CL_UNORM_SHORT_565_REV:
-        case CL_UNORM_SHORT_555_REV:
+        case CLK_UNORM_SHORT_565_REV:
+        case CLK_UNORM_SHORT_555_REV:
 #endif
             return 2;
 
 #ifdef OBSOLETE_FORAMT
-        case CL_UNORM_INT_8888:
-        case CL_UNORM_INT_8888_REV:
+        case CLK_UNORM_INT_8888:
+        case CLK_UNORM_INT_8888_REV:
             return 4;
 #endif
 
-        case CL_UNORM_INT_101010:
+        case CLK_UNORM_INT_101010:
 #ifdef OBSOLETE_FORAMT
-        case CL_UNORM_INT_101010_REV:
+        case CLK_UNORM_INT_101010_REV:
 #endif
             return 4;
 
-        case CL_FLOAT:
+        case CLK_FLOAT:
             return sizeof( cl_float );
 
         default:
@@ -211,30 +209,30 @@ namespace Conformance
     {
         switch( order )
         {
-        case CL_R:
-        case CL_A:
-        case CL_Rx:
-        case CL_INTENSITY:
-        case CL_LUMINANCE:
+        case CLK_R:
+        case CLK_A:
+        case CLK_INTENSITY:
+        case CLK_LUMINANCE:
+        case CLK_DEPTH:
             return 1;
 
-        case CL_RG:
-        case CL_RA:
-        case CL_RGx:
+        case CLK_RG:
+        case CLK_RA:
             return 2;
 
-        case CL_RGB:
-        case CL_RGBx:
+        case CLK_RGB:
             return 3;
 
-        case CL_RGBA:
-        case CL_ARGB:
-        case CL_BGRA:
+        case CLK_RGBA:
+        case CLK_sRGBA:
+        case CLK_sBGRA:
+        case CLK_ARGB:
+        case CLK_BGRA:
 #ifdef CL_1RGB_APPLE
-        case CL_1RGB_APPLE:
+        case CLK_1RGB_APPLE:
 #endif
 #ifdef CL_BGR1_APPLE
-        case CL_BGR1_APPLE:
+        case CLK_BGR1_APPLE:
 #endif
             return 4;
 
@@ -248,44 +246,44 @@ namespace Conformance
     {
         switch( format->image_channel_data_type )
         {
-        case CL_SNORM_INT8:
-        case CL_UNORM_INT8:
-        case CL_SIGNED_INT8:
-        case CL_UNSIGNED_INT8:
+        case CLK_SNORM_INT8:
+        case CLK_UNORM_INT8:
+        case CLK_SIGNED_INT8:
+        case CLK_UNSIGNED_INT8:
             return get_format_channel_count( format );
 
-        case CL_SNORM_INT16:
-        case CL_UNORM_INT16:
-        case CL_SIGNED_INT16:
-        case CL_UNSIGNED_INT16:
-        case CL_HALF_FLOAT:
+        case CLK_SNORM_INT16:
+        case CLK_UNORM_INT16:
+        case CLK_SIGNED_INT16:
+        case CLK_UNSIGNED_INT16:
+        case CLK_HALF_FLOAT:
             return get_format_channel_count( format ) * sizeof( cl_short );
 
-        case CL_SIGNED_INT32:
-        case CL_UNSIGNED_INT32:
+        case CLK_SIGNED_INT32:
+        case CLK_UNSIGNED_INT32:
             return get_format_channel_count( format ) * sizeof( cl_int );
 
-        case CL_UNORM_SHORT_565:
-        case CL_UNORM_SHORT_555:
+        case CLK_UNORM_SHORT_565:
+        case CLK_UNORM_SHORT_555:
 #ifdef OBSOLETE_FORAMT
-        case CL_UNORM_SHORT_565_REV:
-        case CL_UNORM_SHORT_555_REV:
+        case CLK_UNORM_SHORT_565_REV:
+        case CLK_UNORM_SHORT_555_REV:
 #endif
             return 2;
 
 #ifdef OBSOLETE_FORAMT
-        case CL_UNORM_INT_8888:
-        case CL_UNORM_INT_8888_REV:
+        case CLK_UNORM_INT_8888:
+        case CLK_UNORM_INT_8888_REV:
             return 4;
 #endif
 
-        case CL_UNORM_INT_101010:
+        case CLK_UNORM_INT_101010:
 #ifdef OBSOLETE_FORAMT
-        case CL_UNORM_INT_101010_REV:
+        case CLK_UNORM_INT_101010_REV:
 #endif
             return 4;
 
-        case CL_FLOAT:
+        case CLK_FLOAT:
             return get_format_channel_count( format ) * sizeof( cl_float );
 
         default:
@@ -382,7 +380,7 @@ namespace Conformance
         size_t channelCount = get_format_channel_count( format );
         switch( format->image_channel_data_type )
         {
-        case CL_SNORM_INT8:
+        case CLK_SNORM_INT8:
             {
                 char *dPtr = (char *)ptr;
                 for( i = 0; i < channelCount; i++ )
@@ -390,7 +388,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNORM_INT8:
+        case CLK_UNORM_INT8:
             {
                 unsigned char *dPtr = (unsigned char *)ptr;
                 for( i = 0; i < channelCount; i++ )
@@ -398,7 +396,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_SIGNED_INT8:
+        case CLK_SIGNED_INT8:
             {
                 cl_char *dPtr = (cl_char *)ptr;
                 for( i = 0; i < channelCount; i++ )
@@ -406,7 +404,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNSIGNED_INT8:
+        case CLK_UNSIGNED_INT8:
             {
                 cl_uchar *dPtr = (cl_uchar *)ptr;
                 for( i = 0; i < channelCount; i++ )
@@ -414,7 +412,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_SNORM_INT16:
+        case CLK_SNORM_INT16:
             {
                 cl_short *dPtr = (cl_short *)ptr;
                 for( i = 0; i < channelCount; i++ )
@@ -422,7 +420,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNORM_INT16:
+        case CLK_UNORM_INT16:
             {
                 cl_ushort *dPtr = (cl_ushort *)ptr;
                 for( i = 0; i < channelCount; i++ )
@@ -430,7 +428,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_SIGNED_INT16:
+        case CLK_SIGNED_INT16:
             {
                 cl_short *dPtr = (cl_short *)ptr;
                 for( i = 0; i < channelCount; i++ )
@@ -438,7 +436,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNSIGNED_INT16:
+        case CLK_UNSIGNED_INT16:
             {
                 cl_ushort *dPtr = (cl_ushort *)ptr;
                 for( i = 0; i < channelCount; i++ )
@@ -446,7 +444,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_HALF_FLOAT:
+        case CLK_HALF_FLOAT:
             {
                 cl_ushort *dPtr = (cl_ushort *)ptr;
                 for( i = 0; i < channelCount; i++ )
@@ -454,7 +452,7 @@ namespace Conformance
                 break;
             }
 
-        case CL_SIGNED_INT32:
+        case CLK_SIGNED_INT32:
             {
                 cl_int *dPtr = (cl_int *)ptr;
                 for( i = 0; i < channelCount; i++ )
@@ -462,7 +460,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNSIGNED_INT32:
+        case CLK_UNSIGNED_INT32:
             {
                 cl_uint *dPtr = (cl_uint *)ptr;
                 for( i = 0; i < channelCount; i++ )
@@ -470,7 +468,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNORM_SHORT_565:
+        case CLK_UNORM_SHORT_565:
             {
                 cl_ushort *dPtr = (cl_ushort *)ptr;
                 tempData[ 0 ] = (float)( dPtr[ 0 ] >> 11 ) / (float)31;
@@ -479,7 +477,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNORM_SHORT_555:
+        case CLK_UNORM_SHORT_555:
             {
                 cl_ushort *dPtr = (cl_ushort *)ptr;
                 tempData[ 0 ] = (float)( ( dPtr[ 0 ] >> 10 ) & 31 ) / (float)31;
@@ -488,7 +486,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNORM_INT_101010:
+        case CLK_UNORM_INT_101010:
             {
                 cl_uint *dPtr = (cl_uint *)ptr;
                 tempData[ 0 ] = (float)( ( dPtr[ 0 ] >> 20 ) & 0x3ff ) / (float)1023;
@@ -497,7 +495,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_FLOAT:
+        case CLK_FLOAT:
             {
                 float *dPtr = (float *)ptr;
                 for( i = 0; i < channelCount; i++ )
@@ -512,59 +510,78 @@ namespace Conformance
 
         switch( format->image_channel_order )
         {
-        case CL_A:
+        case CLK_A:
             outData[ 3 ] = tempData[ 0 ];
             break;
-        case CL_R:
-        case CL_Rx:
+        case CLK_R:
             outData[ 0 ] = tempData[ 0 ];
             break;
-        case CL_RA:
+        case CLK_RA:
             outData[ 0 ] = tempData[ 0 ];
             outData[ 3 ] = tempData[ 1 ];
             break;
-        case CL_RG:
-        case CL_RGx:
+        case CLK_RG:
             outData[ 0 ] = tempData[ 0 ];
             outData[ 1 ] = tempData[ 1 ];
             break;
-        case CL_RGB:
-        case CL_RGBx:
+        case CLK_RGB:
             outData[ 0 ] = tempData[ 0 ];
             outData[ 1 ] = tempData[ 1 ];
             outData[ 2 ] = tempData[ 2 ];
             break;
-        case CL_RGBA:
+        case CLK_RGBA:
             outData[ 0 ] = tempData[ 0 ];
             outData[ 1 ] = tempData[ 1 ];
             outData[ 2 ] = tempData[ 2 ];
             outData[ 3 ] = tempData[ 3 ];
             break;
-        case CL_ARGB:
+        case CLK_ARGB:
             outData[ 0 ] = tempData[ 1 ];
             outData[ 1 ] = tempData[ 2 ];
             outData[ 2 ] = tempData[ 3 ];
             outData[ 3 ] = tempData[ 0 ];
             break;
-        case CL_BGRA:
+        case CLK_BGRA:
             outData[ 0 ] = tempData[ 2 ];
             outData[ 1 ] = tempData[ 1 ];
             outData[ 2 ] = tempData[ 0 ];
             outData[ 3 ] = tempData[ 3 ];
             break;
-        case CL_INTENSITY:
+        case CLK_INTENSITY:
             outData[ 0 ] = tempData[ 0 ];
             outData[ 1 ] = tempData[ 0 ];
             outData[ 2 ] = tempData[ 0 ];
             outData[ 3 ] = tempData[ 0 ];
             break;
-        case CL_LUMINANCE:
+        case CLK_LUMINANCE:
             outData[ 0 ] = tempData[ 0 ];
             outData[ 1 ] = tempData[ 0 ];
             outData[ 2 ] = tempData[ 0 ];
             break;
+        case CLK_DEPTH:
+            outData[ 0 ] = tempData[ 0 ];
+            break;
+        case CLK_sRGBA:
+            outData[ 0 ] = (tempData[ 0 ] <= 0.04045 ) ? tempData[ 0 ]/12.92 :
+                            pow((tempData[ 0 ]+0.055)/1.055,2.4);
+            outData[ 1 ] = (tempData[ 1 ] <= 0.04045 ) ? tempData[ 1 ]/12.92 :
+                            pow((tempData[ 1 ]+0.055)/1.055,2.4);
+            outData[ 2 ] = (tempData[ 2 ] <= 0.04045 ) ? tempData[ 2 ]/12.92 :
+                            pow((tempData[ 2 ]+0.055)/1.055,2.4);
+            outData[ 3 ] = tempData[ 3 ];
+            break;
+            
+        case CLK_sBGRA:
+            outData[ 0 ] = (tempData[ 2 ] <= 0.04045 ) ? tempData[ 2 ]/12.92 :
+                            pow((tempData[ 2 ]+0.055)/1.055,2.4);
+            outData[ 1 ] = (tempData[ 1 ] <= 0.04045 ) ? tempData[ 1 ]/12.92 :
+                            pow((tempData[ 1 ]+0.055)/1.055,2.4);
+            outData[ 2 ] = (tempData[ 0 ] <= 0.04045 ) ? tempData[ 0 ]/12.92 :
+                            pow((tempData[ 0 ]+0.055)/1.055,2.4);
+            outData[ 3 ] = tempData[ 3 ];
+            break;
 #ifdef CL_1RGB_APPLE
-        case CL_1RGB_APPLE:
+        case CLK_1RGB_APPLE:
             outData[ 0 ] = tempData[ 1 ];
             outData[ 1 ] = tempData[ 2 ];
             outData[ 2 ] = tempData[ 3 ];
@@ -572,7 +589,7 @@ namespace Conformance
             break;
 #endif
 #ifdef CL_BGR1_APPLE
-        case CL_BGR1_APPLE:
+        case CLK_BGR1_APPLE:
             outData[ 0 ] = tempData[ 2 ];
             outData[ 1 ] = tempData[ 1 ];
             outData[ 2 ] = tempData[ 0 ];
@@ -1038,43 +1055,41 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
         T temp;
         switch( imageFormat->image_channel_order )
         {
-        case CL_A:
+        case CLK_A:
             srcVector[ 0 ] = srcVector[ 3 ];
             break;
-        case CL_R:
-        case CL_Rx:
-        case CL_RG:
-        case CL_RGx:
-        case CL_RGB:
-        case CL_RGBx:
-        case CL_RGBA:
+        case CLK_R:
+        case CLK_RG:
+        case CLK_RGB:
+        case CLK_RGBA:
+        case CLK_DEPTH:
             break;
-        case CL_RA:
+        case CLK_RA:
             srcVector[ 1 ] = srcVector[ 3 ];
             break;
-        case CL_ARGB:
+        case CLK_ARGB:
             temp = srcVector[ 3 ];
             srcVector[ 3 ] = srcVector[ 2 ];
             srcVector[ 2 ] = srcVector[ 1 ];
             srcVector[ 1 ] = srcVector[ 0 ];
             srcVector[ 0 ] = temp;
             break;
-        case CL_BGRA:
+        case CLK_BGRA:
             temp = srcVector[ 0 ];
             srcVector[ 0 ] = srcVector[ 2 ];
             srcVector[ 2 ] = temp;
             break;
-        case CL_INTENSITY:
+        case CLK_INTENSITY:
             srcVector[ 3 ] = srcVector[ 0 ];
             srcVector[ 2 ] = srcVector[ 0 ];
             srcVector[ 1 ] = srcVector[ 0 ];
             break;
-        case CL_LUMINANCE:
+        case CLK_LUMINANCE:
             srcVector[ 2 ] = srcVector[ 0 ];
             srcVector[ 1 ] = srcVector[ 0 ];
             break;
 #ifdef CL_1RGB_APPLE
-        case CL_1RGB_APPLE:
+        case CLK_1RGB_APPLE:
             temp = srcVector[ 3 ];
             srcVector[ 3 ] = srcVector[ 2 ];
             srcVector[ 2 ] = srcVector[ 1 ];
@@ -1083,7 +1098,7 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
             break;
 #endif
 #ifdef CL_BGR1_APPLE
-        case CL_BGR1_APPLE:
+        case CLK_BGR1_APPLE:
             temp = srcVector[ 0 ];
             srcVector[ 0 ] = srcVector[ 2 ];
             srcVector[ 2 ] = temp;
@@ -1102,21 +1117,21 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
 
         switch( imageFormat->image_channel_data_type )
         {
-        case CL_UNSIGNED_INT8:
+        case CLK_UNSIGNED_INT8:
             {
                 unsigned char *ptr = (unsigned char *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
                     ptr[ i ] = (unsigned char)SATURATE_MAX( srcVector[ i ], 255 );
                 break;
             }
-        case CL_UNSIGNED_INT16:
+        case CLK_UNSIGNED_INT16:
             {
                 unsigned short *ptr = (unsigned short *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
                     ptr[ i ] = (unsigned short)SATURATE_MAX( srcVector[ i ], 65535 );
                 break;
             }
-        case CL_UNSIGNED_INT32:
+        case CLK_UNSIGNED_INT32:
             {
                 unsigned int *ptr = (unsigned int *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
@@ -1135,21 +1150,21 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
 
         switch( imageFormat->image_channel_data_type )
         {
-        case CL_SIGNED_INT8:
+        case CLK_SIGNED_INT8:
             {
                 char *ptr = (char *)outData;
                 for( unsigned int i = 0; i < chanelCount; i++ )
                     ptr[ i ] = (char)SATURATE( srcVector[ i ], -128, 127 );
                 break;
             }
-        case CL_SIGNED_INT16:
+        case CLK_SIGNED_INT16:
             {
                 short *ptr = (short *)outData;
                 for( unsigned int i = 0; i < chanelCount; i++ )
                     ptr[ i ] = (short)SATURATE( srcVector[ i ], -32768, 32767 );
                 break;
             }
-        case CL_SIGNED_INT32:
+        case CLK_SIGNED_INT32:
             {
                 int *ptr = (int *)outData;
                 for( unsigned int i = 0; i < chanelCount; i++ )
@@ -1194,7 +1209,7 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
         size_t channelCount = get_format_channel_count( imageFormat );
         switch( imageFormat->image_channel_data_type )
         {
-        case CL_HALF_FLOAT:
+        case CLK_HALF_FLOAT:
             {
                 // todo: implement for half float
                 throw Exception::NotImplemented("pack_image_pixel::Implement Float to Half");
@@ -1219,7 +1234,7 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
                 break;
             }
 
-        case CL_FLOAT:
+        case CLK_FLOAT:
             {
                 cl_float *ptr = (cl_float *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
@@ -1227,43 +1242,52 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
                 break;
             }
 
-        case CL_SNORM_INT8:
+        case CLK_SNORM_INT8:
             {
                 cl_char *ptr = (cl_char *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
                     ptr[ i ] = (char)NORMALIZE_SIGNED( srcVector[ i ], -127.0f, 127.f );
                 break;
             }
-        case CL_SNORM_INT16:
+        case CLK_SNORM_INT16:
             {
                 cl_short *ptr = (cl_short *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
                     ptr[ i ] = (short)NORMALIZE_SIGNED( srcVector[ i ], -32767.f, 32767.f  );
                 break;
             }
-        case CL_UNORM_INT8:
+        case CLK_UNORM_INT8:
             {
                 cl_uchar *ptr = (cl_uchar *)outData;
+                //convert from RGBA to sRGBA
+                if(imageFormat->image_channel_order == CLK_sRGBA || imageFormat->image_channel_order == CLK_sBGRA)
+                {
+                    for(uint64_t i = 0; i<channelCount-1;++i)
+                    {
+                        srcVector[i] = srcVector[i] <= 0.0031308f ?
+                            12.92f*srcVector[i] : 1.055 * pow(srcVector[i], 1.0f/2.4f) - 0.055;
+                    }
+                }
                 for( unsigned int i = 0; i < channelCount; i++ )
                     ptr[ i ] = (unsigned char)NORMALIZE( srcVector[ i ], 255.f );
 #ifdef CL_1RGB_APPLE
-                if( imageFormat->image_channel_order == CL_1RGB_APPLE )
+                if( imageFormat->image_channel_order == CLK_1RGB_APPLE )
                     ptr[0] = 255.0f;
 #endif
 #ifdef CL_BGR1_APPLE
-                if( imageFormat->image_channel_order == CL_BGR1_APPLE )
+                if( imageFormat->image_channel_order == CLK_BGR1_APPLE )
                     ptr[3] = 255.0f;
 #endif
                 break;
             }
-        case CL_UNORM_INT16:
+        case CLK_UNORM_INT16:
             {
                 cl_ushort *ptr = (cl_ushort *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
                     ptr[ i ] = (unsigned short)NORMALIZE( srcVector[ i ], 65535.f );
                 break;
             }
-        case CL_UNORM_SHORT_555:
+        case CLK_UNORM_SHORT_555:
             {
                 cl_ushort *ptr = (cl_ushort *)outData;
                 ptr[ 0 ] = ( ( (unsigned short)NORMALIZE( srcVector[ 0 ], 31.f ) & 31 ) << 10 ) |
@@ -1271,7 +1295,7 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
                     ( ( (unsigned short)NORMALIZE( srcVector[ 2 ], 31.f ) & 31 ) << 0 );
                 break;
             }
-        case CL_UNORM_SHORT_565:
+        case CLK_UNORM_SHORT_565:
             {
                 cl_ushort *ptr = (cl_ushort *)outData;
                 ptr[ 0 ] = ( ( (unsigned short)NORMALIZE( srcVector[ 0 ], 31.f ) & 31 ) << 11 ) |
@@ -1279,7 +1303,7 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
                     ( ( (unsigned short)NORMALIZE( srcVector[ 2 ], 31.f ) & 31 ) << 0 );
                 break;
             }
-        case CL_UNORM_INT_101010:
+        case CLK_UNORM_INT_101010:
             {
                 cl_uint *ptr = (cl_uint *)outData;
                 ptr[ 0 ] = ( ( (unsigned int)NORMALIZE( srcVector[ 0 ], 1023.f ) & 1023 ) << 20 ) |
@@ -1287,42 +1311,42 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
                     ( ( (unsigned int)NORMALIZE( srcVector[ 2 ], 1023.f ) & 1023 ) << 0 );
                 break;
             }
-        case CL_SIGNED_INT8:
+        case CLK_SIGNED_INT8:
             {
                 cl_char *ptr = (cl_char *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
                     ptr[ i ] = (char)CONVERT_INT( srcVector[ i ], -127.0f, 127.f, 127 );
                 break;
             }
-        case CL_SIGNED_INT16:
+        case CLK_SIGNED_INT16:
             {
                 cl_short *ptr = (cl_short *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
                     ptr[ i ] = (short)CONVERT_INT( srcVector[ i ], -32767.f, 32767.f, 32767  );
                 break;
             }
-        case CL_SIGNED_INT32:
+        case CLK_SIGNED_INT32:
             {
                 cl_int *ptr = (cl_int *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
                     ptr[ i ] = (int)CONVERT_INT( srcVector[ i ], MAKE_HEX_FLOAT( -0x1.0p31f, -1, 31), MAKE_HEX_FLOAT( 0x1.fffffep30f, 0x1fffffe, 30-23), CL_INT_MAX  );
                 break;
             }
-        case CL_UNSIGNED_INT8:
+        case CLK_UNSIGNED_INT8:
             {
                 cl_uchar *ptr = (cl_uchar *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
                     ptr[ i ] = (cl_uchar)CONVERT_UINT( srcVector[ i ], 255.f, CL_UCHAR_MAX );
                 break;
             }
-        case CL_UNSIGNED_INT16:
+        case CLK_UNSIGNED_INT16:
             {
                 cl_ushort *ptr = (cl_ushort *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
                     ptr[ i ] = (cl_ushort)CONVERT_UINT( srcVector[ i ], 32767.f, CL_USHRT_MAX );
                 break;
             }
-        case CL_UNSIGNED_INT32:
+        case CLK_UNSIGNED_INT32:
             {
                 cl_uint *ptr = (cl_uint *)outData;
                 for( unsigned int i = 0; i < channelCount; i++ )
@@ -1351,21 +1375,21 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
         switch( format->image_channel_data_type )
         {
             // The spec allows 2 ulps of error for normalized formats 
-        case CL_SNORM_INT8:
-        case CL_UNORM_INT8:
-        case CL_SNORM_INT16:
-        case CL_UNORM_INT16:
-        case CL_UNORM_SHORT_565:
-        case CL_UNORM_SHORT_555:
-        case CL_UNORM_INT_101010:
+        case CLK_SNORM_INT8:
+        case CLK_UNORM_INT8:
+        case CLK_SNORM_INT16:
+        case CLK_UNORM_INT16:
+        case CLK_UNORM_SHORT_565:
+        case CLK_UNORM_SHORT_555:
+        case CLK_UNORM_INT_101010:
             maxError = 2*FLT_EPSILON*sampleCount;       // Maximum sampling error for round to zero normalization based on multiplication 
             // by reciprocal (using reciprocal generated in round to +inf mode, so that 1.0 matches spec)
             break;
 
             // If the implementation supports these formats then it will have to allow rounding error here too, 
             // because not all 32-bit ints are exactly representable in float
-        case CL_SIGNED_INT32:
-        case CL_UNSIGNED_INT32:
+        case CLK_SIGNED_INT32:
+        case CLK_UNSIGNED_INT32:
             maxError = 1*FLT_EPSILON;
             break;
         }
@@ -1417,15 +1441,15 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
             return 0.0f;
 
         switch (format->image_channel_data_type) {
-        case CL_SNORM_INT8:
+        case CLK_SNORM_INT8:
             return 1.0f/127.0f;
-        case CL_UNORM_INT8:
+        case CLK_UNORM_INT8:
             return 1.0f/255.0f;
-        case CL_UNORM_INT16:
+        case CLK_UNORM_INT16:
             return 1.0f/65535.0f;
-        case CL_SNORM_INT16:
+        case CLK_SNORM_INT16:
             return 1.0f/32767.0f;
-        case CL_FLOAT:
+        case CLK_FLOAT:
             // disabled CL constant because of gcc  error: use of C99 hexadecimal floating constant
             // return CL_FLT_MIN
             return FLT_MIN; 

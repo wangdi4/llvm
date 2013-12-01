@@ -29,7 +29,7 @@ File Name:  ExecutionService.cpp
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 ExecutionService::ExecutionService(const ICLDevBackendOptions* pOptions)
-    : m_pPrinter(NULL)
+    : m_pPrinter(NULL), m_pDeviceCommandManager(NULL)
 {
     void *pPrinter = NULL;
     size_t size = sizeof(pPrinter);
@@ -37,6 +37,17 @@ ExecutionService::ExecutionService(const ICLDevBackendOptions* pOptions)
        pOptions->GetValue(CL_DEV_BACKEND_OPTION_BUFFER_PRINTER, &pPrinter, &size))
     {
         m_pPrinter = (ICLDevBackendBufferPrinter*)pPrinter;
+    }
+
+    // obtain Device Command Manager
+    assert(pOptions && "pOptions are NULL");
+    void *pDCM;
+    size_t pDCM_Size = sizeof(pDCM);
+    if(NULL != pOptions && 
+       pOptions->GetValue(CL_DEV_BACKEND_OPTION_IDEVICE_COMMAND_MANAGER, 
+                          &pDCM, &pDCM_Size))
+    {
+      m_pDeviceCommandManager = static_cast<IDeviceCommandManager*>(pDCM);
     }
 }
 
@@ -55,8 +66,15 @@ cl_dev_err_code ExecutionService::CreateBinary(
 
         pKernelImpl->CreateWorkDescription( pWorkDescription, workSizes);
         
+        const RuntimeServiceSharedPtr& rs = pKernelImpl->GetRuntimeService();
+        // if RuntimeService is initilized then pass reference to Mapper
+        // otherwise pass NULL
+        const IBlockToKernelMapper * pMapper = rs.get() ? rs->GetBlockToKernelMapper() : NULL;
+        
         *ppBinary = m_pBackendFactory->CreateBinary(
                                         m_pPrinter,
+                                        m_pDeviceCommandManager,
+                                        pMapper,
                                         pKernelProps,
                                         *pKernelImpl->GetKernelParamsVector(),
                                         &workSizes,

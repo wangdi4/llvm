@@ -5,6 +5,12 @@ set(TARGET_NAME SATest)
 use_rtti(FALSE)
 
 if (NOT WIN32)
+    if (INCLUDE_MIC_DEVICE)
+        set (SATEST_INCLUDE_MIC_DEVICE INCLUDE_MIC_DEVICE)
+    endif (INCLUDE_MIC_DEVICE)
+endif (NOT WIN32)
+
+if (NOT WIN32)
 
     # Compiler switches that CANNOT be modified during makefile generation
     set (ADD_COMMON_C_FLAGS  "-msse4.2")
@@ -48,12 +54,16 @@ if (NOT WIN32)
 
 endif (NOT WIN32)
 
-if (INCLUDE_MIC_DEVICE)
+if (SATEST_INCLUDE_MIC_DEVICE)
     if (KNC_CARD)
-        set( COI_DIR               /opt/intel/mic/coi )
-        add_library(../../external/vtune/libknc/jitprofiling.a STATIC IMPORTED)
+        if ( NOT WIN32)
+            add_library(../../external/vtune/libknc/jitprofiling.a STATIC IMPORTED)
+        endif(NOT WIN32)
     endif (KNC_CARD)
-endif (INCLUDE_MIC_DEVICE)
+
+	add_definitions ( -DCOI_LIBRARY_VERSION=2 )
+
+endif (SATEST_INCLUDE_MIC_DEVICE)
 
 if (WIN32)
     set (ICC_WIN32_PATH $ENV{ICPP_COMPILER12})
@@ -100,13 +110,13 @@ include_directories(
     ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
     ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
     ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+    ${VALIDATIONS_ROOT}/ProgramConfiguration
 )
 
 set (TARGET_HEADER_FILES
     IRunnerFactory.h
     IProgram.h
     IProgramRunner.h
-    IProgramConfiguration.h
     IRunConfiguration.h
     IRunResult.h
     IRunResultComparator.h
@@ -114,7 +124,6 @@ set (TARGET_HEADER_FILES
     OpenCLProgram.h
     OpenCLReferenceRunner.h
     OpenCLRunConfiguration.h
-    OpenCLProgramConfiguration.h
     OpenCLBackendWrapper.h
     OpenCLComparator.h
     RunResult.h
@@ -128,7 +137,6 @@ set (TARGET_HEADER_FILES
     DXreferenceRunner.h
     DXFactory.h
     DXRunConfiguration.h
-    DXProgramConfiguration.h
     WorkItemStorage.h
     WorkGroupStorage.h
     OpenCLArgsBuffer.h
@@ -154,11 +162,9 @@ set (TARGET_SOURCE_FILES
     DXRunConfiguration.cpp
     DXProgram.cpp
     DXProgramRunner.cpp
-    DXProgramConfiguration.cpp
     OpenCLProgram.cpp
     OpenCLReferenceRunner.cpp
     OpenCLRunConfiguration.cpp
-    OpenCLProgramConfiguration.cpp
     OpenCLBackendWrapper.cpp
     OpenCLComparator.cpp
     OpenCLArgsBuffer.cpp
@@ -169,7 +175,7 @@ set (TARGET_SOURCE_FILES
     OpenCLStamp.cpp
     )
 
-if (INCLUDE_MIC_DEVICE)
+if (SATEST_INCLUDE_MIC_DEVICE)
     set (TARGET_HEADER_FILES
         ${TARGET_HEADER_FILES}
         OpenCLMICBackendRunner.h
@@ -182,15 +188,15 @@ if (INCLUDE_MIC_DEVICE)
         OpenCLMICArgsBuffer.cpp
         COIHelpers.cpp
         )
-    add_definitions( -DINCLUDE_MIC_DEVICE )
+    add_definitions( -DSATEST_INCLUDE_MIC_DEVICE )
     set( SATEST_NATIVE_NAME     SATestNative.bin)
     list (APPEND SATestMICDefs "SATEST_NATIVE_NAME=\"${SATEST_NATIVE_NAME}\"")
     list (APPEND SATestMICDefs "SVML_LIBRARY_PATH=NULL") # SATest will look SVML library in paths defined in SINK_LD_LIBRARY_PATH.
-    include_directories(${COI_DIR}/include)
-    link_directories(${COI_DIR}/host-linux-release/lib)
+    include_directories(${COI_HOST_INCLUDE_PATH} ${COI_YOCTO_HOST_INCLUDE_PATH})
+    link_directories(${COI_HOST_LIB_PATH} ${COI_YOCTO_HOST_LIB_PATH})
     set( BACKEND_SDK_PATH_RELATIVE ../devices/mic_device/BackEnd_SDK )
     set( BACKEND_SDK_PATH       ${BACKEND_ROOT_DIR}/${BACKEND_SDK_PATH_RELATIVE} )
-endif (INCLUDE_MIC_DEVICE)
+endif (SATEST_INCLUDE_MIC_DEVICE)
 
 add_executable(${TARGET_NAME}
     ${TARGET_HEADER_FILES}
@@ -211,6 +217,7 @@ target_link_libraries(${TARGET_NAME}
     NEAT
     REFALU
     name_mangle
+    ProgramConfiguration
     dynamic_load
     tinyxml_STL
     ImathLibd
@@ -221,34 +228,32 @@ target_link_libraries(${TARGET_NAME}
 #if (NOT WIN32)
 #    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} OCLBuiltins_linux_exports.txt )
 #endif (NOT WIN32)
-	
-if (INCLUDE_MIC_DEVICE)
+    
+if (SATEST_INCLUDE_MIC_DEVICE)
     set_target_properties(${TARGET_NAME} PROPERTIES COMPILE_DEFINITIONS "${SATestMICDefs}")
-    target_link_libraries(${TARGET_NAME} coi_host dynamic_load)
+    target_link_libraries(${TARGET_NAME} coi_host dynamic_load cl_sys_utils)
 
-    get_target_property( CURR_RPATH ${TARGET_NAME} INSTALL_RPATH )
-    set_target_properties( ${TARGET_NAME} PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_DIR}/host-linux-release/lib" )
-endif (INCLUDE_MIC_DEVICE)
+    if (NOT WIN32)
+	get_target_property( CURR_RPATH ${TARGET_NAME} INSTALL_RPATH )
+	set_target_properties( ${TARGET_NAME} PROPERTIES INSTALL_RPATH "${CURR_RPATH};${COI_HOST_LIB_PATH}" )
+    endif (NOT WIN32)
+endif (SATEST_INCLUDE_MIC_DEVICE)
 
 if (NOT WIN32)
-  if( NOT ANDROID)
+  if(NOT ANDROID)
     target_link_libraries(${TARGET_NAME} pthread dl)
-  endif()
+  endif(NOT ANDROID)
 endif (NOT WIN32)
 
-if( NOT WIN32)
-    add_dependencies(${TARGET_NAME}
-        ImathLibd_wrapper
-        )
-endif ()
+if(NOT WIN32)
+    add_dependencies(${TARGET_NAME} ImathLibd_wrapper)
+endif(NOT WIN32)
 
-add_dependencies( ${TARGET_NAME} cl_sys_utils)
-
-if (INCLUDE_MIC_DEVICE)
+if (SATEST_INCLUDE_MIC_DEVICE)
     add_subdirectory(MICNative)
     add_dependencies(${TARGET_NAME}
                      OclDeviceExecutor
     )
-endif (INCLUDE_MIC_DEVICE)
+endif (SATEST_INCLUDE_MIC_DEVICE)
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)

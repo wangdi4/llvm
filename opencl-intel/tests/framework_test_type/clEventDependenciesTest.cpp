@@ -51,8 +51,8 @@ bool EventDependenciesTest()
     if (!bResult)    return bResult;
 
     // Check for OOO support
-    err     = clGetDeviceInfo(device, CL_DEVICE_QUEUE_PROPERTIES, sizeof(cl_command_queue_properties), &queue_properties, NULL);
-    bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_QUEUE_PROPERTIES)",CL_SUCCESS,err);
+    err     = clGetDeviceInfo(device, CL_DEVICE_QUEUE_ON_HOST_PROPERTIES, sizeof(cl_command_queue_properties), &queue_properties, NULL);
+    bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_QUEUE_ON_HOST_PROPERTIES)",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     if (!(queue_properties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE))
@@ -125,7 +125,8 @@ bool EventDependenciesTest()
 
     expected_value = 1;
     size_t global_size[1] = {TEST_SIZE};
-   
+
+    printf("Starting iterations....\n");fflush(0);
     for (loop_count=0; loop_count<TEST_COUNT; loop_count++) 
     {
         // Execute kernel 1
@@ -133,12 +134,15 @@ bool EventDependenciesTest()
         err = clEnqueueNDRangeKernel(cmd_queue, k1, 1, NULL, global_size, NULL, 1, events + event_count - 1, events + event_count);
         bResult = SilentCheck(L"clEnqueueNDRangeKernel: k1",CL_SUCCESS,err);
         if (!bResult)    return bResult;
+        if ( (loop_count % 10000) == 0 ) {printf(".");fflush(0);}
     }
-        
+    printf("\nCompleted\n");fflush(0);
+
     err = clEnqueueReadBuffer(cmd_queue, data, CL_TRUE, 0, TEST_SIZE*sizeof(cl_int), values, 1, events + event_count, NULL);
     bResult = SilentCheck(L"clEnqueueReadBuffer",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
+    printf("----------> Test completed <----------------\n");fflush(0);
     delete[] values;
     for (i = 0; i<TEST_COUNT+1; i++) 
     {

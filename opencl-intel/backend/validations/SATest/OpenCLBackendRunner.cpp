@@ -165,10 +165,33 @@ void OpenCLBackendRunner::LoadInputBuffer(OpenCLKernelConfiguration* pKernelConf
     case Random:
         {
             OpenCLKernelArgumentsParser parser;
+            if(pKernelConfig->GetGeneratorConfig() != 0 )
+            {
+                throw Exception::InvalidArgument("[OpenCLBackendRunner]Unused OCLKernelDataGeneratorConfig found. \
+                                                 Switch InputDataFileType to \'config\' or remove OCLKernelDataGeneratorConfig block");
+            }
             OCLKernelArgumentsList argDescriptions = parser.KernelArgumentsParser(pKernelConfig->GetKernelName(), m_pModule);
             argDescriptions = OpenCLKernelArgumentsParser::KernelArgHeuristics(argDescriptions, pKernelConfig->GetGlobalWorkSize(), pKernelConfig->GetWorkDimension());
             OCLKernelDataGeneratorConfig *cfg = OCLKernelDataGeneratorConfig::defaultConfig(argDescriptions);
             cfg->setSeed(m_RandomDataGeneratorSeed);
+            OCLKernelDataGenerator gen(argDescriptions, *cfg);
+
+            gen.Read(pContainer);
+            break;
+        }
+    case Config:
+        {
+            const OCLKernelDataGeneratorConfig *cfg = pKernelConfig->GetGeneratorConfig();
+            //if there is no OCLKernelDataGeneratorConfig in configuration file or it is incorrect
+            //GetGeneratorConfig will return zero value
+            if(cfg == 0)
+            {
+                throw Exception::InvalidArgument("[OpenCLBackendRunner]No config is provided. \
+                                                 Add OCLKernelDataGeneratorConfig block or try to use another InputDataFileType");
+            }
+            OpenCLKernelArgumentsParser parser;
+            OCLKernelArgumentsList argDescriptions = parser.KernelArgumentsParser(pKernelConfig->GetKernelName(), m_pModule);
+            argDescriptions = OpenCLKernelArgumentsParser::KernelArgHeuristics(argDescriptions, pKernelConfig->GetGlobalWorkSize(), pKernelConfig->GetWorkDimension());
             OCLKernelDataGenerator gen(argDescriptions, *cfg);
 
             gen.Read(pContainer);
@@ -235,8 +258,10 @@ void OpenCLBackendRunner::FillIgnoreList( std::vector<bool>& ignoreList, const c
             ignoreList[i] = true;
             break;
         case CL_KRNL_ARG_PTR_IMG_2D:        // Argument is a pointer to 2D image
+        case CL_KRNL_ARG_PTR_IMG_2D_DEPTH:
         case CL_KRNL_ARG_PTR_IMG_3D:        // Argument is a pointer to 3D image
         case CL_KRNL_ARG_PTR_IMG_2D_ARR:
+        case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
         case CL_KRNL_ARG_PTR_IMG_1D:
         case CL_KRNL_ARG_PTR_IMG_1D_ARR:
         case CL_KRNL_ARG_PTR_IMG_1D_BUF:

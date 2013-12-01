@@ -1,3 +1,4 @@
+#pragma OPENCL FP_CONTRACT ON
 #pragma OPENCL EXTENSION cl_khr_fp64: enable
 
 __kernel 

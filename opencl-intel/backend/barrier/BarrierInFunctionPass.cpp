@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BarrierInFunctionPass.h"
 #include "OCLPassSupport.h"
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/CFG.h"
 
 namespace intel {
@@ -26,7 +26,7 @@ namespace intel {
     TFunctionVector& kernelFunctions = m_util.getAllKernelFunctions();
 
     //Find all functions that call synchronize instructions
-    TFunctionVector& functionsWithSync = m_util.getAllFunctionsWithSynchronization();
+    TFunctionSet& functionsWithSync = m_util.getAllFunctionsWithSynchronization();
 
     //Set of all functions that allready added to handle container
     //Will be used to prevent handling functions more than once
@@ -110,7 +110,7 @@ namespace intel {
     // Add barrier call before each ret instruction in pFunc
     for ( TInstructionVector::iterator ii = retInstructions.begin(),
       ie = retInstructions.end(); ii != ie; ++ii ) {
-        Instruction *pRetInst = dyn_cast<Instruction>(*ii);
+        Instruction *pRetInst = *ii;
         m_util.createBarrier(pRetInst);
     }
   }
@@ -142,7 +142,7 @@ namespace intel {
     TInstructionVector::iterator ii = fibersToRemove.begin();
     TInstructionVector::iterator ie = fibersToRemove.end();
     for( ;ii != ie; ++ii ) {
-      Instruction *pInstToRemove = dyn_cast<Instruction>(*ii);
+      Instruction *pInstToRemove = *ii;
       pInstToRemove->eraseFromParent();
     }
   }

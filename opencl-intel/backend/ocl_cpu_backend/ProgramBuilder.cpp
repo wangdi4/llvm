@@ -16,6 +16,7 @@ File Name:  ProgramBuilder.cpp
 
 \*****************************************************************************/
 #define NOMINMAX
+#define DEBUG_TYPE "ProgramBuilder"
 
 #include <vector>
 #include <string>
@@ -35,24 +36,26 @@ File Name:  ProgramBuilder.cpp
 #include "plugin_manager.h"
 #include "MetaDataApi.h"
 #include "BitCodeContainer.h"
+#include "BlockUtils.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Argument.h"
-#include "llvm/Type.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Instructions.h"
-#include "llvm/Instruction.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/LLVMContext.h"
 #include <algorithm>
 
 
@@ -73,6 +76,15 @@ llvm::MemoryBuffer* GetProgramMemoryBuffer(Program* pProgram)
 {
     const BitCodeContainer* pCodeContainer = static_cast<const BitCodeContainer*>(pProgram->GetProgramCodeContainer());
     return (llvm::MemoryBuffer*)pCodeContainer->GetMemoryBuffer();
+}
+
+/// @brief helper funtion to set RuntimeService in Kernel objects from KernelSet
+void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelSet * pKernels )
+{
+  for(unsigned cnt = 0; cnt < pKernels->GetCount(); ++cnt){
+    Kernel * pK = pKernels->GetKernel(cnt);
+    pK->SetRuntimeService(rs);
+  }
 }
 
 } //namespace Utils
@@ -110,6 +122,12 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         pProgram->SetExecutionEngine(pCompiler->GetExecutionEngine());
         pProgram->SetBuiltinModule(pCompiler->GetRtlModule());
 
+        // init refcounted runtime service shared storage between program and kernels
+        RuntimeServiceSharedPtr lRuntimeService =
+                          RuntimeServiceSharedPtr(new RuntimeServiceImpl);
+        // set runtime service for the program
+        pProgram->SetRuntimeService(lRuntimeService);
+
         PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
 
         if (!(pOptions && pOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
@@ -118,10 +136,16 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
             KernelSet* pKernels = CreateKernels( pProgram,
                                                  spModule.get(),
                                                  buildResult);
+            // update kernels with RuntimeService
+            Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pKernels );
 
-            pProgram->SetKernelSet( pKernels);
+            pProgram->SetKernelSet( pKernels );
         }
-        pProgram->SetModule( spModule.release());
+        
+        // call post build method
+        PostBuildProgramStep( pProgram, spModule.get(), pOptions );
+        pProgram->SetModule( spModule.release() );
+
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {
@@ -236,8 +260,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     // Private memory size contains the max size between
     // the needed size for scalar and needed size for vectorized versions.
     unsigned int privateMemorySize = std::max<unsigned int>(scalarBufferStride, vectorBufferStride);
-    // TODO: This is workaround till the SDK hanlde case of zero private memory size!
-    privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(std::max<unsigned int>(1, privateMemorySize));
+    privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(privateMemorySize);
 
     KernelProperties* pProps = new KernelProperties();
 
@@ -258,6 +281,9 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     pProps->SetJitCreateWIids(bJitCreateWIids);
 
     pProps->SetPrivateMemorySize(privateMemorySize);
+
+    // set isBlock property
+    pProps->SetIsBlock(BlockUtils::IsBlockInvocationKernel(*func));
 
     return pProps;
 }

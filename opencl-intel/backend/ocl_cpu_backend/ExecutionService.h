@@ -35,7 +35,7 @@ public:
      * Creates binary object from the given kernel code and the context, the generated binary
      * will be binded for the given work description.
      *
-     * @param pKenrel pointer to the kernel that you want to execute
+     * @param pKernel pointer to the kernel that you want to execute
      * @param pContext context which contains the argument values as required for the 
      *  given kernel
      * @param contextSize context size in bytes
@@ -114,6 +114,10 @@ protected:
 
     // pointer to the device printer service
     ICLDevBackendBufferPrinter* m_pPrinter;
+
+    // pointer to the device command manager
+    // OCL20. Extended execution functionality
+    IDeviceCommandManager* m_pDeviceCommandManager;
 
     #ifdef OCL_DEV_BACKEND_PLUGINS
     mutable Intel::OpenCL::PluginManager m_pluginManager;

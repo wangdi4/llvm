@@ -14,17 +14,19 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <string>
 #include <math.h>
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+using namespace Intel::OpenCL::DeviceBackend;
 
-  char KernelInfo::ID = 0;
+namespace intel {
 
-  bool KernelInfo::runOnFunction(Function &Func) {
+  char KernelInfoPass::ID = 0;
+
+  bool KernelInfoPass::runOnFunction(Function &Func) {
     m_mdUtils->getOrInsertKernelsInfoItem(&Func)->setKernelExecutionLength(getExecutionLength(&Func));
-    m_mdUtils->getOrInsertKernelsInfoItem(&Func)->setKernelHasBarrier(conatinsBarrier(&Func));
+    m_mdUtils->getOrInsertKernelsInfoItem(&Func)->setKernelHasBarrier(containsBarrier(&Func));
     return false;
   }
 
-  bool KernelInfo::conatinsBarrier(Function *pFunc) {
+  bool KernelInfoPass::containsBarrier(Function *pFunc) {
     for (inst_iterator ii = inst_begin(pFunc), e = inst_end(pFunc); ii != e; ++ii) {
       CallInst *pCall = dyn_cast<CallInst>(&*ii);
       if ( !pCall ) {
@@ -34,15 +36,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       if (calledFuncName.find("barrier") != std::string::npos) {
         return true;
       }
+      if (CompilationUtils::isWorkGroupBuiltin(calledFuncName) ||
+          CompilationUtils::isAsyncBuiltin(calledFuncName)) {
+        return true;
+      }
     }
     return false;
   }
 
-  size_t KernelInfo::getExecutionEstimation(unsigned depth) {
+  size_t KernelInfoPass::getExecutionEstimation(unsigned depth) {
     return (size_t)pow(10.0f, (int)depth);
   }
 
-  size_t KernelInfo::getExecutionLength(Function *pFunc) {
+  size_t KernelInfoPass::getExecutionLength(Function *pFunc) {
     LoopInfo &LI = getAnalysis<LoopInfo>();
 
     size_t currLength = 0;
@@ -53,14 +59,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   char KernelInfoWrapper::ID = 0;
-
-  ModulePass* createKernelInfoWrapperPass() {
-    return new KernelInfoWrapper();
-  }
   
   bool KernelInfoWrapper::runOnModule(Module& M) {
     Intel::MetaDataUtils mdUtils(&M);
-    KernelInfo* pKernelInfoPass = new KernelInfo(&mdUtils);
+    KernelInfoPass* pKernelInfoPass = new KernelInfoPass(&mdUtils);
 
     llvm::FunctionPassManager FPM(&M);
     FPM.add(pKernelInfoPass);
@@ -82,5 +84,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
-}}}
+} // namespace intel {
 
+extern "C" {
+  ModulePass* createKernelInfoWrapperPass() {
+    return new intel::KernelInfoWrapper();
+  }
+}

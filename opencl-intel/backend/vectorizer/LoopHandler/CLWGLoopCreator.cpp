@@ -5,17 +5,18 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "CLWGLoopCreator.h"
-#include "LoopUtils.h"
+#include "LoopUtils/LoopUtils.h"
 #include "CLWGBoundDecoder.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "MetaDataApi.h"
 #include "CompilationUtils.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Constants.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Module.h"
 
 #include <sstream>
 #include <set>
@@ -28,13 +29,12 @@ namespace intel {
 
 char CLWGLoopCreator::ID = 0;
 
-OCL_INITIALIZE_PASS(CLWGLoopCreator, "cl-loop-creator", "create loops opencl kernels", false, false)
+OCL_INITIALIZE_PASS_BEGIN(CLWGLoopCreator, "cl-loop-creator", "create loops opencl kernels", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(CLWGLoopCreator, "cl-loop-creator", "create loops opencl kernels", false, false)
 
-
-CLWGLoopCreator::CLWGLoopCreator() : ModulePass(ID),
-  m_rtServices(static_cast<OpenclRuntime *>(RuntimeServices::get()))
-{
-  assert(m_rtServices);
+CLWGLoopCreator::CLWGLoopCreator() : ModulePass(ID), m_rtServices(NULL) {
+  initializeCLWGLoopCreatorPass(*PassRegistry::getPassRegistry());
 }
 
 CLWGLoopCreator::~CLWGLoopCreator()
@@ -48,6 +48,10 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
     //Module contains no MetaData information, thus it contains no kernels
     return changed;
   }
+
+  m_rtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
+  assert(m_rtServices && "expected to have openCL runtime");
+
   // First obtain original scalar kernels from metadata.
   SmallVector<Function *, 8> kernels;
   LoopUtils::GetOCLKernel(M, kernels);
@@ -514,7 +518,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   Function::arg_iterator argIt = m_F->arg_begin();
   Function::arg_iterator argE = m_F->arg_end();
   for (; argIt != argE; ++argIt, ++VArgIt) {
- 	VArgIt->replaceAllUsesWith(argIt);
+  VArgIt->replaceAllUsesWith(argIt);
   }
   assert (!m_vectorFunc->getNumUses() && "vector kernel should have no use");
   if (!m_vectorFunc->getNumUses()) {
@@ -533,7 +537,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   Function::arg_iterator argIt = m_F->arg_begin();
   Function::arg_iterator argE = m_F->arg_end();
   for (; argIt != argE; ++argIt, ++VArgIt) {
- 	valueMap[VArgIt] = argIt;
+  valueMap[VArgIt] = argIt;
   }
   // create a list for return values
   SmallVector<ReturnInst*, 2> returns;

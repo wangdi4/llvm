@@ -43,6 +43,7 @@ using namespace Intel::OpenCL::TaskExecutor;
 
 FrontEndCompiler::FrontEndCompiler() : 
 		OCLObject<_cl_object>(NULL, "FrontEndCompiler"),
+		m_pfnCreateInstance(NULL),
 		m_pszModuleName(NULL),
 		m_pFECompiler(NULL),
 		m_pLoggerClient(NULL)
@@ -271,124 +272,20 @@ bool FrontEndCompiler::CheckLinkOptions(const char* szOptions, char** szUnrecogn
   return m_pFECompiler->CheckLinkOptions(szOptions, szUnrecognizedOptions);
 }
 
-cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*          pBin, 
-                                               const char*          szKernelName, 
-                                               cl_kernel_argument_info**      ppArgInfo,
-                                               unsigned int*        puiNumArgs) const
+cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*        pBin, 
+                                               const char*        szKernelName, 
+                                               FEKernelArgInfo*   *ppArgInfo) const
 {
-    LOG_DEBUG(TEXT("Enter GetKernelArgInfo(pBin=%d, szKernelName=%d, ppArgInfo=%d, puiNumArgs=%d)"),
-		pBin, szKernelName, ppArgInfo, puiNumArgs);
+    LOG_DEBUG(TEXT("Enter GetKernelArgInfo(pBin=%p, szKernelName=<%s>, ppArgInfo=%p)"), (void*)pBin, szKernelName, (void*)ppArgInfo);
 
-    if (NULL == pBin)
+    if ( (NULL == pBin) || (NULL == szKernelName) || (NULL==ppArgInfo) )
     {
         return CL_INVALID_VALUE;
     }
 
-    if (NULL == szKernelName)
-    {
-        return CL_INVALID_VALUE;
-    }
+    int err = m_pFECompiler->GetKernelArgInfo(pBin, szKernelName, ppArgInfo);
 
-    if ((NULL == ppArgInfo) && (NULL == puiNumArgs))
-    {
-        return CL_INVALID_VALUE;
-    }
+    LOG_DEBUG(TEXT("Exit GetKernelArgInfo(pBin=%p, szKernelName=<%s>, ppArgInfo=%p, err=%d)"), (void*)pBin, szKernelName, (void*)ppArgInfo, err);
 
-    FEKernelArgInfo* pResult;
-
-    int err = m_pFECompiler->GetKernelArgInfo(pBin, szKernelName, &pResult);
-
-    if ( CL_SUCCESS != err )
-	{
-        if (NULL != puiNumArgs)
-        {
-            *puiNumArgs = 0;
-        }
-
-        if (NULL != ppArgInfo)
-        {
-            *ppArgInfo = NULL;
-        }
-
-        pResult->Release();
-
-        return err;
-	}
-
-    unsigned int uiNumArgs = pResult->getNumArgs();
-
-    if (NULL != puiNumArgs)
-    {
-        *puiNumArgs = uiNumArgs;
-    }
-
-    if (NULL != ppArgInfo)
-    {
-        cl_kernel_argument_info* pKernelArgInfo = new cl_kernel_argument_info[uiNumArgs];
-        if (NULL == pKernelArgInfo)
-        {
-            *ppArgInfo = NULL;
-            pResult->Release();
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-
-        bool bFail = false;
-
-        for (unsigned int i = 0; i < uiNumArgs; ++i)
-        {
-            pKernelArgInfo[i].adressQualifier = pResult->getArgAdressQualifier(i);
-            pKernelArgInfo[i].accessQualifier = pResult->getArgAccessQualifier(i);
-            pKernelArgInfo[i].typeQualifier = pResult->getArgTypeQualifier(i);
-
-            size_t uiNameLength = strlen(pResult->getArgName(i)) + 1;
-            size_t uiTypeNameLength = strlen(pResult->getArgTypeName(i)) + 1;
-
-            pKernelArgInfo[i].name = new char[uiNameLength];
-            if (NULL == pKernelArgInfo[i].name)
-            {
-                bFail = true;
-                break;
-            }
-
-            pKernelArgInfo[i].typeName = new char[uiTypeNameLength];
-            if (NULL == pKernelArgInfo[i].typeName)
-            {
-                bFail = true;
-                break;
-            }
-
-            STRCPY_S((char*)pKernelArgInfo[i].name, uiNameLength, pResult->getArgName(i));
-            STRCPY_S((char*)pKernelArgInfo[i].typeName, uiTypeNameLength, pResult->getArgTypeName(i));
-        }
-
-        if (bFail)
-        {
-            for (unsigned int i = 0; i < uiNumArgs; ++i)
-            {
-                if (pKernelArgInfo[i].name)
-                {
-                    delete[] pKernelArgInfo[i].name;
-                    pKernelArgInfo[i].name = NULL;
-                }
-
-                if (pKernelArgInfo[i].typeName)
-                {
-                    delete[] pKernelArgInfo[i].typeName;
-                    pKernelArgInfo[i].typeName = NULL;
-                }
-            }
-
-            delete[] pKernelArgInfo;
-            *ppArgInfo = NULL;
-            pResult->Release();
-
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-
-        *ppArgInfo = pKernelArgInfo;
-    }
-
-    pResult->Release();
-
-    return CL_SUCCESS;
+    return err;
 }

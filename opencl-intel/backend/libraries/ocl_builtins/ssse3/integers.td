@@ -9,11 +9,11 @@
 \*****************************************************************/
 // abs promote
 OclBuiltinImpl abs_ipromote = OclBuiltinImpl<abs, [ v2i8,  v3i8,  v4i8,  v8i8,
-                                                  v2i16, v3i16, v4i16,
-                                                  v2i32, v3i32                      ], 0, Promote1>;
+                                                    v2i16, v3i16, v4i16,
+                                                    v2i32, v3i32                      ], 0, Promote1>;
 // abs expand
-OclBuiltinImpl abs_iexpand  = OclBuiltinImpl<abs, [                            v16i16,
-                                                                       v8i32, v16i32], 0, Expand1>;
+OclBuiltinImpl abs_iexpand  = OclBuiltinImpl<abs, [                             v16i16,
+                                                                         v8i32, v16i32], 0, Expand1>;
 // abs native
 OclBuiltinImpl abs_inative = OclBuiltinImpl<abs, [v16i8, v8i16, v4i32] , 0, [{
     return as_u$Arg0Type(_mm_abs_epi$BitWidth((__m128i)$Arg0VarName));
@@ -27,12 +27,12 @@ OclBuiltinImpl abs_inative = OclBuiltinImpl<abs, [v16i8, v8i16, v4i32] , 0, [{
 \*****************************************************************/
 // abs_diff on scalars
 OclBuiltinImpl abs_diff_iv1 = OclBuiltinImpl<abs_diff, [ v1i8,  v1u8,
-                                                       v1i16, v1u16,
-                                                       v1i32, v1u32,
-                                                       v1i64, v1u64] , 0, [{
+                                                         v1i16, v1u16,
+                                                         v1i32, v1u32,
+                                                         v1i64, v1u64] , 0, [{
     $ReturnType r = $Arg0VarName - $Arg1VarName;
     if( $Arg1VarName > $Arg0VarName )
-        r = $Arg1VarName - $Arg0VarName;
+      r = $Arg1VarName - $Arg0VarName;
     return r;
   }]>;
 // abs_diff on signed vector
@@ -76,8 +76,8 @@ OclBuiltinImpl add_sat_v16u8v8u16 = OclBuiltinImpl<add_sat, [v16u8, v8u16], 0, [
 // add_sat promote
 OclBuiltinImpl add_sat_ssepromote = OclBuiltinImpl<add_sat, [ v2i8,  v3i8,  v4i8,  v8i8,
                                                               v2u8,  v3u8,  v4u8,  v8u8,
-                                                             v2i16, v3i16, v4i16,
-                                                             v2u16, v3u16, v4u16       ], 0, Promote2>;
+                                                              v2i16, v3i16, v4i16,
+                                                              v2u16, v3u16, v4u16       ], 0, Promote2>;
 // add_sat expand
 OclBuiltinImpl add_sat_sseexpand  = OclBuiltinImpl<add_sat, [v16i16, v16u16], 0, Expand2>;
 
@@ -97,8 +97,8 @@ OclBuiltinImpl sub_sat_v16u8v8u16 = OclBuiltinImpl<sub_sat, [v16u8, v8u16], 0, [
 // sub_sat promote
 OclBuiltinImpl sub_sat_ssepromote = OclBuiltinImpl<sub_sat, [ v2i8,  v3i8,  v4i8,  v8i8,
                                                               v2u8,  v3u8,  v4u8,  v8u8,
-                                                             v2i16, v3i16, v4i16,
-                                                             v2u16, v3u16, v4u16       ], 0, Promote2>;
+                                                              v2i16, v3i16, v4i16,
+                                                              v2u16, v3u16, v4u16       ], 0, Promote2>;
 // sub_sat expand
 OclBuiltinImpl sub_sat_sseexpand  = OclBuiltinImpl<sub_sat, [v16i16, v16u16], 0, Expand2>;
 
@@ -182,7 +182,7 @@ OclBuiltinImpl mad_sat_v4i8 = OclBuiltinImpl<mad_sat, [v4i8], 0, [{
     int4 res;
     int4 cmin = (int)generic_min_char;
     int4 cmax = (int)generic_max_char;
-    res =  convert_int4($Arg0VarName) * convert_int4($Arg1VarName) + convert_int4($Arg2VarName);
+    res = convert_int4($Arg0VarName) * convert_int4($Arg1VarName) + convert_int4($Arg2VarName);
     return convert_char4( clamp ( res,  cmin , cmax ) );
   }]>;
 // mad_sat uchar4
@@ -190,7 +190,7 @@ OclBuiltinImpl mad_sat_v4u8 = OclBuiltinImpl<mad_sat, [v4u8], 0, [{
     uint4 res;
     uint4 cmin = (uint)generic_min_uchar;
     uint4 cmax = (uint)generic_max_uchar;
-    res =  convert_uint4($Arg0VarName) * convert_uint4($Arg1VarName) + convert_uint4($Arg2VarName);
+    res = convert_uint4($Arg0VarName) * convert_uint4($Arg1VarName) + convert_uint4($Arg2VarName);
     return convert_uchar4( clamp ( res,  cmin , cmax ) );
   }]>;
 // mad_sat fix for char8, uchar8
@@ -204,18 +204,18 @@ OclBuiltinImpl mad_sat_v8i8u8 = OclBuiltinImpl<mad_sat, [v8i8, v8u8], 0, [{
   }]>;
 // mad_sat promote
 OclBuiltinImpl mad_sat_ipromote = OclBuiltinImpl<mad_sat, [ v2i8,  v3i8,
-                                                          v2i16, v3i16, v4i16,
-                                                          v2i32, v3i32,
-                                                           v2u8,  v3u8,
-                                                          v2u16, v3u16, v4u16,
-                                                          v2u32, v3u32              ], 0, Promote3>;
+                                                            v2i16, v3i16, v4i16,
+                                                            v2i32, v3i32,
+                                                            v2u8,  v3u8,
+                                                            v2u16, v3u16, v4u16,
+                                                            v2u32, v3u32              ], 0, Promote3>;
 // mad_sat expand
-OclBuiltinImpl mad_sat_iexpand  = OclBuiltinImpl<mad_sat, [                            v16i16,
-                                                                               v8i32, v16i32,
-                                                          v2i64, v3i64, v4i64, v8i64, v16i64,
-                                                                                      v16u16,
-                                                                               v8u32, v16u32,
-                                                          v2u64, v3u64, v4u64, v8u64, v16u64], 0, Expand3>;
+OclBuiltinImpl mad_sat_iexpand  = OclBuiltinImpl<mad_sat, [                             v16i16,
+                                                                                 v8i32, v16i32,
+                                                            v2i64, v3i64, v4i64, v8i64, v16i64,
+                                                                                        v16u16,
+                                                                                 v8u32, v16u32,
+                                                            v2u64, v3u64, v4u64, v8u64, v16u64], 0, Expand3>;
 // mad_sat native char16
 OclBuiltinImpl mad_sat_v16i8 = OclBuiltinImpl<mad_sat, [v16i8], 0, [{
     char16 zero = (char16)0;
@@ -374,16 +374,16 @@ OclBuiltinImpl max_v8i8u8 = OclBuiltinImpl<max, [v8i8, v8u8], 0, [{
   }]>;
 // max promote
 OclBuiltinImpl max_ipromote = OclBuiltinImpl<max, [ v2i8,  v3i8,
-                                                   v2u8,  v3u8,
-                                                  v2i16, v3i16, v4i16,
-                                                  v2u16, v3u16, v4u16,
-                                                  v2i32, v3i32,
-                                                  v2u32, v3u32                      ], 0, Promote2>;
+                                                    v2u8,  v3u8,
+                                                    v2i16, v3i16, v4i16,
+                                                    v2u16, v3u16, v4u16,
+                                                    v2i32, v3i32,
+                                                    v2u32, v3u32                      ], 0, Promote2>;
 // max expand
-OclBuiltinImpl max_iexpand  = OclBuiltinImpl<max, [                            v16i16,
-                                                                              v16u16,
-                                                                       v8i32, v16i32,
-                                                                       v8u32, v16u32], 0, Expand2>;
+OclBuiltinImpl max_iexpand  = OclBuiltinImpl<max, [                             v16i16,
+                                                                                v16u16,
+                                                                         v8i32, v16i32,
+                                                                         v8u32, v16u32], 0, Expand2>;
 
 /*****************************************************************\
  * min:                                                          *
@@ -441,16 +441,16 @@ OclBuiltinImpl min_v8i8u8 = OclBuiltinImpl<min, [v8i8, v8u8], 0, [{
   }]>;
 // min promote
 OclBuiltinImpl min_ipromote = OclBuiltinImpl<min, [ v2i8,  v3i8,
-                                                   v2u8,  v3u8,
-                                                  v2i16, v3i16, v4i16,
-                                                  v2u16, v3u16, v4u16,
-                                                  v2i32, v3i32,
-                                                  v2u32, v3u32                      ], 0, Promote2>;
+                                                    v2u8,  v3u8,
+                                                    v2i16, v3i16, v4i16,
+                                                    v2u16, v3u16, v4u16,
+                                                    v2i32, v3i32,
+                                                    v2u32, v3u32                       ], 0, Promote2>;
 // min expand
-OclBuiltinImpl min_iexpand  = OclBuiltinImpl<min, [                            v16i16,
-                                                                              v16u16,
-                                                                       v8i32, v16i32,
-                                                                       v8u32, v16u32], 0, Expand2>;
+OclBuiltinImpl min_iexpand  = OclBuiltinImpl<min, [                              v16i16,
+                                                                                 v16u16,
+                                                                          v8i32, v16i32,
+                                                                          v8u32, v16u32], 0, Expand2>;
 
 
 /*****************************************************************\
@@ -460,18 +460,18 @@ OclBuiltinImpl min_iexpand  = OclBuiltinImpl<min, [                            v
 \*****************************************************************/
 // mul_hi promote
 OclBuiltinImpl mul_hi_ipromote = OclBuiltinImpl<mul_hi, [ v2i8,  v3i8,  v4i8,  v8i8,
-                                                        v2i16, v3i16, v4i16,
-                                                        v2i32, v3i32,
-                                                         v2u8,  v3u8,  v4u8,  v8u8,
-                                                        v2u16, v3u16, v4u16,
-                                                        v2u32, v3u32                      ], 0, Promote2>;
+                                                          v2i16, v3i16, v4i16,
+                                                          v2i32, v3i32,
+                                                          v2u8,  v3u8,  v4u8,  v8u8,
+                                                          v2u16, v3u16, v4u16,
+                                                          v2u32, v3u32                      ], 0, Promote2>;
 // mul_hi expand
-OclBuiltinImpl mul_hi_iexpand  = OclBuiltinImpl<mul_hi, [                            v16i16,
-                                                                             v8i32, v16i32,
-                                                        v2i64, v3i64, v4i64, v8i64, v16i64,
-                                                                                    v16u16,
-                                                                             v8u32, v16u32,
-                                                        v2u64, v3u64, v4u64, v8u64, v16u64], 0, Expand2>;
+OclBuiltinImpl mul_hi_iexpand  = OclBuiltinImpl<mul_hi, [                             v16i16,
+                                                                               v8i32, v16i32,
+                                                          v2i64, v3i64, v4i64, v8i64, v16i64,
+                                                                                      v16u16,
+                                                                               v8u32, v16u32,
+                                                          v2u64, v3u64, v4u64, v8u64, v16u64], 0, Expand2>;
 // mul_hi native char16
 OclBuiltinImpl mul_hi_v16i8 = OclBuiltinImpl<mul_hi, [v16i8], 0, [{
     $Arg0Type zero = ($Arg0Type)0;
@@ -544,20 +544,19 @@ OclBuiltinImpl ctz_igeneric = OclBuiltinImpl<ctz, [ v1i8,  v2i8,  v3i8,  v4i8,  
   }]>;
 // ctz on scalar uchar
 OclBuiltinImpl ctz_v1char = OclBuiltinImpl<ctz, [v1u8], 0, [{
-    //return __builtin_ctzc($Arg0VarName); //There is no ctz implementation for char in the open source
-	return (($Arg0VarName == 0) ? 8 : __builtin_ctz((uint)$Arg0VarName));//uchar as uint
+    return __ocl_helper_ctz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // ctz on scalar ushort
 OclBuiltinImpl ctz_v1short = OclBuiltinImpl<ctz, [v1u16], 0, [{
-    return __builtin_ctzs($Arg0VarName);
+    return __ocl_helper_ctz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // ctz on scalar uint
 OclBuiltinImpl ctz_v1int = OclBuiltinImpl<ctz, [v1u32], 0, [{
-    return __builtin_ctz($Arg0VarName);
+    return __ocl_helper_ctz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // ctz on scalar ulong
 OclBuiltinImpl ctz_v1long = OclBuiltinImpl<ctz, [v1u64], 0, [{
-    return __builtin_ctzl($Arg0VarName);
+    return __ocl_helper_ctz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // ctz expand unsigned vectors to scalar
 OclBuiltinImpl ctz_expand = OclBuiltinImpl<ctz, [v2u8,  v3u8,  v4u8,  v8u8,  v16u8,

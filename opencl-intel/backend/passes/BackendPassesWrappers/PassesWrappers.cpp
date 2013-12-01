@@ -16,11 +16,7 @@ File Name:  PassesWrappers.cpp
 
 \*****************************************************************************/
 
-#include "ImplicitArgsUtils.h"
 #include "OCLPassSupport.h"
-
-#include "ModuleCleanup.h"
-#include "AddImplicitArgs.h"
 #include "LocalBuffers.h"
 
 #include <llvm/Pass.h>
@@ -58,24 +54,6 @@ namespace intel{
     PassesWrappersSupporter * PassesWrappersSupporter::m_instance = NULL;
 
 
-    class ModuleCleanupWrapper : public ModuleCleanup
-    {
-    public:
-        ModuleCleanupWrapper() :
-          ModuleCleanup()
-          {}
-        static char ID;
-    };
-
-    class AddImplicitArgsWrapper : public AddImplicitArgs
-    {
-    public:
-        AddImplicitArgsWrapper() :
-          AddImplicitArgs()
-          {}
-        static char ID;
-    };
-
     class LocalBuffersWrapper : public LocalBuffers
     {
     public:
@@ -94,13 +72,9 @@ namespace intel{
         static char ID;
     };
 
-char intel::ModuleCleanupWrapper::ID = 0;
-char intel::AddImplicitArgsWrapper::ID = 0;
 char intel::LocalBuffersWrapper::ID = 0;
 char intel::LocalBuffersWithDebugWrapper::ID = 0;
 
-OCL_INITIALIZE_PASS(ModuleCleanupWrapper, "module-cleanup", "Cleans OpenCL module: removes functions which are not kernels (or called by kernels)", false, false)
-OCL_INITIALIZE_PASS(AddImplicitArgsWrapper, "add-implicit-args", "Adds the implicit arguments to signature of all functions of the module (that are defined inside the module)", false, false)
 OCL_INITIALIZE_PASS(LocalBuffersWrapper, "local-buffers", "Resolves the internal local variables and map them to local buffer", false, false)
 OCL_INITIALIZE_PASS(LocalBuffersWithDebugWrapper, "local-buffers-debug", "Resolves the internal local variables and map them to local buffer, in debugger mode", false, false)
 
@@ -111,16 +85,6 @@ OCL_INITIALIZE_PASS(LocalBuffersWithDebugWrapper, "local-buffers-debug", "Resolv
 
 // Create functions for use in opt
 extern "C" {
-    void* createModuleCleanupWrapper()
-    {
-        return new intel::ModuleCleanupWrapper();
-    }
-
-    void* createAddImplicitArgsWrapper()
-    {
-        return new intel::AddImplicitArgsWrapper();
-    }
-
     void* createLocalBuffersWrapper()
     {
         return new intel::LocalBuffersWrapper();

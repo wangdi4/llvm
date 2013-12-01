@@ -22,6 +22,7 @@ endif()
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/MangledNames.h
+  #COMMAND ${OCL_TBLGEN} -gen-ocl-biheader -gen-ocl-Exclude=true -gen-ocl-Prefix=__cl_
   COMMAND ${OCL_TBLGEN} -gen-ocl-biheader 
   -I ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
@@ -47,7 +48,7 @@ target_link_libraries(
 
 if (NOT WIN32)
   if(NOT ANDROID)
-  target_link_libraries(${TARGET_NAME} pthread)
+    target_link_libraries(${TARGET_NAME} pthread)
   endif()
 endif (NOT WIN32)
 

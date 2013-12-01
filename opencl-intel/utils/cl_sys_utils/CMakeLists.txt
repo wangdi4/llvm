@@ -42,7 +42,7 @@ endif( WIN32 )
 if( WIN32 OR ANDROID )
   target_link_libraries( ${TARGET_NAME} cl_hw_utils )
 else( WIN32 OR ANDROID )
-  target_link_libraries( ${TARGET_NAME} cl_hw_utils numa )
+  target_link_libraries( ${TARGET_NAME} cl_hw_utils numa rt )
 endif( WIN32 OR ANDROID )
  
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )

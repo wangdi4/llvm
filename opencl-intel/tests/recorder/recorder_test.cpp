@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "FrameworkTest.h"
 #include "cl_utils.h"
+#include "cl_sys_info.h"
 #include <memory>
 #include <fstream>
 #ifdef _WIN32
@@ -198,7 +199,7 @@ bool clBuildProgramMaxArgsTest(){
   //context
   //
   context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-  bResult &= Check((wchar_t*)L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+  bResult &= Check((wchar_t*)L"clCreateContext", CL_SUCCESS, iRet);
   if (!bResult)
     return false;
   cl_command_queue queue = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
@@ -224,42 +225,64 @@ bool clBuildProgramMaxArgsTest(){
   return ret;
 }
 
-#define XSTR(A) STR(A)
-#define STR(A) #A
-
 TEST(OclRecorder, dupKernels){
   const char* BE_PLUGIN = "OCLBACKEND_PLUGINS";
   const char* PREFIX    = "recorder_test";
   const char* BE_PREFIX = "OCLRECORDER_DUMPPREFIX";
+
 #ifdef _WIN32
-  SetEnvironmentVariable(BE_PLUGIN, XSTR(RECORDER));
+  const char* recorderName = "OclRecorder.dll";
+#else
+  const char* recorderName = "libOclRecorder.so";
+#endif
+
+  std::string recorderFullName(Intel::OpenCL::Utils::GetFullModuleNameForLoad(recorderName));
+
+#ifdef _WIN32
+  SetEnvironmentVariable(BE_PLUGIN, recorderFullName.c_str());
   SetEnvironmentVariable(BE_PREFIX, PREFIX);
 #else
-  setenv(BE_PLUGIN, XSTR(RECORDER), 1);
+  setenv(BE_PLUGIN, recorderFullName.c_str(), 1);
   setenv(BE_PREFIX, PREFIX, 1);
 #endif
-  std::cout << XSTR(RECORDER) << std::endl;
+  std::cout << recorderFullName.c_str() << std::endl;
   if (!clBuildProgramMaxArgsTest()){
     FAIL() << "===Failed==";
     return;
   }
-  const char*const REC_FILE = "recorder_testrecorder_test__sample_test0.cl";
-  const char*const REC_FILE1= "recorder_testrecorder_test__sample_test0.1.cl";
+
+  const char*const REC_FILE = "OclRecorderTest.recorder_test.sample_test0.cl";
+  const char*const REC_FILE1= "OclRecorderTest.recorder_test.2.sample_test0.1.cl";
+  const char*const REC_CFG= "OclRecorderTest.recorder_test.cfg";
+  const char*const REC_CFG1= "OclRecorderTest.recorder_test.2.cfg";
+
   std::fstream file(REC_FILE);
+  std::fstream cfg_file(REC_CFG);
 #if defined(OCLFRONTEND_PLUGINS)
   ASSERT_TRUE(file.good());
+  ASSERT_TRUE(cfg_file.good());
 #else
+  ASSERT_FALSE(file.good());
+  ASSERT_FALSE(cfg_file.good());
+#endif// defined(OCLFRONTEND_PLUGINS)
+  file.close();
+  cfg_file.close();
+  remove(REC_FILE);
+  remove(REC_CFG);
+
+  file.open(REC_FILE1);
+  cfg_file.open(REC_CFG1);
+#if defined(OCLFRONTEND_PLUGINS)
+  ASSERT_TRUE(file.good());
+  ASSERT_TRUE(cfg_file.good());
+#else
+  ASSERT_FALSE(cfg_file.good());
   ASSERT_FALSE(file.good());
 #endif// defined(OCLFRONTEND_PLUGINS)
   file.close();
-  file.open(REC_FILE1);
-#if defined(OCLFRONTEND_PLUGINS)
-  ASSERT_TRUE(file.good());
-#else
-  ASSERT_FALSE(file.good());
-#endif// defined(OCLFRONTEND_PLUGINS)
-  remove(REC_FILE);
+  cfg_file.close();
   remove(REC_FILE1);
+  remove(REC_CFG1);
 }
 
 int main(int argc, char** argv){

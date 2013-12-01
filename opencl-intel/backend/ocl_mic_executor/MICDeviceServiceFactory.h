@@ -30,9 +30,9 @@ private:
 
 public:
     static void Init();
-	
+
     static void Terminate();
-	
+
     static ICLDevBackendServiceFactory* GetInstance();
 
     /**

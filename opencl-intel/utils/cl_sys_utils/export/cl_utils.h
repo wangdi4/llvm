@@ -37,12 +37,25 @@
 #include <sstream>
 #include <limits>
 #include <math.h>
+#include <cassert>
 
 #if defined(_WIN32) && defined (_MSC_VER)
     #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
 #else
     #define MAKE_HEX_FLOAT(x,y,z)  ((float)ldexp( (float)(y), z))
 #endif
+
+// assert macroes:
+
+#define ASSERT_RET(exp, msg) \
+	assert((exp) && msg); \
+	if (!(exp)) \
+		return;
+
+#define ASSERT_RET_VAL(exp, msg, retVal) \
+	assert((exp) && msg); \
+	if (!(exp)) \
+		return retVal;
 
 #ifdef WIN32
 typedef int threadid_t;
@@ -268,6 +281,15 @@ void clResetThreadAffinityMask(threadid_t tid = 0);
 threadid_t clMyThreadId();
 
 /**************************************************************************************************
+* Function: 	clMyParentThreadId
+* Description:	returns the caller's parent thread's OS-specific tid
+* Return value:	threadid_t
+* Author:		Doron Singer
+* Date:			June 2013
+**************************************************************************************************/
+threadid_t clMyParentThreadId();
+
+/**************************************************************************************************
 * Function: 	clCopyMemoryRegion
 * Description:	Copies memory region defined in SMemCpyParams
 * Return value:	void
@@ -342,3 +364,30 @@ float half2float( cl_ushort us );
 // If x is 0, the result is undefined.
 // 
 int __builtin_clz(unsigned int pattern);
+
+/**
+ * Copy a pattern repeatedly to a buffer
+ * @param pPattern		the pattern
+ * @param szPatternSize the pattern's size
+ * @param pBuffer		a pointer to the buffer
+ * @param szBufferSize  the buffer's size
+ */
+void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size_t szBufferSize);
+
+/////////////////////////////////////////////////////////////////////////
+// getHostName
+// Output: localhost machine name
+// Author: Arik Zur
+// Date:   September 2013
+/////////////////////////////////////////////////////////////////////////
+std::string getLocalHostName();
+
+/**
+ * @return the file path of the configuration file
+ */
+std::string GetConfigFilePath();
+
+/**
+ * @return the file path of the CPU runtime
+ */
+bool GetCpuPath( char *pCpuPath, size_t bufferSize );

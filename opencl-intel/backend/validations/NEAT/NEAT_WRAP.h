@@ -159,11 +159,19 @@ namespace Validation
     static NEATVector _fname ## _f ( const NEATVector& a );\
     static NEATVector _fname ## _d ( const NEATVector& a );
 
+#define NEAT_ONEARG_FRM_H(_fname)  \
+    static NEATValue _fname ## _frm_f ( const NEATValue& a );\
+    static NEATVector _fname ## _frm_f ( const NEATVector& a );\
+
 #define NEAT_TWOARG_H(_fname)  \
     static NEATValue _fname ## _f ( const NEATValue& a, const NEATValue& b );\
     static NEATValue _fname ## _d ( const NEATValue& a, const NEATValue& b );\
     static NEATVector _fname ## _f ( const NEATVector& a, const NEATVector& b );\
     static NEATVector _fname ## _d ( const NEATVector& a, const NEATVector& b );
+
+#define NEAT_TWOARG_FRM_H(_fname)  \
+    static NEATValue _fname ## _frm_f ( const NEATValue& a, const NEATValue& b );\
+    static NEATVector _fname ## _frm_f ( const NEATVector& a, const NEATVector& b );
 
 #define NEAT_THREEARG_H(_fname)  \
     static NEATValue _fname ## _f ( const NEATValue& a, const NEATValue& b, const NEATValue& c );\
@@ -175,6 +183,7 @@ namespace Validation
     NEAT_TWOARG_H(mul)
     NEAT_TWOARG_H(mul_fma)
     NEAT_TWOARG_H(div)
+    NEAT_TWOARG_FRM_H(div)
     NEAT_TWOARG_H(native_divide)
     NEAT_TWOARG_H(half_divide)
     NEAT_ONEARG_H(native_recip)
@@ -212,9 +221,11 @@ namespace Validation
 
     NEAT_TWOARG_H(sub)    
     NEAT_ONEARG_H(sin)
+    NEAT_ONEARG_FRM_H(sin)
     NEAT_ONEARG_H(native_sin)
     NEAT_ONEARG_H(half_sin)
     NEAT_ONEARG_H(cos)
+    NEAT_ONEARG_FRM_H(cos)
     NEAT_ONEARG_H(native_cos)
     NEAT_ONEARG_H(half_cos)
 
@@ -223,9 +234,13 @@ namespace Validation
     static NEATValue sincos_d(const NEATValue& a, NEATValue * y);
     static NEATVector sincos_d(const NEATVector& vec1, NEATVector& vec2);
 
+    static NEATValue sincos_frm_f(const NEATValue& a, NEATValue * y);
+    static NEATVector sincos_frm_f(const NEATVector& vec1, NEATVector& vec2);
+
     NEAT_ONEARG_H(tan)
     NEAT_ONEARG_H(native_tan)
     NEAT_ONEARG_H(half_tan)
+    NEAT_ONEARG_FRM_H(tan)
     NEAT_ONEARG_H(asin)
     NEAT_ONEARG_H(acos)
     NEAT_ONEARG_H(atan)
@@ -309,19 +324,24 @@ namespace Validation
     NEAT_ONEARG_H(exp)
     NEAT_ONEARG_H(native_exp)
     NEAT_ONEARG_H(half_exp)
+    NEAT_ONEARG_FRM_H(exp)
     NEAT_ONEARG_H(exp2)
     NEAT_ONEARG_H(native_exp2)
     NEAT_ONEARG_H(half_exp2)
+    NEAT_ONEARG_FRM_H(exp2)
     NEAT_ONEARG_H(exp10)
     NEAT_ONEARG_H(native_exp10)
     NEAT_ONEARG_H(half_exp10)
+    NEAT_ONEARG_FRM_H(exp10)
     NEAT_ONEARG_H(expm1)
     NEAT_ONEARG_H(log2)
     NEAT_ONEARG_H(native_log2)
     NEAT_ONEARG_H(half_log2)
+    NEAT_ONEARG_FRM_H(log2)
     NEAT_ONEARG_H(log)
     NEAT_ONEARG_H(native_log)
     NEAT_ONEARG_H(half_log)
+    NEAT_ONEARG_FRM_H(log)
     NEAT_ONEARG_H(log10)
     NEAT_ONEARG_H(native_log10)
     NEAT_ONEARG_H(half_log10)
@@ -334,6 +354,7 @@ namespace Validation
     NEAT_ONEARG_H(ilogb)
 
     NEAT_TWOARG_H(pow)
+    NEAT_TWOARG_FRM_H(pow)
     NEAT_TWOARG_H(powr)
     NEAT_TWOARG_H(native_powr)
     NEAT_TWOARG_H(half_powr)

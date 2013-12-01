@@ -22,14 +22,14 @@ File Name: OclBuiltinsHeaderGen.cpp
 #include "ClangUtils.h"
 #include "cl_device_api.h"
 #include "llvm/TableGen/Record.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include <vector>
 #include <sstream>
 #include <memory>
@@ -97,7 +97,7 @@ typedef TypedBiList::const_iterator TypedBiIter;
     for(typeit = typedbiList.begin(); typeit != typee ; ++typeit){
       OclBuiltin *B = const_cast<OclBuiltin*>(typeit->first);
       B->removeAttribute(IA);
-      code += generateBuiltinOverload(B, typeit->second);
+      code += generateBuiltinOverload(B, typeit->second).append("\n");
     }
     build(code, fileName);
     pModule = llvm::ParseIRFile(fileName, errDiagnostic, context);
@@ -133,7 +133,8 @@ typedef TypedBiList::const_iterator TypedBiIter;
 
   virtual void operator () (const std::pair<std::string, llvm::OclBuiltin*>& it){
     const OclBuiltin* pBuiltin = it.second;
-    if (pBuiltin->isSvml() || !pBuiltin->isOverlodable())
+    // BUGBUG: isBrokenNameMangling() is a temporary w/around for name mangling in-compat with SPIR (CQ CSSD100017714)
+    if (pBuiltin->isSvml() || !pBuiltin->isOverlodable() || !pBuiltin->shouldGenerate() || pBuiltin->isBrokenNameMangling())
       return;
     m_builtins.push_back(pBuiltin);
   }

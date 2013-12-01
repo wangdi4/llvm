@@ -47,7 +47,7 @@ extern "C"
     // succeeded, false otherwise. If the debugging service is disabled, true
     // is returned.
     //
-    DEBUG_SERVICE_API bool InitDebuggingService();
+    DEBUG_SERVICE_API bool InitDebuggingService(unsigned int port_number);
 
     // Get a pointer to the debugging service instance
     //
@@ -59,7 +59,7 @@ extern "C"
 
     // Function pointer types
     //
-    typedef bool (*DEBUGGING_SERVICE_INIT_FUNC)();
+    typedef bool (*DEBUGGING_SERVICE_INIT_FUNC)(unsigned int);
     typedef ICLDebuggingService* (*DEBUGGING_SERVICE_INSTANCE_FUNC)();
     typedef void (*DEBUGGING_SERVICE_TERMINATE_FUNC)();
 

@@ -115,11 +115,6 @@ UseNEAT("neat",
         llvm::cl::desc("Use NEAT"),
         llvm::cl::init(false));
 
-llvm::cl::opt<bool>
-UseFmaNEAT("fma-neat",
-        llvm::cl::desc("Set 1 ULP maximum relative error for multiplication in NEAT ALU instead of correctly rounded result. Used for fma support"),
-        llvm::cl::init(false));
-
 
 llvm::cl::opt<uint32_t>
 BuildIterations("build-iterations",
@@ -164,7 +159,7 @@ ULP_tolerance("ulp_tol",
 llvm::cl::opt<uint32_t>
 DefaultLocalWGSize("default_wg_size",
                    llvm::cl::desc("Default local work group size used in Validation mode"),
-                   llvm::cl::init(4));
+                   llvm::cl::init(16));
 
 // turn on printing LLVM IR produced by Volcano after all optimization passes applied.
 llvm::cl::opt<std::string>

@@ -38,8 +38,8 @@ OclBuiltinImpl fast_normalize_v4f32 = OclBuiltinImpl<fast_normalize, [v4f32], 0,
     float4 tmp = _mm_dp_ps($Arg0VarName, $Arg0VarName, 0b11111111);
     if( tmp.s0 == 0.f )
     {
-        // Special edge case: copy vector over without change
-        return $Arg0VarName;
+      // Special edge case: copy vector over without change
+      return $Arg0VarName;
     }
 
     tmp = half_rsqrt(tmp);

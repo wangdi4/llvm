@@ -49,8 +49,8 @@ if (NOT WIN32)
 else (NOT WIN32)
 	target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM} googletest delayimp)
 	set_target_properties(${TARGET} PROPERTIES
-		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll"
-		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_preview_debug.dll"
+		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb.dll"
+		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug.dll"
 	)
 
 endif (NOT WIN32)
@@ -90,7 +90,7 @@ if ( INCLUDE_MIC_DEVICE )
 set( MIC_OUTPUT_FILE mic_test.bc )
 
 set (MIC_OPTIONS
-  -cc1 -emit-llvm-bc -x cl -I ${INCLUDE_HEADERS_PATH} -include opencl_.h -o 
+  -cc1 -emit-llvm-bc -fblocks -x cl -I ${INCLUDE_HEADERS_PATH} -include opencl_.h -o 
   ${CMAKE_CURRENT_BINARY_DIR}/${MIC_OUTPUT_FILE}
   ${SPIR_OPT}
   ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}

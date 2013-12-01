@@ -34,7 +34,7 @@ namespace llvm {
     class MemoryBuffer;
     class Type;
     class MICCodeGenerationEngine;
-    class ModuleJITHolder;
+    class LLVMModuleJITHolder;
     class IFunctionAddressResolver;
 }
 
@@ -82,7 +82,8 @@ public:
 
     unsigned int GetTypeAllocSize(llvm::Type* pType) const;
 
-    const llvm::ModuleJITHolder* GetModuleHolder(llvm::Module& module, const std::string& dumpAsm) const;
+    const llvm::LLVMModuleJITHolder* GetModuleHolder(llvm::Module& module,
+        const std::string& dumpAsm) const;
 
     virtual void *GetExecutionEngine() { return m_pCGEngine; }
 

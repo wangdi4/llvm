@@ -21,9 +21,9 @@ File Name:  PlugInNEAT.cpp
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
 #include "llvm/Support/GetElementPtrTypeIterator.h"
 #include "llvm/ADT/APInt.h"
@@ -32,7 +32,7 @@ File Name:  PlugInNEAT.cpp
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "InterpreterPluggable.h"
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 
 #include "PlugInNEAT.h"
 #include "NEAT_WRAP.h"
@@ -1155,55 +1155,61 @@ void NEATPlugIn::visitBinaryOperator( BinaryOperator &I )
 
   // Macros to execute binary operation 'OP' over floating point type TY
   // (float or double) vectors
-#define FLOAT_VECTOR_FUNCTION(OP, TY)                                 \
+  // frm is fast_relaxed_math extension
+#define FLOAT_VECTOR_FUNCTION_SUFX(OP, TY, SUFX)                                 \
   switch (TY->getTypeID())                                            \
   {                                                                   \
   case Type::FloatTyID:                                               \
-    Result.NEATVec = OP##_f(Src1.NEATVec, Src2.NEATVec);  \
-    break;                                                            \
+        Result.NEATVec = OP##SUFX##f(Src1.NEATVec, Src2.NEATVec);          \
+        break;                                                        \
   case Type::DoubleTyID:                                              \
-    Result.NEATVec = OP##_d(Src1.NEATVec, Src2.NEATVec); \
+        Result.NEATVec = OP##_d(Src1.NEATVec, Src2.NEATVec);          \
     break;                                                            \
   default:                                                            \
     throw InvalidArgument("visitBinaryOperator: unsupported type");   \
   }
 
+#define FLOAT_VECTOR_FUNCTION(OP, TY) FLOAT_VECTOR_FUNCTION_SUFX(OP, TY, _ )
+
   const Type *Ty    = I.getOperand(0)->getType();
   if (Ty->isVectorTy())
   {
-    switch(I.getOpcode()){
-    case Instruction::FAdd:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::add, dyn_cast<VectorType>(Ty)->getElementType()) break;
-    case Instruction::FSub:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::sub, dyn_cast<VectorType>(Ty)->getElementType()) break;
-    // if command line parameter of SATest --fma-neat set on, function mul_fma used to perform multiplication,
-    // if --fma-neat set off, commom mul is used. common mul has correctly rounded result, fma_mul makes resulting
-    // adds 1 ULP to min and max values of resulting interval.
-    case Instruction::FMul:  if(m_bUseFmaNEAT) { FLOAT_VECTOR_FUNCTION(NEAT_WRAP::mul_fma, dyn_cast<VectorType>(Ty)->getElementType()) }
-                             else { FLOAT_VECTOR_FUNCTION(NEAT_WRAP::mul, dyn_cast<VectorType>(Ty)->getElementType()) } break;
-    case Instruction::FDiv:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::div, dyn_cast<VectorType>(Ty)->getElementType()) break;
-    case Instruction::FRem:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::fmod, dyn_cast<VectorType>(Ty)->getElementType()) break;
-    default:
-      throw InvalidArgument("visitBinaryOperator: unsupported vector operator");
-    }
+          switch(I.getOpcode()){
+          case Instruction::FAdd:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::add, dyn_cast<VectorType>(Ty)->getElementType()) break;
+          case Instruction::FSub:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::sub, dyn_cast<VectorType>(Ty)->getElementType()) break;
+              // if command line parameter of SATest --fma-neat set on, function mul_fma used to perform multiplication,
+              // if --fma-neat set off, commom mul is used. common mul has correctly rounded result, fma_mul makes resulting
+              // adds 1 ULP to min and max values of resulting interval.
+          case Instruction::FMul:  if(m_bUseFmaNEAT) { FLOAT_VECTOR_FUNCTION(NEAT_WRAP::mul_fma, dyn_cast<VectorType>(Ty)->getElementType()) }
+                                   else { FLOAT_VECTOR_FUNCTION(NEAT_WRAP::mul, dyn_cast<VectorType>(Ty)->getElementType()) } break;
+          case Instruction::FDiv:  if(isFRMPrecisionOn()){ FLOAT_VECTOR_FUNCTION_SUFX(NEAT_WRAP::div, dyn_cast<VectorType>(Ty)->getElementType(), _frm_)
+                                   }else { FLOAT_VECTOR_FUNCTION(NEAT_WRAP::div, dyn_cast<VectorType>(Ty)->getElementType()) } break;
+          case Instruction::FRem:  FLOAT_VECTOR_FUNCTION(NEAT_WRAP::fmod, dyn_cast<VectorType>(Ty)->getElementType()) break;
+          default:
+              throw InvalidArgument("visitBinaryOperator: unsupported vector operator");
+          }
   }
   else
   {
-#define FLOAT_OPERATOR(OP, TY)                         \
+#define FLOAT_OPERATOR_SUFX(OP, TY, SUFX)                         \
   switch (TY->getTypeID())                             \
     {                                                  \
   case Type::FloatTyID:                                \
-  Result.NEATVal = OP##_f(Src1.NEATVal, Src2.NEATVal); \
-  break;                                               \
+        Result.NEATVal = OP##SUFX##f(Src1.NEATVal, Src2.NEATVal); \
+    break;                                               \
   case Type::DoubleTyID:                               \
-  Result.NEATVal = OP##_d(Src1.NEATVal, Src2.NEATVal); \
-  break;\
-    default:                                           \
+        Result.NEATVal = OP##_d(Src1.NEATVal, Src2.NEATVal); \
+    break;\
+  default:                                           \
     throw InvalidArgument("visitBinaryOperator: unsupported type"); \
   }
+#define FLOAT_OPERATOR(OP, TY) FLOAT_OPERATOR_SUFX(OP, TY, _ )
+
     switch(I.getOpcode()){
     case Instruction::FAdd:  FLOAT_OPERATOR(NEAT_WRAP::add, Ty) break;
     case Instruction::FSub:  FLOAT_OPERATOR(NEAT_WRAP::sub, Ty) break;
     case Instruction::FMul:  if(m_bUseFmaNEAT) { FLOAT_OPERATOR(NEAT_WRAP::mul_fma, Ty) } else {FLOAT_OPERATOR(NEAT_WRAP::mul, Ty)} break;
-    case Instruction::FDiv:  FLOAT_OPERATOR(NEAT_WRAP::div, Ty) break;
+    case Instruction::FDiv:  if(isFRMPrecisionOn()) { FLOAT_OPERATOR_SUFX(NEAT_WRAP::div, Ty, _frm_) } else { FLOAT_OPERATOR(NEAT_WRAP::div, Ty) } break;
     case Instruction::FRem:  FLOAT_OPERATOR(NEAT_WRAP::fmod, Ty) break;
     default:
       throw InvalidArgument("visitBinaryOperator: unsupported scalar operator");
@@ -2591,7 +2597,7 @@ void NEATPlugIn::execute_convert_float(Function *F,
             break;
         }
     } else {
-        throw Exception::InvalidArgument("[NEATPlug-in::convert_float]: Not valid data type for convert_float built-in function.");
+        throw Exception::InvalidArgument("[NEATPlug-in::convert_float]: Not valid data type.");
     }
 }
 
@@ -3280,10 +3286,18 @@ void NEATPlugIn::execute_read_imagef(Function *F,
 
     cl_image_format im_fmt;
     Conformance::image_descriptor desc = OCLBuiltins::CreateConfImageDesc(*memobj, im_fmt);
-    Conformance::image_sampler_data imageSampler = OCLBuiltins::CreateSamplerData(sampler);
+    Conformance::image_sampler_data imageSampler;
 
     if( IsSamplerLess)
+    {
         imageSampler.addressing_mode = CL_ADDRESS_NONE;
+        imageSampler.filter_mode = CL_FILTER_NEAREST;
+        imageSampler.normalized_coords = false;
+    }
+    else
+    {
+        imageSampler = OCLBuiltins::CreateSamplerData(sampler);
+    }
 
     NEATVector neatPixelVec = NEAT_WRAP::read_imagef_src_noneat_f(
         memobj->pData, // void *imageData,
@@ -3643,10 +3657,25 @@ else if(Ty->isVectorTy()){\
 else if(TyElem->isDoubleTy()){\
     Result.NEATVec = NEAT_WRAP::_aluname##_d argsvec ;}\
 else{ \
+    throw Exception::IllegalFunctionCall("[NEATPlug-in::"+std::string(#_aluname)+"]: vector data type is not vector of floats or doubles");}\
+}\
+else{\
+    throw Exception::IllegalFunctionCall("[NEATPlug-in::"+std::string(#_aluname)+"]: data type is not float or double");}
+
+#define UBER_BI_CALL_FRM(_aluname, args, argsvec)\
+    const Type *Ty = Arg0->getType();\
+if(Ty->isFloatTy()){\
+    Result.NEATVal = NEAT_WRAP::_aluname##_frm_f args ;}\
+else if(Ty->isVectorTy()){\
+    const Type *TyElem = dyn_cast<VectorType>(Ty)->getElementType();\
+    if(TyElem->isFloatTy()){\
+    Result.NEATVec = NEAT_WRAP::_aluname##_frm_f argsvec ;}\
+else{ \
     throw Exception::IllegalFunctionCall("[NEATPlug-in]: Not valid vector data type for built-in");}\
 }\
 else{\
     throw Exception::IllegalFunctionCall("[NEATPlug-in]: Not valid data type for built-in");}
+
 
 /// macro to process built-in function argument type :
 /// scalar float or double;
@@ -3672,10 +3701,10 @@ else if(Ty->isVectorTy()){\
 else if(TyElem->isDoubleTy()){\
     Result.NEATVal = NEAT_WRAP::_aluname##_d argsvec ;}\
 else{ \
-    throw Exception::IllegalFunctionCall("[NEATPlug-in]: Not valid vector data type for built-in");}\
+    throw Exception::IllegalFunctionCall("[NEATPlug-in::"+std::string(#_aluname)+"]: vector data type is not vector of floats or doubles");}\
 }\
 else{\
-    throw Exception::IllegalFunctionCall("[NEATPlug-in]: Not valid data type for built-in");}
+    throw Exception::IllegalFunctionCall("[NEATPlug-in::"+std::string(#_aluname)+"]: data type is not float or double");}
 
 /// macro Extracts function argument and its NEATGenericValue from NEAT context
 /// @param idx - number of function argument
@@ -3694,6 +3723,14 @@ else{\
     UBER_BI_CALL(_aluname, (ValArg0.NEATVal), (ValArg0.NEATVec));\
     return true;}
 
+// define macro HANDLE_BI_ONEARG_FRM for handling built-in like "gentype f(gentype x)" in fast relaxed mode
+#define HANDLE_BI_ONEARG_FRM(_num, _aluname)  \
+    if(#_aluname == BINameStr && isFRMPrecisionOn()){\
+    Function::arg_iterator Fit = F->arg_begin();\
+    GET_ARG(0)\
+    UBER_BI_CALL_FRM(_aluname, (ValArg0.NEATVal), (ValArg0.NEATVec));\
+    return true;}
+
 // define macro HANDLE_BI_ONEARG_SCALAR_OUT for handling built-in like "float f(floatn x)"
 #define HANDLE_BI_ONEARG_SCALAR_OUT(_num, _aluname)  \
     if(#_aluname == BINameStr){\
@@ -3709,6 +3746,16 @@ else{\
     Function::arg_iterator Fit = F->arg_begin();\
     GET_ARG(0) GET_ARG(1) \
     UBER_BI_CALL(_aluname, (ValArg0.NEATVal, ValArg1.NEATVal),\
+    (ValArg0.NEATVec, ValArg1.NEATVec)) \
+    return true;}
+
+// define macro HANDLE_BI_TWOARG_FRM for handling built-in like
+// "gentype f(gentype x, gentype y)" in fast relaxed math mode
+#define HANDLE_BI_TWOARG_FRM(_num, _aluname) \
+    if(#_aluname == BINameStr && isFRMPrecisionOn()){\
+    Function::arg_iterator Fit = F->arg_begin();\
+    GET_ARG(0) GET_ARG(1) \
+    UBER_BI_CALL_FRM(_aluname, (ValArg0.NEATVal, ValArg1.NEATVal),\
     (ValArg0.NEATVec, ValArg1.NEATVec)) \
     return true;}
 
@@ -3744,6 +3791,25 @@ if(#_aluname == BINameStr){\
     if(Arg0->getType()->isVectorTy()) vWidth = ValArg0.NEATVec.GetWidth();\
     NEATVector NeatVec(vWidth);\
     UBER_BI_CALL(_aluname, (ValArg0.NEATVal, pNeatVal),\
+        (ValArg0.NEATVec, NeatVec))\
+    if(Ty->isVectorTy()){\
+    for(std::size_t _i=0; _i<ValArg0.NEATVec.GetSize();++_i){\
+        pNeatVal[_i] = NeatVec[_i];}\
+    }\
+    return true;}
+
+// define macro HANDLE_BI_ONEIN_TWOOUT_ARGS for handling built-in like
+// "gentype f(gentype x, gentype *y)"
+#define HANDLE_BI_ONEIN_TWOOUT_ARGS_FRM(_num, _aluname) \
+    if(#_aluname == BINameStr && isFRMPrecisionOn()){\
+    Function::arg_iterator Fit = F->arg_begin();\
+    GET_ARG(0) GET_ARG(1) \
+    NEATValue * pNeatVal = \
+       static_cast<NEATValue *>(ValArg1.PointerVal);\
+    VectorWidth vWidth = V1;\
+    if(Arg0->getType()->isVectorTy()) vWidth = ValArg0.NEATVec.GetWidth();\
+    NEATVector NeatVec(vWidth);\
+    UBER_BI_CALL_FRM(_aluname, (ValArg0.NEATVal, pNeatVal),\
         (ValArg0.NEATVec, NeatVec))\
     if(Ty->isVectorTy()){\
     for(std::size_t _i=0; _i<ValArg0.NEATVec.GetSize();++_i){\
@@ -3796,6 +3862,22 @@ bool NEATPlugIn::DetectAndExecuteOCLBuiltins( Function *F,
     ////////////////////////////////////////////////////////////////////////////////////////////
     // Math part OCL spec 6.11.2 Math functions
     // TODO: uncomment macros when specific built-ins are implemented in NEAT ALU
+
+    //opencl 2.0 fast relaxed math functions Table 7.2
+    //placed in top in order to call frm funtions instead of usual if frm extension enabled
+    
+    HANDLE_BI_ONEARG_FRM(190, cos);
+    HANDLE_BI_ONEARG_FRM(191, exp);
+    HANDLE_BI_ONEARG_FRM(192, exp2);
+    HANDLE_BI_ONEARG_FRM(193, exp10);
+    HANDLE_BI_ONEARG_FRM(194, log);
+    HANDLE_BI_ONEARG_FRM(195, log2);
+    HANDLE_BI_ONEARG_FRM(196, sin);
+    HANDLE_BI_ONEIN_TWOOUT_ARGS_FRM(72, sincos)
+    HANDLE_BI_ONEARG_FRM(198, tan);
+    HANDLE_BI_TWOARG_FRM(199, pow);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////
     HANDLE_BI_ONEARG(  1,     acos)
     HANDLE_BI_ONEARG(  2,     acosh)
     HANDLE_BI_ONEARG(  3,     acospi)
@@ -4146,3 +4228,9 @@ void * NEATPlugIn::getPointerToGlobal( const GlobalValue *GV )
     return GA;
 }
 
+bool NEATPlugIn::isFRMPrecisionOn()
+{
+    return ( std::find(m_cFlags.begin(), m_cFlags.end(), CL_FAST_RELAXED_MATH) != m_cFlags.end() &&
+        std::find(m_cFlags.begin(), m_cFlags.end(), CL_STD_20) != m_cFlags.end() 
+        );
+}

@@ -7,25 +7,25 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __SCALARIZE_H__
 #define __SCALARIZE_H__
 
-#include "RuntimeServices.h"
+#include "BuiltinLibInfo.h"
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 #include "VectorizerCommon.h"
 
 #include "llvm/Pass.h"
-#include "llvm/Type.h"
+#include "llvm/IR/Type.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Version.h"
-#if LLVM_VERSION == 3200
-#include "llvm/DataLayout.h"
-#else
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/IR/DataLayout.h"
 #endif
 
 #include <string>
@@ -39,7 +39,6 @@ namespace intel {
 ///  to several scalar operations).
 ///  Functions are also replaced (similar to instructions), according
 ///  to data received from RuntimeServices.
-///  @Author: Sion Berkowits
 class ScalarizeFunction : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -54,6 +53,7 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesCFG();
     AU.addRequired<SoaAllocaAnalysis>();
+    AU.addRequired<BuiltinLibInfo>();
   }
 
   virtual bool runOnFunction(Function &F);
@@ -168,7 +168,11 @@ private:
   ///@param funcType - [output] place to return function type
   ///@param funcAttr - [output] place to return function attribute
   ///@return true if succeeded and false otherwise.
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
   bool getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttrListPtr& funcAttr);
+#else
+  bool getScalarizedFunctionType(std::string &strScalarFuncName, FunctionType*& funcType, AttributeSet& funcAttr);
+#endif
 
   /// @brief Pointer to current function's context
   LLVMContext *m_moduleContext;
@@ -266,10 +270,10 @@ private:
   bool UseScatterGather;
 
   /// @brief This holds DataLayout of processed module
-#if LLVM_VERSION == 3200
-  DataLayout *m_pDL;
-#else
+#if LLVM_VERSION == 3425
   TargetData *m_pDL;
+#else
+  DataLayout *m_pDL;
 #endif
 
 };

@@ -48,7 +48,7 @@ void checkCompilationSuccess(OpenCLDescriptor ocl_descriptor,cl_int device1, cl_
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),(void*)&ocl_descriptor.in_common_buffer));
 
 	// run kernel on device2, should succed
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[device2], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size, NULL, NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[device2], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size, 0, NULL,NULL));
 
 }
 
@@ -175,9 +175,9 @@ TEST_F(CRT12_VR268_270, CompileForGPUOnGPU_vr270){
 	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0],0,sizeof(cl_mem),(void*)&ocl_descriptor.in_common_buffer));
 
 	// run kernel on CPU
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size, NULL, NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[0], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size, 0, NULL,NULL));
 
 	// run kernel on GPU
-	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size, NULL, NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[1], ocl_descriptor.kernels[0], work_dim, 0, &global_work_size, &local_work_size, 0, NULL,NULL));
 
 }

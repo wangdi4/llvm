@@ -8,10 +8,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Mangler.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "CompilationUtils.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Analysis/PostDominators.h"
 
 #include <string>
@@ -23,6 +24,7 @@ char WIAnalysis::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
 
 
@@ -93,14 +95,15 @@ gep_conversion[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
   /* RND */  {RND, RND, RND, RND, RND}
 };
 
-WIAnalysis::WIAnalysis() : FunctionPass(ID) {
+WIAnalysis::WIAnalysis() : FunctionPass(ID), m_rtServices(NULL) {
     initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
-    m_rtServices = RuntimeServices::get();
-    V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 }
 
 
 bool WIAnalysis::runOnFunction(Function &F) {
+
+  m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
+   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
   if (! m_rtServices->orderedWI()) {
     return false;
@@ -123,6 +126,8 @@ bool WIAnalysis::runOnFunction(Function &F) {
   m_pChangedNew = &m_changed1;
   m_pChangedOld = &m_changed2;
 
+  m_SchedulingConstraints.clear();
+
   // Compute the  first iteration of the WI-dep according to ordering
   // instructions this ordering is generally good (as it usually correlates
   // well with dominance).
@@ -134,8 +139,8 @@ bool WIAnalysis::runOnFunction(Function &F) {
 
   // Recursively check if WI-dep changes and if so recalculates
   // the WI-dep and marks the users for re-checking.
-  // This procedure is guranteed to converge since WI-dep can only
-  // become less unifrom (uniform->consecutive->ptr->stride->random).
+  // This procedure is guaranteed to converge since WI-dep can only
+  // become less uniform (uniform->consecutive->ptr->stride->random).
   updateDeps();
 
   if(PrintWiaCheck) {
@@ -145,6 +150,27 @@ bool WIAnalysis::runOnFunction(Function &F) {
       outs()<<"WI-RunOnFunction " <<m_deps[I] <<" "<<*I <<" " << "\n";
     }
   }
+
+  // Concatenate predicated regions, when possible, to guarantee that
+  // predicated regions appear one after the other will still appear one after the other after linearization.
+  // This is done in order to avoid cases where the linearizer accidently adds a non-conditional
+  // branch from a predicated to a non-predicated node.
+  // The concatenation is done to support non nested divergent branches that appear one after the other in the
+  // same nesting level.
+  // This code cannot get into an infinite loop because an influence region of a divergent branch span from the branch to
+  // its immediate post dominator.
+  for (SchdConstMap::iterator itr = m_SchedulingConstraints.begin();
+           itr != m_SchedulingConstraints.end();
+           ++itr) {
+    std::vector<BasicBlock*> & dst = itr->second;
+    // As long as the post dom's terminator starts a maximal divergent region
+    while (m_SchedulingConstraints.count(dst.back())) {
+      std::vector<BasicBlock*> src = m_SchedulingConstraints.find(dst.back())->second;
+      // we add the influence region blocks started at the post dom to the dst
+      dst.insert(dst.end(), src.begin(), src.end());
+    }
+  }
+
   return false;
 }
 
@@ -217,6 +243,10 @@ bool WIAnalysis::isDivergentPhiBlocks(BasicBlock *Phi) {
   return m_divPhiBlocks.count(Phi);
 }
 
+SchdConstMap & WIAnalysis::getSchedulingConstraints() {
+  return m_SchedulingConstraints;
+}
+
 void WIAnalysis::invalidateDepend(const Value* val){
   if (m_deps.find(val) != m_deps.end()) {
     m_deps.erase(val);
@@ -250,8 +280,8 @@ void WIAnalysis::calculate_dep(const Value* val) {
 
   // We only calculate dependency on unset instructions if all their operands
   // were already given dependency. This is good for compile time since these
-  // intructions will be visited again after the operands dependency is set.
-  // An exception are phi nodes since they can be the ancestor of themselvs in
+  // instructions will be visited again after the operands dependency is set.
+  // An exception are phi nodes since they can be the ancestor of themselves in
   // the def-use chain. Note that in this case we force the phi to have the
   // pre header value already calculated.
   if (!hasDependency(inst)) {
@@ -301,6 +331,71 @@ void WIAnalysis::calculate_dep(const Value* val) {
   updateDepMap(inst, dep);
 }
 
+// Find divergent partial joins
+void WIAnalysis::findDivergePartialJoins(const TerminatorInst *inst) {
+  assert(inst && "inst cannot be null");
+  assert(dyn_cast<BranchInst>(inst) && dyn_cast<BranchInst>(inst)->isConditional() && "branch has to be a conditional branch");
+  assert(inst->getNumSuccessors() == 2 && "supports only for conditional branches with two successors");
+
+  for (SmallPtrSet<BasicBlock*, 4>::iterator blkItr = m_partialJoins.begin();
+       blkItr != m_partialJoins.end();
+       ++blkItr) {
+
+    BasicBlock * partialJoin = *blkItr;
+
+    DenseSet<BasicBlock*> leftSet, rightSet;
+    std::stack<BasicBlock*> workSet;
+
+   
+    // If this partial join does not contain phi nodes then go to the next one 
+    BasicBlock::iterator firstInst = partialJoin->begin();
+    if (!isa<PHINode>(dyn_cast<Instruction>(firstInst)))
+      continue;
+
+    for (int i=0; i < 2; ++i) { // inst->getNumSuccessors() == 2
+
+      if (inst->getSuccessor(i) != partialJoin) {
+        workSet.push(inst->getSuccessor(i));
+
+        while (!workSet.empty()) {
+          BasicBlock *curBlk = workSet.top();
+          workSet.pop();
+
+          DenseSet<BasicBlock*> & blkSet = (i == 0) ? leftSet : rightSet;
+
+          blkSet.insert(curBlk);
+
+          for (succ_iterator SI = succ_begin(curBlk), E = succ_end(curBlk); SI != E; ++SI) {
+            BasicBlock *succBlk = (*SI);
+            if (succBlk != partialJoin && !blkSet.count(succBlk)) {
+              workSet.push(succBlk);
+            }
+          }
+        }
+      }
+    }
+
+    bool reachRight = 0, reachLeft = 0;
+    for (pred_iterator itr = pred_begin(partialJoin); itr != pred_end(partialJoin); ++itr) {
+      BasicBlock * pred = *itr;
+
+      bool isRight = rightSet.count(pred);
+      bool isLeft = leftSet.count(pred);
+
+      // If we saw a path from the left succ of cbr to a predecessor
+      // and now we see a path from the right succ to a different one.
+      // Or the other way around ...
+      if ((isRight && reachLeft) || (isLeft && reachRight)) {
+        m_divergePartialJoins.insert(partialJoin);
+        break;
+      }
+
+      reachRight |= isRight;
+      reachLeft  |= isLeft;
+    }
+  }
+}
+
 // Mark each phi node in join or a partial join as divergent
 void WIAnalysis::markDependentPhiRandom() {
 
@@ -321,8 +416,8 @@ void WIAnalysis::markDependentPhiRandom() {
   }
 
   // partial joins
-  for (SmallPtrSet<BasicBlock*, 4>::iterator blkItr = m_partialJoins.begin();
-       blkItr != m_partialJoins.end();
+  for (SmallPtrSet<BasicBlock*, 4>::iterator blkItr = m_divergePartialJoins.begin();
+       blkItr != m_divergePartialJoins.end();
        ++blkItr) {
     m_divPhiBlocks.insert((*blkItr));
     for (BasicBlock::iterator instItr = (*blkItr)->begin();
@@ -341,8 +436,17 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
 
   calcInfoForBranch(inst);
 
+  findDivergePartialJoins(inst);
+
   // Mark each phi node in a join or a partial join as divergent
   markDependentPhiRandom();
+
+  // If the root block is marked as divergent then we should not add
+  // scheduling constraints for this region because it is part of a larger region
+  // that is going to be predicated.
+  // If we will add every predicated region then we might get a conflict at the linearizer
+  // that caused by commoning.
+  bool shouldUpdateConstraints = !isDivergentBlock(blk);
 
   // walk through all the instructions in the influence-region
   for(DenseSet<BasicBlock*>::iterator blkItr = m_influenceRegion.begin();
@@ -361,6 +465,9 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
     // for these as well.
     for (pred_iterator itr = pred_begin(defBlk); itr != pred_end(defBlk); ++itr) {
       if (!isDivergentBlock(*itr) && (*itr != blk)) {
+        // Because defBlk is divergent and *itr is not then the idom of defBlk 
+        // should also be a dom of *itr and therefore, such a dominator exists
+        assert(m_DT->getNode(defBlk) && m_DT->getNode(defBlk)->getIDom() && "dominator cannot be null");
         BasicBlock *immDom = m_DT->getNode(defBlk)->getIDom()->getBlock();
         assert(immDom && "immDom cannot be null");
 
@@ -368,8 +475,13 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
         BranchInst* br = dyn_cast<BranchInst>(term);
         assert(br && "br cannot be null");
 
-        if (br->isConditional())
+        if (br->isConditional()) {
           updateDepMap(term, WIAnalysis::RANDOM);
+          // This region is going to be part of a larger region that is going
+          // to be predicated
+          shouldUpdateConstraints = false;
+        }
+
         break;
       }
     }
@@ -402,10 +514,6 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
         if (useBlk == m_fullJoin ||
             m_partialJoins.count(useBlk)) {
 
-          if (isa<PHINode>(useInst)) {
-            continue;
-          }
-
           // We can check whether the (partial) join is a loop exit and change the algorithm
           // This might increase accuracy in case there are gotos but seems like 
           // redundant computation for our case.
@@ -424,6 +532,12 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
       }
     }
   }
+
+  if (!shouldUpdateConstraints) {
+    m_SchedulingConstraints.erase(blk);
+  }
+
+  m_influenceRegion.clear();
 }
 
 void WIAnalysis::updateDepMap(const Instruction *inst, WIAnalysis::WIDependancy dep)
@@ -573,6 +687,8 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
   return WIAnalysis::RANDOM;
 }
 
+using namespace Intel::OpenCL::DeviceBackend;
+
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
   //TODO: This function requires much more work, to be correct:
   //   2) Some functions (dot_prod, cross_prod) provide "measurable"
@@ -583,9 +699,9 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
   bool err, isTidGen;
   unsigned dim = 0;
   isTidGen = m_rtServices->isTIDGenerator(inst, &err, &dim);
-  // We do not vectorize TID with variable dimention
+  // We do not vectorize TID with variable dimension
   V_ASSERT((!err) && "TIDGen inst receives non-constant input. Cannot vectorize!");
-  // All WI's are consecutive along the zero dimention
+  // All WI's are consecutive along the zero dimension
   if (isTidGen && dim == 0) return WIAnalysis::CONSECUTIVE;
 
   // Check if function is declared inside "this" module
@@ -598,6 +714,12 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
   Function *origFunc = inst->getCalledFunction();
   std::string origFuncName = origFunc->getName().str();
 
+  if (CompilationUtils::isWorkGroupBuiltin(origFuncName)) {
+    // WG functions must be packetized (although their results may be uniform) 
+    return WIAnalysis::RANDOM;
+  }
+
+  // Check if the function is in the table of functions
   std::string scalarFuncName = origFuncName;
   bool isMangled = Mangler::isMangledCall(scalarFuncName);
   bool MaskedMemOp = (Mangler::isMangledLoad(scalarFuncName) ||
@@ -641,7 +763,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const GetElementPtrInst* inst) {
-  // running over the all indices argumets except for the last
+  // running over the all indices arguments except for the last
   // here we assume the pointer is the first operand
   unsigned num = inst->getNumIndices();
   for (unsigned i=1; i < num; ++i) {
@@ -799,9 +921,23 @@ void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
   assert(dyn_cast<BranchInst>(inst) && dyn_cast<BranchInst>(inst)->isConditional() && "branch has to be a conditional branch");
   assert(inst->getNumSuccessors() == 2 && "supports only for conditional branches with two successors");
 
-  m_fullJoin = m_PDT->getNode((BasicBlock*)(inst->getParent()))->getIDom()->getBlock();
+  DomTreeNode * postDomNode = m_PDT->getNode((BasicBlock*)(inst->getParent()));
+
+ // If we are in an infinite loop then there is no post-dominant
+ // In this case, we mark everything reachable from the divergent branch as its influence region (conservative)
+  if (postDomNode)  {
+    // Because inst is a conditional branch then it is not the last basic block 
+    // and therefore getIDom does not return null
+    assert(postDomNode->getIDom() != 0 && "Post dominator cannot be null");
+    m_fullJoin = postDomNode->getIDom()->getBlock(); 
+  }
+  else {
+    m_fullJoin = 0;
+  }
 
   bool updatedFullJoin = true;
+
+  std::vector<BasicBlock*> schedConstraints;
 
   // iterate until we do not need to recalculate the full join
   while (updatedFullJoin) {
@@ -810,6 +946,10 @@ void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
 
     m_influenceRegion.clear();
     m_partialJoins.clear();
+    schedConstraints.clear();
+
+    // adding the root of the predicated region for the scheduling constraints
+    schedConstraints.push_back((BasicBlock*) inst->getParent());
 
     Loop *fullJoinLoop = m_LI->getLoopFor(m_fullJoin);
     SmallPtrSet<BasicBlock *, 4> fullJoinLoopLatches;
@@ -855,7 +995,12 @@ void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
           DenseSet<BasicBlock*> & blkSet = (i == 0) ? leftSet : rightSet;
 
           blkSet.insert(curBlk);
-          m_influenceRegion.insert(curBlk);
+
+          if (! m_influenceRegion.count(curBlk)) {
+            m_influenceRegion.insert(curBlk);
+            schedConstraints.push_back(curBlk);
+          }
+
           for (succ_iterator SI = succ_begin(curBlk), E = succ_end(curBlk); SI != E; ++SI) {
             BasicBlock *succBlk = (*SI);
             if (succBlk != m_fullJoin && !blkSet.count(succBlk)) {
@@ -882,7 +1027,14 @@ void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
 
       // find the first full join's post-dominator outside the post dominator's loop
       do {
-        nextFullJoin = m_PDT->getNode((BasicBlock*)nextFullJoin)->getIDom()->getBlock();
+        DomTreeNode * postDomNode = m_PDT->getNode((BasicBlock*)nextFullJoin);
+        // if updatedFullJoin is true then we are not in an infinite loop and therefore, getNode 
+        // does not return null
+        assert(postDomNode && "getNode should not return null");
+        // If the post dom is inside the loop then it cannot be the last block and therefore, 
+        // getIDom does not return null
+        assert(postDomNode->getIDom() && "getIDom should not return null");
+        nextFullJoin = postDomNode->getIDom()->getBlock();
         nextFullJoinLoop = m_LI->getLoopFor(nextFullJoin);
       } while (nextFullJoinLoop == fullJoinLoop);
 
@@ -890,6 +1042,10 @@ void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
       fullJoinLoop = nextFullJoinLoop;
     }
   }
+
+  schedConstraints.push_back(m_fullJoin);
+  m_SchedulingConstraints[*(schedConstraints.begin())] = schedConstraints;
+
 }
 
 } // namespace

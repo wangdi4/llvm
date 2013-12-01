@@ -106,6 +106,11 @@ public:
      *  false otherwise
      */
     virtual bool HasKernelCallOperation() const;
+   /**
+     * @returns true if the specified kernel is created from clang's block 
+     *  false otherwise
+     */
+    virtual bool IsBlock() const;
 
     /*
      * Kernel Properties methods
@@ -122,6 +127,7 @@ public:
     void SetMinGroupSizeFactorial(unsigned int size) { m_minGroupSizeFactorial = size; }
     void SetJitCreateWIids (bool value) { m_bJitCreateWIids = value; }
     void SetPointerSize(unsigned int value) { m_uiSizeT = value; }
+    void SetIsBlock(const bool value) { m_bIsBlock = value; }
     
     unsigned int  GetOptWGSize()      const { return m_optWGSize; } 
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }
@@ -145,7 +151,7 @@ protected:
     unsigned int m_minGroupSizeFactorial;
     bool m_bJitCreateWIids;
     unsigned int m_uiSizeT;
-
+    bool m_bIsBlock;
 };
 
 

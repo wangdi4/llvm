@@ -7,32 +7,37 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Type.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "include/MICCodeGenerationEngine.h"
+
+#include "passes/OpenCLAliasAnalysisSupport/OpenCLAliasAnalysis.h"
+
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
-#include "llvm/Pass.h"
+#include "llvm/ADT/OwningPtr.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/MC/SubtargetFeature.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/ADT/Twine.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/LLVMModuleJITHolder.h"
+#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/IRReader.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/TargetSelect.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/PiggyBackAnalysis.h"
-#include "llvm/DataLayout.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "MICJITEngine/include/MICCodeGenerationEngine.h"
-#include "MICJITEngine/include/ModuleJITHolder.h"
-#include "passes/OpenCLAliasAnalysisSupport/OpenCLAliasAnalysis.h"
+
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
-#include <iostream>
+#include <new>
 #include <sstream>
+#include <string>
 
 using namespace llvm;
 
@@ -65,13 +70,13 @@ size_t MICCodeGenerationEngine::sizeOf(Type* t) const{
   return(size_t)TM.getDataLayout()->getTypeSizeInBits(t);
 }
 
-const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
+const LLVMModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
   llvm::Module& mod, const std::string& outAsmFileName) const {
 
   PassManager PM;
   std::string PrintFilename(outAsmFileName);
 
-  // if module has a neuter name, change it to a meaningful one
+  // If the module has a meaningless name, change it to a meaningful one
   // Modules that come from full blown opencl programs are usually
   // named "Program"
   if ((getenv("DUMPIR") || getenv("DUMPASM")) && PrintFilename.empty()) {
@@ -146,7 +151,7 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
     PM.add(new DataLayout(&local_mod));
 
   // This pointer will *magically* get updated during PM.run()
-  ModuleJITHolder* MJH = 0;
+  LLVMModuleJITHolder* LMJH = 0;
 
   {
     // Open the file.
@@ -173,7 +178,7 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
 
     // Add the piggy-back to communicate with the LLVM->PIL converter
     //TODO: add support for printing assermbly, PIL, etc.
-    PM.add(new PiggyBackAnalysis(&MJH, Resolver, OutF, IsContractionsAllowed, openCLAA.get()));
+    PM.add(new PiggyBackAnalysis(&LMJH, Resolver, OutF, IsContractionsAllowed, openCLAA.get()));
 
     // Ask the target to add backend passes as necessary.
     LLVMTargetMachine &LTM = static_cast<LLVMTargetMachine&>(TM);
@@ -181,7 +186,7 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
     PM.add(openCLAA.release());
 
     formatted_raw_ostream FOS;
-    if (LTM.addPassesToEmitFile(PM, FOS, TargetMachine::CGFT_AssemblyFile, false, 0, 0, true)) {
+    if (LTM.addPassesToEmitFile(PM, FOS, TargetMachine::CGFT_AssemblyFile, /*DisableVerify*/ true, 0, 0, true)) {
       errs() << "target does not support generation of this file type!\n";
       return 0;
     }
@@ -202,27 +207,11 @@ const ModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
     // if we use an injected module we need to transform the jit holder
     // so the original module functions point into the jit buffer
     if (useir_name) {
-      ModuleJITHolder* NMJH = new ModuleJITHolder(MJH->getJITBufferPointer(),
-          (unsigned char *)MJH->getJITCodeStartPoint(),
-          (unsigned)MJH->getJITCodeSize(),
-          (unsigned)MJH->getJITCodeAlignment());
-
-      for(llvm::KernelMap::const_iterator
-          it = MJH->getKernelMap().begin();
-          it != MJH->getKernelMap().end();
-          it++)
-      {
-        size_t size = it->second.size;
-        size_t offset = it->second.offset;
-        const Function *F0 = it->first;
-        const Function *F1 = mod.getFunction(F0->getName());
-        NMJH->addKernel(F1, offset, size);
-      }
-      MJH = NMJH;
+      LMJH = LMJH->clone(local_mod);
     }
   }
 
-  assert (MJH && "Compilation resulted with NULL Module JIT Holder");
-  return MJH;
+  assert (LMJH && "Compilation resulted with NULL Module JIT Holder");
+  return LMJH;
 
 }

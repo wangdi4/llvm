@@ -23,6 +23,8 @@ namespace Intel{ namespace OpenCL { namespace MICDevice
 {
 OpenCLBackendWrapper::OpenCLBackendWrapper(const char* backend_name):
     m_dll_name( backend_name ),
+    // ALERT!!! DK!!! Backend sometimes corrups heap on Linux if it unloads in parallel with shutdown
+    m_dll(false),
     m_funcInit(NULL),
     m_funcTerminate(NULL),
     m_funcGetFactory(NULL)
@@ -62,7 +64,8 @@ void OpenCLBackendWrapper::UnloadDll()
     m_funcInit = NULL;
     m_funcTerminate = NULL;
     m_funcGetFactory = NULL;
-    m_dll.Close();
+    // ALERT!!! DK!!! Backend sometimes corrups heap on Linux if it unloads in parallel with shutdown
+    //m_dll.Close();
 }
 
 cl_dev_err_code OpenCLBackendWrapper::Init(void)

@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "Scalarize.h"
 #include "VectorizerUtils.h"
+#include "llvm/Version.h"
 
 namespace intel {
 
@@ -61,7 +62,11 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
   // Vector function was found in hash. Now find the function prototype of the scalar function
   std::string strScalarFuncName = foundFunction->getVersion(0);
   FunctionType * scalarFuncType;
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
   AttrListPtr funcAttrDummy;
+#else
+  AttributeSet funcAttrDummy;
+#endif
   if(!getScalarizedFunctionType(strScalarFuncName, scalarFuncType, funcAttrDummy)) {
     V_ASSERT(false && "Functions hash mismatch with runtime module!");
     // In release mode - fail scalarizing function call "gracefully"

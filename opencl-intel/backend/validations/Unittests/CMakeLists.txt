@@ -69,7 +69,6 @@ add_executable(${TARGET_NAME}
 
 target_link_libraries(${TARGET_NAME}
     DataManager 
-    tinyxml_STL
     Comparator
     DataGenerator
     NEAT 
@@ -79,24 +78,21 @@ target_link_libraries(${TARGET_NAME}
     googletest
     ImathLibd
     OclPluginManager
-    dynamic_load
     OCLRecorderStat
     OCLBuilder
     OCLKernelDataGenerator
     OpenCLKernelArgumentsParser
     name_mangle
-    ${LLVM_MODULE_LIBS}
+    dynamic_load
     cl_sys_utils
+    tinyxml_STL
+    ${LLVM_MODULE_LIBS}
 )
 
-if( NOT WIN32)
-    target_link_libraries(${TARGET_NAME}
-        pthread
-    )
-    add_dependencies(${TARGET_NAME}
-        ImathLibd_wrapper
-    )
-endif ()
+if(NOT WIN32)
+    target_link_libraries(${TARGET_NAME} pthread)
+    add_dependencies(${TARGET_NAME} ImathLibd_wrapper)
+endif(NOT WIN32)
 
 add_dependencies( ${TARGET_NAME} cl_sys_utils)
 

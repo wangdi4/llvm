@@ -6,7 +6,7 @@ set (TARGET_NAME PlugInNEAT)
 #
 # Settings for Linux compilation
 #
-if( NOT WIN32)
+if(NOT WIN32)
 # Compiler switches that CANNOT be modified during makefile generation
 set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
 
@@ -25,9 +25,10 @@ set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
 set( CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS}         ${ADD_CXX_FLAGS}")
 set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   ${ADD_C_FLAGS_DEBUG}")
 set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${ADD_C_FLAGS_RELEASE}")
-endif()
+endif(NOT WIN32)
 
 add_library(${TARGET_NAME}
+  PlugInNEAT.h
   PlugInNEAT.cpp
   )
 include_directories (

@@ -24,6 +24,7 @@ set (BACKEND_TESTS_SOURCE_FILES
     FactoryTest.cpp
     CompilationServiceTest.cpp
     PluginsTest.cpp
+    BlockLiteralTest.cpp
     )
 
 link_directories (
@@ -38,19 +39,19 @@ add_executable(${TARGET_NAME}
 
 target_link_libraries(${TARGET_NAME}
   OclBackendUtils
-  dynamic_load
   OclPluginManager
   googletest
+  dynamic_load
   cl_sys_utils
   ${LLVM_MODULE_LIBS}
 )
 
-if( NOT WIN32)
+if(NOT WIN32)
     target_link_libraries(${TARGET_NAME}
         pthread
         dl
     )
-endif ()
+endif(NOT WIN32)
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 add_dependencies( ${TARGET_NAME} cl_sys_utils)

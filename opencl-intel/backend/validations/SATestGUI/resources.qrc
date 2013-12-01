@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/higligter/opencl">
+        <file>keywords</file>
+    </qresource>
+    <qresource prefix="/highlighter/xml"/>
+    <qresource prefix="/icons">
+        <file>Run.ico</file>
+        <file>Run.png</file>
+        <file>Path.png</file>
+        <file>Env.png</file>
+        <file>Save.png</file>
+    </qresource>
+</RCC>

@@ -8,6 +8,8 @@ add_library( ${TARGET_NAME} SHARED FeMock.cpp)
 
 target_link_libraries(${TARGET_NAME}
   OclPluginManager
+  dynamic_load
+  cl_sys_utils
 )
 
 install (TARGETS ${TARGET_NAME} ${TARGET_NAME}

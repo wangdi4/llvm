@@ -1,55 +1,95 @@
-// OpenCL.cpp : Defines the exported functions for the DLL application.
+// Copyright (c) 2006-2013 Intel Corporation
+// All rights reserved.
 //
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
 
 #include "stdafx.h"
-#include "cl_framework.h"
-#include "cl_objects_map.h"
-#include "framework_proxy.h"
-#include "cl_cpu_detect.h"
-#include "cl_linux_utils.h"
-#include "ocl_itt.h"
-#include "cl_shared_ptr.hpp"
 
+#include <cl_cpu_detect.h>
+#include <ocl_itt.h>
+#include <cl_objects_map.h>
+#include <cl_shared_ptr.hpp>
+
+#include "cl_framework.h"
+#include "framework_proxy.h"
+#include "CL/cl_2_0.h"
 #ifndef _WIN32
+#include <cl_linux_utils.h>
 #include "cl_framework_alias_linux.h"
 #endif
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
+// Error value to return from API calls when process is in the shutdown state
+#define API_DISABLED_USER_RETURN_VALUE  CL_SUCCESS
+
 #if defined(USE_ITT)
 
-inline void __startITTTask(ocl_gpa_data *pGPAData, __itt_id &ittID, const char *fnctName)
-{
-    ittID = __itt_id_make(&ittID, (unsigned long long)0);
-	__itt_id_create(pGPAData->pDeviceDomain, ittID);
-	__itt_string_handle* pAPINameHandle = __itt_string_handle_create(fnctName);
-	__itt_task_begin(pGPAData->pAPIDomain, ittID, __itt_null, pAPINameHandle);
-}
+#ifdef WIN32
+#define thread_local __declspec(thread)
+#else
+#define thread_local __thread
+#endif
 
-inline void __endITTTask(ocl_gpa_data *pGPAData, __itt_id &ittID)
-{
-	__itt_task_end(pGPAData->pAPIDomain);
-    __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
-}
+#define __startITTTask(pGPAData, ittID, fnctName)	\
+    ittID = __itt_id_make(&ittID, (unsigned long long)0);\
+	__itt_id_create(pGPAData->pAPIDomain, ittID);\
+	static thread_local __itt_string_handle* pAPINameHandle = NULL;\
+	if ( NULL == pAPINameHandle )\
+	{\
+		pAPINameHandle = __itt_string_handle_create(fnctName);\
+	}\
+	__itt_task_begin(pGPAData->pAPIDomain, ittID, __itt_null, pAPINameHandle);
+
+#define __endITTTask(pGPAData, ittID)	\
+	__itt_task_end(pGPAData->pAPIDomain); \
+    __itt_id_destroy(pGPAData->pAPIDomain, ittID);
 
 #define CALL_INSTRUMENTED_API(module, return_type, function_call) \
+	ocl_gpa_data *pGPAData = module->GetGPAData(); \
+	if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
+	{ \
+		__itt_id ittID; \
+		__startITTTask(pGPAData, ittID, __FUNCTION__); \
+		return_type ret_val = (API_IS_DISABLED) ? API_DISABLED_USER_RETURN_VALUE : module->function_call; \
+		__endITTTask(pGPAData, ittID); \
+		return ret_val; \
+	} else { \
+		return (API_IS_DISABLED) ? API_DISABLED_USER_RETURN_VALUE : module->function_call; \
+	}
+
+#define CALL_INSTRUMENTED_API_NO_RET(module, function_call) \
 ocl_gpa_data *pGPAData = module->GetGPAData(); \
 if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
 { \
     __itt_id ittID; \
     __startITTTask(pGPAData, ittID, __FUNCTION__); \
-    return_type ret_val = module->function_call; \
-    __endITTTask(pGPAData, ittID); \
-    return ret_val; \
-} else { \
-    return module->function_call; \
-}
+    module->function_call; \
+    __endITTTask(pGPAData, ittID); } else { module->function_call; }
 
 #else
 
 #define CALL_INSTRUMENTED_API(module, return_type, function_call) \
-return module->function_call;
+return (API_IS_DISABLED) ? API_DISABLED_USER_RETURN_VALUE : module->function_call;
+
+#define CALL_INSTRUMENTED_API_NO_RET(module, function_call) \
+	module->function_call;
 
 #endif
 
@@ -185,7 +225,8 @@ cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  co
 									  cl_command_queue_properties properties, 
 									  cl_int *                    errcode_ret)
 {
-	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, properties, errcode_ret));
+	const cl_command_queue_properties propertiesArr[] = { CL_QUEUE_PROPERTIES, properties, NULL };
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, propertiesArr, errcode_ret));
 }
 SET_ALIAS(clCreateCommandQueue);
 cl_int CL_API_CALL clRetainCommandQueue(cl_command_queue command_queue)
@@ -1297,8 +1338,6 @@ cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
 }
 SET_ALIAS(clEnqueueMigrateMemObjects);
 
-// the following functions are not implemented yet:
-
 cl_int CL_API_CALL clCompileProgram(cl_program program,
                                     cl_uint num_devices,
                                     const cl_device_id *device_list,
@@ -1329,3 +1368,148 @@ cl_program CL_API_CALL clLinkProgram(cl_context context,
 }
 SET_ALIAS(clLinkProgram);
 
+void* CL_API_CALL clSVMAlloc(cl_context context,
+							 cl_svm_mem_flags flags,
+							 size_t size,
+							 unsigned int alignment)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, void*, SVMAlloc(context, flags, size, alignment));
+}
+SET_ALIAS(clSVMAlloc);
+
+void CL_API_CALL clSVMFree(cl_context context,
+						   void* svm_pointer)
+{
+	CALL_INSTRUMENTED_API_NO_RET(CONTEXT_MODULE, SVMFree(context, svm_pointer));
+}
+SET_ALIAS(clSVMFree);
+
+cl_int CL_API_CALL clEnqueueSVMFree(cl_command_queue command_queue,
+									cl_uint num_svm_pointers,
+									void* svm_pointers[],
+									void (CL_CALLBACK* pfn_free_func)(
+										cl_command_queue queue,
+										cl_uint num_svm_pointers,
+										void* svm_pointers[],
+										void* user_data),
+									void* user_data,
+									cl_uint num_events_in_wait_list,
+									const cl_event* event_wait_list,
+									cl_event* event)
+{
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMFree(command_queue, num_svm_pointers, svm_pointers, pfn_free_func, user_data, num_events_in_wait_list, event_wait_list,
+		event));
+}
+SET_ALIAS(clEnqueueSVMFree);
+
+cl_int CL_API_CALL clEnqueueSVMMemcpy(cl_command_queue command_queue,
+									  cl_bool blocking_copy,
+									  void *dst_ptr,
+									  const void *src_ptr,
+									  size_t size,
+									  cl_uint num_events_in_wait_list,
+									  const cl_event *event_wait_list,
+									 cl_event *event)
+{
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMemcpy(command_queue, blocking_copy, dst_ptr, src_ptr, size, num_events_in_wait_list, event_wait_list, event));
+}
+SET_ALIAS(clEnqueueSVMMemcpy);
+
+cl_int CL_API_CALL clEnqueueSVMMemFill(cl_command_queue command_queue,
+									   void* svm_ptr,
+									   const void* pattern,
+									   size_t pattern_size,
+									   size_t size,
+									   cl_uint num_events_in_wait_list,
+									   const cl_event* event_wait_list,
+									   cl_event* event)
+{
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMemFill(command_queue, svm_ptr, pattern, pattern_size, size, num_events_in_wait_list, event_wait_list, event));
+}
+SET_ALIAS(clEnqueueSVMMemFill);
+
+cl_int CL_API_CALL clEnqueueSVMMap(cl_command_queue command_queue,
+								   cl_bool blocking_map,
+								   cl_map_flags map_flags,
+								   void* svm_ptr,
+								   size_t size,
+								   cl_uint num_events_in_wait_list,
+								   const cl_event* event_wait_list,
+								   cl_event* event)
+{
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMap(command_queue, blocking_map, map_flags, svm_ptr, size, num_events_in_wait_list, event_wait_list, event));
+}
+SET_ALIAS(clEnqueueSVMMap);
+
+cl_int CL_API_CALL clEnqueueSVMUnmap(cl_command_queue command_queue,
+									 void* svm_ptr,
+									 cl_uint num_events_in_wait_list,
+									 const cl_event* event_wait_list,
+									 cl_event* event)
+{
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMUnmap(command_queue, svm_ptr, num_events_in_wait_list, event_wait_list, event));
+}
+SET_ALIAS(clEnqueueSVMUnmap);
+
+cl_int CL_API_CALL clSetKernelArgSVMPointer(cl_kernel kernel,
+											cl_uint arg_index,
+											const void* arg_value)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, SetKernelArgSVMPointer(kernel, arg_index, arg_value));
+}
+SET_ALIAS(clSetKernelArgSVMPointer);
+
+cl_int CL_API_CALL clSetKernelExecInfo(cl_kernel kernel,
+									   cl_kernel_exec_info param_name,
+									   size_t param_value_size,
+									   const void* param_value)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, SetKernelExecInfo(kernel, param_name, param_value_size, param_value));
+}
+SET_ALIAS(clSetKernelExecInfo);
+
+cl_mem CL_API_CALL clCreatePipe(cl_context context,
+								cl_mem_flags flags, 
+								cl_uint pipe_packet_size,
+								cl_uint pipe_max_packets,
+								const cl_pipe_properties *properties,
+								cl_int *errcode_ret)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, NULL, NULL, errcode_ret));
+}
+SET_ALIAS(clCreatePipe);
+
+cl_mem CL_API_CALL clCreatePipeINTEL(
+        cl_context                  context,
+        cl_mem_flags                flags,
+        cl_uint                     pipe_packet_size,
+        cl_uint                     pipe_max_packets,
+        const cl_pipe_properties*   properties,
+        void *                      host_ptr,
+        size_t *                    size_ret,
+        cl_int *                    errcode_ret )
+{
+    CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, host_ptr, size_ret, errcode_ret));
+}
+SET_ALIAS(clCreatePipeINTEL);
+REGISTER_EXTENSION_FUNCTION(clCreatePipeINTEL, clCreatePipeINTEL);
+
+cl_int CL_API_CALL clGetPipeInfo(cl_mem pipe,
+								 cl_pipe_info param_name,
+								 size_t param_value_size,
+								 void *param_value,
+								 size_t *param_value_size_ret)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetPipeInfo(pipe, param_name, param_value_size, param_value, param_value_size_ret));
+}
+SET_ALIAS(clGetPipeInfo);
+// OpenCL 2.0 functions:
+
+cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context context,
+																cl_device_id device_id,
+																cl_queue_properties* properties,
+																cl_int* errcode_ret)
+{
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, properties, errcode_ret));
+}
+SET_ALIAS(clCreateCommandQueueWithProperties);

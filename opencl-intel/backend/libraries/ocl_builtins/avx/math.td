@@ -62,7 +62,7 @@ OclBuiltinImpl rsqrt_v8f32_impl = OclBuiltinImpl<rsqrt, [v8f32], 0, [{
 // this builtin
 OclBuiltinImpl intel_movemask_v8i32 = OclBuiltinImpl<intel_movemask, [v8i32], 0, [{
     return as_int(_mm256_movemask_ps((__m256)$Arg0VarName));
-    }]>;
+  }]>;
 
 // sqrt
 // leave only implementaion for float4. others sizes are promoted and expanded to float4 version
@@ -137,7 +137,7 @@ OclBuiltinImpl rint_v4f64_impl = OclBuiltinImpl<rint, [v4f64], 0, [{
 // this builtin
 OclBuiltinImpl intel_movemask_v4i64 = OclBuiltinImpl<intel_movemask, [v4i64], 0, [{
     return as_int(_mm256_movemask_pd((__m256d)$Arg0VarName));
-    }]>;
+  }]>;
 
 // sqrt 
 // leave only implementaion to double2. others sizes are calling double2 version

@@ -61,9 +61,8 @@ CommonOCLBuilder& CommonOCLBuilder::withImageSupport(bool areImagesSupported) {
 
 void CommonOCLBuilder::close(){
   m_dynamicLoader.Close();
-//causes a crash.. investigate!
-  /*if (m_pCompiler)
-    m_pCompiler->Release();*/
+  if (m_pCompiler)
+    m_pCompiler->Release();
   m_pCompiler = NULL;
 }
 
@@ -119,7 +118,7 @@ IOCLFECompiler* CommonOCLBuilder::createCompiler(const char* lib){
     strDeviceOptions,
     m_bSupportImages,
     m_bSupportFP64,
-	0
+    0
     };
 
   //

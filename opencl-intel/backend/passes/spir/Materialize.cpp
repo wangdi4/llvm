@@ -8,47 +8,35 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Materialize.h"
 #include <cstdio>
 
-#include "llvm/Instructions.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 
 #include "gen/MetaDataApi.h"
 #include "OCLPassSupport.h"
+#include "CompilationUtils.h"
 
 using namespace llvm;
-using namespace Intel;
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
 
-// Supported target triple.
-const char *PC_LIN64 = "x86_64-pc-linux"; //used for RH64/SLES64
-const char *PC_WIN32 = "i686-pc-win32";   //Win 32 bit
-const char *PC_WIN64 = "x86_64-pc-win32"; //Win 64 bit
+// Supported target triples.
+const char *PC_LIN64 = "x86_64-pc-linux"; // Used for RH64/SLES64.
+const char *PC_LIN32 = "i686-pc-linux";   // Used for Android.
+const char *PC_WIN32 = "i686-pc-win32";   // Win 32 bit.
+const char *PC_WIN64 = "x86_64-pc-win32"; // Win 64 bit.
+
+// Command line option used for cross compilation.
+const char *CROSS_SWITCH = "-target-triple";
 
 //Native data layout details for each supported Triple
 const char *Win32Natives = "-a0:0:64-f80:32:32-n8:16:32-S32";
 const char *Lin32Natives = "-a0:0:64-f80:32:32-n8:16:32-S128";
 const char *X86_64Natives= "-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128";
 
-// Base class for all functors, which supports immutability query.
-class AbstractFunctor{
-protected:
-  bool IsChanged;
-public:
-  AbstractFunctor(): IsChanged(false){}
-
-  virtual ~AbstractFunctor() = 0;
-
-  bool isChanged()const{
-    return IsChanged;
-  }
-};
-
-AbstractFunctor::~AbstractFunctor(){}
-
 // Basic block functors, to be applied on each block in the module.
 // 1. Replaces calling conventions in calling sites.
-class BBFunctor: public AbstractFunctor {
+class MaterializeBlockFunctor: public BlockFunctor {
 public:
   void operator ()(llvm::BasicBlock& BB){
     llvm::BasicBlock::iterator b = BB.begin(), e = BB.end();
@@ -56,7 +44,7 @@ public:
       if(llvm::CallInst *CI=llvm::dyn_cast<llvm::CallInst>(&*b)){
         if (llvm::CallingConv::SPIR_FUNC == CI->getCallingConv()){
           CI->setCallingConv(llvm::CallingConv::C);
-          IsChanged = true;
+          m_isChanged = true;
         }
       }
       ++b;
@@ -67,18 +55,18 @@ public:
 // Function functor, to be applied for every function in the module.
 // 1. Delegates call to basic-block functors.
 // 2. Replaces calling conventions of function declarations.
-class FunctionFunctor: public AbstractFunctor {
+class MaterializeFunctionFunctor: public FunctionFunctor {
 public:
   void operator ()(llvm::Function& F){
-    BBFunctor bbMaterializer;
+    MaterializeBlockFunctor bbMaterializer;
     llvm::CallingConv::ID CConv = F.getCallingConv();
     if (llvm::CallingConv::SPIR_FUNC == CConv ||
         llvm::CallingConv::SPIR_KERNEL == CConv) {
       F.setCallingConv(llvm::CallingConv::C);
-      IsChanged = true;
+      m_isChanged = true;
     }
     std::for_each(F.begin(), F.end(), bbMaterializer);
-    IsChanged |= bbMaterializer.isChanged();
+    m_isChanged |= bbMaterializer.isChanged();
   }
 };
 
@@ -89,20 +77,23 @@ public:
 char SpirMaterializer::ID = 0;
 
 Maybe<std::string> SpirMaterializer::getCrossTriple(llvm::Module& M) {
-  const char*const CROSS_SWITCH = "-target-triple";
-  MetaDataUtils mdUtils(&M);
-  MetaDataUtils::CompilerOptionsList::iterator it = mdUtils.begin_CompilerOptions();
-  MetaDataUtils::CompilerOptionsList::iterator e  = mdUtils.end_CompilerOptions();
+  llvm::NamedMDNode *pOpts = M.getNamedMetadata("opencl.compiler.options");
+  if (!pOpts)
+    return Maybe<std::string>::null();
 
-  // Iterating the compilation option, in search on 'target-triple'.
-  while(it != e) {
-    if (!(*it)->isvalueHasValue()) {
-      ++it;
-      continue;
-    }
-    if (CROSS_SWITCH == (*it++)->getvalue()) {
-      assert(it != e && "empty target triple");
-      return Maybe<std::string>((*it)->getvalue());
+  if (llvm::MDNode *pMDOpts = pOpts->getOperand(0)) {
+    // Serching for the cross compilation switch.
+    for (unsigned i=0; i < pMDOpts->getNumOperands(); ++i){
+      llvm::MDString *SVal =
+        llvm::dyn_cast_or_null<llvm::MDString>(pMDOpts->getOperand(i));
+      assert(SVal && "Null operand in compiler option metadata");
+      if (SVal->getString() == CROSS_SWITCH) {
+        // Found it. Next value is the target architechture.
+        llvm::MDString *SArch =
+          dyn_cast_or_null<llvm::MDString>(pMDOpts->getOperand(1+i));
+        assert(SArch && "Null value for target triple");
+        return Maybe<std::string>(SArch->getString().str());
+      }
     }
   }
 
@@ -120,7 +111,7 @@ const char* SpirMaterializer::getPassName() const {
 bool SpirMaterializer::runOnModule(llvm::Module& M) {
   bool Ret = false;
 
-  FunctionFunctor fMaterializer;
+  MaterializeFunctionFunctor fMaterializer;
   // Take care of calling conventions
   std::for_each(M.begin(), M.end(), fMaterializer);
 
@@ -160,8 +151,12 @@ void  materializeSpirDataLayout(llvm::Module& M) {
      intel::PC_WIN64;
 #elif defined(__LP64__)
      intel::PC_LIN64;
-#else
+#elif defined(_WIN32)
      intel::PC_WIN32;
+#elif defined(__ANDROID__)
+     intel::PC_LIN32;
+#else
+  #error "Unsupported host platform"
 #endif
   }
   M.setTargetTriple(Triple);
@@ -173,7 +168,8 @@ void  materializeSpirDataLayout(llvm::Module& M) {
     NativeSuffix = intel::Win32Natives;
   else {
     //used for Android
-    assert(Triple == "i686-pc-linux" && "Unsupported Triple in cross compilation");
+    assert(Triple == intel::PC_LIN32 &&
+           "Unsupported Triple in cross compilation");
     NativeSuffix = intel::Lin32Natives;
   }
   std::string strDataLayout = M.getDataLayout();

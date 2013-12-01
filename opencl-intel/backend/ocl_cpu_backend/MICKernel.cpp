@@ -20,26 +20,100 @@ File Name:  MICKernel.cpp
 #include "MICJITContainer.h"
 #include "IAbstractBackendFactory.h"
 #include "MICSerializationService.h"
-#include <stdio.h>
+
+// VTune-related functionality is only enabled when this is actually
+// running on the device.
 #ifdef KNC_CARD
+
+#include "ModuleJITHolder.h"
 #include <jitprofiling.h>
+
+static void populateLineNumberInfo(const LineNumberTable* table,
+                                   std::vector<LineNumberInfo>& result,
+                                   int from,
+                                   size_t size) {
+    result.clear();
+    if (table == NULL) return;
+
+    unsigned numEntries = table->size();
+    for (unsigned offsetIndex = 0; offsetIndex < numEntries; offsetIndex++) {
+        int offset = (*table)[offsetIndex].offset - from;
+        if (offset < 0) continue;
+        if (offset > (int) size) break;
+
+        LineNumberInfo info = {
+            (unsigned)offset,
+            (unsigned)((*table)[offsetIndex].line)
+        };
+        result.push_back(info);
+    }
+}
+
+static void registerWithVTune(const ModuleJITHolder* MJH,
+                              KernelID kernelId,
+                              const char* kernelName,
+                              size_t codeSize,
+                              const void* JITCode) {
+    // Set up line number table
+    const LineNumberTable* lineNumberTable = MJH->GetKernelLineNumberTable(kernelId);
+    std::vector<LineNumberInfo> lineNumberInfo;
+    lineNumberInfo.reserve(lineNumberTable->size());
+
+    populateLineNumberInfo(lineNumberTable, lineNumberInfo, 0, codeSize);
+
+    // Create function data to send to vtune.
+    // See documentation at jitprofiling.h for information on how it should be
+    // structured.
+    iJIT_Method_Load JitData;
+    // Vtune requires IDs > 999
+    JitData.method_id = 1000 + MJH->GetKernelVtuneFunctionId(kernelId);
+    JitData.method_name = const_cast<char*>(kernelName);
+    JitData.method_load_address = const_cast<void*>(JITCode);
+    JitData.method_size = codeSize;
+    JitData.line_number_size = lineNumberInfo.size();
+    JitData.line_number_table = lineNumberInfo.data();
+    JitData.class_id = 0;
+    JitData.class_file_name = NULL;
+    JitData.source_file_name = const_cast<char*>(MJH->GetKernelFilename(kernelId));
+    JitData.user_data = NULL;
+    JitData.user_data_size = 0;
+    iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, &JitData);
+
+    const InlinedFunctions* inlinedFunctions = MJH->GetKernelInlinedFunctions(kernelId);
+    if (inlinedFunctions == NULL || inlinedFunctions->size() == 0) return;
+
+    for (InlinedFunctions::const_iterator iter = inlinedFunctions->begin(),
+        end = inlinedFunctions->end(); iter != end; iter++) {
+        const InlinedFunction& inlinedFunc = *iter;
+
+        populateLineNumberInfo(lineNumberTable, lineNumberInfo,
+            inlinedFunc.from, inlinedFunc.size);
+
+        // Create inline function data to send to vtune.
+        // See documentation at jitprofiling.h for information on how it should be
+        // structured.
+        iJIT_Method_Inline_Load InlineJitData;
+        void* address = (void*)(((unsigned long)JITCode) + inlinedFunc.from);
+        // Vtune requires IDs > 999
+        InlineJitData.method_id = 1000 + inlinedFunc.id;
+        InlineJitData.parent_method_id = 1000 + inlinedFunc.parentId;
+        InlineJitData.method_name = const_cast<char*>(inlinedFunc.funcname.c_str());
+        InlineJitData.method_load_address = address;
+        InlineJitData.method_size = inlinedFunc.size;
+        InlineJitData.source_file_name = const_cast<char*>(inlinedFunc.filename.c_str());
+        InlineJitData.line_number_size = lineNumberInfo.size();
+        InlineJitData.line_number_table = lineNumberInfo.data();
+        InlineJitData.class_file_name = NULL;
+        iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_INLINE_LOAD_FINISHED, &InlineJitData);
+    }
+}
+
 #endif
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 MICKernel::~MICKernel()
 {
-#ifdef KNC_CARD
-  // Unregister with VTune
-  for (std::vector<IKernelJITContainer*>::iterator it = m_JITs.begin(); it != m_JITs.end(); it++) {
-    MICKernelJITProperties* props = static_cast<MICKernelJITProperties*>(((MICJITContainer*)*it)->GetProps());
-    if (props->GetUseVTune()) {
-      iJIT_Method_Id JitData;
-      JitData.method_id = ((MICJITContainer*)*it)->GetFuncID(); 
-      (void) ::iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_UNLOAD_START, &JitData);
-    }
-  }
-#endif
 }
 
 void MICKernel::SetKernelID(unsigned long long int kernelID)
@@ -60,11 +134,17 @@ void MICKernel::Serialize(IOutputStream& ost, SerializationStatus* stats)
     // Serial the kernel arguments (one by one)
     unsigned int vectorSize = m_args.size();
     Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
-    for(std::vector<cl_kernel_argument>::const_iterator it = m_args.begin(); it != m_args.end(); ++it)
+    for(size_t i = 0; i < vectorSize; ++i)
     {
-        cl_kernel_argument currentArgument = *it;
-        Serializer::SerialPrimitive<cl_kernel_arg_type>(&currentArgument.type, ost);
-        Serializer::SerialPrimitive<unsigned int>(&currentArgument.size_in_bytes, ost);
+        Serializer::SerialPrimitive<cl_kernel_argument>(&m_args[i], ost);
+    }
+
+    // Serial memory object information
+    vectorSize = m_memArgs.size();
+    Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
+    for(size_t i = 0; i < vectorSize; ++i)
+    {
+        Serializer::SerialPrimitive<unsigned int>(&m_memArgs[i], ost);
     }
 
     Serializer::SerialPointerHint((const void**)&m_pProps, ost); 
@@ -95,12 +175,18 @@ void MICKernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
     // Deserial the kernel arguments (one by one)
     unsigned int vectorSize = 0;
     Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
-    for(unsigned int i = 0; i < vectorSize; ++i)
+    m_args.resize(vectorSize);
+    for(size_t i = 0; i < vectorSize; ++i)
     {
-        cl_kernel_argument currentArgument;
-        Serializer::DeserialPrimitive<cl_kernel_arg_type>(&currentArgument.type, ist);
-        Serializer::DeserialPrimitive<unsigned int>(&currentArgument.size_in_bytes, ist);
-        m_args.push_back(currentArgument);
+        Serializer::DeserialPrimitive<cl_kernel_argument>(&m_args[i], ist);
+    }
+
+    // Deserial memory object information
+    Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
+    m_memArgs.resize(vectorSize);
+    for(size_t i = 0; i < vectorSize; ++i)
+    {
+        Serializer::DeserialPrimitive<unsigned int>(&m_memArgs[i], ist);
     }
 
     Serializer::DeserialPointerHint((void**)&m_pProps, ist);
@@ -119,29 +205,18 @@ void MICKernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
         {
             currentArgument = new MICJITContainer();
             currentArgument->Deserialize(ist, stats);
-#ifdef KNC_CARD 
+#ifdef KNC_CARD
             // Register with VTune
             MICKernelJITProperties* props = static_cast<MICKernelJITProperties*>(currentArgument->GetProps());
             if (props->GetUseVTune()) {
-              iJIT_Method_Load JitData;
-              JitData.method_id = currentArgument->GetFuncID();
-              JitData.method_name = (char *) GetKernelName();
-              JitData.method_load_address = (void *) currentArgument->GetJITCode();
-              JitData.method_size = currentArgument->GetJITCodeSize();
-              JitData.line_number_size = 0;
-              JitData.line_number_table = NULL;
-              JitData.class_id = 0;
-              JitData.class_file_name = NULL;
-              JitData.source_file_name = NULL;
-              JitData.user_data = NULL;
-              JitData.user_data_size = 0;
-              (void) ::iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, &JitData);
+              ModuleJITHolder* MJH = (ModuleJITHolder*)stats->GetPointerMark("pModuleJITHolder");
+              registerWithVTune(MJH, currentArgument->GetFuncID(), GetKernelName(),
+                  currentArgument->GetJITCodeSize(), currentArgument->GetJITCode());
             }
 #endif
         }
         m_JITs.push_back(currentArgument);
     }
 }
-
 
 }}} // namespace

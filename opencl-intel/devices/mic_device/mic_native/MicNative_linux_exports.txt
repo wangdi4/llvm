@@ -1,15 +1,15 @@
 Base {
     global:
-        execute_NDRange;
+        get_backend_target_description;
+        get_backend_target_description_size;
         init_device;
         release_device;
         init_commands_queue;
         release_commands_queue;
-        get_backend_target_description;
-        get_backend_target_description_size;
         copy_program_to_device;
         remove_program_from_device;
-        fill_mem_object;
+        execute_command_fill_mem_object;
+        execute_command_ndrange;
         execute_device_utility;
 		
 		get_trace_size;

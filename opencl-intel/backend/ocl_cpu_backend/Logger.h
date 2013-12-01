@@ -29,23 +29,23 @@ class Logger
 {
 public:
 
-	enum LogLevel
-	{
-		DEBUG_LEVEL = 100,
-		INFO_LEVEL = 200,
-		ERROR_LEVEL = 300
-	};
+  enum LogLevel
+  {
+    DEBUG_LEVEL = 100,
+    INFO_LEVEL = 200,
+    ERROR_LEVEL = 300
+  };
 
-	Logger(const wchar_t * name, LogLevel level);
-	~Logger(void);
+  Logger(const wchar_t * name, LogLevel level);
+  ~Logger(void);
 
-	void Log(LogLevel level, const wchar_t * message, ...);
+  void Log(LogLevel level, const wchar_t * message, ...);
 
 private:
-	IOCLDevLogDescriptor*	m_pLogDescriptor;
-	cl_int					m_iLogHandle;
+  IOCLDevLogDescriptor* m_pLogDescriptor;
+  cl_int                m_iLogHandle;
 
-	std::wfstream filestr;
+  std::wfstream filestr;
 
 };
 

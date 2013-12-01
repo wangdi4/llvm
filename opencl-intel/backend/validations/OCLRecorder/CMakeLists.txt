@@ -85,6 +85,15 @@ add_library (OCLRecorderStat STATIC
     ${OCL_RECORDER_SOURCE_FILES}
 )
 
+# fix for CSSD100015940 (OCLRecorder doesn't work with ViennaCL workload.)
+# not clear why this it helps, OCLRecorder should not use pthread
+# the CSSD100017106 has been opened 
+if (NOT WIN32)
+  if(NOT ANDROID)
+    target_link_libraries(${TARGET_NAME} pthread dl)
+  endif(NOT ANDROID)
+endif (NOT WIN32)
+
 # Link with appropriate libs
 target_link_libraries (${TARGET_NAME} 
     tinyxml_STL
@@ -96,13 +105,9 @@ target_link_libraries (${TARGET_NAME}
 
 if(WIN32)
     # Define the dependancy projects
-    add_dependencies(${TARGET_NAME} 
-        NEAT_wrapper
-    )
+    add_dependencies(${TARGET_NAME} NEAT_wrapper)
 else(WIN32)
-    add_dependencies(${TARGET_NAME} 
-        NEAT
-    )
+    add_dependencies(${TARGET_NAME} NEAT)
 endif(WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/plugins )

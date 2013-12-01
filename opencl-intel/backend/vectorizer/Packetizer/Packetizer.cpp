@@ -14,9 +14,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Intrinsics.h"
-#include "llvm/IRBuilder.h"
-
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/Version.h"
 
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
 #define LOG_(x) __logs_vals[x]
@@ -42,11 +42,7 @@ static bool isGatherScatterType(VectorType *VecTy) {
       (NumElements == 4) &&
       (ElemTy->isIntegerTy(8)))
     return true;
-  return ((NumElements == 16) &&
-          (ElemTy->isFloatTy() ||
-           ElemTy->isIntegerTy(32) ||
-           ElemTy->isDoubleTy() ||
-           ElemTy->isIntegerTy(64)));
+  return (NumElements == 16);
 }
 
 // Before packetizing memory operations, replace aligment of zero with an
@@ -67,6 +63,7 @@ char PacketizeFunction::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(PacketizeFunction, "packetize", "packetize functions", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
 
 PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(ID)
@@ -80,8 +77,7 @@ PacketizeFunction::PacketizeFunction(bool SupportScatterGather) : FunctionPass(I
   m_cannotHandleCtr = 0;
   m_allocaCtr = 0;
   UseScatterGather = SupportScatterGather || EnableScatterGatherSubscript;
-  m_rtServices = RuntimeServices::get();
-  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+  m_rtServices = NULL;
 
   // VCM buffer allocation
   m_VCMAllocationArray = new VCMEntry[ESTIMATED_INST_NUM];
@@ -101,6 +97,9 @@ PacketizeFunction::~PacketizeFunction()
 
 bool PacketizeFunction::runOnFunction(Function &F)
 {
+  m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
+  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+
   m_currFunc = &F;
   m_moduleContext = &(m_currFunc->getContext());
   m_packetWidth = m_rtServices->getPacketizationWidth();
@@ -875,7 +874,11 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   std::string name = Mangler::getGatherScatterInternalName(type, MO.Mask->getType(), VecElemTy, IndexTy);
   // Create new gather/scatter/prefetch caller instruction
   Instruction *newCaller = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
       SmallVector<Attributes, 4>(), MO.Orig);
+#else
+      SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
+#endif
 
   // In case the vector size cross cache line we need to also prefetch the next cachelines.
   // According to OCL spec the vectors are aligned to the vector size (except for size 3 which is aligned as size 4)
@@ -886,7 +889,11 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     vecVal = ConstantVector::getSplat(m_packetWidth, vecVal);
     args[2] =  BinaryOperator::CreateNUWAdd(MO.Index, vecVal, "Jump2NextLine", MO.Orig);
     VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
         SmallVector<Attributes, 4>(), MO.Orig);
+#else
+        SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
+#endif
   }
 
   return newCaller;
@@ -952,7 +959,11 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
     args.push_back(obtainNumElemsForConsecutivePrefetch(NumOfElements[0], MO.Orig));
     std::string vectorName = Mangler::getVectorizedPrefetchName(CI->getCalledFunction()->getName(), m_packetWidth);
     return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), vectorName, MO.Orig->getType(), args,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
         SmallVector<Attributes, 4>(), MO.Orig);
+#else
+        SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
+#endif
   }
   default:
     V_ASSERT(false && "unexpected type of memory operation");
@@ -1025,7 +1036,11 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
       break;
   }
   return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, DT, args,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
       SmallVector<Attributes, 4>(), MO.Orig);
+#else
+      SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
+#endif
 }
 
 Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
@@ -1271,7 +1286,11 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
           VCMEntry * newEntry = allocateNewVCMEntry();
           newEntry->isScalarRemoved = false;
           Instruction* unMaskedPrefetch = VectorizerUtils::createFunctionCall(m_currFunc->getParent(),
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
               Mangler::demangle(scalarFuncName), CI->getType(), args, SmallVector<Attributes, 4>(), CI);
+#else
+              Mangler::demangle(scalarFuncName), CI->getType(), args, SmallVector<Attribute::AttrKind, 4>(), CI);
+#endif
           m_VCM.insert(std::pair<Value *, VCMEntry *>(unMaskedPrefetch, newEntry));
           m_removedInsts.insert(CI);
           return;
@@ -1337,8 +1356,9 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     unsigned vecWidth = 0;
     const std::auto_ptr<VectorizerFunction> foundFunction =
       m_rtServices->findBuiltinFunction(scalarFuncName);
-    if (!foundFunction->isNull() && foundFunction->isPacketizable())
+    if (!foundFunction->isNull() && foundFunction->isPacketizable()) {
       vecWidth = foundFunction->getWidth();
+    }
 
     // If function was not found in hash (or is not scalar), need to duplicate it
     if (vecWidth != 1){

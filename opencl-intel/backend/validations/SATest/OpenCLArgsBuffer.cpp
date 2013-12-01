@@ -135,6 +135,9 @@ void Validation::FillMemObjDescriptor( cl_mem_obj_descriptor& mem_desc,
     case OpenCL_RGBA:       mem_desc.format.image_channel_order = CLK_RGBA; break;
     case OpenCL_ARGB:       mem_desc.format.image_channel_order = CLK_ARGB; break;
     case OpenCL_BGRA:       mem_desc.format.image_channel_order = CLK_BGRA; break;
+    case OpenCL_DEPTH:      mem_desc.format.image_channel_order = CLK_DEPTH; break;
+    case OpenCL_sRGBA:      mem_desc.format.image_channel_order = CLK_sRGBA; break;
+    case OpenCL_sBGRA:      mem_desc.format.image_channel_order = CLK_sBGRA; break;
     default: throw Exception::InvalidArgument("FillMemObjDescriptor:: Unknown Image pixel data type");
     }
     mem_desc.uiElementSize = image_desc.GetElementSize();
@@ -170,6 +173,8 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
             CL_KRNL_ARG_PTR_IMG_1D_BUF == m_pKernelArgs[i].type ||
             CL_KRNL_ARG_PTR_IMG_2D_ARR == m_pKernelArgs[i].type ||
             CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_2D_DEPTH == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH == m_pKernelArgs[i].type ||
             CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type)
         {
             // TODO: This code is almost identical to the next branch. Rewrite it using common function.
@@ -288,6 +293,8 @@ void OpenCLArgsBuffer::DestroyArgsBuffer()
             CL_KRNL_ARG_PTR_IMG_1D == m_pKernelArgs[i].type ||
             CL_KRNL_ARG_PTR_IMG_1D_BUF == m_pKernelArgs[i].type ||
             CL_KRNL_ARG_PTR_IMG_1D_ARR == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_2D_DEPTH == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH == m_pKernelArgs[i].type ||
             CL_KRNL_ARG_PTR_IMG_2D_ARR == m_pKernelArgs[i].type)
         {   // images
             void ** pBufferArg = (void **)(m_pArgsBuffer + offset);
@@ -366,6 +373,8 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
             CL_KRNL_ARG_PTR_IMG_1D_BUF == m_pKernelArgs[i].type ||
             CL_KRNL_ARG_PTR_IMG_2D_ARR == m_pKernelArgs[i].type ||
             CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_2D_DEPTH == m_pKernelArgs[i].type ||
+            CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH == m_pKernelArgs[i].type ||
             CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type)
         {
             // Kernel argument is a image

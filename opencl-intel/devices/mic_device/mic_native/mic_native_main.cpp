@@ -35,19 +35,20 @@ int main(int , char**)
 {
     NATIVE_PRINTF("main called on the  sink\n");
 
-	COIRESULT result;
+    COIRESULT result;
 
-	COI_ISA_TYPE out_pType;
-	uint32_t out_pIndex = 0;
-	result = COIEngineGetIndex(&out_pType, &out_pIndex);
-	if (COI_SUCCESS == result)
-	{
-		NATIVE_PRINTF("device index is %d\n", out_pIndex);
-	}
+    COI_ISA_TYPE out_pType;
+    uint32_t out_pIndex = 0;
+    result = COIEngineGetIndex(&out_pType, &out_pIndex);
+    if (COI_SUCCESS == result)
+    {
+        NATIVE_PRINTF("device index is %d\n", out_pIndex);
+    }
 
 
     // init device
-    HWExceptionsWrapper::Init();
+    HWExceptionWrapper hwExecptions;
+
     TlsAccessor::tls_initialize();
     MemoryManager::createMemoryManager();
 
@@ -69,7 +70,6 @@ int main(int , char**)
     // shutdown
     MemoryManager::releaseMemoryManager();
     TlsAccessor::tls_finalize();
-    HWExceptionsWrapper::Fini();
 
     NATIVE_PRINTF("main shut down on the  sink (device index = %d)\n", out_pIndex);
 

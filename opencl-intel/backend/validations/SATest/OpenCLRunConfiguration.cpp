@@ -25,9 +25,6 @@ extern llvm::cl::opt<Validation::TEST_MODE>
 TestMode;
 
 extern llvm::cl::opt<bool>
-UseFmaNEAT;
-
-extern llvm::cl::opt<bool>
 NoRef;
 
 extern llvm::cl::opt<bool>
@@ -314,7 +311,6 @@ namespace Validation
 
     ReferenceRunOptions::ReferenceRunOptions():
         m_useNEAT(::UseNEAT),
-        m_useFmaNEAT(::UseFmaNEAT),
         m_runSingleWG(::RunSingleWG),
         m_defaultLocalWGSize(::DefaultLocalWGSize)
     {}
@@ -324,8 +320,6 @@ namespace Validation
     {
         switch(rc)
         {
-        case RC_REF_USE_FMA_NEAT :
-            return m_useFmaNEAT;
         case RC_REF_USE_NEAT :
             return m_useNEAT;
         case RC_COMMON_RUN_SINGLE_WG :
@@ -362,7 +356,6 @@ namespace Validation
     void ReferenceRunOptions::InitFromCommandLine()
     {
         m_useNEAT = ::UseNEAT;
-        m_useFmaNEAT = ::UseFmaNEAT;
         m_runSingleWG = ::RunSingleWG;
         m_defaultLocalWGSize = ::DefaultLocalWGSize;
         m_RandomDataGeneratorSeed = ::RandomDGSeed;

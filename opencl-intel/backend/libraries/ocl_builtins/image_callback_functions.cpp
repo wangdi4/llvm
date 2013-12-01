@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2007 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,14 +14,12 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
 #if !defined (__MIC__) && !defined(__MIC2__)
 
-// overload transpose with naive implementation until optimized one is ready
-#define OVERLOAD_TRANSPOSES
 
 // Enable double support. It is needed for declarations from intrin.h
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
@@ -41,13 +39,13 @@
 #define UNORM_INT8_FACTOR  255.f
 
 // Clamp border color used for CL_A, CL_INTENSITY, CL_Rx, CL_RA, CL_RGx, CL_RGBx, CL_ARGB, CL_BGRA, CL_RGBA
-ALIGN16 const constant float4 BorderColorNoAlphaFloat = {0.0f, 0.0f, 0.0f, 0.0f}; 
-ALIGN16 const constant int4 BorderColorNoAlphaInt = {0, 0, 0, 0}; 
-ALIGN16 const constant uint4 BorderColorNoAlphaUint = {0, 0, 0, 0}; 
+ALIGN16 const constant float4 BorderColorNoAlphaFloat = {0.0f, 0.0f, 0.0f, 0.0f};
+ALIGN16 const constant int4 BorderColorNoAlphaInt = {0, 0, 0, 0};
+ALIGN16 const constant uint4 BorderColorNoAlphaUint = {0, 0, 0, 0};
 ALIGN16 const constant float4 halfhalfhalfzero = {0.5f, 0.5f, 0.5f, 0.0f};
 ALIGN16 const constant float4 f4half = {0.5f, 0.5f, 0.5f, 0.5f};
 ALIGN16 const constant float4 f4two = {2.f, 2.f, 2.f, 2.f};
-/// Minimal representative float. It is represented as zero mantissa 
+/// Minimal representative float. It is represented as zero mantissa
 /// and exponenta with only last bit set to one
 ALIGN16 const constant int4 oneOneOneZero = {1, 1, 1, 0};
 ALIGN16 const constant int4   int4AllZeros = {0, 0, 0, 0};
@@ -64,10 +62,10 @@ ALIGN16 const constant int4 i4int16Max = {SHRT16_MAX, SHRT16_MAX, SHRT16_MAX, SH
 ALIGN16 const constant uint4 i4uint16Max = {USHRT_MAX, USHRT_MAX, USHRT_MAX, USHRT_MAX};
 
 // Clamp Border color used for CL_R, CL_RG, CL_RGB, CL_LUMINANCE
-ALIGN16 const constant float4 BorderColorAlphaFloat = {0.0f, 0.0f, 0.0f, 1.0f}; 
-ALIGN16 const constant int4 BorderColorAlphaInt = {0, 0, 0, 1}; 
+ALIGN16 const constant float4 BorderColorAlphaFloat = {0.0f, 0.0f, 0.0f, 1.0f};
+ALIGN16 const constant int4 BorderColorAlphaInt = {0, 0, 0, 1};
 
-ALIGN16 const constant uint4 BorderColorAlphaUint = {0, 0, 0, 1}; 
+ALIGN16 const constant uint4 BorderColorAlphaUint = {0, 0, 0, 1};
 ALIGN16 const constant float f4SignMask[] = {-0.f, -0.f, -0.f, -0.f};
 
 // utility functions declarations
@@ -77,77 +75,77 @@ float4 Unnormalize(image2d_t image,float4 coord);
 int4 ProjectNearest(float4 coord);
 float4 frac(float4 coord);
 
-void* extract_pixel_pointer_quad(image2d_t image, int4 coord, void* pData);
+__private void* extract_pixel_pointer_quad(image2d_t image, int4 coord, __private void* pData);
 
-uint4 load_pixel_RGBA_UNSIGNED_INT8(void* pPixel);
-uint4 load_pixel_RGBA_UNSIGNED_INT16(void* pPixel);
-uint4 load_pixel_RGBA_UNSIGNED_INT32(void* pPixel);
+uint4 load_pixel_RGBA_UNSIGNED_INT8(__private void* pPixel);
+uint4 load_pixel_RGBA_UNSIGNED_INT16(__private void* pPixel);
+uint4 load_pixel_RGBA_UNSIGNED_INT32(__private void* pPixel);
 
-int4 load_pixel_RGBA_SIGNED_INT8(void* pPixel);
-int4 load_pixel_RGBA_SIGNED_INT16(void* pPixel);
-int4 load_pixel_RGBA_SIGNED_INT32(void* pPixel);
+int4 load_pixel_RGBA_SIGNED_INT8(__private void* pPixel);
+int4 load_pixel_RGBA_SIGNED_INT16(__private void* pPixel);
+int4 load_pixel_RGBA_SIGNED_INT32(__private void* pPixel);
 
-float load_value_INTENSITY_FLOAT(void* pPixel);
-float load_value_INTENSITY_UNORM_INT8(void* pPixel);
-float load_value_INTENSITY_UNORM_INT16(void* pPixel);
-float load_value_INTENSITY_HALF_FLOAT(void* pPixel);
-float load_value_LUMINANCE_FLOAT(void* pPixel);
-float load_value_LUMINANCE_UNORM_INT8(void* pPixel);
-float load_value_LUMINANCE_UNORM_INT16(void* pPixel);
-float load_value_LUMINANCE_HALF_FLOAT(void* pPixel);
-float4 load_pixel_INTENSITY_FLOAT(void* pPixel);
-float4 load_pixel_INTENSITY_UNORM_INT8(void* pPixel);
-float4 load_pixel_INTENSITY_UNORM_INT16(void* pPixel);
-float4 load_pixel_INTENSITY_HALF_FLOAT(void* pPixel);
-float4 load_pixel_LUMINANCE_FLOAT(void* pPixel);
-float4 load_pixel_LUMINANCE_UNORM_INT8(void* pPixel);
-float4 load_pixel_LUMINANCE_UNORM_INT16(void* pPixel);
-float4 load_pixel_LUMINANCE_HALF_FLOAT(void* pPixel);
-float4 load_pixel_RGBA_HALF_FLOAT(void* pPixel);
-float4 load_pixel_RGBA_FLOAT(void* pPixel);
+float load_value_INTENSITY_FLOAT(__private void* pPixel);
+float load_value_INTENSITY_UNORM_INT8(__private void* pPixel);
+float load_value_INTENSITY_UNORM_INT16(__private void* pPixel);
+float load_value_INTENSITY_HALF_FLOAT(__private void* pPixel);
+float load_value_LUMINANCE_FLOAT(__private void* pPixel);
+float load_value_LUMINANCE_UNORM_INT8(__private void* pPixel);
+float load_value_LUMINANCE_UNORM_INT16(__private void* pPixel);
+float load_value_LUMINANCE_HALF_FLOAT(__private void* pPixel);
+float4 load_pixel_INTENSITY_FLOAT(__private void* pPixel);
+float4 load_pixel_INTENSITY_UNORM_INT8(__private void* pPixel);
+float4 load_pixel_INTENSITY_UNORM_INT16(__private void* pPixel);
+float4 load_pixel_INTENSITY_HALF_FLOAT(__private void* pPixel);
+float4 load_pixel_LUMINANCE_FLOAT(__private void* pPixel);
+float4 load_pixel_LUMINANCE_UNORM_INT8(__private void* pPixel);
+float4 load_pixel_LUMINANCE_UNORM_INT16(__private void* pPixel);
+float4 load_pixel_LUMINANCE_HALF_FLOAT(__private void* pPixel);
+float4 load_pixel_RGBA_HALF_FLOAT(__private void* pPixel);
+float4 load_pixel_RGBA_FLOAT(__private void* pPixel);
 
-float4 load_pixel_BGRA_UNORM_INT8(void* pPixel);
-float4 load_pixel_RGBA_UNORM_INT8(void* pPixel);
-float4 load_pixel_RGBA_UNORM_INT16(void* pPixel);
-float4 load_pixel_RGBA_SNORM_INT8(void* pPixel);
-float4 load_pixel_RGBA_SNORM_INT16(void* pPixel);
+float4 load_pixel_BGRA_UNORM_INT8(__private void* pPixel);
+float4 load_pixel_RGBA_UNORM_INT8(__private void* pPixel);
+float4 load_pixel_RGBA_UNORM_INT16(__private void* pPixel);
+float4 load_pixel_RGBA_SNORM_INT8(__private void* pPixel);
+float4 load_pixel_RGBA_SNORM_INT16(__private void* pPixel);
 
-float4 load_pixel_sRGBA_UNORM_INT8(void* pPixel);
-float4 load_pixel_sBGRA_UNORM_INT8(void* pPixel);
+float4 load_pixel_sRGBA_UNORM_INT8(__private void* pPixel);
+float4 load_pixel_sBGRA_UNORM_INT8(__private void* pPixel);
 
-int4 load_pixel_R_SIGNED_INT8(void* pPixel);
-int4 load_pixel_R_SIGNED_INT16(void* pPixel);
-int4 load_pixel_R_SIGNED_INT32(void* pPixel);
-float4 load_pixel_R_FLOAT(void* pPixel);
-float4 load_pixel_R_HALF_FLOAT(void* pPixel);
-uint4 load_pixel_R_UNSIGNED_INT8(void* pPixel);
-uint4 load_pixel_R_UNSIGNED_INT16(void* pPixel);
-uint4 load_pixel_R_UNSIGNED_INT32(void* pPixel);
-float4 load_pixel_R_UNORM_INT8(void* pPixel);
-float4 load_pixel_R_UNORM_INT16(void* pPixel);
-float4 load_pixel_R_SNORM_INT8(void* pPixel);
-float4 load_pixel_R_SNORM_INT16(void* pPixel);
+int4 load_pixel_R_SIGNED_INT8(__private void* pPixel);
+int4 load_pixel_R_SIGNED_INT16(__private void* pPixel);
+int4 load_pixel_R_SIGNED_INT32(__private void* pPixel);
+float4 load_pixel_R_FLOAT(__private void* pPixel);
+float4 load_pixel_R_HALF_FLOAT(__private void* pPixel);
+uint4 load_pixel_R_UNSIGNED_INT8(__private void* pPixel);
+uint4 load_pixel_R_UNSIGNED_INT16(__private void* pPixel);
+uint4 load_pixel_R_UNSIGNED_INT32(__private void* pPixel);
+float4 load_pixel_R_UNORM_INT8(__private void* pPixel);
+float4 load_pixel_R_UNORM_INT16(__private void* pPixel);
+float4 load_pixel_R_SNORM_INT8(__private void* pPixel);
+float4 load_pixel_R_SNORM_INT16(__private void* pPixel);
 
-float4 load_pixel_DEPTH_FLOAT(void* pPixel);
-float4 load_pixel_DEPTH_UNORM_INT16(void* pPixel);
+float4 load_pixel_DEPTH_FLOAT(__private void* pPixel);
+float4 load_pixel_DEPTH_UNORM_INT16(__private void* pPixel);
 
-float4 load_pixel_A_FLOAT(void* pPixel);
-float4 load_pixel_A_UNORM_INT8(void* pPixel);
-float4 load_pixel_A_UNORM_INT16(void* pPixel);
-float4 load_pixel_A_HALF_FLOAT(void* pPixel);
+float4 load_pixel_A_FLOAT(__private void* pPixel);
+float4 load_pixel_A_UNORM_INT8(__private void* pPixel);
+float4 load_pixel_A_UNORM_INT16(__private void* pPixel);
+float4 load_pixel_A_HALF_FLOAT(__private void* pPixel);
 
-uint4 load_pixel_RG_UNSIGNED_INT8(void* pPixel);
-uint4 load_pixel_RG_UNSIGNED_INT16(void* pPixel);
-uint4 load_pixel_RG_UNSIGNED_INT32(void* pPixel);
-int4 load_pixel_RG_SIGNED_INT8(void* pPixel);
-int4 load_pixel_RG_SIGNED_INT16(void* pPixel);
-int4 load_pixel_RG_SIGNED_INT32(void* pPixel);
-float4 load_pixel_RG_FLOAT(void* pPixel);
-float4 load_pixel_RG_UNORM_INT8(void* pPixel);
-float4 load_pixel_RG_UNORM_INT16(void* pPixel);
-float4 load_pixel_RG_SNORM_INT8(void* pPixel);
-float4 load_pixel_RG_SNORM_INT16(void* pPixel);
-float4 load_pixel_RG_HALF_FLOAT(void* pPixel);
+uint4 load_pixel_RG_UNSIGNED_INT8(__private void* pPixel);
+uint4 load_pixel_RG_UNSIGNED_INT16(__private void* pPixel);
+uint4 load_pixel_RG_UNSIGNED_INT32(__private void* pPixel);
+int4 load_pixel_RG_SIGNED_INT8(__private void* pPixel);
+int4 load_pixel_RG_SIGNED_INT16(__private void* pPixel);
+int4 load_pixel_RG_SIGNED_INT32(__private void* pPixel);
+float4 load_pixel_RG_FLOAT(__private void* pPixel);
+float4 load_pixel_RG_UNORM_INT8(__private void* pPixel);
+float4 load_pixel_RG_UNORM_INT16(__private void* pPixel);
+float4 load_pixel_RG_SNORM_INT8(__private void* pPixel);
+float4 load_pixel_RG_SNORM_INT16(__private void* pPixel);
+float4 load_pixel_RG_HALF_FLOAT(__private void* pPixel);
 
 float4 SampleImage1DFloat(float4 Ti0, float4 Ti1, float4 frac);
 
@@ -170,205 +168,6 @@ ALIGN16 const constant int Fvec4Float16BiasDiffDenorm[] = {((127 - 15 - 10) << 2
 ALIGN16 const constant int Fvec4Float16ExpBiasDifference[] = {((127 - 15) << 10), ((127 - 15) << 10), ((127 - 15) << 10), ((127 - 15) << 10)};
 ALIGN16 const constant int f4minNorm[] = {0x00800000, 0x00800000, 0x00800000, 0x00800000};
 ALIGN16 const constant int mth_signMask[] = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
-
-// Helper functions to speed up mask analyzing
-// tblgen generated
-int __attribute__((const)) __attribute__((overloadable)) intel_movemask(int4);
-int __attribute__((const)) __attribute__((overloadable)) intel_movemask(int8);
-
-// Implement naive version of transpose built-ins until we have optimized in built-ins library
-#ifdef OVERLOAD_TRANSPOSES
-
-// if AVX is not defined then simulate missing transposes
-// TODO : move this to transpose_functions.cpp
-#if !defined(__AVX__)
-
-// TODO : move this to transpose_functions.cpp
-// CSSD100015383
-#if !defined(__SSE4_2__) 
-void __ocl_transpose_char4x4(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
-                              char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
- (*xOut).s0 = xyzw0.s0;
- (*xOut).s1 = xyzw1.s0;
- (*xOut).s2 = xyzw2.s0;
- (*xOut).s3 = xyzw3.s0;
-
- (*yOut).s0 = xyzw0.s1;
- (*yOut).s1 = xyzw1.s1;
- (*yOut).s2 = xyzw2.s1;
- (*yOut).s3 = xyzw3.s1;
-
- (*zOut).s0 = xyzw0.s2;
- (*zOut).s1 = xyzw1.s2;
- (*zOut).s2 = xyzw2.s2;
- (*zOut).s3 = xyzw3.s2;
-
- (*wOut).s0 = xyzw0.s3;
- (*wOut).s1 = xyzw1.s3;
- (*wOut).s2 = xyzw2.s3;
- (*wOut).s3 = xyzw3.s3;
-}
-
-void __inline__ __attribute__((always_inline)) __ocl_transpose_char4x8(char4 xyzw0, char4 xyzw1, char4 xyzw2, char4 xyzw3,
-                              char4 xyzw4, char4 xyzw5, char4 xyzw6, char4 xyzw7,
-                              char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
- char4 xLow;
- char4 yLow;
- char4 zLow;
- char4 wLow;
-
- __ocl_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
-                              &xLow, &yLow, &zLow, &wLow);
-
- char4 xHigh;
- char4 yHigh;
- char4 zHigh;
- char4 wHigh;
-
- __ocl_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
-                              &xHigh, &yHigh, &zHigh, &wHigh);
-
- (*xOut).lo = xLow;
- (*xOut).hi = xHigh;
- (*yOut).lo = yLow;
- (*yOut).hi = yHigh;
- (*zOut).lo = zLow;
- (*zOut).hi = zHigh;
- (*wOut).lo = wLow;
- (*wOut).hi = wHigh;
-}
-
-void __inline__ __attribute__((always_inline)) __ocl_transpose_char8x4( char8 xIn, char8 yIn, char8 zIn, char8 wIn,
-                              char4* xyzw0, char4* xyzw1, char4* xyzw2, char4* xyzw3,
-                              char4* xyzw4, char4* xyzw5, char4* xyzw6, char4* xyzw7) {
- char4 xLow = xIn.lo;
- char4 yLow = yIn.lo;
- char4 zLow = zIn.lo;
- char4 wLow = wIn.lo;
-
- __ocl_transpose_char4x4(xLow, yLow, zLow, wLow,
-                            xyzw0, xyzw1, xyzw2, xyzw3);
-
- char4 xHigh = xIn.hi;
- char4 yHigh = yIn.hi;
- char4 zHigh = zIn.hi;
- char4 wHigh = wIn.hi;
-
- __ocl_transpose_char4x4(xHigh, yHigh, zHigh, wHigh,
-                            xyzw4, xyzw5, xyzw6, xyzw7);
-}
-
-
-void __inline__ __attribute__((always_inline)) __ocl_gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
-                              char4* xOut, char4* yOut, char4* zOut, char4* wOut) {
- char4 xyzw0 = *pLoadAdd0;
- char4 xyzw1 = *pLoadAdd1;
- char4 xyzw2 = *pLoadAdd2;
- char4 xyzw3 = *pLoadAdd3;
-
- __ocl_transpose_char4x4(xyzw0, xyzw1, xyzw2, xyzw3,
-                              xOut, yOut, zOut, wOut);
-}
-
-void __inline__ __attribute__((always_inline)) __ocl_transpose_scatter_char4x4(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
-                               char4 xIn, char4 yIn, char4 zIn, char4 wIn) {
-  __ocl_transpose_char4x4(xIn, yIn, zIn, wIn,
-                              pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3);
-}
-
-void __inline__ __attribute__((always_inline)) __ocl_gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
-                              char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
-                              char8* xOut, char8* yOut, char8* zOut, char8* wOut) {
- char4 xyzw0 = *pLoadAdd0;
- char4 xyzw1 = *pLoadAdd1;
- char4 xyzw2 = *pLoadAdd2;
- char4 xyzw3 = *pLoadAdd3;
- char4 xyzw4 = *pLoadAdd4;
- char4 xyzw5 = *pLoadAdd5;
- char4 xyzw6 = *pLoadAdd6;
- char4 xyzw7 = *pLoadAdd7;
-
- __ocl_transpose_char4x8( xyzw0, xyzw1, xyzw2, xyzw3,
-                    xyzw4, xyzw5, xyzw6, xyzw7,
-                    xOut, yOut, zOut, wOut);
-}
-
-void __ocl_transpose_scatter_char4x8(char4* pStoreAdd0, char4* pStoreAdd1, char4* pStoreAdd2, char4* pStoreAdd3,
-                               char4* pStoreAdd4, char4* pStoreAdd5, char4* pStoreAdd6, char4* pStoreAdd7,
-                               char8 xIn, char8 yIn, char8 zIn, char8 wIn) {
-  __ocl_transpose_char8x4(xIn, yIn, zIn, wIn,
-                              pStoreAdd0, pStoreAdd1, pStoreAdd2, pStoreAdd3,
-                              pStoreAdd4, pStoreAdd5, pStoreAdd6, pStoreAdd7);
-}
-
-#endif
-
-// simulate masked transposes. they are not implemented in transpose_functions.cpp
-void __ocl_masked_gather_transpose_char4x4(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
-                              char4* xOut, char4* yOut, char4* zOut, char4* wOut, int4 mask)
-{
-  // get mask as bits in int
-  const int rescmp = intel_movemask(mask);
-  // ALL 4 elements in mask are -1
-  if(rescmp == 0xF){
-    __ocl_gather_transpose_char4x4(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-                              xOut, yOut, zOut, wOut);
-    return;
-  }
-  // ALL elements in mask are zero
-  if(rescmp == 0){
-      return;
-  }
-  // mask addresses to stub variable
-  char4 stub;
-  pLoadAdd0 = mask.s0 ? pLoadAdd0 : &stub;
-  pLoadAdd1 = mask.s1 ? pLoadAdd1 : &stub;
-  pLoadAdd2 = mask.s2 ? pLoadAdd2 : &stub;
-  pLoadAdd3 = mask.s3 ? pLoadAdd3 : &stub;
-
-  __ocl_gather_transpose_char4x4(pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-                              xOut, yOut, zOut, wOut);
-}
-
-void __ocl_masked_gather_transpose_char4x8(char4* pLoadAdd0, char4* pLoadAdd1, char4* pLoadAdd2, char4* pLoadAdd3,
-                              char4* pLoadAdd4, char4* pLoadAdd5, char4* pLoadAdd6, char4* pLoadAdd7,
-                              char8* xOut, char8* yOut, char8* zOut, char8* wOut, int8 mask)
-{
-  // get mask as bits in int
-  const int rescmp = intel_movemask(mask);
-  
-  // ALL 8 elements in mask are -1
-  if(rescmp == 0xFF){
-       __ocl_gather_transpose_char4x8(
-           pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-           pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
-           xOut, yOut, zOut, wOut);	
-       return;
-  }
-  // ALL elements in mask are zero
-  if(rescmp == 0){
-      return;
-  }
-  // mask addresses to stub variable
-  char4 stub;
-  pLoadAdd0 = mask.s0 ? pLoadAdd0 : &stub;
-  pLoadAdd1 = mask.s1 ? pLoadAdd1 : &stub;
-  pLoadAdd2 = mask.s2 ? pLoadAdd2 : &stub;
-  pLoadAdd3 = mask.s3 ? pLoadAdd3 : &stub;
-  pLoadAdd4 = mask.s4 ? pLoadAdd0 : &stub;
-  pLoadAdd5 = mask.s5 ? pLoadAdd1 : &stub;
-  pLoadAdd6 = mask.s6 ? pLoadAdd2 : &stub;
-  pLoadAdd7 = mask.s7 ? pLoadAdd3 : &stub;
-
-  __ocl_gather_transpose_char4x8(
-       pLoadAdd0, pLoadAdd1, pLoadAdd2, pLoadAdd3,
-       pLoadAdd4, pLoadAdd5, pLoadAdd6, pLoadAdd7,
-       xOut, yOut, zOut, wOut);
-}
-
-#endif // __AVX__
-
-#endif // OVERLOAD_TRANSPOSES
 
 // Auxiliary routines
 __m128i cvt_to_norm(__m128i i4Val, __m128 f4Mul, __m128 lowLimit)
@@ -416,46 +215,46 @@ int8 __attribute__((overloadable)) soa8_isInsideBoundsInt(image2d_t image, int8 
 // @param coord: (x,y) coordinates of the pixel inside the image
 //
 // return: pointer to the begining of the pixel in memory
-void __attribute__((overloadable)) soa8_extract_pixel_pointer_quad(image2d_t image, int8 coord_x, int8 coord_y, void* pData,
-                                   void** p0, void** p1, void** p2, void** p3, void** p4, void** p5, void** p6, void** p7)
+void __attribute__((overloadable)) soa8_extract_pixel_pointer_quad(image2d_t image, int8 coord_x, int8 coord_y, __private void* pData,
+                                   __private void** p0, __private void** p1, __private void** p2, __private void** p3, __private void** p4, __private void** p5, __private void** p6, __private void** p7)
 {
-    image_aux_data *pImage = __builtin_astype(image, image_aux_data*); 
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     uint8 offset_x = (uint8)(pImage->offset[0]);
     uint8 offset_y = (uint8)(pImage->offset[1]);
-    
+
     uint8 ocoord_x = (as_uint8(coord_x)) * offset_x;
     uint8 ocoord_y = (as_uint8(coord_y)) * offset_y;
 
     uint8 ocoord = ocoord_x + ocoord_y;
-    *p0 = (char*)pData + ocoord.s0;
-    *p1 = (char*)pData + ocoord.s1;
-    *p2 = (char*)pData + ocoord.s2;
-    *p3 = (char*)pData + ocoord.s3;
-    *p4 = (char*)pData + ocoord.s4;
-    *p5 = (char*)pData + ocoord.s5;
-    *p6 = (char*)pData + ocoord.s6;
-    *p7 = (char*)pData + ocoord.s7;
+    *p0 = (__private char*)pData + ocoord.s0;
+    *p1 = (__private char*)pData + ocoord.s1;
+    *p2 = (__private char*)pData + ocoord.s2;
+    *p3 = (__private char*)pData + ocoord.s3;
+    *p4 = (__private char*)pData + ocoord.s4;
+    *p5 = (__private char*)pData + ocoord.s5;
+    *p6 = (__private char*)pData + ocoord.s6;
+    *p7 = (__private char*)pData + ocoord.s7;
     return;
 }
 
-void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8(void* p0,void* p1, void* p2, void* p3, void* p4,void* p5, void* p6, void* p7, 
-                                                              uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w)
+void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8(__private void* p0, __private void* p1, __private void* p2, __private void* p3, __private void* p4, __private void* p5, __private void* p6, __private void* p7, 
+                                                              __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
 {
     uchar8 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
-    __ocl_gather_transpose_char4x8(p0, p1, p2, p3, p4, p5, p6, p7, 
-        (char8*)&color_x, (char8*)&color_y, (char8*)&color_z, (char8*)&color_w);
+    __ocl_gather_transpose_char_4x8( p0, p1, p2, p3, p4, p5, p6, p7,
+        (__private char8*)&color_x, (__private char8*)&color_y, (__private char8*)&color_z, (__private char8*)&color_w);
     *res_x = convert_uint8(color_x);
     *res_y = convert_uint8(color_y);
     *res_z = convert_uint8(color_z);
     *res_w = convert_uint8(color_w);
 }
 
-void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8_oob(int8 isNotOOB, void* p0,void* p1, void* p2, void* p3, void* p4,void* p5, void* p6, void* p7, 
-                                                              uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w)
+void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8_oob(int8 isNotOOB, __private void* p0, __private void* p1, __private void* p2, __private void* p3, __private void* p4, __private void* p5, __private void* p6, __private void* p7, 
+                                                              __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w)
 {
     uchar8 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
-    __ocl_masked_gather_transpose_char4x8(p0, p1, p2, p3, p4, p5, p6, p7, 
-        (char8*)&color_x, (char8*)&color_y, (char8*)&color_z, (char8*)&color_w, isNotOOB);
+    __ocl_masked_gather_transpose_char_4x8( p0, p1, p2, p3, p4, p5, p6, p7,
+        (__private char8*)&color_x, (__private char8*)&color_y, (__private char8*)&color_z, (__private char8*)&color_w, isNotOOB);
 
     *res_x = isNotOOB ? convert_uint8(color_x) : (uint8)BorderColorNoAlphaUint.x ;
     *res_y = isNotOOB ? convert_uint8(color_y) : (uint8)BorderColorNoAlphaUint.y ;
@@ -473,7 +272,7 @@ void __attribute__((overloadable)) soa8_load_pixel_RGBA_UNSIGNED_INT8_oob(int8 i
 //         or all ones otherwise
 int4 __attribute__((overloadable)) soa4_isInsideBoundsInt(image2d_t image, int4 coord_x, int4 coord_y)
 {
-    image_aux_data *pImage = __builtin_astype(image, image_aux_data*); 
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     int4 upper_x = (int4)(pImage->dimSub1[0]);
     int4 upper_y = (int4)(pImage->dimSub1[1]);
     int4 lower_x = (int4)(0,0,0,0);
@@ -495,41 +294,43 @@ int4 __attribute__((overloadable)) soa4_isInsideBoundsInt(image2d_t image, int4 
 // @param coord: (x,y) coordinates of the pixel inside the image
 //
 // return: pointer to the begining of the pixel in memory
-void __attribute__((overloadable)) soa4_extract_pixel_pointer_quad(image2d_t image, int4 coord_x, int4 coord_y, void* pData, void** p1, void** p2, void** p3, void** p4)
+void __attribute__((overloadable)) soa4_extract_pixel_pointer_quad(image2d_t image, int4 coord_x, int4 coord_y, __private void* pData, __private void** p1, __private void** p2, __private void** p3, __private void** p4)
 {
-    image_aux_data *pImage = __builtin_astype(image, image_aux_data*); 
+    image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     uint4 offset_x = (uint4)(pImage->offset[0]);
     uint4 offset_y = (uint4)(pImage->offset[1]);
-    
+
     uint4 ocoord_x = (as_uint4(coord_x)) * offset_x;
     uint4 ocoord_y = (as_uint4(coord_y)) * offset_y;
 
     uint4 ocoord = ocoord_x + ocoord_y;
-    *p1 = (char*)pData + ocoord.s0;
-    *p2 = (char*)pData + ocoord.s1;
-    *p3 = (char*)pData + ocoord.s2;
-    *p4 = (char*)pData + ocoord.s3;
+    *p1 = (__private char*)pData + ocoord.s0;
+    *p2 = (__private char*)pData + ocoord.s1;
+    *p3 = (__private char*)pData + ocoord.s2;
+    *p4 = (__private char*)pData + ocoord.s3;
     return;
 }
 
-void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8(void* pPixel_0,void* pPixel_1, void* pPixel_2, void* pPixel_3, 
-                                                              uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w)
+void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8(__private void* pPixel_0, __private void* pPixel_1, __private void* pPixel_2, __private void* pPixel_3, 
+                                                              __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w)
 {
     uchar4 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
-    __ocl_gather_transpose_char4x4(pPixel_0, pPixel_1, pPixel_2, pPixel_3, 
-        (char4*)&color_x, (char4*)&color_y, (char4*)&color_z, (char4*)&color_w);
+    __ocl_gather_transpose_char_4x4( pPixel_0, pPixel_1, pPixel_2, pPixel_3,
+        (__private char4*)&color_x, (__private char4*)&color_y,
+        (__private char4*)&color_z, (__private char4*)&color_w);
     *res_x = convert_uint4(color_x);
     *res_y = convert_uint4(color_y);
     *res_z = convert_uint4(color_z);
     *res_w = convert_uint4(color_w);
 }
 
-void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 isNotOOB, void* pPixel_0,void* pPixel_1, void* pPixel_2, void* pPixel_3, 
-                                                              uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w)
+void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 isNotOOB, __private void* pPixel_0, __private void* pPixel_1, __private void* pPixel_2, __private void* pPixel_3, 
+                                                              __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w)
 {
     uchar4 color_x, color_y, color_z, color_w; // nevermind signed/unsigned.
-    __ocl_masked_gather_transpose_char4x4(pPixel_0, pPixel_1, pPixel_2, pPixel_3, 
-        (char4*)&color_x, (char4*)&color_y, (char4*)&color_z, (char4*)&color_w, isNotOOB);
+    __ocl_masked_gather_transpose_char_4x4( pPixel_0, pPixel_1, pPixel_2, pPixel_3,
+        (__private char4*)&color_x, (__private char4*)&color_y,
+        (__private char4*)&color_z, (__private char4*)&color_w, isNotOOB);
     *res_x = isNotOOB ? convert_uint4(color_x) : (uint4)BorderColorNoAlphaUint.x ;
     *res_y = isNotOOB ? convert_uint4(color_y) : (uint4)BorderColorNoAlphaUint.y ;
     *res_z = isNotOOB ? convert_uint4(color_z) : (uint4)BorderColorNoAlphaUint.z ;
@@ -563,9 +364,9 @@ void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 i
 
 // macro to scalarize SOA calls
 #define SCALARIZE_SOA_CBK(FORMAT, FILTER_TYPE, CLAMP_FLAG, PIX_TYPE, NSOA, COORD_TYPE)\
-    PIX_TYPE##4 read_sample_##FILTER_TYPE##_##CLAMP_FLAG##_##FORMAT(image2d_t, COORD_TYPE##4, void*);\
-    void soa##NSOA##_read_sample_##FILTER_TYPE##_##CLAMP_FLAG##_##FORMAT( image2d_t image, COORD_TYPE##NSOA coord_x, COORD_TYPE##NSOA coord_y, void* pData,\
-                  PIX_TYPE##NSOA* res_x, PIX_TYPE##NSOA* res_y, PIX_TYPE##NSOA* res_z, PIX_TYPE##NSOA* res_w )\
+    PIX_TYPE##4 read_sample_##FILTER_TYPE##_##CLAMP_FLAG##_##FORMAT(image2d_t, COORD_TYPE##4, __private void*);\
+    void soa##NSOA##_read_sample_##FILTER_TYPE##_##CLAMP_FLAG##_##FORMAT( image2d_t image, COORD_TYPE##NSOA coord_x, COORD_TYPE##NSOA coord_y, __private void* pData,\
+                  __private PIX_TYPE##NSOA* res_x, __private PIX_TYPE##NSOA* res_y, __private PIX_TYPE##NSOA* res_z, __private PIX_TYPE##NSOA* res_w )\
 {\
     COORD_TYPE *lcoord_x = (COORD_TYPE *)&coord_x, *lcoord_y = (COORD_TYPE *)&coord_y;\
     PIX_TYPE *lpix_x=(PIX_TYPE *)res_x, *lpix_y=(PIX_TYPE *)res_y,\
@@ -588,20 +389,20 @@ void __attribute__((overloadable)) soa4_load_pixel_RGBA_UNSIGNED_INT8_oob(int4 i
 
 /// SOA8 reading functions
 #define IMPLEMENT_SOA8_CBK_NEAREST_NO_CLAMP(FORMAT, RETURN_TYPE)\
-    void soa8_read_sample_NEAREST_NO_CLAMP_##FORMAT( image2d_t image, int8 coord_x, int8 coord_y, void* pData,\
-                                                                RETURN_TYPE* res_x, RETURN_TYPE* res_y, RETURN_TYPE* res_z, RETURN_TYPE* res_w )\
+    void soa8_read_sample_NEAREST_NO_CLAMP_##FORMAT( image2d_t image, int8 coord_x, int8 coord_y, __private void* pData,\
+                                                     __private RETURN_TYPE* res_x, __private RETURN_TYPE* res_y, __private RETURN_TYPE* res_z, __private RETURN_TYPE* res_w )\
 {\
-    void *p0, *p1, *p2, *p3, *p4, *p5, *p6, *p7;\
+    __private void *p0, *p1, *p2, *p3, *p4, *p5, *p6, *p7;\
     soa8_extract_pixel_pointer_quad(image, coord_x, coord_y, pData, &p0, &p1, &p2, &p3, &p4, &p5, &p6, &p7);\
     soa8_load_pixel_##FORMAT(p0, p1, p2, p3, p4, p5, p6, p7, res_x, res_y, res_z, res_w);\
 }
 
 #define IMPLEMENT_SOA8_CBK_NEAREST_CLAMP(FORMAT, RETURN_TYPE)\
-    void soa8_read_sample_NEAREST_CLAMP_##FORMAT( image2d_t image, int8 coord_x, int8 coord_y, void* pData,\
-                                                                RETURN_TYPE* res_x, RETURN_TYPE* res_y, RETURN_TYPE* res_z, RETURN_TYPE* res_w )\
+    void soa8_read_sample_NEAREST_CLAMP_##FORMAT( image2d_t image, int8 coord_x, int8 coord_y, __private void* pData,\
+                                                  __private RETURN_TYPE* res_x, __private RETURN_TYPE* res_y, __private RETURN_TYPE* res_z, __private RETURN_TYPE* res_w )\
 {\
     int8 isNotOOB = soa8_isInsideBoundsInt(image, coord_x, coord_y);\
-    void *p0, *p1, *p2, *p3, *p4, *p5, *p6, *p7;\
+    __private void *p0, *p1, *p2, *p3, *p4, *p5, *p6, *p7;\
     soa8_extract_pixel_pointer_quad(image, coord_x & isNotOOB, coord_y & isNotOOB, pData, &p0, &p1, &p2, &p3, &p4, &p5, &p6, &p7);\
     soa8_load_pixel_##FORMAT##_oob(isNotOOB, p0, p1, p2, p3, p4, p5, p6, p7, res_x, res_y, res_z, res_w);\
 }
@@ -628,20 +429,20 @@ SCALARIZE_SOA_CBK(RG_UNSIGNED_INT32, NEAREST, NO_CLAMP, uint, 8, int)
 
 /// SOA4 reading functions
 #define IMPLEMENT_SOA4_CBK_NEAREST_NO_CLAMP(FORMAT, RETURN_TYPE)\
-    void soa4_read_sample_NEAREST_NO_CLAMP_##FORMAT( image2d_t image, int4 coord_x, int4 coord_y, void* pData,\
-                                                                RETURN_TYPE* res_x, RETURN_TYPE* res_y, RETURN_TYPE* res_z, RETURN_TYPE* res_w )\
+    void soa4_read_sample_NEAREST_NO_CLAMP_##FORMAT( image2d_t image, int4 coord_x, int4 coord_y, __private void* pData,\
+                                                     __private RETURN_TYPE* res_x, __private RETURN_TYPE* res_y, __private RETURN_TYPE* res_z, __private RETURN_TYPE* res_w )\
 {\
-    void *p0, *p1, *p2, *p3;\
+    __private void *p0, *p1, *p2, *p3;\
     soa4_extract_pixel_pointer_quad(image, coord_x, coord_y, pData, &p0, &p1, &p2, &p3);\
     soa4_load_pixel_##FORMAT(p0, p1, p2, p3, res_x, res_y, res_z, res_w);\
 }
 
 #define IMPLEMENT_SOA4_CBK_NEAREST_CLAMP(FORMAT, RETURN_TYPE)\
-    void soa4_read_sample_NEAREST_CLAMP_##FORMAT( image2d_t image, int4 coord_x, int4 coord_y, void* pData,\
-                                                                RETURN_TYPE* res_x, RETURN_TYPE* res_y, RETURN_TYPE* res_z, RETURN_TYPE* res_w )\
+    void soa4_read_sample_NEAREST_CLAMP_##FORMAT( image2d_t image, int4 coord_x, int4 coord_y, __private void* pData,\
+                                                  __private RETURN_TYPE* res_x, __private RETURN_TYPE* res_y, __private RETURN_TYPE* res_z, __private RETURN_TYPE* res_w )\
 {\
     int4 isNotOOB = soa4_isInsideBoundsInt(image, coord_x, coord_y);\
-    void *p0, *p1, *p2, *p3;\
+    __private void *p0, *p1, *p2, *p3;\
     soa4_extract_pixel_pointer_quad(image, coord_x & isNotOOB, coord_y & isNotOOB, pData, &p0, &p1, &p2, &p3);\
     soa4_load_pixel_##FORMAT##_oob(isNotOOB, p0, p1, p2, p3, res_x, res_y, res_z, res_w);\
 }
@@ -702,7 +503,7 @@ int4 trans_coord_float_REPEAT_TRUE_NEAREST(image2d_t image, float4 coord)
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dimSub1)));
     int4 urcoord = ProjectNearest(Unnormalize(image, coord-floor(coord)));  //unrepeated coords
-    
+
     urcoord = urcoord <= upper ? urcoord : 0;
 
     return urcoord;
@@ -800,7 +601,7 @@ float4 trans_coord_float_float_NONE_FALSE_LINEAR(image2d_t image, float4 coord, 
 
 
 float4 trans_coord_float_float_CLAMP_TO_EDGE_FALSE_LINEAR(image2d_t image, float4 coord, int4* square0, int4* square1)
-{    
+{
     *square0 = ProjectToEdgeInt(image, ProjectNearest(coord - halfhalfhalfzero));
     *square1 = ProjectToEdgeInt(image, ProjectNearest(coord - halfhalfhalfzero) + oneOneOneZero);
     return frac(coord-halfhalfhalfzero);
@@ -866,34 +667,34 @@ float4 trans_coord_float_float_MIRRORED_REPEAT_TRUE_LINEAR(image2d_t image, floa
 
 /// Implements nearest callbacks for given image format and border color
 #define IMPLEMENT_READ_SAMPLE_NEAREST(FORMAT, RETURN_TYPE, BORDER_COLOR)\
-RETURN_TYPE read_sample_NEAREST_NO_CLAMP_##FORMAT(image2d_t image, int4 coord, void* pData)\
+RETURN_TYPE read_sample_NEAREST_NO_CLAMP_##FORMAT(image2d_t image, int4 coord, __private void* pData)\
 {\
-    void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
+    __private void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
     return load_pixel_##FORMAT(pixel);\
 }\
 \
-RETURN_TYPE read_sample_NEAREST_CLAMP_##FORMAT(image2d_t image, int4 coord, void* pData)\
+RETURN_TYPE read_sample_NEAREST_CLAMP_##FORMAT(image2d_t image, int4 coord, __private void* pData)\
 {\
     int isOOB = isOutOfBoundsInt(image, coord);\
     if (isOOB)\
         return BORDER_COLOR;\
-    void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
+    __private void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
     return load_pixel_##FORMAT(pixel);\
 }
 
 #define IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(FORMAT, BORDER_COLOR)\
-float4 read_sample_NEAREST_NO_CLAMP_##FORMAT(image2d_t image, int4 coord, int4 dummy0, float4 dummy1, void* pData)\
+float4 read_sample_NEAREST_NO_CLAMP_##FORMAT(image2d_t image, int4 coord, int4 dummy0, float4 dummy1, __private void* pData)\
 {\
-    void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
+    __private void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
     return load_pixel_##FORMAT(pixel);\
 }\
 \
-float4 read_sample_NEAREST_CLAMP_##FORMAT(image2d_t image, int4 coord, int4 dummy0, float4 dummy1, void* pData)\
+float4 read_sample_NEAREST_CLAMP_##FORMAT(image2d_t image, int4 coord, int4 dummy0, float4 dummy1, __private void* pData)\
 {\
     int isOOB = isOutOfBoundsInt(image, coord);\
     if (isOOB)\
         return BORDER_COLOR;\
-    void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
+    __private void* pixel = extract_pixel_pointer_quad(image, coord, pData);\
     return load_pixel_##FORMAT(pixel);\
 }
 
@@ -951,88 +752,88 @@ IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(RG_HALF_FLOAT, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(DEPTH_FLOAT, BorderColorAlphaFloat)
 IMPLEMENT_READ_SAMPLE_NEAREST_FLOAT(DEPTH_UNORM_INT16, BorderColorAlphaFloat)
 
-void write_sample_RGBA_UNSIGNED_INT8(void* pixel, uint4 color)
+void write_sample_RGBA_UNSIGNED_INT8(__private void* pixel, uint4 color)
 {
     color = min(color, (uint4)(UCHAR_MAX));
-    *(char4*)pixel = __ocl_trunc_v4i32_v4i8(*((int4*)&color));
+    *(__private char4*)pixel = __ocl_trunc_v4i32_v4i8(*((int4*)&color));
 }
 
-void write_sample_RG_UNSIGNED_INT8(void* pixel, uint4 color)
+void write_sample_RG_UNSIGNED_INT8(__private void* pixel, uint4 color)
 {
     const __m128i i4uint8Max = _mm_set1_epi32(UCHAR_MAX);
     __m128i i4Val=(__m128i)color;
     i4Val = (__m128i)min(as_int4(i4Val), as_int4(i4uint8Max));
-    *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_R_UNSIGNED_INT8(void* pixel, uint4 color)
+void write_sample_R_UNSIGNED_INT8(__private void* pixel, uint4 color)
 {
     const __m128i i4uint8Max = _mm_set1_epi32(UCHAR_MAX);
     __m128i i4Val=(__m128i)color;
     i4Val = (__m128i)min(as_int4(i4Val), as_int4(i4uint8Max));
-    *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
 /*****************************RGBA_UNSIGNED_INT16 Image type i/o functions****************************************************/
 
-uint4 load_pixel_RGBA_UNSIGNED_INT16(void* pPixel)
+uint4 load_pixel_RGBA_UNSIGNED_INT16(__private void* pPixel)
 {
     __m128i i4Val = _mm_loadl_epi64((__m128i*)pPixel);
     i4Val = _mm_unpacklo_epi16(i4Val, _mm_setzero_si128());
     return as_uint4(i4Val);
 }
 
-void write_sample_RGBA_UNSIGNED_INT16(void* pixel, uint4 color)
+void write_sample_RGBA_UNSIGNED_INT16(__private void* pixel, uint4 color)
 {
     __m128i i4Val = (__m128i)min(color, i4uint16Max);
     /// pack values to pixels
-    *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned short*)pixel+1) = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned short*)pixel+1) = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned short*)pixel+2) = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned short*)pixel+2) = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned short*)pixel+3) = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned short*)pixel+3) = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_RG_UNSIGNED_INT16(void* pixel, uint4 color)
+void write_sample_RG_UNSIGNED_INT16(__private void* pixel, uint4 color)
 {
     __m128i i4Val = (__m128i)min(color, i4uint16Max);
     /// pack values to pixels
-    *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned short*)pixel+1) = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned short*)pixel+1) = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_R_UNSIGNED_INT16(void* pixel, uint4 color)
+void write_sample_R_UNSIGNED_INT16(__private void* pixel, uint4 color)
 {
     __m128i i4Val = (__m128i)min(color, i4uint16Max);
     /// pack values to pixels
-    *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
 /*****************************RGBA_UNSIGNED_INT32 Image type i/o functions****************************************************/
 
-uint4 load_pixel_RGBA_UNSIGNED_INT32(void* pPixel)
+uint4 load_pixel_RGBA_UNSIGNED_INT32(__private void* pPixel)
 {
     return (*((uint4*)pPixel));
 }
 
-void write_sample_RGBA_UNSIGNED_INT32(void* pixel, uint4 color)
+void write_sample_RGBA_UNSIGNED_INT32(__private void* pixel, uint4 color)
 {
-    (*(uint4*)pixel)=color;
+    (*(__private uint4*)pixel)=color;
 }
 
-void write_sample_R_UNSIGNED_INT32(void* pixel, uint4 color)
+void write_sample_R_UNSIGNED_INT32(__private void* pixel, uint4 color)
 {
-    (*(uint*)pixel)=color.x;
+    (*(__private uint*)pixel)=color.x;
 }
 
-void write_sample_RG_UNSIGNED_INT32(void* pixel, uint4 color)
+void write_sample_RG_UNSIGNED_INT32(__private void* pixel, uint4 color)
 {
-    (*(uint2*)pixel)=color.lo;
+    (*(__private uint2*)pixel)=color.lo;
 }
 
 /*******************************************************************SIGNED IMAGE TYPES I/IO*****************************************************************************/
@@ -1041,7 +842,7 @@ void write_sample_RG_UNSIGNED_INT32(void* pixel, uint4 color)
 /*****************************RGBA_SIGNED_INT8 Image type i/o functions****************************************************/
 
 
-int4 load_pixel_RGBA_SIGNED_INT8(void* pPixel)
+int4 load_pixel_RGBA_SIGNED_INT8(__private void* pPixel)
 {
     __m128i i4Val = _mm_cvtsi32_si128(*(unsigned int*)pPixel);
     i4Val = _mm_unpacklo_epi8(i4Val, _mm_setzero_si128());
@@ -1052,35 +853,35 @@ int4 load_pixel_RGBA_SIGNED_INT8(void* pPixel)
     return as_int4(i4Val);
 }
 
-void write_sample_RGBA_SIGNED_INT8(void* pixel, int4 color)
+void write_sample_RGBA_SIGNED_INT8(__private void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)max(color, i4int16Min);
     i4Val = (__m128i)min(as_int4(i4Val), i4int16Max);
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     i4Val = _mm_packs_epi16(i4Val, i4Val);
-    *(unsigned int*)pixel = _mm_cvtsi128_si32(i4Val);
+    *(__private unsigned int*)pixel = _mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_R_SIGNED_INT8(void* pixel, int4 color)
+void write_sample_R_SIGNED_INT8(__private void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)max(color, i4int16Min);
     i4Val = (__m128i)min(as_int4(i4Val), i4int16Max);
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     i4Val = _mm_packs_epi16(i4Val, i4Val);
-    *(char*)pixel = ((char4)_mm_cvtsi128_si32(i4Val)).x;
+    *(__private char*)pixel = ((char4)_mm_cvtsi128_si32(i4Val)).x;
 }
 
-void write_sample_RG_SIGNED_INT8(void* pixel, int4 color)
+void write_sample_RG_SIGNED_INT8(__private void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)max(color, i4int16Min);
     i4Val = (__m128i)min(as_int4(i4Val), i4int16Max);
     i4Val = _mm_packs_epi32(i4Val, i4Val);
     i4Val = _mm_packs_epi16(i4Val, i4Val);
-    *(unsigned short*)pixel = ((ushort2)_mm_cvtsi128_si32(i4Val)).x;
+    *(__private unsigned short*)pixel = ((ushort2)_mm_cvtsi128_si32(i4Val)).x;
 }
 /*****************************RGBA_SIGNED_INT16 Image type i/o functions****************************************************/
 
-int4 load_pixel_RGBA_SIGNED_INT16(void* pPixel)
+int4 load_pixel_RGBA_SIGNED_INT16(__private void* pPixel)
 {
     __m128i i4Val = _mm_loadl_epi64((__m128i*)pPixel);
     i4Val = _mm_unpacklo_epi16(i4Val, _mm_setzero_si128());
@@ -1090,7 +891,7 @@ int4 load_pixel_RGBA_SIGNED_INT16(void* pPixel)
     return as_int4(i4Val);
 }
 
-void write_sample_RGBA_SIGNED_INT16(void* pixel, int4 color)
+void write_sample_RGBA_SIGNED_INT16(__private void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)color;
     i4Val = (__m128i)max(as_int4(i4Val), i4int16Min);
@@ -1100,7 +901,7 @@ void write_sample_RGBA_SIGNED_INT16(void* pixel, int4 color)
     _mm_storel_epi64((__m128i*)pixel, i4Val);
 }
 
-void write_sample_RG_SIGNED_INT16(void* pixel, int4 color)
+void write_sample_RG_SIGNED_INT16(__private void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)color;
     i4Val = (__m128i)max(as_int4(i4Val), i4int16Min);
@@ -1110,35 +911,35 @@ void write_sample_RG_SIGNED_INT16(void* pixel, int4 color)
     ((short*)pixel)[1]=(as_int4(i4Val)).y;
 }
 
-void write_sample_R_SIGNED_INT16(void* pixel, int4 color)
+void write_sample_R_SIGNED_INT16(__private void* pixel, int4 color)
 {
     __m128i i4Val = (__m128i)color;
     i4Val = (__m128i)max(as_int4(i4Val), i4int16Min);
     i4Val = (__m128i)min(as_int4(i4Val), i4int16Max);
     // i4Val already contains valid short value
-    (*(short*)pixel)=(as_int4(i4Val)).x;
+    (*(__private short*)pixel)=(as_int4(i4Val)).x;
 }
 
 /*****************************RGBA_SIGNED_INT32 Image type i/o functions****************************************************/
 
-int4 load_pixel_RGBA_SIGNED_INT32(void* pPixel)
+int4 load_pixel_RGBA_SIGNED_INT32(__private void* pPixel)
 {
-    return (*((int4*)pPixel));
+    return (*(__private int4*)pPixel);
 }
 
-void write_sample_RGBA_SIGNED_INT32(void* pixel, int4 color)
+void write_sample_RGBA_SIGNED_INT32(__private void* pixel, int4 color)
 {
-    (*(int4*)pixel)=color;
+    (*(__private int4*)pixel)=color;
 }
 
-void write_sample_R_SIGNED_INT32(void* pixel, int4 color)
+void write_sample_R_SIGNED_INT32(__private void* pixel, int4 color)
 {
-    (*(int*)pixel)=color.x;
+    (*(__private int*)pixel)=color.x;
 }
 
-void write_sample_RG_SIGNED_INT32(void* pixel, int4 color)
+void write_sample_RG_SIGNED_INT32(__private void* pixel, int4 color)
 {
-    (*(int2*)pixel)=color.lo;
+    (*(__private int2*)pixel)=color.lo;
 }
 
 /*****************************************************************UNORM IMAGES TYPES I/O*****************************************************************/
@@ -1146,7 +947,7 @@ void write_sample_RG_SIGNED_INT32(void* pixel, int4 color)
 
 /***************************************RGBA_UNORM8 Image type i/o functions*****************************************************/
 
-float4 load_pixel_RGBA_UNORM_INT8(void* pPixel)
+float4 load_pixel_RGBA_UNORM_INT8(__private void* pPixel)
 {
     __m128i i4Val = (__m128i)_mm_cvtsi32_si128(*(unsigned int*)pPixel);
     i4Val = _mm_unpacklo_epi8(i4Val, _mm_setzero_si128());
@@ -1156,43 +957,43 @@ float4 load_pixel_RGBA_UNORM_INT8(void* pPixel)
     return converted;
 }
 
-void write_sample_RGBA_UNORM_INT8(void* pixel, float4 color)
+void write_sample_RGBA_UNORM_INT8(__private void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, (__m128)f4unorm8mul, (__m128)f4unorm8lim);
-    *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned char*)pixel+2) = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned char*)pixel+2) = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned char*)pixel+3) = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned char*)pixel+3) = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_RG_UNORM_INT8(void* pixel, float4 color)
+void write_sample_RG_UNORM_INT8(__private void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
-    *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_R_UNORM_INT8(void* pixel, float4 color)
+void write_sample_R_UNORM_INT8(__private void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
-    *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_A_UNORM_INT8(void* pixel, float4 color)
+void write_sample_A_UNORM_INT8(__private void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
     i4Val = _mm_srli_si128(i4Val, 12);
-    *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
 
 /***************************************RGBA_UNORM16 Image type i/o functions*****************************************************/
 
-float4 load_pixel_RGBA_UNORM_INT16(void* pPixel)
+float4 load_pixel_RGBA_UNORM_INT16(__private void* pPixel)
 {
 
     __m128i i4Val = _mm_loadl_epi64((__m128i*)pPixel);
@@ -1201,131 +1002,131 @@ float4 load_pixel_RGBA_UNORM_INT16(void* pPixel)
     return _mm_mul_ps(f4Val, f4Unorm16Dim);
 }
 
-void write_sample_RGBA_UNORM_INT16(void* pixel, float4 color)
+void write_sample_RGBA_UNORM_INT16(__private void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, (__m128)f4unorm16mul, (__m128)f4unorm16lim);
-    *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned short*)pixel+1) = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned short*)pixel+1) = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned short*)pixel+2) = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned short*)pixel+2) = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned short*)pixel+3) = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned short*)pixel+3) = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_RG_UNORM_INT16(void* pixel, float4 color)
+void write_sample_RG_UNORM_INT16(__private void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
-    *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned short*)pixel+1) = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned short*)pixel+1) = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_R_UNORM_INT16(void* pixel, float4 color)
+void write_sample_R_UNORM_INT16(__private void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
-    *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_DEPTH_UNORM_INT16(void* pixel, float4 color)
+void write_sample_DEPTH_UNORM_INT16(__private void* pixel, float4 color)
 {
     ushort converted = convert_ushort_sat_rte(color.x * UNORM_INT16_FACTOR);
-    *(ushort*)pixel = converted;
+    *(__private ushort*)pixel = converted;
 }
 
-void write_sample_A_UNORM_INT16(void* pixel, float4 color)
+void write_sample_A_UNORM_INT16(__private void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
     i4Val = _mm_srli_si128(i4Val, 12);
-    *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
 
 
 /*************************************** R, RG, and RGBA with SNORM8 Image type i/o functions*****************************************************/
 
-float4 load_pixel_RGBA_SNORM_INT8(void* pPixel)
+float4 load_pixel_RGBA_SNORM_INT8(__private void* pPixel)
 {
-    char4 pixel = vload4(0, (char*)pPixel);
+    char4 pixel = vload4(0, (__private char*)pPixel);
     float4 converted = convert_float4(pixel) / SNORM_INT8_FACTOR;
     return max(-1.f, converted);
 }
 
-float4 load_pixel_RG_SNORM_INT8(void* pPixel)
+float4 load_pixel_RG_SNORM_INT8(__private void* pPixel)
 {
-    char2 pixel = vload2(0, (char*)pPixel);
+    char2 pixel = vload2(0, (__private char*)pPixel);
     float4 converted = (float4)(convert_float2(pixel) / SNORM_INT8_FACTOR, 0.f, 1.f);
     return max((float4)(-1.f), converted);
 }
 
-float4 load_pixel_R_SNORM_INT8(void* pPixel)
+float4 load_pixel_R_SNORM_INT8(__private void* pPixel)
 {
-    char pixel = *(char*)pPixel;
+    char pixel = *(__private char*)pPixel;
     float4 converted = (float4)(convert_float(pixel) / SNORM_INT8_FACTOR, 0.f, 0.f, 1.f);
     return max((float4)(-1.f), converted);
 }
 
-void write_sample_RGBA_SNORM_INT8(void* pixel, float4 color)
+void write_sample_RGBA_SNORM_INT8(__private void* pixel, float4 color)
 {
     char4 converted = convert_char4_sat_rte(color * SNORM_INT8_FACTOR);
-    vstore4(converted, 0, (char*)pixel);
+    vstore4(converted, 0, (__private char*)pixel);
 }
 
-void write_sample_RG_SNORM_INT8(void* pixel, float4 color)
+void write_sample_RG_SNORM_INT8(__private void* pixel, float4 color)
 {
     char2 converted = convert_char2_sat_rte(color.lo * SNORM_INT8_FACTOR);
-    vstore2(converted, 0, (char*)pixel);
+    vstore2(converted, 0, (__private char*)pixel);
 }
 
-void write_sample_R_SNORM_INT8(void* pixel, float4 color)
+void write_sample_R_SNORM_INT8(__private void* pixel, float4 color)
 {
-    *(char*)pixel = convert_char_sat_rte(color.x * SNORM_INT8_FACTOR);
+    *(__private char*)pixel = convert_char_sat_rte(color.x * SNORM_INT8_FACTOR);
 }
 
 /*************************************** R, RG, and RGBA with SNORM16 Image type i/o functions*****************************************************/
 
-float4 load_pixel_RGBA_SNORM_INT16(void* pPixel)
+float4 load_pixel_RGBA_SNORM_INT16(__private void* pPixel)
 {
-    short4 pixel = vload4(0, (short*)pPixel);
+    short4 pixel = vload4(0, (__private short*)pPixel);
     float4 converted = convert_float4(pixel) / SNORM_INT16_FACTOR;
     return max(-1.f, converted);
 }
 
-float4 load_pixel_RG_SNORM_INT16(void* pPixel)
+float4 load_pixel_RG_SNORM_INT16(__private void* pPixel)
 {
-    short2 pixel = vload2(0, (short*)pPixel);
+    short2 pixel = vload2(0, (__private short*)pPixel);
     float4 converted = (float4)(convert_float2(pixel) / SNORM_INT16_FACTOR, 0.f, 1.f);
     return max((float4)(-1.f), converted);
 }
 
-float4 load_pixel_R_SNORM_INT16(void* pPixel)
+float4 load_pixel_R_SNORM_INT16(__private void* pPixel)
 {
-    short pixel = *(short*)pPixel;
+    short pixel = *(__private short*)pPixel;
     float4 converted = (float4)(convert_float(pixel) / SNORM_INT16_FACTOR, 0.f, 0.f, 1.f);
     return max((float4)(-1.f), converted);
 }
 
-void write_sample_RGBA_SNORM_INT16(void* pixel, float4 color)
+void write_sample_RGBA_SNORM_INT16(__private void* pixel, float4 color)
 {
     short4 converted = convert_short4_sat_rte(color * SNORM_INT16_FACTOR);
-    vstore4(converted, 0, (short*)pixel);
+    vstore4(converted, 0, (__private short*)pixel);
 }
 
-void write_sample_RG_SNORM_INT16(void* pixel, float4 color)
+void write_sample_RG_SNORM_INT16(__private void* pixel, float4 color)
 {
     short2 converted = convert_short2_sat_rte(color.lo * SNORM_INT16_FACTOR);
-    vstore2(converted, 0, (short*)pixel);
+    vstore2(converted, 0, (__private short*)pixel);
 }
 
-void write_sample_R_SNORM_INT16(void* pixel, float4 color)
+void write_sample_R_SNORM_INT16(__private void* pixel, float4 color)
 {
-    *(short*)pixel = convert_short_sat_rte(color.x * SNORM_INT16_FACTOR);
+    *(__private short*)pixel = convert_short_sat_rte(color.x * SNORM_INT16_FACTOR);
 }
 
 
 /***************************************BGRA_UNORM8 Image type i/o functions*****************************************************/
 
-float4 load_pixel_BGRA_UNORM_INT8(void* pPixel)
+float4 load_pixel_BGRA_UNORM_INT8(__private void* pPixel)
 {
 
     __m128i i4Val = _mm_cvtsi32_si128(*(unsigned int*)pPixel);
@@ -1337,19 +1138,18 @@ float4 load_pixel_BGRA_UNORM_INT8(void* pPixel)
     return as_float4(i4Val);
 }
 
-void write_sample_BGRA_UNORM_INT8(void* pixel, float4 color)
+void write_sample_BGRA_UNORM_INT8(__private void* pixel, float4 color)
 {
     float4 convertedColor = color.zyxw;
     __m128i i4Val = cvt_to_norm((__m128i)convertedColor, (__m128)f4unorm8mul, (__m128)f4unorm8lim);
-    *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned char*)pixel+1) = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned char*)pixel+2) = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned char*)pixel+2) = (unsigned char)_mm_cvtsi128_si32(i4Val);
     i4Val = _mm_srli_si128(i4Val, 4);
-    *((unsigned char*)pixel+3) = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *((__private unsigned char*)pixel+3) = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
-
 
 
 /****************************************************************FLOAT IMAGE TYPES I/O***************************************************************/
@@ -1357,201 +1157,206 @@ void write_sample_BGRA_UNORM_INT8(void* pixel, float4 color)
 
 /******************************************RGBA_FLOAT image type i/o functions******************************************************/
 
-float4 load_pixel_RGBA_FLOAT(void* pPixel)
+float4 load_pixel_RGBA_FLOAT(__private void* pPixel)
 {
-    return *((float4*)pPixel);
+    return *((__private float4*)pPixel);
 }
 
-void write_sample_RGBA_FLOAT(void* pixel, float4 color)
+void write_sample_RGBA_FLOAT(__private void* pixel, float4 color)
 {
-    (*(float4*)pixel)=color;
+    (*(__private float4*)pixel)=color;
 }
 
 /******************************************RGBA_HALF_FLOAT image type i/o functions******************************************************/
 
-float4 load_pixel_RGBA_HALF_FLOAT(void* pPixel)
+float4 load_pixel_RGBA_HALF_FLOAT(__private void* pPixel)
 {
-    return (float4)vloada_half4(0, (half*)pPixel);
+    return (float4)vloada_half4(0, (__private half*)pPixel);
 }
 
-void write_sample_RGBA_HALF_FLOAT(void* pixel, float4 color)
+void write_sample_RGBA_HALF_FLOAT(__private void* pixel, float4 color)
 {
-    vstore_half4(color, 0, (half*)pixel);
+    vstore_half4(color, 0, (__private half*)pixel);
 }
 
-void write_sample_R_HALF_FLOAT(void* pixel, float4 color)
+void write_sample_R_HALF_FLOAT(__private void* pixel, float4 color)
 {
-    vstore_half(color.x, 0, (half*)pixel);
+    vstore_half(color.x, 0, (__private half*)pixel);
 }
 
-void write_sample_RG_HALF_FLOAT(void* pixel, float4 color)
+void write_sample_RG_HALF_FLOAT(__private void* pixel, float4 color)
 {
-    vstore_half2(color.lo, 0, (half*)pixel);
+    vstore_half2(color.lo, 0, (__private half*)pixel);
 }
 
-void write_sample_A_HALF_FLOAT(void* pixel, float4 color)
+void write_sample_A_HALF_FLOAT(__private void* pixel, float4 color)
 {
-    vstore_half(color.w, 0, (half*)pixel); // store alpha channel from pixel (0,0,0,a)
+    vstore_half(color.w, 0, (__private half*)pixel); // store alpha channel from pixel (0,0,0,a)
 }
 
-void write_sample_LUMINANCE_HALF_FLOAT(void* pixel, float4 color)
+void write_sample_LUMINANCE_HALF_FLOAT(__private void* pixel, float4 color)
 {
-    vstore_half(color.x, 0, (half*)pixel);
+    vstore_half(color.x, 0, (__private half*)pixel);
 }
 
-void write_sample_INTENSITY_HALF_FLOAT(void* pixel, float4 color)
+void write_sample_INTENSITY_HALF_FLOAT(__private void* pixel, float4 color)
 {
-    vstore_half(color.x, 0, (half*)pixel);
+    vstore_half(color.x, 0, (__private half*)pixel);
 }
 
 /******************************************LUMINANCE image type i/o functions******************************************************/
 
-float load_value_LUMINANCE_FLOAT(void* pPixel)
+float load_value_LUMINANCE_FLOAT(__private void* pPixel)
 {
     float luminance = *((float*)pPixel);
     return luminance;
 }
 
-float4 load_pixel_LUMINANCE_FLOAT(void* pPixel)
+float4 load_pixel_LUMINANCE_FLOAT(__private void* pPixel)
 {
     float luminance = load_value_LUMINANCE_FLOAT(pPixel);
     float4 res = (float4)(luminance, luminance, luminance, 1.0f);
     return res;
 }
 
-float load_value_LUMINANCE_UNORM_INT8(void* pPixel)
+float load_value_LUMINANCE_UNORM_INT8(__private void* pPixel)
 {
     uchar val = *(uchar*)pPixel;
     return val * (1.0f/255.0f);
 }
 
-float4 load_pixel_LUMINANCE_UNORM_INT8(void* pPixel)
+float4 load_pixel_LUMINANCE_UNORM_INT8(__private void* pPixel)
 {
     float luminance = load_value_LUMINANCE_UNORM_INT8(pPixel);
     return (float4)(luminance, luminance, luminance, 1.0f);
 }
 
-float load_value_LUMINANCE_UNORM_INT16(void* pPixel)
+float load_value_LUMINANCE_UNORM_INT16(__private void* pPixel)
 {
     ushort val = *(ushort*)pPixel;
     return val * (1.0f/65535.0f);
 }
 
-float4 load_pixel_LUMINANCE_UNORM_INT16(void* pPixel)
+float4 load_pixel_LUMINANCE_UNORM_INT16(__private void* pPixel)
 {
     float luminance = load_value_LUMINANCE_UNORM_INT16(pPixel);
     return (float4)(luminance, luminance, luminance, 1.0f);
 }
 
-float load_value_LUMINANCE_HALF_FLOAT(void* pPixel)
+float load_value_LUMINANCE_HALF_FLOAT(__private void* pPixel)
 {
-    float val = vloada_half(0, (half*)pPixel);
+    float val = vloada_half(0, (__private half*)pPixel);
     return val;
 }
 
-float4 load_pixel_LUMINANCE_HALF_FLOAT(void* pPixel)
+float4 load_pixel_LUMINANCE_HALF_FLOAT(__private void* pPixel)
 {
     float val = load_value_LUMINANCE_HALF_FLOAT(pPixel);
     return (float4)(val, val, val, 1.f);
 }
 
-float load_value_INTENSITY_UNORM_INT8(void* pPixel)
+float load_value_INTENSITY_UNORM_INT8(__private void* pPixel)
 {
     uchar val = *(uchar*)pPixel;
     return val * (1.0f/255.0f);
 }
 
-float4 load_pixel_INTENSITY_UNORM_INT8(void* pPixel)
+float4 load_pixel_INTENSITY_UNORM_INT8(__private void* pPixel)
 {
     float intensity = load_value_INTENSITY_UNORM_INT8(pPixel);
     return (float4)(intensity, intensity, intensity, intensity);
 }
 
-float load_value_INTENSITY_UNORM_INT16(void* pPixel)
+float load_value_INTENSITY_UNORM_INT16(__private void* pPixel)
 {
-    ushort val = *(ushort*)pPixel;
+    ushort val = *(__private ushort*)pPixel;
     return val * (1.0f/65535.0f);
 }
 
-float4 load_pixel_INTENSITY_UNORM_INT16(void* pPixel)
+float4 load_pixel_INTENSITY_UNORM_INT16(__private void* pPixel)
 {
     float intensity = load_value_INTENSITY_UNORM_INT16(pPixel);
     return (float4)(intensity, intensity, intensity, intensity);
 }
 
-float load_value_INTENSITY_HALF_FLOAT(void* pPixel)
+float load_value_INTENSITY_HALF_FLOAT(__private void* pPixel)
 {
-    float val = vloada_half(0, (half*)pPixel);
+    float val = vloada_half(0, (__private half*)pPixel);
     return val;
 }
 
-float4 load_pixel_INTENSITY_HALF_FLOAT(void* pPixel)
+float4 load_pixel_INTENSITY_HALF_FLOAT(__private void* pPixel)
 {
     float val = load_value_INTENSITY_HALF_FLOAT(pPixel);
     return (float4)(val, val, val, val);
 }
 
-void write_sample_LUMINANCE_FLOAT(void* pixel, float4 color)
+void write_sample_LUMINANCE_FLOAT(__private void* pixel, float4 color)
 {
-    (*(float*)pixel)=color.x;
+    (*(__private float*)pixel)=color.x;
 }
 
 /******************************************INTENSITY image type i/o functions******************************************************/
 
-float load_value_INTENSITY_FLOAT(void* pPixel)
+float load_value_INTENSITY_FLOAT(__private void* pPixel)
 {
     float intensity = *((float*)pPixel);
     return intensity;
 }
 
-float4 load_pixel_INTENSITY_FLOAT(void* pPixel)
+float4 load_pixel_INTENSITY_FLOAT(__private void* pPixel)
 {
     float intensity = load_value_INTENSITY_FLOAT(pPixel);
     return (float4)intensity;
 }
 
-void write_sample_INTENSITY_FLOAT(void* pixel, float4 color)
+void write_sample_INTENSITY_FLOAT(__private void* pixel, float4 color)
 {
-    (*(float*)pixel)=color.x;
+    (*(__private float*)pixel)=color.x;
 }
 
-void write_sample_INTENSITY_UNORM_INT8(void* pixel, float4 color)
+void write_sample_INTENSITY_UNORM_INT8(__private void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
-    *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_INTENSITY_UNORM_INT16(void* pixel, float4 color)
+void write_sample_INTENSITY_UNORM_INT16(__private void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
-    *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_LUMINANCE_UNORM_INT8(void* pixel, float4 color)
+void write_sample_LUMINANCE_UNORM_INT8(__private void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm8mul, f4unorm8lim);
-    *(unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned char*)pixel = (unsigned char)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_LUMINANCE_UNORM_INT16(void* pixel, float4 color)
+void write_sample_LUMINANCE_UNORM_INT16(__private void* pixel, float4 color)
 {
     __m128i i4Val = cvt_to_norm((__m128i)color, f4unorm16mul, f4unorm16lim);
-    *(unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
+    *(__private unsigned short*)pixel = (unsigned short)_mm_cvtsi128_si32(i4Val);
 }
 
-void write_sample_R_FLOAT(void* pixel, float4 color)
+void write_sample_R_FLOAT(__private void* pixel, float4 color)
 {
-    (*(float*)pixel)=color.x;
+    (*(__private float*)pixel)=color.x;
 }
 
-void write_sample_RG_FLOAT(void* pixel, float4 color)
+void write_sample_DEPTH_FLOAT(__private void* pixel, float4 color)
 {
-    (*(float2*)pixel)=color.lo;
+    (*(__private float*)pixel)=color.x;
 }
 
-void write_sample_A_FLOAT(void* pixel, float4 color)
+void write_sample_RG_FLOAT(__private void* pixel, float4 color)
 {
-    (*(float*)pixel)=color.w;
+    (*(__private float2*)pixel)=color.lo;
+}
+
+void write_sample_A_FLOAT(__private void* pixel, float4 color)
+{
+    (*(__private float*)pixel)=color.w;
 }
 
 /******************LINEAR reading functions******************************************/
@@ -1569,7 +1374,7 @@ float4 dummyFnc(float4 input)
 
 
 #define IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(TYPE, POST_PROCESSING) \
-    float4 read_sample_LINEAR1D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+    float4 read_sample_LINEAR1D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, __private void* pData)  \
 {\
     int4 point0   = square0;\
     int4 point1   = square1;\
@@ -1614,10 +1419,14 @@ IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_UNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_UNORM_INT16, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_SNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_SNORM_INT16, dummyFnc)
+// the following implementations are workaround to avoid changes
+// in the image callback library architecture
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(DEPTH_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(DEPTH_UNORM_INT16, dummyFnc)
 
 // definition for linear read callbacks in case of one channel images
 #define IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP_CH1(TYPE, POST_PROCESSING) \
-    float4 read_sample_LINEAR2D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+    float4 read_sample_LINEAR2D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, __private void* pData)  \
 {\
     /*First genenrate weights for pixels*/\
     \
@@ -1638,7 +1447,7 @@ IMPLEMENT_read_sample_LINEAR1D_NO_CLAMP(RG_SNORM_INT16, dummyFnc)
 
 // definition for linear read callbacks in case of 4 channel images
 #define IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(TYPE, POST_PROCESSING) \
-    float4 read_sample_LINEAR2D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+    float4 read_sample_LINEAR2D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, __private void* pData)  \
 {\
     /*First genenrate weights for pixels*/\
     \
@@ -1694,7 +1503,7 @@ IMPLEMENT_read_sample_LINEAR2D_NO_CLAMP(DEPTH_UNORM_INT16, dummyFnc)
 
 
 #define IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(TYPE, POST_PROCESSING) \
-float4 read_sample_LINEAR3D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+float4 read_sample_LINEAR3D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, __private void* pData)  \
 {\
     /*First genenerate weights for pixels*/\
     \
@@ -1753,10 +1562,14 @@ IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_UNORM_INT16, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_SNORM_INT8, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_SNORM_INT16, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(RG_HALF_FLOAT, dummyFnc)
+// the following implementations are workaround to avoid changes
+// in the image callback library architecture
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(DEPTH_FLOAT, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_NO_CLAMP(DEPTH_UNORM_INT16, dummyFnc)
 
 
 #define IMPLEMENT_read_sample_LINEAR1D_CLAMP(TYPE, BORDER_COLOR, POST_PROCESSING) \
-    float4 read_sample_LINEAR1D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+    float4 read_sample_LINEAR1D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, __private void* pData)  \
 {\
     \
     int4 point0   = square0;\
@@ -1802,10 +1615,14 @@ IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_UNORM_INT16, BorderColorAlphaFloat, dumm
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_SNORM_INT8, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_SNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
+// the following implementations are workaround to avoid changes
+// in the image callback library architecture
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(DEPTH_FLOAT, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR1D_CLAMP(DEPTH_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 
 
 #define IMPLEMENT_read_sample_LINEAR2D_CLAMP_CH1(TYPE, POST_PROCESSING) \
-    float4 read_sample_LINEAR2D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+    float4 read_sample_LINEAR2D_NO_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, __private void* pData)  \
 {\
     /*First genenrate weights for pixels*/\
     \
@@ -1825,7 +1642,7 @@ IMPLEMENT_read_sample_LINEAR1D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummy
 }
 
 #define IMPLEMENT_read_sample_LINEAR2D_CLAMP(TYPE, BORDER_COLOR, POST_PROCESSING) \
-    float4 read_sample_LINEAR2D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+    float4 read_sample_LINEAR2D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, __private void* pData)  \
 {\
     \
     int4 point00   = square0;\
@@ -1880,7 +1697,7 @@ IMPLEMENT_read_sample_LINEAR2D_CLAMP(DEPTH_UNORM_INT16, BorderColorAlphaFloat, d
 
 
 #define IMPLEMENT_read_sample_LINEAR3D_CLAMP(TYPE, BORDER_COLOR, POST_PROCESSING) \
-float4 read_sample_LINEAR3D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+float4 read_sample_LINEAR3D_CLAMP_##TYPE(image2d_t image, int4 square0, int4 square1, float4 fraction, __private void* pData)  \
 {\
 \
     int4 point000   = square0;\
@@ -1938,6 +1755,10 @@ IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_UNORM_INT16, BorderColorAlphaFloat, dumm
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_SNORM_INT8, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_SNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummyFnc)
+// the following implementations are workaround to avoid changes
+// in the image callback library architecture
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(DEPTH_FLOAT, BorderColorAlphaFloat, dummyFnc)
+IMPLEMENT_read_sample_LINEAR3D_CLAMP(DEPTH_UNORM_INT16, BorderColorAlphaFloat, dummyFnc)
 
 
 //////////////////////////////////////
@@ -1955,10 +1776,10 @@ IMPLEMENT_read_sample_LINEAR3D_CLAMP(RG_HALF_FLOAT, BorderColorAlphaFloat, dummy
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, 0, 0, 1.0)
-uint4 load_pixel_R_UNSIGNED_INT32(void* pPixel)
+uint4 load_pixel_R_UNSIGNED_INT32(__private void* pPixel)
 {
     uint4 pixel = (uint4)(0, 0, 0, 1);
-    pixel.x = *((uint*)pPixel);
+    pixel.x = *((__private uint*)pPixel);
     return pixel;
 }
 
@@ -1970,11 +1791,11 @@ uint4 load_pixel_R_UNSIGNED_INT32(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, g, 0, 1.0)
-uint4 load_pixel_RG_UNSIGNED_INT32(void* pPixel)
+uint4 load_pixel_RG_UNSIGNED_INT32(__private void* pPixel)
 {
     uint4 pixel = (uint4)(0, 0, 0, 1);
-    pixel.x = *((uint*)pPixel);
-    pixel.y = ((uint*)pPixel)[1];
+    pixel.x = *((__private uint*)pPixel);
+    pixel.y = ((__private uint*)pPixel)[1];
     return pixel;
 }
 
@@ -1986,10 +1807,10 @@ uint4 load_pixel_RG_UNSIGNED_INT32(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a int4 (r, 0, 0, 1)
-int4 load_pixel_R_SIGNED_INT32(void* pPixel)
+int4 load_pixel_R_SIGNED_INT32(__private void* pPixel)
 {
     int4 pixel = (int4)(0, 0, 0, 1);
-    pixel.x = *((int*)pPixel);
+    pixel.x = *((__private int*)pPixel);
     return pixel;
 }
 
@@ -2001,11 +1822,11 @@ int4 load_pixel_R_SIGNED_INT32(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a int4 (r, g, 0, 1)
-int4 load_pixel_RG_SIGNED_INT32(void* pPixel)
+int4 load_pixel_RG_SIGNED_INT32(__private void* pPixel)
 {
     int4 pixel = (int4)(0, 0, 0, 1);
-    pixel.x = *((int*)pPixel);
-    pixel.y = ((int*)pPixel)[1];
+    pixel.x = *((__private int*)pPixel);
+    pixel.y = ((__private int*)pPixel)[1];
     return pixel;
 }
 
@@ -2017,10 +1838,10 @@ int4 load_pixel_RG_SIGNED_INT32(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, 0, 0, 1.0)
-float4 load_pixel_R_FLOAT(void* pPixel)
+float4 load_pixel_R_FLOAT(__private void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
-    pixel.x = *((float*)pPixel);
+    pixel.x = *((__private float*)pPixel);
     return pixel;
 }
 
@@ -2032,10 +1853,10 @@ float4 load_pixel_R_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (d, 0, 0, 1.0)
-float4 load_pixel_DEPTH_FLOAT(void* pPixel)
+float4 load_pixel_DEPTH_FLOAT(__private void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
-    pixel.x = *((float*)pPixel);
+    pixel.x = *((__private float*)pPixel);
     return pixel;
 }
 
@@ -2047,11 +1868,11 @@ float4 load_pixel_DEPTH_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, g, 0, 1.0)
-float4 load_pixel_RG_FLOAT(void* pPixel)
+float4 load_pixel_RG_FLOAT(__private void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
-    pixel.x = *((float*)pPixel);
-    pixel.y = ((float*)pPixel)[1];
+    pixel.x = *((__private float*)pPixel);
+    pixel.y = ((__private float*)pPixel)[1];
     return pixel;
 }
 
@@ -2063,10 +1884,10 @@ float4 load_pixel_RG_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (0, 0, 0, a)
-float4 load_pixel_A_FLOAT(void* pPixel)
+float4 load_pixel_A_FLOAT(__private void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
-    pixel.w = *((float*)pPixel);
+    pixel.w = *((__private float*)pPixel);
     return pixel;
 }
 
@@ -2078,9 +1899,9 @@ float4 load_pixel_A_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (0, 0, 0, a)
-float4 load_pixel_A_HALF_FLOAT(void* pPixel)
+float4 load_pixel_A_HALF_FLOAT(__private void* pPixel)
 {
-    float val = vloada_half(0, (half*)pPixel);
+    float val = vloada_half(0, (__private half*)pPixel);
 
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.w = val;
@@ -2095,9 +1916,9 @@ float4 load_pixel_A_HALF_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, 0, 0, 1.0)
-float4 load_pixel_R_HALF_FLOAT(void* pPixel)
+float4 load_pixel_R_HALF_FLOAT(__private void* pPixel)
 {
-    float val = vloada_half(0, (half*)pPixel);
+    float val = vloada_half(0, (__private half*)pPixel);
 
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.x = val;
@@ -2112,9 +1933,9 @@ float4 load_pixel_R_HALF_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, g, 0, 1.0)
-float4 load_pixel_RG_HALF_FLOAT(void* pPixel)
+float4 load_pixel_RG_HALF_FLOAT(__private void* pPixel)
 {
-    float2 val = vloada_half2(0, (half*)pPixel);
+    float2 val = vloada_half2(0, (__private half*)pPixel);
 
     float4 pixel = (float4)(0.f, 0.f, 0.f, 1.f);
     pixel.lo = val;
@@ -2129,9 +1950,9 @@ float4 load_pixel_RG_HALF_FLOAT(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, g, b, a)
-uint4 load_pixel_RGBA_UNSIGNED_INT8(void* pPixel)
+uint4 load_pixel_RGBA_UNSIGNED_INT8(__private void* pPixel)
 {
-    char4 color = *(char4*)pPixel; // nevermind signed/unsigned.
+    char4 color = *(__private char4*)pPixel; // nevermind signed/unsigned.
     int4 converted = __ocl_zext_v4i8_v4i32(color);
     return *(uint4*)&converted;
 }
@@ -2145,10 +1966,10 @@ uint4 load_pixel_RGBA_UNSIGNED_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, 0, 0, 1.0)
-uint4 load_pixel_R_UNSIGNED_INT8(void* pPixel)
+uint4 load_pixel_R_UNSIGNED_INT8(__private void* pPixel)
 {
     uint4 pixel = (uint4)(0, 0, 0, 1);
-    pixel.x = (uint)(*((uchar*)pPixel));
+    pixel.x = (uint)(*((__private uchar*)pPixel));
     return pixel;
 }
 
@@ -2160,11 +1981,11 @@ uint4 load_pixel_R_UNSIGNED_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, g, 0, 1.0)
-uint4 load_pixel_RG_UNSIGNED_INT8(void* pPixel)
+uint4 load_pixel_RG_UNSIGNED_INT8(__private void* pPixel)
 {
     uint4 pixel = (uint4)(0, 0, 0, 1);
-    pixel.x = (uint)(*((uchar*)pPixel));
-    pixel.y = (uint)(((uchar*)pPixel)[1]);
+    pixel.x = (uint)(*((__private uchar*)pPixel));
+    pixel.y = (uint)(((__private uchar*)pPixel)[1]);
     return pixel;
 }
 
@@ -2176,10 +1997,10 @@ uint4 load_pixel_RG_UNSIGNED_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, 0, 0, 1.0)
-uint4 load_pixel_R_UNSIGNED_INT16(void* pPixel)
+uint4 load_pixel_R_UNSIGNED_INT16(__private void* pPixel)
 {
     uint4 pixel = (uint4)(0, 0, 0, 1);
-    pixel.x = (uint)( *((ushort*)pPixel) );
+    pixel.x = (uint)( *((__private ushort*)pPixel) );
     return pixel;
 }
 
@@ -2191,11 +2012,11 @@ uint4 load_pixel_R_UNSIGNED_INT16(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a uint4 (r, g, 0, 1.0)
-uint4 load_pixel_RG_UNSIGNED_INT16(void* pPixel)
+uint4 load_pixel_RG_UNSIGNED_INT16(__private void* pPixel)
 {
     uint4 pixel = (uint4)(0, 0, 0, 1);
-    pixel.x = (uint)( *((ushort*)pPixel) );
-    pixel.y = (uint)( (((ushort*)pPixel)[1]) );
+    pixel.x = (uint)( *((__private ushort*)pPixel) );
+    pixel.y = (uint)( (((__private ushort*)pPixel)[1]) );
     return pixel;
 }
 
@@ -2207,10 +2028,10 @@ uint4 load_pixel_RG_UNSIGNED_INT16(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a int4 (r, 0, 0, 1.0)
-int4 load_pixel_R_SIGNED_INT8(void* pPixel)
+int4 load_pixel_R_SIGNED_INT8(__private void* pPixel)
 {
     int4 pixel = (int4)(0, 0, 0, 1);
-    pixel.x = (int)(*((char*)pPixel));
+    pixel.x = (int)(*((__private char*)pPixel));
     return pixel;
 }
 
@@ -2222,11 +2043,11 @@ int4 load_pixel_R_SIGNED_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a int4 (r, g, 0, 1.0)
-int4 load_pixel_RG_SIGNED_INT8(void* pPixel)
+int4 load_pixel_RG_SIGNED_INT8(__private void* pPixel)
 {
     int4 pixel = (int4)(0, 0, 0, 1);
-    pixel.x = (int)(*((char*)pPixel));
-    pixel.y = (int)(((char*)pPixel)[1]);
+    pixel.x = (int)(*((__private char*)pPixel));
+    pixel.y = (int)(((__private char*)pPixel)[1]);
     return pixel;
 }
 
@@ -2238,10 +2059,10 @@ int4 load_pixel_RG_SIGNED_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (0, 0, 0, a)
-float4 load_pixel_A_UNORM_INT8(void* pPixel)
+float4 load_pixel_A_UNORM_INT8(__private void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 0.f);
-    pixel.w = (float)(*((uchar*)pPixel));
+    pixel.w = (float)(*((__private uchar*)pPixel));
     float4 converted = pixel*(float4)(1.0f/255.0f);
     return converted;
 }
@@ -2254,10 +2075,10 @@ float4 load_pixel_A_UNORM_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (0, 0, 0, a)
-float4 load_pixel_A_UNORM_INT16(void* pPixel)
+float4 load_pixel_A_UNORM_INT16(__private void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 0.f);
-    pixel.w = (float)*((ushort*)pPixel);
+    pixel.w = (float)*((__private ushort*)pPixel);
     float4 converted = pixel*(float4)(1.0f/65535.0f);
     return converted;
 }
@@ -2270,10 +2091,10 @@ float4 load_pixel_A_UNORM_INT16(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, g, 0, 1)
-float4 load_pixel_RG_UNORM_INT8(void* pPixel)
+float4 load_pixel_RG_UNORM_INT8(__private void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 255.f); // Make the last value 255 to have 1 after conversion
-    pixel.x = (float)(*((uchar*)pPixel));
+    pixel.x = (float)(*((__private uchar*)pPixel));
     pixel.y = (float)(((uchar*)pPixel)[1]);
     float4 converted = pixel*(float4)(1.0f/255.0f);
     return converted;
@@ -2287,29 +2108,31 @@ float4 load_pixel_RG_UNORM_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, 0, 0, 1)
-float4 load_pixel_R_UNORM_INT8(void* pPixel)
+float4 load_pixel_R_UNORM_INT8(__private void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 255.f); // Make the last value 255 to have 1 after conversion
-    pixel.x = (float)(*((uchar*)pPixel));
+    pixel.x = (float)(*((__private uchar*)pPixel));
     float4 converted = pixel*(float4)(1.0f/255.0f);
     return converted;
 }
 
+/***************************************sRGB Image type i/o functions*****************************************************/
+
 // loads and converts pixel data from a given pixel pointer when the image has the following properties:
-// Channel Order: CL_sRGBA and CL_sBGRA 
+// Channel Order: CL_sRGBA and CL_sBGRA
 // Channel Data Type: CLK_UNORM_INT8
 //
 // @param image: the image object
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, g, b, a)
-// 
+//
 // The following is lookup table with precomputed sRGB values for each of possible UNORM_INT8
-// it is aligned by cacheline length 
+// it is aligned by cacheline length
 //
 // The table was computed with this kernel:
-//  __kernel void calclulate_sRGBA_read_imagef_lut(__global float *out) {
-//      int index = get_global_id(0);
+//  __kernel void calclulate_sRGBA_read_imagef_lut(__private float *out) {
+//      int index = get_private_id(0);
 //      float c = convert_float(index) * 1.f/255.f;
 //      if (c <= 0.04045f)
 //        out[index] = c / 12.92f;
@@ -2383,25 +2206,37 @@ float4 load_pixel_R_UNORM_INT8(void* pPixel)
 0.97344547510147095, 0.9822508692741394, 0.99110221862792969, 1
 };
 
-float4 load_pixel_sRGBA_UNORM_INT8(void* pPixel)
+float4 load_pixel_sRGBA_UNORM_INT8(__private void* pPixel)
 {
-    uchar * data = (uchar*)pPixel;
-    float4 pixel = (float4)(read_imagef_sRGBA_UNORM_INT8_LUT[data[0]], 
+    __private uchar * data = (__private uchar*)pPixel;
+    float4 pixel = (float4)(read_imagef_sRGBA_UNORM_INT8_LUT[data[0]],
                             read_imagef_sRGBA_UNORM_INT8_LUT[data[1]],
                             read_imagef_sRGBA_UNORM_INT8_LUT[data[2]],
                             data[3] * 1.f/255.f);
     return pixel;
 }
 
-float4 load_pixel_sBGRA_UNORM_INT8(void* pPixel)
+float4 load_pixel_sBGRA_UNORM_INT8(__private void* pPixel)
 {
-    uchar * data = (uchar*)pPixel;
-    float4 pixel = (float4)(read_imagef_sRGBA_UNORM_INT8_LUT[data[2]], 
+    __private uchar * data = (__private uchar*)pPixel;
+    float4 pixel = (float4)(read_imagef_sRGBA_UNORM_INT8_LUT[data[2]],
                             read_imagef_sRGBA_UNORM_INT8_LUT[data[1]],
                             read_imagef_sRGBA_UNORM_INT8_LUT[data[0]],
                             data[3] * 1.f/255.f);
     return pixel;
 }
+
+void write_sample_sRGBA_UNORM_INT8(__private void* pixel, float4 color)
+{
+  // stubbed: write to sRGBA images is optional and not supported yet
+}
+
+void write_sample_sBGRA_UNORM_INT8(__private void* pixel, float4 color)
+{
+  // stubbed: write to sBGRA images is optional and not supported yet
+}
+
+/*************************************************************************************************************************/
 
 
 // loads and converts pixel data from a given pixel pointer when the image has the following properties:
@@ -2412,11 +2247,11 @@ float4 load_pixel_sBGRA_UNORM_INT8(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, g, 0, 1)
-float4 load_pixel_RG_UNORM_INT16(void* pPixel)
+float4 load_pixel_RG_UNORM_INT16(__private void* pPixel)
 {
     float4 pixel = (float4)(0.f, 0.f, 0.f, 65535.f); // Make the last value 65535 to have 1 after conversion
-    pixel.x = (float)*((ushort*)pPixel);
-    pixel.y = (float)(((ushort*)pPixel)[1]);
+    pixel.x = (float)*((__private ushort*)pPixel);
+    pixel.y = (float)(((__private ushort*)pPixel)[1]);
     float4 converted = pixel*(float4)(1.0f/65535.0f);
     return converted;
 }
@@ -2429,23 +2264,23 @@ float4 load_pixel_RG_UNORM_INT16(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (r, 0, 0, 1)
-float4 load_pixel_R_UNORM_INT16(void* pPixel)
+float4 load_pixel_R_UNORM_INT16(__private void* pPixel)
 {
-    float r = convert_float(*(ushort*)pPixel) / 65535.f;
+    float r = convert_float(*(__private ushort*)pPixel) / 65535.f;
     return (float4)(r, 0.f, 0.f, 1.f);
 }
 
 // loads and converts pixel data from a given pixel pointer when the image has the following properties:
-// Channel Order: CLK_DEPTH 
+// Channel Order: CLK_DEPTH
 // Channel Data Type: CLK_UNORM_INT16
 //
 // @param image: the image object
 // @param pPixel: the pointer to the pixel
 //
 // returns a float4 (d, 0, 0, 1)
-float4 load_pixel_DEPTH_UNORM_INT16(void* pPixel)
+float4 load_pixel_DEPTH_UNORM_INT16(__private void* pPixel)
 {
-    float d = convert_float(*(ushort*)pPixel) / 65535.f;
+    float d = convert_float(*(__private ushort*)pPixel) / 65535.f;
     return (float4)(d, 0.f, 0.f, 1.f);
 }
 
@@ -2457,10 +2292,10 @@ float4 load_pixel_DEPTH_UNORM_INT16(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a int4 (r, 0, 0, 1.0)
-int4 load_pixel_R_SIGNED_INT16(void* pPixel)
+int4 load_pixel_R_SIGNED_INT16(__private void* pPixel)
 {
     int4 pixel = (int4)(0, 0, 0, 1);
-    pixel.x = (int)(*((short*)pPixel));
+    pixel.x = (int)(*((__private short*)pPixel));
     return pixel;
 }
 
@@ -2472,11 +2307,11 @@ int4 load_pixel_R_SIGNED_INT16(void* pPixel)
 // @param pPixel: the pointer to the pixel
 //
 // returns a int4 (r, g, 0, 1.0)
-int4 load_pixel_RG_SIGNED_INT16(void* pPixel)
+int4 load_pixel_RG_SIGNED_INT16(__private void* pPixel)
 {
     int4 pixel = (int4)(0, 0, 0, 1);
-    pixel.x = (int)(*((short*)pPixel));
-    pixel.y = (int)(((short*)pPixel)[1]);
+    pixel.x = (int)(*((__private short*)pPixel));
+    pixel.y = (int)(((__private short*)pPixel)[1]);
     return pixel;
 }
 
@@ -2490,13 +2325,13 @@ int4 load_pixel_RG_SIGNED_INT16(void* pPixel)
 // @param coord: (x,y) coordinates of the pixel inside the image
 //
 // return: pointer to the begining of the pixel in memory
-void* extract_pixel_pointer_quad(image2d_t image, int4 coord, void* pData)
+__private void* extract_pixel_pointer_quad(image2d_t image, int4 coord, __private void* pData)
 {
     // Calculate required pixel offset
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
-    uint4 offset = *((uint4*)(&pImage->offset));
+    uint4 offset = *((__private uint4*)(&pImage->offset));
     uint4 ocoord = (as_uint4(coord)) * offset;
-    void* pixel = pData + ocoord.x + ocoord.y + ocoord.z;
+    __private void* pixel = pData + ocoord.x + ocoord.y + ocoord.z;
     return pixel;
 }
 
@@ -2526,7 +2361,7 @@ int4 ProjectToEdgeInt(image2d_t image, int4 coord)
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dimSub1)));
     int4 lower = (int4)(0, 0, 0, 0);
-    
+
     int4 correctCoord=min(coord, upper);
     correctCoord=max(correctCoord,lower);
     return correctCoord;
@@ -2540,7 +2375,7 @@ float4 Unnormalize(image2d_t image,float4 coord)
     return fupper*coord;
 }
 
-    
+
 //the coordinate here should be unnormalized already
 int4 ProjectNearest(float4 coord)
 {
@@ -2613,8 +2448,8 @@ float4 SampleImage3DFloat(float4 Ti0j0k0, float4 Ti1j0k0, float4 Ti0j1k0, float4
 /****************************************** SOA image write functions******************************************************/
 
 /// SOA8 write RGBA_UNSIGNED_INT8
-void soa8_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3, 
-                                                                        void* p4, void* p5, void* p6, void* p7, 
+void soa8_write_sample_RGBA_UNSIGNED_INT8(__private void* p0, __private void* p1, __private void* p2, __private void* p3, 
+                                                                        __private void* p4, __private void* p5, __private void* p6, __private void* p7, 
                                                                         uint8 val_x, uint8 val_y, uint8 val_z, uint8 val_w)
 {
 
@@ -2623,13 +2458,15 @@ void soa8_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3
     uchar8 clr_z = convert_uchar8_sat(val_z);
     uchar8 clr_w = convert_uchar8_sat(val_w);
 
-    __ocl_transpose_scatter_char4x8((char4*)p0, (char4*)p1, (char4*)p2, (char4*)p3,
-                              (char4*)p4, (char4*)p5, (char4*)p6, (char4*)p7,
+    // there is no transpose functions with __private address space
+    // convert __private to __private as a workaround
+    __ocl_transpose_scatter_char_4x8((__private char4*)p0, (__private char4*)p1, (__private char4*)p2, (__private char4*)p3,
+                              (__private char4*)p4, (__private char4*)p5, (__private char4*)p6, (__private char4*)p7,
                               as_char8(clr_x), as_char8(clr_y), as_char8(clr_z), as_char8(clr_w));
 }
 
 /// SOA4 write RGBA_UNSIGNED_INT8
-void soa4_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3, uint4 val_x, uint4 val_y, uint4 val_z, uint4 val_w)
+void soa4_write_sample_RGBA_UNSIGNED_INT8(__private void* p0, __private void* p1, __private void* p2, __private void* p3, uint4 val_x, uint4 val_y, uint4 val_z, uint4 val_w)
 {
 
     uchar4 clr_x = convert_uchar4_sat(val_x);
@@ -2637,14 +2474,16 @@ void soa4_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3
     uchar4 clr_z = convert_uchar4_sat(val_z);
     uchar4 clr_w = convert_uchar4_sat(val_w);
 
-    __ocl_transpose_scatter_char4x4((char4*)p0, (char4*)p1, (char4*)p2, (char4*)p3,
+    // there is no transpose functions with __private address space
+    // convert __private to __private as a workaround
+    __ocl_transpose_scatter_char_4x4((__private char4*)p0, (__private char4*)p1, (__private char4*)p2, (__private char4*)p3,
                               as_char4(clr_x), as_char4(clr_y), as_char4(clr_z), as_char4(clr_w));
 }
 
 
 #define SCALARIZE_SOA4_WRITE_SAMPLE(FORMAT, PIX_TYPE)\
     void soa4_write_sample_##FORMAT(\
-           void* p0, void* p1, void* p2, void* p3,\
+           __private void* p0, __private void* p1, __private void* p2, __private void* p3,\
            PIX_TYPE##4 val_x, PIX_TYPE##4 val_y, PIX_TYPE##4 val_z, PIX_TYPE##4 val_w){\
       write_sample_##FORMAT(p0, (PIX_TYPE##4)(val_x.s0, val_y.s0, val_z.s0, val_w.s0));\
       write_sample_##FORMAT(p1, (PIX_TYPE##4)(val_x.s1, val_y.s1, val_z.s1, val_w.s1));\
@@ -2654,8 +2493,8 @@ void soa4_write_sample_RGBA_UNSIGNED_INT8(void* p0, void* p1, void* p2, void* p3
 
 #define SCALARIZE_SOA8_WRITE_SAMPLE(FORMAT, PIX_TYPE)\
     void soa8_write_sample_##FORMAT(\
-           void* p0, void* p1, void* p2, void* p3,\
-           void* p4, void* p5, void* p6, void* p7,\
+           __private void* p0, __private void* p1, __private void* p2, __private void* p3,\
+           __private void* p4, __private void* p5, __private void* p6, __private void* p7,\
            PIX_TYPE##8 val_x, PIX_TYPE##8 val_y, PIX_TYPE##8 val_z, PIX_TYPE##8 val_w){\
       write_sample_##FORMAT(p0, (PIX_TYPE##4)(val_x.s0, val_y.s0, val_z.s0, val_w.s0));\
       write_sample_##FORMAT(p1, (PIX_TYPE##4)(val_x.s1, val_y.s1, val_z.s1, val_w.s1));\
@@ -2681,8 +2520,8 @@ SCALARIZE_WRITE_SAMPLE(RG_UNSIGNED_INT32, uint)
 SCALARIZE_WRITE_SAMPLE(R_UNSIGNED_INT32, uint)
 
 // undefined callbacks implementation
-void soa4_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int4 coord_x, int4 coord_y, void* pData, 
-                                                                               uint4* res_x, uint4* res_y, uint4* res_z, uint4* res_w )
+void soa4_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int4 coord_x, int4 coord_y, __private void* pData,
+                                          __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w )
 {
     *res_x = BorderColorNoAlphaUint.x;
     *res_y = BorderColorNoAlphaUint.y;
@@ -2690,8 +2529,8 @@ void soa4_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int4 coord_x, int4 co
     *res_w = BorderColorNoAlphaUint.w;
 }
 
-void soa8_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int8 coord_x, int8 coord_y, void* pData, 
-                                                                               uint8* res_x, uint8* res_y, uint8* res_z, uint8* res_w )
+void soa8_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int8 coord_x, int8 coord_y, __private void* pData,
+                                          __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w )
 {
     *res_x = BorderColorNoAlphaUint.x;
     *res_y = BorderColorNoAlphaUint.y;
@@ -2699,12 +2538,12 @@ void soa8_read_sample_UNDEFINED_QUAD_INT( image2d_t image, int8 coord_x, int8 co
     *res_w = BorderColorNoAlphaUint.w;
 }
 
-uint4 read_sample_UNDEFINED_QUAD_INT(image2d_t image, int4 coord, void* pData)
+uint4 read_sample_UNDEFINED_QUAD_INT(image2d_t image, int4 coord, __private void* pData)
 {
     return BorderColorNoAlphaUint;  //return all zeros vector
 }
 
-float4 read_sample_UNDEFINED_QUAD_FLOAT(image2d_t image, int4 square0, int4 square1, float4 fraction, void* pData)  \
+float4 read_sample_UNDEFINED_QUAD_FLOAT(image2d_t image, int4 square0, int4 square1, float4 fraction, __private void* pData)  \
 {
     return BorderColorNoAlphaFloat;  //return all zeros vector
 }

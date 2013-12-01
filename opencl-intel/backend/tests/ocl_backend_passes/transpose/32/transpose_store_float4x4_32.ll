@@ -1,20 +1,20 @@
 ; XFAIL: x86
-; RUN: oclopt -builtins-module=clbltfng9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfng9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc < %t1.ll -mattr=+avx -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK-AVX
-; RUN: oclopt -builtins-module=clbltfns9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
+; RUN: oclopt -runtimelib=clbltfns9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
 ; RUN: llc < %t2.ll -mattr=+avx2 -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK-AVX2
 
 
 define <4 x float> @foo(<4 x float>* nocapture %pStoreAdd, <4 x float> %xIn, <4 x float> %yIn, <4 x float> %zIn, <4 x float> %wIn) nounwind{
 entry:
-    call void @__ocl_transpose_store_float4x4(<4 x float>* nocapture %pStoreAdd, <4 x float> %xIn, <4 x float> %yIn, <4 x float> %zIn, <4 x float> %wIn) nounwind
+    call void @__ocl_transpose_store_float_4x4(<4 x float>* nocapture %pStoreAdd, <4 x float> %xIn, <4 x float> %yIn, <4 x float> %zIn, <4 x float> %wIn) nounwind
     %re0 = fadd <4 x float> %xIn, %yIn
     %re1 = fadd <4 x float> %zIn, %wIn
     %ret0 = fadd <4 x float> %re0, %re1
     ret <4 x float> %ret0
 }
 
-declare void @__ocl_transpose_store_float4x4(<4 x float>* nocapture %pStoreAdd, <4 x float> %xIn, <4 x float> %yIn, <4 x float> %zIn, <4 x float> %wIn) nounwind
+declare void @__ocl_transpose_store_float_4x4(<4 x float>* nocapture %pStoreAdd, <4 x float> %xIn, <4 x float> %yIn, <4 x float> %zIn, <4 x float> %wIn) nounwind
 
 
 ;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
@@ -34,7 +34,7 @@ declare void @__ocl_transpose_store_float4x4(<4 x float>* nocapture %pStoreAdd, 
 ;CHECK-AVX:	vaddps	[[XMM3]], [[XMM2]], [[XMM21:%xmm[0-9]+]]
 ;CHECK-AVX:	vaddps	[[XMM1]], [[XMM0]], [[XMM01:%xmm[0-9]+]]
 ;CHECK-AVX:	vaddps	[[XMM21]], [[XMM01]], [[XMM02:%xmm[0-9]+]]
-;CHECK-AVX:	.type	    [[TRANSPOSE:[_a-z]+]]_store_float4x4,@function
+;CHECK-AVX:	.type	    [[TRANSPOSE:[_a-z]+]]_store_float_4x4,@function
 
 ;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX2:    [[FOO]]:
@@ -49,4 +49,4 @@ declare void @__ocl_transpose_store_float4x4(<4 x float>* nocapture %pStoreAdd, 
 ;CHECK-AVX2:	vaddps	[[XMM3:%xmm[0-9]+]], [[XMM21:%xmm[0-9]+]], [[XMM2:%xmm[0-9]+]]
 ;CHECK-AVX2:	vaddps	[[XMM1:%xmm[0-9]+]], [[XMM01:%xmm[0-9]+]], [[XMM0:%xmm[0-9]+]]
 ;CHECK-AVX2:	vaddps	[[XMM2]], [[XMM0]], [[XMM0:%xmm[0-9]+]]
-;CHECK-AVX2:	.type	    [[TRANSPOSE:[_a-z]+]]_store_float4x4,@function
+;CHECK-AVX2:	.type	    [[TRANSPOSE:[_a-z]+]]_store_float_4x4,@function

@@ -169,6 +169,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const 
                         { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;} 
 
+		virtual Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+
     protected:
 
         BuildTask(_cl_context_int* context,
@@ -204,6 +206,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         }
 
 	    virtual bool	Execute();
+        virtual void    Cancel();
 		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
 		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
 		bool	CompleteAndCheckSyncPoint() {return false;}
@@ -252,6 +255,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         }
 
 	    virtual bool	Execute();
+        virtual void    Cancel();
 		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
 		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
 		bool	CompleteAndCheckSyncPoint() {return false;}
@@ -303,6 +307,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         }
 
 	    virtual bool	Execute();
+        virtual void    Cancel();
 		bool	SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
 		bool	IsCompleted() const {assert(0&&"Should not be called");return true;}
 		bool	CompleteAndCheckSyncPoint() {return false;}

@@ -41,12 +41,12 @@
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/FrontendTool/Utils.h"
 #endif
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Linker.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -59,7 +59,8 @@
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/SystemUtils.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Transforms/IPO.h"
@@ -79,8 +80,6 @@
 #include <Logger.h>
 #include <cl_sys_info.h>
 #include <cl_cpu_detect.h>
-#include "MetaDataApi.h"
-
 
 #include <string>
 #include <list>
@@ -100,6 +99,13 @@ using namespace TC;
 #endif
 
 using namespace std;
+
+namespace llvm {
+  //===----------------------------------------------------------------------===//
+  // createSPIRMetadataAdderPass - Add SPIR related module scope metadata.
+  //
+  ModulePass *createSPIRMetadataAdderPass(const std::list<std::string> BuildOpt = std::list<std::string>(), int OCLVer = 120 );
+}
 
 #if defined (_WIN32)
 #define GET_CURR_WORKING_DIR(len, buff) GetCurrentDirectoryA(len, buff)
@@ -121,7 +127,7 @@ static int g_uiProgID = 1;
 
 const std::string APFLevelOptionName("-auto-prefetch-level=");
 
-void LLVMErrorHandler(void *UserData, const std::string &Message) {
+void LLVMErrorHandler(void *UserData, const std::string &Message, bool gen_crash_diag) {
 #ifndef _WIN32
   DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine*>(UserData);
 
@@ -227,8 +233,9 @@ static vector<string> quoted_tokenize(string str, string delims, char quote, cha
 
 // ClangFECompilerCompileTask calls implementation
 ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
-                                                       Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo)
-: m_pProgDesc(pProgDesc), m_sDeviceInfo(sDeviceInfo), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
+																												Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo,
+                                                                                                                const Intel::OpenCL::Utils::BasicCLConfigWrapper& config)
+: m_pProgDesc(pProgDesc), m_sDeviceInfo(sDeviceInfo), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0), m_config(config)
 {
   Twine t(g_uiProgID++);
   m_source_filename = t.str();
@@ -250,9 +257,11 @@ ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
 void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListType &BEArgList, const char *buildOpts)
 {
     CLSTDSet = 0;
-    
+    std::string triple;
+
     ParseCompileOptions(buildOpts,
                         NULL,
+                        m_config,
                         &list,
                         &BEArgList,
                         &CLSTDSet,
@@ -271,12 +280,6 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     list.push_back("-D");
     list.push_back("__OPENCL_C_VERSION__=120");
     CLSTDSet = 120;
-  } else if(CLSTDSet == 120) {
-    list.push_back("-D");
-    list.push_back("__OPENCL_C_VERSION__=120");
-  } else if(CLSTDSet == 110) {
-    list.push_back("-D");
-    list.push_back("__OPENCL_C_VERSION__=110");
   }
 
     list.push_back("-x");
@@ -291,12 +294,20 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 
     // Retrieve local relatively to binary directory
     GetModuleDirectory(szBinaryPath, MAX_STR_BUFF);
+
+    const char* pchFileName;
+    if ( CLSTDSet >= 200 ) {
+      pchFileName = "opencl20_.pch";
+    } else {
+      pchFileName = "opencl_.pch";
+    }
+
 #ifndef PASS_PCH
     char szOclIncPath[MAX_STR_BUFF];
     char  szOclPchPath[MAX_STR_BUFF];
 
   SPRINTF_S(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
-  SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%sopencl_.pch", szBinaryPath);
+  SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%s%s", szBinaryPath, pchFileName);
 
   list.push_back("-I");
   list.push_back(szOclIncPath);
@@ -305,7 +316,7 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
   list.push_back(szOclPchPath);
 #else
   list.push_back("-include-pch");
-  list.push_back("OpenCL_.pch");
+  list.push_back(pchFileName);
 #endif
 
     list.push_back("-fno-validate-pch");
@@ -315,24 +326,26 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     list.push_back("-I");
     list.push_back(szCurrDirrPath);
 
-    //Add OpenCL predefined macros
-    list.push_back("-D");
-    list.push_back("__OPENCL_VERSION__=120");
-    list.push_back("-D");
-    list.push_back("CL_VERSION_1_0=100");
-    list.push_back("-D");
-    list.push_back("CL_VERSION_1_1=110");
-    list.push_back("-D");
-    list.push_back("CL_VERSION_1_2=120");
-    list.push_back("-D");
-    list.push_back("__ENDIAN_LITTLE__=1");
-    list.push_back("-D");
-    list.push_back("__ROUNDING_MODE__=rte");    
-    if(m_sDeviceInfo.bImageSupport) {
-        list.push_back("-D");
-        list.push_back("__IMAGE_SUPPORT__=1");  
-    }
-    if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) {
+	//Add OpenCL predefined macros
+	list.push_back("-D");
+	list.push_back("__OPENCL_VERSION__=120");
+	list.push_back("-D");
+	list.push_back("CL_VERSION_1_0=100");
+	list.push_back("-D");
+	list.push_back("CL_VERSION_1_1=110");
+	list.push_back("-D");
+	list.push_back("CL_VERSION_1_2=120");
+	list.push_back("-D");
+	list.push_back("CL_VERSION_2_0=200");
+	list.push_back("-D");
+	list.push_back("__ENDIAN_LITTLE__=1");
+	list.push_back("-D");
+	list.push_back("__ROUNDING_MODE__=rte");	
+	if(m_sDeviceInfo.bImageSupport) {
+		list.push_back("-D");
+		list.push_back("__IMAGE_SUPPORT__=1");	
+	}
+	if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) {
         OptProfiling = true;
 
         if (!OptDebugInfo)
@@ -371,14 +384,18 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 
     // Don't optimize in the frontend
     list.push_back("-O0");
-  list.push_back("-triple");
+    list.push_back("-triple");
+    if(triple.empty()) {
 #if defined(_WIN64) || defined(__x86_64__) || defined(_M_AMD64) || defined (_M_X64)
-    list.push_back("spir64-unknown-unknown");
+        list.push_back("spir64-unknown-unknown");
 #elif defined(_WIN32) || defined(i386) || defined(__i386__) || defined(__x86__) || defined(__ANDROID__)
-    list.push_back("spir-unknown-unknown");
+        list.push_back("spir-unknown-unknown");
 #else
-#error "Can't define target triple: unknown architecture."
+  #error "Can't define target triple: unknown architecture."
 #endif
+    } else {
+        list.push_back(triple);
+    }
 }
 
 void *ClangFECompilerCompileTask::LoadPchResourceBuffer ()
@@ -751,6 +768,13 @@ int ClangFECompilerCompileTask::Compile()
   Clang->SetOutputStream(&IRStream);
   Clang->setDiagnostics(Diags.getPtr());
 
+  PreprocessorOptions &PPO = Clang->getPreprocessorOpts();
+
+  // Explicitly set the cl_khr_fp extension to 1, so double variable will be supported while building the PCH file
+  PPO.SupportedPragmas.cl_khr_fp64 = 1;
+  PPO.SupportedPragmas.cl_khr_depth_images = 1;
+  PPO.SupportedPragmas.cl_khr_3d_image_writes = 1;
+
   // Create compiler invocation from user args
   CompilerInvocation::CreateFromArgs(Clang->getInvocation(), argArray, argArray + ArgList.size(),
                                      *Diags);
@@ -798,7 +822,11 @@ int ClangFECompilerCompileTask::Compile()
   // Locate the resource
   if( NULL != hMod )
   {
-    hRes = FindResource(hMod, "#101", "PCH");
+    if ( CLSTDSet >= 200 ) {
+      hRes = FindResource(hMod, "#102", "PCH");
+    } else {
+      hRes = FindResource(hMod, "#101", "PCH");
+    }
   }
   else
   {
@@ -902,7 +930,8 @@ int ClangFECompilerCompileTask::Compile()
     llvm::SmallVector<char, 4096>   SPIRbinary;
     llvm::raw_svector_ostream SPIRstream(SPIRbinary);
     {
-        llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
+        LLVMContext ctx;
+        llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), ctx, &ErrorMessage);
         llvm::OwningPtr<PassManager> Passes(new PassManager());
         Passes->add(new DataLayout(M)); // Use correct DataLayout
         Passes->add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
@@ -1107,26 +1136,18 @@ int ClangFECompilerLinkTask::Link()
                 return CL_LINK_PROGRAM_FAILURE;
             }
             
-            Intel::MetaDataUtils mdUtils(M);
-            Intel::MetaDataUtils::CompilerOptionsList::iterator it = mdUtils.begin_CompilerOptions();
-            Intel::MetaDataUtils::CompilerOptionsList::iterator e  = mdUtils.end_CompilerOptions();
-            
-            // Iterating the compilation option, in search on 'target-triple'.
-            for(; it != e; ++it) 
-            {
-              if (!(*it)->isvalueHasValue()) 
-                continue;
-              
-              std::string opt((*it)->getvalue());
-              
-              if ( opt == "-cl-opt-disable")
-                pProgHeader->bDisableOpt = true;
-              if ( opt == "-cl-denorms-are-zeros")
-                pProgHeader->bDenormsAreZero = true;
-              if ( opt == "-cl-fast-relaxed-math")
-                pProgHeader->bFastRelaxedMath = true;
-              if ( opt == "-enable-link-options")
-                pProgHeader->bEnableLinkOptions = true;
+            if (llvm::NamedMDNode *Opts = M->getNamedMetadata("opencl.compiler.options")){
+                if (llvm::MDNode *OptsMD = Opts->getOperand(0)) {
+                    for (unsigned i=0; i<OptsMD->getNumOperands(); ++i){
+                        MDString *S = dyn_cast_or_null<MDString>(OptsMD->getOperand(i));
+                        assert(S && "Null String value in compiler options");
+                        StringRef opt = S->getString();
+                        pProgHeader->bDisableOpt |= (opt == "-cl-opt-disable");
+                        pProgHeader->bDenormsAreZero |= (opt == "-cl-denorms-are-zeros");
+                        pProgHeader->bFastRelaxedMath |= ( opt == "-cl-fast-relaxed-math");
+                        pProgHeader->bEnableLinkOptions |= ( opt == "-enable-link-options");
+                    }
+                }
             }
 
             MEMCPY_S(pIR, m_pProgDesc->puiBinariesSizes[0],
@@ -1742,12 +1763,12 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     }    
 
     // all of the above must be valid
-    if ( !( pAddressQualifiers && pAccessQualifiers && pTypeNames && pTypeQualifiers && pArgNames ) ) {
+	if ( !( pAddressQualifiers && pAccessQualifiers && pTypeNames && pTypeQualifiers /*&& pArgNames*/ ) ) {
         assert(pAddressQualifiers && "pAddressQualifiers is NULL");
         assert(pAccessQualifiers && "pAccessQualifiers is NULL");
         assert(pTypeNames && "pTypeNames is NULL");
         assert(pTypeQualifiers && "pTypeQualifiers is NULL");
-        assert(pArgNames && "pArgNames is NULL");
+        //assert(pArgNames && "pArgNames is NULL");
         delete pModule;
         return CL_FE_INTERNAL_ERROR_OHNO;
     }
@@ -1825,11 +1846,28 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
 
         argInfo.typeName = pTypeName->getString().str();
 
-        // Parameter name
-        MDString* pArgName = dyn_cast<MDString>(pArgNames->getOperand(i));
-        assert(pArgName && "pArgName is not a valid MDString*");
+        if (pArgNames) {
+          // Parameter name
+          MDString* pArgName = dyn_cast<MDString>(pArgNames->getOperand(i));
+          assert(pArgName && "pArgName is not a valid MDString*");
 
-        argInfo.name = pArgName->getString().str();
+          string szArgName = pArgName->getString().str();
+          argInfo.name = new char[szArgName.length() + 1];
+          if (!argInfo.name)
+          {
+              delete pModule;
+              return CL_OUT_OF_HOST_MEMORY;
+          }
+          STRCPY_S(argInfo.name, szArgName.length() + 1, szArgName.c_str());
+        } else {
+          argInfo.name = new char[1];
+          if (!argInfo.name)
+          {
+              delete pModule;
+              return CL_OUT_OF_HOST_MEMORY;
+          }
+          argInfo.name[0] = 0;
+        }
     }
 
     delete pModule;
@@ -1839,9 +1877,10 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
 }
 
 bool Intel::OpenCL::ClangFE::ClangFECompilerCheckCompileOptions(const char*  szOptions,
-                                                                char**       szUnrecognizedOptions)
+                                                                char**       szUnrecognizedOptions,
+                                                                const Intel::OpenCL::Utils::BasicCLConfigWrapper& config)
 {
-    return ParseCompileOptions(szOptions, szUnrecognizedOptions);
+    return ParseCompileOptions(szOptions, szUnrecognizedOptions, config);
 }
 
 bool Intel::OpenCL::ClangFE::ClangFECompilerCheckLinkOptions(const char* szOptions, char** szUnrecognizedOptions)
@@ -1851,6 +1890,7 @@ bool Intel::OpenCL::ClangFE::ClangFECompilerCheckLinkOptions(const char* szOptio
 
 bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                                                  char**       szUnrecognizedOptions,
+                                                 const Intel::OpenCL::Utils::BasicCLConfigWrapper& config,
                                                  ArgListType* pList,
                                                  ArgListType* pBEArgList,
                                                  int*         piCLStdSet,
@@ -1894,7 +1934,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     // Parse the build options - handle the ones we understand and pass the
     // rest into 'ignored'. Use " quoting to accept token with whitespace, but
     // don't use escaping (since we only need path tokens).
-    //
+    //    
     vector<string> opts = quoted_tokenize(szOptions, " \t", '"', '\x00');
     vector<string>::const_iterator opt_i = opts.begin();
     while (opt_i != opts.end()) {
@@ -2037,6 +2077,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             pList->push_back("-cl-fast-relaxed-math");
                   pList->push_back("-D");
             pList->push_back("__FAST_RELAXED_MATH__=1");
+            pBEArgList->push_back("-cl-fast-relaxed-math");
             bFastRelaxedMath = true;
         }
         else if (*opt_i == "-cl-kernel-arg-info") {
@@ -2047,13 +2088,29 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             iCLStdSet = 110;
             pList->push_back("-cl-std=CL1.1");
             pList->push_back("-D");
-              pList->push_back("__OPENCL_C_VERSION__=110");
+            pList->push_back("__OPENCL_C_VERSION__=110");
+            pBEArgList->push_back("-cl-std=CL1.1");
         }
         else if (*opt_i == "-cl-std=CL1.2") {
             iCLStdSet = 120;
             pList->push_back("-cl-std=CL1.2");
             pList->push_back("-D");
             pList->push_back("__OPENCL_C_VERSION__=120");
+            pBEArgList->push_back("-cl-std=CL1.2");
+        }
+        else if (config.GetOpenCLVersion() == OPENCL_VERSION_2_0 && *opt_i == "-cl-std=CL2.0") {
+            iCLStdSet = 200;
+            pList->push_back("-cl-std=CL2.0");
+            pList->push_back("-D");
+            pList->push_back("__OPENCL_C_VERSION__=200");
+            pBEArgList->push_back("-cl-std=CL2.0");
+        }
+        else if (*opt_i == "-triple") {
+            // Expect the target triple as the next token
+            //
+            if (++opt_i != opts.end()) {
+                szTriple = *opt_i;
+            }
         }
         else if (*opt_i == "-target-triple") {
             if (++opt_i != opts.end()) {
@@ -2063,6 +2120,23 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
               pBEArgList->push_back(*opt_i);
             } else {
                 res = false;
+            }
+        }
+        else if ((*opt_i == "-std-spir=1.0") || 
+                 (*opt_i == "-std-spir=1.2")) {
+            //ignore SPIR version flag for now
+        }
+        else if ((*opt_i == "-x")) {
+            if (++opt_i != opts.end()) {
+                if (*opt_i != "spir") {
+                    UnrecognizedArgs.push_back("-x");
+                    UnrecognizedArgsLength += 3;
+                    UnrecognizedArgs.push_back(*opt_i);
+                    UnrecognizedArgsLength += opt_i->length() + 1;
+                }
+            } else {
+                UnrecognizedArgs.push_back("-x");
+                UnrecognizedArgsLength += 3;
             }
         }
         else {
@@ -2155,6 +2229,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     {
         *pszTriple = szTriple;
     }
+
 
     return res;
 }

@@ -152,6 +152,11 @@ bool CompileTask::Execute()
 	return true;
 }
 
+void CompileTask::Cancel()
+{
+    SetComplete(CL_BUILD_ERROR);
+}
+
 LinkTask::LinkTask(_cl_context_int*               context, 
                    cl_device_id             deviceID, 
                    const ConstSharedPtr<FrontEndCompiler>&  pFECompiler, 
@@ -339,6 +344,11 @@ bool LinkTask::Execute()
 	  return true;
 }
 
+void LinkTask::Cancel()
+{
+    SetComplete(CL_BUILD_ERROR);
+}
+
 PostBuildTask::PostBuildTask(_cl_context_int* context, 
                              cl_uint num_devices, 
                              const cl_device_id *deviceID, 
@@ -459,6 +469,11 @@ bool PostBuildTask::Execute()
     }
 
 	return true;
+}
+
+void PostBuildTask::Cancel()
+{
+    SetComplete(CL_BUILD_PROGRAM_FAILURE);
 }
 
 ProgramService::~ProgramService()
@@ -997,10 +1012,11 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
         if (num_input_programs == uiFoundBinaries)
         {
             pbBuildForDevice[devID] = true;
-			continue;
+            continue;
         }
-		delete[] szBuildOptions;
-		delete[] pDevices;
+        delete[] szBuildOptions;
+        delete[] pDevices;
+        delete[] input_programs;
         return CL_INVALID_OPERATION;
     }
 

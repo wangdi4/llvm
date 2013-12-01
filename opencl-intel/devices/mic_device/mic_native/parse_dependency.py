@@ -8,6 +8,9 @@ def parse_dependecy():
         if (line.find(".obj:") >= 0):
             skipPrefix = False
             line = line[line.find(".obj:") + 5 :]
+        elif (line.find(".o:") >= 0):
+            skipPrefix = False
+            line = line[line.find(".o:") + 3 :]
         if (skipPrefix == True):
             continue
         line = line.rstrip('\n')

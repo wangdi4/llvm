@@ -10,9 +10,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "RelaxedPass.h"
 #include "OCLPassSupport.h"
 #include <llvm/Pass.h>
-#include <llvm/Module.h>
-#include <llvm/DerivedTypes.h>
-#include <llvm/Constants.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Constants.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 
@@ -34,22 +34,22 @@ extern "C" {
     }
 }
 
-#define NAME_RELAXED_2_0 "native_rm_"
+#define NAME_RELAXED_2_0 "_rm"
 
+// the length of "_rm" is 3, the length of "cos" is 3, so NAME_RELAXED_2_0_LEN_3 = 6, these
+// defines are used in macroses like RELAXED_MATH_2_0_P1_vX and if prefixes/postfixes like "_rm" will be changed 
+// to new ones with different length, it will be enough to change only defines NAME_RELAXED_2_0_LEN_3 ... NAME_RELAXED_2_0_LEN_6
 
-// the length of "native_rm_" is 10, the length of "cos" is 3, so NAME_RELAXED_2_0_LEN_3 = 13 and if prefix "native_rm_", these
-// deines are used in macroses like RELAXED_MATH_2_0_P1_vX and if prefix "native_rm_" will be changed to new one with different length,
-// it will be enough to change only defines NAME_RELAXED_2_0_LEN_3 ... NAME_RELAXED_2_0_LEN_6
-#define NAME_RELAXED_2_0_LEN_3 13
-#define NAME_RELAXED_2_0_LEN_4 14
-#define NAME_RELAXED_2_0_LEN_5 15
-#define NAME_RELAXED_2_0_LEN_6 16
+#define NAME_RELAXED_2_0_LEN_3 6
+#define NAME_RELAXED_2_0_LEN_4 7
+#define NAME_RELAXED_2_0_LEN_5 8
+#define NAME_RELAXED_2_0_LEN_6 9
 
 #define INSERT_MAP_TO_NATIVE(map, func, type, length, native_length)        \
     map.insert ( pair<std::string, std::string>("_Z" #length #func type, "_Z" #native_length "native_" #func type) );
 
 #define INSERT_MAP_TO_RELAXED_20(map, func, type, length, ocl20_length)        \
-    map.insert ( pair<std::string, std::string>("_Z" #length #func type, "_Z" #ocl20_length NAME_RELAXED_2_0 #func type) );
+    map.insert ( pair<std::string, std::string>("_Z" #length #func type, "_Z" #ocl20_length #func NAME_RELAXED_2_0 type) );
 
 // native built-ins, one argument, float version
 #define    RELAXED_P1_vX(map, func,           length, native_length)     \
@@ -280,7 +280,8 @@ namespace intel{
     {
         bool changed = false;
 
-        if (Intel::OpenCL::DeviceBackend::CompilationUtils::getCLVersionFromModule(M) == Intel::OpenCL::DeviceBackend::CompilationUtils::CL_VER_2_0)
+        if (Intel::OpenCL::DeviceBackend::CompilationUtils::getCLVersionFromModuleOrDefault(M) ==
+            Intel::OpenCL::DeviceBackend::OclVersion::CL_VER_2_0)
             replaceFunctions(m_relaxedFunctions_2_0);
 
         Module::iterator it,e;

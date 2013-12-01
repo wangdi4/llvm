@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __KERNEL_ANALYSIS_H__
 
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 #include <set>
 
@@ -66,8 +66,8 @@ private:
   bool isUnsupportedDim(Value *v);
 
   ///@brief fills the unsupported set with function that call (also indirectly)
-  //        barrier.
-  void fillBarrierUsersFuncs();
+  //        barrier (or implemented using barrier).
+  void fillSyncUsersFuncs();
 
   ///@brief fills the unsupported set with function that have non constant
   ///       dimension get***id calls, or indirect calls to get***id.

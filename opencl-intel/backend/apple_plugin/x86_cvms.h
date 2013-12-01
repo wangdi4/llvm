@@ -26,9 +26,9 @@ typedef struct _cvmsKeys {
 } cvmsKeys;
 
 enum {
-	cvmsSrcIdxKeys,
-	cvmsSrcIdxData,
-	cvmsSrcIdxCount
+  cvmsSrcIdxKeys,
+  cvmsSrcIdxData,
+  cvmsSrcIdxCount
 };
 
 enum {

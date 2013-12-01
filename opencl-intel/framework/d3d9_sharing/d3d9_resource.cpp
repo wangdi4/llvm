@@ -239,7 +239,7 @@ size_t D3D9Surface::GetMemObjSize() const
     const D3DSURFACE_DESC desc = GetDesc(*GetResourceInfo());
     const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane;
     const cl_image_format clFormat = MapD3DFormat2OclFormat(desc.Format, plane);
-    switch (desc.Format)
+    switch ((unsigned long int)desc.Format)
     {
     case MAKEFOURCC('N', 'V', '1', '2'):
         assert(0 == plane || 1 == plane);

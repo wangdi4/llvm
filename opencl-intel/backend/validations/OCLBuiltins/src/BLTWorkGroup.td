@@ -33,10 +33,12 @@ def work_group_prefixsum_inclusive_max_pre_exec     : REF_OclBuiltin<"work_group
 def work_group_prefixsum_inclusive_add_pre_exec         : REF_OclBuiltin<"work_group_prefixsum_inclusive_add_pre_exec",         (outs void:$ret), (ins gentype:$x), [], [], TypeTemplate>;
 }
 
-let Types = [v1f32],
-    Attrs = [CONSTFUNC] in {
-def work_group_all   : REF_OclBuiltin<"work_group_all",   (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [] > >;
-def work_group_any   : REF_OclBuiltin<"work_group_any",   (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [] > >;
+let Types = [v1i32],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+def work_group_all            : REF_OclBuiltin<"work_group_all",            (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [] > >;
+def work_group_all_pre_exec   : REF_OclBuiltin<"work_group_all_pre_exec",   (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [] > >;
+def work_group_any            : REF_OclBuiltin<"work_group_any",            (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [] > >;
+def work_group_any_pre_exec   : REF_OclBuiltin<"work_group_any_pre_exec",   (outs gentype:$ret), (ins gentype:$x), [], [], TemplateAttr< [] > >;
 }
 
 class Generic {
@@ -82,7 +84,7 @@ using namespace Validation::OCLBuiltins;
 namespace Validation {
 namespace OCLBuiltins {
 
-GenericValue lle_X_work_group_all_impl(FunctionType *FT,
+GenericValue lle_X_work_group_all(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   GenericValue gv;
@@ -93,7 +95,7 @@ GenericValue lle_X_work_group_all_impl(FunctionType *FT,
   return gv;
 }
 
-GenericValue lle_X_work_group_all_pre_exec_impl(FunctionType *FT,
+GenericValue lle_X_work_group_all_pre_exec(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   llvm::GenericValue initializer;
   initializer.IntVal = APInt(32, 1, true);
@@ -107,7 +109,7 @@ GenericValue lle_X_work_group_all_pre_exec_impl(FunctionType *FT,
   return GenericValue();
 }
 
-GenericValue lle_X_work_group_any_impl(FunctionType *FT,
+GenericValue lle_X_work_group_any(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   IWorkGroupBuiltins * pG = WorkItemInterfaceSetter::inst()->GetWorkGroupInterface();
   GenericValue gv;
@@ -118,7 +120,7 @@ GenericValue lle_X_work_group_any_impl(FunctionType *FT,
   return gv;
 }
 
-GenericValue lle_X_work_group_any_pre_exec_impl(FunctionType *FT,
+GenericValue lle_X_work_group_any_pre_exec(FunctionType *FT,
                          const std::vector<GenericValue> &Args) {
   llvm::GenericValue initializer;
   initializer.IntVal = APInt(32, 1, true);
@@ -513,10 +515,6 @@ GenericValue lle_X_work_group_broadcast_3D(FunctionType *FT,
 
 extern "C" {
 BUILTINS_API void initOCLBuiltinsWorkGroup() {return;}
-BUILTINS_API llvm::GenericValue lle_X_work_group_all(llvm::FunctionType *FT, const std::vector<GenericValue> &Args) { return lle_X_work_group_all_impl(FT,Args);}
-BUILTINS_API llvm::GenericValue lle_X_work_group_all_pre_exec(llvm::FunctionType *FT, const std::vector<GenericValue> &Args) { return lle_X_work_group_all_pre_exec_impl(FT,Args);}
-BUILTINS_API llvm::GenericValue lle_X_work_group_any(llvm::FunctionType *FT, const std::vector<GenericValue> &Args) { return lle_X_work_group_any_impl(FT,Args);}
-BUILTINS_API llvm::GenericValue lle_X_work_group_any_pre_exec(llvm::FunctionType *FT, const std::vector<GenericValue> &Args) { return lle_X_work_group_any_pre_exec_impl(FT,Args);}
  
   }];
   

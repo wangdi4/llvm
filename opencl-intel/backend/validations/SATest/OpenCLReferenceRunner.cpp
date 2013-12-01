@@ -26,17 +26,17 @@ File Name:  OpenCLReferenceRunner.cpp
 #include "mem_utils.h"
 using std::exception;
 #include "cpu_dev_limits.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/Interpreter.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/Function.h"
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 // debug macros
 #include "llvm/Support/Debug.h"
 // Command line options
@@ -63,6 +63,7 @@ using std::exception;
 #include "ContainerCopier.h"
 #include "OpenCLKernelArgumentsParser.h"
 #include "OCLKernelDataGenerator.h"
+#include "OpenCLCompilationFlags.h"
 
 #include "InterpreterPlugIn.h"
 #include "InterpreterPluggable.h"
@@ -112,7 +113,8 @@ extern "C" void initOCLBuiltinsWorkGroup();
 extern "C" void initOCLBuiltinsVLoadStore();
 extern "C" void initOCLBuiltinsExplMemFenceOps();
 
-OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT):
+
+OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT):
     m_pLLVMContext(NULL),
     m_pModule(NULL),
     m_pRTModule(NULL),
@@ -120,7 +122,7 @@ OpenCLReferenceRunner::OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT):
     m_pExecEngine(NULL),
     m_pNEAT(NULL),
     m_bUseNEAT(bUseNEAT),
-    m_bUseFmaNEAT(bUseFmaNEAT)
+    m_bUseFmaNEAT(false)
 {
     initOCLBuiltinsAsync();
     initOCLBuiltinsAtomic();
@@ -163,6 +165,9 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
     const ReferenceRunOptions *pRunConfig = static_cast<const ReferenceRunOptions *>(runConfig);
 
     m_pModule = static_cast<const OpenCLProgram*>(program)->ParseToModule();
+
+    // if FP_CONTRACT is on, use fma in NEAT
+    m_bUseFmaNEAT = m_pModule->getNamedMetadata("opencl.enable.FP_CONTRACT");
 
     for(OpenCLProgramConfiguration::KernelConfigList::const_iterator it = pProgramConfig->beginKernels();
         it != pProgramConfig->endKernels();
@@ -303,10 +308,33 @@ void OpenCLReferenceRunner::ReadInputBuffer(OpenCLKernelConfiguration* pKernelCo
         case Random:
         {
             OpenCLKernelArgumentsParser parser;
+            if(pKernelConfig->GetGeneratorConfig() != 0 )
+            {
+                throw Exception::InvalidArgument("[OpenCLReferenceRunner]Unused OCLKernelDataGeneratorConfig found. \
+                                                 Switch InputDataFileType to \'config\' or remove OCLKernelDataGeneratorConfig block");
+            }
             OCLKernelArgumentsList args = parser.KernelArgumentsParser(pKernelConfig->GetKernelName(), m_pModule);
             args = OpenCLKernelArgumentsParser::KernelArgHeuristics(args, pKernelConfig->GetGlobalWorkSize(), pKernelConfig->GetWorkDimension());
             OCLKernelDataGeneratorConfig *cfg = OCLKernelDataGeneratorConfig::defaultConfig(args);
             cfg->setSeed(seed);
+            OCLKernelDataGenerator gen(args, *cfg);
+
+            gen.Read(pContainer);
+            break;
+        }
+        case Config:
+        {
+            const OCLKernelDataGeneratorConfig *cfg = pKernelConfig->GetGeneratorConfig();
+            //if there is no OCLKernelDataGeneratorConfig in configuration file or it is incorrect
+            //GetGeneratorConfig will return zero value
+            if(cfg == 0)
+            {
+                throw Exception::InvalidArgument("[OpenCLReferenceRunner]No config is provided. \
+                                                 Add OCLKernelDataGeneratorConfig block or try to use another InputDataFileType");
+            }
+            OpenCLKernelArgumentsParser parser;
+            OCLKernelArgumentsList args = parser.KernelArgumentsParser(pKernelConfig->GetKernelName(), m_pModule);
+            args = OpenCLKernelArgumentsParser::KernelArgHeuristics(args, pKernelConfig->GetGlobalWorkSize(), pKernelConfig->GetWorkDimension());
             OCLKernelDataGenerator gen(args, *cfg);
 
             gen.Read(pContainer);
@@ -816,6 +844,13 @@ static void ConvertSizeTtoUint64T(const size_t *pI, std::vector<uint64_t>& O, ui
     for(uint32_t i=0; i < num; ++i)
         O[i] = (uint64_t) pI[i];
 }
+
+static bool isOCL20OrGreater(llvm::Module * module) {
+    CompilationFlagsList flagsList = GetCompilationFlags(module);
+    return find (flagsList.begin(), flagsList.end(), CL_STD_20) !=
+                 flagsList.end();
+}
+
 void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                                        OpenCLKernelConfiguration * pKernelConfig,
                                        const ReferenceRunOptions* runConfig )
@@ -861,6 +896,8 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     // convert size_t to uint64_t
     ConvertSizeTtoUint64T(pKernelConfig->GetGlobalWorkOffset(), GlobalWorkOffset, workDim);
 
+    const bool isCL20 = isOCL20OrGreater(m_pModule);
+
     // check usage of default local work size ( == 0 )
     for(uint32_t i=0; i < workDim; ++i)
     {
@@ -875,7 +912,26 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
             // localWorkSize[0], .., localWorkSize[work_dim - 1]
             if (globalWGSizes[i] % localWGSizes[i] != 0)
             {
+                // SATest could get the value of localSize from .cfg only, so if globalWorkSize
+                // is not evenly divisible by localWorkSize, set localWGSizes to 1, then print 
+                // warning and continue working check 
+                // globalWGSizes[i] % localWGSizes[i] if it is not OCL 2.0
+                if(!isCL20)
+                    llvm::errs() << "[OpenCLReferenceRunner::RunKernel warning] workDim # "
+                    << i << " globalWorkSize = " << globalWGSizes[i] <<
+                    " is not evenly divisible by localWorkSize = " << 
+                    localWGSizes[i] << ", localWorkSize is set to 1 \n";
+
                 localWGSizes[i] = 1;
+            }
+        } else {
+            // throw exeption if it is not OCL 2.0, because 
+            // globalWGSizes[i] % localWGSizes[i] != 0 is valid for OCL2.0
+            if ((!isCL20) && (globalWGSizes[i] % localWGSizes[i] != 0)) {
+                std::ostringstream s;
+                s << "workDim # " << i << " globalWorkSize = " << globalWGSizes[i] << 
+                " is not evenly divisible by localWorkSize = " << localWGSizes[i] << "\n";
+                throw TestReferenceRunnerException(s.str());
             }
         }
     }
@@ -898,6 +954,9 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     // local engines
     std::vector<ExecutionEngine *> localEngines;
     std::vector<NEATPlugIn *> localNEATs;
+
+    //program compilation flags
+    CompilationFlagsList cFlags = GetCompilationFlags(m_pModule);
 
     // total number of local workitems
     const uint32_t totalLocalWIs = localWGSizes[0] * localWGSizes[1] * localWGSizes[2];
@@ -934,7 +993,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         if(m_bUseNEAT)
         {
             // create NEAT plug in
-            pNEAT = new NEATPlugIn(m_bUseFmaNEAT, NEATlocalMap);
+            pNEAT = new NEATPlugIn(m_bUseFmaNEAT, NEATlocalMap, cFlags);
             InterpreterPluggable *pInterp = static_cast<InterpreterPluggable*>(pExecEngine);
             pInterp->addPlugIn(*pNEAT);
             // set arguments for NEAT

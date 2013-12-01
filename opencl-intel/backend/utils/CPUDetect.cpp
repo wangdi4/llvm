@@ -148,28 +148,37 @@ CPUDetect::CPUDetect(void)
                     mov XCRInfo[1], edx
             }
 #elif defined(__ANDROID__)
-		int c = 0;
-	    __asm__("xgetbv" : "=a"(XCRInfo[0]), "=d"(XCRInfo[1]) : "c"(c));
+            int c = 0;
+            __asm__("xgetbv" : "=a"(XCRInfo[0]), "=d"(XCRInfo[1]) : "c"(c));
 #else
             xgetbv( XCRInfo )
 #endif
-                if ((XCRInfo[0] & 0x00000006) == 0x00000006)
-                {
-                    uiCPUFeatures |= CFS_AVX1;
+            if ((XCRInfo[0] & 0x00000006) == 0x00000006)
+            {
+                uiCPUFeatures |= CFS_AVX1;
 
-                    if ((viCPUInfo[2] & 0x1000) == 0x1000) // Check bit 12 for FMA
-                    {
-                        uiCPUFeatures |= CFS_FMA;
-                    }
-                    // AVX2 support
-                    viCPUInfo[0] = viCPUInfo[1] = viCPUInfo[2] = viCPUInfo[3] =-1;
-                    __cpuidex(viCPUInfo, 7, 0); //eax=7, ecx=0
-                    if ((viCPUInfo[1] & 0x20) == 0x20) // EBX.AVX2[bit 5]
-                    {
-                        uiCPUFeatures |= CFS_AVX2;
-                        CPU = CPU_HASWELL;
-                    }
+                if ((viCPUInfo[2] & 0x1000) == 0x1000) // Check bit 12 for FMA
+                {
+                    uiCPUFeatures |= CFS_FMA;
                 }
+                // AVX2 support
+                viCPUInfo[0] = viCPUInfo[1] = viCPUInfo[2] = viCPUInfo[3] =-1;
+                __cpuidex(viCPUInfo, 7, 0); //eax=7, ecx=0
+                if ((viCPUInfo[1] & 0x20) == 0x20) // EBX.AVX2[bit 5]
+                {
+                    uiCPUFeatures |= CFS_AVX2;
+                    CPU = CPU_HASWELL;
+                }
+                if ((viCPUInfo[1] & 0x8) == 0x8)
+                    uiCPUFeatures |= CFS_BMI;
+                if ((viCPUInfo[1] & 0x100) == 0x100)
+                    uiCPUFeatures |= CFS_BMI2;
+                if ((viCPUInfo[1] & 0x10000) == 0x10000) // EBX.AVX512F[bit 16]
+                {
+                    uiCPUFeatures |= CFS_AVX512F;
+                    CPU = CPU_KNL;
+                }
+            }
         }
     }
 

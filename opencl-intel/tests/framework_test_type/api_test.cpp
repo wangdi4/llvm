@@ -304,7 +304,7 @@ bool api_test(){
 	}	
 
 	//init Command Queue - should fail
-	cmd_queue = clCreateCommandQueue(context,device,0xf,&err);
+	cmd_queue = clCreateCommandQueue(context,device,0xff,&err);
 	bResult = SilentCheck(L"clCreateCommandQueue, CSSD100006058",CL_INVALID_VALUE,err);
 	if (!bResult){
 		clReleaseContext(context);

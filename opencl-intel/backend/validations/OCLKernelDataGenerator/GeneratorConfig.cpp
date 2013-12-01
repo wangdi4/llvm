@@ -22,6 +22,7 @@ File Name: GeneratorConfig.cpp
 #include"ImageDesc.h"
 #include<assert.h>
 #include<tinyxml.h>
+#include<time.h>
 using namespace Validation;
 
 
@@ -54,6 +55,8 @@ bool OCLKernelDataGeneratorConfig::VisitEnter(const TiXmlElement& element, const
         }
         std::stringstream ss(element.GetText());
         ss >> m_seed;
+        if(!m_seed)
+            m_seed = time(NULL);
         return true;
     }
     else if(element.ValueStr() == "GeneratorConfiguration")
@@ -78,7 +81,8 @@ bool OCLKernelDataGeneratorConfig::VisitEnter(const TiXmlElement& element, const
         //manually iterate through node children.
         for( const TiXmlNode* node = element.FirstChild(); node; node = node->NextSibling())
         {
-            node->Accept(cfg);
+            if(!node->Accept(cfg))
+                break;
         }
         m_GeneratorConfigVector.push_back(cfg);
         return true;
@@ -127,6 +131,56 @@ bool BufferStructureGeneratorConfig::VisitEnter(const TiXmlElement& element, con
     }
     return false;
 }
+bool ImageRandomGeneratorConfig::VisitEnter(const TiXmlElement& element, const TiXmlAttribute* firstAttribute)
+{
+    uint64_t ParseState = 0;
+    ImageChannelOrderVal ChannelOrder = INVALID_CHANNEL_ORDER;
+    ImageChannelDataTypeVal ChannelDataType = INVALID_IMAGE_DATA_TYPE;
+    ImageTypeVal ImageType = INVALID_MEM_OBJECT_IMAGE;
+    ImageSizeDesc ImageSize;
+    uint64_t imageWidth = 0, imageHeight = 0, imageDepth = 0, imageArraySize = 0, imageRowPitch = 0, imageSlicePitch = 0;
+    
+    for(const TiXmlElement* ElementToParse = &element; ElementToParse != NULL; ElementToParse = ElementToParse->NextSiblingElement())
+    {
+        if(ElementToParse->ValueStr() == "ChannelOrder")
+        {
+            std::string str(ElementToParse->GetText());
+            ChannelOrder = ImageChannelOrderValWrapper::ValueOf(str);
+            ParseState |= 0x01;
+        }
+        else if(ElementToParse->ValueStr() == "ChannelDataType")
+        {
+            std::string str(ElementToParse->GetText());
+            ChannelDataType = ImageChannelDataTypeValWrapper::ValueOf(str);
+            ParseState |= (0x01 << 1);
+        }
+        else if(ElementToParse->ValueStr() == "ImageType")
+        {
+            std::string str(ElementToParse->GetText());
+            ImageType = ImageTypeValWrapper::ValueOf(str);
+            ParseState |= (0x01 << 2);
+        }
+        else if(ElementToParse->ValueStr() == "Size")
+        {
+            //read in format "image_width [image_height [image_depth [image_array_size [image_row_pitch [image_slice_pitch] ] ] ] ]"
+            std::stringstream ss(ElementToParse->GetText());
+            ss >> imageWidth;
+            ss >> imageHeight;
+            ss >> imageDepth;
+            ss >> imageArraySize;
+            ss >> imageRowPitch;
+            ss >> imageSlicePitch;
+            ParseState |= (0x01 << 3);
+        }
+    }
+    if(ParseState != 0x0F)
+        throw Exception::IOError("[ImageRandomGeneratorConfig]Not all required fields were provided");
+
+    ImageSize.Init(ImageType, imageWidth, imageHeight, imageDepth, imageRowPitch, imageSlicePitch, imageArraySize);
+    this->m_ObjDesc = new ImageDesc(ImageType, ImageSize, ChannelDataType, ChannelOrder, false);
+
+    return false;
+}
 
 #define BUFFERCONSTGENERATORCONFIG_FACTORY(Ty) else if(name == BufferConstGeneratorConfig<Ty>::getStaticName())\
     res = new BufferConstGeneratorConfig<Ty>;
@@ -165,6 +219,10 @@ AbstractGeneratorConfig * GeneratorConfigFactory::create(const std::string &name
     {
         res = new BufferStructureGeneratorConfig();
     }
+    else if(name == ImageRandomGeneratorConfig::getStaticName())
+    {
+        res = new ImageRandomGeneratorConfig();
+    }
     else{
         throw Exception::GeneratorBadTypeException("[GeneratorConfigFactory::create] bad config name - "+name);
     }
@@ -186,7 +244,7 @@ OCLKernelDataGeneratorConfig* OCLKernelDataGeneratorConfig::defaultConfig(const 
         if(argDesc->GetName() == ImageDesc::GetImageDescName())
         {
             throw Exception::NotImplemented(
-                "[OCLKernelDataGeneratorConfig::defaultConfig] Images are not supported");
+                "[OCLKernelDataGeneratorConfig::defaultConfig] Default configs for images are not supported");
         }
         else if(argDesc->GetName() == BufferDesc::GetBufferDescName())
         {

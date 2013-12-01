@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __PACKETIZER_H__
 #define __PACKETIZER_H__
 
-#include "RuntimeServices.h"
+#include "BuiltinLibInfo.h"
 #include "WIAnalysis.h"
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
@@ -58,7 +58,6 @@ struct MemoryOperation {
 ///  data from a different work-item.
 ///  Code which cannot be packetized this way, is simply duplicated
 ///  for all packed work items.
-///  @Author: Sion Berkowits
 class PacketizeFunction : public FunctionPass {
 
   /// @brief vector conversions map entry
@@ -86,6 +85,7 @@ public:
     AU.setPreservesCFG();
     AU.addRequired<WIAnalysis>();
     AU.addRequired<SoaAllocaAnalysis>();
+    AU.addRequired<BuiltinLibInfo>();
   }
 
 private:

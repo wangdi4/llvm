@@ -21,11 +21,12 @@ File Name:  Binary.h
 
 #include "cl_dev_backend_api.h"
 #include "cpu_dev_limits.h"
-#include "ExplicitLocalMemArgument.h"
 #include "TypeAlignment.h"
 #include "IAbstractBackendFactory.h"
 #include "TargetArch.h"
 #include "ExecutionContext.h"
+#include "ExtendedExecutionContext.h"
+#include "BlockLiteral.h"
 
 #include <vector>
 
@@ -46,6 +47,8 @@ class Binary: public ICLDevBackendBinary_
 public:
     Binary( IAbstractBackendFactory* pBackendFactory, 
             ICLDevBackendBufferPrinter* pPrinter,
+            IDeviceCommandManager* pDeviceCommandManager,
+            const IBlockToKernelMapper *pBlockToKernelMapper,
             const KernelProperties* pKernelProperties,
             const std::vector<cl_kernel_argument>& args,
             const cl_work_description_type* pWorkInfo,
@@ -53,6 +56,8 @@ public:
             const IKernelJITContainer* pVectorJIT,
             char* IN pArgsBuffer, 
             size_t IN ArgBuffSize);
+    
+    virtual ~Binary();
 
     // Returns the required number of memory buffers and their sizes 
     //  pBuffersSizes - an array of sizes of buffers
@@ -88,13 +93,16 @@ public:
     size_t GetKernelParametersSize() const {return m_stKernelParamSize;}
     size_t GetAlignedKernelParametersSize() const {return m_stAlignedKernelParamSize;}
     size_t GetLocalWIidsSize() const {return m_stWIidsBufferSize;}
-    size_t GetPrivateMemorySize() const    {return m_stPrivateMemorySize;}
     bool   GetDAZ() const                  {return m_DAZ; }
     const Intel::CPUId &GetCpuId() const   {return m_cpuId; }
     void*  GetFormalParameters() const     {return m_pLocalParams;}
     unsigned int GetPointerSize() const    { return m_uiSizeT; }
 
     ICLDevBackendBufferPrinter* GetDevicePrinter() const { return m_pPrinter;}
+    // get extended execution context
+    const ExtendedExecutionContext * GetExtendedExecutionContext() const { 
+        return &m_ExtendedExecutionContext;
+    }
     
 protected:
     // pointer to the Backend Factory, not owned by this class
@@ -110,6 +118,8 @@ private:
 
     // for printer service - not owned by this class
     ICLDevBackendBufferPrinter* m_pPrinter;
+    // ocl20.Extended execution context - owned by this class
+    ExtendedExecutionContext  m_ExtendedExecutionContext;
 
     size_t                  m_stFormalParamSize;
     size_t                  m_stKernelParamSize;
@@ -118,7 +128,7 @@ private:
     size_t                  m_stPrivateMemorySize;
     sWorkInfo               m_WorkInfo;
     char*                   m_pLocalParams;
-    std::vector<ExplicitLocalMemArgument> m_kernelLocalMem;
+    std::vector<size_t>     m_kernelLocalMemSizes;
     char                    m_pLocalParamsBase[CPU_MAX_PARAMETER_SIZE*4 + TypeAlignment::MAX_ALIGNMENT];
     unsigned int            m_uiWGSize;
     bool                    m_DAZ;
@@ -128,6 +138,8 @@ private:
     unsigned int            m_uiVectorWidth;
     const void*             m_pUsedEntryPoint;
     unsigned int            m_uiSizeT;
+    // pointer to BlockLiteral. Objects own it. Have to free mem
+    BlockLiteral *          m_pBlockLiteral;
 };
 
 

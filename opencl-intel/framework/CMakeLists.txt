@@ -6,7 +6,8 @@ include_directories ( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}/Platform
         ${CMAKE_CURRENT_SOURCE_DIR}/Context
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution
-	${CMAKE_CURRENT_SOURCE_DIR}/MemoryAllocator
+        ${CMAKE_CURRENT_SOURCE_DIR}/MemoryAllocator
+        ${OCL_BINARY_DIR}
     )
 
 if (WIN32 AND (DEFINED ENV{DXSDK_DIR}) )	
@@ -18,11 +19,16 @@ if (WIN32 AND (DEFINED ENV{DXSDK_DIR}) )
 		link_directories($ENV{DXSDK_DIR}/Lib/x86)
 	endif(${BUILD_X64} STREQUAL "ON")
 
-if (WIN32 AND DEFINED ENV{DXSDK_DIR} )
-	add_definitions (-DDX_MEDIA_SHARING)
-	add_definitions (-DCL_DX9_MEDIA_SHARING_INTEL_EXT)
+	if (WIN32 AND DEFINED ENV{DXSDK_DIR} )
+		add_definitions (-DDX_MEDIA_SHARING)
+		add_definitions (-DCL_DX9_MEDIA_SHARING_INTEL_EXT)
+	endif ()
 endif ()
-endif ()
+
+# For debug only
+if (USE_ITT_INTERNAL)
+	add_definitions (-DUSE_ITT_INTERNAL)
+endif()
 
 add_subdirectory( icd )
 
@@ -54,6 +60,10 @@ set (CONFIG_FILES cl.cfg)
 if (INCLUDE_MIC_DEVICE)
   add_definitions( -DINCLUDE_MIC_DEVICE )
 endif (INCLUDE_MIC_DEVICE)
+
+if (INCLUDE_ISP_DEVICE)
+  add_definitions( -DINCLUDE_ISP_DEVICE )
+endif (INCLUDE_ISP_DEVICE)
 
 if (WIN32)
     list( APPEND CONFIG_FILES register_vendor.reg unregister_vendor.reg)

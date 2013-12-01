@@ -25,7 +25,7 @@ project(cl_builtins)
 # for OCL builtin support when both CPU and MIC move to the new solution.
 option (AUTOGEN_OCL_BUILTIN "Generate OCL builtins" ON)
 
-# target name prefix to be used for generated binaries 
+# target name prefix to be used for generated binaries
 set (TARGET_NAME_PREFIX clbltfn)
 
 if (BUILD_X64)
@@ -102,13 +102,13 @@ else()
 endif()
 
 # LLVM tools are assumed to be pre-built within the global project
-if (NOT DEFINED OCL_HOST_CLANG) 
+if (NOT DEFINED OCL_HOST_CLANG)
   set (CLANG "${TOOL_BINARY_DIR}/clang")
 else()
   set (CLANG ${OCL_HOST_CLANG})
 endif()
 if (NOT DEFINED OCL_HOST_OPT)
-  if(CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID) 
+  if(CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE OR ANDROID)
     set (OPT ${CMAKE_BINARY_DIR}/native/bin/ocloptimg)
     set (OPT_DEP ocloptimg_native)
     set (OCL-TBLGEN ${CMAKE_BINARY_DIR}/native/bin/ocl-tblgen)
@@ -122,30 +122,30 @@ if (NOT DEFINED OCL_HOST_OPT)
 else ()
   set (OPT OCL_HOST_OPT)
 endif()
-if (NOT DEFINED OCL_HOST_LLVM_LINK) 
+if (NOT DEFINED OCL_HOST_LLVM_LINK)
   set (LLVM_LINK "${TOOL_BINARY_DIR}/llvm-link")
 else()
   set (LLVM_LINK OCL_HOST_LLVM_LINK)
 endif()
-if (NOT DEFINED OCL_HOST_LLC) 
+if (NOT DEFINED OCL_HOST_LLC)
   set (LLC "${TOOL_BINARY_DIR}/llc")
 else()
   set (LLC OCL_HOST_LLC)
 endif()
 
 # LLVM triple is per OS and Arch (keep consistent with SetTargetTriple() in Compiler.cpp)
-if (WIN32)    
+if (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
     set (TRIPLE i686-pc-win32-elf)
   else ()
-    set (TRIPLE x86_64-pc-win32-elf) 
-  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)    
+    set (TRIPLE x86_64-pc-win32-elf)
+  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 else (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
     set    (TRIPLE i686-pc-Linux)
   else ()
      set (TRIPLE x86_64-pc-linux)
-  endif (CMAKE_SIZEOF_VOID_P EQUAL 4) 
+  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 endif (WIN32)
 
 #
@@ -158,7 +158,7 @@ message (STATUS "LLVM_LINK: ${LLVM_LINK}")
 message (STATUS "LLC:       ${LLC}")
 message (STATUS "TRIPLE:    ${TRIPLE}")
 
-# 
+#
 # Tool environment and options
 #
 
@@ -166,8 +166,9 @@ message (STATUS "TRIPLE:    ${TRIPLE}")
 set (OCL_OUTPUT_EXTENSION .rtl)
 set (OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
 set (CLANG_LLVM_INCLUDE_DIRS)
+string( REPLACE  \${CMAKE_CFG_INTDIR} ${CMAKE_CFG_INTDIR} LLVM_INCLUDE_DIR "${LLVM_INCLUDE_DIR}" )
 foreach( LLVM_INCLUDE_DIR_ITEM ${LLVM_INCLUDE_DIR} )
-	set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${LLVM_INCLUDE_DIR_ITEM})
+  set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${LLVM_INCLUDE_DIR_ITEM})
 endforeach( LLVM_INCLUDE_DIR_ITEM)
 
 # Adding include path for "micintrin.h", "micintrin_mici64ext.h"
@@ -176,10 +177,12 @@ if(INCLUDE_MIC_DEVICE)
   set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${MIC_HEADERS_DIR})
 endif(INCLUDE_MIC_DEVICE)
 
-set (CLANG_COMPILER_PARAMS 
-  -cc1 -triple ${TRIPLE} -emit-llvm-bc -O3 -opencl-builtins -fwrapv
-  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h )
-  
+set (CLANG_COMPILER_PARAMS
+  -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
+  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h
+  -fblocks -D__OPENCL_C_VERSION__=200 
+  )
+
 if (PLATFORM EQUAL Win32)
   set (CLANG_COMPILER_PARAMS ${CLANG_COMPILER_PARAMS} -target=i686-pc-win32-OpenCL)
 elseif (PLATFORM EQUAL Win64)
@@ -191,8 +194,6 @@ elseif (PLATFORM EQUAL Android32)
 endif (PLATFORM EQUAL Win32)
 
 # llvm-opt
-# Currently target_* built-ins are not compiled using -O3
-# If decided to run -O3 optimization need to run -shuffle-call-to-inst first!
 set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
 
 # images optimization options
@@ -285,7 +286,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
       )
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       COMMENT "Opt optimizing ${OUTPUT_FILE}_noopt"
-      COMMAND ${OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -builtins-module=${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
+      COMMAND ${OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       DEPENDS ${OPT_DEP} ${OUTPUT_FILE}_noopt ${BUILTINS_INSTALL_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
       VERBATIM
       )
@@ -359,24 +360,24 @@ function( install_svml ARCH )
   # install SVML (and SDE) libraries
   if(ENABLE_SDE AND IS_MIC)
     add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/sdesvml.so
-      COMMAND ${CMAKE_COMMAND} -E copy ${SDE_DLL} ${BUILTINS_INSTALL_DIR} 
+      COMMAND ${CMAKE_COMMAND} -E copy ${SDE_DLL} ${BUILTINS_INSTALL_DIR}
       VERBATIM
     )
   endif()
   if(IS_MIC)
     add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/libsvml.so
-      COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR} 
+      COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR}
       VERBATIM
     )
   else()
     add_custom_command (OUTPUT ${BUILTINS_INSTALL_DIR}/${SVML_NAME_PREFIX}${ARCH}${CMAKE_SHARED_LIBRARY_SUFFIX}${ADDITIONAL_SHARED_LIBRARY_SUFFIX}
-      COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR} 
+      COMMAND ${CMAKE_COMMAND} -E copy ${SVML_DLL} ${BUILTINS_INSTALL_DIR}
       VERBATIM
     )
   endif()
-  
+
   install( FILES ${SVML_DLL} DESTINATION bin )
-  
+
   if(ENABLE_SDE AND IS_MIC)
     install( FILES ${SDE_DLL} DESTINATION bin )
   endif()
@@ -386,6 +387,7 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN OFN)
     file(GLOB_RECURSE depend_tds "${CL_BUILTIN_SOURCE_DIR}/*.td")
     add_custom_command(
         OUTPUT ${OUTPUT_DIR}/${OFN}
+        #COMMAND ${OCL-TBLGEN} ${ARGN} -gen-ocl-Exclude=true -gen-ocl-Prefix="__cl_" -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
         COMMAND ${OCL-TBLGEN} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
         DEPENDS ${OCL-TBLGEN-DEP} ${depend_tds}
         COMMENT "Generating ${OFN}..."
@@ -414,10 +416,10 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   # intermediate directory for OpenCL compilation/link
   set (INTERMEDIATE_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-  
-  list(APPEND CMD_ARGS -gen-ocl-bi -inject target.Target=${ARCH})  
+
+  list(APPEND CMD_ARGS -gen-ocl-bi -inject target.Target=${ARCH})
   # generate OCL builtin implementation
-	tblgenoclblt(OCL_TABLEGEN_SOURCE
+  tblgenoclblt(OCL_TABLEGEN_SOURCE
     ${INTERMEDIATE_OUTPUT_DIR}
     ${TARGET_DIR}
     target-${TARGET_DIR}.td
@@ -425,7 +427,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
     ${CMD_ARGS}
   )
   list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
-    
+
   # build .rtl file out of OCL code (by clang) and copy it to install directory
   add_ocl_library( OUTPUT_OCL_LIB IGNORE ${TARGET_NAME} ${TARGET_DIR} ${ARCH} ${PROC}  FALSE FALSE IGNORE ${INTERMEDIATE_OUTPUT_DIR} ${OCL_SOURCE_FILES})
 
@@ -479,8 +481,6 @@ endfunction( create_target)
 list (APPEND OCL_SOURCE_FILES
   image_functions.cpp
   cbk_helper.c
-  masked_load_store_functions.cpp
-  transpose_functions.cpp
   )
 
 
@@ -491,7 +491,6 @@ list (APPEND OCL_IMAGE_CALLBACK_SOURCE_FILE
 # project header files
 list (APPEND HEADER_FILES
   cl_image_declaration.h
-  masked_load_store_functions.h
   transpose_functions.h
   )
 
@@ -508,7 +507,7 @@ foreach (FILE ${SAVE_HEADER_FILES})
   list (APPEND HEADER_FILES ${CL_BUILTIN_SOURCE_DIR}/${FILE})
 endforeach (FILE)
 
-# running build for all supported SIMD architectures 
+# running build for all supported SIMD architectures
 if( (INCLUDE_ATOM) OR (WIN32 AND NOT BUILD_X64) )
   # no corresponding SVML for Win64; hence
   # we aren't building ssse3 for Win64
@@ -517,7 +516,10 @@ endif( (INCLUDE_ATOM) OR (WIN32 AND NOT BUILD_X64) )
 add_subdirectory (sse42)
 add_subdirectory (avx)
 add_subdirectory (avx2)
-
+if (BUILD_X64)
+  #TODO: uncomment the following line once KNL is merged to clang.
+  #add_subdirectory (KNLni)
+endif (BUILD_X64)
 if (INCLUDE_MIC_DEVICE)
   add_subdirectory (KNCni)
 endif()

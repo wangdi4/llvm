@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2012 Intel Corporation
+// Copyright (c) 2008-2013 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -80,7 +80,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         
         // Command Queues functions
-        cl_command_queue    CreateCommandQueue      ( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, cl_int* pErrRet );
+        cl_command_queue    CreateCommandQueue      ( cl_context clContext, cl_device_id clDevice, const cl_command_queue_properties* clQueueProperties, cl_int* pErrRet );
         cl_err_code         RetainCommandQueue      ( cl_command_queue clCommandQueue);
         cl_err_code         ReleaseCommandQueue     ( cl_command_queue clCommandQueue);
         cl_err_code         GetCommandQueueInfo     ( cl_command_queue clCommandQueue, cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet );
@@ -90,7 +90,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Out Of Order Execution synch commands
         // ---------------------
-		cl_err_code EnqueueMarker           (cl_command_queue clCommandQueue, cl_event *pEvent);
+        cl_err_code EnqueueMarker           (cl_command_queue clCommandQueue, cl_event *pEvent);
         cl_err_code EnqueueMarkerWithWaitList(cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent);
         cl_err_code EnqueueWaitForEvents    (cl_command_queue clCommandQueue, cl_uint uiNumEvents, const cl_event* cpEventList);
         cl_err_code EnqueueBarrier          (cl_command_queue clCommandQueue);
@@ -144,20 +144,41 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #endif
 
         cl_err_code         Release(bool bTerminate);
-        EventsManager*      GetEventsManager() const { return m_pEventsManager; }
-        ocl_entry_points *  GetDispatchTable() const {return m_pOclEntryPoints; }
-        ocl_gpa_data *      GetGPAData() const { return m_pGPAData; }
+        cl_err_code         Finish                  ( const SharedPtr<IOclCommandQueueBase>& pCommandQueue);
+        void                DeleteAllActiveQueues( bool preserve_user_handles );
 
+		cl_int EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint uiNumSvmPointers, void* pSvmPointers[],
+							  void (CL_CALLBACK* pfnFreeFunc)(cl_command_queue queue, cl_uint uiNumSvmPointers, void* pSvmPointers[], void* pUserData),
+							  void* pUserData, cl_uint uiNumEventsInWaitList,	const cl_event* pEventWaitList,	cl_event* pEvent);
+		cl_int EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_bool bBlockingCopy, void* pDstPtr, const void* pSrcPtr, size_t size, cl_uint uiNumEventsInWaitList,
+								const cl_event* pEventWaitList, cl_event* pEvent);
+		cl_int EnqueueSVMMemFill(cl_command_queue clCommandQueue, void* pSvmPtr, const void* pPattern, size_t szPatternSize, size_t size, cl_uint uiNumEventsInWaitList,
+								 const cl_event* pEventWaitList, cl_event* pEvent);
+		cl_int EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool bBlockingMap,	cl_map_flags mapflags, void* pSvmPtr, size_t size, cl_uint uiNumEventsInWaitList,
+							 const cl_event* pEventWaitList, cl_event* pEvent);
+		cl_int EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* pSvmPtr, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent);
+
+        EventsManager*      GetEventsManager() const { return m_pEventsManager; }
+        void                ReleaseAllUserEvents( bool preserve_user_handles );
+
+		ocl_entry_points *  GetDispatchTable() const {return m_pOclEntryPoints; }
+
+		ocl_gpa_data *      GetGPAData() const { return m_pGPAData; }
     private:
 	    // Private functions
-        SharedPtr<IOclCommandQueueBase>    GetCommandQueue(cl_command_queue clCommandQueue);
+        SharedPtr<OclCommandQueue>    GetCommandQueue(cl_command_queue clCommandQueue);
+
+		bool				IsValidQueueHandle(cl_command_queue clCommandQueue);
 
         // Input parameters validation commands
-        cl_err_code         CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, cl_command_queue_properties clQueueProperties, SharedPtr<Context>* ppContext );
+        cl_err_code         CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, const cl_command_queue_properties* clQueueProperties, SharedPtr<Context>* ppContext,
+														   cl_command_queue_properties& queueProps, cl_uint& uiQueueSize);
         cl_err_code         CheckImageFormats( SharedPtr<MemoryObject> pSrcImage, SharedPtr<MemoryObject> pDstImage);
         bool                CheckMemoryObjectOverlapping(SharedPtr<MemoryObject> pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion);
         size_t              CalcRegionSizeInBytes(SharedPtr<MemoryObject> pImage, const size_t* szRegion);
         cl_err_code         FlushAllQueuesForContext(cl_context ctx);
+        cl_err_code         EnqueueMarkerWithWaitList(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_uint uiNumEvents, const cl_event* pEventList, cl_event* pEvent);
+        cl_err_code         EnqueueMarker(const SharedPtr<IOclCommandQueueBase>& clCommandQueue, cl_event *pEvent);
 
         PlatformModule*     m_pPlatfromModule;                                                  // Pointer to the platform operation. This is the internal interface of the module.
         ContextModule*      m_pContextModule;                                                   // Pointer to the context operation. This is the internal interface of the module.
@@ -167,6 +188,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ocl_entry_points *	m_pOclEntryPoints;
 
         ocl_gpa_data *      m_pGPAData;
+
+        OPENCL_VERSION      m_opencl_ver;
 
         DECLARE_LOGGER_CLIENT; // Logger client for logging operations.
 
@@ -194,7 +217,7 @@ cl_int ExecutionModule::EnqueueSyncD3DObjects(cl_command_queue clCommandQueue,
         return CL_INVALID_VALUE;
     }
 
-    const SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue);
+    const SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;

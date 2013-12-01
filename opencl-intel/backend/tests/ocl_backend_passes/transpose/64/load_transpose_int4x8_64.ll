@@ -1,7 +1,7 @@
 ; XFAIL: i686-pc-win32
-; RUN: oclopt -builtins-module=clbltfne9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfne9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc < %t1.ll -mattr=+avx -mtriple=x86_64-pc-Win64 | FileCheck %s -check-prefix=CHECK-AVX
-; RUN: oclopt -builtins-module=clbltfnl9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
+; RUN: oclopt -runtimelib=clbltfnl9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
 ; RUN: llc < %t2.ll -mattr=+avx2 -mtriple=x86_64-pc-Win64 | FileCheck %s -check-prefix=CHECK-AVX2
 
 
@@ -12,7 +12,7 @@ entry:
    %yOut = alloca  <8 x i32>
    %zOut = alloca  <8 x i32>
    %wOut = alloca  <8 x i32>
-   call void @__ocl_load_transpose_int4x8(<4 x i32>* nocapture %pLoadAdd, <8 x i32>* nocapture %xOut, <8 x i32>* nocapture %yOut, <8 x i32>* nocapture %zOut, <8 x i32>* nocapture %wOut) nounwind
+   call void @__ocl_load_transpose_int_4x8(<4 x i32>* nocapture %pLoadAdd, <8 x i32>* nocapture %xOut, <8 x i32>* nocapture %yOut, <8 x i32>* nocapture %zOut, <8 x i32>* nocapture %wOut) nounwind
    %temp1 = load <8 x i32>* %xOut
    %temp2 = load <8 x i32>* %yOut
    %temp3 = load <8 x i32>* %zOut
@@ -23,7 +23,7 @@ entry:
    ret <8 x i32> %ret0
 }
 
-declare void @__ocl_load_transpose_int4x8(<4 x i32>* nocapture %pLoadAdd, <8 x i32>* nocapture %xOut, <8 x i32>* nocapture %yOut, <8 x i32>* nocapture %zOut, <8 x i32>* nocapture %wOut) nounwind
+declare void @__ocl_load_transpose_int_4x8(<4 x i32>* nocapture %pLoadAdd, <8 x i32>* nocapture %xOut, <8 x i32>* nocapture %yOut, <8 x i32>* nocapture %zOut, <8 x i32>* nocapture %wOut) nounwind
 
 
 
@@ -59,7 +59,7 @@ declare void @__ocl_load_transpose_int4x8(<4 x i32>* nocapture %pLoadAdd, <8 x i
 ;CHECK-AVX:	vpunpckldq	[[XMM23]], [[XMM34]], [[XMM24:%xmm[0-9]+]]
 ;CHECK-AVX:	vpaddd	[[XMM13]], [[XMM24]], [[XMM14:%xmm[0-9]+]]
 ;CHECK-AVX:	vpaddd	[[XMM43]], [[XMM14]], [[XMM15:%xmm[0-9]+]]
-;CHECK-AVX:    .type	[[LOAD:[_a-z]+]]_transpose_int4x8,@function
+;CHECK-AVX:    .type	[[LOAD:[_a-z]+]]_transpose_int_4x8,@function
 
 ;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX2:    [[FOO]]
@@ -78,4 +78,4 @@ declare void @__ocl_load_transpose_int4x8(<4 x i32>* nocapture %pLoadAdd, <8 x i
 ;CHECK-AVX2:	vpunpckldq	[[YMM01]], [[YMM32]], [[YMM02:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpaddd	[[YMM11]], [[YMM02]], [[YMM03:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpaddd	[[YMM21]], [[YMM03]], [[YMM04:%ymm[0-9]+]]
-;CHECK-AVX2:    .type	[[LOAD:[_a-z]+]]_transpose_int4x8,@function
+;CHECK-AVX2:    .type	[[LOAD:[_a-z]+]]_transpose_int_4x8,@function

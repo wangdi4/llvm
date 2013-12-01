@@ -13,8 +13,7 @@
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
-target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
-2:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
+target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
 
 target triple = "i686-pc-win32"
 ; CHECK: @main
@@ -29,12 +28,14 @@ L2:
   br label %L3
 L3:
   %isOk = phi i1 [ %y, %L1 ], [ true, %L2 ]
+  call void @_Z7barrierj(i32 2)
   ret void
 ; CHECK: WI related Values
 ; CHECK: isOk is WI related
 }
 
 declare i32 @_Z13get_global_idj(i32)
+declare void @_Z7barrierj(i32)
 
 !opencl.kernels = !{!0}
 !opencl.compiler.options = !{}

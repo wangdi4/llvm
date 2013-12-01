@@ -27,12 +27,15 @@
 
 #pragma once
 
-#include "cl_device_api.h"
-#include "cl_dynamic_lib.h"
-#include "mic_dev_limits.h"
+#include <cl_device_api.h>
+#include <cl_dynamic_lib.h>
+#include <mic_dev_limits.h>
+#include <cl_synch_objects.h>
+#include <ocl_itt.h>
+
 #include "mic_config.h"
 #include "notification_port.h"
-#include "cl_synch_objects.h"
+#include "cl_shutdown.h"
 #include "mic_tracer.h"
 
 #include <set>
@@ -79,25 +82,29 @@ private:
     
     PerformanceDataStore            m_overhead_data;
 
-    // static set to handle all existing MIC DA instancies
+    // static set to handle all existing MIC DA instances
     static set<IOCLDeviceAgent*>*    m_mic_instancies;
     static OclMutex*                 m_mic_instancies_mutex;
+	static Intel::OpenCL::Utils::OclDynamicLib	m_sDllCOILib;
     // manage multiple DAs
     static void RegisterMicDevice( MICDevice* dev );
     // Return true if dev exist in m_mic_instancies
-	static bool UnregisterMicDevice( MICDevice* dev );
+    static bool UnregisterMicDevice( MICDevice* dev );
 
     cl_dev_err_code CreateCommandList( bool external_list, 
                                        cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, 
                                        cl_dev_cmd_list* OUT list);
 
-	void  clDevCloseDeviceInt( bool preserve_object = false );
+    void  clDevCloseDeviceInt( bool preserve_object = false );
 
+#ifdef USE_ITT
+    // TODO: Currently we have private instance; however, it should be the same as in the runtime
+    static ocl_gpa_data*               g_pGPAData;
+#endif
 protected:
     ~MICDevice();
 
 public:
-
     //
     // IOCLDeviceAgent
     //
@@ -106,9 +113,9 @@ public:
     cl_dev_err_code                     Init();
 
     DeviceServiceCommunication&   GetDeviceService(void) const { return *m_pDeviceServiceComm; };
-    NotificationPort&                   GetDeviceNotificationPort(void) { return *m_pNotificationPort; };
+    NotificationPort&             GetDeviceNotificationPort(void) { return *m_pNotificationPort; };
 
-    static cl_dev_err_code   clDevGetDeviceInfo(unsigned int IN	dev_id, cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);
+    static cl_dev_err_code   clDevGetDeviceInfo(unsigned int IN    dev_id, cl_device_info IN param, size_t IN val_size, void* OUT paramVal, size_t* OUT param_val_size_ret);
 
     //Device Fission support
 
@@ -123,6 +130,7 @@ public:
     cl_dev_err_code clDevReleaseCommandList( cl_dev_cmd_list IN list );
     cl_dev_err_code clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
     cl_dev_err_code clDevCommandListWaitCompletion(cl_dev_cmd_list IN list, cl_dev_cmd_desc* cmdDesc);
+    cl_dev_err_code clDevCommandListCancel( cl_dev_cmd_list IN list );
 	void clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease);
     cl_dev_err_code clDevGetSupportedImageFormats( cl_mem_flags IN flags, cl_mem_object_type IN imageType,
                     cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet) const;
@@ -132,7 +140,7 @@ public:
                     IOCLDevRTMemObjectService* IN pBSService, IOCLDevMemoryObject* OUT *pMemObj );
     cl_dev_err_code clDevCheckProgramBinary( size_t IN binSize, const void* IN bin );
     cl_dev_err_code clDevCreateProgram( size_t IN binSize, const void* IN bin, cl_dev_binary_prop IN prop, cl_dev_program* OUT prog );
-	cl_dev_err_code clDevCreateBuiltInKernelProgram(const char* szKernelNames, cl_dev_program* OUT prog);
+    cl_dev_err_code clDevCreateBuiltInKernelProgram(const char* szKernelNames, cl_dev_program* OUT prog);
     cl_dev_err_code clDevBuildProgram( cl_dev_program IN prog, const char* IN options, cl_build_status* OUT buildStatus );
     cl_dev_err_code clDevReleaseProgram( cl_dev_program IN prog );
     cl_dev_err_code clDevUnloadCompiler();
@@ -149,27 +157,27 @@ public:
     const IOCLDeviceFECompilerDescription& clDevGetFECompilerDecription() const { return *this; };
     void        clDevCloseDevice(void);
 
-    static void loadingInit();
+    static bool loadingInit();
     static void unloadRelease();
 
     // manage multiple DAs
     typedef set<MICDevice*>  TMicsSet;
     static TMicsSet FilterMicDevices( size_t count, const IOCLDeviceAgent* const *dev_arr );
     // Return activated mic devices. If erase = true than erase those devices from m_mic_instancies
-	static TMicsSet GetActiveMicDevices( bool erase = false );
+    static TMicsSet GetActiveMicDevices( bool erase = false );
 
     //
     // IOCLDeviceFECompilerDescription
     //
-	const char* clDevFEModuleName() const;
-	const void* clDevFEDeviceInfo() const;
-	size_t		clDevFEDeviceInfoSize() const;
+    const char* clDevFEModuleName() const;
+    const void* clDevFEDeviceInfo() const;
+    size_t      clDevFEDeviceInfoSize() const;
 
-	// Add Tracer support
-	static HostTracer* m_tracer;
+    // Add Tracer support
+    static HostTracer* m_tracer;
 
     // return true if DLL was unloaded
-    static bool  isDeviceLibraryUnloaded() { return (NULL == m_mic_instancies_mutex); };
+    static bool  isDeviceLibraryUnloaded() { return Intel::OpenCL::Utils::IsShutdownMode(); };
 };
 
 }}}

@@ -583,3 +583,53 @@ define <16 x i32> @__ocl_select_v16i32(<16 x i32> %x, <16 x i32> %y, <16 x i32> 
   %selected = select <16 x i1> %mask, <16 x i32> %y, <16 x i32> %x
   ret <16 x i32> %selected
 }
+
+declare i8 @llvm.ctlz.i8(i8, i1) nounwind readonly
+declare i16 @llvm.ctlz.i16(i16, i1) nounwind readonly
+declare i32 @llvm.ctlz.i32(i32, i1) nounwind readonly
+declare i64 @llvm.ctlz.i64(i64, i1) nounwind readonly
+
+define i8 @__ocl_helper_clz_v1u8(i8 %x) {
+  %1 = tail call i8 @llvm.ctlz.i8(i8 %x, i1 false)
+  ret i8 %1
+}
+
+define i16 @__ocl_helper_clz_v1u16(i16 %x) {
+  %1 = tail call i16 @llvm.ctlz.i16(i16 %x, i1 false)
+  ret i16 %1
+}
+
+define i32 @__ocl_helper_clz_v1u32(i32 %x) {
+  %1 = tail call i32 @llvm.ctlz.i32(i32 %x, i1 false)
+  ret i32 %1
+}
+
+define i64 @__ocl_helper_clz_v1u64(i64 %x) {
+  %1 = tail call i64 @llvm.ctlz.i64(i64 %x, i1 false)
+  ret i64 %1
+}
+
+declare i8 @llvm.cttz.i8(i8, i1) nounwind readonly
+declare i16 @llvm.cttz.i16(i16, i1) nounwind readonly
+declare i32 @llvm.cttz.i32(i32, i1) nounwind readonly
+declare i64 @llvm.cttz.i64(i64, i1) nounwind readonly
+
+define i8 @__ocl_helper_ctz_v1u8(i8 %x) {
+  %1 = tail call i8 @llvm.cttz.i8(i8 %x, i1 false)
+  ret i8 %1
+}
+
+define i16 @__ocl_helper_ctz_v1u16(i16 %x) {
+  %1 = tail call i16 @llvm.cttz.i16(i16 %x, i1 false)
+  ret i16 %1
+}
+
+define i32 @__ocl_helper_ctz_v1u32(i32 %x) {
+  %1 = tail call i32 @llvm.cttz.i32(i32 %x, i1 false)
+  ret i32 %1
+}
+
+define i64 @__ocl_helper_ctz_v1u64(i64 %x) {
+  %1 = tail call i64 @llvm.cttz.i64(i64 %x, i1 false)
+  ret i64 %1
+}

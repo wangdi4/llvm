@@ -2,7 +2,7 @@
 // cl_synch_objects.h
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
-// Copyright 2007-2008 Intel Corporation All Rights Reserved.
+// Copyright 2007-2013 Intel Corporation All Rights Reserved.
 //
 // The source code contained or described herein and all documents related
 // to the source code ("Material") are owned by Intel Corporation or its
@@ -12,7 +12,7 @@
 // suppliers and licensors, and is protected by worldwide copyright and trade
 // secret laws and treaty provisions. No part of the Material may be used, copied,
 // reproduced, modified, published, uploaded, posted, transmitted, distributed,
-// or disclosed in any way without Intel’s prior express written permission.
+// or disclosed in any way without Intel's prior express written permission.
 //
 // No license under any patent, copyright, trade secret or other intellectual
 // property right is granted to or conferred upon you by disclosure or delivery
@@ -21,7 +21,7 @@
 // and approved by Intel in writing.
 //
 // Unless otherwise agreed by Intel in writing, you may not remove or alter this notice
-// or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors
+// or any other notice embedded in Materials by Intel or Intel's suppliers or licensors
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 
@@ -63,55 +63,59 @@
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
+    const unsigned int DEFAULT_SPIN_COUNT       = 4000;
+    const bool         SUPPORT_RECURSIVE_LOCK   = true;
+    const bool         NO_RECURSIVE_LOCK        = false;
+
     //Call this function from within spinning loops
     void InnerSpinloopImpl();
 
-	template<class T=void>
-	class AtomicPointer
-	{
-	public:
-		AtomicPointer(T* ptr = NULL) : m_ptr(ptr) {}
-		~AtomicPointer() {}
+    template<class T>
+    class AtomicPointer
+    {
+    public:
+        AtomicPointer(T* ptr = NULL) : m_ptr(ptr) {}
+        ~AtomicPointer() {}
 
-		T* test_and_set(T* comparand, T* exchange)
-		{
+        T* test_and_set(T* comparand, T* exchange)
+        {
 
-			return (T*)CAS(&m_ptr, comparand, exchange);   // CAS(*ptr, old, new)
-		}
+            return (T*)CAS(&m_ptr, comparand, exchange);   // CAS(*ptr, old, new)
+        }
 
-		T* exchange(T* val)
-		{
-			return (T*)TAS(&m_ptr, val);
-		}
+        T* exchange(T* val)
+        {
+            return (T*)TAS(&m_ptr, val);
+        }
 
-		operator T*() const {return m_ptr;}
-		T* operator ->() const {return m_ptr;}
+        operator T*() const {return m_ptr;}
+        T* operator ->() const {return m_ptr;}
 
-	private:
-		AtomicPointer(const AtomicPointer& ac) {m_ptr = ac.m_ptr; }
-		T* volatile m_ptr;
-	};
+    private:
+        AtomicPointer(const AtomicPointer& ac) {m_ptr = ac.m_ptr; }
+        T* volatile m_ptr;
+    };
 
-	class AtomicCounter
-	{
-	public:
-		AtomicCounter(long initVal = 0) : m_val(initVal) {}
+    class AtomicCounter
+    {
+    public:
+        AtomicCounter(long initVal = 0) : m_val(initVal) {}
         AtomicCounter(const AtomicCounter& ac) {m_val = ac.m_val;}
-		~AtomicCounter() {}
+        ~AtomicCounter() {}
 
-		long operator++();               //prefix. Returns new val
-		long operator++(int alwaysZero); //postfix. Returns previous val
-		long operator--();
-		long operator--(int alwaysZero); //second argument enforced by the language, defaults to 0 by the compiler
-		long add(long val); //returns new val
-		long test_and_set(long comparand, long exchange);
-		long exchange(long val);
-		operator long() const; //casting operator        
+        long operator++();               //prefix. Returns new val
+        long operator++(int alwaysZero); //postfix. Returns previous val
+        long operator--();
+        long operator--(int alwaysZero); //second argument enforced by the language, defaults to 0 by the compiler
+        long add(long val); //returns new val
+        long test_and_set(long comparand, long exchange);
+        long exchange(long val);
+        operator long() const; //casting operator        
 
-	private:
-		
-		volatile long m_val;
-	};
+    private:
+        
+        volatile long m_val;
+    };
 
     /************************************************************************
      * IMutex:
@@ -120,13 +124,13 @@ namespace Intel { namespace OpenCL { namespace Utils {
     class IMutex
     {
     public:
-		IMutex() {}
+        IMutex() {}
         virtual void Lock()=0;
         virtual void Unlock()=0;
         virtual ~IMutex(){}
-	private:
-		//Disallow copying
-		IMutex(const IMutex& im) {}
+    private:
+        //Disallow copying
+        IMutex(const IMutex& im) {}
     };
 
     /************************************************************************
@@ -165,8 +169,19 @@ namespace Intel { namespace OpenCL { namespace Utils {
     class OclAutoMutex
     {
     public:
-        OclAutoMutex(IMutex* mutexObj, bool bAutoLock = true);
-        ~OclAutoMutex();
+        OclAutoMutex(IMutex* mutexObj, bool bAutoLock = true)
+        {
+            m_mutexObj = mutexObj;
+            if ( bAutoLock )
+            {
+                m_mutexObj->Lock();
+            }
+        }
+
+        ~OclAutoMutex()
+        {
+            m_mutexObj->Unlock();
+        }
 
     private:
         IMutex* m_mutexObj;
@@ -187,31 +202,59 @@ namespace Intel { namespace OpenCL { namespace Utils {
      ************************************************************************/
     class OclMutex: public IMutex
     {
-	friend class OclCondition;
+    friend class OclCondition;
     public:
-        OclMutex(unsigned int uiSpinCount = 4000);
+        OclMutex(unsigned int uiSpinCount = DEFAULT_SPIN_COUNT, bool recursive = NO_RECURSIVE_LOCK );
         virtual ~OclMutex ();
         void Lock();
         void Unlock();
-	protected:
-		void* m_mutexHndl;
+    protected:
+        MUTEX m_mutex;
     private:
-		OclMutex(const OclMutex& o);
-		OclMutex& operator=(const OclMutex& o);
-		void spinCountMutexLock();
-		unsigned int m_uiSpinCount;
+        OclMutex(const OclMutex& o);
+        OclMutex& operator=(const OclMutex& o);
+        void spinCountMutexLock();
+        
+        unsigned int m_uiSpinCount;
+        bool         m_bRecursive;
     };
 
-	class OclSpinMutex: public IMutex
-	{
-	public:
-		OclSpinMutex();
-		void Lock();
-		void Unlock();
-	protected:
-		AtomicCounter lMutex;
-		threadid_t threadId;
-	};
+    class OclSpinMutex: public IMutex
+    {
+    public:
+        OclSpinMutex();
+        void Lock();
+        void Unlock();
+        bool lockedRecursively() const { return (lMutex > 1); }
+    protected:
+        AtomicCounter lMutex;
+        threadid_t threadId;
+    };
+
+    class OclNonReentrantSpinMutex: public IMutex
+    {
+    public:
+        OclNonReentrantSpinMutex() : m_val(0) {}
+        void Lock()
+        {
+            while (CAS( &m_val, 0, 1 ))
+            {
+                hw_pause();
+            };
+
+            assert( 1 == m_val && "Mutex expected to be in locked");
+        }
+
+        void Unlock()
+        {
+            assert( 1 == m_val && "Mutex expected to be in locked");
+            _mm_mfence(); // ensure all memory accesses inside critical sections are flushed by HW
+            m_val = 0;
+        }
+        
+    protected:
+        volatile size_t m_val;
+    };
 
 
     /************************************************************************
@@ -241,29 +284,30 @@ namespace Intel { namespace OpenCL { namespace Utils {
         COND_RESULT Signal();
 
     private:
-        CONDITION_VAR	m_condVar;
+        CONDITION_VAR    m_condVar;
     };
 
-	// The class below encapsulates an OS-dependent event
-	// Can be used by OclEvent's Wait() method
-	class OclOsDependentEvent
-	{
-	public:
-		OclOsDependentEvent();
-		~OclOsDependentEvent();
+    // The class below encapsulates an OS-dependent event
+    // Can be used by OclEvent's Wait() method
+    class OclOsDependentEvent
+    {
+    public:
+        OclOsDependentEvent();
+        OclOsDependentEvent(bool AutoReset);
+        ~OclOsDependentEvent();
 
-		// Initializes the event. Must be called before any use. Can fail.
-		bool Init(bool bAutoReset = false);
-		// Waits on an initialized event. Returns when the event was fired. Can fail, in which case another method of waiting should be used.
-		bool Wait();
-		// Fires the event
-		void Signal();
-		// Reset the event if signaled
-		void Reset();
-	private:
-		// The internal, OS-dependent representation of the event.
-		EVENT_STRUCTURE m_eventRepresentation;
-	};
+        // Initializes the event. Must be called before any use. Can fail.
+        bool Init(bool bAutoReset = false);
+        // Waits on an initialized event. Returns when the event was fired. Can fail, in which case another method of waiting should be used.
+        bool Wait();
+        // Fires the event
+        void Signal();
+        // Reset the event if signaled
+        void Reset();
+    private:
+        // The internal, OS-dependent representation of the event.
+        EVENT_STRUCTURE m_eventRepresentation;
+    };
 
     // A class representing a binary semaphore, i.e. an OS-dependent object allowing a thread waiting on it to yield.
     // For a user-space implementation, use the atomic counters
@@ -279,97 +323,97 @@ namespace Intel { namespace OpenCL { namespace Utils {
         // Consumes a signal
         void Wait();
     protected:
-        void* m_semaphore;
+        BINARY_SEMAPHORE m_semaphore;
     };
 
-	template<class T>
-	class OclConcurrentQueue
-	{
-	public:
-		OclConcurrentQueue() {}
-		~OclConcurrentQueue() {}
+    template<class T>
+    class OclConcurrentQueue
+    {
+    public:
+        OclConcurrentQueue() {}
+        ~OclConcurrentQueue() {}
 
-		bool IsEmpty() const;
-		T    Top();
-		T    PopFront();
-		void PushBack(const T& newNode);
-		bool TryPop(T& val);
-	private:
-		typedef typename tbb::concurrent_queue<T>::const_iterator TTypeConcurrentQueueConstIterator;
-		tbb::concurrent_queue<T> m_queue;
-	};
+        bool IsEmpty() const;
+        T    Top();
+        T    PopFront();
+        void PushBack(const T& newNode);
+        bool TryPop(T& val);
+    private:
+        typedef typename tbb::concurrent_queue<T>::const_iterator TTypeConcurrentQueueConstIterator;
+        tbb::concurrent_queue<T> m_queue;
+    };
 
-	template<class T>
-	class OclNaiveConcurrentQueue
-	{
-	public:
-		OclNaiveConcurrentQueue() {}
-		~OclNaiveConcurrentQueue() {}
+    template<class T>
+    class OclNaiveConcurrentQueue
+    {
+    public:
+        OclNaiveConcurrentQueue() {}
+        ~OclNaiveConcurrentQueue() {}
 
-		bool IsEmpty() const;
-		T    Top();
-		T    PopFront();
-		void PushBack(const T& newNode);
-		bool TryPop(T& val);
+        bool IsEmpty() const;
+        T    Top();
+        T    PopFront();
+        void PushBack(const T& newNode);
+        bool TryPop(T& val);
 
-	private:
-		std::queue<T>   m_queue;
-		OclSpinMutex	m_queueLock;
-	};
+    private:
+        std::queue<T>            m_queue;
+        OclNonReentrantSpinMutex m_queueLock;
+    };
 
 
-	/* AtomicBitField define a bit field array which support the operations:
-	   Bit test and reset.
-	   Bit test and set
-	*/
-	class AtomicBitField
-	{
-	public:
-		AtomicBitField();
-		virtual ~AtomicBitField();
+    /* AtomicBitField define a bit field array which support the operations:
+       Bit test and reset.
+       Bit test and set
+    */
+    class AtomicBitField
+    {
+    public:
+        AtomicBitField();
+        virtual ~AtomicBitField();
 
-		/* Initialize a new bit field array of size 'size' and set its' initial value to 'initVal'.
-		   The size must be greater than zero.
-		   The initialization process performs only once. (If 2 or more threads are trying to initialize the bit field array, only one will success)
-		   Must be call before using bitTestAndRest / bitTestAndSet operations.
-		*/
-		void init(unsigned int size, bool initVal);
-		/*
-		   Reset atomically the appropriate bit in bit field array.
-		   On success, return the initial value of the appropriate bit, otherwise return -1.
-		*/
-		long bitTestAndReset(unsigned int bitNum);
-		/*
-		   Set atomically the appropriate bit in bit field array.
-		   On success, return the initial value of the appropriate bit, otherwise return -1.
-		*/
-		long bitTestAndSet(unsigned int bitNum);
+        /* Initialize a new bit field array of size 'size' and set its' initial value to 'initVal'.
+           The size must be greater than zero.
+           The initialization process performs only once. (If 2 or more threads are trying to initialize the bit field array, only one will success)
+           Must be call before using bitTestAndRest / bitTestAndSet operations.
+        */
+        void init(unsigned int size, bool initVal);
+        /*
+           Reset atomically the appropriate bit in bit field array.
+           On success, return the initial value of the appropriate bit, otherwise return -1.
+        */
+        long bitTestAndReset(unsigned int bitNum);
+        /*
+           Set atomically the appropriate bit in bit field array.
+           On success, return the initial value of the appropriate bit, otherwise return -1.
+        */
+        long bitTestAndSet(unsigned int bitNum);
 
-		// Used for debug and log purposes
-		operator unsigned long long()
-		{
-			unsigned long long val = 0;
-			for(unsigned int i=0;i<m_size;++i)
-			{
-				val |= (m_bitField[i] & 0x1) << (i);
-			}
-			return val;
-		}
-		
-	private:
-		unsigned int m_size;
-		long* m_bitField;
-		volatile long m_oneTimeFlag;
-		volatile bool m_isInitialize;
-		OclOsDependentEvent m_eventLock;
-	};
-	
-	///////////////////////////////////////////////////////////////////////////////////////
-	// Basic ReadWriteLock implemenation
-	// Using standart OS mechanism, SLIM RreadWrite lock on Windows and pthread_rwlock on Linux/Android
-	// The lock implementation in not recursive
-	// Optimization of ReadRead path, in case of contention, waiting thread is scheduled out
-	///////////////////////////////////////////////////////////////////////////////////////
+        // Used for debug and log purposes
+        operator unsigned long long()
+        {
+            unsigned long long val = 0;
+            for(unsigned int i=0;i<m_size;++i)
+            {
+                val |= (m_bitField[i] & 0x1) << (i);
+            }
+            return val;
+        }
+        
+    private:
+        unsigned int m_size;
+        long* m_bitField;
+        volatile long m_oneTimeFlag;
+        volatile bool m_isInitialize;
+        OclOsDependentEvent m_eventLock;
+    };
+    
+    ///////////////////////////////////////////////////////////////////////////////////////
+    // Basic ReadWriteLock implemenation
+    // Using standart OS mechanism, SLIM RreadWrite lock on Windows and pthread_rwlock on Linux/Android
+    // The lock implementation in not recursive
+    // Optimization of ReadRead path, in case of contention, waiting thread is scheduled out
+    ///////////////////////////////////////////////////////////////////////////////////////
     class OclReaderWriterLock
     {
     public:
@@ -382,13 +426,13 @@ namespace Intel { namespace OpenCL { namespace Utils {
         void LeaveWrite();
 
     protected:
-		READ_WRITE_LOCK	m_rwLock;
+        READ_WRITE_LOCK    m_rwLock;
 
 #ifdef _DEBUG
-		AtomicCounter readEnter;
-		AtomicCounter writeEnter;
+        AtomicCounter readEnter;
+        AtomicCounter writeEnter;
 #endif
-	};
+    };
 
     class OclAutoReader
     {

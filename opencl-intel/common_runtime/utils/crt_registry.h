@@ -22,70 +22,98 @@
 ///////////////////////////////////////////////////////////
 #pragma once
 
+#include <string>
+
 #include "crt_types.h"
-#include "stdlib.h"
+
 
 namespace OCLCRT
 {
 namespace Utils
 {
-    inline bool GetCpuPathFromRegistry( char* pCpuPath )
+
+inline std::string FormatLibNameForOS( std::string &libName )
+{
+    std::string retName;
+#if defined( _WIN64 )
+    retName = libName + "64.dll";
+#elif defined( _WIN32 )
+    retName = libName + "32.dll";
+#else // Linux/Android
+    retName = "lib" + libName + ".so";
+#endif
+    return retName;
+}
+
+#if defined( _WIN32 )
+inline bool GetStringValueFromRegistry( HKEY       top_hkey,
+                                        const char *keyPath,
+                                        const char *valueName,
+                                        char       *retValue,
+                                        DWORD      size )
+{
+    HKEY hkey;
+
+    // Open the registry path. hkey will hold the entry
+    LONG retCode = RegOpenKeyExA(
+        top_hkey,                   // hkey
+        keyPath,                    // lpSubKey
+        0,                          // ulOptions
+        KEY_READ,                   // samDesired
+        &hkey                       // phkResult
+        );
+
+    if( ERROR_SUCCESS == retCode )
     {
-#if defined(_WIN32)
-        const char* regPath = "SOFTWARE\\Intel\\OpenCL";
-        HKEY  key           = NULL;
-        void* pData         = NULL;
-        DWORD dataSize      = 0;
-        DWORD regType       = REG_SZ;
-        DWORD success       = ERROR_SUCCESS;
-        bool  retVal        = true;
+        // Get the value by name from the key
+        retCode = RegQueryValueExA(
+            hkey,                   // hkey
+            valueName,              // lpValueName
+            0,                      // lpReserved
+            NULL,                   // lpType
+            ( LPBYTE )retValue,     // lpData
+            &size                   // lpcbData
+            );
 
-        // pCpuPath is expected to be MAX_PATH in size
-        if( pCpuPath == NULL )
+        // Close the key - we don't need it any more
+        RegCloseKey( hkey );
+
+        if( ERROR_SUCCESS == retCode )
         {
-            retVal = false;
+            return true;
         }
+    }
 
-        if( retVal == true )
-        {
-            success = RegOpenKeyExA( 
-                HKEY_LOCAL_MACHINE, 
-                regPath, 
-                0,
-                KEY_READ | KEY_WOW64_64KEY,
-                &key );
+    return false;
+}
 
-            if( ERROR_SUCCESS == success )
-            {
-                // set data and size
-                dataSize = MAX_PATH;
+#endif
 
-                success = RegQueryValueExA( 
-                    key, 
-                    "cpu_path",
-                    NULL,
-                    NULL,
-                    (BYTE*)pCpuPath,
-                    &dataSize );
+inline bool GetCpuPathFromRegistry( std::string &cpuPath )
+{
+#if defined( _WIN32 )
+    const char *regPath = "SOFTWARE\\Intel\\OpenCL";
+    char pCpuPath[MAX_PATH];
+    bool retVal = GetStringValueFromRegistry( HKEY_LOCAL_MACHINE, regPath, "cpu_path", pCpuPath, MAX_PATH );
 
-                // close key
-                RegCloseKey( key );
-                
-                if( ERROR_SUCCESS != success )
-				{
-					retVal = false;
-				}
-            }
-            else
-            {
-                retVal = false;
-            }
-        }
-
-        return retVal;
-#else
-        return false;
+    if( retVal )
+    {
+        cpuPath = pCpuPath;
+#if defined( _WIN64 )
+        cpuPath = cpuPath + "\\bin\\x64";
+#else // _WIN32
+        cpuPath = cpuPath + "\\bin\\x86";
 #endif
     }
+    return retVal;
+
+#endif
+    return false;
+}
+
+// Will return true when OpenCL API Debugger is enabled
+// Debugger is enabled when a PID-specific or global key exists, with value CL_CONFIG_API_DBG_ENABLE=1
+bool isAPIDebuggingEnabled();
+
 } // namespace Utils
 } // namespace OCLCRT

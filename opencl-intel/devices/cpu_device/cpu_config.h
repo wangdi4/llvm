@@ -34,8 +34,9 @@ using namespace Intel::OpenCL::Utils;
 **************************************************************************************************/
 
 // CPU specific:
-#define	CL_CONFIG_USE_VECTORIZER		"CL_CONFIG_USE_VECTORIZER"	// bool
-#define	CL_CONFIG_USE_VTUNE				"CL_CONFIG_USE_VTUNE"		// bool
+#define	CL_CONFIG_USE_VECTORIZER  "CL_CONFIG_USE_VECTORIZER"	 // bool
+#define	CL_CONFIG_USE_VTUNE       "CL_CONFIG_USE_VTUNE"          // bool
+#define CL_CONFIG_USE_TRAPPING    "CL_CONFIG_USE_TRAPPING"       // bool
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -48,9 +49,11 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 		CPUDeviceConfig();
 		~CPUDeviceConfig();
 
-		bool		   UseVectorizer() const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
-		bool		   UseVTune()      const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
-
+		bool		   UseVectorizer() const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
+		bool		   UseVTune()      const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
+#ifdef __HARD_TRAPPING__		
+		bool		   UseTrapping()   const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_TRAPPING,    false); }		
+#endif
 	private:
 		CPUDeviceConfig(const CPUDeviceConfig&);
 		CPUDeviceConfig& operator=(const CPUDeviceConfig&);

@@ -504,6 +504,24 @@ def f32gentype : OclGenType<"f32gentype"> {
   list<string> T8 = !foreach(n,  T7, !subst("f64", "f32", n));
   list<string> Tout = T8;
 }
+// sf32gentype: 'vNtM' -> 'v1f32'
+def sf32gentype : OclGenType<"sf32gentype"> {
+  list<string> T0 = !foreach(n, Tin, !subst( "i8", "f32", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "u8", "f32", n));
+  list<string> T2 = !foreach(n,  T1, !subst("i16", "f32", n));
+  list<string> T3 = !foreach(n,  T2, !subst("u16", "f32", n));
+  list<string> T4 = !foreach(n,  T3, !subst("u32", "f32", n));
+  list<string> T5 = !foreach(n,  T4, !subst("i64", "f32", n));
+  list<string> T6 = !foreach(n,  T5, !subst("u64", "f32", n));
+  list<string> T7 = !foreach(n,  T6, !subst("i32", "f32", n));
+  list<string> T8 = !foreach(n,  T7, !subst("f64", "f32", n));
+  list<string> T9 = !foreach(n,  T8, !subst( "v2", "v1", n));
+  list<string> Ta = !foreach(n,  T9, !subst( "v3", "v1", n));
+  list<string> Tb = !foreach(n,  Ta, !subst( "v4", "v1", n));
+  list<string> Tc = !foreach(n,  Tb, !subst( "v8", "v1", n));
+  list<string> Td = !foreach(n,  Tc, !subst("v16", "v1", n));
+  list<string> Tout = Td;
+}
 // f64gentype: 'vNtM' -> 'vNf64'
 def f64gentype : OclGenType<"f64gentype"> {
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "f64", n));

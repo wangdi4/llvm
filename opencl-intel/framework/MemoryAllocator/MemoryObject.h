@@ -148,11 +148,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // non-NULL if data is in the process of copying. Returned event may be added to dependency list
         // by the caller
 		// pOutActuallyUsage is the MemObjUsage that the memory object realy locked on (Can be usage or READ_WRITE)
-        virtual cl_err_code LockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent ) = 0;
+        virtual cl_err_code LockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage, OUT MemObjUsage* pOutActuallyUsage, OUT SharedPtr<OclEvent>& pOutEvent ) = 0;
 
         // release data locking on device. 
         // MUST pass the same usage value as set in pOutActuallyUsage during LockOnDevice execution.
-        virtual cl_err_code UnLockOnDevice( IN const ConstSharedPtr<FissionableDevice>& dev, IN MemObjUsage usage ) = 0;
+        virtual cl_err_code UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage ) = 0;
 
         //
         // end of ownership and data validity management
@@ -171,7 +171,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// Return CL_SUCCSS if flags are adequate for child buffer, or
 		// CL_INVALID_OPERATION if not OK.
-		int ValidateChildFlags( const cl_mem_flags childFlags);
+		virtual int ValidateChildFlags( const cl_mem_flags childFlags);
 
 		// Return CL_SUCCSS if flags are adequate for mapping buffer, or
 		// CL_INVALID_OPERATION if not OK.
@@ -290,6 +290,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		                                        void* IN pHostMapDataPtr, 
 		                                        bool invalidatedBefore = false );
 
+        virtual void        ReleaseAllMappedRegions();
+
 		virtual cl_err_code UndoMappedRegionInvalidation(cl_dev_cmd_param_map* IN pMapInfo );
 
         // In the case when Backing Store region is different from Host Map pointer provided by user
@@ -332,6 +334,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// registered callbacks are called in reverse order.
 		cl_err_code registerDtorNotifierCallback(mem_dtor_fn pfn_notify, void* pUserData);
 
+        // We need to trace all objects that were mapped in order to remove all mappings in the case of shutdown
+        // Implement own life cycle management
+        virtual void EnterZombieState( EnterZombieStateLevel call_level );
+
 		// returns the address of the host pointer or NULL if there is none
 		const void* GetHostPtr() const { return m_pHostPtr; }
 
@@ -370,6 +376,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             SharedPtr<FissionableDevice>            m_pMappedDevice;        // A device that manages mapped regions
 			Intel::OpenCL::Utils::OclSpinMutex		m_muMappedRegions;		// A mutex for accessing Mapped regions
 			size_t									m_stMemObjSize;			// Size of the memory object in bytes
+            volatile mutable bool                   m_bRegisteredInContextModule; // this memory object has an additional reference from context_module
 	};
 
 

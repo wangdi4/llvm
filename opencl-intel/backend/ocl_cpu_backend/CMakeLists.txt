@@ -193,8 +193,15 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ImageCallbackServices.h
     debuggingservicewrapper.h
     opencl_printf_ext.h
+    ExtendedExecutionContext.h
+    BlockLiteral.h
+    RuntimeService.h
+    IBlockToKernelMapper.h
+    CPUBlockToKernelMapper.h
+    CompiledModule.h
+    StaticObjectLoader.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
-    ${BACKEND_ROOT_DIR}/external/vtune/include/jitprofiling.h
+    ${BACKEND_ROOT_DIR}/../externals/itt/include/jitprofiling.h
   )
 
 set (OCL_CPU_BACKEND_SOURCE_FILES
@@ -203,6 +210,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     shared_builtin_functions.cpp
     cpu_builtin_functions.cpp
     mic_builtin_functions.cpp
+    opencl20_ext_execution.cpp
     TargetDescription.cpp
     dllmain.cpp
     opencl_printf_ext.cpp
@@ -248,6 +256,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     ImageCallbackServices.cpp
     debuggingservicewrapper.cpp
     ocl_debug_builtins.cpp
+    CPUBlockToKernelMapper.cpp
   )
 
 if (ENABLE_SDE)
@@ -294,13 +303,14 @@ include_directories(
     ${BACKEND_ROOT_DIR}/vectorizer/Utils
     ${BACKEND_ROOT_DIR}/ocl_mic_executor
     ${BACKEND_ROOT_DIR}/plugin_manager
-    ${BACKEND_ROOT_DIR}/external/vtune/include
+    ${BACKEND_ROOT_DIR}/../externals/itt/include
     ${BACKEND_ROOT_DIR}/optimizer
     ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/dynamic_lib
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/metadata_api/gen
+    ${OCL_BINARY_DIR}
 )
 
 link_directories( 
@@ -330,12 +340,16 @@ endif (NOT WIN32)
 
 
 set( BACKEND_PASSES
-    LLVMVectorizer
     LLVMBarrier
+    LLVMVectorizer
     AddImplicitArgs
+    OclFunctionAttrs
     BuiltInFuncImport
+    BuiltinLibInfo
     DebugInfoPass
+    DetectRecursion
     InstToFuncCall
+    GenericAddressResolution
     LocalBuffers
     LocalBuffAnalysis
     ModuleCleanup
@@ -350,20 +364,27 @@ set( BACKEND_PASSES
     UndefExternalFuncs
     KernelInfo
     Prefetch
+    LinearIdResolver
     Materialize
+    ReduceAlignment
+    DetectFunctionPtrCalls
+    CloneBlockInvokeFuncToKernel
+    ResolveBlockToStaticCall
 )
 
 target_link_libraries (${TARGET_NAME}
     # Utils lib
     OclPluginManager
     OclOptimizer
-    OclBackendUtils
     LLVMMICCodeGenerationEngine
     
     # internal passes
     ${BACKEND_PASSES}
 
-    name_mangle    
+    LoopUtils
+    OclBackendUtils
+    reflection_module
+    name_mangle
     dynamic_load
     cl_sys_utils
     metadataapi
@@ -372,6 +393,11 @@ target_link_libraries (${TARGET_NAME}
     ${LLVM_MODULE_LIBS}
     )
 
+if(NOT WIN32)
+    if(NOT ANDROID)
+        target_link_libraries(${TARGET_NAME} pthread rt)
+    endif(NOT ANDROID)
+endif(NOT WIN32)
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 

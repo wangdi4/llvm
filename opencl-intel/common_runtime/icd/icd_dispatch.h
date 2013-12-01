@@ -51,6 +51,7 @@
 
 // cl.h
 #include <CL/cl.h>
+#include <CL/cl_2_0.h>
 
 // cl_gl.h and required files
 #ifdef _WIN32
@@ -146,6 +147,78 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetContextInfo)(
     void *             param_value, 
     size_t *           param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
 
+typedef CL_API_ENTRY void* (CL_API_CALL *KHRpfn_clSVMAlloc)(
+    cl_context          context,
+    cl_svm_mem_flags    flags,
+    size_t              size,
+    unsigned int        alignment) CL_API_SUFFIX__VERSION_2_0;
+
+typedef CL_API_ENTRY void (CL_API_CALL *KHRpfn_clSVMFree)(
+    cl_context          context,
+    void*               svm_pointer) CL_API_SUFFIX__VERSION_2_0;
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueSVMFree)(
+    cl_command_queue    command_queue,
+    cl_uint             num_svm_pointers,
+    void*               svm_pointers[],
+    void (CL_CALLBACK*  pfn_free_func)(
+        cl_command_queue    queue,
+        cl_uint             num_svm_pointers,
+        void*               svm_pointers[],
+        void*               user_data),
+    void*               user_data,
+    cl_uint             num_events_in_wait_list,
+    const cl_event*     event_wait_list,
+    cl_event*           event) CL_API_SUFFIX__VERSION_2_0;
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueSVMMemcpy)(
+    cl_command_queue    command_queue,
+    cl_bool             blocking_copy,
+    void *              dst_ptr,
+    const void *        src_ptr,
+    size_t              size,
+    cl_uint             num_events_in_wait_list,
+    const cl_event *    event_wait_list,
+    cl_event *          event) CL_API_SUFFIX__VERSION_2_0;
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueSVMMemFill)(
+    cl_command_queue    command_queue,
+    void*               svm_ptr,
+    const void*         pattern,
+    size_t              pattern_size,
+    size_t              size,
+    cl_uint             num_events_in_wait_list,
+    const cl_event*     event_wait_list,
+    cl_event*           event) CL_API_SUFFIX__VERSION_2_0;
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueSVMMap)(
+    cl_command_queue    command_queue,
+    cl_bool             blocking_map,
+    cl_map_flags        map_flags,
+    void*               svm_ptr,
+    size_t              size,
+    cl_uint             num_events_in_wait_list,
+    const cl_event*     event_wait_list,
+    cl_event*           event) CL_API_SUFFIX__VERSION_2_0;
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clEnqueueSVMUnmap)(
+    cl_command_queue    command_queue,
+    void*               svm_ptr,
+    cl_uint             num_events_in_wait_list,
+    const cl_event*     event_wait_list,
+    cl_event*           event) CL_API_SUFFIX__VERSION_2_0;
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clSetKernelArgSVMPointer)(
+    cl_kernel           kernel,
+    cl_uint             arg_index,
+    const void*         arg_value) CL_API_SUFFIX__VERSION_2_0;
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clSetKernelExecInfo)(
+    cl_kernel           kernel,
+    cl_kernel_exec_info param_name,
+    size_t              param_value_size,
+    const void*         param_value) CL_API_SUFFIX__VERSION_2_0;
+
 // Command Queue APIs
 typedef CL_API_ENTRY cl_command_queue (CL_API_CALL *KHRpfn_clCreateCommandQueue)(
     cl_context                     context, 
@@ -222,6 +295,26 @@ typedef CL_API_ENTRY cl_sampler (CL_API_CALL *KHRpfn_clCreateSampler)(
     cl_addressing_mode  addressing_mode, 
     cl_filter_mode      filter_mode,
     cl_int *            errcode_ret) CL_API_SUFFIX__VERSION_1_0;
+
+typedef CL_API_ENTRY cl_sampler (CL_API_CALL *KHRpfn_clCreateSamplerWithProperties)(
+    cl_context                  context,
+    const cl_sampler_properties *sampler_properties,
+    cl_int *                    errcode_ret ) CL_API_SUFFIX__VERSION_2_0;
+
+typedef CL_API_ENTRY cl_mem (CL_API_CALL *KHRpfn_clCreatePipe)(
+    cl_context                  context,
+    cl_mem_flags                flags,
+    cl_uint                     pipe_packet_size,
+    cl_uint                     pipe_max_packets,
+    const cl_pipe_properties *  properties,
+    cl_int *                    errcode_ret) CL_API_SUFFIX__VERSION_2_0;
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetPipeInfo)(
+    cl_mem          pipe,
+    cl_pipe_info    param_name,
+    size_t          param_value_size,
+    void *          param_value,
+    size_t *        param_value_size_ret) CL_API_SUFFIX__VERSION_2_0;
 
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clRetainSampler)(cl_sampler sampler) CL_API_SUFFIX__VERSION_1_0;
 
@@ -354,6 +447,16 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetKernelWorkGroupInfo)(
     size_t                     param_value_size,
     void *                     param_value,
     size_t *                   param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+
+typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetKernelSubGroupInfoKHR)(
+    cl_kernel                kernel,
+    cl_device_id             device,
+    cl_kernel_sub_group_info param_name,
+    size_t                   input_value_size,
+    const void *             input_value,
+    size_t                   param_value_size,
+    void *                   param_value,
+    size_t *                 param_value_size_ret) CL_API_SUFFIX__VERSION_2_0;
 
 // Event Object APIs
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clWaitForEvents)(
@@ -1237,8 +1340,23 @@ struct KHRicdVendorDispatchRec
     KHRpfn_clEnqueueAcquireDX9MediaSurfacesKHR      clEnqueueAcquireDX9MediaSurfacesKHR;
     KHRpfn_clEnqueueReleaseDX9MediaSurfacesKHR      clEnqueueReleaseDX9MediaSurfacesKHR;
 
+
     //OpenCL 2.0 placeholder
+    KHRpfn_clSVMAlloc                               clSVMAlloc;
+    KHRpfn_clSVMFree                                clSVMFree;
+    KHRpfn_clEnqueueSVMFree                         clEnqueueSVMFree;
+    KHRpfn_clEnqueueSVMMemcpy                       clEnqueueSVMMemcpy;
+    KHRpfn_clEnqueueSVMMemFill                      clEnqueueSVMMemFill;
+    KHRpfn_clEnqueueSVMMap                          clEnqueueSVMMap;
+    KHRpfn_clEnqueueSVMUnmap                        clEnqueueSVMUnmap;
+    KHRpfn_clSetKernelArgSVMPointer                 clSetKernelArgSVMPointer;
+    KHRpfn_clSetKernelExecInfo                      clSetKernelExecInfo;
+
     KHRpfn_clCreateCommandQueueWithProperties       clCreateCommandQueueWithProperties;
+    KHRpfn_clCreateSamplerWithProperties            clCreateSamplerWithProperties;
+    KHRpfn_clGetKernelSubGroupInfoKHR               clGetKernelSubGroupInfoKHR;
+    KHRpfn_clCreatePipe                             clCreatePipe;
+    KHRpfn_clGetPipeInfo                            clGetPipeInfo;
 };
 
 /*

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RunConfiguration>
+  <ProgramFile compilation_flags="-DT=double -DTILE_SIZE_M=1 -DTILE_GROUP_M=8 -DTILE_SIZE_N=256 -DTILE_GROUP_N=1 -DTILE_SIZE_K=8">SDKSampleGEMM.c</ProgramFile>
+  <ProgramFileType>CL</ProgramFileType>
+  <UseVTune>0</UseVTune>
+  <UseVectorizer>1</UseVectorizer>
+  <KernelConfiguration Name="Foo">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>16</LocalWorkSize>
+    <GlobalWorkSize>16</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+  </KernelConfiguration>
+</RunConfiguration>

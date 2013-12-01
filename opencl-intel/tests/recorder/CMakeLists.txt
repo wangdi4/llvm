@@ -58,10 +58,12 @@ if (NOT WIN32)
 else (NOT WIN32)
 	target_link_libraries( ${TARGET_NAME}  delayimp)
 	set_target_properties(${TARGET_NAME} PROPERTIES
-		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb_preview.dll"
-		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_preview_debug.dll"
+		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb.dll"
+		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug.dll"
 	)
 endif (NOT WIN32)
+
+set( CMAKE_CXX_FLAGS_DEBUG "-D OCLFRONTEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 
 #adding dependency to the test subject
 add_dependencies(${TARGET_NAME} OclRecorder)
@@ -69,3 +71,4 @@ add_dependencies(${TARGET_NAME} OclRecorder)
 #install the executable
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

@@ -21,6 +21,8 @@
 #pragma once
 
 #include "cl_synch_objects.h"
+#include <set>
+#include <list>
 
 // macro that each class T that wish to user SharedPtrBase<T> must call in its public section
 #define PREPARE_SHARED_PTR(T)    \
@@ -46,7 +48,16 @@ void InitSharedPtrs();
  */
 void FiniSharedPts();
 
+#ifdef _DEBUG
+/**
+ * Dump current state
+ */
+void DumpSharedPts( const char* map_title = NULL, bool if_non_empty = false );
+#endif
+
+
 template<typename T> class SharedPtrBase;
+class LifetimeReferenceCountedObjectContainer;
 
 /**
  * This class represents an object that is reference counted and therefore can be used by SharedPtrBase
@@ -71,7 +82,24 @@ public:
      * Decrement the reference counter
      * @return the new counter's value
      */
-    long DecRefCnt() const { return --m_refCnt; }
+    long DecRefCnt() const
+    {
+        long new_val;
+        
+        // immediatey after decreasing counter object may disappear in another thread.
+        // do maximum before decreasing. 
+        if (true == m_bCheckZombie)
+        {
+            // zombie support required
+            new_val = DriveEnterZombieState();
+        }
+        else
+        {
+            // no zombie support required 
+            new_val = --m_refCnt;
+        }
+        return new_val;
+    }
 
     /**
      * @return the counter's value
@@ -97,6 +125,49 @@ public:
 protected:
 
     /**
+     * Constructor
+     */
+    ReferenceCountedObject() : 
+         m_zombieLevelCnt(0),
+#ifdef _DEBUG 
+         m_bEnterZombieStateCalled(false),
+#endif
+         m_bCheckZombie(false), m_state(NORMAL) {}
+
+    /**
+     * Check if object is in Zombie State - non-zero RefCnt but not visible
+     */
+    bool isZombie() const { return (NORMAL != m_state); }
+
+    /**
+     * Object enters Zombie state when m_zombieLevelCnt > 0 and m_refCnt drops to m_zombieLevelCnt
+     * Zombie state is locking - once entered object cannot exit it
+     * Object may perform actions once entering Zombie state
+     */
+    enum EnterZombieStateLevel
+    {
+        TOP_LEVEL_CALL = 0,
+        RECURSIVE_CALL
+    };
+
+    virtual void EnterZombieState( EnterZombieStateLevel call_level ) 
+    {
+#ifdef _DEBUG
+        m_bEnterZombieStateCalled = true;
+        assert( (TOP_LEVEL_CALL != call_level) && "RefCounted object was added to the LifetimeObjectContainer or IncZombieCnt() used without overriding EnterZombieState()" );
+#endif
+    }
+
+    /**
+     * This method should be used only when registering object in containters that should contain them until object death
+     * In this case refCounts of this objects in a such containers should not be included in life-cycle BUT as refCnt 
+     * reach zombie count value EnterZombieState should be fired.
+     * This method is intended for LifetimeReferenceCountedObjectContainer and GenericMemObject that maintains its own children
+     * in such a container.
+     */
+    void IncZombieCnt() const;
+
+    /**
      * operator new
      * Prevent users of ReferenceCountedObject frrom allocating objects by themselves. The semantics is not changed.
      */
@@ -109,8 +180,24 @@ protected:
     void operator delete(void* p) { ::operator delete(p); }
 
 private:
+    enum State
+    {
+        NORMAL = 0,
+        ZOMBIE
+    };
 
-    mutable AtomicCounter m_refCnt;
+    long DriveEnterZombieState() const;
+
+    mutable AtomicCounter            m_refCnt;
+    mutable OclNonReentrantSpinMutex m_zombieLock;     // all zombie-related checks to be done inside lock except m_bCheckZombie
+    mutable long                     m_zombieLevelCnt; // when object is considered zombie
+#ifdef _DEBUG
+    bool                             m_bEnterZombieStateCalled; // for debug - test for zombie protocol implementation
+#endif
+    mutable volatile bool            m_bCheckZombie;   // object should support zombies 
+    mutable          State           m_state;          // zombie state
+
+    friend class LifetimeReferenceCountedObjectContainer;
 };
 
 /**
@@ -449,14 +536,14 @@ public:
     SharedPtr<S> DynamicCast() const
     {
         S* const pS = dynamic_cast<S*>(this->m_ptr);
-        if (NULL != pS)
-        {
-            return pS;
-        }
-        else
-        {
-            return SharedPtr<S>();
-        }
+        return pS;
+    }
+
+    template<typename S>
+    SharedPtr<S> StaticCast() const
+    {
+        S* const pS = static_cast<S*>(this->m_ptr);
+        return pS;
     }
 
     /**
@@ -542,14 +629,14 @@ public:
     ConstSharedPtr<S> DynamicCast() const
     {
         S* const pS = dynamic_cast<S*>(this->m_ptr);
-        if (NULL != pS)
-        {
-            return pS;
-        }
-        else
-        {
-            return ConstSharedPtr<S>();
-        }
+        return pS;
+    }
+
+    template<typename S>
+    ConstSharedPtr<S> StaticCast() const
+    {
+        S* const pS = static_cast<S*>(this->m_ptr);
+        return pS;
     }
 
 protected:
@@ -570,5 +657,31 @@ bool operator<(const SmartPtr<T>& a, const SmartPtr<T>& b)
 {
     return a.GetPtr() < b.GetPtr();
 }
+
+/**
+ * This class represents a container that should contain SharedPtrs for the whole object lifetime.
+ */
+class LifetimeReferenceCountedObjectContainer
+{
+protected:
+    bool isZombie( const ReferenceCountedObject* o ) const { return o->isZombie(); }
+    void IncZombieCnt( ReferenceCountedObject* o ) const { o->IncZombieCnt(); }
+};
+
+template<typename T>
+class LifetimeObjectContainer : public LifetimeReferenceCountedObjectContainer
+{
+public:
+
+    void add( const SharedPtr<T>& ptr );
+    void remove( const SharedPtr<T>& ptr );
+
+    template<class T1>
+        void getObjects( T1& containerToFill );
+
+private:
+    std::set< SharedPtr<T> >  m_set;
+    OclMutex                 m_lock;
+};
 
 }}}

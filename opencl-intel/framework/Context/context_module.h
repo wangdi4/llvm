@@ -51,6 +51,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	template <class HandleType, class ObjectType> class OCLObjectsMap;
 	class MemoryObject;
     class Kernel;
+    class IOclCommandQueueBase;
+	class OclCommandQueue;
     template<typename T> struct D3DResourceInfo;
 
 	/**********************************************************************************************
@@ -144,6 +146,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
         bool IsTerminating() const { return m_bIsTerminating; }
 
+        /******************************************************************************************
+		* Function: 	ShutDown    
+		* Description:	ShutDown everything
+		* Arguments:	bool to skip waiting for queues               	
+		* Return value:	none
+		******************************************************************************************/
+        void ShutDown( bool wait_for_finish );
+
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// IContext methods
 		///////////////////////////////////////////////////////////////////////////////////////////
@@ -172,6 +182,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_int SetKernelArg(cl_kernel clKernel, cl_uint	uiArgIndex, size_t szArgSize, const void * pszArgValue);
 		virtual cl_int GetKernelInfo(cl_kernel clKernel, cl_kernel_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 		virtual cl_int GetKernelWorkGroupInfo(cl_kernel clKernel, cl_device_id pDevice, cl_kernel_work_group_info clParamName, size_t szParamValueSize, void *	pParamValue, size_t * pszParamValueSizeRet);
+		
 		// memory object methods
 		virtual cl_mem CreateBuffer(cl_context clContext, cl_mem_flags clFlags, size_t szSize, void * pHostPtr, cl_int * pErrcodeRet);
 		virtual cl_mem CreateSubBuffer(cl_mem buffer, cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type, const void * buffer_create_info, cl_int * pErrcodeRet);
@@ -221,6 +232,33 @@ namespace Intel { namespace OpenCL { namespace Framework {
 												void *      pParamValue,
 												size_t *    pszParamValueSizeRet);
 
+		/////////////////////////////////////////////////////////////////////
+		// OpenCL 2.0 functions
+		/////////////////////////////////////////////////////////////////////
+
+		// SVM
+
+		void* SVMAlloc(cl_context context, cl_svm_mem_flags flags, size_t size, unsigned int uiAlignment);
+		void SVMFree(cl_context context, void* pSvmPtr);		
+		cl_int SetKernelArgSVMPointer(cl_kernel clKernel, cl_uint uiArgIndex, const void* pArgValue);
+		cl_int SetKernelExecInfo(cl_kernel clKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue);
+
+		// pipes
+
+		cl_mem CreatePipe(cl_context context, cl_mem_flags flags, cl_uint uiPipePacketSize,	cl_uint uiPipeMaxPackets, const cl_pipe_properties* pProperties, void* pHostPtr, size_t* pSizeRet,
+            cl_int* piErrcodeRet);
+
+		cl_int GetPipeInfo(cl_mem pipe, cl_pipe_info paramName, size_t szParamValueSize, void *pParamValue, size_t* pszParamValueSizeRet);
+
+        ///////////////////////////////////////////////////////////////////////
+        // Utility functions
+        ///////////////////////////////////////////////////////////////////////
+        void CommandQueueCreated( OclCommandQueue* queue );
+        void CommandQueueRemoved( OclCommandQueue* queue );
+
+        void RegisterMappedMemoryObject( MemoryObject* pMemObj );
+        void UnRegisterMappedMemoryObject( MemoryObject* pMemObj );
+
 	private:
 		
 		ContextModule(const ContextModule&);
@@ -254,7 +292,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 										const size_t image_height,
 										const size_t image_depth,
 										const size_t array_size,
-										const void* pImgBufferHostPtr = NULL);
+										const void* pImgBufferHostPtr = NULL,
+                                        cl_mem_flags bufFlags = 0);
 
 
 		// get pointers to device objects according to the device ids
@@ -265,6 +304,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         template<size_t DIM, cl_mem_object_type OBJ_TYPE>
         cl_mem CreateImageBuffer(cl_context context, cl_mem_flags clFlags, const cl_image_format* clImageFormat, const cl_image_desc& desc, cl_mem buffer, cl_int* pErrcodeRet);
+
+        void RemoveAllMemObjects( bool preserve_user_handles );
+        void RemoveAllSamplers( bool preserve_user_handles );
+        void RemoveAllKernels( bool preserve_user_handles );
+        void RemoveAllPrograms( bool preserve_user_handles );
 
         bool Check2DImageFromBufferPitch(const ConstSharedPtr<GenericMemObject>& pBuffer, const cl_image_desc& desc, const cl_image_format& format) const;
 
@@ -282,10 +326,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		OCLObjectsMap<_cl_mem_int>      		m_mapMemObjects;	// map list of all memory objects
 		OCLObjectsMap<_cl_sampler_int>			m_mapSamplers;	// map list of all memory objects
 
-		ocl_entry_points *						m_pOclEntryPoints;
+        Intel::OpenCL::Utils::LifetimeObjectContainer<OclCommandQueue> m_setQueues;    // set of all queues including invisible to user
+        Intel::OpenCL::Utils::LifetimeObjectContainer<MemoryObject>    m_setMappedMemObjects; // set of all memory objects that were mapped at least once in a history
+
+        ocl_entry_points *						m_pOclEntryPoints;
 
 		ocl_gpa_data *							m_pGPAData;
-        bool                                    m_bIsTerminating;
+        bool                                    m_bIsTerminating;		
 
 		DECLARE_LOGGER_CLIENT;
 	};
@@ -528,7 +575,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags
         return CL_INVALID_HANDLE;
     }
 
-	clErr = CheckContextSpecificParameters(pContext, (cl_mem_object_type)OBJ_TYPE, desc.image_width, desc.image_height, desc.image_depth, desc.image_array_size, pBuffer->GetHostPtr());
+	clErr = CheckContextSpecificParameters(pContext, (cl_mem_object_type)OBJ_TYPE, desc.image_width, desc.image_height, desc.image_depth, desc.image_array_size, pBuffer->GetHostPtr(), bufFlags);
 	if (CL_FAILED(clErr))
 	{
 		LOG_ERROR(TEXT("%s"), TEXT("Context specific parameter check failed"), "");
@@ -561,7 +608,21 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags
 		return CL_INVALID_HANDLE;
 	}
 
-    clFlags |= pBuffer->GetFlags(); // if some flags are not specified, they are inherited from buffer
+    /* if the CL_MEM_READ_WRITE, CL_MEM_READ_ONLY or CL_MEM_WRITE_ONLY values are not specified in flags, they are inherited from the corresponding memory access qualifers associated with
+       mem_object */
+    if (0 == (clFlags & (CL_MEM_READ_WRITE | CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY)))
+    {
+        clFlags |= pBuffer->GetFlags() & (CL_MEM_READ_WRITE | CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY);
+    }
+    /* The CL_MEM_USE_HOST_PTR, CL_MEM_ALLOC_HOST_PTR and CL_MEM_COPY_HOST_PTR values cannot be specified in flags but are inherited from the corresponding memory access qualifiers associated with
+       mem_object. */
+    clFlags |= pBuffer->GetFlags() & (CL_MEM_USE_HOST_PTR | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR);
+    /* If the CL_MEM_HOST_WRITE_ONLY, CL_MEM_HOST_READ_ONLY or CL_MEM_HOST_NO_ACCESS values are not specified in flags, they are inherited from the corresponding memory access qualifiers
+       associated with mem_object. */
+    if (0 == (clFlags & (CL_MEM_HOST_WRITE_ONLY | CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_NO_ACCESS)))
+    {
+        clFlags |= pBuffer->GetFlags() & (CL_MEM_HOST_WRITE_ONLY | CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_NO_ACCESS);
+    }
 
     void* const pBufferData = pBuffer->GetBackingStoreData();
 	const cl_mem clImgBuf = CreateScalarImage<DIM, OBJ_TYPE>(context, clFlags, clImageFormat, desc.image_width, desc.image_height, desc.image_depth, desc.image_row_pitch,

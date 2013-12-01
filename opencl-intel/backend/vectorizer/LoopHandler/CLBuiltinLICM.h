@@ -23,9 +23,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __CL_BUILTIN_LICM_H_
 #define __CL_BUILTIN_LICM_H_
 
+#include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 using namespace llvm;
 namespace intel {
 class CLBuiltinLICM : public LoopPass {
@@ -50,6 +51,7 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<DominatorTree>();
     AU.addRequired<LoopInfo>();
+    AU.addRequired<BuiltinLibInfo>();
     AU.setPreservesCFG();
   };
 

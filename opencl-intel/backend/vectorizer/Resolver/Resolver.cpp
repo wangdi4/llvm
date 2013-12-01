@@ -10,13 +10,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Logger.h"
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "FakeExtractInsert.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/Version.h"
 
 #include <vector>
 
@@ -24,7 +26,9 @@ namespace intel {
 
 char X86Resolver::ID = 0;
 
-OCL_INITIALIZE_PASS(X86Resolver, "resolve", "Resolves masked and vectorized function calls on x86", false, false)
+OCL_INITIALIZE_PASS_BEGIN(X86Resolver, "resolve", "Resolves masked and vectorized function calls on x86", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(X86Resolver, "resolve", "Resolves masked and vectorized function calls on x86", false, false)
 
 bool FuncResolver::runOnFunction(Function &F) {
 
@@ -34,6 +38,8 @@ bool FuncResolver::runOnFunction(Function &F) {
   )
 
   V_PRINT(resolver, "---------------- Resolver before ---------------\n"<<F<<"\n");
+
+  m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
 
   std::vector<CallInst*> calls;
 
@@ -271,7 +277,7 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
       }
     }//end of for
 
-	phi->addIncoming(getDefaultValForType(insts[i]->getType()), header);
+    phi->addIncoming(getDefaultValForType(insts[i]->getType()), header);
     phi->addIncoming(insts[i], body);
   }
 }
@@ -387,7 +393,11 @@ bool FuncResolver::isResolvedMaskedLoad(CallInst* caller) {
     args.push_back(extMask);
     CallInst* newCall = VectorizerUtils::createFunctionCall(
             caller->getParent()->getParent()->getParent(), funcName, 
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
             caller->getType(), args, SmallVector<Attributes, 4>(), caller);
+#else
+            caller->getType(), args, SmallVector<Attribute::AttrKind, 4>(), caller);
+#endif
     caller->replaceAllUsesWith(newCall);
     caller->eraseFromParent();
     return true;
@@ -506,7 +516,11 @@ bool FuncResolver::isResolvedMaskedStore(CallInst* caller) {
     args.push_back(extMask);
     (void) VectorizerUtils::createFunctionCall(
             caller->getParent()->getParent()->getParent(), funcName, 
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
             caller->getType(), args, SmallVector<Attributes, 4>(), caller);
+#else
+            caller->getType(), args, SmallVector<Attribute::AttrKind, 4>(), caller);
+#endif
     // no need in 'funcName' call instruction value - as it has void result
     caller->eraseFromParent();
     return true;
@@ -550,6 +564,7 @@ void FuncResolver::resolveFunc(CallInst* caller) {
     func, ArrayRef<Value*>(params), "", caller);
   //Update new call instruction with calling convention and attributes
   pcall->setCallingConv(caller->getCallingConv());
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
   for (unsigned int i=1; i < caller->getNumArgOperands(); ++i) {
     //Parameter attributes starts with index 1-NumOfParams
     unsigned int idx = i+1;
@@ -560,6 +575,21 @@ void FuncResolver::resolveFunc(CallInst* caller) {
   pcall->addAttribute(~0, caller->getAttributes().getFnAttributes());
   //set return value attributes of pcall
   pcall->addAttribute(0, caller->getAttributes().getRetAttributes());
+#else
+  AttributeSet as;
+  AttributeSet callAttr = caller->getAttributes();
+  for (unsigned int i=0; i < caller->getNumArgOperands(); ++i) {
+    //Parameter attributes starts with index 1-NumOfParams
+    unsigned int idx = i+1;
+    //pcall starts with mask argument, skip it when setting original argument attributes.
+	  as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
+  }
+  //set function attributes of pcall
+  as.addAttributes(func->getContext(), AttributeSet::FunctionIndex, callAttr.getFnAttributes());
+  //set return value attributes of pcall
+  as.addAttributes(func->getContext(), AttributeSet::ReturnIndex, callAttr.getRetAttributes());
+  pcall->setAttributes(as);
+#endif
   VectorizerUtils::SetDebugLocBy(pcall, caller);
   caller->replaceAllUsesWith(pcall);
   // Replace predicate with control flow

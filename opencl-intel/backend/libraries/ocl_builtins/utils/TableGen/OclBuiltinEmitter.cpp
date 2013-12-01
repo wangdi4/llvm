@@ -73,6 +73,9 @@ static cl::opt<std::string, false, cl::parser<std::string> >
   GenOCLBuiltinPrefix("gen-ocl-Prefix", cl::NotHidden,
   cl::desc("Add prefix for pre-defined subset of built-ins"), cl::init(""));
 
+static cl::opt<bool>
+  GenOCLBuiltinExclude("gen-ocl-Exclude", cl::NotHidden,
+  cl::desc("Exclude pre-defined subset of built-ins"), cl::init(false));
 
 #define GENOCL_WARNING(X)                                                         \
   do { errs() << (GenOCLBuiltinWerror ? "ERROR: " : "WARNING: ") << X;            \
@@ -319,6 +322,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
 , m_CFunc(R->getValueAsString("Name"))
 , m_IsDeclOnly(R->getValueAsBit("IsDeclOnly"))
 , m_NeedForwardDecl(R->getValueAsBit("NeedForwardDecl"))
+, m_NeedToExclude(R->getValueAsBit("Exclude"))
 , m_NeedPrefix(R->getValueAsBit("Prefix"))
 , m_HasConst(0)
 , m_HasVolatile(0)
@@ -366,7 +370,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
 
     assert(dyn_cast<DefInit>(Ins->getOperator()) && 
       dyn_cast<DefInit>(Ins->getOperator())->getDef()->getName() == "ins" && 
-      "Invalid OclBuiltin record with invalid outputs.");
+      "Invalid OclBuiltin record with invalid inputs.");
     for (unsigned i = 0, e = Ins->getNumArgs(); i != e; ++i) {
       const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Ins->getArg(i))->getDef()->getName());
       const std::string& ArgName = Ins->getArgName(i);
@@ -512,6 +516,18 @@ OclBuiltin::getArgumentCType(unsigned i, const std::string& TyName) const
 }
 
 std::string
+OclBuiltin::getPtrArgumentCType(unsigned i, const std::string& TyName) const
+{
+  assert(i < m_Inputs.size() && "Argument index is out of bound.");
+  const std::string& GT = m_Inputs[i].first->getGenType(TyName);
+  std::string NoPtrGT = GT.substr(1);
+  const OclType* T = m_DB.getOclType(NoPtrGT);
+  assert(T && "Invalid type found.");
+
+  return T->getCType(this);
+}
+
+std::string
 OclBuiltin::getArgumentBaseCType(unsigned i, const std::string& TyName) const
 {
   assert(i < m_Inputs.size() && "Argument index is out of bound.");
@@ -557,7 +573,7 @@ OclBuiltin::getArgumentCGenType(unsigned i, const std::string& Generator, const 
   const OclType* T = m_DB.getOclType(GT2);
   assert(T && "Invalid type found.");
 
-  return T->getCType(this, true);
+  return T->getCType(this);
 }
 
 std::string
@@ -569,7 +585,7 @@ OclBuiltin::getReturnCGenType(const std::string& Generator, const std::string& T
   const OclType* T = m_DB.getOclType(GT2);
   assert(T && "Invalid type found.");
 
-  return T->getCType(this, true);
+  return T->getCType(this);
 }
 
 std::string
@@ -753,7 +769,9 @@ void OclBuiltin::removeAttribute(const OclBuiltinAttr& A){
   }
 }
 
-
+bool OclBuiltin::shouldGenerate() const {
+  return !(GenOCLBuiltinExclude && needToExclude());
+}
 
 /// OclBuiltinImpl
 OclBuiltinImpl::OclBuiltinImpl(const OclBuiltinDB& DB, const Record* R)
@@ -881,7 +899,7 @@ OclBuiltinImpl::getCImpl(const std::string& in) const
       if (Ty != (*J))
         continue;
       std::string ret;
-      if (!(*I)->m_IsDeclOnly) {
+      if (!(*I)->m_IsDeclOnly && m_Proto->shouldGenerate()) {
         ret += m_Proto->getCProto(in);
         ret += "\n{";
         ret += RemoveCommonLeadingSpaces(
@@ -1191,24 +1209,30 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 9 && "Type" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCType(i, OT->getName());
+        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 10 && "Type" == pat.substr(6)) {
+          unsigned i = (pat[4] - '0')*10 + (pat[5] - '0');
+          val = OB->getArgumentCType(i, OT->getName());
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "BaseType" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentBaseCType(i, OT->getName());
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 && "VecType" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCVecType(i, OT->getName(), OT->getVecLength());
+        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "VecType" == pat.substr(6)) {
+          unsigned i = (pat[4] - '0')*10 + (pat[5] - '0');
+          val = OB->getArgumentCVecType(i, OT->getName(), OT->getVecLength());
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "NoASType" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCNoASType(i, OT->getName());
+        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 && "VarName" == pat.substr(5)) {
+          unsigned i = pat[4] - '0';
+          val = OB->getArgumentCName(i, OT->getName());
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 13 && "VarName" == pat.substr(6)) {
           unsigned i = (pat[4] - '0')*10 + (pat[5] - '0');
           val = OB->getArgumentCName(i, OT->getName());
         } else if ("$Arg" == pat.substr(0, 4) &&  pat.substr(5).find("gentype") != std::string::npos) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCGenType(i, pat.substr(5), OT->getName());
-        } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 12 && "VarName" == pat.substr(5)) {
-          unsigned i = pat[4] - '0';
-          val = OB->getArgumentCName(i, OT->getName());
         } else if ("$NativeFunc" == pat) {
           val = OB->getNativeCFunc(OT->getName());
         } else if ("$NativeReturnType" == pat) {
@@ -1216,6 +1240,9 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
         } else if ("$NativeArg" == pat.substr(0, 10) && pat.size() == 15 && "Type" == pat.substr(11)) {
           unsigned i = pat[10] - '0';
           val = OB->getNativeArgumentCType(i, OT->getName());
+        } else if (("$PtrArg" == pat.substr(0, 7)) && ("Type" == pat.substr(8,12)) ) {
+          unsigned i = pat[7] - '0';
+          val = OB->getPtrArgumentCType(i, OT->getName());
         } else if ("$NativeArg" == pat.substr(0, 10) && pat.size() == 20 && "VecLength" == pat.substr(11)) {
           unsigned i = pat[10] - '0';
           val = OB->getNativeArgumentCVecLen(i, OT->getName());
@@ -1423,7 +1450,9 @@ OclBuiltinEmitter::run(raw_ostream& OS)
       continue;
 
     for (OclBuiltin::const_type_iterator J = P->type_begin(), E = P->type_end(); J != E; ++J) {
-      OS << P->getCProto((*J)->getName(), true) << '\n';
+      if (P->shouldGenerate()) {
+        OS << P->getCProto((*J)->getName(), true) << '\n';
+      }
     }
     OS << '\n';
   }

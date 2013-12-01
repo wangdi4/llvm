@@ -20,6 +20,7 @@ File Name:  IAbstractBackendFactory.h
 #include <vector>
 #include <string>
 #include "cl_dev_backend_api.h"
+#include "IDeviceCommandManager.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -30,6 +31,7 @@ class KernelJITProperties;
 class IKernelJITContainer;
 class Binary;
 class Executable;
+class IBlockToKernelMapper;
 
 /**
  * This interface is used to generate the suitable objects for CPU\MIC devices
@@ -43,6 +45,7 @@ public:
     virtual Kernel* CreateKernel(
         const std::string& name,
         const std::vector<cl_kernel_argument>& args,
+        const std::vector<unsigned int>& memArgs,
         KernelProperties* pProps) = 0;
 
     virtual KernelProperties* CreateKernelProperties() = 0;
@@ -50,6 +53,8 @@ public:
 
     virtual Binary* CreateBinary(
         ICLDevBackendBufferPrinter* pPrinter,
+        IDeviceCommandManager *pDeviceCommandManager, // OCL20. extended execution
+        const IBlockToKernelMapper *pBlockToKernelMapper, // OCL20. extended execution
         const KernelProperties* pKernelProperties,
         const std::vector<cl_kernel_argument>& args,
         const cl_work_description_type* pWorkInfo,

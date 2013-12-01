@@ -33,15 +33,27 @@
 #include <malloc.h>
 
 #include "cl_secure_string_linux.h"
+#include "cl_shutdown.h"
+
 using namespace Intel::OpenCL::Utils;
+
+#ifndef DEVICE_NATIVE
+	// use only global handler - do not use local one
+	USE_SHUTDOWN_HANDLER(NULL); 
+#endif
+
+void Logger::RegisterGlobalAtExitNotification( IAtExitCentralPoint* fn )
+{
+    Intel::OpenCL::Utils::RegisterGlobalAtExitNotification(fn);
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // Logger Ctor
 /////////////////////////////////////////////////////////////////////////////////////////
 Logger::Logger()
 {
-	m_bIsActive = false;
-	memset(m_logHandlers, 0, sizeof(m_logHandlers));
+    m_bIsActive = false;
+    memset(m_logHandlers, 0, sizeof(m_logHandlers));
 }
 
 
@@ -58,23 +70,23 @@ Logger::~Logger()
 /////////////////////////////////////////////////////////////////////////////////////////
 struct LoggerSingletonHandler
 {
-	LoggerSingletonHandler()
-	{
-		pLogger = new Logger;
-	}
+    LoggerSingletonHandler()
+    {
+        pLogger = new Logger;
+    }
 
-	~LoggerSingletonHandler()
-	{
-		delete(pLogger);
-	}
+    ~LoggerSingletonHandler()
+    {
+        delete(pLogger);
+    }
 
-	// Pointer to a singleton object
-	static Logger*	pLogger;
+    // Pointer to a singleton object
+    static Logger*    pLogger;
 };
 
 Logger* LoggerSingletonHandler::pLogger = NULL;
 
-LoggerSingletonHandler	logger;
+LoggerSingletonHandler    logger;
 
 Logger& Logger::GetInstance()
 {
@@ -87,8 +99,8 @@ Logger& Logger::GetInstance()
 cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
 {
 
-	OclAutoMutex CS(&m_CS); // Lock the function
-    int	i;
+    OclAutoMutex CS(&m_CS); // Lock the function
+    int    i;
     for (i = 0; i < MAX_LOG_HANDLERS; i++)
     {
         if (m_logHandlers[i] == logHandler)
@@ -98,7 +110,7 @@ cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
         if (m_logHandlers[i] == NULL)
         {
             m_logHandlers[i] = logHandler;
-			return CL_SUCCESS;
+            return CL_SUCCESS;
         }
     }
     return CL_ERR_LOGGER_FAILED;
@@ -109,7 +121,7 @@ cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
 /////////////////////////////////////////////////////////////////////////////////////////
 void Logger::Log(ELogLevel level, ELogConfigField config, const char* psClientName, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message, va_list va)
 {
-    LogMessage	logMessage(level, config, psClientName, sourceFile, functionName, sourceLine, message, va);
+    LogMessage    logMessage(level, config, psClientName, sourceFile, functionName, sourceLine, message, va);
     for (int i = 0; i < MAX_LOG_HANDLERS && m_logHandlers[i]; i++)
     {
         if (m_logHandlers[i] != NULL)
@@ -135,9 +147,9 @@ const char* Logger::GetLogHandlerParams(const char* logHandler)
 LoggerClient::LoggerClient(const char* clientHandle, ELogLevel loglevel)
 {
     m_logLevel = loglevel;
-	m_eLogConfig =	(ELogConfigField)(LCF_LINE_TID | LCF_LINE_TIME |
-										LCF_LINE_CLIENT_NAME | LCF_LINE_LOG_LEVEL);
-	m_handle = NULL;
+    m_eLogConfig =    (ELogConfigField)(LCF_LINE_TID | LCF_LINE_TIME |
+                                        LCF_LINE_CLIENT_NAME | LCF_LINE_LOG_LEVEL);
+    m_handle = NULL;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -170,9 +182,9 @@ void LoggerClient::Log(ELogLevel level, const char* sourceFile, const char* func
 /////////////////////////////////////////////////////////////////////////////////////////
 void LoggerClient::LogArgList(ELogLevel level, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message, va_list va)
 {
-	if (m_logLevel > level)
+    if (m_logLevel > level)
     {
         return;
     }
-	Logger::GetInstance().Log(level, m_eLogConfig, "", sourceFile, functionName,  sourceLine, message, va);
+    Logger::GetInstance().Log(level, m_eLogConfig, "", sourceFile, functionName,  sourceLine, message, va);
 }

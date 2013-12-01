@@ -1,20 +1,20 @@
 ; XFAIL: x86
-; RUN: oclopt -builtins-module=clbltfng9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfng9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc < %t1.ll -mattr=+avx -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK-AVX
-; RUN: oclopt -builtins-module=clbltfns9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
+; RUN: oclopt -runtimelib=clbltfns9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
 ; RUN: llc < %t2.ll -mattr=+avx2 -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK-AVX2
 
 
 define <8 x float> @foo(<4 x float>* nocapture %pStoreAdd, <8 x float> %xIn, <8 x float> %yIn, <8 x float> %zIn, <8 x float> %wIn) nounwind{
 entry:
 
-    call void @__ocl_transpose_store_float4x8(<4 x float>* nocapture %pStoreAdd, <8 x float> %xIn, <8 x float> %yIn, <8 x float> %zIn, <8 x float> %wIn) nounwind
+    call void @__ocl_transpose_store_float_4x8(<4 x float>* nocapture %pStoreAdd, <8 x float> %xIn, <8 x float> %yIn, <8 x float> %zIn, <8 x float> %wIn) nounwind
     %re0 = fadd <8 x float> %xIn, %yIn
     %re1 = fadd <8 x float> %zIn, %wIn
     %ret0 = fadd <8 x float> %re0, %re1
     ret <8 x float> %ret0
 }
- declare void @__ocl_transpose_store_float4x8(<4 x float>* nocapture %pStoreAdd, <8 x float> %xIn, <8 x float> %yIn, <8 x float> %zIn, <8 x float> %wIn) nounwind
+ declare void @__ocl_transpose_store_float_4x8(<4 x float>* nocapture %pStoreAdd, <8 x float> %xIn, <8 x float> %yIn, <8 x float> %zIn, <8 x float> %wIn) nounwind
 
 
 ;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
@@ -36,7 +36,7 @@ entry:
 ;CHECK-AVX:	vaddps	[[YMM3]], [[YMM2]], [[YMM21:%ymm[0-9]+]]
 ;CHECK-AVX:	vaddps	[[YMM1]], [[YMM0]], [[YMM01:%ymm[0-9]+]]
 ;CHECK-AVX:	vaddps	[[YMM21]], [[YMM01]], [[YMM02:%ymm[0-9]+]]
-;CHECK-AVX:	.type	    [[TRANSPOSE:[_a-z]+]]_store_float4x8,@function
+;CHECK-AVX:	.type	    [[TRANSPOSE:[_a-z]+]]_store_float_4x8,@function
 
 ;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX2:    [[FOO]]:
@@ -57,4 +57,4 @@ entry:
 ;CHECK-AVX2:	vaddps	[[YMM3]], [[YMM2]], [[YMM21:%ymm[0-9]+]]
 ;CHECK-AVX2:	vaddps	[[YMM1]], [[YMM0]], [[YMM01:%ymm[0-9]+]]
 ;CHECK-AVX2:	vaddps	[[YMM21]], [[YMM01]], [[YMM02:%ymm[0-9]+]]
-;CHECK-AVX2:	.type	    [[TRANSPOSE:[_a-z]+]]_store_float4x8,@function
+;CHECK-AVX2:	.type	    [[TRANSPOSE:[_a-z]+]]_store_float_4x8,@function

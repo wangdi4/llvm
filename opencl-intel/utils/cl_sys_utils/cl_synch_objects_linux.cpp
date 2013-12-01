@@ -2,7 +2,7 @@
 // cl_synch_objects.cpp
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
-// Copyright 2007-2008 Intel Corporation All Rights Reserved.
+// Copyright 2007-2013 Intel Corporation All Rights Reserved.
 //
 // The source code contained or described herein and all documents related
 // to the source code ("Material") are owned by Intel Corporation or its
@@ -12,7 +12,7 @@
 // suppliers and licensors, and is protected by worldwide copyright and trade
 // secret laws and treaty provisions. No part of the Material may be used, copied,
 // reproduced, modified, published, uploaded, posted, transmitted, distributed,
-// or disclosed in any way without Intel’s prior express written permission.
+// or disclosed in any way without Intel's prior express written permission.
 //
 // No license under any patent, copyright, trade secret or other intellectual
 // property right is granted to or conferred upon you by disclosure or delivery
@@ -21,7 +21,7 @@
 // and approved by Intel in writing.
 //
 // Unless otherwise agreed by Intel in writing, you may not remove or alter this notice
-// or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors
+// or any other notice embedded in Materials by Intel or Intel's suppliers or licensors
 // in any way.
 /////////////////////////////////////////////////////////////////////////
 #include <tbb/concurrent_queue.h>
@@ -47,12 +47,25 @@ void Intel::OpenCL::Utils::InnerSpinloopImpl()
 /************************************************************************
  * Creates the mutex section object.
  ************************************************************************/
-OclMutex::OclMutex(unsigned int uiSpinCount) : m_uiSpinCount(uiSpinCount)
+OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive) : m_uiSpinCount(uiSpinCount), m_bRecursive(recursive)
 {
-    m_mutexHndl = new pthread_mutex_t;
-    if (0 != pthread_mutex_init((pthread_mutex_t*)m_mutexHndl, NULL))
+    pthread_mutexattr_t     attr;
+    pthread_mutexattr_t*    p_attr = NULL;
+
+    if (m_bRecursive)
     {
-	assert(0 && "Failed initialize pthread mutex");
+        p_attr = &attr;
+        pthread_mutexattr_init( p_attr );
+        pthread_mutexattr_settype( p_attr, PTHREAD_MUTEX_RECURSIVE );
+    }
+
+    if (0 != pthread_mutex_init(&m_mutex, p_attr))
+    {
+        assert(0 && "Failed initialize pthread mutex");
+    }
+    if (NULL != p_attr)
+    {
+        pthread_mutexattr_destroy(p_attr);
     }
 }
 
@@ -61,12 +74,10 @@ OclMutex::OclMutex(unsigned int uiSpinCount) : m_uiSpinCount(uiSpinCount)
  ************************************************************************/
 OclMutex::~OclMutex()
 {
-    if (0 != pthread_mutex_destroy((pthread_mutex_t*)m_mutexHndl))
+    if (0 != pthread_mutex_destroy(&m_mutex))
     {
-	assert(0 && "Failed destroy pthread mutex");
+        assert(0 && "Failed destroy pthread mutex");
     }
-    delete((pthread_mutex_t*)m_mutexHndl);
-    m_mutexHndl = NULL;
 }
 
 /************************************************************************
@@ -83,7 +94,7 @@ void OclMutex::Lock()
  ************************************************************************/
 void OclMutex::Unlock()
 {
-    pthread_mutex_unlock((pthread_mutex_t*)m_mutexHndl);
+    pthread_mutex_unlock(&m_mutex);
 }
 
 void OclMutex::spinCountMutexLock()
@@ -91,22 +102,22 @@ void OclMutex::spinCountMutexLock()
     int err = 0;
     unsigned int i = 0;
     do
-	{
-	    err = pthread_mutex_trylock((pthread_mutex_t*)m_mutexHndl);
-	    // Mutex lock succeded.
-	    if (err == 0)
-	    {
-	        return;
-	    }
-	    // The mutex could not be acquired because it was already locked.
-	    if (err == EBUSY)
-	    {
+    {
+        err = pthread_mutex_trylock(&m_mutex);
+        // Mutex lock succeded.
+        if (err == 0)
+        {
+            return;
+        }
+        // The mutex could not be acquired because it was already locked.
+        if (err == EBUSY)
+        {
             // In order to improve the performance of spin-wait loops.
             InnerSpinloopImpl();
-	    }
-	    i++;
+        }
+        i++;
     } while (i < m_uiSpinCount);
-    pthread_mutex_lock((pthread_mutex_t*)m_mutexHndl);
+    pthread_mutex_lock(&m_mutex);
 }
 
 /************************************************************************
@@ -136,12 +147,12 @@ OclCondition::~OclCondition()
  ************************************************************************/
 COND_RESULT OclCondition::Wait(OclMutex* mutexObj)
 {
-	assert(((mutexObj) && (mutexObj->m_mutexHndl)) && "mutexObj must be valid object");
-	if ((NULL == mutexObj) || (NULL == mutexObj->m_mutexHndl))
+	assert( mutexObj && "mutexObj must be valid object");
+	if ( NULL == mutexObj )
     {
         return COND_RESULT_FAIL;
     }
-	if (0 != pthread_cond_wait(&m_condVar, (pthread_mutex_t*)(mutexObj->m_mutexHndl)))
+	if (0 != pthread_cond_wait(&m_condVar, &mutexObj->m_mutex))
 	{
 		return COND_RESULT_FAIL;
 	}
@@ -165,6 +176,11 @@ COND_RESULT OclCondition::Signal()
  ************************************************************************/
 OclOsDependentEvent::OclOsDependentEvent()
 {
+}
+
+OclOsDependentEvent::OclOsDependentEvent(bool bAutoReset)
+{
+	Init(bAutoReset);
 }
 
 OclOsDependentEvent::~OclOsDependentEvent()
@@ -227,37 +243,37 @@ void OclOsDependentEvent::Reset()
  ************************************************************************/
 AtomicCounter::operator long() const
 {
-	return __sync_val_compare_and_swap(const_cast<volatile long*>(&m_val), 0, 0);
+    return __sync_val_compare_and_swap(const_cast<volatile long*>(&m_val), 0, 0);
 }
 
 long AtomicCounter::operator ++() //prefix, returns new val
 {
-	return __sync_add_and_fetch(&m_val, 1);
+    return __sync_add_and_fetch(&m_val, 1);
 }
 long AtomicCounter::operator ++(int alwaysZero) //postfix, returns previous val
 {
-	return __sync_fetch_and_add(&m_val, 1);
+    return __sync_fetch_and_add(&m_val, 1);
 }
 long AtomicCounter::operator --() //prefix, returns new val
 {
-	return __sync_sub_and_fetch(&m_val, 1);
+    return __sync_sub_and_fetch(&m_val, 1);
 }
 long AtomicCounter::operator --(int alwaysZero) //postfix, returns previous val
 {
-	return __sync_fetch_and_sub(&m_val, 1);
+    return __sync_fetch_and_sub(&m_val, 1);
 }
 long AtomicCounter::add(long val)
 {
-	return __sync_add_and_fetch(&m_val, val);
+    return __sync_add_and_fetch(&m_val, val);
 }
 long AtomicCounter::test_and_set(long comparand, long exchange)
 {
-	return __sync_val_compare_and_swap(&m_val, comparand, exchange);	// CAS(*ptr, old, new)
+    return __sync_val_compare_and_swap(&m_val, comparand, exchange);    // CAS(*ptr, old, new)
 }
 
 long AtomicCounter::exchange(long val)
 {
-	return __sync_lock_test_and_set(&m_val, val);
+    return __sync_lock_test_and_set(&m_val, val);
 }
 
 /************************************************************************
@@ -265,69 +281,69 @@ long AtomicCounter::exchange(long val)
  ************************************************************************/
 AtomicBitField::AtomicBitField() : m_size(0), m_oneTimeFlag(0), m_isInitialize(false), m_eventLock()
 {
-	m_bitField = NULL;
-	m_eventLock.Init(false);
+    m_bitField = NULL;
+    m_eventLock.Init(false);
 }
  
 AtomicBitField::~AtomicBitField()
 {
-	if (m_bitField)
-	{
-		free(m_bitField);
-	}
+    if (m_bitField)
+    {
+        free(m_bitField);
+    }
 }
 
 void AtomicBitField::init(unsigned int size, bool initVal)
 {
-	// test if already initialized (by other thread)
-	if ((m_oneTimeFlag != 0) || (! __sync_bool_compare_and_swap(&m_oneTimeFlag, 0, 1)))
-	{
-		if (m_isInitialize)
-		{
-			return;
-		}
+    // test if already initialized (by other thread)
+    if ((m_oneTimeFlag != 0) || (! __sync_bool_compare_and_swap(&m_oneTimeFlag, 0, 1)))
+    {
+        if (m_isInitialize)
+        {
+            return;
+        }
         m_eventLock.Wait();
-		return;
-	}
-	if (size <= 0)
-	{
-		assert(0 && "Error occured while trying to create bit field array, invalid size");
-	}
-	m_size = size;
-	m_bitField = (long*)malloc(sizeof(long) * m_size);
-	if (NULL == m_bitField)
-	{
-		assert(0 && "Error occured while trying to create bit field array, malloc failed");
-	}
-	if (initVal)
-	{
-		std::fill_n(m_bitField, m_size, 1);
-	}
-	else
-	{
-		memset(m_bitField, 0, sizeof(long) * m_size);
-	}
-	m_isInitialize = true;
-	m_eventLock.Signal();
+        return;
+    }
+    if (size <= 0)
+    {
+        assert(0 && "Error occured while trying to create bit field array, invalid size");
+    }
+    m_size = size;
+    m_bitField = (long*)malloc(sizeof(long) * m_size);
+    if (NULL == m_bitField)
+    {
+        assert(0 && "Error occured while trying to create bit field array, malloc failed");
+    }
+    if (initVal)
+    {
+        std::fill_n(m_bitField, m_size, 1);
+    }
+    else
+    {
+        memset(m_bitField, 0, sizeof(long) * m_size);
+    }
+    m_isInitialize = true;
+    m_eventLock.Signal();
 }
 
 
 long AtomicBitField::bitTestAndReset(unsigned int bitNum)
 {
-	if ((NULL == m_bitField) || ((int)bitNum < 0) || (bitNum >= m_size))
-	{
-		return -1;
-	}
-	return __sync_val_compare_and_swap((m_bitField + bitNum), 1, 0);
+    if ((NULL == m_bitField) || ((int)bitNum < 0) || (bitNum >= m_size))
+    {
+        return -1;
+    }
+    return __sync_val_compare_and_swap((m_bitField + bitNum), 1, 0);
 }
 
 long AtomicBitField::bitTestAndSet(unsigned int bitNum)
 {
-	if ((NULL == m_bitField) || ((int)bitNum < 0) || (bitNum >= m_size))
-	{
-		return -1;
-	}
-	return __sync_val_compare_and_swap((m_bitField + bitNum), 0, 1);
+    if ((NULL == m_bitField) || ((int)bitNum < 0) || (bitNum >= m_size))
+    {
+        return -1;
+    }
+    return __sync_val_compare_and_swap((m_bitField + bitNum), 0, 1);
 }
 
 /************************************************************************
@@ -335,29 +351,21 @@ long AtomicBitField::bitTestAndSet(unsigned int bitNum)
  ************************************************************************/
 OclBinarySemaphore::OclBinarySemaphore()
 {
-    sem_t* pSemaphore = new sem_t();
-    assert(NULL != pSemaphore);
-
-    sem_init(pSemaphore, 0, 0);
-    m_semaphore = pSemaphore;
+    sem_init(&m_semaphore, 0, 0);
 }
 
 OclBinarySemaphore::~OclBinarySemaphore()
 {
-    if (NULL != m_semaphore)
-    {
-        delete static_cast<sem_t*>(m_semaphore);
-    }
 }
 
 void OclBinarySemaphore::Signal()
 {
-    sem_post((sem_t*)m_semaphore);
+    sem_post(&m_semaphore);
 }
 
 void OclBinarySemaphore::Wait()
 {
-    sem_wait((sem_t*)m_semaphore);
+    sem_wait(&m_semaphore);
 }
 
 /************************************************************************
@@ -365,51 +373,51 @@ void OclBinarySemaphore::Wait()
 ************************************************************************/
 OclReaderWriterLock::OclReaderWriterLock()
 {
-	pthread_rwlock_init(&m_rwLock, NULL);
+    pthread_rwlock_init(&m_rwLock, NULL);
 #ifdef _DEBUG
-	readEnter = 0;
-	writeEnter = 0;
+    readEnter = 0;
+    writeEnter = 0;
 #endif
 }
 
 OclReaderWriterLock::~OclReaderWriterLock()
 {
 #ifdef _DEBUG
-	assert( (writeEnter==0) && (readEnter==0) && "Writers or Readers are active in destructor");
+    assert( (writeEnter==0) && (readEnter==0) && "Writers or Readers are active in destructor");
 #endif
-	pthread_rwlock_destroy(&m_rwLock);
+    pthread_rwlock_destroy(&m_rwLock);
 }
 
 void OclReaderWriterLock::EnterRead()
 {
-	pthread_rwlock_rdlock(&m_rwLock);
+    pthread_rwlock_rdlock(&m_rwLock);
 #ifdef _DEBUG
-	readEnter++;
-	assert( writeEnter == 0 && "No writer is allowed insde EnterRead()");
+    readEnter++;
+    assert( writeEnter == 0 && "No writer is allowed insde EnterRead()");
 #endif
 }
 
 void OclReaderWriterLock::LeaveRead()
 {
 #ifdef _DEBUG
-	readEnter--;
+    readEnter--;
 #endif
-	pthread_rwlock_unlock(&m_rwLock);
+    pthread_rwlock_unlock(&m_rwLock);
 }
 
 void OclReaderWriterLock::EnterWrite()
 {
-	pthread_rwlock_wrlock(&m_rwLock);
+    pthread_rwlock_wrlock(&m_rwLock);
 #ifdef _DEBUG
-	writeEnter++;
-	assert( (writeEnter == 1) && (readEnter==0) && "Only single writer and no readers are allowed insde EnterWrite()");
+    writeEnter++;
+    assert( (writeEnter == 1) && (readEnter==0) && "Only single writer and no readers are allowed insde EnterWrite()");
 #endif
 }
 
 void OclReaderWriterLock::LeaveWrite()
 {
 #ifdef _DEBUG
-	writeEnter--;
+    writeEnter--;
 #endif
-	pthread_rwlock_unlock(&m_rwLock);
+    pthread_rwlock_unlock(&m_rwLock);
 }

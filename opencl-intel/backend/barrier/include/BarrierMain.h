@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __BARRIER_MAIN_H__
 
 #include "debuggingservicetype.h"
+#include "BuiltinLibInfo.h"
 #include "llvm/Pass.h"
 #include <map>
 
@@ -39,6 +40,11 @@ namespace intel {
     /// @param M module to optimize
     /// @returns True if module was modified
     virtual bool runOnModule(Module &M);
+
+    /// @brief Inform about usage/mofication/dependency of this pass
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<BuiltinLibInfo>();
+    }
 
     /// @brief return special buffer stride size map
     /// @param bufferStrideMap - the map to output all data into

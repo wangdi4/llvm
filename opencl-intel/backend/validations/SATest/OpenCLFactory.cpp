@@ -24,7 +24,7 @@ File Name:  OpenCLFactory.cpp
 #include "OpenCLRunConfiguration.h"
 #include "OpenCLBackendWrapper.h"
 #include "OpenCLComparator.h"
-#if defined(INCLUDE_MIC_DEVICE)
+#if defined(SATEST_INCLUDE_MIC_DEVICE)
 #include "OpenCLMICBackendRunner.h"
 #endif
 
@@ -67,7 +67,7 @@ IRunConfiguration * OpenCLFactory::CreateRunConfiguration()
 IProgramRunner * OpenCLFactory::CreateProgramRunner(const IRunComponentConfiguration* pRunConfiguration)
 {
     const BERunOptions *runConfig = static_cast<const BERunOptions*>(pRunConfiguration);
-#if defined(INCLUDE_MIC_DEVICE)
+#if defined(SATEST_INCLUDE_MIC_DEVICE)
     std::string cpuArch = runConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "auto");
     bool isSDEmode = runConfig->GetValue<bool>(RC_BR_USE_SDE, false);
     if ((std::string("auto-remote") == cpuArch ||
@@ -84,8 +84,7 @@ IProgramRunner * OpenCLFactory::CreateProgramRunner(const IRunComponentConfigura
 
 IProgramRunner * OpenCLFactory::CreateReferenceRunner(const IRunComponentConfiguration* pRunConfiguration)
 {
-    return new OpenCLReferenceRunner(static_cast<const ReferenceRunOptions*>(pRunConfiguration)->GetValue<bool>(RC_REF_USE_NEAT, false),
-                                     static_cast<const ReferenceRunOptions*>(pRunConfiguration)->GetValue<bool>(RC_REF_USE_FMA_NEAT, false));
+    return new OpenCLReferenceRunner(static_cast<const ReferenceRunOptions*>(pRunConfiguration)->GetValue<bool>(RC_REF_USE_NEAT, false));
 }
 
 IRunResultComparator* OpenCLFactory::CreateComparator(IProgramConfiguration* pProgramConfiguration,

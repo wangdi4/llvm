@@ -13,9 +13,10 @@ add_subdirectory( utils )
 set( TARGET_NAME common_runtime )
 
 include_directories( BEFORE
-		${CMAKE_CURRENT_SOURCE_DIR}/utils
-		${CMAKE_CURRENT_SOURCE_DIR}
-            )
+        ${CMAKE_CURRENT_SOURCE_DIR}/utils
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${OCL_BINARY_DIR}
+        )
 
 if ( WIN32 AND ( DEFINED ENV{DXSDK_DIR} ) )            
     add_definitions (-DCL_DX9_MEDIA_SHARING_INTEL_EXT)
@@ -37,6 +38,9 @@ add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
 install( FILES ${CONFIG_FILES} DESTINATION bin)
 
+if (NOT WIN32 AND NOT ANDROID)
+    target_link_libraries( ${TARGET_NAME} pthread)
+endif (NOT WIN32 AND NOT ANDROID)
 target_link_libraries( ${TARGET_NAME} common_runtime_utils)
 
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "intelopencl${ADDR}")
@@ -48,4 +52,7 @@ install( TARGETS ${TARGET_NAME}
     ARCHIVE DESTINATION lib) 
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER common_runtime )
-set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS -Wl,-Bsymbolic )
+
+if (NOT WIN32)
+    set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS -Wl,-Bsymbolic )
+endif (NOT WIN32)

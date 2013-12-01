@@ -35,6 +35,7 @@ extern "C" {
 
         typedef __int64               long1_sse;
         typedef unsigned __int64      ulong1_sse;
+
         typedef struct { __m128i v1; } long2_sse;
         typedef struct { __m128i v1;
                          __m128i v2; } long3_sse;
@@ -16674,6 +16675,884 @@ extern "C" {
     float16_avx __ocl_svml_l9_tanf16_half (float16_avx a);
     #pragma linkage     __ocl_svml_l9_tanf16_half_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
     #pragma use_linkage __ocl_svml_l9_tanf16_half_linkage ( __ocl_svml_l9_tanf16_half )
+
+    float1_sse __ocl_svml_h8_cosf1_rm (float1_sse a);
+    #pragma linkage     __ocl_svml_h8_cosf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_cosf1_rm_linkage ( __ocl_svml_h8_cosf1_rm )
+
+    float1_sse __ocl_svml_h8_divf1_rm (float1_sse a, float1_sse b);
+    #pragma linkage     __ocl_svml_h8_divf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_divf1_rm_linkage ( __ocl_svml_h8_divf1_rm )
+
+    float1_sse __ocl_svml_h8_expf1_rm (float1_sse a);
+    #pragma linkage     __ocl_svml_h8_expf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_expf1_rm_linkage ( __ocl_svml_h8_expf1_rm )
+
+    float1_sse __ocl_svml_h8_exp2f1_rm (float1_sse a);
+    #pragma linkage     __ocl_svml_h8_exp2f1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_exp2f1_rm_linkage ( __ocl_svml_h8_exp2f1_rm )
+
+    float1_sse __ocl_svml_h8_exp10f1_rm (float1_sse a);
+    #pragma linkage     __ocl_svml_h8_exp10f1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_exp10f1_rm_linkage ( __ocl_svml_h8_exp10f1_rm )
+
+    float1_sse __ocl_svml_h8_logf1_rm (float1_sse a);
+    #pragma linkage     __ocl_svml_h8_logf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_logf1_rm_linkage ( __ocl_svml_h8_logf1_rm )
+
+    float1_sse __ocl_svml_h8_log2f1_rm (float1_sse a);
+    #pragma linkage     __ocl_svml_h8_log2f1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_log2f1_rm_linkage ( __ocl_svml_h8_log2f1_rm )
+
+    float1_sse __ocl_svml_h8_powf1_rm (float1_sse a, float1_sse b);
+    #pragma linkage     __ocl_svml_h8_powf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_powf1_rm_linkage ( __ocl_svml_h8_powf1_rm )
+
+    float1_sse __ocl_svml_h8_invf1_rm (float1_sse a);
+    #pragma linkage     __ocl_svml_h8_invf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_invf1_rm_linkage ( __ocl_svml_h8_invf1_rm )
+
+    float1_sse __ocl_svml_h8_sinf1_rm (float1_sse a);
+    #pragma linkage     __ocl_svml_h8_sinf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_sinf1_rm_linkage ( __ocl_svml_h8_sinf1_rm )
+
+    float1_sse __ocl_svml_h8_sincosf1_rm (float1_sse a, float1_sse* c);
+    #pragma linkage     __ocl_svml_h8_sincosf1_rm_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_sincosf1_rm_linkage ( __ocl_svml_h8_sincosf1_rm )
+
+    float1_sse __ocl_svml_h8_tanf1_rm (float1_sse a);
+    #pragma linkage     __ocl_svml_h8_tanf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_tanf1_rm_linkage ( __ocl_svml_h8_tanf1_rm )
+
+    float1_sse __ocl_svml_h8_fmaf1_rm (float1_sse a, float1_sse b, float1_sse c);
+    #pragma linkage     __ocl_svml_h8_fmaf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1,xmm2) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_fmaf1_rm_linkage ( __ocl_svml_h8_fmaf1_rm )
+
+    float1_avx __ocl_svml_e9_cosf1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_e9_cosf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_cosf1_rm_linkage ( __ocl_svml_e9_cosf1_rm )
+
+    float1_avx __ocl_svml_e9_divf1_rm (float1_avx a, float1_avx b);
+    #pragma linkage     __ocl_svml_e9_divf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_divf1_rm_linkage ( __ocl_svml_e9_divf1_rm )
+
+    float1_avx __ocl_svml_e9_expf1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_e9_expf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_expf1_rm_linkage ( __ocl_svml_e9_expf1_rm )
+
+    float1_avx __ocl_svml_e9_exp2f1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_e9_exp2f1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_exp2f1_rm_linkage ( __ocl_svml_e9_exp2f1_rm )
+
+    float1_avx __ocl_svml_e9_exp10f1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_e9_exp10f1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_exp10f1_rm_linkage ( __ocl_svml_e9_exp10f1_rm )
+
+    float1_avx __ocl_svml_e9_logf1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_e9_logf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_logf1_rm_linkage ( __ocl_svml_e9_logf1_rm )
+
+    float1_avx __ocl_svml_e9_log2f1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_e9_log2f1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_log2f1_rm_linkage ( __ocl_svml_e9_log2f1_rm )
+
+    float1_avx __ocl_svml_e9_powf1_rm (float1_avx a, float1_avx b);
+    #pragma linkage     __ocl_svml_e9_powf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_powf1_rm_linkage ( __ocl_svml_e9_powf1_rm )
+
+    float1_avx __ocl_svml_e9_invf1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_e9_invf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_invf1_rm_linkage ( __ocl_svml_e9_invf1_rm )
+
+    float1_avx __ocl_svml_e9_sinf1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_e9_sinf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_sinf1_rm_linkage ( __ocl_svml_e9_sinf1_rm )
+
+    float1_avx __ocl_svml_e9_sincosf1_rm (float1_avx a, float1_avx* c);
+    #pragma linkage     __ocl_svml_e9_sincosf1_rm_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_sincosf1_rm_linkage ( __ocl_svml_e9_sincosf1_rm )
+
+    float1_avx __ocl_svml_e9_tanf1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_e9_tanf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_tanf1_rm_linkage ( __ocl_svml_e9_tanf1_rm )
+
+    float1_avx __ocl_svml_e9_fmaf1_rm (float1_avx a, float1_avx b, float1_avx c);
+    #pragma linkage     __ocl_svml_e9_fmaf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1,xmm2) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_fmaf1_rm_linkage ( __ocl_svml_e9_fmaf1_rm )
+
+    float1_avx __ocl_svml_l9_cosf1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_l9_cosf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_cosf1_rm_linkage ( __ocl_svml_l9_cosf1_rm )
+
+    float1_avx __ocl_svml_l9_divf1_rm (float1_avx a, float1_avx b);
+    #pragma linkage     __ocl_svml_l9_divf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_divf1_rm_linkage ( __ocl_svml_l9_divf1_rm )
+
+    float1_avx __ocl_svml_l9_expf1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_l9_expf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_expf1_rm_linkage ( __ocl_svml_l9_expf1_rm )
+
+    float1_avx __ocl_svml_l9_exp2f1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_l9_exp2f1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_exp2f1_rm_linkage ( __ocl_svml_l9_exp2f1_rm )
+
+    float1_avx __ocl_svml_l9_exp10f1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_l9_exp10f1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_exp10f1_rm_linkage ( __ocl_svml_l9_exp10f1_rm )
+
+    float1_avx __ocl_svml_l9_logf1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_l9_logf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_logf1_rm_linkage ( __ocl_svml_l9_logf1_rm )
+
+    float1_avx __ocl_svml_l9_log2f1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_l9_log2f1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_log2f1_rm_linkage ( __ocl_svml_l9_log2f1_rm )
+
+    float1_avx __ocl_svml_l9_powf1_rm (float1_avx a, float1_avx b);
+    #pragma linkage     __ocl_svml_l9_powf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_powf1_rm_linkage ( __ocl_svml_l9_powf1_rm )
+
+    float1_avx __ocl_svml_l9_invf1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_l9_invf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_invf1_rm_linkage ( __ocl_svml_l9_invf1_rm )
+
+    float1_avx __ocl_svml_l9_sinf1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_l9_sinf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_sinf1_rm_linkage ( __ocl_svml_l9_sinf1_rm )
+
+    float1_avx __ocl_svml_l9_sincosf1_rm (float1_avx a, float1_avx* c);
+    #pragma linkage     __ocl_svml_l9_sincosf1_rm_linkage   = ( result(xmm0) parameters(xmm0,rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_sincosf1_rm_linkage ( __ocl_svml_l9_sincosf1_rm )
+
+    float1_avx __ocl_svml_l9_tanf1_rm (float1_avx a);
+    #pragma linkage     __ocl_svml_l9_tanf1_rm_linkage   = ( result(xmm0) parameters(xmm0) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_tanf1_rm_linkage ( __ocl_svml_l9_tanf1_rm )
+
+    float1_avx __ocl_svml_l9_fmaf1_rm (float1_avx a, float1_avx b, float1_avx c);
+    #pragma linkage     __ocl_svml_l9_fmaf1_rm_linkage   = ( result(xmm0) parameters(xmm0,xmm1,xmm2) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_fmaf1_rm_linkage ( __ocl_svml_l9_fmaf1_rm )
+
+    float2_sse __ocl_svml_h8_cosf2_rm (float2_sse a);
+    #pragma linkage     __ocl_svml_h8_cosf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_cosf2_rm_linkage ( __ocl_svml_h8_cosf2_rm )
+
+    float2_sse __ocl_svml_h8_divf2_rm (float2_sse a, float2_sse b);
+    #pragma linkage     __ocl_svml_h8_divf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_divf2_rm_linkage ( __ocl_svml_h8_divf2_rm )
+
+    float2_sse __ocl_svml_h8_expf2_rm (float2_sse a);
+    #pragma linkage     __ocl_svml_h8_expf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_expf2_rm_linkage ( __ocl_svml_h8_expf2_rm )
+
+    float2_sse __ocl_svml_h8_exp2f2_rm (float2_sse a);
+    #pragma linkage     __ocl_svml_h8_exp2f2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_exp2f2_rm_linkage ( __ocl_svml_h8_exp2f2_rm )
+
+    float2_sse __ocl_svml_h8_exp10f2_rm (float2_sse a);
+    #pragma linkage     __ocl_svml_h8_exp10f2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_exp10f2_rm_linkage ( __ocl_svml_h8_exp10f2_rm )
+
+    float2_sse __ocl_svml_h8_logf2_rm (float2_sse a);
+    #pragma linkage     __ocl_svml_h8_logf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_logf2_rm_linkage ( __ocl_svml_h8_logf2_rm )
+
+    float2_sse __ocl_svml_h8_log2f2_rm (float2_sse a);
+    #pragma linkage     __ocl_svml_h8_log2f2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_log2f2_rm_linkage ( __ocl_svml_h8_log2f2_rm )
+
+    float2_sse __ocl_svml_h8_powf2_rm (float2_sse a, float2_sse b);
+    #pragma linkage     __ocl_svml_h8_powf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_powf2_rm_linkage ( __ocl_svml_h8_powf2_rm )
+
+    float2_sse __ocl_svml_h8_invf2_rm (float2_sse a);
+    #pragma linkage     __ocl_svml_h8_invf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_invf2_rm_linkage ( __ocl_svml_h8_invf2_rm )
+
+    float2_sse __ocl_svml_h8_sinf2_rm (float2_sse a);
+    #pragma linkage     __ocl_svml_h8_sinf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_sinf2_rm_linkage ( __ocl_svml_h8_sinf2_rm )
+
+    float2_sse __ocl_svml_h8_sincosf2_rm (float2_sse a, float2_sse* c);
+    #pragma linkage     __ocl_svml_h8_sincosf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_sincosf2_rm_linkage ( __ocl_svml_h8_sincosf2_rm )
+
+    float2_sse __ocl_svml_h8_tanf2_rm (float2_sse a);
+    #pragma linkage     __ocl_svml_h8_tanf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_tanf2_rm_linkage ( __ocl_svml_h8_tanf2_rm )
+
+    float2_sse __ocl_svml_h8_fmaf2_rm (float2_sse a, float2_sse b, float2_sse c);
+    #pragma linkage     __ocl_svml_h8_fmaf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_fmaf2_rm_linkage ( __ocl_svml_h8_fmaf2_rm )
+
+    float2_avx __ocl_svml_e9_cosf2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_e9_cosf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_cosf2_rm_linkage ( __ocl_svml_e9_cosf2_rm )
+
+    float2_avx __ocl_svml_e9_divf2_rm (float2_avx a, float2_avx b);
+    #pragma linkage     __ocl_svml_e9_divf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_divf2_rm_linkage ( __ocl_svml_e9_divf2_rm )
+
+    float2_avx __ocl_svml_e9_expf2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_e9_expf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_expf2_rm_linkage ( __ocl_svml_e9_expf2_rm )
+
+    float2_avx __ocl_svml_e9_exp2f2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_e9_exp2f2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_exp2f2_rm_linkage ( __ocl_svml_e9_exp2f2_rm )
+
+    float2_avx __ocl_svml_e9_exp10f2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_e9_exp10f2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_exp10f2_rm_linkage ( __ocl_svml_e9_exp10f2_rm )
+
+    float2_avx __ocl_svml_e9_logf2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_e9_logf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_logf2_rm_linkage ( __ocl_svml_e9_logf2_rm )
+
+    float2_avx __ocl_svml_e9_log2f2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_e9_log2f2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_log2f2_rm_linkage ( __ocl_svml_e9_log2f2_rm )
+
+    float2_avx __ocl_svml_e9_powf2_rm (float2_avx a, float2_avx b);
+    #pragma linkage     __ocl_svml_e9_powf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_powf2_rm_linkage ( __ocl_svml_e9_powf2_rm )
+
+    float2_avx __ocl_svml_e9_invf2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_e9_invf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_invf2_rm_linkage ( __ocl_svml_e9_invf2_rm )
+
+    float2_avx __ocl_svml_e9_sinf2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_e9_sinf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_sinf2_rm_linkage ( __ocl_svml_e9_sinf2_rm )
+
+    float2_avx __ocl_svml_e9_sincosf2_rm (float2_avx a, float2_avx* c);
+    #pragma linkage     __ocl_svml_e9_sincosf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_sincosf2_rm_linkage ( __ocl_svml_e9_sincosf2_rm )
+
+    float2_avx __ocl_svml_e9_tanf2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_e9_tanf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_tanf2_rm_linkage ( __ocl_svml_e9_tanf2_rm )
+
+    float2_avx __ocl_svml_e9_fmaf2_rm (float2_avx a, float2_avx b, float2_avx c);
+    #pragma linkage     __ocl_svml_e9_fmaf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_fmaf2_rm_linkage ( __ocl_svml_e9_fmaf2_rm )
+
+    float2_avx __ocl_svml_l9_cosf2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_l9_cosf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_cosf2_rm_linkage ( __ocl_svml_l9_cosf2_rm )
+
+    float2_avx __ocl_svml_l9_divf2_rm (float2_avx a, float2_avx b);
+    #pragma linkage     __ocl_svml_l9_divf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_divf2_rm_linkage ( __ocl_svml_l9_divf2_rm )
+
+    float2_avx __ocl_svml_l9_expf2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_l9_expf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_expf2_rm_linkage ( __ocl_svml_l9_expf2_rm )
+
+    float2_avx __ocl_svml_l9_exp2f2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_l9_exp2f2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_exp2f2_rm_linkage ( __ocl_svml_l9_exp2f2_rm )
+
+    float2_avx __ocl_svml_l9_exp10f2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_l9_exp10f2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_exp10f2_rm_linkage ( __ocl_svml_l9_exp10f2_rm )
+
+    float2_avx __ocl_svml_l9_logf2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_l9_logf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_logf2_rm_linkage ( __ocl_svml_l9_logf2_rm )
+
+    float2_avx __ocl_svml_l9_log2f2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_l9_log2f2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_log2f2_rm_linkage ( __ocl_svml_l9_log2f2_rm )
+
+    float2_avx __ocl_svml_l9_powf2_rm (float2_avx a, float2_avx b);
+    #pragma linkage     __ocl_svml_l9_powf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_powf2_rm_linkage ( __ocl_svml_l9_powf2_rm )
+
+    float2_avx __ocl_svml_l9_invf2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_l9_invf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_invf2_rm_linkage ( __ocl_svml_l9_invf2_rm )
+
+    float2_avx __ocl_svml_l9_sinf2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_l9_sinf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_sinf2_rm_linkage ( __ocl_svml_l9_sinf2_rm )
+
+    float2_avx __ocl_svml_l9_sincosf2_rm (float2_avx a, float2_avx* c);
+    #pragma linkage     __ocl_svml_l9_sincosf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_sincosf2_rm_linkage ( __ocl_svml_l9_sincosf2_rm )
+
+    float2_avx __ocl_svml_l9_tanf2_rm (float2_avx a);
+    #pragma linkage     __ocl_svml_l9_tanf2_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_tanf2_rm_linkage ( __ocl_svml_l9_tanf2_rm )
+
+    float2_avx __ocl_svml_l9_fmaf2_rm (float2_avx a, float2_avx b, float2_avx c);
+    #pragma linkage     __ocl_svml_l9_fmaf2_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_fmaf2_rm_linkage ( __ocl_svml_l9_fmaf2_rm )
+
+    float3_sse __ocl_svml_h8_cosf3_rm (float3_sse a);
+    #pragma linkage     __ocl_svml_h8_cosf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_cosf3_rm_linkage ( __ocl_svml_h8_cosf3_rm )
+
+    float3_sse __ocl_svml_h8_divf3_rm (float3_sse a, float3_sse b);
+    #pragma linkage     __ocl_svml_h8_divf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_divf3_rm_linkage ( __ocl_svml_h8_divf3_rm )
+
+    float3_sse __ocl_svml_h8_expf3_rm (float3_sse a);
+    #pragma linkage     __ocl_svml_h8_expf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_expf3_rm_linkage ( __ocl_svml_h8_expf3_rm )
+
+    float3_sse __ocl_svml_h8_exp2f3_rm (float3_sse a);
+    #pragma linkage     __ocl_svml_h8_exp2f3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_exp2f3_rm_linkage ( __ocl_svml_h8_exp2f3_rm )
+
+    float3_sse __ocl_svml_h8_exp10f3_rm (float3_sse a);
+    #pragma linkage     __ocl_svml_h8_exp10f3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_exp10f3_rm_linkage ( __ocl_svml_h8_exp10f3_rm )
+
+    float3_sse __ocl_svml_h8_logf3_rm (float3_sse a);
+    #pragma linkage     __ocl_svml_h8_logf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_logf3_rm_linkage ( __ocl_svml_h8_logf3_rm )
+
+    float3_sse __ocl_svml_h8_log2f3_rm (float3_sse a);
+    #pragma linkage     __ocl_svml_h8_log2f3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_log2f3_rm_linkage ( __ocl_svml_h8_log2f3_rm )
+
+    float3_sse __ocl_svml_h8_powf3_rm (float3_sse a, float3_sse b);
+    #pragma linkage     __ocl_svml_h8_powf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_powf3_rm_linkage ( __ocl_svml_h8_powf3_rm )
+
+    float3_sse __ocl_svml_h8_invf3_rm (float3_sse a);
+    #pragma linkage     __ocl_svml_h8_invf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_invf3_rm_linkage ( __ocl_svml_h8_invf3_rm )
+
+    float3_sse __ocl_svml_h8_sinf3_rm (float3_sse a);
+    #pragma linkage     __ocl_svml_h8_sinf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_sinf3_rm_linkage ( __ocl_svml_h8_sinf3_rm )
+
+    float3_sse __ocl_svml_h8_sincosf3_rm (float3_sse a, float3_sse* c);
+    #pragma linkage     __ocl_svml_h8_sincosf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_sincosf3_rm_linkage ( __ocl_svml_h8_sincosf3_rm )
+
+    float3_sse __ocl_svml_h8_tanf3_rm (float3_sse a);
+    #pragma linkage     __ocl_svml_h8_tanf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_tanf3_rm_linkage ( __ocl_svml_h8_tanf3_rm )
+
+    float3_sse __ocl_svml_h8_fmaf3_rm (float3_sse a, float3_sse b, float3_sse c);
+    #pragma linkage     __ocl_svml_h8_fmaf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_fmaf3_rm_linkage ( __ocl_svml_h8_fmaf3_rm )
+
+    float3_avx __ocl_svml_e9_cosf3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_e9_cosf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_cosf3_rm_linkage ( __ocl_svml_e9_cosf3_rm )
+
+    float3_avx __ocl_svml_e9_divf3_rm (float3_avx a, float3_avx b);
+    #pragma linkage     __ocl_svml_e9_divf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_divf3_rm_linkage ( __ocl_svml_e9_divf3_rm )
+
+    float3_avx __ocl_svml_e9_expf3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_e9_expf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_expf3_rm_linkage ( __ocl_svml_e9_expf3_rm )
+
+    float3_avx __ocl_svml_e9_exp2f3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_e9_exp2f3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_exp2f3_rm_linkage ( __ocl_svml_e9_exp2f3_rm )
+
+    float3_avx __ocl_svml_e9_exp10f3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_e9_exp10f3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_exp10f3_rm_linkage ( __ocl_svml_e9_exp10f3_rm )
+
+    float3_avx __ocl_svml_e9_logf3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_e9_logf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_logf3_rm_linkage ( __ocl_svml_e9_logf3_rm )
+
+    float3_avx __ocl_svml_e9_log2f3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_e9_log2f3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_log2f3_rm_linkage ( __ocl_svml_e9_log2f3_rm )
+
+    float3_avx __ocl_svml_e9_powf3_rm (float3_avx a, float3_avx b);
+    #pragma linkage     __ocl_svml_e9_powf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_powf3_rm_linkage ( __ocl_svml_e9_powf3_rm )
+
+    float3_avx __ocl_svml_e9_invf3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_e9_invf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_invf3_rm_linkage ( __ocl_svml_e9_invf3_rm )
+
+    float3_avx __ocl_svml_e9_sinf3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_e9_sinf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_sinf3_rm_linkage ( __ocl_svml_e9_sinf3_rm )
+
+    float3_avx __ocl_svml_e9_sincosf3_rm (float3_avx a, float3_avx* c);
+    #pragma linkage     __ocl_svml_e9_sincosf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_sincosf3_rm_linkage ( __ocl_svml_e9_sincosf3_rm )
+
+    float3_avx __ocl_svml_e9_tanf3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_e9_tanf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_tanf3_rm_linkage ( __ocl_svml_e9_tanf3_rm )
+
+    float3_avx __ocl_svml_e9_fmaf3_rm (float3_avx a, float3_avx b, float3_avx c);
+    #pragma linkage     __ocl_svml_e9_fmaf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_fmaf3_rm_linkage ( __ocl_svml_e9_fmaf3_rm )
+
+    float3_avx __ocl_svml_l9_cosf3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_l9_cosf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_cosf3_rm_linkage ( __ocl_svml_l9_cosf3_rm )
+
+    float3_avx __ocl_svml_l9_divf3_rm (float3_avx a, float3_avx b);
+    #pragma linkage     __ocl_svml_l9_divf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_divf3_rm_linkage ( __ocl_svml_l9_divf3_rm )
+
+    float3_avx __ocl_svml_l9_expf3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_l9_expf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_expf3_rm_linkage ( __ocl_svml_l9_expf3_rm )
+
+    float3_avx __ocl_svml_l9_exp2f3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_l9_exp2f3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_exp2f3_rm_linkage ( __ocl_svml_l9_exp2f3_rm )
+
+    float3_avx __ocl_svml_l9_exp10f3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_l9_exp10f3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_exp10f3_rm_linkage ( __ocl_svml_l9_exp10f3_rm )
+
+    float3_avx __ocl_svml_l9_logf3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_l9_logf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_logf3_rm_linkage ( __ocl_svml_l9_logf3_rm )
+
+    float3_avx __ocl_svml_l9_log2f3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_l9_log2f3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_log2f3_rm_linkage ( __ocl_svml_l9_log2f3_rm )
+
+    float3_avx __ocl_svml_l9_powf3_rm (float3_avx a, float3_avx b);
+    #pragma linkage     __ocl_svml_l9_powf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_powf3_rm_linkage ( __ocl_svml_l9_powf3_rm )
+
+    float3_avx __ocl_svml_l9_invf3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_l9_invf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_invf3_rm_linkage ( __ocl_svml_l9_invf3_rm )
+
+    float3_avx __ocl_svml_l9_sinf3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_l9_sinf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_sinf3_rm_linkage ( __ocl_svml_l9_sinf3_rm )
+
+    float3_avx __ocl_svml_l9_sincosf3_rm (float3_avx a, float3_avx* c);
+    #pragma linkage     __ocl_svml_l9_sincosf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_sincosf3_rm_linkage ( __ocl_svml_l9_sincosf3_rm )
+
+    float3_avx __ocl_svml_l9_tanf3_rm (float3_avx a);
+    #pragma linkage     __ocl_svml_l9_tanf3_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_tanf3_rm_linkage ( __ocl_svml_l9_tanf3_rm )
+
+    float3_avx __ocl_svml_l9_fmaf3_rm (float3_avx a, float3_avx b, float3_avx c);
+    #pragma linkage     __ocl_svml_l9_fmaf3_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_fmaf3_rm_linkage ( __ocl_svml_l9_fmaf3_rm )
+
+    float4_sse __ocl_svml_h8_cosf4_rm (float4_sse a);
+    #pragma linkage     __ocl_svml_h8_cosf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_cosf4_rm_linkage ( __ocl_svml_h8_cosf4_rm )
+
+    float4_sse __ocl_svml_h8_divf4_rm (float4_sse a, float4_sse b);
+    #pragma linkage     __ocl_svml_h8_divf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_divf4_rm_linkage ( __ocl_svml_h8_divf4_rm )
+
+    float4_sse __ocl_svml_h8_expf4_rm (float4_sse a);
+    #pragma linkage     __ocl_svml_h8_expf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_expf4_rm_linkage ( __ocl_svml_h8_expf4_rm )
+
+    float4_sse __ocl_svml_h8_exp2f4_rm (float4_sse a);
+    #pragma linkage     __ocl_svml_h8_exp2f4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_exp2f4_rm_linkage ( __ocl_svml_h8_exp2f4_rm )
+
+    float4_sse __ocl_svml_h8_exp10f4_rm (float4_sse a);
+    #pragma linkage     __ocl_svml_h8_exp10f4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_exp10f4_rm_linkage ( __ocl_svml_h8_exp10f4_rm )
+
+    float4_sse __ocl_svml_h8_logf4_rm (float4_sse a);
+    #pragma linkage     __ocl_svml_h8_logf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_logf4_rm_linkage ( __ocl_svml_h8_logf4_rm )
+
+    float4_sse __ocl_svml_h8_log2f4_rm (float4_sse a);
+    #pragma linkage     __ocl_svml_h8_log2f4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_log2f4_rm_linkage ( __ocl_svml_h8_log2f4_rm )
+
+    float4_sse __ocl_svml_h8_powf4_rm (float4_sse a, float4_sse b);
+    #pragma linkage     __ocl_svml_h8_powf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_powf4_rm_linkage ( __ocl_svml_h8_powf4_rm )
+
+    float4_sse __ocl_svml_h8_invf4_rm (float4_sse a);
+    #pragma linkage     __ocl_svml_h8_invf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_invf4_rm_linkage ( __ocl_svml_h8_invf4_rm )
+
+    float4_sse __ocl_svml_h8_sinf4_rm (float4_sse a);
+    #pragma linkage     __ocl_svml_h8_sinf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_sinf4_rm_linkage ( __ocl_svml_h8_sinf4_rm )
+
+    float4_sse __ocl_svml_h8_sincosf4_rm (float4_sse a, float4_sse* c);
+    #pragma linkage     __ocl_svml_h8_sincosf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_sincosf4_rm_linkage ( __ocl_svml_h8_sincosf4_rm )
+
+    float4_sse __ocl_svml_h8_tanf4_rm (float4_sse a);
+    #pragma linkage     __ocl_svml_h8_tanf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_tanf4_rm_linkage ( __ocl_svml_h8_tanf4_rm )
+
+    float4_sse __ocl_svml_h8_fmaf4_rm (float4_sse a, float4_sse b, float4_sse c);
+    #pragma linkage     __ocl_svml_h8_fmaf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_fmaf4_rm_linkage ( __ocl_svml_h8_fmaf4_rm )
+
+    float4_avx __ocl_svml_e9_cosf4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_e9_cosf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_cosf4_rm_linkage ( __ocl_svml_e9_cosf4_rm )
+
+    float4_avx __ocl_svml_e9_divf4_rm (float4_avx a, float4_avx b);
+    #pragma linkage     __ocl_svml_e9_divf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_divf4_rm_linkage ( __ocl_svml_e9_divf4_rm )
+
+    float4_avx __ocl_svml_e9_expf4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_e9_expf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_expf4_rm_linkage ( __ocl_svml_e9_expf4_rm )
+
+    float4_avx __ocl_svml_e9_exp2f4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_e9_exp2f4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_exp2f4_rm_linkage ( __ocl_svml_e9_exp2f4_rm )
+
+    float4_avx __ocl_svml_e9_exp10f4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_e9_exp10f4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_exp10f4_rm_linkage ( __ocl_svml_e9_exp10f4_rm )
+
+    float4_avx __ocl_svml_e9_logf4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_e9_logf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_logf4_rm_linkage ( __ocl_svml_e9_logf4_rm )
+
+    float4_avx __ocl_svml_e9_log2f4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_e9_log2f4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_log2f4_rm_linkage ( __ocl_svml_e9_log2f4_rm )
+
+    float4_avx __ocl_svml_e9_powf4_rm (float4_avx a, float4_avx b);
+    #pragma linkage     __ocl_svml_e9_powf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_powf4_rm_linkage ( __ocl_svml_e9_powf4_rm )
+
+    float4_avx __ocl_svml_e9_invf4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_e9_invf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_invf4_rm_linkage ( __ocl_svml_e9_invf4_rm )
+
+    float4_avx __ocl_svml_e9_sinf4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_e9_sinf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_sinf4_rm_linkage ( __ocl_svml_e9_sinf4_rm )
+
+    float4_avx __ocl_svml_e9_sincosf4_rm (float4_avx a, float4_avx* c);
+    #pragma linkage     __ocl_svml_e9_sincosf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_sincosf4_rm_linkage ( __ocl_svml_e9_sincosf4_rm )
+
+    float4_avx __ocl_svml_e9_tanf4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_e9_tanf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_tanf4_rm_linkage ( __ocl_svml_e9_tanf4_rm )
+
+    float4_avx __ocl_svml_e9_fmaf4_rm (float4_avx a, float4_avx b, float4_avx c);
+    #pragma linkage     __ocl_svml_e9_fmaf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_fmaf4_rm_linkage ( __ocl_svml_e9_fmaf4_rm )
+
+    float4_avx __ocl_svml_l9_cosf4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_l9_cosf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_cosf4_rm_linkage ( __ocl_svml_l9_cosf4_rm )
+
+    float4_avx __ocl_svml_l9_divf4_rm (float4_avx a, float4_avx b);
+    #pragma linkage     __ocl_svml_l9_divf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_divf4_rm_linkage ( __ocl_svml_l9_divf4_rm )
+
+    float4_avx __ocl_svml_l9_expf4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_l9_expf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_expf4_rm_linkage ( __ocl_svml_l9_expf4_rm )
+
+    float4_avx __ocl_svml_l9_exp2f4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_l9_exp2f4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_exp2f4_rm_linkage ( __ocl_svml_l9_exp2f4_rm )
+
+    float4_avx __ocl_svml_l9_exp10f4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_l9_exp10f4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_exp10f4_rm_linkage ( __ocl_svml_l9_exp10f4_rm )
+
+    float4_avx __ocl_svml_l9_logf4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_l9_logf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_logf4_rm_linkage ( __ocl_svml_l9_logf4_rm )
+
+    float4_avx __ocl_svml_l9_log2f4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_l9_log2f4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_log2f4_rm_linkage ( __ocl_svml_l9_log2f4_rm )
+
+    float4_avx __ocl_svml_l9_powf4_rm (float4_avx a, float4_avx b);
+    #pragma linkage     __ocl_svml_l9_powf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_powf4_rm_linkage ( __ocl_svml_l9_powf4_rm )
+
+    float4_avx __ocl_svml_l9_invf4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_l9_invf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_invf4_rm_linkage ( __ocl_svml_l9_invf4_rm )
+
+    float4_avx __ocl_svml_l9_sinf4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_l9_sinf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_sinf4_rm_linkage ( __ocl_svml_l9_sinf4_rm )
+
+    float4_avx __ocl_svml_l9_sincosf4_rm (float4_avx a, float4_avx* c);
+    #pragma linkage     __ocl_svml_l9_sincosf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_sincosf4_rm_linkage ( __ocl_svml_l9_sincosf4_rm )
+
+    float4_avx __ocl_svml_l9_tanf4_rm (float4_avx a);
+    #pragma linkage     __ocl_svml_l9_tanf4_rm_linkage   = ( result((xmm0)) parameters((xmm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_tanf4_rm_linkage ( __ocl_svml_l9_tanf4_rm )
+
+    float4_avx __ocl_svml_l9_fmaf4_rm (float4_avx a, float4_avx b, float4_avx c);
+    #pragma linkage     __ocl_svml_l9_fmaf4_rm_linkage   = ( result((xmm0)) parameters((xmm0),(xmm1),(xmm2)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_fmaf4_rm_linkage ( __ocl_svml_l9_fmaf4_rm )
+
+    float8_sse __ocl_svml_h8_cosf8_rm (float8_sse a);
+    #pragma linkage     __ocl_svml_h8_cosf8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_cosf8_rm_linkage ( __ocl_svml_h8_cosf8_rm )
+
+    float8_sse __ocl_svml_h8_divf8_rm (float8_sse a, float8_sse b);
+    #pragma linkage     __ocl_svml_h8_divf8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1),(xmm2 xmm3)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_divf8_rm_linkage ( __ocl_svml_h8_divf8_rm )
+
+    float8_sse __ocl_svml_h8_expf8_rm (float8_sse a);
+    #pragma linkage     __ocl_svml_h8_expf8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_expf8_rm_linkage ( __ocl_svml_h8_expf8_rm )
+
+    float8_sse __ocl_svml_h8_exp2f8_rm (float8_sse a);
+    #pragma linkage     __ocl_svml_h8_exp2f8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_exp2f8_rm_linkage ( __ocl_svml_h8_exp2f8_rm )
+
+    float8_sse __ocl_svml_h8_exp10f8_rm (float8_sse a);
+    #pragma linkage     __ocl_svml_h8_exp10f8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_exp10f8_rm_linkage ( __ocl_svml_h8_exp10f8_rm )
+
+    float8_sse __ocl_svml_h8_logf8_rm (float8_sse a);
+    #pragma linkage     __ocl_svml_h8_logf8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_logf8_rm_linkage ( __ocl_svml_h8_logf8_rm )
+
+    float8_sse __ocl_svml_h8_log2f8_rm (float8_sse a);
+    #pragma linkage     __ocl_svml_h8_log2f8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_log2f8_rm_linkage ( __ocl_svml_h8_log2f8_rm )
+
+    float8_sse __ocl_svml_h8_powf8_rm (float8_sse a, float8_sse b);
+    #pragma linkage     __ocl_svml_h8_powf8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1),(xmm2 xmm3)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_powf8_rm_linkage ( __ocl_svml_h8_powf8_rm )
+
+    float8_sse __ocl_svml_h8_invf8_rm (float8_sse a);
+    #pragma linkage     __ocl_svml_h8_invf8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_invf8_rm_linkage ( __ocl_svml_h8_invf8_rm )
+
+    float8_sse __ocl_svml_h8_sinf8_rm (float8_sse a);
+    #pragma linkage     __ocl_svml_h8_sinf8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_sinf8_rm_linkage ( __ocl_svml_h8_sinf8_rm )
+
+    float8_sse __ocl_svml_h8_sincosf8_rm (float8_sse a, float8_sse* c);
+    #pragma linkage     __ocl_svml_h8_sincosf8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1),rcx) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_sincosf8_rm_linkage ( __ocl_svml_h8_sincosf8_rm )
+
+    float8_sse __ocl_svml_h8_tanf8_rm (float8_sse a);
+    #pragma linkage     __ocl_svml_h8_tanf8_rm_linkage   = ( result((xmm0 xmm1)) parameters((xmm0 xmm1)) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_h8_tanf8_rm_linkage ( __ocl_svml_h8_tanf8_rm )
+
+    float8_sse __ocl_svml_h8_fmaf8_rm (float8_sse a, float8_sse b, float8_sse c);
+
+    float8_avx __ocl_svml_e9_cosf8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_e9_cosf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_cosf8_rm_linkage ( __ocl_svml_e9_cosf8_rm )
+
+    float8_avx __ocl_svml_e9_divf8_rm (float8_avx a, float8_avx b);
+    #pragma linkage     __ocl_svml_e9_divf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_divf8_rm_linkage ( __ocl_svml_e9_divf8_rm )
+
+    float8_avx __ocl_svml_e9_expf8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_e9_expf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_expf8_rm_linkage ( __ocl_svml_e9_expf8_rm )
+
+    float8_avx __ocl_svml_e9_exp2f8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_e9_exp2f8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_exp2f8_rm_linkage ( __ocl_svml_e9_exp2f8_rm )
+
+    float8_avx __ocl_svml_e9_exp10f8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_e9_exp10f8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_exp10f8_rm_linkage ( __ocl_svml_e9_exp10f8_rm )
+
+    float8_avx __ocl_svml_e9_logf8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_e9_logf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_logf8_rm_linkage ( __ocl_svml_e9_logf8_rm )
+
+    float8_avx __ocl_svml_e9_log2f8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_e9_log2f8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_log2f8_rm_linkage ( __ocl_svml_e9_log2f8_rm )
+
+    float8_avx __ocl_svml_e9_powf8_rm (float8_avx a, float8_avx b);
+    #pragma linkage     __ocl_svml_e9_powf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_powf8_rm_linkage ( __ocl_svml_e9_powf8_rm )
+
+    float8_avx __ocl_svml_e9_invf8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_e9_invf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_invf8_rm_linkage ( __ocl_svml_e9_invf8_rm )
+
+    float8_avx __ocl_svml_e9_sinf8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_e9_sinf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_sinf8_rm_linkage ( __ocl_svml_e9_sinf8_rm )
+
+    float8_avx __ocl_svml_e9_sincosf8_rm (float8_avx a, float8_avx* c);
+    #pragma linkage     __ocl_svml_e9_sincosf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_sincosf8_rm_linkage ( __ocl_svml_e9_sincosf8_rm )
+
+    float8_avx __ocl_svml_e9_tanf8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_e9_tanf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_tanf8_rm_linkage ( __ocl_svml_e9_tanf8_rm )
+
+    float8_avx __ocl_svml_e9_fmaf8_rm (float8_avx a, float8_avx b, float8_avx c);
+    #pragma linkage     __ocl_svml_e9_fmaf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1),(ymm2)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_fmaf8_rm_linkage ( __ocl_svml_e9_fmaf8_rm )
+
+    float8_avx __ocl_svml_l9_cosf8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_l9_cosf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_cosf8_rm_linkage ( __ocl_svml_l9_cosf8_rm )
+
+    float8_avx __ocl_svml_l9_divf8_rm (float8_avx a, float8_avx b);
+    #pragma linkage     __ocl_svml_l9_divf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_divf8_rm_linkage ( __ocl_svml_l9_divf8_rm )
+
+    float8_avx __ocl_svml_l9_expf8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_l9_expf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_expf8_rm_linkage ( __ocl_svml_l9_expf8_rm )
+
+    float8_avx __ocl_svml_l9_exp2f8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_l9_exp2f8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_exp2f8_rm_linkage ( __ocl_svml_l9_exp2f8_rm )
+
+    float8_avx __ocl_svml_l9_exp10f8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_l9_exp10f8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_exp10f8_rm_linkage ( __ocl_svml_l9_exp10f8_rm )
+
+    float8_avx __ocl_svml_l9_logf8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_l9_logf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_logf8_rm_linkage ( __ocl_svml_l9_logf8_rm )
+
+    float8_avx __ocl_svml_l9_log2f8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_l9_log2f8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_log2f8_rm_linkage ( __ocl_svml_l9_log2f8_rm )
+
+    float8_avx __ocl_svml_l9_powf8_rm (float8_avx a, float8_avx b);
+    #pragma linkage     __ocl_svml_l9_powf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_powf8_rm_linkage ( __ocl_svml_l9_powf8_rm )
+
+    float8_avx __ocl_svml_l9_invf8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_l9_invf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_invf8_rm_linkage ( __ocl_svml_l9_invf8_rm )
+
+    float8_avx __ocl_svml_l9_sinf8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_l9_sinf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_sinf8_rm_linkage ( __ocl_svml_l9_sinf8_rm )
+
+    float8_avx __ocl_svml_l9_sincosf8_rm (float8_avx a, float8_avx* c);
+    #pragma linkage     __ocl_svml_l9_sincosf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_sincosf8_rm_linkage ( __ocl_svml_l9_sincosf8_rm )
+
+    float8_avx __ocl_svml_l9_tanf8_rm (float8_avx a);
+    #pragma linkage     __ocl_svml_l9_tanf8_rm_linkage   = ( result((ymm0)) parameters((ymm0)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_tanf8_rm_linkage ( __ocl_svml_l9_tanf8_rm )
+
+    float8_avx __ocl_svml_l9_fmaf8_rm (float8_avx a, float8_avx b, float8_avx c);
+    #pragma linkage     __ocl_svml_l9_fmaf8_rm_linkage   = ( result((ymm0)) parameters((ymm0),(ymm1),(ymm2)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_fmaf8_rm_linkage ( __ocl_svml_l9_fmaf8_rm )
+
+    float16_avx __ocl_svml_e9_cosf16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_e9_cosf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_cosf16_rm_linkage ( __ocl_svml_e9_cosf16_rm )
+
+    float16_avx __ocl_svml_e9_divf16_rm (float16_avx a, float16_avx b);
+    #pragma linkage     __ocl_svml_e9_divf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2 ymm3)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_divf16_rm_linkage ( __ocl_svml_e9_divf16_rm )
+
+    float16_avx __ocl_svml_e9_expf16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_e9_expf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_expf16_rm_linkage ( __ocl_svml_e9_expf16_rm )
+
+    float16_avx __ocl_svml_e9_exp2f16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_e9_exp2f16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_exp2f16_rm_linkage ( __ocl_svml_e9_exp2f16_rm )
+
+    float16_avx __ocl_svml_e9_exp10f16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_e9_exp10f16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_exp10f16_rm_linkage ( __ocl_svml_e9_exp10f16_rm )
+
+    float16_avx __ocl_svml_e9_logf16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_e9_logf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_logf16_rm_linkage ( __ocl_svml_e9_logf16_rm )
+
+    float16_avx __ocl_svml_e9_log2f16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_e9_log2f16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_log2f16_rm_linkage ( __ocl_svml_e9_log2f16_rm )
+
+    float16_avx __ocl_svml_e9_powf16_rm (float16_avx a, float16_avx b);
+    #pragma linkage     __ocl_svml_e9_powf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2 ymm3)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_powf16_rm_linkage ( __ocl_svml_e9_powf16_rm )
+
+    float16_avx __ocl_svml_e9_invf16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_e9_invf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_invf16_rm_linkage ( __ocl_svml_e9_invf16_rm )
+
+    float16_avx __ocl_svml_e9_sinf16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_e9_sinf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_sinf16_rm_linkage ( __ocl_svml_e9_sinf16_rm )
+
+    float16_avx __ocl_svml_e9_sincosf16_rm (float16_avx a, float16_avx* c);
+    #pragma linkage     __ocl_svml_e9_sincosf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_sincosf16_rm_linkage ( __ocl_svml_e9_sincosf16_rm )
+
+    float16_avx __ocl_svml_e9_tanf16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_e9_tanf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_e9_tanf16_rm_linkage ( __ocl_svml_e9_tanf16_rm )
+
+    float16_avx __ocl_svml_e9_fmaf16_rm (float16_avx a, float16_avx b, float16_avx c);
+
+    float16_avx __ocl_svml_l9_cosf16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_l9_cosf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_cosf16_rm_linkage ( __ocl_svml_l9_cosf16_rm )
+
+    float16_avx __ocl_svml_l9_divf16_rm (float16_avx a, float16_avx b);
+    #pragma linkage     __ocl_svml_l9_divf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2 ymm3)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_divf16_rm_linkage ( __ocl_svml_l9_divf16_rm )
+
+    float16_avx __ocl_svml_l9_expf16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_l9_expf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_expf16_rm_linkage ( __ocl_svml_l9_expf16_rm )
+
+    float16_avx __ocl_svml_l9_exp2f16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_l9_exp2f16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_exp2f16_rm_linkage ( __ocl_svml_l9_exp2f16_rm )
+
+    float16_avx __ocl_svml_l9_exp10f16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_l9_exp10f16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_exp10f16_rm_linkage ( __ocl_svml_l9_exp10f16_rm )
+
+    float16_avx __ocl_svml_l9_logf16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_l9_logf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_logf16_rm_linkage ( __ocl_svml_l9_logf16_rm )
+
+    float16_avx __ocl_svml_l9_log2f16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_l9_log2f16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_log2f16_rm_linkage ( __ocl_svml_l9_log2f16_rm )
+
+    float16_avx __ocl_svml_l9_powf16_rm (float16_avx a, float16_avx b);
+    #pragma linkage     __ocl_svml_l9_powf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),(ymm2 ymm3)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_powf16_rm_linkage ( __ocl_svml_l9_powf16_rm )
+
+    float16_avx __ocl_svml_l9_invf16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_l9_invf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_invf16_rm_linkage ( __ocl_svml_l9_invf16_rm )
+
+    float16_avx __ocl_svml_l9_sinf16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_l9_sinf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_sinf16_rm_linkage ( __ocl_svml_l9_sinf16_rm )
+
+    float16_avx __ocl_svml_l9_sincosf16_rm (float16_avx a, float16_avx* c);
+    #pragma linkage     __ocl_svml_l9_sincosf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1),rcx) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_sincosf16_rm_linkage ( __ocl_svml_l9_sincosf16_rm )
+
+    float16_avx __ocl_svml_l9_tanf16_rm (float16_avx a);
+    #pragma linkage     __ocl_svml_l9_tanf16_rm_linkage   = ( result((ymm0 ymm1)) parameters((ymm0 ymm1)) preserved(ymm6, ymm7, ymm8, ymm9, ymm10, ymm11, ymm12, ymm13, ymm14, ymm15, rsi, rdi) )
+    #pragma use_linkage __ocl_svml_l9_tanf16_rm_linkage ( __ocl_svml_l9_tanf16_rm )
+
+    float16_avx __ocl_svml_l9_fmaf16_rm (float16_avx a, float16_avx b, float16_avx c);
 
     float1_sse __ocl_svml_h8_invf1_native (float1_sse a);
     #pragma linkage     __ocl_svml_h8_invf1_native_linkage   = ( result(xmm0) parameters(xmm0) preserved(xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15, rsi, rdi) )

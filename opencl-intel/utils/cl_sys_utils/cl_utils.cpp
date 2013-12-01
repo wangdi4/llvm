@@ -26,7 +26,9 @@
 /////////////////////////////////////////////////////////////////////////
 
 #include "cl_utils.h"
+#include "cl_sys_info.h"
 #include <CL/cl.h>
+#include <CL/cl_2_0.h>
 #include <cassert>
 #include <stdint.h>
 #include <sys/stat.h>
@@ -36,6 +38,8 @@ using namespace Intel::OpenCL;
 
 #ifdef WIN32
 #include <windows.h>
+#include <intrin.h>
+
 bool clIsNumaAvailable()
 {
 	return false;
@@ -127,9 +131,19 @@ threadid_t clMyThreadId()
 	return GetCurrentThreadId();
 }
 
+threadid_t clMyParentThreadId()
+{
+    //No such notion on Windows
+    return clMyThreadId();
+}
+
 #else
 #include <unistd.h>
 #include <sys/syscall.h>
+
+#ifndef DISABLE_NUMA_SUPPORT
+#define DISABLE_NUMA_SUPPORT
+#endif
 
 #ifndef DISABLE_NUMA_SUPPORT
 
@@ -185,13 +199,13 @@ void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
 }
 void clResetThreadAffinityMask(threadid_t tid)
 {
-// Yes, this is a hack, but I am not going to create multithreading bugs just to cater to some Linux ADT ideal
-// affinityMask_t is a bitmask and I'm going to abuse that knowledge
-
-// This should be long enough
-static const unsigned long long allOnes[] = {ULLONG_MAX, ULLONG_MAX, ULLONG_MAX, ULLONG_MAX};
-static const affinityMask_t* allMask = reinterpret_cast<const affinityMask_t*>(allOnes);
-sched_setaffinity(tid, sizeof(affinityMask_t), allMask);
+	affinityMask_t mask;
+	CPU_ZERO(&mask);
+	for (size_t i = 0; i < 4 * sizeof(unsigned long long) * 8; i++)	// we assume no more than 256 HW threads (writing generic code is too much effort)
+	{
+		CPU_SET(i, &mask);
+	}
+	sched_setaffinity(tid, sizeof(affinityMask_t), &mask);
 }
 bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len)
 {
@@ -221,6 +235,12 @@ threadid_t clMyThreadId()
 	      myThreadId = GET_CURRENT_THREAD_ID();
     }
     return myThreadId;
+}
+
+threadid_t clMyParentThreadId()
+{
+    //Not an expensive call, no need to cache the return value
+    return getpid();
 }
 
 #endif
@@ -656,7 +676,6 @@ const string accessQualifierToString (const cl_kernel_arg_access_qualifier& Acce
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 cl_addressing_mode GetAddressingModeFromString(const std::string& Mode)
 {
-    cout << "Getting address mode from '" << Mode << "'" << endl;
     if(Mode == "CL_ADDRESS_MIRRORED_REPEAT")
     {
         return CL_ADDRESS_MIRRORED_REPEAT;
@@ -701,7 +720,7 @@ cl_filter_mode GetFilterModeFromString(const string& Mode)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-// SetKernelArgument
+// GetChannelOrderFromString
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 cl_channel_order GetChannelOrderFromString(const string& Order)
 {
@@ -757,37 +776,37 @@ cl_channel_order GetChannelOrderFromString(const string& Order)
     {
         return CL_BGRA;
     }
-	else if (Order == "CL_DEPTH")
-	{
-		return CL_DEPTH;
-	}
-	else if (Order == "CL_sRGB")
-	{
-		return CL_sRGB;
-	}
-	else if (Order == "CL_sRGBx")
-	{
-		return CL_sRGBx;
-	}
-	else if (Order == "CL_sRGBA")
-	{
-		return CL_sRGBA;
-	}
-	else if (Order == "CL_sBGRA")
-	{
-		return CL_sBGRA;
-	}
-	else if (Order == "CL_ABGR")
-	{
-		return CL_ABGR;
-	}
+    else if (Order == "CL_DEPTH")
+    {
+        return CL_DEPTH;
+    }
+    else if (Order == "CL_sRGB")
+    {
+        return CL_sRGB;
+    }
+    else if (Order == "CL_sRGBx")
+    {
+        return CL_sRGBx;
+    }
+    else if (Order == "CL_sRGBA")
+    {
+        return CL_sRGBA;
+    }
+    else if (Order == "CL_sBGRA")
+    {
+        return CL_sBGRA;
+    }
+    else if (Order == "CL_ABGR")
+    {
+        return CL_ABGR;
+    }
     string Error("Unrecognized channel order '");
     Error += Order + "'";
     throw Error;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-// SetKernelArgument
+// GetChannelTypeFromString
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 cl_channel_type GetChannelTypeFromString(const string& Type)
 {
@@ -857,7 +876,7 @@ cl_channel_type GetChannelTypeFromString(const string& Type)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-// SetKernelArgument
+// GetImageTypeFromString
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 cl_mem_object_type GetImageTypeFromString(const string& Type)
 {
@@ -933,9 +952,7 @@ cl_mem_flags GetSingleMemoryFlagFromString(const string& OneFlagStr)
     }
     else
     {
-        string Error("Unrecognized memory flags '");
-        Error += OneFlagStr + "'";
-        throw Error;
+        return 0;
     }
 }
 
@@ -943,16 +960,16 @@ cl_mem_flags GetMemFlagsFromString(const string& FlagsStr)
 {
     cl_mem_flags Flags(0);
     size_t Tokenizer = FlagsStr.find_first_of(" ,"), PrevToken = 0; 
-    string iToken; 
-    while (Tokenizer != string::npos) 
+    string iToken;
+    while (Tokenizer != string::npos)
     {
         iToken = FlagsStr.substr(PrevToken, Tokenizer-PrevToken); 
         Flags |= GetSingleMemoryFlagFromString(iToken); 
         PrevToken = Tokenizer+1; 
         Tokenizer = FlagsStr.find_first_of(", ", PrevToken); 
-    } 
+    }
     iToken = FlagsStr.substr(PrevToken); 
-    // Only last value 
+    // Only last value
     Flags |= GetSingleMemoryFlagFromString(iToken);
     return Flags;
 }
@@ -1200,14 +1217,23 @@ string GetTempDir()
     }
 #else // Linux
     char *EnvUser = getenv("USER");
-    TmpDir = "/tmp/";
-    if (EnvUser)
-      {
-	TmpDir += EnvUser;
-	TmpDir += "/";
-      }
-    // Just to make sure the directory exists
-    mkdir(TmpDir.c_str(), S_IRWXU);
+    #if defined(__ANDROID__)
+        TmpDir = "/data/tmp/";
+    #else
+        TmpDir = "/tmp/";
+    #endif
+        if (EnvUser)
+          {
+            TmpDir += EnvUser;
+            TmpDir += "/";
+          }
+        // Just to make sure the directory exists
+        string command("mkdir -p ");
+        command += TmpDir;
+        if(system(command.c_str()) != 0)
+        {
+            perror("Error creating temp directory");
+        }
 #endif
     return TmpDir;
 }
@@ -1246,86 +1272,133 @@ string GetDeviceTypeString(const cl_device_type& Type)
 }
 
 cl_ushort float2half_rte( float f )
+{
+    union{ float f; cl_uint u; } u = {f};
+    cl_uint sign = (u.u >> 16) & 0x8000;
+    float x = fabsf(f);
+    
+    //Nan
+    if( x != x )
     {
-        union{ float f; cl_uint u; } u = {f};
-        cl_uint sign = (u.u >> 16) & 0x8000;
-        float x = fabsf(f);
-    
-        //Nan
-        if( x != x )
-        {
-            u.u >>= (24-11);
-            u.u &= 0x7fff;
-            u.u |= 0x0200;      //silence the NaN
-            return u.u | sign;
-        }
-    
-        // overflow
-        if( x >= MAKE_HEX_FLOAT(0, 0x1ffeL, 3) )
-            return 0x7c00 | sign;
-    
-        // underflow
-        if( x <= MAKE_HEX_FLOAT(0, 0x1L, -25) )
-            return sign;    // The halfway case can return 0x0001 or 0. 0 is even.
-    
-        // very small
-        if( x < MAKE_HEX_FLOAT(0, 0x18L, -28) )
-            return sign | 1;
-    
-        // half denormal
-        if( x < MAKE_HEX_FLOAT(0, 0x1L, -14) )
-        {
-            u.f = x * MAKE_HEX_FLOAT(0, 0x1L, -125);
-            return sign | u.u;
-        }
-    
-        u.f *= MAKE_HEX_FLOAT(0, 0x1L, 13);
-        u.u &= 0x7f800000;
-        x += u.f;
-        u.f = x - u.f;
-        u.f *= MAKE_HEX_FLOAT(0, 0x1L, -112);
-    
-        return (u.u >> (24-11)) | sign;
+        u.u >>= (24-11);
+        u.u &= 0x7fff;
+        u.u |= 0x0200;      //silence the NaN
+        return u.u | sign;
     }
+    
+    // overflow
+    if( x >= MAKE_HEX_FLOAT(0, 0x1ffeL, 3) )
+        return 0x7c00 | sign;
+    
+    // underflow
+    if( x <= MAKE_HEX_FLOAT(0, 0x1L, -25) )
+        return sign;    // The halfway case can return 0x0001 or 0. 0 is even.
+    
+    // very small
+    if( x < MAKE_HEX_FLOAT(0, 0x18L, -28) )
+        return sign | 1;
+    
+    // half denormal
+    if( x < MAKE_HEX_FLOAT(0, 0x1L, -14) )
+    {
+        u.f = x * MAKE_HEX_FLOAT(0, 0x1L, -125);
+        return sign | u.u;
+    }
+    
+    u.f *= MAKE_HEX_FLOAT(0, 0x1L, 13);
+    u.u &= 0x7f800000;
+    x += u.f;
+    u.f = x - u.f;
+    u.f *= MAKE_HEX_FLOAT(0, 0x1L, -112);
+    
+    return (u.u >> (24-11)) | sign;
+}
 
-    float half2float( cl_ushort us )
+float half2float( cl_ushort us )
+{
+    uint32_t u = us;                   
+    uint32_t sign = (u << 16) & 0x80000000;
+    int32_t exponent = (u & 0x7c00) >> 10;     
+    uint32_t mantissa = (u & 0x03ff) << 13;
+    union{ unsigned int u; float f;}uu;
+    
+    if( exponent == 0 )
     {
-        uint32_t u = us;                   
-        uint32_t sign = (u << 16) & 0x80000000;
-        int32_t exponent = (u & 0x7c00) >> 10;     
-        uint32_t mantissa = (u & 0x03ff) << 13;
-        union{ unsigned int u; float f;}uu;
-    
-        if( exponent == 0 )
-        {
-            if( mantissa == 0 )
-                return sign ? -0.0f : 0.0f;
+        if( mantissa == 0 )
+            return sign ? -0.0f : 0.0f;
         
-            int shift = __builtin_clz( mantissa ) - 8;
-            exponent -= shift-1;
-            mantissa <<= shift;
-            mantissa &= 0x007fffff;
-        }
-        else
-            if( exponent == 31)
-            {
-                uu.u = mantissa | sign;
-                if( mantissa )
-                    uu.u |= 0x7fc00000;
-                else
-                    uu.u |= 0x7f800000;
-            
-                return uu.f;
-            }
-    
-        exponent += 127 - 15;
-        exponent <<= 23;
-    
-        exponent |= mantissa;
-        uu.u = exponent | sign;
-    
-        return uu.f;
+        int shift = __builtin_clz( mantissa ) - 8;
+        exponent -= shift-1;
+        mantissa <<= shift;
+        mantissa &= 0x007fffff;
     }
+    else
+        if( exponent == 31)
+        {
+            uu.u = mantissa | sign;
+            if( mantissa )
+                uu.u |= 0x7fc00000;
+            else
+                uu.u |= 0x7f800000;
+            
+            return uu.f;
+        }
+    
+    exponent += 127 - 15;
+    exponent <<= 23;
+    
+    exponent |= mantissa;
+    uu.u = exponent | sign;
+    
+    return uu.f;
+}
+
+void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size_t szBufferSize)
+{
+	if (szPatternSize > sizeof(long long) || szBufferSize < sizeof(long long))
+	{
+		// for long patterns do memcpy
+		for (size_t offset=0 ; offset < szBufferSize ; offset += szPatternSize)
+		{		
+			// using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
+			memcpy((char*)pBuffer + offset, pPattern, szPatternSize);
+		}
+	}
+	else if (szPatternSize > 1)
+	{
+		// for patterns the size of long long or smaller (but not a single byte) do direct assignments and save the overhead of calling memcpy
+		long long llPatten = 0;
+		for (size_t i = 0; i < sizeof(llPatten) / szPatternSize; i++)
+		{
+			// using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
+			memcpy((char*)&llPatten + i * szPatternSize, pPattern, szPatternSize);
+		}
+		for (size_t offset = 0; offset < (szBufferSize % sizeof(llPatten) == 0 ? szBufferSize : szBufferSize - sizeof(llPatten)); offset += sizeof(llPatten))
+		{
+			*(long long*)((char*)pBuffer + offset) = llPatten;
+		}
+		// deal with the reminder
+		if (szBufferSize % sizeof(llPatten) != 0)
+		{
+			for (size_t offset = szBufferSize - szBufferSize % sizeof(llPatten); offset < szBufferSize; offset += szPatternSize)
+			{
+				// using memcpy intentionally, because MEMCPY_S has too much overhead in this loop
+				memcpy((char*)pBuffer + offset, pPattern, szPatternSize);
+			}			
+		}
+	}
+	else
+	{
+		// for single-byte patterns memset is the fastest
+		memset(pBuffer, ((char*)pPattern)[0], szBufferSize);
+	}
+}
+
+std::string GetConfigFilePath()
+{
+    std::string path("cl.cfg");
+    return path;
+}
 
 #if defined(_MSC_VER) && !defined(_WIN64)
 //  Returns the number of leading 0-bits in x, 
@@ -1358,3 +1431,78 @@ int __builtin_clz(unsigned int pattern)
    return count;
 }
 #endif //defined(_MSC_VER) && !defined(_WIN64)
+
+
+std::string getLocalHostName()
+{
+    string computerName("");
+    char buffer[1024];
+#ifdef _WIN32
+    DWORD nameLength = 1024;
+    if(GetComputerName(buffer,&nameLength))
+#else
+    if(!gethostname(buffer,1024))
+#endif
+    {
+        computerName = buffer;
+    }
+    return computerName;
+}
+
+#ifdef WIN32
+bool GetStringValueFromRegistryOrETC( HKEY       top_hkey,
+                                        const char *keyPath,
+                                        const char *valueName,
+                                        char       *retValue,
+                                        DWORD      size )
+{
+    HKEY hkey;
+
+    // Open the registry path. hkey will hold the entry
+    LONG retCode = RegOpenKeyExA(
+        top_hkey,                   // hkey
+        keyPath,                    // lpSubKey
+        0,                          // ulOptions
+        KEY_READ,                   // samDesired
+        &hkey                       // phkResult
+        );
+
+    if( ERROR_SUCCESS == retCode )
+    {
+        // Get the value by name from the key
+        retCode = RegQueryValueExA(
+            hkey,                   // hkey
+            valueName,              // lpValueName
+            0,                      // lpReserved
+            NULL,                   // lpType
+            ( LPBYTE )retValue,     // lpData
+            &size                   // lpcbData
+            );
+
+        // Close the key - we don't need it any more
+        RegCloseKey( hkey );
+
+        if( ERROR_SUCCESS == retCode )
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+#endif
+
+bool GetCpuPath( char *pCpuPath, size_t bufferSize )
+{
+#if defined( _WIN32 )
+    const char *regPath = "SOFTWARE\\Intel\\OpenCL";
+
+    // pCpuPath is expected to be MAX_PATH in size
+    if( NULL != pCpuPath )
+    {
+        return GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, "cpu_path", pCpuPath, bufferSize );
+    }
+#endif
+    return false;
+}
+

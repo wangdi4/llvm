@@ -1,5 +1,5 @@
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-	create_target ( core-avx2 s9 avx2 TRUE )
+  create_target ( core-avx2 s9 avx2 TRUE )
 else ()
-	create_target ( core-avx2 l9 avx2 TRUE )
+  create_target ( core-avx2 l9 avx2 TRUE )
 endif(CMAKE_SIZEOF_VOID_P EQUAL 4)

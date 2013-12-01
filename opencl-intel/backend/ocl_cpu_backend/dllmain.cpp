@@ -32,7 +32,7 @@ File Name:  dllmain.cpp
 #include "llvm/Support/Mutex.h"
 #include "debuggingservicewrapper.h"
 #include "CPUDetect.h"
-#include "utils/ImplicitArgsUtils.h"
+#include "cl_shutdown.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -50,6 +50,9 @@ static cl_dev_err_code s_init_result = CL_DEV_SUCCESS;
 
 // flag used to disable the termination sequence
 bool s_ignore_termination = false;
+
+// include shutdown protocol support for runtime
+USE_SHUTDOWN_HANDLER(NULL);
 
 #if defined(_WIN32)
 
@@ -81,10 +84,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             s_ignore_termination = true;
         }
 
-		if( !s_ignore_termination)
-		{
-			Compiler::Terminate();
-		}
+        if( !s_ignore_termination)
+        {
+            Compiler::Terminate();
+        }
         break;
     }
     return TRUE;
@@ -105,10 +108,10 @@ void __attribute__ ((destructor)) dll_fini(void)
         s_ignore_termination = true;
     }
 
-	if( !s_ignore_termination)
-	{
+    if( !s_ignore_termination)
+    {
         Compiler::Terminate();
-	}
+    }
 }
 #endif
 

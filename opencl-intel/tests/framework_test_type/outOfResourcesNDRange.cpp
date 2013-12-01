@@ -13,53 +13,52 @@
 
 extern cl_device_type gDeviceType;
 
-#if defined(_M_X64) || defined(__x86_64__)
-    #define SIZE_T_CONSTANTS "#define SIZE_OF_PRIVATE %lu  \n \
-    #define SIZE_OF_LOCAL %lu  \n"
-#else
-    #define SIZE_T_CONSTANTS "#define SIZE_OF_PRIVATE %llu  \n \
-    #define SIZE_OF_LOCAL %llu  \n"
-#endif
-
-const char *g_programSrc = \
-    SIZE_T_CONSTANTS \
-    "__kernel void evenBytes(__global const uchar16 *inputBuffer, \n \
-    __global uchar8 *outputBuffer, \n \
-    const uint bufferWidth, \n \
-    const uint inputBufferStride, \n \
-    const uint outputBufferStride) \n \
-    { \n \
-        local uint local_dummy[SIZE_OF_LOCAL]; \n \
-        uint private_dummy[SIZE_OF_PRIVATE]; \n \
-        private_dummy[get_local_id(0)] = (uint)get_global_id(0); \n \
-        local_dummy[get_local_id(0)] = (uint)get_global_id(0); \n \
-        // \n \
-        uint xCoordinate = get_global_id(0) %% bufferWidth; \n \
-        uint yCoordinate = get_global_id(0) / bufferWidth; \n \
-        uchar16 data = inputBuffer[xCoordinate + yCoordinate * inputBufferStride]; \n \
-        uchar8 result = data.even; \n \
-        outputBuffer[xCoordinate + yCoordinate * outputBufferStride] = result; \n \
-        barrier(CLK_LOCAL_MEM_FENCE); \n \
-        // Use private and local buffers, to prevent their prunnig out. Just make sure it never happens :) \n \
-        if(get_local_id(0) == get_local_size(0) + 1) { \n \
-            outputBuffer[0] =  private_dummy[0]; \n \
-            outputBuffer[1] =  local_dummy[0]; \n \
-        } \n \
-    } \n \
-";
+const char *g_programSrc = 
+    "__kernel void evenBytes(__global const uchar16 *inputBuffer,  __global uchar8 *outputBuffer,\
+    const uint bufferWidth,\
+    const uint inputBufferStride,\
+    const uint outputBufferStride)\n\
+    {\n\
+        local uint local_dummy[SIZE_OF_LOCAL];\n\
+        uint private_dummy[SIZE_OF_PRIVATE];\n\
+        private_dummy[get_local_id(0)] = (uint)get_global_id(0);\n\
+        local_dummy[get_local_id(0)] = (uint)get_global_id(0);\n\
+        uint xCoordinate = get_global_id(0) % bufferWidth;\n\
+        uint yCoordinate = get_global_id(0) / bufferWidth;\n\
+        uchar16 data = inputBuffer[xCoordinate + yCoordinate * inputBufferStride];\n\
+        uchar8 result = data.even;\n\
+        outputBuffer[xCoordinate + yCoordinate * outputBufferStride] = result;\n\
+        barrier(CLK_LOCAL_MEM_FENCE);\n\
+        // Use private and local buffers, to prevent their prunnig out. Just make sure it never happens :)\n\
+        if(get_local_id(0) == get_local_size(0) + 1){\n\
+            outputBuffer[0] =  private_dummy[0];\n\
+            outputBuffer[1] =  local_dummy[0];\n\
+        }\n\
+    }";
 
 
-cl_program buildProgram(cl_context clContext, cl_device_id clDevice, const char *programSrc, cl_int &buildStatus)
+cl_program buildProgram(cl_context clContext, cl_device_id clDevice, const char *programSrc, cl_ulong localSize, cl_ulong privateSize, cl_int &buildStatus)
 {
     size_t srcLen = strlen(programSrc);
 
     // Create program with source
     size_t srcSize = strlen(programSrc);
     cl_program clProgram = clCreateProgramWithSource(clContext, 1, &programSrc, &srcLen, NULL);
+    if (clProgram == NULL)
+		return NULL;
 
+	char buildOptions[1024];
+	SPRINTF_S(buildOptions, 1024, "-cl-opt-disable -DSIZE_OF_LOCAL=%lld -DSIZE_OF_PRIVATE=%lld", localSize, privateSize);
+
+	printf("Build options <%s>, source:%s\n", buildOptions, programSrc);
     // Build program executable from source. Prevent any optimizations (we want big memory etc.)
-    if (clProgram != NULL)
-        buildStatus = clBuildProgram(clProgram, 1, &clDevice, "-cl-opt-disable", NULL, NULL);
+    buildStatus = clBuildProgram(clProgram, 1, &clDevice, buildOptions, NULL, NULL);
+	if ( buildStatus != CL_SUCCESS )
+	{
+		char buildLog[1024];
+		clGetProgramBuildInfo(clProgram, clDevice, CL_PROGRAM_BUILD_LOG, sizeof(buildLog), buildLog, NULL);
+		printf("Build Failed, log:\n %s\n", buildLog);
+	}
 
     // If error occured
     if (CL_SUCCESS != buildStatus && NULL != clProgram)
@@ -108,10 +107,6 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
 	bool bResult = true;
 	cl_device_id clDefaultDeviceId;
 
-    // buffer for sources with filled numbers.
-    size_t sizeOfSrcFormattedBuffer = strlen(g_programSrc) + 64;
-    char *srcBuffer = (char *)PROV_MALLOC(sizeOfSrcFormattedBuffer);
-
 	iRet = clGetPlatformIDs(1, &platform, NULL);
     ASSERT_EQ(CL_SUCCESS, iRet) << "Failed getting Platform IDs";
 
@@ -139,16 +134,15 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
     ASSERT_EQ(CL_SUCCESS, iRet) << "Failed creating output buffer";
 
     // Build CL Program
-    SPRINTF_S(srcBuffer, sizeOfSrcFormattedBuffer, g_programSrc, (cl_ulong)512, (cl_ulong)512 );
-    cl_program clProgram = PROV_OBJ( buildProgram(context, clDefaultDeviceId, srcBuffer, iRet) );
+    cl_program clProgram = PROV_OBJ( buildProgram(context, clDefaultDeviceId, g_programSrc, 256, 256, iRet) );
     ASSERT_EQ(CL_SUCCESS, iRet) << "Program build error";
 
     // Fill input buffer with test data
     char *bufferMap = (char*)clEnqueueMapBuffer(queue, inputBuffer, CL_TRUE, CL_MAP_WRITE, 0, inputWidth * height * sizeof(char), 0, NULL, NULL, NULL);
-    for (int i = 0; i < inputWidth * height;)
+    for (unsigned int i = 0; i < inputWidth * height;)
     {
-        bufferMap[i++] = 0x23;
-        bufferMap[i++] = 0xAB;
+        bufferMap[i++] = (char)0x23;
+        bufferMap[i++] = (char)0xAB;
     }
 
     cl_event bufferReadyEvent = NULL;
@@ -169,16 +163,9 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
 
     size_t maxNumOfWGItems = 0;
     clGetKernelWorkGroupInfo(clKernel, clDefaultDeviceId, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &maxNumOfWGItems, NULL);
-    // TODO: This is a workaround fix to the test till fixing CQ: CSSD100015660
-    if (maxNumOfWGItems > 512) maxNumOfWGItems = 512;
-    size_t numOfWorkGroupItems = globalSize[0];
-    while (numOfWorkGroupItems > maxNumOfWGItems)
-    {
-        numOfWorkGroupItems /= 2;
-    }
-    maxNumOfWGItems = numOfWorkGroupItems;
+    maxNumOfWGItems = ((unsigned long long)1) << ((unsigned long long)(logf((float)maxNumOfWGItems)/logf(2.f)));
 
-    size_t localSize[] = {maxNumOfWGItems};
+	size_t localSize[] = {maxNumOfWGItems};
     cl_event kernelReadyEvent[1];
 
     // Execute kernel
@@ -187,7 +174,7 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
 
     // Check results
     bufferMap = (char*)clEnqueueMapBuffer(queue, outputBuffer, CL_TRUE, CL_MAP_READ, 0, outputWidth * height * sizeof(char), 1, kernelReadyEvent, NULL, NULL);
-    for (int i = 0; i < outputWidth * height; i++)
+    for (unsigned int i = 0; i < outputWidth * height; i++)
     {
         ASSERT_EQ(0x23, bufferMap[i]) << "WRONG RESULTS!!! The basic functionality of the kernel is bad.";
     }
@@ -198,8 +185,7 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
      ******************************************************************************
      * The next program uses HUGE private memory for WG items.
      */
-    SPRINTF_S(srcBuffer, sizeOfSrcFormattedBuffer, g_programSrc, (cl_ulong)8192, (cl_ulong)512 );
-    cl_program clProgramThatShouldFailPrivateMem = PROV_OBJ( buildProgram(context, clDefaultDeviceId, srcBuffer, iRet) );
+    cl_program clProgramThatShouldFailPrivateMem = PROV_OBJ( buildProgram(context, clDefaultDeviceId, g_programSrc, 256, 8192, iRet) );
     ASSERT_EQ(CL_SUCCESS, iRet) << "wrongfully failed to build a program with huge private memory.";
 
     // Create kernel object, and set values
@@ -212,7 +198,7 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
     maxNumOfWGItems = 0;
     clGetKernelWorkGroupInfo(clKernelShouldFailPrivateMem, clDefaultDeviceId, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &maxNumOfWGItems, NULL);
 
-    numOfWorkGroupItems = maxNumOfWGItems;
+    size_t numOfWorkGroupItems = maxNumOfWGItems;
     while (0 != globalSize[0] % numOfWorkGroupItems)
     {
         numOfWorkGroupItems--;
@@ -244,8 +230,8 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
 
     cl_ulong maxLocalArea = 0;
     clGetDeviceInfo(clDefaultDeviceId, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &maxLocalArea, NULL);
-    SPRINTF_S(srcBuffer, sizeOfSrcFormattedBuffer, g_programSrc, (cl_ulong)512, (cl_ulong)maxLocalArea*2);
-    cl_program clProgramThatShouldFailLocalMem = PROV_OBJ( buildProgram(context, clDefaultDeviceId, srcBuffer, iRet) );
+
+	cl_program clProgramThatShouldFailLocalMem = PROV_OBJ( buildProgram(context, clDefaultDeviceId, g_programSrc, maxLocalArea*2, 256, iRet) );
     ASSERT_EQ(CL_SUCCESS, iRet) << "wrongfully failed to build a program with huge local memory.";
 
     // Create kernel object, and set values
@@ -258,10 +244,6 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
 	//Release resources
 	clReleaseEvent(bufferReadyEvent);
 	clReleaseEvent(kernelReadyEvent[0]);
-	if (srcBuffer)
-	{
-		delete srcBuffer;
-	}
 	if (inputBuffer)
 	{
 		clReleaseMemObject(inputBuffer);

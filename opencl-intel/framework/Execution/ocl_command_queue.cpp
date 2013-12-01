@@ -30,6 +30,7 @@
 
 #include "ocl_command_queue.h"
 #include "Context.h"
+#include "context_module.h"
 #include "events_manager.h"
 #include "enqueue_commands.h"
 #include "ocl_event.h"
@@ -45,28 +46,29 @@ using namespace Intel::OpenCL::Utils;
  * Command queue constructor
  ******************************************************************/
 OclCommandQueue::OclCommandQueue(
-    SharedPtr<Context>                    pContext, 
+    const SharedPtr<Context>&   pContext, 
     cl_device_id                clDefaultDeviceID,
     cl_command_queue_properties clProperties,
     EventsManager*              pEventsManager
     ):
-	OCLObject<_cl_command_queue_int>(pContext->GetHandle(), "OclCommandQueue"),
+    OCLObject<_cl_command_queue_int>(pContext->GetHandle(), "OclCommandQueue"),
     m_pContext(pContext),
     m_pEventsManager(pEventsManager),
     m_clDefaultDeviceHandle(clDefaultDeviceID),
-	m_clDevCmdListId(0)
+    m_clDevCmdListId(0),
+    m_bCancelAll(false)
 {
     m_pDefaultDevice = m_pContext->GetDevice(clDefaultDeviceID);
     // Set queue options
     m_bOutOfOrderEnabled = ((clProperties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) ? true : false);
     m_bProfilingEnabled  = ((clProperties & CL_QUEUE_PROFILING_ENABLE) ? true : false );
     // Set logger
-	INIT_LOGGER_CLIENT(TEXT("OclCommandQueue Logger Client"),LL_DEBUG);
+    INIT_LOGGER_CLIENT(TEXT("OclCommandQueue Logger Client"),LL_DEBUG);
 
-	LOG_INFO(TEXT("OclCommandQueue created: 0x%X"), this);
+    LOG_INFO(TEXT("OclCommandQueue created: 0x%X"), this);
 
-	// Set GPA data 
-	m_pGPAData = m_pContext->GetGPAData();
+    // Set GPA data 
+    m_pGPAData = m_pContext->GetGPAData();
 }
 
 /******************************************************************
@@ -76,61 +78,73 @@ OclCommandQueue::~OclCommandQueue()
 {   
     LOG_INFO(TEXT("OclCommandQueue delete: 0x%X"), this);
 
-	if (0 != m_clDevCmdListId)
-	{
-		m_pDefaultDevice->GetDeviceAgent()->clDevReleaseCommandList(m_clDevCmdListId);
-	}
+    if (0 != m_clDevCmdListId)
+    {
+        m_pDefaultDevice->GetDeviceAgent()->clDevReleaseCommandList(m_clDevCmdListId);
+    }
     m_pContext = NULL;
     m_pDefaultDevice = NULL;
 
     RELEASE_LOGGER_CLIENT;
 }
 
+size_t OclCommandQueue::GetInfoInternal(cl_int iParamName, void* pBuf, size_t szBuf) const
+{
+    switch (iParamName)
+    {
+        case CL_QUEUE_CONTEXT:
+            assert(szBuf >= sizeof(cl_context));
+            if (szBuf < sizeof(cl_context))
+            {
+                return 0;
+            }
+            *(cl_context*)pBuf = (cl_context)GetParentHandle();
+            return sizeof(cl_context);
+        case CL_QUEUE_DEVICE:
+            assert(szBuf >= sizeof(cl_device_id));
+            if (szBuf < sizeof(cl_device_id))
+            {
+                return 0;
+            }
+            *(cl_device_id*)pBuf = m_clDefaultDeviceHandle;
+            return sizeof(cl_device_id);
+        case CL_QUEUE_REFERENCE_COUNT:
+            assert(szBuf >= sizeof(cl_uint));
+            if (szBuf < sizeof(cl_uint))
+            {
+                return 0;
+            }
+            *(cl_uint*)pBuf = m_uiRefCount;
+            return sizeof(cl_uint);
+        case CL_QUEUE_PROPERTIES:
+            {
+                assert(szBuf >= sizeof(cl_command_queue_properties));
+                if (szBuf < sizeof(cl_command_queue_properties))
+                {
+                    return 0;
+                }
+                int iOutOfOrder  = (m_bOutOfOrderEnabled) ? 1 : 0;
+                int iProfilingEn = (m_bProfilingEnabled)  ? 1 : 0;
+                *(cl_command_queue_properties*)pBuf = ((iOutOfOrder) | ( iProfilingEn<<1 ));
+                return sizeof(cl_command_queue_properties); 
+            }
+        default:
+            return 0;
+    }
+}
 
 /******************************************************************
  *
  ******************************************************************/
 cl_err_code OclCommandQueue::GetInfo( cl_int iParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet ) const
 {
-    cl_err_code res = CL_SUCCESS;
-    const void* localParamValue = NULL;
-	cl_context lclCntx = NULL;
-    size_t szOutputValueSize = 0;
-    cl_command_queue_properties propreties;
+    char localParamValue[sizeof(cl_ulong)];    // cl_ulong is the biggest information there is
+    const size_t szOutputValueSize = GetInfoInternal(iParamName, localParamValue, sizeof(localParamValue));
     
-    switch (iParamName)
-    {
-        case CL_QUEUE_CONTEXT:
-            localParamValue = &lclCntx;
-			lclCntx = (cl_context)GetParentHandle();
-            szOutputValueSize = sizeof(cl_context);
-            break;
-        case CL_QUEUE_DEVICE:
-            localParamValue = &m_clDefaultDeviceHandle;
-            szOutputValueSize = sizeof(cl_device_id);
-            break;
-        case CL_QUEUE_REFERENCE_COUNT:
-            localParamValue = &m_uiRefCount;
-            szOutputValueSize = sizeof(cl_uint);
-            break;
-        case CL_QUEUE_PROPERTIES:
-            {
-            int iOutOfOrder  = (m_bOutOfOrderEnabled) ? 1 : 0;
-            int iProfilingEn = (m_bProfilingEnabled)  ? 1 : 0;
-            propreties = ((iOutOfOrder) | ( iProfilingEn<<1 ));
-            localParamValue = &propreties;
-            szOutputValueSize = sizeof(cl_command_queue_properties); 
-            break;
-            }
-        default:
-            res = CL_INVALID_VALUE;
-            break;
-    }
-
     // check param_value_size
-    if ( (NULL != pParamValue) && (szParamValueSize < szOutputValueSize))
+    if (((NULL != pParamValue) && (szParamValueSize < szOutputValueSize)) || 0 == szOutputValueSize)
     {
-        res = CL_INVALID_VALUE;
+        return CL_INVALID_VALUE;
     }
     else
     {
@@ -143,7 +157,7 @@ cl_err_code OclCommandQueue::GetInfo( cl_int iParamName, size_t szParamValueSize
             *pszParamValueSizeRet = szOutputValueSize;
         }
     }
-    return res;
+    return CL_SUCCESS;
 }
 
 /******************************************************************
@@ -162,7 +176,7 @@ cl_err_code OclCommandQueue::GetInfo( cl_int iParamName, size_t szParamValueSize
 cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
 {
     cl_err_code res = CL_SUCCESS;
-	return res;
+    return res;
 }
 
 /******************************************************************
@@ -172,7 +186,7 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
  {
     // Get device info
     cl_command_queue_properties clDeviceProperties;
-    cl_err_code res = m_pDefaultDevice->GetInfo(CL_DEVICE_QUEUE_PROPERTIES, sizeof(cl_command_queue_properties), &clDeviceProperties, NULL);
+    cl_err_code res = m_pDefaultDevice->GetInfo(CL_DEVICE_QUEUE_ON_HOST_PROPERTIES, sizeof(cl_command_queue_properties), &clDeviceProperties, NULL);
     if( CL_SUCCEEDED(res) )
     {
         if( clProperties == (clDeviceProperties & clProperties) )
@@ -188,43 +202,43 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
  cl_err_code OclCommandQueue::Initialize()
  {
      cl_dev_subdevice_id subdevice_id = m_pContext->GetSubdeviceId(m_clDefaultDeviceHandle);
-	 cl_dev_err_code retDev = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(CL_DEV_LIST_NONE, subdevice_id, &m_clDevCmdListId);
-	 if (CL_DEV_FAILED(retDev))
-	 {
-		 m_clDevCmdListId = 0;
-		 return CL_OUT_OF_RESOURCES;
-	 }
+     cl_dev_err_code retDev = m_pDefaultDevice->GetDeviceAgent()->clDevCreateCommandList(CL_DEV_LIST_NONE, subdevice_id, &m_clDevCmdListId);
+     if (CL_DEV_FAILED(retDev))
+     {
+         m_clDevCmdListId = 0;
+         return CL_OUT_OF_RESOURCES;
+     }
 
-	 return CL_SUCCESS;
+     BecomeVisible();
+     return CL_SUCCESS;
  }
-
 
  cl_int OclCommandQueue::GetContextId() const
  { 
-	 return m_pContext->GetId();      
+     return m_pContext->GetId();      
  }
 
 
  cl_err_code OclCommandQueue::GPA_InitializeQueue()
  {
  #if defined(USE_GPA)
-	 if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) && (m_pGPAData->bEnableContextTracing))
-	 {
-		 m_pOclGpaQueue = new ocl_gpa_queue();
-		 if (NULL == m_pOclGpaQueue)
-		 {
-			 return CL_OUT_OF_HOST_MEMORY;
-		 }
+     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) && (m_pGPAData->bEnableContextTracing))
+     {
+         m_pOclGpaQueue = new ocl_gpa_queue();
+         if (NULL == m_pOclGpaQueue)
+         {
+             return CL_OUT_OF_HOST_MEMORY;
+         }
 
-		 std::stringstream ssQueueTrackName;
-		 ssQueueTrackName << (m_bOutOfOrderEnabled ? "Out Of Order Queue (CPU)" : "In Order Queue (CPU)") << std::endl;
-		 ssQueueTrackName << "Queue id: " << m_iId << std::endl;
-		 ssQueueTrackName << "Queue handle: " << (int)&m_handle;
-	  
-  		 m_pOclGpaQueue->m_pStrHndl = __itt_string_handle_createA(ssQueueTrackName.str().c_str());
+         std::stringstream ssQueueTrackName;
+         ssQueueTrackName << (m_bOutOfOrderEnabled ? "Out Of Order Queue (CPU)" : "In Order Queue (CPU)") << std::endl;
+         ssQueueTrackName << "Queue id: " << m_iId << std::endl;
+         ssQueueTrackName << "Queue handle: " << (int)&m_handle;
+      
+           m_pOclGpaQueue->m_pStrHndl = __itt_string_handle_createA(ssQueueTrackName.str().c_str());
 
-		 m_pOclGpaQueue->m_pTrack = __itt_track_create(m_pGPAData->pContextTrackGroup, m_pOclGpaQueue->m_pStrHndl, __itt_track_type_queue);
-	 }
+         m_pOclGpaQueue->m_pTrack = __itt_track_create(m_pGPAData->pContextTrackGroup, m_pOclGpaQueue->m_pStrHndl, __itt_track_type_queue);
+     }
 #endif
      return CL_SUCCESS;
  }
@@ -233,10 +247,22 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
  cl_err_code OclCommandQueue::GPA_ReleaseQueue()
  {
 #if defined(USE_GPA)
-	 if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) && (m_pGPAData->bEnableContextTracing))
-	 {
-		delete m_pOclGpaQueue;
-	 }
+     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) && (m_pGPAData->bEnableContextTracing))
+     {
+        delete m_pOclGpaQueue;
+     }
 #endif
      return CL_SUCCESS;
  }
+
+ ocl_gpa_data* OclCommandQueue::GetGPAData() const { return m_pContext->GetGPAData(); }
+
+cl_err_code OclCommandQueue::CancelAll()
+{
+    m_bCancelAll = true;
+    if (NULL != m_pDefaultDevice)
+    {
+        m_pDefaultDevice->GetDeviceAgent()->clDevCommandListCancel(m_clDevCmdListId);
+    }
+    return CL_SUCCESS;
+}

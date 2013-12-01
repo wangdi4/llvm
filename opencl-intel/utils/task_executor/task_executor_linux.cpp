@@ -65,7 +65,7 @@ void dll_init(void)
 	thkShedMaster = 0;
 	pthread_key_create(&thkShedMaster, thread_cleanup_callback);
 
-#if _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
+#ifdef _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
      InitSharedPtrs();
 #endif
 
@@ -93,7 +93,7 @@ void dll_fini(void)
         thkShedMaster = 0;  
 	}
 
-#if _DEBUG
+#ifdef _DEBUG
     FiniSharedPts();
 #endif
 }

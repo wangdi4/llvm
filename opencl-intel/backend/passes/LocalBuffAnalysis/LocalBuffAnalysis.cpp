@@ -11,14 +11,14 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 #include "common_dev_limits.h"
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/InstIterator.h"
-#include "llvm/Constant.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/Version.h"
-#if LLVM_VERSION == 3200
-#include "llvm/DataLayout.h"
-#else
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/IR/DataLayout.h"
 #endif
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -56,9 +56,17 @@ namespace intel{
   void LocalBuffAnalysis::updateLocalsMap(GlobalValue* pLocalVal, User * user) {
     // llvm::Instruction, llvm::Operator and llvm::Constant are the only possible subtypes of llvm::user
     if ( isa<Instruction>(user) ) {
+      Instruction *inst = cast<Instruction>(user);
+
+      // declaring variables for debugging purposes shouldn't affect local buffers.
+      if (MDNode *mdn = inst->getMetadata("dbg_declare_inst")) {
+        if (cast<ConstantInt>(mdn->getOperand(0))->isAllOnesValue()) {
+            return;
+        }
+      }
       // Parent of Instruction is BasicBlock
       // Parent of BasicBlock is Function
-      Function* pFunc = cast<Instruction>(user)->getParent()->getParent();
+      Function* pFunc = inst->getParent()->getParent();
       // Add pLocalVal to the set of local values used by pFunc
       m_localUsageMap[pFunc].insert(pLocalVal);
     } else if ( isa<Constant>(user) ) {
@@ -106,10 +114,10 @@ namespace intel{
       return m_localSizeMap[pFunc];
     }
 
-#if LLVM_VERSION == 3200
-    llvm::DataLayout DL(m_pModule);
-#else
+#if LLVM_VERSION == 3425
     llvm::TargetData DL(m_pModule);
+#else
+    llvm::DataLayout DL(m_pModule);
 #endif
     size_t localBufferSize = 0;
 

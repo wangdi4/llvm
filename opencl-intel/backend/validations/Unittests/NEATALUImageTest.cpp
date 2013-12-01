@@ -30,6 +30,7 @@ File Name:  NEATALUImageTest.cpp
 #include "NEATALUUtils.h"
 #include "ALUTest.h"
 #include "llvm/Support/DataTypes.h"
+#include "cl_types.h"
 
 using namespace Validation;
 class ImageALUNEAT : public ALUTest
@@ -70,8 +71,8 @@ TEST_F(ImageALUNEAT, read_imagef_src_noneat_test_2D)
     Conformance::image_sampler_data imageSampler;
 
     // test for CL_R, CL_FLOAT image
-    img_fmt.image_channel_data_type = CL_FLOAT;
-    img_fmt.image_channel_order = CL_R;
+    img_fmt.image_channel_data_type = CLK_FLOAT;
+    img_fmt.image_channel_order = CLK_R;
 
     imageInfo.width = WIDTH;
     imageInfo.height = HEIGHT;
@@ -133,8 +134,8 @@ TEST_F(ImageALUNEAT, read_imagef_src_noneat_test_1D)
     Conformance::image_sampler_data imageSampler;
 
     // test for CL_R, CL_FLOAT image
-    img_fmt.image_channel_data_type = CL_FLOAT;
-    img_fmt.image_channel_order = CL_R;
+    img_fmt.image_channel_data_type = CLK_FLOAT;
+    img_fmt.image_channel_order = CLK_R;
 
     imageInfo.width = WIDTH;
     imageInfo.height = 0;
@@ -201,8 +202,8 @@ TEST_F(ImageALUNEAT, read_imagef_src_noneat_test_1D_array)
     Conformance::image_sampler_data imageSampler;
 
     // test for CL_R, CL_FLOAT image
-    img_fmt.image_channel_data_type = CL_FLOAT;
-    img_fmt.image_channel_order = CL_R;
+    img_fmt.image_channel_data_type = CLK_FLOAT;
+    img_fmt.image_channel_order = CLK_R;
 
     imageInfo.width = WIDTH;
     imageInfo.height = 0;
@@ -279,8 +280,8 @@ TEST_F(ImageALUNEAT, read_imagef_src_noneat_test_2D_array)
     Conformance::image_sampler_data imageSampler;
 
     // test for CL_R, CL_FLOAT image
-    img_fmt.image_channel_data_type = CL_FLOAT;
-    img_fmt.image_channel_order = CL_R;
+    img_fmt.image_channel_data_type = CLK_FLOAT;
+    img_fmt.image_channel_order = CLK_R;
 
     imageInfo.width = WIDTH;
     imageInfo.height = HEIGHT;
@@ -354,8 +355,8 @@ TEST_F(ImageALUNEAT, read_imagef_src_noneat_test_3D)
     Conformance::image_sampler_data imageSampler;
 
     // test for CL_R, CL_FLOAT image
-    img_fmt.image_channel_data_type = CL_FLOAT;
-    img_fmt.image_channel_order = CL_R;
+    img_fmt.image_channel_data_type = CLK_FLOAT;
+    img_fmt.image_channel_order = CLK_R;
 
     imageInfo.width = WIDTH;
     imageInfo.height = HEIGHT;

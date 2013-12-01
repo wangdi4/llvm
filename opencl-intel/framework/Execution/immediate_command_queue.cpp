@@ -106,7 +106,7 @@ cl_err_code ImmediateCommandQueue::Enqueue(Command* cmd)
     }				
     pQueueEvent->SetEventState(EVENT_STATE_READY_TO_EXECUTE);
     cmd->SetDevCmdListId(m_clDevCmdListId);
-    return cmd->Execute();
+    return (m_bCancelAll) ? cmd->Cancel() : cmd->Execute();
 }
 
 /**

@@ -28,6 +28,13 @@ File Name:  COIHelpers.cpp
 #define DEBUG_TYPE "COIHelpers"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Path.h"
+
+#define MAX_EXE_PATH 512
+
+#ifdef _WIN32
+#include <windows.h>
+#endif // _WIN32
 
 using namespace Validation;
 
@@ -69,19 +76,18 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
 {
     // SATEST_NATIVE_NAME contains only file name. In order to be able to load SATEST_NATIVE_NAME from arbitrary directory we make obtain we full path the SATEST_NATIVE_NAME.
     // Assume that SATEST_NATIVE_NAME is located in the same directory as SATest.
-    char path[PATH_MAX] = {0};
-    char simlink[] = "/proc/self/exe";
+
     std::string fullName(""), pathName("");
-    ssize_t size = readlink( simlink, path, PATH_MAX - 1);
-    if (size != -1)
-    {
-        while(path[size-1] != '/') { --size;}
-        path[size] = '\0';
-        pathName = std::string(path);
-        fullName = pathName;
-    }
+    char argv0[MAX_EXE_PATH];
+    size_t addr = 0;
+    llvm::SmallString<MAX_EXE_PATH> fileName;
+    fileName = llvm::sys::path::parent_path(llvm::sys::Path::GetMainExecutable(argv0, &addr).str());
+    pathName = fileName.str();
+
     // Remove executable name i.e. exctract path to the executable.
-    fullName.append(SATEST_NATIVE_NAME);
+    llvm::Twine name = SATEST_NATIVE_NAME;
+    llvm::sys::path::append(fileName, name);
+    fullName = fileName.str();
     // Create a process on the MIC.
     CHECK_COI_RESULT(
         COIProcessCreateFromFile(
@@ -118,6 +124,7 @@ void COIProcessAndPipelineWrapper::Create( COIENGINE engine, const BERunOptions 
         svmlFileName.c_str(),   // in_FileName
         NULL,                   // in_so-name if not exists in file
         svmlPath.c_str(),       // in_LibrarySearchPath
+        2,                      // in_Flags: use dlopen RTLD_NOW
         &m_library );
     if ((COI_SUCCESS != res) && (COI_ALREADY_EXISTS != res))
     {

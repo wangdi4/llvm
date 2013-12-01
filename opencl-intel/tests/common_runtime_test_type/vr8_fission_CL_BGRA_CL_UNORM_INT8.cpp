@@ -31,6 +31,10 @@ public:
 		this->image_format.image_channel_order = CL_BGRA;
 		this->image_format.image_channel_data_type = CL_UNORM_INT8;
 	}
+    virtual void TearDown()
+    {
+        FissionWrapper::TearDown();
+    }
 };
 
 // Do not add other types here

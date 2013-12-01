@@ -141,3 +141,17 @@ clLinkProgram
 clReleaseDevice
 clRetainDevice
 clUnloadPlatformCompiler
+
+; OpenCL 2.0 API
+clSVMAlloc
+clSVMFree
+clEnqueueSVMFree
+clEnqueueSVMMemcpy
+clEnqueueSVMMemFill
+clEnqueueSVMMap
+clEnqueueSVMUnmap
+clSetKernelArgSVMPointer
+clSetKernelExecInfo
+clCreatePipe
+clGetPipeInfo
+clCreateCommandQueueWithProperties

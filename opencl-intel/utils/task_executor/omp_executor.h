@@ -36,6 +36,7 @@
 #include "cl_dynamic_lib.h"
 #include "cl_shared_ptr.h"
 #include "cl_synch_objects.h"
+#include "cl_thread.h"
 
 using Intel::OpenCL::Utils::SharedPtr;
 using Intel::OpenCL::Utils::AtomicPointer;
@@ -48,8 +49,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	 /**
      * a global flag indicating whether the program has called function exit
      */
-	extern volatile bool gIsExiting;
-
 	class OMPTEDevice : public ITEDevice
 	{
 	public:
@@ -60,23 +59,31 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			return new OMPTEDevice(device_desc, user_data, observer, taskExecutor, parent );
 		}
 
-		virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_handle = NULL ){return NULL; }
+		virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_handle = NULL ) { return NULL; };
 
-		virtual void ResetObserver(){m_observer = NULL;}
+		virtual void ResetObserver() { m_observer = NULL; };
+
+		virtual void SetObserver(ITaskExecutorObserver* pObserver) { m_observer = pObserver; };
+
+		virtual int GetConcurrency() const { return omp_in_parallel() ? omp_get_num_threads() : omp_get_max_threads(); };
 		
-		virtual void ShutDown(){}
+		virtual void ShutDown() {};
+
+		virtual void AttachMasterThread(void* user_tls) {};
+
+		virtual void DetachMasterThread() {};
 		
 		virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param );
 
-		virtual bool Execute(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask );
+		virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> AllocateDefaultQueue(bool bIsProfilingEnabled) { return NULL; };
 
-		virtual te_wait_result WaitForCompletion(ITaskBase * pTask){return TE_WAIT_NOT_SUPPORTED; }
+		virtual void ReleaseDefaultQueue() {};
 
-		virtual void WaitUntilEmpty(){return;}
+		virtual queue_t GetDefaultQueue() { return NULL; };
 
-		ITaskExecutorObserver* getObserver(){ return m_observer; }
+		ITaskExecutorObserver* getObserver() { return m_observer; };
 
-		void* GetUserData() const { return m_userData; }
+		void* GetUserData() const { return m_userData; };
 
 	protected:
 		void*						m_userData;
@@ -85,8 +92,8 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		
 	private:
 		OMPTEDevice(const RootDeviceCreationParam device_desc, void* user_data, ITaskExecutorObserver* observer, 
-					OMPTaskExecutor& taskExecutor, const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& parent = NULL )
-					:m_userData(user_data),m_observer(observer),m_taskExecutor(taskExecutor){}
+					OMPTaskExecutor& taskExecutor, const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& parent = NULL );
+
 		OMPTEDevice(OMPTEDevice&);
 	};
 
@@ -101,7 +108,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			user_tls = NULL;
 		}
 		
-		OMP_PerActiveThreadData():device(NULL),user_tls(NULL){}
+		OMP_PerActiveThreadData() : device(NULL), user_tls(NULL) {}
 	};
 
 	class OMP_TlsManager
@@ -109,19 +116,20 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	public:
 		OMP_TlsManager();
 		
-		~OMP_TlsManager();
+		virtual ~OMP_TlsManager();
 
 		bool Init( unsigned int uiNumberOfThreads );
-		
-		void  UnregisterCurrentThread();
 
-		OMP_PerActiveThreadData* RegisterCurrentThread();
+		OMP_PerActiveThreadData* RegisterCurrentThread() const;
 
 		OMP_PerActiveThreadData* GetCurrentThreadDescriptor() const;
-		
-		OMP_PerActiveThreadData* RegisterAndGetCurrentThreadDescriptor();
+
+		OMP_PerActiveThreadData* GetCurrentThreadDescriptor(ITaskExecutorObserver* pObserver) const;
 
 	private:
+
+		static THREAD_LOCAL OMP_PerActiveThreadData*    m_CurrentThreadGlobalID;
+
 		unsigned int						m_uiNumberOfStaticEntries;
 		OMP_PerActiveThreadData*			m_ThreadDataArray;
 		static bool                         m_object_exists;
@@ -136,7 +144,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	public:
 		OMPTaskExecutor();
 		
-		virtual ~OMPTaskExecutor();
+		virtual ~OMPTaskExecutor() {};
 		
 		int	Init(unsigned int uiNumThreads, ocl_gpa_data * pGPAData);
 		
@@ -145,15 +153,17 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateRootDevice( const RootDeviceCreationParam& device_desc = RootDeviceCreationParam(),  
 			void* user_data = NULL, ITaskExecutorObserver* my_observer = NULL );
 
-		ocl_gpa_data* GetGPAData() const;
+		virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> CreateTaskGroup(const Intel::OpenCL::Utils::SharedPtr<ITEDevice>& device) { return NULL; };
+
+		ocl_gpa_data* GetGPAData() const { return m_pGPAData; };
 
 		unsigned int GetMaxNumOfConcurrentThreads() const;
 
 		virtual DeviceHandleStruct GetCurrentDevice() const;
 		
-		virtual bool IsMaster() const;
+		virtual bool IsMaster() const { return (omp_get_thread_num() == 0) ? true : false; };
 		
-		virtual unsigned int GetPosition( unsigned int level = 0 ) const;
+		virtual unsigned int GetPosition( unsigned int level = 0 ) const { return (0 == level) ? omp_get_thread_num() : TE_UNKNOWN; };
 
 		OMP_TlsManager& GetTlsManager(){return m_TlsManager;}
 	
@@ -173,12 +183,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	public:
 		PREPARE_SHARED_PTR(omp_command_list)
 
-		~omp_command_list()
-		{
-			//TODO anything to delete?
-			return;
-		}
-
 		static SharedPtr<omp_command_list> Allocate( OMPTaskExecutor& pOMPExec,
 													const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& device, 
 													const CommandListCreationParam* param = NULL )
@@ -186,44 +190,39 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 			return new omp_command_list(pOMPExec, device, param );
 		}
 
-		OMPTaskExecutor& GetTaskExecutor(){return m_pOMPExecutor;}
+		OMPTaskExecutor& GetTaskExecutor() { return m_pOMPExecutor; };
 		
-		Intel::OpenCL::Utils::SharedPtr<OMPTEDevice> GetDevice(){return m_pDevice;}
+		Intel::OpenCL::Utils::SharedPtr<ITEDevice> GetDevice() { return m_pDevice; };
+		Intel::OpenCL::Utils::ConstSharedPtr<ITEDevice> GetDevice() const { return (const ITEDevice*)m_pDevice.GetPtr(); };
 		
-		unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)
-		{
-			return LaunchExecutorTask(true, &pTask);
-		}
+		unsigned int Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask);
 
-		te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait) { return TE_WAIT_NOT_SUPPORTED; }
+		// WaitForCompletion is not supported in immediate queue
+		te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait) { return TE_WAIT_NOT_SUPPORTED; };
 
 		bool Flush() { return true; }
 
-		friend class omp_executor_task;
+		virtual void Cancel() { /*TODO Implement Cancel for Shutdown support. */ };
+
+		virtual void Launch(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) {};
+
+		virtual bool DoesSupportDeviceSideCommandEnqueue() const { return false; };
+
+		virtual bool IsProfilingEnabled() const { return true; };
+
+		virtual bool IsDefaultQueue() const { return false; };
+
+		virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return NULL; };
 
 	private:
-		virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>* pTask = NULL);
 
 		omp_command_list(const omp_command_list& l);
 		omp_command_list();
-		omp_command_list(OMPTaskExecutor& pOMPExec, const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& device, const CommandListCreationParam* param = NULL) 
-			: m_pOMPExecutor(pOMPExec), m_pDevice(device){}
+		omp_command_list(OMPTaskExecutor& pOMPExec, const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& device, const CommandListCreationParam* param = NULL); 
 	
 		OMPTaskExecutor&										m_pOMPExecutor;
 		Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>			m_pDevice;
 	};
-
-    class omp_executor_task
-    {
-    public:
-        omp_executor_task(omp_command_list* list, const SharedPtr<ITaskBase>& pTask ):m_list(list), m_pTask( pTask ) {}
-
-        void operator()();
-
-    protected:
-        omp_command_list*			m_list;
-        SharedPtr<ITaskBase>        m_pTask;
-    };
 
 }}}
 #endif // __OMP_EXECUTOR__

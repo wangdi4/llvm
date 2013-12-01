@@ -62,9 +62,10 @@ Kernel* MICDeviceBackendFactory::CreateKernel()
 Kernel* MICDeviceBackendFactory::CreateKernel(
     const std::string& name,
     const std::vector<cl_kernel_argument>& args,
+    const std::vector<unsigned int>& memArgs,
     KernelProperties* pProps)
 {
-    return new MICKernel(name, args, pProps);
+    return new MICKernel(name, args, memArgs, pProps);
 }
 
 KernelProperties* MICDeviceBackendFactory::CreateKernelProperties()
@@ -79,6 +80,8 @@ KernelJITProperties* MICDeviceBackendFactory::CreateKernelJITProperties()
 
 Binary* MICDeviceBackendFactory::CreateBinary( 
     ICLDevBackendBufferPrinter* pPrinter,
+    IDeviceCommandManager* pDeviceCommandManager,
+    const IBlockToKernelMapper *pBlockToKernelMapper,
     const KernelProperties* pKernelProperties,
     const std::vector<cl_kernel_argument>& args,
     const cl_work_description_type* pWorkInfo,
@@ -89,6 +92,8 @@ Binary* MICDeviceBackendFactory::CreateBinary(
 {
     return new Binary(this,
                     pPrinter,
+                    pDeviceCommandManager,
+                    pBlockToKernelMapper,
                     pKernelProperties,
                     args,
                     pWorkInfo,

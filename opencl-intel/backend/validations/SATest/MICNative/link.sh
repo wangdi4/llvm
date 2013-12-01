@@ -1,5 +1,6 @@
 #!/bin/sh
 
+shift
 EXE_NAME=$1
 shift
 OBJS=$*

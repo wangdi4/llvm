@@ -29,7 +29,7 @@ public:
        The initialization of the device process and pipeline is performed on separate thread.
        return CL_DEV_SUCCESS if succeeded. */
     static cl_dev_err_code deviceSeviceCommunicationFactory(unsigned int uiMicId, 
-    														DeviceServiceCommunication** ppDeviceServiceCom);
+                                                            DeviceServiceCommunication** ppDeviceServiceCom);
 
     virtual ~DeviceServiceCommunication();
 
@@ -45,18 +45,18 @@ public:
         COPY_PROGRAM_TO_DEVICE,
         REMOVE_PROGRAM_FROM_DEVICE,
 
-		EXECUTE_NDRANGE,
-		INIT_DEVICE,
-		RELEASE_DEVICE,
-		INIT_COMMANDS_QUEUE,
-		RELEASE_COMMANDS_QUEUE,
-		EXECUTE_DEVICE_UTILITY,
+        EXECUTE_NDRANGE,
+        INIT_DEVICE,
+        RELEASE_DEVICE,
+        INIT_COMMANDS_QUEUE,
+        RELEASE_COMMANDS_QUEUE,
+        EXECUTE_DEVICE_UTILITY,
 
-		FILL_MEM_OBJECT,
+        FILL_MEM_OBJECT,
 
 #ifdef ENABLE_MIC_TRACER
-		GET_TRACE_SIZE, 
-		GET_TRACE,
+        GET_TRACE_SIZE, 
+        GET_TRACE,
 #endif
 
         // insert new function ids before this line
@@ -97,9 +97,9 @@ private:
 
     /* Entry point for the initializer thread. */
     static void* initEntryPoint(void* arg);
-	
-	/* Set in additionalEnvVars all the VTune env variables (Those starts with __OCL_MIC_INTEL_) as name=value. */
-	void getVTuneEnvVars(vector<char*>& additionalEnvVars);
+    
+    /* Set in additionalEnvVars all the VTune env variables (Those starts with __OCL_MIC_INTEL_) as name=value. */
+    void getVTuneEnvVars(vector<char*>& additionalEnvVars);
 
     unsigned int m_uiMicId;
 

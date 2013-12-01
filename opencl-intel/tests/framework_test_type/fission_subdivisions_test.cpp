@@ -63,8 +63,6 @@ bool fission_subdivision_test()
 	bResult = SilentCheck(L"clGetDeviceInfo for selector CL_DEVICE_PARTITION_AFFINITY_DOMAIN",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	bool bHasNuma = (0 < actual_size && CL_DEVICE_AFFINITY_DOMAIN_NUMA == prop[0]);
-
 	cl_uint next_subdevice_index = 0;
 	cl_uint num_entries = 100;
 	cl_device_id out_devices[100];
@@ -98,20 +96,7 @@ bool fission_subdivision_test()
 	if (!bResult)	return bResult;
 	++next_subdevice_index;
 
-	if (bHasNuma)
-	{
-		//Third test: attempt to create a sub-device of the parent containing a single NUMA node
-    	properties[0] = CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN;
-	    properties[1] = CL_DEVICE_AFFINITY_DOMAIN_NUMA;
-	    properties[2] = 0;
-		err = clCreateSubDevices(out_devices[0], properties, num_entries - next_subdevice_index, out_devices + next_subdevice_index, &num_devices);
-		bResult = SilentCheck(L"clCreateSubDevices - attempt to create a child that's a numa node",CL_SUCCESS,err);
-		if (!bResult)	return bResult;
-
-		++next_subdevice_index;
-	}
-
-	//Fourth test: attempt to mix BY_NAMES with other partitioning modes. 
+	//Third test: attempt to mix BY_NAMES with other partitioning modes. 
 	properties[0] = CL_DEVICE_PARTITION_BY_NAMES_INTEL;
 	properties[1] = 0;
 	properties[2] = CL_PARTITION_BY_NAMES_LIST_END_INTEL;
@@ -150,11 +135,6 @@ bool fission_subdivision_test()
 	//Create a command queue for the first device
 	cmd_queue[0] = clCreateCommandQueue(context,out_devices[0],0,&err);
 	bResult = SilentCheck(L"clCreateCommandQueue - first sub-device",CL_SUCCESS,err);
-	if (!bResult) return bResult;
-
-	//Create a command queue for the second device
-	cmd_queue[1] = clCreateCommandQueue(context,out_devices[1],0,&err);
-	bResult = SilentCheck(L"clCreateCommandQueue - second sub-device",CL_OUT_OF_RESOURCES,err);
 	if (!bResult) return bResult;
 
 	//Passed all tests, release resources

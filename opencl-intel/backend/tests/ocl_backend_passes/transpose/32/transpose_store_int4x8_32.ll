@@ -1,7 +1,7 @@
 ; XFAIL: x86
-; RUN: oclopt -builtins-module=clbltfng9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfng9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc < %t1.ll -mattr=+avx -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK-AVX
-; RUN: oclopt -builtins-module=clbltfns9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
+; RUN: oclopt -runtimelib=clbltfns9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
 ; RUN: llc < %t2.ll -mattr=+avx2 -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK-AVX2
 
 
@@ -16,11 +16,11 @@ entry:
     store <8 x i32> %zIn, <8 x i32>* %zIn.addr, align 4
 	%wIn.addr = alloca <8 x i32>, align 4
     store <8 x i32> %wIn, <8 x i32>* %wIn.addr, align 4
-    call void @__ocl_transpose_store_int4x8(<4 x i32>* nocapture %pStoreAdd, <8 x i32> %xIn, <8 x i32> %yIn, <8 x i32> %zIn, <8 x i32> %wIn) nounwind
+    call void @__ocl_transpose_store_int_4x8(<4 x i32>* nocapture %pStoreAdd, <8 x i32> %xIn, <8 x i32> %yIn, <8 x i32> %zIn, <8 x i32> %wIn) nounwind
     ret void
 }
 
-declare void @__ocl_transpose_store_int4x8(<4 x i32>* nocapture %pStoreAdd, <8 x i32> %xIn, <8 x i32> %yIn, <8 x i32> %zIn, <8 x i32> %wIn) nounwind
+declare void @__ocl_transpose_store_int_4x8(<4 x i32>* nocapture %pStoreAdd, <8 x i32> %xIn, <8 x i32> %yIn, <8 x i32> %zIn, <8 x i32> %wIn) nounwind
 
 
 ;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
@@ -53,7 +53,7 @@ declare void @__ocl_transpose_store_int4x8(<4 x i32>* nocapture %pStoreAdd, <8 x
 ;CHECK-AVX:	vmovdqa	[[XMM14]], 96([[EAX]])
 ;CHECK-AVX:	vpunpckhdq	[[XMM12]], [[XMM13]], [[XMM15:%xmm[0-9]+]]
 ;CHECK-AVX:	vmovdqa	[[XMM15]], 112([[EAX]])
-;CHECK-AVX:	.type	 [[TRANSPOSE:[_a-z]+]]_store_int4x8,@function
+;CHECK-AVX:	.type	 [[TRANSPOSE:[_a-z]+]]_store_int_4x8,@function
 
 ;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX2: [[FOO]]: # @foo
@@ -73,4 +73,4 @@ declare void @__ocl_transpose_store_int4x8(<4 x i32>* nocapture %pStoreAdd, <8 x
 ;CHECK-AVX2:	vextracti128	$1, [[YMM51]], 80([[EAX]])
 ;CHECK-AVX2:	vextracti128	$1, [[YMM01]], 96([[EAX]])
 ;CHECK-AVX2:	vextracti128	$1, [[YMM12]], 112([[EAX]])
-;CHECK-AVX2:	.type	 [[TRANSPOSE:[_a-z]+]]_store_int4x8,@function
+;CHECK-AVX2:	.type	 [[TRANSPOSE:[_a-z]+]]_store_int_4x8,@function

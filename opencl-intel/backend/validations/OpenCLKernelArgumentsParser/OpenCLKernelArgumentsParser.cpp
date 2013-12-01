@@ -18,10 +18,11 @@ File Name:  OpenCLKernelArgumentsParser.cpp
 
 
 #include "BufferDesc.h"
+#include "ImageDesc.h"
 #include "IMemoryObjectDesc.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Metadata.h"
-#include "llvm/Type.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Type.h"
 #include "OpenCLKernelArgumentsParser.h"
 #include "TypeDesc.h"
 
@@ -441,7 +442,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
                     BufferDesc BufDesc;
                     BufDesc.SetElementDecs(ElemDesc);
                     BufDesc.SetNumOfElements(1);
-                    ListOfArguments.push_back(&BufDesc);
+                    ListOfArguments.push_back(BufDesc);
                     break;
                 } 
             case Type::DoubleTyID:
@@ -450,7 +451,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
                     BufferDesc BufDesc;
                     BufDesc.SetElementDecs(ElemDesc);
                     BufDesc.SetNumOfElements(1);
-                    ListOfArguments.push_back(&BufDesc);
+                    ListOfArguments.push_back(BufDesc);
                     break;
                 }
             case Type::IntegerTyID:
@@ -488,7 +489,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
                     BufferDesc BufDesc;
                     BufDesc.SetElementDecs(ElemDesc);
                     BufDesc.SetNumOfElements(1);
-                    ListOfArguments.push_back(&BufDesc);
+                    ListOfArguments.push_back(BufDesc);
                     break;
                 }
             case Type::VectorTyID:
@@ -554,7 +555,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
                     BufferDesc BufDesc;
                     BufDesc.SetElementDecs(ElemDesc);
                     BufDesc.SetNumOfElements(1);
-                    ListOfArguments.push_back(&BufDesc);
+                    ListOfArguments.push_back(BufDesc);
                     break;
                 }
             case Type::PointerTyID:
@@ -674,7 +675,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
                             TypeDesc SubElemDesc=forParserStruct(cast<StructType>(ptr->getElementType()));
                             ElemDesc.SetSubTypeDesc(0,SubElemDesc);
                             break;
-                        }    
+                        }
                     case Type::PointerTyID: //pointer to pointer
                         {
                             throw Exception::ParserBadTypeException(
@@ -688,11 +689,45 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
                             break;
                         }
                     }
-                    BufferDesc BufDesc;
-                    BufDesc.SetElementDecs(ElemDesc);
-                    BufDesc.SetNumOfElements(1); // one pointer to 0 objects of type TYPE
-                    // in BUFFER desc. thats not pointer desc
-                    ListOfArguments.push_back(&BufDesc);
+
+                    StructType *ST = dyn_cast<StructType>(ptr->getElementType());
+                    if(ST && !ST->isLiteral()) {
+                        const std::string &imgArg = ST->getName().str();
+                        if ( std::string::npos != imgArg.find("opencl.image"))    // Image identifier was found
+                        {
+                            // Get dimension image type
+                            if(imgArg.find("opencl.image1d_t")              !=  std::string::npos ||
+                                imgArg.find("opencl.image1d_array_t")       !=  std::string::npos ||
+                                imgArg.find("opencl.image1d_buffer_t")      !=  std::string::npos ||
+                                imgArg.find("opencl.image2d_t")             !=  std::string::npos ||
+                                imgArg.find("opencl.image2d_depth_t")       !=  std::string::npos ||
+                                imgArg.find("opencl.image2d_array_t")       !=  std::string::npos ||
+                                imgArg.find("opencl.image2d_array_depth_t") !=  std::string::npos ||
+                                imgArg.find("opencl.image3d_t")             !=  std::string::npos)
+                            {
+                                ImageDesc ImgDesc;
+                                ListOfArguments.push_back(ImgDesc);
+                            }
+                            else
+                            {
+                                throw Exception::InvalidArgument("[OpenCLKernelArgumentsParser] Unknown image type");
+                            }
+                        }
+                        else {
+                            BufferDesc BufDesc;
+                            BufDesc.SetElementDecs(ElemDesc);
+                            BufDesc.SetNumOfElements(1); // one pointer to 0 objects of type TYPE
+                            // in BUFFER desc. thats not pointer desc
+                            ListOfArguments.push_back(BufDesc);
+                        }
+                    }
+                    else {
+                        BufferDesc BufDesc;
+                        BufDesc.SetElementDecs(ElemDesc);
+                        BufDesc.SetNumOfElements(1); // one pointer to 0 objects of type TYPE
+                        // in BUFFER desc. thats not pointer desc
+                        ListOfArguments.push_back(BufDesc);
+                    }
                     break;
                 }
             case Type::StructTyID:
@@ -701,7 +736,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
                     BufferDesc BufDesc;
                     BufDesc.SetElementDecs(ElemDesc);
                     BufDesc.SetNumOfElements(1);
-                    ListOfArguments.push_back(&BufDesc);
+                    ListOfArguments.push_back(BufDesc);
                     break;
                 }
             default:
@@ -721,21 +756,26 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgHeuristics(
         OCLKernelArgumentsList result; //result
         BufferDesc* head; //ptr to each buffer in OCLKernelArgumentsList
         //each buffer is tree head
-        uint64_t def_size=1;//default number of pointed elems for each ptr
+        uint64_t def_size = 1;//default number of pointed elems for each ptr
         uint64_t i;
 
-        for(i=0;i<dim;++i)
-            def_size*=globalworksize[i]; //calculate default size
+        for(i = 0; i < dim; ++i)
+            def_size *= globalworksize[i]; //calculate default size
 
-        for(i=0;i<Args.size();++i){
+        for(i = 0; i < Args.size(); ++i){
             //result.size() trees
+            if(Args[i].get()->GetName() != BufferDesc::GetBufferDescName())
+            {
+                result.push_back(*Args[i].get());
+                continue;
+            }
             head = static_cast<BufferDesc*>(Args[i].get()); //set up new head
             BufferDesc Buffd;
             //replace number of pointed elements
             Buffd.SetElementDecs(RecursiveDFS((*head).GetElementDescription(), def_size)); 
             Buffd.SetNumOfElements(head->NumOfElements());//number elements in the buffer 
             //is the same
-            result.push_back(&Buffd);//add new buff desc to result
+            result.push_back(Buffd);//add new buff desc to result
         }
         return result;
 }

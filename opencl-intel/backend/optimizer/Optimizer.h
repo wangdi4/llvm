@@ -6,8 +6,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #pragma once
 
-#include <assert.h>
-#include <string>
 #include "llvm/PassManager.h"
 #include "llvm/ADT/SmallVector.h"
 
@@ -42,17 +40,30 @@ public:
 
     void Optimize();
 
-    bool hasBarriers(llvm::Module *pModule);
-
     bool hasUndefinedExternals() const;
 
     const std::vector<std::string>& GetUndefinedExternals() const;
 
+    /// @brief function pointer calls were detected after standard LLVM optimizations
+    /// @return true if function pointer calls were detected
+    bool hasFunctionPtrCalls();
+
+    /// @brief recursion was detected after standard LLVM optimizations
+    /// @return true if recursion was detected
+    bool hasRecursion();
+
+    /// @brief obtain functions names with function ptr calls/recursion detected
+    /// @param funcsWithFuncPtrCalls true indicates to return function names with
+    ///        function pointer calls detected, false indicates to return function
+    ///        names with recursion detected
+    /// @return reference to std::vector with function names
+    std::vector<std::string> GetFuncNames(bool funcsWithFuncPtrCalls);
+
 private:
-    
+
     // hold the collection of passes
-    llvm::PassManager m_modulePasses;
-    llvm::PassManager m_funcPasses;
+    llvm::PassManager m_PostFailCheckPM;
+    llvm::PassManager m_PreFailCheckPM;
     llvm::Module* m_pModule;
 
     std::vector<std::string> m_undefinedExternalFunctions;

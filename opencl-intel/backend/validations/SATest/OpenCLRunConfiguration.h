@@ -149,7 +149,6 @@ namespace Validation
         }
     private:
         bool m_useNEAT;
-        bool m_useFmaNEAT;
         bool m_runSingleWG;
         uint32_t m_defaultLocalWGSize;
         uint64_t m_RandomDataGeneratorSeed;

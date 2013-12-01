@@ -88,9 +88,10 @@ namespace Validation
         }
         ///@brief checks whether configuration is valid or not
         ///throws error if not
-        ///@param [in] elemDesc is a pointer to descriptor of the current element
+        ///@param [in] elemDesc is a pointer to descriptor of
+        ///the current element(image or element of the buffer)
         ///@param [in] cfg is a pointer to node of config of the current element
-        void checkConfig(TypeDesc* elemDesc, AbstractGeneratorConfig* cfg);
+        void checkConfig(IMemoryObjectDesc* elemDesc, AbstractGeneratorConfig* cfg);
         //RandomUniformProvider
         RandomUniformProvider m_RandomUniformProvider;
         //map IMemoryObject* and AbstractGenerator*

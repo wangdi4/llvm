@@ -20,8 +20,21 @@ static const char* DEFAULT_DEVICES_LIST = "cpu_device32"
 #else
 static const char* DEFAULT_DEVICES_LIST = "cpu_device" 
 #endif
+
 #ifdef INCLUDE_MIC_DEVICE
                                           ";mic_device"
+#endif
+
+#ifdef INCLUDE_ISP_DEVICE
+#if defined (_WIN32)
+#if defined (_M_X64)
+                                          ";isp_device64" 
+#else
+                                          ";isp_device32" 
+#endif
+#else
+                                          ";isp_device" 
+#endif
 #endif
                                           ;
 

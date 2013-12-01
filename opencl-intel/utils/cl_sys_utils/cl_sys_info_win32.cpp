@@ -2,7 +2,7 @@
 // cl_utils.cpp:
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
-// Copyright 2007-2008 Intel Corporation All Rights Reserved.
+// Copyright 2007-2013 Intel Corporation All Rights Reserved.
 //
 // The source code contained or described herein and all documents related 
 // to the source code ("Material") are owned by Intel Corporation or its 
@@ -27,6 +27,7 @@
 
 #include "cl_sys_info.h"
 #include "cl_sys_defines.h"
+#include "cl_utils.h"
 
 #if _MSC_VER == 1600
 #include <intrin.h>
@@ -231,9 +232,28 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return a bitmask representing the processors in a given NUMA node
 ////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask)
+bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize)
 {
-    return 0 != GetNumaNodeProcessorMask((unsigned char)node, pMask); 
+    if (0 == GetNumaNodeProcessorMask((unsigned char)node, pMask))
+    {
+        return false;
+    }
+
+    unsigned int node_size = 0;
+    unsigned long long mask = *pMask;
+    while (0 != mask)
+    {
+        if (mask & 0x1)
+        {
+            ++node_size;
+        }
+        mask >>= 1;
+    }
+    if (NULL != nodeSize)
+    {
+        *nodeSize = node_size;
+    }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -294,11 +314,16 @@ bool Intel::OpenCL::Utils::GetModuleProductVersion(const void* someLocalFunc, in
         return false;
     }
 
-    *major    = ( fileInfo->dwProductVersionMS >> 16 ) & 0xff;
-    *minor    = ( fileInfo->dwProductVersionMS) & 0xff;
-    *revision = ( fileInfo->dwProductVersionLS >> 16 ) & 0xff;
-    *build    = ( fileInfo->dwProductVersionLS) & 0xff;
+    *major    = ( fileInfo->dwProductVersionMS >> 16 ) & 0xffff;
+    *minor    = ( fileInfo->dwProductVersionMS) & 0xffff;
+    *revision = ( fileInfo->dwProductVersionLS >> 16 ) & 0xffff;
+    *build    = ( fileInfo->dwProductVersionLS) & 0xffff;
 
     STACK_FREE(verInfo);
     return true;
+}
+
+unsigned int Intel::OpenCL::Utils::GetThreadId()
+{
+    return GetCurrentThreadId();
 }

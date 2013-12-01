@@ -17,7 +17,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   /// @brief  TypeAlignment class used to provide alignment and size information
   ///         for cl_kernel_argument and general alignment utilities 
   ///         (aligning offsets and pointers)
-  /// @Author Marina Yatsina
   class TypeAlignment
   {
   public:

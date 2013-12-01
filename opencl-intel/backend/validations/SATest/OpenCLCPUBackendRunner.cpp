@@ -200,8 +200,9 @@ public:
                   workInfo.globalWorkSize);
 
         //TODO: this number should be similar to how the runtime set it,
-        //      i.e. 2 * number-of-working-threads
-        workInfo.minWorkGroupNum =  2 * (4); //2 * (Intel::OpenCL::Utils::GetNumberOfProcessors());
+        //      i.e. number-of-working-threads
+        //      We actualy are running one thread in SATest!
+        workInfo.minWorkGroupNum = 1; //Intel::OpenCL::Utils::GetNumberOfProcessors();
 
         m_dim = workInfo.workDimension = pKernelConfig->GetWorkDimension();
 
@@ -428,7 +429,19 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
     // Get kernel to run
     std::string kernelName = pKernelConfig->GetKernelName();
     const ICLDevBackendKernel_* pKernel = NULL;
-    pProgram->GetKernelByName(kernelName.c_str(), &pKernel);
+
+    cl_dev_err_code errCode = pProgram->GetKernelByName(kernelName.c_str(), &pKernel);
+
+    // currently pProgram->GetKernelByName returns CL_DEV_INVALID_KERNEL_NAME or CL_DEV_SUCCESS only
+    switch(errCode) {
+    case CL_DEV_SUCCESS:
+        break;
+    case CL_DEV_INVALID_KERNEL_NAME:
+        throw Exception::TestRunnerException(std::string("kernel name ") + kernelName + std::string(" was not found in the source code\n"));
+        break;
+    default:
+        throw Exception::TestRunnerException("Unexpected error code from ICLDevBackendProgram_::GetKernelByName method");
+    }
 
     // Get kernel arguments
     int kernelNumArgs = pKernel->GetKernelParamsCount();

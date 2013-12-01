@@ -23,6 +23,7 @@ enum ECPU {
     CPU_COREI7,
     CPU_SANDYBRIDGE,
     CPU_HASWELL,
+    CPU_KNL,
     RESERVED,
     DEVICE_INVALID // Always last
 };
@@ -34,9 +35,12 @@ enum ECPUFeatureSupport {
     CFS_SSSE3   = 1 << 2,
     CFS_SSE41   = 1 << 3,
     CFS_SSE42   = 1 << 4,
-    CFS_AVX1	= 1 << 5,
+    CFS_AVX1    = 1 << 5,
     CFS_AVX2    = 1 << 6,
-    CFS_FMA     = 1 << 7
+    CFS_FMA     = 1 << 7,
+    CFS_BMI     = 1 << 8,
+    CFS_BMI2    = 1 << 9,
+    CFS_AVX512F = 1 << 10
 };
 class CPUId {
 public:
@@ -57,6 +61,7 @@ public:
     }
     static ECPU GetCPUByName(const char *CPUName) {
         std::string Name(CPUName);
+        if (Name == "knl") return CPU_KNL;
         if (Name == "core-avx2") return CPU_HASWELL;
         if (Name == "corei7-avx") return CPU_SANDYBRIDGE;
         if (Name == "corei7") return CPU_COREI7;
@@ -87,6 +92,8 @@ public:
             return "corei7-avx";
         case CPU_HASWELL:
             return "core-avx2";
+        case CPU_KNL:
+            return "knl";
         }
     }
     const char*         GetCPUPrefix() const {
@@ -116,6 +123,8 @@ public:
                 return "g9";
             case CPU_HASWELL:
                 return "s9";
+            case CPU_KNL:
+                return "d3";
             }
         }
         switch(CPU) {
@@ -135,6 +144,8 @@ public:
             return  "e9";
         case CPU_HASWELL:
             return "l9";
+        case CPU_KNL:
+            return "b3";
         }
     }
     unsigned GetLatestSupportedFeature() const {
@@ -153,6 +164,9 @@ public:
         return HasGatherScatter(m_CPU);
     };
     static bool HasGatherScatter(ECPU CPU) {
+        return (CPU == CPU_KNL);
+    };
+    bool RequirePrefetch() const {
         return false;
     };
     static bool IsValidCPUName(const char* pCPUName) {

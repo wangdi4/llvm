@@ -7,8 +7,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __VECTORIZER_UTILS_H__
 #define __VECTORIZER_UTILS_H__
 
-#include "llvm/Instructions.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/Version.h"
 #include <vector>
 
 
@@ -60,11 +61,11 @@ public:
   /// @return casted value
   static Value *getCastedArgIfNeeded(Value *inputVal, Type *targetType, Instruction *insertPoint);
 
-  /// @brief casts call instruction value into desired type if types put casting instruction after the call 
-  /// @param CI call instruction to cast
-  /// @param targetType "actual" desired type according to calling convention
+  /// @brief casts instruction value into desired type if types are not equal
+  /// @param I instruction to cast
+  /// @param targetType "actual" desired type
   /// @return casted value
-  static Instruction *getCastedRetIfNeeded(CallInst *CI, Type *targetType);
+  static Instruction *getCastedRetIfNeeded(Instruction *I, Type *targetType);
 
   /// @brief Creates a call to function "name" with given args. It also creates
   ///       the function declaration if not already exists in the module.
@@ -75,7 +76,11 @@ public:
   /// @param insertBefore instruction to insert new callInst before
   /// @return new call instruction
   static CallInst *createFunctionCall(Module *pModule, const std::string &name,
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
     Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attributes>& attrs, Instruction* insertBefore);
+#else
+    Type *retType, const SmallVectorImpl<Value *> &args, const SmallVectorImpl<Attribute::AttrKind>& attrs, Instruction* insertBefore);
+#endif
 
   /// @brief Creates a broadcast sequance (InsertElement + Shuffle)
   /// @param pVal value to prodcast

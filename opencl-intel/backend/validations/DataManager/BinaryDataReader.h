@@ -44,7 +44,7 @@ namespace Validation
           m_stream( filename.c_str(), std::ios_base::in | std::ios_base::binary)
         {
           if( m_stream.fail() )
-              throw Exception::IOError("BinaryContainerListReader: cannot open file");
+              throw Exception::IOError("BinaryContainerListReader: cannot open file "+filename);
         }
 
         /// @brief reads the file data and populate the given container

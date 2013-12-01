@@ -18,7 +18,7 @@ if(__LINUX_COMPILER_GNU)
 endif()
 set(__LINUX_COMPILER_GNU 1)
 
-message("Setting up GNU toolchain")
+message(STATUS "Setting up GNU toolchain")
 
 # GCC 4.5
 set(GCC_MAJOR_VERSION 4 CACHE STRING "GCC Major version to be used.")
@@ -39,7 +39,7 @@ endif (OCL_MEEGO)
 if (TARGET_CPU STREQUAL "Atom")
     include(CMakeForceCompiler)
     
-    message("Setting up ATOM GNU cross-compilation flags and tools")
+    message(STATUS "Setting up ATOM GNU cross-compilation flags and tools")
     set(CMAKE_SYSTEM_PROCESSOR ATOM)
     
     # for gcc > 4.5.0 use "-march=atom" (no -mtune)
@@ -77,7 +77,7 @@ if (TARGET_CPU STREQUAL "Atom")
     execute_process(COMMAND dirname ${C_CROSS_COMPILER}
         OUTPUT_VARIABLE CROSS_COMPILATION_BIN_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
 else()
-    message("Setting up Intel Core GNU flags and tools")
+    message(STATUS "Setting up Intel Core GNU flags and tools")
 
     #set(CMAKE_C_COMPILER "gcc-${OCL_GNU_VERSION}")   
     #set(CMAKE_CXX_COMPILER "g++-${OCL_GNU_VERSION}")
@@ -102,7 +102,7 @@ __linux_compiler_gnu(CXX)
 execute_process( COMMAND ${CMAKE_C_COMPILER} --version OUTPUT_VARIABLE GCC_VER_STR ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE )
 if (GCC_VER_STR MATCHES ".*(GCC|gcc).*(${GCC_MAJOR_VERSION}\\.[0-9])\\.*")
         set(GCC_VER ${CMAKE_MATCH_2})
-        message("GCC_VER = ${GCC_VER}")
+        message(STATUS "GCC_VER = ${GCC_VER}")
 else ()
         message(FATAL_ERROR "Need GCC version ${GCC_MAJOR_VERSION}.x, and you only have '${GCC_VER_STR}' (${CMAKE_C_COMPILER})")
 endif (GCC_VER_STR MATCHES ".*(GCC|gcc).*(${GCC_MAJOR_VERSION}\\.[0-9])\\.*")

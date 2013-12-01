@@ -49,7 +49,9 @@ bool ImplicitGlobalIdPass::runOnModule(Module& M)
 bool ImplicitGlobalIdPass::runOnFunction(Function& F)
 {
   if (!F.isDeclaration()) {
-      m_pSyncInstSet = &m_pDataPerBarrier->getSyncInstructions(&F);
+      m_pSyncInstSet = 0;
+      if (m_pDataPerBarrier->hasSyncInstruction(&F))
+        m_pSyncInstSet = &m_pDataPerBarrier->getSyncInstructions(&F);
       insertComputeGlobalIds(&F);
   }
   return true;
@@ -76,7 +78,7 @@ void ImplicitGlobalIdPass::runOnBasicBlock(unsigned i, Instruction *pGIDAlloca, 
 
 void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
 {
-    bool functionHasBarriers = !m_pSyncInstSet->empty();
+    const bool functionHasBarriers = m_pSyncInstSet != 0;
     // Find the first and second instructions in the function
     //
     BasicBlock& entry_block = pFunc->getEntryBlock();
@@ -99,25 +101,27 @@ void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
     DIType gid_di_type = getOrCreateUlongDIType();
 
     for (unsigned i = 0; i <= 2; ++i) {
-        // Create implicit local variables to hold the gids
-        //
-        Twine gid_name = Twine("__ocl_dbg_gid") + Twine(i);
-        AllocaInst* gid_alloca = new AllocaInst(IntegerType::getInt64Ty(*m_pContext),
-                                           0, gid_name, insert_before);
-        DIVariable div = m_pDIB->createLocalVariable(dwarf::DW_TAG_auto_variable, scope,
-                                                     StringRef(gid_name.str()), DIFile(0), 1, gid_di_type,
-                                                     true, DIDescriptor::FlagArtificial, 0);
-        Instruction* gid_declare = m_pDIB->insertDeclare(gid_alloca, div, insert_before);
-        gid_declare->setDebugLoc(loc);
-        if (m_pSyncInstSet->empty()) {
-          runOnBasicBlock(i, gid_alloca, insert_before);
-        } else {
-	  for (TInstructionSet::iterator ii = m_pSyncInstSet->begin(),
-		 ie = m_pSyncInstSet->end(); ii != ie; ++ii ) {
-            Instruction *pNextInst = dyn_cast<Instruction>(&*(++BasicBlock::iterator(*ii)));
-	    runOnBasicBlock(i, gid_alloca, pNextInst);
-          }
+      // Create implicit local variables to hold the gids
+      //
+      Twine gid_name = Twine("__ocl_dbg_gid") + Twine(i);
+      AllocaInst *gid_alloca = new AllocaInst(
+          IntegerType::getInt64Ty(*m_pContext), 0, gid_name, insert_before);
+      DIVariable div = m_pDIB->createLocalVariable(
+          dwarf::DW_TAG_auto_variable, scope, StringRef(gid_name.str()),
+          DIFile(0), 1, gid_di_type, true, DIDescriptor::FlagArtificial, 0);
+      Instruction *gid_declare =
+          m_pDIB->insertDeclare(gid_alloca, div, insert_before);
+      gid_declare->setDebugLoc(loc);
+      if (!functionHasBarriers) {
+        runOnBasicBlock(i, gid_alloca, insert_before);
+      } else {
+        for (TInstructionSet::iterator ii = m_pSyncInstSet->begin(),
+                                       ie = m_pSyncInstSet->end();
+             ii != ie; ++ii) {
+          Instruction *pNextInst = &*(++BasicBlock::iterator(*ii));
+          runOnBasicBlock(i, gid_alloca, pNextInst);
         }
+      }
     }
 }
 

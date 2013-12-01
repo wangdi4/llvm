@@ -467,9 +467,13 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
     // If number of execution iterations is huge it could be slow. Consider using COIBuffer in case if number of executeIterations is large.
     // Performance data from MIC
     uint32_t numOfTimers = numOfKernels*exeOptions->executeIterationsCount + 1;
-    auto_ptr_ex<Sample, ArrayDP<Sample> > micTimers(new Sample[numOfTimers]);
 
-    bool returnValue;
+    uint8_t isPaddingMutated;
+
+    size_t returnBuffSize = sizeof(Sample)*numOfTimers + sizeof(uint8_t);
+    auto_ptr_ex<char, ArrayDP<char> > returnBuff(new char[returnBuffSize]);
+
+    Sample * micTimers = (Sample*)( ((uint8_t*)( returnBuff.get()) ) + 1);
 
     DEBUG(llvm::dbgs()<< "Number of buffers for RunFunction function: " << m_coiFuncArgs.GetNumberOfBuffers() << "\n");
 
@@ -483,13 +487,15 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
         m_coiFuncArgs.GetNumberOfBuffers(), m_coiFuncArgs.GetBufferHandler(0), m_coiFuncArgs.GetBufferAccessFlags(0),  // Buffers and access flags
         0, NULL,                                                    // Input dependencies
         &numOfKernels, sizeof(uint64_t),                            // Misc Data to pass to the function
-        &returnValue, sizeof(returnValue),              // Return values that will be passed back
+        returnBuff.get(), returnBuffSize,                           // Return values that will be passed back
         &barrier                                                    // Barrier to signal when it completes
         ));
 
     CHECK_COI_RESULT(COIEventWait(1, &barrier, -1, true, NULL, NULL));
 
-    if (!returnValue)
+    isPaddingMutated = *( (uint8_t*)( returnBuff.get() ) );
+
+    if (!bool(isPaddingMutated))
     {
         throw Exception::OutOfRange("Padding was Mutated!");
     }
@@ -497,7 +503,7 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
     if( pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false) )
     {
         Performance& perfResults = (Performance&)pRunResult->GetPerformance();
-        perfResults.SetDeserializationTime(micTimers.get()[0]);
+        perfResults.SetDeserializationTime(micTimers[0]);
     }
 
     // This map contains kernel invocation counter during test execution (e.g. the same kernel can be called multiple time with different work group sizes.
@@ -517,8 +523,8 @@ void OpenCLMICBackendRunner::RunKernels(const BERunOptions *pRunConfig,
             Performance& perfResults = (Performance&)pRunResult->GetPerformance();
             for (uint32_t j = 0; j < exeOptions->executeIterationsCount; ++j)
             {
-                DEBUG(llvm::dbgs()<< "Iteration: " << j << "\tIndex: " << dispatcherIndex*exeOptions->executeIterationsCount + j + 1 << "\tTotal time: " << micTimers.get()[dispatcherIndex*exeOptions->executeIterationsCount + j + 1].TotalTime() << "\t total ticks: " << micTimers.get()[dispatcherIndex*exeOptions->executeIterationsCount + j + 1].TotalTicks() << "\t samples count: " << micTimers.get()[dispatcherIndex*exeOptions->executeIterationsCount + j + 1].SamplesCount() << "\n");
-                perfResults.SetExecutionTime(kernelName, 0, micTimers.get()[dispatcherIndex*exeOptions->executeIterationsCount + j + 1]);
+                DEBUG(llvm::dbgs()<< "Iteration: " << j << "\tIndex: " << dispatcherIndex*exeOptions->executeIterationsCount + j + 1 << "\tTotal time: " << micTimers[dispatcherIndex*exeOptions->executeIterationsCount + j + 1].TotalTime() << "\t total ticks: " << micTimers[dispatcherIndex*exeOptions->executeIterationsCount + j + 1].TotalTicks() << "\t samples count: " << micTimers[dispatcherIndex*exeOptions->executeIterationsCount + j + 1].SamplesCount() << "\n");
+                perfResults.SetExecutionTime(kernelName, 0, micTimers[dispatcherIndex*exeOptions->executeIterationsCount + j + 1]);
             }
         }
         else

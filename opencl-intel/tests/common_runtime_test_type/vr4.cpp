@@ -50,7 +50,6 @@ static std::vector<std::string> initExpectedSharedExtenstions()
         ///     later when supported by the underlying
         ///     platforms.
 	
-    // vec.push_back("cl_intel_printf");
 	// vec.push_back("cl_intel_dx9_sharing");
 	return vec;
 }
@@ -70,7 +69,6 @@ static std::vector<std::string> initExpectedCPUExtenstions()
 	vec.push_back("cl_khr_gl_sharing");
 	vec.push_back("cl_intel_dx9_media_sharing");	
 	#endif
-	vec.push_back("cl_intel_printf");
 	
 
         /// ToDo: 
@@ -107,7 +105,6 @@ static std::vector<std::string> initExpectedGPUExtenstions()
         ///     later when supported by the underlying
         ///     platforms.
     //vec.push_back("cl_khr_gl_event");
-	//vec.push_back("cl_intel_printf");
     //vec.push_back("cl_intel_packed_yuv");
 	return vec;
 }
@@ -304,40 +301,6 @@ if(isAccelerator()){ //MIC has diffrent extentions
 	ASSERT_EQ(CL_INVALID_QUEUE_PROPERTIES, errcode_ret) << "clCreateCommandQueue failed"; 
 }
 
-//|	TEST: VR4.GPUCreateSubDevicesWithNull (TC-23-1)
-//|
-//|	Purpose
-//|	-------
-//|	
-//|	Verify that the extension cl_ext_device_fission is not supported by GPU device when a NULL argument is sent
-//|
-//|	Method
-//|	------
-//|
-//|	1. Call clCreateSubDevices() with NULL arguments
-//|	2. assert the result (should fail)
-//|	
-//|	Pass criteria
-//|	-------------
-//|
-//|	GPU sub-devices should fail.
-//|
-TEST_F(VR4, GPUCreateSubDevicesWithNull){
-	
-	if(isAccelerator()){ //not suported on MIC
-		return;
-	}
-	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_EQUALLY,2,0};
-	
-	//get GPU device
-	ASSERT_NO_FATAL_FAILURE(getGPUDevice(ocl_descriptor.platforms, ocl_descriptor.devices));
-	
-	//try to get sub devices from GPU
-	cl_int errcode_ret = clCreateSubDevices(ocl_descriptor.devices[0],properties,2,NULL,NULL); 
-	ASSERT_EQ(CL_INVALID_DEVICE, errcode_ret) << "clCreateSubDevice did not fail"; 
-}
-
-
 //TODO: Uncomment the following code when this extension is supported
 
 /*
@@ -439,68 +402,3 @@ TEST_F(VR4, LogocalOperatorsForFloatsOnGPU)
 		kernelSource = NULL;
 	}
 }*/
-
-//TODO: currently GPU does not support printf extension
-//When GPU will support this extension should uncomment the following code
-/*
-//|	TEST: VR4.PrintfOnCPUGPU (TC-26)
-//|
-//|	Purpose
-//|	-------
-//|	
-//|	Verify that the extension cl_intel_printf is supported by both CPU and GPU devices
-//|
-//|	Method
-//|	------
-//|
-//|	Create, compile and execute on both CPU and GPU kernel including call to function printf()
-//|		
-//|	Pass criteria
-//|	-------------
-//|
-//|	The kernel executes successfully on both devices
-//|
-TEST_F(VR4, PrintfOnCPUGPU)
-{
-	cl_platform_id platform = 0;
-	cl_device_id devices[] = {0,0};
-
-	// get pltfrom and device id
-	ASSERT_NO_FATAL_FAILURE(getCPUGPUDevices(&platform, devices));
-
-	// create context
-	cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0};
-	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 2, devices, NULL, NULL));
-
-	//	create and build program
-	ASSERT_NO_FATAL_FAILURE(createAndBuildProgramWithSource("printf_kernel.cl", &ocl_descriptor.program, 
-		ocl_descriptor.context, 2, devices, NULL, NULL, NULL));
-
-	// create kernel
-	ASSERT_NO_FATAL_FAILURE(createKernel(&ocl_descriptor.kernels[0] , ocl_descriptor.program, "printf_kernel"));
-
-	// input array
-	int arraySize = 4;
-	DynamicArray<cl_int> input_array(arraySize);
-	// create shared buffer
-	ASSERT_NO_FATAL_FAILURE(createBuffer(&ocl_descriptor.in_common_buffer, ocl_descriptor.context, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, sizeof(cl_int)*input_array.dynamic_array_size, input_array.dynamic_array));
-
-	// set kernel argumanets
-	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 0, sizeof(cl_mem), &ocl_descriptor.in_common_buffer));
-	ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[0], 1, sizeof(int), &input_array.dynamic_array_size));	
-
-	cl_uint work_dim = 1;
-	size_t global_work_size = 1;
-
-	for(int i=0; i<2; ++i)
-	{
-		// create queue
-		ASSERT_NO_FATAL_FAILURE(createCommandQueue(&ocl_descriptor.queues[i], ocl_descriptor.context, devices[i], 0));
-
-		// enqueue both kernels with required dependency (CPU then GPU)
-		ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[i], ocl_descriptor.kernels[0], 1, NULL, &global_work_size, NULL, 0, NULL, NULL));	
-		ASSERT_EQ(CL_SUCCESS, clFinish(ocl_descriptor.queues[i]));
-		return;
-	}
-}
-*/

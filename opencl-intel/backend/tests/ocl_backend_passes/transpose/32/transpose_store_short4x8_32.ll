@@ -1,10 +1,10 @@
 ; XFAIL: x86_64
 
-; RUN: oclopt -builtins-module=clbltfng9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfng9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc %t1.ll -mattr=+avx -mtriple=i686 -o %t2.asm
 ; RUN: FileCheck %s --input-file=%t2.asm -check-prefix=CHECK-AVX
 
-; RUN: oclopt -builtins-module=clbltfns9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t3.ll
+; RUN: oclopt -runtimelib=clbltfns9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t3.ll
 ; RUN: llc %t3.ll -mattr=+avx2 -mtriple=i686 -o %t4.asm
 ; RUN: FileCheck %s --input-file=%t4.asm -check-prefix=CHECK-AVX2
 
@@ -19,11 +19,11 @@ entry:
   store <8 x i16> %zIn, <8 x i16>* %zIn.addr, align 4
   %wIn.addr = alloca <8 x i16>, align 4
   store <8 x i16> %wIn, <8 x i16>* %wIn.addr, align 4
-  call void @__ocl_transpose_store_short4x8(<4 x i16>* nocapture %pStoreAdd, <8 x i16> %xIn, <8 x i16> %yIn, <8 x i16> %zIn, <8 x i16> %wIn) nounwind
+  call void @__ocl_transpose_store_short_4x8(<4 x i16>* nocapture %pStoreAdd, <8 x i16> %xIn, <8 x i16> %yIn, <8 x i16> %zIn, <8 x i16> %wIn) nounwind
   ret void
 }
 
-declare void @__ocl_transpose_store_short4x8(<4 x i16>* nocapture %pStoreAdd, <8 x i16> %xIn, <8 x i16> %yIn, <8 x i16> %zIn, <8 x i16> %wIn) nounwind
+declare void @__ocl_transpose_store_short_4x8(<4 x i16>* nocapture %pStoreAdd, <8 x i16> %xIn, <8 x i16> %yIn, <8 x i16> %zIn, <8 x i16> %wIn) nounwind
 
 
 ;-------------------------------------------------------------------------------

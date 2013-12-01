@@ -50,7 +50,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		Program(SharedPtr<Context> pContext, ocl_entry_points * pOclEntryPoints);
 
 		// return the context to which the program belongs
-		SharedPtr<Context> GetContext() const { return m_pContext; }
+        const SharedPtr<Context>& GetContext() const { return m_pContext; }
 
 		// create new kernel object
 		virtual cl_err_code CreateKernel(const char * pscKernelName, SharedPtr<Kernel>* ppKernel);

@@ -8,9 +8,9 @@ project (${TARGET_NAME})
 remove_definitions("-pedantic")
 
 if(NOT APPLE)
-if( NOT ANDROID )
+if( BACKEND_BUILD_VERIFICATION_LIB AND (NOT ANDROID) )
     add_subdirectory(unittest)
-endif()
+endif( BACKEND_BUILD_VERIFICATION_LIB AND (NOT ANDROID) )
 
 add_custom_command(
   OUTPUT BuiltinList.h
@@ -44,6 +44,9 @@ add_custom_command(
   DEPENDS ${OCL_TBLGEN_DEP}
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
   ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v1.2.td
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0.td
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0WG.td
+  ${CMAKE_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/WorkGroupSnippets.td
   COMMENT "generating custom mapping ..."
   VERBATIM
 )
@@ -60,10 +63,13 @@ set(CUSTOM_MAPPINGS_GEN
 else(NOT APPLE)
 set(BUILT_IN_LIST_H
   apple_include/BuiltinList.h
+  apple_include/BuiltinList32.h
+  apple_include/BuiltinList64.h
 )
 endif(NOT APPLE)
 
 set(TARGET_SOURCE_FILES
+  Mangler.cpp
   BuiltinKeeper.cpp
   VersionStrategy.cpp
   BuiltinMap.cpp
@@ -71,6 +77,7 @@ set(TARGET_SOURCE_FILES
 )
 
 set(TARGET_INCLUDE_FILES
+  Mangler.h
   BuiltinKeeper.h
   CustomVersionMaping.h
   VersionStrategy.h
@@ -88,6 +95,7 @@ add_library(
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/backend/name_mangling
+  ${CMAKE_SOURCE_DIR}/backend/utils
 )
 
 if(NOT APPLE)
@@ -99,17 +107,6 @@ include_directories(
   apple_include
 )
 endif(NOT APPLE)
-
-target_link_libraries(
-  ${TARGET_NAME}
-  name_mangle
-)
-
-if (NOT WIN32)
-  if( NOT ANDROID)
-  target_link_libraries(${TARGET_NAME} pthread)
-  endif()
-endif (NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )
 

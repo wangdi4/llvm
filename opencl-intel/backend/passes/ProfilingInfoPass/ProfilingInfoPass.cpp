@@ -17,17 +17,17 @@ File Name:  ProfilingInfoPass.cpp
 \*****************************************************************************/
 
 #include <llvm/Pass.h>
-#include <llvm/Module.h>
-#include <llvm/Constants.h>
-#include <llvm/Instructions.h>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/DerivedTypes.h>
 
 #include <list>
 
 using namespace llvm;
 using namespace std;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend  {
+namespace intel {
 
 
 // Cleans up debug info in the module to be suitable for profiling
@@ -52,13 +52,6 @@ private:
 };
 
 char ProfilingInfoPass::ID = 0;
-
-
-ModulePass* createProfilingInfoPass()
-{
-    return new ProfilingInfoPass();
-}
-
 
 bool ProfilingInfoPass::runOnModule(Module& M)
 {
@@ -100,4 +93,10 @@ void ProfilingInfoPass::runOnUserFunction(Function* pFunc)
     }
 }
 
-}}}
+} // namespace intel {
+
+extern "C"{
+  ModulePass* createProfilingInfoPass() {
+    return new intel::ProfilingInfoPass();
+  }
+}

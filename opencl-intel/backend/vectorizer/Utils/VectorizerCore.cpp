@@ -12,10 +12,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/PassManager.h"
 #include "llvm/Version.h"
-#if LLVM_VERSION == 3200
-#include "llvm/DataLayout.h"
-#else
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/IR/DataLayout.h"
 #endif
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -32,7 +32,7 @@ extern "C" FunctionPass* createPhiCanon();
 extern "C" FunctionPass* createPredicator();
 extern "C" FunctionPass* createSimplifyGEPPass();
 extern "C" FunctionPass* createPacketizerPass(bool);
-
+extern "C" Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
 
 extern "C" FunctionPass* createAppleWIDepPrePacketizationPass();
 #ifndef __APPLE__
@@ -68,10 +68,8 @@ static raw_ostream &dbgPrint() {
 }
 VectorizerCore::VectorizerCore(const OptimizerConfig* pConfig) :
 FunctionPass(ID),
-m_runtimeServices(RuntimeServices::get()),
 m_pConfig(pConfig)
 {
-  assert(m_runtimeServices && "unintialized runtime services");
 }
 
 VectorizerCore::~VectorizerCore()
@@ -104,13 +102,6 @@ bool VectorizerCore::runOnFunction(Function &F) {
   Module *M = F.getParent();
   V_PRINT(VectorizerCore, "\nEntered VectorizerCore Wrapper!\n");
 
-  // No runtime services so we can not vectorizer.
-  if (!m_runtimeServices)   {
-    V_PRINT(VectorizerCore, "Failed to find runtime module. Aborting!\n");
-    return false;
-  }
-
-
   bool autoVec =  (m_pConfig->GetTransposeSize() == 0);
   V_ASSERT(m_pConfig->GetTransposeSize() <= MAX_PACKET_WIDTH && "unssupported vector width");
 
@@ -120,18 +111,24 @@ bool VectorizerCore::runOnFunction(Function &F) {
   // Function-wide (preparations)
   {
     FunctionPassManager fpm1(M);
-#if LLVM_VERSION == 3200
-    DataLayout *DL = new DataLayout(M);
-#else
+#if LLVM_VERSION == 3425
     TargetData *DL = new TargetData(M);
+#else
+    DataLayout *DL = new DataLayout(M);
 #endif
     fpm1.add(DL);
+    fpm1.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), ""));
 
     // Register lowerswitch
     fpm1.add(createLowerSwitchPass());
 
     // Register Scalarizer
-    fpm1.add(createScalarReplAggregatesPass(1024, true, 2, 2, 64));
+    // A workaround to fix regression in sgemm on CPU and not causing new regression on Machine with Gather Scatter
+    int sroaArrSize = -1;
+    if (! m_pConfig->GetCpuId().HasGatherScatter())
+      sroaArrSize = 16;
+
+    fpm1.add(createScalarReplAggregatesPass(1024, true, -1, sroaArrSize, 64));
     fpm1.add(createInstructionCombiningPass());
     fpm1.add(createOCLBuiltinPreVectorizationPass());
     if (m_pConfig->GetDumpHeuristicIRFlag())
@@ -191,13 +188,16 @@ bool VectorizerCore::runOnFunction(Function &F) {
   }
 
   // Sanity in debug check that packetization with is supported.
-  V_ASSERT(m_packetWidth ==4 || m_packetWidth == 8 || m_packetWidth ==16);
-  m_runtimeServices->setPacketizationWidth(m_packetWidth);
+  V_ASSERT(m_packetWidth == 4 || m_packetWidth == 8 || m_packetWidth == 16);
 
   // Function-wide (vectorization)
   V_PRINT(VectorizerCore, "\nBefore vectorization passes!\n");
   {
     FunctionPassManager fpm2(M);
+    BuiltinLibInfo* pBuiltinInfoPass = (BuiltinLibInfo*)
+      createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), "");
+    pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(m_packetWidth);
+    fpm2.add(pBuiltinInfoPass);
 
     // Register predicate
     FunctionPass *predicate = createPredicator();

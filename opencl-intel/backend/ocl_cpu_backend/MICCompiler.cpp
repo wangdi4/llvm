@@ -37,21 +37,21 @@ File Name:  MICCompiler.cpp
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Target/TargetMachine.h"
 #include "MICJITEngine/include/MICCodeGenerationEngine.h"
-#include "MICJITEngine/include/ModuleJITHolder.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Argument.h"
-#include "llvm/Type.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Instructions.h"
-#include "llvm/Instruction.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/LLVMContext.h"
 #include "MICProgramBuilder.h"
 #include "ModuleJITHolder.h"
 #include "MICJITContainer.h"
@@ -103,10 +103,10 @@ void MICCompiler::CreateExecutionEngine(llvm::Module* m)
     // optimizer output to create execution engine in compiler
     // spModule is now owned by the execution engine
 
-	if(!m_needLoadBuiltins)
-	{
-		m_pCGEngine = CreateMICCodeGenerationEngine( m );
-	}
+    if(!m_needLoadBuiltins)
+    {
+        m_pCGEngine = CreateMICCodeGenerationEngine( m );
+    }
 }
 
 MICCompiler::~MICCompiler()
@@ -129,7 +129,7 @@ unsigned int MICCompiler::GetTypeAllocSize(llvm::Type* pType) const
     return m_pCGEngine->sizeOf(pType);
 }
 
-const llvm::ModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module, const std::string& dumpAsm) const
+const llvm::LLVMModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module, const std::string& dumpAsm) const
 {
     assert(m_pCGEngine);
     return m_pCGEngine->getModuleHolder(module, dumpAsm);
@@ -141,7 +141,13 @@ llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm:
     llvm::StringRef MArch   = "y86-64"; //TODO[MA]: check why we need to send this !
     llvm::SmallVector<std::string, 1> MAttrs(m_forcedCpuFeatures.begin(), m_forcedCpuFeatures.end());
 
-
+    Triple TTriple(MTriple);
+    // MIC device OS is always linux, no matter what the host is
+    if (TTriple.getOS() != Triple::Linux)
+    {
+        TTriple.setOS(Triple::Linux);
+        pRtlModule->setTargetTriple(TTriple.getTriple());
+    }
 
     const char* pMcpu    = m_CpuId.GetCPUName();
     if( NULL == pMcpu )

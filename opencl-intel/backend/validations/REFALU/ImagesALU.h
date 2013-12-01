@@ -24,6 +24,7 @@ File Name:  ImagesALU.h
 #include "Conformance/reference_math.h"
 #include "Conformance/test_common/errorHelpers.h"
 #include "Exception.h"
+#include "cl_types.h"
 
 namespace Conformance
 {
@@ -87,7 +88,7 @@ namespace Conformance
         // OpenCL only supports reading floats from certain formats
         switch( format->image_channel_data_type )
         {
-        case CL_SNORM_INT8:
+        case CLK_SNORM_INT8:
             {
                 cl_char *dPtr = (cl_char *)ptr;
                 for( i = 0; i < get_format_channel_count( format ); i++ )
@@ -95,7 +96,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNORM_INT8:
+        case CLK_UNORM_INT8:
             {
                 cl_uchar *dPtr = (cl_uchar *)ptr;
                 for( i = 0; i < get_format_channel_count( format ); i++ )
@@ -103,7 +104,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_SIGNED_INT8:
+        case CLK_SIGNED_INT8:
             {
                 cl_char *dPtr = (cl_char *)ptr;
                 for( i = 0; i < get_format_channel_count( format ); i++ )
@@ -111,7 +112,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNSIGNED_INT8:
+        case CLK_UNSIGNED_INT8:
             {
                 cl_uchar *dPtr = (cl_uchar*)ptr;
                 for( i = 0; i < get_format_channel_count( format ); i++ )
@@ -119,7 +120,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_SNORM_INT16:
+        case CLK_SNORM_INT16:
             {
                 cl_short *dPtr = (cl_short *)ptr;
                 for( i = 0; i < get_format_channel_count( format ); i++ )
@@ -127,7 +128,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNORM_INT16:
+        case CLK_UNORM_INT16:
             {
                 cl_ushort *dPtr = (cl_ushort *)ptr;
                 for( i = 0; i < get_format_channel_count( format ); i++ )
@@ -135,7 +136,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_SIGNED_INT16:
+        case CLK_SIGNED_INT16:
             {
                 cl_short *dPtr = (cl_short *)ptr;
                 for( i = 0; i < get_format_channel_count( format ); i++ )
@@ -143,7 +144,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNSIGNED_INT16:
+        case CLK_UNSIGNED_INT16:
             {
                 cl_ushort *dPtr = (cl_ushort *)ptr;
                 for( i = 0; i < get_format_channel_count( format ); i++ )
@@ -151,12 +152,12 @@ namespace Conformance
                 break;			
             }
 
-        case CL_HALF_FLOAT:
+        case CLK_HALF_FLOAT:
             // AAK!
             ::log_error( "AAK!\n" );
             break;
 
-        case CL_SIGNED_INT32:
+        case CLK_SIGNED_INT32:
             {
                 cl_int *dPtr = (cl_int *)ptr;
                 for( i = 0; i < get_format_channel_count( format ); i++ )
@@ -164,7 +165,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNSIGNED_INT32:
+        case CLK_UNSIGNED_INT32:
             {
                 cl_uint *dPtr = (cl_uint *)ptr;
                 for( i = 0; i < get_format_channel_count( format ); i++ )
@@ -172,7 +173,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNORM_SHORT_565:
+        case CLK_UNORM_SHORT_565:
             {
                 cl_ushort *dPtr = (cl_ushort*)ptr;
                 tempData[ 0 ] = (T)( dPtr[ 0 ] >> 11 );
@@ -182,7 +183,7 @@ namespace Conformance
             }
 
 #ifdef OBSOLETE_FORMAT
-        case CL_UNORM_SHORT_565_REV:
+        case CLK_UNORM_SHORT_565_REV:
             {
                 unsigned short *dPtr = (unsigned short *)ptr;
                 tempData[ 2 ] = (T)( dPtr[ 0 ] >> 11 );
@@ -191,7 +192,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNORM_SHORT_555_REV:
+        case CLK_UNORM_SHORT_555_REV:
             {
                 unsigned short *dPtr = (unsigned short *)ptr;
                 tempData[ 2 ] = (T)( ( dPtr[ 0 ] >> 10 ) & 31 );
@@ -200,7 +201,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNORM_INT_8888:
+        case CLK_UNORM_INT_8888:
             {
                 unsigned int *dPtr = (unsigned int *)ptr;
                 tempData[ 3 ] = (T)( dPtr[ 0 ] >> 24 );
@@ -209,7 +210,7 @@ namespace Conformance
                 tempData[ 0 ] = (T)( dPtr[ 0 ] & 0xff );
                 break;			
             }
-        case CL_UNORM_INT_8888_REV:
+        case CLK_UNORM_INT_8888_REV:
             {
                 unsigned int *dPtr = (unsigned int *)ptr;
                 tempData[ 0 ] = (T)( dPtr[ 0 ] >> 24 );
@@ -219,7 +220,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNORM_INT_101010_REV:
+        case CLK_UNORM_INT_101010_REV:
             {
                 unsigned int *dPtr = (unsigned int *)ptr;
                 tempData[ 2 ] = (T)( ( dPtr[ 0 ] >> 20 ) & 0x3ff );
@@ -228,7 +229,7 @@ namespace Conformance
                 break;			
             }
 #endif			
-        case CL_UNORM_SHORT_555:
+        case CLK_UNORM_SHORT_555:
             {
                 cl_ushort *dPtr = (cl_ushort *)ptr;
                 tempData[ 0 ] = (T)( ( dPtr[ 0 ] >> 10 ) & 31 );
@@ -237,7 +238,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_UNORM_INT_101010:
+        case CLK_UNORM_INT_101010:
             {
                 cl_uint *dPtr = (cl_uint *)ptr;
                 tempData[ 0 ] = (T)( ( dPtr[ 0 ] >> 20 ) & 0x3ff );
@@ -246,7 +247,7 @@ namespace Conformance
                 break;			
             }
 
-        case CL_FLOAT:
+        case CLK_FLOAT:
             {
                 cl_float *dPtr = (cl_float *)ptr;
                 for( i = 0; i < get_format_channel_count( format ); i++ )
@@ -259,79 +260,88 @@ namespace Conformance
         outData[ 0 ] = outData[ 1 ] = outData[ 2 ] = 0;
         outData[ 3 ] = 1;
 
-        if( format->image_channel_order == CL_A )
+        if( format->image_channel_order == CLK_A )
         {
             outData[ 3 ] = tempData[ 0 ];
         }
-        else if( format->image_channel_order == CL_R   )
+        else if( format->image_channel_order == CLK_R   )
         {
             outData[ 0 ] = tempData[ 0 ];
         }
-        else if( format->image_channel_order == CL_Rx   )
-        {
-            outData[ 0 ] = tempData[ 0 ];
-        }
-        else if( format->image_channel_order == CL_RA )
+        else if( format->image_channel_order == CLK_RA )
         {
             outData[ 0 ] = tempData[ 0 ];
             outData[ 3 ] = tempData[ 1 ];
         }
-        else if( format->image_channel_order == CL_RG  )
+        else if( format->image_channel_order == CLK_RG  )
         {
             outData[ 0 ] = tempData[ 0 ];
             outData[ 1 ] = tempData[ 1 ];
         }
-        else if( format->image_channel_order == CL_RGx  )
-        {
-            outData[ 0 ] = tempData[ 0 ];
-            outData[ 1 ] = tempData[ 1 ];
-        }
-        else if( format->image_channel_order == CL_RGB  )
+        else if( format->image_channel_order == CLK_RGB  )
         {
             outData[ 0 ] = tempData[ 0 ];
             outData[ 1 ] = tempData[ 1 ];
             outData[ 2 ] = tempData[ 2 ];
         }
-        else if( format->image_channel_order == CL_RGBx  )
-        {
-            outData[ 0 ] = tempData[ 0 ];
-            outData[ 1 ] = tempData[ 1 ];
-            outData[ 2 ] = tempData[ 2 ];
-        }
-        else if( format->image_channel_order == CL_RGBA )
+        else if( format->image_channel_order == CLK_RGBA )
         {
             outData[ 0 ] = tempData[ 0 ];
             outData[ 1 ] = tempData[ 1 ];
             outData[ 2 ] = tempData[ 2 ];
             outData[ 3 ] = tempData[ 3 ];
         }
-        else if( format->image_channel_order == CL_ARGB )
+        else if( format->image_channel_order == CLK_ARGB )
         {
             outData[ 0 ] = tempData[ 1 ];
             outData[ 1 ] = tempData[ 2 ];
             outData[ 2 ] = tempData[ 3 ];
             outData[ 3 ] = tempData[ 0 ];
         }
-        else if( format->image_channel_order == CL_BGRA )
+        else if( format->image_channel_order == CLK_BGRA )
         {
             outData[ 0 ] = tempData[ 2 ];
             outData[ 1 ] = tempData[ 1 ];
             outData[ 2 ] = tempData[ 0 ];
             outData[ 3 ] = tempData[ 3 ];
         }
-        else if( format->image_channel_order == CL_INTENSITY )
+        else if( format->image_channel_order == CLK_INTENSITY )
         {
             outData[ 1 ] = tempData[ 0 ];
             outData[ 2 ] = tempData[ 0 ];
             outData[ 3 ] = tempData[ 0 ];
         }
-        else if( format->image_channel_order == CL_LUMINANCE )
+        else if( format->image_channel_order == CLK_LUMINANCE )
         {
             outData[ 1 ] = tempData[ 0 ];
             outData[ 2 ] = tempData[ 0 ];
         }
+        else if( format->image_channel_order == CLK_DEPTH )
+        {
+            outData[ 0 ] = tempData[ 0 ];
+        }
+        else if( format->image_channel_order == CLK_sRGBA )
+        {
+            outData[ 0 ] = (tempData[ 0 ] <= 0.04045 ) ? tempData[ 0 ]/12.92 :
+                            pow((tempData[ 0 ]+0.055)/1.055,2.4);
+            outData[ 1 ] = (tempData[ 1 ] <= 0.04045 ) ? tempData[ 1 ]/12.92 :
+                            pow((tempData[ 1 ]+0.055)/1.055,2.4);
+            outData[ 2 ] = (tempData[ 2 ] <= 0.04045 ) ? tempData[ 2 ]/12.92 :
+                            pow((tempData[ 2 ]+0.055)/1.055,2.4);
+            outData[ 3 ] = tempData[ 3 ];
+        }
+        else if( format->image_channel_order == CLK_sBGRA )
+        {
+            outData[ 0 ] = (tempData[ 2 ] <= 0.04045 ) ? tempData[ 2 ]/12.92 :
+                            pow((tempData[ 2 ]+0.055)/1.055,2.4);
+            outData[ 1 ] = (tempData[ 1 ] <= 0.04045 ) ? tempData[ 1 ]/12.92 :
+                            pow((tempData[ 1 ]+0.055)/1.055,2.4);
+            outData[ 2 ] = (tempData[ 0 ] <= 0.04045 ) ? tempData[ 0 ]/12.92 :
+                            pow((tempData[ 0 ]+0.055)/1.055,2.4);
+            outData[ 3 ] = tempData[ 3 ];
+        }
 #ifdef CL_1RGB_APPLE
-        else if( format->image_channel_order == CL_1RGB_APPLE )
+        else if( format->image_channel_order == CLK_1RGB_APPLE )
         {
             outData[ 0 ] = tempData[ 1 ];
             outData[ 1 ] = tempData[ 2 ];
@@ -340,7 +350,7 @@ namespace Conformance
         }
 #endif
 #ifdef CL_BGR1_APPLE
-        else if( format->image_channel_order == CL_BGR1_APPLE )
+        else if( format->image_channel_order == CLK_BGR1_APPLE )
         {
             outData[ 0 ] = tempData[ 2 ];
             outData[ 1 ] = tempData[ 1 ];

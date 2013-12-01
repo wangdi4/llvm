@@ -54,7 +54,11 @@ namespace Validation
       if( m_useNEAT )
       {
           uint64_t neatVersion = NEATVersion::GetVersion();
-          uint32_t useFmaNEAT = uint32_t(static_cast<const ReferenceRunOptions*>(pRunConfiguration)->GetValue<bool>(RC_REF_USE_FMA_NEAT, false));
+
+          uint32_t useFmaNEAT = uint32_t(false);
+          if ((static_cast<const OpenCLProgram*>(pProgram)->ParseToModule())->getNamedMetadata("opencl.enable.FP_CONTRACT")) {
+              useFmaNEAT = uint32_t(true);
+          }
 
           buffer.insert(buffer.end(), begin_binary(neatVersion), end_binary(neatVersion) );
           buffer.insert(buffer.end(), begin_binary(useFmaNEAT), end_binary(useFmaNEAT) );

@@ -6,15 +6,16 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #ifndef __PREDICATOR_H_
 #define __PREDICATOR_H_
+#include "BuiltinLibInfo.h"
 #include "WIAnalysis.h"
 #include "PhiCanon.h"
 #include "Linearizer.h"
 #include "Specializer.h"
 
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Module.h"
-#include "llvm/GlobalVariable.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -33,7 +34,6 @@ namespace intel {
 ///  After this pass, many allocas are left in the code. It is essential to run
 ///  the following transformation (optimization passes): mem2rem, cfg_simplify,
 ///  dce
-/// @author Nadav Rotem
 class Predicator : public FunctionPass {
 
 public:
@@ -89,6 +89,9 @@ private:
   void registerLoopSchedulingScopes(SchedulingScope& parent, LoopInfo* LI,
                                     Function* F, DenseMap<BasicBlock*,
                                     SchedulingScope*>& headers);
+  /// @brief add scheduling constraints for divergent regions
+  /// @param main_scope - the scope that we should add the constraints to
+  void addDivergentBranchesSchedConstraints(SchedulingScope& main_scope);
   /// @brief Perform Linearization phase on a function
   /// @param F function to flatten
   /// @param specializer Function specializer for scheduling constraints
@@ -189,6 +192,11 @@ private:
   void maskOutgoing_loopexit(BasicBlock *BB);
   /*! \} */
 
+  /// @brief checks whether in every loop iteration the exit block is reached.
+  /// @param loopHeader the header of the loop.
+  /// @param exitBlock the block to be checked as reached in every iteration.
+  bool isAlwaysFollowedBy(Loop *L, BasicBlock* exitBlock);
+
   /*! \name Create Incoming masks
    * \{ */
   /// @brief Place a dummy in-mask.
@@ -256,7 +264,8 @@ public:
     // we preserve nothing. really.
     AU.addRequired<WIAnalysis>();
     // for bypasses usage
-    AU.addRequired<BranchProbabilityInfo>();
+    AU.addRequired<OCLBranchProbability>();
+    AU.addRequired<BuiltinLibInfo>();
   }
   /*! \} */
 

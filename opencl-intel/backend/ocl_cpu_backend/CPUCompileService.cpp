@@ -22,7 +22,7 @@ File Name:  CPUCompileService.cpp
 #include "Program.h"
 #include "BitCodeContainer.h"
 #include "plugin_manager.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "BitCodeContainer.h"
 #include "CPUDeviceBackendFactory.h"

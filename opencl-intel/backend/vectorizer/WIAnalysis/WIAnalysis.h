@@ -7,26 +7,28 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __WIANALYSIS_H_
 #define __WIANALYSIS_H_
 
-#include "RuntimeServices.h"
+#include "BuiltinLibInfo.h"
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
+#include "llvm/IR/Function.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Module.h"
-#include "llvm/Value.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Value.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 
 #include <map>
 #include <queue>
+
+typedef std::map<BasicBlock*, std::vector<BasicBlock*> > SchdConstMap;
 
 using namespace llvm;
 
@@ -37,7 +39,6 @@ namespace intel {
 ///  depend in work-item and describe their dependency.
 ///  The algorithm used is recursive and new instructions are updated
 ///  according to their operands (which are already calculated).
-///  @Author: Nadav Rotem
 class WIAnalysis : public FunctionPass {
 public:
     static char ID; // Pass identification, replacement for typeid
@@ -96,6 +97,10 @@ public:
     /// @return true for divergent and false otherwise
     bool isDivergentPhiBlocks(BasicBlock *BB);
 
+    /// @brief Returns a map with scheduling contraints
+    /// @return a map with scheduling contraints
+    SchdConstMap & getSchedulingConstraints();
+
     /// @brief Inform analysis that instruction was invalidated
     /// as pointer may later be reused
     /// @param val Value to invalidate
@@ -131,6 +136,12 @@ private:
     ///         are added to m_pChangedNew
     void updateDepMap(const Instruction *inst, WIAnalysis::WIDependancy dep);
 
+    /// @brief look for partial joins reachable from two different successo
+    /// s.t. the path from each successor accesses the partial join from a 
+    /// predecessor
+    /// @return
+    void findDivergePartialJoins(const TerminatorInst *inst);
+
     /// @brief mark all the Phi nodes in full/partial joins as random
     /// @return
     void markDependentPhiRandom();
@@ -165,6 +176,7 @@ private:
       AU.addRequired<DominatorTree>();
       AU.addRequired<PostDominatorTree>();
       AU.addRequired<LoopInfo>();
+      AU.addRequired<BuiltinLibInfo>();
     }
 
 private:
@@ -217,6 +229,15 @@ private:
 
     // blocks in influenceRegion that are reachable from cbr by two different successors
     SmallPtrSet<BasicBlock*, 4> m_partialJoins;
+
+    // blocks in influenceRegion that are reachable from cbr by its two successors 
+    // and there exists a path from each successors that accesses the block from a different predecessor
+    SmallPtrSet<BasicBlock*, 4> m_divergePartialJoins;
+
+    // A map that maps a block terminating with a divergent branch to a vector containing the divergent branch basic block
+    // together with its influence region and its immediate post-dominator.
+    // Later on we use it to add scheduling constraints for the linearizer
+    SchdConstMap m_SchedulingConstraints;
   };
 } // namespace
 

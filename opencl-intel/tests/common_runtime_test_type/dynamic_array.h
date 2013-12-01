@@ -200,8 +200,8 @@ public:
 		//copy current half array to float array
 		halfp2singles(float_array2, rhsArray, dynamic_array_size);
 
-		arraySize = arraySize<dynamic_array_size?arraySize:dynamic_array_size;
-		for(int i=0; i<arraySize; ++i){
+		arraySize = arraySize<(cl_uint)dynamic_array_size?arraySize:dynamic_array_size;
+		for(cl_uint i=0; i<arraySize; ++i){
 			if(false == compare(rhsArray[i],dynamic_array[i])){
 				ASSERT_TRUE(false) << "compareArray failed for index " << i;
 				return;

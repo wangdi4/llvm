@@ -42,7 +42,7 @@ OPENCL_1.0 {
     global:
         clBuildProgram;
         clCreateBuffer;
-        clCreateCommandQueue;
+        clCreateCommandQueue;		
         clCreateContext;
         clCreateContextFromType;
         clCreateFromGLBuffer;
@@ -149,5 +149,21 @@ OPENCL_1.2 {
         clLinkProgram;
         clReleaseDevice;
         clRetainDevice;
-        clUnloadPlatformCompiler;
+        clUnloadPlatformCompiler;        
 } OPENCL_1.1;
+
+OPENCL_2.0 {
+	global:
+		clCreateCommandQueueWithProperties;
+		clSVMAlloc;
+		clSVMFree;
+		clEnqueueSVMMap;
+		clEnqueueSVMUnmap;
+		clEnqueueSVMFree;
+		clEnqueueSVMMemcpy;
+		clEnqueueSVMMemFill;
+		clSetKernelArgSVMPointer;
+		clSetKernelExecInfo;
+		clCreatePipe;
+		clGetPipeInfo;		
+} OPENCL_1.2;

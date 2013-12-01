@@ -199,40 +199,37 @@ bool fission_logic_test(){
 	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
+	cl_uint numComputeUnits;
+	err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &numComputeUnits, NULL);
+	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
+	if (!bResult)	return bResult;
+
+	if (numComputeUnits < 7)
+	{
+    	printf("Not enough compute units, tast passing vacuously\n");
+		return true;
+	}
+
 	cl_uint num_entries = 100;
 	cl_device_id out_devices[100];
-	cl_uint num_devices = 2;
-	cl_uint tot_num_devices = 0;
-	cl_device_partition_property properties1[] = {CL_DEVICE_PARTITION_BY_COUNTS, 4, 2, CL_DEVICE_PARTITION_BY_COUNTS_LIST_END, 0};
+	cl_uint num_level1_devices = 2;
+    cl_uint num_level2_devices = 2;
+
+    cl_device_partition_property properties1[] = {CL_DEVICE_PARTITION_BY_COUNTS, 4, 2, CL_DEVICE_PARTITION_BY_COUNTS_LIST_END, 0};
 	cl_device_partition_property properties2[] = {CL_DEVICE_PARTITION_EQUALLY, 2, 0};
 
-	err = clCreateSubDevices(device, properties1, num_entries, out_devices, &num_devices);
+	err = clCreateSubDevices(device, properties1, num_entries, out_devices, &num_level1_devices);
 	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	tot_num_devices+= num_devices;
-
-	err = clCreateSubDevices(out_devices[0], properties2, num_entries, (out_devices + num_devices), &num_devices);
+	err = clCreateSubDevices(out_devices[0], properties2, num_entries, (out_devices + num_level1_devices), &num_level2_devices);
 	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	tot_num_devices+= num_devices;
-
-	//init context
-	context = clCreateContext(NULL,tot_num_devices ,out_devices ,NULL,NULL,&err);
+	// init context
+	context = clCreateContext(NULL, num_level1_devices + num_level2_devices, out_devices , NULL, NULL, &err);
 	bResult = SilentCheck(L"clCreateContext",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
-
-	//init Command Queue
-	for (size_t i = 0; i < tot_num_devices; i++)
-	{
-		cmd_queue[i] = clCreateCommandQueue(context,out_devices[i],0,&err);
-		bResult = SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);
-		if (!bResult){
-			clReleaseContext(context);
-			return bResult;
-		}
-	}	
 
 	char* ocl_test1_program= {\
 		"__kernel void fissionLogic1Test(__global int *d)\
@@ -242,26 +239,46 @@ bool fission_logic_test(){
 		"__kernel void fissionLogic2Test(__global int *d)\
 		{d = 3;}"};
 
+	// init Command Queue for the lowest level devices
+    for (size_t i = 0; i < num_level2_devices; i++)
+	{
+		cmd_queue[i] = clCreateCommandQueue(context, out_devices[num_level1_devices + i], 0, &err);
+		bResult      = SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);
+		if (!bResult)
+        {
+            for (size_t j = 0; j < i; ++j)
+            {
+                clReleaseCommandQueue(cmd_queue[i]);
+            }
+            for (size_t j = 0; j < num_level1_devices + num_level2_devices; ++j)
+            {
+                clReleaseDevice(out_devices[j]);
+            }
+			clReleaseContext(context);
+			return bResult;
+		}
+	}	
+
 	int res1, res2;
 
-	bResult |= run_kernel1(context, out_devices[tot_num_devices-num_devices], cmd_queue[tot_num_devices-num_devices], ocl_test1_program, &res1);
+	bResult |= run_kernel1(context, out_devices[num_level1_devices], cmd_queue[0], ocl_test1_program, &res1);
 
-	for (size_t i = (tot_num_devices-num_devices + 1); i < tot_num_devices; i++)
+	for (size_t i = 1; i < num_level2_devices; i++)
 	{
-		bResult |= run_kernel2(context, out_devices[i], cmd_queue[i], ocl_test2_program, &res2);
+		bResult |= run_kernel2(context, out_devices[num_level1_devices + i], cmd_queue[i], ocl_test2_program, &res2);
 	}
 	const char* res = ((bResult == true) ? "succeed" : "failed");
 	printf("\n---------------------------------------\n");
 	printf("fission logic test %s!\n", res);
 	printf("---------------------------------------\n");
 
-	for (size_t i = 0; i < num_devices; i++)
+	for (size_t i = 0; i < num_level2_devices; i++)
 	{
 		clFinish(cmd_queue[i]);
 		clReleaseCommandQueue(cmd_queue[i]);
 	}
 	clReleaseContext(context);
-	for (size_t i = 0; i < num_devices; i++)
+	for (size_t i = 0; i < num_level1_devices + num_level2_devices; i++)
 	{
 		clReleaseDevice(out_devices[i]);
 	}

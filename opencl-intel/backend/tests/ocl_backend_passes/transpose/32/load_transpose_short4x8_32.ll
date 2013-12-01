@@ -1,10 +1,10 @@
 ; XFAIL: x86_64
 
-; RUN: oclopt -builtins-module=clbltfng9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfng9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc %t1.ll -mattr=+avx -mtriple=i686 -o %t2.asm
 ; RUN: FileCheck %s --input-file=%t2.asm -check-prefix=CHECK-AVX
 
-; RUN: oclopt -builtins-module=clbltfns9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t3.ll
+; RUN: oclopt -runtimelib=clbltfns9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t3.ll
 ; RUN: llc %t3.ll -mattr=+avx2 -mtriple=i686 -o %t4.asm
 ; RUN: FileCheck %s --input-file=%t4.asm -check-prefix=CHECK-AVX2
 
@@ -15,7 +15,7 @@ entry:
   %yOut = alloca  <8 x i16>
   %zOut = alloca  <8 x i16>
   %wOut = alloca  <8 x i16>
-  call void @__ocl_load_transpose_short4x8(<4 x i16>* nocapture %pLoadAdd, <8 x i16>* nocapture %xOut, <8 x i16>* nocapture %yOut, <8 x i16>* nocapture %zOut, <8 x i16>* nocapture %wOut) nounwind
+  call void @__ocl_load_transpose_short_4x8(<4 x i16>* nocapture %pLoadAdd, <8 x i16>* nocapture %xOut, <8 x i16>* nocapture %yOut, <8 x i16>* nocapture %zOut, <8 x i16>* nocapture %wOut) nounwind
   %temp1 = load <8 x i16>* %xOut
   %temp2 = load <8 x i16>* %yOut
   %temp3 = load <8 x i16>* %zOut
@@ -26,7 +26,7 @@ entry:
   ret <8 x i16> %ret0
 }
 
-declare void @__ocl_load_transpose_short4x8(<4 x i16>* nocapture %pLoadAdd, <8 x i16>* nocapture %xOut, <8 x i16>* nocapture %yOut, <8 x i16>* nocapture %zOut, <8 x i16>* nocapture %wOut) nounwind alwaysinline
+declare void @__ocl_load_transpose_short_4x8(<4 x i16>* nocapture %pLoadAdd, <8 x i16>* nocapture %xOut, <8 x i16>* nocapture %yOut, <8 x i16>* nocapture %zOut, <8 x i16>* nocapture %wOut) nounwind alwaysinline
 
 
 ;-------------------------------------------------------------------------------

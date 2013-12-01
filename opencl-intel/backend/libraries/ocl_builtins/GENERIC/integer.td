@@ -44,13 +44,13 @@ OclBuiltinImpl add_sat_v1i = OclBuiltinImpl<add_sat, [v1i8, v1i16, v1i32, v1i64]
     $ReturnType r = $Arg0VarName + $Arg1VarName;
     if( $Arg1VarName > 0 )
     {
-        if( r < $Arg0VarName )
-            r = generic_max_$Arg0Type;
+      if( r < $Arg0VarName )
+        r = generic_max_$Arg0Type;
     }
     else
     {
-        if( r > $Arg0VarName )
-            r = generic_min_$Arg0Type;
+      if( r > $Arg0VarName )
+        r = generic_min_$Arg0Type;
     }
     return r;
   }]>;
@@ -64,8 +64,8 @@ OclBuiltinImpl add_sat_svector = OclBuiltinImpl<add_sat, [ v2i8,  v3i8,  v4i8,  
     $ReturnType p = (($Arg0VarName | $Arg1VarName) > zero) & (r < zero);
     $ReturnType n = (($Arg0VarName & $Arg1VarName) < zero) & (r >= zero);
     return  (n == zero) ?
-                (p == zero) ? r : ($ReturnType)generic_max_$Arg0BaseType :
-                ($ReturnType)generic_min_$Arg0BaseType;
+            (p == zero) ? r : ($ReturnType)generic_max_$Arg0BaseType :
+            ($ReturnType)generic_min_$Arg0BaseType;
   }]>;
 // add_sat on unsigned
 OclBuiltinImpl add_sat_unsigned = OclBuiltinImpl<add_sat, [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
@@ -139,20 +139,19 @@ OclBuiltinImpl clz_igeneric = OclBuiltinImpl<clz, [ v1i8,  v2i8,  v3i8,  v4i8,  
   }]>;
 // clz on scalar uchar
 OclBuiltinImpl clz_v1char = OclBuiltinImpl<clz, [v1u8], 0, [{
-    //return __builtin_clzc($Arg0VarName);
-    return __builtin_clz((uint)$Arg0VarName)-24;
+    return __ocl_helper_clz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // clz on scalar ushort
 OclBuiltinImpl clz_v1short = OclBuiltinImpl<clz, [v1u16], 0, [{
-    return __builtin_clzs($Arg0VarName);
+    return __ocl_helper_clz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // clz on scalar uint
 OclBuiltinImpl clz_v1int = OclBuiltinImpl<clz, [v1u32], 0, [{
-    return __builtin_clz($Arg0VarName);
+    return __ocl_helper_clz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // clz on scalar ulong
 OclBuiltinImpl clz_v1long = OclBuiltinImpl<clz, [v1u64], 0, [{
-    return __builtin_clzl($Arg0VarName);
+    return __ocl_helper_clz_$Arg0Symgentype($Arg0VarName);
   }]>;
 // clz expand unsigned vectors to scalar
 OclBuiltinImpl clz_expand = OclBuiltinImpl<clz, [v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
@@ -220,34 +219,34 @@ OclBuiltinImpl mad_sat_v1i64 = OclBuiltinImpl<mad_sat, [v1i64], 0, [{
     // carry if overflow
     if( $Arg2VarName >= 0 )
     {
-       if( multLo > sum )
+      if( multLo > sum )
+      {
+        multHi++;
+        if( generic_min_long == multHi )
         {
-            multHi++;
-            if( generic_min_long == multHi )
-            {
-                multHi = generic_max_long;
-                sum = generic_max_ulong;
-            }
+          multHi = generic_max_long;
+          sum = generic_max_ulong;
         }
+      }
     }
     else
     {
-        if( multLo < sum )
+      if( multLo < sum )
+      {
+        multHi--;
+        if( generic_max_long == multHi )
         {
-           multHi--;
-            if( generic_max_long == multHi )
-            {
-                multHi = generic_min_long;
-                sum = 0;
-            }
+          multHi = generic_min_long;
+          sum = 0;
         }
+      }
     }
 
     // saturate
     if( multHi > 0 )
-        sum = generic_max_long;
+      sum = generic_max_long;
     else if( multHi < -1 )
-        sum = generic_min_long;
+      sum = generic_min_long;
 
     return sum;
   }]>;
@@ -258,7 +257,7 @@ OclBuiltinImpl mad_sat_v1u64 = OclBuiltinImpl<mad_sat, [v1u64], 0, [{
     multLo += $Arg2VarName;
     multHi += multLo < $Arg2VarName;  // carry if overflow
     if( multHi )
-        multLo = 0xFFFFFFFFFFFFFFFFUL;
+      multLo = 0xFFFFFFFFFFFFFFFFUL;
 
     return multLo;
   }]>;
@@ -486,18 +485,18 @@ OclBuiltinImpl upsample_ivector = OclBuiltinImpl<upsample, [ v2u8,  v3u8,  v4u8,
 \*****************************************************************/
 // sub_sat on scalar signed
 OclBuiltinImpl sub_sat_v1i = OclBuiltinImpl<sub_sat, [v1i8, v1i16, v1i32, v1i64], 0, [{
-        $ReturnType r = $Arg0VarName - $Arg1VarName;
-        if( $Arg1VarName < 0 )
-        {
-            if( r < $Arg0VarName )
-                r = generic_max_$Arg0Type;
-        }
-        else
-        {
-            if( r > $Arg0VarName )
-                r = generic_min_$Arg0Type;
-        }
-        return r;
+    $ReturnType r = $Arg0VarName - $Arg1VarName;
+    if( $Arg1VarName < 0 )
+    {
+      if( r < $Arg0VarName )
+        r = generic_max_$Arg0Type;
+    }
+    else
+    {
+      if( r > $Arg0VarName )
+        r = generic_min_$Arg0Type;
+    }
+    return r;
   }]>;
 // sub_sat on signed vector
 OclBuiltinImpl sub_sat_svector = OclBuiltinImpl<sub_sat, [ v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -509,8 +508,8 @@ OclBuiltinImpl sub_sat_svector = OclBuiltinImpl<sub_sat, [ v2i8,  v3i8,  v4i8,  
     $ReturnType p8 = ($Arg1VarName < zero) & (r < $Arg0VarName);
     $ReturnType n8 = ($Arg1VarName > zero) & (r > $Arg0VarName);
     return  (n8 == zero) ?
-                (p8 == zero) ? r : ($ReturnType)generic_max_$Arg0BaseType :
-                ($ReturnType)generic_min_$Arg0BaseType;
+            (p8 == zero) ? r : ($ReturnType)generic_max_$Arg0BaseType :
+            ($ReturnType)generic_min_$Arg0BaseType;
   }]>;
 // sub_sat on unsigned
 OclBuiltinImpl sub_sat_unsigned = OclBuiltinImpl<sub_sat, [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,

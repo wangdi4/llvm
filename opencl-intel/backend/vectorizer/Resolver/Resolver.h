@@ -6,15 +6,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #ifndef __RESOLVER_H_
 #define __RESOLVER_H_
-#include "RuntimeServices.h"
+#include "BuiltinLibInfo.h"
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 using namespace llvm;
 
@@ -24,7 +24,6 @@ namespace intel {
 /// 'masked' function calls. It is similar to the Inliner pass,
 ///  however, unlike the inliner, it actually creates the implementation
 ///  of these functions, based on their naming convention.
-/// @author Nadav Rotem
 class FuncResolver : public FunctionPass {
 public:
   /// @brief C'tor
@@ -33,7 +32,7 @@ public:
     m_unresolvedLoadCtr = 0;
     m_unresolvedStoreCtr = 0;
     m_unresolvedCallCtr = 0;
-    m_rtServices = RuntimeServices::get();
+    m_rtServices = NULL;
   }
 
   /// @brief LLVM Function pass entry
@@ -41,7 +40,9 @@ public:
   /// @return True if changed
   virtual bool runOnFunction(Function &F);
   /// Standard LLVM interface - Nothing to preserve
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const { }
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const { 
+    AU.addRequired<BuiltinLibInfo>();
+  }
 
 private:
   /// @brief Resolve a call-site. This is a target specific hook.

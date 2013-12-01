@@ -15,10 +15,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Support/CFG.h"
-#include "llvm/Module.h"
-#include "llvm/GlobalVariable.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -26,10 +26,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/InstrTypes.h"
-#include "llvm/Type.h"
-#include "llvm/Constants.h"
-
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/Version.h"
 
 static cl::opt<bool>
 EnableOptMasks("optmasks", cl::init(true), cl::Hidden,
@@ -49,17 +49,17 @@ OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
-OCL_INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(OCLBranchProbability)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(Predicator, "predicate", "Predicate Function", false, false)
 
 Predicator::Predicator() :
   FunctionPass(ID),
-  m_rtServices(RuntimeServices::get()),
   m_maskedLoadCtr(0),
   m_maskedStoreCtr(0),
   m_maskedCallCtr(0){
   initializePredicatorPass(*llvm::PassRegistry::getPassRegistry());
-  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
+  m_rtServices = NULL;
 }
 
 void Predicator::createAllOne(Module &M) {
@@ -102,6 +102,9 @@ bool Predicator::needPredication(Function &F) {
 }
 
 bool Predicator::runOnFunction(Function &F) {
+
+  m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
+  V_ASSERT(m_rtServices && "Runtime services were not initialized!");
 
   /// Work item analysis pointer
   m_WIA = &getAnalysis<WIAnalysis>();
@@ -351,6 +354,32 @@ void Predicator::registerLoopSchedulingScopes(SchedulingScope& parent,
   }
 }
 
+void Predicator::addDivergentBranchesSchedConstraints(SchedulingScope& main_scope) {
+
+  // Getting the scheduling constraints calculated during WIA
+  SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
+
+  // Going over the constraints and add these as scheduling scopes
+  for (SchdConstMap::iterator itr = predSched.begin();
+       itr != predSched.end();
+       ++itr) {
+    assert(itr->second.size() > 1 && "Constraint size should be larger than 1.");
+
+    SchedulingScope *scp = new SchedulingScope(NULL);
+    for (std::vector<BasicBlock*>::iterator bbItr = itr->second.begin();
+         bbItr !=  itr->second.end();
+         ++bbItr) {
+      // If a function has two return statements then the immediate post dom of a branch might be null
+      if (! (*bbItr)) continue;
+
+      scp->addBasicBlock(*bbItr);
+    }
+
+    // register the bypass info restrictions with parent
+    main_scope.addSubSchedulingScope(scp);
+  }
+}
+
 void Predicator::linearizeFunction(Function* F,
                                    FunctionSpecializer& specializer) {
 
@@ -367,6 +396,9 @@ void Predicator::linearizeFunction(Function* F,
 
   // add all linearization scopes to main-scope
   specializer.registerSchedulingScopes(main_scope);
+
+  // add scheduling constraints for the predicated regions
+  addDivergentBranchesSchedConstraints(main_scope);
 
   // Perform the actual scheduling of the blocks
   std::vector<BasicBlock*> schedule;
@@ -579,6 +611,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
       CallInst::Create(func, ArrayRef<Value*>(params), "", call);
     //Update new call instruction with calling convention and attributes
     pcall->setCallingConv(call->getCallingConv());
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
     for (unsigned int i=0; i < call->getNumArgOperands(); ++i) {
       //Parameter attributes starts with index 1-NumOfParams
       unsigned int idx = i+1;
@@ -589,6 +622,21 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     pcall->addAttribute(~0, call->getAttributes().getFnAttributes());
     //set return value attributes of pcall
     pcall->addAttribute(0, call->getAttributes().getRetAttributes());
+#else
+    AttributeSet as;
+    AttributeSet callAttr = call->getAttributes();
+    for (unsigned int i=0; i < call->getNumArgOperands(); ++i) {
+      //Parameter attributes starts with index 1-NumOfParams
+      unsigned int idx = i+1;
+      //pcall starts with mask argument, skip it when setting original argument attributes.
+	    as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
+    }
+    //set function attributes of pcall
+    as.addAttributes(func->getContext(), AttributeSet::FunctionIndex, callAttr.getFnAttributes());
+    //set return value attributes of pcall
+    as.addAttributes(func->getContext(), AttributeSet::ReturnIndex, callAttr.getRetAttributes());
+    pcall->setAttributes(as);
+#endif
     VectorizerUtils::SetDebugLocBy(pcall, call);
     call->replaceAllUsesWith(pcall);
     call->eraseFromParent();
@@ -600,6 +648,12 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
 }
 
 void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
+
+  // Should be done only for divergent blocks
+  if (! m_WIA->isDivergentBlock(inst->getParent())) {
+    return;
+  }
+
   Value* prev_ptr = new AllocaInst(
     inst->getType(),            // type
     inst->getName() + "_prev",  // name
@@ -619,11 +673,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
 
   V_ASSERT (m_inInst.find(BB) != m_inInst.end() &&
             "Where did we save the mask in this BB ?");
-
-  // Should be done only for divergent blocks
-  if (! m_WIA->isDivergentBlock(BB))
-    return;
-
+ 
   // Load the predicate value and place the select
   // We will place them in the correct place in the next section
   Instruction* predicate  = new LoadInst(pred,"predicate");
@@ -757,6 +807,49 @@ void Predicator::maskOutgoing_useIncoming(BasicBlock *BB, BasicBlock* SrcBB) {
     m_outMask[std::make_pair(BB, br->getSuccessor(i))] = incoming;
 }
 
+bool Predicator::isAlwaysFollowedBy(Loop *L, BasicBlock* exitBlock) {
+  BasicBlock* loopHeader = L->getHeader();
+  if (loopHeader == exitBlock)
+    return true;
+  std::vector<BasicBlock *> unTracedBlocks;
+  std::set<BasicBlock *> seenBlocks;
+  unTracedBlocks.push_back(loopHeader);
+  while (!unTracedBlocks.empty())
+  {
+    BasicBlock* curr = unTracedBlocks.back();
+    unTracedBlocks.pop_back();
+    
+    TerminatorInst* term = curr->getTerminator();
+    BranchInst* br = dyn_cast<BranchInst>(term);
+    // if we reached a return instruction not via the exitBlock:
+    if (!br)
+      continue;
+
+    for (unsigned int i = 0; i < br->getNumSuccessors(); i++)
+    {
+      BasicBlock* succ = br->getSuccessor(i);
+      // if we reached the header again:
+      if (succ == loopHeader)
+        return false;
+
+      // don't trace through exit block.
+      if (succ == exitBlock)
+        continue;
+
+      // trace only through blocks inside the loop we haven't seen yet.
+      if (!seenBlocks.count(succ) && L->contains(succ))
+      {
+        seenBlocks.insert(succ);
+        unTracedBlocks.push_back(succ);
+      }
+    }
+
+  }
+  // no path from the loop header back to itself without passing through the 
+  // exit block
+  return true;
+}
+
 void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   V_ASSERT(m_inMask.find(BB) != m_inMask.end() && "BB has no in-mask");
 
@@ -797,7 +890,11 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   m_outMask[std::make_pair(BB, BBlocal)] = local_edge_mask_p;
 
   /// Handles out mask for the exit edge.
-  BasicBlock *preHeader = L->getLoopPreheader();
+  Loop* outestLoop = L;
+  while (outestLoop->getParentLoop() && !outestLoop->getParentLoop()->contains(BBexit)) {
+    outestLoop = outestLoop->getParentLoop();
+  }
+  BasicBlock *preHeader = outestLoop->getLoopPreheader();
   Value* who_left_tr = BinaryOperator::Create(Instruction::And,
                                      entry_mask, exitCond , "who_left_tr", br);
   if (L->getExitingBlock()) {
@@ -806,8 +903,10 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     // Incase there is only one exiting block can use the incoming mask
     // of the preheader since all work items entering the loop will exit
     // through this edge.
+    V_ASSERT(L == outestLoop && 
+      "same block can't be the single exit of a loop, and also exit a higher level loop");
     V_ASSERT(preHeader && m_inMask.count(preHeader) && "no in mask for preheader");
-    m_outMask[std::make_pair(BB, BBexit)] = m_inMask[preHeader];
+    m_outMask[std::make_pair(BB, BBexit)] = m_inMask[L->getLoopPreheader()];
   } else {
     // The out mask holds whether the current work item ever left the loop
     // using this edge. we zero the exit edge mask when entering the loop (in
@@ -827,16 +926,16 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
 
   /// Update loop masks for all the loops that BB is exiting (possible parent loops).
   Value *curLoopMask = NULL;
+  bool mostInnerLoop = true;
   do {
     V_ASSERT(m_inMask.count(L->getHeader()) && "header has no in-mask");
-    // If this the common case with one exiting block then the updated
-    // loop mask is simply the local edge value. (and inMask, localCond)
-    // Note that we know that in this case the mask the current block is
-    // the same as the loop header block mask.
+    // If this block (BB) is not nested, then its in mask is
+    // the same as the loop mask, and the new loop mask 
+    // is simply the local edge value. (and inMask, localCond).
     Value *newLoopMask = localOutMask;
     Value* loopMask_p = m_inMask[L->getHeader()];
-    if (!L->getExitingBlock()) {
-      // There are more than one exiting block then we need to update loop
+    if (!mostInnerLoop || !isAlwaysFollowedBy(L, BB)) {
+      // This exit block is nested, and thus we need to update the loop
       // mask with negation of exit edge.
       Value* who_left_tr_not =
           BinaryOperator::CreateNot(who_left_tr, "who_left_tr_not", br);
@@ -848,16 +947,26 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     if (!curLoopMask) curLoopMask = newLoopMask;
     new StoreInst(newLoopMask, loopMask_p, br);
     L = L->getParentLoop();
+    mostInnerLoop = false;
   } while (L && !L->contains(BBexit));
 
-  /// ----  Create the exit condition. When to leave the loop
-  V_ASSERT(m_allzero && "Unable to find allzero func");
-  CallInst *call_allzero =
-      CallInst::Create(m_allzero, curLoopMask, "shouldexit", br);
+  L = LI->getLoopFor(BB);
 
-  // Make sure the exit block is the first successor.
-  BranchInst::Create(BBexit, BBlocal, call_allzero, br);
-  br->eraseFromParent();
+  // If there is more than on exit block or
+  // the branch is not uniform or
+  // the branch is nested
+  if (!L->getExitingBlock() ||
+      m_WIA->whichDepend(br) != WIAnalysis::UNIFORM ||
+      !isAlwaysFollowedBy(L, BB)) {
+    /// ----  Create the exit condition. When to leave the loop
+    V_ASSERT(m_allzero && "Unable to find allzero func");
+    CallInst *call_allzero =
+        CallInst::Create(m_allzero, curLoopMask, "shouldexit", br);
+
+    // Make sure the exit block is the first successor.
+    BranchInst::Create(BBexit, BBlocal, call_allzero, br);
+    br->eraseFromParent();
+  }
 }
 
 void Predicator::maskOutgoing_fork(BasicBlock *BB) {
@@ -874,10 +983,7 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
   ///
   /// In here we handle simple forking of two basic blocks to non exit blocks.
   //
-  V_ASSERT(m_inMask.find(BB) != m_inMask.end() && "BB has no in-mask");
-  Value* incoming = m_inMask[BB];
-  Value  *l_incoming   = new LoadInst(incoming, "l_inc", br);
-
+ 
   /// One side takes the condition as is,
   /// the other uses the negation of the condition
   BinaryOperator* notCond = BinaryOperator::Create(
@@ -897,6 +1003,10 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
   Value* MFalse, *MTrue;
 
   if (m_WIA->isDivergentBlock(BB)) {
+    V_ASSERT(m_inMask.find(BB) != m_inMask.end() && "BB has no in-mask");
+    Value* incoming = m_inMask[BB];
+    Value  *l_incoming   = new LoadInst(incoming, "l_inc", br);
+
     MFalse = BinaryOperator::Create(
       Instruction::And, l_incoming, notCond,
       BB->getName() + "_to_" + BBsucc1->getName(), br);
@@ -1170,11 +1280,11 @@ void Predicator::predicateFunction(Function *F) {
   DominatorTree* DT      = &getAnalysis<DominatorTree>();
   LoopInfo *LI = &getAnalysis<LoopInfo>();
   V_ASSERT(LI && "Unable to get loop analysis");
-  BranchProbabilityInfo *BPI = &getAnalysis<BranchProbabilityInfo>();
-  assert (BPI && "Branch Probability is not available");
+  OCLBranchProbability *OBP = &getAnalysis<OCLBranchProbability>();
+  assert (OBP && "OpenCL Branch Probability is not available");
 
   FunctionSpecializer specializer(
-    this, F, m_allzero, PDT, DT, LI, m_WIA, BPI);
+    this, F, m_allzero, PDT, DT, LI, m_WIA, OBP);
 
   V_PRINT(predicate, "Predicating "<<F->getName()<<"\n");
 

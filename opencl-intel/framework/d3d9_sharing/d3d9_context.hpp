@@ -31,7 +31,7 @@ D3DContext<RESOURCE_TYPE, DEV_TYPE>::D3DContext(const cl_context_properties* clP
     cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>* ppDevices, logging_fn pfnNotify,
     void* pUserData, cl_err_code* pclErr, ocl_entry_points* pOclEntryPoints,
     ocl_gpa_data* pGPAData, IUnknown* const pD3D9Device, cl_context_properties iDevType, const ID3DSharingDefinitions* pd3d9Definitions,
-    const ContextModule& contextModule, bool bIsInteropUserSync) :
+    ContextModule& contextModule, bool bIsInteropUserSync) :
 Context(clProperties, uiNumDevices, uiNumRootDevices, ppDevices, pfnNotify, pUserData,
     pclErr, pOclEntryPoints, pGPAData, contextModule),
     m_pD3DDevice(pD3D9Device), m_iDeviceType(iDevType), m_bIsInteropUserSync(bIsInteropUserSync), m_pd3dDefinitions(pd3d9Definitions)

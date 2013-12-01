@@ -37,7 +37,7 @@ File Name:  ocl_recorder.h
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/Mutex.h"
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 #include <list>
 #include <map>
 #include "plugin_interface.h"
@@ -181,6 +181,9 @@ namespace Validation
         RecorderContext(const std::string& logsPath, const std::string& prefix);
 
         ~RecorderContext();
+
+        ///\brief returns the base file name
+        const std::string getBaseName() const;
 
         ///\brief returns the file path for byte code file
         const std::string getByteCodeFilePath() const;

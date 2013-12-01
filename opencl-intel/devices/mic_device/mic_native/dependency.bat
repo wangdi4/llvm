@@ -7,4 +7,14 @@ REM All variables in the form of CMake vars will be replaced by CMake
 call "@DEVICE_INIT_ENV_SCRIPT@" intel64 >  nul
 REM #ICC=/opt/intel/mic/Compiler/bin/icc
 
-%ICC% -mmic -M -MG -E @FINAL_MIC_FLAGS@ "%SRC%" -static-intel | python parse_dependency.py
+set FILE_NAME=dependency_args_%RANDOM%.txt
+
+type NUL > %FILE_NAME%
+echo -mmic -M -MG -E >> %FILE_NAME%
+echo @FINAL_MIC_FLAGS@ >> %FILE_NAME%
+echo "%SRC%" >> %FILE_NAME%
+echo -static-intel >> %FILE_NAME%
+
+%ICC% @%FILE_NAME% | python parse_dependency.py
+
+del %FILE_NAME%

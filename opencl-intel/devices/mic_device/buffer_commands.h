@@ -21,12 +21,11 @@
 #pragma once
 
 #include "command.h"
-#include "exe_cmd_mem_handler.h"
-#include "source/COIEvent_source.h"
+
+#include <source/COIEvent_source.h>
+#include <source/COIBuffer_source.h>
 
 #include <vector>
-
-using namespace std;
 
 namespace Intel { namespace OpenCL { namespace MICDevice {
 
@@ -34,27 +33,27 @@ class MICDevMemoryObject;
 
 /* Template class which process memory chunks, T is a chunk which must have the following methods:
       - bool isReadyToFire() - return true if this chunk is ready for process.
-	  - void reset() - reset the current chunk. (Call it after firing this chunk) */
+      - void reset() - reset the current chunk. (Call it after firing this chunk) */
 template <class T>
 class ProcessMemoryChunk
 {
 public:
     /* The first call does not call to 'fire_current_chunk()', it only set the values in 'm_current_chunk'.
-	   That means that We must call to 'process_finish()' as the last command in order to execute the last chunk. */
+       That means that We must call to 'process_finish()' as the last command in order to execute the last chunk. */
     virtual void process_chunk( T& chunk ) = 0;
-	/* Must call 'process_finish()' in order to execute the last chunk. */
+    /* Must call 'process_finish()' in order to execute the last chunk. */
     virtual void process_finish( void );
 
     // called after dispatching all chunks
-	// Return the last COIEVENT, created by this memory command.
+    // Return the last COIEVENT, created by this memory command.
     COIEVENT get_last_event( void ) const { return m_last_dependency; };
     bool     error_occured( void ) const { return m_error_occured; };
-	// Return true if some work dispatched.
+    // Return true if some work dispatched.
     bool     work_dispatched( void ) const { return (NOT_INIT != m_state); };
-	// Return the total amount of dispatched chunks
-	unsigned int get_total_amount_of_chunks() { return m_total_chunks_processed; };
-	// Return the total size processed
-	size_t get_total_memory_processed_size() { return m_total_size_processed; };
+    // Return the total amount of dispatched chunks
+    unsigned int get_total_amount_of_chunks() { return m_total_chunks_processed; };
+    // Return the total size processed
+    size_t get_total_memory_processed_size() { return m_total_size_processed; };
 
     ProcessMemoryChunk( const COIEVENT* external_dependency ) :
         m_external_dependency( external_dependency ), m_state(NOT_INIT), m_error_occured(false), m_total_chunks_processed(0), m_total_size_processed(0) {};
@@ -67,12 +66,12 @@ protected:
        return success */
     virtual bool fire_action( const T& chunk, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event  ) = 0;
 
-	/* Fire the last registered chunk.
-	   force - If true fire the chunk with dependency on all previous dependecies, otherwise dependent only on 'm_external_dependency'. */
-	void fire_current_chunk( bool force );
+    /* Fire the last registered chunk.
+       force - If true fire the chunk with dependency on all previous dependecies, otherwise dependent only on 'm_external_dependency'. */
+    void fire_current_chunk( bool force );
 
-	// The last registered chunk.
-	T	                m_current_chunk;
+    // The last registered chunk.
+    T                    m_current_chunk;
 
 private:
     enum State
@@ -82,7 +81,7 @@ private:
         MULTI_CHUNK_MODE
     };
 
-    typedef vector<COIEVENT>   DependeciesArray;
+    typedef std::vector<COIEVENT>   DependeciesArray;
 
     DependeciesArray    m_dependencies;
     COIEVENT            m_last_dependency;
@@ -90,30 +89,30 @@ private:
     State               m_state;
     bool                m_error_occured;
 
-	// Counters for tracing
-	unsigned int		m_total_chunks_processed;
-	size_t				m_total_size_processed;
+    // Counters for tracing
+    unsigned int        m_total_chunks_processed;
+    size_t                m_total_size_processed;
 };
 
 // Chunk struct for common buffer commands.
 namespace CommonMemoryChunk
 {
-	struct Chunk
-	{
-		size_t from_offset;
-		size_t to_offset;
-		size_t size;
+    struct Chunk
+    {
+        size_t from_offset;
+        size_t to_offset;
+        size_t size;
 
-		Chunk() : from_offset(0), to_offset(0), size(0) {};
+        Chunk() : from_offset(0), to_offset(0), size(0) {};
 
-		Chunk(size_t from, size_t to, size_t sz) : from_offset(from), to_offset(to), size(sz) {};
+        Chunk(size_t from, size_t to, size_t sz) : from_offset(from), to_offset(to), size(sz) {};
 
-		bool isReadyToFire() { return (size > 0); };
+        bool isReadyToFire() { return (size > 0); };
 
-		void reset() { size = 0; };
+        void reset() { size = 0; };
 
-		size_t getSize() { return size; };
-	};
+        size_t getSize() { return size; };
+    };
 }
 
 /* Class for processing memory chunks of common buffer commands. */
@@ -121,50 +120,50 @@ class ProcessCommonMemoryChunk : public ProcessMemoryChunk<CommonMemoryChunk::Ch
 {
 public:
     /* called from inside calculateCopyRegion.
-	   The first call does not call to 'fire_current_chunk()', it only set the values in 'm_current_chunk'.
-	   That means that We must call to 'process_finish()' as the last command in order to execute the last chunk. */
+       The first call does not call to 'fire_current_chunk()', it only set the values in 'm_current_chunk'.
+       That means that We must call to 'process_finish()' as the last command in order to execute the last chunk. */
     virtual void process_chunk( CommonMemoryChunk::Chunk& chunk );
 
-	ProcessCommonMemoryChunk( const COIEVENT* external_dependency, COIPROCESS processOfTarget = NULL ) : ProcessMemoryChunk<CommonMemoryChunk::Chunk>(external_dependency), 
+    ProcessCommonMemoryChunk( const COIEVENT* external_dependency, COIPROCESS processOfTarget = NULL ) : ProcessMemoryChunk<CommonMemoryChunk::Chunk>(external_dependency), 
         m_readyToFireChunk(false), m_memObjOfHostPtr(NULL), m_processOfTarget(processOfTarget) {};
 
-	/* return the hostPtr of the memobj that we use in order to execute Copy instead of read / write */
-	MICDevMemoryObject* getUsedMemObjOfHostPtr() { return m_memObjOfHostPtr; };
+    /* return the hostPtr of the memobj that we use in order to execute Copy instead of read / write */
+    MICDevMemoryObject* getUsedMemObjOfHostPtr() { return m_memObjOfHostPtr; };
 
-	virtual ~ProcessCommonMemoryChunk() {};
+    virtual ~ProcessCommonMemoryChunk() {};
 
 protected:
 
-	/* Perform optimized Copy / Read / Write */
-	bool processActionOptimized(cl_dev_cmd_type type, void* readBuff, size_t readOffset, void* writeBuff, size_t writeOffset, size_t size, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event, bool forceValidOnSingleDevice = true);
+    /* Perform optimized Copy / Read / Write */
+    bool processActionOptimized(cl_dev_cmd_type type, void* readBuff, size_t readOffset, void* writeBuff, size_t writeOffset, size_t size, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event, bool forceValidOnSingleDevice = true);
 
 private:
 
-	bool				m_readyToFireChunk;
+    bool                m_readyToFireChunk;
 
-	MICDevMemoryObject*	m_memObjOfHostPtr;
+    MICDevMemoryObject*    m_memObjOfHostPtr;
 
-	COIPROCESS			m_processOfTarget;
+    COIPROCESS            m_processOfTarget;
 };
 
 
 // Chunk struct for unmap buffer command.
 namespace UnmapMemoryChunkStruct
 {
-	struct Chunk
-	{
-		COIMAPINSTANCE coi_map_instance;
+    struct Chunk
+    {
+        COIMAPINSTANCE coi_map_instance;
 
-		Chunk() : coi_map_instance(NULL) {};
+        Chunk() : coi_map_instance(NULL) {};
 
-		Chunk(COIMAPINSTANCE map_instamce) : coi_map_instance(map_instamce) {};
+        Chunk(COIMAPINSTANCE map_instamce) : coi_map_instance(map_instamce) {};
 
-		bool isReadyToFire() { return (NULL != coi_map_instance); };
+        bool isReadyToFire() { return (NULL != coi_map_instance); };
 
-		void reset() { coi_map_instance = NULL; };
+        void reset() { coi_map_instance = NULL; };
 
-		size_t getSize() { return 0; };
-	};
+        size_t getSize() { return 0; };
+    };
 }
 
 
@@ -173,18 +172,18 @@ class ProcessUnmapMemoryChunk : public ProcessMemoryChunk<UnmapMemoryChunkStruct
 {
 public:
     /* called from inside UnmapMemObject::execute().
-	   The first call does not call to 'fire_current_chunk()', it only set the values in 'm_current_chunk'.
-	   That means that We must call to 'process_finish()' as the last command in order to execute the last chunk. */
+       The first call does not call to 'fire_current_chunk()', it only set the values in 'm_current_chunk'.
+       That means that We must call to 'process_finish()' as the last command in order to execute the last chunk. */
     virtual void process_chunk( UnmapMemoryChunkStruct::Chunk& chunk );
 
-	ProcessUnmapMemoryChunk( const COIEVENT* external_dependency ) : ProcessMemoryChunk<UnmapMemoryChunkStruct::Chunk>(external_dependency), 
+    ProcessUnmapMemoryChunk( const COIEVENT* external_dependency ) : ProcessMemoryChunk<UnmapMemoryChunkStruct::Chunk>(external_dependency), 
         m_readyToFireChunk(false) {};
 
-	virtual ~ProcessUnmapMemoryChunk() {};
+    virtual ~ProcessUnmapMemoryChunk() {};
 
 private:
 
-	bool				m_readyToFireChunk;
+    bool                m_readyToFireChunk;
 
 };
 
@@ -201,28 +200,28 @@ public:
 
 protected:
 
-	// struct that define the copy info in order to calculate the offsets
-	struct mem_copy_info_struct
-	{
-		cl_uint	    uiDimCount;
-		size_t		from_Offset;
-		size_t		vFromPitch[MAX_WORK_DIM-1];
-		size_t		to_Offset;
-		size_t		vToPitch[MAX_WORK_DIM-1];
-		size_t		vRegion[MAX_WORK_DIM];
-	};
+    // struct that define the copy info in order to calculate the offsets
+    struct mem_copy_info_struct
+    {
+        cl_uint        uiDimCount;
+        size_t        from_Offset;
+        size_t        vFromPitch[MAX_WORK_DIM-1];
+        size_t        to_Offset;
+        size_t        vToPitch[MAX_WORK_DIM-1];
+        size_t        vRegion[MAX_WORK_DIM];
+    };
 
-	BufferCommands(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+    BufferCommands(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
-	virtual ~BufferCommands();
+    virtual ~BufferCommands();
 
-	void CopyRegion( mem_copy_info_struct* pMemCopyInfo, ProcessCommonMemoryChunk* chunk_consumer );
+    void CopyRegion( mem_copy_info_struct* pMemCopyInfo, ProcessCommonMemoryChunk* chunk_consumer );
 
     COIEVENT ForceTransferToDevice( const MICDevMemoryObject* mem_obj, COIEVENT& last_chunk_event );
 
 private:
 
-	void CopyRegionInternal( mem_copy_info_struct* pMemCopyInfo, ProcessCommonMemoryChunk* chunk_consumer );
+    void CopyRegionInternal( mem_copy_info_struct* pMemCopyInfo, ProcessCommonMemoryChunk* chunk_consumer );
 
 };
 
@@ -233,19 +232,18 @@ public:
 
 	PREPARE_SHARED_PTR(Command)
 
-	/* static function for ReadWriteMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
-	cl_dev_err_code execute();
+    cl_dev_err_code execute();
 
-	virtual ~ReadWriteMemObject();
+    virtual ~ReadWriteMemObject();
 
 private:
 
-	/* Private constructor because We like to create Commands only by the factory method */
+    /* Private constructor because We like to create Commands only by the factory method */
     ReadWriteMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
-	MICDevMemoryObject*	m_memObjOfHostPtr;
+    MICDevMemoryObject*    m_memObjOfHostPtr;
 
 };
 
@@ -258,19 +256,19 @@ public:
 
 	virtual ~CopyMemObject();
 
-	/* static function for CopyMemObject Command creation */
+    /* static function for CopyMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
-	cl_dev_err_code execute();
+    cl_dev_err_code execute();
 
 private:
 
-	/* Private constructor because We like to create Commands only by the factory method */
+    /* Private constructor because We like to create Commands only by the factory method */
     CopyMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
-	char* m_srcBufferMirror;
+    char* m_srcBufferMirror;
 
-	MICDevMemoryObject*	m_memObjOfHostPtr;
+    MICDevMemoryObject*    m_memObjOfHostPtr;
 
 };
 
@@ -284,13 +282,13 @@ public:
 	/* static function for MapMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
-	cl_dev_err_code execute();
+    cl_dev_err_code execute();
 
-	virtual void fireCallBack(void* arg);
+    virtual void fireCallBack(void* arg);
 
 private:
 
-	/* Private constructor because We like to create Commands only by the factory method */
+    /* Private constructor because We like to create Commands only by the factory method */
     MapMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
 };
@@ -305,11 +303,13 @@ public:
 	/* static function for UnmapMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
-	cl_dev_err_code execute();
+    cl_dev_err_code execute();
+
+    virtual void fireCallBack(void* arg);
 
 private:
 
-	/* Private constructor because We like to create Commands only by the factory method */
+    /* Private constructor because We like to create Commands only by the factory method */
     UnmapMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
 };
@@ -324,17 +324,17 @@ public:
 	/* static function for MigrateMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
 
-	cl_dev_err_code execute();
+    cl_dev_err_code execute();
 
 private:
 
-	/* Private constructor because We like to create Commands only by the factory method */
+    /* Private constructor because We like to create Commands only by the factory method */
     MigrateMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
-	/* Initialize MigrateMemObject command. */
-	cl_dev_err_code init(vector<COIBUFFER>&    ppOutCoiBuffsArr, 
-	                     COI_BUFFER_MOVE_FLAG& outMoveDataFlag, COIPROCESS& outTargetProcess,
-	                     COIBUFFER&            outLastBufferHandle);
+    /* Initialize MigrateMemObject command. */
+    cl_dev_err_code init(std::vector<COIBUFFER>&    ppOutCoiBuffsArr,
+                         COI_BUFFER_MOVE_FLAG& outMoveDataFlag, COIPROCESS& outTargetProcess,
+                         COIBUFFER&            outLastBufferHandle);
 };
 
 }}}

@@ -14,6 +14,9 @@ typedef struct CommandData {
 	bool ownEvent;	//a flag to know if it is our responsibility to free the event monitoring this command
 	long key;	// a unique key that represent this command
 	Intel::OpenCL::Utils::AtomicCounter refCounter; //holds the number of callbacks that will use this struct
+	cl_event *pEvent;	// pointer to the event that we create if user hasn't provided one
+	bool needRelease;	// determines if we need to release the CL resources of the event
+	const char* funcName;	// useful for functions that do not appear in CL_EVENT_COMMAND_TYPE
 } CommandData;
 
 //a struct to help send function parameters in a more elegant way 
@@ -37,6 +40,8 @@ public:
 
 	virtual void DeviceInit(cl_device_id /* device */, cl_platform_id /* platform */)=0;
 
+	virtual void SubDeviceCreate(cl_device_id /* parent device */, cl_device_id /* sub device */)=0;
+
 	virtual void DeviceFree(cl_device_id /* device */)=0;
 
 	/* Context Callbacks */
@@ -53,7 +58,7 @@ public:
 
 	/* Event Callbacks */
 
-	virtual void EventCreate (cl_event event, bool internalEvent)=0;
+	virtual void EventCreate (cl_event, bool, string* cmdName = NULL)=0;
 
 	virtual void EventFree (cl_event event)=0;
 
@@ -62,6 +67,11 @@ public:
 	/* Memory Object Callbacks */
 
 	virtual void BufferCreate (cl_mem /* memobj */, cl_context /* context */)=0;
+
+	virtual void SubBufferCreate (cl_mem /* parent buffer */, cl_mem /* sub buffer */,
+								  cl_buffer_create_type /* buffer create type */,
+								  const void* /* buffer create info */)=0;
+
 
 	//virtual void BufferAcquired (cl_mem /* memobj */, cl_device_id /* device */, cl_long /* elapsed_time */)=0;
 
@@ -79,7 +89,7 @@ public:
 
 	/* Program Callbacks */
 
-	virtual void ProgramCreate (cl_program /* program */, cl_context)=0;
+	virtual void ProgramCreate (cl_program /* program */, cl_context, bool, bool)=0;
 
 	virtual void ProgramFree (cl_program /* program */)=0;
 
@@ -139,8 +149,7 @@ public:
 	void createCommandEvents(cl_event *event, CommandData *data);
 
 	const char* enableKernelArgumentInfo(const char* options);
-	static void releaseCommandData(cl_event *event, CommandData* data);
-	static void releaseCommandData(cl_event event, CommandData* data);
+	static void releaseCommandData(CommandData* data);
 
 
 	/* Platform Callbacks */
@@ -152,6 +161,8 @@ public:
 	/* Device Callbacks */
 
 	virtual void DeviceInit(cl_device_id /* device */, cl_platform_id /* platform */);
+
+	virtual void SubDeviceCreate(cl_device_id /* parent device */, cl_device_id /* sub device */);
 
 	virtual void DeviceFree(cl_device_id /* device */);
 
@@ -169,7 +180,7 @@ public:
 
 	/* Event Callbacks */
 
-	virtual void EventCreate (cl_event event, bool internalEvent);
+	virtual void EventCreate (cl_event, bool, string* cmdName = NULL);
 
 	virtual void EventFree (cl_event event);
 
@@ -178,6 +189,10 @@ public:
 	/* Memory Object Callbacks */
 
 	virtual void BufferCreate (cl_mem /* memobj */, cl_context /* context */);
+
+	virtual void SubBufferCreate (cl_mem /* parent buffer */, cl_mem /* sub buffer */,
+								  cl_buffer_create_type /* buffer create type */,
+								  const void* /* buffer create info */);
 
 	//virtual void BufferAcquired (cl_mem /* memobj */, cl_device_id /* device */, cl_long /* elapsed_time */);
 
@@ -195,7 +210,7 @@ public:
 
 	/* Program Callbacks */
 
-	virtual void ProgramCreate (cl_program /* program */, cl_context);
+	virtual void ProgramCreate (cl_program /* program */, cl_context, bool, bool );
 
 	virtual void ProgramFree (cl_program /* program */);
 

@@ -18,7 +18,7 @@
 #define BUFFER_LEN (30)
 #define UINT_BUFFER_LEN ( BUFFER_LEN * sizeof(cl_uint))
 
-#define PATTERN_SIZE 128
+#define PATTERN_SIZE 132
 
 #define IMAGE1D
 
@@ -111,8 +111,10 @@ protected:
 protected:
 	_PROVISONAL_MallocArray_t PROV_ARRAY_NAME;
 
+	void TestFillWithLargePattern(cl_mem buffer1, size_t bufferSize, const char* pPattern, size_t szPatternSize);
+
 private:
-	bool                      m_setupOK;
+	bool                      m_setupOK;	
 
 #undef PROV_ARRAY_NAME
 #define PROV_ARRAY_NAME _mallocArr_
@@ -128,9 +130,41 @@ private:
 #undef PROV_ARRAY_NAME
 #define PROV_ARRAY_NAME m_provisional_array
 
-#define LENGTH_EIGHT_PATTERN "LIVEBEEF"
+const char LENGTH_FOUR_PATTERN[4] = { 'L', 'I', 'V', 'E'};
+const char LENGTH_TWELVE_PATTERN[12] = { 'L', 'I', 'V', 'E', 'D', 'E', 'A', 'D', 'B', 'E', 'E', 'F'};
 
 typedef OCLEnvTest EnqueueFillTest;
+
+void OCLEnvTest::TestFillWithLargePattern(cl_mem buffer1, size_t bufferSize, const char* pPattern, size_t szPatternSize)
+{
+	size_t countFillErrors = 0;
+	cl_int iRet = clEnqueueFillBuffer(m_queue, buffer1, pPattern, szPatternSize, (PATTERN_SIZE * 15), (PATTERN_SIZE * 5), 0, NULL, NULL);
+	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueFillBuffer (partial fill with 2) = " << ClErrTxt(iRet);
+	char* pBuf = (char*)clEnqueueMapBuffer(m_queue, buffer1, CL_TRUE, CL_MAP_READ, 0, bufferSize, 0, NULL, NULL, &iRet);
+	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueMapBuffer = " << ClErrTxt(iRet);
+	for (size_t pos=0 ; pos < bufferSize ; ++pos)
+	{
+		if (pos < (PATTERN_SIZE * 5) )
+		{
+			if (pBuf[pos] != 2) ++countFillErrors;
+		}
+		else if (pos >= (PATTERN_SIZE * 5) && pos < (PATTERN_SIZE * (5+10)) )
+		{
+			if (pBuf[pos] != 1) ++countFillErrors;
+		}
+		else if (pos >= (PATTERN_SIZE * 15) && pos < (PATTERN_SIZE * (15+5)))
+		{
+			if (0 != strncmp(pBuf+pos, pPattern, szPatternSize)) ++countFillErrors;
+			pos += szPatternSize - 1; // for loop will advance one more.
+		}
+		else
+		{
+			if (pBuf[pos] != 0) ++countFillErrors;
+		}
+	}
+	clEnqueueUnmapMemObject(m_queue, buffer1, pBuf, 0, NULL, NULL);
+	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueUnmapMemObject = " << ClErrTxt(iRet);
+}
 
 TEST_F(EnqueueFillTest, Buffer)
 {
@@ -213,36 +247,18 @@ TEST_F(EnqueueFillTest, Buffer)
 
 	EXPECT_EQ(0, countFillErrors) << "partial fill with 2's and 1's "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
 
-	// Fill the pattern with LENGTH_EIGHT_PATTERN
-	countFillErrors = 0;
-	iRet = clEnqueueFillBuffer(m_queue, buffer1, LENGTH_EIGHT_PATTERN, 8, (PATTERN_SIZE * 15), (PATTERN_SIZE * 5), 0, NULL, NULL);
-	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueFillBuffer (partial fill with 2) = " << ClErrTxt(iRet);
-	pBuf = (char*)clEnqueueMapBuffer(m_queue, buffer1, CL_TRUE, CL_MAP_READ, 0, bufferSize, 0, NULL, NULL, &iRet);
-	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueMapBuffer = " << ClErrTxt(iRet);
-	for (size_t pos=0 ; pos < bufferSize ; ++pos)
-	{
-		if (pos < (PATTERN_SIZE * 5) )
-		{
-			if (pBuf[pos] != 2) ++countFillErrors;
-		}
-		else if (pos >= (PATTERN_SIZE * 5) && pos < (PATTERN_SIZE * (5+10)) )
-		{
-			if (pBuf[pos] != 1) ++countFillErrors;
-		}
-		else if (pos >= (PATTERN_SIZE * 15) && pos < (PATTERN_SIZE * (15+5)))
-		{
-			if (0 != strncmp(pBuf+pos, LENGTH_EIGHT_PATTERN, 8)) ++countFillErrors;
-			pos += 7; // for loop will advance one more.
-		}
-		else
-		{
-			if (pBuf[pos] != 0) ++countFillErrors;
-		}
-	}
-	clEnqueueUnmapMemObject(m_queue, buffer1, pBuf, 0, NULL, NULL);
-	EXPECT_EQ(CL_SUCCESS, iRet) << "clEnqueueUnmapMemObject = " << ClErrTxt(iRet);
+	// check error cases:
+	iRet = clEnqueueFillBuffer(m_queue, buffer1, pattern, 5, 0, PATTERN_SIZE, 0, NULL, NULL);	// size of pattern isn't power of 2
+	EXPECT_EQ(CL_INVALID_VALUE, iRet) << "clEnqueueFillBuffer = " << ClErrTxt(iRet);
+	iRet = clEnqueueFillBuffer(m_queue, buffer1, pattern, 48, 0, PATTERN_SIZE, 0, NULL, NULL);	// size of pattern is divided by 3, but greater than larger vector of size 3
+	EXPECT_EQ(CL_INVALID_VALUE, iRet) << "clEnqueueFillBuffer = " << ClErrTxt(iRet);
+	iRet = clEnqueueFillBuffer(m_queue, buffer1, pattern, 9, 0, PATTERN_SIZE, 0, NULL, NULL);	// size of pattern is divided by 3, but isn't the size of any vector of size 3
+	EXPECT_EQ(CL_INVALID_VALUE, iRet) << "clEnqueueFillBuffer = " << ClErrTxt(iRet);
+
+	TestFillWithLargePattern(buffer1, bufferSize, LENGTH_FOUR_PATTERN, sizeof(LENGTH_FOUR_PATTERN));
+	TestFillWithLargePattern(buffer1, bufferSize, LENGTH_TWELVE_PATTERN, sizeof(LENGTH_TWELVE_PATTERN));
         clFinish(m_queue);
-	EXPECT_EQ(0, countFillErrors) << "pattern fill with "LENGTH_EIGHT_PATTERN" "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
+	EXPECT_EQ(0, countFillErrors) << "pattern fill with LENGTH_FOUR_PATTERN "<<bufferSize<<" bytes has "<<countFillErrors<<" bad bytes.";
     clReleaseMemObject(buffer1);
 }
 

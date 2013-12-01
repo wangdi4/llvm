@@ -1,5 +1,6 @@
 set(TARGET_NAME OclBackendUtils)
 
+add_subdirectory(LoopUtils)
 if(APPLE)
 set(TARGET_EXTRA_SOURCE_FILES 
 )
@@ -13,8 +14,8 @@ set(TARGET_EXTRA_INCLUDE_FILES
   exceptions.h
   ExecutionContext.h 
   ExplicitArgument.h
-  ExplicitLocalMemArgument.h
   ExplicitGlobalMemArgument.h
+  ExplicitBlockLiteralArgument.h
   SystemInfo.h
 )
 endif(APPLE)
@@ -28,9 +29,14 @@ set (TARGET_INCLUDE_FILES
   ImplicitArgProperties.h
   ImplicitArgsUtils.h
   ImplicitArgument.h
+  OCLAddressSpace.h
   TypeAlignment.h
   TypeConversion.h
   VectorizerUtils.h
+  BlockUtils.h
+  RefcountThreadSafe.h
+  Atomics.h
+  Logger.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
@@ -43,6 +49,8 @@ set (TARGET_SOURCE_FILES
   TypeAlignment.cpp
   TypeConversion.cpp
   VectorizerUtils.cpp
+  BlockUtils.cpp
+  Atomics.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 
@@ -51,6 +59,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/name_mangling
   ${BACKEND_ROOT_DIR}/metadata_api
   ${BACKEND_ROOT_DIR}/metadata_api/gen
+  ${BACKEND_ROOT_DIR}/utils
 )
 
 if (APPLE)
@@ -84,24 +93,19 @@ else(APPLE)
     CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ${UTILS_ASM_SOURCES} )
 endif(APPLE)
 
-link_directories(${LLVM_LIBRARY_DIR})
-
 add_library(${TARGET_NAME} STATIC
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
     ${UTILS_ASM_ADD_TO_SOURCES_LIST}
 )
 
-target_link_libraries(${TARGET_NAME}
-  metadataapi
-  LLVMCore
-  LLVMSupport)
+add_dependencies(${TARGET_NAME} metadataapi)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
 
 if(APPLE)
   file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-  message("Utils relative dir:" ${SOURCE_RELATIVE_DIR})
+  message(STATUS "Utils relative dir:" ${SOURCE_RELATIVE_DIR})
   install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES} ${UTILS_ASM_ADD_TO_SOURCES_LIST}
            DESTINATION src/${SOURCE_RELATIVE_DIR}
          )

@@ -55,14 +55,16 @@ add_definitions( -D__STDC_LIMIT_MACROS )
 add_definitions( -D__STDC_CONSTANT_MACROS )
 
 include_directories( AFTER
-    ${LLVM_INCLUDE_DIR}
-    ${CMAKE_SOURCE_DIR}/backend/metadata_api/gen
-    ${CMAKE_SOURCE_DIR}/backend/metadata_api
-    ${CMAKE_SOURCE_DIR}/backend/plugin_manager
-    ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
-    ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
-    ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
-)
+            ${LLVM_INCLUDE_DIR}
+            ${CMAKE_SOURCE_DIR}/backend/metadata_api/gen
+            ${CMAKE_SOURCE_DIR}/backend/metadata_api
+            ${CMAKE_SOURCE_DIR}/backend/plugin_manager
+            ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
+            ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
+            ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
+            ${OCL_BINARY_DIR}
+            )
+
             
 if (WIN32)
     include_directories( AFTER
@@ -117,13 +119,23 @@ target_link_libraries( ${TARGET_NAME}
                        CLElfLib
                        OclPluginManager
                        metadataapi
+                       SPIRMetadataAdder
                        ${LLVM_MODULE_LIBS}
 )
 else() 
+
+if (NOT WIN32) 
+  if (NOT ANDROID)
+     list(APPEND LINK_LIBS pthread)
+  endif (NOT ANDROID)
+endif (NOT WIN32)
+
+
 # The list of clang libraries is taken from clang makefile
 # (build/tools/clang/tools/driver/CMakeFiles/clang.dir/build.make)
 # All duplicate libraries are there on purpose 
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
+                                      SPIRMetadataAdder
                                       cl_sys_utils
                                       cl_logger
                                       LLVMCppBackendCodeGen
@@ -163,6 +175,8 @@ target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
                                       OclPluginManager
                                       #CLElfLib
                                       metadataapi
+                                      dynamic_load
+                                      cl_sys_utils
                                       ${LLVM_MODULE_LIBS}
                                       )
 endif()
@@ -180,7 +194,20 @@ set( CLANG_OPTIONS -cc1
                       -O0
                       -emit-pch 
                       -I ${OCL_CLANG_HEADERS}
-)
+                      -D __IMAGE2D_DEPTH__
+                      -D __WRITE_IMAGE3D__
+                      )
+
+set( CLANG_OPTIONS_OPENCL_12
+                    ${CLANG_OPTIONS}
+                      )
+
+set( CLANG_OPTIONS_OPENCL_20 
+                    ${CLANG_OPTIONS}
+                    -cl-std=CL2.0
+                    -D__OPENCL_C_VERSION__=200
+                      )
+
 
 set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
 )
@@ -195,27 +222,46 @@ set( CLANG ${TOOL_BINARY_DIR}/clang )
 
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
-                    COMMAND ${CLANG} ${CLANG_OPTIONS}  ${TRIPLE} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12}  ${TRIPLE} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
+                    DEPENDS ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
 )
-
+add_custom_command( TARGET ${TARGET_NAME}
+                    PRE_BUILD
+                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} ${TRIPLE} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl20_.pch ${REDIRECTION_OPTION}
+                    COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
+                    DEPENDS ${OCL_CLANG_HEADERS}/opencl_.h
+                    VERBATIM
+                   )
 if( NOT ANDROID )
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
-                    COMMAND ${CLANG} ${CLANG_OPTIONS} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
+                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
+                    DEPENDS ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
-)
+                   )
+
+add_custom_command( TARGET ${TARGET_NAME}
+                    PRE_BUILD
+                    COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch ${REDIRECTION_OPTION}
+                    COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
+                    DEPENDS ${OCL_CLANG_HEADERS}/opencl_.h
+                    VERBATIM
+                   )
+
 endif ()
 
-#add_dependencies( ${TARGET_NAME}
-#    clang
-#)
+add_dependencies( ${TARGET_NAME}
+    ${CLANG}
+)
 
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_.pch DESTINATION bin)
 if( NOT ANDROID )
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch DESTINATION bin)
 endif ()
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
 

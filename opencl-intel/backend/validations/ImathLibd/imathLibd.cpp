@@ -25,6 +25,9 @@ File Name:  imathLibd.cpp
 #else
 #include "math.h"
 #endif
+
+#include <errno.h>
+#include <assert.h>
 // This is the constructor of a class that has been exported.
 // see imathLibd.h for the class definition
 CimathLibd::CimathLibd()
@@ -58,7 +61,25 @@ long double  CimathLibd::imf_log1p(long double x) {
 }
 
 long double CimathLibd::imf_pow(long double x, long double y) {
-    return powl(x,y);
+    //store old errno
+    int errno_prev = errno;
+    //set errno to NULL
+    errno = -1;
+    long double res = powl(x,y);
+    // arguments were out of domain
+    // Indefinite result will be returned in extended precision ( all zeros exp + 62,63 bits are set) 
+    // (simply NaN in single or double pricision)
+    // function calulated in double precision will return +-inf or nan
+    // lets compute in double precision
+    if(errno == EDOM)
+    {
+        res = (long double)pow((double)x,(double)y);
+        assert( ( isnan(res) || isinf(res) || res == (long double)0.0 ) &&
+            "imf_pow: Expected corner-case resulting value" );
+    }
+    //restore old errno
+    errno = errno_prev;
+    return res;
 }
 
 long double CimathLibd::imf_nextafter(long double x, long double y) {

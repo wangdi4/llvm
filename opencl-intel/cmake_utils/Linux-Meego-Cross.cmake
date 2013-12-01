@@ -15,7 +15,7 @@ set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_VERSION 1.08)
 set(UNIX true)
 
-message("Setting up Meego ${CMAKE_SYSTEM_VERSION} cross-system toolchain for ${SYSROOT_NAME}")
+message(STATUS "Setting up Meego ${CMAKE_SYSTEM_VERSION} cross-system toolchain for ${SYSROOT_NAME}")
 
 
 # where is the target environment 
@@ -28,7 +28,7 @@ endif (NOT IS_DIRECTORY ${_SYSROOT})
 set(CMAKE_FIND_ROOT_PATH  ${_SYSROOT})
 set(SYSROOT ${_SYSROOT})
 
-message("Goig to take Meego SDK from: ${SYSROOT}")
+message(STATUS "Goig to take Meego SDK from: ${SYSROOT}")
 
 # search for programs in the build host directories
 SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)

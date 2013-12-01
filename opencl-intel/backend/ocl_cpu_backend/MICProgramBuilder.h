@@ -17,29 +17,35 @@ File Name:  MICProgramBuilder.h
 \*****************************************************************************/
 #pragma once
 
-#include <assert.h>
-#include <string>
-#include "exceptions.h"
-#include "cl_dev_backend_api.h"
-#include "ProgramBuilder.h"
+#include "Compiler.h"
 #include "MICCompiler.h"
+#include "ModuleJITHolder.h"
+#include "ProgramBuilder.h"
+#ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
+#endif
+
+
+#include <string>
 
 namespace llvm {
+    class Function;
+    class LLVMModuleJITHolder;
     class Module;
-    class MICCodeGenerationEngine;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-class BuiltinModule;
-class MICCompilerConfig;
-class Program;
+class IAbstractBackendFactory;
+class ICLDevBackendOptions;
+class IMICCompilerConfig;
 class Kernel;
-class MICProgram;
+class KernelJITProperties;
+class KernelProperties;
+class KernelSet;
 class MICKernel;
-class MICKernelJITProperties;
-
+class MICProgram;
+class Program;
+class ProgramBuildResult;
 
 //*****************************************************************************************
 // Provides the module optimization and code generation functionality. 
@@ -63,6 +69,15 @@ protected:
                              ProgramBuildResult& buildResult) const;
 
     void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const;
+    
+    /// @brief create mapper from block to Kernel
+    virtual IBlockToKernelMapper * CreateBlockToKernelMapper(Program* pProgram,
+      const llvm::Module* pModule) const;
+
+    /// @brief Post build step. Used for creating IBlockToKernelMapper object on CPU
+    /// For MIC currently it does nothing
+    virtual void PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
+      const ICLDevBackendOptions* pOptions) const {};
 
 private:
 
@@ -70,6 +85,7 @@ private:
 
     void AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps) const;
 
+    void CopyJitHolder(const LLVMModuleJITHolder* from, ModuleJITHolder* to) const;
 
     // Klockwork Issue
     MICProgramBuilder ( const MICProgramBuilder& x );

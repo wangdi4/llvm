@@ -14,11 +14,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   class CallbackContext;
+  class ExtendedExecutionContext;
   struct sWorkInfo;
 
   /// @brief  ImplicitArgsUtils class used to provide helper utilies for handling
   ///         implicit arguments.
-  /// @Author Marina Yatsina
   class ImplicitArgsUtils {
   
   public:
@@ -32,14 +32,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       IA_LOOP_ITER_COUNT,
       IA_BARRIER_BUFFER,
       IA_CURRENT_WORK_ITEM,
+      IA_CALLBACK_EXT_EXECUTION_CONTEXT,
       IA_NUMBER
     };
-    static const unsigned int m_numberOfImplicitArgs = IA_NUMBER;
+    static const unsigned int NUMBER_IMPLICIT_ARGS = IA_NUMBER;
 
-    /// @brief Returns the implicit arguments properties
-    /// @returns The implicit arguments properties
-    //static unsigned int getNumArgs() {  return m_numberOfImplicitArgs; }
-    
     /// @brief Returns the implicit argument properties of given argument index
     /// @param arg     The implicit argument index
     /// @returns The implicit argument properties
@@ -72,7 +69,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param packetWidth      The packet width for vectorized JIT parameter
     /// @param pWIids           The work item ids buffer parameter
     /// @param iterCounter      The number of iterations parameter
-    /// @param pBarrierBuffer   The barrier buffer parameter
+    /// @param pExtendedExecutionContext
+    ///                         The callback extended execution context parameter
     void setImplicitArgsPerExecutable(
                          const sWorkInfo* pWorkInfo,
                          const size_t* pGlobalBaseId,
@@ -81,7 +79,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                          unsigned int packetWidth,
                          size_t* pWIids,
                          const size_t iterCounter,
-                         char* pBarrierBuffer);
+                         const ExtendedExecutionContext* 
+                                  pCallBackExtendedExecutionContext);
     
     /// @brief Sets values of implicit arguments for arguments that have same
     ///        values per work group
@@ -96,10 +95,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   private:
     /// static list of implicit argument properties 
-    static ImplicitArgProperties m_implicitArgProps[m_numberOfImplicitArgs];
+    static ImplicitArgProperties m_implicitArgProps[NUMBER_IMPLICIT_ARGS];
   
     /// list of implicit arguments
-    ImplicitArgument m_implicitArgs[m_numberOfImplicitArgs];
+    ImplicitArgument m_implicitArgs[NUMBER_IMPLICIT_ARGS];
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

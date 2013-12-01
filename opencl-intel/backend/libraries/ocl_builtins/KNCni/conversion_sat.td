@@ -4,9 +4,9 @@
 
 // convert types narrower than 32 bits
 code narrow_integers_code = [{
-  $Returnui32gentype v32b = convert_$Returnui32gentype_sat_$Rounding($Arg0VarName);
-  return convert_$ReturnType_sat_$Rounding(v32b);
-}];
+    $Returnui32gentype v32b = convert_$Returnui32gentype_sat_$Rounding($Arg0VarName);
+    return convert_$ReturnType_sat_$Rounding(v32b);
+  }];
 
 OclBuiltinImpl cvt_i8_sat = OclBuiltinImpl<convert_i8_sat, float_types, 0, narrow_integers_code, ["$Rounding"->"rtz"]>;
 OclBuiltinImpl cvt_i8_sat_rtz = OclBuiltinImpl<convert_i8_sat_rtz, float_types, 0, narrow_integers_code, ["$Rounding"->"rtz"]>;
@@ -50,8 +50,8 @@ code convert_iu64_iu32_sat_mask_code = [{
 
 // convert_i32_sat
 OclBuiltinImpl cvt_i32_sat = OclBuiltinImpl<convert_i32_sat, float_types, 0, [{
-  return convert_$ReturnType_sat_rtz($Arg0VarName);
-}]>;
+    return convert_$ReturnType_sat_rtz($Arg0VarName);
+  }]>;
 
 // convert_i32_sat_rtz
 OclBuiltinImpl cvt_i32_sat_rtz_v8f = OclBuiltinImpl<convert_i32_sat_rtz,
@@ -99,8 +99,8 @@ OclBuiltinImpl cvt_i32_sat_rtn_v16f64  = OclBuiltinImpl<convert_i32_sat_rtn, [v1
 
 // convert_u32_sat
 OclBuiltinImpl cvt_u32_sat = OclBuiltinImpl<convert_u32_sat, float_types, 0, [{
-  return convert_$ReturnType_sat_rtz($Arg0VarName);
-}]>;
+    return convert_$ReturnType_sat_rtz($Arg0VarName);
+  }]>;
 
 // convert_u32_sat_rtz
 OclBuiltinImpl cvt_u32_sat_rtz_v8f = OclBuiltinImpl<convert_u32_sat_rtz,
@@ -148,8 +148,8 @@ OclBuiltinImpl cvt_u32_sat_rtn_v16f64  = OclBuiltinImpl<convert_u32_sat_rtn, [v1
 
 // convert_i64_sat
 OclBuiltinImpl cvt_i64_sat = OclBuiltinImpl<convert_i64_sat, float_types, 0, [{
-  return convert_$ReturnType_sat_rtz($Arg0VarName);
-}]>;
+    return convert_$ReturnType_sat_rtz($Arg0VarName);
+  }]>;
 
 // convert_i64_sat_rtz
 OclBuiltinImpl cvt_i64_sat_rtz_v8f = OclBuiltinImpl<convert_i64_sat_rtz,
@@ -198,8 +198,8 @@ OclBuiltinImpl cvt_i64_sat_rtn_v16f  = OclBuiltinImpl<convert_i64_sat_rtn, [v16f
 
 // convert_u64_sat
 OclBuiltinImpl cvt_u64_sat = OclBuiltinImpl<convert_u64_sat, float_types, 0, [{
-  return convert_$ReturnType_sat_rtz($Arg0VarName);
-}]>;
+    return convert_$ReturnType_sat_rtz($Arg0VarName);
+  }]>;
 
 // convert_u64_sat_rtz
 OclBuiltinImpl cvt_u64_sat_rtz_v8f = OclBuiltinImpl<convert_u64_sat_rtz,

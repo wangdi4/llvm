@@ -3,7 +3,7 @@
 #include "cl_dev_backend_api.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/DebugInfo.h"
-#include "llvm/Metadata.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -38,8 +38,8 @@ extern "C" LLVM_BACKEND_API void __opencl_dbg_declare_local(
     ICLDebuggingService* debuggingService = TheDebuggingService();
     if (debuggingService) {
         if (debuggingService->DebuggedGlobalIdMatch(gid0, gid1, gid2)) {
-	        MDNode* metadata_ptr = objptr_from_addr<MDNode>(metadata_addr);
-	        debuggingService->DeclareLocal(addr, metadata_ptr);
+          MDNode* metadata_ptr = objptr_from_addr<MDNode>(metadata_addr);
+          debuggingService->DeclareLocal(addr, metadata_ptr);
         }
     }
 }

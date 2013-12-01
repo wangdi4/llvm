@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Specializer.h"
 #include "Predicator.h"
 #include "Linearizer.h"
+#include "Mangler.h"
 #include "Logger.h"
 
 #include "llvm/Support/CommandLine.h"
@@ -15,12 +16,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/RegionIterator.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/Version.h"
 
 #include <stack>
 
 static cl::opt<unsigned>
-SpecializeThreshold("specialize-threshold", cl::init(10), cl::Hidden,
+SpecializeThreshold("specialize-threshold", cl::init(15), cl::Hidden,
   cl::desc("The cut-off point for specialization of a single basic block"));
 
 static cl::opt<bool>
@@ -35,32 +37,57 @@ FunctionSpecializer::FunctionSpecializer(Predicator* pred, Function* func,
                                          DominatorTree*  DT,
                                          LoopInfo *LI,
                                          WIAnalysis *WIA,
-                                         BranchProbabilityInfo *BPI):
+                                         OCLBranchProbability *OBP):
   m_pred(pred), m_func(func),
-  m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_LI(LI), m_WIA(WIA), m_BPI(BPI),
+  m_allzero(all_zero), m_PDT(PDT), m_DT(DT), m_LI(LI), m_WIA(WIA), m_OBP(OBP),
   m_zero(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 0))),
-  m_one(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 1))){  }
+  m_one(ConstantInt::get(m_func->getParent()->getContext(), APInt(1, 1)))
+{
+  initializeBICost();
+}
 
+void FunctionSpecializer::initializeBICost() {
+  m_nameToInstNum["max"] = 1;
+  m_nameToInstNum["fabs"] = 1;
+}
 
 bool FunctionSpecializer::addHeuristics(const BasicBlock *BB) const {
-
   // Collect instruction amount metrics
+#if (LLVM_VERSION == 3200) || (LLVM_VERSION == 3425)
   CodeMetrics Metrics;
   Metrics.analyzeBasicBlock(BB);
+  unsigned numInst = Metrics.NumInsts;
+#else
+  //TODO: this is a workaround till we solve CQ: CSSD100017577
+  //const TargetTransformInfo &m_TTI;
+  //Metrics.analyzeBasicBlock(BB, m_TTI);
+  unsigned numInst = (unsigned)BB->getInstList().size();
+#endif
 
   // Check whether there is a function call
-  bool funcCallFound = false;
   for (BasicBlock::const_iterator it = BB->begin(); it != BB->end(); it++) {
-    if (dyn_cast<CallInst>(it) || dyn_cast<InvokeInst>(it)) {
-      funcCallFound = true;
-      break;
+    if (isa<InvokeInst>(it))
+      return true;
+
+    if (const CallInst* CI = dyn_cast<CallInst>(it)) {
+      Function* calledFunc = CI->getCalledFunction();
+
+      assert(calledFunc && "Called function should not be null");
+
+      std::string name = Mangler::demangle(calledFunc->getName().str(), false);
+      std::map<std::string, unsigned>::const_iterator itr = m_nameToInstNum.find(name);
+
+      // If the called instruction's penalty is known
+      if (itr != m_nameToInstNum.end()) {
+        numInst += itr->second;
+      }
+      else {
+        return true;
+      }
     }
   }
 
-  if (Metrics.NumInsts < SpecializeThreshold && !funcCallFound)
-    return false;
-
-  return true;
+  return (numInst >= SpecializeThreshold);
 }
 
 bool FunctionSpecializer::shouldSpecialize(const BypassInfo & bi) const {
@@ -205,6 +232,20 @@ void FunctionSpecializer::addAuxBBForSingleExitEdge(BypassInfo & info) {
           info.m_head = new_block;
       }
     }
+
+    // Update the scheduling constrains for the predicated regions 
+    SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
+    for (SchdConstMap::iterator itr = predSched.begin();
+           itr != predSched.end();
+           ++itr) {
+
+      std::vector<BasicBlock*>::iterator bbItr = std::find(itr->second.begin(), itr->second.end(), info.m_postDom);
+
+      // if the post dom is part of a scheduling constraint then add the new block
+      // to the scheduling constraint. The new block is added right after the post dom to maintain topological order
+      if (bbItr != itr->second.end())
+        itr->second.insert(++bbItr, new_block);
+    }
 }
 
 void FunctionSpecializer::getBypassRegion(BypassInfo & info) {
@@ -337,29 +378,9 @@ void FunctionSpecializer::CollectDominanceInfo() {
       (!m_WIA->isDivergentBlock(bb) && m_WIA->whichDepend(term) == WIAnalysis::UNIFORM))
       continue;
 
-    // Removing bypasses on branches that occur only when a consecutive equals a uniform
-    // Bypasses never jump in such cases and only generate redundant overhead
-    ICmpInst *cmp = dyn_cast<ICmpInst>(br->getCondition());
-    assert (br->getNumSuccessors() <= 2 && "A branch should have at most two successors");
-    bool shouldBypass[2] = {true, true};
-    if(cmp) {
-      WIAnalysis::WIDependancy op0Dep = m_WIA->whichDepend(cmp->getOperand(0));
-      WIAnalysis::WIDependancy op1Dep = m_WIA->whichDepend(cmp->getOperand(1));
-
-      if ((op0Dep == WIAnalysis::CONSECUTIVE && op1Dep == WIAnalysis::UNIFORM) ||
-          (op1Dep == WIAnalysis::CONSECUTIVE && op0Dep == WIAnalysis::UNIFORM)) {
-        if (cmp->getPredicate() == CmpInst::ICMP_EQ)
-          shouldBypass[1] = false;
-        else
-          if (cmp->getPredicate() == CmpInst::ICMP_NE)
-            shouldBypass[0] = false;
-      }
-    }
-
     for (unsigned i=0; i < br->getNumSuccessors(); ++i) {
       if (! m_DT->dominates(bb, br->getSuccessor(i)) ||
-         (m_BPI->getEdgeProbability(bb, br->getSuccessor(i)) >= BranchProbability(9, 10)) ||
-          ! shouldBypass[i] ||
+          m_OBP->isEdgeHot(bb, br->getSuccessor(i))  ||
           ! calculateBypassInfoPerBranch(br->getSuccessor(i)))
         continue;
 

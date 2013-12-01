@@ -39,24 +39,24 @@ File Name:  CPUCompiler.cpp
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 
 // Reference a symbol in JIT.cpp and MCJIT.cpp so that static or global constructors are called
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/MCJIT.h"
 
 #include "llvm/ExecutionEngine/JITEventListener.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Argument.h"
-#include "llvm/Type.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Instructions.h"
-#include "llvm/Instruction.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/ADT/Triple.h"
 using std::string;
 
@@ -149,7 +149,7 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
         cpuFeatures |= CFS_SSE41 | CFS_SSE42;
     }
 
-    if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("sandybridge"))
+    if( cpuId >= (unsigned int)Intel::CPUId::GetCPUByName("corei7-avx"))
     {
         cpuFeatures |= CFS_AVX1;
     }
@@ -159,6 +159,8 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
         cpuFeatures |= CFS_AVX1;
         cpuFeatures |= CFS_AVX2;
         cpuFeatures |= CFS_FMA;
+        cpuFeatures |= CFS_BMI;
+        cpuFeatures |= CFS_BMI2;
     }
 
     // Add forced features
@@ -199,6 +201,14 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
     if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-fma" ) != forcedFeatures.end())
     {
         cpuFeatures &= ~CFS_FMA;
+    }
+    if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-bmi" ) != forcedFeatures.end())
+    {
+        cpuFeatures &= ~CFS_BMI;
+    }
+    if( std::find( forcedFeatures.begin(), forcedFeatures.end(), "-bmi2" ) != forcedFeatures.end())
+    {
+        cpuFeatures &= ~CFS_BMI2;
     }
 
     return cpuFeatures;
@@ -269,22 +279,26 @@ void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuF
 
     bool DisableAVX = false;
     // if we autodetected the SandyBridge CPU and a user didn't forced us to use AVX256 - disable it if not supported
-    if( CPU_ARCH_AUTO == cpuName)
+    if (cpuName == CPU_ARCH_AUTO)
     {
-        if( Intel::CPU_SANDYBRIDGE == selectedCpuId)
+        CPUId cpuId = Utils::CPUDetect::GetInstance()->GetCPUId();
+        if (selectedCpuId == Intel::CPU_SANDYBRIDGE)
         {
             if( std::find( m_forcedCpuFeatures.begin(), m_forcedCpuFeatures.end(), "+avx" ) == m_forcedCpuFeatures.end() )
             {
                 // check if the OS is AVX ready - if not, need to disable AVX at all
-                bool AVXReadyOS = Utils::CPUDetect::GetInstance()->GetCPUId().HasAVX1();
-
-                // if the OS is not AVX ready so disable AVX code generation
-                if (false == AVXReadyOS)
+                if (!cpuId.HasAVX1())
                 {
                     m_forcedCpuFeatures.push_back("-avx");
                     DisableAVX = true;
                 }
             }
+        }
+        else if (selectedCpuId == Intel::CPU_HASWELL) {
+            if (!cpuId.IsFeatureOn(CFS_BMI))
+                m_forcedCpuFeatures.push_back("-bmi");
+            if (!cpuId.IsFeatureOn(CFS_BMI2))
+                m_forcedCpuFeatures.push_back("-bmi2");
         }
     }
 
@@ -392,7 +406,6 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
 
     if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT")) {
         Options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
-        localCpuFeatures.push_back("+fma"); // otherwise AllowFPOpFusion will not work
     } else {
         Options.AllowFPOpFusion = llvm::FPOpFusion::Standard;
     }
@@ -418,7 +431,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
 
     llvm::formatted_raw_ostream fos(out);
 
-    pTargetMachine->addPassesToEmitFile(pm, fos, TargetMachine::CGFT_AssemblyFile, CodeGenOpt::Default);
+    pTargetMachine->addPassesToEmitFile(pm, fos, TargetMachine::CGFT_AssemblyFile, /*DisableVerify*/ true);
     pm.run(*pModule);
 
 }

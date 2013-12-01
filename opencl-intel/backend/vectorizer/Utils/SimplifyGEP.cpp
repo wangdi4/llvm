@@ -10,6 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "llvm/Support/InstIterator.h"
+#include "llvm/Version.h"
 #include <vector>
 
 namespace intel {
@@ -26,10 +27,10 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
   bool SimplifyGEP::runOnFunction(Function &F) {
     // obtain TagetData of the module
-#if LLVM_VERSION == 3200
-    m_pDL = getAnalysisIfAvailable<DataLayout>();
-#else
+#if LLVM_VERSION == 3425
     m_pDL = getAnalysisIfAvailable<TargetData>();
+#else
+    m_pDL = getAnalysisIfAvailable<DataLayout>();
 #endif
 
     // Obtain WIAnalysis of the function
@@ -46,6 +47,13 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     changed = FixMultiIndicesGEP(F) || changed;
 
     return changed;
+  }
+
+  static bool isPhiPtrToPrimitive(const PHINode* pPhiNode) {
+    V_ASSERT(pPhiNode && "Got a null argument");
+    PointerType *PT = dyn_cast<PointerType>(pPhiNode->getType());
+    return PT && (PT->getElementType()->isFloatingPointTy() ||
+           PT->getElementType()->isIntegerTy());
   }
 
   bool SimplifyGEP::FixPhiNodeGEP(Function &F) {
@@ -77,9 +85,8 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       unsigned int iterEntry = worklist[iter].second;
       unsigned int initEntry = 1-iterEntry;
 
-      V_ASSERT((cast<PointerType>(pPhiNode->getType())->getElementType()->isFloatingPointTy() ||
-        cast<PointerType>(pPhiNode->getType())->getElementType()->isIntegerTy()) &&
-        "PhiNode type is not primitive!");
+      V_ASSERT(isPhiPtrToPrimitive(pPhiNode) &&
+        "PhiNode type is not a pointer to a primitive!");
 
       // pInitialValue - the initial value of the PhiNode.
       // pIterValue - the iteration value of the PhiNode.
@@ -309,8 +316,8 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
   }
 
   int SimplifyGEP::SimplifiablePhiNode(PHINode *pPhiNode) {
-    if(pPhiNode->getNumIncomingValues() != 2 || !pPhiNode->getType()->isPointerTy()) {
-      // This is not a supported case for simplifying PhiNode.
+    // This is not a supported case for simplifying PhiNode.
+    if (pPhiNode->getNumIncomingValues() != 2 || !isPhiPtrToPrimitive(pPhiNode)) {
       return -1;
     }
     // Now only need to check that one of the entries is a GEP with the PhiNode as its base.

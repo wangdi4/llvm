@@ -61,7 +61,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         static SharedPtr<GLContext> Allocate(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices,
             SharedPtr<FissionableDevice>*ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
-            cl_context_properties hDC, cl_context_properties hGLCtx, ocl_gpa_data * pGPAData, const ContextModule& contextModule)
+            cl_context_properties hDC, cl_context_properties hGLCtx, ocl_gpa_data * pGPAData, ContextModule& contextModule)
         {
             return SharedPtr<GLContext>(new GLContext(clProperties, uiNumDevices, uiNumRootDevices,
                 ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, hDC, hGLCtx, pGPAData, contextModule));
@@ -69,7 +69,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices,
             SharedPtr<FissionableDevice>*ppDevices, logging_fn pfnNotify, void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
-            cl_context_properties hDC, cl_context_properties hGLCtx, ocl_gpa_data * pGPAData, const ContextModule& contextModule);
+            cl_context_properties hDC, cl_context_properties hGLCtx, ocl_gpa_data * pGPAData, ContextModule& contextModule);
 
 		cl_context_properties GetDC() const { return m_hDC;}
 		cl_context_properties GetGLCtx() const { return m_hGLCtx;}

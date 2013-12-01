@@ -28,8 +28,8 @@ File Name:  OpenCLReferenceRunner.h
 #include "IRunResult.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/Function.h"
-#include "llvm/Type.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Type.h"
 #include "DynamicLib.h"
 #include "OpenCLRunConfiguration.h"
 #include "OpenCLProgramConfiguration.h"
@@ -47,7 +47,7 @@ namespace Validation
     {
     public:
         /// @brief Constructor
-        OpenCLReferenceRunner(bool bUseNEAT, bool bUseFmaNEAT);
+        OpenCLReferenceRunner(bool bUseNEAT);
 
         /// @brief Destructor
         virtual ~OpenCLReferenceRunner(void);

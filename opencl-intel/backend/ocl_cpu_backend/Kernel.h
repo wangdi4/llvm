@@ -25,7 +25,7 @@ File Name:  Kernel.h
 #include <map>
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
-
+#include "RuntimeService.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -60,6 +60,7 @@ public:
 
     Kernel(const std::string& name,
            const std::vector<cl_kernel_argument>& args,
+           const std::vector<unsigned int>& memArgs,
            KernelProperties* pProps);
 
     virtual ~Kernel();
@@ -102,7 +103,7 @@ public:
      *  In success will return the kernel arguments information; otherwise, NULL 
      *  value will be returned
      */
-	virtual const cl_kernel_argument_info* GetKernelArgInfo() const;
+    virtual const cl_kernel_argument_info* GetKernelArgInfo() const;
 
     /**
      * Gets the description of the kernel body, the returned object contains all the kernel
@@ -111,6 +112,31 @@ public:
      * @returns reference to IKernelDescription object
      */
     virtual const ICLDevBackendKernelProporties* GetKernelProporties() const;
+
+    /**
+     * @param pointer Pointer to an instruction contained in this kernel's
+     * JITted code.
+     * @returns the the source line number from which the instruction
+     * pointed to was compiled. If the pointer does not point to an
+     * instruction in this kernel, or if line number information is missing,
+     * this returns -1.
+     */
+    virtual int GetLineNumber(void* pointer) const;
+
+     /**
+     * @returns the size of argument/parameter buffer requried by the kernel
+     */
+     virtual size_t GetArgumentBufferSize() const;
+
+     /**
+     * @returns the number of memory object arguments passed to the kernel
+     */
+     virtual unsigned int GetMemoryObjectArgumentCount() const;
+
+     /**
+     * @returns the array of indexes of memory object arguments passed to the kernel
+     */
+     virtual const unsigned int* GetMemoryObjectArgumentIndexes() const;
 
     /*
      * Kernel class methods
@@ -147,13 +173,30 @@ public:
      */ 
     void CreateWorkDescription( const cl_work_description_type* pInputWorkSizes, 
                                 cl_work_description_type&       outputWorkSizes) const;
+    /**
+     * get RuntimeService
+     */ 
+    RuntimeServiceSharedPtr GetRuntimeService() const {
+      return m_RuntimeService;
+    }
+
+    /**
+     * set RuntimeService
+     */ 
+    void SetRuntimeService(const RuntimeServiceSharedPtr& rs ){
+      assert(rs.get() && "RuntimeService is non-initialized");
+      m_RuntimeService = rs;
+    }
 
 protected:
 
     std::string m_name;
-    std::vector<cl_kernel_argument> m_args;
-    KernelProperties* m_pProps;
-    std::vector<IKernelJITContainer*> m_JITs;
+    std::vector<cl_kernel_argument>     m_args;
+    std::vector<unsigned int>           m_memArgs;
+    KernelProperties*                   m_pProps;
+    std::vector<IKernelJITContainer*>   m_JITs;
+    // RuntimeService. Refcounted
+    RuntimeServiceSharedPtr             m_RuntimeService;
 
 private:
     // Disable copy ctor and assignment operator

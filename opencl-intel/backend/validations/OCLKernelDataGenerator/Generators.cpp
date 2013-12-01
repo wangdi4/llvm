@@ -24,6 +24,27 @@ File Name: Generators.cpp
 
 namespace Validation {
 
+    static ImageSizeDesc ProcessImageSizeDesc(const ImageSizeDesc desc, const ImageTypeVal type)
+    {
+        ImageSizeDesc ret = desc;
+
+        if(ret.width == 0)
+            throw Exception::InvalidArgument(
+                "[::ProcessImageSizeDesc]Size corrupted.: sezo width");
+
+        if(type == OpenCL_MEM_OBJECT_IMAGE1D_ARRAY)
+            ret.height = ret.array_size;
+        else if(type == OpenCL_MEM_OBJECT_IMAGE2D_ARRAY)
+            ret.depth = ret.array_size;
+
+        if(ret.height == 0)
+            ret.height = 1;//at least one column
+        if(ret.depth == 0)
+            ret.depth = 1;//at least one slice
+
+        return ret;
+    }
+
     void AbstractBufferGenerator::Generate(const IMemoryObject *ptr)
     {
         // check IMemoryObject *ptr is Buffer
@@ -69,25 +90,168 @@ namespace Validation {
         GenerateBuffer(p, n_elemsTotal, elemDesc.GetSizeInBytes());
     }
 
-    template<typename T>
-    void BufferConstGenerator<T>::GenerateBuffer(void *p, uint64_t n_elems, uint64_t stride)
+    void AbstractImageGenerator::Generate(const IMemoryObject *ptr)
     {
-        uint8_t* ptr =(uint8_t*)p;
-        for(uint64_t i=0; i<n_elems; ++i){
-            ptr = (uint8_t*)p + i*stride;
-            *((T*)ptr) = m_fillVal;
+        // check IMemoryObject *ptr is Buffer
+        if(ptr->GetName() != Image::GetImageName())
+        {
+            throw Exception::InvalidArgument(
+                "[AbstractImageGenerator::Generate]Image expected");
+        }
+        ImageDesc imdesc = GetImageDescription(ptr->GetMemoryObjectDesc());
+        ImageSizeDesc size = ProcessImageSizeDesc(imdesc.GetSizesDesc(), imdesc.GetImageType());
+
+        //position in MEMORY_OBJECT
+        uint8_t* p = (uint8_t*)ptr->GetDataPtr();
+        for(uint64_t d = 0; d < size.depth; ++d)
+        {
+            //position in current slice
+            uint8_t* p_slice = p;
+            for(uint64_t h = 0; h < size.height; ++h)
+            {
+                //generate one single scan line
+                GenerateImage(p_slice, size.width, imdesc);
+                p_slice += size.row;
+            }
+            p += size.slice;
         }
     }
 
-    template <> float BufferRandomGenerator<float>::GetRandomValue(const RandomUniformProvider& r) const
-    { return r.sample_f32(); }
-    template <> double BufferRandomGenerator<double>::GetRandomValue(const RandomUniformProvider& r) const
-    { return r.sample_f64(); }
-    template <typename T> T BufferRandomGenerator<T>::GetRandomValue(const RandomUniformProvider& r) const
-    { 
-        IsIntegerType<T> _notUsed;
-        UNUSED_ARGUMENT(_notUsed);
-        return r.sample_u64(); 
+    void ImageRandomGenerator::GenerateImage(const void* p, const uint64_t pixels_in_row, const ImageDesc &imdesc)
+    {
+        uint8_t* p_row = (uint8_t*)p;
+        for(uint64_t i = 0; i < pixels_in_row; ++i)
+        {
+            GenerateAndPackPixel(p_row, imdesc);
+            p_row += ImageDesc::CalcPixelSizeInBytes(imdesc.GetImageChannelDataType(), imdesc.GetImageChannelOrder());
+        }
+    }
+
+    template<typename T>
+    static void PackPixel(const void* p, const void* pixel, const ImageChannelOrderVal order){
+        uint32_t channelCount = GetChannelCount(order);
+
+        for(uint32_t i = 0; i<channelCount; ++i)
+        {
+            ( (T*)p )[i] = ( (T*)pixel )[i];
+        }
+    }
+
+    void ImageRandomGenerator::GenerateAndPackPixel(const void* p, const ImageDesc &imdesc)
+    {
+        ImageChannelDataTypeValWrapper DataTypeWrapper(imdesc.GetImageChannelDataType());
+        void *pixel = new uint8_t[DataTypeWrapper.GetSize()*4];
+        
+#define GENERATE_AND_PACK_PIX_CASE(DATA_TYPE) case DATA_TYPE:\
+            for(uint32_t i =0; i<4; ++i)\
+            {\
+                ((ImageChannelDataTypeValToCType<DATA_TYPE>::type*)pixel)[i] =\
+                RandomGeneratorInterfaceProvider<ImageChannelDataTypeValToCType<DATA_TYPE>::type>::sample(GetRandomUniformProvider());\
+            }\
+            PackPixel<ImageChannelDataTypeValToCType<DATA_TYPE>::type>(p, pixel, imdesc.GetImageChannelOrder());\
+            break;
+        
+        switch(imdesc.GetImageChannelDataType())
+        {
+            //filter all specific channledatat types here
+        GENERATE_AND_PACK_PIX_CASE(OpenCL_SNORM_INT8)
+        GENERATE_AND_PACK_PIX_CASE(OpenCL_SNORM_INT16)
+        GENERATE_AND_PACK_PIX_CASE(OpenCL_UNORM_INT8)
+        GENERATE_AND_PACK_PIX_CASE(OpenCL_UNORM_INT16)
+        GENERATE_AND_PACK_PIX_CASE(OpenCL_SIGNED_INT8)
+        GENERATE_AND_PACK_PIX_CASE(OpenCL_SIGNED_INT16)
+        GENERATE_AND_PACK_PIX_CASE(OpenCL_SIGNED_INT32)
+        GENERATE_AND_PACK_PIX_CASE(OpenCL_UNSIGNED_INT8)
+        GENERATE_AND_PACK_PIX_CASE(OpenCL_UNSIGNED_INT16)
+        GENERATE_AND_PACK_PIX_CASE(OpenCL_UNSIGNED_INT32)
+        GENERATE_AND_PACK_PIX_CASE(OpenCL_HALF_FLOAT)
+        GENERATE_AND_PACK_PIX_CASE(OpenCL_FLOAT)
+            //special cases
+        case OpenCL_UNORM_SHORT_565:
+        {
+            //for CL_RGB and CL_RGBx images
+            uint16_t packed_pixel = 0, color,
+                *u16Pixel = (uint16_t*)pixel;
+            for(uint32_t i = 0; i < 4; ++i)
+            {
+                u16Pixel[i] = RandomGeneratorInterfaceProvider<uint16_t>::sample(GetRandomUniformProvider());
+            }
+            color = u16Pixel[0];
+            packed_pixel |= (color & 0x1F) << 11;
+
+            color = u16Pixel[1];
+            packed_pixel |= (color & 0x3F) << 6;
+
+            color = u16Pixel[2];
+            packed_pixel |= (color & 0x1F);
+
+            *( (uint16_t*)p ) = packed_pixel;
+            break;
+        }
+        case OpenCL_UNORM_SHORT_555:
+        {
+            //for CL_RGB and CL_RGBx images
+            uint16_t packed_pixel = 0, color,
+                *u16Pixel = (uint16_t*)pixel;
+            for(uint32_t i = 0; i < 4; ++i)
+            {
+                u16Pixel[i] = RandomGeneratorInterfaceProvider<uint16_t>::sample(GetRandomUniformProvider());
+            }
+            color = u16Pixel[0];
+            packed_pixel |= (color & 0x1F) << 11;
+
+            color = u16Pixel[1];
+            packed_pixel |= (color & 0x1F) << 6;
+
+            color = u16Pixel[2];
+            packed_pixel |= (color & 0x1F) << 1;
+
+            color = u16Pixel[3];
+            packed_pixel |= (color & 0x1);//ignored x-bit in RGBx
+
+            *( (uint16_t*)p ) = packed_pixel;
+            break;
+        }
+        case OpenCL_UNORM_INT_101010:
+        {
+            //for CL_RGB and CL_RGBx images
+            uint32_t packed_pixel = 0, color,
+                *u32Pixel = (uint32_t*)pixel;
+            for(uint32_t i = 0; i < 4; ++i)
+            {
+                u32Pixel[i] = RandomGeneratorInterfaceProvider<uint32_t>::sample(GetRandomUniformProvider());
+            }
+            color = u32Pixel[0];
+            packed_pixel |= (color & 0x3FF) << 22;
+
+            color = u32Pixel[1];
+            packed_pixel |= (color & 0x3FF) << 12;
+
+            color = u32Pixel[2];
+            packed_pixel |= (color & 0x3FF) << 2;
+
+            color = u32Pixel[3];
+            packed_pixel |= (color & 0x3);//ignored x-bit in RGBx
+
+            *( (uint32_t*)p ) = packed_pixel;
+            break;
+        }
+        default:
+            delete [] (uint8_t*)pixel;
+            throw Exception::InvalidArgument("[ImageRandomGenerator::GenerateAndPackPixel]\
+                                             Attept to generate image with unsupported image channel data type");
+        }
+        delete [] (uint8_t*)pixel;
+    }
+
+    template<typename T>
+    void BufferConstGenerator<T>::GenerateBuffer(void *p, uint64_t n_elems, uint64_t stride)
+    {
+        uint8_t* ptr = (uint8_t*)p;
+        for(uint64_t i = 0; i < n_elems; ++i){
+            ptr = (uint8_t*)p + i*stride;
+            *((T*)ptr) = m_fillVal;
+        }
     }
 
     template<typename T>
@@ -95,24 +259,24 @@ namespace Validation {
     {
         IsScalarType<T> _notUsed;
         UNUSED_ARGUMENT(_notUsed);
-        uint8_t* ptr =(uint8_t*)p;
-        for(uint64_t i=0; i<n_elems; ++i){
+        uint8_t* ptr = (uint8_t*)p;
+        for(uint64_t i=0; i < n_elems; ++i){
             ptr = (uint8_t*)p + i*stride;
-            *((T*)ptr) = GetRandomValue(GetRandomUniformProvider());
+            *((T*)ptr) = RandomGeneratorInterfaceProvider<T>::sample(GetRandomUniformProvider());
         }
     }
 
     void BufferStructureGenerator::GenerateBuffer(void *p, uint64_t n_elems, uint64_t stride){
-        uint8_t* ptr=(uint8_t*)p;
+        uint8_t* ptr = (uint8_t*)p;
         uint8_t *local_ptr;
 
         TypeDesc subElem;
-        if(GetElementDesc().GetType()!=TSTRUCT)
+        if(GetElementDesc().GetType() != TSTRUCT)
             throw Exception::InvalidArgument(
             "[BufferStructureGenerator::GenerateBuffer] incorrect type descriptor in structure generator");
 
 
-        for(uint64_t i =0; i< getSubGenerators().size(); ++i){
+        for(uint64_t i = 0; i < getSubGenerators().size(); ++i){
             uint64_t numDereferencedElems=1;
             subElem=m_headDesc.GetSubTypeDesc(i);
 
@@ -133,13 +297,13 @@ namespace Validation {
             }
 
             getSubGenerators()[i]->SetElementDesc(GetElementDesc().GetSubTypeDesc(i));
-            local_ptr =ptr;
-            for(uint64_t j=0; j<numDereferencedElems; ++j)
+            local_ptr = ptr;
+            for(uint64_t j = 0; j < numDereferencedElems; ++j)
             {
                 getSubGenerators()[i]->GenerateBuffer(local_ptr, n_elems, GetElementDesc().GetSizeInBytes());
-                local_ptr+=subElem.GetSizeInBytes();
+                local_ptr += subElem.GetSizeInBytes();
             }
-            ptr+=GetElementDesc().GetSubTypeDesc(i).GetSizeInBytes(); //goto next structure member
+            ptr += GetElementDesc().GetSubTypeDesc(i).GetSizeInBytes(); //goto next structure member
         }
     }
 
@@ -181,14 +345,20 @@ namespace Validation {
             AbstractGeneratorConfigVector::const_iterator it;
             AbstractGeneratorConfig* acfg = const_cast<AbstractGeneratorConfig*>(cfg);
 
-            BufferStructureGenerator* g =new BufferStructureGenerator(rng);
+            BufferStructureGenerator* g = new BufferStructureGenerator(rng);
 
-            for(it = static_cast<BufferStructureGeneratorConfig*>(acfg)->getConfigVector().begin(); it!=static_cast<BufferStructureGeneratorConfig*>(acfg)->getConfigVector().end(); ++it)
+            for(it = static_cast<BufferStructureGeneratorConfig*>(acfg)->getConfigVector().begin();
+                it != static_cast<BufferStructureGeneratorConfig*>(acfg)->getConfigVector().end();
+                ++it)
             {
                 g->getSubGenerators().push_back(static_cast<AbstractBufferGenerator *>(create(*it, rng)));
             }
 
-            res=g;
+            res = g;
+        }
+        else if(name == ImageRandomGeneratorConfig::getStaticName())
+        {
+            res = new ImageRandomGenerator(rng);
         }
         else
             throw Exception::GeneratorBadTypeException("[GeneratorFACTORY::create]wrong generator name");

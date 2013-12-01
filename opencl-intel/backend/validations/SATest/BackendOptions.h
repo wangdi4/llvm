@@ -21,7 +21,7 @@ File Name:  BackendOptions.h
 #include "OpenCLRunConfiguration.h"
 #include "Exception.h"
 
-#if defined(INCLUDE_MIC_DEVICE)
+#if defined(SATEST_INCLUDE_MIC_DEVICE)
 #include "MICNative/common.h"
 #endif
 
@@ -183,7 +183,7 @@ protected:
     bool m_dumpHeuristcIR;
 };
 
-#if defined(INCLUDE_MIC_DEVICE)
+#if defined(SATEST_INCLUDE_MIC_DEVICE)
 class MICBackendOptions: public ICLDevBackendOptions
 {
 public:
@@ -352,7 +352,7 @@ private:
     bool           m_useVTune;
     std::string    m_fileName;
 };
-#endif // INCLUDE_MIC_DEVICE
+#endif // SATEST_INCLUDE_MIC_DEVICE
 
 /**
  * Description of ENABLE_SDE mode for MIC:
@@ -432,7 +432,7 @@ public:
             if(*pSize < m_targetDescSize) return false;
             memcpy(Value, m_pTargetDesc, m_targetDescSize);
             return true;
-#if defined(INCLUDE_MIC_DEVICE)
+#if defined(SATEST_INCLUDE_MIC_DEVICE)
         case CL_DEV_BACKEND_OPTION_BUFFER_PRINTER:
             if (isMIC())
             {
@@ -468,7 +468,7 @@ private:
 private:
     size_t m_targetDescSize;
     char*  m_pTargetDesc;
-#if defined(INCLUDE_MIC_DEVICE)
+#if defined(SATEST_INCLUDE_MIC_DEVICE)
     MICBackendPrintfFiller m_printer;
 #endif
 };

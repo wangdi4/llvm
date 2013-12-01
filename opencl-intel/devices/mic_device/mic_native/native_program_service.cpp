@@ -333,7 +333,7 @@ cl_dev_err_code ProgramService::add_program(
             NATIVE_PRINTF("ProgramService::add_program: Cannot reserve %lu executable bytes for passed program\n",required_exec_size );
 
             delete prog_entry;
-			return CL_DEV_OUT_OF_MEMORY;
+            return CL_DEV_OUT_OF_MEMORY;
         }
     }
     else
@@ -341,9 +341,9 @@ cl_dev_err_code ProgramService::add_program(
         prog_entry->exec_memory_manager = NULL;
     }
 
-	// setup TLS with execution memory allocator, which is required by DeSerialize
-	TlsAccessor tlsAccessor;
-	ProgramServiceTls tls(&tlsAccessor);
+    // setup TLS with execution memory allocator, which is required by DeSerialize
+    TlsAccessor tlsAccessor;
+    ProgramServiceTls tls(&tlsAccessor);
     tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, prog_entry->exec_memory_manager);
 
     // 2. Deserialize program
@@ -479,34 +479,6 @@ void  ProgramService::RemoveProgramEntry( TProgramEntry* prog_entry )
     delete prog_entry;
 }
 
-// get kernel
-// called by worker and pipeline threads
-bool ProgramService::get_kernel(
-                 uint64_t device_info_ptr,
-                 const ICLDevBackendKernel_** kernel)
-{
-    assert( (NULL!=kernel) && (0 != device_info_ptr) && "Invalid arguments passed");
-    if ( (NULL==kernel) || (0 == device_info_ptr) )
-    {
-        return false;
-    }
-
-    TKernelEntry* k_entry = (TKernelEntry*)(size_t)device_info_ptr;
-
-    // try to touch
-    if (TKernelEntry::marker_value != k_entry->marker)
-    {
-        // error
-        assert( false && "SINK: ProgramService::get_kernel: wrong device kernel info pointer passed" );
-        NATIVE_PRINTF("ProgramService::get_kernel: wrong device kernel info pointer passed: %lu\n", device_info_ptr );
-        return false;
-    }
-
-   *kernel = k_entry->kernel;
-
-    return true;
-}
-
 #ifdef USE_ITT
 __itt_string_handle* ProgramService::get_itt_kernel_name(uint64_t device_info_ptr)
 {
@@ -534,12 +506,12 @@ __itt_domain* ProgramService::get_itt_kernel_domain(uint64_t device_info_ptr)
 #endif
 
 cl_dev_err_code ProgramService::create_binary( const ICLDevBackendKernel_* pKernel,
-		                           char* pLockedParams,
-								   uint64_t argSize,
-								   cl_work_description_type* pWorkDesc,
-								   ICLDevBackendBinary_** ppOutBinary ) const
+                                               char* pLockedParams,
+                                               uint64_t argSize,
+                                               cl_work_description_type* pWorkDesc,
+                                               ICLDevBackendBinary_** ppOutBinary ) const
 {
-	return GetExecutionService()->CreateBinary(pKernel, pLockedParams, argSize, pWorkDesc, ppOutBinary);
+    return GetExecutionService()->CreateBinary(pKernel, pLockedParams, argSize, pWorkDesc, ppOutBinary);
 }
 
 cl_dev_err_code ProgramService::create_executable(ICLDevBackendExecutable_** ppExecutable) const

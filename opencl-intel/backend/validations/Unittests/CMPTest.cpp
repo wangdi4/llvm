@@ -1074,3 +1074,74 @@ TEST(Comparator, NEATSpecialStatus)
     TestFloatSpecialStatusNeat<double>(F64);
 
 }
+
+struct boolSet {
+    bool actFail;
+    bool refFail;
+    bool neatFail;
+    bool actOk;
+    bool refOk;
+};
+
+static void checkString(const std::string in, boolSet* res) {
+
+    std::string actFail("Actual (Fail, outside NEAT)");
+    std::string refFail("Reference (Fail, outside NEAT)");
+    std::string neatFail("SATest is not able to produce correct reference results; a bug in reference compiler/NEAT is supposed");
+    std::string actOk("Actual (Ok, inside NEAT)");
+    std::string refOk("Reference (Ok, inside NEAT)");
+
+    std::size_t foundActFail = in.find(actFail);
+    std::size_t foundRefFail = in.find(refFail);
+    std::size_t foundNeat = in.find(neatFail);
+    std::size_t foundActOk = in.find(actOk);
+    std::size_t foundRefOk = in.find(refOk);
+
+    res->actFail = foundActFail != std::string::npos;
+    res->refFail = foundRefFail != std::string::npos;
+    res->neatFail = foundNeat != std::string::npos;
+    res->actOk = foundActOk != std::string::npos;
+    res->refOk = foundRefOk != std::string::npos;
+
+}
+
+/// @brief Tests comparator ability to produce correct text output if Actual or Reference
+/// or both these values are outside the NEAT interval
+TEST(Comparator, MismatchedValToString)
+{
+    // actually the values are not compared here, the text output is determinied by two last parameters of
+    // constructor of MismatchedVal struct only: bool actMissed - "true" means that actual value is out of NEAT interval,
+    // and bool refMissed - "true" means that reference value is out of NEAT interval
+    // so we only need to have valid values for NEAT, reference and actual
+    NEATValue inNEAT(0.49999999,0.50000001);
+    float inRef[1] = {0.5};
+    float inAct[1] = {0.5};
+    const IComparisonResults::Index index;
+
+    // test both actual outside NEAT and  reference outside NEAT
+    IComparisonResults::MismatchedVal val0( index, NULL, &inRef, &inAct, &inNEAT, true, true);
+
+    boolSet res;
+    checkString(val0.ToString(), &res);
+
+    EXPECT_TRUE( res.actFail && res.refFail && res.neatFail && (!res.actOk) && (!res.refOk) );
+
+    // test actual outside NEAT and reference inside NEAT
+    IComparisonResults::MismatchedVal val1( index, NULL, &inRef, &inAct, &inNEAT, true, false);
+    checkString(val1.ToString(), &res);
+
+    EXPECT_TRUE( res.actFail && (!res.refFail) && (!res.neatFail) && (!res.actOk) && res.refOk );
+
+    // test actual inside NEAT and reference outside NEAT
+    IComparisonResults::MismatchedVal val2( index, NULL, &inRef, &inAct, &inNEAT, false, true);
+    checkString(val2.ToString(), &res);
+
+    EXPECT_TRUE( (!res.actFail) && res.refFail && res.neatFail && res.actOk && (!res.refOk) );
+
+    // test both actual and reference inside NEAT
+    IComparisonResults::MismatchedVal val3( index, NULL, &inRef, &inAct, &inNEAT, false, false);
+    checkString(val3.ToString(), &res);
+
+    EXPECT_TRUE( (!res.actFail) && (!res.refFail) && (!res.neatFail) && res.actOk && res.refOk );
+
+}

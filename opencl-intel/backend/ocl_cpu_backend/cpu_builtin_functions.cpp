@@ -60,18 +60,6 @@ using namespace Intel::OpenCL::DeviceBackend;
 #define OclCpuBackEnd_EXPORTS
 #endif
 
-// macro will return the address of instruction which will be 
-// run after return from current function
-// reason for using macro instead of inline function is
-// that inlined function returns address from caller function of inlined function
-// not the caller function of function which invoked inlined function
-// using macro makes sure correct _ReturnAddress of caller will be obtained
-#if defined(_WIN32)
-#define GET_RET_ADDR() ((size_t)_ReturnAddress())
-#else
-#define GET_RET_ADDR() ((size_t) __builtin_return_address(0))
-#endif
-
 
 /*****************************************************************************************************************************
 *    Synchronization functions (Section 6.11.9)
@@ -83,110 +71,6 @@ extern "C" LLVM_BACKEND_API void cpu_dbg_print(const char* fmt, ...)
 
   vprintf(fmt, va);
   va_end( va );
-}
-
-typedef size_t event_t;
-extern "C" LLVM_BACKEND_API void shared_lwait_group_events(int num_events, event_t *event_list, CallbackContext* pContext);
-
-// usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy_l2g(char* pDst, char* pSrc, size_t numElem, event_t event,
-                                size_t elemSize, CallbackContext* pContext) LLVM_BACKEND_NOINLINE_POST;
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy_l2g(char* pDst, char* pSrc, size_t numElem, event_t event,
-                                size_t elemSize, CallbackContext* pContext)
-{
-  assert(pContext && "Invalid context pointer");
-  
-  // make event ID as instruction address in caller function that
-  // will be executed after built-in returns
-  
-  // purpose of int_event is to handle situations when input event is not zero
-  // this means that some previous async_copy call created event
-  // we need to make sure that current async_copying was done and
-  // not only async_copying that created event
-  event_t int_event = GET_RET_ADDR();
-  
-  // if input event is zero create event from internal event
-  if ( 0 == event )
-  {
-    event = int_event;
-  }
-
-  // Check if copy is required for this invokation of BI
-  if ( !pContext->SetAndCheckAsyncCopy(int_event) )
-    return event;
-
-  size_t  uiBytesToCopy = numElem*elemSize;
-  bool bUseSSE = (!(((size_t)pDst) & 0xF)) && (!((uiBytesToCopy) & 0xF));
-  if ( bUseSSE )
-  {
-    for (unsigned int i=0; i<uiBytesToCopy; i+=16)
-    {
-#ifdef __SSE4_1__
-      __m128i  xmmTmp = _mm_lddqu_si128((__m128i*)(pSrc+i));
-      _mm_stream_si128((__m128i*)(pDst+i), xmmTmp);      // TODO: check performance implication of streaming instruction
-#else
-      __m128i  xmmTmp = _mm_load_si128((__m128i*)(pSrc+i));
-      _mm_store_si128((__m128i*)(pDst+i), xmmTmp);      // TODO: check performance implication of streaming instruction
-#endif
-      
-    }
-    return event;
-  }
-
-  // else use memcpy
-  std::copy(pSrc, pSrc + uiBytesToCopy, pDst);
-  //memcpy(pDst, pSrc, uiBytesToCopy);
-
-  return event;
-}
-
-// usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy_g2l(char* pDst, char* pSrc, size_t numElem, event_t event,
-                              size_t elemSize, CallbackContext* pContext) LLVM_BACKEND_NOINLINE_POST;
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t cpu_lasync_wg_copy_g2l(char* pDst, char* pSrc, size_t numElem, event_t event,
-                              size_t elemSize, CallbackContext* pContext)
-{
-  assert(pContext && "Invalid context pointer");
-
-  // make event ID as instruction address in caller function that
-  // will be executed after built-in returns
-  
-  // purpose of int_event is to handle situations when input event is not zero
-  // this means that some previous async_copy call created event
-  // we need to make sure that current async_copying was done and
-  // not only async_copying that created event
-  event_t int_event = GET_RET_ADDR();
-  
-  // if input event is zero create event from internal event
-  if ( 0 == event )
-  {
-    event = int_event;
-  }
-
-  // Check if copy is required for this invokation of BI
-  if ( !pContext->SetAndCheckAsyncCopy(int_event) )
-    return event;
-
-  size_t  uiBytesToCopy = numElem*elemSize;
-  bool bUseSSE = (!(((size_t)pDst) & 0xF)) && (!(((size_t)pSrc) & 0xF)) && (!((uiBytesToCopy) & 0xF));
-  if ( bUseSSE )
-  {
-    for (unsigned int i=0; i<uiBytesToCopy; i+=16)
-    {
-#ifdef __SSE4_1__
-      __m128i  xmmTmp = _mm_stream_load_si128((__m128i*)(pSrc+i)); // TODO: check performance implication of streaming instruction
-#else
-      __m128i  xmmTmp = _mm_load_si128((__m128i*)(pSrc+i));
-#endif
-      _mm_store_si128((__m128i*)(pDst+i), xmmTmp);
-    }
-    return event;
-  }
-
-  // else use memcpy
-  std::copy(pSrc, pSrc + uiBytesToCopy, pDst);
-  //memcpy(pDst, pSrc, uiBytesToCopy);
-  return event;
 }
 
 extern "C" LLVM_BACKEND_API void cpu_lprefetch(const char* ptr, size_t numElements, size_t elmSize)
@@ -205,13 +89,6 @@ extern "C" LLVM_BACKEND_API unsigned long long cpu_get_time_counter()
   return Intel::OpenCL::DeviceBackend::Utils::SystemInfo::HostTime();
 }
 
-// New functions for 1.1
-// usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_l2g(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event, size_t elemSize, CallbackContext* pContext) ;
-
-// usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE event_t shared_lasync_wg_copy_strided_g2l(char* pDst, char* pSrc, size_t numElem, size_t stride, event_t event,size_t elemSize, CallbackContext* pContext);
-
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
 extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, CallbackContext* pContext);
 extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, CallbackContext* pContext);
@@ -221,6 +98,43 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_stoppoin
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_enter_function(uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_exit_function(uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 
+// OpenCL20. Extended execution
+class ExtendedExecutionContext;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE queue_t* ocl20_get_default_queue( ExtendedExecutionContext * pEEC);
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_marker( queue_t* queue, uint32_t num_events_in_wait_list, const clk_event_t* event_wait_list, clk_event_t* event_ret, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_basic( queue_t* queue, kernel_enqueue_flags_t flags, cl_work_description_type* ndrange, 
+  void *block, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_events(queue_t* queue, kernel_enqueue_flags_t flags, cl_work_description_type* ndrange,
+        unsigned num_events_in_wait_list, clk_event_t *in_wait_list, clk_event_t *event_ret,
+        void *block, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_localmem( queue_t* queue, kernel_enqueue_flags_t flags, cl_work_description_type* ndrange, 
+  void *block, unsigned *localbuf_size, unsigned localbuf_size_len, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_events_localmem( queue_t* queue, kernel_enqueue_flags_t flags, cl_work_description_type* ndrange,
+        unsigned num_events_in_wait_list, clk_event_t *in_wait_list, clk_event_t *event_ret,
+        void *block, unsigned *localbuf_size, unsigned localbuf_size_len, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_retain_event( clk_event_t* event, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_release_event( clk_event_t* event, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE clk_event_t ocl20_create_user_event(ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void ocl20_set_user_event_status(clk_event_t* event, uint32_t status, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void ocl20_capture_event_profiling_info(clk_event_t* event, clk_profiling_info name, uint64_t *value, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t ocl20_get_kernel_wg_size(void *block, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t ocl20_get_kernel_wg_size_local(void *block, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t ocl20_get_kernel_preferred_wg_size_multiple(void *block, ExtendedExecutionContext * pEEC);
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t ocl20_get_kernel_preferred_wg_size_multiple_local(void *block, ExtendedExecutionContext * pEEC);
+
 //Register BI functions defined above
 #define REGISTER_BI_FUNCTION(name,ptr) \
   llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name), (void*)(intptr_t)ptr);
@@ -228,13 +142,8 @@ void RegisterCPUBIFunctions(void)
 {
 
     REGISTER_BI_FUNCTION("dbg_print",cpu_dbg_print)
-    REGISTER_BI_FUNCTION("lwait_group_events",shared_lwait_group_events)
-    REGISTER_BI_FUNCTION("lasync_wg_copy_l2g",cpu_lasync_wg_copy_l2g)
-    REGISTER_BI_FUNCTION("lasync_wg_copy_g2l",cpu_lasync_wg_copy_g2l)
     REGISTER_BI_FUNCTION("lprefetch",cpu_lprefetch)
     REGISTER_BI_FUNCTION("get_time_counter",cpu_get_time_counter)
-    REGISTER_BI_FUNCTION("lasync_wg_copy_strided_l2g",shared_lasync_wg_copy_strided_l2g)
-    REGISTER_BI_FUNCTION("lasync_wg_copy_strided_g2l",shared_lasync_wg_copy_strided_g2l)
     REGISTER_BI_FUNCTION("opencl_printf",opencl_printf)
     REGISTER_BI_FUNCTION("opencl_snprintf",opencl_snprintf)
     REGISTER_BI_FUNCTION("__opencl_dbg_declare_local",__opencl_dbg_declare_local)
@@ -242,4 +151,19 @@ void RegisterCPUBIFunctions(void)
     REGISTER_BI_FUNCTION("__opencl_dbg_exit_function",__opencl_dbg_exit_function)
     REGISTER_BI_FUNCTION("__opencl_dbg_declare_global",__opencl_dbg_declare_global)
     REGISTER_BI_FUNCTION("__opencl_dbg_stoppoint",__opencl_dbg_stoppoint)
+    REGISTER_BI_FUNCTION("ocl20_get_default_queue",ocl20_get_default_queue)
+    REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_basic",ocl20_enqueue_kernel_basic)
+    REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_localmem",ocl20_enqueue_kernel_localmem)
+    REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_events",ocl20_enqueue_kernel_events)
+    REGISTER_BI_FUNCTION("ocl20_enqueue_kernel_events_localmem",ocl20_enqueue_kernel_events_localmem)
+    REGISTER_BI_FUNCTION("ocl20_enqueue_marker",ocl20_enqueue_marker)
+    REGISTER_BI_FUNCTION("ocl20_retain_event",ocl20_retain_event)
+    REGISTER_BI_FUNCTION("ocl20_release_event",ocl20_release_event)
+    REGISTER_BI_FUNCTION("ocl20_create_user_event",ocl20_create_user_event)
+    REGISTER_BI_FUNCTION("ocl20_set_user_event_status",ocl20_set_user_event_status)
+    REGISTER_BI_FUNCTION("ocl20_capture_event_profiling_info",ocl20_capture_event_profiling_info)
+    REGISTER_BI_FUNCTION("ocl20_get_kernel_wg_size",ocl20_get_kernel_wg_size)
+    REGISTER_BI_FUNCTION("ocl20_get_kernel_wg_size_local",ocl20_get_kernel_wg_size_local)
+    REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple",ocl20_get_kernel_preferred_wg_size_multiple)
+    REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple_local",ocl20_get_kernel_preferred_wg_size_multiple_local)
 }

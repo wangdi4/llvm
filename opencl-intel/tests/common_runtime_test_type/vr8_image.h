@@ -113,8 +113,6 @@ void test2DUseHostPtr(OpenCLDescriptor& ocl_descriptor, cl_image_format image_fo
 	size_t image_width = getDimetionSize(image_format);
 	size_t image_height = getDimetionSize(image_format);
 	size_t image_row_pitch = 0;
-	size_t origin[] = {0,0,0};
-	size_t region[] = {image_width,image_height,1};
 
 	// create and initialize array
 	int arraySize = (int)(image_width*image_height*correctArraySize(image_format));
@@ -256,8 +254,6 @@ void test2DCopyHostPtr(OpenCLDescriptor& ocl_descriptor, cl_image_format image_f
 	size_t image_width = getDimetionSize(image_format);
 	size_t image_height = getDimetionSize(image_format);
 	size_t image_row_pitch = 0;
-	size_t origin[] = {0,0,0};
-	size_t region[] = {image_width,image_height,1};
     
 	// create and initialize array
 	int arraySize = (int)(image_width*image_height*correctArraySize(image_format));
@@ -320,8 +316,6 @@ void test3DUseHostPtr(OpenCLDescriptor& ocl_descriptor, cl_image_format image_fo
 	size_t image_depth = getDimetionSize(image_format);
 	size_t image_row_pitch = 0;
 	size_t image_slice_pitch = 0;
-	size_t origin[] = {0,0,0};
-	size_t region[] = {image_width,image_height,image_depth};
     	
 	// create and initialize array
 	int arraySize = (int)(image_width*image_height*image_depth*correctArraySize(image_format));
@@ -461,9 +455,6 @@ void test3DCopyHostPtr(OpenCLDescriptor& ocl_descriptor, cl_image_format image_f
 	size_t image_height = getDimetionSize(image_format);
 	size_t image_depth = getDimetionSize(image_format);
 	size_t image_row_pitch = 0;
-	size_t origin[] = {0,0,0};
-	size_t region[] = {image_width,image_height,image_depth};
-	size_t r_image_row_pitch = 0;
 	size_t r_image_slice_pitch = 0;
     	
 	// create and initialize array

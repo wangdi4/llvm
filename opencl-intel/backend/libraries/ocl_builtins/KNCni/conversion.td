@@ -3,24 +3,24 @@
 // Conversions optimized for MIC
 
 // convert_i32
-OclBuiltinImpl fp2int_i32_v16f32  = OclBuiltinImpl<convert_i32, [v16f32], 0, [{
+OclBuiltinImpl fp2int_i32_v16f32 = OclBuiltinImpl<convert_i32, [v16f32], 0, [{
     return as_$NativeReturnType(_mm512_cvtfxpnt_round_adjustps_epi32(
         $Arg0VarName, _MM_FROUND_TO_ZERO, _MM_EXPADJ_NONE));
   }]>;
-OclBuiltinImpl fp2int_i32_v1_v8_f32  = OclBuiltinImpl<convert_i32, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
+OclBuiltinImpl fp2int_i32_v1_v8_f32 = OclBuiltinImpl<convert_i32, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(_mm512_mask_cvtfxpnt_round_adjustps_epi32(
         _mm512_undefined_epi32(), $Mask, arg,
         _MM_FROUND_TO_ZERO, _MM_EXPADJ_NONE));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_i32_v8f64  = OclBuiltinImpl<convert_i32, [v8f64], 0, [{
+OclBuiltinImpl fp2int_i32_v8f64 = OclBuiltinImpl<convert_i32, [v8f64], 0, [{
     $NativeReturnType ret = as_$NativeReturnType(_mm512_cvtfxpnt_roundpd_epi32lo(
         $Arg0VarName, _MM_FROUND_TO_ZERO));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_i32_v16f64  = OclBuiltinImpl<convert_i32, [v16f64], 0, Expand1>; 
-OclBuiltinImpl fp2int_i32_v1_v4_f64  = OclBuiltinImpl<convert_i32, [v1f64, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl fp2int_i32_v16f64 = OclBuiltinImpl<convert_i32, [v16f64], 0, Expand1>; 
+OclBuiltinImpl fp2int_i32_v1_v4_f64 = OclBuiltinImpl<convert_i32, [v1f64, v2f64, v3f64, v4f64], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(
         _mm512_mask_cvtfxpnt_roundpd_epi32lo(
@@ -29,24 +29,24 @@ OclBuiltinImpl fp2int_i32_v1_v4_f64  = OclBuiltinImpl<convert_i32, [v1f64, v2f64
   }]>;
 
 // convert_i32_rte
-OclBuiltinImpl fp2int_i32_v16f32_rte  = OclBuiltinImpl<convert_i32_rte, [v16f32], 0, [{
+OclBuiltinImpl fp2int_i32_v16f32_rte = OclBuiltinImpl<convert_i32_rte, [v16f32], 0, [{
     return as_$NativeReturnType(_mm512_cvtfxpnt_round_adjustps_epi32(
         $Arg0VarName, _MM_FROUND_TO_NEAREST_INT, _MM_EXPADJ_NONE));
   }]>;
-OclBuiltinImpl fp2int_i32_v1_v8_f32_rte  = OclBuiltinImpl<convert_i32_rte, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
+OclBuiltinImpl fp2int_i32_v1_v8_f32_rte = OclBuiltinImpl<convert_i32_rte, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(_mm512_mask_cvtfxpnt_round_adjustps_epi32(
         _mm512_undefined_epi32(), $Mask, arg,
         _MM_FROUND_TO_NEAREST_INT, _MM_EXPADJ_NONE));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_i32_v8f64_rte  = OclBuiltinImpl<convert_i32_rte, [v8f64], 0, [{
+OclBuiltinImpl fp2int_i32_v8f64_rte = OclBuiltinImpl<convert_i32_rte, [v8f64], 0, [{
     $NativeReturnType ret = as_$NativeReturnType(_mm512_cvtfxpnt_roundpd_epi32lo(
         $Arg0VarName, _MM_FROUND_TO_NEAREST_INT));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_i32_v16f64_rte  = OclBuiltinImpl<convert_i32_rte, [v16f64], 0, Expand1>; 
-OclBuiltinImpl fp2int_i32_v1_v4_f64_rte  = OclBuiltinImpl<convert_i32_rte, [v1f64, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl fp2int_i32_v16f64_rte = OclBuiltinImpl<convert_i32_rte, [v16f64], 0, Expand1>; 
+OclBuiltinImpl fp2int_i32_v1_v4_f64_rte = OclBuiltinImpl<convert_i32_rte, [v1f64, v2f64, v3f64, v4f64], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(
         _mm512_mask_cvtfxpnt_roundpd_epi32lo(
@@ -55,29 +55,29 @@ OclBuiltinImpl fp2int_i32_v1_v4_f64_rte  = OclBuiltinImpl<convert_i32_rte, [v1f6
   }]>;
 
 // convert_i32_rtz
-OclBuiltinImpl fp2int_i32_f32_rtz  = OclBuiltinImpl<convert_i32_rtz, convert_i32_rtz.Types, 0, [{
+OclBuiltinImpl fp2int_i32_f32_rtz = OclBuiltinImpl<convert_i32_rtz, convert_i32_rtz.Types, 0, [{
     return convert_$ReturnType($Arg0VarName);
   }]>;
 
 // convert_i32_rtp
-OclBuiltinImpl fp2int_i32_v16f32_rtp  = OclBuiltinImpl<convert_i32_rtp, [v16f32], 0, [{
+OclBuiltinImpl fp2int_i32_v16f32_rtp = OclBuiltinImpl<convert_i32_rtp, [v16f32], 0, [{
     return as_$NativeReturnType(_mm512_cvtfxpnt_round_adjustps_epi32(
         $Arg0VarName, _MM_FROUND_TO_POS_INF, _MM_EXPADJ_NONE));
   }]>;
-OclBuiltinImpl fp2int_i32_v1_v8_f32_rtp  = OclBuiltinImpl<convert_i32_rtp, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
+OclBuiltinImpl fp2int_i32_v1_v8_f32_rtp = OclBuiltinImpl<convert_i32_rtp, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(_mm512_mask_cvtfxpnt_round_adjustps_epi32(
         _mm512_undefined_epi32(), $Mask, arg,
         _MM_FROUND_TO_POS_INF, _MM_EXPADJ_NONE));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_i32_v8f64_rtp  = OclBuiltinImpl<convert_i32_rtp, [v8f64], 0, [{
+OclBuiltinImpl fp2int_i32_v8f64_rtp = OclBuiltinImpl<convert_i32_rtp, [v8f64], 0, [{
     $NativeReturnType ret = as_$NativeReturnType(_mm512_cvtfxpnt_roundpd_epi32lo(
         $Arg0VarName, _MM_FROUND_TO_POS_INF));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_i32_v16f64_rtp  = OclBuiltinImpl<convert_i32_rtp, [v16f64], 0, Expand1>; 
-OclBuiltinImpl fp2int_i32_v1_v4_f64_rtp  = OclBuiltinImpl<convert_i32_rtp, [v1f64, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl fp2int_i32_v16f64_rtp = OclBuiltinImpl<convert_i32_rtp, [v16f64], 0, Expand1>; 
+OclBuiltinImpl fp2int_i32_v1_v4_f64_rtp = OclBuiltinImpl<convert_i32_rtp, [v1f64, v2f64, v3f64, v4f64], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(
         _mm512_mask_cvtfxpnt_roundpd_epi32lo(
@@ -86,24 +86,24 @@ OclBuiltinImpl fp2int_i32_v1_v4_f64_rtp  = OclBuiltinImpl<convert_i32_rtp, [v1f6
   }]>;
 
 // convert_i32_rtn
-OclBuiltinImpl fp2int_i32_v16f32_rtn  = OclBuiltinImpl<convert_i32_rtn, [v16f32], 0, [{
+OclBuiltinImpl fp2int_i32_v16f32_rtn = OclBuiltinImpl<convert_i32_rtn, [v16f32], 0, [{
     return as_$NativeReturnType(_mm512_cvtfxpnt_round_adjustps_epi32(
         $Arg0VarName, _MM_FROUND_TO_NEG_INF, _MM_EXPADJ_NONE));
   }]>;
-OclBuiltinImpl fp2int_i32_v1_v8_f32_rtn  = OclBuiltinImpl<convert_i32_rtn, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
+OclBuiltinImpl fp2int_i32_v1_v8_f32_rtn = OclBuiltinImpl<convert_i32_rtn, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(_mm512_mask_cvtfxpnt_round_adjustps_epi32(
         _mm512_undefined_epi32(), $Mask, arg,
         _MM_FROUND_TO_NEG_INF, _MM_EXPADJ_NONE));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_i32_v8f64_rtn  = OclBuiltinImpl<convert_i32_rtn, [v8f64], 0, [{
+OclBuiltinImpl fp2int_i32_v8f64_rtn = OclBuiltinImpl<convert_i32_rtn, [v8f64], 0, [{
     $NativeReturnType ret = as_$NativeReturnType(_mm512_cvtfxpnt_roundpd_epi32lo(
         $Arg0VarName, _MM_FROUND_TO_NEG_INF));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_i32_v16f64_rtn  = OclBuiltinImpl<convert_i32_rtn, [v16f64], 0, Expand1>; 
-OclBuiltinImpl fp2int_i32_v1_v4_f64_rtn  = OclBuiltinImpl<convert_i32_rtn, [v1f64, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl fp2int_i32_v16f64_rtn = OclBuiltinImpl<convert_i32_rtn, [v16f64], 0, Expand1>; 
+OclBuiltinImpl fp2int_i32_v1_v4_f64_rtn = OclBuiltinImpl<convert_i32_rtn, [v1f64, v2f64, v3f64, v4f64], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(
         _mm512_mask_cvtfxpnt_roundpd_epi32lo(
@@ -112,24 +112,24 @@ OclBuiltinImpl fp2int_i32_v1_v4_f64_rtn  = OclBuiltinImpl<convert_i32_rtn, [v1f6
   }]>;
 
 // convert_u32
-OclBuiltinImpl fp2int_u32_v16f32  = OclBuiltinImpl<convert_u32, [v16f32], 0, [{
+OclBuiltinImpl fp2int_u32_v16f32 = OclBuiltinImpl<convert_u32, [v16f32], 0, [{
     return as_$NativeReturnType(_mm512_cvtfxpnt_round_adjustps_epu32(
         $Arg0VarName, _MM_FROUND_TO_ZERO, _MM_EXPADJ_NONE));
   }]>;
-OclBuiltinImpl fp2int_u32_v1_v8_f32  = OclBuiltinImpl<convert_u32, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
+OclBuiltinImpl fp2int_u32_v1_v8_f32 = OclBuiltinImpl<convert_u32, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(_mm512_mask_cvtfxpnt_round_adjustps_epu32(
         _mm512_undefined_epi32(), $Mask, arg,
         _MM_FROUND_TO_ZERO, _MM_EXPADJ_NONE));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_u32_v8f64  = OclBuiltinImpl<convert_u32, [v8f64], 0, [{
+OclBuiltinImpl fp2int_u32_v8f64 = OclBuiltinImpl<convert_u32, [v8f64], 0, [{
     $NativeReturnType ret = as_$NativeReturnType(_mm512_cvtfxpnt_roundpd_epu32lo(
         $Arg0VarName, _MM_FROUND_TO_ZERO));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_u32_v16f64  = OclBuiltinImpl<convert_u32, [v16f64], 0, Expand1>; 
-OclBuiltinImpl fp2int_u32_v1_v4_f64  = OclBuiltinImpl<convert_u32, [v1f64, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl fp2int_u32_v16f64 = OclBuiltinImpl<convert_u32, [v16f64], 0, Expand1>; 
+OclBuiltinImpl fp2int_u32_v1_v4_f64 = OclBuiltinImpl<convert_u32, [v1f64, v2f64, v3f64, v4f64], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(
         _mm512_mask_cvtfxpnt_roundpd_epu32lo(
@@ -138,24 +138,24 @@ OclBuiltinImpl fp2int_u32_v1_v4_f64  = OclBuiltinImpl<convert_u32, [v1f64, v2f64
   }]>;
 
 // convert_u32_rte
-OclBuiltinImpl fp2int_u32_v16f32_rte  = OclBuiltinImpl<convert_u32_rte, [v16f32], 0, [{
+OclBuiltinImpl fp2int_u32_v16f32_rte = OclBuiltinImpl<convert_u32_rte, [v16f32], 0, [{
     return as_$NativeReturnType(_mm512_cvtfxpnt_round_adjustps_epu32(
         $Arg0VarName, _MM_FROUND_TO_NEAREST_INT, _MM_EXPADJ_NONE));
   }]>;
-OclBuiltinImpl fp2int_u32_v1_v8_f32_rte  = OclBuiltinImpl<convert_u32_rte, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
+OclBuiltinImpl fp2int_u32_v1_v8_f32_rte = OclBuiltinImpl<convert_u32_rte, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(_mm512_mask_cvtfxpnt_round_adjustps_epu32(
         _mm512_undefined_epi32(), $Mask, arg,
         _MM_FROUND_TO_NEAREST_INT, _MM_EXPADJ_NONE));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_u32_v8f64_rte  = OclBuiltinImpl<convert_u32_rte, [v8f64], 0, [{
+OclBuiltinImpl fp2int_u32_v8f64_rte = OclBuiltinImpl<convert_u32_rte, [v8f64], 0, [{
     $NativeReturnType ret = as_$NativeReturnType(_mm512_cvtfxpnt_roundpd_epu32lo(
         $Arg0VarName, _MM_FROUND_TO_NEAREST_INT));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_u32_v16f64_rte  = OclBuiltinImpl<convert_u32_rte, [v16f64], 0, Expand1>; 
-OclBuiltinImpl fp2int_u32_v1_v4_f64_rte  = OclBuiltinImpl<convert_u32_rte, [v1f64, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl fp2int_u32_v16f64_rte = OclBuiltinImpl<convert_u32_rte, [v16f64], 0, Expand1>; 
+OclBuiltinImpl fp2int_u32_v1_v4_f64_rte = OclBuiltinImpl<convert_u32_rte, [v1f64, v2f64, v3f64, v4f64], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(
         _mm512_mask_cvtfxpnt_roundpd_epu32lo(
@@ -164,29 +164,29 @@ OclBuiltinImpl fp2int_u32_v1_v4_f64_rte  = OclBuiltinImpl<convert_u32_rte, [v1f6
   }]>;
 
 // convert_u32_rtz
-OclBuiltinImpl fp2int_u32_f32_rtz  = OclBuiltinImpl<convert_u32_rtz, convert_u32_rtz.Types, 0, [{
+OclBuiltinImpl fp2int_u32_f32_rtz = OclBuiltinImpl<convert_u32_rtz, convert_u32_rtz.Types, 0, [{
     return convert_$ReturnType($Arg0VarName);
   }]>;
 
 // convert_u32_rtp
-OclBuiltinImpl fp2int_u32_v16f32_rtp  = OclBuiltinImpl<convert_u32_rtp, [v16f32], 0, [{
+OclBuiltinImpl fp2int_u32_v16f32_rtp = OclBuiltinImpl<convert_u32_rtp, [v16f32], 0, [{
     return as_$NativeReturnType(_mm512_cvtfxpnt_round_adjustps_epu32(
         $Arg0VarName, _MM_FROUND_TO_POS_INF, _MM_EXPADJ_NONE));
   }]>;
-OclBuiltinImpl fp2int_u32_v1_v8_f32_rtp  = OclBuiltinImpl<convert_u32_rtp, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
+OclBuiltinImpl fp2int_u32_v1_v8_f32_rtp = OclBuiltinImpl<convert_u32_rtp, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(_mm512_mask_cvtfxpnt_round_adjustps_epu32(
         _mm512_undefined_epi32(), $Mask, arg,
         _MM_FROUND_TO_POS_INF, _MM_EXPADJ_NONE));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_u32_v8f64_rtp  = OclBuiltinImpl<convert_u32_rtp, [v8f64], 0, [{
+OclBuiltinImpl fp2int_u32_v8f64_rtp = OclBuiltinImpl<convert_u32_rtp, [v8f64], 0, [{
     $NativeReturnType ret = as_$NativeReturnType(_mm512_cvtfxpnt_roundpd_epu32lo(
         $Arg0VarName, _MM_FROUND_TO_POS_INF));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_u32_v16f64_rtp  = OclBuiltinImpl<convert_u32_rtp, [v16f64], 0, Expand1>; 
-OclBuiltinImpl fp2int_u32_v1_v4_f64_rtp  = OclBuiltinImpl<convert_u32_rtp, [v1f64, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl fp2int_u32_v16f64_rtp = OclBuiltinImpl<convert_u32_rtp, [v16f64], 0, Expand1>; 
+OclBuiltinImpl fp2int_u32_v1_v4_f64_rtp = OclBuiltinImpl<convert_u32_rtp, [v1f64, v2f64, v3f64, v4f64], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(
         _mm512_mask_cvtfxpnt_roundpd_epu32lo(
@@ -195,24 +195,24 @@ OclBuiltinImpl fp2int_u32_v1_v4_f64_rtp  = OclBuiltinImpl<convert_u32_rtp, [v1f6
   }]>;
 
 // convert_u32_rtn
-OclBuiltinImpl fp2int_u32_v16f32_rtn  = OclBuiltinImpl<convert_u32_rtn, [v16f32], 0, [{
+OclBuiltinImpl fp2int_u32_v16f32_rtn = OclBuiltinImpl<convert_u32_rtn, [v16f32], 0, [{
     return as_$NativeReturnType(_mm512_cvtfxpnt_round_adjustps_epu32(
         $Arg0VarName, _MM_FROUND_TO_NEG_INF, _MM_EXPADJ_NONE));
   }]>;
-OclBuiltinImpl fp2int_u32_v1_v8_f32_rtn  = OclBuiltinImpl<convert_u32_rtn, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
+OclBuiltinImpl fp2int_u32_v1_v8_f32_rtn = OclBuiltinImpl<convert_u32_rtn, [v1f32, v2f32, v3f32, v4f32, v8f32], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(_mm512_mask_cvtfxpnt_round_adjustps_epu32(
         _mm512_undefined_epi32(), $Mask, arg,
         _MM_FROUND_TO_NEG_INF, _MM_EXPADJ_NONE));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_u32_v8f64_rtn  = OclBuiltinImpl<convert_u32_rtn, [v8f64], 0, [{
+OclBuiltinImpl fp2int_u32_v8f64_rtn = OclBuiltinImpl<convert_u32_rtn, [v8f64], 0, [{
     $NativeReturnType ret = as_$NativeReturnType(_mm512_cvtfxpnt_roundpd_epu32lo(
         $Arg0VarName, _MM_FROUND_TO_NEG_INF));
     return ret$Pattern;
   }]>;
-OclBuiltinImpl fp2int_u32_v16f64_rtn  = OclBuiltinImpl<convert_u32_rtn, [v16f64], 0, Expand1>; 
-OclBuiltinImpl fp2int_u32_v1_v4_f64_rtn  = OclBuiltinImpl<convert_u32_rtn, [v1f64, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl fp2int_u32_v16f64_rtn = OclBuiltinImpl<convert_u32_rtn, [v16f64], 0, Expand1>; 
+OclBuiltinImpl fp2int_u32_v1_v4_f64_rtn = OclBuiltinImpl<convert_u32_rtn, [v1f64, v2f64, v3f64, v4f64], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
     $NativeReturnType ret = as_$NativeReturnType(
         _mm512_mask_cvtfxpnt_roundpd_epu32lo(
@@ -237,8 +237,8 @@ code convert_ui64_mask_code = [{
 
 // convert_i64
 OclBuiltinImpl cvt_i64_v8f = OclBuiltinImpl<convert_i64, float_types, 0, [{
-  return convert_$ReturnType_rtz($Arg0VarName);
-}]>;
+    return convert_$ReturnType_rtz($Arg0VarName);
+  }]>;
 
 // convert_i64_rtz.
 OclBuiltinImpl cvt_i64_rtz_v8f = OclBuiltinImpl<convert_i64_rtz,
@@ -249,7 +249,7 @@ OclBuiltinImpl cvt_i64_rtz_v1f_v4f = OclBuiltinImpl<convert_i64_rtz,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
                                           ["$Rounding"->"ZERO"]>;
-OclBuiltinImpl cvt_i64_rtz_v16f  = OclBuiltinImpl<convert_i64_rtz, [v16f64, v16f32], 0, Expand1>;
+OclBuiltinImpl cvt_i64_rtz_v16f = OclBuiltinImpl<convert_i64_rtz, [v16f64, v16f32], 0, Expand1>;
 
 // convert_i64_rte
 OclBuiltinImpl cvt_i64_rte_v8f = OclBuiltinImpl<convert_i64_rte,
@@ -260,7 +260,7 @@ OclBuiltinImpl cvt_i64_rte_v1f_v4f = OclBuiltinImpl<convert_i64_rte,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
                                           ["$Rounding"->"NEAREST_INT"]>;
-OclBuiltinImpl cvt_i64_rte_v16f  = OclBuiltinImpl<convert_i64_rte, [v16f64, v16f32], 0, Expand1>;
+OclBuiltinImpl cvt_i64_rte_v16f = OclBuiltinImpl<convert_i64_rte, [v16f64, v16f32], 0, Expand1>;
 
 // convert_i64_rtp
 OclBuiltinImpl cvt_i64_rtp_v8f = OclBuiltinImpl<convert_i64_rtp,
@@ -271,7 +271,7 @@ OclBuiltinImpl cvt_i64_rtp_v1f_v4f = OclBuiltinImpl<convert_i64_rtp,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
                                           ["$Rounding"->"POS_INF"]>;
-OclBuiltinImpl cvt_i64_rtp_v16f  = OclBuiltinImpl<convert_i64_rtp, [v16f64, v16f32], 0, Expand1>;
+OclBuiltinImpl cvt_i64_rtp_v16f = OclBuiltinImpl<convert_i64_rtp, [v16f64, v16f32], 0, Expand1>;
 
 // convert_i64_rtn
 OclBuiltinImpl cvt_i64_rtn_v8f = OclBuiltinImpl<convert_i64_rtn,
@@ -282,12 +282,12 @@ OclBuiltinImpl cvt_i64_rtn_v1f_v4f = OclBuiltinImpl<convert_i64_rtn,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
                                           ["$Rounding"->"NEG_INF"]>;
-OclBuiltinImpl cvt_i64_rtn_v16f  = OclBuiltinImpl<convert_i64_rtn, [v16f64, v16f32], 0, Expand1>;
+OclBuiltinImpl cvt_i64_rtn_v16f = OclBuiltinImpl<convert_i64_rtn, [v16f64, v16f32], 0, Expand1>;
 
 // convert_u64
 OclBuiltinImpl cvt_u64_v8f = OclBuiltinImpl<convert_u64, float_types, 0, [{
-  return convert_$ReturnType_rtz($Arg0VarName);
-}]>;
+    return convert_$ReturnType_rtz($Arg0VarName);
+  }]>;
 
 // convert_u64_rtz.
 OclBuiltinImpl cvt_u64_rtz_v8f = OclBuiltinImpl<convert_u64_rtz,
@@ -298,7 +298,7 @@ OclBuiltinImpl cvt_u64_rtz_v1f_v4f = OclBuiltinImpl<convert_u64_rtz,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
                                           ["$Rounding"->"ZERO"]>;
-OclBuiltinImpl cvt_u64_rtz_v16f  = OclBuiltinImpl<convert_u64_rtz, [v16f64, v16f32], 0, Expand1>;
+OclBuiltinImpl cvt_u64_rtz_v16f = OclBuiltinImpl<convert_u64_rtz, [v16f64, v16f32], 0, Expand1>;
 
 // convert_u64_rte
 OclBuiltinImpl cvt_u64_rte_v8f = OclBuiltinImpl<convert_u64_rte,
@@ -309,7 +309,7 @@ OclBuiltinImpl cvt_u64_rte_v1f_v4f = OclBuiltinImpl<convert_u64_rte,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
                                           ["$Rounding"->"NEAREST_INT"]>;
-OclBuiltinImpl cvt_u64_rte_v16f  = OclBuiltinImpl<convert_u64_rte, [v16f64, v16f32], 0, Expand1>;
+OclBuiltinImpl cvt_u64_rte_v16f = OclBuiltinImpl<convert_u64_rte, [v16f64, v16f32], 0, Expand1>;
 
 // convert_u64_rtp
 OclBuiltinImpl cvt_u64_rtp_v8f = OclBuiltinImpl<convert_u64_rtp,
@@ -320,7 +320,7 @@ OclBuiltinImpl cvt_u64_rtp_v1f_v4f = OclBuiltinImpl<convert_u64_rtp,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
                                           ["$Rounding"->"POS_INF"]>;
-OclBuiltinImpl cvt_u64_rtp_v16f  = OclBuiltinImpl<convert_u64_rtp, [v16f64, v16f32], 0, Expand1>;
+OclBuiltinImpl cvt_u64_rtp_v16f = OclBuiltinImpl<convert_u64_rtp, [v16f64, v16f32], 0, Expand1>;
 
 // convert_u64_rtn
 OclBuiltinImpl cvt_u64_rtn_v8f = OclBuiltinImpl<convert_u64_rtn,
@@ -331,7 +331,7 @@ OclBuiltinImpl cvt_u64_rtn_v1f_v4f = OclBuiltinImpl<convert_u64_rtn,
                                            v1f32, v2f32, v3f32, v4f32],
                                            0, convert_ui64_mask_code,
                                           ["$Rounding"->"NEG_INF"]>;
-OclBuiltinImpl cvt_u64_rtn_v16f  = OclBuiltinImpl<convert_u64_rtn, [v16f64, v16f32], 0, Expand1>;
+OclBuiltinImpl cvt_u64_rtn_v16f = OclBuiltinImpl<convert_u64_rtn, [v16f64, v16f32], 0, Expand1>;
 
 // convert_f32
 OclBuiltinImpl cvt_f32_default = OclBuiltinImpl<convert_f32, convert_f32.Types, 0, [{
@@ -407,14 +407,14 @@ OclBuiltinImpl cvt_f32_rtz_ui_8_32_mask = OclBuiltinImpl<convert_f32_rtz,
   }]>;
 
 OclBuiltinImpl mic_rtz_cvt_f32_v8f64 = OclBuiltinImpl<convert_f32_rtz, [v8f64], 0, [{
-    $NativeReturnType ret =  _mm512_cvt_roundpd_pslo((__m512d)$Arg0VarName, _MM_FROUND_TO_ZERO);
+    $NativeReturnType ret = _mm512_cvt_roundpd_pslo((__m512d)$Arg0VarName, _MM_FROUND_TO_ZERO);
     return ret.lo;
   }]>;
 OclBuiltinImpl mic_rtz_cvt_f32_v16f64 = OclBuiltinImpl<convert_f32_rtz, [v16f64], 0, Expand1>; 
 OclBuiltinImpl mic_rtz_cvt_f32_f64_mask = OclBuiltinImpl<convert_f32_rtz,
                                                     [v1f64, v2f64, v3f64, v4f64], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
-    $NativeReturnType ret =  _mm512_mask_cvt_roundpd_pslo(_mm512_undefined_ps(), $Mask, (__m512d)arg, _MM_FROUND_TO_ZERO);
+    $NativeReturnType ret = _mm512_mask_cvt_roundpd_pslo(_mm512_undefined_ps(), $Mask, (__m512d)arg, _MM_FROUND_TO_ZERO);
     return ret$Pattern;
   }]>;
 
@@ -456,14 +456,14 @@ OclBuiltinImpl cvt_f32_rtp_ui_8_32_mask = OclBuiltinImpl<convert_f32_rtp,
   }]>;
 
 OclBuiltinImpl mic_rtp_cvt_f32_v8f64 = OclBuiltinImpl<convert_f32_rtp, [v8f64], 0, [{
-    $NativeReturnType ret =  _mm512_cvt_roundpd_pslo((__m512d)$Arg0VarName, _MM_FROUND_TO_POS_INF);
+    $NativeReturnType ret = _mm512_cvt_roundpd_pslo((__m512d)$Arg0VarName, _MM_FROUND_TO_POS_INF);
     return ret.lo;
   }]>;
 OclBuiltinImpl mic_rtp_cvt_f32_v16f64 = OclBuiltinImpl<convert_f32_rtp, [v16f64], 0, Expand1>; 
 OclBuiltinImpl mic_rtp_cvt_f32_f64_mask = OclBuiltinImpl<convert_f32_rtp,
                                                     [v1f64, v2f64, v3f64, v4f64], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
-    $NativeReturnType ret =  _mm512_mask_cvt_roundpd_pslo(_mm512_undefined_ps(), $Mask, (__m512d)arg, _MM_FROUND_TO_POS_INF);
+    $NativeReturnType ret = _mm512_mask_cvt_roundpd_pslo(_mm512_undefined_ps(), $Mask, (__m512d)arg, _MM_FROUND_TO_POS_INF);
     return ret$Pattern;
   }]>;
 
@@ -505,14 +505,14 @@ OclBuiltinImpl cvt_f32_rtn_ui_8_32_mask = OclBuiltinImpl<convert_f32_rtn,
   }]>;
 
 OclBuiltinImpl mic_rtn_cvt_f32_v8f64 = OclBuiltinImpl<convert_f32_rtn, [v8f64], 0, [{
-    $NativeReturnType ret =  _mm512_cvt_roundpd_pslo((__m512d)$Arg0VarName, _MM_FROUND_TO_NEG_INF);
+    $NativeReturnType ret = _mm512_cvt_roundpd_pslo((__m512d)$Arg0VarName, _MM_FROUND_TO_NEG_INF);
     return ret.lo;
   }]>;
 OclBuiltinImpl mic_rtn_cvt_f32_v16f64 = OclBuiltinImpl<convert_f32_rtn, [v16f64], 0, Expand1>; 
 OclBuiltinImpl mic_rtn_cvt_f32_f64_mask = OclBuiltinImpl<convert_f32_rtn,
                                                     [v1f64, v2f64, v3f64, v4f64], 0, [{
     $NativeArg0Type arg; arg$Pattern = $Arg0VarName;
-    $NativeReturnType ret =  _mm512_mask_cvt_roundpd_pslo(_mm512_undefined_ps(), $Mask, (__m512d)arg, _MM_FROUND_TO_NEG_INF);
+    $NativeReturnType ret = _mm512_mask_cvt_roundpd_pslo(_mm512_undefined_ps(), $Mask, (__m512d)arg, _MM_FROUND_TO_NEG_INF);
     return ret$Pattern;
   }]>;
 

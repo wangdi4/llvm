@@ -6,14 +6,14 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "KernelAnalysis.h"
 #include "OpenclRuntime.h"
-#include "LoopUtils.h"
+#include "LoopUtils/LoopUtils.h"
 #include "OCLPassSupport.h"
 #include "MetaDataApi.h"
 #include "CompilationUtils.h"
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 
 #include <string.h>
 
@@ -34,13 +34,17 @@ KernelAnalysis::~KernelAnalysis()
 {
 }
 
-void KernelAnalysis::fillBarrierUsersFuncs() {
-  Function *barrierDcl = m_M->getFunction(CompilationUtils::mangledBarrier());
-  if (barrierDcl) {
-    FSet barrierRootSet;
-    barrierRootSet.insert(barrierDcl);
-    LoopUtils::fillFuncUsersSet(barrierRootSet, m_unsupportedFunc);
-  }
+void KernelAnalysis::fillSyncUsersFuncs() {
+  FSet barrierRootSet;
+
+  CompilationUtils::FunctionSet oclFunction;
+
+  // Get all synchronize built-ins declared in module
+  CompilationUtils::getAllSyncBuiltinsDcls(oclFunction, m_M);
+
+  barrierRootSet.insert(oclFunction.begin(), oclFunction.end());
+
+  LoopUtils::fillFuncUsersSet(barrierRootSet, m_unsupportedFunc);
 }
 
 void KernelAnalysis::fillUnsupportedTIDFuncs() {
@@ -110,7 +114,7 @@ bool KernelAnalysis::runOnModule(Module& M) {
   Intel::MetaDataUtils mdUtils(m_M);
 
   fillKernelCallers();
-  fillBarrierUsersFuncs();
+  fillSyncUsersFuncs();
   fillUnsupportedTIDFuncs();
 
   for (FVec::iterator fit = m_kernels.begin(), fe = m_kernels.end();

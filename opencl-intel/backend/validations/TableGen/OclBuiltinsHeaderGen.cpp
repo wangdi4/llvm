@@ -22,15 +22,15 @@ File Name: OclBuiltinsHeaderGen.cpp
 #include "ClangUtils.h"
 #include "cl_device_api.h"
 #include "llvm/TableGen/Record.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/PathV1.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include <vector>
 #include <sstream>
 #include <memory>
@@ -220,6 +220,7 @@ typedef TypedBiList::const_iterator TypedBiIter;
     }
     //enable double extentions in clang
     std::string code = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
+    code.append("#pragma OPENCL EXTENSION cl_khr_depth_images : enable\n");
     typedbiList.sort(isLess);
     TypedBiIter typeit, typee = typedbiList.end();
     for(typeit = typedbiList.begin(); typeit != typee ; ++typeit)

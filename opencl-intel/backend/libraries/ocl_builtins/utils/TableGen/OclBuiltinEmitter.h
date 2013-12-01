@@ -160,6 +160,8 @@ public:
 
   std::string getArgumentCType(unsigned, const std::string&) const;
 
+  std::string getPtrArgumentCType(unsigned, const std::string&) const;
+
   std::string getArgumentBaseCType(unsigned i, const std::string& TyName) const;
 
   std::string getArgumentCVecType(unsigned, const std::string&, int) const;
@@ -192,6 +194,8 @@ public:
   bool isSvml()const;
 
   bool isOverlodable()const;
+  // BUGBUG: isBrokenNameMangling() is a temporary w/around for name mangling in-compat with SPIR (CQ CSSD100017714)
+  bool isBrokenNameMangling()const {return strstr(m_Name.c_str(),"work_group_") != NULL;}
 
   typedef std::vector<const OclType*>::const_iterator const_type_iterator;
 
@@ -209,6 +213,8 @@ public:
 
   bool needPrefix() const { return m_NeedPrefix; }
 
+  bool needToExclude() const { return m_NeedToExclude; }
+
   const std::string& getAS() const { return m_AS; }
 
   bool hasConst() const { return m_HasConst; }
@@ -219,6 +225,8 @@ public:
   
   void removeAttribute(const OclBuiltinAttr&);
 
+  bool shouldGenerate() const; 
+
 protected:
   const OclBuiltinDB& m_DB;
   const Record* m_Record;
@@ -226,6 +234,7 @@ protected:
   std::string m_CFunc;
   bool m_IsDeclOnly;
   bool m_NeedForwardDecl;
+  bool m_NeedToExclude;
   bool m_NeedPrefix;
   std::string m_AS;
   bool m_HasConst;

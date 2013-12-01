@@ -10,16 +10,20 @@
 #ifndef __MIC_CODE_GENERATION_ENGINE__H__
 #define __MIC_CODE_GENERATION_ENGINE__H__
 
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/CodeGen.h"
+
+#include "stddef.h"
+
 #include <string>
-#include <memory>
-#include "llvm/Target/TargetMachine.h"
-#include "MICJITEngine/include/IFunctionAddressResolver.h"
 
 namespace llvm {
-class Type;
+class IFunctionAddressResolver;
+class LLVMModuleJITHolder;
 class Module;
-
-class ModuleJITHolder;
+class TargetMachine;
+class Type;
 
 //===--------------------------------------------------------------------===//
 // MICCodeGenerationEngine - Drives code generation by the target machine
@@ -51,7 +55,7 @@ public:
   //Note: the returned value is a heap-allocated object.
   //The ownership on this object is transfered to the caller of that method.
   /////////////////////////////////////////////////////////////////////
-  const ModuleJITHolder* getModuleHolder(llvm::Module& m, const std::string& outAsmFile) const;
+  const LLVMModuleJITHolder* getModuleHolder(llvm::Module& m, const std::string& outAsmFile) const;
 
 private:
   TargetMachine &TM;

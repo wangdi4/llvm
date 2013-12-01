@@ -1,7 +1,7 @@
 ; XFAIL: x86
-; RUN: oclopt -builtins-module=clbltfng9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfng9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc < %t1.ll -mattr=+avx -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK
-; RUN: oclopt -builtins-module=clbltfns9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
+; RUN: oclopt -runtimelib=clbltfns9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
 ; RUN: llc < %t2.ll -mattr=+avx2 -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK
 
 
@@ -11,7 +11,7 @@ entry:
    %yOut = alloca  <8 x float>
    %zOut = alloca  <8 x float>
    %wOut = alloca  <8 x float>
-   call void @__ocl_load_transpose_float4x8(<4 x float>* nocapture %pLoadAdd, <8 x float>* nocapture %xOut, <8 x float>* nocapture %yOut, <8 x float>* nocapture %zOut, <8 x float>* nocapture %wOut) nounwind
+   call void @__ocl_load_transpose_float_4x8(<4 x float>* nocapture %pLoadAdd, <8 x float>* nocapture %xOut, <8 x float>* nocapture %yOut, <8 x float>* nocapture %zOut, <8 x float>* nocapture %wOut) nounwind
    %temp1 = load <8 x float>* %xOut
    %temp2 = load <8 x float>* %yOut
    %temp3 = load <8 x float>* %zOut
@@ -23,7 +23,7 @@ entry:
 }
 
 
-declare void @__ocl_load_transpose_float4x8(<4 x float>* nocapture %pLoadAdd, <8 x float>* nocapture %xOut, <8 x float>* nocapture %yOut, <8 x float>* nocapture %zOut, <8 x float>* nocapture %wOut) nounwind
+declare void @__ocl_load_transpose_float_4x8(<4 x float>* nocapture %pLoadAdd, <8 x float>* nocapture %xOut, <8 x float>* nocapture %yOut, <8 x float>* nocapture %zOut, <8 x float>* nocapture %wOut) nounwind
 
 
 
@@ -45,7 +45,7 @@ declare void @__ocl_load_transpose_float4x8(<4 x float>* nocapture %pLoadAdd, <8
 ;CHECK:	vunpcklps	[[YMM4]], [[YMM5]], [[YMM31:%ymm[0-9]+]]
 ;CHECK:	vunpckhps	[[YMM02]], [[YMM31]], [[YMM12:%ymm[0-9]+]]
 ;CHECK:	vunpcklps	[[YMM02]], [[YMM31]], [[YMM03:%ymm[0-9]+]]
-;CHECK:    .type	[[LOAD:[_a-z]+]]_transpose_float4x8,@function
+;CHECK:    .type	[[LOAD:[_a-z]+]]_transpose_float_4x8,@function
 
 
 

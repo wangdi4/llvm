@@ -25,8 +25,8 @@ File Name:  Prefetch.cpp
 #include "llvm/Support/BranchProbability.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Instructions.h"
-#include "llvm/Type.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Type.h"
 #include "OCLAddressSpace.h"
 #include "mic_dev_limits.h"
 
@@ -196,9 +196,7 @@ public:
 // Mask of all address spaces from which prefetch is likely to be beneficial
 const int Prefetch::PrefecthedAddressSpaces =
     getAddressSpaceMask(Utils::OCLAddressSpace::Global) |
-    getAddressSpaceMask(Utils::OCLAddressSpace::Constant) |
-    getAddressSpaceMask(Utils::OCLAddressSpace::Global_EndianHost) |
-    getAddressSpaceMask(Utils::OCLAddressSpace::Constant_EndianHost);
+    getAddressSpaceMask(Utils::OCLAddressSpace::Constant);
 
 /// Support for dynamic loading of modules under Linux
 char Prefetch::ID = 0;
@@ -718,6 +716,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       if (!isRandom && SAddr->getSCEVType() != scAddRecExpr)
         SAddr = SimplifySCEV(SAddr, *m_SE);
 
+      // if this is the first access detected for this BB insert it t the list
       BBAccesses::iterator it = m_addresses.find(BB);
       if (it == m_addresses.end()) {
         DEBUG (dbgs() << "Found first SCEV in this BB of size " << accessSize <<
@@ -731,7 +730,8 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
           step = getConstStep(SAddr, *m_SE);
           offset = getOffsetOfSCEV(SAddr, *m_SE);
         }
-        MAV.push_back(memAccess(I, SAddr, step, offset, isRandom, pfExclusive));
+        MAV.push_back(memAccess(I, SAddr, step, offset, isRandom,
+            pfExclusive));
 
         // if access is for more than one cache line record references for all
         // accessed cache lines
@@ -893,8 +893,8 @@ void Prefetch::countPFPerLoop () {
           numRandom++;
         TUNEPF (
           int accessSize = 0;
-        StoreInst *pStoreInst;
-        LoadInst *pLoadInst;
+          StoreInst *pStoreInst;
+          LoadInst *pLoadInst;
           if ((pStoreInst = dyn_cast<StoreInst>(MAV[i].I)) != NULL)
             accessSize = getSize(pStoreInst->getValueOperand()->getType());
           else if ((pLoadInst = dyn_cast<LoadInst>(MAV[i].I)) != NULL)
@@ -980,7 +980,6 @@ unsigned int Prefetch::IterLength(Loop *L)
   do {
     TerminatorInst *TI = BB->getTerminator();
     assert (TI->getNumSuccessors() > 0 && "Not expecting 0 successors");
-    assert (TI->getNumSuccessors() <= 2 && "Not expecting more than 2 successors");
 #ifndef NDEBUG
     assert (walkedBBs.find(BB) == walkedBBs.end() && "this BB length was already taken");
     walkedBBs[BB] = 1;
@@ -990,24 +989,35 @@ unsigned int Prefetch::IterLength(Loop *L)
     if (BBL == L) {
       len += BB->size();
         // select the next BB in the path
-      if (TI->getNumSuccessors() == 2 &&
-          BPI->getEdgeProbability(BB, TI->getSuccessor(0)) < BranchProbability(1, 2)) {
-        BB = TI->getSuccessor(1);
+      unsigned mostProbable = 0;
+      BranchProbability maxProb = BPI->getEdgeProbability(BB, TI->getSuccessor(0));
+
+      for (unsigned i = 1; i < TI->getNumSuccessors(); i++) {
+        BranchProbability iProb = BPI->getEdgeProbability(BB, TI->getSuccessor(i));
+        if (iProb > maxProb) {
+          mostProbable = i;
+          maxProb = iProb;
+        }
       }
-      else
-        BB = TI->getSuccessor(0);
+      BB = TI->getSuccessor(mostProbable);
     }
     else {
       assert (BBL->getHeader() == BB &&
           "expected to enter subloop from its header");
       unsigned internalLoopLen = IterLength(BBL);
-      //unsigned tripCount = BBL->getSmallConstantTripCount();
-      // TODO : make sure the tripCount is still correct, as it now looks on one exit block (what if there are several exit blocks?)
-      ScalarEvolution *SE = &getAnalysis<ScalarEvolution>();
-      unsigned tripCount = SE->getSmallConstantTripCount(L, L->getExitBlock());
-      if (tripCount == 0)
-        tripCount = defaultTripCount;
-      len += internalLoopLen * tripCount;
+      {
+        ScalarEvolution *SE = &getAnalysis<ScalarEvolution>();
+        SmallVector<BasicBlock *, 8> ExitBlocks;
+        L->getExitBlocks(ExitBlocks);
+        unsigned tripCount = 0;
+        for (unsigned i = 0; i < ExitBlocks.size(); ++i)
+        {
+          tripCount = std::max(tripCount, SE->getSmallConstantTripMultiple(L, ExitBlocks[i]));
+        }
+        if (tripCount == 0)
+            tripCount = defaultTripCount;
+        len += internalLoopLen * tripCount;
+      }
 
       SmallVector<BasicBlock *, 8> ExitBlocks;
       BBL->getExitBlocks(ExitBlocks);
@@ -1821,6 +1831,10 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
 
     isExclusive = true;
   }
+  else
+    return;
+
+  assert (pfIntrinName != NULL && "Expected gather/scatter intrinsic");
 
   Type *voidTy = Type::getVoidTy(context);
   FunctionType *intr = FunctionType::get(voidTy, types, false);

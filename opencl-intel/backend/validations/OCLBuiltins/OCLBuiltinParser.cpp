@@ -295,6 +295,10 @@ bool OCLBuiltinParser::ParseOCLBuiltin(const std::string& in_str,
                         newArg.ptrType.isAddrSpace = true;
                         newArg.ptrType.AddrSpace = OCLBuiltinParser::PRIVATE;
                         break;
+                    case reflection::ATTR_GENERIC:
+                        newArg.ptrType.isAddrSpace = true;
+                        newArg.ptrType.AddrSpace = OCLBuiltinParser::GENERIC;
+                        break;
                     case reflection::ATTR_CONST:
                         newArg.ptrType.isPointsToConst = true;
                         break;
@@ -403,6 +407,9 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
                         break;
                     case LOCAL:
                         pPointerType->addAttribute(reflection::ATTR_LOCAL);
+                        break;
+                    case GENERIC:
+                        pPointerType->addAttribute(reflection::ATTR_GENERIC);
                         break;
                     default:
                         throw Validation::Exception::InvalidArgument("Unknown address space!");

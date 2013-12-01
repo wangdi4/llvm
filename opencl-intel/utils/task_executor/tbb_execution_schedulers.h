@@ -28,57 +28,65 @@
 
 #include "task_executor.h"
 #include "base_command_list.h"
+
+#include <cl_shared_ptr.h>
 #include <tbb/tbb.h>
 
-
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
-
-class BlockedRangeBase;
 
 class TBB_ExecutionSchedulers 
 {
 public:
-    static void parallel_execute( 
-                           base_command_list& cmdList,
-                           const size_t       dims[],          // MAX_WORK_DIM size
-                           unsigned int       actual_dims_size,
-                           ITaskSet&          task );
+    static bool parallel_execute(
+         base_command_list&                                cmdList,
+         const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task );
 
 private:
 
     // specific execution methods
+    template <class BlockedRange, class TaskLoopBodySpecific>
+    static void opencl_executor( 
+        const size_t                                      dims[],
+        size_t                                            grainsize,
+        const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
+        base_command_list&                                cmdList );
 
     // tiled, horizontal, vertical
     template <class BlockedRange, class TaskLoopBodySpecific>        
-    static void auto_executor(  const BlockedRangeBase& range, 
-                                ITaskSet&               task,
-                                TBBTaskExecutor&        executor,
-                                tbb::affinity_partitioner* ap );
+    static void auto_executor(
+        const size_t                                      dims[],
+        size_t                                            grainsize,
+        const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
+        base_command_list&                                cmdList );
     
     template <class BlockedRange, class TaskLoopBodySpecific>        
     static void affinity_executor( 
-                                const BlockedRangeBase& range, 
-                                ITaskSet&               task,
-                                TBBTaskExecutor&        executor,
-                                tbb::affinity_partitioner* ap );
+        const size_t                                      dims[],
+        size_t                                            grainsize,
+        const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
+        base_command_list&                                cmdList );
 
     typedef void (*ExecutorFunc)( 
-                            const BlockedRangeBase& range, 
-                            ITaskSet&               task,
-                            TBBTaskExecutor&        executor,
-                            tbb::affinity_partitioner* ap );
+        const size_t                                      dims[],
+        size_t                                            grainsize,
+        const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
+        base_command_list&                                cmdList );
     
     static ExecutorFunc auto_block_default[MAX_WORK_DIM];    // schedulers that use auto_partitioner with default blocked_range
     static ExecutorFunc affinity_block_default[MAX_WORK_DIM];// schedulers that use affinity_partitioner with default blocked_range
+    static ExecutorFunc opencl_block_default[MAX_WORK_DIM];  // schedulers that use opencl_partitioner with default blocked_range
 
     static ExecutorFunc auto_block_row[MAX_WORK_DIM];        // schedulers that use auto_partitioner with blocked_range By Row
     static ExecutorFunc affinity_block_row[MAX_WORK_DIM];    // schedulers that use affinity_partitioner with blocked_range By Row
+    static ExecutorFunc opencl_block_row[MAX_WORK_DIM];      // schedulers that use opencl_partitioner with blocked_range By Row
 
     static ExecutorFunc auto_block_column[MAX_WORK_DIM];     // schedulers that use auto_partitioner with blocked_range By Column
     static ExecutorFunc affinity_block_column[MAX_WORK_DIM]; // schedulers that use affinity_partitioner with blocked_range By Column
+    static ExecutorFunc opencl_block_column[MAX_WORK_DIM];   // schedulers that use opencl_partitioner with blocked_range By Column
 
     static ExecutorFunc auto_block_tile[MAX_WORK_DIM];       // schedulers that use auto_partitioner with blocked_range By Tile
     static ExecutorFunc affinity_block_tile[MAX_WORK_DIM];   // schedulers that use affinity_partitioner with blocked_range By Tile
+    static ExecutorFunc opencl_block_tile[MAX_WORK_DIM];     // schedulers that use opencl_partitioner with blocked_range By Tile
     
     static ExecutorFunc* g_executor[TE_CMD_LIST_PREFERRED_SCHEDULING_LAST][TASK_SET_OPTIMIZE_BY_LAST];
     
@@ -86,4 +94,3 @@ private:
 
 
 }}}
-

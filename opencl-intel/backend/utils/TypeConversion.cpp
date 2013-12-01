@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "TypeConversion.h"
 #include "Utils.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/ADT/StringRef.h"
 #include <string>
 
@@ -31,6 +31,8 @@ class ConversionVisitor : public reflection::TypeVisitor{
       return 2U;
     case reflection::ATTR_LOCAL:
       return 3U;
+    case reflection::ATTR_GENERIC:
+      return 4U;
     default:
       assert(false && "unreachable");
       return 42U;

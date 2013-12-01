@@ -31,6 +31,10 @@ public:
 		this->image_format.image_channel_order = CL_LUMINANCE;
 		this->image_format.image_channel_data_type = CL_UNORM_INT16;
 	}
+    virtual void TearDown()
+    {
+        FissionWrapper::TearDown();
+    }
 };
 
 // Do not add other types here
@@ -45,7 +49,7 @@ static const char* d3KernelName = "read_image3D_float4_first";
 // if equal to 2 - should succeed on both devices
 // if equal to 0 - should succeed on CPU and fail on GPU
 // if equal to 1 - should succeed on GPU and fail on CPU
-static int succDevicesNum = 1;
+static int succDevicesNum = 2;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 //	TESTING Fission_VR8_CL_L_CL_UNORM_INT16 - for tests description see vc8_imageCL_FLOAT.cpp

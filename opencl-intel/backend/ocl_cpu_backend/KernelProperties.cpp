@@ -35,7 +35,8 @@ KernelProperties::KernelProperties():
     m_totalImplSize(0),
     m_privateMemorySize(0),
     m_minGroupSizeFactorial(1),
-    m_uiSizeT(sizeof(void*))
+    m_uiSizeT(sizeof(void*)),
+    m_bIsBlock(false)
 {
     memset(m_reqdWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
     memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
@@ -94,6 +95,11 @@ void KernelProperties::SetReqdWGSize(const size_t* psize )
 void KernelProperties::SetHintWGSize(const size_t* psize )
 {
     std::copy(psize, psize + MAX_WORK_DIM, m_hintWGSize);
+}
+
+bool KernelProperties::IsBlock() const
+{
+    return m_bIsBlock;
 }
 
 }}}

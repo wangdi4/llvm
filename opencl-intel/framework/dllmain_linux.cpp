@@ -43,7 +43,7 @@ template class SharedPtrBase<IEventObserver>;
 
 void dll_init(void)
 {
-#if _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
+#ifdef _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
     InitSharedPtrs();
 #endif
 }
@@ -52,7 +52,7 @@ void dll_fini(void)
 {
 	// release the framework proxy object 
 	Intel::OpenCL::Framework::FrameworkProxy::Destroy();
-#if _DEBUG
+#ifdef _DEBUG
     FiniSharedPts();
 #endif
 }

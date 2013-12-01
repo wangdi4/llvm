@@ -15,12 +15,23 @@ Copyright (c) Intel Corporation (2010).
 File Name:  ModuleJITHolder.cpp
 
 \*****************************************************************************/
+
 #include "ModuleJITHolder.h"
-#include "Serializer.h"
+
 #include "MICSerializationService.h"
-#include <assert.h>
+#include "Serializer.h"
+
+#include "malloc.h"
+#include "stddef.h"
+
+#include <cassert>
+#include <map>
+#include <utility>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
+
+class IInputStream;
+class IOutputStream;
 
 ModuleJITHolder::ModuleJITHolder():
     m_pJITBuffer(NULL),
@@ -92,18 +103,12 @@ void ModuleJITHolder::Serialize(IOutputStream& ost, SerializationStatus* stats)
 
     int mapSize = m_KernelsMap.size();
     Serializer::SerialPrimitive<int>(&mapSize, ost);
-    
     for(std::map<KernelID, KernelInfo>::const_iterator 
         it = m_KernelsMap.begin();
         it != m_KernelsMap.end();
         it++)
     {
-        KernelID kernelID = it->first;
-        Serializer::SerialPrimitive<unsigned long long int>(&kernelID, ost);
-        
-        KernelInfo kernelInfo = it->second;
-        Serializer::SerialPrimitive<int>(&(kernelInfo.kernelOffset), ost);
-        Serializer::SerialPrimitive<int>(&(kernelInfo.kernelSize), ost);
+        SerializeKernelInfo(it->first, it->second, ost);
     }
     
     for(size_t i = 0; i < m_JITCodeSize; i++)
@@ -128,15 +133,13 @@ void ModuleJITHolder::Deserialize(IInputStream& ist, SerializationStatus* stats)
     for(int i = 0; i < mapSize; ++i)
     {
         KernelID kernelID;
-        Serializer::DeserialPrimitive<unsigned long long int>(&kernelID, ist);
-        
         KernelInfo kernelInfo;
-        Serializer::DeserialPrimitive<int>(&(kernelInfo.kernelOffset), ist);
-        Serializer::DeserialPrimitive<int>(&(kernelInfo.kernelSize), ist);
+        DeserializeKernelInfo(kernelID, kernelInfo, ist);
         m_KernelsMap[kernelID] = kernelInfo;
     }
     
-    // Deserailize the JIT code itself
+
+    // Deserialize the JIT code itself
     ICLDevBackendJITAllocator* pAllocator = stats->GetJITAllocator();
     if(NULL == pAllocator) throw Exceptions::SerializationException("Cannot Get JIT Allocator");
     
@@ -154,8 +157,81 @@ void ModuleJITHolder::Deserialize(IInputStream& ist, SerializationStatus* stats)
     {
         Serializer::DeserialPrimitive<char>(&(m_pJITBuffer[i]), ist);
     }
-	// we get the buffer already aligned so the pJITCode == pJITBuffer
+	  // we get the buffer already aligned so the pJITCode == pJITBuffer
     m_pJITCode = m_pJITBuffer;
+
+}
+
+void ModuleJITHolder::SerializeKernelInfo(KernelID id, KernelInfo info,
+                                          IOutputStream& ost) const
+{
+    Serializer::SerialPrimitive<unsigned long long int>(&id, ost);
+
+    Serializer::SerialPrimitive<int>(&(info.functionId), ost);
+
+    Serializer::SerialPrimitive<int>(&(info.kernelOffset), ost);
+
+    Serializer::SerialPrimitive<int>(&(info.kernelSize), ost);
+
+    Serializer::SerialString(info.filename, ost);
+
+    int lineNumberTableSize = info.lineNumberTable.size();
+    Serializer::SerialPrimitive<int>(&lineNumberTableSize, ost);
+    for (int i = 0; i < lineNumberTableSize; i++)
+    {
+        LineNumberEntry entry = info.lineNumberTable[i];
+        Serializer::SerialPrimitive<int>(&(entry.offset), ost);
+        Serializer::SerialPrimitive<int>(&(entry.line), ost);
+    }
+
+    int inlinedFunctionsSize = info.inlinedFunctions.size();
+    Serializer::SerialPrimitive<int>(&inlinedFunctionsSize, ost);
+    for (int i = 0; i < inlinedFunctionsSize; i++)
+    {
+        InlinedFunction inlinedFunc = info.inlinedFunctions[i];
+        Serializer::SerialPrimitive<int>(&(inlinedFunc.id), ost);
+        Serializer::SerialPrimitive<int>(&(inlinedFunc.parentId), ost);
+        Serializer::SerialPrimitive<int>(&(inlinedFunc.from), ost);
+        Serializer::SerialPrimitive<unsigned>(&(inlinedFunc.size), ost);
+        Serializer::SerialString(inlinedFunc.funcname, ost);
+        Serializer::SerialString(inlinedFunc.filename, ost);
+    }
+}
+
+void ModuleJITHolder::DeserializeKernelInfo(KernelID& id, KernelInfo& info,
+                                            IInputStream& ist) const {
+    Serializer::DeserialPrimitive<unsigned long long int>(&id, ist);
+
+    Serializer::DeserialPrimitive<int>(&(info.functionId), ist);
+
+    Serializer::DeserialPrimitive<int>(&(info.kernelOffset), ist);
+
+    Serializer::DeserialPrimitive<int>(&(info.kernelSize), ist);
+
+    Serializer::DeserialString(info.filename, ist);
+
+    int lineNumberTableSize;
+    Serializer::DeserialPrimitive<int>(&lineNumberTableSize, ist);
+    for (int j = 0; j < lineNumberTableSize; j++) {
+        LineNumberEntry entry;
+        Serializer::DeserialPrimitive<int>(&(entry.offset), ist);
+        Serializer::DeserialPrimitive<int>(&(entry.line), ist);
+        info.lineNumberTable.push_back(entry);
+    }
+
+    int inlinedFunctionsSize;
+    Serializer::DeserialPrimitive<int>(&inlinedFunctionsSize, ist);
+    for (int j = 0; j < inlinedFunctionsSize; j++) {
+        InlinedFunction inlinedFunc;
+        Serializer::DeserialPrimitive<int>(&(inlinedFunc.id), ist);
+        Serializer::DeserialPrimitive<int>(&(inlinedFunc.parentId), ist);
+        Serializer::DeserialPrimitive<int>(&(inlinedFunc.from), ist);
+        Serializer::DeserialPrimitive<unsigned>(&(inlinedFunc.size), ist);
+        Serializer::DeserialString(inlinedFunc.funcname, ist);
+        Serializer::DeserialString(inlinedFunc.filename, ist);
+        info.inlinedFunctions.push_back(inlinedFunc);
+    }
+
 }
 
 void ModuleJITHolder::RegisterKernel(KernelID kernelId, KernelInfo kernelinfo)
@@ -189,6 +265,47 @@ int ModuleJITHolder::GetKernelJITSize( KernelID kernelId ) const
         return -1;
     }
     return it->second.kernelSize;
+}
+
+const LineNumberTable* ModuleJITHolder::GetKernelLineNumberTable(KernelID kernelId) const {
+    std::map<KernelID, KernelInfo>::const_iterator it = m_KernelsMap.find(kernelId);
+    if ( m_KernelsMap.end() == it )
+    {
+        assert( false && "Kernel not found");
+        return NULL;
+    }
+    return &(it->second.lineNumberTable);
+}
+
+const char * ModuleJITHolder::GetKernelFilename(KernelID kernelId) const {
+    std::map<KernelID, KernelInfo>::const_iterator it = m_KernelsMap.find(kernelId);
+    if ( m_KernelsMap.end() == it )
+    {
+        assert( false && "Kernel not found");
+        return NULL;
+    }
+    return it->second.filename.c_str();
+}
+
+const InlinedFunctions* ModuleJITHolder::GetKernelInlinedFunctions(KernelID kernelId) const
+{
+    std::map<KernelID, KernelInfo>::const_iterator it = m_KernelsMap.find(kernelId);
+    if ( m_KernelsMap.end() == it )
+    {
+        assert( false && "Kernel not found");
+        return NULL;
+    }
+    return &(it->second.inlinedFunctions);
+}
+
+int ModuleJITHolder::GetKernelVtuneFunctionId(KernelID kernelId) const {
+    std::map<KernelID, KernelInfo>::const_iterator it = m_KernelsMap.find(kernelId);
+    if ( m_KernelsMap.end() == it )
+    {
+        assert( false && "Kernel not found");
+        return -1;
+    }
+    return it->second.functionId;
 }
 
 int ModuleJITHolder::GetKernelCount() const

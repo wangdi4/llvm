@@ -22,7 +22,7 @@ File Name:  Helpers.h
 #include <llvm/Support/DataTypes.h> // int8_t, int16_t, ... declared here
 #include <llvm/ADT/APInt.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/DerivedTypes.h>
 #include "OCLBuiltinParser.h"
 #include "FloatOperations.h"
 

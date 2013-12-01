@@ -34,6 +34,11 @@
 #include <fstream>
 #include <sstream>
 #include "cl_env.h"
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <fstream>
+#endif
 
 using std::string;
 using std::vector;
@@ -73,7 +78,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		ConfigFile(string strFileName, string strDelimiter = "=", string strComment = "#", string strSentry = "EndConfigFile" );
+		ConfigFile(const string& strFileName, string strDelimiter = "=", string strComment = "#", string strSentry = "EndConfigFile" );
 
 		/******************************************************************************************
 		* Function: 	ConfigFile
@@ -239,7 +244,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		static cl_err_code ReadFile(string fileName, ConfigFile& cf);
+		static cl_err_code ReadFile(const string& fileName, ConfigFile& cf);
 
 		/******************************************************************************************
 		* Function: 	WriteFile
@@ -283,6 +288,17 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Date:			December 2008
 		******************************************************************************************/
 		template<class T> static T ConvertStringToType( const string& str );
+
+        /******************************************************************************************
+		* Function: 	GetRegistryOrEtcValue
+		* Description:	Get a value from registry on Windows (in key SOFTWARE\Intel\OpenCL) or from a file in /etc/OpenCL/vendors/Intel/
+		* Arguments:	const string& name [in] - the name of the registry value or etc file
+        *               const T& defaultVal     - default value that is returned in any case of error
+		* Return value:	the value stored in the registry 
+		* Author:		Aharon Abramson
+		* Date:			October 2013
+		******************************************************************************************/
+        template<class T> static T GetRegistryOrEtcValue(const string& name, const T& defaultVal);
 
 	protected:
 
@@ -435,6 +451,53 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		return;
 	}
 
+    template<class T>
+    T ConfigFile::GetRegistryOrEtcValue(const string& name, const T& defaultVal)
+    {
+        T regVal;
+#ifdef _WIN32
+        const char* sOpenCLverName = "SOFTWARE\\Intel\\OpenCL";
+        HKEY openCLverKey = NULL;
+        LONG res = RegOpenKey(HKEY_LOCAL_MACHINE, sOpenCLverName, &openCLverKey);    
+
+        if (ERROR_SUCCESS != res)
+        {
+            return defaultVal;
+        }
+        else
+        {
+            DWORD regValSize = sizeof(regVal);
+            const char* sValue = name.c_str();
+            res = RegQueryValueExA(openCLverKey, sValue, NULL, NULL, (BYTE*)&regVal, &regValSize);
+            if (ERROR_SUCCESS != res)
+            {
+                return defaultVal;
+            }
+            RegCloseKey(openCLverKey);
+        }
+#else
+        const char* sOpenCLverFilename = "/etc/OpenCL/vendors/Intel/ForceOCLCPUVersion";
+        std::ifstream ifs(sOpenCLverFilename);
+        if (!ifs.good())
+        {
+            return defaultVal;
+        }        
+        ifs >> regVal;
+        if (!ifs.good())
+        {
+            return defaultVal;
+        }
+        ifs.close();
+#endif
+        return regVal;
+    }
+
+    enum OPENCL_VERSION
+    {
+        OPENCL_VERSION_UNKNOWN =    0,
+        OPENCL_VERSION_1_2 =        1,
+        OPENCL_VERSION_2_0 =        2
+    };
 
     /**
      * This is the base class to all config wrappers.
@@ -465,6 +528,11 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		        m_pConfigFile = NULL;
 	        }
         }
+
+        /**
+         * @return the dynamically detected OpenCL version (according to registry in Windows and /etc/ in Linux)
+         */        
+        OPENCL_VERSION GetOpenCLVersion() const;
 	
 	private:
 		BasicCLConfigWrapper(const BasicCLConfigWrapper&);

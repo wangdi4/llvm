@@ -19,14 +19,14 @@ File Name:  OpenCLKernelArgumentsParser.h
 
 #ifndef __OPENCL_KERNEL_ARGUMENTS_PARSER__
 #define __OPENCL_KERNEL_ARGUMENTS_PARSER__
-#include<string>
-#include<list>
-#include"llvm/Module.h"
-#include "llvm/DerivedTypes.h"
-#include"IMemoryObjectDesc.h"
-#include"IOpenCLKernelArgumentsParser.h"
+#include <string>
+#include <list>
+#include "llvm/IR/Module.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "IMemoryObjectDesc.h"
+#include "IOpenCLKernelArgumentsParser.h"
 #include "Exception.h"
-#include"TypeDesc.h"
+#include "TypeDesc.h"
 #include <stack>
 
 namespace Validation

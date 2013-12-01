@@ -29,7 +29,7 @@ File Name:  ImageCallbackLibrary.cpp
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
@@ -280,7 +280,7 @@ void ImageCallbackLibrary::Load()
 
     // initialize the object cache with the path to the pre-compiled image
     // callback library object.
-    m_pLoader->AddLocation(M, getLibraryObjectName());
+    m_pLoader->addLocation(M, getLibraryObjectName());
     EE->setObjectCache(m_pLoader.get());
 
     // put the module and the execution engine in a container

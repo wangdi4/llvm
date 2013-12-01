@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BarrierUtils.h"
 #include "OCLPassSupport.h"
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 
 namespace intel {
 
@@ -22,7 +22,7 @@ namespace intel {
   bool RedundantPhiNode::runOnFunction(Function &F) {
     TInstructionVector toRemoveInstructions;
     for ( Function::iterator bi = F.begin(), be = F.end(); bi != be; ++bi ) {
-      BasicBlock *pBB = dyn_cast<BasicBlock>(&*bi);
+      BasicBlock *pBB = &*bi;
       for ( BasicBlock::iterator ii = pBB->begin(), ie = pBB->end(); ii != ie; ++ii ) {
         PHINode *pPhiNode = dyn_cast<PHINode>(&*ii);
         if ( !pPhiNode ) {

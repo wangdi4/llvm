@@ -42,11 +42,11 @@ class StaticObjectLoader : public llvm::ObjectCache {
   // loaded from, or written to on compilation.
   ModuleStringMap Paths;
 
-  bool Exists(llvm::StringRef Location) {
+  bool exists(llvm::StringRef Location) {
     return llvm::sys::fs::exists(Location);
   }
 
-  llvm::MemoryBuffer* ReadObject(llvm::StringRef Location) {
+  llvm::MemoryBuffer* readObject(llvm::StringRef Location) {
     llvm::OwningPtr<llvm::MemoryBuffer> MemBuf;
     llvm::MemoryBuffer::getFile(Location, MemBuf);
     return MemBuf.take();
@@ -65,37 +65,37 @@ public:
     }
   }
 
-  /// AddLocation - Adds a mapping between a module and a path on the filesystem
+  /// addLocation - Adds a mapping between a module and a path on the filesystem
   /// from where the object file for the given module should be loaded,
   /// The contents of the file at ObjectFilePath can be retrieved by calling
-  /// GetObject() with the same Module pointer as used to call this function.
-  virtual void AddLocation(const llvm::Module* M,
+  /// getObject() with the same Module pointer as used to call this function.
+  virtual void addLocation(const llvm::Module* M,
                            const std::string& ObjectFilePath) {
     Paths[M] = ObjectFilePath;
-    if (Exists(ObjectFilePath)) {
-      // A file exists at ObjectFilePath, so read it now and save it for later retrieval via GetObject
+    if (exists(ObjectFilePath)) {
+      // A file exists at ObjectFilePath, so read it now and save it for later retrieval via getObject
       llvm::OwningPtr<const llvm::MemoryBuffer> StaticObject(
-        ReadObject(ObjectFilePath));
+        readObject(ObjectFilePath));
       StaticObjects.insert(std::make_pair(M, StaticObject.take()));
     }
   }
 
-  /// AddPreCompiled - Adds a mapping between a module and a preloaded object
+  /// addPreCompiled - Adds a mapping between a module and a preloaded object
   /// file.
-  virtual void AddPreCompiled(const llvm::Module* M,
+  virtual void addPreCompiled(const llvm::Module* M,
                               const llvm::MemoryBuffer* MemBuff) {
     StaticObjects.insert(std::make_pair(M, MemBuff));
   }
 
-  virtual void NotifyObjectCompiled(const llvm::Module*, const llvm::MemoryBuffer*) {
+  virtual void notifyObjectCompiled(const llvm::Module*, const llvm::MemoryBuffer*) {
     // A module has been compiled and the resulting object is in a MemoryBuffer
     assert(0 && "TODO: implement module compiled notification handler");
   }
 
-  /// GetObject - Returns a pointer to a pre-compiled object buffer previously
-  /// added to the cache (with AddLocation or NotifyCompiledObject) or 0 if the
+  /// getObject - Returns a pointer to a pre-compiled object buffer previously
+  /// added to the cache (with addLocation or notifyCompiledObject) or 0 if the
   /// Module pointer M is not associated with a statically compiled object.
-  virtual const llvm::MemoryBuffer* GetObject(const llvm::Module* M) {
+  virtual const llvm::MemoryBuffer* getObject(const llvm::Module* M) {
     ModuleMemBuffers::iterator i = StaticObjects.find(M);
     if (i == StaticObjects.end()) {
       return 0;

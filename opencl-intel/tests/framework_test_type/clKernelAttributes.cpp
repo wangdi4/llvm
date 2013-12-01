@@ -99,7 +99,8 @@ bool clKernelAttributesTest()
 	}
 
 	kernel = clCreateKernel(prog, "sample_test_reqrd", &iRet);
-	if ( CL_FAILED(iRet))
+	bResult = Check(L"clCreateKernel", CL_SUCCESS, iRet);
+	if ( !bResult )
 	{
 		clReleaseProgram(prog);
 		clReleaseContext(context);
@@ -110,7 +111,8 @@ bool clKernelAttributesTest()
 	// Get kernel extended attributes
 	size_t wgSizeInfo[3];
 	iRet = clGetKernelWorkGroupInfo(kernel, pDevices[0], CL_KERNEL_COMPILE_WORK_GROUP_SIZE, sizeof(wgSizeInfo), &wgSizeInfo, NULL);
-	if ( CL_FAILED(iRet))
+	bResult = Check(L"clGetKernelWorkGroupInfo", CL_SUCCESS, iRet);
+	if ( !bResult )
 	{
 		clReleaseKernel(kernel);
 		clReleaseProgram(prog);
@@ -119,11 +121,12 @@ bool clKernelAttributesTest()
 		return false;
 	}
 
-	bool bRes = (wgSizeInfo[0] == 2) && (wgSizeInfo[1] == 3) && (wgSizeInfo[2] == 4);
+	bool bRes = Check(L"CL_KERNEL_COMPILE_WORK_GROUP_SIZE", true, (wgSizeInfo[0] == 2) && (wgSizeInfo[1] == 3) && (wgSizeInfo[2] == 4));
 
 	size_t wgMaxSize = 0;
 	iRet = clGetKernelWorkGroupInfo(kernel, pDevices[0], CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &wgMaxSize, NULL);
-	if ( CL_FAILED(iRet))
+	bResult = Check(L"clGetKernelWorkGroupInfo", CL_SUCCESS, iRet);
+	if ( !bResult )
 	{
 		clReleaseKernel(kernel);
 		clReleaseProgram(prog);
@@ -133,7 +136,8 @@ bool clKernelAttributesTest()
 	}
 
 	iRet = clGetKernelWorkGroupInfo(kernel, pDevices[0], CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &wgMaxSize, NULL);
-	if ( CL_FAILED(iRet))
+	bResult = Check(L"clGetKernelWorkGroupInfo", CL_SUCCESS, iRet);
+	if ( !bResult )
 	{
 		clReleaseKernel(kernel);
 		clReleaseProgram(prog);
@@ -141,11 +145,12 @@ bool clKernelAttributesTest()
 		delete []pDevices;
 		return false;
 	}
-	bRes &= (wgSizeInfo[0]*wgSizeInfo[1]*wgSizeInfo[2] == wgMaxSize);
+	bRes &= Check(L"CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE", true, (wgSizeInfo[0]*wgSizeInfo[1]*wgSizeInfo[2] == wgMaxSize));
 
 	cl_ulong ulPrSize;
 	iRet = clGetKernelWorkGroupInfo(kernel, pDevices[0], CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &ulPrSize, NULL);
-	if ( CL_FAILED(iRet))
+	bResult = Check(L"clGetKernelWorkGroupInfo", CL_SUCCESS, iRet);
+	if ( !bResult )
 	{
 		clReleaseKernel(kernel);
 		clReleaseProgram(prog);
@@ -153,7 +158,7 @@ bool clKernelAttributesTest()
 		delete []pDevices;
 		return false;
 	}
-	bRes &= ( 0 != ulPrSize );
+	bRes &= Check(L"CL_KERNEL_PRIVATE_MEM_SIZE", 0, ulPrSize);
 
 	clReleaseKernel(kernel);
 	clReleaseProgram(prog);

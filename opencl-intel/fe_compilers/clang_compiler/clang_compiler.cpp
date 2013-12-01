@@ -9,11 +9,11 @@
 #include "link_data.h"
 #include "source_file.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/IRReader.h"
-#include "llvm/Module.h"
-#include "llvm/Metadata.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Metadata.h"
 #endif //OCLFRONTEND_PLUGINS
 #ifdef _WIN32
 #include "translation_controller.h"
@@ -22,6 +22,7 @@
 #include <Logger.h>
 #include <cl_sys_defines.h>
 #include <cl_device_api.h>
+#include <cl_shutdown.h>
 
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/ManagedStatic.h>
@@ -77,7 +78,12 @@ using namespace Intel::OpenCL::Utils;
 
 using namespace Intel::OpenCL::FECompilerAPI;
 
+volatile bool ClangFECompiler::m_bLllvmActive = false;
+
+
 extern DECLARE_LOGGER_CLIENT;
+
+USE_SHUTDOWN_HANDLER(ClangFECompiler::ShutDown);
 
 #ifdef _WIN32
 namespace TC
@@ -116,6 +122,8 @@ Intel::OpenCL::Utils::AtomicCounter Intel::OpenCL::ClangFE::ClangFECompiler::s_l
 // ClangFECompiler class implementation
 ClangFECompiler::ClangFECompiler(const void* pszDeviceInfo)
 {
+     m_bLllvmActive = true;
+
     long prev = s_llvmReferenceCount++;
     if ( 0 == prev )
     {
@@ -135,6 +143,7 @@ ClangFECompiler::ClangFECompiler(const void* pszDeviceInfo)
     m_sDeviceInfo.bImageSupport     = pDevInfo->bImageSupport;
     m_sDeviceInfo.bDoubleSupport    = pDevInfo->bDoubleSupport;
     m_sDeviceInfo.bEnableSourceLevelProfiling = pDevInfo->bEnableSourceLevelProfiling;
+    m_config.Initialize(GetConfigFilePath());
 }
 
 ClangFECompiler::~ClangFECompiler()
@@ -153,9 +162,19 @@ ClangFECompiler::~ClangFECompiler()
         }
 #else
         CloseClangDriver();
-#endif        
+#endif
+        m_bLllvmActive = false;
     }
 }
+
+void ClangFECompiler::ShutDown()
+{
+    while (m_bLllvmActive)
+    {
+        hw_pause();
+    }
+}
+
 
 #ifdef OCLFRONTEND_PLUGINS
 //
@@ -168,10 +187,7 @@ static Intel::OpenCL::Frontend::SourceFile createSourceFile(
   IOCLFEBinaryResult* pBinary = NULL)
 {
   //composing a file name based on the current time
-  const char* strPrefix = getenv("OCLRECORDER_DUMPPREFIX");
   std::stringstream fileName;
-  if (strPrefix)
-    fileName << strPrefix << "_";
   std::string strContents(contents);
   Intel::OpenCL::Frontend::BinaryBuffer buffer;
   if (pBinary){
@@ -192,7 +208,7 @@ static Intel::OpenCL::Frontend::SourceFile createSourceFile(
     llvm::MDNode *elt = metadata->getOperand(0);
     llvm::Function* pKernel =
       llvm::dyn_cast<llvm::Function>(elt->getOperand(0)->stripPointerCasts());
-    fileName << "_" << pKernel->getName().str();
+    fileName <<  pKernel->getName().str();
   }
   fileName  << serial << ".cl";
   Intel::OpenCL::Frontend::SourceFile ret = Intel::OpenCL::Frontend::SourceFile(
@@ -207,15 +223,15 @@ static Intel::OpenCL::Frontend::SourceFile createSourceFile(
 
 int ClangFECompiler::CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult)
 {
-    assert(NULL != pProgDesc);
-    assert(NULL != pBinaryResult);
-    // Create new compile task
-    ClangFECompilerCompileTask* pCompileTask = new ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo);
-    if ( NULL == pCompileTask )
-    {
-        *pBinaryResult = NULL;
-        return CL_OUT_OF_HOST_MEMORY;
-    }
+	assert(NULL != pProgDesc);
+	assert(NULL != pBinaryResult);
+	// Create new compile task
+	ClangFECompilerCompileTask* pCompileTask = new ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo, m_config);
+	if ( NULL == pCompileTask )
+	{
+		*pBinaryResult = NULL;
+		return CL_OUT_OF_HOST_MEMORY;
+	}
   cl_err_code ret = pCompileTask->Compile();
     *pBinaryResult = pCompileTask;
 #ifdef OCLFRONTEND_PLUGINS
@@ -259,13 +275,11 @@ int ClangFECompiler::LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDe
     return ret;
 }
 
-int ClangFECompiler::GetKernelArgInfo(const void*       pBin, 
-                                      const char*       szKernelName, 
+int ClangFECompiler::GetKernelArgInfo(const void*             pBin, 
+                                      const char*             szKernelName, 
                                       FEKernelArgInfo*  *pArgInfo)
 {
-    assert(NULL != pBin);
-    assert(NULL != szKernelName);
-    assert(NULL != pArgInfo);
+    assert( (NULL!=pBin) && (NULL!=szKernelName) && (NULL!=pArgInfo) && "Invlaid arguments");
 
     // Create new GetKernelArgInfo task
     ClangFECompilerGetKernelArgInfoTask* pGetKernelArgInfoTask = new ClangFECompilerGetKernelArgInfoTask();
@@ -282,7 +296,7 @@ int ClangFECompiler::GetKernelArgInfo(const void*       pBin,
 
 bool ClangFECompiler::CheckCompileOptions(const char* szOptions, char** szUnrecognizedOptions)
 {
-    return ClangFECompilerCheckCompileOptions(szOptions, szUnrecognizedOptions);
+    return ClangFECompilerCheckCompileOptions(szOptions, szUnrecognizedOptions, m_config);
 }
 
 bool ClangFECompiler::CheckLinkOptions(const char* szOptions, char** szUnrecognizedOptions)

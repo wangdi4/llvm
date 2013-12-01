@@ -20,10 +20,10 @@
 #include "utils.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IRReader/IRReader.h"
 #include "BuiltinKeeper.h"
 #include "FunctionDescriptor.h"
 #include "NameMangleAPI.h"
@@ -118,7 +118,15 @@ static width::V indexToWidth(size_t index){
   return allWidth[index];
 }
 
-//an array of function names, that can be packetized, but not scalarized
+// This is an array of functions, with unique semantics.
+// Each one of these builtin functions has two overloaded forms (let the name
+// of the function denoted by 'f', the primitive function for the overload
+// denoted by 't', and the vector-with (>1) denoted by 'd').
+// The first overloaded form is: f(vd_t, t), while the second is: f(vd_t, vd_t).
+// The expected behavior is as follows:
+// 1. Both function forms are scalarizable.
+// 2. The scalar version of 'f' (which the same for both formats) should be
+// packetized to the second form (i.e., to f(vd_t, vd_t)).
 llvm::StringRef ambigNames[] = {"fmax", "fmin", "fmod", "ldexp", "min", "max",
 "clamp", "mix", "step", "smoothstep"};
 llvm::ArrayRef<llvm::StringRef> arrAmbiguous( ambigNames );
@@ -150,25 +158,28 @@ TEST(VectorizerReference, OldTable){
       if (expectedWidth != width::SCALAR)
         ASSERT_EQ(0==tableProperties[rowindex][0], isNullPair(scalarVersion)) <<
         "in built-in " << biName;
-      //Do the two versions agree on the packetizer property?
-      //We arbitrary picked four as the destination vector width.
+
+      // Do the two versions agree on the packetizer property?
+      // We arbitrary picked four as the destination vector width.
       bool isNull = isNullPair(pKeeper->getVersion(biName, width::FOUR));
-      //the scalar versions of some builtin functions have ambiguity on that
-      //property, and was solved by the vectorizer with hard-coded ifs.
+
+      // The scalar versions of some builtin functions have ambiguity on that
+      // property, and was solved by the vectorizer with hard-coded ifs.
       PairSW versionedFd = pKeeper->getVersion(biName, expectedWidth);
       width::V actualWidth = versionedFd.second;
       FunctionDescriptor fd = demangle(biName);
       bool isAmbiguous =
-      std::find(arrAmbiguous.begin(), arrAmbiguous.end(), fd.name) != arrAmbiguous.end();
+        std::find(arrAmbiguous.begin(), arrAmbiguous.end(), fd.name) !=
+        arrAmbiguous.end();
       if (width::SCALAR == expectedWidth && isAmbiguous){
-        //ambiguous scalar built-ins should always be vectorized
+        // Ambiguous scalar built-ins should always be scalarized.
         ASSERT_FALSE(isNull) << "in built-in: " << biName;
         continue;
       }
       ASSERT_EQ(tableProperties[rowindex][1], !isNull) <<
-      "packetization property failure: mangled name " << biName;
+        "Packetization property failure: mangled name " << biName;
       //
-      //Width check
+      // Width check.
       //
       if ( !isNullPair(versionedFd) )
         ASSERT_EQ(expectedWidth, actualWidth) << "in builtin " << biName;
@@ -201,6 +212,55 @@ TEST(VectorizerReference, syntesizedFunctions){
   ASSERT_EQ("__ocl_allZero_v8", allzerov.first);
   allzerov = pKepper->getVersion("__ocl_allZero", width::SIXTEEN);
   ASSERT_EQ("__ocl_allZero_v16", allzerov.first);
+}
+
+TEST(Functionality, VShapeBuiltiins) {
+  // Mangled names of the functions, in the flavor in which the second arg. is
+  // scalar.
+  const char *scalarFlavor[] = {
+    "_Z3maxDv8_ff",
+    "_Z3minDv8_ff",
+    "_Z4fmaxDv8_ff",
+    "_Z4fminDv8_ff",
+    "_Z5ldexpDv8_fi",
+    "_Z5clampDv8_fff",
+    "_Z3mixDv8_fS_f",
+    "_Z4stepfDv8_f",
+    "_Z10smoothstepffDv8_f"
+  };
+  // Mangled names of the scalar functions.
+  const char *scalarFunctions[] = {
+    "_Z3maxff",
+    "_Z3minff",
+    "_Z4fmaxff",
+    "_Z4fminff",
+    "_Z5ldexpfi",
+    "_Z5clampfff",
+    "_Z3mixfff",
+    "_Z4stepff",
+    "_Z10smoothstepfff"
+  };
+  // Mangled names of the functions, in the symmetric flavor (both args are
+  // vectors).
+  const char *vecFlavor[] = {
+    "_Z3maxDv8_fS_",
+    "_Z3minDv8_fS_",
+    "_Z4fmaxDv8_fS_",
+    "_Z4fminDv8_fS_",
+    "_Z5ldexpDv8_fDv8_i",
+    "_Z5clampDv8_fS_S_",
+    "_Z3mixDv8_fS_S_",
+    "_Z4stepDv8_fS_",
+    "_Z10smoothstepDv8_fS_S_"
+  };
+  const BuiltinKeeper* pKeeper = BuiltinKeeper::instance();
+  // Testing the function can be scalarized.
+  for (size_t i=0; i<sizeof(scalarFlavor)/sizeof(const char*); ++i) {
+    PairSW scalarVersion = pKeeper->getVersion(scalarFlavor[i], width::SCALAR);
+    ASSERT_FALSE(isNullPair(scalarVersion));
+    PairSW vectorVersion = pKeeper->getVersion(scalarFunctions[i], width::EIGHT);
+    ASSERT_STREQ(vectorVersion.first.c_str(), vecFlavor[i]);
+  }
 }
 
 //BuiltinKepper functionality tests
@@ -375,7 +435,7 @@ TEST(GenTest, soaGenTest){
   delete pRuntime;
 }
 
-}}
+}} // End namespace.
 
 int main(int argc, char** argv)
 {

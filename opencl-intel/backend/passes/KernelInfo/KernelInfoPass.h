@@ -9,9 +9,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __KERNEL_INFO_H__
 
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
-#include "llvm/Instructions.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Analysis/LoopInfo.h"
 
 #include <map>
@@ -24,7 +24,7 @@ namespace Intel {
   class MetaDataUtils;
 }
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel {
 
   /// This pass is  a wrapper of the Kernel Info Pass, which currently outputs
   /// two information about the kernel: Has Barrier and Execution estimation
@@ -53,19 +53,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   /// This pass is responsible of getting some info about the OCL
   /// kernels in the supplied program (module)
-  class KernelInfo : public FunctionPass {
+  class KernelInfoPass : public FunctionPass {
   public:
     /// Pass identification, replacement for typeid
     static char ID;
 
     /// @brief Constructor 
-    KernelInfo(Intel::MetaDataUtils *mdUtils) : FunctionPass(ID), m_mdUtils(mdUtils) {
+    KernelInfoPass(Intel::MetaDataUtils *mdUtils) : FunctionPass(ID), m_mdUtils(mdUtils) {
       initializeLoopInfoPass(*PassRegistry::getPassRegistry());
     }
 
     /// @brief Provides name of pass
     virtual const char *getPassName() const {
-      return "KernelInfo";
+      return "KernelInfoPass";
     }
 
     /// @brief gets the required info on specific function
@@ -82,7 +82,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief checks if the function has a barrier in it
     /// @param pFunc ptr to function
-    bool conatinsBarrier(Function *pFunc);
+    bool containsBarrier(Function *pFunc);
 
     /// @brief returns approximation of the execution lenght of the given func
     /// @param pFunc ptr to function
@@ -98,7 +98,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     Intel::MetaDataUtils* m_mdUtils;
   };
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel {
 
 #endif // __KERNEL_INFO_H__
 

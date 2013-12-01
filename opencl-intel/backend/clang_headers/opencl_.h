@@ -134,6 +134,27 @@ typedef double double4 __attribute__((ext_vector_type(4)));
 typedef double double8 __attribute__((ext_vector_type(8)));
 typedef double double16 __attribute__((ext_vector_type(16)));
 
+typedef _Atomic(int) atomic_int;
+typedef _Atomic(uint) atomic_uint;
+typedef _Atomic(long) atomic_long;
+typedef _Atomic(ulong) atomic_ulong;
+typedef _Atomic(float) atomic_float;
+#ifdef cl_khr_fp64
+typedef _Atomic(double) atomic_double;
+#endif
+
+#if __32bit__ == 1
+typedef _Atomic(intptr_t) atomic_intptr_t;
+typedef _Atomic(uintptr_t) atomic_uintptr_t;
+typedef _Atomic(size_t) atomic_size_t;
+typedef _Atomic(ptrdiff_t) atomic_ptrdiff_t;
+#endif
+
+/**
+ * ndrange_t is an opaque struct pointer
+ */
+typedef struct ndrange_s* ndrange_t;
+
 /**
  * Value of maximum non-infinite single-precision floating-point
  * number.
@@ -1047,6 +1068,22 @@ double16 const_func __attribute__((overloadable)) fmod(double16 x, double16 y);
  * Returns fmin( x – floor (x), 0x1.fffffep-1f ).
  * floor(x) is returned in iptr.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) fract(float x, float *iptr);
+float2 __attribute__((overloadable)) fract(float2 x, float2 *iptr);
+float3 __attribute__((overloadable)) fract(float3 x, float3 *iptr);
+float4 __attribute__((overloadable)) fract(float4 x, float4 *iptr);
+float8 __attribute__((overloadable)) fract(float8 x, float8 *iptr);
+float16 __attribute__((overloadable)) fract(float16 x, float16 *iptr);
+double __attribute__((overloadable)) fract(double x, double *iptr);
+double2 __attribute__((overloadable)) fract(double2 x, double2 *iptr);
+double3 __attribute__((overloadable)) fract(double3 x, double3 *iptr);
+double4 __attribute__((overloadable)) fract(double4 x, double4 *iptr);
+double8 __attribute__((overloadable)) fract(double8 x, double8 *iptr);
+double16 __attribute__((overloadable)) fract(double16 x, double16 *iptr);
+#endif // __OPENCL_C_VERSION__ >= 200
+
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) fract(float x, __global float *iptr);
 float2 __attribute__((overloadable)) fract(float2 x, __global float2 *iptr);
 float3 __attribute__((overloadable)) fract(float3 x, __global float3 *iptr);
@@ -1101,6 +1138,7 @@ double16 __attribute__((overloadable)) fract(double16 x, __private double16 *ipt
 //half4 __attribute__((overloadable)) fract(half4 x, __private half4 *iptr);
 //half8 __attribute__((overloadable)) fract(half8 x, __private half8 *iptr);
 //half16 __attribute__((overloadable)) fract(half16 x, __private half16 *iptr);
+#endif // __OPENCL_C_VERSION__ < 200
 
 /**
  * Extract mantissa and exponent from x. For each
@@ -1108,6 +1146,22 @@ double16 __attribute__((overloadable)) fract(double16 x, __private double16 *ipt
  * magnitude in the interval [1/2, 1) or 0. Each
  * component of x equals mantissa returned * 2^exp.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) frexp(float x, int *exp);
+float2 __attribute__((overloadable)) frexp(float2 x, int2 *exp);
+float3 __attribute__((overloadable)) frexp(float3 x, int3 *exp);
+float4 __attribute__((overloadable)) frexp(float4 x, int4 *exp);
+float8 __attribute__((overloadable)) frexp(float8 x, int8 *exp);
+float16 __attribute__((overloadable)) frexp(float16 x, int16 *exp);
+double __attribute__((overloadable)) frexp(double x, int *exp);
+double2 __attribute__((overloadable)) frexp(double2 x, int2 *exp);
+double3 __attribute__((overloadable)) frexp(double3 x, int3 *exp);
+double4 __attribute__((overloadable)) frexp(double4 x, int4 *exp);
+double8 __attribute__((overloadable)) frexp(double8 x, int8 *exp);
+double16 __attribute__((overloadable)) frexp(double16 x, int16 *exp);
+#endif // __OPENCL_C_VERSION__ >= 200
+
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) frexp(float x, __global int *exp);
 float2 __attribute__((overloadable)) frexp(float2 x, __global int2 *exp);
 float3 __attribute__((overloadable)) frexp(float3 x, __global int3 *exp);
@@ -1162,6 +1216,7 @@ double16 __attribute__((overloadable)) frexp(double16 x, __private int16 *exp);
 //half4 __attribute__((overloadable)) frexp(half4 x, __private int4 *exp);
 //half8 __attribute__((overloadable)) frexp(half8 x, __private int8 *exp);
 //half16 __attribute__((overloadable)) frexp(half16 x, __private int16 *exp);
+#endif //__OPENCL_C_VERSION__ < 200
 
 /**
  * Compute the value of the square root of x^2+ y^2
@@ -1252,12 +1307,28 @@ double16 const_func __attribute__((overloadable)) ldexp(double16 x, int n);
  * function. The sign of the gamma function is
  * returned in the signp argument of lgamma_r.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) lgamma_r(float x, int *signp);
+float2 __attribute__((overloadable)) lgamma_r(float2 x, int2 *signp);
+float3 __attribute__((overloadable)) lgamma_r(float3 x, int3 *signp);
+float4 __attribute__((overloadable)) lgamma_r(float4 x, int4 *signp);
+float8 __attribute__((overloadable)) lgamma_r(float8 x, int8 *signp);
+float16 __attribute__((overloadable)) lgamma_r(float16 x, int16 *signp);
+double __attribute__((overloadable)) lgamma_r(double x, int *signp);
+double2 __attribute__((overloadable)) lgamma_r(double2 x, int2 *signp);
+double3 __attribute__((overloadable)) lgamma_r(double3 x, int3 *signp);
+double4 __attribute__((overloadable)) lgamma_r(double4 x, int4 *signp);
+double8 __attribute__((overloadable)) lgamma_r(double8 x, int8 *signp);
+double16 __attribute__((overloadable)) lgamma_r(double16 x, int16 *signp);
+#endif // __OPENCL_C_VERSION__ >= 200
+
 float const_func __attribute__((overloadable)) lgamma(float x);
 float2 const_func __attribute__((overloadable)) lgamma(float2 x);
 float3 const_func __attribute__((overloadable)) lgamma(float3 x);
 float4 const_func __attribute__((overloadable)) lgamma(float4 x);
 float8 const_func __attribute__((overloadable)) lgamma(float8 x);
 float16 const_func __attribute__((overloadable)) lgamma(float16 x);
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) lgamma_r(float x, __global int *signp);
 float2 __attribute__((overloadable)) lgamma_r(float2 x, __global int2 *signp);
 float3 __attribute__((overloadable)) lgamma_r(float3 x, __global int3 *signp);
@@ -1276,12 +1347,6 @@ float3 __attribute__((overloadable)) lgamma_r(float3 x, __private int3 *signp);
 float4 __attribute__((overloadable)) lgamma_r(float4 x, __private int4 *signp);
 float8 __attribute__((overloadable)) lgamma_r(float8 x, __private int8 *signp);
 float16 __attribute__((overloadable)) lgamma_r(float16 x, __private int16 *signp);
-double const_func __attribute__((overloadable)) lgamma(double x);
-double2 const_func __attribute__((overloadable)) lgamma(double2 x);
-double3 const_func __attribute__((overloadable)) lgamma(double3 x);
-double4 const_func __attribute__((overloadable)) lgamma(double4 x);
-double8 const_func __attribute__((overloadable)) lgamma(double8 x);
-double16 const_func __attribute__((overloadable)) lgamma(double16 x);
 double __attribute__((overloadable)) lgamma_r(double x, __global int *signp);
 double2 __attribute__((overloadable)) lgamma_r(double2 x, __global int2 *signp);
 double3 __attribute__((overloadable)) lgamma_r(double3 x, __global int3 *signp);
@@ -1300,6 +1365,14 @@ double3 __attribute__((overloadable)) lgamma_r(double3 x, __private int3 *signp)
 double4 __attribute__((overloadable)) lgamma_r(double4 x, __private int4 *signp);
 double8 __attribute__((overloadable)) lgamma_r(double8 x, __private int8 *signp);
 double16 __attribute__((overloadable)) lgamma_r(double16 x, __private int16 *signp);
+#endif // __OPENCL_C_VERSION__ < 200
+double const_func __attribute__((overloadable)) lgamma(double x);
+double2 const_func __attribute__((overloadable)) lgamma(double2 x);
+double3 const_func __attribute__((overloadable)) lgamma(double3 x);
+double4 const_func __attribute__((overloadable)) lgamma(double4 x);
+double8 const_func __attribute__((overloadable)) lgamma(double8 x);
+double16 const_func __attribute__((overloadable)) lgamma(double16 x);
+
 //half const_func __attribute__((overloadable)) lgamma(half x);
 //half2 const_func __attribute__((overloadable)) lgamma(half2 x);
 //half3 const_func __attribute__((overloadable)) lgamma(half3 x);
@@ -1515,6 +1588,22 @@ double16 const_func __attribute__((overloadable)) minmag(double16 x, double16 y)
  * the argument. It stores the integral part in the object
  * pointed to by iptr.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) modf(float x, float *iptr);
+float2 __attribute__((overloadable)) modf(float2 x, float2 *iptr);
+float3 __attribute__((overloadable)) modf(float3 x, float3 *iptr);
+float4 __attribute__((overloadable)) modf(float4 x, float4 *iptr);
+float8 __attribute__((overloadable)) modf(float8 x, float8 *iptr);
+float16 __attribute__((overloadable)) modf(float16 x, float16 *iptr);
+double __attribute__((overloadable)) modf(double x, double *iptr);
+double2 __attribute__((overloadable)) modf(double2 x, double2 *iptr);
+double3 __attribute__((overloadable)) modf(double3 x, double3 *iptr);
+double4 __attribute__((overloadable)) modf(double4 x, double4 *iptr);
+double8 __attribute__((overloadable)) modf(double8 x, double8 *iptr);
+double16 __attribute__((overloadable)) modf(double16 x, double16 *iptr);
+#endif // __OPENCL_C_VERSION__ >= 200
+
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) modf(float x, __global float *iptr);
 float2 __attribute__((overloadable)) modf(float2 x, __global float2 *iptr);
 float3 __attribute__((overloadable)) modf(float3 x, __global float3 *iptr);
@@ -1569,6 +1658,7 @@ double16 __attribute__((overloadable)) modf(double16 x, __private double16 *iptr
 //half4 __attribute__((overloadable)) modf(half4 x, __private half4 *iptr);
 //half8 __attribute__((overloadable)) modf(half8 x, __private half8 *iptr);
 //half16 __attribute__((overloadable)) modf(half16 x, __private half16 *iptr);
+#endif // __OPENCL_C_VERSION__ < 200
 
 /**
  * Returns a quiet NaN. The nancode may be placed
@@ -1722,6 +1812,22 @@ double16 const_func __attribute__((overloadable)) remainder(double16 x, double16
  * sign as x/y. It stores this signed value in the object
  * pointed to by quo.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) remquo(float x, float y, int *quo);
+float2 __attribute__((overloadable)) remquo(float2 x, float2 y, int2 *quo);
+float3 __attribute__((overloadable)) remquo(float3 x, float3 y, int3 *quo);
+float4 __attribute__((overloadable)) remquo(float4 x, float4 y, int4 *quo);
+float8 __attribute__((overloadable)) remquo(float8 x, float8 y, int8 *quo);
+float16 __attribute__((overloadable)) remquo(float16 x, float16 y, int16 *quo);
+double __attribute__((overloadable)) remquo(double x, double y, int *quo);
+double2 __attribute__((overloadable)) remquo(double2 x, double2 y, int2 *quo);
+double3 __attribute__((overloadable)) remquo(double3 x, double3 y, int3 *quo);
+double4 __attribute__((overloadable)) remquo(double4 x, double4 y, int4 *quo);
+double8 __attribute__((overloadable)) remquo(double8 x, double8 y, int8 *quo);
+double16 __attribute__((overloadable)) remquo(double16 x, double16 y, int16 *quo);
+#endif // __OPENCL_C_VERSION__ >= 200
+
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) remquo(float x, float y, __global int *quo);
 float2 __attribute__((overloadable)) remquo(float2 x, float2 y, __global int2 *quo);
 float3 __attribute__((overloadable)) remquo(float3 x, float3 y, __global int3 *quo);
@@ -1776,6 +1882,7 @@ double16 __attribute__((overloadable)) remquo(double16 x, double16 y, __private 
 //half4 __attribute__((overloadable)) remquo(half4 x, half4 y, __private int4 *quo);
 //half8 __attribute__((overloadable)) remquo(half8 x, half8 y, __private int8 *quo);
 //half16 __attribute__((overloadable)) remquo(half16 x, half16 y, __private int16 *quo);
+#endif //__OPENCL_C_VERSION__ < 200
 
 /**
  * Round to integral value (using round to nearest
@@ -1897,6 +2004,22 @@ float16 const_func __attribute__((overloadable)) sin(float16);
  * is the return value and computed cosine is returned
  * in cosval.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) sincos(float x, float *cosval);
+float2 __attribute__((overloadable)) sincos(float2 x, float2 *cosval);
+float3 __attribute__((overloadable)) sincos(float3 x, float3 *cosval);
+float4 __attribute__((overloadable)) sincos(float4 x, float4 *cosval);
+float8 __attribute__((overloadable)) sincos(float8 x, float8 *cosval);
+float16 __attribute__((overloadable)) sincos(float16 x, float16 *cosval);
+double __attribute__((overloadable)) sincos(double x, double *cosval);
+double2 __attribute__((overloadable)) sincos(double2 x, double2 *cosval);
+double3 __attribute__((overloadable)) sincos(double3 x, double3 *cosval);
+double4 __attribute__((overloadable)) sincos(double4 x, double4 *cosval);
+double8 __attribute__((overloadable)) sincos(double8 x, double8 *cosval);
+double16 __attribute__((overloadable)) sincos(double16 x, double16 *cosval);
+#endif // __OPENCL_C_VERSION__ >= 200
+
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) sincos(float x, __global float *cosval);
 float2 __attribute__((overloadable)) sincos(float2 x, __global float2 *cosval);
 float3 __attribute__((overloadable)) sincos(float3 x, __global float3 *cosval);
@@ -1951,6 +2074,7 @@ double16 __attribute__((overloadable)) sincos(double16 x, __private double16 *co
 //half4 __attribute__((overloadable)) sincos(half4 x, __private half4 *cosval);
 //half8 __attribute__((overloadable)) sincos(half8 x, __private half8 *cosval);
 //half16 __attribute__((overloadable)) sincos(half16 x, __private half16 *cosval);
+#endif // __OPENCL_C_VERSION__ < 200
 
 /**
  * Compute hyperbolic sine.
@@ -4946,6 +5070,60 @@ double16 const_func __attribute__((overloadable)) select(double16 a, double16 b,
  * aligned if gentype is int, uint, float; 64-bit
  * aligned if gentype is long, ulong.
  */
+#if __OPENCL_C_VERSION__ >= 200
+char2 __attribute__((overloadable)) vload2(size_t offset, const char *p);
+uchar2 __attribute__((overloadable)) vload2(size_t offset, const uchar *p);
+short2 __attribute__((overloadable)) vload2(size_t offset, const short *p);
+ushort2 __attribute__((overloadable)) vload2(size_t offset, const ushort *p);
+int2 __attribute__((overloadable)) vload2(size_t offset, const int *p);
+uint2 __attribute__((overloadable)) vload2(size_t offset, const uint *p);
+long2 __attribute__((overloadable)) vload2(size_t offset, const long *p);
+ulong2 __attribute__((overloadable)) vload2(size_t offset, const ulong *p);
+float2 __attribute__((overloadable)) vload2(size_t offset, const float *p);
+char3 __attribute__((overloadable)) vload3(size_t offset, const char *p);
+uchar3 __attribute__((overloadable)) vload3(size_t offset, const uchar *p);
+short3 __attribute__((overloadable)) vload3(size_t offset, const short *p);
+ushort3 __attribute__((overloadable)) vload3(size_t offset, const ushort *p);
+int3 __attribute__((overloadable)) vload3(size_t offset, const int *p);
+uint3 __attribute__((overloadable)) vload3(size_t offset, const uint *p);
+long3 __attribute__((overloadable)) vload3(size_t offset, const long *p);
+ulong3 __attribute__((overloadable)) vload3(size_t offset, const ulong *p);
+float3 __attribute__((overloadable)) vload3(size_t offset, const float *p);
+char4 __attribute__((overloadable)) vload4(size_t offset, const char *p);
+uchar4 __attribute__((overloadable)) vload4(size_t offset, const uchar *p);
+short4 __attribute__((overloadable)) vload4(size_t offset, const short *p);
+ushort4 __attribute__((overloadable)) vload4(size_t offset, const ushort *p);
+int4 __attribute__((overloadable)) vload4(size_t offset, const int *p);
+uint4 __attribute__((overloadable)) vload4(size_t offset, const uint *p);
+long4 __attribute__((overloadable)) vload4(size_t offset, const long *p);
+ulong4 __attribute__((overloadable)) vload4(size_t offset, const ulong *p);
+float4 __attribute__((overloadable)) vload4(size_t offset, const float *p);
+char8 __attribute__((overloadable)) vload8(size_t offset, const char *p);
+uchar8 __attribute__((overloadable)) vload8(size_t offset, const uchar *p);
+short8 __attribute__((overloadable)) vload8(size_t offset, const short *p);
+ushort8 __attribute__((overloadable)) vload8(size_t offset, const ushort *p);
+int8 __attribute__((overloadable)) vload8(size_t offset, const int *p);
+uint8 __attribute__((overloadable)) vload8(size_t offset, const uint *p);
+long8 __attribute__((overloadable)) vload8(size_t offset, const long *p);
+ulong8 __attribute__((overloadable)) vload8(size_t offset, const ulong *p);
+float8 __attribute__((overloadable)) vload8(size_t offset, const float *p);
+char16 __attribute__((overloadable)) vload16(size_t offset, const char *p);
+uchar16 __attribute__((overloadable)) vload16(size_t offset, const uchar *p);
+short16 __attribute__((overloadable)) vload16(size_t offset, const short *p);
+ushort16 __attribute__((overloadable)) vload16(size_t offset, const ushort *p);
+int16 __attribute__((overloadable)) vload16(size_t offset, const int *p);
+uint16 __attribute__((overloadable)) vload16(size_t offset, const uint *p);
+long16 __attribute__((overloadable)) vload16(size_t offset, const long *p);
+ulong16 __attribute__((overloadable)) vload16(size_t offset, const ulong *p);
+float16 __attribute__((overloadable)) vload16(size_t offset, const float *p);
+double2 __attribute__((overloadable)) vload2(size_t offset, const double *p);
+double3 __attribute__((overloadable)) vload3(size_t offset, const double *p);
+double4 __attribute__((overloadable)) vload4(size_t offset, const double *p);
+double8 __attribute__((overloadable)) vload8(size_t offset, const double *p);
+double16 __attribute__((overloadable)) vload16(size_t offset, const double *p);
+#endif // __OPENCL_C_VERSION__ >= 200
+
+#if __OPENCL_C_VERSION__ < 200
 char2 __attribute__((overloadable)) vload2(size_t offset, const __global char *p);
 uchar2 __attribute__((overloadable)) vload2(size_t offset, const __global uchar *p);
 short2 __attribute__((overloadable)) vload2(size_t offset, const __global short *p);
@@ -5036,51 +5214,6 @@ uint16 __attribute__((overloadable)) vload16(size_t offset, const __local uint *
 long16 __attribute__((overloadable)) vload16(size_t offset, const __local long *p);
 ulong16 __attribute__((overloadable)) vload16(size_t offset, const __local ulong *p);
 float16 __attribute__((overloadable)) vload16(size_t offset, const __local float *p);
-char2 __attribute__((overloadable)) vload2(size_t offset, const __constant char *p);
-uchar2 __attribute__((overloadable)) vload2(size_t offset, const __constant uchar *p);
-short2 __attribute__((overloadable)) vload2(size_t offset, const __constant short *p);
-ushort2 __attribute__((overloadable)) vload2(size_t offset, const __constant ushort *p);
-int2 __attribute__((overloadable)) vload2(size_t offset, const __constant int *p);
-uint2 __attribute__((overloadable)) vload2(size_t offset, const __constant uint *p);
-long2 __attribute__((overloadable)) vload2(size_t offset, const __constant long *p);
-ulong2 __attribute__((overloadable)) vload2(size_t offset, const __constant ulong *p);
-float2 __attribute__((overloadable)) vload2(size_t offset, const __constant float *p);
-char3 __attribute__((overloadable)) vload3(size_t offset, const __constant char *p);
-uchar3 __attribute__((overloadable)) vload3(size_t offset, const __constant uchar *p);
-short3 __attribute__((overloadable)) vload3(size_t offset, const __constant short *p);
-ushort3 __attribute__((overloadable)) vload3(size_t offset, const __constant ushort *p);
-int3 __attribute__((overloadable)) vload3(size_t offset, const __constant int *p);
-uint3 __attribute__((overloadable)) vload3(size_t offset, const __constant uint *p);
-long3 __attribute__((overloadable)) vload3(size_t offset, const __constant long *p);
-ulong3 __attribute__((overloadable)) vload3(size_t offset, const __constant ulong *p);
-float3 __attribute__((overloadable)) vload3(size_t offset, const __constant float *p);
-char4 __attribute__((overloadable)) vload4(size_t offset, const __constant char *p);
-uchar4 __attribute__((overloadable)) vload4(size_t offset, const __constant uchar *p);
-short4 __attribute__((overloadable)) vload4(size_t offset, const __constant short *p);
-ushort4 __attribute__((overloadable)) vload4(size_t offset, const __constant ushort *p);
-int4 __attribute__((overloadable)) vload4(size_t offset, const __constant int *p);
-uint4 __attribute__((overloadable)) vload4(size_t offset, const __constant uint *p);
-long4 __attribute__((overloadable)) vload4(size_t offset, const __constant long *p);
-ulong4 __attribute__((overloadable)) vload4(size_t offset, const __constant ulong *p);
-float4 __attribute__((overloadable)) vload4(size_t offset, const __constant float *p);
-char8 __attribute__((overloadable)) vload8(size_t offset, const __constant char *p);
-uchar8 __attribute__((overloadable)) vload8(size_t offset, const __constant uchar *p);
-short8 __attribute__((overloadable)) vload8(size_t offset, const __constant short *p);
-ushort8 __attribute__((overloadable)) vload8(size_t offset, const __constant ushort *p);
-int8 __attribute__((overloadable)) vload8(size_t offset, const __constant int *p);
-uint8 __attribute__((overloadable)) vload8(size_t offset, const __constant uint *p);
-long8 __attribute__((overloadable)) vload8(size_t offset, const __constant long *p);
-ulong8 __attribute__((overloadable)) vload8(size_t offset, const __constant ulong *p);
-float8 __attribute__((overloadable)) vload8(size_t offset, const __constant float *p);
-char16 __attribute__((overloadable)) vload16(size_t offset, const __constant char *p);
-uchar16 __attribute__((overloadable)) vload16(size_t offset, const __constant uchar *p);
-short16 __attribute__((overloadable)) vload16(size_t offset, const __constant short *p);
-ushort16 __attribute__((overloadable)) vload16(size_t offset, const __constant ushort *p);
-int16 __attribute__((overloadable)) vload16(size_t offset, const __constant int *p);
-uint16 __attribute__((overloadable)) vload16(size_t offset, const __constant uint *p);
-long16 __attribute__((overloadable)) vload16(size_t offset, const __constant long *p);
-ulong16 __attribute__((overloadable)) vload16(size_t offset, const __constant ulong *p);
-float16 __attribute__((overloadable)) vload16(size_t offset, const __constant float *p);
 char2 __attribute__((overloadable)) vload2(size_t offset, const __private char *p);
 uchar2 __attribute__((overloadable)) vload2(size_t offset, const __private uchar *p);
 short2 __attribute__((overloadable)) vload2(size_t offset, const __private short *p);
@@ -5136,11 +5269,6 @@ double3 __attribute__((overloadable)) vload3(size_t offset, const __local double
 double4 __attribute__((overloadable)) vload4(size_t offset, const __local double *p);
 double8 __attribute__((overloadable)) vload8(size_t offset, const __local double *p);
 double16 __attribute__((overloadable)) vload16(size_t offset, const __local double *p);
-double2 __attribute__((overloadable)) vload2(size_t offset, const __constant double *p);
-double3 __attribute__((overloadable)) vload3(size_t offset, const __constant double *p);
-double4 __attribute__((overloadable)) vload4(size_t offset, const __constant double *p);
-double8 __attribute__((overloadable)) vload8(size_t offset, const __constant double *p);
-double16 __attribute__((overloadable)) vload16(size_t offset, const __constant double *p);
 double2 __attribute__((overloadable)) vload2(size_t offset, const __private double *p);
 double3 __attribute__((overloadable)) vload3(size_t offset, const __private double *p);
 double4 __attribute__((overloadable)) vload4(size_t offset, const __private double *p);
@@ -5158,18 +5286,70 @@ double16 __attribute__((overloadable)) vload16(size_t offset, const __private do
 //half4 __attribute__((overloadable)) vload4(size_t offset, const __local half *p);
 //half8 __attribute__((overloadable)) vload8(size_t offset, const __local half *p);
 //half16 __attribute__((overloadable)) vload16(size_t offset, const __local half *p);
-//half __attribute__((overloadable)) vload(size_t offset, const __constant half *p);
-//half2 __attribute__((overloadable)) vload2(size_t offset, const __constant half *p);
-//half3 __attribute__((overloadable)) vload3(size_t offset, const __constant half *p);
-//half4 __attribute__((overloadable)) vload4(size_t offset, const __constant half *p);
-//half8 __attribute__((overloadable)) vload8(size_t offset, const __constant half *p);
-//half16 __attribute__((overloadable)) vload16(size_t offset, const __constant half *p);
 //half __attribute__((overloadable)) vload(size_t offset, const __private half *p);
 //half2 __attribute__((overloadable)) vload2(size_t offset, const __private half *p);
 //half3 __attribute__((overloadable)) vload3(size_t offset, const __private half *p);
 //half4 __attribute__((overloadable)) vload4(size_t offset, const __private half *p);
 //half8 __attribute__((overloadable)) vload8(size_t offset, const __private half *p);
 //half16 __attribute__((overloadable)) vload16(size_t offset, const __private half *p);
+#endif //__OPENCL_C_VERSION__ < 200
+
+char2 __attribute__((overloadable)) vload2(size_t offset, const __constant char *p);
+uchar2 __attribute__((overloadable)) vload2(size_t offset, const __constant uchar *p);
+short2 __attribute__((overloadable)) vload2(size_t offset, const __constant short *p);
+ushort2 __attribute__((overloadable)) vload2(size_t offset, const __constant ushort *p);
+int2 __attribute__((overloadable)) vload2(size_t offset, const __constant int *p);
+uint2 __attribute__((overloadable)) vload2(size_t offset, const __constant uint *p);
+long2 __attribute__((overloadable)) vload2(size_t offset, const __constant long *p);
+ulong2 __attribute__((overloadable)) vload2(size_t offset, const __constant ulong *p);
+float2 __attribute__((overloadable)) vload2(size_t offset, const __constant float *p);
+char3 __attribute__((overloadable)) vload3(size_t offset, const __constant char *p);
+uchar3 __attribute__((overloadable)) vload3(size_t offset, const __constant uchar *p);
+short3 __attribute__((overloadable)) vload3(size_t offset, const __constant short *p);
+ushort3 __attribute__((overloadable)) vload3(size_t offset, const __constant ushort *p);
+int3 __attribute__((overloadable)) vload3(size_t offset, const __constant int *p);
+uint3 __attribute__((overloadable)) vload3(size_t offset, const __constant uint *p);
+long3 __attribute__((overloadable)) vload3(size_t offset, const __constant long *p);
+ulong3 __attribute__((overloadable)) vload3(size_t offset, const __constant ulong *p);
+float3 __attribute__((overloadable)) vload3(size_t offset, const __constant float *p);
+char4 __attribute__((overloadable)) vload4(size_t offset, const __constant char *p);
+uchar4 __attribute__((overloadable)) vload4(size_t offset, const __constant uchar *p);
+short4 __attribute__((overloadable)) vload4(size_t offset, const __constant short *p);
+ushort4 __attribute__((overloadable)) vload4(size_t offset, const __constant ushort *p);
+int4 __attribute__((overloadable)) vload4(size_t offset, const __constant int *p);
+uint4 __attribute__((overloadable)) vload4(size_t offset, const __constant uint *p);
+long4 __attribute__((overloadable)) vload4(size_t offset, const __constant long *p);
+ulong4 __attribute__((overloadable)) vload4(size_t offset, const __constant ulong *p);
+float4 __attribute__((overloadable)) vload4(size_t offset, const __constant float *p);
+char8 __attribute__((overloadable)) vload8(size_t offset, const __constant char *p);
+uchar8 __attribute__((overloadable)) vload8(size_t offset, const __constant uchar *p);
+short8 __attribute__((overloadable)) vload8(size_t offset, const __constant short *p);
+ushort8 __attribute__((overloadable)) vload8(size_t offset, const __constant ushort *p);
+int8 __attribute__((overloadable)) vload8(size_t offset, const __constant int *p);
+uint8 __attribute__((overloadable)) vload8(size_t offset, const __constant uint *p);
+long8 __attribute__((overloadable)) vload8(size_t offset, const __constant long *p);
+ulong8 __attribute__((overloadable)) vload8(size_t offset, const __constant ulong *p);
+float8 __attribute__((overloadable)) vload8(size_t offset, const __constant float *p);
+char16 __attribute__((overloadable)) vload16(size_t offset, const __constant char *p);
+uchar16 __attribute__((overloadable)) vload16(size_t offset, const __constant uchar *p);
+short16 __attribute__((overloadable)) vload16(size_t offset, const __constant short *p);
+ushort16 __attribute__((overloadable)) vload16(size_t offset, const __constant ushort *p);
+int16 __attribute__((overloadable)) vload16(size_t offset, const __constant int *p);
+uint16 __attribute__((overloadable)) vload16(size_t offset, const __constant uint *p);
+long16 __attribute__((overloadable)) vload16(size_t offset, const __constant long *p);
+ulong16 __attribute__((overloadable)) vload16(size_t offset, const __constant ulong *p);
+float16 __attribute__((overloadable)) vload16(size_t offset, const __constant float *p);
+double2 __attribute__((overloadable)) vload2(size_t offset, const __constant double *p);
+double3 __attribute__((overloadable)) vload3(size_t offset, const __constant double *p);
+double4 __attribute__((overloadable)) vload4(size_t offset, const __constant double *p);
+double8 __attribute__((overloadable)) vload8(size_t offset, const __constant double *p);
+double16 __attribute__((overloadable)) vload16(size_t offset, const __constant double *p);
+//half __attribute__((overloadable)) vload(size_t offset, const __constant half *p);
+//half2 __attribute__((overloadable)) vload2(size_t offset, const __constant half *p);
+//half3 __attribute__((overloadable)) vload3(size_t offset, const __constant half *p);
+//half4 __attribute__((overloadable)) vload4(size_t offset, const __constant half *p);
+//half8 __attribute__((overloadable)) vload8(size_t offset, const __constant half *p);
+//half16 __attribute__((overloadable)) vload16(size_t offset, const __constant half *p);
 
 /**
  * Write sizeof (gentypen) bytes given by data
@@ -5180,6 +5360,60 @@ double16 __attribute__((overloadable)) vload16(size_t offset, const __private do
  * aligned if gentype is int, uint, float; 64-bit
  * aligned if gentype is long, ulong.
  */
+#if __OPENCL_C_VERSION__ >= 200
+void __attribute__((overloadable)) vstore2(char2 data, size_t offset, char *p);
+void __attribute__((overloadable)) vstore2(uchar2 data, size_t offset, uchar *p);
+void __attribute__((overloadable)) vstore2(short2 data, size_t offset, short *p);
+void __attribute__((overloadable)) vstore2(ushort2 data, size_t offset, ushort *p);
+void __attribute__((overloadable)) vstore2(int2 data, size_t offset, int *p);
+void __attribute__((overloadable)) vstore2(uint2 data, size_t offset, uint *p);
+void __attribute__((overloadable)) vstore2(long2 data, size_t offset, long *p);
+void __attribute__((overloadable)) vstore2(ulong2 data, size_t offset, ulong *p);
+void __attribute__((overloadable)) vstore2(float2 data, size_t offset, float *p);
+void __attribute__((overloadable)) vstore3(char3 data, size_t offset, char *p);
+void __attribute__((overloadable)) vstore3(uchar3 data, size_t offset, uchar *p);
+void __attribute__((overloadable)) vstore3(short3 data, size_t offset, short *p);
+void __attribute__((overloadable)) vstore3(ushort3 data, size_t offset, ushort *p);
+void __attribute__((overloadable)) vstore3(int3 data, size_t offset, int *p);
+void __attribute__((overloadable)) vstore3(uint3 data, size_t offset, uint *p);
+void __attribute__((overloadable)) vstore3(long3 data, size_t offset, long *p);
+void __attribute__((overloadable)) vstore3(ulong3 data, size_t offset, ulong *p);
+void __attribute__((overloadable)) vstore3(float3 data, size_t offset, float *p);
+void __attribute__((overloadable)) vstore4(char4 data, size_t offset, char *p);
+void __attribute__((overloadable)) vstore4(uchar4 data, size_t offset, uchar *p);
+void __attribute__((overloadable)) vstore4(short4 data, size_t offset, short *p);
+void __attribute__((overloadable)) vstore4(ushort4 data, size_t offset, ushort *p);
+void __attribute__((overloadable)) vstore4(int4 data, size_t offset, int *p);
+void __attribute__((overloadable)) vstore4(uint4 data, size_t offset, uint *p);
+void __attribute__((overloadable)) vstore4(long4 data, size_t offset, long *p);
+void __attribute__((overloadable)) vstore4(ulong4 data, size_t offset, ulong *p);
+void __attribute__((overloadable)) vstore4(float4 data, size_t offset, float *p);
+void __attribute__((overloadable)) vstore8(char8 data, size_t offset, char *p);
+void __attribute__((overloadable)) vstore8(uchar8 data, size_t offset, uchar *p);
+void __attribute__((overloadable)) vstore8(short8 data, size_t offset, short *p);
+void __attribute__((overloadable)) vstore8(ushort8 data, size_t offset, ushort *p);
+void __attribute__((overloadable)) vstore8(int8 data, size_t offset, int *p);
+void __attribute__((overloadable)) vstore8(uint8 data, size_t offset, uint *p);
+void __attribute__((overloadable)) vstore8(long8 data, size_t offset, long *p);
+void __attribute__((overloadable)) vstore8(ulong8 data, size_t offset, ulong *p);
+void __attribute__((overloadable)) vstore8(float8 data, size_t offset, float *p);
+void __attribute__((overloadable)) vstore16(char16 data, size_t offset, char *p);
+void __attribute__((overloadable)) vstore16(uchar16 data, size_t offset, uchar *p);
+void __attribute__((overloadable)) vstore16(short16 data, size_t offset, short *p);
+void __attribute__((overloadable)) vstore16(ushort16 data, size_t offset, ushort *p);
+void __attribute__((overloadable)) vstore16(int16 data, size_t offset, int *p);
+void __attribute__((overloadable)) vstore16(uint16 data, size_t offset, uint *p);
+void __attribute__((overloadable)) vstore16(long16 data, size_t offset, long *p);
+void __attribute__((overloadable)) vstore16(ulong16 data, size_t offset, ulong *p);
+void __attribute__((overloadable)) vstore16(float16 data, size_t offset, float *p);
+void __attribute__((overloadable)) vstore2(double2 data, size_t offset, double *p);
+void __attribute__((overloadable)) vstore3(double3 data, size_t offset, double *p);
+void __attribute__((overloadable)) vstore4(double4 data, size_t offset, double *p);
+void __attribute__((overloadable)) vstore8(double8 data, size_t offset, double *p);
+void __attribute__((overloadable)) vstore16(double16 data, size_t offset, double *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+
+#if __OPENCL_C_VERSION__ < 200
 void __attribute__((overloadable)) vstore2(char2 data, size_t offset, __global char *p);
 void __attribute__((overloadable)) vstore2(uchar2 data, size_t offset, __global uchar *p);
 void __attribute__((overloadable)) vstore2(short2 data, size_t offset, __global short *p);
@@ -5348,6 +5582,7 @@ void __attribute__((overloadable)) vstore16(double16 data, size_t offset, __priv
 //void __attribute__((overloadable)) vstore4(half4 data, size_t offset, __private half *p);
 //void __attribute__((overloadable)) vstore8(half8 data, size_t offset, __private half *p);
 //void __attribute__((overloadable)) vstore16(half16 data, size_t offset, __private half *p);
+#endif //__OPENCL_C_VERSION__ < 200
 
 /**
  * Read sizeof (half) bytes of data from address
@@ -5357,10 +5592,16 @@ void __attribute__((overloadable)) vstore16(double16 data, size_t offset, __priv
  * The read address computed as (p + offset)
  * must be 16-bit aligned.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) vload_half(size_t offset, const half *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) vload_half(size_t offset, const __global half *p);
 float __attribute__((overloadable)) vload_half(size_t offset, const __local half *p);
-float __attribute__((overloadable)) vload_half(size_t offset, const __constant half *p);
 float __attribute__((overloadable)) vload_half(size_t offset, const __private half *p);
+#endif //__OPENCL_C_VERSION__ < 200
+float __attribute__((overloadable)) vload_half(size_t offset, const __constant half *p);
 
 /**
  * Read sizeof (halfn) bytes of data from address
@@ -5370,6 +5611,15 @@ float __attribute__((overloadable)) vload_half(size_t offset, const __private ha
  * value is returned. The read address computed
  * as (p + (offset * n)) must be 16-bit aligned.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float2 __attribute__((overloadable)) vload_half2(size_t offset, const half *p);
+float3 __attribute__((overloadable)) vload_half3(size_t offset, const half *p);
+float4 __attribute__((overloadable)) vload_half4(size_t offset, const half *p);
+float8 __attribute__((overloadable)) vload_half8(size_t offset, const half *p);
+float16 __attribute__((overloadable)) vload_half16(size_t offset, const half *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+
+#if __OPENCL_C_VERSION__ < 200
 float2 __attribute__((overloadable)) vload_half2(size_t offset, const __global half *p);
 float3 __attribute__((overloadable)) vload_half3(size_t offset, const __global half *p);
 float4 __attribute__((overloadable)) vload_half4(size_t offset, const __global half *p);
@@ -5380,16 +5630,18 @@ float3 __attribute__((overloadable)) vload_half3(size_t offset, const __local ha
 float4 __attribute__((overloadable)) vload_half4(size_t offset, const __local half *p);
 float8 __attribute__((overloadable)) vload_half8(size_t offset, const __local half *p);
 float16 __attribute__((overloadable)) vload_half16(size_t offset, const __local half *p);
-float2 __attribute__((overloadable)) vload_half2(size_t offset, const __constant half *p);
-float3 __attribute__((overloadable)) vload_half3(size_t offset, const __constant half *p);
-float4 __attribute__((overloadable)) vload_half4(size_t offset, const __constant half *p);
-float8 __attribute__((overloadable)) vload_half8(size_t offset, const __constant half *p);
-float16 __attribute__((overloadable)) vload_half16(size_t offset, const __constant half *p);
 float2 __attribute__((overloadable)) vload_half2(size_t offset, const __private half *p);
 float3 __attribute__((overloadable)) vload_half3(size_t offset, const __private half *p);
 float4 __attribute__((overloadable)) vload_half4(size_t offset, const __private half *p);
 float8 __attribute__((overloadable)) vload_half8(size_t offset, const __private half *p);
 float16 __attribute__((overloadable)) vload_half16(size_t offset, const __private half *p);
+#endif //__OPENCL_C_VERSION__ < 200
+
+float2 __attribute__((overloadable)) vload_half2(size_t offset, const __constant half *p);
+float3 __attribute__((overloadable)) vload_half3(size_t offset, const __constant half *p);
+float4 __attribute__((overloadable)) vload_half4(size_t offset, const __constant half *p);
+float8 __attribute__((overloadable)) vload_half8(size_t offset, const __constant half *p);
+float16 __attribute__((overloadable)) vload_half16(size_t offset, const __constant half *p);
 
 /**
  * The float value given by data is first
@@ -5402,6 +5654,20 @@ float16 __attribute__((overloadable)) vload_half16(size_t offset, const __privat
  * The default current rounding mode is round to
  * nearest even.
  */
+#if __OPENCL_C_VERSION__ >= 200
+void __attribute__((overloadable)) vstore_half(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rte(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rtz(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rtp(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rtn(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rte(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rtz(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rtp(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half_rtn(double data, size_t offset, half *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+
+#if __OPENCL_C_VERSION__ < 200
 void __attribute__((overloadable)) vstore_half(float data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstore_half_rte(float data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstore_half_rtz(float data, size_t offset, __global half *p);
@@ -5432,6 +5698,7 @@ void __attribute__((overloadable)) vstore_half_rte(double data, size_t offset, _
 void __attribute__((overloadable)) vstore_half_rtz(double data, size_t offset, __private half *p);
 void __attribute__((overloadable)) vstore_half_rtp(double data, size_t offset, __private half *p);
 void __attribute__((overloadable)) vstore_half_rtn(double data, size_t offset, __private half *p);
+#endif // __OPENCL_C_VERSION__ < 200
 
 /**
  * The floatn value given by data is converted to
@@ -5444,6 +5711,60 @@ void __attribute__((overloadable)) vstore_half_rtn(double data, size_t offset, _
  * The default current rounding mode is round to
  * nearest even.
  */
+#if __OPENCL_C_VERSION__ >= 200
+void __attribute__((overloadable)) vstore_half2(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16(float16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rte(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rte(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rte(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rte(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rte(float16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rtz(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rtz(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rtz(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rtz(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rtz(float16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rtp(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rtp(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rtp(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rtp(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rtp(float16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rtn(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rtn(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rtn(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rtn(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rtn(float16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16(double16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rte(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rte(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rte(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rte(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rte(double16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rtz(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rtz(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rtz(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rtz(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rtz(double16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rtp(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rtp(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rtp(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rtp(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rtp(double16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half2_rtn(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half3_rtn(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half4_rtn(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half8_rtn(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstore_half16_rtn(double16 data, size_t offset, half *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+
+#if __OPENCL_C_VERSION__ < 200
 void __attribute__((overloadable)) vstore_half2(float2 data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstore_half3(float3 data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstore_half4(float4 data, size_t offset, __global half *p);
@@ -5594,6 +5915,7 @@ void __attribute__((overloadable)) vstore_half3_rtn(double3 data, size_t offset,
 void __attribute__((overloadable)) vstore_half4_rtn(double4 data, size_t offset, __private half *p);
 void __attribute__((overloadable)) vstore_half8_rtn(double8 data, size_t offset, __private half *p);
 void __attribute__((overloadable)) vstore_half16_rtn(double16 data, size_t offset, __private half *p);
+#endif // __OPENCL_C_VERSION__ < 200
 
 /**
  * For n = 1, 2, 4, 8 and 16 read sizeof (halfn)
@@ -5608,6 +5930,16 @@ void __attribute__((overloadable)) vstore_half16_rtn(double16 data, size_t offse
  * The address computed as (p + (offset * 4))
  * must be aligned to sizeof (half) * 4 bytes.
  */
+#if __OPENCL_C_VERSION__ >= 200
+float __attribute__((overloadable)) vloada_half(size_t offset, const half *p);
+float2 __attribute__((overloadable)) vloada_half2(size_t offset, const half *p);
+float3 __attribute__((overloadable)) vloada_half3(size_t offset, const half *p);
+float4 __attribute__((overloadable)) vloada_half4(size_t offset, const half *p);
+float8 __attribute__((overloadable)) vloada_half8(size_t offset, const half *p);
+float16 __attribute__((overloadable)) vloada_half16(size_t offset, const half *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+
+#if __OPENCL_C_VERSION__ < 200
 float __attribute__((overloadable)) vloada_half(size_t offset, const __global half *p);
 float2 __attribute__((overloadable)) vloada_half2(size_t offset, const __global half *p);
 float3 __attribute__((overloadable)) vloada_half3(size_t offset, const __global half *p);
@@ -5620,18 +5952,20 @@ float3 __attribute__((overloadable)) vloada_half3(size_t offset, const __local h
 float4 __attribute__((overloadable)) vloada_half4(size_t offset, const __local half *p);
 float8 __attribute__((overloadable)) vloada_half8(size_t offset, const __local half *p);
 float16 __attribute__((overloadable)) vloada_half16(size_t offset, const __local half *p);
-float __attribute__((overloadable)) vloada_half(size_t offset, const __constant half *p);
-float2 __attribute__((overloadable)) vloada_half2(size_t offset, const __constant half *p);
-float3 __attribute__((overloadable)) vloada_half3(size_t offset, const __constant half *p);
-float4 __attribute__((overloadable)) vloada_half4(size_t offset, const __constant half *p);
-float8 __attribute__((overloadable)) vloada_half8(size_t offset, const __constant half *p);
-float16 __attribute__((overloadable)) vloada_half16(size_t offset, const __constant half *p);
 float __attribute__((overloadable)) vloada_half(size_t offset, const __private half *p);
 float2 __attribute__((overloadable)) vloada_half2(size_t offset, const __private half *p);
 float3 __attribute__((overloadable)) vloada_half3(size_t offset, const __private half *p);
 float4 __attribute__((overloadable)) vloada_half4(size_t offset, const __private half *p);
 float8 __attribute__((overloadable)) vloada_half8(size_t offset, const __private half *p);
 float16 __attribute__((overloadable)) vloada_half16(size_t offset, const __private half *p);
+#endif // __OPENCL_C_VERSION__ < 200
+
+float __attribute__((overloadable)) vloada_half(size_t offset, const __constant half *p);
+float2 __attribute__((overloadable)) vloada_half2(size_t offset, const __constant half *p);
+float3 __attribute__((overloadable)) vloada_half3(size_t offset, const __constant half *p);
+float4 __attribute__((overloadable)) vloada_half4(size_t offset, const __constant half *p);
+float8 __attribute__((overloadable)) vloada_half8(size_t offset, const __constant half *p);
+float16 __attribute__((overloadable)) vloada_half16(size_t offset, const __constant half *p);
 
 /**
  * The floatn value given by data is converted to
@@ -5649,6 +5983,78 @@ float16 __attribute__((overloadable)) vloada_half16(size_t offset, const __priva
  * mode. The default current rounding mode is
  * round to nearest even.
  */
+#if __OPENCL_C_VERSION__ >= 200
+void __attribute__((overloadable)) vstorea_half(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16(float16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rte(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rte(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rte(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rte(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rte(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rte(float16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rtz(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rtz(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rtz(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rtz(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rtz(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rtz(float16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rtp(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rtp(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rtp(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rtp(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rtp(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rtp(float16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rtn(float data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rtn(float2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rtn(float3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rtn(float4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rtn(float8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rtn(float16 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16(double16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rte(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rte(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rte(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rte(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rte(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rte(double16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rtz(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rtz(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rtz(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rtz(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rtz(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rtz(double16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rtp(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rtp(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rtp(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rtp(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rtp(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rtp(double16 data, size_t offset, half *p);
+
+void __attribute__((overloadable)) vstorea_half_rtn(double data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half2_rtn(double2 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half3_rtn(double3 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half4_rtn(double4 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half8_rtn(double8 data, size_t offset, half *p);
+void __attribute__((overloadable)) vstorea_half16_rtn(double16 data, size_t offset, half *p);
+#endif // __OPENCL_C_VERSION__ >= 200 
+ 
+#if __OPENCL_C_VERSION__ < 200
 void __attribute__((overloadable)) vstorea_half(float data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstorea_half2(float2 data, size_t offset, __global half *p);
 void __attribute__((overloadable)) vstorea_half3(float3 data, size_t offset, __global half *p);
@@ -5858,6 +6264,12 @@ void __attribute__((overloadable)) vstorea_half3_rtn(double3 data,size_t offset,
 void __attribute__((overloadable)) vstorea_half4_rtn(double4 data,size_t offset, __private half *p);
 void __attribute__((overloadable)) vstorea_half8_rtn(double8 data,size_t offset, __private half *p);
 void __attribute__((overloadable)) vstorea_half16_rtn(double16 data,size_t offset, __private half *p);
+#endif // __OPENCL_C_VERSION__ < 200
+
+#define vstorea_half_rte vstore_half_rte
+#define vstorea_half_rtz vstore_half_rtz
+#define vstorea_half_rtp vstore_half_rtp
+#define vstorea_half_rtn vstore_half_rtn
 
 // Synchronization functions
 
@@ -5894,6 +6306,69 @@ void __attribute__((overloadable)) vstorea_half16_rtn(double16 data,size_t offse
 typedef uint cl_mem_fence_flags;
 
 void __attribute__((overloadable)) barrier(cl_mem_fence_flags flags);
+
+#if __OPENCL_C_VERSION__ >= 200
+/**
+ * All work-items in a work-group executing the kernel
+ * on a processor must execute this function before any
+ * are allowed to continue execution beyond the
+ * work_group_barrier. This function must be
+ * encountered by all work-items in a work-group
+ * executing the kernel. These rules apply to NDranges
+ * implemented with uniform and non-uniform
+ * work-groups.
+ * If work_group_barrier is inside a conditional
+ * statement, then all work-items must enter the
+ * conditional if any work-item enters the conditional
+ * statement and executes the work_group_barrier.
+ * If work_group_barrier is inside a loop, all workitems
+ * must execute the work_group_barrier for
+ * each iteration of the loop before any are allowed to
+ * continue execution beyond the
+ * work_group_barrier.
+ * The work_group_barrier function also supports a
+ * variant that specifies the memory scope. For the
+ * work_group_barrier variant that does not take a
+ * memory scope, the scope is
+ * memory_scope_work_group.
+ * The scope argument specifies whether the memory
+ * accesses of work-items in the work-group to
+ * memory address space(s) identified by flags become
+ * visible to all work-items in the work-group, the
+ * device or all SVM devices.
+ * The work_group_barrier function can also be used
+ * to specify which memory operations i.e. to global
+ * memory, local memory or images become visible to
+ * the appropriate memory scope identified by scope.
+ * The flags argument specifies the memory address
+ * spaces. This is a bitfield and can be set to 0 or a
+ * combination of the following values ORed together.
+ * CLK_LOCAL_MEM_FENCE - The
+ * work_group_barrier function will ensure that all
+ * local memory accesses become visible to all workitems
+ * in the work-group. Note that the value of
+ * scope is ignored as the memory scope is always
+ * memory_scope_work_group.
+ * CLK_GLOBAL_MEM_FENCE – The
+ * work_group_barrier function ensure that all global
+ * memory accesses become visible to all work-items
+ * in the work-group.
+ * CLK_IMAGE_MEM_FENCE – The
+ * work_group_barrier function will ensure that all
+ * image memory accesses become visible to all workitems
+ * in the work-group. The value of scope must
+ * be memory_scope_work_group or
+ * memory_scope_device.
+ */
+typedef enum {
+  memory_scope_work_group,
+  memory_scope_device,
+  memory_scope_all_svm_devices
+} memory_scope;
+
+void __attribute__((overloadable)) work_group_barrier(cl_mem_fence_flags flags);
+void __attribute__((overloadable)) work_group_barrier(cl_mem_fence_flags flags, memory_scope scope);
+#endif // __OPENCL_C_VERSION__ >= 200
 
 // Explicit memory fence functions
 
@@ -5942,14 +6417,20 @@ void __attribute__((overloadable)) write_mem_fence(cl_mem_fence_flags flags);
  * Queue a memory fence to ensure correct 
  * ordering of memory operations to local memory
  */
-#define CLK_LOCAL_MEM_FENCE    1
+#define CLK_LOCAL_MEM_FENCE    0x1
 
 /**
  * Queue a memory fence to ensure correct 
  * ordering of memory operations to global memory
  */
-#define CLK_GLOBAL_MEM_FENCE   2
+#define CLK_GLOBAL_MEM_FENCE   0x2
 
+/**
+ * The work_group_barrier function will ensure that all
+ * image memory accesses become visible to all workitems
+ * in the work-group
+ */
+#define CLK_IMAGE_MEM_FENCE    0x4
 
 // Async copies from global to local memory, local to global memory, and prefetch
 
@@ -6593,6 +7074,495 @@ unsigned int __attribute__((overloadable)) atom_xor(volatile __global unsigned i
 int __attribute__((overloadable)) atom_xor(volatile __local int *p, int val);
 unsigned int __attribute__((overloadable)) atom_xor(volatile __local unsigned int *p, unsigned int val);
 
+#if !defined (__MIC__) && !defined(__MIC2__)
+#if __OPENCL_C_VERSION__ >= 200
+
+typedef atomic_int atomic_flag;
+#define ATOMIC_VAR_INIT(C)  (C)
+#define ATOMIC_FLAG_INIT    ATOMIC_VAR_INIT(0)
+
+/**
+ * OpenCL 2.0:
+ * Map atomic_intptr_t, atomic_ptrdiff_t, atomic_uintptr_t, and atomic_size_t
+ * to corresponding integer atomic types
+ * if CL_DEVICE_ADDRESS_BITS defined in table 4.3 is 32-bits.
+ */
+#if defined(__i386__) || defined(i386) || defined(_M_IX86)
+  typedef  atomic_int   atomic_intptr_t;
+  typedef  atomic_int   atomic_ptrdiff_t;
+  typedef  atomic_uint  atomic_uintptr_t;
+  typedef  atomic_uint  atomic_size_t;
+#endif
+
+typedef enum {
+  memory_order_relaxed,
+  memory_order_acquire,
+  memory_order_release,
+  memory_order_acq_rel,
+  memory_order_seq_cst
+} memory_order;
+/**
+ * In OpenCL like in C enumerated constants are of int type.
+ * So to make overloading of atomic_work_item_fence possible convert constants to memory_order type.
+ */
+#define memory_order_relaxed (memory_order)memory_order_relaxed
+#define memory_order_acquire (memory_order)memory_order_acquire
+#define memory_order_release (memory_order)memory_order_release
+#define memory_order_acq_rel (memory_order)memory_order_acq_rel
+#define memory_order_seq_cst (memory_order)memory_order_seq_cst
+
+/**
+ * In OpenCL like in C enumerated constants are of int type.
+ * So to make overloading of atomic_work_item_fence possible convert constants to memory_scope type.
+ */
+#define memory_scope_work_group      (memory_scope)memory_scope_work_group
+#define memory_scope_device          (memory_scope)memory_scope_device
+#define memory_scope_all_svm_devices (memory_scope)memory_scope_all_svm_devices
+
+/**
+ * OpenCL C 2.0 atomic builtins 6.13.11
+ */
+void __attribute__((overloadable)) atomic_work_item_fence(memory_order order);
+void __attribute__((overloadable)) atomic_work_item_fence(memory_order order, memory_scope scope);
+void __attribute__((overloadable)) atomic_work_item_fence(cl_mem_fence_flags flags, memory_order order);
+void __attribute__((overloadable)) atomic_work_item_fence(cl_mem_fence_flags flags, memory_order order, memory_scope scope);
+
+void __attribute__((overloadable)) atomic_work_item_image_fence(memory_scope scope);
+
+void __attribute__((overloadable)) atomic_init(volatile atomic_int *object, int value);
+void __attribute__((overloadable)) atomic_init(volatile __global atomic_int *object, int value);
+void __attribute__((overloadable)) atomic_init(volatile __local atomic_int *object, int value);
+void __attribute__((overloadable)) atomic_init(volatile atomic_uint *object, uint value);
+void __attribute__((overloadable)) atomic_init(volatile __global atomic_uint *object, uint value);
+void __attribute__((overloadable)) atomic_init(volatile __local atomic_uint *object, uint value);
+void __attribute__((overloadable)) atomic_init(volatile atomic_float *object, float value);
+void __attribute__((overloadable)) atomic_init(volatile __global atomic_float *object, float value);
+void __attribute__((overloadable)) atomic_init(volatile __local atomic_float *object, float value);
+
+// __generic
+void __attribute__((overloadable)) atomic_store(volatile atomic_int *object, int desired);
+void __attribute__((overloadable)) atomic_store(volatile atomic_uint *object, uint desired);
+void __attribute__((overloadable)) atomic_store(volatile atomic_float *object, float desired);
+void __attribute__((overloadable)) atomic_store_explicit(volatile atomic_int *object, int desired, memory_order order);
+void __attribute__((overloadable)) atomic_store_explicit(volatile atomic_uint *object, uint desired, memory_order order);
+void __attribute__((overloadable)) atomic_store_explicit(volatile atomic_float *object, float desired, memory_order order);
+void __attribute__((overloadable)) atomic_store_explicit(volatile atomic_int *object, int desired, memory_order order, memory_scope scope);
+void __attribute__((overloadable)) atomic_store_explicit(volatile atomic_uint *object, uint desired, memory_order order, memory_scope scope);
+void __attribute__((overloadable)) atomic_store_explicit(volatile atomic_float *object, float desired, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_load(volatile atomic_int *object);
+uint __attribute__((overloadable)) atomic_load(volatile atomic_uint *object);
+float __attribute__((overloadable)) atomic_load(volatile atomic_float *object);
+int __attribute__((overloadable)) atomic_load_explicit(volatile atomic_int *object, memory_order order);
+uint __attribute__((overloadable)) atomic_load_explicit(volatile atomic_uint *object, memory_order order);
+float __attribute__((overloadable)) atomic_load_explicit(volatile atomic_float *object, memory_order order);
+int __attribute__((overloadable)) atomic_load_explicit(volatile atomic_int *object, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_load_explicit(volatile atomic_uint *object, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_load_explicit(volatile atomic_float *object, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_exchange(volatile atomic_int *object, int desired);
+uint __attribute__((overloadable)) atomic_exchange(volatile atomic_uint *object, uint desired);
+float __attribute__((overloadable)) atomic_exchange(volatile atomic_float *object, float desired);
+int __attribute__((overloadable)) atomic_exchange_explicit(volatile atomic_int *object, int desired, memory_order order);
+uint __attribute__((overloadable)) atomic_exchange_explicit(volatile atomic_uint *object, uint desired, memory_order order);
+float __attribute__((overloadable)) atomic_exchange_explicit(volatile atomic_float *object, float desired, memory_order order);
+int __attribute__((overloadable)) atomic_exchange_explicit(volatile atomic_int *object, int desired, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_exchange_explicit(volatile atomic_uint *object, uint desired, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_exchange_explicit(volatile atomic_float *object, float desired, memory_order order, memory_scope scope);
+
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile atomic_int *object, int *expected, int desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile atomic_uint *object, uint *expected, uint desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile atomic_float *object, float *expected, float desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile atomic_int *object, int *expected, int desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile atomic_uint *object, uint *expected, uint desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile atomic_float *object, float *expected, float desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile atomic_int *object, int *expected, int desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile atomic_uint *object, uint *expected, uint desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile atomic_float *object, float *expected, float desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile atomic_int *object, int *expected, int desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile atomic_uint *object, uint *expected, uint desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile atomic_float *object, float *expected, float desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile atomic_int *object, int *expected, int desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile atomic_uint *object, uint *expected, uint desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile atomic_float *object, float *expected, float desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile atomic_int *object, int *expected, int desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile atomic_uint *object, uint *expected, uint desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile atomic_float *object, float *expected, float desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_add(volatile atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_add(volatile atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_add(volatile atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_add_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_add_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_add_explicit(volatile atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_add_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_add_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_add_explicit(volatile atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_sub(volatile atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_sub(volatile atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_sub(volatile atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_or(volatile atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_or(volatile atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_or(volatile atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_or_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_or_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_or_explicit(volatile atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_or_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_or_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_or_explicit(volatile atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_xor(volatile atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_xor(volatile atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_xor(volatile atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_and(volatile atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_and(volatile atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_and(volatile atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_and_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_and_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_and_explicit(volatile atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_and_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_and_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_and_explicit(volatile atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_min(volatile atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_min(volatile atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_min(volatile atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_min_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_min_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_min_explicit(volatile atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_min_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_min_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_min_explicit(volatile atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_max(volatile atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_max(volatile atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_max(volatile atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_max_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_max_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_max_explicit(volatile atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_max_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_max_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_max_explicit(volatile atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+// __global
+void __attribute__((overloadable)) atomic_store(volatile __global atomic_int *object, int desired);
+void __attribute__((overloadable)) atomic_store(volatile __global atomic_uint *object, uint desired);
+void __attribute__((overloadable)) atomic_store(volatile __global atomic_float *object, float desired);
+void __attribute__((overloadable)) atomic_store_explicit(volatile __global atomic_int *object, int desired, memory_order order);
+void __attribute__((overloadable)) atomic_store_explicit(volatile __global atomic_uint *object, uint desired, memory_order order);
+void __attribute__((overloadable)) atomic_store_explicit(volatile __global atomic_float *object, float desired, memory_order order);
+void __attribute__((overloadable)) atomic_store_explicit(volatile __global atomic_int *object, int desired, memory_order order, memory_scope scope);
+void __attribute__((overloadable)) atomic_store_explicit(volatile __global atomic_uint *object, uint desired, memory_order order, memory_scope scope);
+void __attribute__((overloadable)) atomic_store_explicit(volatile __global atomic_float *object, float desired, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_load(volatile __global atomic_int *object);
+uint __attribute__((overloadable)) atomic_load(volatile __global atomic_uint *object);
+float __attribute__((overloadable)) atomic_load(volatile __global atomic_float *object);
+int __attribute__((overloadable)) atomic_load_explicit(volatile __global atomic_int *object, memory_order order);
+uint __attribute__((overloadable)) atomic_load_explicit(volatile __global atomic_uint *object, memory_order order);
+float __attribute__((overloadable)) atomic_load_explicit(volatile __global atomic_float *object, memory_order order);
+int __attribute__((overloadable)) atomic_load_explicit(volatile __global atomic_int *object, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_load_explicit(volatile __global atomic_uint *object, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_load_explicit(volatile __global atomic_float *object, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_exchange(volatile __global atomic_int *object, int desired);
+uint __attribute__((overloadable)) atomic_exchange(volatile __global atomic_uint *object, uint desired);
+float __attribute__((overloadable)) atomic_exchange(volatile __global atomic_float *object, float desired);
+int __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_int *object, int desired, memory_order order);
+uint __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_uint *object, uint desired, memory_order order);
+float __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_float *object, float desired, memory_order order);
+int __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_int *object, int desired, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_uint *object, uint desired, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_float *object, float desired, memory_order order, memory_scope scope);
+
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __global atomic_int *object, __global int *expected, int desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __global atomic_uint *object, __global uint *expected, uint desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __global atomic_float *object, __global float *expected, float desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __global int *expected, int desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __global uint *expected, uint desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, __global float *expected, float desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __global int *expected, int desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __global uint *expected, uint desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, __global float *expected, float desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __global atomic_int *object, __global int *expected, int desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __global atomic_uint *object, __global uint *expected, uint desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __global atomic_float *object, __global float *expected, float desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, __global int *expected, int desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, __global uint *expected, uint desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, __global float *expected, float desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, __global int *expected, int desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, __global uint *expected, uint desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, __global float *expected, float desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_add(volatile __global atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_add(volatile __global atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_add(volatile __global atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __global atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_sub(volatile __global atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_sub(volatile __global atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_sub(volatile __global atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __global atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_or(volatile __global atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_or(volatile __global atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_or(volatile __global atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __global atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_xor(volatile __global atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_xor(volatile __global atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_xor(volatile __global atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __global atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_and(volatile __global atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_and(volatile __global atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_and(volatile __global atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __global atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_min(volatile __global atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_min(volatile __global atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_min(volatile __global atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __global atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_max(volatile __global atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_max(volatile __global atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_max(volatile __global atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __global atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+// __local
+void __attribute__((overloadable)) atomic_store(volatile __local atomic_int *object, int desired);
+void __attribute__((overloadable)) atomic_store(volatile __local atomic_uint *object, uint desired);
+void __attribute__((overloadable)) atomic_store(volatile __local atomic_float *object, float desired);
+void __attribute__((overloadable)) atomic_store_explicit(volatile __local atomic_int *object, int desired, memory_order order);
+void __attribute__((overloadable)) atomic_store_explicit(volatile __local atomic_uint *object, uint desired, memory_order order);
+void __attribute__((overloadable)) atomic_store_explicit(volatile __local atomic_float *object, float desired, memory_order order);
+void __attribute__((overloadable)) atomic_store_explicit(volatile __local atomic_int *object, int desired, memory_order order, memory_scope scope);
+void __attribute__((overloadable)) atomic_store_explicit(volatile __local atomic_uint *object, uint desired, memory_order order, memory_scope scope);
+void __attribute__((overloadable)) atomic_store_explicit(volatile __local atomic_float *object, float desired, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_load(volatile __local atomic_int *object);
+uint __attribute__((overloadable)) atomic_load(volatile __local atomic_uint *object);
+float __attribute__((overloadable)) atomic_load(volatile __local atomic_float *object);
+int __attribute__((overloadable)) atomic_load_explicit(volatile __local atomic_int *object, memory_order order);
+uint __attribute__((overloadable)) atomic_load_explicit(volatile __local atomic_uint *object, memory_order order);
+float __attribute__((overloadable)) atomic_load_explicit(volatile __local atomic_float *object, memory_order order);
+int __attribute__((overloadable)) atomic_load_explicit(volatile __local atomic_int *object, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_load_explicit(volatile __local atomic_uint *object, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_load_explicit(volatile __local atomic_float *object, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_exchange(volatile __local atomic_int *object, int desired);
+uint __attribute__((overloadable)) atomic_exchange(volatile __local atomic_uint *object, uint desired);
+float __attribute__((overloadable)) atomic_exchange(volatile __local atomic_float *object, float desired);
+int __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_int *object, int desired, memory_order order);
+uint __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_uint *object, uint desired, memory_order order);
+float __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_float *object, float desired, memory_order order);
+int __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_int *object, int desired, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_uint *object, uint desired, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_float *object, float desired, memory_order order, memory_scope scope);
+
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __local atomic_int *object, __local int *expected, int desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __local atomic_uint *object, __local uint *expected, uint desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __local atomic_float *object, __local float *expected, float desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, __local int *expected, int desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, __local uint *expected, uint desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, __local float *expected, float desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, __local int *expected, int desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, __local uint *expected, uint desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, __local float *expected, float desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __local atomic_int *object, __local int *expected, int desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __local atomic_uint *object, __local uint *expected, uint desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __local atomic_float *object, __local float *expected, float desired);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, __local int *expected, int desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, __local uint *expected, uint desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, __local float *expected, float desired,
+                                                                           memory_order success, memory_order failure);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, __local int *expected, int desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, __local uint *expected, uint desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, __local float *expected, float desired,
+                                                                           memory_order success, memory_order failure, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_add(volatile __local atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_add(volatile __local atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_add(volatile __local atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __local atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_sub(volatile __local atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_sub(volatile __local atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_sub(volatile __local atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __local atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_or(volatile __local atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_or(volatile __local atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_or(volatile __local atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __local atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_xor(volatile __local atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_xor(volatile __local atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_xor(volatile __local atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __local atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_and(volatile __local atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_and(volatile __local atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_and(volatile __local atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __local atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_min(volatile __local atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_min(volatile __local atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_min(volatile __local atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __local atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+int __attribute__((overloadable)) atomic_fetch_max(volatile __local atomic_int *object, int operand);
+uint __attribute__((overloadable)) atomic_fetch_max(volatile __local atomic_uint *object, uint operand);
+float __attribute__((overloadable)) atomic_fetch_max(volatile __local atomic_float *object, float operand);
+int __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+float __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __local atomic_float *object, float operand, memory_order order);
+int __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+float __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
+
+// atomic_flag builtins
+bool __attribute__((overloadable)) atomic_flag_test_and_set(volatile atomic_flag *object);
+bool __attribute__((overloadable)) atomic_flag_test_and_set_explicit(volatile atomic_flag *object, memory_order);
+bool __attribute__((overloadable)) atomic_flag_test_and_set_explicit(volatile atomic_flag *object, memory_order, memory_scope scope);
+
+void __attribute__((overloadable)) atomic_flag_clear(volatile atomic_flag *object);
+void __attribute__((overloadable)) atomic_flag_clear_explicit(volatile atomic_flag *object, memory_order);
+void __attribute__((overloadable)) atomic_flag_clear_explicit(volatile atomic_flag *object, memory_order, memory_scope scope);
+
+bool __attribute__((overloadable)) atomic_flag_test_and_set(volatile __global atomic_flag *object);
+bool __attribute__((overloadable)) atomic_flag_test_and_set_explicit(volatile __global atomic_flag *object, memory_order);
+bool __attribute__((overloadable)) atomic_flag_test_and_set_explicit(volatile __global atomic_flag *object, memory_order, memory_scope scope);
+
+void __attribute__((overloadable)) atomic_flag_clear(volatile __global atomic_flag *object);
+void __attribute__((overloadable)) atomic_flag_clear_explicit(volatile __global atomic_flag *object, memory_order);
+void __attribute__((overloadable)) atomic_flag_clear_explicit(volatile __global atomic_flag *object, memory_order, memory_scope scope);
+
+bool __attribute__((overloadable)) atomic_flag_test_and_set(volatile __local atomic_flag *object);
+bool __attribute__((overloadable)) atomic_flag_test_and_set_explicit(volatile __local atomic_flag *object, memory_order);
+bool __attribute__((overloadable)) atomic_flag_test_and_set_explicit(volatile __local atomic_flag *object, memory_order, memory_scope scope);
+
+void __attribute__((overloadable)) atomic_flag_clear(volatile __local atomic_flag *object);
+void __attribute__((overloadable)) atomic_flag_clear_explicit(volatile __local atomic_flag *object, memory_order);
+void __attribute__((overloadable)) atomic_flag_clear_explicit(volatile __local atomic_flag *object, memory_order, memory_scope scope);
+
+#endif
+#endif
+
 // Function qualifiers (section 6.7)
 
 #define __kernel_exec(X, typen) __kernel \
@@ -7196,10 +8166,10 @@ float4 __attribute__((overloadable)) const_func read_imagef(__read_only image2d_
 //half4 __attribute__((overloadable)) const_func read_imageh(__read_only image2d_t image, sampler_t sampler, int2 coord);
 //half4 __attribute__((overloadable)) const_func read_imageh(__read_only image2d_t image, sampler_t sampler, float2 coord);
 
-// OpenCL C 2.0 introduced new basic types: image2d_depth_t, image2d_array_depth_t
-// TODO: remove the following define as soon as Clang support -cl-std=CL2.0 flag
-#define  CL_VERSION_2_0 200
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
+// Since OpenCL 2.0 image2d_depth_t and image2d_array_depth_t are mandatory
+#if defined __IMAGE2D_DEPTH__ || __OPENCL_C_VERSION__ >= 200
+// Enable the extension to make compilation of PCH possible for all supported standartds
+#pragma OPENCL EXTENSION cl_khr_depth_images : enable
 float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_depth_t image, sampler_t sampler, int2 coord);
 float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_depth_t image, sampler_t sampler, float2 coord);
 float __attribute__((overloadable)) const_func read_imagef(__read_only image2d_depth_t image, int2 coord);
@@ -7226,6 +8196,11 @@ int2 const_func __attribute__((overloadable)) get_image_dim(image2d_depth_t imag
 int2 const_func __attribute__((overloadable)) get_image_dim(image2d_array_depth_t image);
 
 size_t const_func __attribute__((overloadable)) get_image_array_size(image2d_array_depth_t image_array);
+
+#if __OPENCL_C_VERSION__ < 200
+// Disable the extension for standards below 2.0
+#pragma OPENCL EXTENSION cl_khr_depth_images : disable
+#endif    // __OPENCL_C_VERSION__ < 200
 #endif
 
 /**
@@ -7439,7 +8414,10 @@ void __attribute__((overloadable)) write_imagei (__write_only image1d_array_t im
 void __attribute__((overloadable)) write_imageui (__write_only image1d_array_t image, int2 coord, uint4 color);
 
 
-#if defined __WRITE_IMAGE3D__ || __OPENCL_C_VERSION__ >= CL_VERSION_2_0 
+// Since OpenCL 2.0 writes to image3d_t are mandatory
+#if defined __WRITE_IMAGE3D__ || __OPENCL_C_VERSION__ >= 200
+// Enable the extension to make compilation of PCH possible for all supported standartds
+#pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
 /**
  * Write color value to location specified by coordinate
  * (x, y, z) in the 3D image object specified by image.
@@ -7480,7 +8458,10 @@ void __attribute__((overloadable)) write_imagef(__write_only image3d_t image, in
 void __attribute__((overloadable)) write_imagei(__write_only image3d_t image, int4 coord, int4 color);
 void __attribute__((overloadable)) write_imageui(__write_only image3d_t image, int4 coord, uint4 color);
 //void __attribute__((overloadable)) write_imageh(__write_only image3d_t image, int4 coord, half4 color);
-
+#if __OPENCL_C_VERSION__ < 200
+//  disable the extension for standards below 2.0
+#pragma OPENCL EXTENSION cl_khr_3d_image_writes : disable
+#endif      // __OPENCL_C_VERSION__ < 200
 #endif
 
 /**
@@ -13268,23 +14249,23 @@ ulong16 const_func __attribute__((overloadable)) ctz(ulong16 x);
  * returns 1.
  * For clEnqueueTask, this always returns 1.
  */
-size_t get_enqueued_local_size(uint dimindx);
+size_t const_func __attribute__((overloadable)) get_enqueued_local_size(uint dimindx);
 
 /**
  * Returns the work-items 1-dimensional global ID. For
  * 1D work-groups, it is the same value as
  * get_global_id(0).
  */
-size_t get_global_linear_id(void);
+size_t const_func __attribute__((overloadable)) get_global_linear_id(void);
 
 /**
  * Returns the work-items 1-dimensional local ID. For 1D
  * work-groups, it is the same value as get_local_id(0).
  */
-size_t get_local_linear_id(void);
+size_t const_func __attribute__((overloadable)) get_local_linear_id(void);
 
 
-//work group funtions
+// Work group funtions 6.13.15
 
 /**
  * Evaluates predicate for all work-items in the
@@ -13292,7 +14273,7 @@ size_t get_local_linear_id(void);
  * predicate evaluates to non-zero for all workitems
  * in the work-group.
  */
-int const_func work_group_all(int predicate);
+int __attribute__((overloadable)) work_group_all(int predicate);
 
 /**
  * Evaluates predicate for all work-items in the
@@ -13300,151 +14281,214 @@ int const_func work_group_all(int predicate);
  * predicate evaluates to non-zero for any workitems
  * in the work-group.
  */
-int const_func work_group_any(int predicate);
+int __attribute__((overloadable)) work_group_any(int predicate);
 
 /**
  * Broadcast function
  * one dimentional local_id
  */
-int const_func __attribute__((overloadable)) work_group_broadcast_1D(int a, size_t local_id);
-uint const_func __attribute__((overloadable)) work_group_broadcast_1D(uint a, size_t local_id);
-long const_func __attribute__((overloadable)) work_group_broadcast_1D(long a, size_t local_id);
-ulong const_func __attribute__((overloadable)) work_group_broadcast_1D(ulong a, size_t local_id);
-float const_func __attribute__((overloadable)) work_group_broadcast_1D(float a, size_t local_id);
-double const_func __attribute__((overloadable)) work_group_broadcast_1D(double a, size_t local_id);
-//half const_func __attribute__((overloadable)) work_group_broadcast_1D(half a, size_t local_id);
+int    __attribute__((overloadable)) work_group_broadcast(int a,    size_t local_id);
+uint   __attribute__((overloadable)) work_group_broadcast(uint a,   size_t local_id);
+long   __attribute__((overloadable)) work_group_broadcast(long a,   size_t local_id);
+ulong  __attribute__((overloadable)) work_group_broadcast(ulong a,  size_t local_id);
+float  __attribute__((overloadable)) work_group_broadcast(float a,  size_t local_id);
+double __attribute__((overloadable)) work_group_broadcast(double a, size_t local_id);
+//half __attribute__((overloadable)) work_group_broadcast(half a,   size_t local_id);
 
 /**
  * Broadcast function
  * two dimentional local_id
  */
-int const_func __attribute__((overloadable)) work_group_broadcast_2D(int a, size_t local_id[2]);
-uint const_func __attribute__((overloadable)) work_group_broadcast_2D(uint a, size_t local_id[2]);
-long const_func __attribute__((overloadable)) work_group_broadcast_2D(long a, size_t local_id[2]);
-ulong const_func __attribute__((overloadable)) work_group_broadcast_2D(ulong a, size_t local_id[2]);
-float const_func __attribute__((overloadable)) work_group_broadcast_2D(float a, size_t local_id[2]);
-double const_func __attribute__((overloadable)) work_group_broadcast_2D(double a, size_t local_id[2]);
-//half const_func __attribute__((overloadable)) work_group_broadcast_2D(half a, size_t local_id[2]);
+int    __attribute__((overloadable)) work_group_broadcast(int a,    size_t local_id_x, size_t local_id_y);
+uint   __attribute__((overloadable)) work_group_broadcast(uint a,   size_t local_id_x, size_t local_id_y);
+long   __attribute__((overloadable)) work_group_broadcast(long a,   size_t local_id_x, size_t local_id_y);
+ulong  __attribute__((overloadable)) work_group_broadcast(ulong a,  size_t local_id_x, size_t local_id_y);
+float  __attribute__((overloadable)) work_group_broadcast(float a,  size_t local_id_x, size_t local_id_y);
+double __attribute__((overloadable)) work_group_broadcast(double a, size_t local_id_x, size_t local_id_y);
+//half __attribute__((overloadable)) work_group_broadcast(half a,   size_t local_id_x, size_t local_id_y);
 
 /**
  * Broadcast function
  * three dimentional local_id
  */
-int const_func __attribute__((overloadable)) work_group_broadcast_3D(int a, size_t local_id[3]);
-uint const_func __attribute__((overloadable)) work_group_broadcast_3D(uint a, size_t local_id[3]);
-long const_func __attribute__((overloadable)) work_group_broadcast_3D(long a, size_t local_id[3]);
-ulong const_func __attribute__((overloadable)) work_group_broadcast_3D(ulong a, size_t local_id[3]);
-float const_func __attribute__((overloadable)) work_group_broadcast_3D(float a, size_t local_id[3]);
-double const_func __attribute__((overloadable)) work_group_broadcast_3D(double a, size_t local_id[3]);
-//half const_func __attribute__((overloadable)) work_group_broadcast_3D(half a, size_t local_id[3]);
+int    __attribute__((overloadable)) work_group_broadcast(int a,    size_t local_id_x, size_t local_id_y, size_t local_id_z);
+uint   __attribute__((overloadable)) work_group_broadcast(uint a,   size_t local_id_x, size_t local_id_y, size_t local_id_z);
+long   __attribute__((overloadable)) work_group_broadcast(long a,   size_t local_id_x, size_t local_id_y, size_t local_id_z);
+ulong  __attribute__((overloadable)) work_group_broadcast(ulong a,  size_t local_id_x, size_t local_id_y, size_t local_id_z);
+float  __attribute__((overloadable)) work_group_broadcast(float a,  size_t local_id_x, size_t local_id_y, size_t local_id_z);
+double __attribute__((overloadable)) work_group_broadcast(double a, size_t local_id_x, size_t local_id_y, size_t local_id_z);
+//half __attribute__((overloadable)) work_group_broadcast(half a,   size_t local_id_x, size_t local_id_y, size_t local_id_z);
 
 /**
  * reduce functions
  * work_group_reduce_add
  */
-int const_func __attribute__((overloadable)) work_group_reduce_add(int x);
-uint const_func __attribute__((overloadable)) work_group_reduce_add(uint x);
-long const_func __attribute__((overloadable)) work_group_reduce_add(long x);
-ulong const_func __attribute__((overloadable)) work_group_reduce_add(ulong x);
-float const_func __attribute__((overloadable)) work_group_reduce_add(float x);
-double const_func __attribute__((overloadable)) work_group_reduce_add(double x);
-//half const_func __attribute__((overloadable)) work_group_reduce_add(half x);
+int    __attribute__((overloadable)) work_group_reduce_add(int x);
+uint   __attribute__((overloadable)) work_group_reduce_add(uint x);
+long   __attribute__((overloadable)) work_group_reduce_add(long x);
+ulong  __attribute__((overloadable)) work_group_reduce_add(ulong x);
+float  __attribute__((overloadable)) work_group_reduce_add(float x);
+double __attribute__((overloadable)) work_group_reduce_add(double x);
+//half __attribute__((overloadable)) work_group_reduce_add(half x);
 
 /**
  * reduce functions
  * work_group_reduce_min
  */
-int const_func __attribute__((overloadable)) work_group_reduce_min(int x);
-uint const_func __attribute__((overloadable)) work_group_reduce_min(uint x);
-long const_func __attribute__((overloadable)) work_group_reduce_min(long x);
-ulong const_func __attribute__((overloadable)) work_group_reduce_min(ulong x);
-float const_func __attribute__((overloadable)) work_group_reduce_min(float x);
-double const_func __attribute__((overloadable)) work_group_reduce_min(double x);
-//half const_func __attribute__((overloadable)) work_group_reduce_min(half x);
+int    __attribute__((overloadable)) work_group_reduce_min(int x);
+uint   __attribute__((overloadable)) work_group_reduce_min(uint x);
+long   __attribute__((overloadable)) work_group_reduce_min(long x);
+ulong  __attribute__((overloadable)) work_group_reduce_min(ulong x);
+float  __attribute__((overloadable)) work_group_reduce_min(float x);
+double __attribute__((overloadable)) work_group_reduce_min(double x);
+//half __attribute__((overloadable)) work_group_reduce_min(half x);
 
 /**
  * reduce functions
  * work_group_reduce_max
  */
-int const_func __attribute__((overloadable)) work_group_reduce_max(int x);
-uint const_func __attribute__((overloadable)) work_group_reduce_max(uint x);
-long const_func __attribute__((overloadable)) work_group_reduce_max(long x);
-ulong const_func __attribute__((overloadable)) work_group_reduce_max(ulong x);
-float const_func __attribute__((overloadable)) work_group_reduce_max(float x);
-double const_func __attribute__((overloadable)) work_group_reduce_max(double x);
-//half const_func __attribute__((overloadable)) work_group_reduce_max(half x);
+int    __attribute__((overloadable)) work_group_reduce_max(int x);
+uint   __attribute__((overloadable)) work_group_reduce_max(uint x);
+long   __attribute__((overloadable)) work_group_reduce_max(long x);
+ulong  __attribute__((overloadable)) work_group_reduce_max(ulong x);
+float  __attribute__((overloadable)) work_group_reduce_max(float x);
+double __attribute__((overloadable)) work_group_reduce_max(double x);
+//half __attribute__((overloadable)) work_group_reduce_max(half x);
 
 /**
- * prefixsum functions
- * work_group_prefixsum_inclusive_max
+ * scan functions
+ * work_group_scan_inclusive_max
  */
-int const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(int x);
-uint const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(uint x);
-long const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(long x);
-ulong const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(ulong x);
-float const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(float x);
-double const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(double x);
-//half const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_max(half x);
+int    __attribute__((overloadable)) work_group_scan_inclusive_max(int x);
+uint   __attribute__((overloadable)) work_group_scan_inclusive_max(uint x);
+long   __attribute__((overloadable)) work_group_scan_inclusive_max(long x);
+ulong  __attribute__((overloadable)) work_group_scan_inclusive_max(ulong x);
+float  __attribute__((overloadable)) work_group_scan_inclusive_max(float x);
+double __attribute__((overloadable)) work_group_scan_inclusive_max(double x);
+//half __attribute__((overloadable)) work_group_scan_inclusive_max(half x);
 
 /**
- * prefixsum functions
- * work_group_prefixsum_inclusive_min
+ * scan functions
+ * work_group_scan_inclusive_min
  */
-int const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(int x);
-uint const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(uint x);
-long const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(long x);
-ulong const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(ulong x);
-float const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(float x);
-double const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(double x);
-//half const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_min(half x);
+int    __attribute__((overloadable)) work_group_scan_inclusive_min(int x);
+uint   __attribute__((overloadable)) work_group_scan_inclusive_min(uint x);
+long   __attribute__((overloadable)) work_group_scan_inclusive_min(long x);
+ulong  __attribute__((overloadable)) work_group_scan_inclusive_min(ulong x);
+float  __attribute__((overloadable)) work_group_scan_inclusive_min(float x);
+double __attribute__((overloadable)) work_group_scan_inclusive_min(double x);
+//half __attribute__((overloadable)) work_group_scan_inclusive_min(half x);
 
 /**
- * prefixsum functions
- * work_group_prefixsum_inclusive_add
+ * scan functions
+ * work_group_scan_inclusive_add
  */
-int const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(int x);
-uint const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(uint x);
-long const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(long x);
-ulong const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(ulong x);
-float const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(float x);
-double const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(double x);
-//half const_func __attribute__((overloadable)) work_group_prefixsum_inclusive_add(half x);
+int    __attribute__((overloadable)) work_group_scan_inclusive_add(int x);
+uint   __attribute__((overloadable)) work_group_scan_inclusive_add(uint x);
+long   __attribute__((overloadable)) work_group_scan_inclusive_add(long x);
+ulong  __attribute__((overloadable)) work_group_scan_inclusive_add(ulong x);
+float  __attribute__((overloadable)) work_group_scan_inclusive_add(float x);
+double __attribute__((overloadable)) work_group_scan_inclusive_add(double x);
+//half __attribute__((overloadable)) work_group_scan_inclusive_add(half x);
 
 /**
- * prefixsum functions
- * work_group_prefixsum_exclusive_max
+ * scan functions
+ * work_group_scan_exclusive_max
  */
-int const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(int x);
-uint const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(uint x);
-long const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(long x);
-ulong const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(ulong x);
-float const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(float x);
-double const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(double x);
-//half const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_max(half x);
+int    __attribute__((overloadable)) work_group_scan_exclusive_max(int x);
+uint   __attribute__((overloadable)) work_group_scan_exclusive_max(uint x);
+long   __attribute__((overloadable)) work_group_scan_exclusive_max(long x);
+ulong  __attribute__((overloadable)) work_group_scan_exclusive_max(ulong x);
+float  __attribute__((overloadable)) work_group_scan_exclusive_max(float x);
+double __attribute__((overloadable)) work_group_scan_exclusive_max(double x);
+//half __attribute__((overloadable)) work_group_scan_exclusive_max(half x);
 
 /**
- * prefixsum functions
- * work_group_prefixsum_exclusive_min
+ * scan functions
+ * work_group_scan_exclusive_min
  */
-int const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(int x);
-uint const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(uint x);
-long const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(long x);
-ulong const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(ulong x);
-float const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(float x);
-double const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(double x);
-//half const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_min(half x);
+int    __attribute__((overloadable)) work_group_scan_exclusive_min(int x);
+uint   __attribute__((overloadable)) work_group_scan_exclusive_min(uint x);
+long   __attribute__((overloadable)) work_group_scan_exclusive_min(long x);
+ulong  __attribute__((overloadable)) work_group_scan_exclusive_min(ulong x);
+float  __attribute__((overloadable)) work_group_scan_exclusive_min(float x);
+double __attribute__((overloadable)) work_group_scan_exclusive_min(double x);
+//half __attribute__((overloadable)) work_group_scan_exclusive_min(half x);
 
 /**
- * prefixsum functions
- * work_group_prefixsum_exclusive_add
+ * scan functions
+ * work_group_scan_exclusive_add
  */
-int const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(int x);
-uint const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(uint x);
-long const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(long x);
-ulong const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(ulong x);
-float const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(float x);
-double const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(double x);
-//half const_func __attribute__((overloadable)) work_group_prefixsum_exclusive_add(half x);
+int    __attribute__((overloadable)) work_group_scan_exclusive_add(int x);
+uint   __attribute__((overloadable)) work_group_scan_exclusive_add(uint x);
+long   __attribute__((overloadable)) work_group_scan_exclusive_add(long x);
+ulong  __attribute__((overloadable)) work_group_scan_exclusive_add(ulong x);
+float  __attribute__((overloadable)) work_group_scan_exclusive_add(float x);
+double __attribute__((overloadable)) work_group_scan_exclusive_add(double x);
+//half __attribute__((overloadable)) work_group_scan_exclusive_add(half x);
+#if __OPENCL_C_VERSION__ >= 200
 
+#define NULL                              0
+#define CLK_ENQUEUE_FLAGS_WAIT_KERNEL     0
+#define CLK_ENQUEUE_FLAGS_NO_WAIT         1
+#define CLK_ENQUEUE_FLAGS_WAIT_WORKGROUP  2
+
+// Address Space Qualifier Functions 6.13.9
+global void*       const_func __attribute__((overloadable)) to_global  (const void *ptr);
+local void*        const_func __attribute__((overloadable)) to_local   (const void *ptr);
+private void*      const_func __attribute__((overloadable)) to_private (const void *ptr);
+cl_mem_fence_flags const_func __attribute__((overloadable)) get_fence (const void *ptr);
+
+// Enqueuing Kernels  6.13.17
+
+#define CLK_SUCCESS                    0
+#define CLK_OUT_OF_RESOURCES          -5
+#define CLK_INVALID_ARG_SIZE          -51
+#define CLK_INVALID_EVENT_WAIT_LIST   -57
+#define CLK_EVENT_ALLOCATION_FAILURE  -100
+#define CLK_ENQUEUE_FAILURE           -101
+#define CLK_INVALID_QUEUE             -102
+#define CLK_INVALID_NDRANGE           -160
+#define CLK_DEVICE_QUEUE_FULL         -161
+
+#define CL_COMPLETE                   0x0
+#define CL_SUBMITTED                  0x2
+
+typedef int kernel_enqueue_flags_t;
+typedef int clk_profiling_info;
+
+int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(void));
+int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(void));
+int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ...), uint size0,...);
+int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ...), uint size0, ...);
+
+int __attribute__((overloadable)) enqueue_marker(queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret);
+
+queue_t __attribute__((overloadable)) get_default_queue(void);
+
+ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size);
+ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size, size_t local_work_size);
+ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_offset, size_t global_work_size, size_t local_work_size);
+
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_size[2], size_t local_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_offset[2], size_t global_work_size[2], size_t local_work_size[2]);
+
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3], size_t local_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_offset[3], size_t global_work_size[3], size_t local_work_size[3]);
+
+void __attribute__((overloadable)) retain_event(clk_event_t event);
+void  __attribute__((overloadable)) release_event(clk_event_t event);
+clk_event_t  __attribute__((overloadable)) create_user_event();
+void __attribute__((overloadable)) set_user_event_status(clk_event_t event, int status);
+void  __attribute__((overloadable)) capture_event_profiling_info(clk_event_t event, clk_profiling_info name, global ulong *value);
+
+uint __attribute__((overloadable)) get_kernel_work_group_size(void (^block)(void));
+uint __attribute__((overloadable)) get_kernel_work_group_size(void (^block)(local void *,...));
+uint __attribute__((overloadable)) get_kernel_preferred_work_group_size_multiple(void (^block)(void));
+uint __attribute__((overloadable)) get_kernel_preferred_work_group_size_multiple(void (^block)(local void *,...));
+
+#endif   // __OPENCL_C_VERSION__ >= 200
 #endif   // !defined (__MIC__) && !defined(__MIC2__)
 #endif

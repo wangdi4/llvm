@@ -11,8 +11,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Logger.h"
 
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 
 #include <map>
 #include <set>
@@ -76,6 +76,11 @@ namespace intel {
     /// @param val Value to test
     /// @return width of given value
     unsigned int getSoaAllocaVectorWidth(const Value* val);
+
+    /// @brief print data collected by the pass on the given module
+    /// @param OS stream to print the info regarding the module into
+    /// @param M pointer to the Module
+    void print(raw_ostream &OS, const Module *M = 0) const;
 
   private:
     /// @brief Returns true if given alloca instruction is supported.

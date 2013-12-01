@@ -26,7 +26,7 @@ template<typename T>
 class BufferTests{
 protected:
 	std::string getKernelSource(std::string arrayTypeName)
-	{	
+	{
 		std::stringstream ss;
 		if(0 == arrayTypeName.compare("UserDefinedStructure")){
 			ss << "typedef struct{		\n";
@@ -48,7 +48,12 @@ protected:
 		ss << "__kernel void read_"<<arrayTypeName<<"(__global "<<arrayTypeName<<"* input, __global "<<arrayTypeName<<"* output, int input_size)\n";
 		ss << "{\n";
 		ss << "		for(int i=0; i<input_size; ++i){\n";
-		ss << "		output[i]=input[i];\n";
+		if (0 == arrayTypeName.compare("half")) {
+			ss << "		float val = vloada_half(i, input);\n";
+			ss << "     vstorea_half(val, i, output);\n";
+		} else {
+			ss << "		output[i]=input[i];\n";
+		}
 		ss << "		}\n"	;		
 		ss << "}\n";
 		return ss.str();

@@ -304,7 +304,7 @@ OclBuiltinImpl mul_hi_v8_i64 = OclBuiltinImpl<mul_hi, [v8i64], 0, [{
     y_sign = _mm512_cmplt_epi64((__m512i)$Arg1VarName, (__m512i)(long8)0);
     res = _mm512_mask_sub_epi64((__m512i)res, y_sign, (__m512i)res, (__m512i)$Arg0VarName);
     return as_$ReturnType(res);
-}]>;
+  }]>;
 OclBuiltinImpl mul_hi_v8_u64 = OclBuiltinImpl<mul_hi, [v8u64], 0, [{
     // x = x_h, x_l; y = y_h, y_l
     // p0_h = H(x_l * y_l); p0_l = L(x_l * y_l)

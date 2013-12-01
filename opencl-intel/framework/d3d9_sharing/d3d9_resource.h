@@ -142,9 +142,11 @@ public:
      *
      * @author  Aharon
      * @date    7/13/2011
+	 *
+	 * @return whether the acquisition has succeeded
      */
 
-    void AcquireD3D();
+    bool AcquireD3D();
 
     /**
      * @brief   Releases this object to Direct3D
@@ -793,7 +795,7 @@ cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::CreateSubBuffer(cl_mem_flags c
 }
 
 template<typename RESOURCE_TYPE, typename DEV_TYPE>
-void D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
+bool D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
 {
     Intel::OpenCL::Utils::OclAutoMutex mtx(&m_muAcquireRelease);
     
@@ -804,14 +806,14 @@ void D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
 		)
 	{
         // We have already acquired an object
-        return;
+        return true;
 	}
 
 	void* const pData = Lock();
     if (NULL == pData)
     {
 		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-        return;
+        return false;
     }
     
 	// Now we need to create child object
@@ -822,7 +824,7 @@ void D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
     if (CL_FAILED(res))
     {
         m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-        return;
+        return false;
     }
 
     if (m_clImageFormat.image_channel_data_type != 0 || m_clImageFormat.image_channel_order != 0)
@@ -837,10 +839,11 @@ void D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
     if (CL_FAILED(res))
     {
         m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
-        return;
+        return false;
     }
 
     m_itCurrentAcquriedObject->second = pChild;
+	return true;
 }
 
 template<typename RESOURCE_TYPE, typename DEV_TYPE>

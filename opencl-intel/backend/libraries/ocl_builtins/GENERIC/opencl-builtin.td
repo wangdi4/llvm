@@ -132,7 +132,17 @@ class OclType<string name, string base, int length, int width, bit ptr> {
 multiclass _OCLTYPE1_<string ss, int len, int width, string base> {
   def  #NAME# : OclType<ss, base, len, width, 0>;
   def p#NAME# : OclType<!strconcat("p", ss), base, len, width, 1>;
+  def gp#NAME# : OclType<!strconcat("p", ss), !strconcat("__global ", base), len, width, 1>;
+  def lp#NAME# : OclType<!strconcat("p", ss), !strconcat("__local ", base), len, width, 1>;
+  def pp#NAME# : OclType<!strconcat("p", ss), !strconcat("__private ", base), len, width, 1>;
+  def cgp#NAME# : OclType<!strconcat("p", ss), !strconcat("const __global ", base), len, width, 1>;
+  def clp#NAME# : OclType<!strconcat("p", ss), !strconcat("const __local ", base), len, width, 1>;
+  def cpp#NAME# : OclType<!strconcat("p", ss), !strconcat("const __private ", base), len, width, 1>;
+  def vgp#NAME# : OclType<!strconcat("p", ss), !strconcat("volatile __global ", base), len, width, 1>;
+  def vlp#NAME# : OclType<!strconcat("p", ss), !strconcat("volatile __local ", base), len, width, 1>;
+  def vpp#NAME# : OclType<!strconcat("p", ss), !strconcat("volatile __private ", base), len, width, 1>;
 }
+
 multiclass _OCLTYPE2_<string ss, int width, string base> {
   defm  v1#NAME# : _OCLTYPE1_<!strconcat( "v1", ss),  1, width, base>;
   defm  v2#NAME# : _OCLTYPE1_<!strconcat( "v2", ss),  2, width, base>;
@@ -161,7 +171,16 @@ def image1d_buffer: OclType<"image1d_buffer", "image1d_buffer_t", 1, 0, 0>;
 def image1d_array: OclType<"image1d_array", "image1d_array_t", 1, 0, 0>;
 def image2d_array: OclType<"image2d_array", "image2d_array_t", 1, 0, 0>;
 def sampler_t : OclType<"sampler_t", "sampler_t", 1, 0, 0>;
+def event_t : OclType<"event_t", "event_t", 1, 0, 0>;
+def pevent_t : OclType<"pevent_t", "event_t", 1, 0, 1>;
 def void: OclType<"void", "void", 1, 0, 0>;
+defm atom_v1i32 : _OCLTYPE1_<"atom_v1i32", 1, 32, "atomic_int">;
+defm atom_v1u32 : _OCLTYPE1_<"atom_v1u32", 1, 32, "atomic_uint">;
+defm atom_v1f32 : _OCLTYPE1_<"atom_v1f32", 1, 32, "atomic_float">;
+defm atom_flag  : _OCLTYPE1_<"atom_flag", 1, 32, "atomic_flag">;
+def memory_order : OclType<"memory_order", "memory_order", 1, 32, 0>;
+def memory_scope : OclType<"memory_scope", "memory_scope", 1, 32, 0>;
+def bool : OclType<"bool", "bool", 1, 32, 0>;
 
 class TypeNameList<list<string> names> {
   list<string> Names = names;
@@ -178,7 +197,12 @@ def ocl_types : TypeNameList<[
   v1f16.TypeName, v2f16.TypeName, v3f16.TypeName, v4f16.TypeName, v8f16.TypeName, v16f16.TypeName,
   v1f32.TypeName, v2f32.TypeName, v3f32.TypeName, v4f32.TypeName, v8f32.TypeName, v16f32.TypeName,
   v1f64.TypeName, v2f64.TypeName, v3f64.TypeName, v4f64.TypeName, v8f64.TypeName, v16f64.TypeName,
+  atom_v1i32.TypeName, atom_v1u32.TypeName, atom_v1f32.TypeName, atom_flag.TypeName,
 
+  image1d.TypeName, image2d.TypeName, image3d.TypeName, image1d_buffer.TypeName, image1d_array.TypeName,
+  image2d_array.TypeName, sampler_t.TypeName, event_t.TypeName,
+
+  //The following is needed due to KNC conversions
    pv1i8.TypeName,  pv2i8.TypeName,  pv3i8.TypeName,  pv4i8.TypeName,  pv8i8.TypeName,  pv16i8.TypeName,
    pv1u8.TypeName,  pv2u8.TypeName,  pv3u8.TypeName,  pv4u8.TypeName,  pv8u8.TypeName,  pv16u8.TypeName,
   pv1i16.TypeName, pv2i16.TypeName, pv3i16.TypeName, pv4i16.TypeName, pv8i16.TypeName, pv16i16.TypeName,
@@ -190,26 +214,29 @@ def ocl_types : TypeNameList<[
   pv1f16.TypeName, pv2f16.TypeName, pv3f16.TypeName, pv4f16.TypeName, pv8f16.TypeName, pv16f16.TypeName,
   pv1f32.TypeName, pv2f32.TypeName, pv3f32.TypeName, pv4f32.TypeName, pv8f32.TypeName, pv16f32.TypeName,
   pv1f64.TypeName, pv2f64.TypeName, pv3f64.TypeName, pv4f64.TypeName, pv8f64.TypeName, pv16f64.TypeName,
-  image1d.TypeName, image2d.TypeName, image3d.TypeName, image1d_buffer.TypeName, image1d_array.TypeName,
-  image2d_array.TypeName, sampler_t.TypeName 
+
+  //The following are needed for atom2gentype
+  patom_v1i32.TypeName, patom_v1u32.TypeName, patom_v1f32.TypeName
 ]>;
 
 class OclGenType<string name>
   : OclType<name, name, 1, 0, 0> {
-  list<string> Tin = ocl_types.Names;
+  list<string> Torig = ocl_types.Names;
   string n; // dummy for !foreach
 }
 // gentype: 'vNtM' -> 'vNtM'
 def gentype : OclGenType<"gentype"> {
+  list<string> Tin = Torig;
   list<string> Tout = Tin;
 }
-// pgentype
+// converts a type to a pointer
 def pgentype : OclGenType<"pgentype"> {
-  list<string> T0 = !foreach(n, Tin, !strconcat("p", n));
-  list<string> Tout = T0;
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Torig,  !strconcat("p", n));
 }
 // sgentype: 'vNtM' -> 'v1tM'
 def sgentype : OclGenType<"sgentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "v2", "v1", n));
   list<string> T1 = !foreach(n,  T0, !subst( "v3", "v1", n));
   list<string> T2 = !foreach(n,  T1, !subst( "v4", "v1", n));
@@ -219,6 +246,7 @@ def sgentype : OclGenType<"sgentype"> {
 }
 // psgentype 'vNtM' -> 'pv1tM'
 def psgentype : OclGenType<"psgentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "v2", "v1", n));
   list<string> T1 = !foreach(n,  T0, !subst( "v3", "v1", n));
   list<string> T2 = !foreach(n,  T1, !subst( "v4", "v1", n));
@@ -229,6 +257,7 @@ def psgentype : OclGenType<"psgentype"> {
 }
 // gentype2: 'vNtM' -> 'v2tM'
 def gentype2 : OclGenType<"gentype2"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst("v16", "vX", n));
   list<string> T1 = !foreach(n,  T0, !subst( "v1", "v2", n));
   list<string> T2 = !foreach(n,  T1, !subst( "v3", "v2", n));
@@ -239,6 +268,7 @@ def gentype2 : OclGenType<"gentype2"> {
 }
 // gentype4: 'vNtM' -> 'v4tM'
 def gentype4 : OclGenType<"gentype4"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst("v16", "vX", n));
   list<string> T1 = !foreach(n,  T0, !subst( "v1", "v4", n));
   list<string> T2 = !foreach(n,  T1, !subst( "v2", "v4", n));
@@ -249,6 +279,7 @@ def gentype4 : OclGenType<"gentype4"> {
 }
 // gentype8: 'vNtM' -> 'v8tM'
 def gentype8 : OclGenType<"gentype8"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst("v16", "vX", n));
   list<string> T1 = !foreach(n,  T0, !subst( "v1", "v8", n));
   list<string> T2 = !foreach(n,  T1, !subst( "v2", "v8", n));
@@ -259,6 +290,7 @@ def gentype8 : OclGenType<"gentype8"> {
 }
 // gentype16: 'vNtM' -> 'v16tM'
 def gentype16 : OclGenType<"gentype16"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst("v16", "vX", n));
   list<string> T1 = !foreach(n,  T0, !subst( "v1", "v16", n));
   list<string> T2 = !foreach(n,  T1, !subst( "v2", "v16", n));
@@ -270,6 +302,7 @@ def gentype16 : OclGenType<"gentype16"> {
 }
 // ugentype2: 'vNtM' -> 'v2uM'
 def ugentype2 : OclGenType<"ugentype2"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8",  "u8", n));
   list<string> T1 = !foreach(n,  T0, !subst("i16", "u16", n));
   list<string> T2 = !foreach(n,  T1, !subst("f16", "u16", n));
@@ -288,6 +321,7 @@ def ugentype2 : OclGenType<"ugentype2"> {
 }
 // ugentype4: 'vNtM' -> 'v4uM'
 def ugentype4 : OclGenType<"ugentype4"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8",  "u8", n));
   list<string> T1 = !foreach(n,  T0, !subst("i16", "u16", n));
   list<string> T2 = !foreach(n,  T1, !subst("f16", "u16", n));
@@ -306,6 +340,7 @@ def ugentype4 : OclGenType<"ugentype4"> {
 }
 // ugentype8: 'vNtM' -> 'v8uM'
 def ugentype8 : OclGenType<"ugentype8"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8",  "u8", n));
   list<string> T1 = !foreach(n,  T0, !subst("i16", "u16", n));
   list<string> T2 = !foreach(n,  T1, !subst("f16", "u16", n));
@@ -324,6 +359,7 @@ def ugentype8 : OclGenType<"ugentype8"> {
 }
 // ugentype16: 'vNtM' -> 'v16uM'
 def ugentype16 : OclGenType<"ugentype16"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8",  "u8", n));
   list<string> T1 = !foreach(n,  T0, !subst("i16", "u16", n));
   list<string> T2 = !foreach(n,  T1, !subst("f16", "u16", n));
@@ -342,6 +378,7 @@ def ugentype16 : OclGenType<"ugentype16"> {
 }
 // ugentype: 'vNiM' -> 'vNuM'
 def ugentype : OclGenType<"ugentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8",  "u8", n));
   list<string> T1 = !foreach(n,  T0, !subst("i16", "u16", n));
   list<string> T2 = !foreach(n,  T1, !subst("f16", "u16", n));
@@ -353,6 +390,7 @@ def ugentype : OclGenType<"ugentype"> {
 }
 // igentype: 'vNuM' -> 'vNiM'
 def igentype : OclGenType<"igentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "u8",  "i8", n));
   list<string> T1 = !foreach(n,  T0, !subst("u16", "i16", n));
   list<string> T2 = !foreach(n,  T1, !subst("f16", "i16", n));
@@ -364,6 +402,7 @@ def igentype : OclGenType<"igentype"> {
 }
 // i8gentype: 'vNtM' -> 'vNi8'
 def i8gentype : OclGenType<"i8gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "u8", "i8", n));
   list<string> T1 = !foreach(n,  T0, !subst("i16", "i8", n));
   list<string> T2 = !foreach(n,  T1, !subst("u16", "i8", n));
@@ -377,6 +416,7 @@ def i8gentype : OclGenType<"i8gentype"> {
 }
 // u8gentype: 'vNtM' -> 'vNu8'
 def u8gentype : OclGenType<"u8gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "u8", n));
   list<string> T1 = !foreach(n,  T0, !subst("i16", "u8", n));
   list<string> T2 = !foreach(n,  T1, !subst("u16", "u8", n));
@@ -390,6 +430,7 @@ def u8gentype : OclGenType<"u8gentype"> {
 }
 // i16gentype: 'vNtM' -> 'vNi16'
 def i16gentype : OclGenType<"i16gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "i16", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "i16", n));
   list<string> T2 = !foreach(n,  T1, !subst("u16", "i16", n));
@@ -403,6 +444,7 @@ def i16gentype : OclGenType<"i16gentype"> {
 }
 // u16gentype: 'vNtM' -> 'vNu16'
 def u16gentype : OclGenType<"u16gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "u16", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "u16", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "u16", n));
@@ -416,6 +458,7 @@ def u16gentype : OclGenType<"u16gentype"> {
 }
 // i32gentype: 'vNtM' -> 'vNi32'
 def i32gentype : OclGenType<"i32gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "i32", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "i32", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "i32", n));
@@ -429,6 +472,7 @@ def i32gentype : OclGenType<"i32gentype"> {
 }
 // pi32gentype : 'vNtM' -> 'pvNi32'
 def pi32gentype : OclGenType<"pi32gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "i32", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "i32", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "i32", n));
@@ -443,6 +487,7 @@ def pi32gentype : OclGenType<"pi32gentype"> {
 }
 // si32gentype: 'vNtM' -> 'v1i32'
 def si32gentype : OclGenType<"si32gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "i32", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "i32", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "i32", n));
@@ -461,6 +506,7 @@ def si32gentype : OclGenType<"si32gentype"> {
 }
 // u32gentype: 'vNtM' -> 'vNu32'
 def u32gentype : OclGenType<"u32gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "u32", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "u32", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "u32", n));
@@ -474,6 +520,7 @@ def u32gentype : OclGenType<"u32gentype"> {
 }
 // i64gentype: 'vNtM' -> 'vNi64'
 def i64gentype : OclGenType<"i64gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "i64", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "i64", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "i64", n));
@@ -487,6 +534,7 @@ def i64gentype : OclGenType<"i64gentype"> {
 }
 // u64gentype: 'vNtM' -> 'vNu64'
 def u64gentype : OclGenType<"u64gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "u64", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "u64", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "u64", n));
@@ -500,6 +548,7 @@ def u64gentype : OclGenType<"u64gentype"> {
 }
 // f32gentype: 'vNtM' -> 'vNf32'
 def f32gentype : OclGenType<"f32gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "f32", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "f32", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "f32", n));
@@ -513,6 +562,7 @@ def f32gentype : OclGenType<"f32gentype"> {
 }
 // f64gentype: 'vNtM' -> 'vNf64'
 def f64gentype : OclGenType<"f64gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "i8", "f64", n));
   list<string> T1 = !foreach(n,  T0, !subst( "u8", "f64", n));
   list<string> T2 = !foreach(n,  T1, !subst("i16", "f64", n));
@@ -526,6 +576,7 @@ def f64gentype : OclGenType<"f64gentype"> {
 }
 // rf2igentype: 'vNf32' -> 'vNi32', 'vNf64' -> 'vNi64', 'v1f32' -> 'v1i32', 'v1f64' -> 'v1i32'
 def rf2igentype : OclGenType<"rf2igentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst("f32", "i32", n));
   list<string> T1 = !foreach(n,  T0, !subst("f64", "i64", n));
   list<string> T2 = !foreach(n,  T1, !subst("v1i64", "v1i32", n));
@@ -533,6 +584,7 @@ def rf2igentype : OclGenType<"rf2igentype"> {
 }
 // up_gentype: 'vNx8' -> 'vNx16', 'vNx16' -> 'vNx32', 'vNx32' -> 'vNx64'
 def up_gentype : OclGenType<"up_gentype"> {
+  list<string> Tin = Torig;
   // NOTE: The order is important to prevent a replaced string being replaced again!
   list<string> T0 = !foreach(n, Tin, !subst("f32", "f64", n));
   list<string> T1 = !foreach(n,  T0, !subst("f16", "f32", n));
@@ -546,6 +598,7 @@ def up_gentype : OclGenType<"up_gentype"> {
 }
 // up2_gentype: 'vNx8' -> 'vNx32', 'vNx16' -> 'vNx64'
 def up2_gentype : OclGenType<"up2_gentype"> {
+  list<string> Tin = Torig;
   // NOTE: The order is important to prevent a replaced string being replaced again!
   list<string> T0 = !foreach(n, Tin, !subst("f16", "f64", n));
   list<string> T1 = !foreach(n,  T0, !subst("i16", "i64", n));
@@ -556,6 +609,7 @@ def up2_gentype : OclGenType<"up2_gentype"> {
 }
 // converts 'wTl' to 'wil*' e.g., v4f32 -> v4i32*, v4f64 -> v4i64*
 def pigentype : OclGenType<"pigentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst( "u8",  "i8", n));
   list<string> T1 = !foreach(n,  T0, !subst("u16", "i16", n));
   list<string> T2 = !foreach(n,  T1, !subst("f16", "i16", n));
@@ -568,6 +622,7 @@ def pigentype : OclGenType<"pigentype"> {
 }
 
 def downgentype : OclGenType<"downgentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst("f64", "f32", n));
   list<string> T1 = !foreach(n, T0, !subst("i16", "i8", n));
   list<string> T2 = !foreach(n, T1, !subst("i32", "i16", n));
@@ -576,11 +631,108 @@ def downgentype : OclGenType<"downgentype"> {
 
 //converts the given typed to v2 vNxT -> v2XT e.g. v1f32 -> v2f32
 def v2gentype : OclGenType<"v2gentype"> {
+  list<string> Tin = Torig;
   list<string> T0 = !foreach(n, Tin, !subst("v1", "v2", n));
   list<string> T1 = !foreach(n, T0, !subst("v3", "v2", n));
   list<string> T2 = !foreach(n, T1, !subst("v4", "v2", n));
   list<string> T3 = !foreach(n, T2, !subst("v8", "v2", n));
   list<string> Tout = !foreach(n, T3, !subst("v16", "v2", n));
+}
+//converts the given typed to v8 vNxT -> v8XT e.g. v1f32 -> v8f32
+def v8gentype : OclGenType<"v8gentype"> {
+  list<string> Tin = Torig;
+  list<string> T0 = !foreach(n, Tin, !subst("v1", "v8", n));
+  list<string> T1 = !foreach(n, T0, !subst("v2", "v8", n));
+  list<string> T2 = !foreach(n, T1, !subst("v3", "v8", n));
+  list<string> T3 = !foreach(n, T2, !subst("v4", "v8", n));
+  list<string> Tout = !foreach(n, T3, !subst("v16", "v8", n));
+}
+//converts the given typed to pv8 vNxT -> pv8XT e.g. v1f32 -> pv8f32 (pointer)
+def pv8gentype : OclGenType<"pv8gentype"> {
+  list<string> Tin = Torig;
+  list<string> T0 = !foreach(n, Tin, !subst("v1", "v8", n));
+  list<string> T1 = !foreach(n, T0, !subst("v2", "v8", n));
+  list<string> T2 = !foreach(n, T1, !subst("v3", "v8", n));
+  list<string> T3 = !foreach(n, T2, !subst("v4", "v8", n));
+  list<string> T4 = !foreach(n, T3, !subst("v16", "v8", n));
+  list<string> T5 = !foreach(n, T4, !strconcat("p", n));
+  list<string> Tout = T5;
+}
+
+//TODO: Improve the below conversions once concat of list is possible.
+
+// converts a type to a pointer atomic type
+def patomgentype : OclGenType<"patomgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("patom_", n));
+}
+// converts a type to a volatile global pointer atomic type
+def vgpatomgentype : OclGenType<"vgpatomgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("vgpatom_", n));
+}
+// converts a type to a volatile local pointer atomic type
+def vlpatomgentype : OclGenType<"vlpatomgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("vlpatom_", n));
+}
+// converts a type to a volatile private pointer atomic type
+def vppatomgentype : OclGenType<"vppatomgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("vppatom_", n));
+}
+// converts an atomic type (or pointer) to its basic type
+def atom2gentype : OclGenType<"atom2gentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !subst("atom_", "", n));
+}
+
+// the following two gentypes are needed for builtins with the second pointer
+// different from the first pointer in the arguments list
+// converts a type to a __global pointer
+def gpgentype : OclGenType<"gpgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("gp", n));
+}
+// converts a type to a __local pointer
+def lpgentype : OclGenType<"lpgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("lp", n));
+}
+// converts a type to a __private pointer
+def ppgentype : OclGenType<"ppgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("pp", n));
+}
+// converts a type to a const __global pointer
+def cgpgentype : OclGenType<"cgpgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("cgp", n));
+}
+// converts a type to a const __local pointer
+def clpgentype : OclGenType<"clpgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("clp", n));
+}
+// converts a type to a const __private pointer
+def cppgentype : OclGenType<"cppgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("cpp", n));
+}
+// converts a type to a volatile __global pointer
+def vgpgentype : OclGenType<"vgpgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("vgp", n));
+}
+// converts a type to a volatile __local pointer
+def vlpgentype : OclGenType<"vlpgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("vlp", n));
+}
+// converts a type to a volatile __private pointer
+def vppgentype : OclGenType<"vppgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("vpp", n));
 }
 
 // OclBuiltinAttr
@@ -595,7 +747,7 @@ def INLINE : OclBuiltinAttr<"__attribute__((always_inline))">;
 def INTERNAL_INLINE : OclBuiltinAttr<"inline __attribute__((always_inline))">;
 
 // OclBuiltin
-class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBuiltinAttr> attrs, bit prefix = 0> {
+class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBuiltinAttr> attrs, bit exclude, bit prefix> {
   string Name = name;
   dag Outs = outs;
   dag Ins = ins;
@@ -607,7 +759,8 @@ class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBu
   list<OclBuiltinAttr> AdditionAttrs = [];
   bit IsDeclOnly = 0; // Just need declaration, e.g. SVML function prototype declaration.
   bit NeedForwardDecl = 0; // Non OCL builtin function need forwarding declaration.
-  bit Prefix = prefix;
+  bit Exclude = exclude; // OCL builtin function that could be excluded from the build.
+  bit Prefix = prefix; // OCL builtin function that could add prefix to its name.
 }
 
 // Helper to add exception type list
@@ -636,6 +789,7 @@ class OclAddressSpace<string name, bit hasConst, bit hasVolatile> {
   bit HasConst = hasConst;
   bit HasVolatile = hasVolatile;
 }
+
 class PRIVATE       : OclAddressSpace<"__private",  0, 0>;
 class LOCAL         : OclAddressSpace<"__local",    0, 0>;
 class GLOBAL        : OclAddressSpace<"__global",   0, 0>;
@@ -710,6 +864,10 @@ class TargetImpl {
   // $NativeArg1Type
   // ..
   // $NativeArg9Type
+  // $PtrArg0Type
+  // $PtrArg1Type
+  // ..
+  // $PtrArg9Type
   //
   // $ExpandLoPattern
   // $ExpandHiPattern

@@ -2,7 +2,7 @@
 // cl_utils.cpp:
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
-// Copyright 2007-2008 Intel Corporation All Rights Reserved.
+// Copyright 2007-2013 Intel Corporation All Rights Reserved.
 //
 // The source code contained or described herein and all documents related
 // to the source code ("Material") are owned by Intel Corporation or its
@@ -27,6 +27,7 @@
 
 #include <sstream>
 #include "cl_sys_info.h"
+#include "cl_utils.h"
 
 using namespace Intel::OpenCL::Utils;
 #include <fstream>
@@ -38,6 +39,14 @@ using namespace Intel::OpenCL::Utils;
 
 #include <sys/resource.h> 
 #include <sys/sysinfo.h>
+
+#ifndef __ANDROID__
+#include <sys/syscall.h>
+#endif
+
+#ifndef DISABLE_NUMA_SUPPORT
+#define DISABLE_NUMA_SUPPORT
+#endif
 
 #ifndef DISABLE_NUMA_SUPPORT
 //cl_numa.h is actually the standard numa.h from numactl. I don't know why our Linux distro doesn't have it and I don't care enough
@@ -161,7 +170,7 @@ unsigned long long Intel::OpenCL::Utils::HostTime()
 {
 	struct timespec tp;
 	clock_gettime(CLOCK_MONOTONIC, &tp);
-	return (unsigned long long)(tp.tv_sec * 1000000000 + tp.tv_nsec);
+	return (unsigned long long)(tp.tv_sec) * 1000000000 + tp.tv_nsec;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -322,15 +331,13 @@ int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileNam
 ////////////////////////////////////////////////////////////////////
 unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
 {
-    //Todo: implement a solution based on affinity mask
     static unsigned long numProcessors = 0;
     if (0 == numProcessors)
     {
-#if defined(__ANDROID__) //we would like to use CONF but it's buggy on Android
-        numProcessors = sysconf(_SC_NPROCESSORS_ONLN);
-#else
-        numProcessors = sysconf(_SC_NPROCESSORS_CONF);
-#endif
+        affinityMask_t mask;
+        threadid_t mainThreadTID = (threadid_t)GetProcessId();
+        clGetThreadAffinityMask(&mask, mainThreadTID);
+        numProcessors = CPU_COUNT(&mask);
     }
     return numProcessors;        
 }
@@ -351,7 +358,7 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return a bitmask representing the processors in a given NUMA node
 ////////////////////////////////////////////////////////////////////
-bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask)
+bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize)
 {
 #ifndef DISABLE_NUMA_SUPPORT
     struct bitmask b;
@@ -365,14 +372,20 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affi
     }
     CPU_ZERO(pMask);
     int cpu = 0;
+    unsigned int node_size = 0;
     while (0 != CPUs)
     {
         if (CPUs & 0x1)
         {
             CPU_SET(cpu, pMask);
+            ++node_size;
         }
         CPUs >>= 1;
         ++cpu;
+    }
+    if (NULL != nodeSize)
+    {
+        *nodeSize = node_size;
     }
     return true;
 #else 
@@ -423,4 +436,13 @@ const char* Intel::OpenCL::Utils::GetFullModuleNameForLoad(const char* moduleNam
 bool Intel::OpenCL::Utils::GetModuleProductVersion(const void* someLocalFunc, int* major, int* minor, int* revision, int* build)
 {
     return false;
+}
+
+unsigned int Intel::OpenCL::Utils::GetThreadId()
+{
+#if defined(__ANDROID__) //we would like to use CONF but it's buggy on Android
+	return (unsigned int) gettid();
+#else
+    return (unsigned int)syscall(SYS_gettid);
+#endif	
 }

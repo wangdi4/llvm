@@ -107,6 +107,7 @@ namespace llvm {
             GLOBAL,
             CONSTANT,
             LOCAL,
+            GENERIC,
             INVALID_AS = 255
         };
 

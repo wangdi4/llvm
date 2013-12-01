@@ -7,9 +7,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __CL_WG_LOOP_CREATOR_H__
 #define __CL_WG_LOOP_CREATOR_H__
 
+#include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
 #include "llvm/Pass.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 
 using namespace llvm;
 
@@ -23,7 +24,7 @@ namespace intel {
 // create WG loops around the vector kernel and remainder loops around the 
 // scalar kernel. WG loops are created with canonical induction variable 
 // (satrts in 0 and incremented by 1) as it allows loop optimizations after
-// (e.g. stream samplers in apple environment).
+// (e.g. stream samplers).
 //
 // for example on the following kernel
 //
@@ -93,14 +94,16 @@ public:
   } 
 
   ///@brief public interface that allows running on pair of scalar - vector
-  ///       kernels not through pass manager - used for apple.
+  ///       kernels not through pass manager.
   bool runOnFunction(Function &F, Function *vectorFunc, unsigned packetWidth);
 
   ///@brief LLVM interface.
   virtual bool runOnModule(Module &M);
 
   ///@brief LLVM interface.
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {};
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequired<BuiltinLibInfo>();
+  };
 
 private:
   

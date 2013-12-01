@@ -21,6 +21,7 @@ include_directories(
     )
 
 add_library(${TARGET_NAME} STATIC
+    IntervalError.cpp
     NEATALU.cpp
     NEATValue.cpp
     NEATVector.cpp

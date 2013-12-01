@@ -136,8 +136,8 @@ OclBuiltinImpl sse42_fp2int_i8_f32f64  = OclBuiltinImpl<convert_i8,
                                                conversion_fp_types, 0, [{
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
-        convert_$Arg0i32gentype($Arg0VarName)));
-}]>;
+              convert_$Arg0i32gentype($Arg0VarName)));
+  }]>;
 /*****************************************************************\
  * convert_char_rte:                                              *
  *   charn convert_charn_rte (floatn x)                           *
@@ -148,8 +148,8 @@ OclBuiltinImpl sse42_fp2int_i8_f32f64_rte  = OclBuiltinImpl<convert_i8_rte,
                                                    conversion_fp_types, 0, [{
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
-        convert_$Arg0i32gentype_rte($Arg0VarName)));
-}]>;
+              convert_$Arg0i32gentype_rte($Arg0VarName)));
+  }]>;
 /*****************************************************************\
  * convert_char_rtz:                                              *
  *   charn convert_charn_rtz (floatn x)                           *
@@ -160,8 +160,8 @@ OclBuiltinImpl sse42_fp2int_i8_f32f64_rtz  = OclBuiltinImpl<convert_i8_rtz,
                                                    conversion_fp_types, 0, [{
      return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
-        convert_$Arg0i32gentype_rtz($Arg0VarName)));
-}]>;
+              convert_$Arg0i32gentype_rtz($Arg0VarName)));
+  }]>;
 /*****************************************************************\
  * convert_char_rtp:                                              *
  *   charn convert_charn_rtp (floatn x)                           *
@@ -171,8 +171,8 @@ OclBuiltinImpl sse42_fp2int_i8_f32f64_rtp  = OclBuiltinImpl<convert_i8_rtp,
                                                  conversion_fp_types, 0, [{
      return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
-        convert_$Arg0i32gentype_rtp($Arg0VarName)));
-}]>;
+              convert_$Arg0i32gentype_rtp($Arg0VarName)));
+  }]>;
 
 /*****************************************************************\
  * convert_char_rtn:                                              *
@@ -184,8 +184,8 @@ OclBuiltinImpl sse42_fp2int_i8_f32f64_rtn  = OclBuiltinImpl<convert_i8_rtn,
                                                    conversion_fp_types, 0, [{
      return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
-        convert_$Arg0i32gentype_rtn($Arg0VarName)));
-}]>;
+              convert_$Arg0i32gentype_rtn($Arg0VarName)));
+  }]>;
   
 // 8-bit unsign integer output
 /*****************************************************************\
@@ -199,8 +199,8 @@ OclBuiltinImpl sse42_fp2int_u8_f32f64  = OclBuiltinImpl<convert_u8,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
-              convert_$Arg0u32gentype($Arg0VarName))));
-}]>;
+                convert_$Arg0u32gentype($Arg0VarName))));
+  }]>;
 /*****************************************************************\
  * convert_uchar_rte:                                              *
  *   charn convert_ucharn_rte (floatn x)                           *
@@ -212,8 +212,8 @@ OclBuiltinImpl sse42_fp2int_u8_f32f64_rte  = OclBuiltinImpl<convert_u8_rte,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
-              convert_$Arg0u32gentype_rte($Arg0VarName))));
-}]>;
+                convert_$Arg0u32gentype_rte($Arg0VarName))));
+  }]>;
 /*****************************************************************\
  * convert_uchar_rtz:                                              *
  *   charn convert_ucharn_rtz (floatn x)                           *
@@ -225,8 +225,8 @@ OclBuiltinImpl sse42_fp2int_u8_f32f64_rtz  = OclBuiltinImpl<convert_u8_rtz,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
-              convert_$Arg0u32gentype_rtz($Arg0VarName))));
-}]>;
+                convert_$Arg0u32gentype_rtz($Arg0VarName))));
+  }]>;
 /*****************************************************************\
  * convert_uchar_rtp:                                              *
  *   charn convert_ucharn_rtp (floatn x)                           *
@@ -238,8 +238,8 @@ OclBuiltinImpl sse42_fp2int_u8_f32f64_rtp  = OclBuiltinImpl<convert_u8_rtp,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
-              convert_$Arg0u32gentype_rtp($Arg0VarName))));
-}]>;
+                convert_$Arg0u32gentype_rtp($Arg0VarName))));
+  }]>;
 /*****************************************************************\
  * convert_uchar_rtn:                                            *
  *   charn convert_ucharn_rtn (floatn x)                         *
@@ -251,8 +251,8 @@ OclBuiltinImpl sse42_fp2int_u8_f32f64_rtn  = OclBuiltinImpl<convert_u8_rtn,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
-              convert_$Arg0u32gentype_rtn($Arg0VarName))));
-}]>;
+                convert_$Arg0u32gentype_rtn($Arg0VarName))));
+  }]>;
 
   // 16-bit integer output
 /*****************************************************************\
@@ -266,7 +266,7 @@ OclBuiltinImpl sse42_fp2int_i16_f32f64 = OclBuiltinImpl<convert_i16,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
                 convert_$Arg0i32gentype($Arg0VarName)));
-}]>;
+  }]>;
   
 /*****************************************************************\
  * convert_short_rte:                                            *
@@ -279,7 +279,7 @@ OclBuiltinImpl sse42_fp2int_i16_f32f64_rte = OclBuiltinImpl<convert_i16_rte,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               convert_$Arg0i32gentype_rte($Arg0VarName)));
-}]>;
+  }]>;
   
 /*****************************************************************\
  * convert_short_rtz:                                            *
@@ -292,7 +292,7 @@ OclBuiltinImpl sse42_fp2int_i16_f32f64_rtz = OclBuiltinImpl<convert_i16_rtz,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               convert_$Arg0i32gentype_rtz($Arg0VarName)));
-}]>;
+  }]>;
   
 /*****************************************************************\
  * convert_short_rtp:                                            *
@@ -305,7 +305,7 @@ OclBuiltinImpl sse42_fp2int_i16_f32f64_rtp = OclBuiltinImpl<convert_i16_rtp,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               convert_$Arg0i32gentype_rtp($Arg0VarName)));
-}]>;
+  }]>;
   
 /*****************************************************************\
  * convert_short_rtn:                                            *
@@ -318,7 +318,7 @@ OclBuiltinImpl sse42_fp2int_i16_f32f64_rtn = OclBuiltinImpl<convert_i16_rtn,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               convert_$Arg0i32gentype_rtn($Arg0VarName)));
-}]>;
+  }]>;
 
 // 16-bit unsign integer output
 /*****************************************************************\
@@ -332,8 +332,8 @@ OclBuiltinImpl sse42_fp2int_u16_f32f64 = OclBuiltinImpl<convert_u16,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
-              convert_$Arg0i32gentype($Arg0VarName))));
-}]>;
+                convert_$Arg0i32gentype($Arg0VarName))));
+  }]>;
 
 /*****************************************************************\
  * convert_ushort_rte:                                           *
@@ -346,8 +346,8 @@ OclBuiltinImpl sse42_fp2int_u16_f32f64_rte = OclBuiltinImpl<convert_u16_rte,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
-              convert_$Arg0i32gentype_rte($Arg0VarName))));
-}]>;
+                convert_$Arg0i32gentype_rte($Arg0VarName))));
+  }]>;
 
 /*****************************************************************\
  * convert_ushort_rtz:                                           *
@@ -360,8 +360,8 @@ OclBuiltinImpl sse42_fp2int_u16_f32f64_rtz = OclBuiltinImpl<convert_u16_rtz,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
-              convert_$Arg0i32gentype_rtz($Arg0VarName))));
-}]>;
+                convert_$Arg0i32gentype_rtz($Arg0VarName))));
+  }]>;
   
 /*****************************************************************\
  * convert_ushort_rtp:                                           *
@@ -374,8 +374,8 @@ OclBuiltinImpl sse42_fp2int_u16_f32f64_rtp = OclBuiltinImpl<convert_u16_rtp,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
-              convert_$Arg0i32gentype_rtp($Arg0VarName))));
-}]>;
+                convert_$Arg0i32gentype_rtp($Arg0VarName))));
+  }]>;
   
 /*****************************************************************\
  * convert_ushort_rtn:                                           *
@@ -388,8 +388,8 @@ OclBuiltinImpl sse42_fp2int_u16_f32f64_rtn = OclBuiltinImpl<convert_u16_rtn,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               as_$Arg0i32gentype(
-              convert_$Arg0i32gentype_rtn($Arg0VarName))));
-}]>;
+                convert_$Arg0i32gentype_rtn($Arg0VarName))));
+  }]>;
 
 // 32-bit integer output
 /*****************************************************************\
@@ -399,7 +399,7 @@ OclBuiltinImpl sse42_fp2int_u16_f32f64_rtn = OclBuiltinImpl<convert_u16_rtn,
 // convert_intn( floatn ) & convert_intn( doublen )
 OclBuiltinImpl sse42_convert_i32_f32f64 = OclBuiltinImpl<convert_i32, conversion_fp_types, 0, [{
     return convert_$ReturnType_rtz($Arg0VarName);
-}]>;
+  }]>;
 
 
 /*****************************************************************\
@@ -421,17 +421,17 @@ OclBuiltinImpl sse42_convert_i32_rtz_v1f32 = OclBuiltinImpl<convert_i32_rtz, [v1
     float4 temp;
     temp$Pattern = $Arg0VarName;
     return _mm_cvttss_si32((__m128)temp);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_convert_i32_rtz_v2v3f32 = OclBuiltinImpl<convert_i32_rtz, [v2f32, v3f32], 0, [{
     float4 temp;
     temp$Pattern = $Arg0VarName;
     return as_int4( _mm_cvttps_epi32(temp) )$Pattern;
-}]>;
+  }]>;
   
 OclBuiltinImpl sse42_convert_i32_rtz_v4f32 = OclBuiltinImpl<convert_i32_rtz, [v4f32], 0, [{
     return as_$ReturnType( _mm_cvttps_epi32($Arg0VarName) );
-}]>;
+  }]>;
 // convert_intn_rtz( doublen )
 OclBuiltinImpl sse42_convert_i32_rtz_v1f64 = OclBuiltinImpl<convert_i32_rtz, [v1f64], 0, [{
     int4 res;
@@ -439,17 +439,17 @@ OclBuiltinImpl sse42_convert_i32_rtz_v1f64 = OclBuiltinImpl<convert_i32_rtz, [v1
     param.lo = $Arg0VarName;
     res = as_int4( _mm_cvttpd_epi32(param) );
     return res.s0;
-}]>;
+  }]>;
 OclBuiltinImpl sse42_convert_i32_rtz_v2f64 = OclBuiltinImpl<convert_i32_rtz, [v2f64], 0, [{
     return as_int4(_mm_cvttpd_epi32($Arg0VarName)).s01;
-}]>;
+  }]>;
 OclBuiltinImpl sse42_convert_i32_rtz_v3v4f64 = OclBuiltinImpl<convert_i32_rtz, [v3f64, v4f64], 0, [{
     int4 t1, t2, res;
     t1  = as_int4( _mm_cvttpd_epi32($Arg0VarName.lo) );
     t2  = as_int4( _mm_cvttpd_epi32($Arg0VarName.hi) );
     res = as_int4( _mm_unpacklo_epi64((__m128i)t1, (__m128i)t2) );
     return as_$ReturnType(res);
-}]>;
+  }]>;
 // convert_intn_rtz float&double expand
 OclBuiltinImpl sse42_convert_i32_rtz_fpexpand = OclBuiltinImpl<convert_i32_rtz,
                             [v8f32, v16f32, v8f64, v16f64], 0, Expand_rtz>;
@@ -479,7 +479,7 @@ OclBuiltinImpl sse42_convert_i32_rtn_f64expand = OclBuiltinImpl<convert_i32_rtn,
 // convert_uintn( floatn ) & convert_uintn( doublen )
 OclBuiltinImpl sse42_convert_u32_f32f64 = OclBuiltinImpl<convert_u32, conversion_fp_types, 0, [{
     return convert_$ReturnType_rtz($Arg0VarName);
-}]>;
+  }]>;
 
 /*****************************************************************\
  * convert_uint_rte:                                              *
@@ -502,7 +502,7 @@ OclBuiltinImpl sse42_convert_u32_rtz_v1f32 = OclBuiltinImpl<convert_u32_rtz, [v1
     p.s0 = $Arg0VarName;
     uint res = as_uint(_mm_cvttss_si32(p));
     return res;   
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_convert_u32_rtz_v4f32 = OclBuiltinImpl<convert_u32_rtz, [v4f32], 0, [{
     uint4 res;
@@ -514,10 +514,10 @@ OclBuiltinImpl sse42_convert_u32_rtz_v4f32 = OclBuiltinImpl<convert_u32_rtz, [v4
       res.s3 = (uint)$Arg0VarName.s3;
     }
     else {
-      res =  as_uint4(_mm_cvttps_epi32($Arg0VarName));
+      res = as_uint4(_mm_cvttps_epi32($Arg0VarName));
     }
     return res;
-}]>;
+  }]>;
 
 // convert_intn_rtz float&double expand
 OclBuiltinImpl sse42_convert_u32_rtz_fpexpand = OclBuiltinImpl<convert_u32_rtz, 
@@ -582,14 +582,14 @@ OclBuiltinImpl sse42_fp2int_u64_f32_rtn_expand = OclBuiltinImpl<convert_u64_rtn,
 \*****************************************************************/
 
 OclBuiltinImpl sse42_cvt_v1f32_v1f64 = OclBuiltinImpl<convert_f32, [v1f64], 0, [{
-  double2 n$Arg0VarName;
-  n$Arg0VarName$ExpandLoPattern = $Arg0VarName;
-  return as_float4(_mm_cvtpd_ps(n$Arg0VarName)).s0;
-}]>;
+    double2 n$Arg0VarName;
+    n$Arg0VarName$ExpandLoPattern = $Arg0VarName;
+    return as_float4(_mm_cvtpd_ps(n$Arg0VarName)).s0;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_v2f32_v2f64 = OclBuiltinImpl<convert_f32, [v2f64], 0, [{
     return as_float4(_mm_cvtpd_ps($Arg0VarName))$ExpandLoPattern;
-}]>;
+  }]>;
   
 OclBuiltinImpl sse42_cvt_f32_f64 = OclBuiltinImpl<convert_f32,
                                           [v4f64, v8f64, v16f64], 0, Expand_default>;
@@ -599,19 +599,19 @@ OclBuiltinImpl sse42_cvt_f32_i8i16 = OclBuiltinImpl<convert_f32,
                                               [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
                                                v1i16, v2i16, v3i16, v4i16, v8i16, v16i16], 0, [{
     return convert_$ReturnType(convert_$Arg0i32gentype($Arg0VarName));
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_f32_u8u16 = OclBuiltinImpl<convert_f32,
                                               [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return convert_$ReturnType(convert_$Arg0i32gentype($Arg0VarName));
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_f32_i32_promote = OclBuiltinImpl<convert_f32, [v1i32], 0, Promote_default>;
   
 OclBuiltinImpl sse42_cvt_v4f32_v4i32 = OclBuiltinImpl<convert_f32,[v4i32], 0, [{
     return as_$ReturnType(_mm_cvtepi32_ps( __builtin_astype($Arg0VarName,__m128i)));
-}]>;
+  }]>;
   
 OclBuiltinImpl sse42_cvt_f32_i32_i64_expand = OclBuiltinImpl<convert_f32,[v8i32, v16i32, v8i64, v16i64], 0, Expand_default>;
 
@@ -623,7 +623,7 @@ OclBuiltinImpl sse42_cvt_v1f32_v1u32 = OclBuiltinImpl<convert_f32, [v1u32], 0, [
     thi = $Arg0VarName >> 16;
     fhi = convert_float(thi);
     return mad(65536.0f, fhi, flo);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_v4f32_v4u32 = OclBuiltinImpl<convert_f32,[v4u32, v8u32], 0, [{
     $Arg0igentype tlo, thi;
@@ -633,19 +633,19 @@ OclBuiltinImpl sse42_cvt_v4f32_v4u32 = OclBuiltinImpl<convert_f32,[v4u32, v8u32]
     thi = as_$Arg0igentype($Arg0VarName >> 16);
     fhi = convert_$ReturnType(thi);
     return mad(65536.0f, fhi, flo);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_f32_u32_u64_expand = OclBuiltinImpl<convert_f32,[v16u32, v8u64, v16u64], 0, Expand_default>;
 
 OclBuiltinImpl sse42_cvt_f32_i64 = OclBuiltinImpl<convert_f32,
                                             [v1i64, v4i64], 0, [{
     return __ocl_svml_$Target_cvti64tofp$rtn$SVMLFSuffix($Arg0VarName);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_f32_u64 = OclBuiltinImpl<convert_f32,
                                             [v1u64, v4u64], 0, [{
     return __ocl_svml_$Target_cvtu64tofp$rtn$SVMLFSuffix($Arg0VarName);
-}]>;
+  }]>;
 
 // rte rounding mode
 /*****************************************************************\
@@ -656,7 +656,7 @@ OclBuiltinImpl sse42_cvt_f32_u64 = OclBuiltinImpl<convert_f32,
 OclBuiltinImpl sse42_rte_cvt_f32_f64 = OclBuiltinImpl<convert_f32_rte,
                                                 [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
     return convert_$ReturnType($Arg0VarName);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rte_cvt_f32_i8i16u8u16 = OclBuiltinImpl<convert_f32_rte,
                                                   [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -664,7 +664,7 @@ OclBuiltinImpl sse42_rte_cvt_f32_i8i16u8u16 = OclBuiltinImpl<convert_f32_rte,
                                                    v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                    v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return convert_$ReturnType_rte(convert_$Arg0i32gentype($Arg0VarName));
-}]>;
+  }]>;
 
 // call to convert_float(intn/longn)
 OclBuiltinImpl sse42_rte_cvt_f32_i32u32i64 = OclBuiltinImpl<convert_f32_rte,
@@ -673,7 +673,7 @@ OclBuiltinImpl sse42_rte_cvt_f32_i32u32i64 = OclBuiltinImpl<convert_f32_rte,
                          v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
                          v1u64, v2u64, v3u64, v4u64, v8u64, v16u64], 0, [{
     return convert_$ReturnType($Arg0VarName);
-}]>;
+  }]>;
 
 // rtz rounding mode
 /*****************************************************************\
@@ -689,7 +689,7 @@ OclBuiltinImpl sse42_rtz_cvt_f32_i8i16 = OclBuiltinImpl<convert_f32_rtz,
                                                    v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                    v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return convert_$ReturnType(convert_$Arg0i32gentype_rtz($Arg0VarName));
-}]>;
+  }]>;
 
 // rtp rounding mode
 /*****************************************************************\
@@ -703,7 +703,7 @@ OclBuiltinImpl sse42_rtp_cvt_f32_i8i16u8u16 = OclBuiltinImpl<convert_f32_rtp,
                                                    v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                    v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return convert_$ReturnType(convert_$Arg0i32gentype_rtp($Arg0VarName));
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rtp_cvt_f32_f64i32u32i64u64_expand = OclBuiltinImpl<convert_f32_rtp,[v8f64, v16f64, v16i32, v16u32, 
                                              v8i64, v16i64, v8u64, v16u64], 0, Expand_rtp>;
@@ -723,7 +723,7 @@ OclBuiltinImpl sse42_rtn_cvt_f32_i8i16 = OclBuiltinImpl<convert_f32_rtn,
                                                    v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                    v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return convert_$ReturnType(convert_$Arg0i32gentype_rtn($Arg0VarName));
-}]>;
+  }]>;
   
 // 64-bit floating output
 // default rounding mode
@@ -738,7 +738,7 @@ OclBuiltinImpl sse42_cvt_f64_v1f32 = OclBuiltinImpl<convert_f64, [v1f32], 0, [{
     param.s0 = $Arg0VarName;
     res = _mm_cvtps_pd(param);
     return res.lo;
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_f64_v2f32 = OclBuiltinImpl<convert_f64, [v2f32], 0, [{
     float4 param;
@@ -746,7 +746,7 @@ OclBuiltinImpl sse42_cvt_f64_v2f32 = OclBuiltinImpl<convert_f64, [v2f32], 0, [{
     param.lo = $Arg0VarName;
     res = _mm_cvtps_pd(param);
     return res;
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_f64_v3f32 = OclBuiltinImpl<convert_f64, [v3f32], 0, [{
     double4 res;
@@ -755,7 +755,7 @@ OclBuiltinImpl sse42_cvt_f64_v3f32 = OclBuiltinImpl<convert_f64, [v3f32], 0, [{
     n$Arg0VarName = as_float4(_mm_srli_si128(__builtin_astype(n$Arg0VarName,__m128i), 8));
     res.hi = as_double2(_mm_cvtps_pd(__builtin_astype(n$Arg0VarName,__m128)));
     return as_$ReturnType(res);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_f64_v4f32 = OclBuiltinImpl<convert_f64, [v4f32], 0, [{
     double4 res;
@@ -763,7 +763,7 @@ OclBuiltinImpl sse42_cvt_f64_v4f32 = OclBuiltinImpl<convert_f64, [v4f32], 0, [{
     $Arg0VarName = as_float4(_mm_srli_si128(__builtin_astype($Arg0VarName,__m128i), 8));
     res.hi = as_double2(_mm_cvtps_pd(__builtin_astype($Arg0VarName,__m128)));
     return res;
-}]>;
+  }]>;
   
 OclBuiltinImpl sse42_cvt_f64_f32i32u32i64u64_expand = OclBuiltinImpl<convert_f64, [v8f32, v16f32, v8i32, v16i32, 
                                        v8u32, v16u32, v8i64, v16i64, v8u64, v16u64], 0, Expand_default>;
@@ -774,7 +774,7 @@ OclBuiltinImpl sse42_cvt_f64_v1i32 = OclBuiltinImpl<convert_f64,[v1i32], 0, [{
     param.s0 = $Arg0VarName;
     res = as_double2(_mm_cvtepi32_pd(__builtin_astype(param,__m128i)));
     return res.lo;
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_f64_v2i32 = OclBuiltinImpl<convert_f64,[v2i32], 0, [{
     double2 res;
@@ -782,7 +782,7 @@ OclBuiltinImpl sse42_cvt_f64_v2i32 = OclBuiltinImpl<convert_f64,[v2i32], 0, [{
     param.lo = $Arg0VarName;
     res = as_double2(_mm_cvtepi32_pd(__builtin_astype(param,__m128i)));
     return res;
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_f64_v3i32 = OclBuiltinImpl<convert_f64,[v3i32], 0, [{
     double4 res;
@@ -791,7 +791,7 @@ OclBuiltinImpl sse42_cvt_f64_v3i32 = OclBuiltinImpl<convert_f64,[v3i32], 0, [{
     y = as_int4(_mm_srli_si128(__builtin_astype(y,__m128i), 8));
     res.hi = as_double2(_mm_cvtepi32_pd(__builtin_astype(y,__m128i)));
     return as_double3(res);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_f64_v4i32 = OclBuiltinImpl<convert_f64,[v4i32], 0, [{
     double4 res;
@@ -799,7 +799,7 @@ OclBuiltinImpl sse42_cvt_f64_v4i32 = OclBuiltinImpl<convert_f64,[v4i32], 0, [{
     x = as_int4(_mm_srli_si128(__builtin_astype(x,__m128i), 8));
     res.hi = as_double2(_mm_cvtepi32_pd(__builtin_astype(x,__m128i)));
     return res;
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_f64_i8i16u8u16 = OclBuiltinImpl<convert_f64,
                                                  [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -807,12 +807,12 @@ OclBuiltinImpl sse42_cvt_f64_i8i16u8u16 = OclBuiltinImpl<convert_f64,
                                                   v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                   v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return convert_$ReturnType(convert_$Arg0i32gentype($Arg0VarName));
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_cvt_f64_u32 = OclBuiltinImpl<convert_f64,
                                                  [ v1u32, v4u32], 0, [{
     return __ocl_svml_$Target_cvtu32tofp$rtn$VecLength($Arg0VarName);
-}]>;
+  }]>;
 
 // rte rounding mode
 /*****************************************************************\
@@ -823,7 +823,7 @@ OclBuiltinImpl sse42_cvt_f64_u32 = OclBuiltinImpl<convert_f64,
 OclBuiltinImpl sse42_rte_cvt_f64_f32 = OclBuiltinImpl<convert_f64_rte,
                                                     [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, [{
     return convert_$ReturnType($Arg0VarName);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rte_cvt_f64_f32i32u32i64u64_expand = OclBuiltinImpl<convert_f64_rte, [v8i32, v16i32, 
                                        v8u32, v16u32, v8i64, v16i64, v8u64, v16u64], 0, Expand_rte>;
@@ -831,7 +831,7 @@ OclBuiltinImpl sse42_rte_cvt_f64_f32i32u32i64u64_expand = OclBuiltinImpl<convert
 OclBuiltinImpl sse42_rte_cvt_f64_i32 = OclBuiltinImpl<convert_f64_rte,
                                                      [v1i32, v4i32], 0, [{
     return __ocl_svml_$Target_cvti32tofp$rtn$VecLength($Arg0VarName);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rte_cvt_f64_i8i16u8u16 = OclBuiltinImpl<convert_f64_rte,
                                                      [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -839,12 +839,12 @@ OclBuiltinImpl sse42_rte_cvt_f64_i8i16u8u16 = OclBuiltinImpl<convert_f64_rte,
                                                       v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                       v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return convert_$ReturnType(convert_$Arg0i32gentype_rte($Arg0VarName));
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rte_cvt_f32_u32 = OclBuiltinImpl<convert_f64_rte,
                                                      [v1u32, v4u32], 0, [{
    return __ocl_svml_$Target_cvtu32tofp$rtn$VecLength($Arg0VarName);
-}]>;
+  }]>;
 
 // rtz rounding mode
 /*****************************************************************\
@@ -855,7 +855,7 @@ OclBuiltinImpl sse42_rte_cvt_f32_u32 = OclBuiltinImpl<convert_f64_rte,
 OclBuiltinImpl sse42_rtz_cvt_f64_f32 = OclBuiltinImpl<convert_f64_rtz,
                                                     [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, [{
     return convert_$ReturnType($Arg0VarName);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rtz_cvt_f64_f32i32u32i64u64_expand = OclBuiltinImpl<convert_f64_rtz, [v8i32, v16i32, 
                                        v8u32, v16u32, v8i64, v16i64, v8u64, v16u64], 0, Expand_rtz>;
@@ -866,17 +866,17 @@ OclBuiltinImpl sse42_rtz_cvt_f64_i8i16u8u16 = OclBuiltinImpl<convert_f64_rtz,
                                                       v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                       v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
      return convert_$ReturnType(convert_$Arg0i32gentype_rtz($Arg0VarName));
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rtz_cvt_f64_u32 = OclBuiltinImpl<convert_f64_rtz,
                                                      [v1u32, v4u32], 0, [{
     return __ocl_svml_$Target_cvtu32tofp$rtz$VecLength($Arg0VarName);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rtz_cvt_f64_i32 = OclBuiltinImpl<convert_f64_rtz,
                                                      [v1i32, v4i32], 0, [{
     return __ocl_svml_$Target_cvti32tofp$rtz$VecLength($Arg0VarName);
-}]>;
+  }]>;
 
 
 // rtp rounding mode
@@ -888,7 +888,7 @@ OclBuiltinImpl sse42_rtz_cvt_f64_i32 = OclBuiltinImpl<convert_f64_rtz,
 OclBuiltinImpl sse42_rtp_cvt_f64_f32 = OclBuiltinImpl<convert_f64_rtp,
                                                     [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, [{
     return convert_$ReturnType($Arg0VarName);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rtp_cvt_f64_i8i16u8u16 = OclBuiltinImpl<convert_f64_rtp,
                                                      [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -896,17 +896,17 @@ OclBuiltinImpl sse42_rtp_cvt_f64_i8i16u8u16 = OclBuiltinImpl<convert_f64_rtp,
                                                       v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                       v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return convert_$ReturnType(convert_$Arg0i32gentype_rtp($Arg0VarName));
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rtp_cvt_f64_i32 = OclBuiltinImpl<convert_f64_rtp,
                                                      [v1i32, v4i32], 0, [{
     return __ocl_svml_$Target_cvti32tofp$up$VecLength($Arg0VarName);
-}]>;
+  }]>;
   
 OclBuiltinImpl sse42_rtp_cvt_f64_u32 = OclBuiltinImpl<convert_f64_rtp,
                                                      [v1u32, v4u32], 0, [{
     return __ocl_svml_$Target_cvtu32tofp$up$VecLength($Arg0VarName);
-}]>;
+  }]>;
   
 OclBuiltinImpl sse42_rtp_cvt_f64_f32i32u32i64u64_expand = OclBuiltinImpl<convert_f64_rtp, [v8i32, v16i32, 
                                        v8u32, v16u32, v8i64, v16i64, v8u64, v16u64], 0, Expand_rtp>;
@@ -920,7 +920,7 @@ OclBuiltinImpl sse42_rtp_cvt_f64_f32i32u32i64u64_expand = OclBuiltinImpl<convert
 OclBuiltinImpl sse42_rtn_cvt_f64_f32 = OclBuiltinImpl<convert_f64_rtn,
                                                     [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, [{
     return convert_$ReturnType($Arg0VarName);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rtn_cvt_f64_i8i16u8u16 = OclBuiltinImpl<convert_f64_rtn,
                                                      [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -928,17 +928,17 @@ OclBuiltinImpl sse42_rtn_cvt_f64_i8i16u8u16 = OclBuiltinImpl<convert_f64_rtn,
                                                       v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                       v1u16, v2u16, v3u16, v4u16, v8u16, v16u16], 0, [{
     return convert_$ReturnType(convert_$Arg0i32gentype_rtn($Arg0VarName));
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rtn_cvt_f64_i32 = OclBuiltinImpl<convert_f64_rtn,
                                                      [ v1i32, v4i32], 0, [{
     return __ocl_svml_$Target_cvti32tofp$down$VecLength($Arg0VarName);
-}]>;
+  }]>;
 
 OclBuiltinImpl sse42_rtn_cvt_f64_u32 = OclBuiltinImpl<convert_f64_rtn,
                                                      [v1u32, v4u32], 0, [{
     return __ocl_svml_$Target_cvtu32tofp$down$VecLength($Arg0VarName);
-}]>;
+  }]>;
   
 OclBuiltinImpl sse42_rtn_cvt_f64_f32i32u32i64u64_expand = OclBuiltinImpl<convert_f64_rtn, [v8i32, v16i32, 
                                        v8u32, v16u32, v8i64, v16i64, v8u64, v16u64], 0, Expand_rtn>;

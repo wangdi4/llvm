@@ -1,20 +1,21 @@
 use_rtti( FALSE )
 set( TARGET_NAME LLVMVectorizer)
 
-include_directories(BEFORE "Driver/OpenCL")
-include_directories(BEFORE "Driver")
 include_directories(BEFORE "Heuristic")
 include_directories(BEFORE "PostDominanceFrontier")
 include_directories(BEFORE "SoaAllocaAnalysis")
 include_directories(BEFORE "Utils")
 include_directories(BEFORE "WIAnalysis")
+include_directories(BEFORE "OCLBranchProbability")
 
 include_directories(
-  ${CMAKE_SOURCE_DIR}/backend/arch_headers
-  ${CMAKE_SOURCE_DIR}/backend/reflection_module
-  ${CMAKE_SOURCE_DIR}/backend/name_mangling
-  ${CMAKE_SOURCE_DIR}/backend/utils
-  ${CMAKE_SOURCE_DIR}/backend/passes
+  ${BACKEND_ROOT_DIR}/arch_headers
+  ${BACKEND_ROOT_DIR}/reflection_module
+  ${BACKEND_ROOT_DIR}/name_mangling
+  ${BACKEND_ROOT_DIR}/utils
+  ${BACKEND_ROOT_DIR}/passes
+  ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo
+  ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
   ${BACKEND_ROOT_DIR}/metadata_api
   ${BACKEND_ROOT_DIR}/metadata_api/gen
   ${CMAKE_SOURCE_DIR}/cl_api
@@ -23,45 +24,31 @@ include_directories(
 if(APPLE)
 set(TARGET_EXTRA_SOURCE_FILES 
   AppleWrapper/AppleWIDepPrePacketizationPass.cpp
-  Driver/Apple/AppleOCLRuntime.cpp
 )
 set(TARGET_EXTRA_INCLUDE_FILES 
   AppleWrapper/AppleWIDepPrePacketizationPass.h
-  Driver/Apple/AppleOCLRuntime.h
 )
 else(APPLE)
 set(TARGET_EXTRA_SOURCE_FILES 
-  Driver/Volcano/VolcanoOpenclRuntime.cpp
   Resolver/MICResolver.cpp
   Utils/IRInjection.cpp
   Utils/Namer.cpp
   Utils/PrintfAdder.cpp
+  Renderscript/RenderscriptDriver.cpp
 #These files are needed only for building opt
   AppleWrapper/AppleWIDepPrePacketizationPass.cpp
-  Driver/Apple/AppleOCLRuntime.cpp
-#These files are needed only for building opt (to run dx LIT tests)
-  Driver/DX/DXData.cpp
-  Driver/DX/DXRuntime.cpp
-  Driver/DX/DXWrapperParamsCheck.cpp
-  Driver/Functions.cpp
 )
 set(TARGET_EXTRA_INCLUDE_FILES 
-  Driver/Volcano/VolcanoOpenclRuntime.h
   Resolver/MICResolver.h
   Utils/Namer.h
   Utils/PrintfAdder.h
+  Renderscript/RenderscriptDriver.h
 #These files are needed only for building opt
   AppleWrapper/AppleWIDepPrePacketizationPass.h
-  Driver/Apple/AppleOCLRuntime.h
-#These files are needed only for building opt (to run dx LIT tests)
-  Driver/DX/DXRuntime.h
-  Driver/DX/DXWrapperParamsCheck.h
-  Driver/Functions.h
 )
 endif(APPLE)
 
 set(TARGET_INCLUDE_FILES
-  Driver/OpenCL/OpenclRuntime.h
   Heuristic/InstCounter.h
   IRPrinter/IRPrinter.h
   LoopHandler/CLBuiltinLICM.h
@@ -84,23 +71,17 @@ set(TARGET_INCLUDE_FILES
   Scalarizer/Scalarize.h
   SoaAllocaAnalysis/SoaAllocaAnalysis.h
   Utils/FakeExtractInsert.h
-  Utils/Logger.h
-  Utils/LoopUtils.h
-  Utils/Mangler.h
-  Utils/RuntimeServices.h
   Utils/SimplifyGEP.h
-  Utils/SpecialCaseFuncs.h
   Utils/VecConfig.h
   Utils/VectorizerCommon.h
   Utils/VectorizerCore.h
-  Utils/VectorizerFunction.h
   VolcanoWrapper/Main.h
   WIAnalysis/WIAnalysis.h
+  OCLBranchProbability/OCLBranchProbability.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
 set(TARGET_SOURCE_FILES
-  Driver/OpenCL/OpenclRuntime.cpp
   Heuristic/InstCounter.cpp
   IRPrinter/IRPrinter.cpp
   LoopHandler/CLBuiltinLICM.cpp
@@ -124,14 +105,11 @@ set(TARGET_SOURCE_FILES
   Scalarizer/PreScalarizeScan.cpp
   Scalarizer/Scalarize.cpp
   SoaAllocaAnalysis/SoaAllocaAnalysis.cpp
-  Utils/LoopUtils.cpp
-  Utils/Mangler.cpp
-  Utils/RuntimeServices.cpp
   Utils/SimplifyGEP.cpp
-  Utils/SpecialCaseFuncs.cpp
   Utils/VectorizerCore.cpp
   VolcanoWrapper/Main.cpp
   WIAnalysis/WIAnalysis.cpp
+  OCLBranchProbability/OCLBranchProbability.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 
@@ -142,14 +120,10 @@ add_library(
   ${TARGET_INCLUDE_FILES}
 )
 
-target_link_libraries(
-  LLVMVectorizer
-  reflection_module
-  name_mangle
-  OclBackendUtils
-)
+add_dependencies(${TARGET_NAME} metadataapi LoopUtils)
 
-add_dependencies(${TARGET_NAME} metadataapi)
+set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})
 
 set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})

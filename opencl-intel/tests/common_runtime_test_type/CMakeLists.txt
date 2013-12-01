@@ -1,6 +1,7 @@
 # remove the restriction of warning as error for this component
 if (NOT WIN32)
-remove_definitions( -Werror )
+    add_definitions( "-Wno-type-limits -Wno-missing-braces" )
+    remove_definitions( -Werror )
 endif (NOT WIN32)
 
 #include helping functions of cmake.

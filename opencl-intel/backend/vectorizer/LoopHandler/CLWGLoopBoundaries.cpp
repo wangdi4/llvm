@@ -6,20 +6,22 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "CLWGLoopBoundaries.h"
 #include "CLWGBoundDecoder.h"
-#include "LoopUtils.h"
+#include "LoopUtils/LoopUtils.h"
 #include "MetaDataApi.h"
 #include "CompilationUtils.h"
+#include "OCLPassSupport.h"
+#include "InitializePasses.h"
+#include "common_dev_limits.h"
 
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Constants.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 
-#include "OCLPassSupport.h"
 #include <set>
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -28,13 +30,12 @@ namespace intel {
 
 char CLWGLoopBoundaries::ID = 0;
 
-OCL_INITIALIZE_PASS(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
+OCL_INITIALIZE_PASS_BEGIN(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
 
-CLWGLoopBoundaries::CLWGLoopBoundaries() :
-ModulePass(ID),
-m_rtServices(static_cast<OpenclRuntime *>(RuntimeServices::get()))
-{
-  assert(m_rtServices && "expected to have openCL runtime");
+CLWGLoopBoundaries::CLWGLoopBoundaries() : ModulePass(ID), m_rtServices(NULL) {
+  initializeCLWGLoopBoundariesPass(*PassRegistry::getPassRegistry());
 }
 
 CLWGLoopBoundaries::~CLWGLoopBoundaries()
@@ -49,6 +50,9 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
     //Module contains no MetaData information, thus it contains no kernels
     return changed;
   }
+
+  m_rtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
+  assert(m_rtServices && "expected to have openCL runtime");
 
   // Get the kernels using the barrier for work group loops.
   Intel::MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
@@ -111,9 +115,8 @@ void CLWGLoopBoundaries::processTIDCall(CallInst *CI, bool isGID) {
     return;
   }
   unsigned dim = static_cast<unsigned>(dimC->getValue().getZExtValue());
-  assert (dim < 3 && "get***id with dim > 2");
+  assert (dim < MAX_WORK_DIM && "get***id with dim > (MAX_WORK_DIM-1)");
   // All dimension above m_numDim are uniform so we don't need to add them.
-  // In apple we currently create loop only over 0 dimension.
   if (dim < m_numDim) {
     m_TIDs[CI] = std::pair<unsigned , bool>(dim, isGID);
     m_TIDByDim[dim].push_back(CI);

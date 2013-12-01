@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __VECTORIZER_CORE_H__
 #define __VECTORIZER_CORE_H__
 
-#include "RuntimeServices.h"
+#include "BuiltinLibInfo.h"
 #include "Logger.h"
 #include "VecConfig.h"
 
@@ -35,19 +35,17 @@ public:
     virtual const char *getPassName() const {
         return "Intel OpenCL VectorizerCore";
     }
-	
+
     /// @brief execute pass on given module
     /// @param M module to optimize
-	/// @returns True if module was modified
+    /// @returns True if module was modified
     virtual bool runOnFunction(Function &F);
     
     /// @brief Inform about usage/mofication/dependency of this pass
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<LoopInfo>();
-#if LLVM_VERSION >= 3425
-      AU.addRequired<TargetLibraryInfo>();
-#endif
-  }
+      AU.addRequired<BuiltinLibInfo>();
+    }
 
     /// @brief Function for querying the vectorization result width
     /// @returns vectorization width (if vectorization succesfull)
@@ -60,9 +58,6 @@ private:
     /// @brief packetization width
     unsigned m_packetWidth;
     
-    /// @brief Pointer to runtimeServieces
-    RuntimeServices * m_runtimeServices;
-
     /// @brief flag whether vectorization is succesful
     bool m_isFunctionVectorized;
 

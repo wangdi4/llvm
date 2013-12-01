@@ -116,3 +116,11 @@ cl_err_code UserEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void 
 	}
 	return res;
 }
+
+void UserEvent::NotifyInvisible()
+{
+    if (CL_COMPLETE != GetEventExecState())
+	{
+		SetComplete(CL_DEVICE_NOT_AVAILABLE);
+	}
+}

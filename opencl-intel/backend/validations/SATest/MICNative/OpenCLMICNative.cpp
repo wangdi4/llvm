@@ -352,6 +352,9 @@ void executeKernels(uint32_t         in_BufferCount,
     DEBUG_PRINT("done.\n");
     deserializationTimer.Stop();
 
+    DEBUG_PRINT("Deserialization timer data: total time: %lu, total ticks: %lu, samples count: %lu", deserializationTimer.TotalTime(), deserializationTimer.TotalTicks(), deserializationTimer.SamplesCount());
+    ( (Validation::Sample*)( ((uint8_t*)in_pReturnValue)+1) )[0] = deserializationTimer;
+
     uint64_t numOfKernels = *(uint64_t*)in_pMiscData;
     // Last buffer contains dispatcher data.
     DispatcherData *dispatchers = (DispatcherData*)(in_ppBufferPointers[in_BufferCount - 1]);
@@ -359,7 +362,7 @@ void executeKernels(uint32_t         in_BufferCount,
     uint64_t kernelsArgIndex = 1;
     DEBUG_PRINT("Number of kernels to execute = %d\n", (int)numOfKernels);
     WGContext context;
-    *(bool*)in_pReturnValue = true;
+    *(uint8_t*)in_pReturnValue = uint8_t(true);
     for (uint64_t i = 0; i < numOfKernels; ++i)
     {
         kernelsArgIndex += dispatchers[i].preExeDirectivesCount;
@@ -413,10 +416,10 @@ void executeKernels(uint32_t         in_BufferCount,
             DEBUG_PRINT("Directive[%d] id: %d\n", j, (int)directives[j].id);
             if (directives[j].id == BUFFER)
             {
-                *((void**)(kernelsArgs + directives[j].bufferDirective.offset_in_blob)) = &(directives[j].bufferDirective.mem_obj_desc);
-                DEBUG_PRINT("Pointer value[%d] = %p\n", j, &(directives[j].bufferDirective.mem_obj_desc));
                 size_t padding = directives[j].bufferDirective.isPadded ? PaddingSize : 0;
                 directives[j].bufferDirective.mem_obj_desc.pData = (uint8_t*)(in_ppBufferPointers[directives[j].bufferDirective.bufferIndex]) + padding;
+                *((void**)(kernelsArgs + directives[j].bufferDirective.offset_in_blob)) = directives[j].bufferDirective.mem_obj_desc.pData;
+                DEBUG_PRINT("Pointer value[%d] = %p\n", j, directives[j].bufferDirective.mem_obj_desc.pData);
                 DEBUG_PRINT("Pointer value = %p\n", directives[j].bufferDirective.mem_obj_desc.pData);
                 DEBUG_PRINT("First three values = %f, %f, %f\n", *(float*)directives[j].bufferDirective.mem_obj_desc.pData, *((float*)(directives[j].bufferDirective.mem_obj_desc.pData)+1), *((float*)(directives[j].bufferDirective.mem_obj_desc.pData)+2));
             }
@@ -491,6 +494,7 @@ void executeKernels(uint32_t         in_BufferCount,
                     //throw Validation::Exception::TestRunnerException("Wrong number of dimensions while running the kernel");
                 }
             }
+            ( (Validation::Sample*)( ((uint8_t*)in_pReturnValue)+1) )[i*exeOptions->executeIterationsCount+j+1] = timer;
             DEBUG_PRINT("Timer data: total time: %lu, total ticks: %lu, samples count: %lu", timer.TotalTime(), timer.TotalTicks(), timer.SamplesCount());
         }
         DEBUG_PRINT("done.\n");
@@ -512,7 +516,7 @@ void executeKernels(uint32_t         in_BufferCount,
                                     std::bind2nd(std::not_equal_to<char>(), PaddingVal)) != bufferPtr + 2*PaddingSize + dataSize) )
                 {
                    DEBUG_PRINT("Padding was mutated!\n");
-                   *(bool*)in_pReturnValue = false;
+                   *(uint8_t*)in_pReturnValue = uint8_t(false);
                 }
                 else {
                     DEBUG_PRINT("done.\n");

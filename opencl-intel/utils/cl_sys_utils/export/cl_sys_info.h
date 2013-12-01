@@ -2,7 +2,7 @@
 // cl_sys_info.h
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
-// Copyright 2007-2008 Intel Corporation All Rights Reserved.
+// Copyright 2007-2013 Intel Corporation All Rights Reserved.
 //
 // The source code contained or described herein and all documents related 
 // to the source code ("Material") are owned by Intel Corporation or its 
@@ -26,23 +26,25 @@
 /////////////////////////////////////////////////////////////////////////
 #pragma once
 
-#include "cl_utils.h"
+#include "cl_sys_defines.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 #define GetModuleDirectory(str, strLen) GetModuleDirectoryImp(__FUNCTION__, str, strLen)
-	extern unsigned long long	TotalVirtualSize();
-	extern unsigned long long	TotalPhysicalSize();
-	extern unsigned long long   MaxClockFrequency();
-	extern unsigned long long	ProfilingTimerResolution();
-	extern unsigned long long   HostTime();
-	extern void					GetProcessName(char* pProcName, size_t strLen);
-	extern unsigned int			GetProcessId();
-	extern void					GetModuleDirectoryImp(const void* addr, char* szModuleDir, size_t strLen);
-	extern int                  GetModulePathName(const void* modulePtr, char* fileName, size_t strLen);
-    extern unsigned long        GetNumberOfProcessors();
-    extern unsigned long        GetMaxNumaNode();
-    extern bool                 GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask);
-    extern unsigned int         GetCpuId();
-	extern const char*          GetFullModuleNameForLoad(const char* moduleName);
-    extern bool                 GetModuleProductVersion(const void* someLocalFunc, int* major, int* minor, int* revision, int* build);
+    extern unsigned long long    TotalVirtualSize();
+    extern unsigned long long    TotalPhysicalSize();
+    extern unsigned long long    MaxClockFrequency();
+    extern unsigned long long    ProfilingTimerResolution();
+    extern unsigned long long    HostTime();
+    extern void                  GetProcessName(char* pProcName, size_t strLen);
+    extern unsigned int          GetProcessId();
+    extern void                  GetModuleDirectoryImp(const void* addr, char* szModuleDir, size_t strLen);
+    extern int                   GetModulePathName(const void* modulePtr, char* fileName, size_t strLen);
+    extern unsigned long         GetNumberOfProcessors();
+    extern unsigned long         GetMaxNumaNode();
+    extern bool                  GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize = NULL);
+    extern unsigned int          GetCpuId();
+    extern const char*           GetFullModuleNameForLoad(const char* moduleName);
+    extern bool                  GetModuleProductVersion(const void* someLocalFunc, int* major, int* minor, int* revision, int* build);
+    extern unsigned int          GetThreadId();
 }}}
+

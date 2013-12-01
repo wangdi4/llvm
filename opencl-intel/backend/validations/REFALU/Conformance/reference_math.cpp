@@ -4598,4 +4598,13 @@ namespace Conformance
     }
 
     long double reference_assignmentl( long double x ){ return x; }
+
+    double reference_cross_one_item( double in0, double in1, double in2, double in3 )
+    {
+        return in0*in1 - in2*in3;
+    }
+    long double reference_cross_one_iteml( long double in0, long double in1, long double in2, long double in3 )
+    {
+        return in0*in1 - in2*in3;
+    }
 }

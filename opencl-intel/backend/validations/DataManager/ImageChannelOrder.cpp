@@ -41,6 +41,9 @@ ImageChannelOrderValWrapper::initStaticMap()
     metaData[OpenCL_RGBA]                 = ImageChannelOrderMetadata(4, "CL_RGBA");
     metaData[OpenCL_ARGB]                 = ImageChannelOrderMetadata(4, "CL_ARGB");
     metaData[OpenCL_BGRA]                 = ImageChannelOrderMetadata(4, "CL_BGRA");
+    metaData[OpenCL_DEPTH]                = ImageChannelOrderMetadata(1, "CL_DEPTH");
+    metaData[OpenCL_sRGBA]                = ImageChannelOrderMetadata(4, "CL_sRGBA");
+    metaData[OpenCL_sBGRA]                = ImageChannelOrderMetadata(4, "CL_sBGRA");
     metaData[UNSPECIFIED_CHANNEL_ORDER]   = ImageChannelOrderMetadata(1, "UNSPECIFIED_CHANNEL_ORDER");
     metaData[INVALID_CHANNEL_ORDER]       = ImageChannelOrderMetadata(1, "INVALID_CHANNEL_ORDER");
     return metaData;

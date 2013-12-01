@@ -9,10 +9,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BarrierUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
-#include "llvm/Instructions.h"
+#include "CompilationUtils.h"
+
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Version.h"
+
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
   char DataPerValue::ID = 0;
@@ -37,19 +42,30 @@ namespace intel {
     m_util.init(&M);
 
     // obtain DataLayout of the module
-#if LLVM_VERSION == 3200
-    m_pDL = getAnalysisIfAvailable<DataLayout>();
-#else
+#if LLVM_VERSION == 3425
     m_pDL = getAnalysisIfAvailable<TargetData>();
+#else
+    m_pDL = getAnalysisIfAvailable<DataLayout>();
 #endif
     assert( m_pDL && "Failed to obtain instance of DataLayout!" );
 
     // Find and sort all connected function into disjointed groups
-    CalculateConnectedGraph(M);
+    calculateConnectedGraph(M);
 
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
       runOnFunction(*fi);
     }
+
+  /////////////////////////////////////////////////////////////////////////////
+    //Find all functions that call synchronize instructions
+    TFunctionSet& functionsWithSync = m_util.getAllFunctionsWithSynchronization();
+
+    //Collect data for each function with synchronize instruction
+    for ( TFunctionSet::iterator fi = functionsWithSync.begin(),
+      fe = functionsWithSync.end(); fi != fe; ++fi ) {
+        markSpecialArguments(*(*fi));
+    }
+  /////////////////////////////////////////////////////////////////////////////
 
     //Check that stide size is aligned with max alignment
     for ( TEntryToBufferDataMap::iterator di = m_entryToBufferDataMap.begin(),
@@ -65,7 +81,8 @@ namespace intel {
   }
 
   bool DataPerValue::runOnFunction(Function &F) {
-    m_pSyncInstructions = &m_pDataPerBarrier->getSyncInstructions(&F);
+    if (F.isDeclaration())
+      return false;
 
     //Check if function has no synchronize instruction!
     if ( !m_pDataPerBarrier->hasSyncInstruction(&F) ) {
@@ -73,29 +90,76 @@ namespace intel {
       return false;
     }
 
+    m_pSyncInstructions = &m_pDataPerBarrier->getSyncInstructions(&F);
+
     //run over all the values of the function and Cluster into 3 groups
     //Group-A   : Alloca instructions
+    //  Important: we make exclusion for Alloca instructions which
+    //             reside between 2 dummyBarrier calls:
+    //             a) one     - the 1st instruction which inserted by BarrierInFunctionPass
+    //             b) another - the instruction which marks the bottom of Allocas 
+    //                          of WG function return value accumulators
     //Group-B.1 : Values crossed barriers and the value is
     //            related to WI-Id or initialized inside a loop
     //Group-B.2 : Value crossed barrier but does not suit Group-B.2
+
+    // At first - collect exclusions from Group-A (allocas for WG function results)
+    std::set<Instruction*> allocaExclusions;
+    inst_iterator firstInstr = inst_begin(F);
+    if (firstInstr != inst_end(F)) {
+      if ( CallInst *pFirstCallInst = dyn_cast<CallInst>(&*firstInstr) ) {
+        if (m_util.isDummyBarrierCall(pFirstCallInst)) {
+          // if 1st instruction is a dummy barrier call
+          for ( inst_iterator ii = ++firstInstr, ie = inst_end(F); ii != ie; ++ii ) {
+            // Collect allocas until next dummy-barrier-call boundary,
+            // or drop the collection altogether if barrier call is encountered
+            Instruction *pInst = &*ii;
+            if ( isa<AllocaInst>(pInst) ) {
+              // This alloca is a candidate for exclusion
+              allocaExclusions.insert(pInst);
+            } else if ( CallInst *pCallInst = dyn_cast<CallInst>(pInst) ) {
+              // Locate boundary of code extent where exclusions are possible: 
+              // next dummy barrier, w/o a barrier call in the way.
+              if (m_util.isDummyBarrierCall(pCallInst)) {
+                break;
+              } else if (m_util.isBarrierCall(pCallInst)) {
+                // If there is a barrier call - discard ALL exclusions
+                allocaExclusions.clear();
+                break;
+              }
+            }
+          }   // end of collect-allocas loop
+        }     // end of 1st-instruction-is-a-dummy-barrier-call case
+      }
+    }         
+
+    // Then - sort-out instructions among Group-A, Group-B.1 and Group-B.2
     for ( inst_iterator ii = inst_begin(F), ie = inst_end(F); ii != ie; ++ii ) {
-      Instruction *pInst = dyn_cast<Instruction>(&*ii);
+      Instruction *pInst = &*ii;
       if ( isa<AllocaInst>(pInst) ) {
         //It is an alloca value, add it to Group_A container
-        m_allocaValuesPerFuncMap[&F].push_back(pInst);
+        if (allocaExclusions.find(pInst) == allocaExclusions.end()) {
+          // Filter-out exclusions
+          m_allocaValuesPerFuncMap[&F].push_back(pInst);
+        }
         continue;
       }
-      CallInst *pCallInst = dyn_cast<CallInst>(pInst);
-      if ( pCallInst ) {
+      if ( CallInst *pCallInst = dyn_cast<CallInst>(pInst) ) {
         Function *pCalledFunc = pCallInst->getCalledFunction();
-        if ( pCalledFunc && !pCalledFunc->getReturnType()->isVoidTy() &&
-          m_pDataPerBarrier->hasSyncInstruction(pCalledFunc) ) {
-            // Call instructions to functions that contains barriers
-            // need to be stored in the special buffer.
+        if ( pCalledFunc && !pCalledFunc->getReturnType()->isVoidTy() ) {
+          std::string funcName = pCalledFunc->getName().str();
+          if ( CompilationUtils::isWorkGroupUniform( funcName ) ) {
+            // uniform WG functions always produce cross-barrier value
+            m_crossBarrierValuesPerFuncMap[&F].push_back(pInst);
+            continue;
+          } else if ( CompilationUtils::isWorkGroupScan( funcName ) ) {
+            // Call instructions to WG functions which produce WI-specific
+            //  result, need to be stored in the special buffer.
             assert(m_pWIRelatedValue->isWIRelated(pInst)
               && "Must be work-item realted value!");
             m_specialValuesPerFuncMap[&F].push_back(pInst);
             continue;
+          }
         }
       }
       switch ( isSpecialValue(pInst, m_pWIRelatedValue->isWIRelated(pInst)) ) {
@@ -161,7 +225,7 @@ namespace intel {
       TInstructionSet::iterator ii = m_pSyncInstructions->begin();
       TInstructionSet::iterator ie = m_pSyncInstructions->end();
       for ( ; ii != ie; ++ii ) {
-        Instruction *pSyncInst = dyn_cast<Instruction>(*ii);
+        Instruction *pSyncInst = *ii;
         BasicBlock *pSyncBB = pSyncInst->getParent();
         if ( pSyncBB->getParent() != pValBB->getParent() ) {
           assert(false && "can we reach sync instructions from other functions?!" );
@@ -178,7 +242,7 @@ namespace intel {
               return SPECIAL_VALUE_TYPE_B1;
             }
 
-            if( m_pDataPerBarrier->getPredecessors(pSyncBB).count(pSyncBB) ) {
+            if ( m_pDataPerBarrier->getPredecessors(pSyncBB).count(pSyncBB) ) {
               //pSyncBB is a predecessor of itself
               //means synchronize instruction is inside a loop
 
@@ -223,13 +287,13 @@ namespace intel {
     while ( !basicBlocksToHandle.empty() ) {
       BasicBlock *pBBToHandle = basicBlocksToHandle.back();
       basicBlocksToHandle.pop_back();
-      Instruction *pFirstInst = dyn_cast<Instruction>(pBBToHandle->begin());
+      Instruction *pFirstInst = &*(pBBToHandle->begin());
       if ( m_pSyncInstructions->count(pFirstInst) ) {
         //Found a barrier
         return true;
       }
       for (pred_iterator i = pred_begin(pBBToHandle), e = pred_end(pBBToHandle); i != e; ++i) {
-        BasicBlock *pred_bb = dyn_cast<BasicBlock>(*i);
+        BasicBlock *pred_bb = *i;
         if ( pred_bb == pValBB ) {
           //Reached pValBB stop recursive at this direction!
           continue;
@@ -256,7 +320,7 @@ namespace intel {
     //Run over all special values in function
     for ( TValueVector::iterator vi = specialValues.begin(),
       ve = specialValues.end(); vi != ve; ++vi ) {
-        Value *pVal = dyn_cast<Value>(*vi);
+        Value *pVal = *vi;
         //Get Offset of special value type
         m_valueToOffsetMap[pVal] = getValueOffset(pVal, pVal->getType(), 0, bufferData);
     }
@@ -266,8 +330,8 @@ namespace intel {
     //Run over all special values in function
     for ( TValueVector::iterator vi = allocaValues.begin(),
       ve = allocaValues.end(); vi != ve; ++vi ) {
-        Value *pVal = dyn_cast<Value>(*vi);
-        AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(pVal);
+        Value *pVal = *vi;
+        AllocaInst *pAllocaInst = cast<AllocaInst>(pVal);
         //Get Offset of alloca instruction contained type
         m_valueToOffsetMap[pVal] = getValueOffset(pVal,
           pVal->getType()->getContainedType(0), pAllocaInst->getAlignment(), bufferData);
@@ -328,20 +392,25 @@ namespace intel {
     return offset;
   }
 
-  void DataPerValue::CalculateConnectedGraph(Module &M) {
+  void DataPerValue::calculateConnectedGraph(Module &M) {
     unsigned int currEntry = 0;
 
     //Run on all functions in module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
-      Function* pFunc = dyn_cast<Function>(fi);
+      Function* pFunc = fi;
       if ( pFunc->isDeclaration() ) {
         //Skip non defined functions
+        continue;
+      }
+      //Check if function has no synchronize instruction!
+      if ( !m_pDataPerBarrier->hasSyncInstruction(pFunc) ) {
+        //Function has no synchronize instruction: skip it!
         continue;
       }
       if ( m_functionToEntryMap.count(pFunc) ) {
         //pFunc already has an entry number,
         //replace all appears of it with the current entry number.
-        FixEntryMap(m_functionToEntryMap[pFunc], currEntry);
+        fixEntryMap(m_functionToEntryMap[pFunc], currEntry);
       } else {
         //pFunc has no entry number yet, give it the current entry number
         m_functionToEntryMap[pFunc] = currEntry;
@@ -350,15 +419,13 @@ namespace intel {
         ue = pFunc->use_end(); ui != ue; ++ui ) {
           CallInst *pCallInst = dyn_cast<CallInst>(*ui);
           // usage of pFunc can be a global variable!
-          if( !pCallInst ) {
-            // usage of pFunc is not a CallInst
-            continue;
-          }
+          if ( !pCallInst ) continue;
+
           Function *pCallerFunc = pCallInst->getParent()->getParent();
           if ( m_functionToEntryMap.count(pCallerFunc) ) {
             //pCallerFunc already has an entry number,
             //replace all appears of it with the current entry number.
-            FixEntryMap(m_functionToEntryMap[pCallerFunc], currEntry);
+            fixEntryMap(m_functionToEntryMap[pCallerFunc], currEntry);
           } else {
             //pCallerFunc has no entry number yet, give it the current entry number
             m_functionToEntryMap[pCallerFunc] = currEntry;
@@ -368,7 +435,7 @@ namespace intel {
     }
   }
 
-  void DataPerValue::FixEntryMap(unsigned int from, unsigned int to) {
+  void DataPerValue::fixEntryMap(unsigned int from, unsigned int to) {
     if ( from == to ) {
       //No need to fix anything
       return;
@@ -379,6 +446,54 @@ namespace intel {
         if ( ei->second == from ) {
           ei->second = to;
         }
+    }
+  }
+
+  void DataPerValue::markSpecialArguments(Function &F) {
+
+    unsigned int numOfArgs = F.getFunctionType()->getNumParams();
+    bool hasReturnValue = !(F.getFunctionType()->getReturnType()->isVoidTy());
+    // Keep one last argument for return value
+    unsigned int numOfArgsWithReturnValue = hasReturnValue ? numOfArgs+1 : numOfArgs;
+
+    if ( 0 == numOfArgsWithReturnValue ) {
+      //Function takes no arguments, nothing to check
+      return;
+    }
+
+    unsigned int entry = m_functionToEntryMap[&F];
+    SpecialBufferData& bufferData = m_entryToBufferDataMap[entry];
+
+    std::vector<bool> argsFunction;
+    argsFunction.assign(numOfArgsWithReturnValue, false);
+    //Check each call to F function searching parameters stored in special buffer
+    for ( Value::use_iterator ui = F.use_begin(),
+      ue = F.use_end(); ui != ue; ++ui ) {
+        CallInst *pCallInst = dyn_cast<CallInst>(*ui);
+        // usage of pFunc can be a global variable!
+        if ( !pCallInst ) continue;
+
+        for ( unsigned int i = 0; i < numOfArgsWithReturnValue; ++i ) {
+          Value *pVal = (i == numOfArgs) ?
+            pCallInst : pCallInst->getArgOperand(i);
+          if ( hasOffset(pVal) ) {
+            //If reach here, means that this function has at least
+            //one caller with argument value in special buffer
+            //Set this argument marker for handling
+            argsFunction[i] = true;
+          }
+        }
+    }
+    Function::arg_iterator argIter = F.arg_begin();
+    for (unsigned int i = 0; i < numOfArgs; ++i, ++argIter) {
+      if (!argsFunction[i]) continue;
+      Value *pVal = &*argIter;
+      // Argument is marked for handling, get a new offset for this argument.
+      m_valueToOffsetMap[pVal] = getValueOffset(pVal, pVal->getType(), 0, bufferData);
+    }
+    if (hasReturnValue && argsFunction[numOfArgs]) {
+      // Return value is marked for handling, get new offset for this function.
+      m_valueToOffsetMap[&F] = getValueOffset(NULL, F.getFunctionType()->getReturnType(), 0, bufferData);
     }
   }
 
@@ -395,7 +510,7 @@ namespace intel {
     TValuesPerFunctionMap::const_iterator fi = m_allocaValuesPerFuncMap.begin();
     TValuesPerFunctionMap::const_iterator fe = m_allocaValuesPerFuncMap.end();
     for ( ; fi != fe; ++fi ) {
-      Function *pFunc = dyn_cast<Function>(fi->first);
+      Function *pFunc = fi->first;
       const TValueVector &vv = fi->second;
       if ( vv.empty() ) {
         // Function has no values of Group-A
@@ -404,8 +519,9 @@ namespace intel {
       //Print function name
       OS << "+" << pFunc->getName() << "\n";
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
-        Value *pValue = dyn_cast<Value>(*vi);
+        Value *pValue = *vi;
         //Print alloca value name
+        assert(m_valueToOffsetMap.count(pValue) && "pValue has no offset!");
         OS << "\t-" << pValue->getName() << "\t(" << m_valueToOffsetMap.find(pValue)->second << ")\n";
       }
       OS << "*" << "\n";
@@ -416,7 +532,7 @@ namespace intel {
     fi = m_specialValuesPerFuncMap.begin();
     fe = m_specialValuesPerFuncMap.end();
     for ( ; fi != fe; ++fi ) {
-      Function *pFunc = dyn_cast<Function>(fi->first);
+      Function *pFunc = fi->first;
       const TValueVector &vv = fi->second;
       if ( vv.empty() ) {
         // Function has no values of Group-B.1
@@ -425,8 +541,9 @@ namespace intel {
       //Print function name
       OS << "+" << pFunc->getName() << "\n";
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
-        Value *pValue = dyn_cast<Value>(*vi);
+        Value *pValue = *vi;
         //Print special value name
+        assert(m_valueToOffsetMap.count(pValue) && "pValue has no offset!");
         OS << "\t-" << pValue->getName() << "\t(" << m_valueToOffsetMap.find(pValue)->second << ")\n";
       }
       OS << "*" << "\n";
@@ -437,7 +554,7 @@ namespace intel {
     fi = m_crossBarrierValuesPerFuncMap.begin();
     fe = m_crossBarrierValuesPerFuncMap.end();
     for ( ; fi != fe; ++fi ) {
-      Function *pFunc = dyn_cast<Function>(fi->first);
+      Function *pFunc = fi->first;
       const TValueVector &vv = fi->second;
       if ( vv.empty() ) {
         // Function has no values of Group-B.2
@@ -446,14 +563,14 @@ namespace intel {
       //Print function name
       OS << "+" << pFunc->getName() << "\n";
       for ( TValueVector::const_iterator vi = vv.begin(), ve = vv.end();  vi != ve; ++vi ) {
-        Value *pValue = dyn_cast<Value>(*vi);
+        Value *pValue = *vi;
         //Print cross barrier uniform value name
         OS << "\t-" << pValue->getName() << "\n";
       }
       OS << "*" << "\n";
     }
 
-    OS << "Buffer Total Size: ";
+    OS << "Buffer Total Size:\n";
     for ( TFunctionToEntryMap::const_iterator ei = m_functionToEntryMap.begin(),
       ee = m_functionToEntryMap.end(); ei != ee; ++ei ) {
         //Print function name & its entry

@@ -7,17 +7,16 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef SPECIALIZER_H
 #define SPECIALIZER_H
 #include "Linearizer.h"
-#include "WIAnalysis.h"
+#include "OCLBranchProbability.h"
 
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Transforms/Scalar.h"
 
 using namespace llvm;
@@ -29,7 +28,6 @@ namespace intel {
 ///  First, before the predication, it collects dominance info from the original
 ///  control flow. Second, after the linearization
 ///  the actual specialization happens.
-/// @author Nadav Rotem
 class Predicator;
 class FunctionSpecializer {
 public:
@@ -37,7 +35,7 @@ public:
   /// Holds the data needed for each bypass
   struct BypassInfo {
     BypassInfo(BasicBlock * head, BasicBlock * root) : m_head(head), m_root(root), m_postDom(0), m_foot(0) {}
-    BypassInfo() : m_head(0),m_root(0), m_postDom(0), m_foot(0) {}
+    BypassInfo() : m_head(0), m_root(0), m_postDom(0), m_foot(0) {}
 
     BasicBlock * m_head;    // Single predecessor of the entry node
     BasicBlock * m_root;    // Entry node
@@ -74,7 +72,7 @@ public:
   /// @param DT dominator analysis
   FunctionSpecializer(Predicator* pred, Function* func, Function* all_zero,
                       PostDominatorTree* PDT, DominatorTree*  DT,
-                      LoopInfo *LI, WIAnalysis *WIA, BranchProbabilityInfo *BPI);
+                      LoopInfo *LI, WIAnalysis *WIA, OCLBranchProbability *OBP);
 
   /// @brief Finds a single edge to specialize. This uses
   ///  the control dominance of the block to check.
@@ -183,6 +181,11 @@ private:
   /// @return - returns true if the bypass should be added
   bool addHeuristics(const BasicBlock *BB) const;
 
+  /// @brief initialize the cost of some of the built-in function
+  /// To be used by the heuristics that decides whether a bypass should be added
+  /// above a single basic block
+  void initializeBICost();
+
 private:
   /// Predicator pass
   Predicator* m_pred;
@@ -199,7 +202,7 @@ private:
   // Work Item Analysis
   WIAnalysis *m_WIA;
   // Branch probability analysis - for bypasses addition
-  BranchProbabilityInfo *m_BPI;
+  OCLBranchProbability *m_OBP;
   /// Zero
   Value* m_zero;
   /// One
@@ -210,6 +213,10 @@ private:
   MapRegToBBPairVec m_outMasksToZero;
   /// Region in masks to zero 
   std::map<BypassInfo, BasicBlock*, BypassInfoComparator> m_inMasksToZero;
+
+  /// A map that maps from a function name to the number of instructions that this function is composed of.
+  /// If a function is not in the map then the number of instruction is inf
+  std::map<std::string, unsigned> m_nameToInstNum;
 
   /// A vector containing the info for all the potential bypasses
   std::vector<BypassInfo> m_bypassInfoContainer;

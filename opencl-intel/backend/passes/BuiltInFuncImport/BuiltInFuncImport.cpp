@@ -7,53 +7,32 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "BuiltInFuncImport.h"
 #include "OCLPassSupport.h"
-#include <llvm/Module.h>
-#include <llvm/DerivedTypes.h>
+#include "InitializePasses.h"
+#include <llvm/IR/Module.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/Transforms/Utils/Cloning.h>
-#include <llvm/Instruction.h>
+#include <llvm/IR/Instruction.h>
 #include <llvm/Support/InstIterator.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/Support/IRReader.h>
+#include <llvm/IRReader/IRReader.h>
+#include <llvm/Support/SourceMgr.h>
 
 #include <string>
 
 using namespace llvm;
-
-static cl::opt<std::string>
-BIModuleName("builtins-module",
-                  cl::desc("Builtins module name. If set, built-in import pass is executed using given module name"),
-                  cl::value_desc("filename"), cl::init(""));
-
 namespace intel {
 
   char BIImport::ID = 0;
 
-  OCL_INITIALIZE_PASS(BIImport, "builtin-import", "Built-in function pass", false, true)
-
-  BIImport::~BIImport(){
-    if(m_ownerOfSourceModule) {
-      delete m_pSourceModule;
-    }
-  }
+  OCL_INITIALIZE_PASS_BEGIN(BIImport, "builtin-import", "Built-in function pass", false, true)
+  OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+  OCL_INITIALIZE_PASS_END(BIImport, "builtin-import", "Built-in function pass", false, true)
 
   bool BIImport::runOnModule(Module &M) {
-    //This handle is needed for running built-in import pass from opt
-    if (m_pSourceModule == NULL && BIModuleName != "") {
-      llvm::SMDiagnostic Err;
-      std::auto_ptr<llvm::Module> BIModule;
-      // Load the built-in module...
-      BIModule.reset(llvm::ParseIRFile(BIModuleName, Err, M.getContext()));
-
-      if (BIModule.get() == 0) {
-        llvm::errs() << "BIModule loading error:" << (const std::string&)BIModuleName << "\n";
-      } else {
-        m_pSourceModule = BIModule.release();
-        m_ownerOfSourceModule = true;
-      }
-    }
-
+    BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
+    m_pSourceModule = BLI.getBuiltinModule();
     if (m_pSourceModule == NULL) {
       // If there is no source module, then nothing can be imported.
       return false;
@@ -333,6 +312,6 @@ namespace intel {
 
 } //namespace intel {
 
-extern "C" llvm::ModulePass *createBuiltInImportPass(llvm::Module* pRTModule) {
-  return new intel::BIImport(pRTModule);
+extern "C" llvm::ModulePass* createBuiltInImportPass() {
+  return new intel::BIImport();
 }

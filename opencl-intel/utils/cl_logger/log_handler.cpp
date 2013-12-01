@@ -32,11 +32,6 @@
 #include <malloc.h>
 #include <string.h>
 
-#if !defined (_WIN32)
-    #include <stdlib.h>
-    #include "cl_secure_string_linux.h"
-#endif
-
 #include "cl_sys_defines.h"
 
 #include "log_handler.h"
@@ -68,10 +63,9 @@ char *strdup_safe(const char *src)
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
-// FileLogHandler Ctor Implementation
+// FileDescriptorLogHandler Ctor Implementation
 /////////////////////////////////////////////////////////////////////////////////////////
-FileLogHandler::FileLogHandler(const char* handle) :
-    m_fileName(NULL), m_fileHandler(NULL)
+FileDescriptorLogHandler::FileDescriptorLogHandler(const char* handle) : LogHandler(), m_fileHandler(NULL), m_dupStderr(-1)
 {
     if (NULL != handle)
     {
@@ -80,9 +74,9 @@ FileLogHandler::FileLogHandler(const char* handle) :
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
-// FileLogHandler Dtor
+// FileDescriptorLogHandler Dtor
 /////////////////////////////////////////////////////////////////////////////////////////
-FileLogHandler::~FileLogHandler()
+FileDescriptorLogHandler::~FileDescriptorLogHandler()
 {
 	if ( NULL != m_handle )
 	{
@@ -90,7 +84,105 @@ FileLogHandler::~FileLogHandler()
 		m_handle=NULL;
 	}
 
-    if (NULL != m_fileHandler)
+	if (-1 != m_dupStderr)
+	{
+		// redirect back stderr
+		DUP2(m_dupStderr, fileno(stderr));
+		m_dupStderr = -1;
+	}
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// FileDescriptorLogHandler::Init
+/////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code FileDescriptorLogHandler::Init(ELogLevel level, const char* fileName, const char* title, FILE* fileDesc)
+{
+    if (NULL == m_handle)
+	{
+        return CL_ERR_INITILIZATION_FAILED;
+	}
+
+	if (NULL == fileDesc)
+	{
+		return CL_ERR_LOGGER_FAILED;
+	}
+
+	m_fileHandler = fileDesc;
+
+    m_logLevel = level;       // retrieve this info from Logger (not implemented yet)
+
+    // redirect stderr to fileDesc (in order to get log messages from MIC device)
+	fflush(stderr);
+	m_dupStderr = DUP(fileno(stderr));
+	assert(-1 != m_dupStderr && "duplicate stderr failed");
+	DUP2(fileno(m_fileHandler), fileno(stderr));
+
+	const char* pTitle = (NULL == title) ?
+		"\n##########################################################################################################\n" :
+		title;
+
+	// fputs is thread safe.
+	if (EOF == fputs(pTitle, m_fileHandler))
+	{
+		printf("fwrite failed\n");
+		assert(false);
+		return CL_ERR_LOGGER_FAILED;
+	}
+	Flush();
+	
+	return CL_SUCCESS;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// FileDescriptorLogHandler::Log
+/////////////////////////////////////////////////////////////////////////////////////////
+void FileDescriptorLogHandler::Log(LogMessage& logMessage)
+{
+    if (m_logLevel > logMessage.GetLogLevel())
+    {
+        // ignore messages with lower log level
+        return;
+    }
+
+    char* formattedMsg = logMessage.GetFormattedMessage();
+	// fputs is thread safe.
+    if (EOF == fputs(formattedMsg, m_fileHandler))
+    {
+        printf("fwrite failed\n");
+        assert(false);
+        return;
+    }
+    Flush();
+
+	return;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// FileDescriptorLogHandler::Flush
+/////////////////////////////////////////////////////////////////////////////////////////
+void FileDescriptorLogHandler::Flush()
+{
+	if (m_fileHandler)
+	{
+		fflush(m_fileHandler);     // thread safe
+	}
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// FileLogHandler Ctor Implementation
+/////////////////////////////////////////////////////////////////////////////////////////
+FileLogHandler::FileLogHandler(const char* handle) : FileDescriptorLogHandler(handle), m_fileName(NULL)
+{
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// FileLogHandler Dtor Implementation
+/////////////////////////////////////////////////////////////////////////////////////////
+FileLogHandler::~FileLogHandler()
+{
+	if (NULL != m_fileHandler)
 	{
         fclose(m_fileHandler);
 		m_fileHandler=NULL;
@@ -103,171 +195,30 @@ FileLogHandler::~FileLogHandler()
 	}
 }
 
-
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileLogHandler::Init
 /////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code FileLogHandler::Init(ELogLevel level, const char* fileName, const char* title)
+cl_err_code FileLogHandler::Init(ELogLevel level, const char* fileName, const char* title, FILE* fileDesc)
 {
-    if (m_handle == NULL)
+	if (m_handle == NULL)
 	{
         return CL_ERR_INITILIZATION_FAILED;
 	}
-
-    m_logLevel = level;       // retrieve this info from Logger (not implemented yet)
-
+	if (NULL == fileName)
+	{
+		printf("logger initialization failed, fileName must be valid pointer\n");
+		return CL_ERR_LOGGER_FAILED;
+	}
     m_fileName = strdup_safe(fileName);
+	FILE* tFileHandler = NULL;
     if (m_fileName)
     {
-        m_fileHandler = fopen(m_fileName, "w" );
-        if(NULL == m_fileHandler)
+        tFileHandler = fopen(m_fileName, "w" );
+        if (NULL == tFileHandler)
         {
             printf("can't open log file for writing\n");
             return CL_ERR_LOGGER_FAILED;
         }
-
-		{
-			// Lock
-			OclAutoMutex CS(&m_CS);
-			const char* pTitle = (NULL == title) ?
-				"\n##########################################################################################################\n" :
-				title;
-
-			if (fputs(pTitle, m_fileHandler) < 0)
-			{
-				printf("fwrite failed\n");
-				assert(false);
-				return CL_ERR_LOGGER_FAILED;
-			}
-			Flush();
-			// Unlock
-		}
-
-		return CL_SUCCESS;
-    }
-
-	return CL_ERR_LOGGER_FAILED;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-// FileLogHandler::Log
-/////////////////////////////////////////////////////////////////////////////////////////
-void FileLogHandler::Log(LogMessage& logMessage)
-{
-    // get lock
-    if (m_logLevel > logMessage.GetLogLevel())
-    {
-        // ignore messages with lower log level
-        return;
-    }
-
-    char* formattedMsg = logMessage.GetFormattedMessage();
-    {
-        // Lock
-        OclAutoMutex CS(&m_CS);
-        if (!fprintf(m_fileHandler, "%s", formattedMsg) )
-        {
-            printf("fwrite failed\n");
-            assert(false);
-            return;
-        }
-        Flush();
-
-        // Unlock
-    }
-    return;
-}
-
-void FileLogHandler::LogW(LogMessage& logMessage)
-{
-    // get lock
-    if (m_logLevel > logMessage.GetLogLevel())
-    {
-        // ignore messages with lower log level
-        return;
-    }
-
-    char* formattedMsg = logMessage.GetFormattedMessage();
-    {
-        // Lock
-        OclAutoMutex CS(&m_CS);
-        if (fputs(formattedMsg, m_fileHandler) < 0)
-        {
-            printf("fwrite failed\n");
-            assert(false);
-            return;
-        }
-        Flush();
-
-        // Unlock
-    }
-    return;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-// FileLogHandler::Flush
-/////////////////////////////////////////////////////////////////////////////////////////
-void FileLogHandler::Flush()
-{
-	if (m_fileHandler)
-	{
-		fflush(m_fileHandler);     // thread safe
 	}
-}
-
-
-/////////////////////////////////////////////////////////////////////////////////////////
-// ConsoleLogHandler Ctor Implementation
-/////////////////////////////////////////////////////////////////////////////////////////
-ConsoleLogHandler::ConsoleLogHandler(const char* handle)
-{
-    if (handle)
-    {
-        free(m_handle);
-        m_handle = strdup_safe(handle);
-    }
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-// ConsoleLogHandler::Init
-/////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code ConsoleLogHandler::Init(ELogLevel level, const char* fileName, const char* title)
-{
-    if (m_handle == NULL)
-	{
-        return CL_ERR_INITILIZATION_FAILED;
-	}
-
-    m_logLevel = level;           // retrieve this info from Logger (not implemented yet)
-
-	return CL_SUCCESS;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-// ConsoleLogHandler::Flush
-/////////////////////////////////////////////////////////////////////////////////////////
-void ConsoleLogHandler::Flush()
-{
-    fflush(stdout);     // thread safe
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-// ConsoleLogHandler::Log
-/////////////////////////////////////////////////////////////////////////////////////////
-void ConsoleLogHandler::Log(LogMessage& logMessage)
-{
-    if (m_logLevel > logMessage.GetLogLevel())
-    {
-        // ignore messages with lower log level
-        return;
-    }
-
-    char* formattedMsg = logMessage.GetFormattedMessage();
-    {
-        // Lock
-        OclAutoMutex CS(&m_CS);
-        fprintf ( stdout, "%s", formattedMsg) ;
-        Flush();
-        // UnLock
-    }
+	return FileDescriptorLogHandler::Init(level, fileName, title, tFileHandler);
 }

@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __SHIFT_ZERO_UPPPER_BITS_H__
 
 #include "llvm/Pass.h"
-#include "llvm/InstrTypes.h"
+#include "llvm/IR/InstrTypes.h"
 
 #include <set>
 
@@ -25,7 +25,6 @@ namespace intel{
   ///         number of bits in the element. For example, if we shift an int4 left by 33 bits,
   ///         OpenCL treats this as shift left by 33%32 = 1 bit.
   ///         ShiftZeroUpperBits is intendent to prevent crashes in case the dividor is 0.
-  /// @Author Marina Yatsina
   class ShiftZeroUpperBits : public FunctionPass {
 
   public:

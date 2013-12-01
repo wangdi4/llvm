@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "RemoveDuplicationBarrierPass.h"
 #include "OCLPassSupport.h"
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 
 namespace intel {
 
@@ -36,7 +36,7 @@ namespace intel {
 
         BasicBlock::iterator bb_prevIt(pInst);
         if ( bb_prevIt != pInst->getParent()->begin() ) {
-          Instruction *pPrevInst = dyn_cast<Instruction>(--bb_prevIt);
+          Instruction *pPrevInst = &*(--bb_prevIt);
           if( SYNC_TYPE_NONE != m_util.getSynchronizeType(pPrevInst) ) {
             //This is not first synchronize instruction in the sequence
             continue;
@@ -77,7 +77,8 @@ namespace intel {
               }
             }
             //Otherwise need to remove the next instruction
-            toRemoveInstructions.push_back(pNextInst);
+            //Don't remove dummyBarrier-any, Barrier pass might fail
+            //toRemoveInstructions.push_back(pNextInst);
             continue;
           }
           if ( SYNC_TYPE_FIBER == typeNextInst ) {

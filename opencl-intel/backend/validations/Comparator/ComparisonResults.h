@@ -33,11 +33,11 @@ namespace Validation
         double maxDiff;
         float maxInterval;
 
-        CompStatistics() : pDesc(NULL), numMismatches(0), maxDiff(0.0), maxInterval(0.0)
+        CompStatistics() : numMismatches(0), maxDiff(0.0), maxInterval(0.0)
         {}
 
         CompStatistics(const IMemoryObjectDesc * in_pDesc) :
-        pDesc(in_pDesc), numMismatches(0), maxDiff(0.0), maxInterval(0.0)
+        pDesc(*in_pDesc), numMismatches(0), maxDiff(0.0), maxInterval(0.0)
         {}
     };
 

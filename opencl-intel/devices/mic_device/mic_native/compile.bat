@@ -21,4 +21,16 @@ if NOT CONFIG_COMPILE_FLAG==[] (
 	set CONFIG_COMPILE_FLAG=%CONFIG_COMPILE_FLAG:;= %
 )
 
-%ICC% -mmic -c @FINAL_MIC_FLAGS@ %CONFIG_COMPILE_FLAG% "%SRC%" -o "%OBJ%"  -static-intel
+set FILE_NAME=compile_args_%RANDOM%.txt
+
+type NUL > %FILE_NAME%
+echo -mmic -c >> %FILE_NAME%
+echo @FINAL_MIC_FLAGS@ >> %FILE_NAME%
+echo %CONFIG_COMPILE_FLAG% >> %FILE_NAME%
+echo "%SRC%" >> %FILE_NAME%
+echo -o "%OBJ%" >> %FILE_NAME%
+echo -static-intel >> %FILE_NAME%
+
+%ICC% @%FILE_NAME%
+
+del %FILE_NAME%

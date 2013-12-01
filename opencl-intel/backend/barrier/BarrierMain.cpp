@@ -14,10 +14,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Version.h"
-#if LLVM_VERSION == 3200
-#include "llvm/DataLayout.h"
-#else
+#if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
+#else
+#include "llvm/IR/DataLayout.h"
 #endif
 
 using namespace llvm;
@@ -26,6 +26,7 @@ extern "C" {
   FunctionPass* createPhiCanon();
 
   void* createRedundantPhiNodePass();
+  void* createGroupBuiltinPass();
   void* createBarrierInFunctionPass();
   void* createRemoveDuplicationBarrierPass();
   void* createSplitBBonBarrierPass();
@@ -34,6 +35,7 @@ extern "C" {
   //void* createWIRelatedValuePass();
   //void* createDataPerValuePass();
   void* createBarrierPass(bool isNativeDebug);
+  Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
 
   void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
 }
@@ -50,11 +52,12 @@ namespace intel {
     PassManager barrierModulePM;
 
     //Register DataLayout to the pass manager
-#if LLVM_VERSION == 3200
-    barrierModulePM.add(new llvm::DataLayout(&M));
-#else
+#if LLVM_VERSION == 3425
     barrierModulePM.add(new llvm::TargetData(&M));
+#else
+    barrierModulePM.add(new llvm::DataLayout(&M));
 #endif
+    barrierModulePM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModule(), ""));
 
     if( m_debugType == None ) {
       //In DBG mode do not run extra llvm optimizations
@@ -64,6 +67,7 @@ namespace intel {
     barrierModulePM.add(createPhiCanon());
     //Register barrier module passes
     barrierModulePM.add((FunctionPass*)createRedundantPhiNodePass());
+    barrierModulePM.add((ModulePass*)createGroupBuiltinPass());
     barrierModulePM.add((ModulePass*)createBarrierInFunctionPass());
 
     // Only run this when not debugging or when not in native (gdb) debugging

@@ -157,7 +157,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-#if _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
+#ifdef _DEBUG  // this is needed to initialize allocated objects DB, which is maintained in only in debug
         InitSharedPtrs();
 #endif
 #ifdef __TBB_EXECUTOR__
@@ -176,7 +176,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 			delete ((PTR_CAST*)g_pTaskExecutor);
 			g_pTaskExecutor = NULL;						
 		}
-#if _DEBUG
+#ifdef _DEBUG
         FiniSharedPts();
 #endif
 		return TRUE;

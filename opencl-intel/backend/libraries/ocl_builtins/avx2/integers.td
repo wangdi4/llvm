@@ -182,8 +182,8 @@ OclBuiltinImpl mul_hi_v2u64 = OclBuiltinImpl<mul_hi, [v4u64] , 0, [{
     #pragma ivdep
     for(int i=0; i < 4; ++i)
     {
-        multiply_unsigned_64_by_64( tempX[i], tempY[i], &destLow, &destHi );
-        tempX[i] =  destHi;
+      multiply_unsigned_64_by_64( tempX[i], tempY[i], &destLow, &destHi );
+      tempX[i] = destHi;
     }
 
     return as_ulong4(_mm256_load_si256((const __m256i *)tempX));
