@@ -170,6 +170,27 @@ EXPORTS
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
     
     
@@ -301,7 +322,6 @@ EXPORTS
 
     
     
-    
         
     
 
@@ -324,28 +344,6 @@ EXPORTS
 
 
 
-    
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-    
-
-
-
-    
-
 
 
     
@@ -357,6 +355,26 @@ EXPORTS
 
 
 
+
+
+
+    
+
+
+
+    
+
+
+
+    
+
+
+
+    
+
+
+    
+    
 
 
 
@@ -383,60 +401,6 @@ EXPORTS
 
 
     
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -482,6 +446,69 @@ EXPORTS
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
 
 
@@ -533,14 +560,6 @@ EXPORTS
 
 
 
-    
-
-
-
-
-
-
-
 
 
     
@@ -559,6 +578,11 @@ EXPORTS
 
 
 
+
+
+
+    
+    
 
 
 
@@ -574,6 +598,8 @@ __TBB_machine_cmpswp2
 __TBB_machine_fetchadd2
 __TBB_machine_fetchstore2
 __TBB_machine_pause
+__TBB_machine_try_lock_elided
+__TBB_machine_unlock_elided
 
 
 ?NFS_Allocate@internal@tbb@@YAPEAX_K0PEAX@Z
@@ -611,12 +637,12 @@ __TBB_machine_pause
 
 
 
-
-
-
-
-
-
+?internal_current_slot@task_arena_base@internal@interface7@tbb@@KAHXZ
+?internal_initialize@task_arena_base@internal@interface7@tbb@@IEAAXXZ
+?internal_terminate@task_arena_base@internal@interface7@tbb@@IEAAXXZ
+?internal_enqueue@task_arena_base@internal@interface7@tbb@@IEBAXAEAVtask@4@_J@Z
+?internal_execute@task_arena_base@internal@interface7@tbb@@IEBAXAEAVdelegate_base@234@@Z
+?internal_wait@task_arena_base@internal@interface7@tbb@@IEBAXXZ
 
 
 
