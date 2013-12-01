@@ -432,8 +432,19 @@ int ClangFECompilerCompileTask::Compile()
 
   // Explicitly set the cl_khr_fp extension to 1, so double variable will be supported while building the PCH file
   PPO.SupportedPragmas.cl_khr_fp64 = 1;
-  PPO.SupportedPragmas.cl_khr_depth_images = 1;
+  PPO.SupportedPragmas.cl_khr_gl_sharing = 1;
+  PPO.SupportedPragmas.cl_khr_gl_event = 1;
+  PPO.SupportedPragmas.cl_khr_d3d10_sharing = 1;
+  PPO.SupportedPragmas.cl_khr_global_int32_base_atomics = 1;
+  PPO.SupportedPragmas.cl_khr_global_int32_extended_atomics = 1;
+  PPO.SupportedPragmas.cl_khr_local_int32_base_atomics = 1;
+  PPO.SupportedPragmas.cl_khr_local_int32_extended_atomics = 1;
+  PPO.SupportedPragmas.cl_khr_byte_addressable_store = 1;
+  //For OCL2.0 only
   PPO.SupportedPragmas.cl_khr_3d_image_writes = 1;
+  PPO.SupportedPragmas.cl_khr_gl_msaa_sharing = 1;
+  PPO.SupportedPragmas.cl_khr_depth_images = 1;
+
 
   // Create compiler invocation from user args
   CompilerInvocation::CreateFromArgs(Clang->getInvocation(), argArray, argArray + ArgList.size(),
