@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "BuiltinLibInfo.h"
 #include "WIAnalysis.h"
+#include "Mangler.h"
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 #include "VectorizerCommon.h"
@@ -402,16 +403,24 @@ private:
 
   /// @brief maps the obtained returned values of the packetized built-in
   ///        to their corresponding scalar in packetizer data structures.
-  ///        
+  ///
   /// @param CI - scalar call which has fake extract usages.
   /// @returnedVals - returned values.
   void mapFakeExtractUsagesTo (CallInst* CI, SmallVectorImpl<Instruction *>& returnedVals);
-  
+
   /// @brief Checks whether packetized loads from the address are scatter-gather
   /// @param Address Address to check.
   /// @returns true if a scatter/gather is needed, false otherwise.
   bool isScatterGatherAddr(Value* Address);
 
+  /// @brief Check if we have handle gather/scatter for given parameters.
+  /// @param masked - true if gather/scatter is masked
+  /// @param type   - gather or scatter
+  /// @param VecTy  - vector type to gather or scatter
+  /// @returns true if operation is available for VecTy.
+  bool isGatherScatterType(bool masked,
+                           Mangler::GatherScatterType type,
+                           VectorType *VecTy);
   /// @brief Returns the mask type a transpose function expects
   /// @param TransFunc Transpose function to which the mask is passed
   /// @returns the type of the mask
