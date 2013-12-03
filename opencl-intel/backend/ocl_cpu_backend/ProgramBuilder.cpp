@@ -147,11 +147,24 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
             outf << buffer;
         }
 
-        std::string llcPath(getenv("LLVM_KNL_DIR"));
+        std::string llvmOCLBinPath(getenv("LLVM_OCL_DIR"));
+        int res = system((llvmOCLBinPath + "/llvm-as " + filename + ".ll").c_str());
+        if (res) {
+          system(("mv " + filename + ".ll " + filename + "_fail.ll").c_str());
+          throw Exceptions::DeviceBackendExceptionBase("llvm-as does not work", CL_DEV_ERROR_FAIL);
+        }
+        std::string llvmKNLBinPath(getenv("LLVM_KNL_DIR"));
+        res = system((llvmKNLBinPath + "/llvm-dis " + filename + ".bc").c_str());
+        if (res) {
+          system(("mv " + filename + ".ll " + filename + "_fail.ll").c_str());
+          system(("mv " + filename + ".bc " + filename + "_fail.bc").c_str());
+          throw Exceptions::DeviceBackendExceptionBase("llvm-dis does not work", CL_DEV_ERROR_FAIL);
+        }
+
         std::string llcOptions("-mcpu=knl -relocation-model=pic -stack-alignment=32 -force-align-stack -fp-contract=fast ");
         llcOptions += filename + ".ll ";
         llcOptions += "-filetype=obj -o " + filename + ".o";
-        int res = system((llcPath + "/llc " + llcOptions).c_str());
+        res = system((llvmKNLBinPath + "/llc " + llcOptions).c_str());
         if (res != 0) {
           system(("mv " + filename + ".ll " + filename + "_fail.ll").c_str());
           throw Exceptions::DeviceBackendExceptionBase("llc does not work", CL_DEV_ERROR_FAIL);
