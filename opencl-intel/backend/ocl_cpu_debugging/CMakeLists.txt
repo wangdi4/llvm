@@ -22,7 +22,6 @@ set(OCL_CPU_DEBUGGING_IMPORT_DIRS
   ${OCL_CPU_DEBUGGING_DIR}/protobuf/include
   ${BACKEND_ROOT_DIR}/../utils/cl_hw_utils/export
   ${BACKEND_ROOT_DIR}/../utils/cl_sys_utils/export
-  ${BACKEND_ROOT_DIR}/../tools/ToolsUtils
 )
 set(OCL_CPU_DEBUGGING_EXPORT_DIR  ${OCL_CPU_DEBUGGING_DIR}/export)
 
@@ -179,7 +178,6 @@ endif (WIN32)
 target_link_libraries (${TARGET_NAME} 
     ${SOCKETLIB}
     cl_sys_utils
-    ToolsUtils
     protobuf
     ${LLVM_MODULE_LIBS}
 ) 
