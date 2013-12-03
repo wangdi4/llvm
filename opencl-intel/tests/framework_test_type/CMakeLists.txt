@@ -17,8 +17,9 @@ include (../../cmake_utils/CMakeFuncs.txt)
 set( TARGET framework_test_type )
 
 include_directories( ../../framework/export 
-					 ../../externals/gtest/include )
-                
+                     ../../externals/gtest/include
+                     ${OCL_SOURCE_DIR}/tests/test_common )
+
 set( IGNORE_FILES clBuildCubinProgram|clBuildProgram.cpp|clCreateCudaKernel|clCreateKernelCpuGpu|clCreateQueue )
 
 FIND_SOURCES( ${IGNORE_FILES} )
