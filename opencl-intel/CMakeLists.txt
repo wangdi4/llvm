@@ -283,19 +283,12 @@ project(OCL)
 
 # GIT
 if (GIT_REVISIONS)
-
-	set (git_cmd "git")
-	set (git_arg "describe")
-	set (git_ver 0)
-	execute_process(COMMAND ${git_cmd} ${git_arg}
-		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-		RESULT_VARIABLE git_result
-		OUTPUT_VARIABLE git_ver)		
-	set(GIT_DESCRIPTION   ${git_ver})
-	set(GIT_VERIONING 0)
-	STRING(REGEX REPLACE "trunk-" "" GIT_VERIONING ${GIT_DESCRIPTION})
-	STRING(REGEX REPLACE "-[0-9a-z]+" "" GIT_VERIONING ${GIT_VERIONING})
-	math(EXPR BUILDVER_WC_REVISION "0 + ${GIT_VERIONING}")
+    find_package(Git REQUIRED)
+    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --long
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                    OUTPUT_VARIABLE GIT_DESCRIPTION)
+    STRING(REGEX MATCH ".+-([0-9]*)-[0-9a-zA-Z]+" GIT_VERSION ${GIT_DESCRIPTION})
+    math(EXPR BUILDVER_WC_REVISION "0 + ${CMAKE_MATCH_1}")
 else ()
     set( BUILDVER_WC_REVISION 0)
 endif (GIT_REVISIONS)
@@ -561,7 +554,7 @@ else (WIN32)
     install(FILES setup/llvm_release_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/apache_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/boost_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
 
     install(FILES setup/bom_files/installer_content_linux.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
