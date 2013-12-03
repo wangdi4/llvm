@@ -171,11 +171,11 @@ foreach( LLVM_INCLUDE_DIR_ITEM ${LLVM_INCLUDE_DIR} )
   set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${LLVM_INCLUDE_DIR_ITEM})
 endforeach( LLVM_INCLUDE_DIR_ITEM)
 
-# Adding include path for "micintrin.h", "micintrin_mici64ext.h"
-if(INCLUDE_MIC_DEVICE)
+# Adding include path for "micintrin.h", "micintrin_mici64ext.h" and "knlintrin.h"
+if(INCLUDE_MIC_DEVICE OR ENABLE_KNL)
   set(MIC_HEADERS_DIR ${LLVM_LIBRARY_DIR}/clang/3.2/include)
   set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${MIC_HEADERS_DIR})
-endif(INCLUDE_MIC_DEVICE)
+endif(INCLUDE_MIC_DEVICE OR ENABLE_KNL)
 
 set (CLANG_COMPILER_PARAMS
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
