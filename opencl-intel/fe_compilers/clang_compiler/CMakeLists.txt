@@ -119,6 +119,8 @@ target_link_libraries( ${TARGET_NAME}
                        CLElfLib
                        OclPluginManager
                        metadataapi
+                       dynamic_load
+                       cl_sys_utils
                        SPIRMetadataAdder
                        ${LLVM_MODULE_LIBS}
 )
