@@ -9,7 +9,7 @@
 
 #include "include/MICCodeGenerationEngine.h"
 
-#include "passes/OpenCLAliasAnalysisSupport/OpenCLAliasAnalysis.h"
+#include "llvm/Analysis/OpenCLAliasAnalysis.h"
 
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
