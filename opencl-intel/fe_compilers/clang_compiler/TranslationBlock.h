@@ -28,7 +28,6 @@ Notes:
 
 #include <stdint.h>
 #include <stddef.h>
-#include <stdio.h>
 
 #if defined(_WIN32)
     #include <windows.h>
@@ -64,12 +63,14 @@ extern "C" TRANSLATION_BLOCK_API void __cdecl Register( STB_RegisterArgs* pRegis
 extern "C" TRANSLATION_BLOCK_API CTranslationBlock* __cdecl Create( STB_CreateArgs* pCreateArgs );
 extern "C" TRANSLATION_BLOCK_API void __cdecl Delete( CTranslationBlock* pBlock );
 extern "C" TRANSLATION_BLOCK_API void __cdecl GetKernelArgsInfo( const void *pBin, const char *szKernelName, STB_GetKernelArgsInfoArgs* pKernelArgsInfo );
+extern "C" TRANSLATION_BLOCK_API void __cdecl ReleaseKernelArgsInfo( STB_GetKernelArgsInfoArgs* pKernelArgsInfo );
 #else 
 // Functions required to be defined by all translation blocks
 extern "C" TRANSLATION_BLOCK_API void __attribute__((cdecl))  Register( STB_RegisterArgs* pRegisterArgs );
 extern "C" TRANSLATION_BLOCK_API CTranslationBlock* __attribute__((cdecl))  Create( STB_CreateArgs* pCreateArgs );
 extern "C" TRANSLATION_BLOCK_API void __attribute__((cdecl))  Delete( CTranslationBlock* pBlock );
 extern "C" TRANSLATION_BLOCK_API void __attribute__((cdecl))  GetKernelArgsInfo( const void *pBin, const char *szKernelName, STB_GetKernelArgsInfoArgs* pKernelArgsInfo );
+extern "C" TRANSLATION_BLOCK_API void __attribute__((cdecl))  ReleaseKernelArgsInfo( STB_GetKernelArgsInfoArgs* pKernelArgsInfo );
 #endif
 
 /******************************************************************************\
@@ -107,8 +108,8 @@ enum TB_DATA_FORMAT
     TB_DATA_FORMAT_DEVICE_BINARY,
     TB_DATA_FORMAT_LLVM_ARCHIVE,
     TB_DATA_FORMAT_ELF,
-    TB_DATA_FORMAT_X86_BINARY,
-    TB_DATA_FORMAT_Y86_BINARY,
+    TB_DATA_FORMAT_RS_LLVM_BINARY,
+    TB_DATA_FORMAT_RS_INFO,
     NUM_TB_DATA_FORMATS
 };
 
@@ -150,7 +151,7 @@ struct STB_CreateArgs
     STB_CreateArgs()
     {
         TranslationCode.Code = 0;
-        deviceType = TB_DEVICE_CPU;
+        deviceType = TB_DEVICE_UNKNOWN;
         pCreateData = NULL;
     }
 };
@@ -252,7 +253,23 @@ Description:
     Structure used to hold data returned from the GetKernelArgeInfo
 
 \******************************************************************************/
-struct KERNEL_ARG_INFO
+enum TB_KERNEL_ARG_ACC_QUAL
+{
+    TB_KERNEL_ARG_ACC_QUAL_READ_ONLY  = 0,
+    TB_KERNEL_ARG_ACC_QUAL_WRITE_ONLY = 1,
+    TB_KERNEL_ARG_ACC_QUAL_READ_WRITE = 2,
+    TB_KERNEL_ARG_ACC_QUAL_NONE       = 3
+};
+
+enum TB_KERNEL_ARG_TYPE_QUAL
+{
+    TB_KERNEL_ARG_TYPE_QUAL_NONE     = 0,
+    TB_KERNEL_ARG_TYPE_QUAL_CONST    = 1,
+    TB_KERNEL_ARG_TYPE_QUAL_RESTRICT = 2,
+    TB_KERNEL_ARG_TYPE_QUAL_VOLATILE = 4
+};
+
+struct ARG_INFO
 {
     char* name;                  // pointer to name specified for the argument
     char* typeName;              // pointer to type name specified for the argument
@@ -263,9 +280,9 @@ struct KERNEL_ARG_INFO
 
 struct STB_GetKernelArgsInfoArgs
 {
-    uint32_t         m_numArgs;      // number of arguments to the kernel
-    KERNEL_ARG_INFO* m_argsInfo;     // pointer to argument info structures
-	int32_t          m_retValue;     // return value
+    uint32_t    m_numArgs;      // number of arguments to the kernel
+    ARG_INFO*   m_argsInfo;     // pointer to argument info structures
+	int32_t     m_retValue;     // return value
 
     STB_GetKernelArgsInfoArgs()
     {
