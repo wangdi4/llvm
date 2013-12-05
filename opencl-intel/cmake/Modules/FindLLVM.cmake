@@ -27,7 +27,6 @@ if(WIN32)
 		LLVMIRReader 
 		LLVMAsmParser 
 		LLVMTableGen 
-		LLVMOpenCLAliasAnalysisSupport
 		LLVMMICModuleJIT
 		LLVMDebugInfo 
 		LLVMX86AsmParser 
@@ -95,7 +94,6 @@ else()
 		LLVMIRReader 
 		LLVMAsmParser 
 		LLVMTableGen 
-		LLVMOpenCLAliasAnalysisSupport
 		LLVMMICModuleJIT
 		LLVMDebugInfo 
 		LLVMX86AsmParser 

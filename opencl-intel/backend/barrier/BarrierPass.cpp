@@ -65,15 +65,12 @@ namespace intel {
 
     //Fix non inlined internal functions that need special handling
     //Run over functions with synchronize instruction:
-    // 1. Handle non-inline functions
-    // 2. Handle call instructions to non-inline functions
+    // 1. Handle call instructions to non-inline functions
     for ( TFunctionSet::iterator fi = functionsWithSync.begin(),
         fe = functionsWithSync.end(); fi != fe; ++fi ) {
       Function* pFuncToFix = *fi;
-      //Create fixed version of the function with extra offset parameters
-      fixNonInlineFunction(pFuncToFix);
 
-      //Run over old uses of pFuncToFix and replace with call to pNewFunc
+      //Run over old uses of pFuncToFix and prepare parameters as needed.
       for ( Value::use_iterator ui = pFuncToFix->use_begin(),
           ue = pFuncToFix->use_end(); ui != ue; ++ui ) {
         CallInst *pCallInst = dyn_cast<CallInst>(*ui);
@@ -81,6 +78,13 @@ namespace intel {
         //Handle call instruction operands and return value, if needed.
         fixCallInstruction(pCallInst);
       }
+    }
+    // 2. Handle non-inline functions
+    for ( TFunctionSet::iterator fi = functionsWithSync.begin(),
+        fe = functionsWithSync.end(); fi != fe; ++fi ) {
+      Function* pFuncToFix = *fi;
+      //Load arguments from special buffer at specific offset as needed.
+      fixNonInlineFunction(pFuncToFix);
     }
 
     //Run over functions with synchronize instruction:

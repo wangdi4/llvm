@@ -131,7 +131,7 @@ static string DescribeArrayType(const DICompositeType& di_type)
         DISubrange subrange_elem(static_cast<MDNode*>(elem));
         uint64_t high_range = subrange_elem.getCount();
 
-        type_str += "[" + stringify(high_range + 1) + "]";
+        type_str += "[" + stringify(high_range) + "]";
     }
 
     return type_str;
@@ -408,7 +408,7 @@ static VarTypeDescriptor GenerateVarTypeArray(const DICompositeType& di_array)
         assert(di_range_i.isSubrange());
         DISubrange di_subrange(static_cast<MDNode*>(di_range_i));
         uint64_t high_range = di_subrange.getCount();
-        array_descriptor.add_dimensions(high_range + 1);
+        array_descriptor.add_dimensions(high_range);
     }
 
     VarTypeDescriptor descriptor;
