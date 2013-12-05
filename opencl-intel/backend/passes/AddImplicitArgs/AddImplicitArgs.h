@@ -89,6 +89,8 @@ namespace intel {
 
     Type* m_struct_PaddedDimId;
     Type* m_struct_WorkDim;
+    /// ExtendedExecutionContext opaque type
+    Type * m_struct_ExtendedExecutionContextType;
 
     Function* m_pFunc;
     Function* m_pNewF;

@@ -50,11 +50,11 @@ entry:
 ; CHECK-NEXT: [[IMPLCT_ARG8_CURR_WORKITEM:%[a-zA-Z0-9]+]] = alloca i32
 
 ; CHECK-NEXT: [[IMPLCT_ARG9_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 24
-; CHECK-NEXT: [[IMPLCT_ARG9_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[IMPLCT_ARG9_BUFF_IDX]] to i8**
-; CHECK-NEXT: [[IMPLCT_ARG9:%[a-zA-Z0-9]+]] = load i8** [[IMPLCT_ARG9_TYPECAST]], align 4
+; CHECK-NEXT: [[IMPLCT_ARG9_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[IMPLCT_ARG9_BUFF_IDX]] to %struct.ExtendedExecutionContext**
+; CHECK-NEXT: [[IMPLCT_ARG9:%[a-zA-Z0-9]+]] = load %struct.ExtendedExecutionContext** [[IMPLCT_ARG9_TYPECAST]], align 4
 
 ;; call original func
-; CHECK: call void @__t1_separated_args(i8 addrspace(3)* [[IMPLCT_ARG0_TYPECAST]], { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* [[IMPLCT_ARG1]], i32* [[IMPLCT_ARG2]], <{ [4 x i32] }>* [[IMPLCT_ARG3]], i32* [[IMPLCT_ARG4]], <{ [4 x i32] }>* [[IMPLCT_ARG5]], i32 [[IMPLCT_ARG6]], i8* [[IMPLCT_ARG7_BARRIER_BUFF]], i32* [[IMPLCT_ARG8_CURR_WORKITEM]], i8* [[IMPLCT_ARG9]])
+; CHECK: call void @__t1_separated_args(i8 addrspace(3)* [[IMPLCT_ARG0_TYPECAST]], { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* [[IMPLCT_ARG1]], i32* [[IMPLCT_ARG2]], <{ [4 x i32] }>* [[IMPLCT_ARG3]], i32* [[IMPLCT_ARG4]], <{ [4 x i32] }>* [[IMPLCT_ARG5]], i32 [[IMPLCT_ARG6]], i8* [[IMPLCT_ARG7_BARRIER_BUFF]], i32* [[IMPLCT_ARG8_CURR_WORKITEM]], %struct.ExtendedExecutionContext* [[IMPLCT_ARG9]])
 ; CHECK-NEXT: ret void
 
 !opencl.kernels = !{!0}

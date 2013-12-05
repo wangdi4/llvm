@@ -29,11 +29,11 @@ entry:
 ; CHECK:            i32 [[ITER_COUNT:%[a-zA-Z0-9]+]], 
 ; CHECK:            i8* noalias [[P_SPECIAL_BUFFER:%[a-zA-Z0-9]+]], 
 ; CHECK:            i32* noalias [[P_CURRECT_WI:%[a-zA-Z0-9]+]],
-; CHECK:            i8* noalias [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) {
+; CHECK:            %struct.ExtendedExecutionContext* noalias [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   %res = add i32 100, 10
 ; CHECK-NEXT:   ret void
 
 ; CHECK:        !opencl.kernels = !{!0, !1}
-; CHECK:        !0 = metadata !{void (i32, i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }*, i32*, <{ [4 x i32] }>*, i32*, <{ [4 x i32] }>*, i32, i8*, i32*, i8*)* @functionWithBody}
+; CHECK:        !0 = metadata !{void (i32, i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }*, i32*, <{ [4 x i32] }>*, i32*, <{ [4 x i32] }>*, i32, i8*, i32*, %struct.ExtendedExecutionContext*)* @functionWithBody}
 ; CHECK-NEXT:   !1 = metadata !{void (i32, i32)* @functionWithoutBody}

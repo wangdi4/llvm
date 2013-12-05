@@ -29,7 +29,7 @@ entry:
 ; CHECK:            i32 [[ITER_COUNT:%[a-zA-Z0-9]+]], 
 ; CHECK:            i8* noalias [[P_SPECIAL_BUFFER:%[a-zA-Z0-9]+]], 
 ; CHECK:            i32* noalias [[P_CURRECT_WI:%[a-zA-Z0-9]+]], 
-; CHECK:            i8* noalias [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) {
+; CHECK:            %struct.ExtendedExecutionContext* noalias [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   call void @functionWithoutArgs()
 ; CHECK-NEXT:   %res = call i32 @functionWithArgs(i32 %x, i32 %y)

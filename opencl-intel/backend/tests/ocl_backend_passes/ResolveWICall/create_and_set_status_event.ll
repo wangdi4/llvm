@@ -6,16 +6,16 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 define void @test_create_event_and_set_event_status() nounwind {
 entry:
-  ; CHECK: call {{.*}} @ocl20_create_user_event
-  ; CHECK-NOT: call {{.*}} @_Z17create_user_eventv()
+  ; CHECK: call %opencl.clk_event_t* @ocl20_create_user_event
   %event = call %opencl.clk_event_t* @_Z17create_user_eventv() nounwind
   ; CHECK: call void @ocl20_set_user_event_status
-  ; CHECK-NOT: call {{.*}} _Z21set_user_event_status13ocl_clk_eventi
   call void @_Z21set_user_event_status13ocl_clk_eventi(%opencl.clk_event_t* %event, i32 0) nounwind
   ret void
 }
 
+; CHECK: declare %opencl.clk_event_t* @ocl20_create_user_event
 declare %opencl.clk_event_t* @_Z17create_user_eventv()
+; CHECK: declare void @ocl20_set_user_event_status
 declare void @_Z21set_user_event_status13ocl_clk_eventi(%opencl.clk_event_t*, i32)
 
 !opencl.compiler.options = !{!2}
