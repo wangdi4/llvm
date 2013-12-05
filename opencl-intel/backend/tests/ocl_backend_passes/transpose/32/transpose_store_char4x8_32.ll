@@ -38,9 +38,9 @@ declare void @__ocl_transpose_store_char_4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn
 
 ;CHECK-AVX2:   .type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX2:   [[FOO]]
-;CHECK-AVX2:   vperm2i128	$32, [[YMM3:%ymm[0-9]+]], [[YMM1:%ymm[0-9]+]], [[YMM4:%ymm[0-9]+]]
+;CHECK-AVX2:   vinserti128	$1, [[XMM3:%xmm[0-9]+]], [[YMM1:%ymm[0-9]+]], [[YMM4:%ymm[0-9]+]]
 ;CHECK-AVX2:   vpshufb	[[YMM5:%ymm[0-9]+]], [[YMM4]], [[YMM41:%ymm[0-9]+]]
-;CHECK-AVX2:   vperm2i128	$32, [[YMM2:%ymm[0-9]+]], [[YMM0:%ymm[0-9]+]], [[YMM6:%ymm[0-9]+]]
+;CHECK-AVX2:   vinserti128	$1, [[XMM2:%xmm[0-9]+]], [[YMM0:%ymm[0-9]+]], [[YMM6:%ymm[0-9]+]]
 ;CHECK-AVX2:   vpshufb	[[YMM5]], [[YMM6]], [[YMM51:%ymm[0-9]+]]
 ;CHECK-AVX2:   vpunpcklbw	[[YMM41]], [[YMM51]], [[YMM42:%ymm[0-9]+]]
 ;CHECK-AVX2:   vmovdqa	[[LCPI:.[_A-Z0-9]+]], [[YMM52:%ymm[0-9]+]]
@@ -51,5 +51,3 @@ declare void @__ocl_transpose_store_char_4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn
 ;CHECK-AVX2:   vpaddw	[[XMM2]], [[XMM0]], [[XMM01:%xmm[0-9]+]]
 ;CHECK-AVX2:   ret
 ;CHECK-AVX2:   .type	 [[TRANSPOSE:[_a-z]+]]_store_char_4x8,@function
-
-

@@ -38,9 +38,9 @@ declare void @__ocl_transpose_store_float_4x4(<4 x float>* nocapture %pStoreAdd,
 
 ;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX2:    [[FOO]]:
-;CHECK-AVX2:	vperm2f128	$32, [[YMM3:%ymm[0-9]+]], [[YMM2:%ymm[0-9]+]], [[YMM4:%ymm[0-9]+]]
+;CHECK-AVX2:	vinsertf128	$1, [[XMM3:%xmm[0-9]+]], [[YMM2:%ymm[0-9]+]], [[YMM4:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpermps	[[YMM4]], [[YMM5:%ymm[0-9]+]], [[YMM41:%ymm[0-9]+]]
-;CHECK-AVX2:	vperm2f128	$32, [[YMM1:%ymm[0-9]+]], [[YMM0:%ymm[0-9]+]], [[YMM5:%ymm[0-9]+]]
+;CHECK-AVX2:	vinsertf128	$1, [[XMM1:%xmm[0-9]+]], [[YMM0:%ymm[0-9]+]], [[YMM5:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpermps	[[YMM5]], [[YMM6:%ymm[0-9]+]], [[YMM51:%ymm[0-9]+]]
 ;CHECK-AVX2:	vblendps	$204, [[YMM41]], [[YMM51]], [[YMM61:%ymm[0-9]+]]
 ;CHECK-AVX2:	vmovups	[[YMM61]], ([[EAX:%[a-z]+]])
