@@ -5,7 +5,6 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #include "Packetizer.h"
-#include "Mangler.h"
 #include "VectorizerUtils.h"
 #include "FunctionDescriptor.h"
 #include "FakeExtractInsert.h"
@@ -32,18 +31,6 @@ EnableScatterGatherSubscript("subscript", cl::init(false), cl::Hidden,
 static cl::opt<bool>
 EnableScatterGatherSubscript_v4i8("subscript-v4i8", cl::init(false), cl::Hidden,
   cl::desc("Enable vectorized scatter/gather operations on v4i8 data types"));
-
-// Following check to be removed once Resolver handles scatter/gathers of
-// types not supported by target.  For now, refrain from generating them.
-static bool isGatherScatterType(VectorType *VecTy) {
-  unsigned NumElements = VecTy->getNumElements();
-  Type *ElemTy = VecTy->getElementType();
-  if (EnableScatterGatherSubscript_v4i8 &&
-      (NumElements == 4) &&
-      (ElemTy->isIntegerTy(8)))
-    return true;
-  return (NumElements == 16); // all types are supported natively for MIC
-}
 
 // Before packetizing memory operations, replace aligment of zero with an
 // explicit value, otherwise we will be erroneously increasing the alignment while packetizing
@@ -720,6 +707,21 @@ void PacketizeFunction::packetizeInstruction(CmpInst *CI)
   m_removedInsts.insert(CI);
 }
 
+// Following check to be removed once Resolver handles scatter/gathers of
+// types not supported by target.  For now, refrain from generating them.
+bool PacketizeFunction::isGatherScatterType(bool masked,
+                                Mangler::GatherScatterType type,
+                                VectorType *VecTy) {
+  unsigned NumElements = VecTy->getNumElements();
+  Type *ElemTy = VecTy->getElementType();
+  if (EnableScatterGatherSubscript_v4i8 &&
+      (NumElements == 4) &&
+      (ElemTy->isIntegerTy(8)))
+    return true;
+  std::string gatherScatterName = Mangler::getGatherScatterName(masked, type, VecTy);
+  Function* gatherScatterFunc = m_rtServices->findInRuntimeModule(gatherScatterName);
+  return (gatherScatterFunc != NULL);
+}
 
 Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   V_ASSERT(MO.Base && MO.Index && "Bad base and index operands");
@@ -746,11 +748,29 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
   VectorType *VecElemTy = VectorType::get(ElemTy, m_packetWidth);
 
+  Mangler::GatherScatterType type = Mangler::Scatter;
+
+  switch (MO.type) {
+  case STORE:
+    type = Mangler::Scatter;
+    break;
+  case LOAD:
+    type = Mangler::Gather;
+    break;
+  case PREFETCH:
+    type = Mangler::GatherPrefetch;
+    break;
+  default:
+    V_ASSERT(false && "Invalid memory type");
+  }
+
   // Check if this type is supported and if we have a name for it
-  if (!isGatherScatterType(VecElemTy)) {
+  if (!isGatherScatterType(MO.Mask, type, VecElemTy)) {
+    // No proper gather/scatter function for this load and packet width
     V_PRINT(gather_scatter_stat, "PACKETIZER: UNSUPPORTED TYPE" << *MO.Orig << "\n");
     return NULL;
   }
+
   Type *i1Ty = Type::getInt1Ty(MO.Orig->getContext());
   Type *i32Ty = Type::getInt32Ty(MO.Orig->getContext());
 
@@ -819,7 +839,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     V_ASSERT(MO.Index->getType()->isVectorTy() && "index of scatter/gather is not a vector!");
     Type *indexType = cast<VectorType>(MO.Index->getType())->getElementType();
     Constant *vecWidthVal = ConstantInt::get(indexType, vectorWidth);
-    
+
     // Not replacing with ConstantDataVector here because the type isn't known to be
     // compatible.
     vecWidthVal = ConstantVector::getSplat(m_packetWidth, vecWidthVal);
@@ -853,22 +873,6 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   Type *RetTy = Type::getVoidTy(VecElemTy->getContext());
   if (!MO.Orig->getType()->isVoidTy()) {
     RetTy = VecElemTy;
-  }
-
-  Mangler::GatherScatterType type = Mangler::Scatter;
-
-  switch (MO.type) {
-  case STORE:
-    type = Mangler::Scatter;
-    break;
-  case LOAD:
-    type = Mangler::Gather;
-    break;
-  case PREFETCH:
-    type = Mangler::GatherPrefetch;
-    break;
-  default:
-    V_ASSERT(false && "Invalid memory type");
   }
 
   std::string name = Mangler::getGatherScatterInternalName(type, MO.Mask->getType(), VecElemTy, IndexTy);
@@ -1186,7 +1190,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
     DT = cast<PointerType>(MO.Ptr->getType())->getElementType();
     break;
   default:
-    V_ASSERT(0 && "Unsupported memory operation type");    
+    V_ASSERT(0 && "Unsupported memory operation type");
   }
 
   bool isVectorPrefetch = DT->isVectorTy() &&  MO.type == PREFETCH;
