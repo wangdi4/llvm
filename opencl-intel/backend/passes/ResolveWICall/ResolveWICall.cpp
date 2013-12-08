@@ -829,6 +829,7 @@ namespace intel {
       return true;
   }
 
+#if 0
   Value* ResolveWICall::updateExtExecFunction(std::vector<Value*> Params, const StringRef FunctionName, CallInst *pCall)
   {
     // implicitly add Extended Execution Context
@@ -889,15 +890,19 @@ namespace intel {
     }
     return ret;
   }
-
+#endif
   std::vector<Value*> ResolveWICall::getExtExecFunctionParams(CallInst *pCall)
   {
     return std::vector<Value*>(pCall->op_begin(), pCall->op_begin() + pCall->getNumArgOperands() );
   }
 
   std::vector<Value*> ResolveWICall::getEnqueueKernelLocalMemFunctionParams(CallInst *pCall, const uint32_t FixedArgs){
+#if 0
     assert( m_pExtendedExecutionCtx && 
       "Extended Execution Context pointer m_pExtendedExecutionCtx not created as expected" );
+#else
+    assert(false && "Not implemented!");
+#endif
 
     // copy arguments from initial call except size0, size1, ...
     std::vector<Value*> params(pCall->op_begin(), pCall->op_begin() + FixedArgs);
