@@ -55,13 +55,13 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
     };
 
     class ClangFECompilerCompileTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult, ClangFETask
-	{
-	public:
-		ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
-																Intel::OpenCL::ClangFE::CLANG_DEV_INFO pszDeviceInfo,
+  {
+  public:
+    ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
+                                Intel::OpenCL::ClangFE::CLANG_DEV_INFO pszDeviceInfo,
                                                                 const Intel::OpenCL::Utils::BasicCLConfigWrapper& config);
-		
-		int Compile();
+    
+    int Compile();
         #ifdef _WIN32
         int StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType);
         void ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs );

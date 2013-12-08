@@ -3,6 +3,9 @@
 #  OCL_SOURCE_DIR    - points to the top src directory
 #  OCL_BINARY_DIR    - points to the directory outside of OCL_SOURCE_DIR - root of generated files
 #
+use_eh(TRUE)
+use_rtti(FALSE)
+
 if( WIN32 )
     add_subdirectory( CLElfLib  )
 endif()

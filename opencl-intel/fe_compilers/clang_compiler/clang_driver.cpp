@@ -80,12 +80,14 @@
 #include <Logger.h>
 #include <cl_sys_info.h>
 #include <cl_cpu_detect.h>
+#include <cl_autoptr_ex.h>
 
 #include <string>
 #include <list>
 #include <vector>
 #include <cctype>
 #include <algorithm>
+
 using namespace Intel::OpenCL::ClangFE;
 using namespace llvm;
 #ifndef _WIN32
@@ -106,6 +108,20 @@ namespace llvm {
   //
   ModulePass *createSPIRMetadataAdderPass(const std::list<std::string> BuildOpt = std::list<std::string>(), int OCLVer = 120 );
 }
+
+
+//===----------------------------------------------------------------------===//
+// ElfWriterDP- ElfWriter delete policy for autoptr.
+//
+struct ElfWriterDP
+{
+    static void Delete(CLElfLib::CElfWriter* pElfWriter)
+    {
+        CLElfLib::CElfWriter::Delete(pElfWriter);
+    }
+};
+typedef auto_ptr_ex<CLElfLib::CElfWriter, ElfWriterDP> ElfWriterPtr;
+
 
 #if defined (_WIN32)
 #define GET_CURR_WORKING_DIR(len, buff) GetCurrentDirectoryA(len, buff)
@@ -233,25 +249,24 @@ static vector<string> quoted_tokenize(string str, string delims, char quote, cha
 
 // ClangFECompilerCompileTask calls implementation
 ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
-																												Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo,
-                                                                                                                const Intel::OpenCL::Utils::BasicCLConfigWrapper& config)
-: m_pProgDesc(pProgDesc), m_sDeviceInfo(sDeviceInfo), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0), m_config(config)
+                                                       Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo,
+                                                       const Intel::OpenCL::Utils::BasicCLConfigWrapper& config)
+: m_pProgDesc(pProgDesc), 
+  m_sDeviceInfo(sDeviceInfo), 
+  m_pOutIR(NULL), 
+  m_stOutIRSize(0), 
+  m_pLogString(NULL), 
+  m_stLogSize(0), 
+  m_config(config)
 {
-  Twine t(g_uiProgID++);
-  m_source_filename = t.str();
+    Twine t(g_uiProgID++);
+    m_source_filename = t.str();
 }
 
 ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
 {
-    if ( NULL != m_pOutIR )
-    {
-        delete []m_pOutIR;
-    }
-
-    if ( NULL != m_pLogString )
-    {
-        delete []m_pLogString;
-    }
+    delete m_pOutIR;
+    delete m_pLogString;
 }
 
 void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListType &BEArgList, const char *buildOpts)
@@ -304,19 +319,19 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 
 #ifndef PASS_PCH
     char szOclIncPath[MAX_STR_BUFF];
-    char  szOclPchPath[MAX_STR_BUFF];
+    char szOclPchPath[MAX_STR_BUFF];
 
-  SPRINTF_S(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
-  SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%s%s", szBinaryPath, pchFileName);
+    SPRINTF_S(szOclIncPath, MAX_STR_BUFF, "%sfe_include", szBinaryPath);
+    SPRINTF_S(szOclPchPath, MAX_STR_BUFF, "%s%s", szBinaryPath, pchFileName);
 
-  list.push_back("-I");
-  list.push_back(szOclIncPath);
+    list.push_back("-I");
+    list.push_back(szOclIncPath);
 
-  list.push_back("-include-pch");
-  list.push_back(szOclPchPath);
+    list.push_back("-include-pch");
+    list.push_back(szOclPchPath);
 #else
-  list.push_back("-include-pch");
-  list.push_back(pchFileName);
+    list.push_back("-include-pch");
+    list.push_back(pchFileName);
 #endif
 
     list.push_back("-fno-validate-pch");
@@ -326,28 +341,30 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     list.push_back("-I");
     list.push_back(szCurrDirrPath);
 
-	//Add OpenCL predefined macros
-	list.push_back("-D");
-	list.push_back("__OPENCL_VERSION__=120");
-	list.push_back("-D");
-	list.push_back("CL_VERSION_1_0=100");
-	list.push_back("-D");
-	list.push_back("CL_VERSION_1_1=110");
-	list.push_back("-D");
-	list.push_back("CL_VERSION_1_2=120");
-	list.push_back("-D");
-	list.push_back("CL_VERSION_2_0=200");
-	list.push_back("-D");
-	list.push_back("__ENDIAN_LITTLE__=1");
-	list.push_back("-D");
-	list.push_back("__ROUNDING_MODE__=rte");	
-	if(m_sDeviceInfo.bImageSupport) {
-		list.push_back("-D");
-		list.push_back("__IMAGE_SUPPORT__=1");	
-	}
-	if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) {
-        OptProfiling = true;
+    //Add OpenCL predefined macros
+    list.push_back("-D");
+    list.push_back("__OPENCL_VERSION__=120");
+    list.push_back("-D");
+    list.push_back("CL_VERSION_1_0=100");
+    list.push_back("-D");
+    list.push_back("CL_VERSION_1_1=110");
+    list.push_back("-D");
+    list.push_back("CL_VERSION_1_2=120");
+    list.push_back("-D");
+    list.push_back("CL_VERSION_2_0=200");
+    list.push_back("-D");
+    list.push_back("__ENDIAN_LITTLE__=1");
+    list.push_back("-D");
+    list.push_back("__ROUNDING_MODE__=rte");	
 
+    if(m_sDeviceInfo.bImageSupport) 
+    {
+        list.push_back("-D");
+        list.push_back("__IMAGE_SUPPORT__=1");	
+    }
+    if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) 
+    {
+        OptProfiling = true;
         if (!OptDebugInfo)
         {
             list.push_back("-g");
@@ -355,7 +372,6 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
             list.push_back("-main-file-name");
             list.push_back(m_source_filename.c_str());
         }
-        
     }
 
     // Add extension defines
@@ -385,7 +401,8 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     // Don't optimize in the frontend
     list.push_back("-O0");
     list.push_back("-triple");
-    if(triple.empty()) {
+    if(triple.empty()) 
+    {
 #if defined(_WIN64) || defined(__x86_64__) || defined(_M_AMD64) || defined (_M_X64)
         list.push_back("spir64-unknown-unknown");
 #elif defined(_WIN32) || defined(i386) || defined(__i386__) || defined(__x86__) || defined(__ANDROID__)
@@ -393,7 +410,9 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 #else
   #error "Can't define target triple: unknown architecture."
 #endif
-    } else {
+    } 
+    else
+    {
         list.push_back(triple);
     }
 }
@@ -568,166 +587,118 @@ int ClangFECompilerCompileTask::Compile()
   LOG_INFO(TEXT("%s"), TEXT("enter"));
 
   OclAutoMutex CS(&s_serializingMutex);
+  
+  try
   {   // create a new scope to make sure the mutex will be released last
 
-  // Prepare argument list
-  ArgListType ArgList;
-  m_BEArgList.clear();
+    // Prepare argument list
+    ArgListType ArgList;
+    m_BEArgList.clear();
 
-  PrepareArgumentList(ArgList, m_BEArgList, m_pProgDesc->pszOptions);
+    PrepareArgumentList(ArgList, m_BEArgList, m_pProgDesc->pszOptions);
 
 #ifdef _WIN32
-    cl_int retVal = CL_SUCCESS;
-    CLElfLib::CElfWriter* pElfWriter = NULL;
-    char *pCompileData = NULL;
-    cl_uint CompileDataSize = 0;
-    TC::STC_TranslateArgs TranslateArgs;
-    char *pCompileOptions;
-    cl_uint OptionsStrLen = 0;
-
-    // Calculate new options string size
-    ArgListType::iterator iter = ArgList.begin();
-    for(unsigned int i=0; i<ArgList.size(); i++)
-    {
-       OptionsStrLen += strlen(iter->c_str())+1;
-       iter++;
-    }
-
     // Allocate the new options string and fill it
-    pCompileOptions = new char[OptionsStrLen+1];
-    if ( pCompileOptions )
+    std::string compileOptions;
+    for( ArgListType::iterator iter = ArgList.begin(); iter != ArgList.end(); ++iter )
     {
-        pCompileOptions[0] = '\0';
-
-        iter = ArgList.begin();
-        for(unsigned int i=0; i<ArgList.size(); i++)
+        compileOptions.append(*iter);
+        if( *iter != "-D" && *iter != "-I" )
         {
-            strcat(pCompileOptions, iter->c_str());
             // If the string is "-D" or "-I" - it is not allowed to add a space
-            if( strcmp("-D", iter->c_str()) && strcmp("-I", iter->c_str()) )
-            {
-                strcat(pCompileOptions, " ");
-            }
-            iter++;
+            compileOptions.append(" ");
         }
-    }
-    else {
-        retVal = CL_OUT_OF_HOST_MEMORY;
     }
 
     // Create the input ELF binary
-    pElfWriter = CLElfLib::CElfWriter::Create( 
-            CLElfLib::EH_TYPE_OPENCL_SOURCE, CLElfLib::EH_MACHINE_NONE, 0 );
-    llvm::MemoryBuffer *pchBuff = (llvm::MemoryBuffer *)LoadPchResourceBuffer();
-
-    if( pElfWriter != NULL)
+    ElfWriterPtr pElfWriter( CLElfLib::CElfWriter::Create( CLElfLib::EH_TYPE_OPENCL_SOURCE, 
+                                                           CLElfLib::EH_MACHINE_NONE, 
+                                                           0 ) );
+    if( !pElfWriter.get() )
     {
-        CLElfLib::SSectionNode sectionNode;
+        throw std::bad_alloc();
+    }
 
-        // create main section
-        sectionNode.Name = "CLMain";
-        sectionNode.pData = (char *)m_pProgDesc->pProgramSource;
-        sectionNode.DataSize = strlen( m_pProgDesc->pProgramSource );
+    std::auto_ptr<llvm::MemoryBuffer> pchBuff( (llvm::MemoryBuffer *)LoadPchResourceBuffer());
+    if( !pchBuff.get() )
+    {
+        LOG_ERROR(TEXT("%s"), "Failed to load pchBuff");
+        return CL_BUILD_PROGRAM_FAILURE;
+    }
+
+    CLElfLib::SSectionNode sectionNode;
+
+    // create main section
+    sectionNode.Name = "CLMain";
+    sectionNode.pData = (char *)m_pProgDesc->pProgramSource;
+    sectionNode.DataSize = strlen( m_pProgDesc->pProgramSource );
+    sectionNode.Flags = 0;
+    sectionNode.Type = CLElfLib::SH_TYPE_OPENCL_SOURCE;
+
+    // add main program's source
+    if( pElfWriter->AddSection( &sectionNode ) != CLElfLib::SUCCESS)
+    {
+        throw std::bad_alloc();
+    }
+
+    // add each header
+    for( UINT i = 0; i < m_pProgDesc->uiNumInputHeaders; i++ )
+    {
+        sectionNode.Name = m_pProgDesc->pszInputHeadersNames[i];
+        sectionNode.pData = (char *)m_pProgDesc->pInputHeaders[i];
+        sectionNode.DataSize = strlen( m_pProgDesc->pInputHeaders[i] );
+        sectionNode.Type  = CLElfLib::SH_TYPE_OPENCL_HEADER;
         sectionNode.Flags = 0;
-        sectionNode.Type = CLElfLib::SH_TYPE_OPENCL_SOURCE;
 
-        // add main program's source
-        pElfWriter->AddSection( &sectionNode );
-
-        // add each header
-        for( UINT i = 0; i < m_pProgDesc->uiNumInputHeaders; i++ )
+        if( pElfWriter->AddSection( &sectionNode ) != CLElfLib::SUCCESS )
         {
-            sectionNode.Name = m_pProgDesc->pszInputHeadersNames[i];
-            sectionNode.pData = (char *)m_pProgDesc->pInputHeaders[i];
-            sectionNode.DataSize = strlen( m_pProgDesc->pInputHeaders[i] );
-            sectionNode.Type  = CLElfLib::SH_TYPE_OPENCL_HEADER;
-            sectionNode.Flags = 0;
-
-            if( pElfWriter->AddSection( &sectionNode ) != CLElfLib::SUCCESS )
-            {
-                retVal = CL_OUT_OF_HOST_MEMORY;
-            }
+            throw std::bad_alloc();
         }
-
-        if( retVal == CL_SUCCESS )
-        {
-            // create PCH section
-            if( NULL != pchBuff )
-            {
-                sectionNode.Name = "CLPCH";
-                sectionNode.pData = const_cast<char*>(pchBuff->getBufferStart());
-                sectionNode.DataSize = pchBuff->getBufferSize();
-                sectionNode.Flags = 0;
-                sectionNode.Type = CLElfLib::SH_TYPE_OPENCL_PCH;
-
-                if( pElfWriter->AddSection( &sectionNode ) != CLElfLib::SUCCESS )
-                {
-                    retVal = CL_OUT_OF_HOST_MEMORY;
-                }
-            }
-            else
-            {
-                retVal = CL_BUILD_PROGRAM_FAILURE;
-                LOG_ERROR(TEXT("%s"), "Failed to load pchBuff");
-            }
-        }
-
-        if( retVal == CL_SUCCESS )
-        {
-            TC::STB_TranslationCode code = { TC::TB_DATA_FORMAT_ELF, TC::TB_DATA_FORMAT_LLVM_BINARY };
-
-            // Get resolved compiled data size and allocate
-            if( pElfWriter->ResolveBinary( pCompileData, CompileDataSize ) == CLElfLib::SUCCESS )
-            {
-                if( CompileDataSize )
-                {
-                    pCompileData = new char[CompileDataSize];
-                }
-            }
-
-            if( ( CompileDataSize && pCompileData ) &&
-                ( pElfWriter->ResolveBinary( pCompileData, CompileDataSize ) == CLElfLib::SUCCESS ) )
-            {
-                // create unique data for new thread
-                TranslateArgs.pInput = pCompileData;
-                TranslateArgs.InputSize = CompileDataSize;
-                TranslateArgs.ChainType = TC::TC_CHAIN_COMPILE;
-                TranslateArgs.Code = code;
-                TranslateArgs.Options = pCompileOptions;
-                TranslateArgs.pTask = this;
-
-                retVal = TC::CTranslationController::ProcessTranslation( &TranslateArgs);
-            }
-            else
-            {
-                retVal = CL_OUT_OF_HOST_MEMORY;
-            }
-        }
-
-        if( CompileDataSize )
-        {
-            delete[] pCompileData;
-            pCompileData = NULL;
-        }
-
-        if ( pchBuff )
-        {
-            delete pchBuff;
-        }
-        CLElfLib::CElfWriter::Delete( pElfWriter );
     }
-    else
+
+    sectionNode.Name = "CLPCH";
+    sectionNode.pData = const_cast<char*>(pchBuff->getBufferStart());
+    sectionNode.DataSize = pchBuff->getBufferSize();
+    sectionNode.Flags = 0;
+    sectionNode.Type = CLElfLib::SH_TYPE_OPENCL_PCH;
+
+    if( pElfWriter->AddSection( &sectionNode ) != CLElfLib::SUCCESS )
     {
-        retVal = CL_OUT_OF_HOST_MEMORY;
+        throw std::bad_alloc();
     }
 
-    if( pCompileOptions )
+    char *pCompileData = NULL;
+    cl_uint CompileDataSize = 0;
+    std::auto_ptr<char> spCompileData;
+
+    if( pElfWriter->ResolveBinary( pCompileData, CompileDataSize ) != CLElfLib::SUCCESS )
     {
-        delete[] pCompileOptions;
-        pCompileOptions = NULL;
+        throw std::bad_alloc();
     }
+
+    pCompileData = new char[CompileDataSize];
+    spCompileData.reset(pCompileData);
+
+    // Get resolved compiled data size and allocate
+    if( pElfWriter->ResolveBinary( pCompileData, CompileDataSize ) != CLElfLib::SUCCESS )
+    {
+        throw std::bad_alloc();
+    }
+
+    // create unique data for new thread
+    TC::STB_TranslationCode code = { TC::TB_DATA_FORMAT_ELF, TC::TB_DATA_FORMAT_LLVM_BINARY };
+    TC::STC_TranslateArgs TranslateArgs;
+
+    TranslateArgs.pInput = pCompileData;
+    TranslateArgs.InputSize = CompileDataSize;
+    TranslateArgs.ChainType = TC::TC_CHAIN_COMPILE;
+    TranslateArgs.Code = code;
+    TranslateArgs.Options = compileOptions.c_str();
+    TranslateArgs.pTask = this;
+
+    int retVal = TC::CTranslationController::ProcessTranslation( &TranslateArgs);
     LOG_INFO(TEXT("%s"), TEXT("Finished"));
-    return retVal;
+    return retVal ;
 #else
 
   const char **argArray = new const char *[ArgList.size()];
@@ -981,9 +952,13 @@ int ClangFECompilerCompileTask::Compile()
     LOG_INFO(TEXT("%s"), TEXT("Finished"));
 
     delete []argArray;
-
     return CL_SUCCESS;
+
 #endif
+  }
+  catch( std::bad_alloc& )
+  {
+      return CL_OUT_OF_HOST_MEMORY;
   }
 }
 
@@ -996,16 +971,10 @@ ClangFECompilerLinkTask::ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::F
 
 ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
 {
-    if ( NULL != m_pOutIR )
-    {
-        delete []m_pOutIR;
-    }
-
-    if ( NULL != m_pLogString )
-    {
-        delete []m_pLogString;
-    }
+  delete m_pOutIR;
+  delete m_pLogString;
 }
+
 #ifdef _WIN32
 int ClangFECompilerLinkTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType)
 {
@@ -1763,7 +1732,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     }    
 
     // all of the above must be valid
-	if ( !( pAddressQualifiers && pAccessQualifiers && pTypeNames && pTypeQualifiers /*&& pArgNames*/ ) ) {
+    if ( !( pAddressQualifiers && pAccessQualifiers && pTypeNames && pTypeQualifiers /*&& pArgNames*/ ) ) {
         assert(pAddressQualifiers && "pAddressQualifiers is NULL");
         assert(pAccessQualifiers && "pAccessQualifiers is NULL");
         assert(pTypeNames && "pTypeNames is NULL");

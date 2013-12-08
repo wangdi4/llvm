@@ -80,8 +80,6 @@ Constructor:
 \******************************************************************************/
 CTranslator::CTranslator( const char* dllName )
 {
-    OSInitializeCriticalSection( &m_criticalSection );
-
     RegisterPlugin  = NULL;
     CreatePlugin    = NULL;
     DeletePlugin    = NULL;
@@ -118,14 +116,12 @@ CTranslator::~CTranslator()
 {
     Unload();
  
-    OSEnterCriticalSection( &m_criticalSection );
+    Intel::OpenCL::Utils::OclAutoMutex lock( &m_criticalSection );
     if( m_name )
     {
         delete[] m_name;
         m_name = NULL;
     }
-    OSLeaveCriticalSection( &m_criticalSection );
-    OSDeleteCriticalSection( &m_criticalSection );
 }
 
 /******************************************************************************\
@@ -161,7 +157,7 @@ Member Function:
 \******************************************************************************/
 TC_RETVAL CTranslator::Load()
 {
-    OSEnterCriticalSection( &m_criticalSection );
+    Intel::OpenCL::Utils::OclAutoMutex lock( &m_criticalSection );
     TC_RETVAL retVal = TC_ERROR;
 
     if( m_isLoaded == true )
@@ -213,7 +209,6 @@ TC_RETVAL CTranslator::Load()
         m_isLoaded = true;
     }
 
-    OSLeaveCriticalSection( &m_criticalSection );
     return retVal;
 }
 
@@ -225,7 +220,7 @@ Member Function:
 \******************************************************************************/
 TC_RETVAL CTranslator::Unload()
 {
-    OSEnterCriticalSection( &m_criticalSection );
+    Intel::OpenCL::Utils::OclAutoMutex lock( &m_criticalSection );
     TC_RETVAL retVal = TC_SUCCESS;
     CTranslationBlock* pBlock = NULL;
     STB_TranslateOutputArgs* pArgs = NULL;
@@ -278,7 +273,6 @@ TC_RETVAL CTranslator::Unload()
         }
     }
 
-    OSLeaveCriticalSection( &m_criticalSection );
     return retVal;
 }
 
@@ -317,20 +311,15 @@ Member Function:
 \******************************************************************************/
 CTranslationBlock* CTranslator::GetBlock( STB_TranslationCode code )
 {
-    OSEnterCriticalSection( &m_criticalSection );
+    Intel::OpenCL::Utils::OclAutoMutex lock( &m_criticalSection );
     TC_RETVAL retVal = TC_SUCCESS;
     CTranslationBlock* pBlock = NULL;
-    STB_CreateArgs createArgs;
-
-    std::map<UINT, void*>::iterator blockIter;
-    blockIter = m_blockMap.find( code.Code );
+    std::map<UINT, void*>::iterator blockIter = m_blockMap.find( code.Code );
 
     if( blockIter != m_blockMap.end() )
     {
         pBlock = (CTranslationBlock*)blockIter->second;
     }
-
-    createArgs.TranslationCode = code;
 
     // create the translation block if needed
     if( !pBlock )
@@ -343,6 +332,10 @@ CTranslationBlock* CTranslator::GetBlock( STB_TranslationCode code )
 
         if( ( retVal == TC_SUCCESS ) && CreatePlugin )
         {
+            STB_CreateArgs createArgs;
+            createArgs.TranslationCode = code;
+            createArgs.deviceType = TB_DEVICE_CPU;
+            
             pBlock = CreatePlugin( &createArgs );
 
             if( pBlock )
@@ -354,7 +347,6 @@ CTranslationBlock* CTranslator::GetBlock( STB_TranslationCode code )
 
     assert ( pBlock && "ERROR: Could not create block -- Translator" );
 
-    OSLeaveCriticalSection( &m_criticalSection );
     return (CTranslationBlock*)pBlock;
 }
 
@@ -366,7 +358,7 @@ Member Function:
 \******************************************************************************/
 TC_RETVAL CTranslator::FreeAllocations( STB_TranslateOutputArgs* pOutputArgs )
 {
-    OSEnterCriticalSection( &m_criticalSection );
+    Intel::OpenCL::Utils::OclAutoMutex lock( &m_criticalSection );
     TC_RETVAL retVal = TC_ERROR;
     CTranslationBlock* pBlock = NULL;
     STB_TranslateOutputArgs* pArgs = NULL;
@@ -392,7 +384,6 @@ TC_RETVAL CTranslator::FreeAllocations( STB_TranslateOutputArgs* pOutputArgs )
         }
     }
 
-    OSLeaveCriticalSection( &m_criticalSection );
     return retVal;
 }
 
@@ -417,9 +408,8 @@ TC_RETVAL CTranslator::Translate(
             retVal = TC_SUCCESS;
         }
 
-        OSEnterCriticalSection( &m_criticalSection );
+        Intel::OpenCL::Utils::OclAutoMutex lock( &m_criticalSection );
         m_allocMap.insert( std::pair<void*, void*>( pOutputArgs, pBlock ) );
-        OSLeaveCriticalSection( &m_criticalSection );
     }
 
     return retVal;    

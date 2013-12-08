@@ -28,8 +28,8 @@ Notes:
 #pragma once
 
 #include "tc_common.h"
+#include "cl_synch_objects.h"
 #include <map>
-#include "os_inc.h"
 
 namespace TC
 {
@@ -110,8 +110,7 @@ protected:
     bool                     m_isLoaded;
     std::map<UINT, void*>    m_blockMap;
     std::map<void*, void*>   m_allocMap;
-
-    OCLRT::OS_CRITICAL_SECTION m_criticalSection;
+    Intel::OpenCL::Utils::OclMutex m_criticalSection;
 };
 
 __inline const char* CTranslator::GetName()
