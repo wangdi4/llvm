@@ -156,39 +156,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Creates implicit arguments based on the implicit arguments properties
     /// @param pDest          A buffer that should hold the values of the implicit arguments
     void createImplicitArgs(char* pDest);
-    
-    /// @brief Sets values of implicit arguments for arguments that have same
-    ///        values per executable
-    /// @param pWorkInfo        The work group information parameter
-    /// @param pGlobalBaseId    The global base id parameter
-    /// @param pCallBackContext The callback context parameter
-    /// @param bJitCreateWIids  The indiectaor for JIT creating WI ids parameter
-    /// @param packetWidth      The packet width for vectorized JIT parameter
-    /// @param pWIids           The work item ids buffer parameter
-    /// @param iterCounter      The number of iterations parameter
-    /// @param pExtendedExecutionContext
-    ///                         The callback extended execution context parameter
-    void setImplicitArgsPerExecutable(
-                         const sWorkInfo* pWorkInfo,
-                         const size_t* pGlobalBaseId,
-                         const CallbackContext* pCallBackContext, 
-                         bool bJitCreateWIids,
-                         unsigned int packetWidth,
-                         size_t* pWIids,
-                         const size_t iterCounter,
-                         const ExtendedExecutionContext* 
-                                  pCallBackExtendedExecutionContext);
-    
-    /// @brief Sets values of implicit arguments for arguments that have same
-    ///        values per work group
-    /// @param pParams              The arguments values array
-    void setImplicitArgsPerWG(const void* pParams);
 
     static const char* getArgName(unsigned Idx);
   
     /// @brief Initialized the work item local IDs
     static void initWILocalIds(size_t dim, const size_t* pLocalSizes, const unsigned int packetWidth, size_t* pWIids);
 #endif //#ifndef __APPLE__
+    // getAdjustedAlignemnt - Returns a value which is >= 'offset' for the offset
+    // of the implicit args from the start of the kernel uniform args. Used to
+    // ensure the implicit args is located at a  correctly aligned address.
+    // offset - the offset that possibly needs to be adjusted
+    // ST - sizeof(size_t)
+    static size_t getAdjustedAlignment(size_t offset, size_t ST);
 
   private:
     /// static list of implicit argument properties 

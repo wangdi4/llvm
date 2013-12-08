@@ -77,9 +77,11 @@ Kernel::Kernel(const std::string &name,
   if (!m_explicitArgs.empty()) {
     // calculates the whole explicit arguments buffer size
     // offset of the last argument in the buffer + argumentSize
-    const cl_kernel_argument &arg = m_explicitArgs[m_explicitArgs.size() - 1];
-    size_t size = TypeAlignment::getSize(arg);
-    m_explicitArgsSizeInBytes = arg.offset_in_bytes + size;
+    // and adjust alignment
+    const cl_kernel_argument &lastArg = m_explicitArgs.back();
+    m_explicitArgsSizeInBytes = ImplicitArgsUtils::getAdjustedAlignment(
+        lastArg.offset_in_bytes + TypeAlignment::getSize(lastArg),
+        sizeof(size_t));
   } else {
     m_explicitArgsSizeInBytes = 0;
   }
@@ -329,6 +331,16 @@ cl_dev_err_code Kernel::InitRunner(void *pKernelUniformArgs) const {
   pKernelUniformImplicitArgs->pJITEntryPoint =
       ResolveEntryPointHandle(pEntryMark);
 
+  if (false) {
+    std::stringstream ss;
+    ss << "In Initrunner:\n";
+    ss << "pKernelUniformArgs = " << pKernelUniformArgs << "\n";
+    DebugPrintUniformKernelArgs(
+        pKernelUniformImplicitArgs,
+        m_explicitArgsSizeInBytes,
+        ss);
+    std::cout << ss.str() << std::endl;
+  }
   return CL_DEV_SUCCESS;
 }
 
@@ -459,12 +471,17 @@ void Kernel::DebugPrintUniformKernelArgs(const cl_uniform_kernel_args *A,
      << O + offsetof(cl_uniform_kernel_args, WGCount) << ": size_t WGCount[MAX_WORK_DIM]" << PRINT3(A->WGCount) << "\n"
      << O + offsetof(cl_uniform_kernel_args, WGLoopIterCount) << ": size_t WGLoopIterCount= " << A->WGLoopIterCount << "\n"
      << O + offsetof(cl_uniform_kernel_args, pLocalIDIndices) << ": size_t* pLocalIDIndices = " << A->pLocalIDIndices;
-  if (A->pLocalIDIndices) {
+  if (A->LocalIDIndicesRequiredSize) {
     for (unsigned I = 0;
          I < std::min(A->LocalIDIndicesRequiredSize / sizeof(size_t),
-                      size_t(32));
-         ++I)
-      ss << ", " << A->pLocalIDIndices[I];
+                      size_t(32 * 4));
+         I += 4) {
+      unsigned J = 0;
+      for (; J < A->WorkDim; ++J)
+        ss << ", " << A->pLocalIDIndices[I];
+      for (; J < 3; ++J)
+        ss << ".";
+    }
   }
   ss << "\n" 
      << O + offsetof(cl_uniform_kernel_args, pRuntimeCallbacks)
@@ -495,21 +512,17 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
   BeforeExecution();
 #endif
 
-  // This is a useful debugging feature
+  assert(pKernelUniformImplicitArgs->WorkDim < 4);
+  assert(pKernelUniformImplicitArgs->WorkDim > 0);
   static bool guard = true;
   if (false && guard) {
-    guard = false;
+    guard = false; //Print only first group in NDRange to avoid huge dumps
     std::stringstream ss;
-    ss << "GroupID: " << pGroupID[0] << ", " << pGroupID[1] << ", " << pGroupID[2] << "\n";
-    //<< std::hex << std::showbase;
-    ss << "pKernelUniformArgs = " << pKernelUniformArgs << "\n";
-    unsigned O = (char *)(pKernelUniformImplicitArgsPosition) -
-                 (char *)pKernelUniformArgs;
-    DebugPrintUniformKernelArgs(
-        reinterpret_cast<const cl_uniform_kernel_args *>(pKernelUniformArgs), O,
-        ss);
+    ss << "GroupID: " << pGroupID[0] << ", " << pGroupID[1] << ", " << pGroupID[2] << "\n"
+       << "pKernelUniformArgs = " << pKernelUniformArgs << "\n";
+    DebugPrintUniformKernelArgs(pKernelUniformImplicitArgs,
+                                m_explicitArgsSizeInBytes, ss);
     std::cout << ss.str() << std::endl;
-    fflush(0);
   }
 
   IKernelJITContainer::JIT_PTR *kernel =

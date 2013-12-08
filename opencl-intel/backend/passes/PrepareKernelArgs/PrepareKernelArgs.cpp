@@ -191,12 +191,15 @@ namespace intel{
       ++callIt;
     }
 
-    // Offset to after last explicit argument
+    // Offset to after last explicit argument + adjusted alignment
     // Believe it or not, the conformance has a test kernel with 0 args...
     size_t currOffset = 0;
-    if (!arguments.empty())
-      currOffset = (*arguments.rbegin()).offset_in_bytes +
-                   TypeAlignment::getSize(*arguments.rbegin());
+    if (!arguments.empty()) {
+      currOffset = arguments.back().offset_in_bytes +
+                   TypeAlignment::getSize(arguments.back());
+      currOffset = ImplicitArgsUtils::getAdjustedAlignment(
+          currOffset, m_DL->getPointerABIAlignment());
+    }
     // Handle implicit arguments
     // Set to the Work Group Info implicit arg, as soon as it is known. Used for
     // computing other arg values

@@ -89,52 +89,10 @@ void ImplicitArgsUtils::createImplicitArgs(char* pDest) {
   }
 }
 
-void ImplicitArgsUtils::setImplicitArgsPerExecutable(
-                         const sWorkInfo* pWorkInfo,
-                         const size_t* pGlobalBaseId,
-                         const CallbackContext* pCallBackContext, 
-                         bool bJitCreateWIids,
-                         unsigned int packetWidth,
-                         size_t* pWIids,
-                         const size_t iterCounter,
-                         const ExtendedExecutionContext* 
-                                pCallbackExtendedExecutionContext) {
-  
-  // Set Work Dimension Info pointer
-  m_implicitArgs[IA_WORK_GROUP_INFO].setValue(reinterpret_cast<const char *>(&pWorkInfo));
-
-  // Leave space for WorkGroup id
-  // WorkGroup id should be initialized per WorkGroup and not per Executable
-  // m_implicitArgs[IA_WORK_GROUP_ID]
-
-  // Set Global id to (0,0,0,0)
-  m_implicitArgs[IA_GLOBAL_BASE_ID].setValue(reinterpret_cast<const char *>(&pGlobalBaseId));
-
-  // Initialize Barrier WI ids variables only if jit is not creating the ids.
-  if (!bJitCreateWIids) {
-    // Initialize and Set Local ids
-    initWILocalIds(pWorkInfo->uiWorkDim,pWorkInfo->LocalSize, packetWidth, pWIids);
-    //m_implicitArgs[IA_LOCAL_ID_BUFFER].setValue(reinterpret_cast<const char *>(&pWIids));
-  }
+size_t ImplicitArgsUtils::getAdjustedAlignment(size_t offset, size_t ST) {
+  // Implicit args will be aligned to size_t to allow KNC VBROADCAST's on size_t values
+  return ((offset + ST - 1) / ST) * ST;
 }
-
-void ImplicitArgsUtils::setImplicitArgsPerWG(const void* pParams) {
-  m_implicitArgs[IA_WORK_GROUP_ID].setValue(reinterpret_cast<const char *>(&pParams));
-
-  const sWorkInfo* pWorkInfo = (const sWorkInfo*)m_implicitArgs[IA_WORK_GROUP_INFO].getValue();
-  size_t* pGlobalBaseId = (size_t*)m_implicitArgs[IA_GLOBAL_BASE_ID].getValue();
-  size_t* pGroupId = (size_t*)pParams;
-  pGlobalBaseId[0] = pGroupId[0]*pWorkInfo->LocalSize[0] + pWorkInfo->GlobalOffset[0];
-
-  if (pWorkInfo->uiWorkDim > 1 ) {
-    pGlobalBaseId[1] = pGroupId[1]*pWorkInfo->LocalSize[1] + pWorkInfo->GlobalOffset[1];
-  }
-
-  if (pWorkInfo->uiWorkDim > 2 ) {
-    pGlobalBaseId[2] = pGroupId[2]*pWorkInfo->LocalSize[2] + pWorkInfo->GlobalOffset[2];
-  }
-}
-
 void ImplicitArgsUtils::initWILocalIds(size_t dim, const size_t *pLocalSize, const unsigned int packetWidth, size_t* pWIids) {
   // Initialize local id buffer
   assert(pWIids);

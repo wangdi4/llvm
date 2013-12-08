@@ -8,6 +8,7 @@
 
 #include "ImplicitArgsUtils.h"
 #include "llvm/Module.h"
+#include "llvm/Instruction.h"
 #include "llvm/Instructions.h"
 #include "llvm/Pass.h"
 #include "llvm/DerivedTypes.h"
@@ -121,13 +122,13 @@ public:
   ~ImplicitArgsAnalysis() {
   }
 
-  Instruction *GenerateGetFromWorkInfo(unsigned RecordID, Value *WorkInfo, unsigned Dimension,
+  Value *GenerateGetFromWorkInfo(unsigned RecordID, Value *WorkInfo, unsigned Dimension,
                                     IRBuilder<> &Builder) {
     return GenerateGetFromWorkInfo(
         RecordID, WorkInfo,
         ConstantInt::get(IntegerType::get(C, 32), Dimension), Builder);
   }
-  Instruction *GenerateGetFromWorkInfo(unsigned RecordID, Value *WorkInfo, Value *Dimension,
+  Value *GenerateGetFromWorkInfo(unsigned RecordID, Value *WorkInfo, Value *Dimension,
                                     IRBuilder<> &Builder) {
     assert(RecordID < NDInfo::LAST && "Invalid value for RecordID");
     SmallVector<Value*, 4> params;
@@ -137,20 +138,26 @@ public:
     Value *pAddr = Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params));
     std::string Name(NDInfo::getRecordName(RecordID));
     AppendWithDimension(Name, Dimension);
+    //return Builder.CreateAlignedLoad(pAddr, 1, Name);
     return Builder.CreateLoad(pAddr, Name);
   }
-  Instruction *GenerateGetFromWorkInfo(unsigned RecordID, Value *WorkInfo,
+  Value *GenerateGetFromWorkInfo(unsigned RecordID, Value *WorkInfo,
                                     IRBuilder<> &Builder) {
     assert(RecordID < NDInfo::LAST && "Invalid value for RecordID");
     SmallVector<Value*, 4> params;
-    params.push_back(ConstantInt::get(Type::getInt32Ty(C), 0));
-    params.push_back(ConstantInt::get(Type::getInt32Ty(C), RecordID));
+    Type *Int32Ty = Type::getInt32Ty(C);
+    params.push_back(ConstantInt::get(Int32Ty, 0));
+    params.push_back(ConstantInt::get(Int32Ty, RecordID));
     Value *pAddr = Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params));
     std::string Name(NDInfo::getRecordName(RecordID));
-    return Builder.CreateLoad(pAddr, Name);
+    //Value *V = Builder.CreateAlignedLoad(pAddr);
+    Value *V = Builder.CreateLoad(pAddr);
+    if (V->getType() != Int32Ty && RecordID == NDInfo::WORK_DIM)
+      V = Builder.CreateTrunc(V, Int32Ty);
+    V->setName(Name);
+    return V;
   }
-
-  Instruction *GenerateGetNewLocalID(Value *WorkInfo, Value *Idx,
+  Value *GenerateGetNewLocalID(Value *WorkInfo, Value *Idx,
                                      Value *Dimension, IRBuilder<> &Builder) {
     unsigned RecordID = NDInfo::NEW_LOCAL_ID;
     SmallVector<Value*, 4> params;
@@ -166,37 +173,37 @@ public:
     AppendWithDimension(Name, Dimension);
     return Builder.CreateLoad(pAddr, Name);
   }
-  Instruction *GenerateGetGlobalOffset(Value *WorkInfo, unsigned Dimension,
+  Value *GenerateGetGlobalOffset(Value *WorkInfo, unsigned Dimension,
                                        IRBuilder<> &Builder) {
     return GenerateGetGlobalOffset(
         WorkInfo, ConstantInt::get(IntegerType::get(C, 32), Dimension),
         Builder);
   }
-  Instruction *GenerateGetGlobalOffset(Value *WorkInfo, Value *Dimension,
+  Value *GenerateGetGlobalOffset(Value *WorkInfo, Value *Dimension,
                                        IRBuilder<> &Builder) {
     return GenerateGetFromWorkInfo(NDInfo::GLOBAL_OFFSET, WorkInfo, Dimension,
                                    Builder);
   }
 
-  Instruction *GenerateGetLocalSize(Value *WorkInfo, unsigned Dimension,
+  Value *GenerateGetLocalSize(Value *WorkInfo, unsigned Dimension,
                                     IRBuilder<> &Builder) {
     return GenerateGetLocalSize(
         WorkInfo, ConstantInt::get(IntegerType::get(C, 32), Dimension),
         Builder);
   }
-  Instruction *GenerateGetLocalSize(Value *WorkInfo, Value *Dimension,
+  Value *GenerateGetLocalSize(Value *WorkInfo, Value *Dimension,
                                     IRBuilder<> &Builder) {
     return GenerateGetFromWorkInfo(NDInfo::LOCAL_SIZE, WorkInfo, Dimension,
                                    Builder);
   }
 
-  Instruction *GenerateGetGroupID(Value *GroupID, unsigned Dimension,
+  Value *GenerateGetGroupID(Value *GroupID, unsigned Dimension,
                                   IRBuilder<> &Builder) {
     return GenerateGetGroupID(
         GroupID, ConstantInt::get(IntegerType::get(C, 32), Dimension),
         Builder);
   }
-  Instruction *GenerateGetGroupID(Value *GroupID, Value *Dimension,
+  Value *GenerateGetGroupID(Value *GroupID, Value *Dimension,
                                   IRBuilder<> &Builder) {
     Value *pIdAddr = Builder.CreateGEP(GroupID, Dimension);
     std::string Name("GroupID_");

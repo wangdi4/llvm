@@ -194,36 +194,19 @@ namespace intel {
   }
 
   Value* ResolveWICall::updateGetFunction(CallInst *pCall, unsigned type) {
-
     assert(pCall && "Invalid CallInst");
+    if (type == ICT_GET_WORK_DIM) {
+      IRBuilder<> B(pCall);
+      return m_IAA->GenerateGetFromWorkInfo(NDInfo::WORK_DIM, m_pWorkInfo, B);
+    }
+    if (type == ICT_GET_ITER_COUNT) {
+        IRBuilder<> B(pCall);
+        return m_IAA->GenerateGetFromWorkInfo(NDInfo::LOOP_ITER_COUNT,
+                                              m_pWorkInfo, B);
+    }
     BasicBlock *pBlock = pCall->getParent();
     Value *pResult = NULL;  // Object that holds the resolved value
 
-    if (type == ICT_GET_WORK_DIM) {
-      SmallVector<Value *, 4> params;
-      params.push_back(getConstZeroInt32Value());
-      params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32),
-                                        NDInfo::WORK_DIM));
-      GetElementPtrInst *pDimCntAddr = GetElementPtrInst::Create(
-          m_pWorkInfo, ArrayRef<Value *>(params), "", pCall);
-      pResult = new LoadInst(pDimCntAddr, "", pCall);
-      // get_work_dim() returns an i32, but we store this is implicit arg as a size_t
-      if (pCall->getType() != pResult->getType())
-        pResult = new TruncInst(pResult, IntegerType::get(*m_pLLVMContext, 32),
-                                "", pCall);
-      pResult->setName("WorkDim");
-      return pResult;
-    }
-    if (type == ICT_GET_ITER_COUNT) {
-      SmallVector<Value *, 4> params;
-      params.push_back(getConstZeroInt32Value());
-      params.push_back(ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32),
-                                        NDInfo::LOOP_ITER_COUNT));
-      GetElementPtrInst *pDimCntAddr = GetElementPtrInst::Create(
-          m_pWorkInfo, ArrayRef<Value *>(params), "", pCall);
-      pResult = new LoadInst(pDimCntAddr, "LoopIterCount", pCall);
-      return pResult;
-    }
 
     uint64_t overflowValue = 0;
     switch( type ) {
