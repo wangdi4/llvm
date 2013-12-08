@@ -12,10 +12,10 @@ entry:
 ;;int* arg1 - expected alignment: 8
 ; CHECK64: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 0
 ; CHECK64-NEXT: [[ARG0_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG0_BUFF_INDEX]] to i32**
-; CHECK64-NEXT: [[ARG0:%[a-zA-Z0-9]+]] = load i32** [[ARG0_TYPECAST]], align 8
+; CHECK64-NEXT: %explicit_0 = load i32** [[ARG0_TYPECAST]], align 8
 ;;implicit args
 ;; call original func
-; CHECK64: call void @__t1_separated_args(i32* [[ARG0]], [[IMPLICIT_ARGS:[a-zA-Z0-9]+]]
+; CHECK64: call void @__t1_separated_args(i32* %explicit_0, [[IMPLICIT_ARGS:[a-zA-Z0-9]+]]
 ; CHECK64-NEXT: ret void
 
 !opencl.kernels = !{!0}
