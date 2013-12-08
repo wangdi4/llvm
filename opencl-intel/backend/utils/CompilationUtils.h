@@ -357,6 +357,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       return CompilationUtils::getCLVersionFromModule(M, version) ?
              version : OclVersion::CL_VER_DEFAULT;
     }
+
+    /// type for extended execution context
+    static Type * getExtendedExecContextType(LLVMContext &C);
   };
 
   //

@@ -170,6 +170,7 @@ void QueueOnDevice::Cancel() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 InOrderQueueOnDevice::~InOrderQueueOnDevice()
 {
+    m_task_list = NULL;
     m_thread_pool.DeactivateCurrentMasterThread();
 }
 

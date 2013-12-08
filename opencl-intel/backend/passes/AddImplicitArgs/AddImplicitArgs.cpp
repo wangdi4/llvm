@@ -131,6 +131,8 @@ namespace intel{
     // Add implicit arguments to the signature
     for (unsigned i=0; i < ImplicitArgsUtils::IA_NUMBER; ++i)
       newArgsVec.push_back(m_IAA->getArgType(i));
+    // extended execution context
+    //newArgsVec.push_back(CompilationUtils::getExtendedExecContextType(*m_pLLVMContext));
 
     FunctionType *FTy = FunctionType::get( pFunc->getReturnType(),newArgsVec, false);
 

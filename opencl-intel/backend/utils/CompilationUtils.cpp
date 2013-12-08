@@ -69,8 +69,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_NDRANGE_2D = "ndrange_2D";
   const std::string CompilationUtils::NAME_NDRANGE_3D = "ndrange_3D";
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvPU3AS3vzEjz";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvvE";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
   const std::string CompilationUtils::NAME_ENQUEUE_MARKER = "enqueue_marker";
   const std::string CompilationUtils::NAME_RETAIN_EVENT = "retain_event";
   const std::string CompilationUtils::NAME_RELEASE_EVENT = "release_event";
@@ -378,6 +378,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           // should be before handling ptrs by addr space 
           if((i == 0) && isBlockInvokeKernel){
             curArg.type = CL_KRNL_ARG_PTR_BLOCK_LITERAL;
+            curArg.size_in_bytes = pModule->getPointerSize()*4;
             break;
           }
 
@@ -896,5 +897,8 @@ bool CompilationUtils::isWorkGroupUniform(const std::string& S) {
          isWorkGroupReduceMax(S);
 }
 
+Type * CompilationUtils::getExtendedExecContextType(LLVMContext& C){
+    return PointerType::getInt8PtrTy(C);
+  }
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

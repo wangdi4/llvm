@@ -39,6 +39,7 @@ else(APPLE)
   add_subdirectory(PrintIRPass)
   add_subdirectory(ReduceAlignment)
   add_subdirectory(obfuscation)
+  add_subdirectory(SmartGVN)
 endif(APPLE)
 
 if(APPLE)

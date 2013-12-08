@@ -363,6 +363,7 @@ set( BACKEND_PASSES
     DetectFunctionPtrCalls
     CloneBlockInvokeFuncToKernel
     ResolveBlockToStaticCall
+    SmartGVN
 )
 
 target_link_libraries (${TARGET_NAME}
