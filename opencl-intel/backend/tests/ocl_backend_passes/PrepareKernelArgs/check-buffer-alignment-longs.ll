@@ -12,41 +12,41 @@ entry:
 ;;long arg1 - alignment: 8
 ; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 0
 ; CHECK-NEXT: [[ARG0_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG0_BUFF_INDEX]] to i64*
-; CHECK-NEXT: [[ARG0:%[a-zA-Z0-9]+]] = load i64* [[ARG0_TYPECAST]], align 8
+; CHECK-NEXT: %explicit_0 = load i64* [[ARG0_TYPECAST]], align 8
 
 ;; long2 arg2 - alignment: 16 - in pUniformArgs 0+8 = 8 is aligned to 16
 ; CHECK-NEXT: [[ARG1_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 16
 ; CHECK-NEXT: [[ARG1_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG1_BUFF_INDEX]] to <2 x i64>*
-; CHECK-NEXT: [[ARG1:%[a-zA-Z0-9]+]] = load <2 x i64>* [[ARG1_TYPECAST]], align 16
+; CHECK-NEXT: %explicit_1 = load <2 x i64>* [[ARG1_TYPECAST]], align 16
 
 ;; long2 arg3 - alignment: 16 - in pUniformArgs 16+16=32 is aligned to 32
 ; CHECK-NEXT: [[ARG2_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 32
 ; CHECK-NEXT: [[ARG2_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG2_BUFF_INDEX]] to <2 x i64>*
-; CHECK-NEXT: [[ARG2:%[a-zA-Z0-9]+]] = load <2 x i64>* [[ARG2_TYPECAST]], align 16
+; CHECK-NEXT: %explicit_2 = load <2 x i64>* [[ARG2_TYPECAST]], align 16
 
 ;; long3 arg4 - alignment: 32 - in pUniformArgs 32+16=48 is aligned to 64
 ; CHECK-NEXT: [[ARG3_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 64
 ; CHECK-NEXT: [[ARG3_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG3_BUFF_INDEX]] to <3 x i64>*
-; CHECK-NEXT: [[ARG3:%[a-zA-Z0-9]+]] = load <3 x i64>* [[ARG3_TYPECAST]], align 32
+; CHECK-NEXT: %explicit_3 = load <3 x i64>* [[ARG3_TYPECAST]], align 32
 
 ;; long16 arg5 - alignment: 128 - in pUniformArgs 64+32=96 is aligned to 128
 ; CHECK-NEXT: [[ARG4_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 128
 ; CHECK-NEXT: [[ARG4_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG4_BUFF_INDEX]] to <16 x i64>*
-; CHECK-NEXT: [[ARG4:%[a-zA-Z0-9]+]] = load <16 x i64>* [[ARG4_TYPECAST]], align 128
+; CHECK-NEXT: %explicit_4 = load <16 x i64>* [[ARG4_TYPECAST]], align 128
 
 ;; long4 arg6 - alignment: 32 - in pUniformArgs 128+128=256 is aligned to 256
 ; CHECK-NEXT: [[ARG5_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 256
 ; CHECK-NEXT: [[ARG5_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG5_BUFF_INDEX]] to <4 x i64>*
-; CHECK-NEXT: [[ARG5:%[a-zA-Z0-9]+]] = load <4 x i64>* [[ARG5_TYPECAST]], align 32
+; CHECK-NEXT: %explicit_5 = load <4 x i64>* [[ARG5_TYPECAST]], align 32
 
 ;; long8 arg7 - alignment: 64 - in pUniformArgs 256+32=288 is aligned to 320
 ; CHECK-NEXT: [[ARG6_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 320
 ; CHECK-NEXT: [[ARG6_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG6_BUFF_INDEX]] to <8 x i64>*
-; CHECK-NEXT: [[ARG6:%[a-zA-Z0-9]+]] = load <8 x i64>* [[ARG6_TYPECAST]], align 64
+; CHECK-NEXT: %explicit_6 = load <8 x i64>* [[ARG6_TYPECAST]], align 64
 
 ;;implicit args
 ;; call original func
-; CHECK: call void @__t1_separated_args(i64 [[ARG0]], <2 x i64> [[ARG1]], <2 x i64> [[ARG2]], <3 x i64> [[ARG3]], <16 x i64> [[ARG4]], <4 x i64> [[ARG5]], <8 x i64> [[ARG6]], [[IMPLICIT_ARGS:[a-zA-Z0-9]+]]
+; CHECK: call void @__t1_separated_args(i64 %explicit_0, <2 x i64> %explicit_1, <2 x i64> %explicit_2, <3 x i64> %explicit_3, <16 x i64> %explicit_4, <4 x i64> %explicit_5, <8 x i64> %explicit_6, [[IMPLICIT_ARGS:[a-zA-Z0-9]+]]
 ; CHECK-NEXT: ret void
 
 !opencl.kernels = !{!0}
