@@ -10,34 +10,34 @@ entry:
 
 ;;explicit args
 ;;char arg1 - expected alignment: 1
-; CHECK: [[ARG0_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 0
+; CHECK: [[ARG0_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 0
 ; CHECK-NEXT: [[ARG0:%[a-zA-Z0-9]+]] = load i8* [[ARG0_BUFF_IDX]], align 1
 ;;implicit args
 ; CHECK-NEXT: [[IMPLCT_ARG0_SLMBUFF:%[a-zA-Z0-9]+]] = alloca [0 x i8], align 128
 ; CHECK-NEXT: [[IMPLCT_ARG0_TYPECAST:%[a-zA-Z0-9]+]] = bitcast [0 x i8]* [[IMPLCT_ARG0_SLMBUFF]] to i8 addrspace(3)*
 
 ; expected alignment: 4
-; CHECK-NEXT: [[IMPLCT_ARG1_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 4
+; CHECK-NEXT: [[IMPLCT_ARG1_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 4
 ; CHECK-NEXT: [[IMPLCT_ARG1_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[IMPLCT_ARG1_BUFF_IDX]] to { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }**
 ; CHECK-NEXT: [[IMPLCT_ARG1:%[a-zA-Z0-9]+]] = load { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }** [[IMPLCT_ARG1_TYPECAST]], align 4
 
-; CHECK-NEXT: [[IMPLCT_ARG2_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 8
+; CHECK-NEXT: [[IMPLCT_ARG2_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 8
 ; CHECK-NEXT: [[IMPLCT_ARG2_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[IMPLCT_ARG2_BUFF_IDX]] to i32**
 ; CHECK-NEXT: [[IMPLCT_ARG2:%[a-zA-Z0-9]+]] = load i32** [[IMPLCT_ARG2_TYPECAST]], align 4
 
-; CHECK-NEXT: [[IMPLCT_ARG3_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 12
+; CHECK-NEXT: [[IMPLCT_ARG3_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 12
 ; CHECK-NEXT: [[IMPLCT_ARG3_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[IMPLCT_ARG3_BUFF_IDX]] to <{ [4 x i32] }>**
 ; CHECK-NEXT: [[IMPLCT_ARG3:%[a-zA-Z0-9]+]] = load <{ [4 x i32] }>** [[IMPLCT_ARG3_TYPECAST]], align 4
 
-; CHECK-NEXT: [[IMPLCT_ARG4_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 16
+; CHECK-NEXT: [[IMPLCT_ARG4_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 16
 ; CHECK-NEXT: [[IMPLCT_ARG4_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[IMPLCT_ARG4_BUFF_IDX]] to i32**
 ; CHECK-NEXT: [[IMPLCT_ARG4:%[a-zA-Z0-9]+]] = load i32** [[IMPLCT_ARG4_TYPECAST]], align 4
 
-; CHECK-NEXT: [[IMPLCT_ARG5_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 20
+; CHECK-NEXT: [[IMPLCT_ARG5_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 20
 ; CHECK-NEXT: [[IMPLCT_ARG5_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[IMPLCT_ARG5_BUFF_IDX]] to <{ [4 x i32] }>**
 ; CHECK-NEXT: [[IMPLCT_ARG5:%[a-zA-Z0-9]+]] = load <{ [4 x i32] }>** [[IMPLCT_ARG5_TYPECAST]], align 4
 
-; CHECK-NEXT: [[IMPLCT_ARG6_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 24
+; CHECK-NEXT: [[IMPLCT_ARG6_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 24
 ; CHECK-NEXT: [[IMPLCT_ARG6_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[IMPLCT_ARG6_BUFF_IDX]] to i32*
 ; CHECK-NEXT: [[IMPLCT_ARG6:%[a-zA-Z0-9]+]] = load i32* [[IMPLCT_ARG6_TYPECAST]], align 4
 
@@ -54,7 +54,7 @@ entry:
 
 ; CHECK-NEXT: [[IMPLCT_ARG8_CURR_WORKITEM:%[a-zA-Z0-9]+]] = alloca i32
 
-; CHECK-NEXT: [[IMPLCT_ARG9_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 28
+; CHECK-NEXT: [[IMPLCT_ARG9_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 28
 ; CHECK-NEXT: [[IMPLCT_ARG9_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[IMPLCT_ARG9_BUFF_IDX]] to i8**
 ; CHECK-NEXT: [[IMPLCT_ARG9:%[a-zA-Z0-9]+]] = load i8** [[IMPLCT_ARG9_TYPECAST]], align 4
 

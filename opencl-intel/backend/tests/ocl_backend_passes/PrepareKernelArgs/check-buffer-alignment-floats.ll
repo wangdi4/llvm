@@ -10,37 +10,37 @@ entry:
 
 ;; new func
 ;;float arg1 - alignment: 4
-; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 0
+; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 0
 ; CHECK-NEXT: [[ARG0_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG0_BUFF_INDEX]] to float*
 ; CHECK-NEXT: [[ARG0:%[a-zA-Z0-9]+]] = load float* [[ARG0_TYPECAST]], align 4
 
-;; float2 arg2 - alignment: 8 - in pBuffer 0+4 = 4 is aligned to 8
-; CHECK-NEXT: [[ARG1_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 8
+;; float2 arg2 - alignment: 8 - in pUniformArgs 0+4 = 4 is aligned to 8
+; CHECK-NEXT: [[ARG1_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 8
 ; CHECK-NEXT: [[ARG1_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG1_BUFF_INDEX]] to <2 x float>*
 ; CHECK-NEXT: [[ARG1:%[a-zA-Z0-9]+]] = load <2 x float>* [[ARG1_TYPECAST]], align 8
 
-;; float2 arg3 - alignment: 8 - in pBuffer 8+8=16 is aligned to 16
-; CHECK-NEXT: [[ARG2_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 16
+;; float2 arg3 - alignment: 8 - in pUniformArgs 8+8=16 is aligned to 16
+; CHECK-NEXT: [[ARG2_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 16
 ; CHECK-NEXT: [[ARG2_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG2_BUFF_INDEX]] to <2 x float>*
 ; CHECK-NEXT: [[ARG2:%[a-zA-Z0-9]+]] = load <2 x float>* [[ARG2_TYPECAST]], align 8
 
-;; float3 arg4 - alignment: 16 - in pBuffer 16+8=24 is aligned to 32
-; CHECK-NEXT: [[ARG3_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 32
+;; float3 arg4 - alignment: 16 - in pUniformArgs 16+8=24 is aligned to 32
+; CHECK-NEXT: [[ARG3_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 32
 ; CHECK-NEXT: [[ARG3_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG3_BUFF_INDEX]] to <3 x float>*
 ; CHECK-NEXT: [[ARG3:%[a-zA-Z0-9]+]] = load <3 x float>* [[ARG3_TYPECAST]], align 16
 
-;; float16 arg5 - alignment: 64 - in pBuffer 32+16=48 is aligned to 64
-; CHECK-NEXT: [[ARG4_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 64
+;; float16 arg5 - alignment: 64 - in pUniformArgs 32+16=48 is aligned to 64
+; CHECK-NEXT: [[ARG4_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 64
 ; CHECK-NEXT: [[ARG4_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG4_BUFF_INDEX]] to <16 x float>*
 ; CHECK-NEXT: [[ARG4:%[a-zA-Z0-9]+]] = load <16 x float>* [[ARG4_TYPECAST]], align 64
 
-;; float4 arg6 - alignment: 16 - in pBuffer 64+64=128 is aligned to 128
-; CHECK-NEXT: [[ARG5_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 128
+;; float4 arg6 - alignment: 16 - in pUniformArgs 64+64=128 is aligned to 128
+; CHECK-NEXT: [[ARG5_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 128
 ; CHECK-NEXT: [[ARG5_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG5_BUFF_INDEX]] to <4 x float>*
 ; CHECK-NEXT: [[ARG5:%[a-zA-Z0-9]+]] = load <4 x float>* [[ARG5_TYPECAST]], align 16
 
-;; float8 arg7 - alignment: 32 - in pBuffer 128+16=144 is aligned to 160
-; CHECK-NEXT: [[ARG6_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 160
+;; float8 arg7 - alignment: 32 - in pUniformArgs 128+16=144 is aligned to 160
+; CHECK-NEXT: [[ARG6_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 160
 ; CHECK-NEXT: [[ARG6_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG6_BUFF_INDEX]] to <8 x float>*
 ; CHECK-NEXT: [[ARG6:%[a-zA-Z0-9]+]] = load <8 x float>* [[ARG6_TYPECAST]], align 32
 

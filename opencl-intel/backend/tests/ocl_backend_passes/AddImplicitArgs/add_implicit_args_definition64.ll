@@ -20,25 +20,25 @@ entry:
 ; CHECK:        declare void @__functionWithoutArgs_original() nounwind
 ; CHECK:        declare i32 @__functionWithArgs_original(i32, i32) nounwind
 
-; CHECK:      define void @functionWithoutArgs(i8 addrspace(3)* %pLocalMemBase,
-; CHECK:          { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim,
-; CHECK:          i64* %pWGId,
+; CHECK:      define void @functionWithoutArgs(i8 addrspace(3)* noalias %pLocalMemBase,
+; CHECK:          { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* noalias %pWorkDim
+; CHECK:          i64* noalias %pWGId,
 ; CHECK:          [4 x i64] %BaseGlbId,
-; CHECK:          i8* %pSpecialBuf,
-; CHECK:          i64* %pCurrWI,
-; CHECK:          {}* %RuntimeContext) nounwind {
+; CHECK:          i8* noalias %pSpecialBuf,
+; CHECK:          i64* noalias %pCurrWI,
+; CHECK:          {}* noalias %RuntimeContext) nounwind {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:     %x = add i32 100, 10
 ; CHECK-NEXT:     ret void
 
 ; CHECK:      define i32 @functionWithArgs(i32 %x, i32 %y,
-; CHECK:          i8 addrspace(3)* %pLocalMemBase,
-; CHECK:          { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim,
-; CHECK:          i64* %pWGId,
+; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
+; CHECK:          { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* noalias %pWorkDim
+; CHECK:          i64* noalias %pWGId,
 ; CHECK:          [4 x i64] %BaseGlbId,
-; CHECK:          i8* %pSpecialBuf,
-; CHECK:          i64* %pCurrWI,
-; CHECK:          {}* %RuntimeContext) nounwind {
+; CHECK:          i8* noalias %pSpecialBuf,
+; CHECK:          i64* noalias %pCurrWI,
+; CHECK:          {}* noalias %RuntimeContext) nounwind {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:   %temp = add i32 %x, 10
 ; CHECK-NEXT:   %res = mul i32 %temp, %y

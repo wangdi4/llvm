@@ -10,7 +10,7 @@ entry:
 
 ;; new func
 ;;long8 arg1 - expected alignment: 64
-; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 0
+; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 0
 ; CHECK-NEXT: [[ARG0_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG0_BUFF_INDEX]] to <8 x i64>*
 ; CHECK-NEXT: [[ARG0:%[a-zA-Z0-9]+]] = load <8 x i64>* [[ARG0_TYPECAST]], align 64
 ;;implicit args

@@ -10,36 +10,36 @@ entry:
 
 ;; new func - Win32
 ;;short arg1 - alignment: 2
-; CHECK32: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 0
+; CHECK32: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 0
 ; CHECK32-NEXT: [[ARG0_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG0_BUFF_INDEX]] to i16*
 ; CHECK32-NEXT: [[ARG0:%[a-zA-Z0-9]+]] = load i16* [[ARG0_TYPECAST]], align 2
 
-;;char* arg2 - alignment: 4 - in pBuffer 0+2 = 2 is aligned to 4
-; CHECK32-NEXT: [[ARG1_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 4
+;;char* arg2 - alignment: 4 - in pUniformArgs 0+2 = 2 is aligned to 4
+; CHECK32-NEXT: [[ARG1_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 4
 ; CHECK32-NEXT: [[ARG1_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG1_BUFF_INDEX]] to i8**
 ; CHECK32-NEXT: [[ARG1:%[a-zA-Z0-9]+]] = load i8** [[ARG1_TYPECAST]], align 4
 
-;;char arg3 - alignment: 1 - in pBuffer 4+4=8 is aligned to 8
-; CHECK32-NEXT: [[ARG2_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 8
+;;char arg3 - alignment: 1 - in pUniformArgs 4+4=8 is aligned to 8
+; CHECK32-NEXT: [[ARG2_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 8
 ; CHECK32-NEXT: [[ARG2:%[a-zA-Z0-9]+]] = load i8* [[ARG2_BUFF_INDEX]], align 1
 
-;;int arg4 - alignment: 4 - in pBuffer 8+1=9 is aligned to 12
-; CHECK32-NEXT: [[ARG3_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 12
+;;int arg4 - alignment: 4 - in pUniformArgs 8+1=9 is aligned to 12
+; CHECK32-NEXT: [[ARG3_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 12
 ; CHECK32-NEXT: [[ARG3_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG3_BUFF_INDEX]] to i32*
 ; CHECK32-NEXT: [[ARG3:%[a-zA-Z0-9]+]] = load i32* [[ARG3_TYPECAST]], align 4
 
-;;float arg5 - alignment: 4 - in pBuffer 12+4=16 is aligned to 16
-; CHECK32-NEXT: [[ARG4_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 16
+;;float arg5 - alignment: 4 - in pUniformArgs 12+4=16 is aligned to 16
+; CHECK32-NEXT: [[ARG4_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 16
 ; CHECK32-NEXT: [[ARG4_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG4_BUFF_INDEX]] to float*
 ; CHECK32-NEXT: [[ARG4:%[a-zA-Z0-9]+]] = load float* [[ARG4_TYPECAST]], align 4
 
-;;long arg6 - alignment: 8 - in pBuffer 16+4=20 is aligned to 24
-; CHECK32-NEXT: [[ARG5_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 24
+;;long arg6 - alignment: 8 - in pUniformArgs 16+4=20 is aligned to 24
+; CHECK32-NEXT: [[ARG5_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 24
 ; CHECK32-NEXT: [[ARG5_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG5_BUFF_INDEX]] to i64*
 ; CHECK32-NEXT: [[ARG5:%[a-zA-Z0-9]+]] = load i64* [[ARG5_TYPECAST]], align 8
 
-;;double arg7 - alignment: 8 - in pBuffer 24+8=32 is aligned to 32
-; CHECK32-NEXT: [[ARG6_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 32
+;;double arg7 - alignment: 8 - in pUniformArgs 24+8=32 is aligned to 32
+; CHECK32-NEXT: [[ARG6_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 32
 ; CHECK32-NEXT: [[ARG6_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG6_BUFF_INDEX]] to double*
 ; CHECK32-NEXT: [[ARG6:%[a-zA-Z0-9]+]] = load double* [[ARG6_TYPECAST]], align 8
 ;;implicit args
