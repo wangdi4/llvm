@@ -946,6 +946,7 @@ void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
 
     m_influenceRegion.clear();
     m_partialJoins.clear();
+    m_divergePartialJoins.clear();
     schedConstraints.clear();
 
     // adding the root of the predicated region for the scheduling constraints
