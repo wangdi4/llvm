@@ -40,7 +40,7 @@ Command::Command(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCa
 
 Command::~Command()
 {
-    assert(m_commandCompleted == true && "CRITICAL ERROR Trying to delete Command object before the command execution completed");
+    assert( (m_commandCompleted || CL_DEV_FAILED(m_lastError)) && "CRITICAL ERROR Trying to delete Command object before the command execution completed");
     releaseResources();
 }
 

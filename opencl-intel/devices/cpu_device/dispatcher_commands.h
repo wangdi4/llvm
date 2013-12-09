@@ -25,17 +25,19 @@
 
 #pragma once
 
-#include "cl_device_api.h"
-#include "cpu_dev_limits.h"
 #include "memory_allocator.h"
 #include "program_service.h"
-#include "task_executor.h"
 #include "wg_context.h"
-#include "cl_synch_objects.h"
 #include "kernel_command.h"
-#include "ocl_itt.h"
-#include "cl_thread.h"
-#include "tbb/scalable_allocator.h"
+
+#include <cpu_dev_limits.h>
+#include <cl_device_api.h>
+#include <cl_synch_objects.h>
+#include <task_executor.h>
+#include <ocl_itt.h>
+#include <cl_thread.h>
+#include <tbb/scalable_allocator.h>
+#include <cl_sys_defines.h>
 
 #define COLOR_TABLE_SIZE 64
 
@@ -69,7 +71,8 @@ protected:
     void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);    
 
     cl_dev_err_code ExtractNDRangeParams(void* pTargetTaskParam, const cl_kernel_argument*   pParams, 
-                                         const unsigned int* pMemObjectIndx, unsigned int uiMemObjCount);
+                                         const unsigned int* pMemObjectIndx, unsigned int uiMemObjCount,
+                                         std::vector<cl_mem_obj_descriptor*>& devMemObjects);
 
     TaskDispatcher*             m_pTaskDispatcher;
     MemoryAllocator*            m_pMemAlloc;
@@ -206,14 +209,6 @@ public:
 
     static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList);
 
-    /**
-     * @return the NDRange that is currently running on the local thread
-     */
-    static NDRange* GetThreadLocalNDRange() { return sm_pCurrentWgContext->GetCurrentNDRange(); }
-
-    // DispatcherCommand interface
-    cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
-
     // ITaskSet interface
     int     Init(size_t region[], unsigned int &regCount);
     void*   AttachToThread(void* pWgContext, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
@@ -228,25 +223,30 @@ public:
     bool IsCompleted() const { return CommandBaseClass<ITaskSet>::IsCompleted(); }
 
     ITaskGroup* GetNDRangeChildrenTaskGroup() { return GetParentTaskGroup().GetPtr(); }
-    char* GetParamsPtr() { return (char*)(((cl_dev_cmd_param_kernel*)m_pCmd->params)->arg_values); }
 
 protected:
     NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, const SharedPtr<ITaskList>& pList, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup);
 
-    cl_dev_err_code CreateBinary(const ICLDevBackendKernel_* kernel, size_t szArgSize, const cl_work_description_type* workDesc, ICLDevBackendBinary_** pBinary);
-
     // inherited from DeviceCommand and KernelCommand
 
-    std::vector<SharedPtr<KernelCommand> >& GetWaitingChildrenForWG() { return sm_pCurrentWgContext->GetWaitingChildrenForWg(); }
+    std::vector<SharedPtr<KernelCommand> >& GetWaitingChildrenForWG()
+    {
+        assert (0 && "This section must be changed for OCL2.0");
+        return ((WGContext*)(NULL))->GetWaitingChildrenForWg();
+    }
 
-    std::vector<SharedPtr<KernelCommand> >& GetWaitingChildrenForParentInWg() { return sm_pCurrentWgContext->GetWaitingChildrenForParent(); }
+    std::vector<SharedPtr<KernelCommand> >& GetWaitingChildrenForParentInWg()
+    {
+        assert (0 && "This section must be changed for OCL2.0");
+        return ((WGContext*)(NULL))->GetWaitingChildrenForParent();;
+    }
 
-    cl_int                      m_lastError;
-    ICLDevBackendBinary_*       m_pBinary;
+    cl_int                                      m_lastError;
+    const ICLDevBackendKernelRunner*            m_pRunner;
+    cl_uniform_kernel_args*                     m_pImplicitArgs;
+    void*                                       m_pKernelArgs;
 
-    // Executable information
-    size_t                      m_MemBuffCount;
-    size_t*                     m_pMemBuffSizes;
+    static THREAD_LOCAL ICLDevBackendKernelRunner::ICLDevExecutionState    m_tExecState;
 
     // Information about the hardware and a potential override for work group to thread mapping
     unsigned int                m_numThreads;
@@ -258,9 +258,7 @@ protected:
 
     // Unique ID of the NDRange command
     static Intel::OpenCL::Utils::AtomicCounter    s_lGlbNDRangeId;
-    long                                                            m_lNDRangeId;
-
-    static THREAD_LOCAL WGContext* sm_pCurrentWgContext;
+    long                                          m_lNDRangeId;
 
 #ifdef _DEBUG
     // For debug

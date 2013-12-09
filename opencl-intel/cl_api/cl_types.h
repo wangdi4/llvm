@@ -205,21 +205,27 @@ typedef struct _cl_llvm_prog_header
  * to start execution of OCL kernel
  */
 typedef struct _cl_uniform_kernel_args {
-    size_t WorkDim;
-    size_t GlobalOffset[MAX_WORK_DIM];
-    size_t GlobalSize[MAX_WORK_DIM];
-    size_t LocalSize[MAX_WORK_DIM];
-    size_t WGCount[MAX_WORK_DIM];
-    size_t WGLoopIterCount;
-    size_t *pRuntimeContext;
-    // This buffer to be removed after localID buffer will be handled by BE
-    size_t *pLocalIDIndices;
+    // ND Range Work Description
     // Kernel explicit arguments in same order as in  kernel declaration
     // Alignment of type must be same as sizeof returns on the type
     //gentype arg1;
     //gentype arg2;
     // .  .  .
     //gentype argN;
+    // Kernel implicit arguments continue here
+    size_t    WorkDim;                                 // Filled by the runtime
+    size_t    GlobalOffset[MAX_WORK_DIM];              // Filled by the runtime
+    size_t    GlobalSize[MAX_WORK_DIM];                // Filled by the runtime
+    size_t    LocalSize[MAX_WORK_DIM];                 // Filled by the runtime, updated by the BE in case of (0,0,0)
+    size_t    WGCount[MAX_WORK_DIM];                   // Updated by the BE, based on GLOBAL/LOCAL
+    size_t    WGLoopIterCount;                         // Updated by the BE
+    void*     pRuntimeCallbacks;                       // Runtime Callbacks Context, Filled by the runtime
+    size_t*   pLocalIDIndices;                         // Allocated by the runtime, filled by the BE
+    size_t    minWorkGroupNum;                         // Filled by the runtime, Required by the heuristic
+    size_t    LocalIDIndicesRequiredSize;              // Updated by the BE, contains size of local index buffer
+    // Internal for Running the kernel
+    const void *pJITEntryPoint;                        // Filled by the BE
+    unsigned int VectorWidth;                          // Filled by the BE
 } PACKED cl_uniform_kernel_args;
 
 #ifdef _WIN32
@@ -236,7 +242,7 @@ enum cl_dev_sampler_prop
     CL_DEV_SAMPLER_ADDRESS_CLAMP				= 1 << __ADDRESS_BASE ,	//!< Sampler is defined with CLAMP attribute
     CL_DEV_SAMPLER_ADDRESS_CLAMP_TO_EDGE		= 2 << __ADDRESS_BASE,	//!< Sampler is defined with CLAMP_TO_EDGE attribute
     CL_DEV_SAMPLER_ADDRESS_REPEAT				= 3 << __ADDRESS_BASE,	//!< Sampler is defined with REPEAT attribute
-	CL_DEV_SAMPLER_ADDRESS_MIRRORED_REPEAT		= 4 << __ADDRESS_BASE,	//!< Sampler is defined with MIRRORED_REPEAT attribute
+    CL_DEV_SAMPLER_ADDRESS_MIRRORED_REPEAT		= 4 << __ADDRESS_BASE,	//!< Sampler is defined with MIRRORED_REPEAT attribute
     __ADDRESS_BITS								= 3,					//!< number of bits required to represent address info
     __ADDRESS_MASK								= ( (1<<__ADDRESS_BITS) -1),
 

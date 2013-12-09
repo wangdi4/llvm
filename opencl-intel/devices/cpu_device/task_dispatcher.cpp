@@ -407,7 +407,11 @@ cl_dev_err_code TaskDispatcher::releaseCommandList( ITaskList* IN pList )
 
     //TODO: Why we need this manual staff, why just not handle SharedPtr on higher level
     pList->Flush();
-    pList->DecRefCnt();
+    long ref = pList->DecRefCnt();
+    if ( 0 == ref )
+    {
+        pList->Cleanup();
+    }
     CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - list %X"), pList);
     return CL_DEV_SUCCESS;
 }

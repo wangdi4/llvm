@@ -24,6 +24,7 @@
 #include "native_thread_pool.h"
 #include "mic_native_logger.h"
 #include "mic_logger.h"
+#include "mic_device_interface.h"
 
 #include <sink/COIBuffer_sink.h>
 #include <common/COIEvent_common.h>
@@ -53,14 +54,15 @@ void init_device(uint32_t         in_BufferCount,
                  uint16_t         in_ReturnValueLength)
 {
     assert(in_MiscDataLength == sizeof(mic_exec_env_options));
-    assert(in_ReturnValueLength == sizeof(cl_dev_err_code));
+    assert(in_ReturnValueLength == sizeof(mic_init_return));
 
-    cl_dev_err_code* pErr = (cl_dev_err_code*)in_pReturnValue;
-    *pErr = CL_DEV_SUCCESS;
-    
+    mic_init_return* pRet = (mic_init_return*)in_pReturnValue;
+    pRet->uiNumActiveThreads = 0;
+    pRet->initError = CL_DEV_ERROR_FAIL;
+
     // The mic_exec_env_options input.
     mic_exec_env_options* tEnvOptions = (mic_exec_env_options*)in_pMiscData;
-    assert(tEnvOptions);
+    assert(tEnvOptions && "Device configuration is missing");
     if (tEnvOptions->stop_at_load)
     {
         printf("********* DEVICE STOPPED PLEASE ATTACH TO PID = %d ************\n", getpid());
@@ -91,17 +93,17 @@ void init_device(uint32_t         in_BufferCount,
     }
 #endif
 
-  unsigned int num_of_worker_threads = gMicExecEnvOptions.threads_per_core*gMicExecEnvOptions.num_of_cores;
-    assert((num_of_worker_threads > 0) && (num_of_worker_threads < MIC_NATIVE_MAX_WORKER_THREADS));
+    unsigned int num_of_worker_threads = gMicExecEnvOptions.threads_per_core*gMicExecEnvOptions.num_of_cores;
+        assert((num_of_worker_threads > 0) && (num_of_worker_threads < MIC_NATIVE_MAX_WORKER_THREADS));
 
     if ((num_of_worker_threads <= 0) || (num_of_worker_threads >= MIC_NATIVE_MAX_WORKER_THREADS))
     {
-        *pErr = CL_DEV_ERROR_FAIL;
+        pRet->initError = CL_DEV_ERROR_FAIL;
         return;
     }
 
-    *pErr = ProgramService::createProgramService();
-    if ( CL_DEV_FAILED(*pErr) )
+    pRet->initError = ProgramService::createProgramService();
+    if ( CL_DEV_FAILED(pRet->initError) )
     {
         return;
     }
@@ -111,7 +113,7 @@ void init_device(uint32_t         in_BufferCount,
     if (NULL == pThreadPool)
     {
         ProgramService::releaseProgramService();
-        *pErr = CL_DEV_OUT_OF_MEMORY;
+        pRet->initError = CL_DEV_OUT_OF_MEMORY;
         return;
     }
 
@@ -122,10 +124,12 @@ void init_device(uint32_t         in_BufferCount,
     {
         ProgramService::releaseProgramService();
         ThreadPool::releaseSingletonInstance();
-        *pErr = CL_DEV_ERROR_FAIL;
+        pRet->initError = CL_DEV_ERROR_FAIL;
         return;
     }
-    
+
+    pRet->uiNumActiveThreads = pThreadPool->GetNumberOfActiveThreads();
+    pRet->initError = CL_DEV_SUCCESS;
 }
 
 // release the device thread pool. Call it before process destruction.

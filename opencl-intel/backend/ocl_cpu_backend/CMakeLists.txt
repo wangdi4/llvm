@@ -179,15 +179,12 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ProgramContainerMemoryBuffer.h
     ModuleJITHolder.h
     Kernel.h
+    CPUKernel.h
     MICKernel.h
     KernelProperties.h
     MICKernelProperties.h
     CPUJITContainer.h
     MICJITContainer.h
-    Binary.h
-    Executable.h
-    CPUExecutable.h
-    MICExecutable.h
     ImageCallbackLibrary.h
     ImageCallbackManager.h
     ImageCallbackServices.h
@@ -239,16 +236,13 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     BitCodeContainer.cpp
     ProgramContainerMemoryBuffer.cpp
     Kernel.cpp
+    CPUKernel.cpp
     MICKernel.cpp
     KernelProperties.cpp
     MICKernelProperties.cpp
     CPUJITContainer.cpp
     MICJITContainer.cpp
     ModuleJITHolder.cpp
-    Binary.cpp
-    Executable.cpp
-    CPUExecutable.cpp
-    MICExecutable.cpp
     ImageCallbackLibrary.cpp
     ImageCallbackManager.cpp
     ImageCallbackServices.cpp
@@ -339,6 +333,7 @@ endif (NOT WIN32)
 
 set( BACKEND_PASSES
     LLVMBarrier
+    ImplicitArgsAnalysis
     LLVMVectorizer
     AddImplicitArgs
     OclFunctionAttrs

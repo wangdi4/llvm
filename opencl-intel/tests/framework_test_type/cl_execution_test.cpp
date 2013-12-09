@@ -126,11 +126,12 @@ bool clExecutionTest()
 	printf("clExecutionTest\n");
 	printf("---------------------------------------\n");
 	const char *ocl_test_program[] = {\
-	"__kernel void dot_product (__global const float4 *a, __global const float4 *b, __global float4 *c)"\
-	"{"\
-	"int tid = get_global_id(0);"\
-	"c[tid] = fma(a[tid], b[tid], c[tid]);"\
-	"}"
+	"__kernel void dot_product (__global const float4 *a, __global const float4 *b, __global float4 *c, int numElements)\n"\
+	"{\n"\
+    "if ( get_global_size(0) != numElements ) return;\n"\
+	"int tid = get_global_id(0);\n"\
+	"c[tid] = fma(a[tid], b[tid], c[tid]);\n"\
+	"}\n"
 	};
 
 	bool bResult = true;
@@ -257,6 +258,10 @@ bool clExecutionTest()
     bResult &= SilentCheck(L"clSetKernelArg - buffer_srcB", CL_SUCCESS, iRet);
 
     iRet = clSetKernelArg(kernel1, 2, sizeof(cl_mem), &buffer_dst);
+    bResult &= SilentCheck(L"clSetKernelArg - buffer_dst", CL_SUCCESS, iRet);
+
+    int itemCount = BUFFERS_LENGTH / 4;
+    iRet = clSetKernelArg(kernel1, 3, sizeof(int), &itemCount);
     bResult &= SilentCheck(L"clSetKernelArg - buffer_dst", CL_SUCCESS, iRet);
 
     //

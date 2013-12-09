@@ -41,17 +41,13 @@ using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::OpenCL::CPUDevice;
 
 WGContext::WGContext() :
-    m_pContext(NULL), m_lNDRangeId(-1), m_stPrivMemAllocSize(CPU_DEV_MAX_WG_TOTAL_SIZE),
+    m_lNDRangeId(-1), m_stPrivMemAllocSize(CPU_DEV_MAX_WG_TOTAL_SIZE),
     m_pLocalMem(NULL), m_pPrivateMem(NULL), m_pCurrentNDRange(NULL)
 {
 }
 
 WGContext::~WGContext()
 {
-    if ( NULL != m_pContext )
-    {
-        m_pContext->Release();
-    }
     if ( NULL != m_pLocalMem )
     {
         ALIGNED_FREE(m_pLocalMem);
@@ -89,55 +85,7 @@ cl_dev_err_code	WGContext::Init()
     return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code WGContext::CreateContext(long ndrCmdId, ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count)
-{
-    assert( (count<=CPU_MAX_LOCAL_ARGS ) && "Unexpected number of local buffers");
-
-    if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
-    {
-        assert(0 && "Execution context memory is not initialized");
-        return CL_DEV_OUT_OF_MEMORY;
-    }
-
-    InvalidateContext();
-
-    void*	pBuffPtr[CPU_MAX_LOCAL_ARGS+1]; // Additional one for private memory
-
-    // Allocate local memories
-    char*	pCurrPtr = m_pLocalMem;
-    // The last buffer is private memory (stack) size
-    --count;
-    for(size_t i=0;i<count;++i)
-    {
-        pBuffPtr[i] = pCurrPtr;
-        pCurrPtr += pBuffSizes[i];
-    }
-
-    // Check allocated size of the private memory
-    if ( m_stPrivMemAllocSize < pBuffSizes[count] )
-    {
-        assert(0 && "Reqired private size is greater than allowed one");
-        return CL_DEV_OUT_OF_MEMORY;
-    }
-
-    pBuffPtr[count] = m_pPrivateMem;
-
-    cl_dev_err_code rc = pBinary->CreateExecutable(pBuffPtr, count+1, &m_pContext);
-    if (CL_DEV_FAILED(rc))
-    {
-        return CL_DEV_ERROR_FAIL;
-    }
-
-    m_lNDRangeId = ndrCmdId;
-    return CL_DEV_SUCCESS;
-}
-
 void WGContext::InvalidateContext()
 {
-    if ( NULL != m_pContext )
-    {
-        m_pContext->Release();
-        m_pContext = NULL;
-    }
     m_lNDRangeId = -1;
 }

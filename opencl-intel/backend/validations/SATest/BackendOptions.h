@@ -432,15 +432,7 @@ public:
             if(*pSize < m_targetDescSize) return false;
             memcpy(Value, m_pTargetDesc, m_targetDescSize);
             return true;
-#if defined(SATEST_INCLUDE_MIC_DEVICE)
-        case CL_DEV_BACKEND_OPTION_BUFFER_PRINTER:
-            if (isMIC())
-            {
-                *(void**)Value = (void*)(&m_printer);
-                return true;
-            }
-            else return CPUBackendOptions::GetValue(optionId, Value, pSize);
-#endif
+            
         default:
             return CPUBackendOptions::GetValue(optionId, Value, pSize);
         }
@@ -468,9 +460,6 @@ private:
 private:
     size_t m_targetDescSize;
     char*  m_pTargetDesc;
-#if defined(SATEST_INCLUDE_MIC_DEVICE)
-    MICBackendPrintfFiller m_printer;
-#endif
 };
 
 /**

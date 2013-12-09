@@ -77,11 +77,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param  ppCurrWI     The CurrWI argument, NULL if this argument shouldn't be retrieved
     /// @param  ppCtx        The pCtx argument, NULL if this argument shouldn't be retrieved
     /// @param  ppExtExecCtx The ExtendedExecutionContext argument, NULL if this argument shouldn't be retrieved
-    static void getImplicitArgs(Function *pFunc,
-      Argument **ppLocalMem, Argument **ppWorkDim, Argument **ppWGId,
-      Argument **ppBaseGlbId, Argument **ppLocalId, Argument **ppIterCount,
-      Argument **ppSpecialBuf, Argument **ppCurrWI, Argument **ppCtx,
-      Argument **ppExtExecCtx);
+    static void getImplicitArgs(Function *pFunc, Argument **ppLocalMem,
+                                Argument **ppWorkDim, Argument **ppWGId,
+                                Argument **ppBaseGlbId, Argument **ppSpecialBuf,
+                                Argument **ppCurrWI,
+                                Argument **ppRunTimeContext);
 
     /// @brief collect built-ins declared in the module and force synchronization.
     //         I.e. implemented using barrier built-in.
@@ -175,8 +175,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupMax(const std::string&);
     static bool isWorkGroupUniform(const std::string&);
 
-    static const std::string NAME_GET_ORIG_GID;
-    static const std::string NAME_GET_ORIG_LID;
+    static const std::string NAME_GET_GID;
+    static const std::string NAME_GET_LID;
 
     static const std::string NAME_GET_WORK_DIM;
     static const std::string NAME_GET_GLOBAL_SIZE;
@@ -227,16 +227,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //kernel type qualifiers
     static const std::string SAMPLER;
   public:
-    /// Holds the number of implicit arguments added to function
-    static const unsigned int NUMBER_IMPLICIT_ARGS;
-
     /// '3' is a magic number for global variables
     /// that were in origin kernel local variable!
     static const unsigned int LOCL_VALUE_ADDRESS_SPACE;
 
     static const std::string NAME_GET_BASE_GID;
-    static const std::string NAME_GET_GID;
-    static const std::string NAME_GET_LID;
+    static const std::string NAME_GET_NEW_GID;
+    static const std::string NAME_GET_NEW_LID;
     static const std::string NAME_GET_ITERATION_COUNT;
     static const std::string NAME_GET_SPECIAL_BUFFER;
     static const std::string NAME_GET_CURR_WI;

@@ -57,7 +57,6 @@ TaskHandlerBase::TaskHandlerBase(const TaskHandlerBase& o) :
   m_errorCode(CL_DEV_SUCCESS),
   m_bDuplicated(true)
 {
-    m_bDuplicated = true;
     // Allocate memory for buffer pointers
     // TODO: Use TBB scalable allocator
     assert(m_bufferCount>0 && "Command expected to use buffers");

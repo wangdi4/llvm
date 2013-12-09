@@ -94,8 +94,6 @@ protected:
 template<class Command, typename dispatch_data_type > class TaskHandler : public TaskHandlerBase
 {
 public:
-    //PREPARE_SHARED_PTR(TaskHandler<typename Command >)
-
     TaskHandler(
         //const QueueOnDevice* pQueue,
         uint32_t lockBufferCount,
@@ -153,10 +151,11 @@ protected:
     dispatch_data_type* m_dispatcherData;
     size_t              m_uiDispatchSize;
 
-    TaskHandler(const TaskHandler& o) : TaskHandlerBase(o)
+    TaskHandler(const TaskHandler& o) :
+        TaskHandlerBase(o),
+        m_uiDispatchSize(o.m_uiDispatchSize)
     {
-        m_uiDispatchSize = o.m_uiDispatchSize;
-        m_dispatcherData = (dispatch_data_type *)memalign(8, o.m_uiDispatchSize);
+        m_dispatcherData = (dispatch_data_type *)memalign(sizeof(size_t), m_uiDispatchSize);
         memcpy(m_dispatcherData, o.m_dispatcherData, m_uiDispatchSize);
     }
 

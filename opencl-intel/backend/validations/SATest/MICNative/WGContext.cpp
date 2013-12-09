@@ -25,7 +25,7 @@ File Name:  WGContext.cpp
 #endif
 #include <malloc.h>
 
-WGContext::WGContext(): m_pContext(NULL), m_stPrivMemAllocSize(MIC_DEFAULT_WG_SIZE*MIC_DEV_MIN_WI_PRIVATE_SIZE)
+WGContext::WGContext(): /*m_pContext(NULL), */m_stPrivMemAllocSize(MIC_DEFAULT_WG_SIZE*MIC_DEV_MIN_WI_PRIVATE_SIZE)
 {
     // Create local memory
     m_pLocalMem = (char*)_mm_malloc(MIC_DEV_LCL_MEM_SIZE, MIC_DEV_MAXIMUM_ALIGN);
@@ -34,10 +34,12 @@ WGContext::WGContext(): m_pContext(NULL), m_stPrivMemAllocSize(MIC_DEFAULT_WG_SI
 
 WGContext::~WGContext()
 {
+#if 0
     if ( NULL != m_pContext )
     {
         m_pContext->Release();
     }
+#endif
 
     if ( NULL != m_pLocalMem )
     {
@@ -50,6 +52,7 @@ WGContext::~WGContext()
     }
 }
 
+#if 0
 cl_dev_err_code WGContext::CreateContext(ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count)
 {
     if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
@@ -96,3 +99,4 @@ cl_dev_err_code WGContext::CreateContext(ICLDevBackendBinary_* pBinary, size_t* 
     }
     return CL_DEV_SUCCESS;
 }
+#endif

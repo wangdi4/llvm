@@ -190,15 +190,4 @@ enum OPTIONAL_DISPATCH_BUFFERS
 const size_t    PaddingSize = 4096;       // Must be a multiple of 64 to avoid alignment issues.
 const uint8_t   PaddingVal = 0xcc;
 
-class MICBackendPrintfFiller : public ICLDevBackendBufferPrinter
-{
-public:
-    int  Print(void* id, const char* buf ) 
-    {
-        printf("%s", buf);
-        fflush(0);
-        return strlen(buf);
-    }
-};
-
 #endif // SATEST_NATIVE_COMMON_H

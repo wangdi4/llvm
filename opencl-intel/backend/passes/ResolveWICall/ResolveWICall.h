@@ -8,6 +8,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __RESOLVE_WI_CALL_H__
 #define __RESOLVE_WI_CALL_H__
 
+#include "ImplicitArgsUtils.h"
+#include "ImplicitArgsAnalysis/ImplicitArgsAnalysis.h"
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/Instructions.h"
@@ -18,62 +20,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 using namespace llvm;
 
 namespace intel {
-
-  typedef enum {
-    ICT_NONE,
-    ICT_GET_LOCAL_ID,
-    ICT_GET_GLOBAL_ID,
-    ICT_GET_BASE_GLOBAL_ID,
-    ICT_GET_ITER_COUNT,
-    ICT_GET_SPECIAL_BUFFER,
-    ICT_GET_CURR_WI,
-    ICT_GET_WORK_DIM,
-    ICT_GET_GLOBAL_SIZE,
-    ICT_GET_LOCAL_SIZE,
-    ICT_GET_NUM_GROUPS,
-    ICT_GET_GROUP_ID,
-    ICT_GET_GLOBAL_OFFSET,
-    ICT_PRINTF,
-    ICT_PREFETCH,
-    // get_default_queue()
-    ICT_GET_DEFAULT_QUEUE,
-    // Basic Enqueue kernel
-    // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,const ndrange_t ndrange,void (^block)(void))
-    ICT_ENQUEUE_KERNEL_BASIC,
-    // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ?), uint size0, ?)
-    ICT_ENQUEUE_KERNEL_LOCALMEM,
-    // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,const ndrange_t ndrange,uint num_events_in_wait_list, const clk_event_t *event_wait_list,clk_event_t *event_ret,void (^block)(void))
-    ICT_ENQUEUE_KERNEL_EVENTS,
-    // int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ?), uint size0, ?)
-    ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM,
-    // uint get_kernel_work_group_size (void (^block)(void))
-    ICT_GET_KERNEL_WORK_GROUP_SIZE,
-    // uint get_kernel_work_group_size (void (^block)(local void *, ...))
-    ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL,
-    // uint get_kernel_preferred_work_group_size_multiple(void (^block)(void))
-    ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
-    // uint get_kernel_preferred_work_group_size_multiple(void (^block)(local void *, ...));
-    ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL,
-    // int enqueue_marker ( queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret)
-    ICT_ENQUEUE_MARKER,
-    // void retain_event (clk_event_t event)
-    ICT_RETAIN_EVENT,
-    // void release_event (clk_event_t event)
-    ICT_RELEASE_EVENT,
-    // clk_event_t create_user_event ()
-    ICT_CREATE_USER_EVENT,
-    // void set_user_event_status ( clk_event_t event, int status)
-    ICT_SET_USER_EVENT_STATUS,
-    // void capture_event_profiling_info ( clk_event_t event, clk_profiling_info name, global ulong *value)
-    ICT_CAPTURE_EVENT_PROFILING_INFO,
-    // ndrange_1D
-    ICT_NDRANGE_1D,
-    // ndrange_2D
-    ICT_NDRANGE_2D,
-    // ndrange_3D
-    ICT_NDRANGE_3D,
-    ICT_NUMBER
-  } TInternalCallType;
 
   /// @brief  ResolveWICall class used resolve work item function calls
   class ResolveWICall : public ModulePass {
@@ -95,6 +41,11 @@ namespace intel {
     /// @returns true if changed
     bool runOnModule(Module &M);
 
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<DataLayout>();
+      AU.addRequired<ImplicitArgsAnalysis>();
+    }
+
   protected:
     /// @brief Resolves the work item function calls of the kernel
     /// @param pFunc The function which needs it work item function calls to be resolved
@@ -106,7 +57,7 @@ namespace intel {
     /// @param pCall The call instruction that calls a work item function
     /// @param type  The call instruction type
     /// @returns The result value of the work item function call
-    Value* updateGetFunction(CallInst *pCall, TInternalCallType type);
+    Value* updateGetFunction(CallInst *pCall, unsigned type);
 
     /// @brief Calculates work-item information that use dimension
     ///        (this function is used where dimension is in bound)
@@ -114,24 +65,12 @@ namespace intel {
     /// @param type          The call instruction type
     /// @param pInsterBefore The instruction to insert new instructions before
     /// @returns The result value of the work item function call
-    Value* updateGetFunctionInBound(CallInst *pCall, TInternalCallType type, Instruction *pInsertBefore);
-
-    /// @brief Calculates the global id
-    /// @param pCall         The call instruction that calls a work item function
-    /// @param pInsterBefore The instruction to insert new instructions before
-    /// @returns The result value of the work item function call
-    Value* calcGlobalId(CallInst *pCall, Instruction *pInsterBefore);
-
-    /// @brief Calculates the base global id (first global id in the work group)
-    /// @param pCall         The call instruction that calls a work item function
-    /// @param pInsterBefore The instruction to insert new instructions before
-    /// @returns The result value of the work item function call
-    Value* calcBaseGlobalId(CallInst *pCall, Instruction *pInsterBefore);
+    Value* updateGetFunctionInBound(CallInst *pCall, unsigned type, Instruction *pInsertBefore);
 
     /// @brief Returns Internal Call Type for given function name
     /// @param calledFuncName given function name
     /// @returns Internal Call Type for given function name
-    TInternalCallType getCallFunctionType(std::string calledFuncName);
+    unsigned getCallFunctionType(std::string calledFuncName);
 
     // printf/prefetch
     Value*  updatePrintf(llvm::CallInst *pCall);
@@ -147,18 +86,14 @@ namespace intel {
     /// @param type          The call instruction type that represents one of the ndrange BIs
     /// @param pCall         The call instruction that calls a work item function
     /// @returns The result value of the ndrange_ND call, where N = [1,2,3]
-    Value* updateNDRangeND(const TInternalCallType type, CallInst *pCall);
+    Value* updateNDRangeND(unsigned type, CallInst *pCall);
 
     /// @brief add declaration of Extended Execution callback to Module
     /// @param type - callback type
-    void addExtExecFunctionDeclaration(const TInternalCallType type);
+    void addExtExecFunctionDeclaration(unsigned type);
     /// @brief obtain name for extexec callback
-    std::string getExtExecCallbackName(const TInternalCallType type) const;
+    std::string getExtExecCallbackName(unsigned type) const;
     
-    /// @brief insert a call for Extended Execution callback
-    /// @return CallInst
-    Value* updateExtExecFunction(std::vector<Value*> Params, const StringRef FunctionName, CallInst *InsertBefore);
-
     /// Helper functions to construct OpenCL types
     /// @brief constructs type for queue_t
     Type * getQueueType() const;
@@ -178,8 +113,6 @@ namespace intel {
     Type * getEnqueueKernelRetType() const;
     /// @brief constructs type for extended execution context
     Type * getExtendedExecContextType() const;
-    /// @brief return size_t 
-    Type * getSizeTType() const;
     /// @brief return ConstantInt::int32_type with zero value
     ConstantInt * getConstZeroInt32Value() const;
     /// @brief get or add from/to  module declaration of struct.__ndrange_t
@@ -202,11 +135,11 @@ namespace intel {
     ///@brief returns types EnqueueKernel callbacks
     ///@param  type - type of callback {basic, localmem, event, ...}
     ///@return      - call back Function type
-    FunctionType* getEnqueueKernelType(const TInternalCallType type);
+    FunctionType* getEnqueueKernelType(unsigned type);
     ///@brief returns description of DefaultQueue callback
     FunctionType* getDefaultQueueFunctionType();
     ///@brief returns description of GetKernelWGSize and GerKernelPreferredWGSizeMultiple callbacks
-    FunctionType* getGetKernelQueryFunctionType(const TInternalCallType type);
+    FunctionType* getGetKernelQueryFunctionType(unsigned type);
     ///@brief return description of ReleaseEvent and RetainEvent callbacks
     FunctionType* getRetainAndReleaseEventFunctionType();
     ///@brief returns description of CreateUserEvent callback
@@ -216,7 +149,7 @@ namespace intel {
     ///@brief returns description of CaptureEventProfilingInfo callback
     FunctionType* getCaptureEventProfilingInfoFunctionType();
     ///@brief returns type of extended execution callback
-    FunctionType* getExtExecFunctionType(const TInternalCallType type);
+    FunctionType* getExtExecFunctionType(unsigned type);
 
     ///@brief returns params List taken from pCall call
     ///!!! NOTE implicitly copies all pCall params to output
@@ -242,32 +175,32 @@ namespace intel {
     Module      *m_pModule;
     /// @brief The llvm context
     LLVMContext *m_pLLVMContext;
+    ImplicitArgsAnalysis *m_IAA;
+    IntegerType *m_sizeTTy;
 
-    /// This holds the pCtx implicit argument of current handled function
-    Argument *m_pCtx;
+    /// This holds the Runtime Handle implicit argument of current handled function
+    /// This argument is initialized passed thru to MIC's printf
+    Argument *m_pRuntimeHandle;
     /// This holds the pWorkInfo implicit argument of current handled function
     Argument *m_pWorkInfo;
     /// This holds the pWGId implicit argument of current handled function
     Argument *m_pWGId;
     /// This holds the pBaseGlbId implicit argumnet of current handled function
     Argument *m_pBaseGlbId;
-    /// This holds the pLocalId implicit argument of current handled function
-    Argument *m_pLocalId;
-    /// This holds the pIterCount implicit argument of current handled function
-    Argument *m_pIterCount;
     /// This holds the pSpecialBuf implicit argument of current handled function
     Argument *m_pSpecialBuf;
     /// This holds the pCurrWI implicit argument of current handled function
     Argument *m_pCurrWI;
     /// This holds the pExtExecutionContext implicit argument of current handled function
-    Argument *m_pExtendedExecutionCtx;
+    //TODO-NDRANGE: Extended execution context not supported in branch
+    //Argument *m_pExtendedExecutionCtx;
 
     /// This is flag indicates that Prefetch declarations already added to module
     bool m_bPrefetchDecl;
     /// This is flag indicates that Printf declarations already added to module
     bool m_bPrintfDecl;
     /// flags indicates that extended execution built-in declarations already added to module
-    std::set<TInternalCallType> m_ExtExecDecls;
+    std::set<unsigned> m_ExtExecDecls;
 
     /// type %struct.__ndrange_t type 
     /// NULL means declaration were not added to module
@@ -275,6 +208,14 @@ namespace intel {
     /// number of bits in integer returned from enqueue_kernel BI
     /// constant introduced for readability of code
     enum { ENQUEUE_KERNEL_RETURN_BITS = 32 };
+
+    // since both get_new_local_id and get_new_global_id rely on the same CSE it
+    // makes sense to cache this CSE it also makes the implementation avoid code
+    // duplication.
+    // maps a pair of <Dimension, CurrWI> -> get_new_local_id(Dimension, CurrWI)
+    //typedef GetNewLocalIDCache
+    //std::map<std::pair<Value *, Value *>, Instruction *>;
+    //GetNewLocalIDCache m_GetNewLocalIDs;
   };
   
 } // namespace intel 

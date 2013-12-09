@@ -38,7 +38,7 @@ using namespace Intel::OpenCL;
 
 int printFormatCommon(OutputAccumulator& output, const char* format, const char* args);
 
-extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args, DeviceBackend::CallbackContext* pContext)
+extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args, void* pCallback, void* pHandle)
 {
     char lastChar;
     StringOutputAccumulator out_counter(&lastChar, 1);
@@ -59,10 +59,10 @@ extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args
         return retVal;
     }
 
-    if (NULL !=  pContext->GetDevicePrinter())
+    if (NULL !=  pCallback)
     {
         // send the output buffer to the runtime
-        retVal = pContext->GetDevicePrinter()->Print(pContext, buf);
+        retVal = ((DeviceBackend::ICLDevBackendDeviceAgentCallback*)pCallback)->Print(buf, pHandle);
     }
     else
     {
