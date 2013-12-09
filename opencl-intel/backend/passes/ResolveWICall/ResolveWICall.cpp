@@ -71,8 +71,6 @@ namespace intel {
   }
 
   Function* ResolveWICall::runOnFunction(Function *pFunc) {
-
-    //m_GetNewLocalIDs.clear()
     // Getting the implicit arguments
     CompilationUtils::getImplicitArgs(pFunc, NULL, &m_pWorkInfo, &m_pWGId,
                                       &m_pBaseGlbId, &m_pSpecialBuf, &m_pCurrWI,
@@ -130,9 +128,6 @@ namespace intel {
           break;
 
         case ICT_GET_DEFAULT_QUEUE:
-          assert(false && "Not implemented");
-          break;
-
         case ICT_ENQUEUE_KERNEL_BASIC:
         case ICT_ENQUEUE_KERNEL_EVENTS:
         case ICT_ENQUEUE_MARKER:
@@ -145,15 +140,41 @@ namespace intel {
         case ICT_CREATE_USER_EVENT:
         case ICT_SET_USER_EVENT_STATUS:
         case ICT_CAPTURE_EVENT_PROFILING_INFO:
+#if 0
+          addExtExecFunctionDeclaration(calledFuncType);
+          pNewRes = updateExtExecFunction(getExtExecFunctionParams(pCall),
+            getExtExecCallbackName(calledFuncType),
+            pCall);
+          assert(pNewRes && "ExtExecution. Expected non-NULL results");
+#else
           assert(false && "Not implemented");
+#endif
           break;
 
         case ICT_ENQUEUE_KERNEL_LOCALMEM: {
+#if 0
+          const uint32_t ICT_ENQUEUE_KERNEL_LOCALMEM_ARG_POS = 4;
+          addExtExecFunctionDeclaration(calledFuncType);
+          pNewRes = updateExtExecFunction(getEnqueueKernelLocalMemFunctionParams(pCall, ICT_ENQUEUE_KERNEL_LOCALMEM_ARG_POS),
+            getExtExecCallbackName(calledFuncType),
+            pCall);
+          assert(pNewRes && "Expected updateGetEnqueueKernelLocalMem to succeed");
+#else
           assert(false && "Not implemented");
+#endif
           break;
                                           }
         case ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM: {
+#if 0
+          const uint32_t ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM_ARG_POS = 7;
+          addExtExecFunctionDeclaration(calledFuncType);
+          pNewRes = updateExtExecFunction(getEnqueueKernelLocalMemFunctionParams(pCall, ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM_ARG_POS),
+            getExtExecCallbackName(calledFuncType),
+            pCall);
+          assert(pNewRes && "Expected updateGetEnqueueKernelEvents to succeed");
+#else
           assert(false && "Not implemented");
+#endif
           break;
                                                  }
         case ICT_NDRANGE_1D:
