@@ -85,9 +85,6 @@ bool clPipes()
 		clCreatePipe((cl_context)platform, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, NULL, &iRet);
 		CheckException(L"clCreatePipe", CL_INVALID_CONTEXT, iRet);
 
-		clCreatePipe(context, 0, uiPacketSize, uiMaxPackets, NULL, &iRet);
-		CheckException(L"clCreatePipe", CL_INVALID_VALUE, iRet);
-
 		cl_pipe_properties props;
 		clCreatePipe(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, &props, &iRet);
 		CheckException(L"clCreatePipe", CL_INVALID_VALUE, iRet);

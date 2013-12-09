@@ -1347,6 +1347,7 @@ cl_int ContextModule::SetKernelExecInfo(cl_kernel clKernel, cl_kernel_exec_info 
 cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint uiPipePacketSize, cl_uint uiPipeMaxPackets, const cl_pipe_properties* pProperties, void* pHostPtr,
     size_t* pSizeRet, cl_int* piErrcodeRet)
 {
+	cl_err_code err;
 	SharedPtr<Context> pContext = GetContext(context);
 	if (NULL == pContext)
 	{
@@ -1355,8 +1356,9 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
 			*piErrcodeRet = CL_INVALID_CONTEXT;
 		}
 		return CL_INVALID_HANDLE;
-	}		
-	if (flags != (CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS) || NULL != pProperties)
+	}
+	err = CheckMemObjectParameters(flags, NULL, CL_MEM_OBJECT_PIPE, 0, 0, 0, 0, 0, 0, NULL);
+	if (CL_FAILED(err) || NULL != pProperties)
 	{
 		if (NULL != piErrcodeRet)
 		{
@@ -1423,7 +1425,7 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
     }
 
 	SharedPtr<MemoryObject> pPipe;
-	cl_err_code err = pContext->CreatePipe(uiPipePacketSize, uiPipeMaxPackets, pPipe, pHostPtr);
+	err = pContext->CreatePipe(uiPipePacketSize, uiPipeMaxPackets, pPipe, pHostPtr);
 	if (CL_FAILED(err))
 	{
 		if (NULL != piErrcodeRet)
@@ -2738,6 +2740,15 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
         {
             return CL_INVALID_IMAGE_DESCRIPTOR;
         }
+    }
+
+    if (CL_MEM_OBJECT_PIPE == clMemObjType &&
+        (clMemFlags & ~(CL_MEM_READ_WRITE |
+                    CL_MEM_WRITE_ONLY |
+                    CL_MEM_READ_ONLY |
+                    CL_MEM_HOST_NO_ACCESS)) != 0)
+    {
+        return CL_INVALID_VALUE;
     }
 
     return CL_SUCCESS;
