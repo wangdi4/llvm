@@ -2286,7 +2286,7 @@ int CPUDevice::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl_uin
     }
         
     ITaskList* pList = (ITaskList*)queue;
-    if (pList->DoesSupportDeviceSideCommandEnqueue())
+    if (!pList->DoesSupportDeviceSideCommandEnqueue())
     {
         return CL_INVALID_OPERATION;
     }
