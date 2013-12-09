@@ -28,41 +28,32 @@ declare void @__ocl_transpose_store_short_4x8(<4 x i16>* nocapture %pStoreAdd, <
 
 ;-------------------------------------------------------------------------------
 ; CHECK-AVX:     .type	[[FOO:[_a-z]+]],@function
-; CHECK-AVX:     vpunpckhwd	%x[[MM3:mm[0-7]{1}]], %x[[MM2:mm[0-7]{1}]], %x[[MM4:mm[0-7]{1}]]
-; CHECK-AVX:     vpunpcklwd	%x[[MM3]], %x[[MM2]], %x[[MM2]]
-; CHECK-AVX:     vinsertf128	$1, %x[[MM4]], %y[[MM2]], %y[[MM2]]
-; CHECK-AVX:     vpunpckhwd	%x[[MM1:mm[0-7]{1}]], %x[[MM0:mm[0-7]{1}]], %x[[MM3]]
-; CHECK-AVX:     vpunpcklwd	%x[[MM1]], %x[[MM0]], %x[[MM0]]
-; CHECK-AVX:     vinsertf128	$1, %x[[MM3]], %y[[MM0]], %y[[MM0]]
-; CHECK-AVX:     vunpckhps	%x[[MM2]], %x[[MM0]], %x[[MM1]]
-; CHECK-AVX:     vunpcklps	%x[[MM2]], %x[[MM0]], %x[[MM3]]
-; CHECK-AVX:     vinsertf128	$1, %x[[MM1]], %y[[MM3]], %y[[MM1]]
-; CHECK-AVX:     vmovups	%y[[MM1]],
-; CHECK-AVX:     vextractf128	$1, %y[[MM2]], %x[[MM1]]
-; CHECK-AVX:     vextractf128	$1, %y[[MM0]], %x[[MM2]]
-; CHECK-AVX:     vunpckhps	%x[[MM1]], %x[[MM2]], %x[[MM0]]
-; CHECK-AVX:     vunpcklps	%x[[MM1]], %x[[MM2]], %x[[MM1]]
-; CHECK-AVX:     vinsertf128	$1, %x[[MM0]], %y[[MM1]], %y[[MM0]]
-; CHECK-AVX:     vmovups	%y[[MM0]],
+; CHECK-AVX:     vpunpcklwd      %x[[MM3:mm[0-7]{1}]], %x[[MM2:mm[0-7]{1}]], %x[[MM4:mm[0-7]{1}]]
+; CHECK-AVX:     vpunpcklwd      %x[[MM1:mm[0-7]{1}]], %x[[MM0:mm[0-7]{1}]], %x[[MM5:mm[0-7]{1}]]
+; CHECK-AVX:     vunpckhps       %x[[MM4]], %x[[MM5]], %x[[MM6:mm[0-7]{1}]]
+; CHECK-AVX:     vmovups         %x[[MM6]], 16([[EAX:%eax]])
+; CHECK-AVX:     vunpcklps       %x[[MM4]], %x[[MM5]], %x[[MM41:mm[0-7]{1}]]
+; CHECK-AVX:     vmovups         %x[[MM41]], ([[EAX]])
+; CHECK-AVX:     vpunpckhwd      %x[[MM3]], %x[[MM2]], %x[[MM21:mm[0-7]{1}]]
+; CHECK-AVX:     vpunpckhwd      %x[[MM1]], %x[[MM0]], %x[[MM01:mm[0-7]{1}]]
+; CHECK-AVX:     vunpckhps       %x[[MM21]], %x[[MM01]], %x[[MM11:mm[0-7]{1}]]
+; CHECK-AVX:     vmovups         %x[[MM11]], 48([[EAX]])
+; CHECK-AVX:     vunpcklps       %x[[MM21]], %x[[MM01]], %x[[MM02:mm[0-7]{1}]]
+; CHECK-AVX:     vmovups         %x[[MM02]], 32([[EAX]])
 ; CHECK-AVX:     .size	[[FOO]]
 
-
 ;-------------------------------------------------------------------------------
-; CHECK-AVX2:    .type	[[FOO:[_a-z]+]],@function
-; CHECK-AVX2:    vpunpckhwd	%x[[MM3:mm[0-7]{1}]], %x[[MM2:mm[0-7]{1}]], %x[[MM4:mm[0-7]{1}]]
-; CHECK-AVX2:    vpunpcklwd	%x[[MM3]], %x[[MM2]], %x[[MM2]]
-; CHECK-AVX2:    vinserti128	$1, %x[[MM4]], %y[[MM2]], %y[[MM2]]
-; CHECK-AVX2:    vpunpckhwd	%x[[MM1:mm[0-7]{1}]], %x[[MM0:mm[0-7]{1}]], %x[[MM3]]
-; CHECK-AVX2:    vpunpcklwd	%x[[MM1]], %x[[MM0]], %x[[MM0]]
-; CHECK-AVX2:    vinserti128	$1, %x[[MM3]], %y[[MM0]], %y[[MM0]]
-; CHECK-AVX2:    vpunpckhdq	%x[[MM2]], %x[[MM0]], %x[[MM1]]
-; CHECK-AVX2:    vpunpckldq	%x[[MM2]], %x[[MM0]], %x[[MM3]]
-; CHECK-AVX2:    vinserti128	$1, %x[[MM1]], %y[[MM3]], %y[[MM1]]
-; CHECK-AVX2:    vmovdqu	%y[[MM1]],
-; CHECK-AVX2:    vextracti128	$1, %y[[MM2]], %x[[MM1]]
-; CHECK-AVX2:    vextracti128	$1, %y[[MM0]], %x[[MM2]]
-; CHECK-AVX2:    vpunpckhdq	%x[[MM1]], %x[[MM2]], %x[[MM0]]
-; CHECK-AVX2:    vpunpckldq	%x[[MM1]], %x[[MM2]], %x[[MM1]]
-; CHECK-AVX2:    vinserti128	$1, %x[[MM0]], %y[[MM1]], %y[[MM0]]
-; CHECK-AVX2:    vmovdqu	%y[[MM0]],
+; CHECK-AVX2:    .type    [[FOO:[_a-z]+]],@function
+; CHECK-AVX2:    vpunpcklwd      %x[[MM3:mm[0-9]+]], %x[[MM2:mm[0-9]+]], %x[[MM4:mm[0-9]+]]
+; CHECK-AVX2:    vpunpcklwd      %x[[MM1:mm[0-9]+]], %x[[MM0:mm[0-9]+]], %x[[MM6:mm[0-9]+]]
+; CHECK-AVX2:    vpunpckhdq      %x[[MM4]], %x[[MM6]], %x[[MM5:mm[0-9]+]]
+; CHECK-AVX2:    vpunpckldq      %x[[MM4]], %x[[MM6]], %x[[MM41:mm[0-9]+]]
+; CHECK-AVX2:    vinserti128     $1, %x[[MM5]], %y[[MM41]], %y[[MM42:mm[0-9]+]]
+; CHECK-AVX2:    vmovdqu %y[[MM42]],
+; CHECK-AVX2:    vpunpckhwd      %x[[MM3]], %x[[MM2]], %x[[MM21:mm[0-9]+]]
+; CHECK-AVX2:    vpunpckhwd      %x[[MM1]], %x[[MM0]], %x[[MM11:mm[0-9]+]]
+; CHECK-AVX2:    vpunpckhdq      %x[[MM21]], %x[[MM11]], %x[[MM01:mm[0-9]+]]
+; CHECK-AVX2:    vpunpckldq      %x[[MM21]], %x[[MM11]], %x[[MM12:mm[0-9]+]]
+; CHECK-AVX2:    vinserti128     $1, %x[[MM01]], %y[[MM12]], %y[[MM02:mm[0-9]+]]
+; CHECK-AVX2:    vmovdqu %y[[MM02]],
 ; CHECK-AVX2:    .size	[[FOO]]
