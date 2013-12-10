@@ -58,7 +58,7 @@ typedef struct _cl_dev_internal_subdevice_id
     //Task dispatcher for this sub-device
     Intel::OpenCL::Utils::AtomicCounter ref_count;
     volatile bool                       is_acquired;
-    ITEDevice*                          pSubDevice;
+    SharedPtr<ITEDevice>                pSubDevice;
 } cl_dev_internal_subdevice_id;
 
 class IAffinityChangeObserver
@@ -80,12 +80,8 @@ public:
 
     virtual cl_dev_err_code init();
 
-    virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, ITEDevice* IN pDevice, ITaskList** OUT list);
-    virtual cl_dev_err_code releaseCommandList( ITaskList* IN list );
-    virtual cl_dev_err_code flushCommandList( ITaskList* IN list);
-    virtual cl_dev_err_code commandListExecute( ITaskList* IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
-    virtual cl_dev_err_code commandListWaitCompletion(ITaskList* IN list, cl_dev_cmd_desc* IN cmdToWait);
-    virtual cl_dev_err_code cancelCommandList(ITaskList* IN list);
+    virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, ITEDevice* IN pDevice, SharedPtr<ITaskList>* OUT list);
+    virtual cl_dev_err_code commandListExecute( const SharedPtr<ITaskList>& IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
 
     virtual ProgramService* getProgramService(){ return m_pProgramService; }
 
@@ -98,9 +94,6 @@ public:
         return ( (NULL!=pSubDevID) && pSubDevID->is_by_names );
     }
 
-    ITEDevice*              createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_dev_internal_subdevice_id* dev_ptr);
-    void                    releaseSubdevice(ITEDevice* pSubdev);
-
     void                    waitUntilEmpty(ITEDevice* pSubdev);
 
     void                    setWgContextPool(WgContextPool* pWgContextPool) { m_pWgContextPool = pWgContextPool; }
@@ -108,6 +101,8 @@ public:
     ITaskExecutor&          getTaskExecutor() { return *m_pTaskExecutor; }
 
     queue_t                 GetDefaultQueue() { return m_pDefaultQueue.GetPtr(); }
+
+    ITEDevice*              GetRootDevice() { return m_pRootDevice.GetPtr(); }
 
     // ITaskExecutorObserver
     void*                   OnThreadEntry();

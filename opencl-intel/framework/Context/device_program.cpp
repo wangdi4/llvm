@@ -563,6 +563,9 @@ cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes, 
 		}
 		assert(kernelNameSize == pszNameSizes[i]);
 	}
+
+	delete[] devKernels;
+
 	return CL_SUCCESS;
 }
 
