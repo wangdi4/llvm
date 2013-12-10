@@ -20,21 +20,45 @@ File Name:  WGContext.h
 
 #include <cl_device_api.h>
 #include <cl_dev_backend_api.h>
-using namespace Intel::OpenCL::DeviceBackend;
+
+#include <vector>
+
+#include "mem_utils.h"
 
 class WGContext
 {
 public:
-    WGContext();
+    WGContext(const ICLDevBackendKernel_* pKernel,
+                              cl_work_description_type* workInfo, 
+                              void* pArgsBuffer, size_t argsBufferSize);
     virtual ~WGContext();
 
-    cl_dev_err_code CreateContext(/*ICLDevBackendBinary_* pExec, */size_t* pBuffSizes, size_t count);
-//    inline ICLDevBackendExecutable_*    GetExecutable() const {return m_pContext;}
+    void GetMemoryBuffersDescriptions(size_t* IN pBufferSizes, 
+                                      size_t* INOUT pBufferCount );
 
-protected:
-//    ICLDevBackendExecutable_*   m_pContext;
-    char*                       m_pLocalMem;
-    void*                       m_pPrivateMem;
-    size_t                      m_stPrivMemAllocSize;
+    cl_dev_err_code PrepareThread();
+    cl_dev_err_code RestoreThreadState();
+    cl_dev_err_code Execute(const size_t *pGroupID);
+
+    ICLDevBackendKernelRunner::ICLDevExecutionState m_tExecState;
+
+private:
+    void InitParams(const ICLDevBackendKernel_* pKernel, char* pArgsBuffer, cl_work_description_type workInfo);
+    const ICLDevBackendKernelRunner * m_pKernelRunner;
+
+    Validation::auto_ptr_aligned    m_pPrivateMem;
+    size_t                          m_stPrivMemAllocSize;
+
+    Validation::auto_ptr_aligned    m_pArgumentBuffer;
+
+    std::vector<size_t>     m_kernelLocalMemSizes;
+
+    size_t                  m_stAlignedKernelParamSize;
+    size_t                  m_stWIidsBufferSize;
+    size_t                  m_stPrivateMemorySize;
+    size_t                  m_stKernelParamSize;
+
+    unsigned int            m_uiVectorWidth; // vector size that was actually used
+    unsigned int            m_uiWGSize;
 };
 

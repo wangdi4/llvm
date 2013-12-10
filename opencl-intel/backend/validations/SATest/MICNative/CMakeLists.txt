@@ -193,6 +193,7 @@ list( APPEND MIC_FLAGS
                 -I ${BACKEND_ROOT_DIR}/ocl_cpu_backend
                 -I ${BACKEND_ROOT_DIR}/ocl_cpu_backend/export
                 -I ${BACKEND_ROOT_DIR}/../cl_api
+                -I ${BACKEND_ROOT_DIR}/utils
                 -I ${COI_DEVICE_INCLUDE_PATH}
                 -I ${COI_YOCTO_DEVICE_INCLUDE_PATH}
                 -I ${BACKEND_ROOT_DIR}/external/vtune/include
@@ -282,6 +283,7 @@ set(TARGET_SOURCES
     WGContext.cpp
     ../Performance.cpp
     ../dbg_utils.cpp
+    ../mem_utils.cpp
 )
 
 set (HEADER_FILES
