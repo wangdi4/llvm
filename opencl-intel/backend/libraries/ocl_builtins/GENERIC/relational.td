@@ -4,21 +4,17 @@
 // OpenCL 1.2 rev 15, Table 6.14
 
 // isnan
-OclBuiltinImpl isnan_f64_v1_v8 = OclBuiltinImpl<isnan, [v1f64, v8f64], 0, [{
+OclBuiltinImpl isnan_impl = OclBuiltinImpl<isnan, isnan.Types, 0, [{
     return $Arg0VarName != $Arg0VarName;
   }]>;
-OclBuiltinImpl isnan_f64_promote = OclBuiltinImpl<isnan, [v2f64, v3f64, v4f64], 0, Promote1>;
-OclBuiltinImpl isnan_f64_expand = OclBuiltinImpl<isnan, [v16f64], 0, Expand1>;
 
 // isnormal
-OclBuiltinImpl isnormal_f64_v1 = OclBuiltinImpl<isnormal, [v1f64], 0, [{
-    return ( ((as_long($Arg0VarName) & double_const_expMask)!=0) && ( (as_long($Arg0VarName) & double_const_expMask) != double_const_expMask) )?1:0;
+OclBuiltinImpl isnormal_scalar = OclBuiltinImpl<isnormal, [v1f32, v1f64], 0, [{
+    return ( ((as_$Arg0igentype($Arg0VarName) & double_const_expMask) != 0) && ( (as_$Arg0igentype($Arg0VarName) & double_const_expMask) != double_const_expMask) ) ? 1 : 0;
   }]>;
-OclBuiltinImpl isnormal_f64_v8 = OclBuiltinImpl<isnormal, [v8f64], 0, [{
-    return ( ((as_long8($Arg0VarName) & double_const_expMask)!=0) && ( (as_long8($Arg0VarName) & double_const_expMask) != double_const_expMask) )?(long8)-1:(long8)0;
+OclBuiltinImpl isnormal_vector = OclBuiltinImpl<isnormal, [v2f32, v3f32, v4f32, v8f32, v16f32, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
+    return ( ((as_$Arg0igentype($Arg0VarName) & double_const_expMask) != 0) && ( (as_$Arg0igentype($Arg0VarName) & double_const_expMask) != double_const_expMask) ) ? ($Arg0igentype)-1 : ($Arg0igentype)0;
   }]>;
-OclBuiltinImpl isnormalal_f64_promote = OclBuiltinImpl<isnormal, [v2f64, v3f64, v4f64], 0, Promote1>;
-OclBuiltinImpl isnormal_f64_expand = OclBuiltinImpl<isnormal, [v16f64], 0, Expand1>;
 
 // SOA versions of the any/all relational builtins
 // Again, 6 different implementations are required.
@@ -33,8 +29,6 @@ OclBuiltinImpl isnormal_f64_expand = OclBuiltinImpl<isnormal, [v16f64], 0, Expan
 //   ret = as_long4(as_ulong4(ret) >> shift);
 //   return convert_int4(ret);
 // }
-
-
 OclBuiltinImpl soa_any1_impl = OclBuiltinImpl<soa_any1, [v4i8,  v8i8,  v16i8,
              v4i16, v8i16, v16i16,
              v4i32, v8i32, v16i32,
@@ -57,7 +51,7 @@ OclBuiltinImpl soa_any2_impl = OclBuiltinImpl<soa_any2, [v4i8,  v8i8,  v16i8,
     $ReturnVarName = as_$Arg0Type(as_$Arg0ugentype($ReturnVarName) >> shift);
     return convert_$ReturnType(as_$Arg0ugentype($ReturnVarName));
   }]>;
- 
+
  OclBuiltinImpl soa_any3_impl = OclBuiltinImpl<soa_any3, [v4i8,  v8i8,  v16i8,
          v4i16, v8i16, v16i16,
          v4i32, v8i32, v16i32,
