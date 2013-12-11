@@ -157,7 +157,7 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
               static __thread __itt_string_handle* pTaskName = NULL;
               if ( NULL == pTaskName )
               {
-                    pTaskName = __itt_string_handle_create("ExecutionCommand::executeInt()->PrepareData");
+                    pTaskName = __im_uiNumActiveThreadstt_string_handle_create("ExecutionCommand::executeInt()->PrepareData");
               }
               __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
         }
@@ -409,7 +409,6 @@ cl_dev_err_code NDRange::init()
 
     cl_dev_err_code returnError = CL_DEV_SUCCESS;
     // array of directive_pack for preExeDirectives
-    // array of directive_pack for preExeDirectives
     do
     {
         ProgramService* program_service = m_pCommandList->getProgramService();
@@ -440,14 +439,21 @@ cl_dev_err_code NDRange::init()
         const unsigned int* pBufferArgsInx = pKernel->GetMemoryObjectArgumentIndexes();
 
         // Reserve also for SVM buffers
-        m_coiBuffsArr.reserve(numOfBuffersInKernelArgs + cmdParams->uiNonArgSvmBuffersCount);
-        m_accessFlagsArr.reserve(numOfBuffersInKernelArgs + cmdParams->uiNonArgSvmBuffersCount);
+        size_t maxMemObjCount = numOfBuffersInKernelArgs + cmdParams->uiNonArgSvmBuffersCount;
+        m_coiBuffsArr.reserve(maxMemObjCount);
+        m_accessFlagsArr.reserve(maxMemObjCount);
+
+        std::vector<cl_mem_obj_descriptor*> recorderMemoryObjects;
+        bool bRecorderEnabled = false; // TODO: Check with Kernel if recorder enabled
+        cl_mem_obj_descriptor** pRecoderMemoryObjects = NULL;
+        if ( bRecorderEnabled )
+        {
+            recorderMemoryObjects.reserve(maxMemObjCount);
+            pRecoderMemoryObjects = &recorderMemoryObjects[0];
+        }
 
         // Now fill the parameters
         ndrange_dispatcher_data* dispatcherData = (ndrange_dispatcher_data*)m_pDispatchData;
-
-        // Fill NDRange work data
-        dispatcherData->AssignWorkData(cmdParams);
 
         // Get device side kernel address and set kernel directive
         dispatcherData->kernelAddress = ProgramService::GetDeviceSideKernel(cmdParams->kernel);
@@ -459,6 +465,8 @@ cl_dev_err_code NDRange::init()
         }
 
         char* pKernelArgs = (char*)cmdParams->arg_values + sizeof(ndrange_dispatcher_data);
+        cl_uniform_kernel_args* pUniformArgs = (cl_uniform_kernel_args*)(pKernelArgs + pKernel->GetExplicitArgumentBufferSize());
+        ndrange_dispatcher_data::AssignWorkData(cmdParams, pUniformArgs);
 
         const cl_kernel_argument*   pBEParams = pKernel->GetKernelParams();
         for (unsigned int i = 0; i < numOfBuffersInKernelArgs; ++i)
@@ -469,6 +477,12 @@ cl_dev_err_code NDRange::init()
             if ( NULL == memObj )
                 continue;
 
+            if ( bRecorderEnabled )
+            {
+              cl_mem_obj_descriptor* mem_descriptor;
+              memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_ACCELERATOR, 0, (void**)&mem_descriptor);
+              recorderMemoryObjects.push_back(mem_descriptor);
+            }
             AddMemoryObject(memObj, CL_KRNL_ARG_PTR_CONST == paramDesc.type);
         }
 
@@ -477,9 +491,17 @@ cl_dev_err_code NDRange::init()
         // set device side command queue pointer
         dispatcherData->deviceQueuePtr = m_pCommandList->getDeviceQueueAddress();
 
-#ifdef __NEW_BE_API__
-        // Initialize BE parameters here, call to new API
-#endif
+        pUniformArgs->minWorkGroupNum = m_pCommandList->getDeviceServiceComm()->GetNumActiveThreads(); // Need to put MIC configuration here
+        assert ( pUniformArgs->minWorkGroupNum > 0 && "Invalid number of active threads on device");
+
+        // Now we should call to initialize BE kernel
+        returnError = pKernel->GetKernelRunner()->PrepareKernelArguments((void*)pKernelArgs, ( const cl_mem_obj_descriptor**)pRecoderMemoryObjects, (unsigned int)recorderMemoryObjects.size());
+        if ( CL_DEV_FAILED(returnError) )
+        {
+            assert(0 && "PrepareKernelArguments failed" );
+            break;
+        }
+
 
         // If the CommandList is OOO
         if ( !m_pCommandList->isInOrderCommandList() )

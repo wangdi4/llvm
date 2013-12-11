@@ -201,10 +201,6 @@ bool MICNativeBackendOptions::GetValue( int optionId, void* Value, size_t* pSize
             *(void**)Value = (void*)(&m_allocator);
             return true;
 
-        case CL_DEV_BACKEND_OPTION_BUFFER_PRINTER:
-            *(void**)Value = (void*)(&m_printf);
-            return true;
-
         default:
             return false;
     }
@@ -505,19 +501,6 @@ __itt_domain* ProgramService::get_itt_kernel_domain(uint64_t device_info_ptr)
 }
 #endif
 
-cl_dev_err_code ProgramService::create_binary( const ICLDevBackendKernel_* pKernel,
-                                               char* pLockedParams,
-                                               uint64_t argSize,
-                                               cl_work_description_type* pWorkDesc,
-                                               ICLDevBackendBinary_** ppOutBinary ) const
-{
-    return GetExecutionService()->CreateBinary(pKernel, pLockedParams, argSize, pWorkDesc, ppOutBinary);
-}
-
-cl_dev_err_code ProgramService::create_executable(ICLDevBackendExecutable_** ppExecutable) const
-{
-	return GetExecutionService()->CreateExecutable(NULL, NULL, 0, ppExecutable);
-}
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Interface to the HOST

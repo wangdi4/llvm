@@ -2,10 +2,12 @@
 #define ICLDevBackendKernel_H
 
 #include "cl_device_api.h"
+#include "cl_types.h"
 #include "ICLDevBackendProgram.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+typedef void JIT_PTR(const cl_uniform_kernel_args *, const size_t *, void *);
 /**
  * This interface represent the bitcode container responsible
  * for holding the bitcode buffer
@@ -106,6 +108,74 @@ public:
 
 };
 
+class ICLDevBackendKernel_;
+/**
+ * This interface is responsible for running the kernel for NDRange Command
+ * on specified WG
+ */
+class ICLDevBackendKernelRunner
+{
+public:   
+    /**
+     * This struct holds the state of the thread
+     */
+    struct ICLDevExecutionState {
+        unsigned int MXCSRstate;
+    };
+
+    virtual const ICLDevBackendKernel_* GetKernel() const = 0;
+
+    virtual ~ICLDevBackendKernelRunner() {}
+
+    /**
+     * @effects prepare the kernel for execution
+     * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
+     */
+    virtual cl_dev_err_code InitRunner(void* pKernelUniformArgs) const = 0;
+
+    /**
+     * prepares the kernel uniform arguments (implicit args only)
+     * Notice: Explicit Arguments should be filled by the RT\Device agent
+     *   before execution
+     * @param pKernelUniformArgs pointer to the Uniform arguments object to be
+     *   updated by the device backend
+     * @param pDevMemObjArray [internal use] pointer to the explicit arguments
+     * @param devMemObjArrayLength [internal use] size of the array
+     * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
+     */
+    virtual cl_dev_err_code PrepareKernelArguments(
+      void* pKernelUniformArgs,
+      const cl_mem_obj_descriptor* *pDevMemObjArray,  // TODO-NDRANGE: change type
+      unsigned int devMemObjArrayLength) const = 0;
+
+    /**
+     * @effects prepares the thread for kernel execution
+     * NOTICE: only the thread which called this api is ready to execute the thread
+     * @param state object to save the old state in
+     * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
+     */
+    virtual cl_dev_err_code PrepareThreadState(ICLDevExecutionState& state) const = 0;
+
+    /**
+     * Execute the specified kernel with the given arguments
+     * @param pKernelUniformArgs uniformed arguments for execution
+     * @param pGroupID the workgroup id to be executed
+     * @param pRuntimeHandle a handle which will be passed to some built-ins
+     * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
+     */
+    virtual cl_dev_err_code RunGroup(
+      const void *pKernelUniformArgs,
+      const size_t *pGroupID,
+      void *pRuntimeHandle) const = 0;
+
+    /**
+     * @effects restore the thread state after kernel execution
+     * @param state object to restore from
+     * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
+     */
+    virtual cl_dev_err_code RestoreThreadState(ICLDevExecutionState& state) const = 0;
+};
+
 /**
  * An interface class to OpenCL kernel object provided by the Back-end Compiler
  * This class is represents the whole kernel data and the JIT code
@@ -159,7 +229,6 @@ public:
      */
     virtual const ICLDevBackendKernelProporties* GetKernelProporties() const = 0;
 
-
     /**
      * @param pointer Pointer to an instruction contained in this kernel's
      * JITted code.
@@ -171,19 +240,29 @@ public:
      virtual int GetLineNumber(void* pointer) const = 0;
 
      /**
-     * @returns the size of argument/parameter buffer requried by the kernel
-     */
-     virtual size_t GetArgumentBufferSize() const = 0;
+      * @returns the size of argument/parameter buffer requried by the kernel
+      */
+     virtual size_t GetExplicitArgumentBufferSize() const = 0;
 
      /**
-     * @returns the number of memory object arguments passed to the kernel
-     */
+      * @returns the required alignement of the argument buffer
+      */
+     virtual size_t GetArgumentBufferRequiredAlignment() const = 0;
+
+     /**
+      * @returns the number of memory object arguments passed to the kernel
+      */
      virtual unsigned int GetMemoryObjectArgumentCount() const = 0;
 
      /**
-     * @returns the array of indexes of memory object arguments passed to the kernel
-     */
+      * @returns the array of indexes of memory object arguments passed to the kernel
+      */
      virtual const unsigned int* GetMemoryObjectArgumentIndexes() const = 0;
+
+    /**
+     * @retruns the kernelRunner object which is responsible for running the kernel
+     */
+    virtual const ICLDevBackendKernelRunner* GetKernelRunner() const = 0;
 
 };
 

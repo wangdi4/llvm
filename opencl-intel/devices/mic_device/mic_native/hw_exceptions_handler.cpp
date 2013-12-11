@@ -86,9 +86,9 @@ void HWExceptionWrapper::catch_signal(int signum, siginfo_t *siginfo, void *cont
     else
     {
         // exception inside JIT
-        const ICLDevBackendKernel_* pKernel = pExecContext->pKernel;
-        if ( NULL != pKernel)
+        if ( NULL != pExecContext->pRunner )
         {
+            const ICLDevBackendKernel_* pKernel = pExecContext->pRunner->GetKernel();
             int lineNum = -1;
             for (unsigned int i = 0; i < n; i++)
             {
@@ -151,10 +151,10 @@ void HWExceptionWrapper::setup_signals( bool install )
     }
 }
 
-cl_dev_err_code HWExceptionWrapper::Execute( const ICLDevBackendKernel_* kernel,
-                                             ICLDevBackendExecutable_* exec,
-                                             const cl_uniform_kernel_args* args,
-                                             const size_t* IN pGroupId
+cl_dev_err_code HWExceptionWrapper::Execute( const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelRunner* pRunner,
+                                                const void* args,
+                                                const size_t* IN pGroupId,
+                                                void* pRuntimeHandle
                                            )
 {
     execution_context ctx;
@@ -165,9 +165,9 @@ cl_dev_err_code HWExceptionWrapper::Execute( const ICLDevBackendKernel_* kernel,
     if (0 == setjmp(ctx.setjump_buffer))
     {
       // normal JIT execution
-        ctx.pKernel = kernel;
+        ctx.pRunner = pRunner;
         t_pExecContext = &ctx;
-        exec->Execute( pGroupId, NULL, NULL );
+        pRunner->RunGroup(args, pGroupId, pRuntimeHandle );
         t_pExecContext = NULL;
     }
     else

@@ -24,11 +24,11 @@
 // or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors 
 // in any way.
 /////////////////////////////////////////////////////////////////////////
-#include "Executable.h"
+#include "ICLDevBackendServiceFactory.h"
+#include "ExecutionContext.h"
 #include "exceptions.h"
 #include <stdio.h>
 #include "opencl_printf_ext.h"
-
 #include <cstdio>
 #include <cstring>
 #include <cstdarg>
@@ -764,7 +764,7 @@ int printFormatCommon(OutputAccumulator& output, const char* format, const char*
     return rc < 0 ? rc : output.output_count();
 }
 
-extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, DeviceBackend::CallbackContext* pContext)
+extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, void* pCallback, void* pHandle)
 {
     StringOutputAccumulator output(outstr, size);
     return printFormatCommon(output, format, args);

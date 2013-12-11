@@ -34,7 +34,7 @@ declare void @__opencl_dbg_exit_function(i64, i64, i64, i64)
 
 declare void @__opencl_dbg_stoppoint(i64, i64, i64, i64)
 
-define void @f1(i8 addrspace(3)* noalias %a, i8 addrspace(3)* noalias %pLocalMem, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* noalias %pWorkDim, i32* noalias %pWGId, <{ [4 x i32] }>* noalias %pBaseGlbId, i32* noalias %contextpointer, <{ [4 x i32] }>* noalias %pLocalIds, i32 %iterCount, i8* noalias %pSpecialBuf, i32* noalias %pCurrWI, i8* noalias %extExecContextPointer) nounwind {
+define void @f1(i8 addrspace(3)* noalias %a, i8 addrspace(3)* noalias %pLocalMemBase, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim, i32* noalias %pWGId, [4 x i32] %BaseGlbId, i8* noalias %pSpecialBuf, i32* noalias %pCurrWI, {}* noalias %RuntimeContext) nounwind {
 entry:
   %_Z13get_global_idj0 = call i32 @_Z13get_global_idj(i32 0)
   %gid0_i64 = zext i32 %_Z13get_global_idj0 to i64
@@ -54,7 +54,7 @@ entry:
   ret void, !dbg !31
 }
 
-define void @mykernel(i8 addrspace(3)* noalias %pLocalMem, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* noalias %pWorkDim, i32* noalias %pWGId, <{ [4 x i32] }>* noalias %pBaseGlbId, i32* noalias %contextpointer, <{ [4 x i32] }>* noalias %pLocalIds, i32 %iterCount, i8* noalias %pSpecialBuf, i32* noalias %pCurrWI, i8* noalias %extExecContextPointer) nounwind {
+define void @mykernel(i8 addrspace(3)* noalias %a, i8 addrspace(3)* noalias %pLocalMemBase, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim, i32* noalias %pWGId, [4 x i32] %BaseGlbId, i8* noalias %pSpecialBuf, i32* noalias %pCurrWI, {}* noalias %RuntimeContext) nounwind {
 entry:
   %_Z13get_global_idj0 = call i32 @_Z13get_global_idj(i32 0)
   %gid0_i64 = zext i32 %_Z13get_global_idj0 to i64
@@ -66,8 +66,8 @@ entry:
   %var_addr = bitcast [100 x i8] addrspace(3)* @mykernel.x to i8*, !dbg_declare_inst !30
   call void @__opencl_dbg_declare_global(i8* %var_addr, i64 6721800, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   call void @__opencl_dbg_stoppoint(i64 6705624, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
-  %0 = getelementptr i8 addrspace(3)* %pLocalMem, i32 128
-  call void @f1(i8 addrspace(3)* getelementptr inbounds ([100 x i8] addrspace(3)* @mykernel.x, i32 0, i32 0), i8 addrspace(3)* %0, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* %pWorkDim, i32* %pWGId, <{ [4 x i32] }>* %pBaseGlbId, i32* %contextpointer, <{ [4 x i32] }>* %pLocalIds, i32 %iterCount, i8* %pSpecialBuf, i32* %pCurrWI, i8* %extExecContextPointer), !dbg !33
+  %0 = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 128
+  call void @f1(i8 addrspace(3)* getelementptr inbounds ([100 x i8] addrspace(3)* @mykernel.x, i32 0, i32 0), i8 addrspace(3)* %0, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim, i32* noalias %pWGId, [4 x i32] %BaseGlbId, i8* noalias %pSpecialBuf, i32* noalias %pCurrWI, {}* noalias %RuntimeContext), !dbg !33
   call void @__opencl_dbg_stoppoint(i64 6705768, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   call void @__opencl_dbg_exit_function(i64 6704936, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   ret void, !dbg !35
@@ -90,14 +90,14 @@ entry:
 !2 = metadata !{i32 0}
 !3 = metadata !{metadata !4}
 !4 = metadata !{metadata !5, metadata !12}
-!5 = metadata !{i32 786478, i32 0, metadata !6, metadata !"f1", metadata !"f1", metadata !"", metadata !6, i32 2, metadata !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (i8 addrspace(3)*, i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }*, i32*, <{ [4 x i32] }>*, i32*, <{ [4 x i32] }>*, i32, i8*, i32*, i8*)* @f1, null, null, metadata !1, i32 2} ; [ DW_TAG_subprogram ] [line 2] [def] [f1]
+!5 = metadata !{i32 786478, i32 0, metadata !6, metadata !"f1", metadata !"f1", metadata !"", metadata !6, i32 2, metadata !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (i8 addrspace(3)*, i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }*, i32*, [4 x i32], i8*, i32*, {}*)* @f1, null, null, metadata !1, i32 2} ; [ DW_TAG_subprogram ] [line 2] [def] [f1]
 !6 = metadata !{i32 786473, metadata !"2", metadata !"C:\5Cocl\5Ctmp", null} ; [ DW_TAG_file_type ]
 !7 = metadata !{i32 786453, i32 0, metadata !"", i32 0, i32 0, i64 0, i64 0, i64 0, i32 0, null, metadata !8, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
 !8 = metadata !{null, metadata !9}
 !9 = metadata !{i32 786447, null, metadata !"", null, i32 0, i64 32, i64 32, i64 0, i32 0, metadata !10} ; [ DW_TAG_pointer_type ] [line 0, size 32, align 32, offset 0] [from uchar]
 !10 = metadata !{i32 786454, null, metadata !"uchar", metadata !6, i32 33, i64 0, i64 0, i64 0, i32 0, metadata !11} ; [ DW_TAG_typedef ] [uchar] [line 33, size 0, align 0, offset 0] [from unsigned char]
 !11 = metadata !{i32 786468, null, metadata !"unsigned char", null, i32 0, i64 8, i64 8, i64 0, i32 0, i32 8} ; [ DW_TAG_base_type ] [unsigned char] [line 0, size 8, align 8, offset 0, enc DW_ATE_unsigned_char]
-!12 = metadata !{i32 786478, i32 0, metadata !6, metadata !"mykernel", metadata !"mykernel", metadata !"", metadata !6, i32 4, metadata !13, i1 false, i1 true, i32 0, i32 0, null, i32 0, i1 false, void (i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }*, i32*, <{ [4 x i32] }>*, i32*, <{ [4 x i32] }>*, i32, i8*, i32*, i8*)* @mykernel, null, null, metadata !1, i32 4} ; [ DW_TAG_subprogram ] [line 4] [def] [mykernel]
+!12 = metadata !{i32 786478, i32 0, metadata !6, metadata !"mykernel", metadata !"mykernel", metadata !"", metadata !6, i32 4, metadata !13, i1 false, i1 true, i32 0, i32 0, null, i32 0, i1 false, void (i8 addrspace(3)*, i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }*, i32*, [4 x i32], i8*, i32*, {}*)* @mykernel, null, null, metadata !1, i32 4} ; [ DW_TAG_subprogram ] [line 4] [def] [mykernel]
 !13 = metadata !{i32 786453, i32 0, metadata !"", i32 0, i32 0, i64 0, i64 0, i64 0, i32 0, null, metadata !14, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
 !14 = metadata !{null}
 !15 = metadata !{metadata !16}
@@ -106,7 +106,7 @@ entry:
 !18 = metadata !{i32 786433, null, metadata !"", null, i32 0, i64 800, i64 8, i32 0, i32 0, metadata !10, metadata !19, i32 0, i32 0} ; [ DW_TAG_array_type ] [line 0, size 800, align 8, offset 0] [from uchar]
 !19 = metadata !{metadata !20}
 !20 = metadata !{i32 786465, i64 0, i64 99}       ; [ DW_TAG_subrange_type ] [0, 99]
-!21 = metadata !{void (i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }*, i32*, <{ [4 x i32] }>*, i32*, <{ [4 x i32] }>*, i32, i8*, i32*, i8*)* @mykernel, metadata !22, metadata !23, metadata !24, metadata !25, metadata !26}
+!21 = metadata !{void (i8 addrspace(3)*, i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }*, i32*, [4 x i32], i8*, i32*, {}*)* @mykernel, metadata !22, metadata !23, metadata !24, metadata !25, metadata !26}
 !22 = metadata !{metadata !"kernel_arg_addr_space"}
 !23 = metadata !{metadata !"kernel_arg_access_qual"}
 !24 = metadata !{metadata !"kernel_arg_type"}

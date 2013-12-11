@@ -47,9 +47,7 @@ public:
     WGContext();
     virtual ~WGContext();
 
-    cl_dev_err_code         CreateContext(long ndrCmdId, Intel::OpenCL::DeviceBackend::ICLDevBackendBinary_* pExec, size_t* pBuffSizes, size_t count);
     long					GetNDRCmdId() const {return m_lNDRangeId;}
-    Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable_* GetExecutable() const {return m_pContext;}
     // Initialize context internal memory
     cl_dev_err_code		Init();
     // This function is used by master threads when they're done executing, to prevent a race condition where the library is next shut down and reloaded
@@ -78,7 +76,6 @@ public:
 	void SetCurrentNDRange(NDRange* pCurrentNDRange) { m_pCurrentNDRange = pCurrentNDRange; }
 
 protected:
-    Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable_* m_pContext;
     long		m_lNDRangeId;
     size_t		m_stPrivMemAllocSize;
     char*		m_pLocalMem;

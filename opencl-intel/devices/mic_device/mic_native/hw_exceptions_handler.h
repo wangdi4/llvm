@@ -42,17 +42,16 @@ namespace Intel { namespace OpenCL { namespace UtilsNative {
         ~HWExceptionWrapper() { setup_signals( false ); }
 
         // wrap JIT code execution
-        static cl_dev_err_code Execute( 
-                                        const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* kernel,
-                                        Intel::OpenCL::DeviceBackend::ICLDevBackendExecutable_* pExec,
-                                        const cl_uniform_kernel_args* args,
-                                        const size_t* IN pGroupId );
+        static cl_dev_err_code Execute( const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelRunner* pRunner,
+                                        const void* args,
+                                        const size_t* IN pGroupId,
+                                        void* pRuntimeHandle);
 
     private:
         struct execution_context
         {
-          sigjmp_buf                                                setjump_buffer;
-          const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel;
+          sigjmp_buf                                                      setjump_buffer;
+          const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelRunner*  pRunner;
         };
 
         static void catch_signal(int signum, siginfo_t *siginfo, void *context);

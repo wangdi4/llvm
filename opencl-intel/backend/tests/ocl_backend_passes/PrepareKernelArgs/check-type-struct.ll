@@ -11,11 +11,11 @@ entry:
 }
 
 ;; struct1 my_struct1 arg1 - packed struct - 17 bytes - byval (no load)
-; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pBuffer, i32 0
-; CHECK-NEXT: [[ARG0_TYPECAST:%[a-zA-Z0-9]+]] = bitcast i8* [[ARG0_BUFF_INDEX]] to %struct.struct1*
+; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 0
+; CHECK-NEXT: %explicit_0 = bitcast i8* [[ARG0_BUFF_INDEX]] to %struct.struct1*
 ;;implicit args
 ;; call original func
-; CHECK: call void @__t1_separated_args(%struct.struct1* [[ARG0_TYPECAST]], [[IMPLICIT_ARGS:[a-zA-Z0-9]+]]
+; CHECK: call void @__t1_separated_args(%struct.struct1* %explicit_0, [[IMPLICIT_ARGS:[a-zA-Z0-9]+]]
 ; CHECK-NEXT: ret void
 
 !opencl.kernels = !{!0}

@@ -1,3 +1,4 @@
+; XFAIL: *
 ; Check pass correctly handles number appended to type name
 ; Happens when the same bitcode loading happens to the same Context twice
 ; RUN: opt -add-implicit-args -resolve-wi-call -S < %s | FileCheck %s

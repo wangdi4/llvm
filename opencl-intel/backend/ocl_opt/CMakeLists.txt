@@ -26,6 +26,7 @@ set(OCL_BE_PASSES
     LLVMVectorizer
     Materialize
     Obfuscation
+    ImplicitArgsAnalysis
     PrepareKernelArgs
     AddImplicitArgs
     OclFunctionAttrs

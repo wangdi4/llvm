@@ -34,12 +34,13 @@ MICJITContainer::MICJITContainer(const ModuleJITHolder* pModuleHolder,
     assert(m_pModuleJITHolder && "Module JIT Holder Cannot be NULL");
 }
 
-const void* MICJITContainer::GetJITCode() const 
+
+const void* MICJITContainer::GetJITCode() const
 {
     const char* pModuleJIT = (const char*)m_pModuleJITHolder->GetJITCodeStartPoint();
     // TODO: Check what the raised Exception when the ID is not valid
     int kernelEntryPoint = m_pModuleJITHolder->GetKernelEntryPoint(m_funcID);
-    return pModuleJIT + kernelEntryPoint;
+    return (void*)(pModuleJIT + kernelEntryPoint);
 }
 
 int MICJITContainer::GetLineNumber(void* pointer) const

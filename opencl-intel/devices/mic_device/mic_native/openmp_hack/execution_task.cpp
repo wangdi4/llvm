@@ -1,7 +1,6 @@
 #include "execution_task.h"
 #include "native_program_service.h"
 #include "native_common_macros.h"
-#include "wg_context.h"
 #include "mic_tracer.h"
 #include "native_buffer_commands.h"
 #include "native_globals.h"

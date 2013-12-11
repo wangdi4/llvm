@@ -40,24 +40,21 @@ entry:
 
 
 ; CHECK:        define void @foo(i32 addrspace(1)* %ApInt, i32 addrspace(1)* %BpInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat, 
-; CHECK:            i8 addrspace(3)* noalias [[P_LOCAL_MEM:%[a-zA-Z0-9]+]], 
-; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* noalias [[P_WORK_DIM:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* noalias [[P_WORKGROUP_ID:%[a-zA-Z0-9]+]], 
-; CHECK:            <{ [4 x i32] }>* noalias [[P_BASE_GLOBAL_ID:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* noalias [[CONTEXT_POINTER:%[a-zA-Z0-9]+]], 
-; CHECK:            <{ [4 x i32] }>* noalias [[P_LOCAL_IDS:%[a-zA-Z0-9]+]], 
-; CHECK:            i32 [[ITER_COUNT:%[a-zA-Z0-9]+]], 
-; CHECK:            i8* noalias [[P_SPECIAL_BUFFER:%[a-zA-Z0-9]+]], 
-; CHECK:            i32* noalias [[P_CURRECT_WI:%[a-zA-Z0-9]+]],
-; CHECK:            i8* noalias [[EXTCONTEXT_POINTER:%[a-zA-Z0-9]+]]) {
+; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim,
+; CHECK:          i32* noalias %pWGId,
+; CHECK:          [4 x i32] %BaseGlbId,
+; CHECK:          i8* noalias %pSpecialBuf,
+; CHECK:          i32* noalias %pCurrWI,
+; CHECK:          {}* noalias %RuntimeContext) {
 ; CHECK-NEXT:   entry:
-; CHECK-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* [[P_LOCAL_MEM]], i32 0
+; CHECK-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 0
 ; CHECK-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)*
 
-; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* [[P_LOCAL_MEM]], i32 128
+; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 128
 ; CHECK-NEXT:   [[VAR3:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR2]] to i8 addrspace(3)*
 
-; CHECK-NEXT:   [[VAR4:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* [[P_LOCAL_MEM]], i32 256
+; CHECK-NEXT:   [[VAR4:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 256
 ; CHECK-NEXT:   [[VAR5:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR4]] to float addrspace(3)*
 
 ; CHECK-NEXT:   %dummyInt = load i32 addrspace(3)* [[VAR1]], align 4
@@ -71,21 +68,18 @@ entry:
 
 
 ; CHECK:        define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong16, 
-; CHECK:            i8 addrspace(3)* noalias [[P_LOCAL_MEM]], 
-; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* noalias [[P_WORK_DIM]], 
-; CHECK:            i32* noalias [[P_WORKGROUP_ID]], 
-; CHECK:            <{ [4 x i32] }>* noalias [[P_BASE_GLOBAL_ID]], 
-; CHECK:            i32* noalias [[CONTEXT_POINTER]], 
-; CHECK:            <{ [4 x i32] }>* noalias [[P_LOCAL_IDS]], 
-; CHECK:            i32 [[ITER_COUNT]], 
-; CHECK:            i8* noalias [[P_SPECIAL_BUFFER]], 
-; CHECK:            i32* noalias [[P_CURRECT_WI]], 
-; CHECK:            i8* noalias [[EXTCONTEXT_POINTER]]) {
+; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim,
+; CHECK:          i32* noalias %pWGId,
+; CHECK:          [4 x i32] %BaseGlbId,
+; CHECK:          i8* noalias %pSpecialBuf,
+; CHECK:          i32* noalias %pCurrWI,
+; CHECK:          {}* noalias %RuntimeContext) {
 ; CHECK-NEXT:   entry:
-; CHECK-NEXT:   [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* [[P_LOCAL_MEM]], i32 0
+; CHECK-NEXT:   [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 0
 ; CHECK-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR10]] to <4 x i32> addrspace(3)*
 
-; CHECK-NEXT:   [[VAR12:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* [[P_LOCAL_MEM]], i32 128
+; CHECK-NEXT:   [[VAR12:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 128
 ; CHECK-NEXT:   [[VAR13:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR12]] to <16 x i64> addrspace(3)*
 
 ; CHECK-NEXT:   %dummyInt4 = load <4 x i32> addrspace(3)* [[VAR11]], align 16

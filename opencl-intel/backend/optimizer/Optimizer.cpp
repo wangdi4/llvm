@@ -56,6 +56,7 @@ llvm::Pass *createRelaxedPass();
 llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBuiltInImportPass();
+llvm::ImmutablePass * createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
@@ -319,6 +320,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
   PM.add(createDataLayout(M));
   PM.add(createBuiltinLibInfoPass(pRtlModule, ""));
+  PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 
   if (isOcl20) {
     // Repeat static resolution of generic address space pointers after 

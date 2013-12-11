@@ -16,6 +16,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/passes/LocalBuffAnalysis
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/metadata_api/gen
+    ${BACKEND_ROOT_DIR}/passes
 )
 
 add_library(${TARGET_NAME}

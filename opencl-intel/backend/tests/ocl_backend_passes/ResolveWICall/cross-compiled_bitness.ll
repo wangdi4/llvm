@@ -10,7 +10,7 @@ declare i32 @printf(i8 addrspace(2)*, ...)
 
 define void @test_printf() {
   ; this function crashes opt if the pass tries to generate 64-bit code
-  ; CHECK: @opencl_printf(i8 addrspace(2)*, i8*, i32*)
+  ; CHECK: @opencl_printf(i8 addrspace(2)*, i8*, {}*, {}*)
   tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* bitcast ([4 x i8]* @str to i8 addrspace(2)*), i32 3) nounwind
   ret void
 }

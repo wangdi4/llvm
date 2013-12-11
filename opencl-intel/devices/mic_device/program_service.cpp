@@ -221,7 +221,7 @@ const char* MICBackendOptions::GetStringValue( int optionId, const char* default
             return "mic";
 
         case CL_DEV_BACKEND_OPTION_SUBDEVICE:
-			return get_mic_cpu_arch();
+            return get_mic_cpu_arch();
 
         case CL_DEV_BACKEND_OPTION_DUMPFILE:
             return m_dump_file_name.c_str();
@@ -400,7 +400,7 @@ bool ProgramService::LoadBackendServices(void)
             break;
         }
 
-		const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
+        const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
         // get compiler options
         m_BE_Compiler.MICOptions.init( tMicConfig.UseVectorizer(),
                                        tMicConfig.UseVTune()
@@ -1142,9 +1142,9 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
 
     case CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES:
         stValSize = sizeof(cl_dev_dispatch_buffer_prop);
-        dispatchProperties.size = pKernel->GetArgumentBufferSize() + sizeof(ndrange_dispatcher_data);
+        dispatchProperties.size = sizeof(ndrange_dispatcher_data) + pKernel->GetExplicitArgumentBufferSize() + sizeof(cl_uniform_kernel_args);
         dispatchProperties.argumentOffset = sizeof(ndrange_dispatcher_data);
-        dispatchProperties.alignment = 64; // Currently ask for 64 byte aligment. Next BE will provide maximum aligment for the buffer.
+        dispatchProperties.alignment = 64; // Currently ask for 64 byte alignment. Next BE will provide maximum alignment for the buffer.
         pValue = &dispatchProperties;
         break;
 
@@ -1157,20 +1157,20 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
             return CL_DEV_INVALID_VALUE;
     }
 
-	if ( NULL != valueSizeRet )
+    if ( NULL != valueSizeRet )
     {
         *valueSizeRet = stValSize;
     }
 
-	if ( NULL != value )
-	{
-		if ( NULL != pValue )
-		{
-			memcpy(value, pValue, stValSize);
-		} else {
-			memset(value, 0, stValSize);
-		}
-	}
+    if ( NULL != value )
+    {
+        if ( NULL != pValue )
+        {
+            memcpy(value, pValue, stValSize);
+        } else {
+            memset(value, 0, stValSize);
+        }
+    }
 
     return CL_DEV_SUCCESS;
 }
@@ -1227,7 +1227,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
     if (NULL == output)
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Program Service failed to allocate space on stack.", "");
-		STACK_FREE(output);
+        STACK_FREE(output);
         return false;
     }
 
@@ -1235,7 +1235,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
     {
         // problem copying to device
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Program Service failed to copy program to device.", "");
-		STACK_FREE(output);
+        STACK_FREE(output);
         return false;
     }
 
@@ -1245,7 +1245,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
         MicErrLog(m_pLogDescriptor, m_iLogHandle,
             "MICDevice: Program Service create all kernels on device: required %d created %d.",
             kernels_count, output->filled_kernels );
-		STACK_FREE(output);
+        STACK_FREE(output);
         return false;
     }
 
@@ -1260,7 +1260,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
         {
           MicErrLog(m_pLogDescriptor, m_iLogHandle,
               TEXT("%s"), "MICDevice: Failed to allocate TKernelEntry");
-		  STACK_FREE(output);
+          STACK_FREE(output);
           return false;
         }
 
@@ -1273,26 +1273,26 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
 
         if ( CL_DEV_SUCCEEDED(err_code) && (NULL != kernel_entry->pKernel) )
         {
-			if ( kernel_entry->pKernel->GetKernelID() != info->kernel_id )
-			{
-				assert( 0 && "Kernel IDs are the same on host and device" );
-				MicErrLog(m_pLogDescriptor, m_iLogHandle,
-					TEXT("MICDevice: Kernel ID on teh device(%lld) and the host(%lld) don't match."),
-		    		info->kernel_id, kernel_entry->pKernel->GetKernelID());
-				STACK_FREE(output);
-				return false;
-			}
-			// insert entry to the TKernelName2Entry map
-			pEntry->mapName2Kernels[ kernel_entry->pKernel->GetKernelName() ] = kernel_entry;
+            if ( kernel_entry->pKernel->GetKernelID() != info->kernel_id )
+            {
+                assert( 0 && "Kernel IDs are the same on host and device" );
+                MicErrLog(m_pLogDescriptor, m_iLogHandle,
+                    TEXT("MICDevice: Kernel ID on teh device(%lld) and the host(%lld) don't match."),
+                    info->kernel_id, kernel_entry->pKernel->GetKernelID());
+                STACK_FREE(output);
+                return false;
+            }
+            // insert entry to the TKernelName2Entry map
+            pEntry->mapName2Kernels[ kernel_entry->pKernel->GetKernelName() ] = kernel_entry;
 
-			// insert entry to the TKernelId2Entry map
-			pEntry->mapId2Kernels[ kernel_entry->pKernel->GetKernelID() ] = kernel_entry;
+            // insert entry to the TKernelId2Entry map
+            pEntry->mapId2Kernels[ kernel_entry->pKernel->GetKernelID() ] = kernel_entry;
 
-			kernel_entry->uDevKernelEntry = info->device_info_ptr; // to be updated later
-		}
+            kernel_entry->uDevKernelEntry = info->device_info_ptr; // to be updated later
+        }
     }
 
-	STACK_FREE(output);
+    STACK_FREE(output);
     return true;
 }
 
@@ -1383,12 +1383,12 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
             break;
         }
 
-		CommandTracer cmdTracer;
-		cmdTracer.set_command_id(input->uid_program_on_device);
-		cmdTracer.set_current_time_build_serialize_time_start();
+        CommandTracer cmdTracer;
+        cmdTracer.set_command_id(input->uid_program_on_device);
+        cmdTracer.set_current_time_build_serialize_time_start();
         // 4. Serialize program
         be_err = serializer->SerializeProgram( SERIALIZE_TO_DEVICE, pProgram, blob, prog_blob_size );
-		cmdTracer.set_current_time_build_serialize_time_end();
+        cmdTracer.set_current_time_build_serialize_time_end();
 
         assert( CL_DEV_SUCCEEDED( be_err ) && "MIC BE SerializeProgram()" );
 
