@@ -51,6 +51,8 @@ private:
 
     Validation::auto_ptr_aligned    m_pArgumentBuffer;
 
+    Validation::auto_ptr_ex< size_t, Validation::ArrayDP<size_t> > m_pLocalIDIndices; // local index buffer
+
     std::vector<size_t>     m_kernelLocalMemSizes;
 
     size_t                  m_stAlignedKernelParamSize;
