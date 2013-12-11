@@ -50,11 +50,6 @@ namespace intel{
     // Add WI structure declarations to the module
     addWIInfoDeclarations();
 
-    // add ExtendedExecutionContext opaque type 
-    // to use as type for passing 
-    m_struct_ExtendedExecutionContextType = 
-      StructType::create( *m_pLLVMContext, "struct.ExtendedExecutionContext" );
-
     CompilationUtils::FunctionSet kernelsFunctionSet;
     CompilationUtils::getAllKernels(kernelsFunctionSet, m_pModule);
 
@@ -147,7 +142,7 @@ namespace intel{
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
     newArgsVec.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), 0));
     // extended execution context
-    newArgsVec.push_back(PointerType::get(m_struct_ExtendedExecutionContextType, 0));
+    newArgsVec.push_back(CompilationUtils::getExtendedExecContextType(*m_pLLVMContext));
 
     FunctionType *FTy = FunctionType::get( pFunc->getReturnType(),newArgsVec, false);
 

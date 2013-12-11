@@ -29,7 +29,8 @@ entry:
   store i32 addrspace(1)* %res, i32 addrspace(1)** %res.addr, align 8
   store void ()* bitcast ({ i8**, i32, i32, i8*, %struct.__block_descriptor* }* @__block_literal_global to void ()*), void ()** %kernelBlock, align 8
 
-; CHECK: call %opencl.queue_t* @ocl20_get_default_queue(%struct.ExtendedExecutionContext* %extExecContextPointer)
+; CHECK: call {{.*}} @ocl20_get_default_queue
+; CHECK-NOT: call {{.*}} @_Z17get_default_queuev
   %call = call %opencl.queue_t* @_Z17get_default_queuev()
   
   store %opencl.queue_t* %call, %opencl.queue_t** %def_q, align 8
@@ -40,11 +41,11 @@ entry:
   %2 = load void ()** %kernelBlock, align 8
 
 ; CHECK: call i32 @ocl20_enqueue_kernel_basic(
-; CHECK:      %opencl.queue_t* [[QUEUE:%[a-zA-Z0-9]+]],
+; CHECK:      i8 addrspace(1)* [[QUEUE:%[a-zA-Z0-9]+]],
 ; CHECK:      i32 [[KERNEL_ENQUEUE_FLAGS:[0-9]+]],
-; CHECK:      %opencl.ndrange_t* [[NDRANGE:%[a-zA-Z0-9]+]],
+; CHECK:      i8 addrspace(1)* [[NDRANGE:%[a-zA-Z0-9]+]],
 ; CHECK:      void ()* [[BLOCK:%[a-zA-Z0-9]+]],
-; CHECK:      %struct.ExtendedExecutionContext* %extExecContextPointer)
+; CHECK:      i8* %extExecContextPointer)
   %call2 = call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE(%opencl.queue_t* %0, i32 2, %opencl.ndrange_t* %1, void ()* %2) nounwind readnone
   store i32 %call2, i32* %enq_res, align 4
   ret void
@@ -57,12 +58,12 @@ entry:
   ret void
 }
 
-; CHECK declare %opencl.queue_t* @ocl20_get_default_queue(%struct.ExtendedExecutionContext*)
+; CHECK: declare {{.*}}@ocl20_get_default_queue
 declare %opencl.queue_t* @_Z17get_default_queuev()
 
 declare %opencl.ndrange_t* @_Z10ndrange_1Dm(i64) nounwind readnone
 
-; CHECK declare i32 @ocl20_enqueue_kernel_basic
+; CHECK: declare {{.*}} @ocl20_enqueue_kernel_basic
 declare i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE(%opencl.queue_t*, i32, %opencl.ndrange_t*, void ()*) nounwind readnone
 
 !opencl.kernels = !{!0}

@@ -413,9 +413,9 @@ private:
   /// @returns true if a scatter/gather is needed, false otherwise.
   bool isScatterGatherAddr(Value* Address);
 
-  /// @brief Check if we have handle gather/scatter for given parameters.
+  /// @brief Check if we have gather/scatter implementation for given parameters.
   /// @param masked - true if gather/scatter is masked
-  /// @param type   - gather or scatter
+  /// @param type   - operation type: gather or scatter
   /// @param VecTy  - vector type to gather or scatter
   /// @returns true if operation is available for VecTy.
   bool isGatherScatterType(bool masked,

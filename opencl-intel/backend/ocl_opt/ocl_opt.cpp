@@ -87,6 +87,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeResolveBlockToStaticCallPass(Registry);
     intel::initializeDetectRecursionPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);
+    intel::initializeSmartGVNPass(Registry);
 }
 
 
