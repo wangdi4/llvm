@@ -54,8 +54,8 @@ void KernelCommand::WaitForChildrenCompletion()
 	{
 		(*iter)->NotifyCommandFinished(GetError());
 	}
-	m_waitingChildrenForKernel.clear();
-	m_childrenTaskGroup->WaitForAll();
+    m_waitingChildrenForKernel.clear();
+    m_childrenTaskGroup->WaitForAll();    
 }
 
 void KernelCommand::WgFinishedExecution()
@@ -65,9 +65,9 @@ void KernelCommand::WgFinishedExecution()
 	if (!waitingChildrenForParentInWg.empty())
 	{
 		OclAutoMutex mutex(&m_muChildrenForKernel);
-		std::vector<SharedPtr<KernelCommand> >::iterator listEnd = m_waitingChildrenForKernel.end();
-		m_waitingChildrenForKernel.resize(m_waitingChildrenForKernel.size() + waitingChildrenForParentInWg.size());	
-		std::copy(waitingChildrenForParentInWg.begin(), waitingChildrenForParentInWg.end(), listEnd);
+        size_t szOrigSize = m_waitingChildrenForKernel.size();
+		m_waitingChildrenForKernel.resize(m_waitingChildrenForKernel.size() + waitingChildrenForParentInWg.size());
+        std::copy(waitingChildrenForParentInWg.begin(), waitingChildrenForParentInWg.end(), &m_waitingChildrenForKernel[szOrigSize]);
 		waitingChildrenForParentInWg.clear();
 	}
 	

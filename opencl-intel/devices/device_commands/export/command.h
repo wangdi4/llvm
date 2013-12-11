@@ -114,7 +114,7 @@ protected:
 	DeviceCommand(const SharedPtr<ITaskList>& list, ITaskBase* pMyTaskBase) :
 	  m_err(CL_DEV_SUCCESS), m_bCompleted(false), m_ulStartExecTime(0), m_ulExecTime(0),
 	  m_pExecTimeUserPtr(NULL), m_list(list),
-		m_pMyTaskBase(pMyTaskBase), m_bIsProfilingEnabled(list->IsProfilingEnabled())
+		m_pMyTaskBase(pMyTaskBase), m_bIsProfilingEnabled(NULL != list ? list->IsProfilingEnabled() : false)
     { }
 
 	/**

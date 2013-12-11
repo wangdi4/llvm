@@ -170,7 +170,7 @@ extern "C" const char* clDevErr2Txt(cl_dev_err_code errorCode)
 
 typedef struct _cl_dev_internal_cmd_list
 {
-    ITaskList*                    cmd_list;
+    SharedPtr<ITaskList>          pCmd_list;
     cl_dev_internal_subdevice_id* subdevice_id;
 } cl_dev_internal_cmd_list;
 
@@ -1778,12 +1778,13 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
     for (size_t i = 0; i < *num_subdevices; i++)
     {
         cl_dev_internal_subdevice_id& subdevId = *(cl_dev_internal_subdevice_id*)subdevice_ids[i];
-        subdevId.pSubDevice = m_pTaskDispatcher->createSubdevice(subdevId.num_compute_units, &subdevId);
+        subdevId.pSubDevice = m_pTaskDispatcher->GetRootDevice()->CreateSubDevice(subdevId.num_compute_units, &subdevId);
         if (NULL == subdevId.pSubDevice)
         {
             for (size_t j = 0; j < i; j++)
             {
-                m_pTaskDispatcher->releaseSubdevice(((cl_dev_internal_subdevice_id*)subdevice_ids[j])->pSubDevice);
+                // release sub devices
+                ((cl_dev_internal_subdevice_id*)subdevice_ids[j])->pSubDevice->ShutDown();
             }
             rollBackSubdeviceAllocation( subdevice_ids, *num_subdevices );
             return CL_DEV_OUT_OF_MEMORY;
@@ -1805,12 +1806,12 @@ cl_dev_err_code CPUDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
     cl_dev_internal_subdevice_id* pSubdeviceData = reinterpret_cast<cl_dev_internal_subdevice_id*>(subdevice_id);
     if (NULL != pSubdeviceData)
     {
-         m_pTaskDispatcher->releaseSubdevice(pSubdeviceData->pSubDevice);
-         if (NULL != pSubdeviceData->legal_core_ids)
-         {
-             delete[] pSubdeviceData->legal_core_ids;
-         }
-         delete pSubdeviceData;
+        pSubdeviceData->pSubDevice->ShutDown();
+        if (NULL != pSubdeviceData->legal_core_ids)
+        {
+            delete[] pSubdeviceData->legal_core_ids;
+        }
+        delete pSubdeviceData;
     }
     return CL_DEV_SUCCESS;
 }
@@ -1872,9 +1873,9 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
         }
     }
 
-    ITEDevice* pDevice = (NULL != pSubdeviceData) ? pSubdeviceData->pSubDevice : NULL;
+    ITEDevice* pDevice = (NULL != pSubdeviceData) ? pSubdeviceData->pSubDevice.GetPtr() : NULL;
 
-    cl_dev_err_code ret = m_pTaskDispatcher->createCommandList(props, pDevice, &pList->cmd_list);
+    cl_dev_err_code ret = m_pTaskDispatcher->createCommandList(props, pDevice, &pList->pCmd_list);
     if ( CL_DEV_FAILED(ret) )
     {
         delete pList;
@@ -1898,6 +1899,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
         }
         return ret;
     }
+
     *list = pList;
     return CL_DEV_SUCCESS;
 }
@@ -1914,7 +1916,8 @@ cl_dev_err_code CPUDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
     {
         return CL_DEV_INVALID_VALUE;
     }
-    return m_pTaskDispatcher->flushCommandList(pList->cmd_list);
+    pList->pCmd_list->Flush();
+    return CL_DEV_SUCCESS;
 }
 
 /****************************************************************************************************************
@@ -1929,11 +1932,7 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
     {
         return CL_DEV_INVALID_VALUE;
     }
-    cl_dev_err_code ret = m_pTaskDispatcher->releaseCommandList(pList->cmd_list);
-    if (CL_DEV_FAILED(ret))
-    {
-        return ret;
-    }
+    pList->pCmd_list->Flush();
     if (NULL != pList->subdevice_id)
     {
         long prev = pList->subdevice_id->ref_count--;
@@ -1961,8 +1960,16 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 ********************************************************************************************************************/
 void CPUDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
 {
-    SharedPtr<ITaskBase> ptr = (ITaskBase*)cmdToRelease->device_agent_data;
-    ptr.DecRefCnt();    // see IncRefCnt in TaskDispatcher::SubmitTaskArray
+    ITaskBase* ptr = (ITaskBase*)cmdToRelease->device_agent_data;
+    if (NULL == ptr)
+    {
+        return;
+    }
+    long ref = ptr->DecRefCnt();
+    if (0 == ref)
+    {
+        ptr->Cleanup();
+    }
 }
 
 /****************************************************************************************************************
@@ -1975,7 +1982,7 @@ cl_dev_err_code CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
     if (NULL != list)
     {
         cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
-        return m_pTaskDispatcher->commandListExecute(pList->cmd_list, cmds, count);
+        return m_pTaskDispatcher->commandListExecute(pList->pCmd_list, cmds, count);
     }
     else
     {
@@ -1989,13 +1996,14 @@ cl_dev_err_code CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
             }
         }
         cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(m_defaultCommandList);
-        cl_dev_err_code ret = m_pTaskDispatcher->commandListExecute(pList->cmd_list,cmds,count);
+        cl_dev_err_code ret = m_pTaskDispatcher->commandListExecute(pList->pCmd_list, cmds, count);
         if (CL_DEV_FAILED(ret))
         {
             CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("clDevCommandListExecute failed to submit command to execution: %d"), ret);
             return ret;
         }
-        return m_pTaskDispatcher->flushCommandList(pList->cmd_list);
+        pList->pCmd_list->Flush();
+        return CL_DEV_SUCCESS;
     }
 }
 
@@ -2012,7 +2020,46 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
         return CL_DEV_INVALID_VALUE;
     }
 
-    return m_pTaskDispatcher->commandListWaitCompletion(pList->cmd_list, cmdToWait);
+    SharedPtr<ITaskBase> pTaskToWait = NULL;
+    if ( NULL != cmdToWait )
+    {
+        // At this stage we assume that cmdToWait is a valid pointer
+        // Appropriate reference count is done in runtime
+        void* pTaskPtr = cmdToWait->device_agent_data;
+        // Check if the command is already completed but it can be just before a call to the notification function.
+        // and we are not sure that RT got the completion notification.
+        // Therefore, we MUST return error value and RT will take appropriate action in order to monitor event status
+        if ( NULL == pTaskPtr )
+        {
+            return CL_DEV_NOT_SUPPORTED;
+        }
+        pTaskToWait = static_cast<ITaskBase*>(pTaskPtr);
+    }
+
+    // No need in lock
+    te_wait_result res = pList->pCmd_list->WaitForCompletion(pTaskToWait);
+
+    cl_dev_err_code retVal;
+    if ( NULL != pTaskToWait )
+    {
+        // Try to wait for command
+        if ( (!pTaskToWait->IsCompleted() && (TE_WAIT_COMPLETED == res)) || TE_WAIT_NOT_SUPPORTED == res)
+        {
+            pList->pCmd_list->Flush();
+            res = TE_WAIT_MASTER_THREAD_BLOCKING;
+        }
+        pTaskToWait->Release();
+        // If the task is not completed at this stage we can't make further call to blocking wait
+        // Because we are not having the task pointer and we can't set it back because its not thread safe
+        retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS : CL_DEV_NOT_SUPPORTED;
+    }
+    else
+    {
+        retVal = (TE_WAIT_COMPLETED == res) ? CL_DEV_SUCCESS :
+                  (TE_WAIT_MASTER_THREAD_BLOCKING == res) ? CL_DEV_BUSY : CL_DEV_NOT_SUPPORTED;
+    }
+
+    return retVal;
 }
 
 /****************************************************************************************************************
@@ -2027,7 +2074,10 @@ cl_dev_err_code CPUDevice::clDevCommandListCancel(cl_dev_cmd_list IN list)
         return CL_DEV_INVALID_VALUE;
     }
 
-    return m_pTaskDispatcher->cancelCommandList(pList->cmd_list);
+    pList->pCmd_list->Cancel();
+    pList->pCmd_list->Flush();
+
+    return CL_DEV_SUCCESS;
 }
 
 //Memory API's
@@ -2294,7 +2344,7 @@ int CPUDevice::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl_uin
     }
 
     ITaskList* pList = (ITaskList*)queue;
-    if (pList->DoesSupportDeviceSideCommandEnqueue())
+    if (!pList->DoesSupportDeviceSideCommandEnqueue())
     {
         return CL_INVALID_OPERATION;
     }

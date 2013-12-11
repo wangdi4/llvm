@@ -1271,9 +1271,10 @@ bool MigrateMemObject::Execute()
 AtomicCounter DeviceNDRange::sm_cmdIdCnt;
 
 cl_dev_cmd_desc* DeviceNDRange::InitCmdDesc(cl_dev_cmd_param_kernel& paramKernel, cl_dev_cmd_desc& cmdDesc, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
-    const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange, const SharedPtr<ITaskList>& pList)
-{
-    paramKernel.kernel = pKernel;
+    const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange, const SharedPtr<ITaskList>& pList, struct ProgramService::KernelMapEntry& kernelMapEntry)
+{    
+    kernelMapEntry.pBEKernel = pKernel;
+    paramKernel.kernel = &kernelMapEntry;
     paramKernel.work_dim = pNdrange->workDimension;
     for (cl_uint i = 0; i < paramKernel.work_dim; i++)
     {
@@ -1295,7 +1296,7 @@ cl_dev_cmd_desc* DeviceNDRange::InitCmdDesc(cl_dev_cmd_param_kernel& paramKernel
     return &cmdDesc;
 }
 
-int    DeviceNDRange::Init(size_t region[], unsigned int &regCount)
+int DeviceNDRange::Init(size_t region[], unsigned int &regCount)
 {
     const int res = NDRange::Init(region, regCount);
     StartExecutionProfiling();
@@ -1306,8 +1307,6 @@ bool DeviceNDRange::Finish(FINISH_REASON reason)
 {
     StopExecutionProfiling();
     const bool bRes = NDRange::Finish(reason);
-    // IncRefCnt() was called in CommandBaseClass::CommandBaseClass, but since CPUDevice::clDevReleaseCommand are not called for device-side commands, we decrement the reference counter here
-    DecRefCnt();
     return bRes;
 }
 

@@ -16,87 +16,229 @@ File Name:  WGContext.cpp
 
 \*****************************************************************************/
 
+#include <stdio.h>
+
 #include "WGContext.h"
-#include "cl_device_api.h"
 #include "mic_dev_limits.h"
-//#include "cl_sys_defines.h"
-#ifdef WIN32
-#include <windows.h>
-#endif
-#include <malloc.h>
 
-WGContext::WGContext(): /*m_pContext(NULL), */m_stPrivMemAllocSize(MIC_DEFAULT_WG_SIZE*MIC_DEV_MIN_WI_PRIVATE_SIZE)
+#include "IArgument.h"
+#include "ExplicitGlobalMemArgument.h"
+#include "ExplicitBlockLiteralArgument.h"
+
+
+    void WGContext::GetMemoryBuffersDescriptions(size_t* IN pBufferSizes, 
+                                      size_t* INOUT pBufferCount )
+    {
+        // We only require one buffer allocation used for storing the
+        // kernel arguments and the Barrier's local ID indeces (if any)
+        // We also report the overall memory needed for local memory even though
+        // we do not need to allocate it, because this info could be used
+        // for the hueristics which computes
+        // work-group size.
+        assert(pBufferCount);
+        if (!pBufferSizes) {
+            // +1 for additional area for: kernel params + WI ids buffer + private memory [see below]
+            *pBufferCount = m_kernelLocalMemSizes.size() + 1;
+            return;
+        }
+        // Fill sizes of explicit local buffers
+        std::copy(m_kernelLocalMemSizes.begin(), m_kernelLocalMemSizes.end(), pBufferSizes);
+        // Fill size of private area for all work-items
+        // and also the area for kernel params and local WI ids
+        pBufferSizes[m_kernelLocalMemSizes.size()] =
+            m_stAlignedKernelParamSize + m_stWIidsBufferSize +
+            m_stPrivateMemorySize * m_uiVectorWidth * m_uiWGSize;
+    }
+
+    void WGContext::InitParams(const ICLDevBackendKernel_* pKernel, char* pArgsBuffer, cl_work_description_type workInfo)
+    {
+        char* pArgValueDest = m_pArgumentBuffer.get();
+        
+        const int kernelParamCnt = pKernel->GetKernelParamsCount();
+        for (int i = 0; i < kernelParamCnt; i++) {
+            const cl_kernel_argument arg = pKernel->GetKernelParams()[i];
+
+            Validation::auto_ptr_ex<IArgument> pArg;
+
+            switch (arg.type) {
+                case CL_KRNL_ARG_PTR_GLOBAL:
+                case CL_KRNL_ARG_PTR_CONST:
+                case CL_KRNL_ARG_PTR_IMG_2D:
+                case CL_KRNL_ARG_PTR_IMG_2D_DEPTH:
+                case CL_KRNL_ARG_PTR_IMG_3D:
+                case CL_KRNL_ARG_PTR_IMG_2D_ARR:
+                case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
+                case CL_KRNL_ARG_PTR_IMG_1D:
+                case CL_KRNL_ARG_PTR_IMG_1D_ARR:
+                case CL_KRNL_ARG_PTR_IMG_1D_BUF:
+                    pArg.reset(new ExplicitGlobalMemArgument(pArgValueDest, arg));
+                break;
+                default:
+                switch (arg.type) {
+                    case CL_KRNL_ARG_PTR_LOCAL:
+                        // Local memory buffers are allocating on the JIT's stack. The value
+                        // we get here is not the pointer, but the buffer size. We handle
+                        // this parameter like other arguments passed by value
+                        // + 16 is for taking alignment padding into consideration
+                        m_kernelLocalMemSizes.push_back(*reinterpret_cast<size_t *>(pArgsBuffer) + 16);
+
+                    // Fall through
+                    case CL_KRNL_ARG_INT:
+                    case CL_KRNL_ARG_UINT:
+                    case CL_KRNL_ARG_FLOAT:
+                    case CL_KRNL_ARG_DOUBLE:
+                    case CL_KRNL_ARG_VECTOR:
+                    case CL_KRNL_ARG_VECTOR_BY_REF:
+                    case CL_KRNL_ARG_SAMPLER:
+                    case CL_KRNL_ARG_COMPOSITE:
+                        break;
+                    default:
+                        assert(false && "Unknown kind of argument");
+                }
+                pArg.reset(new ExplicitArgument(pArgValueDest, arg));
+            }
+
+            pArg->setValue(pArgsBuffer);
+          
+            // Advance the src buffer according to argument's size (the sec buffer is packed)
+            pArgsBuffer += pArg->getSize();
+            // Advance the dest buffer according to argument's size and alignment
+            pArgValueDest += pArg->getAlignedSize();
+        }
+
+        cl_uniform_kernel_args *pKernelArgs = (cl_uniform_kernel_args *) (m_pArgumentBuffer.get() + pKernel->GetExplicitArgumentBufferSize());        
+
+        size_t sizetMaxWorkDim = sizeof(size_t)*MAX_WORK_DIM;
+
+        memcpy(pKernelArgs->GlobalOffset, workInfo.globalWorkOffset, sizetMaxWorkDim); // Filled by the runtime
+        
+        memcpy(pKernelArgs->GlobalSize, workInfo.globalWorkSize, sizetMaxWorkDim); // Filled by the runtime
+
+        pKernelArgs->LocalIDIndicesRequiredSize = 0; // Updated by the BE, contains size of local index buffer
+
+        memcpy(pKernelArgs->LocalSize, workInfo.localWorkSize, sizetMaxWorkDim); // Filled by the runtime, updated by the BE in case of (0,0,0)
+
+        pKernelArgs->minWorkGroupNum = size_t(workInfo.minWorkGroupNum); // Filled by the runtime, Required by the heuristic
+
+        pKernelArgs->pJITEntryPoint = NULL;// Filled by the BE
+        pKernelArgs->pLocalIDIndices = NULL; // Allocated by the runtime, filled by the BE
+
+        pKernelArgs->VectorWidth = 0;// Filled by the BE
+
+        memset(pKernelArgs->WGCount,0,sizetMaxWorkDim); // Updated by the BE, based on GLOBAL/LOCAL
+
+        pKernelArgs->WGLoopIterCount = 0;// Updated by the BE
+        pKernelArgs->WorkDim = workInfo.workDimension; // Filled by the runtime
+
+        cl_dev_err_code rc = m_pKernelRunner->PrepareKernelArguments((void*)(m_pArgumentBuffer.get()), 0, 0);
+        if ( CL_DEV_FAILED(rc) )
+        {
+            printf("PrepareKernelArguments failed\n"); fflush(0);
+        }
+
+        m_pKernelRunner->InitRunner((void*)(m_pArgumentBuffer.get()));
+
+        if ( 0 != pKernelArgs->LocalIDIndicesRequiredSize ) {
+            // Allocate local index buffer
+            pKernelArgs->pLocalIDIndices = new size_t[pKernelArgs->LocalIDIndicesRequiredSize/sizeof(size_t)];
+            // Fill indexes buffer
+            m_pKernelRunner->InitRunner((void*)(m_pArgumentBuffer.get()));
+        } else {
+            pKernelArgs->pLocalIDIndices = NULL;
+        }
+
+
+        m_uiVectorWidth = pKernelArgs->VectorWidth;
+
+        m_uiWGSize = 1;
+        for(unsigned int i=0; i< pKernelArgs->WorkDim ; ++i)  {
+            m_uiWGSize *= pKernelArgs->LocalSize[i];
+        }
+        m_uiWGSize = m_uiWGSize / m_uiVectorWidth;
+        m_stWIidsBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(m_uiWGSize * sizeof(size_t) * MAX_WI_DIM_POW_OF_2);
+
+        m_stPrivateMemorySize = pKernel->GetKernelProporties()->GetPrivateMemorySize();
+
+        unsigned int ptrSize = (sizeof(void*));
+
+        m_stKernelParamSize = pArgValueDest - m_pArgumentBuffer.get() + // Calculate parameter sizes
+                              3 * ptrSize + // OCL specific argument: WG Info, pWGID, pBaseGlobalID
+                              ptrSize  + // pWI-ids[]
+                              ptrSize  + // Pointer to IDevExecutable
+                              ptrSize  + // iterCount
+                              ptrSize;   // ExtendedExecutionContext
+
+        m_stAlignedKernelParamSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(m_stKernelParamSize);
+    }
+
+
+cl_dev_err_code WGContext::PrepareThread()
 {
-    // Create local memory
-    m_pLocalMem = (char*)_mm_malloc(MIC_DEV_LCL_MEM_SIZE, MIC_DEV_MAXIMUM_ALIGN);
-    m_pPrivateMem = _mm_malloc(m_stPrivMemAllocSize, MIC_DEV_MAXIMUM_ALIGN);
+    cl_dev_err_code rc = m_pKernelRunner->PrepareThreadState(m_tExecState);
+    if (CL_DEV_FAILED( rc ))
+    {
+        printf("PrepareThread failed\n"); fflush(0);
+    }
+    return rc;
 }
 
-WGContext::~WGContext()
+cl_dev_err_code WGContext::RestoreThreadState()
 {
-#if 0
-    if ( NULL != m_pContext )
+    cl_dev_err_code rc = CL_DEV_SUCCESS;
+    rc = m_pKernelRunner->RestoreThreadState(m_tExecState);
+    if (CL_DEV_FAILED( rc ))
     {
-        m_pContext->Release();
+        printf("RestoreThreadState failed\n"); fflush(0);
     }
-#endif
-
-    if ( NULL != m_pLocalMem )
-    {
-        _mm_free(m_pLocalMem);
-    }
-
-    if ( NULL != m_pPrivateMem )
-    {
-        _mm_free(m_pPrivateMem);
-    }
+    return rc;
 }
 
-#if 0
-cl_dev_err_code WGContext::CreateContext(ICLDevBackendBinary_* pBinary, size_t* pBuffSizes, size_t count)
+cl_dev_err_code WGContext::Execute(const size_t *pGroupID)
 {
-    if ( (NULL == m_pLocalMem) || (NULL == m_pPrivateMem))
+    cl_dev_err_code rc = m_pKernelRunner->RunGroup((const void*)(m_pArgumentBuffer.get()),pGroupID,m_pPrivateMem.get());
+    if (CL_DEV_FAILED( rc ))
     {
-        return CL_DEV_OUT_OF_MEMORY;
+        printf("Execute failed\n"); fflush(0);
     }
+    return rc;
+}
 
-    if ( NULL != m_pContext )
-    {
-        m_pContext->Release();
-        m_pContext = NULL;
-    }
 
-    void*	pBuffPtr[MIC_MAX_LOCAL_ARGS+2]; // Additional two for implicit and private
+WGContext::WGContext(const ICLDevBackendKernel_* pKernel,
+                     cl_work_description_type* workInfo, void* pArgsBuffer, size_t argsBufferSize):
+    m_stPrivMemAllocSize(MIC_DEFAULT_WG_SIZE*MIC_DEV_MIN_WI_PRIVATE_SIZE),
+    m_stAlignedKernelParamSize(0),
+    m_stKernelParamSize(0),
+    m_uiVectorWidth(1)
+{
+    // Create private memory
+    m_pPrivateMem.reset( (char*)Validation::align_malloc(m_stPrivMemAllocSize, MIC_DEV_MAXIMUM_ALIGN));
+    m_tExecState.MXCSRstate = 0;
+    m_pKernelRunner = pKernel->GetKernelRunner();
+    // allocate buffer for kernel's arguments
+    size_t argSize = pKernel->GetExplicitArgumentBufferSize();
+    
+    m_pArgumentBuffer.reset( (char*)Validation::align_malloc(argSize + sizeof(cl_uniform_kernel_args), MIC_DEV_MAXIMUM_ALIGN));
 
-    // Allocate local memories
-    char*	pCurrPtr = m_pLocalMem;
+    InitParams(pKernel,(char*)pArgsBuffer, *workInfo);
+
+    Validation::auto_ptr_ex< size_t, Validation::ArrayDP<size_t> > spBufferSizes;
+    size_t bufferSizesCount = 0;
+    GetMemoryBuffersDescriptions(NULL, &bufferSizesCount);
+    spBufferSizes.reset(new size_t[bufferSizesCount]);
+    GetMemoryBuffersDescriptions(spBufferSizes.get(), &bufferSizesCount);
+
+    size_t* pBuffSizes = spBufferSizes.get();
+
     // The last buffer is private memory (stack) size
-    --count;
-    for(size_t i=0;i<count;++i)
-    {
-        pBuffPtr[i] = pCurrPtr;
-        pCurrPtr += pBuffSizes[i];
-    }
+    size_t count = bufferSizesCount - 1;
 
     // Check allocated size of the private memory, and allocate new if nessesary.
     if ( m_stPrivMemAllocSize < pBuffSizes[count] )
     {
-        _mm_free(m_pPrivateMem);
         m_stPrivMemAllocSize = pBuffSizes[count];
-        m_pPrivateMem = _mm_malloc(m_stPrivMemAllocSize, MIC_DEV_MAXIMUM_ALIGN);
-        if (NULL == m_pPrivateMem)
-        {
-            return CL_DEV_OUT_OF_MEMORY;
-        }
+        m_pPrivateMem.reset((char*)Validation::align_malloc(m_stPrivMemAllocSize, MIC_DEV_MAXIMUM_ALIGN));
     }
-
-    pBuffPtr[count] = m_pPrivateMem;
-
-    cl_dev_err_code rc = pBinary->CreateExecutable(pBuffPtr, count+1, &m_pContext);
-    if (CL_DEV_FAILED(rc))
-    {
-        return CL_DEV_ERROR_FAIL;
-    }
-    return CL_DEV_SUCCESS;
 }
-#endif
+
+WGContext::~WGContext() {}

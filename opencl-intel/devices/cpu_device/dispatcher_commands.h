@@ -289,7 +289,7 @@ public:
         , tbb::scalable_allocator<DeviceNDRange>& deviceNDRangeAllocator,
         tbb::scalable_allocator<char>& deviceNDRangeContextAllocator
 #endif
-        ) : NDRange(pTD, InitCmdDesc(m_paramKernel, m_cmdDesc, pKernel, pContext, szContextSize, pNdrange, pList), pList, parent, childrenTaskGroup)
+        ) : NDRange(pTD, InitCmdDesc(m_paramKernel, m_cmdDesc, pKernel, pContext, szContextSize, pNdrange, pList, m_kernelMapEntry), pList, parent, childrenTaskGroup)
 #if 0
         , m_deviceNDRangeAllocator(deviceNDRangeAllocator),
         m_deviceNDRangeContextAllocator(deviceNDRangeContextAllocator)
@@ -324,12 +324,13 @@ private:
     // dummy classes until we have BE implementation:
 
     static cl_dev_cmd_desc* InitCmdDesc(cl_dev_cmd_param_kernel& paramKernel, cl_dev_cmd_desc& cmdDesc, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
-        const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange, const SharedPtr<ITaskList>& pList);    
+        const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange, const SharedPtr<ITaskList>& pList, struct ProgramService::KernelMapEntry& kernelMapEntry);    
     
     static AtomicCounter sm_cmdIdCnt;
 
     cl_dev_cmd_param_kernel m_paramKernel;
     cl_dev_cmd_desc m_cmdDesc;
+    struct ProgramService::KernelMapEntry m_kernelMapEntry;
 #if 0
     tbb::scalable_allocator<DeviceNDRange>& m_deviceNDRangeAllocator;
     tbb::scalable_allocator<char>& m_deviceNDRangeContextAllocator;
