@@ -921,6 +921,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE):
         case CL_DEVICE_IMAGE_PITCH_ALIGNMENT:    // BE recommends that these two queries will also return cache line size
         case CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT:
+        case CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT: // Anat says that performance-wise the preferred alignment is cache line size
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
