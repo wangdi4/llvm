@@ -167,17 +167,18 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         res = system((llvmKNLBinPath + "/llc " + llcOptions).c_str());
         if (res != 0) {
           system(("mv " + filename + ".ll " + filename + "_fail.ll").c_str());
+          system(("mv " + filename + ".bc " + filename + "_fail.bc").c_str());
           throw Exceptions::DeviceBackendExceptionBase("llc does not work", CL_DEV_ERROR_FAIL);
         }
         llvm::OwningPtr<llvm::MemoryBuffer> injectedObject;
         if (llvm::MemoryBuffer::getFile((filename + ".o").c_str(), injectedObject)) {
-          system(std::string("rm " + filename + ".ll").c_str());
+          system(std::string("rm " + filename + ".bc " + filename + ".ll").c_str());
           throw Exceptions::DeviceBackendExceptionBase("can't find object file",
                                                        CL_DEV_ERROR_FAIL);
         }
         LoadObject(pProgram, spModule.get(), injectedObject->getBufferStart(),
                    injectedObject->getBufferSize());
-        system(std::string("rm " + filename + ".ll " + filename + ".o").c_str());
+        system(std::string("rm " + filename + ".bc " + filename + ".ll " + filename + ".o").c_str());
 #else // ENABLE_KNL
         PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
 #endif // ENABLE_KNL
