@@ -322,13 +322,23 @@ namespace intel{
   }
   
   void PrepareKernelArgs::createWrapperBody(Function* pWrapper, Function* pFunc) {
-  // Set new function's argument name
+    // Set new function's argument name
+    #if LLVM_VERSION == 3200
+    Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attributes::NoAlias);
+#elif LLVM_VERSION == 3425
+    Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attribute::NoAlias);
+#else
+    AttributeSet NoAlias = AttributeSet::get(*m_pLLVMContext, 0, Attribute::NoAlias);
+#endif
     Function::arg_iterator DestI = pWrapper->arg_begin();
     DestI->setName("pUniformArgs");
+    DestI->addAttr(NoAlias);
     Argument *pArgsBuffer = DestI++;
     DestI->setName("pWGID");
+    DestI->addAttr(NoAlias);
     Argument *pArgGID = DestI++;
     DestI->setName("RuntimeContext");
+    DestI->addAttr(NoAlias);
     Argument *RuntimeContext = DestI++;
     assert(DestI == pWrapper->arg_end() && "Expected to be past last arg");
     
