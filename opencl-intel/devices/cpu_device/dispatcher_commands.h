@@ -36,7 +36,9 @@
 #include <task_executor.h>
 #include <ocl_itt.h>
 #include <cl_thread.h>
-#include <tbb/scalable_allocator.h>
+#ifdef __USE_TBB_SCALABLE_ALLOCATOR__
+#include "tbb/scalable_allocator.h"
+#endif
 #include <cl_sys_defines.h>
 
 #define COLOR_TABLE_SIZE 64
@@ -72,10 +74,10 @@ protected:
 
     cl_dev_err_code ExtractNDRangeParams(void* pTargetTaskParam, const cl_kernel_argument*   pParams, 
                                          const unsigned int* pMemObjectIndx, unsigned int uiMemObjCount,
-                                         std::vector<cl_mem_obj_descriptor*>& devMemObjects);
+                                         std::vector<cl_mem_obj_descriptor*>* devMemObjects);
 
     TaskDispatcher*             m_pTaskDispatcher;
-    MemoryAllocator*            m_pMemAlloc;
+    ITaskList*                  m_pTaskList;
     IOCLDevLogDescriptor*       m_pLogDescriptor;
     cl_int                      m_iLogHandle;
     cl_dev_cmd_desc*            m_pCmd;
@@ -223,6 +225,7 @@ public:
     bool IsCompleted() const { return CommandBaseClass<ITaskSet>::IsCompleted(); }
 
     ITaskGroup* GetNDRangeChildrenTaskGroup() { return GetParentTaskGroup().GetPtr(); }
+    char* GetParamsPtr() { return (char*)(((cl_dev_cmd_param_kernel*)m_pCmd->params)->arg_values); }
 
 protected:
     NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, const SharedPtr<ITaskList>& pList, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup);
@@ -285,12 +288,12 @@ public:
 
     DeviceNDRange(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup,
         const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel, const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange
-#if 0
+#ifdef __USE_TBB_SCALABLE_ALLOCATOR__
         , tbb::scalable_allocator<DeviceNDRange>& deviceNDRangeAllocator,
         tbb::scalable_allocator<char>& deviceNDRangeContextAllocator
 #endif
         ) : NDRange(pTD, InitCmdDesc(m_paramKernel, m_cmdDesc, pKernel, pContext, szContextSize, pNdrange, pList, m_kernelMapEntry), pList, parent, childrenTaskGroup)
-#if 0
+#ifdef __USE_TBB_SCALABLE_ALLOCATOR__
         , m_deviceNDRangeAllocator(deviceNDRangeAllocator),
         m_deviceNDRangeContextAllocator(deviceNDRangeContextAllocator)
 #endif
@@ -331,7 +334,7 @@ private:
     cl_dev_cmd_param_kernel m_paramKernel;
     cl_dev_cmd_desc m_cmdDesc;
     struct ProgramService::KernelMapEntry m_kernelMapEntry;
-#if 0
+#ifdef __USE_TBB_SCALABLE_ALLOCATOR__
     tbb::scalable_allocator<DeviceNDRange>& m_deviceNDRangeAllocator;
     tbb::scalable_allocator<char>& m_deviceNDRangeContextAllocator;
 #endif
@@ -371,7 +374,7 @@ protected:
 class NativeKernelTask : public CommandBaseClass<ITask>
 {
 public:
-    static cl_dev_err_code Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask);
+    static cl_dev_err_code Create(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask);
 
     // DispatcherCommand interface
     cl_dev_err_code CheckCommandParams(cl_dev_cmd_desc* cmd);
@@ -380,9 +383,10 @@ public:
     bool    Execute();
 
 protected:
-    NativeKernelTask(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd);
+    NativeKernelTask(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, cl_dev_cmd_desc* pCmd);
 
-    Intel::OpenCL::BuiltInKernels::IBuiltInKernel* m_pBIKernel;
+    const Intel::OpenCL::BuiltInKernels::IBuiltInKernel* m_pBIKernel;
+    ITaskList* m_pList;
 };
 #endif
 

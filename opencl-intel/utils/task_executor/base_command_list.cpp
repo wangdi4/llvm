@@ -113,6 +113,16 @@ te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& 
     return TE_WAIT_COMPLETED;
 }
 
+bool base_command_list::CanMasterJoin() const
+{
+    return m_device->ShouldMasterJoinWork();
+}
+
+int base_command_list::GetDeviceConcurency() const
+{
+    return m_device->GetConcurrency();
+}
+
 unsigned int base_command_list::InternalFlush(bool blocking)
 {    
     unsigned int runningTaskRequests = m_execTaskRequests++;

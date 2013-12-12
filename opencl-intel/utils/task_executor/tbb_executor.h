@@ -120,7 +120,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
     class out_of_order_executor_task
     {
     public:
-        out_of_order_executor_task(const SharedPtr<base_command_list>& list) : m_list(list.DynamicCast<out_of_order_command_list>())
+        out_of_order_executor_task(const SharedPtr<base_command_list>& list) : m_list(list.StaticCast<out_of_order_command_list>())
         {
             assert(m_list != NULL);
         }

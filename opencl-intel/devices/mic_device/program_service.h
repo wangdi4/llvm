@@ -30,6 +30,7 @@
 
 #include <map>
 #include <string>
+#include <stdint.h>
 
 #include "cl_device_api.h"
 #include "handle_allocator.h"
@@ -96,6 +97,9 @@ public:
                                         cl_dev_binary_prop IN prop,
                                         cl_dev_program* OUT prog
                                        );
+    cl_dev_err_code CreateBuiltInKernelProgram( const char* IN szBuiltInNames,
+										cl_dev_program* OUT prog
+                                       );
     cl_dev_err_code BuildProgram( cl_dev_program IN prog,
                                         const char* IN options,
                                         cl_build_status* OUT buildStatus
@@ -130,7 +134,7 @@ public:
 
     // get Backend kernel object
     static const ICLDevBackendKernel_* GetBackendKernel( cl_dev_kernel kernel ) { return ((TKernelEntry*)kernel)->pKernel; }
-    static uint64_t              GetDeviceSideKernel( cl_dev_kernel kernel) { return ((TKernelEntry*)kernel)->uDevKernelEntry; }
+    static uint64_t                    GetDeviceSideKernel( cl_dev_kernel kernel) { return ((TKernelEntry*)kernel)->uDevKernelEntry; }
 
 private:
     DeviceServiceCommunication&             m_DevService;
@@ -181,16 +185,12 @@ private:
 
         // constructor
         TProgramEntry( cl_int dev_id ) :
-          pProgram(NULL), uid_program_on_device(0), copy_to_device_ok(false), m_iDevId(dev_id)  {};
+          pProgram(NULL), uid_program_on_device((uint64_t)this), clBuildStatus(CL_BUILD_NONE), copy_to_device_ok(false), m_iDevId(dev_id)  {};
     };
-
-    typedef std::list<TProgramEntry*>    TProgramList;
 
     cl_int                         m_iDevId;
     IOCLDevLogDescriptor*          m_pLogDescriptor;
     cl_int                         m_iLogHandle;
-    TProgramList                   m_Programs;
-    OclMutex                       m_muPrograms;
     IOCLFrameworkCallbacks*        m_pCallBacks;
 
 
@@ -207,6 +207,9 @@ private:
                 const ICLDevBackendProgram_* pProgram,
                 size_t input_size, COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT*  input,
                 size_t output_size,COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* output );
+
+    bool FillProgramEntry(const COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* devicePorgram, TProgramEntry* pEntry);
+    cl_dev_err_code CreateBuiltinProgramOnDevice(TProgramEntry* pEntry, const char* szBuiltInNames);
 
     bool    RemoveProgramFromDevice( const TProgramEntry* pEntry );
 };

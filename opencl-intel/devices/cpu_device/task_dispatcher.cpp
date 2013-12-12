@@ -71,6 +71,10 @@ public:
     virtual void            Release();
     virtual void            Cancel() {};
 
+    virtual bool            IsMasterJoined() const { return true;}
+    virtual bool            CanMasterJoin() const { return true;}
+    virtual int             GetDeviceConcurency() const { return 1;}
+
     virtual SharedPtr<ITEDevice> GetDevice() { return NULL; }
     virtual ConstSharedPtr<ITEDevice> GetDevice() const { return NULL; }
 
@@ -200,7 +204,7 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
         m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
         m_pCPUDeviceConfig(cpuDeviceConfig), m_pWgContextPool(NULL), m_uiNumThreads(0),
         m_bTEActivated(false), m_pObserver(pObserver)
-#ifdef __INCLUDE_MKL__
+#if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
         ,m_pOMPExecutionThread(NULL)
 #endif
 {
@@ -225,10 +229,13 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
 
 TaskDispatcher::~TaskDispatcher()
 {
-
-#ifdef __INCLUDE_MKL__
+#if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
     m_pOMPExecutionThread->Join();
     delete m_pOMPExecutionThread;
+#endif
+#if defined(__INCLUDE_MKL__) && defined(__OMP2TBB__)
+    // Initialize OpenMP over TBB library
+    __kmpc_end(NULL);
 #endif
 
     if (m_bTEActivated)
@@ -276,7 +283,7 @@ cl_dev_err_code TaskDispatcher::init()
 
     m_pWgContextPool->Init(m_uiNumThreads, numMasters);
 
-#ifdef __INCLUDE_MKL__
+#if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
     m_pOMPExecutionThread = Intel::OpenCL::BuiltInKernels::OMPExecutorThread::Create(m_uiNumThreads);
     if ( NULL == m_pOMPExecutionThread )
     {
@@ -284,7 +291,10 @@ cl_dev_err_code TaskDispatcher::init()
     }
     m_pOMPExecutionThread->Start();
 #endif
-
+#if defined(__INCLUDE_MKL__) && defined(__OMP2TBB__)
+    // Initialize OpenMP over TBB library
+    __kmpc_begin(NULL, 0);
+#endif
     bool bInitTasksRequired = isDestributedAllocationRequired() || isThreadAffinityRequired();
 
     if (!bInitTasksRequired)
@@ -448,8 +458,7 @@ cl_dev_err_code TaskDispatcher::commandListExecute( const SharedPtr<ITaskList>& 
 
 cl_dev_err_code TaskDispatcher::NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* pCmd, cl_int iRetCode)
 {
-    CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to submit command[id:%d,type:%d] to execution, Err:<%d>"),
-                pCmd->id, pCmd->type, iRetCode);
+    CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Failed to submit command[id:%d,type:%d] to execution, Err:<%d>"), pCmd->id, pCmd->type, iRetCode);
 
     SharedPtr<ITaskBase> pTask = TaskFailureNotification::Allocate(this, pCmd, iRetCode);
     if ( NULL == pTask )

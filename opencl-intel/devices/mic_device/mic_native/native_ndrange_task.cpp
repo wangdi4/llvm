@@ -19,9 +19,7 @@
 // problem reports or change requests be submitted to it directly
 
 /////////////////////////////////////////////////////////////
-//  ExecutionTask.h
-//  Implementation of the Class ExecutionTask
-//  Class Object is responsible on execution of NDRange task
+//  native_ndrange_task.cpp
 /////////////////////////////////////////////////////////////
 
 #include "native_ndrange_task.h"

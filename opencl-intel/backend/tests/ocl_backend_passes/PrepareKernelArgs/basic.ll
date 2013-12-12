@@ -7,7 +7,7 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a,
 }
 ; CHECK: define void @__A_separated_args(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a, i32 %b, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbIds, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeContext) nounwind alwaysinline {
 
-; CHECK: define void @A(i8* %pUniformArgs, i64* %pWGId, {}* %RuntimeContext) {
+; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeContext) {
 ; CHECK: %0 = getelementptr i8* %pUniformArgs, i32 0
 ; CHECK: %1 = bitcast i8* %0 to i32 addrspace(1)**
 ; CHECK: %explicit_0 = load i32 addrspace(1)** %1, align 8

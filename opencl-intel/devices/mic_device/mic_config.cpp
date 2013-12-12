@@ -19,7 +19,7 @@
 // problem reports or change requests be submitted to it directly
 
 ///////////////////////////////////////////////////////////
-//  cpu_config.cpp
+//  mic_config.cpp
 ///////////////////////////////////////////////////////////
 
 #include "mic_config.h"
@@ -28,7 +28,10 @@ using namespace Intel::OpenCL::MICDevice;
 
 bool MICDeviceConfig::config_already_printed = false;
 
-MICDeviceConfig::MICDeviceConfig()
+MICDeviceConfig::MICDeviceConfig() 
+#ifdef __INCLUDE_MKL__
+    : m_bUseMKL(false)
+#endif
 {
 	m_pConfigFile = NULL;
 }

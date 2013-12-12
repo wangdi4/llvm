@@ -29,8 +29,8 @@
 #include "memory_allocator.h"
 #include "task_dispatcher.h"
 #include "cpu_logger.h"
-#include "builtin_kernels.h"
-#include "cl_shared_ptr.hpp"
+
+#include <cl_shared_ptr.hpp>
 #include <buildversion.h>
 #include <CL/cl_ext.h>
 #include "CL/cl_2_0.h"
@@ -40,6 +40,8 @@
 #include <cl_sys_defines.h>
 #include <cl_cpu_detect.h>
 #include <cl_shutdown.h>
+#include <builtin_kernels.h>
+
 #ifdef __INCLUDE_MKL__
 #include <mkl_builtins.h>
 #endif
@@ -57,7 +59,7 @@ USE_SHUTDOWN_HANDLER(CPUDevice::WaitUntilShutdown);
 #if defined(_M_X64) || defined(__x86_64__)
     #define MEMORY_LIMIT (TotalPhysicalSize())
 #else
-    // When running on 32bit application on 64bit OS, the total physical size might exceed virtual evailable memory
+    // When running on 32bit application on 64bit OS, the total physical size might exceed virtual evailable memory 
     #define MEMORY_LIMIT    ( MIN(TotalPhysicalSize(), TotalVirtualSize()) )
 #endif
 #define MAX_MEM_ALLOC_SIZE ( MAX(128*1024*1024, MEMORY_LIMIT/4) )
@@ -1228,7 +1230,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             return CL_DEV_SUCCESS;
         }
         case( CL_DEVICE_OPENCL_C_VERSION):
-            {
+            {                
                 *pinternalRetunedValueSize = strlen(OPENCL_VERSION_1_2 == ver ? sOpenCLC12Str : sOpenCLC20Str) + 1;
                 if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
                 {

@@ -214,6 +214,8 @@ cl_kernel_arg_address_qualifier Intel::OpenCL::BuiltInKernels::ArgType2AddrQual(
 	}
 }
 
+// When using OpenMP library we are required to create dispatching thread
+#ifndef __OMP2TBB__
 #define INIT_NUM_OF_EVENTS 10
 
 OMPExecutorThread::OMPExecutorThread(unsigned int uiNumOfThreads) :
@@ -310,3 +312,4 @@ Intel::OpenCL::BuiltInKernels::OMPExecutorThread* Intel::OpenCL::BuiltInKernels:
 	Intel::OpenCL::BuiltInKernels::OMPExecutorThread* pNewThread = new OMPExecutorThread(uiNumOfWorkers);
 	return pNewThread;
 }
+#endif

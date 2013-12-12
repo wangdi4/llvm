@@ -21,6 +21,11 @@
 #include "mic_common_macros.h"
 #include "mic_device_interface.h"
 
+#include <builtin_kernels.h>
+#ifdef __INCLUDE_MKL__
+#include <mkl_builtins.h>
+#endif
+
 #ifdef _DEBUG
     #define PRINT_DEBUG(...) fprintf(stderr, ##__VA_ARGS__)
 #else
@@ -547,6 +552,22 @@ cl_dev_err_code MICSysInfo::get_variable_info(
             if(NULL != buf)
             {
                 *(cl_ulong*)buf = MIC_MAX_BUFFER_ALLOC_SIZE(deviceId);
+            }
+            return CL_DEV_SUCCESS;
+        }
+
+        case( CL_DEVICE_BUILT_IN_KERNELS):
+        {
+            size_t list_size = BuiltInKernels::BuiltInKernelRegistry::GetInstance()->GetBuiltInKernelListSize();
+            if(! process_info_params( list_size, buf_size, buf, filled_buf_size ))
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != buf)
+            {
+                BuiltInKernels::BuiltInKernelRegistry::GetInstance()->GetBuiltInKernelList((char*)buf, buf_size);
             }
             return CL_DEV_SUCCESS;
         }

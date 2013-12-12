@@ -43,6 +43,10 @@
 #include "command_list.h"
 #include "clang_device_info.h"
 
+#ifdef __INCLUDE_MKL__
+#include <mkl_builtins.h>
+#endif
+
 using namespace Intel::OpenCL::MICDevice;
 
 USE_SHUTDOWN_HANDLER( MICDevice::unloadRelease );
@@ -661,7 +665,13 @@ clDevCreateProgram
 
 cl_dev_err_code MICDevice::clDevCreateBuiltInKernelProgram(const char* szKernelNames, cl_dev_program* OUT prog)
 {
-    return CL_DEV_ERROR_FAIL;
+    if (isDeviceLibraryUnloaded())
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
+    
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevCreateProgram Function enter");
+    return (cl_dev_err_code)m_pProgramService->CreateBuiltInKernelProgram(szKernelNames, prog);
 }
 
 /*******************************************************************************************************************
@@ -917,7 +927,11 @@ extern "C" cl_dev_err_code clDevInitDeviceAgent(void)
 	}
 
 #ifdef __INCLUDE_MKL__
-    Intel::OpenCL::MKLKernels::InitLibrary();
+    // TODO: Need to check if MKL library exists on the machine
+    // currently we assume that it's always exists
+
+    bool bMKLinit = Intel::OpenCL::MKLKernels::InitProxyLibrary();
+    MICSysInfo::getInstance().getMicDeviceConfig().SetUseMKL(bMKLinit);
 #endif
     return CL_DEV_SUCCESS;
 }

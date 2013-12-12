@@ -4,7 +4,7 @@ target triple = "x86_64-pc-linux"
 
 define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32> %i, <4 x i32> %ui, <4 x float> %f, <4 x float> addrspace(1)* nocapture %result, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeContext) nounwind {
 
-; CHECK: define void @A(i8* %pUniformArgs, i64* %pWGId, {}* %RuntimeContext) {
+; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeContext) {
 ; CHECK: %0 = getelementptr i8* %pUniformArgs, i32 0
 ; CHECK: %1 = bitcast i8* %0 to <4 x i8>*
 ; CHECK: %explicit_0 = load <4 x i8>* %1, align 4

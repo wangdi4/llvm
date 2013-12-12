@@ -66,6 +66,7 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
     "get_backend_target_description_size",  // GET_BACKEND_TARGET_DESCRIPTION_SIZE
     "get_backend_target_description",       // GET_BACKEND_TARGET_DESCRIPTION
     "copy_program_to_device",               // COPY_PROGRAM_TO_DEVICE
+    "create_built_in_program",              // CREATE_BUILT_IN_PROGRAM
     "remove_program_from_device",           // REMOVE_PROGRAM_FROM_DEVICE
     "execute_command_ndrange",              // EXECUTE_NDRANGE
     "init_device",                          // INIT THE NATIVE PROCESS (Call it only once, after process creation)
@@ -206,7 +207,7 @@ COIFUNCTION DeviceServiceCommunication::getDeviceFunction( DEVICE_SIDE_FUNCTION 
 
 bool DeviceServiceCommunication::runServiceFunction(
                             DEVICE_SIDE_FUNCTION func,
-                            size_t input_data_size, void* input_data,
+                            size_t input_data_size, const void* input_data,
                             size_t output_data_size, void* output_data,
                             unsigned int numBuffers, const COIBUFFER* buffers, 
                             const COI_ACCESS_FLAGS* bufferAccessFlags,
@@ -339,7 +340,9 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         mic_device_options.max_tasks_per_worker_fill_buffer    = tMicConfig.Device_ParallelFillMaxTaskPerWorker();
         mic_device_options.max_workers_fill_buffer             = tMicConfig.Device_ParallelFillMaxWorkers();
         mic_device_options.logger_enable                       = Logger::GetInstance().IsActive();
-        
+#ifdef __INCLUDE_MKL__
+        mic_device_options.enable_mkl                          = tMicConfig.UseMKL();
+#endif        
         string tbb_scheduler = tMicConfig.Device_TbbScheduler();
      
         if (tbb_scheduler == "affinity")
@@ -448,9 +451,9 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         result = COIProcessCreateFromFile(engine, (char*)fileNameBuffer,
                                          0, NULL,                                                                                // argc, argv
                                          false, additionalEnvVars.size() == 0 ? NULL : (const char**)&(additionalEnvVars[0]),    // duplicate env, additional env vars
-                                         MIC_DEV_IO_PROXY_TO_HOST, NULL,                                                        // I/O proxy required + host root
-                                         MIC_DEV_INITIAL_BUFFER_PREALLOCATION,                                                    // reserve inital buffer space
-                                         nativeDirName,                                                                            // a path to locate dynamic libraries dependencies for the sink application
+                                         MIC_DEV_IO_PROXY_TO_HOST, NULL,                                                         // I/O proxy required + host root
+                                         MIC_DEV_INITIAL_BUFFER_PREALLOCATION,                                                   // reserve inital buffer space
+                                         nativeDirName,                                                                          // a path to locate dynamic libraries dependencies for the sink application
                                          &m_process);
         assert(result == COI_SUCCESS && "COIProcessCreateFromFile failed");
         if (COI_SUCCESS != result)

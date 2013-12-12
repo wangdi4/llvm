@@ -29,8 +29,14 @@
 #include "native_program_service.h"
 #include "native_common_macros.h"
 #include "thread_local_storage.h"
-#include <cl_dev_backend_api.h>
 #include "native_globals.h"
+
+#include <cl_dev_backend_api.h>
+#include <builtin_kernels.h>
+
+#ifdef __INCLUDE_MKL__
+#include <mkl_builtins.h>
+#endif
 
 #include "mic_tracer.h"
 
@@ -79,16 +85,6 @@ ProgramService::ProgramService()
 
 ProgramService::~ProgramService()
 {
-    // delete all programs
-    TProgId2Map::iterator prog_it     = m_ProgId2Map.begin();
-    TProgId2Map::iterator prog_it_end = m_ProgId2Map.end();
-
-    for(; prog_it != prog_it_end; ++prog_it)
-    {
-        RemoveProgramEntry( prog_it->second );
-    }
-
-    m_ProgId2Map.clear();
     ReleaseBackendServices();
 
     NATIVE_PRINTF("Program Service - Destructed\n");
@@ -299,6 +295,63 @@ size_t ProgramService::getBackendTargetDescription( size_t buffer_size, void* bu
     return required_size;
 }
 
+cl_dev_err_code ProgramService::fill_program_info(TProgramEntry* prog_entry, COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* fill_kernel_info)
+{
+    // 3. Create kernels list and fill output data
+    int kernels_count = prog_entry->pProgram->GetKernelsCount();
+    assert( kernels_count >= 0 && "ProgramService::add_program: Cannot restore kernels from deserialized program" );
+
+	prog_entry->pKernels = new TKernelEntry[kernels_count];
+	if ( NULL == prog_entry->pKernels )
+	{
+	    NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TKernelEntry[kernels_count], kernels_count=%d", kernels_count);
+	    return CL_DEV_OUT_OF_MEMORY;
+	}
+
+	for (int i = 0; i < kernels_count; ++i)
+	{
+		cl_dev_err_code be_err = prog_entry->pProgram->GetKernel(i, &(prog_entry->pKernels[i].kernel) );
+		assert( CL_DEV_SUCCEEDED(be_err) && "ProgramService::add_program: Cannot get kernel from de-serialized program" );
+		if ( CL_DEV_FAILED(be_err) )
+		{
+			break;
+		}
+
+#ifdef USE_ITT
+		if ( gMicGPAData.bUseGPA)
+		{
+			static const char kernelDomainNamePrefix[] = "com.intel.opencl.device.mic.";
+			static const size_t maxKernelDomainLenght = 256;
+
+			const char* kernelName = prog_entry->pKernels[i].kernel->GetKernelName();
+
+			prog_entry->pKernels[i].pIttKernelName = __itt_string_handle_create(kernelName);
+
+			// Create private domain per kernel
+			if ( strlen(kernelDomainNamePrefix)+strlen(kernelName) < maxKernelDomainLenght)
+			{
+				char kernelDomainName[maxKernelDomainLenght];
+				sprintf(kernelDomainName, "%s%s", kernelDomainNamePrefix, kernelName);
+				prog_entry->pKernels[i].pIttKernelDomain = __itt_domain_create(kernelDomainName);
+			}
+			else
+			{
+				prog_entry->pKernels[i].pIttKernelDomain = NULL;
+			}
+		}
+#endif
+		// add kernel info to the return struct
+		fill_kernel_info->device_kernel_info_pts[i].kernel_id        = (uint64_t)prog_entry->pKernels[i].kernel->GetKernelID();
+		fill_kernel_info->device_kernel_info_pts[i].device_info_ptr  = (uint64_t)(size_t)&prog_entry->pKernels[i];
+	}
+
+    // 5. Set number of filled kernels
+    fill_kernel_info->uid_program_on_device = (uint64_t)prog_entry;
+    fill_kernel_info->filled_kernels = kernels_count;
+    
+    return CL_DEV_SUCCESS;
+}
+
 //
 // Deserialize program and create kernels
 //
@@ -358,54 +411,7 @@ cl_dev_err_code ProgramService::add_program(
 	// clean TLS
 	tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, NULL);
 
-    // 3. Create kernels list and fill output data
-    int kernels_count = prog_entry->pProgram->GetKernelsCount();
-    assert( kernels_count >= 0 && "ProgramService::add_program: Cannot restore kernels from deserialized program" );
-    assert( kernels_count == prog_info->number_of_kernels && "ProgramService::add_program: Backend restored kernel count differ from serialized" );
-
-	prog_entry->pKernels = new TKernelEntry[kernels_count];
-	if ( NULL == prog_entry->pKernels )
-	{
-	    NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TKernelEntry[kernels_count], kernels_count=%d", kernels_count);
-	    return CL_DEV_OUT_OF_MEMORY;
-	}
-
-	for (int i = 0; i < kernels_count; ++i)
-	{
-		be_err = prog_entry->pProgram->GetKernel(i, &(prog_entry->pKernels[i].kernel) );
-		assert( CL_DEV_SUCCEEDED(be_err) && "ProgramService::add_program: Cannot get kernel from de-serialized program" );
-		if ( CL_DEV_FAILED(be_err) )
-		{
-			break;
-		}
-
-#ifdef USE_ITT
-		if ( gMicGPAData.bUseGPA)
-		{
-			static const char kernelDomainNamePrefix[] = "com.intel.opencl.device.mic.";
-			static const size_t maxKernelDomainLenght = 256;
-
-			const char* kernelName = prog_entry->pKernels[i].kernel->GetKernelName();
-
-			prog_entry->pKernels[i].pIttKernelName = __itt_string_handle_create(kernelName);
-
-			// Create private domain per kernel
-			if ( strlen(kernelDomainNamePrefix)+strlen(kernelName) < maxKernelDomainLenght)
-			{
-				char kernelDomainName[maxKernelDomainLenght];
-				sprintf(kernelDomainName, "%s%s", kernelDomainNamePrefix, kernelName);
-				prog_entry->pKernels[i].pIttKernelDomain = __itt_domain_create(kernelDomainName);
-			}
-			else
-			{
-				prog_entry->pKernels[i].pIttKernelDomain = NULL;
-			}
-		}
-#endif
-		// add kernel info to the return struct
-		fill_kernel_info->device_kernel_info_pts[i].kernel_id        = (uint64_t)prog_entry->pKernels[i].kernel->GetKernelID();
-		fill_kernel_info->device_kernel_info_pts[i].device_info_ptr  = (uint64_t)(size_t)&prog_entry->pKernels[i];
-	}
+    be_err = fill_program_info(prog_entry, fill_kernel_info);
 
 	if ( CL_DEV_FAILED(be_err) )
 	{
@@ -413,36 +419,38 @@ cl_dev_err_code ProgramService::add_program(
 		return be_err;
 	}
 
-    // 4. Add program to the program map
-    m_muProgMap.Lock();
-    m_ProgId2Map[ prog_info->uid_program_on_device ] = prog_entry;
-    m_muProgMap.Unlock();
+    assert( fill_kernel_info->filled_kernels == prog_info->number_of_kernels && "ProgramService::add_program: Backend restored kernel count differ from serialized" );
 
-    // 5. Set number of filled kernels
-    fill_kernel_info->filled_kernels = kernels_count;
 	return CL_DEV_SUCCESS;
+}
+
+cl_dev_err_code ProgramService::add_builtin_program(const char* szBuiltInNames, COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* fill_kernel_info)
+{
+    // initialize output
+    fill_kernel_info->filled_kernels = 0;
+
+	ICLDevBackendProgram_* pProg;
+	cl_dev_err_code err = BuiltInKernels::BuiltInKernelRegistry::GetInstance()->CreateBuiltInProgram(szBuiltInNames, &pProg);
+	if ( CL_DEV_FAILED(err) )
+	{
+		NATIVE_PRINTF("CreateBuiltInProgram failed with %x", err);
+		return err;
+	}
+
+    TProgramEntry* prog_entry = new TProgramEntry;
+    if (NULL == prog_entry)
+    {
+        NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TProgramEntry" );
+		return CL_DEV_OUT_OF_MEMORY;
+    }
+
+
+    return CL_DEV_SUCCESS;
 }
 
 void ProgramService::remove_program( uint64_t be_program_id )
 {
-    TProgramEntry* prog_entry;
-
-    m_muProgMap.Lock();
-
-    TProgId2Map::iterator it = m_ProgId2Map.find( be_program_id );
-    if (it == m_ProgId2Map.end())
-    {
-        m_muProgMap.Unlock();
-
-        // no program to remove
-        NATIVE_PRINTF("ProgramService::remove_program: Program with backend ID %lu not found\n", be_program_id );
-        return;
-    }
-
-    prog_entry = it->second;
-    m_ProgId2Map.erase( it );
-
-    m_muProgMap.Unlock();
+    TProgramEntry* prog_entry = (TProgramEntry*)be_program_id;
 
     RemoveProgramEntry( prog_entry );
 }
@@ -616,6 +624,27 @@ void copy_program_to_device(
 #ifdef ENABLE_MIC_TRACER
     cmdTracer.set_current_time_build_deserialize_time_end();
 #endif
+}
+
+// Create a program from a list of built-in kernel
+COINATIVELIBEXPORT
+void create_built_in_program(
+              uint32_t         in_BufferCount,
+              void**           in_ppBufferPointers,
+              uint64_t*        in_pBufferLengths,
+              void*            in_pMiscData,
+              uint16_t         in_MiscDataLength,
+              void*            in_pReturnValue,
+              uint16_t         in_ReturnValueLength)
+{
+    assert ( in_BufferCount == 0 && "This function doesn't expect any buffer");
+    assert ( in_MiscDataLength > 0 && "This function expects input MISC data");
+    assert ( in_ReturnValueLength > 0 && "This function should return value");
+
+    COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* output = (COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT*)in_pReturnValue;
+
+    ProgramService& program_service = ProgramService::getInstance();
+    program_service.add_builtin_program((const char*)in_pMiscData, output);
 }
 
 //

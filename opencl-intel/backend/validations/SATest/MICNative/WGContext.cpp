@@ -106,7 +106,7 @@ File Name:  WGContext.cpp
             pArgValueDest += pArg->getAlignedSize();
         }
 
-        cl_uniform_kernel_args *pKernelArgs = (cl_uniform_kernel_args *) (m_pArgumentBuffer.get() + pKernel->GetExplicitArgumentBufferSize());        
+        cl_uniform_kernel_args *pKernelArgs = (cl_uniform_kernel_args *) (m_pArgumentBuffer.get() + pKernel->GetExplicitArgumentBufferSize());
 
         size_t sizetMaxWorkDim = sizeof(size_t)*MAX_WORK_DIM;
 
@@ -136,17 +136,15 @@ File Name:  WGContext.cpp
             printf("PrepareKernelArguments failed\n"); fflush(0);
         }
 
-        m_pKernelRunner->InitRunner((void*)(m_pArgumentBuffer.get()));
-
         if ( 0 != pKernelArgs->LocalIDIndicesRequiredSize ) {
             // Allocate local index buffer
-            pKernelArgs->pLocalIDIndices = new size_t[pKernelArgs->LocalIDIndicesRequiredSize/sizeof(size_t)];
-            // Fill indexes buffer
-            m_pKernelRunner->InitRunner((void*)(m_pArgumentBuffer.get()));
+            m_pLocalIDIndices.reset(new size_t[pKernelArgs->LocalIDIndicesRequiredSize/sizeof(size_t)]);
+            pKernelArgs->pLocalIDIndices = m_pLocalIDIndices.get();
         } else {
             pKernelArgs->pLocalIDIndices = NULL;
         }
 
+        m_pKernelRunner->InitRunner((void*)(m_pArgumentBuffer.get()));
 
         m_uiVectorWidth = pKernelArgs->VectorWidth;
 

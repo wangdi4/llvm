@@ -20,12 +20,13 @@
 #pragma once
 
 namespace Intel { namespace OpenCL { namespace Utils {
-	class OclThread;
+    class OclThread;
 }}}
 namespace Intel { namespace OpenCL { namespace MKLKernels {
 
 // Generaly exposed functions
 extern bool InitLibrary();
+extern bool InitProxyLibrary();
 extern void ReleaseLibrary();
 
 }}}

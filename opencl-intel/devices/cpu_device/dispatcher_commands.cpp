@@ -83,7 +83,6 @@ m_pTaskDispatcher(pTD), m_pCmd(pCmd), m_bCompleted(false)
     assert(pCmd && "Expected non NLL command descriptor");
     m_pLogDescriptor = pTD->m_pLogDescriptor;
     m_iLogHandle = pTD->m_iLogHandle;
-    m_pMemAlloc = pTD->m_pMemoryAllocator;
     m_pGPAData = pTD->m_pGPAData;
 #if defined(USE_ITT)
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
@@ -126,7 +125,7 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
                                                         const cl_kernel_argument*   pParams,
                                                         const unsigned int* pMemObjectIndx,
                                                         unsigned int uiMemObjCount,
-                                                        std::vector<cl_mem_obj_descriptor*>& devMemObjects)
+                                                        std::vector<cl_mem_obj_descriptor*>* devMemObjects)
 {
     char* pLockedParams = (char*)pTargetTaskParam;
 
@@ -152,7 +151,10 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
                 // TODO: What about PIPES in 2.0
                 *(void**)loc = objHandle->imageAuxData;
             }
-            devMemObjects.push_back(objHandle);
+            if ( NULL != devMemObjects )
+            {
+                devMemObjects->push_back(objHandle);
+            }
         }
     };
 
@@ -724,7 +726,9 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
 {
 #ifdef __INCLUDE_MKL__
     // First to check if the required NDRange is one of the built-in kernels
-    ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
+    const ProgramService::KernelMapEntry* pKernelEntry = (const ProgramService::KernelMapEntry*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
+    const ICLDevBackendKernel_* pKernel = pKernelEntry->pBEKernel;
+
     const ICLDevBackendKernelProporties* pProperties = pKernel->GetKernelProporties();
     
     assert( NULL != pProperties && "Kernel properties always shall exist");
@@ -732,7 +736,7 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
     // Built-in kernel currently returns -1 for Execution lenght properties.
     if ( (size_t)-1 == pProperties->GetKernelExecutionLength() )
     {
-        return NativeKernelTask::Create(pTD, pCmd, pTask);
+        return NativeKernelTask::Create(pTD, pList, pCmd, pTask);
     }
 #endif
     pCmd->id = (cl_dev_cmd_id)((long)pCmd->id & ~(1L << (sizeof(long) * 8 - 1)));    // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
@@ -759,8 +763,7 @@ NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, const SharedPtr<ITa
     m_lAttaching.exchange(0);
     m_lExecuting.exchange(0);
 #endif
-    const ITEDevice* pDevice = pList->GetDevice().GetPtr();
-    m_numThreads = NULL!=pDevice ? pDevice->GetConcurrency() : 1;
+    m_numThreads = pList->GetDeviceConcurency();
 }
 
 int NDRange::Init(size_t region[], unsigned int &dimCount)
@@ -806,7 +809,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
         cmdParams->ppNonArgSvmBuffers[i]->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (void**)&devMemObjects[i] );
     }
 
-    cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(), uiMemArgCount, devMemObjects);
+    cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(), uiMemArgCount, &devMemObjects);
     if ( CL_DEV_FAILED(clRet) )
     {
         m_lastError = clRet;
@@ -1313,48 +1316,28 @@ bool DeviceNDRange::Finish(FINISH_REASON reason)
 #ifdef __INCLUDE_MKL__
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-cl_dev_err_code NativeKernelTask::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
+cl_dev_err_code NativeKernelTask::Create(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
 {
-    NativeKernelTask* pCommand = new NativeKernelTask(pTD, pCmd);
+    NativeKernelTask* pCommand = new NativeKernelTask(pTD, pList, pCmd);
     if (NULL == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
-#ifdef _DEBUG
-    cl_dev_err_code rc;
-    rc = pCommand->CheckCommandParams(pCmd);
-    if( CL_DEV_FAILED(rc))
-    {
-        delete pCommand;
-        return rc;
-    }
-#endif
 
     assert(pTask);
     *pTask = static_cast<ITaskBase*>(pCommand);
 
-#if defined (USE_ITT)
-    if ((NULL != pCommand->m_pGPAData) && (pCommand->m_pGPAData->bUseGPA))
-    {
-        cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)pCommand->m_pCmd->params;
-        const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
-
-        char  strTaskName[ITT_TASK_NAME_LEN];
-        SPRINTF_S(strTaskName, ITT_TASK_NAME_LEN, "%s(%lu)", pKernel->GetKernelName(), (cl_ulong)pCommand->m_pCmd->id);
-        pCommand->m_pTaskNameHandle = __itt_string_handle_create(strTaskName);
-    }
-#endif
-
     return CL_DEV_SUCCESS;
 }
 
-NativeKernelTask::NativeKernelTask(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-    CommandBaseClass<ITask>(pTD, pCmd)
+NativeKernelTask::NativeKernelTask(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, cl_dev_cmd_desc* pCmd) :
+    CommandBaseClass<ITask>(pTD, pCmd), m_pList(pList.GetPtr())
 {
-    // First to check if the required NDRange is one of the built-in kernels
-    ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
+    cl_dev_cmd_param_kernel* pCmd_params = (cl_dev_cmd_param_kernel*)(pCmd->params);
+    const ProgramService::KernelMapEntry* pEntry = ((const ProgramService::KernelMapEntry*)pCmd_params->kernel);
+    const ICLDevBackendKernel_* pKernel = pEntry->pBEKernel;
     
-    m_pBIKernel = dynamic_cast<IBuiltInKernel*>(pKernel);
+    m_pBIKernel = static_cast<const IBuiltInKernel*>(pKernel);
 }
 
 cl_dev_err_code NativeKernelTask::CheckCommandParams(cl_dev_cmd_desc* cmd)
@@ -1365,32 +1348,53 @@ cl_dev_err_code NativeKernelTask::CheckCommandParams(cl_dev_cmd_desc* cmd)
 bool NativeKernelTask::Execute()
 {
     cl_dev_cmd_param_kernel* pCmd_params = (cl_dev_cmd_param_kernel*)(m_pCmd->params);
+    const ProgramService::KernelMapEntry* pEntry = ((const ProgramService::KernelMapEntry*)pCmd_params->kernel);
+    const ICLDevBackendKernel_* pKernel = pEntry->pBEKernel;
+    const cl_kernel_argument*   pParams = pKernel->GetKernelParams();
+
     NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
 #if defined(USE_ITT)
     // Start execution task
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
-        #if defined(USE_GPA)
+#if defined(USE_GPA)
         __itt_set_track(NULL);
-        #endif
+#endif
 
-        __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, m_pTaskNameHandle);
+        __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, pEntry->ittTaskNameHandle);
     }
 #endif
 
-    const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)pCmd_params->kernel)->pBEKernel;
-    const cl_kernel_argument*   pParams = pKernel->GetKernelParams();
-
-    cl_dev_err_code err = ExtractNDRangeParams(pCmd_params->arg_values, pParams, pCmd_params->pMemObjParams, pCmd_params->szMemObjParams);
+    cl_dev_err_code err = ExtractNDRangeParams(pCmd_params->arg_values, pParams,
+                                                   pKernel->GetMemoryObjectArgumentIndexes(),
+                                                   pKernel->GetMemoryObjectArgumentCount(),
+                                                   NULL);
     if ( CL_DEV_FAILED(err) )
     {
-        STACK_FREE(pParamBuffer);
         NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, err);
         return false;
     }
 
+#ifndef __OMP2TBB__
     cl_dev_err_code res = m_pBIKernel->Execute(pCmd_params, pCmd_params->arg_values, m_pTaskDispatcher->getOmpExecutionThread());
+#else
+    // Set concurency for the libary, this is a workaroun until TBB will return a pointer to current arena
+    // Currently we assuming that master/application thread is joining.
+    // TODO: need to recalculate number of active workers
+
+    int iDeviceConcurency = m_pList->GetDeviceConcurency();
+    bool bMasterJoinedExecution = m_pList->IsMasterJoined();
+    bool bCanMasterJoin = m_pList->CanMasterJoin();
+
+    // If master can join, but currently it doesn't we need execute on less threads
+    if ( bCanMasterJoin && !bMasterJoinedExecution )
+    {
+        --iDeviceConcurency;
+    }
+    __omp2tbb_set_thread_max_concurency(iDeviceConcurency);
+    cl_dev_err_code res = m_pBIKernel->Execute(pCmd_params, pCmd_params->arg_values);
+#endif
 
 #if defined(USE_ITT)
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
