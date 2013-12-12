@@ -34,11 +34,49 @@
 
 #include <uneven/parallel_for.h>
 
+#include <stdio.h>
+
 namespace tbb {
 
 namespace interfaceOCL {
 using namespace tbb::uneven::interface6;
-class opencl_partitioner;
+
+namespace internal {
+    class opencl_partition_type;
+} // namespace internal
+
+//! An affinity partitioner
+class opencl_partitioner {
+public:
+    opencl_partitioner(int master_slot = 0, int concurrency = 0, bool use_zero_slot = true) :
+      my_master_slot(master_slot), my_concurrency(concurrency), my_use_zero_slot(use_zero_slot){
+          my_active_slots = tbb::internal::get_initial_auto_partitioner_divisor() / 4; // let exactly P tasks to be distributed across workers
+          if ( 0 == my_concurrency ) {
+              my_concurrency = my_active_slots;
+          }
+          __TBB_ASSERT( (use_zero_slot && (master_slot == 0)) || ( !use_zero_slot && ( master_slot != 0)), 
+              "opencl_partitioner intitial condition doens't apply");
+          __TBB_ASSERT( (use_zero_slot && (my_concurrency == my_active_slots)) || ( !use_zero_slot && ( (my_concurrency+1) == my_active_slots)), 
+              "opencl_partitioner intitial condition doens't apply");
+      }
+
+private:
+    int my_master_slot;
+    int my_concurrency;
+    int my_active_slots;
+    bool my_use_zero_slot;
+
+    friend class internal::opencl_partition_type;
+//    template<typename Range, typename Body, typename Partitioner> friend class serial::interface6::start_for;
+    template<typename Range, typename Body, typename Partitioner> friend class uneven::interface6::internal::start_for;
+    template<typename Range, typename Body, typename Partitioner> friend class uneven::interface6::internal::start_reduce;
+    template<typename Range, typename Body, typename Partitioner> friend class tbb::uneven::internal::start_scan;
+    // backward compatibility - for parallel_scan only
+    typedef uneven::interface6::internal::old_auto_partition_type partition_type;
+    // new implementation just extends existing interface
+    typedef interfaceOCL::internal::opencl_partition_type task_partition_type;
+};
+
 
 //! @cond INTERNAL
 namespace internal {
@@ -72,14 +110,20 @@ static inline bool is_big_enough(unsigned long long start) {
 
 //! Provides default methods for affinity (adaptive) partition objects.
 class opencl_partition_type : public tbb::uneven::interface6::internal::partition_type_base<opencl_partition_type> {
+    int my_master_slot;
+    int my_use_zero_slot;
+    int my_concurrency;
     unsigned my_begin, my_end;
     depth_t my_max_depth;
     char my_delay;
     unsigned long long my_tsc;
 public:
-    opencl_partition_type( const opencl_partitioner& ) {
+    opencl_partition_type( const interfaceOCL::opencl_partitioner& part) {
+        my_master_slot = part.my_master_slot;
+        my_use_zero_slot = part.my_use_zero_slot;
+        my_concurrency = part.my_concurrency;
         my_begin = 0;
-        my_end = tbb::internal::get_initial_auto_partitioner_divisor()/4; // let exactly P tasks to be distributed across workers
+        my_end = part.my_concurrency;
         my_max_depth = __TBB_OCL_INIT_DEPTH;
         my_delay = 0;
         my_tsc = 0;
@@ -88,6 +132,9 @@ public:
     }
     opencl_partition_type( opencl_partition_type& p, uneven::split ) {
         using namespace std;
+        my_master_slot = p.my_master_slot;
+        my_use_zero_slot = p.my_use_zero_slot;
+        my_concurrency = p.my_concurrency;
         my_max_depth = p.my_max_depth;
         my_delay = p.my_delay;
         my_tsc = 0;
@@ -101,8 +148,19 @@ public:
     }
     bool is_divisible() { return divisions_left(); }
     void set_affinity( task &t ) {
-        if( my_begin < my_end )
-            t.set_affinity( my_begin+1 );
+        if( my_begin < my_end ) {
+            __TBB_ASSERT(my_begin > 0, "Task with my_begin==0 is not expected");
+            int affinity = my_begin;
+            if ( !my_use_zero_slot ) {
+                // if slot 0, master is not in use, we should calculate affinity relativly to current master slot
+                affinity = my_master_slot + my_begin;
+                if ( affinity > my_concurrency ) {
+                    affinity -= my_concurrency;
+                    __TBB_ASSERT( affinity > 0,  "Task affinity expected to be  greater than 0");
+                }
+            }
+            t.set_affinity( affinity + 1);
+        }
     }
     bool check_being_stolen( task &t) { // part of old should_execute_range()
         if( my_begin == my_end ) { // if not from the top P tasks of binary tree
@@ -160,22 +218,6 @@ public:
 
 } // namespace internal
 //! @endcond
-
-//! An affinity partitioner
-class opencl_partitioner {
-public:
-    opencl_partitioner() {}
-
-private:
-//    template<typename Range, typename Body, typename Partitioner> friend class serial::interface6::start_for;
-    template<typename Range, typename Body, typename Partitioner> friend class uneven::interface6::internal::start_for;
-    template<typename Range, typename Body, typename Partitioner> friend class uneven::interface6::internal::start_reduce;
-    template<typename Range, typename Body, typename Partitioner> friend class tbb::uneven::internal::start_scan;
-    // backward compatibility - for parallel_scan only
-    typedef uneven::interface6::internal::old_auto_partition_type partition_type;
-    // new implementation just extends existing interface
-    typedef interfaceOCL::internal::opencl_partition_type task_partition_type;
-};
 
 } // namespace interfaceX
 using interfaceOCL::opencl_partitioner;
