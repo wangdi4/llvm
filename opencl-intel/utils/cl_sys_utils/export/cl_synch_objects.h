@@ -53,7 +53,9 @@
  *  TODO: More objects that may be added: Semaphore, Event, else???
  ************************************************************************/
 
+#ifdef __USE_TBB_CONCURENT_QUEUE
 #include <tbb/concurrent_queue.h>
+#endif
 #include <queue>
 #include <assert.h>
 
@@ -326,6 +328,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         BINARY_SEMAPHORE m_semaphore;
     };
 
+#ifdef __USE_TBB_CONCURENT_QUEUE
     template<class T>
     class OclConcurrentQueue
     {
@@ -342,7 +345,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         typedef typename tbb::concurrent_queue<T>::const_iterator TTypeConcurrentQueueConstIterator;
         tbb::concurrent_queue<T> m_queue;
     };
-
+#endif
     template<class T>
     class OclNaiveConcurrentQueue
     {

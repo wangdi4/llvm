@@ -26,6 +26,9 @@
 #include "mic_logger.h"
 #include "mic_device_interface.h"
 
+#ifdef __INCLUDE_MKL__
+#include <mkl_builtins.h>
+#endif
 #include <sink/COIBuffer_sink.h>
 #include <common/COIEvent_common.h>
 
@@ -128,6 +131,13 @@ void init_device(uint32_t         in_BufferCount,
         return;
     }
 
+#ifdef __INCLUDE_MKL__
+    if ( tEnvOptions->enable_mkl )
+    {
+        NATIVE_PRINTF("Initializing MKL library on the device\n");
+        Intel::OpenCL::MKLKernels::InitLibrary();
+    }
+#endif
     pRet->uiNumActiveThreads = pThreadPool->GetNumberOfActiveThreads();
     pRet->initError = CL_DEV_SUCCESS;
 }

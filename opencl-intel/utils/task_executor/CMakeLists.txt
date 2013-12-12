@@ -7,7 +7,7 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME task_executor${BUILD_PLATFORM} )
 
-include( ../../cmake_utils/itt.cmake )
+include( ${CMAKE_SOURCE_DIR}/cmake_utils/itt.cmake )
 
 if (WIN32 AND NOT BUILD_X64)
     # the /Ob1 flag is set instead of /Ob2 flag in order to prevent aggressive inlining

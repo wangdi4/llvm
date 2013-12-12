@@ -43,6 +43,7 @@ public:
         GET_BACKEND_TARGET_DESCRIPTION_SIZE = 0,
         GET_BACKEND_TARGET_DESCRIPTION,
         COPY_PROGRAM_TO_DEVICE,
+        CREATE_BUILT_IN_PROGRAM,
         REMOVE_PROGRAM_FROM_DEVICE,
 
         EXECUTE_NDRANGE,
@@ -77,7 +78,7 @@ public:
        If the created thread (in factory) didn't finish, it will wait until the thread will finish it's work.
        Return true if suceeeded. */
     bool runServiceFunction(DEVICE_SIDE_FUNCTION func,
-                            size_t input_data_size, void* input_data,
+                            size_t input_data_size, const void* input_data,
                             size_t output_data_size, void* output_data,
                             unsigned int numBuffers, const COIBUFFER* buffers, 
                             const COI_ACCESS_FLAGS* bufferAccessFlags,

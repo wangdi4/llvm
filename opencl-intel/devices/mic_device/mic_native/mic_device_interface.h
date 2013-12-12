@@ -61,9 +61,8 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 //
 struct COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT
 {
-    uint64_t uid_program_on_device;
-    uint64_t required_executable_size;
-    uint64_t number_of_kernels;
+    uint64_t    required_executable_size;
+    uint64_t    number_of_kernels;
 };
 
 struct COPY_PROGRAM_TO_DEVICE_KERNEL_INFO
@@ -74,6 +73,7 @@ struct COPY_PROGRAM_TO_DEVICE_KERNEL_INFO
 
 struct COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT
 {
+    uint64_t    uid_program_on_device;
     uint64_t    filled_kernels;
     // array of pointers to device kernel structs with size == number_of_kernels
     // in COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT
@@ -168,6 +168,7 @@ struct mic_exec_env_options {
     bool                enable_itt;
     bool                trap_workers;
     bool                logger_enable;
+    bool                enable_mkl;
     uint32_t            threads_per_core;
     uint32_t            num_of_cores;
     uint32_t            use_TBB_grain_size;

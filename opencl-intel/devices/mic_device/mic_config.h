@@ -115,6 +115,10 @@ public:
 
     string         Device_offloadDevices()  const { return m_pConfigFile->Read<string>(OFFLOAD_DEVICES, ""); }
 
+#ifdef __INCLUDE_MKL__
+    void           SetUseMKL(bool bUseMKL) { m_bUseMKL = bUseMKL; }
+    bool           UseMKL() const { return m_bUseMKL; }
+#endif
 private:
 
     #define MICDeviceConfigPrintKey( name, func, help_msg ) std::cout << std::endl << "# " << help_msg << std::endl << name << "=" << func() << std::endl
@@ -177,6 +181,9 @@ private:
     ConfigFile * m_pConfigFile;
     static bool config_already_printed;
 
+#ifdef __INCLUDE_MKL__
+    bool m_bUseMKL;
+#endif
 };
 
 }}}

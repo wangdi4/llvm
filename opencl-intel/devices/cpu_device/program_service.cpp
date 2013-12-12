@@ -31,8 +31,8 @@
 #include "program_config.h"
 #include "cpu_logger.h"
 #include "backend_wrapper.h"
-#include "builtin_kernels.h"
 
+#include <builtin_kernels.h>
 #include <cpu_dev_limits.h>
 #include <cl_synch_objects.h>
 
@@ -710,9 +710,9 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
             // Add to program entry map
             KernelMapEntry mapEntry;
             mapEntry.pBEKernel = pKernel;
-      #ifdef USE_ITT
+#ifdef USE_ITT
             mapEntry.ittTaskNameHandle = __itt_string_handle_create(szKernelName);
-      #endif
+#endif
             // Add new ID to program's Name2ID map
             pEntry->mapKernels[szKernelName] = mapEntry;
         }
@@ -724,7 +724,6 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
     {
         *numKernelsRet = uiNumProgKernels;
     }
-
 
     return CL_DEV_SUCCESS;
 }

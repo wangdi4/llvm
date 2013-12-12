@@ -34,7 +34,9 @@
 #include "task_executor.h"
 #include "wg_context_pool.h"
 #include "task_dispatcher.h"
+#ifdef __USE_TBB_SCALABLE_ALLOCATOR__
 #include "tbb/scalable_allocator.h"
+#endif
 #include "IDeviceCommandManager.h"
 #include <cl_synch_objects.h>
 #include <map>
@@ -75,7 +77,7 @@ protected:
 #endif
     Intel::OpenCL::Utils::OclNonReentrantSpinMutex m_ComputeUnitScoreboardMutex;
 
-#if 0
+#ifdef __USE_TBB_SCALABLE_ALLOCATOR__
 	tbb::scalable_allocator<DeviceNDRange> m_deviceNDRangeAllocator;
 	tbb::scalable_allocator<char>          m_deviceNDRangeContextAllocator;
 #endif	

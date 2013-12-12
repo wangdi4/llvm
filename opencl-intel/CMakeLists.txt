@@ -68,27 +68,29 @@ else()
 endif ()
 
 if(CMAKE_CROSSCOMPILING)
-  set(CX_NATIVE_TG_DIR "${CMAKE_BINARY_DIR}/native")
+    set(CX_NATIVE_TG_DIR "${CMAKE_BINARY_DIR}/native")
 
-  add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CX_NATIVE_TG_DIR}
-    COMMENT "Creating ${CX_NATIVE_TG_DIR}...")
+    add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}
+                            COMMAND ${CMAKE_COMMAND} -E make_directory ${CX_NATIVE_TG_DIR}
+                            COMMENT "Creating ${CX_NATIVE_TG_DIR}..."
+    )
 
-  add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}/CMakeCache.txt
-    COMMAND ${CMAKE_COMMAND} -UCMAKE_TOOLCHAIN_FILE 
-                             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                              // We are cross compiling when building for android, hence we are
-                              // dropping off all non required build components, such tests/verification                            
-                             -DBACKEND_BUILD_VERIFICATION_LIB=OFF 
-                             -DLLVM_PATH=${LLVM_PATH}/native
-                             -DBUILD_X64=True
-                             ${CMAKE_SOURCE_DIR} 
-    WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
-    DEPENDS ${CX_NATIVE_TG_DIR}
-    COMMENT "Configuring native targets...")
+    add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}/CMakeCache.txt
+                            COMMAND ${CMAKE_COMMAND} -UCMAKE_TOOLCHAIN_FILE 
+                            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                            # We are cross compiling when building for android, hence we are
+                            # dropping off all non required build components, such tests/verification                            
+                            -DBACKEND_BUILD_VERIFICATION_LIB=OFF 
+                            -DLLVM_PATH=${LLVM_PATH}/native
+                            -DBUILD_X64=True
+                            ${CMAKE_SOURCE_DIR} 
+                            WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
+                            DEPENDS ${CX_NATIVE_TG_DIR}
+                            COMMENT "Configuring native targets..."
+    )
 
-  add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/CMakeCache.txt)
-  set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
+    add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/CMakeCache.txt)
+    set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
 endif()
 
 if(INCLUDE_TOOLS)
@@ -154,11 +156,12 @@ if(INCLUDE_TOOLS)
 endif(INCLUDE_TOOLS)
 
 # Project-wise options
-option(SVN_REVISIONS "Make package version from svn revision"  ON)
-option(BUILD_QTGUI "Build the QT related projects"  OFF)
-option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
-option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
-option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
+option(SVN_REVISIONS       "Make package version from svn revision"                   ON)
+option(BUILD_QTGUI         "Build the QT related projects"                            OFF)
+option(INCLUDE_MIC_DEVICE  "Include MIC device Into Build"                            OFF)
+option(USE_ITT_INTERNAL    "Report internal tasks start/stop to VTune"                OFF)
+option(USE_HARD_TRAPPING   "Use hard trapping for workers on CPU device"              ON)
+option(USE_OMP2TBB         "Use OpenMP over TBB proxy layer from MKL integration"     ON)
 
 # find the used external packages
 
@@ -448,6 +451,8 @@ else(APPLE)
     # Therefore, it must be added to the include directories only after 
     # the tests subdirectory has been added.
     include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
+    
+    add_definitions(-D__TBB_NO_IMPLICIT_LINKAGE=1)
 
     # externals
     add_subdirectory(externals)

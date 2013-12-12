@@ -47,7 +47,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 
         static cl_dev_err_code clDevGetAvailableDeviceList(size_t IN  deviceListSize, unsigned int*   OUT deviceIdsList, size_t*   OUT deviceIdsListSizeRet);
 
-        const MICDeviceConfig& getMicDeviceConfig() { return m_MICDeviceConfig; };
+        MICDeviceConfig& getMicDeviceConfig() { return m_MICDeviceConfig; };
 
         // the following methods may be used internally inside MIC device
 

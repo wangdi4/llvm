@@ -43,8 +43,18 @@
 #include <list>
 
 using namespace Intel::OpenCL::TaskExecutor;
-using Intel::OpenCL::BuiltInKernels::OMPExecutorThread;
 using Intel::OpenCL::Utils::ObjectPool;
+
+#ifdef __INLCUDE_MKL__
+#ifndef __OMP2TBB__
+using Intel::OpenCL::BuiltInKernels::OMPExecutorThread;
+#else
+extern "C" void __kmpc_begin(void* loc, int flags);
+extern "C" void __kmpc_end(void* loc);
+extern "C" void __omp2tbb_set_thread_max_concurency( unsigned int max_concurency);
+extern "C" void __omp2tbb_set_current_arena_concurrency ( unsigned int num_threads );
+#endif
+#endif
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -102,14 +112,15 @@ public:
 
     queue_t                 GetDefaultQueue() { return m_pDefaultQueue.GetPtr(); }
 
+    unsigned int            GetNumThreads() const { return m_uiNumThreads;}
+	
     ITEDevice*              GetRootDevice() { return m_pRootDevice.GetPtr(); }
-
     // ITaskExecutorObserver
     void*                   OnThreadEntry();
     void                    OnThreadExit( void* currentThreadData );
     TE_BOOLEAN_ANSWER       MayThreadLeaveDevice( void* currentThreadData );
 
-#ifdef __INCLUDE_MKL__
+#if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
     OMPExecutorThread*			getOmpExecutionThread() const {return m_pOMPExecutionThread;}
 #endif
 protected:
@@ -174,7 +185,7 @@ protected:
 
     cl_dev_err_code NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
 
-#ifdef __INCLUDE_MKL__
+#if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
     OMPExecutorThread*	m_pOMPExecutionThread;
 #endif
 

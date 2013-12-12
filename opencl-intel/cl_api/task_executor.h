@@ -331,18 +331,18 @@ public:
     // In immediate list the task is enqueued, flushed and executes immediately. Functions returns only after the task completes.
     // Returns actual number of enqueued tasks
     // Task execution may be started immediately or postponed till Flush() command
-    virtual unsigned int      Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) = 0; // Dynamically detect Task or TaskSet
+    virtual unsigned int    Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask) = 0; // Dynamically detect Task or TaskSet
 
     // Make all outstanding and future tasks cancel instead of execute.
-    virtual void              Cancel() = 0;
+    virtual void            Cancel() = 0;
 
     // Ensures that all task were send to execution, non-blocking function
-    virtual bool              Flush() = 0;
+    virtual bool            Flush() = 0;
 
     // Immediately spawn a task without enqueuing it first in order to save the lock on the queue.
-    virtual void                    Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup) = 0;
+    virtual void            Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup) = 0;
     // whether this ITaskList supports device-side enqueuing of commands
-    virtual bool                    DoesSupportDeviceSideCommandEnqueue() const = 0;
+    virtual bool            DoesSupportDeviceSideCommandEnqueue() const = 0;
 
     // Add the calling thread to execution pool
     // Function blocks, until the pTask is completed or in case of NULL
@@ -350,8 +350,18 @@ public:
     // Not supported for immediate lists
     virtual te_wait_result  WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait) = 0;
 
+
+    // Returns true if master thread joined for execution on this queue
+    virtual bool            IsMasterJoined() const = 0;
+
+    // Returns true if master thread can join execution
+    virtual bool            CanMasterJoin() const = 0;
+
     // Returns whether profiling is enabled for this ITaskList
-    virtual bool             IsProfilingEnabled() const = 0;
+    virtual bool            IsProfilingEnabled() const = 0;
+
+    // Return maximum concurency from device assosiated with this list
+    virtual int             GetDeviceConcurency() const = 0;
 
     // Returns the ITEDevice of this ITaskList
     virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice>       GetDevice() = 0;

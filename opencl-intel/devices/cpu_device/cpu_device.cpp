@@ -29,8 +29,8 @@
 #include "memory_allocator.h"
 #include "task_dispatcher.h"
 #include "cpu_logger.h"
-#include "builtin_kernels.h"
-#include "cl_shared_ptr.hpp"
+
+#include <cl_shared_ptr.hpp>
 #include <buildversion.h>
 #include <CL/cl_ext.h>
 #include "CL/cl_2_0.h"
@@ -40,6 +40,8 @@
 #include <cl_sys_defines.h>
 #include <cl_cpu_detect.h>
 #include <cl_shutdown.h>
+#include <builtin_kernels.h>
+
 #ifdef __INCLUDE_MKL__
 #include <mkl_builtins.h>
 #endif
