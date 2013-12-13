@@ -32,8 +32,6 @@
 #include "task_executor.h"
 #include "dispatcher_commands.h"
 #include "cpu_config.h"
-#include "wg_context.h"
-#include "wg_context_pool.h"
 #include <cl_synch_objects.h>
 #include <cl_thread.h>
 #include <builtin_kernels.h>
@@ -43,7 +41,6 @@
 #include <list>
 
 using namespace Intel::OpenCL::TaskExecutor;
-using Intel::OpenCL::Utils::ObjectPool;
 
 #ifdef __INLCUDE_MKL__
 #ifndef __OMP2TBB__
@@ -106,8 +103,6 @@ public:
 
     void                    waitUntilEmpty(ITEDevice* pSubdev);
 
-    void                    setWgContextPool(WgContextPool* pWgContextPool) { m_pWgContextPool = pWgContextPool; }
-
     ITaskExecutor&          getTaskExecutor() { return *m_pTaskExecutor; }
 
     queue_t                 GetDefaultQueue() { return m_pDefaultQueue.GetPtr(); }
@@ -134,7 +129,6 @@ protected:
     CPUDeviceConfig*          m_pCPUDeviceConfig;
     ITaskExecutor*	          m_pTaskExecutor;
     SharedPtr<ITEDevice>      m_pRootDevice;
-    WgContextPool*            m_pWgContextPool;
     unsigned int              m_uiNumThreads;
     bool                      m_bTEActivated;
 

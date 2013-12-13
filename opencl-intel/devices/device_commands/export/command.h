@@ -111,9 +111,9 @@ protected:
 	 * @param list			the ITaskList that implements the command-queue on which this DeviceCommand executes
 	 * @param pMyTaskBase	a pointer to itself as ITaskBase or NULL if the concrete class does not inherit from ITaskBase
 	 */
-	DeviceCommand(const SharedPtr<ITaskList>& list, ITaskBase* pMyTaskBase) :
-	  m_err(CL_DEV_SUCCESS), m_bCompleted(false), m_ulStartExecTime(0), m_ulExecTime(0),
-	  m_pExecTimeUserPtr(NULL), m_list(list),
+	DeviceCommand(ITaskList* list, ITaskBase* pMyTaskBase) :
+	    m_err(CL_DEV_SUCCESS), m_bCompleted(false), m_ulStartExecTime(0), m_ulExecTime(0),
+	    m_pExecTimeUserPtr(NULL), m_list(list),
 		m_pMyTaskBase(pMyTaskBase), m_bIsProfilingEnabled(NULL != list ? list->IsProfilingEnabled() : false)
     { }
 
@@ -140,7 +140,6 @@ protected:
 	void StopExecutionProfiling();    
 
 private:
-
 	AtomicCounter m_numDependencies;
 	cl_dev_err_code m_err;
 	volatile bool m_bCompleted;
@@ -148,7 +147,7 @@ private:
 	unsigned long long m_ulExecTime;
 	volatile void* m_pExecTimeUserPtr;
 	std::vector<SharedPtr<DeviceCommand> > m_waitingCommands;
-	const SharedPtr<ITaskList> m_list;
+	SharedPtr<ITaskList> m_list;
 	mutable OclSpinMutex m_mutex;
 	ITaskBase* const m_pMyTaskBase;
 	const bool m_bIsProfilingEnabled;
@@ -167,7 +166,7 @@ public:
 	 * Allocate a new Marker
 	 * @param list the ITaskList that implements the command-queue on which this DeviceCommand executes
 	 */
-	static SharedPtr<Marker> Allocate(const SharedPtr<ITaskList>& list) { return new Marker(list); }
+	static SharedPtr<Marker> Allocate(ITaskList* list) { return new Marker(list); }
 
 	// inherited methods:
 
@@ -203,7 +202,7 @@ public:
 
 private:
 
-	Marker(const SharedPtr<ITaskList>& list) : DeviceCommand(list, this) { }
+	Marker(ITaskList* list) : DeviceCommand(list, this) { }
 
 };
 
@@ -213,13 +212,10 @@ private:
 class UserEvent : public DeviceCommand
 {
 public:
-
-	PREPARE_SHARED_PTR(UserEvent)
-
 	/**
 	 * Allocate a new UserEvent
 	 */
-	static SharedPtr<UserEvent> Allocate() { return new UserEvent(); }	
+	static UserEvent* Allocate() { return new UserEvent(); }	
 
 	/**
 	 * Set the execution status of the UserEvent
@@ -247,10 +243,8 @@ public:
         assert(false && "UserEvent shouldn't be launched");
     }
 
-private:
-
+protected:
 	UserEvent() : DeviceCommand(NULL, NULL) { }
-
 };
 
 }}}

@@ -21,6 +21,7 @@ File Name:  ExecutionService.cpp
 #include "KernelProperties.h"
 #include "exceptions.h"
 
+
 #ifdef OCL_DEV_BACKEND_PLUGINS 
 #include "plugin_manager.h"
 #endif
@@ -28,18 +29,9 @@ File Name:  ExecutionService.cpp
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 ExecutionService::ExecutionService(const ICLDevBackendOptions* pOptions)
-    : m_pDeviceCommandManager(NULL)
 {
     // obtain Device Command Manager
     assert(pOptions && "pOptions are NULL");
-    void *pDCM;
-    size_t pDCM_Size = sizeof(pDCM);
-    if(NULL != pOptions && 
-       pOptions->GetValue(CL_DEV_BACKEND_OPTION_IDEVICE_COMMAND_MANAGER, 
-                          &pDCM, &pDCM_Size))
-    {
-      m_pDeviceCommandManager = static_cast<IDeviceCommandManager*>(pDCM);
-    }
 }
         
 size_t ExecutionService::GetTargetMachineDescriptionSize() const

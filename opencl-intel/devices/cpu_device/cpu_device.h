@@ -32,12 +32,10 @@
 #include "cpu_config.h"
 #include "backend_wrapper.h"
 #include "task_executor.h"
-#include "wg_context_pool.h"
 #include "task_dispatcher.h"
 #ifdef __USE_TBB_SCALABLE_ALLOCATOR__
 #include "tbb/scalable_allocator.h"
 #endif
-#include "IDeviceCommandManager.h"
 #include <cl_synch_objects.h>
 #include <map>
 #include <vector>
@@ -50,7 +48,7 @@ extern const char* VENDOR_STRING;
 class ProgramService;
 class MemoryAllocator;
 
-class CPUDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription, public IAffinityChangeObserver, public IDeviceCommandManager
+class CPUDevice : public IOCLDeviceAgent, public IOCLDeviceFECompilerDescription, public IAffinityChangeObserver
 {
 protected:
     ProgramService*			    m_pProgramService;
@@ -63,7 +61,6 @@ protected:
     cl_int					    m_iLogHandle;
     cl_dev_cmd_list			    m_defaultCommandList;
     OpenCLBackendWrapper        m_backendWrapper;
-    WgContextPool               m_wgContextPool;
 
 
     unsigned long               m_numCores;           // Architectural data on the underlying HW

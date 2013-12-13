@@ -116,6 +116,8 @@ typedef void*                            CONDITION_VAR;
 
 #define IsPowerOf2(x)                       (__popcnt((x)) == 1)
 
+#define THREAD_LOCAL            __declspec(thread)
+
 // -----------------------------------------------------------
 //         Not Windows (Linux / Android )    
 // -----------------------------------------------------------
@@ -217,9 +219,11 @@ typedef pthread_rwlock_t            READ_WRITE_LOCK;
 #include <unistd.h>
 #include <sys/syscall.h>
 
-    // -----------------------------
-    // Android Sched Utils
-    // -----------------------------
+#define THREAD_LOCAL            __thread
+
+// -----------------------------
+// Android Sched Utils
+// -----------------------------
 #if defined(__ANDROID__)
 inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 {

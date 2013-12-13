@@ -103,17 +103,17 @@ class ExtendedExecutionContext;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE queue_t* ocl20_get_default_queue( ExtendedExecutionContext * pEEC);
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_marker( queue_t* queue, uint32_t num_events_in_wait_list, const clk_event_t* event_wait_list, clk_event_t* event_ret, ExtendedExecutionContext * pEEC);
 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_basic( queue_t* queue, kernel_enqueue_flags_t flags, cl_work_description_type* ndrange, 
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_basic( queue_t* queue, kernel_enqueue_flags_t flags, _ndrange_t* ndrange, 
   void *block, ExtendedExecutionContext * pEEC);
 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_events(queue_t* queue, kernel_enqueue_flags_t flags, cl_work_description_type* ndrange,
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_events(queue_t* queue, kernel_enqueue_flags_t flags, _ndrange_t* ndrange,
         unsigned num_events_in_wait_list, clk_event_t *in_wait_list, clk_event_t *event_ret,
         void *block, ExtendedExecutionContext * pEEC);
 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_localmem( queue_t* queue, kernel_enqueue_flags_t flags, cl_work_description_type* ndrange, 
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_localmem( queue_t* queue, kernel_enqueue_flags_t flags, _ndrange_t* ndrange, 
   void *block, unsigned *localbuf_size, unsigned localbuf_size_len, ExtendedExecutionContext * pEEC);
 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_events_localmem( queue_t* queue, kernel_enqueue_flags_t flags, cl_work_description_type* ndrange,
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_events_localmem( queue_t* queue, kernel_enqueue_flags_t flags, _ndrange_t* ndrange,
         unsigned num_events_in_wait_list, clk_event_t *in_wait_list, clk_event_t *event_ret,
         void *block, unsigned *localbuf_size, unsigned localbuf_size_len, ExtendedExecutionContext * pEEC);
 

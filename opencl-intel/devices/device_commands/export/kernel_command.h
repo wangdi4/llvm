@@ -21,6 +21,10 @@
 #pragma once
 
 #include "command.h"
+#include <IDeviceCommandManager.h>
+#include <cl_dev_backend_api.h>
+
+#include <cl_sys_defines.h>
 
 using Intel::OpenCL::TaskExecutor::ITaskGroup;
 
@@ -29,7 +33,7 @@ namespace Intel { namespace OpenCL { namespace DeviceCommands {
 /**
  * This class represents an ND-range kernel command enqueued either by the host or a parent kernel
  */
-class KernelCommand : public DeviceCommand
+class KernelCommand : public DeviceCommand, public IDeviceCommandManager
 {
 public:
     PREPARE_SHARED_PTR(KernelCommand)
@@ -39,7 +43,7 @@ public:
      * @param child		the child KernelCommand
      * @param flags		flags that specify when the child kernel will begin its execution
      */
-    void AddChildKernel(const SharedPtr<KernelCommand>& child, kernel_enqueue_flags_t flags);
+    cl_dev_err_code AddChildKernel(const SharedPtr<KernelCommand>& child, kernel_enqueue_flags_t flags);
 
     /**
      * A child kernel has completed
@@ -53,7 +57,6 @@ public:
         }
     }
 
-
     /**
      * @return ITaskGroup of the KernelCommand's parent (used to let the parent wait for its children)
      */
@@ -66,8 +69,32 @@ public:
       return NULL;
     }
 
+    virtual KernelCommand* AllocateChildCommand(ITaskList* pList, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
+        const void* pBlockLiteral, size_t stBlockSize, const size_t* pLocalSizes, size_t stLocalSizeCount,
+        const _ndrange_t* pNDRange) const = 0;
+
     // inherited methods:
     virtual void Launch();
+
+    // IDeviceCommandManager interface
+    int EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet,
+		const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
+        const void* pBlockLiteral, size_t stBlockSize, const size_t* pLocalSize, size_t stLocalSizeCount,
+        const _ndrange_t* pNDRange, const void* pHandle);
+
+    int EnqueueMarker(queue_t queue, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet);
+
+    int RetainEvent(clk_event_t event);
+
+    int ReleaseEvent(clk_event_t event);
+
+    clk_event_t CreateUserEvent(int* piErrcodeRet);
+
+    int SetEventStatus(clk_event_t event, int iStatus);
+
+    void CaptureEventProfilingInfo(clk_event_t event, clk_profiling_info name, volatile void* pValue);
+
+    queue_t GetDefaultQueueForDevice() const;
 
 protected:
 
@@ -78,18 +105,11 @@ protected:
      * @param childrenTaskGroup ITaskGroup for waiting for children kernels
      * @param pMyTaskBase		a pointer to itself as ITaskBase or NULL if the concrete class does not inherit from ITaskBase
      */
-    KernelCommand(const SharedPtr<ITaskList>& list, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup, ITaskBase* pMyTaskBase) :
-       DeviceCommand(list, pMyTaskBase), m_parent(parent), m_childrenTaskGroup(childrenTaskGroup) { }
+    KernelCommand(ITaskList* pList, KernelCommand* parent, ITaskBase* pMyTaskBase) :
+         DeviceCommand(pList, pMyTaskBase), m_parent(parent), m_childrenTaskGroup(NULL != pList ? pList->GetNDRangeChildrenTaskGroup().GetPtr() : NULL)
+       { m_waitingChildrenForKernelGlobal = NULL; }
 
-    /**
-     * @return a vector of child KernelCommands that are waiting for the current work-group
-     */
-    virtual std::vector<SharedPtr<KernelCommand> >& GetWaitingChildrenForWG() = 0;
-
-    /**
-     * @return a vector of child KernelCommands that are waiting for the entire parent in the current work-group
-     */
-    virtual std::vector<SharedPtr<KernelCommand> >& GetWaitingChildrenForParentInWg() = 0;
+    typedef std::pair< SharedPtr<KernelCommand>, void*> CommandToExecuteList_t;
 
     /**
      * Wait for the children to complete (not thread safe)
@@ -99,7 +119,7 @@ protected:
     /**
      * Is any waiting child exist (not thread safe)
      */
-    bool IsWaitingChildExist() { return (m_waitingChildrenForKernel.size() > 0); }
+    bool IsWaitingChildExist() { return (NULL!=m_waitingChildrenForKernelGlobal); }
 
     /**
      * Signal that the current work group has finished its execution
@@ -111,12 +131,18 @@ protected:
      */
     const SharedPtr<KernelCommand>& GetParent() { return m_parent; }
 
-  private:
-    AtomicCounter m_numUserDependecies;
-    const SharedPtr<KernelCommand> m_parent;
-    Intel::OpenCL::Utils::OclSpinMutex m_muChildrenForKernel;
-    std::vector<SharedPtr<KernelCommand> > m_waitingChildrenForKernel;
-    SharedPtr<ITaskGroup> m_childrenTaskGroup;
+    AtomicCounter                  m_numUserDependecies;
+    SharedPtr<KernelCommand>       m_parent;
+    SharedPtr<ITaskGroup>          m_childrenTaskGroup;
+    Intel::OpenCL::Utils::AtomicPointer<CommandToExecuteList_t> m_waitingChildrenForKernelGlobal;
+
+    // Variable used for child kernel submission for each thread
+    // A pointer to the head of the thread local list of kernel depentent children
+    static THREAD_LOCAL CommandToExecuteList_t*  m_waitingChildrenForKernelLocalHead;
+    // A pointer to the tail of the thread local list of kernel depentent children
+    static THREAD_LOCAL CommandToExecuteList_t*  m_waitingChildrenForKernelLocalTail;
+    // A pointer to the thread local list of work-group depentent children
+    static THREAD_LOCAL CommandToExecuteList_t*  m_waitingChildrenForWorkGroup;
 };
 
 }}}

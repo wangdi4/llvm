@@ -56,9 +56,9 @@ public:
 
     PREPARE_SHARED_PTR(InPlaceTaskList)
 
-    static SharedPtr<InPlaceTaskList> Allocate(WGContextBase* pMasterWGContext, const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate = true)
+    static SharedPtr<InPlaceTaskList> Allocate(const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate = true)
     {
-        return SharedPtr<InPlaceTaskList>(new InPlaceTaskList(pMasterWGContext, ndrangeChildrenTaskGroup, bImmediate));
+        return SharedPtr<InPlaceTaskList>(new InPlaceTaskList(ndrangeChildrenTaskGroup, bImmediate));
     }
 
     virtual ~InPlaceTaskList();
@@ -92,17 +92,16 @@ public:
     }
 
 protected:
-    WGContextBase* const m_pMasterWGContext;
     bool m_immediate;    
     SharedPtr<ITaskGroup> m_ndrangeChildrenTaskGroup;
 
-    InPlaceTaskList(WGContextBase* pMasterWGContext, const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate = true);
+    InPlaceTaskList(const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate = true);
 
     virtual void ExecuteInPlace(const SharedPtr<ITaskBase>& pTaskBase);
 };
 
-InPlaceTaskList::InPlaceTaskList(WGContextBase* pMasterWGContext, const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate) :
-    m_pMasterWGContext(pMasterWGContext), m_immediate(bImmediate), m_ndrangeChildrenTaskGroup(ndrangeChildrenTaskGroup)
+InPlaceTaskList::InPlaceTaskList(const SharedPtr<ITaskGroup>& ndrangeChildrenTaskGroup, bool bImmediate) :
+    m_immediate(bImmediate), m_ndrangeChildrenTaskGroup(ndrangeChildrenTaskGroup)
 {
     //No support for just synchronous at the moment
     assert(m_immediate);
@@ -154,7 +153,7 @@ void InPlaceTaskList::ExecuteInPlace(const SharedPtr<Intel::OpenCL::TaskExecutor
         {
             pTaskSet->Finish(FINISH_INIT_FAILED);
         }
-        void* local = pTaskSet->AttachToThread(m_pMasterWGContext, dim[0] * dim[1] * dim[2], firstWGID, dim);
+        void* local = pTaskSet->AttachToThread(this, dim[0] * dim[1] * dim[2], firstWGID, dim);
         if (NULL == local)
         {
             pTaskSet->Finish(FINISH_INIT_FAILED);
@@ -202,7 +201,7 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
                      MemoryAllocator *memAlloc, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *cpuDeviceConfig, IAffinityChangeObserver* pObserver) :
         m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pFrameworkCallBacks(devCallbacks),
         m_pProgramService(programService), m_pMemoryAllocator(memAlloc),
-        m_pCPUDeviceConfig(cpuDeviceConfig), m_pWgContextPool(NULL), m_uiNumThreads(0),
+        m_pCPUDeviceConfig(cpuDeviceConfig), m_uiNumThreads(0),
         m_bTEActivated(false), m_pObserver(pObserver)
 #if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
         ,m_pOMPExecutionThread(NULL)
@@ -280,8 +279,6 @@ cl_dev_err_code TaskDispatcher::init()
     {
         m_uiNumThreads = uiNumThreads;
     }
-
-    m_pWgContextPool->Init(m_uiNumThreads, numMasters);
 
 #if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
     m_pOMPExecutionThread = Intel::OpenCL::BuiltInKernels::OMPExecutorThread::Create(m_uiNumThreads);
@@ -383,7 +380,7 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
     else
     {
         //Todo: handle non-immediate lists
-        *list = InPlaceTaskList::Allocate(m_pWgContextPool->GetWGContext(true), GetTaskExecutor()->CreateTaskGroup(pDevice));
+        *list = InPlaceTaskList::Allocate(GetTaskExecutor()->CreateTaskGroup(pDevice));
     }
     if ( NULL == *list )
     {
@@ -532,11 +529,9 @@ bool TaskDispatcher::TaskFailureNotification::Shoot(cl_dev_err_code err)
 
 void* TaskDispatcher::OnThreadEntry()
 {
-    WGContextBase* pCtx = m_pWgContextPool->GetWGContext( m_pTaskExecutor->IsMaster() );
     unsigned int   position_in_device = m_pTaskExecutor->GetPosition();
-    pCtx->SetThreadId( position_in_device );
 
-    if (!pCtx->DoesBelongToMasterThread())
+    if ( !m_pTaskExecutor->IsMaster() )
     {
         // We don't affinitize application threads
         if ( isThreadAffinityRequired() )
@@ -558,14 +553,12 @@ void* TaskDispatcher::OnThreadEntry()
         }
     }
 
-    return pCtx;
+    // TODO: What should be return here instead, we can't return NULL
+    return m_pTaskExecutor;
 }
 
 void  TaskDispatcher::OnThreadExit( void* currentThreadData )
 {
-    WGContextBase* pCtx = (WGContextBase*)currentThreadData;
-    pCtx->SetThreadId( -1 );
-    m_pWgContextPool->ReleaseWorkerWGContext( pCtx );
 }
 
 TE_BOOLEAN_ANSWER TaskDispatcher::MayThreadLeaveDevice( void* currentThreadData )
@@ -618,7 +611,7 @@ void* AffinitizeThreads::AttachToThread(void* pWgContextBase, size_t uiNumberOfW
 {
     // cast to WGContext* and only then to void* - in order to pass WGContext* to ExecuteIteration
     // casting to and from void* must be done to the same type
-    return static_cast<WGContext*>(reinterpret_cast<WGContextBase*>(pWgContextBase)); // return non-NULL
+    return pWgContextBase; // return non-NULL
 }
 
 void AffinitizeThreads::DetachFromThread(void* pWgContext)
@@ -633,13 +626,12 @@ bool AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, void* pWg
       return false;
     }
 
-    WGContext* pContext = reinterpret_cast<WGContext*>(pWgContext);
-    assert (NULL!= pContext);
-    if (!pContext->DoesBelongToMasterThread())
+    ITaskExecutor* pTaskExecutor = reinterpret_cast<ITaskExecutor*>(pWgContext);
+
+    if ( !pTaskExecutor->IsMaster() )
     {
         // Set NUMA node prior to allocation
         clNUMASetLocalNodeAlloc();
-        pContext->Init();
         m_pObserver->NotifyAffinity(clMyThreadId(), x);
     }
 
