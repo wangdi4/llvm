@@ -20,7 +20,6 @@ File Name:  IAbstractBackendFactory.h
 #include <vector>
 #include <string>
 #include "cl_dev_backend_api.h"
-#include "IDeviceCommandManager.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

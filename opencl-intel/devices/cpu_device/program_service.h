@@ -37,7 +37,6 @@
 #include <cl_synch_objects.h>
 
 #include "cpu_config.h"
-#include "IDeviceCommandManager.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -54,7 +53,7 @@ public:
     ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *config, ICLDevBackendServiceFactory* pBackendFactory);
     virtual ~ProgramService();
 
-    cl_dev_err_code Init(IDeviceCommandManager* pDeviceCommandManager);
+    cl_dev_err_code Init();
 
     cl_dev_err_code CheckProgramBinary (size_t IN bin_size, const void* IN bin);
     cl_dev_err_code CreateProgram( size_t IN binSize,

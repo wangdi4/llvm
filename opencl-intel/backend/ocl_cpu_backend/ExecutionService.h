@@ -60,10 +60,6 @@ protected:
     // pointer to the Backend Factory, not owned by this class
     IAbstractBackendFactory* m_pBackendFactory; 
 
-    // pointer to the device command manager
-    // OCL20. Extended execution functionality
-    IDeviceCommandManager* m_pDeviceCommandManager;
-
     #ifdef OCL_DEV_BACKEND_PLUGINS
     mutable Intel::OpenCL::PluginManager m_pluginManager;
     #endif

@@ -114,9 +114,9 @@ ProgramService::~ProgramService()
         CL_DEV_SUCCESS          The function is executed successfully.
         CL_DEV_FAILED           The function failed
 ********************************************************************************************************************/
-cl_dev_err_code ProgramService::Init(IDeviceCommandManager* pDeviceCommandManager)
+cl_dev_err_code ProgramService::Init()
 {
-	ProgramConfig programConfig(pDeviceCommandManager);
+	ProgramConfig programConfig;
     programConfig.InitFromCpuConfig(*m_pCPUConfig);   
     
     ICLDevBackendCompilationService* pCompiler = NULL;

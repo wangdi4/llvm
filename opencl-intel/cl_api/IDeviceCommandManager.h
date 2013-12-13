@@ -41,13 +41,18 @@ public:
 	 * @param pEventWaitList		number of events in uiNumEventsInWaitList
 	 * @param pEventRet				an optional pointer for the returned event for enqueued kernel
 	 * @param pKernel               a pointer to a ICLDevBackendKernel_ object that represents the enqueued kernel
-     * @param pContext				a pointer to the context of the enqueued kernel. This memory must be copied before the method returns.
-     * @param szContextSize			the size of pContext
-	 * @param pNdrange				a cl_work_description_type that contains the ND range parameters
+     * @param pBlockLiteral			a pointer to the block_literal of the enqueued kernel. This memory must be copied before the method returns.
+     * @param stBlockSize			the size of pContext
+     * @param pLocalSize			a pointer to an array of local sizes. This memory must be copied before the method returns.
+     * @param stLocalSizeCount		the number of local buffer sizes
+	 * @param pNdrange				a cl_wor_ndrange_tk_description_type that contains the ND range parameters
+	 * @param pHandle				a RuntimeHandle provided to RunWG() function
 	 * @return CL_SUCCESS if the kernel is enqueued successfully or an error eitherwise
 	 */
 	virtual int EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet,
-		const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel, const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange) = 0;
+		const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
+        const void* pBlockLiteral, size_t stBlockSize, const size_t* pLocalSize, size_t stLocalSizeCount,
+        const _ndrange_t* pNDRange, const void* pHandle) = 0;
 
 	/**
 	 * Enqueue a marker command on an on-device queue
@@ -99,11 +104,4 @@ public:
 	 * @return the default queue for the device on which the kernel is executing
 	 */
 	virtual queue_t GetDefaultQueueForDevice() const = 0;
-
-	/**
-	 * This method is needed by BE when local_work_size is not specified
-	 * @return the number of compute units for the device on which the kernel is executing
-	 */
-	virtual unsigned int GetNumComputeUnits() const = 0;
-
 };

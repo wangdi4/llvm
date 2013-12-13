@@ -258,3 +258,5 @@ set(TARGET_SOURCES
     main.cpp)
 
 add_device_library(${TARGET_NAME} ${TARGET_SOURCES})
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )
