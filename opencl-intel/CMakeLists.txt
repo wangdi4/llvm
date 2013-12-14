@@ -296,6 +296,18 @@ if (GIT_REVISIONS)
 	STRING(REGEX REPLACE "trunk-" "" GIT_VERIONING ${GIT_DESCRIPTION})
 	STRING(REGEX REPLACE "-[0-9a-z]+" "" GIT_VERIONING ${GIT_VERIONING})
 	math(EXPR BUILDVER_WC_REVISION "0 + ${GIT_VERIONING}")
+	
+	set (git_cmd_version "git")
+	set (git_arg_1 "log")
+	set (git_arg_2 "-1")
+	set (git_arg_3 "--format=%H")
+	set (git_ver_v 0)
+	execute_process(COMMAND ${git_cmd_version} ${git_arg_1} ${git_arg_2} ${git_arg_3}
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		RESULT_VARIABLE git_result_v
+		OUTPUT_VARIABLE git_ver_v)		
+	set(GIT_REVISION ${git_ver_v})
+	file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}DESCRIBE=${GIT_DESCRIPTION}")
 else ()
     set( BUILDVER_WC_REVISION 0)
 endif (GIT_REVISIONS)
@@ -311,6 +323,7 @@ if(WIN32)
     install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
 file(WRITE ${OCL_BINARY_DIR}/version.txt "4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}")
+
 #copy the version file to install folder
 install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
 # copy the file to the final header only if the version changes
