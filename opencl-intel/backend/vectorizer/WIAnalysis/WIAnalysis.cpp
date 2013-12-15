@@ -721,6 +721,12 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
 
   // Check if the function is in the table of functions
   std::string scalarFuncName = origFuncName;
+
+  // If it is a fake builtin then we need to demangle the fake part before the demangling
+  if (Mangler::isFakeBuiltin(scalarFuncName)) {
+    scalarFuncName = Mangler::demangle_fake_builtin(scalarFuncName);
+  }
+
   bool isMangled = Mangler::isMangledCall(scalarFuncName);
   bool MaskedMemOp = (Mangler::isMangledLoad(scalarFuncName) ||
                       Mangler::isMangledStore(scalarFuncName));
