@@ -25,7 +25,7 @@ entry:
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
 ; CHECK:          i32* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) {
+; CHECK:          {}* noalias %RuntimeHandle) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   %res = add i32 100, 10
 ; CHECK-NEXT:   ret void

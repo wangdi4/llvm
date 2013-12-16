@@ -26,7 +26,7 @@ entry:
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
 ; CHECK:          i32* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) {
+; CHECK:          {}* noalias %RuntimeHandle) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   call void @functionWithoutArgs()
 ; CHECK-NEXT:   %res = call i32 @functionWithArgs(i32 %x, i32 %y)

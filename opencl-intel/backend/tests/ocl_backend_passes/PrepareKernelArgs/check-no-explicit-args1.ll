@@ -46,7 +46,7 @@ entry:
 ; CHECK-NEXT: %BarrierBufferSize = mul i32 [[BBS1]], %LocalSize_2
 ; CHECK-NEXT: %pSpecialBuf = alloca i8, i32 %BarrierBufferSize, align 128
 ; CHECK-NEXT: %pCurrWI = alloca i32
-; CHECK-NEXT: call void @__t1_separated_args(i8 addrspace(3)* %pLocalMemBase, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* %pWorkDim, i32* %pWGId, [4 x i32] %BaseGlbId, i8* %pSpecialBuf, i32* %pCurrWI, {}* %RuntimeContext)
+; CHECK-NEXT: call void @__t1_separated_args(i8 addrspace(3)* %pLocalMemBase, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* %pWorkDim, i32* %pWGId, [4 x i32] %BaseGlbId, i8* %pSpecialBuf, i32* %pCurrWI, {}* %RuntimeHandle)
 ; CHECK-NEXT: ret void
 
 !opencl.kernels = !{!0}

@@ -34,7 +34,7 @@ declare void @__opencl_dbg_exit_function(i64, i64, i64, i64)
 
 declare void @__opencl_dbg_stoppoint(i64, i64, i64, i64)
 
-define void @f1(i8 addrspace(3)* noalias %a, i8 addrspace(3)* noalias %pLocalMemBase, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim, i32* noalias %pWGId, [4 x i32] %BaseGlbId, i8* noalias %pSpecialBuf, i32* noalias %pCurrWI, {}* noalias %RuntimeContext) nounwind {
+define void @f1(i8 addrspace(3)* noalias %a, i8 addrspace(3)* noalias %pLocalMemBase, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim, i32* noalias %pWGId, [4 x i32] %BaseGlbId, i8* noalias %pSpecialBuf, i32* noalias %pCurrWI, {}* noalias %RuntimeHandle) nounwind {
 entry:
   %_Z13get_global_idj0 = call i32 @_Z13get_global_idj(i32 0)
   %gid0_i64 = zext i32 %_Z13get_global_idj0 to i64
@@ -54,7 +54,7 @@ entry:
   ret void, !dbg !31
 }
 
-define void @mykernel(i8 addrspace(3)* noalias %a, i8 addrspace(3)* noalias %pLocalMemBase, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim, i32* noalias %pWGId, [4 x i32] %BaseGlbId, i8* noalias %pSpecialBuf, i32* noalias %pCurrWI, {}* noalias %RuntimeContext) nounwind {
+define void @mykernel(i8 addrspace(3)* noalias %a, i8 addrspace(3)* noalias %pLocalMemBase, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim, i32* noalias %pWGId, [4 x i32] %BaseGlbId, i8* noalias %pSpecialBuf, i32* noalias %pCurrWI, {}* noalias %RuntimeHandle) nounwind {
 entry:
   %_Z13get_global_idj0 = call i32 @_Z13get_global_idj(i32 0)
   %gid0_i64 = zext i32 %_Z13get_global_idj0 to i64
@@ -67,7 +67,7 @@ entry:
   call void @__opencl_dbg_declare_global(i8* %var_addr, i64 6721800, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   call void @__opencl_dbg_stoppoint(i64 6705624, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   %0 = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 128
-  call void @f1(i8 addrspace(3)* getelementptr inbounds ([100 x i8] addrspace(3)* @mykernel.x, i32 0, i32 0), i8 addrspace(3)* %0, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim, i32* noalias %pWGId, [4 x i32] %BaseGlbId, i8* noalias %pSpecialBuf, i32* noalias %pCurrWI, {}* noalias %RuntimeContext), !dbg !33
+  call void @f1(i8 addrspace(3)* getelementptr inbounds ([100 x i8] addrspace(3)* @mykernel.x, i32 0, i32 0), i8 addrspace(3)* %0, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim, i32* noalias %pWGId, [4 x i32] %BaseGlbId, i8* noalias %pSpecialBuf, i32* noalias %pCurrWI, {}* noalias %RuntimeHandle), !dbg !33
   call void @__opencl_dbg_stoppoint(i64 6705768, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   call void @__opencl_dbg_exit_function(i64 6704936, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   ret void, !dbg !35

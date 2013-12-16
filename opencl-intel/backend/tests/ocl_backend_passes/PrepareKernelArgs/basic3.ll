@@ -2,9 +2,9 @@
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32> %i, <4 x i32> %ui, <4 x float> %f, <4 x float> addrspace(1)* nocapture %result, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeContext) nounwind {
+define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32> %i, <4 x i32> %ui, <4 x float> %f, <4 x float> addrspace(1)* nocapture %result, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeHandle) nounwind {
 
-; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeContext) {
+; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle) {
 ; CHECK: %0 = getelementptr i8* %pUniformArgs, i32 0
 ; CHECK: %1 = bitcast i8* %0 to <4 x i8>*
 ; CHECK: %explicit_0 = load <4 x i8>* %1, align 4
@@ -65,7 +65,7 @@ define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32>
 ; CHECK: %BarrierBufferSize = mul i64 %36, %LocalSize_2
 ; CHECK: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
 ; CHECK: %pCurrWI = alloca i64
-; CHECK: call void @__A_separated_args(<4 x i8> %explicit_0, <4 x i8> %explicit_1, <4 x i16> %explicit_2, <4 x i16> %explicit_3, <4 x i32> %explicit_4, <4 x i32> %explicit_5, <4 x float> %explicit_6, <4 x float> addrspace(1)* %explicit_7, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeContext)
+; CHECK: call void @__A_separated_args(<4 x i8> %explicit_0, <4 x i8> %explicit_1, <4 x i16> %explicit_2, <4 x i16> %explicit_3, <4 x i32> %explicit_4, <4 x i32> %explicit_5, <4 x float> %explicit_6, <4 x float> addrspace(1)* %explicit_7, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeHandle)
 ; CHECK: ret void
 
   ret void

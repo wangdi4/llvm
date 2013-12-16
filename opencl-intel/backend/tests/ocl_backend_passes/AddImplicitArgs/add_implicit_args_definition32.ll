@@ -25,7 +25,7 @@ entry:
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
 ; CHECK:          i32* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) nounwind {
+; CHECK:          {}* noalias %RuntimeHandle) nounwind {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:     %x = add i32 100, 10
 ; CHECK-NEXT:     ret void
@@ -37,7 +37,7 @@ entry:
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
 ; CHECK:          i32* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) nounwind {
+; CHECK:          {}* noalias %RuntimeHandle) nounwind {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:   %temp = add i32 %x, 10
 ; CHECK-NEXT:   %res = mul i32 %temp, %y

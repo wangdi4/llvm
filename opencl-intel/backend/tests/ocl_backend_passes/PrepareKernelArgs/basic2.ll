@@ -2,12 +2,12 @@
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-define void @A(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocapture %a, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbIds, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeContext) nounwind {
+define void @A(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocapture %a, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbIds, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeHandle) nounwind {
   ret void
 }
-; CHECK: define void @__A_separated_args(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocapture %a, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbIds, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeContext) nounwind alwaysinline {
+; CHECK: define void @__A_separated_args(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocapture %a, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbIds, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeHandle) nounwind alwaysinline {
 
-; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeContext)
+; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle)
 ; CHECK: %0 = getelementptr i8* %pUniformArgs, i32 0
 ; CHECK: %1 = bitcast i8* %0 to i32 addrspace(1)**
 ; CHECK: %explicit_0 = load i32 addrspace(1)** %1, align 8
@@ -53,7 +53,7 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocap
 ; CHECK: %BarrierBufferSize = mul i64 %26, %LocalSize_2
 ; CHECK: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
 ; CHECK: %pCurrWI = alloca i64
-; CHECK: call void @__A_separated_args(i32 addrspace(1)* %explicit_0, i32 %explicit_1, i32 addrspace(1)* %explicit_2, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeContext)
+; CHECK: call void @__A_separated_args(i32 addrspace(1)* %explicit_0, i32 %explicit_1, i32 addrspace(1)* %explicit_2, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeHandle)
 ; CHECK: ret void
 
 !opencl.kernels = !{!0}

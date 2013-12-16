@@ -46,7 +46,7 @@ entry:
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
 ; CHECK:          i32* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) {
+; CHECK:          {}* noalias %RuntimeHandle) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 0
 ; CHECK-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)*
@@ -74,7 +74,7 @@ entry:
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
 ; CHECK:          i32* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) {
+; CHECK:          {}* noalias %RuntimeHandle) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 0
 ; CHECK-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR10]] to <4 x i32> addrspace(3)*
