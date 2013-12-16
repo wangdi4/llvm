@@ -281,6 +281,43 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const char*             m_szOptions;
     };
 
+    class DeviceBuildTask : public BuildTask
+    {
+    public:
+
+        PREPARE_SHARED_PTR(DeviceBuildTask)
+
+        static SharedPtr<DeviceBuildTask> Allocate(
+            _cl_context_int*            context,
+            cl_device_id                deviceID,
+            IOCLDeviceAgent*            pDeviceAgent,
+            const char*                 szOptions,
+            const SharedPtr<Program>&   pProg)
+        {
+            return new DeviceBuildTask(context, deviceID, pDeviceAgent, szOptions, pProg);
+        }
+
+        virtual bool    Execute();
+        virtual void    Cancel();
+        bool    SetAsSyncPoint() {assert(0&&"Should not be called");return false;}
+        bool    IsCompleted() const {assert(0&&"Should not be called");return true;}
+        bool    CompleteAndCheckSyncPoint() {return false;}
+
+    protected:
+
+        DeviceBuildTask(_cl_context_int*    context,
+                 cl_device_id               deviceID,
+                 IOCLDeviceAgent*           pDeviceAgent,
+                 const char*                szOptions,
+                 const SharedPtr<Program>&  pProg);
+
+        ~DeviceBuildTask();
+
+        cl_device_id            m_deviceID;
+        IOCLDeviceAgent*        m_pDeviceAgent;
+        const char*             m_szOptions;
+    };
+
 
     class PostBuildTask : public BuildTask
     {
