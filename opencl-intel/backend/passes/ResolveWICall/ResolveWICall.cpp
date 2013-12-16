@@ -177,7 +177,6 @@ namespace intel {
           break;
         }
         case ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM: {
-#if 1
           const uint32_t ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM_ARG_POS = 7;
           addExtExecFunctionDeclaration(calledFuncType);
           getEnqueueKernelLocalMemFunctionParams(
@@ -187,9 +186,6 @@ namespace intel {
           pNewRes = updateExtExecFunction(
               ExtExecArgs, getExtExecCallbackName(calledFuncType), pCall);
           assert(pNewRes && "Expected updateGetEnqueueKernelEvents to succeed");
-#else
-          assert(false && "Not implemented");
-#endif
           break;
                                                  }
         case ICT_NDRANGE_1D:
