@@ -337,7 +337,7 @@ namespace intel{
     DestI->setName("pWGID");
     DestI->addAttr(NoAlias);
     Argument *pArgGID = DestI++;
-    DestI->setName("RuntimeContext");
+    DestI->setName("RuntimeHandle");
     DestI->addAttr(NoAlias);
     Argument *RuntimeContext = DestI++;
     assert(DestI == pWrapper->arg_end() && "Expected to be past last arg");

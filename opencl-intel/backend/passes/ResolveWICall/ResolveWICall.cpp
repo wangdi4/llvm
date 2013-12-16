@@ -46,11 +46,7 @@ namespace intel {
       return FuncType >= ICT_ENQUEUE_KERNEL_FIRST && FuncType <= ICT_ENQUEUE_KERNEL_LAST;
     }
     static bool NeedsRuntimeHandleParam(unsigned FuncType) {
-      if (isEnqueueKernelFunctionType(FuncType))
-        return true;
-      if (FuncType == ICT_PRINTF)
-        return true;
-      return false;
+      return isEnqueueKernelFunctionType(FuncType) || FuncType == ICT_PRINTF;
     }
 
     bool ResolveWICall::runOnModule(Module &M) {
