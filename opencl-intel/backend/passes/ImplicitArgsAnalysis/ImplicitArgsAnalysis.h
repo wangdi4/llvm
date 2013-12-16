@@ -81,44 +81,31 @@ public:
       };
     */
 
+    Type* Sizet3Ty = ArrayType::get(SizetTy, MAX_WORK_DIM);
     WGInfoMembersTypes[NDInfo::WORK_DIM] = SizetTy;
-    WGInfoMembersTypes[NDInfo::GLOBAL_OFFSET] = ArrayType::get(SizetTy, MAX_WORK_DIM);
-    WGInfoMembersTypes[NDInfo::GLOBAL_SIZE] = ArrayType::get(SizetTy, MAX_WORK_DIM);
-    WGInfoMembersTypes[NDInfo::LOCAL_SIZE] = ArrayType::get(SizetTy, MAX_WORK_DIM);
-    WGInfoMembersTypes[NDInfo::WG_NUMBER] = ArrayType::get(SizetTy, MAX_WORK_DIM);
+    WGInfoMembersTypes[NDInfo::GLOBAL_OFFSET] = Sizet3Ty; 
+    WGInfoMembersTypes[NDInfo::GLOBAL_SIZE] = Sizet3Ty;
+    WGInfoMembersTypes[NDInfo::LOCAL_SIZE] = Sizet3Ty;
+    WGInfoMembersTypes[NDInfo::WG_NUMBER] = Sizet3Ty;
     WGInfoMembersTypes[NDInfo::LOOP_ITER_COUNT] = SizetTy;
     WGInfoMembersTypes[NDInfo::RUNTIME_CALLBACKS] = PointerType::get(StructType::get(C), 0);
     WGInfoMembersTypes[NDInfo::NEW_LOCAL_ID] = PointerType::get(PaddedDimIdTy, 0);
-    assert(NDInfo::NEW_LOCAL_ID+1 == NDInfo::LAST);
+    assert(NDInfo::NEW_LOCAL_ID + 1 == NDInfo::LAST);
+
     // Initialize the implicit argument types
-    for (unsigned ID = 0; ID < ArgTypes.size(); ++ID)
-      switch (ID) {
-      default:
-        assert(false && "Unknown implicit arg ID");
-        llvm_unreachable("Unknown implicit arg ID");
-      case ImplicitArgsUtils::IA_SLM_BUFFER:
-        ArgTypes[ID] = PointerType::get(IntegerType::get(C, 8), 3);
-        break;
-      case ImplicitArgsUtils::IA_WORK_GROUP_INFO:
-        ArgTypes[ID] =
-            PointerType::get(StructType::get(C, WGInfoMembersTypes, false), 0);
-        break;
-      case ImplicitArgsUtils::IA_WORK_GROUP_ID:
-        ArgTypes[ID] = SizetPtrTy;
-        break;
-      case ImplicitArgsUtils::IA_GLOBAL_BASE_ID:
-        ArgTypes[ID] = PaddedDimIdTy;
-        break;
-      case ImplicitArgsUtils::IA_BARRIER_BUFFER:
-        ArgTypes[ID] = PointerType::get(IntegerType::get(C, 8), 0);
-        break;
-      case ImplicitArgsUtils::IA_CURRENT_WORK_ITEM:
-        ArgTypes[ID] = SizetPtrTy;
-        break;
-      case ImplicitArgsUtils::IA_RUNTIME_HANDLE:
-        ArgTypes[ID] = PointerType::get(StructType::get(C), 0);
-        break;
-      }
+    ArgTypes[ImplicitArgsUtils::IA_SLM_BUFFER] =
+        PointerType::get(IntegerType::get(C, 8), 3);
+    ArgTypes[ImplicitArgsUtils::IA_WORK_GROUP_INFO] =
+        PointerType::get(StructType::get(C, WGInfoMembersTypes, false), 0);
+    ArgTypes[ImplicitArgsUtils::IA_WORK_GROUP_ID] = SizetPtrTy;
+    ArgTypes[ImplicitArgsUtils::IA_GLOBAL_BASE_ID] = PaddedDimIdTy;
+    ArgTypes[ImplicitArgsUtils::IA_BARRIER_BUFFER] =
+        PointerType::get(IntegerType::get(C, 8), 0);
+    ArgTypes[ImplicitArgsUtils::IA_CURRENT_WORK_ITEM] = SizetPtrTy;
+    ArgTypes[ImplicitArgsUtils::IA_RUNTIME_HANDLE] =
+        PointerType::get(StructType::get(C), 0);
+    assert(ImplicitArgsUtils::IA_RUNTIME_HANDLE + 1 ==
+           ImplicitArgsUtils::IA_NUMBER);
   }
   // getArgType - Returns the type of the ID implicit argument
   Type *getArgType(unsigned ID) { return ArgTypes[ID]; }
