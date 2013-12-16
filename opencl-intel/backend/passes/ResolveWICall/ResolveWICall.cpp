@@ -42,11 +42,22 @@ namespace intel {
     false
     )
 
+    static bool isEnqueueKernelFunctionType(unsigned FuncType){
+      return FuncType >= ICT_ENQUEUE_KERNEL_FIRST && FuncType <= ICT_ENQUEUE_KERNEL_LAST;
+    }
+    static bool NeedsRuntimeHandleParam(unsigned FuncType) {
+      if (isEnqueueKernelFunctionType(FuncType))
+        return true;
+      if (FuncType == ICT_PRINTF)
+        return true;
+      return false;
+    }
+
     bool ResolveWICall::runOnModule(Module &M) {
       m_pModule = &M;
       m_pLLVMContext = &M.getContext();
       m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-      unsigned PointerSize = getAnalysis<DataLayout>().getPointerSize();
+      unsigned PointerSize = getAnalysis<DataLayout>().getPointerSizeInBits();
       m_IAA->initDuringRun(PointerSize);
       m_sizeTTy = IntegerType::get(*m_pLLVMContext, PointerSize);
 
@@ -64,6 +75,8 @@ namespace intel {
           // Function is not defined inside module
           continue;
         }
+        clearPerFunctionCache();
+        m_F = pFunc;
         runOnFunction(pFunc);
       }
 
@@ -88,8 +101,10 @@ namespace intel {
       // Call instruction
       toHandleCalls.push_back(pCall);
     }
+    SmallVector<Value*, 16> ExtExecArgs;
     for ( std::vector<CallInst*>::iterator ii = toHandleCalls.begin(),
       ie = toHandleCalls.end(); ii != ie; ++ii ) {
+        ExtExecArgs.clear();
 
         CallInst *pCall = dyn_cast<CallInst>(*ii);
         std::string calledFuncName = pCall->getCalledFunction()->getName().str();
@@ -140,37 +155,37 @@ namespace intel {
         case ICT_CREATE_USER_EVENT:
         case ICT_SET_USER_EVENT_STATUS:
         case ICT_CAPTURE_EVENT_PROFILING_INFO:
-#if 0
           addExtExecFunctionDeclaration(calledFuncType);
-          pNewRes = updateExtExecFunction(getExtExecFunctionParams(pCall),
-            getExtExecCallbackName(calledFuncType),
-            pCall);
+          getExtExecFunctionParams(pCall, ExtExecArgs);
+          appendWithCallBackContextAndRuntimeHandleValues(calledFuncType,
+                                                          ExtExecArgs, pCall);
+          pNewRes = updateExtExecFunction(
+              ExtExecArgs, getExtExecCallbackName(calledFuncType), pCall);
           assert(pNewRes && "ExtExecution. Expected non-NULL results");
-#else
-          assert(false && "Not implemented");
-#endif
           break;
 
         case ICT_ENQUEUE_KERNEL_LOCALMEM: {
-#if 0
           const uint32_t ICT_ENQUEUE_KERNEL_LOCALMEM_ARG_POS = 4;
           addExtExecFunctionDeclaration(calledFuncType);
-          pNewRes = updateExtExecFunction(getEnqueueKernelLocalMemFunctionParams(pCall, ICT_ENQUEUE_KERNEL_LOCALMEM_ARG_POS),
-            getExtExecCallbackName(calledFuncType),
-            pCall);
+          getEnqueueKernelLocalMemFunctionParams(
+              pCall, ICT_ENQUEUE_KERNEL_LOCALMEM_ARG_POS, ExtExecArgs);
+          appendWithCallBackContextAndRuntimeHandleValues(calledFuncType,
+                                                          ExtExecArgs, pCall);
+           pNewRes = updateExtExecFunction(
+              ExtExecArgs, getExtExecCallbackName(calledFuncType), pCall);
           assert(pNewRes && "Expected updateGetEnqueueKernelLocalMem to succeed");
-#else
-          assert(false && "Not implemented");
-#endif
           break;
-                                          }
+        }
         case ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM: {
-#if 0
+#if 1
           const uint32_t ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM_ARG_POS = 7;
           addExtExecFunctionDeclaration(calledFuncType);
-          pNewRes = updateExtExecFunction(getEnqueueKernelLocalMemFunctionParams(pCall, ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM_ARG_POS),
-            getExtExecCallbackName(calledFuncType),
-            pCall);
+          getEnqueueKernelLocalMemFunctionParams(
+              pCall, ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM_ARG_POS, ExtExecArgs);
+          appendWithCallBackContextAndRuntimeHandleValues(calledFuncType,
+                                                          ExtExecArgs, pCall);
+          pNewRes = updateExtExecFunction(
+              ExtExecArgs, getExtExecCallbackName(calledFuncType), pCall);
           assert(pNewRes && "Expected updateGetEnqueueKernelEvents to succeed");
 #else
           assert(false && "Not implemented");
@@ -429,15 +444,11 @@ namespace intel {
     Function *pFunc = m_pModule->getFunction("opencl_printf");
     assert(pFunc && "Expect builtin printf to be declared before use");
 
-    IRBuilder<> Builder(pCall);
-    Value *pRuntimeCallbacks = m_IAA->GenerateGetFromWorkInfo(NDInfo::RUNTIME_CALLBACKS, m_pWorkInfo, Builder);
-
-    std::vector<Value*> params;
+    SmallVector<Value*, 16> params;
     params.push_back(pCall->getArgOperand(0));
     params.push_back(ptr_to_buf);
-    params.push_back(pRuntimeCallbacks);
-    params.push_back(m_pRuntimeHandle);
-    CallInst *res = CallInst::Create(pFunc, ArrayRef<Value*>(params), "translated_opencl_printf_call", pCall);
+    appendWithCallBackContextAndRuntimeHandleValues(ICT_PRINTF, params, pCall);
+    CallInst *res = CallInst::Create(pFunc, params, "translated_opencl_printf_call", pCall);
     res->setDebugLoc(pCall->getDebugLoc());
     return res;
   }
@@ -635,10 +646,6 @@ namespace intel {
     return IntegerType::get(*m_pLLVMContext, ENQUEUE_KERNEL_RETURN_BITS);
   }
 
-  Type * ResolveWICall::getExtendedExecContextType() const {
-    return CompilationUtils::getExtendedExecContextType(*m_pLLVMContext);
-  }
-
   ConstantInt * ResolveWICall::getConstZeroInt32Value() const {
     return ConstantInt::get(Type::getInt32Ty(*m_pLLVMContext), 0);
   }
@@ -777,9 +784,9 @@ namespace intel {
     return bitcastV;
   }
 
-
-  void ResolveWICall::addLocalMemArgs(std::vector<Value*>& args, CallInst *pCall,
-    const unsigned LocalMemArgsOffs){
+  void ResolveWICall::addLocalMemArgs(SmallVectorImpl<Value *> &args,
+                                      CallInst *pCall,
+                                      const unsigned LocalMemArgsOffs) {
 
       assert(pCall->getNumArgOperands() > LocalMemArgsOffs && "Expect enqueue_kernel to have local mem size arguments");
       // get number of local buffers
@@ -812,8 +819,9 @@ namespace intel {
       llvm::SmallVector<Value*, 2> index_args;
       index_args.push_back(getConstZeroInt32Value());
       index_args.push_back(getConstZeroInt32Value());
-      GetElementPtrInst *ptr_to_localmem_buf = GetElementPtrInst::CreateInBounds(
-        localbuf_alloca_inst, ArrayRef<Value*>(index_args), "", pCall);
+      GetElementPtrInst *ptr_to_localmem_buf =
+          GetElementPtrInst::CreateInBounds(localbuf_alloca_inst, index_args,
+                                            "", pCall);
 
       // add argument uint *localbuf_size
       args.push_back(ptr_to_localmem_buf);
@@ -833,100 +841,124 @@ namespace intel {
       return true;
   }
 
-#if 0
-  Value* ResolveWICall::updateExtExecFunction(std::vector<Value*> Params, const StringRef FunctionName, CallInst *pCall)
-  {
-    // implicitly add Extended Execution Context
-    Params.push_back(m_pExtendedExecutionCtx);
-
-    // bitcast types from built-in argument type to type of callback function's argument
-    // handles scenario when types like ndrange_t.3, clk_event.2, queue_t.5, etc are generated by ParseBitcodeFile
-    // Appending .#number to type name happens when the LLVM context is reused by BE for loading bytecode
-    // we handle here ONLY pointer to struct and double pointer to struct
-    Function * cbkF = m_pModule->getFunction(FunctionName);
-    Function::arg_iterator AI = cbkF->arg_begin();
-    for(std::vector<Value*>::iterator it = Params.begin(), E = Params.end();
-        it != E; ++it, ++AI) {
-            Type * pParamTy = (*it)->getType();
-            // check types are equal - no bitcast needed
-            if(pParamTy == AI->getType())
-                continue;
-            // check it is pointer
-            if(!pParamTy->isPointerTy()){
-                assert(0 && "Should not get here. Unsupported type of argument");
-                continue;
-            }
-            Type * PtrTy = cast<PointerType>(pParamTy)->getElementType();
-            // pointer type is struct
-            if (PtrTy->isStructTy()){
-                *it = CastInst::Create(Instruction::BitCast, *it, AI->getType(), "", pCall);
-                continue;
-            }
-            // check pointer is to pointer
-            if(!PtrTy->isPointerTy()) {
-                assert(0 && "Should not get here. Unsupported type of argument");
-                continue;
-            }
-            // double pointer points to structure
-            Type * PPtrTy = cast<PointerType>(PtrTy)->getElementType();
-            if (PPtrTy->isStructTy()){
-                *it = CastInst::Create(Instruction::BitCast, *it, AI->getType(), "", pCall);
-                continue;
-            }
-            assert(0 && "Should not get here. Unsupported type of argument");
+  Value *
+  ResolveWICall::updateExtExecFunction(SmallVectorImpl<Value *> &NewParams,
+                                       const StringRef FunctionName,
+                                       CallInst *pCall) {
+  // bitcast types from built-in argument type to type of callback function's
+  // argument
+  // handles scenario when types like ndrange_t.3, clk_event.2, queue_t.5, etc
+  // are generated by ParseBitcodeFile
+  // Appending .#number to type name happens when the LLVM context is reused by
+  // BE for loading bytecode
+  // we handle here ONLY pointer to struct and double pointer to struct
+  Function *cbkF = m_pModule->getFunction(FunctionName);
+  Function::arg_iterator AI = cbkF->arg_begin();
+  for (SmallVectorImpl<Value *>::iterator it = NewParams.begin(), E = NewParams.end();
+       it != E; ++it, ++AI) {
+    Value *&NewParam = *it;
+    Type *NewParamTy = NewParam->getType();
+    Type* ExpectedArgTy = AI->getType();
+    // check types are equal - no bitcast needed
+    if (NewParamTy == AI->getType())
+      continue;
+    // check it is pointer
+    if (!NewParamTy->isPointerTy()) {
+      assert(0 && "Should not get here. Unsupported type of argument");
+      continue;
     }
-
-    CallInst * CI = CallInst::Create(
-      m_pModule->getFunction(FunctionName),
-      ArrayRef<Value*>(Params),
-      "", 
-      pCall);
-
-    // if return value type does not match return type
-    // bitcast to return type
-    Value * ret = CI;
-    if( pCall->getType() != CI->getType() ) {
-        if(isPointerToStructType(pCall->getType()))
-            ret = CastInst::Create(Instruction::BitCast, CI,
-                               pCall->getType(), "", pCall);
-        else
-            assert(0 && "Should not get here. Unsupported type of return value");
+    Type *PtrTy = cast<PointerType>(NewParamTy)->getElementType();
+    // pointer type is struct
+    if (PtrTy->isStructTy()) {
+      *it = CastInst::Create(Instruction::BitCast, NewParam, ExpectedArgTy, "",
+                             pCall);
+      continue;
     }
-    return ret;
+    // check pointer is to pointer
+    if (!PtrTy->isPointerTy()) {
+      assert(0 && "Should not get here. Unsupported type of argument");
+      continue;
+    }
+    // double pointer points to structure
+    Type *PPtrTy = cast<PointerType>(PtrTy)->getElementType();
+    if (PPtrTy->isStructTy()) {
+      NewParam = CastInst::Create(Instruction::BitCast, NewParam, ExpectedArgTy,
+                                  "", pCall);
+      continue;
+    }
+    assert(0 && "Should not get here. Unsupported type of argument");
   }
-#endif
-  std::vector<Value*> ResolveWICall::getExtExecFunctionParams(CallInst *pCall)
+  CallInst *CI =
+      CallInst::Create(m_pModule->getFunction(FunctionName), NewParams, "", pCall);
+
+  // if return value type does not match return type
+  // bitcast to return type
+  Value *ret = CI;
+  if (pCall->getType() != CI->getType()) {
+    if (isPointerToStructType(pCall->getType()))
+      ret = CastInst::Create(Instruction::BitCast, CI, pCall->getType(), "",
+                             pCall);
+    else
+      assert(0 && "Should not get here. Unsupported type of return value");
+  }
+  return ret;
+}
+  void ResolveWICall::appendWithCallBackContextAndRuntimeHandleTypes(unsigned FuncType, SmallVectorImpl<Type*> &ArgTypes) {
+    ArgTypes.push_back(
+        m_IAA->getWorkGroupInfoMemberType(NDInfo::RUNTIME_CALLBACKS));
+    if (NeedsRuntimeHandleParam(FuncType))
+        ArgTypes.push_back(m_pRuntimeHandle->getType());
+  }
+
+  void ResolveWICall::clearPerFunctionCache() {
+    m_F = 0;
+    m_RuntimeCallbacks = 0;
+  }
+
+  Value *ResolveWICall::getOrCreateRuntimeCallbacks() {
+    IRBuilder<> Builder(m_F->getEntryBlock().begin());
+    if (!m_RuntimeCallbacks)
+      m_RuntimeCallbacks = m_IAA->GenerateGetFromWorkInfo(
+          NDInfo::RUNTIME_CALLBACKS, m_pWorkInfo, Builder);
+    return m_RuntimeCallbacks;
+  }
+
+  void ResolveWICall::appendWithCallBackContextAndRuntimeHandleValues(
+      unsigned calledFuncType, SmallVectorImpl<Value *> &Args,
+      Instruction *InsertBefore) {
+    // Generate a pointer to the runtime callbacks table
+    Value *pRuntimeCallbacks = getOrCreateRuntimeCallbacks();
+    Args.push_back(pRuntimeCallbacks);
+    if (NeedsRuntimeHandleParam(calledFuncType))
+      Args.push_back(m_pRuntimeHandle);
+  }
+
+  void ResolveWICall::getExtExecFunctionParams(CallInst *pCall, SmallVectorImpl<Value*> &Res)
   {
-    return std::vector<Value*>(pCall->op_begin(), pCall->op_begin() + pCall->getNumArgOperands() );
+    Res.append(pCall->op_begin(),
+               pCall->op_begin() + pCall->getNumArgOperands());
   }
 
-  std::vector<Value*> ResolveWICall::getEnqueueKernelLocalMemFunctionParams(CallInst *pCall, const uint32_t FixedArgs){
-#if 0
-    assert( m_pExtendedExecutionCtx && 
-      "Extended Execution Context pointer m_pExtendedExecutionCtx not created as expected" );
-#else
-    assert(false && "Not implemented!");
-#endif
-
+  void ResolveWICall::getEnqueueKernelLocalMemFunctionParams(
+      CallInst *pCall, const uint32_t FixedArgs,
+      SmallVectorImpl<Value *> &Res) {
     // copy arguments from initial call except size0, size1, ...
-    std::vector<Value*> params(pCall->op_begin(), pCall->op_begin() + FixedArgs);
+    Res.append(pCall->op_begin(), pCall->op_begin() + FixedArgs);
 
     // add arguments with local mem
-    addLocalMemArgs(params, pCall, FixedArgs);
-
-    return params;
+    addLocalMemArgs(Res, pCall, FixedArgs);
   }
 
   FunctionType*  ResolveWICall::getDefaultQueueFunctionType(){
-    return FunctionType::get(
-      getQueueType(), // return type 
-      getExtendedExecContextType(), // arg Extended Execution
-      false);
+    SmallVector<Type*, 4> ArgTypes;
+    appendWithCallBackContextAndRuntimeHandleTypes(ICT_GET_DEFAULT_QUEUE, ArgTypes);
+    return FunctionType::get(getQueueType(), // return type
+                             ArgTypes, false);
   }
 
   // The prototype of ocl20_enqueue_kernel_basic is:
   // int ocl20_enqueue_kernel_basic(queue_t, int /*kernel_enqueue_flags_t*/, 
-  //            ndrange_t, void * /*block_literal ptr*/,  ExtendedExecutionContext * pEEC)
+  //            ndrange_t, void * /*block_literal ptr*/,  ExtendedExecutionContext * pEEC, void* RuntimeHandle)
   //
   // The prototype of ocl20_enqueue_kernel_events is:
   // int ocl20_enqueue_kernel_events(queue_t, int /*kernel_enqueue_flags_t*/, 
@@ -936,14 +968,9 @@ namespace intel {
   //            void * /*block_literal ptr*/, 
   //            ExtendedExecutionContext * pEEC)
   //
-  // The prototype of ocl20_enqueue_kernel_basic is:
-  // int ocl20_enqueue_kernel_localmem(queue_t, int /*kernel_enqueue_flags_t*/, 
-  //            ndrange_t, void * (local void*) /*block_literal ptr*/, 
-  //            uint *localbuf_size, uint localbuf_size_len,
-  //            ExtendedExecutionContext * pEEC)
   //
   // The prototype of ocl20_enqueue_kernel_events is:
-  // int ocl20_enqueue_kernel_events_localmem(queue_t, int /*kernel_enqueue_flags_t*/, 
+  // int ocl20_enqueue_kernel_events_localmem(queue_t*, int /*kernel_enqueue_flags_t*/, 
   //            ndrange_t, 
   //            uint num_events_in_wait_list, clk_event_t *in_wait_list,
   //            clk_event_t *event_ret,
@@ -953,7 +980,7 @@ namespace intel {
   //
   // This function creates LLVM types for ALL 4 above enqueue_kernel callbacks
   FunctionType*  ResolveWICall::getEnqueueKernelType(unsigned type ){
-    std::vector<Type*> params;
+    SmallVector<Type*, 16> params;
     // queue_t
     params.push_back(getQueueType());
     // int /*kernel_enqueue_flags_t*/
@@ -984,23 +1011,20 @@ namespace intel {
       // uint localbuf_size_len
       params.push_back(IntegerType::get(*m_pLLVMContext, 32));
     }
-    // ExtendedExecutionContext *
-    params.push_back(getExtendedExecContextType());
+    appendWithCallBackContextAndRuntimeHandleTypes(type, params);
     // create function type
-    return FunctionType::get(
-      getEnqueueKernelRetType(), // return type
-      params, 
-      false);
+    return FunctionType::get(getEnqueueKernelRetType(), // return type
+                             params, false);
   }
 
   FunctionType* ResolveWICall::getEnqueueMarkerFunctionType()
   {
-    std::vector<Type*> params;
+    SmallVector<Type*, 16> params;
     params.push_back(getQueueType()); //queue_t queue
     params.push_back(IntegerType::get(*m_pLLVMContext, 32)); //uint num_events_in_wait_list
     params.push_back(PointerType::get(getClkEventType(), 0)); //const clk_event_t *event_wait_list
     params.push_back(PointerType::get(getClkEventType(), 0)); // clk_event_t *event_ret
-    params.push_back(getExtendedExecContextType()); // arg Extended Execution
+    appendWithCallBackContextAndRuntimeHandleTypes(ICT_ENQUEUE_MARKER, params);
     return FunctionType::get(
       IntegerType::get(*m_pLLVMContext, 32), // return type
       params,
@@ -1011,7 +1035,7 @@ namespace intel {
     // The prototype of ocl20_get_kernel_wg_size is:
     // void ocl20_get_kernel_wg_size(void*, uint32_t, ExtendedExecutionContext * pEEC)
     //
-    std::vector<Type*> params;
+    SmallVector<Type*, 16> params;
     // void*
     if(type == ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL || type == ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL)
       params.push_back(getBlockLocalMemType());
@@ -1020,8 +1044,7 @@ namespace intel {
     else
       assert( 0 && "Incorrect Call Function type. Expected Function type that represents one of \
                     the Kernel Query Functions");
-    // ExtendedExecutionContext *
-    params.push_back(getExtendedExecContextType());
+    appendWithCallBackContextAndRuntimeHandleTypes(type, params);
     // create function type
     return FunctionType::get(
       IntegerType::get(*m_pLLVMContext, 32), // return type
@@ -1029,16 +1052,15 @@ namespace intel {
       false);
   }
 
-  FunctionType* ResolveWICall::getRetainAndReleaseEventFunctionType()
+  FunctionType* ResolveWICall::getRetainAndReleaseEventFunctionType(unsigned FuncType)
   {
     // The prototype of ocl20_retain_event is:
     // void ocl20_[retain|release]_event(clk_event_t,  ExtendedExecutionContext * pEEC)
     //
-    std::vector<Type*> params;
+    SmallVector<Type*, 16> params;
     // clk_event_t
     params.push_back(getClkEventType());
-    // ExtendedExecutionContext *
-    params.push_back(getExtendedExecContextType());
+    appendWithCallBackContextAndRuntimeHandleTypes(FuncType, params);
     // create function type
     return FunctionType::get(
       Type::getVoidTy(*m_pLLVMContext), // return type
@@ -1051,9 +1073,8 @@ namespace intel {
     // The prototype of ocl20_create_user_event is:
     // clk_event_t ocl20_create_user_event ( ExtendedExecutionContext * pEEC)
 
-    std::vector<Type*> params;
-    // ExtendedExecutionContext *
-    params.push_back(getExtendedExecContextType());
+    SmallVector<Type*, 16> params;
+    appendWithCallBackContextAndRuntimeHandleTypes(ICT_CREATE_USER_EVENT, params);
     // create function type
     return FunctionType::get(
       this->getClkEventType(),// return type
@@ -1066,13 +1087,12 @@ namespace intel {
     // The prototype of ocl20_set_user_event_status is:
     // void ocl20_set_user_event_status(clk_event_t, int status,  ExtendedExecutionContext * pEEC)
 
-    std::vector<Type*> params;
+    SmallVector<Type*, 16> params;
     // clk_event_t
     params.push_back(getClkEventType());
     // int status
     params.push_back(IntegerType::get(*m_pLLVMContext, 32));
-    // ExtendedExecutionContext *
-    params.push_back(getExtendedExecContextType());
+    appendWithCallBackContextAndRuntimeHandleTypes(ICT_SET_USER_EVENT_STATUS, params);
     // create function type
     return FunctionType::get(
       Type::getVoidTy(*m_pLLVMContext), // return type
@@ -1086,15 +1106,14 @@ namespace intel {
     // void ocl20_capture_event_profiling_info(clk_event_t, clk_profiling_info name,
     // global ulong *value, ExtendedExecutionContext * pEEC)
 
-    std::vector<Type*> params;
+    SmallVector<Type*, 16> params;
     // clk_event_t
     params.push_back(getClkEventType());
     // clk_profiling_info name
     params.push_back(getClkProfilingInfo());
     // global ulong* value
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 64), Utils::OCLAddressSpace::Global) );
-    // ExtendedExecutionContext *
-    params.push_back(getExtendedExecContextType());
+    appendWithCallBackContextAndRuntimeHandleTypes(ICT_CAPTURE_EVENT_PROFILING_INFO, params);
     // create function type
     return FunctionType::get(
       Type::getVoidTy(*m_pLLVMContext), // return type
@@ -1171,7 +1190,7 @@ namespace intel {
             type == ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL)
       return getGetKernelQueryFunctionType(type);
     else if(type == ICT_RETAIN_EVENT || type == ICT_RELEASE_EVENT)
-      return getRetainAndReleaseEventFunctionType();
+      return getRetainAndReleaseEventFunctionType(type);
     else if(type == ICT_CREATE_USER_EVENT)
       return getCreateUserEventFunctionType();
     else if(type == ICT_SET_USER_EVENT_STATUS)

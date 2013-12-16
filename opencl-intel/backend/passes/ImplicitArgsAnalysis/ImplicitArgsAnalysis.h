@@ -36,20 +36,24 @@ class ImplicitArgsAnalysis : public ImmutablePass {
 private:
   // Each entry matches an IMPLICIT_ARGS enum
   SmallVector<Type*, 16> ArgTypes;
+  // Breakdown of WORK_GROUP_INFO which is a structure
+  SmallVector<Type*, 16> WGInfoMembersTypes;
   LLVMContext &C;
-  bool Initialized;
+  unsigned InitializedTo;
 public:
   ImplicitArgsAnalysis(LLVMContext *LC = 0)
-      : ImmutablePass(ID), ArgTypes(ImplicitArgsUtils::IA_NUMBER), C(*LC),
-        Initialized(false) {
+      : ImmutablePass(ID), ArgTypes(ImplicitArgsUtils::IA_NUMBER, 0),
+        WGInfoMembersTypes(NDInfo::LAST, 0), C(*LC), InitializedTo(0) {
     assert(LC && "Got a NULL context");
     initializeImplicitArgsAnalysisPass(*PassRegistry::getPassRegistry());
   }
   // initDuringRun - must be called by each using pass once before calling other
   // methods
   void initDuringRun(unsigned PointerSizeInBits) {
-    if (Initialized)
+    assert(PointerSizeInBits == 32 || PointerSizeInBits == 64);
+    if (InitializedTo == PointerSizeInBits)
       return;
+    InitializedTo = PointerSizeInBits;
     IntegerType *SizetTy = IntegerType::get(C, PointerSizeInBits);
     PointerType *SizetPtrTy = PointerType::get(SizetTy, 0);
     /*
@@ -76,48 +80,57 @@ public:
         sLocalId*     NewLocalId;
       };
     */
-    std::vector<Type*> members;
-    members.push_back(SizetTy);
-    members.push_back(ArrayType::get(SizetTy, MAX_WORK_DIM));   // Global offset
-    members.push_back(ArrayType::get(SizetTy, MAX_WORK_DIM));   // Global size
-    members.push_back(ArrayType::get(SizetTy, MAX_WORK_DIM));   // WG size/Local size
-    members.push_back(ArrayType::get(SizetTy, MAX_WORK_DIM));   // Number of groups
-    members.push_back(SizetTy);                                 // Loop iter count
-    members.push_back(PointerType::get(StructType::get(C), 0)); // Runtime Callbacks
-    members.push_back(PointerType::get(PaddedDimIdTy, 0));      // NewLocalID
-    StructType *pWorkDimType = StructType::get(C, members, false);
+
+    WGInfoMembersTypes[NDInfo::WORK_DIM] = SizetTy;
+    WGInfoMembersTypes[NDInfo::GLOBAL_OFFSET] = ArrayType::get(SizetTy, MAX_WORK_DIM);
+    WGInfoMembersTypes[NDInfo::GLOBAL_SIZE] = ArrayType::get(SizetTy, MAX_WORK_DIM);
+    WGInfoMembersTypes[NDInfo::LOCAL_SIZE] = ArrayType::get(SizetTy, MAX_WORK_DIM);
+    WGInfoMembersTypes[NDInfo::WG_NUMBER] = ArrayType::get(SizetTy, MAX_WORK_DIM);
+    WGInfoMembersTypes[NDInfo::LOOP_ITER_COUNT] = SizetTy;
+    WGInfoMembersTypes[NDInfo::RUNTIME_CALLBACKS] = PointerType::get(StructType::get(C), 0);
+    WGInfoMembersTypes[NDInfo::NEW_LOCAL_ID] = PointerType::get(PaddedDimIdTy, 0);
+    assert(NDInfo::NEW_LOCAL_ID+1 == NDInfo::LAST);
     // Initialize the implicit argument types
     for (unsigned ID = 0; ID < ArgTypes.size(); ++ID)
-    switch (ID) {
-    default:
-      assert(false && "Unknown implicit arg ID");
-      llvm_unreachable("Unknown implicit arg ID");
-    case ImplicitArgsUtils::IA_SLM_BUFFER:
-      ArgTypes[ID] = PointerType::get(IntegerType::get(C, 8), 3);
-      break;
-    case ImplicitArgsUtils::IA_WORK_GROUP_INFO:
-      ArgTypes[ID] = PointerType::get(pWorkDimType, 0);
-      break;
-    case ImplicitArgsUtils::IA_WORK_GROUP_ID:
-      ArgTypes[ID] = SizetPtrTy;
-      break;
-    case ImplicitArgsUtils::IA_GLOBAL_BASE_ID:
-      ArgTypes[ID] = PaddedDimIdTy;
-      break;
-    case ImplicitArgsUtils::IA_BARRIER_BUFFER:
-      ArgTypes[ID] = PointerType::get(IntegerType::get(C, 8), 0);
-      break;
-    case ImplicitArgsUtils::IA_CURRENT_WORK_ITEM:
-      ArgTypes[ID] = SizetPtrTy;
-      break;
-    case ImplicitArgsUtils::IA_RUNTIME_CONTEXT:
-      ArgTypes[ID] = PointerType::get(StructType::get(C), 0);
-      break;
-    }
-    Initialized = true;
+      switch (ID) {
+      default:
+        assert(false && "Unknown implicit arg ID");
+        llvm_unreachable("Unknown implicit arg ID");
+      case ImplicitArgsUtils::IA_SLM_BUFFER:
+        ArgTypes[ID] = PointerType::get(IntegerType::get(C, 8), 3);
+        break;
+      case ImplicitArgsUtils::IA_WORK_GROUP_INFO:
+        ArgTypes[ID] =
+            PointerType::get(StructType::get(C, WGInfoMembersTypes, false), 0);
+        break;
+      case ImplicitArgsUtils::IA_WORK_GROUP_ID:
+        ArgTypes[ID] = SizetPtrTy;
+        break;
+      case ImplicitArgsUtils::IA_GLOBAL_BASE_ID:
+        ArgTypes[ID] = PaddedDimIdTy;
+        break;
+      case ImplicitArgsUtils::IA_BARRIER_BUFFER:
+        ArgTypes[ID] = PointerType::get(IntegerType::get(C, 8), 0);
+        break;
+      case ImplicitArgsUtils::IA_CURRENT_WORK_ITEM:
+        ArgTypes[ID] = SizetPtrTy;
+        break;
+      case ImplicitArgsUtils::IA_RUNTIME_HANDLE:
+        ArgTypes[ID] = PointerType::get(StructType::get(C), 0);
+        break;
+      }
   }
-  // GetArgType - Returns the type of the ID implicit argument
+  // getArgType - Returns the type of the ID implicit argument
   Type *getArgType(unsigned ID) { return ArgTypes[ID]; }
+  const Type *getArgType(unsigned ID) const { return ArgTypes[ID]; }
+  // getWorkGroupInfoMemberType - Returns the type of the ID member of
+  // WORK_GROUP_INFO implicit argument (which is a struct)
+  Type *getWorkGroupInfoMemberType(unsigned ID) {
+    return WGInfoMembersTypes[ID];
+  }
+  const Type *getWorkGroupInfoMemberType(unsigned ID) const {
+    return WGInfoMembersTypes[ID];
+  }
 
   ~ImplicitArgsAnalysis() {
   }

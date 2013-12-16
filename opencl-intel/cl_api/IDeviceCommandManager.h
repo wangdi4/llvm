@@ -52,7 +52,7 @@ public:
 	virtual int EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet,
 		const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
         const void* pBlockLiteral, size_t stBlockSize, const size_t* pLocalSize, size_t stLocalSizeCount,
-        const _ndrange_t* pNDRange, const void* pHandle) = 0;
+        const _ndrange_t* pNDange, const void* pHandle) = 0;
 
 	/**
 	 * Enqueue a marker command on an on-device queue

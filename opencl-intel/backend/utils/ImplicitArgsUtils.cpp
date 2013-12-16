@@ -33,7 +33,7 @@ const ArgData impArgs[ImplicitArgsUtils::IA_NUMBER] = {
   {"pSpecialBuf",     false },
 #endif
   {"pCurrWI",         true},  //IA_CURRENT_WORK_ITEM
-  {"RuntimeContext",  true}}; //IA_RUNTIME_CONTEXT
+  {"RuntimeHandle",  true}}; //IA_RUNTIME_CONTEXT
 
 const char* ImplicitArgsUtils::getArgName(unsigned Idx) {
     //TODO: maybe we don't need impargs?

@@ -77,7 +77,7 @@ namespace intel{
     // GID argument
     newArgsVec.push_back(m_IAA->getArgType(ImplicitArgsUtils::IA_WORK_GROUP_ID));
     // Runtime context
-    newArgsVec.push_back(m_IAA->getArgType(ImplicitArgsUtils::IA_RUNTIME_CONTEXT));
+    newArgsVec.push_back(m_IAA->getArgType(ImplicitArgsUtils::IA_RUNTIME_HANDLE));
     // Create new functions return type
     FunctionType *FTy = FunctionType::get( pFunc->getReturnType(), newArgsVec, false);
 
@@ -232,7 +232,7 @@ namespace intel{
         assert(callIt->getType() == pArgGID->getType() && "Unmatching types");
         pArg = pArgGID;
         break;
-      case ImplicitArgsUtils::IA_RUNTIME_CONTEXT:
+      case ImplicitArgsUtils::IA_RUNTIME_HANDLE:
         // Runtime Context is passed by value as an argument to the wrapper
         assert(callIt->getType() == RuntimeContext->getType() &&
                "Unmatching types");

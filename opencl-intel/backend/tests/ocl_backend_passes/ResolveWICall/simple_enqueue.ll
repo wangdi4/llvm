@@ -1,4 +1,3 @@
-; XFAIL: *
 ; test get_default_queue() and enqueue_kernel() are replaced with callbacks
 ; RUN: opt -add-implicit-args -resolve-wi-call -S < %s | FileCheck %s
 
@@ -46,7 +45,7 @@ entry:
 ; CHECK:      i32 [[KERNEL_ENQUEUE_FLAGS:[0-9]+]],
 ; CHECK:      i8 addrspace(1)* [[NDRANGE:%[a-zA-Z0-9]+]],
 ; CHECK:      void ()* [[BLOCK:%[a-zA-Z0-9]+]],
-; CHECK:      i8* %extExecContextPointer)
+; CHECK:      {}* %RuntimeCallbacks, {}* %RuntimeHandle)
   %call2 = call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE(%opencl.queue_t* %0, i32 2, %opencl.ndrange_t* %1, void ()* %2) nounwind readnone
   store i32 %call2, i32* %enq_res, align 4
   ret void

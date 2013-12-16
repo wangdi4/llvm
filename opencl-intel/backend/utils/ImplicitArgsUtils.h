@@ -38,7 +38,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       "LocalSize_",
       "NumGroups_",
       "LoopIterCount",
-      "RunTimeCallBacks",
+      "RuntimeCallbacks",
       "NewLocalID_"
     };
     return Names[RecordID];
@@ -65,12 +65,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Basic Enqueue kernel
     // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,const ndrange_t ndrange,void (^block)(void))
     ICT_ENQUEUE_KERNEL_BASIC,
+    ICT_ENQUEUE_KERNEL_FIRST = ICT_ENQUEUE_KERNEL_BASIC,
     // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ?), uint size0, ?)
     ICT_ENQUEUE_KERNEL_LOCALMEM,
     // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,const ndrange_t ndrange,uint num_events_in_wait_list, const clk_event_t *event_wait_list,clk_event_t *event_ret,void (^block)(void))
     ICT_ENQUEUE_KERNEL_EVENTS,
     // int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ?), uint size0, ?)
     ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM,
+    ICT_ENQUEUE_KERNEL_LAST = ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM,
     // uint get_kernel_work_group_size (void (^block)(void))
     ICT_GET_KERNEL_WORK_GROUP_SIZE,
     // uint get_kernel_work_group_size (void (^block)(local void *, ...))
@@ -129,7 +131,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       IA_GLOBAL_BASE_ID,
       IA_BARRIER_BUFFER,
       IA_CURRENT_WORK_ITEM,
-      IA_RUNTIME_CONTEXT,
+      IA_RUNTIME_HANDLE,
       IA_NUMBER
     };
     static const unsigned int NUMBER_IMPLICIT_ARGS = IA_NUMBER;

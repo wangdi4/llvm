@@ -897,8 +897,4 @@ bool CompilationUtils::isWorkGroupUniform(const std::string& S) {
          isWorkGroupReduceMax(S);
 }
 
-Type * CompilationUtils::getExtendedExecContextType(LLVMContext& C){
-    return PointerType::getInt8PtrTy(C);
-  }
-
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

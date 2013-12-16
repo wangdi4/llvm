@@ -47,6 +47,7 @@ namespace intel {
     }
 
   protected:
+    Value* updateExtExecFunction(SmallVectorImpl<Value*> &Params, const StringRef FunctionName, CallInst *pCall);
     /// @brief Resolves the work item function calls of the kernel
     /// @param pFunc The function which needs it work item function calls to be resolved
     /// @returns The new function that all its work item function calls were resolved
@@ -111,8 +112,6 @@ namespace intel {
     Type * getBlockLocalMemType() const;
     /// @brief constructs type for return type of enqueue_kernel
     Type * getEnqueueKernelRetType() const;
-    /// @brief constructs type for extended execution context
-    Type * getExtendedExecContextType() const;
     /// @brief return ConstantInt::int32_type with zero value
     ConstantInt * getConstZeroInt32Value() const;
     /// @brief get or add from/to  module declaration of struct.__ndrange_t
@@ -126,9 +125,13 @@ namespace intel {
     ///        When done args will be added with 2 arguments for local_mem handling
     /// @param pCall - enqueue_kernel call instruction 
     /// @param LocalMemArgsOffs offset of 1st argument with local mem arguments
-    void addLocalMemArgs(std::vector<Value*>& args, 
-      CallInst *pCall,
-      const unsigned LocalMemArgsOffs);
+    void addLocalMemArgs(SmallVectorImpl<Value *> &args, CallInst *pCall,
+                         const unsigned LocalMemArgsOffs);
+    void appendWithCallBackContextAndRuntimeHandleTypes(
+        unsigned FuncType, SmallVectorImpl<Type *> &ArgTypes);
+    void appendWithCallBackContextAndRuntimeHandleValues(
+        unsigned FuncType, SmallVectorImpl<Value *> &Args,
+        Instruction *InsertBefore);
 
     ///@brief returns description of EnqueueMarker callback
     FunctionType* getEnqueueMarkerFunctionType();
@@ -141,7 +144,7 @@ namespace intel {
     ///@brief returns description of GetKernelWGSize and GerKernelPreferredWGSizeMultiple callbacks
     FunctionType* getGetKernelQueryFunctionType(unsigned type);
     ///@brief return description of ReleaseEvent and RetainEvent callbacks
-    FunctionType* getRetainAndReleaseEventFunctionType();
+    FunctionType* getRetainAndReleaseEventFunctionType(unsigned FuncType);
     ///@brief returns description of CreateUserEvent callback
     FunctionType* getCreateUserEventFunctionType();
     ///@brief returns description of SetUserEventStatus callback
@@ -154,12 +157,13 @@ namespace intel {
     ///@brief returns params List taken from pCall call
     ///!!! NOTE implicitly copies all pCall params to output
     ///!!! callback function should have the same arguments list + ExtExecContext as last argument
-    std::vector<Value*> getExtExecFunctionParams(CallInst *pCall);
+    void getExtExecFunctionParams(CallInst *pCall,
+                                  SmallVectorImpl<Value *> &Res);
     ///@brief returns params List taken from pCall call converted to
     /// proper representation
     ///!!! NOTE implicitly copies all pCall params to output
     ///!!! callback function should have the same arguments list + list of local vars sizes + ExtExecContext as last argument
-    std::vector<Value*> getEnqueueKernelLocalMemFunctionParams(CallInst *pCall, const uint32_t FixedArgs);
+    void getEnqueueKernelLocalMemFunctionParams(CallInst *pCall, const uint32_t FixedArgs, SmallVectorImpl<Value*> &Res);
     /// @brief Store Value to 'unsigned int workDimension' in ndrange_t struct
     StoreInst* StoreWorkDim(Value* Ptr, uint64_t V, LLVMContext* pContext, Instruction* InsertBefore);
     /// @brief store value to one of Arrays in ndrange_t struct
@@ -209,14 +213,13 @@ namespace intel {
     /// constant introduced for readability of code
     enum { ENQUEUE_KERNEL_RETURN_BITS = 32 };
 
-    // since both get_new_local_id and get_new_global_id rely on the same CSE it
-    // makes sense to cache this CSE it also makes the implementation avoid code
-    // duplication.
-    // maps a pair of <Dimension, CurrWI> -> get_new_local_id(Dimension, CurrWI)
-    //typedef GetNewLocalIDCache
-    //std::map<std::pair<Value *, Value *>, Instruction *>;
-    //GetNewLocalIDCache m_GetNewLocalIDs;
+    // Per function cached values
+    Function *m_F;
+    Value* m_RuntimeCallbacks;
+    void clearPerFunctionCache();
+    Value* getOrCreateRuntimeCallbacks();
   };
+
   
 } // namespace intel 
 

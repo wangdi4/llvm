@@ -1,5 +1,4 @@
 ; Not implemented in branch
-; XFAIL: *
 ; test enqueue_kernel with events are replaced with callbacks
 ; RUN: opt -add-implicit-args -resolve-wi-call -S < %s | FileCheck %s
 

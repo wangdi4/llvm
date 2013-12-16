@@ -1,4 +1,3 @@
-; XFAIL: *
 ; test ndrange_3D() is inlined
 ; RUN: opt -add-implicit-args -resolve-wi-call -S < %s | FileCheck %s
 
