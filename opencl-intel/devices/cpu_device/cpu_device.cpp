@@ -77,7 +77,11 @@ volatile bool CPUDevice::m_bDeviceIsRunning = false;
 
 struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *GetCPUDevInfo(CPUDeviceConfig& config)
 {
+#if defined ENABLE_KNL
+    static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {NULL, 0, 1, 0};
+#else
     static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {NULL, 1, 1, 0};
+#endif
     if (NULL == CPUDevInfo.sExtensionStrings)
     {
         if (CPUDetect::GetInstance()->IsProcessorType(PT_ATOM))
