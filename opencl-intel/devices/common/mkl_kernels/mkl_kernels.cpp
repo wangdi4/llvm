@@ -42,10 +42,14 @@ using namespace Intel::OpenCL::MKLKernels;
 /////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////
 
+#ifndef __MIC__
 Intel::OpenCL::Utils::OclDynamicLib g_mklRT;
+#endif
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #define GET_MKL_FUNCTION_PTR(NAME) ((Intel::OpenCL::Utils::OclDynamicLib::func_t)##NAME)
+#elif defined(__MIC__)
+#define GET_MKL_FUNCTION_PTR(NAME) ((Intel::OpenCL::Utils::OclDynamicLib::func_t)#NAME)
 #else
 #define GET_MKL_FUNCTION_PTR(NAME) g_mklRT.GetFunctionPtrByName(#NAME)
 #endif
@@ -65,6 +69,7 @@ Intel::OpenCL::Utils::OclDynamicLib g_mklRT;
 
 bool Intel::OpenCL::MKLKernels::InitLibrary()
 {
+#ifndef __MIC__
     // Check if MKL library in the system path
 #ifdef WIN32    
     if ( !g_mklRT.Load("mkl_core.dll") )
@@ -77,7 +82,7 @@ bool Intel::OpenCL::MKLKernels::InitLibrary()
 
     // Import set of exposed MKL functions
     #include"mkl_kernels.inc"
-
+#endif
     return true;
 }
 

@@ -65,12 +65,7 @@ if (WIN32)
             message( FATAL_ERROR "ICC for Xeon Phi(MIC) can't be found at ${ICC_INSTALL_DIR}")
     endif ()
     
-    execute_process(COMMAND ${ICC_INSTALL_DIR}\\bin\\intel64_mic\\icc -dumpversion OUTPUT_VARIABLE MIC_ICC_VERSION)
-    if (  MIC_ICC_VERSION VERSION_LESS 13.0 )
-        message(FATAL_ERROR "ICC ${MIC_ICC_VERSION} found, expected 13.x")
-    endif()
-    
-    message(STATUS "MIC C COMPILER: ${ICC_INSTALL_DIR}\\bin\\intel64_mic\\icc, version ${MIC_ICC_VERSION}" )
+    set( ICC_COMPILER ${ICC_INSTALL_DIR}\\bin\\intel64_mic\\icc )
     
     set( DEVICE_INIT_ENV_SCRIPT "${ICC_INSTALL_DIR}\\bin\\compilervars.bat" )
     set( DEVICE_LIBS_DIR    ${ICC_INSTALL_DIR}/lib/mic )
@@ -79,6 +74,7 @@ if (WIN32)
     set( DEVICE_COMPILER_SCRIPT     compile.bat )
     set( DEVICE_LINKER_SCRIPT       link.bat )
     set( DEVICE_ARCHIVE             "C:\\Program Files\\Intel\\MPSS\\x86_64-mpsssdk-linux\\usr\\bin\\k1om-mpss-linux\\k1om-mpss-linux-ar.exe" )
+    set( DEVICE_ASSEMBLER           "C:\\Program Files\\Intel\\MPSS\\x86_64-mpsssdk-linux\\usr\\bin\\k1om-mpss-linux\\k1om-mpss-linux-as.exe" )
     if (NOT EXISTS ${DEVICE_ARCHIVE})
         set( DEVICE_ARCHIVE "C:\\Program Files\\Intel\\MPSS\\sdk\\linux-k1om-4.7\\bin\\x86_64-k1om-linux-ar.exe" )
     endif()
@@ -92,14 +88,9 @@ else ()
     if ( NOT EXISTS ${ICC_INSTALL_DIR})
             message( FATAL_ERROR "ICC for Xeon Phi(MIC) can't be found")
     endif ()
-    
-    execute_process(COMMAND ${ICC_INSTALL_DIR}/bin/icc -dumpversion OUTPUT_VARIABLE MIC_ICC_VERSION)
-    if (  MIC_ICC_VERSION VERSION_LESS 13.0 )
-        message(FATAL_ERROR "ICC ${MIC_ICC_VERSION} found, expected 13.x")
-    endif()
-    
-    message(STATUS "MIC C COMPILER: ${ICC_INSTALL_DIR}/bin/icc, version ${MIC_ICC_VERSION}" )
-    
+
+    set( ICC_COMPILER ${ICC_INSTALL_DIR}/bin/icc )
+
     set( DEVICE_INIT_ENV_SCRIPT "${ICC_INSTALL_DIR}/bin/compilervars.sh" )
     set( DEVICE_LIBS_DIR    ${ICC_INSTALL_DIR}/lib/mic )    
     
@@ -107,7 +98,15 @@ else ()
     set( DEVICE_COMPILER_SCRIPT     compile.sh )
     set( DEVICE_LINKER_SCRIPT       link.sh )
     set( DEVICE_ARCHIVE             /usr/linux-k1om-4.7/bin/x86_64-k1om-linux-ar )
+    set( DEVICE_ASSEMBLER           /usr/linux-k1om-4.7/bin/x86_64-k1om-linux-as )
 endif (WIN32)
+
+execute_process(COMMAND ${ICC_COMPILER} -dumpversion OUTPUT_VARIABLE MIC_ICC_VERSION)
+if (  MIC_ICC_VERSION VERSION_LESS 13.0 )
+    message(FATAL_ERROR "ICC ${MIC_ICC_VERSION} found, expected 13.x or higher")
+endif()
+
+message(STATUS "MIC C COMPILER: ${ICC_COMPILER}, version ${MIC_ICC_VERSION}" )
 
 set( DEVICE_DEPENDENCY   ${BIN_DIR}/${DEVICE_DEPENDENCY_SCRIPT} )
 set( DEVICE_COMPILER     ${BIN_DIR}/${DEVICE_COMPILER_SCRIPT} )
@@ -145,8 +144,7 @@ function ( COMPILE_DEVICE_CXX_FILE FILE_FULL_PATH_NAME OBJ_FILE )
         set( FILE_FULL_PATH_NAME_NATIVE ${FILE_FULL_PATH_NAME} )
         set( OBJ_FILE_NATIVE ${OBJ_FILE} )
     else()
-
-    string( REPLACE "#" ";" DEPENDENCY_LIST ${DEPENDENCY_DATA} )
+        string( REPLACE "#" ";" DEPENDENCY_LIST ${DEPENDENCY_DATA} )
         file( TO_NATIVE_PATH "${FILE_FULL_PATH_NAME}" FILE_FULL_PATH_NAME_NATIVE)
         file( TO_NATIVE_PATH "${OBJ_FILE}" OBJ_FILE_NATIVE)
     endif (NOT WIN32)
@@ -167,6 +165,26 @@ function ( COMPILE_DEVICE_CXX_FILE FILE_FULL_PATH_NAME OBJ_FILE )
                         )
 
 endfunction ( COMPILE_DEVICE_CXX_FILE )
+
+#
+# Usage
+#     COMPILE_DEVICE_ASM_FILE( <asm_file_full_path_name> <obj_file_full_path_name>)
+#
+function ( COMPILE_DEVICE_ASM_FILE FILE_FULL_PATH_NAME OBJ_FILE )
+    get_filename_component( FILE_NAME ${FILE_FULL_PATH_NAME} NAME )
+
+    add_custom_command( OUTPUT ${OBJ_FILE}
+
+                        COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
+                        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
+                        COMMAND ${ICC_COMPILER} -EP ${FILE_FULL_PATH_NAME} | ${DEVICE_ASSEMBLER} -o ${OBJ_FILE}
+                        MAIN_DEPENDENCY ${FILE_FULL_PATH_NAME_NATIVE}
+                        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                        COMMENT "Compiling ${FILE_NAME} for ${DEVICE}"
+                        VERBATIM
+                        )
+
+endfunction ( COMPILE_DEVICE_ASM_FILE )
 
 #
 # Usage
@@ -289,15 +307,20 @@ function ( add_device_library LIBRARY_NAME )
         foreach( SRC_FILE ${ARGN} )
             get_filename_component( FILE_NAME ${SRC_FILE} NAME_WE )
             get_filename_component( FILE_PATH ${SRC_FILE} ABSOLUTE)
-            
-            set( OBJ_FILE ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}/${FILE_NAME}${OBJ_FILE_EXTENSION} )
+            get_filename_component( FILE_EXT  ${SRC_FILE} EXT )
 
-            COMPILE_DEVICE_CXX_FILE( ${FILE_PATH} ${OBJ_FILE} )
+            set( OBJ_FILE ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}/${FILE_NAME}${OBJ_FILE_EXTENSION} )
+            
+            if ( FILE_EXT STREQUAL ".s" )
+                COMPILE_DEVICE_ASM_FILE( ${FILE_PATH} ${OBJ_FILE} )
+            else()
+                COMPILE_DEVICE_CXX_FILE( ${FILE_PATH} ${OBJ_FILE} )
+            endif()
+            
             list( APPEND OBJ_LIST ${OBJ_FILE} )
         endforeach( SRC_FILE )
 
         CREATE_LIB_ARCHIVE ( ${LIBRARY_NAME} ${OBJ_LIST} )
-
     else ()
         message( FATAL_ERROR "No input files specified for ${TARGET_NAME}" )
     endif (${ARGC} GREATER 1)
@@ -460,7 +483,7 @@ if (INCLUDE_MKL)
     list( APPEND TARGET_DEPEND_LIBRARIES native_mkl_kernels )
     list( APPEND MIC_FLAGS -D__INCLUDE_MKL__ -I ${DEVICE_COMMON_DIR}/mkl_kernels/export -I ${MKL_INSTALL_DIR}/include)
     list( APPEND MIC_LINK_FLAGS -L ${MKL_INSTALL_DIR}/lib/mic )
-	#-lmkl_intel_ilp64 -lmkl_core -lmkl_intel_thread -lm
+    #-lmkl_intel_ilp64 -lmkl_core -lmkl_intel_thread -lm
     if( USE_OMP2TBB )
         list( APPEND TARGET_DEPEND_LIBRARIES native_omp2tbb )
         list( APPEND MIC_FLAGS -D__OMP2TBB__ )
@@ -483,8 +506,8 @@ endforeach( FLAG )
 
 if (WIN32)
     string( REPLACE  / \\ FINAL_MIC_FLAGS ${FINAL_MIC_FLAGS} )
-	string( REPLACE  / \\ FINAL_MIC_LINK_FLAGS ${FINAL_MIC_LINK_FLAGS} )
-	string( REPLACE  $(Configuration) %CONFIG_NAME% FINAL_MIC_LINK_FLAGS ${FINAL_MIC_LINK_FLAGS} )
+    string( REPLACE  / \\ FINAL_MIC_LINK_FLAGS ${FINAL_MIC_LINK_FLAGS} )
+    string( REPLACE  $(Configuration) %CONFIG_NAME% FINAL_MIC_LINK_FLAGS ${FINAL_MIC_LINK_FLAGS} )
 endif(WIN32)
 
 # FINAL_MIC_FLAGS and FINAL_MIC_LINK_FLAGS are used now
