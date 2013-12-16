@@ -27,7 +27,6 @@
 #pragma once
 
 namespace Intel { namespace OpenCL { namespace Utils {
-
 	//Local array is an implementation of an array of POD types that exists only within the current scope
 	template<class T>
 	class clLocalArray
@@ -56,8 +55,11 @@ namespace Intel { namespace OpenCL { namespace Utils {
 			}
 			m_data = NULL;
 		}
-		operator T*()   {return m_data;  }
-		T** operator&() {return &m_data; }
+		operator    T*(void)      { return m_data;      }
+        operator void*(void)      { return m_data;      }
+		T**   operator&(void)     { return &m_data;     }
+        T&    operator[](int inx) { return m_data[inx]; }
+
 	protected:
 		//It makes no sense to allocate this class on the heap
 		void* operator new(size_t sz) {return NULL;}

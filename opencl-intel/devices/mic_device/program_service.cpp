@@ -37,7 +37,10 @@
 #include "mic_device_interface.h"
 #include "mic_sys_info_internal.h"
 #include "mic_tracer.h"
-#include "cl_sys_defines.h"
+
+#include <cl_sys_defines.h>
+#include <builtin_kernels.h>
+#include <cl_local_array.h>
 
 #include <source/COIBuffer_source.h>
 #include <source/COIPipeline_source.h>
@@ -105,16 +108,6 @@ bool ProgramService::Init( void )
 
 ProgramService::~ProgramService()
 {
-    TProgramList::iterator    it;
-
-    // Go thought the map and remove all allocated programs
-    for(it = m_Programs.begin(); it != m_Programs.end(); ++it)
-    {
-        DeleteProgramEntry(*it);
-    }
-
-    m_Programs.clear();
-
     ReleaseBackendServices();
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "MICDevice: Program Service - Distructed");
@@ -221,7 +214,7 @@ const char* MICBackendOptions::GetStringValue( int optionId, const char* default
             return "mic";
 
         case CL_DEV_BACKEND_OPTION_SUBDEVICE:
-			return get_mic_cpu_arch();
+            return get_mic_cpu_arch();
 
         case CL_DEV_BACKEND_OPTION_DUMPFILE:
             return m_dump_file_name.c_str();
@@ -400,7 +393,7 @@ bool ProgramService::LoadBackendServices(void)
             break;
         }
 
-		const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
+        const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
         // get compiler options
         m_BE_Compiler.MICOptions.init( tMicConfig.UseVectorizer(),
                                        tMicConfig.UseVTune()
@@ -585,16 +578,13 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     }
 
     // Create new program
-    const cl_prog_container_header*    pProgCont = (cl_prog_container_header*)bin;
-    TProgramEntry*    pEntry        = new TProgramEntry(m_iDevId);
+    const cl_prog_container_header* pProgCont = (cl_prog_container_header*)bin;
+    TProgramEntry*                  pEntry    = new TProgramEntry(m_iDevId);
     if ( NULL == pEntry )
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "%s", "Cann't allocate program entry");
         return CL_DEV_OUT_OF_MEMORY;
     }
-    pEntry->pProgram = NULL;
-    pEntry->uid_program_on_device = (uint64_t)pEntry;
-    pEntry->clBuildStatus = CL_BUILD_NONE;
 
     cl_dev_err_code ret;
     switch(pProgCont->description.bin_type)
@@ -623,18 +613,44 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
         return CL_DEV_INVALID_BINARY;
     }
 
-    cl_dev_program newProgId = pEntry;
-
-    m_muPrograms.Lock();
-    m_Programs.push_back(pEntry);
-    m_muPrograms.Unlock();
-
-    *prog = newProgId;
+    *prog = (cl_dev_program)pEntry;
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "CreateProgram Exit");
     return CL_DEV_SUCCESS;
 }
 
+cl_dev_err_code ProgramService::CreateBuiltInKernelProgram( const char* IN szBuiltInNames,
+										cl_dev_program* OUT prog
+                                       )
+ {
+    MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%S"), TEXT("CreateBuiltInKernelProgram enter"));
+
+	ICLDevBackendProgram_* pProg;
+	cl_dev_err_code err = BuiltInKernels::BuiltInKernelRegistry::GetInstance()->CreateBuiltInProgram(szBuiltInNames, &pProg);
+	if ( CL_DEV_FAILED(err) )
+	{
+		MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("CreateBuiltInProgram failed with %x"), err);
+		return err;
+	}
+
+    // Allocate new entry for just created program
+    TProgramEntry*                  pEntry    = new TProgramEntry(m_iDevId);
+    if ( NULL == pEntry )
+    {
+        MicErrLog(m_pLogDescriptor, m_iLogHandle, "%s", "Cann't allocate program entry");
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+
+    // Now we need to create a program on device side
+    err = CreateBuiltinProgramOnDevice(pEntry, szBuiltInNames);
+
+    pEntry->clBuildStatus = CL_BUILD_SUCCESS;
+    pEntry->pProgram = pProg;
+
+	assert(NULL!=prog && "prog expected to be valid pointer");
+	*prog = (cl_dev_program)pEntry;
+	return CL_DEV_SUCCESS;
+}
 
 /*******************************************************************************************************************
 clDevBuildProgram
@@ -775,25 +791,6 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
     }
-
-    // Here we are sure that program exists and belongs to this device. Unregister it first!
-    TProgramList::iterator    it;
-
-    m_muPrograms.Lock();
-
-    for( it = m_Programs.begin(); it != m_Programs.end(); ++it)
-    {
-        if (*it == prog)
-        {
-            break;
-        }
-    }
-
-    // conversion cl_dev_program_2_program_entry() checks that program belongs to this device - it MUST be registered!
-    assert( (m_Programs.end() != it) && "MICDevice: Program not found in owner's device!");
-
-    m_Programs.erase(it);
-    m_muPrograms.Unlock();
 
     if (pEntry->pProgram->GetKernelsCount() > 0)
     {
@@ -1142,9 +1139,9 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
 
     case CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES:
         stValSize = sizeof(cl_dev_dispatch_buffer_prop);
-        dispatchProperties.size = pKernel->GetArgumentBufferSize() + sizeof(ndrange_dispatcher_data);
+        dispatchProperties.size = sizeof(ndrange_dispatcher_data) + pKernel->GetExplicitArgumentBufferSize() + sizeof(cl_uniform_kernel_args);
         dispatchProperties.argumentOffset = sizeof(ndrange_dispatcher_data);
-        dispatchProperties.alignment = 64; // Currently ask for 64 byte aligment. Next BE will provide maximum aligment for the buffer.
+        dispatchProperties.alignment = 64; // Currently ask for 64 byte alignment. Next BE will provide maximum alignment for the buffer.
         pValue = &dispatchProperties;
         break;
 
@@ -1157,20 +1154,20 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
             return CL_DEV_INVALID_VALUE;
     }
 
-	if ( NULL != valueSizeRet )
+    if ( NULL != valueSizeRet )
     {
         *valueSizeRet = stValSize;
     }
 
-	if ( NULL != value )
-	{
-		if ( NULL != pValue )
-		{
-			memcpy(value, pValue, stValSize);
-		} else {
-			memset(value, 0, stValSize);
-		}
-	}
+    if ( NULL != value )
+    {
+        if ( NULL != pValue )
+        {
+            memcpy(value, pValue, stValSize);
+        } else {
+            memset(value, 0, stValSize);
+        }
+    }
 
     return CL_DEV_SUCCESS;
 }
@@ -1215,7 +1212,6 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
     // copy program to device and get back list of kernel structs on device
     COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT input;
 
-    input.uid_program_on_device    = pEntry->uid_program_on_device;
     input.required_executable_size = program->GetProgramCodeContainer()->GetCodeSize();
     input.number_of_kernels        = kernels_count;
 
@@ -1227,7 +1223,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
     if (NULL == output)
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Program Service failed to allocate space on stack.", "");
-		STACK_FREE(output);
+        STACK_FREE(output);
         return false;
     }
 
@@ -1235,7 +1231,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
     {
         // problem copying to device
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Program Service failed to copy program to device.", "");
-		STACK_FREE(output);
+        STACK_FREE(output);
         return false;
     }
 
@@ -1245,55 +1241,14 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
         MicErrLog(m_pLogDescriptor, m_iLogHandle,
             "MICDevice: Program Service create all kernels on device: required %d created %d.",
             kernels_count, output->filled_kernels );
-		STACK_FREE(output);
+        STACK_FREE(output);
         return false;
     }
 
-    STATIC_ASSERT((sizeof(unsigned long long int)<=sizeof(uint64_t)));
+    bool res = FillProgramEntry(output, pEntry);
+    STACK_FREE(output);
 
-    // build kernel maps
-    for (int i = 0; i < kernels_count; ++i)
-    {
-        TKernelEntry* kernel_entry = new TKernelEntry;
-        assert( (NULL!=kernel_entry) && "Cannot allocate TKernelEntry structure" );
-        if ( NULL==kernel_entry )
-        {
-          MicErrLog(m_pLogDescriptor, m_iLogHandle,
-              TEXT("%s"), "MICDevice: Failed to allocate TKernelEntry");
-		  STACK_FREE(output);
-          return false;
-        }
-
-        COPY_PROGRAM_TO_DEVICE_KERNEL_INFO* info = &(output->device_kernel_info_pts[i]);
-
-        kernel_entry->pProgEntry = pEntry;
-
-        cl_dev_err_code err_code = program->GetKernel( i, &(kernel_entry->pKernel) );
-        assert( CL_DEV_SUCCEEDED(err_code) && kernel_entry->pKernel );
-
-        if ( CL_DEV_SUCCEEDED(err_code) && (NULL != kernel_entry->pKernel) )
-        {
-			if ( kernel_entry->pKernel->GetKernelID() != info->kernel_id )
-			{
-				assert( 0 && "Kernel IDs are the same on host and device" );
-				MicErrLog(m_pLogDescriptor, m_iLogHandle,
-					TEXT("MICDevice: Kernel ID on teh device(%lld) and the host(%lld) don't match."),
-		    		info->kernel_id, kernel_entry->pKernel->GetKernelID());
-				STACK_FREE(output);
-				return false;
-			}
-			// insert entry to the TKernelName2Entry map
-			pEntry->mapName2Kernels[ kernel_entry->pKernel->GetKernelName() ] = kernel_entry;
-
-			// insert entry to the TKernelId2Entry map
-			pEntry->mapId2Kernels[ kernel_entry->pKernel->GetKernelID() ] = kernel_entry;
-
-			kernel_entry->uDevKernelEntry = info->device_info_ptr; // to be updated later
-		}
-    }
-
-	STACK_FREE(output);
-    return true;
+    return res;
 }
 
 //
@@ -1383,13 +1338,16 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
             break;
         }
 
-		CommandTracer cmdTracer;
-		cmdTracer.set_command_id(input->uid_program_on_device);
-		cmdTracer.set_current_time_build_serialize_time_start();
+#ifdef __MIC_TRACER__
+        CommandTracer cmdTracer;
+        cmdTracer.set_command_id(input->uid_program_on_device);
+        cmdTracer.set_current_time_build_serialize_time_start();
+#endif
         // 4. Serialize program
         be_err = serializer->SerializeProgram( SERIALIZE_TO_DEVICE, pProgram, blob, prog_blob_size );
-		cmdTracer.set_current_time_build_serialize_time_end();
-
+#ifdef __MIC_TRACER__
+        cmdTracer.set_current_time_build_serialize_time_end();
+#endif
         assert( CL_DEV_SUCCEEDED( be_err ) && "MIC BE SerializeProgram()" );
 
         if (CL_DEV_FAILED(be_err))
@@ -1504,6 +1462,96 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
     return ok;
 }
 
+cl_dev_err_code ProgramService::CreateBuiltinProgramOnDevice(TProgramEntry* pEntry, const char* szBuiltInNames)
+{
+    // Currently we move funciton names in MISC buffer.
+    // Later if size is not enough need move to separate buffer
+    size_t sizeOfNames = strlen(szBuiltInNames);
+    if ( sizeOfNames > COI_PIPELINE_MAX_IN_MISC_DATA_LEN )
+    {
+        assert(0 && "List of built-in program kernel is too long");
+        return CL_DEV_ERROR_FAIL;
+    }
+
+    int kernelCount = pEntry->pProgram->GetKernelsCount();
+    size_t outputSize = (kernelCount+1)*sizeof(pEntry->uid_program_on_device);
+    if ( outputSize > COI_PIPELINE_MAX_IN_MISC_DATA_LEN )
+    {
+        assert(0 && "The number of output kernel pointer is too large");
+        return CL_DEV_ERROR_FAIL;
+    }
+
+    // allocate output strcut on my stack
+    size_t required_output_struct_size = COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT_SIZE( kernelCount );
+    COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* output = (COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT*)STACK_ALLOC( required_output_struct_size );
+
+    // Now build program on the device side
+    bool done = m_DevService.runServiceFunction(
+                                    DeviceServiceCommunication::CREATE_BUILT_IN_PROGRAM,
+                                    sizeOfNames+1, szBuiltInNames,                          // input_data
+                                    required_output_struct_size, output,                    // ouput_data
+                                    0, NULL, NULL);                                         // buffers passed
+    if (!done || ( (uint64_t)kernelCount != output->filled_kernels) )
+    {
+        STACK_FREE(output);
+        return CL_DEV_ERROR_FAIL;
+    }
+
+    pEntry->copy_to_device_ok = true;
+
+    STACK_FREE(output);
+
+    return CL_DEV_SUCCESS;
+}
+
+
+bool ProgramService::FillProgramEntry(const COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* devicePorgram, TProgramEntry* pEntry)
+{
+    STATIC_ASSERT((sizeof(unsigned long long int)<=sizeof(uint64_t)));
+
+    pEntry->uid_program_on_device = devicePorgram->uid_program_on_device;
+
+    // build kernel maps
+    for (unsigned int i = 0; i < devicePorgram->filled_kernels; ++i)
+    {
+        TKernelEntry* kernel_entry = new TKernelEntry;
+        assert( (NULL!=kernel_entry) && "Cannot allocate TKernelEntry structure" );
+        if ( NULL==kernel_entry )
+        {
+          MicErrLog(m_pLogDescriptor, m_iLogHandle,
+              TEXT("%s"), "MICDevice: Failed to allocate TKernelEntry");
+          return false;
+        }
+
+        const COPY_PROGRAM_TO_DEVICE_KERNEL_INFO* info = &(devicePorgram->device_kernel_info_pts[i]);
+
+        kernel_entry->pProgEntry = pEntry;
+
+        cl_dev_err_code err_code = pEntry->pProgram->GetKernel( i, &(kernel_entry->pKernel) );
+        assert( CL_DEV_SUCCEEDED(err_code) && kernel_entry->pKernel );
+
+        if ( CL_DEV_SUCCEEDED(err_code) && (NULL != kernel_entry->pKernel) )
+        {
+            if ( kernel_entry->pKernel->GetKernelID() != info->kernel_id )
+            {
+                assert( 0 && "Kernel IDs are the same on host and device" );
+                MicErrLog(m_pLogDescriptor, m_iLogHandle,
+                    TEXT("MICDevice: Kernel ID on teh device(%lld) and the host(%lld) don't match."),
+                    info->kernel_id, kernel_entry->pKernel->GetKernelID());
+                return false;
+            }
+            // insert entry to the TKernelName2Entry map
+            pEntry->mapName2Kernels[ kernel_entry->pKernel->GetKernelName() ] = kernel_entry;
+
+            // insert entry to the TKernelId2Entry map
+            pEntry->mapId2Kernels[ kernel_entry->pKernel->GetKernelID() ] = kernel_entry;
+
+            kernel_entry->uDevKernelEntry = info->device_info_ptr; // to be updated later
+        }
+    }
+
+    return true;
+}
 //
 // Remove program from device
 //

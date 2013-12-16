@@ -19,9 +19,8 @@ File Name:  CPUDeviceBackendFactory.cpp
 #include "CPUDeviceBackendFactory.h"
 #include "CPUProgram.h"
 #include "Kernel.h"
+#include "CPUKernel.h"
 #include "KernelProperties.h"
-#include "CPUExecutable.h"
-#include "Binary.h"
 #include <assert.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -56,7 +55,7 @@ Program* CPUDeviceBackendFactory::CreateProgram()
 
 Kernel* CPUDeviceBackendFactory::CreateKernel()
 {
-    return new Kernel();
+    return new CPUKernel();
 }
 
 Kernel* CPUDeviceBackendFactory::CreateKernel(
@@ -65,7 +64,7 @@ Kernel* CPUDeviceBackendFactory::CreateKernel(
     const std::vector<unsigned int>& memArgs,
     KernelProperties* pProps)
 {
-    return new Kernel(name, args, memArgs, pProps);
+    return new CPUKernel(name, args, memArgs, pProps);
 }
 
 KernelProperties* CPUDeviceBackendFactory::CreateKernelProperties()
@@ -76,36 +75,6 @@ KernelProperties* CPUDeviceBackendFactory::CreateKernelProperties()
 KernelJITProperties* CPUDeviceBackendFactory::CreateKernelJITProperties()
 {
     return new KernelJITProperties();
-}
-
-Binary* CPUDeviceBackendFactory::CreateBinary( 
-    ICLDevBackendBufferPrinter* pPrinter,
-    IDeviceCommandManager *pDeviceCommandManager,
-    const IBlockToKernelMapper *pBlockToKernelMapper,
-    const KernelProperties* pKernelProperties,
-    const std::vector<cl_kernel_argument>& args,
-    const cl_work_description_type* pWorkInfo,
-    const IKernelJITContainer* pScalarJIT,
-    const IKernelJITContainer* pVectorJIT,
-    char* IN pArgsBuffer, 
-    size_t IN ArgBuffSize)
-{
-    return new Binary(this,
-                    pPrinter,
-                    pDeviceCommandManager,
-                    pBlockToKernelMapper,
-                    pKernelProperties,
-                    args,
-                    pWorkInfo,
-                    pScalarJIT,
-                    pVectorJIT,
-                    pArgsBuffer, 
-                    ArgBuffSize);
-}
-
-Executable* CPUDeviceBackendFactory::CreateExecutable(const Binary* pBinary)
-{
-    return new CPUExecutable(pBinary);
 }
 
 }}} // namespace

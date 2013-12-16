@@ -20,6 +20,7 @@
 
 #include "command.h"
 #include "cl_sys_info.h"
+#include "cl_shared_ptr.hpp"
 
 using namespace Intel::OpenCL::DeviceCommands;
 using Intel::OpenCL::Utils::OclAutoMutex;

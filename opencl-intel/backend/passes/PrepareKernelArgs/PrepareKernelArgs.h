@@ -14,10 +14,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
+#include "ImplicitArgsAnalysis/ImplicitArgsAnalysis.h"
 
 #include <map>
 
 using namespace llvm;
+using namespace intel;
 
 namespace Intel {
   class MetaDataUtils;
@@ -27,8 +29,8 @@ namespace intel {
   /// @brief  PrepareKernelArgs changes the way arguments are passed to kernels.
   ///         It changes the kernel to receive as arguments a single buffer
   ///         which contains the the kernel's original and implicit arguments.
-  ///         loads the arguments and calls the originaol kernel.
-  ///         The position of the arguments in the buffer is calcilated based on
+  ///         loads the arguments and calls the original kernel.
+  ///         The position of the arguments in the buffer is calculated based on
   ///         the arguments' alignment, which in non LLVM dependant.
   class PrepareKernelArgs : public ModulePass {
 
@@ -49,12 +51,15 @@ namespace intel {
     /// @returns true if changed
     bool runOnModule(Module &M);
 
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<ImplicitArgsAnalysis>();
+    }
   protected:
     /// @brief  Creates a wrapper function for the given function that receives
     ///         one buffer as argument, creates load instructions that load the
     ///         function arguments from the buffer, creates a call to the given
     ///         funciton with the loaded arguments.
-    /// @param  pFunc The kernel for which to create a wrapper
+    /// @param  pKernel The kernel which is wrapped by the wrapper
     /// @returns true if changed
     bool runOnFunction(Function *pFunc);
 
@@ -77,11 +82,16 @@ namespace intel {
     /// @param  builder An IR builder that allows to add instructions to the wrapper.
     /// @param  pFunc The kernel which is wrapped by the wrapper
     /// @param  pArgsBuffer The single buffer argument that is passed to the wrapper
-    ///         the pFunc arguments neew to be loaded from this buffer
+    ///         the pFunc arguments need to be loaded from this buffer
     /// @returns A parameters vector - the loaded values that need to be used when calling pFunc
-    std::vector<Value*> createArgumentLoads(IRBuilder<>& builder, Function* pFunc, Argument *pArgsBuffer);
+    std::vector<Value *> createArgumentLoads(IRBuilder<> &builder,
+                                             Function *pKernel,
+                                             Argument *pArgsBuffer,
+                                             Argument *pArgGID,
+                                             Argument *RuntimeContext);
 
-
+    Type* getGIDWrapperArgType() const;
+    Type* getRuntimeContextWrapperArgType() const;
   private:
     /// @brief The llvm module this pass needs to update
     Module                *m_pModule;
@@ -93,6 +103,7 @@ namespace intel {
 
     /// @brief holds Meta Data utils
     Intel::MetaDataUtils  *m_mdUtils;
+    intel::ImplicitArgsAnalysis *m_IAA;
 
     /// @brief Size of Moudle pointer in bits
     unsigned              m_PtrSizeInBytes;

@@ -8,8 +8,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __ADD_IMPLICIT_ARGS_H__
 #define __ADD_IMPLICIT_ARGS_H__
 
-#include "LocalBuffAnalysis.h"
-
+#include "LocalBuffAnalysis/LocalBuffAnalysis.h"
+#include "ImplicitArgsAnalysis/ImplicitArgsAnalysis.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
@@ -46,6 +46,7 @@ namespace intel {
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       // Depends on LocalBuffAnalysis for finding all local buffers each function uses directly
       AU.addRequired<LocalBuffAnalysis>();
+      AU.addRequired<ImplicitArgsAnalysis>();
     }
 
   protected:
@@ -63,9 +64,6 @@ namespace intel {
     /// @param visited set with metadata we alreay visit.
     void iterateMDTree(MDNode* pMetadata, std::set<MDNode *> &visited);
 
-    /// @brief Adds implicit arguments structure declarations to the module
-    void addWIInfoDeclarations();
-
     /// @brief helper function. replaces call instruction with call instruction
     ///        that receives implicit arguments
     /// @param CI pointer to CallInst
@@ -79,18 +77,15 @@ namespace intel {
 
     /// @brief The LocalBuffAnalysis pass, on which the current pass depends
     LocalBuffAnalysis       *m_localBuffersAnalysis;
-
+    /// @brief The ImplicitArgsAnalysis pass, on which the current pass depends
+    ImplicitArgsAnalysis    *m_IAA;
     /// @brief The llvm context
     LLVMContext                *m_pLLVMContext;
 
     /// @brief Maps call instructions to the implicit arguments needed to patch up the call
     std::map<llvm::CallInst *, llvm::Value **> m_fixupCalls;
 
-
-    Type* m_struct_PaddedDimId;
     Type* m_struct_WorkDim;
-    /// ExtendedExecutionContext opaque type
-    Type * m_struct_ExtendedExecutionContextType;
 
     Function* m_pFunc;
     Function* m_pNewF;

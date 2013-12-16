@@ -27,7 +27,6 @@
 #pragma once
 #include "task_handler.h"
 #include "program_memory_manager.h"
-#include "native_printf.h"
 #include "mic_tbb_tracer.h"
 #include "mic_device_interface.h"
 
@@ -39,7 +38,9 @@
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
-class NDRangeTask : virtual public Intel::OpenCL::TaskExecutor::ITaskSet, virtual public TaskHandler<NDRangeTask, Intel::OpenCL::MICDevice::ndrange_dispatcher_data >
+class NDRangeTask : virtual public Intel::OpenCL::TaskExecutor::ITaskSet,
+                    virtual public TaskHandler<NDRangeTask, Intel::OpenCL::MICDevice::ndrange_dispatcher_data >,
+                    virtual public ICLDevBackendDeviceAgentCallback
 {
 public:
     PREPARE_SHARED_PTR(NDRangeTask)
@@ -105,25 +106,26 @@ public:
     Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL;}
 
     typedef Intel::OpenCL::MICDevice::ndrange_dispatcher_data dispatcher_data_type;
+
+
+    // ICLDevBackendDeviceAgentCallback methods
+    int Print(const char* buffer, void* pHandle);
+
 protected:
     friend class TaskHandler<NDRangeTask, Intel::OpenCL::MICDevice::ndrange_dispatcher_data >;
     // Copy constructor used for task duplication
     NDRangeTask(const NDRangeTask& o);
 
-    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*   m_kernel;
-    Intel::OpenCL::DeviceBackend::ICLDevBackendBinary_*         m_pBinary;
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*       m_pKernel;
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelRunner*  m_pRunner;
 
-#ifndef __NEW_BE_API__
-    // !!!!!!
-    // TODO: Remove with new API
-    // Executable information
-    size_t                m_MemBuffCount;
-    size_t*               m_pMemBuffSizes;
-    //////////////////////////////////////////
-#endif
+    char*                                   m_pKernelArgs;
+    cl_uniform_kernel_args*                 m_pUniformArgs;
 
-    // Print handle for this command
-    PrintfHandle          m_printHandle;
+    __thread static Intel::OpenCL::DeviceBackend::ICLDevBackendKernelRunner::ICLDevExecutionState    m_tExecutionState;
+
+
+    volatile bool         m_flushAtExit;   // Flush command when printf() was called in context of this NDRange
     bool                  m_bSecureExecution;
 
 #ifdef ENABLE_MIC_TRACER

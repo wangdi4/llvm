@@ -41,8 +41,8 @@
 using namespace Intel::OpenCL::Framework;
 
 // In this file we use CompileTask, LinkTask and PostBuildTask as building blocks to create a general build tree.
-// for a full build we use CompileTask -> LinkTask -> PostBuildTask where CompileTask and LinkTask are created 
-// for each device and dependent only on the previouse task for the same device. PostBuildTask is created once
+// for a full build we use CompileTask -> LinkTask -> DeviceBuildTask -> PostBuildTask where CompileTask and LinkTask and DeviceBuildTask
+// are created for each device and dependent only on the previouse task for the same device. PostBuildTask is created once
 // for all the devices and dependent on the prevous tasks on all the devices.
 // When compiling a program we dont' use the LinkTask and when Linking a program, we don't use the CompileTask.
 // Since we need the PostBuildTask to be executed even when a build fail in order to clean up all the used resources.
@@ -142,9 +142,9 @@ bool CompileTask::Execute()
         return true;
     }
 
-    m_pProg->SetBuildLogInternal(m_deviceID, "Compilation done\n");
-
     //Else compile succeeded
+    m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_COMPILED);
+    m_pProg->SetBuildLogInternal(m_deviceID, "Compilation done\n");
     m_pProg->SetBinaryInternal(m_deviceID, uiBinarySize, pBinary);
     delete[] pBinary;
     SetComplete(CL_BUILD_SUCCESS);
@@ -280,32 +280,74 @@ bool LinkTask::Execute()
 
     //Else link succeeded
 
-    // If we are creating library, no need for BE build
-    if (bIsLibrary)
+    // If not library, need to update binary format to be executable
+    if ( !bIsLibrary )
     {
-        
-        m_pProg->SetBinaryInternal(m_deviceID, uiBinarySize, pBinary);
-        m_pProg->SetBuildLogInternal(m_deviceID, "Linking done\n");
+        cl_prog_container_header* pHeader = (cl_prog_container_header*)pBinary;
+        pHeader->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
+    }
+
+    m_pProg->SetBinaryInternal(m_deviceID, uiBinarySize, pBinary);
+    m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINKED);
+    m_pProg->SetBuildLogInternal(m_deviceID, "Linking done\n");
+    SetComplete(CL_BUILD_SUCCESS);
+    delete[] pBinary;
+    return true;
+}
+
+void LinkTask::Cancel()
+{
+    SetComplete(CL_BUILD_ERROR);
+}
+
+
+DeviceBuildTask::DeviceBuildTask(_cl_context_int*           context,
+                                cl_device_id                deviceID,
+                                IOCLDeviceAgent*            pDeviceAgent,
+                                const char*                 szOptions,
+                                const SharedPtr<Program>&   pProg) :
+BuildTask(context, pProg, NULL), 
+m_deviceID(deviceID), m_pDeviceAgent(pDeviceAgent), m_szOptions(szOptions)
+{
+}
+
+DeviceBuildTask::~DeviceBuildTask()
+{
+}
+
+bool DeviceBuildTask::Execute()
+{
+    const char*     pBinary         = NULL;
+    size_t          uiBinarySize    = 0;
+    cl_dev_program  programHandle   = NULL;
+    cl_build_status build_status;
+
+    EDeviceProgramState state = m_pProg->GetStateInternal(m_deviceID);
+    // To run device specific build program must be LINKED or device specific binary loaded
+    if ( (state != DEVICE_PROGRAM_LINKED) &&
+         (state != DEVICE_PROGRAM_CUSTOM_BINARY) )
+    {
         SetComplete(CL_BUILD_SUCCESS);
-        delete[] pBinary;
         return true;
     }
 
-    cl_dev_program      programHandle;
-    cl_build_status     build_status;
+    uiBinarySize = m_pProg->GetBinarySizeInternal(m_deviceID);
+    pBinary = m_pProg->GetBinaryInternal(m_deviceID);
 
-    cl_prog_container_header*	pHeader = (cl_prog_container_header*)pBinary;
-    pHeader->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
-
-    m_pProg->SetBinaryInternal(m_deviceID, uiBinarySize, pBinary);
+    // If we are building library no need for device build
+    cl_prog_container_header* pHeader = (cl_prog_container_header*)pBinary;
+    if (CL_PROG_BIN_EXECUTABLE_LLVM != pHeader->description.bin_type)
+    {
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
 
     cl_dev_err_code err = m_pDeviceAgent->clDevCheckProgramBinary(uiBinarySize, pBinary);
     if (CL_DEV_SUCCESS != err)
     {
         //Build failed
-        delete[] pBinary;
-        m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
-        m_pProg->SetBuildLogInternal(m_deviceID, "Linking failed\n");
+        m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_BUILD_FAILED);
+        m_pProg->SetBuildLogInternal(m_deviceID, "Binary is not supported by the device\n");
         SetComplete(CL_BUILD_SUCCESS);
         return true;
     }
@@ -314,40 +356,39 @@ bool LinkTask::Execute()
     if (CL_DEV_SUCCESS != err)
     {
         //Build failed
-        delete[] pBinary;
-        m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_LINK_FAILED);
-        m_pProg->SetBuildLogInternal(m_deviceID, "Linking failed\n");
+        m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_BUILD_FAILED);
+        m_pProg->SetBuildLogInternal(m_deviceID, "Failed to create device program\n");
         SetComplete(CL_BUILD_SUCCESS);
         return true;
     }
-	
-	  m_pProg->SetDeviceHandleInternal(m_deviceID, programHandle);
 
-    delete[] pBinary;
-
+    m_pProg->SetDeviceHandleInternal(m_deviceID, programHandle);
+    m_pProg->SetBuildLogInternal(m_deviceID, "Device build started\n");
     m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_BE_BUILDING);
 
     err = m_pDeviceAgent->clDevBuildProgram(programHandle, m_szOptions, &build_status);
 
-    assert(CL_BUILD_ERROR == build_status || CL_BUILD_SUCCESS == build_status);
+    assert( (CL_BUILD_ERROR == build_status || CL_BUILD_SUCCESS == build_status) && "Unknown build status returned by the device agent" );
 
-	  if (CL_BUILD_ERROR == build_status)
-	  {
+    if (CL_BUILD_ERROR == build_status)
+    {
         m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_BUILD_FAILED);
-        m_pProg->SetBuildLogInternal(m_deviceID, "Linking failed\n");
+        m_pProg->SetBuildLogInternal(m_deviceID, "Failed to build device program\n");
         SetComplete(CL_BUILD_SUCCESS);
-		    return true;
-	  }
-  
-    m_pProg->SetBuildLogInternal(m_deviceID, "Linking done\n");
+        return true;
+    }
+
+    m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_BUILD_DONE);
+    m_pProg->SetBuildLogInternal(m_deviceID, "Device build done\n");
     SetComplete(CL_BUILD_SUCCESS);
-	  return true;
+    return true;
 }
 
-void LinkTask::Cancel()
+void DeviceBuildTask::Cancel()
 {
     SetComplete(CL_BUILD_ERROR);
 }
+
 
 PostBuildTask::PostBuildTask(_cl_context_int* context, 
                              cl_uint num_devices, 
@@ -396,27 +437,12 @@ bool PostBuildTask::Execute()
         cl_device_id devID = m_deviceID[i];
         EDeviceProgramState currState = m_pProg->GetStateInternal(devID);
 
-        switch (currState)
+        // if requested task was successful then program must be in one of these states
+        if ( (currState != DEVICE_PROGRAM_COMPILED) &&
+             (currState != DEVICE_PROGRAM_LINKED)   &&
+             (currState != DEVICE_PROGRAM_BUILD_DONE) )
         {
-        case DEVICE_PROGRAM_FE_COMPILING:
-            m_pProg->SetStateInternal(devID, DEVICE_PROGRAM_COMPILED);
-            break;
-
-        case DEVICE_PROGRAM_FE_LINKING:
-            m_pProg->SetStateInternal(devID, DEVICE_PROGRAM_LINKED);
-            break;
-
-        case DEVICE_PROGRAM_BE_BUILDING:
-            m_pProg->SetStateInternal(devID, DEVICE_PROGRAM_BUILD_DONE);
-            break;
-
-        case DEVICE_PROGRAM_BUILD_DONE:
-            // PostBuildTask was only called for cleanup
-            break;
-
-        default:
             bBuildFailed = true;
-            break;
         }
 
         m_pProg->Unacquire(devID);
@@ -953,11 +979,13 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
     }
 
 	vector<SharedPtr<OclEvent> > ppLinkTasks(uiNumDevices);
+	vector<SharedPtr<OclEvent> > ppDeviceBuildTasks(uiNumDevices);
 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         pDevices[i] = NULL;
         ppLinkTasks[i] = NULL;
+        ppDeviceBuildTasks[i] = NULL;
     }
 
     // Phase one: Get a list of build devices
@@ -1047,6 +1075,11 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
       cl_device_id deviceID = pDevices[i];
+      if ( DEVICE_PROGRAM_CUSTOM_BINARY == program->GetStateInternal(deviceID) )
+      {
+          // For custom binaries no need call to FE compiler, no compiler or linker services
+          continue;
+      }
       SharedPtr<FissionableDevice> pDevice = m_pContext->GetDevice(deviceID);
 
       pfeCompilers[i] = pDevice->GetRootDevice()->GetFrontEndCompiler();
@@ -1083,6 +1116,7 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
         switch (program->GetStateInternal(deviceID))
         {
         case DEVICE_PROGRAM_INVALID:
+        case DEVICE_PROGRAM_CREATED:
             {
                 // program is created specially for linking purposes so no action should have been done yet
                 if (pbBuildForDevice[i])
@@ -1096,18 +1130,35 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
                     {
                         program->SetStateInternal(deviceID, DEVICE_PROGRAM_BUILD_FAILED);
                     }
+                }
+            } //Intentional fall through.
+        case DEVICE_PROGRAM_LINKED:
+            {
+                // program was linked, we need to build it on device
+                if (pbBuildForDevice[i])
+                {
+                    bNeedToBuild = true;
+                    program->SetStateInternal(deviceID, DEVICE_PROGRAM_BE_BUILDING);
+                    ppDeviceBuildTasks[i] = DeviceBuildTask::Allocate(context, deviceID, pDeviceAgent, szBuildOptions, program);
+                    if (NULL == ppDeviceBuildTasks[i])
+                    {
+                        program->SetStateInternal(deviceID, DEVICE_PROGRAM_BUILD_FAILED);
+                    }
+                    else if (NULL != ppLinkTasks[i])
+                    {
+                        ppDeviceBuildTasks[i]->AddDependentOn(ppLinkTasks[i]);
+                    }
 
                     program->ClearBuildLogInternal(deviceID);
                     program->SetBuildOptionsInternal(deviceID, options);
-                }  
-
-				continue;
+                }
             }
+            continue;
+
         case DEVICE_PROGRAM_BUILD_DONE:
         case DEVICE_PROGRAM_BUILD_FAILED:
-        case DEVICE_PROGRAM_SOURCE:	
+        case DEVICE_PROGRAM_SOURCE:
         case DEVICE_PROGRAM_COMPILED:
-        case DEVICE_PROGRAM_LINKED:
         case DEVICE_PROGRAM_LOADED_IR:
         case DEVICE_PROGRAM_FE_COMPILING:
         case DEVICE_PROGRAM_FE_LINKING:
@@ -1131,9 +1182,9 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
-        if (NULL != ppLinkTasks[i])
+        if (NULL != ppDeviceBuildTasks[i])
         {
-            pPostBuildTask->AddDependentOn(ppLinkTasks[i]);
+            pPostBuildTask->AddDependentOn(ppDeviceBuildTasks[i]);
         }
     }
 
@@ -1144,6 +1195,21 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
             SharedPtr<BuildTask> pBuildTask = ppLinkTasks[i].DynamicCast<BuildTask>();
             assert(pBuildTask);
             pBuildTask->Launch();
+        }
+    }
+
+    // if building from linked object we need to launch deviceBuildTask explicitly
+    // TODO: currently not supported
+    for (unsigned int i = 0; i < uiNumDevices; ++i)
+    {
+        if (NULL == ppLinkTasks[i])
+        {
+            if (ppDeviceBuildTasks[i])
+            {
+                SharedPtr<BuildTask> pBuildTask = ppDeviceBuildTasks[i].DynamicCast<BuildTask>();
+                assert(pBuildTask);
+                pBuildTask->Launch();
+            }
         }
     }
 
@@ -1247,11 +1313,22 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         return CL_OUT_OF_HOST_MEMORY;
     }
 
+    SharedPtr<OclEvent>* ppDeviceBuildTasks = new SharedPtr<OclEvent>[uiNumDevices];
+    if (NULL == ppLinkTasks)
+    {
+        delete[] szBuildOptions;
+        delete[] pDevices;
+        delete[] ppCompileTasks;
+        delete[] ppLinkTasks;
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         pDevices[i] = NULL;
         ppCompileTasks[i] = NULL;
         ppLinkTasks[i] = NULL;
+        ppDeviceBuildTasks[i] = NULL;
     }
 
 
@@ -1278,6 +1355,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 delete[] pDevices;
                 delete[] ppCompileTasks;
                 delete[] ppLinkTasks;
+                delete[] ppDeviceBuildTasks;
                 return CL_INVALID_OPERATION;
             }
 
@@ -1307,6 +1385,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 delete[] pDevices;
                 delete[] ppCompileTasks;
                 delete[] ppLinkTasks;
+                delete[] ppDeviceBuildTasks;
                 return CL_INVALID_OPERATION;
             }
         }
@@ -1325,6 +1404,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         delete[] pDevices;
         delete[] ppCompileTasks;
         delete[] ppLinkTasks;
+        delete[] ppDeviceBuildTasks;
 
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1332,6 +1412,12 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
       cl_device_id deviceID = pDevices[i];
+      if ( DEVICE_PROGRAM_CUSTOM_BINARY == program->GetStateInternal(deviceID) )
+      {
+          // For custom binaries no need call to FE compiler, no compiler or linker services
+          continue;
+      }
+
       SharedPtr<FissionableDevice> pDevice = m_pContext->GetDevice(deviceID);
 
       pfeCompilers[i] = pDevice->GetRootDevice()->GetFrontEndCompiler();
@@ -1361,6 +1447,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
           delete[] pDevices;
           delete[] ppCompileTasks;
           delete[] ppLinkTasks;
+          delete[] ppDeviceBuildTasks;
           delete[] szUnrecognizedOptions;
 		      delete[] pfeCompilers;
           return CL_INVALID_BUILD_OPTIONS;
@@ -1423,10 +1510,9 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 //Intentional fall through.
             }
         case DEVICE_PROGRAM_COMPILED:
-        case DEVICE_PROGRAM_LINKED:
         case DEVICE_PROGRAM_LOADED_IR:
             {
-                // Building from bin
+                // Building from compiled object
                 bNeedToBuild = true;
                 program->SetStateInternal(deviceID, DEVICE_PROGRAM_FE_LINKING);
                 ppLinkTasks[i] = LinkTask::Allocate(context, deviceID, feCompiler, pDeviceAgent, NULL, 0, 
@@ -1439,11 +1525,29 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 {
                     ppLinkTasks[i]->AddDependentOn(ppCompileTasks[i]);
                 }
+                //Intentional fall through.
+            }
+        case DEVICE_PROGRAM_LINKED:
+        case DEVICE_PROGRAM_CUSTOM_BINARY:
+            {
+                // Building from linked or custom binary
+                bNeedToBuild = true;
+                program->SetStateInternal(deviceID, DEVICE_PROGRAM_BE_BUILDING);
+                ppDeviceBuildTasks[i] = DeviceBuildTask::Allocate(context, deviceID, pDeviceAgent, szBuildOptions, program);
+                if (NULL == ppDeviceBuildTasks[i])
+                {
+                    program->SetStateInternal(deviceID, DEVICE_PROGRAM_BUILD_FAILED);
+                }
+                else if (NULL != ppLinkTasks[i])
+                {
+                    ppDeviceBuildTasks[i]->AddDependentOn(ppLinkTasks[i]);
+                }
 
                 program->ClearBuildLogInternal(deviceID);
                 program->SetBuildOptionsInternal(deviceID, options);
-                break;
             }
+            break;
+
         default:
         case DEVICE_PROGRAM_FE_COMPILING:
         case DEVICE_PROGRAM_FE_LINKING:
@@ -1464,17 +1568,19 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
     {
 		delete[] ppCompileTasks;
 		delete[] ppLinkTasks;
+        delete[] ppDeviceBuildTasks;
         return CL_OUT_OF_HOST_MEMORY;
     }
 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
-        if (NULL != ppLinkTasks[i])
+        if (NULL != ppDeviceBuildTasks[i])
         {
-            pPostBuildTask->AddDependentOn(ppLinkTasks[i]);
+            pPostBuildTask->AddDependentOn(ppDeviceBuildTasks[i]);
         }
     }
 
+    // launch compileTask if needed
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         if (ppCompileTasks[i])
@@ -1485,7 +1591,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         }
     }
 
-    // if building from binary we need to launch linkTask explicitly
+    // if building from compiled object we need to launch linkTask explicitly
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         if (NULL == ppCompileTasks[i])
@@ -1499,9 +1605,24 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         }
     }
 
+    // if building from linked or custom binary we need to launch deviceBuildTask explicitly
+    for (unsigned int i = 0; i < uiNumDevices; ++i)
+    {
+        if (NULL == ppLinkTasks[i])
+        {
+            if (ppDeviceBuildTasks[i])
+            {
+                SharedPtr<BuildTask> pBuildTask = ppDeviceBuildTasks[i].DynamicCast<BuildTask>();
+                assert(pBuildTask);
+                pBuildTask->Launch();
+            }
+        }
+    }
+
     // delete compile and link task arrays, we don't need them anymore
     delete[] ppCompileTasks;
     delete[] ppLinkTasks;
+    delete[] ppDeviceBuildTasks;
 
     // If no build required, launch post build task
     if (!bNeedToBuild)

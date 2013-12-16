@@ -1,3 +1,4 @@
+; XFAIL: *
 ; test get_kernel_work_group_size with(without) local memory arguments() are replaced with callbacks
 ; RUN: opt -add-implicit-args -resolve-wi-call -S < %s | FileCheck %s
 

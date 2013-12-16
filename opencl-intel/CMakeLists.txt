@@ -103,27 +103,29 @@ else()
 endif ()
 
 if(CMAKE_CROSSCOMPILING)
-  set(CX_NATIVE_TG_DIR "${CMAKE_BINARY_DIR}/native")
+    set(CX_NATIVE_TG_DIR "${CMAKE_BINARY_DIR}/native")
 
-  add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CX_NATIVE_TG_DIR}
-    COMMENT "Creating ${CX_NATIVE_TG_DIR}...")
+    add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}
+                            COMMAND ${CMAKE_COMMAND} -E make_directory ${CX_NATIVE_TG_DIR}
+                            COMMENT "Creating ${CX_NATIVE_TG_DIR}..."
+    )
 
-  add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}/CMakeCache.txt
-    COMMAND ${CMAKE_COMMAND} -UCMAKE_TOOLCHAIN_FILE 
-                             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                              // We are cross compiling when building for android, hence we are
-                              // dropping off all non required build components, such tests/verification                            
-                             -DBACKEND_BUILD_VERIFICATION_LIB=OFF 
-                             -DLLVM_PATH=${LLVM_PATH}/native
-                             -DBUILD_X64=True
-                             ${CMAKE_SOURCE_DIR} 
-    WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
-    DEPENDS ${CX_NATIVE_TG_DIR}
-    COMMENT "Configuring native targets...")
+    add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}/CMakeCache.txt
+                            COMMAND ${CMAKE_COMMAND} -UCMAKE_TOOLCHAIN_FILE 
+                            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                            # We are cross compiling when building for android, hence we are
+                            # dropping off all non required build components, such tests/verification                            
+                            -DBACKEND_BUILD_VERIFICATION_LIB=OFF 
+                            -DLLVM_PATH=${LLVM_PATH}/native
+                            -DBUILD_X64=True
+                            ${CMAKE_SOURCE_DIR} 
+                            WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
+                            DEPENDS ${CX_NATIVE_TG_DIR}
+                            COMMENT "Configuring native targets..."
+    )
 
-  add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/CMakeCache.txt)
-  set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
+    add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/CMakeCache.txt)
+    set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
 endif()
 
 if(INCLUDE_TOOLS)
@@ -272,9 +274,6 @@ if (BUILD_QTGUI AND NOT ANDROID)
     endif(WIN32)
 endif ()
 
-
-
-
 #
 # Project defs
 #
@@ -317,7 +316,19 @@ math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
 
 # write a file with the BUILDVERSION define
-file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n#ifndef\ _DEBUG\n#define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"\n#else\n#define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"\n#endif\n\n#define BUILDVERSION16BIT_MAJOR ${BUILDVER_16_BIT_MAJOR}\n#define BUILDVERSION16BIT_MINOR ${BUILDVER_16_BIT_MINOR}\n#define VERSIONSTRING \"4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n\n")
+file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt 
+"#define BUILDVERSION ${BUILDVER_WC_REVISION}\n
+#ifndef\ _DEBUG
+    #define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"
+#else
+    #define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"
+#endif\n
+#define BUILDVERSION16BIT_MAJOR ${BUILDVER_16_BIT_MAJOR}\n
+#define BUILDVERSION16BIT_MINOR ${BUILDVER_16_BIT_MINOR}\n
+#define VERSIONSTRING \"4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
+#define IOCVERSIONSTRING \"1.4.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
+#define KBVERSIONSTRING \"1.2.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
+
 if(WIN32)
     file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=3.1.${BUILDVER_WC_REVISION}")
     install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
@@ -493,6 +504,8 @@ else(APPLE)
     # Therefore, it must be added to the include directories only after 
     # the tests subdirectory has been added.
     include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
+    
+    add_definitions(-D__TBB_NO_IMPLICIT_LINKAGE=1)
 
     # externals
     add_subdirectory(externals)

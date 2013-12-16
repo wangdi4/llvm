@@ -205,6 +205,10 @@ public:
 
     te_wait_result WaitForCompletion(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTaskToWait);
 
+    bool CanMasterJoin() const;
+
+    int  GetDeviceConcurency() const;
+
     bool Flush();
 
     ConcurrentTaskQueue* GetExecutingContainer()
@@ -317,6 +321,8 @@ public:
 
     virtual bool IsProfilingEnabled() const { return false; }
 
+    virtual bool IsMasterJoined() const { return m_bMasterRunning;}
+
 protected:
 
     virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL );
@@ -347,28 +353,28 @@ public:
     ~out_of_order_command_list();
 
     /**
-     * Execute a functor for OOO execution (this method should be called only when running inside the arena)
-     * @param F the functor's type
-     * @param f the functor's object			
-     */
-     template<typename F>
-     void ExecOOOFunc(const F& f)
-     {
-         m_oooTaskGroup.run(f);
-     }
+    * Execute a functor for OOO execution (this method should be called only when running inside the arena)
+    * @param F the functor's type
+    * @param f the functor's object			
+    */
+    template<typename F>
+    void ExecOOOFunc(const F& f)
+    {
+        m_oooTaskGroup.run(f);
+    }
 
-	/**
-     * Wait for all the enqueued commands to be completed
-     */
-     void WaitForAllCommands()
-     {
-         m_oooTaskGroup.wait();
-     }
+    /**
+    * Wait for all the enqueued commands to be completed
+    */
+    void WaitForAllCommands()
+    {
+        m_oooTaskGroup.wait();
+    }
 
      // overriden methods:
 
-     void WaitForIdle();
-
+    bool IsMasterJoined() const { return false;}
+    void WaitForIdle();
     bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
 
     virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return TaskGroup::Allocate(GetTEDevice()); }
@@ -425,6 +431,8 @@ public:
     bool DoesSupportDeviceSideCommandEnqueue() const { return false; }
 
     virtual bool IsProfilingEnabled() const { return false; }
+
+    bool IsMasterJoined() const { return true;}
 
 protected:
 

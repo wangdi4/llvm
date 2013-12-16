@@ -23,19 +23,19 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 
     public:
 
-		class SInitializer
-		{
-		public:
+        class SInitializer
+        {
+        public:
 
-			SInitializer()
-			{
-				MICSysInfo::m_mutex = new OclSpinMutex;
-			}
+            SInitializer()
+            {
+                MICSysInfo::m_mutex = new OclSpinMutex;
+            }
 
-			virtual ~SInitializer() {};
-		};
+            virtual ~SInitializer() {};
+        };
 
-		friend class MICSysInfo::SInitializer;
+        friend class MICSysInfo::SInitializer;
 
         /* Destructor */
         virtual ~MICSysInfo();
@@ -45,15 +45,15 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 
         static cl_dev_err_code clDevGetDeviceInfo(uint32_t deviceId, cl_device_info IN param, size_t IN valSize, void* OUT paramVal, size_t* OUT paramValSizeRet);
 
-		static cl_dev_err_code clDevGetAvailableDeviceList(size_t IN  deviceListSize, unsigned int*   OUT deviceIdsList, size_t*   OUT deviceIdsListSizeRet);
+        static cl_dev_err_code clDevGetAvailableDeviceList(size_t IN  deviceListSize, unsigned int*   OUT deviceIdsList, size_t*   OUT deviceIdsListSizeRet);
 
-		const MICDeviceConfig& getMicDeviceConfig() { return m_MICDeviceConfig; };
+        MICDeviceConfig& getMicDeviceConfig() { return m_MICDeviceConfig; };
 
-    // the following methods may be used internally inside MIC device
+        // the following methods may be used internally inside MIC device
 
         /* Returns the number of engines in the system that match COI_ISA_KNC.
            Calculate it once (Thread safe) */
-		uint32_t getEngineCount() { return m_numEngines; };
+        uint32_t getEngineCount() { return m_numEngines; };
 
         /* Return the number of cores on the device. */
         cl_uint getNumOfCores(uint32_t deviceId);
@@ -163,8 +163,8 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
 
     private:
 
-		// Single instance of MICDeviceConfig
-		static MICDeviceConfig                m_MICDeviceConfig;
+        // Single instance of MICDeviceConfig
+        static MICDeviceConfig                m_MICDeviceConfig;
 
         // map of cl_device_info -> data entry for specific device SKU
         typedef std::map< cl_device_info, const SYS_INFO_ENTRY*>    TInfoType2Data;
@@ -216,8 +216,8 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
         /* mutex guard */
         static OclSpinMutex* m_mutex;
 
-		// The deviceId represent as index in the array and the CoiEngineId is the content in that index.
-		std::vector<unsigned int> m_deviceIdToCoiEngineId;
+        // The deviceId represent as index in the array and the CoiEngineId is the content in that index.
+        std::vector<unsigned int> m_deviceIdToCoiEngineId;
 
         /* Initialize once the m_micDeviceInfoStruct data structure.
            Return true if succeded and false otherwise.
@@ -225,10 +225,10 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
            (Thread safe) */
         bool initializedInfoStruct(uint32_t deviceId);
 
-		/* Read "OFFLOAD_DEVICES" environment variable and store the devices IDs in deviceIdList (sorted).
-			each Id is unique.
-			for each device id that define in "OFFLOAD_DEVICES" store the device id modulo coiNumEngines*/
-		void getAvailableOffloadDevicesFromEnv(std::vector<unsigned int>& deviceIdList, unsigned int coiNumEngines);
+        /* Read "OFFLOAD_DEVICES" environment variable and store the devices IDs in deviceIdList (sorted).
+            each Id is unique.
+            for each device id that define in "OFFLOAD_DEVICES" store the device id modulo coiNumEngines*/
+        void getAvailableOffloadDevicesFromEnv(std::vector<unsigned int>& deviceIdList, unsigned int coiNumEngines);
     };
 
 }}}

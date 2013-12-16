@@ -7,6 +7,7 @@ Base {
         init_commands_queue;
         release_commands_queue;
         copy_program_to_device;
+        create_built_in_program;
         remove_program_from_device;
         execute_command_fill_mem_object;
         execute_command_ndrange;

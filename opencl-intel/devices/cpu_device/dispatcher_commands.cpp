@@ -29,7 +29,6 @@
 #include "task_dispatcher.h"
 #include "cpu_logger.h"
 #include "cpu_dev_limits.h"
-#include "wg_context.h"
 #include "cl_shared_ptr.hpp"
 #include <builtin_kernels.h>
 #include <cl_dev_backend_api.h>
@@ -83,7 +82,6 @@ m_pTaskDispatcher(pTD), m_pCmd(pCmd), m_bCompleted(false)
     assert(pCmd && "Expected non NLL command descriptor");
     m_pLogDescriptor = pTD->m_pLogDescriptor;
     m_iLogHandle = pTD->m_iLogHandle;
-    m_pMemAlloc = pTD->m_pMemoryAllocator;
     m_pGPAData = pTD->m_pGPAData;
 #if defined(USE_ITT)
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
@@ -124,7 +122,9 @@ void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigne
 
 cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam, 
                                                         const cl_kernel_argument*   pParams,
-                                                        const unsigned int* pMemObjectIndx, unsigned int uiMemObjCount)
+                                                        const unsigned int* pMemObjectIndx,
+                                                        unsigned int uiMemObjCount,
+                                                        std::vector<cl_mem_obj_descriptor*>* devMemObjects)
 {
     char* pLockedParams = (char*)pTargetTaskParam;
 
@@ -138,8 +138,22 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
         assert( ((CL_KRNL_ARG_PTR_CONST == param.type) || (CL_KRNL_ARG_PTR_GLOBAL == param.type) || (NULL != memObj)) && "NULL is not allowed for non buffer arguments");
         if (NULL != memObj)
         {
-            memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (cl_dev_memobj_handle*)(pLockedParams+stOffset));
-            assert( (*((cl_mem_obj_descriptor**)(pLockedParams+stOffset)))->pData != NULL && "Passing NULL data object for execution");
+            char* loc = pLockedParams+stOffset;
+            cl_mem_obj_descriptor* objHandle;
+            memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (void**)&objHandle );
+            if ( objHandle->memObjType == CL_MEM_OBJECT_BUFFER )
+            {
+                *(void**)loc = objHandle->pData;
+            }
+            else
+            {
+                // TODO: What about PIPES in 2.0
+                *(void**)loc = objHandle->imageAuxData;
+            }
+            if ( NULL != devMemObjects )
+            {
+                devMemObjects->push_back(objHandle);
+            }
         }
     };
 
@@ -711,7 +725,9 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
 {
 #ifdef __INCLUDE_MKL__
     // First to check if the required NDRange is one of the built-in kernels
-    ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
+    const ProgramService::KernelMapEntry* pKernelEntry = (const ProgramService::KernelMapEntry*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
+    const ICLDevBackendKernel_* pKernel = pKernelEntry->pBEKernel;
+
     const ICLDevBackendKernelProporties* pProperties = pKernel->GetKernelProporties();
     
     assert( NULL != pProperties && "Kernel properties always shall exist");
@@ -719,11 +735,11 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
     // Built-in kernel currently returns -1 for Execution lenght properties.
     if ( (size_t)-1 == pProperties->GetKernelExecutionLength() )
     {
-        return NativeKernelTask::Create(pTD, pCmd, pTask);
+        return NativeKernelTask::Create(pTD, pList, pCmd, pTask);
     }
 #endif
     pCmd->id = (cl_dev_cmd_id)((long)pCmd->id & ~(1L << (sizeof(long) * 8 - 1)));    // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
-    NDRange* pCommand = new NDRange(pTD, pCmd, pList, NULL, pList->GetNDRangeChildrenTaskGroup());
+    NDRange* pCommand = new NDRange(pTD, pCmd, pList.GetPtr(), NULL);
 
     assert(pTask && "Invalid task parameter");
     *pTask = static_cast<ITaskBase*>(pCommand);
@@ -731,20 +747,13 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
     return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code NDRange::CreateBinary(const ICLDevBackendKernel_* kernel, size_t szArgSize, const cl_work_description_type* workDesc, ICLDevBackendBinary_** pBinary)
-{
-    ICLDevBackendExecutionService* pExecutionService = m_pTaskDispatcher->getProgramService()->GetExecutionService();
-    assert( NULL!=pExecutionService && "NULL==pExecutionService is not expected");
-    return pExecutionService->CreateBinary(kernel, GetParamsPtr(), szArgSize, workDesc, pBinary);
-}
+// Declare local storage variable
+THREAD_LOCAL ICLDevBackendKernelRunner::ICLDevExecutionState NDRange::m_tExecState = {0};
 
-THREAD_LOCAL WGContext* NDRange::sm_pCurrentWgContext = NULL;
-
-NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, const SharedPtr<ITaskList>& pList, const SharedPtr<KernelCommand>& parent, const SharedPtr<ITaskGroup>& childrenTaskGroup) :
+NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskList* pList, KernelCommand* parent) :
     CommandBaseClass<ITaskSet>(pTD, pCmd),
-    KernelCommand(pList, parent, childrenTaskGroup, this),
+    KernelCommand(pList, parent, this),
     m_lastError(CL_DEV_SUCCESS),
-    m_pBinary(NULL), m_MemBuffCount(0), m_pMemBuffSizes(NULL),
     m_numThreads(0), m_bEnablePredictablePartitioning(false),
     m_lNDRangeId(-1)
 {
@@ -753,137 +762,12 @@ NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, const SharedPtr<ITa
     m_lAttaching.exchange(0);
     m_lExecuting.exchange(0);
 #endif
-    const ITEDevice* pDevice = pList->GetDevice().GetPtr();
-    m_numThreads = NULL!=pDevice ? pDevice->GetConcurrency() : 1;
-}
-
-cl_dev_err_code NDRange::CheckCommandParams(cl_dev_cmd_desc* cmd)
-{
-    if ( (CL_DEV_CMD_EXEC_KERNEL != cmd->type) && (CL_DEV_CMD_EXEC_TASK != cmd->type) )
-    {
-        return CL_DEV_INVALID_COMMAND_TYPE;
-    }
-
-    if ( sizeof(cl_dev_cmd_param_kernel) != cmd->param_size )
-    {
-        return CL_DEV_INVALID_COMMAND_PARAM;
-    }
-
-    cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)(cmd->params);
-
-
-    const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->pBEKernel;
-    const ICLDevBackendKernelProporties* pKernelProps = pKernel->GetKernelProporties();
-    assert(pKernel);
-
-    size_t    stLocMemSize = 0;
-
-    // Check kernel parameters
-    cl_uint                     uiNumArgs = pKernel->GetKernelParamsCount();
-    const cl_kernel_argument*   pArgs = pKernel->GetKernelParams();
-
-    cl_char*    pCurrParamPtr = (cl_char*)cmdParams->arg_values;
-    size_t        stOffset = 0;
-    // Check kernel parameters and memory buffers
-    for(unsigned int i=0; i<uiNumArgs; ++i)
-    {
-        // Argument is buffer object or local memory size
-        if ( CL_KRNL_ARG_PTR_GLOBAL <= pArgs[i].type )
-        {
-            stOffset += sizeof(void*);
-        }
-        else if (CL_KRNL_ARG_PTR_LOCAL == pArgs[i].type)
-        {
-            size_t origSize = ((size_t)*(((void**)(pCurrParamPtr+stOffset))));
-            size_t locSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(origSize);
-            stLocMemSize += locSize;
-            stOffset += sizeof(void*);
-        }
-        else if (CL_KRNL_ARG_VECTOR == pArgs[i].type)
-        {
-            unsigned int uiSize = pArgs[i].size_in_bytes;
-            uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
-            stOffset += uiSize;
-        }
-        else if (CL_KRNL_ARG_SAMPLER == pArgs[i].type)
-        {
-            stOffset += sizeof(cl_int);
-        }
-        else
-        {
-            stOffset += pArgs[i].size_in_bytes;
-        }
-    }
-    // Check parameters array size
-    if ( stOffset != cmdParams->arg_size )
-    {
-        return CL_DEV_INVALID_COMMAND_PARAM;
-    }
-
-    // Check implicit memory sizes
-    stLocMemSize += pKernelProps->GetImplicitLocalMemoryBufferSize();
-
-
-    // Check if local memory size is enough for kernel
-    if ( CPU_DEV_LCL_MEM_SIZE < stLocMemSize )
-    {
-        return CL_DEV_INVALID_COMMAND_PARAM;
-    }
-
-    // Check Work-Group / Work-Item information
-    if ( CL_DEV_CMD_EXEC_KERNEL == cmd->type )
-    {
-        // Check WG dimensions
-        size_t    stWGSize = 1;
-
-        if ( MAX_WORK_DIM < cmdParams->work_dim )
-        {
-            return CL_DEV_INVALID_WRK_DIM;
-        }
-
-        const size_t    *pReqdWGSize = pKernelProps->GetRequiredWorkGroupSize();
-        for(unsigned int i=0; i<cmdParams->work_dim; ++i)
-        {
-            if ( ((0 != cmdParams->lcl_wrk_size[i]) && (CPU_DEV_MAX_WI_SIZE < cmdParams->lcl_wrk_size[i])) ||
-                ( pReqdWGSize && (pReqdWGSize[i] != cmdParams->lcl_wrk_size[i]))
-                )
-            {
-                return CL_DEV_INVALID_WRK_ITEM_SIZE;
-            }
-
-            stWGSize *= cmdParams->lcl_wrk_size[i];
-        }
-
-        if ( CPU_MAX_WORK_GROUP_SIZE < stWGSize )
-        {
-            return CL_DEV_INVALID_WG_SIZE;
-        }
-    } 
-    else
-    {
-        // For Task one dimension is required
-        if ( 1 != cmdParams->work_dim )
-        {
-            return CL_DEV_INVALID_WRK_DIM;
-        }
-        // Work Group size should be 1
-        if ( 1 != cmdParams->lcl_wrk_size[0] )
-        {
-            return CL_DEV_INVALID_WRK_ITEM_SIZE;
-        }
-        // Work-Group size should be 1
-        if ( 1 != cmdParams->glb_wrk_size[0] )
-        {
-            return CL_DEV_INVALID_WRK_DIM;
-        }
-    }
-
-    return CL_DEV_SUCCESS;
+    m_numThreads = pList->GetDeviceConcurency();
 }
 
 int NDRange::Init(size_t region[], unsigned int &dimCount)
 {
-    cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
+    cl_dev_cmd_param_kernel* cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
 
 
 #ifdef _DEBUG_PRINT
@@ -895,7 +779,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
         return m_lastError;
     }
 
-    char* pLockedParams = GetParamsPtr();
+    char* pLockedParams = (char*)cmdParams->arg_values;
 
     NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
@@ -913,56 +797,61 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->pBEKernel;
     const cl_kernel_argument*   pParams = pKernel->GetKernelParams();
 
-    cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(), pKernel->GetMemoryObjectArgumentCount());
+    std::vector<cl_mem_obj_descriptor*> devMemObjects;
+    unsigned int uiMemArgCount = pKernel->GetMemoryObjectArgumentCount();
+    devMemObjects.reserve(uiMemArgCount+cmdParams->uiNonArgSvmBuffersCount);
+
+    // Fill with SVM buffers
+    devMemObjects.resize(cmdParams->uiNonArgSvmBuffersCount);
+    for(cl_uint i=0;i<cmdParams->uiNonArgSvmBuffersCount;++i)
+    {
+        cmdParams->ppNonArgSvmBuffers[i]->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (void**)&devMemObjects[i] );
+    }
+
+    if ( uiMemArgCount > 0 )
+    {
+    cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(), uiMemArgCount, &devMemObjects);
     if ( CL_DEV_FAILED(clRet) )
     {
         m_lastError = clRet;
         NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, clRet);
         return clRet;
     }
-
-    cl_work_description_type workDesc;
-    //TODO: Find more elegant solution for filling the workDesc structure
-    //      Probably by making it part of cmdParams.
-    workDesc.workDimension = cmdParams->work_dim;
-    MEMCPY_S(workDesc.globalWorkOffset, sizeof(workDesc.globalWorkOffset), cmdParams->glb_wrk_offs, sizeof(size_t) * MAX_WORK_DIM);
-    MEMCPY_S(workDesc.globalWorkSize, sizeof(workDesc.globalWorkSize), cmdParams->glb_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
-    MEMCPY_S(workDesc.localWorkSize, sizeof(workDesc.localWorkSize), cmdParams->lcl_wrk_size, sizeof(size_t)* MAX_WORK_DIM);
-
-    //TODO: calibrate
-    workDesc.minWorkGroupNum = m_numThreads;
-
-    // Create an "Binary" for these parameters
-    clRet = CreateBinary(pKernel, cmdParams->arg_size, &workDesc, &m_pBinary);
-    if ( CL_DEV_FAILED(clRet) )
-    {
-        m_lastError = clRet;
-        NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, clRet);
-        return m_lastError;
     }
+    m_pKernelArgs = pLockedParams;
+    m_pImplicitArgs = (cl_uniform_kernel_args*)(pLockedParams+pKernel->GetExplicitArgumentBufferSize());
+    m_pImplicitArgs->WorkDim = cmdParams->work_dim;
+    m_pImplicitArgs->pRuntimeCallbacks = static_cast<IDeviceCommandManager*>(this);
+    // Copy global_offset, global_size and local_work_size
+    MEMCPY_S(m_pImplicitArgs->GlobalOffset, sizeof(size_t) * MAX_WORK_DIM * 3, cmdParams->glb_wrk_offs, sizeof(size_t) * MAX_WORK_DIM * 3);
+    m_pImplicitArgs->minWorkGroupNum = m_numThreads;
+    m_pRunner = pKernel->GetKernelRunner();
+    unsigned int memObjCount = (unsigned int)devMemObjects.size();
+    const cl_mem_obj_descriptor** memArgs = memObjCount > 0 ? (const cl_mem_obj_descriptor**)&devMemObjects[0] : NULL;
+    m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount);
 
-    // Update buffer parameters
-    m_pBinary->GetMemoryBuffersDescriptions(NULL, &m_MemBuffCount);
-    m_pMemBuffSizes = new size_t[m_MemBuffCount];
-    if ( NULL == m_pMemBuffSizes )
+    if ( 0 != m_pImplicitArgs->LocalIDIndicesRequiredSize )
     {
-        m_lastError = (cl_int)CL_DEV_OUT_OF_MEMORY;
-        NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
-        return m_lastError;
+        // Allocate local index buffer
+        m_pImplicitArgs->pLocalIDIndices = new size_t[m_pImplicitArgs->LocalIDIndicesRequiredSize/sizeof(size_t)];
+        // Fill indexes buffer
+        m_pRunner->InitRunner(m_pKernelArgs);
     }
-    m_pBinary->GetMemoryBuffersDescriptions(m_pMemBuffSizes, &m_MemBuffCount);
-
-    // copy execution parameters
-    const size_t*    pWGSize = m_pBinary->GetWorkGroupSize();
+    else
+    {
+        m_pImplicitArgs->pLocalIDIndices = NULL;
+    }
+    const size_t*    pWGSize = m_pImplicitArgs->WGCount;
     unsigned int i;
-    for (i=0; i<cmdParams->work_dim; ++i)
+    for (i = 0; i < cmdParams->work_dim; ++i) 
     {
-        region[i] = (unsigned int)((cmdParams->glb_wrk_size[i])/(pWGSize[i]));
+      region[i] = pWGSize[i];
     }
     for (; i<MAX_WORK_DIM; ++i)
     {
         region[i] = 1;
     }
+
     dimCount = cmdParams->work_dim;
   
     //TODO: might want to revisit these restrictions in the future
@@ -988,6 +877,12 @@ bool NDRange::Finish(FINISH_REASON reason)
         WaitForChildrenCompletion();
     }
 
+    if (NULL != m_pImplicitArgs->pLocalIDIndices )
+    {
+        delete []m_pImplicitArgs->pLocalIDIndices;
+        m_pImplicitArgs->pLocalIDIndices = NULL;
+    }
+
     // regular stuff:
 #ifdef _DEBUG
     long lVal = (m_lExecuting.test_and_set(0, 0) | m_lAttaching.test_and_set(0, 0));
@@ -1000,18 +895,7 @@ bool NDRange::Finish(FINISH_REASON reason)
     assert(lVal == 0);
 #endif
 
-    //  Need to distinguish between Root and device commands
-    //  RT should be notified only for ROOT commands
-    KernelCommand* pParent = GetParent().GetPtr();
-    if ( NULL == pParent )
-    {
-        NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
-    }
-    else
-    {
-        SignalComplete(FINISH_COMPLETED == reason ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL);
-        pParent->ChildCompleted(GetError());
-    }
+    NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, m_lastError);
 
 #ifdef _DEBUG_PRINT
     cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
@@ -1028,17 +912,6 @@ bool NDRange::Finish(FINISH_REASON reason)
         __itt_task_end(m_pGPAData->pDeviceDomain);
     }
 #endif // ITT
-
-    if ( NULL != m_pBinary )
-    {
-        m_pBinary->Release();
-        m_pBinary = NULL;
-    }
-    if ( NULL != m_pMemBuffSizes )
-    {
-        delete []m_pMemBuffSizes;
-        m_pMemBuffSizes = NULL;
-    }
 
     return true;
 }
@@ -1058,50 +931,14 @@ void* NDRange::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups,
     ++m_lAttaching ;
 #endif
 
-    assert( (NULL != pWgContextBase) && "Invalid context provided");
-    if ( NULL == pWgContextBase )
-    {
-        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to retrieve WG context"));
-        m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
-#ifdef _DEBUG
-        --m_lAttaching ;
-#endif    
-        return NULL;
-    }
-
-    WGContext* pCtx = static_cast<WGContext*>(reinterpret_cast<WGContextBase*>(pWgContextBase));
-
-    pCtx->SetCurrentNDRange(this);
-    sm_pCurrentWgContext = pCtx;
-
-    if (m_lNDRangeId != pCtx->GetNDRCmdId() )
-    {
-        cl_dev_err_code ret = pCtx->CreateContext(m_lNDRangeId, m_pBinary, m_pMemBuffSizes, m_MemBuffCount);
-        if ( CL_DEV_FAILED(ret) )
-        {
-            CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to create new execution context, Id:%d, ERR:%x"), pCtx->GetThreadId(), ret);
-            m_lastError = (int)ret;
-    #ifdef _DEBUG
-            --m_lAttaching ;
-    #endif
-            return NULL;
-        }
-    }
-
-    ICLDevBackendExecutable_* pExec = pCtx->GetExecutable();
-    if (NULL == pExec)
-    {
-        m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
-        return NULL;
-    }
-    pExec->PrepareThread();
+    m_pRunner->PrepareThreadState(m_tExecState);
 
 #ifdef USE_ITT
     // Start execution task
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
         unsigned int uiWorkGroupSize = 1;
-        const size_t*    pWGSize = m_pBinary->GetWorkGroupSize();
+        const size_t*    pWGSize = m_pImplicitArgs->WGCount;
         cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
 
         __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
@@ -1135,7 +972,7 @@ void* NDRange::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups,
     -- m_lAttaching;
 #endif
 
-    return pCtx;
+    return pWgContextBase;
 }
 
 void NDRange::DetachFromThread(void* pWgContext)
@@ -1148,29 +985,13 @@ void NDRange::DetachFromThread(void* pWgContext)
     }
 #endif // ITT
     
-    WGContext* pCtx = reinterpret_cast<WGContext*>(pWgContext);
-    assert( (NULL != pCtx) && "Invalid context provided");
-    ICLDevBackendExecutable_* pExec = pCtx->GetExecutable();
-    if (NULL == pExec)
-    {
-        m_lastError = (cl_int)CL_DEV_ERROR_FAIL;
-        return;
-    }
+    m_pRunner->RestoreThreadState(m_tExecState);
 
-    pExec->RestoreThreadState();
-
-    // Check if needed first, saves few cycles
-    if ( (!pCtx->GetWaitingChildrenForParent().empty()) || (!pCtx->GetWaitingChildrenForWg().empty()) )
-    {
-        WgFinishedExecution();
-    }
-    pCtx->SetCurrentNDRange(NULL);
-    sm_pCurrentWgContext = NULL;
+    WgFinishedExecution();
 }
 
 bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
 {
-    assert(NULL != pWgCtx && "Invalid context provided");
 #ifdef _DEBUG
     long lVal = m_lFinish.test_and_set(0, 0);
     assert(lVal == 0);
@@ -1180,12 +1001,13 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
     // We always start from (0,0,0) and process whole WG
     // No Need in parameters now
 #ifdef _DEBUG
-    const size_t*    pWGSize = m_pBinary->GetWorkGroupSize();
+    const size_t*    pWGSize = m_pImplicitArgs->WGCount;
+
     cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
     size_t tDimArr[3] = {x, y, z};
     for (unsigned int i=0; i<cmdParams->work_dim;++i)
     {
-        unsigned int val = (unsigned int)((cmdParams->glb_wrk_size[i])/(pWGSize[i]));
+        unsigned int val = pWGSize[i];
         assert(tDimArr[i]<val);
     }
 
@@ -1193,11 +1015,6 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
     assert(lVal == 0);
 #endif
 
-    WGContext* pWgContext = reinterpret_cast<WGContext*>(pWgCtx);
-    if ( NULL == pWgContext )
-    {
-        return false;
-    }
     // Execute WG
     size_t groupId[MAX_WORK_DIM] = {x, y, z};
 #ifndef _WIN32  //Don't support this feature on Windows at the moment   
@@ -1205,7 +1022,8 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
     if (m_bEnablePredictablePartitioning)
     {
         assert((0 == y) && (0 == z) && "predicted partitioning work on 1D only");
-        unsigned int myGroupID = pWgContext->GetThreadId();
+        ITaskExecutor* pTaskExecutor = reinterpret_cast<ITaskExecutor*>(pWgCtx);
+        unsigned int myGroupID = pTaskExecutor->GetPosition();
         if (0 == m_bWGExecuted.bitTestAndSet(myGroupID))
         {
             groupId[0] = myGroupID;
@@ -1224,22 +1042,30 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
     }
 #endif
 
-    ICLDevBackendExecutable_* pExec = pWgContext->GetExecutable();
-    if (NULL == pExec)
-    {
-#ifdef _DEBUG
-        -- m_lExecuting;
-#endif
-        return true;
-    }
-
-    // Execute single WG
-    pExec->Execute(groupId, NULL, NULL);
+    m_pRunner->RunGroup(m_pKernelArgs, groupId, this);
 
 #ifdef _DEBUG
     -- m_lExecuting;
 #endif
     return true;
+}
+
+KernelCommand* NDRange::AllocateChildCommand(ITaskList* pList, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
+        const void* pBlockLiteral, size_t stBlockSize, const size_t* pLocalSizes, size_t stLocalSizeCount,
+        const _ndrange_t* pNDRange) const
+{
+    KernelCommand* pNewCommand = new DeviceNDRange(pList, const_cast<NDRange*>(this), pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
+
+    return pNewCommand;
+}
+
+queue_t NDRange::GetDefaultQueueForDevice() const
+{
+    if ( NULL == m_pTaskDispatcher )
+    {
+        return NULL != m_parent ? m_parent->GetDefaultQueueForDevice() : NULL;
+    }
+    return m_pTaskDispatcher->GetDefaultQueue();
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1442,92 +1268,95 @@ bool MigrateMemObject::Execute()
 
 AtomicCounter DeviceNDRange::sm_cmdIdCnt;
 
-cl_dev_cmd_desc* DeviceNDRange::InitCmdDesc(cl_dev_cmd_param_kernel& paramKernel, cl_dev_cmd_desc& cmdDesc, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
-    const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange, const SharedPtr<ITaskList>& pList)
-{
-    paramKernel.kernel = pKernel;
-    paramKernel.work_dim = pNdrange->workDimension;
-    for (cl_uint i = 0; i < paramKernel.work_dim; i++)
+void DeviceNDRange::InitCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
+        const void* pBlockLiteral, size_t stBlockSize,
+        const size_t* pLocalSizes, size_t stLocalSizeCount,
+        const _ndrange_t* pNDRange)
+{    
+    m_kernelMapEntry.pBEKernel = pKernel;
+#ifdef USE_ITT
+    m_kernelMapEntry.ittTaskNameHandle = NULL; //TODO: Need to see how to integrate ITT task here
+#endif
+    m_paramKernel.kernel = &m_kernelMapEntry;
+    m_paramKernel.work_dim = pNDRange->workDimension;
+    for (cl_uint i = 0; i < m_paramKernel.work_dim; ++i)
     {
-        paramKernel.glb_wrk_offs[i] = pNdrange->globalWorkOffset[i];
-        paramKernel.glb_wrk_size[i] = pNdrange->globalWorkSize[i];
-        paramKernel.lcl_wrk_size[i] = pNdrange->localWorkSize[i];
+        m_paramKernel.glb_wrk_offs[i] = pNDRange->globalWorkOffset[i];
+        m_paramKernel.glb_wrk_size[i] = pNDRange->globalWorkSize[i];
+        m_paramKernel.lcl_wrk_size[i] = pNDRange->localWorkSize[i];
     }
-    char* const pAllocatedContext = new char[szContextSize];
-    paramKernel.arg_values = pAllocatedContext;
-    paramKernel.arg_size = szContextSize;
-    MEMCPY_S(pAllocatedContext, szContextSize, pContext, szContextSize);
-    
-    cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
-    cmdDesc.id = (cl_dev_cmd_id)(DeviceNDRange::GetNextCmdId() | (1L << (sizeof(long) * 8 - 1)));    // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
-    cmdDesc.data = cmdDesc.device_agent_data = NULL;
-    cmdDesc.profiling = pList->IsProfilingEnabled();
-    cmdDesc.params = &paramKernel;
-    cmdDesc.param_size = sizeof(paramKernel);
-    return &cmdDesc;
+
+    size_t arg_size = pKernel->GetExplicitArgumentBufferSize();
+    unsigned alignment = pKernel->GetArgumentBufferRequiredAlignment();
+    assert( (arg_size == stBlockSize+stLocalSizeCount*sizeof(size_t)) && "Explicit argument size is not as expected" );
+
+    // We should allocate also space for implicit args
+    arg_size += sizeof(cl_uniform_kernel_args);
+
+    char* pAllocatedContext = (char*)ALIGNED_MALLOC(arg_size, alignment);
+    m_paramKernel.arg_size = arg_size;
+    m_paramKernel.arg_values = pAllocatedContext;
+
+    // Fist we put block literal
+    MEMCPY_S(pAllocatedContext, arg_size, pBlockLiteral, stBlockSize);
+    assert ( 0 == (stBlockSize & (sizeof(size_t)-1)) && "Block literal size is expected to be aligned for sizeof(size_t)");
+    pAllocatedContext += stBlockSize;
+    arg_size -= stBlockSize;
+
+    // Second we insert local buffer size
+    MEMCPY_S(pAllocatedContext, arg_size, pLocalSizes, stLocalSizeCount*sizeof(size_t));
+
+    m_cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
+    m_cmdDesc.id = (cl_dev_cmd_id)(DeviceNDRange::GetNextCmdId() | (1L << (sizeof(long) * 8 - 1)));    // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
+    m_cmdDesc.data = this;
+    m_cmdDesc.device_agent_data = NULL;
+    m_cmdDesc.profiling = GetList()->IsProfilingEnabled();
+    m_cmdDesc.params = &m_paramKernel;
+    m_cmdDesc.param_size = sizeof(m_paramKernel);
 }
 
-int    DeviceNDRange::Init(size_t region[], unsigned int &regCount)
+void DeviceNDRange::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr)
 {
-    const int res = NDRange::Init(region, regCount);
-    StartExecutionProfiling();
-    return res;
-}
-
-bool DeviceNDRange::Finish(FINISH_REASON reason)
-{
-    StopExecutionProfiling();
-    const bool bRes = NDRange::Finish(reason);
-    // IncRefCnt() was called in CommandBaseClass::CommandBaseClass, but since CPUDevice::clDevReleaseCommand are not called for device-side commands, we decrement the reference counter here
-    DecRefCnt();
-    return bRes;
+    switch (uStatus)
+    {
+    case CL_RUNNING:
+        StartExecutionProfiling();
+        break;
+    case CL_COMPLETE:
+        SignalComplete( (cl_dev_err_code)iErr );
+        GetParent()->ChildCompleted(GetError());
+        StopExecutionProfiling();
+        break;
+    default:
+        assert(0 && "Invalid execution status");
+    }
 }
 
 #ifdef __INCLUDE_MKL__
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-cl_dev_err_code NativeKernelTask::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
+cl_dev_err_code NativeKernelTask::Create(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
 {
-    NativeKernelTask* pCommand = new NativeKernelTask(pTD, pCmd);
+    NativeKernelTask* pCommand = new NativeKernelTask(pTD, pList, pCmd);
     if (NULL == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
-#ifdef _DEBUG
-    cl_dev_err_code rc;
-    rc = pCommand->CheckCommandParams(pCmd);
-    if( CL_DEV_FAILED(rc))
-    {
-        delete pCommand;
-        return rc;
-    }
-#endif
 
     assert(pTask);
     *pTask = static_cast<ITaskBase*>(pCommand);
 
-#if defined (USE_ITT)
-    if ((NULL != pCommand->m_pGPAData) && (pCommand->m_pGPAData->bUseGPA))
-    {
-        cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)pCommand->m_pCmd->params;
-        const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
-
-        char  strTaskName[ITT_TASK_NAME_LEN];
-        SPRINTF_S(strTaskName, ITT_TASK_NAME_LEN, "%s(%lu)", pKernel->GetKernelName(), (cl_ulong)pCommand->m_pCmd->id);
-        pCommand->m_pTaskNameHandle = __itt_string_handle_create(strTaskName);
-    }
-#endif
-
     return CL_DEV_SUCCESS;
 }
 
-NativeKernelTask::NativeKernelTask(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
-    CommandBaseClass<ITask>(pTD, pCmd)
+NativeKernelTask::NativeKernelTask(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, cl_dev_cmd_desc* pCmd) :
+    CommandBaseClass<ITask>(pTD, pCmd), m_pList(pList.GetPtr())
 {
-    // First to check if the required NDRange is one of the built-in kernels
-    ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)(((cl_dev_cmd_param_kernel*)pCmd->params)->kernel);
+    cl_dev_cmd_param_kernel* pCmd_params = (cl_dev_cmd_param_kernel*)(pCmd->params);
+    const ProgramService::KernelMapEntry* pEntry = ((const ProgramService::KernelMapEntry*)pCmd_params->kernel);
+    const ICLDevBackendKernel_* pKernel = pEntry->pBEKernel;
     
-    m_pBIKernel = dynamic_cast<IBuiltInKernel*>(pKernel);
+    m_pBIKernel = static_cast<const IBuiltInKernel*>(pKernel);
 }
 
 cl_dev_err_code NativeKernelTask::CheckCommandParams(cl_dev_cmd_desc* cmd)
@@ -1538,32 +1367,53 @@ cl_dev_err_code NativeKernelTask::CheckCommandParams(cl_dev_cmd_desc* cmd)
 bool NativeKernelTask::Execute()
 {
     cl_dev_cmd_param_kernel* pCmd_params = (cl_dev_cmd_param_kernel*)(m_pCmd->params);
+    const ProgramService::KernelMapEntry* pEntry = ((const ProgramService::KernelMapEntry*)pCmd_params->kernel);
+    const ICLDevBackendKernel_* pKernel = pEntry->pBEKernel;
+    const cl_kernel_argument*   pParams = pKernel->GetKernelParams();
+
     NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 
 #if defined(USE_ITT)
     // Start execution task
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
-        #if defined(USE_GPA)
+#if defined(USE_GPA)
         __itt_set_track(NULL);
-        #endif
+#endif
 
-        __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, m_pTaskNameHandle);
+        __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, pEntry->ittTaskNameHandle);
     }
 #endif
 
-    const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)pCmd_params->kernel)->pBEKernel;
-    const cl_kernel_argument*   pParams = pKernel->GetKernelParams();
-
-    cl_dev_err_code err = ExtractNDRangeParams(pCmd_params->arg_values, pParams, pCmd_params->pMemObjParams, pCmd_params->szMemObjParams);
+    cl_dev_err_code err = ExtractNDRangeParams(pCmd_params->arg_values, pParams,
+                                                   pKernel->GetMemoryObjectArgumentIndexes(),
+                                                   pKernel->GetMemoryObjectArgumentCount(),
+                                                   NULL);
     if ( CL_DEV_FAILED(err) )
     {
-        STACK_FREE(pParamBuffer);
         NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, err);
         return false;
     }
 
+#ifndef __OMP2TBB__
     cl_dev_err_code res = m_pBIKernel->Execute(pCmd_params, pCmd_params->arg_values, m_pTaskDispatcher->getOmpExecutionThread());
+#else
+    // Set concurency for the libary, this is a workaroun until TBB will return a pointer to current arena
+    // Currently we assuming that master/application thread is joining.
+    // TODO: need to recalculate number of active workers
+
+    int iDeviceConcurency = m_pList->GetDeviceConcurency();
+    bool bMasterJoinedExecution = m_pList->IsMasterJoined();
+    bool bCanMasterJoin = m_pList->CanMasterJoin();
+
+    // If master can join, but currently it doesn't we need execute on less threads
+    if ( bCanMasterJoin && !bMasterJoinedExecution )
+    {
+        --iDeviceConcurency;
+    }
+    __omp2tbb_set_thread_max_concurency(iDeviceConcurency);
+    cl_dev_err_code res = m_pBIKernel->Execute(pCmd_params, pCmd_params->arg_values);
+#endif
 
 #if defined(USE_ITT)
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))

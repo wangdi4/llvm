@@ -49,7 +49,7 @@ extern "C" LLVM_BACKEND_API
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_basic(
         queue_t* queue,
         kernel_enqueue_flags_t flags,
-        cl_work_description_type* ndrange,
+        _ndrange_t* ndrange,
         void *block,
         ExtendedExecutionContext * pEEC);
 
@@ -65,7 +65,7 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_basic(
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events(
         queue_t* queue,
         kernel_enqueue_flags_t flags,
-        cl_work_description_type* ndrange,
+        _ndrange_t* ndrange,
         unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
         clk_event_t *event_ret,
         void *block,
@@ -81,7 +81,7 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events(
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_localmem(
         queue_t* queue,
         kernel_enqueue_flags_t flags,
-        cl_work_description_type* ndrange,
+        _ndrange_t* ndrange,
         void *block,
         unsigned *localbuf_size, unsigned localbuf_size_len,
         ExtendedExecutionContext * pEEC);
@@ -99,7 +99,7 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_localmem(
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events_localmem(
         queue_t* queue,
         kernel_enqueue_flags_t flags,
-        cl_work_description_type* ndrange,
+        _ndrange_t* ndrange,
         unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
         clk_event_t *event_ret,
         void *block,
@@ -221,7 +221,7 @@ queue_t* ocl20_get_default_queue( ExtendedExecutionContext * pEEC )
 static int enqueue_kernel_common(
    queue_t* queue, 
    kernel_enqueue_flags_t flags, 
-   cl_work_description_type* ndrange,
+   _ndrange_t* ndrange,
    void *block,
    unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
    clk_event_t *event_ret,
@@ -299,15 +299,18 @@ static int enqueue_kernel_common(
   ///////////////////////////////////////////////////////////////////////
   // call enqueue
   int res = pDCM->EnqueueKernel(
-    reinterpret_cast<queue_t>(queue), // queue_t 
-    flags, // kernel_enqueue_flags_t
-    num_events_in_wait_list, // uiNumEventsInWaitList
-    in_wait_list, // pEventWaitList
-    event_ret, // clk_event_t* pEventRet
-    pKernel, // const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel
-    &pContext[0], // pContext
-    ContextSize, // size_t szContextSize
-    ndrange      // const cl_work_description_type* pNdrange
+    reinterpret_cast<queue_t>(queue),   // queue_t 
+    flags,                              // kernel_enqueue_flags_t
+    num_events_in_wait_list,            // uiNumEventsInWaitList
+    in_wait_list,                       // pEventWaitList
+    event_ret,                          // clk_event_t* pEventRet
+    pKernel,                            // const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel
+    pBlockLiteral,                      // block literal structure as provided by clang
+    block_literal_size,                 // size of block literal
+    (size_t*)localbuf_size,             // !!!! !!!!! This should be received as size_t from CLANG
+    localbuf_size_len,                  // !!!! size_t
+    ndrange,                            // const cl_work_description_type* pNdrange
+    NULL                                // !!!! Put here pointer provided to RunWG
     );
   
   return res;
@@ -315,7 +318,7 @@ static int enqueue_kernel_common(
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_basic(
         queue_t* queue,
         kernel_enqueue_flags_t flags,
-        cl_work_description_type* ndrange,
+        _ndrange_t* ndrange,
         void *block,
         ExtendedExecutionContext * pEEC)
 {
@@ -338,7 +341,7 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_basic(
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_localmem(
         queue_t* queue,
         kernel_enqueue_flags_t flags,
-        cl_work_description_type* ndrange,
+        _ndrange_t* ndrange,
         void *block,
         unsigned *localbuf_size, unsigned localbuf_size_len,
         ExtendedExecutionContext * pEEC)
@@ -355,7 +358,7 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_localmem(
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events(
         queue_t* queue,
         kernel_enqueue_flags_t flags,
-        cl_work_description_type* ndrange,
+        _ndrange_t* ndrange,
         unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
         clk_event_t *event_ret,
         void *block,
@@ -375,7 +378,7 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events(
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events_localmem(
         queue_t* queue,
         kernel_enqueue_flags_t flags,
-        cl_work_description_type* ndrange,
+        _ndrange_t* ndrange,
         unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
         clk_event_t *event_ret,
         void *block,

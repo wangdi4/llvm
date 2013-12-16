@@ -31,8 +31,8 @@
 #include "program_config.h"
 #include "cpu_logger.h"
 #include "backend_wrapper.h"
-#include "builtin_kernels.h"
 
+#include <builtin_kernels.h>
 #include <cpu_dev_limits.h>
 #include <cl_synch_objects.h>
 
@@ -114,9 +114,9 @@ ProgramService::~ProgramService()
         CL_DEV_SUCCESS          The function is executed successfully.
         CL_DEV_FAILED           The function failed
 ********************************************************************************************************************/
-cl_dev_err_code ProgramService::Init(IDeviceCommandManager* pDeviceCommandManager)
+cl_dev_err_code ProgramService::Init()
 {
-	ProgramConfig programConfig(pDeviceCommandManager);
+	ProgramConfig programConfig;
     programConfig.InitFromCpuConfig(*m_pCPUConfig);   
     
     ICLDevBackendCompilationService* pCompiler = NULL;
@@ -710,9 +710,9 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
             // Add to program entry map
             KernelMapEntry mapEntry;
             mapEntry.pBEKernel = pKernel;
-      #ifdef USE_ITT
+#ifdef USE_ITT
             mapEntry.ittTaskNameHandle = __itt_string_handle_create(szKernelName);
-      #endif
+#endif
             // Add new ID to program's Name2ID map
             pEntry->mapKernels[szKernelName] = mapEntry;
         }
@@ -724,7 +724,6 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
     {
         *numKernelsRet = uiNumProgKernels;
     }
-
 
     return CL_DEV_SUCCESS;
 }
@@ -801,7 +800,7 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
 
     case CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES:
         stValSize = sizeof(cl_dev_dispatch_buffer_prop);
-        dispatchProperties.size = pKernel->GetArgumentBufferSize();
+        dispatchProperties.size = pKernel->GetExplicitArgumentBufferSize()+sizeof(cl_uniform_kernel_args);
         dispatchProperties.argumentOffset = 0;
         dispatchProperties.alignment = 64; // Currently ask for 64 byte aligment. Next BE will provide maximum aligment for the buffer.
         pValue = &dispatchProperties;

@@ -37,6 +37,7 @@ namespace intel{
   OCL_INITIALIZE_PASS(PrepareKernelArgs, "prepare-kernel-args", "changes the way arguments are passed to kernels", false, false)
 
   PrepareKernelArgs::PrepareKernelArgs() : ModulePass(ID) {
+    initializeImplicitArgsAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 
   bool PrepareKernelArgs::runOnModule(Module &M) {
@@ -45,7 +46,9 @@ namespace intel{
     m_pLLVMContext = &M.getContext();
     Intel::MetaDataUtils mdUtils(&M);
     m_mdUtils = &mdUtils;
+    m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
     m_PtrSizeInBytes = M.getPointerSize() * 4;
+    m_IAA->initDuringRun(m_PtrSizeInBytes * 8);
     m_SizetTy = IntegerType::get(*m_pLLVMContext, m_PtrSizeInBytes*8);
     m_I32Ty = Type::getInt32Ty(*m_pLLVMContext);
     m_I8Ty = Type::getInt8Ty(*m_pLLVMContext);
@@ -67,8 +70,13 @@ namespace intel{
     // Create new function's argument type list
     // The new function receives one argument: i8* pBuffer
     std::vector<llvm::Type *> newArgsVec;
+    // The new function receives the following arguments:
+    // i8* pBuffer
     newArgsVec.push_back(PointerType::get(m_I8Ty, 0));
-
+    // GID argument
+    newArgsVec.push_back(m_IAA->getArgType(ImplicitArgsUtils::IA_WORK_GROUP_ID));
+    // Runtime context
+    newArgsVec.push_back(m_IAA->getArgType(ImplicitArgsUtils::IA_RUNTIME_CONTEXT));
     // Create new functions return type
     FunctionType *FTy = FunctionType::get( pFunc->getReturnType(), newArgsVec, false);
 
@@ -79,7 +87,9 @@ namespace intel{
     return pNewF;
   }
   
-  std::vector<Value*> PrepareKernelArgs::createArgumentLoads(IRBuilder<>& builder, Function* pFunc, Argument *pArgsBuffer) {
+  std::vector<Value *> PrepareKernelArgs::createArgumentLoads(
+      IRBuilder<> &builder, Function *pFunc, Argument *pArgsBuffer,
+      Argument *pArgGID, Argument *RuntimeContext) {
 
     // Get old function's arguments list in the OpenCL level from its metadata
     std::vector<cl_kernel_argument> arguments;
@@ -89,25 +99,15 @@ namespace intel{
     Intel::KernelInfoMetaDataHandle kimd = m_mdUtils->getKernelsInfoItem(pFunc);
     assert(kimd.get() && "Function info should be available at this point");
     std::vector<Value*> params;
-    // assuming pBuffer is initially aligned to TypeAlignment::MAX_ALIGNMENT and 
-    // therefore currOffset = 0
-    // TODO : Can we check this assumption here?
-    size_t currOffset = 0;    
-    
     llvm::Function::arg_iterator callIt = pFunc->arg_begin();
     
     // TODO :  get common code from the following 2 for loops into a function
 
     // Handle explicit arguments
     for (unsigned ArgNo = 0; ArgNo < arguments.size(); ++ArgNo) {
-        
       cl_kernel_argument arg = arguments[ArgNo];
-      
-      // Align the current pArgsBuffer offset based on the alignment of the argument we are about to load
-      currOffset = TypeAlignment::align(TypeAlignment::getAlignment(arg), currOffset);
-      
       //  %0 = getelementptr i8* %pBuffer, i32 currOffset
-      Value* pGEP = builder.CreateGEP(pArgsBuffer, ConstantInt::get(m_I32Ty, currOffset));
+      Value* pGEP = builder.CreateGEP(pArgsBuffer, ConstantInt::get(m_I32Ty, arg.offset_in_bytes));
       
       Value* pArg;
       
@@ -164,7 +164,8 @@ namespace intel{
         }
         pArg = pLoad;
       }
-     
+
+    
       // Here we mark the load instructions from the struct that are the actual parameters for 
       // the original kernel's restricted formal parameters  
       // This info is used later on in OpenCLAliasAnalysis to overcome the fact that inlining 
@@ -180,33 +181,97 @@ namespace intel{
         pArgInst->setMetadata("restrict", llvm::MDNode::get(*m_pLLVMContext, 0)); 
       }
 
+      //TODO: Maybe get arg name from metadata?
+      std::stringstream Name;
+      Name << "explicit_" << ArgNo;
+      pArg->setName(Name.str());
       params.push_back(pArg);
       
-      // Advance the pArgsBuffer offset based on the size
-      currOffset += TypeAlignment::getSize(arg);
       ++callIt;
     }
-    
+
+    // Offset to after last explicit argument + adjusted alignment
+    // Believe it or not, the conformance has a test kernel with 0 args...
+    size_t currOffset = 0;
+    if (!arguments.empty()) {
+      currOffset = arguments.back().offset_in_bytes +
+                   TypeAlignment::getSize(arguments.back());
+      currOffset = ImplicitArgsUtils::getAdjustedAlignment(
+          currOffset, m_DL->getPointerABIAlignment());
+    }
     // Handle implicit arguments
     // Set to the Work Group Info implicit arg, as soon as it is known. Used for
     // computing other arg values
-    Value *WorkInfo = 0;
+    Value* WGInfo = 0;
+    // LocalSize for each dimension. Used several times below.
+    SmallVector<Value*, 4> LocalSize;
     ImplicitArgsUtils::initImplicitArgProps(m_PtrSizeInBytes);
     for(unsigned int i=0; i< ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
       Value* pArg = NULL;
+      assert(callIt->getType() == m_IAA->getArgType(i) &&
+             "Mismatch in arg found in function and expected arg type");
       switch(i) {
-      case ImplicitArgsUtils::IA_SLM_BUFFER:
-        {
+      case ImplicitArgsUtils::IA_SLM_BUFFER: {
           uint64_t slmSizeInBytes = kimd->getLocalBufferSize();
-          //TODO: when slmSizeInBytes equal 0, we might want to set dummy address for debugging!
+          // TODO: when slmSizeInBytes equal 0, we might want to set dummy
+          // address for debugging!
           Type *slmType = ArrayType::get(m_I8Ty, slmSizeInBytes);
           AllocaInst *slmBuffer = builder.CreateAlloca(slmType);
-          //Set alignment of implicit local buffer to max alignment.
-          //TODO: we should choose the min required alignment size
+          // Set alignment of implicit local buffer to max alignment.
+          // TODO: we should choose the min required alignment size
           slmBuffer->setAlignment(TypeAlignment::MAX_ALIGNMENT);
           pArg = builder.CreateBitCast(slmBuffer, PointerType::get(m_I8Ty, 3));
         }
         break;
+      case ImplicitArgsUtils::IA_CURRENT_WORK_ITEM:
+        pArg = builder.CreateAlloca(m_SizetTy, ConstantInt::get(m_SizetTy, 1));
+        break;
+      case ImplicitArgsUtils::IA_WORK_GROUP_ID:
+        // WGID is passed by value as an argument to the wrapper
+        assert(callIt->getType() == pArgGID->getType() && "Unmatching types");
+        pArg = pArgGID;
+        break;
+      case ImplicitArgsUtils::IA_RUNTIME_CONTEXT:
+        // Runtime Context is passed by value as an argument to the wrapper
+        assert(callIt->getType() == RuntimeContext->getType() &&
+               "Unmatching types");
+        pArg = RuntimeContext;
+        break;
+      case ImplicitArgsUtils::IA_GLOBAL_BASE_ID: {
+        assert(WGInfo && "WGInfo should have already been initialized");
+        // Obtain values of Local Size for each dimension
+        assert(LocalSize.empty() &&
+               "Assuming that we are computing Local Sizes here");
+        for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
+          LocalSize.push_back(
+              m_IAA->GenerateGetLocalSize(WGInfo, Dim, builder));
+        // Obtain values of NDRange Offsets for each dimension
+        SmallVector<Value *, 4> GlobalOffsets;
+        for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
+          GlobalOffsets.push_back(
+              m_IAA->GenerateGetGlobalOffset(WGInfo, Dim, builder));
+        }
+        // Obtain values of group ID for each dimension
+        SmallVector<Value *, 4> GroupIDs;
+        for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
+          GroupIDs.push_back(m_IAA->GenerateGetGroupID(pArgGID, Dim, builder));
+        // Compute the required value:
+        // GlobalBaseId[i] = GroupId[i]*LocalSize[i]+GlobalOffset[i]
+        SmallVector<Value *, 4> Computes;
+        for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
+          Value *V = builder.CreateBinOp(Instruction::Mul, LocalSize[Dim],
+                                         GroupIDs[Dim]);
+          V = builder.CreateBinOp(Instruction::Add, V, GlobalOffsets[Dim]);
+          Computes.push_back(V);
+        }
+        // Collect all values to single array
+        Value *U = UndefValue::get(m_IAA->getArgType(i));
+        for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
+          U = builder.CreateInsertValue(U, Computes[Dim],
+                                        ArrayRef<unsigned>(Dim));
+        }
+        pArg = U;
+        } break;
         //TODO: Remove this #ifndef when apple no longer pass barrier memory buffer
 #ifndef __APPLE__
       case ImplicitArgsUtils::IA_BARRIER_BUFFER: 
@@ -215,66 +280,39 @@ namespace intel{
           // which is set by the Barrier pass
           uint64_t SizeInBytes = kimd->getBarrierBufferSize();
           // BarrierBufferSize := BytesNeededPerWI*GroupSize(0)*GroupSize(1)*GroupSize(2)
-          // GroupSize(i) is loaded directly from the WGInfo implicit argument,
-          // which was already determined in an earlier iteration.
           Value *BarrierBufferSize = ConstantInt::get(m_SizetTy, SizeInBytes);
-          assert(WorkInfo && "Work Group Info was not initialized");
-          SmallVector<Value *, 4> params(3);
-          params[0] = ConstantInt::get(m_I32Ty, 0);
-          // Element with index=3 in struct is LocalSize
-          // TODO: Make this code a library function
-          params[1] = ConstantInt::get(m_I32Ty, 3);
-          std::stringstream DimStr;
-          for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
-            params[2] = ConstantInt::get(m_I32Ty, Dim);
-            DimStr.str("");
-            DimStr << "LocalSize_dim" << Dim << "_";
-            Value *pAddr = builder.CreateGEP(WorkInfo, params, "p" + DimStr.str());
-            LoadInst *LocalSizeDim = builder.CreateLoad(pAddr, DimStr.str());
-            BarrierBufferSize = builder.CreateMul(BarrierBufferSize, LocalSizeDim);
-          }
+          assert(WGInfo && "Work Group Info was not initialized");
+          assert(!LocalSize.empty() && "Local group sizes are assumed to be computed already");
+          for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
+            BarrierBufferSize = builder.CreateMul(BarrierBufferSize, LocalSize[Dim]);
           BarrierBufferSize->setName("BarrierBufferSize");
           // alloca i8, %BarrierBufferSize
-          AllocaInst *BarrierBuffer = builder.CreateAlloca(m_I8Ty, BarrierBufferSize, "BarrierBuffer");
+          AllocaInst *BarrierBuffer = builder.CreateAlloca(m_I8Ty, BarrierBufferSize);
           //TODO: we should choose the min required alignment size
           BarrierBuffer->setAlignment(TypeAlignment::MAX_ALIGNMENT);
           pArg = BarrierBuffer;
         }
         break;
 #endif
-      case ImplicitArgsUtils::IA_CURRENT_WORK_ITEM:
-        pArg = builder.CreateAlloca(m_SizetTy);
-        break;
+      case ImplicitArgsUtils::IA_WORK_GROUP_INFO: {
+        // These values are pointers that just need to be loaded from the
+        // UniformKernelArgs structure and passed on to the kernel
+        const ImplicitArgProperties &implicitArgProp =
+            ImplicitArgsUtils::getImplicitArgProps(i);
+        // %0 = getelementptr i8* %pBuffer, i32 currOffset  
+        Value *pGEP = builder.CreateGEP(pArgsBuffer,
+                                        ConstantInt::get(m_I32Ty, currOffset));
+        pArg = builder.CreateBitCast(pGEP, callIt->getType());
+        WGInfo = pArg;
+        // Advance the pArgsBuffer offset based on the size
+        currOffset += implicitArgProp.m_size;
+      } break;
       default:
-        {
-          const ImplicitArgProperties& implicitArgProp = ImplicitArgsUtils::getImplicitArgProps(i);
-          size_t alignment = implicitArgProp.m_alignment;
-          // assuming pBuffer is aligned at maximum alignment
-          currOffset = TypeAlignment::align(alignment, currOffset);
-
-          // %0 = getelementptr i8* %pBuffer, i32 currOffset  
-          Value* pGEP = builder.CreateGEP(pArgsBuffer, ConstantInt::get(m_I32Ty, currOffset));
-          // %1 = bitcast i8* %0 to type *
-          Value* pBitCast = builder.CreateBitCast(pGEP, PointerType::get(callIt->getType(), 0));
-          //load type * %1
-          LoadInst* pLoad = builder.CreateLoad(pBitCast);
-          if (alignment > 0) {
-            //load type * %1, align alignment
-            pLoad->setAlignment(alignment);
-          }
-          pArg = pLoad;
-          // WorkInfo is used as base for retrieving local size which is used
-          // above for computing size of the barrier buffer
-          if (ImplicitArgsUtils::IA_WORK_GROUP_INFO == i)
-            WorkInfo = pArg;
-
-          // Advance the pArgsBuffer offset based on the size
-          currOffset += implicitArgProp.m_size;
-        }
-        break;
+        assert(false && "Unknown implicit argument");
       }
 
       assert(pArg && "No value was created for this implicit argument!");
+      pArg->setName(ImplicitArgsUtils::getArgName(i));
       params.push_back(pArg);
       ++callIt;
     }
@@ -283,16 +321,31 @@ namespace intel{
   }
   
   void PrepareKernelArgs::createWrapperBody(Function* pWrapper, Function* pFunc) {
-  // Set new function's argument name
+    // Set new function's argument name
+    #if LLVM_VERSION == 3200
+    Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attributes::NoAlias);
+#elif LLVM_VERSION == 3425
+    Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attribute::NoAlias);
+#else
+    AttributeSet NoAlias = AttributeSet::get(*m_pLLVMContext, 0, Attribute::NoAlias);
+#endif
     Function::arg_iterator DestI = pWrapper->arg_begin();
-    DestI->setName("pBuffer");
-    Argument *pArgsBuffer = DestI;
+    DestI->setName("pUniformArgs");
+    DestI->addAttr(NoAlias);
+    Argument *pArgsBuffer = DestI++;
+    DestI->setName("pWGID");
+    DestI->addAttr(NoAlias);
+    Argument *pArgGID = DestI++;
+    DestI->setName("RuntimeContext");
+    DestI->addAttr(NoAlias);
+    Argument *RuntimeContext = DestI++;
+    assert(DestI == pWrapper->arg_end() && "Expected to be past last arg");
     
     // Create wrapper function
-    BasicBlock* block = BasicBlock::Create(*m_pLLVMContext, "entry", pWrapper);
+    BasicBlock* block = BasicBlock::Create(*m_pLLVMContext, "wrapper_entry", pWrapper);
     IRBuilder<> builder(block);
     
-    std::vector<Value*> params = createArgumentLoads(builder, pFunc, pArgsBuffer);
+    std::vector<Value*> params = createArgumentLoads(builder, pFunc, pArgsBuffer, pArgGID, RuntimeContext);
     
     CallInst* call = builder.CreateCall(pFunc, ArrayRef<Value*>(params));
     call->setCallingConv(pFunc->getCallingConv());

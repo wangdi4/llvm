@@ -57,6 +57,13 @@ public:
     virtual unsigned long long int GetKernelID() const;
 
     /**
+     * pair of helper functions which gets JIT Entry and encodes it in the host
+     * the second function responsible to resolve to the real Entry Point
+     */
+    virtual const void* CreateEntryPointHandle(const void* JitEP) const;
+    virtual const void* ResolveEntryPointHandle(const void* Handle) const;
+
+    /**
      * Serialization methods for the class (used by the serialization service)
      */
     void Serialize(IOutputStream& ost, SerializationStatus* stats);

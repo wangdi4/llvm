@@ -652,8 +652,17 @@ void FrameworkProxy::DeactivateTaskExecutor() const
         if (0 == m_uiTEActivationCount)
         {
             // this is the normal deletion - undo the counting here to delete the object
-            m_pTaskList->DecRefCnt();
-            m_pTaskList = NULL;
+            long ref = m_pTaskList->DecRefCnt();
+            // we expect ref count to be zero at this state
+            if ( 0 == ref )
+            {
+                m_pTaskList->Cleanup();
+                m_pTaskList = NULL;
+            }
+            else
+            {
+                assert( 0 == ref && "Trying to delete TaskExecuter while its ref count not zero !");
+            }
         }
     }
 }

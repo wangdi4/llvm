@@ -56,6 +56,7 @@ llvm::Pass *createRelaxedPass();
 llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBuiltInImportPass();
+llvm::ImmutablePass * createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
@@ -80,6 +81,7 @@ llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string 
 llvm::ModulePass* createDebugInfoPass();
 llvm::ModulePass *createReduceAlignmentPass();
 llvm::ModulePass* createProfilingInfoPass();
+llvm::Pass *createSmartGVNPass();
 #endif
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectFuncPtrCalls();
@@ -326,6 +328,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 #endif
   PM.add(createDataLayout(M));
   PM.add(createBuiltinLibInfoPass(pRtlModule, ""));
+  PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 
   if (isOcl20) {
     // Repeat static resolution of generic address space pointers after 
@@ -509,8 +512,8 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
     PM.add(llvm::createCFGSimplificationPass());    // Merge & remove BBs
     PM.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
 #ifdef __APPLE__
-    //Due to none default ABI, some built-ins are creating an allaca in middle of function.
-    //Need to run scalar aggregation to get red of these alloca (after built-in import).
+    //Due to none default ABI, some built-ins are creating an alloca in middle of function.
+    //Need to run scalar aggregation to get rid of these alloca (after built-in import).
     //mem2reg pass is not enough! as it only handles alloca in first basic block.
     PM.add(llvm::createScalarReplAggregatesPass());
 #else
@@ -530,7 +533,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
     PM.add(llvm::createInstructionCombiningPass());       // Instruction combining
     PM.add(llvm::createDeadStoreEliminationPass());       // Eliminated dead stores
     PM.add(llvm::createEarlyCSEPass());
-    PM.add(llvm::createGVNPass());
+    PM.add(createSmartGVNPass());
 
 #ifdef _DEBUG
     PM.add(llvm::createVerifierPass());

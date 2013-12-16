@@ -34,8 +34,6 @@
 #include "ICLDevBackendExecutionService.h"
 #include "ICLDevBackendProgram.h"
 #include "ICLDevBackendKernel.h"
-#include "ICLDevBackendBinary.h"
-#include "ICLDevBackendExecutable.h"
 #include "ICLDevBackendOptions.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

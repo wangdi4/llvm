@@ -180,9 +180,6 @@ public:
             case CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR:
                 *(void**)Value = (void*)(&m_allocator);
                 return false;
-            case CL_DEV_BACKEND_OPTION_BUFFER_PRINTER:
-                *(void**)Value = (void*)(&m_printer);
-                return true;
             default:
                 return false;
         }
@@ -220,7 +217,6 @@ public:
 
 private:
     MICNativeBackendExecMemoryAllocator  m_allocator;
-    MICBackendPrintfFiller        m_printer;
 
     Intel::OpenCL::DeviceBackend::ETransposeSize m_transposeSize;
     std::string    m_cpu;
@@ -302,11 +298,12 @@ void ExecuteWorkGroup( size_t x, size_t y, size_t z, WGContext& context, Validat
 {
     size_t groupId[MAX_WORK_DIM] = {x, y, z};
 
+    DEBUG_PRINT("ExecuteWorkGroup %d %d %d start\n",(int)x,(int)y,(int)z);
     // In production sequence the Runtime calls Executable::PrepareThread()
     // and Executable::RestoreThreadState() respectively before and
     // after executing a work group.
     // These routines setup and restore the MXCSR register and zero the upper parts of YMMs.
-    CHECK_RESULT(context.GetExecutable()->PrepareThread());
+    CHECK_RESULT(context.PrepareThread());
 
     if( useTraceMarks )
     {
@@ -314,15 +311,16 @@ void ExecuteWorkGroup( size_t x, size_t y, size_t z, WGContext& context, Validat
     }
 
     timer.Start();
-    context.GetExecutable()->Execute(groupId, NULL, NULL);
+    context.Execute(groupId);
     timer.Stop();
 
     if( useTraceMarks )
     {
         Validation::GenINT3();
     }
-
-    CHECK_RESULT(context.GetExecutable()->RestoreThreadState());
+ 
+    CHECK_RESULT(context.RestoreThreadState());
+    DEBUG_PRINT("ExecuteWorkGroup %d %d %d finish\n",(int)x,(int)y,(int)z);
 }
 
 COINATIVELIBEXPORT
@@ -361,7 +359,7 @@ void executeKernels(uint32_t         in_BufferCount,
     ExecutionOptions *exeOptions = (ExecutionOptions*)(dispatchers + numOfKernels);
     uint64_t kernelsArgIndex = 1;
     DEBUG_PRINT("Number of kernels to execute = %d\n", (int)numOfKernels);
-    WGContext context;
+
     *(uint8_t*)in_pReturnValue = uint8_t(true);
     for (uint64_t i = 0; i < numOfKernels; ++i)
     {
@@ -374,7 +372,6 @@ void executeKernels(uint32_t         in_BufferCount,
         CHECK_RESULT(pProgram->GetKernelByName((const char *)(in_ppBufferPointers[kernelsArgIndex]), &pKernel));
 
         DEBUG_PRINT("Creating binary ... ");
-        ICLDevBackendBinary_* pBinary;
         cl_work_description_type workDesc;
         dispatchers[i].workDesc.convertToClWorkDescriptionType(&workDesc);
         DEBUG_PRINT("\nWork space params:\nDimension:\t%d\nGlobal work size:\t[%d, %d, %d]\nGlobal work offset:\t[%d, %d, %d]\nLocal work size:\t[%d, %d, %d]\n", workDesc.workDimension, (int)workDesc.globalWorkSize[0], (int)workDesc.globalWorkSize[1], (int)workDesc.globalWorkSize[2], (int)workDesc.globalWorkOffset[0], (int)workDesc.globalWorkOffset[1], (int)workDesc.globalWorkOffset[2], (int)workDesc.localWorkSize[0], (int)workDesc.localWorkSize[1], (int)workDesc.localWorkSize[2]);
@@ -407,6 +404,7 @@ void executeKernels(uint32_t         in_BufferCount,
         char *kernelsArgs = new char[dispatchers[i].kernelArgSize];
         memcpy(kernelsArgs, (void*)((char*)(in_ppBufferPointers[kernelsArgIndex]) + dispatchers[i].kernelDirective.kernelNameSize), dispatchers[i].kernelArgSize);
         DEBUG_PRINT("Float value = %f\n", *(float*)(kernelsArgs + 24));
+        DEBUG_PRINT("Int value = %d\n", *(int*)(kernelsArgs + 24));
         DirectivePack* directives = (DirectivePack*)((char*)(in_ppBufferPointers[kernelsArgIndex]) + dispatchers[i].kernelDirective.kernelNameSize + dispatchers[i].kernelArgSize);
         DEBUG_PRINT("Number of directives: %d\n", (int)dispatchers[i].preExeDirectivesCount);
         DEBUG_PRINT("Possible directive values: %d, %d, %d\n", (int)BUFFER, (int)PRINTF, (int)KERNEL);
@@ -421,22 +419,17 @@ void executeKernels(uint32_t         in_BufferCount,
                 *((void**)(kernelsArgs + directives[j].bufferDirective.offset_in_blob)) = directives[j].bufferDirective.mem_obj_desc.pData;
                 DEBUG_PRINT("Pointer value[%d] = %p\n", j, directives[j].bufferDirective.mem_obj_desc.pData);
                 DEBUG_PRINT("Pointer value = %p\n", directives[j].bufferDirective.mem_obj_desc.pData);
-                DEBUG_PRINT("First three values = %f, %f, %f\n", *(float*)directives[j].bufferDirective.mem_obj_desc.pData, *((float*)(directives[j].bufferDirective.mem_obj_desc.pData)+1), *((float*)(directives[j].bufferDirective.mem_obj_desc.pData)+2));
+                DEBUG_PRINT("First three values (as floats) = %f, %f, %f\n", *(float*)directives[j].bufferDirective.mem_obj_desc.pData, *((float*)(directives[j].bufferDirective.mem_obj_desc.pData)+1), *((float*)(directives[j].bufferDirective.mem_obj_desc.pData)+2));
+                DEBUG_PRINT("First three values (as ints) = %d, %d, %d\n", *(int*)directives[j].bufferDirective.mem_obj_desc.pData, *((int*)(directives[j].bufferDirective.mem_obj_desc.pData)+1), *((int*)(directives[j].bufferDirective.mem_obj_desc.pData)+2));
             }
             if (directives[j].id == PRINTF)
             {
             }
         }
 
-        CHECK_RESULT(executor->CreateBinary(pKernel, (void*)(kernelsArgs), dispatchers[i].kernelArgSize, &workDesc, &pBinary));
-        DEBUG_PRINT("done.\n");
+        WGContext context(pKernel, &workDesc, (void*)(kernelsArgs), dispatchers[i].kernelArgSize);
 
-        DEBUG_PRINT("Preparing executable ... ");
-        size_t memBuffCount;
-        CHECK_RESULT(pBinary->GetMemoryBuffersDescriptions(NULL, &memBuffCount));
-        size_t *pMemBuffSizes = new size_t[memBuffCount];
-        CHECK_RESULT(pBinary->GetMemoryBuffersDescriptions(pMemBuffSizes, &memBuffCount));
-        context.CreateContext(pBinary, pMemBuffSizes, memBuffCount);
+
         DEBUG_PRINT("done.\n");
 
         DEBUG_PRINT("Executing the kernel ... ");
@@ -525,7 +518,6 @@ void executeKernels(uint32_t         in_BufferCount,
         }
 
         delete [] kernelsArgs;
-        delete [] pMemBuffSizes;
         ++kernelsArgIndex;
     }
 }
