@@ -481,6 +481,7 @@ endfunction( create_target)
 list (APPEND OCL_SOURCE_FILES
   image_functions.cpp
   cbk_helper.c
+  extended_execution_functions.cpp
   )
 
 

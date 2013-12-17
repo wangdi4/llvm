@@ -262,7 +262,7 @@ static int enqueue_kernel_common(
     // size of field storing block_literal offset
     block_literal_offs_size + 
     // local mem arguments
-    // each local mem arg size is size_t. See Binary::InitParams() method
+    // each local mem arg size is size_t. See Kernel::PrepareKernelArgs() method?
     localbuf_size_len * sizeof(size_t) + 
     // block_literal structure size
     block_literal_size;
@@ -328,7 +328,7 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_basic(
     " globalWorkOffset0 " << ndrange->globalWorkOffset[0] << "\n");
   
   int res = 
-    enqueue_kernel_common(queue, flags, ndrange, block, 
+    enqueue_kernel_common(queue, flags, ndrange, block,
                           0, NULL, NULL, // events
                           NULL, 0, // local buffers
                           pEEC, RuntimeHandle);
@@ -346,7 +346,7 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_localmem(
 {
   DEBUG(dbgs() << "ocl20_enqueue_kernel_localmem. Entry point \n");
   int res = 
-    enqueue_kernel_common(queue, flags, ndrange, block, 
+    enqueue_kernel_common(queue, flags, ndrange, block,
                           0, NULL, NULL, // events
                           localbuf_size, localbuf_size_len, // local buffers
                           pEEC, RuntimeHandle);
@@ -364,7 +364,7 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events(
 {
   DEBUG(dbgs() << "ocl20_enqueue_kernel_events. Entry point \n");
   int res = 
-    enqueue_kernel_common(queue, flags, ndrange, block, 
+    enqueue_kernel_common(queue, flags, ndrange, block,
                           num_events_in_wait_list, in_wait_list,  // events
                           event_ret, // event ret
                           NULL, 0, // local buffers

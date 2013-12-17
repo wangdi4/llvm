@@ -153,6 +153,8 @@ namespace intel {
     FunctionType* getCaptureEventProfilingInfoFunctionType();
     ///@brief returns type of extended execution callback
     FunctionType* getExtExecFunctionType(unsigned type);
+    // getBlockLiteralSize - Return size of block literal for F
+    size_t getBlockLiteralSize(Function* F);
 
     ///@brief returns params List taken from pCall call
     ///!!! NOTE implicitly copies all pCall params to output

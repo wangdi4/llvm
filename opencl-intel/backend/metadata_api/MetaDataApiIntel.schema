@@ -232,6 +232,13 @@
                             "name":     "ScalarizedKernel",
                             "metatype": "function",
                             "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "block_literal_size",
+                            "name":     "BlockLiteralSize",
+                            "metatype": "int32_item",
+                            "optional": true
                         }
                     ]
                 },

@@ -14436,26 +14436,35 @@ cl_mem_fence_flags const_func __attribute__((overloadable)) get_fence (const voi
 typedef int kernel_enqueue_flags_t;
 typedef int clk_profiling_info;
 
-int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(void));
-int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(void));
-int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ...), uint size0,...);
-int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ...), uint size0, ...);
+#define MAX_WORK_DIM 3
 
-int __attribute__((overloadable)) enqueue_marker(queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret);
+typedef struct {
+    unsigned int workDimension;
+    size_t globalWorkOffset[MAX_WORK_DIM];
+    size_t globalWorkSize[MAX_WORK_DIM];
+    size_t localWorkSize[MAX_WORK_DIM];
+} ndrange_t;
 
-queue_t __attribute__((overloadable)) get_default_queue(void);
+int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(void));
+int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(void));
+int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ...), uint size0,...);
+int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ...), uint size0, ...);
 
-ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size);
-ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size, size_t local_work_size);
-ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_offset, size_t global_work_size, size_t local_work_size);
+int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_marker(queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret);
 
-ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_size[2]);
-ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_size[2], size_t local_work_size[2]);
-ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_offset[2], size_t global_work_size[2], size_t local_work_size[2]);
+queue_t __attribute__((overloadable)) __attribute__((always_inline)) get_default_queue(void);
 
-ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3]);
-ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3], size_t local_work_size[3]);
-ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_offset[3], size_t global_work_size[3], size_t local_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_1D( size_t global_work_size);
+ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_1D( size_t global_work_size, size_t local_work_size);
+ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_1D( size_t global_work_offset, size_t global_work_size, size_t local_work_size);
+
+ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_2D( size_t global_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_2D( size_t global_work_size[2], size_t local_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_2D( size_t global_work_offset[2], size_t global_work_size[2], size_t local_work_size[2]);
+
+ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_3D( size_t global_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_3D( size_t global_work_size[3], size_t local_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_3D( size_t global_work_offset[3], size_t global_work_size[3], size_t local_work_size[3]);
 
 void __attribute__((overloadable)) retain_event(clk_event_t event);
 void  __attribute__((overloadable)) release_event(clk_event_t event);
