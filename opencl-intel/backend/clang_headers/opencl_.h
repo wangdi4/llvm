@@ -14436,6 +14436,15 @@ cl_mem_fence_flags const_func __attribute__((overloadable)) get_fence (const voi
 typedef int kernel_enqueue_flags_t;
 typedef int clk_profiling_info;
 
+#define MAX_WORK_DIM        3
+
+typedef struct {
+    unsigned int workDimension;
+    size_t globalWorkOffset[MAX_WORK_DIM];
+    size_t globalWorkSize[MAX_WORK_DIM];
+    size_t localWorkSize[MAX_WORK_DIM];
+} ndrange_t;
+
 int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(void));
 int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(void));
 int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ...), uint size0,...);
