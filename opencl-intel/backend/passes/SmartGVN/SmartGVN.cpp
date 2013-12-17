@@ -23,11 +23,11 @@ File Name:  SmartGVN.cpp
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/PassManager.h>
 #include <llvm/Transforms/Scalar.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/Instructions.h>
 #if LLVM_VERSION == 3425
 #include <llvm/Target/TargetData.h>
 #else
-#include <llvm/DataLayout.h>
+#include <llvm/IR/DataLayout.h>
 #endif
 #include <llvm/Analysis/Passes.h>
 #include <llvm/Support/CommandLine.h>

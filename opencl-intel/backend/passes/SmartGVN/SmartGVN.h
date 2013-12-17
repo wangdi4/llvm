@@ -19,8 +19,8 @@ File Name:  SmartGVN.h
 #define __SMART_GVN_H__
 
 #include <llvm/Pass.h>
-#include <llvm/Module.h>
-#include <llvm/Function.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Function.h>
 #include <llvm/Analysis/LoopInfo.h>
 
 namespace intel {

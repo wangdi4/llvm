@@ -282,26 +282,19 @@ project(OCL)
 
 # GIT
 if (GIT_REVISIONS)
-
-	set (git_cmd "git")
-	set (git_arg "describe")
-	set (git_ver 0)
-	execute_process(COMMAND ${git_cmd} ${git_arg}
-		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-		RESULT_VARIABLE git_result
-		OUTPUT_VARIABLE git_ver)		
-	set(GIT_DESCRIPTION   ${git_ver})
-	set(GIT_VERIONING 0)
-	STRING(REGEX REPLACE "trunk-" "" GIT_VERIONING ${GIT_DESCRIPTION})
-	STRING(REGEX REPLACE "-[0-9a-z]+" "" GIT_VERIONING ${GIT_VERIONING})
-	math(EXPR BUILDVER_WC_REVISION "0 + ${GIT_VERIONING}")
+    find_package(Git REQUIRED)
+    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --long
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                    OUTPUT_VARIABLE GIT_DESCRIPTION)
+    STRING(REGEX MATCH ".+-([0-9]*)-[0-9a-zA-Z]+" GIT_VERSION ${GIT_DESCRIPTION})
+    math(EXPR BUILDVER_WC_REVISION "0 + ${CMAKE_MATCH_1}")
 	
 	set (git_cmd_version "git")
 	set (git_arg_1 "log")
 	set (git_arg_2 "-1")
 	set (git_arg_3 "--format=%H")
 	set (git_ver_v 0)
-	execute_process(COMMAND ${git_cmd_version} ${git_arg_1} ${git_arg_2} ${git_arg_3}
+	execute_process(COMMAND ${GIT_EXECUTABLE} ${git_arg_1} ${git_arg_2} ${git_arg_3}
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 		RESULT_VARIABLE git_result_v
 		OUTPUT_VARIABLE git_ver_v)		

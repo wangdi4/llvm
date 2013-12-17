@@ -10,7 +10,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "NameMangleAPI.h"
 #include "MetaDataApi.h"
 #include "ParameterType.h"
-#include "cl_kernel_arg_type.h"
+#include "TypeAlignment.h"
+#include "cl_types.h"
 
 #if defined(__APPLE__)
   #include "OpenCL/cl.h"
