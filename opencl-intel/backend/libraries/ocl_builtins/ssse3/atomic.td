@@ -243,11 +243,11 @@ OclBuiltinImpl atomic_store_expl_scope_g_impl = OclBuiltinImpl<atomic_store_expl
     } else if($Arg2VarName == memory_order_acq_rel ||
               $Arg2VarName == memory_order_release) {
       *($Arg0atom2gentype)$Arg0VarName = $Arg1VarName;
-      atomic_work_item_fence($Arg2VarName, $Arg3VarName);
+      atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg2VarName, $Arg3VarName);
 
     } else if($Arg2VarName == memory_order_acquire ||
               $Arg2VarName == memory_order_relaxed) {     // relaxed is here just for code minimization
-      atomic_work_item_fence($Arg2VarName, $Arg3VarName); // relaxed fence do nothing
+      atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg2VarName, $Arg3VarName); // relaxed fence do nothing
       *($Arg0atom2gentype)$Arg0VarName = $Arg1VarName;
     }
   }]>;
@@ -275,7 +275,7 @@ OclBuiltinImpl atomic_load_expl_g_impl = OclBuiltinImpl<atomic_load_explicit_g, 
   }]>;
 
 OclBuiltinImpl atomic_load_expl_scope_g_impl = OclBuiltinImpl<atomic_load_explicit_scope_g, atomic_load_explicit_scope_g.Types, 0, [{
-    atomic_work_item_fence($Arg1VarName, $Arg2VarName);
+    atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg1VarName, $Arg2VarName);
     return *($Arg0atom2gentype)$Arg0VarName;
   }]>;
 
@@ -301,7 +301,7 @@ OclBuiltinImpl atomic_exchange_expl_g_impl = OclBuiltinImpl<atomic_exchange_expl
     return atomic_exchange_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, memory_scope_device);
   }]>;
 OclBuiltinImpl atomic_exchange_expl_scope_g_impl = OclBuiltinImpl<atomic_exchange_explicit_scope_g, atomic_exchange_explicit_scope_g.Types, 0, [{
-    atomic_work_item_fence($Arg2VarName, $Arg3VarName);
+    atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg2VarName, $Arg3VarName);
     int old = __sync_lock_test_and_set((int*)$Arg0VarName, as_int($Arg1VarName));
     return as_$ReturnType(old);
   }]>;
@@ -329,9 +329,9 @@ code atomic_compare_exchange_g_code = [{
 
     if(old != cmp) {
       *$Arg1VarName = as_$Arg2Type(old);
-      atomic_work_item_fence($Arg3VarName, $Arg5VarName);
+      atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg3VarName, $Arg5VarName);
     } else {
-      atomic_work_item_fence($Arg4VarName, $Arg5VarName);
+      atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg4VarName, $Arg5VarName);
     }
     return old == cmp;
   }];
@@ -475,7 +475,7 @@ code atomic_fetch_key_explicit_code = [{
     return atomic_fetch_$KEY_explicit($Arg0VarName, $Arg1VarName, $Arg2VarName, memory_scope_device);
   }];
 code atomic_fetch_binop_explicit_scope_g_code = [{
-    atomic_work_item_fence($Arg2VarName, $Arg3VarName);
+    atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg2VarName, $Arg3VarName);
     // this turns into locked instruction which affects the memory in total ordering on Intel CPUs
     return as_$ReturnType(__sync_fetch_and_$KEY(($Arg1Type*)$Arg0VarName, $Arg1VarName));
   }];
@@ -608,17 +608,8 @@ OclBuiltinImpl atomic_flag_clear_explicit_scope_l_impl = OclBuiltinImpl<atomic_f
   }]>;
 
 // atomic_work_item_fence
-OclBuiltinImpl atomic_work_item_fence_ord_impl = OclBuiltinImpl<atomic_work_item_fence_ord, atomic_work_item_fence_ord.Types, 0, [{
-    atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg0VarName, memory_scope_device);
-  }]>;
-OclBuiltinImpl atomic_work_item_fence_ord_sco_impl = OclBuiltinImpl<atomic_work_item_fence_ord_sco, atomic_work_item_fence_ord_sco.Types, 0, [{
-    atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg0VarName, $Arg1VarName);
-  }]>;
-OclBuiltinImpl atomic_work_item_fence_flag_ord_impl = OclBuiltinImpl<atomic_work_item_fence_flag_ord, atomic_work_item_fence_flag_ord.Types, 0, [{
-    atomic_work_item_fence($Arg0VarName, $Arg1VarName, memory_scope_device);
-  }]>;
-OclBuiltinImpl atomic_work_item_fence_flag_ord_sco_impl = OclBuiltinImpl<atomic_work_item_fence_flag_ord_sco, atomic_work_item_fence_flag_ord_sco.Types, 0, [{
-    if($Arg0VarName == CLK_GLOBAL_MEM_FENCE &&    // The flag must not be CLK_IMAGE_MEM_FENCE
+OclBuiltinImpl atomic_work_item_fence_impl = OclBuiltinImpl<atomic_work_item_fence, atomic_work_item_fence.Types, 0, [{
+    if($Arg0VarName & CLK_GLOBAL_MEM_FENCE &&
        $Arg2VarName != memory_scope_work_group) { // this implementation relies on that a workgroup is executed
                                                   // by single phy. thread
       if($Arg1VarName == memory_order_acquire) {
@@ -631,9 +622,4 @@ OclBuiltinImpl atomic_work_item_fence_flag_ord_sco_impl = OclBuiltinImpl<atomic_
       }
       // No affect if memory order is relaxed
     }
-  }]>;
-
-// atomic_work_item_image_fence
-OclBuiltinImpl atomic_work_item_image_fence_imp = OclBuiltinImpl<atomic_work_item_image_fence, atomic_work_item_image_fence.Types, 0, [{
-    atomic_work_item_fence(memory_order_seq_cst, $Arg0VarName); 
   }]>;

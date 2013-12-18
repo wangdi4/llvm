@@ -220,15 +220,15 @@ Conformance::image_sampler_data CreateSamplerData(const uint32_t& in_sampler)
     cl_addressing_mode dst_adr;
     switch(in_sampler & __ADDRESS_MASK)
     {
-    case CL_DEV_SAMPLER_ADDRESS_NONE:
+    case CLK_ADDRESS_NONE:
         dst_adr = CL_ADDRESS_NONE; break;
-    case CL_DEV_SAMPLER_ADDRESS_CLAMP:
+    case CLK_ADDRESS_CLAMP:
         dst_adr = CL_ADDRESS_CLAMP; break;
-    case CL_DEV_SAMPLER_ADDRESS_CLAMP_TO_EDGE:
+    case CLK_ADDRESS_CLAMP_TO_EDGE:
         dst_adr = CL_ADDRESS_CLAMP_TO_EDGE; break;
-    case CL_DEV_SAMPLER_ADDRESS_REPEAT:
+    case CLK_ADDRESS_REPEAT:
         dst_adr = CL_ADDRESS_REPEAT; break;
-    case CL_DEV_SAMPLER_ADDRESS_MIRRORED_REPEAT:
+    case CLK_ADDRESS_MIRRORED_REPEAT:
         dst_adr = CL_ADDRESS_MIRRORED_REPEAT; break;
     default:
         throw Exception::InvalidArgument("Not supported sampler addressing mode");
@@ -238,9 +238,9 @@ Conformance::image_sampler_data CreateSamplerData(const uint32_t& in_sampler)
     cl_filter_mode dst_filt;
     switch(in_sampler & __FILTER_MASK)
     {
-    case CL_DEV_SAMPLER_FILTER_NEAREST:
+    case CLK_FILTER_NEAREST:
         dst_filt = CL_FILTER_NEAREST; break;
-    case CL_DEV_SAMPLER_FILTER_LINEAR:
+    case CLK_FILTER_LINEAR:
         dst_filt = CL_FILTER_LINEAR; break;
     default:
         throw Exception::InvalidArgument("Not supported sampler filter type");

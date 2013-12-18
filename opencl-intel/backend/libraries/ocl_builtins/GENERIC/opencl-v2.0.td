@@ -255,7 +255,7 @@ def atomic_fetch_max_explicit_scope_l : OclBuiltin<"atomic_fetch_max_explicit", 
     (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
 }
 
-// atomic_flag, atomic_work_item_fence, and atomic_work_item_image_fence builtins
+// atomic_flag and atomic_work_item_fence
 let Types = [atom_flag],
     Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
 def atomic_flag_test_and_set_l : OclBuiltin<"atomic_flag_test_and_set",  (outs bool:$ret),
@@ -272,10 +272,5 @@ def atomic_flag_clear_explicit_l : OclBuiltin<"atomic_flag_clear_explicit",  (ou
 def atomic_flag_clear_explicit_scope_l : OclBuiltin<"atomic_flag_clear_explicit",  (outs),
   (ins pgentype:$object, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
 
-def atomic_work_item_fence_ord : OclBuiltin<"atomic_work_item_fence", (outs), (ins memory_order:$order), [], [], 1, 0>;
-def atomic_work_item_fence_ord_sco : OclBuiltin<"atomic_work_item_fence", (outs), (ins memory_order:$order, memory_scope:$scope), [], [], 1, 0>;
-def atomic_work_item_fence_flag_ord : OclBuiltin<"atomic_work_item_fence", (outs), (ins cl_mem_fence_flags:$flags, memory_order:$order), [], [], 1, 0>;
-def atomic_work_item_fence_flag_ord_sco : OclBuiltin<"atomic_work_item_fence", (outs), (ins cl_mem_fence_flags:$flags, memory_order:$order, memory_scope:$scope), [], [], 1, 0>;
-
-def atomic_work_item_image_fence : OclBuiltin<"atomic_work_item_image_fence", (outs), (ins memory_scope:$scope), [], [], 1, 0>;
+def atomic_work_item_fence : OclBuiltin<"atomic_work_item_fence", (outs), (ins cl_mem_fence_flags:$flags, memory_order:$order, memory_scope:$scope), [], [], 1, 0>;
 }
