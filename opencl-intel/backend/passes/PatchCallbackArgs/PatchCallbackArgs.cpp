@@ -5,7 +5,7 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 #define DEBUG_TYPE "resolve-wi-call"
-#include "ResolveWICall.h"
+#include "PatchCallbackArgs.h"
 #include "CompilationUtils.h"
 #include "OCLAddressSpace.h"
 #include "common_dev_limits.h"
@@ -26,18 +26,18 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 using namespace Intel::OpenCL::DeviceBackend;
 
 extern "C" {
-  ModulePass* createResolveWICallPass() {
-    return new intel::ResolveWICall();
+  ModulePass* createPatchCallbackArgsPass() {
+    return new intel::PatchCallbackArgs();
   }
 }
 
 namespace intel {
 
   const unsigned int BYTE_SIZE = 8;
-  char ResolveWICall::ID = 0;
+  char PatchCallbackArgs::ID = 0;
 
 
-  OCL_INITIALIZE_PASS(ResolveWICall, "resolve-wi-call",
+  OCL_INITIALIZE_PASS(PatchCallbackArgs, "patch-callback-args",
     "Resolve OpenCL built-in calls to callbacks",
     false,
     false
@@ -50,7 +50,7 @@ namespace intel {
       return isEnqueueKernelFunctionType(FuncType) || FuncType == ICT_PRINTF;
     }
 
-    bool ResolveWICall::runOnModule(Module &M) {
+    bool PatchCallbackArgs::runOnModule(Module &M) {
       m_pModule = &M;
       m_pLLVMContext = &M.getContext();
       m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
@@ -80,7 +80,7 @@ namespace intel {
       return true;
   }
 
-  size_t ResolveWICall::getBlockLiteralSize(Function* F) {
+  size_t PatchCallbackArgs::getBlockLiteralSize(Function* F) {
     Intel::MetaDataUtils mdUtils(F->getParent());
     assert(mdUtils.isKernelsInfoHasValue() && "No kernels.info metadata section. Is this a malformed test?");
     assert(mdUtils.findKernelsInfoItem(F) != mdUtils.end_KernelsInfo() && "No kernel.info entry for block literal. Is this a malformed test?");
@@ -89,7 +89,7 @@ namespace intel {
     return skimd->getBlockLiteralSize();
   }
 
-  Function* ResolveWICall::runOnFunction(Function *pFunc) {
+  Function* PatchCallbackArgs::runOnFunction(Function *pFunc) {
     // Getting the implicit arguments
     CompilationUtils::getImplicitArgs(pFunc, NULL, &m_pWorkInfo, &m_pWGId,
                                       &m_pBaseGlbId, &m_pSpecialBuf, &m_pCurrWI,
@@ -161,7 +161,6 @@ namespace intel {
         case ICT_CREATE_USER_EVENT:
         case ICT_SET_USER_EVENT_STATUS:
         case ICT_CAPTURE_EVENT_PROFILING_INFO:
-          continue;
           addExtExecFunctionDeclaration(calledFuncType);
           getExtExecFunctionParams(pCall, ExtExecArgs);
           appendWithCallBackContextAndRuntimeHandleValues(calledFuncType,
@@ -172,7 +171,6 @@ namespace intel {
           break;
 
         case ICT_ENQUEUE_KERNEL_LOCALMEM: {
-          continue;
           const uint32_t ICT_ENQUEUE_KERNEL_LOCALMEM_ARG_POS = 4;
           addExtExecFunctionDeclaration(calledFuncType);
           getEnqueueKernelLocalMemFunctionParams(
@@ -185,7 +183,6 @@ namespace intel {
           break;
         }
         case ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM: {
-          continue;
           const uint32_t ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM_ARG_POS = 7;
           addExtExecFunctionDeclaration(calledFuncType);
           getEnqueueKernelLocalMemFunctionParams(
@@ -200,7 +197,6 @@ namespace intel {
         case ICT_NDRANGE_1D:
         case ICT_NDRANGE_2D:
         case ICT_NDRANGE_3D:
-          continue;
           pNewRes = updateNDRangeND(calledFuncType, pCall);
           assert(pNewRes && "Expected updateNDRange1D to succeed");
           break;
@@ -235,7 +231,7 @@ namespace intel {
     return pFunc;
   }
 
-  Value* ResolveWICall::updateGetFunction(CallInst *pCall, unsigned type) {
+  Value* PatchCallbackArgs::updateGetFunction(CallInst *pCall, unsigned type) {
     assert(pCall && "Invalid CallInst");
     if (type == ICT_GET_WORK_DIM) {
       IRBuilder<> B(pCall);
@@ -326,7 +322,7 @@ namespace intel {
     return pAttrResult;
   }
 
-  Value *ResolveWICall::updateGetFunctionInBound(CallInst *pCall, unsigned type,
+  Value *PatchCallbackArgs::updateGetFunctionInBound(CallInst *pCall, unsigned type,
                                                  Instruction *pInsertBefore) {
     IRBuilder<> Builder(pInsertBefore);
     std::string Name;
@@ -356,7 +352,7 @@ namespace intel {
     return 0;
   }
 
-  Value* ResolveWICall::updatePrintf(CallInst *pCall) {
+  Value* PatchCallbackArgs::updatePrintf(CallInst *pCall) {
 
     assert( m_pRuntimeHandle && "Context pointer m_pRuntimeHandle created as expected" );
 #if LLVM_VERSION == 3425
@@ -459,7 +455,7 @@ namespace intel {
     return res;
   }
 
-  void ResolveWICall::updatePrefetch(llvm::CallInst *pCall) {
+  void PatchCallbackArgs::updatePrefetch(llvm::CallInst *pCall) {
 
 #if LLVM_VERSION == 3425
     TargetData DL(m_pModule);
@@ -491,7 +487,7 @@ namespace intel {
     CallInst::Create(pPrefetch, ArrayRef<Value*>(params), "", pCall);
   }
 
-  void ResolveWICall::addPrintfDeclaration() {
+  void PatchCallbackArgs::addPrintfDeclaration() {
     if (m_bPrintfDecl) {
       // Print declaration already added
       return;
@@ -513,7 +509,7 @@ namespace intel {
     m_bPrintfDecl = true;
   }
 
-  void ResolveWICall::addPrefetchDeclaration() {
+  void PatchCallbackArgs::addPrefetchDeclaration() {
     if ( m_bPrefetchDecl ) {
       // Prefetch declaration already added
       return;
@@ -534,7 +530,7 @@ namespace intel {
     m_bPrefetchDecl = true;
   }
 
-  unsigned ResolveWICall::getCallFunctionType(std::string calledFuncName) {
+  unsigned PatchCallbackArgs::getCallFunctionType(std::string calledFuncName) {
 
     if(calledFuncName == CompilationUtils::NAME_GET_NEW_LID) {
       return ICT_GET_NEW_LOCAL_ID;
@@ -615,32 +611,32 @@ namespace intel {
   }
   // address space generated by clang for queue_t, clk_event_t, ndrange_t types
   const int EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE = Utils::OCLAddressSpace::Global;
-  Type * ResolveWICall::getQueueType() const {
+  Type * PatchCallbackArgs::getQueueType() const {
     return PointerType::getInt8PtrTy(*m_pLLVMContext, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
   }
 
-  Type * ResolveWICall::getClkEventType() const {
+  Type * PatchCallbackArgs::getClkEventType() const {
     return PointerType::getInt8PtrTy(*m_pLLVMContext, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
   }
 
-  Type * ResolveWICall::getClkProfilingInfo() const {
+  Type * PatchCallbackArgs::getClkProfilingInfo() const {
     return IntegerType::get(*m_pLLVMContext, 32);
   }
 
-  Type * ResolveWICall::getKernelEnqueueFlagsType() const {
+  Type * PatchCallbackArgs::getKernelEnqueueFlagsType() const {
     return IntegerType::get(*m_pLLVMContext, 32);
   }
 
-  Type * ResolveWICall::getNDRangeType() const {
+  Type * PatchCallbackArgs::getNDRangeType() const {
     return PointerType::getInt8PtrTy(*m_pLLVMContext, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
   }
 
-  Type * ResolveWICall::getBlockNoArgumentsType() const {
+  Type * PatchCallbackArgs::getBlockNoArgumentsType() const {
     return PointerType::get(FunctionType::get(Type::getVoidTy(*m_pLLVMContext), 
       false), 0);
   }
 
-  Type * ResolveWICall::getBlockLocalMemType() const {
+  Type * PatchCallbackArgs::getBlockLocalMemType() const {
     // void (^block)(local void *, ?), - OpenCL
     // void (i8 addrspace(3)*, ...)*  - LLVM representation
     return PointerType::get(FunctionType::get(Type::getVoidTy(*m_pLLVMContext), 
@@ -648,19 +644,19 @@ namespace intel {
       true), 0);
   }
 
-  Type * ResolveWICall::getEnqueueKernelRetType() const {
+  Type * PatchCallbackArgs::getEnqueueKernelRetType() const {
     return IntegerType::get(*m_pLLVMContext, ENQUEUE_KERNEL_RETURN_BITS);
   }
 
-  ConstantInt * ResolveWICall::getConstZeroInt32Value() const {
+  ConstantInt * PatchCallbackArgs::getConstZeroInt32Value() const {
     return ConstantInt::get(Type::getInt32Ty(*m_pLLVMContext), 0);
   }
 
-  Type* ResolveWICall::getLocalMemBufType() const {
+  Type* PatchCallbackArgs::getLocalMemBufType() const {
     return IntegerType::get(*m_pLLVMContext, 32);
   }
 
-  Type * ResolveWICall::getOrAddStructNDRangeType() {
+  Type * PatchCallbackArgs::getOrAddStructNDRangeType() {
     if(m_pStructNDRangeType)
       return m_pStructNDRangeType;
     // type -  size_t XXX[3]
@@ -687,7 +683,7 @@ namespace intel {
   }
 
   /// @brief Store Value to 'unsigned int workDimension' in ndrange_t struct
-  StoreInst* ResolveWICall::StoreWorkDim(Value* Ptr, uint64_t V, LLVMContext* pContext, Instruction* InsertBefore)
+  StoreInst* PatchCallbackArgs::StoreWorkDim(Value* Ptr, uint64_t V, LLVMContext* pContext, Instruction* InsertBefore)
   {
     Value *GEPWorkDimParams[2];
     GEPWorkDimParams[0] = getConstZeroInt32Value();
@@ -702,7 +698,7 @@ namespace intel {
   }
 
   /// @brief store value to one of Arrays in ndrange_t struct
-  StoreInst* ResolveWICall::StoreNDRangeArrayElement(Value* Ptr, Value* V, const uint64_t ArrayPosition,
+  StoreInst* PatchCallbackArgs::StoreNDRangeArrayElement(Value* Ptr, Value* V, const uint64_t ArrayPosition,
     const uint64_t ElementIndex, const Twine &Name, LLVMContext* pContext, Instruction* InsertBefore)
   {
     assert( (ArrayPosition > 0) && (ArrayPosition < 4) && "ArrayIndex is out of boundaries");
@@ -718,7 +714,7 @@ namespace intel {
   }
 
   /// map given argument index to index of Array within ndrange_t struct
-  uint32_t ResolveWICall::MapIndexToIndexOfArray(const uint32_t Index, const uint32_t argsNum)
+  uint32_t PatchCallbackArgs::MapIndexToIndexOfArray(const uint32_t Index, const uint32_t argsNum)
   {
     // ndrange_t ndrange_1D/2D/3D (size_t global_work_size)
     // ndrange_t ndrange_1D/2D/3D (size_t global_work_size, size_t local_work_size)
@@ -726,7 +722,7 @@ namespace intel {
     return (argsNum == 3)?(Index + 1) : ( Index + 2);
   }
 
-  Value* ResolveWICall::updateNDRangeND(unsigned type, CallInst *pCall) {
+  Value* PatchCallbackArgs::updateNDRangeND(unsigned type, CallInst *pCall) {
     assert(m_pLLVMContext  && "m_pLLVMContext is NULL");
     uint32_t WorkDim = 0;
 
@@ -790,7 +786,7 @@ namespace intel {
     return bitcastV;
   }
 
-  void ResolveWICall::addLocalMemArgs(SmallVectorImpl<Value *> &args,
+  void PatchCallbackArgs::addLocalMemArgs(SmallVectorImpl<Value *> &args,
                                       CallInst *pCall,
                                       const unsigned LocalMemArgsOffs) {
 
@@ -848,7 +844,7 @@ namespace intel {
   }
 
   Value *
-  ResolveWICall::updateExtExecFunction(SmallVectorImpl<Value *> &NewParams,
+  PatchCallbackArgs::updateExtExecFunction(SmallVectorImpl<Value *> &NewParams,
                                        const StringRef FunctionName,
                                        CallInst *pCall) {
   // bitcast types from built-in argument type to type of callback function's
@@ -909,19 +905,19 @@ namespace intel {
   }
   return ret;
 }
-  void ResolveWICall::appendWithCallBackContextAndRuntimeHandleTypes(unsigned FuncType, SmallVectorImpl<Type*> &ArgTypes) {
+  void PatchCallbackArgs::appendWithCallBackContextAndRuntimeHandleTypes(unsigned FuncType, SmallVectorImpl<Type*> &ArgTypes) {
     ArgTypes.push_back(
         m_IAA->getWorkGroupInfoMemberType(NDInfo::RUNTIME_CALLBACKS));
     if (NeedsRuntimeHandleParam(FuncType))
         ArgTypes.push_back(m_pRuntimeHandle->getType());
   }
 
-  void ResolveWICall::clearPerFunctionCache() {
+  void PatchCallbackArgs::clearPerFunctionCache() {
     m_F = 0;
     m_RuntimeCallbacks = 0;
   }
 
-  Value *ResolveWICall::getOrCreateRuntimeCallbacks() {
+  Value *PatchCallbackArgs::getOrCreateRuntimeCallbacks() {
     IRBuilder<> Builder(m_F->getEntryBlock().begin());
     if (!m_RuntimeCallbacks)
       m_RuntimeCallbacks = m_IAA->GenerateGetFromWorkInfo(
@@ -929,7 +925,7 @@ namespace intel {
     return m_RuntimeCallbacks;
   }
 
-  void ResolveWICall::appendWithCallBackContextAndRuntimeHandleValues(
+  void PatchCallbackArgs::appendWithCallBackContextAndRuntimeHandleValues(
       unsigned calledFuncType, SmallVectorImpl<Value *> &Args,
       Instruction *InsertBefore) {
     // Generate a pointer to the runtime callbacks table
@@ -939,13 +935,13 @@ namespace intel {
       Args.push_back(m_pRuntimeHandle);
   }
 
-  void ResolveWICall::getExtExecFunctionParams(CallInst *pCall, SmallVectorImpl<Value*> &Res)
+  void PatchCallbackArgs::getExtExecFunctionParams(CallInst *pCall, SmallVectorImpl<Value*> &Res)
   {
     Res.append(pCall->op_begin(),
                pCall->op_begin() + pCall->getNumArgOperands());
   }
 
-  void ResolveWICall::getEnqueueKernelLocalMemFunctionParams(
+  void PatchCallbackArgs::getEnqueueKernelLocalMemFunctionParams(
       CallInst *pCall, const uint32_t FixedArgs,
       SmallVectorImpl<Value *> &Res) {
     // copy arguments from initial call except size0, size1, ...
@@ -955,7 +951,7 @@ namespace intel {
     addLocalMemArgs(Res, pCall, FixedArgs);
   }
 
-  FunctionType*  ResolveWICall::getDefaultQueueFunctionType(){
+  FunctionType*  PatchCallbackArgs::getDefaultQueueFunctionType(){
     SmallVector<Type*, 4> ArgTypes;
     appendWithCallBackContextAndRuntimeHandleTypes(ICT_GET_DEFAULT_QUEUE, ArgTypes);
     return FunctionType::get(getQueueType(), // return type
@@ -985,7 +981,7 @@ namespace intel {
   //            ExtendedExecutionContext * pEEC)
   //
   // This function creates LLVM types for ALL 4 above enqueue_kernel callbacks
-  FunctionType*  ResolveWICall::getEnqueueKernelType(unsigned type ){
+  FunctionType*  PatchCallbackArgs::getEnqueueKernelType(unsigned type ){
     SmallVector<Type*, 16> params;
     // queue_t
     params.push_back(getQueueType());
@@ -1023,7 +1019,7 @@ namespace intel {
                              params, false);
   }
 
-  FunctionType* ResolveWICall::getEnqueueMarkerFunctionType()
+  FunctionType* PatchCallbackArgs::getEnqueueMarkerFunctionType()
   {
     SmallVector<Type*, 16> params;
     params.push_back(getQueueType()); //queue_t queue
@@ -1036,7 +1032,7 @@ namespace intel {
       params,
       false);
   }
-  FunctionType* ResolveWICall::getGetKernelQueryFunctionType(unsigned type)
+  FunctionType* PatchCallbackArgs::getGetKernelQueryFunctionType(unsigned type)
   {
     // The prototype of ocl20_get_kernel_wg_size is:
     // void ocl20_get_kernel_wg_size(void*, uint32_t, ExtendedExecutionContext * pEEC)
@@ -1058,7 +1054,7 @@ namespace intel {
       false);
   }
 
-  FunctionType* ResolveWICall::getRetainAndReleaseEventFunctionType(unsigned FuncType)
+  FunctionType* PatchCallbackArgs::getRetainAndReleaseEventFunctionType(unsigned FuncType)
   {
     // The prototype of ocl20_retain_event is:
     // void ocl20_[retain|release]_event(clk_event_t,  ExtendedExecutionContext * pEEC)
@@ -1074,7 +1070,7 @@ namespace intel {
       false);
   }
 
-  FunctionType* ResolveWICall::getCreateUserEventFunctionType()
+  FunctionType* PatchCallbackArgs::getCreateUserEventFunctionType()
   {
     // The prototype of ocl20_create_user_event is:
     // clk_event_t ocl20_create_user_event ( ExtendedExecutionContext * pEEC)
@@ -1088,7 +1084,7 @@ namespace intel {
       false);
   }
 
-  FunctionType* ResolveWICall::getSetUserEventStatusFunctionType()
+  FunctionType* PatchCallbackArgs::getSetUserEventStatusFunctionType()
   {
     // The prototype of ocl20_set_user_event_status is:
     // void ocl20_set_user_event_status(clk_event_t, int status,  ExtendedExecutionContext * pEEC)
@@ -1106,7 +1102,7 @@ namespace intel {
       false);
   }
 
-  FunctionType* ResolveWICall::getCaptureEventProfilingInfoFunctionType()
+  FunctionType* PatchCallbackArgs::getCaptureEventProfilingInfoFunctionType()
   {
     // The prototype of ocl20_capture_event_profiling_info is:
     // void ocl20_capture_event_profiling_info(clk_event_t, clk_profiling_info name,
@@ -1127,7 +1123,7 @@ namespace intel {
       false);
   }
 
-  void ResolveWICall::addExtExecFunctionDeclaration(unsigned type)
+  void PatchCallbackArgs::addExtExecFunctionDeclaration(unsigned type)
   {
     // check declaration exists
     if(m_ExtExecDecls.find(type) != m_ExtExecDecls.end())
@@ -1141,7 +1137,7 @@ namespace intel {
     // mark declaration is done
     m_ExtExecDecls.insert(type);
   }
-  std::string ResolveWICall::getExtExecCallbackName(unsigned type) const
+  std::string PatchCallbackArgs::getExtExecCallbackName(unsigned type) const
   {
     if(type == ICT_GET_DEFAULT_QUEUE)
       return "ocl20_get_default_queue";
@@ -1179,7 +1175,7 @@ namespace intel {
       assert(0);
     return "";
   }
-  FunctionType* ResolveWICall::getExtExecFunctionType(unsigned type)
+  FunctionType* PatchCallbackArgs::getExtExecFunctionType(unsigned type)
   {
     if(type == ICT_GET_DEFAULT_QUEUE)
       return getDefaultQueueFunctionType();
@@ -1208,7 +1204,7 @@ namespace intel {
     return NULL;
   }
 
-  unsigned ResolveWICall::getPointerSize() const {
+  unsigned PatchCallbackArgs::getPointerSize() const {
     switch (m_pModule->getPointerSize()) {
     default: assert(false && "unknown pointer size"); return 0;
     case Module::Pointer32: return 32;

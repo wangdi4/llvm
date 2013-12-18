@@ -169,6 +169,24 @@ namespace intel {
       for (Function::arg_iterator it = pSrcFunction->arg_begin(), e = pSrcFunction->arg_end(); it != e; ++it) {
         m_valueMap.erase(it);
       }
+
+      PointerType* RT = dyn_cast<PointerType>(pDstFunction->getReturnType());
+      if (!RT)
+        return;
+      StructType *ST = dyn_cast<StructType>(RT->getElementType());
+      if (!ST ||!ST->isOpaque())
+        return;
+      // Fix all returns with bitcasts
+      for (Function::iterator BBI = pDstFunction->begin(),
+                              BBE = pDstFunction->end();
+           BBI != BBE; BBI++) {
+        if (ReturnInst *R = dyn_cast<ReturnInst>(BBI->getTerminator())) {
+          if (R->getType() != RT) {
+            Value *BC = new BitCastInst(R->getOperand(0), RT, "", R);
+            R->setOperand(0, BC);
+          }
+        }
+      }
     }
   }
 
