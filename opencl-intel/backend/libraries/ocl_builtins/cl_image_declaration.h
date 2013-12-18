@@ -21,34 +21,35 @@
 #pragma once
 
 // !!!IMPORTANT!!! These defines should be the same as in ImageCallbackLibrary.h
-#define NONE_FALSE_NEAREST 0x00
-#define CLAMP_FALSE_NEAREST 0x01
-#define CLAMPTOEDGE_FALSE_NEAREST 0x02
-#define REPEAT_FALSE_NEAREST 0x03
-#define MIRRORED_FALSE_NEAREST 0x04
+#define NONE_FALSE_NEAREST          0x10
+#define CLAMP_FALSE_NEAREST         0x14
+#define CLAMPTOEDGE_FALSE_NEAREST   0x12
+#define REPEAT_FALSE_NEAREST        0x16
+#define MIRRORED_FALSE_NEAREST      0x18
 
-#define NONE_TRUE_NEAREST 0x08
-#define CLAMP_TRUE_NEAREST 0x09
-#define CLAMPTOEDGE_TRUE_NEAREST 0x0a
-#define REPEAT_TRUE_NEAREST 0x0b
-#define MIRRORED_TRUE_NEAREST 0x0c
+#define NONE_TRUE_NEAREST           0x11
+#define CLAMP_TRUE_NEAREST          0x15
+#define CLAMPTOEDGE_TRUE_NEAREST    0x13
+#define REPEAT_TRUE_NEAREST         0x17
+#define MIRRORED_TRUE_NEAREST       0x19
 
-#define NONE_FALSE_LINEAR 0x10
-#define CLAMP_FALSE_LINEAR 0x11
-#define CLAMPTOEDGE_FALSE_LINEAR 0x12
-#define REPEAT_FALSE_LINEAR 0x13
-#define MIRRORED_FALSE_LINEAR 0x14
+#define NONE_FALSE_LINEAR           0x20
+#define CLAMP_FALSE_LINEAR          0x24
+#define CLAMPTOEDGE_FALSE_LINEAR    0x22
+#define REPEAT_FALSE_LINEAR         0x26
+#define MIRRORED_FALSE_LINEAR       0x28
 
-#define NONE_TRUE_LINEAR 0x18
-#define CLAMP_TRUE_LINEAR 0x19
-#define CLAMPTOEDGE_TRUE_LINEAR 0x1a
-#define REPEAT_TRUE_LINEAR 0x1b
-#define MIRRORED_TRUE_LINEAR 0x1c
+#define NONE_TRUE_LINEAR            0x21
+#define CLAMP_TRUE_LINEAR           0x25
+#define CLAMPTOEDGE_TRUE_LINEAR     0x23
+#define REPEAT_TRUE_LINEAR          0x27
+#define MIRRORED_TRUE_LINEAR        0x29
 
 #include "cl_types2.h"
 
 #define IMG_FUNC_EXPORT
 #define MAX_WORK_DIM 3
+#define CBK_ARRAY_SIZE 64
 
 // calback functions types definitions
 
@@ -139,11 +140,11 @@ typedef struct _image_aux_data
                                               // Could be a valid memory pointer or a handle to other object.
   unsigned          uiElementSize;            // Size of image pixel element.
 
-  void*             coord_translate_f_callback[32]; //the list of float coordinate translation callback
-  void*             read_img_callback_int[32];      // the list of integer image reader & filter callbacks
-  void*             read_img_callback_float[32];    // the list of float   image reader & filter callbacks
-  void*             soa4_read_img_callback_int[32]; // the list of soa4 integer image reader & filter callbacks
-  void*             soa8_read_img_callback_int[32]; // the list of soa8 integer image reader & filter callbacks
+  void*             coord_translate_f_callback[CBK_ARRAY_SIZE]; //the list of float coordinate translation callback
+  void*             read_img_callback_int[CBK_ARRAY_SIZE];      // the list of integer image reader & filter callbacks
+  void*             read_img_callback_float[CBK_ARRAY_SIZE];    // the list of float   image reader & filter callbacks
+  void*             soa4_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa4 integer image reader & filter callbacks
+  void*             soa8_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa8 integer image reader & filter callbacks
   void*             write_img_callback;             // the write image sampler callback
   void*             soa4_write_img_callback;        // the write image sampler callback
   void*             soa8_write_img_callback;        // the write image sampler callback

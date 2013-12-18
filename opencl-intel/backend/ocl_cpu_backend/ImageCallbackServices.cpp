@@ -210,9 +210,9 @@ void ImageCallbackService::InitializeToTrap(void* arr[], size_t size) const
 
 cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* pImageObject, void* auxObject) const
 {
-  // make sure that object passed here is image. Otherwise
+    // make sure that object passed here is image. Otherwise
     if (pImageObject->memObjType == CL_MEM_OBJECT_BUFFER){
-      pImageObject->imageAuxData=NULL;
+      pImageObject->imageAuxData = NULL;
       return CL_DEV_ERROR_FAIL;
     }
 
@@ -291,11 +291,11 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_FALSE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(INT_CBK, CLAMPTOEDGE_FALSE_NEAREST);
 
         //nearest filter, and true normalized
-        pImageAuxData->coord_translate_f_callback[NONE_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( INT_CBK, NONE_TRUE_NEAREST);
-        pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( INT_CBK, NONE_TRUE_NEAREST);
-        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( INT_CBK, CLAMPTOEDGE_TRUE_NEAREST);
-        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( INT_CBK, REPEAT_TRUE_NEAREST);
-        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( INT_CBK, MIRRORED_TRUE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[NONE_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(INT_CBK, NONE_TRUE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[CLAMP_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(INT_CBK, NONE_TRUE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[CLAMPTOEDGE_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(INT_CBK, CLAMPTOEDGE_TRUE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[REPEAT_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(INT_CBK, REPEAT_TRUE_NEAREST);
+        pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(INT_CBK, MIRRORED_TRUE_NEAREST);
     } else {   //float and unorm images
         // nearest filter, and false normalized
         pImageAuxData->coord_translate_f_callback[NONE_FALSE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk(FLT_CBK, NONE_FALSE_NEAREST);
@@ -310,11 +310,38 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
         pImageAuxData->coord_translate_f_callback[MIRRORED_TRUE_NEAREST] = pImageCallbackFuncs->GetTranslationCbk( FLT_CBK, MIRRORED_TRUE_NEAREST);//pImageCallbackFuncs->GetFMirroredTrueNearest();  
     }
 
-    //bilinear filter is undefined for un/signed integer types
+    static const unsigned int nearestSamplers[] = 
+    {
+        NONE_FALSE_NEAREST,
+        CLAMP_FALSE_NEAREST,
+        CLAMPTOEDGE_FALSE_NEAREST,
+        REPEAT_FALSE_NEAREST,
+        MIRRORED_FALSE_NEAREST,
+        NONE_TRUE_NEAREST,
+        CLAMP_TRUE_NEAREST,
+        CLAMPTOEDGE_TRUE_NEAREST,
+        REPEAT_TRUE_NEAREST,
+        MIRRORED_TRUE_NEAREST
+    };
 
+    static const unsigned int linearSamplers[] = 
+    {
+        NONE_FALSE_LINEAR,
+        CLAMP_FALSE_LINEAR,
+        CLAMPTOEDGE_FALSE_LINEAR,
+        REPEAT_FALSE_LINEAR,
+        MIRRORED_FALSE_LINEAR,
+        NONE_TRUE_LINEAR,
+        CLAMP_TRUE_LINEAR,
+        CLAMPTOEDGE_TRUE_LINEAR,
+        REPEAT_TRUE_LINEAR,
+        MIRRORED_TRUE_LINEAR
+    };
+
+    //bilinear filter is undefined for un/signed integer types
     if (IsIntDataType(pImageAuxData->format.image_channel_data_type)){
-        for (unsigned int i=MIRRORED_TRUE_NEAREST+1;i<32;i++)
-            pImageAuxData->coord_translate_f_callback[i] = pImageCallbackFuncs->GetUndefinedCbk(TRANS_CBK_UNDEF_FLOAT);
+        for(unsigned int i = 0; i<ARRAY_SIZE(linearSamplers); i++)
+            pImageAuxData->coord_translate_f_callback[linearSamplers[i]] = pImageCallbackFuncs->GetUndefinedCbk(TRANS_CBK_UNDEF_FLOAT);
     } else {
         // linear filter, and false normalized
         pImageAuxData->coord_translate_f_callback[NONE_FALSE_LINEAR] = pImageCallbackFuncs->GetTranslationCbk(FLT_CBK, NONE_FALSE_LINEAR);
@@ -338,16 +365,16 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     else
         read_cbk_ptr = pImageAuxData->read_img_callback_float;
 
-    for (unsigned int i=NONE_FALSE_NEAREST;i<NONE_FALSE_LINEAR;i++)
+    for(unsigned int i = 0; i<ARRAY_SIZE(nearestSamplers); i++)
     {
-        read_cbk_ptr[i] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST);
+        read_cbk_ptr[nearestSamplers[i]] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST);
         // Currently we have SOA implementation only for integer images
         if(IsSOASupported(pImageAuxData->format.image_channel_data_type))
         {
             void* cbFunc = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST, CL_MEM_OBJECT_IMAGE2D, SOA4);
-            SET_IF_NOT_NULL(pImageAuxData->soa4_read_img_callback_int[i], cbFunc);
+            SET_IF_NOT_NULL(pImageAuxData->soa4_read_img_callback_int[nearestSamplers[i]], cbFunc);
             cbFunc = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_NEAREST, CL_MEM_OBJECT_IMAGE2D, SOA8);
-            SET_IF_NOT_NULL(pImageAuxData->soa8_read_img_callback_int[i], cbFunc);
+            SET_IF_NOT_NULL(pImageAuxData->soa8_read_img_callback_int[nearestSamplers[i]], cbFunc);
         }
     }
 
@@ -355,21 +382,21 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     {
         if(pImageAuxData->dim_count == 1)
         {
-            for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
-                read_cbk_ptr[i] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE1D);
+            for(unsigned int i = 0; i<ARRAY_SIZE(linearSamplers); i++)
+                read_cbk_ptr[linearSamplers[i]] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE1D);
             read_cbk_ptr[CLAMP_FALSE_LINEAR] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE1D);
             read_cbk_ptr[CLAMP_TRUE_LINEAR]  = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE1D);
         } else if(pImageAuxData->dim_count == 2)
         {
-            for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
-                read_cbk_ptr[i] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE2D);
+            for(unsigned int i = 0; i<ARRAY_SIZE(linearSamplers); i++)
+                read_cbk_ptr[linearSamplers[i]] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE2D);
             read_cbk_ptr[CLAMP_FALSE_LINEAR] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE2D);
             read_cbk_ptr[CLAMP_TRUE_LINEAR]  = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE2D);
         }
         else
         {
-            for (unsigned int i=NONE_FALSE_LINEAR;i<MIRRORED_TRUE_LINEAR+1;i++)
-                read_cbk_ptr[i] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
+            for(unsigned int i = 0; i<ARRAY_SIZE(linearSamplers); i++)
+                read_cbk_ptr[linearSamplers[i]] = pImageCallbackFuncs->GetReadingCbk(NO_CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
             read_cbk_ptr[CLAMP_FALSE_LINEAR] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
             read_cbk_ptr[CLAMP_TRUE_LINEAR] = pImageCallbackFuncs->GetReadingCbk(CLAMP_CBK, ch_order, ch_type, CL_FILTER_LINEAR, CL_MEM_OBJECT_IMAGE3D);
         }

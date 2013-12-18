@@ -636,6 +636,12 @@ int ClangFECompilerCompileTask::Compile()
 ClangFECompilerLinkTask::ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor *pProgDesc)
 : m_pProgDesc(pProgDesc), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
 {
+    bDebugInfoFlag = false;
+    bProfilingFlag = false;
+    bDenormsAreZeroFlag = false;
+    bDisableOptFlag = false;
+    bFastRelaxedMathFlag = false;
+    bEnableLinkOptionsFlag = false;
 }
 
 ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
@@ -663,14 +669,20 @@ int ClangFECompilerLinkTask::Link()
         return CL_SUCCESS;
     }
 
+    //Don't need actual linker...
+    bool isSPIR = false; 
+    if(1 == m_pProgDesc->uiNumBinaries) {
+        isSPIR = (((const char*)(m_pProgDesc->pBinaryContainers[0]))[0] == 'B') &&
+        (((const char*)(m_pProgDesc->pBinaryContainers[0]))[1] == 'C');
+    }
+
     ParseOptions(m_pProgDesc->pszOptions);
-    ResolveFlags();
+    
+    if(!isSPIR)
+        ResolveFlags();
 
     if (1 == m_pProgDesc->uiNumBinaries)
     {
-        //Don't need actual linker...
-        bool isSPIR = (((const char*)(m_pProgDesc->pBinaryContainers[0]))[0] == 'B') &&
-          (((const char*)(m_pProgDesc->pBinaryContainers[0]))[1] == 'C');
 
         m_stOutIRSize = m_pProgDesc->puiBinariesSizes[0];
         if (isSPIR) m_stOutIRSize += sizeof(cl_llvm_prog_header) + sizeof(cl_prog_container_header);
@@ -1493,8 +1505,8 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 res = false;
             }
         }
-        else if ((*opt_i == "-std-spir=1.0") || 
-                 (*opt_i == "-std-spir=1.2")) {
+        else if ((*opt_i == "-spir-std=1.0") || 
+                 (*opt_i == "-spir-std=1.2")) {
             //ignore SPIR version flag for now
         }
         else if ((*opt_i == "-x")) {

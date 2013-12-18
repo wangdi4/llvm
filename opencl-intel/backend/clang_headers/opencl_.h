@@ -8125,20 +8125,32 @@ double16 const_func __attribute__((overloadable)) shuffle2(double16 x, double16 
  * in the description above are undefined.
  */
 
-#define __ADDRESS_BASE                  0
-#define CLK_ADDRESS_NONE                0 
-#define CLK_ADDRESS_CLAMP               (1 << __ADDRESS_BASE)
-#define CLK_ADDRESS_CLAMP_TO_EDGE       (2 << __ADDRESS_BASE)
-#define CLK_ADDRESS_REPEAT              (3 << __ADDRESS_BASE)
-#define CLK_ADDRESS_MIRRORED_REPEAT     (4 << __ADDRESS_BASE)
+//
+// Addressing Mode.
+//
+#define CLK_ADDRESS_NONE                0
+#define CLK_ADDRESS_CLAMP_TO_EDGE       2
+#define CLK_ADDRESS_CLAMP               4
+#define CLK_ADDRESS_REPEAT              6
+#define CLK_ADDRESS_MIRRORED_REPEAT     8
 
-#define __NORMALIZED_BASE               3
+#define __ADDRESS_MASK                  0xE
+
+//
+// Coordination Normalization
+//
 #define CLK_NORMALIZED_COORDS_FALSE     0
-#define CLK_NORMALIZED_COORDS_TRUE      (1 << __NORMALIZED_BASE)
+#define CLK_NORMALIZED_COORDS_TRUE      1
 
-#define __FILTER_BASE                   4
-#define CLK_FILTER_NEAREST              0
-#define CLK_FILTER_LINEAR               (1 << __FILTER_BASE)
+#define __NORMALIZED_MASK               1
+
+//
+// Filtering Mode.
+//
+#define CLK_FILTER_NEAREST              0x10
+#define CLK_FILTER_LINEAR               0x20
+
+#define __FILTER_MASK                   0x30
 
 float4 __attribute__((overloadable)) const_func read_imagef(__read_only image2d_t image, sampler_t sampler, int2 coord);
 float4 __attribute__((overloadable)) const_func read_imagef(__read_only image2d_t image, sampler_t sampler, float2 coord);
@@ -8485,36 +8497,50 @@ int const_func __attribute__((overloadable)) get_image_depth(image3d_t image);
  */
 
 // Channel order, numbering must be aligned with cl_channel_order in cl.h
-#define CLK_R                   0x0
-#define CLK_A                   0x1
-#define CLK_RG                  0x2
-#define CLK_RA                  0x3
-#define CLK_RGB                 0x4
-#define CLK_RGBA                0x5
-#define CLK_BGRA                0x6
-#define CLK_ARGB                0x7
-#define CLK_INTENSITY           0x8
-#define CLK_LUMINANCE           0x9
-#define CLK_DEPTH               0xD
-#define CLK_sRGBA               0x11
-#define CLK_sBGRA               0x12
+//
+// Channel order.
+//
+#define CLK_R                                        0x10B0
+#define CLK_A                                        0x10B1
+#define CLK_RG                                       0x10B2
+#define CLK_RA                                       0x10B3
+#define CLK_RGB                                      0x10B4
+#define CLK_RGBA                                     0x10B5
+#define CLK_BGRA                                     0x10B6
+#define CLK_ARGB                                     0x10B7
+#define CLK_INTENSITY                                0x10B8
+#define CLK_LUMINANCE                                0x10B9
+#define CLK_Rx                                       0x10BA
+#define CLK_RGx                                      0x10BB
+#define CLK_RGBx                                     0x10BC
+#define CLK_DEPTH                                    0x10BD
+#define CLK_DEPTH_STENCIL                            0x10BE
+// OpenCL2.0 image formats beyond SPIR 1.2 spec
+#define CLK_sRGB                                     0x10BF
+#define CLK_sRGBx                                    0x10C0
+#define CLK_sRGBA                                    0x10C1
+#define CLK_sBGRA                                    0x10C2
+#define CLK_ABGR                                     0x10C3
 
-// Channel Type
-#define CLK_SNORM_INT8          0
-#define CLK_SNORM_INT16         1
-#define CLK_UNORM_INT8          2
-#define CLK_UNORM_INT16         3
-#define CLK_UNORM_SHORT_565     4
-#define CLK_UNORM_SHORT_555     5
-#define CLK_UNORM_INT_101010    6
-#define CLK_SIGNED_INT8         7
-#define CLK_SIGNED_INT16        8
-#define CLK_SIGNED_INT32        9
-#define CLK_UNSIGNED_INT8       10
-#define CLK_UNSIGNED_INT16      11
-#define CLK_UNSIGNED_INT32      12
-#define CLK_HALF_FLOAT          13
-#define CLK_FLOAT               14
+//
+// Channel Datatype.
+//
+#define CLK_SNORM_INT8          0x10D0
+#define CLK_SNORM_INT16         0x10D1
+#define CLK_UNORM_INT8          0x10D2
+#define CLK_UNORM_INT16         0x10D3
+#define CLK_UNORM_SHORT_565     0x10D4
+#define CLK_UNORM_SHORT_555     0x10D5
+#define CLK_UNORM_INT_101010    0x10D6
+#define CLK_SIGNED_INT8         0x10D7
+#define CLK_SIGNED_INT16        0x10D8
+#define CLK_SIGNED_INT32        0x10D9
+#define CLK_UNSIGNED_INT8       0x10DA
+#define CLK_UNSIGNED_INT16      0x10DB
+#define CLK_UNSIGNED_INT32      0x10DC
+#define CLK_HALF_FLOAT          0x10DD
+#define CLK_FLOAT               0x10DE
+#define CLK_UNORM_INT24         0x10DF
 
 int const_func __attribute__((overloadable)) get_image_channel_data_type(image1d_t image);
 int const_func __attribute__((overloadable)) get_image_channel_data_type(image1d_buffer_t image);
