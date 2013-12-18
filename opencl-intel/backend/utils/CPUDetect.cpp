@@ -20,7 +20,7 @@ struct CPUID_PARAMS {
     unsigned long long   m_rcx;
     unsigned long long   m_rdx;
 } __attribute__ ((packed));
-extern "C" void ocl_hw_cpuid( struct CPUID_PARAMS *);
+extern "C" void hw_cpuid( struct CPUID_PARAMS *);
 
 //------------------------------------------------------------------------------
 // void ASM_FUNCTION cpuid( int cpuid_info[4], UINT32 type);
@@ -30,7 +30,7 @@ extern "C" void ocl_hw_cpuid( struct CPUID_PARAMS *);
 {                                                                              \
     struct CPUID_PARAMS __cpuid_params;                                        \
     __cpuid_params.m_rax = type;                                               \
-    ocl_hw_cpuid( &__cpuid_params);                                            \
+    hw_cpuid( &__cpuid_params);                                                \
                                                                                \
     (p_cpuid_info)[0] = (unsigned int)__cpuid_params.m_rax;                    \
     (p_cpuid_info)[1] = (unsigned int)__cpuid_params.m_rbx;                    \
@@ -42,7 +42,7 @@ extern "C" void ocl_hw_cpuid( struct CPUID_PARAMS *);
     struct CPUID_PARAMS __cpuid_params;                                        \
     __cpuid_params.m_rax = type;                                               \
     __cpuid_params.m_rcx = rcxVal;                                               \
-    ocl_hw_cpuid( &__cpuid_params);                                                \
+    hw_cpuid( &__cpuid_params);                                                \
                                                                                \
     (p_cpuid_info)[0] = (unsigned int)__cpuid_params.m_rax;                    \
     (p_cpuid_info)[1] = (unsigned int)__cpuid_params.m_rbx;                    \
@@ -69,7 +69,7 @@ struct XGETBV_PARAMS {
   #pragma pack ()
 #endif
 
-extern "C" void ocl_hw_xgetbv( struct XGETBV_PARAMS *);
+extern "C" void hw_xgetbv( struct XGETBV_PARAMS *);
 
 //------------------------------------------------------------------------------
 // void ASM_FUNCTION xgetbv( int xcr_info[2]);
@@ -78,7 +78,7 @@ extern "C" void ocl_hw_xgetbv( struct XGETBV_PARAMS *);
 #define xgetbv( p_xcr_info )                                                   \
 {                                                                              \
     struct XGETBV_PARAMS __xgetbv_params;                                      \
-    ocl_hw_xgetbv( &__xgetbv_params);                                              \
+    hw_xgetbv( &__xgetbv_params);                                              \
                                                                                \
     (p_xcr_info)[0] = (unsigned int)__xgetbv_params.m_rax;                     \
     (p_xcr_info)[1] = (unsigned int)__xgetbv_params.m_rdx;                     \
