@@ -170,13 +170,14 @@ namespace intel {
         m_valueMap.erase(it);
       }
 
+      // If the imported function contains usages of opaque types, need to fix
+      // with bitcasts
       PointerType* RT = dyn_cast<PointerType>(pDstFunction->getReturnType());
       if (!RT)
         return;
       StructType *ST = dyn_cast<StructType>(RT->getElementType());
       if (!ST ||!ST->isOpaque())
         return;
-      // Fix all returns with bitcasts
       for (Function::iterator BBI = pDstFunction->begin(),
                               BBE = pDstFunction->end();
            BBI != BBE; BBI++) {
