@@ -46,7 +46,7 @@ CallKernel:
 #================= Utilities ===================
 .equ ARG1_U64,%rdi
 
-## structure definition for hw_cpuid()
+## structure definition for ocl_hw_cpuid()
         .struct 0
 M_RAX:
         .struct M_RAX + 8
@@ -59,15 +59,15 @@ M_RDX:
 .text
 #------------------------------------------------------------------------------
 #  void cdecl
-#  hw_cpuid (
+#  ocl_hw_cpuid (
 #       CPUID_PARAMS * ARG1_U64
 #  )
 #
 #  Execute cpuid instruction
 #
 #------------------------------------------------------------------------------
-.globl hw_cpuid
-hw_cpuid:
+.globl ocl_hw_cpuid
+ocl_hw_cpuid:
         # store regs b, c, d
         pushq   %rbx
         pushq   %rcx
@@ -87,11 +87,11 @@ hw_cpuid:
         popq    %rcx
         popq    %rbx
         ret
-# end of hw_cpuid()
+# end of ocl_hw_cpuid()
    
 .equ ARG1,%rdi
 
-## structure definition for hw_xgetbv()
+## structure definition for ocl_hw_xgetbv()
         .struct 0
 MEM_RAX:
         .struct MEM_RAX + 8
@@ -99,15 +99,15 @@ MEM_RDX:
 
 .text
 #------------------------------------------------------------------------------
-#  hw_xgetbv (
+#  ocl_hw_xgetbv (
 #       XGETBV_PARAMS * ARG1
 #  )
 #
 #  Execute xgetbv instruction
 #
 #------------------------------------------------------------------------------
-.globl hw_xgetbv
-hw_xgetbv:
+.globl ocl_hw_xgetbv
+ocl_hw_xgetbv:
         mov		$0, %rcx
         # XGETBV return result in EDX:EAX
         .byte 15
