@@ -180,7 +180,7 @@ endif(INCLUDE_MIC_DEVICE)
 set (CLANG_COMPILER_PARAMS
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h
-  -fblocks -D__OPENCL_C_VERSION__=200 
+  -fblocks -D__OPENCL_C_VERSION__=200
   )
 
 if (PLATFORM EQUAL Win32)
@@ -481,7 +481,7 @@ endfunction( create_target)
 list (APPEND OCL_SOURCE_FILES
   image_functions.cpp
   cbk_helper.c
-  extended_execution_functions.cpp
+  ndrange_functions.cpp
   )
 
 

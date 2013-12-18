@@ -810,13 +810,13 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 
     if ( uiMemArgCount > 0 )
     {
-    cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(), uiMemArgCount, &devMemObjects);
-    if ( CL_DEV_FAILED(clRet) )
-    {
-        m_lastError = clRet;
-        NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, clRet);
-        return clRet;
-    }
+        cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(), uiMemArgCount, &devMemObjects);
+        if ( CL_DEV_FAILED(clRet) )
+        {
+            m_lastError = clRet;
+            NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, clRet);
+            return clRet;
+        }
     }
     m_pKernelArgs = pLockedParams;
     m_pImplicitArgs = (cl_uniform_kernel_args*)(pLockedParams+pKernel->GetExplicitArgumentBufferSize());
@@ -986,8 +986,6 @@ void NDRange::DetachFromThread(void* pWgContext)
 #endif // ITT
     
     m_pRunner->RestoreThreadState(m_tExecState);
-
-    WgFinishedExecution();
 }
 
 bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
@@ -1041,8 +1039,14 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
         }
     }
 #endif
+    CommandSubmitionLists childKernelsForWG;
 
-    m_pRunner->RunGroup(m_pKernelArgs, groupId, this);
+    m_pRunner->RunGroup(m_pKernelArgs, groupId, &childKernelsForWG);
+
+    if ( (NULL != childKernelsForWG.waitingChildrenForWorkGroup) || (NULL != childKernelsForWG.waitingChildrenForKernelLocalHead) )
+    {
+        SubmitCommands(&childKernelsForWG);
+    }
 
 #ifdef _DEBUG
     -- m_lExecuting;
