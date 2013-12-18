@@ -1,5 +1,10 @@
 #if !defined(__MIC__) && !defined(__MIC2__)
+#include <stdarg.h>
 typedef void ExtendedExecutionContext;
+
+
+// Upper bound on amount of var args that can be in a call
+#define MAX_VAR_ARGS_COUNT (32)
 
 ////////// - enqueue_kernel
 extern int ocl20_enqueue_kernel_events(
@@ -35,14 +40,23 @@ int __attribute__((overloadable)) __attribute__((always_inline))
 
 extern int ocl20_enqueue_kernel_localmem(
     queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t *ndrange,
-    void *block, unsigned *localbuf_size, unsigned localbuf_size_len,
+    void *block, uint *localbuf_size, uint localbuf_size_len,
     ExtendedExecutionContext *pEEC, void *RuntimeHandle);
 int __attribute__((overloadable)) __attribute__((always_inline))
     enqueue_kernel(queue_t queue, kernel_enqueue_flags_t flags,
                    const ndrange_t ndrange, void (^block)(local void *, ...),
                    uint size0, ...) {
-  unsigned *localbuf_size;
-  unsigned localbuf_size_len;
+  uint localbuf_size[MAX_VAR_ARGS_COUNT];
+  va_list argp;
+  size_t size = size0;
+  uint idx = 0;
+  va_start(argp, size0);
+  do {
+    localbuf_size[idx++] = size;
+    size = va_arg(argp, size_t);
+  } while (size);
+  va_end(argp);
+  uint localbuf_size_len = idx;
   void *pEEC;
   void *RuntimeHandle;
   return ocl20_enqueue_kernel_localmem(queue, flags, &ndrange, block,
@@ -52,17 +66,26 @@ int __attribute__((overloadable)) __attribute__((always_inline))
 
 extern int ocl20_enqueue_kernel_events_localmem(
     const queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t *ndrange,
-    unsigned num_events_in_wait_list, const clk_event_t *in_wait_list,
-    clk_event_t *event_ret, void *block, unsigned *localbuf_size,
-    unsigned localbuf_size_len, ExtendedExecutionContext *pEEC,
+    uint num_events_in_wait_list, const clk_event_t *in_wait_list,
+    clk_event_t *event_ret, void *block, uint *localbuf_size,
+    uint localbuf_size_len, ExtendedExecutionContext *pEEC,
     void *RuntimeHandle);
 int __attribute__((overloadable)) __attribute__((always_inline))
     enqueue_kernel(queue_t queue, kernel_enqueue_flags_t flags,
                    const ndrange_t ndrange, uint num_events_in_wait_list,
                    const clk_event_t *event_wait_list, clk_event_t *event_ret,
                    void (^block)(local void *, ...), uint size0, ...) {
-  unsigned *localbuf_size;
-  unsigned localbuf_size_len;
+  uint localbuf_size[MAX_VAR_ARGS_COUNT];
+  va_list argp;
+  size_t size = size0;
+  uint idx = 0;
+  va_start(argp, size0);
+  do {
+    localbuf_size[idx++] = size;
+    size = va_arg(argp, size_t);
+  } while (size);
+  va_end(argp);
+  uint localbuf_size_len = idx;
   void *pEEC;
   void *RuntimeHandle;
   return ocl20_enqueue_kernel_events_localmem(
