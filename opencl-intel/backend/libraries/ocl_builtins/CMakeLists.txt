@@ -481,7 +481,7 @@ endfunction( create_target)
 list (APPEND OCL_SOURCE_FILES
   image_functions.cpp
   cbk_helper.c
-  ndrange_functions.cpp
+  extended_execution_functions.cpp
   )
 
 
