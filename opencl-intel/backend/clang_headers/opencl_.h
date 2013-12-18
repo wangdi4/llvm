@@ -6340,6 +6340,7 @@ void __attribute__((overloadable)) barrier(cl_mem_fence_flags flags);
  * memory_scope_device.
  */
 typedef enum {
+  memory_scope_work_item, /* this must be used only with atomic_work_item_fence and CLK_IMAGE_MEM_FENCE */
   memory_scope_work_group,
   memory_scope_device,
   memory_scope_all_svm_devices
@@ -7080,43 +7081,15 @@ typedef enum {
   memory_order_acq_rel,
   memory_order_seq_cst
 } memory_order;
-/**
- * In OpenCL like in C enumerated constants are of int type.
- * So to make overloading of atomic_work_item_fence possible convert constants to memory_order type.
- */
-#define memory_order_relaxed (memory_order)memory_order_relaxed
-#define memory_order_acquire (memory_order)memory_order_acquire
-#define memory_order_release (memory_order)memory_order_release
-#define memory_order_acq_rel (memory_order)memory_order_acq_rel
-#define memory_order_seq_cst (memory_order)memory_order_seq_cst
-
-/**
- * In OpenCL like in C enumerated constants are of int type.
- * So to make overloading of atomic_work_item_fence possible convert constants to memory_scope type.
- */
-#define memory_scope_work_group      (memory_scope)memory_scope_work_group
-#define memory_scope_device          (memory_scope)memory_scope_device
-#define memory_scope_all_svm_devices (memory_scope)memory_scope_all_svm_devices
 
 /**
  * OpenCL C 2.0 atomic builtins 6.13.11
  */
-void __attribute__((overloadable)) atomic_work_item_fence(memory_order order);
-void __attribute__((overloadable)) atomic_work_item_fence(memory_order order, memory_scope scope);
-void __attribute__((overloadable)) atomic_work_item_fence(cl_mem_fence_flags flags, memory_order order);
 void __attribute__((overloadable)) atomic_work_item_fence(cl_mem_fence_flags flags, memory_order order, memory_scope scope);
 
-void __attribute__((overloadable)) atomic_work_item_image_fence(memory_scope scope);
-
 void __attribute__((overloadable)) atomic_init(volatile atomic_int *object, int value);
-void __attribute__((overloadable)) atomic_init(volatile __global atomic_int *object, int value);
-void __attribute__((overloadable)) atomic_init(volatile __local atomic_int *object, int value);
 void __attribute__((overloadable)) atomic_init(volatile atomic_uint *object, uint value);
-void __attribute__((overloadable)) atomic_init(volatile __global atomic_uint *object, uint value);
-void __attribute__((overloadable)) atomic_init(volatile __local atomic_uint *object, uint value);
 void __attribute__((overloadable)) atomic_init(volatile atomic_float *object, float value);
-void __attribute__((overloadable)) atomic_init(volatile __global atomic_float *object, float value);
-void __attribute__((overloadable)) atomic_init(volatile __local atomic_float *object, float value);
 
 // __generic
 void __attribute__((overloadable)) atomic_store(volatile atomic_int *object, int desired);
@@ -7250,270 +7223,6 @@ int __attribute__((overloadable)) atomic_fetch_max_explicit(volatile atomic_int 
 uint __attribute__((overloadable)) atomic_fetch_max_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
 float __attribute__((overloadable)) atomic_fetch_max_explicit(volatile atomic_float *object, float operand, memory_order order, memory_scope scope);
 
-// __global
-void __attribute__((overloadable)) atomic_store(volatile __global atomic_int *object, int desired);
-void __attribute__((overloadable)) atomic_store(volatile __global atomic_uint *object, uint desired);
-void __attribute__((overloadable)) atomic_store(volatile __global atomic_float *object, float desired);
-void __attribute__((overloadable)) atomic_store_explicit(volatile __global atomic_int *object, int desired, memory_order order);
-void __attribute__((overloadable)) atomic_store_explicit(volatile __global atomic_uint *object, uint desired, memory_order order);
-void __attribute__((overloadable)) atomic_store_explicit(volatile __global atomic_float *object, float desired, memory_order order);
-void __attribute__((overloadable)) atomic_store_explicit(volatile __global atomic_int *object, int desired, memory_order order, memory_scope scope);
-void __attribute__((overloadable)) atomic_store_explicit(volatile __global atomic_uint *object, uint desired, memory_order order, memory_scope scope);
-void __attribute__((overloadable)) atomic_store_explicit(volatile __global atomic_float *object, float desired, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_load(volatile __global atomic_int *object);
-uint __attribute__((overloadable)) atomic_load(volatile __global atomic_uint *object);
-float __attribute__((overloadable)) atomic_load(volatile __global atomic_float *object);
-int __attribute__((overloadable)) atomic_load_explicit(volatile __global atomic_int *object, memory_order order);
-uint __attribute__((overloadable)) atomic_load_explicit(volatile __global atomic_uint *object, memory_order order);
-float __attribute__((overloadable)) atomic_load_explicit(volatile __global atomic_float *object, memory_order order);
-int __attribute__((overloadable)) atomic_load_explicit(volatile __global atomic_int *object, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_load_explicit(volatile __global atomic_uint *object, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_load_explicit(volatile __global atomic_float *object, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_exchange(volatile __global atomic_int *object, int desired);
-uint __attribute__((overloadable)) atomic_exchange(volatile __global atomic_uint *object, uint desired);
-float __attribute__((overloadable)) atomic_exchange(volatile __global atomic_float *object, float desired);
-int __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_int *object, int desired, memory_order order);
-uint __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_uint *object, uint desired, memory_order order);
-float __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_float *object, float desired, memory_order order);
-int __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_int *object, int desired, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_uint *object, uint desired, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_exchange_explicit(volatile __global atomic_float *object, float desired, memory_order order, memory_scope scope);
-
-bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __global atomic_int *object, __global int *expected, int desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __global atomic_uint *object, __global uint *expected, uint desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __global atomic_float *object, __global float *expected, float desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __global int *expected, int desired,
-                                                                           memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __global uint *expected, uint desired,
-                                                                           memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, __global float *expected, float desired,
-                                                                           memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __global int *expected, int desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __global uint *expected, uint desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, __global float *expected, float desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __global atomic_int *object, __global int *expected, int desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __global atomic_uint *object, __global uint *expected, uint desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __global atomic_float *object, __global float *expected, float desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, __global int *expected, int desired,
-                                                                           memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, __global uint *expected, uint desired,
-                                                                           memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, __global float *expected, float desired,
-                                                                           memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, __global int *expected, int desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, __global uint *expected, uint desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, __global float *expected, float desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_add(volatile __global atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_add(volatile __global atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_add(volatile __global atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __global atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __global atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_sub(volatile __global atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_sub(volatile __global atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_sub(volatile __global atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __global atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __global atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_or(volatile __global atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_or(volatile __global atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_or(volatile __global atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __global atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __global atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_xor(volatile __global atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_xor(volatile __global atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_xor(volatile __global atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __global atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __global atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_and(volatile __global atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_and(volatile __global atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_and(volatile __global atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __global atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __global atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_min(volatile __global atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_min(volatile __global atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_min(volatile __global atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __global atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __global atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_max(volatile __global atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_max(volatile __global atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_max(volatile __global atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __global atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __global atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __global atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-// __local
-void __attribute__((overloadable)) atomic_store(volatile __local atomic_int *object, int desired);
-void __attribute__((overloadable)) atomic_store(volatile __local atomic_uint *object, uint desired);
-void __attribute__((overloadable)) atomic_store(volatile __local atomic_float *object, float desired);
-void __attribute__((overloadable)) atomic_store_explicit(volatile __local atomic_int *object, int desired, memory_order order);
-void __attribute__((overloadable)) atomic_store_explicit(volatile __local atomic_uint *object, uint desired, memory_order order);
-void __attribute__((overloadable)) atomic_store_explicit(volatile __local atomic_float *object, float desired, memory_order order);
-void __attribute__((overloadable)) atomic_store_explicit(volatile __local atomic_int *object, int desired, memory_order order, memory_scope scope);
-void __attribute__((overloadable)) atomic_store_explicit(volatile __local atomic_uint *object, uint desired, memory_order order, memory_scope scope);
-void __attribute__((overloadable)) atomic_store_explicit(volatile __local atomic_float *object, float desired, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_load(volatile __local atomic_int *object);
-uint __attribute__((overloadable)) atomic_load(volatile __local atomic_uint *object);
-float __attribute__((overloadable)) atomic_load(volatile __local atomic_float *object);
-int __attribute__((overloadable)) atomic_load_explicit(volatile __local atomic_int *object, memory_order order);
-uint __attribute__((overloadable)) atomic_load_explicit(volatile __local atomic_uint *object, memory_order order);
-float __attribute__((overloadable)) atomic_load_explicit(volatile __local atomic_float *object, memory_order order);
-int __attribute__((overloadable)) atomic_load_explicit(volatile __local atomic_int *object, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_load_explicit(volatile __local atomic_uint *object, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_load_explicit(volatile __local atomic_float *object, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_exchange(volatile __local atomic_int *object, int desired);
-uint __attribute__((overloadable)) atomic_exchange(volatile __local atomic_uint *object, uint desired);
-float __attribute__((overloadable)) atomic_exchange(volatile __local atomic_float *object, float desired);
-int __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_int *object, int desired, memory_order order);
-uint __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_uint *object, uint desired, memory_order order);
-float __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_float *object, float desired, memory_order order);
-int __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_int *object, int desired, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_uint *object, uint desired, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_exchange_explicit(volatile __local atomic_float *object, float desired, memory_order order, memory_scope scope);
-
-bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __local atomic_int *object, __local int *expected, int desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __local atomic_uint *object, __local uint *expected, uint desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong(volatile __local atomic_float *object, __local float *expected, float desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, __local int *expected, int desired,
-                                                                           memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, __local uint *expected, uint desired,
-                                                                           memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, __local float *expected, float desired,
-                                                                           memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, __local int *expected, int desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, __local uint *expected, uint desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, __local float *expected, float desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __local atomic_int *object, __local int *expected, int desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __local atomic_uint *object, __local uint *expected, uint desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak(volatile __local atomic_float *object, __local float *expected, float desired);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, __local int *expected, int desired,
-                                                                           memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, __local uint *expected, uint desired,
-                                                                           memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, __local float *expected, float desired,
-                                                                           memory_order success, memory_order failure);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, __local int *expected, int desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, __local uint *expected, uint desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-bool __attribute__((overloadable)) atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, __local float *expected, float desired,
-                                                                           memory_order success, memory_order failure, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_add(volatile __local atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_add(volatile __local atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_add(volatile __local atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __local atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __local atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_add_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_sub(volatile __local atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_sub(volatile __local atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_sub(volatile __local atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __local atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __local atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_sub_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_or(volatile __local atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_or(volatile __local atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_or(volatile __local atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __local atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __local atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_or_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_xor(volatile __local atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_xor(volatile __local atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_xor(volatile __local atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __local atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __local atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_xor_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_and(volatile __local atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_and(volatile __local atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_and(volatile __local atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __local atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __local atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_and_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_min(volatile __local atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_min(volatile __local atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_min(volatile __local atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __local atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __local atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_min_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
-
-int __attribute__((overloadable)) atomic_fetch_max(volatile __local atomic_int *object, int operand);
-uint __attribute__((overloadable)) atomic_fetch_max(volatile __local atomic_uint *object, uint operand);
-float __attribute__((overloadable)) atomic_fetch_max(volatile __local atomic_float *object, float operand);
-int __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __local atomic_int *object, int operand, memory_order order);
-uint __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
-float __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __local atomic_float *object, float operand, memory_order order);
-int __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-float __attribute__((overloadable)) atomic_fetch_max_explicit(volatile __local atomic_float *object, float operand, memory_order order, memory_scope scope);
-
 // atomic_flag builtins
 bool __attribute__((overloadable)) atomic_flag_test_and_set(volatile atomic_flag *object);
 bool __attribute__((overloadable)) atomic_flag_test_and_set_explicit(volatile atomic_flag *object, memory_order);
@@ -7522,22 +7231,6 @@ bool __attribute__((overloadable)) atomic_flag_test_and_set_explicit(volatile at
 void __attribute__((overloadable)) atomic_flag_clear(volatile atomic_flag *object);
 void __attribute__((overloadable)) atomic_flag_clear_explicit(volatile atomic_flag *object, memory_order);
 void __attribute__((overloadable)) atomic_flag_clear_explicit(volatile atomic_flag *object, memory_order, memory_scope scope);
-
-bool __attribute__((overloadable)) atomic_flag_test_and_set(volatile __global atomic_flag *object);
-bool __attribute__((overloadable)) atomic_flag_test_and_set_explicit(volatile __global atomic_flag *object, memory_order);
-bool __attribute__((overloadable)) atomic_flag_test_and_set_explicit(volatile __global atomic_flag *object, memory_order, memory_scope scope);
-
-void __attribute__((overloadable)) atomic_flag_clear(volatile __global atomic_flag *object);
-void __attribute__((overloadable)) atomic_flag_clear_explicit(volatile __global atomic_flag *object, memory_order);
-void __attribute__((overloadable)) atomic_flag_clear_explicit(volatile __global atomic_flag *object, memory_order, memory_scope scope);
-
-bool __attribute__((overloadable)) atomic_flag_test_and_set(volatile __local atomic_flag *object);
-bool __attribute__((overloadable)) atomic_flag_test_and_set_explicit(volatile __local atomic_flag *object, memory_order);
-bool __attribute__((overloadable)) atomic_flag_test_and_set_explicit(volatile __local atomic_flag *object, memory_order, memory_scope scope);
-
-void __attribute__((overloadable)) atomic_flag_clear(volatile __local atomic_flag *object);
-void __attribute__((overloadable)) atomic_flag_clear_explicit(volatile __local atomic_flag *object, memory_order);
-void __attribute__((overloadable)) atomic_flag_clear_explicit(volatile __local atomic_flag *object, memory_order, memory_scope scope);
 
 #endif
 #endif
