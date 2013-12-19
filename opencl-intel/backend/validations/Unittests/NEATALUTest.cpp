@@ -4932,7 +4932,7 @@ TYPED_TEST(NEATAluTypedMath, native_tan)
     }
 }
 
-TYPED_TEST(NEATAluTypedMath, tanpi)
+TYPED_TEST(NEATAluTypedMath, DISABLED_tanpi) // CSSD100018310
 {
     typedef typename  TypeParam::Type TypeP;
     typedef typename  superT<TypeP>::type SuperT;

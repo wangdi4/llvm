@@ -39,13 +39,6 @@ public:
     PREPARE_SHARED_PTR(KernelCommand)
 
     /**
-     * Add child kernel to this KernelCommand
-     * @param child		the child KernelCommand
-     * @param flags		flags that specify when the child kernel will begin its execution
-     */
-    cl_dev_err_code AddChildKernel(const SharedPtr<KernelCommand>& child, kernel_enqueue_flags_t flags);
-
-    /**
      * A child kernel has completed
      * @param err the child's error code
      */
@@ -109,7 +102,26 @@ protected:
          DeviceCommand(pList, pMyTaskBase), m_parent(parent), m_childrenTaskGroup(NULL != pList ? pList->GetNDRangeChildrenTaskGroup().GetPtr() : NULL)
        { m_waitingChildrenForKernelGlobal = NULL; }
 
-    typedef std::pair< SharedPtr<KernelCommand>, void*> CommandToExecuteList_t;
+    // Enqueued command list definition
+    struct CommandToExecuteList_t {
+        SharedPtr<KernelCommand> command;
+        CommandToExecuteList_t*  next;
+    };
+
+    // Structure defined child kernel submission for each thread
+    struct CommandSubmitionLists {
+        CommandSubmitionLists() : waitingChildrenForKernelLocalHead(NULL), waitingChildrenForKernelLocalTail(NULL), waitingChildrenForWorkGroup(NULL) {}
+        CommandToExecuteList_t*  waitingChildrenForKernelLocalHead;   // A pointer to the head of the thread local list of kernel depentent children
+        CommandToExecuteList_t*  waitingChildrenForKernelLocalTail;   // A pointer to the tail of the thread local list of kernel depentent children
+        CommandToExecuteList_t*  waitingChildrenForWorkGroup;         // A pointer to the thread local list of work-group depentent children
+    };
+
+    /**
+     * Add child kernel to this KernelCommand
+     * @param child		the child KernelCommand
+     * @param flags		flags that specify when the child kernel will begin its execution
+     */
+    static cl_dev_err_code AddChildKernelToLists(const SharedPtr<KernelCommand>& child, kernel_enqueue_flags_t flags, CommandSubmitionLists* pChildLists);
 
     /**
      * Wait for the children to complete (not thread safe)
@@ -124,7 +136,7 @@ protected:
     /**
      * Signal that the current work group has finished its execution
      */
-    void WgFinishedExecution();
+    void SubmitCommands(CommandSubmitionLists* pNewCommands);
 
     /**
      * @return this KernelCommand's parent or NULL if it was enqueued from the host
@@ -135,14 +147,6 @@ protected:
     SharedPtr<KernelCommand>       m_parent;
     SharedPtr<ITaskGroup>          m_childrenTaskGroup;
     Intel::OpenCL::Utils::AtomicPointer<CommandToExecuteList_t> m_waitingChildrenForKernelGlobal;
-
-    // Variable used for child kernel submission for each thread
-    // A pointer to the head of the thread local list of kernel depentent children
-    static THREAD_LOCAL CommandToExecuteList_t*  m_waitingChildrenForKernelLocalHead;
-    // A pointer to the tail of the thread local list of kernel depentent children
-    static THREAD_LOCAL CommandToExecuteList_t*  m_waitingChildrenForKernelLocalTail;
-    // A pointer to the thread local list of work-group depentent children
-    static THREAD_LOCAL CommandToExecuteList_t*  m_waitingChildrenForWorkGroup;
 };
 
 }}}

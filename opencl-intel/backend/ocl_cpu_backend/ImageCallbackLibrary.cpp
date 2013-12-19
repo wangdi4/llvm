@@ -50,10 +50,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 const string channelOrderToPrefix(cl_channel_order _co)
 {
-    // convert from input channel order (starting from 0) to value in cl.h (starting from 0x10B0)
-    // Must match order in cl.h
-    cl_channel_type converted_co = _co + CL_R;
-    std::string toReturn = channelOrderToString(converted_co);
+    std::string toReturn = channelOrderToString(_co);
+    // Must match order in cl_api/cl.h and cl_api/cl_2_0.h
     // channel_order starts with CL_ that we need to cut
     toReturn = toReturn.substr(strlen("CL_"), toReturn.size());
     return toReturn;
@@ -61,19 +59,24 @@ const string channelOrderToPrefix(cl_channel_order _co)
 
 const string samplerToAddrModePrefix(SamplerType _sampler)
 {
-    // Do tricks to convert from sampler type to addressing mode
-    int sampler_addr_mode = _sampler & 7;
-    if((sampler_addr_mode == 1) || (sampler_addr_mode == 2))
-        // Need change 1 to 2 and 2 to 1
-        // This could be done with xor with 11, which is bit representation of 3
-        sampler_addr_mode = sampler_addr_mode ^ 3;
-    // add offset. Should match addressing mode constants from cl.h
-    cl_addressing_mode _mode = sampler_addr_mode + CL_ADDRESS_NONE;
-
-    std::string toReturn = addressingModeToString(_mode);
-    // address mode starts with CL_ADDRESS_ that we need to cut
-    toReturn = toReturn.substr(strlen("CL_ADDRESS_"), toReturn.size());
-    return toReturn;
+  int addressMode = _sampler & __ADDRESS_MASK;
+  switch (addressMode)
+  {
+    case CLK_ADDRESS_MIRRORED_REPEAT:
+      return "MIRRORED_REPEAT";
+      break;
+    case CLK_ADDRESS_REPEAT:
+      return "REPEAT";
+    case CLK_ADDRESS_CLAMP:
+      return "CLAMP_TO_EDGE";
+    case CLK_ADDRESS_CLAMP_TO_EDGE:
+      return "CLAMP_TO_EDGE";
+    case CLK_ADDRESS_NONE:
+      return "NONE";
+    default:
+      assert(0 && "Unkown addressing mode in sampler");
+      return "Unknown";
+  }
 }
 
 const string imgTypeToDimPrefix(cl_mem_object_type _type)
@@ -96,10 +99,7 @@ const string imgTypeToDimPrefix(cl_mem_object_type _type)
 
 const string channelDataTypeToPrefix(cl_channel_type _ct)
 {
-    // convert from input channel type to value in cl.h
-    // Must match order in cl.h
-    cl_channel_type converted_ct = _ct + CL_SNORM_INT8;
-    std::string toReturn = channelTypeToString(converted_ct);
+    std::string toReturn = channelTypeToString(_ct);
     // channel_type starts with CL_ that we need to cut
     toReturn = toReturn.substr(strlen("CL_"), toReturn.size());
     return toReturn;
@@ -193,22 +193,23 @@ TransCbkDesc::TransCbkDesc(bool _isInt, SamplerType _sampler, VecSize _vectorSiz
 std::string TransCbkDesc::GetName() const
 {
     std::stringstream ss;
-    ss<<VecSizeToPrefix(VectorSize);
-    ss<<"trans_coord_float_";
+    ss << VecSizeToPrefix(VectorSize);
+    ss << "trans_coord_float_";
     if(!IsIntFormat)
-        ss<<"float_";
+        ss << "float_";
 
-    ss<<samplerToAddrModePrefix(Sampler)<<"_";
-    std::string isNormalizedStr = "FALSE";
-    if(Sampler & NORMALIZED_SAMPLER)
-        isNormalizedStr = "TRUE";
-    ss<<isNormalizedStr<<"_";
-    if(Sampler & LINEAR_SAMPLER)
-        ss<<"LINEAR";
+    ss << samplerToAddrModePrefix(Sampler) << "_";
+    std::string isNormalizedStr = (Sampler & CLK_NORMALIZED_COORDS_TRUE) ?
+      "TRUE":
+      "FALSE";
+    ss << isNormalizedStr << "_";
+
+    if(Sampler & CLK_FILTER_LINEAR)
+        ss << "LINEAR";
     else
-        ss<<"NEAREST";
-    std::string toReturn = ss.str();
-    return toReturn;
+        ss << "NEAREST";
+
+    return ss.str();
 }
 
 ReadCbkDesc::ReadCbkDesc(bool _isClamp,
@@ -228,17 +229,17 @@ VecSize _vectorSize):
 
 std::string ReadCbkDesc::GetName() const
 {
-    std::stringstream ss;
-    ss<<VecSizeToPrefix(VectorSize);
-    ss<<"read_sample_";
+    std::stringstream ss ;
+    ss << VecSizeToPrefix(VectorSize);
+    ss << "read_sample_";
     if(Filter == CL_FILTER_NEAREST)
-        ss<<"NEAREST"<<"_";
+        ss << "NEAREST" << "_";
     else
-        ss<<"LINEAR"<<imgTypeToDimPrefix(ImageType)<<"_";
+        ss << "LINEAR" << imgTypeToDimPrefix(ImageType) << "_";
     std::string clampStr = IsClamp ? "CLAMP" : "NO_CLAMP";
-    ss<<clampStr<< "_";
-    ss<<channelOrderToPrefix(Format.image_channel_order)<<"_";
-    ss<<channelDataTypeToPrefix(Format.image_channel_data_type);
+    ss << clampStr <<  "_";
+    ss << channelOrderToPrefix(Format.image_channel_order) << "_";
+    ss << channelDataTypeToPrefix(Format.image_channel_data_type);
     return ss.str();
 }
 

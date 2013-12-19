@@ -28,40 +28,35 @@ File Name:  ImageCallbackLibrary.h
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-// Bitmask for normalized sampler. if sampler & mask != 0 then sampler is normalized
-#define NORMALIZED_SAMPLER 0x08
-// Bitmask for linear sampler. if sampler & mask != 0 then sampler is linear
-#define LINEAR_SAMPLER 0x10
-
 // TODO: ensure it is defined from cl_image_declaration.h
 // indexes of translation callbacks for each type of sampler
 // !!!IMPORTANT!!! These defines should be the same as in cl_image_declaration.h
 enum SamplerType
 {
-    NONE_FALSE_NEAREST = 0x00,
-    CLAMP_FALSE_NEAREST = 0x01,
-    CLAMPTOEDGE_FALSE_NEAREST = 0x02,
-    REPEAT_FALSE_NEAREST = 0x03,
-    MIRRORED_FALSE_NEAREST = 0x04,
-
-    NONE_TRUE_NEAREST = 0x08,
-    CLAMP_TRUE_NEAREST = 0x09,
-    CLAMPTOEDGE_TRUE_NEAREST = 0x0a,
-    REPEAT_TRUE_NEAREST = 0x0b,
-    MIRRORED_TRUE_NEAREST = 0x0c,
-
-    NONE_FALSE_LINEAR = 0x10,
-    CLAMP_FALSE_LINEAR = 0x11,
-    CLAMPTOEDGE_FALSE_LINEAR = 0x12,
-    REPEAT_FALSE_LINEAR = 0x13,
-    MIRRORED_FALSE_LINEAR = 0x14,
-
-    NONE_TRUE_LINEAR = 0x18,
-    CLAMP_TRUE_LINEAR = 0x19,
-    CLAMPTOEDGE_TRUE_LINEAR = 0x1a,
-    REPEAT_TRUE_LINEAR = 0x1b,
-    MIRRORED_TRUE_LINEAR = 0x1c,
-
+    NONE_FALSE_NEAREST          =0x10,
+    CLAMP_FALSE_NEAREST         =0x14,
+    CLAMPTOEDGE_FALSE_NEAREST   =0x12,
+    REPEAT_FALSE_NEAREST        =0x16,
+    MIRRORED_FALSE_NEAREST      =0x18,
+    
+    NONE_TRUE_NEAREST           =0x11,
+    CLAMP_TRUE_NEAREST          =0x15,
+    CLAMPTOEDGE_TRUE_NEAREST    =0x13,
+    REPEAT_TRUE_NEAREST         =0x17,
+    MIRRORED_TRUE_NEAREST       =0x19,
+    
+    NONE_FALSE_LINEAR           =0x20,
+    CLAMP_FALSE_LINEAR          =0x24,
+    CLAMPTOEDGE_FALSE_LINEAR    =0x22,
+    REPEAT_FALSE_LINEAR         =0x26,
+    MIRRORED_FALSE_LINEAR       =0x28,
+    
+    NONE_TRUE_LINEAR            =0x21,
+    CLAMP_TRUE_LINEAR           =0x25,
+    CLAMPTOEDGE_TRUE_LINEAR     =0x23,
+    REPEAT_TRUE_LINEAR          =0x27,
+    MIRRORED_TRUE_LINEAR        =0x29,
+    
     SAMPLER_UNDEFINED = 0xFF
 };
 

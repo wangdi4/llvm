@@ -41,11 +41,6 @@
 
 #include<stdlib.h>
 
-// ALERT!!!! DK!!! workaround until MPSS will be updated on all machines
-#ifndef COI_OPTIMIZE_NO_DMA
-    #define COI_OPTIMIZE_NO_DMA 0
-#endif
-
 #define KILOBYTE 1024
 #define MEGABYTE (1024*KILOBYTE)
 
