@@ -87,6 +87,7 @@ bool ConcurrentExecutionTest();
 bool MultithreadedOrderViolation();
 bool EnqueueNativeKernelTest();
 bool TBBTest();
+bool extended_execution_test();
 bool printf_test();
 bool MultithreadedPrintf();
 bool clLocalStructTest();

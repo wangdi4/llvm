@@ -12,12 +12,12 @@ entry:
   %pqueue = alloca %opencl.queue_t* , align 16
   %queue = load %opencl.queue_t** %pqueue
   %arraydecay = getelementptr inbounds [3 x %opencl.clk_event_t*]* %events, i64 0, i64 0
-  ; CHECK: call i32 @ocl20_enqueue_marker
+; Call should remain unchanged since it is in the built-in library
+; CHECK: %call1 = call i32 @_Z14enqueue_marker9ocl_queuejPK13ocl_clk_eventP13ocl_clk_event(%opencl.queue_t* %queue, i32 2, %opencl.clk_event_t** %arraydecay, %opencl.clk_event_t** %marker_event) nounwind
   %call1 = call i32 @_Z14enqueue_marker9ocl_queuejPK13ocl_clk_eventP13ocl_clk_event(%opencl.queue_t* %queue, i32 2, %opencl.clk_event_t** %arraydecay, %opencl.clk_event_t** %marker_event) nounwind
   ret void
 }
 
-; CHECK: declare i32 @ocl20_enqueue_marker
 declare i32 @_Z14enqueue_marker9ocl_queuejPK13ocl_clk_eventP13ocl_clk_event(%opencl.queue_t*, i32, %opencl.clk_event_t**, %opencl.clk_event_t**)
 
 !opencl.compiler.options = !{!2}

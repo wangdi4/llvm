@@ -78,22 +78,15 @@ namespace intel {
     void  updatePrefetch(llvm::CallInst *pCall);
 
     void  addPrefetchDeclaration();
-    void  addPrintfDeclaration();
     
     /// @brief add extended execution declarations
     void  addExtendedExecutionDeclarations();
 
-    /// @brief calculates ndrange_1D(), ndrange_2D() or ndrange_3D()
-    /// @param type          The call instruction type that represents one of the ndrange BIs
-    /// @param pCall         The call instruction that calls a work item function
-    /// @returns The result value of the ndrange_ND call, where N = [1,2,3]
-    Value* updateNDRangeND(unsigned type, CallInst *pCall);
-
-    /// @brief add declaration of Extended Execution callback to Module
+    /// @brief add declaration of external function to Module
     /// @param type - callback type
-    void addExtExecFunctionDeclaration(unsigned type);
+    void addExternFunctionDeclaration(unsigned type, FunctionType* FT, StringRef Name);
     /// @brief obtain name for extexec callback
-    std::string getExtExecCallbackName(unsigned type) const;
+    const char* getExternCallbackName(unsigned type) const;
     
     /// Helper functions to construct OpenCL types
     /// @brief constructs type for queue_t
@@ -114,8 +107,6 @@ namespace intel {
     Type * getEnqueueKernelRetType() const;
     /// @brief return ConstantInt::int32_type with zero value
     ConstantInt * getConstZeroInt32Value() const;
-    /// @brief get or add from/to  module declaration of struct.__ndrange_t
-    Type* getOrAddStructNDRangeType();
     /// @brief get or add from/to  module declaration of type used for local
     /// memory buffers specified in enqueue_kernel
     Type* getLocalMemBufType() const;
@@ -138,22 +129,11 @@ namespace intel {
     ///@brief returns types EnqueueKernel callbacks
     ///@param  type - type of callback {basic, localmem, event, ...}
     ///@return      - call back Function type
-    FunctionType* getEnqueueKernelType(unsigned type);
-    ///@brief returns description of DefaultQueue callback
-    FunctionType* getDefaultQueueFunctionType();
+    FunctionType* getOrCreateEnqueueKernelFuncType(unsigned type);
     ///@brief returns description of GetKernelWGSize and GerKernelPreferredWGSizeMultiple callbacks
-    FunctionType* getGetKernelQueryFunctionType(unsigned type);
-    ///@brief return description of ReleaseEvent and RetainEvent callbacks
-    FunctionType* getRetainAndReleaseEventFunctionType(unsigned FuncType);
-    ///@brief returns description of CreateUserEvent callback
-    FunctionType* getCreateUserEventFunctionType();
-    ///@brief returns description of SetUserEventStatus callback
-    FunctionType* getSetUserEventStatusFunctionType();
-    ///@brief returns description of CaptureEventProfilingInfo callback
-    FunctionType* getCaptureEventProfilingInfoFunctionType();
-    ///@brief returns type of extended execution callback
-    FunctionType* getExtExecFunctionType(unsigned type);
+    FunctionType* getOrCreateGetKernelQueryFuncType(unsigned type);
     // getBlockLiteralSize - Return size of block literal for F
+    FunctionType* getOrCreatePrintfFuncType();
     size_t getBlockLiteralSize(Function* F);
 
     ///@brief returns params List taken from pCall call
@@ -166,11 +146,6 @@ namespace intel {
     ///!!! NOTE implicitly copies all pCall params to output
     ///!!! callback function should have the same arguments list + list of local vars sizes + ExtExecContext as last argument
     void getEnqueueKernelLocalMemFunctionParams(CallInst *pCall, const uint32_t FixedArgs, SmallVectorImpl<Value*> &Res);
-    /// @brief Store Value to 'unsigned int workDimension' in ndrange_t struct
-    StoreInst* StoreWorkDim(Value* Ptr, uint64_t V, LLVMContext* pContext, Instruction* InsertBefore);
-    /// @brief store value to one of Arrays in ndrange_t struct
-    StoreInst* StoreNDRangeArrayElement(Value* Ptr, Value* V, const uint64_t ArrayPosition,
-     const uint64_t ElementIndex, const Twine &Name, LLVMContext* pContext, Instruction* InsertBefore);
     /// @brief helper function.
     ///    maps ndrange_ built-ins argument index to index of array within ndrange_t struct
     uint32_t MapIndexToIndexOfArray(const uint32_t Index, const uint32_t argsNum);
@@ -203,8 +178,6 @@ namespace intel {
 
     /// This is flag indicates that Prefetch declarations already added to module
     bool m_bPrefetchDecl;
-    /// This is flag indicates that Printf declarations already added to module
-    bool m_bPrintfDecl;
     /// flags indicates that extended execution built-in declarations already added to module
     std::set<unsigned> m_ExtExecDecls;
 

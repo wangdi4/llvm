@@ -311,6 +311,11 @@ TEST(FrameworkTestType, Test_clLocalStructTest)
     EXPECT_TRUE(clLocalStructTest());
 }
 
+TEST(FrameworkTestType, Test_extended_execution_test)
+{
+    EXPECT_TRUE(extended_execution_test());
+}
+
 TEST(FrameworkTestType, Test_opencl_printf_test)
 {
     EXPECT_TRUE(opencl_printf_test());

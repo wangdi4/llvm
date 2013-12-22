@@ -68,7 +68,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_NDRANGE_1D = "ndrange_1D";
   const std::string CompilationUtils::NAME_NDRANGE_2D = "ndrange_2D";
   const std::string CompilationUtils::NAME_NDRANGE_3D = "ndrange_3D";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz";
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE";
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
   const std::string CompilationUtils::NAME_ENQUEUE_MARKER = "enqueue_marker";

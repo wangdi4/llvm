@@ -8,16 +8,14 @@ define void @test_retain_event() nounwind {
 entry:
   %ptr_event = alloca %opencl.clk_event_t*, align 8
   %event = load %opencl.clk_event_t** %ptr_event
-  ; CHECK: call void @ocl20_retain_event
+; CHECK: call void @_Z12retain_event13ocl_clk_event(%opencl.clk_event_t* %event) nounwind
+; CHECK: call void @_Z13release_event13ocl_clk_event(%opencl.clk_event_t* %event) nounwind
   call void @_Z12retain_event13ocl_clk_event(%opencl.clk_event_t* %event) nounwind
-  ; CHECK: call void @ocl20_release_event
   call void @_Z13release_event13ocl_clk_event(%opencl.clk_event_t* %event) nounwind
   ret void
 }
 
-; CHECK: declare void @ocl20_retain_event
 declare void @_Z12retain_event13ocl_clk_event(%opencl.clk_event_t*)
-; CHECK: declare void @ocl20_release_event
 declare void @_Z13release_event13ocl_clk_event(%opencl.clk_event_t*)
 
 !opencl.compiler.options = !{!2}

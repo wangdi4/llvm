@@ -60,45 +60,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ICT_GET_GLOBAL_OFFSET,
     ICT_PRINTF,
     ICT_PREFETCH,
-    // get_default_queue()
-    ICT_GET_DEFAULT_QUEUE,
-    // Basic Enqueue kernel
-    // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,const ndrange_t ndrange,void (^block)(void))
-    ICT_ENQUEUE_KERNEL_BASIC,
-    ICT_ENQUEUE_KERNEL_FIRST = ICT_ENQUEUE_KERNEL_BASIC,
     // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ?), uint size0, ?)
     ICT_ENQUEUE_KERNEL_LOCALMEM,
-    // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,const ndrange_t ndrange,uint num_events_in_wait_list, const clk_event_t *event_wait_list,clk_event_t *event_ret,void (^block)(void))
-    ICT_ENQUEUE_KERNEL_EVENTS,
     // int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ?), uint size0, ?)
     ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM,
-    ICT_ENQUEUE_KERNEL_LAST = ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM,
-    // uint get_kernel_work_group_size (void (^block)(void))
-    ICT_GET_KERNEL_WORK_GROUP_SIZE,
     // uint get_kernel_work_group_size (void (^block)(local void *, ...))
     ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL,
-    // uint get_kernel_preferred_work_group_size_multiple(void (^block)(void))
-    ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
     // uint get_kernel_preferred_work_group_size_multiple(void (^block)(local void *, ...));
     ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL,
-    // int enqueue_marker ( queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret)
-    ICT_ENQUEUE_MARKER,
-    // void retain_event (clk_event_t event)
-    ICT_RETAIN_EVENT,
-    // void release_event (clk_event_t event)
-    ICT_RELEASE_EVENT,
-    // clk_event_t create_user_event ()
-    ICT_CREATE_USER_EVENT,
-    // void set_user_event_status ( clk_event_t event, int status)
-    ICT_SET_USER_EVENT_STATUS,
-    // void capture_event_profiling_info ( clk_event_t event, clk_profiling_info name, global ulong *value)
-    ICT_CAPTURE_EVENT_PROFILING_INFO,
-    // ndrange_1D
-    ICT_NDRANGE_1D,
-    // ndrange_2D
-    ICT_NDRANGE_2D,
-    // ndrange_3D
-    ICT_NDRANGE_3D,
     ICT_NUMBER
  };
   static unsigned InternalCall2NDInfo(unsigned InternalCall) {

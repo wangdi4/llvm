@@ -18,6 +18,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/IRReader.h>
 #include <llvm/Support/SourceMgr.h>
+#include <llvm/Support/Debug.h>
 
 #include <string>
 
@@ -139,6 +140,12 @@ namespace intel {
     }
   }
 
+  static bool isPtrToStruct(Type *T) {
+    if (PointerType *PT = dyn_cast<PointerType>(T))
+      return isa<StructType>(PT->getElementType());
+    return false;
+  }
+
   void BIImport::ImportFunctionDefinitions() {
     // Loop over all of the functions to import and import their definition
     for (TFunctionsVec::iterator it = m_functionsToImport.begin(),
@@ -170,24 +177,83 @@ namespace intel {
         m_valueMap.erase(it);
       }
 
-      // If the imported function contains usages of opaque types, need to fix
+      // Find all "root" functions.
+      SmallVector<unsigned, 16> OpaqueArgIndices;
+      SmallVector<Type*, 16> OpaqueArgTypes;
+      
+      for (Module::iterator it = m_pModule->begin(), e = m_pModule->end();
+           it != e; ++it) {
+        Function *F = it;
+        if (!F->isDeclaration())
+          continue;
+        // Does the function return an opaque?
+        bool ReturnsPtrStruct = isPtrToStruct(F->getReturnType());
+        // Check which function args are opaque
+        OpaqueArgIndices.clear();
+        OpaqueArgTypes.clear();
+        unsigned Idx = 0;
+        for (Function::arg_iterator AI = F->arg_begin(), AE = F->arg_end();
+             AI != AE; ++AI, ++Idx) {
+          if (isPtrToStruct(AI->getType())) {
+            OpaqueArgIndices.push_back(Idx);
+            OpaqueArgTypes.push_back(AI->getType());
+          }
+        }
+        if (!ReturnsPtrStruct && OpaqueArgIndices.empty())
+          continue;
+        // Collect call instructions using this function
+        for (Function::use_iterator UI = F->use_begin(), UE = F->use_end();
+             UI != UE; ++UI) {
+          if (CallInst *CI = dyn_cast<CallInst>(*UI)) {
+            // Check which call args need to be fixed
+            for (unsigned I = 0; I < OpaqueArgIndices.size(); ++I) {
+              unsigned OpIdx = OpaqueArgIndices[I];
+              Type *AT = CI->getArgOperand(OpIdx)->getType();
+              if (AT == OpaqueArgTypes[I])
+                continue;
+              // argument needs to be adapted with a bitcast
+              Value *BC = new BitCastInst(CI->getArgOperand(OpIdx),
+                                          OpaqueArgTypes[I], "", CI);
+              CI->setArgOperand(OpIdx, BC);
+            }
+#if 0
+            // adapt the value of the call instruction
+            if (ReturnsOpaque) {
+              // Check for mismatch between call instruction and its users
+              if (CI->use_begin() == CI->use_end())
+                continue;
+              if (Instruction *User =
+                      dyn_cast<Instruction>(*(CI->use_begin()))) {
+                // Handle only return instructions. If the cast below asserts,
+                // need to generalize this code
+                ReturnInst *RI = cast<ReturnInst>(User);
+                if (CI->getType() != RI->getType()) {
+                  Value *BC = new BitCastInst(CI, RI->getType(), "",
+                                              ++BasicBlock::iterator(CI));
+                  CI->replaceAllUsesWith(BC);
+                }
+              }
+            }
+#endif
+          }
+        }
+      }
+
+       // If the imported function contains usages of opaque types, need to fix
       // with bitcasts
-      PointerType* RT = dyn_cast<PointerType>(pDstFunction->getReturnType());
-      if (!RT)
-        return;
-      StructType *ST = dyn_cast<StructType>(RT->getElementType());
-      if (!ST ||!ST->isOpaque())
-        return;
+#if 1
+      Type* RT = pDstFunction->getReturnType();
       for (Function::iterator BBI = pDstFunction->begin(),
                               BBE = pDstFunction->end();
            BBI != BBE; BBI++) {
         if (ReturnInst *R = dyn_cast<ReturnInst>(BBI->getTerminator())) {
-          if (R->getType() != RT) {
+          if (R->getReturnValue() && R->getReturnValue()->getType() != RT) {
             Value *BC = new BitCastInst(R->getOperand(0), RT, "", R);
             R->setOperand(0, BC);
           }
         }
       }
+#endif
     }
   }
 

@@ -38,6 +38,7 @@ int __attribute__((overloadable)) __attribute__((always_inline))
                                     RuntimeHandle);
 }
 
+#if 0
 extern int ocl20_enqueue_kernel_localmem(
     queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t *ndrange,
     void *block, uint *localbuf_size, uint localbuf_size_len,
@@ -92,6 +93,7 @@ int __attribute__((overloadable)) __attribute__((always_inline))
       queue, flags, &ndrange, num_events_in_wait_list, event_wait_list,
       event_ret, block, localbuf_size, localbuf_size_len, pEEC, RuntimeHandle);
 }
+#endif
 
 ////////// - enqueue_marker
 extern int ocl20_enqueue_marker(queue_t queue, uint num_events_in_wait_list,
@@ -244,6 +246,7 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
   return ocl20_get_kernel_wg_size(block, pEEC);
 }
 
+#if 0
 extern uint ocl20_get_kernel_wg_size_local(void *block,
                                                ExtendedExecutionContext *pEEC);
 uint __attribute__((overloadable)) __attribute__((always_inline))
@@ -251,6 +254,7 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
   ExtendedExecutionContext *pEEC;
   return ocl20_get_kernel_wg_size_local(block, pEEC);
 }
+#endif
 
 ////////// - get_kernel_preferred_work_group_size_multiple
 extern uint
@@ -262,6 +266,7 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
   return ocl20_get_kernel_preferred_wg_size_multiple(block, pEEC);
 }
 
+#if 0
 extern uint ocl20_get_kernel_preferred_wg_size_multiple_local(
     void *block, ExtendedExecutionContext *pEEC);
 uint __attribute__((overloadable)) __attribute__((always_inline))
@@ -270,4 +275,5 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
   ExtendedExecutionContext *pEEC;
   return ocl20_get_kernel_preferred_wg_size_multiple_local(block, pEEC);
 }
+#endif
 #endif
