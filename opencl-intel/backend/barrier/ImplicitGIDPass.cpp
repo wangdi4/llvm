@@ -134,7 +134,7 @@ bool ImplicitGlobalIdPass::getBBScope(const BasicBlock& BB, DIDescriptor& scope_
             continue;
         LLVMContext &context = BI->getContext();
         DIDescriptor scope(loc.getScope(context));
-        if (scope.isLexicalBlock()) {
+        if (scope.isLexicalBlock() || scope.isSubprogram()) {
             scope_out = scope;
             loc_out = loc;
             return true;

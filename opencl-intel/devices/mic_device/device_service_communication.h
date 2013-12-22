@@ -43,6 +43,7 @@ public:
         GET_BACKEND_TARGET_DESCRIPTION_SIZE = 0,
         GET_BACKEND_TARGET_DESCRIPTION,
         COPY_PROGRAM_TO_DEVICE,
+        CREATE_BUILT_IN_PROGRAM,
         REMOVE_PROGRAM_FROM_DEVICE,
 
         EXECUTE_NDRANGE,
@@ -77,18 +78,19 @@ public:
        If the created thread (in factory) didn't finish, it will wait until the thread will finish it's work.
        Return true if suceeeded. */
     bool runServiceFunction(DEVICE_SIDE_FUNCTION func,
-                            size_t input_data_size, void* input_data,
+                            size_t input_data_size, const void* input_data,
                             size_t output_data_size, void* output_data,
                             unsigned int numBuffers, const COIBUFFER* buffers, 
                             const COI_ACCESS_FLAGS* bufferAccessFlags,
                             COIPIPELINE use_pipeline = NULL );
 
+    unsigned int GetNumActiveThreads() const { return m_uiNumActiveThreads;}
 private:
 
     // private constructor in order to use factory only
     DeviceServiceCommunication(unsigned int uiMicId);
 
-	RETURN_TYPE_ENTRY_POINT Run();
+    RETURN_TYPE_ENTRY_POINT Run();
 
     /* close the service pipeline and the process on the device.
        If the created thread (in factory) didn't finish, it will wait until the thread will finish it's work.
@@ -101,10 +103,12 @@ private:
     /* Set in additionalEnvVars all the VTune env variables (Those starts with __OCL_MIC_INTEL_) as name=value. */
     void getVTuneEnvVars(vector<char*>& additionalEnvVars);
 
-    unsigned int m_uiMicId;
+    unsigned int    m_uiMicId;
 
-    COIPROCESS m_process;
-    COIPIPELINE m_pipe;
+    COIPROCESS      m_process;
+    COIPIPELINE     m_pipe;
+
+    unsigned int m_uiNumActiveThreads;
 
     static const char* const m_device_function_names[DEVICE_SIDE_FUNCTION_COUNT];
     COIFUNCTION m_device_functions[DEVICE_SIDE_FUNCTION_COUNT];

@@ -141,6 +141,8 @@ public:
 
     uint64_t getDeviceQueueAddress() const { return m_pDeviceAddress; }
 
+    const DeviceServiceCommunication* getDeviceServiceComm() const { return m_pDeviceServiceComm;}
+
 protected:
 
     /* It is protected constructor because We want that the client will create CommandList only by the factory method */

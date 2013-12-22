@@ -1,0 +1,31 @@
+Base {
+    global:
+		__omp2tbb_set_thread_max_concurency;
+		__kmpc_begin;
+		__kmpc_end;
+		__kmpc_ok_to_fork;
+		omp_get_num_procs;
+		omp_get_num_threads;
+		omp_get_max_threads;
+		omp_in_parallel;
+		__kmpc_push_num_threads;
+		__kmpc_pop_num_threads;
+		__kmpc_fork_call;
+		omp_get_thread_num;
+		__kmpc_global_thread_num;
+		__kmpc_serialized_parallel;
+		__kmpc_end_serialized_parallel;
+		__kmpc_critical;
+		__kmpc_end_critical;
+		__kmpc_single;
+		__kmpc_end_single;
+		__kmpc_barrier;
+		__kmpc_master;
+		__kmpc_end_master;
+		__kmpc_for_static_init_8;
+		__kmpc_for_static_fini;
+		
+    local:
+        *;
+};
+

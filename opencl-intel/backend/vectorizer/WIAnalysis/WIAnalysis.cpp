@@ -721,6 +721,12 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
 
   // Check if the function is in the table of functions
   std::string scalarFuncName = origFuncName;
+
+  // If it is a fake builtin then we need to demangle the fake part before the demangling
+  if (Mangler::isFakeBuiltin(scalarFuncName)) {
+    scalarFuncName = Mangler::demangle_fake_builtin(scalarFuncName);
+  }
+
   bool isMangled = Mangler::isMangledCall(scalarFuncName);
   bool MaskedMemOp = (Mangler::isMangledLoad(scalarFuncName) ||
                       Mangler::isMangledStore(scalarFuncName));
@@ -946,6 +952,7 @@ void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
 
     m_influenceRegion.clear();
     m_partialJoins.clear();
+    m_divergePartialJoins.clear();
     schedConstraints.clear();
 
     // adding the root of the predicated region for the scheduling constraints

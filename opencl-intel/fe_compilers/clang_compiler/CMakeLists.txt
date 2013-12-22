@@ -261,7 +261,7 @@ endif ()
 add_dependencies( ${TARGET_NAME}
     ${CLANG}
 )
-
+if (NOT WIN32)
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_.pch DESTINATION bin)
 if( NOT ANDROID )

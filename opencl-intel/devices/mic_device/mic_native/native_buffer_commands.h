@@ -25,10 +25,13 @@
 /////////////////////////////////////////////////////////////
 
 #pragma once
+
 #include "task_executor.h"
 #include "device_queue.h"
 #include "mic_device_interface.h"
 #include "mic_tracer.h"
+
+#include <immintrin.h>
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 

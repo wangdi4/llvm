@@ -189,6 +189,7 @@ MICSerializationService::MICSerializationService(const ICLDevBackendOptions* pBa
         m_pJITAllocator = pJITMemManager;
     }
     
+    m_pBackendFactory = 0; 
     m_pBackendFactory = MICDeviceBackendFactory::GetInstance(); 
     assert(m_pBackendFactory && "Backend Factory is null");
 }

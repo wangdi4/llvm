@@ -333,7 +333,6 @@ cl_err_code GenericMemObject::InitializeSubObject(
     // just start with both pointers equal
     m_BS->AddPendency();
     m_pBackingStore = m_BS;
-    m_pBackingStore->AddPendency();
 
     m_pHostPtr = m_BS->GetUserProvidedHostMapPtr();
     m_uiNumDim = (cl_uint)m_BS->GetDimCount();
@@ -1169,7 +1168,7 @@ int GenericMemObjectBackingStore::RemovePendency()
     if ( 1 == prevVal )
     {
         delete this;
-}
+    }
     return prevVal;
 }
 size_t GenericMemObjectBackingStore::get_element_size(const cl_image_format* format)

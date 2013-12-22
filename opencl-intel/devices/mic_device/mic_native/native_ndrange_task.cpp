@@ -19,19 +19,16 @@
 // problem reports or change requests be submitted to it directly
 
 /////////////////////////////////////////////////////////////
-//  ExecutionTask.h
-//  Implementation of the Class ExecutionTask
-//  Class Object is responsible on execution of NDRange task
+//  native_ndrange_task.cpp
 /////////////////////////////////////////////////////////////
 
 #include "native_ndrange_task.h"
 #include "native_program_service.h"
 #include "native_thread_pool.h"
-#include "wg_context.h"
 #include "device_queue.h"
 #include "thread_local_storage.h"
 #include "native_common_macros.h"
-
+#include "hw_exceptions_handler.h"
 #include "mic_logger.h"
 
 // TODO: Move to system utils
@@ -40,12 +37,10 @@
 #include <cl_dev_backend_api.h>
 #include <cl_shared_ptr.hpp>
 
-#include <sink/COIBuffer_sink.h>
 #include <common/COIEvent_common.h>
+#include <sink/COIBuffer_sink.h>
 #include <sink/COIPipeline_sink.h>
-
-// TODO: remove from SVN
-// #include "wg_context.h"
+#include <sink/COIProcess_sink.h>
 
 using namespace Intel::OpenCL::MICDeviceNative;
 using namespace Intel::OpenCL::MICDevice;
@@ -77,7 +72,6 @@ void execute_command_ndrange(uint32_t        in_BufferCount,
     assert( pTLSQueue == pQueue && "Queue handle doesn't match");
 #endif
 
-
     NDRangeTask ndRangeTask(in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength);
 
     cl_dev_err_code err = ndRangeTask.getTaskError();
@@ -94,11 +88,8 @@ void execute_command_ndrange(uint32_t        in_BufferCount,
 
 NDRangeTask::NDRangeTask( uint32_t lockBufferCount, void** pLockBuffers, ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize ) :
     TaskHandler<NDRangeTask, ndrange_dispatcher_data >(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize),
-      m_kernel(NULL)
-#ifndef __NEW_BE_API__
-      ,m_pBinary(NULL), m_MemBuffCount(0), m_pMemBuffSizes(NULL)
-#endif
-      ,m_bSecureExecution(gMicExecEnvOptions.kernel_safe_mode)
+      m_pKernel(NULL), m_pRunner(NULL), m_pKernelArgs(NULL), m_pUniformArgs(NULL),
+      m_flushAtExit(false), m_bSecureExecution(gMicExecEnvOptions.kernel_safe_mode)
 #ifdef ENABLE_MIC_TRACER
     ,m_tbb_perf_data(*this)
 #endif    
@@ -108,9 +99,12 @@ NDRangeTask::NDRangeTask( uint32_t lockBufferCount, void** pLockBuffers, ndrange
 {
 }
 
+__thread ICLDevBackendKernelRunner::ICLDevExecutionState NDRangeTask::m_tExecutionState;
+
 NDRangeTask::NDRangeTask( const NDRangeTask& o) :
-    TaskHandler<NDRangeTask, ndrange_dispatcher_data >( o )
-    , m_bSecureExecution(o.m_bSecureExecution)
+    TaskHandler<NDRangeTask, ndrange_dispatcher_data >( o ),
+    m_flushAtExit(false),
+    m_bSecureExecution(o.m_bSecureExecution)
 #ifdef ENABLE_MIC_TRACER
     ,m_tbb_perf_data(*this)
 #endif
@@ -124,7 +118,12 @@ NDRangeTask::~NDRangeTask()
 {
 #ifdef ENABLE_MIC_TRACER
     m_tbb_perf_data.PerfDataFini();
-#endif    
+#endif
+    if ( m_pKernelArgs != (((char*)m_dispatcherData) + sizeof(ndrange_dispatcher_data)) )
+    {
+        free(m_pKernelArgs);
+        m_pKernelArgs = NULL;
+    }
 }
 
 // called immediately after creation and after filling the COI-passed data
@@ -160,16 +159,11 @@ if ( gMicGPAData.bUseGPA)
       static __thread __itt_string_handle* pTaskName = NULL;
       if ( NULL == pTaskName )
       {
-        pTaskName = __itt_string_handle_create("NDRangeTask::PrepareTask");
+        pTaskName = __itt_string_handle_create("NDRangeTask::PrepareTask()");
       }
       __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
     }
 #endif
-
-    cl_work_description_type tWorkDesc;
-
-    m_dispatcherData->convertToClWorkDescriptionType(tWorkDesc);
-    tWorkDesc.minWorkGroupNum = gMicExecEnvOptions.min_work_groups_number;
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
@@ -177,24 +171,43 @@ if ( gMicGPAData.bUseGPA)
       static __thread __itt_string_handle* pTaskName = NULL;
       if ( NULL == pTaskName )
       {
-        pTaskName = __itt_string_handle_create("NDRangeTask::InitTask()->create_binary()");
+        pTaskName = __itt_string_handle_create("NDRangeTask::PrepareTask()::PatchKernelArguments");
       }
       __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
     }
 #endif
 
-    m_kernel = ProgramService::GetKernelPointer(m_dispatcherData->kernelAddress);
-    // Now we should patch memory object pointers
-    const cl_kernel_argument* pParamInfo = m_kernel->GetKernelParams();
-    unsigned int        numMemArgs  = m_kernel->GetMemoryObjectArgumentCount();
-    const unsigned int* pMemArgsInx = m_kernel->GetMemoryObjectArgumentIndexes();
-    size_t              argSize     = m_kernel->GetArgumentBufferSize();
+    m_pKernel = ProgramService::GetKernelPointer(m_dispatcherData->kernelAddress);
+    m_pRunner = m_pKernel->GetKernelRunner();
 
-    char* kernelParams = ((char*)m_dispatcherData) + sizeof(ndrange_dispatcher_data);
+    // Now we should patch memory object pointers
+    const cl_kernel_argument* pParamInfo = m_pKernel->GetKernelParams();
+    unsigned int        numMemArgs  = m_pKernel->GetMemoryObjectArgumentCount();
+    const unsigned int* pMemArgsInx = m_pKernel->GetMemoryObjectArgumentIndexes();
+    size_t              argSize     = m_pKernel->GetExplicitArgumentBufferSize();
+
+    m_pKernelArgs = ((char*)m_dispatcherData) + sizeof(ndrange_dispatcher_data);
+    // Check if alignment of kernel arguments is enough
+    size_t argAlignment = m_pKernel->GetArgumentBufferRequiredAlignment();
+    if ( 0 != ((size_t)m_pKernelArgs & (argAlignment-1)) )
+    {
+        // Need to allocate properly aligned arguments
+        size_t allocSize = argSize + sizeof(cl_uniform_kernel_args);
+        void* pNewKernelArgs = memalign(argAlignment, allocSize);
+        if ( NULL== pNewKernelArgs )
+        {
+            assert ( 0 && "Failed to allocate aligned kernel arguments buffer");
+            FiniTask();
+            return false;
+        }
+        memcpy(pNewKernelArgs, m_pKernelArgs, allocSize);
+        m_pKernelArgs = (char*)pNewKernelArgs;
+    }
+
     unsigned int currentLockedBuffer = 0;
     for(unsigned int i=0; i<numMemArgs; ++i)
     {
-        void** loc = (void**)(kernelParams+pParamInfo[pMemArgsInx[i]].offset_in_bytes);
+        void** loc = (void**)(m_pKernelArgs+pParamInfo[pMemArgsInx[i]].offset_in_bytes);
         // Skip NULL buffers
         if ( NULL == *loc )
             continue;
@@ -202,31 +215,39 @@ if ( gMicGPAData.bUseGPA)
         currentLockedBuffer++;
     }
 
-    // Create the binary
-    ProgramService& tProgramService = ProgramService::getInstance();
-    cl_dev_err_code errCode = tProgramService.create_binary(m_kernel, kernelParams, argSize, &tWorkDesc, &m_pBinary);
+    m_pUniformArgs = (cl_uniform_kernel_args*)(m_pKernelArgs + argSize);
+    m_pUniformArgs->pRuntimeCallbacks = (void*)static_cast<ICLDevBackendDeviceAgentCallback*>(this);
+
+    if ( 0 != m_pUniformArgs->LocalIDIndicesRequiredSize )
+    {
+        m_pUniformArgs->pLocalIDIndices = new size_t[m_pUniformArgs->LocalIDIndicesRequiredSize/sizeof(size_t)];
+    }
+
+#if 0
+    printf("Queue:%p, Kernel:%p(%p), SE:%d, EE:%d\n"\
+        "running on %d dims, global size: [0]=%d, [1]=%d, [2]=%d, local size: [0]=%d, [1]=%d, [2]=%d\n"\
+        "LocalInxSize=%d LocalInxPtr=%p, IterCount=%ld\n",
+        (void*)m_dispatcherData->deviceQueuePtr, (void*)m_dispatcherData->kernelAddress, m_pKernel, (int)m_dispatcherData->startEvent.isRegistered, (int)m_dispatcherData->endEvent.isRegistered,
+        (int)m_pUniformArgs->WorkDim,
+        (int)m_pUniformArgs->GlobalSize[0], (int)m_pUniformArgs->GlobalSize[1], (int)m_pUniformArgs->GlobalSize[2],
+        (int)m_pUniformArgs->LocalSize[0], (int)m_pUniformArgs->LocalSize[1], (int)m_pUniformArgs->LocalSize[2],
+        (int)m_pUniformArgs->LocalIDIndicesRequiredSize, m_pUniformArgs->pLocalIDIndices, m_pUniformArgs->WGLoopIterCount
+        );fflush(0);
+#endif
+
+    /// Call to BE to initialize JIT pointer
+    cl_dev_err_code errCode = m_pRunner->InitRunner(m_pKernelArgs);
+    if ( CL_DEV_FAILED(errCode) )
+    {
+        setTaskError(errCode);
+        NATIVE_PRINTF("NDRangeTask::Init - InitRunner() failed\n");
+        return false;
+    }
+
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
         __itt_task_end(gMicGPAData.pDeviceDomain);
-    }
-#endif
-    if ( CL_DEV_FAILED(errCode) )
-    {
-        setTaskError(errCode);
-        NATIVE_PRINTF("NDRangeTask::Init - ProgramService.create_binary() failed\n");
-        return false;
-    }
-
-#ifndef __NEW_BE_API__
-    // This code should be removed after moving to new BE API
-    // This array will be calculated on the host
-    const size_t* pWGSize = m_pBinary->GetWorkGroupSize();
-    // Calculate the region of each dimension in the task.
-    unsigned int i = 0;
-    for (i = 0; i < m_dispatcherData->kernelArgs.WorkDim; ++i)
-    {
-        m_dispatcherData->kernelArgs.WGCount[i] = (uint64_t)((m_dispatcherData->kernelArgs.GlobalSize[i])/(uint64_t)(pWGSize[i]));
     }
 #endif
 
@@ -235,17 +256,6 @@ if ( gMicGPAData.bUseGPA)
     commandTracer().set_kernel_name((char*)(m_kernel->GetKernelName()));
 #endif
 	
-    // Update buffer parameters
-    m_pBinary->GetMemoryBuffersDescriptions(NULL, &m_MemBuffCount);
-    m_pMemBuffSizes = new size_t[m_MemBuffCount];
-    if (NULL == m_pMemBuffSizes)
-    {
-        setTaskError( CL_DEV_OUT_OF_MEMORY );
-        NATIVE_PRINTF("NDRangeTask::Init - Allocation of m_pMemBuffSizes failed\n");
-        return false;
-    }
-    m_pBinary->GetMemoryBuffersDescriptions(m_pMemBuffSizes, &m_MemBuffCount);
-
 #ifdef ENABLE_MIC_TRACER
     unsigned int i = 0;
     for (i = 0; i < m_dim; ++i)
@@ -362,18 +372,23 @@ int NDRangeTask::Init(size_t region[], unsigned int& regCount)
         COIEventSignalUserEvent(m_dispatcherData->startEvent.cmdEvent);
     }
 
-    regCount = m_dispatcherData->kernelArgs.WorkDim;
-    for (unsigned int i = 0; i < regCount; ++i)
+    regCount = m_pUniformArgs->WorkDim;
+    size_t i;
+    for(i=0;i<m_pUniformArgs->WorkDim;++i)
     {
-        region[i] = m_dispatcherData->kernelArgs.WGCount[i];
+        region[i] = m_pUniformArgs->WGCount[i];
+    }
+    for(;i<MAX_WORK_DIM;++i)
+    {
+        region[i] = 1;
     }
 
 #if 0
     printf("running on %d dims, global size: [0]=%d, [1]=%d, [2]=%d, number of workgrops:[0]=%d, [1]=%d, [2]=%d, local size: [0]=%d, [1]=%d, [2]=%d\n",
         (int)regCount,
-        (int)m_dispatcherData->kernelArgs.GlobalSize[0], (int)m_dispatcherData->kernelArgs.GlobalSize[1], (int)m_dispatcherData->kernelArgs.GlobalSize[2],
-        (int)m_dispatcherData->kernelArgs.WGCount[0], (int)m_dispatcherData->kernelArgs.WGCount[1], (int)m_dispatcherData->kernelArgs.WGCount[2],
-        (int)m_dispatcherData->kernelArgs.LocalSize[0], (int)m_dispatcherData->kernelArgs.LocalSize[1], (int)m_dispatcherData->kernelArgs.LocalSize[2]
+        (int)m_pUniformArgs->GlobalSize[0], (int)m_pUniformArgs->GlobalSize[1], (int)m_pUniformArgs->GlobalSize[2],
+        (int)m_pUniformArgs->WGCount[0], (int)m_pUniformArgs->WGCount[1], (int)m_pUniformArgs->WGCount[2],
+        (int)m_pUniformArgs->LocalSize[0], (int)m_pUniformArgs->LocalSize[1], (int)m_pUniformArgs->LocalSize[2]
         );fflush(0);
 #endif
 
@@ -425,14 +440,14 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
     // Monitor only IN-ORDER queue
     if ( gMicGPAData.bUseGPA && (master_id==GetThreadId()) )
     {
-      __itt_task_end(gMicGPAData.pDeviceDomain); // End of "TBB::Distribute_Work"
-      // notify only once
-      master_id = 0;
+        __itt_task_end(gMicGPAData.pDeviceDomain); // End of "TBB::Distribute_Work"
+        // notify only once
+        master_id = 0;
     }
 #endif
 
 #ifdef USE_ITT
-    if ( gMicGPAData.bUseGPA)
+    if ( gMicGPAData.bUseGPA )
     {
         __itt_task_begin(m_pIttKernelDomain, __itt_null, __itt_null, m_pIttKernelName);
     }
@@ -449,72 +464,12 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
     }
 #endif
 
-    assert( NULL!=pWgContextBase && "At this point pWgContext must be valid");
-    if ( NULL == pWgContextBase)
-    {
-        setTaskError( CL_DEV_INVALID_OPERATION );
-        return NULL;
-    }
-
-    WGContext* pContext = reinterpret_cast<WGContext*>(pWgContextBase);
-    
-    // If can NOT recycle the current context - This is the case when my current context is not the context of the next execution
-    if ( ((cl_dev_cmd_id)m_dispatcherData->commandIdentifier) != pContext->GetCmdId())
-    {
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( gMicGPAData.bUseGPA )
-        {
-            static __thread __itt_string_handle* pTaskName = NULL;
-            if ( NULL == pTaskName )
-            {
-                pTaskName = __itt_string_handle_create("NDRangeTask::AttachToThread->UpdateContext()");
-            }
-	        __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
-        }
-#endif
-
-    // Update context with new binary.
-    error = pContext->UpdateContext((cl_dev_cmd_id)(m_dispatcherData->commandIdentifier), m_pBinary, m_pMemBuffSizes, m_MemBuffCount, &m_printHandle);
+    // Prepare current thread context for execution
+    error = m_pRunner->PrepareThreadState(m_tExecutionState);
     if (CL_DEV_FAILED(error))
     {
-        pContext->InvalidateContext();
         setTaskError( error );
         return NULL;
-    }
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        // Monitor only IN-ORDER queue
-        if ( gMicGPAData.bUseGPA )
-        {
-            __itt_task_end(gMicGPAData.pDeviceDomain); // "NDRangeTask::AttachToThread->UpdateContext()"
-        }
-#endif
-
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( gMicGPAData.bUseGPA )
-        {
-            static __thread __itt_string_handle* pTaskName = NULL;
-            if ( NULL == pTaskName )
-            {
-                pTaskName = __itt_string_handle_create("NDRangeTask::AttachToThread()->PrepareThreadState()");
-            }
-            __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
-        }
-#endif
-
-        // Prepare current thread context for execution
-        error = pContext->GetExecutable()->PrepareThread();
-        if (CL_DEV_FAILED(error))
-        {
-            setTaskError( error );
-            return NULL;
-        }
-#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        // Monitor only IN-ORDER queue
-        if ( gMicGPAData.bUseGPA )
-        {
-            __itt_task_end(gMicGPAData.pDeviceDomain); // "NDRangeTask::AttachToThread()->PrepareThreadState()"
-        }
-#endif
     }
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
@@ -525,7 +480,7 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
     }
 #endif
 
-    return pContext;
+    return pWgContextBase;
 }
 
 // Is called when the task will not be executed by the specific thread
@@ -576,17 +531,6 @@ bool NDRangeTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContex
     m_tbb_perf_data.append_data_item(m_dim, (unsigned int)x, (unsigned int)y, (unsigned int)z );
 #endif    
 
-    assert( NULL!=pWgContext && "At this point pWgContext must be valid");
-    if ( NULL == pWgContext)
-    {
-        setTaskError( CL_DEV_INVALID_OPERATION );
-      return false;
-    }
-
-    WGContext*     pContext       = reinterpret_cast<WGContext*>(pWgContext);
-    ICLDevBackendExecutable_* pExec = pContext->GetExecutable();
-    assert( NULL!=pExec && "At this point pExec must be valid");
-
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
@@ -604,14 +548,10 @@ bool NDRangeTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContex
 
     if ( !m_bSecureExecution )
     {
-#ifdef __NEW_BE_API__
-        m_kernel->Execute( &m_dispatcherData->kernelArgs, groupId );
-#else
-        error = pExec->Execute( groupId, NULL, NULL );
-#endif
+        m_pRunner->RunGroup(m_pKernelArgs, groupId, this );
     } else
     {
-        error = HWExceptionWrapper::Execute(m_kernel, pExec, &m_dispatcherData->kernelArgs, groupId);
+        error = HWExceptionWrapper::Execute(m_pRunner, m_pKernelArgs, groupId, this);
     }
 
     if (CL_DEV_FAILED(error))
@@ -635,8 +575,22 @@ bool NDRangeTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContex
 // Return false when command execution fails
 bool NDRangeTask::Finish(FINISH_REASON reason)
 {
+    if ( m_flushAtExit )
+    {
+        fflush(stdout);
+        COIRESULT coiErr = COIProcessProxyFlush();
+        assert(COI_SUCCESS == coiErr && "Failed to Flush() printf buffer to host");
+    }
+
     // Release COI resources, before signaling to runtime
     FiniTask();
+
+    if ( 0 != m_pUniformArgs->LocalIDIndicesRequiredSize )
+    {
+        assert( NULL != m_pUniformArgs->pLocalIDIndices && "Trying to delete NULL local ID buffer");
+        delete []m_pUniformArgs->pLocalIDIndices;
+        m_pUniformArgs->pLocalIDIndices = NULL;
+    }
 
 #ifdef ENABLE_MIC_TRACER
     commandTracer().set_current_time_tbb_exe_in_device_time_end();
@@ -656,19 +610,26 @@ bool NDRangeTask::Finish(FINISH_REASON reason)
     }
 #endif
 
-    m_pBinary->Release();
-
     return CL_DEV_SUCCEEDED( getTaskError() );
 }
 
 void NDRangeTask::Cancel()
 {
     // TODO: What if task already started
-  // Notify end if exists
-  if ( m_dispatcherData->startEvent.isRegistered )
-  {
-      COIEventSignalUserEvent(m_dispatcherData->startEvent.cmdEvent);
-  }
+    // Notify end if exists
+    if ( m_dispatcherData->startEvent.isRegistered )
+    {
+        COIEventSignalUserEvent(m_dispatcherData->startEvent.cmdEvent);
+    }
+
+    // Release COI resources, before signaling to runtime
+    FiniTask();
+
+    if ( NULL != m_pUniformArgs->pLocalIDIndices )
+    {
+        delete []m_pUniformArgs->pLocalIDIndices;
+        m_pUniformArgs->pLocalIDIndices = NULL;
+    }
 
 #ifdef ENABLE_MIC_TRACER
     commandTracer().set_current_time_tbb_exe_in_device_time_start();
@@ -688,4 +649,11 @@ void NDRangeTask::Cancel()
         __itt_task_end(m_pIttKernelDomain);
     }
 #endif
+}
+
+int NDRangeTask::Print(const char* pBuffer, void* pHandle)
+{
+    assert( (void*)this == pHandle && "Invalid NDRange handle was provided to the callback");
+    m_flushAtExit = true;
+    return fputs(pBuffer, stdout);
 }

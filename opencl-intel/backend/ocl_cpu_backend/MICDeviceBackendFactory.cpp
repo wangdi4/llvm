@@ -20,8 +20,6 @@ File Name:  MICDeviceBackendFactory.cpp
 #include "MICProgram.h"
 #include "MICKernel.h"
 #include "MICKernelProperties.h"
-#include "MICExecutable.h"
-#include "Binary.h"
 #include <assert.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -77,37 +75,5 @@ KernelJITProperties* MICDeviceBackendFactory::CreateKernelJITProperties()
 {
     return new MICKernelJITProperties();
 }
-
-Binary* MICDeviceBackendFactory::CreateBinary( 
-    ICLDevBackendBufferPrinter* pPrinter,
-    IDeviceCommandManager* pDeviceCommandManager,
-    const IBlockToKernelMapper *pBlockToKernelMapper,
-    const KernelProperties* pKernelProperties,
-    const std::vector<cl_kernel_argument>& args,
-    const cl_work_description_type* pWorkInfo,
-    const IKernelJITContainer* pScalarJIT,
-    const IKernelJITContainer* pVectorJIT,
-    char* IN pArgsBuffer, 
-    size_t IN ArgBuffSize)
-{
-    return new Binary(this,
-                    pPrinter,
-                    pDeviceCommandManager,
-                    pBlockToKernelMapper,
-                    pKernelProperties,
-                    args,
-                    pWorkInfo,
-                    pScalarJIT,
-                    pVectorJIT,
-                    pArgsBuffer, 
-                    ArgBuffSize);
-}
-
-Executable* MICDeviceBackendFactory::CreateExecutable(const Binary* pBinary)
-{
-    return new MICExecutable(pBinary);
-}
-
-
 
 }}} // namespace

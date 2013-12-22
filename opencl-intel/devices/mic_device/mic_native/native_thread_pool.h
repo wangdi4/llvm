@@ -26,7 +26,6 @@
 
 #include "task_executor.h"
 #include "native_globals.h"
-#include "wg_context.h"
 #include "thread_local_storage.h"
 #include <sched.h>
 
@@ -79,18 +78,18 @@ class ThreadPool : public Intel::OpenCL::TaskExecutor::ITaskExecutorObserver
 {
 public:
 
-	/* Return the singleton instance of ThreadPool.
-	   Assume that it calls first when process creates - with single thread so it is NOT thread safe function. */
-	static ThreadPool* getInstance();
+    /* Return the singleton instance of ThreadPool.
+       Assume that it calls first when process creates - with single thread so it is NOT thread safe function. */
+    static ThreadPool* getInstance();
 
-	/* Release the singleton instance if not NULL. 
-	   Assume that it calls before closing the process - it is NOT thread safe function. */
-	static void releaseSingletonInstance();
+    /* Release the singleton instance if not NULL.
+       Assume that it calls before closing the process - it is NOT thread safe function. */
+    static void releaseSingletonInstance();
 
-	/* Call this method only once after construction in order to create the worker threads pool (The amount of worker threads are numOfWorkers).*/
-	bool init(bool use_affinity,
-	          unsigned int number_of_cores, unsigned int threads_per_core, // number_of_cores or threads_per_core == 0 means default
-	          bool ignore_first_core, bool ignore_last_core );
+    /* Call this method only once after construction in order to create the worker threads pool (The amount of worker threads are numOfWorkers).*/
+    bool init(bool use_affinity,
+              unsigned int number_of_cores, unsigned int threads_per_core, // number_of_cores or threads_per_core == 0 means default
+              bool ignore_first_core, bool ignore_last_core );
 
     Intel::OpenCL::TaskExecutor::ITaskExecutor&  getTaskExecutor() { return *m_task_executor; };
 
@@ -113,11 +112,8 @@ public:
     const SharedPtr<Intel::OpenCL::TaskExecutor::ITEDevice>& getRootDevice() const { return m_RootDevice; }
     
     // Allocate all nessary resources for the current calling thread
-    bool	ActivateCurrentMasterThread();
-    bool	DeactivateCurrentMasterThread();
-
-    // get WGContext for the current thread if exists
-    WGContext* findActiveWGContext();
+    bool    ActivateCurrentMasterThread();
+    bool    DeactivateCurrentMasterThread();
 
     // ITaskExecutorObserver
     virtual void* OnThreadEntry();
@@ -131,10 +127,11 @@ public:
     static unsigned int getWorkerID();
 #endif // #if (defined(ENABLE_TBB_TRACER) || defined(ENABLE_MIC_TBB_TRACER))
     
+    unsigned int GetNumberOfActiveThreads() const { return m_numOfActivatedThreads; }
 protected:
 
-	ThreadPool();
-	virtual ~ThreadPool() { release(); }
+    ThreadPool();
+    virtual ~ThreadPool() { release(); }
     bool init_base(bool use_affinity,
                    unsigned int number_of_cores, unsigned int threads_per_core, 
                    bool ignore_first_core, bool ignore_last_core );
@@ -154,19 +151,18 @@ private:
         unsigned int executor_core;
     };
 
-    unsigned int m_useNumberOfCores;
-    unsigned int m_useThreadsPerCore;
-    unsigned int m_numOfActivatedThreads;
-    bool         m_useIgnoreFirstCore;
-    bool         m_useIgnoreLastCore;
-    bool         m_useAffinity;
-    bool         m_init_done;
+    unsigned int  m_useNumberOfCores;
+    unsigned int  m_useThreadsPerCore;
+    unsigned int  m_numOfActivatedThreads;
+    bool          m_useIgnoreFirstCore;
+    bool          m_useIgnoreLastCore;
+    bool          m_useAffinity;
+    bool          m_init_done;
     volatile bool m_shut_down;
 
     CoreAffinityDescriptor m_cores[ MIC_NATIVE_MAX_CORES ];
     TaskExecutorCore       m_workerId_2_executorCore[ MIC_NATIVE_MAX_WORKER_THREADS ];
-    WGContext              m_contexts[ MIC_NATIVE_MAX_WORKER_THREADS]; // Context for Masters are allocated separatly
-    
+
     // Global workers affinity mask 
     cpu_set_t m_globalWorkersAffinityMask;
 
@@ -181,11 +177,11 @@ private:
     void setCurrentThreadAffinity( unsigned int thread_idx );
 
 #ifdef __MIC_DA_OMP__
-	public:
+    public:
 #endif
     void startup_all_workers();
 #ifdef __MIC_DA_OMP__
-	private:
+    private:
 #endif
 
 #if (defined(ENABLE_TBB_TRACER) || defined(ENABLE_MIC_TBB_TRACER))
@@ -193,8 +189,8 @@ private:
     Intel::OpenCL::Utils::AtomicCounter m_workersCount; // used for worker id allocation also
 #endif // #if (defined(ENABLE_TBB_TRACER) || defined(ENABLE_MIC_TBB_TRACER))        
 
-    static ThreadPool*          m_threadPool;
-    static __thread WGContext*  m_tpMasterCtx;
+    static ThreadPool*     m_threadPool;
+    static __thread bool  m_tbMasterInitalized;
 };
 
 }}}

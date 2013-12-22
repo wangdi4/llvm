@@ -42,12 +42,13 @@ declare void @__ocl_transpose_store_int_4x4(<4 x i32>* nocapture %pStoreAdd, <4 
 
 ;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX2:    [[FOO]]:
-;CHECK-AVX2:	vperm2i128	$32, [[YMM3:%ymm[0-9]+]], [[YMM20:%ymm[0-9]+]], [[YMM2:%ymm[0-9]+]]
-;CHECK-AVX2:	vpermd	[[YMM2]], [[YMM3]], [[YMM21:%ymm[0-9]+]]
-;CHECK-AVX2:	vperm2i128	$32, [[YMM1:%ymm[0-9]+]], [[YMM00:%ymm[0-9]+]], [[YMM0:%ymm[0-9]+]]
-;CHECK-AVX2:	vpermd	[[YMM0]], [[YMM1]], [[YMM01:%ymm[0-9]+]]
+;CHECK-AVX2:	vinserti128	$1, [[XMM3:%xmm[0-9]+]], [[YMM20:%ymm[0-9]+]], [[YMM2:%ymm[0-9]+]]
+;CHECK-AVX2:	vpermd	[[YMM2]], [[YMM3:%ymm[0-9]+]], [[YMM21:%ymm[0-9]+]]
+;CHECK-AVX2:	vinserti128	$1, [[XMM1:%xmm[0-9]+]], [[YMM00:%ymm[0-9]+]], [[YMM0:%ymm[0-9]+]]
+;CHECK-AVX2:	vpermd	[[YMM0]], [[YMM1:%ymm[0-9]+]], [[YMM01:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpblendd	$204, [[YMM21]], [[YMM01]], [[YMM11:%ymm[0-9]+]]
 ;CHECK-AVX2:	vmovdqu	[[YMM11]], ([[EAX:%[a-z]+]])
 ;CHECK-AVX2:	vpalignr	$8, [[YMM01]], [[YMM21]], [[YMM02:%ymm[0-9]+]]
 ;CHECK-AVX2:	vmovdqu	[[YMM02]], 32([[EAX]])
 ;CHECK-AVX2:	.type	 [[TRANSPOSE:[_a-z]+]]_store_int_4x4,@function
+

@@ -1,6 +1,6 @@
 # remove the restriction of warning as error for this component
 if (NOT WIN32)
-    add_definitions( "-Wno-type-limits -Wno-missing-braces" )
+    add_definitions( "-Wno-type-limits -Wno-missing-braces -Wno-unused-variable" )
     remove_definitions( -Werror )
 endif (NOT WIN32)
 

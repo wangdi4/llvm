@@ -236,7 +236,7 @@ set(TARGET_SOURCES
     ../ocl_cpu_backend/shared_builtin_functions.cpp
     ../ocl_cpu_backend/mic_builtin_functions.cpp
     ../ocl_cpu_backend/TargetDescription.cpp
-    ../ocl_cpu_backend/MICDeviceBackendFactory.cpp
+     ../ocl_cpu_backend/MICDeviceBackendFactory.cpp
     ../ocl_cpu_backend/ExecutionService.cpp
     ../ocl_cpu_backend/MICExecutionService.cpp
     ../ocl_cpu_backend/MICSerializationService.cpp
@@ -250,14 +250,13 @@ set(TARGET_SOURCES
     ../ocl_cpu_backend/MICKernelProperties.cpp
     ../ocl_cpu_backend/MICJITContainer.cpp
     ../utils/TypeAlignment.cpp
-    ../ocl_cpu_backend/Binary.cpp
     ../utils/ImplicitArgsUtils.cpp
     ../utils/Atomics.cpp
-    ../ocl_cpu_backend/Executable.cpp
-    ../ocl_cpu_backend/MICExecutable.cpp
     ../utils/FunctionArgument.cpp
     ../ocl_cpu_backend/opencl_printf_ext.cpp
     ../ocl_cpu_backend/opencl_mic_printf_ext.cpp
     main.cpp)
 
 add_device_library(${TARGET_NAME} ${TARGET_SOURCES})
+
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

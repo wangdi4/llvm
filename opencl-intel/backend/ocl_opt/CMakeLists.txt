@@ -26,6 +26,7 @@ set(OCL_BE_PASSES
     LLVMVectorizer
     Materialize
     Obfuscation
+    ImplicitArgsAnalysis
     PrepareKernelArgs
     AddImplicitArgs
     OclFunctionAttrs
@@ -40,6 +41,7 @@ set(OCL_BE_PASSES
     CloneBlockInvokeFuncToKernel
     DetectRecursion
     ResolveBlockToStaticCall
+    SmartGVN
 )
 
 # Dependencies of the passes

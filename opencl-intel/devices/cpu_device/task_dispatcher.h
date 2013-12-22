@@ -32,8 +32,6 @@
 #include "task_executor.h"
 #include "dispatcher_commands.h"
 #include "cpu_config.h"
-#include "wg_context.h"
-#include "wg_context_pool.h"
 #include <cl_synch_objects.h>
 #include <cl_thread.h>
 #include <builtin_kernels.h>
@@ -43,8 +41,17 @@
 #include <list>
 
 using namespace Intel::OpenCL::TaskExecutor;
+
+#ifdef __INLCUDE_MKL__
+#ifndef __OMP2TBB__
 using Intel::OpenCL::BuiltInKernels::OMPExecutorThread;
-using Intel::OpenCL::Utils::ObjectPool;
+#else
+extern "C" void __kmpc_begin(void* loc, int flags);
+extern "C" void __kmpc_end(void* loc);
+extern "C" void __omp2tbb_set_thread_max_concurency( unsigned int max_concurency);
+extern "C" void __omp2tbb_set_current_arena_concurrency ( unsigned int num_threads );
+#endif
+#endif
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -58,7 +65,7 @@ typedef struct _cl_dev_internal_subdevice_id
     //Task dispatcher for this sub-device
     Intel::OpenCL::Utils::AtomicCounter ref_count;
     volatile bool                       is_acquired;
-    ITEDevice*                          pSubDevice;
+    SharedPtr<ITEDevice>                pSubDevice;
 } cl_dev_internal_subdevice_id;
 
 class IAffinityChangeObserver
@@ -80,12 +87,8 @@ public:
 
     virtual cl_dev_err_code init();
 
-    virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, ITEDevice* IN pDevice, ITaskList** OUT list);
-    virtual cl_dev_err_code releaseCommandList( ITaskList* IN list );
-    virtual cl_dev_err_code flushCommandList( ITaskList* IN list);
-    virtual cl_dev_err_code commandListExecute( ITaskList* IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
-    virtual cl_dev_err_code commandListWaitCompletion(ITaskList* IN list, cl_dev_cmd_desc* IN cmdToWait);
-    virtual cl_dev_err_code cancelCommandList(ITaskList* IN list);
+    virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, ITEDevice* IN pDevice, SharedPtr<ITaskList>* OUT list);
+    virtual cl_dev_err_code commandListExecute( const SharedPtr<ITaskList>& IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
 
     virtual ProgramService* getProgramService(){ return m_pProgramService; }
 
@@ -98,23 +101,21 @@ public:
         return ( (NULL!=pSubDevID) && pSubDevID->is_by_names );
     }
 
-    ITEDevice*              createSubdevice(unsigned int uiNumSubdevComputeUnits, cl_dev_internal_subdevice_id* dev_ptr);
-    void                    releaseSubdevice(ITEDevice* pSubdev);
-
     void                    waitUntilEmpty(ITEDevice* pSubdev);
-
-    void                    setWgContextPool(WgContextPool* pWgContextPool) { m_pWgContextPool = pWgContextPool; }
 
     ITaskExecutor&          getTaskExecutor() { return *m_pTaskExecutor; }
 
     queue_t                 GetDefaultQueue() { return m_pDefaultQueue.GetPtr(); }
 
+    unsigned int            GetNumThreads() const { return m_uiNumThreads;}
+	
+    ITEDevice*              GetRootDevice() { return m_pRootDevice.GetPtr(); }
     // ITaskExecutorObserver
     void*                   OnThreadEntry();
     void                    OnThreadExit( void* currentThreadData );
     TE_BOOLEAN_ANSWER       MayThreadLeaveDevice( void* currentThreadData );
 
-#ifdef __INCLUDE_MKL__
+#if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
     OMPExecutorThread*			getOmpExecutionThread() const {return m_pOMPExecutionThread;}
 #endif
 protected:
@@ -128,7 +129,6 @@ protected:
     CPUDeviceConfig*          m_pCPUDeviceConfig;
     ITaskExecutor*	          m_pTaskExecutor;
     SharedPtr<ITEDevice>      m_pRootDevice;
-    WgContextPool*            m_pWgContextPool;
     unsigned int              m_uiNumThreads;
     bool                      m_bTEActivated;
 
@@ -179,7 +179,7 @@ protected:
 
     cl_dev_err_code NotifyFailure(ITaskList* pList, cl_dev_cmd_desc* cmd, cl_int iRetCode);
 
-#ifdef __INCLUDE_MKL__
+#if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
     OMPExecutorThread*	m_pOMPExecutionThread;
 #endif
 

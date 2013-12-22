@@ -366,7 +366,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 			cl_uint									m_uiNumDim;				// Number of dimension of the memory object
 			void*									m_pMemObjData;			// pointer to object memory allocated area
 
-			SharedPtr<MemoryObject>							m_pParentObject;		// A pointer to parent memory object
+			SharedPtr<MemoryObject>					m_pParentObject;		  // A pointer to parent memory object
 			size_t									m_stOrigin[MAX_WORK_DIM]; // Origin of the sub-buffer(image)
 
 			std::stack<MemDtorNotifyData*>			m_pfnNotifiers;		    // Holds a list of pointers to callbacks upon dtor execution

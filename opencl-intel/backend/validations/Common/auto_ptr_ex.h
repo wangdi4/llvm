@@ -75,7 +75,7 @@ namespace Validation {
         {   // convert to compatible auto_ptr_ex
             return (auto_ptr_ex<_Other, _OtherDP>(*this));
         }
-
+/*
         template<class _Other, class _OtherDP>
         operator auto_ptr_ex_ref<_Other>() throw ()
         {   // convert to compatible auto_ptr_ex_ref
@@ -84,7 +84,7 @@ namespace Validation {
             _Myptr = 0; // pass ownership to auto_ptr_ex_ref
             return (_Ans);
         }
-
+*/
 
         template<class _Other, class _OtherDP>
         auto_ptr_ex<_Ty, _DP>& operator=(auto_ptr_ex<_Other, _OtherDP>& _Right) throw ()

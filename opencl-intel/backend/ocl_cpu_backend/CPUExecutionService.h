@@ -21,8 +21,6 @@ File Name:  CPUExecutionService.h
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-class Binary;
-
 class CPUExecutionService: public ExecutionService
 {
 public:

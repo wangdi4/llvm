@@ -103,27 +103,29 @@ else()
 endif ()
 
 if(CMAKE_CROSSCOMPILING)
-  set(CX_NATIVE_TG_DIR "${CMAKE_BINARY_DIR}/native")
+    set(CX_NATIVE_TG_DIR "${CMAKE_BINARY_DIR}/native")
 
-  add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CX_NATIVE_TG_DIR}
-    COMMENT "Creating ${CX_NATIVE_TG_DIR}...")
+    add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}
+                            COMMAND ${CMAKE_COMMAND} -E make_directory ${CX_NATIVE_TG_DIR}
+                            COMMENT "Creating ${CX_NATIVE_TG_DIR}..."
+    )
 
-  add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}/CMakeCache.txt
-    COMMAND ${CMAKE_COMMAND} -UCMAKE_TOOLCHAIN_FILE 
-                             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                              // We are cross compiling when building for android, hence we are
-                              // dropping off all non required build components, such tests/verification                            
-                             -DBACKEND_BUILD_VERIFICATION_LIB=OFF 
-                             -DLLVM_PATH=${LLVM_PATH}/native
-                             -DBUILD_X64=True
-                             ${CMAKE_SOURCE_DIR} 
-    WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
-    DEPENDS ${CX_NATIVE_TG_DIR}
-    COMMENT "Configuring native targets...")
+    add_custom_command(OUTPUT ${CX_NATIVE_TG_DIR}/CMakeCache.txt
+                            COMMAND ${CMAKE_COMMAND} -UCMAKE_TOOLCHAIN_FILE 
+                            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                            # We are cross compiling when building for android, hence we are
+                            # dropping off all non required build components, such tests/verification                            
+                            -DBACKEND_BUILD_VERIFICATION_LIB=OFF 
+                            -DLLVM_PATH=${LLVM_PATH}/native
+                            -DBUILD_X64=True
+                            ${CMAKE_SOURCE_DIR} 
+                            WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
+                            DEPENDS ${CX_NATIVE_TG_DIR}
+                            COMMENT "Configuring native targets..."
+    )
 
-  add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/CMakeCache.txt)
-  set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
+    add_custom_target(ConfigureNativeTargets DEPENDS ${CX_NATIVE_TG_DIR}/CMakeCache.txt)
+    set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES ${CX_NATIVE_TG_DIR})
 endif()
 
 if(INCLUDE_TOOLS)
@@ -272,9 +274,6 @@ if (BUILD_QTGUI AND NOT ANDROID)
     endif(WIN32)
 endif ()
 
-
-
-
 #
 # Project defs
 #
@@ -289,6 +288,18 @@ if (GIT_REVISIONS)
                     OUTPUT_VARIABLE GIT_DESCRIPTION)
     STRING(REGEX MATCH ".+-([0-9]*)-[0-9a-zA-Z]+" GIT_VERSION ${GIT_DESCRIPTION})
     math(EXPR BUILDVER_WC_REVISION "0 + ${CMAKE_MATCH_1}")
+	
+	set (git_cmd_version "git")
+	set (git_arg_1 "log")
+	set (git_arg_2 "-1")
+	set (git_arg_3 "--format=%H")
+	set (git_ver_v 0)
+	execute_process(COMMAND ${GIT_EXECUTABLE} ${git_arg_1} ${git_arg_2} ${git_arg_3}
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		RESULT_VARIABLE git_result_v
+		OUTPUT_VARIABLE git_ver_v)		
+	set(GIT_REVISION ${git_ver_v})
+	file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}DESCRIBE=${GIT_DESCRIPTION}")
 else ()
     set( BUILDVER_WC_REVISION 0)
 endif (GIT_REVISIONS)
@@ -298,12 +309,25 @@ math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
 
 # write a file with the BUILDVERSION define
-file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt "#define BUILDVERSION ${BUILDVER_WC_REVISION}\n#ifndef\ _DEBUG\n#define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"\n#else\n#define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"\n#endif\n\n#define BUILDVERSION16BIT_MAJOR ${BUILDVER_16_BIT_MAJOR}\n#define BUILDVERSION16BIT_MINOR ${BUILDVER_16_BIT_MINOR}\n#define VERSIONSTRING \"4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n\n")
+file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt 
+"#define BUILDVERSION ${BUILDVER_WC_REVISION}\n
+#ifndef\ _DEBUG
+    #define BUILDVERSIONSTR "\"(Build\ ${BUILDVER_WC_REVISION})"\"
+#else
+    #define BUILDVERSIONSTR "\"(Build[DEBUG]\ ${BUILDVER_WC_REVISION})"\"
+#endif\n
+#define BUILDVERSION16BIT_MAJOR ${BUILDVER_16_BIT_MAJOR}\n
+#define BUILDVERSION16BIT_MINOR ${BUILDVER_16_BIT_MINOR}\n
+#define VERSIONSTRING \"4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
+#define IOCVERSIONSTRING \"1.4.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
+#define KBVERSIONSTRING \"1.2.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
+
 if(WIN32)
     file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=3.1.${BUILDVER_WC_REVISION}")
     install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
 file(WRITE ${OCL_BINARY_DIR}/version.txt "4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}")
+
 #copy the version file to install folder
 install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
 # copy the file to the final header only if the version changes
@@ -473,6 +497,8 @@ else(APPLE)
     # Therefore, it must be added to the include directories only after 
     # the tests subdirectory has been added.
     include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
+    
+    add_definitions(-D__TBB_NO_IMPLICIT_LINKAGE=1)
 
     # externals
     add_subdirectory(externals)

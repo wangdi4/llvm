@@ -541,9 +541,12 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
     switch(clParamName)
     {
     case CL_DEVICE_PLATFORM:
+	{
         szParamSize = sizeof(cl_platform_id);
-        pValue = &m_clPlatformId.object;
+        cl_platform_id id = &m_clPlatformId;
+		pValue = &id;
         break;
+	}
     case( CL_DEVICE_LINKER_AVAILABLE):
     case( CL_DEVICE_COMPILER_AVAILABLE):
         szParamSize = sizeof(cl_bool);

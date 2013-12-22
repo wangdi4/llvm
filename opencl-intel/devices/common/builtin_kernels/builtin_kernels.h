@@ -33,7 +33,9 @@
 
 namespace Intel { namespace OpenCL { namespace BuiltInKernels {
 
+#ifndef __OMP2TBB__
 class OMPExecutorThread;
+#endif
 class BuiltInProgram : public Intel::OpenCL::DeviceBackend::ICLDevBackendProgram_
 {
 public:	
@@ -68,14 +70,17 @@ class IBuiltInKernelExecutor
 {
 public:
 	virtual cl_dev_err_code	Execute() const = 0;
-	virtual cl_dev_err_code GetLastError() const = 0;
 };
 
 class IBuiltInKernel : public Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_
 {
 public:
-	virtual cl_dev_err_code Execute(cl_dev_cmd_param_kernel* pCmdParams, void* pParamBuffer, OMPExecutorThread* pThread) const = 0;
-	virtual size_t			GetParamSize() const = 0;
+#ifndef __OMP2TBB__
+    virtual cl_dev_err_code Execute(cl_dev_cmd_param_kernel* pCmdParams, void* pParamBuffer, OMPExecutorThread* pThread) const = 0;
+#else
+    virtual cl_dev_err_code Execute(cl_dev_cmd_param_kernel* pCmdParams, void* pParamBuffer) const = 0;
+#endif
+    virtual size_t			GetParamSize() const = 0;
 };
 
 typedef cl_dev_err_code fn_BuiltInFunctionCreate(IBuiltInKernel* *ppBIKernel);
@@ -117,6 +122,7 @@ cl_kernel_arg_address_qualifier ArgType2AddrQual(cl_kernel_arg_type type);
 	};\
 	BI_KENREL_NAME##CreatorClassRegister class##BI_KENREL_NAME##CreatorClassRegister;
 
+#ifndef __OMP2TBB__
 // Invoke OMP based function from a separate thread
 // Better managment of the OpenMP threading layer
 class OMPExecutorThread : public Intel::OpenCL::Utils::OclThread
@@ -146,9 +152,5 @@ protected:
 	// OclThread overides
 	RETURN_TYPE_ENTRY_POINT    Run();
 };
-
-
-
-
-
+#endif
 }}}

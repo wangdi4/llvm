@@ -7,7 +7,7 @@
 #  LLVM_MODULE_LIBS - list of llvm libs for working with modules.
 #  LLVM_FOUND       - True if llvm found.
 if(WIN32)
-    if( INCLUDE_MIC_DEVICE AND ( CMAKE_SIZEOF_VOID_P EQUAL 8 ) )
+    if( INCLUDE_MIC_DEVICE OR ( CMAKE_SIZEOF_VOID_P EQUAL 8 ) )
         list(APPEND STATIC_LLVM_MODULE_LIBS
             LLVMY86AsmParser
             LLVMY86CodeGen
@@ -27,7 +27,6 @@ if(WIN32)
 		LLVMIRReader 
 		LLVMAsmParser 
 		LLVMTableGen 
-		LLVMOpenCLAliasAnalysisSupport
 		LLVMMICModuleJIT
 		LLVMDebugInfo 
 		LLVMX86AsmParser 
@@ -95,7 +94,6 @@ else()
 		LLVMIRReader 
 		LLVMAsmParser 
 		LLVMTableGen 
-		LLVMOpenCLAliasAnalysisSupport
 		LLVMMICModuleJIT
 		LLVMDebugInfo 
 		LLVMX86AsmParser 

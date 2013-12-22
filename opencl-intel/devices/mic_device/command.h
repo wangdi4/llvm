@@ -37,14 +37,19 @@ class Command : public NotificationPort::CallBack, public ReferenceCountedObject
 {
 public:
 
-	PREPARE_SHARED_PTR(Command)
+    PREPARE_SHARED_PTR(Command)
 
     /* Send the command for execution on the device (In case of NDRange command) or execute it on the host. */
     virtual cl_dev_err_code execute() = 0;
 
     // Call to releaseCommand in order to decrease the reference counter in order to delete the Command.
-    void releaseCommand() { DecRefCnt(); }
-    void retainCommand()  { IncRefCnt(); }
+    void releaseCommand() {
+        long val = DecRefCnt();
+        if ( 0 == val ) {
+            Cleanup();
+        }
+    }
+	void retainCommand()  { IncRefCnt(); }
 
     const COIEVENT& getCommandCompletionEvent() { return m_endEvent.cmdEvent; };
 
@@ -68,7 +73,7 @@ public:
 protected:
 
     /* Protected constructor because We like to create Commands only by the factory method */
-    Command(CommandList* pCommandList, IOCLFrameworkCallbacks*	pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+    Command(CommandList* pCommandList, IOCLFrameworkCallbacks*    pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
 
     virtual ~Command();
 
@@ -129,16 +134,16 @@ class FailureNotification : public Command
 
 public:
 
-	PREPARE_SHARED_PTR(Command)
+    PREPARE_SHARED_PTR(Command)
 
-	static SharedPtr<FailureNotification> Create(IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, cl_dev_err_code returnCode)
+    static SharedPtr<FailureNotification> Create(IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, cl_dev_err_code returnCode)
     {
         return new FailureNotification(pFrameworkCallBacks, pCmd, returnCode);
     }
 
-	cl_dev_err_code execute();
+    cl_dev_err_code execute();
 
-	bool commandEnqueuedToPipe() { return false; };
+    bool commandEnqueuedToPipe() { return false; };
 
 protected:
 

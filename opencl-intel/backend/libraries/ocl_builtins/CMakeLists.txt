@@ -173,7 +173,7 @@ endforeach( LLVM_INCLUDE_DIR_ITEM)
 
 # Adding include path for "micintrin.h", "micintrin_mici64ext.h"
 if(INCLUDE_MIC_DEVICE)
-  set(MIC_HEADERS_DIR ${LLVM_LIBRARY_DIR}/clang/3.2/include)
+  set(MIC_HEADERS_DIR ${LLVM_LIBRARY_DIR}/clang/3.4/include)
   set(CLANG_LLVM_INCLUDE_DIRS ${CLANG_LLVM_INCLUDE_DIRS} -I ${MIC_HEADERS_DIR})
 endif(INCLUDE_MIC_DEVICE)
 
@@ -517,8 +517,7 @@ add_subdirectory (sse42)
 add_subdirectory (avx)
 add_subdirectory (avx2)
 if (BUILD_X64)
-  #TODO: uncomment the following line once KNL is merged to clang.
-  #add_subdirectory (KNLni)
+  add_subdirectory (KNLni)
 endif (BUILD_X64)
 if (INCLUDE_MIC_DEVICE)
   add_subdirectory (KNCni)

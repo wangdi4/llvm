@@ -38,7 +38,6 @@
 #include "program_memory_manager.h"
 #include "mic_device_interface.h"
 #include "cl_dev_backend_api.h"
-#include "native_printf.h"
 #include "ICLDevBackendSerializationService.h"
 
 #ifdef USE_ITT
@@ -73,7 +72,6 @@ public:
 
 private:
     MICNativeBackendExecMemoryAllocator m_allocator;
-    MICNativeBackendPrintfFiller        m_printf;
 };
 
 // ProgramService class
@@ -89,16 +87,9 @@ public:
                     const COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT* prog_info,
                     COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT*      fill_kernel_info );
 
+    cl_dev_err_code add_builtin_program(const char* szBuiltInNames, COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* fill_kernel_info);
+
     void remove_program( uint64_t be_program_id );
-
-    // create binary according to input parameters
-    cl_dev_err_code create_binary( const ICLDevBackendKernel_* pKernel,
-                               char* pLockedParams,
-                               uint64_t argSize,
-                               cl_work_description_type* pWorkDesc,
-                               ICLDevBackendBinary_** ppOutBinary ) const;
-
-	cl_dev_err_code create_executable(ICLDevBackendExecutable_** ppExecutable) const;
 
     // singleton
     static ProgramService& getInstance( void )
@@ -161,10 +152,6 @@ private:
 
     BackendInterfaces              m_BE_Executor;
 
-    OclMutex                       m_muProgMap;
-    TProgId2Map                    m_ProgId2Map;
-
-
     ICLDevBackendExecutionService*      GetExecutionService(void) const
     {
         return m_BE_Executor.pExecutionService;
@@ -180,6 +167,7 @@ private:
 
     void  RemoveProgramEntry( TProgramEntry* prog_entry );
 
+    cl_dev_err_code fill_program_info(TProgramEntry* prog_entry, COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* fill_kernel_info);
 
     // singleton
     static ProgramService*         m_gProgramService;

@@ -28,10 +28,9 @@
 #include <common/COIEvent_common.h>
 #include <sink/COIPipeline_sink.h>
 
-#include "native_ndrange_task.h"
-#include "native_buffer_commands.h"
-
+#ifdef USE_ITT
 #include <ocl_itt.h>
+#endif
 
 using namespace Intel::OpenCL::MICDevice;
 using namespace Intel::OpenCL::MICDeviceNative;
@@ -171,6 +170,7 @@ void QueueOnDevice::Cancel() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 InOrderQueueOnDevice::~InOrderQueueOnDevice()
 {
+    m_task_list = NULL;
     m_thread_pool.DeactivateCurrentMasterThread();
 }
 

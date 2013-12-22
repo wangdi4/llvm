@@ -34,7 +34,7 @@ using namespace Intel::OpenCL::MKLKernels;
 /////////////////////////////////////////////////////////////////////////////
 // Create registration classes for MKL functions
 #define REGISTER_MKL_FUNCTION(MKL_FUNCTION_NAME,MKL_CLASS_TYPE,DATA_TYPE) \
-	template<> const MKL_##MKL_CLASS_TYPE##_Parameters<DATA_TYPE> MKL_##MKL_CLASS_TYPE##_Executor<DATA_TYPE>::m_sParams = MKL_##MKL_CLASS_TYPE##_Parameters<DATA_TYPE>();
+    template<> const MKL_##MKL_CLASS_TYPE##_Parameters<DATA_TYPE> MKL_##MKL_CLASS_TYPE##_Parameters<DATA_TYPE>::s_Params = MKL_##MKL_CLASS_TYPE##_Parameters<DATA_TYPE>();
 
 #include "mkl_kernels.inc"
 
@@ -42,40 +42,70 @@ using namespace Intel::OpenCL::MKLKernels;
 /////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////
 
+#ifndef __MIC__
 Intel::OpenCL::Utils::OclDynamicLib g_mklRT;
+#endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Register MKL functions inside the Builtin kernels map
+#if defined(_WIN32)
+#define GET_MKL_FUNCTION_PTR(NAME) ((Intel::OpenCL::Utils::OclDynamicLib::func_t)##NAME)
+#elif defined(__MIC__)
+#define GET_MKL_FUNCTION_PTR(NAME) ((Intel::OpenCL::Utils::OclDynamicLib::func_t)#NAME)
+#else
+#define GET_MKL_FUNCTION_PTR(NAME) g_mklRT.GetFunctionPtrByName(#NAME)
+#endif
+
 #define REGISTER_MKL_FUNCTION(MKL_FUNCTION_NAME,MKL_CLASS_TYPE,DATA_TYPE) \
-	struct MKL_FUNCTION_NAME##CreatorClass\
-	{\
-		static cl_dev_err_code MKL_FUNCTION_NAME##Creator(Intel::OpenCL::BuiltInKernels::IBuiltInKernel* *ppBIKernel)\
-		{\
-			Intel::OpenCL::Utils::OclDynamicLib::func_t pFunc = g_mklRT.GetFunctionPtrByName(#MKL_FUNCTION_NAME);\
-			if ( NULL==pFunc ) return CL_DEV_NOT_SUPPORTED;\
-		    *ppBIKernel = new MKLKernel< MKL_##MKL_CLASS_TYPE##_Executor<DATA_TYPE > >(#MKL_FUNCTION_NAME, pFunc);\
-			return CL_DEV_SUCCESS;\
-		}\
-	};\
- 	REGISTER_BUILTIN_KERNEL(MKL_FUNCTION_NAME, MKL_FUNCTION_NAME##CreatorClass::MKL_FUNCTION_NAME##Creator)
+    struct MKL_FUNCTION_NAME##CreatorClass\
+    {\
+        static cl_dev_err_code MKL_FUNCTION_NAME##Creator(Intel::OpenCL::BuiltInKernels::IBuiltInKernel* *ppBIKernel)\
+        {\
+            Intel::OpenCL::Utils::OclDynamicLib::func_t pFunc = GET_MKL_FUNCTION_PTR(MKL_FUNCTION_NAME);\
+            if ( NULL==pFunc ) return CL_DEV_NOT_SUPPORTED;\
+            *ppBIKernel = new MKLKernel< MKL_##MKL_CLASS_TYPE##_Executor<DATA_TYPE > >(#MKL_FUNCTION_NAME, pFunc);\
+            return CL_DEV_SUCCESS;\
+        }\
+    };\
+    REGISTER_BUILTIN_KERNEL(MKL_FUNCTION_NAME, MKL_FUNCTION_NAME##CreatorClass::MKL_FUNCTION_NAME##Creator)
 
 bool Intel::OpenCL::MKLKernels::InitLibrary()
 {
-	// Check if MKL library in the system path
-#ifdef WIN32	
-	if ( !g_mklRT.Load("mkl_rt.dll") )
+#ifndef __MIC__
+    // Check if MKL library in the system path
+#ifdef WIN32    
+    if ( !g_mklRT.Load("mkl_core.dll") )
 #else
-	if ( !g_mklRT.Load("libmkl_rt.so") )
+    if ( !g_mklRT.Load("libmkl_rt.so") )
 #endif
-	{
-		return false;
-	}
+    {
+        return false;
+    }
 
-	// Import set of exposed MKL functions
-	#include"mkl_kernels.inc"
-
-	return true;
+    // Import set of exposed MKL functions
+    #include"mkl_kernels.inc"
+#endif
+    return true;
 }
 
 #undef REGISTER_MKL_FUNCTION
 
+// Here we want to register only proxy's to remote device such as MIC
+#define REGISTER_MKL_FUNCTION(MKL_FUNCTION_NAME,MKL_CLASS_TYPE,DATA_TYPE) \
+    struct MKL_FUNCTION_NAME##CreatorClassProxy\
+    {\
+        static cl_dev_err_code MKL_FUNCTION_NAME##Creator(Intel::OpenCL::BuiltInKernels::IBuiltInKernel* *ppBIKernel)\
+        {\
+            *ppBIKernel = new MKLKernel< MKL_##MKL_CLASS_TYPE##_Executor_Proxy<DATA_TYPE > >(#MKL_FUNCTION_NAME, NULL);\
+            return CL_DEV_SUCCESS;\
+        }\
+    };\
+    REGISTER_BUILTIN_KERNEL(MKL_FUNCTION_NAME, MKL_FUNCTION_NAME##CreatorClassProxy::MKL_FUNCTION_NAME##Creator)
+
+bool Intel::OpenCL::MKLKernels::InitProxyLibrary()
+{
+    // Import set of exposed MKL functions
+    #include"mkl_kernels.inc"
+
+    return true;
+}
+
+#undef REGISTER_MKL_FUNCTION

@@ -425,9 +425,8 @@ void Device::clDevBuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_b
 
 void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result, cl_ulong timer)
 {
-    if (NULL == pData)
+    if (NULL == pData)  // it's a device-side command
     {
-        assert(false);
         return;
     }
     ICmdStatusChangedObserver *pObserver = (ICmdStatusChangedObserver *)pData;

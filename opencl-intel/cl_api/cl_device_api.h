@@ -60,9 +60,10 @@ enum cl_prog_binary_type
     CL_PROG_OBJ_X86,                //!< Container holds x86 object code (.obj)
     CL_PROG_BIN_X86,                //!< Container holds x86 binary code
     CL_PROG_BIN_PTX,                //!< Container holds NVidia PTX intermediate
-    CL_PROG_BIN_CUBIN,                //!< Container holds NVidia CUBbinary
-    CL_PROG_BIN_COMPILED_SPIR,        //!< Container holds compiled SPIR intermediate
-    CL_PROG_BIN_LINKED_SPIR        //!< Container holds linked SPIR intermediate
+    CL_PROG_BIN_CUBIN,              //!< Container holds NVidia CUBbinary
+    CL_PROG_BIN_COMPILED_SPIR,      //!< Container holds compiled SPIR intermediate
+    CL_PROG_BIN_LINKED_SPIR,        //!< Container holds linked SPIR intermediate
+    CL_PROG_BIN_CUSTOM              //!< Container holds custom device binary
 };
 
 /*! \enum cl_prog_container_type
@@ -74,6 +75,7 @@ enum cl_prog_container_type
     CL_PROG_CNT_PROGRAM             //!< Container holds OCL program container as defined by cl_prog_program
 };
 
+// DEPRICATED: Should be removed after fill trunsion to new execution API
 /*! \struct _cl_work_description_type
  * Defines the OCL work description (dimensions and offsets of the groups)
  */
@@ -85,6 +87,14 @@ typedef struct _cl_work_description_type
     size_t localWorkSize[MAX_WORK_DIM];
     unsigned int minWorkGroupNum;
 } cl_work_description_type;
+
+typedef struct _ndrange_t
+{
+    unsigned int workDimension;
+    size_t globalWorkOffset[MAX_WORK_DIM];
+    size_t globalWorkSize[MAX_WORK_DIM];
+    size_t localWorkSize[MAX_WORK_DIM];
+} _ndrange_t;
 
 /*! \struct cl_kernel_arg_info
  *  \brief Defines extended information for a kernel arguments.

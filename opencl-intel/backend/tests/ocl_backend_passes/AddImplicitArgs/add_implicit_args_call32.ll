@@ -58,38 +58,30 @@ entry:
 ; CHECK-NEXT:   %res = mul i32 %temp, %y
 ; CHECK-NEXT:   ret i32 %res
 
-; CHECK:        define i32 @caller(i32 %x, i32 %y, i8 addrspace(3)* noalias [[P_LOCAL_MEM]], 
-; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* noalias [[P_WORK_DIM]], 
-; CHECK:            i32* noalias [[P_WORKGROUP_ID]], 
-; CHECK:            <{ [4 x i32] }>* noalias [[P_BASE_GLOBAL_ID]], 
-; CHECK:            i32* noalias [[CONTEXT_POINTER]], 
-; CHECK:            <{ [4 x i32] }>* noalias [[P_LOCAL_IDS]], 
-; CHECK:            i32 [[ITER_COUNT]], 
-; CHECK:            i8* noalias [[P_SPECIAL_BUFFER]], 
-; CHECK:            i32* noalias [[P_CURRECT_WI]],
-; CHECK:            %struct.ExtendedExecutionContext* noalias [[EXTCONTEXT_POINTER]]) {
+; CHECK:      define i32 @caller(i32 %x, i32 %y,
+; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim,
+; CHECK:          i32* noalias %pWGId,
+; CHECK:          [4 x i32] %BaseGlbId,
+; CHECK:          i8* noalias %pSpecialBuf,
+; CHECK:          i32* noalias %pCurrWI,
+; CHECK:          {}* noalias %RuntimeContext) {
 ; CHECK-NEXT:   entry:
-; CHECK-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* [[P_LOCAL_MEM]], i32 0
-; CHECK-NEXT:   call void @functionWithoutArgs(i8 addrspace(3)* [[VAR0]], 
-; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* [[P_WORK_DIM]], 
-; CHECK:            i32* [[P_WORKGROUP_ID]], 
-; CHECK:            <{ [4 x i32] }>* [[P_BASE_GLOBAL_ID]], 
-; CHECK:            i32* [[CONTEXT_POINTER]], 
-; CHECK:            <{ [4 x i32] }>* [[P_LOCAL_IDS]], 
-; CHECK:            i32 [[ITER_COUNT]], 
-; CHECK:            i8* [[P_SPECIAL_BUFFER]], 
-; CHECK:            i32* [[P_CURRECT_WI]],
-; CHECK:            %struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER]])
-; CHECK-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* [[P_LOCAL_MEM]], i32 0
-; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = call i32 @functionWithArgs(i32 %x, i32 %y, i8 addrspace(3)* [[VAR1]], 
-; CHECK:            { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* [[P_WORK_DIM]], 
-; CHECK:            i32* [[P_WORKGROUP_ID]], 
-; CHECK:            <{ [4 x i32] }>* [[P_BASE_GLOBAL_ID]], 
-; CHECK:            i32* [[CONTEXT_POINTER]], 
-; CHECK:            <{ [4 x i32] }>* [[P_LOCAL_IDS]], 
-; CHECK:            i32 [[ITER_COUNT]], 
-; CHECK:            i8* [[P_SPECIAL_BUFFER]], 
-; CHECK:            i32* [[P_CURRECT_WI]],
-; CHECK:            %struct.ExtendedExecutionContext* [[EXTCONTEXT_POINTER]])
+; CHECK-NEXT:   %pLocalMem_functionWithoutArgs = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 0
+; CHECK-NEXT:   call void @functionWithoutArgs(i8 addrspace(3)* %pLocalMem_functionWithoutArgs,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* %pWorkDim,
+; CHECK:          i32* %pWGId,
+; CHECK:          [4 x i32] %BaseGlbId,
+; CHECK:          i8* %pSpecialBuf,
+; CHECK:          i32* %pCurrWI,
+; CHECK:          {}* %RuntimeContext)
+; CHECK-NEXT:   %pLocalMem_functionWithArgs = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 0
+; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = call i32 @functionWithArgs(i32 %x, i32 %y,
+; CHECK:          i8 addrspace(3)* %pLocalMem_functionWithArgs,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* %pWorkDim,
+; CHECK:          i32* %pWGId,
+; CHECK:          [4 x i32] %BaseGlbId,
+; CHECK:          i8* %pSpecialBuf,
+; CHECK:          i32* %pCurrWI,
+; CHECK:          {}* %RuntimeContext)
 ; CHECK-NEXT:   ret i32 [[VAR2]]
-
