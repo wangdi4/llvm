@@ -35,6 +35,9 @@
 #include <uneven/parallel_for.h>
 
 #include <stdio.h>
+#include <tbb/task_arena.h>
+
+#include <stdio.h>
 
 namespace tbb {
 
@@ -54,10 +57,6 @@ public:
           if ( 0 == my_concurrency ) {
               my_concurrency = my_active_slots;
           }
-          __TBB_ASSERT( (use_zero_slot && (master_slot == 0)) || ( !use_zero_slot && ( master_slot != 0)), 
-              "opencl_partitioner intitial condition doens't apply");
-          __TBB_ASSERT( (use_zero_slot && (my_concurrency == my_active_slots)) || ( !use_zero_slot && ( (my_concurrency+1) == my_active_slots)), 
-              "opencl_partitioner intitial condition doens't apply");
       }
 
 private:
@@ -152,13 +151,13 @@ public:
             __TBB_ASSERT(my_begin > 0, "Task with my_begin==0 is not expected");
             int affinity = my_begin;
             if ( !my_use_zero_slot ) {
-                // if slot 0, master is not in use, we should calculate affinity relativly to current master slot
+                // if slot 0, master is not in use, we should calculate affinity relatively to current master slot
                 affinity = my_master_slot + my_begin;
-                if ( affinity > my_concurrency ) {
-                    affinity -= my_concurrency;
-                    __TBB_ASSERT( affinity > 0,  "Task affinity expected to be  greater than 0");
-                }
+                affinity %= my_concurrency+1;
             }
+#if 0
+            printf("master slot %d slot %d Setting affinity to %d concurrency=%d, my_begin=%d, my_end=%d\n", my_master_slot, tbb::task_arena::current_slot(), affinity, my_concurrency, my_begin, my_end);fflush(0);
+#endif
             t.set_affinity( affinity + 1);
         }
     }
