@@ -261,13 +261,15 @@ endif ()
 add_dependencies( ${TARGET_NAME}
     ${CLANG}
 )
-if (NOT WIN32)
-install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
-install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_.pch DESTINATION bin)
-if( NOT ANDROID )
-install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
-install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch DESTINATION bin)
+if(NOT WIN32)
+	install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
+	install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_.pch DESTINATION bin)
+	if (NOT ANDROID)
+		install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
+		install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch DESTINATION bin)
+	endif ()
 endif ()
+
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )

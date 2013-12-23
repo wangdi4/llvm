@@ -113,6 +113,7 @@ namespace llvm {
 //===----------------------------------------------------------------------===//
 // ElfWriterDP- ElfWriter delete policy for autoptr.
 //
+#ifdef _WIN32
 struct ElfWriterDP
 {
     static void Delete(CLElfLib::CElfWriter* pElfWriter)
@@ -121,7 +122,7 @@ struct ElfWriterDP
     }
 };
 typedef auto_ptr_ex<CLElfLib::CElfWriter, ElfWriterDP> ElfWriterPtr;
-
+#endif
 
 #if defined (_WIN32)
 #define GET_CURR_WORKING_DIR(len, buff) GetCurrentDirectoryA(len, buff)
