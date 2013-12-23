@@ -60,7 +60,7 @@ endif (NOT WIN32)
 
 set( CREATE_DIR_NAME bin/validation/framework_test_type)
 
-file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )
+file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd *.cl)
 # Copy *.py *.xml and *.xsd from current directory to appropriate test directory in 'Release' area.
 install(FILES ${CP_FILES} DESTINATION ${CREATE_DIR_NAME})
 # Copy *.py from ../GeneralScripts directory to appropriate test directory in 'Release' area.

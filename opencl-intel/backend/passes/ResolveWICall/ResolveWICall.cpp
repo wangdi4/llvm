@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "common_dev_limits.h"
 #include "OCLPassSupport.h"
 #include "MetaDataApi.h"
+#include "CallbackDesc.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Version.h"
@@ -33,36 +34,7 @@ extern "C" {
 }
 
 namespace intel {
-struct CallbackDesc {
-  unsigned FuncCallType; // key defined by the ICT_* enums
-  const char *CallbackName;
-  unsigned NonVarArgCount;         // Number of non-variadic arguments
-  bool NeedToCopyOverVariadicArgs; // Do the variadic args need to be passed on
-                                   // to the callback?
-  bool NeedRuntimeHandleArg;  // true if need to add the RuntimeHandle
-                                   // implicit arg?
-  bool operator<(const CallbackDesc &Other) const {
-    return FuncCallType < Other.FuncCallType;
-  }
-};
-static const CallbackDesc CallbackLookup[] = {
-  { ICT_ENQUEUE_KERNEL_LOCALMEM, "ocl20_enqueue_kernel_localmem", 4, true, true },
-  { ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM, "ocl20_enqueue_kernel_events_localmem", 7, true, true },
-  { ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL, "ocl20_get_kernel_wg_size_local", 0, false, false },
-  { ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL, "ocl20_get_kernel_preferred_wg_size_multiple_local", 0, false, false }
-};
 
-static const CallbackDesc *getCallbackDesc(unsigned FuncCallType) {
-  size_t CallbackLookupCount = sizeof(CallbackLookup) / sizeof(CallbackLookup[0]);
-  for (unsigned I = 0; I < CallbackLookupCount - 1; ++I)
-    assert(CallbackLookup[I] < CallbackLookup[I + 1]);
-  CallbackDesc Dummy;
-  Dummy.FuncCallType = FuncCallType;
-  const CallbackDesc *D =
-      std::lower_bound(&CallbackLookup[0], CallbackLookup + CallbackLookupCount, Dummy);
-  assert(D != CallbackLookup + CallbackLookupCount && "Item not found");
-  return D;
-}
 
   const unsigned int BYTE_SIZE = 8;
   char ResolveWICall::ID = 0;
@@ -184,7 +156,8 @@ static const CallbackDesc *getCallbackDesc(unsigned FuncCallType) {
         case ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL:
         case ICT_ENQUEUE_KERNEL_LOCALMEM:
         case ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM: {
-          const CallbackDesc *Desc = getCallbackDesc(calledFuncType);
+          const VarArgsCallbackDesc *Desc =
+              getVarArgsCallbackDesc(calledFuncType);
           if (!m_ExtExecDecls.count(calledFuncType)) {
             FunctionType *FT = 0;
             switch (calledFuncType) {

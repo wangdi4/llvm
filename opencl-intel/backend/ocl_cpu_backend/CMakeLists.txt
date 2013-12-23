@@ -363,6 +363,7 @@ set( BACKEND_PASSES
     DetectFunctionPtrCalls
     CloneBlockInvokeFuncToKernel
     ResolveBlockToStaticCall
+    PatchCallbackArgs
     SmartGVN
 )
 

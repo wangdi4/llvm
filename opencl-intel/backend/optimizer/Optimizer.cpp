@@ -68,6 +68,7 @@ llvm::Pass *createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createDuplicateCalledKernelsPass();
+llvm::ModulePass *createPatchCallbackArgsPass();
 
 #ifdef __APPLE__
 llvm::Pass *createClangCompatFixerPass();
@@ -490,7 +491,14 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
       PM.add(llvm::createFunctionInliningPass(4096)); // Inline (not only small) functions.
     else
       PM.add(llvm::createFunctionInliningPass());     // Inline small functions
+  } else {
+    // Functions with the alwaysinline attribute need to be inlined for
+    // functional purposes
+    PM.add(llvm::createAlwaysInlinerPass());
   }
+  // Some built-in functions contain calls to external functions which take
+  // arguments that are retrieved from the function's implicit arguments.
+  PM.add(createPatchCallbackArgsPass());
 
   if (debugType == intel::None) {
     PM.add(llvm::createArgumentPromotionPass());    // Scalarize uninlined fn args
@@ -623,6 +631,7 @@ void Optimizer::Optimize()
     }
 
     m_PostFailCheckPM.run(*m_pModule);
+    m_pModule->dump();
 }
 
 

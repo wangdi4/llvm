@@ -19,6 +19,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/Support/IRReader.h>
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/Debug.h>
+#include <llvm/Version.h>
 
 #include <string>
 
@@ -171,6 +172,9 @@ namespace intel {
       // Clone the body of the function into the dest function.
       SmallVector<ReturnInst*, 8> Returns; // Ignore returns.
       CloneFunctionInto(pDstFunction, pSrcFunction, m_valueMap, false, Returns);
+      // Allow removal of function from module after it is inlined
+      pDstFunction->setLinkage(GlobalVariable::LinkOnceODRLinkage);
+
 
       // There is no need to map the arguments anymore.
       for (Function::arg_iterator it = pSrcFunction->arg_begin(), e = pSrcFunction->arg_end(); it != e; ++it) {
