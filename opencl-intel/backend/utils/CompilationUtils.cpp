@@ -270,6 +270,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       //Get the scalarized version of the vectorized kernel
       pOriginalFunc = kimd->getScalarizedKernel();
     }
+    // Check is this is a block kernel (i.e. a kernel that is invoked from a
+    // NDRange from an other kernel), and if so what is the size of the block
+    // literal
+    unsigned BlockLiteralSize = 0;
+    if (kimd->isBlockLiteralSizeHasValue()) {
+      BlockLiteralSize = kimd->getBlockLiteralSize();
+    }
 
     KernelMetaDataHandle kmd;
     MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
@@ -339,7 +346,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 #ifndef __APPLE__
     unsigned int current_offset = 0;
 #endif
-    const bool isBlockInvokeKernel = BlockUtils::IsBlockInvocationKernel(*pFunc);
     llvm::Function::arg_iterator arg_it = pFunc->arg_begin();
     for (unsigned i=0; i<argsCount; ++i)
     {
@@ -376,9 +382,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           // in that case 0 argument is block_literal pointer
           // update with special type
           // should be before handling ptrs by addr space 
-          if((i == 0) && isBlockInvokeKernel){
+          if((i == 0) && BlockLiteralSize){
             curArg.type = CL_KRNL_ARG_PTR_BLOCK_LITERAL;
-            curArg.size_in_bytes = pModule->getPointerSize()*4;
+            curArg.size_in_bytes = BlockLiteralSize;
             break;
           }
 

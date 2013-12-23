@@ -94,11 +94,10 @@ size_t TypeAlignment::getAlignment(const cl_kernel_argument& arg) {
       assert((0 == (alignment & (alignment - 1))) && "Alignment is not power of 2!");
     }
     break;
+  case CL_KRNL_ARG_PTR_BLOCK_LITERAL:
   case CL_KRNL_ARG_COMPOSITE:
-    {
-      // No alignment for structures
-      alignment = 0;
-    }
+    // No alignment for structures
+    alignment = 0;
     break;
   default:
     alignment = getSize(arg);

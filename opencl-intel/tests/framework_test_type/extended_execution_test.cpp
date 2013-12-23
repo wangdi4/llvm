@@ -33,7 +33,7 @@ bool extended_execution_test() {
       "}\n"
     };
 #endif
-    std::ifstream t("extended_execution_test.c");
+    std::ifstream t("extended_execution_test.cl");
     std::string ocl_test_program((std::istreambuf_iterator<char>(t)),
         std::istreambuf_iterator<char>());
 
