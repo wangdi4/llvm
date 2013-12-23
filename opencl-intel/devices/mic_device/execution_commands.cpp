@@ -33,8 +33,8 @@ using namespace Intel::OpenCL::DeviceBackend;
 //  ExecutionCommand Object
 //
 
-ExecutionCommand::ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) :
-    Command(pCommandList, pFrameworkCallBacks, pCmd)
+ExecutionCommand::ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, DeviceServiceCommunication::DEVICE_SIDE_FUNCTION funcId) :
+    Command(pCommandList, pFrameworkCallBacks, pCmd), m_funcId(funcId)
 {
 }
 
@@ -105,7 +105,7 @@ void ExecutionCommand::init_profiling_mode()
     overhead_data->execution_overhead = time_sum / MIC_DEVICE_EXECUTION_OVERHEAD_LOOP_COUNT;
 }
 
-cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION funcId, char* commandNameStr)
+cl_dev_err_code ExecutionCommand::execute()
 {
     cl_dev_err_code err = CL_DEV_SUCCESS;
     do
@@ -123,17 +123,18 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
             break;
         }
 
-        // Get this queue COIPIPELINE handle
-        COIPIPELINE pipe = m_pCommandList->getPipelineHandle();
-
-        //Get COIFUNCTION handle according to func name (ask from DeviceServiceCommunication dictionary)
-        COIFUNCTION func = m_pCommandList->getDeviceFunction( funcId );
-
+        // Init should be called before any other operation on the command
         err = init();
         if (err != CL_DEV_SUCCESS)
         {
             break;
         }
+
+        // Get this queue COIPIPELINE handle
+        COIPIPELINE pipe = m_pCommandList->getPipelineHandle();
+
+        //Get COIFUNCTION handle according to func name (ask from DeviceServiceCommunication dictionary)
+        COIFUNCTION func = m_pCommandList->getDeviceFunction( m_funcId );
 
         // TODO: if necessary run it on initialization
         if (m_pCmd->profiling)
@@ -145,7 +146,7 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
 
 #ifdef ENABLE_MIC_TRACER
         // Set command type for the tracer.
-        m_commandTracer.set_command_type(commandNameStr);
+        m_commandTracer.set_command_type("ExecutionCommand");
         // Set start coi execution time for the tracer.
         m_commandTracer.set_current_time_coi_enqueue_command_time_start();
 #endif
@@ -157,7 +158,7 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
               static __thread __itt_string_handle* pTaskName = NULL;
               if ( NULL == pTaskName )
               {
-                    pTaskName = __im_uiNumActiveThreadstt_string_handle_create("ExecutionCommand::executeInt()->PrepareData");
+                    pTaskName = __im_uiNumActiveThreadstt_string_handle_create("ExecutionCommand::execute()->PrepareData");
               }
               __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
         }
@@ -176,7 +177,7 @@ cl_dev_err_code ExecutionCommand::executeInt(DeviceServiceCommunication::DEVICE_
               static __thread __itt_string_handle* pTaskName = NULL;
               if ( NULL == pTaskName )
               {
-                    pTaskName = __itt_string_handle_create("ExecutionCommand::executeInt()->COIPipelineRunFunction()");
+                    pTaskName = __itt_string_handle_create("ExecutionCommand::execute()->COIPipelineRunFunction()");
               }
               __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
         }
@@ -297,7 +298,7 @@ void ExecutionCommand::fireCallBack(void* arg)
 //
 
 NDRange::NDRange(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) :
-    ExecutionCommand(pCommandList, pFrameworkCallBacks, pCmd)
+    ExecutionCommand(pCommandList, pFrameworkCallBacks, pCmd, DeviceServiceCommunication::LAST_DEVICE_SIDE_FUNCTION)
 {
 }
 
@@ -457,7 +458,6 @@ cl_dev_err_code NDRange::init()
 
         // Get device side kernel address and set kernel directive
         dispatcherData->kernelAddress = ProgramService::GetDeviceSideKernel(cmdParams->kernel);
-
         if (0 == dispatcherData->kernelAddress)
         {
             returnError = CL_DEV_INVALID_KERNEL;
@@ -495,14 +495,21 @@ cl_dev_err_code NDRange::init()
         assert ( pUniformArgs->minWorkGroupNum > 0 && "Invalid number of active threads on device");
 
         // Now we should call to initialize BE kernel
-        returnError = pKernel->GetKernelRunner()->PrepareKernelArguments((void*)pKernelArgs, ( const cl_mem_obj_descriptor**)pRecoderMemoryObjects, (unsigned int)recorderMemoryObjects.size());
-        if ( CL_DEV_FAILED(returnError) )
+        const ICLDevBackendKernelRunner* pRunner = pKernel->GetKernelRunner();
+        if ( NULL != pRunner )
         {
-            assert(0 && "PrepareKernelArguments failed" );
-            break;
+            m_funcId = DeviceServiceCommunication::EXECUTE_NDRANGE;
+            returnError = pRunner->PrepareKernelArguments((void*)pKernelArgs, ( const cl_mem_obj_descriptor**)pRecoderMemoryObjects, (unsigned int)recorderMemoryObjects.size());
+            if ( CL_DEV_FAILED(returnError) )
+            {
+                assert(0 && "PrepareKernelArguments failed" );
+                break;
+            }
         }
-
-
+        else
+        {
+            m_funcId = DeviceServiceCommunication::EXECUTE_NATIVE_KERNEL;
+        }
         // If the CommandList is OOO
         if ( !m_pCommandList->isInOrderCommandList() )
         {
@@ -536,7 +543,8 @@ cl_dev_err_code NDRange::init()
 //  Fill Memory Object
 //
 
-FillMemObject::FillMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : ExecutionCommand(pCommandList, pFrameworkCallBacks, pCmd)
+FillMemObject::FillMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) :
+    ExecutionCommand(pCommandList, pFrameworkCallBacks, pCmd, DeviceServiceCommunication::FILL_MEM_OBJECT)
 {
 }
 

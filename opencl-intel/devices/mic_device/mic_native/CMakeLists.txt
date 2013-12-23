@@ -75,6 +75,8 @@ if (WIN32)
     set( DEVICE_LINKER_SCRIPT       link.bat )
     set( DEVICE_ARCHIVE             "C:\\Program Files\\Intel\\MPSS\\x86_64-mpsssdk-linux\\usr\\bin\\k1om-mpss-linux\\k1om-mpss-linux-ar.exe" )
     set( DEVICE_ASSEMBLER           "C:\\Program Files\\Intel\\MPSS\\x86_64-mpsssdk-linux\\usr\\bin\\k1om-mpss-linux\\k1om-mpss-linux-as.exe" )
+    set( DEVICE_PREPROCESSOR        ${ICC_COMPILER} )
+    
     if (NOT EXISTS ${DEVICE_ARCHIVE})
         set( DEVICE_ARCHIVE "C:\\Program Files\\Intel\\MPSS\\sdk\\linux-k1om-4.7\\bin\\x86_64-k1om-linux-ar.exe" )
     endif()
@@ -99,6 +101,7 @@ else ()
     set( DEVICE_LINKER_SCRIPT       link.sh )
     set( DEVICE_ARCHIVE             /usr/linux-k1om-4.7/bin/x86_64-k1om-linux-ar )
     set( DEVICE_ASSEMBLER           /usr/linux-k1om-4.7/bin/x86_64-k1om-linux-as )
+    set( DEVICE_PREPROCESSOR        cpp)
 endif (WIN32)
 
 execute_process(COMMAND ${ICC_COMPILER} -dumpversion OUTPUT_VARIABLE MIC_ICC_VERSION)
@@ -149,7 +152,6 @@ function ( COMPILE_DEVICE_CXX_FILE FILE_FULL_PATH_NAME OBJ_FILE )
         file( TO_NATIVE_PATH "${OBJ_FILE}" OBJ_FILE_NATIVE)
     endif (NOT WIN32)
     #message( FATAL_ERROR "|${DEPENDENCY_LIST}|" )                
-
     add_custom_command( OUTPUT ${OBJ_FILE_NATIVE}
 
                         COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
@@ -177,7 +179,7 @@ function ( COMPILE_DEVICE_ASM_FILE FILE_FULL_PATH_NAME OBJ_FILE )
 
                         COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
                         COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
-                        COMMAND ${ICC_COMPILER} -EP ${FILE_FULL_PATH_NAME} | ${DEVICE_ASSEMBLER} -o ${OBJ_FILE}
+                        COMMAND ${DEVICE_PREPROCESSOR} -E -DKMP_ARCH_X86_64=1 -D__MIC2__=1 -D__MIC__=1 ${FILE_FULL_PATH_NAME} | ${DEVICE_ASSEMBLER} --64 -march=k1om -o ${OBJ_FILE}
                         MAIN_DEPENDENCY ${FILE_FULL_PATH_NAME_NATIVE}
                         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                         COMMENT "Compiling ${FILE_NAME} for ${DEVICE}"
@@ -381,6 +383,7 @@ list( APPEND MIC_FLAGS
                 -DDEVICE_NATIVE
                 -DDISABLE_NUMA_SUPPORT
                 -DUSE_ITT
+                -I ${CMAKE_SOURCE_DIR}/externals/tbb/include
                 -D${TASK_EXECUTOR_FLAG} -DTBB_PREVIEW_LOCAL_OBSERVER=1 -DTBB_PREVIEW_TASK_ARENA=1
                 ${MIC_DA_OMP_FLAG}
                 -DKNC_CARD
@@ -424,13 +427,13 @@ list( APPEND MIC_LINK_FLAGS
                 ${OMP_COMPILER_FLAG}
                 # next entry - support converting Linux trap signals into C++ exceptions
                 -fnon-call-exceptions
-                # library search path at link
+                 # library search path at link
                 -L ${COI_DEVICE_LIB_PATH}
                 -L ${BACKEND_LIB_DIR}
                 -L ${MIC_TBB_LIB_PATH}
                 ${BACKEND_VTUNE_DIR}
 
-                # libs to link
+                 # libs to link
                 -lscif
                 -lcoi_device
                 -l${BACKEND_LIB}
@@ -477,24 +480,32 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 set ( TARGET_DEPEND_LIBRARIES native_builtin_kernels native_task_executor native_hw_utils native_sys_utils native_logger)
-
 if (INCLUDE_MKL)
-    set( MKL_INSTALL_DIR \"${ICC_INSTALL_DIR}\"/mkl )
     list( APPEND TARGET_DEPEND_LIBRARIES native_mkl_kernels )
-    list( APPEND MIC_FLAGS -D__INCLUDE_MKL__ -I ${DEVICE_COMMON_DIR}/mkl_kernels/export -I ${MKL_INSTALL_DIR}/include)
-    list( APPEND MIC_LINK_FLAGS -L ${MKL_INSTALL_DIR}/lib/mic )
-    #-lmkl_intel_ilp64 -lmkl_core -lmkl_intel_thread -lm
-    if( USE_OMP2TBB )
-        list( APPEND TARGET_DEPEND_LIBRARIES native_omp2tbb )
-        list( APPEND MIC_FLAGS -D__OMP2TBB__ )
-    endif( USE_OMP2TBB )
-endif ()
+endif (INCLUDE_MKL)
 
 # Append link flags with internal libraries
 foreach( depend_library IN LISTS TARGET_DEPEND_LIBRARIES)
     list( APPEND MIC_LINK_FLAGS "-L ${CMAKE_CURRENT_BINARY_DIR}/${depend_library}/${INSTALL_SUBDIR} -l${depend_library}" )
 endforeach(depend_library)
-    
+
+if (INCLUDE_MKL)
+    if (WIN32)
+        set( MKL_DIR \"${ICC_INSTALL_DIR}\"/mkl)
+    else()
+        set( MKL_DIR ${ICC_INSTALL_DIR}/mkl)
+    endif(WIN32)
+    list( APPEND MIC_FLAGS -D__INCLUDE_MKL__ -I ${DEVICE_COMMON_DIR}/mkl_kernels/export -I ${MKL_DIR}/include  -DMKL_ILP64)
+    if( USE_OMP2TBB )
+        list( APPEND TARGET_DEPEND_LIBRARIES native_omp2tbb )
+        list( APPEND MIC_FLAGS -D__OMP2TBB__ -I ${DEVICE_COMMON_DIR}/omp2tbb)
+        list( APPEND MIC_LINK_FLAGS -Wl,--start-group ${MKL_DIR}/lib/mic/libmkl_intel_ilp64.a ${MKL_DIR}/lib/mic/libmkl_core.a ${MKL_DIR}/lib/mic/libmkl_intel_thread.a ${CMAKE_CURRENT_BINARY_DIR}/native_omp2tbb/${INSTALL_SUBDIR}/libnative_omp2tbb.a -Wl,--end-group -lm)
+    else()
+        list( APPEND MIC_FLAGS -openmp )
+        list( APPEND MIC_LINK_FLAGS -Wl,--start-group ${MKL_DIR}/lib/mic/libmkl_intel_ilp64.a ${MKL_DIR}/lib/mic/libmkl_core.a ${MKL_DIR}/lib/mic/libmkl_intel_thread.a -Wl,--end-group -lm)
+    endif( USE_OMP2TBB )
+endif (INCLUDE_MKL)
+
 # replace ; with spaces
 foreach (FLAG ${MIC_FLAGS})
     set( FINAL_MIC_FLAGS "${FINAL_MIC_FLAGS} ${FLAG}")

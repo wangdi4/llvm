@@ -11,10 +11,11 @@ Base {
         remove_program_from_device;
         execute_command_fill_mem_object;
         execute_command_ndrange;
+        execute_command_nativekernel;
         execute_device_utility;
-		
-		get_trace_size;
-		get_trace;
+
+        get_trace_size;
+        get_trace;
 
     local:
         *;

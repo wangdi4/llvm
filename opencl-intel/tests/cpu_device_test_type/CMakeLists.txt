@@ -19,41 +19,41 @@ else (WIN32)
     set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
 endif (WIN32)
 
-link_directories( ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
-		${TBB_LIB_DIR}
+link_directories(
+        ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/lib/${INSTALL_SUBDIR}
+        ${TBB_LIB_DIR}
 )
 
 if(WIN32)
-	link_directories(
-		${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM/lib/${INSTALL_SUBDIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Win32
-	)
+    link_directories(
+        ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM/lib/${INSTALL_SUBDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Win32
+    )
 else (WIN32)
-	link_directories(
-		${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM/lib/${INSTALL_SUBDIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Linux64
-	)
+    link_directories(
+        ${CMAKE_CURRENT_BINARY_DIR}/../../externals/llvm_wrap/LLVM/lib/${INSTALL_SUBDIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../backend/ocl_cpu_backend/lib/Linux64
+    )
 endif(WIN32)
 
 set( TARGET cpu_device_test_type )
 
 include_directories( AFTER
             ../../utils/cl_sys_utils/export
-		../../externals/gtest/include
+            ../../externals/gtest/include
             )
-                
-set( IGNORE_FILES cpu_device_test_type.cpp )
 
+set( IGNORE_FILES cpu_device_test_type.cpp )
 
 FIND_SOURCES( ${IGNORE_FILES} )
 CALCULATE_TARGET_SOURCES()
 
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
-#add_dependencies( ${TARGET} cpu_device${BUILD_PLATFORM} cl_sys_utils task_executor${BUILD_PLATFORM})
 if( ANDROID )
-  target_link_libraries( ${TARGET} gnustl_shared )
+    target_link_libraries( ${TARGET} gnustl_shared )
 endif( ANDROID )
+
 target_link_libraries( ${TARGET}  cl_sys_utils cpu_device${BUILD_PLATFORM} task_executor${BUILD_PLATFORM} googletest)
 
 set( CREATE_DIR_NAME bin/validation/cpu_device_test_type)
@@ -75,7 +75,7 @@ set( OUTPUT_FILE test.bc )
 
 
 add_custom_command( TARGET ${TARGET}
-					POST_BUILD
+                    POST_BUILD
                     COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
                     -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc -include opencl_.h -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
                     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}

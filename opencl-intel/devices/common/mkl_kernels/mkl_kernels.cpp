@@ -29,6 +29,11 @@
 #include "export/mkl_builtins.h"
 #include <cl_dynamic_lib.h>
 
+#ifdef __OMP2TBB__
+extern "C" void __kmpc_begin(void* loc, int flags);
+extern "C" void __kmpc_end(void* loc);
+#endif
+
 using namespace Intel::OpenCL::MKLKernels;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -39,19 +44,27 @@ using namespace Intel::OpenCL::MKLKernels;
 #include "mkl_kernels.inc"
 
 #undef REGISTER_MKL_FUNCTION
+
 /////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////
 
 #ifndef __MIC__
-Intel::OpenCL::Utils::OclDynamicLib g_mklRT;
+//Intel::OpenCL::Utils::OclDynamicLib g_mklRT;
 #endif
 
+namespace Intel { namespace OpenCL { namespace MKLKernels {
+
+template< bool useFunctions > bool InitLibrary();
+
 #if defined(_WIN32)
-#define GET_MKL_FUNCTION_PTR(NAME) ((Intel::OpenCL::Utils::OclDynamicLib::func_t)##NAME)
+#define GET_MKL_FUNCTION_PTR(NAME) ((Intel::OpenCL::Utils::OclDynamicLib::func_t)NAME)
 #elif defined(__MIC__)
-#define GET_MKL_FUNCTION_PTR(NAME) ((Intel::OpenCL::Utils::OclDynamicLib::func_t)#NAME)
+#define GET_MKL_FUNCTION_PTR(NAME) ((Intel::OpenCL::Utils::OclDynamicLib::func_t)NAME)
 #else
-#define GET_MKL_FUNCTION_PTR(NAME) g_mklRT.GetFunctionPtrByName(#NAME)
+#include <dlfcn.h>
+//#define GET_MKL_FUNCTION_PTR(NAME) Intel::OpenCL::Utils::OclDynamicLib::GetFuntionPtrByNameFromHandle(RTLD_DEFAULT, #NAME)
+#define GET_MKL_FUNCTION_PTR(NAME) ((Intel::OpenCL::Utils::OclDynamicLib::func_t)NAME)
+//#define GET_MKL_FUNCTION_PTR(NAME) g_mklRT.GetFunctionPtrByName(#NAME)
 #endif
 
 #define REGISTER_MKL_FUNCTION(MKL_FUNCTION_NAME,MKL_CLASS_TYPE,DATA_TYPE) \
@@ -67,27 +80,34 @@ Intel::OpenCL::Utils::OclDynamicLib g_mklRT;
     };\
     REGISTER_BUILTIN_KERNEL(MKL_FUNCTION_NAME, MKL_FUNCTION_NAME##CreatorClass::MKL_FUNCTION_NAME##Creator)
 
-bool Intel::OpenCL::MKLKernels::InitLibrary()
+template<> bool InitLibrary<true>()
 {
-#ifndef __MIC__
+#ifdef __OMP2TBB__
+    __kmpc_begin(NULL,0);
+#endif
+
+#if 0
     // Check if MKL library in the system path
-#ifdef WIN32    
-    if ( !g_mklRT.Load("mkl_core.dll") )
+#ifdef WIN32
+    if ( !g_mklRT.Load("mkl_intel_ilp64.dll") )
 #else
-    if ( !g_mklRT.Load("libmkl_rt.so") )
+    if ( !g_mklRT.Load("libmkl_intel_ilp64.so") )
 #endif
     {
         return false;
     }
 
-    // Import set of exposed MKL functions
-    #include"mkl_kernels.inc"
+    g_mklRT.Close();
 #endif
+
+    // Import set of exposed MKL functions
+    #include"../mkl_kernels.inc"
     return true;
 }
-
 #undef REGISTER_MKL_FUNCTION
 
+/////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 // Here we want to register only proxy's to remote device such as MIC
 #define REGISTER_MKL_FUNCTION(MKL_FUNCTION_NAME,MKL_CLASS_TYPE,DATA_TYPE) \
     struct MKL_FUNCTION_NAME##CreatorClassProxy\
@@ -100,12 +120,25 @@ bool Intel::OpenCL::MKLKernels::InitLibrary()
     };\
     REGISTER_BUILTIN_KERNEL(MKL_FUNCTION_NAME, MKL_FUNCTION_NAME##CreatorClassProxy::MKL_FUNCTION_NAME##Creator)
 
-bool Intel::OpenCL::MKLKernels::InitProxyLibrary()
+template<> bool InitLibrary<false>()
 {
     // Import set of exposed MKL functions
-    #include"mkl_kernels.inc"
+    #include"../mkl_kernels.inc"
 
     return true;
 }
 
 #undef REGISTER_MKL_FUNCTION
+
+template<> void ReleaseLibrary<true>()
+{
+#ifdef __OMP2TBB__
+    __kmpc_end(NULL);
+#endif
+}
+
+template<> void ReleaseLibrary<false>()
+{
+}
+
+}}}

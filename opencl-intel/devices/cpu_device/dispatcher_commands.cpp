@@ -72,6 +72,9 @@ using namespace Intel::OpenCL::BuiltInKernels;
  */
 //#define _DEBUG_PRINT
 
+#if defined(__INCLUDE_MKL__) && defined(__OMP2TBB__)
+extern "C" void __omp2tbb_set_thread_max_concurency(int max_concurency);
+#endif
 
 ///////////////////////////////////////////////////////////////////////////
 // Base dispatcher command
@@ -1399,24 +1402,13 @@ bool NativeKernelTask::Execute()
         return false;
     }
 
+    cl_uniform_kernel_args* pUnifromArgs = (cl_uniform_kernel_args*)((char*)pCmd_params->arg_values + pKernel->GetExplicitArgumentBufferSize());
+    pUnifromArgs->WorkDim = pCmd_params->work_dim;
+    memcpy(pUnifromArgs->GlobalSize, pCmd_params->glb_wrk_size, pCmd_params->work_dim*sizeof(size_t));
 #ifndef __OMP2TBB__
-    cl_dev_err_code res = m_pBIKernel->Execute(pCmd_params, pCmd_params->arg_values, m_pTaskDispatcher->getOmpExecutionThread());
+    cl_dev_err_code res = m_pBIKernel->Execute(pCmd_params->arg_values, m_pTaskDispatcher->getOmpExecutionThread());
 #else
-    // Set concurency for the libary, this is a workaroun until TBB will return a pointer to current arena
-    // Currently we assuming that master/application thread is joining.
-    // TODO: need to recalculate number of active workers
-
-    int iDeviceConcurency = m_pList->GetDeviceConcurency();
-    bool bMasterJoinedExecution = m_pList->IsMasterJoined();
-    bool bCanMasterJoin = m_pList->CanMasterJoin();
-
-    // If master can join, but currently it doesn't we need execute on less threads
-    if ( bCanMasterJoin && !bMasterJoinedExecution )
-    {
-        --iDeviceConcurency;
-    }
-    __omp2tbb_set_thread_max_concurency(iDeviceConcurency);
-    cl_dev_err_code res = m_pBIKernel->Execute(pCmd_params, pCmd_params->arg_values);
+    cl_dev_err_code res = m_pBIKernel->Execute(m_pList, pCmd_params->arg_values);
 #endif
 
 #if defined(USE_ITT)

@@ -62,8 +62,6 @@ USE_SHUTDOWN_HANDLER(CPUDevice::WaitUntilShutdown);
     // When running on 32bit application on 64bit OS, the total physical size might exceed virtual evailable memory 
     #define MEMORY_LIMIT    ( MIN(TotalPhysicalSize(), TotalVirtualSize()) )
 #endif
-#define MAX_MEM_ALLOC_SIZE ( MAX(128*1024*1024, MEMORY_LIMIT/4) )
-#define GLOBAL_MEM_SIZE (MEMORY_LIMIT)
 
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::BuiltInKernels;
@@ -74,6 +72,29 @@ volatile bool CPUDevice::m_bDeviceIsRunning = false;
 
 // We put it here, because just here all the required macros are defined.
 #include "ocl_supported_extensions.h"
+
+cl_ulong GetGlobalMemorySize()
+{
+    static cl_ulong globalMemSize = 0;
+    if (0 == globalMemSize)
+    {
+        // check config for forced global mem size
+        CPUDeviceConfig config;
+        config.Initialize(GetConfigFilePath());
+        globalMemSize = config.GetForcedGlobalMemSize();
+        if (0 == globalMemSize)
+        {
+            // fallback to default global memory size
+            globalMemSize = MEMORY_LIMIT;
+        }
+    }
+
+    return globalMemSize;
+}
+cl_ulong GetMaxMemAllocSize()
+{
+    return MAX(128*1024*1024, GetGlobalMemorySize()/4);
+}
 
 struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *GetCPUDevInfo(CPUDeviceConfig& config)
 {
@@ -243,7 +264,7 @@ cl_dev_err_code CPUDevice::Init()
         return CL_DEV_ERROR_FAIL;
     }
 
-    m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, GLOBAL_MEM_SIZE, m_pProgramService->GetImageService());
+    m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, GetGlobalMemorySize(), m_pProgramService->GetImageService());
     m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this);
     if ( (NULL == m_pMemoryAllocator) || (NULL == m_pTaskDispatcher) )
     {
@@ -1043,7 +1064,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             if (NULL != paramVal)
             {
-                *(size_t*)paramVal = MAX_MEM_ALLOC_SIZE;
+                *(size_t*)paramVal = GetMaxMemAllocSize();
             }
             return CL_DEV_SUCCESS;
         }
@@ -1057,7 +1078,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                *(cl_ulong*)paramVal = MAX_MEM_ALLOC_SIZE;
+                *(cl_ulong*)paramVal = GetMaxMemAllocSize();
             }
             return CL_DEV_SUCCESS;
         }
@@ -1071,7 +1092,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                *(cl_ulong*)paramVal = GLOBAL_MEM_SIZE;
+                *(cl_ulong*)paramVal = GetGlobalMemorySize();
             }
             return CL_DEV_SUCCESS;
         }
@@ -1395,7 +1416,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             if (NULL != paramVal)
             {
                 // we want to support the maximum buffer when the pixel size is maximal
-                const unsigned long long iImgMaxBufSize = MAX_MEM_ALLOC_SIZE / sizeof(cl_int4); // sizeof(CL_RGBA(INT32))
+                const unsigned long long iImgMaxBufSize = GetMaxMemAllocSize() / sizeof(cl_int4); // sizeof(CL_RGBA(INT32))
                 if (iImgMaxBufSize < (size_t)-1)
                 {
                     *(size_t*)paramVal = (size_t)iImgMaxBufSize;
@@ -2358,7 +2379,7 @@ extern "C" cl_dev_err_code clDevGetAvailableDeviceList(size_t    IN  deviceListS
 extern "C" cl_dev_err_code clDevInitDeviceAgent(void)
 {
 #ifdef __INCLUDE_MKL__
-    Intel::OpenCL::MKLKernels::InitLibrary();
+    Intel::OpenCL::MKLKernels::InitLibrary<true>();
 #endif
     return CL_DEV_SUCCESS;
 }
