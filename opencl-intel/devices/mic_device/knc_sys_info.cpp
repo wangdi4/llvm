@@ -105,7 +105,7 @@ static MICSysInfo::SYS_INFO_ENTRY knc_info[] =
     SCAL_VALUE( CL_DEVICE_QUEUE_ON_HOST_PROPERTIES,     cl_command_queue_properties,    CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE ),
 #endif
 
-    STRG_VALUE( CL_DEVICE_BUILT_IN_KERNELS,                                             ""                              ),
+    FUNC_VALUE( CL_DEVICE_BUILT_IN_KERNELS,                                             get_variable_info               ),
     STRG_VALUE( CL_DEVICE_NAME,                                                         MIC_STRING                      ),
     STRG_VALUE( CL_DEVICE_VENDOR,                                                       VENDOR_STRING                   ),
     STRG_VALUE( CL_DRIVER_VERSION,                                                      MIC_DRIVER_VERSION_STRING       ),

@@ -19,7 +19,7 @@
 // problem reports or change requests be submitted to it directly
 
 /////////////////////////////////////////////////////////////
-//  native_ndrange_task.h
+//  native_nativekernel_task.h
 //  Implementation of the Class ExecutionTask
 //  Class Object is responsible on execution of NDRange task
 /////////////////////////////////////////////////////////////
@@ -30,6 +30,7 @@
 #include "mic_tbb_tracer.h"
 #include "mic_device_interface.h"
 
+#include <builtin_kernels.h>
 #include <task_executor.h>
 
 #ifdef USE_ITT
@@ -38,28 +39,27 @@
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
-class NDRangeTask : virtual public Intel::OpenCL::TaskExecutor::ITaskSet,
-                    virtual public TaskHandler<NDRangeTask, Intel::OpenCL::MICDevice::ndrange_dispatcher_data >,
-                    virtual public ICLDevBackendDeviceAgentCallback
+class NativeKernelTask : virtual public Intel::OpenCL::TaskExecutor::ITask,
+                    virtual public TaskHandler<NativeKernelTask, Intel::OpenCL::MICDevice::ndrange_dispatcher_data >
 {
 public:
-    PREPARE_SHARED_PTR(NDRangeTask)
+    PREPARE_SHARED_PTR(NativeKernelTask)
 
-    NDRangeTask( uint32_t lockBufferCount, void** pLockBuffers, Intel::OpenCL::MICDevice::ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize );
-    ~NDRangeTask();
+    NativeKernelTask( QueueOnDevice* pQueue, uint32_t lockBufferCount, void** pLockBuffers, Intel::OpenCL::MICDevice::ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize );
+    ~NativeKernelTask();
 
     // TaskHandlerBase methods
     bool PrepareTask();
 
     // TaskHandler methods
-    const NDRangeTask& GetAsCommandTypeConst() const { return *this; }
+    const NativeKernelTask& GetAsCommandTypeConst() const { return *this; }
     Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return static_cast<Intel::OpenCL::TaskExecutor::ITaskBase*>(this);}
 
-    // ITaskSet methods 
+    // ITask methods
     // Returns true in case current task is a synchronization point
     // No more tasks will be executed in this case
     bool    CompleteAndCheckSyncPoint() { return false; }
-    
+
     // Set current command as synchronization point
     // Returns true if command is already completed
     bool    SetAsSyncPoint() { return false; }
@@ -67,29 +67,7 @@ public:
     // Returns true if command is already completed
     bool    IsCompleted() const { return false; }
 
-    // Initialization function. This functions is called before the "main loop"
-    // Generally initializes internal data structures
-    // Fills the buffer with 3D number of iterations to run
-    // Fills regCount with actual number of regions
-    // Returns 0 if initialization success, otherwise an error code
-    int     Init(size_t region[], unsigned int& regCount);
-
-    // Is called when the task is going to be called for the first time
-    // within specific thread. 
-    // Returns void* to be passed to other methods, if attach process succeeded, otherwise NULL
-    void*   AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[]);
-
-    // Is called when the task will not be executed by the specific thread    
-    void    DetachFromThread(void* pWgContext);
-
-    // "Main loop"
-    // The function is called with different 'inx' parameters for each iteration number
-    // Return false to break iterations
-    bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = NULL);
-
-   // Final stage, free execution resources
-    // Return false when command execution fails
-    bool    Finish(Intel::OpenCL::TaskExecutor::FINISH_REASON reason);
+    bool    Execute();
 
     // Task execution routine, will be called by task executor instead of Init() if CommandList is canceled. If Init() was already called,
     // Cancel() is not called - normal processing is continued
@@ -108,25 +86,14 @@ public:
     typedef Intel::OpenCL::MICDevice::ndrange_dispatcher_data dispatcher_data_type;
 
 
-    // ICLDevBackendDeviceAgentCallback methods
-    int Print(const char* buffer, void* pHandle);
-
 protected:
-    friend class TaskHandler<NDRangeTask, Intel::OpenCL::MICDevice::ndrange_dispatcher_data >;
+    friend class TaskHandler<NativeKernelTask, Intel::OpenCL::MICDevice::ndrange_dispatcher_data >;
     // Copy constructor used for task duplication
-    NDRangeTask(const NDRangeTask& o);
+    NativeKernelTask(const NativeKernelTask& o);
 
-    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*       m_pKernel;
-    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelRunner*  m_pRunner;
-
-    char*                                   m_pKernelArgs;
-    cl_uniform_kernel_args*                 m_pUniformArgs;
-
-    __thread static Intel::OpenCL::DeviceBackend::ICLDevBackendKernelRunner::ICLDevExecutionState    m_tExecutionState;
-
-
-    volatile bool         m_flushAtExit;   // Flush command when printf() was called in context of this NDRange
-    bool                  m_bSecureExecution;
+    QueueOnDevice*                                        m_pQueue;
+    const Intel::OpenCL::BuiltInKernels::IBuiltInKernel*  m_pKernel;
+    char*                                                 m_pKernelArgs;
 
 #ifdef ENABLE_MIC_TRACER
     friend class          NDRangePerfData;

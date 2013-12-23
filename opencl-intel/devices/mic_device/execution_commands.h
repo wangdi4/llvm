@@ -40,12 +40,13 @@ public:
 
     bool commandEnqueuedToPipe() { return true; };
 
+    /* Execute the command (Send it to execution in the device) */
+    cl_dev_err_code execute();
+
 protected:
-    ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd);
+    ExecutionCommand(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, DeviceServiceCommunication::DEVICE_SIDE_FUNCTION funcId);
     virtual ~ExecutionCommand();
 
-    /* Execute the command (Send it to execution in the device) */
-    cl_dev_err_code executeInt(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION funcId, char* commandNameStr);
 
     void AddMemoryObject( MICDevMemoryObject *memObj, bool isConstAccess );
 
@@ -65,6 +66,8 @@ protected:
     // A pointer used for COIRunFunction
     const void*                 m_pDispatchData;
     uint16_t                    m_uiDispatchDataSize;
+
+    DeviceServiceCommunication::DEVICE_SIDE_FUNCTION        m_funcId;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -75,9 +78,6 @@ public:
 
     /* static function for NDRange Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
-
-    cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::EXECUTE_NDRANGE, (char*)"NDRange"); };
-
 
 private:
 
@@ -97,8 +97,6 @@ public:
 
 	/* static function for FillMemObject Command creation */
     static cl_dev_err_code Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand);
-
-    cl_dev_err_code execute() { return executeInt(DeviceServiceCommunication::FILL_MEM_OBJECT, (char*)"FillMemObject"); };
 
 private:
 

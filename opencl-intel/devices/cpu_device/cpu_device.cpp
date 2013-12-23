@@ -2379,7 +2379,7 @@ extern "C" cl_dev_err_code clDevGetAvailableDeviceList(size_t    IN  deviceListS
 extern "C" cl_dev_err_code clDevInitDeviceAgent(void)
 {
 #ifdef __INCLUDE_MKL__
-    Intel::OpenCL::MKLKernels::InitLibrary();
+    Intel::OpenCL::MKLKernels::InitLibrary<true>();
 #endif
     return CL_DEV_SUCCESS;
 }
