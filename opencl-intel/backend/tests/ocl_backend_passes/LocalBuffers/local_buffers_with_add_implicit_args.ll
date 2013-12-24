@@ -41,7 +41,7 @@ entry:
 
 ; CHECK:        define void @foo(i32 addrspace(1)* %ApInt, i32 addrspace(1)* %BpInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat, 
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, {}*, [4 x i32]* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
@@ -69,7 +69,7 @@ entry:
 
 ; CHECK:        define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong16, 
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, {}*, [4 x i32]* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
