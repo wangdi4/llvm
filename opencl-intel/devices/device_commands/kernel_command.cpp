@@ -131,14 +131,13 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
     {
         return CL_INVALID_OPERATION;
     }
-    KernelCommand* pParent = const_cast<KernelCommand*>(reinterpret_cast<const KernelCommand*>(pHandle));
 
     SharedPtr<KernelCommand> pChild;
 #if __USE_TBB_ALLOCATOR__
         DeviceNDRange* const pChildAddress = m_deviceNDRangeAllocator.allocate(sizeof(DeviceNDRange));    // currently we ignore bad_alloc
         pChild = ::new(pChildAddress) DeviceNDRange(m_pTaskDispatcher, pList, pParent, pKernel, pContext, szContextSize, pNdrange, m_deviceNDRangeAllocator, m_deviceNDRangeContextAllocator);
 #else
-        pChild = pParent->AllocateChildCommand(pList, pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
+        pChild = AllocateChildCommand(pList, pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
 #endif
     const bool bAllEventsCompleted = pChild->AddWaitListDependencies(pEventWaitList, uiNumEventsInWaitList);
 

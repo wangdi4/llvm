@@ -232,44 +232,44 @@ static int enqueue_kernel_common(
   // get block_literal size
   const size_t block_literal_size = pBlockLiteral->GetBufferSizeForSerialization();
   // get size of block literal offset.
-  const size_t block_literal_offs_size = sizeof(unsigned);
+//  const size_t block_literal_offs_size = sizeof(unsigned);
   
   // calculating ContextSize 
-  const size_t ContextSize = 
+//  const size_t ContextSize = 
     // size of field storing block_literal offset
-    block_literal_offs_size + 
+ //   block_literal_offs_size + 
     // local mem arguments
     // each local mem arg size is size_t. See Kernel::PrepareKernelArgs() method?
-    localbuf_size_len * sizeof(size_t) + 
+//    localbuf_size_len * sizeof(size_t) + 
     // block_literal structure size
-    block_literal_size;
+//    block_literal_size;
   
   // get Block_literal offset storage
-  const size_t BlockLiteralOffs = ContextSize - block_literal_size;
+//  const size_t BlockLiteralOffs = ContextSize - block_literal_size;
 
   // resize pContext with the size of Context
-  pContext.resize(ContextSize);
+ // pContext.resize(ContextSize);
 
   ///////////////////////////////////////////////////////////////////////
   // fill in context
-  char * p = &pContext[0];
+//  char * p = &pContext[0];
   
   // store block literal offset
-  *(unsigned*)p = BlockLiteralOffs;
-  p += block_literal_offs_size;
+//  *(unsigned*)p = BlockLiteralOffs;
+//  p += block_literal_offs_size;
 
   // store local memory args
-  for(unsigned cnt=0;cnt<localbuf_size_len;++cnt){
-    *(size_t*)p = localbuf_size[cnt];
-    p += sizeof(size_t);
-  }
+//  for(unsigned cnt=0;cnt<localbuf_size_len;++cnt){
+//    *(size_t*)p = localbuf_size[cnt];
+//    p += sizeof(size_t);
+//  }
 
   // store block literal
-  pBlockLiteral->Serialize(p);
-  p += block_literal_size;
+//  pBlockLiteral->Serialize(p);
+//  p += block_literal_size;
 
   // sanity check context is filled up correctly
-  assert((size_t)(p-&pContext[0]) == ContextSize && "ContextSize does not match filled arguments size");
+//  assert((size_t)(p-&pContext[0]) == ContextSize && "ContextSize does not match filled arguments size");
   
   ///////////////////////////////////////////////////////////////////////
   // call enqueue

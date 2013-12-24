@@ -1061,7 +1061,7 @@ KernelCommand* NDRange::AllocateChildCommand(ITaskList* pList, const Intel::Open
         const void* pBlockLiteral, size_t stBlockSize, const size_t* pLocalSizes, size_t stLocalSizeCount,
         const _ndrange_t* pNDRange) const
 {
-    KernelCommand* pNewCommand = new DeviceNDRange(pList, const_cast<NDRange*>(this), pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
+    KernelCommand* pNewCommand = new DeviceNDRange(m_pTaskDispatcher, pList, const_cast<NDRange*>(this), pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
 
     return pNewCommand;
 }
