@@ -4932,7 +4932,7 @@ TYPED_TEST(NEATAluTypedMath, native_tan)
     }
 }
 
-TYPED_TEST(NEATAluTypedMath, DISABLED_tanpi) // CSSD100018310
+TYPED_TEST(NEATAluTypedMath, tanpi)
 {
     typedef typename  TypeParam::Type TypeP;
     typedef typename  superT<TypeP>::type SuperT;
@@ -5139,11 +5139,20 @@ TYPED_TEST(NEATAluTypedMath, DISABLED_tanpi) // CSSD100018310
         /* test for vector of NEAT intervals in range */
         testIntVec = NEATALU::tanpi<TypeP>(intervalRanged);
         for(uint32_t i = 0; i<wrap.GetSize(); i++) {
-            refIntValMin = RefALU::tanpi(SuperT(*intervalRanged[i].GetMin<TypeP>()));
-            refIntValMax = RefALU::tanpi(SuperT(*intervalRanged[i].GetMax<TypeP>()));
+            TypeP intValMin = *intervalRanged[i].GetMin<TypeP>();
+            TypeP intValMax = *intervalRanged[i].GetMax<TypeP>();
+            TypeP shift = RefALU::round(intValMin);
+            intValMin -= shift;
+            intValMax -= shift;
+            if(Utils::le(intValMin, TypeP(-0.5)) || Utils::ge(intValMax, TypeP(0.5)))
+                EXPECT_TRUE(testIntVec[i].IsUnknown());
+            else {
+                refIntValMin = RefALU::tanpi(SuperT(*intervalRanged[i].GetMin<TypeP>()));
+                refIntValMax = RefALU::tanpi(SuperT(*intervalRanged[i].GetMax<TypeP>()));
 
-            bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::TANPI_ERROR);
-            EXPECT_TRUE(passed);
+                bool passed = TestIntExpanded<SuperT>(refIntValMin,refIntValMax,testIntVec[i],NEATALU::TANPI_ERROR);
+                EXPECT_TRUE(passed);
+            }
         }
     }
 }
