@@ -81,6 +81,7 @@ public:
       };
     */
 
+    Type* AbstractPtr = PointerType::get(StructType::get(C), 0);
     Type* Sizet3Ty = ArrayType::get(SizetTy, MAX_WORK_DIM);
     WGInfoMembersTypes[NDInfo::WORK_DIM] = SizetTy;
     WGInfoMembersTypes[NDInfo::GLOBAL_OFFSET] = Sizet3Ty; 
@@ -88,7 +89,8 @@ public:
     WGInfoMembersTypes[NDInfo::LOCAL_SIZE] = Sizet3Ty;
     WGInfoMembersTypes[NDInfo::WG_NUMBER] = Sizet3Ty;
     WGInfoMembersTypes[NDInfo::LOOP_ITER_COUNT] = SizetTy;
-    WGInfoMembersTypes[NDInfo::RUNTIME_CALLBACKS] = PointerType::get(StructType::get(C), 0);
+    WGInfoMembersTypes[NDInfo::RUNTIME_INTERFACE] = AbstractPtr;
+    WGInfoMembersTypes[NDInfo::BLOCK2KERNEL_MAPPER] = AbstractPtr;
     WGInfoMembersTypes[NDInfo::NEW_LOCAL_ID] = PointerType::get(PaddedDimIdTy, 0);
     assert(NDInfo::NEW_LOCAL_ID + 1 == NDInfo::LAST);
 

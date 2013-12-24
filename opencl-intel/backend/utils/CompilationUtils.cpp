@@ -135,7 +135,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   void CompilationUtils::getImplicitArgs(
       Function *pFunc, Argument **ppLocalMem, Argument **ppWorkDim,
       Argument **ppWGId, Argument **ppBaseGlbId, Argument **ppSpecialBuf,
-      Argument **ppCurrWI, Argument **ppRunTimeContext) {
+      Argument **ppCurrWI, Argument **ppRunTimeHandle) {
 
       assert( pFunc && "Function cannot be null" );
       assert( pFunc->getArgumentList().size() >= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
@@ -181,8 +181,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
       ++DestI;
 
-      if ( NULL != ppRunTimeContext ) {
-          *ppRunTimeContext = DestI;
+      if ( NULL != ppRunTimeHandle ) {
+          *ppRunTimeHandle = DestI;
       }
       ++DestI;
       assert(DestI == pFunc->arg_end());

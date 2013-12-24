@@ -26,7 +26,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     LOCAL_SIZE,
     WG_NUMBER,
     LOOP_ITER_COUNT,
-    RUNTIME_CALLBACKS,
+    RUNTIME_INTERFACE,
+    BLOCK2KERNEL_MAPPER,
     NEW_LOCAL_ID,
     LAST
   };
@@ -38,7 +39,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       "LocalSize_",
       "NumGroups_",
       "LoopIterCount",
-      "RuntimeCallbacks",
+      "RuntimeInterface",
+      "Block2KernelMapper",
       "NewLocalID_"
     };
     return Names[RecordID];

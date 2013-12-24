@@ -824,7 +824,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     m_pKernelArgs = pLockedParams;
     m_pImplicitArgs = (cl_uniform_kernel_args*)(pLockedParams+pKernel->GetExplicitArgumentBufferSize());
     m_pImplicitArgs->WorkDim = cmdParams->work_dim;
-    m_pImplicitArgs->pRuntimeCallbacks = static_cast<IDeviceCommandManager*>(this);
+    m_pImplicitArgs->RuntimeInterface = static_cast<IDeviceCommandManager*>(this);
     // Copy global_offset, global_size and local_work_size
     MEMCPY_S(m_pImplicitArgs->GlobalOffset, sizeof(size_t) * MAX_WORK_DIM * 3, cmdParams->glb_wrk_offs, sizeof(size_t) * MAX_WORK_DIM * 3);
     m_pImplicitArgs->minWorkGroupNum = m_numThreads;

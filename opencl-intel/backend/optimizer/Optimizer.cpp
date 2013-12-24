@@ -498,7 +498,9 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   }
   // Some built-in functions contain calls to external functions which take
   // arguments that are retrieved from the function's implicit arguments.
-  PM.add(createPatchCallbackArgsPass());
+  // Currently only applies to OpenCL 2.x
+  if (isOcl20)
+    PM.add(createPatchCallbackArgsPass());
 
   if (debugType == intel::None) {
     PM.add(llvm::createArgumentPromotionPass());    // Scalarize uninlined fn args

@@ -190,7 +190,7 @@ namespace intel {
 
     // Per function cached values
     Function *m_F;
-    Value* m_RuntimeCallbacks;
+    Value* m_RuntimeInterface;
     void clearPerFunctionCache();
     Value* getOrCreateRuntimeCallbacks();
   };

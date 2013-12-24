@@ -438,6 +438,10 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
     pKernelUniformImplicitArgs->WGLoopIterCount = WGSize - 1;
   }
 
+  if (true ) { // ocl20 
+    pKernelUniformImplicitArgs->Block2KernelMapper = m_RuntimeService->GetBlockToKernelMapper();
+  }
+
 #ifdef OCL_DEV_BACKEND_PLUGINS
 // TODO: Notify the plugin manager
 // m_pluginManager.OnCreateBinary( pKernel,
@@ -484,8 +488,8 @@ void Kernel::DebugPrintUniformKernelArgs(const cl_uniform_kernel_args *A,
     }
   }
   ss << "\n" 
-     << O + offsetof(cl_uniform_kernel_args, pRuntimeCallbacks)
-     << ": void* pRuntimeCallbacks= " << A->pRuntimeCallbacks << "\n" 
+     << O + offsetof(cl_uniform_kernel_args, RuntimeInterface)
+     << ": void* RuntimeInterface= " << A->RuntimeInterface << "\n" 
      << O + offsetof(cl_uniform_kernel_args, minWorkGroupNum) << ": size_t minWorkGroupNum= " << A->minWorkGroupNum << "\n"
       // ss << O+offsetof(cl_uniform_kernel_args, RuntimeCallBacks) << ": void*
       // RuntimeCallBacks = " << A->pRuntimeContext << "\n";

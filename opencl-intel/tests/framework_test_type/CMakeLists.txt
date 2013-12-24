@@ -18,7 +18,8 @@ set( TARGET framework_test_type )
 
 include_directories( ../../framework/export 
                      ../../externals/gtest/include
-                     ${OCL_SOURCE_DIR}/tests/test_common )
+                     ${OCL_SOURCE_DIR}/tests/test_common
+                     /home/work/zrackove/freeglut/freeglut-code-1627-tags-FG_2_8_1_RC1/freeglut/include )
 
 set( IGNORE_FILES clBuildCubinProgram|clBuildProgram.cpp|clCreateCudaKernel|clCreateKernelCpuGpu|clCreateQueue )
 

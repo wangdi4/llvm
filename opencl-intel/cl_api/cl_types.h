@@ -206,7 +206,6 @@ typedef struct _cl_llvm_prog_header
  * This struct hold all the uniform arguments which will be passed to the JIT
  * to start execution of OCL kernel
  */
-class IDeviceCommandManager;
 typedef struct _cl_uniform_kernel_args {
     // ND Range Work Description
     // Kernel explicit arguments in same order as in  kernel declaration
@@ -222,8 +221,10 @@ typedef struct _cl_uniform_kernel_args {
     size_t    LocalSize[MAX_WORK_DIM];                 // Filled by the runtime, updated by the BE in case of (0,0,0)
     size_t    WGCount[MAX_WORK_DIM];                   // Updated by the BE, based on GLOBAL/LOCAL
     size_t    WGLoopIterCount;                         // Updated by the BE
-    void*     pRuntimeCallbacks;                       // Runtime Callbacks Context, Filled by the runtime
-    IDeviceCommandManager*     BlockToKernelMapper;                     // Allocated at compile-time, filled by the BE
+    // For Opencl2.0: this is a IDeviceCommandManager, and for MIC: the printf interface thing
+    void*     RuntimeInterface;              // Updated by runtime
+    /// reference to BlockToKernelMapper object. Class does not own it
+    void*     Block2KernelMapper;                      // Updated by the BE
     size_t*   pLocalIDIndices;                         // Allocated by the runtime, filled by the BE
     size_t    minWorkGroupNum;                         // Filled by the runtime, Required by the heuristic
     size_t    LocalIDIndicesRequiredSize;              // Updated by the BE, contains size of local index buffer

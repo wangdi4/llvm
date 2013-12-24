@@ -216,7 +216,7 @@ if ( gMicGPAData.bUseGPA)
     }
 
     m_pUniformArgs = (cl_uniform_kernel_args*)(m_pKernelArgs + argSize);
-    m_pUniformArgs->pRuntimeCallbacks = (void*)static_cast<ICLDevBackendDeviceAgentCallback*>(this);
+    m_pUniformArgs->RuntimeInterface = (void*)static_cast<ICLDevBackendDeviceAgentCallback*>(this);
 
     if ( 0 != m_pUniformArgs->LocalIDIndicesRequiredSize )
     {

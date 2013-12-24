@@ -733,22 +733,22 @@ namespace intel {
 void ResolveWICall::appendWithCallBackContextAndRuntimeHandleTypes(
     unsigned FuncType, SmallVectorImpl<Type *> &ArgTypes) {
   ArgTypes.push_back(
-      m_IAA->getWorkGroupInfoMemberType(NDInfo::RUNTIME_CALLBACKS));
+      m_IAA->getWorkGroupInfoMemberType(NDInfo::RUNTIME_INTERFACE));
   if (NeedsRuntimeHandleParam(FuncType))
     ArgTypes.push_back(m_pRuntimeHandle->getType());
 }
 
 void ResolveWICall::clearPerFunctionCache() {
   m_F = 0;
-  m_RuntimeCallbacks = 0;
+  m_RuntimeInterface = 0;
 }
 
 Value *ResolveWICall::getOrCreateRuntimeCallbacks() {
   IRBuilder<> Builder(m_F->getEntryBlock().begin());
-  if (!m_RuntimeCallbacks)
-    m_RuntimeCallbacks = m_IAA->GenerateGetFromWorkInfo(
-        NDInfo::RUNTIME_CALLBACKS, m_pWorkInfo, Builder);
-  return m_RuntimeCallbacks;
+  if (!m_RuntimeInterface)
+    m_RuntimeInterface = m_IAA->GenerateGetFromWorkInfo(
+        NDInfo::RUNTIME_INTERFACE, m_pWorkInfo, Builder);
+  return m_RuntimeInterface;
 }
 
 void ResolveWICall::appendWithCallBackContextAndRuntimeHandleValues(

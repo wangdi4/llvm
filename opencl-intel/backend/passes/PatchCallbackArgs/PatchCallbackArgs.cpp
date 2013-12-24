@@ -11,7 +11,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "common_dev_limits.h"
 #include "OCLPassSupport.h"
 #include "MetaDataApi.h"
-#include "CallbackDesc.h"
 
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Version.h"
@@ -39,22 +38,40 @@ char PatchCallbackArgs::ID = 0;
 OCL_INITIALIZE_PASS(PatchCallbackArgs, "patch-callback-args",
                     "Resolve OpenCL built-in calls to callbacks", false, false)
 
+struct ImplicitArgAccessorFunc {
+  const char * FuncName;
+  // One of enum IMPLICIT_ARGS
+  unsigned ArgId;
+  // If the above is a structure, selects which field to access (currently only
+  // applies to IA_WORK_GROUP_INFO)
+  unsigned ArgSecondaryId;
+};
+
+ImplicitArgAccessorFunc ImplicitArgAccessorFuncList[] = {
+  { "__get_block_to_kernel_mapper", ImplicitArgsUtils::IA_WORK_GROUP_INFO, NDInfo::BLOCK2KERNEL_MAPPER},
+  { "__get_device_command_manager", ImplicitArgsUtils::IA_WORK_GROUP_INFO, NDInfo::RUNTIME_INTERFACE},
+  { "__get_runtime_handle", ImplicitArgsUtils::IA_RUNTIME_HANDLE, NDInfo::LAST}
+};
+
 bool PatchCallbackArgs::runOnModule(Module &M) {
   ImplicitArgsAnalysis &IAA = getAnalysis<ImplicitArgsAnalysis>();
   unsigned PointerSize = getAnalysis<DataLayout>().getPointerSizeInBits();
   IAA.initDuringRun(PointerSize);
   bool Changed = false;
-  // Iterate over all 
-  unsigned CallbackLookupCount = sizeof(CallbackLookup) / sizeof(CallbackLookup[0]);
-  for (unsigned I = 0; I < CallbackLookupCount; ++I) {
-    Function *CalledF = M.getFunction(CallbackLookup[I].CallbackName);
-    if (!CalledF) continue;
+  SmallVector<CallInst*, 16> ToErase;
+  for (unsigned I = 0, E = sizeof(ImplicitArgAccessorFuncList) /
+                           sizeof(ImplicitArgAccessorFuncList[0]);
+       I < E; ++I) {
+    Function *CalledF = M.getFunction(ImplicitArgAccessorFuncList[I].FuncName);
+    if (!CalledF)
+      continue;
     assert(CalledF->isDeclaration() && "extern callback must be a declaration");
     for (Function::use_iterator UI = CalledF->use_begin(),
                                 UE = CalledF->use_end();
          UI != UE; ++UI) {
       CallInst *CI = dyn_cast<CallInst>(*UI);
-      if (!CI) continue;
+      if (!CI)
+        continue;
       Changed = true;
       Function *CallingF = CI->getParent()->getParent();
       ValuePair &ImplicitArgs = Func2ImplicitArgs[CallingF];
@@ -65,39 +82,34 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
         Argument *RuntimeHandle; // Needed by some callbacks
         CompilationUtils::getImplicitArgs(CallingF, NULL, &WorkInfo, NULL, NULL,
                                           NULL, NULL, &RuntimeHandle);
-        IRBuilder<> Builder(CallingF->getEntryBlock().begin());
-        ImplicitArgs.first = IAA.GenerateGetFromWorkInfo(
-            NDInfo::RUNTIME_CALLBACKS, WorkInfo, Builder);
+        ImplicitArgs.first = WorkInfo;
         ImplicitArgs.second = RuntimeHandle;
       }
       assert(ImplicitArgs.second);
-      // Now we have the required values extracted from the implicit args
-      // Patch the calls
-      unsigned CallbackContextArgIdx = CI->getNumArgOperands() - 1;
-      unsigned RuntimeHandleArgIdx = 0;
-      if (CallbackLookup[I].NeedRuntimeHandleArg) {
-        RuntimeHandleArgIdx = CallbackContextArgIdx--;
+      Value *Val = 0;
+      switch (ImplicitArgAccessorFuncList[I].ArgId) {
+      default:
+        assert(false && "Unhandled arguemnt ID");
+      case ImplicitArgsUtils::IA_RUNTIME_HANDLE:
+        Val = ImplicitArgs.second;
+        break;
+      case ImplicitArgsUtils::IA_WORK_GROUP_INFO: {
+        unsigned NDInfoId = ImplicitArgAccessorFuncList[I].ArgSecondaryId;
+        assert(NDInfoId == NDInfo::BLOCK2KERNEL_MAPPER ||
+               NDInfoId == NDInfo::RUNTIME_INTERFACE);
+        IRBuilder<> Builder(CallingF->getEntryBlock().begin());
+        Val =
+            IAA.GenerateGetFromWorkInfo(NDInfoId, ImplicitArgs.first, Builder);
+      } break;
       }
-      // Replace the Callback context argument
-      Value *NewOp = ImplicitArgs.first;
-      if (NewOp->getType() !=
-          CI->getArgOperand(CallbackContextArgIdx)->getType()) {
-        NewOp = new BitCastInst(
-            NewOp, CI->getArgOperand(CallbackContextArgIdx)->getType(), "", CI);
-      }
-      // Replace the Runtime handle argument
-      CI->setArgOperand(CallbackContextArgIdx, NewOp);
-      if (RuntimeHandleArgIdx) {
-        Value * NewOp = ImplicitArgs.second;
-        if (NewOp->getType() !=
-            CI->getArgOperand(RuntimeHandleArgIdx)->getType()) {
-          NewOp = new BitCastInst(
-              NewOp, CI->getArgOperand(RuntimeHandleArgIdx)->getType(), "", CI);
-        }
-        CI->setArgOperand(RuntimeHandleArgIdx, ImplicitArgs.second);
-      }
+      if (Val->getType() != CI->getType())
+        Val = new BitCastInst(Val, CI->getType(), "", CI);
+      CI->replaceAllUsesWith(Val);
+      ToErase.push_back(CI);
     }
   }
+  for (unsigned I=0; I < ToErase.size(); ++I)
+    ToErase[I]->eraseFromParent();
   return Changed;
 }
 }
