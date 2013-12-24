@@ -262,7 +262,7 @@ else(LLVM_BUILD_APPLE_BACKEND)
     #    set_target_properties( check_regression.deps PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
     #    set_target_properties( check_vectorizer PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
     #    set_target_properties( check_vectorizer.deps PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/Tests )
-    
+        set_target_properties( DataVersion PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         set_target_properties( Comparator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         set_target_properties( DataGenerator PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )
         set_target_properties( DataManager PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation )

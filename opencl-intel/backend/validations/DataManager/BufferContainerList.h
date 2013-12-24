@@ -78,6 +78,14 @@ namespace Validation
             }
         }
 
+        uint32_t GetDataVersion() {
+            return readVersion;
+        }
+
+        void SetDataVersion(uint32_t const inDataVersion) {
+            readVersion = inDataVersion;
+        }
+
     private:
         /// hide copy constructor
         BufferContainerList(const BufferContainerList& ) : 
@@ -88,6 +96,10 @@ namespace Validation
         typedef std::vector<BufferContainer*> BufferContainerVector;
         /// List of buffers
         BufferContainerVector m_BCV;
+
+        /// data version read from data file
+        uint32_t readVersion;
+
     };
 
 } // End of Validation namespace
