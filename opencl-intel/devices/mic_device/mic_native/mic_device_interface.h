@@ -67,7 +67,6 @@ struct COPY_PROGRAM_TO_DEVICE_INPUT_STRUCT
 
 struct COPY_PROGRAM_TO_DEVICE_KERNEL_INFO
 {
-    uint64_t    kernel_id;
     uint64_t    device_info_ptr;
 };
 

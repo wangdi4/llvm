@@ -69,6 +69,7 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
     "create_built_in_program",              // CREATE_BUILT_IN_PROGRAM
     "remove_program_from_device",           // REMOVE_PROGRAM_FROM_DEVICE
     "execute_command_ndrange",              // EXECUTE_NDRANGE
+    "execute_command_nativekernel",         // EXECUTE_NATIVE_KERNEL
     "init_device",                          // INIT THE NATIVE PROCESS (Call it only once, after process creation)
     "release_device",                       // CLEAN SOME RESOURCES OF THE NATIVE PROCESS (Call it before closing the process)
     "init_commands_queue",                  // INIT COMMANDS QUEUE ON DEVICE
@@ -200,7 +201,11 @@ COIPROCESS DeviceServiceCommunication::getDeviceProcessHandle()
 COIFUNCTION DeviceServiceCommunication::getDeviceFunction( DEVICE_SIDE_FUNCTION id ) 
 {
     WaitForCompletion();
-    assert( id < LAST_DEVICE_SIDE_FUNCTION && "Too large Device Entry point Function ID" );
+    if ( id >= LAST_DEVICE_SIDE_FUNCTION )
+    {
+        assert( false && "Too large Device Entry point Function ID" );
+        return NULL;
+    }
     assert( 0 != m_device_functions[id] && "Getting reference to Device Entry point that does not exists" );
     return (NULL == m_process) ? NULL :  m_device_functions[id];
 }

@@ -301,49 +301,48 @@ cl_dev_err_code ProgramService::fill_program_info(TProgramEntry* prog_entry, COP
     int kernels_count = prog_entry->pProgram->GetKernelsCount();
     assert( kernels_count >= 0 && "ProgramService::add_program: Cannot restore kernels from deserialized program" );
 
-	prog_entry->pKernels = new TKernelEntry[kernels_count];
-	if ( NULL == prog_entry->pKernels )
-	{
-	    NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TKernelEntry[kernels_count], kernels_count=%d", kernels_count);
-	    return CL_DEV_OUT_OF_MEMORY;
-	}
+    prog_entry->pKernels = new TKernelEntry[kernels_count];
+    if ( NULL == prog_entry->pKernels )
+    {
+        NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TKernelEntry[kernels_count], kernels_count=%d", kernels_count);
+        return CL_DEV_OUT_OF_MEMORY;
+    }
 
-	for (int i = 0; i < kernels_count; ++i)
-	{
-		cl_dev_err_code be_err = prog_entry->pProgram->GetKernel(i, &(prog_entry->pKernels[i].kernel) );
-		assert( CL_DEV_SUCCEEDED(be_err) && "ProgramService::add_program: Cannot get kernel from de-serialized program" );
-		if ( CL_DEV_FAILED(be_err) )
-		{
-			break;
-		}
+    for (int i = 0; i < kernels_count; ++i)
+    {
+        cl_dev_err_code be_err = prog_entry->pProgram->GetKernel(i, &(prog_entry->pKernels[i].kernel) );
+        assert( CL_DEV_SUCCEEDED(be_err) && "ProgramService::add_program: Cannot get kernel from de-serialized program" );
+        if ( CL_DEV_FAILED(be_err) )
+        {
+          break;
+        }
 
 #ifdef USE_ITT
-		if ( gMicGPAData.bUseGPA)
-		{
-			static const char kernelDomainNamePrefix[] = "com.intel.opencl.device.mic.";
-			static const size_t maxKernelDomainLenght = 256;
+        if ( gMicGPAData.bUseGPA)
+        {
+            static const char kernelDomainNamePrefix[] = "com.intel.opencl.device.mic.";
+            static const size_t maxKernelDomainLenght = 256;
 
-			const char* kernelName = prog_entry->pKernels[i].kernel->GetKernelName();
+            const char* kernelName = prog_entry->pKernels[i].kernel->GetKernelName();
 
-			prog_entry->pKernels[i].pIttKernelName = __itt_string_handle_create(kernelName);
+            prog_entry->pKernels[i].pIttKernelName = __itt_string_handle_create(kernelName);
 
-			// Create private domain per kernel
-			if ( strlen(kernelDomainNamePrefix)+strlen(kernelName) < maxKernelDomainLenght)
-			{
-				char kernelDomainName[maxKernelDomainLenght];
-				sprintf(kernelDomainName, "%s%s", kernelDomainNamePrefix, kernelName);
-				prog_entry->pKernels[i].pIttKernelDomain = __itt_domain_create(kernelDomainName);
-			}
-			else
-			{
-				prog_entry->pKernels[i].pIttKernelDomain = NULL;
-			}
-		}
+            // Create private domain per kernel
+            if ( strlen(kernelDomainNamePrefix)+strlen(kernelName) < maxKernelDomainLenght)
+            {
+              char kernelDomainName[maxKernelDomainLenght];
+              sprintf(kernelDomainName, "%s%s", kernelDomainNamePrefix, kernelName);
+              prog_entry->pKernels[i].pIttKernelDomain = __itt_domain_create(kernelDomainName);
+            }
+            else
+            {
+              prog_entry->pKernels[i].pIttKernelDomain = NULL;
+            }
+        }
 #endif
-		// add kernel info to the return struct
-		fill_kernel_info->device_kernel_info_pts[i].kernel_id        = (uint64_t)prog_entry->pKernels[i].kernel->GetKernelID();
-		fill_kernel_info->device_kernel_info_pts[i].device_info_ptr  = (uint64_t)(size_t)&prog_entry->pKernels[i];
-	}
+        // add kernel info to the return struct
+        fill_kernel_info->device_kernel_info_pts[i].device_info_ptr  = (uint64_t)(size_t)&prog_entry->pKernels[i];
+    }
 
     // 5. Set number of filled kernels
     fill_kernel_info->uid_program_on_device = (uint64_t)prog_entry;
@@ -368,7 +367,7 @@ cl_dev_err_code ProgramService::add_program(
     if (NULL == prog_entry)
     {
         NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TProgramEntry" );
-		return CL_DEV_OUT_OF_MEMORY;
+        return CL_DEV_OUT_OF_MEMORY;
     }
 
     // 1. Reserve execution memory
@@ -380,7 +379,6 @@ cl_dev_err_code ProgramService::add_program(
         if (! prog_entry->exec_memory_manager->reserveExecutableMemory(required_exec_size, 1))
         {
             NATIVE_PRINTF("ProgramService::add_program: Cannot reserve %lu executable bytes for passed program\n",required_exec_size );
-
             delete prog_entry;
             return CL_DEV_OUT_OF_MEMORY;
         }
@@ -405,47 +403,59 @@ cl_dev_err_code ProgramService::add_program(
         NATIVE_PRINTF("ProgramService::add_program: Cannot deserialize program with blob size %#lX bytes\n", prog_blob_size );
 
         RemoveProgramEntry( prog_entry );
-		return be_err;
+        return be_err;
     }
 
-	// clean TLS
-	tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, NULL);
+    // clean TLS
+    tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, NULL);
 
     be_err = fill_program_info(prog_entry, fill_kernel_info);
 
-	if ( CL_DEV_FAILED(be_err) )
-	{
-		RemoveProgramEntry( prog_entry );
-		return be_err;
-	}
+    if ( CL_DEV_FAILED(be_err) )
+    {
+        RemoveProgramEntry( prog_entry );
+        return be_err;
+    }
 
     assert( fill_kernel_info->filled_kernels == prog_info->number_of_kernels && "ProgramService::add_program: Backend restored kernel count differ from serialized" );
 
-	return CL_DEV_SUCCESS;
+    return CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code ProgramService::add_builtin_program(const char* szBuiltInNames, COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* fill_kernel_info)
 {
+    NATIVE_PRINTF("add_builtin_program: %s\n", szBuiltInNames);
     // initialize output
     fill_kernel_info->filled_kernels = 0;
-
-	ICLDevBackendProgram_* pProg;
-	cl_dev_err_code err = BuiltInKernels::BuiltInKernelRegistry::GetInstance()->CreateBuiltInProgram(szBuiltInNames, &pProg);
-	if ( CL_DEV_FAILED(err) )
-	{
-		NATIVE_PRINTF("CreateBuiltInProgram failed with %x", err);
-		return err;
-	}
 
     TProgramEntry* prog_entry = new TProgramEntry;
     if (NULL == prog_entry)
     {
         NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TProgramEntry" );
-		return CL_DEV_OUT_OF_MEMORY;
+        return CL_DEV_OUT_OF_MEMORY;
     }
 
+    ICLDevBackendProgram_* pProg;
+    cl_dev_err_code err = BuiltInKernels::BuiltInKernelRegistry::GetInstance()->CreateBuiltInProgram(szBuiltInNames, &pProg);
+    if ( CL_DEV_FAILED(err) )
+    {
+        NATIVE_PRINTF("CreateBuiltInProgram failed with %x", err);
+        delete prog_entry;
+        return err;
+    }
 
-    return CL_DEV_SUCCESS;
+    prog_entry->exec_memory_manager = NULL;
+    prog_entry->pProgram = pProg;
+    err = fill_program_info(prog_entry, fill_kernel_info);
+    if ( CL_DEV_FAILED(err) )
+    {
+        RemoveProgramEntry( prog_entry );
+        delete pProg;
+        fill_kernel_info->filled_kernels = 0;
+    }
+
+    NATIVE_PRINTF("add_builtin_program - DONE\n");
+    return err;
 }
 
 void ProgramService::remove_program( uint64_t be_program_id )
@@ -457,27 +467,37 @@ void ProgramService::remove_program( uint64_t be_program_id )
 
 void  ProgramService::RemoveProgramEntry( TProgramEntry* prog_entry )
 {
-    if ( NULL != prog_entry->pProgram )
-    {
-		// setup TLS with execution memory allocator
-		TlsAccessor tlsAccessor;
-		ProgramServiceTls tls(&tlsAccessor);
-		tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, prog_entry->exec_memory_manager);
-
-		GetSerializationService()->ReleaseProgram(prog_entry->pProgram);
-
-		// clean TLS
-		tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, NULL);
-    }
-
     if ( NULL != prog_entry->exec_memory_manager)
     {
-		delete prog_entry->exec_memory_manager;
+        if ( NULL != prog_entry->pProgram )
+        {
+            // setup TLS with execution memory allocator
+            TlsAccessor tlsAccessor;
+            ProgramServiceTls tls(&tlsAccessor);
+            tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, prog_entry->exec_memory_manager);
+
+            GetSerializationService()->ReleaseProgram(prog_entry->pProgram);
+
+            // clean TLS
+            tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, NULL);
+            prog_entry->pProgram = NULL;
+        }
+        delete prog_entry->exec_memory_manager;
+        prog_entry->exec_memory_manager = NULL;
+    }
+    else
+    {
+        if ( NULL != prog_entry->pProgram )
+        {
+            delete prog_entry->pProgram;
+            prog_entry->pProgram = NULL;
+        }
     }
 
     if ( NULL != prog_entry->pKernels )
     {
-		delete []prog_entry->pKernels;
+        delete []prog_entry->pKernels;
+        prog_entry->pKernels = NULL;
     }
 
     delete prog_entry;
@@ -486,26 +506,26 @@ void  ProgramService::RemoveProgramEntry( TProgramEntry* prog_entry )
 #ifdef USE_ITT
 __itt_string_handle* ProgramService::get_itt_kernel_name(uint64_t device_info_ptr)
 {
-	assert( 0 != device_info_ptr && "Invalid arguments passed");
-	if ( 0 == device_info_ptr )
-	{
-		return NULL;
-	}
+    assert( 0 != device_info_ptr && "Invalid arguments passed");
+    if ( 0 == device_info_ptr )
+    {
+        return NULL;
+    }
 
-	TKernelEntry* k_entry = (TKernelEntry*)(size_t)device_info_ptr;
-	return k_entry->pIttKernelName;
+    TKernelEntry* k_entry = (TKernelEntry*)(size_t)device_info_ptr;
+    return k_entry->pIttKernelName;
 }
 
 __itt_domain* ProgramService::get_itt_kernel_domain(uint64_t device_info_ptr)
 {
-	assert( 0 != device_info_ptr && "Invalid arguments passed");
-	if ( 0 == device_info_ptr )
-	{
-		return NULL;
-	}
+    assert( 0 != device_info_ptr && "Invalid arguments passed");
+    if ( 0 == device_info_ptr )
+    {
+        return NULL;
+    }
 
-	TKernelEntry* k_entry = (TKernelEntry*)(size_t)device_info_ptr;
-	return k_entry->pIttKernelDomain;
+    TKernelEntry* k_entry = (TKernelEntry*)(size_t)device_info_ptr;
+    return k_entry->pIttKernelDomain;
 }
 #endif
 
@@ -618,7 +638,7 @@ void copy_program_to_device(
     cl_dev_err_code err = program_service.add_program( blob_size, in_ppBufferPointers[0], input, output );
     if ( in_ReturnValueLength > 0 )
     {
-		*((cl_dev_err_code*)in_pReturnValue) = err;
+        *((cl_dev_err_code*)in_pReturnValue) = err;
     }
 
 #ifdef ENABLE_MIC_TRACER

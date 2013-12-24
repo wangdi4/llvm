@@ -1,6 +1,6 @@
 #include <vector>
-#include <tbb\critical_section.h>
-#include <tbb\atomic.h>
+#include <tbb/critical_section.h>
+#include <tbb/atomic.h>
 
 #ifdef _WIN32
 #define LIBOMP2TBB_API	__declspec(dllexport)
@@ -25,9 +25,9 @@ namespace omp2tbb {
 
 enum sched_type {
     kmp_sch_static_chunked            = 33,
-    kmp_sch_static                    = 34,   /**< static unspecialized */
+    kmp_sch_static                    = 34, /**< static unspecialized */
     kmp_sch_dynamic_chunked           = 35,
-    kmp_sch_guided_chunked            = 36,   /**< guided unspecialized */
+    kmp_sch_guided_chunked            = 36  /**< guided unspecialized */
 };
 
 class global_thread_table;

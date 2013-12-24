@@ -22,11 +22,12 @@
 namespace Intel { namespace OpenCL { namespace Utils {
     class OclThread;
 }}}
+
+
 namespace Intel { namespace OpenCL { namespace MKLKernels {
 
-// Generaly exposed functions
-extern bool InitLibrary();
-extern bool InitProxyLibrary();
-extern void ReleaseLibrary();
+template< bool useFunctions > bool InitLibrary();
+
+template< bool useFunctions > void ReleaseLibrary();
 
 }}}

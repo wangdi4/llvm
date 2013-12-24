@@ -11,14 +11,7 @@ if (NOT WIN32)
     set(HW_UTILS_PROJ_NAME cl_hw_utils)
 endif (NOT WIN32)
 
-# Add MKL library integration
-#Required for both 32 and 64 bit
-# Linux
-# -L$(MKLROOT)/lib/intel64 -lmkl_rt -lpthread -lm
-# -DMKL_ILP64 -I$(MKLROOT)/include
-# Windows
-# mkl_rt.lib libiomp5md.lib
-# /DMKL_ILP64  -I%MKLROOT%/include
+add_definitions(-DMKL_ILP64)
 
 include_directories( AFTER
     ${MKL_DIR}/include
