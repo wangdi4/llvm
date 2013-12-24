@@ -83,7 +83,7 @@ define i64 @GBGIX(i32 %x) {
 ;}
 
 define i64 @GNLI0() {
-; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, {}*, [4 x i64]* }* %pWorkDim, i32 0, i32 7
+; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, {}*, [4 x i64]* }* %pWorkDim, i32 0, i32 8
 ; CHECK: [[BASE:%[a-zA-Z0-9]+]] = load [4 x i64]** [[GEP0]]
 ; CHECK: [[GEP1:%[a-zA-Z0-9]+]] = getelementptr [4 x i64]* [[BASE]], i64 %WI, i32 0
 ; CHECK: %NewLocalID_0 = load i64* [[GEP1]]
@@ -94,7 +94,7 @@ define i64 @GNLI0() {
   ret i64 %c
 }
 define i64 @GNLI1() {
-; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, {}*, [4 x i64]* }* %pWorkDim, i32 0, i32 7
+; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, {}*, [4 x i64]* }* %pWorkDim, i32 0, i32 8
 ; CHECK: [[BASE:%[a-zA-Z0-9]+]] = load [4 x i64]** [[GEP0]]
 ; CHECK: [[GEP1:%[a-zA-Z0-9]+]] = getelementptr [4 x i64]* [[BASE]], i64 %WI, i32 1
 ; CHECK: %NewLocalID_1 = load i64* [[GEP1]]
@@ -105,7 +105,7 @@ define i64 @GNLI1() {
   ret i64 %c
 }
 define i64 @GNLI2() {
-; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, {}*, [4 x i64]* }* %pWorkDim, i32 0, i32 7
+; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, {}*, [4 x i64]* }* %pWorkDim, i32 0, i32 8
 ; CHECK: [[BASE:%[a-zA-Z0-9]+]] = load [4 x i64]** [[GEP0]]
 ; CHECK: [[GEP1:%[a-zA-Z0-9]+]] = getelementptr [4 x i64]* [[BASE]], i64 %WI, i32 2
 ; CHECK: %NewLocalID_2 = load i64* [[GEP1]]
@@ -124,7 +124,7 @@ define i64 @GNLIX(i32 %x) {
 
 define i64 @GNGI0() {
 ; CHECK: define i64 @GNGI0(
-; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, {}*, [4 x i64]* }* %pWorkDim, i32 0, i32 7
+; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, {}*, [4 x i64]* }* %pWorkDim, i32 0,  i32 8
 ; CHECK: [[BASE:%[a-zA-Z0-9]+]] = load [4 x i64]** [[GEP0]]
 ; CHECK: [[GEP1:%[a-zA-Z0-9]+]] = getelementptr [4 x i64]* [[BASE]], i64 %WI, i32 0
 ; CHECK: %NewLocalID_0 = load i64* [[GEP1]]
@@ -138,7 +138,7 @@ define i64 @GNGI0() {
 }
 define i64 @GNGI1() {
 ; CHECK: define i64 @GNGI1(
-; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, {}*, [4 x i64]* }* %pWorkDim, i32 0, i32 7
+; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, {}*, [4 x i64]* }* %pWorkDim, i32 0,  i32 8
 ; CHECK: [[BASE:%[a-zA-Z0-9]+]] = load [4 x i64]** [[GEP0]]
 ; CHECK: [[GEP1:%[a-zA-Z0-9]+]] = getelementptr [4 x i64]* [[BASE]], i64 %WI, i32 1
 ; CHECK: %NewLocalID_1 = load i64* [[GEP1]]
@@ -152,7 +152,7 @@ define i64 @GNGI1() {
 }
 define i64 @GNGI2() {
 ; CHECK: define i64 @GNGI2(
-; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, {}*, [4 x i64]* }* %pWorkDim, i32 0, i32 7
+; CHECK: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, {}*, [4 x i64]* }* %pWorkDim, i32 0,  i32 8
 ; CHECK: [[BASE:%[a-zA-Z0-9]+]] = load [4 x i64]** [[GEP0]]
 ; CHECK: [[GEP1:%[a-zA-Z0-9]+]] = getelementptr [4 x i64]* [[BASE]], i64 %WI, i32 2
 ; CHECK: %NewLocalID_2 = load i64* [[GEP1]]
