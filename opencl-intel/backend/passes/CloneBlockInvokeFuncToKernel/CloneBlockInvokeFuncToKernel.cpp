@@ -193,7 +193,7 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
 // compute block_literal size
 size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
 {
-  return 52;
+    return 64;
   assert(F->getArgumentList().size() == 1 && "Expected # of args == 1");
   
   // get 1st and only argument
