@@ -190,7 +190,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ImageCallbackServices.h
     debuggingservicewrapper.h
     opencl_printf_ext.h
-    ExtendedExecutionContext.h
     BlockLiteral.h
     RuntimeService.h
     IBlockToKernelMapper.h
