@@ -193,9 +193,6 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
 // compute block_literal size
 size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
 {
-    return 64;
-  assert(F->getArgumentList().size() == 1 && "Expected # of args == 1");
-  
   // get 1st and only argument
   Argument *blockLiteralPtr  = F->getArgumentList().begin();
   assert(blockLiteralPtr->getType()->isPointerTy());
@@ -207,19 +204,20 @@ size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
   PointerType *pPTy = dyn_cast<PointerType>(pBC->getDestTy());
   assert( pPTy && "expected bitcast to pointer type");
   
-  StructType * pStructType = dyn_cast<StructType>(pPTy->getPointerElementType());
-  assert( pStructType && "expected bitcast to struct type");
+  StructType * pStructBlockLiteralTy = dyn_cast<StructType>(pPTy->getPointerElementType());
+  assert( pStructBlockLiteralTy && "expected bitcast to struct type");
 
   unsigned int const BLOCK_DESCRIPTOR_INDX = 4;
-  PointerType *pBlockDescPtr = dyn_cast<PointerType>(pStructType->getElementType(BLOCK_DESCRIPTOR_INDX));
+  PointerType *pBlockDescPtr = dyn_cast<PointerType>(pStructBlockLiteralTy->getElementType(BLOCK_DESCRIPTOR_INDX));
   assert( pBlockDescPtr && "expected pointer field");
 
   StructType * pBlockDescTy = dyn_cast<StructType>(pBlockDescPtr->getPointerElementType());
   assert( pBlockDescTy && "expected struct");
 
   // sum block_literal itself and block_descriptor size
-  return static_cast<size_t>(m_pTD->getStructLayout(pStructType)->getSizeInBytes() + 
-    m_pTD->getStructLayout(pBlockDescTy)->getSizeInBytes() );
+  //return static_cast<size_t>(m_pTD->getStructLayout(pStructType)->getSizeInBytes() + 
+//    m_pTD->getStructLayout(pBlockDescTy)->getSizeInBytes() );
+  return static_cast<size_t>(m_pTD->getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
 }
 
 } // namespace intel

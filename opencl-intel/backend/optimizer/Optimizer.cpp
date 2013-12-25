@@ -234,7 +234,10 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   if (isOcl20) {
     // OCL2.0 resolve block to static call
     PM.add(createResolveBlockToStaticCallPass());
+    // clone block_invoke functions to kernels
+    PM.add(createCloneBlockInvokeFuncToKernelPass());
   }
+  
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
     if (OptLevel == 1)
@@ -338,12 +341,6 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
   PM.add(llvm::createBasicAliasAnalysisPass());
 
-  if (isOcl20) {
-    // OCL2.0 Extexecution.
-    // clone block_invoke functions to kernels
-    PM.add(createCloneBlockInvokeFuncToKernelPass());
-  }
-  
   // Should be called before vectorizer!
   PM.add((llvm::Pass*)createInstToFuncCallPass(HasGatherScatter));
 
