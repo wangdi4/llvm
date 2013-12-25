@@ -281,6 +281,7 @@ endif ()
 project(OCL)
 
 # GIT
+set( BUILDVER_WC_REVISION 0)
 if (GIT_REVISIONS)
     find_package(Git REQUIRED)
     execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --long
@@ -288,20 +289,11 @@ if (GIT_REVISIONS)
                     OUTPUT_VARIABLE GIT_DESCRIPTION)
     STRING(REGEX MATCH ".+-([0-9]*)-[0-9a-zA-Z]+" GIT_VERSION ${GIT_DESCRIPTION})
     math(EXPR BUILDVER_WC_REVISION "0 + ${CMAKE_MATCH_1}")
-	
-	set (git_cmd_version "git")
-	set (git_arg_1 "log")
-	set (git_arg_2 "-1")
-	set (git_arg_3 "--format=%H")
-	set (git_ver_v 0)
-	execute_process(COMMAND ${GIT_EXECUTABLE} ${git_arg_1} ${git_arg_2} ${git_arg_3}
-		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-		RESULT_VARIABLE git_result_v
-		OUTPUT_VARIABLE git_ver_v)		
-	set(GIT_REVISION ${git_ver_v})
-	file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}DESCRIBE=${GIT_DESCRIPTION}")
-else ()
-    set( BUILDVER_WC_REVISION 0)
+
+    execute_process(COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                    OUTPUT_VARIABLE GIT_REVISION)
+    file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}DESCRIBE=${GIT_DESCRIPTION}")
 endif (GIT_REVISIONS)
 message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
 
@@ -580,7 +572,7 @@ else (WIN32)
     install(FILES setup/llvm_release_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/apache_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/boost_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
 
     install(FILES setup/bom_files/installer_content_linux.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
