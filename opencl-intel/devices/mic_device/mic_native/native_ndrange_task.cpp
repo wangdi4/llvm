@@ -57,7 +57,7 @@ void execute_command_ndrange(uint32_t        in_BufferCount,
                             void*            in_pReturnValue,
                             uint16_t         in_ReturnValueLength)
 {
-	MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "%s", "[MIC SERVER] enter execute_NDRange");
+    MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "%s", "[MIC SERVER] enter execute_NDRange");
     assert( in_ReturnValueLength == 0 && "We should not return value for command");
     assert( in_MiscDataLength >= sizeof(ndrange_dispatcher_data) && "Size of input MiscData doesn't match");
 
@@ -83,7 +83,7 @@ void execute_command_ndrange(uint32_t        in_BufferCount,
     }
 
     *((cl_dev_err_code*)in_pReturnValue) = err;
-	MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "%s", "[MIC SERVER] exit execute_NDRange");
+    MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "%s", "[MIC SERVER] exit execute_NDRange");
 }
 
 NDRangeTask::NDRangeTask( uint32_t lockBufferCount, void** pLockBuffers, ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize ) :
@@ -255,7 +255,7 @@ if ( gMicGPAData.bUseGPA)
     // Set kernel name for the tracer.
     commandTracer().set_kernel_name((char*)(m_kernel->GetKernelName()));
 #endif
-	
+
 #ifdef ENABLE_MIC_TRACER
     unsigned int i = 0;
     for (i = 0; i < m_dim; ++i)
@@ -272,7 +272,7 @@ if ( gMicGPAData.bUseGPA)
         // Set WG size in dimension "i" for the tracer.
         commandTracer().set_work_group_size(0, i);
     }
-#endif		
+#endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )

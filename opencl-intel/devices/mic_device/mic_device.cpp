@@ -919,18 +919,30 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
     \retval     CL_DEV_SUCCESS          If function is executed successfully.
     \retval     CL_DEV_ERROR_FAIL        If function failed to figure the IDs of the devices.
 */
+#ifdef __INCLUDE_MKL__
+#define REGISTER_MKL_FUNCTION(MKL_FUNCTION_NAME,MKL_CLASS_TYPE,DATA_TYPE)\
+          extern "C" void MKL_FUNCTION_NAME(void) { assert(0&&"empty function"); }
+
+#include "../common/mkl_kernels/mkl_kernels.inc"
+#ifdef __OMP2TBB__
+REGISTER_MKL_FUNCTION(__kmpc_begin, void, void)
+REGISTER_MKL_FUNCTION(__kmpc_end, void, void)
+REGISTER_MKL_FUNCTION(__omp2tbb_set_thread_max_concurency, void, void)
+#endif
+#endif
+
 extern "C" cl_dev_err_code clDevInitDeviceAgent(void)
 {
     if (!MICDevice::loadingInit())
-	{
-		return CL_DEV_ERROR_FAIL;
-	}
+    {
+        return CL_DEV_ERROR_FAIL;
+    }
 
 #ifdef __INCLUDE_MKL__
     // TODO: Need to check if MKL library exists on the machine
     // currently we assume that it's always exists
 
-    bool bMKLinit = Intel::OpenCL::MKLKernels::InitProxyLibrary();
+    bool bMKLinit = Intel::OpenCL::MKLKernels::InitLibrary<false>();
     MICSysInfo::getInstance().getMicDeviceConfig().SetUseMKL(bMKLinit);
 #endif
     return CL_DEV_SUCCESS;

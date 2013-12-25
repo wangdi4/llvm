@@ -32,6 +32,8 @@ File Name:  OpenCLCPUBackendRunner.cpp
 #include "BinaryDataWriter.h"
 #include "BufferContainerList.h"
 
+#include "DataVersion.h"
+
 #include <cstdio>
 #include <cassert>
 #include <vector>
@@ -203,7 +205,7 @@ public:
         size_t sizetMaxWorkDim = sizeof(size_t)*MAX_WORK_DIM;
 
         memcpy(pKernelArgs->GlobalOffset, workInfo.globalWorkOffset, sizetMaxWorkDim); // Filled by the runtime
-        
+
         memcpy(pKernelArgs->GlobalSize, workInfo.globalWorkSize, sizetMaxWorkDim); // Filled by the runtime
 
         pKernelArgs->LocalIDIndicesRequiredSize = 0; // Updated by the BE, contains size of local index buffer
@@ -222,10 +224,12 @@ public:
         pKernelArgs->WGLoopIterCount = 0;// Updated by the BE
         pKernelArgs->WorkDim = workInfo.workDimension; // Filled by the runtime
 
-       
         m_pKernelRunner = pKernel->GetKernelRunner();
 
         m_pKernelRunner->PrepareKernelArguments((void*)(m_pArgumentBuffer.get()), 0, 0);
+
+        //local group size calculated by PrepareKernelArguments (using heuristic)
+        memcpy(m_LocalSize, pKernelArgs->LocalSize, sizetMaxWorkDim);
 
 
         if ( 0 != pKernelArgs->LocalIDIndicesRequiredSize ) {
@@ -262,6 +266,11 @@ public:
         m_stAlignedKernelParamSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(m_stKernelParamSize);
     }
 
+    // Returns the actual number of Work Items handled by each executable instance
+    const size_t* GetWorkGroupSize() const
+    {
+        return m_LocalSize;
+    }
 
     unsigned int GetVectorSize()
     {
@@ -358,6 +367,9 @@ private:
     size_t                  m_stWIidsBufferSize;
     std::vector<size_t>     m_kernelLocalMemSizes;
     BlockLiteral *          m_pBlockLiteral;
+
+    //work group size
+    size_t                  m_LocalSize[MAX_WORK_DIM];
 };
 
 
@@ -566,6 +578,8 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
     FillIgnoreList(ignoreList, pKernelArgs, kernelNumArgs);
     runResult->SetComparatorIgnoreList(kernelName.c_str(), ignoreList);
 
+    DataVersion::ConvertData(&input, m_pModule->getNamedMetadata("opencl.kernels"), kernelName);
+
     // Create the argument buffer
     OpenCLArgsBuffer argsBuffer(pKernelArgs, kernelNumArgs, &input, pImageService,
             !pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
@@ -581,9 +595,9 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
     // init the work group regions
     for (size_t i=0; i < dim; ++i)
     {
-        regions[i] = (size_t)( pKernelConfig->GetGlobalWorkSize()[i] / workInfo.localWorkSize[i]);
+        regions[i] = (size_t)( pKernelConfig->GetGlobalWorkSize()[i] / spContext.GetWorkGroupSize()[i]);
         //TODO: for non-uniform WG size it may not be true
-        assert( pKernelConfig->GetGlobalWorkSize()[i] % workInfo.localWorkSize[i] == 0);
+        assert( pKernelConfig->GetGlobalWorkSize()[i] % spContext.GetWorkGroupSize()[i] == 0  && "Global work size is not multiple of work group size" );
     }
 
     // Note:

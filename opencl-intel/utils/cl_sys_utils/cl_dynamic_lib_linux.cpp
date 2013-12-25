@@ -36,6 +36,20 @@ using namespace Intel::OpenCL::Utils;
 
 IAtExitCentralPoint* OclDynamicLib::m_atexit_fn = NULL;
 
+// Get function pointer from library handle
+OclDynamicLib::func_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary, const char* szFuncName)
+{
+    //clear errors
+    dlerror();
+    void* func = dlsym(hLibrary, szFuncName);
+    const char * error;
+    if ((error = dlerror()) != NULL)  {
+        return NULL;
+    }
+
+    return (func_t)(ptrdiff_t)func;
+}
+
 OclDynamicLib::OclDynamicLib(bool bUnloadOnDestructor) :
     m_hLibrary(NULL), m_bUnloadOnDestructor(bUnloadOnDestructor)
 {
@@ -121,21 +135,21 @@ void OclDynamicLib::Close()
 unsigned int OclDynamicLib::GetNumberOfFunctions() const
 {
     assert(0 && "Not implemented on Linux");
-        return 0;        
+    return 0;
 }
 
 // Returns a pointer to function name
 const char* OclDynamicLib::GetFunctionName(unsigned int uiFuncId) const
 {
     assert(0 && "Not implemented on Linux");
-        return NULL;
+    return NULL;
 }
 
 // Returns a function pointer
 const void* OclDynamicLib::GetFunctionPtr(unsigned int uiFuncId) const
 {
     assert(0 && "Not implemented on Linux");
-        return NULL;
+    return NULL;
 }
 
 // Returns a function pointer

@@ -19,6 +19,8 @@
 #include "llvm/Support/Dwarf.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "google/protobuf/text_format.h"
 #include <string>
 #include <deque>
@@ -56,10 +58,10 @@ void LOG_RECEIVED_MESSAGE(const ClientToServerMessage& msg)
 // On success, return true and place the value in 'value'.
 // On failure, return false.
 //
-bool get_reg_value_string(HKEY top_hkey, 
-                          const string& path,
-                          const string& value_name,
-                          string& value)
+static bool get_reg_value_string(HKEY top_hkey, 
+                                 const string& path,
+                                 const string& value_name,
+                                 string& value)
 {
     const DWORD DATABUF_SIZE = 2048;
     CHAR databuf[DATABUF_SIZE] = {0};
@@ -98,13 +100,43 @@ bool get_reg_value_string(HKEY top_hkey,
     return false;
 }
 
+static void strToLower(string& str)
+{
+    transform(str.begin(), str.end(), str.begin(), ::tolower);
+}
 
 // Get the PID of the current process as a string
 //
-string get_my_pid_string()
+static string get_my_pid_string()
 {
     return stringify(GetCurrentProcessId());
 }
+
+// Resolves the absolute path (strips /, .. and .\)
+// for the given dir and file name.
+//
+static string getAbsPath(string file, string dir)
+{
+    string concat_path(dir);
+    concat_path += '\\';
+    concat_path += file;
+    string path = sys::fs::exists(concat_path) ? concat_path : file;
+
+    char absPath[MAX_PATH] = {0};
+    char* res = _fullpath(absPath, path.c_str(), MAX_PATH);
+    if (NULL == res)
+    {
+        return file;
+    }
+
+    string absPathStr(absPath);
+    strToLower(absPathStr);
+    // the breakpoints database we have contains paths with forward
+    // slashes only, therefore we need to be consistent with it
+    replace(absPathStr.begin(), absPathStr.end(), '\\', '/');
+    return absPathStr;
+}
+
 
 #endif // _WIN32
 
@@ -311,7 +343,14 @@ void DebugServer::DebugServerImpl::RegisterBreakpoints(const ClientToServerMessa
     m_breakpoints.clear();
     for (int i = 0; i < run_msg.run_msg().breakpoints_size(); ++i) {
         const LineInfo& msg_lineinfo = run_msg.run_msg().breakpoints(i);
-        m_breakpoints.insert(make_pair(msg_lineinfo.file(), msg_lineinfo.lineno()));
+        string filename = msg_lineinfo.file();
+#ifdef _WIN32
+        strToLower(filename);
+#endif
+        m_breakpoints.insert(make_pair(filename, msg_lineinfo.lineno()));
+        stringstream ss;
+        ss << "Registered " << filename << ":" << msg_lineinfo.lineno() << "\n";
+        DEBUG_SERVER_LOG(ss.str());
     }
     DEBUG_SERVER_LOG("Registered " + stringify(m_breakpoints.size()) + " breakpoints");
 }
@@ -817,13 +856,28 @@ void DebugServer::Stoppoint(const MDNode* line_metadata)
     StringRef dir = loc.getDirectory();
     unsigned lineno = loc.getLineNumber();
 
+#ifdef _WIN32
+    // Resolve full path.
+    // This is required when .cl files include other .cl files,
+    // In which case the "file" argument contains only relative path
+    // while our breakpoints database deals with absolute paths.
+    string absPath = getAbsPath(file, dir);
+#else
+    string absPath = file;
+#endif
+
     d->m_prev_stoppoint_line = line_metadata;
     bool stopped = false;
 
-    if (d->HasBreakpointAt(file, lineno)) {
+
+    if (d->HasBreakpointAt(absPath, lineno))
+    {
         // If there's a breakpoint here, stop anyway, no matter in which 
         // running state we are.
         //
+        stringstream ss;
+        ss << "Breakpoint hit at " << absPath << ":" << lineno << "\n";
+        DEBUG_SERVER_LOG(ss.str());
         stopped = true;
     }
     else {

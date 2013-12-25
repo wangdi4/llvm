@@ -641,6 +641,7 @@ cl_dev_err_code ProgramService::CreateBuiltInKernelProgram( const char* IN szBui
         return CL_DEV_OUT_OF_MEMORY;
     }
 
+    pEntry->pProgram = pProg;
     // Now we need to create a program on device side
     err = CreateBuiltinProgramOnDevice(pEntry, szBuiltInNames);
 
@@ -1497,7 +1498,7 @@ cl_dev_err_code ProgramService::CreateBuiltinProgramOnDevice(TProgramEntry* pEnt
         return CL_DEV_ERROR_FAIL;
     }
 
-    pEntry->copy_to_device_ok = true;
+    pEntry->copy_to_device_ok = FillProgramEntry(output, pEntry);
 
     STACK_FREE(output);
 
@@ -1532,21 +1533,13 @@ bool ProgramService::FillProgramEntry(const COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT
 
         if ( CL_DEV_SUCCEEDED(err_code) && (NULL != kernel_entry->pKernel) )
         {
-            if ( kernel_entry->pKernel->GetKernelID() != info->kernel_id )
-            {
-                assert( 0 && "Kernel IDs are the same on host and device" );
-                MicErrLog(m_pLogDescriptor, m_iLogHandle,
-                    TEXT("MICDevice: Kernel ID on teh device(%lld) and the host(%lld) don't match."),
-                    info->kernel_id, kernel_entry->pKernel->GetKernelID());
-                return false;
-            }
+            kernel_entry->uDevKernelEntry = info->device_info_ptr; // to be updated later
             // insert entry to the TKernelName2Entry map
             pEntry->mapName2Kernels[ kernel_entry->pKernel->GetKernelName() ] = kernel_entry;
 
             // insert entry to the TKernelId2Entry map
             pEntry->mapId2Kernels[ kernel_entry->pKernel->GetKernelID() ] = kernel_entry;
 
-            kernel_entry->uDevKernelEntry = info->device_info_ptr; // to be updated later
         }
     }
 

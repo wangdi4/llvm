@@ -3,9 +3,9 @@ Base {
         clDevCreateDeviceInstance;
         clDevGetDeviceInfo;
         clDevErr2Txt;
-	clDevGetAvailableDeviceList;
-	clDevInitDeviceAgent;
-	RegisterGlobalAtExitNotification;
+        clDevGetAvailableDeviceList;
+        clDevInitDeviceAgent;
+        RegisterGlobalAtExitNotification;
     local:
         *;
 };

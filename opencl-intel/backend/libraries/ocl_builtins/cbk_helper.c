@@ -61,10 +61,42 @@ typedef void (*__SOA4_Image_I_COORD_CBK) (__private void*, int4, int4, __private
 typedef void (*__SOA8_Image_I_COORD_CBK) (__private void*, int8, int8, __private int8*, __private int8*);
 
 
-__Image_I_COORD_CBK const constant coord_translate_i_callback[32] = {
-    trans_coord_int_NONE_FALSE_NEAREST,
-    trans_coord_int_NONE_FALSE_NEAREST,
-    trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST,
+__Image_I_COORD_CBK const constant coord_translate_i_callback[CBK_ARRAY_SIZE] = {
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_NONE_FALSE_NEAREST,          // 0x10 == NONE_FALSE_NEAREST
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST,   // 0x12 == CLAMPTOEDGE_FALSE_NEAREST
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_NONE_FALSE_NEAREST,          // 0x14 == CLAMP_FALSE_NEAREST
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
+    trans_coord_int_UNDEFINED,
     trans_coord_int_UNDEFINED,
     trans_coord_int_UNDEFINED,
     trans_coord_int_UNDEFINED,
@@ -96,10 +128,42 @@ __Image_I_COORD_CBK const constant coord_translate_i_callback[32] = {
     trans_coord_int_UNDEFINED
 };    //the list of integer coordinate translation callback
 
-__SOA4_Image_I_COORD_CBK const constant soa4_coord_translate_i_callback[32] = {
-    soa4_trans_coord_int_NONE_FALSE_NEAREST,
-    soa4_trans_coord_int_NONE_FALSE_NEAREST,
-    soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST,
+__SOA4_Image_I_COORD_CBK const constant soa4_coord_translate_i_callback[CBK_ARRAY_SIZE] = {
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_NONE_FALSE_NEAREST,          // 0x10 == NONE_FALSE_NEAREST
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST,   // 0x12 == CLAMPTOEDGE_FALSE_NEAREST
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_NONE_FALSE_NEAREST,          // 0x14 == CLAMP_FALSE_NEAREST
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
+    soa4_trans_coord_int_UNDEFINED,
     soa4_trans_coord_int_UNDEFINED,
     soa4_trans_coord_int_UNDEFINED,
     soa4_trans_coord_int_UNDEFINED,
@@ -131,10 +195,42 @@ __SOA4_Image_I_COORD_CBK const constant soa4_coord_translate_i_callback[32] = {
     soa4_trans_coord_int_UNDEFINED
 };    //the list of soa4 integer coordinate translation callback
 
-__SOA8_Image_I_COORD_CBK const constant soa8_coord_translate_i_callback[32] = {
-    soa8_trans_coord_int_NONE_FALSE_NEAREST,
-    soa8_trans_coord_int_NONE_FALSE_NEAREST,
-    soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST,
+__SOA8_Image_I_COORD_CBK const constant soa8_coord_translate_i_callback[CBK_ARRAY_SIZE] = {
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_NONE_FALSE_NEAREST,          // 0x10 == NONE_FALSE_NEAREST
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_CLAMPTOEDGE_FALSE_NEAREST,   // 0x12 == CLAMPTOEDGE_FALSE_NEAREST
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_NONE_FALSE_NEAREST,          // 0x14 == CLAMP_FALSE_NEAREST
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
+    soa8_trans_coord_int_UNDEFINED,
     soa8_trans_coord_int_UNDEFINED,
     soa8_trans_coord_int_UNDEFINED,
     soa8_trans_coord_int_UNDEFINED,
@@ -168,79 +264,78 @@ __SOA8_Image_I_COORD_CBK const constant soa8_coord_translate_i_callback[32] = {
 
 
 Image_I_COORD_CBK const call_coord_translate_i_callback(int samplerIndex){
-return coord_translate_i_callback[samplerIndex];
+    return coord_translate_i_callback[samplerIndex];
 }
 SOA4_Image_I_COORD_CBK const call_soa4_coord_translate_i_callback(int samplerIndex){
-return soa4_coord_translate_i_callback[samplerIndex];
+    return soa4_coord_translate_i_callback[samplerIndex];
 }
 SOA8_Image_I_COORD_CBK const call_soa8_coord_translate_i_callback(int samplerIndex){
-return soa8_coord_translate_i_callback[samplerIndex];
+    return soa8_coord_translate_i_callback[samplerIndex];
 }
-
 
 int4   call_Image_F_COORD_CBK(__constant void* cbk, __private void* image, float4 coord) {
     __Image_F_COORD_CBK m_cbk = (__Image_F_COORD_CBK)cbk;
-return m_cbk(image, coord);
+    return m_cbk(image, coord);
 }
 
 float4 call_Image_FF_COORD_CBK(__constant void* cbk, __private void* image, float4 coord, __private int4* square0, __private int4* square1) {
     __Image_FF_COORD_CBK m_cbk = (__Image_FF_COORD_CBK)cbk;
-return m_cbk(image, coord, square0, square1);
+    return m_cbk(image, coord, square0, square1);
 }
 
 uint4  call_Image_UI_READ_CBK(__constant void *cbk, __private void* image, int4 coord, __private void* pData) {
     __Image_UI_READ_CBK m_cbk = (__Image_UI_READ_CBK)cbk;
-return m_cbk(image, coord, pData);
+    return m_cbk(image, coord, pData);
 }
 
 int4   call_Image_I_READ_CBK       (__constant void *cbk, __private void* image, int4 coord, __private void* pData) {
     __Image_I_READ_CBK m_cbk = (__Image_I_READ_CBK)cbk;
-return m_cbk(image, coord, pData);
+    return m_cbk(image, coord, pData);
 }
 
 float4 call_Image_F_READ_CBK       (__constant void *cbk, __private void* image, int4 square0, int4 square1, float4 coord, __private void* pData) {
     __Image_F_READ_CBK m_cbk = (__Image_F_READ_CBK)cbk;
-return m_cbk(image, square0, square1, coord, pData);
+    return m_cbk(image, square0, square1, coord, pData);
 }
 
 float4 call_Image_FI_READ_CBK      (__constant void *cbk, __private void* image, int4 coord, int4 dummy0, float4 dummy1, __private void* pData){
     __Image_FI_READ_CBK m_cbk = (__Image_FI_READ_CBK)cbk;
-return m_cbk(image, coord, dummy0, dummy1, pData);
+    return m_cbk(image, coord, dummy0, dummy1, pData);
 }
 void   call_Image_UI_WRITE_CBK     (__constant void *cbk, __private void* image, uint4 color){
     __Image_UI_WRITE_CBK m_cbk = (__Image_UI_WRITE_CBK)cbk;
     m_cbk(image, color);
-return;
+    return;
 }
 void   call_Image_I_WRITE_CBK      (__constant void *cbk, __private void* image, int4 color){
     __Image_I_WRITE_CBK m_cbk = (__Image_I_WRITE_CBK)cbk;
     m_cbk(image, color);
-return;
+    return;
 }
 void   call_Image_F_WRITE_CBK      (__constant void *cbk, __private void* image, float4 color){
     __Image_F_WRITE_CBK m_cbk = (__Image_F_WRITE_CBK)cbk;
     m_cbk(image, color);
-return;
+    return;
 }
 void   call_SOA4_Image_UI_READ_CBK (__constant void* cbk, __private void* image, int4 coord_x, int4 coord_y, __private void* pData, __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w){
     __SOA4_Image_UI_READ_CBK m_cbk = (__SOA4_Image_UI_READ_CBK)cbk;
     m_cbk(image, coord_x, coord_y, pData, res_x, res_y, res_z, res_w);
-return;
+    return;
 }
 void   call_SOA8_Image_UI_READ_CBK (__constant void* cbk, __private void* image, int8 coord_x, int8 coord_y, __private void* pData, __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w){
     __SOA8_Image_UI_READ_CBK m_cbk = (__SOA8_Image_UI_READ_CBK)cbk;
     m_cbk(image, coord_x, coord_y, pData, res_x, res_y, res_z, res_w);
-return;
+    return;
 }
 void   call_SOA4_Image_UI_WRITE_CBK(__constant void* cbk, __private void* p1, __private void* p2, __private void* p3, __private void* p4, uint4 val_x, uint4 val_y, uint4 val_z, uint4 val_w){
     __SOA4_Image_UI_WRITE_CBK m_cbk = (__SOA4_Image_UI_WRITE_CBK)cbk;
     m_cbk(p1, p2, p3, p4, val_x, val_y, val_z, val_w);
-return;
+    return;
 }
 void   call_SOA8_Image_UI_WRITE_CBK(__constant void* cbk, __private void* p0, __private void* p1, __private void* p2, __private void* p3, __private void* p4, __private void* p5, __private void* p6, __private void* p7, uint8 val_x, uint8 val_y, uint8 val_z, uint8 val_w){
     __SOA8_Image_UI_WRITE_CBK m_cbk = (__SOA8_Image_UI_WRITE_CBK)cbk;
     m_cbk(p0, p1, p2, p3, p4, p5, p6, p7, val_x, val_y, val_z, val_w);
-return;
+    return;
 }
 int4 call_Image_I_COORD_CBK      (__constant void* cbk, __private void* image, int4 coord){
     __Image_I_COORD_CBK m_cbk = (__Image_I_COORD_CBK)cbk;
@@ -249,10 +344,10 @@ int4 call_Image_I_COORD_CBK      (__constant void* cbk, __private void* image, i
 void call_SOA4_Image_I_COORD_CBK (__constant void* cbk, __private void* image, int4 coord_x, int4 coord_y, __private int4* translated_coord_x, __private int4* translated_coord_y){
     __SOA4_Image_I_COORD_CBK m_cbk = (__SOA4_Image_I_COORD_CBK)cbk;
     m_cbk(image, coord_x, coord_y, translated_coord_x, translated_coord_y);
-return;
+    return;
 }
 void call_SOA8_Image_I_COORD_CBK (__constant void* cbk, __private void* image, int8 coord_x, int8 coord_y, __private int8* translated_coord_x, __private int8* translated_coord_y){
     __SOA8_Image_I_COORD_CBK m_cbk = (__SOA8_Image_I_COORD_CBK)cbk;
     m_cbk(image, coord_x, coord_y, translated_coord_x, translated_coord_y);
-return;
+    return;
 }

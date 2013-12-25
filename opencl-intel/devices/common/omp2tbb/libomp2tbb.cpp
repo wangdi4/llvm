@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "libomp2tbb.h"
 #include <stdio.h>
+#include <assert.h>
 
 #include <tbb/task_scheduler_init.h>
 
@@ -92,3 +93,32 @@ extern "C" LIBOMP2TBB_API int omp_in_parallel()
 	return 0 == omp2tbb::get_current_team_concurency();
 }
 //////////////////////////////////////
+
+// Function that currently are not used, define just symbols in Linux
+#ifndef WIN32
+#define DECLARE_UNUSED_FUNCTION(func_name) extern "C" LIBOMP2TBB_API int func_name(void) { assert(0&&"Undefined function used"); return 0;}
+
+DECLARE_UNUSED_FUNCTION(__kmpc_ordered)
+DECLARE_UNUSED_FUNCTION(__kmpc_dispatch_next_4)
+DECLARE_UNUSED_FUNCTION(__kmpc_end_reduce_nowait)
+DECLARE_UNUSED_FUNCTION(__kmpc_dispatch_fini_8)
+DECLARE_UNUSED_FUNCTION(__kmpc_atomic_cmplx8_add)
+DECLARE_UNUSED_FUNCTION(__kmpc_atomic_float4_add)
+DECLARE_UNUSED_FUNCTION(__kmpc_dispatch_init_8)
+DECLARE_UNUSED_FUNCTION(ompc_set_nested)
+DECLARE_UNUSED_FUNCTION(__kmpc_for_static_init_8u)
+DECLARE_UNUSED_FUNCTION(omp_get_nested)
+DECLARE_UNUSED_FUNCTION(__kmpc_dispatch_fini_4)
+DECLARE_UNUSED_FUNCTION(__kmpc_atomic_float8_max)
+DECLARE_UNUSED_FUNCTION(__kmpc_reduce_nowait)
+DECLARE_UNUSED_FUNCTION(__kmpc_for_static_init_4)
+DECLARE_UNUSED_FUNCTION(__kmpc_flush)
+DECLARE_UNUSED_FUNCTION(__kmpc_dispatch_next_8)
+DECLARE_UNUSED_FUNCTION(__kmpc_atomic_float8_add)
+DECLARE_UNUSED_FUNCTION(__kmpc_atomic_float4_max)
+DECLARE_UNUSED_FUNCTION(__kmpc_dispatch_init_4)
+DECLARE_UNUSED_FUNCTION(__kmpc_end_ordered)
+DECLARE_UNUSED_FUNCTION(__kmpc_atomic_fixed8_add)
+DECLARE_UNUSED_FUNCTION(__kmpc_atomic_cmplx4_add)
+
+#endif

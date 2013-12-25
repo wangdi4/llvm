@@ -144,7 +144,8 @@ cl_channel_type ConvertChannelDataTypeFromIntelOCLToCL(const cl_channel_type& va
 
         const llvm::GenericValue& CoordGV = Args[1];
 
-        const uint32_t sampler = uint32_t(CL_DEV_SAMPLER_ADDRESS_NONE);
+        const uint32_t sampler =
+          uint32_t(CLK_ADDRESS_NONE | CLK_FILTER_NEAREST | CLK_NORMALIZED_COORDS_FALSE);
 
         // datatype of coordinates == float or int
         llvm::Type::TypeID CoordTy;

@@ -76,11 +76,10 @@ class IBuiltInKernel : public Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_
 {
 public:
 #ifndef __OMP2TBB__
-    virtual cl_dev_err_code Execute(cl_dev_cmd_param_kernel* pCmdParams, void* pParamBuffer, OMPExecutorThread* pThread) const = 0;
+    virtual cl_dev_err_code Execute(const void* pParamBuffer, OMPExecutorThread* pThread) const = 0;
 #else
-    virtual cl_dev_err_code Execute(cl_dev_cmd_param_kernel* pCmdParams, void* pParamBuffer) const = 0;
+    virtual cl_dev_err_code Execute(const Intel::OpenCL::TaskExecutor::ITaskList* pList, const void* pParamBuffer) const = 0;
 #endif
-    virtual size_t			GetParamSize() const = 0;
 };
 
 typedef cl_dev_err_code fn_BuiltInFunctionCreate(IBuiltInKernel* *ppBIKernel);

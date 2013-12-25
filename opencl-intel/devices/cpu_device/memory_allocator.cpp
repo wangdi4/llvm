@@ -107,9 +107,9 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 	assert(NULL != pRTMemObjService );
 
 	// Allocate memory for memory object
-	CPUDevMemoryObject*	pMemObj = new CPUDevMemoryObject(m_iLogHandle, m_pLogDescriptor, 
+	CPUDevMemoryObject*	pMemObj = new CPUDevMemoryObject(m_iLogHandle, m_pLogDescriptor,
 															node_id, flags,
-															format, 
+															format,
 															dim_count, dim,
 															pRTMemObjService, m_pImageService);
 	if ( NULL == pMemObj )
@@ -154,9 +154,9 @@ void* MemoryAllocator::CalculateOffsetPointer(void* pBasePtr, cl_uint dim_count,
 // CPUDevMemoryObject
 //-----------------------------------------------------------------------------------------------------
 
-CPUDevMemoryObject::CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor, 
+CPUDevMemoryObject::CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor,
 				   cl_dev_subdevice_id nodeId, cl_mem_flags memFlags,
-				   const cl_image_format* pImgFormat, 
+				   const cl_image_format* pImgFormat,
 				   size_t dimCount, const size_t* dim,
 				   IOCLDevRTMemObjectService* pRTMemObjService,
 				   ICLDevBackendImageService* pImageService):
@@ -178,8 +178,8 @@ m_pBackingStore(NULL),  m_pImageService(pImageService)
 	if ( NULL != pImgFormat )
 	{
 		// Convert from User to Kernel format
-		m_objDecr.format.image_channel_data_type = pImgFormat->image_channel_data_type - CL_SNORM_INT8;
-		m_objDecr.format.image_channel_order = pImgFormat->image_channel_order - CL_R;
+		m_objDecr.format.image_channel_data_type = pImgFormat->image_channel_data_type - CL_SNORM_INT8 + CLK_SNORM_INT8;
+		m_objDecr.format.image_channel_order = pImgFormat->image_channel_order - CL_R + CLK_R;
 	}
 	if ( 1 == dimCount )
 	{
@@ -284,7 +284,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjReleaseMappedRegion( cl_dev_cmd_p
 }
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem_flags, const size_t *origin,
-										   const size_t *size, 
+										   const size_t *size,
 										   IOCLDevRTMemObjectService IN *pBSService,
 										   IOCLDevMemoryObject** ppSubBuffer )
 {
@@ -306,7 +306,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
 	return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateBackingStore( 
+cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateBackingStore(
                             void* operation_handle, cl_dev_bs_update_state* pUpdateState )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjUpdateBackingStore enter"));
@@ -315,7 +315,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateBackingStore(
     return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateFromBackingStore( 
+cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateFromBackingStore(
                             void* operation_handle, cl_dev_bs_update_state* pUpdateState )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjUpdateFromBackingStore enter"));
@@ -339,7 +339,7 @@ CPUDevMemorySubObject::CPUDevMemorySubObject(cl_int iLogHandle, IOCLDevLogDescri
 {
 }
 
-cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size, 
+cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t *origin, const size_t *size,
                                             IOCLDevRTMemObjectService IN *pBSService)
 {
 	MEMCPY_S(&m_objDecr, sizeof(cl_mem_obj_descriptor), &m_pParent->m_objDecr, sizeof(cl_mem_obj_descriptor));
@@ -362,7 +362,7 @@ cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
 	m_memFlags = mem_flags;
 
     m_pRTMemObjService = pBSService;
-    
+
     cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
     assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) );
 
@@ -370,8 +370,8 @@ cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
     {
         CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetBackingStore failed"));
         return CL_DEV_ERROR_FAIL;
-    }    
-    
+    }
+
 	m_pBackingStore->AddPendency();
 
 	return CL_DEV_SUCCESS;

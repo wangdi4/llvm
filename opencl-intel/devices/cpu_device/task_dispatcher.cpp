@@ -232,10 +232,6 @@ TaskDispatcher::~TaskDispatcher()
     m_pOMPExecutionThread->Join();
     delete m_pOMPExecutionThread;
 #endif
-#if defined(__INCLUDE_MKL__) && defined(__OMP2TBB__)
-    // Initialize OpenMP over TBB library
-    __kmpc_end(NULL);
-#endif
 
     if (m_bTEActivated)
     {
@@ -287,10 +283,6 @@ cl_dev_err_code TaskDispatcher::init()
         return CL_DEV_OUT_OF_MEMORY;
     }
     m_pOMPExecutionThread->Start();
-#endif
-#if defined(__INCLUDE_MKL__) && defined(__OMP2TBB__)
-    // Initialize OpenMP over TBB library
-    __kmpc_begin(NULL, 0);
 #endif
     bool bInitTasksRequired = isDestributedAllocationRequired() || isThreadAffinityRequired();
 

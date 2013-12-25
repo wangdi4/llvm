@@ -18,7 +18,7 @@ include_directories( BEFORE ${OCL_SOURCE_DIR}/backend/ocl_cpu_backend/export
                             ${OCL_BINARY_DIR}
                             ../common/builtin_kernels
                     )
-                            
+
 if(WIN32)
     include_directories( AFTER
         ${OCL_SOURCE_DIR}/externals/gpa/include
@@ -51,22 +51,31 @@ add_definitions( -D__TBB_NO_IMPLICIT_LINKAGE=1 )
 #Support for built-in kernels
 list (APPEND LINK_LIBS  builtin_kernels device_commands)
 
-# Add MKL library integration    
+set(MKL_LINK_LIBS )
+# Add MKL library integration
 if (INCLUDE_MKL)
+    list (APPEND MKL_LINK_LIBS mkl_kernels)
     include_directories( BEFORE ../common/mkl_kernels/export )
     if( WIN32 )
-        list(APPEND LINK_LIBS ${MKL_DIR}/lib/${ICC_ARCH_DIR}/mkl_intel_ilp64.lib ${MKL_DIR}/lib/${ICC_ARCH_DIR}/mkl_intel_thread.lib ${MKL_DIR}/lib/${ICC_ARCH_DIR}/mkl_core.lib)
-    else( WIN32 )
-        list(APPEND LINK_LIBS ${MKL_DIR}/lib/${ICC_ARCH_DIR}/libmkl_rt.so pthread m )
+        link_directories( BEFORE ${MKL_DIR}/lib/${ICC_ARCH_DIR}/ )
+        list(APPEND MKL_LINK_LIBS mkl_intel_ilp64 mkl_intel_thread mkl_core)
+    else()
+        # Next to lines uses dynamic libraries from MKL. This to be resolved against linkage with static libraries
+        #link_directories( BEFORE ${MKL_DIR}/lib/${ICC_ARCH_DIR}/ )
+        #list(APPEND LINK_LIBS mkl_intel_ilp64 mkl_intel_thread mkl_core)
+        list(APPEND MKL_LINK_LIBS "-Wl,--start-group ${MKL_DIR}/lib/${ICC_ARCH_DIR}/libmkl_intel_ilp64.a ${MKL_DIR}/lib/${ICC_ARCH_DIR}/libmkl_core.a ${MKL_DIR}/lib/${ICC_ARCH_DIR}/libmkl_intel_thread.a -Wl,--end-group")
+        list(APPEND MKL_LINK_LIBS dl pthread m)
     endif(WIN32)
     
     if(USE_OMP2TBB)
-        list(APPEND LINK_LIBS omp2tbb)
+        list(APPEND MKL_LINK_LIBS omp2tbb)
     else(USE_OMP2TBB)
-        list(APPEND LINK_LIBS ${ICC_DIR}/compiler/lib/${ICC_ARCH_DIR}/libiomp5md.lib)
+        if ( WIN32 )
+            list(APPEND MKL_LINK_LIBS ${ICC_DIR}/compiler/lib/${ICC_ARCH_DIR}/libiomp5md.lib)
+        else()
+            list(APPEND MKL_LINK_LIBS ${ICC_DIR}/compiler/lib/${ICC_ARCH_DIR}/libiomp5.so)
+        endif(WIN32)
     endif(USE_OMP2TBB)    
-    
-    list (APPEND LINK_LIBS mkl_kernels)
 endif(INCLUDE_MKL)
 
 FIND_SOURCES()
@@ -84,6 +93,16 @@ else (WIN32)
     SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cpu_device_linux_exports.txt )
 endif (WIN32)
 
+target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
+                                      cl_sys_utils
+                                      cl_logger
+                                      device_commands
+                                      task_executor${BUILD_PLATFORM}
+                                      ${LINK_LIBS})
+if (INCLUDE_MKL)
+    target_link_libraries( ${TARGET_NAME} LINK_PRIVATE ${MKL_LINK_LIBS})
+endif(INCLUDE_MKL)
+
 install( TARGETS ${TARGET_NAME}     
             RUNTIME DESTINATION bin
             ARCHIVE DESTINATION lib
@@ -91,13 +110,6 @@ install( TARGETS ${TARGET_NAME}
 
 #COPY_GENERATED_FILES_POST_BUILD( ${TARGET_NAME} ${FILES_TO_COPY} )
 
-target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
-                                      cl_sys_utils
-                                      cl_logger
-                                      device_commands
-                                      task_executor${BUILD_PLATFORM}
-                                      ${LINK_LIBS} )
-                                      
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
 
 if (WIN32)
@@ -122,5 +134,10 @@ if (WIN32)
     if (INSTALL_PDBS)    
         install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}.pdb DESTINATION bin)
     endif(INSTALL_PDBS)
+else(WIN32)
+    if ( INCLUDE_MKL )
+        #need explicitly set the full path to prevent failure in cpu_device_type compilation
+        set_property( TARGET ${TARGET_NAME} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-z,defs" )
+    endif( INCLUDE_MKL )
 endif(WIN32)
 

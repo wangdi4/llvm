@@ -66,7 +66,7 @@ cl_err_code Sampler::Initialize(SharedPtr<Context> pContext, cl_bool bNormalized
 
 	// Set normalized coords
 	m_bNormalizedCoords = bNormalizedCoords;
-	m_clSamlerProps |= bNormalizedCoords ? CL_DEV_SAMPLER_NORMALIZED_COORDS_TRUE : CL_DEV_SAMPLER_NORMALIZED_COORDS_FALSE;
+	m_clSamlerProps |= bNormalizedCoords ? CLK_NORMALIZED_COORDS_TRUE : CLK_NORMALIZED_COORDS_FALSE;
 
 
 	// Set Addressing Mode
@@ -74,19 +74,19 @@ cl_err_code Sampler::Initialize(SharedPtr<Context> pContext, cl_bool bNormalized
 	switch (clAddressingMode)
 	{
 	case CL_ADDRESS_NONE:
-		m_clSamlerProps |= CL_DEV_SAMPLER_ADDRESS_NONE;
+		m_clSamlerProps |= CLK_ADDRESS_NONE;
 		break;
 	case CL_ADDRESS_CLAMP_TO_EDGE:
-		m_clSamlerProps |= CL_DEV_SAMPLER_ADDRESS_CLAMP_TO_EDGE;
+		m_clSamlerProps |= CLK_ADDRESS_CLAMP_TO_EDGE;
 		break;
 	case CL_ADDRESS_CLAMP:
-		m_clSamlerProps |= CL_DEV_SAMPLER_ADDRESS_CLAMP;
+		m_clSamlerProps |= CLK_ADDRESS_CLAMP;
 		break;
 	case CL_ADDRESS_REPEAT:
-		m_clSamlerProps |= CL_DEV_SAMPLER_ADDRESS_REPEAT;
+		m_clSamlerProps |= CLK_ADDRESS_REPEAT;
 		break;
 	case CL_ADDRESS_MIRRORED_REPEAT:
-		m_clSamlerProps |= CL_DEV_SAMPLER_ADDRESS_MIRRORED_REPEAT;
+		m_clSamlerProps |= CLK_ADDRESS_MIRRORED_REPEAT;
 		break;
 	default:
 		return CL_INVALID_VALUE;
@@ -97,10 +97,10 @@ cl_err_code Sampler::Initialize(SharedPtr<Context> pContext, cl_bool bNormalized
 	switch (clFilterMode)
 	{
 	case CL_FILTER_NEAREST:
-		m_clSamlerProps |= CL_DEV_SAMPLER_FILTER_NEAREST;
+		m_clSamlerProps |= CLK_FILTER_NEAREST;
 		break;
 	case CL_FILTER_LINEAR:
-		m_clSamlerProps |= CL_DEV_SAMPLER_FILTER_LINEAR;
+		m_clSamlerProps |= CLK_FILTER_LINEAR;
 		break;
 	default:
 		return CL_INVALID_VALUE;
