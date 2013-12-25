@@ -17,8 +17,8 @@ entry:
   ret i32 %res
 }
 
-; CHECK:        declare void @__functionWithoutArgs_original() nounwind
-; CHECK:        declare i32 @__functionWithArgs_original(i32, i32) nounwind
+; CHECK:        declare void @__functionWithoutArgs_original() #0
+; CHECK:        declare i32 @__functionWithArgs_original(i32, i32) #0 
 
 ; CHECK:      define void @functionWithoutArgs(i8 addrspace(3)* noalias %pLocalMemBase,
 ; CHECK:          { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* noalias %pWorkDim
@@ -26,7 +26,7 @@ entry:
 ; CHECK:          [4 x i64] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
 ; CHECK:          i64* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) nounwind {
+; CHECK:          {}* noalias %RuntimeContext) #0 {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:     %x = add i32 100, 10
 ; CHECK-NEXT:     ret void
@@ -38,8 +38,10 @@ entry:
 ; CHECK:          [4 x i64] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
 ; CHECK:          i64* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) nounwind {
+; CHECK:          {}* noalias %RuntimeContext) #0 {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:   %temp = add i32 %x, 10
 ; CHECK-NEXT:   %res = mul i32 %temp, %y
 ; CHECK-NEXT:   ret i32 %res
+
+; CHECK: attributes #0 = { nounwind }
