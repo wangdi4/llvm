@@ -38,24 +38,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class Device;
     class FissionableDevice;
 
-	enum EDeviceProgramState
-	{
-        DEVICE_PROGRAM_INVALID,         // Invalid binary was specified
-		DEVICE_PROGRAM_CREATED,         // Object was just created
-		DEVICE_PROGRAM_BUILTIN_KERNELS,	// Program based on the built-in kernels
-		DEVICE_PROGRAM_SOURCE,		    // Source loaded
-		DEVICE_PROGRAM_FE_COMPILING,    // Currently compiling with FE compiler
-		DEVICE_PROGRAM_COMPILED,        // Compiled IR
+    enum EDeviceProgramState
+    {
+        DEVICE_PROGRAM_INVALID,         // Object was just created
+        DEVICE_PROGRAM_BUILTIN_KERNELS, // Program based on the built-in kernels
+        DEVICE_PROGRAM_SOURCE,          // Source loaded
+        DEVICE_PROGRAM_FE_COMPILING,    // Currently compiling with FE compiler
+        DEVICE_PROGRAM_COMPILED,        // Compiled IR
         DEVICE_PROGRAM_COMPILE_FAILED,  // Compilation failed
         DEVICE_PROGRAM_FE_LINKING,      // Currently linking with FE compiler
         DEVICE_PROGRAM_LINKED,          // Linked IR
         DEVICE_PROGRAM_LINK_FAILED,     // Linking failed
         DEVICE_PROGRAM_LOADED_IR,       // Loaded IR
-		DEVICE_PROGRAM_BE_BUILDING,	    // Currently building with BE compiler
-		DEVICE_PROGRAM_BUILD_DONE,      // Build complete, executable code ready
-		DEVICE_PROGRAM_CUSTOM_BINARY,   // Program contains device specific binary
+        DEVICE_PROGRAM_BE_BUILDING,     // Currently building with BE compiler
+        DEVICE_PROGRAM_BUILD_DONE,      // Build complete, executable code ready
+        DEVICE_PROGRAM_CUSTOM_BINARY,   // Program contains device specific binary
         DEVICE_PROGRAM_BUILD_FAILED     // Build failed
-	};
+    };
 
 	class DeviceProgram
 	{
