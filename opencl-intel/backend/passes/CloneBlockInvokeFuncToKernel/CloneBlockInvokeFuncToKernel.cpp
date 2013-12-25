@@ -194,7 +194,12 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
 size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
 {
   // get 1st and only argument
-  Argument *blockLiteralPtr  = F->getArgumentList().begin();
+  Function::arg_iterator ai = F->arg_begin();
+  Argument* blockLiteralPtr  = ai;
+  if ( blockLiteralPtr->hasStructRetAttr() ) {
+      ++ai;
+      blockLiteralPtr = ai;
+  }
   assert(blockLiteralPtr->getType()->isPointerTy());
   assert(blockLiteralPtr->hasOneUse() && "handle only one use of argument");
   
