@@ -1301,6 +1301,7 @@ void DeviceNDRange::InitCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevBacken
     arg_size += sizeof(cl_uniform_kernel_args);
 
     char* pAllocatedContext = (char*)ALIGNED_MALLOC(arg_size, alignment);
+    m_paramKernel.uiNonArgSvmBuffersCount = 0;
     m_paramKernel.arg_size = arg_size;
     m_paramKernel.arg_values = pAllocatedContext;
 
