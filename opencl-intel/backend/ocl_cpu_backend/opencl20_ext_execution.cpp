@@ -218,7 +218,7 @@ static int enqueue_kernel_common(
   const ICLDevBackendKernel_ * pKernel = pMapper->Map(key);
 
   // allocate context on stack or on heap. SmallVector
-  llvm::SmallVector<char, 256> pContext;
+  //llvm::SmallVector<char, 256> pContext;
 
   ///////////////////////////////////////////////////////////////////////
   // calculate context size
@@ -230,7 +230,7 @@ static int enqueue_kernel_common(
   // 
   
   // get block_literal size
-  const size_t block_literal_size = pBlockLiteral->GetBufferSizeForSerialization();
+  //const size_t block_literal_size = pBlockLiteral->GetBufferSizeForSerialization();
   // get size of block literal offset.
 //  const size_t block_literal_offs_size = sizeof(unsigned);
   
@@ -282,7 +282,7 @@ static int enqueue_kernel_common(
       pKernel, // const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*
                // pKernel
       pBlockLiteral,           // block literal structure as provided by clang
-      block_literal_size,      // size of block literal
+      pBlockLiteral->desc->size,  // size of block literal
       (size_t *)localbuf_size, // !!!! !!!!! This should be received as size_t
                                // from CLANG
       localbuf_size_len,       // !!!! size_t

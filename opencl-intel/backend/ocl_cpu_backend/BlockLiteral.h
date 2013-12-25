@@ -52,7 +52,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   ///     copy to another memory location
   /// All other usages are hidden to avoid misproper copy, create, etc ops
   struct BlockLiteral {
-  private:
+  public:
     /// initialized to &_NSConcreteStackBlock or &_NSConcreteGlobalBlock
     void *isa; 
     int flags;
