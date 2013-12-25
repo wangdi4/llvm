@@ -406,7 +406,7 @@ TEST_F(DataManagerDataTypes, DataTypesXMLReadWriteCheck) {
     }
 }
 
-TEST_F(DataManagerDataTypes, DataTypesBinaryReadWriteCheck) {
+TEST_F(DataManagerDataTypes, DISABLED_DataTypesBinaryReadWriteCheck) /* disabled : CSSD100018359 */ {
     const char INPUT_FILE_NAME[] = "testDataTypesXMLReadWriteCheck.bin";
     const char OUTPUT_FILE_NAME[] = "testDataTypesXMLReadWriteCheck.bin";
 
@@ -538,7 +538,7 @@ const int32_t  DataManagerContainerList::BufF32VectorWidth = 2;
 const int32_t  DataManagerContainerList::BufF32VectorsNum = DataBufF32Elems  / BufF32VectorWidth;
 
 
-TEST_F(DataManagerContainerList, BufferContainerListXMLReadWriteCheck) {
+TEST_F(DataManagerContainerList, DISABLED_BufferContainerListXMLReadWriteCheck) /* disabled : CSSD100018359 */ {
     const char INPUT_FILE_NAME[] = "testBufferContainerListXMLReadWriteCheck.xml";
     const char OUTPUT_FILE_NAME[] = "testBufferContainerListXMLReadWriteCheck.xml";
 
@@ -558,7 +558,7 @@ TEST_F(DataManagerContainerList, BufferContainerListXMLReadWriteCheck) {
     }
 }
 
-TEST_F(DataManagerContainerList, BufferContainerListBinaryReadWriteCheck) {
+TEST_F(DataManagerContainerList, DISABLED_BufferContainerListBinaryReadWriteCheck) /* disabled : CSSD100018359 */ {
     const char INPUT_FILE_NAME[] = "testBufferContainerListXMLReadWriteCheck.bin";
     const char OUTPUT_FILE_NAME[] = "testBufferContainerListXMLReadWriteCheck.bin";
 
@@ -659,7 +659,7 @@ TEST_F(DataManagerContainer, BufferContainerXMLReadWriteCheck) {
 }
 
 /// This test checks for creation/write/load multiple Buffer objects in BufferContainer object
-TEST_F(DataManagerContainer, BufferContainerBinaryReadWriteCheck) {
+TEST_F(DataManagerContainer, DISABLED_BufferContainerBinaryReadWriteCheck) /* disabled : CSSD100018359 */ {
     const char INPUT_FILE_NAME[] = "testBufferContainerXMLReadWriteCheck.bin";
     const char OUTPUT_FILE_NAME[] = "testBufferContainerXMLReadWriteCheck.bin";
 
@@ -739,7 +739,7 @@ TEST_F(DataManagerBuffer, BufferXMLReadWriteCheck) {
 
 }
 
-TEST_F(DataManagerBuffer, BufferBinaryReadWriteCheck) {
+TEST_F(DataManagerBuffer, DISABLED_BufferBinaryReadWriteCheck) /* disabled : CSSD100018359 */ {
     const char INPUT_FILE_NAME[] = "testBufferXMLReadWriteCheck.bin";
     const char OUTPUT_FILE_NAME[] = "testBufferXMLReadWriteCheck.bin";
 
@@ -931,7 +931,7 @@ TEST_F(DataManagerVector, VectorSizeXMLReadWriteCheck) {
     CheckValues(inp);
 }
 
-TEST_F(DataManagerVector, VectorSizeBinaryReadWriteCheck) {
+TEST_F(DataManagerVector, DISABLED_VectorSizeBinaryReadWriteCheck) /* disabled : CSSD100018359 */ {
     const char INPUT_FILE_NAME[] = "testVectorSizeXMLReadWriteCheck.bin";
     const char OUTPUT_FILE_NAME[] = "testVectorSizeXMLReadWriteCheck.bin";
 
@@ -1210,7 +1210,7 @@ TEST_F(DataManagerNEAT, NEATXMLReadWriteTest)
     CheckValues(inp);
 }
 
-TEST_F(DataManagerNEAT, NEATBinaryReadWriteTest)
+TEST_F(DataManagerNEAT, DISABLED_NEATBinaryReadWriteTest) /* disabled : CSSD100018359 */
 {
     const char INPUT_FILE_NAME[] = "NEATXMLReadWriteTest.bin";
     const char OUTPUT_FILE_NAME[] = "NEATXMLReadWriteTest.bin";
