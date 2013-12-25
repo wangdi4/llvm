@@ -152,44 +152,29 @@ namespace intel {
           pNewRes = updatePrintf(pCall);
           assert(pNewRes && "Expected updatePrintf to succeed");
           break;
-        case ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL:
-        case ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL:
-        case ICT_ENQUEUE_KERNEL_LOCALMEM:
-        case ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM: {
+        case ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM:
+        case ICT_ENQUEUE_KERNEL_LOCALMEM: {
           const VarArgsCallbackDesc *Desc =
               getVarArgsCallbackDesc(calledFuncType);
           if (!m_ExtExecDecls.count(calledFuncType)) {
             FunctionType *FT = 0;
-            switch (calledFuncType) {
-            default:
-              assert(false);
-            case ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL:
-            case ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL:
-              FT = getOrCreateGetKernelQueryFuncType(calledFuncType);
-              break;
-            case ICT_ENQUEUE_KERNEL_LOCALMEM:
-            case ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM:
-              FT = getOrCreateEnqueueKernelFuncType(calledFuncType);
-              break;
-            }
+            FT = getOrCreateEnqueueKernelFuncType(calledFuncType);
             addExternFunctionDeclaration(calledFuncType, FT,
                                          Desc->CallbackName);
           }
           // Copy all non-variadic call operands
           unsigned NonVariadicArgCount = Desc->NonVarArgCount;
-          if (!NonVariadicArgCount)
-            NonVariadicArgCount = pCall->getNumArgOperands();
           ExtExecArgs.append(pCall->op_begin(),
                              pCall->op_begin() + NonVariadicArgCount);
-          if (Desc->NeedToCopyOverVariadicArgs)
-            addLocalMemArgs(ExtExecArgs, pCall, NonVariadicArgCount);
+          addLocalMemArgs(ExtExecArgs, pCall, NonVariadicArgCount);
           // Add the RuntimeCallbacks arg
           ExtExecArgs.push_back(getOrCreateRuntimeCallbacks());
+          // Add the Block2KernelMapper arg
+          ExtExecArgs.push_back(getOrCreateBlock2KernelMapper());
           // Add the RuntimeHandle arg if needed
-          if (Desc->NeedRuntimeHandleArg)
-            ExtExecArgs.push_back(m_pRuntimeHandle);
+          ExtExecArgs.push_back(m_pRuntimeHandle);
           pNewRes =
-              updateExtExecFunction(ExtExecArgs, Desc->CallbackName, pCall);
+              updateEnqueueKernelFunction(ExtExecArgs, Desc->CallbackName, pCall);
           assert(pNewRes && "ExtExecution. Expected non-NULL results");
         } break;
         case ICT_PREFETCH:
@@ -440,7 +425,9 @@ namespace intel {
     SmallVector<Value*, 16> params;
     params.push_back(pCall->getArgOperand(0));
     params.push_back(ptr_to_buf);
-    appendWithCallBackContextAndRuntimeHandleValues(ICT_PRINTF, params, pCall);
+    Value *RuntimeInterface = getOrCreateRuntimeCallbacks();
+    params.push_back(RuntimeInterface);
+    params.push_back(m_pRuntimeHandle);
     CallInst *res = CallInst::Create(pFunc, params, "translated_opencl_printf_call", pCall);
     res->setDebugLoc(pCall->getDebugLoc());
     return res;
@@ -557,10 +544,6 @@ namespace intel {
         return ICT_ENQUEUE_KERNEL_LOCALMEM;
       if( CompilationUtils::isEnqueueKernelEventsLocalMem(calledFuncName))
         return ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
-      if( CompilationUtils::isGetKernelWorkGroupSizeLocal(calledFuncName))
-        return ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL;
-      if( CompilationUtils::isGetKernelPreferredWorkGroupSizeMultipleLocal(calledFuncName))
-        return ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL;
     }
     return ICT_NONE;
   }
@@ -574,21 +557,12 @@ namespace intel {
     return PointerType::getInt8PtrTy(*m_pLLVMContext, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
   }
 
-  Type * ResolveWICall::getClkProfilingInfo() const {
-    return IntegerType::get(*m_pLLVMContext, 32);
-  }
-
   Type * ResolveWICall::getKernelEnqueueFlagsType() const {
     return IntegerType::get(*m_pLLVMContext, 32);
   }
 
   Type * ResolveWICall::getNDRangeType() const {
     return PointerType::getInt8PtrTy(*m_pLLVMContext, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
-  }
-
-  Type * ResolveWICall::getBlockNoArgumentsType() const {
-    return PointerType::get(FunctionType::get(Type::getVoidTy(*m_pLLVMContext), 
-      false), 0);
   }
 
   Type * ResolveWICall::getBlockLocalMemType() const {
@@ -669,7 +643,7 @@ namespace intel {
   }
 
   Value *
-  ResolveWICall::updateExtExecFunction(SmallVectorImpl<Value *> &NewParams,
+  ResolveWICall::updateEnqueueKernelFunction(SmallVectorImpl<Value *> &NewParams,
                                        const StringRef FunctionName,
                                        CallInst *pCall) {
   // bitcast types from built-in argument type to type of callback function's
@@ -730,17 +704,19 @@ namespace intel {
   }
   return ret;
 }
-void ResolveWICall::appendWithCallBackContextAndRuntimeHandleTypes(
-    unsigned FuncType, SmallVectorImpl<Type *> &ArgTypes) {
-  ArgTypes.push_back(
-      m_IAA->getWorkGroupInfoMemberType(NDInfo::RUNTIME_INTERFACE));
-  if (NeedsRuntimeHandleParam(FuncType))
-    ArgTypes.push_back(m_pRuntimeHandle->getType());
-}
 
 void ResolveWICall::clearPerFunctionCache() {
   m_F = 0;
   m_RuntimeInterface = 0;
+  m_Block2KernelMapper = 0;
+}
+
+Value *ResolveWICall::getOrCreateBlock2KernelMapper() {
+  IRBuilder<> Builder(m_F->getEntryBlock().begin());
+  if (!m_Block2KernelMapper)
+    m_Block2KernelMapper = m_IAA->GenerateGetFromWorkInfo(
+        NDInfo::BLOCK2KERNEL_MAPPER, m_pWorkInfo, Builder);
+  return m_Block2KernelMapper;
 }
 
 Value *ResolveWICall::getOrCreateRuntimeCallbacks() {
@@ -751,29 +727,6 @@ Value *ResolveWICall::getOrCreateRuntimeCallbacks() {
   return m_RuntimeInterface;
 }
 
-void ResolveWICall::appendWithCallBackContextAndRuntimeHandleValues(
-    unsigned calledFuncType, SmallVectorImpl<Value *> &Args,
-    Instruction *InsertBefore) {
-  // Generate a pointer to the runtime callbacks table
-  Value *pRuntimeCallbacks = getOrCreateRuntimeCallbacks();
-  Args.push_back(pRuntimeCallbacks);
-  if (NeedsRuntimeHandleParam(calledFuncType))
-    Args.push_back(m_pRuntimeHandle);
-}
-
-  // The prototype of ocl20_enqueue_kernel_basic is:
-  // int ocl20_enqueue_kernel_basic(queue_t, int /*kernel_enqueue_flags_t*/, 
-  //            ndrange_t, void * /*block_literal ptr*/,  ExtendedExecutionContext * pEEC, void* RuntimeHandle)
-  //
-  // The prototype of ocl20_enqueue_kernel_events is:
-  // int ocl20_enqueue_kernel_events(queue_t, int /*kernel_enqueue_flags_t*/, 
-  //            ndrange_t, 
-  //            uint num_events_in_wait_list, clk_event_t *in_wait_list,
-  //            clk_event_t *event_ret,
-  //            void * /*block_literal ptr*/, 
-  //            ExtendedExecutionContext * pEEC)
-  //
-  //
   // The prototype of ocl20_enqueue_kernel_events is:
   // int ocl20_enqueue_kernel_events_localmem(queue_t*, int /*kernel_enqueue_flags_t*/, 
   //            ndrange_t, 
@@ -811,28 +764,13 @@ void ResolveWICall::appendWithCallBackContextAndRuntimeHandleValues(
     params.push_back(PointerType::get(getLocalMemBufType(), 0));
     // uint localbuf_size_len
     params.push_back(IntegerType::get(*m_pLLVMContext, 32));
-    appendWithCallBackContextAndRuntimeHandleTypes(type, params);
+    params.push_back(
+        m_IAA->getWorkGroupInfoMemberType(NDInfo::RUNTIME_INTERFACE));
+    params.push_back(
+        m_IAA->getWorkGroupInfoMemberType(NDInfo::BLOCK2KERNEL_MAPPER));
+    params.push_back(m_pRuntimeHandle->getType());
     // create function type
-    return FunctionType::get(getEnqueueKernelRetType(), // return type
-                             params, false);
-  }
-
-  FunctionType* ResolveWICall::getOrCreateGetKernelQueryFuncType(unsigned type)
-  {
-    // The prototype of ocl20_get_kernel_wg_size is:
-    // void ocl20_get_kernel_wg_size(void*, uint32_t, ExtendedExecutionContext * pEEC)
-    //
-    SmallVector<Type*, 16> params;
-    // void*
-    assert(type == ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL ||
-           type == ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL);
-    params.push_back(getBlockLocalMemType());
-    appendWithCallBackContextAndRuntimeHandleTypes(type, params);
-    // create function type
-    return FunctionType::get(
-      IntegerType::get(*m_pLLVMContext, 32), // return type
-      params,
-      false);
+    return FunctionType::get(getEnqueueKernelRetType(), params, false);
   }
 
   void ResolveWICall::addExternFunctionDeclaration(unsigned type,

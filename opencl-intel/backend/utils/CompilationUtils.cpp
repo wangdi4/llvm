@@ -63,24 +63,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_MEM_FENCE = "mem_fence";
   const std::string CompilationUtils::NAME_READ_MEM_FENCE = "read_mem_fence";
   const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
-  const std::string CompilationUtils::NAME_GET_DEFAULT_QUEUE = "get_default_queue";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_BASIC = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE";
-  const std::string CompilationUtils::NAME_NDRANGE_1D = "ndrange_1D";
-  const std::string CompilationUtils::NAME_NDRANGE_2D = "ndrange_2D";
-  const std::string CompilationUtils::NAME_NDRANGE_3D = "ndrange_3D";
+  // Extended execution var args OpenCL 2.x
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE";
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
-  const std::string CompilationUtils::NAME_ENQUEUE_MARKER = "enqueue_marker";
-  const std::string CompilationUtils::NAME_RETAIN_EVENT = "retain_event";
-  const std::string CompilationUtils::NAME_RELEASE_EVENT = "release_event";
-  const std::string CompilationUtils::NAME_CREATE_USER_EVENT = "create_user_event";
-  const std::string CompilationUtils::NAME_SET_USER_EVENT_STATUS = "set_user_event_status";
-  const std::string CompilationUtils::NAME_CAPTURE_EVENT_PROFILING_INFO = "capture_event_profiling_info";
-  const std::string CompilationUtils::NAME_GET_KERNEL_WG_SIZE = "_Z26get_kernel_work_group_sizeU13block_pointerFvvE";
-  const std::string CompilationUtils::NAME_GET_KERNEL_WG_SIZE_LOCAL = "_Z26get_kernel_work_group_sizeU13block_pointerFvPU3AS3vzEjz";
-  const std::string CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE = "_Z45get_kernel_preferred_work_group_size_multipleU13block_pointerFvvE";
-  const std::string CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE_LOCAL = "_Z45get_kernel_preferred_work_group_size_multipleU13block_pointerFvPU3AS3vzEjz";
 
   const std::string CompilationUtils::BARRIER_FUNC_NAME = "barrier";
   const std::string CompilationUtils::WG_BARRIER_FUNC_NAME = "work_group_barrier";
@@ -743,76 +728,12 @@ bool CompilationUtils::isPrefetch(const std::string& S){
   return isMangleOf(S, NAME_PREFETCH);
 }
 
-bool CompilationUtils::isNDRange_1D(const std::string& S){
-  return isMangleOf(S, NAME_NDRANGE_1D);
-}
-
-bool CompilationUtils::isNDRange_2D(const std::string& S){
-  return isMangleOf(S, NAME_NDRANGE_2D);
-}
-
-bool CompilationUtils::isNDRange_3D(const std::string& S){
-  return isMangleOf(S, NAME_NDRANGE_3D);
-}
-
-bool CompilationUtils::isEnqueueMarker(const std::string& S){
-  return isMangleOf(S, NAME_ENQUEUE_MARKER);
-}
-
-bool CompilationUtils::isGetDefaultQueue(const std::string& S){
-  return isMangleOf(S, NAME_GET_DEFAULT_QUEUE);
-}
-
-bool CompilationUtils::isEnqueueKernelBasic(const std::string& S){
-  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_BASIC);
-}
-
 bool CompilationUtils::isEnqueueKernelLocalMem(const std::string& S){
   return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM);
 }
 
-bool CompilationUtils::isEnqueueKernelEvents(const std::string& S){
-  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS);
-}
-
 bool CompilationUtils::isEnqueueKernelEventsLocalMem(const std::string& S){
   return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM);
-}
-
-bool CompilationUtils::isGetKernelWorkGroupSize(const std::string& S){
-  return (S == CompilationUtils::NAME_GET_KERNEL_WG_SIZE);
-}
-
-bool CompilationUtils::isGetKernelWorkGroupSizeLocal(const std::string& S){
-  return (S == CompilationUtils::NAME_GET_KERNEL_WG_SIZE_LOCAL);
-}
-
-bool CompilationUtils::isGetKernelPreferredWorkGroupSizeMultiple(const std::string& S){
-  return (S == CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE);
-}
-
-bool CompilationUtils::isGetKernelPreferredWorkGroupSizeMultipleLocal(const std::string& S){
-  return (S == CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE_LOCAL);
-}
-
-bool CompilationUtils::isRetainEvent(const std::string& S){
-    return isMangleOf(S, NAME_RETAIN_EVENT);
-}
-
-bool CompilationUtils::isReleaseEvent(const std::string& S){
-    return isMangleOf(S, NAME_RELEASE_EVENT);
-}
-
-bool CompilationUtils::isCreateUserEvent(const std::string& S){
-    return isMangleOf(S, NAME_CREATE_USER_EVENT);
-}
-
-bool CompilationUtils::isSetUserEventStatus(const std::string& S){
-    return isMangleOf(S, NAME_SET_USER_EVENT_STATUS);
-}
-
-bool CompilationUtils::isCaptureEventProfilingInfo(const std::string& S){
-    return isMangleOf(S, NAME_CAPTURE_EVENT_PROFILING_INFO);
 }
 
 bool CompilationUtils::isWorkGroupAll(const std::string& S) {

@@ -47,7 +47,7 @@ namespace intel {
     }
 
   protected:
-    Value* updateExtExecFunction(SmallVectorImpl<Value*> &Params, const StringRef FunctionName, CallInst *pCall);
+    Value* updateEnqueueKernelFunction(SmallVectorImpl<Value*> &Params, const StringRef FunctionName, CallInst *pCall);
     /// @brief Resolves the work item function calls of the kernel
     /// @param pFunc The function which needs it work item function calls to be resolved
     /// @returns The new function that all its work item function calls were resolved
@@ -133,8 +133,8 @@ namespace intel {
     ///@brief returns description of GetKernelWGSize and GerKernelPreferredWGSizeMultiple callbacks
     FunctionType* getOrCreateGetKernelQueryFuncType(unsigned type);
     // getBlockLiteralSize - Return size of block literal for F
-    FunctionType* getOrCreatePrintfFuncType();
     size_t getBlockLiteralSize(Function* F);
+    FunctionType* getOrCreatePrintfFuncType();
 
     ///@brief returns params List taken from pCall call
     ///!!! NOTE implicitly copies all pCall params to output
@@ -191,8 +191,10 @@ namespace intel {
     // Per function cached values
     Function *m_F;
     Value* m_RuntimeInterface;
+    Value* m_Block2KernelMapper;
     void clearPerFunctionCache();
-    Value* getOrCreateRuntimeCallbacks();
+    Value *getOrCreateRuntimeCallbacks();
+    Value *getOrCreateBlock2KernelMapper();
   };
 
   

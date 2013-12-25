@@ -66,10 +66,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ICT_ENQUEUE_KERNEL_LOCALMEM,
     // int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ?), uint size0, ?)
     ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM,
-    // uint get_kernel_work_group_size (void (^block)(local void *, ...))
-    ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL,
-    // uint get_kernel_preferred_work_group_size_multiple(void (^block)(local void *, ...));
-    ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL,
     ICT_NUMBER
  };
   static unsigned InternalCall2NDInfo(unsigned InternalCall) {

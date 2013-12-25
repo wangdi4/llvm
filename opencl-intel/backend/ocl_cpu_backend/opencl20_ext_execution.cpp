@@ -216,6 +216,10 @@ static int enqueue_kernel_common(
   void * key = pBlockLiteral->GetInvoke();
   // obtain Kernel object from mapper
   const ICLDevBackendKernel_ * pKernel = pMapper->Map(key);
+  SmallVector<size_t, 32> localbuf64_size(localbuf_size_len);
+  for (unsigned I=0; I<localbuf_size_len; ++I)
+    localbuf64_size[I] = localbuf_size[I];
+  size_t *localbuf_size_arg = localbuf_size_len ? &(localbuf64_size[0]) : 0;
 
   // allocate context on stack or on heap. SmallVector
   //llvm::SmallVector<char, 256> pContext;
@@ -283,7 +287,7 @@ static int enqueue_kernel_common(
                // pKernel
       pBlockLiteral,           // block literal structure as provided by clang
       pBlockLiteral->desc->size,  // size of block literal
-      (size_t *)localbuf_size, // !!!! !!!!! This should be received as size_t
+      localbuf_size_arg, // spec says its an array of uint
                                // from CLANG
       localbuf_size_len,       // !!!! size_t
       ndrange,                 // const cl_work_description_type* pNdrange
@@ -469,9 +473,12 @@ ocl20_get_kernel_wg_size(void *block, IDeviceCommandManager *DCM, const IBlockTo
 
   //logic taken from \cpu_device\program_service.cpp file ProgramService::GetKernelInfo function
   // SVN rev. 74469
-  ret = std::min<uint64_t>(
-      CPU_MAX_WORK_GROUP_SIZE,
-      (CPU_DEV_MAX_WG_PRIVATE_SIZE / pKernelProps->GetPrivateMemorySize()));
+  ret = CPU_MAX_WORK_GROUP_SIZE;
+  //TODO: Is this a good workaround for the case where GetPrivateMemorySize is zero?!
+  if (pKernelProps->GetPrivateMemorySize())
+    ret = std::min<uint64_t>(
+        CPU_MAX_WORK_GROUP_SIZE,
+        (CPU_DEV_MAX_WG_PRIVATE_SIZE / pKernelProps->GetPrivateMemorySize()));
   ret = ((uint64_t)1) << ((uint64_t)(logf((float)ret) / logf(2.f)));
 
   DEBUG(dbgs() << "ocl20_get_kernel_wg_size. Called GetKernelWorkGroupSize\n");

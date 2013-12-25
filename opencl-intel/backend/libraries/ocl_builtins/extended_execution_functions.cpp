@@ -11,19 +11,14 @@
 //                   const ndrange_t ndrange, uint num_events_in_wait_list,
 //                   const clk_event_t *event_wait_list, clk_event_t *event_ret,
 //                   void (^block)(local void *, ...), uint size0, ...);
-//uint __attribute__((overloadable))
-//    get_kernel_work_group_size(void (^block)(local void *, ...)) {
-//uint __attribute__((overloadable)) __attribute__((always_inline))
-//    get_kernel_preferred_work_group_size_multiple(void (^block)(local void *,
-//                                                                ...));
 
 // Upper bound on amount of var args that can be in a call
 #define MAX_VAR_ARGS_COUNT (32)
 
 ////////// - externals used for accessing values from kernel's implicit args
-extern void* __get_device_command_manager(void);
-extern void* __get_block_to_kernel_mapper(void);
-extern void* __get_runtime_handle(void);
+extern void* readonly __get_device_command_manager(void);
+extern void* readonly __get_block_to_kernel_mapper(void);
+extern void* readonly __get_runtime_handle(void);
 
 ////////// - enqueue_kernel
 extern int ocl20_enqueue_kernel_events(
@@ -74,8 +69,8 @@ int __attribute__((always_inline))
 }
 
 ////////// - get_default_queue
-extern queue_t ocl20_get_default_queue(void* DCM);
-queue_t __attribute__((always_inline)) get_default_queue(void) {
+extern queue_t readonly ocl20_get_default_queue(void *DCM);
+queue_t const_func __attribute__((always_inline)) get_default_queue(void) {
   void* DCM = __get_device_command_manager();
   return ocl20_get_default_queue(DCM);
 }
@@ -133,14 +128,14 @@ ndrange_t const_func __attribute__((overloadable))
 
 ndrange_t const_func __attribute__((overloadable))
     __attribute__((always_inline)) ndrange_3D(size_t global_work_size[3]) {
-  size_t global_work_offset[3];
-  size_t local_work_size[3];
+  size_t global_work_offset[3] = { 0, 0, 0 };
+  size_t local_work_size[3] = { 0, 0, 0 };
   return ndrange_3D(global_work_offset, global_work_size, local_work_size);
 }
 ndrange_t const_func __attribute__((overloadable))
     __attribute__((always_inline))
     ndrange_3D(size_t global_work_size[3], size_t local_work_size[3]) {
-  size_t global_work_offset[3];
+  size_t global_work_offset[3] = { 0, 0, 0 };
   return ndrange_3D(global_work_offset, global_work_size, local_work_size);
 }
 ndrange_t const_func __attribute__((overloadable))
@@ -162,28 +157,26 @@ ndrange_t const_func __attribute__((overloadable))
 }
 
 ////////// - retain_event, release_event, create_user_event, set_user_event_status, capture_event_profiling_info
-extern void ocl20_retain_event(clk_event_t event,
-                               void* DCM);
+extern void ocl20_retain_event(clk_event_t event, void *DCM);
 void __attribute__((always_inline)) retain_event(clk_event_t event) {
   void* DCM = __get_device_command_manager();
   return ocl20_retain_event(event, DCM);
 }
 
-extern void ocl20_release_event(clk_event_t event,
-                                void* DCM);
+extern void ocl20_release_event(clk_event_t event, void *DCM);
 void __attribute__((always_inline)) release_event(clk_event_t event) {
   void* DCM = __get_device_command_manager();
   return ocl20_release_event(event, DCM);
 }
 
-extern clk_event_t ocl20_create_user_event(void* * DCM);
+extern clk_event_t ocl20_create_user_event(void* DCM);
 clk_event_t __attribute__((always_inline)) create_user_event() {
   void* DCM = __get_device_command_manager();
   return ocl20_create_user_event(DCM);
 }
 
 extern void ocl20_set_user_event_status(clk_event_t event, uint status,
-                                        void* DCM);
+                                        void *DCM);
 void __attribute__((always_inline))
     set_user_event_status(clk_event_t event, int status) {
   void* DCM = __get_device_command_manager();
@@ -192,8 +185,7 @@ void __attribute__((always_inline))
 
 extern void ocl20_capture_event_profiling_info(clk_event_t event,
                                                clk_profiling_info name,
-                                               global ulong *value,
-                                               void* DCM);
+                                               global ulong *value, void *DCM);
 void __attribute__((always_inline))
     capture_event_profiling_info(clk_event_t event, clk_profiling_info name,
                                  global ulong *value) {
@@ -202,24 +194,35 @@ void __attribute__((always_inline))
 }
 
 ////////// - get_kernel_work_group_size
-extern uint ocl20_get_kernel_wg_size(void *block, void*,
-                                     void*);
+extern uint readonly
+ocl20_get_kernel_wg_size(void *block, void *DCM, void *B2K);
 uint __attribute__((overloadable)) __attribute__((always_inline))
-    get_kernel_work_group_size(void (^block)(void)) {
+    readonly get_kernel_work_group_size(void (^block)(void)) {
+  void* DCM = __get_device_command_manager();
+  void* B2K = __get_block_to_kernel_mapper();
+  return ocl20_get_kernel_wg_size(block, DCM, B2K);
+}
+uint __attribute__((overloadable)) __attribute__((always_inline))
+    readonly get_kernel_work_group_size(void (^block)(local void *, ...)) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   return ocl20_get_kernel_wg_size(block, DCM, B2K);
 }
 
 ////////// - get_kernel_preferred_work_group_size_multiple
-extern uint ocl20_get_kernel_preferred_wg_size_multiple(void *block,
-                                                        void*,
-                                                        void*);
+extern uint ocl20_get_kernel_preferred_wg_size_multiple(void *block, void *DCM,
+                                                        void *B2K);
 uint __attribute__((overloadable)) __attribute__((always_inline))
     get_kernel_preferred_work_group_size_multiple(void (^block)(void)) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   return ocl20_get_kernel_preferred_wg_size_multiple(block, DCM, B2K);
 }
-
+uint __attribute__((overloadable)) __attribute__((always_inline))
+    get_kernel_preferred_work_group_size_multiple(void (^block)(local void *,
+                                                                ...)) {
+  void* DCM = __get_device_command_manager();
+  void* B2K = __get_block_to_kernel_mapper();
+  return ocl20_get_kernel_preferred_wg_size_multiple(block, DCM, B2K);
+}
 #endif

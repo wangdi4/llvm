@@ -24,6 +24,7 @@
 // Optimizations
 
 #define const_func __attribute__((const))
+#define readonly __attribute__((pure))
 
 // built-in scalar data types:
 
@@ -14171,19 +14172,19 @@ int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel(
 
 int __attribute__((always_inline)) enqueue_marker(queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret);
 
-queue_t __attribute__((always_inline)) get_default_queue(void);
+queue_t const_func __attribute__((always_inline)) get_default_queue(void);
 
-ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_1D( size_t global_work_size);
-ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_1D( size_t global_work_size, size_t local_work_size);
-ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_1D( size_t global_work_offset, size_t global_work_size, size_t local_work_size);
+ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size);
+ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size, size_t local_work_size);
+ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_offset, size_t global_work_size, size_t local_work_size);
 
-ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_2D( size_t global_work_size[2]);
-ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_2D( size_t global_work_size[2], size_t local_work_size[2]);
-ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_2D( size_t global_work_offset[2], size_t global_work_size[2], size_t local_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_size[2], size_t local_work_size[2]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_2D( size_t global_work_offset[2], size_t global_work_size[2], size_t local_work_size[2]);
 
-ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_3D( size_t global_work_size[3]);
-ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_3D( size_t global_work_size[3], size_t local_work_size[3]);
-ndrange_t const_func __attribute__((overloadable)) __attribute__((always_inline)) ndrange_3D( size_t global_work_offset[3], size_t global_work_size[3], size_t local_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3], size_t local_work_size[3]);
+ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_offset[3], size_t global_work_size[3], size_t local_work_size[3]);
 
 void __attribute__((always_inline)) retain_event(clk_event_t event);
 void  __attribute__((always_inline)) release_event(clk_event_t event);
@@ -14191,10 +14192,10 @@ clk_event_t  __attribute__((always_inline)) create_user_event();
 void __attribute__((always_inline)) set_user_event_status(clk_event_t event, int status);
 void  __attribute__((always_inline)) capture_event_profiling_info(clk_event_t event, clk_profiling_info name, global ulong *value);
 
-uint __attribute__((overloadable)) __attribute__((always_inline)) get_kernel_work_group_size(void (^block)(void));
-uint __attribute__((overloadable)) __attribute__((always_inline)) get_kernel_work_group_size(void (^block)(local void *,...));
-uint __attribute__((overloadable)) __attribute__((always_inline)) get_kernel_preferred_work_group_size_multiple(void (^block)(void));
-uint __attribute__((overloadable)) __attribute__((always_inline)) get_kernel_preferred_work_group_size_multiple(void (^block)(local void *,...));
+uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_kernel_work_group_size(void (^block)(void));
+uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_kernel_work_group_size(void (^block)(local void *,...));
+uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_kernel_preferred_work_group_size_multiple(void (^block)(void));
+uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_kernel_preferred_work_group_size_multiple(void (^block)(local void *,...));
 
 #endif   // __OPENCL_C_VERSION__ >= 200
 #endif   // !defined (__MIC__) && !defined(__MIC2__)

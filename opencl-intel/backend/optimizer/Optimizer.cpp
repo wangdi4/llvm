@@ -630,6 +630,7 @@ void Optimizer::Optimize()
     }
 
     m_PostFailCheckPM.run(*m_pModule);
+//    m_pModule->dump();
 }
 
 
