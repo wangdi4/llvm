@@ -100,7 +100,7 @@ void KernelCommand::SubmitCommands(CommandSubmitionLists* pNewCommands)
         // Make current local list as kernel global list
         CommandToExecuteList_t* prev_start = m_waitingChildrenForKernelGlobal.exchange(pNewCommands->waitingChildrenForKernelLocalHead);
         // Move previous global list to the end of current local list
-        pNewCommands->waitingChildrenForKernelLocalTail = prev_start;
+        pNewCommands->waitingChildrenForKernelLocalTail->next = prev_start;
 		// Reset local list
 		pNewCommands->waitingChildrenForKernelLocalHead = NULL;
 		pNewCommands->waitingChildrenForKernelLocalTail = NULL;
