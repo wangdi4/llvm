@@ -48,7 +48,7 @@ namespace Validation
             static std::string GetCurrentDataVersionString() {
                 std::stringstream ss;
                 ss << std::setfill('0') << std::setw(GetNumOfDigits());
-                ss << currentVersion << std::endl;
+                ss << currentVersion;
                 return ss.str();
             }
         private:
