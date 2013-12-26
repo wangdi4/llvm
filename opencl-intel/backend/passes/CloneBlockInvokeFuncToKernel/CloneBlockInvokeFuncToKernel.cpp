@@ -83,7 +83,19 @@ OCL_INITIALIZE_PASS(CloneBlockInvokeFuncToKernel, "cloneblockinvokefunctokernel"
                 false
                 )
 
+static bool canBlockInvokeFunctionBeEnqueued(Function *F)
+{
+  if(!F->getReturnType()->isVoidTy())
+    return false;
 
+  // check 1st arg is NOT struct return attribute
+  // In this case block returns struct - not accecptable for enqueue
+  Argument* Arg1= F->arg_begin();
+  if ( Arg1->hasStructRetAttr() )
+    return false;
+
+  return true;
+}
 bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
 {
   m_pModule = &M;
@@ -103,7 +115,7 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     // then it may be enqueued in enqueue_kernel() BIs as kernel
     // and we need to create kernel from the block invoke function
     if(BlockUtils::isBlockInvokeFunction(*F) &&
-       F->getReturnType()->isVoidTy())
+       canBlockInvokeFunctionBeEnqueued(F))
       blockInvokeFuncs.push_back(F);
   }
 
@@ -152,8 +164,6 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     // Set in metadata so it can be used later when preparing calls to enqueue_kernel_*
     MDU.getOrInsertKernelsInfoItem(NewFn)->setBlockLiteralSize(blockLiteralSize);
     
-    // splitBlockInvokeArgument(NewFn);
-
     //
     // Updating of metadata with new kernel
     //
@@ -216,7 +226,7 @@ size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
   // get 1st and only argument
   Function::arg_iterator ai = F->arg_begin();
   Argument* blockLiteralPtr  = ai;
-  // todo: ask Zvi what this hack is doing
+  // workaround for blocks returning struct
   if ( blockLiteralPtr->hasStructRetAttr() ) {
       ++ai;
       blockLiteralPtr = ai;
