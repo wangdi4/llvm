@@ -190,16 +190,42 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
   return Changed;
 }
 
+static size_t getBlockLiteralDefaultSize() {
+// http://clang.llvm.org/docs/Block-ABI-Apple.html
+//  struct Block_literal_1 {
+//    void *isa; // initialized to &_NSConcreteStackBlock or &_NSConcreteGlobalBlock
+//    int flags;
+//    int reserved;
+//    void (*invoke)(void *, ...);
+//    struct Block_descriptor_1 {
+//    unsigned long int reserved;         // NULL
+//        unsigned long int size;         // sizeof(struct Block_literal_1)
+//        // optional helper functions
+//        void (*copy_helper)(void *dst, void *src);     // IFF (1<<25)
+//        void (*dispose_helper)(void *src);             // IFF (1<<25)
+//        // required ABI.2010.3.16
+//        const char *signature;                         // IFF (1<<30)
+//    } *descriptor;
+//    // imported variables
+//};
+  return sizeof(void*) + sizeof(int) + sizeof(int) + sizeof(void*) + sizeof(void*);
+}
 // compute block_literal size
 size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
 {
   // get 1st and only argument
   Function::arg_iterator ai = F->arg_begin();
   Argument* blockLiteralPtr  = ai;
+  // todo: ask Zvi what this hack is doing
   if ( blockLiteralPtr->hasStructRetAttr() ) {
       ++ai;
       blockLiteralPtr = ai;
   }
+  
+  // if no uses return default size
+  if(!blockLiteralPtr->getNumUses())
+    return getBlockLiteralDefaultSize();
+
   assert(blockLiteralPtr->getType()->isPointerTy());
   assert(blockLiteralPtr->hasOneUse() && "handle only one use of argument");
   
@@ -219,9 +245,7 @@ size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
   StructType * pBlockDescTy = dyn_cast<StructType>(pBlockDescPtr->getPointerElementType());
   assert( pBlockDescTy && "expected struct");
 
-  // sum block_literal itself and block_descriptor size
-  //return static_cast<size_t>(m_pTD->getStructLayout(pStructType)->getSizeInBytes() + 
-//    m_pTD->getStructLayout(pBlockDescTy)->getSizeInBytes() );
+  //block_literal itself
   return static_cast<size_t>(m_pTD->getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
 }
 
