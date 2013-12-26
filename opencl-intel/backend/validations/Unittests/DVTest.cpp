@@ -18,9 +18,11 @@ File Name: DVTest.cpp
 #include <gtest/gtest.h>
 #include "cl_types.h"
 
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "OCLBuilder.h"
 
 #include<fstream>

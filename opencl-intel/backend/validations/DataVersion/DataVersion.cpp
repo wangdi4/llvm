@@ -18,7 +18,7 @@ File Name:  DataVersion.cpp
 #include "DataVersion.h"
 #include "Image.h"
 #include "Buffer.h"
-#include "llvm/Function.h"
+#include "llvm/IR/Function.h"
 #include "cl_types.h"
 
 #undef DEBUG_TYPE
