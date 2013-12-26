@@ -1293,26 +1293,23 @@ void DeviceNDRange::InitCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevBacken
         m_paramKernel.lcl_wrk_size[i] = pNDRange->localWorkSize[i];
     }
 
-    size_t arg_size = pKernel->GetExplicitArgumentBufferSize();
+    size_t exp_arg_size = pKernel->GetExplicitArgumentBufferSize();
     unsigned alignment = pKernel->GetArgumentBufferRequiredAlignment();
-    assert( (arg_size == stBlockSize+stLocalSizeCount*sizeof(size_t)) && "Explicit argument size is not as expected" );
+    size_t local_arg_offset = ALIGN_UP(stBlockSize,alignment);
+    assert( (exp_arg_size == (local_arg_offset+stLocalSizeCount*sizeof(size_t)) ) && "Explicit argument size is not as expected" );
 
     // We should allocate also space for implicit args
-    arg_size += sizeof(cl_uniform_kernel_args);
+    size_t total_size = exp_arg_size+sizeof(cl_uniform_kernel_args);
 
-    char* pAllocatedContext = (char*)ALIGNED_MALLOC(arg_size, alignment);
+    char* pAllocatedContext = (char*)ALIGNED_MALLOC(total_size, alignment);
     m_paramKernel.uiNonArgSvmBuffersCount = 0;
-    m_paramKernel.arg_size = arg_size;
+    m_paramKernel.arg_size = total_size;
     m_paramKernel.arg_values = pAllocatedContext;
 
     // Fist we put block literal
-    MEMCPY_S(pAllocatedContext, arg_size, pBlockLiteral, stBlockSize);
-    assert ( 0 == (stBlockSize & (sizeof(size_t)-1)) && "Block literal size is expected to be aligned for sizeof(size_t)");
-    pAllocatedContext += stBlockSize;
-    arg_size -= stBlockSize;
-
+    MEMCPY_S(pAllocatedContext, exp_arg_size, pBlockLiteral, stBlockSize);
     // Second we insert local buffer size
-    MEMCPY_S(pAllocatedContext, arg_size, pLocalSizes, stLocalSizeCount*sizeof(size_t));
+    MEMCPY_S(pAllocatedContext+local_arg_offset, exp_arg_size-local_arg_offset, pLocalSizes, stLocalSizeCount*sizeof(size_t));
 
     m_cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
     m_cmdDesc.id = (cl_dev_cmd_id)(DeviceNDRange::GetNextCmdId() | (1L << (sizeof(long) * 8 - 1)));    // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
