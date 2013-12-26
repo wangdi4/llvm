@@ -142,8 +142,13 @@ namespace intel {
   }
 
   static bool isPtrToStruct(Type *T) {
-    if (PointerType *PT = dyn_cast<PointerType>(T))
-      return isa<StructType>(PT->getElementType());
+    if (PointerType *PT = dyn_cast<PointerType>(T)) {
+      // Handle also pointer to pointer to ...
+      while (PointerType *PT2 = dyn_cast<PointerType>(PT->getElementType()))
+        PT = PT2;
+      Type *ET = PT->getElementType();
+      return isa<StructType>(ET);
+    }
     return false;
   }
 
