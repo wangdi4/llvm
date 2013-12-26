@@ -34,10 +34,11 @@
 
 #include <string>
 #include <list>
+#include <vector>
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
 
-    struct ARG_INFO
+    struct CACHED_ARG_INFO
     {
         std::string name;
         std::string typeName;
@@ -163,7 +164,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
     class ClangFECompilerGetKernelArgInfoTask : public Intel::OpenCL::FECompilerAPI::FEKernelArgInfo, ClangFETask
     {
     public:
-        ClangFECompilerGetKernelArgInfoTask();
+		ClangFECompilerGetKernelArgInfoTask(){}
 
         int GetKernelArgInfo(const void*    pBin,
                              const char*    szKernelName);
@@ -172,7 +173,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         int TranslateArgsInfoValues(TC::STB_GetKernelArgsInfoArgs* pKernelArgsInfo);
         #endif
         
-        unsigned int getNumArgs() const { return m_numArgs; }
+		unsigned int getNumArgs() const { return m_argsInfo.size(); }
         const char* getArgName(unsigned int index) const { return m_argsInfo[index].name.c_str(); }
         const char* getArgTypeName(unsigned int index) const { return m_argsInfo[index].typeName.c_str(); }
         cl_kernel_arg_address_qualifier getArgAdressQualifier(unsigned int index) const { return m_argsInfo[index].adressQualifier; }
@@ -181,17 +182,14 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
 
         long Release() { delete this; return 0;}
     protected:
-        virtual ~ClangFECompilerGetKernelArgInfoTask();
+		virtual ~ClangFECompilerGetKernelArgInfoTask(){}
 
-        unsigned int    m_numArgs;
-        ARG_INFO*       m_argsInfo;
+        std::vector<CACHED_ARG_INFO>  m_argsInfo;
     private:
       // private copy constructor to prevent wrong assignment
-      ClangFECompilerGetKernelArgInfoTask(const ClangFECompilerGetKernelArgInfoTask&)
-      : m_numArgs(0), m_argsInfo(NULL) {}
+      ClangFECompilerGetKernelArgInfoTask(const ClangFECompilerGetKernelArgInfoTask&);
       // private operator= constructor to prevent wrong assignment
-      ClangFECompilerGetKernelArgInfoTask& 
-        operator= (ClangFECompilerGetKernelArgInfoTask const &) {return *this;}
+      ClangFECompilerGetKernelArgInfoTask&  operator= (ClangFECompilerGetKernelArgInfoTask const &);
     };
 
     // ClangFECompilerCheckCompileOptions

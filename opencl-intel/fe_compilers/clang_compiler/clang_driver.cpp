@@ -1526,19 +1526,6 @@ void ClangFECompilerLinkTask::ResolveFlags()
     }
 }
 
-ClangFECompilerGetKernelArgInfoTask::ClangFECompilerGetKernelArgInfoTask()
-: m_numArgs(0), m_argsInfo(NULL)
-{
-}
-
-ClangFECompilerGetKernelArgInfoTask::~ClangFECompilerGetKernelArgInfoTask()
-{
-    if (NULL != m_argsInfo)
-    {
-        delete[] m_argsInfo;
-        m_argsInfo = NULL;
-    }
-}
 #ifdef _WIN32
 int ClangFECompilerGetKernelArgInfoTask::TranslateArgsInfoValues (STB_GetKernelArgsInfoArgs* pKernelArgsInfo)
 {
@@ -1555,30 +1542,24 @@ int ClangFECompilerGetKernelArgInfoTask::TranslateArgsInfoValues (STB_GetKernelA
         return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
     }
 
-    m_numArgs = pKernelArgsInfo->m_numArgs;
-
-    m_argsInfo = new ARG_INFO[m_numArgs];
-    if (!m_argsInfo)
-    {
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-        
     for (unsigned int i = 0; i < pKernelArgsInfo->m_numArgs; ++i)
     {
+		CACHED_ARG_INFO argInfo;
+
         // Adress qualifier
         switch( pKernelArgsInfo->m_argsInfo[i].adressQualifier )
         {
         case 0:
-            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
+            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
             break;
         case 1:
-            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
+            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
             break;
         case 2:
-            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
+            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
             break;
         case 3:
-            m_argsInfo[i].adressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
+            argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
             break;
         }
 
@@ -1586,39 +1567,41 @@ int ClangFECompilerGetKernelArgInfoTask::TranslateArgsInfoValues (STB_GetKernelA
         switch( pKernelArgsInfo->m_argsInfo[i].accessQualifier )
         {
         case 0:
-            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_READ_ONLY;
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_READ_ONLY;
             break;
         case 1:
-            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
             break;
         case 2:
-            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_READ_WRITE;
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_READ_WRITE;
             break;
         case 3:
-            m_argsInfo[i].accessQualifier = CL_KERNEL_ARG_ACCESS_NONE;
+            argInfo.accessQualifier = CL_KERNEL_ARG_ACCESS_NONE;
             break;
         }
 
         // Type qualifier
-        m_argsInfo[i].typeQualifier = 0;
+        argInfo.typeQualifier = 0;
         if (pKernelArgsInfo->m_argsInfo[i].typeQualifier & (1 << 0))
         {
-            m_argsInfo[i].typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
+            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_CONST;
         }
         if (pKernelArgsInfo->m_argsInfo[i].typeQualifier & (1 << 1))
         {
-            m_argsInfo[i].typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
+            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_RESTRICT;
         }
         if (pKernelArgsInfo->m_argsInfo[i].typeQualifier & (1 << 2))
         {
-            m_argsInfo[i].typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
+            argInfo.typeQualifier |= CL_KERNEL_ARG_TYPE_VOLATILE;
         }
 
         // Type name
-        m_argsInfo[i].typeName = pKernelArgsInfo->m_argsInfo[i].typeName;
+        argInfo.typeName = pKernelArgsInfo->m_argsInfo[i].typeName;
 
         // Argument name
-        m_argsInfo[i].name = pKernelArgsInfo->m_argsInfo[i].name;
+        argInfo.name = pKernelArgsInfo->m_argsInfo[i].name;
+
+		m_argsInfo.push_back(argInfo);
     }
 
     return CL_SUCCESS;
@@ -1658,9 +1641,9 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         return retVal;
     }
     #else
-    llvm::Module* pModule = ParseIR(pBinBuff, Err, Context);
+    std::auto_ptr<llvm::Module> pModule(ParseIR(pBinBuff, Err, Context));
 
-    if (NULL == pModule) 
+    if (NULL == pModule.get()) 
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1669,7 +1652,6 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     if (!pKernels)
     {
         assert(false && "couldn't find any kernels in the metadata");
-        delete pModule;
         return CL_FE_INTERNAL_ERROR_OHNO;
     }
 
@@ -1695,7 +1677,6 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     if (!bFoundKernel)
     {
         assert(false && "couldn't find our kernel in the metadata");
-        delete pModule;
         return CL_FE_INTERNAL_ERROR_OHNO;
     }
       
@@ -1750,24 +1731,14 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         assert(pTypeNames && "pTypeNames is NULL");
         assert(pTypeQualifiers && "pTypeQualifiers is NULL");
         //assert(pArgNames && "pArgNames is NULL");
-        delete pModule;
         return CL_FE_INTERNAL_ERROR_OHNO;
     }
-
-    m_numArgs = pAddressQualifiers->getNumOperands() - 1;
-
-    m_argsInfo = new ARG_INFO[m_numArgs];
-    if (!m_argsInfo)
-    {
-        delete pModule;
-        return CL_OUT_OF_HOST_MEMORY;
-    }
         
-    for (unsigned int i = 1; i < m_numArgs + 1; ++i)
+    for (unsigned int i = 1; i < pAddressQualifiers->getNumOperands(); ++i)
     {
         // Since the arg info in the metadata have a string field before the operands
         // Now we have an off by one that we need to compensate for
-        ARG_INFO &argInfo = m_argsInfo[i - 1];
+        CACHED_ARG_INFO argInfo;
 
         // Adress qualifier
         ConstantInt* pAddressQualifier = dyn_cast<ConstantInt>(pAddressQualifiers->getOperand(i));
@@ -1832,26 +1803,12 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
           MDString* pArgName = dyn_cast<MDString>(pArgNames->getOperand(i));
           assert(pArgName && "pArgName is not a valid MDString*");
 
-          string szArgName = pArgName->getString().str();
-          argInfo.name = new char[szArgName.length() + 1];
-          if (!argInfo.name)
-          {
-              delete pModule;
-              return CL_OUT_OF_HOST_MEMORY;
-          }
-          STRCPY_S(argInfo.name, szArgName.length() + 1, szArgName.c_str());
-        } else {
-          argInfo.name = new char[1];
-          if (!argInfo.name)
-          {
-              delete pModule;
-              return CL_OUT_OF_HOST_MEMORY;
-          }
-          argInfo.name[0] = 0;
-        }
+          argInfo.name = pArgName->getString().str();
+        } 
+
+		m_argsInfo.push_back(argInfo);
     }
 
-    delete pModule;
     return CL_SUCCESS;
     #endif
     }

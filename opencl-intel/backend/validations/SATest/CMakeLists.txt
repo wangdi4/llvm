@@ -204,11 +204,11 @@ add_executable(${TARGET_NAME}
 )
 
 target_link_libraries(${TARGET_NAME}
+    OpenCLKernelArgumentsParser
+    OCLKernelDataGenerator
     OCLBuilder
     PlugInNEAT
     DataManager
-    OpenCLKernelArgumentsParser
-    OCLKernelDataGenerator
     Comparator
     LLVMInterpreterPluggable
     OclBackendUtils
