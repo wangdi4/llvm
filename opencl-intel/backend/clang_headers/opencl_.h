@@ -153,7 +153,7 @@ typedef _Atomic(ptrdiff_t) atomic_ptrdiff_t;
 /**
  * ndrange_t is an opaque struct pointer
  */
-typedef struct ndrange_s* ndrange_t;
+//typedef struct ndrange_s* ndrange_t;
 
 /**
  * Value of maximum non-infinite single-precision floating-point
