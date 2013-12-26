@@ -216,65 +216,21 @@ static int enqueue_kernel_common(
   void * key = pBlockLiteral->GetInvoke();
   // obtain Kernel object from mapper
   const ICLDevBackendKernel_ * pKernel = pMapper->Map(key);
+  // convert localbuf of type uint defined by 2.0 spec to type size_t accepted by BE
   SmallVector<size_t, 32> localbuf64_size(localbuf_size_len);
   for (unsigned I=0; I<localbuf_size_len; ++I)
     localbuf64_size[I] = localbuf_size[I];
   size_t *localbuf_size_arg = localbuf_size_len ? &(localbuf64_size[0]) : 0;
 
-  // allocate context on stack or on heap. SmallVector
-  //llvm::SmallVector<char, 256> pContext;
+  // copy block_literal and set desc ptr field to NULL
+  // reason: we dont copy structure pointed by desc pointer
+  // we assume desc field is not used in enqueued kernels
+  // setting the ptr to zero will simplify to rootcause issue 
+  // in case desc field will happen to be used
+  SmallVector<char, 256> bl(pBlockLiteral->GetSize());
+  ::memcpy(&(bl[0]), block, pBlockLiteral->GetSize());
+  static_cast<BlockLiteral *>(block)->SetDescPtr(0);
 
-  ///////////////////////////////////////////////////////////////////////
-  // calculate context size
-  // context consists of 
-  // block-literaloffset - offset from the beginning of Context to place where 
-  //                       block literal is stored
-  // local memory args - local memory buffer sizes
-  // block_literal (stored in the end of Context)
-  // 
-  
-  // get block_literal size
-  //const size_t block_literal_size = pBlockLiteral->GetBufferSizeForSerialization();
-  // get size of block literal offset.
-//  const size_t block_literal_offs_size = sizeof(unsigned);
-  
-  // calculating ContextSize 
-//  const size_t ContextSize = 
-    // size of field storing block_literal offset
- //   block_literal_offs_size + 
-    // local mem arguments
-    // each local mem arg size is size_t. See Kernel::PrepareKernelArgs() method?
-//    localbuf_size_len * sizeof(size_t) + 
-    // block_literal structure size
-//    block_literal_size;
-  
-  // get Block_literal offset storage
-//  const size_t BlockLiteralOffs = ContextSize - block_literal_size;
-
-  // resize pContext with the size of Context
- // pContext.resize(ContextSize);
-
-  ///////////////////////////////////////////////////////////////////////
-  // fill in context
-//  char * p = &pContext[0];
-  
-  // store block literal offset
-//  *(unsigned*)p = BlockLiteralOffs;
-//  p += block_literal_offs_size;
-
-  // store local memory args
-//  for(unsigned cnt=0;cnt<localbuf_size_len;++cnt){
-//    *(size_t*)p = localbuf_size[cnt];
-//    p += sizeof(size_t);
-//  }
-
-  // store block literal
-//  pBlockLiteral->Serialize(p);
-//  p += block_literal_size;
-
-  // sanity check context is filled up correctly
-//  assert((size_t)(p-&pContext[0]) == ContextSize && "ContextSize does not match filled arguments size");
-  
   ///////////////////////////////////////////////////////////////////////
   // call enqueue
   int res = DCM->EnqueueKernel(
@@ -285,10 +241,9 @@ static int enqueue_kernel_common(
       event_ret,               // clk_event_tpEventRet
       pKernel, // const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*
                // pKernel
-      pBlockLiteral,           // block literal structure as provided by clang
-      pBlockLiteral->desc->size,  // size of block literal
-      localbuf_size_arg, // spec says its an array of uint
-                               // from CLANG
+      &bl[0],           // block literal structure as provided by clang
+      bl.size(),               // size of block literal
+      localbuf_size_arg,       // spec says its an array of uint but we convert it to size_t
       localbuf_size_len,       // !!!! size_t
       ndrange,                 // const cl_work_description_type* pNdrange
       RuntimeHandle            // pointer provided to RunWG
