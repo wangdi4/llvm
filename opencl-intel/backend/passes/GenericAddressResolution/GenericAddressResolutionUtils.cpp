@@ -71,7 +71,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                       "atomic_flag_test_and_set_explicit",
                       "atomic_flag_clear",
                       "atomic_flag_clear_explicit",
-                      "enqueue_kernel"
 
   };
 
@@ -90,6 +89,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
   bool isGenericAddrBI(const Function *pFunc) {
     StringRef funcName = pFunc->getName();
+    if (funcName == "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE")
+      return true;
     std::string tmp = funcName.str();
     const char *funcNameStr = tmp.c_str();
     funcName = isMangledName(funcNameStr)? stripName(funcNameStr) : funcName;

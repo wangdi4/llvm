@@ -65,7 +65,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
   // Extended execution var args OpenCL 2.x
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
 
   const std::string CompilationUtils::BARRIER_FUNC_NAME = "barrier";
   const std::string CompilationUtils::WG_BARRIER_FUNC_NAME = "work_group_barrier";
