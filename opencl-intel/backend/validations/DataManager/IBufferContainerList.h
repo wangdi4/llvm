@@ -44,6 +44,13 @@ namespace Validation
         /// @param [IN] id Buffer index. Id have to lay inside range [0, GetMemoryObjectCount() - 1]
         /// @return Pointer to the buffer's interface.
         virtual IBufferContainer* GetBufferContainer(std::size_t id) const = 0;
+        /// @brief Method to get data version read from data file.
+        /// @return read data version unsigned int.
+        virtual uint32_t GetDataVersion() = 0;
+        /// @brief Method to set data version read from data file.
+        /// @param [IN] inDataVersion, unsigned int.
+        virtual void SetDataVersion(uint32_t const inDataVersion) = 0;
+
     };
 
 }

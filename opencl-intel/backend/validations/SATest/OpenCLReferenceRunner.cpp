@@ -71,6 +71,8 @@ using std::exception;
 #include "WorkItemStorage.h"
 #include "WorkGroupStorage.h"
 
+#include "DataVersion.h"
+
 using namespace llvm;
 using std::string;
 
@@ -863,6 +865,8 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     BufferContainerList input;
     ReadInputBuffer(pKernelConfig, &input,
         runConfig->GetValue<uint64_t>(RC_COMMON_RANDOM_DG_SEED, 0));
+
+    DataVersion::ConvertData (&input, m_pModule->getNamedMetadata("opencl.kernels"), pKernelConfig->GetKernelName());
 
     // memory for storing kernel data marked with local addr space
     NEATPlugIn::GlobalAddressMapTy NEATlocalMap;

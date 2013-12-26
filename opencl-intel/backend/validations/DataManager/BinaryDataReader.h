@@ -30,6 +30,7 @@ File Name:  BinaryDataReader.h
 #include "IMemoryObject.h"
 #include "Buffer.h"
 #include "Image.h"
+#include "DataVersion.h"
 
 namespace Validation
 {
@@ -57,7 +58,7 @@ namespace Validation
 
     private:
 
-        template<class T> void read_value( T& value)
+        template<class T> void readValue( T& value)
         {
             m_stream.read((char*)&value, sizeof(T));
             if( m_stream.fail() )
@@ -67,9 +68,11 @@ namespace Validation
         void readBufferContainerList( IBufferContainerList* pContainerList)
         {
             assert(NULL != pContainerList);
-            uint32_t containerCount = 0;
-            read_value(containerCount);
 
+            pContainerList->SetDataVersion(readDataVersion());
+
+            uint32_t containerCount = 0;
+            readValue(containerCount);
             for( uint32_t i = 0; i < containerCount; ++i )
             {
                 IBufferContainer* pBufferContainer = pContainerList->CreateBufferContainer();
@@ -77,10 +80,10 @@ namespace Validation
             }
         }
 
-        void read_marker(std::string& marker)
+        void readMarker(std::string& marker)
         {
             uint32_t markerSize;
-            read_value(markerSize);
+            readValue(markerSize);
             std::vector<char> markerVal(markerSize+1);
             markerVal[markerSize] = '\0';
             m_stream.read(&markerVal[0], markerSize);
@@ -91,39 +94,39 @@ namespace Validation
             marker = std::string(&markerVal[0]);
         }
 
-        void read_element_desc(TypeDesc& td)
+        void readElementDesc(TypeDesc& td)
         {
             uint32_t typeValue;
-            read_value(typeValue);
+            readValue(typeValue);
             td.SetType(TypeVal(typeValue));
             uint32_t sizeInBytes;
-            read_value(sizeInBytes);
+            readValue(sizeInBytes);
             td.SetTypeAllocSize(sizeInBytes);
 
             if (td.IsAggregate() || td.IsPointer())
             {
                 uint64_t numOfSubElements;
-                read_value(numOfSubElements);
+                readValue(numOfSubElements);
                 td.SetNumberOfElements(numOfSubElements);
 
                 uint64_t numOfSubTypes;
-                read_value(numOfSubTypes);
+                readValue(numOfSubTypes);
                 td.SetNumOfSubTypes(numOfSubTypes);
 
                 TypeDesc subTypeDesc;
-                read_element_desc(subTypeDesc);
+                readElementDesc(subTypeDesc);
                 td.SetSubTypeDesc(0, subTypeDesc);
                 if (td.IsStruct())
                 {
                     uint64_t offset;
-                    read_value(offset);
+                    readValue(offset);
                     subTypeDesc.SetOffsetInStruct(offset);
                     td.SetSubTypeDesc(0, subTypeDesc);
                     for (uint64_t i = 1; i < numOfSubTypes; ++i)
                     {
                         TypeDesc subTD;
-                        read_element_desc(subTD);
-                        read_value(offset);
+                        readElementDesc(subTD);
+                        readValue(offset);
                         subTD.SetOffsetInStruct(offset);
                         td.SetSubTypeDesc(i, subTD);
                     }
@@ -131,17 +134,49 @@ namespace Validation
             }
         }
 
+        uint32_t readDataVersion()
+        {
+            std::string signature = DataVersion::GetDataVersionSignature();
+            uint32_t signatureSize = signature.size();
+
+            uint32_t readVersion = 0;
+
+            int pos = m_stream.tellg();
+
+            std::string signatureVal(signatureSize,'\0');
+            m_stream.read(&signatureVal[0], signatureSize);
+            if( m_stream.fail() )
+                throw Exception::IOError("readDataVersion: read data version signature failed");
+
+            if (signatureVal == signature)
+            {
+                // read a constant number of decimal digits representing the data version
+                // like 00001 or 00002
+                std::string versionStr(DataVersion::GetNumOfDigits(),'\0');
+                m_stream.read(&versionStr[0], versionStr.size());
+                if( m_stream.fail() )
+                    throw Exception::IOError("readDataVersion: read data version failed");
+
+                std::stringstream ss(versionStr);
+                ss >> readVersion;
+
+            } else {
+                m_stream.seekg(pos);
+            }
+            return readVersion;
+        }
+
         void readBufferContainer( IBufferContainer* pContainer)
         {
             assert( NULL != pContainer);
 
             uint32_t bufferCount = 0;
-            read_value(bufferCount);
+            readValue(bufferCount);
 
             for(uint32_t i = 0; i < bufferCount; ++i )
             {
                 std::string marker;
-                read_marker(marker);
+                readMarker(marker);
 
                 if (marker == Buffer::GetBufferName())
                 {
@@ -150,11 +185,11 @@ namespace Validation
 
                     //first read the buffer descriptor
                     uint32_t numOfElements;
-                    read_value(numOfElements);
+                    readValue(numOfElements);
                     TypeDesc elemDesc;
-                    read_element_desc(elemDesc);
+                    readElementDesc(elemDesc);
                     uint32_t isNeat;
-                    read_value(isNeat);
+                    readValue(isNeat);
                     // then the buffer data
                     BufferDesc bd;
                     bd.SetNumOfElements((size_t)numOfElements);
@@ -173,16 +208,16 @@ namespace Validation
                     ImageChannelDataTypeVal imageDataType;
                     uint32_t pixelSize;
                     bool isNEAT;
-                    read_value(signature);
+                    readValue(signature);
                     if(signature == 0xffffffff) {
                         // OpenCl 1.2 and higher
                         uint32_t versionHigh;
                         uint32_t versionLow;
-                        read_value(versionHigh);
-                        read_value(versionLow);
-                        read_value(imageType2Read);
+                        readValue(versionHigh);
+                        readValue(versionLow);
+                        readValue(imageType2Read);
                         imageType = (ImageTypeVal)imageType2Read;
-                        read_value(sizes);
+                        readValue(sizes);
                     } else {
                         // OpenCl 1.1 read
                         ImageSizeDesc_1_1 oldSizes;
@@ -190,7 +225,7 @@ namespace Validation
 
                         bool isArray = false; // no image arrays supported by OpenCl 1.1
                         imageType = GetImageTypeFromDimCount(signature,isArray);
-                        read_value(oldSizes);
+                        readValue(oldSizes);
 
                         sizes.width = oldSizes.width;
                         sizes.height = oldSizes.height;
@@ -198,10 +233,10 @@ namespace Validation
                         sizes.row = oldSizes.row;
                         sizes.slice = oldSizes.slice;
                     }
-                    read_value(imageOrder);
-                    read_value(imageDataType);
-                    read_value(pixelSize);
-                    read_value(isNEAT);
+                    readValue(imageOrder);
+                    readValue(imageDataType);
+                    readValue(pixelSize);
+                    readValue(isNEAT);
 
                     ImageDesc imd(imageType, sizes, imageDataType, imageOrder, isNEAT);
                     assert((size_t)pixelSize == imd.GetElementSize() );

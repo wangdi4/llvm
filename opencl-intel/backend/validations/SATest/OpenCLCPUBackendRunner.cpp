@@ -32,6 +32,8 @@ File Name:  OpenCLCPUBackendRunner.cpp
 #include "BinaryDataWriter.h"
 #include "BufferContainerList.h"
 
+#include "DataVersion.h"
+
 #include <cstdio>
 #include <cassert>
 #include <vector>
@@ -575,6 +577,8 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
     std::vector<bool> ignoreList;
     FillIgnoreList(ignoreList, pKernelArgs, kernelNumArgs);
     runResult->SetComparatorIgnoreList(kernelName.c_str(), ignoreList);
+
+    DataVersion::ConvertData(&input, m_pModule->getNamedMetadata("opencl.kernels"), kernelName);
 
     // Create the argument buffer
     OpenCLArgsBuffer argsBuffer(pKernelArgs, kernelNumArgs, &input, pImageService,

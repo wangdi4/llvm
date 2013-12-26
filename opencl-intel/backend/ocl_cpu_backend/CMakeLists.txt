@@ -195,6 +195,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     RuntimeService.h
     IBlockToKernelMapper.h
     CPUBlockToKernelMapper.h
+    ocl_mutex.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
     ${BACKEND_ROOT_DIR}/../externals/itt/include/jitprofiling.h
   )
@@ -249,6 +250,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     debuggingservicewrapper.cpp
     ocl_debug_builtins.cpp
     CPUBlockToKernelMapper.cpp
+    ocl_mutex.cpp
   )
 
 if (ENABLE_SDE)
