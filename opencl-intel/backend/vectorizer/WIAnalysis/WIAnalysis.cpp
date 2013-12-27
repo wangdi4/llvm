@@ -346,8 +346,8 @@ void WIAnalysis::findDivergePartialJoins(const TerminatorInst *inst) {
     DenseSet<BasicBlock*> leftSet, rightSet;
     std::stack<BasicBlock*> workSet;
 
-   
-    // If this partial join does not contain phi nodes then go to the next one 
+
+    // If this partial join does not contain phi nodes then go to the next one
     BasicBlock::iterator firstInst = partialJoin->begin();
     if (!isa<PHINode>(dyn_cast<Instruction>(firstInst)))
       continue;
@@ -434,19 +434,19 @@ void WIAnalysis::markDependentPhiRandom() {
 void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
   BasicBlock *blk = (BasicBlock *)(inst->getParent());
 
-  calcInfoForBranch(inst);
-
-  findDivergePartialJoins(inst);
-
-  // Mark each phi node in a join or a partial join as divergent
-  markDependentPhiRandom();
-
   // If the root block is marked as divergent then we should not add
   // scheduling constraints for this region because it is part of a larger region
   // that is going to be predicated.
   // If we will add every predicated region then we might get a conflict at the linearizer
   // that caused by commoning.
   bool shouldUpdateConstraints = !isDivergentBlock(blk);
+
+  calcInfoForBranch(inst);
+
+  findDivergePartialJoins(inst);
+
+  // Mark each phi node in a join or a partial join as divergent
+  markDependentPhiRandom();
 
   // walk through all the instructions in the influence-region
   for(DenseSet<BasicBlock*>::iterator blkItr = m_influenceRegion.begin();
@@ -465,7 +465,7 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
     // for these as well.
     for (pred_iterator itr = pred_begin(defBlk); itr != pred_end(defBlk); ++itr) {
       if (!isDivergentBlock(*itr) && (*itr != blk)) {
-        // Because defBlk is divergent and *itr is not then the idom of defBlk 
+        // Because defBlk is divergent and *itr is not then the idom of defBlk
         // should also be a dom of *itr and therefore, such a dominator exists
         assert(m_DT->getNode(defBlk) && m_DT->getNode(defBlk)->getIDom() && "dominator cannot be null");
         BasicBlock *immDom = m_DT->getNode(defBlk)->getIDom()->getBlock();
@@ -515,7 +515,7 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
             m_partialJoins.count(useBlk)) {
 
           // We can check whether the (partial) join is a loop exit and change the algorithm
-          // This might increase accuracy in case there are gotos but seems like 
+          // This might increase accuracy in case there are gotos but seems like
           // redundant computation for our case.
           // For now we'll mark a usage in every join/partial join as random
           // We might change it in the future.
@@ -715,7 +715,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
   std::string origFuncName = origFunc->getName().str();
 
   if (CompilationUtils::isWorkGroupBuiltin(origFuncName)) {
-    // WG functions must be packetized (although their results may be uniform) 
+    // WG functions must be packetized (although their results may be uniform)
     return WIAnalysis::RANDOM;
   }
 
@@ -932,10 +932,10 @@ void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
  // If we are in an infinite loop then there is no post-dominant
  // In this case, we mark everything reachable from the divergent branch as its influence region (conservative)
   if (postDomNode)  {
-    // Because inst is a conditional branch then it is not the last basic block 
+    // Because inst is a conditional branch then it is not the last basic block
     // and therefore getIDom does not return null
     assert(postDomNode->getIDom() != 0 && "Post dominator cannot be null");
-    m_fullJoin = postDomNode->getIDom()->getBlock(); 
+    m_fullJoin = postDomNode->getIDom()->getBlock();
   }
   else {
     m_fullJoin = 0;
@@ -1035,10 +1035,10 @@ void WIAnalysis::calcInfoForBranch(const TerminatorInst *inst)
       // find the first full join's post-dominator outside the post dominator's loop
       do {
         DomTreeNode * postDomNode = m_PDT->getNode((BasicBlock*)nextFullJoin);
-        // if updatedFullJoin is true then we are not in an infinite loop and therefore, getNode 
+        // if updatedFullJoin is true then we are not in an infinite loop and therefore, getNode
         // does not return null
         assert(postDomNode && "getNode should not return null");
-        // If the post dom is inside the loop then it cannot be the last block and therefore, 
+        // If the post dom is inside the loop then it cannot be the last block and therefore,
         // getIDom does not return null
         assert(postDomNode->getIDom() && "getIDom should not return null");
         nextFullJoin = postDomNode->getIDom()->getBlock();
