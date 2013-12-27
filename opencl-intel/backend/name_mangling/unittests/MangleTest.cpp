@@ -208,8 +208,7 @@ TEST(NameMangle, demangleTostrightAndBack){
   #include "MangledNames.h"
   for( unsigned int i = 0 ; i < sizeof(mangledNames)/sizeof(char*) ; i++){
       const char* mname = mangledNames[i];
-      // TODO: delete the following as soon as the bug CSSD1000????? in the DemangleParser is fixed 
-      // The bug is not created yet, it is about incorrect handling of the repeating non-basic types of arguments
+      // TODO: delete the following line as soon as CSSD100016999 is fixed 
       if(std::string(mname).find("atomic_compare_exchange_")) continue;
 
       FunctionDescriptor fd = demangle(mname);
