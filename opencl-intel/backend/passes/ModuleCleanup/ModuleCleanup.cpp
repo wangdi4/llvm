@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "ModuleCleanup.h"
 #include "CompilationUtils.h"
+#include "BlockUtils.h"
 #include "OCLPassSupport.h"
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
@@ -16,6 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 
 using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
 
 extern "C"
 {
@@ -34,12 +36,15 @@ namespace intel{
     bool didDeleteAny = false;
 
     // Grab list of kernels from module
-    Intel::OpenCL::DeviceBackend::CompilationUtils::getAllKernelWrappers(m_neededFuncsSet, &M);
+    CompilationUtils::getAllKernelWrappers(m_neededFuncsSet, &M);
 
     // Erase body of all functions which are not needed
     for (Module::iterator i = M.begin(), e = M.end(); i != e; ++i) {
       Function *func = &*i;
       if (func->isDeclaration()) continue; // skip externals
+      if ( (CompilationUtils::getCLVersionFromModuleOrDefault(M) >=
+                              OclVersion::CL_VER_2_0) &&
+         BlockUtils::isBlockInvokeFunction(*func)) continue; // skip block_invoke functions
       if (isNeededByKernel(func)) continue; // skip needed functions
       func->deleteBody();
       didDeleteAny = true;
