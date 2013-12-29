@@ -541,28 +541,29 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
     switch(clParamName)
     {
     case CL_DEVICE_PLATFORM:
-	{
-        szParamSize = sizeof(cl_platform_id);
-        cl_platform_id id = &m_clPlatformId;
-		pValue = &id;
-        break;
-	}
-    case( CL_DEVICE_LINKER_AVAILABLE):
-    case( CL_DEVICE_COMPILER_AVAILABLE):
-        szParamSize = sizeof(cl_bool);
-        bBoolValue = CL_TRUE;
-        pValue = &bBoolValue;
-        break;
-    case(CL_DEVICE_SPIR_VERSIONS):
-        // Sanity checks.
-        assert(pParamValue && "Null Value");
+        {
+            szParamSize = sizeof(cl_platform_id);
+            cl_platform_id id = &m_clPlatformId;
+            pValue = &id;
+            break;
+        }
+    case CL_DEVICE_LINKER_AVAILABLE:
+    case CL_DEVICE_COMPILER_AVAILABLE:
+        {
+            szParamSize = sizeof(cl_bool);
+            bBoolValue = CL_TRUE;
+            pValue = &bBoolValue;
+            break;
+        }
+    case CL_DEVICE_SPIR_VERSIONS:
+        {
+            // Regardless to the device, Our SDK supports SPIR 1.2 (which is the
+            // only existing version ATM).
+            pValue = "1.2";
+            szParamSize = strlen((const char*)pValue) + 1;
+            break;
+        }
 
-        // Regardless to the device, Our SDK suupports SPIR 1.2 (which is the
-        // only existing version ATM).
-        pValue = "1.2";
-        szParamSize = strlen((const char*)pValue);
-
-        break;
     default:
         pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDevice).DynamicCast<FissionableDevice>();
         if (NULL == pDevice)

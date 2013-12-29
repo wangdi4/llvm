@@ -105,15 +105,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ///////////////////////////////////////////////////////////
 
         // Returns a read only pointer to internal binary
-        const char*   GetBinaryInternal() { return m_pBinaryBits; };
+        const char*   GetBinaryInternal() const { return m_pBinaryBits; };
 
         // Returns internal binary size
-        size_t        GetBinarySizeInternal() { return m_uiBinaryBitsSize; };
+        size_t        GetBinarySizeInternal() const { return m_uiBinaryBitsSize; };
+
+        // Returns internal binary type
+        cl_program_binary_type   GetBinaryTypeInternal() const { return m_clBinaryBitsType; };
+
+        // Set internal binary type
+        // Returns CL_SUCCESS if nothing unexpected happened
+        cl_err_code   SetBinaryTypeInternal(cl_program_binary_type clBinaryType);
 
         // Set the program binary for a specific device
         // Creates a copy of the input
 		// Returns CL_SUCCESS if nothing unexpected happened
-		cl_err_code   SetBinaryInternal(size_t uiBinarySize, const void* pBinary);
+		cl_err_code   SetBinaryInternal(size_t uiBinarySize, const void* pBinary, cl_program_binary_type clBinaryType);
 
 
         // Clears the current build log, called in the beginning of each build sequence
@@ -171,6 +178,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Binary-related members
 		char*               m_pBinaryBits;
 		size_t              m_uiBinaryBitsSize;
+		cl_program_binary_type m_clBinaryBitsType;
 		
 		// Ensure the object is multi-thread safe
 		mutable Intel::OpenCL::Utils::AtomicCounter m_currentAccesses;
