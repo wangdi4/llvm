@@ -269,6 +269,13 @@ TEST(MangleTest, CSSD100018370){
   EXPECT_NE(s, mangle(fd));
 }
 
+TEST(DemangleTest, CSSD100018382){
+  FunctionDescriptor fd = demangle("_Z14enqueue_kernelU13block_pointerFvvE");
+  // This is an expected failure. After fixing CSSD100018382, replace ASSERT_TRUE with ASSERT_FALSE
+  ASSERT_TRUE(fd.isNull());
+  //ASSERT_FALSE(fd.isNull());
+}
+
 TEST(NameMangle, FailedOnce){
   const char* s = "_Z5frexpDv2_fPU3AS1Dv2_i";
   FunctionDescriptor fd = demangle(s);
