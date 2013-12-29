@@ -60,9 +60,9 @@ extern int ocl20_enqueue_marker(queue_t queue, uint num_events_in_wait_list,
                                 const clk_event_t *event_wait_list,
                                 clk_event_t *event_ret,
                                 void* DCM);
-int __attribute__((always_inline))
+int __attribute__((always_inline)) __attribute__((overloadable)) 
     enqueue_marker(queue_t queue, uint num_events_in_wait_list,
-                   const clk_event_t *event_wait_list, clk_event_t *event_ret) {
+                   const clk_event_t *event_wait_list, clk_event_t* event_ret) {
   void* DCM = __get_device_command_manager();
   return ocl20_enqueue_marker(queue, num_events_in_wait_list, event_wait_list,
                               event_ret, DCM);
@@ -158,13 +158,15 @@ ndrange_t const_func __attribute__((overloadable))
 
 ////////// - retain_event, release_event, create_user_event, set_user_event_status, capture_event_profiling_info
 extern void ocl20_retain_event(clk_event_t event, void *DCM);
-void __attribute__((always_inline)) retain_event(clk_event_t event) {
-  void* DCM = __get_device_command_manager();
+void __attribute__((always_inline)) __attribute__((overloadable))
+    retain_event(clk_event_t event) {
+  void *DCM = __get_device_command_manager();
   return ocl20_retain_event(event, DCM);
 }
 
 extern void ocl20_release_event(clk_event_t event, void *DCM);
-void __attribute__((always_inline)) release_event(clk_event_t event) {
+void __attribute__((always_inline)) __attribute__((overloadable))
+    release_event(clk_event_t event) {
   void* DCM = __get_device_command_manager();
   return ocl20_release_event(event, DCM);
 }
@@ -177,19 +179,19 @@ clk_event_t __attribute__((always_inline)) create_user_event() {
 
 extern void ocl20_set_user_event_status(clk_event_t event, uint status,
                                         void *DCM);
-void __attribute__((always_inline))
+void __attribute__((always_inline)) __attribute__((overloadable))
     set_user_event_status(clk_event_t event, int status) {
-  void* DCM = __get_device_command_manager();
+  void *DCM = __get_device_command_manager();
   return ocl20_set_user_event_status(event, status, DCM);
 }
 
 extern void ocl20_capture_event_profiling_info(clk_event_t event,
                                                clk_profiling_info name,
                                                global ulong *value, void *DCM);
-void __attribute__((always_inline))
+void __attribute__((always_inline)) __attribute__((overloadable))
     capture_event_profiling_info(clk_event_t event, clk_profiling_info name,
                                  global ulong *value) {
-  void* DCM = __get_device_command_manager();
+  void *DCM = __get_device_command_manager();
   return ocl20_capture_event_profiling_info(event, name, value, DCM);
 }
 

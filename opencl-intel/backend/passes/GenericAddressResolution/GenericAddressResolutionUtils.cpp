@@ -71,7 +71,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                       "atomic_flag_test_and_set_explicit",
                       "atomic_flag_clear",
                       "atomic_flag_clear_explicit",
-
+                      "enqueue_marker"
   };
 
   bool isAddressQualifierBI(const Function *pFunc) {
@@ -206,6 +206,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     if (origMangledName == 
              "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE")
       return "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvvE";
+             
     reflection::FunctionDescriptor fd = demangle(origMangledName.c_str());
     //if (fd.parameters.size() != resolvedSpaces.size()) {
     //  dbgs() << origMangledName << "\n";

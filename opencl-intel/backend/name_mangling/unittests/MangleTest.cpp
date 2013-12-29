@@ -261,6 +261,22 @@ TEST(DemangleTest, AsyncGropuCpy){
   );
 }
 
+
+TEST(MangleTest, CSSD100018370){
+  const std::string s = "_Z14enqueue_kernelPK13ocl_clk_eventP13ocl_clk_event";
+  FunctionDescriptor fd = demangle(s.c_str());
+  // This is an expected failure. After fixing CSSD100018370, replace EXPECT_NE with ASSERT_EQ
+  //ASSERT_EQ(s, mangle(fd));
+  EXPECT_NE(s, mangle(fd));
+}
+
+TEST(DemangleTest, CSSD100018382){
+  FunctionDescriptor fd = demangle("_Z14enqueue_kernelU13block_pointerFvvE");
+  // This is an expected failure. After fixing CSSD100018382, replace ASSERT_TRUE with ASSERT_FALSE
+  ASSERT_TRUE(fd.isNull());
+  //ASSERT_FALSE(fd.isNull());
+}
+
 TEST(NameMangle, FailedOnce){
   const char* s = "_Z5frexpDv2_fPU3AS1Dv2_i";
   FunctionDescriptor fd = demangle(s);

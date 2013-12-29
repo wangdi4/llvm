@@ -14153,6 +14153,8 @@ cl_mem_fence_flags const_func __attribute__((overloadable)) get_fence (const voi
 #define CL_COMPLETE                   0x0
 #define CL_SUBMITTED                  0x2
 
+#define CLK_PROFILING_COMMAND_EXEC_TIME 0x1
+
 typedef int kernel_enqueue_flags_t;
 typedef int clk_profiling_info;
 
@@ -14170,7 +14172,7 @@ int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel(
 int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ...), uint size0,...);
 int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ...), uint size0, ...);
 
-int __attribute__((always_inline)) enqueue_marker(queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret);
+int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_marker(queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret);
 
 queue_t const_func __attribute__((always_inline)) get_default_queue(void);
 
@@ -14186,11 +14188,11 @@ ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_wor
 ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3], size_t local_work_size[3]);
 ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_offset[3], size_t global_work_size[3], size_t local_work_size[3]);
 
-void __attribute__((always_inline)) retain_event(clk_event_t event);
-void  __attribute__((always_inline)) release_event(clk_event_t event);
+void __attribute__((overloadable)) __attribute__((always_inline)) retain_event(clk_event_t event);
+void __attribute__((overloadable)) __attribute__((always_inline)) release_event(clk_event_t event);
 clk_event_t  __attribute__((always_inline)) create_user_event();
-void __attribute__((always_inline)) set_user_event_status(clk_event_t event, int status);
-void  __attribute__((always_inline)) capture_event_profiling_info(clk_event_t event, clk_profiling_info name, global ulong *value);
+void __attribute__((overloadable)) __attribute__((always_inline)) set_user_event_status(clk_event_t event, int status);
+void __attribute__((overloadable)) __attribute__((always_inline)) capture_event_profiling_info(clk_event_t event, clk_profiling_info name, global ulong *value);
 
 uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_kernel_work_group_size(void (^block)(void));
 uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_kernel_work_group_size(void (^block)(local void *,...));
