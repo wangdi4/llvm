@@ -26,9 +26,7 @@ declare  void @__ocl_load_transpose_char_4x4(<4 x i8>* %pLoadAdd, <4 x i8>* noca
 
 
 
-;CHECK:    .type    [[FOO:[_a-z]+]],@function
 ;CHECK:    vmovdqu	([[MEM:%[a-z]+]]), [[XMM0:%xmm[0-9]+]]
 ;CHECK:    vpsrldq	[[REG0:[$_0-9]+]], [[XMM0]], [[XMM1:%xmm[0-9]+]]
 ;CHECK:    vpsrldq	[[REG1:[$_0-9]+]], [[XMM1]], [[XMM2:%xmm[0-9]+]]
 ;CHECK:    vpsrldq	[[REG2:[$_0-9]+]], [[XMM2]], [[XMM3:%xmm[0-9]+]]
-;CHECK:	.type	[[LOAD:[_a-z]+]]_transpose_char_4x4,@function

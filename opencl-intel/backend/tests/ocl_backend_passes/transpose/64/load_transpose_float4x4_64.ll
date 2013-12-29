@@ -24,8 +24,6 @@ entry:
 
 declare void @__ocl_load_transpose_float_4x4(<4 x float>* nocapture %pLoadAdd, <4 x float>* nocapture %xOut, <4 x float>* nocapture %yOut, <4 x float>* nocapture %zOut, <4 x float>* nocapture %wOut) nounwind
 
-;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX: [[FOO]]:
 ;CHECK-AVX:	vmovaps ([[RCX:%[a-z]+]]), [[XMM0:%xmm[0-9]+]]
 ;CHECK-AVX:	vmovaps	16([[RCX]]), [[XMM2:%xmm[0-9]+]]
 ;CHECK-AVX:	vmovaps	32([[RCX]]), [[XMM3:%xmm[0-9]+]]
@@ -41,10 +39,7 @@ declare void @__ocl_load_transpose_float_4x4(<4 x float>* nocapture %pLoadAdd, <
 ;CHECK-AVX:	vunpcklps	[[XMM11]], [[XMM01]], [[XMM02:%xmm[0-9]+]]
 ;CHECK-AVX:	vaddps	[[XMM21]], [[XMM02]], [[XMM03:%xmm[0-9]+]]
 ;CHECK-AVX:	vaddps	[[XMM42]], [[XMM03]], [[XMM04:%xmm[0-9]+]]
-;CHECK-AVX:    .type	[[LOAD:[_a-z]+]]_transpose_float_4x4,@function
 
-;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX2:    [[FOO]]:
 ;CHECK-AVX2:	vmovups	([[EAX:%[a-z]+]]), [[YMM1:%ymm[0-9]+]]
 ;CHECK-AVX2:	vmovups	32([[EAX]]), [[YMM0:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpermps	[[YMM1]], [[YMM2:%ymm[0-9]+]], [[YMM11:%ymm[0-9]+]]
@@ -56,4 +51,3 @@ declare void @__ocl_load_transpose_float_4x4(<4 x float>* nocapture %pLoadAdd, <
 ;CHECK-AVX2:	vaddps	[[XMM21]], [[XMM3]], [[XMM2:%xmm[0-9]+]]
 ;CHECK-AVX2:	vaddps	[[XMM01:%xmm[0-9]+]], [[XMM1:%xmm[0-9]+]], [[XMM0:%xmm[0-9]+]]
 ;CHECK-AVX2:	vaddps	[[XMM2]], [[XMM0]], [[XMM02:%xmm[0-9]+]]
-;CHECK-AVX2:    .type	[[LOAD:[_a-z]+]]_transpose_float_4x4,@function
