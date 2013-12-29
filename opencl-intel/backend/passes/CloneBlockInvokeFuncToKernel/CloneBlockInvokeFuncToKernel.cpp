@@ -252,8 +252,10 @@ size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
   PointerType *pBlockDescPtr = dyn_cast<PointerType>(pStructBlockLiteralTy->getElementType(BLOCK_DESCRIPTOR_INDX));
   assert( pBlockDescPtr && "expected pointer field");
 
+#ifndef NDEBUG
   StructType * pBlockDescTy = dyn_cast<StructType>(pBlockDescPtr->getPointerElementType());
   assert( pBlockDescTy && "expected struct");
+#endif
 
   //block_literal itself
   return static_cast<size_t>(m_pTD->getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
