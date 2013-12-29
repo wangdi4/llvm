@@ -24,8 +24,6 @@ entry:
 declare void @__ocl_transpose_store_int_4x4(<4 x i32>* nocapture %pStoreAdd, <4 x i32> %xIn, <4 x i32> %yIn, <4 x i32> %zIn, <4 x i32> %wIn) nounwind
 
 
-;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX: [[FOO]]:
 ;CHECK-AVX: vpunpckldq	[[XMM0:%xmm[0-9]+]], [[XMM2:%xmm[0-9]+]], [[XMM4:%xmm[0-9]+]]
 ;CHECK-AVX:	vpunpckldq	[[XMM1:%xmm[0-9]+]], [[XMM3:%xmm[0-9]+]], [[XMM5:%xmm[0-9]+]]
 ;CHECK-AVX:	vpunpckldq	[[XMM4]], [[XMM5]], [[XMM7:%xmm[0-9]+]]
@@ -38,10 +36,7 @@ declare void @__ocl_transpose_store_int_4x4(<4 x i32>* nocapture %pStoreAdd, <4 
 ;CHECK-AVX:	vmovdqa	[[XMM9]], 32([[RCX]])
 ;CHECK-AVX:	vpunpckhdq	[[XMM5]], [[XMM6]], [[XMM10:%xmm[0-9]+]]
 ;CHECK-AVX:	vmovdqa	[[XMM10]], 48([[RCX]])
-;CHECK-AVX:	.type	 [[TRANSPOSE:[_a-z]+]]_store_int_4x4,@function
 
-;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX2:    [[FOO]]:
 ;CHECK-AVX2:	vperm2i128	$32, [[YMM3:%ymm[0-9]+]], [[YMM20:%ymm[0-9]+]], [[YMM2:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpermd	[[YMM2]], [[YMM3]], [[YMM21:%ymm[0-9]+]]
 ;CHECK-AVX2:	vperm2i128	$32, [[YMM1:%ymm[0-9]+]], [[YMM00:%ymm[0-9]+]], [[YMM0:%ymm[0-9]+]]
@@ -50,4 +45,3 @@ declare void @__ocl_transpose_store_int_4x4(<4 x i32>* nocapture %pStoreAdd, <4 
 ;CHECK-AVX2:	vmovdqu	[[YMM11]], ([[EAX:%[a-z]+]])
 ;CHECK-AVX2:	vpalignr	$8, [[YMM01]], [[YMM21]], [[YMM02:%ymm[0-9]+]]
 ;CHECK-AVX2:	vmovdqu	[[YMM02]], 32([[EAX]])
-;CHECK-AVX2:	.type	 [[TRANSPOSE:[_a-z]+]]_store_int_4x4,@function

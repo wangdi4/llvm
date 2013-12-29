@@ -27,7 +27,6 @@ declare void @__ocl_transpose_store_short_4x8(<4 x i16>* nocapture %pStoreAdd, <
 
 
 ;-------------------------------------------------------------------------------
-; CHECK-AVX:     .type	[[FOO:[_a-z]+]],@function
 ; CHECK-AVX:     vpunpckhwd	%x[[MM3:mm[0-7]{1}]], %x[[MM2:mm[0-7]{1}]], %x[[MM4:mm[0-7]{1}]]
 ; CHECK-AVX:     vpunpcklwd	%x[[MM3]], %x[[MM2]], %x[[MM2]]
 ; CHECK-AVX:     vinsertf128	$1, %x[[MM4]], %y[[MM2]], %y[[MM2]]
@@ -44,11 +43,9 @@ declare void @__ocl_transpose_store_short_4x8(<4 x i16>* nocapture %pStoreAdd, <
 ; CHECK-AVX:     vunpcklps	%x[[MM1]], %x[[MM2]], %x[[MM1]]
 ; CHECK-AVX:     vinsertf128	$1, %x[[MM0]], %y[[MM1]], %y[[MM0]]
 ; CHECK-AVX:     vmovups	%y[[MM0]],
-; CHECK-AVX:     .size	[[FOO]]
 
 
 ;-------------------------------------------------------------------------------
-; CHECK-AVX2:    .type	[[FOO:[_a-z]+]],@function
 ; CHECK-AVX2:    vpunpckhwd	%x[[MM3:mm[0-7]{1}]], %x[[MM2:mm[0-7]{1}]], %x[[MM4:mm[0-7]{1}]]
 ; CHECK-AVX2:    vpunpcklwd	%x[[MM3]], %x[[MM2]], %x[[MM2]]
 ; CHECK-AVX2:    vinserti128	$1, %x[[MM4]], %y[[MM2]], %y[[MM2]]
@@ -65,4 +62,3 @@ declare void @__ocl_transpose_store_short_4x8(<4 x i16>* nocapture %pStoreAdd, <
 ; CHECK-AVX2:    vpunpckldq	%x[[MM1]], %x[[MM2]], %x[[MM1]]
 ; CHECK-AVX2:    vinserti128	$1, %x[[MM0]], %y[[MM1]], %y[[MM0]]
 ; CHECK-AVX2:    vmovdqu	%y[[MM0]],
-; CHECK-AVX2:    .size	[[FOO]]

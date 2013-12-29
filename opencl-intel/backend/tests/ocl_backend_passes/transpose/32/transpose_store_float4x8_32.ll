@@ -17,8 +17,6 @@ entry:
  declare void @__ocl_transpose_store_float_4x8(<4 x float>* nocapture %pStoreAdd, <8 x float> %xIn, <8 x float> %yIn, <8 x float> %zIn, <8 x float> %wIn) nounwind
 
 
-;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX: [[FOO]]:
 ;CHECK-AVX:	vunpcklps	[[YMM3:%ymm[0-9]+]], [[YMM2:%ymm[0-9]+]], [[YMM5:%ymm[0-9]+]]
 ;CHECK-AVX:	vunpcklps	[[YMM1:%ymm[0-9]+]], [[YMM0:%ymm[0-9]+]], [[YMM6:%ymm[0-9]+]]
 ;CHECK-AVX:	vunpcklpd	[[YMM5]], [[YMM6]], [[YMM4:%ymm[0-9]+]]
@@ -36,10 +34,7 @@ entry:
 ;CHECK-AVX:	vaddps	[[YMM3]], [[YMM2]], [[YMM21:%ymm[0-9]+]]
 ;CHECK-AVX:	vaddps	[[YMM1]], [[YMM0]], [[YMM01:%ymm[0-9]+]]
 ;CHECK-AVX:	vaddps	[[YMM21]], [[YMM01]], [[YMM02:%ymm[0-9]+]]
-;CHECK-AVX:	.type	    [[TRANSPOSE:[_a-z]+]]_store_float_4x8,@function
 
-;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX2:    [[FOO]]:
 ;CHECK-AVX2:	vunpcklps	[[YMM3:%ymm[0-9]+]], [[YMM2:%ymm[0-9]+]], [[YMM5:%ymm[0-9]+]]
 ;CHECK-AVX2:	vunpcklps	[[YMM1:%ymm[0-9]+]], [[YMM0:%ymm[0-9]+]], [[YMM6:%ymm[0-9]+]]
 ;CHECK-AVX2:	vunpcklpd	[[YMM5]], [[YMM6]], [[YMM4:%ymm[0-9]+]]
@@ -57,4 +52,3 @@ entry:
 ;CHECK-AVX2:	vaddps	[[YMM3]], [[YMM2]], [[YMM21:%ymm[0-9]+]]
 ;CHECK-AVX2:	vaddps	[[YMM1]], [[YMM0]], [[YMM01:%ymm[0-9]+]]
 ;CHECK-AVX2:	vaddps	[[YMM21]], [[YMM01]], [[YMM02:%ymm[0-9]+]]
-;CHECK-AVX2:	.type	    [[TRANSPOSE:[_a-z]+]]_store_float_4x8,@function

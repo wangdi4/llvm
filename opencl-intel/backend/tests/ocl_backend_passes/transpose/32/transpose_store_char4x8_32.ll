@@ -20,8 +20,6 @@ declare void @__ocl_transpose_store_char_4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn
 
 
 
-;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX: [[FOO]]
 ;CHECK-AVX:	vpshufb	 [[SHUF:%xmm[0-9]+]], [[TMP:%xmm[0-9]+]], [[XMM0:%xmm[0-9]+]]
 ;CHECK-AVX:	vpshufb	 [[SHUF]], [[TMP1:%xmm[0-9]+]], [[XMM2:%xmm[0-9]+]]
 ;CHECK-AVX:	vpunpcklbw	[[XMM0]], [[XMM2]], [[XMM1:%xmm[0-9]+]]
@@ -33,11 +31,8 @@ declare void @__ocl_transpose_store_char_4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn
 ;CHECK-AVX:	vpunpckhwd	[[XMM1]], [[XMM5]], [[XMM7:%xmm[0-9]+]]
 ;CHECK-AVX:	vmovdqu	[[XMM7]], 16([[MEM]])
 ;CHECK-AVX:	ret
-;CHECK-AVX:	.type	 [[TRANSPOSE:[_a-z]+]]_store_char_4x8,@function
 
 
-;CHECK-AVX2:   .type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX2:   [[FOO]]
 ;CHECK-AVX2:   vperm2i128	$32, [[YMM3:%ymm[0-9]+]], [[YMM1:%ymm[0-9]+]], [[YMM4:%ymm[0-9]+]]
 ;CHECK-AVX2:   vpshufb	[[YMM5:%ymm[0-9]+]], [[YMM4]], [[YMM41:%ymm[0-9]+]]
 ;CHECK-AVX2:   vperm2i128	$32, [[YMM2:%ymm[0-9]+]], [[YMM0:%ymm[0-9]+]], [[YMM6:%ymm[0-9]+]]
@@ -50,6 +45,3 @@ declare void @__ocl_transpose_store_char_4x8(<4 x i8>* %pStoreAdd, <8 x i8> %xIn
 ;CHECK-AVX2:   vpaddw	[[XMM1:%xmm[0-9]+]], [[XMM00:%xmm[0-9]+]], [[XMM0:%xmm[0-9]+]]
 ;CHECK-AVX2:   vpaddw	[[XMM2]], [[XMM0]], [[XMM01:%xmm[0-9]+]]
 ;CHECK-AVX2:   ret
-;CHECK-AVX2:   .type	 [[TRANSPOSE:[_a-z]+]]_store_char_4x8,@function
-
-

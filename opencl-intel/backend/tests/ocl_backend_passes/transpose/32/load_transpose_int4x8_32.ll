@@ -28,8 +28,6 @@ declare void @__ocl_load_transpose_int_4x8(<4 x i32>* nocapture %pLoadAdd, <8 x 
 
 
 
-;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX:    [[FOO]]:
 ;CHECK-AVX:	vmovdqa	112([[EAX:%[a-z]+]]), [[XMM0:%xmm[0-9]+]]
 ;CHECK-AVX:	vmovdqa	80([[EAX]]), [[XMM1:%xmm[0-9]+]]
 ;CHECK-AVX:	vpunpckhdq	[[XMM0]], [[XMM1]], [[XMM3:%xmm[0-9]+]]
@@ -60,10 +58,7 @@ declare void @__ocl_load_transpose_int_4x8(<4 x i32>* nocapture %pLoadAdd, <8 x 
 ;CHECK-AVX:	vpunpckldq	[[XMM23]], [[XMM34]], [[XMM24:%xmm[0-9]+]]
 ;CHECK-AVX:	vpaddd	[[XMM13]], [[XMM24]], [[XMM14:%xmm[0-9]+]]
 ;CHECK-AVX:	vpaddd	[[XMM43]], [[XMM14]], [[XMM15:%xmm[0-9]+]]
-;CHECK-AVX:    .type	[[LOAD:[_a-z]+]]_transpose_int_4x8,@function
 
-;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX2:    [[FOO]]:
 ;CHECK-AVX2:	vinserti128	$1, 112([[EAX:%[a-z]+]]), [[YMM00:%ymm[0-9]+]], [[YMM0:%ymm[0-9]+]]
 ;CHECK-AVX2:	vinserti128	$1, 80([[EAX]]), [[YMM10:%ymm[0-9]+]], [[YMM1:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpunpckhdq	[[YMM0]], [[YMM1]], [[YMM3:%ymm[0-9]+]]
@@ -79,9 +74,6 @@ declare void @__ocl_load_transpose_int_4x8(<4 x i32>* nocapture %pLoadAdd, <8 x 
 ;CHECK-AVX2:	vpunpckldq	[[YMM01]], [[YMM32]], [[YMM02:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpaddd	[[YMM11]], [[YMM02]], [[YMM03:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpaddd	[[YMM21]], [[YMM03]], [[YMM04:%ymm[0-9]+]]
-;CHECK-AVX2:    .type	[[LOAD:[_a-z]+]]_transpose_int_4x8,@function
-
-
 
 
 
