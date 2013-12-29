@@ -30,7 +30,7 @@ const char* DUPLICANT_STR[2] = {"S_", "S0_"};
 class MangleVisitor: public reflection::TypeVisitor{
 public:
 
-  MangleVisitor(std::stringstream& s): m_stream(s) {
+  MangleVisitor(std::stringstream& s): m_stream(s), m_atTopLevel(true) {
   }
 
   void operator() (const reflection::ParamType* t){
@@ -55,7 +55,10 @@ public:
       m_stream << getMangledAttribute(p->getAttributes()[i]);
     }
     p->getPointee()->accept(this);
-    m_dupList.push_back((reflection::ParamType*)p);
+    if (m_atTopLevel) {
+      m_atTopLevel = false;
+      m_dupList.push_back((reflection::ParamType*)p);
+    }
   }
 
   void visit(const reflection::VectorType* v){
@@ -66,7 +69,10 @@ public:
     }
     m_stream << "Dv" << v->getLength() << "_";
     v->getScalarType()->accept(this);
-    m_dupList.push_back((reflection::ParamType*)v);
+    if (m_atTopLevel) {
+      m_atTopLevel = false;
+      m_dupList.push_back((reflection::ParamType*)v);
+    }
   }
 
   void visit(const reflection::UserDefinedType* pTy){
@@ -77,7 +83,10 @@ public:
     }
     std::string name = pTy->toString();
     m_stream << name.size() << name;
-    m_dupList.push_back((reflection::ParamType*)pTy);
+    if (m_atTopLevel) {
+      m_atTopLevel = false;
+      m_dupList.push_back((reflection::ParamType*)pTy);
+    }
   }
 
 private:
@@ -95,6 +104,8 @@ private:
   std::stringstream& m_stream;
   //list of types 'seen' so far
   reflection::DuplicatedTypeList m_dupList;
+  // True if visiting the top level type (before entering recursively sub-types)
+  bool m_atTopLevel;
 };
 
 std::string mangle(const reflection::FunctionDescriptor& fd){

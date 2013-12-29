@@ -99,38 +99,26 @@ void DeviceProgram::SetDevice(SharedPtr<FissionableDevice> pDevice)
 
 cl_err_code DeviceProgram::SetBinary(size_t uiBinarySize, const unsigned char* pBinary, cl_int* piBinaryStatus)
 {
-    cl_int binaryStatus = CL_SUCCESS;
-
-    do {
-        // Check if binary format is known by the runtime
-        if ( CheckProgramBinary(uiBinarySize, pBinary) )
-        {
-            m_state = DEVICE_PROGRAM_CREATED;
-            break;
-        }
-
+    // Check if binary format is known by the runtime
+    if (!CheckProgramBinary(uiBinarySize, pBinary))
+    {
         // Format is not supported by the runtime
         // Need to explicitly check if binary is supported by the device
         cl_dev_err_code devErr = m_pDevice->GetDeviceAgent()->clDevCheckProgramBinary(uiBinarySize, pBinary);
         if ( CL_DEV_FAILED(devErr) )
         {
-            binaryStatus = CL_INVALID_BINARY;
-            break;
+            // Binary format is not supported by both runtime and device
+            if (piBinaryStatus)
+            {
+                *piBinaryStatus = CL_INVALID_BINARY;
+            }
+            return CL_INVALID_BINARY;
         }
-
-        // If device check passed, program contains device specific binary
-        // No need any further steps from the runtime side
-        m_state = DEVICE_PROGRAM_CUSTOM_BINARY;
-    } while(0);
+    }
 
     if (piBinaryStatus)
     {
-        *piBinaryStatus = binaryStatus;
-    }
-
-    if ( CL_FAILED(binaryStatus) )
-    {
-        return binaryStatus;
+        *piBinaryStatus = CL_SUCCESS;
     }
 
     // if binary is valid binary create program binary object and add it to the program object
@@ -257,11 +245,11 @@ cl_build_status DeviceProgram::GetBuildStatus() const
 	{
 	default:
 	case DEVICE_PROGRAM_INVALID:
-	case DEVICE_PROGRAM_CREATED:
 		return CL_BUILD_ERROR;
 
 	case DEVICE_PROGRAM_SOURCE:
 	case DEVICE_PROGRAM_LOADED_IR:
+	case DEVICE_PROGRAM_CUSTOM_BINARY:
 		return CL_BUILD_NONE;
 
 	case DEVICE_PROGRAM_FE_COMPILING:
@@ -355,10 +343,10 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 		switch (m_state)
 		{
 		default:
-        case DEVICE_PROGRAM_INVALID:
-        case DEVICE_PROGRAM_CREATED:
+		case DEVICE_PROGRAM_INVALID:
 		case DEVICE_PROGRAM_SOURCE:
 		case DEVICE_PROGRAM_LOADED_IR:
+		case DEVICE_PROGRAM_CUSTOM_BINARY:
 		case DEVICE_PROGRAM_BUILTIN_KERNELS:
 		case DEVICE_PROGRAM_FE_COMPILING:
 		case DEVICE_PROGRAM_FE_LINKING:
@@ -490,9 +478,10 @@ cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * pui
 		//Return the resultant compiled binaries
 		return m_pDevice->GetDeviceAgent()->clDevGetProgramBinary(m_programHandle, uiBinSize, pBin, puiBinSizeRet);
 
-    case DEVICE_PROGRAM_COMPILED:
-    case DEVICE_PROGRAM_LINKED:
+	case DEVICE_PROGRAM_COMPILED:
+	case DEVICE_PROGRAM_LINKED:
 	case DEVICE_PROGRAM_LOADED_IR:
+	case DEVICE_PROGRAM_CUSTOM_BINARY:
 		if ( NULL == pBin)
 		{
 			assert(m_uiBinaryBitsSize <= CL_MAX_UINT32);

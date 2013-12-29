@@ -6,6 +6,8 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../external/tinyxml)
 # NEAT library to (de)serialize NEAT data.
 include_directories(${VALIDATIONS_ROOT}/NEAT)
 
+include_directories(${VALIDATIONS_ROOT}/DataVersion)
+
 # Set useful variable for all header files to manipulate them all together.
 set (DM_INCLUDE_FILES
   ${VALIDATIONS_ROOT}/Common/Exception.h
@@ -35,7 +37,7 @@ set (DM_INCLUDE_FILES
   ${VALIDATIONS_ROOT}/NEAT/NEATValue.h
   )
 
-# Data Manager Libarary
+# Data Manager Library
 add_library(DataManager
   ${DM_INCLUDE_FILES}
   VectorWidth.cpp
