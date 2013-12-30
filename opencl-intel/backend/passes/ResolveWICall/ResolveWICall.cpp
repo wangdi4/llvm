@@ -10,7 +10,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLAddressSpace.h"
 #include "common_dev_limits.h"
 #include "OCLPassSupport.h"
-#include "MetaDataApi.h"
 #include "CallbackDesc.h"
 
 #include "llvm/Support/InstIterator.h"
@@ -81,15 +80,6 @@ namespace intel {
       }
 
       return true;
-  }
-
-  size_t ResolveWICall::getBlockLiteralSize(Function* F) {
-    Intel::MetaDataUtils mdUtils(F->getParent());
-    assert(mdUtils.isKernelsInfoHasValue() && "No kernels.info metadata section. Is this a malformed test?");
-    assert(mdUtils.findKernelsInfoItem(F) != mdUtils.end_KernelsInfo() && "No kernel.info entry for block literal. Is this a malformed test?");
-    Intel::KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(F);
-    assert(skimd->isBlockLiteralSizeHasValue() && "No entry for block_literal_size. Is this a malformed test?");
-    return skimd->getBlockLiteralSize();
   }
 
   Function* ResolveWICall::runOnFunction(Function *pFunc) {
