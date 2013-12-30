@@ -18,8 +18,7 @@ set( TARGET framework_test_type )
 
 include_directories( ../../framework/export 
                      ../../externals/gtest/include
-                     ${OCL_SOURCE_DIR}/tests/test_common
-                     /home/work/zrackove/freeglut/freeglut-code-1627-tags-FG_2_8_1_RC1/freeglut/include )
+                     ${OCL_SOURCE_DIR}/tests/test_common )
 
 set( IGNORE_FILES clBuildCubinProgram|clBuildProgram.cpp|clCreateCudaKernel|clCreateKernelCpuGpu|clCreateQueue )
 
@@ -61,7 +60,7 @@ endif (NOT WIN32)
 
 set( CREATE_DIR_NAME bin/validation/framework_test_type)
 
-file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd *.cl)
+file(GLOB_RECURSE CP_FILES RELATIVE  ${CMAKE_CURRENT_SOURCE_DIR} *.py *.xml *.xsd )
 # Copy *.py *.xml and *.xsd from current directory to appropriate test directory in 'Release' area.
 install(FILES ${CP_FILES} DESTINATION ${CREATE_DIR_NAME})
 # Copy *.py from ../GeneralScripts directory to appropriate test directory in 'Release' area.
