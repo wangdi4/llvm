@@ -186,7 +186,8 @@ namespace intel {
         m_valueMap.erase(it);
       }
 
-      // Find all "root" functions.
+      // When importing a function which has opaque type args or ret value, need
+      // to bitcast from local module's type to remote module's type
       SmallVector<unsigned, 16> OpaqueArgIndices;
       SmallVector<Type*, 16> OpaqueArgTypes;
       
@@ -225,32 +226,12 @@ namespace intel {
                                           OpaqueArgTypes[I], "", CI);
               CI->setArgOperand(OpIdx, BC);
             }
-#if 0
-            // adapt the value of the call instruction
-            if (ReturnsOpaque) {
-              // Check for mismatch between call instruction and its users
-              if (CI->use_begin() == CI->use_end())
-                continue;
-              if (Instruction *User =
-                      dyn_cast<Instruction>(*(CI->use_begin()))) {
-                // Handle only return instructions. If the cast below asserts,
-                // need to generalize this code
-                ReturnInst *RI = cast<ReturnInst>(User);
-                if (CI->getType() != RI->getType()) {
-                  Value *BC = new BitCastInst(CI, RI->getType(), "",
-                                              ++BasicBlock::iterator(CI));
-                  CI->replaceAllUsesWith(BC);
-                }
-              }
-            }
-#endif
           }
         }
       }
 
-       // If the imported function contains usages of opaque types, need to fix
+      // If the imported function contains usages of opaque types, need to fix
       // with bitcasts
-#if 1
       Type* RT = pDstFunction->getReturnType();
       for (Function::iterator BBI = pDstFunction->begin(),
                               BBE = pDstFunction->end();
@@ -262,7 +243,6 @@ namespace intel {
           }
         }
       }
-#endif
     }
   }
 
