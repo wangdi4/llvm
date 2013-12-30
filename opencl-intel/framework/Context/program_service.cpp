@@ -101,13 +101,12 @@ CompileTask::CompileTask(_cl_context_int*           context,
                          const SharedPtr<Program>&  pProg,
                          const ConstSharedPtr<FrontEndCompiler>& pFECompiler,
                          DeviceProgram*             pDeviceProgram,
-                         const char*                szSource,
                          unsigned int               uiNumHeaders,
                          const char**               pszHeaders,
                          char**                     pszHeadersNames,
                          const char*                szOptions) :
 BuildTask(context, pProg, pFECompiler),
-m_pDeviceProgram(pDeviceProgram), m_szSource(szSource), m_uiNumHeaders(uiNumHeaders),
+m_pDeviceProgram(pDeviceProgram), m_uiNumHeaders(uiNumHeaders),
 m_pszHeaders(pszHeaders), m_pszHeadersNames((const char**)pszHeadersNames), m_sOptions(szOptions)
 {
 }
@@ -118,32 +117,52 @@ CompileTask::~CompileTask()
 
 bool CompileTask::Execute()
 {
-    char* pBinary = NULL;
-    size_t uiBinarySize = 0;
-    char* szCompileLog = NULL;
+    char* pOutBinary = NULL;
+    size_t uiOutBinarySize = 0;
+    char* szOutCompileLog = NULL;
 
     m_pDeviceProgram->SetBuildLogInternal("Compilation started\n");
     m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_FE_COMPILING);
 
-    m_pFECompiler->CompileProgram(m_szSource,
+    // check if program contains spir binary
+    if (m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_INTERMEDIATE)
+    {
+        // we have spir binary, no need for FE compilation
+        m_pDeviceProgram->SetBuildLogInternal("Compilation done\n");
+        m_pDeviceProgram->SetBinaryTypeInternal(CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT);
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
+
+    const char* szSource = m_pProg->GetSourceInternal();
+    if (NULL == szSource)
+    {
+        // not spir and no source
+        m_pDeviceProgram->SetBuildLogInternal("Compilation failed\n");
+        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_COMPILE_FAILED);
+        SetComplete(CL_BUILD_SUCCESS);
+        return true;
+    }
+
+    m_pFECompiler->CompileProgram(m_pProg->GetSourceInternal(),
                                   m_uiNumHeaders,
                                   m_pszHeaders,
                                   m_pszHeadersNames,
                                   m_sOptions.c_str(),
-                                  &pBinary,
-                                  &uiBinarySize,
-                                  &szCompileLog);
+                                  &pOutBinary,
+                                  &uiOutBinarySize,
+                                  &szOutCompileLog);
 
 
-    if (NULL != szCompileLog)
+    if (NULL != szOutCompileLog)
     {
-        m_pDeviceProgram->SetBuildLogInternal(szCompileLog);
-        delete[] szCompileLog;
+        m_pDeviceProgram->SetBuildLogInternal(szOutCompileLog);
+        delete[] szOutCompileLog;
     }
 
-    if (0 == uiBinarySize)
+    if (0 == uiOutBinarySize)
     {
-        assert( NULL == pBinary);
+        assert( NULL == pOutBinary);
         //Build failed
         m_pDeviceProgram->SetBuildLogInternal("Compilation failed\n");
         m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_COMPILE_FAILED);
@@ -153,8 +172,8 @@ bool CompileTask::Execute()
 
     //Else compile succeeded
     m_pDeviceProgram->SetBuildLogInternal("Compilation done\n");
-    m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary);
-    delete[] pBinary;
+    m_pDeviceProgram->SetBinaryInternal(uiOutBinarySize, pOutBinary, CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT);
+    delete[] pOutBinary;
     SetComplete(CL_BUILD_SUCCESS);
 
     return true;
@@ -254,14 +273,20 @@ bool LinkTask::Execute()
 
     //Else link succeeded
 
-    // If not library, need to update binary format to be executable
-    if ( !bIsLibrary )
+    // Update binary
+    if ( bIsLibrary )
     {
+        m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary, CL_PROGRAM_BINARY_TYPE_LIBRARY);
+    }
+    else // executable
+    {
+        // update RT binary container - device will check for this
         cl_prog_container_header* pHeader = (cl_prog_container_header*)pBinary;
         pHeader->description.bin_type = CL_PROG_BIN_EXECUTABLE_LLVM;
+
+        m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary, CL_PROGRAM_BINARY_TYPE_EXECUTABLE);
     }
 
-    m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary);
     m_pDeviceProgram->SetBuildLogInternal("Linking done\n");
     SetComplete(CL_BUILD_SUCCESS);
     delete[] pBinary;
@@ -303,12 +328,8 @@ bool DeviceBuildTask::Execute()
         return true;
     }
 
-    uiBinarySize = m_pDeviceProgram->GetBinarySizeInternal();
-    pBinary = m_pDeviceProgram->GetBinaryInternal();
-
     // If we are building library no need for device build
-    cl_prog_container_header* pHeader = (cl_prog_container_header*)pBinary;
-    if (CL_PROG_BIN_EXECUTABLE_LLVM != pHeader->description.bin_type)
+    if (m_pDeviceProgram->GetBinaryTypeInternal() != CL_PROGRAM_BINARY_TYPE_EXECUTABLE)
     {
         SetComplete(CL_BUILD_SUCCESS);
         return true;
@@ -318,6 +339,8 @@ bool DeviceBuildTask::Execute()
     m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_BE_BUILDING);
 
     pDeviceAgent = m_pDeviceProgram->GetDevice()->GetDeviceAgent();
+    uiBinarySize = m_pDeviceProgram->GetBinarySizeInternal();
+    pBinary      = m_pDeviceProgram->GetBinaryInternal();
 
     cl_dev_err_code err = pDeviceAgent->clDevCheckProgramBinary(uiBinarySize, pBinary);
     if (CL_DEV_SUCCESS != err)
@@ -496,12 +519,6 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
                                            pfnNotifyBuildDone           pfn_notify,
                                            void *                       user_data)
 {
-    const char* szProgramSource = program->GetSourceInternal();
-    if (NULL == szProgramSource)
-    {
-        return CL_INVALID_OPERATION;
-    }
-
     if (program->GetNumKernels() > 0)
     {
         return CL_INVALID_OPERATION;
@@ -723,13 +740,18 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
                 // The spec doesn't forbid compilation of built program
                 // Intentional fall through.
             }
+        case DEVICE_PROGRAM_LOADED_IR:
+            {
+                // SPIR extension allows compiling binary
+                // Intentional fall through.
+            }
         case DEVICE_PROGRAM_SOURCE:
             {
                 // Building from source
                 bNeedToBuild = true;
                 ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_FE_COMPILING);
                 arrCompileTasks[i] = CompileTask::Allocate(context, program, arrFeCompilers[i], ppDevicePrograms[i],
-                            szProgramSource, num_input_headers, pszHeaders, pszHeadersNames, buildOptions.c_str());
+                                            num_input_headers, pszHeaders, pszHeadersNames, buildOptions.c_str());
                 if (NULL == arrCompileTasks[i])
                 {
                     ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
@@ -738,9 +760,12 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
             }
 
         case DEVICE_PROGRAM_LINKED:
-        case DEVICE_PROGRAM_LOADED_IR:
         case DEVICE_PROGRAM_CUSTOM_BINARY:
-            // Linked and loaded IR programs shouldn't have source so this should not happen
+            {
+                // Linked and custom binary programs already contains compiled binary
+                break;
+            }
+
         case DEVICE_PROGRAM_FE_COMPILING:
         case DEVICE_PROGRAM_FE_LINKING:
         case DEVICE_PROGRAM_BE_BUILDING:
@@ -877,18 +902,10 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
 
         for (unsigned int libIndex = 0; libIndex < num_input_programs; ++libIndex)
         {
-            const char* pBin = input_programs[libIndex]->GetBinaryInternal( ppDevicePrograms[devIndex]->GetDeviceId() );
-            assert(pBin && "NULL binaries");
-            bool isSpirBinary = pBin[0] == 'B' && pBin[1] == 'C'; // Checking for LLVM magic code.
-
-            cl_prog_binary_type binType =
-              ((cl_prog_container_header*)pBin)->description.bin_type;
-
-            if (isSpirBinary ||
-                (CL_PROG_BIN_COMPILED_LLVM == binType) ||
-                (CL_PROG_BIN_LINKED_LLVM == binType)   ||
-                (CL_PROG_BIN_COMPILED_SPIR == binType) ||
-                (CL_PROG_BIN_LINKED_SPIR == binType))
+            cl_device_id clDeviceID = ppDevicePrograms[devIndex]->GetDeviceId();
+            cl_program_binary_type clBinaryType = input_programs[libIndex]->GetBinaryTypeInternal( clDeviceID );
+            if ((CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT == clBinaryType) ||
+                (CL_PROGRAM_BINARY_TYPE_LIBRARY == clBinaryType) )
             {
                 ++uiFoundBinaries;
             }
@@ -1222,8 +1239,6 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
 
     bool bNeedToBuild = false;
 
-    const char* szProgramSource = program->GetSourceInternal();
-
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         switch (ppDevicePrograms[i]->GetStateInternal())
@@ -1245,7 +1260,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         case DEVICE_PROGRAM_BUILD_FAILED:
             {
                 // Possibly retrying a failed build - legal
-                if (!szProgramSource)
+                if (NULL == program->GetSourceInternal())
                 {
                     //invalid binaries are hopeless
                     //remember build options even if build will fail
@@ -1260,7 +1275,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 bNeedToBuild = true;
                 ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_FE_COMPILING);
                 arrCompileTasks[i] = CompileTask::Allocate(context, program, arrFeCompilers[i], ppDevicePrograms[i],
-                                                    szProgramSource, 0, NULL, NULL, buildOptions.c_str());
+                                                    0, NULL, NULL, buildOptions.c_str());
 
                 if (NULL == arrCompileTasks[i])
                 {
