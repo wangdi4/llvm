@@ -14153,6 +14153,8 @@ cl_mem_fence_flags const_func __attribute__((overloadable)) get_fence (const voi
 #define CL_COMPLETE                   0x0
 #define CL_SUBMITTED                  0x2
 
+
+// Profiling info name (see capture_event_profiling_info)
 #define CLK_PROFILING_COMMAND_EXEC_TIME 0x1
 
 typedef int kernel_enqueue_flags_t;
@@ -14167,6 +14169,7 @@ typedef struct {
     size_t localWorkSize[MAX_WORK_DIM];
 } ndrange_t;
 
+// The functions with the always_inline attribute must be inlined to allow the PatchCallbackArgs pass to patch the callbacks called within these builtins
 int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(void));
 int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(void));
 int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ...), uint size0,...);
