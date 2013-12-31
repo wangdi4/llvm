@@ -510,8 +510,8 @@ namespace intel {
       return NULL;
     }
 
-    // Alert if BI or Intrinsic function has pointer parameters of heterogeneous address space
-    if (category == CallBuiltIn || category == CallIntrinsic) {
+    // Alert if LLVM intrinsic function has pointer parameters of heterogeneous address space
+    if (category == CallIntrinsic) {
       bool isFirst     = true;
       bool hasMismatch = false;
       OCLAddressSpace::spaces foundSpace = OCLAddressSpace::Generic;

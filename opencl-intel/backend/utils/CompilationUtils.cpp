@@ -60,6 +60,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_PREFETCH = "prefetch";
   const std::string CompilationUtils::NAME_ASYNC_WORK_GROUP_STRIDED_COPY = "async_work_group_strided_copy";
 
+  const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_READ_PIPE = "work_group_reserve_read_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_READ_PIPE = "work_group_commit_read_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_WRITE_PIPE = "work_group_reserve_write_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_WRITE_PIPE = "work_group_commit_write_pipe";
+
   const std::string CompilationUtils::NAME_MEM_FENCE = "mem_fence";
   const std::string CompilationUtils::NAME_READ_MEM_FENCE = "read_mem_fence";
   const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
@@ -187,8 +192,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_WITH_SCOPE) ||
           /* work group built-ins */
           CompilationUtils::isWorkGroupBuiltin(func_name)  ||
-          /* async copy built-ins */
-          CompilationUtils::isAsyncBuiltin(func_name) ) {
+          /* built-ins synced as if were called by a single work item */
+          CompilationUtils::isWorkGroupUniformBuiltin(func_name, pModule) ) {
             // Found synchronized built-in declared in the module add it to the container set.
             functionSet.insert(&*fi);
       }
@@ -708,6 +713,22 @@ bool CompilationUtils::isAsyncWorkGroupStridedCopy(const std::string& S){
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
 }
 
+bool CompilationUtils::isWorkGroupReserveReadPipe(const std::string& S){
+  return isMangleOf(S, NAME_WORK_GROUP_RESERVE_READ_PIPE);
+}
+
+bool CompilationUtils::isWorkGroupCommitReadPipe(const std::string& S){
+  return isMangleOf(S, NAME_WORK_GROUP_COMMIT_READ_PIPE);
+}
+
+bool CompilationUtils::isWorkGroupReserveWritePipe(const std::string& S){
+  return isMangleOf(S, NAME_WORK_GROUP_RESERVE_WRITE_PIPE);
+}
+
+bool CompilationUtils::isWorkGroupCommitWritePipe(const std::string& S){
+  return isMangleOf(S, NAME_WORK_GROUP_COMMIT_WRITE_PIPE);
+}
+
 bool CompilationUtils::isMemFence(const std::string& S){
   return isOptionalMangleOf(S, NAME_MEM_FENCE);
 }
@@ -789,9 +810,14 @@ bool CompilationUtils::isWorkGroupBuiltin(const std::string& S) {
          isWorkGroupScan(S);
 }
 
-bool CompilationUtils::isAsyncBuiltin(const std::string& S) {
+bool CompilationUtils::isWorkGroupUniformBuiltin(const std::string& S, const Module* pModule) {
   return CompilationUtils::isAsyncWorkGroupCopy(S) || 
-         CompilationUtils::isAsyncWorkGroupStridedCopy(S);
+         CompilationUtils::isAsyncWorkGroupStridedCopy(S) ||
+         (OclVersion::CL_VER_2_0 <= getCLVersionFromModuleOrDefault(*pModule) && (
+            CompilationUtils::isWorkGroupReserveReadPipe(S) ||
+            CompilationUtils::isWorkGroupCommitReadPipe(S) ||
+            CompilationUtils::isWorkGroupReserveWritePipe(S) ||
+            CompilationUtils::isWorkGroupCommitWritePipe(S)));
 }
 
 bool CompilationUtils::isWorkGroupScan(const std::string& S) {

@@ -65,7 +65,7 @@ namespace intel {
 
   typedef enum {
     CALL_BI_TYPE_WG,
-    CALL_BI_TYPE_ASYNC,
+    CALL_BI_TYPE_WG_UNIFORM,
     CALL_BI_NUM
   } CALL_BI_TYPE;
 

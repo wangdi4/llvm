@@ -24,45 +24,64 @@ using namespace Intel::OpenCL::Framework;
 
 cl_err_code Pipe::Initialize(cl_uint uiPacketSize, cl_uint uiMaxPackets, void* pHostPtr)
 {
-	m_uiPacketSize = uiPacketSize;
-	m_uiMaxPackets = uiMaxPackets;
-	const size_t szDim = CalcPipeSize(uiPacketSize, uiMaxPackets);
+    m_uiPacketSize = uiPacketSize;
+    m_uiMaxPackets = uiMaxPackets;
+    // one extra packet is required by the pipe algorithm
+    const cl_uint uiMaxPacketsPlusOne = uiMaxPackets + 1;
+
+    const size_t szDim = CalcPipeSize(uiPacketSize, uiMaxPacketsPlusOne);
+    cl_err_code err = CL_SUCCESS;
     if (NULL == pHostPtr)
     {
-        return GenericMemObject::Initialize(CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, NULL, 1, &szDim, NULL, NULL, 0);
+        err = GenericMemObject::Initialize(CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, NULL, 1, &szDim, NULL, NULL, 0);
     }
     else
     {
-        return GenericMemObject::Initialize(CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, NULL, 1, &szDim, NULL, pHostPtr, 0);
-    }	
+        err = GenericMemObject::Initialize(CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, NULL, 1, &szDim, NULL, pHostPtr, 0);
+    }
+    if (CL_FAILED(err))
+    {
+        return err;
+    }
+
+
+    IOCLDevBackingStore* pBS;
+    err = GetBackingStore(CL_DEV_BS_GET_ALWAYS, &pBS);
+    assert(CL_SUCCEEDED(err) && "GetBackingStore failed");
+
+    pipe_control_intel_t* pipeCtrl = (pipe_control_intel_t*)pBS->GetRawData();
+    memset(pipeCtrl, 0, INTEL_PIPE_HEADER_RESERVED_SPACE);
+    pipeCtrl->pipe_max_packets_plus_one = uiMaxPacketsPlusOne;
+
+    return CL_SUCCESS;
 }
 
 cl_int Pipe::GetPipeInfo(cl_pipe_info paramName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet)
 {
-	if (NULL != pParamValue && szParamValueSize < sizeof(cl_uint))
-	{
-		return CL_INVALID_VALUE;
-	}
-	if (NULL != pszParamValueSizeRet)
-	{
-		*pszParamValueSizeRet = sizeof(cl_uint);
-	}
-	switch (paramName)
-	{
-	case CL_PIPE_PACKET_SIZE:
-		if (NULL != pParamValue)
-		{
-			*(cl_uint*)pParamValue = m_uiPacketSize;
-		}
-		break;
-	case CL_PIPE_MAX_PACKETS:
-		if (NULL != pParamValue)
-		{
-			*(cl_uint*)pParamValue = m_uiMaxPackets;
-		}
-		break;
-	default:
-		return CL_INVALID_VALUE;
-	}
-	return CL_SUCCESS;
+    if (NULL != pParamValue && szParamValueSize < sizeof(cl_uint))
+    {
+        return CL_INVALID_VALUE;
+    }
+    if (NULL != pszParamValueSizeRet)
+    {
+        *pszParamValueSizeRet = sizeof(cl_uint);
+    }
+    switch (paramName)
+    {
+    case CL_PIPE_PACKET_SIZE:
+        if (NULL != pParamValue)
+        {
+            *(cl_uint*)pParamValue = m_uiPacketSize;
+        }
+        break;
+    case CL_PIPE_MAX_PACKETS:
+        if (NULL != pParamValue)
+        {
+            *(cl_uint*)pParamValue = m_uiMaxPackets;
+        }
+        break;
+    default:
+        return CL_INVALID_VALUE;
+    }
+    return CL_SUCCESS;
 }

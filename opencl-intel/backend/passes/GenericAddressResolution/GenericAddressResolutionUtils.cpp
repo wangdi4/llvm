@@ -71,7 +71,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                       "atomic_flag_test_and_set_explicit",
                       "atomic_flag_clear",
                       "atomic_flag_clear_explicit",
-                      "enqueue_marker"
+                      "enqueue_marker",
+                      "read_pipe",
+                      "write_pipe"
   };
 
   bool isAddressQualifierBI(const Function *pFunc) {

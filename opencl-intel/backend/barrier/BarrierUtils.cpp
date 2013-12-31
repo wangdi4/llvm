@@ -161,7 +161,7 @@ namespace intel {
       }
       std::string funcName = pFunc->getName().str();
       if((CALL_BI_TYPE_WG == type && CompilationUtils::isWorkGroupBuiltin(funcName)) ||
-         (CALL_BI_TYPE_ASYNC == type && CompilationUtils::isAsyncBuiltin(funcName))) {
+         (CALL_BI_TYPE_WG_UNIFORM == type && CompilationUtils::isWorkGroupUniformBuiltin(funcName, m_pModule))) {
         //Module contains declaration of a WG function built-in, fix its usages.
         Function::use_iterator ui = pFunc->use_begin();
         Function::use_iterator ue = pFunc->use_end();

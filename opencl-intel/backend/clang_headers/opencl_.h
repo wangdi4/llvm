@@ -14202,6 +14202,15 @@ uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_k
 uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_kernel_preferred_work_group_size_multiple(void (^block)(void));
 uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_kernel_preferred_work_group_size_multiple(void (^block)(local void *,...));
 
+// Most of OCL 2.0 pipe built-ins are treated as Clang built-ins.
+// So that Clang appends an implicit argument of i32 type to a call.
+// This constant determines the pipe packet size.
+// The following OCL built-in isn't treated by Clang in this way.
+// It is a common functions.
+bool __attribute__((overloadable)) is_valid_reserve_id(reserve_id_t reserve_id);
+
+#define CLK_NULL_RESERVE_ID __builtin_astype((void*)NULL, reserve_id_t)
+
 #endif   // __OPENCL_C_VERSION__ >= 200
 #endif   // !defined (__MIC__) && !defined(__MIC2__)
 #endif

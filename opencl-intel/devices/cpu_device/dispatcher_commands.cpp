@@ -144,13 +144,13 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
             char* loc = pLockedParams+stOffset;
             cl_mem_obj_descriptor* objHandle;
             memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (void**)&objHandle );
-            if ( objHandle->memObjType == CL_MEM_OBJECT_BUFFER )
+            if ( objHandle->memObjType == CL_MEM_OBJECT_BUFFER ||
+                 objHandle->memObjType == CL_MEM_OBJECT_PIPE )
             {
                 *(void**)loc = objHandle->pData;
             }
             else
             {
-                // TODO: What about PIPES in 2.0
                 *(void**)loc = objHandle->imageAuxData;
             }
             if ( NULL != devMemObjects )

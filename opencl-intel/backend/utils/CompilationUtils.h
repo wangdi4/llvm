@@ -132,6 +132,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isGlobalOffset(const std::string&);
     static bool isAsyncWorkGroupCopy(const std::string&);
     static bool isAsyncWorkGroupStridedCopy(const std::string&);
+    static bool isWorkGroupReserveReadPipe(const std::string&);
+    static bool isWorkGroupCommitReadPipe(const std::string&);
+    static bool isWorkGroupReserveWritePipe(const std::string&);
+    static bool isWorkGroupCommitWritePipe(const std::string&);
     static bool isWaitGroupEvents(const std::string&);
     static bool isPrefetch(const std::string&);
     static bool isMemFence(const std::string&);
@@ -169,7 +173,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupScanInclusiveMax(const std::string&);
 
     static bool isWorkGroupBuiltin(const std::string&);
-    static bool isAsyncBuiltin(const std::string&);
+    static bool isWorkGroupUniformBuiltin(const std::string&, const Module*);
     static bool isWorkGroupScan(const std::string&);
     static bool isWorkGroupMin(const std::string&);
     static bool isWorkGroupMax(const std::string&);
@@ -190,6 +194,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_WAIT_GROUP_EVENTS;
     static const std::string NAME_PREFETCH;
     static const std::string NAME_ASYNC_WORK_GROUP_STRIDED_COPY;
+
+    static const std::string NAME_WORK_GROUP_RESERVE_READ_PIPE;
+    static const std::string NAME_WORK_GROUP_COMMIT_READ_PIPE;
+    static const std::string NAME_WORK_GROUP_RESERVE_WRITE_PIPE;
+    static const std::string NAME_WORK_GROUP_COMMIT_WRITE_PIPE;
 
     static const std::string NAME_MEM_FENCE;
     static const std::string NAME_READ_MEM_FENCE;

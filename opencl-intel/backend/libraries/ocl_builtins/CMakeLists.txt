@@ -482,6 +482,7 @@ list (APPEND OCL_SOURCE_FILES
   image_functions.cpp
   cbk_helper.c
   extended_execution_functions.cpp
+  pipe_functions.c
   )
 
 
