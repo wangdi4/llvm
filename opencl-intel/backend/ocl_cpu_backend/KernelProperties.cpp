@@ -47,6 +47,11 @@ size_t KernelProperties::GetKernelExecutionLength() const
     return m_kernelExecutionLength;
 }
 
+const char *KernelProperties::GetKernelAttributes() const
+{
+    return m_kernelAttributes.c_str();
+}
+
 unsigned int KernelProperties::GetKernelPackCount() const
 {
     return m_optWGSize;

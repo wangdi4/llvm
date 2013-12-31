@@ -1340,6 +1340,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         }
         else if (*opt_i == "-w") {
             pList->push_back(*opt_i);
+            pBEArgList->push_back(*opt_i);
         }
         else if (opt_i->find("-D") == 0 || opt_i->find("-I") == 0) {
             if (opt_i->length() == 2) {
@@ -1350,6 +1351,8 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 if (++opt_i != opts.end()) {
                     pList->push_back(flag);
                     pList->push_back(*opt_i);
+                    pBEArgList->push_back(flag);
+                    pBEArgList->push_back(*opt_i);
                 }
                 else {
                     // Check compile options should prevent this case
@@ -1363,6 +1366,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 // Definition is attached to the flag, so pass it as is
                 //
                 pList->push_back(*opt_i);
+                pBEArgList->push_back(*opt_i);
             }
         }
         else if (opt_i->find("-dump-opt-llvm=") == 0) 
@@ -1428,44 +1432,55 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         }
         else if (*opt_i == "-Werror") {
             pList->push_back(*opt_i);
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-single-precision-constant") {
             pList->push_back("-cl-single-precision-constant");
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-denorms-are-zero") {
             pList->push_back("-cl-denorms-are-zero");
+            pBEArgList->push_back(*opt_i);
             bDenormsAreZeros = true;
         }
         else if (*opt_i == "-cl-fp32-correctly-rounded-divide-sqrt") {
             pList->push_back("-cl-fp32-correctly-rounded-divide-sqrt");
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-opt-disable") {
             pList->push_back("-cl-opt-disable");
+            pBEArgList->push_back(*opt_i);
             bOptDisable = true;
         }
         else if (*opt_i == "-cl-mad-enable") {
             pList->push_back("-cl-mad-enable");
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-no-signed-zeros") {
             pList->push_back("-cl-no-signed-zeros");
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-unsafe-math-optimizations") {
             pList->push_back("-cl-unsafe-math-optimizations");
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-finite-math-only") {
             pList->push_back("-cl-finite-math-only");
-                  pList->push_back("-D");
+            pBEArgList->push_back(*opt_i);
+            pList->push_back("-D");
             pList->push_back("__FINITE_MATH_ONLY__=1");
         }
         else if (*opt_i == "-cl-fast-relaxed-math") {
             pList->push_back("-cl-fast-relaxed-math");
-                  pList->push_back("-D");
+            pBEArgList->push_back(*opt_i);
+            pList->push_back("-D");
             pList->push_back("__FAST_RELAXED_MATH__=1");
             pBEArgList->push_back("-cl-fast-relaxed-math");
             bFastRelaxedMath = true;
         }
         else if (*opt_i == "-cl-kernel-arg-info") {
             pList->push_back("-cl-kernel-arg-info");
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-std=CL1.1") {
             iCLStdSet = 110;
@@ -1508,6 +1523,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         else if ((*opt_i == "-spir-std=1.0") || 
                  (*opt_i == "-spir-std=1.2")) {
             //ignore SPIR version flag for now
+            pBEArgList->push_back(*opt_i);
         }
         else if ((*opt_i == "-x")) {
             if (++opt_i != opts.end()) {
@@ -1516,6 +1532,9 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                     UnrecognizedArgsLength += 3;
                     UnrecognizedArgs.push_back(*opt_i);
                     UnrecognizedArgsLength += opt_i->length() + 1;
+                } else {
+                    pBEArgList->push_back("-x");
+                    pBEArgList->push_back(*opt_i);
                 }
             } else {
                 UnrecognizedArgs.push_back("-x");

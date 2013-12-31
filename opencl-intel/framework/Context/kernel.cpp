@@ -96,6 +96,36 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
         return;
     }
 
+    // Get kernel attributes
+    size_t attrSize;
+    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_ATTRIBUTES, 0, NULL, &attrSize);
+    if (CL_DEV_FAILED(clErrRet))
+    {
+        LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
+        *pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
+        return;
+    }
+
+    char *kernelAttrs = new char[attrSize];
+    if (NULL == kernelAttrs)
+    {
+        LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, CL_DEV_OUT_OF_MEMORY);
+        *pErr = CL_OUT_OF_HOST_MEMORY;
+        return;
+    }
+
+    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_ATTRIBUTES, attrSize, kernelAttrs, NULL);
+    if (CL_DEV_FAILED(clErrRet))
+    {
+        LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
+        *pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
+        delete kernelAttrs;
+        return;
+    }
+
+    m_sKernelPrototype.m_szKernelAttributes = kernelAttrs;
+    delete kernelAttrs;
+
     // Get argument buffer size
     clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES,
                                                                 sizeof(m_sKernelPrototype.m_dispatchBufferProperties), &m_sKernelPrototype.m_dispatchBufferProperties, NULL);
@@ -401,6 +431,10 @@ cl_err_code Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
             pValue = &iParam;
         }
         break;
+    case CL_KERNEL_ATTRIBUTES:
+        szParamSize = m_sKernelPrototype.m_szKernelAttributes.length() + 1;
+        pValue = m_sKernelPrototype.m_szKernelAttributes.c_str();
+        break;
     default:
         return CL_INVALID_VALUE;
         break;
@@ -563,6 +597,13 @@ cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
 
         // add new device kernel to the objects map list
         m_vpDeviceKernels.push_back(pDeviceKernel);
+
+        // assume kernel attributes are the same for all devices
+        // get the information from the first device
+        if (i == 0)
+        {
+          m_sKernelPrototype.m_szKernelAttributes = pDeviceKernel->GetPrototype().m_szKernelAttributes;
+        }
     }
     
     if (CL_FAILED(clErrRet))

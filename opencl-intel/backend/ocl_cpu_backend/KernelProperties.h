@@ -96,6 +96,11 @@ public:
     virtual size_t GetKernelExecutionLength() const;
 
     /**
+    * @returns a string of the kernel attributes
+    */
+    virtual const char *GetKernelAttributes() const;
+
+     /**
      * @returns true if the specified kernel has barrier operation in the kernel body, 
      *  false otherwise
      */
@@ -118,6 +123,7 @@ public:
     void SetTotalImplSize(size_t size) { m_totalImplSize = size;}
     void SetOptWGSize(unsigned int size) { m_optWGSize = size;} 
     void SetKernelExecutionLength(size_t length) { m_kernelExecutionLength = length;}
+    void SetKernelAttributes(std::string attributes) { m_kernelAttributes = attributes;}
     void SetReqdWGSize(const size_t* psize );
     void SetHintWGSize(const size_t* psize );
     void SetDAZ(bool value)        { m_DAZ = value; }
@@ -148,6 +154,7 @@ protected:
     size_t m_totalImplSize;
     size_t m_privateMemorySize;
     size_t m_kernelExecutionLength;
+    std::string m_kernelAttributes;
     unsigned int m_minGroupSizeFactorial;
     bool m_bJitCreateWIids;
     unsigned int m_uiSizeT;
