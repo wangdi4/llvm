@@ -35,6 +35,11 @@ using namespace Intel::OpenCL::Utils;
 
 IAtExitCentralPoint* OclDynamicLib::m_atexit_fn = NULL;
 
+// Get function pointer from library handle
+OclDynamicLib::func_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary, const char* szFuncName)
+{
+    return (func_t)GetProcAddress((HMODULE)hLibrary, szFuncName);
+}
 
 OclDynamicLib::OclDynamicLib(bool bUnloadOnDestructor) :
     m_hLibrary(NULL), m_bUnloadOnDestructor(bUnloadOnDestructor)

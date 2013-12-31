@@ -37,6 +37,7 @@ link_directories(
 
 include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
+    ${VALIDATIONS_ROOT}/DataVersion
     ${VALIDATIONS_ROOT}/SATest
     ${VALIDATIONS_ROOT}/DataManager
     ${VALIDATIONS_ROOT}/NEAT

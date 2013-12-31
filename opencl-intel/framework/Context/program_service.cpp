@@ -96,8 +96,8 @@ CompileTask::CompileTask(_cl_context_int*        context,
                          const char**            pszHeaders,
                          char**                  pszHeadersNames,
                          const char*             szOptions,
-                         const SharedPtr<Program>&  pProg) : 
-BuildTask(context, pProg, pFECompiler), 
+                         const SharedPtr<Program>&  pProg) :
+BuildTask(context, pProg, pFECompiler),
 m_deviceID(deviceID), m_szSource(szSource), m_uiNumHeaders(uiNumHeaders),
 m_pszHeaders(pszHeaders), m_pszHeadersNames((const char**)pszHeadersNames), m_szOptions(szOptions)
 {
@@ -116,16 +116,16 @@ bool CompileTask::Execute()
     m_pProg->SetBuildLogInternal(m_deviceID, "Compilation started\n");
     m_pProg->SetStateInternal(m_deviceID, DEVICE_PROGRAM_FE_COMPILING);
 
-    m_pFECompiler->CompileProgram(m_szSource, 
-                                  m_uiNumHeaders, 
-                                  m_pszHeaders, 
-                                  m_pszHeadersNames, 
-                                  m_szOptions, 
-                                  &pBinary, 
-                                  &uiBinarySize, 
+    m_pFECompiler->CompileProgram(m_szSource,
+                                  m_uiNumHeaders,
+                                  m_pszHeaders,
+                                  m_pszHeadersNames,
+                                  m_szOptions,
+                                  &pBinary,
+                                  &uiBinarySize,
                                   &szCompileLog);
 
-    
+
     if (NULL != szCompileLog)
     {
         m_pProg->SetBuildLogInternal(m_deviceID, szCompileLog);
@@ -157,16 +157,16 @@ void CompileTask::Cancel()
     SetComplete(CL_BUILD_ERROR);
 }
 
-LinkTask::LinkTask(_cl_context_int*               context, 
-                   cl_device_id             deviceID, 
-                   const ConstSharedPtr<FrontEndCompiler>&  pFECompiler, 
-                   IOCLDeviceAgent*   pDeviceAgent, 
-                   SharedPtr<Program>*                ppPrograms, 
-                   unsigned int             uiNumPrograms, 
-                   const char*              szOptions, 
+LinkTask::LinkTask(_cl_context_int*               context,
+                   cl_device_id             deviceID,
+                   const ConstSharedPtr<FrontEndCompiler>&  pFECompiler,
+                   IOCLDeviceAgent*   pDeviceAgent,
+                   SharedPtr<Program>*                ppPrograms,
+                   unsigned int             uiNumPrograms,
+                   const char*              szOptions,
                    const SharedPtr<Program>&                 pProg) :
-BuildTask(context, pProg, pFECompiler), 
-m_deviceID(deviceID), m_pDeviceAgent(pDeviceAgent), m_ppPrograms(ppPrograms), 
+BuildTask(context, pProg, pFECompiler),
+m_deviceID(deviceID), m_pDeviceAgent(pDeviceAgent), m_ppPrograms(ppPrograms),
 m_uiNumPrograms(uiNumPrograms), m_szOptions(szOptions)
 {
 }
@@ -248,12 +248,12 @@ bool LinkTask::Execute()
         }
     }
 
-    m_pFECompiler->LinkProgram(ppBinaries, 
-                               m_uiNumPrograms, 
-                               puiBinariesSizes, 
-                               m_szOptions, 
-                               &pBinary, 
-                               &uiBinarySize, 
+    m_pFECompiler->LinkProgram(ppBinaries,
+                               m_uiNumPrograms,
+                               puiBinariesSizes,
+                               m_szOptions,
+                               &pBinary,
+                               &uiBinarySize,
                                &szLinkLog,
                                &bIsLibrary);
 
@@ -396,15 +396,15 @@ PostBuildTask::PostBuildTask(_cl_context_int* context,
                              unsigned int uiNumHeaders, 
                              SharedPtr<Program>*ppHeaders, 
                              char** pszHeadersNames,
-                             unsigned int uiNumBinaries, 
-                             SharedPtr<Program>* ppBinaries, 
+                             unsigned int uiNumBinaries,
+                             SharedPtr<Program>* ppBinaries,
                              const SharedPtr<Program>& pProg,
                              const char* szOptions,
-                             pfnNotifyBuildDone pfn_notify, 
+                             pfnNotifyBuildDone pfn_notify,
                              void *user_data) :
 BuildTask(context, pProg, ConstSharedPtr<FrontEndCompiler>()),
 m_num_devices(num_devices), m_deviceID(deviceID), m_uiNumHeaders(uiNumHeaders), m_ppHeaders(ppHeaders),
-m_pszHeadersNames(pszHeadersNames), m_uiNumBinaries(uiNumBinaries), m_ppBinaries(ppBinaries), 
+m_pszHeadersNames(pszHeadersNames), m_uiNumBinaries(uiNumBinaries), m_ppBinaries(ppBinaries),
 m_szOptions(szOptions), m_pfn_notify(pfn_notify), m_user_data(user_data)
 {
 }
@@ -506,17 +506,17 @@ ProgramService::~ProgramService()
 {
 }
 
-cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program, 
-                                           cl_uint num_devices, 
-                                           const cl_device_id *device_list, 
-                                           cl_uint num_input_headers, 
-                                           SharedPtr<Program>* input_headers, 
-                                           const char **header_include_names, 
-                                           const char *options, 
-                                           pfnNotifyBuildDone pfn_notify, 
+cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program,
+                                           cl_uint num_devices,
+                                           const cl_device_id *device_list,
+                                           cl_uint num_input_headers,
+                                           SharedPtr<Program>* input_headers,
+                                           const char **header_include_names,
+                                           const char *options,
+                                           pfnNotifyBuildDone pfn_notify,
                                            void *user_data)
 {
-    const char* szProgramSource = program->GetSourceInternal(); 
+    const char* szProgramSource = program->GetSourceInternal();
     if (NULL == szProgramSource)
     {
         return CL_INVALID_OPERATION;
@@ -621,7 +621,7 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program,
         {
             delete[] szBuildOptions;
             delete[] ppCompileTasks;
-            
+
             for (cl_uint j = 0; j < i; ++j)
             {
                 delete[] pszHeadersNames[j];
@@ -639,7 +639,7 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program,
         {
             delete[] szBuildOptions;
             delete[] ppCompileTasks;
-            
+
             for (cl_uint j = 0; j < i; ++j)
             {
                 delete[] pszHeadersNames[j];
@@ -677,7 +677,7 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program,
                 delete[] szBuildOptions;
                 delete[] pDevices;
                 delete[] ppCompileTasks;
-  
+
                 for (cl_uint j = 0; j < num_input_headers; ++j)
                 {
                     delete[] pszHeadersNames[j];
@@ -714,7 +714,7 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program,
                 delete[] szBuildOptions;
                 delete[] pDevices;
                 delete[] ppCompileTasks;
-  
+
                 for (cl_uint j = 0; j < num_input_headers; ++j)
                 {
                     delete[] pszHeadersNames[j];
@@ -799,7 +799,7 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program,
     }
 
 
-    bool bNeedToBuild = false;  
+    bool bNeedToBuild = false;
 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
@@ -841,7 +841,7 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program,
                 {
                     program->SetStateInternal(deviceID, DEVICE_PROGRAM_BUILD_FAILED);
                 }
-                
+
                 break;
             }
 
@@ -917,13 +917,13 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>& program,
     return CL_SUCCESS;
 }
 
-cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program, 
-                                        cl_uint num_devices, 
-                                        const cl_device_id *device_list, 
-                                        cl_uint num_input_programs, 
-                                        SharedPtr<Program>* input_programs, 
-                                        const char *options, 
-                                        pfnNotifyBuildDone pfn_notify, 
+cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
+                                        cl_uint num_devices,
+                                        const cl_device_id *device_list,
+                                        cl_uint num_input_programs,
+                                        SharedPtr<Program>* input_programs,
+                                        const char *options,
+                                        pfnNotifyBuildDone pfn_notify,
                                         void *user_data)
 {
     if (program->GetNumKernels() > 0)
@@ -978,7 +978,7 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
         return CL_OUT_OF_HOST_MEMORY;
     }
 
-	vector<SharedPtr<OclEvent> > ppLinkTasks(uiNumDevices);
+    vector<SharedPtr<OclEvent> > ppLinkTasks(uiNumDevices);
 	vector<SharedPtr<OclEvent> > ppDeviceBuildTasks(uiNumDevices);
 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
@@ -1014,19 +1014,19 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
         for (unsigned int libID = 0; libID < num_input_programs; ++libID)
         {
             const char* pBin = input_programs[libID]->GetBinaryInternal(pDevices[devID]);
-            cl_prog_container_header* pHeader = (cl_prog_container_header*)pBin;
+            assert(pBin && "NULL binaries");
+            bool isSpirBinary = pBin[0] == 'B' && pBin[1] == 'C'; // Checking for LLVM magic code.
 
-            if (pHeader)
+            cl_prog_binary_type binType =
+              ((cl_prog_container_header*)pBin)->description.bin_type;
+
+            if (isSpirBinary ||
+                (CL_PROG_BIN_COMPILED_LLVM == binType) ||
+                (CL_PROG_BIN_LINKED_LLVM == binType)   ||
+                (CL_PROG_BIN_COMPILED_SPIR == binType) ||
+                (CL_PROG_BIN_LINKED_SPIR == binType))
             {
-                cl_prog_binary_type binType = pHeader->description.bin_type;
-
-                if ((CL_PROG_BIN_COMPILED_LLVM == binType) ||
-                    (CL_PROG_BIN_LINKED_LLVM == binType) ||
-                    (CL_PROG_BIN_COMPILED_SPIR == binType) ||
-                    (CL_PROG_BIN_LINKED_SPIR == binType))
-                {
-                    ++uiFoundBinaries;
-                }
+                ++uiFoundBinaries;
             }
         }
 
@@ -1063,15 +1063,15 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
                         program->Unacquire(pDevices[j]);
                     }
                 }
-				delete[] szBuildOptions;
-				delete[] pDevices;
+                delete[] szBuildOptions;
+                delete[] pDevices;
                 return CL_INVALID_OPERATION;
             }
         }
     }
 
     // // Check if the link options are legal for all the devices
-	vector<ConstSharedPtr<FrontEndCompiler> > pfeCompilers(uiNumDevices);
+    vector<ConstSharedPtr<FrontEndCompiler> > pfeCompilers(uiNumDevices);
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
       cl_device_id deviceID = pDevices[i];
@@ -1097,8 +1097,8 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>& program,
         {
           program->Unacquire(pDevices[j]);
         }
-		delete[] szBuildOptions;
-		delete[] pDevices;
+        delete[] szBuildOptions;
+        delete[] pDevices;
         return CL_INVALID_LINKER_OPTIONS;
       }
     }
@@ -1457,7 +1457,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
 
     bool bNeedToBuild = false;
 
-    const char* szProgramSource = program->GetSourceInternal();   
+    const char* szProgramSource = program->GetSourceInternal();
 
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
@@ -1500,7 +1500,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 // Building from source
                 bNeedToBuild = true;
                 program->SetStateInternal(deviceID, DEVICE_PROGRAM_FE_COMPILING);
-                ppCompileTasks[i] = CompileTask::Allocate(context, deviceID, feCompiler, szProgramSource, 0, NULL, NULL, 
+                ppCompileTasks[i] = CompileTask::Allocate(context, deviceID, feCompiler, szProgramSource, 0, NULL, NULL,
                                                     szBuildOptions, program);
 
                 if (NULL == ppCompileTasks[i])
@@ -1515,7 +1515,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 // Building from compiled object
                 bNeedToBuild = true;
                 program->SetStateInternal(deviceID, DEVICE_PROGRAM_FE_LINKING);
-                ppLinkTasks[i] = LinkTask::Allocate(context, deviceID, feCompiler, pDeviceAgent, NULL, 0, 
+                ppLinkTasks[i] = LinkTask::Allocate(context, deviceID, feCompiler, pDeviceAgent, NULL, 0,
                                               szBuildOptions, program);
                 if (NULL == ppLinkTasks[i])
                 {
@@ -1561,13 +1561,13 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
     delete[] pfeCompilers;
 
     SharedPtr<PostBuildTask> pPostBuildTask = PostBuildTask::Allocate(context, uiNumDevices, pDevices, 0, NULL, NULL,
-                                                                      0, NULL, program, szBuildOptions, 
+                                                                      0, NULL, program, szBuildOptions,
                                                                       pfn_notify, user_data);
 
     if (NULL == pPostBuildTask)
     {
-		delete[] ppCompileTasks;
-		delete[] ppLinkTasks;
+        delete[] ppCompileTasks;
+        delete[] ppLinkTasks;
         delete[] ppDeviceBuildTasks;
         return CL_OUT_OF_HOST_MEMORY;
     }

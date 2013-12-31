@@ -24,45 +24,39 @@
 using namespace Intel::OpenCL::DeviceCommands;
 using Intel::OpenCL::Utils::OclAutoMutex;
 
-// Variable used for child kernel submission for each thread
-THREAD_LOCAL KernelCommand::CommandToExecuteList_t* KernelCommand::m_waitingChildrenForKernelLocalHead = NULL;
-THREAD_LOCAL KernelCommand::CommandToExecuteList_t* KernelCommand::m_waitingChildrenForKernelLocalTail = NULL;
-THREAD_LOCAL KernelCommand::CommandToExecuteList_t* KernelCommand::m_waitingChildrenForWorkGroup       = NULL;
-
-cl_dev_err_code KernelCommand::AddChildKernel(const SharedPtr<KernelCommand>& child, kernel_enqueue_flags_t flags)
+cl_dev_err_code KernelCommand::AddChildKernelToLists(const SharedPtr<KernelCommand>& child, kernel_enqueue_flags_t flags, CommandSubmitionLists* pChildLists)
 {
 	ASSERT_RET_VAL(CLK_ENQUEUE_FLAGS_NO_WAIT == flags || CLK_ENQUEUE_FLAGS_WAIT_KERNEL == flags || CLK_ENQUEUE_FLAGS_WAIT_WORK_GROUP == flags,
 		"CLK_ENQUEUE_FLAGS_NO_WAIT == flags || CLK_ENQUEUE_FLAGS_WAIT_KERNEL == flags || CLK_ENQUEUE_FLAGS_WAIT_WORK_GROUP == flags",
         CL_DEV_ERROR_FAIL);
 
-	if (flags != CLK_ENQUEUE_FLAGS_NO_WAIT)
-	{
-        // TODO: Use tbb::scalable_allocator
-        CommandToExecuteList_t* pNewKernel = new CommandToExecuteList_t; 
-        if ( NULL == pNewKernel )
-        {
-            return CL_DEV_OUT_OF_MEMORY;
-        }
-		child->AddDependency();
-        pNewKernel->first = child;
+    // TODO: Use tbb::scalable_allocator
+    CommandToExecuteList_t* pNewKernel = new CommandToExecuteList_t; 
+    if ( NULL == pNewKernel )
+    {
+        return CL_DEV_OUT_OF_MEMORY;
+    }
+	child->AddDependency();
+    pNewKernel->command = child;
 
-		if (CLK_ENQUEUE_FLAGS_WAIT_KERNEL == flags)
-		{
-			// we'll move the children in this list to m_waitingChildrenForKernel when the work-group finishes execution - this saves us a lot of contention
-            // Add kernels to the head, saves one memory write
-            pNewKernel->second = m_waitingChildrenForKernelLocalHead;
-            m_waitingChildrenForKernelLocalHead = pNewKernel;
-            if ( NULL == m_waitingChildrenForKernelLocalTail )
-            {
-                m_waitingChildrenForKernelLocalTail = pNewKernel;
-                pNewKernel->second = NULL;
-            }
-		}
-		else
-		{
-            pNewKernel->second = m_waitingChildrenForWorkGroup;
-            m_waitingChildrenForWorkGroup->second = pNewKernel;
-		}
+    switch ( flags ) {
+    case CLK_ENQUEUE_FLAGS_WAIT_KERNEL:
+		// we'll move the children in this list to m_waitingChildrenForKernel when the work-group finishes execution - this saves us a lot of contention
+        // Add kernels to the head, saves one memory write
+        pNewKernel->next = pChildLists->waitingChildrenForKernelLocalHead;
+        pChildLists->waitingChildrenForKernelLocalHead = pNewKernel;
+        if ( NULL == pChildLists->waitingChildrenForKernelLocalTail )
+        {
+            pChildLists->waitingChildrenForKernelLocalTail = pNewKernel;
+            pNewKernel->next = NULL;
+        }
+        break;
+    case CLK_ENQUEUE_FLAGS_WAIT_WORK_GROUP:
+        pNewKernel->next = pChildLists->waitingChildrenForWorkGroup;
+        pChildLists->waitingChildrenForWorkGroup->next = pNewKernel;
+        break;
+    default:
+        return CL_DEV_INVALID_VALUE;
 	}
 
     return CL_DEV_SUCCESS;
@@ -78,8 +72,8 @@ void KernelCommand::WaitForChildrenCompletion()
 
     while ( NULL != m_waitingChildrenForKernelGlobal )
     {
-        CommandToExecuteList_t* pNextCommand = reinterpret_cast<CommandToExecuteList_t*>(m_waitingChildrenForKernelGlobal->second);
-        m_waitingChildrenForKernelGlobal->first->NotifyCommandFinished(GetError());
+        CommandToExecuteList_t* pNextCommand = reinterpret_cast<CommandToExecuteList_t*>(m_waitingChildrenForKernelGlobal->next);
+        m_waitingChildrenForKernelGlobal->command->NotifyCommandFinished(GetError());
         // Use to tbb::allocatore here
         delete m_waitingChildrenForKernelGlobal;
         m_waitingChildrenForKernelGlobal = pNextCommand;
@@ -88,30 +82,29 @@ void KernelCommand::WaitForChildrenCompletion()
     m_childrenTaskGroup->WaitForAll();    
 }
 
-void KernelCommand::WgFinishedExecution()
+void KernelCommand::SubmitCommands(CommandSubmitionLists* pNewCommands)
 {
 	// Submit children waiting to work-group completiom
-    while ( NULL != m_waitingChildrenForWorkGroup )
+    while ( NULL != pNewCommands->waitingChildrenForWorkGroup )
     {
-        CommandToExecuteList_t* pNextCommand = reinterpret_cast<CommandToExecuteList_t*>(m_waitingChildrenForWorkGroup->second);
-        m_waitingChildrenForWorkGroup->first->NotifyCommandFinished(GetError());
+        CommandToExecuteList_t* pNextCommand = reinterpret_cast<CommandToExecuteList_t*>(pNewCommands->waitingChildrenForWorkGroup->next);
+        pNewCommands->waitingChildrenForWorkGroup->command->NotifyCommandFinished(GetError());
         // Use to tbb::allocatore here
-        delete m_waitingChildrenForWorkGroup;
-        m_waitingChildrenForWorkGroup = pNextCommand;
+        delete pNewCommands->waitingChildrenForWorkGroup;
+        pNewCommands->waitingChildrenForWorkGroup = pNextCommand;
     }
 
     // move waiting children for parent from WG list to the global list
-	if ( NULL != m_waitingChildrenForKernelLocalHead )
+	if ( NULL != pNewCommands->waitingChildrenForKernelLocalHead )
 	{
         // Make current local list as kernel global list
-        CommandToExecuteList_t* prev_start = m_waitingChildrenForKernelGlobal.exchange(m_waitingChildrenForKernelLocalHead);
+        CommandToExecuteList_t* prev_start = m_waitingChildrenForKernelGlobal.exchange(pNewCommands->waitingChildrenForKernelLocalHead);
         // Move previous global list to the end of current local list
-        m_waitingChildrenForKernelLocalTail = prev_start;
+        pNewCommands->waitingChildrenForKernelLocalTail = prev_start;
 		// Reset local list
-		m_waitingChildrenForKernelLocalHead = NULL;
-		m_waitingChildrenForKernelLocalTail = NULL;
+		pNewCommands->waitingChildrenForKernelLocalHead = NULL;
+		pNewCommands->waitingChildrenForKernelLocalTail = NULL;
 	}
-	
 }
 
 void KernelCommand::Launch()
@@ -147,13 +140,23 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
 #else
         pChild = pParent->AllocateChildCommand(pList, pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
 #endif
-    pParent->AddChildKernel(pChild, flags);    
     const bool bAllEventsCompleted = pChild->AddWaitListDependencies(pEventWaitList, uiNumEventsInWaitList);
 
     // if no need to wait, enqueue and flush
-    if (CLK_ENQUEUE_FLAGS_NO_WAIT == flags && bAllEventsCompleted)
+    if (CLK_ENQUEUE_FLAGS_NO_WAIT == flags )
     {
-        pChild->Launch();
+        if ( bAllEventsCompleted )
+        {
+            pChild->Launch();
+        }
+    }
+    else
+    {
+        cl_dev_err_code err = AddChildKernelToLists(pChild, flags, (CommandSubmitionLists*)pHandle);
+        if ( CL_DEV_FAILED(err) )
+        {
+            return CL_INVALID_ARG_VALUE;
+        }
     }
 
     // update pEventRet

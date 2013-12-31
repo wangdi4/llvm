@@ -752,6 +752,9 @@ TEST_F(DataManagerBuffer, BufferBinaryReadWriteCheck) {
 
     CheckValues(inp);
 
+    // check for data version. the version written and read from file
+    // must be equal to current data version
+    EXPECT_EQ(DataVersion::GetCurrentDataVersion(), inp.GetDataVersion());
 }
 
 
@@ -1222,6 +1225,10 @@ TEST_F(DataManagerNEAT, NEATBinaryReadWriteTest)
     loader.Read(&inp);
 
     CheckValues(inp);
+
+    // check for data version. the version written and read from file
+    // must be equal to current data version
+    EXPECT_EQ(DataVersion::GetCurrentDataVersion(), inp.GetDataVersion());
 }
 
 uint64_t seedForValidation;

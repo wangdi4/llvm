@@ -53,6 +53,7 @@ else (WIN32)
 endif (WIN32)
 
 # Add include directories
+include_directories(${VALIDATIONS_ROOT}/DataVersion)
 include_directories(${OCL_RECORDER_IMPORT_DIR} ${OCL_RECORDER_EXPORT_DIR} )
 include_directories(${OCL_BACKEND_IMPORTS_DIR} ${OCL_BACKEND_EXPORTS_DIR} )
 include_directories(${OCL_EXTERNAL_DIR}/tinyxml ${OCL_DATAMANAGER_DIR} ${OCL_NEAT_DIR})

@@ -56,4 +56,11 @@
 		ok = __sync_bool_compare_and_swap( &(var_name), (var_name), (value) );                \
         assert( ok && ("ATOMIC_ASSIGN of value " # value " to the " # var_name " failed") );  \
     }
-#endif																						  
+#endif		
+
+// ALERT!!!! DK!!! workaround until MPSS will be updated on all machines
+#include <source/COIBuffer_source.h>
+#ifndef COI_OPTIMIZE_NO_DMA
+    #define COI_OPTIMIZE_NO_DMA 0
+#endif
+

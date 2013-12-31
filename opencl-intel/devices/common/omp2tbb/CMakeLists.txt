@@ -10,7 +10,8 @@ set( TARGET_NAME omp2tbb )
 include( ${OCL_SOURCE_DIR}/cmake_utils/itt.cmake )
 
 include_directories( BEFORE
-                        ${HW_UTILS_HEADERS} 
+                        ${HW_UTILS_HEADERS}
+                        ${OCL_SOURCE_DIR}/externals/tbb/include
                     )
 
 if (WIN32)
@@ -50,11 +51,12 @@ else (WIN32)
     set (OBJ_FILE_NATIVE z_Linux_asm.o)
     set (ASM_ARCH "KMP_ARCH_X86_64")
     # Before compilation need to run though C pre-processor since GAS doesn't have preprocessor
-    set (DEVICE_ASSEMBLER "gcc -E -D${ASM_ARCH}=1 ${CMAKE_CURRENT_SOURCE_DIR}/${ASM_SRC_FILE} | as")
-    set (ASM_COMMAND_LINE ${DEVICE_ASSEMBLER} -o ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}/${OBJ_FILE_NATIVE} )
+    set (DEVICE_ASSEMBLER cpp -E -D${ASM_ARCH}=1 ${CMAKE_CURRENT_SOURCE_DIR}/${ASM_SRC_FILE} | as)
+    set (ASM_COMMAND_LINE ${DEVICE_ASSEMBLER} --64 -o ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}/${OBJ_FILE_NATIVE} )
 endif(WIN32)
 
-add_custom_command( OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}/${OBJ_FILE_NATIVE}
+set (ASSEMBLER_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}/${OBJ_FILE_NATIVE} )
+add_custom_command( OUTPUT ${ASSEMBLER_OUTPUT}
                     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}
                     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
                     COMMAND ${ASM_COMMAND_LINE}
@@ -63,7 +65,11 @@ add_custom_command( OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}/${OBJ_F
                     COMMENT "Compiling assembly ${ASM_SRC_FILE}"
                     VERBATIM
                     )
-list (APPEND TARGET_SOURCES ${ASM_SRC_FILE})
+if (WIN32)
+    list (APPEND TARGET_SOURCES ${ASM_SRC_FILE})
+else()
+    list (APPEND TARGET_SOURCES ${ASSEMBLER_OUTPUT})
+endif(WIN32)
 
 #add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})

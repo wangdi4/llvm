@@ -75,24 +75,24 @@ void init_device(uint32_t         in_BufferCount,
     gMicExecEnvOptions = *tEnvOptions;
 
     // create singleton logger descriptor (if logger enabled)
-	if (gMicExecEnvOptions.logger_enable)
-	{
-		bool logInitRes = true;
-		logInitRes = MicNativeLogDescriptor::createLogDescriptor();
-		assert(logInitRes && "MIC logger initialization failed");
-	}
+    if (gMicExecEnvOptions.logger_enable)
+    {
+        bool logInitRes = true;
+        logInitRes = MicNativeLogDescriptor::createLogDescriptor();
+        assert(logInitRes && "MIC logger initialization failed");
+    }
     MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "[MIC SERVER] mic native logger initialized, pid = %d", getpid());
 
 #ifdef USE_ITT
     memset(&gMicGPAData, sizeof(ocl_gpa_data), 0);
     if ( gMicExecEnvOptions.enable_itt )
     {
-      gMicGPAData.bUseGPA = true;
-      if ( NULL == gMicGPAData.pDeviceDomain )
-      {
-        gMicGPAData.pDeviceDomain   = __itt_domain_create("com.intel.opencl.device.mic");
-        gMicGPAData.pNDRangeHandle  = __itt_string_handle_create("NDRange");
-      }
+        gMicGPAData.bUseGPA = true;
+        if ( NULL == gMicGPAData.pDeviceDomain )
+        {
+            gMicGPAData.pDeviceDomain   = __itt_domain_create("com.intel.opencl.device.mic");
+            gMicGPAData.pNDRangeHandle  = __itt_string_handle_create("NDRange");
+        }
     }
 #endif
 
@@ -131,13 +131,15 @@ void init_device(uint32_t         in_BufferCount,
         return;
     }
 
+
 #ifdef __INCLUDE_MKL__
     if ( tEnvOptions->enable_mkl )
     {
         NATIVE_PRINTF("Initializing MKL library on the device\n");
-        Intel::OpenCL::MKLKernels::InitLibrary();
+        Intel::OpenCL::MKLKernels::InitLibrary<true>();
     }
 #endif
+
     pRet->uiNumActiveThreads = pThreadPool->GetNumberOfActiveThreads();
     pRet->initError = CL_DEV_SUCCESS;
 }
@@ -152,6 +154,12 @@ void release_device(uint32_t         in_BufferCount,
                      void*            in_pReturnValue,
                      uint16_t         in_ReturnValueLength)
 {
+#ifdef __INCLUDE_MKL__
+    if ( gMicExecEnvOptions.enable_mkl )
+    {
+        Intel::OpenCL::MKLKernels::ReleaseLibrary<true>();
+    }
+#endif
     // Release the thread pool singleton.
     ThreadPool::releaseSingletonInstance();
     ProgramService::releaseProgramService();

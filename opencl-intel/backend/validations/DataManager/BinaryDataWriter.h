@@ -30,6 +30,7 @@ File Name:  BinaryDataWriter.h
 #include "Buffer.h"
 #include "ImageDesc.h"
 #include "Image.h"
+#include "DataVersion.h"
 
 namespace Validation
 {
@@ -75,39 +76,49 @@ namespace Validation
         static const uint32_t imageVersionHigh = 1; // OpencL 1.2
         static const uint32_t imageVersionLow = 2;
 
-        template<class T> void write_value( T value)
+        template<class T> void writeValue( T value)
         {
             m_stream.write((const char*)&value, sizeof(T));
         }
 
-        void write_marker(const std::string& marker)
+        void writeMarker(const std::string& marker)
         {
             uint32_t markerSize = (uint32_t)marker.size();
             m_stream.write((const char*)&markerSize, sizeof(uint32_t));
             m_stream.write((const char*)marker.c_str(), markerSize);
         }
 
-        void write_element_desc (TypeDesc td)
+        void writeDataVersion()
         {
-            write_value((uint32_t)td.GetType());
-            write_value((uint32_t)td.GetSizeInBytes());
+            std::string signature = DataVersion::GetDataVersionSignature();
+            uint32_t signatureSize = signature.size();
+            m_stream.write((const char*)signature.c_str(), signatureSize);
+
+            std::string version = DataVersion::GetCurrentDataVersionString();
+            m_stream.write((const char*)version.c_str(), version.size());
+        }
+
+        void writeElementDesc (TypeDesc td)
+        {
+            writeValue((uint32_t)td.GetType());
+            writeValue((uint32_t)td.GetSizeInBytes());
             // if we are saving vector, array or pointer data type, no need 
             // to store description of all elements of array or vector. They are all the same.
             if (td.IsAggregate() || td.IsPointer())
             {
                 uint64_t numOfSubElements = td.GetNumberOfElements();
-                write_value(numOfSubElements);
+                writeValue(numOfSubElements);
 
                 uint64_t numOfSubTypes = td.GetNumOfSubTypes();
-                write_value(numOfSubTypes);
-                write_element_desc(td.GetSubTypeDesc(0));
+                writeValue(numOfSubTypes);
+                writeElementDesc(td.GetSubTypeDesc(0));
                 if (td.IsStruct())
                 {
-                    write_value(td.GetSubTypeDesc(0).GetOffsetInStruct());
+                    writeValue(td.GetSubTypeDesc(0).GetOffsetInStruct());
                     for (uint64_t i = 1; i < numOfSubTypes; ++i)
                     {
-                        write_element_desc(td.GetSubTypeDesc(i));
-                        write_value(td.GetSubTypeDesc(i).GetOffsetInStruct());
+                        writeElementDesc(td.GetSubTypeDesc(i));
+                        writeValue(td.GetSubTypeDesc(i).GetOffsetInStruct());
                     }
                 }
             }
@@ -118,13 +129,13 @@ namespace Validation
             assert( NULL != pBuffer );
 
             // Write marker.
-            write_marker(pBuffer->GetName());
+            writeMarker(pBuffer->GetName());
 
             // first we write down the descriptor
             BufferDesc bd  = GetBufferDescription(pBuffer->GetMemoryObjectDesc());
-            write_value((uint32_t)bd.NumOfElements());
-            write_element_desc(bd.GetElementDescription());
-            write_value((uint32_t)bd.IsNEAT());
+            writeValue((uint32_t)bd.NumOfElements());
+            writeElementDesc(bd.GetElementDescription());
+            writeValue((uint32_t)bd.IsNEAT());
 
             size_t size = bd.GetBufferSizeInBytes();
             // then the buffer itself
@@ -135,19 +146,19 @@ namespace Validation
         {
             assert( NULL != pImage );
 
-            write_marker(pImage->GetName());
+            writeMarker(pImage->GetName());
 
             // first we write down the descriptor
             ImageDesc imDesc = GetImageDescription(pImage->GetMemoryObjectDesc());
-            write_value(imageSignature);
-            write_value(imageVersionHigh);
-            write_value(imageVersionLow);
-            write_value((uint32_t)imDesc.GetImageType());
-            write_value(imDesc.GetSizesDesc());
-            write_value(imDesc.GetImageChannelOrder());
-            write_value(imDesc.GetImageChannelDataType());
-            write_value((uint32_t)imDesc.GetElementSize());
-            write_value(imDesc.IsNEAT());
+            writeValue(imageSignature);
+            writeValue(imageVersionHigh);
+            writeValue(imageVersionLow);
+            writeValue((uint32_t)imDesc.GetImageType());
+            writeValue(imDesc.GetSizesDesc());
+            writeValue(imDesc.GetImageChannelOrder());
+            writeValue(imDesc.GetImageChannelDataType());
+            writeValue((uint32_t)imDesc.GetElementSize());
+            writeValue(imDesc.IsNEAT());
             // then the image itself
             m_stream.write( (const char*)pImage->GetDataPtr(), imDesc.GetImageSizeInBytes());
         }
@@ -155,13 +166,14 @@ namespace Validation
         void visitBufferContainer( const IBufferContainer* pBufferContainer)
         {
             assert( NULL != pBufferContainer);
-            write_value((uint32_t)pBufferContainer->GetMemoryObjectCount());
+            writeValue((uint32_t)pBufferContainer->GetMemoryObjectCount());
         }
 
         void visitBufferContainerList( const IBufferContainerList* pBufferContainerList )
         {
             assert( NULL != pBufferContainerList );
-            write_value((uint32_t)pBufferContainerList->GetBufferContainerCount());
+            writeDataVersion();
+            writeValue((uint32_t)pBufferContainerList->GetBufferContainerCount());
         }
 
     private:

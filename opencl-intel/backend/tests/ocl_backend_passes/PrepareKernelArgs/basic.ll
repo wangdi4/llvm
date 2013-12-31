@@ -5,7 +5,7 @@ target triple = "x86_64-pc-linux"
 define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a, i32 %b, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbIds, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeContext) nounwind {
   ret void
 }
-; CHECK: define void @__A_separated_args(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a, i32 %b, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbIds, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeContext) nounwind alwaysinline {
+; CHECK: define void @__A_separated_args(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a, i32 %b, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbIds, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeContext) #0 {
 
 ; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeContext) {
 ; CHECK: %0 = getelementptr i8* %pUniformArgs, i32 0
@@ -55,6 +55,7 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a,
 ; CHECK: %pCurrWI = alloca i64
 ; CHECK: call void @__A_separated_args(i32 addrspace(1)* %explicit_0, i32 addrspace(1)* %explicit_1, i32 %explicit_2, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], i64, {}*, [4 x i64]* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, i64* %pCurrWI, {}* %RuntimeContext)
 ; CHECK: ret void
+; CHECK: attributes #0 = { alwaysinline nounwind }
 
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}

@@ -359,41 +359,41 @@ RETURN_TYPE_ENTRY_POINT NotificationPort::Run()
 				if (m_operationMask[ADD] == true)
 				{
 					size_t pendingNotificationsAmount = m_pendingNotificationArr.size();
-					// If there is no enougth space, should resize the buffers "m_barriers" and "m_notificationsPackages".
+					// If there is no enough space, should resize the buffers "m_barriers" and "m_notificationsPackages".
 					if ((m_waitingSize + pendingNotificationsAmount) >= m_maxBarriers)
 					{
 						resizeBuffers(&fireCallBacksArr, &firedIndicesArr, pendingNotificationsAmount);
-					}
-					assert((m_waitingSize + m_pendingNotificationArr.size()) < m_maxBarriers);
-					for (unsigned int i = 0; i < pendingNotificationsAmount; i++)
-					{
-						// Add the pending notification to the real waiting list.
-						m_barriers[m_waitingSize] = ((m_pendingNotificationArr)[i]).first;
-						m_notificationsPackages[m_waitingSize] = ((m_pendingNotificationArr)[i]).second;
-						m_waitingSize ++;
-					}
-					m_pendingNotificationArr.clear();
-					m_operationMask[ADD] = false;
-				}
-				// If Release operation
-				if (m_operationMask[RELEASE] == true)
-				{
-					keepWork = false;
-				}
-			}
+		            }
+                    assert((m_waitingSize + m_pendingNotificationArr.size()) < m_maxBarriers);
+                    for (unsigned int i = 0; i < pendingNotificationsAmount; i++)
+                    {
+                        // Add the pending notification to the real waiting list.
+                        m_barriers[m_waitingSize] = ((m_pendingNotificationArr)[i]).first;
+                        m_notificationsPackages[m_waitingSize] = ((m_pendingNotificationArr)[i]).second;
+                        m_waitingSize ++;
+                    }
+                    m_pendingNotificationArr.clear();
+                    m_operationMask[ADD] = false;
+                }
+                // If Release operation
+                if (m_operationMask[RELEASE] == true)
+                {
+                    keepWork = false;
+                }
+            }
 
-		} //end of m_mutex.lock()
+        } //end of m_mutex.lock()
 
-		// If more than one element fired, sort the fired element according to their age
-		if (firedAmount > 1)
-		{
-			sort(&fireCallBacksArr[0], &fireCallBacksArr[firedAmount], notificationPackage::compare);
-		}
+        // If more than one element fired, sort the fired element according to their age
+        if (firedAmount > 1)
+        {
+            sort(&fireCallBacksArr[0], &fireCallBacksArr[firedAmount], notificationPackage::compare);
+        }
 
-		for (unsigned int i = 0; i < firedAmount; i++)
-		{
-			fireCallBacksArr[i].callBack->fireCallBack(fireCallBacksArr[i].arg);
-		}
+        for (unsigned int i = 0; i < firedAmount; i++)
+        {
+            fireCallBacksArr[i].callBack->fireCallBack(fireCallBacksArr[i].arg);
+        }
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
     {
@@ -401,86 +401,86 @@ RETURN_TYPE_ENTRY_POINT NotificationPort::Run()
     }
 #endif
 
-	}
+    }
 
-	releaseResources();
+    releaseResources();
 
-	free(firedIndicesArr);
-	free(fireCallBacksArr);
+    free(firedIndicesArr);
+    free(fireCallBacksArr);
 
-	// Decrement the reference counter of this object (We did ++ in the factory)
-	// It can couse destruction of this object.
-	DecRefCnt();
+    // Decrement the reference counter of this object (We did ++ in the factory)
+    // It can couse destruction of this object.
+    DecRefCnt();
 
     // Unregister this thread.
     unregisterNotificationPortThread(myHandle);
 
-	// AdirD - TODO change the selfTerminate to static function
-	RETURN_TYPE_ENTRY_POINT exitCode = NULL;
-	SelfTerminate(exitCode);
+    // AdirD - TODO change the selfTerminate to static function
+    RETURN_TYPE_ENTRY_POINT exitCode = NULL;
+    SelfTerminate(exitCode);
 
-	return exitCode;
+    return exitCode;
 }
 
 void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int* signaledIndices, notificationPackage* callBacksRet, bool* workerThreadSignaled)
 {
-	unsigned int notSignaledIndex = m_waitingSize - 1;
+    unsigned int notSignaledIndex = m_waitingSize - 1;
 
-	unsigned int index = 0;
-	for (unsigned int i = 0; i < numSignaled; i++)
-	{
-		// if worker thread signaled
-		if (signaledIndices[i] == 0)
-		{
-			*workerThreadSignaled = true;
-			continue;
-		}
-		// save the notification package
-		callBacksRet[index] = m_notificationsPackages[signaledIndices[i]];
-		index ++;
-		// signature which give hint that the barrier signaled. (hint for the swaps in the next loop)
-		m_notificationsPackages[signaledIndices[i]].callBack = NULL;
-	}
+    unsigned int index = 0;
+    for (unsigned int i = 0; i < numSignaled; i++)
+    {
+        // if worker thread signaled
+        if (signaledIndices[i] == 0)
+        {
+            *workerThreadSignaled = true;
+            continue;
+        }
+        // save the notification package
+        callBacksRet[index] = m_notificationsPackages[signaledIndices[i]];
+        index ++;
+        // signature which give hint that the barrier signaled. (hint for the swaps in the next loop)
+        m_notificationsPackages[signaledIndices[i]].callBack = NULL;
+    }
 
-	// swap signaled barriers with non-signaled
-	for (unsigned int i = 0; i < numSignaled; i++)
-	{
-		// if worker thread signaled
-		if (signaledIndices[i] == 0)
-		{
-			continue;
-		}
-		// while barrier in location notSignaledIndex is fired and notSignaledIndex >= current barrier index
-		while ((notSignaledIndex >= signaledIndices[i]) && (m_notificationsPackages[notSignaledIndex].callBack == NULL))
-		{
-			notSignaledIndex --;
-		}
-		if (notSignaledIndex > signaledIndices[i])
-		{
-			// switch between the current barrier and the last not signaled barrier.
-			m_barriers[signaledIndices[i]] = m_barriers[notSignaledIndex];
-			m_notificationsPackages[signaledIndices[i]] = m_notificationsPackages[notSignaledIndex];
+    // swap signaled barriers with non-signaled
+    for (unsigned int i = 0; i < numSignaled; i++)
+    {
+        // if worker thread signaled
+        if (signaledIndices[i] == 0)
+        {
+            continue;
+        }
+        // while barrier in location notSignaledIndex is fired and notSignaledIndex >= current barrier index
+        while ((notSignaledIndex >= signaledIndices[i]) && (m_notificationsPackages[notSignaledIndex].callBack == NULL))
+        {
+            notSignaledIndex --;
+        }
+        if (notSignaledIndex > signaledIndices[i])
+        {
+            // switch between the current barrier and the last not signaled barrier.
+            m_barriers[signaledIndices[i]] = m_barriers[notSignaledIndex];
+            m_notificationsPackages[signaledIndices[i]] = m_notificationsPackages[notSignaledIndex];
 
-			notSignaledIndex --;
-		}
+            notSignaledIndex --;
+        }
 
-		m_waitingSize --;
-	}
+        m_waitingSize --;
+    }
 }
 
 
 void NotificationPort::resizeBuffers(notificationPackage** fireCallBacksArr, unsigned int** firedIndicesArr, size_t minimumResize)
 {
-	m_maxBarriers +=   (((uint16_t)(minimumResize / CALL_BACKS_ARRAY_RESIZE_AMOUNT) + 1) * CALL_BACKS_ARRAY_RESIZE_AMOUNT);
-	assert(m_maxBarriers <= INT16_MAX && "Resize failed overflow max barriers size");
-	m_barriers = (COIEVENT*)realloc(m_barriers, m_maxBarriers * sizeof(COIEVENT));
-	assert(m_barriers && "memory allocation failed for m_barriers");
-	m_notificationsPackages = (notificationPackage*)realloc(m_notificationsPackages, m_maxBarriers * sizeof(notificationPackage));
-	assert(m_notificationsPackages && "memory allocation failed for m_notificationsPackages");
-	*fireCallBacksArr = (notificationPackage*)realloc(*fireCallBacksArr, sizeof(notificationPackage) * m_maxBarriers);
-	assert(*fireCallBacksArr && "memory allocation failed for *fireCallBacksArr");
-	*firedIndicesArr = (unsigned int*)realloc(*firedIndicesArr, sizeof(unsigned int) * m_maxBarriers);
-	assert(*firedIndicesArr && "memory allocation failed for *firedIndicesArr");
+    m_maxBarriers +=   (((uint16_t)(minimumResize / CALL_BACKS_ARRAY_RESIZE_AMOUNT) + 1) * CALL_BACKS_ARRAY_RESIZE_AMOUNT);
+    assert(m_maxBarriers <= INT16_MAX && "Resize failed overflow max barriers size");
+    m_barriers = (COIEVENT*)realloc(m_barriers, m_maxBarriers * sizeof(COIEVENT));
+    assert(m_barriers && "memory allocation failed for m_barriers");
+    m_notificationsPackages = (notificationPackage*)realloc(m_notificationsPackages, m_maxBarriers * sizeof(notificationPackage));
+    assert(m_notificationsPackages && "memory allocation failed for m_notificationsPackages");
+    *fireCallBacksArr = (notificationPackage*)realloc(*fireCallBacksArr, sizeof(notificationPackage) * m_maxBarriers);
+    assert(*fireCallBacksArr && "memory allocation failed for *fireCallBacksArr");
+    *firedIndicesArr = (unsigned int*)realloc(*firedIndicesArr, sizeof(unsigned int) * m_maxBarriers);
+    assert(*firedIndicesArr && "memory allocation failed for *firedIndicesArr");
 }
 
 
@@ -488,24 +488,24 @@ void NotificationPort::releaseResources()
 {
     COIRESULT result = COI_SUCCESS;
 
-	OclAutoMutex lock(&m_mutex);
+    OclAutoMutex lock(&m_mutex);
 
-	m_maxBarriers = 0;
-	//release the worker barrier
-	if (m_barriers)
-	{
-		result = COIEventUnregisterUserEvent(m_barriers[0]);
-		assert(result == COI_SUCCESS && "Unregister main barrier failed");
-		free(m_barriers);
-		m_barriers = NULL;
-	}
-	if (m_notificationsPackages)
-	{
-		free(m_notificationsPackages);
-		m_notificationsPackages = NULL;
-	}
-	m_waitingSize = 0;
+    m_maxBarriers = 0;
+    //release the worker barrier
+    if (m_barriers)
+    {
+        result = COIEventUnregisterUserEvent(m_barriers[0]);
+        assert(result == COI_SUCCESS && "Unregister main barrier failed");
+        free(m_barriers);
+        m_barriers = NULL;
+    }
+    if (m_notificationsPackages)
+    {
+        free(m_notificationsPackages);
+        m_notificationsPackages = NULL;
+    }
+    m_waitingSize = 0;
 
-	m_workerState = FINISHED;
-	m_clientCond.Signal();
+    m_workerState = FINISHED;
+    m_clientCond.Signal();
 }

@@ -69,6 +69,7 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
     "create_built_in_program",              // CREATE_BUILT_IN_PROGRAM
     "remove_program_from_device",           // REMOVE_PROGRAM_FROM_DEVICE
     "execute_command_ndrange",              // EXECUTE_NDRANGE
+    "execute_command_nativekernel",         // EXECUTE_NATIVE_KERNEL
     "init_device",                          // INIT THE NATIVE PROCESS (Call it only once, after process creation)
     "release_device",                       // CLEAN SOME RESOURCES OF THE NATIVE PROCESS (Call it before closing the process)
     "init_commands_queue",                  // INIT COMMANDS QUEUE ON DEVICE
@@ -200,7 +201,11 @@ COIPROCESS DeviceServiceCommunication::getDeviceProcessHandle()
 COIFUNCTION DeviceServiceCommunication::getDeviceFunction( DEVICE_SIDE_FUNCTION id ) 
 {
     WaitForCompletion();
-    assert( id < LAST_DEVICE_SIDE_FUNCTION && "Too large Device Entry point Function ID" );
+    if ( id >= LAST_DEVICE_SIDE_FUNCTION )
+    {
+        assert( false && "Too large Device Entry point Function ID" );
+        return NULL;
+    }
     assert( 0 != m_device_functions[id] && "Getting reference to Device Entry point that does not exists" );
     return (NULL == m_process) ? NULL :  m_device_functions[id];
 }
@@ -573,6 +578,44 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
             break;
         }
         m_uiNumActiveThreads = retVal.uiNumActiveThreads;
+
+        // Create inital 2MB pool on device
+        // Workaround until COI will implement this functionality
+        size_t initial_2mb_pool_size = tMicConfig.Device_Initial2MBPoolSizeInMB();
+        if (initial_2mb_pool_size > 0)
+        {
+            COIBUFFER pool;
+            initial_2mb_pool_size *= (1024*1024);
+            result = COIBufferCreate( initial_2mb_pool_size, 
+                                      COI_BUFFER_NORMAL, COI_OPTIMIZE_HUGE_PAGE_SIZE|COI_OPTIMIZE_NO_DMA,
+                                      NULL,    // no init data
+                                      1, &m_process,
+                                      &pool );
+
+            assert(result == COI_SUCCESS);
+            if (result != COI_SUCCESS)
+            {
+                break;
+            }
+
+            // force real device allocation
+            result = COIBufferSetState( pool, m_process, COI_BUFFER_VALID, COI_BUFFER_NO_MOVE, 0, NULL, NULL );
+
+            assert(result == COI_SUCCESS);
+
+            result = COIBufferDestroy( pool );
+       
+            assert(result == COI_SUCCESS);
+
+            if (result != COI_SUCCESS)
+            {
+                break;
+            }
+
+            // wait for some time to allow COI finish deletion            
+            clSleep(100); // 100 millisec
+        }
+        
     }
     while (0);
 

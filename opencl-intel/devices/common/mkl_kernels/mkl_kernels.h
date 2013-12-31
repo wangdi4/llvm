@@ -21,9 +21,14 @@
 
 #include <builtin_kernels.h>
 #include <cl_dynamic_lib.h>
+#include <cl_types.h>
 
 #include <mkl_types.h>
 #include <mkl_cblas.h>
+
+#if defined(__OMP2TBB__)
+extern "C" void __omp2tbb_set_thread_max_concurency(int max_concurency);
+#endif
 
 namespace Intel { namespace OpenCL { namespace MKLKernels {
 
@@ -213,12 +218,14 @@ public:
 
     typedef MKL_GEMM_Parameters< datatype > MKL_GEMM_EXECUTOR_PAREMERTERS;
 
-    MKL_GEMM_Executor(Intel::OpenCL::Utils::OclDynamicLib::func_t func_ptr, size_t* pWorkSize, const void* params)
+    MKL_GEMM_Executor(Intel::OpenCL::Utils::OclDynamicLib::func_t func_ptr, const void* params)
         : m_FuncPtr((MKL_FuncType) func_ptr), m_pParamBuffer(params)
         {
-            m_iRowsA_M = (int)pWorkSize[0];
-            m_iColsB_N = (int)pWorkSize[1];
-            m_iK = (int)pWorkSize[2];
+            const cl_uniform_kernel_args* pKernelArgs = (const cl_uniform_kernel_args*)((const char*)params+ MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamSize());
+
+            m_iRowsA_M = (int)pKernelArgs->GlobalSize[0];
+            m_iColsB_N = (int)pKernelArgs->GlobalSize[1];
+            m_iK = (int)pKernelArgs->GlobalSize[2];
         }
 
     cl_dev_err_code    Execute() const
@@ -228,7 +235,7 @@ public:
         datatype* pC = (datatype*)MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamC().GetValue(m_pParamBuffer);
 
         // Execute parallel(OpenMP) MKL function
-        m_FuncPtr(CblasRowMajor, CblasNoTrans, CblasNoTrans, m_iRowsA_M, m_iColsB_N, m_iK, 1.0, pA, m_iK, pB, m_iColsB_N, 0.0, pC, m_iColsB_N);
+        m_FuncPtr(CblasRowMajor, CblasNoTrans, CblasNoTrans, m_iRowsA_M, m_iColsB_N, m_iK, (datatype)1.0, pA, m_iK, pB, m_iColsB_N, (datatype)0.0, pC, m_iColsB_N);
 
         return CL_DEV_SUCCESS;
     }
@@ -254,7 +261,7 @@ protected:
 template<typename datatype > class MKL_GEMM_Executor_Proxy : public Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor
 {
 public:
-    MKL_GEMM_Executor_Proxy(Intel::OpenCL::Utils::OclDynamicLib::func_t func_ptr, size_t* pWorkSize, const void* params) {}
+    MKL_GEMM_Executor_Proxy(Intel::OpenCL::Utils::OclDynamicLib::func_t func_ptr, const void* params) {}
 
     typedef MKL_GEMM_Parameters< datatype > MKL_GEMM_EXECUTOR_PAREMERTERS;
 
@@ -282,19 +289,34 @@ public:
     }
 
 #ifndef __OMP2TBB__
-    cl_dev_err_code    Execute(cl_dev_cmd_param_kernel* pCmdParams, void* pParamBuffer, Intel::OpenCL::BuiltInKernels::OMPExecutorThread* pThread) const
+    cl_dev_err_code    Execute(const void* pParamBuffer, Intel::OpenCL::BuiltInKernels::OMPExecutorThread* pThread) const
     {
-        MKL_EXECUTOR_CLASS executor(m_pMKLFuncPtr, pCmdParams->glb_wrk_size, pParamBuffer);
+        MKL_EXECUTOR_CLASS executor(m_pMKLFuncPtr, pParamBuffer);
         return pThread->Execute(executor);
     }
 #else
-    cl_dev_err_code    Execute(cl_dev_cmd_param_kernel* pCmdParams, void* pParamBuffer) const
+    cl_dev_err_code    Execute(const Intel::OpenCL::TaskExecutor::ITaskList* pList, const void* pParamBuffer) const
     {
-        MKL_EXECUTOR_CLASS executor(m_pMKLFuncPtr, pCmdParams->glb_wrk_size, pParamBuffer);
+        // Set concurrency for the library, this is a workaround until TBB will return a pointer to current arena
+        // Currently we assuming that master/application thread is joining.
+        // TODO: need to recalculate number of active workers
+
+        int iDeviceConcurency = pList->GetDeviceConcurency();
+        bool bMasterJoinedExecution = pList->IsMasterJoined();
+        bool bCanMasterJoin = pList->CanMasterJoin();
+
+        // If master can join, but currently it doesn't we need execute on less threads
+        if ( bCanMasterJoin && !bMasterJoinedExecution )
+        {
+            --iDeviceConcurency;
+        }
+
+        __omp2tbb_set_thread_max_concurency(iDeviceConcurency);
+
+        MKL_EXECUTOR_CLASS executor(m_pMKLFuncPtr, pParamBuffer);
         return executor.Execute();
     }
 #endif
-    size_t GetParamSize() const {return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamSize();}
 
     //ICLDevBackendKernel
     unsigned long long int GetKernelID() const { return (unsigned long long int)this;}
@@ -305,7 +327,6 @@ public:
     size_t GetExplicitArgumentBufferSize(void) const { return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamSize(); }
     size_t GetArgumentBufferRequiredAlignment(void) const { return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetKernelParams()[0].size_in_bytes;}
     const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelRunner* GetKernelRunner(void) const { return NULL;}
-
 
     int GetLineNumber(void* pointer) const { return -1;}
 

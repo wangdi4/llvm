@@ -100,6 +100,9 @@ namespace Intel { namespace OpenCL { namespace Utils
         //
         static void SetGlobalAtExitNotification( IAtExitCentralPoint* fn ) { m_atexit_fn = fn; }
 
+        // Get function pointer from library handle
+        static func_t GetFuntionPtrByNameFromHandle(void* hLibrary, const char* szFuncName);
+
     protected:
         void*            m_hLibrary;        // A handle to loaded library
 

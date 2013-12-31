@@ -63,6 +63,8 @@ typedef void (CL_CALLBACK *mem_dtor_fn)(cl_mem, void *);
 #define INOUT
 #endif
 
+#define CBK_ARRAY_SIZE 64
+
 /**************************************************************************************************
 * CL_SUCCEEDED
 * Checks whether a return code is success
@@ -141,18 +143,18 @@ typedef struct _cl_mem_obj_descriptor
 // Explicitly define image types
 typedef ALIGN16 struct _image_aux_data
 {
-    cl_uint			dim_count;				// A number of dimensions in the memory object.
+	cl_uint			dim_count;				// A number of dimensions in the memory object.
 	size_t			pitch[MAX_WORK_DIM-1];	// Multi-dimensional pitch of the object, valid only for images (2D/3D).
 	cl_image_format	format;					// Format of the memory object,valid only for images (2D/3D).
 	void*			pData;					// A pointer to the object wherein the object data is stored.
 											// Could be a valid memory pointer or a handle to other object.
 	unsigned		uiElementSize;			// Size of image pixel element.
 	
-	void*			coord_translate_f_callback[32];    //the list of float coordinate translation callback
-	void*			read_img_callback_int[32];   // the list of integer image reader & filter callbacks
-	void*			read_img_callback_float[32]; // the list of float   image reader & filter callbacks
-	void*			soa4_read_img_callback_int[32]; // the list of soa4 integer image reader & filter callbacks
-	void*			soa8_read_img_callback_int[32]; // the list of soa4 integer image reader & filter callbacks
+	void*			coord_translate_f_callback[CBK_ARRAY_SIZE];    //the list of float coordinate translation callback
+	void*			read_img_callback_int[CBK_ARRAY_SIZE];   // the list of integer image reader & filter callbacks
+	void*			read_img_callback_float[CBK_ARRAY_SIZE]; // the list of float   image reader & filter callbacks
+	void*			soa4_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa4 integer image reader & filter callbacks
+	void*			soa8_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa4 integer image reader & filter callbacks
 	void*			write_img_callback;    // the write image sampler callback
 	void*			soa4_write_img_callback;    // the write image sampler callback
 	void*			soa8_write_img_callback;    // the write image sampler callback
@@ -237,65 +239,65 @@ typedef struct _cl_uniform_kernel_args {
  */
 enum cl_dev_sampler_prop
 {
-    __ADDRESS_BASE								= 0,
-    CL_DEV_SAMPLER_ADDRESS_NONE					= 0,
-    CL_DEV_SAMPLER_ADDRESS_CLAMP				= 1 << __ADDRESS_BASE ,	//!< Sampler is defined with CLAMP attribute
-    CL_DEV_SAMPLER_ADDRESS_CLAMP_TO_EDGE		= 2 << __ADDRESS_BASE,	//!< Sampler is defined with CLAMP_TO_EDGE attribute
-    CL_DEV_SAMPLER_ADDRESS_REPEAT				= 3 << __ADDRESS_BASE,	//!< Sampler is defined with REPEAT attribute
-    CL_DEV_SAMPLER_ADDRESS_MIRRORED_REPEAT		= 4 << __ADDRESS_BASE,	//!< Sampler is defined with MIRRORED_REPEAT attribute
-    __ADDRESS_BITS								= 3,					//!< number of bits required to represent address info
-    __ADDRESS_MASK								= ( (1<<__ADDRESS_BITS) -1),
+    CLK_ADDRESS_NONE                =0,
+    CLK_ADDRESS_CLAMP_TO_EDGE       =2,
+    CLK_ADDRESS_CLAMP               =4,
+    CLK_ADDRESS_REPEAT              =6,
+    CLK_ADDRESS_MIRRORED_REPEAT     =8,
+    __ADDRESS_MASK                  =0xE,
+    
+    CLK_NORMALIZED_COORDS_FALSE     =0,
+    CLK_NORMALIZED_COORDS_TRUE      =1,
+    __NORMALIZED_MASK               =1,
 
-    __NORMALIZED_BASE							= __ADDRESS_BITS,
-    CL_DEV_SAMPLER_NORMALIZED_COORDS_FALSE		= 0,						//!< Sampler is defined with normalized coordinates set to FALSE
-    CL_DEV_SAMPLER_NORMALIZED_COORDS_TRUE		= 1 << __NORMALIZED_BASE,	//!< Sampler is defined with normalized coordinates set to TRUE
-    __NORMALIZED_BITS							=	1,						//!< number of bits required to represent normalize coordinates selection 
-    __NORMALIZED_MASK							= ( ((1<<__NORMALIZED_BITS)-1) << __NORMALIZED_BASE ),
-
-    __FILTER_BASE								= __NORMALIZED_BASE + __NORMALIZED_BITS,
-    CL_DEV_SAMPLER_FILTER_NEAREST				= 0 << __FILTER_BASE,		//!< Sampler is defined with filtering set to NEAREST
-    CL_DEV_SAMPLER_FILTER_LINEAR				= 1 << __FILTER_BASE,		//!< Sampler is defined with filtering set to LINEAR
-    __FILTER_BITS					            = 2,						//!< number of bits required to represent filter info
-    __FILTER_MASK								= ( ((1<<__FILTER_BITS)-1) << __FILTER_BASE)
+    CLK_FILTER_NEAREST              =0x10,
+    CLK_FILTER_LINEAR               =0x20,
+    __FILTER_MASK                   =0x30
 };
 
 // Channel order, numbering must be aligned with cl_channel_order in cl.h
 enum {
-  CLK_R,
-  CLK_A,
-  CLK_RG,
-  CLK_RA,
-  CLK_RGB,
-  CLK_RGBA,
-  CLK_BGRA,
-  CLK_ARGB,
-  CLK_INTENSITY,
-  CLK_LUMINANCE,
-  CLK_DEPTH = 0xD,
-  CLK_sRGBA = 0x11,
-  CLK_sBGRA = 0x12
+    CLK_R                                        =0x10B0,
+    CLK_A                                        =0x10B1,
+    CLK_RG                                       =0x10B2,
+    CLK_RA                                       =0x10B3,
+    CLK_RGB                                      =0x10B4,
+    CLK_RGBA                                     =0x10B5,
+    CLK_BGRA                                     =0x10B6,
+    CLK_ARGB                                     =0x10B7,
+    CLK_INTENSITY                                =0x10B8,
+    CLK_LUMINANCE                                =0x10B9,
+    CLK_Rx                                       =0x10BA,
+    CLK_RGx                                      =0x10BB,
+    CLK_RGBx                                     =0x10BC,
+    CLK_DEPTH                                    =0x10BD,
+    CLK_DEPTH_STENCIL                            =0x10BE,
+    // OpenCL2.0 image formats beyond SPIR 1.2 spec
+    CLK_sRGB                                     =0x10BF,
+    CLK_sRGBx                                    =0x10C0,
+    CLK_sRGBA                                    =0x10C1,
+    CLK_sBGRA                                    =0x10C2,
+    CLK_ABGR                                     =0x10C3
 };
 
 // Channel Type
 enum {
-  // valid formats for float return types
-  CLK_SNORM_INT8,
-  CLK_SNORM_INT16,
-  CLK_UNORM_INT8,
-  CLK_UNORM_INT16,
-  CLK_UNORM_SHORT_565,
-  CLK_UNORM_SHORT_555,
-  CLK_UNORM_INT_101010,
-
-  CLK_SIGNED_INT8,
-  CLK_SIGNED_INT16,
-  CLK_SIGNED_INT32,
-  CLK_UNSIGNED_INT8,
-  CLK_UNSIGNED_INT16,
-  CLK_UNSIGNED_INT32,
-
-  CLK_HALF_FLOAT,            // four channel RGBA half
-  CLK_FLOAT                  // four channel RGBA float
+    CLK_SNORM_INT8          =0x10D0,
+    CLK_SNORM_INT16         =0x10D1,
+    CLK_UNORM_INT8          =0x10D2,
+    CLK_UNORM_INT16         =0x10D3,
+    CLK_UNORM_SHORT_565     =0x10D4,
+    CLK_UNORM_SHORT_555     =0x10D5,
+    CLK_UNORM_INT_101010    =0x10D6,
+    CLK_SIGNED_INT8         =0x10D7,
+    CLK_SIGNED_INT16        =0x10D8,
+    CLK_SIGNED_INT32        =0x10D9,
+    CLK_UNSIGNED_INT8       =0x10DA,
+    CLK_UNSIGNED_INT16      =0x10DB,
+    CLK_UNSIGNED_INT32      =0x10DC,
+    CLK_HALF_FLOAT          =0x10DD,
+    CLK_FLOAT               =0x10DE,
+    CLK_UNORM_INT24         =0x10DF
 };
 
 #include "cl_types2.h"

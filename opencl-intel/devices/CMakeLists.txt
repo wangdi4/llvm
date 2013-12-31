@@ -24,10 +24,10 @@ if( INCLUDE_MKL )
     endif()
 	
     if (ADDR EQUAL 64)
-        set ( ICC_ARCH_DIR /intel64 )
+        set ( ICC_ARCH_DIR intel64 )
         add_definitions(-DMKL_ILP64 )
     else(ADDR EQUAL 64)
-        set( ICC_ARCH_DIR /ia32 )
+        set( ICC_ARCH_DIR ia32 )
     endif(ADDR EQUAL 64)
 	
     add_subdirectory( common/mkl_kernels )

@@ -89,6 +89,7 @@ endif( NOT WIN32)
 
 include_directories(
     ${VALIDATIONS_ROOT}/SATest
+    ${VALIDATIONS_ROOT}/DataVersion
     ${VALIDATIONS_ROOT}/DataManager
     ${VALIDATIONS_ROOT}/NEAT
     ${VALIDATIONS_ROOT}/REFALU
@@ -209,6 +210,7 @@ target_link_libraries(${TARGET_NAME}
     OCLBuilder
     PlugInNEAT
     DataManager
+    DataVersion
     Comparator
     LLVMInterpreterPluggable
     OclBackendUtils

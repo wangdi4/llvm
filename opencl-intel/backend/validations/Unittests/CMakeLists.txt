@@ -15,6 +15,7 @@ endif(WIN32)
 
 
 set(TARGET_SOURCE_FILES
+    DVTest.cpp
     DMTest.cpp
     DMImageTest.cpp
     CMPTest.cpp
@@ -42,6 +43,7 @@ include_directories(${BACKEND_ROOT_DIR}/plugin_manager)
 include_directories(${BACKEND_ROOT_DIR}/dynamic_lib)
 include_directories(${BACKEND_ROOT_DIR}/ocl_cpu_backend/export)
 include_directories(${VALIDATIONS_ROOT}/Common)
+include_directories(${VALIDATIONS_ROOT}/DataVersion)
 include_directories(${VALIDATIONS_ROOT}/DataManager)
 include_directories(${VALIDATIONS_ROOT}/Comparator)
 include_directories(${VALIDATIONS_ROOT}/ImathLibd)

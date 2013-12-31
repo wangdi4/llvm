@@ -70,6 +70,7 @@ public:
     static Intel::OpenCL::Utils::AtomicCounter m_sNumQueuesCreated;
 #endif
 
+    Intel::OpenCL::TaskExecutor::ITaskList* GetTaskList() const { return m_task_list.GetPtr();}
 protected:
     QueueOnDevice( ThreadPool& thread_pool ) : m_thread_pool(thread_pool) {};
 
