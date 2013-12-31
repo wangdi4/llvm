@@ -438,9 +438,11 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
     pKernelUniformImplicitArgs->WGLoopIterCount = WGSize - 1;
   }
 
+#if !defined (__MIC__) && !defined(__MIC2__) // ocl20 is not supported in MIC so far
   if (true ) { // ocl20 
     pKernelUniformImplicitArgs->Block2KernelMapper = m_RuntimeService->GetBlockToKernelMapper();
   }
+#endif
 
 #ifdef OCL_DEV_BACKEND_PLUGINS
 // TODO: Notify the plugin manager
