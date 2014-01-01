@@ -80,6 +80,29 @@ public:
 #else
     virtual cl_dev_err_code Execute(const Intel::OpenCL::TaskExecutor::ITaskList* pList, const void* pParamBuffer) const = 0;
 #endif
+
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties* GetKernelProporties() const {return &m_mklProperties;}
+
+protected:
+    class BuiltInKernelProperties : public Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties
+    {
+    public:
+        unsigned int GetKernelPackCount() const {return 1;}
+        const size_t* GetRequiredWorkGroupSize() const {return NULL;}
+        size_t GetPrivateMemorySize() const {return 1;}
+        size_t GetImplicitLocalMemoryBufferSize() const {return 0;}
+        size_t GetKernelExecutionLength() const {return -1;}
+        bool HasPrintOperation() const {return false;}
+        bool HasBarrierOperation() const {return false;}
+        bool HasKernelCallOperation() const {return false;}
+        unsigned int GetMinGroupSizeFactorial() const { return 0;}
+        bool IsBlock() const { return false;}
+        const char* GetKernelAttributes() const { return attributes; }
+    protected:
+        static const char* attributes;
+    };
+
+    BuiltInKernelProperties  m_mklProperties;
 };
 
 typedef cl_dev_err_code fn_BuiltInFunctionCreate(IBuiltInKernel* *ppBIKernel);

@@ -49,6 +49,23 @@ template<typename>
 
 DEFINE_TYPE_STRING(float)
 DEFINE_TYPE_STRING(double)
+DEFINE_TYPE_STRING(CBLAS_ORDER)
+DEFINE_TYPE_STRING(CBLAS_TRANSPOSE)
+
+// C type to OpenCL kernel argment type conversion
+template<typename>
+    struct cl_kernel_arg_type_of
+    {
+        static cl_kernel_arg_type get_type();
+    };
+template<> struct cl_kernel_arg_type_of<float>
+    {
+        static cl_kernel_arg_type get_type() {return CL_KRNL_ARG_FLOAT;}
+    };
+template<> struct cl_kernel_arg_type_of<double>
+    {
+        static cl_kernel_arg_type get_type() {return CL_KRNL_ARG_DOUBLE;}
+    };
 
 class MKLParamDescriptor
 {
@@ -134,151 +151,6 @@ protected:
     std::vector<MKLParamBase*>        m_lstParams;        // List of kernel arguments
 };
 
-/*
- * ===========================================================================
- * Prototypes for level 3 BLAS
- * ===========================================================================
- */
- template<typename datatype>
-class MKL_GEMM_Parameters : public MKLParamDescriptor
-{
-public:
-    MKL_GEMM_Parameters():
-        pABuffer("pA", type_string<datatype>::const_ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, CL_KRNL_ARG_PTR_GLOBAL, this),
-        pBBuffer("pB", type_string<datatype>::const_ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, CL_KRNL_ARG_PTR_GLOBAL, this),
-        pCBuffer("pC", type_string<datatype>::ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_NONE, CL_KRNL_ARG_PTR_GLOBAL,this),
-        pArgDescriptor(NULL), pArgInfoDescriptor(NULL)
-        {
-            size_t paramCount = GetParamCount();
-            pArgDescriptor = new cl_kernel_argument[paramCount];
-            if ( NULL != pArgDescriptor )
-            {
-                for(size_t i=0; i<paramCount; ++i)
-                {
-                    MEMCPY_S(&pArgDescriptor[i], sizeof(cl_kernel_argument),
-                            &(m_lstParams.at(i)->GetArgumentDescriptor()), sizeof(cl_kernel_argument));
-                }
-            }
-            pArgInfoDescriptor = new cl_kernel_argument_info[paramCount];
-            if ( NULL != pArgInfoDescriptor )
-            {
-                for(size_t i=0; i<paramCount; ++i)
-                {
-                    MEMCPY_S(&pArgInfoDescriptor[i], sizeof(cl_kernel_argument_info),
-                        &(m_lstParams.at(i)->GetArgumentInfoDescriptor()), sizeof(cl_kernel_argument_info));
-                }
-            }
-        }
-
-    ~MKL_GEMM_Parameters()
-    {
-        if ( NULL != pArgDescriptor )
-        {
-            delete[] pArgDescriptor;
-        }
-        if ( NULL != pArgInfoDescriptor )
-        {
-            delete[] pArgInfoDescriptor;
-        }
-    }
-
-    // Static information info
-    static size_t GetParamCount() {return s_Params.m_lstParams.size();}
-    static size_t GetParamSize() {return s_Params.m_Offset;}
-    static const cl_kernel_argument* GetKernelParams() {return s_Params.pArgDescriptor;}
-    static const cl_kernel_argument_info* GetKernelArgInfo() {return s_Params.pArgInfoDescriptor;}
-
-    static unsigned int GetMemoryObjectArgumentCount() { return s_Params.m_lstMemArgs.size();}
-    static const unsigned int* GetMemoryObjectArgumentIndexes() {return s_Params.m_lstMemArgs.size() > 0 ? &s_Params.m_lstMemArgs[0] : NULL;}
-
-    static const MKLParam<const datatype*>& GetParamA() { return s_Params.pABuffer; }
-    static const MKLParam<const datatype*>& GetParamB() { return s_Params.pBBuffer; }
-    static const MKLParam<datatype*>& GetParamC() { return s_Params.pCBuffer; }
-
-protected:
-    MKLParam<const datatype*>    pABuffer;
-    MKLParam<const datatype*>    pBBuffer;
-    MKLParam<datatype*>          pCBuffer;
-
-    cl_kernel_argument*          pArgDescriptor;
-    cl_kernel_argument_info*     pArgInfoDescriptor;
-
-
-    static const MKL_GEMM_Parameters<datatype>    s_Params;
-};
-
-template<typename datatype > class MKL_GEMM_Executor : public Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor
-{
-public:
-    typedef void (*MKL_FuncType)(const  CBLAS_ORDER Order, const  CBLAS_TRANSPOSE TransA,
-                 const  CBLAS_TRANSPOSE TransB, const MKL_INT M, const MKL_INT N,
-                 const MKL_INT K, const datatype alpha, const datatype *A,
-                 const MKL_INT lda, const datatype *B, const MKL_INT ldb,
-                 const datatype beta, datatype *C, const MKL_INT ldc);
-
-    typedef MKL_GEMM_Parameters< datatype > MKL_GEMM_EXECUTOR_PAREMERTERS;
-
-    MKL_GEMM_Executor(Intel::OpenCL::Utils::OclDynamicLib::func_t func_ptr, const void* params)
-        : m_FuncPtr((MKL_FuncType) func_ptr), m_pParamBuffer(params)
-        {
-            const cl_uniform_kernel_args* pKernelArgs = (const cl_uniform_kernel_args*)((const char*)params+ MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamSize());
-
-            m_iRowsA_M = (int)pKernelArgs->GlobalSize[0];
-            m_iColsB_N = (int)pKernelArgs->GlobalSize[1];
-            m_iK = (int)pKernelArgs->GlobalSize[2];
-        }
-
-    cl_dev_err_code    Execute() const
-    {
-        const datatype* pA = (const datatype*)MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamA().GetValue(m_pParamBuffer);
-        const datatype* pB = (const datatype*)MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamB().GetValue(m_pParamBuffer);
-        datatype* pC = (datatype*)MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamC().GetValue(m_pParamBuffer);
-
-        // Execute parallel(OpenMP) MKL function
-        m_FuncPtr(CblasRowMajor, CblasNoTrans, CblasNoTrans, m_iRowsA_M, m_iColsB_N, m_iK, (datatype)1.0, pA, m_iK, pB, m_iColsB_N, (datatype)0.0, pC, m_iColsB_N);
-
-        return CL_DEV_SUCCESS;
-    }
-
-    cl_dev_err_code GetLastError() const
-    {
-        return m_lastError;
-    }
-
-protected:
-
-    int        m_iRowsA_M;
-    int        m_iColsB_N;
-    int        m_iK;
-
-    MKL_FuncType    m_FuncPtr;
-    const void*     m_pParamBuffer;
-
-    cl_dev_err_code m_lastError;
-};
-
-// This class is used to expose MKL function on MIC device
-template<typename datatype > class MKL_GEMM_Executor_Proxy : public Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor
-{
-public:
-    MKL_GEMM_Executor_Proxy(Intel::OpenCL::Utils::OclDynamicLib::func_t func_ptr, const void* params) {}
-
-    typedef MKL_GEMM_Parameters< datatype > MKL_GEMM_EXECUTOR_PAREMERTERS;
-
-    cl_dev_err_code    Execute() const
-    {
-        return CL_DEV_SUCCESS;
-    }
-/*
-    static size_t GetParamCount() {return m_sParams.GetParamCount();}
-    static size_t GetParamSize() {return m_sParams.GetParamSize();}
-    static const cl_kernel_argument* GetKernelParams() {return m_sParams.pArgDescriptor;}
-    static const cl_kernel_argument_info* GetKernelArgInfo() {return m_sParams.pArgInfoDescriptor;}
-
-    static unsigned int GetMemoryObjectArgumentCount() { return m_sParams.GetMemoryObjectArgumentCount();}
-    static const unsigned int* GetMemoryObjectArgumentIndexes() {return m_sParams.GetMemoryObjectArgumentIndexes();}
-*/
-};
 
 template<class MKL_EXECUTOR_CLASS > class MKLKernel : public Intel::OpenCL::BuiltInKernels::IBuiltInKernel
 {
@@ -334,27 +206,9 @@ public:
     unsigned int GetMemoryObjectArgumentCount() const {return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetMemoryObjectArgumentCount();}
     const unsigned int* GetMemoryObjectArgumentIndexes() const {return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetMemoryObjectArgumentIndexes();}
 
-    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties* GetKernelProporties() const {return &m_mklProperties;}
-
 protected:
-    class MKLKernelProperties : public Intel::OpenCL::DeviceBackend::ICLDevBackendKernelProporties
-    {
-        unsigned int GetKernelPackCount() const {return 1;}
-        const size_t* GetRequiredWorkGroupSize() const {return NULL;}
-        size_t GetPrivateMemorySize() const {return 1;}
-        size_t GetImplicitLocalMemoryBufferSize() const {return 0;}
-        size_t GetKernelExecutionLength() const {return -1;}
-        bool HasPrintOperation() const {return false;}
-        bool HasBarrierOperation() const {return false;}
-        bool HasKernelCallOperation() const {return false;}
-        unsigned int GetMinGroupSizeFactorial() const { return 0;}
-        bool IsBlock() const { return false;}
-        const char* GetKernelAttributes() const { return NULL; }
-    };
-
     std::string                                 m_szFuncName;
     Intel::OpenCL::Utils::OclDynamicLib::func_t m_pMKLFuncPtr;
-    MKLKernelProperties                         m_mklProperties;
 };
 
 }}}

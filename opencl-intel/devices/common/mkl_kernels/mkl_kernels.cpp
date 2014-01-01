@@ -25,9 +25,11 @@
 
 #include "stdafx.h"
 
-#include "mkl_kernels.h"
 #include "export/mkl_builtins.h"
 #include <cl_dynamic_lib.h>
+
+#include "mkl_kernels.h"
+#include "gemm.h"
 
 #ifdef __OMP2TBB__
 extern "C" void __kmpc_begin(void* loc, int flags);
