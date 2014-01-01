@@ -155,7 +155,6 @@ extern "C" LIBOMP2TBB_API void __kmpc_fork_call (ident_t* loc, kmp_int32 argc, k
         fork_runner runner(enable_zero_slot, current_arena_concurency, microtask, t_tgid, argc, argv);
         runner();
     }
-
 }
 
 extern "C" LIBOMP2TBB_API kmp_int32 omp_get_thread_num()

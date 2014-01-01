@@ -387,6 +387,7 @@ list( APPEND MIC_FLAGS
                 -D${TASK_EXECUTOR_FLAG} -DTBB_PREVIEW_LOCAL_OBSERVER=1 -DTBB_PREVIEW_TASK_ARENA=1
                 ${MIC_DA_OMP_FLAG}
                 -DKNC_CARD
+                -fPIC
                 )
 
 # DEBUG flags

@@ -20,7 +20,6 @@ kmp_int32 omp2tbb::global_thread_table::allocate_master_thread()
 	size_t master_count = masters.size();
 	masters.resize(master_count + 1);
 
-
 	return (kmp_int32)master_count;
 }
 
@@ -96,7 +95,13 @@ extern "C" LIBOMP2TBB_API int omp_in_parallel()
 
 // Function that currently are not used, define just symbols in Linux
 #ifndef WIN32
-#define DECLARE_UNUSED_FUNCTION(func_name) extern "C" LIBOMP2TBB_API int func_name(void) { assert(0&&"Undefined function used"); return 0;}
+#define DECLARE_UNUSED_FUNCTION(func_name) \
+                              extern "C" LIBOMP2TBB_API int func_name(void)\
+                              {\
+                                  fprintf(stderr, " !!!! %s NOT IMPLEMENTED !!!! \n", __FUNCTION__);fflush(stderr);\
+                                  assert(0&&"Undefined function used");\
+                                  return 0;\
+                              }
 
 DECLARE_UNUSED_FUNCTION(__kmpc_ordered)
 DECLARE_UNUSED_FUNCTION(__kmpc_dispatch_next_4)

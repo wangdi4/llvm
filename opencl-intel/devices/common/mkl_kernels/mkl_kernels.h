@@ -349,6 +349,7 @@ protected:
         bool HasKernelCallOperation() const {return false;}
         unsigned int GetMinGroupSizeFactorial() const { return 0;}
         bool IsBlock() const { return false;}
+        const char* GetKernelAttributes() const { return NULL; }
     };
 
     std::string                                 m_szFuncName;
