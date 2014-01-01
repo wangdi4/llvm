@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2014 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -262,9 +262,6 @@ CrtContext::CrtContext(
 m_context_handle(context_handle)
 {
     cl_int errCode = CL_SUCCESS;
-    
-    // Initialize the alignment class variable
-    m_alignment = 0;
 
     OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
 
@@ -342,7 +339,6 @@ m_context_handle(context_handle)
     {
         goto FINISH;
     }
-    errCode = GetDevicesPreferredAlignment(num_devices, devices, &m_alignment);
 
 FINISH:
     if( outDevices )
@@ -422,40 +418,6 @@ void CrtContext::GetDevsIndicesByPlatformId(
     }
     *outNumIndices = indexCount;
 }
-
-
-cl_int CrtContext::GetDevicesPreferredAlignment(
-    const cl_uint           numDevices,
-    const cl_device_id*     devices,
-    cl_uint*                alignment)
-{
-    for( cl_uint i=0; i < numDevices; i++ )
-    {
-        cl_int errCode = CL_SUCCESS;
-        cl_uint devAlignment = 0;
-        errCode = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(devices[i])->m_origDispatchTable.clGetDeviceInfo(
-                        devices[i],
-                        CL_DEVICE_MEM_BASE_ADDR_ALIGN,
-                        sizeof(cl_uint),
-                        (void*)(&devAlignment),
-                        NULL);
-
-        if( errCode != CL_SUCCESS )
-        {
-            return CL_OUT_OF_RESOURCES;
-        }
-        if( i==0 )
-        {
-            *alignment  = devAlignment >> 3;
-        }
-        else
-        {
-            *alignment  = CalculateLCM(*alignment , devAlignment) >> 3;
-        }
-    }
-    return CL_SUCCESS;
-}
-
 
 
 cl_int CrtContext::Release()
@@ -1774,7 +1736,7 @@ cl_int CrtPipe::Create( CrtMemObject** memObj )
     m_size = allocSize;
 
     // Allocate needed memory
-    m_pBstPtr = ALIGNED_MALLOC( m_size, m_pContext->getAlignment( CrtObject::CL_BUFFER ) );
+    m_pBstPtr = ALIGNED_MALLOC( m_size, m_pContext->getAlignment( CrtObject::CL_PIPE ) );
 
     if( NULL == m_pBstPtr )
     {
@@ -1849,7 +1811,8 @@ cl_int CrtPipe::Create( CrtMemObject** memObj )
 FINISH:
     if( CL_SUCCESS != errCode )
     {
-        if( memData->m_count == 0 )
+        if( ( NULL != memData ) &&
+            ( memData->m_count == 0 ) )
         {
             delete memData;
         }
@@ -1865,14 +1828,18 @@ FINISH:
 inline cl_uint CrtContext::getAlignment( CrtObjectType objType ) const
 {
     cl_uint mem_obj_alignment = 0;
-    if( objType == CrtObject::CL_BUFFER )
+    switch( objType )
     {
-        mem_obj_alignment = m_alignment;
+        case CrtObject::CL_BUFFER:
+        case CrtObject::CL_IMAGE:
+        case CrtObject::CL_PIPE:
+            mem_obj_alignment = CRT_PAGE_ALIGNMENT;
+            break;
+
+        default:
+            break;
     }
-    else if( objType == CrtObject::CL_IMAGE )
-    {
-        mem_obj_alignment = CRT_PAGE_ALIGNMENT;
-    }
+
     return mem_obj_alignment;
 }
 
