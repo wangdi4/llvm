@@ -19,7 +19,7 @@ File Name: CommonOCLBuilder.h
 #define __COMMON_OCL_BUILDER_H__
 
 #include <frontend_api.h>
-#include <DynamicLib.h>
+#include "cl_dynamic_lib.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -67,7 +67,7 @@ private:
   //compiler pointer, extracted by 'withLibrary' method
   Intel::OpenCL::FECompilerAPI::IOCLFECompiler* m_pCompiler;
   //used to load the library
-  Intel::OpenCL::Utils::DynamicLib m_dynamicLoader;
+  Intel::OpenCL::Utils::OclDynamicLib m_dynamicLoader;
   //source to be compiled
   std::string m_source;
   //build options

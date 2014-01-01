@@ -30,7 +30,7 @@ File Name:  OpenCLReferenceRunner.h
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Function.h"
 #include "llvm/Type.h"
-#include "DynamicLib.h"
+#include "cl_dynamic_lib.h"
 #include "OpenCLRunConfiguration.h"
 #include "OpenCLProgramConfiguration.h"
 #include "cl_types.h"

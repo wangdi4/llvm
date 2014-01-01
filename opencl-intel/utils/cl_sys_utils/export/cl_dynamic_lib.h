@@ -91,9 +91,8 @@ namespace Intel { namespace OpenCL { namespace Utils
         //        szFuncName    -    Function name, null terminated string
         // Return
         //        A pointer to valid function
-        //        NULL - if ordinal number is out of bounds
-        typedef void (*func_t)(void);
-        func_t    GetFunctionPtrByName(const char* szFuncName) const;
+        //        NULL - if ordinal number is out of bounds        
+        ptrdiff_t    GetFunctionPtrByName(const char* szFuncName) const;
 
         //
         // Set atexit() notification function
@@ -101,7 +100,7 @@ namespace Intel { namespace OpenCL { namespace Utils
         static void SetGlobalAtExitNotification( IAtExitCentralPoint* fn ) { m_atexit_fn = fn; }
 
         // Get function pointer from library handle
-        static func_t GetFuntionPtrByNameFromHandle(void* hLibrary, const char* szFuncName);
+        static ptrdiff_t GetFuntionPtrByNameFromHandle(void* hLibrary, const char* szFuncName);
 
     protected:
         void*            m_hLibrary;        // A handle to loaded library
