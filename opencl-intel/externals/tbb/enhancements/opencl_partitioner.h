@@ -153,7 +153,10 @@ public:
             if ( !my_use_zero_slot ) {
                 // if slot 0, master is not in use, we should calculate affinity relatively to current master slot
                 affinity = my_master_slot + my_begin;
-                affinity %= my_concurrency+1;
+                if ( affinity > my_concurrency ) {
+                    affinity -= my_concurrency;
+                    __TBB_ASSERT( affinity > 0,  "Task affinity expected to be  greater than 0");
+                }
             }
 #if 0
             printf("master slot %d slot %d Setting affinity to %d concurrency=%d, my_begin=%d, my_end=%d\n", my_master_slot, tbb::task_arena::current_slot(), affinity, my_concurrency, my_begin, my_end);fflush(0);
