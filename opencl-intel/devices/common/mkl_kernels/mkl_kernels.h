@@ -155,7 +155,7 @@ protected:
 template<class MKL_EXECUTOR_CLASS > class MKLKernel : public Intel::OpenCL::BuiltInKernels::IBuiltInKernel
 {
 public:
-    MKLKernel(const char* szName, Intel::OpenCL::Utils::OclDynamicLib::func_t pFuncPtr) :
+    MKLKernel(const char* szName, ptrdiff_t pFuncPtr) :
         m_szFuncName(szName), m_pMKLFuncPtr(pFuncPtr)
     {
     }
@@ -207,8 +207,8 @@ public:
     const unsigned int* GetMemoryObjectArgumentIndexes() const {return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetMemoryObjectArgumentIndexes();}
 
 protected:
-    std::string                                 m_szFuncName;
-    Intel::OpenCL::Utils::OclDynamicLib::func_t m_pMKLFuncPtr;
+    std::string   m_szFuncName;
+    ptrdiff_t     m_pMKLFuncPtr;
 };
 
 }}}

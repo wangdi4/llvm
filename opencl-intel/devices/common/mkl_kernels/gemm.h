@@ -120,7 +120,7 @@ public:
 
     typedef MKL_GEMM_Parameters< datatype > MKL_GEMM_EXECUTOR_PAREMERTERS;
 
-    MKL_GEMM_Executor(Intel::OpenCL::Utils::OclDynamicLib::func_t func_ptr, const void* params)
+    MKL_GEMM_Executor(ptrdiff_t func_ptr, const void* params)
         : m_FuncPtr((MKL_FuncType) func_ptr), m_pParamBuffer(params)
         {
             const cl_uniform_kernel_args* pKernelArgs = (const cl_uniform_kernel_args*)((const char*)params+ MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamSize());
@@ -167,7 +167,7 @@ protected:
 template<typename datatype > class MKL_GEMM_Executor_Proxy : public Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor
 {
 public:
-    MKL_GEMM_Executor_Proxy(Intel::OpenCL::Utils::OclDynamicLib::func_t func_ptr, const void* params) {}
+    MKL_GEMM_Executor_Proxy(ptrdiff_t func_ptr, const void* params) {}
 
     typedef MKL_GEMM_Parameters< datatype > MKL_GEMM_EXECUTOR_PAREMERTERS;
 
