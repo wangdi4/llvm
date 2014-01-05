@@ -22,13 +22,13 @@ entry:
 ;CHECK-AVX:	vunpcklps	[[YMM3:%ymm[0-9]+]], [[YMM2:%ymm[0-9]+]], [[YMM5:%ymm[0-9]+]]
 ;CHECK-AVX:	vunpcklps	[[YMM1:%ymm[0-9]+]], [[YMM0:%ymm[0-9]+]], [[YMM6:%ymm[0-9]+]]
 ;CHECK-AVX:	vunpcklpd	[[YMM5]], [[YMM6]], [[YMM4:%ymm[0-9]+]]
-;CHECK-AVX:	vmovupd	[[YMM4]], ([[ESP:%[a-z]+]])
+;CHECK-AVX:	vmov{{[au]}}pd	[[YMM4]], ([[ESP:%[a-z]+]])
 ;CHECK-AVX:	vunpckhpd	[[YMM5]], [[YMM6]], [[YMM51:%ymm[0-9]+]]
 ;CHECK-AVX:	vunpckhps	[[YMM3]], [[YMM2]], [[YMM7:%ymm[0-9]+]]
 ;CHECK-AVX:	vunpckhps	[[YMM1]], [[YMM0]], [[YMM41:%ymm[0-9]+]]
 ;CHECK-AVX:	vunpcklpd	[[YMM7]], [[YMM41]], [[YMM61:%ymm[0-9]+]]
 ;CHECK-AVX:	vunpckhpd	[[YMM7]], [[YMM41]], [[YMM71:%ymm[0-9]+]]
-;CHECK-AVX:	vmovups	([[ESP]]), [[YMM42:%ymm[0-9]+]]
+;CHECK-AVX:	vmov{{[au]}}ps	([[ESP]]), [[YMM42:%ymm[0-9]+]]
 ;CHECK-AVX:	vextractf128	$1, [[YMM42]], 64([[EAX:%[a-z]+]])
 ;CHECK-AVX:	vextractf128	$1, [[YMM5]], 80([[EAX]])
 ;CHECK-AVX:	vextractf128	$1, [[YMM6]], 96([[EAX]])

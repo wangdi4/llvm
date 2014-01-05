@@ -1,3 +1,5 @@
+; XFAIL: *
+
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: opt  -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
@@ -156,7 +158,7 @@ define void @externalDivBranchNestedUnLoopsMX(i32 addrspace(1)* nocapture %a, i3
 ; CHECK: @masked_store
 ; CHECK: @masked_load
 ; CHECK: @masked_store
-; CHECK: @masked_load
+; CHECK: @masked_store
 ; CHECK: ret
 
 define void @externalDivBranchNestedLoopsMX(i32 addrspace(1)* nocapture %a, i32 addrspace(1)* nocapture %res, i32 %num) nounwind {
