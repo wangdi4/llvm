@@ -1,6 +1,4 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: opt -B-GroupBuiltins -verify %t.bc -S -o %t1.ll
-; RUN: FileCheck %s --input-file=%t1.ll
+; RUN: opt -B-GroupBuiltins -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the GroupBuiltins pass
