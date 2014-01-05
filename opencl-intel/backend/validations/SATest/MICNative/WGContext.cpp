@@ -136,6 +136,8 @@ File Name:  WGContext.cpp
             printf("PrepareKernelArguments failed\n"); fflush(0);
         }
 
+        //local group size calculated by PrepareKernelArguments (using heuristic)
+        memcpy(m_LocalSize, pKernelArgs->LocalSize, sizetMaxWorkDim);
         if ( 0 != pKernelArgs->LocalIDIndicesRequiredSize ) {
             // Allocate local index buffer
             m_pLocalIDIndices.reset(new size_t[pKernelArgs->LocalIDIndicesRequiredSize/sizeof(size_t)]);
