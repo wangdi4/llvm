@@ -773,7 +773,7 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
                 SharedPtr<SVMPointerArg> pSvmPtrArg;
                 if (NULL != pSvmBuf)
                 {
-                    pSvmPtrArg = SVMBufferPointerArg::Allocate(pSvmBuf, pValue);
+                    pSvmPtrArg = SVMBufferPointerArg::Allocate(pSvmBuf.GetPtr(), pValue);
                 }
                 else
                 {
