@@ -1,4 +1,11 @@
 if (WIN32)
-    install(DIRECTORY bin/${OS}${ADDR}/\${CMAKE_INSTALL_CONFIG_NAME}/ DESTINATION bin PATTERN .svn EXCLUDE)
-    install(DIRECTORY lib/${OS}${ADDR}/\${CMAKE_INSTALL_CONFIG_NAME}/ DESTINATION lib PATTERN .svn EXCLUDE)
+    install(FILES bin/${OS}${ADDR}/\${CMAKE_INSTALL_CONFIG_NAME}/igdfcl${ADDR}.dll 
+            DESTINATION bin 
+            RENAME common_clang${ADDR}.dll)
+    install(FILES bin/${OS}${ADDR}/\${CMAKE_INSTALL_CONFIG_NAME}/igdfcl${ADDR}.pdb 
+            DESTINATION bin 
+            RENAME common_clang${ADDR}.pdb)
+    install(FILES lib/${OS}${ADDR}/\${CMAKE_INSTALL_CONFIG_NAME}/igdfcl${ADDR}.lib
+            DESTINATION bin 
+            RENAME common_clang${ADDR}.lib)
 endif (WIN32)
