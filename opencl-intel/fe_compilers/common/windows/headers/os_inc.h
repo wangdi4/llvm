@@ -64,10 +64,10 @@ using namespace std;
 
 //Library Load functions and definitions
 #ifdef _M_X64
-static const char name_libfcl[] = "igdfcl64.dll";
+static const char name_libfcl[] = "common_clang64.dll";
 static const char name_libbcl[] = "igdbcl64.dll";
 #else
-static const char name_libfcl[] = "igdfcl32.dll";
+static const char name_libfcl[] = "common_clang32.dll";
 static const char name_libbcl[] = "igdbcl32.dll";
 #endif
 
