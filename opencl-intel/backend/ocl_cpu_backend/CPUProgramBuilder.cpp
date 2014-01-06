@@ -179,8 +179,9 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         if (kimd->isVectorizedKernelHasValue())
         {
             Function *pVecFunc = kimd->getVectorizedKernel();
-            assert(!(spKernelProps->GetJitCreateWIids() && pVecFunc) &&
-                "if the vector kernel is inlined the entry of the vector kernel should be NULL");
+            assert(!(spKernelProps->IsVectorizedWithTail() && pVecFunc) &&
+                   "if the vector kernel is inlined the entry of the vector "
+                   "kernel should be NULL");
             if(NULL != pVecFunc && !dontVectorize)
             {
                 KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(pVecFunc);

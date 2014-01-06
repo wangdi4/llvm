@@ -88,6 +88,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeDetectRecursionPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);
     intel::initializeSmartGVNPass(Registry);
+    intel::initializeDeduceMaxWGDimPass(Registry);
 }
 
 

@@ -21,11 +21,10 @@ entry:
 
 ; CHECK:      define i32 @caller(i32 %x, i32 %y,
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, {}*, [4 x i32]* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
-; CHECK:          i32* noalias %pCurrWI,
 ; CHECK:          {}* noalias %RuntimeHandle) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   call void @functionWithoutArgs()

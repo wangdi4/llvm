@@ -226,9 +226,6 @@ namespace intel{
           pArg = builder.CreateBitCast(slmBuffer, PointerType::get(m_I8Ty, 3));
         }
         break;
-      case ImplicitArgsUtils::IA_CURRENT_WORK_ITEM:
-        pArg = builder.CreateAlloca(m_SizetTy, ConstantInt::get(m_SizetTy, 1));
-        break;
       case ImplicitArgsUtils::IA_WORK_GROUP_ID:
         // WGID is passed by value as an argument to the wrapper
         assert(callIt->getType() == pArgGID->getType() && "Unmatching types");

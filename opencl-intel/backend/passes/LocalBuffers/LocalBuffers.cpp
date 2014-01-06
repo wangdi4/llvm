@@ -341,7 +341,7 @@ namespace intel{
     Argument *pLocalMem = 0;
 
     Intel::OpenCL::DeviceBackend::CompilationUtils::getImplicitArgs(
-        pFunc, &pLocalMem, NULL, NULL, NULL, NULL, NULL, NULL);
+        pFunc, &pLocalMem, NULL, NULL, NULL, NULL, NULL);
 
     // Apple LLVM-IR workaround
     // 1.  Pass WI information structure as the next parameter after given function parameters

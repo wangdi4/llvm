@@ -833,17 +833,6 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     const cl_mem_obj_descriptor** memArgs = memObjCount > 0 ? (const cl_mem_obj_descriptor**)&devMemObjects[0] : NULL;
     m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount);
 
-    if ( 0 != m_pImplicitArgs->LocalIDIndicesRequiredSize )
-    {
-        // Allocate local index buffer
-        m_pImplicitArgs->pLocalIDIndices = new size_t[m_pImplicitArgs->LocalIDIndicesRequiredSize/sizeof(size_t)];
-        // Fill indexes buffer
-        m_pRunner->InitRunner(m_pKernelArgs);
-    }
-    else
-    {
-        m_pImplicitArgs->pLocalIDIndices = NULL;
-    }
     const size_t*    pWGSize = m_pImplicitArgs->WGCount;
     unsigned int i;
     for (i = 0; i < cmdParams->work_dim; ++i) 
@@ -878,12 +867,6 @@ bool NDRange::Finish(FINISH_REASON reason)
     if ( IsWaitingChildExist() )
     {
         WaitForChildrenCompletion();
-    }
-
-    if (NULL != m_pImplicitArgs->pLocalIDIndices )
-    {
-        delete []m_pImplicitArgs->pLocalIDIndices;
-        m_pImplicitArgs->pLocalIDIndices = NULL;
     }
 
     // regular stuff:

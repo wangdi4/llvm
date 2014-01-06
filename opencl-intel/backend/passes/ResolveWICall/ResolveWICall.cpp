@@ -85,7 +85,7 @@ namespace intel {
   Function* ResolveWICall::runOnFunction(Function *pFunc) {
     // Getting the implicit arguments
     CompilationUtils::getImplicitArgs(pFunc, NULL, &m_pWorkInfo, &m_pWGId,
-                                      &m_pBaseGlbId, &m_pSpecialBuf, &m_pCurrWI,
+                                      &m_pBaseGlbId, &m_pSpecialBuf,
                                       &m_pRuntimeHandle);
 
     std::vector<Instruction*> toRemoveInstructions;
@@ -116,13 +116,6 @@ namespace intel {
           pNewRes = m_pSpecialBuf;
           break;
 
-        case ICT_GET_CURR_WI:
-          pNewRes = m_pCurrWI;
-          break;
-
-        case ICT_GET_ITER_COUNT:
-        case ICT_GET_NEW_LOCAL_ID:
-        case ICT_GET_NEW_GLOBAL_ID:
         case ICT_GET_BASE_GLOBAL_ID:
         case ICT_GET_WORK_DIM:
         case ICT_GET_GLOBAL_SIZE:
@@ -157,8 +150,8 @@ namespace intel {
           ExtExecArgs.append(pCall->op_begin(),
                              pCall->op_begin() + NonVariadicArgCount);
           addLocalMemArgs(ExtExecArgs, pCall, NonVariadicArgCount);
-          // Add the RuntimeCallbacks arg
-          ExtExecArgs.push_back(getOrCreateRuntimeCallbacks());
+          // Add the RuntimeInterface arg
+          ExtExecArgs.push_back(getOrCreateRuntimeInterface());
           // Add the Block2KernelMapper arg
           ExtExecArgs.push_back(getOrCreateBlock2KernelMapper());
           // Add the RuntimeHandle arg if needed
@@ -203,19 +196,12 @@ namespace intel {
       IRBuilder<> B(pCall);
       return m_IAA->GenerateGetFromWorkInfo(NDInfo::WORK_DIM, m_pWorkInfo, B);
     }
-    if (type == ICT_GET_ITER_COUNT) {
-        IRBuilder<> B(pCall);
-        return m_IAA->GenerateGetFromWorkInfo(NDInfo::LOOP_ITER_COUNT,
-                                              m_pWorkInfo, B);
-    }
     BasicBlock *pBlock = pCall->getParent();
     Value *pResult = NULL;  // Object that holds the resolved value
 
 
     uint64_t overflowValue = 0;
     switch( type ) {
-    case ICT_GET_NEW_LOCAL_ID:
-    case ICT_GET_NEW_GLOBAL_ID:
     case ICT_GET_BASE_GLOBAL_ID:
     case ICT_GET_GROUP_ID:
     case ICT_GET_GLOBAL_OFFSET:
@@ -303,13 +289,6 @@ namespace intel {
     case ICT_GET_BASE_GLOBAL_ID:
       return m_IAA->GenerateGetBaseGlobalID(m_pBaseGlbId,
                                             pCall->getArgOperand(0), Builder);
-    case ICT_GET_NEW_GLOBAL_ID:
-      return m_IAA->GenerateGetNewGlobalID(m_pWorkInfo, m_pBaseGlbId,
-                                           pCall->getOperand(1),
-                                           pCall->getOperand(0), Builder);
-    case ICT_GET_NEW_LOCAL_ID:
-      return m_IAA->GenerateGetNewLocalID(m_pWorkInfo, pCall->getArgOperand(1),
-                                          pCall->getArgOperand(0), Builder);
     case ICT_GET_GROUP_ID:
       return m_IAA->GenerateGetGroupID(m_pWGId, pCall->getArgOperand(0),
                                        Builder);
@@ -415,7 +394,7 @@ namespace intel {
     SmallVector<Value*, 16> params;
     params.push_back(pCall->getArgOperand(0));
     params.push_back(ptr_to_buf);
-    Value *RuntimeInterface = getOrCreateRuntimeCallbacks();
+    Value *RuntimeInterface = getOrCreateRuntimeInterface();
     params.push_back(RuntimeInterface);
     params.push_back(m_pRuntimeHandle);
     CallInst *res = CallInst::Create(pFunc, params, "translated_opencl_printf_call", pCall);
@@ -463,7 +442,7 @@ namespace intel {
     // The 'format' string is in constant address space (address space 2)
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 2));
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
-    params.push_back(PointerType::get(StructType::get(*m_pLLVMContext), 0));
+    params.push_back(m_IAA->getWorkGroupInfoMemberType(NDInfo::RUNTIME_INTERFACE));
     params.push_back(m_pRuntimeHandle->getType());
 
     return FunctionType::get(Type::getInt32Ty(*m_pLLVMContext), params, false);
@@ -492,23 +471,11 @@ namespace intel {
 
   unsigned ResolveWICall::getCallFunctionType(std::string calledFuncName) {
 
-    if(calledFuncName == CompilationUtils::NAME_GET_NEW_LID) {
-      return ICT_GET_NEW_LOCAL_ID;
-    }
-    if( calledFuncName == CompilationUtils::NAME_GET_NEW_GID ) {
-      return ICT_GET_NEW_GLOBAL_ID;
-    }
     if( calledFuncName == CompilationUtils::NAME_GET_BASE_GID ) {
       return ICT_GET_BASE_GLOBAL_ID;
     }
-    if( calledFuncName == CompilationUtils::NAME_GET_ITERATION_COUNT ) {
-      return ICT_GET_ITER_COUNT;
-    }
     if( calledFuncName == CompilationUtils::NAME_GET_SPECIAL_BUFFER ) {
       return ICT_GET_SPECIAL_BUFFER;
-    }
-    if( calledFuncName == CompilationUtils::NAME_GET_CURR_WI ) {
-      return ICT_GET_CURR_WI;
     }
     if( CompilationUtils::isGetWorkDim(calledFuncName) )
       return ICT_GET_WORK_DIM;
@@ -709,7 +676,7 @@ Value *ResolveWICall::getOrCreateBlock2KernelMapper() {
   return m_Block2KernelMapper;
 }
 
-Value *ResolveWICall::getOrCreateRuntimeCallbacks() {
+Value *ResolveWICall::getOrCreateRuntimeInterface() {
   IRBuilder<> Builder(m_F->getEntryBlock().begin());
   if (!m_RuntimeInterface)
     m_RuntimeInterface = m_IAA->GenerateGetFromWorkInfo(

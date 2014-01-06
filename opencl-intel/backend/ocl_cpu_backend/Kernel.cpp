@@ -123,8 +123,8 @@ void Kernel::FreeAllJITs() {
   }
 }
 
-void Kernel::CreateWorkDescription(
-    cl_uniform_kernel_args *UniformImplicitArgs) const {
+void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
+    const {
   // assumption: LocalWorkSize GlobalSize and minWorkGroup already initialized
 
   bool UseAutoGroupSize = true;
@@ -174,7 +174,7 @@ void Kernel::CreateWorkDescription(
              (minMultiplyFactor & (minMultiplyFactor - 1)) == 0 &&
              "minMultiplyFactor assumed to be power of 2 that is not zero!");
       assert(
-          (!m_pProps->GetJitCreateWIids() ||
+          (!m_pProps->IsVectorizedWithTail() ||
            GetKernelJIT(0)->GetProps()->GetVectorSize() == minMultiplyFactor) &&
           "GetMinGroupSizeFactorial is not equal to VectorSize!");
       unsigned int minMultiplyFactorLog = LOG(minMultiplyFactor);
@@ -319,28 +319,11 @@ cl_dev_err_code Kernel::InitRunner(void *pKernelUniformArgs) const {
   cl_uniform_kernel_args *pKernelUniformImplicitArgs =
       static_cast<cl_uniform_kernel_args *>(pKernelUniformImplicitArgsPosition);
 
-  // need to fill the WI ids buffer
-  if (pKernelUniformImplicitArgs->LocalIDIndicesRequiredSize > 0) {
-    ImplicitArgsUtils::initWILocalIds(
-        pKernelUniformImplicitArgs->WorkDim,
-        pKernelUniformImplicitArgs->LocalSize,
-        pKernelUniformImplicitArgs->VectorWidth,
-        pKernelUniformImplicitArgs->pLocalIDIndices);
-  }
   const void *pEntryMark = pKernelUniformImplicitArgs->pJITEntryPoint;
   pKernelUniformImplicitArgs->pJITEntryPoint =
       ResolveEntryPointHandle(pEntryMark);
 
-  if (false) {
-    std::stringstream ss;
-    ss << "In Initrunner:\n";
-    ss << "pKernelUniformArgs = " << pKernelUniformArgs << "\n";
-    DebugPrintUniformKernelArgs(
-        pKernelUniformImplicitArgs,
-        m_explicitArgsSizeInBytes,
-        ss);
-    std::cout << ss.str() << std::endl;
-  }
+  assert(pKernelUniformImplicitArgs->RuntimeInterface);
   return CL_DEV_SUCCESS;
 }
 
@@ -390,7 +373,7 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
 
   // need to decide which entrypoint to run
   const IKernelJITContainer *pScalarJIT = GetKernelJIT(0);
-  if (m_pProps->GetJitCreateWIids()) {
+  if (m_pProps->IsVectorizedWithTail()) {
     // vectorized kernel is inlined into scalar kernel,
     // so we have exactly one JIT function.
     pKernelUniformImplicitArgs->pJITEntryPoint =
@@ -424,18 +407,6 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
     }
     assert(!(1 != pKernelUniformImplicitArgs->VectorWidth && 1 == WGSize) &&
            "vectorized with WGsize = 1!");
-  }
-
-  pKernelUniformImplicitArgs->LocalIDIndicesRequiredSize = 0;
-  // if the JIT creates the WI ids buffer then no need to ask it from the RT
-  if (!m_pProps->GetJitCreateWIids()) {
-    WGSize = WGSize / pKernelUniformImplicitArgs->VectorWidth;
-    //TODO: usage of sizeof(size_t) breaks cross-compilation
-    pKernelUniformImplicitArgs->LocalIDIndicesRequiredSize =
-        ADJUST_SIZE_TO_MAXIMUM_ALIGN(WGSize * sizeof(size_t) *
-                                     MAX_WI_DIM_POW_OF_2);
-
-    pKernelUniformImplicitArgs->WGLoopIterCount = WGSize - 1;
   }
 
 #if !defined (__MIC__) && !defined(__MIC2__) // ocl20 is not supported in MIC so far
@@ -475,27 +446,10 @@ void Kernel::DebugPrintUniformKernelArgs(const cl_uniform_kernel_args *A,
      << O + offsetof(cl_uniform_kernel_args, GlobalSize) << ": size_t GlobalSize[MAX_WORK_DIM]" << PRINT3(A->GlobalSize) << "\n"
      << O + offsetof(cl_uniform_kernel_args, LocalSize) << ": size_t LocalSize[MAX_WORK_DIM]" << PRINT3(A->LocalSize) << "\n"
      << O + offsetof(cl_uniform_kernel_args, WGCount) << ": size_t WGCount[MAX_WORK_DIM]" << PRINT3(A->WGCount) << "\n"
-     << O + offsetof(cl_uniform_kernel_args, WGLoopIterCount) << ": size_t WGLoopIterCount= " << A->WGLoopIterCount << "\n"
-     << O + offsetof(cl_uniform_kernel_args, pLocalIDIndices) << ": size_t* pLocalIDIndices = " << A->pLocalIDIndices;
-  if (A->LocalIDIndicesRequiredSize) {
-    for (unsigned I = 0;
-         I < std::min(A->LocalIDIndicesRequiredSize / sizeof(size_t),
-                      size_t(32 * 4));
-         I += 4) {
-      unsigned J = 0;
-      for (; J < A->WorkDim; ++J)
-        ss << ", " << A->pLocalIDIndices[I];
-      for (; J < 3; ++J)
-        ss << ".";
-    }
-  }
-  ss << "\n" 
      << O + offsetof(cl_uniform_kernel_args, RuntimeInterface)
      << ": void* RuntimeInterface= " << A->RuntimeInterface << "\n" 
      << O + offsetof(cl_uniform_kernel_args, minWorkGroupNum) << ": size_t minWorkGroupNum= " << A->minWorkGroupNum << "\n"
-      // ss << O+offsetof(cl_uniform_kernel_args, RuntimeCallBacks) << ": void*
-      // RuntimeCallBacks = " << A->pRuntimeContext << "\n";
-     << O + offsetof(cl_uniform_kernel_args, LocalIDIndicesRequiredSize) << ": size_t LocalIDIndicesRequiredSize = " << A->LocalIDIndicesRequiredSize << "\n"
+     << O+offsetof(cl_uniform_kernel_args, RuntimeInterface) << ": void* RuntimeInterface = " << A->RuntimeInterface << "\n"
      << O + offsetof(cl_uniform_kernel_args, pJITEntryPoint) << ": void* pJITEntryPoint = " << A->pJITEntryPoint << "\n"
      << O + offsetof(cl_uniform_kernel_args, VectorWidth) << ": unsigned VectorWidth = " << A->VectorWidth << "\n";
 #undef PRINT3
@@ -525,7 +479,7 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
     guard = false; //Print only first group in NDRange to avoid huge dumps
     std::stringstream ss;
     ss << "GroupID: " << pGroupID[0] << ", " << pGroupID[1] << ", " << pGroupID[2] << "\n"
-       << "pKernelUniformArgs = " << pKernelUniformArgs << "\n";
+       << "pKernelUniformArgs = " << pKernelUniformArgs <<  "pRuntimeHandle = " << pRuntimeHandle << "\n";
     DebugPrintUniformKernelArgs(pKernelUniformImplicitArgs,
                                 m_explicitArgsSizeInBytes, ss);
     std::cout << ss.str() << std::endl;

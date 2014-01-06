@@ -30,21 +30,21 @@ namespace intel {
     m_pModule = pModule;
 
     //Get size of size_t in bits from the module
-    m_uiSizeT = pModule->getPointerSize()*32;
-
     clean();
+    m_uiSizeT = pModule->getPointerSize()*32;
+    assert(m_uiSizeT == 32 || m_uiSizeT == 64);
+    m_I32Ty = Type::getInt32Ty(pModule->getContext());
+    m_SizetTy = IntegerType::get(pModule->getContext(), m_uiSizeT);
   }
 
   void BarrierUtils::clean() {
     m_localMemFenceValue = 0;
     m_barrierFunc = 0;
     m_dummyBarrierFunc = 0;
-    m_getCurrWIFunc = 0;
     m_getSpecialBufferFunc = 0;
-    m_getIterationCountFunc = 0;
-    m_getNewLIDFunc = 0;
-    m_getNewGIDFunc = 0;
     m_getGIDFunc = 0;
+    m_getBaseGIDFunc = 0;
+    m_getLocalSizeFunc = 0;
 
     //No need to clear these values, each get clears them first
     //m_syncInstructions.clear();
@@ -222,18 +222,37 @@ namespace intel {
     Intel::MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
     for (; itr != end; ++itr) {
       Function *pFunc = (*itr)->getFunction();
-      Intel::KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
-      //Need to check if NoBarrierPath Value exists, it is not guaranteed that
-      //KernelAnalysisPass is running in all scenarios.
-      if (kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath()) {
-        //Kernel that should not be handled in Barrier path, skip it.
-        continue;
+      if (mdUtils.isKernelsInfoHasValue()) {
+        if (mdUtils.findKernelsInfoItem(pFunc) != mdUtils.end_KernelsInfo()) {
+          Intel::KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
+          //Need to check if NoBarrierPath Value exists, it is not guaranteed that
+          //KernelAnalysisPass is running in all scenarios.
+          if (kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath()) {
+            //Kernel that should not be handled in Barrier path, skip it.
+            continue;
+          }
+        }
       }
       //Add kernel to the list
       //Currently no check if kernel already added to the list!
       m_kernelFunctions.push_back(pFunc);
     }
+
+    for (Intel::MetaDataUtils::KernelsInfoMap::const_iterator
+             itr = mdUtils.begin_KernelsInfo(),
+             end = mdUtils.end_KernelsInfo();
+         itr != end; ++itr) {
+      const Function *pFunc = itr->first;
+      Intel::KernelInfoMetaDataHandle kimd = itr->second;
+      m_kernelVectorizationWidths[pFunc] = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
+    }
     return m_kernelFunctions;
+  }
+
+  unsigned BarrierUtils::getKernelVectorizationWidth(const Function *F) const {
+    TFunctionToUnsigned::const_iterator I = m_kernelVectorizationWidths.find(F);
+    if (I == m_kernelVectorizationWidths.end()) return 1;
+    return I->second;
   }
 
   Instruction* BarrierUtils::createBarrier(Instruction *pInsertBefore){
@@ -291,31 +310,13 @@ namespace intel {
     return m_barriers.count(pCallInstr);
   }
 
-  Instruction* BarrierUtils::createMemFence(BasicBlock *pAtEnd) {
+  Instruction* BarrierUtils::createMemFence(IRBuilder<> &B) {
     /*Type *pResult = Type::getVoidTy(m_pModule->getContext());
     std::vector<Type*> funcTyArgs;
     FunctionType *pFuncTy = FunctionType::get(pResult, funcTyArgs, false);
     Constant *pNewFunc = m_pModule->getOrInsertFunction("llvm.x86.sse2.mfence", pFuncTy);
     return CallInst::Create(pNewFunc, "", pAtEnd);*/
     return NULL;
-  }
-
-  Instruction* BarrierUtils::createGetCurrWI(Instruction *pInsertBefore){
-    if ( !m_getCurrWIFunc ) {
-      //get_curr_WI() function is not initialized yet
-      //There should not be get_curr_WI function declaration in the module
-      assert( !m_pModule->getFunction(GET_CURR_WI) &&
-        "get_curr_WI() instruction is origanlity declared by the module!!!" );
-
-      //Create one
-      Type *pResult = PointerType::get(
-      IntegerType::get(m_pModule->getContext(), m_uiSizeT), CURR_WI_ADDR_SPACE);
-      std::vector<Type*> funcTyArgs;
-      m_getCurrWIFunc = createFunctionDeclaration(
-        GET_CURR_WI, pResult, funcTyArgs);
-      SetFunctionAttributeReadNone(m_getCurrWIFunc);
-    }
-    return CallInst::Create(m_getCurrWIFunc, "CurrWI", pInsertBefore);
   }
 
   Instruction* BarrierUtils::createGetSpecialBuffer(Instruction *pInsertBefore){
@@ -334,23 +335,6 @@ namespace intel {
       SetFunctionAttributeReadNone(m_getSpecialBufferFunc);
     }
     return CallInst::Create(m_getSpecialBufferFunc, "pSB", pInsertBefore);
-  }
-
-  Instruction* BarrierUtils::createGetIterCount(Instruction *pInsertBefore){
-    if ( !m_getIterationCountFunc ) {
-      //get_iter_count() function is not initialized yet
-      //There should not be get_iter_count function declaration in the module
-      assert( !m_pModule->getFunction(GET_ITERATION_COUNT) &&
-        "get_iter_count() instruction is origanlity declared by the module!!!" );
-
-      //Create one
-      Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
-      std::vector<Type*> funcTyArgs;
-      m_getIterationCountFunc = createFunctionDeclaration(
-        GET_ITERATION_COUNT, pResult, funcTyArgs);
-      SetFunctionAttributeReadNone(m_getIterationCountFunc);
-    }
-    return CallInst::Create(m_getIterationCountFunc, "IterCount", pInsertBefore);
   }
 
   TInstructionVector& BarrierUtils::getAllGetLocalId() {
@@ -389,47 +373,26 @@ namespace intel {
     return m_getGIDInstructions;
   }
 
-  Instruction* BarrierUtils::createNewGetLocalId(Value *pArg1, Value *pArg2, Instruction *pInsertBefore) {
-    if ( !m_getNewLIDFunc ) {
-      //get_new_local_id() function is not initialized yet
-      //There should not be get_new_local_id function declaration in the module
-      assert( !m_pModule->getFunction(GET_NEW_LID_NAME) &&
-        "get_new_local_id() instruction is origanlity declared by the module!!!" );
-
+  Instruction* BarrierUtils::createGetBaseGlobalId(Value* dim, Instruction* pInsertBefore) {
+    const std::string FuncName = GET_BASE_GID;
+    if ( !m_getBaseGIDFunc ) {
+      // Get existing get_global_id function
+      m_getBaseGIDFunc = m_pModule->getFunction(FuncName);
+    }
+    if (!m_getBaseGIDFunc) {
       //Create one
       Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
       std::vector<Type*> funcTyArgs;
       funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
-      funcTyArgs.push_back(/*PointerType::get(*/IntegerType::get(m_pModule->getContext(), m_uiSizeT)/*,0)*/);
-      m_getNewLIDFunc =
-        createFunctionDeclaration(GET_NEW_LID_NAME, pResult, funcTyArgs);
-      SetFunctionAttributeReadNone(m_getNewLIDFunc);
+      m_getBaseGIDFunc = createFunctionDeclaration(FuncName, pResult, funcTyArgs);
+      SetFunctionAttributeReadNone(m_getBaseGIDFunc);
     }
-    Value *args[2] = {pArg1, pArg2};
-    return CallInst::Create(m_getNewLIDFunc, ArrayRef<Value*>(args, 2), "newLID", pInsertBefore);
+    return CallInst::Create(m_getBaseGIDFunc, dim,
+                            AppendWithDimension("BaseGlobalId_", dim),
+                            pInsertBefore);
   }
 
-  Instruction* BarrierUtils::createNewGetGlobalId(Value *pArg1, Value *pArg2, Instruction *pInsertBefore) {
-    if ( !m_getNewGIDFunc ) {
-      //get_new_global_id() function is not initialized yet
-      //There should not be get_new_global_id function declaration in the module
-      assert( !m_pModule->getFunction(GET_NEW_GID_NAME) &&
-        "get_new_local_id() instruction is originally declared by the module!!!" );
-
-      //Create one
-      Type *pResult = IntegerType::get(m_pModule->getContext(), m_uiSizeT);
-      std::vector<Type*> funcTyArgs;
-      funcTyArgs.push_back(IntegerType::get(m_pModule->getContext(), 32));
-      funcTyArgs.push_back(/*PointerType::get(*/IntegerType::get(m_pModule->getContext(), m_uiSizeT)/*,0)*/);
-      m_getNewGIDFunc =
-        createFunctionDeclaration(GET_NEW_GID_NAME, pResult, funcTyArgs);
-      SetFunctionAttributeReadNone(m_getNewGIDFunc);
-    }
-    Value *args[2] = {pArg1, pArg2};
-    return CallInst::Create(m_getNewGIDFunc, ArrayRef<Value*>(args, 2), "newGID", pInsertBefore);
-  }
-
-  Instruction* BarrierUtils::createGetGlobalId(unsigned dim, Instruction* pInsertBefore) {
+  Instruction* BarrierUtils::createGetGlobalId(unsigned dim, IRBuilder<> &B) {
     const std::string strGID = CompilationUtils::mangledGetGID();
     if ( !m_getGIDFunc ) {
       // Get existing get_global_id function
@@ -445,7 +408,8 @@ namespace intel {
     }
     Type* uint_type = IntegerType::get(m_pModule->getContext(), 32);
     Value* const_dim = ConstantInt::get(uint_type, dim, false);
-    return CallInst::Create(m_getGIDFunc, const_dim, "GID", pInsertBefore);
+    return B.CreateCall(m_getGIDFunc, const_dim,
+                            AppendWithDimension("GlobalID_", dim));
   }
 
   bool BarrierUtils::doesCallModuleFunction(Function *pFunc) {
@@ -521,6 +485,29 @@ namespace intel {
         usesSet.insert(pCall);
     }
   }
+
+  Instruction *BarrierUtils::createGetLocalSize(unsigned dim,
+                                                Instruction *pInsertBefore) {
+    // Callee's declaration: size_t get_local_size(uint dimindx);
+    const std::string strGID = CompilationUtils::mangledGetLocalSize();
+    if ( !m_getLocalSizeFunc ) {
+      // Get existing get_local_size function
+      m_getLocalSizeFunc = m_pModule->getFunction(strGID);
+    }
+    if (!m_getLocalSizeFunc) {
+      //Create one
+      Type *pResult = m_SizetTy;
+      std::vector<Type*> funcTyArgs;
+      funcTyArgs.push_back(m_I32Ty);
+      m_getLocalSizeFunc =
+          createFunctionDeclaration(strGID, pResult, funcTyArgs);
+      SetFunctionAttributeReadNone(m_getLocalSizeFunc);
+    }
+    Value* const_dim = ConstantInt::get(m_I32Ty, dim, false);
+    return CallInst::Create(m_getLocalSizeFunc, const_dim,
+                            AppendWithDimension("LocalSize_", dim),
+                            pInsertBefore);
+}
 
   Function* BarrierUtils::createFunctionDeclaration(const llvm::Twine& name, Type *pResult, std::vector<Type*>& funcTyArgs) {
     FunctionType *pFuncTy = FunctionType::get(

@@ -193,6 +193,13 @@
                         },
                         {
                             "location": "named",
+                            "key":      "max_wg_dimensions",
+                            "name":     "MaxWGDimensions",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
                             "key":      "kernel_has_barrier",
                             "name":     "KernelHasBarrier",
                             "metatype": "bool_item",

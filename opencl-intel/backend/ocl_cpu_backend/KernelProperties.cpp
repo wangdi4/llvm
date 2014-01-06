@@ -35,6 +35,7 @@ KernelProperties::KernelProperties():
     m_totalImplSize(0),
     m_privateMemorySize(0),
     m_minGroupSizeFactorial(1),
+    m_isVectorizedWithTail(false),
     m_uiSizeT(sizeof(void*)),
     m_bIsBlock(false)
 {

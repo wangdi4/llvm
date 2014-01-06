@@ -62,7 +62,6 @@ private:
     std::vector<size_t>     m_kernelLocalMemSizes;
 
     size_t                  m_stAlignedKernelParamSize;
-    size_t                  m_stWIidsBufferSize;
     size_t                  m_stPrivateMemorySize;
     size_t                  m_stKernelParamSize;
 

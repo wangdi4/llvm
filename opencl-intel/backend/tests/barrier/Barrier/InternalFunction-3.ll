@@ -1,7 +1,4 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: opt -B-Barrier -verify %t.bc -S -o %t1.ll
-; RUN: FileCheck %s --input-file=%t1.ll
-
+; RUN: opt -B-Barrier -verify -S < %s | FileCheck %s
 ;;*****************************************************************************
 ; This test checks the Barrier pass
 ;; The case: kernel "main" with barrier instruction and function "foo",
@@ -46,24 +43,25 @@ L4:
 ; CHECK: call i32 @foo
 ; CHECK: br label %
 ;;;; TODO: add regular expression for the below values.
-; CHECK: SyncBB11:
-; CHECK:   %loadedCurrSB = load i32* %CurrSBIndex
-; CHECK:   %"&(pSB[currWI].offset)" = add nuw i32 %loadedCurrSB, 4
-; CHECK:   %"&pSB[currWI].offset" = getelementptr inbounds i8* %pSB, i32 %"&(pSB[currWI].offset)"
-; CHECK:   %CastToValueType = bitcast i8* %"&pSB[currWI].offset" to i32*
-; CHECK:   %loadedValue = load i32* %CastToValueType
-; CHECK:   %loadedCurrSB1 = load i32* %CurrSBIndex
-; CHECK:   %"&(pSB[currWI].offset)2" = add nuw i32 %loadedCurrSB1, 0
-; CHECK:   %"&pSB[currWI].offset3" = getelementptr inbounds i8* %pSB, i32 %"&(pSB[currWI].offset)2"
-; CHECK:   %CastToValueType4 = bitcast i8* %"&pSB[currWI].offset3" to i32*
-; CHECK:   store i32 %loadedValue, i32* %CastToValueType4
-; CHECK:   %loadedCurrSB5 = load i32* %CurrSBIndex
-; CHECK:   %"&(pSB[currWI].offset)6" = add nuw i32 %loadedCurrSB5, 0
-; CHECK:   %"&pSB[currWI].offset7" = getelementptr inbounds i8* %pSB, i32 %"&(pSB[currWI].offset)6"
-; CHECK:   %CastToValueType8 = bitcast i8* %"&pSB[currWI].offset7" to i32*
-; CHECK:   %loadedValue9 = load i32* %CastToValueType8
-; CHECK:   %w = and i32 %loadedValue9, %loadedValue9
-; CHECK:   br label %L4
+
+; CHECK: SyncBB2:                                          ; preds = %Dispatch, %L3
+; CHECK: %SBIndex = load i32* %pCurrSBIndex
+; CHECK: %SB_LocalId_Offset = add nuw i32 %SBIndex, 4
+; CHECK: %7 = getelementptr inbounds i8* %pSB, i32 %SB_LocalId_Offset
+; CHECK: %pSB_LocalId = bitcast i8* %7 to i32*
+; CHECK: %loadedValue = load i32* %pSB_LocalId
+; CHECK: %SBIndex1 = load i32* %pCurrSBIndex
+; CHECK: %SB_LocalId_Offset2 = add nuw i32 %SBIndex1, 0
+; CHECK: %8 = getelementptr inbounds i8* %pSB, i32 %SB_LocalId_Offset2
+; CHECK: %pSB_LocalId3 = bitcast i8* %8 to i32*
+; CHECK: store i32 %loadedValue, i32* %pSB_LocalId3
+; CHECK: %SBIndex4 = load i32* %pCurrSBIndex
+; CHECK: %SB_LocalId_Offset5 = add nuw i32 %SBIndex4, 0
+; CHECK: %9 = getelementptr inbounds i8* %pSB, i32 %SB_LocalId_Offset5
+; CHECK: %pSB_LocalId6 = bitcast i8* %9 to i32*
+; CHECK: %loadedValue7 = load i32* %pSB_LocalId6
+; CHECK: %w = and i32 %loadedValue7, %loadedValue7
+; CHECK: br label %L4
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
@@ -80,21 +78,20 @@ L2:
   ret i32 %x
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
+; The return BB
 ;;;; TODO: add regular expression for the below values.
-; CHECK: loopBB:
-; CHECK:   %loadedCurrSB1 = load i32* %CurrSBIndex
-; CHECK:   %"&(pSB[currWI].offset)" = add nuw i32 %loadedCurrSB1, 4
-; CHECK:   %"&pSB[currWI].offset" = getelementptr inbounds i8* %pSB, i32 %"&(pSB[currWI].offset)"
-; CHECK:   %CastToValueType = bitcast i8* %"&pSB[currWI].offset" to i32*
-; CHECK:   store i32 %x, i32* %CastToValueType
-; CHECK:   %loadedCurrWI = load i32* %CurrWI
-; CHECK:   %check.WI.iter = icmp ult i32 %loadedCurrWI, %IterCount
-; CHECK:   %"CurrWI++" = add nuw i32 %loadedCurrWI, 1
-; CHECK:   store i32 %"CurrWI++", i32* %CurrWI
-; CHECK:   %loadedCurrSB = load i32* %CurrSBIndex
-; CHECK:   %"loadedCurrSB+Stride" = add nuw i32 %loadedCurrSB, 8
-; CHECK:   store i32 %"loadedCurrSB+Stride", i32* %CurrSBIndex
-; CHECK:   br i1 %check.WI.iter, label %loopBB, label %RetBB
+
+; CHECK: LoopBB:                                           ; preds = %Dispatch, %SyncBB0
+; CHECK: %SBIndex1 = load i32* %pCurrSBIndex
+; CHECK: %SB_LocalId_Offset = add nuw i32 %SBIndex1, 4
+; CHECK: %7 = getelementptr inbounds i8* %pSB, i32 %SB_LocalId_Offset
+; CHECK: %pSB_LocalId = bitcast i8* %7 to i32*
+; CHECK: store i32 %x, i32* %pSB_LocalId
+; CHECK: %LocalId_0 = load i32* %pLocalId_0
+; CHECK: %8 = add nuw i32 %LocalId_0, 1
+; CHECK: store i32 %8, i32* %pLocalId_0
+; CHECK: %9 = icmp ult i32 %8, %LocalSize_0
+; CHECK: br i1 %9, label %Dispatch, label %LoopEnd_0
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK: ret i32 %x
 }

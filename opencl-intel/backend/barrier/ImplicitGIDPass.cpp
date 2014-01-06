@@ -59,21 +59,26 @@ bool ImplicitGlobalIdPass::runOnFunction(Function& F)
 
 void ImplicitGlobalIdPass::runOnBasicBlock(unsigned i, Instruction *pGIDAlloca, Instruction *insertBefore)
 {
-    Value* gid_at_dim = m_util.createGetGlobalId(i, insertBefore);
+  IRBuilder<> B(insertBefore);
+  // **********************************************************************
+  // DO NOT ADD DEBUG INFO TO THE CODE WHICH GENERATES GET_GLOBAL_ID AND THE
+  // STORE, OR THE DEBUGGER WILL NOT BREAK AT A GIVEN GLOBAL_ID
+  B.SetCurrentDebugLocation(DebugLoc());
+  // **********************************************************************
 
-    // get_global_id returns size_t, but we want to always pass a 64-bit
-    // number. So we may need to extend the result to 64 bits.
-    //
-    const IntegerType* gid_type = dyn_cast<IntegerType>(gid_at_dim->getType());
-    if (gid_type && gid_type->getBitWidth() != 64) {
-        Value* zext_gid = new ZExtInst(
-            gid_at_dim,
-            IntegerType::getInt64Ty(*m_pContext),
-            Twine("gid") + Twine(i) + Twine("_i64"),
-            insertBefore);
-        gid_at_dim = zext_gid;
-    }
-    new StoreInst(gid_at_dim, pGIDAlloca, insertBefore);
+  Value *gid_at_dim = m_util.createGetGlobalId(i, B);
+
+  // get_global_id returns size_t, but we want to always pass a 64-bit
+  // number. So we may need to extend the result to 64 bits.
+  //
+  const IntegerType *gid_type = dyn_cast<IntegerType>(gid_at_dim->getType());
+  if (gid_type && gid_type->getBitWidth() != 64) {
+    Value *zext_gid =
+        B.CreateZExt(gid_at_dim, IntegerType::getInt64Ty(*m_pContext),
+                     Twine("gid") + Twine(i) + Twine("_i64"));
+    gid_at_dim = zext_gid;
+  }
+  B.CreateStore(gid_at_dim, pGIDAlloca);
 }
 
 void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
@@ -118,7 +123,12 @@ void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
         for (TInstructionSet::iterator ii = m_pSyncInstSet->begin(),
                                        ie = m_pSyncInstSet->end();
              ii != ie; ++ii) {
-          Instruction *pNextInst = &*(++BasicBlock::iterator(*ii));
+          Instruction *CallBarrier = *ii;
+          Instruction *pNextInst = insert_before;
+          if (CallBarrier->getParent() != gid_alloca->getParent()) {
+            // Insert right after the barrier()
+            pNextInst = &*(++BasicBlock::iterator(*ii));
+          }
           runOnBasicBlock(i, gid_alloca, pNextInst);
         }
       }

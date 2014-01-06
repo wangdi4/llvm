@@ -69,7 +69,7 @@ namespace intel {
     /// @param CI pointer to CallInst
     /// @param newArgsVec arguments of new function with implicit arguments added
     /// @param pNewF function with implicit arguments added
-    void replaceCallInst(CallInst *CI, const std::vector<Type *>& newArgsVec, Function * pNewF);
+    void replaceCallInst(CallInst *CI, ArrayRef<Type *> newArgs, Function * pNewF);
 
   private:
     /// @brief The llvm module this pass needs to update

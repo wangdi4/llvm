@@ -15,6 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Module.h"
 #include "llvm/Function.h"
 #include "llvm/Instruction.h"
+#include "llvm/IRBuilder.h"
 
 using namespace llvm;
 
@@ -116,8 +117,9 @@ namespace intel {
     /// @param pInsertBefore instruction to insert new instructions before
     /// @param pDB Debug location, NULL if not available
     /// @returns value represnting the calculated address in the special buffer
-    Value* getAddressInSpecialBuffer(
-      unsigned int offset, PointerType *pType, Instruction *pInsertBefore, const DebugLoc* pDB);
+    Value *getAddressInSpecialBuffer(unsigned int offset, PointerType *pType,
+                                     Instruction *pInsertBefore,
+                                     const DebugLoc *pDB);
 
     /// @brief return instruction to insert new instruction before
     ///  if pUserInst is not a PHINode then return pUserInst. Otherwise, 
@@ -157,6 +159,9 @@ namespace intel {
     /// @param pOriginalCall original call instruction to handle
     void fixCallInstruction(CallInst *pOriginalCall);
 
+    // fixSynclessTIDUsers - Patch functions which are users of get_*_id() and do not produce the values within
+    void fixSynclessTIDUsers(Module &M, const TFunctionSet&);
+
     /// @brief Remove all instructions in m_toRemoveInstructions
     void eraseAllToRemoveInstructions();
 
@@ -164,7 +169,88 @@ namespace intel {
     /// @param M module to optimize
     void updateStructureStride(Module &M);
 
-  private:
+    unsigned computeNumDim(Function *F);
+    typedef std::vector<std::pair<ConstantInt *, BasicBlock *> >
+    BarrierBBIdList;
+    BasicBlock *createLatchNesting(unsigned Dim, BasicBlock *Body,
+                                   BasicBlock *Dispatch, Value *Step,
+                                   const DebugLoc &DL);
+    // createBarrierLatch - Return the innermost nested BB (where all the action happens)
+    BasicBlock *createBarrierLatch(BasicBlock *pPreSyncBB, BasicBlock *pSyncBB,
+                                   BarrierBBIdList &BBId, Value *UniqueID,
+                                   bool needsFence, const DebugLoc &DL);
+    // Below are generators which are used for accessing and setting the function's
+    // various values. Most rely on that m_currBarrierKeyValues is set for the
+    // function being processed.
+    Instruction *createGetCurrBarrierId(IRBuilder<> &B) {
+      return B.CreateLoad(m_currBarrierKeyValues->m_pCurrBarrierId,
+                          "CurrBarrierId");
+    }
+    Instruction *createSetCurrBarrierId(Value *V, IRBuilder<> &B) {
+      return B.CreateStore(V, m_currBarrierKeyValues->m_pCurrBarrierId);
+    }
+    Instruction *createGetCurrSBIndex(IRBuilder<> &B) {
+      return B.CreateLoad(m_currBarrierKeyValues->m_pCurrSBIndex, "SBIndex");
+    }
+    Instruction *createSetCurrSBIndex(Value *V, IRBuilder<> &B) {
+      return B.CreateStore(V, m_currBarrierKeyValues->m_pCurrSBIndex);
+    }
+    Instruction *createGetLocalId(unsigned Dim, IRBuilder<> &B) {
+      Value *Ptr = createGetPtrToLocalId(Dim);
+      return B.CreateLoad(Ptr, AppendWithDimension("LocalId_", Dim));
+    }
+    Instruction *createGetLocalId(Value *LocalIdValues, Value *Dim,
+                                  IRBuilder<> &B) {
+      Value *Ptr = createGetPtrToLocalId(LocalIdValues, Dim, B);
+      return B.CreateLoad(Ptr, AppendWithDimension("LocalId_", Dim));
+    }
+    Instruction *createGetLocalId(Value *LocalIdValues, unsigned Dim,
+                                  IRBuilder<> &B) {
+      Value *Ptr = createGetPtrToLocalId(
+          LocalIdValues, ConstantInt::get(m_I32Type, APInt(32, Dim)), B);
+      return B.CreateLoad(Ptr, AppendWithDimension("LocalId_", Dim));
+    }
+    Instruction *createSetLocalId(unsigned Dim, Value *V, IRBuilder<> &B) {
+      Value *Ptr = createGetPtrToLocalId(Dim);
+      return B.CreateStore(V, Ptr);
+    }
+    Value *createGetPtrToLocalId(unsigned Dim) {
+      // For accesses to constant dimensions, cache the GEP instruction
+      Value **Ptr = m_currBarrierKeyValues->m_pPtrLocalId + Dim;
+      if (!*Ptr) {
+        IRBuilder<> LB(m_currBarrierKeyValues->m_TheFunction->getEntryBlock()
+                           .getTerminator());
+        // If the LocalIDValues are generated externally to the function, make
+        // sure we place the GEP before the value is accessed
+        if (!isa<Instruction>(m_currBarrierKeyValues->m_pLocalIdValues))
+          LB.SetInsertPoint(m_currBarrierKeyValues->m_TheFunction->getEntryBlock().begin());
+        *Ptr = createGetPtrToLocalId(
+            m_currBarrierKeyValues->m_pLocalIdValues,
+            ConstantInt::get(m_I32Type, APInt(32, Dim)), LB);
+      }
+      return *Ptr;
+    }
+    Value *createGetPtrToLocalId(Value *LocalIdValues, Value *Dim,
+                                 IRBuilder<> &B) {
+      SmallVector<Value *, 4> Indices;
+      Indices.push_back(m_Zero);
+      Indices.push_back(Dim);
+      return B.CreateInBoundsGEP(LocalIdValues, Indices,
+                                 AppendWithDimension("pLocalId_", Dim));
+    }
+    Value *getLocalSize(unsigned Dim) {
+      return m_currBarrierKeyValues->m_pLocalSize[Dim];
+    }
+    void createDebugInstrumentation(BasicBlock *Then, BasicBlock *Else);
+    Instruction *createOOBCheckGetLocalId(CallInst *Call);
+    // resolveGetLocalIDCall - emits code equivalent to get_local_id()
+    // Call - a call where first arg is dimension. New instructions are emitted before this instruction.
+    // ppLocalIdValue - Array 
+    Value *resolveGetLocalIDCall(CallInst *Call);
+    unsigned getNumDims() const { return m_currBarrierKeyValues->m_NumDims; }
+
+   private:
+    static const unsigned MaxNumDims = 3;
     /// This is barrier utility class
     BarrierUtils m_util;
 
@@ -174,6 +260,11 @@ namespace intel {
     unsigned int       m_uiSizeT;
     /// This holds type of size_t of processed module
     Type               *m_sizeTType;
+    Type               *m_I32Type;
+    // Type of allocation used for storing local ID values for all dimensions
+    PointerType *m_LocalIdAllocTy;
+    Value* m_Zero;
+    Value* m_One;
 
     /// This holds instruction to be removed in the processed function/module
     TInstructionVector m_toRemoveInstructions;
@@ -192,20 +283,34 @@ namespace intel {
     /// This holds the container of all sync instructions in processed function
     TInstructionSet    *m_pSyncInstructions;
 
-    typedef struct {
-      /// This holds the address of current WI iteration
-      Value *m_pCurrWIValue;
+    struct SBarrierKeyValues {
+      SBarrierKeyValues()
+          : m_TheFunction(0), m_NumDims(0), m_pLocalIdValues(0),
+            m_pCurrBarrierId(0), m_pSpecialBufferValue(0), m_pCurrSBIndex(0),
+            m_pStructureSizeValue(0), m_currVectorizedWidthValue(0) {
+        Value *V = 0;
+        std::fill(m_pPtrLocalId, m_pLocalSize + MaxNumDims, V);
+        std::fill(m_pLocalSize, m_pLocalSize + MaxNumDims, V);
+      }
+      // Pointer to function is needed because it is not always known how a
+      // SBarrierKeyValues was obtained.
+      Function *m_TheFunction;
+      unsigned m_NumDims;
+      /// This value is an array of size_t with MaxNumDims elements
+      Value *m_pLocalIdValues;
+      // This array of pointers is used to cache GEP instructions
+      Value *m_pPtrLocalId[MaxNumDims];
       /// This holds the alloca value of processed barrier id
-      Value *m_pCurrBarrierValue;
+      Value *m_pCurrBarrierId;
       /// This holds the argument value of special buffer address
       Value *m_pSpecialBufferValue;
-      /// This holds the argument value of number of loop iterations over WIs
-      Value *m_pWIIterationCountValue;
       /// This holds the alloca value of current stride offset in Special Buffer
-      Value *m_pCurrSBValue;
+      Value *m_pCurrSBIndex;
+      Value *m_pLocalSize[MaxNumDims];
       /// This holds the constant value of structure size of Special Buffer
       Value *m_pStructureSizeValue;
-    } SBarrierKeyValues;
+      Value* m_currVectorizedWidthValue;
+    };
     typedef std::map<Function*, SBarrierKeyValues> TMapFunctionToKeyValues;
 
     /// This holds barrier key values for current handled function
@@ -222,6 +327,7 @@ namespace intel {
 
     /// true if and only if we are running in native (gdb) dbg mode
     bool m_isNativeDBG;
+
   };
 
 } // namespace intel

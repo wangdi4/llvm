@@ -170,8 +170,6 @@ namespace intel {
     Argument *m_pBaseGlbId;
     /// This holds the pSpecialBuf implicit argument of current handled function
     Argument *m_pSpecialBuf;
-    /// This holds the pCurrWI implicit argument of current handled function
-    Argument *m_pCurrWI;
     /// This holds the pExtExecutionContext implicit argument of current handled function
     //TODO-NDRANGE: Extended execution context not supported in branch
     //Argument *m_pExtendedExecutionCtx;
@@ -193,7 +191,7 @@ namespace intel {
     Value* m_RuntimeInterface;
     Value* m_Block2KernelMapper;
     void clearPerFunctionCache();
-    Value *getOrCreateRuntimeCallbacks();
+    Value *getOrCreateRuntimeInterface();
     Value *getOrCreateBlock2KernelMapper();
   };
 

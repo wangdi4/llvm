@@ -75,9 +75,7 @@ public:
         size_t        GlobalSize[MAX_WORK_DIM];
         size_t        LocalSize[MAX_WORK_DIM];
         size_t        WGNumber[MAX_WORK_DIM];
-        size_t        LoopIterCount;
         void*         RuntimeCallBacks;
-        sLocalId*     NewLocalId;
       };
     */
 
@@ -88,12 +86,9 @@ public:
     WGInfoMembersTypes[NDInfo::GLOBAL_SIZE] = Sizet3Ty;
     WGInfoMembersTypes[NDInfo::LOCAL_SIZE] = Sizet3Ty;
     WGInfoMembersTypes[NDInfo::WG_NUMBER] = Sizet3Ty;
-    WGInfoMembersTypes[NDInfo::LOOP_ITER_COUNT] = SizetTy;
     WGInfoMembersTypes[NDInfo::RUNTIME_INTERFACE] = AbstractPtr;
     WGInfoMembersTypes[NDInfo::BLOCK2KERNEL_MAPPER] = AbstractPtr;
-    WGInfoMembersTypes[NDInfo::NEW_LOCAL_ID] = PointerType::get(PaddedDimIdTy, 0);
-    assert(NDInfo::NEW_LOCAL_ID + 1 == NDInfo::LAST);
-
+    assert(NDInfo::BLOCK2KERNEL_MAPPER + 1 == NDInfo::LAST);
     // Initialize the implicit argument types
     ArgTypes[ImplicitArgsUtils::IA_SLM_BUFFER] =
         PointerType::get(IntegerType::get(C, 8), 3);
@@ -103,7 +98,6 @@ public:
     ArgTypes[ImplicitArgsUtils::IA_GLOBAL_BASE_ID] = PaddedDimIdTy;
     ArgTypes[ImplicitArgsUtils::IA_BARRIER_BUFFER] =
         PointerType::get(IntegerType::get(C, 8), 0);
-    ArgTypes[ImplicitArgsUtils::IA_CURRENT_WORK_ITEM] = SizetPtrTy;
     ArgTypes[ImplicitArgsUtils::IA_RUNTIME_HANDLE] =
         PointerType::get(StructType::get(C), 0);
     assert(ImplicitArgsUtils::IA_RUNTIME_HANDLE + 1 ==
@@ -158,22 +152,6 @@ public:
       V = Builder.CreateTrunc(V, Int32Ty);
     V->setName(Name);
     return V;
-  }
-  Value *GenerateGetNewLocalID(Value *WorkInfo, Value *Idx,
-                                     Value *Dimension, IRBuilder<> &Builder) {
-    unsigned RecordID = NDInfo::NEW_LOCAL_ID;
-    SmallVector<Value*, 4> params;
-    params.push_back(ConstantInt::get(IntegerType::get(C, 32), 0));
-    params.push_back(ConstantInt::get(IntegerType::get(C, 32), RecordID));
-    Value *pAddr = Builder.CreateGEP(WorkInfo, params);
-    Value *Base = Builder.CreateLoad(pAddr);
-    params.clear();
-    params.push_back(Idx);
-    params.push_back(Dimension);
-    pAddr = Builder.CreateGEP(Base, params);
-    std::string Name(NDInfo::getRecordName(RecordID));
-    AppendWithDimension(Name, Dimension);
-    return Builder.CreateLoad(pAddr, Name);
   }
   Value *GenerateGetGlobalOffset(Value *WorkInfo, unsigned Dimension,
                                        IRBuilder<> &Builder) {
@@ -235,15 +213,6 @@ public:
       Value *GEP = Builder.CreateGEP(A, Indices);
       return Builder.CreateLoad(GEP, Name);
     }
-  }
-  Value *GenerateGetNewGlobalID(Value *WorkInfo, Value *BaseGlobalID,
-                                Value *Idx, Value *Dimension,
-                                IRBuilder<> &Builder) {
-    std::string Name("NewGlobalID_");
-    AppendWithDimension(Name, Dimension);
-    Value *LID = GenerateGetNewLocalID(WorkInfo, Idx, Dimension, Builder);
-    Value *BGID = GenerateGetBaseGlobalID(BaseGlobalID, Dimension, Builder);
-    return Builder.CreateAdd(LID, BGID, Name);
   }
   static char ID; // Pass identification, replacement for typeid
 };

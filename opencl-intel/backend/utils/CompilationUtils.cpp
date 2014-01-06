@@ -20,6 +20,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #endif
 
 #include "llvm/Metadata.h"
+#include "llvm/DebugInfo.h"
 #include "llvm/Instructions.h"
 #include "llvm/Version.h"
 #if LLVM_VERSION == 3425
@@ -37,12 +38,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   const std::string CompilationUtils::NAME_GET_GID = "get_global_id";
   const std::string CompilationUtils::NAME_GET_BASE_GID = "get_base_global_id.";
-  const std::string CompilationUtils::NAME_GET_NEW_GID = "get_new_global_id.";
   const std::string CompilationUtils::NAME_GET_LID = "get_local_id";
-  const std::string CompilationUtils::NAME_GET_NEW_LID = "get_new_local_id.";
-  const std::string CompilationUtils::NAME_GET_ITERATION_COUNT = "get_iter_count.";
   const std::string CompilationUtils::NAME_GET_SPECIAL_BUFFER = "get_special_buffer.";
-  const std::string CompilationUtils::NAME_GET_CURR_WI = "get_curr_wi.";
 
   const std::string CompilationUtils::NAME_GET_LINEAR_GID = "get_global_linear_id";
   const std::string CompilationUtils::NAME_GET_LINEAR_LID = "get_local_linear_id";
@@ -125,7 +122,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   void CompilationUtils::getImplicitArgs(
       Function *pFunc, Argument **ppLocalMem, Argument **ppWorkDim,
       Argument **ppWGId, Argument **ppBaseGlbId, Argument **ppSpecialBuf,
-      Argument **ppCurrWI, Argument **ppRunTimeHandle) {
+      Argument **ppRunTimeHandle) {
 
       assert( pFunc && "Function cannot be null" );
       assert( pFunc->getArgumentList().size() >= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
@@ -163,11 +160,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
       if ( NULL != ppSpecialBuf ) {
           *ppSpecialBuf = DestI;
-      }
-      ++DestI;
-
-      if ( NULL != ppCurrWI ) {
-          *ppCurrWI = DestI;
       }
       ++DestI;
 
@@ -583,6 +575,110 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
     return false;
   }
+
+  static const MDNode *findSubprogram(const DebugInfoFinder &finder,
+                                      const Function *pFunc) {
+    for (DebugInfoFinder::iterator iter = finder.subprogram_begin(),
+                                   end = finder.subprogram_end();
+         iter != end; iter++) {
+      const MDNode *node = *iter;
+      if (DISubprogram(node).describes(pFunc))
+        return node;
+    }
+    return NULL;
+  }
+  static void SpliceDebugInfo(Function *SrcF, Function *DstF) {
+    Module *M = SrcF->getParent();
+    assert(M == DstF->getParent());
+    DebugInfoFinder Finder;
+    Finder.processModule(*M);
+    if (const MDNode *SubProgramNode = findSubprogram(Finder, SrcF)) {
+      DISubprogram(SubProgramNode).replaceFunction(DstF);
+    }
+  }
+
+Function *CompilationUtils::AddMoreArgsToFunc(
+    Function *F, ArrayRef<Type *> NewTypes, ArrayRef<const char *> NewNames,
+    ArrayRef<Attributes> NewAttrs, StringRef Prefix, bool IsKernel) {
+  assert(NewTypes.size() == NewNames.size());
+  assert(NewTypes.size() == NewAttrs.size());
+  // Initialize with all original arguments in the function sugnature
+  SmallVector<llvm::Type *, 16> Types;
+
+  for (Function::const_arg_iterator I = F->arg_begin(), E = F->arg_end();
+       I != E; ++I) {
+    Types.push_back(I->getType());
+  }
+  Types.append(NewTypes.begin(), NewTypes.end());
+  FunctionType *NewFTy = FunctionType::get(F->getReturnType(), Types, false);
+  // Change original function name.
+  std::string Name = F->getName().str();
+  F->setName("__" + F->getName() + "_before." + Prefix);
+  // Create a new function with explicit and implict arguments types
+  Function *NewF = Function::Create(NewFTy, F->getLinkage(), Name, F->getParent());
+  // Copy old function attributes (including attributes on original arguments) to new function.
+  NewF->copyAttributesFrom(F);
+  if (IsKernel) {
+    // Only those who are kernel functions need to get this calling convention
+    NewF->setCallingConv(CallingConv::C);
+  }
+  // Set original arguments' names
+  Function::arg_iterator NewI = NewF->arg_begin();
+  for (Function::const_arg_iterator I = F->arg_begin(), E = F->arg_end();
+       I != E; ++I, ++NewI) {
+    NewI->setName(I->getName());
+  }
+  // Set new arguments` names
+  for (unsigned I = 0, E = NewNames.size(); I < E; ++I, ++NewI) {
+    Argument *A = NewI;
+    A->setName(NewNames[I]);
+    if (!NewAttrs.empty())
+      A->addAttr(NewAttrs[I]);
+  }
+  // Since we have now created the new function, splice the body of the old
+  // function right into the new function, leaving the old body of the function empty.
+  NewF->getBasicBlockList().splice(NewF->begin(), F->getBasicBlockList());
+  assert(F->isDeclaration() && "splice did not work, original function body is not empty!");
+  // Delete original function body - this is needed to remove linkage (if exists)
+  F->deleteBody();
+  // Loop over the argument list, transferring uses of the old arguments over to
+  // the new arguments.
+  for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(),
+                              NI = NewF->arg_begin(), NE = NewF->arg_end();
+       I != E; ++I, ++NI) {
+    // Replace the users to the new version.
+    I->replaceAllUsesWith(NI);
+  }
+  SpliceDebugInfo(F, NewF);
+  return NewF;
+}
+
+CallInst *CompilationUtils::AddMoreArgsToCall(CallInst *OldC,
+                                              ArrayRef<Value *> NewArgs,
+                                              Function *NewF) {
+  assert(OldC && "CallInst is NULL");
+  assert(OldC->getNumArgOperands() + NewArgs.size() == NewF->arg_size());
+  assert(NewF && "function is NULL");
+
+  SmallVector<Value *, 16> Args;
+  for (unsigned I = 0, E = OldC->getNumArgOperands(); I != E; ++I)
+    Args.push_back(OldC->getArgOperand(I));
+  Args.append(NewArgs.begin(), NewArgs.end());
+
+  // Replace the original function with a call
+  CallInst *NewC = CallInst::Create(NewF, Args, "", OldC);
+
+  // Copy debug metadata to new function if available
+  if (OldC->hasMetadata()) {
+    NewC->setDebugLoc(OldC->getDebugLoc());
+  }
+
+  OldC->replaceAllUsesWith(NewC);
+  // Need to erase from parent to make sure there are no uses for the called
+  // function when we delete it
+  OldC->eraseFromParent();
+  return NewC;
+}
 
 template <reflection::TypePrimitiveEnum Ty>
 static std::string optionalMangleWithParam(const char*const N){

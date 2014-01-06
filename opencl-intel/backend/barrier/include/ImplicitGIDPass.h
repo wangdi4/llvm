@@ -59,7 +59,7 @@ namespace intel {
     /// @param i global ID dimension
     /// @param pGIDAlloca pointer to allocation of GID variable
     /// @param firstInstr Instruction to insert other instructions before
-    void runOnBasicBlock(unsigned i, Instruction *pGIDAlloca, Instruction* insertBefore);
+    void runOnBasicBlock(unsigned i, Instruction *pGIDAlloca, Instruction* insertBefore/*, DIVariable GlobalIdVar*/);
 
     /// @brief Adds instructions to the beginning of the given function to compute the
     ///  global IDs for 3 dimensions. Fills in the FunctionContext.

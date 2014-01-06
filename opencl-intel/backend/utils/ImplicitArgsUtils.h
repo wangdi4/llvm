@@ -25,10 +25,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     GLOBAL_SIZE,
     LOCAL_SIZE,
     WG_NUMBER,
-    LOOP_ITER_COUNT,
     RUNTIME_INTERFACE,
     BLOCK2KERNEL_MAPPER,
-    NEW_LOCAL_ID,
     LAST
   };
   static const char* getRecordName(unsigned RecordID) {
@@ -38,22 +36,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       "GlobalSize_",
       "LocalSize_",
       "NumGroups_",
-      "LoopIterCount",
       "RuntimeInterface",
       "Block2KernelMapper",
-      "NewLocalID_"
     };
     return Names[RecordID];
   }
   }
   enum TInternalCallType {
     ICT_NONE,
-    ICT_GET_NEW_LOCAL_ID,
-    ICT_GET_NEW_GLOBAL_ID,
     ICT_GET_BASE_GLOBAL_ID,
-    ICT_GET_ITER_COUNT,
     ICT_GET_SPECIAL_BUFFER,
-    ICT_GET_CURR_WI,
     ICT_GET_WORK_DIM,
     ICT_GET_GLOBAL_SIZE,
     ICT_GET_LOCAL_SIZE,
@@ -97,7 +89,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       IA_WORK_GROUP_ID,
       IA_GLOBAL_BASE_ID,
       IA_BARRIER_BUFFER,
-      IA_CURRENT_WORK_ITEM,
       IA_RUNTIME_HANDLE,
       IA_NUMBER
     };

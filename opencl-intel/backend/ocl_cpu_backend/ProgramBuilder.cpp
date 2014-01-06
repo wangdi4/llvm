@@ -323,7 +323,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(func);
     //Need to check if NoBarrierPath Value exists, it is not guaranteed that
     //KernelAnalysisPass is running in all scenarios.
-    const bool bJitCreateWIids = skimd->isNoBarrierPathHasValue() && skimd->getNoBarrierPath();
+    const bool HasNoBarrierPath = skimd->isNoBarrierPathHasValue() && skimd->getNoBarrierPath();
     const unsigned int localBufferSize = skimd->getLocalBufferSize();
     const bool hasBarrier = skimd->getKernelHasBarrier();
     const size_t scalarExecutionLength = skimd->getKernelExecutionLength();
@@ -363,7 +363,8 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
 
     pProps->SetDAZ(pProgram->GetDAZ());
     pProps->SetCpuId(GetCompiler()->GetCpuId());
-    pProps->SetJitCreateWIids(bJitCreateWIids);
+    if (HasNoBarrierPath)
+      pProps->EnableVectorizedWithTail();
 
     pProps->SetPrivateMemorySize(privateMemorySize);
 

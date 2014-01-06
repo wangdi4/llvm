@@ -81,7 +81,7 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
         Argument *WorkInfo; // Used to access CallbackContext
         Argument *RuntimeHandle; // Needed by some callbacks
         CompilationUtils::getImplicitArgs(CallingF, NULL, &WorkInfo, NULL, NULL,
-                                          NULL, NULL, &RuntimeHandle);
+                                          NULL, &RuntimeHandle);
         ImplicitArgs.first = WorkInfo;
         ImplicitArgs.second = RuntimeHandle;
       }

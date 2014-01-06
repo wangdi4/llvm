@@ -43,6 +43,7 @@ set(OCL_BE_PASSES
     ResolveBlockToStaticCall
     PatchCallbackArgs
     SmartGVN
+    KernelInfo
 )
 
 # Dependencies of the passes

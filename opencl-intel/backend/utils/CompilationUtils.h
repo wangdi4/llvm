@@ -13,13 +13,19 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "exceptions.h"
 #endif
 
-#include "llvm/Module.h"
-#include "llvm/Function.h"
+#include "llvm/Attributes.h"
+#include "llvm/BasicBlock.h"
 #include "llvm/Constants.h"
 #include "llvm/ADT/SetVector.h"
 #include <vector>
 #include <map>
 
+namespace llvm {
+  class CallInst;
+  class Function;
+  class Module;
+  class Value;
+}
 using namespace llvm;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -71,17 +77,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param  ppWorkDim    The pWorkDim argument, NULL if this argument shouldn't be retrieved
     /// @param  ppWGId       The pWGId argument, NULL if this argument shouldn't be retrieved
     /// @param  ppBaseGlbId  The pBaseGlbId argument, NULL if this argument shouldn't be retrieved
-    /// @param  ppLocalId    The LocalIds argument, NULL if this argument shouldn't be retrieved
     /// @param  ppSpecialBuf The SpecialBuf argument, NULL if this argument shouldn't be retrieved
-    /// @param  ppIterCount  The IterCount argument, NULL if this argument shouldn't be retrieved
-    /// @param  ppCurrWI     The CurrWI argument, NULL if this argument shouldn't be retrieved
     /// @param  ppCtx        The pCtx argument, NULL if this argument shouldn't be retrieved
     /// @param  ppExtExecCtx The ExtendedExecutionContext argument, NULL if this argument shouldn't be retrieved
     static void getImplicitArgs(Function *pFunc, Argument **ppLocalMem,
                                 Argument **ppWorkDim, Argument **ppWGId,
                                 Argument **ppBaseGlbId, Argument **ppSpecialBuf,
-                                Argument **ppCurrWI,
-                                Argument **ppRunTimeContext);
+                                Argument **ppRunTimeHandle);
 
     /// @brief collect built-ins declared in the module and force synchronization.
     //         I.e. implemented using barrier built-in.
@@ -120,6 +122,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                                     const SmallVectorImpl<Function*>& pVectFunctions, 
                                     std::map<Function*, MDNode*>& /* OUT */ kernelMetadata);
 
+    static Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
+                                       ArrayRef<const char *> NewNames,
+                                       ArrayRef<Attributes> NewAttrs,
+                                       StringRef Prefix, bool IsKernel = false);
+    // AddMoreArgsToCall - Replaces a CallInst with a new CallInst which has the
+    // same arguments as orignal plus more args appeneded.
+    // Returns the new CallInst
+    // OldC - the original CallInst to be replaced
+    // NewArgs - New arguments to append to existing arguments
+    // NewF - a suitable prototype of new Function to be called
+    static CallInst *AddMoreArgsToCall(CallInst *OldC,
+                                       ArrayRef<Value *> NewArgs,
+                                       Function *NewF);
     static bool isGetWorkDim(const std::string&);
     static bool isGetGlobalId(const std::string&);
     static bool isGetGlobalSize(const std::string&);
@@ -241,11 +256,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const unsigned int LOCL_VALUE_ADDRESS_SPACE;
 
     static const std::string NAME_GET_BASE_GID;
-    static const std::string NAME_GET_NEW_GID;
-    static const std::string NAME_GET_NEW_LID;
-    static const std::string NAME_GET_ITERATION_COUNT;
     static const std::string NAME_GET_SPECIAL_BUFFER;
-    static const std::string NAME_GET_CURR_WI;
 
     //////////////////////////////////////////////////////////////////
     // @brief returns the mangled name of the function get_global_id
@@ -369,6 +380,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// type for extended execution context
     static Type * getExtendedExecContextType(LLVMContext &C);
+    static void CloneDebugInfo(Function *SrcF, Function *DstF);
   };
 
   //

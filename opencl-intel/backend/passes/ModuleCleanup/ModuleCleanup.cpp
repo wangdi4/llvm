@@ -21,8 +21,8 @@ using namespace Intel::OpenCL::DeviceBackend;
 
 extern "C"
 {
-  ModulePass* createModuleCleanupPass() {
-      return new intel::ModuleCleanup();
+  ModulePass* createModuleCleanupPass(bool SpareOnlyWrappers=false) {
+      return new intel::ModuleCleanup(SpareOnlyWrappers);
   }
 }
 
@@ -36,7 +36,10 @@ namespace intel{
     bool didDeleteAny = false;
 
     // Grab list of kernels from module
-    CompilationUtils::getAllKernelWrappers(m_neededFuncsSet, &M);
+    if (SpareOnlyWrappers)
+      CompilationUtils::getAllKernelWrappers(m_neededFuncsSet, &M);
+    else
+      CompilationUtils::getAllKernels(m_neededFuncsSet, &M);
 
     // Erase body of all functions which are not needed
     for (Module::iterator i = M.begin(), e = M.end(); i != e; ++i) {

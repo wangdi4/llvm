@@ -60,7 +60,7 @@ llvm::ImmutablePass * createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
-llvm::ModulePass *createModuleCleanupPass();
+llvm::ModulePass *createModuleCleanupPass(bool SpareOnlyWrappers);
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
 llvm::ModulePass *createPrepareKernelArgsPass();
@@ -69,6 +69,7 @@ llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> 
 llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createDuplicateCalledKernelsPass();
 llvm::ModulePass *createPatchCallbackArgsPass();
+llvm::ModulePass *createDeduceMaxWGDimPass();
 
 #ifdef __APPLE__
 llvm::Pass *createClangCompatFixerPass();
@@ -424,10 +425,15 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   }
 
   // Adding WG loops
-  if (!pConfig->GetLibraryModule()){
-    if ( debugType == intel::None ) {
+  if (!pConfig->GetLibraryModule()) {
+    if (debugType == intel::None) {
+      PM.add(createDeduceMaxWGDimPass());
       PM.add(createCLWGLoopCreatorPass());
     }
+    // This is a good time to remove internal functions which are not called
+    // TODO: Once we set the linkage of internal functions correctly, we won't to run this pass
+    // because the LLVM Inliner, for example, will delete uncalled functions it inlines.
+    PM.add(createModuleCleanupPass(false));
     PM.add(createBarrierMainPass(debugType));
 
     // After adding loops run loop optimizations.
@@ -542,7 +548,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   // Remove unneeded functions from the module.
   // *** keep this optimization last, or at least after function inlining! ***
   if (!pConfig->GetLibraryModule())
-    PM.add(createModuleCleanupPass());
+    PM.add(createModuleCleanupPass(true));
 
 #ifndef __APPLE__
   // Add prefetches if useful for micro-architecture, if not in debug mode,

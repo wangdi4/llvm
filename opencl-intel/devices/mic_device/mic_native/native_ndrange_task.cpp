@@ -218,20 +218,16 @@ if ( gMicGPAData.bUseGPA)
     m_pUniformArgs = (cl_uniform_kernel_args*)(m_pKernelArgs + argSize);
     m_pUniformArgs->RuntimeInterface = (void*)static_cast<ICLDevBackendDeviceAgentCallback*>(this);
 
-    if ( 0 != m_pUniformArgs->LocalIDIndicesRequiredSize )
-    {
-        m_pUniformArgs->pLocalIDIndices = new size_t[m_pUniformArgs->LocalIDIndicesRequiredSize/sizeof(size_t)];
-    }
-
 #if 0
+    printf("m_pUniformArgs->RuntimeInterface=%p\n", this);
     printf("Queue:%p, Kernel:%p(%p), SE:%d, EE:%d\n"\
-        "running on %d dims, global size: [0]=%d, [1]=%d, [2]=%d, local size: [0]=%d, [1]=%d, [2]=%d\n"\
-        "LocalInxSize=%d LocalInxPtr=%p, IterCount=%ld\n",
+        "running on %d dims, global size: [0]=%d, [1]=%d, [2]=%d, local size: [0]=%d, [1]=%d, [2]=%d\n "
+        "RuntimeInterface=%p\n",
         (void*)m_dispatcherData->deviceQueuePtr, (void*)m_dispatcherData->kernelAddress, m_pKernel, (int)m_dispatcherData->startEvent.isRegistered, (int)m_dispatcherData->endEvent.isRegistered,
         (int)m_pUniformArgs->WorkDim,
         (int)m_pUniformArgs->GlobalSize[0], (int)m_pUniformArgs->GlobalSize[1], (int)m_pUniformArgs->GlobalSize[2],
         (int)m_pUniformArgs->LocalSize[0], (int)m_pUniformArgs->LocalSize[1], (int)m_pUniformArgs->LocalSize[2],
-        (int)m_pUniformArgs->LocalIDIndicesRequiredSize, m_pUniformArgs->pLocalIDIndices, m_pUniformArgs->WGLoopIterCount
+        (void*)m_pUniformArgs->RuntimeInterface
         );fflush(0);
 #endif
 
@@ -585,13 +581,6 @@ bool NDRangeTask::Finish(FINISH_REASON reason)
     // Release COI resources, before signaling to runtime
     FiniTask();
 
-    if ( 0 != m_pUniformArgs->LocalIDIndicesRequiredSize )
-    {
-        assert( NULL != m_pUniformArgs->pLocalIDIndices && "Trying to delete NULL local ID buffer");
-        delete []m_pUniformArgs->pLocalIDIndices;
-        m_pUniformArgs->pLocalIDIndices = NULL;
-    }
-
 #ifdef ENABLE_MIC_TRACER
     commandTracer().set_current_time_tbb_exe_in_device_time_end();
 #endif
@@ -624,12 +613,6 @@ void NDRangeTask::Cancel()
 
     // Release COI resources, before signaling to runtime
     FiniTask();
-
-    if ( NULL != m_pUniformArgs->pLocalIDIndices )
-    {
-        delete []m_pUniformArgs->pLocalIDIndices;
-        m_pUniformArgs->pLocalIDIndices = NULL;
-    }
 
 #ifdef ENABLE_MIC_TRACER
     commandTracer().set_current_time_tbb_exe_in_device_time_start();
