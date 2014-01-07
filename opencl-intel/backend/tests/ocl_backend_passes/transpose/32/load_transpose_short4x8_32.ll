@@ -31,8 +31,7 @@ declare void @__ocl_load_transpose_short_4x8(<4 x i16>* nocapture %pLoadAdd, <8 
 
 ;-------------------------------------------------------------------------------
 ; CHECK-AVX:     .type	[[FOO:[_a-z]+]],@function
-; CHECK-AVX:     movl    4([[ESP:%esp]]), [[EAX:%eax]]
-; CHECK-AVX:     vmovdqu 48([[EAX]]), %x[[MM1:mm[0-7]{1}]]
+; CHECK-AVX:     vmovdqu 48([[EAX:%eax]]), %x[[MM1:mm[0-7]{1}]]
 ; CHECK-AVX:     vmovdqu ([[EAX]]), %x[[MM2:mm[0-7]{1}]]
 ; CHECK-AVX:     vmovdqu 16([[EAX]]), %x[[MM3:mm[0-7]{1}]]
 ; CHECK-AVX:     vpunpckhwd      %x[[MM1]], %x[[MM3]], %x[[MM0:mm[0-7]{1}]]
