@@ -783,6 +783,9 @@ bool DebugServer::Init(unsigned int port_number)
     d->m_comm->waitForConnection();
     DEBUG_SERVER_LOG("Initialized successfully");
 
+    d->m_saved_stack_level = 0;
+    d->m_prev_stoppoint_line = 0;
+
     d->m_initialized = true;
     return true;
 }
