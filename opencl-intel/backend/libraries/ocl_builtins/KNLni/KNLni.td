@@ -7,6 +7,8 @@ class KNL : AVX2 {
 
   include "KNLni/math.td"
   include "KNLni/common.td"
+  include "KNLni/conversion.td"
   include "KNLni/vloadstore.td"
+  include "KNLni/integers.td"
 }
 
