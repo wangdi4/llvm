@@ -108,7 +108,7 @@ OclBuiltinImpl mul_hi_v16i32 = OclBuiltinImpl<mul_hi, [v16i32] , 0, [{
     $Arg0VarName = as_$Arg0Type(as_ulong8($Arg0VarName) >> (ulong)32);
     $Arg1VarName = as_$Arg1Type(as_ulong8($Arg1VarName) >> (ulong)32);
     ulong8 reshi = as_ulong8(_mm512_mul_epi32((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
-    $ReturnType res = as_$ReturnType(_mm512_mask_blend_epi32((__mmask16)0b10101010, (__m512i)reslo, (__m512i)reshi));
+    $ReturnType res = as_$ReturnType(_mm512_mask_blend_epi32((__mmask16)0b1010101010101010, (__m512i)reslo, (__m512i)reshi));
     return res;
   }]>;
 // mul_hi native uint16
@@ -118,7 +118,7 @@ OclBuiltinImpl mul_hi_v16u32 = OclBuiltinImpl<mul_hi, [v16u32] , 0, [{
     $Arg0VarName = as_$Arg0Type(as_ulong8($Arg0VarName) >> (ulong)32);
     $Arg1VarName = as_$Arg1Type(as_ulong8($Arg1VarName) >> (ulong)32);
     ulong8 reshi = as_ulong8(_mm512_mul_epu32((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
-    $ReturnType res = as_$ReturnType(_mm512_mask_blend_epi32((__mmask16)0b10101010, (__m512i)reslo, (__m512i)reshi));
+    $ReturnType res = as_$ReturnType(_mm512_mask_blend_epi32((__mmask16)0b1010101010101010, (__m512i)reslo, (__m512i)reshi));
     return res;
   }]>;
 
