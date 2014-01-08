@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2014 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -85,6 +85,7 @@ template< bool useFunctions > bool InitLibrary();
 template<> bool InitLibrary<true>()
 {
 #ifdef __OMP2TBB__
+    // Required to initialize OpenMP layer. In original OpenMP environment this code is added by linker
     __kmpc_begin(NULL,0);
 #endif
 
@@ -135,6 +136,7 @@ template<> bool InitLibrary<false>()
 template<> void ReleaseLibrary<true>()
 {
 #ifdef __OMP2TBB__
+    // Required to shutdown OpenMP layer. In original OpenMP environment this code is added by linker
     __kmpc_end(NULL);
 #endif
 }

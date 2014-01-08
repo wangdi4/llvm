@@ -145,10 +145,10 @@ public:
     const unsigned int* GetMemoryObjectArgumentIndexes() const { return m_lstMemArgs.size()>0 ? &m_lstMemArgs[0] : NULL;}
 
 protected:
-    size_t                            m_Offset;
+    size_t                          m_Offset;         // Offset inside argument buffer
     
-    std::vector<unsigned int>       m_lstMemArgs;       // List of indexes for memory arguments
-    std::vector<MKLParamBase*>        m_lstParams;        // List of kernel arguments
+    std::vector<unsigned int>       m_lstMemArgs;     // List of indexes for memory arguments
+    std::vector<MKLParamBase*>      m_lstParams;      // List of kernel arguments
 };
 
 
