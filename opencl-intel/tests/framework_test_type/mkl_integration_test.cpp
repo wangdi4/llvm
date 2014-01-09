@@ -19,8 +19,6 @@
 #include <gtest/gtest.h>
 #include <stdio.h>
 #include <assert.h>
-//#include <mkl_types.h>
-//#include <mkl_cblas.h>
 
 #include <cl_types.h>
 #include "FrameworkTest.h"
@@ -117,14 +115,14 @@ bool mkl_test(){
     cl_uint num_args;
     err = clGetKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &num_args, NULL);
     bResult = SilentCheck(L"clGetKernelInfo(CL_KERNEL_NUM_ARGS)",CL_SUCCESS,err);
-    bResult |= SilentCheck(L"clGetKernelInfo(CL_KERNEL_NUM_ARGS)=3", 3, num_args);
+    bResult |= SilentCheck(L"clGetKernelInfo(CL_KERNEL_NUM_ARGS)=8", 8, num_args);
 
     size_t arg_size;
     err = clGetKernelArgInfo(kernel, 0, CL_KERNEL_ARG_TYPE_NAME, 0, NULL, &arg_size);
     char* szParamStr = (char*)alloca(arg_size);
     err = clGetKernelArgInfo(kernel, 0, CL_KERNEL_ARG_TYPE_NAME, arg_size, szParamStr, NULL);
     bResult = SilentCheck(L"clGetKernelArgInfo(1, CL_KERNEL_ARG_TYPE_NAME)",CL_SUCCESS,err);
-    bResult = SilentCheckStr(L"clGetKernelArgInfo(1, CL_KERNEL_ARG_TYPE_NAME)","const float*",szParamStr);
+    bResult = SilentCheckStr(L"clGetKernelArgInfo(1, CL_KERNEL_ARG_TYPE_NAME)","CBLAS_ORDER",szParamStr);
     if (!bResult) 
     {
         clReleaseContext(context);
@@ -166,12 +164,21 @@ bool mkl_test(){
         return false;
     }
 
+
+
     int MNK = MATRIX_DIM_SIZE;
-    clSetKernelArg(kernel, 0, sizeof(cl_mem), &buffA);
-    clSetKernelArg(kernel, 1, sizeof(cl_mem), &buffB);
-    clSetKernelArg(kernel, 2, sizeof(cl_mem), &buffC);
-
-
+    int order = 101;//CblasRowMajor;
+    int trans = 111;//CblasNoTrans;
+    float alpha = 1.0f, beta = 0.0f;
+    clSetKernelArg(kernel, 0, sizeof(int), &order);
+    clSetKernelArg(kernel, 1, sizeof(int), &trans);
+    clSetKernelArg(kernel, 2, sizeof(cl_mem), &buffA);
+    clSetKernelArg(kernel, 3, sizeof(int), &trans);
+    clSetKernelArg(kernel, 4, sizeof(cl_mem), &buffB);
+    clSetKernelArg(kernel, 5, sizeof(cl_mem), &buffC);
+    clSetKernelArg(kernel, 6, sizeof(float), &alpha);
+    clSetKernelArg(kernel, 7, sizeof(float), &beta);
+    
     //init Command Queue - should succeed
     cmd_queue = clCreateCommandQueue(context,device, 0/*CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE*/,&err);
     bResult = SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);

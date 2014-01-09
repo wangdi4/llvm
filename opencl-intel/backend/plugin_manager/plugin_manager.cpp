@@ -167,20 +167,28 @@ PluginManager::PluginInfo::PluginInfo(const std::string& dllName)
     m_dll.Load(dllName.c_str());
     PLUGIN_CREATE_FUNCPTR factory 
         = (PLUGIN_CREATE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("CreatePlugin");
+    if (NULL == factory)
+    {
+        m_pPlugin = NULL;
+        throw DeviceBackend::Exceptions::DynamicLibException(dllName);        
+    }
     m_pPlugin = factory();
 }
 
 PluginManager::PluginInfo::~PluginInfo()
 {
-    PLUGIN_RELEASE_FUNCPTR cleanup
-        = (PLUGIN_RELEASE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("ReleasePlugin");
+    if (NULL != m_pPlugin)
     {
-        assert(m_pPlugin && "NULL plugin");
-        llvm::MutexGuard cleanlock(m_lock);
-        cleanup(m_pPlugin);
+        PLUGIN_RELEASE_FUNCPTR cleanup
+            = (PLUGIN_RELEASE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("ReleasePlugin");
+        {
+            assert(m_pPlugin && "NULL plugin");
+            llvm::MutexGuard cleanlock(m_lock);
+            cleanup(m_pPlugin);
+        }
+        m_pPlugin = NULL;
+        m_dll.Close();
     }
-    m_pPlugin = NULL;
-    m_dll.Close();
 }
 
 IPlugin* PluginManager::PluginInfo::plugin()

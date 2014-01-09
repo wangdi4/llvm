@@ -33,6 +33,7 @@ File Name:  dllmain.cpp
 #include "debuggingservicewrapper.h"
 #include "CPUDetect.h"
 #include "cl_shutdown.h"
+#include "ocl_mutex.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -41,7 +42,7 @@ File Name:  dllmain.cpp
 using namespace Intel::OpenCL::DeviceBackend;
 
 // lock used to prevent the simultaneous initialization
-static llvm::sys::SmartMutex<true> s_init_lock;
+static OclMutex s_init_lock;
 // initialization count - used to prevent the multiple initialization
 static int s_init_count = 0;
 static bool s_compiler_initialized = false;
@@ -126,7 +127,7 @@ extern "C"
     ///
     LLVM_BACKEND_API cl_dev_err_code  InitDeviceBackend(const ICLDevBackendOptions* pBackendOptions)
     {
-        llvm::sys::SmartScopedLock<true> lock(s_init_lock);
+        OclAutoMutex lock(&s_init_lock);
 
         // The compiler can only be initialized once, even if the backend is 
         //   terminated.  The s_init_count check is not sufficient.
@@ -178,7 +179,7 @@ extern "C"
             return;
         }
 
-        llvm::sys::SmartScopedLock<true> lock(s_init_lock);
+        OclAutoMutex lock(&s_init_lock);
         //
         // Only perform the termination when initialization count drops to zero
         //

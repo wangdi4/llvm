@@ -14,6 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #endif
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IRBuilder.h"
 
 #include "llvm/ADT/SetVector.h"
 
@@ -29,6 +30,7 @@ namespace llvm {
   class Twine;
 }
 
+#include <map>
 #include <vector>
 using namespace llvm;
 
@@ -38,12 +40,8 @@ namespace intel {
   #define FIBER_FUNC_NAME         "fiber."
   #define DUMMY_BARRIER_FUNC_NAME "dummybarrier."
 
-  #define GET_NEW_GID_NAME  "get_new_global_id."
-  #define GET_NEW_LID_NAME  "get_new_local_id."
-
-  #define GET_ITERATION_COUNT "get_iter_count."
   #define GET_SPECIAL_BUFFER "get_special_buffer."
-  #define GET_CURR_WI "get_curr_wi."
+  #define GET_BASE_GID "get_base_global_id."
 
   #define VECTORIZED_KERNEL_PREFIX "__Vectorized_."
 
@@ -65,7 +63,7 @@ namespace intel {
 
   typedef enum {
     CALL_BI_TYPE_WG,
-    CALL_BI_TYPE_ASYNC,
+    CALL_BI_TYPE_WG_UNIFORM,
     CALL_BI_NUM
   } CALL_BI_TYPE;
 
@@ -78,6 +76,21 @@ namespace intel {
   typedef SetVector<Function*> TFunctionSet;
   typedef SetVector<BasicBlock*> TBasicBlockSet;
 
+  typedef std::map<const Function*, unsigned> TFunctionToUnsigned;
+
+  static std::string AppendWithDimension(std::string S, int Dimension) {
+    if (Dimension >= 0)
+      S += '0' + Dimension;
+    else
+      S += "var";
+    return S;
+  }
+  static std::string AppendWithDimension(std::string S, const Value *Dimension) {
+    int D = -1;
+    if (const ConstantInt *C = dyn_cast<ConstantInt>(Dimension))
+      D = C->getZExtValue();
+    return AppendWithDimension(S, D);
+  }
   /// @brief BarrierUtils is utility class that collects several data
   /// and processes several functionality on a given module
   class BarrierUtils {
@@ -133,6 +146,11 @@ namespace intel {
     /// @returns TFunctionVector container with found functions
     TFunctionVector& getAllKernelFunctions();
 
+    unsigned getKernelVectorizationWidth(const Function *F) const;
+
+    Instruction *createGetLocalSize(unsigned dim, Instruction *pInsertBefore);
+    Instruction *createGetBaseGlobalId(Value* dim, Instruction *pInsertBefore);
+
     /// @brief Create new call instruction to barrier()
     /// @param pInsertBefore instruction to insert new call instruction before
     /// @returns new created call instruction
@@ -156,12 +174,7 @@ namespace intel {
     /// @brief Create new call instruction to __mm_mfence()
     /// @param pAtEnd basic block to insert new call at its end
     /// @returns new created call instruction
-    Instruction* createMemFence(BasicBlock *pAtEnd);
-
-    /// @brief Create new call instruction to get_curr_wi()
-    /// @param pInsertBefore instruction to insert new call instruction before
-    /// @returns new created call instruction
-    Instruction* createGetCurrWI(Instruction *pInsertBefore = 0);
+    Instruction* createMemFence(IRBuilder<>& B);
 
     /// @brief Create new call instruction to get_special_buffer()
     /// @param pInsertBefore instruction to insert new call instruction before
@@ -181,25 +194,11 @@ namespace intel {
     /// @returns container with all get_global_id call instructions
     TInstructionVector& getAllGetGlobalId();
 
-    /// @brief Create new call instruction to get_new_local_id()
-    /// @param pArg1 first argument to get_new_local_id()
-    /// @param pArg2 first argument to get_new_local_id()
-    /// @param pInsertBefore instruction to insert new call instruction before
-    /// @returns new created call instruction
-    Instruction* createNewGetLocalId(Value *pArg1, Value *pArg2, Instruction *pInsertBefore);
-
-    /// @brief Create new call instruction to get_new_global_id()
-    /// @param pArg1 first argument to get_new_global_id()
-    /// @param pArg2 first argument to get_new_global_id()
-    /// @param pInsertBefore instruction to insert new call instruction before
-    /// @returns new created call instruction
-    Instruction* createNewGetGlobalId(Value *pArg1, Value *pArg2, Instruction *pInsertBefore);
-
     /// @brief Create new call instruction to get_global_id()
     /// @param dim dimensionality of kernel
     /// @param pInsertBefore instruction to insert new call instruction before
     /// @returns new created call instruction
-    Instruction* createGetGlobalId(unsigned dim, Instruction *pInsertBefore);
+    Instruction *createGetGlobalId(unsigned dim, IRBuilder<> &);
 
     /// @brief return an indicator regarding given function calls
     /// a function defined in the module (that was not inlined)
@@ -247,18 +246,14 @@ namespace intel {
     /// Pointer to dummyBarrier function in module
     Function  *m_dummyBarrierFunc;
 
-    /// This holds the get_curr_wi() function
-    Function  *m_getCurrWIFunc;
     /// This holds the get_special_buffer() function
     Function  *m_getSpecialBufferFunc;
-    /// This holds the get_iter_count() function
-    Function  *m_getIterationCountFunc;
-    /// This holds the get_new_local_id() function
-    Function  *m_getNewLIDFunc;
-    /// This holds the get_new_global_id() function
-    Function  *m_getNewGIDFunc;
+    /// This holds the get_local_size() function
+    Function  *m_getLocalSizeFunc;
     /// This holds the get_global_id() function
     Function  *m_getGIDFunc;
+    /// This holds the get_base_global_id() function
+    Function  *m_getBaseGIDFunc;
 
     /// This holds the all sync instructions of the module
     TInstructionVector  m_syncInstructions;
@@ -270,6 +265,8 @@ namespace intel {
     TFunctionVector     m_kernelFunctions;
     /// This holds all the WG function calls in the module
     TInstructionVector  m_WGcallInstructions;
+    TFunctionToUnsigned m_kernelVectorizationWidths;
+    
 
     /// This indecator for synchronize data initialization
     bool m_bSyncDataInitialized;
@@ -294,6 +291,10 @@ namespace intel {
     bool m_bNonInlinedCallsInitialized;
     /// This holds the all function of the module with internal calls
     TFunctionSet m_functionsWithNonInlinedCalls;
+
+    Type* m_SizetTy;
+    Type* m_I32Ty;
+
 
   };
 

@@ -18,6 +18,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/SourceMgr.h>
+#include <llvm/Support/Debug.h>
+#include <llvm/Version.h>
 
 #include <string>
 
@@ -140,6 +142,80 @@ namespace intel {
   }
 
   void BIImport::ImportFunctionDefinitions() {
+    // LLVM bitcode loader appends a dot and a number to an opaque type name
+    // if it is loaded from different modules. The following class handles
+    // this issue in CloneFunctionInto. It doesn't check specific type names
+    // because in the built-ins library all opaque types must match opaque
+    // types in the user module.
+    class OpaqueTypeRemapper : public ValueMapTypeRemapper {
+    private:
+      typedef DenseMap<StructType *, StructType *> TypeMap;
+      TypeMap m_TypeMap;
+
+      // Convert a pointer type to a structure type it points to.
+      static StructType * ptrToStruct(Type *T) {
+        if (PointerType *PT = dyn_cast<PointerType>(T)) {
+          // Handle also pointer to pointer to ...
+          while (PointerType *PT2 = dyn_cast<PointerType>(PT->getElementType()))
+            PT = PT2;
+          Type *ET = PT->getElementType();
+          return dyn_cast<StructType>(ET);
+        }
+        return NULL;
+      }
+      
+      // Construct a pointer (of arbitrary dimension) to DstST type
+      // using the SrcTy pointer to copy address space qualifiers from.
+      static Type* constructPtr(Type * SrcTy, StructType * DstST) {
+        PointerType * SrcPT = cast<PointerType>(SrcTy);
+
+        if(isa<StructType>(SrcPT->getElementType())) {
+          return PointerType::get(DstST, SrcPT->getAddressSpace()); 
+
+        } else {
+          Type * RetTy = constructPtr(SrcPT->getElementType(), DstST);
+          return PointerType::get(RetTy, SrcPT->getAddressSpace());
+        }
+      }
+
+    public:
+      // Remap any pointer to an opaque type found in the m_TypeMap.
+      virtual Type *  remapType (Type *SrcTy) {
+        StructType * SrcST = ptrToStruct(SrcTy);
+        if(!SrcST) return SrcTy;
+
+        TypeMap::iterator it = m_TypeMap.find(SrcST);
+        if(it == m_TypeMap.end()) return SrcTy;
+
+        return constructPtr(SrcTy, it->second);
+      }
+
+      // Insert opaque types mapping into m_TypeMap.
+      void insert(Type * SrcTy, Type * DstTy) {
+        if(SrcTy == DstTy) return; // No need to map equal types.
+
+        StructType *SrcST = ptrToStruct(SrcTy);
+        if (!SrcST || !SrcST->isOpaque()) return; // Not an opaque type.
+        StructType *DstST = ptrToStruct(DstTy);
+        assert(DstST && DstST->isOpaque() && "Destination type must be an opaque type.");
+
+        // It is not guaranteed that we have here an original type name without
+        // a number appended. Take it into account.
+        StringRef TypeName = SrcST->getName().count('.') < DstST->getName().count('.') ?
+                             SrcST->getName() :
+                             SrcST->getName().rsplit('.').first;
+        assert(SrcST->getName().startswith(TypeName) && DstST->getName().startswith(TypeName) &&
+               "It is illegal to map different opaque types.");
+        (void)TypeName; // Avoid warnings about unused variable in the Release build.
+
+        m_TypeMap[SrcST] = DstST;
+      }
+
+      void clear() {
+        m_TypeMap.clear();
+      }
+    } typeRemapper;
+
     // Loop over all of the functions to import and import their definition
     for (TFunctionsVec::iterator it = m_functionsToImport.begin(),
         e = m_functionsToImport.end(); it != e; ++it) {
@@ -150,6 +226,8 @@ namespace intel {
       assert(pDstFunction != NULL && "function must be mapped to function");
       assert(pDstFunction->isDeclaration() && "destination function is not a declaration");
 
+      // Add mapping of return types
+      typeRemapper.insert(pSrcFunction->getReturnType(), pDstFunction->getReturnType());
       // Go through and convert function arguments over, remembering the mapping.
       Function::arg_iterator itDst = pDstFunction->arg_begin();
       Function::arg_iterator itSrc = pSrcFunction->arg_begin();
@@ -159,19 +237,23 @@ namespace intel {
         itDst->setName(itSrc->getName());
         // Add a mapping to our mapping.
         m_valueMap[itSrc] = itDst;
+        // Add mapping of argument types.
+        typeRemapper.insert(itSrc->getType(), itDst->getType());
       }
 
       // Clone the body of the function into the dest function.
       SmallVector<ReturnInst*, 8> Returns; // Ignore returns.
-      CloneFunctionInto(pDstFunction, pSrcFunction, m_valueMap, false, Returns);
+      CloneFunctionInto(pDstFunction, pSrcFunction, m_valueMap, false, Returns, "", 0, &typeRemapper);
+      // Allow removal of function from module after it is inlined
+      pDstFunction->setLinkage(GlobalVariable::LinkOnceODRLinkage);
 
       // There is no need to map the arguments anymore.
       for (Function::arg_iterator it = pSrcFunction->arg_begin(), e = pSrcFunction->arg_end(); it != e; ++it) {
         m_valueMap.erase(it);
       }
+      typeRemapper.clear();
     }
   }
-
 
   void BIImport::CollectFunctionChainToImport(TFunctionsVec &rootFunctionsToImport) {
     // Find all functions called by "root" functions.

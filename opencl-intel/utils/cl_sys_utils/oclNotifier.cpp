@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////
-// oclNotifierCWrapper.cpp:
+// oclNotifier.cpp:
 /////////////////////////////////////////////////////////////////////////
 // INTEL CONFIDENTIAL
 // Copyright 2007-2008 Intel Corporation All Rights Reserved.
@@ -26,23 +26,35 @@
 /////////////////////////////////////////////////////////////////////////
 
 #include "oclNotifier.h"
+#include "oclInternalFunctions.h"
 
-//TODO: deprecated for now, remove it in the future
-//NotifierCollection* NotifierCollection::instance = NULL;
+//TODO: Ofir, refactor the cl files code
+#include <fstream>
 
-/*
- #define NOTIFY(funcName, ...) for ( notifier = notifiersIterator(); notifier != NULL ; notifier = notifiersIterator()){	\
- 	funcName(__VA_ARGS__)	\
- }
-*/ 
 
 #define CHECK_FOR_NULL(ptr) if (!ptr) return
+
+//used in order to make the supermarket principal work
+#define IF_EMPTY_RETURN if (notifiers.empty()) return
 
 
 //a macro that calls funcName in all the registered notifiers.
 #define NOTIFY(funcName, ...) for ( set<oclNotifier*>::iterator it = notifiers.begin(); it != notifiers.end() ; it++){	\
 	(*it)->funcName(__VA_ARGS__);	\
 } 
+
+//the callback attached to the event of a command
+static void CL_CALLBACK commandCallBack(cl_event event, cl_int event_command_exec_status, void *user_data){
+	CHECK_FOR_NULL(event);
+	CHECK_FOR_NULL(user_data);
+	NotifierCollection* notifiers = NotifierCollection::Instance();
+	CommandData* commandData = (CommandData*) user_data;
+	notifiers->CommandCallBack(event,event_command_exec_status,commandData); 
+	//delete objects
+	if (--commandData->refCounter == 0){
+		NotifierCollection::releaseCommandData(commandData);
+	}
+}
 
 
 NotifierCollection* NotifierCollection::Instance() 
@@ -55,21 +67,11 @@ NotifierCollection* NotifierCollection::Instance()
 	}
 	return instance; 
 }
-
-//TODO: deprecated for now, remove it in the future
-//oclNotifier* NotifierCollection::notifiersIterator(){
-//		static set<oclNotifier*>::iterator it = notifiers.begin();
-//		oclNotifier* ret;
-//		if ( it == notifiers.end() ){
-//			ret =  NULL;
-//			it = notifiers.begin();
-//		} else {
-//			ret = *it;
-//			it++;
-//		}
-//		return ret;
-//}
-
+void NotifierCollection::Delete(NotifierCollection* &notifiers){
+	CHECK_FOR_NULL(notifiers);
+	delete notifiers;
+	notifiers = NULL;
+}
 bool NotifierCollection::isActive()
 {
 	return !notifiers.empty();
@@ -79,18 +81,11 @@ void NotifierCollection::registerNotifier( oclNotifier *notifier )
 	CHECK_FOR_NULL(notifier);
 	notifiers.insert(notifier);
 }
-
 void NotifierCollection::unregisterNotifier( oclNotifier *notifier )
 {
 	CHECK_FOR_NULL(notifier);
 	notifiers.erase(notifier);
 	delete notifier;
-}
-
-void NotifierCollection::Delete(NotifierCollection* &notifiers){
-	CHECK_FOR_NULL(notifiers);
-	delete notifiers;
-	notifiers = NULL;
 }
 NotifierCollection::~NotifierCollection() {
 	for ( set<oclNotifier*>::iterator it = notifiers.begin(); it != notifiers.end() ; it++){	
@@ -98,11 +93,11 @@ NotifierCollection::~NotifierCollection() {
 	}
 }
 
+
 void NotifierCollection::PlatformCreate( cl_platform_id platform ){
 	CHECK_FOR_NULL(platform);
 	NOTIFY(PlatformCreate, platform);
 }
-
 void NotifierCollection::PlatformFree( cl_platform_id platform ){
 	CHECK_FOR_NULL(platform);
 	NOTIFY(PlatformFree, platform);
@@ -113,14 +108,11 @@ void NotifierCollection::DeviceInit( cl_device_id device, cl_platform_id platfor
 	CHECK_FOR_NULL(platform);
 	NOTIFY(DeviceInit, device, platform);
 }
-
 void NotifierCollection::SubDeviceCreate( cl_device_id parent_device, cl_device_id sub_device){
 	CHECK_FOR_NULL(parent_device);
 	CHECK_FOR_NULL(sub_device);
 	NOTIFY(SubDeviceCreate, parent_device, sub_device);
 }
-
-
 void NotifierCollection::DeviceFree( cl_device_id device )
 {
 	CHECK_FOR_NULL(device);
@@ -132,7 +124,6 @@ void NotifierCollection::ContextCreate( cl_context context)
 	CHECK_FOR_NULL(context);
 	NOTIFY(ContextCreate, context);	
 }
-
 void NotifierCollection::ContextFree( cl_context context )
 {
 	CHECK_FOR_NULL(context);
@@ -144,7 +135,6 @@ void NotifierCollection::CommandQueueCreate( cl_command_queue queue )
 	CHECK_FOR_NULL(queue);
 	NOTIFY(CommandQueueCreate, queue );	
 }
-
 void NotifierCollection::CommandQueueFree( cl_command_queue queue )
 {
 	CHECK_FOR_NULL(queue);
@@ -156,46 +146,80 @@ void NotifierCollection::EventCreate (cl_event event, bool internalEvent, string
 	CHECK_FOR_NULL(event);
 	NOTIFY(EventCreate, event, internalEvent, cmdName);
 }
-
 void NotifierCollection::EventFree (cl_event event)
 {
 	CHECK_FOR_NULL(event);
 	NOTIFY(EventFree, event);
 }
-
 void NotifierCollection::EventStatusChanged(cl_event event)
 {
 	CHECK_FOR_NULL(event);
 	NOTIFY(EventStatusChanged, event);
 }
 
-void NotifierCollection::BufferCreate( cl_mem memobj, cl_context context )
+void NotifierCollection::BufferCreate( cl_mem memobj, cl_context context, size_t size, void* hostPtr, bool fromGL )
 {
 	CHECK_FOR_NULL(memobj);
 	CHECK_FOR_NULL(context);
-	NOTIFY(BufferCreate, memobj, context);	
+	NOTIFY(BufferCreate, memobj, context, size, hostPtr, fromGL);
 }
-
-void NotifierCollection::SubBufferCreate(cl_mem parentBuffer, cl_mem subBuffer,
+void NotifierCollection::BufferMap(cl_mem memobj, cl_map_flags mapFlags)
+{
+	CHECK_FOR_NULL(memobj);
+	NOTIFY(BufferMap, memobj, mapFlags);
+}
+void NotifierCollection::BufferUnmap(cl_mem memobj, cl_command_queue queue, cl_event* event)
+{
+	CHECK_FOR_NULL(memobj);
+	NOTIFY(BufferUnmap, memobj, queue, event);
+}
+void NotifierCollection::BufferEnqueue (cl_command_queue queue, cl_event* event, cl_mem memobj)
+{
+	CHECK_FOR_NULL(memobj);
+	NOTIFY(BufferEnqueue, queue, event, memobj);
+}
+void NotifierCollection::SubBufferCreate(cl_mem parentBuffer,
+										 cl_mem subBuffer,
 										 cl_buffer_create_type bufferCreateType,
-										 const void* bufferCreateInfo)
+										 const void* bufferCreateInfo,
+										 cl_context context)
 {
 	CHECK_FOR_NULL(parentBuffer);
 	CHECK_FOR_NULL(subBuffer);
-	NOTIFY(SubBufferCreate, parentBuffer, subBuffer, bufferCreateType, bufferCreateInfo);
+	NOTIFY(SubBufferCreate, parentBuffer, subBuffer,
+		   bufferCreateType, bufferCreateInfo, context);
 }
-
-void NotifierCollection::ImageCreate( cl_mem memobj, cl_context context )
+void NotifierCollection::ImageCreate(cl_mem memobj, cl_context context, 
+									 const cl_image_desc* imageDesc,
+									 void* hostPtr, bool fromGL)
 {
 	CHECK_FOR_NULL(memobj);
 	CHECK_FOR_NULL(context);
-	NOTIFY(ImageCreate, memobj, context);	
+	NOTIFY(ImageCreate, memobj, context, imageDesc, hostPtr, fromGL);
 }
-
+void NotifierCollection::ImageMap(cl_mem memobj, cl_map_flags mapFlags)
+{
+	CHECK_FOR_NULL(memobj);
+	NOTIFY(ImageMap, memobj, mapFlags);
+}
+void NotifierCollection::ImageUnmap(cl_mem memobj, cl_command_queue queue, cl_event* event)
+{
+	NOTIFY(ImageUnmap, memobj, queue, event);
+}
+void NotifierCollection::ImageEnqueue(cl_command_queue queue,
+									  cl_event* event,
+									  cl_mem memobj)
+{
+	NOTIFY(ImageEnqueue, queue, event, memobj);
+}
 void NotifierCollection::MemObjectFree( cl_mem memobj )
 {
 	CHECK_FOR_NULL(memobj);
 	NOTIFY(MemObjectFree, memobj);	
+}
+void NotifierCollection::MemObjectReleased(cl_mem memobj)
+{
+	NOTIFY(MemObjectReleased, memobj);
 }
 
 void NotifierCollection::SamplerCreate( cl_sampler sampler, cl_context context )
@@ -204,7 +228,6 @@ void NotifierCollection::SamplerCreate( cl_sampler sampler, cl_context context )
 	CHECK_FOR_NULL(context);
 	NOTIFY(SamplerCreate, sampler, context);	
 }
-
 void NotifierCollection::SamplerFree( cl_sampler sampler )
 {
 	CHECK_FOR_NULL(sampler);
@@ -217,13 +240,11 @@ void NotifierCollection::ProgramCreate( cl_program program, cl_context context, 
 	CHECK_FOR_NULL(context);
 	NOTIFY(ProgramCreate, program, context, withBinary, withSource);	
 }
-
 void NotifierCollection::ProgramFree( cl_program program )
 {
 	CHECK_FOR_NULL(program);
 	NOTIFY(ProgramFree, program);	
 }
-
 void NotifierCollection::ProgramBuild( cl_program program, const cl_device_id* devices, cl_uint numDevices )
 {
 	CHECK_FOR_NULL(program);
@@ -235,73 +256,30 @@ void NotifierCollection::KernelCreate( cl_kernel kernel, cl_program program )
 {
 	CHECK_FOR_NULL(kernel);
 	CHECK_FOR_NULL(program);
-	NOTIFY(KernelCreate, kernel, program);	
+	NOTIFY(KernelCreate, kernel, program);
 }
-
 void NotifierCollection::KernelFree( cl_kernel kernel )
 {
 	CHECK_FOR_NULL(kernel);
 	NOTIFY(KernelFree, kernel);	
 }
-
 void NotifierCollection::KernelSetArg (cl_kernel kernel, cl_uint arg_index, size_t arg_size,const void* arg_value )
 {
 	CHECK_FOR_NULL(kernel);
 	NOTIFY(KernelSetArg, kernel, arg_index, arg_size, arg_value);
 }
-
-//TODO: deprecated for now, remove it in the future
-// void NotifierCollection::CommandEnqueue( cl_command_queue queue , void* pCommand,cl_command_type commandType, const char* commandName, void** oclObjectArray, cl_uint numObjects )
-// {
-// 	NOTIFY(CommandEnqueue, queue, pCommand, commandType, commandName, oclObjectArray, numObjects);	
-// }
-// 
-// void NotifierCollection::CommandRunning( void* pCommand )
-// {
-// 	NOTIFY(CommandRunning, pCommand);	
-// }
-// 
-// void NotifierCollection::CommandComplete( void* pCommand, cl_int CompletionResult )
-// {
-// 	NOTIFY(CommandComplete, pCommand, CompletionResult);	
-// }
+void NotifierCollection::KernelEnqueue (cl_kernel kernel, cl_command_queue queue, cl_event* event)
+{
+	NOTIFY(KernelEnqueue, kernel, queue, event);
+}
+void NotifierCollection::KernelReleased (cl_kernel kernel)
+{
+	NOTIFY(KernelReleased, kernel);
+}
 
 void NotifierCollection::CommandCallBack( cl_event event, cl_int event_command_exec_status, CommandData *data )
 {
 	NOTIFY(CommandCallBack, event, event_command_exec_status, data);
-}
-
-// TODO: consider moving this into oclInternalFunctions.h
-CL_API_ENTRY cl_int CL_API_CALL _clReleaseEventINTERNAL(
-    cl_event event, bool sendNotify = true);
-
-
-void NotifierCollection::releaseCommandData(CommandData* data)
-{
-	CHECK_FOR_NULL(data);
-	cl_event* pEvent = data->pEvent;
-	if (data->needRelease)
-	{
-		_clReleaseEventINTERNAL(*pEvent);
-	}
-	if (data->ownEvent)
-	{
-		delete pEvent;
-	}
-	delete data;
-}
-
-//the callback attached to the event of a command
-void CL_CALLBACK commandCallBack(cl_event event, cl_int event_command_exec_status, void *user_data){
-	CHECK_FOR_NULL(event);
-	CHECK_FOR_NULL(user_data);
-	NotifierCollection* notifiers = NotifierCollection::Instance();
-	CommandData* commandData = (CommandData*) user_data;
-	notifiers->CommandCallBack(event,event_command_exec_status,commandData); 
-	//delete objects
-	if (--commandData->refCounter == 0){
-		NotifierCollection::releaseCommandData(commandData);
-	}
 }
 
 void NotifierCollection::ObjectInfo( const void* obj, const pair<string,string> data[],const int dataLength )
@@ -309,19 +287,14 @@ void NotifierCollection::ObjectInfo( const void* obj, const pair<string,string> 
 	CHECK_FOR_NULL(obj);
 	NOTIFY(ObjectInfo, obj, data, dataLength);	
 }
-
 void NotifierCollection::ObjectRetain( const void* obj){
 	CHECK_FOR_NULL(obj);
 	NOTIFY(ObjectRetain, obj);	
 }
-
 void NotifierCollection::TraceCall( const char* call, cl_int errcode_ret, OclParameters* parameters){
 	CHECK_FOR_NULL(call);
 	NOTIFY(TraceCall, call, errcode_ret, parameters);
 }
-
-//used in order to make the supermarket principal work
-#define IF_EMPTY_RETURN if (notifiers.empty()) return
 
 
 void NotifierCollection::commandQueueProfiling( cl_command_queue_properties &properties )
@@ -349,17 +322,6 @@ CommandData* NotifierCollection::commandEventProfiling( cl_event **pEvent )
 	}
 	return commandData;
 }
-
-// TODO: consider moving this into oclInternalFunctions.h
-CL_API_ENTRY cl_int CL_API_CALL _clRetainEventINTERNAL(
-    cl_event event );
-
-// TODO: consider moving this into oclInternalFunctions.h
-CL_API_ENTRY cl_int CL_API_CALL _clSetEventCallbackINTERNAL(
-    cl_event event,
-    cl_int command_exec_callback_type,
-    void (CL_CALLBACK *pfn_notify)( cl_event, cl_int, void * ),
-    void *user_data );
 
 void NotifierCollection::createCommandEvents(cl_event* event, CommandData *commandData){
 	IF_EMPTY_RETURN; //we don't want to change anything if we don't have notifiers...
@@ -410,10 +372,24 @@ void NotifierCollection::createCommandEvents(cl_event* event, CommandData *comma
 	//from here commandData considered invalid because all the eventCallbacks might have happened
 
 }
+void NotifierCollection::releaseCommandData(CommandData* data)
+{
+	CHECK_FOR_NULL(data);
+	cl_event* pEvent = data->pEvent;
+	if (data->needRelease)
+	{
+		_clReleaseEventINTERNAL(*pEvent);
+	}
+	if (data->ownEvent)
+	{
+		delete pEvent;
+	}
+	delete data;
+}
 
-const char* CL_KERNEL_ARG_INFO_OPTION = "-cl-kernel-arg-info";
 const char* NotifierCollection::enableKernelArgumentInfo(const char* options){
 	size_t options_length = strlen(options);
+	const char* CL_KERNEL_ARG_INFO_OPTION = "-cl-kernel-arg-info";
 	if (strstr(options, CL_KERNEL_ARG_INFO_OPTION))
 	{
 		char* newOptions = new char[options_length + 1]; //Dynamic allocation - will be freed in buildProgram

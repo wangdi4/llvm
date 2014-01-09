@@ -318,7 +318,8 @@ enum cl_dev_kernel_info
                                                 //!< execution of singe instance of a kernel
     CL_DEV_KERNEL_ARG_INFO,                     //!< Specifies a list of kernel argument descriptors
     CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES,        //!< Specifies a list of indexes for arguments, which are memory objects
-    CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES    //!< Specifies properties of an argument buffer required for kernel execution
+    CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES,   //!< Specifies properties of an argument buffer required for kernel execution
+    CL_DEV_KERNEL_ATTRIBUTES                    //!< Specifies NULL terminated space separated string of kernel attributes
 };
 
 /*! \enum cl_dev_partition_prop

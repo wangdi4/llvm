@@ -258,6 +258,9 @@ bool ThreadPool::init_base( bool use_affinity,
     assert( (true == ok) && "ThreadPool cannot read device structure" );
 
     CPU_ZERO( &m_globalWorkersAffinityMask );
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    CPU_ZERO( &m_globalMastersAffinityMask );
+#endif
 
     if (false == m_useAffinity)
     {
@@ -268,6 +271,9 @@ bool ThreadPool::init_base( bool use_affinity,
             assert( false && "sched_getaffinity returned error" );
             return false;
         }
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+        m_globalMastersAffinityMask = m_globalWorkersAffinityMask;
+#endif 
 
         return true;
     }
@@ -323,7 +329,24 @@ bool ThreadPool::init_base( bool use_affinity,
                 core.disable_core();
             }
         }
+	}
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    bool masterMaskSet = false;
+    // Set m_globalMastersAffinityMask to be the opposite of m_globalWorkersAffinityMask
+    for (unsigned int cpuIndex = 0; cpuIndex < MIC_NATIVE_MAX_WORKER_THREADS; cpuIndex ++)
+    {
+        if (0 == CPU_ISSET(cpuIndex, &m_globalWorkersAffinityMask))
+        {
+            CPU_SET(cpuIndex, &m_globalMastersAffinityMask);
+            masterMaskSet = true;
+        }
     }
+    // If 0 CPUs set to m_globalMastersAffinityMask, than m_globalMastersAffinityMask should be equal to m_globalWorkersAffinityMask
+    if (!masterMaskSet)
+    {
+        m_globalMastersAffinityMask = m_globalWorkersAffinityMask;
+    }
+#endif
 
     m_useNumberOfCores = enabled_cores;
     return true;
@@ -402,7 +425,11 @@ bool ThreadPool::init(
         }
     }
 
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    if (! m_task_executor->Init( m_numOfActivatedThreads + 1, NULL ))
+#else
     if (! m_task_executor->Init( m_numOfActivatedThreads, NULL ))
+#endif
     {
         //Report Error
         printf("TaskExecutor initialization failed\n");
@@ -411,7 +438,11 @@ bool ThreadPool::init(
     }
 
     m_RootDevice = m_task_executor->CreateRootDevice( 
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+                    RootDeviceCreationParam( m_numOfActivatedThreads + 1, TE_DISABLE_MASTERS_JOIN ),
+#else
                     RootDeviceCreationParam( m_numOfActivatedThreads, TE_ENABLE_MASTERS_JOIN, 1 ),
+#endif
                     NULL,
                     this );
     
@@ -500,7 +531,12 @@ void* ThreadPool::OnThreadEntry()
 
     if ( !isMaster )
     {
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+        assert(thread_idx > 0 && "thread_idx of worker thread should be greater than 0");
+        setCurrentThreadAffinity(thread_idx - 1);
+#else
         setCurrentThreadAffinity(thread_idx);
+#endif
     }
 
 #if (defined(ENABLE_TBB_TRACER) || defined(ENABLE_MIC_TBB_TRACER))
@@ -518,7 +554,11 @@ bool ThreadPool::ActivateCurrentMasterThread()
 {
     if ( !m_tbMasterInitalized )
     {
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+        AffinitizeMasterThread();
+#else
         setCurrentThreadAffinity(0);
+#endif
         m_RootDevice->AttachMasterThread((void*)this);
         m_tbMasterInitalized = true;
     }
@@ -536,6 +576,20 @@ bool ThreadPool::DeactivateCurrentMasterThread()
 
     return true;
 }
+
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+bool ThreadPool::AffinitizeMasterThread()
+{
+    if (0 != sched_setaffinity( 0, sizeof(cpu_set_t), &m_globalMastersAffinityMask))
+    {
+        //Report Error
+        printf("ThreadPool::ActivateCurrentMasterThread() sched_setaffinity error: %d\n", errno);
+        assert( false && "ThreadPool::ActivateCurrentMasterThread() sched_setaffinity returned error" );
+        return false;
+    }
+	return true;
+}
+#endif
 
 void  ThreadPool::OnThreadExit( void* currentThreadData )
 {
@@ -663,7 +717,7 @@ private:
 int WarmUpTask::Init(size_t region[], unsigned int& regCount)
 {
     regCount = 1;
-#ifdef __MIC_DA_OMP__
+#if defined(MIC_COMMAND_BATCHING_OPTIMIZATION) || defined(__MIC_DA_OMP__)
     region[0] = startup_workers_left; // The master also join in OMP
 #else
     region[0] = startup_workers_left-1;    // Less one for the master slot.
@@ -691,15 +745,20 @@ bool WarmUpTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext
         __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
     }
 #endif
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
     // if single worker left wake-up master
     if ( val == 1 )
     {
       masterWaitEvent.Signal();
     }
+#endif
     // If last worker joined wake-up others
     if ( val == 0 )
     {
       workersWaitEvent.Signal();
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+      masterWaitEvent.Signal();
+#endif
     }
     else
     {
@@ -753,8 +812,10 @@ void ThreadPool::startup_all_workers()
     // All workers joined, now we can shutdown observer
     m_RootDevice->SetObserver(NULL);
     
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
     // Workers might be released
     warmup_task->SetMasterReady();
+#endif
 #endif
 
     // Wait for all task completed

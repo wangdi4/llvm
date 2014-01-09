@@ -35,6 +35,7 @@ KernelProperties::KernelProperties():
     m_totalImplSize(0),
     m_privateMemorySize(0),
     m_minGroupSizeFactorial(1),
+    m_isVectorizedWithTail(false),
     m_uiSizeT(sizeof(void*)),
     m_bIsBlock(false)
 {
@@ -45,6 +46,11 @@ KernelProperties::KernelProperties():
 size_t KernelProperties::GetKernelExecutionLength() const
 {
     return m_kernelExecutionLength;
+}
+
+const char *KernelProperties::GetKernelAttributes() const
+{
+    return m_kernelAttributes.c_str();
 }
 
 unsigned int KernelProperties::GetKernelPackCount() const

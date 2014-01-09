@@ -78,6 +78,11 @@ public:
       */
      virtual size_t GetKernelExecutionLength() const = 0;
 
+     /**
+      * @returns a string of the kernel attributes
+      */
+     virtual const char *GetKernelAttributes() const = 0;
+
     /**
      * @returns true if the specified kernel has print operation in the kernel body, 
      *  false otherwise

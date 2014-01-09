@@ -92,7 +92,9 @@ void init_commands_queue(uint32_t         in_BufferCount,
     }
     thread_pool->startup_all_workers();
 #endif
-
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    pQueue = new QueueOnDevice( *thread_pool );
+#else
     if (data->is_in_order_queue)
     {
         pQueue = new InOrderQueueOnDevice( *thread_pool );
@@ -101,6 +103,7 @@ void init_commands_queue(uint32_t         in_BufferCount,
     {
         pQueue = new OutOfOrderQueueOnDevice( *thread_pool );
     }
+#endif
     
     if ( NULL == pQueue )
     {
@@ -108,7 +111,11 @@ void init_commands_queue(uint32_t         in_BufferCount,
         return;
     }
 
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    if (!pQueue->Init(data->is_in_order_queue))
+#else
     if (!pQueue->Init())
+#endif
     {
         data_out->ret_code = CL_DEV_OUT_OF_MEMORY;
         delete pQueue;
@@ -165,6 +172,36 @@ void QueueOnDevice::Cancel() const
     m_task_list->Flush();
 }
 
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+bool QueueOnDevice::Init( bool isInOrder )
+{
+    m_task_list = m_thread_pool.getRootDevice()->CreateTaskList(
+                             CommandListCreationParam( isInOrder ? TE_CMD_LIST_IN_ORDER : TE_CMD_LIST_OUT_OF_ORDER, gMicExecEnvOptions.tbb_scheduler ));
+
+    if (NULL == m_task_list)
+    {
+        //Report Error
+        NATIVE_PRINTF("Cannot create out-of-order TaskList\n");
+        return false;
+    }
+
+    m_thread_pool.AffinitizeMasterThread();
+
+    return true;
+}
+
+cl_dev_err_code QueueOnDevice::Execute( TaskHandlerBase* task_handler )
+{
+    task_handler->PrepareTask();
+
+    ITaskBase* task = task_handler->GetAsITaskBase();
+
+    m_task_list->Enqueue( task );
+    m_task_list->Flush();
+
+    return CL_DEV_SUCCESS;
+}
+#else
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -235,3 +272,4 @@ cl_dev_err_code OutOfOrderQueueOnDevice::Execute( TaskHandlerBase* task_handler 
 
     return CL_DEV_SUCCESS;
 }
+#endif

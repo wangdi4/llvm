@@ -37,7 +37,7 @@ namespace intel {
         return true;
       }
       if (CompilationUtils::isWorkGroupBuiltin(calledFuncName) ||
-          CompilationUtils::isAsyncBuiltin(calledFuncName)) {
+          CompilationUtils::isWorkGroupUniformBuiltin(calledFuncName, pFunc->getParent())) {
         return true;
       }
     }

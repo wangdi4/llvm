@@ -1,4 +1,3 @@
-; XFAIL: *
 ; Check pass correctly handles number appended to type name
 ; Happens when the same bitcode loading happens to the same Context twice
 ; RUN: opt -add-implicit-args -resolve-wi-call -S < %s | FileCheck %s
@@ -11,7 +10,8 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 
 define void @enqueue_kernel_events(%opencl.queue_t.7* %q, %opencl.ndrange_t.2* %nd, void ()* %b, %opencl.clk_event_t.4** %evt0, %opencl.clk_event_t.4** %evt_ret) nounwind {
-; CHECK: call {{.*}} @ocl20_enqueue_kernel_events
+; Call should remain unchanged since it is in the built-in library
+; CHECK: call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE(%opencl.queue_t.7* %q, i32 0, %opencl.ndrange_t.2* %nd, i32 1, %opencl.clk_event_t.4** %evt0, %opencl.clk_event_t.4** %evt_ret, void ()* %b)
 %call5 = call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE(%opencl.queue_t.7* %q, i32 0, %opencl.ndrange_t.2* %nd, i32 1, %opencl.clk_event_t.4** %evt0, %opencl.clk_event_t.4** %evt_ret, void ()* %b)
   ret void
 }

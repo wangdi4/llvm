@@ -114,6 +114,9 @@ public:
     // Allocate all nessary resources for the current calling thread
     bool    ActivateCurrentMasterThread();
     bool    DeactivateCurrentMasterThread();
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    bool    AffinitizeMasterThread();
+#endif
 
     // ITaskExecutorObserver
     virtual void* OnThreadEntry();
@@ -165,6 +168,10 @@ private:
 
     // Global workers affinity mask 
     cpu_set_t m_globalWorkersAffinityMask;
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    // Global master threads affinity mask
+    cpu_set_t m_globalMastersAffinityMask;
+#endif
 
     Intel::OpenCL::TaskExecutor::ITaskExecutor*         m_task_executor;
     SharedPtr<Intel::OpenCL::TaskExecutor::ITEDevice>   m_RootDevice;

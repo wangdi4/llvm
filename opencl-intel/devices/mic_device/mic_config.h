@@ -173,7 +173,7 @@ private:
         std::cout << std::endl;
 #endif
 
-        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_BUFFER_FROM_SIZE_BYTE, Device_ParallelFillBufferFromSize, "Minimum size of buffer in kilobytes to use parallel fill for clEnqueueFillBuffer"  );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_BUFFER_FROM_SIZE_BYTE, Device_ParallelFillBufferFromSize, "Minimum size of buffer in bytes to use parallel fill for clEnqueueFillBuffer"  );
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_TASK_PER_WORKER, Device_ParallelFillMaxTaskPerWorker, "Max tasks per worker when calling to clEnqueueFillBuffer"  );
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_PARALLEL_FILL_MAX_WORKERS, Device_ParallelFillMaxWorkers, "Max workers to use when calling to clEnqueueFillBuffer"  );
 

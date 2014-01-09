@@ -144,13 +144,13 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
             char* loc = pLockedParams+stOffset;
             cl_mem_obj_descriptor* objHandle;
             memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (void**)&objHandle );
-            if ( objHandle->memObjType == CL_MEM_OBJECT_BUFFER )
+            if ( objHandle->memObjType == CL_MEM_OBJECT_BUFFER ||
+                 objHandle->memObjType == CL_MEM_OBJECT_PIPE )
             {
                 *(void**)loc = objHandle->pData;
             }
             else
             {
-                // TODO: What about PIPES in 2.0
                 *(void**)loc = objHandle->imageAuxData;
             }
             if ( NULL != devMemObjects )
@@ -824,7 +824,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     m_pKernelArgs = pLockedParams;
     m_pImplicitArgs = (cl_uniform_kernel_args*)(pLockedParams+pKernel->GetExplicitArgumentBufferSize());
     m_pImplicitArgs->WorkDim = cmdParams->work_dim;
-    m_pImplicitArgs->pRuntimeCallbacks = static_cast<IDeviceCommandManager*>(this);
+    m_pImplicitArgs->RuntimeInterface = static_cast<IDeviceCommandManager*>(this);
     // Copy global_offset, global_size and local_work_size
     MEMCPY_S(m_pImplicitArgs->GlobalOffset, sizeof(size_t) * MAX_WORK_DIM * 3, cmdParams->glb_wrk_offs, sizeof(size_t) * MAX_WORK_DIM * 3);
     m_pImplicitArgs->minWorkGroupNum = m_numThreads;
@@ -833,17 +833,6 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     const cl_mem_obj_descriptor** memArgs = memObjCount > 0 ? (const cl_mem_obj_descriptor**)&devMemObjects[0] : NULL;
     m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount);
 
-    if ( 0 != m_pImplicitArgs->LocalIDIndicesRequiredSize )
-    {
-        // Allocate local index buffer
-        m_pImplicitArgs->pLocalIDIndices = new size_t[m_pImplicitArgs->LocalIDIndicesRequiredSize/sizeof(size_t)];
-        // Fill indexes buffer
-        m_pRunner->InitRunner(m_pKernelArgs);
-    }
-    else
-    {
-        m_pImplicitArgs->pLocalIDIndices = NULL;
-    }
     const size_t*    pWGSize = m_pImplicitArgs->WGCount;
     unsigned int i;
     for (i = 0; i < cmdParams->work_dim; ++i) 
@@ -878,12 +867,6 @@ bool NDRange::Finish(FINISH_REASON reason)
     if ( IsWaitingChildExist() )
     {
         WaitForChildrenCompletion();
-    }
-
-    if (NULL != m_pImplicitArgs->pLocalIDIndices )
-    {
-        delete []m_pImplicitArgs->pLocalIDIndices;
-        m_pImplicitArgs->pLocalIDIndices = NULL;
     }
 
     // regular stuff:
@@ -1061,7 +1044,7 @@ KernelCommand* NDRange::AllocateChildCommand(ITaskList* pList, const Intel::Open
         const void* pBlockLiteral, size_t stBlockSize, const size_t* pLocalSizes, size_t stLocalSizeCount,
         const _ndrange_t* pNDRange) const
 {
-    KernelCommand* pNewCommand = new DeviceNDRange(pList, const_cast<NDRange*>(this), pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
+    KernelCommand* pNewCommand = new DeviceNDRange(m_pTaskDispatcher, pList, const_cast<NDRange*>(this), pKernel, pBlockLiteral, stBlockSize, pLocalSizes, stLocalSizeCount, pNDRange);
 
     return pNewCommand;
 }
@@ -1293,25 +1276,23 @@ void DeviceNDRange::InitCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevBacken
         m_paramKernel.lcl_wrk_size[i] = pNDRange->localWorkSize[i];
     }
 
-    size_t arg_size = pKernel->GetExplicitArgumentBufferSize();
+    size_t exp_arg_size = pKernel->GetExplicitArgumentBufferSize();
     unsigned alignment = pKernel->GetArgumentBufferRequiredAlignment();
-    assert( (arg_size == stBlockSize+stLocalSizeCount*sizeof(size_t)) && "Explicit argument size is not as expected" );
+    size_t local_arg_offset = ALIGN_UP(stBlockSize,alignment);
+    assert( (exp_arg_size == (local_arg_offset+stLocalSizeCount*sizeof(size_t)) ) && "Explicit argument size is not as expected" );
 
     // We should allocate also space for implicit args
-    arg_size += sizeof(cl_uniform_kernel_args);
+    size_t total_size = exp_arg_size+sizeof(cl_uniform_kernel_args);
 
-    char* pAllocatedContext = (char*)ALIGNED_MALLOC(arg_size, alignment);
-    m_paramKernel.arg_size = arg_size;
+    char* pAllocatedContext = (char*)ALIGNED_MALLOC(total_size, alignment);
+    m_paramKernel.uiNonArgSvmBuffersCount = 0;
+    m_paramKernel.arg_size = total_size;
     m_paramKernel.arg_values = pAllocatedContext;
 
     // Fist we put block literal
-    MEMCPY_S(pAllocatedContext, arg_size, pBlockLiteral, stBlockSize);
-    assert ( 0 == (stBlockSize & (sizeof(size_t)-1)) && "Block literal size is expected to be aligned for sizeof(size_t)");
-    pAllocatedContext += stBlockSize;
-    arg_size -= stBlockSize;
-
+    MEMCPY_S(pAllocatedContext, exp_arg_size, pBlockLiteral, stBlockSize);
     // Second we insert local buffer size
-    MEMCPY_S(pAllocatedContext, arg_size, pLocalSizes, stLocalSizeCount*sizeof(size_t));
+    MEMCPY_S(pAllocatedContext+local_arg_offset, exp_arg_size-local_arg_offset, pLocalSizes, stLocalSizeCount*sizeof(size_t));
 
     m_cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
     m_cmdDesc.id = (cl_dev_cmd_id)(DeviceNDRange::GetNextCmdId() | (1L << (sizeof(long) * 8 - 1)));    // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset

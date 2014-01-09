@@ -17,6 +17,11 @@ if ( ENABLE_MIC_TRACER )
     add_definitions( -DENABLE_MIC_TRACER )
 endif( ENABLE_MIC_TRACER )
 
+option( ENABLE_MIC_CMD_BATCHING OFF )
+if ( ENABLE_MIC_CMD_BATCHING )
+    add_definitions( -DMIC_COMMAND_BATCHING_OPTIMIZATION )
+endif ( ENABLE_MIC_CMD_BATCHING )
+
 option( MIC_USE_OMP OFF )
 if (MIC_USE_OMP)
     add_definitions( -D__MIC_DA_OMP__ )

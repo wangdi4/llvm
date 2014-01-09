@@ -190,13 +190,13 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ImageCallbackServices.h
     debuggingservicewrapper.h
     opencl_printf_ext.h
-    ExtendedExecutionContext.h
     BlockLiteral.h
     RuntimeService.h
     IBlockToKernelMapper.h
     CPUBlockToKernelMapper.h
     CompiledModule.h
     StaticObjectLoader.h
+    ocl_mutex.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
     ${BACKEND_ROOT_DIR}/../externals/itt/include/jitprofiling.h
   )
@@ -251,6 +251,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     debuggingservicewrapper.cpp
     ocl_debug_builtins.cpp
     CPUBlockToKernelMapper.cpp
+    ocl_mutex.cpp
   )
 
 if (ENABLE_SDE)
@@ -365,6 +366,7 @@ set( BACKEND_PASSES
     DetectFunctionPtrCalls
     CloneBlockInvokeFuncToKernel
     ResolveBlockToStaticCall
+    PatchCallbackArgs
     SmartGVN
 )
 

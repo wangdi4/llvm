@@ -37,10 +37,11 @@ using namespace Intel::OpenCL::Framework;
 
 
 DeviceProgram::DeviceProgram() : m_state(DEVICE_PROGRAM_INVALID), 
-m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_bIsClone(false), m_pDevice(NULL), 
+m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_bIsClone(false), m_pDevice(NULL),
 m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0), m_parentProgramContext(0),
 m_uiBuildLogSize(0), m_szBuildLog(NULL), m_emptyString('\0'), m_szBuildOptions(NULL), 
-m_pBinaryBits(NULL), m_uiBinaryBitsSize(0), m_currentAccesses(0)
+m_pBinaryBits(NULL), m_uiBinaryBitsSize(0), m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE),
+m_currentAccesses(0)
 {
 }
 
@@ -48,7 +49,8 @@ DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp) 
 m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false), 
 m_bFECompilerSuccess(false), m_bIsClone(true), m_pDevice(NULL), m_deviceHandle(0), 
 m_programHandle(0), m_parentProgramHandle(0), m_emptyString('\0'), m_szBuildOptions(NULL),
-m_pBinaryBits(NULL), m_uiBinaryBitsSize(0), m_currentAccesses(0)
+m_pBinaryBits(NULL), m_uiBinaryBitsSize(0), m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE),
+m_currentAccesses(0)
 {
     SetDevice(dp.m_pDevice);
     SetHandle(dp.m_parentProgramHandle);
@@ -99,45 +101,74 @@ void DeviceProgram::SetDevice(SharedPtr<FissionableDevice> pDevice)
 
 cl_err_code DeviceProgram::SetBinary(size_t uiBinarySize, const unsigned char* pBinary, cl_int* piBinaryStatus)
 {
-    cl_int binaryStatus = CL_SUCCESS;
+    cl_program_binary_type clBinaryType = CL_PROGRAM_BINARY_TYPE_NONE;
 
-    do {
-        // Check if binary format is known by the runtime
-        if ( CheckProgramBinary(uiBinarySize, pBinary) )
-        {
-            m_state = DEVICE_PROGRAM_CREATED;
-            break;
-        }
-
+    // Check if binary format is known by the runtime
+    if (!CheckProgramBinary(uiBinarySize, pBinary))
+    {
         // Format is not supported by the runtime
         // Need to explicitly check if binary is supported by the device
         cl_dev_err_code devErr = m_pDevice->GetDeviceAgent()->clDevCheckProgramBinary(uiBinarySize, pBinary);
         if ( CL_DEV_FAILED(devErr) )
         {
-            binaryStatus = CL_INVALID_BINARY;
-            break;
+            // Binary format is not supported by both runtime and device
+            if (piBinaryStatus)
+            {
+                *piBinaryStatus = CL_INVALID_BINARY;
+            }
+            return CL_INVALID_BINARY;
         }
+    }
 
-        // If device check passed, program contains device specific binary
-        // No need any further steps from the runtime side
-        m_state = DEVICE_PROGRAM_CUSTOM_BINARY;
-    } while(0);
+    // detect binary type
+    const cl_prog_container_header* pProgCont = (cl_prog_container_header*)pBinary;
+    if ( !memcmp(pProgCont->mask, _CL_CONTAINER_MASK_, sizeof(_CL_CONTAINER_MASK_) - 1) )
+    {
+        // binary has RT container - it includes the binary type
+        switch ( pProgCont->description.bin_type )
+        {
+        case CL_PROG_BIN_COMPILED_LLVM:
+            clBinaryType = CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT;
+            break;
+
+        case CL_PROG_BIN_LINKED_LLVM:
+            clBinaryType = CL_PROGRAM_BINARY_TYPE_LIBRARY;
+            break;
+
+        case CL_PROG_BIN_EXECUTABLE_LLVM:
+            clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE;
+            break;
+
+        default:
+            assert (false && "Binary has RT container but not supported binary type");
+            if (piBinaryStatus)
+            {
+                *piBinaryStatus = CL_INVALID_BINARY;
+            }
+            return CL_INVALID_BINARY;
+        }
+    }
+    else if ( !memcmp(pBinary, _CL_LLVM_BITCODE_MASK_, sizeof(_CL_LLVM_BITCODE_MASK_) - 1) )
+    {
+        // binary is SPIR - its intermediate by spec
+        clBinaryType = CL_PROGRAM_BINARY_TYPE_INTERMEDIATE;
+    }
+    else
+    {
+        // anything else is considered executable
+        clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE; 
+    }
 
     if (piBinaryStatus)
     {
-        *piBinaryStatus = binaryStatus;
-    }
-
-    if ( CL_FAILED(binaryStatus) )
-    {
-        return binaryStatus;
+        *piBinaryStatus = CL_SUCCESS;
     }
 
     // if binary is valid binary create program binary object and add it to the program object
-    return SetBinaryInternal(uiBinarySize, pBinary);
+    return SetBinaryInternal(uiBinarySize, pBinary, clBinaryType);
 }
 
-cl_err_code DeviceProgram::SetBinaryInternal(size_t uiBinarySize, const void *pBinary)
+cl_err_code DeviceProgram::SetBinaryInternal(size_t uiBinarySize, const void *pBinary, cl_program_binary_type clBinaryType)
  {
 	if (m_uiBinaryBitsSize > 0)
  	{
@@ -155,7 +186,15 @@ cl_err_code DeviceProgram::SetBinaryInternal(size_t uiBinarySize, const void *pB
 
 	MEMCPY_S(m_pBinaryBits, m_uiBinaryBitsSize, pBinary, m_uiBinaryBitsSize);
 
+	SetBinaryTypeInternal(clBinaryType);
+
 	return CL_SUCCESS;
+}
+
+cl_err_code DeviceProgram::SetBinaryTypeInternal(cl_program_binary_type clBinaryType)
+{
+    m_clBinaryBitsType = clBinaryType;
+    return CL_SUCCESS;
 }
 
 cl_err_code DeviceProgram::ClearBuildLogInternal()
@@ -257,11 +296,11 @@ cl_build_status DeviceProgram::GetBuildStatus() const
 	{
 	default:
 	case DEVICE_PROGRAM_INVALID:
-	case DEVICE_PROGRAM_CREATED:
 		return CL_BUILD_ERROR;
 
 	case DEVICE_PROGRAM_SOURCE:
 	case DEVICE_PROGRAM_LOADED_IR:
+	case DEVICE_PROGRAM_CUSTOM_BINARY:
 		return CL_BUILD_NONE;
 
 	case DEVICE_PROGRAM_FE_COMPILING:
@@ -284,7 +323,7 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 	size_t uiParamSize = 0;
 	void * pValue = NULL;
 	cl_build_status clBuildStatus;
-  cl_program_binary_type clBinaryType;
+	cl_program_binary_type clBinaryType;
 	char emptyString = '\0';
 
 	switch (clParamName)
@@ -295,50 +334,11 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 		pValue = &clBuildStatus;
 		break;
 
-    case CL_PROGRAM_BINARY_TYPE:
-        uiParamSize = sizeof(cl_program_binary_type);
-
-        if (NULL != m_pBinaryBits)
-        {
-            // check binary container for type
-            const cl_prog_container_header* pProgCont = (cl_prog_container_header*)m_pBinaryBits;
-            if ( !memcmp(pProgCont->mask, _CL_CONTAINER_MASK_, strlen(_CL_CONTAINER_MASK_)) )
-            {
-                switch ( pProgCont->description.bin_type )
-                {
-                case CL_PROG_BIN_COMPILED_LLVM:
-                    clBinaryType = CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT;
-                    break;
-
-                case CL_PROG_BIN_LINKED_LLVM:
-                    clBinaryType = CL_PROGRAM_BINARY_TYPE_LIBRARY;
-                    break;
-
-                case CL_PROG_BIN_EXECUTABLE_LLVM:
-                case CL_PROG_BIN_CUSTOM:
-                    clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE;
-                    break;
-      
-                default:
-                    // Not a valid binary type
-                    assert (false);
-                    clBinaryType = CL_PROGRAM_BINARY_TYPE_NONE;
-                    break;
-              }
-            } else
-            {
-                // If the binary is not using RT container (SPIR, or custom binary),
-                // We will return CL_PROGRAM_BINARY_TYPE_EXECUTABLE, as appears in spec.
-                clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE; 
-            }
-        } 
-        else
-        {
-            clBinaryType = CL_PROGRAM_BINARY_TYPE_NONE;
-        }
-
-        pValue = &clBinaryType;
-        break;
+	case CL_PROGRAM_BINARY_TYPE:
+		uiParamSize = sizeof(cl_program_binary_type);
+		clBinaryType = GetBinaryTypeInternal();
+		pValue = &clBinaryType;
+		break;
 
 	case CL_PROGRAM_BUILD_OPTIONS:
 		if (NULL != m_szBuildOptions)
@@ -355,10 +355,10 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 		switch (m_state)
 		{
 		default:
-        case DEVICE_PROGRAM_INVALID:
-        case DEVICE_PROGRAM_CREATED:
+		case DEVICE_PROGRAM_INVALID:
 		case DEVICE_PROGRAM_SOURCE:
 		case DEVICE_PROGRAM_LOADED_IR:
+		case DEVICE_PROGRAM_CUSTOM_BINARY:
 		case DEVICE_PROGRAM_BUILTIN_KERNELS:
 		case DEVICE_PROGRAM_FE_COMPILING:
 		case DEVICE_PROGRAM_FE_LINKING:
@@ -490,9 +490,10 @@ cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * pui
 		//Return the resultant compiled binaries
 		return m_pDevice->GetDeviceAgent()->clDevGetProgramBinary(m_programHandle, uiBinSize, pBin, puiBinSizeRet);
 
-    case DEVICE_PROGRAM_COMPILED:
-    case DEVICE_PROGRAM_LINKED:
+	case DEVICE_PROGRAM_COMPILED:
+	case DEVICE_PROGRAM_LINKED:
 	case DEVICE_PROGRAM_LOADED_IR:
+	case DEVICE_PROGRAM_CUSTOM_BINARY:
 		if ( NULL == pBin)
 		{
 			assert(m_uiBinaryBitsSize <= CL_MAX_UINT32);

@@ -272,13 +272,13 @@ public:
 
     PREPARE_SHARED_PTR(DeviceNDRange)
 
-    DeviceNDRange(ITaskList* pList, KernelCommand* parent, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
+    DeviceNDRange(TaskDispatcher* pTD, ITaskList* pList, KernelCommand* parent, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
         const void* pBlockLiteral, size_t stBlockSize, const size_t* pLocalSizes, size_t stLocalSizeCount, const _ndrange_t* pNDRange
 #ifdef __USE_TBB_SCALABLE_ALLOCATOR__
         , tbb::scalable_allocator<DeviceNDRange>& deviceNDRangeAllocator,
         tbb::scalable_allocator<char>& deviceNDRangeContextAllocator
 #endif
-        ) : NDRange(NULL, &m_cmdDesc, pList, parent )
+        ) : NDRange(pTD, &m_cmdDesc, pList, parent )
 #ifdef __USE_TBB_SCALABLE_ALLOCATOR__
         , m_deviceNDRangeAllocator(deviceNDRangeAllocator),
         m_deviceNDRangeContextAllocator(deviceNDRangeContextAllocator)

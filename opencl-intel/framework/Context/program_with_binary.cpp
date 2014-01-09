@@ -47,23 +47,31 @@ ProgramWithBinary::ProgramWithBinary(SharedPtr<Context> pContext, cl_uint uiNumD
         m_ppDevicePrograms[i]->SetDevice(pDevices[i]);
         m_ppDevicePrograms[i]->SetHandle(GetHandle());
         m_ppDevicePrograms[i]->SetContext(pContext->GetHandle());
-		cl_int* piBinStatus = (NULL == piBinaryStatus) ? NULL : piBinaryStatus + i;
-		err = m_ppDevicePrograms[i]->SetBinary(pszLengths[i], pBinaries[i], piBinStatus);
+        cl_int* piBinStatus = (NULL == piBinaryStatus) ? NULL : piBinaryStatus + i;
+        err = m_ppDevicePrograms[i]->SetBinary(pszLengths[i], pBinaries[i], piBinStatus);
         if (CL_SUCCESS != err)
-		{
-			if (CL_INVALID_BINARY == err)
-			{
-				ret = CL_INVALID_BINARY;
-				// Must continue loading binaries for the rest of the devices
-			}
-			else
-			{
-				ret = err;
-				break;
-			}
-		}
-        
-        m_ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_LOADED_IR);
+        {
+            if (CL_INVALID_BINARY == err)
+            {
+                ret = CL_INVALID_BINARY;
+                // Must continue loading binaries for the rest of the devices
+            }
+            else
+            {
+                ret = err;
+                break;
+            }
+        }
+
+        // if device is custom then set binary to custom
+        if (pDevices[i]->GetRootDevice()->GetDeviceType() == CL_DEVICE_TYPE_CUSTOM)
+        {
+            m_ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_CUSTOM_BINARY);
+        }
+        else
+        {
+            m_ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_LOADED_IR);
+        }
 	}
 
 	if (piRet)
