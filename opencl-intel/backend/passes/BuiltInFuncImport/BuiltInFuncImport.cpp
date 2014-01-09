@@ -165,6 +165,18 @@ namespace intel {
       SmallVector<ReturnInst*, 8> Returns; // Ignore returns.
       CloneFunctionInto(pDstFunction, pSrcFunction, m_valueMap, false, Returns);
 
+	  // Workaround for current LLVM issue: LLVM merges attributes of pDstFunction
+	  // with pSrcFunction, possibly causing a collision between readonly
+	  // and readnone attributes
+	  if (pDstFunction->getAttributes().hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadNone) &&
+		  pDstFunction->getAttributes().hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadOnly)) {
+		AttrBuilder B;
+		B.addAttribute(Attribute::ReadOnly);
+		pDstFunction->removeAttributes(AttributeSet::FunctionIndex,
+							AttributeSet::get(pDstFunction->getContext(),
+							AttributeSet::FunctionIndex, B));
+	  }
+
       // There is no need to map the arguments anymore.
       for (Function::arg_iterator it = pSrcFunction->arg_begin(), e = pSrcFunction->arg_end(); it != e; ++it) {
         m_valueMap.erase(it);
