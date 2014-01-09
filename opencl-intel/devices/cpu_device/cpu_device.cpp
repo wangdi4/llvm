@@ -936,6 +936,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case CL_DEVICE_IMAGE_PITCH_ALIGNMENT:    // BE recommends that these two queries will also return cache line size
         case CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT:
         case CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT: // Anat says that performance-wise the preferred alignment is cache line size
+        case CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT:
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
@@ -1499,6 +1500,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE:
+        case CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE:    // no reason to give a value different than CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE
             *pinternalRetunedValueSize = sizeof(size_t);
             if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1518,6 +1520,17 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             if (NULL != paramVal)
             {
                 *(int*)paramVal = CL_PROGRAM_VARIABLE_SHARING_NONE;
+            }
+            return CL_DEV_SUCCESS;        
+        case CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT:
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;                
+            }
+            if (NULL != paramVal)
+            {
+                *(cl_uint*)paramVal = 0;    // preferred alignment is aligned to the natural size of the type
             }
             return CL_DEV_SUCCESS;
         default:
