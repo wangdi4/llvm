@@ -28,6 +28,9 @@
 #include "device_queue.h"
 #include "thread_local_storage.h"
 #include "native_common_macros.h"
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+#include "tbb_memory_allocator.h"
+#endif
 #include "hw_exceptions_handler.h"
 #include "mic_logger.h"
 
@@ -71,7 +74,15 @@ void execute_command_ndrange(uint32_t        in_BufferCount,
     const QueueOnDevice* pTLSQueue = QueueOnDevice::getCurrentQueue( &tlsAccessor );
     assert( pTLSQueue == pQueue && "Queue handle doesn't match");
 #endif
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    NDRangeTask* ndRangeTask = new NDRangeTask(in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength);
 
+    cl_dev_err_code err = ndRangeTask->getTaskError();
+    if ( CL_DEV_SUCCEEDED(err) )
+    {
+        err = pQueue->Execute(ndRangeTask);
+    }
+#else
     NDRangeTask ndRangeTask(in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength);
 
     cl_dev_err_code err = ndRangeTask.getTaskError();
@@ -81,6 +92,7 @@ void execute_command_ndrange(uint32_t        in_BufferCount,
         ndRangeTask.IncRefCnt();
         err = pQueue->Execute(ndRangeTask.GetAsTaskHandlerBase());
     }
+#endif
 
     *((cl_dev_err_code*)in_pReturnValue) = err;
     MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "%s", "[MIC SERVER] exit execute_NDRange");
@@ -101,6 +113,7 @@ NDRangeTask::NDRangeTask( uint32_t lockBufferCount, void** pLockBuffers, ndrange
 
 __thread ICLDevBackendKernelRunner::ICLDevExecutionState NDRangeTask::m_tExecutionState;
 
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
 NDRangeTask::NDRangeTask( const NDRangeTask& o) :
     TaskHandler<NDRangeTask, ndrange_dispatcher_data >( o ),
     m_flushAtExit(false),
@@ -113,15 +126,21 @@ NDRangeTask::NDRangeTask( const NDRangeTask& o) :
 #endif
 {
 }
+#endif
 
 NDRangeTask::~NDRangeTask()
 {
 #ifdef ENABLE_MIC_TRACER
     m_tbb_perf_data.PerfDataFini();
 #endif
+
     if ( m_pKernelArgs != (((char*)m_dispatcherData) + sizeof(ndrange_dispatcher_data)) )
     {
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+        Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableAlignedFree(m_pKernelArgs);
+#else
         free(m_pKernelArgs);
+#endif
         m_pKernelArgs = NULL;
     }
 }
@@ -193,7 +212,11 @@ if ( gMicGPAData.bUseGPA)
     {
         // Need to allocate properly aligned arguments
         size_t allocSize = argSize + sizeof(cl_uniform_kernel_args);
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+        void* pNewKernelArgs = Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableAlignedMalloc(allocSize, argAlignment);
+#else
         void* pNewKernelArgs = memalign(argAlignment, allocSize);
+#endif
         if ( NULL== pNewKernelArgs )
         {
             assert ( 0 && "Failed to allocate aligned kernel arguments buffer");
@@ -578,6 +601,27 @@ bool NDRangeTask::Finish(FINISH_REASON reason)
         assert(COI_SUCCESS == coiErr && "Failed to Flush() printf buffer to host");
     }
 
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( gMicGPAData.bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("NDRangeTask::Finish->m_releasehandler->addTask(this)");
+      }
+      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+    m_releasehandler->addTask(this);
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    // Monitor only IN-ORDER queue
+    if ( gMicGPAData.bUseGPA )
+    {
+      __itt_task_end(gMicGPAData.pDeviceDomain);
+    }
+#endif
+#else
     // Release COI resources, before signaling to runtime
     FiniTask();
 
@@ -590,7 +634,7 @@ bool NDRangeTask::Finish(FINISH_REASON reason)
     {
         COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
     }
-
+#endif
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
@@ -598,7 +642,6 @@ bool NDRangeTask::Finish(FINISH_REASON reason)
         __itt_frame_end_v3(m_pIttKernelDomain, NULL);
     }
 #endif
-
     return CL_DEV_SUCCEEDED( getTaskError() );
 }
 
@@ -610,7 +653,15 @@ void NDRangeTask::Cancel()
     {
         COIEventSignalUserEvent(m_dispatcherData->startEvent.cmdEvent);
     }
+	
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+#ifdef ENABLE_MIC_TRACER
+    commandTracer().set_current_time_tbb_exe_in_device_time_start();
+#endif
+    setTaskError( CL_DEV_COMMAND_CANCELLED );
 
+	m_releasehandler->addTask(this);
+#else
     // Release COI resources, before signaling to runtime
     FiniTask();
 
@@ -631,6 +682,7 @@ void NDRangeTask::Cancel()
     {
         __itt_task_end(m_pIttKernelDomain);
     }
+#endif
 #endif
 }
 

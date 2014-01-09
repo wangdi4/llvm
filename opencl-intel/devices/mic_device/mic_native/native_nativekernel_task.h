@@ -52,7 +52,9 @@ public:
     bool PrepareTask();
 
     // TaskHandler methods
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
     const NativeKernelTask& GetAsCommandTypeConst() const { return *this; }
+#endif
     Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return static_cast<Intel::OpenCL::TaskExecutor::ITaskBase*>(this);}
 
     // ITask methods
@@ -74,7 +76,14 @@ public:
     void Cancel();
 
     // Releases task object, shall be called instead of delete operator.
-    long    Release() { if (m_bDuplicated) delete this; return 0; }
+    long    Release() 
+	{ 
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
+	    if (m_bDuplicated) 
+#endif
+		    delete this; 
+		return 0; 
+    }
 
     // Optimize By
     Intel::OpenCL::TaskExecutor::TASK_PRIORITY         GetPriority() const { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
@@ -88,8 +97,10 @@ public:
 
 protected:
     friend class TaskHandler<NativeKernelTask, Intel::OpenCL::MICDevice::ndrange_dispatcher_data >;
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
     // Copy constructor used for task duplication
     NativeKernelTask(const NativeKernelTask& o);
+#endif
 
     QueueOnDevice*                                        m_pQueue;
     const Intel::OpenCL::BuiltInKernels::IBuiltInKernel*  m_pKernel;

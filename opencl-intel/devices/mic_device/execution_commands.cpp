@@ -158,7 +158,7 @@ cl_dev_err_code ExecutionCommand::execute()
               static __thread __itt_string_handle* pTaskName = NULL;
               if ( NULL == pTaskName )
               {
-                    pTaskName = __im_uiNumActiveThreadstt_string_handle_create("ExecutionCommand::execute()->PrepareData");
+                pTaskName = __itt_string_handle_create("ExecutionCommand::execute()->PrepareData");
               }
               __itt_task_begin(m_pCommandList->GetGPAInfo()->pDeviceDomain, __itt_null, __itt_null, pTaskName);
         }
@@ -183,8 +183,12 @@ cl_dev_err_code ExecutionCommand::execute()
         }
 #endif
 
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+		COIEVENT* pEvent = NULL;
+#else
         // Use completion event for in order queue's only
         COIEVENT* pEvent = m_pCommandList->isInOrderCommandList() ? &m_endEvent.cmdEvent: NULL;
+#endif
 
         COIRESULT result = COIPipelineRunFunction(pipe,
                                 func,
@@ -194,7 +198,8 @@ cl_dev_err_code ExecutionCommand::execute()
                                 numDependecies, pBarrier,
                                 m_pDispatchData, m_uiDispatchDataSize,
                                 NULL, 0,                                                // We don't have nothing to receive from device
-                                pEvent);
+                                pEvent
+								);
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
         if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
@@ -510,9 +515,11 @@ cl_dev_err_code NDRange::init()
         {
             m_funcId = DeviceServiceCommunication::EXECUTE_NATIVE_KERNEL;
         }
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
         // If the CommandList is OOO
         if ( !m_pCommandList->isInOrderCommandList() )
         {
+#endif
             if ( m_pCmd->profiling )
             {
                 assert(m_pCommandList->isProfilingEnabled() && "Profiling is set for command, but list is not supporting it");
@@ -520,8 +527,9 @@ cl_dev_err_code NDRange::init()
             }
             // Register completion barrier
             registerBarrier(m_endEvent);
-
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
         }
+#endif
         dispatcherData->startEvent = m_startEvent;
         dispatcherData->endEvent = m_endEvent;
     }
@@ -617,9 +625,11 @@ cl_dev_err_code FillMemObject::init()
         m_accessFlagsArr.push_back(dstBuffAccessFlag);
 
         // Register start barrier
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION		
         // If it is OutOfOrderCommandList, add BARRIER directive to postExeDirectives
         if ( !m_pCommandList->isInOrderCommandList() )
         {
+#endif
             // Register start barrier
             if ( m_pCmd->profiling )
             {
@@ -628,7 +638,9 @@ cl_dev_err_code FillMemObject::init()
             }
             // Register completion barrier
             registerBarrier(m_endEvent);
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
         }
+#endif
 
         m_fillDispatchData.startEvent = m_startEvent;
         m_fillDispatchData.endEvent = m_endEvent;

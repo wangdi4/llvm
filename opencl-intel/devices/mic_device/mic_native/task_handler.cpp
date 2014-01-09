@@ -19,9 +19,16 @@
 // problem reports or change requests be submitted to it directly
 
 #include "task_handler.h"
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+#include "native_thread_pool.h"
+#include "tbb_memory_allocator.h"
+#endif
 
 #include <cl_shared_ptr.hpp>
 #include <sink/COIBuffer_sink.h>
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+#include <common/COIPerf_common.h>
+#endif
 
 using namespace Intel::OpenCL::MICDeviceNative;
 
@@ -34,11 +41,20 @@ TaskHandlerBase::TaskHandlerBase(
     , size_t* pLockBufferSizes,
 #endif
     ) :
-    m_bufferCount(lockBufferCount), m_bufferPointers(pLockBuffers),
+    m_bufferCount(lockBufferCount), 
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION	
+	m_bufferPointers(pLockBuffers),
 #ifdef ENABLE_MIC_TRACER
     m_bufferSizes(pLockBufferSizes),
 #endif
-    m_errorCode(CL_DEV_SUCCESS), m_bDuplicated(false)
+#endif
+    m_errorCode(CL_DEV_SUCCESS), 
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION		
+	m_bDuplicated(false)
+#else
+    m_releasehandler(TaskReleaseHandler::getInstance()),
+    m_nextTaskToRelease(NULL)
+#endif
 {
 #ifdef ENABLE_MIC_TRACER
   // Set arrival time to device for the tracer
@@ -46,11 +62,35 @@ TaskHandlerBase::TaskHandlerBase(
   // Set command ID for the tracer
   m_commandTracer.set_command_id((size_t)(getDispatcherData().commandIdentifier));
 #endif
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    // Allocate memory for buffer pointers
+    assert(m_bufferCount > 0 && "Command expected to use buffers");
+    m_bufferPointers = (void**)Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableMalloc(sizeof(void*) * m_bufferCount);
+    assert( NULL != m_bufferPointers && "Buffer pointer allocation failed" );
+    memcpy(m_bufferPointers, pLockBuffers, sizeof(void*)*m_bufferCount);
+#ifdef ENABLE_MIC_TRACER
+    m_bufferSizes = (size_t*)Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableMalloc(sizeof(size_t) * m_bufferCount);
+    assert(0 && "Buffer sizes allocation failed" );
+    memcpy(m_bufferSizes, pLockBufferSizes, sizeof(size_t)*m_bufferCount);
+#endif
+    COIRESULT result = COI_SUCCESS;
+    // In case of non blocking task, shall lock all input buffers.
+    for (uint32_t i = 0; i < m_bufferCount; ++i)
+    {
+      // add ref in order to save the buffer on the device
+      result = COIBufferAddRef(m_bufferPointers[i]);
+      if (result != COI_SUCCESS)
+      {
+        setTaskError( CL_DEV_ERROR_FAIL );
+      }
+    }
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
 TaskHandlerBase::TaskHandlerBase(const TaskHandlerBase& o) :
   //m_pQueue(o.m_pQueue),
   m_bufferCount(o.m_bufferCount),
@@ -80,14 +120,17 @@ TaskHandlerBase::TaskHandlerBase(const TaskHandlerBase& o) :
       }
     }
 }
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 bool TaskHandlerBase::FiniTask()
 {
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
     if ( m_bDuplicated )
     {
+#endif
         COIRESULT coiErr = COI_SUCCESS;
         for (unsigned int i = 0; i < m_bufferCount; i++)
         {
@@ -95,13 +138,167 @@ bool TaskHandlerBase::FiniTask()
             coiErr = COIBufferReleaseRef(m_bufferPointers[i]);
             assert(COI_SUCCESS == coiErr);
         }
-
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+	    assert(m_bufferCount > 0 && "Command expected to use buffers");
+        Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableFree(m_bufferPointers);
+#else
         delete []m_bufferPointers;
+#endif
         m_bufferPointers = NULL;
 #ifdef ENABLE_MIC_TRACER
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+        Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableFree(m_bufferSizes);
+#else
         delete []m_bufferSizes;
+#endif
         m_bufferSizes = NULL;
 #endif
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
     }
+#endif
     return true;
 }
+
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+void* TaskReleaseHandler::DummyTask::m_dummyBuffer = NULL;
+size_t TaskReleaseHandler::DummyTask::m_dummyBufferSize = 0;
+TaskReleaseHandler* TaskReleaseHandler::m_singleton = NULL;
+
+TaskReleaseHandler::TaskReleaseHandler() : OclThread(), m_head(NULL), m_tail(NULL), m_event(true), m_finish(false)
+#ifdef USE_ITT
+    ,m_pIttTaskReleaseName(NULL), m_pIttTaskReleaseDomain(NULL)
+#endif
+{
+}
+
+TaskReleaseHandler::~TaskReleaseHandler()
+{
+	m_finish = true;
+	m_event.Signal();
+	WaitForOsThreadCompletion(GetThreadHandle());
+}
+
+void TaskReleaseHandler::addTask(const Intel::OpenCL::Utils::SharedPtr< TaskHandlerBase >& task)
+{
+	bool signal = false;
+	// Locked area
+	{
+	    OclAutoMutex lock(&m_mutex);
+	    m_tail->m_nextTaskToRelease = task;
+	    m_tail = m_tail->m_nextTaskToRelease;
+	    if (NULL == m_head)
+	    {
+		    signal = true;
+		    m_head = m_tail;
+	    }
+	}
+	// END of Locked area
+	if (signal)
+	{
+		m_event.Signal();
+	}
+}
+
+RETURN_TYPE_ENTRY_POINT TaskReleaseHandler::Run()
+{
+	// Set the affinity of this thread to use the the HW threads that are not used by TBB threads.
+	ThreadPool::getInstance()->AffinitizeMasterThread();
+#if defined(USE_ITT)
+    if ( gMicGPAData.bUseGPA )
+    {
+        __itt_thread_set_name("MIC Device ReleaseTasks thread");
+	    m_pIttTaskReleaseDomain = __itt_domain_create("com.intel.opencl.device.mic.release_task_handler");
+		// Use fillBuffer specific domain if possible, if not available switch to global domain
+        if ( NULL == m_pIttTaskReleaseDomain )
+        {
+            m_pIttTaskReleaseDomain = gMicGPAData.pDeviceDomain;
+        }
+		m_pIttTaskReleaseName = __itt_string_handle_create("ReleaseTaskHandler");
+    }
+#endif
+	m_tail = new DummyTask();
+	uint64_t freq = COIPerfGetCycleFrequency();
+	assert(freq > 0 && "clock freq must be greater than 0");
+	if (0 == freq)
+	{
+		freq = 1000000000;
+	}
+	// spin 0.1 sec before waiting on condition variable.
+	const uint64_t cyclesToSpin = freq / 10;
+	unsigned long long spin_up_to = 0;
+	Intel::OpenCL::Utils::SharedPtr< TaskHandlerBase > nextTask = NULL;
+    while ((!m_finish) || (NULL != m_head))
+    {
+        if (NULL == m_head)
+        {
+            m_event.Wait();
+        }
+        if (m_head)
+        {
+#if defined(USE_ITT)
+            if ( gMicGPAData.bUseGPA )
+            {
+                __itt_frame_begin_v3(m_pIttTaskReleaseDomain, NULL);
+            }
+#endif
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+            if ( gMicGPAData.bUseGPA )
+            {
+              static __thread __itt_string_handle* pTaskName = NULL;
+              if ( NULL == pTaskName )
+              {
+                pTaskName = __itt_string_handle_create("TaskReleaseHandler::Run() releaseResourcesAndSignal()");
+              }
+              __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+            }
+#endif
+            m_head->releaseResourcesAndSignal();
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+            // Monitor only IN-ORDER queue
+            if ( gMicGPAData.bUseGPA )
+            {
+              __itt_task_end(gMicGPAData.pDeviceDomain);
+            }
+#endif
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+            if ( gMicGPAData.bUseGPA )
+            {
+              static __thread __itt_string_handle* pTaskName = NULL;
+              if ( NULL == pTaskName )
+              {
+                pTaskName = __itt_string_handle_create("TaskReleaseHandler::Run() search new job");
+              }
+              __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+            }
+#endif
+            nextTask = m_head->m_nextTaskToRelease;
+            spin_up_to = RDTSC() + cyclesToSpin;
+            while ((NULL == nextTask) && (RDTSC() < spin_up_to) && (!m_finish))
+            {
+                Intel::OpenCL::Utils::InnerSpinloopImpl();
+                nextTask = m_head->m_nextTaskToRelease;
+            }
+            // Locked area
+            {
+                OclAutoMutex lock(&m_mutex);
+                m_head = m_head->m_nextTaskToRelease;
+            }
+            // END of Locked area
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+            // Monitor only IN-ORDER queue
+            if ( gMicGPAData.bUseGPA )
+            {
+              __itt_task_end(gMicGPAData.pDeviceDomain);
+            }
+#endif
+#ifdef USE_ITT
+            if ( gMicGPAData.bUseGPA)
+            {
+                __itt_frame_end_v3(m_pIttTaskReleaseDomain, NULL);
+            }
+#endif
+        }
+    }
+    return (RETURN_TYPE_ENTRY_POINT)NULL;
+}
+#endif
