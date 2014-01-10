@@ -256,8 +256,6 @@ ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompiler
   m_sDeviceInfo(sDeviceInfo), 
   m_pOutIR(NULL), 
   m_stOutIRSize(0), 
-  m_pLogString(NULL), 
-  m_stLogSize(0), 
   m_config(config)
 {
     Twine t(g_uiProgID++);
@@ -267,7 +265,6 @@ ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompiler
 ClangFECompilerCompileTask::~ClangFECompilerCompileTask()
 {
     delete m_pOutIR;
-    delete m_pLogString;
 }
 
 void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListType &BEArgList, const char *buildOpts)
@@ -501,81 +498,95 @@ void *ClangFECompilerCompileTask::LoadPchResourceBuffer ()
 #ifdef _WIN32
 int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType)
 {
-    if ( pOutputArgs->pErrorString )
+    assert(pOutputArgs);
+    try
     {
-      m_pLogString = new char[strlen(pOutputArgs->pErrorString)+1];
-      if ( m_pLogString != NULL )
-      {
-        strcpy(m_pLogString, pOutputArgs->pErrorString);
-      }
+        if ( pOutputArgs->pErrorString )
+        {
+          m_sLogString = pOutputArgs->pErrorString;
+        }
+
+        size_t stTotSize = 0;
+        const char*  BufferStart = (const char*) pOutputArgs->pOutput;
+        size_t BufferSize = pOutputArgs->OutputSize;
+        llvm::SmallVector<char, 4096>   SPIRbinary;
+        llvm::raw_svector_ostream SPIRstream(SPIRbinary);
+
+        if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
+        {
+          // Add module level SPIR related stuff
+          llvm::OwningPtr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(BufferStart, BufferSize)));
+          if( !pBinBuff)
+              throw std::bad_alloc();
+
+          string ErrorMessage;
+          llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
+          if(!M)
+          {
+              m_sLogString = ErrorMessage;
+              return CL_OUT_OF_HOST_MEMORY;
+          }
+
+          llvm::OwningPtr<PassManager> Passes(new PassManager());
+          Passes->add(new DataLayout(M)); // Use correct DataLayout
+          Passes->add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
+          Passes->run(*M);
+
+          WriteBitcodeToFile(M, SPIRstream);
+          SPIRstream.flush();
+          BufferStart = (const char*)SPIRbinary.begin();
+          BufferSize  = SPIRbinary.size();
+
+          stTotSize = BufferSize + sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
+          m_pOutIR = new char[stTotSize];
+          if ( NULL == m_pOutIR )
+          {
+            LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
+            return CL_OUT_OF_HOST_MEMORY;
+          }
+        }
+
+        if ( NULL != m_pOutIR )
+        {
+          m_stOutIRSize = stTotSize;
+          cl_prog_container_header*    pHeader = (cl_prog_container_header*)m_pOutIR;
+          MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
+          pHeader->container_size = BufferSize+sizeof(cl_llvm_prog_header);
+          pHeader->container_type = CL_PROG_CNT_PRIVATE;
+          pHeader->description.bin_type = CL_PROG_BIN_COMPILED_LLVM;                            // = TB_DATA_FORMAT_LLVM_BINARY
+          pHeader->description.bin_ver_major = 1;
+          pHeader->description.bin_ver_minor = 1;
+          // Fill options
+          cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)(m_pOutIR+sizeof(cl_prog_container_header));
+          pProgHeader->bDebugInfo = OptDebugInfo;
+          pProgHeader->bProfiling = OptProfiling;
+          pProgHeader->bDisableOpt = Opt_Disable;
+          pProgHeader->bDenormsAreZero = Denorms_Are_Zeros;
+          pProgHeader->bFastRelaxedMath = Fast_Relaxed_Math;
+          pProgHeader->bEnableLinkOptions = true; // enable link options is true for all compiled objects
+
+          void *pIR = (void*)(pProgHeader+1);
+          // Copy IR
+          MEMCPY_S(pIR, BufferSize, BufferStart, BufferSize);
+        }
     }
-
-    size_t stTotSize = 0;
-    const char*  BufferStart = (const char*) pOutputArgs->pOutput;
-    size_t BufferSize = pOutputArgs->OutputSize;
-    llvm::SmallVector<char, 4096>   SPIRbinary;
-    if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
+    catch( std::bad_alloc )
     {
-      // Add module level SPIR related stuff
-      string ErrorMessage;
-      llvm::OwningPtr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(BufferStart, BufferSize)));
-      llvm::raw_svector_ostream SPIRstream(SPIRbinary);
-      llvm::Module *M = ParseBitcodeFile(pBinBuff.get(), getGlobalContext(), &ErrorMessage);
-      llvm::OwningPtr<PassManager> Passes(new PassManager());
-      Passes->add(new DataLayout(M)); // Use correct DataLayout
-      Passes->add(createSPIRMetadataAdderPass(m_BEArgList, CLSTDSet));
-      Passes->run(*M);
-      WriteBitcodeToFile(M, SPIRstream);
-      SPIRstream.flush();
-      BufferStart = (const char*)SPIRbinary.begin();
-      BufferSize  = SPIRbinary.size();
-
-      stTotSize = BufferSize +
-        sizeof(cl_prog_container_header) + sizeof(cl_llvm_prog_header);
-      m_pOutIR = new char[stTotSize];
-      if ( NULL == m_pOutIR )
-      {
-        LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
         return CL_OUT_OF_HOST_MEMORY;
-      }
     }
-
-    if ( NULL != m_pOutIR )
-    {
-      m_stOutIRSize = stTotSize;
-      cl_prog_container_header*    pHeader = (cl_prog_container_header*)m_pOutIR;
-      MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
-      pHeader->container_size = BufferSize+sizeof(cl_llvm_prog_header);
-      pHeader->container_type = CL_PROG_CNT_PRIVATE;
-      pHeader->description.bin_type = CL_PROG_BIN_COMPILED_LLVM;                            // = TB_DATA_FORMAT_LLVM_BINARY
-      pHeader->description.bin_ver_major = 1;
-      pHeader->description.bin_ver_minor = 1;
-      // Fill options
-      cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)(m_pOutIR+sizeof(cl_prog_container_header));
-      pProgHeader->bDebugInfo = OptDebugInfo;
-      pProgHeader->bProfiling = OptProfiling;
-      pProgHeader->bDisableOpt = Opt_Disable;
-      pProgHeader->bDenormsAreZero = Denorms_Are_Zeros;
-      pProgHeader->bFastRelaxedMath = Fast_Relaxed_Math;
-      pProgHeader->bEnableLinkOptions = true; // enable link options is true for all compiled objects
-
-      void *pIR = (void*)(pProgHeader+1);
-      // Copy IR
-      MEMCPY_S(pIR, BufferSize, BufferStart, BufferSize);
-    }
-
     return CL_SUCCESS;
 }
 
 void ClangFECompilerCompileTask::ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs )
 {
-    if ( pOutputArgs->pErrorString )
+    try{
+        if ( pOutputArgs->pErrorString )
+        {
+          m_sLogString = pOutputArgs->pErrorString;
+        }
+    }
+    catch( std::bad_alloc)
     {
-      m_pLogString = new char[strlen(pOutputArgs->pErrorString)+1];
-      if ( m_pLogString != NULL )
-      {
-        strcpy(m_pLogString, pOutputArgs->pErrorString);
-      }
     }
 
     m_stOutIRSize = 0;
@@ -670,7 +681,6 @@ int ClangFECompilerCompileTask::Compile()
 
     char *pCompileData = NULL;
     cl_uint CompileDataSize = 0;
-    std::auto_ptr<char> spCompileData;
 
     if( pElfWriter->ResolveBinary( pCompileData, CompileDataSize ) != CLElfLib::SUCCESS )
     {
@@ -678,7 +688,7 @@ int ClangFECompilerCompileTask::Compile()
     }
 
     pCompileData = new char[CompileDataSize];
-    spCompileData.reset(pCompileData);
+    std::auto_ptr<char> spCompileData(pCompileData);
 
     // Get resolved compiled data size and allocate
     if( pElfWriter->ResolveBinary( pCompileData, CompileDataSize ) != CLElfLib::SUCCESS )
@@ -892,12 +902,7 @@ int ClangFECompilerCompileTask::Compile()
 
     if ( !Log.empty() )
     {
-      m_pLogString = new char[Log.size()+1];
-      if ( m_pLogString != NULL )
-      {
-        MEMCPY_S(m_pLogString, Log.size(), Log.begin(), Log.size());
-        m_pLogString[Log.size()] = '\0';
-      }
+      m_sLogString = std::string(Log.begin(), Log.size());
     }
 
     if (!Success)
@@ -977,7 +982,7 @@ int ClangFECompilerCompileTask::Compile()
 
 // ClangFECompilerLinkTask calls implementation
 ClangFECompilerLinkTask::ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor *pProgDesc)
-: m_pProgDesc(pProgDesc), m_pOutIR(NULL), m_stOutIRSize(0), m_pLogString(NULL), m_stLogSize(0)
+: m_pProgDesc(pProgDesc), m_pOutIR(NULL), m_stOutIRSize(0)
 {
     bDebugInfoFlag = false;
     bProfilingFlag = false;
@@ -990,71 +995,74 @@ ClangFECompilerLinkTask::ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::F
 ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
 {
   delete m_pOutIR;
-  delete m_pLogString;
 }
 
 #ifdef _WIN32
 int ClangFECompilerLinkTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType)
 {
-    if ( pOutputArgs->pErrorString )
+    try
     {
-      m_pLogString = new char[strlen(pOutputArgs->pErrorString)+1];
-      if ( m_pLogString != NULL )
-      {
-        strcpy(m_pLogString, pOutputArgs->pErrorString);
-      }
-    }
+        if ( pOutputArgs->pErrorString )
+        {
+          m_sLogString = pOutputArgs->pErrorString;
+        }
 
-    m_stOutIRSize = 0;
-    if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
-    {
-      m_stOutIRSize = sizeof(cl_prog_container_header) + 
-                      sizeof(cl_llvm_prog_header) + 
-                      pOutputArgs->OutputSize;
-
-      m_pOutIR = new char[m_stOutIRSize];
-      if ( NULL == m_pOutIR )
-      {
-        LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
         m_stOutIRSize = 0;
-        return CL_OUT_OF_HOST_MEMORY;
-      }
+        if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
+        {
+          m_stOutIRSize = sizeof(cl_prog_container_header) + 
+                          sizeof(cl_llvm_prog_header) + 
+                          pOutputArgs->OutputSize;
+
+
+          m_pOutIR = new char[m_stOutIRSize];
+          if ( NULL == m_pOutIR )
+          {
+            LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for buffer"));
+            m_stOutIRSize = 0;
+            return CL_OUT_OF_HOST_MEMORY;
+          }
+        }
+
+        cl_prog_container_header* pHeader = (cl_prog_container_header*)m_pOutIR;
+        cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
+        char *pBinary = (char*)pProgHeader + sizeof(cl_llvm_prog_header);
+
+        MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
+        pHeader->container_size = pOutputArgs->OutputSize + sizeof(cl_llvm_prog_header);
+        pHeader->container_type = CL_PROG_CNT_PRIVATE;
+        pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;                            // = TB_DATA_FORMAT_LLVM_BINARY
+        pHeader->description.bin_ver_major = 1;
+        pHeader->description.bin_ver_minor = 1;
+
+        pProgHeader->bDebugInfo = bDebugInfoFlag;
+        pProgHeader->bProfiling = bProfilingFlag;
+        pProgHeader->bDenormsAreZero = bDenormsAreZeroFlag;
+        pProgHeader->bDisableOpt = bDisableOptFlag;
+        pProgHeader->bFastRelaxedMath = bFastRelaxedMathFlag;
+        pProgHeader->bEnableLinkOptions = bEnableLinkOptionsFlag;
+
+          // Copy IR
+        MEMCPY_S(pBinary, pOutputArgs->OutputSize, pOutputArgs->pOutput, pOutputArgs->OutputSize);
     }
-
-    cl_prog_container_header* pHeader = (cl_prog_container_header*)m_pOutIR;
-    cl_llvm_prog_header *pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
-    char *pBinary = (char*)pProgHeader + sizeof(cl_llvm_prog_header);
-
-    MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
-    pHeader->container_size = pOutputArgs->OutputSize + sizeof(cl_llvm_prog_header);
-    pHeader->container_type = CL_PROG_CNT_PRIVATE;
-    pHeader->description.bin_type = CL_PROG_BIN_LINKED_LLVM;                            // = TB_DATA_FORMAT_LLVM_BINARY
-    pHeader->description.bin_ver_major = 1;
-    pHeader->description.bin_ver_minor = 1;
-
-    pProgHeader->bDebugInfo = bDebugInfoFlag;
-    pProgHeader->bProfiling = bProfilingFlag;
-    pProgHeader->bDenormsAreZero = bDenormsAreZeroFlag;
-    pProgHeader->bDisableOpt = bDisableOptFlag;
-    pProgHeader->bFastRelaxedMath = bFastRelaxedMathFlag;
-    pProgHeader->bEnableLinkOptions = bEnableLinkOptionsFlag;
-
-      // Copy IR
-    MEMCPY_S(pBinary, pOutputArgs->OutputSize, pOutputArgs->pOutput, pOutputArgs->OutputSize);
-
+    catch(std::bad_alloc)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
     return CL_SUCCESS;
 }
 
 void ClangFECompilerLinkTask::ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs )
 {
-    if ( pOutputArgs->pErrorString )
+    try
     {
-      m_pLogString = new char[strlen(pOutputArgs->pErrorString)+1];
-      if ( m_pLogString != NULL )
-      {
-        strcpy(m_pLogString, pOutputArgs->pErrorString);
-      }
+        if ( pOutputArgs->pErrorString )
+        {
+          m_sLogString = pOutputArgs->pErrorString;
+        }
     }
+    catch(std::bad_alloc)
+    {}
 
     m_stOutIRSize = 0;
     m_pOutIR = NULL;
@@ -1307,12 +1315,7 @@ int ClangFECompilerLinkTask::Link()
     {
         if ( !ErrorMessage.empty() )
         {
-            m_pLogString = new char[ErrorMessage.length() + 1];
-            if ( m_pLogString != NULL )
-            {
-                MEMCPY_S(m_pLogString, ErrorMessage.length(), ErrorMessage.c_str(), ErrorMessage.length());
-                m_pLogString[ErrorMessage.length()] = '\0';
-            }
+            m_sLogString = ErrorMessage;
         }
 
         m_stOutIRSize = 0;
@@ -1345,12 +1348,7 @@ int ClangFECompilerLinkTask::Link()
         {
             if ( !ErrorMessage.empty() )
             {
-                m_pLogString = new char[ErrorMessage.length() + 1];
-                if ( m_pLogString != NULL )
-                {
-                    MEMCPY_S(m_pLogString, ErrorMessage.length(), ErrorMessage.c_str(), ErrorMessage.length());
-                    m_pLogString[ErrorMessage.length()] = '\0';
-                }
+                m_sLogString = ErrorMessage;
             }
 
             m_stOutIRSize = 0;
@@ -1364,12 +1362,7 @@ int ClangFECompilerLinkTask::Link()
             // apparently LinkModules returns true on failure and false on success
             if ( !ErrorMessage.empty() )
             {
-                m_pLogString = new char[ErrorMessage.length() + 1];
-                if ( m_pLogString != NULL )
-                {
-                    MEMCPY_S(m_pLogString, ErrorMessage.length(), ErrorMessage.c_str(), ErrorMessage.length());
-                    m_pLogString[ErrorMessage.length()] = '\0';
-                }
+                m_sLogString = ErrorMessage;
             }
 
             m_stOutIRSize = 0;
@@ -1556,7 +1549,7 @@ int ClangFECompilerGetKernelArgInfoTask::TranslateArgsInfoValues (STB_GetKernelA
 
     for (unsigned int i = 0; i < pKernelArgsInfo->m_numArgs; ++i)
     {
-		CACHED_ARG_INFO argInfo;
+        CACHED_ARG_INFO argInfo;
 
         // Adress qualifier
         switch( pKernelArgsInfo->m_argsInfo[i].adressQualifier )
@@ -1613,7 +1606,7 @@ int ClangFECompilerGetKernelArgInfoTask::TranslateArgsInfoValues (STB_GetKernelA
         // Argument name
         argInfo.name = pKernelArgsInfo->m_argsInfo[i].name;
 
-		m_argsInfo.push_back(argInfo);
+        m_argsInfo.push_back(argInfo);
     }
 
     return CL_SUCCESS;
@@ -1818,7 +1811,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
           argInfo.name = pArgName->getString().str();
         } 
 
-		m_argsInfo.push_back(argInfo);
+        m_argsInfo.push_back(argInfo);
     }
 
     return CL_SUCCESS;
