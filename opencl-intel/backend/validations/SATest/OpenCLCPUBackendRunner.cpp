@@ -208,20 +208,16 @@ public:
 
         memcpy(pKernelArgs->GlobalSize, workInfo.globalWorkSize, sizetMaxWorkDim); // Filled by the runtime
 
-        pKernelArgs->LocalIDIndicesRequiredSize = 0; // Updated by the BE, contains size of local index buffer
-
         memcpy(pKernelArgs->LocalSize, workInfo.localWorkSize, sizetMaxWorkDim); // Filled by the runtime, updated by the BE in case of (0,0,0)
 
         pKernelArgs->minWorkGroupNum = size_t(workInfo.minWorkGroupNum); // Filled by the runtime, Required by the heuristic
 
         pKernelArgs->pJITEntryPoint = NULL;// Filled by the BE
-        pKernelArgs->pLocalIDIndices = NULL; // Allocated by the runtime, filled by the BE
 
         pKernelArgs->VectorWidth = 0;// Filled by the BE
 
         memset(pKernelArgs->WGCount,0,sizetMaxWorkDim); // Updated by the BE, based on GLOBAL/LOCAL
 
-        pKernelArgs->WGLoopIterCount = 0;// Updated by the BE
         pKernelArgs->WorkDim = workInfo.workDimension; // Filled by the runtime
 
         m_pKernelRunner = pKernel->GetKernelRunner();
@@ -230,16 +226,6 @@ public:
 
         //local group size calculated by PrepareKernelArguments (using heuristic)
         memcpy(m_LocalSize, pKernelArgs->LocalSize, sizetMaxWorkDim);
-
-
-        if ( 0 != pKernelArgs->LocalIDIndicesRequiredSize ) {
-            // Allocate local index buffer
-            pKernelArgs->pLocalIDIndices = new size_t[pKernelArgs->LocalIDIndicesRequiredSize/sizeof(size_t)];
-            // Fill indexes buffer
-            m_pKernelRunner->InitRunner((void*)(m_pArgumentBuffer.get()));
-        } else {
-            pKernelArgs->pLocalIDIndices = NULL;
-        }
 
         m_uiVectorWidth = pKernelArgs->VectorWidth;
 

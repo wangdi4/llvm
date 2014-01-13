@@ -25,6 +25,9 @@
 #include "mic_native_logger.h"
 #include "mic_logger.h"
 #include "mic_device_interface.h"
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+#include "task_handler.h"
+#endif
 
 #ifdef __INCLUDE_MKL__
 #include <mkl_builtins.h>
@@ -130,7 +133,10 @@ void init_device(uint32_t         in_BufferCount,
         pRet->initError = CL_DEV_ERROR_FAIL;
         return;
     }
-
+	
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    TaskReleaseHandler::getInstance();
+#endif
 
 #ifdef __INCLUDE_MKL__
     if ( tEnvOptions->enable_mkl )
@@ -159,6 +165,9 @@ void release_device(uint32_t         in_BufferCount,
     {
         Intel::OpenCL::MKLKernels::ReleaseLibrary<true>();
     }
+#endif
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+	TaskReleaseHandler::releaseInstance();
 #endif
     // Release the thread pool singleton.
     ThreadPool::releaseSingletonInstance();

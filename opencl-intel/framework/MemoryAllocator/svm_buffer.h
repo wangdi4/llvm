@@ -175,7 +175,7 @@ class SVMBufferPointerArg : public SVMPointerArg
 	 * @param pArgValue	pointer to the SVM memory inside pSvmBuf or system pointer
      * @return a new SVMBufferPointerArg
 	 */
-    static SharedPtr<SVMBufferPointerArg> Allocate(const SharedPtr<SVMBuffer>& pSvmBuf, const void* pArgValue)
+    static SharedPtr<SVMBufferPointerArg> Allocate(SVMBuffer* pSvmBuf, const void* pArgValue)
     {
         return new SVMBufferPointerArg(pSvmBuf, pArgValue);
     }
@@ -210,13 +210,13 @@ class SVMBufferPointerArg : public SVMPointerArg
 
 private:
 
-    SVMBufferPointerArg(const SharedPtr<SVMBuffer>& pSvmBuf, const void* pArgValue) :
+    SVMBufferPointerArg(SVMBuffer* pSvmBuf, const void* pArgValue) :
 	   SVMPointerArg(pSvmBuf), m_pSvmBuf(pSvmBuf), m_szOffset((char*)pArgValue - (char*)pSvmBuf->GetAddr())
 	   {
 		   assert(pArgValue >= pSvmBuf->GetAddr());
 	   }
 
-    const SharedPtr<SVMBuffer> m_pSvmBuf;
+    SVMBuffer* m_pSvmBuf;
 	const size_t m_szOffset;
 
 };

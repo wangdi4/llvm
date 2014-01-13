@@ -150,6 +150,7 @@ namespace CRT_ICD_DISPATCH
         cl_uint                         num_entries,
         cl_device_id *                  devices,
         cl_uint *                       num_devices );
+
     typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreateFromVAMediaSurfaceINTEL)(
         cl_context                  context,
         cl_mem_flags                flags,
@@ -157,6 +158,7 @@ namespace CRT_ICD_DISPATCH
         VADisplay                   display,
         cl_uint                     plane,
         cl_int *                    errcode_ret );
+
 #else
     typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueAcquireVAMediaSurfacesINTEL)();
     typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueReleaseVAMediaSurfacesINTEL)();

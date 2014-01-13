@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2007 Intel Corporation
+// Copyright (c) 2006-2014 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -697,18 +697,6 @@ public:
 
     // cache of SVM pointers created using clSVMAlloc()
     std::list<void *>       m_svmPointers;
-
-private:
-
-    // Calculate the alignment agreed by all devices
-    // In this context
-    cl_int GetDevicesPreferredAlignment(
-        const cl_uint           numDevices,
-        const cl_device_id*     devices,
-        cl_uint*                alignment);
-
-    // Common alignment agreed by all devices in the context (in Bytes)
-    cl_uint m_alignment;
 };
 /// ------------------------------------------------------------------------------
 ///

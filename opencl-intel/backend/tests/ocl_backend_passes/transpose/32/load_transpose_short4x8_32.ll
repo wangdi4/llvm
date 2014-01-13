@@ -30,9 +30,7 @@ declare void @__ocl_load_transpose_short_4x8(<4 x i16>* nocapture %pLoadAdd, <8 
 
 
 ;-------------------------------------------------------------------------------
-; CHECK-AVX:     .type	[[FOO:[_a-z]+]],@function
-; CHECK-AVX:     movl    4([[ESP:%esp]]), [[EAX:%eax]]
-; CHECK-AVX:     vmovdqu 48([[EAX]]), %x[[MM1:mm[0-7]{1}]]
+; CHECK-AVX:     vmovdqu 48([[EAX:%eax]]), %x[[MM1:mm[0-7]{1}]]
 ; CHECK-AVX:     vmovdqu ([[EAX]]), %x[[MM2:mm[0-7]{1}]]
 ; CHECK-AVX:     vmovdqu 16([[EAX]]), %x[[MM3:mm[0-7]{1}]]
 ; CHECK-AVX:     vpunpckhwd      %x[[MM1]], %x[[MM3]], %x[[MM0:mm[0-7]{1}]]
@@ -51,11 +49,9 @@ declare void @__ocl_load_transpose_short_4x8(<4 x i16>* nocapture %pLoadAdd, <8 
 ; CHECK-AVX:     vunpcklps       %x[[MM01]], %x[[MM11]], %x[[MM02:mm[0-7]{1}]]
 ; CHECK-AVX:     vpaddw  %x[[MM22]], %x[[MM02]], %x[[MM03:mm[0-7]{1}]]
 ; CHECK-AVX:     vpaddw  %x[[MM41]], %x[[MM03]], %x[[MM04:mm[0-7]{1}]]
-; CHECK-AVX:     .size	[[FOO]]
 
 
 ;-------------------------------------------------------------------------------
-; CHECK-AVX2:    .type	[[FOO:[_a-z]+]],@function
 ; CHECK-AVX2:    vpunpckhwd	%y[[MM2:mm[0-7]{1}]], %y[[MM1:mm[0-7]{1}]], %y[[MM0:mm[0-7]{1}]]
 ; CHECK-AVX2:    vpunpcklwd	%y[[MM2]], %y[[MM1]], %y[[MM1]]
 ; CHECK-AVX2:    vpunpckhwd	%y[[MM0]], %y[[MM1]], %y[[MM3:mm[0-7]{1}]]
@@ -68,4 +64,3 @@ declare void @__ocl_load_transpose_short_4x8(<4 x i16>* nocapture %pLoadAdd, <8 
 ; CHECK-AVX2:    vextracti128	$1, %y[[MM0]], %x[[MM1]]
 ; CHECK-AVX2:    vpaddw	%x[[MM1]], %x[[MM0]], %x[[MM0]]
 ; CHECK-AVX2:    vpaddw	%x[[MM3]], %x[[MM0]], %x[[MM0]]
-; CHECK-AVX2:    .size	[[FOO]]

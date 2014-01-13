@@ -142,21 +142,21 @@ namespace Validation
 
                 // Check whether sign will be changed
                 if(mant.val == 0 && exp.val == 0 && ulp < 0) {
-                    u.val += abs(ulp);
+                    u.val += abs((FloatT)ulp);
                     u.val += GetSignMask().val;
                     sign = true;
                     ImportFromUInt(u);
                 } else if(mant.val == 0 && exp.val == 0 && ulp > 0) {
-                    u.val += abs(ulp);
+                    u.val += abs((FloatT)ulp);
                     sign = true;
                     ImportFromUInt(u);
                 } else {
 
-                if(((uint64_t)abs(ulp) > mant.val + (exp.val << GetSignificandSize())) &&
+                if(((uint64_t)abs((FloatT)ulp) > mant.val + (exp.val << GetSignificandSize())) &&
                 //if(((uint64_t)abs(ulp) > mant.val) &&
                  (((ulp > 0) && (!sign)) || ((ulp < 0) && (sign))))
                 {
-                    ulp = abs((long)mant.val - abs((long)ulp));
+                    ulp = abs((long)mant.val - abs((FloatT)ulp));
                     mant.val = 0;
                     sign = !sign;
                 }

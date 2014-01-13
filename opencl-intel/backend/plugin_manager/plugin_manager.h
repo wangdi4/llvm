@@ -149,6 +149,10 @@ private:
     typedef llvm::SmallPtrSet<PluginInfo*, 10> PluginsList;
     //list of registered plugins
     PluginsList m_listPlugins;
+
+    // don't allow Copy constructor and assignment operator
+    PluginManager(const PluginManager&);
+    PluginManager& operator=(const PluginManager&);
 };//end class PluginManager
 
 }}

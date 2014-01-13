@@ -235,14 +235,14 @@ namespace intel {
     m_util.init(&M);
 
     // Handle async built-ins
-    TInstructionVector callAsyncFunc = m_util.getWGCallInstructions(CALL_BI_TYPE_ASYNC);
-    for (unsigned idx = 0; idx < callAsyncFunc.size(); idx++) {
-      CallInst *pAsyncCallInst = cast<CallInst>(callAsyncFunc[idx]);
+    TInstructionVector callWGUniformFunc = m_util.getWGCallInstructions(CALL_BI_TYPE_WG_UNIFORM);
+    for (unsigned idx = 0; idx < callWGUniformFunc.size(); idx++) {
+      CallInst *pWGUniformCallInst = cast<CallInst>(callWGUniformFunc[idx]);
       // Add Barrier before async function call instruction
-      m_util.createBarrier(pAsyncCallInst);
+      m_util.createBarrier(pWGUniformCallInst);
       // Add dummyBarrier after async function call instruction
       Instruction *pDummyBarrierCall = m_util.createDummyBarrier();
-      pDummyBarrierCall->insertAfter(pAsyncCallInst);
+      pDummyBarrierCall->insertAfter(pWGUniformCallInst);
     }
 
     // Handle WorkGroup built-ins
@@ -396,7 +396,7 @@ namespace intel {
       pDummyBarrierCall->insertBefore(func_it->second);
     }
 
-    return !callAsyncFunc.empty() || !callWgFunc.empty();
+    return !callWGUniformFunc.empty() || !callWgFunc.empty();
   }
 
 

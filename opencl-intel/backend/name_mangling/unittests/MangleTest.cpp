@@ -208,8 +208,7 @@ TEST(NameMangle, demangleTostrightAndBack){
   #include "MangledNames.h"
   for( unsigned int i = 0 ; i < sizeof(mangledNames)/sizeof(char*) ; i++){
       const char* mname = mangledNames[i];
-      // TODO: delete the following as soon as the bug CSSD1000????? in the DemangleParser is fixed 
-      // The bug is not created yet, it is about incorrect handling of the repeating non-basic types of arguments
+      // TODO: delete the following line as soon as CSSD100016999 is fixed 
       if(std::string(mname).find("atomic_compare_exchange_")) continue;
 
       FunctionDescriptor fd = demangle(mname);
@@ -259,6 +258,22 @@ TEST(DemangleTest, AsyncGropuCpy){
     std::string("async_work_group_copy(__local char2 *, __global const char2 *, ulong, ulong)")
     , fd.toString()
   );
+}
+
+
+TEST(MangleTest, CSSD100018370){
+  const std::string s = "_Z14enqueue_kernelPK13ocl_clk_eventP13ocl_clk_event";
+  FunctionDescriptor fd = demangle(s.c_str());
+  // This is an expected failure. After fixing CSSD100018370, replace EXPECT_NE with ASSERT_EQ
+  //ASSERT_EQ(s, mangle(fd));
+  EXPECT_NE(s, mangle(fd));
+}
+
+TEST(DemangleTest, CSSD100018382){
+  FunctionDescriptor fd = demangle("_Z14enqueue_kernelU13block_pointerFvvE");
+  // This is an expected failure. After fixing CSSD100018382, replace ASSERT_TRUE with ASSERT_FALSE
+  ASSERT_TRUE(fd.isNull());
+  //ASSERT_FALSE(fd.isNull());
 }
 
 TEST(NameMangle, FailedOnce){

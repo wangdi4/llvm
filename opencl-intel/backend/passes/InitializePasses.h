@@ -80,6 +80,7 @@ void initializeDetectRecursionPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
 void initializeImplicitArgsAnalysisPass(llvm::PassRegistry&);
 void initializeSmartGVNPass(llvm::PassRegistry&);
+void initializeDeduceMaxWGDimPass(llvm::PassRegistry&);
 }
 
 #endif

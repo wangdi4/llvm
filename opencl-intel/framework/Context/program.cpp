@@ -424,16 +424,43 @@ size_t Program::GetBinarySizeInternal(cl_device_id clDevice)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// Program::GetBinaryTypeInternal
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_program_binary_type Program::GetBinaryTypeInternal(cl_device_id clDevice)
+{
+    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
+    if (NULL == pDeviceProgram)
+    {
+        return CL_PROGRAM_BINARY_TYPE_NONE;
+    }
+    return pDeviceProgram->GetBinaryTypeInternal();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Program::SetBinaryTypeInternal
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Program::SetBinaryTypeInternal(cl_device_id clDevice, cl_program_binary_type clBinaryType)
+{
+    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
+    if (NULL == pDeviceProgram)
+    {
+        return CL_INVALID_DEVICE;
+    }
+    return pDeviceProgram->SetBinaryTypeInternal(clBinaryType);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Program::SetBinaryInternal
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Program::SetBinaryInternal(cl_device_id clDevice, size_t uiBinarySize, const void *pBinary)
+cl_err_code Program::SetBinaryInternal(cl_device_id clDevice, size_t uiBinarySize, const void *pBinary,
+                                    cl_program_binary_type clBinaryType)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
     if (NULL == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
-    return pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary);
+    return pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary, clBinaryType);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -99,43 +99,11 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_enter_fu
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_exit_function(uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 
 // OpenCL20. Extended execution
-class ExtendedExecutionContext;
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE queue_t* ocl20_get_default_queue( ExtendedExecutionContext * pEEC);
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_marker( queue_t* queue, uint32_t num_events_in_wait_list, const clk_event_t* event_wait_list, clk_event_t* event_ret, ExtendedExecutionContext * pEEC);
+class IDeviceCommandManager;
+class IBlockToKernelMapper;
+#include "opencl20_ext_execution.h"
 
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_basic( queue_t* queue, kernel_enqueue_flags_t flags, _ndrange_t* ndrange, 
-  void *block, ExtendedExecutionContext * pEEC);
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_events(queue_t* queue, kernel_enqueue_flags_t flags, _ndrange_t* ndrange,
-        unsigned num_events_in_wait_list, clk_event_t *in_wait_list, clk_event_t *event_ret,
-        void *block, ExtendedExecutionContext * pEEC);
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_localmem( queue_t* queue, kernel_enqueue_flags_t flags, _ndrange_t* ndrange, 
-  void *block, unsigned *localbuf_size, unsigned localbuf_size_len, ExtendedExecutionContext * pEEC);
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_enqueue_kernel_events_localmem( queue_t* queue, kernel_enqueue_flags_t flags, _ndrange_t* ndrange,
-        unsigned num_events_in_wait_list, clk_event_t *in_wait_list, clk_event_t *event_ret,
-        void *block, unsigned *localbuf_size, unsigned localbuf_size_len, ExtendedExecutionContext * pEEC);
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_retain_event( clk_event_t* event, ExtendedExecutionContext * pEEC);
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int ocl20_release_event( clk_event_t* event, ExtendedExecutionContext * pEEC);
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE clk_event_t ocl20_create_user_event(ExtendedExecutionContext * pEEC);
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void ocl20_set_user_event_status(clk_event_t* event, uint32_t status, ExtendedExecutionContext * pEEC);
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void ocl20_capture_event_profiling_info(clk_event_t* event, clk_profiling_info name, uint64_t *value, ExtendedExecutionContext * pEEC);
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t ocl20_get_kernel_wg_size(void *block, ExtendedExecutionContext * pEEC);
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t ocl20_get_kernel_wg_size_local(void *block, ExtendedExecutionContext * pEEC);
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t ocl20_get_kernel_preferred_wg_size_multiple(void *block, ExtendedExecutionContext * pEEC);
-
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t ocl20_get_kernel_preferred_wg_size_multiple_local(void *block, ExtendedExecutionContext * pEEC);
-
-//Register BI functions defined above
+// Register BI functions defined above
 #define REGISTER_BI_FUNCTION(name,ptr) \
   llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name), (void*)(intptr_t)ptr);
 void RegisterCPUBIFunctions(void)

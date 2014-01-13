@@ -213,7 +213,6 @@ static void sharedBufferCPUGPUBody(OpenCLDescriptor& ocl_descriptor)
 	ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 2, ocl_descriptor.devices, NULL, NULL));
 		
 	cl_mem in_common_buffer = 0;
-	cl_mem sub_buffers[]={0,0};
 
 	// create shared buffer
 	// actual size is x2 (half for CPU and half for GPU)
@@ -232,16 +231,11 @@ static void sharedBufferCPUGPUBody(OpenCLDescriptor& ocl_descriptor)
 	{	
 		// create queues 
 		ASSERT_NO_FATAL_FAILURE(createCommandQueue(&ocl_descriptor.queues[i], ocl_descriptor.context, ocl_descriptor.devices[i], 0));
-		
-		cl_buffer_region input_buffer_region = { 0, 2* arraySize * sizeof(cl_int) };
-		ASSERT_NO_FATAL_FAILURE(createSubBuffer(&sub_buffers[i], in_common_buffer,			
-            CL_MEM_READ_WRITE,
-			CL_BUFFER_CREATE_TYPE_REGION, &input_buffer_region));
 
 		ASSERT_NO_FATAL_FAILURE(createKernel(&ocl_descriptor.kernels[i] , ocl_descriptor.program, "shared_synch"));
 
 		// set kernel arguments for CPU device
-		ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[i], 0, sizeof(cl_mem), &sub_buffers[i]));
+		ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[i], 0, sizeof(cl_mem), &in_common_buffer));
 		ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[i], 1, sizeof(int), &initial_pattern));
 		ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[i], 2, sizeof(int), &replacement[i]));
 		ASSERT_NO_FATAL_FAILURE(setKernelArg(ocl_descriptor.kernels[i], 3, sizeof(int), &arraySize));
@@ -261,13 +255,14 @@ static void sharedBufferCPUGPUBody(OpenCLDescriptor& ocl_descriptor)
 	{
 		ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[i], ocl_descriptor.kernels[i], 1, NULL, 
 			&global_work_size[i], NULL, 1, &user_event, &device_done_event[i]));
-		ASSERT_NO_FATAL_FAILURE(enqueueMapBuffer(&input_array.dynamic_array, ocl_descriptor.queues[i], 
-		in_common_buffer, CL_FALSE, CL_MAP_READ, 0, sizeof(int)*arraySize*2, 1, 
-		&device_done_event[i], &device_done_event[2+i]));
-
-		ASSERT_NO_FATAL_FAILURE(enqueueUnmapMemObject(ocl_descriptor.queues[i], in_common_buffer, 
-		input_array.dynamic_array, 1, &device_done_event[2+i], NULL));
 	}
+	// enqueue map buffer on CPU with required dependency on both CPU and GPU NDRanges
+	ASSERT_NO_FATAL_FAILURE(enqueueMapBuffer(&input_array.dynamic_array, ocl_descriptor.queues[0],
+	in_common_buffer, CL_FALSE, CL_MAP_READ, 0, sizeof(int)*arraySize*2, 2, 
+	&device_done_event[0], &device_done_event[2]));
+
+	ASSERT_NO_FATAL_FAILURE(enqueueUnmapMemObject(ocl_descriptor.queues[0], in_common_buffer, 
+	input_array.dynamic_array, 1, &device_done_event[2], &device_done_event[3]));
 	
 	// wait
 	sleepMS(100);
@@ -295,14 +290,6 @@ static void sharedBufferCPUGPUBody(OpenCLDescriptor& ocl_descriptor)
 		}
 	}
 	ASSERT_NO_FATAL_FAILURE(input_array.compareArray(comparison_array));
-
-	for(int i=0; i<2; ++i)
-	{
-		if(0!=sub_buffers[i]){
-			EXPECT_EQ(CL_SUCCESS, clReleaseMemObject(sub_buffers[i])) << "clReleaseMemObject failed";
-			sub_buffers[i] = 0;
-		}
-	}
 
 	if(0!=in_common_buffer){
 		EXPECT_EQ(CL_SUCCESS, clReleaseMemObject(in_common_buffer)) << "clReleaseMemObject failed";

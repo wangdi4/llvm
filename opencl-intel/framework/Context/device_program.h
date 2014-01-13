@@ -38,24 +38,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class Device;
     class FissionableDevice;
 
-	enum EDeviceProgramState
-	{
-        DEVICE_PROGRAM_INVALID,         // Invalid binary was specified
-		DEVICE_PROGRAM_CREATED,         // Object was just created
-		DEVICE_PROGRAM_BUILTIN_KERNELS,	// Program based on the built-in kernels
-		DEVICE_PROGRAM_SOURCE,		    // Source loaded
-		DEVICE_PROGRAM_FE_COMPILING,    // Currently compiling with FE compiler
-		DEVICE_PROGRAM_COMPILED,        // Compiled IR
+    enum EDeviceProgramState
+    {
+        DEVICE_PROGRAM_INVALID,         // Object was just created
+        DEVICE_PROGRAM_BUILTIN_KERNELS, // Program based on the built-in kernels
+        DEVICE_PROGRAM_SOURCE,          // Source loaded
+        DEVICE_PROGRAM_FE_COMPILING,    // Currently compiling with FE compiler
+        DEVICE_PROGRAM_COMPILED,        // Compiled IR
         DEVICE_PROGRAM_COMPILE_FAILED,  // Compilation failed
         DEVICE_PROGRAM_FE_LINKING,      // Currently linking with FE compiler
         DEVICE_PROGRAM_LINKED,          // Linked IR
         DEVICE_PROGRAM_LINK_FAILED,     // Linking failed
         DEVICE_PROGRAM_LOADED_IR,       // Loaded IR
-		DEVICE_PROGRAM_BE_BUILDING,	    // Currently building with BE compiler
-		DEVICE_PROGRAM_BUILD_DONE,      // Build complete, executable code ready
-		DEVICE_PROGRAM_CUSTOM_BINARY,   // Program contains device specific binary
+        DEVICE_PROGRAM_BE_BUILDING,     // Currently building with BE compiler
+        DEVICE_PROGRAM_BUILD_DONE,      // Build complete, executable code ready
+        DEVICE_PROGRAM_CUSTOM_BINARY,   // Program contains device specific binary
         DEVICE_PROGRAM_BUILD_FAILED     // Build failed
-	};
+    };
 
 	class DeviceProgram
 	{
@@ -106,15 +105,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ///////////////////////////////////////////////////////////
 
         // Returns a read only pointer to internal binary
-        const char*   GetBinaryInternal() { return m_pBinaryBits; };
+        const char*   GetBinaryInternal() const { return m_pBinaryBits; };
 
         // Returns internal binary size
-        size_t        GetBinarySizeInternal() { return m_uiBinaryBitsSize; };
+        size_t        GetBinarySizeInternal() const { return m_uiBinaryBitsSize; };
+
+        // Returns internal binary type
+        cl_program_binary_type   GetBinaryTypeInternal() const { return m_clBinaryBitsType; };
+
+        // Set internal binary type
+        // Returns CL_SUCCESS if nothing unexpected happened
+        cl_err_code   SetBinaryTypeInternal(cl_program_binary_type clBinaryType);
 
         // Set the program binary for a specific device
         // Creates a copy of the input
 		// Returns CL_SUCCESS if nothing unexpected happened
-		cl_err_code   SetBinaryInternal(size_t uiBinarySize, const void* pBinary);
+		cl_err_code   SetBinaryInternal(size_t uiBinarySize, const void* pBinary, cl_program_binary_type clBinaryType);
 
 
         // Clears the current build log, called in the beginning of each build sequence
@@ -172,6 +178,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// Binary-related members
 		char*               m_pBinaryBits;
 		size_t              m_uiBinaryBitsSize;
+		cl_program_binary_type m_clBinaryBitsType;
 		
 		// Ensure the object is multi-thread safe
 		mutable Intel::OpenCL::Utils::AtomicCounter m_currentAccesses;

@@ -11,7 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CloneBlockInvokeFuncToKernel.h"
 #include "OCLPassSupport.h"
 #include "MetaDataApi.h"
-
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Metadata.h"
@@ -29,6 +29,7 @@ extern "C" {
       return new intel::CloneBlockInvokeFuncToKernel();
   }
 }
+
 
 // Create function - OpenCL kernel which calls block_invoke function
 static Function *createKernelCallingBlock(Function *pBlock,
@@ -82,8 +83,29 @@ OCL_INITIALIZE_PASS(CloneBlockInvokeFuncToKernel, "cloneblockinvokefunctokernel"
                 false
                 )
 
+static bool canBlockInvokeFunctionBeEnqueued(Function *F)
+{
+  if(!F->getReturnType()->isVoidTy())
+    return false;
+
+  // check 1st arg is NOT struct return attribute
+  // In this case block returns struct - not accecptable for enqueue
+  Argument* Arg1= F->arg_begin();
+  if ( Arg1->hasStructRetAttr() )
+    return false;
+
+  return true;
+}
 bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
 {
+  m_pModule = &M;
+  m_pContext = &M.getContext();
+  m_pTD = getAnalysisIfAvailable<DataLayout>();
+  if(!m_pTD)
+    return false;
+  Intel::MetaDataUtils MDU(&M);
+  bool Changed = false;
+
   SmallVector<Function*,16> blockInvokeFuncs;
 
   // loop over functions in module
@@ -93,7 +115,7 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     // then it may be enqueued in enqueue_kernel() BIs as kernel
     // and we need to create kernel from the block invoke function
     if(BlockUtils::isBlockInvokeFunction(*F) &&
-       F->getReturnType()->isVoidTy())
+       canBlockInvokeFunctionBeEnqueued(F))
       blockInvokeFuncs.push_back(F);
   }
 
@@ -117,9 +139,12 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     // this enables to see block function in global symbol table
     // we use for resolving call address
     (*I)->setLinkage(GlobalValue::ExternalLinkage);
-
-    // create kernel function calling block
-    Function * NewFn = createKernelCallingBlock(*I, Context);
+    // copy function to new
+    ValueToValueMapTy VMap;
+    Function *NewFn = llvm::CloneFunction(*I, VMap,
+                                              /*ModuleLevelChanges=*/false);
+    assert(NewFn && "CloneFunction returned NULL");
+    
     // obtain name for kernel
     std::string newName = BlockUtils::CreateBlockInvokeKernelName((*I)->getName());
     // set name of kernel
@@ -134,6 +159,11 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     // add kernel func to module
     M.getFunctionList().push_back(NewFn);
 
+    // compute block_literal size
+    size_t blockLiteralSize = computeBlockLiteralSize(NewFn);
+    // Set in metadata so it can be used later when preparing calls to enqueue_kernel_*
+    MDU.getOrInsertKernelsInfoItem(NewFn)->setBlockLiteralSize(blockLiteralSize);
+    
     //
     // Updating of metadata with new kernel
     //
@@ -162,7 +192,73 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
 
     OpenCLKernelMetadata->addOperand(kernelMDNode);
+    Changed = true;
   }
-  return true;
+  if (Changed)
+    MDU.save(M.getContext());
+
+  return Changed;
 }
+
+static size_t getBlockLiteralDefaultSize() {
+// http://clang.llvm.org/docs/Block-ABI-Apple.html
+//  struct Block_literal_1 {
+//    void *isa; // initialized to &_NSConcreteStackBlock or &_NSConcreteGlobalBlock
+//    int flags;
+//    int reserved;
+//    void (*invoke)(void *, ...);
+//    struct Block_descriptor_1 {
+//    unsigned long int reserved;         // NULL
+//        unsigned long int size;         // sizeof(struct Block_literal_1)
+//        // optional helper functions
+//        void (*copy_helper)(void *dst, void *src);     // IFF (1<<25)
+//        void (*dispose_helper)(void *src);             // IFF (1<<25)
+//        // required ABI.2010.3.16
+//        const char *signature;                         // IFF (1<<30)
+//    } *descriptor;
+//    // imported variables
+//};
+  return sizeof(void*) + sizeof(int) + sizeof(int) + sizeof(void*) + sizeof(void*);
+}
+// compute block_literal size
+size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
+{
+  // get 1st and only argument
+  Function::arg_iterator ai = F->arg_begin();
+  Argument* blockLiteralPtr  = ai;
+  // workaround for blocks returning struct
+  if ( blockLiteralPtr->hasStructRetAttr() ) {
+      ++ai;
+      blockLiteralPtr = ai;
+  }
+  
+  // if no uses return default size
+  if(!blockLiteralPtr->getNumUses())
+    return getBlockLiteralDefaultSize();
+
+  assert(blockLiteralPtr->getType()->isPointerTy());
+  assert(blockLiteralPtr->hasOneUse() && "handle only one use of argument");
+  
+  BitCastInst *pBC = dyn_cast<BitCastInst>(*(blockLiteralPtr->use_begin()));
+  assert( pBC && "use is not bitcast instruction!" );
+
+  PointerType *pPTy = dyn_cast<PointerType>(pBC->getDestTy());
+  assert( pPTy && "expected bitcast to pointer type");
+  
+  StructType * pStructBlockLiteralTy = dyn_cast<StructType>(pPTy->getPointerElementType());
+  assert( pStructBlockLiteralTy && "expected bitcast to struct type");
+
+#ifndef NDEBUG
+  unsigned int const BLOCK_DESCRIPTOR_INDX = 4;
+  PointerType *pBlockDescPtr = dyn_cast<PointerType>(pStructBlockLiteralTy->getElementType(BLOCK_DESCRIPTOR_INDX));
+  assert( pBlockDescPtr && "expected pointer field");
+
+  StructType * pBlockDescTy = dyn_cast<StructType>(pBlockDescPtr->getPointerElementType());
+  assert( pBlockDescTy && "expected struct");
+#endif
+
+  //block_literal itself
+  return static_cast<size_t>(m_pTD->getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
+}
+
 } // namespace intel

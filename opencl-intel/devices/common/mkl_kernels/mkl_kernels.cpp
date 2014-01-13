@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2014 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -25,9 +25,11 @@
 
 #include "stdafx.h"
 
-#include "mkl_kernels.h"
 #include "export/mkl_builtins.h"
 #include <cl_dynamic_lib.h>
+
+#include "mkl_kernels.h"
+#include "gemm.h"
 
 #ifdef __OMP2TBB__
 extern "C" void __kmpc_begin(void* loc, int flags);
@@ -57,13 +59,13 @@ namespace Intel { namespace OpenCL { namespace MKLKernels {
 template< bool useFunctions > bool InitLibrary();
 
 #if defined(_WIN32)
-#define GET_MKL_FUNCTION_PTR(NAME) ((Intel::OpenCL::Utils::OclDynamicLib::func_t)NAME)
+#define GET_MKL_FUNCTION_PTR(NAME) ((ptrdiff_t)NAME)
 #elif defined(__MIC__)
-#define GET_MKL_FUNCTION_PTR(NAME) ((Intel::OpenCL::Utils::OclDynamicLib::func_t)NAME)
+#define GET_MKL_FUNCTION_PTR(NAME) ((ptrdiff_t)NAME)
 #else
 #include <dlfcn.h>
 //#define GET_MKL_FUNCTION_PTR(NAME) Intel::OpenCL::Utils::OclDynamicLib::GetFuntionPtrByNameFromHandle(RTLD_DEFAULT, #NAME)
-#define GET_MKL_FUNCTION_PTR(NAME) ((Intel::OpenCL::Utils::OclDynamicLib::func_t)NAME)
+#define GET_MKL_FUNCTION_PTR(NAME) ((ptrdiff_t)NAME)
 //#define GET_MKL_FUNCTION_PTR(NAME) g_mklRT.GetFunctionPtrByName(#NAME)
 #endif
 
@@ -72,8 +74,8 @@ template< bool useFunctions > bool InitLibrary();
     {\
         static cl_dev_err_code MKL_FUNCTION_NAME##Creator(Intel::OpenCL::BuiltInKernels::IBuiltInKernel* *ppBIKernel)\
         {\
-            Intel::OpenCL::Utils::OclDynamicLib::func_t pFunc = GET_MKL_FUNCTION_PTR(MKL_FUNCTION_NAME);\
-            if ( NULL==pFunc ) return CL_DEV_NOT_SUPPORTED;\
+            ptrdiff_t pFunc = GET_MKL_FUNCTION_PTR(MKL_FUNCTION_NAME);\
+            if ( NULL == (void*)pFunc ) return CL_DEV_NOT_SUPPORTED;\
             *ppBIKernel = new MKLKernel< MKL_##MKL_CLASS_TYPE##_Executor<DATA_TYPE > >(#MKL_FUNCTION_NAME, pFunc);\
             return CL_DEV_SUCCESS;\
         }\
@@ -83,6 +85,7 @@ template< bool useFunctions > bool InitLibrary();
 template<> bool InitLibrary<true>()
 {
 #ifdef __OMP2TBB__
+    // Required to initialize OpenMP layer. In original OpenMP environment this code is added by linker
     __kmpc_begin(NULL,0);
 #endif
 
@@ -133,6 +136,7 @@ template<> bool InitLibrary<false>()
 template<> void ReleaseLibrary<true>()
 {
 #ifdef __OMP2TBB__
+    // Required to shutdown OpenMP layer. In original OpenMP environment this code is added by linker
     __kmpc_end(NULL);
 #endif
 }

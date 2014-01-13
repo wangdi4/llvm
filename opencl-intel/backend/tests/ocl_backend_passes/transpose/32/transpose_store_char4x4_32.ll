@@ -17,8 +17,6 @@ entry:
 declare void @__ocl_transpose_store_char_4x4(<4 x i8>* %pStoreAdd, <4 x i8> %xIn, <4 x i8> %yIn, <4 x i8> %zIn, <4 x i8> %wIn) nounwind
 
 
-;CHECK:    .type    [[FOO:[_a-z]+]],@function
-;CHECK:    [[FOO]]
 ;CHECK:    vpshufb	    [[XMM4:%xmm[0-9]+]], [[XMM00:%xmm[0-9]+]], [[XMM01:%[xm0-9]+]]
 ;CHECK:    vpshufb	    [[XMM4]], [[XMM10:%xmm[0-9]+]], [[XMM11:%xmm[0-9]+]]
 ;CHECK:    vpunpcklbw	[[XMM01]], [[XMM11]], [[XMM2:%xmm[0-9]+]]
@@ -27,6 +25,3 @@ declare void @__ocl_transpose_store_char_4x4(<4 x i8>* %pStoreAdd, <4 x i8> %xIn
 ;CHECK:    vpunpcklbw	[[XMM31]], [[XMM51]], [[XMM6:%xmm[0-9]+]]
 ;CHECK:    vpunpcklwd	[[XMM2]], [[XMM6]], [[XMM7:%xmm[0-9]+]]
 ;CHECK:    vmovdqu	    [[XMM7]], ([[MEM:%[a-z]+]])
-;CHECK:	.type	    [[TRANSPOSE:[_a-z]+]]_store_char_4x4,@function
-
-

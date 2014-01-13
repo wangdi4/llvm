@@ -80,8 +80,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Returns internal binary size, used for build stages by program service
         size_t          GetBinarySizeInternal(cl_device_id clDevice);
 
+        // Returns internal binary type, used for build stages by program service
+        cl_program_binary_type  GetBinaryTypeInternal(cl_device_id clDevice);
+
+        // Sets the binary type for a specific device, used for build stages by program service
+        cl_err_code     SetBinaryTypeInternal(cl_device_id clDevice, cl_program_binary_type clBinaryType);
+
         // Sets the binary for a specific device, used for build stages by program service
-        cl_err_code     SetBinaryInternal(cl_device_id clDevice, size_t uiBinarySize, const void* pBinary);
+        cl_err_code     SetBinaryInternal(cl_device_id clDevice, size_t uiBinarySize, const void* pBinary, cl_program_binary_type clBinaryType);
 
         // Clears the current build log, called in the beginning of each build sequence
 		cl_err_code   ClearBuildLogInternal(cl_device_id clDevice);
@@ -133,19 +139,24 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		// If not found return false, otherwise return true
 		bool GetMyRelatedProgramDeviceIDInternal(const cl_device_id devID, cl_int* pOutID);
 
+        // Retrive device program for specific device
+        DeviceProgram*  GetDeviceProgram(cl_device_id clDeviceId);
+
+        // Retrive an array of all device programs
+        DeviceProgram** GetProgramsForAllDevices() { return m_ppDevicePrograms;}
+
 	protected:
 		virtual ~Program();
 
-		DeviceProgram*  GetDeviceProgram(cl_device_id clDeviceId);
         DeviceProgram*  InternalGetDeviceProgram(cl_device_id clDeviceId);
 
-		SharedPtr<Context>        m_pContext;
-		DeviceProgram** m_ppDevicePrograms;
-		cl_uint         m_szNumAssociatedDevices;
+		SharedPtr<Context>  m_pContext;
+		DeviceProgram**     m_ppDevicePrograms;
+		cl_uint             m_szNumAssociatedDevices;
 
 		OCLObjectsMap<_cl_kernel_int>	m_pKernels;			// associated kernels
 
-		tDeviceProgramMap m_deviceToProgram;
+		tDeviceProgramMap   m_deviceToProgram;
 
 	private:
 

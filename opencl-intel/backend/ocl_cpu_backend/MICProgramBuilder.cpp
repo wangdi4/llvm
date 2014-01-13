@@ -142,8 +142,9 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
         if (kimd->isVectorizedKernelHasValue())
         {
             Function *pVecFunc = kimd->getVectorizedKernel();
-            assert(!(spMICKernelProps->GetJitCreateWIids() && pVecFunc) &&
-                "if the vector kernel is inlined the entry of the vector kernel should be NULL");
+            assert(!(spMICKernelProps->IsVectorizedWithTail() && pVecFunc) &&
+                   "if the vector kernel is inlined the entry of the vector "
+                   "kernel should be NULL");
 
             if(NULL != pVecFunc && !dontVectorize)
             {
