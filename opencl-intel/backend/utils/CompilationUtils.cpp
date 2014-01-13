@@ -600,7 +600,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 Function *CompilationUtils::AddMoreArgsToFunc(
     Function *F, ArrayRef<Type *> NewTypes, ArrayRef<const char *> NewNames,
-    ArrayRef<Attributes> NewAttrs, StringRef Prefix, bool IsKernel) {
+    ArrayRef<AttributeSet> NewAttrs, StringRef Prefix, bool IsKernel) {
   assert(NewTypes.size() == NewNames.size());
   assert(NewTypes.size() == NewAttrs.size());
   // Initialize with all original arguments in the function sugnature

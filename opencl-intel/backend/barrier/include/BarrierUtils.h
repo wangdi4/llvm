@@ -14,7 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #endif
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IRBuilder.h"
+#include "llvm/IR/IRBuilder.h"
 
 #include "llvm/ADT/SetVector.h"
 

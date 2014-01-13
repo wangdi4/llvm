@@ -118,7 +118,7 @@ namespace intel{
 
     SmallVector<llvm::Type *, 16> NewTypes;
     SmallVector<const char *, 16> NewNames;
-    SmallVector<Attributes, 16> NewAttrs;
+    SmallVector<AttributeSet, 16> NewAttrs;
     unsigned NumExplicitArgs = pFunc->arg_size();
 
     // Calculate pointer to the local memory buffer. Do this before pFunc is deleted.

@@ -10,7 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 /*
     CloneBlockInvokeFuncToKernelPass pass finds in module
     all blockInvoke functions that may be enqueued as kernels
