@@ -260,6 +260,7 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     list.push_back("-cl-std=CL1.2");
     list.push_back("-D");
     list.push_back("__OPENCL_C_VERSION__=120");
+    CLSTDSet = 120;
   }
 
     list.push_back("-x");
