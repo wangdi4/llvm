@@ -134,6 +134,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       return invoke;
     }
 
+    /// @brief get block function invoke address
+    int64_t GetSize() const {
+      return desc->size;
+    }
+
+    void SetDescPtr(Block_descriptor *p) {
+      desc = p;
+    }
     /// ID of blockLiteral serialized copy
     static const int64_t BLOCKLITERAL_ID = 0xBFE04725;
   private:

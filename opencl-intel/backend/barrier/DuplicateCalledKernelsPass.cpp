@@ -70,7 +70,7 @@ namespace intel {
       // debug metadata.
       if (pllvmDebugCU) {
         for (unsigned cuIter = 0; cuIter < pllvmDebugCU->getNumOperands(); cuIter++) {
-          duplicateDebugMD(pllvmDebugCU->getOperand(0), finder, pFunc, pNewFunc);
+          duplicateDebugMD(pllvmDebugCU->getOperand(cuIter), finder, pFunc, pNewFunc);
         }
       }
     }

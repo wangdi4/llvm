@@ -14,7 +14,7 @@ entry:
   ret void
 }
 
-; CHECK: declare void @__foo_original(<2 x i8>* byval align 8) #0
+; CHECK: declare void @__foo_before.AddImplicitArgs(<2 x i8>* byval align 8) #0
 ; CHECK: define internal void @foo(<2 x i8>* byval align 8 %x,
 ; CHECK:  #0 {
 

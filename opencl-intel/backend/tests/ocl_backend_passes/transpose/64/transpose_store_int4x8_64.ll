@@ -23,7 +23,6 @@ entry:
 declare void @__ocl_transpose_store_int_4x8(<4 x i32>* nocapture %pStoreAdd, <8 x i32> %xIn, <8 x i32> %yIn, <8 x i32> %zIn, <8 x i32> %wIn) nounwind
 
 
-;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX:	vpunpckldq	[[XMM3:%xmm[0-9]+]], [[XMM1:%xmm[0-9]+]], [[XMM6:%xmm[0-9]+]]
 ;CHECK-AVX:	vpunpckldq	[[XMM2:%xmm[0-9]+]], [[XMM0:%xmm[0-9]+]], [[XMM4:%xmm[0-9]+]]
 ;CHECK-AVX:	vpunpckldq	[[XMM6]], [[XMM4]], [[XMM00:%xmm[0-9]+]] 
@@ -52,9 +51,7 @@ declare void @__ocl_transpose_store_int_4x8(<4 x i32>* nocapture %pStoreAdd, <8 
 ;CHECK-AVX:	vpunpckldq	[[XMM12]], [[XMM13]], [[XMM14:%xmm[0-9]+]]
 ;CHECK-AVX:	vmovdqa	[[XMM14]], 96([[RCX]])
 ;CHECK-AVX:	vmovdqa	[[XMM15]], 112([[RCX]])
-;CHECK-AVX:	.type	 [[TRANSPOSE:[_a-z]+]]_store_int_4x8,@function
 
-;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
 ;CHECK-AVX2:	vpunpckldq	[[YMM3:%ymm[0-9]+]], [[YMM1:%ymm[0-9]+]], [[YMM5:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpunpckldq	[[YMM2:%ymm[0-9]+]], [[YMM0:%ymm[0-9]+]], [[YMM6:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpunpckldq	[[YMM5]], [[YMM6]], [[YMM4:%ymm[0-9]+]]
@@ -71,4 +68,3 @@ declare void @__ocl_transpose_store_int_4x8(<4 x i32>* nocapture %pStoreAdd, <8 
 ;CHECK-AVX2:	vextracti128	$1, [[YMM51]], 80([[RCX]])
 ;CHECK-AVX2:	vextracti128	$1, [[YMM01]], 96([[RCX]])
 ;CHECK-AVX2:	vextracti128	$1, [[YMM12]], 112([[RCX]])
-;CHECK-AVX2:	.type	 [[TRANSPOSE:[_a-z]+]]_store_int_4x8,@function

@@ -42,6 +42,12 @@ public:
 
     ICLDevBackendKernelRunner::ICLDevExecutionState m_tExecState;
 
+    // Returns the actual number of Work Items handled by each executable instance
+    const size_t* GetWorkGroupSize() const
+    {
+        return m_LocalSize;
+    }
+
 private:
     void InitParams(const ICLDevBackendKernel_* pKernel, char* pArgsBuffer, cl_work_description_type workInfo);
     const ICLDevBackendKernelRunner * m_pKernelRunner;
@@ -56,11 +62,13 @@ private:
     std::vector<size_t>     m_kernelLocalMemSizes;
 
     size_t                  m_stAlignedKernelParamSize;
-    size_t                  m_stWIidsBufferSize;
     size_t                  m_stPrivateMemorySize;
     size_t                  m_stKernelParamSize;
 
     unsigned int            m_uiVectorWidth; // vector size that was actually used
     unsigned int            m_uiWGSize;
+
+    //work group size
+    size_t                  m_LocalSize[MAX_WORK_DIM];
 };
 

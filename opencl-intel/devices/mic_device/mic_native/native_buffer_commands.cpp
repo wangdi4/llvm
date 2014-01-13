@@ -74,7 +74,15 @@ void execute_command_fill_mem_object(uint32_t         in_BufferCount,
     const QueueOnDevice* pTLSQueue = QueueOnDevice::getCurrentQueue( &tlsAccessor );
     assert( pTLSQueue == pQueue && "Queue handle doesn't match");
 #endif
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    FillMemObjTask* fillMemObjTask = new FillMemObjTask(in_BufferCount, in_ppBufferPointers, fillMemObjDispatchData, in_MiscDataLength);
 
+    cl_dev_err_code err = fillMemObjTask->getTaskError();
+    if ( CL_DEV_SUCCEEDED(err) )
+    {
+        err = pQueue->Execute(fillMemObjTask);
+    }
+#else
     FillMemObjTask fillMemObjTask(in_BufferCount, in_ppBufferPointers, fillMemObjDispatchData, in_MiscDataLength);
     // Increase ref. count to prevent undesired deletion
     fillMemObjTask.IncRefCnt();
@@ -84,6 +92,7 @@ void execute_command_fill_mem_object(uint32_t         in_BufferCount,
     {
         err = pQueue->Execute(fillMemObjTask.GetAsTaskHandlerBase());
     }
+#endif
 
     *((cl_dev_err_code*)in_pReturnValue) = err;
 }
@@ -92,19 +101,39 @@ void execute_command_fill_mem_object(uint32_t         in_BufferCount,
 FillMemObjTask::FillMemObjTask( uint32_t lockBufferCount, void** pLockBuffers, fill_mem_obj_dispatcher_data* pDispatcherData, size_t uiDispatchSize) :
     TaskHandler<FillMemObjTask, fill_mem_obj_dispatcher_data >(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize),
     m_fillBufPtr((char*)(pLockBuffers[0])), m_fillBufPtrAnchor((char*)(pLockBuffers[0]))
+#ifdef USE_ITT
+    ,m_pIttFillBufferName(NULL), m_pIttFillBufferDomain(NULL)
+#endif
 {
     if ( lockBufferCount!=1 )
     {
         assert( 0 && "FillMemObjTask expects only single buffer" );
         setTaskError(CL_DEV_ERROR_FAIL);
     }
+#ifdef USE_ITT
+    if ( gMicGPAData.bUseGPA)
+    {
+	    m_pIttFillBufferDomain = __itt_domain_create("com.intel.opencl.device.mic.fill_mem_obj");
+		// Use fillBuffer specific domain if possible, if not available switch to global domain
+        if ( NULL == m_pIttFillBufferDomain )
+        {
+            m_pIttFillBufferDomain = gMicGPAData.pDeviceDomain;
+        }
+		m_pIttFillBufferName = __itt_string_handle_create("FillMemObj");
+    }
+#endif
 }
 
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
 FillMemObjTask::FillMemObjTask( const FillMemObjTask& o) :
     TaskHandler<FillMemObjTask, fill_mem_obj_dispatcher_data >( o ),
     m_fillBufPtr(o.m_fillBufPtr), m_fillBufPtrAnchor(o.m_fillBufPtrAnchor)
+#ifdef USE_ITT
+    ,m_pIttFillBufferName(o.m_pIttFillBufferName), m_pIttFillBufferDomain(o.m_pIttFillBufferDomain)
+#endif
 {
 }
+#endif
 
 bool FillMemObjTask::PrepareTask()
 {
@@ -141,10 +170,39 @@ void FillMemObjTask::Cancel()
     {
         COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
     }
+
+#ifdef USE_ITT
+    if ( gMicGPAData.bUseGPA)
+    {
+        __itt_task_end(m_pIttFillBufferDomain);
+    }
+#endif
 }
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+static __thread unsigned int master_id = 0;
+#endif
 
 int FillMemObjTask::Init(size_t region[], unsigned int& regCount)
 {
+#if defined(USE_ITT)
+    if ( gMicGPAData.bUseGPA )
+    {
+        __itt_frame_begin_v3(m_pIttFillBufferDomain, NULL);
+    }
+#endif
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( gMicGPAData.bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("FillMemObjTask::Init()");
+      }
+      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
 	// Notify start if exists
     if ( NULL!= m_dispatcherData->startEvent.isRegistered )
     {
@@ -189,6 +247,20 @@ int FillMemObjTask::Init(size_t region[], unsigned int& regCount)
 	// Do serial
 	if ((tRegion < gMicExecEnvOptions.min_buffer_size_parallel_fill) || (tRegion < (MAX_PATTERN_SIZE + alignRestriction)))
 	{
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+        if ( gMicGPAData.bUseGPA )
+        {
+           __itt_task_end(gMicGPAData.pDeviceDomain); //"FillMemObjTask::Init()"
+        }
+#endif
+
+#ifdef USE_ITT
+        if ( gMicGPAData.bUseGPA)
+        {
+          __itt_task_begin(m_pIttFillBufferDomain, __itt_null, __itt_null, m_pIttFillBufferName);
+        }
+#endif
+
 		m_serialExecution = true;
 		tPatternSize = m_dispatcherData->pattern_size;
 
@@ -260,15 +332,85 @@ int FillMemObjTask::Init(size_t region[], unsigned int& regCount)
 
 	region[0] = tRegion / (MAX_PATTERN_SIZE * m_numIterationsPerWorker);
 	m_coveredSize = (region[0] * MAX_PATTERN_SIZE * m_numIterationsPerWorker) + numBytesCpyForAlignFix;
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( gMicGPAData.bUseGPA )
+    {
+         __itt_task_end(gMicGPAData.pDeviceDomain); //"FillMemObjTask::Init()"
+    }
+#endif
+
+#ifdef USE_ITT
+    if ( gMicGPAData.bUseGPA)
+    {
+        __itt_task_begin(m_pIttFillBufferDomain, __itt_null, __itt_null, m_pIttFillBufferName);
+    }
+#endif
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( gMicGPAData.bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      master_id = GetThreadId();
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("TBB::Distribute_Work");
+      }
+      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
 	
 	return 0;
 }
 
 bool FillMemObjTask::ExecuteIteration(size_t x, size_t y, size_t z, void* data_from_AttachToThread)
 {
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    // Monitor only IN-ORDER queue
+    if ( (gMicGPAData.bUseGPA) && (master_id==GetThreadId()) )
+    {
+        __itt_task_end(gMicGPAData.pDeviceDomain); // End of "TBB::Distribute_Work"
+        // notify only once
+        master_id = 0;
+    }
+#endif
+
+#ifdef USE_ITT
+    if ( gMicGPAData.bUseGPA )
+    {
+        __itt_task_begin(m_pIttFillBufferDomain, __itt_null, __itt_null, m_pIttFillBufferName);
+    }
+#endif
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( gMicGPAData.bUseGPA )
+    {
+        static __thread __itt_string_handle* pTaskName = NULL;
+        if ( NULL == pTaskName )
+        {
+            pTaskName = __itt_string_handle_create("FillMemObjTask::ExecuteIteration()");
+        }
+        __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+
     const int numBytesToCopy = MAX_PATTERN_SIZE * m_numIterationsPerWorker;
     const int numBytesCopied = intrinCopy(numBytesToCopy * x, numBytesToCopy * (x + 1));
     assert((numBytesToCopy == numBytesCopied) && "each worker should copy (MAX_PATTERN_SIZE * m_numIterationsPerWorker) bytes");
+
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    // Monitor only IN-ORDER queue
+    if ( gMicGPAData.bUseGPA )
+    {
+      __itt_task_end(gMicGPAData.pDeviceDomain); // "FillMemObjTask::ExecuteIteration()"
+    }
+#endif
+#ifdef USE_ITT
+    if ( gMicGPAData.bUseGPA)
+    {
+        __itt_task_end(m_pIttFillBufferDomain);
+    }
+#endif
+
     return (numBytesCopied == numBytesToCopy);
 }
 
@@ -292,6 +434,27 @@ bool FillMemObjTask::Finish(Intel::OpenCL::TaskExecutor::FINISH_REASON reason)
         }
 	}
 
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    if ( gMicGPAData.bUseGPA )
+    {
+      static __thread __itt_string_handle* pTaskName = NULL;
+      if ( NULL == pTaskName )
+      {
+        pTaskName = __itt_string_handle_create("FillMemObjTask::Finish->m_releasehandler->addTask(this)");
+      }
+      __itt_task_begin(gMicGPAData.pDeviceDomain, __itt_null, __itt_null, pTaskName);
+    }
+#endif
+    m_releasehandler->addTask(this);
+#if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
+    // Monitor only IN-ORDER queue
+    if ( gMicGPAData.bUseGPA )
+    {
+      __itt_task_end(gMicGPAData.pDeviceDomain);
+    }
+#endif
+#else
     // Release COI resources
     FiniTask();
 
@@ -304,6 +467,14 @@ bool FillMemObjTask::Finish(Intel::OpenCL::TaskExecutor::FINISH_REASON reason)
     {
         COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
     }
+#endif
+#ifdef USE_ITT
+    if ( gMicGPAData.bUseGPA)
+    {
+        __itt_task_end(m_pIttFillBufferDomain);
+        __itt_frame_end_v3(m_pIttFillBufferDomain, NULL);
+    }
+#endif
 
     return m_serialExecution ? true : CL_DEV_SUCCEEDED( getTaskError() );
 }

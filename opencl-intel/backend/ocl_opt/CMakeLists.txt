@@ -41,7 +41,9 @@ set(OCL_BE_PASSES
     CloneBlockInvokeFuncToKernel
     DetectRecursion
     ResolveBlockToStaticCall
+    PatchCallbackArgs
     SmartGVN
+    KernelInfo
 )
 
 # Dependencies of the passes

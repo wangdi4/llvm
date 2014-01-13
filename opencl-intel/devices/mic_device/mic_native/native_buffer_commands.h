@@ -33,6 +33,10 @@
 
 #include <immintrin.h>
 
+#ifdef USE_ITT
+#include <ocl_itt.h>
+#endif
+
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
 extern Intel::OpenCL::MICDevice::mic_exec_env_options gMicExecEnvOptions;
@@ -48,7 +52,9 @@ public:
     bool PrepareTask();
 
     // TaskHandler methods
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION	
     const FillMemObjTask& GetAsCommandTypeConst() const { return *this; }
+#endif
     Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return static_cast<Intel::OpenCL::TaskExecutor::ITaskBase*>(this);}
 
     // ITask methods 
@@ -110,8 +116,15 @@ public:
 	
 protected:
     friend class TaskHandler<FillMemObjTask, Intel::OpenCL::MICDevice::fill_mem_obj_dispatcher_data >;
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
     // Copy constructor used for task duplication
     FillMemObjTask(const FillMemObjTask& o);
+#endif 
+
+#ifdef USE_ITT
+    __itt_string_handle*        m_pIttFillBufferName;
+    __itt_domain*               m_pIttFillBufferDomain;
+#endif
 
 private:
     // The Buffer to fill pointer

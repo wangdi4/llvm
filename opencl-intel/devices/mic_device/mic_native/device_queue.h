@@ -34,10 +34,19 @@
 
 namespace Intel { namespace OpenCL { namespace MICDeviceNative {
 
-/* QueueOnDevice is an abstract class that manage the execution of a task. */
+/* QueueOnDevice is a class that manage the execution of a task. */
 class QueueOnDevice
 {
 public:
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    QueueOnDevice( ThreadPool& thread_pool ) : m_thread_pool(thread_pool) {};
+
+    // return false on error
+    bool Init( bool isInOrder );
+
+    /* Run the task */
+    cl_dev_err_code Execute( TaskHandlerBase* task_handler);
+#else
     virtual ~QueueOnDevice() {};
 
     // return false on error
@@ -45,6 +54,7 @@ public:
 
     /* Run the task */
     virtual cl_dev_err_code Execute( TaskHandlerBase* task_handler) = 0;
+#endif
 
     void Cancel() const;
 
@@ -70,14 +80,19 @@ public:
     static Intel::OpenCL::Utils::AtomicCounter m_sNumQueuesCreated;
 #endif
 
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
     Intel::OpenCL::TaskExecutor::ITaskList* GetTaskList() const { return m_task_list.GetPtr();}
+#endif
 protected:
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
     QueueOnDevice( ThreadPool& thread_pool ) : m_thread_pool(thread_pool) {};
+#endif
 
     ThreadPool&                                                              m_thread_pool;
     Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList>  m_task_list;
 };
 
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
 /* BlockingTaskHandler inherits from "TaskHandler" and implements the functionality for Blocking task management. */
 class InOrderQueueOnDevice : public QueueOnDevice
 {
@@ -108,6 +123,7 @@ public:
     // return false on error
     bool Init();
 };
+#endif
 
 }}}
 

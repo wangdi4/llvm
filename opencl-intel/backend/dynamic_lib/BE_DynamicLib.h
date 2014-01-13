@@ -20,7 +20,7 @@ File Name:  DynamicLib.h
 
 #include <stdexcept>
 #include "cl_device_api.h"
-#include <DynamicLib.h>
+#include "cl_dynamic_lib.h"
 
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -38,7 +38,7 @@ public:
 
 namespace Utils {
 
-class BE_DynamicLib : public Intel::OpenCL::Utils::DynamicLib
+class BE_DynamicLib : public Intel::OpenCL::Utils::OclDynamicLib
 {
 public:
   BE_DynamicLib(void);
@@ -49,11 +49,8 @@ public:
   //		pLibName	- A pointer to null terminated string that describes library file name
   void Load(const char* pLibName);
 
-  // Release all allocated resourses and unloads the library
-  void Close();
-
   // Returns the pointer to exported function within a loaded module
-  void* GetFuncPtr(const char* funcName);
+  ptrdiff_t GetFuncPtr(const char* funcName);
 
 private:
   void* m_hLibrary;		// A handle to loaded library

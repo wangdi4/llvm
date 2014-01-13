@@ -1,12 +1,32 @@
+// Copyright (c) 2006-2014 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
 #include <vector>
 #include <tbb/critical_section.h>
 #include <tbb/atomic.h>
 
 #ifdef _WIN32
-#define LIBOMP2TBB_API	__declspec(dllexport)
-#define THREAD_LOCAL	__declspec(thread)
+#define LIBOMP2TBB_API    __declspec(dllexport)
+#define THREAD_LOCAL    __declspec(thread)
 #else
-#define THREAD_LOCAL	__thread
+#define THREAD_LOCAL    __thread
 #define LIBOMP2TBB_API
 // put pthread definition hhere
 #endif
@@ -39,40 +59,40 @@ extern unsigned int get_current_team_concurency();
 // Global information which is required to handle for each OMP master thread
 class global_thread_table {
 public:
-	struct thread_info_entry;
+    struct thread_info_entry;
 
-	global_thread_table() {}
-	~global_thread_table() {}
+    global_thread_table() {}
+    ~global_thread_table() {}
 
-	kmp_int32 allocate_master_thread();
-	
-	kmp_int32 get_master_count() {
-		return (kmp_int32)masters.size();
-	}
-	
-	thread_info_entry* get_master_entry(kmp_int32 gtid) {
-		return &masters[gtid];
-	}
+    kmp_int32 allocate_master_thread();
 
-	struct thread_info_entry {
-		thread_info_entry();
-		thread_info_entry(const thread_info_entry& o);
-		~thread_info_entry();
+    kmp_int32 get_master_count() {
+        return (kmp_int32)masters.size();
+    }
 
-		// requried by "omp critical" handling
-		tbb::critical_section*	my_critical;
-		// required by "omp single" handling
-		tbb::atomic<ident_t*>	my_last_single_location;
-		tbb::atomic<long>		my_single_count;
-		// required by "omp barrier" or implicit barrier handling
-		long					my_concurency;
-		volatile long			my_barrier_epoch;
-		// Need to change to more efficient implementation
-		tbb::atomic<long>		my_barrier_count;
-	};
+    thread_info_entry* get_master_entry(kmp_int32 gtid) {
+        return &masters[gtid];
+    }
+
+    struct thread_info_entry {
+        thread_info_entry();
+        thread_info_entry(const thread_info_entry& o);
+        ~thread_info_entry();
+
+        // requried by "omp critical" handling
+        tbb::critical_section*    my_critical;
+        // required by "omp single" handling
+        tbb::atomic<ident_t*>    my_last_single_location;
+        tbb::atomic<long>        my_single_count;
+        // required by "omp barrier" or implicit barrier handling
+        long                     my_concurrency;
+        volatile long            my_barrier_epoch;
+        // Need to change to more efficient implementation
+        tbb::atomic<long>        my_barrier_count;
+    };
 
 protected:
-	tbb::critical_section			masters_guard;
-	std::vector<thread_info_entry>	masters;
+    tbb::critical_section            masters_guard;
+    std::vector<thread_info_entry>    masters;
 };
 }

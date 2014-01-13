@@ -27,8 +27,6 @@ declare void @__ocl_load_transpose_float_4x8(<4 x float>* nocapture %pLoadAdd, <
 
 
 
-;CHECK:	.type    [[FOO:[_a-z]+]],@function
-;CHECK:    [[FOO]]:
 ;CHECK:	vmovaps	48([[EAX:%[a-z]+]]), [[XMM0:%xmm[0-9]+]]
 ;CHECK:	vinsertf128	$1, 112([[EAX]]), [[YMM01:%ymm[0-9]+]], [[YMM0:%ymm[0-9]+]]
 ;CHECK:	vmovaps	([[EAX]]), [[XMM2:%xmm[0-9]+]]
@@ -45,7 +43,6 @@ declare void @__ocl_load_transpose_float_4x8(<4 x float>* nocapture %pLoadAdd, <
 ;CHECK:	vunpcklps	[[YMM4]], [[YMM5]], [[YMM31:%ymm[0-9]+]]
 ;CHECK:	vunpckhps	[[YMM02]], [[YMM31]], [[YMM12:%ymm[0-9]+]]
 ;CHECK:	vunpcklps	[[YMM02]], [[YMM31]], [[YMM03:%ymm[0-9]+]]
-;CHECK:    .type	[[LOAD:[_a-z]+]]_transpose_float_4x8,@function
 
 
 

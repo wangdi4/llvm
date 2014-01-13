@@ -26,8 +26,6 @@ entry:
 
 declare void @__ocl_load_transpose_int_4x4(<4 x i32>* nocapture %pLoadAdd, <4 x i32>* nocapture %xOut, <4 x i32>* nocapture %yOut, <4 x i32>* nocapture %zOut, <4 x i32>* nocapture %wOut) nounwind
 
-;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX: [[FOO]]
 ;CHECK-AVX:	vmovdqa	([[RCX:%[a-z]+]]), [[XMM0:%xmm[0-9]+]]
 ;CHECK-AVX:	vmovdqa	16([[RCX]]), [[XMM1:%xmm[0-9]+]]
 ;CHECK-AVX:	vmovdqa	32([[RCX]]), [[XMM2:%xmm[0-9]+]]
@@ -40,10 +38,7 @@ declare void @__ocl_load_transpose_int_4x4(<4 x i32>* nocapture %pLoadAdd, <4 x 
 ;CHECK-AVX:	vpunpckldq	[[XMM2]], [[XMM0]], [[XMM5:%xmm[0-9]+]]
 ;CHECK-AVX:	vpunpckhdq	[[XMM7]], [[XMM5]], [[XMM10:%xmm[0-9]+]]
 ;CHECK-AVX:	vpunpckldq	[[XMM7]], [[XMM5]], [[XMM11:%xmm[0-9]+]]
-;CHECK-AVX:    .type	[[LOAD:[_a-z]+]]_transpose_int_4x4,@function
 
-;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX2:    [[FOO]]:  
 ;CHECK-AVX2:	vpermd	[[YMM10:%ymm[0-9]+]], [[SHUF:%ymm[0-9]+]], [[YMM1:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpermd	[[YMM00:%ymm[0-9]+]], [[SHUF]], [[YMM3:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpalignr	$8, [[YMM1]], [[YMM3]], [[YMM0:%ymm[0-9]+]]
@@ -53,4 +48,3 @@ declare void @__ocl_load_transpose_int_4x4(<4 x i32>* nocapture %pLoadAdd, <4 x 
 ;CHECK-AVX2:	vpaddd	[[XMM2]], [[XMM3]], [[XMM21:%xmm[0-9]+]]
 ;CHECK-AVX2:	vpaddd	[[XMM0:%xmm[0-9]+]], [[XMM1:%xmm[0-9]+]], [[XMM01:%xmm[0-9]+]]
 ;CHECK-AVX2:	vpaddd	[[XMM21]], [[XMM01]], [[XMM02:%xmm[0-9]+]]
-;CHECK-AVX2:    .type	[[LOAD:[_a-z]+]]_transpose_int_4x4,@function

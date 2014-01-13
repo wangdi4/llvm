@@ -22,7 +22,8 @@ bool clGetKernelArgInfoTest()
 {
     bool bResult = true;
     const char *ocl_test_program[] = {\
-    "__kernel void test_kernel1(__global char16 pBuff0[], __global char* pBuff1, __global const char* pBuff2, image2d_t __read_only test_image)"\
+    "__kernel void test_kernel1(__global char16 pBuff0[], __global char* pBuff1, __global const char* pBuff2, image2d_t __read_only test_image) "\
+    "__attribute__((vec_type_hint(uint8))) __attribute__((reqd_work_group_size(8,8,8)))"\
     "{"\
     "    size_t id = get_global_id(0);"\
     "    pBuff0[id] = pBuff1[id] ? pBuff0[id] : pBuff2[id];"\
@@ -201,6 +202,18 @@ bool clGetKernelArgInfoTest()
         clReleaseKernel(clKernel2);
 
         return false;
+    }
+
+    iRet |= clGetKernelInfo(clKernel1, CL_KERNEL_ATTRIBUTES, sizeof(szName), szName, NULL);
+
+    if (0 == strstr(szName, "reqd_work_group_size(8,8,8)"))
+    {
+        iRet = -1;
+    }
+
+    if (0 == strstr(szName, "vec_type_hint(uint8)"))
+    {
+        iRet = -1;
     }
 
     // Release objects

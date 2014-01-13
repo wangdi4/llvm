@@ -374,6 +374,8 @@ void executeKernels(uint32_t         in_BufferCount,
         DEBUG_PRINT("Creating binary ... ");
         cl_work_description_type workDesc;
         dispatchers[i].workDesc.convertToClWorkDescriptionType(&workDesc);
+        if ( workDesc.minWorkGroupNum == 0)
+            workDesc.minWorkGroupNum = 1;
         DEBUG_PRINT("\nWork space params:\nDimension:\t%d\nGlobal work size:\t[%d, %d, %d]\nGlobal work offset:\t[%d, %d, %d]\nLocal work size:\t[%d, %d, %d]\n", workDesc.workDimension, (int)workDesc.globalWorkSize[0], (int)workDesc.globalWorkSize[1], (int)workDesc.globalWorkSize[2], (int)workDesc.globalWorkOffset[0], (int)workDesc.globalWorkOffset[1], (int)workDesc.globalWorkOffset[2], (int)workDesc.localWorkSize[0], (int)workDesc.localWorkSize[1], (int)workDesc.localWorkSize[2]);
         DEBUG_PRINT("Kernel arguments size = %d\n", (int)dispatchers[i].kernelArgSize);
         // adjust the local work group sized in case we are running
@@ -448,8 +450,8 @@ void executeKernels(uint32_t         in_BufferCount,
                 // init the work group regions
                 for (size_t j=0; j < workDesc.workDimension; ++j)
                 {
-                    dims[j] = (size_t)(workDesc.globalWorkSize[j]/workDesc.localWorkSize[j]);
-                    assert(workDesc.globalWorkSize[j]%workDesc.localWorkSize[j] == 0);
+                    dims[j] = (size_t)(workDesc.globalWorkSize[j]/context.GetWorkGroupSize()[j]);
+                    assert(workDesc.globalWorkSize[j]%context.GetWorkGroupSize()[j] == 0);
                 }
                 DEBUG_PRINT("Number of work dimensions: %d\n", uint32_t(workDesc.workDimension));
                 DEBUG_PRINT("work dimensions: [%d, %d, %d]\n", uint32_t(dims[0]), int32_t(dims[1]), uint32_t(dims[2]));

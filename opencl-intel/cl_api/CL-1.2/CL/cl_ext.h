@@ -157,9 +157,9 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *clTerminateContextKHR_fn)(cl_context /
  * Standard Portable Intermediate Representation (SPIR) instance
  */
 
-// KHR SPIR extension (Section 9.15.2 in the extension SPEC)
 #define CL_DEVICE_SPIR_VERSIONS                     0x40E0
 #define CL_PROGRAM_BINARY_TYPE_INTERMEDIATE         0x40E1
+
 
 /******************************************
 * cl_nv_device_attribute_query extension *

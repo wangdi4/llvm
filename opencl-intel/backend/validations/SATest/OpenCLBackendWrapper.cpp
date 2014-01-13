@@ -19,7 +19,7 @@ File Name:  OpenCLBackendWrapper.cpp
 #include "OpenCLBackendWrapper.h"
 #include "BackendOptions.h"
 #include "SATestException.h"
-#include "DynamicLib.h"
+#include "cl_dynamic_lib.h"
 
 #if defined(_WIN32)
 #if defined(_M_X64)

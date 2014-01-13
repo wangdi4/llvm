@@ -8,12 +8,19 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "MetaDataApi.h"
+#include "LoopUtils/LoopUtils.h"
+#include "CompilationUtils.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+
+#include <sstream>
+#include <set>
+#include <vector>
 
 namespace intel {
 
@@ -23,6 +30,7 @@ namespace intel {
   OCL_INITIALIZE_PASS_DEPENDENCY(DataPerBarrier)
   OCL_INITIALIZE_PASS_DEPENDENCY(DataPerValue)
   OCL_INITIALIZE_PASS_END(Barrier, "B-Barrier", "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs", false, true)
+
 
   Barrier::Barrier(bool isNativeDebug) : ModulePass(ID), m_isNativeDBG(isNativeDebug) {
     initializeBarrierPass(*llvm::PassRegistry::getPassRegistry());
@@ -35,20 +43,28 @@ namespace intel {
 
     //Initialize barrier utils class with current module
     m_util.init(&M);
+    // This call is needed to initialize vectorization widths
+    m_util.getAllKernelFunctions();
 
     m_pContext = &M.getContext();
     //Initialize the side of size_t
     m_uiSizeT = M.getPointerSize()*32;
     m_sizeTType = IntegerType::get(*m_pContext, m_uiSizeT);
+    m_I32Type = IntegerType::get(*m_pContext, 32);
+    m_LocalIdAllocTy = PointerType::get(ArrayType::get(m_sizeTType, MaxNumDims), 0);
+    m_Zero = ConstantInt::get(m_sizeTType, 0);
+    m_One = ConstantInt::get(m_sizeTType, 1);
 
+    bool ModuleHasAnyInternalCalls = false;
     //Update Map with structure stride size for each kernel
     updateStructureStride(M);
 
     //Find all functions that call synchronize instructions
     TFunctionSet& functionsWithSync = m_util.getAllFunctionsWithSynchronization();
     //Collect data for each function with synchronize instruction
-    for ( TFunctionSet::iterator fi = functionsWithSync.begin(),
-        fe = functionsWithSync.end(); fi != fe; ++fi ) {
+    for (TFunctionSet::iterator fi = functionsWithSync.begin(),
+                                fe = functionsWithSync.end();
+         fi != fe; ++fi) {
       Function* pFunc = *fi;
 
       //Check if function has no synchronize instructions!
@@ -58,8 +74,9 @@ namespace intel {
       //Create new BB at the begining of the function for declarations
       pFunc->begin()->splitBasicBlock(pFunc->getEntryBlock().begin(), "FirstBB");
       //Initialize the argument values
-      //This is needed for optimize pCurrWI calculation
+      //This is needed for optimize pLocalId calculation
       bool hasNoInternalCalls = !m_util.doesCallModuleFunction(pFunc);
+      ModuleHasAnyInternalCalls = ModuleHasAnyInternalCalls || !hasNoInternalCalls;
       createBarrierKeyValues(pFunc, hasNoInternalCalls);
     }
 
@@ -87,6 +104,7 @@ namespace intel {
       fixNonInlineFunction(pFuncToFix);
     }
 
+
     //Run over functions with synchronize instruction:
     // 1. Handle Values from Group-A, Group-B.1 and Group-B.2
     // 2. Hanlde synchronize instructions
@@ -96,7 +114,8 @@ namespace intel {
       runOnFunction(*pFuncToFix);
     }
 
-    //Fix get_local_id() and get_global_id() function calls
+    fixSynclessTIDUsers(M, functionsWithSync);
+    // Fix get_local_id() and get_global_id() function calls
     fixGetWIIdFunctions(M);
 
     return true;
@@ -148,6 +167,96 @@ namespace intel {
     eraseAllToRemoveInstructions();
     return true;
   }
+
+  void Barrier::fixSynclessTIDUsers(Module &M, const TFunctionSet &FuncsWithSync) {
+    std::vector<Function*> Worklist;
+    std::set<Function*> FuncsToPatch;
+    std::set<CallInst*> CIsToPatch;
+    std::vector<std::string> TIDFuncNames;
+    using namespace Intel::OpenCL::DeviceBackend;
+    TIDFuncNames.push_back(CompilationUtils::mangledGetLID());
+    TIDFuncNames.push_back(CompilationUtils::mangledGetGID());
+    // Initialize the set of functions that need patching by selecting the
+    // functions which contain direct calls to get_*_id() and are w/o syncs
+    for (unsigned I = 0; I < TIDFuncNames.size(); ++I) {
+      Function *F = M.getFunction(TIDFuncNames[I]);
+      if (!F) continue;
+      for (Function::use_iterator ui = F->use_begin(), ue = F->use_end();
+           ui != ue; ++ui) {
+        CallInst *CI = dyn_cast<CallInst>(*ui);
+        if (!CI) continue;
+        Function *CallingF = CI->getParent()->getParent();
+        assert(CallingF);
+        if (FuncsWithSync.count(CallingF)) continue;
+        FuncsToPatch.insert(CallingF);
+        Worklist.push_back(CallingF);
+      }
+    }
+    // Traverse back the call graph and find the set of all functions which need to be patched. Also find the coresponding call intructions
+    // Function which need to be patched are either:
+    // 1. Functions w/o sync instructions which are direct calls of get_*_id() (handled in loop above)
+    // 2. Functions which are direct caller of functions described in 1. or (recursively) functions defined in this line which do not contain sync instructions
+    for (unsigned WorkListIdx = 0; WorkListIdx < Worklist.size(); ++WorkListIdx) {
+      Function *CalledF = Worklist[WorkListIdx];
+      for (Function::use_iterator UI = CalledF->use_begin(), UE = CalledF->use_end();
+           UI != UE; ++UI) {
+        CallInst *CI = dyn_cast<CallInst>(*UI);
+        if (!CI) continue;
+        CIsToPatch.insert(CI);
+        Function *CallingF = CI->getParent()->getParent();
+        if (FuncsWithSync.count(CallingF)) continue;
+        FuncsToPatch.insert(CallingF);
+        Worklist.push_back(CallingF);
+      }
+    }
+
+    typedef std::map<Function *, Function *> F2FMap;
+    F2FMap OldF2PatchedF;
+    // Setup stuff needed for adding another argument to patched functions
+#if LLVM_VERSION == 3200
+    SmallVector<Attributes, 1> NewAttrs(
+        1, Attributes::get(*m_pContext, Attributes::NoAlias));
+#elif LLVM_VERSION == 3425
+    SmallVector<Attributes, 1> NewAttrs(
+        1, Attributes::get(*m_pContext, Attributes::NoAlias));
+#else
+    SmallVector<AttributeSet, 1> NewAttrs(
+        1, AttributeSet::get(*m_pContext, 0, Attribute::NoAlias));
+#endif
+    // Patch the functions
+    for (std::set<Function *>::iterator I = FuncsToPatch.begin(),
+                                        E = FuncsToPatch.end();
+         I != E; ++I) {
+      Function *OldF = *I;
+      Function *PatchedF =
+          CompilationUtils::AddMoreArgsToFunc(OldF, m_LocalIdAllocTy, "pLocalIdValues", NewAttrs, "BarrierPass");
+      OldF2PatchedF[OldF] = PatchedF;
+      assert(!m_pBarrierKeyValuesPerFunction.count(OldF));
+      // So now the last arg of NewF is the base of the memory holding LocalId's
+      // Find the last arg
+      Function::arg_iterator AI = PatchedF->arg_begin();
+      for (unsigned I = 0; I < PatchedF->arg_size() - 1; ++I, ++AI) {
+        // Skip over the original args
+      }
+      m_pBarrierKeyValuesPerFunction[PatchedF].m_TheFunction = PatchedF;
+      m_pBarrierKeyValuesPerFunction[PatchedF].m_pLocalIdValues = &*AI;
+    }
+    // Patch the calls
+    for (std::set<CallInst *>::iterator I = CIsToPatch.begin(),
+                                        IE = CIsToPatch.end();
+         I != IE; ++I) {
+      CallInst *CI = *I;
+      Function *CallingF = CI->getParent()->getParent();
+      Function *CalledF = CI->getCalledFunction();
+      assert(OldF2PatchedF.find(CalledF) != OldF2PatchedF.end());
+      Function *PatchedF = OldF2PatchedF[CalledF];
+      // Use calling functions's LocalIdValues as additional argument to called function
+      assert(m_pBarrierKeyValuesPerFunction.find(CallingF) != m_pBarrierKeyValuesPerFunction.end());
+      Value* NewArg = m_pBarrierKeyValuesPerFunction.find(CallingF)->second.m_pLocalIdValues;
+      SmallVector<Value *, 1> NewArgs(1, NewArg);
+      CompilationUtils::AddMoreArgsToCall(CI, NewArgs, PatchedF);
+    }
+}
 
   void Barrier::useStackAsWorkspace(Instruction* insertBefore, Instruction* insertBeforeEnd) {
     //TODO: do we need to set DebugLoc for these instruction?
@@ -212,7 +321,7 @@ namespace intel {
     TInstructionSet userInsts;
     TValueVector::iterator vi = m_pAllocaValues->begin();
     TValueVector::iterator ve = m_pAllocaValues->end();
-    for ( ; vi != ve; ++vi ) {
+    for (; vi != ve; ++vi) {
       AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(*vi);
       assert( pAllocaInst && "container of alloca values has non AllocaInst value!" );
       assert( !m_pDataPerValue->isOneBitElementType(pAllocaInst) && "AllocaInst with base type i1!" );
@@ -247,17 +356,16 @@ namespace intel {
     TValueVector::iterator vi = m_pSpecialValues->begin();
     TValueVector::iterator ve = m_pSpecialValues->end();
     for ( ; vi != ve; ++vi ) {
-      Instruction *pInst = dyn_cast<Instruction>(*vi);
-      assert( pInst && "container of special values has non Instruction value!" );
+      Instruction *pInst = cast<Instruction>(*vi);
 
       const DebugLoc& DB = pInst->getDebugLoc();
       //This will hold the real type of this value in the special buffer
       Type *pTypeInSP = pInst->getType();
       bool oneBitBaseType = m_pDataPerValue->isOneBitElementType(pInst);
-      if ( oneBitBaseType ) {
+      if (oneBitBaseType) {
         // base type is i1 need to ZEXT/TRUNC to/from i32
         VectorType *pVecType = dyn_cast<VectorType>(pInst->getType());
-        if( pVecType ) {
+        if (pVecType) {
           pTypeInSP = VectorType::get(IntegerType::get(*m_pContext, 32), pVecType->getNumElements());
         } else {
           pTypeInSP = IntegerType::get(*m_pContext, 32);
@@ -292,18 +400,18 @@ namespace intel {
 
       TInstructionSet userInsts;
       //Save all uses of pInst and add them to a container before start handling them!
-      for ( Instruction::use_iterator ui = pInst->use_begin(),
-        ue = pInst->use_end(); ui != ue; ++ui ) {
-          Instruction *pUserInst = dyn_cast<Instruction>(*ui);
-          assert( pUserInst && "uses of special instruction is not an instruction!" );
-          if ( pInst->getParent() == pUserInst->getParent() ) {
+      for (Instruction::use_iterator ui = pInst->use_begin(),
+                                     ue = pInst->use_end();
+           ui != ue; ++ui) {
+          Instruction *pUserInst = cast<Instruction>(*ui);
+          if (pInst->getParent() == pUserInst->getParent()) {
             //This use of pInst is at the same basic block (no barrier cross so far)
             //assert( !isa<PHINode>(pUserInst) && "user instruction is a PHINode and appears befre pInst in BB" );
-            if ( !isa<PHINode>(pUserInst) ) {
+            if (!isa<PHINode>(pUserInst)) {
               continue;
             }
           }
-          if ( isa<ReturnInst>(pUserInst) ) {
+          if (isa<ReturnInst>(pUserInst)) {
             // We don't want to return the value from the Special buffer we will load it later by the caller
             continue;
           }
@@ -315,7 +423,7 @@ namespace intel {
         ue = userInsts.end(); ui != ue; ++ui ) {
           Instruction *pUserInst = *ui;
           Instruction *pInsertBefore = getInstructionToInsertBefore(pInst, pUserInst, true);
-          if ( !pInsertBefore ) {
+          if (!pInsertBefore) {
             //as no barrier in the middle, no need to load & replace the origin value
             continue;
           }
@@ -382,135 +490,234 @@ namespace intel {
     }
   }
 
+  BasicBlock *Barrier::createLatchNesting(unsigned Dim, BasicBlock *Body,
+                                          BasicBlock *Dispatch, Value *Step,
+                                          const DebugLoc &DL) {
+
+    LLVMContext &C = Body->getContext();
+    Function *F = Body->getParent();
+    // BB that is jumped to if loop in current nesting finishes
+    BasicBlock *LoopEnd =
+        BasicBlock::Create(C, AppendWithDimension("LoopEnd_", Dim), F, Dispatch);
+
+    {
+      IRBuilder<> B(Body);
+      B.SetCurrentDebugLocation(DL);
+      Value *LocalId = createGetLocalId(Dim, B);
+      LocalId = B.CreateNUWAdd(LocalId, Step);
+      createSetLocalId(Dim, LocalId, B);
+
+      // if(LocalId[Dim] < WGSize[dim]) {BB Dispatch} else {BB LoopEnd}
+      Value *IsContinue = B.CreateICmpULT(LocalId, getLocalSize(Dim));
+      B.CreateCondBr(IsContinue, Dispatch, LoopEnd);
+    }
+
+    {
+      IRBuilder<> B(LoopEnd);
+      B.SetCurrentDebugLocation(DL);
+      createSetLocalId(Dim, m_Zero, B);
+    }
+    return LoopEnd;
+  }
+  BasicBlock* Barrier::createBarrierLatch(BasicBlock *pPreSyncBB, BasicBlock *pSyncBB,
+                                   BarrierBBIdList &BBId, Value *UniqueID,
+                                   bool NeedsFence, const DebugLoc &DL) {
+    Function *F = pPreSyncBB->getParent();
+    unsigned NumDims = getNumDims();
+    // A. change the preSync basic block as follow
+    // A(1). remove the unconditional jump instruction
+    pPreSyncBB->getTerminator()->eraseFromParent();
+     // Create then and else basic-blocks
+    BasicBlock *Dispatch = BasicBlock::Create(*m_pContext, "Dispatch", F, pSyncBB);
+    BasicBlock *InnerMost = pPreSyncBB;
+    assert(m_currBarrierKeyValues->m_currVectorizedWidthValue);
+    Value* LoopSteps[MaxNumDims] = {m_currBarrierKeyValues->m_currVectorizedWidthValue, m_One, m_One};
+    for (unsigned I = 0; I < NumDims; ++I)
+      InnerMost = createLatchNesting(I, InnerMost, Dispatch, LoopSteps[I], DL);
+
+    // A(2). add the entry tail code
+    // if(LocalId < WGSize[dim]) {Dispatch} else {pElseBB}
+
+    // B. Create LocalId++ and switch instruction in Dispatch
+
+    // Create "LocalId+=VectorizationWidth" code
+
+    // Create "CurrSBBase+=Stride" code
+    {
+      IRBuilder<> B(Dispatch);
+      B.SetCurrentDebugLocation(DL);
+      Value *CurrSBIndex = createGetCurrSBIndex(B);
+      Value *pUpdatedCurrSB = B.CreateNUWAdd(
+          CurrSBIndex, m_currBarrierKeyValues->m_pStructureSizeValue);
+      createSetCurrSBIndex(pUpdatedCurrSB, B);
+
+      if (BBId.size() == 1) {
+        // Only one case, no need for switch, create unconditional jump
+        B.CreateBr(BBId[0].second);
+      } else {
+        // More than one case, create a switch
+        Value *CurrBarrierId = createGetCurrBarrierId(B);
+        // The first sync instruction is chosen to be the switch Default case
+        SwitchInst *S =
+            B.CreateSwitch(CurrBarrierId, BBId[0].second, BBId.size() - 1);
+        for (unsigned I = 1; I < BBId.size(); ++I)
+          S->addCase(BBId[I].first, BBId[I].second);
+      }
+    }
+
+    // C. Create initialization to LocalId, currSB and currBarrier in pElseBB
+    // LocalId = 0
+    // currSB = 0
+    // currBarrier = id
+    // And connect the pElseBB to the pSyncBB with unconditional jump
+    {
+      IRBuilder<> B(InnerMost);
+      B.SetCurrentDebugLocation(DL);
+      createSetCurrSBIndex(m_Zero, B);
+      if (UniqueID) {
+        createSetCurrBarrierId(UniqueID, B);
+      }
+      if (NeedsFence)
+        m_util.createMemFence(B);
+      B.CreateBr(pSyncBB);
+    }
+    // Only if we are debugging, copy data into the stack from work item
+    // buffer
+    // for execution and copy data out when finished. This allows for proper
+    // DWARF based debugging.
+    if (m_isNativeDBG) {
+      createDebugInstrumentation(Dispatch, InnerMost);
+    }
+    return InnerMost;
+  }
+
+  void Barrier::createDebugInstrumentation(BasicBlock *Then, BasicBlock *Else) {
+    // Use the then and else blocks to copy work item data into and out of
+    // the stack for each work item
+    Instruction &pThenFront = Then->front();
+    Instruction &pElseFront = Else->front();
+    useStackAsWorkspace(&pThenFront, &(Then->back()));
+    useStackAsWorkspace(&pElseFront, &(Else->back()));
+
+    // I add the function DebugCopy as a marker so it can be handled later
+    // in LocalBuffers pass.
+    // LocalBuffers pass is responsible for implementing __local variables
+    // correctly in OpenCL
+    // (ie. as work-group globals and not thread globals). I insert them
+    // in these marked blocks
+    // so that I know when I need to copy from the local buffer into the
+    // thread local (global).
+    // This is also how I know where the beginning of each work item
+    // iteration is (in the presence
+    // of barriers) which is where the copying occurs.
+
+    // Maybe there is a better way, I'm not sure. The problem I found is
+    // LocalBuffers finds all
+    // uses of a __local variable and updates the references to a local
+    // buffer memory location
+    // rather then the thread specific global for which the __local
+    // variable symbol is defined.
+    // So any changes to __local variables would have to be delayed until
+    // this pass or LocalBuffers
+    // would have to behave very differently.
+
+    // There is also a copy that occurs from the local buffer into the
+    // global variable after each
+    // use of the __local variable so that the thread specific global
+    // stays updated. This is
+    // independent of the function markers. This is done in LocalBuffers
+    // pass.
+
+    // This only allows for reading of __local variables and not setting.
+
+    Type *pResult = Type::getVoidTy(*m_pContext);
+    Module *M = Then->getParent()->getParent();
+    Constant *pFunc = M->getOrInsertFunction("DebugCopy.", pResult, NULL);
+    CallInst::Create(pFunc, "", &pThenFront);
+    CallInst::Create(pFunc, "", &pElseFront);
+  }
+
   void Barrier::replaceSyncInstructions() {
     //Run over all sync instructions and split its basic-block
     //in order to create an empty basic-block previous to the sync basic block
-    for ( TInstructionSet::iterator ii = m_pSyncInstructions->begin(),
-      ie = m_pSyncInstructions->end(); ii != ie; ++ii ) {
-        Instruction *pInst = dyn_cast<Instruction>(*ii);
-        assert( pInst && "sync instruction container contains non instruction!" );
-        BasicBlock* pLoopHeaderBB = pInst->getParent();
-        BasicBlock* pLoopEntryBB =
-          pInst->getParent()->splitBasicBlock(BasicBlock::iterator(pInst), "SyncBB");
-        m_preSyncLoopHeader[pLoopEntryBB] = pLoopHeaderBB;
-        m_toRemoveInstructions.push_back(pInst);
+    unsigned ID = 0;
+    std::stringstream Name;
+    for (TInstructionSet::iterator ii = m_pSyncInstructions->begin(),
+                                   ie = m_pSyncInstructions->end();
+         ii != ie; ++ii) {
+      Instruction *pInst = dyn_cast<Instruction>(*ii);
+      assert(pInst && "sync instruction container contains non instruction!");
+      BasicBlock *pLoopHeaderBB = pInst->getParent();
+      Name.str("");
+      Name << "SyncBB" << ID++;
+      BasicBlock *pLoopEntryBB = pInst->getParent()->splitBasicBlock(
+          BasicBlock::iterator(pInst), Name.str());
+      m_preSyncLoopHeader[pLoopEntryBB] = pLoopHeaderBB;
+      m_toRemoveInstructions.push_back(pInst);
     }
-    for ( TInstructionSet::iterator ii = m_pSyncInstructions->begin(),
-      ie = m_pSyncInstructions->end(); ii != ie; ++ii ) {
+    for (TInstructionSet::iterator ii = m_pSyncInstructions->begin(),
+                                   ie = m_pSyncInstructions->end();
+         ii != ie; ++ii) {
         Instruction *pInst = *ii;
+        DebugLoc DL = pInst->getDebugLoc();
         unsigned int id = m_pDataPerBarrier->getUniqueID(pInst);
+        Value* UniqueID = ConstantInt::get(m_I32Type, APInt(32, id));
         SYNC_TYPE type = m_pDataPerBarrier->getSyncType(pInst);
         BasicBlock *pSyncBB = pInst->getParent();
         BasicBlock *pPreSyncBB = m_preSyncLoopHeader[pSyncBB];
         assert( pPreSyncBB && "pSyncBB assumed to have sync loop header basic block!" );
-        if ( SYNC_TYPE_DUMMY_BARRIER == type ) {
+        if (SYNC_TYPE_DUMMY_BARRIER == type) {
           //This is a dummy barrier replace with the following
-          // currWI = 0
+          // LocalId = 0
           // currSB = 0
           // currBarrier = id
-          new StoreInst(ConstantInt::get(m_sizeTType, APInt(m_uiSizeT, 0)),
-            m_currBarrierKeyValues->m_pCurrWIValue, pPreSyncBB->begin());
-
-          new StoreInst(ConstantInt::get(m_sizeTType, APInt(m_uiSizeT, 0)),
-            m_currBarrierKeyValues->m_pCurrSBValue, pPreSyncBB->begin());
-
-          new StoreInst(ConstantInt::get(Type::getInt32Ty(*m_pContext), APInt(32, id)),
-            m_currBarrierKeyValues->m_pCurrBarrierValue, pPreSyncBB->begin());
+          IRBuilder<> B(pPreSyncBB->begin());
+          unsigned NumDimsToZero = getNumDims();
+          assert(
+              (!m_isNativeDBG || NumDimsToZero == MaxNumDims) &&
+              "Debugger requires local/global_id in all dimensions to be valid");
+          for (unsigned Dim = 0; Dim < NumDimsToZero; ++Dim) {
+            createSetLocalId(Dim, m_Zero, B);
+          }
+          createSetCurrSBIndex(m_Zero, B);
+          createSetCurrBarrierId(UniqueID, B);
           continue;
         }
-        //This is a barrier/fiber instruction replace with the following code
-        // if (currWI < WIIterationCount) {
-        //   currWI++;
+        //This is a barrier/fiber instruction.
+        // For the innermost loop, replace with the following code
+        // if (LocalId.0 < GroupSize.0) {
+        //   LocalId.0+=VecWidth
         //   switch (currBarrier) {
         //     case i: goto barrier_i;
         //   }
         // } else {
-        //   currWI = 0;
+        //   LocalIdi.0 = 0;
         //   currBarrier = id
+        //   if (LocalId.1 < GroupSize.1) {
+        //    LocalId.1+=1
+        //   } else {
+        //    LocalId.1 = 0;
+        //    if (LocalId.2 < GroupSize.2) {
+        //     LocalId.2+=1
+        //   }
         // }
 
-        //Create then and else basic-blocks
-        BasicBlock *pThenBB = BasicBlock::Create(
-          *m_pContext, "thenBB", pPreSyncBB->getParent(), pSyncBB);
-        BasicBlock *pElseBB = BasicBlock::Create(
-          *m_pContext, "elseBB", pPreSyncBB->getParent(), pSyncBB);
-
-        //A. change the preSync basic block as follow
-        //A(1). remove the unconditional jump instruction
-        pPreSyncBB->getTerminator()->eraseFromParent();
-
-        //A(2). add the entry tail code
-        // if(currWI < WIIterationCount) {pThenBB} else {pElseBB}
-        LoadInst *pLoadedCurrWI = new LoadInst(m_currBarrierKeyValues->m_pCurrWIValue, "loadedCurrWI", pPreSyncBB);
-        ICmpInst *pCheckWIIter = new ICmpInst(*pPreSyncBB, ICmpInst::ICMP_ULT,
-          pLoadedCurrWI, m_currBarrierKeyValues->m_pWIIterationCountValue, "check.WI.iter");
-        BranchInst *pBrInst = BranchInst::Create(pThenBB, pElseBB, pCheckWIIter, pPreSyncBB);
-        // Set the barrier() debug metadata to these newly added instructions
-        const DebugLoc& DB = pInst->getDebugLoc();
-        pLoadedCurrWI->setDebugLoc(DB);
-        pCheckWIIter->setDebugLoc(DB);
-        pBrInst->setDebugLoc(DB);
-
-        //B. Create currWI++ and switch instruction in pThenBB
+        BarrierBBIdList BBId;
+        // Create List of barrier label that may be jumped to
         DataPerBarrier::SBarrierRelated *pRelated = &m_pDataPerBarrier->getBarrierPredecessors(pInst);
         assert( !pRelated->m_hasFiberRelated && "We reach here only if function has no fiber!" );
         TInstructionVector *pSyncPreds = &pRelated->m_relatedBarriers;
-        unsigned int numCases = pSyncPreds->size();
-        assert( 0 != numCases && "Barrier cannot be without predecessors!" );
-
-        //Create "CurrWI++" code
-        Instruction *pUpdatedCurrWI = BinaryOperator::CreateNUWAdd(pLoadedCurrWI,
-          ConstantInt::get(m_sizeTType, APInt(m_uiSizeT, 1)), "CurrWI++", pThenBB);
-        StoreInst* pStoredCurrWI = new StoreInst(pUpdatedCurrWI, m_currBarrierKeyValues->m_pCurrWIValue, pThenBB);
-        // Set the barrier() debug metadata to these newly added instructions
-        pUpdatedCurrWI->setDebugLoc(DB);
-        pStoredCurrWI->setDebugLoc(DB);
-
-        //Create "CurrSBBase+=Stride" code
-        Instruction *pLoadedCurrSB = new LoadInst(m_currBarrierKeyValues->m_pCurrSBValue, "loadedCurrSB", pThenBB);
-        Instruction *pUpdatedCurrSB = BinaryOperator::CreateNUWAdd(pLoadedCurrSB,
-          m_currBarrierKeyValues->m_pStructureSizeValue, "loadedCurrSB+Stride", pThenBB);
-        StoreInst* pStoredCurrSB = new StoreInst(pUpdatedCurrSB, m_currBarrierKeyValues->m_pCurrSBValue, pThenBB);
-        // Set the barrier() debug metadata to these newly added instructions
-        pLoadedCurrSB->setDebugLoc(DB);
-        pUpdatedCurrSB->setDebugLoc(DB);
-        pStoredCurrSB->setDebugLoc(DB);
-
-        Instruction *pFirstSyncInst = *pSyncPreds->begin();
-        if ( numCases == 1 ) {
-          //Only one case, no need for switch, create unconditional jump
-          Instruction* pBrInst = BranchInst::Create(pFirstSyncInst->getParent(), pThenBB);
-          // Set the barrier() debug metadata to these newly added instructions
-          pBrInst->setDebugLoc(DB);
-        } else {
-          //More than one case, create a switch
-          //The first sync instruction is chosen to be the switch Default case
-          Instruction *pLoadedCurrBarrier = new LoadInst(m_currBarrierKeyValues->m_pCurrBarrierValue, "loadedCurrBarrier", pThenBB);
-          SwitchInst *pSwitch = SwitchInst::Create(pLoadedCurrBarrier, pFirstSyncInst->getParent(), numCases-1, pThenBB);
-          for ( TInstructionVector::iterator ii = pSyncPreds->begin(),
-            ie = pSyncPreds->end(); (++ii) != ie; ) {
-              Instruction *pSyncInst = *ii;
-              unsigned int predId = m_pDataPerBarrier->getUniqueID(pSyncInst);
-              pSwitch->addCase(ConstantInt::get(*m_pContext, APInt(32, predId)), pSyncInst->getParent());
-          }
-          // Set the barrier() debug metadata to these newly added instructions
-          pLoadedCurrBarrier->setDebugLoc(DB);
-          pSwitch->setDebugLoc(DB);
+        for (TInstructionVector::iterator ii = pSyncPreds->begin(),
+                                          ie = pSyncPreds->end();
+             ii != ie; ++ii) {
+          Instruction *pSyncInst = *ii;
+          unsigned int predId = m_pDataPerBarrier->getUniqueID(pSyncInst);
+          BBId.push_back(
+              std::make_pair(ConstantInt::get(*m_pContext, APInt(32, predId)),
+                             pSyncInst->getParent()));
         }
-
-        //C. Create initialization to currWI, currSB and currBarrier in pElseBB
-        // currWI = 0
-        // currSB = 0
-        // currBarrier = id
-        //And connect the pElseBB to the pSyncBB with unconditional jump
-        StoreInst* pElseStoredCurrWI = new StoreInst(ConstantInt::get(m_sizeTType, APInt(m_uiSizeT, 0)),
-          m_currBarrierKeyValues->m_pCurrWIValue, pElseBB);
-        StoreInst* pElseStoredCurrSB = new StoreInst(ConstantInt::get(m_sizeTType, APInt(m_uiSizeT, 0)),
-          m_currBarrierKeyValues->m_pCurrSBValue, pElseBB);
-        StoreInst* pElseStoredCurrBarrier = new StoreInst(ConstantInt::get(Type::getInt32Ty(*m_pContext), APInt(32, id)),
-          m_currBarrierKeyValues->m_pCurrBarrierValue, pElseBB);
-        assert(isa<CallInst>(pInst) &&
-               "Barrier instruction is not a CallInst!");
+        // Is a mem fence required?
+        bool NeedsFence = false;
         CallInst *pBarrier = cast<CallInst>(pInst);
         Value *pArg1 = pBarrier->getOperand(0);
         assert( pArg1 && "Barrier instruction has no first argument!" );
@@ -519,81 +726,43 @@ namespace intel {
         ConstantInt *pMemFence = cast<ConstantInt>(pArg1);
         if ( pMemFence->getZExtValue() & CLK_GLOBAL_MEM_FENCE ) {
           //barrier(global): add mem_fence instruction!
-          m_util.createMemFence(pElseBB);
+          NeedsFence = true;
         }
-        Instruction* pElseBrInst = BranchInst::Create(pSyncBB, pElseBB);
-        // Set the barrier() debug metadata to these newly added instructions
-        pElseStoredCurrWI->setDebugLoc(DB);
-        pElseStoredCurrSB->setDebugLoc(DB);
-        pElseStoredCurrBarrier->setDebugLoc(DB);
-        pElseBrInst->setDebugLoc(DB);
-
-        // Only if we are debugging, copy data into the stack from work item buffer
-        // for execution and copy data out when finished. This allows for proper
-        // DWARF based debugging.
-        if (m_isNativeDBG) {
-          // Use the then and else blocks to copy work item data into and out of the stack for each work item
-          Instruction &pThenFront = pThenBB->front();
-          Instruction &pElseFront = pElseBB->front();
-          useStackAsWorkspace(&pThenFront, &(pThenBB->back()));
-          useStackAsWorkspace(&pElseFront, &(pElseBB->back()));
-
-          // I add the function DebugCopy as a marker so it can be handled later in LocalBuffers pass.
-          // LocalBuffers pass is responsible for implementing __local variables correctly in OpenCL
-          // (ie. as work-group globals and not thread globals). I insert them in these marked blocks
-          // so that I know when I need to copy from the local buffer into the thread local (global).
-          // This is also how I know where the beginning of each work item iteration is (in the presence
-          // of barriers) which is where the copying occurs.
-
-          // Maybe there is a better way, I'm not sure. The problem I found is LocalBuffers finds all
-          // uses of a __local variable and updates the references to a local buffer memory location
-          // rather then the thread specific global for which the __local variable symbol is defined.
-          // So any changes to __local variables would have to be delayed until this pass or LocalBuffers
-          // would have to behave very differently.
-
-          // There is also a copy that occurs from the local buffer into the global variable after each
-          // use of the __local variable so that the thread specific global stays updated. This is
-          // independent of the function markers. This is done in LocalBuffers pass.
-
-          // This only allows for reading of __local variables and not setting.
-
-          Type *pResult = Type::getVoidTy(*m_pContext);
-          Module *M = pThenBB->getParent()->getParent();
-          Constant *pFunc = M->getOrInsertFunction("DebugCopy.", pResult, NULL);
-          CallInst::Create(pFunc, "", &pThenFront);
-          CallInst::Create(pFunc, "", &pElseFront);
-        }
+        createBarrierLatch(pPreSyncBB, pSyncBB, BBId, UniqueID, NeedsFence, DL);
     }
+
   }
 
   void Barrier::createBarrierKeyValues(Function* pFunc, bool hasNoInternalCalls) {
     SBarrierKeyValues* pBarrierKeyValues = &m_pBarrierKeyValuesPerFunction[pFunc];
 
+    pBarrierKeyValues->m_TheFunction = pFunc;
+    unsigned NumDims = computeNumDim(pFunc);
+    pBarrierKeyValues->m_NumDims = NumDims;
     Instruction* pInsertBefore = pFunc->getEntryBlock().begin();
     //Add currBarrier alloca
-    pBarrierKeyValues->m_pCurrBarrierValue = new AllocaInst(Type::getInt32Ty(*m_pContext),
-      "currBarrier", pInsertBefore);
+    pBarrierKeyValues->m_pCurrBarrierId = new AllocaInst(Type::getInt32Ty(*m_pContext),
+      "pCurrBarrier", pInsertBefore);
 
     //Will hold the index in special buffer and will be increased by stride size
-    pBarrierKeyValues->m_pCurrSBValue = new AllocaInst(m_sizeTType, "CurrSBIndex", pInsertBefore);
+    pBarrierKeyValues->m_pCurrSBIndex = new AllocaInst(m_sizeTType, "pCurrSBIndex", pInsertBefore);
 
-    //get_curr_wi()
-    if (hasNoInternalCalls ) {
-      pBarrierKeyValues->m_pCurrWIValue = new AllocaInst(m_sizeTType, "CurrWI", pInsertBefore);
-    } else {
-      pBarrierKeyValues->m_pCurrWIValue = m_util.createGetCurrWI(pInsertBefore);
-    }
-
+    //get_local_id()
+    pBarrierKeyValues->m_pLocalIdValues = new AllocaInst(
+        m_LocalIdAllocTy->getElementType(), "pLocalIds", pInsertBefore);
     //get_special_buffer()
     pBarrierKeyValues->m_pSpecialBufferValue = m_util.createGetSpecialBuffer(pInsertBefore);
 
-    //get_iter_count()
-    pBarrierKeyValues->m_pWIIterationCountValue = m_util.createGetIterCount(pInsertBefore);
+    //get_local_size()
+    for (unsigned i = 0; i < NumDims; ++i)
+      pBarrierKeyValues->m_pLocalSize[i] = m_util.createGetLocalSize(i, pInsertBefore);
 
     unsigned int structureSize = m_pDataPerValue->getStrideSize(pFunc);
     pBarrierKeyValues->m_pStructureSizeValue =
       ConstantInt::get(m_sizeTType, APInt(m_uiSizeT, structureSize));
-  }
+    pBarrierKeyValues->m_currVectorizedWidthValue =
+        ConstantInt::get(m_sizeTType, m_util.getKernelVectorizationWidth(pFunc));
+ }
 
   void Barrier::getBarrierKeyValues(Function* pFunc) {
     assert(m_pBarrierKeyValuesPerFunction.count(pFunc) &&
@@ -602,7 +771,7 @@ namespace intel {
   }
 
   Instruction* Barrier::getInstructionToInsertBefore(Instruction *pInst, Instruction *pUserInst, bool expectNULL) {
-    if ( !isa<PHINode>(pUserInst) ) {
+    if (!isa<PHINode>(pUserInst)) {
       //pUserInst is not a PHINode, we can insert instruction before it.
       return pUserInst;
     }
@@ -621,75 +790,139 @@ namespace intel {
     unsigned int offset, PointerType *pType, Instruction *pInsertBefore, const DebugLoc* DB){
       Value *pOffsetVal = ConstantInt::get(m_sizeTType, APInt(m_uiSizeT, offset));
       //If hit this assert then need to handle PHINode!
-      assert( !isa<PHINode>(pInsertBefore) && "cannot add instructions before a PHI node!" );
-      //Calculate the pointer of the given offset for currWI in the special buffer
-      Instruction *pLoadedCurrSB = new LoadInst(m_currBarrierKeyValues->m_pCurrSBValue, "loadedCurrSB", pInsertBefore);
-      Instruction *pIndexInst = BinaryOperator::CreateNUWAdd(pLoadedCurrSB, pOffsetVal, "&(pSB[currWI].offset)", pInsertBefore);
-      Value *Idxs[1];
-      Idxs[0] = pIndexInst;
-      Instruction *pAddrInSBinBytes = GetElementPtrInst::CreateInBounds(
-        m_currBarrierKeyValues->m_pSpecialBufferValue, ArrayRef<Value*>(Idxs), "&pSB[currWI].offset", pInsertBefore);
+      assert(!isa<PHINode>(pInsertBefore) && "cannot add instructions before a PHI node!" );
+      IRBuilder<> B(pInsertBefore);
+      if (DB)
+        B.SetCurrentDebugLocation(*DB);
+      //Calculate the pointer of the given offset for LocalId in the special buffer
+      Value *CurrSB = createGetCurrSBIndex(B);
+      CurrSB = B.CreateNUWAdd(CurrSB, pOffsetVal, "SB_LocalId_Offset");
+      Value *Idxs[1] = { CurrSB };
+      Value *pAddrInSBinBytes =
+          B.CreateInBoundsGEP(m_currBarrierKeyValues->m_pSpecialBufferValue,
+                              ArrayRef<Value *>(Idxs));
       //Bitcast pointer according to alloca type!
-      Instruction *pAddrInSpecialBuffer = BitCastInst::CreatePointerCast(
-        pAddrInSBinBytes, pType, "CastToValueType", pInsertBefore);
-
-      if( DB ) {
-        //Set DebugLoc for all new added instructions.
-        pLoadedCurrSB->setDebugLoc(*DB);
-        pIndexInst->setDebugLoc(*DB);
-        pAddrInSBinBytes->setDebugLoc(*DB);
-        pAddrInSpecialBuffer->setDebugLoc(*DB);
-      }
+      Value *pAddrInSpecialBuffer =
+          B.CreatePointerCast(pAddrInSBinBytes, pType, "pSB_LocalId");
       return pAddrInSpecialBuffer;
+  }
+
+  Instruction* Barrier::createOOBCheckGetLocalId(CallInst *pCall) {
+    // if we are going in this path, then no chance that we can run less than 3D
+    //
+    // Create three basic blocks to contain the dim check as follows
+    // entry: (old basic block tail)
+    //   %0 = icmp ult i32 %dimndx, MAX_WORK_DIM
+    //   br i1 %0, label %get.wi.properties, label %split.continue
+    //
+    // get.wi.properties:  (new basic block in case of in bound)
+    //   ... ; load the property 
+    //   br label %split.continue
+    //
+    // split.continue:  (the second half of the splitted basic block head) 
+    //   %4 = phi i32 [ %res, %get.wi.properties ], [ out-of-bound-value, %entry ]
+
+    BasicBlock *pBlock = pCall->getParent();
+    Function *F = pBlock->getParent();
+    // first need to split the current basic block to two BB's and create new BB
+    BasicBlock *getWIProperties = BasicBlock::Create(*m_pContext, "get.wi.properties", F);
+    BasicBlock *splitContinue = pBlock->splitBasicBlock(BasicBlock::iterator(pCall), "split.continue");
+
+    // A.change the old basic block to the detailed entry
+    // Entry:1. remove the unconditional jump instruction
+    pBlock->getTerminator()->eraseFromParent();
+
+    // Entry:2. add the entry tail code (as described up)
+    {
+      IRBuilder<> B(pBlock);
+      ConstantInt *max_work_dim_i32 = ConstantInt::get(
+          *m_pContext, APInt(32U, uint64_t(MaxNumDims), false));
+      Value *checkIndex = B.CreateICmpULT(
+          pCall->getArgOperand(0), max_work_dim_i32, "check.index.inbound");
+      B.CreateCondBr(checkIndex, getWIProperties, splitContinue);
+    }
+
+    // B.Build the get.wi.properties block
+    // Now retrieve address of the DIM count
+
+    BranchInst::Create(splitContinue, getWIProperties);
+    IRBuilder<> B(getWIProperties->getTerminator());
+    B.SetCurrentDebugLocation(pCall->getDebugLoc());
+    Instruction *pResult = createGetLocalId(
+        m_currBarrierKeyValues->m_pLocalIdValues, pCall->getArgOperand(0), B);
+
+    // C.Create Phi node at the first of the splitted BB
+    PHINode *pAttrResult = PHINode::Create(IntegerType::get(*m_pContext, m_uiSizeT), 2, "", splitContinue->getFirstNonPHI());
+    pAttrResult->addIncoming(pResult, getWIProperties);
+    // The overflow value
+    pAttrResult->addIncoming(m_Zero, pBlock);
+
+    return pAttrResult;
+  }
+  Value *Barrier::resolveGetLocalIDCall(CallInst *Call) {
+    Value *Dimension = Call->getOperand(0);
+    if (ConstantInt *C = dyn_cast<ConstantInt>(Dimension)) {
+      uint64_t Dim = C->getZExtValue();
+      if (Dim >= MaxNumDims) {
+        // OpenCL Spec says to return zero for OOB dim value
+        return m_Zero;
+      }
+      // assert(m_pBarrierKeyValuesPerFunction[pFunc].m_NumDims > Dim);
+      IRBuilder<> B(Call);
+      return createGetLocalId(Dim, B);
+    }
+    //assert(m_pBarrierKeyValuesPerFunction[pFunc].m_NumDims == MaxNumDims);
+    return createOOBCheckGetLocalId(Call);
   }
 
   bool Barrier::fixGetWIIdFunctions(Module &M) {
     //clear container for new iteration on new function
     m_toRemoveInstructions.clear();
 
+    std::string Name;
     //Find all get_local_id instructions
     TInstructionVector& getLIDInstructions = m_util.getAllGetLocalId();
     for (TInstructionVector::iterator ii = getLIDInstructions.begin(),
       ie = getLIDInstructions.end(); ii != ie; ++ii ) {
         CallInst *pOldCall = dyn_cast<CallInst>(*ii);
         assert( pOldCall && "Something other than CallInst is using get_local_id function!" );
-        //If no pCurrWI is not defined on this function yet, then define it
         Function *pFunc = pOldCall->getParent()->getParent();
-        Value* pCurrWIValue = NULL;
-        if( m_pBarrierKeyValuesPerFunction.count(pFunc) ) {
-          pCurrWIValue = m_pBarrierKeyValuesPerFunction[pFunc].m_pCurrWIValue;
-        }
-        else {
-          pCurrWIValue = m_util.createGetCurrWI(pFunc->begin()->begin());
-        }
-        //Replace get_local_id(arg) with get_new_local_id(arg, *pCurrWI)
-        Value *args1 = pOldCall->getOperand(0);
-        Value *args2 = new LoadInst(pCurrWIValue, "currWI", pOldCall);
-        Instruction *pNewCall = m_util.createNewGetLocalId(args1, args2, pOldCall);
-        pOldCall->replaceAllUsesWith(pNewCall);
+        getBarrierKeyValues(pFunc);
+        Value *LID = resolveGetLocalIDCall(pOldCall);
+        pOldCall->replaceAllUsesWith(LID);
         m_toRemoveInstructions.push_back(pOldCall);
     }
 
-    //Find all get_local_id instructions
+    // Maps [Function, ConstDimension] --> BaseGlobalId
+    typedef std::pair<Function *, ConstantInt *> FuncDimPair;
+    std::map<FuncDimPair, Value *> FuncToBaseGID;
+    //Find all get_global_id instructions
     TInstructionVector& getGIDInstructions = m_util.getAllGetGlobalId();
     for (TInstructionVector::iterator ii = getGIDInstructions.begin(),
       ie = getGIDInstructions.end(); ii != ie; ++ii ) {
         CallInst *pOldCall = dyn_cast<CallInst>(*ii);
         assert( pOldCall && "Something other than CallInst is using get_global_id function!" );
-        //If no pCurrWI is not defined on this function yet, then define it
         Function *pFunc = pOldCall->getParent()->getParent();
-        Value* pCurrWIValue = NULL;
-        if( m_pBarrierKeyValuesPerFunction.count(pFunc) ) {
-          pCurrWIValue = m_pBarrierKeyValuesPerFunction[pFunc].m_pCurrWIValue;
-        }
-        else {
-          pCurrWIValue = m_util.createGetCurrWI(pFunc->begin()->begin());
-        }
-        //Replace get_global_id(arg) with get_new_global_id(arg, *pCurrWI)
-        Value *args1 = pOldCall->getOperand(0);
-        Value *args2 = new LoadInst(pCurrWIValue, "currWI", pOldCall);
-        Instruction *pNewCall = m_util.createNewGetGlobalId(args1, args2, pOldCall);
-        pOldCall->replaceAllUsesWith(pNewCall);
+        getBarrierKeyValues(pFunc);
+        Value *BaseGID = 0;
+        Value *Dim = pOldCall->getOperand(0);
+        // Computation of BaseGID: If the dimension is a constant, cache it and reuse in function
+        if (ConstantInt *ConstDim = dyn_cast<ConstantInt>(Dim)) {
+           FuncDimPair Key = std::make_pair(pFunc, ConstDim);
+           Value *&Val = FuncToBaseGID[Key];
+           if (!Val) {
+             Val = m_util.createGetBaseGlobalId(Dim,
+                                                pFunc->getEntryBlock().begin());
+           }
+           BaseGID = Val;
+        } else
+          BaseGID = m_util.createGetBaseGlobalId(Dim, pOldCall);
+        Value *LID = resolveGetLocalIDCall(pOldCall);
+        //Replace get_global_id(arg) with global_base_id + local_id
+        Name = AppendWithDimension("GlobalID_", Dim);
+        Value *GlobalID =
+            BinaryOperator::CreateAdd(LID, BaseGID, Name, pOldCall);
+        pOldCall->replaceAllUsesWith(GlobalID);
         m_toRemoveInstructions.push_back(pOldCall);
     }
 
@@ -731,20 +964,20 @@ namespace intel {
           continue;
         }
         Value *pRetVal = pRetInst->getOperand(0);
-        if ( Instruction *pInst = dyn_cast<Instruction>(pRetVal) ) {
+        Instruction *pNextInst;
+        if (Instruction *pInst = dyn_cast<Instruction>(pRetVal)) {
           //Find next instruction so we can create new instruction before it
-          Instruction *pNextInst = &*(++BasicBlock::iterator(pInst));
+          pNextInst = &*(++BasicBlock::iterator(pInst));
           if ( isa<PHINode>(pNextInst) ) {
             //pNextInst is a PHINode, find first non PHINode to add instructions before it
             pNextInst = pNextInst->getParent()->getFirstNonPHI();
           }
-          fixReturnValue(pRetVal, offset, pNextInst);
         } else {
           //In this case the return value is not an instruction and
           //it cannot be assumed that it is inside the barrier loop.
           //Thus, need to create a new barrier loop that store this value
           //in the special buffer, that is why we needed to find the values:
-          // m_pCurrSBValue, m_pCurrWIValue, m_pWIIterationCountValue
+          // m_pCurrSBIndex, m_pLocalIdValue, m_pWIIterationCountValue
           //Before:
           //  BB:
           //      ret pRetVal
@@ -753,39 +986,27 @@ namespace intel {
           //      br loopBB
           //  loopBB:
           //      pSB[pCurrSBValue+offset] = pRetVal
-          //      cond currWI < IterCount
-          //      currWI++
+          //      cond LocalId < IterCount
+          //      LocalId++
           //      pCurrSBValue += Stride
           //      br cond, loopBB, RetBB
           //  RetBB:
           //      ret pRetVal
-          BasicBlock *pNewRetBB =
-            pBB->splitBasicBlock(BasicBlock::iterator(pRetInst), "RetBB");
-          BasicBlock *pLoopBB = BasicBlock::Create(
-            *m_pContext, "loopBB", pBB->getParent(), pNewRetBB);
+          BasicBlock *LoopBB =
+            pBB->splitBasicBlock(BasicBlock::iterator(pRetInst), "LoopBB");
+          BasicBlock *RetBB = LoopBB->splitBasicBlock(LoopBB->begin(), "RetBB");
+          BarrierBBIdList BBId(
+              1, std::make_pair(ConstantInt::get(*m_pContext, APInt(32, 0)),
+                                LoopBB));
+          bool NeedsFence = false;
+          DebugLoc DL = pRetInst->getDebugLoc();
+          Value* UniqueID = 0;
+          createBarrierLatch(
+              LoopBB, RetBB, BBId, UniqueID, NeedsFence, DL);
 
-          pBB->getTerminator()->eraseFromParent();
-          BranchInst::Create(pLoopBB, pBB);
-
-          Value *pLoadedCurrWI = new LoadInst(m_currBarrierKeyValues->m_pCurrWIValue, "loadedCurrWI", pLoopBB);
-          ICmpInst *pCheckWIIter = new ICmpInst(*pLoopBB, ICmpInst::ICMP_ULT,
-            pLoadedCurrWI, m_currBarrierKeyValues->m_pWIIterationCountValue, "check.WI.iter");
-
-          Value *pUpdatedCurrWI = BinaryOperator::CreateNUWAdd(pLoadedCurrWI,
-            ConstantInt::get(m_sizeTType, APInt(m_uiSizeT, 1)), "CurrWI++", pLoopBB);
-          new StoreInst(pUpdatedCurrWI, m_currBarrierKeyValues->m_pCurrWIValue, pLoopBB);
-
-          //Create "CurrSBBase+=Stride" code
-          Value *pLoadedCurrSB = new LoadInst(m_currBarrierKeyValues->m_pCurrSBValue, "loadedCurrSB", pLoopBB);
-          Value *pUpdatedCurrSB = BinaryOperator::CreateNUWAdd(pLoadedCurrSB,
-            m_currBarrierKeyValues->m_pStructureSizeValue, "loadedCurrSB+Stride", pLoopBB);
-          new StoreInst(pUpdatedCurrSB, m_currBarrierKeyValues->m_pCurrSBValue, pLoopBB);
-
-          BranchInst::Create(pLoopBB, pNewRetBB, pCheckWIIter, pLoopBB);
-
-          Instruction *pNextInst = pLoopBB->getFirstNonPHI();
-          fixReturnValue(pRetVal, offset, pNextInst);
+          pNextInst = LoopBB->getFirstNonPHI();
         }
+        fixReturnValue(pRetVal, offset, pNextInst);
       }
     }
   }
@@ -800,21 +1021,26 @@ namespace intel {
         Instruction *pUserInst = dyn_cast<Instruction>(*ui);
         userInsts.insert(pUserInst);
     }
-    for ( TInstructionSet::iterator ui = userInsts.begin(),
-      ue = userInsts.end(); ui != ue; ++ui) {
-        Instruction *pUserInst = *ui;
-        assert( pUserInst && "Something other than Instruction is using function argument!" );
-        Instruction *pInsertBefore = pUserInst;
-        if ( isa<PHINode>(pUserInst) ) {
-          BasicBlock *pPrevBB = BarrierUtils::findBasicBlockOfUsageInst(pOriginalArg, pUserInst);
-          pInsertBefore = pPrevBB->getTerminator();
-        }
-        //In this case we will always get a valid offset and need to load the argument
-        //from the special buffer using the offset corresponding argument
-        PointerType *pType = pOriginalArg->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
-        Value *pAddrInSpecialBuffer = getAddressInSpecialBuffer(offsetArg, pType, pInsertBefore, NULL);
-        Value *pLoadedValue = new LoadInst(pAddrInSpecialBuffer, "loadedValue", pInsertBefore);
-        pUserInst->replaceUsesOfWith(pOriginalArg, pLoadedValue);
+    for (TInstructionSet::iterator ui = userInsts.begin(), ue = userInsts.end();
+         ui != ue; ++ui) {
+      Instruction *pUserInst = *ui;
+      assert(pUserInst &&
+             "Something other than Instruction is using function argument!");
+      Instruction *pInsertBefore = pUserInst;
+      if (isa<PHINode>(pUserInst)) {
+        BasicBlock *pPrevBB =
+            BarrierUtils::findBasicBlockOfUsageInst(pOriginalArg, pUserInst);
+        pInsertBefore = pPrevBB->getTerminator();
+      }
+      // In this case we will always get a valid offset and need to load the
+      // argument from the special buffer using the offset corresponding argument
+      PointerType *pType =
+          pOriginalArg->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
+      Value *pAddrInSpecialBuffer =
+          getAddressInSpecialBuffer(offsetArg, pType, pInsertBefore, NULL);
+      Value *pLoadedValue =
+          new LoadInst(pAddrInSpecialBuffer, "loadedValue", pInsertBefore);
+      pUserInst->replaceUsesOfWith(pOriginalArg, pLoadedValue);
     }
   }
 
@@ -822,17 +1048,16 @@ namespace intel {
     //TODO: do we need to set DebugLoc for these instructions?
     assert( (!m_pDataPerValue->isOneBitElementType(pRetVal) ||
       !isa<VectorType>(pRetVal->getType())) && "pRetVal with base type i1!");
-    //pRetVal might be a result of calling other function itself
-    //in such case no need to handle it here as it will be saved
-    //to the special buffer by the called function itself.
-    //if ( !( isa<CallInst>(pRetVal) &&
-    //  m_pDataPerInternalFunction->needToBeFixed(cast<CallInst>(pRetVal)) ) ) {
-        //Calculate the pointer of the current special in the special buffer
-        PointerType *pType = pRetVal->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
-        Value *pAddrInSpecialBuffer = getAddressInSpecialBuffer(offsetRet, pType, pInsertBefore, NULL);
-        //Add Store instruction after the value instruction
-        new StoreInst(pRetVal, pAddrInSpecialBuffer, pInsertBefore);
-    //}
+    // pRetVal might be a result of calling other function itself
+    // in such case no need to handle it here as it will be saved
+    // to the special buffer by the called function itself.
+    // Calculate the pointer of the current special in the special buffer
+    PointerType *pType =
+        pRetVal->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
+    Value *pAddrInSpecialBuffer =
+        getAddressInSpecialBuffer(offsetRet, pType, pInsertBefore, NULL);
+    //Add Store instruction after the value instruction
+    new StoreInst(pRetVal, pAddrInSpecialBuffer, pInsertBefore);
   }
 
   void Barrier::fixCallInstruction(CallInst *pCallToFix) {
@@ -856,7 +1081,7 @@ namespace intel {
           BasicBlock::iterator firstInst = pPreBB->begin();
           assert( m_pDataPerBarrier->getSyncInstructions(pFunc).count(&*firstInst) &&
             "assume first instruction to be sync instruction" );
-          pPreBB->splitBasicBlock(firstInst, "SyncBB");
+          pPreBB->splitBasicBlock(firstInst, "CallBB");
           pInsertBefore = pPreBB->getTerminator();
         }
         //Need to handle operand
@@ -921,6 +1146,18 @@ namespace intel {
     }
   }
 
+  unsigned Barrier::computeNumDim(Function *F) {
+    Intel::MetaDataUtils mdUtils(F->getParent());
+    if (mdUtils.isKernelsInfoHasValue()) {
+      if (mdUtils.findKernelsInfoItem(F) != mdUtils.end_KernelsInfo()) {
+        Intel::KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(F);
+        if (skimd->isMaxWGDimensionsHasValue()) {
+          return skimd->getMaxWGDimensions();
+        }
+      }
+    }
+    return MaxNumDims;
+  }
   void Barrier::updateStructureStride(Module & M) {
     Intel::MetaDataUtils mdUtils(&M);
     if ( !mdUtils.isKernelsInfoHasValue() ) {

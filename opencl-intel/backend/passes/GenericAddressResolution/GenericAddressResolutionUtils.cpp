@@ -16,6 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/Debug.h>
 #include <set>
 #include <assert.h>
 
@@ -69,7 +70,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                       "atomic_flag_test_and_set",
                       "atomic_flag_test_and_set_explicit",
                       "atomic_flag_clear",
-                      "atomic_flag_clear_explicit"
+                      "atomic_flag_clear_explicit",
+                      "enqueue_marker",
+                      "read_pipe",
+                      "write_pipe"
   };
 
   bool isAddressQualifierBI(const Function *pFunc) {
@@ -87,6 +91,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
   bool isGenericAddrBI(const Function *pFunc) {
     StringRef funcName = pFunc->getName();
+    if (funcName == "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE")
+      return true;
     std::string tmp = funcName.str();
     const char *funcNameStr = tmp.c_str();
     funcName = isMangledName(funcNameStr)? stripName(funcNameStr) : funcName;
@@ -196,7 +202,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
     assert(isMangledName(origMangledName.c_str()) && "Function name is expected to be mangled!");
 
+    // Workaround due to missing functionality in Mangler to demangle/mangle the
+    // strings below
+    // CSSD100018370
+    if (origMangledName == 
+             "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE")
+      return "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvvE";
+             
     reflection::FunctionDescriptor fd = demangle(origMangledName.c_str());
+    //if (fd.parameters.size() != resolvedSpaces.size()) {
+    //  dbgs() << origMangledName << "\n";
+    // }
     assert(resolvedSpaces.size() == fd.parameters.size() && "Mismatch between mangled name and amount of parameters");
     assert((!originalSpaces || originalSpaces->size() == resolvedSpaces.size()) && "Invalid parameters!");
 
