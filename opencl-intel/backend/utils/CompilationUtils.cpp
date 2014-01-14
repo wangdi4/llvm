@@ -633,7 +633,7 @@ Function *CompilationUtils::AddMoreArgsToFunc(
   for (unsigned I = 0, E = NewNames.size(); I < E; ++I, ++NewI) {
     Argument *A = NewI;
     A->setName(NewNames[I]);
-    if (!NewAttrs.empty())
+    if (!NewAttrs.empty() && !NewAttrs[I].isEmpty())
       A->addAttr(NewAttrs[I]);
   }
   // Since we have now created the new function, splice the body of the old
