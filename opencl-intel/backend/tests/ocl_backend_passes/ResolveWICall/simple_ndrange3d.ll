@@ -15,9 +15,9 @@ define void @enqueue_simple_block(i32 addrspace(1)* %res) nounwind {
   %lws_arr = bitcast [3 x i64]* %lws to i64*
   %gwo_arr = bitcast [3 x i64]* %gwo to i64*
 ; Calls should remain unchanged since they are in the built-in library
-; CHECK: %call1 = call %opencl.ndrange_t* @_Z10ndrange_3DPm(i64* %gws_arr) nounwind readnone
-; CHECK: %call2 = call %opencl.ndrange_t* @_Z10ndrange_3DPmPm(i64* %gws_arr, i64* %lws_arr) nounwind readnone
-; CHECK: %call3 = call %opencl.ndrange_t* @_Z10ndrange_3DPmPmPm(i64* %gwo_arr, i64* %gws_arr, i64* %lws_arr) nounwind readnone
+; CHECK: %call1 = call %opencl.ndrange_t* @_Z10ndrange_3DPm(i64* %gws_arr)
+; CHECK: %call2 = call %opencl.ndrange_t* @_Z10ndrange_3DPmPm(i64* %gws_arr, i64* %lws_arr)
+; CHECK: %call3 = call %opencl.ndrange_t* @_Z10ndrange_3DPmPmPm(i64* %gwo_arr, i64* %gws_arr, i64* %lws_arr)
   %call1 = call %opencl.ndrange_t* @_Z10ndrange_3DPm(i64* %gws_arr) nounwind readnone
   %call2 = call %opencl.ndrange_t* @_Z10ndrange_3DPmPm(i64* %gws_arr, i64* %lws_arr) nounwind readnone
   %call3 = call %opencl.ndrange_t* @_Z10ndrange_3DPmPmPm(i64* %gwo_arr, i64* %gws_arr, i64* %lws_arr) nounwind readnone
