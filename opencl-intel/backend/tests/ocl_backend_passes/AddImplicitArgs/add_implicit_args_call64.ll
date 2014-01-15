@@ -44,7 +44,7 @@ entry:
 ; CHECK:          i64* noalias %pWGId,
 ; CHECK:          [4 x i64] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
-; CHECK:          {}* noalias %RuntimeHandle) #0{
+; CHECK:          {}* noalias %RuntimeHandle) #0 {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   %temp = add i32 %x, 10
 ; CHECK-NEXT:   %res = mul i32 %temp, %y

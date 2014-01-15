@@ -132,7 +132,7 @@ namespace intel{
     Attributes NoAttr = Attributes::get(*m_pLLVMContext, Attribute::None);
 #else
     AttributeSet NoAlias = AttributeSet::get(*m_pLLVMContext, 0, Attribute::NoAlias);
-    AttributeSet NoAttr = AttributeSet::get(*m_pLLVMContext, 0, Attribute::None);
+    AttributeSet NoAttr;
 #endif
     // For each implicit arg, setup its type, name and attributes
     for (unsigned i=0; i < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
