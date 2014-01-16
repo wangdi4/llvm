@@ -197,7 +197,7 @@ endif (PLATFORM EQUAL Win32)
 set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
 
 # images optimization options
-set (LLVM_IMAGES_OPT_PARAMS -builtin-import -shuffle-call-to-inst -O3)
+set (LLVM_IMAGES_OPT_PARAMS -builtin-import -builtin-call-to-inst -O3)
 
 # llvm-link parameters
 set (LLVM_LINK_PARAMS -f)

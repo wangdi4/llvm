@@ -17,31 +17,31 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 namespace intel{
     using namespace llvm;
 
-    /// @brief ShuffleCallToInst class
+    /// @brief BuiltinCallToInst class
     ///        In OpenCL:
     ///         - gentypen shuffle (gentypem x, ugentypen mask)
     ///         - gentypen shuffle2 (gentypem x, gentypem y, ugentypen mask)
     ///        Clang translates shuffle and shuffle2 functions calls to LLVM function calls with
     ///        specific types. Example: %call = call <8 x i32> @_Z7shuffleDv4_iDv8_j( ... )
-    ///        In case the mask argument is a vector of constants, ShuffleCallToInst translates the
+    ///        In case the mask argument is a vector of constants, BuiltinCallToInst translates the
     ///        shuffle call to shufflevector instruction in LLVM, to gain some performance boost.
     ///        Example:
     ///        From this:
     ///         %tmp = call <8 x i32> @_Z7shuffleDv4_iDv4_j(<4 x i32> %x, <4 x i32> <i32 3, i32 2, i32 1, i32 0>)
     ///        To this:
     ///         %tmp = shufflevector <4 x i32> %x, <4 x i32> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
-    class ShuffleCallToInst : public FunctionPass
+    class BuiltinCallToInst : public FunctionPass
     {
     public:
         /// @brief Pass identification, replacement for typeid
         static char ID;
 
         /// @brief Constructor
-        ShuffleCallToInst() : FunctionPass(ID) {}
+        BuiltinCallToInst() : FunctionPass(ID) {}
 
         /// @brief Provides name of pass
         virtual const char *getPassName() const {
-            return "ShuffleCallToInst";
+            return "BuiltinCallToInst";
         }
 
         /// @brief  LLVM Function pass entry

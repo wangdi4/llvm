@@ -5,7 +5,7 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 
-#include "ShuffleCallToInst.h"
+#include "BuiltinCallToInst.h"
 #include "NameMangleAPI.h"
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
@@ -13,27 +13,27 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Constants.h"
 
 extern "C" {
-  /// @brief Creates new ShuffleCallToInst pass
-  void* createShuffleCallToInstPass() {
-    return new intel::ShuffleCallToInst();
+  /// @brief Creates new BuiltinCallToInst pass
+  void* createBuiltinCallToInstPass() {
+    return new intel::BuiltinCallToInst();
   }
 }
 
 namespace intel{
   using namespace llvm;
 
-  char ShuffleCallToInst::ID = 0;
+  char BuiltinCallToInst::ID = 0;
 
-  OCL_INITIALIZE_PASS(ShuffleCallToInst, "shuffle-call-to-inst",
+  OCL_INITIALIZE_PASS(BuiltinCallToInst, "builtin-call-to-inst",
     "Resolve supported builtin calls, e.g. relational, shuffle with const mask, etc.", false, false)
 
 
-  bool ShuffleCallToInst::runOnFunction(Function &F) {
+  bool BuiltinCallToInst::runOnFunction(Function &F) {
     findBuiltinCallsToHandle(F);
     return handleSupportedBuiltinCalls();
   }
 
-  void ShuffleCallToInst::findBuiltinCallsToHandle(Function &F) {
+  void BuiltinCallToInst::findBuiltinCallsToHandle(Function &F) {
     m_builtinCalls.clear();
 
     // Run over all instructions in current function
@@ -53,7 +53,7 @@ namespace intel{
     }
   }
 
-  bool ShuffleCallToInst::handleSupportedBuiltinCalls() {
+  bool BuiltinCallToInst::handleSupportedBuiltinCalls() {
     // Check if there are shuffle calls
     if (m_builtinCalls.empty()) return false;
 
@@ -81,7 +81,7 @@ namespace intel{
     return true;
   }
 
-  void ShuffleCallToInst::handleShuffleCalls(CallInst* shuffleCall, BuiltinType shuffleType) {
+  void BuiltinCallToInst::handleShuffleCalls(CallInst* shuffleCall, BuiltinType shuffleType) {
     // If the function returns by pointer, shift all arguments by one
     // Note that in the mangled name, the arguments are not shifted
     const unsigned int argStart = (shuffleCall->getType()->isVoidTy()) ? 1 : 0;
@@ -181,7 +181,7 @@ namespace intel{
     shuffleCall->eraseFromParent();
   }
 
-  void ShuffleCallToInst::handleRelationalCalls(CallInst* relationalCall, BuiltinType relationalType) {
+  void BuiltinCallToInst::handleRelationalCalls(CallInst* relationalCall, BuiltinType relationalType) {
     Value *operand1 = relationalCall->getOperand(0);
     Value *operand2 = relationalCall->getOperand(1);
     assert((operand1->getType() == operand2->getType()) &&
@@ -223,7 +223,7 @@ namespace intel{
     relationalCall->eraseFromParent();
   }
 
-  ShuffleCallToInst::BuiltinType ShuffleCallToInst::isSupportedBuiltin(CallInst* pCall) {
+  BuiltinCallToInst::BuiltinType BuiltinCallToInst::isSupportedBuiltin(CallInst* pCall) {
     BuiltinType builtinType = NOT_SUPPORTED;
     // In case of indirect function call
     if (!pCall->getCalledFunction()) return builtinType;

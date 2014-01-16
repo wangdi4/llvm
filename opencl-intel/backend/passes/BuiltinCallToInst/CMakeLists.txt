@@ -1,4 +1,4 @@
-set(TARGET_NAME ShuffleCallToInst)
+set(TARGET_NAME BuiltinCallToInst)
 
 include_directories(
     ${BACKEND_ROOT_DIR}/name_mangling
@@ -7,11 +7,11 @@ include_directories(
 )
 
 set(TARGET_INCLUDE_FILES
-    ShuffleCallToInst.h
+    BuiltinCallToInst.h
 )
 
 set(TARGET_SOURCE_FILES
-    ShuffleCallToInst.cpp
+    BuiltinCallToInst.cpp
 )
 
 add_library(${TARGET_NAME}
