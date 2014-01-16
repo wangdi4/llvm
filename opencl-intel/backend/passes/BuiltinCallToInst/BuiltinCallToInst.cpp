@@ -46,9 +46,9 @@ namespace intel{
       BuiltinType builtinType = isSupportedBuiltin(inst);
       if (NOT_SUPPORTED != builtinType) {
         // Add this instruction for handling
-        std::pair<CallInst*, BuiltinType> shuffleCallPair =
+        std::pair<CallInst*, BuiltinType> builtinCallPair =
           std::pair<CallInst*, BuiltinType>(inst, builtinType);
-        m_builtinCalls.push_back(shuffleCallPair);
+        m_builtinCalls.push_back(builtinCallPair);
       }
     }
   }
