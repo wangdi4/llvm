@@ -77,10 +77,15 @@ public:
       break;
     case reflection::PRIMITIVE_IMAGE_1D_T:
     case reflection::PRIMITIVE_IMAGE_2D_T:
+    case reflection::PRIMITIVE_IMAGE_2D_DEPTH_T:
     case reflection::PRIMITIVE_IMAGE_3D_T:
     case reflection::PRIMITIVE_IMAGE_1D_BUFFER_T:
     case reflection::PRIMITIVE_IMAGE_1D_ARRAY_T:
     case reflection::PRIMITIVE_IMAGE_2D_ARRAY_T:
+    case reflection::PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T:
+    case reflection::PRIMITIVE_EVENT_T:
+    case reflection::PRIMITIVE_CLK_EVENT_T:
+    case reflection::PRIMITIVE_PIPE_T:
       {
          std::string Name = reflection::llvmPrimitiveString(Ty->getPrimitive());
          m_llvmTy = llvm::StructType::create(m_Ctx, Name);
@@ -111,6 +116,14 @@ public:
       }
     }
     m_llvmTy = llvm::PointerType::get(m_llvmTy, AS);
+  }
+
+  void visit(const reflection::AtomicType* p) {
+    assert(false && "need to support Atomic Parameter type");
+  }
+
+  void visit(const reflection::BlockType *BTy) {
+    assert(false && "need to support Block Parameter type");
   }
 
   virtual void visit(const reflection::UserDefinedType *UdTy){

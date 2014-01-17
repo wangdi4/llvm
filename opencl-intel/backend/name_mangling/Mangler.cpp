@@ -69,6 +69,31 @@ public:
     m_dupList.push_back((reflection::ParamType*)v);
   }
 
+  void visit(const reflection::AtomicType* p) {
+    int typeIndex = getTypeIndex(p);
+    if( -1 != typeIndex ) {
+      m_stream << reflection::getDuplicateString(typeIndex);
+      return;
+    }
+    m_stream << "U" << "7_Atomic";
+    p->getBaseType()->accept(this);
+    m_dupList.push_back((reflection::ParamType*)p);
+  }
+
+  void visit(const reflection::BlockType* p) {
+    int typeIndex = getTypeIndex(p);
+    if( -1 != typeIndex ) {
+      m_stream << reflection::getDuplicateString(typeIndex);
+      return;
+    }
+    m_stream << "U" << "13block_pointerFv";
+    for (unsigned int i=0; i < p->getNumOfParams(); ++i) {
+      p->getParam(i)->accept(this);
+    }
+    m_dupList.push_back((reflection::ParamType*)p);
+    m_stream << "E";
+  }
+
   void visit(const reflection::UserDefinedType* pTy){
     int typeIndex = getTypeIndex(pTy);
     if( -1 != typeIndex ) {

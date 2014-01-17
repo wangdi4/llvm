@@ -79,10 +79,15 @@ void BasicTypeFromStr::initStatic()
     m_Map["double"] = OCLBuiltinParser::DOUBLE;
     m_Map["image1d_t"] = OCLBuiltinParser::IMAGE_1D_T;
     m_Map["image2d_t"] = OCLBuiltinParser::IMAGE_2D_T;
+    m_Map["image2d_depth_t"] = OCLBuiltinParser::IMAGE_2D_DEPH_T;
     m_Map["image3d_t"] = OCLBuiltinParser::IMAGE_3D_T;
     m_Map["image1d_buffer_t"] = OCLBuiltinParser::IMAGE_1D_BUFFER_T;
     m_Map["image1d_array_t"] = OCLBuiltinParser::IMAGE_1D_ARRAY_T;
     m_Map["image2d_array_t"] = OCLBuiltinParser::IMAGE_2D_ARRAY_T;
+    m_Map["image2d_array_depth_t"] = OCLBuiltinParser::IMAGE_2D_ARRAY_DEPH_T;
+    m_Map["event_t"] = OCLBuiltinParser::EVENT_T;
+    m_Map["clk_event_t"] = OCLBuiltinParser::CLK_EVENT_T;
+    m_Map["pipe_t"] = OCLBuiltinParser::PIPE_T;
     m_Map["sampler_t"] = OCLBuiltinParser::SAMPLER_T;
 }
 
@@ -115,24 +120,29 @@ private:
 
 void BasicTypeToStr::initStatic()
 {
-    m_Map[OCLBuiltinParser::BOOL]       = reflection::PRIMITIVE_BOOL;
-    m_Map[OCLBuiltinParser::CHAR]       = reflection::PRIMITIVE_CHAR;
-    m_Map[OCLBuiltinParser::UCHAR]      = reflection::PRIMITIVE_UCHAR;
-    m_Map[OCLBuiltinParser::SHORT]      = reflection::PRIMITIVE_SHORT;
-    m_Map[OCLBuiltinParser::USHORT]     = reflection::PRIMITIVE_USHORT;
-    m_Map[OCLBuiltinParser::INT]        = reflection::PRIMITIVE_INT;
-    m_Map[OCLBuiltinParser::UINT]       = reflection::PRIMITIVE_UINT;
-    m_Map[OCLBuiltinParser::LONG]       = reflection::PRIMITIVE_LONG;
-    m_Map[OCLBuiltinParser::ULONG]      = reflection::PRIMITIVE_ULONG;
-    m_Map[OCLBuiltinParser::FLOAT]      = reflection::PRIMITIVE_FLOAT;
-    m_Map[OCLBuiltinParser::DOUBLE]     = reflection::PRIMITIVE_DOUBLE;
-    m_Map[OCLBuiltinParser::IMAGE_1D_T] = reflection::PRIMITIVE_IMAGE_1D_T;
-    m_Map[OCLBuiltinParser::IMAGE_2D_T] = reflection::PRIMITIVE_IMAGE_2D_T;
-    m_Map[OCLBuiltinParser::IMAGE_3D_T] = reflection::PRIMITIVE_IMAGE_3D_T;
-    m_Map[OCLBuiltinParser::IMAGE_1D_BUFFER_T] = reflection::PRIMITIVE_IMAGE_1D_BUFFER_T;
-    m_Map[OCLBuiltinParser::IMAGE_1D_ARRAY_T] = reflection::PRIMITIVE_IMAGE_1D_ARRAY_T;
-    m_Map[OCLBuiltinParser::IMAGE_2D_ARRAY_T] = reflection::PRIMITIVE_IMAGE_2D_ARRAY_T;
-    m_Map[OCLBuiltinParser::SAMPLER_T] = reflection::PRIMITIVE_SAMPLER_T;
+    m_Map[OCLBuiltinParser::BOOL]                   = reflection::PRIMITIVE_BOOL;
+    m_Map[OCLBuiltinParser::CHAR]                   = reflection::PRIMITIVE_CHAR;
+    m_Map[OCLBuiltinParser::UCHAR]                  = reflection::PRIMITIVE_UCHAR;
+    m_Map[OCLBuiltinParser::SHORT]                  = reflection::PRIMITIVE_SHORT;
+    m_Map[OCLBuiltinParser::USHORT]                 = reflection::PRIMITIVE_USHORT;
+    m_Map[OCLBuiltinParser::INT]                    = reflection::PRIMITIVE_INT;
+    m_Map[OCLBuiltinParser::UINT]                   = reflection::PRIMITIVE_UINT;
+    m_Map[OCLBuiltinParser::LONG]                   = reflection::PRIMITIVE_LONG;
+    m_Map[OCLBuiltinParser::ULONG]                  = reflection::PRIMITIVE_ULONG;
+    m_Map[OCLBuiltinParser::FLOAT]                  = reflection::PRIMITIVE_FLOAT;
+    m_Map[OCLBuiltinParser::DOUBLE]                 = reflection::PRIMITIVE_DOUBLE;
+    m_Map[OCLBuiltinParser::IMAGE_1D_T]             = reflection::PRIMITIVE_IMAGE_1D_T;
+    m_Map[OCLBuiltinParser::IMAGE_2D_T]             = reflection::PRIMITIVE_IMAGE_2D_T;
+    m_Map[OCLBuiltinParser::IMAGE_2D_DEPH_T]        = reflection::PRIMITIVE_IMAGE_2D_DEPTH_T;
+    m_Map[OCLBuiltinParser::IMAGE_3D_T]             = reflection::PRIMITIVE_IMAGE_3D_T;
+    m_Map[OCLBuiltinParser::IMAGE_1D_BUFFER_T]      = reflection::PRIMITIVE_IMAGE_1D_BUFFER_T;
+    m_Map[OCLBuiltinParser::IMAGE_1D_ARRAY_T]       = reflection::PRIMITIVE_IMAGE_1D_ARRAY_T;
+    m_Map[OCLBuiltinParser::IMAGE_2D_ARRAY_T]       = reflection::PRIMITIVE_IMAGE_2D_ARRAY_T;
+    m_Map[OCLBuiltinParser::IMAGE_2D_ARRAY_DEPH_T]  = reflection::PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T;
+    m_Map[OCLBuiltinParser::EVENT_T]                = reflection::PRIMITIVE_EVENT_T;
+    m_Map[OCLBuiltinParser::CLK_EVENT_T]            = reflection::PRIMITIVE_CLK_EVENT_T;
+    m_Map[OCLBuiltinParser::PIPE_T]                 = reflection::PRIMITIVE_PIPE_T;
+    m_Map[OCLBuiltinParser::SAMPLER_T]              = reflection::PRIMITIVE_SAMPLER_T;
 }
 
 std::map<OCLBuiltinParser::BasicArgType, reflection::TypePrimitiveEnum> BasicTypeToStr::m_Map;
@@ -205,7 +215,15 @@ typedef Singleton<ArgVectorMap> ArgVectorMapSingleton;
       pointerArg = newArg;
       newArg.genType = OCLBuiltinParser::POINTER;
       newArg.ptrType.ptrType.push_back(pointerArg);
-      newArg.ptrType.ptrToStr = p->toString();      
+      newArg.ptrType.ptrToStr = p->toString();
+    }
+
+    void visit(const reflection::AtomicType* p) {
+      assert(false && "need to support Atomic Parameter type");
+    }
+
+    void visit(const reflection::BlockType* p) {
+      assert(false && "need to support Block Parameter type");
     }
 
     void visit(const reflection::UserDefinedType* p) {
