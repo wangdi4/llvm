@@ -356,7 +356,7 @@ set( BACKEND_PASSES
     RelaxedPass
     ResolveWICall
     ShiftZeroUpperBits
-    ShuffleCallToInst
+    BuiltinCallToInst
     UndefExternalFuncs
     KernelInfo
     Prefetch
