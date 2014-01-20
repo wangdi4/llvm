@@ -207,7 +207,7 @@ const LLVMModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
     // if we use an injected module we need to transform the jit holder
     // so the original module functions point into the jit buffer
     if (useir_name) {
-      LMJH = LMJH->clone(local_mod);
+      LMJH = LMJH->clone(mod);
     }
   }
 
