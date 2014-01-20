@@ -67,6 +67,8 @@ public:
   void visit(const PrimitiveType*);
   void visit(const VectorType*);
   void visit(const PointerType*);
+  void visit(const AtomicType*);
+  void visit(const BlockType*);
   void visit(const UserDefinedType*);
 private:
 

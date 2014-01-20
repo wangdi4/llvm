@@ -6361,12 +6361,13 @@ void __attribute__((overloadable)) barrier(cl_mem_fence_flags flags);
  * be memory_scope_work_group or
  * memory_scope_device.
  */
-typedef enum {
-  memory_scope_work_item, /* this must be used only with atomic_work_item_fence and CLK_IMAGE_MEM_FENCE */
-  memory_scope_work_group,
-  memory_scope_device,
-  memory_scope_all_svm_devices
-} memory_scope;
+#define memory_scope_work_item       0x0 /* this must be used only with atomic_work_item_fence and CLK_IMAGE_MEM_FENCE */
+#define memory_scope_work_group      0x1
+#define memory_scope_device          0x2
+#define memory_scope_all_svm_devices 0x3
+#define memory_scope_sub_group       0x4
+
+typedef uint memory_scope;
 
 void __attribute__((overloadable)) work_group_barrier(cl_mem_fence_flags flags);
 void __attribute__((overloadable)) work_group_barrier(cl_mem_fence_flags flags, memory_scope scope);
@@ -7096,13 +7097,13 @@ typedef atomic_int atomic_flag;
   typedef  atomic_uint  atomic_size_t;
 #endif
 
-typedef enum {
-  memory_order_relaxed,
-  memory_order_acquire,
-  memory_order_release,
-  memory_order_acq_rel,
-  memory_order_seq_cst
-} memory_order;
+#define memory_order_relaxed 0x0
+#define memory_order_acquire 0x1
+#define memory_order_release 0x2
+#define memory_order_acq_rel 0x3
+#define memory_order_seq_cst 0x4
+
+typedef uint memory_order;
 
 /**
  * OpenCL C 2.0 atomic builtins 6.13.11

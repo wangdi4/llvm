@@ -114,6 +114,65 @@ namespace reflection {
   }
 
   //
+  //Atomic Type
+  //
+
+  AtomicType::AtomicType(const RefParamType type) :
+    ParamType(TYPE_ID_ATOMIC), m_pType(type) {
+  }
+
+  void AtomicType::accept(TypeVisitor* visitor) const {
+    visitor->visit(this);
+  }
+
+  std::string AtomicType::toString() const {
+    std::stringstream myName;
+    myName << "atomic_" << getBaseType()->toString();
+    return myName.str();
+  }
+
+  bool AtomicType::equals(const ParamType* type) const {
+    const AtomicType* a = reflection::dyn_cast<AtomicType>(type);
+    return (a && (*getBaseType()).equals(&*(a->getBaseType())));
+  }
+
+  //
+  //Block Type
+  //
+
+  BlockType::BlockType() :
+    ParamType(TYPE_ID_BLOCK) {
+  }
+
+  void BlockType::accept(TypeVisitor* visitor) const {
+    visitor->visit(this);
+  }
+
+  std::string BlockType::toString() const {
+    std::stringstream myName;
+    myName << "void (";
+    for (unsigned int i=0; i<getNumOfParams(); ++i) {
+      if (i>0) myName << ", ";
+      myName << m_params[i]->toString();
+    }
+    myName << ")*";
+    return myName.str();
+  }
+
+  bool BlockType::equals(const ParamType* type) const {
+    const BlockType* pBlock = reflection::dyn_cast<BlockType>(type);
+    if (!pBlock || getNumOfParams() != pBlock->getNumOfParams() ) {
+      return false;
+    }
+    for (unsigned int i=0; i<getNumOfParams(); ++i) {
+      if (!getParam(i)->equals(&*pBlock->getParam(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  //
   //User Defined Type
   //
   //
@@ -143,6 +202,8 @@ namespace reflection {
   const TypeEnum PrimitiveType::enumTy    = TYPE_ID_PRIMITIVE;
   const TypeEnum PointerType::enumTy      = TYPE_ID_POINTER;
   const TypeEnum VectorType::enumTy       = TYPE_ID_VECTOR;
+  const TypeEnum AtomicType::enumTy       = TYPE_ID_ATOMIC;
+  const TypeEnum BlockType::enumTy        = TYPE_ID_BLOCK;
   const TypeEnum UserDefinedType::enumTy  = TYPE_ID_STRUCTURE;
 
 } //namespace reflection {

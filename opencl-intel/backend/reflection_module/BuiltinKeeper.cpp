@@ -28,6 +28,14 @@ namespace reflection{
       p->getPointee()->accept(this);
     }
 
+    void visit(const AtomicType* a) {
+      a->getBaseType()->accept(this);
+    }
+
+    void visit(const BlockType*) {
+      m_primitivType = PRIMITIVE_NONE;
+    }
+
     void visit(const UserDefinedType*) {
       m_primitivType = PRIMITIVE_NONE;
     }
