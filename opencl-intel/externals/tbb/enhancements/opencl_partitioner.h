@@ -51,12 +51,16 @@ namespace internal {
 //! An affinity partitioner
 class opencl_partitioner {
 public:
-    opencl_partitioner(int master_slot = 0, int concurrency = 0, bool use_zero_slot = true) :
-      my_master_slot(master_slot), my_concurrency(concurrency), my_use_zero_slot(use_zero_slot){
+    opencl_partitioner(int master_slot = 0, int concurrency = 0, bool use_zero_slot = true, int num_cores=0, int thread_per_core=0) :
+      my_master_slot(master_slot), my_concurrency(concurrency), my_use_zero_slot(use_zero_slot),
+      my_num_cores(num_cores), my_thread_per_core(thread_per_core) {
           my_active_slots = tbb::internal::get_initial_auto_partitioner_divisor() / 4; // let exactly P tasks to be distributed across workers
           if ( 0 == my_concurrency ) {
               my_concurrency = my_active_slots;
           }
+#if 0
+          printf("MasterSlot=%d,my_concurrency=%d,zero_slot=%d, active_slots=%d\n", master_slot, concurrency, use_zero_slot,my_active_slots);fflush(0);
+#endif
       }
 
 private:
@@ -64,6 +68,8 @@ private:
     int my_concurrency;
     int my_active_slots;
     bool my_use_zero_slot;
+    int my_num_cores;
+    int my_thread_per_core;
 
     friend class internal::opencl_partition_type;
 //    template<typename Range, typename Body, typename Partitioner> friend class serial::interface6::start_for;
@@ -109,31 +115,23 @@ static inline bool is_big_enough(unsigned long long start) {
 
 //! Provides default methods for affinity (adaptive) partition objects.
 class opencl_partition_type : public tbb::uneven::interface6::internal::partition_type_base<opencl_partition_type> {
-    int my_master_slot;
-    int my_use_zero_slot;
-    int my_concurrency;
+    const interfaceOCL::opencl_partitioner& my_part;
     unsigned my_begin, my_end;
     depth_t my_max_depth;
     char my_delay;
     unsigned long long my_tsc;
 public:
-    opencl_partition_type( const interfaceOCL::opencl_partitioner& part) {
-        my_master_slot = part.my_master_slot;
-        my_use_zero_slot = part.my_use_zero_slot;
-        my_concurrency = part.my_concurrency;
+    opencl_partition_type( const interfaceOCL::opencl_partitioner& part) : my_part(part){
         my_begin = 0;
-        my_end = part.my_concurrency;
+        my_end = my_part.my_concurrency;
         my_max_depth = __TBB_OCL_INIT_DEPTH;
         my_delay = 0;
         my_tsc = 0;
         __TBB_ASSERT(my_end, "initial value of get_initial_auto_partitioner_divisor() is not valid");
         __TBB_ASSERT( my_max_depth < range_pool_size, 0 );
     }
-    opencl_partition_type( opencl_partition_type& p, uneven::split ) {
+    opencl_partition_type( opencl_partition_type& p, uneven::split ) : my_part(p.my_part){
         using namespace std;
-        my_master_slot = p.my_master_slot;
-        my_use_zero_slot = p.my_use_zero_slot;
-        my_concurrency = p.my_concurrency;
         my_max_depth = p.my_max_depth;
         my_delay = p.my_delay;
         my_tsc = 0;
@@ -150,13 +148,26 @@ public:
         if( my_begin < my_end ) {
             __TBB_ASSERT(my_begin > 0, "Task with my_begin==0 is not expected");
             int affinity = my_begin;
-            if ( !my_use_zero_slot ) {
+            if ( !my_part.my_use_zero_slot ) {
                 // if slot 0, master is not in use, we should calculate affinity relatively to current master slot
-                affinity = my_master_slot + my_begin;
-                affinity %= my_concurrency+1;
+                affinity = my_part.my_master_slot + my_begin;
+                if ( affinity > my_part.my_concurrency ) {
+                    affinity -= my_part.my_concurrency;
+                    __TBB_ASSERT( affinity > 0,  "Task affinity expected to be  greater than 0");
+                }
             }
+#if __ENABLE_SCATTER_DISTRIBUTION__
+            // if number of cores was specified and concurrency is less than twice number of cores,
+            // need to scatter threads over cores
+            if ( (my_part.my_num_cores > 0) && (my_part.my_concurrency < (2*my_part.my_num_cores)) )
+            {
+                int hw_tid = (long)affinity / my_part.my_num_cores;
+                int core_id = (long)affinity % my_part.my_num_cores;
+                affinity = core_id * my_part.my_thread_per_core + hw_tid;
+            }
+#endif
 #if 0
-            printf("master slot %d slot %d Setting affinity to %d concurrency=%d, my_begin=%d, my_end=%d\n", my_master_slot, tbb::task_arena::current_slot(), affinity, my_concurrency, my_begin, my_end);fflush(0);
+            printf("master slot %d slot %d setting affinity to %d concurrency=%d, my_begin=%d, my_end=%d\n", my_part.my_master_slot, tbb::task_arena::current_slot(), affinity, my_part.my_concurrency, my_begin, my_end);fflush(0);
 #endif
             t.set_affinity( affinity + 1);
         }
