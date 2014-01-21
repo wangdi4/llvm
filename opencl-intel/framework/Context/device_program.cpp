@@ -605,6 +605,13 @@ cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes, 
 
 cl_err_code DeviceProgram::SetDeviceHandleInternal(cl_dev_program programHandle)
 {
+    if (m_pDevice)
+    {
+        if (0 != m_programHandle)
+        {
+            m_pDevice->GetDeviceAgent()->clDevReleaseProgram(m_programHandle);
+        }
+    }
     m_programHandle = programHandle;
     return CL_SUCCESS;
 }
