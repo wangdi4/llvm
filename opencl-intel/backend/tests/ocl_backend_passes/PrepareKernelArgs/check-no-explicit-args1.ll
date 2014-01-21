@@ -13,18 +13,18 @@ entry:
 ; CHECK: [[IMPLCT_ARG0_SLMBUFF:%[a-zA-Z0-9]+]] = alloca [0 x i8], align 128
 ; CHECK-NEXT: %pLocalMemBase = bitcast [0 x i8]* [[IMPLCT_ARG0_SLMBUFF]] to i8 addrspace(3)*
 ; CHECK-NEXT: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr i8* %pUniformArgs, i32 0
-; CHECK-NEXT: %pWorkDim = bitcast i8* [[GEP0]] to { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }*
-; CHECK-NEXT: [[GEP1:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0
+; CHECK-NEXT: %pWorkDim = bitcast i8* [[GEP0]] to { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }*
+; CHECK-NEXT: [[GEP1:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 0
 ; CHECK-NEXT: %LocalSize_0 = load i32* [[GEP1]]
-; CHECK-NEXT: [[GEP2:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 1
+; CHECK-NEXT: [[GEP2:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 1
 ; CHECK-NEXT: %LocalSize_1 = load i32* [[GEP2]]
-; CHECK-NEXT: [[GEP3:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 2
+; CHECK-NEXT: [[GEP3:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 2
 ; CHECK-NEXT: %LocalSize_2 = load i32* [[GEP3]]
-; CHECK-NEXT: [[GEP4:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 0
+; CHECK-NEXT: [[GEP4:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 0
 ; CHECK-NEXT: %GlobalOffset_0 = load i32* [[GEP4]]
-; CHECK-NEXT: [[GEP5:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 1
+; CHECK-NEXT: [[GEP5:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 1
 ; CHECK-NEXT: %GlobalOffset_1 = load i32* [[GEP5]]
-; CHECK-NEXT: [[GEP6:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 2
+; CHECK-NEXT: [[GEP6:%[a-zA-Z0-9]+]] = getelementptr { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 2
 ; CHECK-NEXT: %GlobalOffset_2 = load i32* [[GEP6]]
 ; CHECK-NEXT: [[GEP7:%[a-zA-Z0-9]+]] = getelementptr i32* %pWGId, i32 0
 ; CHECK-NEXT: %GroupID_0 = load i32* [[GEP7]]
@@ -45,7 +45,7 @@ entry:
 ; CHECK-NEXT: [[BBS1:%[a-zA-Z0-9]+]] = mul i32 [[BBS0]], %LocalSize_1
 ; CHECK-NEXT: %BarrierBufferSize = mul i32 [[BBS1]], %LocalSize_2
 ; CHECK-NEXT: %pSpecialBuf = alloca i8, i32 %BarrierBufferSize, align 128
-; CHECK-NEXT: call void @__t1_separated_args(i8 addrspace(3)* %pLocalMemBase, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* %pWorkDim, i32* %pWGId, [4 x i32] %BaseGlbId, i8* %pSpecialBuf, {}* %RuntimeHandle)
+; CHECK-NEXT: call void @__t1_separated_args(i8 addrspace(3)* %pLocalMemBase, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32* %pWGId, [4 x i32] %BaseGlbId, i8* %pSpecialBuf, {}* %RuntimeHandle)
 ; CHECK-NEXT: ret void
 
 !opencl.kernels = !{!0}

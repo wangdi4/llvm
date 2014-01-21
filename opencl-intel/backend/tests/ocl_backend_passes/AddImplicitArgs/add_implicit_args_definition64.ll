@@ -21,7 +21,7 @@ entry:
 ; CHECK:     declare i32 @__functionWithArgs_before.AddImplicitArgs(i32, i32) #0
 
 ; CHECK:      define void @functionWithoutArgs(i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], {}*, {}* }* noalias %pWorkDim
+; CHECK:          { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim
 ; CHECK:          i64* noalias %pWGId,
 ; CHECK:          [4 x i64] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
@@ -32,7 +32,7 @@ entry:
 
 ; CHECK:      define i32 @functionWithArgs(i32 %x, i32 %y,
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], {}*, {}* }* noalias %pWorkDim
+; CHECK:          { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim
 ; CHECK:          i64* noalias %pWGId,
 ; CHECK:          [4 x i64] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,

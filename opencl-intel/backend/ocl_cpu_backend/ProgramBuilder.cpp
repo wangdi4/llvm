@@ -37,6 +37,7 @@ File Name:  ProgramBuilder.cpp
 #include "MetaDataApi.h"
 #include "BitCodeContainer.h"
 #include "BlockUtils.h"
+#include "CompilationUtils.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -171,6 +172,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
                                                          Function *func,
                                                          const ProgramBuildResult& buildResult) const
 {
+
     // Set optimal WG size
     unsigned int optWGSize = 128; // TODO: to be checked
 
@@ -370,6 +372,14 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
 
     // set isBlock property
     pProps->SetIsBlock(BlockUtils::IsBlockInvocationKernel(*func));
+
+    // OpenCL 2.0 related properties
+    if(OclVersion::CL_VER_2_0 <= CompilationUtils::getCLVersionFromModuleOrDefault(*pModule)  &&
+       CompilationUtils::fetchCompilerOption(*pModule, "-cl-uniform-work-group-size").empty()) {
+      pProps->SetIsNonUniformWGSizeSupported(true);
+    } else {
+      pProps->SetIsNonUniformWGSizeSupported(false);
+    }
 
     return pProps;
 }

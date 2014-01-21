@@ -58,8 +58,8 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
                            LoggerClient *  pLoggerClient,
                            cl_err_code *   pErr) :
                 OCLObjectBase("DeviceKernel"), m_clDevKernel(CL_INVALID_HANDLE), m_pKernel(pKernel), m_pDevice(pDevice),
-                m_CL_KERNEL_WORK_GROUP_SIZE(0), m_CL_KERNEL_LOCAL_MEM_SIZE(0)
-
+                m_CL_KERNEL_WORK_GROUP_SIZE(0), m_CL_KERNEL_LOCAL_MEM_SIZE(0),
+                m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT(false)
 {
     assert ( pErr != NULL && "Error argument always must be provided");
 
@@ -212,6 +212,12 @@ bool DeviceKernel::CacheRequiredInfo()
     {
         err = pDevAgent->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE, sizeof(m_CL_KERNEL_LOCAL_MEM_SIZE), &m_CL_KERNEL_LOCAL_MEM_SIZE, NULL);
         assert( CL_DEV_SUCCEEDED(err) && "caching of GetKernelLocalMemSize failed" );
+    }
+
+    if (CL_DEV_SUCCEEDED(err))
+    {
+        err = pDevAgent->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT, sizeof(m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT), &m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT, NULL);
+        assert( CL_DEV_SUCCEEDED(err) && "caching of GetKernelNonUniformWGSizeSupport failed" );
     }
 
     return CL_DEV_SUCCEEDED(err);        

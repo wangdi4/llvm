@@ -30,7 +30,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   ///         uiWorkDim       - work dimension
   ///         GlobalOffset    - global offset (for each dimension)
   ///         GlobalSize      - global size (for each dimension)
-  ///         LocalSize       - local size (for each dimension)
+  ///         LocalSize       - local sizes (for each dimension)
   ///         WGNumber        - number of work groups (for each dimension)
   ///         WGLoopIterCount - number of iteration the loop barrier executes
   struct sWorkInfo
@@ -38,7 +38,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       unsigned int    uiWorkDim;
       size_t          GlobalOffset[MAX_WORK_DIM];
       size_t          GlobalSize[MAX_WORK_DIM];
-      size_t          LocalSize[MAX_WORK_DIM];
+      size_t          LocalSize[WG_SIZE_NUM][MAX_WORK_DIM];
       size_t          WGNumber[MAX_WORK_DIM];
       size_t          WGLoopIterCount;
   };

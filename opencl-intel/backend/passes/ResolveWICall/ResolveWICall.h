@@ -58,7 +58,7 @@ namespace intel {
     /// @param pCall The call instruction that calls a work item function
     /// @param type  The call instruction type
     /// @returns The result value of the work item function call
-    Value* updateGetFunction(CallInst *pCall, unsigned type);
+    Value* updateGetFunction(CallInst *pCall, TInternalCallType type);
 
     /// @brief Calculates work-item information that use dimension
     ///        (this function is used where dimension is in bound)
@@ -66,19 +66,19 @@ namespace intel {
     /// @param type          The call instruction type
     /// @param pInsterBefore The instruction to insert new instructions before
     /// @returns The result value of the work item function call
-    Value* updateGetFunctionInBound(CallInst *pCall, unsigned type, Instruction *pInsertBefore);
+    Value* updateGetFunctionInBound(CallInst *pCall, TInternalCallType type, Instruction *pInsertBefore);
 
     /// @brief Returns Internal Call Type for given function name
     /// @param calledFuncName given function name
     /// @returns Internal Call Type for given function name
-    unsigned getCallFunctionType(std::string calledFuncName);
+    TInternalCallType getCallFunctionType(std::string calledFuncName);
 
     // printf/prefetch
     Value*  updatePrintf(llvm::CallInst *pCall);
     void  updatePrefetch(llvm::CallInst *pCall);
 
     void  addPrefetchDeclaration();
-    
+
     /// @brief add extended execution declarations
     void  addExtendedExecutionDeclarations();
 
@@ -87,7 +87,7 @@ namespace intel {
     void addExternFunctionDeclaration(unsigned type, FunctionType* FT, StringRef Name);
     /// @brief obtain name for extexec callback
     const char* getExternCallbackName(unsigned type) const;
-    
+
     /// Helper functions to construct OpenCL types
     /// @brief constructs type for queue_t
     Type * getQueueType() const;
@@ -110,11 +110,11 @@ namespace intel {
     /// @brief get or add from/to  module declaration of type used for local
     /// memory buffers specified in enqueue_kernel
     Type* getLocalMemBufType() const;
-    /// @brief Add instructions handling variable number 
+    /// @brief Add instructions handling variable number
     ///        of local mem arguments in Enqueue_kernel
     /// @param args input/output vector with arguments to call ocl20_* callback
     ///        When done args will be added with 2 arguments for local_mem handling
-    /// @param pCall - enqueue_kernel call instruction 
+    /// @param pCall - enqueue_kernel call instruction
     /// @param LocalMemArgsOffs offset of 1st argument with local mem arguments
     void addLocalMemArgs(SmallVectorImpl<Value *> &args, CallInst *pCall,
                          const unsigned LocalMemArgsOffs);
@@ -179,7 +179,7 @@ namespace intel {
     /// flags indicates that extended execution built-in declarations already added to module
     std::set<unsigned> m_ExtExecDecls;
 
-    /// type %struct.__ndrange_t type 
+    /// type %struct.__ndrange_t type
     /// NULL means declaration were not added to module
     Type * m_pStructNDRangeType;
     /// number of bits in integer returned from enqueue_kernel BI
@@ -193,9 +193,15 @@ namespace intel {
     void clearPerFunctionCache();
     Value *getOrCreateRuntimeInterface();
     Value *getOrCreateBlock2KernelMapper();
+
+    // Version of OpenCL C a processed module is compiled for.
+    unsigned m_oclVersion;
+    // true if a module is compiled with the support of the
+    // non-uniform work-group size.
+    bool     m_nonUniformLocalSize;
   };
 
-  
-} // namespace intel 
+
+} // namespace intel
 
 #endif //__RESOLVE_WI_CALL_H__

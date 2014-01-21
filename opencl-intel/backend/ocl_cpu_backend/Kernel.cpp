@@ -129,14 +129,15 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
 
   bool UseAutoGroupSize = true;
   for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
-    UseAutoGroupSize = UseAutoGroupSize && ((UniformImplicitArgs->LocalSize[i]) == 0);
+    UseAutoGroupSize = UseAutoGroupSize && ((UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i]) == 0);
   }
 
   if (UseAutoGroupSize) {
     // Try hint size, find GCD for each dimension
     if (m_pProps->GetHintWGSize()[0] != 0) {
       for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
-        UniformImplicitArgs->LocalSize[i] = GCD(
+        UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] =
+        UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = GCD(
             UniformImplicitArgs->GlobalSize[i], m_pProps->GetHintWGSize()[i]);
       }
     } else {
@@ -157,7 +158,8 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
         // Calculate global group size on dimensions Y & Z
         globalWorkSizeYZ *= UniformImplicitArgs->GlobalSize[i];
         // Set local group size on dimensions Y & Z to 1
-        UniformImplicitArgs->LocalSize[i] = 1;
+        UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] =
+        UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i]  = 1;
       }
 
       const unsigned int kernelPrivateMemSize =
@@ -253,8 +255,9 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
           }
         }
       }
-      UniformImplicitArgs->LocalSize[0] = newHeuristic;
-      assert(UniformImplicitArgs->LocalSize[0] > 0 &&
+      UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0] =
+      UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][0] = newHeuristic;
+      assert(UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0] > 0 &&
              "local size must be positive number");
     }
   }
@@ -319,9 +322,11 @@ cl_dev_err_code Kernel::InitRunner(void *pKernelUniformArgs) const {
   cl_uniform_kernel_args *pKernelUniformImplicitArgs =
       static_cast<cl_uniform_kernel_args *>(pKernelUniformImplicitArgsPosition);
 
-  const void *pEntryMark = pKernelUniformImplicitArgs->pJITEntryPoint;
-  pKernelUniformImplicitArgs->pJITEntryPoint =
-      ResolveEntryPointHandle(pEntryMark);
+  // FIXME [OpenCL 2.0]: This may be not OK then OpenCL 2.0 support is enabled for MIC.
+  pKernelUniformImplicitArgs->pUniformJITEntryPoint =
+      ResolveEntryPointHandle(pKernelUniformImplicitArgs->pUniformJITEntryPoint);
+  pKernelUniformImplicitArgs->pNonUniformJITEntryPoint =
+      ResolveEntryPointHandle(pKernelUniformImplicitArgs->pNonUniformJITEntryPoint);
 
   assert(pKernelUniformImplicitArgs->RuntimeInterface);
   return CL_DEV_SUCCESS;
@@ -347,7 +352,7 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
   CreateWorkDescription(pKernelUniformImplicitArgs);
 
   // local cannot be zero at this point
-  assert(pKernelUniformImplicitArgs->LocalSize[0] != 0 &&
+  assert(pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0] != 0 &&
          "LocalSize must be properly initialized");
 
   // In case of (pKernelUniformImplicitArgs.WorkDim < MAX_WORK_DIM)
@@ -355,62 +360,68 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
   for (unsigned int i = pKernelUniformImplicitArgs->WorkDim; i < MAX_WORK_DIM;
        ++i) {
     pKernelUniformImplicitArgs->GlobalSize[i] = 1;
-    pKernelUniformImplicitArgs->LocalSize[i] = 1;
+    pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] =
+    pKernelUniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = 1;
     pKernelUniformImplicitArgs->GlobalOffset[i] = 0;
+    pKernelUniformImplicitArgs->WGCount[i] = 1;
     // no need to set GlobalOffset as it is used later only according
     // to dimension
   }
 
   // Calculate number of work groups and WG size
-  size_t WGSize = 1;
   for (unsigned int i = 0; i < pKernelUniformImplicitArgs->WorkDim; ++i) {
-    assert(pKernelUniformImplicitArgs->GlobalSize[i] % pKernelUniformImplicitArgs->LocalSize[i] == 0);
-    pKernelUniformImplicitArgs->WGCount[i] =
-        pKernelUniformImplicitArgs->GlobalSize[i] /
-        pKernelUniformImplicitArgs->LocalSize[i];
-    WGSize *= pKernelUniformImplicitArgs->LocalSize[i];
+    assert((m_pProps->IsNonUniformWGSizeSupported() ||
+            0 == pKernelUniformImplicitArgs->GlobalSize[i] %
+                 pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i]) &&
+      "Kernel is built without support of non-uniform work-group size but it is non-uniform.");
+    size_t GlbSize = pKernelUniformImplicitArgs->GlobalSize[i];
+    size_t LclSize = pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i];
+    pKernelUniformImplicitArgs->WGCount[i] = GlbSize / LclSize;
+    // In case of non-uniform work-group size there can be a reminder group
+    // with size less than size of other groups.
+    pKernelUniformImplicitArgs->WGCount[i] += static_cast<size_t>(0 != GlbSize % LclSize);
   }
 
   // need to decide which entrypoint to run
   const IKernelJITContainer *pScalarJIT = GetKernelJIT(0);
   if (m_pProps->IsVectorizedWithTail()) {
-    // vectorized kernel is inlined into scalar kernel,
+    // Vectorized kernel is inlined into scalar kernel,
     // so we have exactly one JIT function.
-    pKernelUniformImplicitArgs->pJITEntryPoint =
+    // In this case pScalarJit contains this combination.
+    pKernelUniformImplicitArgs->pUniformJITEntryPoint =
+    pKernelUniformImplicitArgs->pNonUniformJITEntryPoint =
         CreateEntryPointHandle(pScalarJIT->GetJITCode());
-    pKernelUniformImplicitArgs->VectorWidth =
-        pScalarJIT->GetProps()->GetVectorSize();
   } else {
     const IKernelJITContainer *pVectorJIT =
         GetKernelJITCount() > 1 ? GetKernelJIT(1) : NULL;
-    // vectorized and scalar kernels could both be present
-    if (NULL != pVectorJIT) {
-      pKernelUniformImplicitArgs->pJITEntryPoint =
-          CreateEntryPointHandle(pVectorJIT->GetJITCode());
-      pKernelUniformImplicitArgs->VectorWidth =
-          pVectorJIT->GetProps()->GetVectorSize();
-    } else {
-      pKernelUniformImplicitArgs->pJITEntryPoint =
-          CreateEntryPointHandle(pScalarJIT->GetJITCode());
-      pKernelUniformImplicitArgs->VectorWidth =
-          pScalarJIT->GetProps()->GetVectorSize();
-    }
+    if(pVectorJIT) {
+      // The both vectorized and scalar JITs are present.
+      // Rely on the fact that JIT is always vectorized by work group size from 0 d.
+      //
+      // Use vector JIT if get_local_size(0) is evenly divisible by the vector width
+      // and scalar JIT otherwise.
+      bool useVectorJit = pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0] %
+                          pVectorJIT->GetProps()->GetVectorSize() == 0;
+      pKernelUniformImplicitArgs->pUniformJITEntryPoint = useVectorJit ?
+                                                          CreateEntryPointHandle(pVectorJIT->GetJITCode()) :
+                                                          CreateEntryPointHandle(pScalarJIT->GetJITCode());
 
-    if (pKernelUniformImplicitArgs->LocalSize[0] %
-        pKernelUniformImplicitArgs->VectorWidth) {
-      // Disable vectorization for workgroup sizes that are not
-      // a multiple of the vector width (Guy)
-      pKernelUniformImplicitArgs->pJITEntryPoint =
+      useVectorJit = pKernelUniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][0] %
+                     pVectorJIT->GetProps()->GetVectorSize() == 0;
+      pKernelUniformImplicitArgs->pNonUniformJITEntryPoint = useVectorJit ?
+                                                          CreateEntryPointHandle(pVectorJIT->GetJITCode()) :
+                                                          CreateEntryPointHandle(pScalarJIT->GetJITCode());
+    } else {
+      // Only scalar JIT is present.
+      pKernelUniformImplicitArgs->pUniformJITEntryPoint =
+      pKernelUniformImplicitArgs->pNonUniformJITEntryPoint =
           CreateEntryPointHandle(pScalarJIT->GetJITCode());
-      pKernelUniformImplicitArgs->VectorWidth =
-          pScalarJIT->GetProps()->GetVectorSize();
     }
-    assert(!(1 != pKernelUniformImplicitArgs->VectorWidth && 1 == WGSize) &&
-           "vectorized with WGsize = 1!");
   }
 
-#if !defined (__MIC__) && !defined(__MIC2__) // ocl20 is not supported in MIC so far
-  if (true ) { // ocl20 
+#if !defined (__MIC__) && !defined(__MIC2__) // ocl20 is not supported on MIC so far
+  // FIXME: CSSD1000?????: add a check for OpenCL 2.0
+  if (true ) { // ocl20
     pKernelUniformImplicitArgs->Block2KernelMapper = m_RuntimeService->GetBlockToKernelMapper();
   }
 #endif
@@ -453,14 +464,17 @@ void Kernel::DebugPrintUniformKernelArgs(const cl_uniform_kernel_args *A,
      << O + offsetof(cl_uniform_kernel_args, WorkDim) << ": size_t WorkDim = " << A->WorkDim << "\n"
      << O + offsetof(cl_uniform_kernel_args, GlobalOffset) << ": size_t GlobalOffset[MAX_WORK_DIM]" << PRINT3(A->GlobalOffset) << "\n"
      << O + offsetof(cl_uniform_kernel_args, GlobalSize) << ": size_t GlobalSize[MAX_WORK_DIM]" << PRINT3(A->GlobalSize) << "\n"
-     << O + offsetof(cl_uniform_kernel_args, LocalSize) << ": size_t LocalSize[MAX_WORK_DIM]" << PRINT3(A->LocalSize) << "\n"
+     << O + offsetof(cl_uniform_kernel_args, LocalSize[UNIFORM_WG_SIZE_INDEX]) <<
+         ": size_t LocalSize[UNIFORM_WG_SIZE_INDEX][MAX_WORK_DIM]" << PRINT3(A->LocalSize[UNIFORM_WG_SIZE_INDEX]) << "\n"
+     << O + offsetof(cl_uniform_kernel_args, LocalSize[NONUNIFORM_WG_SIZE_INDEX]) <<
+        ": size_t LocalSize[NONUNIFORM_WG_SIZE_INDEX][MAX_WORK_DIM]" << PRINT3(A->LocalSize[NONUNIFORM_WG_SIZE_INDEX]) << "\n"
      << O + offsetof(cl_uniform_kernel_args, WGCount) << ": size_t WGCount[MAX_WORK_DIM]" << PRINT3(A->WGCount) << "\n"
      << O + offsetof(cl_uniform_kernel_args, RuntimeInterface)
-     << ": void* RuntimeInterface= " << A->RuntimeInterface << "\n" 
+     << ": void* RuntimeInterface= " << A->RuntimeInterface << "\n"
      << O + offsetof(cl_uniform_kernel_args, minWorkGroupNum) << ": size_t minWorkGroupNum= " << A->minWorkGroupNum << "\n"
      << O+offsetof(cl_uniform_kernel_args, RuntimeInterface) << ": void* RuntimeInterface = " << A->RuntimeInterface << "\n"
-     << O + offsetof(cl_uniform_kernel_args, pJITEntryPoint) << ": void* pJITEntryPoint = " << A->pJITEntryPoint << "\n"
-     << O + offsetof(cl_uniform_kernel_args, VectorWidth) << ": unsigned VectorWidth = " << A->VectorWidth << "\n";
+     << O + offsetof(cl_uniform_kernel_args, pUniformJITEntryPoint) << ": void* pUniformJITEntryPoint = " << A->pUniformJITEntryPoint << "\n"
+     << O + offsetof(cl_uniform_kernel_args, pNonUniformJITEntryPoint) << ": void* pNonUniformJITEntryPoint = " << A->pNonUniformJITEntryPoint << "\n";
 #undef PRINT3
 }
 
@@ -481,8 +495,7 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
   BeforeExecution();
 #endif
 
-  assert(pKernelUniformImplicitArgs->WorkDim < 4);
-  assert(pKernelUniformImplicitArgs->WorkDim > 0);
+  assert(pKernelUniformImplicitArgs->WorkDim <= CPU_MAX_WORK_GROUP_SIZE);
   static bool guard = true;
   if (false && guard) {
     guard = false; //Print only first group in NDRange to avoid huge dumps
@@ -495,8 +508,9 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
   }
 
   IKernelJITContainer::JIT_PTR *kernel =
-      (IKernelJITContainer::JIT_PTR *)(size_t)
-      pKernelUniformImplicitArgs->pJITEntryPoint;
+      (IKernelJITContainer::JIT_PTR *)(size_t) ( pGroupID[0] != pKernelUniformImplicitArgs->WGCount[0] - 1 ?
+                 pKernelUniformImplicitArgs->pUniformJITEntryPoint :
+                 pKernelUniformImplicitArgs->pNonUniformJITEntryPoint);
 
   // running the kernel with the specified args and (groupID, runtimeHandle)
   kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);

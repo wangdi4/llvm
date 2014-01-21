@@ -95,6 +95,7 @@ protected:
         bool HasPrintOperation() const {return false;}
         bool HasBarrierOperation() const {return false;}
         bool HasKernelCallOperation() const {return false;}
+        bool IsNonUniformWGSizeSupported() const {return false;}
         unsigned int GetMinGroupSizeFactorial() const { return 0;}
         bool IsBlock() const { return false;}
         const char* GetKernelAttributes() const { return attributes; }

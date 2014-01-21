@@ -920,6 +920,9 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                 // is not evenly divisible by localWorkSize, set localWGSizes to 1, then print 
                 // warning and continue working check 
                 // globalWGSizes[i] % localWGSizes[i] if it is not OCL 2.0
+                // FIXME: The non-unifrom work-group size is also not valid if
+                //        build option -cl-unifrom-work-group-size is specified.
+                //        Not supported by clang yet.
                 if(!isCL20)
                     llvm::errs() << "[OpenCLReferenceRunner::RunKernel warning] workDim # "
                     << i << " globalWorkSize = " << globalWGSizes[i] <<
@@ -931,6 +934,9 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
         } else {
             // throw exeption if it is not OCL 2.0, because 
             // globalWGSizes[i] % localWGSizes[i] != 0 is valid for OCL2.0
+            // FIXME: The non-unifrom work-group size is also not valid if
+            //        build option -cl-unifrom-work-group-size is specified.
+            //        Not supported by clang yet.
             if ((!isCL20) && (globalWGSizes[i] % localWGSizes[i] != 0)) {
                 std::ostringstream s;
                 s << "workDim # " << i << " globalWorkSize = " << globalWGSizes[i] << 

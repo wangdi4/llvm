@@ -108,4 +108,9 @@ bool KernelProperties::IsBlock() const
     return m_bIsBlock;
 }
 
+bool KernelProperties::IsNonUniformWGSizeSupported() const
+{
+    return m_bIsNonUniformWGSizeSupported;
+}
+
 }}}

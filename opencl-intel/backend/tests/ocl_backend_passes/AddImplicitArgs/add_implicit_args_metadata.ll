@@ -20,7 +20,7 @@ entry:
 ; CHECK:        declare void @functionWithoutBody(i32, i32)
 ; CHECK:        define void @functionWithBody(i32 %x,
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* noalias %pWorkDim
+; CHECK:          { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* noalias %pWorkDim
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
@@ -30,5 +30,5 @@ entry:
 ; CHECK-NEXT:   ret void
 
 ; CHECK:        !opencl.kernels = !{!0, !1}
-; CHECK:        !0 = metadata !{void (i32, i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }*, i32*, [4 x i32], i8*, {}*)* @functionWithBody}
+; CHECK:        !0 = metadata !{void (i32, i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }*, i32*, [4 x i32], i8*, {}*)* @functionWithBody}
 ; CHECK-NEXT:   !1 = metadata !{void (i32, i32)* @functionWithoutBody}

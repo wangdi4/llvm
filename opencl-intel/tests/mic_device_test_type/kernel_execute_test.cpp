@@ -148,8 +148,8 @@ bool KernelExecute_Dot_Test(const char* prog_file)
     krnlParam.glb_wrk_offs[1] = 0;
     krnlParam.glb_wrk_size[0] = 4;
     krnlParam.glb_wrk_size[1] = 2;
-    krnlParam.lcl_wrk_size[0] = 2;
-    krnlParam.lcl_wrk_size[1] = 1;
+    krnlParam.lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][0] = krnlParam.lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][0] = 2;
+    krnlParam.lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][1] = krnlParam.lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][1] = 1;
 //    krnlParam.work_dim = 1;
 //    krnlParam.glb_wrk_offs[0] = 0;
 //    krnlParam.glb_wrk_size[0] = 8;
@@ -287,7 +287,7 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
     krnlParam.work_dim = 1;
     krnlParam.glb_wrk_offs[0] = 0;
     krnlParam.glb_wrk_size[0] = 20;
-    krnlParam.lcl_wrk_size[0] = 1;
+    krnlParam.lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][0] = krnlParam.lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][0] = 1;
 
     // Setup command descriptor
     cmdDesc.id = (cl_dev_cmd_id)CL_DEV_CMD_EXEC_KERNEL;
@@ -441,7 +441,7 @@ bool KernelExecute_Math_Test(const char* prog_file)
     krnlParam.work_dim = 1;
     krnlParam.glb_wrk_offs[0] = 0;
     krnlParam.glb_wrk_size[0] = TEST_BUFF_SIZE/4; // Kernel forks on float4
-    krnlParam.lcl_wrk_size[0] = 0;
+    krnlParam.lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][0] = krnlParam.lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][0] = 0;
 
     // Setup command descriptor
     cmdDesc.id = (cl_dev_cmd_id)CL_DEV_CMD_EXEC_KERNEL;

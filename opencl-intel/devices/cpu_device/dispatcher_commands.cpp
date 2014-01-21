@@ -842,8 +842,8 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     m_pImplicitArgs = (cl_uniform_kernel_args*)(pLockedParams+pKernel->GetExplicitArgumentBufferSize());
     m_pImplicitArgs->WorkDim = cmdParams->work_dim;
     m_pImplicitArgs->RuntimeInterface = static_cast<IDeviceCommandManager*>(this);
-    // Copy global_offset, global_size and local_work_size
-    MEMCPY_S(m_pImplicitArgs->GlobalOffset, sizeof(size_t) * MAX_WORK_DIM * 3, cmdParams->glb_wrk_offs, sizeof(size_t) * MAX_WORK_DIM * 3);
+    // Copy global_offset, global_size, uniform local_work_size, and non-uniform local_work_size
+    MEMCPY_S(m_pImplicitArgs->GlobalOffset, sizeof(size_t) * MAX_WORK_DIM * 4, cmdParams->glb_wrk_offs, sizeof(size_t) * MAX_WORK_DIM * 4);
     m_pImplicitArgs->minWorkGroupNum = m_numThreads;
 
     m_pRunner = pKernel->GetKernelRunner();
@@ -1297,7 +1297,11 @@ void DeviceNDRange::InitCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevBacken
     {
         m_paramKernel.glb_wrk_offs[i] = pNDRange->globalWorkOffset[i];
         m_paramKernel.glb_wrk_size[i] = pNDRange->globalWorkSize[i];
-        m_paramKernel.lcl_wrk_size[i] = pNDRange->localWorkSize[i];
+        m_paramKernel.lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i] = pNDRange->localWorkSize[i];
+        // local size may be 0
+        const size_t nonUniLocalSize = pNDRange->localWorkSize[i] == 0 ? 0 : pNDRange->globalWorkSize[i] % pNDRange->localWorkSize[i];
+        // if the remainder is 0 set non-unifrom size to uniform value
+        m_paramKernel.lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i] = nonUniLocalSize == 0 ? pNDRange->localWorkSize[i] : nonUniLocalSize;
     }
 
     size_t exp_arg_size = pKernel->GetExplicitArgumentBufferSize();

@@ -43,7 +43,7 @@ namespace Validation{
         unsigned int    uiWorkDim;
         size_t          GlobalOffset[MAX_WORK_DIM];
         size_t          GlobalSize[MAX_WORK_DIM];
-        size_t          LocalSize[MAX_WORK_DIM];
+        size_t          LocalSize[WG_SIZE_NUM][MAX_WORK_DIM];
         size_t          WGNumber[MAX_WORK_DIM];
     };
 

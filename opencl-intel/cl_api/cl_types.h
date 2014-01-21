@@ -218,7 +218,9 @@ typedef struct _cl_uniform_kernel_args {
     size_t    WorkDim;                                 // Filled by the runtime
     size_t    GlobalOffset[MAX_WORK_DIM];              // Filled by the runtime
     size_t    GlobalSize[MAX_WORK_DIM];                // Filled by the runtime
-    size_t    LocalSize[MAX_WORK_DIM];                 // Filled by the runtime, updated by the BE in case of (0,0,0)
+    size_t    LocalSize[WG_SIZE_NUM][MAX_WORK_DIM];    // Filled by the runtime, updated by the BE in case of (0,0,0)
+                                                       // LocalSize[0] contains unifrom local sizes
+                                                       // LocalSize[1] contains non-unifrom local sizes
     size_t    WGCount[MAX_WORK_DIM];                   // Updated by the BE, based on GLOBAL/LOCAL
     // For Opencl2.0: this is a IDeviceCommandManager, and for MIC: the printf interface thing
     void*     RuntimeInterface;                      // Updated by runtime
@@ -226,8 +228,8 @@ typedef struct _cl_uniform_kernel_args {
     void*     Block2KernelMapper;                      // Updated by the BE
     size_t    minWorkGroupNum;                         // Filled by the runtime, Required by the heuristic
     // Internal for Running the kernel
-    const void *pJITEntryPoint;                        // Filled by the BE
-    unsigned int VectorWidth;                          // Filled by the BE
+    const void *pUniformJITEntryPoint;                 // Filled by the BE
+    const void *pNonUniformJITEntryPoint;              // Filled by the BE
 } PACKED cl_uniform_kernel_args;
 
 #ifdef _WIN32

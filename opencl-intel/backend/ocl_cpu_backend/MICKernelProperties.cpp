@@ -74,6 +74,7 @@ void MICKernelProperties::Serialize(IOutputStream& ost, SerializationStatus* sta
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_minGroupSizeFactorial, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_uiSizeT, ost);
+    Serializer::SerialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ost);
 }
 
 void MICKernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -111,6 +112,7 @@ void MICKernelProperties::Deserialize(IInputStream& ist, SerializationStatus* st
     m_minGroupSizeFactorial = ui_tmp;
     Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
     m_uiSizeT = ui_tmp;
+    Serializer::DeserialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ist);
 }
 
 }}} // namespace

@@ -73,7 +73,7 @@ public:
         size_t        uiWorkDim;
         size_t        GlobalOffset[MAX_WORK_DIM];
         size_t        GlobalSize[MAX_WORK_DIM];
-        size_t        LocalSize[MAX_WORK_DIM];
+        size_t        LocalSize[WG_SIZE_NUM][MAX_WORK_DIM];
         size_t        WGNumber[MAX_WORK_DIM];
         void*         RuntimeCallBacks;
       };
@@ -81,10 +81,11 @@ public:
 
     Type* AbstractPtr = PointerType::get(StructType::get(C), 0);
     Type* Sizet3Ty = ArrayType::get(SizetTy, MAX_WORK_DIM);
+    Type* Sizet2x3Ty = ArrayType::get(ArrayType::get(SizetTy, MAX_WORK_DIM), WG_SIZE_NUM);
     WGInfoMembersTypes[NDInfo::WORK_DIM] = SizetTy;
-    WGInfoMembersTypes[NDInfo::GLOBAL_OFFSET] = Sizet3Ty; 
+    WGInfoMembersTypes[NDInfo::GLOBAL_OFFSET] = Sizet3Ty;
     WGInfoMembersTypes[NDInfo::GLOBAL_SIZE] = Sizet3Ty;
-    WGInfoMembersTypes[NDInfo::LOCAL_SIZE] = Sizet3Ty;
+    WGInfoMembersTypes[NDInfo::LOCAL_SIZE] = Sizet2x3Ty;
     WGInfoMembersTypes[NDInfo::WG_NUMBER] = Sizet3Ty;
     WGInfoMembersTypes[NDInfo::RUNTIME_INTERFACE] = AbstractPtr;
     WGInfoMembersTypes[NDInfo::BLOCK2KERNEL_MAPPER] = AbstractPtr;
@@ -165,18 +166,68 @@ public:
                                    Builder);
   }
 
-  Value *GenerateGetLocalSize(Value *WorkInfo, unsigned Dimension,
+  Value *GenerateGetLocalSize(bool uniformWGSize, Value *WorkInfo, Argument *pWGId, Value *Dimension,
                                     IRBuilder<> &Builder) {
-    return GenerateGetLocalSize(
-        WorkInfo, ConstantInt::get(IntegerType::get(C, 32), Dimension),
-        Builder);
-  }
-  Value *GenerateGetLocalSize(Value *WorkInfo, Value *Dimension,
-                                    IRBuilder<> &Builder) {
-    return GenerateGetFromWorkInfo(NDInfo::LOCAL_SIZE, WorkInfo, Dimension,
-                                   Builder);
+
+    // The OpenCL 2.0 program can be compiled with the option
+    // -cl-uniform-work-group-size.
+    if(uniformWGSize) {
+      return GenerateGetEnqueuedLocalSize(WorkInfo, Dimension, Builder);
+    }
+
+    // The non-uniform local size is stored as the second array so
+    // get_local_size must return value from it in case it is the last WG
+    // in the specified dimension.
+    // %WGIdPlusOne = add nsw i64 %WGId, 1
+    // %LastWG = icmp eq i64 %WGIdPlusOne, %WGNum
+    // %LocalSizeIdx = zext i1 %2 to i32
+    Value *WGNum = GenerateGetFromWorkInfo(NDInfo::WG_NUMBER, WorkInfo,
+                                           Dimension, Builder);
+    Value *WGId = GenerateGetGroupID(pWGId, Dimension, Builder);
+    Value *WGIdPlusOne = Builder.CreateNSWAdd(WGId, ConstantInt::get(WGId->getType(), 1));
+    Value *LastWG = Builder.CreateICmpEQ(WGNum, WGIdPlusOne);
+    Value *LocalSizeIdx = Builder.CreateZExt(LastWG, IntegerType::get(C, 32));
+
+    return GenerateGetLocalSizeGeneric(WorkInfo, LocalSizeIdx,
+                                         Dimension, Builder);
   }
 
+  Value *GenerateGetEnqueuedLocalSize(Value *WorkInfo, unsigned Dimension,
+                                    IRBuilder<> &Builder) {
+    // the uniform local size is stored as the first array
+    return GenerateGetEnqueuedLocalSize(
+        WorkInfo,
+        ConstantInt::get(IntegerType::get(C, 32), Dimension),
+        Builder);
+  }
+
+
+  Value *GenerateGetEnqueuedLocalSize(Value *WorkInfo, Value *Dimension,
+                                    IRBuilder<> &Builder) {
+    // the uniform local size is stored as the first array
+    return GenerateGetLocalSizeGeneric(
+        WorkInfo,
+        ConstantInt::get(IntegerType::get(C, 32), 0),
+        Dimension,
+        Builder);
+  }
+
+private:
+  // the following implementation is generic for get_local_size and get_enqueued_local_size
+  Value *GenerateGetLocalSizeGeneric(Value *WorkInfo, Value * LocalSizeIdx, Value *Dimension,
+                                    IRBuilder<> &Builder) {
+    SmallVector<Value*, 4> params;
+    params.push_back(ConstantInt::get(Type::getInt32Ty(C), 0));
+    params.push_back(ConstantInt::get(Type::getInt32Ty(C), NDInfo::LOCAL_SIZE));
+    params.push_back(LocalSizeIdx);
+    params.push_back(Dimension);
+    Value *pAddr = Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params));
+    std::string Name(NDInfo::getRecordName(NDInfo::LOCAL_SIZE));
+    AppendWithDimension(Name, Dimension);
+    return Builder.CreateLoad(pAddr, Name);
+  }
+
+public:
   Value *GenerateGetGroupID(Value *GroupID, unsigned Dimension,
                                   IRBuilder<> &Builder) {
     return GenerateGetGroupID(

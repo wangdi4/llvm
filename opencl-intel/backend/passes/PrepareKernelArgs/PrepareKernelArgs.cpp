@@ -243,7 +243,7 @@ namespace intel{
                "Assuming that we are computing Local Sizes here");
         for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
           LocalSize.push_back(
-              m_IAA->GenerateGetLocalSize(WGInfo, Dim, builder));
+              m_IAA->GenerateGetEnqueuedLocalSize(WGInfo, Dim, builder));
         // Obtain values of NDRange Offsets for each dimension
         SmallVector<Value *, 4> GlobalOffsets;
         for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {

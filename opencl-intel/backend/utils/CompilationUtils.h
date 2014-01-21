@@ -142,6 +142,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isGetGlobalSize(const std::string&);
     static bool isGetLocalId(const std::string&);
     static bool isGetLocalSize(const std::string&);
+    static bool isGetEnqueuedLocalSize(const std::string&);
     static bool isGetGlobalLinearId(const std::string&);
     static bool isGetLocalLinearId(const std::string&);
     static bool isGetNumGroups(const std::string&);
@@ -202,6 +203,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_GET_WORK_DIM;
     static const std::string NAME_GET_GLOBAL_SIZE;
     static const std::string NAME_GET_LOCAL_SIZE;
+    static const std::string NAME_GET_ENQUEUED_LOCAL_SIZE;
     static const std::string NAME_GET_NUM_GROUPS;
     static const std::string NAME_GET_GROUP_ID;
     static const std::string NAME_GET_GLOBAL_OFFSET;
@@ -276,6 +278,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // @brief: returns the mangled name of the function get_local_size
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetLocalSize();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_enqueued_local_size
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetEnqueuedLocalSize();
     //////////////////////////////////////////////////////////////////
     // @brief: returns the mangled name of the barrier function
     //////////////////////////////////////////////////////////////////
@@ -371,6 +377,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// stores the OpenCL version to 'Result' and returns true.
     /// Otherwise returns false
     static bool getCLVersionFromModule(const Module &M, unsigned &Result);
+
+    /// fetchCompilerOption - if an option with speefied prefix exists in
+    //  the module's metadata returns an entire option string (the fist was met),
+    /// Otherwise returns an empty string. 
+    static StringRef fetchCompilerOption(const Module &M, char const* prefix);
 
     /// getCLVersionFromModuleOrDefault - Return the version in the module's metadata,
     /// if it exists, otherwise the default version

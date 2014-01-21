@@ -213,7 +213,10 @@ bool OpenclRuntime::isWorkItemBuiltin(const std::string &name) const {
     CompilationUtils::isGetWorkDim(name)   ||
     CompilationUtils::isGlobalOffset(name) ||
     CompilationUtils::isGetNumGroups(name) || 
-    (0 == name.compare("get_base_global_id."));
+    (0 == name.compare("get_base_global_id.")) ||
+    // The following is applicabble for OpenCL 2.0 or more recent versions only.
+    (CompilationUtils::getCLVersionFromModuleOrDefault(*m_runtimeModule) >= OclVersion::CL_VER_2_0 &&
+      CompilationUtils::isGetEnqueuedLocalSize(name));
 }
 
 bool OpenclRuntime::isSyncWithSideEffect(const std::string &func_name) const {

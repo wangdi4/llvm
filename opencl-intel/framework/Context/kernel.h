@@ -117,6 +117,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t          GetKernelWorkGroupSize() const { return m_CL_KERNEL_WORK_GROUP_SIZE; }
         const size_t*   GetKernelCompileWorkGroupSize() const { return m_CL_KERNEL_COMPILE_WORK_GROUP_SIZE; }
         cl_ulong        GetKernelLocalMemSize() const { return m_CL_KERNEL_LOCAL_MEM_SIZE; }
+        cl_bool         GetKernelNonUniformWGSizeSupport() const { return m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT; }
         size_t          GetKernelArgBufferSize() const { return m_sKernelPrototype.m_dispatchBufferProperties.size - m_sKernelPrototype.m_dispatchBufferProperties.argumentOffset;}
         size_t          GetKernelDispatchBufferSize() const { return m_sKernelPrototype.m_dispatchBufferProperties.size;}
         size_t          GetArgumentOffset() const { return m_sKernelPrototype.m_dispatchBufferProperties.argumentOffset;}
@@ -142,6 +143,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t                                  m_CL_KERNEL_WORK_GROUP_SIZE;
         size_t                                  m_CL_KERNEL_COMPILE_WORK_GROUP_SIZE[MAX_WORK_DIM];
         cl_ulong                                m_CL_KERNEL_LOCAL_MEM_SIZE;
+        cl_bool                                 m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT;
 
         // logger client
         DECLARE_LOGGER_CLIENT;

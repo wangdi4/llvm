@@ -96,7 +96,7 @@ void CLWGLoopBoundaries::CollcectBlockData(BasicBlock *BB) {
         m_Uni[I] = false;
         continue;
       }
-      // Getting this is a regular builtin uniform if all opernads are uniform
+      // Getting this is a regular builtin uniform if all operands are uniform
       m_Uni[I] = isUniformByOps(I);
     } else if (isa<AllocaInst>(I)){
       m_Uni[I] = false;
