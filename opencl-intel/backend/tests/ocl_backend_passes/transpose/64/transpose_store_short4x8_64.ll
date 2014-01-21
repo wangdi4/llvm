@@ -1,10 +1,10 @@
 ; XFAIL: i686
 
-; RUN: oclopt -runtimelib=clbltfne9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfne9.rtl -builtin-import -builtin-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc %t1.ll -mattr=+avx -mtriple=x86_64 -o %t2.asm
 ; RUN: FileCheck %s --input-file=%t2.asm -check-prefix=CHECK-AVX
 
-; RUN: oclopt -runtimelib=clbltfnl9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t3.ll
+; RUN: oclopt -runtimelib=clbltfnl9.rtl -builtin-import -builtin-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t3.ll
 ; RUN: llc %t3.ll -mattr=+avx2 -mtriple=x86_64 -o %t4.asm
 ; RUN: FileCheck %s --input-file=%t4.asm -check-prefix=CHECK-AVX2
 
@@ -27,7 +27,6 @@ declare void @__ocl_transpose_store_short_4x8(<4 x i16>* nocapture %pStoreAdd, <
 
 
 ;-------------------------------------------------------------------------------
-; CHECK-AVX:     .type [[FOO:[_a-z]+]],@function
 ; CHECK-AVX:     vpunpcklwd %x[[MM3:mm[0-7]{1}]], %x[[MM2:mm[0-7]{1}]], %x[[MM4:mm[0-7]{1}]]
 ; CHECK-AVX:     vpunpcklwd %x[[MM1:mm[0-7]{1}]], %x[[MM0:mm[0-7]{1}]], %x[[MM5:mm[0-7]{1}]]
 ; CHECK-AVX:     vunpckhps %x[[MM4]], %x[[MM5]], %x[[MM6:mm[0-7]{1}]]
@@ -40,10 +39,10 @@ declare void @__ocl_transpose_store_short_4x8(<4 x i16>* nocapture %pStoreAdd, <
 ; CHECK-AVX:     vmovups %x[[MM1]],
 ; CHECK-AVX:     vunpcklps %x[[MM2]], %x[[MM0]], %x[[MM0]]
 ; CHECK-AVX:     vmovups %x[[MM0]],
-; CHECK-AVX:     .size [[FOO]]
+
 
 ;-------------------------------------------------------------------------------
-; CHECK-AVX2:    .type [[FOO:[_a-z]+]],@function
+
 ; CHECK-AVX2:    vpunpcklwd %x[[MM3:mm[0-7]{1}]], %x[[MM2:mm[0-7]{1}]], %x[[MM4:mm[0-7]{1}]]
 ; CHECK-AVX2:    vpunpcklwd %x[[MM1:mm[0-7]{1}]], %x[[MM0:mm[0-7]{1}]], %x[[MM6:mm[0-7]{1}]]
 ; CHECK-AVX2:    vpunpckhdq %x[[MM4]], %x[[MM6]], %x[[MM5:mm[0-7]{1}]]
@@ -56,4 +55,4 @@ declare void @__ocl_transpose_store_short_4x8(<4 x i16>* nocapture %pStoreAdd, <
 ; CHECK-AVX2:    vpunpckldq %x[[MM2]], %x[[MM1]], %x[[MM1]]
 ; CHECK-AVX2:    vinserti128 $1, %x[[MM0]], %y[[MM1]], %y[[MM0]]
 ; CHECK-AVX2:    vmovdqu %y[[MM0]],
-; CHECK-AVX2:    .size [[FOO]]
+

@@ -17,31 +17,31 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 namespace intel{
     using namespace llvm;
 
-    /// @brief ShuffleCallToInst class
+    /// @brief BuiltinCallToInst class
     ///        In OpenCL:
     ///         - gentypen shuffle (gentypem x, ugentypen mask)
     ///         - gentypen shuffle2 (gentypem x, gentypem y, ugentypen mask)
     ///        Clang translates shuffle and shuffle2 functions calls to LLVM function calls with
     ///        specific types. Example: %call = call <8 x i32> @_Z7shuffleDv4_iDv8_j( ... )
-    ///        In case the mask argument is a vector of constants, ShuffleCallToInst translates the
+    ///        In case the mask argument is a vector of constants, BuiltinCallToInst translates the
     ///        shuffle call to shufflevector instruction in LLVM, to gain some performance boost.
     ///        Example:
     ///        From this:
     ///         %tmp = call <8 x i32> @_Z7shuffleDv4_iDv4_j(<4 x i32> %x, <4 x i32> <i32 3, i32 2, i32 1, i32 0>)
     ///        To this:
     ///         %tmp = shufflevector <4 x i32> %x, <4 x i32> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
-    class ShuffleCallToInst : public FunctionPass
+    class BuiltinCallToInst : public FunctionPass
     {
     public:
         /// @brief Pass identification, replacement for typeid
         static char ID;
 
         /// @brief Constructor
-        ShuffleCallToInst() : FunctionPass(ID) {}
+        BuiltinCallToInst() : FunctionPass(ID) {}
 
         /// @brief Provides name of pass
         virtual const char *getPassName() const {
-            return "ShuffleCallToInst";
+            return "BuiltinCallToInst";
         }
 
         /// @brief  LLVM Function pass entry
@@ -50,23 +50,39 @@ namespace intel{
         virtual bool runOnFunction(Function &F);
 
     private:
-        /// @brief Shuffle function type
+        /// @brief built-in function type
         typedef enum {
             SHUFFLE1,
             SHUFFLE2,
-            NOT_SHUFFLE
-        } ShuffleType;
+            REL_IS_LESS,
+            REL_IS_LESS_EQUAL,
+            REL_IS_GREATER,
+            REL_IS_GREATER_EQUAL,
+            REL_IS_EQUAL,
+            REL_IS_NOT_EQUAL,
+            NOT_SUPPORTED
+        } BuiltinType;
 
-        /// @brief  Check if given called function is shuffle with constant mask
-        /// @return SHUFFLE1 or SHUFFLE2 in case of a shuffle function
-        ///         else UNKNOWN
-        ShuffleType isConstShuffle(CallInst* pCall);
+        /// @brief  Check if given called function is a supported built-in
+        /// @return BuiltinType, can be NOT_SUPPORTED type.
+        BuiltinType isSupportedBuiltin(CallInst* pCall);
 
-        /// @brief Find all shuffle calls in current function
-        void findShuffleCalls(Function &F);
+        /// @brief Find all built-in calls in current function to handle
+        void findBuiltinCallsToHandle(Function &F);
+
+        /// @brief Handle all supported built-in calls in current function
+        /// @return true if LLVM IR had changed.
+        bool handleSupportedBuiltinCalls();
 
         /// @brief Handle all shuffle calls in current function
-        bool handleShuffleCalls();
+        /// @param shuffleCall call instruction to shuffle built-in
+        /// @param shuffleType type of the called shuffle built-in
+        void handleShuffleCalls(CallInst* shuffleCall, BuiltinType shuffleType);
+
+        /// @brief Handle all relational calls in current function
+        /// @param relationalCall call instruction to relational built-in
+        /// @param relationalType type of the called relational built-in
+        void handleRelationalCalls(CallInst* relationalCall, BuiltinType relationalType);
 
         /// @brief Shuffle and Shuffle2 arguments positions
         static const unsigned int SHUFFLE_VEC1_POS = 0;
@@ -75,8 +91,8 @@ namespace intel{
         static const unsigned int SHUFFLE2_VEC2_POS = 1;
         static const unsigned int SHUFFLE2_MASK_POS = 2;
 
-        /// @brief A vector holding all shuffle calls with their type
-        std::vector< std::pair<CallInst*, ShuffleType> > m_shuffleCalls;
+        /// @brief A vector holding all supported built-in calls with their type
+        std::vector< std::pair<CallInst*, BuiltinType> > m_builtinCalls;
     };
 
 } // namespace intel

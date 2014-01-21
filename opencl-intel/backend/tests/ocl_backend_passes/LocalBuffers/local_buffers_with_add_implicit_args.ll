@@ -1,5 +1,4 @@
-; RUN: opt -add-implicit-args -local-buffers -S %s -o %t.ll
-; RUN: FileCheck %s --input-file=%t.ll
+; RUN: opt -add-implicit-args -local-buffers -S < %s | FileCheck %s
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 
 ; map used local variables to local buffer with correct alignment
@@ -41,12 +40,11 @@ entry:
 
 ; CHECK:        define void @foo(i32 addrspace(1)* %ApInt, i32 addrspace(1)* %BpInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat, 
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
-; CHECK:          i32* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) {
+; CHECK:          {}* noalias %RuntimeHandle) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 0
 ; CHECK-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)*
@@ -69,12 +67,11 @@ entry:
 
 ; CHECK:        define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong16, 
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
-; CHECK:          i32* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) {
+; CHECK:          {}* noalias %RuntimeHandle) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 0
 ; CHECK-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR10]] to <4 x i32> addrspace(3)*

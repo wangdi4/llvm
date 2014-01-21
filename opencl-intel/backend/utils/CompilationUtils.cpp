@@ -21,6 +21,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/DebugInfo.h"
+
 #include "llvm/Version.h"
 #if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
@@ -37,12 +39,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   const std::string CompilationUtils::NAME_GET_GID = "get_global_id";
   const std::string CompilationUtils::NAME_GET_BASE_GID = "get_base_global_id.";
-  const std::string CompilationUtils::NAME_GET_NEW_GID = "get_new_global_id.";
   const std::string CompilationUtils::NAME_GET_LID = "get_local_id";
-  const std::string CompilationUtils::NAME_GET_NEW_LID = "get_new_local_id.";
-  const std::string CompilationUtils::NAME_GET_ITERATION_COUNT = "get_iter_count.";
   const std::string CompilationUtils::NAME_GET_SPECIAL_BUFFER = "get_special_buffer.";
-  const std::string CompilationUtils::NAME_GET_CURR_WI = "get_curr_wi.";
 
   const std::string CompilationUtils::NAME_GET_LINEAR_GID = "get_global_linear_id";
   const std::string CompilationUtils::NAME_GET_LINEAR_LID = "get_local_linear_id";
@@ -60,27 +58,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_PREFETCH = "prefetch";
   const std::string CompilationUtils::NAME_ASYNC_WORK_GROUP_STRIDED_COPY = "async_work_group_strided_copy";
 
+  const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_READ_PIPE = "work_group_reserve_read_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_READ_PIPE = "work_group_commit_read_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_WRITE_PIPE = "work_group_reserve_write_pipe";
+  const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_WRITE_PIPE = "work_group_commit_write_pipe";
+
   const std::string CompilationUtils::NAME_MEM_FENCE = "mem_fence";
   const std::string CompilationUtils::NAME_READ_MEM_FENCE = "read_mem_fence";
   const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
-  const std::string CompilationUtils::NAME_GET_DEFAULT_QUEUE = "get_default_queue";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_BASIC = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE";
-  const std::string CompilationUtils::NAME_NDRANGE_1D = "ndrange_1D";
-  const std::string CompilationUtils::NAME_NDRANGE_2D = "ndrange_2D";
-  const std::string CompilationUtils::NAME_NDRANGE_3D = "ndrange_3D";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvPU3AS3vzEjz";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
-  const std::string CompilationUtils::NAME_ENQUEUE_MARKER = "enqueue_marker";
-  const std::string CompilationUtils::NAME_RETAIN_EVENT = "retain_event";
-  const std::string CompilationUtils::NAME_RELEASE_EVENT = "release_event";
-  const std::string CompilationUtils::NAME_CREATE_USER_EVENT = "create_user_event";
-  const std::string CompilationUtils::NAME_SET_USER_EVENT_STATUS = "set_user_event_status";
-  const std::string CompilationUtils::NAME_CAPTURE_EVENT_PROFILING_INFO = "capture_event_profiling_info";
-  const std::string CompilationUtils::NAME_GET_KERNEL_WG_SIZE = "_Z26get_kernel_work_group_sizeU13block_pointerFvvE";
-  const std::string CompilationUtils::NAME_GET_KERNEL_WG_SIZE_LOCAL = "_Z26get_kernel_work_group_sizeU13block_pointerFvPU3AS3vzEjz";
-  const std::string CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE = "_Z45get_kernel_preferred_work_group_size_multipleU13block_pointerFvvE";
-  const std::string CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE_LOCAL = "_Z45get_kernel_preferred_work_group_size_multipleU13block_pointerFvPU3AS3vzEjz";
+  // Extended execution var args OpenCL 2.x
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
 
   const std::string CompilationUtils::BARRIER_FUNC_NAME = "barrier";
   const std::string CompilationUtils::WG_BARRIER_FUNC_NAME = "work_group_barrier";
@@ -135,7 +123,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   void CompilationUtils::getImplicitArgs(
       Function *pFunc, Argument **ppLocalMem, Argument **ppWorkDim,
       Argument **ppWGId, Argument **ppBaseGlbId, Argument **ppSpecialBuf,
-      Argument **ppCurrWI, Argument **ppRunTimeContext) {
+      Argument **ppRunTimeHandle) {
 
       assert( pFunc && "Function cannot be null" );
       assert( pFunc->getArgumentList().size() >= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
@@ -176,13 +164,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
       ++DestI;
 
-      if ( NULL != ppCurrWI ) {
-          *ppCurrWI = DestI;
-      }
-      ++DestI;
-
-      if ( NULL != ppRunTimeContext ) {
-          *ppRunTimeContext = DestI;
+      if ( NULL != ppRunTimeHandle ) {
+          *ppRunTimeHandle = DestI;
       }
       ++DestI;
       assert(DestI == pFunc->arg_end());
@@ -202,8 +185,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_WITH_SCOPE) ||
           /* work group built-ins */
           CompilationUtils::isWorkGroupBuiltin(func_name)  ||
-          /* async copy built-ins */
-          CompilationUtils::isAsyncBuiltin(func_name) ) {
+          /* built-ins synced as if were called by a single work item */
+          CompilationUtils::isWorkGroupUniformBuiltin(func_name, pModule) ) {
             // Found synchronized built-in declared in the module add it to the container set.
             functionSet.insert(&*fi);
       }
@@ -269,6 +252,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     if (kimd->isScalarizedKernelHasValue() && kimd->getScalarizedKernel()) {
       //Get the scalarized version of the vectorized kernel
       pOriginalFunc = kimd->getScalarizedKernel();
+    }
+    // Check is this is a block kernel (i.e. a kernel that is invoked from a
+    // NDRange from an other kernel), and if so what is the size of the block
+    // literal
+    unsigned BlockLiteralSize = 0;
+    if (kimd->isBlockLiteralSizeHasValue()) {
+      BlockLiteralSize = kimd->getBlockLiteralSize();
     }
 
     KernelMetaDataHandle kmd;
@@ -339,7 +329,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 #ifndef __APPLE__
     unsigned int current_offset = 0;
 #endif
-    const bool isBlockInvokeKernel = BlockUtils::IsBlockInvocationKernel(*pFunc);
     llvm::Function::arg_iterator arg_it = pFunc->arg_begin();
     for (unsigned i=0; i<argsCount; ++i)
     {
@@ -376,9 +365,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           // in that case 0 argument is block_literal pointer
           // update with special type
           // should be before handling ptrs by addr space 
-          if((i == 0) && isBlockInvokeKernel){
+          if((i == 0) && BlockLiteralSize){
             curArg.type = CL_KRNL_ARG_PTR_BLOCK_LITERAL;
-            curArg.size_in_bytes = pModule->getPointerSize()*4;
+            curArg.size_in_bytes = BlockLiteralSize;
             break;
           }
 
@@ -588,6 +577,110 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
+  static const MDNode *findSubprogram(const DebugInfoFinder &finder,
+                                      const Function *pFunc) {
+    for (DebugInfoFinder::iterator iter = finder.subprogram_begin(),
+                                   end = finder.subprogram_end();
+         iter != end; iter++) {
+      const MDNode *node = *iter;
+      if (DISubprogram(node).describes(pFunc))
+        return node;
+    }
+    return NULL;
+  }
+  static void SpliceDebugInfo(Function *SrcF, Function *DstF) {
+    Module *M = SrcF->getParent();
+    assert(M == DstF->getParent());
+    DebugInfoFinder Finder;
+    Finder.processModule(*M);
+    if (const MDNode *SubProgramNode = findSubprogram(Finder, SrcF)) {
+      DISubprogram(SubProgramNode).replaceFunction(DstF);
+    }
+  }
+
+Function *CompilationUtils::AddMoreArgsToFunc(
+    Function *F, ArrayRef<Type *> NewTypes, ArrayRef<const char *> NewNames,
+    ArrayRef<AttributeSet> NewAttrs, StringRef Prefix, bool IsKernel) {
+  assert(NewTypes.size() == NewNames.size());
+  assert(NewTypes.size() == NewAttrs.size());
+  // Initialize with all original arguments in the function sugnature
+  SmallVector<llvm::Type *, 16> Types;
+
+  for (Function::const_arg_iterator I = F->arg_begin(), E = F->arg_end();
+       I != E; ++I) {
+    Types.push_back(I->getType());
+  }
+  Types.append(NewTypes.begin(), NewTypes.end());
+  FunctionType *NewFTy = FunctionType::get(F->getReturnType(), Types, false);
+  // Change original function name.
+  std::string Name = F->getName().str();
+  F->setName("__" + F->getName() + "_before." + Prefix);
+  // Create a new function with explicit and implict arguments types
+  Function *NewF = Function::Create(NewFTy, F->getLinkage(), Name, F->getParent());
+  // Copy old function attributes (including attributes on original arguments) to new function.
+  NewF->copyAttributesFrom(F);
+  if (IsKernel) {
+    // Only those who are kernel functions need to get this calling convention
+    NewF->setCallingConv(CallingConv::C);
+  }
+  // Set original arguments' names
+  Function::arg_iterator NewI = NewF->arg_begin();
+  for (Function::const_arg_iterator I = F->arg_begin(), E = F->arg_end();
+       I != E; ++I, ++NewI) {
+    NewI->setName(I->getName());
+  }
+  // Set new arguments` names
+  for (unsigned I = 0, E = NewNames.size(); I < E; ++I, ++NewI) {
+    Argument *A = NewI;
+    A->setName(NewNames[I]);
+    if (!NewAttrs.empty() && !NewAttrs[I].isEmpty())
+      A->addAttr(NewAttrs[I]);
+  }
+  // Since we have now created the new function, splice the body of the old
+  // function right into the new function, leaving the old body of the function empty.
+  NewF->getBasicBlockList().splice(NewF->begin(), F->getBasicBlockList());
+  assert(F->isDeclaration() && "splice did not work, original function body is not empty!");
+  // Delete original function body - this is needed to remove linkage (if exists)
+  F->deleteBody();
+  // Loop over the argument list, transferring uses of the old arguments over to
+  // the new arguments.
+  for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(),
+                              NI = NewF->arg_begin(), NE = NewF->arg_end();
+       I != E; ++I, ++NI) {
+    // Replace the users to the new version.
+    I->replaceAllUsesWith(NI);
+  }
+  SpliceDebugInfo(F, NewF);
+  return NewF;
+}
+
+CallInst *CompilationUtils::AddMoreArgsToCall(CallInst *OldC,
+                                              ArrayRef<Value *> NewArgs,
+                                              Function *NewF) {
+  assert(OldC && "CallInst is NULL");
+  assert(OldC->getNumArgOperands() + NewArgs.size() == NewF->arg_size());
+  assert(NewF && "function is NULL");
+
+  SmallVector<Value *, 16> Args;
+  for (unsigned I = 0, E = OldC->getNumArgOperands(); I != E; ++I)
+    Args.push_back(OldC->getArgOperand(I));
+  Args.append(NewArgs.begin(), NewArgs.end());
+
+  // Replace the original function with a call
+  CallInst *NewC = CallInst::Create(NewF, Args, "", OldC);
+
+  // Copy debug metadata to new function if available
+  if (OldC->hasMetadata()) {
+    NewC->setDebugLoc(OldC->getDebugLoc());
+  }
+
+  OldC->replaceAllUsesWith(NewC);
+  // Need to erase from parent to make sure there are no uses for the called
+  // function when we delete it
+  OldC->eraseFromParent();
+  return NewC;
+}
+
 template <reflection::TypePrimitiveEnum Ty>
 static std::string optionalMangleWithParam(const char*const N){
 #ifdef __APPLE__
@@ -717,6 +810,22 @@ bool CompilationUtils::isAsyncWorkGroupStridedCopy(const std::string& S){
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
 }
 
+bool CompilationUtils::isWorkGroupReserveReadPipe(const std::string& S){
+  return isMangleOf(S, NAME_WORK_GROUP_RESERVE_READ_PIPE);
+}
+
+bool CompilationUtils::isWorkGroupCommitReadPipe(const std::string& S){
+  return isMangleOf(S, NAME_WORK_GROUP_COMMIT_READ_PIPE);
+}
+
+bool CompilationUtils::isWorkGroupReserveWritePipe(const std::string& S){
+  return isMangleOf(S, NAME_WORK_GROUP_RESERVE_WRITE_PIPE);
+}
+
+bool CompilationUtils::isWorkGroupCommitWritePipe(const std::string& S){
+  return isMangleOf(S, NAME_WORK_GROUP_COMMIT_WRITE_PIPE);
+}
+
 bool CompilationUtils::isMemFence(const std::string& S){
   return isOptionalMangleOf(S, NAME_MEM_FENCE);
 }
@@ -737,76 +846,12 @@ bool CompilationUtils::isPrefetch(const std::string& S){
   return isMangleOf(S, NAME_PREFETCH);
 }
 
-bool CompilationUtils::isNDRange_1D(const std::string& S){
-  return isMangleOf(S, NAME_NDRANGE_1D);
-}
-
-bool CompilationUtils::isNDRange_2D(const std::string& S){
-  return isMangleOf(S, NAME_NDRANGE_2D);
-}
-
-bool CompilationUtils::isNDRange_3D(const std::string& S){
-  return isMangleOf(S, NAME_NDRANGE_3D);
-}
-
-bool CompilationUtils::isEnqueueMarker(const std::string& S){
-  return isMangleOf(S, NAME_ENQUEUE_MARKER);
-}
-
-bool CompilationUtils::isGetDefaultQueue(const std::string& S){
-  return isMangleOf(S, NAME_GET_DEFAULT_QUEUE);
-}
-
-bool CompilationUtils::isEnqueueKernelBasic(const std::string& S){
-  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_BASIC);
-}
-
 bool CompilationUtils::isEnqueueKernelLocalMem(const std::string& S){
   return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM);
 }
 
-bool CompilationUtils::isEnqueueKernelEvents(const std::string& S){
-  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS);
-}
-
 bool CompilationUtils::isEnqueueKernelEventsLocalMem(const std::string& S){
   return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM);
-}
-
-bool CompilationUtils::isGetKernelWorkGroupSize(const std::string& S){
-  return (S == CompilationUtils::NAME_GET_KERNEL_WG_SIZE);
-}
-
-bool CompilationUtils::isGetKernelWorkGroupSizeLocal(const std::string& S){
-  return (S == CompilationUtils::NAME_GET_KERNEL_WG_SIZE_LOCAL);
-}
-
-bool CompilationUtils::isGetKernelPreferredWorkGroupSizeMultiple(const std::string& S){
-  return (S == CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE);
-}
-
-bool CompilationUtils::isGetKernelPreferredWorkGroupSizeMultipleLocal(const std::string& S){
-  return (S == CompilationUtils::NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE_LOCAL);
-}
-
-bool CompilationUtils::isRetainEvent(const std::string& S){
-    return isMangleOf(S, NAME_RETAIN_EVENT);
-}
-
-bool CompilationUtils::isReleaseEvent(const std::string& S){
-    return isMangleOf(S, NAME_RELEASE_EVENT);
-}
-
-bool CompilationUtils::isCreateUserEvent(const std::string& S){
-    return isMangleOf(S, NAME_CREATE_USER_EVENT);
-}
-
-bool CompilationUtils::isSetUserEventStatus(const std::string& S){
-    return isMangleOf(S, NAME_SET_USER_EVENT_STATUS);
-}
-
-bool CompilationUtils::isCaptureEventProfilingInfo(const std::string& S){
-    return isMangleOf(S, NAME_CAPTURE_EVENT_PROFILING_INFO);
 }
 
 bool CompilationUtils::isWorkGroupAll(const std::string& S) {
@@ -862,9 +907,14 @@ bool CompilationUtils::isWorkGroupBuiltin(const std::string& S) {
          isWorkGroupScan(S);
 }
 
-bool CompilationUtils::isAsyncBuiltin(const std::string& S) {
+bool CompilationUtils::isWorkGroupUniformBuiltin(const std::string& S, const Module* pModule) {
   return CompilationUtils::isAsyncWorkGroupCopy(S) || 
-         CompilationUtils::isAsyncWorkGroupStridedCopy(S);
+         CompilationUtils::isAsyncWorkGroupStridedCopy(S) ||
+         (OclVersion::CL_VER_2_0 <= getCLVersionFromModuleOrDefault(*pModule) && (
+            CompilationUtils::isWorkGroupReserveReadPipe(S) ||
+            CompilationUtils::isWorkGroupCommitReadPipe(S) ||
+            CompilationUtils::isWorkGroupReserveWritePipe(S) ||
+            CompilationUtils::isWorkGroupCommitWritePipe(S)));
 }
 
 bool CompilationUtils::isWorkGroupScan(const std::string& S) {
@@ -896,9 +946,5 @@ bool CompilationUtils::isWorkGroupUniform(const std::string& S) {
          isWorkGroupReduceMin(S) ||
          isWorkGroupReduceMax(S);
 }
-
-Type * CompilationUtils::getExtendedExecContextType(LLVMContext& C){
-    return PointerType::getInt8PtrTy(C);
-  }
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

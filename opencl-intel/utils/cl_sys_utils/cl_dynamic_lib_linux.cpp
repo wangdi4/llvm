@@ -37,7 +37,7 @@ using namespace Intel::OpenCL::Utils;
 IAtExitCentralPoint* OclDynamicLib::m_atexit_fn = NULL;
 
 // Get function pointer from library handle
-OclDynamicLib::func_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary, const char* szFuncName)
+ptrdiff_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary, const char* szFuncName)
 {
     //clear errors
     dlerror();
@@ -47,7 +47,7 @@ OclDynamicLib::func_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrar
         return NULL;
     }
 
-    return (func_t)(ptrdiff_t)func;
+    return (ptrdiff_t)func;
 }
 
 OclDynamicLib::OclDynamicLib(bool bUnloadOnDestructor) :
@@ -153,7 +153,7 @@ const void* OclDynamicLib::GetFunctionPtr(unsigned int uiFuncId) const
 }
 
 // Returns a function pointer
-OclDynamicLib::func_t    OclDynamicLib::GetFunctionPtrByName(const char* szFuncName) const
+ptrdiff_t OclDynamicLib::GetFunctionPtrByName(const char* szFuncName) const
 {
     if ( NULL == m_hLibrary )
     {
@@ -170,5 +170,5 @@ OclDynamicLib::func_t    OclDynamicLib::GetFunctionPtrByName(const char* szFuncN
             return NULL;
       }
 
-    return (func_t)(ptrdiff_t)func;
+    return (ptrdiff_t)func;
 }

@@ -658,7 +658,7 @@ cl_uint work_dim = 1;
 	finish(ocl_descriptor.queues[second_device]);
 
 	//read the complete buffer with CPU device
-	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*2,buffer2.dynamic_array,0 ,NULL,NULL));
+	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0],ocl_descriptor.buffers[1],CL_TRUE,0,sizeof(int)*2*device_align_size,buffer2.dynamic_array,0 ,NULL,NULL));
 	finish(ocl_descriptor.queues[0]);
 
 	//validate result

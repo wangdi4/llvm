@@ -1,7 +1,7 @@
 ; Regression Test 
 ; checks definition of __block_literal_global variable contains bitcast with correct block function name (kernelBlock_block_invoke)
 ; Issue tested: previously kernelBlock_block_invoke was renamed to 
-;               kernelBlock_block_invoke_original in bitcast 
+;               kernelBlock_block_invoke_before.AddImplicitArgs in bitcast 
 
 ; RUN: opt -add-implicit-args -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll

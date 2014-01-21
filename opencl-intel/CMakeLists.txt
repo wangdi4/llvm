@@ -151,9 +151,10 @@ if(INCLUDE_TOOLS)
     set (BOOST_COMPONENTS regex system filesystem date_time signals)
     
     if(NOT ANDROID)
+        set(Boost_USE_STATIC_LIBS ON )
+        set(BOOST_ALL_DYN_LINK OFF)
+        set(Boost_USE_STATIC_RUNTIME ON)
         FIND_PACKAGE(Boost 1.52.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
-        set(Boost_USE_STATIC_RUNTIME OFF)
-        set(BOOST_ALL_DYN_LINK ON)
     else(NOT ANDROID)
         set (CMAKE_FIND_LIBRARY_SUFFIXES ".a")
         set (CMAKE_FIND_LIBRARY_PREFIXES "lib")
@@ -171,23 +172,40 @@ if(INCLUDE_TOOLS)
                            ${Boost_SIGNALS_LIBRARY}
                            )
     list(REMOVE_ITEM BOOST_INSTALL_LIBS debug optimized)
+
     if(WIN32)
-        string(REPLACE ".lib" ".dll;" BOOST_INSTALL_LIBS ${BOOST_INSTALL_LIBS} )
-        set (BOOST_INSTALL_LIBS_RELEASE ${BOOST_INSTALL_LIBS})
-        set (BOOST_INSTALL_LIBS_DEBUG ${BOOST_INSTALL_LIBS})
-        # If adding more libs just add the right index to be removed in the 2 following lines:
-        list(REMOVE_AT BOOST_INSTALL_LIBS_RELEASE 1 3 5 7 9) # Debug libs have 'gd' so they apear in the odd spaces
-        list(REMOVE_AT BOOST_INSTALL_LIBS_DEBUG 0 2 4 6 8) # Release libs don't have 'gd' so they apear in the even spaces
+        # craete boost liberaroes for dynamic compilation ( used by KernelBuilder
+        foreach(boost_comp ${BOOST_COMPONENTS})
+            string(TOUPPER ${boost_comp} boost_comp )
+            list( GET Boost_${boost_comp}_LIBRARY 1 REL_LIB )
+            string( REPLACE "libboost" "boost" REL_LIB ${REL_LIB} )
+            string( REPLACE "-s-" "-" REL_LIB ${REL_LIB} )
+            list( GET Boost_${boost_comp}_LIBRARY 3 DEBUG_LIB )
+            string( REPLACE "libboost" "boost" DEBUG_LIB ${DEBUG_LIB} )
+            string( REPLACE "-sgd" "-gd" DEBUG_LIB ${DEBUG_LIB} )
+            set( dyn_Boost_${boost_comp}_LIBRARY optimized ${REL_LIB} debug ${DEBUG_LIB} )
+
+            string( REPLACE ".lib" ".dll" REL_LIB ${REL_LIB} )
+            string( REPLACE ".lib" ".dll" DEBUG_LIB ${DEBUG_LIB} )
+
+            list( APPEND BOOST_INSTALL_LIBS_RELEASE ${REL_LIB} )
+            list( APPEND BOOST_INSTALL_LIBS_DEBUG ${DEBUG_LIB} )
+        endforeach(boost_comp)
+
         INSTALL(FILES ${BOOST_INSTALL_LIBS_RELEASE} DESTINATION bin CONFIGURATIONS Release)
         INSTALL(FILES ${BOOST_INSTALL_LIBS_DEBUG} DESTINATION bin CONFIGURATIONS Debug)
+
     else(WIN32)
         if(NOT ANDROID)
-            set(BOOST_INSTALL_LIBS_LINKS ${BOOST_INSTALL_LIBS})
+
+            string(REPLACE ".a" ".so;" BOOST_INSTALL_LIBS ${BOOST_INSTALL_LIBS} )
             SET(BOOST_VER ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION} )
-            string(REPLACE ".so" ".so.${BOOST_VER};" BOOST_INSTALL_LIBS_LINKS ${BOOST_INSTALL_LIBS_LINKS} )
+            string(REPLACE ".so" ".so.${BOOST_VER};" BOOST_INSTALL_LIBS_LINKS ${BOOST_INSTALL_LIBS} )
+
             INSTALL(FILES ${BOOST_INSTALL_LIBS} DESTINATION bin)
             INSTALL(FILES ${BOOST_INSTALL_LIBS_LINKS} DESTINATION bin)
         endif(NOT ANDROID)
+
     endif(WIN32)
 endif(INCLUDE_TOOLS)
 
@@ -295,6 +313,7 @@ if (GIT_REVISIONS)
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                     OUTPUT_VARIABLE GIT_REVISION)
     file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}DESCRIBE=${GIT_DESCRIPTION}")
+    install(FILES ${OCL_BINARY_DIR}/revision.txt DESTINATION ./)    
 endif (GIT_REVISIONS)
 message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
 

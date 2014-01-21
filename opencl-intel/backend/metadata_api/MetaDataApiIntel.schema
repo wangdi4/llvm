@@ -193,6 +193,13 @@
                         },
                         {
                             "location": "named",
+                            "key":      "max_wg_dimensions",
+                            "name":     "MaxWGDimensions",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
                             "key":      "kernel_has_barrier",
                             "name":     "KernelHasBarrier",
                             "metatype": "bool_item",
@@ -231,6 +238,13 @@
                             "key":      "scalarized_kernel",
                             "name":     "ScalarizedKernel",
                             "metatype": "function",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "block_literal_size",
+                            "name":     "BlockLiteralSize",
+                            "metatype": "int32_item",
                             "optional": true
                         }
                     ]

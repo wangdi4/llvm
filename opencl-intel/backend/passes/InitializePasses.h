@@ -48,7 +48,7 @@ void initializeWIRelatedValuePass(llvm::PassRegistry&);
 void initializeDataPerBarrierPass(llvm::PassRegistry&);
 void initializeDataPerValuePass(llvm::PassRegistry&);
 void initializePreventDivCrashesPass(llvm::PassRegistry&);
-void initializeShuffleCallToInstPass(llvm::PassRegistry&);
+void initializeBuiltinCallToInstPass(llvm::PassRegistry&);
 void initializeInstToFuncCallPass(llvm::PassRegistry&);
 void initializeModuleCleanupPass(llvm::PassRegistry&);
 void initializeAddImplicitArgsPass(llvm::PassRegistry&);
@@ -80,6 +80,7 @@ void initializeDetectRecursionPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
 void initializeImplicitArgsAnalysisPass(llvm::PassRegistry&);
 void initializeSmartGVNPass(llvm::PassRegistry&);
+void initializeDeduceMaxWGDimPass(llvm::PassRegistry&);
 }
 
 #endif

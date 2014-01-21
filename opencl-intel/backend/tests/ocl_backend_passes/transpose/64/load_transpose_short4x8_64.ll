@@ -1,10 +1,10 @@
 ; XFAIL: i686
 
-; RUN: oclopt -runtimelib=clbltfne9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfne9.rtl -builtin-import -builtin-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc %t1.ll -mattr=+avx -mtriple=x86_64 -o %t2.asm
 ; RUN: FileCheck %s --input-file=%t2.asm -check-prefix=CHECK-AVX
 
-; RUN: oclopt -runtimelib=clbltfnl9.rtl -builtin-import -shuffle-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t3.ll
+; RUN: oclopt -runtimelib=clbltfnl9.rtl -builtin-import -builtin-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t3.ll
 ; RUN: llc %t3.ll -mattr=+avx2 -mtriple=x86_64 -o %t4.asm
 ; RUN: FileCheck %s --input-file=%t4.asm -check-prefix=CHECK-AVX2
 
@@ -30,7 +30,6 @@ declare void @__ocl_load_transpose_short_4x8(<4 x i16>* nocapture %pLoadAdd, <8 
 
 
 ;-------------------------------------------------------------------------------
-; CHECK-AVX:     .type [[FOO:[_a-z]+]],@function
 ; CHECK-AVX:     vpunpckhwd %x[[MM3:mm[0-7]{1}]], %x[[MM2:mm[0-7]{1}]], %x[[MM0:mm[0-7]{1}]]
 ; CHECK-AVX:     vpunpcklwd %x[[MM3]], %x[[MM2]], %x[[MM21:mm[0-7]{1}]]
 ; CHECK-AVX:     vpunpckhwd %x[[MM0]], %x[[MM21]], %x[[MM5:mm[0-7]{1}]]
@@ -46,11 +45,9 @@ declare void @__ocl_load_transpose_short_4x8(<4 x i16>* nocapture %pLoadAdd, <8 
 ; CHECK-AVX:     vunpcklps  %x[[MM01]], %x[[MM12]], %x[[MM02:mm[0-7]{1}]]
 ; CHECK-AVX:     vpaddw     %x[[MM22]], %x[[MM02]], %x[[MM03:mm[0-7]{1}]]
 ; CHECK-AVX:     vpaddw     %x[[MM43]], %x[[MM03]], %x[[MM04:mm[0-7]{1}]]
-; CHECK-AVX:     .size [[FOO]]
 
 
 ;-------------------------------------------------------------------------------
-; CHECK-AVX2:    .type [[FOO:[_a-z]+]],@function
 ; CHECK-AVX2:    vmovdqa .[[LABEL:[_a-zA-Z0-9]+]]({{%[a-z0-9]+}}), %y[[MM1:mm[0-7]{1}]]
 ; CHECK-AVX2:    vpunpckhwd %y[[MM3:mm[0-7]{1}]], %y[[MM0:mm[0-7]{1}]], %y[[MM2:mm[0-7]{1}]]
 ; CHECK-AVX2:    vpunpcklwd %y[[MM3]], %y[[MM0]], %y[[MM3]]
@@ -63,4 +60,4 @@ declare void @__ocl_load_transpose_short_4x8(<4 x i16>* nocapture %pLoadAdd, <8 
 ; CHECK-AVX2:    vextracti128 $1, %y[[MM0]], %x[[MM2]]
 ; CHECK-AVX2:    vpaddw %x[[MM2]], %x[[MM0]], %x[[MM0]]
 ; CHECK-AVX2:    vpaddw %x[[MM1]], %x[[MM0]], %x[[MM0]]
-; CHECK-AVX2:    .size [[FOO]]
+

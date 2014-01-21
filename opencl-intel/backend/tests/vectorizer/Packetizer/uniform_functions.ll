@@ -243,8 +243,8 @@ entry:
 %struct._image2d_t = type opaque
 
 define void @uniform(%struct._image2d_t* %inputImage, <2 x float> %outCrd, <4 x float> addrspace(1)* nocapture %dst) nounwind {
-; CHECK: [[C0:%[a-zA-Z0-9_]+]] = tail call <4 x float> @_Z11read_imagefP10_image2d_tjDv2_f(%struct._image2d_t* %inputImage, i32 17, <2 x float> %outCrd) nounwind readnone
-; CHECK: [[C1:%[a-zA-Z0-9_]+]] = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
+; CHECK: [[C0:%[a-zA-Z0-9_]+]] = tail call <4 x float> @_Z11read_imagefP10_image2d_tjDv2_f(%struct._image2d_t* %inputImage, i32 17, <2 x float> %outCrd)
+; CHECK: [[C1:%[a-zA-Z0-9_]+]] = tail call i32 @_Z13get_global_idj(i32 0)
 ; CHECK: [[S0:%[a-zA-Z0-9_]+]] = insertelement <4 x i32> undef, i32 [[C1]], i32 0
 ; CHECK: [[S1:%[a-zA-Z0-9_]+]] = shufflevector <4 x i32> [[S0]], <4 x i32> undef, <4 x i32> zeroinitializer
 ; CHECK: [[A0:%[a-zA-Z0-9_]+]] = add <4 x i32> [[S1]], <i32 0, i32 1, i32 2, i32 3>

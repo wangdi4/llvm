@@ -64,6 +64,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     * Members:        m_psKernelName    - the name of the kernel
     *                 m_uiArgsCount    - number of arguments in the kernel
     *                 m_pArgs            - list of all kernel's arguments
+    *                 m_szKernelAttributes - space seperated list of kernel attributes
     *
     * Author:         Uri Levy
     * Date:           January 2008
@@ -74,6 +75,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_dev_dispatch_buffer_prop     m_dispatchBufferProperties;
         std::vector<cl_kernel_argument> m_vArguments;
         std::vector<cl_uint>            m_MemArgumentsIndx;
+        std::string                     m_szKernelAttributes;
     };
 
     /**********************************************************************************************
@@ -328,6 +330,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         ConstSharedPtr<Context> GetContext() const { return m_pContext; }
         const SharedPtr<Context>& GetContext()     { return m_pContext; }
+
+        const char *GetAttributes() const { return m_sKernelPrototype.m_szKernelAttributes.c_str(); }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
         // OpenCL 1.2 functions

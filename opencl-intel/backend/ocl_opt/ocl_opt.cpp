@@ -62,7 +62,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeDataPerBarrierPass(Registry);
     intel::initializeDataPerValuePass(Registry);
     intel::initializePreventDivCrashesPass(Registry);
-    intel::initializeShuffleCallToInstPass(Registry);
+    intel::initializeBuiltinCallToInstPass(Registry);
     intel::initializeInstToFuncCallPass(Registry);
     intel::initializeModuleCleanupPass(Registry);
     intel::initializeAddImplicitArgsPass(Registry);
@@ -89,6 +89,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeDetectRecursionPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);
     intel::initializeSmartGVNPass(Registry);
+    intel::initializeDeduceMaxWGDimPass(Registry);
 }
 
 

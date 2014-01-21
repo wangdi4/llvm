@@ -1,6 +1,4 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: opt -ocl-syncfunctionattrs -simplifycfg -verify %t.bc -S -o %t1.ll
-; RUN: FileCheck %s --input-file=%t1.ll
+; RUN: opt -ocl-syncfunctionattrs -simplifycfg -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the the LLVM pass SimplifyCFG does not add new barrier instructions.

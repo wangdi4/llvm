@@ -180,7 +180,7 @@ endif(INCLUDE_MIC_DEVICE)
 set (CLANG_COMPILER_PARAMS
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h
-  -fblocks -D__OPENCL_C_VERSION__=200 
+  -fblocks -D__OPENCL_C_VERSION__=200
   )
 
 if (PLATFORM EQUAL Win32)
@@ -197,7 +197,7 @@ endif (PLATFORM EQUAL Win32)
 set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
 
 # images optimization options
-set (LLVM_IMAGES_OPT_PARAMS -builtin-import -shuffle-call-to-inst -O3)
+set (LLVM_IMAGES_OPT_PARAMS -builtin-import -builtin-call-to-inst -O3)
 
 # llvm-link parameters
 set (LLVM_LINK_PARAMS -f)
@@ -481,6 +481,8 @@ endfunction( create_target)
 list (APPEND OCL_SOURCE_FILES
   image_functions.cpp
   cbk_helper.c
+  extended_execution_functions.cpp
+  #pipe_functions.c
   )
 
 

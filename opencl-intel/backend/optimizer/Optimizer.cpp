@@ -51,7 +51,7 @@ llvm::Pass* createLoopStridedCodeMotionPass();
 llvm::Pass* createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
 llvm::Pass *createShiftZeroUpperBitsPass();
-llvm::Pass *createShuffleCallToInstPass();
+llvm::Pass *createBuiltinCallToInstPass();
 llvm::Pass *createRelaxedPass();
 llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createKernelAnalysisPass();
@@ -61,7 +61,7 @@ llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
 llvm::ModulePass *createOclSyncFunctionAttrsPass();
-llvm::ModulePass *createModuleCleanupPass();
+llvm::ModulePass *createModuleCleanupPass(bool SpareOnlyWrappers);
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
 llvm::ModulePass *createPrepareKernelArgsPass();
@@ -69,6 +69,8 @@ llvm::Pass *createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createDuplicateCalledKernelsPass();
+llvm::ModulePass *createPatchCallbackArgsPass();
+llvm::ModulePass *createDeduceMaxWGDimPass();
 
 #ifdef __APPLE__
 llvm::Pass *createClangCompatFixerPass();
@@ -237,7 +239,10 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   if (isOcl20) {
     // OCL2.0 resolve block to static call
     PM.add(createResolveBlockToStaticCallPass());
+    // clone block_invoke functions to kernels
+    PM.add(createCloneBlockInvokeFuncToKernelPass());
   }
+  
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
     if (OptLevel == 1)
@@ -286,7 +291,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   if (!pConfig->GetLibraryModule() && getenv("DISMPF") != NULL)
     PM.add(createRemovePrefetchPass());
 #endif //#ifndef __APPLE__
-  PM.add(createShuffleCallToInstPass());
+  PM.add(createBuiltinCallToInstPass());
   bool has_bar = false;
   if (!pConfig->GetLibraryModule())
     has_bar = hasBarriers(M);
@@ -345,12 +350,6 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
   PM.add(llvm::createBasicAliasAnalysisPass());
 
-  if (isOcl20) {
-    // OCL2.0 Extexecution.
-    // clone block_invoke functions to kernels
-    PM.add(createCloneBlockInvokeFuncToKernelPass());
-  }
-  
   // Should be called before vectorizer!
   PM.add((llvm::Pass*)createInstToFuncCallPass(HasGatherScatter));
 
@@ -434,10 +433,15 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   }
 
   // Adding WG loops
-  if (!pConfig->GetLibraryModule()){
-    if ( debugType == intel::None ) {
+  if (!pConfig->GetLibraryModule()) {
+    if (debugType == intel::None) {
+      PM.add(createDeduceMaxWGDimPass());
       PM.add(createCLWGLoopCreatorPass());
     }
+    // This is a good time to remove internal functions which are not called
+    // TODO: Once we set the linkage of internal functions correctly, we won't to run this pass
+    // because the LLVM Inliner, for example, will delete uncalled functions it inlines.
+    PM.add(createModuleCleanupPass(false));
     PM.add(createBarrierMainPass(debugType));
 
     // After adding loops run loop optimizations.
@@ -484,7 +488,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   if(pRtlModule != NULL) {
     PM.add(createBuiltInImportPass()); // Inline BI function
     //Need to convert shuffle calls to shuffle IR before running inline pass on built-ins
-    PM.add(createShuffleCallToInstPass());
+    PM.add(createBuiltinCallToInstPass());
   }
 
   //funcPassMgr->add(new intel::SelectLower());
@@ -498,7 +502,16 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
       PM.add(llvm::createFunctionInliningPass(4096)); // Inline (not only small) functions.
     else
       PM.add(llvm::createFunctionInliningPass());     // Inline small functions
+  } else {
+    // Functions with the alwaysinline attribute need to be inlined for
+    // functional purposes
+    PM.add(llvm::createAlwaysInlinerPass());
   }
+  // Some built-in functions contain calls to external functions which take
+  // arguments that are retrieved from the function's implicit arguments.
+  // Currently only applies to OpenCL 2.x
+  if (isOcl20)
+    PM.add(createPatchCallbackArgsPass());
 
   if (debugType == intel::None) {
     PM.add(llvm::createArgumentPromotionPass());    // Scalarize uninlined fn args
@@ -543,7 +556,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   // Remove unneeded functions from the module.
   // *** keep this optimization last, or at least after function inlining! ***
   if (!pConfig->GetLibraryModule())
-    PM.add(createModuleCleanupPass());
+    PM.add(createModuleCleanupPass(true));
 
 #ifndef __APPLE__
   // Add prefetches if useful for micro-architecture, if not in debug mode,

@@ -52,6 +52,8 @@ namespace llvm {
             NA = 255
         };
 
+#undef VOID // winnt.h defines VOID to be void, so now that this file gets included, we need this to avoid a compilation error.
+
         /// basic types
         enum BasicArgType
         {

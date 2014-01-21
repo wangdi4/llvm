@@ -25,9 +25,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     GLOBAL_SIZE,
     LOCAL_SIZE,
     WG_NUMBER,
-    LOOP_ITER_COUNT,
-    RUNTIME_CALLBACKS,
-    NEW_LOCAL_ID,
+    RUNTIME_INTERFACE,
+    BLOCK2KERNEL_MAPPER,
     LAST
   };
   static const char* getRecordName(unsigned RecordID) {
@@ -37,21 +36,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       "GlobalSize_",
       "LocalSize_",
       "NumGroups_",
-      "LoopIterCount",
-      "RunTimeCallBacks",
-      "NewLocalID_"
+      "RuntimeInterface",
+      "Block2KernelMapper",
     };
     return Names[RecordID];
   }
   }
   enum TInternalCallType {
     ICT_NONE,
-    ICT_GET_NEW_LOCAL_ID,
-    ICT_GET_NEW_GLOBAL_ID,
     ICT_GET_BASE_GLOBAL_ID,
-    ICT_GET_ITER_COUNT,
     ICT_GET_SPECIAL_BUFFER,
-    ICT_GET_CURR_WI,
     ICT_GET_WORK_DIM,
     ICT_GET_GLOBAL_SIZE,
     ICT_GET_LOCAL_SIZE,
@@ -60,43 +54,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ICT_GET_GLOBAL_OFFSET,
     ICT_PRINTF,
     ICT_PREFETCH,
-    // get_default_queue()
-    ICT_GET_DEFAULT_QUEUE,
-    // Basic Enqueue kernel
-    // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,const ndrange_t ndrange,void (^block)(void))
-    ICT_ENQUEUE_KERNEL_BASIC,
     // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ?), uint size0, ?)
     ICT_ENQUEUE_KERNEL_LOCALMEM,
-    // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,const ndrange_t ndrange,uint num_events_in_wait_list, const clk_event_t *event_wait_list,clk_event_t *event_ret,void (^block)(void))
-    ICT_ENQUEUE_KERNEL_EVENTS,
     // int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ?), uint size0, ?)
     ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM,
-    // uint get_kernel_work_group_size (void (^block)(void))
-    ICT_GET_KERNEL_WORK_GROUP_SIZE,
-    // uint get_kernel_work_group_size (void (^block)(local void *, ...))
-    ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL,
-    // uint get_kernel_preferred_work_group_size_multiple(void (^block)(void))
-    ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
-    // uint get_kernel_preferred_work_group_size_multiple(void (^block)(local void *, ...));
-    ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL,
-    // int enqueue_marker ( queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret)
-    ICT_ENQUEUE_MARKER,
-    // void retain_event (clk_event_t event)
-    ICT_RETAIN_EVENT,
-    // void release_event (clk_event_t event)
-    ICT_RELEASE_EVENT,
-    // clk_event_t create_user_event ()
-    ICT_CREATE_USER_EVENT,
-    // void set_user_event_status ( clk_event_t event, int status)
-    ICT_SET_USER_EVENT_STATUS,
-    // void capture_event_profiling_info ( clk_event_t event, clk_profiling_info name, global ulong *value)
-    ICT_CAPTURE_EVENT_PROFILING_INFO,
-    // ndrange_1D
-    ICT_NDRANGE_1D,
-    // ndrange_2D
-    ICT_NDRANGE_2D,
-    // ndrange_3D
-    ICT_NDRANGE_3D,
     ICT_NUMBER
  };
   static unsigned InternalCall2NDInfo(unsigned InternalCall) {
@@ -128,8 +89,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       IA_WORK_GROUP_ID,
       IA_GLOBAL_BASE_ID,
       IA_BARRIER_BUFFER,
-      IA_CURRENT_WORK_ITEM,
-      IA_RUNTIME_CONTEXT,
+      IA_RUNTIME_HANDLE,
       IA_NUMBER
     };
     static const unsigned int NUMBER_IMPLICIT_ARGS = IA_NUMBER;

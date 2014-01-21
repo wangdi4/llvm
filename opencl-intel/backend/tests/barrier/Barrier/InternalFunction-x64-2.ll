@@ -1,7 +1,4 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: opt -B-Barrier -verify %t.bc -S -o %t1.ll
-; RUN: FileCheck %s --input-file=%t1.ll
-
+; RUN: opt -B-Barrier -verify -S < %s | FileCheck %s
 ;;*****************************************************************************
 ; This test checks the Barrier pass
 ;; The case: kernel "main" with barrier instruction and the non-uniform value "%y"
@@ -39,17 +36,17 @@ L3:
 ; CHECK: xor
 ;;;; TODO: add regular expression for the below values.
 ; CHECK: L2:
-; CHECK:   %loadedCurrSB = load i64* %CurrSBIndex
-; CHECK:   %"&(pSB[currWI].offset)" = add nuw i64 %loadedCurrSB, 8
-; CHECK:   %"&pSB[currWI].offset" = getelementptr inbounds i8* %pSB, i64 %"&(pSB[currWI].offset)"
-; CHECK:   %CastToValueType = bitcast i8* %"&pSB[currWI].offset" to i64*
-; CHECK:   %loadedCurrSB5 = load i64* %CurrSBIndex
-; CHECK:   %"&(pSB[currWI].offset)6" = add nuw i64 %loadedCurrSB5, 0
-; CHECK:   %"&pSB[currWI].offset7" = getelementptr inbounds i8* %pSB, i64 %"&(pSB[currWI].offset)6"
-; CHECK:   %CastToValueType8 = bitcast i8* %"&pSB[currWI].offset7" to i64*
-; CHECK:   %loadedValue = load i64* %CastToValueType8
-; CHECK:   store i64 %loadedValue, i64* %CastToValueType
-; CHECK:   br label %SyncBB
+; CHECK: %SBIndex = load i64* %pCurrSBIndex
+; CHECK: %SB_LocalId_Offset = add nuw i64 %SBIndex, 8
+; CHECK: %1 = getelementptr inbounds i8* %pSB, i64 %SB_LocalId_Offset
+; CHECK: %pSB_LocalId = bitcast i8* %1 to i64*
+; CHECK: %SBIndex4 = load i64* %pCurrSBIndex
+; CHECK: %SB_LocalId_Offset5 = add nuw i64 %SBIndex4, 0
+; CHECK: %2 = getelementptr inbounds i8* %pSB, i64 %SB_LocalId_Offset5
+; CHECK: %pSB_LocalId6 = bitcast i8* %2 to i64*
+; CHECK: %loadedValue = load i64* %pSB_LocalId6
+; CHECK: store i64 %loadedValue, i64* %pSB_LocalId
+; CHECK: br label %CallBB
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK: call i64 @foo
 ; CHECK: br label %
@@ -70,24 +67,24 @@ L2:
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
 ;;;; TODO: add regular expression for the below values.
-; CHECK: SyncBB6:
-; CHECK:   %loadedCurrSB1 = load i64* %CurrSBIndex
-; CHECK:   %"&(pSB[currWI].offset)2" = add nuw i64 %loadedCurrSB1, 8
-; CHECK:   %"&pSB[currWI].offset3" = getelementptr inbounds i8* %pSB, i64 %"&(pSB[currWI].offset)2"
-; CHECK:   %CastToValueType4 = bitcast i8* %"&pSB[currWI].offset3" to i64*
-; CHECK:   %loadedValue5 = load i64* %CastToValueType4
-; CHECK:   %y = xor i64 %loadedValue5, %loadedValue5
-; CHECK:   br label %L2
+; CHECK: SyncBB1:
+; CHECK: %SBIndex1 = load i64* %pCurrSBIndex
+; CHECK: %SB_LocalId_Offset2 = add nuw i64 %SBIndex1, 8
+; CHECK: %0 = getelementptr inbounds i8* %pSB, i64 %SB_LocalId_Offset2
+; CHECK: %pSB_LocalId3 = bitcast i8* %0 to i64*
+; CHECK: %loadedValue4 = load i64* %pSB_LocalId3
+; CHECK: %y = xor i64 %loadedValue4, %loadedValue4
+; CHECK: br label %L2
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
 ;;;; TODO: add regular expression for the below values.
-; CHECK: SyncBB:
-; CHECK:   %loadedCurrSB = load i64* %CurrSBIndex
-; CHECK:   %"&(pSB[currWI].offset)" = add nuw i64 %loadedCurrSB, 8
-; CHECK:   %"&pSB[currWI].offset" = getelementptr inbounds i8* %pSB, i64 %"&(pSB[currWI].offset)"
-; CHECK:   %CastToValueType = bitcast i8* %"&pSB[currWI].offset" to i64*
-; CHECK:   %loadedValue = load i64* %CastToValueType
+; CHECK: SyncBB0:                                          ; preds = %LoopEnd_2
+; CHECK: %SBIndex = load i64* %pCurrSBIndex
+; CHECK: %SB_LocalId_Offset = add nuw i64 %SBIndex, 8
+; CHECK: %8 = getelementptr inbounds i8* %pSB, i64 %SB_LocalId_Offset
+; CHECK: %pSB_LocalId = bitcast i8* %8 to i64*
+; CHECK: %loadedValue = load i64* %pSB_LocalId
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj

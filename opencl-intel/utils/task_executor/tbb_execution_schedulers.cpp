@@ -187,7 +187,11 @@ void TBB_ExecutionSchedulers::opencl_executor(
     //int nThreads = executor.GetCurrentDevice().teDevice->GetConcurrency();
     tbb::task_group_context& context = cmdList.GetTBBContext();
 
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    tbb::uneven::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), tbb::opencl_partitioner(tbb::task_arena::current_slot(), cmdList.GetTEDevice().GetConcurrency() - 1, false), context);
+#else
     tbb::uneven::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), tbb::opencl_partitioner(), context);
+#endif
 }
 
 #ifdef __MIC__
