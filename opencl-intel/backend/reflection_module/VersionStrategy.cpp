@@ -82,6 +82,14 @@ void SoaDescriptorStrategy::visit(const PrimitiveType*){
   m_transposeStrategy = &SoaDescriptorStrategy::scalarReturnTranspose;
 }
 
+void SoaDescriptorStrategy::visit(const AtomicType*){
+  m_transposeStrategy = &SoaDescriptorStrategy::scalarReturnTranspose;
+}
+
+void SoaDescriptorStrategy::visit(const BlockType*){
+  m_transposeStrategy = &SoaDescriptorStrategy::scalarReturnTranspose;
+}
+
 void SoaDescriptorStrategy::visit(const UserDefinedType*){
   m_transposeStrategy = &SoaDescriptorStrategy::scalarReturnTranspose;
 }
