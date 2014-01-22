@@ -85,6 +85,7 @@ public:
     case reflection::PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T:
     case reflection::PRIMITIVE_EVENT_T:
     case reflection::PRIMITIVE_CLK_EVENT_T:
+    case reflection::PRIMITIVE_QUEUE_T:
     case reflection::PRIMITIVE_PIPE_T:
       {
          std::string Name = reflection::llvmPrimitiveString(Ty->getPrimitive());
