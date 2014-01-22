@@ -86,18 +86,28 @@ namespace reflection {
   INIT_TYPE_INFO_TOKEN(g_PARAM_DUP_PREFIX,     "S");
   INIT_TYPE_INFO_TOKEN(g_PARAM_DUP_SUFFIX,     "_");
   INIT_TYPE_INFO_TOKEN(g_VECTOR_SUFFIX,        "_");
+  //Currently supports only blcks that returns void
+  INIT_TYPE_INFO_TOKEN(g_BLOCK_PREFIX,         "Fv");
+  INIT_TYPE_INFO_TOKEN(g_BLOCK_SUFFIX,         "E");
 
   INIT_TYPE_INFO_TOKEN(g_Pointer, "P");
   INIT_TYPE_INFO_TOKEN(g_Vector, "Dv");
+  INIT_TYPE_INFO_TOKEN(g_Block, "U13block_pointer");
+  INIT_TYPE_INFO_TOKEN(g_Atomic, "U7_Atomic");
 
   DemangleParser::DemangleParser(TypeVector& parameters)
     : m_parameters(parameters), m_currentIndex(0), m_error(false) {
       m_imageTypeNameTranslate["ocl_image1d"] = PRIMITIVE_IMAGE_1D_T;
       m_imageTypeNameTranslate["ocl_image2d"] = PRIMITIVE_IMAGE_2D_T;
+      m_imageTypeNameTranslate["ocl_image2ddepth"] = PRIMITIVE_IMAGE_2D_DEPTH_T;
       m_imageTypeNameTranslate["ocl_image3d"] = PRIMITIVE_IMAGE_3D_T;
       m_imageTypeNameTranslate["ocl_image1dbuffer"] = PRIMITIVE_IMAGE_1D_BUFFER_T;
       m_imageTypeNameTranslate["ocl_image1darray"] = PRIMITIVE_IMAGE_1D_ARRAY_T;
       m_imageTypeNameTranslate["ocl_image2darray"] = PRIMITIVE_IMAGE_2D_ARRAY_T;
+      m_imageTypeNameTranslate["ocl_image2darraydepth"] = PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T;
+      m_imageTypeNameTranslate["ocl_event"] = PRIMITIVE_EVENT_T;
+      m_imageTypeNameTranslate["ocl_clk_event"] = PRIMITIVE_CLK_EVENT_T;
+      m_imageTypeNameTranslate["ocl_pipe"] = PRIMITIVE_PIPE_T;
       m_imageTypeNameTranslate["ocl_sampler"] = PRIMITIVE_SAMPLER_T;
   }
 
@@ -181,6 +191,14 @@ namespace reflection {
     // Check if if next type is a pointer
     if (match(&g_Pointer)) {
       return createPointerType();
+    }
+    // Check if if next type is an atomic
+    if (match(&g_Atomic)) {
+      return createAtomicType();
+    }
+    // Check if if next type is a block
+    if (match(&g_Block)) {
+      return createBlockType();
     }
 
     // Check if if next type is a duplicate type
@@ -276,6 +294,53 @@ namespace reflection {
     //be pushed first to the sign list.
     m_signList.push_back(refVector);
     return refVector;
+  }
+
+  RefParamType DemangleParser::createAtomicType() {
+    RefParamType pBaseParamType = getNextType();
+    if (pBaseParamType.isNull()) {
+      // Reachning here is not expected, set error and return NULL;
+      setError();
+      return RefParamType();
+    }
+    //Atomic is supported only on primitive types
+    if(!dyn_cast<PrimitiveType>(pBaseParamType)) {
+      // Reachning here is not expected, set error and return NULL;
+      setError();
+      return RefParamType();
+    }
+    AtomicType* pAtomicType = new AtomicType(pBaseParamType);
+    RefParamType refAtomic(pAtomicType);
+
+    //Push atomic type to end of sign list
+    m_signList.push_back(refAtomic);
+    return refAtomic;
+  }
+
+  RefParamType DemangleParser::createBlockType() {
+    if (!match(&g_BLOCK_PREFIX)) {
+      // Reachning here is not expected, set error and return NULL;
+      setError();
+      return RefParamType();
+    }
+    BlockType* pBlockType = new BlockType();
+    RefParamType refBlock(pBlockType);
+    int index = 0;
+    while(!match(&g_BLOCK_SUFFIX)) {
+      RefParamType pBlockParamType = getNextType();
+      if (pBlockParamType.isNull()) {
+        // Reachning here is not expected, set error and return NULL;
+        setError();
+        return RefParamType();
+      }
+      pBlockType->setParam(index++, pBlockParamType);
+    }
+    //Push block type to end of sign list
+    //It is important to do this after parsing the block parameter types
+    //in case some of the parameters are non-primitive type, it should 
+    //be pushed first to the sign list.
+    m_signList.push_back(refBlock);
+    return refBlock;
   }
 
   RefParamType DemangleParser::createUserDefinedType(unsigned int userDefinedNameLength) {

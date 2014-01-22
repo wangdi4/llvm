@@ -19,6 +19,42 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 using namespace llvm;
 
 namespace intel {
+  // LLVM bitcode loader appends a dot and a number to a struct type name
+  // if it is loaded from different modules. The following class handles
+  // this issue in CloneFunctionInto. It doesn't check specific type names
+  // because in the built-ins library all struct types must match struct
+  // types in the user module.
+  class StructTypeRemapper : public ValueMapTypeRemapper {
+  private:
+    typedef DenseMap<Type *, Type *> TypeMap;
+    TypeMap m_TypeMap;
+
+    // Convert a pointer type to a structure type it points to.
+    static StructType * ptrToStruct(Type *T);
+
+    // Construct a pointer of arbitrary dimension to DstST type
+    // using the SrcTy pointer to copy address space qualifiers from.
+    static Type* constructPtr(Type * SrcTy, StructType * DstST);
+
+    // Insert struct types mapping into m_TypeMap.
+    void insert(Type * SrcTy, Type * DstTy);
+
+  public:
+    // Remap any pointer to a struct type found in the m_TypeMap.
+    // Or return the same type if no mapping defined.
+    virtual Type *  remapType (Type *SrcTy);
+
+    // Insert type mapping based on the difference of the source and destination
+    // function types.
+    void insert(Function *pSrcFunc, Function *pDstFunc);
+
+    // Create a new function type by replacing struct types.
+    FunctionType * remapFunctionType(Function *pSrcFunc);
+
+    void clear() {
+      m_TypeMap.clear();
+    }
+  };
 
   /// This pass imports built-in functions from source module to destination module.
   class BIImport : public ModulePass {
@@ -136,6 +172,8 @@ namespace intel {
     TFunctionsVec      m_functionsToImport;
     /// List of source global values to import
     TGlobalsVec        m_globalsToImport;
+    /// Struct type remapper
+    StructTypeRemapper m_structTypeRemapper;
   };
 
 } //namespace Intel {
