@@ -9,7 +9,8 @@ class WorkloadGodRays(DebuggerTestCase):
         # just to see it compiled at all
         self.client.execute_debuggee(
             hostprog_name='1d_float4_with_size',
-            cl_name=self.CLNAME)
+            cl_name=self.CLNAME,
+            extra_args=['128', '256', '32', '1'])
         self.client.connect_to_server()
         self.client.start_session(0, 0, 0)
 
@@ -18,7 +19,7 @@ class WorkloadGodRays(DebuggerTestCase):
         self.assertEqual(self.client.debug_run(bps), bps[1])
 
         # default size
-        self.assertEqual(self.client.var_query_value('imgSize'), '1024,256')
+        self.assertEqual(self.client.var_query_value('imgSize'), '128,256')
         # gid 0
         self.assertEqual(self.client.var_query_value('in_RayNum'), '0')
 
@@ -28,7 +29,8 @@ class WorkloadGodRays(DebuggerTestCase):
         # do some actual probing inside evaluateRay
         self.client.execute_debuggee(
             hostprog_name='1d_float4_with_size',
-            cl_name=self.CLNAME)
+            cl_name=self.CLNAME,
+            extra_args=['128', '256', '32', '1'])
         self.client.connect_to_server()
         self.client.start_session(0, 0, 0)
 
@@ -36,11 +38,11 @@ class WorkloadGodRays(DebuggerTestCase):
         bp = (self.CLNAME, 37)
         self.assertEqual(self.client.debug_run([bp]), bp)
 
-        self.assertEqual(self.client.var_query_value('imgSize'), '1024,256')
+        self.assertEqual(self.client.var_query_value('imgSize'), '128,256')
         self.assertEqual(self.client.var_query_value('in_RayNum'), '0')
         self.assertEqual(self.client.var_query_value('blend'), '1')
         self.assertEqual(self.client.var_query_value('god_rays_bunch_size'), '15')
-        self.assertEqual(self.client.var_query_value('x_last'), '1023')
+        self.assertEqual(self.client.var_query_value('x_last'), '127')
         self.assertEqual(self.client.var_query_value('y_last'), '255')
 
         # Look at the stack trace
