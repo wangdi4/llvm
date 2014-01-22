@@ -1504,3 +1504,17 @@ bool GetCpuPath( char *pCpuPath, size_t bufferSize )
     return false;
 }
 
+bool GetCpuVersion( char *pCpuVersion, size_t bufferSize )
+{
+    #if defined( _WIN32 )
+    const char *regPath = "SOFTWARE\\Intel\\OpenCL";
+
+    // pCpuPath is expected to be MAX_PATH in size
+    if( NULL != pCpuVersion )
+    {
+        return GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, "cpu_version", pCpuVersion, bufferSize );
+    }
+#endif
+    return false;
+}
+

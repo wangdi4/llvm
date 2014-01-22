@@ -391,3 +391,8 @@ std::string GetConfigFilePath();
  * @return the file path of the CPU runtime
  */
 bool GetCpuPath( char *pCpuPath, size_t bufferSize );
+
+/**
+ * @return the version of the CPU runtime
+ */
+bool GetCpuVersion( char *pCpuVersion, size_t bufferSize );
