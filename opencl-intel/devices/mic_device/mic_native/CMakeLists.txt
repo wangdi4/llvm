@@ -154,7 +154,7 @@ function ( COMPILE_DEVICE_CXX_FILE FILE_FULL_PATH_NAME OBJ_FILE )
     #message( FATAL_ERROR "|${DEPENDENCY_LIST}|" )                
     add_custom_command( OUTPUT ${OBJ_FILE_NATIVE}
 
-                        COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
+                        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}
                         COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
                         COMMAND ${DEVICE_COMPILER} ${INSTALL_SUBDIR} ${FILE_FULL_PATH_NAME_NATIVE} ${OBJ_FILE_NATIVE}
 
@@ -177,7 +177,7 @@ function ( COMPILE_DEVICE_ASM_FILE FILE_FULL_PATH_NAME OBJ_FILE )
 
     add_custom_command( OUTPUT ${OBJ_FILE}
 
-                        COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
+                        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}
                         COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
                         COMMAND ${DEVICE_PREPROCESSOR} -E -DKMP_ARCH_X86_64=1 -D__MIC2__=1 -D__MIC__=1 ${FILE_FULL_PATH_NAME} | ${DEVICE_ASSEMBLER} --64 -march=k1om -o ${OBJ_FILE}
                         MAIN_DEPENDENCY ${FILE_FULL_PATH_NAME_NATIVE}
@@ -223,10 +223,10 @@ function ( LINK_DEVICE_EXE TARGET_EXE )
         endif (WIN32)
 
         add_custom_command( OUTPUT ${TARGET_EXE}
-                            COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
+                            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}
                             COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
                             COMMAND ${DEVICE_LINKER} ${INSTALL_SUBDIR} ${TARGET_EXE} ${OBJ_FILES_PARAM}
-                            DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} ${BACKEND_LIB_DIR}/lib${BACKEND_LIB}.a
+                            DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_LINKER_SCRIPT} ${BACKEND_LIB_DIR}/lib${BACKEND_LIB}.a ${TARGET_DEPEND_LIBRARIES_BINS}
                             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
                             COMMENT "Linking ${FILE_NAME} for ${DEVICE}"
                             VERBATIM
@@ -282,11 +282,11 @@ function ( CREATE_LIB_ARCHIVE LIB_TARGET_NAME )
         set( OBJ_FILES ${ARGN})
         
         add_custom_command( OUTPUT ${LIB_FILE}
-                            COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
+                            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}
                             COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
                             COMMAND ${DEVICE_ARCHIVE} rsc --target=elf64-k1om ${LIB_FILE} ${OBJ_FILES}
 
-                            DEPENDS  ${OBJ_FILES} ${BIN_DIR}/${DEVICE_ARCHIVE_SCRIPT}
+                            DEPENDS  ${OBJ_FILES} 
                             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR}
                             COMMENT "Archiving ${LIB_TARGET_NAME} for ${DEVICE}"
                             VERBATIM
@@ -491,7 +491,9 @@ endif (INCLUDE_MKL)
 
 # Append link flags with internal libraries
 foreach( depend_library IN LISTS TARGET_DEPEND_LIBRARIES)
-    list( APPEND MIC_LINK_FLAGS "-L ${CMAKE_CURRENT_BINARY_DIR}/${depend_library}/${INSTALL_SUBDIR} -l${depend_library}" )
+    set( FULL_PATH_BIN ${CMAKE_CURRENT_BINARY_DIR}/${depend_library}/${INSTALL_SUBDIR} )
+    list( APPEND MIC_LINK_FLAGS "-L ${FULL_PATH_BIN} -l${depend_library}" )
+    list( APPEND TARGET_DEPEND_LIBRARIES_BINS ${FULL_PATH_BIN}/${LIB_FILE_PREFIX}${depend_library}${LIB_FILE_EXTENSION} )
 endforeach(depend_library)
 
 if (INCLUDE_MKL)
@@ -504,7 +506,9 @@ if (INCLUDE_MKL)
     if( USE_OMP2TBB )
         list( APPEND TARGET_DEPEND_LIBRARIES native_omp2tbb )
         list( APPEND MIC_FLAGS -D__OMP2TBB__ -I ${DEVICE_COMMON_DIR}/omp2tbb)
-        list( APPEND MIC_LINK_FLAGS -Wl,--start-group ${MKL_DIR}/lib/mic/libmkl_intel_ilp64.a ${MKL_DIR}/lib/mic/libmkl_core.a ${MKL_DIR}/lib/mic/libmkl_intel_thread.a ${CMAKE_CURRENT_BINARY_DIR}/native_omp2tbb/${INSTALL_SUBDIR}/libnative_omp2tbb.a -Wl,--end-group -lm)
+        set( FULL_PATH_BIN ${CMAKE_CURRENT_BINARY_DIR}/native_omp2tbb/${INSTALL_SUBDIR}/libnative_omp2tbb.a )
+        list( APPEND MIC_LINK_FLAGS -Wl,--start-group ${MKL_DIR}/lib/mic/libmkl_intel_ilp64.a ${MKL_DIR}/lib/mic/libmkl_core.a ${MKL_DIR}/lib/mic/libmkl_intel_thread.a ${FULL_PATH_BIN} -Wl,--end-group -lm)
+        list( APPEND TARGET_DEPEND_LIBRARIES_BINS ${FULL_PATH_BIN} )
     else()
         list( APPEND MIC_FLAGS -openmp )
         list( APPEND MIC_LINK_FLAGS -Wl,--start-group ${MKL_DIR}/lib/mic/libmkl_intel_ilp64.a ${MKL_DIR}/lib/mic/libmkl_core.a ${MKL_DIR}/lib/mic/libmkl_intel_thread.a -Wl,--end-group -lm)
