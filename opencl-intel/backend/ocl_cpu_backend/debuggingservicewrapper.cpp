@@ -10,7 +10,10 @@ using namespace std;
 
 
 #if defined(_WIN32)
-const char* DEBUGGER_DLL_NAME = "OclCpuDebugging.dll";
+// This change was added in order to support the 15.33 GFX driver
+// CPU runtime (version 3.0) installation with the new SDK
+// TODO - undo this when OclCpuDebugging.dll is added to the driver
+const char* DEBUGGER_DLL_NAME = "OclCpuDebugging2.dll";
 #else
 const char* DEBUGGER_DLL_NAME = "libOclCpuDebugging.so";
 #endif
