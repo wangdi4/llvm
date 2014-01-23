@@ -127,9 +127,17 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
                                                         const cl_kernel_argument*   pParams,
                                                         const unsigned int* pMemObjectIndx,
                                                         unsigned int uiMemObjCount,
-                                                        std::vector<cl_mem_obj_descriptor*>* devMemObjects)
+                                                        std::vector<cl_mem_obj_descriptor*>* devMemObjects,
+                                                        std::vector<char>* kernelParamsVec)
 {
     char* pLockedParams = (char*)pTargetTaskParam;
+
+#ifdef OCLDEVICE_PLUGINS
+    // save copy of kernel params, because *pLockedParams will be changed below
+    char* pKernelParams = &(*kernelParamsVec)[0];
+    size_t sizeParams = (*kernelParamsVec).size();
+    MEMCPY_S(pKernelParams, sizeParams, pLockedParams, sizeParams);
+#endif
 
     // Lock required memory objects, in place operation
     for(unsigned int i=0; i<uiMemObjCount; ++i)
@@ -144,6 +152,9 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
             char* loc = pLockedParams+stOffset;
             cl_mem_obj_descriptor* objHandle;
             memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (void**)&objHandle );
+#ifdef OCLDEVICE_PLUGINS
+            *(cl_mem_obj_descriptor**)(pKernelParams+stOffset) = objHandle;
+#endif
             if ( objHandle->memObjType == CL_MEM_OBJECT_BUFFER ||
                  objHandle->memObjType == CL_MEM_OBJECT_PIPE )
             {
@@ -811,9 +822,15 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
         cmdParams->ppNonArgSvmBuffers[i]->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0, (void**)&devMemObjects[i] );
     }
 
+    std::vector<char> kernelParamsVec;
+
     if ( uiMemArgCount > 0 )
     {
-        cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(), uiMemArgCount, &devMemObjects);
+#ifdef OCLDEVICE_PLUGINS
+        kernelParamsVec.resize(cmdParams->arg_size);
+#endif
+        cl_dev_err_code clRet = ExtractNDRangeParams(pLockedParams, pParams, pKernel->GetMemoryObjectArgumentIndexes(), uiMemArgCount, 
+                                                     &devMemObjects, &kernelParamsVec);
         if ( CL_DEV_FAILED(clRet) )
         {
             m_lastError = clRet;
@@ -828,9 +845,15 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     // Copy global_offset, global_size and local_work_size
     MEMCPY_S(m_pImplicitArgs->GlobalOffset, sizeof(size_t) * MAX_WORK_DIM * 3, cmdParams->glb_wrk_offs, sizeof(size_t) * MAX_WORK_DIM * 3);
     m_pImplicitArgs->minWorkGroupNum = m_numThreads;
+
     m_pRunner = pKernel->GetKernelRunner();
-    unsigned int memObjCount = (unsigned int)devMemObjects.size();
-    const cl_mem_obj_descriptor** memArgs = memObjCount > 0 ? (const cl_mem_obj_descriptor**)&devMemObjects[0] : NULL;
+#ifdef OCLDEVICE_PLUGINS
+    unsigned int memObjCount = (unsigned int)kernelParamsVec.size();
+    const cl_mem_obj_descriptor** memArgs = memObjCount > 0 ? (const cl_mem_obj_descriptor**)&kernelParamsVec[0] : NULL;
+#else
+    unsigned int memObjCount = 0;
+    const cl_mem_obj_descriptor** memArgs = NULL;
+#endif
     m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount);
 
     const size_t*    pWGSize = m_pImplicitArgs->WGCount;
