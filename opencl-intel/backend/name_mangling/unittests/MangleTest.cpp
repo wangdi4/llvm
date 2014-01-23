@@ -266,8 +266,10 @@ TEST(MangleTest, clk_event){
 }
 
 TEST(DemangleTest, block){
-  FunctionDescriptor fd = demangle("_Z14enqueue_kernelU13block_pointerFvvE");
-  ASSERT_FALSE(fd.isNull());
+  FunctionDescriptor fd1 = demangle("_Z14enqueue_kernelU13block_pointerFvvE");
+  ASSERT_FALSE(fd1.isNull());
+  FunctionDescriptor fd2 = demangle("_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz");
+  ASSERT_FALSE(fd2.isNull());
   //TODO add more block tests
 }
 

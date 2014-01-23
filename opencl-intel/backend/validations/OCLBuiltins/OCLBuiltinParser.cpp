@@ -87,6 +87,7 @@ void BasicTypeFromStr::initStatic()
     m_Map["image2d_array_depth_t"] = OCLBuiltinParser::IMAGE_2D_ARRAY_DEPH_T;
     m_Map["event_t"] = OCLBuiltinParser::EVENT_T;
     m_Map["clk_event_t"] = OCLBuiltinParser::CLK_EVENT_T;
+    m_Map["queue_t"] = OCLBuiltinParser::QUEUE_T;
     m_Map["pipe_t"] = OCLBuiltinParser::PIPE_T;
     m_Map["sampler_t"] = OCLBuiltinParser::SAMPLER_T;
 }
@@ -141,6 +142,7 @@ void BasicTypeToStr::initStatic()
     m_Map[OCLBuiltinParser::IMAGE_2D_ARRAY_DEPH_T]  = reflection::PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T;
     m_Map[OCLBuiltinParser::EVENT_T]                = reflection::PRIMITIVE_EVENT_T;
     m_Map[OCLBuiltinParser::CLK_EVENT_T]            = reflection::PRIMITIVE_CLK_EVENT_T;
+    m_Map[OCLBuiltinParser::QUEUE_T]                = reflection::PRIMITIVE_QUEUE_T;
     m_Map[OCLBuiltinParser::PIPE_T]                 = reflection::PRIMITIVE_PIPE_T;
     m_Map[OCLBuiltinParser::SAMPLER_T]              = reflection::PRIMITIVE_SAMPLER_T;
 }

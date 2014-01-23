@@ -229,6 +229,16 @@ TEST(ReflectionToLLVM, ClkEvent){
   ASSERT_STREQ("opencl.clk_event_t", Name.data());
 }
 
+TEST(ReflectionToLLVM, Queue){
+  llvm::LLVMContext CTX;
+  reflection::RefParamType sTy(new reflection::PrimitiveType(reflection::PRIMITIVE_QUEUE_T));
+  llvm::Type* llvmSTy = intel::reflectionToLLVM(CTX, sTy);
+  ASSERT_TRUE(llvmSTy->isStructTy());
+  llvm::StructType *STy = llvm::dyn_cast<llvm::StructType>(llvmSTy);
+  llvm::StringRef Name = STy->getName();
+  ASSERT_STREQ("opencl.queue_t", Name.data());
+}
+
 TEST(ReflectionToLLVM, Pipe){
   llvm::LLVMContext CTX;
   reflection::RefParamType sTy(new reflection::PrimitiveType(reflection::PRIMITIVE_PIPE_T));

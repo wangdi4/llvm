@@ -84,6 +84,7 @@ namespace llvm {
             IMAGE_2D_ARRAY_DEPH_T,
             EVENT_T,
             CLK_EVENT_T,
+            QUEUE_T,
             PIPE_T,
             SAMPLER_T,
             INVALID = 255

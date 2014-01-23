@@ -1750,6 +1750,10 @@ bool Intel::OpenCL::ClangFE::ParseLinkOptions(const char* szOptions,
         {
             // Dump file must be attached to the flag, but we ignore it for now
         }
+        else if (opt_i->find("-dump-opt-asm=") == 0) 
+        {
+            // Dump file must be attached to the flag, but we ignore it for now
+        }
         else
         {
             UnrecognizedArgs.push_back(*opt_i);

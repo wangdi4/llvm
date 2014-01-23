@@ -39,6 +39,7 @@ namespace reflection {
   INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_f,  "f", PRIMITIVE_FLOAT,  NULL);
   INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_d,  "d", PRIMITIVE_DOUBLE, NULL);
   INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_v,  "v", PRIMITIVE_VOID,   NULL);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_z,  "z", PRIMITIVE_VAR_ARG,NULL);
 
   INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_Dh, "h", PRIMITIVE_HALF,   NULL);
 
@@ -58,7 +59,7 @@ namespace reflection {
     NULL /*'g'*/, &g_h /*'h'*/, &g_i /*'i'*/, &g_j /*'j'*/, NULL /*'k'*/, &g_l /*'l'*/,
     &g_m /*'m'*/, NULL /*'n'*/, NULL /*'o'*/, NULL /*'p'*/, NULL /*'q'*/, NULL /*'r'*/,
     &g_s /*'s'*/, &g_t /*'t'*/, NULL /*'u'*/, &g_v /*'v'*/, NULL /*'w'*/, NULL /*'x'*/,
-    NULL /*'y'*/, NULL /*'z'*/};
+    NULL /*'y'*/, &g_z /*'z'*/};
 
   //This maps letters from 'A' to 'Z'
   static TypeInfo* g_primitiveTypeInfoMapUpper[] = {
@@ -107,6 +108,7 @@ namespace reflection {
       m_imageTypeNameTranslate["ocl_image2darraydepth"] = PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T;
       m_imageTypeNameTranslate["ocl_event"] = PRIMITIVE_EVENT_T;
       m_imageTypeNameTranslate["ocl_clk_event"] = PRIMITIVE_CLK_EVENT_T;
+      m_imageTypeNameTranslate["ocl_queue"] = PRIMITIVE_QUEUE_T;
       m_imageTypeNameTranslate["ocl_pipe"] = PRIMITIVE_PIPE_T;
       m_imageTypeNameTranslate["ocl_sampler"] = PRIMITIVE_SAMPLER_T;
   }

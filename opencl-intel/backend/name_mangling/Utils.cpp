@@ -27,6 +27,7 @@ namespace reflection {
     "float",
     "double",
     "void",
+    "...",
     "image1d_t",
     "image2d_t",
     "image2d_depth_t",
@@ -37,6 +38,7 @@ namespace reflection {
     "image2d_array_depth_t",
     "event_t",
     "clk_event_t",
+    "queue_t",
     "pipe_t",
     "sampler_t"
   };
@@ -55,6 +57,7 @@ namespace reflection {
     "f",  //FLOAT
     "d",  //DOUBLE
     "v",  //VOID
+    "z",  //VarArg
     "11ocl_image1d",            //PRIMITIVE_IMAGE_1D_T
     "11ocl_image2d",            //PRIMITIVE_IMAGE_2D_T
     "16ocl_image2ddepth",       //PRIMITIVE_IMAGE_2D_DEPTH_T
@@ -65,6 +68,7 @@ namespace reflection {
     "21ocl_image2darraydepth",  //PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T
     "9ocl_event",               //PRIMITIVE_EVENT_T
     "13ocl_clk_event",          //PRIMITIVE_CLK_EVENT_T
+    "9ocl_queue",               //PRIMITIVE_QUEUE_T
     "8ocl_pipe",                //PRIMITIVE_PIPE_T
     "11ocl_sampler"             //PRIMITIVE_SAMPLER_T
   };
