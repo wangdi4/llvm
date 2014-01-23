@@ -667,29 +667,24 @@ void test3DReadWriteThroughKernel(OpenCLDescriptor& ocl_descriptor, cl_image_for
 		// enqueue kernel
 		ASSERT_NO_FATAL_FAILURE(enqueueNDRangeKernel(ocl_descriptor.queues[i], ocl_descriptor.kernels[i], 1, NULL, &global_work_size, NULL, 0, NULL,  NULL));
 
-		ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[i], ocl_descriptor.in_common_buffer, 
-			CL_FALSE, origin, region, row_pitch, slice_pitch, ((0==i)?cpu_array.dynamic_array:gpu_array.dynamic_array), 
-			0, NULL, NULL));
-
 		// read result
 		ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[i], mem_result[i], CL_TRUE, 0, sizeof(cl_int), 
 			&result[i], 0, NULL, NULL));
 
+		ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[i]));
+
 		// validate that kernel's validation succeeded - result[0] must contain 0
 		ASSERT_EQ(0,result[i]) << "For device " << i << " kernel's internal validation failed";
 
+		ASSERT_NO_FATAL_FAILURE(enqueueReadImage(ocl_descriptor.queues[i], ocl_descriptor.in_common_buffer, 
+			CL_FALSE, origin, region, row_pitch, slice_pitch, ((0==i)?cpu_array.dynamic_array:gpu_array.dynamic_array), 
+			0, NULL, NULL));
+
+		ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[i]));
 		// host-side validation
 		// on CPU will expect to get gpu_first_input_array (GPU's input)
 		// on GPU will expect to get cpu_second_input_array (second iteration's CPU input)
 		ASSERT_NO_FATAL_FAILURE(((0==i)?cpu_array:gpu_array).compareArray((0==i)?gpu_first_input_array.dynamic_array:cpu_second_input_array.dynamic_array,arraySize));
-		
-		// ensures that in_common_buffer's content is updated so the next time it's accessed within inside a kernel
-		// all its elements are updated
-		ASSERT_NO_FATAL_FAILURE(enqueueMapImage(&arrayToMapTo, ocl_descriptor.queues[i], 
-			ocl_descriptor.in_common_buffer, CL_FALSE, CL_MAP_WRITE, origin, region, &row_pitch, &slice_pitch,
-			0, NULL, NULL));
-		ASSERT_NO_FATAL_FAILURE(enqueueUnmapMemObject(ocl_descriptor.queues[i], ocl_descriptor.in_common_buffer, 
-			arrayToMapTo, 0, NULL, NULL));
 	}
 	// create image for inside-kernel validation - to test that kernels "sees" correct input
 	ASSERT_NO_FATAL_FAILURE(createImage3D(&ocl_descriptor.buffers[0], ocl_descriptor.context, 
@@ -714,6 +709,7 @@ void test3DReadWriteThroughKernel(OpenCLDescriptor& ocl_descriptor, cl_image_for
 	// read result
 	ASSERT_NO_FATAL_FAILURE(enqueueReadBuffer(ocl_descriptor.queues[0], mem_result[0], CL_TRUE, 0, sizeof(cl_int), 
 		&result[0], 0, NULL, NULL));
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 
 	// validate that kernel's validation succeeded - result[0] must contain 0
 	ASSERT_EQ(0,result[0]) << "For device 0 kernel's internal validation failed";
@@ -725,6 +721,7 @@ void test3DReadWriteThroughKernel(OpenCLDescriptor& ocl_descriptor, cl_image_for
 		0, NULL, NULL));
 	ASSERT_NO_FATAL_FAILURE(enqueueUnmapMemObject(ocl_descriptor.queues[0], ocl_descriptor.in_common_buffer, 
 		arrayToMapTo, 0, NULL, NULL));
+	ASSERT_NO_FATAL_FAILURE(finish(ocl_descriptor.queues[0]));
 
 	// release mem_result
 	for(int i=0; i<2; ++i)
