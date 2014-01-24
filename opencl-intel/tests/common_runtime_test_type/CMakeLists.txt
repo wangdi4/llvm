@@ -10,28 +10,27 @@ include (../../cmake_utils/CMakeFuncs.txt)
 set( TARGET common_runtime_test_type )
 
 include_directories( ../../externals/gtest/include
- ${CMAKE_CURRENT_SOURCE_DIR}/common
- )
-                
+                     ${CMAKE_CURRENT_SOURCE_DIR}/common )
+
 #set( IGNORE_FILES clBuildCubinProgram|clBuildProgram.cpp|clCreateCudaKernel|clCreateKernelCpuGpu|clCreateQueue )
 
 FIND_SOURCES( ${IGNORE_FILES} )
 CALCULATE_TARGET_SOURCES()
 
-#link_directories( ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
+FILE(GLOB CRT_KERNELS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} kernels/[^.]*)
+
+# Place kernels under Kernels folder in Visual Studio
+if (WIN32)
+    source_group( "Kernels" FILES ${CRT_KERNELS} )
+    list( APPEND TARGET_SOURCES ${CRT_KERNELS} )
+endif (WIN32)
 
 add_executable( ${TARGET} ${TARGET_SOURCES} )
 
-if (NOT WIN32)
 target_link_libraries( ${TARGET} OpenCL googletest)
-  if(NOT ANDROID)
+if (NOT WIN32 AND NOT ANDROID)
     target_link_libraries( ${TARGET} pthread)
-  endif()
-else (NOT WIN32)
-target_link_libraries( ${TARGET} OpenCL googletest)
-endif (NOT WIN32)
-
-
+endif (NOT WIN32 AND NOT ANDROID)
 
 set( CREATE_DIR_NAME bin/validation/common_runtime_test_type )
 
@@ -44,8 +43,6 @@ install(FILES ../GeneralScripts/cmk_test_type_runner.py ../GeneralScripts/cmk_xm
 install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
 
 set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
-
-FILE(GLOB CRT_KERNELS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} kernels/[^.]*)
 
 install(FILES ${CRT_KERNELS} DESTINATION bin/validation/common_runtime_test_type)
 
