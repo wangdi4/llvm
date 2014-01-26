@@ -32,8 +32,7 @@ const ArgData impArgs[ImplicitArgsUtils::IA_NUMBER] = {
 #else
   {"pSpecialBuf",     false },
 #endif
-  {"pCurrWI",         true},  //IA_CURRENT_WORK_ITEM
-  {"RuntimeContext",  true}}; //IA_RUNTIME_CONTEXT
+  {"RuntimeHandle",  true}}; //IA_RUNTIME_HANDLE
 
 const char* ImplicitArgsUtils::getArgName(unsigned Idx) {
     //TODO: maybe we don't need impargs?
@@ -92,49 +91,6 @@ void ImplicitArgsUtils::createImplicitArgs(char* pDest) {
 size_t ImplicitArgsUtils::getAdjustedAlignment(size_t offset, size_t ST) {
   // Implicit args will be aligned to size_t to allow KNC VBROADCAST's on size_t values
   return ((offset + ST - 1) / ST) * ST;
-}
-void ImplicitArgsUtils::initWILocalIds(size_t dim, const size_t *pLocalSize, const unsigned int packetWidth, size_t* pWIids) {
-  // Initialize local id buffer
-  assert(pWIids);
-  assert(pLocalSize);
-  switch (dim) {
-  case 1:
-    for ( size_t i=0, j=0;(i + packetWidth - 1)<pLocalSize[0];i+=packetWidth, j++ ) {
-      pWIids[MAX_WI_DIM_POW_OF_2*j+0] = i;
-      //Must initialize dimensions y and z to zero for OOB handling
-      pWIids[MAX_WI_DIM_POW_OF_2*j+1] = 0;
-      pWIids[MAX_WI_DIM_POW_OF_2*j+2] = 0;
-    }
-    break;
-  case 2:
-    {
-      size_t strideVec = pLocalSize[0]/packetWidth;
-      for ( size_t y=0; y<pLocalSize[1]; ++y ) {
-        for ( size_t x=0, j=0; (x + packetWidth - 1)<pLocalSize[0]; x+=packetWidth, j++ ) {
-          pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+0] = x;
-          pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+1] = y;
-          //Must initialize dimension z to zero for OOB handling
-          pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec)+2] = 0;
-        }
-      }
-    }
-    break;
-  case 3:
-    {
-      size_t strideVec1 = pLocalSize[0]/packetWidth;
-      size_t strideVec2 = strideVec1*pLocalSize[1];
-      for ( size_t z=0;z<pLocalSize[2];++z )
-        for ( size_t y=0;y<pLocalSize[1];++y )
-          for ( size_t x=0, j=0; (x + packetWidth - 1)<pLocalSize[0]; x+=packetWidth, j++ ) {
-            pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+0] = x;
-            pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+1] = y;
-            pWIids[MAX_WI_DIM_POW_OF_2*(j+y*strideVec1+z*strideVec2)+2] = z;
-          }
-    }
-    break;
-  default:
-    assert(false);
-  }
 }
 #endif
 

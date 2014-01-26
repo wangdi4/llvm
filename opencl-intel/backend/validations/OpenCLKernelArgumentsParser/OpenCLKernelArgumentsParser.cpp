@@ -20,9 +20,9 @@ File Name:  OpenCLKernelArgumentsParser.cpp
 #include "BufferDesc.h"
 #include "ImageDesc.h"
 #include "IMemoryObjectDesc.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Metadata.h"
-#include "llvm/Type.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Type.h"
 #include "OpenCLKernelArgumentsParser.h"
 #include "TypeDesc.h"
 

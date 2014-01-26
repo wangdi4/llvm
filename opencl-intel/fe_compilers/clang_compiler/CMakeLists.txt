@@ -78,6 +78,7 @@ endif (NOT WIN32)
 # (build/tools/clang/tools/driver/CMakeFiles/clang.dir/build.make)
 # All duplicate libraries are there on purpose 
 target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
+                                      SPIRMetadataAdder
                                       cl_sys_utils
                                       cl_logger
                                       ${LINK_LIBS} 
@@ -137,13 +138,13 @@ set( COMPILER_OPTIONS -cc1
                       )
 
 set( COMPILER_OPTIONS_OPENCL_12
-					${COMPILER_OPTIONS}
+                    ${COMPILER_OPTIONS}
                       )
 
 set( COMPILER_OPTIONS_OPENCL_20 
-					${COMPILER_OPTIONS}
-					-cl-std=CL2.0
-					-D__OPENCL_C_VERSION__=200
+                    ${COMPILER_OPTIONS}
+                    -cl-std=CL2.0
+                    -D__OPENCL_C_VERSION__=200
                       )
 
 set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
@@ -184,13 +185,13 @@ add_custom_command( TARGET ${TARGET_NAME}
                    )
 
 add_dependencies( ${TARGET_NAME}
-	clang
-	${OCL_CLANG_HEADERS}/opencl_.h
+    clang
+    ${OCL_CLANG_HEADERS}/opencl_.h
 )
-
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_.pch DESTINATION bin)
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch DESTINATION bin)
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )

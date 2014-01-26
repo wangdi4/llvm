@@ -17,9 +17,12 @@ namespace intel{
     /// @brief Cleans OpenCL module: removes functions which are not kernels (or called by kernels)
     class ModuleCleanup : public ModulePass
     {
+    const bool SpareOnlyWrappers;
     public:
-        /// @brief Constructor
-        ModuleCleanup() : ModulePass(ID) {}
+      // C-tor - ig SpareOnlyWrappers is true, only kernel wrapper will remain in the module, otherwise also
+      // internal kernels will remain
+      ModuleCleanup(bool SpareOnlyWrappers=true)
+          : ModulePass(ID), SpareOnlyWrappers(SpareOnlyWrappers) {}
 
         /// @brief LLVM Module pass entry
         /// @param M Module to transform

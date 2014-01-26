@@ -102,7 +102,7 @@ unsigned long long Intel::OpenCL::Utils::TotalPhysicalSize()
 unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 {
 	static unsigned long long freq = 0;
-	unsigned int cpuInfo[4] = {-1};
+	unsigned int cpuInfo[4] = {(unsigned)-1};
 	char buffer[sizeof(cpuInfo)*3 + 1];
 	char* pBuffer = buffer;
 

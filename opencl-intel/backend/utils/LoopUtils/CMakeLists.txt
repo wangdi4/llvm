@@ -2,8 +2,10 @@ use_rtti( FALSE )
 set( TARGET_NAME LoopUtils)
 
 include_directories(
-  ${CMAKE_SOURCE_DIR}/backend/reflection_module
-  ${CMAKE_SOURCE_DIR}/backend/name_mangling
+  ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/
+  ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
+  ${BACKEND_ROOT_DIR}/reflection_module
+  ${BACKEND_ROOT_DIR}/name_mangling
   ${BACKEND_ROOT_DIR}/metadata_api
   ${BACKEND_ROOT_DIR}/metadata_api/gen
   ${CMAKE_SOURCE_DIR}/cl_api
@@ -25,3 +27,11 @@ add_dependencies(${TARGET_NAME} metadataapi)
 
 # For a tidy Visual Studio solution layout
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
+
+if(APPLE)
+  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
+           DESTINATION src/${SOURCE_RELATIVE_DIR}
+         )
+endif(APPLE)
+

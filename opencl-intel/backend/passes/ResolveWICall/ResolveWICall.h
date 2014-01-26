@@ -11,9 +11,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ImplicitArgsUtils.h"
 #include "ImplicitArgsAnalysis/ImplicitArgsAnalysis.h"
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
-#include "llvm/Instructions.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
 
 #include <set>
 
@@ -47,6 +47,7 @@ namespace intel {
     }
 
   protected:
+    Value* updateEnqueueKernelFunction(SmallVectorImpl<Value*> &Params, const StringRef FunctionName, CallInst *pCall);
     /// @brief Resolves the work item function calls of the kernel
     /// @param pFunc The function which needs it work item function calls to be resolved
     /// @returns The new function that all its work item function calls were resolved
@@ -77,22 +78,15 @@ namespace intel {
     void  updatePrefetch(llvm::CallInst *pCall);
 
     void  addPrefetchDeclaration();
-    void  addPrintfDeclaration();
     
     /// @brief add extended execution declarations
     void  addExtendedExecutionDeclarations();
 
-    /// @brief calculates ndrange_1D(), ndrange_2D() or ndrange_3D()
-    /// @param type          The call instruction type that represents one of the ndrange BIs
-    /// @param pCall         The call instruction that calls a work item function
-    /// @returns The result value of the ndrange_ND call, where N = [1,2,3]
-    Value* updateNDRangeND(unsigned type, CallInst *pCall);
-
-    /// @brief add declaration of Extended Execution callback to Module
+    /// @brief add declaration of external function to Module
     /// @param type - callback type
-    void addExtExecFunctionDeclaration(unsigned type);
+    void addExternFunctionDeclaration(unsigned type, FunctionType* FT, StringRef Name);
     /// @brief obtain name for extexec callback
-    std::string getExtExecCallbackName(unsigned type) const;
+    const char* getExternCallbackName(unsigned type) const;
     
     /// Helper functions to construct OpenCL types
     /// @brief constructs type for queue_t
@@ -111,12 +105,8 @@ namespace intel {
     Type * getBlockLocalMemType() const;
     /// @brief constructs type for return type of enqueue_kernel
     Type * getEnqueueKernelRetType() const;
-    /// @brief constructs type for extended execution context
-    Type * getExtendedExecContextType() const;
     /// @brief return ConstantInt::int32_type with zero value
     ConstantInt * getConstZeroInt32Value() const;
-    /// @brief get or add from/to  module declaration of struct.__ndrange_t
-    Type* getOrAddStructNDRangeType();
     /// @brief get or add from/to  module declaration of type used for local
     /// memory buffers specified in enqueue_kernel
     Type* getLocalMemBufType() const;
@@ -126,45 +116,36 @@ namespace intel {
     ///        When done args will be added with 2 arguments for local_mem handling
     /// @param pCall - enqueue_kernel call instruction 
     /// @param LocalMemArgsOffs offset of 1st argument with local mem arguments
-    void addLocalMemArgs(std::vector<Value*>& args, 
-      CallInst *pCall,
-      const unsigned LocalMemArgsOffs);
+    void addLocalMemArgs(SmallVectorImpl<Value *> &args, CallInst *pCall,
+                         const unsigned LocalMemArgsOffs);
+    void appendWithCallBackContextAndRuntimeHandleTypes(
+        unsigned FuncType, SmallVectorImpl<Type *> &ArgTypes);
+    void appendWithCallBackContextAndRuntimeHandleValues(
+        unsigned FuncType, SmallVectorImpl<Value *> &Args,
+        Instruction *InsertBefore);
 
     ///@brief returns description of EnqueueMarker callback
     FunctionType* getEnqueueMarkerFunctionType();
     ///@brief returns types EnqueueKernel callbacks
     ///@param  type - type of callback {basic, localmem, event, ...}
     ///@return      - call back Function type
-    FunctionType* getEnqueueKernelType(unsigned type);
-    ///@brief returns description of DefaultQueue callback
-    FunctionType* getDefaultQueueFunctionType();
+    FunctionType* getOrCreateEnqueueKernelFuncType(unsigned type);
     ///@brief returns description of GetKernelWGSize and GerKernelPreferredWGSizeMultiple callbacks
-    FunctionType* getGetKernelQueryFunctionType(unsigned type);
-    ///@brief return description of ReleaseEvent and RetainEvent callbacks
-    FunctionType* getRetainAndReleaseEventFunctionType();
-    ///@brief returns description of CreateUserEvent callback
-    FunctionType* getCreateUserEventFunctionType();
-    ///@brief returns description of SetUserEventStatus callback
-    FunctionType* getSetUserEventStatusFunctionType();
-    ///@brief returns description of CaptureEventProfilingInfo callback
-    FunctionType* getCaptureEventProfilingInfoFunctionType();
-    ///@brief returns type of extended execution callback
-    FunctionType* getExtExecFunctionType(unsigned type);
+    FunctionType* getOrCreateGetKernelQueryFuncType(unsigned type);
+    // getBlockLiteralSize - Return size of block literal for F
+    size_t getBlockLiteralSize(Function* F);
+    FunctionType* getOrCreatePrintfFuncType();
 
     ///@brief returns params List taken from pCall call
     ///!!! NOTE implicitly copies all pCall params to output
     ///!!! callback function should have the same arguments list + ExtExecContext as last argument
-    std::vector<Value*> getExtExecFunctionParams(CallInst *pCall);
+    void getExtExecFunctionParams(CallInst *pCall,
+                                  SmallVectorImpl<Value *> &Res);
     ///@brief returns params List taken from pCall call converted to
     /// proper representation
     ///!!! NOTE implicitly copies all pCall params to output
     ///!!! callback function should have the same arguments list + list of local vars sizes + ExtExecContext as last argument
-    std::vector<Value*> getEnqueueKernelLocalMemFunctionParams(CallInst *pCall, const uint32_t FixedArgs);
-    /// @brief Store Value to 'unsigned int workDimension' in ndrange_t struct
-    StoreInst* StoreWorkDim(Value* Ptr, uint64_t V, LLVMContext* pContext, Instruction* InsertBefore);
-    /// @brief store value to one of Arrays in ndrange_t struct
-    StoreInst* StoreNDRangeArrayElement(Value* Ptr, Value* V, const uint64_t ArrayPosition,
-     const uint64_t ElementIndex, const Twine &Name, LLVMContext* pContext, Instruction* InsertBefore);
+    void getEnqueueKernelLocalMemFunctionParams(CallInst *pCall, const uint32_t FixedArgs, SmallVectorImpl<Value*> &Res);
     /// @brief helper function.
     ///    maps ndrange_ built-ins argument index to index of array within ndrange_t struct
     uint32_t MapIndexToIndexOfArray(const uint32_t Index, const uint32_t argsNum);
@@ -189,16 +170,12 @@ namespace intel {
     Argument *m_pBaseGlbId;
     /// This holds the pSpecialBuf implicit argument of current handled function
     Argument *m_pSpecialBuf;
-    /// This holds the pCurrWI implicit argument of current handled function
-    Argument *m_pCurrWI;
     /// This holds the pExtExecutionContext implicit argument of current handled function
     //TODO-NDRANGE: Extended execution context not supported in branch
     //Argument *m_pExtendedExecutionCtx;
 
     /// This is flag indicates that Prefetch declarations already added to module
     bool m_bPrefetchDecl;
-    /// This is flag indicates that Printf declarations already added to module
-    bool m_bPrintfDecl;
     /// flags indicates that extended execution built-in declarations already added to module
     std::set<unsigned> m_ExtExecDecls;
 
@@ -209,14 +186,15 @@ namespace intel {
     /// constant introduced for readability of code
     enum { ENQUEUE_KERNEL_RETURN_BITS = 32 };
 
-    // since both get_new_local_id and get_new_global_id rely on the same CSE it
-    // makes sense to cache this CSE it also makes the implementation avoid code
-    // duplication.
-    // maps a pair of <Dimension, CurrWI> -> get_new_local_id(Dimension, CurrWI)
-    //typedef GetNewLocalIDCache
-    //std::map<std::pair<Value *, Value *>, Instruction *>;
-    //GetNewLocalIDCache m_GetNewLocalIDs;
+    // Per function cached values
+    Function *m_F;
+    Value* m_RuntimeInterface;
+    Value* m_Block2KernelMapper;
+    void clearPerFunctionCache();
+    Value *getOrCreateRuntimeInterface();
+    Value *getOrCreateBlock2KernelMapper();
   };
+
   
 } // namespace intel 
 

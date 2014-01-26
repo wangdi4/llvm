@@ -948,6 +948,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case CL_DEVICE_IMAGE_PITCH_ALIGNMENT:    // BE recommends that these two queries will also return cache line size
         case CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT:
         case CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT: // Anat says that performance-wise the preferred alignment is cache line size
+        case CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT:
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
@@ -1450,7 +1451,30 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 *(cl_device_svm_capabilities*)paramVal = CL_DEVICE_SVM_COARSE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS;
             }
             return CL_DEV_SUCCESS;
+        case CL_DEVICE_MAX_PIPE_ARGS:
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            if (NULL != paramVal)
+            {
+                *(cl_uint*)paramVal = 16; // minimum by the spec.
+            }
+            return CL_DEV_SUCCESS;
         case CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS:
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            if (NULL != paramVal)
+            {
+                // this value depends on pipe algorithm limitations, max. compute units and max. work-group size.
+                cl_uint const totalPerPipeReservationsLimit = 0x7FFFFFFE;
+                *(cl_uint*)paramVal = totalPerPipeReservationsLimit / (GetNumberOfProcessors() * CPU_MAX_WORK_GROUP_SIZE);
+            }
+            return CL_DEV_SUCCESS;
         case CL_DEVICE_PIPE_MAX_PACKET_SIZE:
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
@@ -1488,6 +1512,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE:
+        case CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE:    // no reason to give a value different than CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE
             *pinternalRetunedValueSize = sizeof(size_t);
             if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1507,6 +1532,17 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             if (NULL != paramVal)
             {
                 *(int*)paramVal = CL_PROGRAM_VARIABLE_SHARING_NONE;
+            }
+            return CL_DEV_SUCCESS;        
+        case CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT:
+            *pinternalRetunedValueSize = sizeof(cl_uint);
+            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;                
+            }
+            if (NULL != paramVal)
+            {
+                *(cl_uint*)paramVal = 0;    // preferred alignment is aligned to the natural size of the type
             }
             return CL_DEV_SUCCESS;
         default:

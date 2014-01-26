@@ -11,12 +11,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ImplicitArgsUtils.h"
 #include "MetaDataApi.h"
 #include "OCLPassSupport.h"
-#include "llvm/Attributes.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/Support/ValueHandle.h"
 #include "llvm/Version.h"
 #include "llvm/ADT/SetVector.h"
 
-#include <algorithm>
 #include <sstream>
 #include <memory>
 
@@ -77,7 +76,7 @@ namespace intel{
     // GID argument
     newArgsVec.push_back(m_IAA->getArgType(ImplicitArgsUtils::IA_WORK_GROUP_ID));
     // Runtime context
-    newArgsVec.push_back(m_IAA->getArgType(ImplicitArgsUtils::IA_RUNTIME_CONTEXT));
+    newArgsVec.push_back(m_IAA->getArgType(ImplicitArgsUtils::IA_RUNTIME_HANDLE));
     // Create new functions return type
     FunctionType *FTy = FunctionType::get( pFunc->getReturnType(), newArgsVec, false);
 
@@ -89,18 +88,18 @@ namespace intel{
   }
   
   std::vector<Value *> PrepareKernelArgs::createArgumentLoads(
-      IRBuilder<> &builder, Function *pFunc, Argument *pArgsBuffer,
+      IRBuilder<> &builder, Function *WrappedKernel, Argument *pArgsBuffer,
       Argument *pArgGID, Argument *RuntimeContext) {
 
     // Get old function's arguments list in the OpenCL level from its metadata
     std::vector<cl_kernel_argument> arguments;
     std::vector<unsigned int>       memoryArguments;
-    CompilationUtils::parseKernelArguments(m_pModule, pFunc, arguments, memoryArguments);
+    CompilationUtils::parseKernelArguments(m_pModule, WrappedKernel, arguments, memoryArguments);
     
-    Intel::KernelInfoMetaDataHandle kimd = m_mdUtils->getKernelsInfoItem(pFunc);
+    Intel::KernelInfoMetaDataHandle kimd = m_mdUtils->getKernelsInfoItem(WrappedKernel);
     assert(kimd.get() && "Function info should be available at this point");
     std::vector<Value*> params;
-    llvm::Function::arg_iterator callIt = pFunc->arg_begin();
+    llvm::Function::arg_iterator callIt = WrappedKernel->arg_begin();
     
     // TODO :  get common code from the following 2 for loops into a function
 
@@ -146,6 +145,8 @@ namespace intel{
         Allocation->setAlignment(Alignment);
         pArg = builder.CreateBitCast(Allocation, callIt->getType());
 #endif
+      } else if (arg.type == CL_KRNL_ARG_PTR_BLOCK_LITERAL) {
+          pArg = pGEP;
       } else {
         // Otherwise this is some other type, lets say int4, then int4 itself is passed by value inside pArgsBuffer
         // and the original kernel signature was:
@@ -173,11 +174,11 @@ namespace intel{
       // does not maintain the restrict information.
       Instruction* pArgInst = cast<Instruction>(pArg);
 #if LLVM_VERSION == 3200
-      if (pFunc->getParamAttributes(ArgNo + 1).hasAttribute(Attributes::NoAlias)) {
+      if (WrappedKernel->getParamAttributes(ArgNo + 1).hasAttribute(Attributes::NoAlias)) {
 #elif LLVM_VERSION == 3425
-      if (pFunc->paramHasAttr(ArgNo + 1, Attribute::NoAlias)) {
+      if (WrappedKernel->paramHasAttr(ArgNo + 1, Attribute::NoAlias)) {
 #else
-      if (pFunc->getAttributes().hasAttribute(ArgNo + 1, Attribute::NoAlias)) {
+      if (WrappedKernel->getAttributes().hasAttribute(ArgNo + 1, Attribute::NoAlias)) {
 #endif
         pArgInst->setMetadata("restrict", llvm::MDNode::get(*m_pLLVMContext, 0)); 
       }
@@ -224,15 +225,12 @@ namespace intel{
           pArg = builder.CreateBitCast(slmBuffer, PointerType::get(m_I8Ty, 3));
         }
         break;
-      case ImplicitArgsUtils::IA_CURRENT_WORK_ITEM:
-        pArg = builder.CreateAlloca(m_SizetTy, ConstantInt::get(m_SizetTy, 1));
-        break;
       case ImplicitArgsUtils::IA_WORK_GROUP_ID:
         // WGID is passed by value as an argument to the wrapper
         assert(callIt->getType() == pArgGID->getType() && "Unmatching types");
         pArg = pArgGID;
         break;
-      case ImplicitArgsUtils::IA_RUNTIME_CONTEXT:
+      case ImplicitArgsUtils::IA_RUNTIME_HANDLE:
         // Runtime Context is passed by value as an argument to the wrapper
         assert(callIt->getType() == RuntimeContext->getType() &&
                "Unmatching types");
@@ -321,7 +319,7 @@ namespace intel{
     return params;
   }
   
-  void PrepareKernelArgs::createWrapperBody(Function* pWrapper, Function* pFunc) {
+  void PrepareKernelArgs::createWrapperBody(Function* pWrapper, Function* WrappedKernel) {
     // Set new function's argument name
     #if LLVM_VERSION == 3200
     Attributes NoAlias = Attributes::get(*m_pLLVMContext, Attributes::NoAlias);
@@ -337,7 +335,7 @@ namespace intel{
     DestI->setName("pWGID");
     DestI->addAttr(NoAlias);
     Argument *pArgGID = DestI++;
-    DestI->setName("RuntimeContext");
+    DestI->setName("RuntimeHandle");
     DestI->addAttr(NoAlias);
     Argument *RuntimeContext = DestI++;
     assert(DestI == pWrapper->arg_end() && "Expected to be past last arg");
@@ -346,10 +344,10 @@ namespace intel{
     BasicBlock* block = BasicBlock::Create(*m_pLLVMContext, "wrapper_entry", pWrapper);
     IRBuilder<> builder(block);
     
-    std::vector<Value*> params = createArgumentLoads(builder, pFunc, pArgsBuffer, pArgGID, RuntimeContext);
+    std::vector<Value*> params = createArgumentLoads(builder, WrappedKernel, pArgsBuffer, pArgGID, RuntimeContext);
     
-    CallInst* call = builder.CreateCall(pFunc, ArrayRef<Value*>(params));
-    call->setCallingConv(pFunc->getCallingConv());
+    CallInst* call = builder.CreateCall(WrappedKernel, ArrayRef<Value*>(params));
+    call->setCallingConv(WrappedKernel->getCallingConv());
     
     builder.CreateRetVoid();
   }

@@ -27,12 +27,16 @@ using namespace Intel::OpenCL::TaskExecutor;
 
 void TaskGroup::WaitForAll()
 {
-    TEDeviceStateAutoLock lock(m_device);
+    TEDeviceStateAutoLock lock(*m_device);
 
-    if (!m_device.isTerminating())
+    if ((!m_device->isTerminating()) && (m_rootTask.ref_count() > 1))
     {
+#ifdef _DEBUG 
+        TBB_PerActiveThreadData* tls = m_device->GetTaskExecutor().GetThreadManager().GetCurrentThreadDescriptor();
+        assert( ((NULL == tls) || (NULL == tls->device) || (m_device == tls->device)) && "Attempting to wait for other device while working inside some device" );
+#endif
         ArenaFunctorWaiter waiter(m_rootTask);
-        m_device.Execute(waiter);
+        m_device->Execute(waiter);
     }
 }
 
@@ -40,7 +44,7 @@ base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::Ope
 	m_pTBBExecutor(pTBBExec),
 	m_pMasterSync(SyncTask::Allocate()),
 	m_device(device),
-	m_taskGroup(TaskGroup::Allocate(*device)),
+	m_taskGroup(TaskGroup::Allocate(device.GetPtr())),
 	m_bProfilingEnabled(bProfilingEnabled),
 	m_bIsDefaultQueue(param.isQueueDefault),
 	m_scheduling(param.preferredScheduling),

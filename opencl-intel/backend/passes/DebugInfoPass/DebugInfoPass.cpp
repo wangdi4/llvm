@@ -21,10 +21,10 @@ File Name:  DebugInfoPass.cpp
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
 #include <llvm/Pass.h>
-#include <llvm/Module.h>
-#include <llvm/Constants.h>
-#include <llvm/Instructions.h>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/DebugInfo.h>
 
 #include "CompilationUtils.h"
@@ -465,8 +465,9 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
         // Take the var address from the metadata as a Value, and bitcast it
         // to i8*.
         //
-        assert(gv_metadata->getNumOperands() == 12);
-        Value* var_ref = cast<Value>(gv_metadata->getOperand(11));
+        DIGlobalVariable diGlobalVar(gv_metadata);
+        assert(diGlobalVar.Verify());
+        Value* var_ref = diGlobalVar.getGlobal();
 
         // Some special globals are inserted by clang with a non-pointer value
         // (for example samplers). We currently don't know how to handle them.

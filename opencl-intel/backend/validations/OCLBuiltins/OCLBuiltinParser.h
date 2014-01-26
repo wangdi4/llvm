@@ -52,6 +52,8 @@ namespace llvm {
             NA = 255
         };
 
+#undef VOID // winnt.h defines VOID to be void, so now that this file gets included, we need this to avoid a compilation error.
+
         /// basic types
         enum BasicArgType
         {
@@ -74,10 +76,16 @@ namespace llvm {
             LONGDOUBLE,
             IMAGE_1D_T,
             IMAGE_2D_T,
+            IMAGE_2D_DEPH_T,
             IMAGE_3D_T,
             IMAGE_1D_BUFFER_T,
             IMAGE_1D_ARRAY_T,
             IMAGE_2D_ARRAY_T,
+            IMAGE_2D_ARRAY_DEPH_T,
+            EVENT_T,
+            CLK_EVENT_T,
+            QUEUE_T,
+            PIPE_T,
             SAMPLER_T,
             INVALID = 255
         };

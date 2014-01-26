@@ -1,8 +1,4 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: opt -B-Barrier -verify %t.bc -S -o %t1.ll
-; RUN: FileCheck %s --input-file=%t1.ll
-; XFAIL: *
-
+; RUN: opt -B-Barrier -verify -S < %s | FileCheck %s
 ;;*****************************************************************************
 ; This test checks the Barrier pass
 ;; The case: kernel "main" with barrier instruction and function "foo",
@@ -34,33 +30,38 @@ L3:
   ret void
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
-; CHECK: call void @foo
+; CHECK: call void @foo(i32 0, [3 x i32]* %pLocalIds)
 ; CHECK: br label %
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
 ; CHECK: ret
 }
 
-; CHECK: @foo
 define void @foo(i32 %x) nounwind {
+; CHECK: define void @foo(i32 %x, [3 x i32]* noalias %pLocalIdValues)
 L1:
   call i32 @_Z12get_local_idj(i32 0)
   br label %L2
 L2:
-  call i32 @_Z12get_local_idj(i32 0)
+  call i32 @_Z13get_global_idj(i32 0)
   ret void
+
 ; CHECK-NOT: @dummybarrier.
 ; CHECK-NOT: @_Z7barrierj
-; CHECK: call i32* @get_curr_wi.()
-; CHECK-NOT: call i32* @get_curr_wi.()
-; CHECK: call i32 @get_new_local_id.(i32 0,
-; CHECK: call i32 @get_new_local_id.(i32 0,
+; CHECK: %BaseGlobalId_0 = call i32 @get_base_global_id.(i32 0)
+; CHECK: %pLocalId_0 = getelementptr inbounds [3 x i32]* %pLocalIdValues, i32 0, i32 0
+; CHECK: %LocalId_0 = load i32* %pLocalId_0
+; CHECK: br label %L2
+; CHECK: L2:                                               ; preds = %L1
+; CHECK: %LocalId_01 = load i32* %pLocalId_0
+; CHECK: %GlobalID_0 = add i32 %LocalId_01, %BaseGlobalId_0
 ; CHECK: ret
 }
 
 declare void @_Z7barrierj(i32)
 declare void @dummybarrier.()
 declare i32 @_Z12get_local_idj(i32)
+declare i32 @_Z13get_global_idj(i32)
 
 !opencl.kernels = !{!0}
 !opencl.build.options = !{}

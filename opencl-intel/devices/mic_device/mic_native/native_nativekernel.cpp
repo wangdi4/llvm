@@ -28,6 +28,9 @@
 #include "native_common_macros.h"
 #include "mic_logger.h"
 
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+#include "tbb_memory_allocator.h"
+#endif
 
 // TODO: Move to system utils
 #include "mic_native_logger.h"
@@ -69,7 +72,15 @@ void execute_command_nativekernel(uint32_t   in_BufferCount,
     const QueueOnDevice* pTLSQueue = QueueOnDevice::getCurrentQueue( &tlsAccessor );
     assert( pTLSQueue == pQueue && "Queue handle doesn't match");
 #endif
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    NativeKernelTask* nativeKernelTask = new NativeKernelTask(pQueue, in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength);
 
+    cl_dev_err_code err = nativeKernelTask->getTaskError();
+    if ( CL_DEV_SUCCEEDED(err) )
+    {
+        err = pQueue->Execute(nativeKernelTask);
+    }
+#else
     NativeKernelTask nativeKernelTask(pQueue, in_BufferCount, in_ppBufferPointers, ndrangeDispatchData, in_MiscDataLength);
 
     cl_dev_err_code err = nativeKernelTask.getTaskError();
@@ -79,6 +90,7 @@ void execute_command_nativekernel(uint32_t   in_BufferCount,
         nativeKernelTask.IncRefCnt();
         err = pQueue->Execute(nativeKernelTask.GetAsTaskHandlerBase());
     }
+#endif
 
     *((cl_dev_err_code*)in_pReturnValue) = err;
     MicInfoLog(MicNativeLogDescriptor::getLoggerClient(), MicNativeLogDescriptor::getClientId(), "%s", "[MIC SERVER] exit execute_NDRange");
@@ -96,6 +108,7 @@ NativeKernelTask::NativeKernelTask( QueueOnDevice* pQueue, uint32_t lockBufferCo
 {
 }
 
+#ifndef MIC_COMMAND_BATCHING_OPTIMIZATION
 NativeKernelTask::NativeKernelTask( const NativeKernelTask& o) :
     TaskHandler<NativeKernelTask, ndrange_dispatcher_data >( o )
 #ifdef ENABLE_MIC_TRACER
@@ -106,6 +119,7 @@ NativeKernelTask::NativeKernelTask( const NativeKernelTask& o) :
 #endif
 {
 }
+#endif
 
 NativeKernelTask::~NativeKernelTask()
 {
@@ -210,21 +224,25 @@ bool NativeKernelTask::Execute()
     }
 #endif
 
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+    m_releasehandler->addTask(this);
+#else
+
+	// Release COI resources, before signaling to runtime
+    FiniTask();
+
     // Notify end if exists
     if ( m_dispatcherData->endEvent.isRegistered )
     {
         COIEventSignalUserEvent(m_dispatcherData->endEvent.cmdEvent);
     }
-
+#endif
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
         __itt_frame_end_v3(m_pIttKernelDomain, NULL);
     }
 #endif
-
-    // Release COI resources, before signaling to runtime
-    FiniTask();
 
     return true;
 }
@@ -237,6 +255,16 @@ void NativeKernelTask::Cancel()
     {
         COIEventSignalUserEvent(m_dispatcherData->startEvent.cmdEvent);
     }
+
+#ifdef MIC_COMMAND_BATCHING_OPTIMIZATION
+#ifdef ENABLE_MIC_TRACER
+    commandTracer().set_current_time_tbb_exe_in_device_time_start();
+#endif
+    setTaskError( CL_DEV_COMMAND_CANCELLED );
+
+    m_releasehandler->addTask(this);
+#else
+
 
     // Release COI resources, before signaling to runtime
     FiniTask();
@@ -259,5 +287,7 @@ void NativeKernelTask::Cancel()
     {
         __itt_task_end(m_pIttKernelDomain);
     }
+#endif
+
 #endif
 }

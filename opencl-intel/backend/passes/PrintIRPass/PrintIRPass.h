@@ -20,7 +20,7 @@ File Name:  PrintIRPass.h
 
 #include "cl_dev_backend_api.h"
 #include <llvm/Pass.h>
-#include <llvm/Module.h>
+#include <llvm/IR/Module.h>
 
 #include <vector>
 #include <sstream>

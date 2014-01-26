@@ -15,7 +15,7 @@ Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
 #include "llvm/Pass.h"
 #include "llvm/PassManager.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 #ifdef __DEBUG
 #include <string>

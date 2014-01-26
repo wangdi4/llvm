@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __PREVENT_DIV_CRASHES_H__
 
 #include "llvm/Pass.h"
-#include "llvm/InstrTypes.h"
+#include "llvm/IR/InstrTypes.h"
 
 #include <set>
 

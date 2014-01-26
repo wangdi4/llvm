@@ -19,7 +19,7 @@ File Name:  BLTGeometric.h
 #define BLT_GEOMETRIC_H
 
 #include <vector>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Helpers.h"
 #include "RefALU.h"

@@ -37,7 +37,7 @@ File Name:  ocl_recorder.h
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/Mutex.h"
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 #include <list>
 #include <map>
 #include "plugin_interface.h"

@@ -3033,8 +3033,8 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
     // do the work:
     Command* pCmd;
     const size_t
-        pszSrcOrigin[] = { pSrcSvmBuffer != NULL ? (char*)pSrcPtr - (char*)pSrcSvmBuffer->GetAddr() : 0, 0, 0 },
-        pszDstOrigin[] = { pDstSvmBuffer != NULL ? (char*)pDstPtr - (char*)pDstSvmBuffer->GetAddr() : 0, 0, 0 },
+        pszSrcOrigin[] = { pSrcSvmBuffer != NULL ? (size_t)((char*)pSrcPtr - (char*)pSrcSvmBuffer->GetAddr()) : 0, 0, 0 },
+        pszDstOrigin[] = { pDstSvmBuffer != NULL ? (size_t)((char*)pDstPtr - (char*)pDstSvmBuffer->GetAddr()) : 0, 0, 0 },
         pszRegion[] = { size, 1, 1 };
     if (NULL == pSrcSvmBuffer)
     {

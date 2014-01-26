@@ -46,7 +46,7 @@ File Name:  WGContext.cpp
         // Fill size of private area for all work-items
         // and also the area for kernel params and local WI ids
         pBufferSizes[m_kernelLocalMemSizes.size()] =
-            m_stAlignedKernelParamSize + m_stWIidsBufferSize +
+            m_stAlignedKernelParamSize +
             m_stPrivateMemorySize * m_uiVectorWidth * m_uiWGSize;
     }
 
@@ -114,20 +114,16 @@ File Name:  WGContext.cpp
         
         memcpy(pKernelArgs->GlobalSize, workInfo.globalWorkSize, sizetMaxWorkDim); // Filled by the runtime
 
-        pKernelArgs->LocalIDIndicesRequiredSize = 0; // Updated by the BE, contains size of local index buffer
-
         memcpy(pKernelArgs->LocalSize, workInfo.localWorkSize, sizetMaxWorkDim); // Filled by the runtime, updated by the BE in case of (0,0,0)
 
         pKernelArgs->minWorkGroupNum = size_t(workInfo.minWorkGroupNum); // Filled by the runtime, Required by the heuristic
 
         pKernelArgs->pJITEntryPoint = NULL;// Filled by the BE
-        pKernelArgs->pLocalIDIndices = NULL; // Allocated by the runtime, filled by the BE
 
         pKernelArgs->VectorWidth = 0;// Filled by the BE
 
         memset(pKernelArgs->WGCount,0,sizetMaxWorkDim); // Updated by the BE, based on GLOBAL/LOCAL
 
-        pKernelArgs->WGLoopIterCount = 0;// Updated by the BE
         pKernelArgs->WorkDim = workInfo.workDimension; // Filled by the runtime
 
         cl_dev_err_code rc = m_pKernelRunner->PrepareKernelArguments((void*)(m_pArgumentBuffer.get()), 0, 0);
@@ -136,14 +132,8 @@ File Name:  WGContext.cpp
             printf("PrepareKernelArguments failed\n"); fflush(0);
         }
 
-        if ( 0 != pKernelArgs->LocalIDIndicesRequiredSize ) {
-            // Allocate local index buffer
-            m_pLocalIDIndices.reset(new size_t[pKernelArgs->LocalIDIndicesRequiredSize/sizeof(size_t)]);
-            pKernelArgs->pLocalIDIndices = m_pLocalIDIndices.get();
-        } else {
-            pKernelArgs->pLocalIDIndices = NULL;
-        }
-
+        //local group size calculated by PrepareKernelArguments (using heuristic)
+        memcpy(m_LocalSize, pKernelArgs->LocalSize, sizetMaxWorkDim);
         m_pKernelRunner->InitRunner((void*)(m_pArgumentBuffer.get()));
 
         m_uiVectorWidth = pKernelArgs->VectorWidth;
@@ -153,7 +143,6 @@ File Name:  WGContext.cpp
             m_uiWGSize *= pKernelArgs->LocalSize[i];
         }
         m_uiWGSize = m_uiWGSize / m_uiVectorWidth;
-        m_stWIidsBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(m_uiWGSize * sizeof(size_t) * MAX_WI_DIM_POW_OF_2);
 
         m_stPrivateMemorySize = pKernel->GetKernelProporties()->GetPrivateMemorySize();
 

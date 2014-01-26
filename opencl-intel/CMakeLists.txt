@@ -12,6 +12,41 @@ set(CMAKE_MODULE_PATH
     "${CMAKE_SOURCE_DIR}/cmake_utils/"
 )
 
+function(use_rtti val)
+    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+        if( ${val} )
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-fno-rtti" "-frtti")
+        else()
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-frtti" "-fno-rtti" )
+        endif()    
+    else(MSVC)
+        if( ${val} )
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR-" "/GR")
+        else()
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR" "/GR-" )
+        endif()    
+    endif()
+    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE )
+endfunction(use_rtti)
+    
+function(use_eh val)
+    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+        if( ${val} )
+            remove_definitions( -fno-exceptions )
+        else()
+            add_definitions( -fno-exceptions )
+        endif()    
+    else(MSVC)
+        if( ${val} )
+              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHs-c-" "/EHsc" )
+              add_definitions( /D_HAS_EXCEPTIONS=1 )
+        else()
+              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHsc" "/EHs-c-")
+              add_definitions( /D_HAS_EXCEPTIONS=0 )
+        endif()    
+    endif()
+endfunction(use_eh)
+
 if (WIN32)
   # Add definitions that make MSVC much less annoying.
    add_definitions(
@@ -115,9 +150,10 @@ if(INCLUDE_TOOLS)
     set (BOOST_COMPONENTS regex system filesystem date_time signals)
     
     if(NOT ANDROID)
+        set(Boost_USE_STATIC_LIBS ON )
+        set(BOOST_ALL_DYN_LINK OFF)
+        set(Boost_USE_STATIC_RUNTIME ON)
         FIND_PACKAGE(Boost 1.52.0 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
-        set(Boost_USE_STATIC_RUNTIME OFF)
-        set(BOOST_ALL_DYN_LINK ON)
     else(NOT ANDROID)
         set (CMAKE_FIND_LIBRARY_SUFFIXES ".a")
         set (CMAKE_FIND_LIBRARY_PREFIXES "lib")
@@ -135,41 +171,53 @@ if(INCLUDE_TOOLS)
                            ${Boost_SIGNALS_LIBRARY}
                            )
     list(REMOVE_ITEM BOOST_INSTALL_LIBS debug optimized)
+
     if(WIN32)
-        string(REPLACE ".lib" ".dll;" BOOST_INSTALL_LIBS ${BOOST_INSTALL_LIBS} )
-        set (BOOST_INSTALL_LIBS_RELEASE ${BOOST_INSTALL_LIBS})
-        set (BOOST_INSTALL_LIBS_DEBUG ${BOOST_INSTALL_LIBS})
-        # If adding more libs just add the right index to be removed in the 2 following lines:
-        list(REMOVE_AT BOOST_INSTALL_LIBS_RELEASE 1 3 5 7 9) # Debug libs have 'gd' so they apear in the odd spaces
-        list(REMOVE_AT BOOST_INSTALL_LIBS_DEBUG 0 2 4 6 8) # Release libs don't have 'gd' so they apear in the even spaces
+        # craete boost liberaroes for dynamic compilation ( used by KernelBuilder
+        foreach(boost_comp ${BOOST_COMPONENTS})
+            string(TOUPPER ${boost_comp} boost_comp )
+            list( GET Boost_${boost_comp}_LIBRARY 1 REL_LIB )
+            string( REPLACE "libboost" "boost" REL_LIB ${REL_LIB} )
+            string( REPLACE "-s-" "-" REL_LIB ${REL_LIB} )
+            list( GET Boost_${boost_comp}_LIBRARY 3 DEBUG_LIB )
+            string( REPLACE "libboost" "boost" DEBUG_LIB ${DEBUG_LIB} )
+            string( REPLACE "-sgd" "-gd" DEBUG_LIB ${DEBUG_LIB} )
+            set( dyn_Boost_${boost_comp}_LIBRARY optimized ${REL_LIB} debug ${DEBUG_LIB} )
+
+            string( REPLACE ".lib" ".dll" REL_LIB ${REL_LIB} )
+            string( REPLACE ".lib" ".dll" DEBUG_LIB ${DEBUG_LIB} )
+
+            list( APPEND BOOST_INSTALL_LIBS_RELEASE ${REL_LIB} )
+            list( APPEND BOOST_INSTALL_LIBS_DEBUG ${DEBUG_LIB} )
+        endforeach(boost_comp)
+
         INSTALL(FILES ${BOOST_INSTALL_LIBS_RELEASE} DESTINATION bin CONFIGURATIONS Release)
         INSTALL(FILES ${BOOST_INSTALL_LIBS_DEBUG} DESTINATION bin CONFIGURATIONS Debug)
+
     else(WIN32)
         if(NOT ANDROID)
-            set(BOOST_INSTALL_LIBS_LINKS ${BOOST_INSTALL_LIBS})
+
+            string(REPLACE ".a" ".so;" BOOST_INSTALL_LIBS ${BOOST_INSTALL_LIBS} )
             SET(BOOST_VER ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION} )
-            string(REPLACE ".so" ".so.${BOOST_VER};" BOOST_INSTALL_LIBS_LINKS ${BOOST_INSTALL_LIBS_LINKS} )
+            string(REPLACE ".so" ".so.${BOOST_VER};" BOOST_INSTALL_LIBS_LINKS ${BOOST_INSTALL_LIBS} )
+
             INSTALL(FILES ${BOOST_INSTALL_LIBS} DESTINATION bin)
             INSTALL(FILES ${BOOST_INSTALL_LIBS_LINKS} DESTINATION bin)
         endif(NOT ANDROID)
+
     endif(WIN32)
 endif(INCLUDE_TOOLS)
 
 # Project-wise options
-option(SVN_REVISIONS       "Make package version from svn revision"                   ON)
-option(BUILD_QTGUI         "Build the QT related projects"                            OFF)
-option(INCLUDE_MIC_DEVICE  "Include MIC device Into Build"                            OFF)
-option(USE_ITT_INTERNAL    "Report internal tasks start/stop to VTune"                OFF)
-option(USE_HARD_TRAPPING   "Use hard trapping for workers on CPU device"              ON)
-option(USE_OMP2TBB         "Use OpenMP over TBB proxy layer from MKL integration"     ON)
+option(GIT_REVISIONS "Make package version from git revision"  ON)
+option(BUILD_QTGUI "Build the QT related projects"  OFF)
+option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
+option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
+option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
 option(ENABLE_KNL "Enables KNL device development"  OFF)
 
 # find the used external packages
 
-# Subversion
-if (SVN_REVISIONS)
-    find_package(Subversion 1.6 REQUIRED)
-endif ()
 # LLVM 
 find_package(LLVM REQUIRED)
 # QTGUI
@@ -251,15 +299,23 @@ endif ()
 
 project(OCL)
 
+# GIT
+set( BUILDVER_WC_REVISION 0)
+if (GIT_REVISIONS)
+    find_package(Git REQUIRED)
+    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --long
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                    OUTPUT_VARIABLE GIT_DESCRIPTION)
+    STRING(REGEX MATCH ".+-([0-9]*)-[0-9a-zA-Z]+" GIT_VERSION ${GIT_DESCRIPTION})
+    math(EXPR BUILDVER_WC_REVISION "75186 + ${CMAKE_MATCH_1}")
 
-# extract working copy information for all components into variables
-if (SVN_REVISIONS)
-    Subversion_WC_INFO(${OCL_SOURCE_DIR} BUILDVER)
-else ()
-    set( BUILDVER_WC_LAST_CHANGED_REV 0)
-    set( BUILDVER_WC_REVISION 0)
-endif (SVN_REVISIONS)
-message(STATUS "Current build version is ${BUILDVER_WC_LAST_CHANGED_REV}")
+    execute_process(COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
+                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                    OUTPUT_VARIABLE GIT_REVISION)
+    file(WRITE ${OCL_BINARY_DIR}/revision.txt "REVISION=${GIT_REVISION}DESCRIBE=${GIT_DESCRIPTION}")
+    install(FILES ${OCL_BINARY_DIR}/revision.txt DESTINATION ./)    
+endif (GIT_REVISIONS)
+message(STATUS "Current build version is ${BUILDVER_WC_REVISION}")
 
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
@@ -283,6 +339,7 @@ if(WIN32)
     install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
 file(WRITE ${OCL_BINARY_DIR}/version.txt "4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}")
+
 #copy the version file to install folder
 install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
 # copy the file to the final header only if the version changes
@@ -499,12 +556,13 @@ if (WIN32)
     install(DIRECTORY tools/ocl_dev/OpenCL_Extension/bin/Release DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Extension PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/ocl_dev/OCLConverter/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/ocl_dev/OCLConverter2012/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter2012 PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/ocl_dev/OCLConverter2013/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter2013 PATTERN .svn EXCLUDE)
 
     install(DIRECTORY samples DESTINATION ${MISC_INSTALLER_FOLDER}/samples PATTERN .svn EXCLUDE)
 
-	install(FILES setup/bom_files/installer_content_windows.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
-	install(FILES setup/bom_files/installer_content_windows_mic.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
-	
+    install(FILES setup/bom_files/installer_content_windows.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
+    install(FILES setup/bom_files/installer_content_windows_mic.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
+
     install(DIRECTORY setup/AddFiles/PTAC_Tool DESTINATION ${MISC_INSTALLER_FOLDER}/PTAC_Tool)  
     install(FILES setup/redist.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
     install(FILES setup/LicenseAgreement.rtf DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
@@ -539,13 +597,13 @@ else (WIN32)
     install(FILES setup/llvm_release_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/apache_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/boost_license.txt DESTINATION ${MISC_INSTALLER_FOLDER})
-	install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
+    install(FILES setup/readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
     install(FILES setup/kernel_builder_readme.txt DESTINATION ${MISC_INSTALLER_FOLDER})
 
-	install(FILES setup/bom_files/installer_content_linux.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
-	
+    install(FILES setup/bom_files/installer_content_linux.csv DESTINATION ${MISC_INSTALLER_FOLDER}/setup/bom_files)
+
     install(FILES setup/Android/OpenCL_Android_Install DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
-	install(FILES setup/Android/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
+    install(FILES setup/Android/OpenCL_Android_Uninstall DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
     install(FILES setup/Android/Android_Setup DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
     install(FILES setup/LicenseAgreement_Linux.txt DESTINATION ${MISC_INSTALLER_FOLDER}/setup)
 

@@ -30,6 +30,14 @@ struct VWidthResolver: TypeVisitor {
     p->getPointee()->accept(this);
   }
 
+  void visit(const AtomicType*) {
+    m_width = width::SCALAR;
+  }
+
+  void visit(const BlockType*) {
+    m_width = width::SCALAR;
+  }
+
   void visit(const UserDefinedType*) {
     m_width = width::SCALAR;
   }

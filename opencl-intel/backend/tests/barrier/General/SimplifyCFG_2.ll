@@ -1,6 +1,4 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: opt -simplifycfg -verify %t.bc -S -o %t1.ll
-; RUN: FileCheck %s --input-file=%t1.ll
+; RUN: opt -ocl-syncfunctionattrs -simplifycfg -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the the LLVM pass SimplifyCFG does not add new barrier instructions.
@@ -13,14 +11,14 @@
 ;;*****************************************************************************
 
 ; CHECK: @spmv_csr_vector_kernel
-; CHECK-NOT: foo(i64 1)
-; CHECK: call void @foo(i64 1) nounwind
-; CHECK: call void @foo(i64 1) nounwind
-; CHECK: call void @foo(i64 1) nounwind
-; CHECK: call void @foo(i64 1) nounwind
-; CHECK: call void @foo(i64 1) nounwind
-; CHECK: call void @foo(i64 1) nounwind
-; CHECK-NOT: foo(i64 1)
+; CHECK-NOT: call void @foo(i64 1)
+; CHECK: call void @foo(i64 1)
+; CHECK: call void @foo(i64 1)
+; CHECK: call void @foo(i64 1)
+; CHECK: call void @foo(i64 1)
+; CHECK: call void @foo(i64 1)
+; CHECK: call void @foo(i64 1)
+; CHECK-NOT: call void @foo(i64 1)
 ; CHECK: !opencl.kernels
 
 ; ModuleID = 'Program'

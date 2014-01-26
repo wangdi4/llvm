@@ -9,11 +9,11 @@
 #include "link_data.h"
 #include "source_file.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/IRReader.h"
-#include "llvm/Module.h"
-#include "llvm/Metadata.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Metadata.h"
 #endif //OCLFRONTEND_PLUGINS
 
 #include <Logger.h>

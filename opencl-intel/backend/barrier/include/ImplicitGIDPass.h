@@ -9,10 +9,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "DataPerBarrierPass.h"
 
 #include <llvm/Pass.h>
-#include <llvm/Module.h>
-#include <llvm/Constants.h>
-#include <llvm/Instructions.h>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/DebugInfo.h>
 #include <llvm/DIBuilder.h>
 
@@ -59,7 +59,7 @@ namespace intel {
     /// @param i global ID dimension
     /// @param pGIDAlloca pointer to allocation of GID variable
     /// @param firstInstr Instruction to insert other instructions before
-    void runOnBasicBlock(unsigned i, Instruction *pGIDAlloca, Instruction* insertBefore);
+    void runOnBasicBlock(unsigned i, Instruction *pGIDAlloca, Instruction* insertBefore/*, DIVariable GlobalIdVar*/);
 
     /// @brief Adds instructions to the beginning of the given function to compute the
     ///  global IDs for 3 dimensions. Fills in the FunctionContext.

@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "SplitBBonBarrierPass.h"
 #include "OCLPassSupport.h"
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 
 namespace intel {
 

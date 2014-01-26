@@ -24,6 +24,7 @@
 // Optimizations
 
 #define const_func __attribute__((const))
+#define readonly __attribute__((pure))
 
 // built-in scalar data types:
 
@@ -133,6 +134,27 @@ typedef double double3 __attribute__((ext_vector_type(3)));
 typedef double double4 __attribute__((ext_vector_type(4)));
 typedef double double8 __attribute__((ext_vector_type(8)));
 typedef double double16 __attribute__((ext_vector_type(16)));
+
+typedef _Atomic(int) atomic_int;
+typedef _Atomic(uint) atomic_uint;
+typedef _Atomic(long) atomic_long;
+typedef _Atomic(ulong) atomic_ulong;
+typedef _Atomic(float) atomic_float;
+#ifdef cl_khr_fp64
+typedef _Atomic(double) atomic_double;
+#endif
+
+#if __32bit__ == 1
+typedef _Atomic(intptr_t) atomic_intptr_t;
+typedef _Atomic(uintptr_t) atomic_uintptr_t;
+typedef _Atomic(size_t) atomic_size_t;
+typedef _Atomic(ptrdiff_t) atomic_ptrdiff_t;
+#endif
+
+/**
+ * ndrange_t is an opaque struct pointer
+ */
+//typedef struct ndrange_s* ndrange_t;
 
 /**
  * Value of maximum non-infinite single-precision floating-point
@@ -6339,12 +6361,13 @@ void __attribute__((overloadable)) barrier(cl_mem_fence_flags flags);
  * be memory_scope_work_group or
  * memory_scope_device.
  */
-typedef enum {
-  memory_scope_work_item, /* this must be used only with atomic_work_item_fence and CLK_IMAGE_MEM_FENCE */
-  memory_scope_work_group,
-  memory_scope_device,
-  memory_scope_all_svm_devices
-} memory_scope;
+#define memory_scope_work_item       0x0 /* this must be used only with atomic_work_item_fence and CLK_IMAGE_MEM_FENCE */
+#define memory_scope_work_group      0x1
+#define memory_scope_device          0x2
+#define memory_scope_all_svm_devices 0x3
+#define memory_scope_sub_group       0x4
+
+typedef uint memory_scope;
 
 void __attribute__((overloadable)) work_group_barrier(cl_mem_fence_flags flags);
 void __attribute__((overloadable)) work_group_barrier(cl_mem_fence_flags flags, memory_scope scope);
@@ -7074,13 +7097,13 @@ typedef atomic_int atomic_flag;
   typedef  atomic_uint  atomic_size_t;
 #endif
 
-typedef enum {
-  memory_order_relaxed,
-  memory_order_acquire,
-  memory_order_release,
-  memory_order_acq_rel,
-  memory_order_seq_cst
-} memory_order;
+#define memory_order_relaxed 0x0
+#define memory_order_acquire 0x1
+#define memory_order_release 0x2
+#define memory_order_acq_rel 0x3
+#define memory_order_seq_cst 0x4
+
+typedef uint memory_order;
 
 /**
  * OpenCL C 2.0 atomic builtins 6.13.11
@@ -14152,6 +14175,10 @@ cl_mem_fence_flags const_func __attribute__((overloadable)) get_fence (const voi
 #define CL_COMPLETE                   0x0
 #define CL_SUBMITTED                  0x2
 
+
+// Profiling info name (see capture_event_profiling_info)
+#define CLK_PROFILING_COMMAND_EXEC_TIME 0x1
+
 typedef int kernel_enqueue_flags_t;
 typedef int clk_profiling_info;
 
@@ -14164,14 +14191,15 @@ typedef struct {
     size_t localWorkSize[MAX_WORK_DIM];
 } ndrange_t;
 
-int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(void));
-int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(void));
-int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ...), uint size0,...);
-int __attribute__((overloadable)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ...), uint size0, ...);
+// The functions with the always_inline attribute must be inlined to allow the PatchCallbackArgs pass to patch the callbacks called within these builtins
+int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(void));
+int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(void));
+int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ...), uint size0,...);
+int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_kernel( queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ...), uint size0, ...);
 
-int __attribute__((overloadable)) enqueue_marker(queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret);
+int __attribute__((overloadable)) __attribute__((always_inline)) enqueue_marker(queue_t queue, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret);
 
-queue_t __attribute__((overloadable)) get_default_queue(void);
+queue_t const_func __attribute__((always_inline)) get_default_queue(void);
 
 ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size);
 ndrange_t const_func __attribute__((overloadable)) ndrange_1D( size_t global_work_size, size_t local_work_size);
@@ -14185,16 +14213,25 @@ ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_wor
 ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_size[3], size_t local_work_size[3]);
 ndrange_t const_func __attribute__((overloadable)) ndrange_3D( size_t global_work_offset[3], size_t global_work_size[3], size_t local_work_size[3]);
 
-void __attribute__((overloadable)) retain_event(clk_event_t event);
-void  __attribute__((overloadable)) release_event(clk_event_t event);
-clk_event_t  __attribute__((overloadable)) create_user_event();
-void __attribute__((overloadable)) set_user_event_status(clk_event_t event, int status);
-void  __attribute__((overloadable)) capture_event_profiling_info(clk_event_t event, clk_profiling_info name, global ulong *value);
+void __attribute__((overloadable)) __attribute__((always_inline)) retain_event(clk_event_t event);
+void __attribute__((overloadable)) __attribute__((always_inline)) release_event(clk_event_t event);
+clk_event_t  __attribute__((always_inline)) create_user_event();
+void __attribute__((overloadable)) __attribute__((always_inline)) set_user_event_status(clk_event_t event, int status);
+void __attribute__((overloadable)) __attribute__((always_inline)) capture_event_profiling_info(clk_event_t event, clk_profiling_info name, global ulong *value);
 
-uint __attribute__((overloadable)) get_kernel_work_group_size(void (^block)(void));
-uint __attribute__((overloadable)) get_kernel_work_group_size(void (^block)(local void *,...));
-uint __attribute__((overloadable)) get_kernel_preferred_work_group_size_multiple(void (^block)(void));
-uint __attribute__((overloadable)) get_kernel_preferred_work_group_size_multiple(void (^block)(local void *,...));
+uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_kernel_work_group_size(void (^block)(void));
+uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_kernel_work_group_size(void (^block)(local void *,...));
+uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_kernel_preferred_work_group_size_multiple(void (^block)(void));
+uint __attribute__((overloadable)) __attribute__((always_inline)) readonly get_kernel_preferred_work_group_size_multiple(void (^block)(local void *,...));
+
+// Most of OCL 2.0 pipe built-ins are treated as Clang built-ins.
+// So that Clang appends an implicit argument of i32 type to a call.
+// This constant determines the pipe packet size.
+// The following OCL built-in isn't treated by Clang in this way.
+// It is a common functions.
+bool __attribute__((overloadable)) is_valid_reserve_id(reserve_id_t reserve_id);
+
+#define CLK_NULL_RESERVE_ID __builtin_astype((void*)NULL, reserve_id_t)
 
 #endif   // __OPENCL_C_VERSION__ >= 200
 #endif   // !defined (__MIC__) && !defined(__MIC2__)

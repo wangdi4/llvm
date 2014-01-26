@@ -7,8 +7,8 @@
 #include "Namer.h"
 #include "OCLPassSupport.h"
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
-#include "llvm/Type.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Support/CommandLine.h"
 
 #include <string>

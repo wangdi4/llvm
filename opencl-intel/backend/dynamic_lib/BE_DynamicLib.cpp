@@ -45,7 +45,7 @@ void BE_DynamicLib::Load(const char* pLibName)
 {
   try
   {
-    Intel::OpenCL::Utils::DynamicLib::Load(pLibName);
+    Intel::OpenCL::Utils::OclDynamicLib::Load(pLibName);
   }
   catch (ocl_string_exception errMsg)
   {
@@ -53,21 +53,16 @@ void BE_DynamicLib::Load(const char* pLibName)
   }
 }
 
-void* BE_DynamicLib::GetFuncPtr(const char* funcName)
+ptrdiff_t BE_DynamicLib::GetFuncPtr(const char* funcName)
 {
   try
   {
-    return Intel::OpenCL::Utils::DynamicLib::GetFuncPtr(funcName);
+    return GetFunctionPtrByName(funcName);
   }
   catch (ocl_string_exception errMsg)
   {
     throw Intel::OpenCL::DeviceBackend::Exceptions::DynamicLibException(errMsg.what());
   }
-}
-
-void BE_DynamicLib::Close()
-{
-  Intel::OpenCL::Utils::DynamicLib::Close();
 }
 
 }}}}

@@ -653,16 +653,11 @@ void FrameworkProxy::DeactivateTaskExecutor() const
         {
             // this is the normal deletion - undo the counting here to delete the object
             long ref = m_pTaskList->DecRefCnt();
-            // we expect ref count to be zero at this state
             if ( 0 == ref )
             {
                 m_pTaskList->Cleanup();
-                m_pTaskList = NULL;
             }
-            else
-            {
-                assert( 0 == ref && "Trying to delete TaskExecuter while its ref count not zero !");
-            }
+            m_pTaskList = NULL;
         }
     }
 }
@@ -687,12 +682,16 @@ bool FrameworkProxy::Execute(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void  FrameworkProxy::CancelAllTasks(bool wait_for_finish) const
 {
-    if (NULL != m_pTaskList)
+    m_initializationMutex.Lock();
+    SharedPtr<ITaskList> tmpTaskList = m_pTaskList;
+    m_initializationMutex.Unlock();
+
+    if (NULL != tmpTaskList)
     {
-        m_pTaskList->Cancel();
+        tmpTaskList->Cancel();
         if (wait_for_finish)
         {
-            m_pTaskList->WaitForCompletion(NULL);
+            tmpTaskList->WaitForCompletion(NULL);
         }
     }
 }

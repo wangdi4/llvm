@@ -7,11 +7,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef METADATAITERATOR_H
 #define METADATAITERATOR_H
 
-#include "llvm/Value.h"
-#include "llvm/Constants.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Metadata.h"
+#include "llvm/IR/Value.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/Support/Atomic.h"
 #include "MetaDataTraits.h"
 

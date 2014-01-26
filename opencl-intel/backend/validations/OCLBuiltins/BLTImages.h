@@ -19,7 +19,7 @@ File Name:  BLTImages.h
 #define BLT_IMAGES_H
 
 #include <vector>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "llvm/Support/Debug.h"
 #include "Helpers.h"

@@ -8,7 +8,7 @@
 #include "DXWrapperParamsCheck.h"
 #include "Mangler.h"
 
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 namespace intel {
 

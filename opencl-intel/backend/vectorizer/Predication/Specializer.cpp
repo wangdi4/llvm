@@ -16,8 +16,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/RegionIterator.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/Constants.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Version.h"
+#include "llvm/IR/IntrinsicInst.h"
 
 #include <stack>
 
@@ -28,6 +30,107 @@ SpecializeThreshold("specialize-threshold", cl::init(15), cl::Hidden,
 static cl::opt<bool>
 EnableSpecialization("specialize", cl::init(true), cl::Hidden,
   cl::desc("Enable specialization"));
+
+/// callIsSmall - If a call is likely to lower to a single target instruction,
+/// or is otherwise deemed small return true.
+/// TODO: Perhaps calls like memcpy, strcpy, etc?
+static bool estimateCallIsSmall(ImmutableCallSite CS) {
+  if (isa<IntrinsicInst>(CS.getInstruction()))
+    return true;
+
+  const Function *F = CS.getCalledFunction();
+  if (!F) return false;
+
+  if (F->hasLocalLinkage()) return false;
+
+  if (!F->hasName()) return false;
+
+  StringRef Name = F->getName();
+
+  // These will all likely lower to a single selection DAG node.
+  if (Name == "copysign" || Name == "copysignf" || Name == "copysignl" ||
+      Name == "fabs" || Name == "fabsf" || Name == "fabsl" ||
+      Name == "sin" || Name == "sinf" || Name == "sinl" ||
+      Name == "cos" || Name == "cosf" || Name == "cosl" ||
+      Name == "sqrt" || Name == "sqrtf" || Name == "sqrtl" )
+    return true;
+
+  // These are all likely to be optimized into something smaller.
+  if (Name == "pow" || Name == "powf" || Name == "powl" ||
+      Name == "exp2" || Name == "exp2l" || Name == "exp2f" ||
+      Name == "floor" || Name == "floorf" || Name == "ceil" ||
+      Name == "round" || Name == "ffs" || Name == "ffsl" ||
+      Name == "abs" || Name == "labs" || Name == "llabs")
+    return true;
+
+  return false;
+}
+
+static bool estimateIsInstructionFree(const Instruction *I) {
+  if (isa<PHINode>(I))
+    return true;
+
+  // If a GEP has all constant indices, it will probably be folded with
+  // a load/store.
+  if (const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I))
+    return GEP->hasAllConstantIndices();
+
+  if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+    switch (II->getIntrinsicID()) {
+    default:
+      return false;
+    case Intrinsic::dbg_declare:
+    case Intrinsic::dbg_value:
+    case Intrinsic::invariant_start:
+    case Intrinsic::invariant_end:
+    case Intrinsic::lifetime_start:
+    case Intrinsic::lifetime_end:
+    case Intrinsic::objectsize:
+    case Intrinsic::ptr_annotation:
+    case Intrinsic::var_annotation:
+      // These intrinsics don't count as size.
+      return true;
+    }
+  }
+
+  if (const CastInst *CI = dyn_cast<CastInst>(I)) {
+    // Noop casts, including ptr <-> int,  don't count.
+    if (CI->isLosslessCast())
+      return true;
+
+    // Result of a cmp instruction is often extended (to be used by other
+    // cmp instructions, logical or return instructions). These are usually
+    // nop on most sane targets.
+    if (isa<CmpInst>(CI->getOperand(0)))
+      return true;
+  }
+
+  return false;
+}
+
+/// analyzeBasicBlock - Fill in the current structure with information gleaned
+/// from the specified block.
+static unsigned estimateNumInsts(const BasicBlock *BB) {
+  unsigned NumInsts = 0;
+  for (BasicBlock::const_iterator II = BB->begin(), E = BB->end();
+       II != E; ++II) {
+    if (estimateIsInstructionFree(II))
+      continue;
+
+    // Special handling for calls.
+    if (isa<CallInst>(II) || isa<InvokeInst>(II)) {
+      ImmutableCallSite CS(cast<Instruction>(II));
+
+      if (!estimateCallIsSmall(CS)) {
+        // Each argument to a call takes on average one instruction to set up.
+        NumInsts += CS.arg_size();
+      }
+    }
+
+    ++NumInsts;
+  }
+  return NumInsts;
+}
 
 namespace intel {
 
@@ -58,10 +161,10 @@ bool FunctionSpecializer::addHeuristics(const BasicBlock *BB) const {
   Metrics.analyzeBasicBlock(BB);
   unsigned numInst = Metrics.NumInsts;
 #else
-  //TODO: this is a workaround till we solve CQ: CSSD100017577
-  //const TargetTransformInfo &m_TTI;
-  //Metrics.analyzeBasicBlock(BB, m_TTI);
-  unsigned numInst = (unsigned)BB->getInstList().size();
+  // in LLVM3.3+ CodeMetrics requires target specific info. Since we don't have
+  // it at this point, imported here the non target specific estimation from
+  // the LLVM 3.2 implementation.
+  unsigned numInst = estimateNumInsts(BB);
 #endif
 
   // Check whether there is a function call

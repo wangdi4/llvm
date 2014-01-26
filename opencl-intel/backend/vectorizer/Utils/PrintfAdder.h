@@ -23,10 +23,10 @@
 
 
 #include "llvm/Pass.h"
-#include "llvm/Type.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/ADT/ArrayRef.h"
 #include <list>
 #include <vector>

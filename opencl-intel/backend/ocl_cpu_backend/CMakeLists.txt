@@ -190,11 +190,12 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ImageCallbackServices.h
     debuggingservicewrapper.h
     opencl_printf_ext.h
-    ExtendedExecutionContext.h
     BlockLiteral.h
     RuntimeService.h
     IBlockToKernelMapper.h
     CPUBlockToKernelMapper.h
+    CompiledModule.h
+    StaticObjectLoader.h
     ocl_mutex.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
     ${BACKEND_ROOT_DIR}/../externals/itt/include/jitprofiling.h
@@ -355,7 +356,7 @@ set( BACKEND_PASSES
     RelaxedPass
     ResolveWICall
     ShiftZeroUpperBits
-    ShuffleCallToInst
+    BuiltinCallToInst
     UndefExternalFuncs
     KernelInfo
     Prefetch
@@ -365,6 +366,7 @@ set( BACKEND_PASSES
     DetectFunctionPtrCalls
     CloneBlockInvokeFuncToKernel
     ResolveBlockToStaticCall
+    PatchCallbackArgs
     SmartGVN
 )
 

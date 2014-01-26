@@ -19,7 +19,7 @@ File Name:  OpenCLCompilationFlags.h
 #ifndef OPEN_CL_REF_COMPILATION_FLAGS_H
 #define OPEN_CL_REF_COMPILATION_FLAGS_H
 
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 namespace llvm
 {

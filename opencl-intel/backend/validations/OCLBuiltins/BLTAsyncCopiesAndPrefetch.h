@@ -19,7 +19,7 @@ File Name:  BLTAsyncCopiesAndPrefetch.h
 #define BLT_ASYNC_COPIES_AND_PREFETCH_H
 
 #include <vector>
-#include <llvm/DerivedTypes.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "Helpers.h"
 #include <RefALU.h>

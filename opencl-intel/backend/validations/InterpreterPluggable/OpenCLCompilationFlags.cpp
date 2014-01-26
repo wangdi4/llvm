@@ -16,7 +16,7 @@ File Name:  OpenCLCompilationFlags.cpp
 
 \*****************************************************************************/
 #include "OpenCLCompilationFlags.h"
-#include "llvm/Metadata.h"
+#include "llvm/IR/Metadata.h"
 
 namespace llvm{
 

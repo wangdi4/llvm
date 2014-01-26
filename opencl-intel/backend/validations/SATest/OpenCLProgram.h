@@ -22,7 +22,7 @@ File Name: OpenCLProgram.h
 #include "cl_device_api.h"
 #include "cl_dev_backend_api.h"
 #include "OpenCLProgramConfiguration.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 #include <string>
 

@@ -8,10 +8,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OclFunctionAttrs.h"
 #include "OCLPassSupport.h"
 #include "CompilationUtils.h"
+#include "LoopUtils/LoopUtils.h"
 #include "OCLAddressSpace.h"
-#include "llvm/Constants.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Version.h"
 
@@ -21,10 +24,19 @@ extern "C" {
   }
 }
 
+extern "C" {
+  void* createOclSyncFunctionAttrsPass() {
+    return new intel::OclSyncFunctionAttrs();
+  }
+}
+
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace Utils::OCLAddressSpace;
 namespace intel{
 
+/*****************************************************************/
+/*                       OclFunctionAttrs                        */
+/*****************************************************************/
   char OclFunctionAttrs::ID = 0;
 
   OclFunctionAttrs::OclFunctionAttrs() : ModulePass(ID) {}
@@ -147,6 +159,45 @@ namespace intel{
     bool Changed = false;
     for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I)
       Changed = runOnFunction(*I, Kernels.count(&*I)) || Changed;
+    return Changed;
+  }
+
+/*****************************************************************/
+/*                     OclSyncFunctionAttrs                      */
+/*****************************************************************/
+
+  char OclSyncFunctionAttrs::ID = 0;
+
+  OclSyncFunctionAttrs::OclSyncFunctionAttrs() : ModulePass(ID) {}
+  OCL_INITIALIZE_PASS(OclSyncFunctionAttrs, "ocl-syncfunctionattrs",
+    "Mark and propogate synchronize function with relevent attributes", false, false)
+
+  bool OclSyncFunctionAttrs::runOnModule(Module &M) {
+    CompilationUtils::FunctionSet oclSyncBuiltins;
+    std::set<Function *> oclSyncBuiltinsSet;
+    std::set<Function *> oclSyncFunctions;
+
+    // Get all synchronize built-ins declared in module
+    CompilationUtils::getAllSyncBuiltinsDcls(oclSyncBuiltins, &M);
+    if (oclSyncBuiltins.empty()) {
+      // No synchronize functions to mark
+      return false;
+    }
+    // Get all function that calls synchronize built-ins in/direct
+    oclSyncBuiltinsSet.insert(oclSyncBuiltins.begin(), oclSyncBuiltins.end());
+    LoopUtils::fillFuncUsersSet(oclSyncBuiltinsSet, oclSyncFunctions);
+
+    bool Changed = false;
+    for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I) {
+      Function* pFunc = &*I;
+      if (oclSyncFunctions.count(pFunc) || oclSyncBuiltins.count(pFunc)) {
+#if (LLVM_VERSION != 3200) && (LLVM_VERSION != 3425)
+        pFunc->setAttributes(pFunc->getAttributes().addAttribute(
+          pFunc->getContext(), AttributeSet::FunctionIndex, Attribute::NoDuplicate));
+#endif
+        Changed = true;
+      }
+    }
     return Changed;
   }
 

@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Materialize.h"
 #include <cstdio>
 
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 
 #include "gen/MetaDataApi.h"

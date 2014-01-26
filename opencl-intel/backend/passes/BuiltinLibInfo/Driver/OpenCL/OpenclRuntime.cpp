@@ -15,10 +15,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "common_dev_limits.h"
 
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
+#include "llvm/ADT/StringRef.h"
 
 using namespace reflection;
 namespace intel {
@@ -148,6 +149,10 @@ bool OpenclRuntime::isSyncFunc(const std::string &func_name) const {
   return isSyncWithNoSideEffect(func_name) || isSyncWithSideEffect(func_name);
 }
 
+static bool isNdrange_ndBuiltin(StringRef func_name) {
+  return func_name.startswith("_Z10ndrange_");
+}
+
 bool OpenclRuntime::hasNoSideEffect(const std::string &func_name) const {
   // Work item builtins and llvm intrinsics are not in runtime module so check
   // them first.
@@ -167,7 +172,12 @@ bool OpenclRuntime::hasNoSideEffect(const std::string &func_name) const {
 
   // All built-ins that does not access memory and does not throw
   // have no side effects.
-  return (funcRT->doesNotAccessMemory() && funcRT->doesNotThrow());
+  if (funcRT->doesNotAccessMemory() && funcRT->doesNotThrow())
+    return true;
+  // OpenCL 2.0
+  // ndrange_1D/ndrange_2D/ndrange_3D built-ins have an sret argument, so
+  // doesNotAccessMemory() returns false.
+  return isNdrange_ndBuiltin(func_name);
 }
 
 bool OpenclRuntime::isSafeToSpeculativeExecute(const std::string &func_name) const {

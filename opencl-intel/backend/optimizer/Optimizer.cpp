@@ -16,15 +16,15 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "PrintIRPass.h"
 #include "mic_dev_limits.h"
 #endif //#ifndef __APPLE__
-#include "llvm/Module.h"
-#include "llvm/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Version.h"
 #if LLVM_VERSION == 3425
 #include "llvm/Target/TargetData.h"
 #else
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 #endif
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
@@ -33,7 +33,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
-#include "llvm/Metadata.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/Support/Casting.h"
 
 extern "C"{
@@ -51,7 +51,7 @@ llvm::Pass* createLoopStridedCodeMotionPass();
 llvm::Pass* createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
 llvm::Pass *createShiftZeroUpperBitsPass();
-llvm::Pass *createShuffleCallToInstPass();
+llvm::Pass *createBuiltinCallToInstPass();
 llvm::Pass *createRelaxedPass();
 llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createKernelAnalysisPass();
@@ -60,7 +60,8 @@ llvm::ImmutablePass * createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
-llvm::ModulePass *createModuleCleanupPass();
+llvm::ModulePass *createOclSyncFunctionAttrsPass();
+llvm::ModulePass *createModuleCleanupPass(bool SpareOnlyWrappers);
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
 llvm::ModulePass *createPrepareKernelArgsPass();
@@ -68,6 +69,8 @@ llvm::Pass *createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
 llvm::ModulePass *createUndifinedExternalFunctionsPass(std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createDuplicateCalledKernelsPass();
+llvm::ModulePass *createPatchCallbackArgsPass();
+llvm::ModulePass *createDeduceMaxWGDimPass();
 
 #ifdef __APPLE__
 llvm::Pass *createClangCompatFixerPass();
@@ -224,16 +227,22 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
                                        bool UnrollLoops) {
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag());
+#ifndef __APPLE__
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
       pConfig->GetIRDumpOptionsBefore());
+#endif
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
 
   PM.add(createDataLayout(M));
+  PM.add(createOclSyncFunctionAttrsPass());
   if (isOcl20) {
     // OCL2.0 resolve block to static call
     PM.add(createResolveBlockToStaticCallPass());
+    // clone block_invoke functions to kernels
+    PM.add(createCloneBlockInvokeFuncToKernelPass());
   }
+  
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
     if (OptLevel == 1)
@@ -256,10 +265,12 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   }
 
   // Adding module passes.
+#ifndef __APPLE__
   if (dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_BEFORE,
                              pConfig->GetDumpIRDir()));
   }
+#endif
 #ifdef __APPLE__
   PM.add(createClangCompatFixerPass());
 #endif
@@ -280,7 +291,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   if (!pConfig->GetLibraryModule() && getenv("DISMPF") != NULL)
     PM.add(createRemovePrefetchPass());
 #endif //#ifndef __APPLE__
-  PM.add(createShuffleCallToInstPass());
+  PM.add(createBuiltinCallToInstPass());
   bool has_bar = false;
   if (!pConfig->GetLibraryModule())
     has_bar = hasBarriers(M);
@@ -316,8 +327,10 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   bool DisableSimplifyLibCalls = true;
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
   DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
+#ifndef __APPLE__
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
+#endif
   PM.add(createDataLayout(M));
   PM.add(createBuiltinLibInfoPass(pRtlModule, ""));
   PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
@@ -337,12 +350,6 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
   PM.add(llvm::createBasicAliasAnalysisPass());
 
-  if (isOcl20) {
-    // OCL2.0 Extexecution.
-    // clone block_invoke functions to kernels
-    PM.add(createCloneBlockInvokeFuncToKernelPass());
-  }
-  
   // Should be called before vectorizer!
   PM.add((llvm::Pass*)createInstToFuncCallPass(HasGatherScatter));
 
@@ -426,10 +433,15 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   }
 
   // Adding WG loops
-  if (!pConfig->GetLibraryModule()){
-    if ( debugType == intel::None ) {
+  if (!pConfig->GetLibraryModule()) {
+    if (debugType == intel::None) {
+      PM.add(createDeduceMaxWGDimPass());
       PM.add(createCLWGLoopCreatorPass());
     }
+    // This is a good time to remove internal functions which are not called
+    // TODO: Once we set the linkage of internal functions correctly, we won't to run this pass
+    // because the LLVM Inliner, for example, will delete uncalled functions it inlines.
+    PM.add(createModuleCleanupPass(false));
     PM.add(createBarrierMainPass(debugType));
 
     // After adding loops run loop optimizations.
@@ -476,7 +488,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   if(pRtlModule != NULL) {
     PM.add(createBuiltInImportPass()); // Inline BI function
     //Need to convert shuffle calls to shuffle IR before running inline pass on built-ins
-    PM.add(createShuffleCallToInstPass());
+    PM.add(createBuiltinCallToInstPass());
   }
 
   //funcPassMgr->add(new intel::SelectLower());
@@ -490,7 +502,16 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
       PM.add(llvm::createFunctionInliningPass(4096)); // Inline (not only small) functions.
     else
       PM.add(llvm::createFunctionInliningPass());     // Inline small functions
+  } else {
+    // Functions with the alwaysinline attribute need to be inlined for
+    // functional purposes
+    PM.add(llvm::createAlwaysInlinerPass());
   }
+  // Some built-in functions contain calls to external functions which take
+  // arguments that are retrieved from the function's implicit arguments.
+  // Currently only applies to OpenCL 2.x
+  if (isOcl20)
+    PM.add(createPatchCallbackArgsPass());
 
   if (debugType == intel::None) {
     PM.add(llvm::createArgumentPromotionPass());    // Scalarize uninlined fn args
@@ -535,12 +556,12 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   // Remove unneeded functions from the module.
   // *** keep this optimization last, or at least after function inlining! ***
   if (!pConfig->GetLibraryModule())
-    PM.add(createModuleCleanupPass());
+    PM.add(createModuleCleanupPass(true));
 
 #ifndef __APPLE__
   // Add prefetches if useful for micro-architecture, if not in debug mode,
   // and don't change libraries
-  if (debugType == None && !pConfig->GetLibraryModule() && HasGatherScatter) {
+  if (debugType == intel::None && !pConfig->GetLibraryModule() && HasGatherScatter) {
     int APFLevel = pConfig->GetAPFLevel();
     // do APF and following cleaning passes only if APF is not disabled
     if (APFLevel != APFLEVEL_0_DISAPF) {
@@ -555,7 +576,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 #endif
     }
   }
-  if (UnrollLoops && debugType == None) {
+  if (UnrollLoops && debugType == intel::None) {
     PM.add(llvm::createLoopUnrollPass(4, 0, 0));          // Unroll small loops
   }
 #endif

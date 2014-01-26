@@ -1,7 +1,7 @@
 ; XFAIL: i686-pc-win32
-; RUN: oclopt -runtimelib=clbltfne9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: oclopt -runtimelib=clbltfne9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc < %t1.ll -mattr=+avx -mtriple=x86_64-pc-Win64 | FileCheck %s -check-prefix=CHECK-AVX
-; RUN: oclopt -runtimelib=clbltfnl9.rtl  -builtin-import -shuffle-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
+; RUN: oclopt -runtimelib=clbltfnl9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
 ; RUN: llc < %t2.ll -mattr=+avx2 -mtriple=x86_64-pc-Win64 | FileCheck %s -check-prefix=CHECK-AVX2
 
 
@@ -27,8 +27,6 @@ declare void @__ocl_load_transpose_float_4x8(<4 x float>* nocapture %pLoadAdd, <
 
 
 
-;CHECK-AVX:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX: [[FOO]]
 ;CHECK-AVX:	vmovaps	([[RCX:%[a-z]+]]), [[XMM2:%xmm[0-9]+]]
 ;CHECK-AVX:	vmovaps	16([[RCX]]), [[XMM11:%xmm[0-9]+]]
 ;CHECK-AVX:	vmovaps	32([[RCX]]), [[XMM4:%xmm[0-9]+]]
@@ -45,11 +43,8 @@ declare void @__ocl_load_transpose_float_4x8(<4 x float>* nocapture %pLoadAdd, <
 ;CHECK-AVX:	vunpcklps	[[YMM4]], [[YMM5]], [[YMM31:%ymm[0-9]+]]
 ;CHECK-AVX:	vunpckhps	[[YMM02]], [[YMM31]], [[YMM12:%ymm[0-9]+]]
 ;CHECK-AVX:	vunpcklps	[[YMM02]], [[YMM31]], [[YMM03:%ymm[0-9]+]]
-;CHECK-AVX:    .type	[[LOAD:[_a-z]+]]_transpose_float_4x8,@function
 
 
-;CHECK-AVX2:	.type    [[FOO:[_a-z]+]],@function
-;CHECK-AVX2: [[FOO]]
 ;CHECK-AVX2:	vmovaps	([[RCX:%[a-z]+]]), [[XMM2:%xmm[0-9]+]]
 ;CHECK-AVX2:	vmovaps	16([[RCX]]), [[XMM11:%xmm[0-9]+]]
 ;CHECK-AVX2:	vmovaps	32([[RCX]]), [[XMM4:%xmm[0-9]+]]
@@ -66,4 +61,3 @@ declare void @__ocl_load_transpose_float_4x8(<4 x float>* nocapture %pLoadAdd, <
 ;CHECK-AVX2:	vunpcklps	[[YMM4]], [[YMM5]], [[YMM31:%ymm[0-9]+]]
 ;CHECK-AVX2:	vunpckhps	[[YMM02]], [[YMM31]], [[YMM12:%ymm[0-9]+]]
 ;CHECK-AVX2:	vunpcklps	[[YMM02]], [[YMM31]], [[YMM03:%ymm[0-9]+]]
-;CHECK-AVX2:    .type	[[LOAD:[_a-z]+]]_transpose_float_4x8,@function

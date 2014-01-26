@@ -286,7 +286,7 @@ namespace Validation {
             {
                 if((!ref.IsValid()) || (!act.IsValid()))
                     throw Exception::InvalidArgument("Input value container was invalid during comparator mismatch reporting");
-                double res = (T)abs((long)(ref.GetVal<T>()- act.GetVal<T>()));
+                double res = (T)abs((double)(long)(ref.GetVal<T>()- act.GetVal<T>()));
                 return res;
             }
 

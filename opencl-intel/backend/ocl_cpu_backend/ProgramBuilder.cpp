@@ -45,26 +45,26 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Argument.h"
-#include "llvm/Type.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Instructions.h"
-#include "llvm/Instruction.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/LLVMContext.h"
 #include <algorithm>
 
 #ifdef ENABLE_KNL
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include <stdlib.h>
 #include <unistd.h>
 #endif //ENABLE_KNL
+#include <sstream>
 
 using std::string;
 
@@ -250,6 +250,8 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
         throw Exceptions::CompilerException("Internal Error");
     }
 
+    std::stringstream kernelAttributes;
+
     if( kmd->getWorkGroupSizeHint()->hasValue() )
     {
         hintWGSize[0] = kmd->getWorkGroupSizeHint()->getXDim(); // TODO: SExt <=> ZExt
@@ -267,6 +269,14 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
                 }
             }
         }
+
+        kernelAttributes << "work_group_size_hint(";
+        kernelAttributes << hintWGSize[0];
+        kernelAttributes << ",";
+        kernelAttributes << hintWGSize[1];
+        kernelAttributes << ",";
+        kernelAttributes << hintWGSize[2];
+        kernelAttributes << ")";
     }
 
     if( kmd->getReqdWorkGroupSize()->hasValue() )
@@ -286,12 +296,86 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
                 }
             }
         }
+
+        if (!kernelAttributes.str().empty()) kernelAttributes << " ";
+        kernelAttributes << "reqd_work_group_size(";
+        kernelAttributes << reqdWGSize[0];
+        kernelAttributes << ",";
+        kernelAttributes << reqdWGSize[1];
+        kernelAttributes << ",";
+        kernelAttributes << reqdWGSize[2];
+        kernelAttributes << ")";
+    }
+
+    if (kmd->isVecTypeHintHasValue())
+    {
+      Type* VTHTy = kmd->getVecTypeHint()->getType();
+
+      int vecSize = 1;
+
+      if (VTHTy->isVectorTy()) {
+        vecSize = VTHTy->getVectorNumElements();
+        VTHTy = VTHTy->getVectorElementType();
+      }
+
+      if (!kernelAttributes.str().empty()) kernelAttributes << " ";
+      kernelAttributes << "vec_type_hint(";
+
+      // Temporal patch - MetaDataApi doesn't support this for now
+      // so dig down to get the signedness from the metadata
+      // Expected metadata format for vec_type_hint:
+      // !8 = metadata !{metadata !"vec_type_hint", <8 x i32> undef, i32 0}
+      //                                tag^       type^         isSigned^
+      llvm::NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
+      MDNode *FuncInfo = NULL;
+      for (int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
+        FuncInfo = MDArgInfo->getOperand(i);
+        Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
+
+        if(func == dyn_cast<Function>(field0))
+          break;
+      }
+      assert(FuncInfo && "Couldn't find this kernel in the kernel list");
+      MDNode *MDVecTHint = NULL;
+      //look for vec_type_hint metadata
+      for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
+        MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
+        MDString *tag = (tmpMD ? dyn_cast<MDString>(tmpMD->getOperand(0)) : NULL);
+        if (tag && (tag->getString() == "vec_type_hint")) {
+          MDVecTHint = tmpMD;
+          break;
+        }
+      }
+      assert(MDVecTHint && "vec_type_hint info isn't available for this kernel");
+      // Look for operand 2 - isSigned
+      ConstantInt *isSigned = dyn_cast<ConstantInt>(MDVecTHint->getOperand(2));
+      assert(isSigned && "isSigned should be a constant integer value");
+
+      if (isSigned && isSigned->isZero())
+        kernelAttributes << "u";
+
+      if (VTHTy->isFloatTy()) {
+        kernelAttributes << "float";
+      } else if (VTHTy->isDoubleTy()) {
+        kernelAttributes << "double";
+      } else if (VTHTy->isIntegerTy(8)) {
+        kernelAttributes << "char";
+      } else if (VTHTy->isIntegerTy(16)) {
+        kernelAttributes << "short";
+      } else if (VTHTy->isIntegerTy(32)) {
+        kernelAttributes << "int";
+      } else if (VTHTy->isIntegerTy(64)) {
+        kernelAttributes << "long";
+      }
+
+      if (vecSize>1) kernelAttributes << vecSize;
+      kernelAttributes << ")";
     }
 
     KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(func);
     //Need to check if NoBarrierPath Value exists, it is not guaranteed that
     //KernelAnalysisPass is running in all scenarios.
-    const bool bJitCreateWIids = skimd->isNoBarrierPathHasValue() && skimd->getNoBarrierPath();
+    const bool HasNoBarrierPath = skimd->isNoBarrierPathHasValue() && skimd->getNoBarrierPath();
     const unsigned int localBufferSize = skimd->getLocalBufferSize();
     const bool hasBarrier = skimd->getKernelHasBarrier();
     const size_t scalarExecutionLength = skimd->getKernelExecutionLength();
@@ -327,10 +411,12 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     pProps->SetTotalImplSize(localBufferSize);
     pProps->SetHasBarrier(hasBarrier);
     pProps->SetKernelExecutionLength(executionLength);
+    pProps->SetKernelAttributes(kernelAttributes.str());
 
     pProps->SetDAZ(pProgram->GetDAZ());
     pProps->SetCpuId(GetCompiler()->GetCpuId());
-    pProps->SetJitCreateWIids(bJitCreateWIids);
+    if (HasNoBarrierPath)
+      pProps->EnableVectorizedWithTail();
 
     pProps->SetPrivateMemorySize(privateMemorySize);
 

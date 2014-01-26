@@ -27,7 +27,7 @@ File Name:  OpenCLBackendRunner.h
 #include "IBufferContainerList.h"
 
 #include "cl_dev_backend_api.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 

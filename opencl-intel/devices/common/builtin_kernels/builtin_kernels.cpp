@@ -33,6 +33,8 @@
 using namespace Intel::OpenCL::BuiltInKernels;
 using namespace Intel::OpenCL::Utils;
 
+const char* IBuiltInKernel::BuiltInKernelProperties::attributes = "";
+
 cl_dev_err_code BuiltInProgram::ParseFunctionList(const char* szBuiltInKernelList)
 {
 	if ( 0 == strlen(szBuiltInKernelList) )

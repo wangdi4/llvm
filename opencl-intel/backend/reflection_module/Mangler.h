@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __MANGLER_H_
 #define __MANGLER_H_
 
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/DerivedTypes.h"
 
 #include <string>
 

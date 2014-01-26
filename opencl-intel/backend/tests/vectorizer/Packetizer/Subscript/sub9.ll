@@ -9,7 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ;CHECK: kernel
 ;CHECK: @"internal.gather.v16i32[i64].m16"(<16 x i1> [[NAME1:%[0-9]*]], i32* [[NAME2:%stripAS[0-9]*]], <16 x i64> %6, i32 64, i1 true)
-;CHECK: @"internal.scatter.v16i32[i64].m16"(<16 x i1> [[NAME1]], i32* [[NAME3:%stripAS[[0-9]*]], <16 x i64> %6, <16 x i32> %24, i32 64, i1 true)
+;CHECK: @"internal.scatter.v16i32[i64].m16"(<16 x i1> [[NAME1]], i32* [[NAME3:%stripAS[0-9]*]], <16 x i64> %6, <16 x i32> %24, i32 64, i1 true)
 ;CHECK: ret void
 
 define void @kernel(i32* nocapture %A, i64 %k) nounwind {

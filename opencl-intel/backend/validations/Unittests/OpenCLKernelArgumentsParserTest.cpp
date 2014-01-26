@@ -16,8 +16,8 @@ File Name:  OpenCLKernelArgumentsParserTest.cpp
 
 \*****************************************************************************/
 
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Assembly/Parser.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/Support/SourceMgr.h"

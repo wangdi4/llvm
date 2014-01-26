@@ -22,15 +22,15 @@ File Name:  OpenCLProgram.cpp
 #include "OCLBuilder.h"
 #include "Exception.h"
 
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Bitcode/BitstreamWriter.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Assembly/Parser.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IRReader/IRReader.h"
 
 #include <stdio.h>
 #include <memory.h>

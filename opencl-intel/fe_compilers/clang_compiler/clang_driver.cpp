@@ -38,12 +38,12 @@
 #include "clang/Frontend/TextDiagnosticBuffer.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/FrontendTool/Utils.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Linker.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -56,7 +56,8 @@
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/SystemUtils.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Transforms/IPO.h"
@@ -81,6 +82,13 @@ using namespace Intel::OpenCL::Utils;
 
 using namespace std;
 
+namespace llvm {
+  //===----------------------------------------------------------------------===//
+  // createSPIRMetadataAdderPass - Add SPIR related module scope metadata.
+  //
+  ModulePass *createSPIRMetadataAdderPass(const std::list<std::string> BuildOpt = std::list<std::string>(), int OCLVer = 120 );
+}
+
 #if defined (_WIN32)
 #define GET_CURR_WORKING_DIR(len, buff) GetCurrentDirectoryA(len, buff)
 #define PASS_PCH
@@ -101,7 +109,7 @@ static int g_uiProgID = 1;
 
 const std::string APFLevelOptionName("-auto-prefetch-level=");
 
-void LLVMErrorHandler(void *UserData, const std::string &Message) {
+void LLVMErrorHandler(void *UserData, const std::string &Message, bool gen_crash_diag) {
   DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine*>(UserData);
 
   Diags.Report(diag::err_fe_error_backend) << Message;
@@ -419,6 +427,24 @@ int ClangFECompilerCompileTask::Compile()
   Clang->SetInputBuffer(inputBuffer);
   Clang->SetOutputStream(&IRStream);
   Clang->setDiagnostics(Diags.getPtr());
+
+  PreprocessorOptions &PPO = Clang->getPreprocessorOpts();
+
+  // Explicitly set the cl_khr_fp extension to 1, so double variable will be supported while building the PCH file
+  PPO.SupportedPragmas.cl_khr_fp64 = 1;
+  PPO.SupportedPragmas.cl_khr_gl_sharing = 1;
+  PPO.SupportedPragmas.cl_khr_gl_event = 1;
+  PPO.SupportedPragmas.cl_khr_d3d10_sharing = 1;
+  PPO.SupportedPragmas.cl_khr_global_int32_base_atomics = 1;
+  PPO.SupportedPragmas.cl_khr_global_int32_extended_atomics = 1;
+  PPO.SupportedPragmas.cl_khr_local_int32_base_atomics = 1;
+  PPO.SupportedPragmas.cl_khr_local_int32_extended_atomics = 1;
+  PPO.SupportedPragmas.cl_khr_byte_addressable_store = 1;
+  //For OCL2.0 only
+  PPO.SupportedPragmas.cl_khr_3d_image_writes = 1;
+  PPO.SupportedPragmas.cl_khr_gl_msaa_sharing = 1;
+  PPO.SupportedPragmas.cl_khr_depth_images = 1;
+
 
   // Create compiler invocation from user args
   CompilerInvocation::CreateFromArgs(Clang->getInvocation(), argArray, argArray + ArgList.size(),
@@ -1158,12 +1184,12 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     }    
 
     // all of the above must be valid
-	if ( !( pAddressQualifiers && pAccessQualifiers && pTypeNames && pTypeQualifiers && pArgNames ) ) {
+	if ( !( pAddressQualifiers && pAccessQualifiers && pTypeNames && pTypeQualifiers /*&& pArgNames*/ ) ) {
         assert(pAddressQualifiers && "pAddressQualifiers is NULL");
         assert(pAccessQualifiers && "pAccessQualifiers is NULL");
         assert(pTypeNames && "pTypeNames is NULL");
         assert(pTypeQualifiers && "pTypeQualifiers is NULL");
-        assert(pArgNames && "pArgNames is NULL");
+        //assert(pArgNames && "pArgNames is NULL");
         delete pModule;
         return CL_FE_INTERNAL_ERROR_OHNO;
 	}
@@ -1248,18 +1274,28 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         }
         STRCPY_S(argInfo.typeName, szTypeName.length() + 1, szTypeName.c_str());
 
-        // Parameter name
-        MDString* pArgName = dyn_cast<MDString>(pArgNames->getOperand(i));
-        assert(pArgName && "pArgName is not a valid MDString*");
+        if (pArgNames) {
+          // Parameter name
+          MDString* pArgName = dyn_cast<MDString>(pArgNames->getOperand(i));
+          assert(pArgName && "pArgName is not a valid MDString*");
 
-        string szArgName = pArgName->getString().str();
-        argInfo.name = new char[szArgName.length() + 1];
-        if (!argInfo.name)
-        {
-            delete pModule;
-            return CL_OUT_OF_HOST_MEMORY;
+          string szArgName = pArgName->getString().str();
+          argInfo.name = new char[szArgName.length() + 1];
+          if (!argInfo.name)
+          {
+              delete pModule;
+              return CL_OUT_OF_HOST_MEMORY;
+          }
+          STRCPY_S(argInfo.name, szArgName.length() + 1, szArgName.c_str());
+        } else {
+          argInfo.name = new char[1];
+          if (!argInfo.name)
+          {
+              delete pModule;
+              return CL_OUT_OF_HOST_MEMORY;
+          }
+          argInfo.name[0] = 0;
         }
-        STRCPY_S(argInfo.name, szArgName.length() + 1, szArgName.c_str());
     }
 
     delete pModule;
@@ -1340,6 +1376,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         }
         else if (*opt_i == "-w") {
             pList->push_back(*opt_i);
+            pBEArgList->push_back(*opt_i);
         }
         else if (opt_i->find("-D") == 0 || opt_i->find("-I") == 0) {
             if (opt_i->length() == 2) {
@@ -1350,6 +1387,8 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 if (++opt_i != opts.end()) {
                     pList->push_back(flag);
                     pList->push_back(*opt_i);
+                    pBEArgList->push_back(flag);
+                    pBEArgList->push_back(*opt_i);
                 }
                 else {
                     // Check compile options should prevent this case
@@ -1363,6 +1402,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 // Definition is attached to the flag, so pass it as is
                 //
                 pList->push_back(*opt_i);
+                pBEArgList->push_back(*opt_i);
             }
         }
         else if (opt_i->find("-dump-opt-llvm=") == 0) 
@@ -1428,44 +1468,55 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         }
         else if (*opt_i == "-Werror") {
             pList->push_back(*opt_i);
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-single-precision-constant") {
             pList->push_back("-cl-single-precision-constant");
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-denorms-are-zero") {
             pList->push_back("-cl-denorms-are-zero");
+            pBEArgList->push_back(*opt_i);
             bDenormsAreZeros = true;
         }
         else if (*opt_i == "-cl-fp32-correctly-rounded-divide-sqrt") {
             pList->push_back("-cl-fp32-correctly-rounded-divide-sqrt");
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-opt-disable") {
             pList->push_back("-cl-opt-disable");
+            pBEArgList->push_back(*opt_i);
             bOptDisable = true;
         }
         else if (*opt_i == "-cl-mad-enable") {
             pList->push_back("-cl-mad-enable");
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-no-signed-zeros") {
             pList->push_back("-cl-no-signed-zeros");
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-unsafe-math-optimizations") {
             pList->push_back("-cl-unsafe-math-optimizations");
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-finite-math-only") {
             pList->push_back("-cl-finite-math-only");
-                  pList->push_back("-D");
+            pBEArgList->push_back(*opt_i);
+            pList->push_back("-D");
             pList->push_back("__FINITE_MATH_ONLY__=1");
         }
         else if (*opt_i == "-cl-fast-relaxed-math") {
             pList->push_back("-cl-fast-relaxed-math");
-                  pList->push_back("-D");
+            pBEArgList->push_back(*opt_i);
+            pList->push_back("-D");
             pList->push_back("__FAST_RELAXED_MATH__=1");
             pBEArgList->push_back("-cl-fast-relaxed-math");
             bFastRelaxedMath = true;
         }
         else if (*opt_i == "-cl-kernel-arg-info") {
             pList->push_back("-cl-kernel-arg-info");
+            pBEArgList->push_back(*opt_i);
         }
         else if (*opt_i == "-cl-std=CL1.1") {
             iCLStdSet = 110;
@@ -1508,6 +1559,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
         else if ((*opt_i == "-spir-std=1.0") || 
                  (*opt_i == "-spir-std=1.2")) {
             //ignore SPIR version flag for now
+            pBEArgList->push_back(*opt_i);
         }
         else if ((*opt_i == "-x")) {
             if (++opt_i != opts.end()) {
@@ -1516,6 +1568,9 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                     UnrecognizedArgsLength += 3;
                     UnrecognizedArgs.push_back(*opt_i);
                     UnrecognizedArgsLength += opt_i->length() + 1;
+                } else {
+                    pBEArgList->push_back("-x");
+                    pBEArgList->push_back(*opt_i);
                 }
             } else {
                 UnrecognizedArgs.push_back("-x");
@@ -1692,6 +1747,10 @@ bool Intel::OpenCL::ClangFE::ParseLinkOptions(const char* szOptions,
             bEnableLinkOptions = true;
         }
         else if (opt_i->find("-dump-opt-llvm=") == 0) 
+        {
+            // Dump file must be attached to the flag, but we ignore it for now
+        }
+        else if (opt_i->find("-dump-opt-asm=") == 0) 
         {
             // Dump file must be attached to the flag, but we ignore it for now
         }

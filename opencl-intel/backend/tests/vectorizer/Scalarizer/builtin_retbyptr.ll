@@ -6,7 +6,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @sincos_kernel(double addrspace(1)* nocapture %out, double addrspace(1)* %out2, double addrspace(1)* nocapture %in) nounwind {
-; CHECK: [[C1:%[_a-z0-9]+]] = call <2 x double> @_Z20__retbyvector_sincosd(double {{%[_a-z0-9]+}}) nounwind readnone
+; CHECK: [[C1:%[_a-z0-9]+]] = call <2 x double> @_Z20__retbyvector_sincosd(double {{%[_a-z0-9]+}})
 ; CHECK: [[E0:%[_a-z0-9]+]] = call double @fake.extract.element0(<2 x double> [[C1]], i32 0)
 ; CHECK: [[E1:%[_a-z0-9]+]] = call double @fake.extract.element1(<2 x double> [[C1]], i32 1)
 ; CHECK: store double [[E1]], double addrspace(1)*
@@ -68,7 +68,7 @@ entry:
 }
 
 define void @native_sincos_kernel(double addrspace(1)* nocapture %out, double addrspace(1)* %out2, double addrspace(1)* nocapture %in) nounwind {
-; CHECK: [[C1:%[_a-z0-9]+]] = call <2 x double> @_Z27__retbyvector_native_sincosd(double {{%[_a-z0-9]+}}) nounwind readnone
+; CHECK: [[C1:%[_a-z0-9]+]] = call <2 x double> @_Z27__retbyvector_native_sincosd(double {{%[_a-z0-9]+}})
 ; CHECK: [[E0:%[_a-z0-9]+]] = call double @fake.extract.element10(<2 x double> [[C1]], i32 0)
 ; CHECK: [[E1:%[_a-z0-9]+]] = call double @fake.extract.element11(<2 x double> [[C1]], i32 1)
 ; CHECK: store double [[E1]], double addrspace(1)*

@@ -9,11 +9,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "GenericAddressResolution.h"
 #include <llvm/Pass.h>
-#include <llvm/Value.h>
-#include <llvm/DerivedTypes.h>
-#include <llvm/Instructions.h>
-#include <llvm/User.h>
-#include <llvm/LLVMContext.h>
+#include <llvm/IR/Value.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/User.h>
+#include <llvm/IR/LLVMContext.h>
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Utils/PromoteMemToReg.h>
 #include <llvm/ADT/SmallVector.h>
@@ -44,7 +44,7 @@ namespace intel {
   /// @brief       of 'named' pointer parameters
   /// @brief    3) Substitution of intrinsic function call with GAS pointer parameters 
   /// @brief       with that of 'named' parameters
-  /// @brief  All code modifications are done for unified memory case only (i.e., CPU/MIC)
+  /// @brief  All code modifications are done for unified memory case only
   class GenericAddressDynamicResolution : public ModulePass {
 
   public:

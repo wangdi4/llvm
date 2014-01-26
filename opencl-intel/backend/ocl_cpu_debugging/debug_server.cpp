@@ -17,8 +17,8 @@
 
 #include "llvm/DebugInfo.h"
 #include "llvm/Support/Dwarf.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/Metadata.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "google/protobuf/text_format.h"
@@ -782,6 +782,9 @@ bool DebugServer::Init(unsigned int port_number)
     DEBUG_SERVER_LOG("Server waiting for connection on port " + stringify(port_num));
     d->m_comm->waitForConnection();
     DEBUG_SERVER_LOG("Initialized successfully");
+
+    d->m_saved_stack_level = 0;
+    d->m_prev_stoppoint_line = 0;
 
     d->m_initialized = true;
     return true;

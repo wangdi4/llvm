@@ -19,10 +19,10 @@
 #include <utility>
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IRReader/IRReader.h"
 #include "MetaDataApi.h"
 
 

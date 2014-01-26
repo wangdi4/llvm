@@ -11,8 +11,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "LocalBuffAnalysis/LocalBuffAnalysis.h"
 #include "ImplicitArgsAnalysis/ImplicitArgsAnalysis.h"
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Instructions.h"
 #include <set>
 #include <map>
 
@@ -69,7 +69,7 @@ namespace intel {
     /// @param CI pointer to CallInst
     /// @param newArgsVec arguments of new function with implicit arguments added
     /// @param pNewF function with implicit arguments added
-    void replaceCallInst(CallInst *CI, const std::vector<Type *>& newArgsVec, Function * pNewF);
+    void replaceCallInst(CallInst *CI, ArrayRef<Type *> newArgs, Function * pNewF);
 
   private:
     /// @brief The llvm module this pass needs to update

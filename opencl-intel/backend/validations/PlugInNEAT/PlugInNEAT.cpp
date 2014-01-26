@@ -21,9 +21,9 @@ File Name:  PlugInNEAT.cpp
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
 #include "llvm/Support/GetElementPtrTypeIterator.h"
 #include "llvm/ADT/APInt.h"
@@ -32,7 +32,7 @@ File Name:  PlugInNEAT.cpp
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "InterpreterPluggable.h"
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 
 #include "PlugInNEAT.h"
 #include "NEAT_WRAP.h"

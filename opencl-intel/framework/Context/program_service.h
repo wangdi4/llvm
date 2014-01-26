@@ -199,13 +199,12 @@ namespace Intel { namespace OpenCL { namespace Framework {
             const SharedPtr<Program>&   pProg,
             const ConstSharedPtr<FrontEndCompiler>& pFECompiler,
             DeviceProgram*              pDeviceProgram,
-            const char*                 szSource,
             unsigned int                uiNumHeaders,
             const char**                pszHeaders,
             char**                      pszHeadersNames,
             const char*                 szOptions)
         {
-            return new CompileTask(context, pProg, pFECompiler, pDeviceProgram, szSource, uiNumHeaders, pszHeaders, pszHeadersNames, szOptions);
+            return new CompileTask(context, pProg, pFECompiler, pDeviceProgram, uiNumHeaders, pszHeaders, pszHeadersNames, szOptions);
         }
 
         virtual bool    Execute();
@@ -217,7 +216,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
                     const SharedPtr<Program>&   pProg,
                     const ConstSharedPtr<FrontEndCompiler>& pFECompiler,
                     DeviceProgram*              pDeviceProgram,
-                    const char*                 szSource,
                     unsigned int                uiNumHeaders,
                     const char**                pszHeaders,
                     char**                      pszHeadersNames,
@@ -227,7 +225,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         DeviceProgram*          m_pDeviceProgram;
 
-        const char*             m_szSource;
         unsigned int            m_uiNumHeaders;
         const char**            m_pszHeaders;
         const char**            m_pszHeadersNames;

@@ -140,18 +140,17 @@ static void replaceSizeT(std::string& s){
 }
 
 static void replaceClMemFenceFlags(std::string& s){
+  // cl_mem_fence_flags is typedef to uint
   replaceAll(s, "cl_mem_fence_flags", "uint");
 }
 
 static void replaceCL20AtomicTypes(std::string& s){
   // atomic_flag is typedef to atomic_int
-  replaceAll(s, "atomic_flag",   "int");
-  replaceAll(s, "atomic_int",    "int");
-  replaceAll(s, "atomic_uint",   "uint");
-  replaceAll(s, "atomic_long",   "long");
-  replaceAll(s, "atomic_ulong",  "ulong");
-  replaceAll(s, "atomic_float",  "float");
-  replaceAll(s, "atomic_double", "double");
+  replaceAll(s, "atomic_flag",   "atomic_int");
+  // memory_scope is typedef to uint
+  replaceAll(s, "memory_scope",  "uint");
+  // memory_order is typedef to uint
+  replaceAll(s, "memory_order",  "uint");
 }
 
 //returns true, if the following function prototypes are semantically the same
@@ -171,7 +170,8 @@ static bool isSematicallyEqual(const std::string& l, const std::string& r){
   //clang treats it that way.
   replaceSizeT(left);
   replaceSizeT(right);
-  //replacing CL2.0 atomic types to underlying types since clang mangle them in that way
+  //replacing CL2.0 types with the expected types as clang mangle them
+  //e.g. "memory_scope" -> "int", "memory_order" -> "int", "atomic_flag" -> "atomic_int"
   replaceCL20AtomicTypes(left);
   replaceCL20AtomicTypes(right);
   //if they have different length at this point, they can't be semantically the same
@@ -208,9 +208,6 @@ TEST(NameMangle, demangleTostrightAndBack){
   #include "MangledNames.h"
   for( unsigned int i = 0 ; i < sizeof(mangledNames)/sizeof(char*) ; i++){
       const char* mname = mangledNames[i];
-      // TODO: delete the following as soon as the bug CSSD1000????? in the DemangleParser is fixed 
-      // The bug is not created yet, it is about incorrect handling of the repeating non-basic types of arguments
-      if(std::string(mname).find("atomic_compare_exchange_")) continue;
 
       FunctionDescriptor fd = demangle(mname);
       ASSERT_FALSE(fd.isNull());
@@ -259,6 +256,21 @@ TEST(DemangleTest, AsyncGropuCpy){
     std::string("async_work_group_copy(__local char2 *, __global const char2 *, ulong, ulong)")
     , fd.toString()
   );
+}
+
+
+TEST(MangleTest, clk_event){
+  const std::string s = "_Z14enqueue_kernelPK13ocl_clk_eventP13ocl_clk_event";
+  FunctionDescriptor fd = demangle(s.c_str());
+  ASSERT_EQ(s, mangle(fd));
+}
+
+TEST(DemangleTest, block){
+  FunctionDescriptor fd1 = demangle("_Z14enqueue_kernelU13block_pointerFvvE");
+  ASSERT_FALSE(fd1.isNull());
+  FunctionDescriptor fd2 = demangle("_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz");
+  ASSERT_FALSE(fd2.isNull());
+  //TODO add more block tests
 }
 
 TEST(NameMangle, FailedOnce){
@@ -397,7 +409,7 @@ TEST(DemangleTest, addressSpaceAndUserDefTy){
 
 // Test for Apple (deprecated)
 //TEST(DemangleTest, appleImageMangle){
-//  const char*const strImagefunction = "_Z11read_imageiPU3AS110_image2d_tuSamplerDv2_i";
+//  const char*const strImagefunction = "_Z11read_imageiPU3AS110_image2d_t11ocl_samplerDv2_i";
 //  FunctionDescriptor fd = demangle(strImagefunction);
 //  ASSERT_FALSE(fd.isNull());
 //  ASSERT_TRUE(reflection::dyn_cast<PointerType>(fd.parameters[0]));
@@ -575,6 +587,18 @@ TEST(MangleAPI, visitorExample){
     void visit(const PointerType* p){
       std::cout << "pointer to ";
       p->getPointee()->accept(this);
+    }
+
+    void visit(const AtomicType* p){
+      std::cout << "atomic " << p->toString() << std::endl;
+    }
+
+    void visit(const BlockType* p){
+      std::cout << "block ( ";
+      for (unsigned int i=0; i<p->getNumOfParams(); ++i) {
+        p->getParam(i)->accept(this);
+      }
+      std::cout << ")";
     }
 
     void visit(const UserDefinedType*){

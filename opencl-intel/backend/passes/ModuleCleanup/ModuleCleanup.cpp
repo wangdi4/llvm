@@ -6,21 +6,23 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "ModuleCleanup.h"
 #include "CompilationUtils.h"
+#include "BlockUtils.h"
 #include "OCLPassSupport.h"
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/InstIterator.h"
 
 
 using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
 
 extern "C"
 {
-  ModulePass* createModuleCleanupPass() {
-      return new intel::ModuleCleanup();
+  ModulePass* createModuleCleanupPass(bool SpareOnlyWrappers=false) {
+      return new intel::ModuleCleanup(SpareOnlyWrappers);
   }
 }
 
@@ -34,12 +36,18 @@ namespace intel{
     bool didDeleteAny = false;
 
     // Grab list of kernels from module
-    Intel::OpenCL::DeviceBackend::CompilationUtils::getAllKernelWrappers(m_neededFuncsSet, &M);
+    if (SpareOnlyWrappers)
+      CompilationUtils::getAllKernelWrappers(m_neededFuncsSet, &M);
+    else
+      CompilationUtils::getAllKernels(m_neededFuncsSet, &M);
 
     // Erase body of all functions which are not needed
     for (Module::iterator i = M.begin(), e = M.end(); i != e; ++i) {
       Function *func = &*i;
       if (func->isDeclaration()) continue; // skip externals
+      if ( (CompilationUtils::getCLVersionFromModuleOrDefault(M) >=
+                              OclVersion::CL_VER_2_0) &&
+         BlockUtils::isBlockInvokeFunction(*func)) continue; // skip block_invoke functions
       if (isNeededByKernel(func)) continue; // skip needed functions
       func->deleteBody();
       didDeleteAny = true;

@@ -18,9 +18,11 @@ File Name: DVTest.cpp
 #include <gtest/gtest.h>
 #include "cl_types.h"
 
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
-#include "llvm/Support/IRReader.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "OCLBuilder.h"
 
 #include<fstream>
@@ -189,7 +191,7 @@ static void  testFindSamplers(std::string sourceIn, std::vector<unsigned int >& 
 }
 
 
-TEST(DataVersionTest, find_type_sampler_t)
+TEST(DataVersionTest, DISABLED_find_type_sampler_t) /* CSSD100018373 */
 {
     // test case: no sampler_t types among the kernel's arguments
     std::vector<unsigned int > samplerIndxs;
@@ -228,7 +230,7 @@ TEST(DataVersionTest, find_type_sampler_t)
 }
 
 
-TEST(DataVersionTest, ConvertData) {
+TEST(DataVersionTest, DISABLED_ConvertData) /* CSSD100018373 */ {
     // the source code in this tests consists of 3 kernels: thirst and second has
     // samplers as parameters at positions 0 and 1 accordingly. the third kernel has 
     // no samplers as parameters. The tested function ConvertData must convert samplers

@@ -1,6 +1,4 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: opt -B-GroupBuiltins -verify %t.bc -S -o %t1.ll
-; RUN: FileCheck %s --input-file=%t1.ll
+; RUN: opt -B-GroupBuiltins -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the GroupBuiltin pass
@@ -20,7 +18,7 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: store i32 0, i32* %AllocaWGResult
 ; CHECK-NEXT: call void @dummybarrier.()
 ; CHECK: WIcall = call i32 @_Z12get_local_idj(i32 0)
-; CHECK-NOT: %call1 = tail call i32 @_Z20work_group_broadcastij(i32 %0, i32 2) nounwind
+; CHECK-NOT: %call1 = tail call i32 @_Z20work_group_broadcastij(i32 %0, i32 2)
 ; CHECK-NEXT: %CallWGForItem = call i32 @_Z20work_group_broadcastijjPi(i32 %0, i32 2, i32 %WIcall, i32* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
 ; CHECK: store i32 %CallWGForItem, i32 addrspace(1)* %arrayidx2, align 1

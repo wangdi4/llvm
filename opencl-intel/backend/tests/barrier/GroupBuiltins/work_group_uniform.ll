@@ -1,6 +1,4 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: opt -B-GroupBuiltins -verify %t.bc -S -o %t1.ll
-; RUN: FileCheck %s --input-file=%t1.ll
+; RUN: opt -B-GroupBuiltins -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the GroupBuiltin pass
@@ -126,8 +124,8 @@ declare void @masked_store_align4_3(<4 x i1>, <4 x i32>, <4 x i32> addrspace(1)*
 
 declare void @__ocl_masked_store_int4(<4 x i32>*, <4 x i32>, <4 x i32>)
 
-; CHECK: declare i32 @_Z14work_group_alliPi(i32, i32*) nounwind readnone
-; CHECK: declare <4 x i32> @_Z14work_group_allDv4_iPS_(<4 x i32>, <4 x i32>*) nounwind readnone
+; CHECK: declare i32 @_Z14work_group_alliPi(i32, i32*)
+; CHECK: declare <4 x i32> @_Z14work_group_allDv4_iPS_(<4 x i32>, <4 x i32>*)
 ; CHECK: declare <4 x i32> @_Z24finalize_.work_group_allDv4_i(<4 x i32>)
 
 !opencl.kernels = !{!0}

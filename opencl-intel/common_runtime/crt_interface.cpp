@@ -9017,14 +9017,13 @@ FINISH:
 CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     const char *funcname)
 {
-    if( OCLCRT::Utils::isAPIDebuggingEnabled() )
-    {
-        // API debugging is enabled, refuse to load CRT library
-        return NULL;
-    }
-
     if( funcname && !strcmp( funcname, "clIcdGetPlatformIDsKHR" ) )
     {
+        if( OCLCRT::Utils::isAPIDebuggingEnabled() )
+        {
+            // API debugging is enabled, refuse to load CRT library
+            return NULL;
+        }
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clGetPlatformIDs ) );
     }
 #ifdef _WIN32

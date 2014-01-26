@@ -13,10 +13,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ParameterType.h"
 #include "Logger.h"
 
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 using namespace reflection;
 namespace intel {

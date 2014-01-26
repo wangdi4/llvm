@@ -15,8 +15,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Constants.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Module.h"
 
 #include <sstream>
 #include <set>
@@ -93,38 +93,13 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
 }
 
 unsigned CLWGLoopCreator::computeNumDim() {
-  unsigned maxNumDim = m_rtServices->getNumJitDimensions();
-
-  // In case no atomics are called by  the kernel than it is guranteed that
-  // even if the user calls NDrange with more the dimension than the ones
-  // used by the kernel, it is legal to loop only over the used ones.
-  std::set<Function *> atomicFuncs;
-  for (Module::iterator fit = m_M->begin(), fe = m_M->end(); fit != fe; ++fit){
-    std::string name = fit->getName().str();
-    if (m_rtServices->isAtomicBuiltin(name)) atomicFuncs.insert(fit);
-  }
-  if (atomicFuncs.size()) {
-    std::set<Function *> atomicUsers;
-    LoopUtils::fillFuncUsersSet(atomicFuncs, atomicUsers);
-    // Kernel call atomic built-in return maximun number of dimensions.
-    if (atomicUsers.count(m_F)) return maxNumDim;
-  }
-
-  // Calculates the max used dimension. Note that kernelAnalysis ensures us
-  // that the kernel does not call a function that uses get_global_id or
-  // get_local_id , so we can just scan the calls inside the kernel.
-  unsigned maxUsedNumDim = 0;
-  assert (m_gidCallsSc.size() == MAX_OCL_NUM_DIM &&
-          m_lidCallsSc.size() == MAX_OCL_NUM_DIM &&
-          "tid containers uninitialized");
-  for (unsigned dim=0; dim< MAX_OCL_NUM_DIM; ++dim) {
-    // if either get_local_id or get_global_id is used for this
-    // dimension update maxUsedNumDim.
-    if (m_gidCallsSc[dim].size() || m_lidCallsSc[dim].size()) {
-      maxUsedNumDim = dim + 1;
-    }
-  }
-  return std::min<unsigned>(maxUsedNumDim, maxNumDim);
+  Intel::MetaDataUtils mdUtils(m_F->getParent());
+  if (!mdUtils.isKernelsInfoHasValue())
+    return m_rtServices->getNumJitDimensions();
+  Intel::KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(m_F);
+  if (skimd->isMaxWGDimensionsHasValue())
+    return skimd->getMaxWGDimensions();
+  return m_rtServices->getNumJitDimensions();
 }
 
 bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
@@ -193,7 +168,7 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
 // if (scalarLoopSize != 0)
 //   scalar loops
 // retrun
-CLWGLoopCreator::loopRegion CLWGLoopCreator::createVectorAndRemainderLoops(){
+loopRegion CLWGLoopCreator::createVectorAndRemainderLoops() {
   // Collect get**id and return instructions in the vector kernel.
   m_vectorRet = getFunctionData(m_vectorFunc, m_gidCallsVec, m_lidCallsVec);
 
@@ -290,24 +265,6 @@ void CLWGLoopCreator::generateConstants() {
   m_constPacket = ConstantInt::get(m_indTy, m_packetWidth);
 }
 
-void CLWGLoopCreator::collectTIDCallInst(const char *name, IVecVec &tidCalls,
-                                         Function *F) {
-  IVec emptyVec;
-  tidCalls.assign(MAX_OCL_NUM_DIM, emptyVec);
-  SmallVector<CallInst *, 4> allDimTIDCalls;
-  LoopUtils::getAllCallInFunc(name, F, allDimTIDCalls);
-
-  for (unsigned i=0, e=allDimTIDCalls.size(); i<e; ++i) {
-    CallInst *CI = allDimTIDCalls[i];
-    ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
-    assert(C && "tid arg must be constant");
-    unsigned dim = C->getValue().getZExtValue();
-    assert(dim < MAX_OCL_NUM_DIM && "tid not in range");
-    tidCalls[dim].push_back(CI);
-  }
-}
-
-
 ReturnInst * CLWGLoopCreator::getSingleRet(Function *F) {
   assert(F && "null Function argument");
 
@@ -344,8 +301,8 @@ ReturnInst *CLWGLoopCreator::getFunctionData(Function *F, IVecVec &gids,
   // Collect all get_local_id, get_global_id and single return.
   std::string GID = CompilationUtils::mangledGetGID();
   std::string LID = CompilationUtils::mangledGetLID();
-  collectTIDCallInst(GID.c_str(), gids, F);
-  collectTIDCallInst(LID.c_str(), lids, F);
+  LoopUtils::collectTIDCallInst(GID.c_str(), gids, F);
+  LoopUtils::collectTIDCallInst(LID.c_str(), lids, F);
   return getSingleRet(F);
 }
 
@@ -385,7 +342,7 @@ void CLWGLoopCreator::getLoopsBoundaries() {
   }
 }
 
-CLWGLoopCreator::loopRegion
+loopRegion
 CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
       ReturnInst *ret, IVecVec &GIDs, IVecVec &LIDs, VVec &initGIDs,
       VVec &loopSizes) {
@@ -407,7 +364,8 @@ CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
     compute_dimStr(dim, isVector);
     Value *incBy = dim == 0 ? dim0IncBy : m_constOne;
     //Create the loop.
-    loopRegion blocks = createLoop(head, latch, loopSizes[dim]);
+    loopRegion blocks = LoopUtils::createLoop(head, latch, m_constZero, m_constOne,
+                                   loopSizes[dim], m_dimStr, *m_context);
 
     // Modify get***id accordingly.
     Value *initGID = initGIDs[dim];
@@ -433,53 +391,6 @@ CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
   return loopRegion(head, latch);
 }
 
-
-// transforms code as follows:
-// prehead:
-//     br head
-// head:
-//     indVar = phi (0 preHead, latch incIndVar)
-//          :
-// latch: //(can be the same as head)
-//          :
-//     incIndVar = add indVar, 1
-//     x = Icmp eq incIndVar ,loopSize
-//     br x, exit, oldEntry
-// exit:
-//
-//  all get_local_id \ get_global_id are replaced with indVar
-CLWGLoopCreator::loopRegion
-CLWGLoopCreator::createLoop(BasicBlock *head, BasicBlock *latch,
-                            Value *loopSize) {
-  // Creating Blocks to wrap the code as described above.
-  BasicBlock *preHead =
-      BasicBlock::Create(*m_context, m_dimStr+"pre_head", m_F, head);
-  BasicBlock *exit =
-      BasicBlock::Create(*m_context, m_dimStr+"exit", m_F);
-  exit->moveAfter(latch);
-  BranchInst::Create(head, preHead);
-
-  // Insert induction variable phi in the head entry.
-  PHINode *indVar = head->empty() ?
-      PHINode::Create(m_indTy, 2, m_dimStr+"ind_var", head) :
-      PHINode::Create(m_indTy, 2, m_dimStr+"ind_var", head->begin());
-
-  // Increment induction variable.
-  BinaryOperator *incIndVar = BinaryOperator::Create(Instruction::Add, indVar,
-                                    m_constOne, m_dimStr+"inc_ind_var", latch);
-  incIndVar->setHasNoSignedWrap();
-  incIndVar->setHasNoUnsignedWrap();
-
-  // Create compare and conditionally branch out from latch.
-  Instruction *compare = new ICmpInst(*latch, CmpInst::ICMP_EQ, incIndVar,
-                                  loopSize, m_dimStr+"cmp.to.max");
-  BranchInst::Create(exit, head, compare, latch);
-
-  // Upadte induction variable phi with the incoming values.
-  indVar->addIncoming(m_constZero, preHead);
-  indVar->addIncoming(incIndVar, latch);
-  return loopRegion(preHead, exit);
-}
 
 
 void CLWGLoopCreator::replaceTIDsWithPHI(IVec &TIDs, Value *initVal,

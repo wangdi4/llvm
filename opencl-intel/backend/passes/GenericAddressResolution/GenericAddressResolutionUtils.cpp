@@ -10,12 +10,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <FunctionDescriptor.h>
 #include <ParameterType.h>
 #include <MetaDataApi.h>
-#include <llvm/Type.h>
-#include <llvm/DerivedTypes.h>
-#include <llvm/Function.h>
-#include <llvm/Intrinsics.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/Debug.h>
 #include <set>
 #include <assert.h>
 
@@ -69,7 +70,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                       "atomic_flag_test_and_set",
                       "atomic_flag_test_and_set_explicit",
                       "atomic_flag_clear",
-                      "atomic_flag_clear_explicit"
+                      "atomic_flag_clear_explicit",
+                      "enqueue_marker",
+                      "read_pipe",
+                      "write_pipe"
   };
 
   bool isAddressQualifierBI(const Function *pFunc) {
@@ -197,6 +201,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     assert(isMangledName(origMangledName.c_str()) && "Function name is expected to be mangled!");
 
     reflection::FunctionDescriptor fd = demangle(origMangledName.c_str());
+    //if (fd.parameters.size() != resolvedSpaces.size()) {
+    //  dbgs() << origMangledName << "\n";
+    // }
     assert(resolvedSpaces.size() == fd.parameters.size() && "Mismatch between mangled name and amount of parameters");
     assert((!originalSpaces || originalSpaces->size() == resolvedSpaces.size()) && "Invalid parameters!");
 

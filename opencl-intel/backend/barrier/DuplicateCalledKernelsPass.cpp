@@ -9,8 +9,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetaDataApi.h"
 
 #include "llvm/DebugInfo.h"
-#include "llvm/Instructions.h"
-#include "llvm/Metadata.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <vector>
@@ -70,7 +70,7 @@ namespace intel {
       // debug metadata.
       if (pllvmDebugCU) {
         for (unsigned cuIter = 0; cuIter < pllvmDebugCU->getNumOperands(); cuIter++) {
-          duplicateDebugMD(pllvmDebugCU->getOperand(0), finder, pFunc, pNewFunc);
+          duplicateDebugMD(pllvmDebugCU->getOperand(cuIter), finder, pFunc, pNewFunc);
         }
       }
     }

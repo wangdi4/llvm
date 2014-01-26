@@ -15,10 +15,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Support/CFG.h"
-#include "llvm/Module.h"
-#include "llvm/GlobalVariable.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -26,9 +26,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/InstrTypes.h"
-#include "llvm/Type.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/Version.h"
 
 static cl::opt<bool>
@@ -623,26 +623,19 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     //set return value attributes of pcall
     pcall->addAttribute(0, call->getAttributes().getRetAttributes());
 #else
+    AttributeSet as;
     AttributeSet callAttr = call->getAttributes();
     for (unsigned int i=0; i < call->getNumArgOperands(); ++i) {
       //Parameter attributes starts with index 1-NumOfParams
       unsigned int idx = i+1;
       //pcall starts with mask argument, skip it when setting original argument attributes.
-      //pcall->addAttribute(1 + idx, call->getAttributes().getParamAttributes(idx));
-      for(AttributeSet::iterator i=callAttr.begin(idx), e=callAttr.end(idx); i!=e; ++i) {
-        pcall->addAttribute(1 + idx, i->getKindAsEnum());
-      }
+	    as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttributes(idx));
     }
     //set function attributes of pcall
-    //pcall->addAttribute(~0, call->getAttributes().getFnAttributes());
-    for(AttributeSet::iterator i=callAttr.begin(~0), e=callAttr.end(~0); i!=e; ++i) {
-      pcall->addAttribute(~0, i->getKindAsEnum());
-    }
+    as.addAttributes(func->getContext(), AttributeSet::FunctionIndex, callAttr.getFnAttributes());
     //set return value attributes of pcall
-    //pcall->addAttribute(0, call->getAttributes().getRetAttributes());
-    for(AttributeSet::iterator i=callAttr.begin(0), e=callAttr.end(0); i!=e; ++i) {
-      pcall->addAttribute(0, i->getKindAsEnum());
-    }
+    as.addAttributes(func->getContext(), AttributeSet::ReturnIndex, callAttr.getRetAttributes());
+    pcall->setAttributes(as);
 #endif
     VectorizerUtils::SetDebugLocBy(pcall, call);
     call->replaceAllUsesWith(pcall);

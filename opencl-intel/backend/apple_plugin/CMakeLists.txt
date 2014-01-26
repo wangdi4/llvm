@@ -1,6 +1,6 @@
 set(TARGET_NAME x86_plugin)
 
-set(TARGET_SOURCE_FILES  
+set(TARGET_SOURCE_FILES
     x86_plugin.cpp
     x86_macho_link.cpp
     x86_archive.cpp
@@ -55,13 +55,14 @@ set (PASSES_LIBS
     RelaxedPass
     ResolveWICall
     ShiftZeroUpperBits
-    ShuffleCallToInst
+    BuiltinCallToInst
     UndefExternalFuncs
     KernelInfo
     LinearIdResolver
     DetectFunctionPtrCalls
     CloneBlockInvokeFuncToKernel
     ResolveBlockToStaticCall
+    DetectRecursion
     OclFunctionAttrs
     )
 
@@ -75,6 +76,7 @@ target_link_libraries(${TARGET_NAME}
     ${PASSES_LIBS}
 
     # Dependencies of the passes
+    LoopUtils
     OclBackendUtils
     reflection_module
     name_mangle

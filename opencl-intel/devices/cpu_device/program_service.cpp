@@ -806,6 +806,11 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         pValue = &dispatchProperties;
         break;
 
+    case CL_DEV_KERNEL_ATTRIBUTES:
+        pValue = pKernel->GetKernelProporties()->GetKernelAttributes();
+        stValSize = (cl_uint)strlen((const char*)pValue)+1;
+        break;
+
     default:
         return CL_DEV_INVALID_VALUE;
     }

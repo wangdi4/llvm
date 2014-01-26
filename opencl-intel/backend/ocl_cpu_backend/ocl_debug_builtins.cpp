@@ -3,7 +3,7 @@
 #include "cl_dev_backend_api.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/DebugInfo.h"
-#include "llvm/Metadata.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;

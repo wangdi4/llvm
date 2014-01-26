@@ -39,18 +39,18 @@ File Name:  CPUProgramBuilder.cpp
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/DataLayout.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/Argument.h"
-#include "llvm/Type.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Instructions.h"
-#include "llvm/Instruction.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/LLVMContext.h"
 #include "CPUProgramBuilder.h"
 #include "CPUJITContainer.h"
 #include "CompilationUtils.h"
@@ -179,8 +179,9 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         if (kimd->isVectorizedKernelHasValue())
         {
             Function *pVecFunc = kimd->getVectorizedKernel();
-            assert(!(spKernelProps->GetJitCreateWIids() && pVecFunc) &&
-                "if the vector kernel is inlined the entry of the vector kernel should be NULL");
+            assert(!(spKernelProps->IsVectorizedWithTail() && pVecFunc) &&
+                   "if the vector kernel is inlined the entry of the vector "
+                   "kernel should be NULL");
             if(NULL != pVecFunc && !dontVectorize)
             {
                 KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(pVecFunc);
@@ -252,7 +253,8 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
         // Build the MemoryBuffer object from the supplied options
         std::auto_ptr<llvm::MemoryBuffer> pInjectedObj(
             llvm::MemoryBuffer::getMemBuffer( llvm::StringRef(pInjectedObjStart, injectedObjSize)) );
-        pObjectLoader->AddPreCompiled(pModule, pInjectedObj.release());
+
+        pObjectLoader->addPreCompiled(spModule, pInjectedObj.release());
         // Add the injected object to the execution engine cache
         CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
         pCPUProgram->GetExecutionEngine()->setObjectCache(pObjectLoader.release());

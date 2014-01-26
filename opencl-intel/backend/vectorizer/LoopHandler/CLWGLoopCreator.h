@@ -9,8 +9,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "BuiltinLibInfo.h"
 #include "OpenclRuntime.h"
+#include "LoopUtils.h"
 #include "llvm/Pass.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Instructions.h"
+#include <set>
 
 using namespace llvm;
 
@@ -121,30 +123,6 @@ private:
                 m_maxVector(maxVector) {}
   };
 
-  ///@brief struct that represent loop Region in the CFG.
-  struct loopRegion {
-    BasicBlock *m_preHeader; // Pre header block of the loop.
-    BasicBlock *m_exit;      // Exit block of the loop.
-
-    ///@brief C'tor.
-    loopRegion (BasicBlock *preHeader, BasicBlock *exit):
-                m_preHeader(preHeader), m_exit(exit)
-               {}               
-  };
-
-  ///@brief Helpful shortcuts for structures.
-  typedef SmallVector<Value*, 4> VVec;
-  typedef SmallVector<Instruction*, 4> IVec;
-  typedef SmallVector<IVec, 4> IVecVec;
-    
-  ///@brief creates loop with loopSize iterations arround the CFG region that
-  ///       begins in head and finishes in latch.
-  ///@param head - The of the created loop.
-  ///@param latch - The latch block of the created loop.
-  ///@param loopSize - Number of loop iterations.
-  ///@returns struct with pre header and exit block fot the created loop.
-  loopRegion createLoop(BasicBlock *head, BasicBlock *latch, Value *loopSize);
-
   ///@brief computes the sizes of scalar and vector loops of the zero
   ///       dimension in case vector kernel exists.
   ///@param initVal - Initial global id of zero dimension.
@@ -166,11 +144,6 @@ private:
   ///returns kernel single return instruction.
   ReturnInst *getFunctionData(Function *F, IVecVec &gids, IVecVec &lids);
 
-  ///@brief collect the get_***_id() in F.
-  ///@param name - name of the tid generator get_global_id\ get_local_id.
-  ///@param tidCalls - array of get_***_id call to fill.
-  ///@param F - kernel to collect information for.
-  void collectTIDCallInst(const char *name, IVecVec &tidCalls, Function *F);
 
   ///@brief retruns single return instruction of F, if needed merge returns.
   ///@retruns as above.
@@ -306,7 +279,6 @@ private:
 
   ///@brief early exit call.
   CallInst *m_EECall;
-
 };// CLWGLoopCreator
 } //namespace
 

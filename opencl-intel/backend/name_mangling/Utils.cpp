@@ -27,6 +27,7 @@ namespace reflection {
     "float",
     "double",
     "void",
+    "...",
     "image1d_t",
     "image2d_t",
     "image2d_depth_t",
@@ -35,6 +36,10 @@ namespace reflection {
     "image1d_array_t",
     "image2d_array_t",
     "image2d_array_depth_t",
+    "event_t",
+    "clk_event_t",
+    "queue_t",
+    "pipe_t",
     "sampler_t"
   };
 
@@ -52,15 +57,20 @@ namespace reflection {
     "f",  //FLOAT
     "d",  //DOUBLE
     "v",  //VOID
-    "11ocl_image1d",            //PRIMITIVE_IMAGE_1D_T,
-    "11ocl_image2d",            //PRIMITIVE_IMAGE_2D_T,
-    "16ocl_image2ddepth",       //PRIMITIVE_IMAGE_2D_DEPTH_T,
-    "11ocl_image3d",            //PRIMITIVE_IMAGE_3D_T,
-    "17ocl_image1dbuffer",      //PRIMITIVE_IMAGE_1D_BUFFER_T,
-    "16ocl_image1darray",       //PRIMITIVE_IMAGE_1D_ARRAY_T,
-    "16ocl_image2darray",       //PRIMITIVE_IMAGE_2D_ARRAY_T,
-    "21ocl_image2darraydepth",  //PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T,
-    "11ocl_sampler"             //SAMPLER_T
+    "z",  //VarArg
+    "11ocl_image1d",            //PRIMITIVE_IMAGE_1D_T
+    "11ocl_image2d",            //PRIMITIVE_IMAGE_2D_T
+    "16ocl_image2ddepth",       //PRIMITIVE_IMAGE_2D_DEPTH_T
+    "11ocl_image3d",            //PRIMITIVE_IMAGE_3D_T
+    "17ocl_image1dbuffer",      //PRIMITIVE_IMAGE_1D_BUFFER_T
+    "16ocl_image1darray",       //PRIMITIVE_IMAGE_1D_ARRAY_T
+    "16ocl_image2darray",       //PRIMITIVE_IMAGE_2D_ARRAY_T
+    "21ocl_image2darraydepth",  //PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T
+    "9ocl_event",               //PRIMITIVE_EVENT_T
+    "13ocl_clk_event",          //PRIMITIVE_CLK_EVENT_T
+    "9ocl_queue",               //PRIMITIVE_QUEUE_T
+    "8ocl_pipe",                //PRIMITIVE_PIPE_T
+    "11ocl_sampler"             //PRIMITIVE_SAMPLER_T
   };
 
   const char* readableAttribute[ATTR_NUM] = {
@@ -94,8 +104,8 @@ namespace reflection {
   }
 
   std::string llvmPrimitiveString(TypePrimitiveEnum t) {
-    assert(t >= PRIMITIVE_IMAGE_1D_T && t <= PRIMITIVE_IMAGE_2D_ARRAY_T &&
-      "assuming image primitive type only!");
+    assert(t >= PRIMITIVE_STRUCT_FIRST && t <= PRIMITIVE_STRUCT_LAST &&
+      "assuming struct primitive type only!");
     return std::string("opencl.") + std::string(PrimitiveNames[t]);
   }
 

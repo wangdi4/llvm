@@ -26,28 +26,26 @@ entry:
 }
 
 
-; CHECK:      declare void @__functionWithoutArgs_original() nounwind
-; CHECK:      declare i32 @__functionWithArgs_original(i32, i32) nounwind
+; CHECK:      declare void @__functionWithoutArgs_before.AddImplicitArgs() #0
+; CHECK:      declare i32 @__functionWithArgs_before.AddImplicitArgs(i32, i32) #0
 
 ; CHECK:      define void @functionWithoutArgs(i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
-; CHECK:          i32* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) nounwind {
+; CHECK:          {}* noalias %RuntimeHandle) #0 {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   %x = add i32 100, 10
 ; CHECK-NEXT:   ret void
 
 ; CHECK:      define i32 @functionWithArgs(i32 %x, i32 %y,
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
-; CHECK:          i32* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) nounwind {
+; CHECK:          {}* noalias %RuntimeHandle) #0 {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:   %temp = add i32 %x, 10
 ; CHECK-NEXT:   %res = mul i32 %temp, %y
@@ -55,28 +53,28 @@ entry:
 
 ; CHECK:      define i32 @caller(i32 %x, i32 %y,
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
-; CHECK:          i32* noalias %pCurrWI,
-; CHECK:          {}* noalias %RuntimeContext) {
+; CHECK:          {}* noalias %RuntimeHandle) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   %pLocalMem_functionWithoutArgs = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 0
 ; CHECK-NEXT:   call void @functionWithoutArgs(i8 addrspace(3)* %pLocalMem_functionWithoutArgs,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* %pWorkDim,
 ; CHECK:          i32* %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* %pSpecialBuf,
-; CHECK:          i32* %pCurrWI,
-; CHECK:          {}* %RuntimeContext)
+; CHECK:          {}* %RuntimeHandle)
 ; CHECK-NEXT:   %pLocalMem_functionWithArgs = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 0
 ; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = call i32 @functionWithArgs(i32 %x, i32 %y,
 ; CHECK:          i8 addrspace(3)* %pLocalMem_functionWithArgs,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], i32, {}*, [4 x i32]* }* %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* %pWorkDim,
 ; CHECK:          i32* %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* %pSpecialBuf,
-; CHECK:          i32* %pCurrWI,
-; CHECK:          {}* %RuntimeContext)
+; CHECK:          {}* %RuntimeHandle)
 ; CHECK-NEXT:   ret i32 [[VAR2]]
+
+; CHECK: attributes #0 = { nounwind }
+

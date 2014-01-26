@@ -63,6 +63,8 @@ set(CUSTOM_MAPPINGS_GEN
 else(NOT APPLE)
 set(BUILT_IN_LIST_H
   apple_include/BuiltinList.h
+  apple_include/BuiltinList32.h
+  apple_include/BuiltinList64.h
 )
 endif(NOT APPLE)
 

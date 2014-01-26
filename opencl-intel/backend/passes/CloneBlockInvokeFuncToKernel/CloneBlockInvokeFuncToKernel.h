@@ -9,8 +9,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __CLONE_BLOCK_INVOKE_FUNC_TO_KERNEL_H__
 
 #include "llvm/Pass.h"
-#include "llvm/Module.h"
-
+#include "llvm/IR/Module.h"
+#include "llvm/IR/DataLayout.h"
 /*
     CloneBlockInvokeFuncToKernelPass pass finds in module
     all blockInvoke functions that may be enqueued as kernels
@@ -18,17 +18,23 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
       -- remove internal linkage type from blockInvoke. In order to have it in global values map
       -- creates kernel with name org_name+_kernel. Update opencl.kernels metadata
 */
-
 namespace intel {
   using namespace llvm;
   struct CloneBlockInvokeFuncToKernel : public ModulePass {
     static char ID;
     /// ctor
     CloneBlockInvokeFuncToKernel()
-      : ModulePass(ID) {}
+      : ModulePass(ID), m_pModule(0), m_pContext(0), m_pTD(0)
+    {}
 
     /// main function
     virtual bool runOnModule(Module &M);
+
+  private:
+      size_t computeBlockLiteralSize(Function *F);
+      Module *m_pModule;
+      LLVMContext *m_pContext;
+      DataLayout *m_pTD;
 
   }; // struct CloneBlockInvokeFuncToKernel
 
