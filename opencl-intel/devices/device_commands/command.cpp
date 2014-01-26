@@ -46,11 +46,16 @@ bool DeviceCommand::AddWaitListDependencies(const clk_event_t* pEventWaitList, c
 	{		
 		DeviceCommand& waitingForCmd = *(DeviceCommand*)pEventWaitList[i];
 		OclAutoMutex mutex(&waitingForCmd.m_mutex);	// we must protect from a race between waitingForCmd.m_bCompleted becoming true and adding this to its m_waitingCommandsForThis
-		if (!waitingForCmd.m_bCompleted)
+
+		if (waitingForCmd.m_bCompleted)	// this case is less common
 		{
-            bAllEventsCompleted = false;			
+			m_numDependencies--;
 		}
-		waitingForCmd.m_waitingCommandsForThis.push_back(this);
+		else
+		{
+			bAllEventsCompleted = false;			
+			waitingForCmd.m_waitingCommandsForThis.push_back(this);
+		}
         m_commandsThisIsWaitingFor[i] = &waitingForCmd;
 	}
 	return bAllEventsCompleted;
@@ -83,9 +88,9 @@ void DeviceCommand::SignalComplete(cl_dev_err_code err)
 	{
 		const unsigned long long ulCompleteTime = HostTime();
         m_ulCompleteTime = ulCompleteTime - m_ulStartExecTime;
-		if (NULL != m_pExecTimeUserPtr)
+		if (NULL != m_pProfInfoUserPtr)
 		{
-			((cl_long*)m_pExecTimeUserPtr)[1] = m_ulExecTime;
+			m_pProfInfoUserPtr->m_ulCompleteTime = m_ulCompleteTime;
 		}
 	}
 
@@ -113,9 +118,9 @@ void DeviceCommand::StopExecutionProfiling()
 	{
 		const unsigned long long ulEndExecTime = HostTime();
 		m_ulExecTime = ulEndExecTime - m_ulStartExecTime;
-		if (NULL != m_pExecTimeUserPtr)
+		if (NULL != m_pProfInfoUserPtr)
 		{
-			*(cl_long*)m_pExecTimeUserPtr = m_ulExecTime;
+			m_pProfInfoUserPtr->m_ulExecTime = m_ulExecTime;
 		}
 	}
 }
@@ -127,6 +132,6 @@ bool DeviceCommand::SetExecTimeUserPtr(volatile void* pExecTimeUserPtr)
 	{
 		return false;
 	}
-	m_pExecTimeUserPtr = pExecTimeUserPtr;
+	m_pProfInfoUserPtr = (ProfilingInfo*)pExecTimeUserPtr;
 	return true;
 }
