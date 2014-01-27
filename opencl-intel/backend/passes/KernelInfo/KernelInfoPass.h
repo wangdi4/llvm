@@ -9,9 +9,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __KERNEL_INFO_H__
 
 #include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Constants.h"
+#include "llvm/Module.h"
+#include "llvm/Instructions.h"
+#include "llvm/Constants.h"
 #include "llvm/Analysis/LoopInfo.h"
 
 #include <map>
@@ -35,7 +35,7 @@ namespace intel {
     /// Pass identification, replacement for typeid
     static char ID;
 
-    /// @brief Constructor 
+    /// @brief Constructor
     KernelInfoWrapper() : ModulePass(ID) {
     }
 
@@ -58,7 +58,7 @@ namespace intel {
     /// Pass identification, replacement for typeid
     static char ID;
 
-    /// @brief Constructor 
+    /// @brief Constructor
     KernelInfoPass(Intel::MetaDataUtils *mdUtils) : FunctionPass(ID), m_mdUtils(mdUtils) {
       initializeLoopInfoPass(*PassRegistry::getPassRegistry());
     }
@@ -83,6 +83,11 @@ namespace intel {
     /// @brief checks if the function has a barrier in it
     /// @param pFunc ptr to function
     bool containsBarrier(Function *pFunc);
+
+    /// @brief checks if the function has a global sync built-ins
+    ///        (like atom_add to global memory) in it
+    /// @param pFunc ptr to function
+    bool containsGlobalSync(Function *pFunc);
 
     /// @brief returns approximation of the execution lenght of the given func
     /// @param pFunc ptr to function
