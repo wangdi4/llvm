@@ -23,7 +23,7 @@ extern "C" Pass* createBuiltinLibInfoPass(Module* pRTModule, std::string type);
 
 void initializeOCLPasses(PassRegistry &Registry)
 {
-    intel::initializeShuffleCallToInstPass(Registry);
+    intel::initializeBuiltinCallToInstPass(Registry);
     intel::initializeBIImportPass(Registry);
     intel::initializeBuiltinLibInfoPass(Registry);
 }

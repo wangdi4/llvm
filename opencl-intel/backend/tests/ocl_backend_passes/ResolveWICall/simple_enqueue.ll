@@ -39,7 +39,7 @@ entry:
   %1 = load %opencl.ndrange_t** %ndrange, align 8
   %2 = load void ()** %kernelBlock, align 8
 
-; CHECK: %call2 = call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE(%opencl.queue_t* %0, i32 2, %opencl.ndrange_t* %1, void ()* %2) nounwind readnone
+; CHECK: %call2 = call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE(%opencl.queue_t* %0, i32 2, %opencl.ndrange_t* %1, void ()* %2)
   %call2 = call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE(%opencl.queue_t* %0, i32 2, %opencl.ndrange_t* %1, void ()* %2) nounwind readnone
   store i32 %call2, i32* %enq_res, align 4
   ret void

@@ -91,8 +91,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
   bool isGenericAddrBI(const Function *pFunc) {
     StringRef funcName = pFunc->getName();
-    if (funcName == "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE")
-      return true;
     std::string tmp = funcName.str();
     const char *funcNameStr = tmp.c_str();
     funcName = isMangledName(funcNameStr)? stripName(funcNameStr) : funcName;
@@ -202,13 +200,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
     assert(isMangledName(origMangledName.c_str()) && "Function name is expected to be mangled!");
 
-    // Workaround due to missing functionality in Mangler to demangle/mangle the
-    // strings below
-    // CSSD100018370
-    if (origMangledName == 
-             "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE")
-      return "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvvE";
-             
     reflection::FunctionDescriptor fd = demangle(origMangledName.c_str());
     //if (fd.parameters.size() != resolvedSpaces.size()) {
     //  dbgs() << origMangledName << "\n";

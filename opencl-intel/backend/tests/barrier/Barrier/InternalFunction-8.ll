@@ -38,7 +38,7 @@ L3:
 }
 
 define void @foo(i32 %x) nounwind {
-; CHECK: define void @foo(i32 %x, [3 x i32]* noalias %pLocalIdValues) nounwind {
+; CHECK: define void @foo(i32 %x, [3 x i32]* noalias %pLocalIdValues)
 L1:
   call i32 @_Z12get_local_idj(i32 0)
   br label %L2

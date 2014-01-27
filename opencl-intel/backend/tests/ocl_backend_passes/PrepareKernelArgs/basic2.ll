@@ -6,7 +6,7 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocap
   ret void
 }
 
-; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle)
+; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle) {
 ; CHECK: %0 = getelementptr i8* %pUniformArgs, i32 0
 ; CHECK: %1 = bitcast i8* %0 to i32 addrspace(1)**
 ; CHECK: %explicit_0 = load i32 addrspace(1)** %1, align 8
@@ -53,7 +53,7 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocap
 ; CHECK: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
 ; CHECK: call void @__A_separated_args(i32 addrspace(1)* %explicit_0, i32 %explicit_1, i32 addrspace(1)* %explicit_2, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], {}*, {}* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, {}* %RuntimeHandle)
 ; CHECK: ret void
-; CHECK: attributes #0 = { alwaysinline nounwind }
+; CHECK: attributes #1 = { alwaysinline nounwind }
 
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}

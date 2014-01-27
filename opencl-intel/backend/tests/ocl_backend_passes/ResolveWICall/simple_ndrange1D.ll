@@ -8,9 +8,9 @@ declare %opencl.ndrange_t* @_Z10ndrange_1Dmm(i64, i64) nounwind readnone
 declare %opencl.ndrange_t* @_Z10ndrange_1Dmmm(i64, i64, i64) nounwind readnone
 
 define void @enqueue_simple_block(i32 addrspace(1)* %res) nounwind {
-; CHECK: %call1 = call %opencl.ndrange_t* @_Z10ndrange_1Dm(i64 1) nounwind readnone
-; CHECK: %call2 = call %opencl.ndrange_t* @_Z10ndrange_1Dmm(i64 1, i64 2) nounwind readnone
-; CHECK: %call3 = call %opencl.ndrange_t* @_Z10ndrange_1Dmmm(i64 1, i64 2, i64 3) nounwind readnone
+; CHECK: %call1 = call %opencl.ndrange_t* @_Z10ndrange_1Dm(i64 1)
+; CHECK: %call2 = call %opencl.ndrange_t* @_Z10ndrange_1Dmm(i64 1, i64 2)
+; CHECK: %call3 = call %opencl.ndrange_t* @_Z10ndrange_1Dmmm(i64 1, i64 2, i64 3)
   %call1 = call %opencl.ndrange_t* @_Z10ndrange_1Dm(i64 1) nounwind readnone
   %call2 = call %opencl.ndrange_t* @_Z10ndrange_1Dmm(i64 1, i64 2) nounwind readnone
   %call3 = call %opencl.ndrange_t* @_Z10ndrange_1Dmmm(i64 1, i64 2, i64 3) nounwind readnone

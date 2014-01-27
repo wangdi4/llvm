@@ -18,7 +18,7 @@ set(OCL_BE_PASSES
     PreventDivCrashes
     RelaxedPass
     ShiftZeroUpperBits
-    ShuffleCallToInst
+    BuiltinCallToInst
     Prefetch
     LinearIdResolver
     LLVMBarrier

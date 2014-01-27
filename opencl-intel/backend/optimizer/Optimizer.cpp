@@ -51,7 +51,7 @@ llvm::Pass* createLoopStridedCodeMotionPass();
 llvm::Pass* createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
 llvm::Pass *createShiftZeroUpperBitsPass();
-llvm::Pass *createShuffleCallToInstPass();
+llvm::Pass *createBuiltinCallToInstPass();
 llvm::Pass *createRelaxedPass();
 llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createKernelAnalysisPass();
@@ -291,7 +291,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   if (!pConfig->GetLibraryModule() && getenv("DISMPF") != NULL)
     PM.add(createRemovePrefetchPass());
 #endif //#ifndef __APPLE__
-  PM.add(createShuffleCallToInstPass());
+  PM.add(createBuiltinCallToInstPass());
   bool has_bar = false;
   if (!pConfig->GetLibraryModule())
     has_bar = hasBarriers(M);
@@ -488,7 +488,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   if(pRtlModule != NULL) {
     PM.add(createBuiltInImportPass()); // Inline BI function
     //Need to convert shuffle calls to shuffle IR before running inline pass on built-ins
-    PM.add(createShuffleCallToInstPass());
+    PM.add(createBuiltinCallToInstPass());
   }
 
   //funcPassMgr->add(new intel::SelectLower());

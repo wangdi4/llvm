@@ -76,10 +76,16 @@ namespace llvm {
             LONGDOUBLE,
             IMAGE_1D_T,
             IMAGE_2D_T,
+            IMAGE_2D_DEPH_T,
             IMAGE_3D_T,
             IMAGE_1D_BUFFER_T,
             IMAGE_1D_ARRAY_T,
             IMAGE_2D_ARRAY_T,
+            IMAGE_2D_ARRAY_DEPH_T,
+            EVENT_T,
+            CLK_EVENT_T,
+            QUEUE_T,
+            PIPE_T,
             SAMPLER_T,
             INVALID = 255
         };

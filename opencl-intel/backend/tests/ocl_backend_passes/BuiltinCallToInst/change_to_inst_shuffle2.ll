@@ -1,4 +1,4 @@
-; RUN: opt -shuffle-call-to-inst -S %s -o %t.ll
+; RUN: opt -builtin-call-to-inst -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 ; CHECK: @sample_test

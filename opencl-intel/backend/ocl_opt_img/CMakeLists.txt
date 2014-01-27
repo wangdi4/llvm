@@ -12,7 +12,7 @@ add_executable(${TARGET_NAME}
 set(OCL_BE_PASSES
     BuiltInFuncImport
     BuiltinLibInfo
-    ShuffleCallToInst
+    BuiltinCallToInst
 )
 
 # Dependencies of the passes

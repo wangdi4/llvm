@@ -438,7 +438,7 @@ inline
 void TEDevice::Execute(F& f)
 {
     assert (1 == m_deviceDescriptor.uiNumOfLevels && "Currently we support single level arenas");
-#ifdef __HARD_TRAPPING__
+#if defined(__HARD_TRAPPING__) && !defined(DEVICE_NATIVE)
     assert (m_worker_trapper == NULL && "Execute() is not allowed on device with trapped workers");
 #endif
 

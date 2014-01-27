@@ -332,6 +332,11 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
                         STRCAT_S(szKernelsNames, total_length, pszKernelNames[i]);  
                     }
 
+                    for (size_t i = 0; i < uiNumKernels; ++i)
+                    {
+                        delete[] pszKernelNames[i];
+                    }
+
 			        szParamValueSize = sizeof(char) * total_length;
                     pValue = szKernelsNames;
 		            break;

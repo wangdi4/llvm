@@ -13,7 +13,7 @@ entry:
   %queue = load %opencl.queue_t** %pqueue
   %arraydecay = getelementptr inbounds [3 x %opencl.clk_event_t*]* %events, i64 0, i64 0
 ; Call should remain unchanged since it is in the built-in library
-; CHECK: %call1 = call i32 @_Z14enqueue_marker9ocl_queuejPK13ocl_clk_eventP13ocl_clk_event(%opencl.queue_t* %queue, i32 2, %opencl.clk_event_t** %arraydecay, %opencl.clk_event_t** %marker_event) nounwind
+; CHECK: %call1 = call i32 @_Z14enqueue_marker9ocl_queuejPK13ocl_clk_eventP13ocl_clk_event(%opencl.queue_t* %queue, i32 2, %opencl.clk_event_t** %arraydecay, %opencl.clk_event_t** %marker_event)
   %call1 = call i32 @_Z14enqueue_marker9ocl_queuejPK13ocl_clk_eventP13ocl_clk_event(%opencl.queue_t* %queue, i32 2, %opencl.clk_event_t** %arraydecay, %opencl.clk_event_t** %marker_event) nounwind
   ret void
 }

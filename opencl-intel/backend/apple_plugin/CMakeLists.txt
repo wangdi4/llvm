@@ -55,7 +55,7 @@ set (PASSES_LIBS
     RelaxedPass
     ResolveWICall
     ShiftZeroUpperBits
-    ShuffleCallToInst
+    BuiltinCallToInst
     UndefExternalFuncs
     KernelInfo
     LinearIdResolver

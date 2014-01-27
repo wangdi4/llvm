@@ -56,6 +56,14 @@ namespace reflection {
     // @return vector demangled type
     RefParamType createVectorType();
 
+    // @brief Parse and get atomics Type
+    // @return atomic demangled type
+    RefParamType createAtomicType();
+
+    // @brief Parse and get block Type
+    // @return block demangled type
+    RefParamType createBlockType();
+
     // @brief Parse and get user-defined Type
     // @param userDefinedNameLength length of user-defined type name
     // @return user-defined demangled type
