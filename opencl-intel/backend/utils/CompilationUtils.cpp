@@ -68,7 +68,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
   // Extended execution var args OpenCL 2.x
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS113ocl_clk_eventPU3AS113ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
 
   const std::string CompilationUtils::BARRIER_FUNC_NAME = "barrier";
   const std::string CompilationUtils::WG_BARRIER_FUNC_NAME = "work_group_barrier";
@@ -255,10 +255,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
     // Check is this is a block kernel (i.e. a kernel that is invoked from a
     // NDRange from an other kernel), and if so what is the size of the block
-    // literal
+    // literal. This information exists only in metadata of the scalar version.
     unsigned BlockLiteralSize = 0;
-    if (kimd->isBlockLiteralSizeHasValue()) {
-      BlockLiteralSize = kimd->getBlockLiteralSize();
+    KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(pOriginalFunc);
+    if (skimd->isBlockLiteralSizeHasValue()) {
+      BlockLiteralSize = skimd->getBlockLiteralSize();
     }
 
     KernelMetaDataHandle kmd;
@@ -847,10 +848,12 @@ bool CompilationUtils::isPrefetch(const std::string& S){
 }
 
 bool CompilationUtils::isEnqueueKernelLocalMem(const std::string& S){
+  // TODO: fix CSSD100018608 [OpenCL2.0]ExtExecution. Switch method of detetction of enqueue_kernel BI with variadic arguments to use mangler
   return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM);
 }
 
 bool CompilationUtils::isEnqueueKernelEventsLocalMem(const std::string& S){
+  // TODO: fix CSSD100018608 [OpenCL2.0]ExtExecution. Switch method of detetction of enqueue_kernel BI with variadic arguments to use mangler
   return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM);
 }
 
