@@ -8,6 +8,7 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/backend/passes
   ${CMAKE_SOURCE_DIR}/backend/utils
   ${CMAKE_SOURCE_DIR}/backend/metadata_api
+  ${CMAKE_BINARY_DIR}/include
 )
 
 add_library(${TARGET_NAME}
