@@ -10,27 +10,26 @@ else (APPLE)
 endif (APPLE)
 
 add_custom_command(
-   OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h
-   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/gen
-   COMMAND ${MAKO_GENERATOR_CMD} ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApi.h.mak ${SCHEMA_FILE} -o ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h
+   OUTPUT  ${CMAKE_BINARY_DIR}/include/MetaDataApi.h
+   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/include/
+   COMMAND ${MAKO_GENERATOR_CMD} ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApi.h.mak ${SCHEMA_FILE} -o ${CMAKE_BINARY_DIR}/include/MetaDataApi.h
    DEPENDS MetaDataApi.h.mak
    DEPENDS MetaDataApi.def.mak
    DEPENDS ${SCHEMA_FILE}
-   COMMENT "running ${MAKO_GENERATOR_CMD} ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApi.h.mak ${SCHEMA_FILE} -o ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h"
+   COMMENT "running ${MAKO_GENERATOR_CMD} ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApi.h.mak ${SCHEMA_FILE} -o ${CMAKE_BINARY_DIR}/include/MetaDataApi.h"
 )
 
 add_custom_command(
-   OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp
-   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/gen
-   COMMAND ${MAKO_GENERATOR_CMD} ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApi.cpp.mak ${SCHEMA_FILE} -o ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp
+   OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/MetaDataApi.cpp
+   COMMAND ${MAKO_GENERATOR_CMD} ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApi.cpp.mak ${SCHEMA_FILE} -o ${CMAKE_CURRENT_BINARY_DIR}/MetaDataApi.cpp
    DEPENDS MetaDataApi.cpp.mak
    DEPENDS MetaDataApi.def.mak
    DEPENDS ${SCHEMA_FILE}
-   COMMENT "running ${MAKO_GENERATOR_CMD} ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApi.cpp.mak ${SCHEMA_FILE} -o ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp"
+   COMMENT "running ${MAKO_GENERATOR_CMD} ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApi.cpp.mak ${SCHEMA_FILE} -o ${CMAKE_CURRENT_BINARY_DIR}/MetaDataApi.cpp"
 )
 
-set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp PROPERTIES GENERATED 1)
-set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h PROPERTIES GENERATED 1)
+set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/MetaDataApi.cpp PROPERTIES GENERATED 1)
+set_source_files_properties(${CMAKE_BINARY_DIR}/include/MetaDataApi.h PROPERTIES GENERATED 1)
 
 set(TARGET_INCLUDE_FILES
   MapList.h
@@ -39,11 +38,11 @@ set(TARGET_INCLUDE_FILES
   MetaDataObject.h
   MetaDataIterator.h
   MetaDataApiUtils.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.h
+  ${CMAKE_BINARY_DIR}/include/MetaDataApi.h
 )
 
 set(TARGET_SOURCE_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/gen/MetaDataApi.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/MetaDataApi.cpp
 )
 
 add_library(
@@ -54,7 +53,7 @@ add_library(
 )
 
 include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/gen
+  ${CMAKE_BINARY_DIR}/include/
   ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
