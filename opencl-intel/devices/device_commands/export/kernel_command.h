@@ -141,7 +141,7 @@ protected:
     /**
      * @return this KernelCommand's parent or NULL if it was enqueued from the host
      */
-    const SharedPtr<KernelCommand>& GetParent() { return m_parent; }	
+    const SharedPtr<KernelCommand>& GetParent() { return m_parent; }
 
     AtomicCounter                  m_numUserDependecies;
     SharedPtr<KernelCommand>       m_parent;

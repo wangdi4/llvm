@@ -118,7 +118,7 @@ protected:
 	 */
 	DeviceCommand(ITaskList* list, ITaskBase* pMyTaskBase) :
 	    m_err(CL_DEV_SUCCESS), m_bCompleted(false), m_ulStartExecTime(0), m_ulExecTime(0),
-	    m_pProfInfoUserPtr(NULL), m_list(list),
+	    m_pExecTimeUserPtr(NULL), m_list(list),
 		m_pMyTaskBase(pMyTaskBase), m_bIsProfilingEnabled(NULL != list ? list->IsProfilingEnabled() : false)
     { }
 
@@ -144,15 +144,6 @@ protected:
 	 */
 	void StopExecutionProfiling();    
 
-	/**
-	 * structure of void* value passed to capture_event_profiling_info
-	 */
-	struct ProfilingInfo
-	{
-		cl_ulong m_ulExecTime;		// CL_PROFILING_COMMAND_END – CL_PROFLING_COMMAND_START        
-		cl_ulong m_ulCompleteTime;	// CL_PROFILING_COMMAND_COMPLETE – CL_PROFILING_COMAMND_START
-	};
-
 private:
 	AtomicCounter m_numDependencies;
 	cl_dev_err_code m_err;
@@ -160,7 +151,7 @@ private:
 	unsigned long long m_ulStartExecTime;
 	unsigned long long m_ulExecTime;        // CL_PROFILING_COMMAND_END – CL_PROFLING_COMMAND_START
     unsigned long long m_ulCompleteTime;    // CL_PROFILING_COMMAND_COMPLETE – CL_PROFILING_COMAMND_START
-	volatile ProfilingInfo* m_pProfInfoUserPtr;
+	volatile void* m_pExecTimeUserPtr;      // a pointer to two 64-bit values: the first will hold m_ulExecTime and the second to m_ulCompleteTime
 	std::vector<SharedPtr<DeviceCommand> > m_waitingCommandsForThis;    // a list of DeviceCommands waiting for this DeviceCommand to finish
     // a list of DeviceCommands this DeviceCommand is waiting for (for holding a SharedPtr to them, so they wouldn't be deleted until this DeviceCommand is finished)
     std::vector<SharedPtr<DeviceCommand> > m_commandsThisIsWaitingFor;

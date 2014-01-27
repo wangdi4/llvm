@@ -264,9 +264,8 @@ void KernelCommand::CaptureEventProfilingInfo(clk_event_t event, clk_profiling_i
     }
     if (!pCmd->SetExecTimeUserPtr(pValue))    // otherwise the information will be available when the command completes
     {
-		ProfilingInfo& profInfo = *(ProfilingInfo*)pValue;
-		profInfo.m_ulExecTime = pCmd->GetExecutionTime();
-		profInfo.m_ulCompleteTime = pCmd->GetCompleteTime();
+        ((cl_ulong*)pValue)[0] = pCmd->GetExecutionTime();
+        ((cl_ulong*)pValue)[1] = pCmd->GetCompleteTime();
     }        
 }
 
