@@ -178,7 +178,8 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         }
         LoadObject(pProgram, spModule.get(), injectedObject->getBufferStart(),
                    injectedObject->getBufferSize());
-        system(std::string("rm " + filename + ".bc " + filename + ".ll " + filename + ".o").c_str());
+//        system(std::string("rm " + filename + ".bc " + filename + ".ll " + filename + ".o").c_str());
+        system(std::string("rm " + filename + ".bc " + filename + ".o").c_str());
 #else // ENABLE_KNL
         PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
 #endif // ENABLE_KNL
