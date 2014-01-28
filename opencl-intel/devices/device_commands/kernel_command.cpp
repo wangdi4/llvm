@@ -118,7 +118,7 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
         const void* pBlockLiteral, size_t stBlockSize, const size_t* pLocalSizes, size_t stLocalSizeCount,
         const _ndrange_t* pNDRange, const void* pHandle)
 {    
-    // verify parameters
+    // verify parameterss
     ASSERT_RET_VAL(pKernel != NULL, "Trying to enqueue with NULL kernel", CL_INVALID_KERNEL);
     if (NULL == queue || (NULL == pEventWaitList && uiNumEventsInWaitList > 0) || (NULL != pEventWaitList && 0 == uiNumEventsInWaitList) ||
         (flags != CLK_ENQUEUE_FLAGS_NO_WAIT && flags != CLK_ENQUEUE_FLAGS_WAIT_KERNEL && flags != CLK_ENQUEUE_FLAGS_WAIT_WORK_GROUP))
@@ -161,8 +161,8 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
     // update pEventRet
     if (pEventRet != NULL)
     {
-        *pEventRet = pChild.GetPtr();
-        pChild.IncRefCnt();    // it will be decremented in release_event
+        *pEventRet = static_cast<DeviceCommand*>(pChild.GetPtr());
+        pChild.IncRefCnt();    // it will decremeneted in release_event
     }
     return CL_SUCCESS;
 }
@@ -187,8 +187,8 @@ int KernelCommand::EnqueueMarker(queue_t queue, cl_uint uiNumEventsInWaitList, c
     }
     if (pEventRet != NULL)
     {
-        *pEventRet = marker.GetPtr();
-        marker.IncRefCnt();    // it will be decremented in release_event
+        *pEventRet = static_cast<DeviceCommand*>(marker.GetPtr());
+        marker.IncRefCnt();    // it will decremeneted in release_event
     }
     return CL_SUCCESS;
 }
@@ -210,7 +210,7 @@ int KernelCommand::ReleaseEvent(clk_event_t event)
     {
         return CL_INVALID_EVENT;
     }
-    DeviceCommand* pEvent = reinterpret_cast<DeviceCommand*>(event);
+    UserEvent* pEvent = reinterpret_cast<UserEvent*>(event);
     long val = pEvent->DecRefCnt();
     if ( 0 == val )
     {
@@ -264,8 +264,7 @@ void KernelCommand::CaptureEventProfilingInfo(clk_event_t event, clk_profiling_i
     }
     if (!pCmd->SetExecTimeUserPtr(pValue))    // otherwise the information will be available when the command completes
     {
-        ((cl_ulong*)pValue)[0] = pCmd->GetExecutionTime();
-        ((cl_ulong*)pValue)[1] = pCmd->GetCompleteTime();
+        *(cl_ulong*)pValue = pCmd->GetExecutionTime();
     }        
 }
 

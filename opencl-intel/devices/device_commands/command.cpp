@@ -41,17 +41,19 @@ bool DeviceCommand::AddWaitListDependencies(const clk_event_t* pEventWaitList, c
 	bool bAllEventsCompleted = true;
 	m_numDependencies.add(uiNumEventsInWaitList);
 
-    m_commandsThisIsWaitingFor.resize(uiNumEventsInWaitList);
 	for (cl_uint i = 0; i < uiNumEventsInWaitList; i++)
 	{		
 		DeviceCommand& waitingForCmd = *(DeviceCommand*)pEventWaitList[i];
-		OclAutoMutex mutex(&waitingForCmd.m_mutex);	// we must protect from a race between waitingForCmd.m_bCompleted becoming true and adding this to its m_waitingCommandsForThis
-		if (!waitingForCmd.m_bCompleted)
+		OclAutoMutex mutex(&waitingForCmd.m_mutex);	// we must protect from a race between waitingForCmd.m_bCompleted becoming true and adding this to its m_waitingCommands
+		if (waitingForCmd.m_bCompleted)	// this case is less common
 		{
-            bAllEventsCompleted = false;			
+			m_numDependencies--;
 		}
-		waitingForCmd.m_waitingCommandsForThis.push_back(this);
-        m_commandsThisIsWaitingFor[i] = &waitingForCmd;
+		else
+		{
+			bAllEventsCompleted = false;			
+			waitingForCmd.m_waitingCommands.push_back(this);
+		}
 	}
 	return bAllEventsCompleted;
 }
@@ -79,21 +81,11 @@ void DeviceCommand::NotifyCommandFinished(cl_dev_err_code err)
 
 void DeviceCommand::SignalComplete(cl_dev_err_code err)
 { 	
-    if (m_bIsProfilingEnabled)
-	{
-		const unsigned long long ulCompleteTime = HostTime();
-        m_ulCompleteTime = ulCompleteTime - m_ulStartExecTime;
-		if (NULL != m_pExecTimeUserPtr)
-		{
-			((cl_long*)m_pExecTimeUserPtr)[1] = m_ulExecTime;
-		}
-	}
-
 	SetError(err);
-	OclAutoMutex mutex(&m_mutex);	// m_bCompleted and m_waitingCommandsForThis are protected together (see AddWaitListDependencies)
+	OclAutoMutex mutex(&m_mutex);	// m_bCompleted and m_waitingCommands are protected together (see AddWaitListDependencies)
 	m_bCompleted = true;
 	
-	for (std::vector<SharedPtr<DeviceCommand> >::iterator iter = m_waitingCommandsForThis.begin(); iter != m_waitingCommandsForThis.end(); iter++)
+	for (std::vector<SharedPtr<DeviceCommand> >::iterator iter = m_waitingCommands.begin(); iter != m_waitingCommands.end(); iter++)
 	{
 		(*iter)->NotifyCommandFinished(GetError());
 	}
