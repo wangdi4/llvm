@@ -14,14 +14,7 @@ entry:
 
 define %opencl.reserve_id_t* @callee(%opencl.pipe_t addrspace(1)* nocapture %p, %opencl.reserve_id_t** %prid, i32 %packet) nounwind {
 entry:
-;; %rid = call %opencl.reserve_id_t* @load(%opencl.reserve_id_t** %prid)
-;; FIXME: Internal to the library function calls with opaque arguments are handled incorrectly.
-;;        To overcome this issue __attribute__((always_inline)) may be used.
-;;        The Module Verifier crashes with the following assertion:
-;;            Call parameter type does not match function signature!
-;;            %opencl.reserve_id_t** %prid
-;;             %opencl.reserve_id_t.1**  %rid = call %opencl.reserve_id_t.1* @load(%opencl.reserve_id_t** %prid)
-  %rid = load %opencl.reserve_id_t** %prid, align 8
+ %rid = call %opencl.reserve_id_t* @load(%opencl.reserve_id_t** %prid)
   %conv = sext i32 %packet to i64
   %astype = inttoptr i64 %conv to %opencl.reserve_id_t*
   %null = bitcast i32* null to %opencl.reserve_id_t* 

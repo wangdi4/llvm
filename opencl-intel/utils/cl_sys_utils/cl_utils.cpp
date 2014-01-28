@@ -460,19 +460,17 @@ const string commandQueuePropertiesToString(const cl_command_queue_properties& p
 
 const string deviceTypeToString(const cl_device_type& type)
 {
-	string str = "";
-	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_DEVICE_TYPE_DEFAULT,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_DEVICE_TYPE_CPU,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_DEVICE_TYPE_GPU,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_DEVICE_TYPE_ACCELERATOR,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_DEVICE_TYPE_CUSTOM,str);
-	IF_DEFINE_APPEND_STRING_DEFAULT(type,CL_DEVICE_TYPE_ALL,str);
-	if ( type == 0)
-		return "None";
-	if ( str == "")
-		return "Not Recognized: " + stringify(type);
-
-	return str.substr(strlen(DEFAULT_PREFIX));
+    switch(type)
+    {
+        CASE_DEFINE_RETURN_STRING(CL_DEVICE_TYPE_DEFAULT);
+        CASE_DEFINE_RETURN_STRING(CL_DEVICE_TYPE_CPU);
+        CASE_DEFINE_RETURN_STRING(CL_DEVICE_TYPE_GPU);
+        CASE_DEFINE_RETURN_STRING(CL_DEVICE_TYPE_ACCELERATOR);
+        CASE_DEFINE_RETURN_STRING(CL_DEVICE_TYPE_CUSTOM);
+        CASE_DEFINE_RETURN_STRING(CL_DEVICE_TYPE_ALL);
+        default:
+            return "Not Recognized: " + stringify(type);
+    }
 }
 const string fpConfigToString(const cl_device_fp_config& fp_config)
 {
@@ -1501,6 +1499,20 @@ bool GetCpuPath( char *pCpuPath, size_t bufferSize )
     if( NULL != pCpuPath )
     {
         return GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, "cpu_path", pCpuPath, bufferSize );
+    }
+#endif
+    return false;
+}
+
+bool GetCpuVersion( char *pCpuVersion, size_t bufferSize )
+{
+    #if defined( _WIN32 )
+    const char *regPath = "SOFTWARE\\Intel\\OpenCL";
+
+    // pCpuPath is expected to be MAX_PATH in size
+    if( NULL != pCpuVersion )
+    {
+        return GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, "cpu_version", pCpuVersion, bufferSize );
     }
 #endif
     return false;

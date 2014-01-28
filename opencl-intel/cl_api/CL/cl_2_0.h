@@ -36,6 +36,7 @@ extern "C" {
 #define CL_ENQUEUE_FAILURE                          -101
 #define CL_INVALID_QUEUE                            -102
 #define CL_INVALID_PIPE_SIZE                        -69
+#define CL_INVALID_DEVICE_QUEUE                     -70
 
 #define CL_sRGB                                     0x10BF
 #define CL_sRGBx                                    0x10C0
@@ -88,6 +89,8 @@ extern "C" {
 
 /* cl_filter_mode */
 #define CL_FILTER_NONE                              0x1142
+
+#define CL_PROFILING_COMMAND_COMPLETE               0x1284
 
 /* cl_sampler_info */
 #define CL_SAMPLER_MIP_FILTER_MODE                  0x1155

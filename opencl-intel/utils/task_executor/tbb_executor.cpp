@@ -407,7 +407,7 @@ unsigned int TBBTaskExecutor::GetPosition( unsigned int level ) const
 
 SharedPtr<ITaskGroup> TBBTaskExecutor::CreateTaskGroup(const SharedPtr<ITEDevice>& device)
 { 
-    return TaskGroup::Allocate(static_cast<TEDevice&>(*device));
+    return TaskGroup::Allocate(static_cast<TEDevice*>(device.GetPtr()));
 }
 
 }}}//namespace Intel, namespace OpenCL, namespace TaskExecutor

@@ -82,7 +82,7 @@ public:
      * @param device the TEDevice for enqueuing and executing tasks
      * @return a new TaskGroup
      */
-    static SharedPtr<TaskGroup> Allocate(TEDevice& device)
+    static SharedPtr<TaskGroup> Allocate(TEDevice* device)
     {
       return new TaskGroup(device);
     }
@@ -118,7 +118,7 @@ private:
      * Constructor
      * @param device the TEDevice for enqueuing and executing tasks
      */
-    TaskGroup(TEDevice& device) :
+    TaskGroup(TEDevice* device) :
         m_taskGroupContext(tbb::task_group_context::bound, tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait),
         m_rootTask(*new(tbb::task::allocate_root(m_taskGroupContext)) tbb::empty_task()), m_device(device)
     {
@@ -127,7 +127,7 @@ private:
 
     tbb::task_group_context m_taskGroupContext;
     tbb::empty_task& m_rootTask;  // an empty task whose reference count represents the number of enqueued tasks that haven't been completed
-    TEDevice& m_device;
+    TEDevice* m_device;
 
     // auxiliary functor classes to be replaced by lambda functions
     class ArenaFunctor
@@ -224,7 +224,7 @@ public:
         m_taskGroup->WaitForAll();
     }
 
-    TEDevice& GetTEDevice() { return *m_device; }
+    TEDevice* GetTEDevice() { return m_device.GetPtr(); }
 
     virtual TE_CMD_LIST_PREFERRED_SCHEDULING GetPreferredScheduler() const { return m_scheduling;}
 	
@@ -331,7 +331,7 @@ private:
     SharedPtr<TaskGroup>			 m_ndrangeChildrenTaskGroup;
 
     in_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
-		base_command_list(pTBBExec, device, param), m_ndrangeChildrenTaskGroup(TaskGroup::Allocate(*device))  {}
+		base_command_list(pTBBExec, device, param), m_ndrangeChildrenTaskGroup(TaskGroup::Allocate(device.GetPtr()))  {}
 
 };
 

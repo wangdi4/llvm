@@ -95,7 +95,7 @@ public:
     bool           Device_IgnoreLastCore()  const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_IGNORE_LAST_CORE, true); }
     size_t         Device_2MB_BufferMinSizeInKB() const { return m_pConfigFile->Read<size_t>(CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB, 1); }
     unsigned int   Device_TbbGrainSize()    const { return m_pConfigFile->Read<unsigned int>(CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, 1); }
-    string         Device_TbbScheduler()    const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, "auto"); }
+    string         Device_TbbScheduler()    const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, "opencl"); }
     string         Device_TbbBlockOptimization() const { return m_pConfigFile->Read<string>(CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION, "rows"); }
     bool           Device_TbbTrapWorkers()  const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS, false); }
     bool           Device_LazyTransfer()    const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER, false); }
@@ -154,7 +154,7 @@ private:
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_2MB_BUF_MINSIZE_KB, Device_2MB_BufferMinSizeInKB, "0 - disabled, !=0 - minimum size of buffer in kilobytes to use 2MB pages"  );
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_2MB_POOL_INIT_SIZE_MB, Device_Initial2MBPoolSizeInMB, "0 - disabled, !=0 - initial size of 2MB pages pool"  );
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_GRAIN_SIZE, Device_TbbGrainSize, "must not be 0, recommended number of WGs to schedule for same thread" );
-        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, Device_TbbScheduler, "affinity - tbb:affinity_partitioner, other - tbb::auto_partitioner" );
+        MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_SCHEDULER, Device_TbbScheduler, "opencl - use tbb:opencl_partitioner, affinity - tbb:affinity_partitioner, dynamic - tbb::auto_partitioner. Default or unknown - use opencl" );
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_BLOCK_OPTIMIZATION, Device_TbbBlockOptimization, "default_TBB_tile - optimize by square tiles using TBB default implementation, columns - optimize columns, rows - optimize rows, tiles - optimize square tiles" );
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_TBB_TRAP_WORKERS, Device_TbbTrapWorkers, "1 - do not allow TBB workers to leave arena. Deadlocks if more than a single queue." );
         MICDeviceConfigPrintKey( CL_CONFIG_MIC_DEVICE_LAZY_TRANSFER, Device_LazyTransfer, "1 - perform host->device transfer only when really required");

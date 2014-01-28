@@ -59,13 +59,13 @@ add_definitions( -D__STDC_CONSTANT_MACROS )
 
 include_directories( AFTER
             ${LLVM_INCLUDE_DIR}
-            ${CMAKE_SOURCE_DIR}/backend/metadata_api/gen
             ${CMAKE_SOURCE_DIR}/backend/metadata_api
             ${CMAKE_SOURCE_DIR}/backend/plugin_manager
             ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
             ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
             ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
             ${OCL_BINARY_DIR}
+            ${CMAKE_BINARY_DIR}/include
             )
 
             

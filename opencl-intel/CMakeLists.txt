@@ -307,7 +307,7 @@ if (GIT_REVISIONS)
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                     OUTPUT_VARIABLE GIT_DESCRIPTION)
     STRING(REGEX MATCH ".+-([0-9]*)-[0-9a-zA-Z]+" GIT_VERSION ${GIT_DESCRIPTION})
-    math(EXPR BUILDVER_WC_REVISION "0 + ${CMAKE_MATCH_1}")
+    math(EXPR BUILDVER_WC_REVISION "75186 + ${CMAKE_MATCH_1}")
 
     execute_process(COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -552,6 +552,7 @@ if (WIN32)
     install(DIRECTORY tools/ocl_dev/OpenCL_Extension/bin/Release DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Extension PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/ocl_dev/OCLConverter/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/ocl_dev/OCLConverter2012/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter2012 PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/ocl_dev/OCLConverter2013/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter2013 PATTERN .svn EXCLUDE)
 
     install(DIRECTORY samples DESTINATION ${MISC_INSTALLER_FOLDER}/samples PATTERN .svn EXCLUDE)
 

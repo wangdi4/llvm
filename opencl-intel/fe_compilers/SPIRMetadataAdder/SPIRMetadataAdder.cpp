@@ -222,7 +222,7 @@ namespace {
       // Add SPIR version (1.0)
       Value *SPIRVerElts[] = {
         ConstantInt::get(Type::getInt32Ty(M.getContext()), 1),
-        ConstantInt::get(Type::getInt32Ty(M.getContext()), 0)
+        ConstantInt::get(Type::getInt32Ty(M.getContext()), 2)
       };
       llvm::NamedMDNode *SPIRVerMD =
         M.getOrInsertNamedMetadata("opencl.spir.version");
