@@ -161,19 +161,3 @@ OclBuiltinImpl mul_hi_v8i64 = OclBuiltinImpl<mul_hi, [v8i64] , 0, [{
     }
     return as_long8(*(__m512i *)tempX);
   }]>;
-
-/*****************************************************************
- * sub_sat:                                                      *
- *   gentype sub_sat (gentype x, gentype y)                      *
- *   Returns x - y saturated                                     *
-\*****************************************************************
-// sub_sat on short16
-OclBuiltinImpl sub_sat_v16i8v8i16 = OclBuiltinImpl<sub_sat, [v16i16], 0, [{
-    return as_$ReturnType(_mm256_subs_epi16((__m256i)$Arg0VarName, (__m256i)$Arg1VarName));
-  }]>;
-// sub_sat on ushort16
-OclBuiltinImpl sub_sat_v16u8v8u16 = OclBuiltinImpl<sub_sat, [v16u16], 0, [{
-    return as_$ReturnType(_mm256_subs_epu16((__m256i)$Arg0VarName, (__m256i)$Arg1VarName));
-  }]>;
-
-*/

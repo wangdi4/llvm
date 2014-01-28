@@ -272,7 +272,7 @@ void CPUProgramBuilder::LoadObject(Program* pProgram, llvm::Module* spModule,
     std::auto_ptr<llvm::MemoryBuffer> pInjectedObj(
         llvm::MemoryBuffer::getMemBuffer( llvm::StringRef(pInjectedObjStart, injectedObjSize)) );
 
-    pObjectLoader->AddPreCompiled(spModule, pInjectedObj.release());
+    pObjectLoader->addPreCompiled(spModule, pInjectedObj.release());
     // Add the injected object to the execution engine cache
     CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
     pCPUProgram->GetExecutionEngine()->setObjectCache(pObjectLoader.release());

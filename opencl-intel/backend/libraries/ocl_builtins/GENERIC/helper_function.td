@@ -68,6 +68,15 @@ let Types = [v4f64],
   def __ocl_double4ToHalf4   : OclBuiltin<"__ocl_double4ToHalf4",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
 }
 
+let Types = [v8f64],
+    Attrs = [INTERNAL_INLINE, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+  def __ocl_double8ToHalf8_rte   : OclBuiltin<"__ocl_double8ToHalf8_rte",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_double8ToHalf8_rtp   : OclBuiltin<"__ocl_double8ToHalf8_rtp",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_double8ToHalf8_rtn   : OclBuiltin<"__ocl_double8ToHalf8_rtn",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_double8ToHalf8_rtz   : OclBuiltin<"__ocl_double8ToHalf8_rtz",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+  def __ocl_double8ToHalf8   : OclBuiltin<"__ocl_double8ToHalf8",   (outs v4f32:$ret), (ins gentype:$param), [], [], 0, 0>;
+}
 // ****************************************************************************
 //                                 transpose
 // ****************************************************************************

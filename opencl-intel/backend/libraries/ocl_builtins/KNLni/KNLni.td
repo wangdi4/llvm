@@ -10,5 +10,6 @@ class KNL : AVX2 {
   include "KNLni/conversion.td"
   include "KNLni/vloadstore.td"
   include "KNLni/integers.td"
+  include "KNLni/relational.td"
 }
 
