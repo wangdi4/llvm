@@ -14,7 +14,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/vectorizer/Utils
     ${BACKEND_ROOT_DIR}/../cl_api
     ${BACKEND_ROOT_DIR}/metadata_api
-    ${BACKEND_ROOT_DIR}/metadata_api/gen
+    ${CMAKE_BINARY_DIR}/include/
 )
 
 if (APPLE)
