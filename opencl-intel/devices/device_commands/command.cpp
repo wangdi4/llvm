@@ -85,7 +85,7 @@ void DeviceCommand::SignalComplete(cl_dev_err_code err)
 	OclAutoMutex mutex(&m_mutex);	// m_bCompleted and m_waitingCommands are protected together (see AddWaitListDependencies)
 	m_bCompleted = true;
 	
-	for (std::vector<SharedPtr<DeviceCommand> >::iterator iter = m_waitingCommandsForThis.begin(); iter != m_waitingCommandsForThis.end(); iter++)
+	for (std::vector<SharedPtr<DeviceCommand> >::iterator iter = m_waitingCommands.begin(); iter != m_waitingCommands.end(); iter++)
 	{
 		(*iter)->NotifyCommandFinished(GetError());
 	}
