@@ -47,12 +47,7 @@ OclBuiltinImpl __ocl_double2half8_rtzA2 = OclBuiltinImpl<__ocl_double8ToHalf8_rt
     return as_$ReturnType(_mm256_cvtps_ph(f8, _MM_FROUND_TO_ZERO));
   }]>;
   
-code Storef_half16 = [{
-    float8 res = __ocl_float2half16($Arg0VarName);
-    vstore16(*(short16*)&res, $Arg1VarName, ($Arg2igentype)$Arg2VarName);
-  }];
-
- code Stored_half8 = [{
+code Stored_half8 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
     float4 f4 = __ocl_double8ToHalf8_rte($Arg0VarName);
     _mm_storeu_ps((float*)$Arg2VarName, f4);
@@ -103,24 +98,64 @@ code Stored_half_rtz16 = [{
     _mm_storeu_ps((float*)$Arg2VarName, t2);
   }];
 
+code Storef_half16 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
+    float8 f8 = __ocl_float2half16($Arg0VarName);
+    _mm256_storeu_ps((float*)$Arg2VarName, f8);
+  }];
+
+code Storef_half8 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
+    float4 f4 = __ocl_float2half8($Arg0VarName);
+    _mm_storeu_ps((float*)$Arg2VarName, f4);
+  }];
+
+code Storef_half_rte8 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
+    float4 f4 = __ocl_float2half8_rte($Arg0VarName);
+    _mm_storeu_ps((float*)$Arg2VarName, f4);
+  }];
+
+code Storef_half_rtp8 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
+    float4 f4 = __ocl_float2half8_rtp($Arg0VarName);
+    _mm_storeu_ps((float*)$Arg2VarName, f4);
+  }];
+
+code Storef_half_rtn8 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
+    float4 f4 = __ocl_float2half8_rtn($Arg0VarName);
+    _mm_storeu_ps((float*)$Arg2VarName, f4);
+  }];
+
+code Storef_half_rtz8 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
+    float4 f4 = __ocl_float2half8_rtz($Arg0VarName);
+    _mm_storeu_ps((float*)$Arg2VarName, f4);
+  }];
+
 code Storef_half_rte16 = [{
-    float8 res = __ocl_float2half16_rte($Arg0VarName);
-    vstore16(*(short16*)&res, $Arg1VarName, ($Arg2igentype)$Arg2VarName);
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
+    float8 f8 = __ocl_float2half16_rte($Arg0VarName);
+    _mm256_storeu_ps((float*)$Arg2VarName, f8);
   }];
 
 code Storef_half_rtp16 = [{
-    float8 res = __ocl_float2half16_rtp($Arg0VarName);
-    vstore16(*(short16*)&res, $Arg1VarName, ($Arg2igentype)$Arg2VarName);
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
+    float8 f8 = __ocl_float2half16_rtp($Arg0VarName);
+    _mm256_storeu_ps((float*)$Arg2VarName, f8);
   }];
 
 code Storef_half_rtn16 = [{
-    float8 res = __ocl_float2half16_rtn($Arg0VarName);
-    vstore16(*(short16*)&res, $Arg1VarName, ($Arg2igentype)$Arg2VarName);
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
+    float8 f8 = __ocl_float2half16_rtn($Arg0VarName);
+    _mm256_storeu_ps((float*)$Arg2VarName, f8);
   }];
 
 code Storef_half_rtz16 = [{
-    float8 res = __ocl_float2half16_rtz($Arg0VarName);
-    vstore16(*(short16*)&res, $Arg1VarName, ($Arg2igentype)$Arg2VarName);
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
+    float8 f8 = __ocl_float2half16_rtz($Arg0VarName);
+    _mm256_storeu_ps((float*)$Arg2VarName, f8);
   }];
 
 code Stored_half_rtp8 = [{
