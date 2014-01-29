@@ -304,7 +304,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/dynamic_lib
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
-    ${BACKEND_ROOT_DIR}/metadata_api/gen
+    ${CMAKE_BINARY_DIR}/include/
     ${OCL_BINARY_DIR}
 )
 

@@ -470,6 +470,13 @@ bool ThreadPool::init(
         }
     }
 
+#ifdef __HARD_TRAPPING__
+    if (gMicExecEnvOptions.trap_workers)
+    {
+        m_RootDevice->AcquireWorkerThreads( m_RootDevice->GetConcurrency() - 1 ); // do not trap master slot
+    }
+#endif __HARD_TRAPPING__
+
     return true;    
 }
 
@@ -477,6 +484,13 @@ void ThreadPool::release()
 {
     if (NULL != m_task_executor)
     {
+#ifdef __HARD_TRAPPING__
+        if (gMicExecEnvOptions.trap_workers)
+        {
+            m_RootDevice->RelinquishWorkerThreads();
+        }
+#endif __HARD_TRAPPING__
+
         m_shut_down = true;
         m_RootDevice->SetObserver(this);
 

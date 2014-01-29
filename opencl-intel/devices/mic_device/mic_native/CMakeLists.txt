@@ -390,6 +390,10 @@ list( APPEND MIC_FLAGS
                 -fPIC
                 )
 
+if (USE_HARD_TRAPPING)
+	list( APPEND MIC_FLAGS -D__HARD_TRAPPING__ )
+endif()
+
 # DEBUG flags
 if (USE_ITT_INTERNAL)
     list( APPEND MIC_FLAGS -DUSE_ITT_INTERNAL )
