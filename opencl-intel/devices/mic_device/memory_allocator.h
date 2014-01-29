@@ -171,7 +171,7 @@ public:
     bool Use_2M_Pages_Enabled( void ) const { return (m_2M_BufferMinSize > 0); };
     bool Use_2M_Pages( size_t size ) const { return Use_2M_Pages_Enabled() && (size >= m_2M_BufferMinSize); };
     bool ImmediateTransferForced( void ) const { return m_force_immediate_transfer; };
-    bool Use_NoDma_Enabled( void ) const { return m_no_dma_enabled; };
+    bool ImmediateHostPinningForced( void ) const { return m_force_immediate_host_pinning; };
 
 private:
     friend class MICDevMemoryObject;
@@ -189,7 +189,7 @@ private:
 
     size_t                   m_2M_BufferMinSize;
     bool                     m_force_immediate_transfer;
-    bool                     m_no_dma_enabled;
+    bool                     m_force_immediate_host_pinning;
 
     // singleton
     MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, unsigned long long maxAllocSize );
