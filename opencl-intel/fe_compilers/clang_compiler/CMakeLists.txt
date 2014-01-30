@@ -129,11 +129,9 @@ target_link_libraries( ${TARGET_NAME}
 )
 else() 
 
-if (NOT WIN32) 
-  if (NOT ANDROID)
-     list(APPEND LINK_LIBS pthread)
-  endif (NOT ANDROID)
-endif (NOT WIN32)
+if (NOT ANDROID)
+    list(APPEND LINK_LIBS pthread)
+endif (NOT ANDROID)
 
 
 # The list of clang libraries is taken from clang makefile
@@ -229,22 +227,22 @@ add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
                     COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12}  ${TRIPLE} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
-                    DEPENDS ${OCL_CLANG_HEADERS}/opencl_.h
+                    DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
 )
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
                     COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} ${TRIPLE} -DCPU -o ${OPENCL_PCH_OUT_DIR}/opencl20_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
-                    DEPENDS ${OCL_CLANG_HEADERS}/opencl_.h
+                    DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
                    )
-if( NOT ANDROID )
+		   
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
                     COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
-                    DEPENDS ${OCL_CLANG_HEADERS}/opencl_.h
+                    DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
                    )
 
@@ -252,24 +250,14 @@ add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
                     COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_20} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
-                    DEPENDS ${OCL_CLANG_HEADERS}/opencl_.h
+                    DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
                    )
-
-endif ()
-
-add_dependencies( ${TARGET_NAME}
-    ${CLANG}
-)
-if(NOT WIN32)
-	install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
-	install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_.pch DESTINATION bin)
-	if (NOT ANDROID)
-		install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
-		install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch DESTINATION bin)
-	endif ()
-endif ()
-
+		   
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_.pch DESTINATION bin)
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
+install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch DESTINATION bin)
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )

@@ -388,7 +388,7 @@ const int32_t  DataManagerDataTypes::BufU64VectorsNum = DataManagerDataTypes::Da
 ///   integer: U8,I8,U16,I16,U32,I32,U64,I64
 ///   float: fp16, fp32, fp64.
 ///   TODO: NEAT support
-TEST_F(DataManagerDataTypes, DataTypesXMLReadWriteCheck) {
+TEST_F(DataManagerDataTypes, DISABLED_DataTypesXMLReadWriteCheck) {
     const char INPUT_FILE_NAME[] = "testDataTypesXMLReadWriteCheck.xml";
     const char OUTPUT_FILE_NAME[] = "testDataTypesXMLReadWriteCheck.xml";
 

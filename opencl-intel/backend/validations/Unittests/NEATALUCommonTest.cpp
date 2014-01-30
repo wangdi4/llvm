@@ -682,7 +682,7 @@ class NEATDegRadTestRun : public ALUTest {
 
 typedef ::testing::Types<ValueTypeContainer<float,true>,ValueTypeContainer<float,false>,ValueTypeContainer<double,true>,ValueTypeContainer<double,false> > FloatTypesCommon2;
 TYPED_TEST_CASE(NEATDegRadTestRun, FloatTypesCommon2);
-TYPED_TEST(NEATDegRadTestRun, radians)
+TYPED_TEST(NEATDegRadTestRun, DISABLED_radians)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
     typedef typename TypeParam::Type TypeP;
@@ -705,7 +705,7 @@ TYPED_TEST(NEATDegRadTestRun, radians)
     radiansTest.Test(NEATFunc, NEATFuncVec, RefFunc, float(NEATALU::RADIANS_ERROR));
 }
 
-TYPED_TEST(NEATDegRadTestRun, degrees)
+TYPED_TEST(NEATDegRadTestRun, DISABLED_degrees)
 {
     RefALU::SetFTZmode(TypeParam::mode); // we use ValueTypeContainer type here, T::mode is FTZ mode, can be true or false
     typedef typename TypeParam::Type TypeP;
