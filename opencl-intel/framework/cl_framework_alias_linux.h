@@ -47,6 +47,7 @@ DECLARE_ALIAS(clGetSupportedImageFormats);
 DECLARE_ALIAS(clGetMemObjectInfo);
 DECLARE_ALIAS(clGetImageInfo);
 DECLARE_ALIAS(clCreateSampler);
+DECLARE_ALIAS(clCreateSamplerWithProperties);
 DECLARE_ALIAS(clRetainSampler);
 DECLARE_ALIAS(clReleaseSampler);
 DECLARE_ALIAS(clGetSamplerInfo);

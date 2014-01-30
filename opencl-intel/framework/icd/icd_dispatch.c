@@ -433,6 +433,18 @@ clCreateSampler(cl_context          context,
         errcode_ret);
 }
 
+CL_API_ENTRY cl_sampler CL_API_CALL
+clCreateSamplerWithProperties(cl_context context,
+							  const cl_sampler_properties *sampler_properties,
+							  cl_int *errcode_ret) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_HANDLE(context, CL_INVALID_CONTEXT);
+	return context->dispatch->clCreateSamplerWithProperties(
+		context,
+		sampler_properties,
+		errcode_ret);
+}
+
 CL_API_ENTRY cl_int CL_API_CALL
 clRetainSampler(cl_sampler sampler) CL_API_SUFFIX__VERSION_1_0
 {

@@ -16,6 +16,7 @@ Base {
         clCreateProgramWithBinary;
         clCreateProgramWithSource;
         clCreateSampler;
+	clCreateSamplerWithProperties;
         clEnqueueAcquireGLObjects;
         clEnqueueBarrier;
         clEnqueueCopyBuffer;

@@ -381,6 +381,15 @@ cl_sampler CL_API_CALL clCreateSampler(cl_context			context,
 	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_sampler, CreateSampler(context, normalized_coords, addressing_mode, filter_mode, errcode_ret));
 }
 SET_ALIAS(clCreateSampler);
+
+cl_sampler CL_API_CALL clCreateSamplerWithProperties(cl_context context,
+	const cl_sampler_properties *sampler_properties,
+	cl_int *errcode_ret)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_sampler, CreateSamplerWithProperties(context, sampler_properties, errcode_ret));
+}
+SET_ALIAS(clCreateSamplerWithProperties);
+
 cl_int CL_API_CALL clRetainSampler(cl_sampler sampler)
 {
 	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, RetainSampler(sampler));
