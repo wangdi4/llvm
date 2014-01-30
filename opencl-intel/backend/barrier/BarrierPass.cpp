@@ -172,6 +172,7 @@ namespace intel {
     std::vector<Function*> Worklist;
     std::set<Function*> FuncsToPatch;
     std::set<CallInst*> CIsToPatch;
+    std::map<ConstantExpr*, Function*> ConstBitcastsToPatch;
     std::vector<std::string> TIDFuncNames;
     using namespace Intel::OpenCL::DeviceBackend;
     TIDFuncNames.push_back(CompilationUtils::mangledGetLID());
@@ -200,6 +201,16 @@ namespace intel {
       Function *CalledF = Worklist[WorkListIdx];
       for (Function::use_iterator UI = CalledF->use_begin(), UE = CalledF->use_end();
            UI != UE; ++UI) {
+
+        // OCL2.0. handle constant expression with bitcast of function pointer
+        if(ConstantExpr *CE = dyn_cast<ConstantExpr>(*UI)) {
+          if(CE->getOpcode() == Instruction::BitCast &&
+            CE->getType()->isPointerTy()){
+            ConstBitcastsToPatch[CE] = CalledF;
+            continue;
+          }
+        }
+
         CallInst *CI = dyn_cast<CallInst>(*UI);
         if (!CI) continue;
         CIsToPatch.insert(CI);
@@ -255,6 +266,20 @@ namespace intel {
       Value* NewArg = m_pBarrierKeyValuesPerFunction.find(CallingF)->second.m_pLocalIdValues;
       SmallVector<Value *, 1> NewArgs(1, NewArg);
       CompilationUtils::AddMoreArgsToCall(CI, NewArgs, PatchedF);
+    }
+
+    // Patch the constant function ptr addr bitcasts. Used in OCL20. Extended execution
+    for (std::map<ConstantExpr*, Function*>::iterator I = ConstBitcastsToPatch.begin(),
+      E = ConstBitcastsToPatch.end();
+      I != E; ++I) {
+        ConstantExpr *CE = I->first;
+        Function* CalledF = I->second;
+        assert(OldF2PatchedF.find(CalledF) != OldF2PatchedF.end() && 
+          "expected to find patched function in map");
+        Function *PatchedF = OldF2PatchedF[CalledF];
+        // this case happens when global block variable is used
+        Constant *newCE = ConstantExpr::getBitCast(PatchedF, CE->getType());
+        CE->replaceAllUsesWith(newCE);
     }
 }
 

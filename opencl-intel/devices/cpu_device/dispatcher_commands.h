@@ -73,7 +73,8 @@ protected:
 
     cl_dev_err_code ExtractNDRangeParams(void* pTargetTaskParam, const cl_kernel_argument*   pParams, 
                                          const unsigned int* pMemObjectIndx, unsigned int uiMemObjCount,
-                                         std::vector<cl_mem_obj_descriptor*>* devMemObjects);
+                                         std::vector<cl_mem_obj_descriptor*>* devMemObjects,
+                                         std::vector<char>* kernelParamsVec);
 
     TaskDispatcher*             m_pTaskDispatcher;
     ITaskList*                  m_pTaskList;

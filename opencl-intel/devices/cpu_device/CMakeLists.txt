@@ -7,6 +7,8 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME cpu_device${BUILD_PLATFORM} )
 
+set( CMAKE_CXX_FLAGS_DEBUG "-DOCLDEVICE_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
+
 if (NOT WIN32)
     set(HW_UTILS_HEADERS ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export)
     set(HW_UTILS_PROJ_NAME cl_hw_utils)

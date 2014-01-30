@@ -28,6 +28,10 @@ File Name:  Kernel.h
 #include "cl_device_api.h"
 #include "RuntimeService.h"
 
+#ifdef OCL_DEV_BACKEND_PLUGINS
+#include "plugin_manager.h"
+#endif
+
 namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
@@ -298,6 +302,13 @@ private:
   // Disable copy ctor and assignment operator
   Kernel(const Kernel &);
   bool operator=(const Kernel &);
+protected:
+#ifdef OCL_DEV_BACKEND_PLUGINS
+    // m_pluginManager is mutable to allow kernel's const methods, 
+    // like Kernel::PrepareKernelArguments init m_pluginManager, which
+    // is initialised on each kernel
+    mutable Intel::OpenCL::PluginManager m_pluginManager;
+#endif
 };
 
 /**
