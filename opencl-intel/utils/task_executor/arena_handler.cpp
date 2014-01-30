@@ -205,6 +205,8 @@ TEDevice::~TEDevice()
         delete [] m_lowLevelArenas[i];
         m_lowLevelArenas[i] = NULL;
     }
+
+    RELEASE_LOGGER_CLIENT;
 }
 
 void TEDevice::ShutDown()
@@ -289,7 +291,6 @@ void TEDevice::ShutDown()
 
     m_state = SHUTTED_DOWN;
     LOG_INFO(TEXT("%s"),"Shutdown completed");
-    RELEASE_LOGGER_CLIENT;
 }
 
 bool TEDevice::AreEnqueuedTasks() const
