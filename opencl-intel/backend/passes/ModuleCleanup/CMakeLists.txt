@@ -5,7 +5,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/passes
     ${BACKEND_ROOT_DIR}/metadata_api
-    ${BACKEND_ROOT_DIR}/metadata_api/gen
+    ${CMAKE_BINARY_DIR}/include
 )
 
 set(TARGET_INCLUDE_FILES

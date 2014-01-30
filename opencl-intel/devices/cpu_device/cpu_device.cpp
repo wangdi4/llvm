@@ -73,8 +73,9 @@ volatile bool CPUDevice::m_bDeviceIsRunning = false;
 // We put it here, because just here all the required macros are defined.
 #include "ocl_supported_extensions.h"
 
-cl_ulong GetGlobalMemorySize()
+cl_ulong GetGlobalMemorySize(bool* isForced = NULL)
 {
+    static bool forced = true;
     static cl_ulong globalMemSize = 0;
     if (0 == globalMemSize)
     {
@@ -86,14 +87,39 @@ cl_ulong GetGlobalMemorySize()
         {
             // fallback to default global memory size
             globalMemSize = MEMORY_LIMIT;
+            forced = false;
         }
     }
 
+    if (NULL != isForced)
+    {
+        *isForced = forced;
+    }
     return globalMemSize;
 }
-cl_ulong GetMaxMemAllocSize()
+cl_ulong GetMaxMemAllocSize(bool* isForced = NULL)
 {
-    return MAX(128*1024*1024, GetGlobalMemorySize()/4);
+    static bool forced = true;
+    static cl_ulong maxMemAllocSize = 0;
+    if (0 == maxMemAllocSize)
+    {
+        // check config for forced max mem alloc size
+        CPUDeviceConfig config;
+        config.Initialize(GetConfigFilePath());
+        maxMemAllocSize = config.GetForcedMaxMemAllocSize();
+        if (0 == maxMemAllocSize)
+        {
+            // fallback to default max memory alloc size
+            maxMemAllocSize = MAX(128*1024*1024, GetGlobalMemorySize()/4);
+            forced = false;
+        }
+    }
+
+    if (NULL != isForced)
+    {
+        *isForced = forced;
+    }
+    return maxMemAllocSize;
 }
 
 struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *GetCPUDevInfo(CPUDeviceConfig& config)
@@ -246,6 +272,22 @@ cl_dev_err_code CPUDevice::Init()
     m_bUseTrapping = m_pCPUDeviceConfig->UseTrapping();
 #endif
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateDevice function enter"));
+
+    // check for forced memory sizes
+    bool isGlobalMemSizeForced;
+    cl_ulong forcedGlobalMemSize = GetGlobalMemorySize(&isGlobalMemSizeForced);
+    if (isGlobalMemSizeForced)
+    {
+        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("WARNING: using forced global memory size from cl configuration."));
+        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s %llu %s"), TEXT("WARNING: forced global memory size ="), forcedGlobalMemSize, TEXT("bytes."));
+    }
+    bool isMaxMemAllocSizeForced;
+    cl_ulong forcedMaxMemAllocSize = GetMaxMemAllocSize(&isMaxMemAllocSizeForced);
+    if (isMaxMemAllocSizeForced)
+    {
+        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("WARNING: using forced max memory allocation size from cl configuration."));
+        CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s %llu %s"), TEXT("WARNING: forced max memory allocation size ="), forcedMaxMemAllocSize, TEXT("bytes."));
+    }
 
     m_pProgramService = new ProgramService(m_uiCpuId, 
                                            m_pFrameworkCallBacks, 

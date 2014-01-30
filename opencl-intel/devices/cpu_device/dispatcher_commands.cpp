@@ -863,7 +863,6 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
 
 bool NDRange::Finish(FINISH_REASON reason)
 {
-    StopExecutionProfiling();
     // Need to notify all kernel children and wait for their completion
     if ( IsWaitingChildExist() )
     {
@@ -1313,7 +1312,8 @@ void DeviceNDRange::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uS
         break;
     case CL_COMPLETE:
         SignalComplete( (cl_dev_err_code)iErr );
-        GetParent()->ChildCompleted(GetError());        
+        GetParent()->ChildCompleted(GetError());
+        StopExecutionProfiling();
         break;
     default:
         assert(0 && "Invalid execution status");
