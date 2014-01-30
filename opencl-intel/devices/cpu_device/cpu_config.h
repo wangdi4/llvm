@@ -34,10 +34,11 @@ using namespace Intel::OpenCL::Utils;
 **************************************************************************************************/
 
 // CPU specific:
-#define CL_CONFIG_CPU_FORCE_GLOBAL_MEM_SIZE "CL_CONFIG_CPU_FORCE_GLOBAL_MEM_SIZE"   // cl_ulong
-#define CL_CONFIG_USE_VECTORIZER            "CL_CONFIG_USE_VECTORIZER"              // bool
-#define CL_CONFIG_USE_VTUNE                 "CL_CONFIG_USE_VTUNE"                   // bool
-#define CL_CONFIG_USE_TRAPPING              "CL_CONFIG_USE_TRAPPING"                // bool
+#define CL_CONFIG_CPU_FORCE_GLOBAL_MEM_SIZE     "CL_CONFIG_CPU_FORCE_GLOBAL_MEM_SIZE"       // cl_ulong
+#define CL_CONFIG_CPU_FORCE_MAX_MEM_ALLOC_SIZE  "CL_CONFIG_CPU_FORCE_MAX_MEM_ALLOC_SIZE"    // cl_ulong
+#define CL_CONFIG_USE_VECTORIZER                "CL_CONFIG_USE_VECTORIZER"                  // bool
+#define CL_CONFIG_USE_VTUNE                     "CL_CONFIG_USE_VTUNE"                       // bool
+#define CL_CONFIG_USE_TRAPPING                  "CL_CONFIG_USE_TRAPPING"                    // bool
 
 namespace Intel { namespace OpenCL { namespace CPUDevice {
 
@@ -50,8 +51,9 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         CPUDeviceConfig();
         ~CPUDeviceConfig();
 
-        cl_ulong        GetForcedGlobalMemSize() const
-                                        { return m_pConfigFile->Read<cl_ulong>(CL_CONFIG_CPU_FORCE_GLOBAL_MEM_SIZE, 0); }
+        cl_ulong        GetForcedGlobalMemSize() const;
+        cl_ulong        GetForcedMaxMemAllocSize() const;
+
         bool            UseVectorizer() const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
         bool            UseVTune()      const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
 #ifdef __HARD_TRAPPING__
