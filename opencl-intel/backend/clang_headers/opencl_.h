@@ -14189,7 +14189,7 @@ double __attribute__((overloadable)) work_group_scan_exclusive_add(double x);
 #define NULL                              0
 #define CLK_ENQUEUE_FLAGS_WAIT_KERNEL     0
 #define CLK_ENQUEUE_FLAGS_NO_WAIT         1
-#define CLK_ENQUEUE_FLAGS_WAIT_WORKGROUP  2
+#define CLK_ENQUEUE_FLAGS_WAIT_WORK_GROUP  2
 
 // Address Space Qualifier Functions 6.13.9
 global void*       const_func __attribute__((overloadable)) to_global  (const void *ptr);
