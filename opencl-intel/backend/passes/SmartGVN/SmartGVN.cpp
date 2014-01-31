@@ -92,7 +92,7 @@ bool SmartGVN::isNoLoadsCandidate(Function *func)
         size_t numOfInstructions = i->getInstList().size();
         // count number of loads nodes to estimate number of "live variables"
         unsigned int numOfLoadNodes = 0;
-	for (BasicBlock::iterator bbi = i->begin(), bbe = i->end(); bbi != bbe;
+        for (BasicBlock::iterator bbi = i->begin(), bbe = i->end(); bbi != bbe;
              ++bbi) {
           if (isa<LoadInst>(bbi)) {
             ++numOfLoadNodes;
@@ -100,7 +100,7 @@ bool SmartGVN::isNoLoadsCandidate(Function *func)
         }
 
         // number of loads > GVNHLoadRatio% of the total number of instructions
-        if (numOfInstructions >= GVNHNumOfInstructions && 
+        if (numOfInstructions >= GVNHNumOfInstructions &&
             numOfLoadNodes >= numOfInstructions/GVNHLoadRatio) {
           return true;
         }
