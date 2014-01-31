@@ -23,13 +23,13 @@ extern void* readonly __get_runtime_handle(void);
 ////////// - enqueue_kernel
 extern int ocl20_enqueue_kernel_events(
     queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t *ndrange,
-    uint num_events_in_wait_list, const clk_event_t *in_wait_list,
-    clk_event_t *event_ret, void *block, void* DCM,
+    uint num_events_in_wait_list, const __global clk_event_t *in_wait_list,
+    __global clk_event_t *event_ret, void *block, void* DCM,
     void* B2K, void *RuntimeHandle);
 int __attribute__((overloadable)) __attribute__((always_inline))
     enqueue_kernel(queue_t queue, kernel_enqueue_flags_t flags,
                    const ndrange_t ndrange, uint num_events_in_wait_list,
-                   const clk_event_t *event_wait_list, clk_event_t *event_ret,
+                   const __global clk_event_t *event_wait_list, clk_event_t __global *event_ret,
                    void (^block)(void)) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
@@ -57,12 +57,12 @@ int __attribute__((overloadable)) __attribute__((always_inline))
 
 ////////// - enqueue_marker
 extern int ocl20_enqueue_marker(queue_t queue, uint num_events_in_wait_list,
-                                const clk_event_t *event_wait_list,
-                                clk_event_t *event_ret,
+                                const __global clk_event_t *event_wait_list,
+                                __global clk_event_t *event_ret,
                                 void* DCM);
 int __attribute__((always_inline)) __attribute__((overloadable)) 
     enqueue_marker(queue_t queue, uint num_events_in_wait_list,
-                   const clk_event_t *event_wait_list, clk_event_t* event_ret) {
+                   const __global clk_event_t *event_wait_list, __global clk_event_t* event_ret) {
   void* DCM = __get_device_command_manager();
   return ocl20_enqueue_marker(queue, num_events_in_wait_list, event_wait_list,
                               event_ret, DCM);

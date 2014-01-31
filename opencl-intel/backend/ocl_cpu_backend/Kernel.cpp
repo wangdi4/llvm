@@ -415,13 +415,22 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
   }
 #endif
 
+
 #ifdef OCL_DEV_BACKEND_PLUGINS
-// TODO: Notify the plugin manager
-// m_pluginManager.OnCreateBinary( pKernel,
-//                                pWorkDescription,
-//                                contextSize,
-//                                pContext);
+
+    cl_work_description_type workDesc;
+    size_t sizetMaxWorkDim = sizeof(size_t)*MAX_WORK_DIM;
+    workDesc.workDimension = pKernelUniformImplicitArgs->WorkDim;
+    memcpy(workDesc.globalWorkOffset, pKernelUniformImplicitArgs->GlobalOffset, sizetMaxWorkDim);
+    memcpy(workDesc.globalWorkSize, pKernelUniformImplicitArgs->GlobalSize, sizetMaxWorkDim);
+    memcpy(workDesc.localWorkSize, pKernelUniformImplicitArgs->LocalSize, sizetMaxWorkDim);
+    workDesc.minWorkGroupNum = pKernelUniformImplicitArgs->minWorkGroupNum;
+
+    m_pluginManager.OnCreateBinary(this->GetKernel(), &workDesc, size_t(devMemObjArrayLength), pDevMemObjArray);
+
 #endif
+
+
 
   if (false) {
     std::cout << "In Prepare Args:\n";
