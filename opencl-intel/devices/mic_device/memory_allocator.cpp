@@ -111,7 +111,7 @@ void MemoryAllocator::Release( void )
 }
 
 MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, unsigned long long maxAllocSize ):
-    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_maxAllocSize(maxAllocSize), m_no_dma_enabled(false)
+    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_maxAllocSize(maxAllocSize), m_force_immediate_host_pinning(false)
 {
 	const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
     m_2M_BufferMinSize         = tMicConfig.Device_2MB_BufferMinSizeInKB() * KILOBYTE;
@@ -123,7 +123,7 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, un
     }
     
     m_force_immediate_transfer = !(tMicConfig.Device_LazyTransfer());
-    m_no_dma_enabled           = tMicConfig.Device_UseNoDma();
+    m_force_immediate_host_pinning = tMicConfig.Device_ForceBuffersPinning();
     
     if ( NULL != logDesc )
     {
@@ -390,7 +390,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
     // by demand and not upfront.
     //
     uint32_t no_dma = 0;
-    if ((0 == ((CL_MEM_USE_HOST_PTR|CL_MEM_ALLOC_HOST_PTR) & m_memFlags)) && m_Allocator.Use_NoDma_Enabled())
+    if ((0 == ((CL_MEM_USE_HOST_PTR|CL_MEM_ALLOC_HOST_PTR) & m_memFlags)) && (!m_Allocator.ImmediateHostPinningForced()))
     {
         no_dma = COI_OPTIMIZE_NO_DMA;
     }
