@@ -55,47 +55,42 @@ code Stored_half8 = [{
 
 code Stored_half16 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
-    float4 t1 = __ocl_double8ToHalf8_rte($Arg0VarName.lo);
-    float4 t2 = __ocl_double8ToHalf8_rte($Arg0VarName.hi);
-    _mm_storeu_ps((float*)$Arg2VarName, t1);
-    $Arg2VarName = $Arg2VarName + 8;
-    _mm_storeu_ps((float*)$Arg2VarName, t2);
+    float8 f8;
+    f8.lo = __ocl_double8ToHalf8_rte($Arg0VarName.lo);
+    f8.hi = __ocl_double8ToHalf8_rte($Arg0VarName.hi);
+    _mm256_storeu_ps((float*)$Arg2VarName, f8);
   }];
 
 code Stored_half_rte16 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
-    float4 t1 = __ocl_double8ToHalf8_rte($Arg0VarName.lo);
-    float4 t2 = __ocl_double8ToHalf8_rte($Arg0VarName.hi);
-    _mm_storeu_ps((float*)$Arg2VarName, t1);
-    $Arg2VarName = $Arg2VarName + 8;
-    _mm_storeu_ps((float*)$Arg2VarName, t2);
+    float8 f8;
+    f8.lo = __ocl_double8ToHalf8_rte($Arg0VarName.lo);
+    f8.hi = __ocl_double8ToHalf8_rte($Arg0VarName.hi);
+    _mm256_storeu_ps((float*)$Arg2VarName, f8);
   }];
 
 code Stored_half_rtp16 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
-    float4 t1 = __ocl_double8ToHalf8_rtp($Arg0VarName.lo);
-    float4 t2 = __ocl_double8ToHalf8_rtp($Arg0VarName.hi);
-    _mm_storeu_ps((float*)$Arg2VarName, t1);
-    $Arg2VarName = $Arg2VarName + 8;
-    _mm_storeu_ps((float*)$Arg2VarName, t2);
+    float8 f8;
+    f8.lo = __ocl_double8ToHalf8_rtp($Arg0VarName.lo);
+    f8.hi = __ocl_double8ToHalf8_rtp($Arg0VarName.hi);
+    _mm256_storeu_ps((float*)$Arg2VarName, f8);
   }];
 
 code Stored_half_rtn16 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
-    float4 t1 = __ocl_double8ToHalf8_rtn($Arg0VarName.lo);
-    float4 t2 = __ocl_double8ToHalf8_rtn($Arg0VarName.hi);
-    _mm_storeu_ps((float*)$Arg2VarName, t1);
-    $Arg2VarName = $Arg2VarName + 8;
-    _mm_storeu_ps((float*)$Arg2VarName, t2);
+    float8 f8;
+    f8.lo = __ocl_double8ToHalf8_rtn($Arg0VarName.lo);
+    f8.hi = __ocl_double8ToHalf8_rtn($Arg0VarName.hi);
+    _mm256_storeu_ps((float*)$Arg2VarName, f8);
   }];
 
 code Stored_half_rtz16 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
-    float4 t1 = __ocl_double8ToHalf8_rtz($Arg0VarName.lo);
-    float4 t2 = __ocl_double8ToHalf8_rtz($Arg0VarName.hi);
-    _mm_storeu_ps((float*)$Arg2VarName, t1);
-    $Arg2VarName = $Arg2VarName + 8;
-    _mm_storeu_ps((float*)$Arg2VarName, t2);
+    float8 f8;
+    f8.lo = __ocl_double8ToHalf8_rtz($Arg0VarName.lo);
+    f8.hi = __ocl_double8ToHalf8_rtz($Arg0VarName.hi);
+    _mm256_storeu_ps((float*)$Arg2VarName, f8);
   }];
 
 code Storef_half16 = [{
@@ -188,6 +183,77 @@ code Stored_half_rtz8 = [{
                                       _MM_FROUND_NO_EXC | _MM_FROUND_TO_ZERO);
     float4 f4 = as_float4(_mm256_cvtps_ph(f8, _MM_FROUND_TO_ZERO));
     _mm_storeu_ps((float*)$Arg2VarName, f4);
+  }];
+
+// Aligned store
+code Storead_half8 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
+    float4 f4 = __ocl_double8ToHalf8_rte($Arg0VarName);
+    _mm_store_ps((float*)$Arg2VarName, f4);
+  }];
+
+code Storead_half_rte8 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
+    float4 f4 = __ocl_double8ToHalf8_rte($Arg0VarName);
+    _mm_store_ps((float*)$Arg2VarName, f4);
+  }];
+
+code Storead_half_rtn8 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
+    float4 f4 = __ocl_double8ToHalf8_rtn($Arg0VarName);
+    _mm_store_ps((float*)$Arg2VarName, f4);
+  }];
+
+code Storead_half_rtp8 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
+    float4 f4 = __ocl_double8ToHalf8_rtp($Arg0VarName);
+    _mm_store_ps((float*)$Arg2VarName, f4);
+  }];
+
+code Storead_half_rtz8 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*8);
+    float4 f4 = __ocl_double8ToHalf8_rtz($Arg0VarName);
+    _mm_store_ps((float*)$Arg2VarName, f4);
+  }];
+
+code Storead_half16 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
+    float8 f8;
+    f8.lo = __ocl_double8ToHalf8_rte($Arg0VarName.lo);
+    f8.hi = __ocl_double8ToHalf8_rte($Arg0VarName.hi);
+    _mm256_store_ps((float*)$Arg2VarName, f8);
+  }];
+
+code Storead_half_rte16 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
+    float8 f8;
+    f8.lo = __ocl_double8ToHalf8_rte($Arg0VarName.lo);
+    f8.hi = __ocl_double8ToHalf8_rte($Arg0VarName.hi);
+    _mm256_store_ps((float*)$Arg2VarName, f8);
+  }];
+
+code Storead_half_rtn16 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
+    float8 f8;
+    f8.lo = __ocl_double8ToHalf8_rtn($Arg0VarName.lo);
+    f8.hi = __ocl_double8ToHalf8_rtn($Arg0VarName.hi);
+    _mm256_store_ps((float*)$Arg2VarName, f8);
+  }];
+
+code Storead_half_rtp16 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
+    float8 f8;
+    f8.lo = __ocl_double8ToHalf8_rtp($Arg0VarName.lo);
+    f8.hi = __ocl_double8ToHalf8_rtp($Arg0VarName.hi);
+    _mm256_store_ps((float*)$Arg2VarName, f8);
+  }];
+
+code Storead_half_rtz16 = [{
+    $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
+    float8 f8;
+    f8.lo = __ocl_double8ToHalf8_rtz($Arg0VarName.lo);
+    f8.hi = __ocl_double8ToHalf8_rtz($Arg0VarName.hi);
+    _mm256_store_ps((float*)$Arg2VarName, f8);
   }];
 
 code Load_half8 = [{

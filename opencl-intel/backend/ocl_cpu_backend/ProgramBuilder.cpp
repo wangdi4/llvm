@@ -161,7 +161,8 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
           throw Exceptions::DeviceBackendExceptionBase("llvm-dis does not work", CL_DEV_ERROR_FAIL);
         }
 
-        std::string llcOptions("-mcpu=knl -relocation-model=pic -force-align-stack -fp-contract=fast ");
+//        std::string llcOptions("-mcpu=knl -relocation-model=pic -force-align-stack -fp-contract=fast ");
+        std::string llcOptions("-mcpu=knl -force-align-stack -fp-contract=fast ");
         llcOptions += filename + ".ll ";
         llcOptions += "-filetype=obj -o " + filename + ".o";
         res = system((llvmKNLBinPath + "/llc " + llcOptions).c_str());
@@ -179,7 +180,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         LoadObject(pProgram, spModule.get(), injectedObject->getBufferStart(),
                    injectedObject->getBufferSize());
 //        system(std::string("rm " + filename + ".bc " + filename + ".ll " + filename + ".o").c_str());
-        system(std::string("rm " + filename + ".bc " + filename + ".o").c_str());
+//        system(std::string("rm " + filename + ".bc " + filename + ".o").c_str());
 #else // ENABLE_KNL
         PostOptimizationProcessing(pProgram, spModule.get(), pOptions);
 #endif // ENABLE_KNL
