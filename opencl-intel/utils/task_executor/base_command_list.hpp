@@ -27,8 +27,8 @@ template<typename F>
 void TaskGroup::EnqueueFunc(const F& f)
 {
     m_rootTask.increment_ref_count();   // Increment the reference count here. It will be decremented inside runner's function after f() has been called.
-    ArenaFunctorRunner<F> runner(m_rootTask, f); 
-    m_device->Enqueue(runner);
+    ArenaFunctorRunner<F> runner(m_rootTask, f);
+    m_device->Enqueue(runner);    
 }
 
 #ifdef __HARD_TRAPPING__

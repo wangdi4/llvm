@@ -52,11 +52,16 @@ bool clSampler()
 
         cl_sampler sampler = clCreateSamplerWithProperties(context, samplerProps, &iRet);
         CheckException(L"clCreateSamplerWithProperties", CL_SUCCESS, iRet);
-
         iRet = clReleaseSampler(sampler);
         CheckException(L"clReleaseSampler", CL_SUCCESS, iRet);
 
-        // wrong API:
+        // NULL properties
+        sampler = clCreateSamplerWithProperties(context, NULL, &iRet);
+        CheckException(L"clCreateSamplerWithProperties", CL_SUCCESS, iRet);
+        iRet = clReleaseSampler(sampler);
+        CheckException(L"clReleaseSampler", CL_SUCCESS, iRet);
+
+        // wrong API:        
 
         // the same name appears twice
         samplerProps[2] = CL_SAMPLER_NORMALIZED_COORDS;
