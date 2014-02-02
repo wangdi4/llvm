@@ -27,19 +27,24 @@ File Name:  BlockUtils.cpp
 using namespace llvm;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-  
+
   /// global var for speedup regexp initialization
   namespace {
     // hide regex in anonymous namespace
-    llvm::Regex s_IsBlockRegex("^__.*block_invoke");
+    // should detect following function names:
+    // "__enqueue_simple_block_block_invoke"
+    // "globalBlock_block_invoke"
+    // TODO: revisit when issue below is fixed
+    // CSSD100018605 [OpenCL2.0] Clang should provide reliable way to detect block functions and compute block context size
+    llvm::Regex s_IsBlockRegex("_block_invoke(_[0-9]+)?$");
   } // namespace
-  
-  
+
+
   bool BlockUtils::isBlockInvokeFunction(const llvm::Function& F)
   {
     return s_IsBlockRegex.match(F.getName());
   }
-  
+
   std::string BlockUtils::CreateBlockInvokeKernelName(const std::string& F)
   {
     assert(s_IsBlockRegex.match(F) && "string is not block literal");
@@ -53,16 +58,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     DEBUG(llvm::dbgs() << "BlockUtils::IsBlockInvocationKernel Entry point \n");
     DEBUG(llvm::dbgs() << F.getName() << " input checked name \n");
 
-    // if there is __kernel__ inside and block_invoke 
+    // if there is __kernel__ inside and block_invoke
     // it is great chance it is block_invoke kernel
-    if ((name.find("__.kernel__") != llvm::StringRef::npos) && 
+    if ((name.find("__.kernel__") != llvm::StringRef::npos) &&
       (name.find("block_invoke") != llvm::StringRef::npos))
       res = true;
-    
+
     DEBUG(llvm::dbgs() << "Ret val is " << res << " \n");
     return res;
   }
-  
+
   std::string BlockUtils::ObtainBlockInvokeFuncNameFromKernel(const std::string& str)
   {
     assert(s_IsBlockRegex.match(str) && "string is not block literal");

@@ -66,7 +66,7 @@ namespace intel {
 
       // extended execution flags
       m_ExtExecDecls.clear();
-      
+
       // Run on all defined function in the module
       for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
         Function *pFunc = dyn_cast<Function>(&*fi);
@@ -235,15 +235,15 @@ namespace intel {
 
     // Create three basic blocks to contain the dim check as follows
     // entry: (old basic block tail)
-    //   %0 = icmp ult i32 %dimndx, MAX_WORK_DIM                     
+    //   %0 = icmp ult i32 %dimndx, MAX_WORK_DIM
     //   br i1 %0, label %get.wi.properties, label %split.continue
     //
-    // get.wi.properties:  (new basic block in case of in bound)                                         
-    //   ... ; load the property                   
+    // get.wi.properties:  (new basic block in case of in bound)
+    //   ... ; load the property
     //   br label %split.continue
     //
-    // split.continue:  (the second half of the splitted basic block head)                             
-    //   %4 = phi i32 [ %res, %get.wi.properties ], [ out-of-bound-value, %entry ]   
+    // split.continue:  (the second half of the splitted basic block head)
+    //   %4 = phi i32 [ %res, %get.wi.properties ], [ out-of-bound-value, %entry ]
 
     // first need to split the current basic block to two BB's and create new BB
     BasicBlock *getWIProperties = BasicBlock::Create(*m_pLLVMContext, "get.wi.properties", pBlock->getParent());
@@ -308,12 +308,12 @@ namespace intel {
 
     // Find out the buffer size required to store all the arguments.
     // Note: CallInst->getNumOperands() returns the number of operands in
-    // the instruction, including its destination as #0. Since this is 
-    // a printf call and we're interested in all the arguments after the 
+    // the instruction, including its destination as #0. Since this is
+    // a printf call and we're interested in all the arguments after the
     // format string, we start with #2.
     //
     assert(pCall->getNumArgOperands() > 0 && "Expect printf to have a format string");
-    unsigned total_arg_size = 0;   
+    unsigned total_arg_size = 0;
     for ( unsigned numarg = 1; numarg < pCall->getNumArgOperands(); ++numarg ) {
       Value *arg = pCall->getArgOperand(numarg);
       unsigned argsize = DL.getTypeSizeInBits(arg->getType()) / 8;
@@ -328,9 +328,9 @@ namespace intel {
     // Create the alloca instruction for allocating the buffer on the stack.
     // Also, handle the special case where printf got no vararg arguments:
     // printf("hello");
-    // Since we have to pass something into the 'args' argument of 
+    // Since we have to pass something into the 'args' argument of
     // opencl_printf, and 'alloca' with size 0 is undefined behavior, we
-    // just allocate a dummy buffer of size 1. opencl_printf won't look at 
+    // just allocate a dummy buffer of size 1. opencl_printf won't look at
     // it anyway.
     //
     ArrayType *buf_arr_type;
@@ -351,7 +351,7 @@ namespace intel {
       index_args.push_back(getConstZeroInt32Value());
       index_args.push_back(ConstantInt::get(int32_type, buf_pointer_offset));
 
-      // getelementptr to compute the address into which this argument will 
+      // getelementptr to compute the address into which this argument will
       // be placed
       //
       GetElementPtrInst *gep_instr = GetElementPtrInst::CreateInBounds(
@@ -369,12 +369,12 @@ namespace intel {
       //
       (void) new StoreInst(arg, cast_instr, false, 1, pCall);
 
-      // This argument occupied some space in the buffer. 
+      // This argument occupied some space in the buffer.
       // Advance the buffer pointer offset by its size to know where the next
       // argument should be placed.
-      // 
+      //
       unsigned argsize = DL.getTypeSizeInBits(arg->getType()) / 8;
-      buf_pointer_offset += argsize;        
+      buf_pointer_offset += argsize;
     }
 
     // Create a pointer to the buffer, in order to pass it to the function
@@ -525,7 +525,7 @@ namespace intel {
   Type * ResolveWICall::getBlockLocalMemType() const {
     // void (^block)(local void *, ?), - OpenCL
     // void (i8 addrspace(3)*, ...)*  - LLVM representation
-    return PointerType::get(FunctionType::get(Type::getVoidTy(*m_pLLVMContext), 
+    return PointerType::get(FunctionType::get(Type::getVoidTy(*m_pLLVMContext),
       PointerType::get(Type::getInt8Ty(*m_pLLVMContext), Utils::OCLAddressSpace::Local),
       true), 0);
   }
@@ -559,7 +559,7 @@ namespace intel {
       Type* int32_type = IntegerType::get(*m_pLLVMContext, 32);
       // parse argument with local buf sizes
       // fill in array with local buf sizes
-      for(unsigned numarg=LocalMemArgsOffs, cnt=0; 
+      for(unsigned numarg=LocalMemArgsOffs, cnt=0;
         numarg < pCall->getNumArgOperands();
         ++numarg, ++cnt) {
           llvm::SmallVector<Value*, 2> index_args;
@@ -569,8 +569,33 @@ namespace intel {
           // issue GEP
           GetElementPtrInst *gep_instr = GetElementPtrInst::CreateInBounds(
             localbuf_alloca_inst, ArrayRef<Value*>(index_args), "", pCall);
+
+          // code below handles incorrect types of local buffer size argument in enqueue_kernel()
+          // TODO: revisit and remove code when following issue is fixed in clang
+          // CSSD100018602 elior [OpenCL 2.0] Clang should perform type check of variadic argument of enqueue_kernel built-in
+          //
+          Value *bufSize = pCall->getArgOperand(numarg);
+          Type *bufSizeTy = bufSize->getType();
+          assert(bufSizeTy->isIntegerTy() && "enqueue_kernel():: local buffer size argument expected to be uint type");
+          // replace noninteger with zero
+          if(!bufSizeTy->isIntegerTy()) {
+            errs() << "WARNING: " << 
+              "enqueue_kernel():: local buffer size argument expected to be uint type" << 
+              "setting argument " << bufSize << " to zero\n";
+            bufSize = ConstantInt::get(Type::getInt32Ty(m_pModule->getContext()), APInt(32, 0));
+          }
+
+          // If bufsize scalar size is not 32 then Zext or Trunc to get to 32
+          if (bufSizeTy->getScalarSizeInBits() < getLocalMemBufType()->getScalarSizeInBits()) {
+            bufSize = new ZExtInst(pCall->getArgOperand(numarg), getLocalMemBufType(), "", pCall);
+          }
+          else if (bufSizeTy->getScalarSizeInBits() > getLocalMemBufType()->getScalarSizeInBits()) {
+            bufSize = new TruncInst(pCall->getArgOperand(numarg), getLocalMemBufType(), "", pCall);
+          }
+          /////////////////////////////////////////////////////////////////////
+
           // issue store of current local buf size
-          (void) new StoreInst(pCall->getArgOperand(numarg), gep_instr, false, 1, pCall);
+          (void) new StoreInst(bufSize, gep_instr, false, 1, pCall);
       }
 
       // get pointer to first element in array
@@ -685,11 +710,11 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
 }
 
   // The prototype of ocl20_enqueue_kernel_events is:
-  // int ocl20_enqueue_kernel_events_localmem(queue_t*, int /*kernel_enqueue_flags_t*/, 
-  //            ndrange_t, 
+  // int ocl20_enqueue_kernel_events_localmem(queue_t*, int /*kernel_enqueue_flags_t*/,
+  //            ndrange_t,
   //            uint num_events_in_wait_list, clk_event_t *in_wait_list,
   //            clk_event_t *event_ret,
-  //            void * (local void*) /*block_literal ptr*/, 
+  //            void * (local void*) /*block_literal ptr*/,
   //            uint *localbuf_size, uint localbuf_size_len,
   //            ExtendedExecutionContext * pEEC)
   //
@@ -739,7 +764,7 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
     // create declaration
     Function::Create(
       FT, // function type
-      Function::ExternalLinkage, 
+      Function::ExternalLinkage,
       Name, // function name
       m_pModule);
     // mark declaration is done
