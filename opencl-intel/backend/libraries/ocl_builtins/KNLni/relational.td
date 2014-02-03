@@ -75,11 +75,11 @@ OclBuiltinImpl bitselect_v16f32 = OclBuiltinImpl<bitselect, [v16f32, v8f64, v16i
 
 OclBuiltinImpl iselect_v16f32 = OclBuiltinImpl<iselect, [v16f32], 0, select_vector_v16f>;
 
-OclBuiltinImpl iselect_v4f64 = OclBuiltinImpl<iselect, [v8f64], 0, select_vector_v8d>;
+OclBuiltinImpl iselect_v8f64 = OclBuiltinImpl<iselect, [v8f64], 0, select_vector_v8d>;
 
 OclBuiltinImpl uselect_v16f32 = OclBuiltinImpl<uselect, [v16f32], 0, select_vector_v16f>;
 
-OclBuiltinImpl uselect_v4f64 = OclBuiltinImpl<uselect, [v8f64], 0, select_vector_v8d>;
+OclBuiltinImpl uselect_v8f64 = OclBuiltinImpl<uselect, [v8f64], 0, select_vector_v8d>;
 
 /*
 //======v16i32\v16u32 and v8i64\v8u64 implementation===============================

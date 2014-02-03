@@ -162,7 +162,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         }
 
 //        std::string llcOptions("-mcpu=knl -relocation-model=pic -force-align-stack -fp-contract=fast ");
-        std::string llcOptions("-mcpu=knl -force-align-stack -fp-contract=fast ");
+        std::string llcOptions("-mcpu=knl -force-align-stack -fp-contract=fast -code-model=large ");
         llcOptions += filename + ".ll ";
         llcOptions += "-filetype=obj -o " + filename + ".o";
         res = system((llvmKNLBinPath + "/llc " + llcOptions).c_str());
