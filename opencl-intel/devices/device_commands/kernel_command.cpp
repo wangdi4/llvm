@@ -171,8 +171,8 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
     // update pEventRet
     if (pEventRet != NULL)
     {
-        *pEventRet = static_cast<DeviceCommand*>(pChild.GetPtr());
-        pChild.IncRefCnt();    // it will decremeneted in release_event
+        *pEventRet = pChild.GetPtr();
+        pChild.IncRefCnt();    // it will be decremented in release_event
     }
     return CL_SUCCESS;
 }
@@ -197,7 +197,7 @@ int KernelCommand::EnqueueMarker(queue_t queue, cl_uint uiNumEventsInWaitList, c
     }
     if (pEventRet != NULL)
     {
-        *pEventRet = static_cast<DeviceCommand*>(marker.GetPtr());
+        *pEventRet = marker.GetPtr();
         marker.IncRefCnt();    // it will decremeneted in release_event
     }
     return CL_SUCCESS;
@@ -220,7 +220,7 @@ int KernelCommand::ReleaseEvent(clk_event_t event)
     {
         return CL_INVALID_EVENT;
     }
-    UserEvent* pEvent = reinterpret_cast<UserEvent*>(event);
+    DeviceCommand* pEvent = reinterpret_cast<DeviceCommand*>(event);
     long val = pEvent->DecRefCnt();
     if ( 0 == val )
     {
@@ -275,7 +275,7 @@ void KernelCommand::CaptureEventProfilingInfo(clk_event_t event, clk_profiling_i
     if (!pCmd->SetExecTimeUserPtr(pValue))    // otherwise the information will be available when the command completes
     {
         ((cl_ulong*)pValue)[0] = pCmd->GetExecutionTime();
-        //((cl_ulong*)pValue)[1] = pCmd->GetCompleteTime();
+        ((cl_ulong*)pValue)[1] = pCmd->GetCompleteTime();
     }        
 }
 
@@ -288,4 +288,3 @@ queue_t KernelCommand::GetDefaultQueueForDevice() const
     }
     return m_parent->GetDefaultQueueForDevice();
 }
-
