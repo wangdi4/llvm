@@ -356,14 +356,13 @@ cl_dev_err_code NDRange::CheckCommandParams(CommandList* pCommandList, cl_dev_cm
         const size_t    *pReqdWGSize = pKernelProps->GetRequiredWorkGroupSize();
         for(unsigned int i=0; i<cmdParams->work_dim; ++i)
         {
-            if ( ((0 != cmdParams->lcl_wrk_size[i]) && (MIC_DEV_MAX_WI_SIZE < cmdParams->lcl_wrk_size[i])) ||
-                ( pReqdWGSize && (pReqdWGSize[i] != cmdParams->lcl_wrk_size[i]))
-                )
+            if ( MIC_DEV_MAX_WI_SIZE < cmdParams->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i] ||
+                ( pReqdWGSize && pReqdWGSize[i] != cmdParams->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i]))
             {
                 return CL_DEV_INVALID_WRK_ITEM_SIZE;
             }
 
-            stWGSize *= cmdParams->lcl_wrk_size[i];
+            stWGSize *= cmdParams->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i];
         }
 
         if ( MIC_MAX_WORK_GROUP_SIZE < stWGSize )
@@ -378,7 +377,7 @@ cl_dev_err_code NDRange::CheckCommandParams(CommandList* pCommandList, cl_dev_cm
             return CL_DEV_INVALID_WRK_DIM;
         }
         // Work Group size should be 1
-        if ( 1 != cmdParams->lcl_wrk_size[0] )
+        if ( 1 != cmdParams->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][0] )
         {
             return CL_DEV_INVALID_WRK_ITEM_SIZE;
         }

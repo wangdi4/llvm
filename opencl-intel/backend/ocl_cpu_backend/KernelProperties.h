@@ -111,11 +111,16 @@ public:
      *  false otherwise
      */
     virtual bool HasKernelCallOperation() const;
-   /**
+    /**
      * @returns true if the specified kernel is created from clang's block 
      *  false otherwise
      */
     virtual bool IsBlock() const;
+    /**
+     * @returns true if the specified kernel doesn't support non-unifrom WG size
+     *  false otherwise
+     */
+    virtual bool IsNonUniformWGSizeSupported() const;
 
     /*
      * Kernel Properties methods
@@ -134,6 +139,7 @@ public:
     void EnableVectorizedWithTail() { m_isVectorizedWithTail = true; }
     void SetPointerSize(unsigned int value) { m_uiSizeT = value; }
     void SetIsBlock(const bool value) { m_bIsBlock = value; }
+    void SetIsNonUniformWGSizeSupported(const bool value) { m_bIsNonUniformWGSizeSupported = value; }
     
     unsigned int  GetOptWGSize()      const { return m_optWGSize; } 
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }
@@ -159,6 +165,7 @@ protected:
     bool m_isVectorizedWithTail;
     unsigned int m_uiSizeT;
     bool m_bIsBlock;
+    bool m_bIsNonUniformWGSizeSupported;
 };
 
 

@@ -319,7 +319,8 @@ enum cl_dev_kernel_info
     CL_DEV_KERNEL_ARG_INFO,                     //!< Specifies a list of kernel argument descriptors
     CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES,        //!< Specifies a list of indexes for arguments, which are memory objects
     CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES,   //!< Specifies properties of an argument buffer required for kernel execution
-    CL_DEV_KERNEL_ATTRIBUTES                    //!< Specifies NULL terminated space separated string of kernel attributes
+    CL_DEV_KERNEL_ATTRIBUTES,                   //!< Specifies NULL terminated space separated string of kernel attributes
+    CL_DEV_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT   //!< Specifies if a kernel was compiled with support of non-uniform work-group size
 };
 
 /*! \enum cl_dev_partition_prop
@@ -503,32 +504,32 @@ struct  cl_dev_cmd_param_map
  */
 struct  cl_dev_cmd_param_kernel
 {
-    cl_dev_kernel       kernel;                     //!< Handle to a kernel object to be executed
-    cl_uint             work_dim;                   //!< The number of dimensions used to specify the global work-items and work-items in the work-group.
-                                                    //!< Work_dim must be greater than 0 and less than or equal to 3.
-                                                    //!< When executing a task, this value must be equal to 1.
-    size_t              glb_wrk_offs[MAX_WORK_DIM]; //!< Currently must be (0, 0, 0). In a future revision of OpenCL,
-                                                    //!< glb_work_offs can be used to specify an array of work_dim unsigned
-                                                    //!< values that describe the offset used to calculate the global ID of a work-item.
-    size_t              glb_wrk_size[MAX_WORK_DIM]; //!< An array of work_dim unsigned values that describe the number of global work-items
-                                                    //!< in work_dim dimensions that will execute the kernel function. The total number of
-                                                    //!< global work-items is computed as glb_wrk_size[0] * … *glb_wrk_size[work_dim – 1].
-                                                    //!< When executing a task, this value must be equal to 1.
-    size_t              lcl_wrk_size[MAX_WORK_DIM]; //!< An array of work_dim unsigned values that describe the number of work-items
-                                                    //!< that make up a work-group (also referred to as the size of the work-group)
-                                                    //!< that will execute the kernel specified by kernel. The total number of work-items in a work-group
-                                                    //!< is computed as lcl_wrk_size[0] * … * lcl_wrk_size[work_dim – 1].
-                                                    //!< When executing a task, this value must be equal to 1. When the values are 0, and hint or required
-                                                    //!< work-group size is defined for the kernel, the agent will use these values for execution.
-                                                    //!< When the values are 0, and neither hint nor required work-group sizes is not defined,
-                                                    //!< the agent will use optimal work-group size.
-    void*               arg_values;                 //!< An array of argument values of the specific kernel.
-                                                    //!< An order of the values must be the same as the order of parameters in the kernel prototype.
-                                                    //!< If an argument is a memory object, a relevant value contains its handle (dev_mem_obj).
-    size_t              arg_size;                   //!< Size in bytes of the arg_values array.
-    IOCLDevMemoryObject** ppNonArgSvmBuffers;       //!< an array of pointers to IOCLDevMemoryObjects representing SVM buffers that are used by Kernel, but not passed as arguments to it (or NULL if they are not needed)
-    cl_uint               uiNonArgSvmBuffersCount;  //!< number of entries in ppNonArgSvmBuffers
-} ;
+    cl_dev_kernel       kernel;                                  //!< Handle to a kernel object to be executed
+    cl_uint             work_dim;                                //!< The number of dimensions used to specify the global work-items and work-items in the work-group.
+                                                                 //!< Work_dim must be greater than 0 and less than or equal to 3.
+                                                                 //!< When executing a task, this value must be equal to 1.
+    size_t              glb_wrk_offs[MAX_WORK_DIM];              //!< Currently must be (0, 0, 0). In a future revision of OpenCL,
+                                                                 //!< glb_work_offs can be used to specify an array of work_dim unsigned
+                                                                 //!< values that describe the offset used to calculate the global ID of a work-item.
+    size_t              glb_wrk_size[MAX_WORK_DIM];              //!< An array of work_dim unsigned values that describe the number of global work-items
+                                                                 //!< in work_dim dimensions that will execute the kernel function. The total number of
+                                                                 //!< global work-items is computed as glb_wrk_size[0] * … *glb_wrk_size[work_dim – 1].
+                                                                 //!< When executing a task, this value must be equal to 1.
+    size_t              lcl_wrk_size[WG_SIZE_NUM][MAX_WORK_DIM]; //!< An array of work_dim unsigned values that describe the number of work-items+
+                                                                 //!< that make up a work-group (also referred to as the size of the work-group)
+                                                                 //!< that will execute the kernel specified by kernel. The total number of work-items in a work-group
+                                                                 //!< is computed as lcl_wrk_size[0] * … * lcl_wrk_size[work_dim – 1].
+                                                                 //!< When executing a task, this value must be equal to 1. When the values are 0, and hint or required
+                                                                 //!< work-group size is defined for the kernel, the agent will use these values for execution.
+                                                                 //!< When the values are 0, and neither hint nor required work-group sizes is not defined,
+                                                                 //!< the agent will use optimal work-group size.
+    void*               arg_values;                              //!< An array of argument values of the specific kernel.
+                                                                 //!< An order of the values must be the same as the order of parameters in the kernel prototype.
+                                                                 //!< If an argument is a memory object, a relevant value contains its handle (dev_mem_obj).
+    size_t              arg_size;                                //!< Size in bytes of the arg_values array.
+    IOCLDevMemoryObject** ppNonArgSvmBuffers;                    //!< an array of pointers to IOCLDevMemoryObjects representing SVM buffers that are used by Kernel, but not passed as arguments to it (or NULL if they are not needed)
+    cl_uint               uiNonArgSvmBuffersCount;               //!< number of entries in ppNonArgSvmBuffers
+};
 
 
 /**

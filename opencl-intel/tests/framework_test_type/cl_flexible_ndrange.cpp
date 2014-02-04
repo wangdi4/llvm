@@ -81,7 +81,7 @@ bool clFlexibleNdrange()
 		const size_t szLengths = { strlen(sProg) };
 		cl_program prog = clCreateProgramWithSource(context, 1, &sProg, &szLengths, &iRet);
 		CheckException(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
-		iRet = clBuildProgram(prog, 1, &device, "", NULL, NULL);
+		iRet = clBuildProgram(prog, 1, &device, "-cl-std=CL2.0", NULL, NULL);
 		CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
 		cl_kernel kernel = clCreateKernel(prog, "FlexibleNdrange", &iRet);
 		CheckException(L"clCreateKernel", CL_SUCCESS, iRet);

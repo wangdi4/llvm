@@ -111,6 +111,11 @@ public:
      */
     virtual bool IsBlock() const = 0;
 
+    /**
+     * @returns true if the specified kernel is compiled with support of non-unifrom WG size
+     *  false otherwise
+     */
+    virtual bool IsNonUniformWGSizeSupported() const = 0;
 };
 
 class ICLDevBackendKernel_;

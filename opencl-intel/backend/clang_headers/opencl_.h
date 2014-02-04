@@ -306,18 +306,55 @@ size_t const_func __attribute__((overloadable)) get_global_size(uint dimindx);
 size_t const_func __attribute__((overloadable)) get_global_id(uint dimindx);
 
 /**
- * Returns the number of local work-items specified in
- * dimension identified by dimindx. This value is given by
- * the local_work_size argument to
- * clEnqueueNDRangeKernel if local_work_size is not
- * NULL; otherwise the OpenCL implementation chooses
- * an appropriate local_work_size value which is returned
- * by this function. Valid values of dimindx are 0 to
- * get_work_dim() – 1. For other values of dimindx,
- * get_local_size() returns 1.
- * For clEnqueueTask, this always returns 1.
+ * Prior to OpenCL 2.0
+ *    Returns the number of local work-items specified in
+ *    dimension identified by dimindx. This value is given by
+ *    the local_work_size argument to
+ *    clEnqueueNDRangeKernel if local_work_size is not
+ *    NULL; otherwise the OpenCL implementation chooses
+ *    an appropriate local_work_size value which is returned
+ *    by this function. Valid values of dimindx are 0 to
+ *    get_work_dim() 1. For other values of dimindx,
+ *    get_local_size() returns 1.
+ *    For clEnqueueTask, this always returns 1.
+ *
+ * Since OpenCL 2.0
+ *    Returns the number of local work-items specified in
+ *    dimension identified by dimindx. This value is at most
+ *    the value given by the local_work_size argument to
+ *    clEnqueueNDRangeKernel if local_work_size is not
+ *    NULL; otherwise the OpenCL implementation chooses
+ *    an appropriate local_work_size value which is returned
+ *    by this function. If the kernel is executed with a nonuniform
+ *    work-group size, calls to this built-in from
+ *    some work-groups may return different values than calls
+ *    to this built-in from other work-groups.
+ *    Valid values of dimindx are 0 to get_work_dim() -1.
+ *    For other values of dimindx, get_local_size() returns 1.
  */
 size_t const_func __attribute__((overloadable)) get_local_size(uint dimindx);
+
+#if __OPENCL_C_VERSION__ >= 200
+/** Returns the same value as that returned by
+*   get_local_size(dimindx) if the kernel is executed with a
+*   uniform work-group size.
+*   If the kernel is executed with a non-uniform work-group
+*   size, returns the number of local work-items in each of
+*   the work-groups that make up the uniform region of the
+*   global range in the dimension identified by dimindx. If
+*   the local_work_size argument to
+*   clEnqueueNDRangeKernel is not NULL, this value
+*   will match the value specified in
+*   local_work_size[dimindx]. If local_work_size is NULL,
+*   this value will match the local size that the
+*   implementation determined would be most efficient at
+*   implementing the uniform region of the global range.
+*   Valid values of dimindx are 0 to get_work_dim() Â¿ 1.
+*   For other values of dimindx, get_enqueued_local_size()
+*   returns 1.
+*/
+size_t const_func __attribute__((overloadable)) get_enqueued_local_size(uint dimindx);
+#endif   // __OPENCL_C_VERSION__ >= 200
 
 /**
  * Returns the unique local work-item ID i.e. a work-item
@@ -14152,7 +14189,7 @@ double __attribute__((overloadable)) work_group_scan_exclusive_add(double x);
 #define NULL                              0
 #define CLK_ENQUEUE_FLAGS_WAIT_KERNEL     0
 #define CLK_ENQUEUE_FLAGS_NO_WAIT         1
-#define CLK_ENQUEUE_FLAGS_WAIT_WORKGROUP  2
+#define CLK_ENQUEUE_FLAGS_WAIT_WORK_GROUP  2
 
 // Address Space Qualifier Functions 6.13.9
 global void*       const_func __attribute__((overloadable)) to_global  (const void *ptr);

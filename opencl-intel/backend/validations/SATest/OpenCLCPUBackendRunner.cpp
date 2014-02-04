@@ -72,49 +72,17 @@ extern void GenINT3();
 class OpenCLExecutionContext
 {
 public:
-    OpenCLExecutionContext(const ICLDevBackendKernel_* pKernel, const BERunOptions* config, 
+    OpenCLExecutionContext(const ICLDevBackendKernel_* pKernel, const BERunOptions* config,
                            cl_work_description_type workInfo, uint8_t* pArgsBuffer, size_t argsBufferSize):
-
-        m_stPrivMemAllocSize(2*CPU_DEV_MIN_WI_PRIVATE_SIZE),
-        m_uiVectorWidth(1),     // vector size that is actually used, to be updated from kernel arguments
-        m_stFormalParamSize(0), // formal parameters size
-        m_stKernelParamSize(0), // m_stFormalParamSize + OCL specific argument: WG Inf and so on
-        m_stAlignedKernelParamSize(0), // m_stKernelParamSize + aligment
-        m_pBlockLiteral(NULL)   // pointer to BlockLiteral
-    {
-        // allocate buffer for private memory
-        auto_ptr_aligned pPrivateMem( (char*)align_malloc(m_stPrivMemAllocSize, CPU_DEV_MAXIMUM_ALIGN));        
-        m_pPrivateMem = pPrivateMem;
-
         // allocate buffer for kernel's arguments
-        size_t size = pKernel->GetExplicitArgumentBufferSize();
-        auto_ptr_aligned pArgumentBuffer  ( (char*)align_malloc(size + sizeof(cl_uniform_kernel_args), CPU_DEV_MAXIMUM_ALIGN));
-        m_pArgumentBuffer = pArgumentBuffer;        
-        
+        m_pArgumentBuffer((char*)align_malloc(pKernel->GetExplicitArgumentBufferSize() +
+                                              sizeof(cl_uniform_kernel_args), CPU_DEV_MAXIMUM_ALIGN)),
+        m_uiVectorWidth(pKernel->GetKernelProporties()->GetMinGroupSizeFactorial()),
+        m_pBlockLiteral(NULL) // pointer to BlockLiteral
+    {
         // init kernel parameters
         InitParams(pKernel,(char*)pArgsBuffer, workInfo);
-
-        // init the memory buffer sizes
-        auto_ptr_ex< size_t, ArrayDP<size_t> > spBufferSizes;
-        size_t bufferSizesCount = 0;
-        GetMemoryBuffersDescriptions(NULL, &bufferSizesCount);
-        spBufferSizes.reset(new size_t[bufferSizesCount]);
-        GetMemoryBuffersDescriptions(spBufferSizes.get(), &bufferSizesCount);
-
-        size_t* pBuffSizes = spBufferSizes.get();
-
-        // The last buffer is private memory (stack) size
-        size_t count = bufferSizesCount - 1;
-
-        // Check allocated size of the private memory, and allocate new if necessary.
-        if ( m_stPrivMemAllocSize < pBuffSizes[count] )
-        {
-            m_stPrivMemAllocSize = pBuffSizes[count];
-            m_pPrivateMem.reset((char*)align_malloc(m_stPrivMemAllocSize, CPU_DEV_MAXIMUM_ALIGN));
-        }
-
         m_tExecState.MXCSRstate = 0;
-        m_pBuffPtr = m_pPrivateMem.get();
     }
 
     ~OpenCLExecutionContext() {
@@ -125,7 +93,7 @@ public:
     void InitParams(const ICLDevBackendKernel_* pKernel, char* pArgsBuffer, cl_work_description_type workInfo)
     {
         char* pArgValueDest = m_pArgumentBuffer.get();
-        
+
         const int kernelParamCnt = pKernel->GetKernelParamsCount();
 
         for (int i = 0; i < kernelParamCnt; i++) {
@@ -153,54 +121,47 @@ public:
                     // offset value is offset in bytes from the beginning of pArgsBuffer
                     // arguments buffer to memory location where BlockLiteral is stored
                     // offset value is of unsigned(32bit) type
-                    
+
                     const size_t offs = (size_t) * (unsigned *)(pArgsBuffer);
                     // deserialize in source memory BlockLiteral.
                     // Actually it updates BlockDesc ptr field in BlockLiteral
                     BlockLiteral *pBL = BlockLiteral::DeserializeInBuffer(pArgsBuffer + offs);
-                    
+
                     // clone BlockLiteral to this Binary object. assume ownership
                     assert(m_pBlockLiteral == NULL && "m_pBlockLiteral should be NULL");
                     m_pBlockLiteral = BlockLiteral::Clone(pBL);
-                    
+
                     // create special type of argument for passing BlockLiteral
-                    pArg.reset(new ExplicitBlockLiteralArgument(pArgValueDest, arg, m_pBlockLiteral));                    
+                    pArg.reset(new ExplicitBlockLiteralArgument(pArgValueDest, arg, m_pBlockLiteral));
                     break;
                 }
                 default:
-                switch (arg.type) {
-                    case CL_KRNL_ARG_PTR_LOCAL:
-                        // Local memory buffers are allocating on the JIT's stack. The value
-                        // we get here is not the pointer, but the buffer size. We handle
-                        // this parameter like other arguments passed by value
-                        // + 16 is for taking alignment padding into consideration
-                        m_kernelLocalMemSizes.push_back(*reinterpret_cast<size_t *>(pArgsBuffer) + 16);
-
-                    // Fall through
-                    case CL_KRNL_ARG_INT:
-                    case CL_KRNL_ARG_UINT:
-                    case CL_KRNL_ARG_FLOAT:
-                    case CL_KRNL_ARG_DOUBLE:
-                    case CL_KRNL_ARG_VECTOR:
-                    case CL_KRNL_ARG_VECTOR_BY_REF:
-                    case CL_KRNL_ARG_SAMPLER:
-                    case CL_KRNL_ARG_COMPOSITE:
-                        break;
-                    default:
-                        assert(false && "Unknown kind of argument");
-                }
-                pArg.reset(new ExplicitArgument(pArgValueDest, arg));
+                  switch (arg.type) {
+                      case CL_KRNL_ARG_PTR_LOCAL:
+                      case CL_KRNL_ARG_INT:
+                      case CL_KRNL_ARG_UINT:
+                      case CL_KRNL_ARG_FLOAT:
+                      case CL_KRNL_ARG_DOUBLE:
+                      case CL_KRNL_ARG_VECTOR:
+                      case CL_KRNL_ARG_VECTOR_BY_REF:
+                      case CL_KRNL_ARG_SAMPLER:
+                      case CL_KRNL_ARG_COMPOSITE:
+                          break;
+                      default:
+                          assert(false && "Unknown kind of argument");
+                  }
+                  pArg.reset(new ExplicitArgument(pArgValueDest, arg));
             }
 
             pArg->setValue(pArgsBuffer);
-          
+
             // Advance the src buffer according to argument's size (the sec buffer is packed)
             pArgsBuffer += pArg->getSize();
             // Advance the dest buffer according to argument's size and alignment
             pArgValueDest += pArg->getAlignedSize();
         }
 
-        cl_uniform_kernel_args *pKernelArgs = (cl_uniform_kernel_args *) (m_pArgumentBuffer.get() + pKernel->GetExplicitArgumentBufferSize());        
+        cl_uniform_kernel_args *pKernelArgs = reinterpret_cast<cl_uniform_kernel_args *>(m_pArgumentBuffer.get() + pKernel->GetExplicitArgumentBufferSize());
 
         size_t sizetMaxWorkDim = sizeof(size_t)*MAX_WORK_DIM;
 
@@ -208,13 +169,21 @@ public:
 
         memcpy(pKernelArgs->GlobalSize, workInfo.globalWorkSize, sizetMaxWorkDim); // Filled by the runtime
 
-        memcpy(pKernelArgs->LocalSize, workInfo.localWorkSize, sizetMaxWorkDim); // Filled by the runtime, updated by the BE in case of (0,0,0)
+        for(size_t dim = 0; dim < workInfo.workDimension; ++dim) {
+          pKernelArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][dim] = workInfo.localWorkSize[dim];
+          // local size may be 0
+          size_t nonUniWGSize = workInfo.localWorkSize[dim] == 0 ? 0 : workInfo.globalWorkSize[dim] %
+                                                                       workInfo.localWorkSize[dim];
+          // if the remainder is 0 set non-unifrom size to uniform value
+          pKernelArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][dim] = nonUniWGSize == 0 ?
+                                                                  workInfo.localWorkSize[dim] :
+                                                                  nonUniWGSize;
+        }
 
         pKernelArgs->minWorkGroupNum = size_t(workInfo.minWorkGroupNum); // Filled by the runtime, Required by the heuristic
 
-        pKernelArgs->pJITEntryPoint = NULL;// Filled by the BE
-
-        pKernelArgs->VectorWidth = 0;// Filled by the BE
+        pKernelArgs->pUniformJITEntryPoint = NULL;// Filled by the BE
+        pKernelArgs->pNonUniformJITEntryPoint = NULL;// Filled by the BE
 
         memset(pKernelArgs->WGCount,0,sizetMaxWorkDim); // Updated by the BE, based on GLOBAL/LOCAL
 
@@ -222,34 +191,11 @@ public:
 
         m_pKernelRunner = pKernel->GetKernelRunner();
 
-        m_pKernelRunner->PrepareKernelArguments((void*)(m_pArgumentBuffer.get()), 0, 0);
+        m_pKernelRunner->PrepareKernelArguments(reinterpret_cast<void*>(m_pArgumentBuffer.get()),
+                                                0, 0); // the last two parameters are not used.
 
         //local group size calculated by PrepareKernelArguments (using heuristic)
-        memcpy(m_LocalSize, pKernelArgs->LocalSize, sizetMaxWorkDim);
-
-        m_uiVectorWidth = pKernelArgs->VectorWidth;
-
-        m_uiWGSize = 1;
-        for(unsigned int i=0; i< pKernelArgs->WorkDim ; ++i)  {
-            m_uiWGSize *= pKernelArgs->LocalSize[i];
-        }
-        m_uiWGSize = m_uiWGSize / m_uiVectorWidth;
-        m_stWIidsBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(m_uiWGSize * sizeof(size_t) * MAX_WI_DIM_POW_OF_2);
-
-        m_stPrivateMemorySize = pKernel->GetKernelProporties()->GetPrivateMemorySize();
-
-        // Calculate parameter sizes
-        m_stFormalParamSize = pArgValueDest - m_pArgumentBuffer.get();
-
-        unsigned int ptrSize = (sizeof(void*));
-        m_stKernelParamSize = m_stFormalParamSize +
-                              3 * ptrSize + // OCL specific argument: WG Info, pWGID, pBaseGlobalID
-                              ptrSize  + // pWI-ids[]
-                              ptrSize  + // Pointer to IDevExecutable
-                              ptrSize  + // iterCount
-                              ptrSize;   // ExtendedExecutionContext
-
-        m_stAlignedKernelParamSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(m_stKernelParamSize);
+        memcpy(m_LocalSize, pKernelArgs->LocalSize[UNIFORM_WG_SIZE_INDEX], sizetMaxWorkDim );
     }
 
     // Returns the actual number of Work Items handled by each executable instance
@@ -278,7 +224,8 @@ public:
 
         DEBUG(llvm::dbgs() << "Starting execution of the " << x << ", " << y << ", " << z << " group.\n");
 
-        cl_dev_err_code ret = m_pKernelRunner->RunGroup((const void*)(m_pArgumentBuffer.get()),groupId,m_pBuffPtr);
+        cl_dev_err_code ret = m_pKernelRunner->RunGroup(reinterpret_cast<const void*>(m_pArgumentBuffer.get()),groupId,
+                                                        (void*)1 /* doesn't have RT handle here, workaround for an assert */);
 
         if (CL_DEV_FAILED(ret))
         {
@@ -307,51 +254,13 @@ public:
         return m_sample;
     }
 
-
-
-    void GetMemoryBuffersDescriptions(size_t* IN pBufferSizes, 
-                                      size_t* INOUT pBufferCount ) const
-    {
-        // We only require one buffer allocation from the Runtime used for storing the
-        // kernel arguments and the Barrier's local ID indeces
-        // We also report the overall memory needed for local memory even though
-        // we do not need the Runtime to allocate it, because the Runtime needs this
-        // information for OpenCL queries and for the hueristics which computes
-        // work-group size.
-        assert(pBufferCount);
-        if (!pBufferSizes) {
-            // +1 for additional area for: kernel params + WI ids buffer + private memory [see below]
-            *pBufferCount = m_kernelLocalMemSizes.size() + 1;
-            return;
-        }
-        // Fill sizes of explicit local buffers
-        std::copy(m_kernelLocalMemSizes.begin(), m_kernelLocalMemSizes.end(), pBufferSizes);
-        // Fill size of private area for all work-items
-        // [WORK-AROUND] and also the area for kernel params and local WI ids
-        pBufferSizes[m_kernelLocalMemSizes.size()] =
-            m_stAlignedKernelParamSize + m_stWIidsBufferSize +
-            m_stPrivateMemorySize * m_uiVectorWidth * m_uiWGSize;
-    }
-
 private:
     const ICLDevBackendKernelRunner * m_pKernelRunner;
     ICLDevBackendKernelRunner::ICLDevExecutionState m_tExecState;
-    void*                   m_pBuffPtr;
 
-    auto_ptr_aligned        m_pPrivateMem;
     auto_ptr_aligned        m_pArgumentBuffer;
-    size_t                  m_stPrivMemAllocSize;
-
     Sample                  m_sample;
-    unsigned int            m_uiVectorWidth; // vector size that was actually used
-
-    size_t                  m_stFormalParamSize;
-    size_t                  m_stKernelParamSize;
-    size_t                  m_stAlignedKernelParamSize;
-    unsigned int            m_uiWGSize;
-    size_t                  m_stPrivateMemorySize;
-    size_t                  m_stWIidsBufferSize;
-    std::vector<size_t>     m_kernelLocalMemSizes;
+    unsigned int            m_uiVectorWidth;
     BlockLiteral *          m_pBlockLiteral;
 
     //work group size
@@ -571,19 +480,18 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
             !pRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
 
     cl_work_description_type workInfo;
-    
+
     initWorkInfo(&workInfo, pKernelConfig, pRunConfig);
 
     OpenCLExecutionContext spContext( pKernel, pRunConfig, workInfo, argsBuffer.GetArgsBuffer(), argsBuffer.GetArgsBufferSize());
 
-    size_t  regions[MAX_WORK_DIM];
+    size_t regions[MAX_WORK_DIM];
     size_t dim = workInfo.workDimension;
     // init the work group regions
     for (size_t i=0; i < dim; ++i)
     {
-        regions[i] = (size_t)( pKernelConfig->GetGlobalWorkSize()[i] / spContext.GetWorkGroupSize()[i]);
-        //TODO: for non-uniform WG size it may not be true
-        assert( pKernelConfig->GetGlobalWorkSize()[i] % spContext.GetWorkGroupSize()[i] == 0  && "Global work size is not multiple of work group size" );
+        regions[i] =  (pKernelConfig->GetGlobalWorkSize()[i] / spContext.GetWorkGroupSize()[i]) +
+                      (pKernelConfig->GetGlobalWorkSize()[i] % spContext.GetWorkGroupSize()[i] != 0);
     }
 
     // Note:

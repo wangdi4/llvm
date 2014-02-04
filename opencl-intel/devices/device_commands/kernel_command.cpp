@@ -132,6 +132,16 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
         return CL_INVALID_OPERATION;
     }
 
+    if(!pKernel->GetKernelProporties()->IsNonUniformWGSizeSupported()) {
+      // Check for non-uniform work-group size in all dimensions.
+      for(unsigned int dim = 0; dim < pNDRange->workDimension; ++dim) {
+        if(pNDRange->localWorkSize[dim] != 0 && pNDRange->globalWorkSize[dim] % pNDRange->localWorkSize[dim] != 0) { // Dimension with non-uniform work-group size detected.
+          // TODO: return CLK_INVALID_NDRANGE if the -g compiler option was specified.
+          return CL_ENQUEUE_FAILURE;
+        }
+      }
+    }
+
     SharedPtr<KernelCommand> pChild;
 #if __USE_TBB_ALLOCATOR__
         DeviceNDRange* const pChildAddress = m_deviceNDRangeAllocator.allocate(sizeof(DeviceNDRange));    // currently we ignore bad_alloc

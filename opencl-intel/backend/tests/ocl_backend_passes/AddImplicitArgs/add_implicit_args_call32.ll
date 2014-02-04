@@ -30,7 +30,7 @@ entry:
 ; CHECK:      declare i32 @__functionWithArgs_before.AddImplicitArgs(i32, i32) #0
 
 ; CHECK:      define void @functionWithoutArgs(i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
@@ -41,7 +41,7 @@ entry:
 
 ; CHECK:      define i32 @functionWithArgs(i32 %x, i32 %y,
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
@@ -53,7 +53,7 @@ entry:
 
 ; CHECK:      define i32 @caller(i32 %x, i32 %y,
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
@@ -61,7 +61,7 @@ entry:
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   %pLocalMem_functionWithoutArgs = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 0
 ; CHECK-NEXT:   call void @functionWithoutArgs(i8 addrspace(3)* %pLocalMem_functionWithoutArgs,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim,
 ; CHECK:          i32* %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* %pSpecialBuf,
@@ -69,7 +69,7 @@ entry:
 ; CHECK-NEXT:   %pLocalMem_functionWithArgs = getelementptr i8 addrspace(3)* %pLocalMemBase, i32 0
 ; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = call i32 @functionWithArgs(i32 %x, i32 %y,
 ; CHECK:          i8 addrspace(3)* %pLocalMem_functionWithArgs,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim,
 ; CHECK:          i32* %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* %pSpecialBuf,

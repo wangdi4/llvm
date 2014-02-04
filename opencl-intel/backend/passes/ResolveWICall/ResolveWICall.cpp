@@ -67,6 +67,10 @@ namespace intel {
       // extended execution flags
       m_ExtExecDecls.clear();
 
+      m_oclVersion = CompilationUtils::getCLVersionFromModuleOrDefault(M);
+      m_nonUniformLocalSize = CompilationUtils::fetchCompilerOption(
+        M, "-cl-uniform-work-group-size").empty() == false;
+
       // Run on all defined function in the module
       for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
         Function *pFunc = dyn_cast<Function>(&*fi);
@@ -107,7 +111,7 @@ namespace intel {
 
         CallInst *pCall = dyn_cast<CallInst>(*ii);
         std::string calledFuncName = pCall->getCalledFunction()->getName().str();
-        unsigned calledFuncType = getCallFunctionType(calledFuncName);
+        TInternalCallType calledFuncType = getCallFunctionType(calledFuncName);
 
         Value *pNewRes = NULL;
         switch ( calledFuncType ) {
@@ -120,6 +124,7 @@ namespace intel {
         case ICT_GET_WORK_DIM:
         case ICT_GET_GLOBAL_SIZE:
         case ICT_GET_LOCAL_SIZE:
+        case ICT_GET_ENQUEUED_LOCAL_SIZE:
         case ICT_GET_NUM_GROUPS:
         case ICT_GET_GROUP_ID:
         case ICT_GET_GLOBAL_OFFSET:
@@ -190,7 +195,7 @@ namespace intel {
     return pFunc;
   }
 
-  Value* ResolveWICall::updateGetFunction(CallInst *pCall, unsigned type) {
+  Value* ResolveWICall::updateGetFunction(CallInst *pCall, TInternalCallType type) {
     assert(pCall && "Invalid CallInst");
     if (type == ICT_GET_WORK_DIM) {
       IRBuilder<> B(pCall);
@@ -208,6 +213,7 @@ namespace intel {
       break;
     case ICT_GET_NUM_GROUPS:
     case ICT_GET_LOCAL_SIZE:
+    case ICT_GET_ENQUEUED_LOCAL_SIZE:
     case ICT_GET_GLOBAL_SIZE:
       overflowValue = 1;
       break;
@@ -274,24 +280,32 @@ namespace intel {
     return pAttrResult;
   }
 
-  Value *ResolveWICall::updateGetFunctionInBound(CallInst *pCall, unsigned type,
+  Value *ResolveWICall::updateGetFunctionInBound(CallInst *pCall, TInternalCallType type,
                                                  Instruction *pInsertBefore) {
     IRBuilder<> Builder(pInsertBefore);
     std::string Name;
     switch (type) {
     case ICT_GET_GLOBAL_OFFSET:
     case ICT_GET_GLOBAL_SIZE:
-    case ICT_GET_LOCAL_SIZE:
     case ICT_GET_NUM_GROUPS:
       return m_IAA->GenerateGetFromWorkInfo(InternalCall2NDInfo(type),
                                             m_pWorkInfo,
                                             pCall->getArgOperand(0), Builder);
+    case ICT_GET_LOCAL_SIZE:
+      return m_IAA->GenerateGetLocalSize(m_nonUniformLocalSize,
+                                         m_pWorkInfo, m_pWGId, pCall->getArgOperand(0),
+                                         Builder);
+    case ICT_GET_ENQUEUED_LOCAL_SIZE:
+      return m_IAA->GenerateGetEnqueuedLocalSize(m_pWorkInfo, pCall->getArgOperand(0),
+                                                 Builder);
     case ICT_GET_BASE_GLOBAL_ID:
       return m_IAA->GenerateGetBaseGlobalID(m_pBaseGlbId,
                                             pCall->getArgOperand(0), Builder);
     case ICT_GET_GROUP_ID:
       return m_IAA->GenerateGetGroupID(m_pWGId, pCall->getArgOperand(0),
                                        Builder);
+    default:
+      break;
     }
     assert(false && "Unexpected ID function");
     return 0;
@@ -469,7 +483,7 @@ namespace intel {
     m_bPrefetchDecl = true;
   }
 
-  unsigned ResolveWICall::getCallFunctionType(std::string calledFuncName) {
+  TInternalCallType ResolveWICall::getCallFunctionType(std::string calledFuncName) {
 
     if( calledFuncName == CompilationUtils::NAME_GET_BASE_GID ) {
       return ICT_GET_BASE_GLOBAL_ID;
@@ -481,8 +495,6 @@ namespace intel {
       return ICT_GET_WORK_DIM;
     if(CompilationUtils::isGetGlobalSize(calledFuncName))
       return ICT_GET_GLOBAL_SIZE;
-    if(CompilationUtils::isGetLocalSize(calledFuncName))
-      return ICT_GET_LOCAL_SIZE;
     if(CompilationUtils::isGetNumGroups(calledFuncName))
       return ICT_GET_NUM_GROUPS;
     if(CompilationUtils::isGetGroupId(calledFuncName))
@@ -494,13 +506,20 @@ namespace intel {
     if(CompilationUtils::isPrefetch(calledFuncName))
       return ICT_PREFETCH;
 
-    // OpenCL2.0 extended execution built-ins which have var-args prototypes
-    if (CompilationUtils::getCLVersionFromModuleOrDefault(*m_pModule) ==
-        OclVersion::CL_VER_2_0) {
+    // OpenCL2.0 built-ins to resolve
+    if (m_oclVersion == OclVersion::CL_VER_2_0) {
       if( CompilationUtils::isEnqueueKernelLocalMem(calledFuncName))
         return ICT_ENQUEUE_KERNEL_LOCALMEM;
       if( CompilationUtils::isEnqueueKernelEventsLocalMem(calledFuncName))
         return ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
+      if(CompilationUtils::isGetLocalSize(calledFuncName))
+        return ICT_GET_LOCAL_SIZE;
+      if(CompilationUtils::isGetEnqueuedLocalSize(calledFuncName))
+        return ICT_GET_ENQUEUED_LOCAL_SIZE;
+    } else {
+      // built-ins which behavior is different in OpenCL versions older than 2.0
+      if(CompilationUtils::isGetLocalSize(calledFuncName))
+        return ICT_GET_ENQUEUED_LOCAL_SIZE;
     }
     return ICT_NONE;
   }

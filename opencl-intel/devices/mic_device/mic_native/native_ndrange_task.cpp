@@ -238,18 +238,22 @@ if ( gMicGPAData.bUseGPA)
         currentLockedBuffer++;
     }
 
-    m_pUniformArgs = (cl_uniform_kernel_args*)(m_pKernelArgs + argSize);
+    m_pUniformArgs = reinterpret_cast<cl_uniform_kernel_args*>(m_pKernelArgs + argSize);
     m_pUniformArgs->RuntimeInterface = (void*)static_cast<ICLDevBackendDeviceAgentCallback*>(this);
 
 #if 0
     printf("m_pUniformArgs->RuntimeInterface=%p\n", this);
     printf("Queue:%p, Kernel:%p(%p), SE:%d, EE:%d\n"\
-        "running on %d dims, global size: [0]=%d, [1]=%d, [2]=%d, local size: [0]=%d, [1]=%d, [2]=%d\n "
-        "RuntimeInterface=%p\n",
         (void*)m_dispatcherData->deviceQueuePtr, (void*)m_dispatcherData->kernelAddress, m_pKernel, (int)m_dispatcherData->startEvent.isRegistered, (int)m_dispatcherData->endEvent.isRegistered,
+        "\trunning on %d dims\n"
+        "\tglobal size: [0]=%d, [1]=%d, [2]=%d\n"
+        "\tuniform local size:     [0]=%d, [1]=%d, [2]=%d\n"
+        "\tnon-uniform local size: [0]=%d, [1]=%d, [2]=%d\n"
+        "\tRuntimeInterface=%p\n",
         (int)m_pUniformArgs->WorkDim,
         (int)m_pUniformArgs->GlobalSize[0], (int)m_pUniformArgs->GlobalSize[1], (int)m_pUniformArgs->GlobalSize[2],
-        (int)m_pUniformArgs->LocalSize[0], (int)m_pUniformArgs->LocalSize[1], (int)m_pUniformArgs->LocalSize[2],
+        (int)m_pUniformArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0], (int)m_pUniformArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][1], (int)m_pUniformArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][2],
+        (int)m_pUniformArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][0], (int)m_pUniformArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][1], (int)m_pUniformArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][2],
         (void*)m_pUniformArgs->RuntimeInterface
         );fflush(0);
 #endif
@@ -403,11 +407,19 @@ int NDRangeTask::Init(size_t region[], unsigned int& regCount)
     }
 
 #if 0
-    printf("running on %d dims, global size: [0]=%d, [1]=%d, [2]=%d, number of workgrops:[0]=%d, [1]=%d, [2]=%d, local size: [0]=%d, [1]=%d, [2]=%d\n",
-        (int)regCount,
+    printf("running on %d dims\n"
+           "\tglobal size: [0]=%d, [1]=%d, [2]=%d\n"
+           "\tnumber of workgrops:[0]=%d, [1]=%d, [2]=%d\n"
+           "\tuniform local size: [0]=%d, [1]=%d, [2]=%d\n"
+           "\tnon-uniform local size: [0]=%d, [1]=%d, [2]=%d\n",
         (int)m_pUniformArgs->GlobalSize[0], (int)m_pUniformArgs->GlobalSize[1], (int)m_pUniformArgs->GlobalSize[2],
         (int)m_pUniformArgs->WGCount[0], (int)m_pUniformArgs->WGCount[1], (int)m_pUniformArgs->WGCount[2],
-        (int)m_pUniformArgs->LocalSize[0], (int)m_pUniformArgs->LocalSize[1], (int)m_pUniformArgs->LocalSize[2]
+        (int)m_pUniformArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0],
+        (int)m_pUniformArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][1],
+        (int)m_pUniformArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][2],
+        (int)m_pUniformArgs->LocalSize[NON_UNIFORM_WG_SIZE_INDEX][0],
+        (int)m_pUniformArgs->LocalSize[NON_UNIFORM_WG_SIZE_INDEX][1],
+        (int)m_pUniformArgs->LocalSize[NON_UNIFORM_WG_SIZE_INDEX][2]
         );fflush(0);
 #endif
 

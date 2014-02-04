@@ -1627,7 +1627,7 @@ cl_err_code NDRangeKernelCommand::Init()
         {
             for( unsigned int ui=0; ui<m_uiWorkDim; ui++)
             {
-                if( szCompliedWorkGroupSize[ui] != m_cpszLocalWorkSize[ui])
+                if( szCompliedWorkGroupSize[ui] != m_cpszLocalWorkSize[ui] )
                 {
                     return CL_INVALID_WORK_GROUP_SIZE;
                 }
@@ -1802,7 +1802,19 @@ cl_err_code NDRangeKernelCommand::Init()
         pKernelParam->glb_wrk_offs[i] = (NULL != m_cpszGlobalWorkOffset) ? m_cpszGlobalWorkOffset[i] : 0;
         pKernelParam->glb_wrk_size[i] = m_cpszGlobalWorkSize[i];
         // If m_cpszLocalWorkSize == NULL, set to 0. Agent is expected to handle lcl_wrk_size 0 as NULL
-        pKernelParam->lcl_wrk_size[i] = (NULL != m_cpszLocalWorkSize) ? m_cpszLocalWorkSize[i] : 0;
+        if (NULL == m_cpszLocalWorkSize)
+        {
+            pKernelParam->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i] =
+            pKernelParam->lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i] = 0;
+        }
+        else
+        {
+          size_t tailSize = m_cpszGlobalWorkSize[i] % m_cpszLocalWorkSize[i];
+          pKernelParam->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i] = m_cpszLocalWorkSize[i];
+          pKernelParam->lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i] = 0 < tailSize ?
+                                                                        tailSize :
+                                                                        m_cpszLocalWorkSize[i];
+        }
     }
 
     // Set GPA data

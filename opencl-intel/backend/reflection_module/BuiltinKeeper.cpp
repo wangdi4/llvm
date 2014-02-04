@@ -214,8 +214,8 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //
   {
     llvm::StringRef names[] = {
-      "get_global_id", "get_global_size", "get_local_size", "get_local_id",
-      "get_num_groups", "get_group_id", "get_global_offset", "barrier",
+      "get_global_id", "get_global_size", "get_local_size", "get_enqueued_local_size",
+      "get_local_id", "get_num_groups", "get_group_id", "get_global_offset", "barrier",
       "mem_fence", "read_mem_fence", "write_mem_fence"
     };
     addExceptionToWIFunctions(StringArray(names), PRIMITIVE_UINT);
