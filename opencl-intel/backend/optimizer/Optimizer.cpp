@@ -85,6 +85,7 @@ llvm::ModulePass *createReduceAlignmentPass();
 llvm::ModulePass* createProfilingInfoPass();
 llvm::Pass *createSmartGVNPass();
 #endif
+llvm::FunctionPass *createMemoryDependenceAnalysisPass(int BlockScanLimit);
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectFuncPtrCalls();
 llvm::ModulePass *createDetectRecursionPass();
@@ -311,6 +312,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   bool isProfiling = pConfig->GetProfilingFlag();
   bool DisableSimplifyLibCalls = true;
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
+  int BlockSizeLimit = 500;
   DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
 #ifndef __APPLE__
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
@@ -390,6 +392,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   // to optimize redundancy introduced by those passes
   if ( debugType == intel::None ) {
     PM.add(llvm::createInstructionCombiningPass());
+    PM.add(llvm::createMemoryDependenceAnalysisPass(BlockSizeLimit));
     PM.add(llvm::createGVNPass());
   }
 #ifndef __APPLE__
@@ -531,6 +534,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
     PM.add(llvm::createInstructionCombiningPass());       // Instruction combining
     PM.add(llvm::createDeadStoreEliminationPass());       // Eliminated dead stores
     PM.add(llvm::createEarlyCSEPass());
+    PM.add(llvm::createMemoryDependenceAnalysisPass(BlockSizeLimit));
     PM.add(createSmartGVNPass());
 
 #ifdef _DEBUG
@@ -555,6 +559,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
       PM.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
       PM.add(llvm::createInstructionCombiningPass());       // Instruction combining
+      PM.add(llvm::createMemoryDependenceAnalysisPass(BlockSizeLimit));
       PM.add(llvm::createGVNPass());
 #ifdef _DEBUG
       PM.add(llvm::createVerifierPass());
@@ -574,7 +579,6 @@ Optimizer::~Optimizer()
 Optimizer::Optimizer( llvm::Module* pModule,
                       llvm::Module* pRtlModule,
                       const intel::OptimizerConfig* pConfig):
-
     m_pModule(pModule)
 {
 
