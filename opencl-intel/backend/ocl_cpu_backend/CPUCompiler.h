@@ -54,8 +54,6 @@ public:
     CPUCompiler(const ICompilerConfig& pConfig);
     virtual ~CPUCompiler();
 
-    unsigned int GetTypeAllocSize(llvm::Type* pType) const;
-
     // Returns pointer to jitted function if function hasn't been compiled
     // Otherwise function is jitted and pointer is returned
     void *GetPointerToFunction(llvm::Function *pf);

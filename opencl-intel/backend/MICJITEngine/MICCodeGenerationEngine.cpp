@@ -65,11 +65,6 @@ MICCodeGenerationEngine::MICCodeGenerationEngine(TargetMachine &tm,
 
 MICCodeGenerationEngine::~MICCodeGenerationEngine() {}
 
-size_t MICCodeGenerationEngine::sizeOf(Type* t) const{
-  assert(t && "type is null");
-  return(size_t)TM.getDataLayout()->getTypeSizeInBits(t);
-}
-
 const LLVMModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
   llvm::Module& mod, const std::string& outAsmFileName) const {
 
