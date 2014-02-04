@@ -205,7 +205,7 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
         } else {
           localSizeMaxLimit = min(
                localSizeMaxLimit,
-               // Calculating lower bound for [sqrt((global/SIMD)/WT))*SIMD]
+               // Calculating lower bound for [sqrt(global/(WT*SIMD))*SIMD]
                // Starting the search from this number improves the chances to
                // find a local size that satisfies the "balance" factor.
                // Optimal balanced local size applies the following:
@@ -234,7 +234,8 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
         //Cost function: check if we found a balanced local size compared to number of work groups
         #define BALANCE_FACTOR (2)
         const unsigned int workGroups = globalWorkSize / newHeuristic;
-        assert((workGroups << simdUtilsLog) >= (newHeuristic * workThreadUtils) && "Wrong balance factor calculation!");
+        assert((m_pProps->HasGlobalSyncOperation() || // do not check that work is balanced if we are trying to minimize the number of WGs
+            (workGroups << simdUtilsLog) >= (newHeuristic * workThreadUtils)) && "Wrong balance factor calculation!");
         const int balanceFactor = (workGroups << simdUtilsLog) - BALANCE_FACTOR * (newHeuristic * workThreadUtils);
         if ( balanceFactor > 0 ) {
           localSizeUpperLimit = min(localSizeUpperLimit, (unsigned int)sqrt((float)globalWorkSize));

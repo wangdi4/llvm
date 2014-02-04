@@ -403,18 +403,18 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
     PM.add(createProfilingInfoPass());
   }
 #endif
-   // Get Some info about the kernel
-   // should be called before BarrierPass and createPrepareKernelArgsPass
-   if(pRtlModule != NULL) {
-     PM.add(createKernelInfoWrapperPass());
-   }
-
   if (isOcl20) {
     // Resolve (dynamically) generic address space pointers which are relevant for
     // correct execution
     PM.add(createGenericAddressDynamicResolutionPass());
     // No need to run function inlining pass here, because if there are still
     // non-inlined functions left - then we don't have to inline new ones.
+  }
+
+  // Get Some info about the kernel
+  // should be called before BarrierPass and createPrepareKernelArgsPass
+  if(pRtlModule != NULL) {
+    PM.add(createKernelInfoWrapperPass());
   }
 
   // Adding WG loops

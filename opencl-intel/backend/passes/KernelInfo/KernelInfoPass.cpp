@@ -42,6 +42,8 @@ namespace intel {
       std::string calledFuncName = pFunc->getName().str();
       if (CompilationUtils::isAtomicBuiltin(calledFuncName)) {
         PointerType* ptr = cast<PointerType>(pCall->getOperand(0)->getType());
+        assert(!IS_ADDR_SPACE_GENERIC(ptr->getAddressSpace()) &&
+              "Generic address space must be resolved before KernelInfoPass.");
         if (IS_ADDR_SPACE_GLOBAL(ptr->getAddressSpace()))
           return true;
       }
