@@ -107,6 +107,7 @@ L0:
 ; CHECK-NOT: entry
 ; CHECK: entry(0) : (96)
 ; CHECK: entry(1) :
+; CHECK: entry(2) :
 ; CHECK-NOT: entry
 ; CHECK: DONE
 

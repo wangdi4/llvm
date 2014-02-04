@@ -37,9 +37,9 @@ L2:
 }
 
 ; CHECK: Group-A Values
-; CHECK-NOT: +
-; CHECK-NOT: -
-; CHECK-NOT: *
+; CHECK: +main
+; CHECK: -p
+; CHECK: *
 
 ; CHECK: Group-B.1 Values
 ; CHECK-NOT: +
@@ -52,8 +52,8 @@ L2:
 ; CHECK-NOT: *
 
 ; CHECK: Buffer Total Size:
-; CHECK-NOT: main
-; CHECK-NOT: entry
+; CHECK: +main : [0]
+; CHECK: entry(0) : (8)
 ; CHECK: DONE
 
 declare i32 @_Z12get_local_idj(i32)

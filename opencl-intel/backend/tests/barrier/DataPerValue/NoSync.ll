@@ -36,8 +36,8 @@ define void @main(i32 %x) nounwind {
 ; CHECK-NOT: *
 
 ; CHECK: Buffer Total Size:
-; CHECK-NOT: main
-; CHECK-NOT: entry
+; CHECK: +main : [0]
+; CHECK: entry(0) : (0)
 ; CHECK: DONE
 
 !opencl.kernels = !{!0}

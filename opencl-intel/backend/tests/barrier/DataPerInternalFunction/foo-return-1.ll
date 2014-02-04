@@ -62,8 +62,7 @@ L2:
 ; CHECK-NOT: *
 
 ; CHECK: Buffer Total Size:
-; CHECK-NOT: entry
-; CHECK: entry(0) : (0)
+; CHECK: entry(1) : (0)
 ; CHECK-NOT: entry
 ; CHECK: DONE
 

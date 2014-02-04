@@ -66,10 +66,26 @@ public:
     virtual const size_t* GetRequiredWorkGroupSize() const;
 
     /**
-     * @returns the required private memory size for single Work Item execution
-     *  0 when is not available
+     * @returns the required barrier buffer memory size for single Work Item execution
+     *  0 when there are no WG level built-ins in the kernel.
+     */
+    virtual size_t GetBarrierBufferSize() const;
+
+    /**
+     * @returns the min required private memory size for single Work Item execution.
+     *          It includes memory allocated on the stack statically (per WI) plus
+     *          barrier buffer size. It also migth include some extra space for
+     *          external functions called by the kernel.
      */
     virtual size_t GetPrivateMemorySize() const;
+
+    /**
+     * @param   wgSizeUpperBound - maximum possible WG size.
+     * @param   wgPrivateMemSizeUpperBound - maximum possible private memory size per WG.
+     * @return  the max. possible WG size with respect to the specified limits.
+     */
+    virtual size_t GetMaxWorkGroupSize(size_t const wgSizeUpperBound,
+                                       size_t const wgPrivateMemSizeUpperBound) const;
 
     /**
      * @returns the required minimum group size factorial
@@ -142,6 +158,7 @@ public:
     void SetDAZ(bool value)        { m_DAZ = value; }
     void SetHasBarrier(bool value) { m_hasBarrier = value; }
     void SetHasGlobalSync(bool value) { m_hasGlobalSync = value; }
+    void SetBarrierBufferSize(size_t size) { m_barrierBufferSize = size; }
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
     void SetCpuId( const Intel::CPUId &cpuId ) { m_cpuId = cpuId; }
     void SetMinGroupSizeFactorial(unsigned int size) { m_minGroupSizeFactorial = size; }
@@ -168,6 +185,7 @@ protected:
     size_t m_reqdWGSize[MAX_WORK_DIM];  // Required work-group size that was declared during kernel compilation
     size_t m_hintWGSize[MAX_WORK_DIM];  // Hint to work-group size that was declared during kernel compilation
     size_t m_totalImplSize;
+    size_t m_barrierBufferSize;
     size_t m_privateMemorySize;
     size_t m_kernelExecutionLength;
     std::string m_kernelAttributes;

@@ -61,10 +61,19 @@ public:
     virtual const size_t* GetRequiredWorkGroupSize() const = 0;
 
     /**
-     * @returns the required private memory size for single Work Item execution
+     * @returns the required barrier buffer size for single Work Item execution
      *  0 when is not available
      */
+    virtual size_t GetBarrierBufferSize() const = 0;
+
+    /** @returns the min. required private memory size for single Work Item execution.
+     *           Used by clEnqueueNDRangeKernel and clGetKernelWorkGroupInfo
+     */
     virtual size_t GetPrivateMemorySize() const = 0;
+
+    /** @returns the max. possible WG size with respect to the specified limits.
+     */
+    virtual size_t GetMaxWorkGroupSize(size_t const maxWGSize, size_t const maxWGPrivateSize) const = 0;
 
     /**
      * @returns the size in bytes of the implicit local memory buffer required by this kernel
