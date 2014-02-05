@@ -46,7 +46,7 @@ GenericMemObject::GenericMemObject(const SharedPtr<Context>& pContext, cl_mem_ob
     MemoryObject(pContext),
     m_active_groups_count(0),
     m_BS(NULL),
-	m_hierarchicalMemoryMode(MEMORY_MODE_NORMAL)    
+    m_hierarchicalMemoryMode(MEMORY_MODE_NORMAL)    
 {
     INIT_LOGGER_CLIENT(TEXT("GenericMemObject"), LL_DEBUG);
 
@@ -544,7 +544,8 @@ cl_err_code    GenericMemObject::MemObjCreateDevMappedRegion(
 cl_err_code    GenericMemObject::MemObjReleaseDevMappedRegion(
                                             const SharedPtr<FissionableDevice>& pDevice,
                                             cl_dev_cmd_param_map*    cmd_param_map,
-                                            void* pHostMapDataPtr )
+                                            void* pHostMapDataPtr,
+                                            bool force_unmap )
 {
     IOCLDevMemoryObject* dev_object;
     cl_err_code          err;
@@ -556,7 +557,10 @@ cl_err_code    GenericMemObject::MemObjReleaseDevMappedRegion(
         return err;
     }
 
-    cl_dev_err_code dev_err =  dev_object->clDevMemObjReleaseMappedRegion(cmd_param_map);
+    cl_dev_err_code dev_err =  (force_unmap) ? 
+                            dev_object->clDevMemObjUnmapAndReleaseMappedRegion(cmd_param_map)
+                            :
+                            dev_object->clDevMemObjReleaseMappedRegion(cmd_param_map);
 
     return CL_DEV_SUCCEEDED(dev_err) ? CL_SUCCESS : CL_INVALID_VALUE;
 }
@@ -786,7 +790,7 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
         return CL_INVALID_VALUE;
     }
 
-	if (CL_MEM_OBJECT_BUFFER == m_clMemObjectType || CL_MEM_OBJECT_PIPE == m_clMemObjectType)
+    if (CL_MEM_OBJECT_BUFFER == m_clMemObjectType || CL_MEM_OBJECT_PIPE == m_clMemObjectType)
     {
         return CL_INVALID_MEM_OBJECT;
     }

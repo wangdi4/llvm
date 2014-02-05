@@ -80,7 +80,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         virtual cl_err_code UnLockOnDevice( IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage );
 
         virtual cl_err_code UpdateHostPtr(cl_mem_flags clMemFlags, void* pHostPtr);        
-		
+        
         virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion,
             size_t szRowPitch, size_t szSlicePitch) const;
 
@@ -91,15 +91,15 @@ namespace Intel { namespace OpenCL { namespace Framework
         virtual cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice,
             IOCLDevMemoryObject** ppDevObject, SharedPtr<OclEvent>* ppEvent);
 
-		virtual cl_err_code UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice,
-			IOCLDevMemoryObject* OUT *ppDevObject);
+        virtual cl_err_code UpdateDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice,
+            IOCLDevMemoryObject* OUT *ppDevObject);
 
         virtual bool IsSupportedByDevice(const SharedPtr<FissionableDevice>& pDevice);
 
         // In the case when Backing Store region is different from Host Map pointer provided by user
         // we need to synchronize user area with device area after/before each map/unmap command
         //
-		virtual bool        IsSynchDataWithHostRequired( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) const;
+        virtual bool        IsSynchDataWithHostRequired( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr ) const;
         virtual cl_err_code SynchDataToHost(   cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
         virtual cl_err_code SynchDataFromHost( cl_dev_cmd_param_map* IN pMapInfo, void* IN pHostMapDataPtr );
 
@@ -110,25 +110,25 @@ namespace Intel { namespace OpenCL { namespace Framework
 
         // inherited methods:
 
-        virtual	cl_err_code	MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice> &,
+        virtual    cl_err_code    MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice> &,
             cl_dev_cmd_param_map* cmd_param_map, void** pHostMapDataPtr);
 
-        virtual	cl_err_code	MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice>&,
-            cl_dev_cmd_param_map* cmd_param_map, void* pHostMapDataPtr);
+        virtual    cl_err_code    MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice>&,
+            cl_dev_cmd_param_map* cmd_param_map, void* pHostMapDataPtr, bool force_unmap = false);
 
 
         mutable Intel::OpenCL::Utils::OclSpinMutex m_muAcquireRelease;
-		// This list hold the ordered events which represent acquire commands and appropriate child object,
-		// the latest event located in the tail.
-		// Scenario:
-		// clEnqueueAcquireGL...()
-		// clEnqueuNDRange()
-		// clEnqueueReleaseGL...()
-		// clEnqueueAcquireGL...()
-		// clEnqueuNDRange()
-		// clEnqueueReleaseGL...()
-		// ...
-		// clFinish()
+        // This list hold the ordered events which represent acquire commands and appropriate child object,
+        // the latest event located in the tail.
+        // Scenario:
+        // clEnqueueAcquireGL...()
+        // clEnqueuNDRange()
+        // clEnqueueReleaseGL...()
+        // clEnqueueAcquireGL...()
+        // clEnqueuNDRange()
+        // clEnqueueReleaseGL...()
+        // ...
+        // clFinish()
 
         enum ClGfxObjectState {
             CL_GFX_OBJECT_VALID,
@@ -161,10 +161,10 @@ namespace Intel { namespace OpenCL { namespace Framework
         };
 
         // The list is protectd by m_muAcquireRelease
-		typedef std::list< std::pair<SharedPtr<OclEvent>, AcquiredObject > > t_AcquiredObjects;
-		t_AcquiredObjects m_lstAcquiredObjectDescriptors;
-		t_AcquiredObjects::iterator m_itCurrentAcquriedObject;
+        typedef std::list< std::pair<SharedPtr<OclEvent>, AcquiredObject > > t_AcquiredObjects;
+        t_AcquiredObjects m_lstAcquiredObjectDescriptors;
+        t_AcquiredObjects::iterator m_itCurrentAcquriedObject;
 
-	};
+    };
 
 }}}

@@ -437,7 +437,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             cl_dev_cmd_param_map*    cmd_param_map, void** pHostMapDataPtr);
         // Low level mapped region release function
         virtual    cl_err_code    MemObjReleaseDevMappedRegion(const SharedPtr<FissionableDevice>&,
-            cl_dev_cmd_param_map*    cmd_param_map, void* pHostMapDataPtr);
+            cl_dev_cmd_param_map*    cmd_param_map, void* pHostMapDataPtr, bool force_unmap = false );
 
         struct DeviceDescriptor
         {
