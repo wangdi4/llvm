@@ -340,8 +340,17 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     list.push_back(szCurrDirrPath);
 
     //Add OpenCL predefined macros
-    list.push_back("-D");
-    list.push_back("__OPENCL_VERSION__=120");
+    if (m_config.GetOpenCLVersion() == OPENCL_VERSION_2_0) {
+      list.push_back("-D");
+	    list.push_back("__OPENCL_VERSION__=200");
+    } else {
+      list.push_back("-D");
+	    list.push_back("__OPENCL_VERSION__=120");
+    }
+
+	  list.push_back("-D");
+	  list.push_back("CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE=0x10000");
+
     list.push_back("-D");
     list.push_back("CL_VERSION_1_0=100");
     list.push_back("-D");
@@ -1307,9 +1316,8 @@ int ClangFECompilerLinkTask::Link()
                   sizeof(cl_llvm_prog_header); //Skip the build flags for now
 
     }
-    MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));   
-    std::auto_ptr<llvm::Module> composite(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
-    delete pBinBuff;
+    std::auto_ptr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize)));
+    std::auto_ptr<llvm::Module> composite(ParseBitcodeFile(pBinBuff.get(), Context, &ErrorMessage));
 
     if (composite.get() == 0) 
     {
@@ -1341,9 +1349,8 @@ int ClangFECompilerLinkTask::Link()
                       sizeof(cl_llvm_prog_header); //Skip the build flags for now
         }
 
-        MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
-        std::auto_ptr<llvm::Module> M(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
-        delete pBinBuff;
+        std::auto_ptr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize)));
+        std::auto_ptr<llvm::Module> M(ParseBitcodeFile(pBinBuff.get(), Context, &ErrorMessage));
 
         if (M.get() == 0) 
         {
