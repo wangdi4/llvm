@@ -56,13 +56,13 @@ unsigned int min(unsigned int a, unsigned int b) { return a < b ? a : b; }
 
 unsigned int max(unsigned int a, unsigned int b) { return a > b ? a : b; }
 
-#if defined(ENABLE_SDE)
+//#if defined(ENABLE_SDE)
 // These functions are used as marks for the debug trace of the JIT execution
 extern "C" {
 void BeforeExecution() {}
 void AfterExecution() {}
 }
-#endif // ENABLE_SDE
+//#endif // ENABLE_SDE
 
 namespace Intel {
 namespace OpenCL {
@@ -468,9 +468,9 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
       static_cast<const cl_uniform_kernel_args *>(
           pKernelUniformImplicitArgsPosition);
 
-#if defined(ENABLE_SDE)
+//#if defined(ENABLE_SDE)
   BeforeExecution();
-#endif
+//#endif
 
   assert(pKernelUniformImplicitArgs->WorkDim < 4);
   assert(pKernelUniformImplicitArgs->WorkDim > 0);
@@ -492,9 +492,9 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
   // running the kernel with the specified args and (groupID, runtimeHandle)
   kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
 
-#if defined(ENABLE_SDE)
+//#if defined(ENABLE_SDE)
   AfterExecution();
-#endif
+//#endif
   return CL_DEV_SUCCESS;
 }
 
