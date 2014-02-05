@@ -574,7 +574,7 @@ void MemoryObject::ReleaseAllMappedRegions()
 
         if (NULL != info)
         {
-            MemObjReleaseDevMappedRegion(m_pMappedDevice, &(info->cmd_param_map), pHostPtr);
+            MemObjReleaseDevMappedRegion(m_pMappedDevice, &(info->cmd_param_map), pHostPtr, true );
             delete info;
         }
     }

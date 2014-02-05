@@ -942,6 +942,7 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
                 }
 
                 delete[] ppDevicePrograms;
+                delete[] input_programs;
 
                 return CL_INVALID_OPERATION;
             }
@@ -985,6 +986,7 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
 
             delete[] szUnrecognizedOptions;
             delete[] ppDevicePrograms;
+            delete[] input_programs;
 
             return CL_INVALID_LINKER_OPTIONS;
         }
