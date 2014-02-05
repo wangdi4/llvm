@@ -1309,7 +1309,7 @@ int ClangFECompilerLinkTask::Link()
     }
     MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));   
     std::auto_ptr<llvm::Module> composite(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
-
+    delete pBinBuff;
 
     if (composite.get() == 0) 
     {
@@ -1342,8 +1342,9 @@ int ClangFECompilerLinkTask::Link()
         }
 
         MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
-               
         std::auto_ptr<llvm::Module> M(ParseBitcodeFile(pBinBuff, Context, &ErrorMessage));
+        delete pBinBuff;
+
         if (M.get() == 0) 
         {
             if ( !ErrorMessage.empty() )

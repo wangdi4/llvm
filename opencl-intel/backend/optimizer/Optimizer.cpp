@@ -94,25 +94,12 @@ llvm::Pass *createResolveBlockToStaticCallPass();
 
 using namespace intel;
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-static bool hasBarriers(llvm::Module *pModule) {
-  for (llvm::Module::iterator it = pModule->begin(), e = pModule->end();
-       it != e; ++it) {
-    llvm::Function *f = it;
-    // If name of function contain the word 'barrier', assume that
-    // the module calls a 'barrier' function.
-    if (f->getName().find("barrier") != std::string::npos) {
-      return true;
-    }
-  }
-  return false;
-}
 
 /// createStandardModulePasses - Add the standard module passes.  This is
 /// expected to be run after the standard function passes.
 static inline void
 createStandardLLVMPasses(llvm::PassManagerBase *PM,
                          unsigned OptLevel,
-                         bool OptimizeSize,
                          bool UnitAtATime,
                          bool UnrollLoops,
                          bool SimplifyLibCalls,
@@ -160,7 +147,7 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
   PM->add(llvm::createReassociatePass());         // Reassociate expressions
   PM->add(llvm::createLoopRotatePass());          // Rotate Loop
   PM->add(llvm::createLICMPass());                // Hoist loop invariants
-  PM->add(llvm::createLoopUnswitchPass(OptimizeSize || OptLevel < 3));
+  PM->add(llvm::createLoopUnswitchPass(OptLevel < 3));
   PM->add(llvm::createInstructionCombiningPass());
   PM->add(llvm::createInstructionSimplifierPass());
   PM->add(llvm::createIndVarSimplifyPass()); // Canonicalize indvars
@@ -292,9 +279,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
     PM.add(createRemovePrefetchPass());
 #endif //#ifndef __APPLE__
   PM.add(createBuiltinCallToInstPass());
-  bool has_bar = false;
-  if (!pConfig->GetLibraryModule())
-    has_bar = hasBarriers(M);
+
   bool allowAllocaModificationOpt = true;
   if (!pConfig->GetLibraryModule() && HasGatherScatter) {
     allowAllocaModificationOpt = false;
@@ -305,7 +290,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   // barriers.
   bool UnitAtATime = true;
   createStandardLLVMPasses(
-      &PM, OptLevel, has_bar, // This parameter controls the unswitch pass
+      &PM, OptLevel,
       UnitAtATime, UnrollLoops, false, allowAllocaModificationOpt,
       debugType != intel::None, HasGatherScatter);
   // check function pointers calls are gone after standard optimizations
