@@ -122,12 +122,16 @@ struct ndrange_dispatcher_data : public dispatcher_data
         if ( sizeof(size_t) == sizeof(uint64_t) )
         {
             // Copy data in a single call, hopefully compiler will optimize
-            MEMCPY_S( &kernelArgs->GlobalOffset[0], sizeof(uint64_t)*MAX_WORK_DIM*3, &(cmdParams->glb_wrk_offs[0]), sizeof(uint64_t)*MAX_WORK_DIM*3);
+            MEMCPY_S( &kernelArgs->GlobalOffset[0], sizeof(uint64_t)*MAX_WORK_DIM*4, &(cmdParams->glb_wrk_offs[0]), sizeof(uint64_t)*MAX_WORK_DIM*4);
         } else
         {
-            size_t* groupedDlobalWork[3] = {kernelArgs->GlobalOffset, kernelArgs->GlobalSize, kernelArgs->LocalSize};
-            const size_t* otherGroupedDlobalWork[3] = {cmdParams->glb_wrk_offs, cmdParams->glb_wrk_size, cmdParams->lcl_wrk_size};
-            for (unsigned int i = 0; i < 3; i++)
+            size_t* groupedDlobalWork[4] = {kernelArgs->GlobalOffset, kernelArgs->GlobalSize,
+                                            kernelArgs->LocalSize[UNIFORM_WG_SIZE_INDEX],
+                                            kernelArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX]};
+            const size_t* otherGroupedDlobalWork[4] = {cmdParams->glb_wrk_offs, cmdParams->glb_wrk_size,
+                                                       cmdParams->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX],
+                                                       cmdParams->lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX]};
+            for (unsigned int i = 0; i < 4; i++)
             {
                 for (unsigned int j = 0; j < MAX_WORK_DIM; j++)
                 {

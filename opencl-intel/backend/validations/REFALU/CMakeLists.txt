@@ -46,4 +46,4 @@ add_library(${TARGET_NAME} STATIC
   ../Common/FloatOperations.cpp
 )
 
-set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_VALIDATION_FOLDER_NAME} )

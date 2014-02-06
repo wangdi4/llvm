@@ -1233,7 +1233,8 @@ namespace Validation {
         members.push_back(IntegerType::get(*m_pLLVMContext, 32));
         members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // Global offset
         members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // Global size
-        members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // WG size/Local size
+        members.push_back(ArrayType::get(                                                            // Two dimensional array of
+          ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT, MAX_WORK_DIM), WG_SIZE_NUM));    // Unifrom and NonUniform Local sizes
         members.push_back(ArrayType::get(IntegerType::get(*m_pLLVMContext, uiSizeT), MAX_WORK_DIM)); // Number of groups
         StructType* pWorkDimType = StructType::get(*m_pLLVMContext, members, false);
         //m_pModule->addTypeName("struct.WorkDim", pWorkDimType);

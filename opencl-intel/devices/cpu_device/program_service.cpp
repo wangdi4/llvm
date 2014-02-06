@@ -762,6 +762,11 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         stValSize = sizeof(size_t)*MAX_WORK_DIM;
         break;
 
+    case CL_DEV_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT:
+        *(cl_bool*)pValue = (cl_bool)pKernelProps->IsNonUniformWGSizeSupported();
+        stValSize = sizeof(cl_bool);
+        break;
+
     case CL_DEV_KERNEL_MAX_WG_SIZE:
         {
             size_t private_mem_size = pKernelProps->GetPrivateMemorySize();

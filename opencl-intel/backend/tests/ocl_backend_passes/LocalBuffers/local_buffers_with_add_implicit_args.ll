@@ -15,13 +15,13 @@ entry:
   %dummyInt = load i32 addrspace(3)* @foo.localInt, align 4
   store i32 %dummyInt, i32 addrspace(1)* %ApInt
   store i32 %dummyInt, i32 addrspace(1)* %BpInt
-  
+
   %dummyChar = load i8 addrspace(3)* @foo.localChar, align 1
   store i8 %dummyChar, i8 addrspace(1)* %pChar
-  
+
   %dummyFloat = load float addrspace(3)* @foo.localFloat, align 4
   store float %dummyFloat, float addrspace(1)* %pFloat
-  
+
   ret void
 }
 
@@ -29,18 +29,18 @@ define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong
 entry:
   %dummyInt4 = load <4 x i32> addrspace(3)* @bar.localInt4, align 16
   store <4 x i32> %dummyInt4, <4 x i32> addrspace(1)* %pInt4
-  
+
   %dummyLong16 = load <16 x i64> addrspace(3)* @bar.localLong16, align 128
   store <16 x i64> %dummyLong16, <16 x i64> addrspace(1)* %pLong16
-  
+
   ret void
 }
 
 
 
-; CHECK:        define void @foo(i32 addrspace(1)* %ApInt, i32 addrspace(1)* %BpInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat, 
+; CHECK:        define void @foo(i32 addrspace(1)* %ApInt, i32 addrspace(1)* %BpInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat,
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,
@@ -65,9 +65,9 @@ entry:
 ; CHECK-NEXT:   ret void
 
 
-; CHECK:        define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong16, 
+; CHECK:        define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong16,
 ; CHECK:          i8 addrspace(3)* noalias %pLocalMemBase,
-; CHECK:          { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32], {}*, {}* }* noalias %pWorkDim,
+; CHECK:          { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* noalias %pWorkDim,
 ; CHECK:          i32* noalias %pWGId,
 ; CHECK:          [4 x i32] %BaseGlbId,
 ; CHECK:          i8* noalias %pSpecialBuf,

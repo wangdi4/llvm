@@ -31,7 +31,7 @@ namespace intel {
 
     // Source parameter
     Value *pPtr = pCallInstr->getArgOperand(0);
-    assert(dyn_cast<PointerType>(pPtr->getType()) && 
+    assert(dyn_cast<PointerType>(pPtr->getType()) &&
            "Parameter of Address Space Qualifier function should be a pointer!");
 
     Value *pFolded = getFoldedAddrSpaceCall(pCallInstr, pPtr);
@@ -49,7 +49,7 @@ namespace intel {
           CallInst *pCallInstr, FuncCallType category, OCLAddressSpace::spaces targetSpace) {
 
     // Converting the function call to that with all pointer parameters promoted to
-    // target address space type, together with induction of BitCast for every 
+    // target address space type, together with induction of BitCast for every
     // promoted parameter
     assert((category == CallBuiltIn || category == CallIntrinsic) && "Unexpected function category!");
     // GAS pointer cannot be returned from a BI or Intrinsic function. This is because we
@@ -75,12 +75,16 @@ namespace intel {
       Value *pArg = pCallInstr->getArgOperand(idx);
       // Check whether we should update this parameter
       PointerType *pPtrType = dyn_cast<PointerType>(pArg->getType());
-      if (pPtrType && pPtrType->getAddressSpace() != (unsigned)targetSpace) {
+
+      // TODO: revisit check below for generic address space when issue below is fixed
+      // CSSD100018604 ayal [OpenCL2.0] GenericAddressSpace pass should work properly with OpenCL2.0 built-in types
+      if (pPtrType && IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace())) {
+
         // Parameter is of pointer type and differs from targeted address space:
         // it and its type should be replaced
-        OCLAddressSpace::spaces originalSpace = 
+        OCLAddressSpace::spaces originalSpace =
                       (OCLAddressSpace::spaces) pPtrType->getAddressSpace();
-        pPtrType = PointerType::get(pPtrType->getElementType(), targetSpace); 
+        pPtrType = PointerType::get(pPtrType->getElementType(), targetSpace);
         argTypes.push_back(pPtrType);
         // Induce conversion from original parameter to that of target type
         BitCastInst *pInducedBitcast = new BitCastInst(pArg, pPtrType,
@@ -88,7 +92,7 @@ namespace intel {
         assocDebugLocWith(pInducedBitcast, pCallInstr);
         params.push_back(pInducedBitcast);
         resolvedSpaces.push_back(targetSpace);
-        originalSpaces.push_back(originalSpace); 
+        originalSpaces.push_back(originalSpace);
       } else {
         argTypes.push_back(pArg->getType());
         params.push_back(pArg);
@@ -114,7 +118,7 @@ namespace intel {
     pNewFunc->setLinkage(pCallee->getLinkage());
     pNewFunc->setCallingConv(pCallee->getCallingConv());
 
-    // And finally - generate replacement for Call instruction    
+    // And finally - generate replacement for Call instruction
     CallInst *pNewCall = CallInst::Create(pNewFunc, ArrayRef<Value*>(params), "", pCallInstr);
     assert(pNewCall && "Couldn't create resolved CALL instruction!");
     pNewCall->setAttributes(pCallInstr->getAttributes());

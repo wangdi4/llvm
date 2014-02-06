@@ -153,14 +153,6 @@ public:
     const void* clDevFEDeviceInfo() const;
     size_t		clDevFEDeviceInfoSize() const;
 
-    // TODO: Move the implemenations to be part of NDRange command / KernelCommand
-    //       Will help with 2.0 porting to MIC
-    //       Wait for new BE interface
-    // IDeviceCommandManager
-    int EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet,
-      const ICLDevBackendKernel_* pKernel, const void* pContext, size_t szContextSize, const cl_work_description_type* pNdrange
-      );
-
     int EnqueueMarker(queue_t queue, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet);
 
     int RetainEvent(clk_event_t event);

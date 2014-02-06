@@ -48,6 +48,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_GET_WORK_DIM = "get_work_dim";
   const std::string CompilationUtils::NAME_GET_GLOBAL_SIZE = "get_global_size";
   const std::string CompilationUtils::NAME_GET_LOCAL_SIZE = "get_local_size";
+  const std::string CompilationUtils::NAME_GET_ENQUEUED_LOCAL_SIZE = "get_enqueued_local_size";
   const std::string CompilationUtils::NAME_GET_NUM_GROUPS = "get_num_groups";
   const std::string CompilationUtils::NAME_GET_GROUP_ID = "get_group_id";
   const std::string CompilationUtils::NAME_GET_GLOBAL_OFFSET = "get_global_offset";
@@ -68,7 +69,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
   // Extended execution var args OpenCL 2.x
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS113ocl_clk_eventPU3AS113ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
 
   const std::string CompilationUtils::BARRIER_FUNC_NAME = "barrier";
   const std::string CompilationUtils::WG_BARRIER_FUNC_NAME = "work_group_barrier";
@@ -255,10 +256,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
     // Check is this is a block kernel (i.e. a kernel that is invoked from a
     // NDRange from an other kernel), and if so what is the size of the block
-    // literal
+    // literal. This information exists only in metadata of the scalar version.
     unsigned BlockLiteralSize = 0;
-    if (kimd->isBlockLiteralSizeHasValue()) {
-      BlockLiteralSize = kimd->getBlockLiteralSize();
+    KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(pOriginalFunc);
+    if (skimd->isBlockLiteralSizeHasValue()) {
+      BlockLiteralSize = skimd->getBlockLiteralSize();
     }
 
     KernelMetaDataHandle kmd;
@@ -542,8 +544,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   bool CompilationUtils::getCLVersionFromModule(const Module &M, unsigned &Result) {
+    StringRef opt = fetchCompilerOption(M, "-cl-std=");
+    if(opt.empty()) return false;
+
+    opt = opt.drop_front(strlen("-cl-std="));
+    Result = OclVersion::CLStrToVal(opt.data());
+    return true;
+  }
+
+  StringRef CompilationUtils::fetchCompilerOption(const Module &M, char const* prefix) {
     /*  
-    Example of metadata with CL version:
+    Example of the metadata:
     !opencl.compiler.options = !{!0}
     !0 = metadata !{metadata !"-cl-std=CL2.0"}
 
@@ -552,29 +563,20 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     */
     NamedMDNode* namedMetadata = M.getNamedMetadata("opencl.compiler.options");
 
-    if(!namedMetadata)
-      return false;
-
-    if(namedMetadata->getNumOperands() < 1)
-      return false;
-
+    if(!namedMetadata || namedMetadata->getNumOperands() < 1)
+      return StringRef();
     MDNode* metadata = namedMetadata->getOperand(0);
     if(!metadata)
-      return false;
+      return StringRef();
 
     for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k) {
       Value * pSubNode = metadata->getOperand(k);
       if (!isa<MDString>(pSubNode))
         continue;
-      StringRef s = cast<MDString>(pSubNode)->getString();
-      const char* optionStr="-cl-std=";
-      if (!s.startswith(optionStr))
-        continue;
-      s = s.drop_front(strlen(optionStr));
-      Result = OclVersion::CLStrToVal(s.data());
-      return true;
+      StringRef value = cast<MDString>(pSubNode)->getString();
+      if(value.startswith(prefix)) return value;
     }
-    return false;
+    return StringRef();
   }
 
   static const MDNode *findSubprogram(const DebugInfoFinder &finder,
@@ -726,6 +728,10 @@ std::string CompilationUtils::mangledGetLocalSize() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LOCAL_SIZE.c_str());
 }
 
+std::string CompilationUtils::mangledGetEnqueuedLocalSize(){
+  return mangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_ENQUEUED_LOCAL_SIZE.c_str(), 1);
+}
+
 std::string CompilationUtils::mangledBarrier() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(BARRIER_FUNC_NAME.c_str());
 }
@@ -790,6 +796,10 @@ bool CompilationUtils::isGetLocalSize(const std::string& S){
   return isOptionalMangleOf(S, NAME_GET_LOCAL_SIZE);
 }
 
+bool CompilationUtils::isGetEnqueuedLocalSize(const std::string& S){
+  return isMangleOf(S, NAME_GET_ENQUEUED_LOCAL_SIZE);
+}
+
 bool CompilationUtils::isGetNumGroups(const std::string& S){
   return isOptionalMangleOf(S, NAME_GET_NUM_GROUPS);
 }
@@ -847,10 +857,12 @@ bool CompilationUtils::isPrefetch(const std::string& S){
 }
 
 bool CompilationUtils::isEnqueueKernelLocalMem(const std::string& S){
+  // TODO: fix CSSD100018608 [OpenCL2.0]ExtExecution. Switch method of detetction of enqueue_kernel BI with variadic arguments to use mangler
   return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM);
 }
 
 bool CompilationUtils::isEnqueueKernelEventsLocalMem(const std::string& S){
+  // TODO: fix CSSD100018608 [OpenCL2.0]ExtExecution. Switch method of detetction of enqueue_kernel BI with variadic arguments to use mangler
   return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM);
 }
 

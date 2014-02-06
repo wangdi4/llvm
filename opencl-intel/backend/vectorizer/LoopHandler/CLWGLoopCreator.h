@@ -52,7 +52,7 @@ namespace intel {
 //   size_t dim2_init_gid = ee[5];
 //   size_t dim2_size = ee[6];
 //   size_t dim0_vector_size = dim0_size - dim0_size %packet_width
-//   size_t dim1_scalar_size = dim0_size %packet_width
+//   size_t dim0_scalar_size = dim0_size %packet_width
 //   if (dim0_vector_size != 0) {
 //      size_t dim2_ind_var = 0;
 //      do{

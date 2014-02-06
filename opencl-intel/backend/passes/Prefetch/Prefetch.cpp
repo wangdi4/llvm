@@ -169,7 +169,7 @@ private:
   static bool isTightConstantVect (Value *index, Type *indexedType);
 
   // get the index operand of a gather or scatter intrinsic
-  static bool getIndexOperand(Instruction *I);
+  static int getIndexOperand(Instruction *I);
 
 public:
   // identify whether an intrinsic represents a memory access
@@ -1653,7 +1653,7 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
   return false;
 }
 
-bool PrefetchCandidateUtils::getIndexOperand(Instruction *I) {
+int PrefetchCandidateUtils::getIndexOperand(Instruction *I) {
   assert (isa<CallInst>(I) && "Call instruction expected");
   CallInst *pCallInst = cast<CallInst>(I);
   StringRef Name = pCallInst->getCalledFunction()->getName();

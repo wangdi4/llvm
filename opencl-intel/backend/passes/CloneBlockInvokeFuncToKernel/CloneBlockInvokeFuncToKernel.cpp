@@ -237,28 +237,39 @@ size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
     return getBlockLiteralDefaultSize();
 
   assert(blockLiteralPtr->getType()->isPointerTy());
-  assert(blockLiteralPtr->hasOneUse() && "handle only one use of argument");
-  
-  BitCastInst *pBC = dyn_cast<BitCastInst>(*(blockLiteralPtr->use_begin()));
-  assert( pBC && "use is not bitcast instruction!" );
 
-  PointerType *pPTy = dyn_cast<PointerType>(pBC->getDestTy());
-  assert( pPTy && "expected bitcast to pointer type");
-  
-  StructType * pStructBlockLiteralTy = dyn_cast<StructType>(pPTy->getPointerElementType());
-  assert( pStructBlockLiteralTy && "expected bitcast to struct type");
+  // search for specific bitcast 
+  // example bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>*
+  for(Argument::use_iterator AI = blockLiteralPtr->use_begin(),
+    E = blockLiteralPtr->use_end(); AI != E; ++AI){
+
+      BitCastInst *pBC = dyn_cast<BitCastInst>(*AI);
+      if(!pBC)
+        continue;
+
+      PointerType *pPTy = dyn_cast<PointerType>(pBC->getDestTy());
+      if(!pPTy)
+        continue;
+
+      StructType * pStructBlockLiteralTy = dyn_cast<StructType>(pPTy->getPointerElementType());
+      if(!pStructBlockLiteralTy)
+        continue;
 
 #ifndef NDEBUG
-  unsigned int const BLOCK_DESCRIPTOR_INDX = 4;
-  PointerType *pBlockDescPtr = dyn_cast<PointerType>(pStructBlockLiteralTy->getElementType(BLOCK_DESCRIPTOR_INDX));
-  assert( pBlockDescPtr && "expected pointer field");
+      unsigned int const BLOCK_DESCRIPTOR_INDX = 4;
+      PointerType *pBlockDescPtr = dyn_cast<PointerType>(pStructBlockLiteralTy->getElementType(BLOCK_DESCRIPTOR_INDX));
+      assert( pBlockDescPtr && "expected pointer field");
 
-  StructType * pBlockDescTy = dyn_cast<StructType>(pBlockDescPtr->getPointerElementType());
-  assert( pBlockDescTy && "expected struct");
+      StructType * pBlockDescTy = dyn_cast<StructType>(pBlockDescPtr->getPointerElementType());
+      assert( pBlockDescTy && "expected struct");
 #endif
 
-  //block_literal itself
-  return static_cast<size_t>(m_pTD->getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
+      //block_literal itself
+      return static_cast<size_t>(m_pTD->getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
+  }
+  
+  assert(0 && "did not find bitcast to struct");
+  return -1;
 }
 
 } // namespace intel

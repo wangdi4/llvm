@@ -26,6 +26,7 @@ File Name:  OpenCLArgsBuffer.cpp
 #include "cpu_dev_limits.h"
 
 #include <algorithm>
+#include <functional>
 #include "MICNative/common.h"
 
 using namespace Validation;

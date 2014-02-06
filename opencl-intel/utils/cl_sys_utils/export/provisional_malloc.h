@@ -42,10 +42,10 @@
 class ProvisionalNewBase
 {
 public:
-    ProvisionalNewBase()
-    {}
+    ProvisionalNewBase() {}
+    virtual ~ProvisionalNewBase() {}
 
-	virtual void deleteObject() = 0;
+    virtual void deleteObject() = 0;
 };
 
 template <typename DataP>

@@ -49,6 +49,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ICT_GET_WORK_DIM,
     ICT_GET_GLOBAL_SIZE,
     ICT_GET_LOCAL_SIZE,
+    ICT_GET_ENQUEUED_LOCAL_SIZE,
     ICT_GET_NUM_GROUPS,
     ICT_GET_GROUP_ID,
     ICT_GET_GLOBAL_OFFSET,
@@ -68,6 +69,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     case ICT_GET_GLOBAL_SIZE:
       return NDInfo::GLOBAL_SIZE;
     case ICT_GET_LOCAL_SIZE:
+    case ICT_GET_ENQUEUED_LOCAL_SIZE:
       return NDInfo::LOCAL_SIZE;
     case ICT_GET_NUM_GROUPS:
       return NDInfo::WG_NUMBER;

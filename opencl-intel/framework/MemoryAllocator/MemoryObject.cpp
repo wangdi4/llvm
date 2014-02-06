@@ -492,7 +492,7 @@ cl_err_code MemoryObject::ReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapInfo
                                                void* IN pHostMapDataPtr,
                                                bool invalidatedBefore )
 {
-    LOG_DEBUG(TEXT("Enter ReleaseMappedRegion (mapInfo=%P)"), pMapInfo);
+    LOG_DEBUG(TEXT("Enter ReleaseMappedRegion (mapInfo=%p)"), pMapInfo);
 
     OclAutoMutex CS(&m_muMappedRegions); // release on return
 
@@ -574,7 +574,7 @@ void MemoryObject::ReleaseAllMappedRegions()
 
         if (NULL != info)
         {
-            MemObjReleaseDevMappedRegion(m_pMappedDevice, &(info->cmd_param_map), pHostPtr);
+            MemObjReleaseDevMappedRegion(m_pMappedDevice, &(info->cmd_param_map), pHostPtr, true );
             delete info;
         }
     }

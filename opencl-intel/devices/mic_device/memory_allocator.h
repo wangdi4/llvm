@@ -171,7 +171,7 @@ public:
     bool Use_2M_Pages_Enabled( void ) const { return (m_2M_BufferMinSize > 0); };
     bool Use_2M_Pages( size_t size ) const { return Use_2M_Pages_Enabled() && (size >= m_2M_BufferMinSize); };
     bool ImmediateTransferForced( void ) const { return m_force_immediate_transfer; };
-    bool Use_NoDma_Enabled( void ) const { return m_no_dma_enabled; };
+    bool ImmediateHostPinningForced( void ) const { return m_force_immediate_host_pinning; };
 
 private:
     friend class MICDevMemoryObject;
@@ -189,7 +189,7 @@ private:
 
     size_t                   m_2M_BufferMinSize;
     bool                     m_force_immediate_transfer;
-    bool                     m_no_dma_enabled;
+    bool                     m_force_immediate_host_pinning;
 
     // singleton
     MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc, unsigned long long maxAllocSize );
@@ -217,7 +217,10 @@ public:
     // CreateMappedRegion should not perform real data mapping - just return a pointer to the returned memory
     // to be filled later
     cl_dev_err_code clDevMemObjCreateMappedRegion( cl_dev_cmd_param_map*  pMapParams );
-    cl_dev_err_code clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* pMapParams );
+    cl_dev_err_code clDevMemObjUnmapAndReleaseMappedRegion( cl_dev_cmd_param_map* pMapParams )
+                    { return releaseMappedRegion( pMapParams, true ); }
+    cl_dev_err_code clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* pMapParams )
+                    { return releaseMappedRegion( pMapParams, false ); }
 
     cl_dev_err_code clDevMemObjUpdateBackingStore( 
                                 void* operation_handle, cl_dev_bs_update_state* pUpdateState );
@@ -308,6 +311,8 @@ private:
 
     // Dec this buffer memory counter.
     void decRefCounter();
+
+    cl_dev_err_code releaseMappedRegion( cl_dev_cmd_param_map* pMapParams, bool force_unmapping );
 
     ~MICDevMemoryObject() {};
 

@@ -1,5 +1,7 @@
 use_eh(TRUE)
 
+set (TARGET_NAME OCLKernelDataGenerator)
+
 # TinyXML library is used for serialization to XML.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../external/tinyxml)
 include_directories(${VALIDATIONS_ROOT}/DataManager )
@@ -8,7 +10,7 @@ include_directories(${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser )
 # NEAT library to (de)serialize NEAT data.
 include_directories(${VALIDATIONS_ROOT}/NEAT)
 
-add_library(OCLKernelDataGenerator
+add_library(${TARGET_NAME}
 OCLKernelDataGenerator.h
 OCLKernelDataGenerator.cpp
 RandomUniformProvider.h
@@ -20,7 +22,5 @@ GeneratorConfig.h
 OCLKernelBufferContainerListAllocator.h
 OCLKernelBufferContainerListAllocator.cpp
 )
-target_link_libraries(OCLKernelDataGenerator
-DataManager)
 
-set_target_properties( OCLKernelDataGenerator PROPERTIES FOLDER "Backend" )
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_VALIDATION_FOLDER_NAME} )

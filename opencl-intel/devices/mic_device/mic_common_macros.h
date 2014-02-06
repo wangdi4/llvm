@@ -58,9 +58,3 @@
     }
 #endif		
 
-// ALERT!!!! DK!!! workaround until MPSS will be updated on all machines
-#include <source/COIBuffer_source.h>
-#ifndef COI_OPTIMIZE_NO_DMA
-    #define COI_OPTIMIZE_NO_DMA 0
-#endif
-

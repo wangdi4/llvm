@@ -118,9 +118,8 @@ File Name:  WGContext.cpp
 
         pKernelArgs->minWorkGroupNum = size_t(workInfo.minWorkGroupNum); // Filled by the runtime, Required by the heuristic
 
-        pKernelArgs->pJITEntryPoint = NULL;// Filled by the BE
-
-        pKernelArgs->VectorWidth = 0;// Filled by the BE
+        pKernelArgs->pUniformJITEntryPoint    = NULL;// Filled by the BE
+        pKernelArgs->pNonUniformJITEntryPoint = NULL;// Filled by the BE
 
         memset(pKernelArgs->WGCount,0,sizetMaxWorkDim); // Updated by the BE, based on GLOBAL/LOCAL
 
@@ -136,11 +135,11 @@ File Name:  WGContext.cpp
         memcpy(m_LocalSize, pKernelArgs->LocalSize, sizetMaxWorkDim);
         m_pKernelRunner->InitRunner((void*)(m_pArgumentBuffer.get()));
 
-        m_uiVectorWidth = pKernelArgs->VectorWidth;
+        m_uiVectorWidth = pKernel->GetKernelProporties()->GetMinGroupSizeFactorial();
 
         m_uiWGSize = 1;
         for(unsigned int i=0; i< pKernelArgs->WorkDim ; ++i)  {
-            m_uiWGSize *= pKernelArgs->LocalSize[i];
+            m_uiWGSize *= pKernelArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i];
         }
         m_uiWGSize = m_uiWGSize / m_uiVectorWidth;
 

@@ -70,6 +70,11 @@ add_executable(${TARGET_NAME}
 )
 
 target_link_libraries(${TARGET_NAME}
+    OclPluginManager
+    OCLRecorderStat
+    OCLBuilder
+    OCLKernelDataGenerator
+    OpenCLKernelArgumentsParser
     DataManager 
     Comparator
     DataGenerator
@@ -79,11 +84,6 @@ target_link_libraries(${TARGET_NAME}
     OCLBuiltins
     googletest
     ImathLibd
-    OclPluginManager
-    OCLRecorderStat
-    OCLBuilder
-    OCLKernelDataGenerator
-    OpenCLKernelArgumentsParser
     name_mangle
     dynamic_load
     cl_sys_utils

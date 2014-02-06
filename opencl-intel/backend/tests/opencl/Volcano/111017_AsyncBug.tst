@@ -1,1 +1,2 @@
-RUN: SATest -OCL -VAL -config=%s.cfg
+;XFAIL:
+;R UN: SATest -OCL -VAL -config=%s.cfg

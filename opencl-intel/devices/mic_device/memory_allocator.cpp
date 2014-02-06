@@ -111,9 +111,9 @@ void MemoryAllocator::Release( void )
 }
 
 MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, unsigned long long maxAllocSize ):
-    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_maxAllocSize(maxAllocSize), m_no_dma_enabled(false)
+    m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_maxAllocSize(maxAllocSize), m_force_immediate_host_pinning(false)
 {
-	const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
+    const MICDeviceConfig& tMicConfig = MICSysInfo::getInstance().getMicDeviceConfig();
     m_2M_BufferMinSize         = tMicConfig.Device_2MB_BufferMinSizeInKB() * KILOBYTE;
 
     if ((0 < m_2M_BufferMinSize) && (m_2M_BufferMinSize <= PAGE_4K_SIZE))
@@ -123,7 +123,7 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, un
     }
     
     m_force_immediate_transfer = !(tMicConfig.Device_LazyTransfer());
-    m_no_dma_enabled           = tMicConfig.Device_UseNoDma();
+    m_force_immediate_host_pinning = tMicConfig.Device_ForceBuffersPinning();
     
     if ( NULL != logDesc )
     {
@@ -208,10 +208,10 @@ cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memOb
 {
     assert( NULL != pAllocProp );
 
-	pAllocProp->bufferSharingGroupId = CL_DEV_MIC_BUFFER_SHARING_GROUP_ID;
-	pAllocProp->imageSharingGroupId  = CL_DEV_MIC_IMAGE_SHARING_GROUP_ID;
+    pAllocProp->bufferSharingGroupId = CL_DEV_MIC_BUFFER_SHARING_GROUP_ID;
+    pAllocProp->imageSharingGroupId  = CL_DEV_MIC_IMAGE_SHARING_GROUP_ID;
     pAllocProp->hostUnified          = false;
-	pAllocProp->usedByDMA            = true;
+    pAllocProp->usedByDMA            = true;
     pAllocProp->alignment            = MIC_DEV_MAXIMUM_ALIGN;
     pAllocProp->preferred_alignment  = PAGE_4K_SIZE;
     pAllocProp->maxBufferSize        = m_maxAllocSize;
@@ -223,8 +223,8 @@ cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memOb
 }
 
 cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_mem_flags flags, const cl_image_format* format,
-					 size_t dim_count, const size_t* dim,
-					 IOCLDevRTMemObjectService* pRTMemObjService,
+                     size_t dim_count, const size_t* dim,
+                     IOCLDevRTMemObjectService* pRTMemObjService,
                      IOCLDevMemoryObject*  *memObj )
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "CreateObject enter");
@@ -236,7 +236,7 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
     // Allocate memory for memory object
     MICDevMemoryObject*    pMemObj = new MICDevMemoryObject(*this,
                                                             node_id, flags,
-															pRTMemObjService);
+                                                            pRTMemObjService);
     if ( NULL == pMemObj )
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "%s", "Memory Object allocation failed");
@@ -327,11 +327,11 @@ MICDevMemoryObject::MICDevMemoryObject(MemoryAllocator& allocator,
     m_pRTMemObjService(pRTMemObjService), m_pBackingStore(NULL),
     m_raw_size(0), m_coi_buffer(0), m_coi_top_level_buffer(0), m_coi_top_level_buffer_offset(0)
 {
-	assert( NULL != m_pRTMemObjService);
+    assert( NULL != m_pRTMemObjService);
 
-	// Get backing store.
-	cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
-	assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
+    // Get backing store.
+    cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
+    assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
 
     if (!CL_DEV_SUCCEEDED(bsErr) || (NULL == m_pBackingStore))
     {
@@ -390,7 +390,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
     // by demand and not upfront.
     //
     uint32_t no_dma = 0;
-    if ((0 == ((CL_MEM_USE_HOST_PTR|CL_MEM_ALLOC_HOST_PTR) & m_memFlags)) && m_Allocator.Use_NoDma_Enabled())
+    if ((0 == ((CL_MEM_USE_HOST_PTR|CL_MEM_ALLOC_HOST_PTR) & m_memFlags)) && (!m_Allocator.ImmediateHostPinningForced()))
     {
         no_dma = COI_OPTIMIZE_NO_DMA;
     }
@@ -400,7 +400,7 @@ cl_dev_err_code MICDevMemoryObject::Init()
     {
         coi_err = COIBufferCreateFromMemory(
                                 m_raw_size, COI_BUFFER_OPENCL, 
-								flags[i] | no_dma,
+                                flags[i] | no_dma,
                                 m_objDescr.pData,
                                 m_buffActiveProcesses.size(), &(m_buffActiveProcesses[0]),
                                 &m_coi_buffer);
@@ -432,22 +432,22 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjRelease( )
 
 bool MICDevMemoryObject::getMemObjFromMapBuffersPool(void* ptr, size_t size, MICDevMemoryObject** ppOutMemObj)
 {
-	return m_buffersMemoryPool.getBuffer(ptr, size, ppOutMemObj);
+    return m_buffersMemoryPool.getBuffer(ptr, size, ppOutMemObj);
 }
 
 void MICDevMemoryObject::incRefCounter()
 {
-	m_bufferRefCounter ++;
+    ++m_bufferRefCounter;
 }
 
 void MICDevMemoryObject::decRefCounter()
 {
-	m_bufferRefCounter --;
-	if (0 < m_bufferRefCounter)
-	{
-		return;
-	}
-	COIRESULT coi_err = COI_SUCCESS;
+    long new_value = --m_bufferRefCounter;
+    if (0 < new_value)
+    {
+        return;
+    }
+    COIRESULT coi_err = COI_SUCCESS;
 
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "ReleaseObject enter");
 
@@ -459,7 +459,7 @@ void MICDevMemoryObject::decRefCounter()
 
     if (m_pBackingStore)
     {
-	    m_pBackingStore->RemovePendency();
+        m_pBackingStore->RemovePendency();
     }
 
     delete this;
@@ -469,11 +469,11 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjGetDescriptor(cl_device_type dev_
 {
     assert(NULL != handle);
 
-	if (CL_DEVICE_TYPE_ACCELERATOR != dev_type)
-	{
-		*handle = NULL;
-		return CL_DEV_INVALID_PROPERTIES;
-	}
+    if (CL_DEVICE_TYPE_ACCELERATOR != dev_type)
+    {
+        *handle = NULL;
+        return CL_DEV_INVALID_PROPERTIES;
+    }
 
     *handle = this;
     return CL_DEV_SUCCESS;
@@ -488,7 +488,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
     
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "CreateMappedRegion enter");
 
-	// Assume that calling this method only once.
+    // Assume that calling this method only once.
     SMemMapParamsList* coi_params = new SMemMapParamsList;
     assert( coi_params && "Cannot allocate coi_params record" );
     if (NULL == coi_params)
@@ -508,20 +508,39 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
     return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code MICDevMemoryObject::clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* IN pMapParams )
+cl_dev_err_code MICDevMemoryObject::releaseMappedRegion( cl_dev_cmd_param_map* pMapParams, bool force_unmapping )
 {
     if (MICDevice::isDeviceLibraryUnloaded())
     {
         return CL_DEV_SUCCESS;
     }
 
-    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "ReleaseMappedRegion enter");
+    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "releaseMappedRegion enter");
     assert( NULL != pMapParams->map_handle && "cl_dev_cmd_param_map was not filled by MIC Device" );
-
+        
     SMemMapParamsList* coi_params = MemoryAllocator::GetCoiMapParams(pMapParams);
+
+    if (force_unmapping)
+    {
+        SMemMapParams coiMapParam;
+        COIRESULT     coiResult;
+
+        while (coi_params->pop( &coiMapParam ))
+        {
+            coiMapParam.initMapHandleIterator();
+            
+            while (coiMapParam.hasNextMapHandle())
+            {
+                coiResult = COIBufferUnmap ( coiMapParam.getNextMapHandle(),  0, NULL, NULL );
+                assert(COI_SUCCESS == coiResult);
+            }
+            removeMemObjFromMapBuffersPool();
+        }
+    }
+    
     delete coi_params;
     pMapParams->map_handle = NULL;
-
+    
     return CL_DEV_SUCCESS;
 }
 
@@ -561,7 +580,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateBackingStore(
         return CL_DEV_ERROR_FAIL;
     }
 
-	MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "clDevMemObjUpdateBackingStore enter");
+    MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "clDevMemObjUpdateBackingStore enter");
 
     assert( NULL != pUpdateState );
 
@@ -632,7 +651,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateFromBackingStore(
     assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SOURCE, VALID, NO_MOVE ) failed" );
     all_is_ok = (COI_SUCCESS == coi_err);
 
-	// Invalidate all SINK instances.
+    // Invalidate all SINK instances.
     coi_err = COIBufferSetState(  m_coi_buffer, 
                                     COI_SINK_OWNERS, COI_BUFFER_INVALID, COI_BUFFER_NO_MOVE, 
                                     0, NULL, 
@@ -671,66 +690,66 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjInvalidateData( )
 
 bool MICDevMemoryObject::MapBuffersMemoryPool::getBuffer(void* ptr, size_t size, MICDevMemoryObject** ppOutMemObj)
 {
-	map<void*, mem_obj_directive>::iterator iter;
-	OclAutoReader mutex(&m_multiReadSingleWriteMutex);
+    map<void*, mem_obj_directive>::iterator iter;
+    OclAutoReader mutex(&m_multiReadSingleWriteMutex);
 
     if (0 == m_addressToMemObj.size())
-	{
-		return false;
-	}
+    {
+        return false;
+    }
 
-	iter = m_addressToMemObj.lower_bound(ptr);
-	if (((m_addressToMemObj.end() == iter) && (m_addressToMemObj.size() > 0)) || (((size_t)(iter->first) > (size_t)ptr) && (m_addressToMemObj.begin() != iter)))
-	{
-		iter --;
-	}
-	if ((m_addressToMemObj.end() == iter) || (false == iter->second.isReady) || ((size_t)ptr < (size_t)(iter->first)) || ((size_t)ptr + size > (size_t)(iter->first) + iter->second.pMemObj->GetRawDataSize()))
-	{
-		return false;
-	}
-	*ppOutMemObj = iter->second.pMemObj;
-	(*ppOutMemObj)->incRefCounter();
-	return true;
+    iter = m_addressToMemObj.lower_bound(ptr);
+    if (((m_addressToMemObj.end() == iter) && (m_addressToMemObj.size() > 0)) || (((size_t)(iter->first) > (size_t)ptr) && (m_addressToMemObj.begin() != iter)))
+    {
+        iter --;
+    }
+    if ((m_addressToMemObj.end() == iter) || (false == iter->second.isReady) || ((size_t)ptr < (size_t)(iter->first)) || ((size_t)ptr + size > (size_t)(iter->first) + iter->second.pMemObj->GetRawDataSize()))
+    {
+        return false;
+    }
+    *ppOutMemObj = iter->second.pMemObj;
+    (*ppOutMemObj)->incRefCounter();
+    return true;
 }
 
 void MICDevMemoryObject::MapBuffersMemoryPool::addBufferToPool(MICDevMemoryObject* pMicMemObj)
 {
-	OclAutoWriter mutex(&m_multiReadSingleWriteMutex);
-	map<void*, mem_obj_directive>::iterator iter = m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData);
-	if (m_addressToMemObj.end() == iter)
-	{
-		m_addressToMemObj.insert( pair<void*, mem_obj_directive>( pMicMemObj->clDevMemObjGetDescriptorRaw().pData, mem_obj_directive(pMicMemObj) ) );
-	}
-	else
-	{
-		iter->second.refCounter ++;
-	}
-	pMicMemObj->incRefCounter();
+    OclAutoWriter mutex(&m_multiReadSingleWriteMutex);
+    map<void*, mem_obj_directive>::iterator iter = m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData);
+    if (m_addressToMemObj.end() == iter)
+    {
+        m_addressToMemObj.insert( pair<void*, mem_obj_directive>( pMicMemObj->clDevMemObjGetDescriptorRaw().pData, mem_obj_directive(pMicMemObj) ) );
+    }
+    else
+    {
+        iter->second.refCounter ++;
+    }
+    pMicMemObj->incRefCounter();
 }
 
 void MICDevMemoryObject::MapBuffersMemoryPool::removeBufferFromPool(MICDevMemoryObject* pMicMemObj)
 {
-	OclAutoWriter mutex(&m_multiReadSingleWriteMutex);
-	assert(m_addressToMemObj.end() != m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData));
-	map<void*, mem_obj_directive>::iterator iter = m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData);
-	if (iter->second.refCounter == 1)
-	{
-		m_addressToMemObj.erase(iter);
-	}
-	else
-	{
-		iter->second.refCounter --;
-	}
-	pMicMemObj->decRefCounter();
+    OclAutoWriter mutex(&m_multiReadSingleWriteMutex);
+    assert(m_addressToMemObj.end() != m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData));
+    map<void*, mem_obj_directive>::iterator iter = m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData);
+    if (iter->second.refCounter == 1)
+    {
+        m_addressToMemObj.erase(iter);
+    }
+    else
+    {
+        iter->second.refCounter --;
+    }
+    pMicMemObj->decRefCounter();
 }
 
 void MICDevMemoryObject::MapBuffersMemoryPool::setBufferReady(MICDevMemoryObject* pMicMemObj, CommandList* cur_queue)
 {
-	OclAutoWriter mutex(&m_multiReadSingleWriteMutex);
-	map<void*, mem_obj_directive>::iterator iter = m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData);
+    OclAutoWriter mutex(&m_multiReadSingleWriteMutex);
+    map<void*, mem_obj_directive>::iterator iter = m_addressToMemObj.find(pMicMemObj->clDevMemObjGetDescriptorRaw().pData);
     if (iter != m_addressToMemObj.end())
     {
-	    iter->second.isReady = true;
+        iter->second.isReady = true;
     }
     else
     {        

@@ -225,7 +225,7 @@ bool clBuildProgramMaxArgsTest(){
   return ret;
 }
 
-TEST(OclRecorder, dupKernels){
+static void setRecorderEnvVars(){
   const char* BE_PLUGIN = "OCLBACKEND_PLUGINS";
   const char* PREFIX    = "recorder_test";
   const char* BE_PREFIX = "OCLRECORDER_DUMPPREFIX";
@@ -246,6 +246,12 @@ TEST(OclRecorder, dupKernels){
   setenv(BE_PREFIX, PREFIX, 1);
 #endif
   std::cout << recorderFullName.c_str() << std::endl;
+}
+
+
+TEST(OclRecorder, dupKernels){
+  setRecorderEnvVars();
+
   if (!clBuildProgramMaxArgsTest()){
     FAIL() << "===Failed==";
     return;
@@ -255,34 +261,245 @@ TEST(OclRecorder, dupKernels){
   const char*const REC_FILE1= "OclRecorderTest.recorder_test.2.sample_test0.1.cl";
   const char*const REC_CFG= "OclRecorderTest.recorder_test.cfg";
   const char*const REC_CFG1= "OclRecorderTest.recorder_test.2.cfg";
+  const char*const REC_DAT = "OclRecorderTest.recorder_test.sample_test.dat";
+  const char*const REC_DAT1 = "OclRecorderTest.recorder_test.2.sample_test.dat";
 
   std::fstream file(REC_FILE);
   std::fstream cfg_file(REC_CFG);
+  std::fstream dat_file(REC_DAT);
 #if defined(OCLFRONTEND_PLUGINS)
   ASSERT_TRUE(file.good());
   ASSERT_TRUE(cfg_file.good());
+  ASSERT_TRUE(dat_file.good());
 #else
   ASSERT_FALSE(file.good());
+  ASSERT_FALSE(cfg_file.good());
   ASSERT_FALSE(cfg_file.good());
 #endif// defined(OCLFRONTEND_PLUGINS)
   file.close();
   cfg_file.close();
+  dat_file.close();
+  remove(REC_DAT);
   remove(REC_FILE);
   remove(REC_CFG);
 
   file.open(REC_FILE1);
   cfg_file.open(REC_CFG1);
+  dat_file.open(REC_DAT1);
 #if defined(OCLFRONTEND_PLUGINS)
   ASSERT_TRUE(file.good());
   ASSERT_TRUE(cfg_file.good());
+  ASSERT_TRUE(dat_file.good());
 #else
   ASSERT_FALSE(cfg_file.good());
   ASSERT_FALSE(file.good());
+  ASSERT_FALSE(cfg_file.good());
 #endif// defined(OCLFRONTEND_PLUGINS)
   file.close();
   cfg_file.close();
+  dat_file.close();
+  remove(REC_DAT1);
   remove(REC_FILE1);
   remove(REC_CFG1);
+}
+
+
+static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
+    cl_device_id *pDevices, cl_command_queue queue){
+  int retVal;
+  cl_int iRet;
+  std::auto_ptr<char> argumentLine, codeLines, programSrc;
+  std::auto_ptr<cl_long> ptrLongs;
+  long long result, expectedResult = 2; // expectedResult is the pre-calucated result of execution of kernel
+  cl_event event;
+  cl_int event_status;
+
+  bool bResult = true;
+  cl_program prog;
+  cl_kernel kernel;
+  cl_mem  mem0, mem1;
+
+  const char *sample_large_parmam_kernel_pattern[] = {
+    "__kernel void sample_test(__global long *in1, __local long *in2, __global long *result)\n"
+    "{\n"
+    "result[0] = 0;\n"
+    "in1[0] = 1;\n"
+    "in2[0] = 1;\n"
+    "result[0] += in1[0]+in2[0];\n"
+    "}\n" };
+
+  // Allocate memory for the program storage
+  programSrc.reset( new char[sizeof(char)*(1024)]);
+  char*const strSrc = programSrc.get();
+  programSrc.get()[0] = '\0';
+
+  /* Create a kernel to test with */
+  sprintf( strSrc, sample_large_parmam_kernel_pattern[0]);
+
+  prog = clCreateProgramWithSource(context, 1, (const char**)&strSrc, NULL, &iRet);
+  bResult &= Check((wchar_t*)L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+  assert(bResult && "clCreateProgramWithSource");
+
+  std::auto_ptr<size_t> ptrSize (new size_t[uiNumDevices]);
+  size_t*const szSize = ptrSize.get();
+  for (unsigned int j = 0; j < uiNumDevices; j++)
+    szSize[j] = -1;
+  // get the binary, we should receive 0.
+  iRet = clGetProgramInfo(prog, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, szSize, NULL);
+  bResult &= Check((wchar_t*)L"clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
+  if (!bResult)
+    clReleaseProgram(prog);
+  for (unsigned int j = 0; j < uiNumDevices; j++)
+    if (0 != szSize[j])
+      clReleaseProgram(prog);
+  iRet = clBuildProgram(prog, uiNumDevices, pDevices, NULL, NULL, NULL);
+  bResult &= Check((wchar_t*)L"clBuildProgram", CL_SUCCESS, iRet);
+  if (!bResult)
+    clReleaseProgram(prog);
+  kernel = clCreateKernel(prog, "sample_test", &iRet);
+  /* Try to set a large argument to the kernel */
+  retVal = 0;
+
+  mem0 = clCreateBuffer(context, (cl_mem_flags)(CL_MEM_READ_WRITE), sizeof(cl_long), NULL, &iRet);
+  bResult &= Check((wchar_t*)L"clCreateBuffer", CL_SUCCESS, iRet);
+  if (!bResult) {
+    clReleaseMemObject(mem0);
+    clReleaseKernel(kernel);
+    clReleaseProgram(prog);
+  }
+
+
+  mem1 = clCreateBuffer(context, (cl_mem_flags)(CL_MEM_READ_WRITE), sizeof(cl_long), NULL, &iRet);
+  bResult &= Check((wchar_t*)L"clCreateBuffer", CL_SUCCESS, iRet);
+  if (!bResult) {
+    clReleaseMemObject(mem0);
+    clReleaseMemObject(mem1);
+    clReleaseKernel(kernel);
+    clReleaseProgram(prog);
+  }
+
+  iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &mem0);
+  if (!Check((wchar_t*)L"clSetKernelArg", CL_SUCCESS, iRet)) {
+    clReleaseMemObject(mem0);
+    clReleaseMemObject(mem1);
+    clReleaseKernel(kernel);
+    clReleaseProgram(prog);
+  }
+
+  iRet = clSetKernelArg(kernel, 1, sizeof(cl_long), NULL);
+  if (!Check((wchar_t*)L"clSetKernelArg", CL_SUCCESS, iRet)) {
+    clReleaseMemObject(mem0);
+    clReleaseMemObject(mem1);
+    clReleaseKernel(kernel);
+    clReleaseProgram(prog);
+  }
+
+  iRet = clSetKernelArg(kernel, 2, sizeof(cl_mem), &mem1);
+  if (!Check((wchar_t*)L"clSetKernelArg", CL_SUCCESS, iRet)) {
+    clReleaseMemObject(mem0);
+    clReleaseMemObject(mem1);
+    clReleaseKernel(kernel);
+    clReleaseProgram(prog);
+  }
+
+  size_t globalDim[3]={1,1,1}, localDim[3]={1,1,1};
+  iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, globalDim, localDim, 0, NULL, &event);
+  if (!Check((wchar_t*)L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet)) {
+    clReleaseMemObject(mem0);
+    clReleaseMemObject(mem1);
+    clReleaseKernel(kernel);
+    clReleaseProgram(prog);
+  }
+
+  // Verify that the event does not return an error from the execution
+  iRet = clWaitForEvents(1, &event);
+  Check((wchar_t*)L"clWaitForEvents", CL_SUCCESS, iRet);
+  iRet = clGetEventInfo(event, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(event_status), &event_status, NULL);
+  Check((wchar_t*)L"clGetEventInfo", CL_SUCCESS, iRet);
+  clReleaseEvent(event);
+  if (event_status < 0)
+    Check((wchar_t*)L"Kernel execution event returned error", CL_SUCCESS, iRet);
+
+  iRet = clEnqueueReadBuffer(queue, mem1, CL_TRUE, 0, sizeof(cl_long), &result, 0, NULL, NULL);
+  Check((wchar_t*)L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+
+  clReleaseMemObject(mem0);
+  clReleaseMemObject(mem1);
+  clReleaseKernel(kernel);
+  clReleaseProgram(prog);
+
+  return result == expectedResult;
+}
+
+
+bool clBuildRunLocalMemTest(){
+  bool bResult = true;
+
+  printf("clBuildRunLocalMemTest\n");
+  cl_uint uiNumDevices = 0;
+  std::auto_ptr<cl_device_id> ptrDevices;
+  cl_device_id *pDevices;
+  cl_context context;
+  cl_int iRet;
+  cl_platform_id platform = getPlatformIds();
+
+  cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+  //
+  //devices
+  ptrDevices.reset(getDevices(platform, &uiNumDevices));
+  pDevices = ptrDevices.get();
+  //
+  //context
+  //
+  context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
+  bResult &= Check((wchar_t*)L"clCreateContext", CL_SUCCESS, iRet);
+  if (!bResult)
+    return false;
+  cl_command_queue queue = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
+  bResult &= Check((wchar_t*)L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+  if (!bResult){
+    clReleaseContext(context);
+    return false;
+  }
+
+  bool ret = runAndVerify_forLocalMem(context,
+      uiNumDevices, pDevices, queue);
+
+  clReleaseCommandQueue(queue);
+  clReleaseContext(context);
+  return ret;
+}
+
+
+TEST(OclRecorder, recording_local_memory){
+  setRecorderEnvVars();
+  if (!clBuildRunLocalMemTest()){
+    FAIL() << "===Failed==";
+    return;
+  }
+
+  const char*const REC_FILE = "OclRecorderTest.recorder_test.3.sample_test0.2.cl";
+  const char*const REC_CFG= "OclRecorderTest.recorder_test.3.cfg";
+  const char*const REC_DAT= "OclRecorderTest.recorder_test.3.sample_test.dat";
+
+  std::fstream file(REC_FILE);
+  std::fstream cfg_file(REC_CFG);
+  std::fstream dat_file(REC_DAT);
+#if defined(OCLFRONTEND_PLUGINS)
+  ASSERT_TRUE(file.good());
+  ASSERT_TRUE(cfg_file.good());
+  ASSERT_TRUE(dat_file.good());
+#else
+  ASSERT_FALSE(file.good());
+  ASSERT_FALSE(cfg_file.good());
+  ASSERT_FALSE(dat_file.good());
+#endif// defined(OCLFRONTEND_PLUGINS)
+  file.close();
+  cfg_file.close();
+  dat_file.close();
+  remove(REC_FILE);
+  remove(REC_CFG);
+  remove(REC_DAT);
 }
 
 int main(int argc, char** argv){

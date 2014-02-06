@@ -54,7 +54,8 @@ if (WIN32)
         RUNTIME DESTINATION bin
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION bin)
-    set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )    
+    set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_VALIDATION_FOLDER_NAME} )
+
 else (WIN32)
      # search for the icc cpu compiler
     set (ICC_CPU_CL icpc)

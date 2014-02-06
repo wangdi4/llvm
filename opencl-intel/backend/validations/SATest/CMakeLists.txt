@@ -205,12 +205,12 @@ add_executable(${TARGET_NAME}
 )
 
 target_link_libraries(${TARGET_NAME}
+    OpenCLKernelArgumentsParser
+    OCLKernelDataGenerator
     OCLBuilder
     PlugInNEAT
     DataManager
     DataVersion
-    OpenCLKernelArgumentsParser
-    OCLKernelDataGenerator
     Comparator
     LLVMInterpreterPluggable
     OclBackendUtils

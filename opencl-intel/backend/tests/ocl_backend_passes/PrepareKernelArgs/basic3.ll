@@ -34,18 +34,18 @@ define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32>
 ; CHECK: %16 = alloca [0 x i8], align 128
 ; CHECK: %pLocalMemBase = bitcast [0 x i8]* %16 to i8 addrspace(3)*
 ; CHECK: %17 = getelementptr i8* %pUniformArgs, i32 88
-; CHECK: %pWorkDim = bitcast i8* %17 to { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], {}*, {}* }*
-; CHECK: %18 = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0
+; CHECK: %pWorkDim = bitcast i8* %17 to { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*
+; CHECK: %18 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 0
 ; CHECK: %LocalSize_0 = load i64* %18
-; CHECK: %19 = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 1
+; CHECK: %19 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 1
 ; CHECK: %LocalSize_1 = load i64* %19
-; CHECK: %20 = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 2
+; CHECK: %20 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 3, i32 0, i32 2
 ; CHECK: %LocalSize_2 = load i64* %20
-; CHECK: %21 = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 0
+; CHECK: %21 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 0
 ; CHECK: %GlobalOffset_0 = load i64* %21
-; CHECK: %22 = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 1
+; CHECK: %22 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 1
 ; CHECK: %GlobalOffset_1 = load i64* %22
-; CHECK: %23 = getelementptr { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 2
+; CHECK: %23 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i32 0, i32 1, i32 2
 ; CHECK: %GlobalOffset_2 = load i64* %23
 ; CHECK: %24 = getelementptr i64* %pWGId, i32 0
 ; CHECK: %GroupID_0 = load i64* %24
@@ -66,7 +66,7 @@ define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32>
 ; CHECK: %36 = mul i64 %35, %LocalSize_1
 ; CHECK: %BarrierBufferSize = mul i64 %36, %LocalSize_2
 ; CHECK: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
-; CHECK: call void @__A_separated_args(<4 x i8> %explicit_0, <4 x i8> %explicit_1, <4 x i16> %explicit_2, <4 x i16> %explicit_3, <4 x i32> %explicit_4, <4 x i32> %explicit_5, <4 x float> %explicit_6, <4 x float> addrspace(1)* %explicit_7, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [3 x i64], [3 x i64], {}*, {}* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, {}* %RuntimeHandle)
+; CHECK: call void @__A_separated_args(<4 x i8> %explicit_0, <4 x i8> %explicit_1, <4 x i16> %explicit_2, <4 x i16> %explicit_3, <4 x i32> %explicit_4, <4 x i32> %explicit_5, <4 x float> %explicit_6, <4 x float> addrspace(1)* %explicit_7, i8 addrspace(3)* %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim, i64* %pWGId, [4 x i64] %BaseGlbId, i8* %pSpecialBuf, {}* %RuntimeHandle)
 ; CHECK: ret void
 ; CHECK: attributes #1 = { alwaysinline nounwind }
 

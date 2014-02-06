@@ -31,7 +31,7 @@ define void @test(float addrspace(1)* nocapture %paths) nounwind {
 declare i32 @_Z13get_global_idj(i32)
 
 !opencl.kernels = !{!0}
-!opencl.build.options = !{!2}
+!opencl.compiler.options = !{!2}
 
 !0 = metadata !{void (float addrspace(1)*)* @test, metadata !1}
 !1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3}

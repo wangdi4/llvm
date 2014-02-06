@@ -69,7 +69,7 @@ __zero_imm_separated_args.exit:                   ; preds = %scalar_kernel_entry
 !1 = metadata !{metadata !"kernel_wrapper", void ()* @thisIsKernel}
 
 !opencl.kernels = !{!0}
-!opencl.build.options = !{!8}
+!opencl.compiler.options = !{!8}
 !opencl.kernel_info = !{!15}
 
 !0 = metadata !{void (double addrspace(1)*, float addrspace(1)*, double addrspace(1)*, float addrspace(1)*, i8 addrspace(3)*, { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }*, i64*, <{ [4 x i64] }>*, <{ [4 x i64] }>*, i64*, i64, i8*, i64*)* @__zero_imm_separated_args, metadata !1, metadata !2}

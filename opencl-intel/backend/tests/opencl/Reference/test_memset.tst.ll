@@ -41,7 +41,7 @@ declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1) nounwind
 declare i32 @printf(i8 addrspace(2)*, ...)
 
 !opencl.kernels = !{!0}
-!opencl.build.options = !{!2}
+!opencl.compiler.options = !{!2}
 
 !0 = metadata !{void ()* @test_memset, metadata !1}
 !1 = metadata !{metadata !"image_access_qualifier"}

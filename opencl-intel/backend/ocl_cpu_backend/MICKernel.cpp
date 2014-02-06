@@ -135,6 +135,7 @@ const void *MICKernel::CreateEntryPointHandle(const void *JitEP) const {
   return (void *)1;
 }
 const void *MICKernel::ResolveEntryPointHandle(const void *Handle) const {
+  // FIXME [OpenCL 2.0]: looks not OK with non-uniform work-group size.
   if (0 == Handle)
     return GetKernelJIT(0)->GetJITCode();
   assert(GetKernelJITCount() > 1 && "requesting un-available JIT!");

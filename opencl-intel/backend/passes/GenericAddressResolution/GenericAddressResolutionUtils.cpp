@@ -71,6 +71,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                       "atomic_flag_test_and_set_explicit",
                       "atomic_flag_clear",
                       "atomic_flag_clear_explicit",
+                      "enqueue_kernel",
                       "enqueue_marker",
                       "read_pipe",
                       "write_pipe"
@@ -108,8 +109,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     TFunctionSet functionCache;
 
     // Function list to sort
-    for (Module::iterator func_it = pModule->begin(), 
-                          func_it_end = pModule->end(); 
+    for (Module::iterator func_it = pModule->begin(),
+                          func_it_end = pModule->end();
                           func_it != func_it_end; func_it++) {
       if (!func_it->isDeclaration()) {
         functionCache.insert(func_it);
@@ -120,14 +121,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     while (!functionCache.empty()) {
       bool hasNoRootFunction = true;
       for (TFunctionSet::iterator func_it = functionCache.begin(),
-                                  func_end = functionCache.end(); 
+                                  func_end = functionCache.end();
                                   func_it != func_end; func_it++) {
 
         Function *pFunc = *func_it;
         bool isRoot = true;
         // Looking for callers to the function
         for (Value::use_iterator use_it = pFunc->use_begin(),
-                                 use_end = pFunc->use_end(); 
+                                 use_end = pFunc->use_end();
                                  use_it != use_end; use_it++) {
 
           CallInst *pInstr = dyn_cast<CallInst>(*use_it);
@@ -142,7 +143,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
           }
         }
 
-        // If no one calls this function - have it bubbled-up in the ordered list 
+        // If no one calls this function - have it bubbled-up in the ordered list
         if (isRoot) {
           hasNoRootFunction = false;
           if (isTopDownOrder) {
@@ -204,19 +205,32 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     //if (fd.parameters.size() != resolvedSpaces.size()) {
     //  dbgs() << origMangledName << "\n";
     // }
-    assert(resolvedSpaces.size() == fd.parameters.size() && "Mismatch between mangled name and amount of parameters");
+
+    reflection::ParamType * lastArg = fd.parameters.back();
+    reflection::PrimitiveType *lastArgTy = reflection::dyn_cast<reflection::PrimitiveType>(lastArg);
+    if(lastArgTy && lastArgTy->getPrimitive() == reflection::PRIMITIVE_VAR_ARG){
+      // in case of 0 number of variadic arguments mangler still detect variadic argument
+      // in callinst variadic argument may not be generated, we should exclude it from computations
+      // and align number of arguments to resolvedSpaces.size()
+      assert(fd.parameters.size() - 1  <= resolvedSpaces.size() &&
+         "in case of variadic # arguments should be less or equal to # of arguments detected by mangler");
+    } else {
+      assert(resolvedSpaces.size() == fd.parameters.size() &&
+        "Mismatch between mangled name and amount of parameters");
+    }
+
     assert((!originalSpaces || originalSpaces->size() == resolvedSpaces.size()) && "Invalid parameters!");
 
     for (unsigned idx = 0; idx < resolvedSpaces.size(); idx++) {
       OCLAddressSpace::spaces resolvedSpace = resolvedSpaces[idx];
       if (!IS_ADDR_SPACE_GENERIC(resolvedSpace)) {
-        // This parameter is a pointer which can be replaced with named addr-space 
-        reflection::PointerType *ptrParam = 
+        // This parameter is a pointer which can be replaced with named addr-space
+        reflection::PointerType *ptrParam =
               reflection::dyn_cast<reflection::PointerType>(fd.parameters[idx]);
         assert(ptrParam && "The parameter's mangling encoding should be of pointer type!");
         // Replace mangling encoding with its named-space version
         reflection::TypeAttributeEnum newAttr = translateAddrSpaceToAttr(resolvedSpace);
-        reflection::TypeAttributeEnum origAttr = originalSpaces? 
+        reflection::TypeAttributeEnum origAttr = originalSpaces?
                                                    translateAddrSpaceToAttr(
                                                             (*originalSpaces)[idx]) :
                                                    reflection::ATTR_GENERIC;
@@ -234,7 +248,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     reflection::FunctionDescriptor fdSpecialized;
     fdSpecialized.name = functionName;
 
-    // Collect mangling names of the function's pointer arguments 
+    // Collect mangling names of the function's pointer arguments
     // (including address space attribute)
     for (unsigned idx = 0; idx < argTypes.size(); idx++) {
       Type *argType = argTypes[idx];
@@ -247,7 +261,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
                                             new reflection::PrimitiveType(
                                                   reflection::PRIMITIVE_INT));
       // Add address space attribute according to the argument's addres space
-      reflection::TypeAttributeEnum attr = 
+      reflection::TypeAttributeEnum attr =
                     translateAddrSpaceToAttr(
                         (OCLAddressSpace::spaces)cast<PointerType>(argType)->getAddressSpace());
       ptrParam->addAttribute(attr);
@@ -259,15 +273,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     return mangle(fdSpecialized);
   }
 
-  void getIntrinsicOverload(Function *pFunc, const SmallVector<Type*, 8> &argTypes, 
+  void getIntrinsicOverload(Function *pFunc, const SmallVector<Type*, 8> &argTypes,
                                              SmallVector<Type*, 8> &overloadableArgTypes) {
-    assert(pFunc->isIntrinsic() && 
+    assert(pFunc->isIntrinsic() &&
            Intrinsic::isOverloaded((Intrinsic::ID)pFunc->getIntrinsicID()) &&
            "Overloadable intrinsic function is expected at this point!");
 
     FunctionType *pFuncType = pFunc->getFunctionType();
     SmallVector<Intrinsic::IITDescriptor, 8> intrinsicInfo;
-    Intrinsic::getIntrinsicInfoTableEntries((Intrinsic::ID)pFunc->getIntrinsicID(), 
+    Intrinsic::getIntrinsicInfoTableEntries((Intrinsic::ID)pFunc->getIntrinsicID(),
                                             intrinsicInfo);
     // Check intrinsic info for parameter types and fill the signature with
     // overloadable types only (starting from 1, as return type is not a
@@ -279,7 +293,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     }
   }
 
-  void emitWarning(std::string warning, Instruction *pInstr, 
+  void emitWarning(std::string warning, Instruction *pInstr,
                    Module *pModule, LLVMContext *pLLVMContext) {
 
     assert(pModule && pLLVMContext && "emitWarning parameters are invalid!");

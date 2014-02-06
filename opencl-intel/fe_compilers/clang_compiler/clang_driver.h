@@ -25,54 +25,62 @@
 #pragma once
 
 #include "clang_device_info.h"
+#ifdef _WIN32
+#include "TranslationBlock.h"
+#endif
 #include <frontend_api.h>
 #include <cl_synch_objects.h>
 #include "cl_config.h"
 
 #include <string>
 #include <list>
+#include <vector>
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
 
-    struct ARG_INFO
+    struct CACHED_ARG_INFO
     {
-        char* name;
-        char* typeName;
+        std::string name;
+        std::string typeName;
         cl_kernel_arg_address_qualifier adressQualifier;
         cl_kernel_arg_access_qualifier accessQualifier;
         cl_kernel_arg_type_qualifier typeQualifier;
     };
 
-    typedef std::list<std::string> ArgListType;		
+    typedef std::list<std::string> ArgListType;        
 
     class ClangFETask
     {
     protected:
-		static Intel::OpenCL::Utils::OclMutex		s_serializingMutex;
+        static Intel::OpenCL::Utils::OclMutex s_serializingMutex;
     };
 
     class ClangFECompilerCompileTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult, ClangFETask
-	{
-	public:
-		ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
-																Intel::OpenCL::ClangFE::CLANG_DEV_INFO pszDeviceInfo,
-                                                                const Intel::OpenCL::Utils::BasicCLConfigWrapper& config);
-		
-		int Compile();
+    {
+    public:
+        ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
+                                   Intel::OpenCL::ClangFE::CLANG_DEV_INFO pszDeviceInfo,
+                                   const Intel::OpenCL::Utils::BasicCLConfigWrapper& config);
+    
+        int Compile();
+        #ifdef _WIN32
+        int StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType);
+        void ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs );
+        #endif
+        // IOCLFEBinaryResult
+        size_t    GetIRSize() {return m_stOutIRSize;}
+        const void*    GetIR() { return m_pOutIR;}
+        const char* GetErrorLog() {return m_sLogString.c_str();}
+        long Release() { delete this; return 0; }
 
-		// IOCLFEBinaryResult
-		size_t	GetIRSize() {return m_stOutIRSize;}
-		const void*	GetIR() { return m_pOutIR;}
-		const char*	GetErrorLog() {return m_pLogString;}
-		long Release() { delete this; return 0; }
-
-	protected:
+    protected:
         virtual ~ClangFECompilerCompileTask();
 
         void PrepareArgumentList(ArgListType &list, ArgListType &BEArgList, const char *buildOpts);
+        void* LoadPchResourceBuffer();
 
         Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* m_pProgDesc;
-        Intel::OpenCL::ClangFE::CLANG_DEV_INFO	m_sDeviceInfo;
+        Intel::OpenCL::ClangFE::CLANG_DEV_INFO    m_sDeviceInfo;
 
         int  CLSTDSet;
         bool OptDebugInfo;
@@ -81,47 +89,51 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         bool Denorms_Are_Zeros;
         bool Fast_Relaxed_Math;
         std::string m_source_filename;
+        std::string m_triple;
+        ArgListType m_BEArgList;
 
-		char*	m_pOutIR;				// Output IR
-		size_t	m_stOutIRSize;
-		char*	m_pLogString;			// Output log
-		size_t	m_stLogSize;
+        char*    m_pOutIR;                // Output IR
+        size_t    m_stOutIRSize;
+        std::string m_sLogString;            // Output log
+
         const Intel::OpenCL::Utils::BasicCLConfigWrapper& m_config;
     private:
-      // private copy constructor to prevent wrong assignment
-      ClangFECompilerCompileTask(const ClangFECompilerCompileTask&);
-      // private operator= constructor to prevent wrong assignment
-      ClangFECompilerCompileTask& 
-        operator= (ClangFECompilerCompileTask const &) {return *this;}
-	};
+        // private copy constructor to prevent wrong assignment
+        ClangFECompilerCompileTask(const ClangFECompilerCompileTask&);
+        // private operator= constructor to prevent wrong assignment
+        ClangFECompilerCompileTask& operator= (ClangFECompilerCompileTask const &);
+    };
 
 
     class ClangFECompilerLinkTask : public Intel::OpenCL::FECompilerAPI::IOCLFEBinaryResult, ClangFETask
-	{
-	public:
-		ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc);
-		
-		int Link();
+    {
+    public:
+        ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc);
+        
+        int Link();
+        #ifdef _WIN32
+        int StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType);
+        void ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs );
+        #endif
 
-		// IOCLFEBinaryResult
-		size_t	GetIRSize() {return m_stOutIRSize;}
-		const void*	GetIR() { return m_pOutIR;}
-		const char* GetErrorLog() {return m_pLogString;}
-		long Release() { delete this; return 0;}
+        // IOCLFEBinaryResult
+        size_t    GetIRSize() {return m_stOutIRSize;}
+        const void*    GetIR() { return m_pOutIR;}
+        const char* GetErrorLog() {return m_sLogString.c_str();}
+        long Release() { delete this; return 0;}
         bool IsLibrary() {return bCreateLibrary;}
 
-	protected:
+    protected:
         virtual ~ClangFECompilerLinkTask();
 
         void ParseOptions(const char *buildOpts);
         void ResolveFlags();
 
-		Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* m_pProgDesc;
+        Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* m_pProgDesc;
 
-		char*	m_pOutIR;				// Output IR
-		size_t	m_stOutIRSize;
-		char*	m_pLogString;			// Output log
-		size_t	m_stLogSize;
+        char*    m_pOutIR;                // Output IR
+        size_t    m_stOutIRSize;
+        std::string m_sLogString;            // Output log
 
         bool bCreateLibrary;
         bool bEnableLinkOptions;
@@ -140,40 +152,40 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         bool bEnableLinkOptionsFlag;
     private:
       // private copy constructor to prevent wrong assignment
-      ClangFECompilerLinkTask(const ClangFECompilerLinkTask&) {}
+      ClangFECompilerLinkTask(const ClangFECompilerLinkTask&);
       // private operator= constructor to prevent wrong assignment
-      ClangFECompilerLinkTask& 
-        operator= (ClangFECompilerLinkTask const &) {return *this;}
-	};
+      ClangFECompilerLinkTask& operator= (ClangFECompilerLinkTask const &);
+    };
 
     class ClangFECompilerGetKernelArgInfoTask : public Intel::OpenCL::FECompilerAPI::FEKernelArgInfo, ClangFETask
     {
     public:
-        ClangFECompilerGetKernelArgInfoTask();
+        ClangFECompilerGetKernelArgInfoTask(){}
 
         int GetKernelArgInfo(const void*    pBin,
                              const char*    szKernelName);
-
-        unsigned int getNumArgs() const { return m_numArgs; }
-        const char* getArgName(unsigned int index) const { return m_argsInfo[index].name; }
-        const char* getArgTypeName(unsigned int index) const { return m_argsInfo[index].typeName; }
+        
+        #ifdef _WIN32
+        int TranslateArgsInfoValues(TC::STB_GetKernelArgsInfoArgs* pKernelArgsInfo);
+        #endif
+        
+        unsigned int getNumArgs() const { return m_argsInfo.size(); }
+        const char* getArgName(unsigned int index) const { return m_argsInfo[index].name.c_str(); }
+        const char* getArgTypeName(unsigned int index) const { return m_argsInfo[index].typeName.c_str(); }
         cl_kernel_arg_address_qualifier getArgAdressQualifier(unsigned int index) const { return m_argsInfo[index].adressQualifier; }
         cl_kernel_arg_access_qualifier getArgAccessQualifier(unsigned int index) const { return m_argsInfo[index].accessQualifier; }
         cl_kernel_arg_type_qualifier getArgTypeQualifier(unsigned int index) const { return m_argsInfo[index].typeQualifier; }
 
         long Release() { delete this; return 0;}
     protected:
-        virtual ~ClangFECompilerGetKernelArgInfoTask();
+        virtual ~ClangFECompilerGetKernelArgInfoTask(){}
 
-        unsigned int    m_numArgs;
-        ARG_INFO*       m_argsInfo;
+        std::vector<CACHED_ARG_INFO>  m_argsInfo;
     private:
       // private copy constructor to prevent wrong assignment
-      ClangFECompilerGetKernelArgInfoTask(const ClangFECompilerGetKernelArgInfoTask&)
-      : m_numArgs(0), m_argsInfo(NULL) {}
+      ClangFECompilerGetKernelArgInfoTask(const ClangFECompilerGetKernelArgInfoTask&);
       // private operator= constructor to prevent wrong assignment
-      ClangFECompilerGetKernelArgInfoTask& 
-        operator= (ClangFECompilerGetKernelArgInfoTask const &) {return *this;}
+      ClangFECompilerGetKernelArgInfoTask&  operator= (ClangFECompilerGetKernelArgInfoTask const &);
     };
 
     // ClangFECompilerCheckCompileOptions
