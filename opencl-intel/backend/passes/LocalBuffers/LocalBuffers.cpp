@@ -273,7 +273,7 @@ namespace intel{
 #else
         llvm::DataLayout DL(m_pModule);
 #endif
-        size_t uiArraySize = DL.getTypeSizeInBits(pLclBuff->getType()->getElementType())/8;
+        size_t uiArraySize = DL.getTypeAllocSize(pLclBuff->getType()->getElementType());
         assert(0 != uiArraySize && "zero array size!");
         // Now retrieve to the offset of the local buffer
         GetElementPtrInst *pLocalAddr =

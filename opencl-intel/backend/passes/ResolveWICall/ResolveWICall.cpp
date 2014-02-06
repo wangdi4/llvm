@@ -330,7 +330,7 @@ namespace intel {
     unsigned total_arg_size = 0;
     for ( unsigned numarg = 1; numarg < pCall->getNumArgOperands(); ++numarg ) {
       Value *arg = pCall->getArgOperand(numarg);
-      unsigned argsize = DL.getTypeSizeInBits(arg->getType()) / 8;
+      unsigned argsize = DL.getTypeAllocSize(arg->getType());
       total_arg_size += argsize;
     }
 
@@ -387,7 +387,7 @@ namespace intel {
       // Advance the buffer pointer offset by its size to know where the next
       // argument should be placed.
       //
-      unsigned argsize = DL.getTypeSizeInBits(arg->getType()) / 8;
+      unsigned argsize = DL.getTypeAllocSize(arg->getType());
       buf_pointer_offset += argsize;
     }
 

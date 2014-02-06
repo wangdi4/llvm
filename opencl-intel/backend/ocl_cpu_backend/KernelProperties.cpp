@@ -30,6 +30,7 @@ KernelJITProperties::KernelJITProperties():
 
 KernelProperties::KernelProperties():
     m_hasBarrier(false),
+    m_hasGlobalSync(false),
     m_DAZ(false),
     m_optWGSize(0),
     m_totalImplSize(0),
@@ -81,6 +82,11 @@ size_t KernelProperties::GetImplicitLocalMemoryBufferSize() const
 bool KernelProperties::HasPrintOperation() const
 {
     return false;
+}
+
+bool KernelProperties::HasGlobalSyncOperation() const
+{
+    return m_hasGlobalSync;
 }
 
 bool KernelProperties::HasBarrierOperation() const

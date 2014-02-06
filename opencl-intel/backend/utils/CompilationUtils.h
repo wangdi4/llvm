@@ -37,7 +37,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 #endif
 
   namespace OclVersion {
-    
+
     static const unsigned CL_VER_1_0 = 100;
     static const unsigned CL_VER_1_1 = 110;
     static const unsigned CL_VER_1_2 = 120;
@@ -56,9 +56,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       if (I == E)
         assert(false && "Bad Value for -cl-std option");
       return CL_VER_VALS[I-B];
-    }  
+    }
   }
-    
+
   /// @brief  CompilationUtils class used to provide helper utilies that are
   ///         used by several other classes.
   class CompilationUtils {
@@ -66,13 +66,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   public:
     /// We use a SetVector to ensure determinstic iterations
     typedef SetVector<Function*> FunctionSet;
-    /// @brief Removes the from the given basic block the instruction pointed 
+    /// @brief Removes the from the given basic block the instruction pointed
     ///        by the given iterator
     /// @param pBB         A Basic block from which the instruction needs to be removed
     /// @param it          An iterator pointing to the instruction that needs to be removed
     /// @returns An iterator to the next instruction after the instruction that was removed
     static BasicBlock::iterator removeInstruction(BasicBlock* pBB, BasicBlock::iterator it);
-    
+
     /// @brief  Retrieves the pointer to the implicit arguments added to the given function
     /// @param  pFunc        The function for which implicit arguments need to be retrieved
     /// @param  ppLocalMem   The pLocalMem argument, NULL if this argument shouldn't be retrieved
@@ -109,19 +109,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param pFunc      The kernel for which to create argument vector
     /// @param arguments  OUT param, the cl_kernel_argument which represent pFunc's
     ///                   OpenCL level argument
-    static void parseKernelArguments(  Module* pModule, 
-                                              Function* pFunc, 
+    static void parseKernelArguments(  Module* pModule,
+                                              Function* pFunc,
                                               std::vector<cl_kernel_argument>& /* OUT */ arguments,
                                               std::vector<unsigned int>&       /* OUT */ memoryArguments);
-    
+
     /// @brief  maps between kernels (both scalar and vectorized) and their metdata
     /// @param pModule          The module
     /// @param pVectFunctions   The vectorized kernels, these kernel should be mapped
     ///                         to their scalar version metadata
     /// @param pVectFunctions   OUT param, maps between kernels (both scalar and
     ///                         vectorized) and their metdata
-    static void getKernelsMetadata( Module* pModule, 
-                                    const SmallVectorImpl<Function*>& pVectFunctions, 
+    static void getKernelsMetadata( Module* pModule,
+                                    const SmallVectorImpl<Function*>& pVectFunctions,
                                     std::map<Function*, MDNode*>& /* OUT */ kernelMetadata);
 
     static Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
@@ -196,6 +196,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupMin(const std::string&);
     static bool isWorkGroupMax(const std::string&);
     static bool isWorkGroupUniform(const std::string&);
+
+    static bool isAtomicBuiltin(const std::string&);
 
     static const std::string NAME_GET_GID;
     static const std::string NAME_GET_LID;
@@ -289,7 +291,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //////////////////////////////////////////////////////////////////
     // @brief: returns the mangled name of the work_group_barrier function
     // @param wgBarrierType
-    //                      WG_BARRIER_NO_SCOPE - for 
+    //                      WG_BARRIER_NO_SCOPE - for
     // void work_group_barrier (cl_mem_fence_flags flags)
     //                      WG_BARRIER_WITH_SCOPE - for
     // void work_group_barrier (cl_mem_fence_flags flags, memory_scope scope)
@@ -304,9 +306,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //given module
     //////////////////////////////////////////////////////////////////
     static std::string argumentAttribute(const llvm::Module&);
-  
+
     static const std::string NAME_GET_DEFAULT_QUEUE;
-    
+
     /// Basic Enqueue kernel
     /// int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,
     ///                     const ndrange_t ndrange,void (^block)(void))
@@ -318,19 +320,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// ndrange_t ndrange_3D (). matches function with 1, 2, 3 arguments
     static const std::string NAME_NDRANGE_3D;
     /// Enqueue kernel with local memory
-    /// int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags, 
-    ///     const ndrange_t ndrange, 
+    /// int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,
+    ///     const ndrange_t ndrange,
     ///     void (^block)(local void *, ?), uint size0, ?)
     static const std::string NAME_ENQUEUE_KERNEL_LOCALMEM;
     /// Enqueue kernel with events
     /// int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,
-    ///    const ndrange_t ndrange,uint num_events_in_wait_list, 
+    ///    const ndrange_t ndrange,uint num_events_in_wait_list,
     ///    const clk_event_t *event_wait_list,clk_event_t *event_ret,void (^block)(void))
     static const std::string NAME_ENQUEUE_KERNEL_EVENTS;
     /// Enqueue kernel with events and local memory
-    /// int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags, 
-    ///    const ndrange_t ndrange, uint num_events_in_wait_list, 
-    ///    const clk_event_t *event_wait_list, clk_event_t *event_ret, 
+    /// int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags,
+    ///    const ndrange_t ndrange, uint num_events_in_wait_list,
+    ///    const clk_event_t *event_wait_list, clk_event_t *event_ret,
     ///    void (^block)(local void *, ?), uint size0, ?)
     static const std::string NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
 

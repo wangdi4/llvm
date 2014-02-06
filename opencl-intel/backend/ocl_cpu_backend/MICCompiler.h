@@ -80,8 +80,6 @@ public:
     MICCompiler(const IMICCompilerConfig& pConfig);
     virtual ~MICCompiler();
 
-    unsigned int GetTypeAllocSize(llvm::Type* pType) const;
-
     const llvm::LLVMModuleJITHolder* GetModuleHolder(llvm::Module& module,
         const std::string& dumpAsm) const;
 

@@ -15,8 +15,8 @@ Copyright (c) Intel Corporation (2010).
 File Name:  KernelProperties.h
 
 \*****************************************************************************/
-// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE 
-//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS  
+// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE
+//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS
 #pragma once
 
 #include <assert.h>
@@ -50,7 +50,7 @@ public:
     KernelProperties();
     /*
      * ICLDevBackendKernelProporties methods
-     */ 
+     */
 
     /**
      * @returns the number of Work Items handled by each kernel instance,
@@ -60,7 +60,7 @@ public:
 
     /**
      * @returns the required work-group size that was declared during kernel compilation.
-     *  NULL when this attribute is not present; 
+     *  NULL when this attribute is not present;
      *  whereas work-group size is array of MAX_WORK_DIM entries
      */
     virtual const size_t* GetRequiredWorkGroupSize() const;
@@ -85,7 +85,7 @@ public:
     virtual size_t GetImplicitLocalMemoryBufferSize() const;
 
     /**
-     * @returns true if the specified kernel has print operation in the kernel body, 
+     * @returns true if the specified kernel has print operation in the kernel body,
      *  false otherwise
      */
     virtual bool HasPrintOperation() const;
@@ -96,23 +96,31 @@ public:
     virtual size_t GetKernelExecutionLength() const;
 
     /**
-    * @returns a string of the kernel attributes
-    */
+     * @returns a string of the kernel attributes
+     */
     virtual const char *GetKernelAttributes() const;
 
-     /**
-     * @returns true if the specified kernel has barrier operation in the kernel body, 
+    /**
+     * @returns true if the specified kernel has barrier operation in the kernel body,
      *  false otherwise
      */
     virtual bool HasBarrierOperation() const;
 
     /**
-     * @returns true if the specified kernel calls other kernerls in the kernel body, 
+     * @returns true if the specified kernel has global synchronization
+     *  in the kernel body (e.g. atomic_add to global memory),
+     *  false otherwise
+     */
+    virtual bool HasGlobalSyncOperation() const;
+
+    /**
+     * @returns true if the specified kernel calls other kernerls in the kernel body,
      *  false otherwise
      */
     virtual bool HasKernelCallOperation() const;
+
     /**
-     * @returns true if the specified kernel is created from clang's block 
+     * @returns true if the specified kernel is created from clang's block
      *  false otherwise
      */
     virtual bool IsBlock() const;
@@ -122,17 +130,18 @@ public:
      */
     virtual bool IsNonUniformWGSizeSupported() const;
 
-    /*
+    /**
      * Kernel Properties methods
-     */ 
+     */
     void SetTotalImplSize(size_t size) { m_totalImplSize = size;}
-    void SetOptWGSize(unsigned int size) { m_optWGSize = size;} 
+    void SetOptWGSize(unsigned int size) { m_optWGSize = size;}
     void SetKernelExecutionLength(size_t length) { m_kernelExecutionLength = length;}
     void SetKernelAttributes(std::string attributes) { m_kernelAttributes = attributes;}
     void SetReqdWGSize(const size_t* psize );
     void SetHintWGSize(const size_t* psize );
     void SetDAZ(bool value)        { m_DAZ = value; }
     void SetHasBarrier(bool value) { m_hasBarrier = value; }
+    void SetHasGlobalSync(bool value) { m_hasGlobalSync = value; }
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
     void SetCpuId( const Intel::CPUId &cpuId ) { m_cpuId = cpuId; }
     void SetMinGroupSizeFactorial(unsigned int size) { m_minGroupSizeFactorial = size; }
@@ -140,8 +149,8 @@ public:
     void SetPointerSize(unsigned int value) { m_uiSizeT = value; }
     void SetIsBlock(const bool value) { m_bIsBlock = value; }
     void SetIsNonUniformWGSizeSupported(const bool value) { m_bIsNonUniformWGSizeSupported = value; }
-    
-    unsigned int  GetOptWGSize()      const { return m_optWGSize; } 
+
+    unsigned int  GetOptWGSize()      const { return m_optWGSize; }
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }
     const size_t* GetHintWGSize()     const { return m_hintWGSize; }
     bool          GetDAZ()            const { return m_DAZ; }
@@ -152,6 +161,7 @@ public:
 
 protected:
     bool m_hasBarrier;
+    bool m_hasGlobalSync;
     bool m_DAZ;
     Intel::CPUId m_cpuId;       // selected cpuId for current kernel codegen
     unsigned int m_optWGSize;
@@ -167,6 +177,5 @@ protected:
     bool m_bIsBlock;
     bool m_bIsNonUniformWGSizeSupported;
 };
-
 
 }}}

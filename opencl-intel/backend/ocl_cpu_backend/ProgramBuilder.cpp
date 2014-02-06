@@ -328,6 +328,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     const bool HasNoBarrierPath = skimd->isNoBarrierPathHasValue() && skimd->getNoBarrierPath();
     const unsigned int localBufferSize = skimd->getLocalBufferSize();
     const bool hasBarrier = skimd->getKernelHasBarrier();
+    const bool hasGlobalSync = skimd->getKernelHasGlobalSync();
     const size_t scalarExecutionLength = skimd->getKernelExecutionLength();
     const unsigned int scalarBufferStride = skimd->getBarrierBufferSize();
 
@@ -360,6 +361,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     pProps->SetHintWGSize(hintWGSize);
     pProps->SetTotalImplSize(localBufferSize);
     pProps->SetHasBarrier(hasBarrier);
+    pProps->SetHasGlobalSync(hasGlobalSync);
     pProps->SetKernelExecutionLength(executionLength);
     pProps->SetKernelAttributes(kernelAttributes.str());
 
