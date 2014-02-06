@@ -397,6 +397,11 @@ TEST(FrameworkTestType, Test_clPipes)
     EXPECT_TRUE(clPipes());
 }
 
+TEST(FrameworkTestType, Test_clSampler)
+{
+    EXPECT_TRUE(clSampler());
+}
+
 TEST(FrameWorkTestType, Test_cl20ExecutionModel)
 {
     EXPECT_TRUE(cl20ExecutionModel());

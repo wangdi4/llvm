@@ -55,6 +55,7 @@ clCreateKernelsInProgram
 clCreateProgramWithBinary
 clCreateProgramWithSource
 clCreateSampler
+clCreateSamplerWithProperties
 clEnqueueAcquireGLObjects
 clEnqueueBarrier
 clEnqueueCopyBuffer

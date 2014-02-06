@@ -250,12 +250,6 @@ CPUCompiler::~CPUCompiler()
     delete m_pVTuneListener;
 }
 
-unsigned int CPUCompiler::GetTypeAllocSize(llvm::Type* pType) const
-{
-    assert(m_pExecEngine);
-    return m_pExecEngine->getDataLayout()->getTypeAllocSize(pType);
-}
-
 void *CPUCompiler::GetPointerToFunction(llvm::Function *pf)
 {
     llvm::Module *pM = pf->getParent();

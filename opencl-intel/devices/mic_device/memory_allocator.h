@@ -217,7 +217,10 @@ public:
     // CreateMappedRegion should not perform real data mapping - just return a pointer to the returned memory
     // to be filled later
     cl_dev_err_code clDevMemObjCreateMappedRegion( cl_dev_cmd_param_map*  pMapParams );
-    cl_dev_err_code clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* pMapParams );
+    cl_dev_err_code clDevMemObjUnmapAndReleaseMappedRegion( cl_dev_cmd_param_map* pMapParams )
+                    { return releaseMappedRegion( pMapParams, true ); }
+    cl_dev_err_code clDevMemObjReleaseMappedRegion( cl_dev_cmd_param_map* pMapParams )
+                    { return releaseMappedRegion( pMapParams, false ); }
 
     cl_dev_err_code clDevMemObjUpdateBackingStore( 
                                 void* operation_handle, cl_dev_bs_update_state* pUpdateState );
@@ -308,6 +311,8 @@ private:
 
     // Dec this buffer memory counter.
     void decRefCounter();
+
+    cl_dev_err_code releaseMappedRegion( cl_dev_cmd_param_map* pMapParams, bool force_unmapping );
 
     ~MICDevMemoryObject() {};
 

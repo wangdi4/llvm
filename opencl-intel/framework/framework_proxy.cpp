@@ -130,6 +130,7 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clGetMemObjectInfo = (KHRpfn_clGetMemObjectInfo)GET_ALIAS(clGetMemObjectInfo);
     ICDDispatchTable.clGetImageInfo = (KHRpfn_clGetImageInfo)GET_ALIAS(clGetImageInfo);
     ICDDispatchTable.clCreateSampler = (KHRpfn_clCreateSampler)GET_ALIAS(clCreateSampler);
+	ICDDispatchTable.clCreateSamplerWithProperties = (KHRpfn_clCreateSamplerWithProperties)GET_ALIAS(clCreateSamplerWithProperties);
     ICDDispatchTable.clRetainSampler = (KHRpfn_clRetainSampler)GET_ALIAS(clRetainSampler);
     ICDDispatchTable.clReleaseSampler = (KHRpfn_clReleaseSampler)GET_ALIAS(clReleaseSampler);
     ICDDispatchTable.clGetSamplerInfo = (KHRpfn_clGetSamplerInfo)GET_ALIAS(clGetSamplerInfo);

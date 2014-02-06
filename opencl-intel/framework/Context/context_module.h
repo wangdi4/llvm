@@ -199,6 +199,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual cl_int SetMemObjectDestructorCallback (cl_mem memObj,mem_dtor_fn pfn_notify,void *pUserData);
 		// sampler methods
 		virtual cl_sampler CreateSampler(cl_context clContext, cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, cl_int * pErrcodeRet);
+		virtual cl_sampler CreateSamplerWithProperties (cl_context clContext, const cl_sampler_properties *pSamplerProperties, cl_int *pErrcodeRet);
 		virtual cl_int RetainSampler(cl_sampler clSampler);
 		virtual cl_int ReleaseSampler(cl_sampler clSampler);
 		virtual cl_int GetSamplerInfo(cl_sampler clSampler, cl_sampler_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);

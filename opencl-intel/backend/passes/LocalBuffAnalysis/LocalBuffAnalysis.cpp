@@ -128,7 +128,7 @@ namespace intel{
         assert( pLclBuff && "locals container contains something other than GlobalValue!" );
 
         // Calculate required buffer size
-        size_t uiArraySize = DL.getTypeSizeInBits(pLclBuff->getType()->getElementType())/8;
+        size_t uiArraySize = DL.getTypeAllocSize(pLclBuff->getType()->getElementType());
         assert ( 0 != uiArraySize && "local buffer size is zero!" );
 
         // Advance total implicit size

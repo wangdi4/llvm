@@ -123,12 +123,6 @@ MICCompiler::~MICCompiler()
     delete m_pCGEngine;
 }
 
-unsigned int MICCompiler::GetTypeAllocSize(llvm::Type* pType) const
-{
-    assert(m_pCGEngine);
-    return m_pCGEngine->sizeOf(pType);
-}
-
 const llvm::LLVMModuleJITHolder* MICCompiler::GetModuleHolder(llvm::Module& module, const std::string& dumpAsm) const
 {
     assert(m_pCGEngine);

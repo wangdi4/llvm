@@ -156,7 +156,7 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
     PM->add(llvm::createLoopUnrollPass(512, 0, 0)); // Unroll small loops
   }
   if (!isDBG) {
-    PM->add(llvm::createFunctionInliningPass(4096)); // Inline (not only small)
+    PM->add(llvm::createFunctionInliningPass(20000)); // Inline (not only small)
                                                      // functions
   }
   // A workaround to fix regression in sgemm on CPU and not causing new
@@ -229,7 +229,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
     // clone block_invoke functions to kernels
     PM.add(createCloneBlockInvokeFuncToKernelPass());
   }
-  
+
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
     if (OptLevel == 1)
@@ -321,7 +321,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 
   if (isOcl20) {
-    // Repeat static resolution of generic address space pointers after 
+    // Repeat static resolution of generic address space pointers after
     // LLVM IR was optimized
     PM.add(createGenericAddressStaticResolutionPass());
     // No need to run function inlining pass here, because if there are still
@@ -331,7 +331,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PM.add(createOclFunctionAttrsPass());
 
   PM.add(llvm::createUnifyFunctionExitNodesPass());
-  
+
 
   PM.add(llvm::createBasicAliasAnalysisPass());
 
@@ -403,18 +403,18 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
     PM.add(createProfilingInfoPass());
   }
 #endif
-   // Get Some info about the kernel
-   // should be called before BarrierPass and createPrepareKernelArgsPass
-   if(pRtlModule != NULL) {
-     PM.add(createKernelInfoWrapperPass());
-   }
-
   if (isOcl20) {
     // Resolve (dynamically) generic address space pointers which are relevant for
     // correct execution
     PM.add(createGenericAddressDynamicResolutionPass());
     // No need to run function inlining pass here, because if there are still
     // non-inlined functions left - then we don't have to inline new ones.
+  }
+
+  // Get Some info about the kernel
+  // should be called before BarrierPass and createPrepareKernelArgsPass
+  if(pRtlModule != NULL) {
+    PM.add(createKernelInfoWrapperPass());
   }
 
   // Adding WG loops
@@ -484,7 +484,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
   if (debugType == intel::None) {
     if (HasGatherScatter)
-      PM.add(llvm::createFunctionInliningPass(4096)); // Inline (not only small) functions.
+      PM.add(llvm::createFunctionInliningPass(20000)); // Inline (not only small) functions.
     else
       PM.add(llvm::createFunctionInliningPass());     // Inline small functions
   } else {
@@ -612,7 +612,7 @@ void Optimizer::Optimize()
     materializer->runOnModule(*m_pModule);
 #endif
     m_PreFailCheckPM.run(*m_pModule);
-    
+
     // if there are still unresolved functon pointer calls
     // after standard LLVM optimizations applied
     // it means blocks variable call cannot be resolved to static call

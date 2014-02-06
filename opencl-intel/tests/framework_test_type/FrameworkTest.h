@@ -135,4 +135,5 @@ bool cl_APFLevelForce();
 bool clSvmTest();
 bool clFlexibleNdrange();
 bool clPipes();
+bool clSampler();
 //#define CUDA_DEVICE

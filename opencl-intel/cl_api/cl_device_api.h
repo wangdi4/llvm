@@ -825,6 +825,16 @@ public:
     */
     virtual cl_dev_err_code clDevMemObjCreateMappedRegion( cl_dev_cmd_param_map*    pMapParams ) = 0;
 
+    //!     Unmaps and Releases previously created host mapped memory region. Used when user forgot to manually unmap it before.
+    /*
+        \param[in]  pMapParams              A valid pointer to descriptor of memory mapped region.
+
+
+        \retval CL_DEV_SUCCESS              The function was executed successfully
+        \retval CL_INVALID_VALUE            If mapped memory pointer is not associated with memory object.
+    */
+    virtual cl_dev_err_code clDevMemObjUnmapAndReleaseMappedRegion( cl_dev_cmd_param_map* pMapParams ) = 0;
+
     //!     Releases previously created host mapped memory region.
     /*
         \param[in]  pMapParams              A valid pointer to descriptor of memory mapped region.

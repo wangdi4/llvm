@@ -189,8 +189,6 @@ public:
     // Get the latest execution engine
     virtual void *GetExecutionEngine() = 0;
 
-    virtual unsigned int GetTypeAllocSize(llvm::Type* pType) const = 0;
-
     /**
      * Returns pointer to the RTL library module
      */
