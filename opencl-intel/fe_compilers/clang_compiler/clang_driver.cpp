@@ -342,10 +342,10 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     //Add OpenCL predefined macros
     if (m_config.GetOpenCLVersion() == OPENCL_VERSION_2_0) {
       list.push_back("-D");
-	    list.push_back("__OPENCL_VERSION__=200");
+      list.push_back("__OPENCL_VERSION__=200");
     } else {
       list.push_back("-D");
-	    list.push_back("__OPENCL_VERSION__=120");
+      list.push_back("__OPENCL_VERSION__=120");
     }
 
 	  list.push_back("-D");
