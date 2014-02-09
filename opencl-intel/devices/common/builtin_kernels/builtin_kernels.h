@@ -89,7 +89,9 @@ protected:
     public:
         unsigned int GetKernelPackCount() const {return 1;}
         const size_t* GetRequiredWorkGroupSize() const {return NULL;}
+        size_t GetBarrierBufferSize() const {return 1;}
         size_t GetPrivateMemorySize() const {return 1;}
+        size_t GetMaxWorkGroupSize(size_t const maxWGSize, size_t const) const {return maxWGSize;}
         size_t GetImplicitLocalMemoryBufferSize() const {return 0;}
         size_t GetKernelExecutionLength() const {return -1;}
         bool HasPrintOperation() const {return false;}

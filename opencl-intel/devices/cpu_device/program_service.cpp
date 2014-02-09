@@ -768,13 +768,10 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         break;
 
     case CL_DEV_KERNEL_MAX_WG_SIZE:
-        {
-            size_t private_mem_size = pKernelProps->GetPrivateMemorySize();
-            ullValue = MIN(CPU_MAX_WORK_GROUP_SIZE, (CPU_DEV_MAX_WG_PRIVATE_SIZE /( (private_mem_size > 0) ? private_mem_size : 1)));
-            size_t packSize = pKernelProps->GetMinGroupSizeFactorial();
-            if (ullValue > packSize)
-                ullValue = ( ullValue ) & ~(packSize-1);
-        }
+        // TODO: Current implementation uses constants and it's OK with allocated on the stack dynamic local buffers.
+        //       But take it into account if the available stack frame size is known at RT. I.e.:
+        //          GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, stackFrameSize - CPU_DEV_LCL_MEM_SIZE);
+        ullValue = pKernelProps->GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, CPU_DEV_MAX_WG_PRIVATE_SIZE);
         stValSize = sizeof(size_t);
         break;
 
@@ -793,7 +790,7 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         stValSize = sizeof(cl_ulong);
         break;
 
-	case CL_DEV_KERNEL_ARG_INFO:
+    case CL_DEV_KERNEL_ARG_INFO:
         stValSize = pKernel->GetKernelParamsCount() * sizeof(cl_kernel_argument_info);
         pValue = (void*)pKernel->GetKernelArgInfo();
         break;

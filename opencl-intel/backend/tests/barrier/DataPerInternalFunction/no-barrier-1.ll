@@ -36,7 +36,9 @@ define void @main(i32 %x) nounwind {
 ; CHECK-NOT: *
 
 ; CHECK: Buffer Total Size:
-; CHECK-NOT: main
+; CHECK: main
+; CHECK-NOT: entry
+; CHECK: entry(0) : (0)
 ; CHECK-NOT: entry
 ; CHECK: DONE
 

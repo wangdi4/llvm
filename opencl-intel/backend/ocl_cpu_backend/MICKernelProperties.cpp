@@ -28,7 +28,7 @@ MICKernelProperties::MICKernelProperties(KernelProperties* pKernelProps)
     SetTotalImplSize(pKernelProps->GetImplicitLocalMemoryBufferSize());
     SetDAZ( pKernelProps->GetDAZ());
     SetCpuId( pKernelProps->GetCpuId() );
-    SetPrivateMemorySize(pKernelProps->GetPrivateMemorySize());
+    SetBarrierBufferSize(pKernelProps->GetBarrierBufferSize());
 }
 
 void MICKernelJITProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
@@ -67,6 +67,8 @@ void MICKernelProperties::Serialize(IOutputStream& ost, SerializationStatus* sta
 
     unsigned long long int tmp = (unsigned long long int)m_totalImplSize;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    tmp = (unsigned long long int)m_barrierBufferSize;
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     tmp = (unsigned long long int)m_privateMemorySize;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     Serializer::SerialPrimitive<bool>(&m_isVectorizedWithTail, ost);
@@ -102,6 +104,8 @@ void MICKernelProperties::Deserialize(IInputStream& ist, SerializationStatus* st
 
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_totalImplSize = (size_t)tmp;
+    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+    m_barrierBufferSize = (size_t)tmp;
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_privateMemorySize = (size_t)tmp;
     Serializer::DeserialPrimitive<bool>(&m_isVectorizedWithTail, ist);

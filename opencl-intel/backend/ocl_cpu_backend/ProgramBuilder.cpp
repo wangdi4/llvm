@@ -331,6 +331,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     const bool hasGlobalSync = skimd->getKernelHasGlobalSync();
     const size_t scalarExecutionLength = skimd->getKernelExecutionLength();
     const unsigned int scalarBufferStride = skimd->getBarrierBufferSize();
+    unsigned int privateMemorySize = skimd->getPrivateMemorySize();
 
     size_t vectorExecutionLength = 0;
     unsigned int vectorBufferStride = 0;
@@ -340,13 +341,17 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
       KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(skimd->getVectorizedKernel());
       vectorExecutionLength = vkimd->getKernelExecutionLength();
       vectorBufferStride = vkimd->getBarrierBufferSize();
+      privateMemorySize = std::max<unsigned int>(privateMemorySize, vkimd->getPrivateMemorySize());
     }
+
     // Execution length contains the max size between
     // the length of scalar and the length of vectorized versions.
     const size_t executionLength = std::max(scalarExecutionLength, vectorExecutionLength);
     // Private memory size contains the max size between
     // the needed size for scalar and needed size for vectorized versions.
-    unsigned int privateMemorySize = std::max<unsigned int>(scalarBufferStride, vectorBufferStride);
+    unsigned int barrierBufferSize = std::max<unsigned int>(scalarBufferStride, vectorBufferStride);
+    // Aligh barrier buffer and private memory size
+    barrierBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(barrierBufferSize);
     privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(privateMemorySize);
 
     KernelProperties* pProps = new KernelProperties();
@@ -370,6 +375,10 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     if (HasNoBarrierPath)
       pProps->EnableVectorizedWithTail();
 
+    pProps->SetBarrierBufferSize(barrierBufferSize);
+    // CSSD100016517 workaround:
+    //   GetPrivateMemorySize returns the min. required private memory
+    //   size per work-item even if there are no work-group level built-ins.
     pProps->SetPrivateMemorySize(privateMemorySize);
 
     // set isBlock property

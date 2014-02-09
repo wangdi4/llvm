@@ -21,7 +21,16 @@ File Name:  Kernel.cpp
 #include "ImplicitArgsUtils.h"
 #include "TypeAlignment.h"
 #include "exceptions.h"
-#include "cpu_dev_limits.h"
+
+#if defined (__MIC__) || defined(__MIC2__)
+  #include "mic_dev_limits.h"
+  #define MAX_WORK_GROUP_SIZE      MIC_MAX_WORK_GROUP_SIZE
+  #define MAX_WG_PRIVATE_SIZE      MIC_DEV_MAX_WG_PRIVATE_SIZE
+#else
+  #include "cpu_dev_limits.h"
+  #define MAX_WORK_GROUP_SIZE      CPU_MAX_WORK_GROUP_SIZE
+  #define MAX_WG_PRIVATE_SIZE      CPU_DEV_MAX_WG_PRIVATE_SIZE
+#endif
 
 #include <cstring>
 #include <cmath>
@@ -162,14 +171,9 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
         UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i]  = 1;
       }
 
-      const unsigned int kernelPrivateMemSize =
-          (unsigned int)m_pProps->GetPrivateMemorySize();
       unsigned int globalWorkSizeX = UniformImplicitArgs->GlobalSize[0];
-      unsigned int localSizeUpperLimit = min(
-          min(CPU_MAX_WORK_GROUP_SIZE, globalWorkSizeX), // localSizeMaxLimit_1
-          CPU_DEV_MAX_WG_PRIVATE_SIZE / (kernelPrivateMemSize > 0
-                                             ? kernelPrivateMemSize
-                                             : 1)); // localSizeMaxLimit_2
+      unsigned int localSizeUpperLimit = min(globalWorkSizeX,
+            m_pProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE));
 
       unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
       assert(minMultiplyFactor &&
@@ -499,7 +503,7 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
   BeforeExecution();
 #endif
 
-  assert(pKernelUniformImplicitArgs->WorkDim <= CPU_MAX_WORK_GROUP_SIZE);
+  assert(pKernelUniformImplicitArgs->WorkDim <= MAX_WORK_DIM);
   static bool guard = true;
   if (false && guard) {
     guard = false; //Print only first group in NDRange to avoid huge dumps

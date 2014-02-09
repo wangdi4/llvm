@@ -143,7 +143,7 @@ File Name:  WGContext.cpp
         }
         m_uiWGSize = m_uiWGSize / m_uiVectorWidth;
 
-        m_stPrivateMemorySize = pKernel->GetKernelProporties()->GetPrivateMemorySize();
+        m_stPrivateMemorySize = pKernel->GetKernelProporties()->GetBarrierBufferSize();
 
         unsigned int ptrSize = (sizeof(void*));
 

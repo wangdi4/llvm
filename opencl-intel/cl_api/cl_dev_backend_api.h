@@ -185,7 +185,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 		// Returns the required stack size for single Work Item execution
 		// 0 when is not available
-		virtual size_t  GetPrivateMemorySize() const = 0;
+		virtual size_t  GetBarrierBufferSize() const = 0;
 
 		// Releases kernel instance
 		virtual void	Release() = 0;

@@ -1193,29 +1193,27 @@ namespace intel {
     Intel::MetaDataUtils::KernelsInfoMap::const_iterator itr = mdUtils.begin_KernelsInfo();
     Intel::MetaDataUtils::KernelsInfoMap::const_iterator end = mdUtils.end_KernelsInfo();
     for (; itr != end; ++itr) {
-      unsigned int strideSize = 0;
       Intel::KernelInfoMetaDataHandle kimd = itr->second;
-      //Need to check if NoBarrierPath Value exists, it is not guaranteed that
-      //KernelAnalysisPass is running in all scenarios.
-      if (kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath()) {
-        //Kernel that should not be handled in Barrier path,
-        //set barrier buffer stride to default.
-        kimd->setBarrierBufferSize(strideSize);
-        continue;
-      }
       Function* pFunc = itr->first;
       assert( pFunc && "MetaData first operand is not of type Function!" );
       //Need to check if Vectorized Width Value exists, it is not guaranteed that
       //Vectorized is running in all scenarios.
       int vecWidth = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
-      strideSize = m_pDataPerValue->getStrideSize(pFunc);
-      strideSize = (strideSize + vecWidth - 1) / vecWidth;
-      kimd->setBarrierBufferSize(strideSize);
+      unsigned int strideSize = m_pDataPerValue->getStrideSize(pFunc);
+      //Need to check if NoBarrierPath Value exists, it is not guaranteed that
+      //KernelAnalysisPass is running in all scenarios.
+      if (kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath()) {
+        kimd->setBarrierBufferSize(0);
+      } else {
+        strideSize = (strideSize + vecWidth - 1) / vecWidth;
+        kimd->setBarrierBufferSize(strideSize);
+      }
+
+      // CSSD100016517: workaround
+      kimd->setPrivateMemorySize(strideSize);
     }
     mdUtils.save(M.getContext());
   }
-
-
 } // namespace intel
 
 

@@ -202,6 +202,12 @@ public:
 		return NULL;
 	}
 
+    size_t GetBarrierBufferSize() const
+	{
+		assert(0);
+		return 0;
+	}
+
     size_t GetPrivateMemorySize() const
 	{
 		assert(0);

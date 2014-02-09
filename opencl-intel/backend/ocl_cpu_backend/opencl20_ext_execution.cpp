@@ -19,8 +19,18 @@ File Name:  opencl20_ext_execution.cpp
 #define DEBUG_TYPE "opencl20-ext-execution"
 
 #include <string.h>
+
+#if defined (__MIC__) || defined(__MIC2__)
+  #include "mic_dev_limits.h"
+  #define MAX_WORK_GROUP_SIZE      MIC_MAX_WORK_GROUP_SIZE
+  #define MAX_WG_PRIVATE_SIZE      MIC_DEV_MAX_WG_PRIVATE_SIZE
+#else
+  #include "cpu_dev_limits.h"
+  #define MAX_WORK_GROUP_SIZE      CPU_MAX_WORK_GROUP_SIZE
+  #define MAX_WG_PRIVATE_SIZE      CPU_DEV_MAX_WG_PRIVATE_SIZE
+#endif
+
 #include "cl_dev_backend_api.h"
-#include "cpu_dev_limits.h"
 #include "ICLDevBackendServiceFactory.h"
 #include "BlockLiteral.h"
 #include "IBlockToKernelMapper.h"
@@ -285,8 +295,7 @@ ocl20_get_kernel_wg_size(void *block, IDeviceCommandManager *DCM, const IBlockTo
   assert(DCM && "IDeviceCommandManager is NULL");
   assert(Mapper && "const IBlockToKernelMapper is NULL");
   DEBUG(dbgs() << "ocl20_get_kernel_wg_size. Entry point \n");
-  uint32_t ret;
-  
+
   const BlockLiteral * pBlockLiteral = static_cast<BlockLiteral*>(block);
   
   // obtain entry point as key
@@ -294,18 +303,8 @@ ocl20_get_kernel_wg_size(void *block, IDeviceCommandManager *DCM, const IBlockTo
   const ICLDevBackendKernel_ * pKernel = Mapper->Map(key);
   const ICLDevBackendKernelProporties* pKernelProps = pKernel->GetKernelProporties();
 
-  //logic taken from \cpu_device\program_service.cpp file ProgramService::GetKernelInfo function
-  // SVN rev. 74469
-  ret = CPU_MAX_WORK_GROUP_SIZE;
-  //TODO: Is this a good workaround for the case where GetPrivateMemorySize is zero?!
-  if (pKernelProps->GetPrivateMemorySize())
-    ret = std::min<uint64_t>(
-        CPU_MAX_WORK_GROUP_SIZE,
-        (CPU_DEV_MAX_WG_PRIVATE_SIZE / pKernelProps->GetPrivateMemorySize()));
-  ret = ((uint64_t)1) << ((uint64_t)(logf((float)ret) / logf(2.f)));
-
   DEBUG(dbgs() << "ocl20_get_kernel_wg_size. Called GetKernelWorkGroupSize\n");
-  return ret;
+  return pKernelProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE);
 }
 
 extern "C" LLVM_BACKEND_API uint32_t

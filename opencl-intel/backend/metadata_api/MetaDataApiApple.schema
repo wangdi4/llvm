@@ -176,8 +176,14 @@
                             "name":     "BlockLiteralSize",
                             "metatype": "int32_item",
                             "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "private_memory_size",
+                            "name":     "PrivateMemorySize",
+                            "metatype": "int32_item",
+                            "optional": true
                         }
-
                     ]
                 },
     "WorkGroupSize":{
