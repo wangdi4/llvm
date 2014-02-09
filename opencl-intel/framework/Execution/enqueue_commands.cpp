@@ -279,7 +279,7 @@ cl_err_code Command::AcquireMemoryObjects( MemoryObjectArgList& argList, const S
     cl_err_code errCode = CL_SUCCESS;
 
     MemoryObjectArgList::iterator it     = argList.begin();
-    MemoryObjectArgList::const_iterator it_end = argList.end();
+    MemoryObjectArgList::iterator it_end = argList.end();
 
     for (; it != it_end; ++it )
     {
