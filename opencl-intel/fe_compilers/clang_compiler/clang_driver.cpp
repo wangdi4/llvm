@@ -424,7 +424,7 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     }
 }
 
-void *ClangFECompilerCompileTask::LoadPchResourceBuffer ()
+void *ClangFECompilerCompileTask::LoadPchResourceBuffer (const char* prc_id)
 {
   llvm::MemoryBuffer *pchBuff = NULL;
 #ifdef PASS_PCH
@@ -454,7 +454,7 @@ void *ClangFECompilerCompileTask::LoadPchResourceBuffer ()
   // Locate the resource
   if( NULL != hMod )
   {
-    hRes = FindResource(hMod, "#101", "PCH");
+    hRes = FindResource(hMod, prc_id, "PCH");
   }
   else
   {
@@ -640,7 +640,9 @@ int ClangFECompilerCompileTask::Compile()
         throw std::bad_alloc();
     }
 
-    std::auto_ptr<llvm::MemoryBuffer> pchBuff( (llvm::MemoryBuffer *)LoadPchResourceBuffer());
+    char* prc_id = CLSTDSet >= 200 ? "#102" : "#101";
+    
+    std::auto_ptr<llvm::MemoryBuffer> pchBuff( (llvm::MemoryBuffer *)LoadPchResourceBuffer(prc_id));
     if( !pchBuff.get() )
     {
         LOG_ERROR(TEXT("%s"), "Failed to load pchBuff");

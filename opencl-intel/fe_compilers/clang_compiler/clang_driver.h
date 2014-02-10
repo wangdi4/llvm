@@ -77,7 +77,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         virtual ~ClangFECompilerCompileTask();
 
         void PrepareArgumentList(ArgListType &list, ArgListType &BEArgList, const char *buildOpts);
-        void* LoadPchResourceBuffer();
+        void* LoadPchResourceBuffer(const char* prc_id);
 
         Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* m_pProgDesc;
         Intel::OpenCL::ClangFE::CLANG_DEV_INFO    m_sDeviceInfo;

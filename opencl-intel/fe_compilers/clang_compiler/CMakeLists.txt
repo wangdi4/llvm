@@ -79,24 +79,11 @@ else()
         ../common/linux/headers
     )
 endif()    
-            
-#if (NOT WIN32)
-#    set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
-#    set(HW_UTILS_PROJ_NAME cl_hw_utils)
-#endif (NOT WIN32)
 
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         add_definitions( -DRESOURCE_X64 )
     endif (CMAKE_SIZEOF_VOID_P EQUAL 8) 
-    
-    if (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2008
-        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR} )
-    else (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2010
-        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
-    endif (${MSVC_VERSION} EQUAL 1500)
 else (WIN32)
     set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
 endif (WIN32)
@@ -117,71 +104,71 @@ install(TARGETS ${TARGET_NAME}
     LIBRARY DESTINATION bin)
 
 if (WIN32)
-target_link_libraries( ${TARGET_NAME} 
-                       task_executor${BUILD_PLATFORM}
-                       CLElfLib
-                       OclPluginManager
-                       metadataapi
-                       dynamic_load
-                       cl_sys_utils
-                       SPIRMetadataAdder
-                       ${LLVM_MODULE_LIBS}
-)
+    target_link_libraries( ${TARGET_NAME} 
+                           CLElfLib
+                           OclPluginManager
+                           metadataapi
+                           dynamic_load
+                           cl_logger
+                           cl_sys_utils
+                           SPIRMetadataAdder
+                           ${LLVM_MODULE_LIBS}
+    )
 else() 
 
-if (NOT ANDROID)
-    list(APPEND LINK_LIBS pthread)
-endif (NOT ANDROID)
+    if (NOT ANDROID)
+        list(APPEND LINK_LIBS pthread)
+    endif (NOT ANDROID)
 
 
-# The list of clang libraries is taken from clang makefile
-# (build/tools/clang/tools/driver/CMakeFiles/clang.dir/build.make)
-# All duplicate libraries are there on purpose 
-target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
-                                      SPIRMetadataAdder
-                                      cl_sys_utils
-                                      cl_logger
-                                      LLVMCppBackendCodeGen
-                                      LLVMCppBackendInfo
-                                      task_executor${BUILD_PLATFORM}
-                                      clangFrontendTool
-                                      clangAST
-                                      clangAnalysis
-                                      clangBasic
-                                      clangCodeGen
-                                      clangDriver
-                                      clangEdit
-                                      clangFrontend
-                                      clangLex
-                                      clangParse
-                                      clangEdit
-                                      clangARCMigrate
-                                      clangRewriteCore
-                                      clangRewriteFrontend
-                                      clangSema
-                                      clangSerialization
-                                      clangStaticAnalyzerFrontend
-                                      clangStaticAnalyzerCheckers
-                                      clangStaticAnalyzerCore
-                                      clangRewriteFrontend
-                                      clangFrontend
-                                      clangDriver
-                                      clangSerialization
-                                      clangRewriteCore
-                                      clangParse
-                                      clangSema
-                                      clangAnalysis
-                                      clangEdit
-                                      clangAST
-                                      clangLex
-                                      clangBasic
-                                      OclPluginManager
-                                      #CLElfLib
-                                      metadataapi
-                                      dynamic_load
-                                      cl_sys_utils
-                                      ${LLVM_MODULE_LIBS}
-                                      )
+    # The list of clang libraries is taken from clang makefile
+    # (build/tools/clang/tools/driver/CMakeFiles/clang.dir/build.make)
+    # All duplicate libraries are there on purpose 
+    target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
+                                          SPIRMetadataAdder
+                                          cl_sys_utils
+                                          cl_logger
+                                          LLVMCppBackendCodeGen
+                                          LLVMCppBackendInfo
+                                          task_executor${BUILD_PLATFORM}
+                                          clangFrontendTool
+                                          clangAST
+                                          clangAnalysis
+                                          clangBasic
+                                          clangCodeGen
+                                          clangDriver
+                                          clangEdit
+                                          clangFrontend
+                                          clangLex
+                                          clangParse
+                                          clangEdit
+                                          clangARCMigrate
+                                          clangRewriteCore
+                                          clangRewriteFrontend
+                                          clangSema
+                                          clangSerialization
+                                          clangStaticAnalyzerFrontend
+                                          clangStaticAnalyzerCheckers
+                                          clangStaticAnalyzerCore
+                                          clangRewriteFrontend
+                                          clangFrontend
+                                          clangDriver
+                                          clangSerialization
+                                          clangRewriteCore
+                                          clangParse
+                                          clangSema
+                                          clangAnalysis
+                                          clangEdit
+                                          clangAST
+                                          clangLex
+                                          clangBasic
+                                          OclPluginManager
+                                          #CLElfLib
+                                          metadataapi
+                                          dynamic_load
+                                          cl_sys_utils
+                                          ${LLVM_MODULE_LIBS}
+                                          )
 endif()
 
 set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
@@ -193,13 +180,13 @@ else()
 endif()
 
 set( CLANG_OPTIONS -cc1
-                      -x cl
-                      -O0
-                      -emit-pch 
-                      -I ${OCL_CLANG_HEADERS}
-                      -D __IMAGE2D_DEPTH__
-                      -D __WRITE_IMAGE3D__
-                      )
+                   -x cl
+                   -O0
+                   -emit-pch 
+                   -I ${OCL_CLANG_HEADERS}
+                   -D __IMAGE2D_DEPTH__
+                   -D __WRITE_IMAGE3D__
+                   )
 
 set( CLANG_OPTIONS_OPENCL_12
                     ${CLANG_OPTIONS}
@@ -210,7 +197,6 @@ set( CLANG_OPTIONS_OPENCL_20
                     -cl-std=CL2.0
                     -D__OPENCL_C_VERSION__=200
                       )
-
 
 set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
 )
@@ -236,15 +222,14 @@ add_custom_command( TARGET ${TARGET_NAME}
                     COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
                     DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
-                   )
-		   
+)
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
                     COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
-                   )
+)
 
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
@@ -252,8 +237,8 @@ add_custom_command( TARGET ${TARGET_NAME}
                     COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
                     DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
-                   )
-		   
+)
+
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_.pch DESTINATION bin)
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
