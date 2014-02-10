@@ -492,6 +492,8 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
           pKernelUniformImplicitArgsPosition);
 
 //#if defined(ENABLE_SDE)
+  //static int count = 0;
+  //printf("Count = %d ", count++);
   BeforeExecution();
 //#endif
 

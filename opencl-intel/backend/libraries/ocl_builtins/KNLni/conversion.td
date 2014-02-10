@@ -273,6 +273,12 @@ OclBuiltinImpl avx512_cvt_f64_u32 = OclBuiltinImpl<convert_f64,[v8u32], 0, [{
   }]>;
 
 // convert_shortn - ints
+  /*
 OclBuiltinImpl avx2_v8i32_conv_i16_sat = OclBuiltinImpl<convert_i16_sat, [v16i32], 0, [{
     return as_$ReturnType(_mm256_packs_epi32((__m256i)$Arg0VarName.lo, (__m256i)$Arg0VarName.hi));
   }]>;
+  
+OclBuiltinImpl avx2_v8i32_conv_u16_sat = OclBuiltinImpl<convert_u16_sat, [v16i32] , 0, [{
+    return as_$ReturnType(_mm256_packus_epi32((__m256i)$Arg0VarName.lo, (__m256i)$Arg0VarName.hi));
+  }]>;
+*/

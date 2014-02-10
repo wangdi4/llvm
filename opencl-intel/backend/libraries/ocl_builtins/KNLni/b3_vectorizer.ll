@@ -320,21 +320,17 @@ define void @masked_scatter.v16i64 (<16 x i1> %mask, i64* %addr,
 ;; ------------------------------------
 ;;       MASK Operations 
 ;; ------------------------------------
-declare i32 @llvm.x86.avx512.kortestc.w(i16, i16) nounwind readnone
-declare i32 @llvm.x86.avx512.kortestz.w(i16, i16) nounwind readnone
 
 define i1 @__ocl_allOne_v16(<16 x i1> %pred) {
 entry:
   %ipred = bitcast <16 x i1> %pred to i16
-  %val = call i32 @llvm.x86.avx512.kortestc.w(i16 %ipred, i16 %ipred)
-  %res = trunc i32 %val to i1
+  %res = icmp eq i16 %ipred, -1
   ret i1 %res
 }
 
 define i1 @__ocl_allZero_v16(<16 x i1> %t) {
 entry:
   %ipred = bitcast <16 x i1> %t to i16
-  %val = call i32 @llvm.x86.avx512.kortestz.w(i16 %ipred, i16 %ipred)
-  %res = trunc i32 %val to i1
+  %res = icmp eq i16 %ipred, 0
   ret i1 %res
 }
