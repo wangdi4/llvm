@@ -119,12 +119,12 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
     {
         LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
         *pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME : CL_OUT_OF_HOST_MEMORY;
-        delete kernelAttrs;
+        delete [] kernelAttrs;
         return;
     }
 
     m_sKernelPrototype.m_szKernelAttributes = kernelAttrs;
-    delete kernelAttrs;
+    delete [] kernelAttrs;
 
     // Get argument buffer size
     clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES,
