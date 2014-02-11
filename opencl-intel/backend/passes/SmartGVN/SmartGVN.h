@@ -49,7 +49,9 @@ public:
   }
   /// @brief Inform about usage/mofication/dependency of this pass
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<LoopInfo>();
+    if (noLoadAnalysis) {
+      AU.addRequired<LoopInfo>();
+    }
   }
 protected:
   /// @brief Analyse the function body and returns true if disabling GVN-PRE
