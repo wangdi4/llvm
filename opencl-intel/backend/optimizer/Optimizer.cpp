@@ -83,9 +83,8 @@ llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string 
 llvm::ModulePass* createDebugInfoPass();
 llvm::ModulePass *createReduceAlignmentPass();
 llvm::ModulePass* createProfilingInfoPass();
-llvm::Pass *createSmartGVNPass();
+llvm::Pass *createSmartGVNPass(bool);
 #endif
-llvm::FunctionPass *createMemoryDependenceAnalysisPass(int BlockScanLimit);
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectFuncPtrCalls();
 llvm::ModulePass *createDetectRecursionPass();
@@ -312,7 +311,6 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   bool isProfiling = pConfig->GetProfilingFlag();
   bool DisableSimplifyLibCalls = true;
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
-  int BlockSizeLimit = 500;
   DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
 #ifndef __APPLE__
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
@@ -392,8 +390,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   // to optimize redundancy introduced by those passes
   if ( debugType == intel::None ) {
     PM.add(llvm::createInstructionCombiningPass());
-    PM.add(llvm::createMemoryDependenceAnalysisPass(BlockSizeLimit));
-    PM.add(llvm::createGVNPass());
+    PM.add(createSmartGVNPass(false));
   }
 #ifndef __APPLE__
   // The debugType enum and isProfiling flag are mutually exclusive, with precedence
@@ -534,8 +531,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
     PM.add(llvm::createInstructionCombiningPass());       // Instruction combining
     PM.add(llvm::createDeadStoreEliminationPass());       // Eliminated dead stores
     PM.add(llvm::createEarlyCSEPass());
-    PM.add(llvm::createMemoryDependenceAnalysisPass(BlockSizeLimit));
-    PM.add(createSmartGVNPass());
+    PM.add(createSmartGVNPass(true)); // GVN with "no load" heuristic
 
 #ifdef _DEBUG
     PM.add(llvm::createVerifierPass());
@@ -559,8 +555,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
       PM.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
       PM.add(llvm::createInstructionCombiningPass());       // Instruction combining
-      PM.add(llvm::createMemoryDependenceAnalysisPass(BlockSizeLimit));
-      PM.add(llvm::createGVNPass());
+      PM.add(createSmartGVNPass(false));
 #ifdef _DEBUG
       PM.add(llvm::createVerifierPass());
 #endif

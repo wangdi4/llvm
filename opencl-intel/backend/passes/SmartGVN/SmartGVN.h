@@ -35,7 +35,10 @@ using namespace llvm;
 class SmartGVN : public ModulePass {
 public:
   static char ID;
-  SmartGVN();
+  /// @brief Constructor
+  /// @param doNoLoadAnalysis enables SmartGVN pass heuristic which decides
+  ///        if GVN should hoist load operations out of loops.
+  SmartGVN(bool doNoLoadAnalysis = false);
   /// @brief execute pass on given module
   /// @param M module to optimize
   /// @returns True if module was modified
@@ -54,6 +57,9 @@ protected:
   /// some cases.
   /// @param func  Function to analyse.
   bool isNoLoadsCandidate(Function *func);
+  /// noLoadAnalysis - true if SmartGVN is supposed to do additional analysis
+  /// and configure NoLoad parameter of GVN pass.
+  bool noLoadAnalysis;
 };
 
 } // namespace intel
