@@ -1513,7 +1513,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             if (NULL != paramVal)
             {
-                *(cl_uint*)paramVal = (cl_uint)-1;    // I don't see a reason to limit this
+                *(cl_uint*)paramVal = 1024;    // The same value as for GEN
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE:
