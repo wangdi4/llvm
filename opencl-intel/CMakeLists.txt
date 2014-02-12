@@ -303,7 +303,7 @@ project(OCL)
 set( BUILDVER_WC_REVISION 0)
 if (GIT_REVISIONS)
     find_package(Git REQUIRED)
-    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --long
+    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --long --match=trunk
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                     OUTPUT_VARIABLE GIT_DESCRIPTION)
     STRING(REGEX MATCH ".+-([0-9]*)-[0-9a-zA-Z]+" GIT_VERSION ${GIT_DESCRIPTION})
