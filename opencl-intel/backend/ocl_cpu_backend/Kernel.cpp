@@ -174,6 +174,8 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
       unsigned int globalWorkSizeX = UniformImplicitArgs->GlobalSize[0];
       unsigned int localSizeUpperLimit = min(globalWorkSizeX,
             m_pProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE));
+      assert(0 < localSizeUpperLimit &&
+             "clEnqueueNDRangeKernel must fail with CL_OUT_OF_RESOURCES earlier.");
 
       unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
       assert(minMultiplyFactor &&
