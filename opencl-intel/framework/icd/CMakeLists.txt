@@ -25,7 +25,7 @@ add_library (${TARGET_NAME} SHARED ${TARGET_SOURCES})
 
 if (NOT WIN32)
     if(NOT ANDROID)
-        set_target_properties (OpenCL PROPERTIES VERSION "1.2" SOVERSION "1")
+        set_target_properties (OpenCL PROPERTIES VERSION "2.0" SOVERSION "2")
     endif(NOT ANDROID)
     set_target_properties (OpenCL PROPERTIES LINK_FLAGS "-Wl,--version-script -Wl,${CMAKE_CURRENT_SOURCE_DIR}/icd_exports.map")
 endif(NOT WIN32)

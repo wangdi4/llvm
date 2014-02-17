@@ -36,7 +36,6 @@ extern "C" {
 
 #include <cassert>
 #include "CL/cl.h"
-#include "CL/cl_2_0.h"
 
 #define IN
 #define OUT

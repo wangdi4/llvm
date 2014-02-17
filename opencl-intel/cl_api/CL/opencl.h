@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008-2012 The Khronos Group Inc.
+ * Copyright (c) 2008-2013 The Khronos Group Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and/or associated documentation files (the
@@ -36,14 +36,14 @@ extern "C" {
 #include <OpenCL/cl_gl.h>
 #include <OpenCL/cl_gl_ext.h>
 #include <OpenCL/cl_ext.h>
-#include <OpenCL/cl_2_0.h>
+
 #else
 
 #include <CL/cl.h>
 #include <CL/cl_gl.h>
 #include <CL/cl_gl_ext.h>
 #include <CL/cl_ext.h>
-#include <CL/cl_2_0.h>
+
 #endif
 
 #ifdef __cplusplus
