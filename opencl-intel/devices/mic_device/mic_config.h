@@ -114,7 +114,7 @@ public:
 
     bool           Device_ForceBuffersPinning()    const { return m_pConfigFile->Read<bool>(CL_CONFIG_MIC_DEVICE_FORCE_BUFFERS_PINNING_ON_HOST, false); }
 
-    size_t         Device_Initial2MBPoolSizeInMB()  const { return m_pConfigFile->Read<size_t>(CL_CONFIG_MIC_DEVICE_2MB_POOL_INIT_SIZE_MB, 3072); }
+    size_t         Device_Initial2MBPoolSizeInMB()  const { return m_pConfigFile->Read<size_t>(CL_CONFIG_MIC_DEVICE_2MB_POOL_INIT_SIZE_MB, 100); }
 
     string         Device_offloadDevices()  const { return m_pConfigFile->Read<string>(OFFLOAD_DEVICES, ""); }
 
