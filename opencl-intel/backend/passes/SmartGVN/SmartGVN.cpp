@@ -46,7 +46,7 @@ cl::desc("The percentage of load instructions in a basic block which disables "
 
 namespace intel {
 
-SmartGVN::SmartGVN() : ModulePass(ID)
+SmartGVN::SmartGVN(bool doNoLoadAnalysis) : ModulePass(ID), noLoadAnalysis(doNoLoadAnalysis)
 {}
 
 bool SmartGVN::runOnModule(Module &M)
@@ -55,12 +55,14 @@ bool SmartGVN::runOnModule(Module &M)
   // parameter "on" or "off".
 
   bool GVNNoLoads = false;
-  // Go over all functions in the module
-  for (Module::iterator i = M.begin(), e = M.end(); i != e; ++i) {
-    // Ignore declarations.
-    if (i->isDeclaration()) continue;
+  if (noLoadAnalysis) {
+    // Go over all functions in the module
+    for (Module::iterator i = M.begin(), e = M.end(); i != e; ++i) {
+      // Ignore declarations.
+      if (i->isDeclaration()) continue;
 
-    GVNNoLoads = GVNNoLoads || isNoLoadsCandidate(i);
+      GVNNoLoads = GVNNoLoads || isNoLoadsCandidate(i);
+    }
   }
 
   { // With NoLoads option on - it will not hoist loads out of the loops.
@@ -71,6 +73,7 @@ bool SmartGVN::runOnModule(Module &M)
     pm.add(new DataLayout(&M));
 #endif
     pm.add(llvm::createBasicAliasAnalysisPass());
+    pm.add(llvm::createMemoryDependenceAnalysisPass(500));
     pm.add(llvm::createGVNPass(GVNNoLoads));
     pm.run(M);
   }
@@ -116,9 +119,9 @@ OCL_INITIALIZE_PASS(SmartGVN, "SmartGVN", "Smart GVN", false, false)
 } // Namespace intel
 
 extern "C" {
-llvm::ModulePass *createSmartGVNPass()
+llvm::ModulePass *createSmartGVNPass(bool doNoLoadAnalysis)
 {
-  return new intel::SmartGVN();
+  return new intel::SmartGVN(doNoLoadAnalysis);
 }
 }
 

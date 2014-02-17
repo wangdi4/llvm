@@ -33,6 +33,12 @@
 #define ALWAYS_INLINE __attribute__((always_inline))
 #define OVERLOADABLE __attribute__((overloadable))
 
+// CSSD100017148 workaround:
+//    Enable build of pipe_functions.c for OpenCL 1.2 by replacing "pipe int" with "__global struct pipe_t *".
+//    The workaround relies on BuiltInFuncImport pass which maps different structure types of the same arguments.
+//    Look for CSSD100017148 in src/backend/passes/BuiltInFuncImport/BuiltInFuncImport.cpp
+#define PIPE_T __global struct pipe_t*
+
 // There are no declarations of OpenCL 2.0 builtins in opencl_.h for named address space
 // but in the library they has to be called directly because the library
 // won't be handled by "Generic Address Resolution" passes. So declare them here.
@@ -202,7 +208,7 @@ ALWAYS_INLINE static void intel_unlock_pipe_write( __global pipe_control_intel_t
 //
 // NOTE: Built-ins with opaque types in the argument lists must always be inlined if they are called by other built-ins.
 //       Otherwise LLVM Module Verifier fails at BuiltInFuncImport pass.
-ALWAYS_INLINE reserve_id_t RESERVE_READ_PIPE( pipe int pipe_, uint num_packets, uint size_of_packet )
+ALWAYS_INLINE reserve_id_t RESERVE_READ_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: reserve_read_pipe( num_packets = %d)\n", num_packets );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -270,7 +276,7 @@ ALWAYS_INLINE reserve_id_t RESERVE_READ_PIPE( pipe int pipe_, uint num_packets, 
   return retVal;
 }
 
-ALWAYS_INLINE reserve_id_t RESERVE_WRITE_PIPE( pipe int pipe_, uint num_packets, uint size_of_packet )
+ALWAYS_INLINE reserve_id_t RESERVE_WRITE_PIPE( PIPE_T pipe_, uint num_packets, uint size_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: reserve_write_pipe( num_packets = %d)\n", num_packets );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -336,7 +342,7 @@ ALWAYS_INLINE reserve_id_t RESERVE_WRITE_PIPE( pipe int pipe_, uint num_packets,
   return retVal;
 }
 
-ALWAYS_INLINE void COMMIT_READ_PIPE( pipe int pipe_, reserve_id_t reserve_id, uint size_of_packet )
+ALWAYS_INLINE void COMMIT_READ_PIPE( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: commit_read_pipe( reserve_id = %08X)\n", reserve_id );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -345,7 +351,7 @@ ALWAYS_INLINE void COMMIT_READ_PIPE( pipe int pipe_, reserve_id_t reserve_id, ui
   INTEL_PIPE_DPF( "EXIT: commit_read_pipe\n" );
 }
 
-ALWAYS_INLINE void COMMIT_WRITE_PIPE( pipe int pipe_, reserve_id_t reserve_id, uint size_of_packet )
+ALWAYS_INLINE void COMMIT_WRITE_PIPE( PIPE_T pipe_, reserve_id_t reserve_id, uint size_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: commit_write_pipe( reserve_id = %08X)\n", reserve_id );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -360,7 +366,7 @@ ALWAYS_INLINE void COMMIT_WRITE_PIPE( pipe int pipe_, reserve_id_t reserve_id, u
 // The reservation functions lock the pipe, so we don't need to
 // re-lock here.
 
-int READ_PIPE_4(GLOBAL)( pipe int pipe_, reserve_id_t reserve_id, uint index, __global const void* data, uint size_of_packet)
+int READ_PIPE_4(GLOBAL)( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __global const void* data, uint size_of_packet)
 {
   INTEL_PIPE_DPF( "ENTER: read_pipe( reserve_id = %08X, index = %d)\n", reserve_id, index );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -380,7 +386,7 @@ int READ_PIPE_4(GLOBAL)( pipe int pipe_, reserve_id_t reserve_id, uint index, __
 }
 
 // write_pipe with 4 explicit arguments
-int WRITE_PIPE_4(GLOBAL)( pipe int pipe_, reserve_id_t reserve_id, uint index, __global const void* data, uint size_of_packet)
+int WRITE_PIPE_4(GLOBAL)( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __global const void* data, uint size_of_packet)
 {
   INTEL_PIPE_DPF( "ENTER: write_pipe( reserve_id = %08X, index = %d)\n", reserve_id, index );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -402,7 +408,7 @@ int WRITE_PIPE_4(GLOBAL)( pipe int pipe_, reserve_id_t reserve_id, uint index, _
 /////////////////////////////////////////////////////////////////////
 // Basic Reads and Writes
 
-int READ_PIPE_2(GLOBAL)( pipe int pipe_, __global const void* data, uint size_of_packet)
+int READ_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_packet)
 {
   __global pipe_control_intel_t* p = PTOC(pipe_);
   INTEL_PIPE_DPF( "ENTER: read_pipe\n" );
@@ -459,7 +465,7 @@ int READ_PIPE_2(GLOBAL)( pipe int pipe_, __global const void* data, uint size_of
   return retVal;
 }
 
-int WRITE_PIPE_2(GLOBAL)( pipe int pipe_, __global const void* data, uint size_of_packet )
+int WRITE_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_packet )
 {
   INTEL_PIPE_DPF( "ENTER: write_pipe\n" );
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -522,7 +528,7 @@ bool OVERLOADABLE is_valid_reserve_id( reserve_id_t reserve_id )
 
 /////////////////////////////////////////////////////////////////////
 // Pipe Queries
-uint GET_PIPE_NUM_PACKETS( pipe int pipe_, uint size_of_packet )
+uint GET_PIPE_NUM_PACKETS( PIPE_T pipe_, uint size_of_packet )
 {
   (void)size_of_packet; // Avoid warning about unused variable.
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -536,7 +542,7 @@ uint GET_PIPE_NUM_PACKETS( pipe int pipe_, uint size_of_packet )
                  (uint)(head <= tail) );
 }
 
-uint GET_PIPE_MAX_PACKETS( pipe int pipe_, uint size_of_packet )
+uint GET_PIPE_MAX_PACKETS( PIPE_T pipe_, uint size_of_packet )
 {
   (void)size_of_packet; // Avoid warning about unused variable.
   __global pipe_control_intel_t* p = PTOC(pipe_);
@@ -547,22 +553,22 @@ uint GET_PIPE_MAX_PACKETS( pipe int pipe_, uint size_of_packet )
 // WG functions are handled by the barrier pass so that
 // they are called once per WG.
 
-reserve_id_t WORK_GROUP_RESERVE_READ_PIPE( pipe int p, uint num_packets, uint size_of_packet )
+reserve_id_t WORK_GROUP_RESERVE_READ_PIPE( PIPE_T p, uint num_packets, uint size_of_packet )
 {
   return RESERVE_READ_PIPE( p, num_packets, size_of_packet );
 }
 
-reserve_id_t WORK_GROUP_RESERVE_WRITE_PIPE( pipe int p, uint num_packets, uint size_of_packet )
+reserve_id_t WORK_GROUP_RESERVE_WRITE_PIPE( PIPE_T p, uint num_packets, uint size_of_packet )
 {
   return RESERVE_WRITE_PIPE( p, num_packets, size_of_packet );
 }
 
-void WORK_GROUP_COMMIT_READ_PIPE( pipe int p, reserve_id_t reserve_id, uint size_of_packet )
+void WORK_GROUP_COMMIT_READ_PIPE( PIPE_T p, reserve_id_t reserve_id, uint size_of_packet )
 {
   COMMIT_READ_PIPE( p, reserve_id, size_of_packet );
 }
 
-void WORK_GROUP_COMMIT_WRITE_PIPE( pipe int p, reserve_id_t reserve_id, uint size_of_packet )
+void WORK_GROUP_COMMIT_WRITE_PIPE( PIPE_T p, reserve_id_t reserve_id, uint size_of_packet )
 {
   COMMIT_WRITE_PIPE( p, reserve_id, size_of_packet );
 }
@@ -572,48 +578,48 @@ void WORK_GROUP_COMMIT_WRITE_PIPE( pipe int p, reserve_id_t reserve_id, uint siz
 
 // read_pipe(pipe gentype p, gentype *data);
 // private
-int READ_PIPE_2(PRIVATE)( pipe int p, __private const void* data, uint size_of_packet)
+int READ_PIPE_2(PRIVATE)( PIPE_T p, __private const void* data, uint size_of_packet)
 {
   return READ_PIPE_2(GLOBAL)(p, (__global const void*)data, size_of_packet);
 }
 // local
-int READ_PIPE_2(LOCAL)( pipe int p, __local const void* data, uint size_of_packet)
+int READ_PIPE_2(LOCAL)( PIPE_T p, __local const void* data, uint size_of_packet)
 {
   return READ_PIPE_2(GLOBAL)(p, (__global const void*)data, size_of_packet);
 }
 
 // read_pipe(pipe gentype p, reserve_id_t reserve_id, uint index, gentype *data);
 // private
-int READ_PIPE_4(PRIVATE)( pipe int p, reserve_id_t reserve_id, uint index, __private void* data, uint size_of_packet)
+int READ_PIPE_4(PRIVATE)( PIPE_T p, reserve_id_t reserve_id, uint index, __private void* data, uint size_of_packet)
 {
   return READ_PIPE_4(GLOBAL)(p, reserve_id, index, (__global void*)data, size_of_packet);
 }
 // local
-int READ_PIPE_4(LOCAL)( pipe int p, reserve_id_t reserve_id, uint index, __local void* data, uint size_of_packet)
+int READ_PIPE_4(LOCAL)( PIPE_T p, reserve_id_t reserve_id, uint index, __local void* data, uint size_of_packet)
 {
   return READ_PIPE_4(GLOBAL)(p, reserve_id, index, (__global void*)data, size_of_packet);
 }
 
 // write_pipe(pipe gentype p, gentype *data);
 // private
-int WRITE_PIPE_2(PRIVATE)( pipe int p, __private const void* data, uint size_of_packet)
+int WRITE_PIPE_2(PRIVATE)( PIPE_T p, __private const void* data, uint size_of_packet)
 {
   return WRITE_PIPE_2(GLOBAL)(p, (__global const void*)data, size_of_packet);
 }
 // local
-int WRITE_PIPE_2(LOCAL)( pipe int p, __local const void* data, uint size_of_packet)
+int WRITE_PIPE_2(LOCAL)( PIPE_T p, __local const void* data, uint size_of_packet)
 {
   return WRITE_PIPE_2(GLOBAL)(p, (__global const void*)data, size_of_packet);
 }
 
 // write_pipe(pipe gentype p, reserve_id_t reserve_id, uint index, gentype *data);
 // private
-int WRITE_PIPE_4(PRIVATE)( pipe int p, reserve_id_t reserve_id, uint index, __private const void* data, uint size_of_packet)
+int WRITE_PIPE_4(PRIVATE)( PIPE_T p, reserve_id_t reserve_id, uint index, __private const void* data, uint size_of_packet)
 {
   return WRITE_PIPE_4(GLOBAL)(p, reserve_id, index, (__global const void*)data, size_of_packet);
 }
 // local
-int WRITE_PIPE_4(LOCAL)( pipe int p, reserve_id_t reserve_id, uint index, __local const void* data, uint size_of_packet)
+int WRITE_PIPE_4(LOCAL)( PIPE_T p, reserve_id_t reserve_id, uint index, __local const void* data, uint size_of_packet)
 {
   return WRITE_PIPE_4(GLOBAL)(p, reserve_id, index, (__global const void*)data, size_of_packet);
 }
