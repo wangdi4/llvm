@@ -96,6 +96,32 @@ define <16 x double> @masked_gather.v16f64 (<16 x i1> %mask, double* %addr,
 }
 
 ;; ------------------------------------
+;;       Gather for char
+;; ------------------------------------
+define <16 x i8> @masked_gather.v16i8 (<16 x i1> %mask, i8* %ptr, <16 x i32>%index) {
+  %imask = bitcast <16 x i1> %mask to i16
+  %t0 = call <16 x i32>  @llvm.x86.avx512.gather.dpi.mask.512(<16 x i32> undef,
+                                               i16 %imask,
+                                               <16 x i32> %index, i8* %ptr,
+                                               i32 1) ; scale 1
+  %t1 = trunc <16 x i32> %t0 to <16 x i8>
+  ret <16 x i8> %t1
+}
+
+;; ------------------------------------
+;;       Gather for short
+;; ------------------------------------
+define <16 x i16> @masked_gather.v16i16 (<16 x i1> %mask, i16* %addr, <16 x i32>%index) {
+  %imask = bitcast <16 x i1> %mask to i16
+  %ptr = bitcast i16 *%addr to i8*
+  %t0 = call <16 x i32>  @llvm.x86.avx512.gather.dpi.mask.512(<16 x i32> undef,
+                                               i16 %imask,
+                                               <16 x i32> %index, i8* %ptr,
+                                               i32 2) ; scale 2
+  %t1 = trunc <16 x i32> %t0 to <16 x i16>
+  ret <16 x i16> %t1
+}
+;; ------------------------------------
 ;;       Gather for int
 ;; ------------------------------------
 define <16 x i32> @gather.v16i32 (i32* %addr, <16 x i32>%index) {
