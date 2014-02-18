@@ -45,7 +45,7 @@ OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(VectorizationPossibilityPass, "vectorpossible", "Check whether vectorization is possible", false, false)
 
 
-const float WeightedInstCounter::RATIO_MULTIPLIER = 1;
+const float WeightedInstCounter::RATIO_MULTIPLIER = 0.98;
 const float WeightedInstCounter::ALL_ZERO_LOOP_PENALTY = 0;
 const float WeightedInstCounter::TID_EQUALITY_PENALTY = 0.1f;
 

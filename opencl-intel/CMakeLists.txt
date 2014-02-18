@@ -330,7 +330,7 @@ file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 #endif\n
 #define BUILDVERSION16BIT_MAJOR ${BUILDVER_16_BIT_MAJOR}\n
 #define BUILDVERSION16BIT_MINOR ${BUILDVER_16_BIT_MINOR}\n
-#define VERSIONSTRING \"4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
+#define VERSIONSTRING \"4.1.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
 #define IOCVERSIONSTRING \"1.4.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
 #define KBVERSIONSTRING \"1.2.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
 
@@ -338,7 +338,7 @@ if(WIN32)
     file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=3.1.${BUILDVER_WC_REVISION}")
     install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
-file(WRITE ${OCL_BINARY_DIR}/version.txt "4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}")
+file(WRITE ${OCL_BINARY_DIR}/version.txt "4.1.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}")
 
 #copy the version file to install folder
 install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
@@ -555,6 +555,9 @@ if (WIN32)
     install(DIRECTORY tools/ocl_dev/OCLConverter2012/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter2012 PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/ocl_dev/OCLConverter2013/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter2013 PATTERN .svn EXCLUDE)
 
+    install(DIRECTORY tools/OfflineCompiler/OpenCLWizard/Installer/VS2010    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartInstaller PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OfflineCompiler/OpenCLWizard/Installer/VS2012    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartInstaller PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OfflineCompiler/OpenCLWizard/Installer/VS2013    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartInstaller PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/IncludeFiles/opencv2/core    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples/IncludeFiles/opencv2 PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/IncludeFiles/opencv2/highgui DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples/IncludeFiles/opencv2 PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/IncludeFiles/opencv2/imgproc DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples/IncludeFiles/opencv2 PATTERN .svn EXCLUDE)
@@ -563,11 +566,11 @@ if (WIN32)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/LibFiles/x86/vc10 DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples/LibFiles/x86 PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/LibFiles/x86/vc11 DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples/LibFiles/x86 PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/CommonFiles    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/ConvertRGB2YUV DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/BlockMaxFilter DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/BoxFilter      DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/DilateFilter   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/RowFilter      DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/convert_rgb_to_yuv DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/block_max_filter DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/box_filter      DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/dilate_filter   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/row_filter      DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate               DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration                  PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/VCProjects_2010  DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/VCProjects_2012  DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard PATTERN .svn EXCLUDE)
