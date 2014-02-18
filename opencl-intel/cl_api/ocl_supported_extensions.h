@@ -26,11 +26,16 @@
 
 #define OCL_COMMON_SUPPORTED_EXTENSIONS "cl_khr_icd cl_khr_global_int32_base_atomics "\
     "cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics "\
-    "cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store "\
-    "cl_khr_spir"
+    "cl_khr_local_int32_extended_atomics cl_khr_byte_addressable_store"    
+
+#if defined(__ANDROID__)
+#define OCL_SPIR
+#else
+#define OCL_SPIR "cl_khr_spir "
+#endif
 
 #define OCL_COMMON_SUPPORTED_EXTENSIONS_CPU OCL_COMMON_SUPPORTED_EXTENSIONS " "\
-	"cl_intel_exec_by_local_thread cl_khr_depth_images cl_khr_3d_image_writes"
+	OCL_SPIR "cl_intel_exec_by_local_thread cl_khr_depth_images cl_khr_3d_image_writes"
 
 #define OCL_COMMON_SUPPORTED_EXTENSTIONS_2_0 "cl_khr_image2d_from_buffer"
 
@@ -77,7 +82,7 @@ static const char OCL_SUPPORTED_EXTENSIONS_ATOM_2_0[] =
     ;
 
 static const char OCL_SUPPORTED_EXTENSIONS_KNC_1_2[] =
-    OCL_COMMON_SUPPORTED_EXTENSIONS " "
+    OCL_COMMON_SUPPORTED_EXTENSIONS " " OCL_SPIR
 #if defined __DOUBLE_ENABLED__
     OCL_DOUBLE " "
 #endif
