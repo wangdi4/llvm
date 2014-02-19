@@ -191,7 +191,7 @@ find_package(LLVM REQUIRED)
 
 # QTGUI
 if (BUILD_QTGUI AND NOT ANDROID)
-    set( QT_VERSION "4.8.1" )
+    set( QT_VERSION "4.8.5" )
     if(DEFINED QT_REVISION) # QT_REVISION is a variable that can be defined in Build.py. It is not defined by default.
        set( QT_VERSION ${QT_REVISION})
     endif()
