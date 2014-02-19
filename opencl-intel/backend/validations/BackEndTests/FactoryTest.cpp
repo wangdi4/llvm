@@ -205,6 +205,7 @@ TEST_F(BackEndTests_FactoryMethods, ExecutionServiceFailure)
 }
 
 
+#if defined(INCLUDE_MIC_DEVICE)
 
 TEST_F(BackEndTests_FactoryMethods, SerializationServiceCreation)
 {
@@ -236,6 +237,7 @@ TEST_F(BackEndTests_FactoryMethods, SerializationServiceCreation)
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
 }
 
+#endif
 
 
 TEST_F(BackEndTests_FactoryMethods, SerializationServiceFailure)
@@ -281,6 +283,7 @@ TEST_F(BackEndTests_FactoryMethods, SerializationServiceFailure)
     EXPECT_NE(CL_DEV_SUCCESS, ret);
 
 
+#if defined(INCLUDE_MIC_DEVICE)
     //-----------------------------------------------------------------
     // create another set of options - invalid jit allocator pointer
     options.InitFromTestConfiguration(BW_MIC_DEVICE,MIC_ARCH, NULL);
@@ -291,7 +294,7 @@ TEST_F(BackEndTests_FactoryMethods, SerializationServiceFailure)
     //call GetSerializationService with Options invalid - should fail
     ret = funcGetFactory->GetSerializationService(&options, spSerializationService.getOutPtr());
     EXPECT_NE(CL_DEV_SUCCESS, ret);
-
+#endif
 
     //-----------------------------------------------------------------
     // test invalid parameters to the actuall GetSerializationService
