@@ -38,22 +38,22 @@ OclBuiltinImpl isnan_v8f64 = OclBuiltinImpl<isnan, [v8f64], 0, [{
   }]>;
 
 OclBuiltinImpl isordered_v16f32 = OclBuiltinImpl<isordered, [v16f32], 0, [{
-    __mmask16 maskResult = _mm512_cmp_ps_mask($Arg0VarName, $Arg0VarName, _CMP_ORD_Q);
+    __mmask16 maskResult = _mm512_cmp_ps_mask($Arg0VarName, $Arg1VarName, _CMP_ORD_Q);
     return as_$ReturnType(_mm512_maskz_set1_epi32(maskResult, (int)-1));
   }]>;
 
 OclBuiltinImpl isordered_v8f64 = OclBuiltinImpl<isordered, [v8f64], 0, [{
-    __mmask8 maskResult = _mm512_cmp_pd_mask($Arg0VarName, $Arg0VarName, _CMP_ORD_Q);
+    __mmask8 maskResult = _mm512_cmp_pd_mask($Arg0VarName, $Arg1VarName, _CMP_ORD_Q);
     return as_$ReturnType(_mm512_maskz_set1_epi64(maskResult, (long long)-1));
   }]>;
 
 OclBuiltinImpl isunordered_v16f32 = OclBuiltinImpl<isunordered, [v16f32], 0, [{
-    __mmask16 maskResult = _mm512_cmp_ps_mask($Arg0VarName, $Arg0VarName, _CMP_UNORD_S);
+    __mmask16 maskResult = _mm512_cmp_ps_mask($Arg0VarName, $Arg1VarName, _CMP_UNORD_S);
     return as_$ReturnType(_mm512_maskz_set1_epi32(maskResult, (int)-1));
   }]>;
 
 OclBuiltinImpl isunordered_v8f64 = OclBuiltinImpl<isunordered, [v8f64], 0, [{
-    __mmask8 maskResult = _mm512_cmp_pd_mask($Arg0VarName, $Arg0VarName, _CMP_UNORD_S);
+    __mmask8 maskResult = _mm512_cmp_pd_mask($Arg0VarName, $Arg1VarName, _CMP_UNORD_S);
     return as_$ReturnType(_mm512_maskz_set1_epi64(maskResult, (long long)-1));
   }]>;
 
