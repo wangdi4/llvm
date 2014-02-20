@@ -22,6 +22,7 @@ File Name:  CPUBlockToKernelMapper.cpp
 #include "Kernel.h"
 #include "CPUBlockToKernelMapper.h"
 #include "BlockUtils.h"
+#include "exceptions.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
@@ -76,9 +77,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   
   const ICLDevBackendKernel_ * CPUBlockToKernelMapper::Map(const void * key) const
   {
-    assert(m_map.find(key) != m_map.end() && 
+    std::map<const void *, const ICLDevBackendKernel_ *>::const_iterator it = m_map.find(key);
+    assert(it != m_map.end() && 
       "CPUBlockToKernelMapper not found key in map. Key must be in map");
-    return m_map.find(key)->second;
+    if(it == m_map.end())
+      throw Exceptions::DeviceBackendExceptionBase(
+        std::string("CPUBlockToKernelMapper not found key in map. Key must be in map"));
+    return it->second;
   }
 
 
