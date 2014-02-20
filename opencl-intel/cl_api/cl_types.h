@@ -302,4 +302,24 @@ enum {
     CLK_UNORM_INT24         =0x10DF
 };
 
+typedef void*               queue_t;
+typedef void*               clk_event_t;
+
+// default is CLK_ENQUEUE_FLAGS_WAIT_KERNEL
+typedef int                 kernel_enqueue_flags_t;
+#define CLK_ENQUEUE_FLAGS_WAIT_KERNEL               (cl_uint)0
+#define CLK_ENQUEUE_FLAGS_NO_WAIT                   (cl_uint)1
+#define CLK_ENQUEUE_FLAGS_WAIT_WORK_GROUP           (cl_uint)2
+
+enum clk_profiling_info
+{
+    CLK_PROFILING_COMMAND_EXEC_TIME = 1
+};
+
+#define CL_EVENT_ALLOCATION_FAILURE                 -100
+#define CL_ENQUEUE_FAILURE                          -101
+#define CL_INVALID_QUEUE                            -102
+#define CL_INVALID_PIPE_SIZE                        -69
+#define CL_INVALID_DEVICE_QUEUE                     -70
+
 #include "cl_types2.h"

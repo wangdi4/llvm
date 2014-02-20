@@ -1200,16 +1200,21 @@ namespace intel {
       //Vectorized is running in all scenarios.
       int vecWidth = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
       unsigned int strideSize = m_pDataPerValue->getStrideSize(pFunc);
+      strideSize = (strideSize + vecWidth - 1) / vecWidth;
+
       //Need to check if NoBarrierPath Value exists, it is not guaranteed that
       //KernelAnalysisPass is running in all scenarios.
       if (kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath()) {
         kimd->setBarrierBufferSize(0);
       } else {
-        strideSize = (strideSize + vecWidth - 1) / vecWidth;
         kimd->setBarrierBufferSize(strideSize);
       }
 
-      // CSSD100016517: workaround
+      // CSSD100016517, CSSD100018743: workaround
+      // Private memory is always considered to be non-uniform. I.e. it is not shared by each WI per vector lane.
+      // If it is uniform (i.e. its content doesn't depend on non-uniform values) the private memory
+      // querry returns a smaller value than actual private memory usage. This sublte is taken into account
+      // in the querry for the maximum work-group.
       kimd->setPrivateMemorySize(strideSize);
     }
     mdUtils.save(M.getContext());

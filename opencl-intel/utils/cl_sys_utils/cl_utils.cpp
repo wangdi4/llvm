@@ -28,7 +28,6 @@
 #include "cl_utils.h"
 #include "cl_sys_info.h"
 #include <CL/cl.h>
-#include <CL/cl_2_0.h>
 #include <cassert>
 #include <stdint.h>
 #include <sys/stat.h>

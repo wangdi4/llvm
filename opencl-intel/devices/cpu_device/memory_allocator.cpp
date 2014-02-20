@@ -32,7 +32,6 @@
 #include "cpu_dev_limits.h"
 #include "cpu_device.h"
 #include "cl_sys_defines.h"
-#include "CL/cl_2_0.h"
 
 #include<stdlib.h>
 
