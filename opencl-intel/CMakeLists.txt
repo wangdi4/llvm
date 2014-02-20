@@ -245,7 +245,9 @@ if (BUILD_QTGUI AND NOT ANDROID)
         else(BUILD_X64)
             execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions\\${QT_VERSION} /v InstallDir /d c:\\qt\\${QT_VERSION}\\vs2012 /f)
         endif(BUILD_X64)
-    endif()
+    else(WIN32)
+        add_path("/usr/local/DigiaQtCommercialSDK/Desktop/${QT_VERSION}/gcc-64/bin")
+    endif(WIN32)
     
     find_package( Qt4 REQUIRED)
 

@@ -288,6 +288,19 @@ function( remove_path PATHARG )
     set(ENV{PATH} "${NEW_PATH}")
 endfunction( remove_path )
 
+#
+# Adds the given path to the PATH environment 
+# Usage: add_path( PATH )
+#
+function( add_path PATHARG )
+    if(NOT WIN32)
+        set(PATH_DELIMITER ":")
+    endif(NOT WIN32)
+    
+    set( NEW_PATH ${PATHARG}${PATH_DELIMITER} $ENV{PATH})
+    set( ENV{PATH} "${NEW_PATH}")
+endfunction( add_path )
+
 
 #
 # Replaces a compiler option or switch `old' in `var' by `new'.
