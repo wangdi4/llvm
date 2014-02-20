@@ -1053,7 +1053,7 @@ SET_ALIAS( clCreateCommandQueue );
 cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(
     cl_context                  context,
     cl_device_id                device,
-    cl_queue_properties         *properties,
+    const cl_queue_properties   *properties,
     cl_int *                    errcode_ret )
 {
     _cl_command_queue_crt*  queue_handle    = NULL;

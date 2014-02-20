@@ -21,7 +21,6 @@
 #pragma once
 
 #include "command_queue.h"
-#include "CL/cl_2_0.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 

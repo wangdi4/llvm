@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include "cl_types.h"
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 	class ICLDevBackendKernel_;
 	class ICLDevBackendBinary_;
