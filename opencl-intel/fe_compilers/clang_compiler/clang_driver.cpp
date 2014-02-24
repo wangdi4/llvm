@@ -90,14 +90,13 @@
 
 using namespace Intel::OpenCL::ClangFE;
 using namespace llvm;
-//#ifndef _WIN32
-using namespace clang;
-using namespace clang::frontend;
-//#endif
 using namespace Intel::OpenCL::Utils;
 
 #ifdef USE_COMMON_CLANG
 using namespace TC;
+#else
+using namespace clang;
+using namespace clang::frontend;
 #endif
 
 using namespace std;
