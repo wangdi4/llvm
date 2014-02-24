@@ -24,9 +24,22 @@ OclBuiltinImpl __ocl_float2half16_rtpA2 = OclBuiltinImpl<__ocl_float2half16_rtp,
   }]>;
 
 OclBuiltinImpl __ocl_double2half8_rteA2 = OclBuiltinImpl<__ocl_double8ToHalf8_rte, [v8f64], 0, [{
-    float8 f8 = _mm512_cvt_roundpd_ps($Arg0VarName,
-                                      _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT);
-    return as_$ReturnType(_mm256_cvtps_ph(f8, _MM_FROUND_TO_NEAREST_INT));
+    typedef union { double8 d; long8 ix; } double8_t;
+    double8_t x, j;
+    float8 f;
+    short8 h;
+    x.d = $Arg0VarName;
+    // The key point  is to set the 29 bit to 1 if any of bits 28:0 are 1
+    j.ix = x.ix + 0x1fffffff;
+    j.ix &= 0x20000000;
+    x.ix |= j.ix;
+    x.ix &= ~0x1fffffff;
+    f = convert_float8_rte(x.d);
+    vstore_half8_rte(f, 0, (__private half*)&h);
+    return as_float4(h);
+//    float8 f8 = _mm512_cvt_roundpd_ps($Arg0VarName,
+//                                      _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT);
+//    return as_$ReturnType(_mm256_cvtps_ph(f8, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
 OclBuiltinImpl __ocl_double2half8_rtpA2 = OclBuiltinImpl<__ocl_double8ToHalf8_rtp, [v8f64], 0, [{
