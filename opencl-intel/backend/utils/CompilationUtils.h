@@ -191,7 +191,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupScanInclusiveMax(const std::string&);
 
     static bool isWorkGroupBuiltin(const std::string&);
-    static bool isWorkGroupUniformBuiltin(const std::string&, const Module*);
+    static bool isWorkGroupAsyncOrPipeBuiltin(const std::string&, const Module*);
     static bool isWorkGroupScan(const std::string&);
     static bool isWorkGroupMin(const std::string&);
     static bool isWorkGroupMax(const std::string&);

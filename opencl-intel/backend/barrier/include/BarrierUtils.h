@@ -45,7 +45,7 @@ namespace intel {
 
   #define VECTORIZED_KERNEL_PREFIX "__Vectorized_."
 
-  #define FINALIZE_WG_FUNCTION_PREFIX "finalize_."
+  #define FINALIZE_WG_FUNCTION_PREFIX "__finalize_"
 
   #define CLK_LOCAL_MEM_FENCE (CL_LOCAL)
   #define CLK_GLOBAL_MEM_FENCE (CL_GLOBAL)
@@ -63,7 +63,7 @@ namespace intel {
 
   typedef enum {
     CALL_BI_TYPE_WG,
-    CALL_BI_TYPE_WG_UNIFORM,
+    CALL_BI_TYPE_WG_ASYNC_OR_PIPE, // work-group async_copy and pipe built-ins
     CALL_BI_NUM
   } CALL_BI_TYPE;
 

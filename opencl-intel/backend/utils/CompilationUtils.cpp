@@ -187,7 +187,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           /* work group built-ins */
           CompilationUtils::isWorkGroupBuiltin(func_name)  ||
           /* built-ins synced as if were called by a single work item */
-          CompilationUtils::isWorkGroupUniformBuiltin(func_name, pModule) ) {
+          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(func_name, pModule) ) {
             // Found synchronized built-in declared in the module add it to the container set.
             functionSet.insert(&*fi);
       }
@@ -919,7 +919,7 @@ bool CompilationUtils::isWorkGroupBuiltin(const std::string& S) {
          isWorkGroupScan(S);
 }
 
-bool CompilationUtils::isWorkGroupUniformBuiltin(const std::string& S, const Module* pModule) {
+bool CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(const std::string& S, const Module* pModule) {
   return CompilationUtils::isAsyncWorkGroupCopy(S) ||
          CompilationUtils::isAsyncWorkGroupStridedCopy(S) ||
          (OclVersion::CL_VER_2_0 <= getCLVersionFromModuleOrDefault(*pModule) && (

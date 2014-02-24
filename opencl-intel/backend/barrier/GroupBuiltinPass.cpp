@@ -234,15 +234,15 @@ namespace intel {
     //Initialize barrier utils class with current module
     m_util.init(&M);
 
-    // Handle async built-ins
-    TInstructionVector callWGUniformFunc = m_util.getWGCallInstructions(CALL_BI_TYPE_WG_UNIFORM);
-    for (unsigned idx = 0; idx < callWGUniformFunc.size(); idx++) {
-      CallInst *pWGUniformCallInst = cast<CallInst>(callWGUniformFunc[idx]);
+    // Handle async and pipe work-group built-ins
+    TInstructionVector callWGSimpleFunc = m_util.getWGCallInstructions(CALL_BI_TYPE_WG_ASYNC_OR_PIPE);
+    for (unsigned idx = 0; idx < callWGSimpleFunc.size(); idx++) {
+      CallInst *pWGSimpleCallInst = cast<CallInst>(callWGSimpleFunc[idx]);
       // Add Barrier before async function call instruction
-      m_util.createBarrier(pWGUniformCallInst);
+      m_util.createBarrier(pWGSimpleCallInst);
       // Add dummyBarrier after async function call instruction
       Instruction *pDummyBarrierCall = m_util.createDummyBarrier();
-      pDummyBarrierCall->insertAfter(pWGUniformCallInst);
+      pDummyBarrierCall->insertAfter(pWGSimpleCallInst);
     }
 
     // Handle WorkGroup built-ins
@@ -396,7 +396,7 @@ namespace intel {
       pDummyBarrierCall->insertBefore(func_it->second);
     }
 
-    return !callWGUniformFunc.empty() || !callWgFunc.empty();
+    return !callWGSimpleFunc.empty() || !callWgFunc.empty();
   }
 
 
