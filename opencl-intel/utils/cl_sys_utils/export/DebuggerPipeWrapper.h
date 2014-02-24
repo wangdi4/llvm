@@ -9,7 +9,6 @@
 class DebuggerPipeWrapper {
 public:
     DebuggerPipeWrapper();
-    ~DebuggerPipeWrapper();
     const bool init(std::string pipeName);
     const bool isDebuggingEnabled() const;
     const unsigned int getDebuggingPort() const;
