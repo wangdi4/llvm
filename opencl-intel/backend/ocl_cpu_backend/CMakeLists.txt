@@ -144,107 +144,85 @@ use_rtti(FALSE)
 
 # Create target project
 set (OCL_CPU_BACKEND_INCLUDE_FILES
+    # Interface
     IAbstractBackendFactory.h
     IDynamicFunctionsResolver.h
-    CPUDeviceBackendFactory.h
-    MICDeviceBackendFactory.h
-    ${OCL_CPU_BACKEND_DIR}/export/plugin_interface.h
-    TargetDescription.h
-    Logger.h
-    Compiler.h
-    CPUCompiler.h
-    MICCompiler.h
-    ServiceFactory.h
-    CompileService.h
-    CPUCompileService.h
-    MICCompileService.h
-    MICSerializationService.h
-    Serializer.h
-    ExecutionService.h
-    CPUExecutionService.h
+    IBlockToKernelMapper.h
+
     BackendConfiguration.h
-    CompilerConfig.h
-    MICCompilerConfig.h
-    ProgramBuilder.h
-    CPUProgramBuilder.h
-    MICProgramBuilder.h
-    BuiltinModuleManager.h
-    BuiltinModule.h
-    CPUBuiltinLibrary.h
-    MICBuiltinLibrary.h
-    Program.h
-    MICProgram.h
-    CPUProgram.h
     BitCodeContainer.h
-    ProgramContainerMemoryBuffer.h
-    ModuleJITHolder.h
-    Kernel.h
-    CPUKernel.h
-    MICKernel.h
-    KernelProperties.h
-    MICKernelProperties.h
+    BlockLiteral.h
+    BuiltinModule.h
+    BuiltinModuleManager.h
+    CPUBlockToKernelMapper.h
+    CPUBuiltinLibrary.h
+    CPUCompileService.h
+    CPUCompiler.h
+    CPUDeviceBackendFactory.h
+    CPUExecutionService.h
     CPUJITContainer.h
-    MICJITContainer.h
+    CPUKernel.h
+    CPUProgram.h
+    CPUProgramBuilder.h
+    CompileService.h
+    CompiledModule.h
+    Compiler.h
+    CompilerConfig.h
+    ExecutionService.h
     ImageCallbackLibrary.h
     ImageCallbackManager.h
     ImageCallbackServices.h
+    Kernel.h
+    KernelProperties.h
+    Program.h
+    ProgramBuilder.h
+    ProgramContainerMemoryBuffer.h
+    RuntimeService.h
+    Serializer.h
+    ServiceFactory.h
+    StaticObjectLoader.h
+    TargetDescription.h
+
     debuggingservicewrapper.h
     opencl_printf_ext.h
-    BlockLiteral.h
-    RuntimeService.h
-    IBlockToKernelMapper.h
-    CPUBlockToKernelMapper.h
-    CompiledModule.h
-    StaticObjectLoader.h
+    Logger.h
     ocl_mutex.h
+    ${OCL_CPU_BACKEND_DIR}/export/plugin_interface.h
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export/icldebuggingservice.h
     ${BACKEND_ROOT_DIR}/../externals/itt/include/jitprofiling.h
   )
 
 set (OCL_CPU_BACKEND_SOURCE_FILES
     CPUDeviceBackendFactory.cpp
-    MICDeviceBackendFactory.cpp
     shared_builtin_functions.cpp
     cpu_builtin_functions.cpp
-    mic_builtin_functions.cpp
     opencl20_ext_execution.cpp
     TargetDescription.cpp
     dllmain.cpp
     opencl_printf_ext.cpp
     opencl_cpu_printf_ext.cpp
-    opencl_mic_printf_ext.cpp
     Logger.cpp
     ServiceFactory.cpp
     CompileService.cpp
     CPUCompileService.cpp
-    MICCompileService.cpp
     ExecutionService.cpp
     CPUExecutionService.cpp
-    MICSerializationService.cpp
     BackendConfiguration.cpp
     ProgramBuilder.cpp
     Compiler.cpp
     CPUCompiler.cpp
-    MICCompiler.cpp
     CPUProgramBuilder.cpp
-    MICProgramBuilder.cpp
     BuiltinModuleManager.cpp
     BuiltinModule.cpp
     CPUBuiltinLibrary.cpp
-    MICBuiltinLibrary.cpp
     Program.cpp
-    MICProgram.cpp
     CPUProgram.cpp
     BitCodeContainer.cpp
     ProgramContainerMemoryBuffer.cpp
     Kernel.cpp
     CPUKernel.cpp
-    MICKernel.cpp
     KernelProperties.cpp
-    MICKernelProperties.cpp
     CPUJITContainer.cpp
-    MICJITContainer.cpp
-    ModuleJITHolder.cpp
     ImageCallbackLibrary.cpp
     ImageCallbackManager.cpp
     ImageCallbackServices.cpp
@@ -254,7 +232,40 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     ocl_mutex.cpp
   )
 
-if (ENABLE_SDE)
+if (INCLUDE_MIC_DEVICE)
+  list(APPEND OCL_CPU_BACKEND_INCLUDE_FILES
+    MICBuiltinLibrary.h
+    MICCompileService.h
+    MICCompiler.h
+    MICCompilerConfig.h
+    MICDeviceBackendFactory.h
+    MICJITContainer.h
+    MICKernel.h
+    MICKernelProperties.h
+    MICProgram.h
+    MICProgramBuilder.h
+    MICSerializationService.h
+    ModuleJITHolder.h
+  )
+
+  list(APPEND OCL_CPU_BACKEND_SOURCE_FILES
+    MICBuiltinLibrary.cpp
+    MICCompileService.cpp
+    MICCompiler.cpp
+    MICDeviceBackendFactory.cpp
+    MICJITContainer.cpp
+    MICKernel.cpp
+    MICKernelProperties.cpp
+    MICProgram.cpp
+    MICProgramBuilder.cpp
+    MICSerializationService.cpp
+    ModuleJITHolder.cpp
+    mic_builtin_functions.cpp
+    opencl_mic_printf_ext.cpp
+  )
+endif (INCLUDE_MIC_DEVICE)
+
+if (ENABLE_SDE AND INCLUDE_MIC_DEVICE)
   set(OCL_CPU_BACKEND_INCLUDE_FILES ${OCL_CPU_BACKEND_INCLUDE_FILES}
     ../ocl_mic_executor/MICDetect.h
     ../ocl_mic_executor/DynamicLibraryLoader.h
@@ -296,7 +307,6 @@ include_directories(
     ${BACKEND_ROOT_DIR}/../utils/cl_sys_utils/export
     ${BACKEND_ROOT_DIR}/arch_headers
     ${BACKEND_ROOT_DIR}/vectorizer/Utils
-    ${BACKEND_ROOT_DIR}/ocl_mic_executor
     ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/../externals/itt/include
     ${BACKEND_ROOT_DIR}/optimizer
@@ -307,10 +317,13 @@ include_directories(
     ${CMAKE_BINARY_DIR}/include/
     ${OCL_BINARY_DIR}
 )
+if (INCLUDE_MIC_DEVICE)
+  include_directories(
+    ${BACKEND_ROOT_DIR}/ocl_mic_executor
+  )
+endif (INCLUDE_MIC_DEVICE)
 
-link_directories( 
-            ${LLVM_LIBRARY_DIR}
-            )
+link_directories (${LLVM_LIBRARY_DIR})
 
 # Add additional link directories
 if( LLVM_USE_INTEL_JITEVENTS )
@@ -370,12 +383,17 @@ set( BACKEND_PASSES
     SmartGVN
 )
 
-target_link_libraries (${TARGET_NAME}
+set(UTILS_LIBS
     # Utils lib
     OclPluginManager
     OclOptimizer
-    LLVMMICCodeGenerationEngine
-    
+)
+if (INCLUDE_MIC_DEVICE)
+  list (APPEND UTILS_LIBS LLVMMICCodeGenerationEngine)
+endif (INCLUDE_MIC_DEVICE)
+
+target_link_libraries (${TARGET_NAME}
+    ${UTILS_LIBS}
     # internal passes
     ${BACKEND_PASSES}
 

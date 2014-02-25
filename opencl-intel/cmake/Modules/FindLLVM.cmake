@@ -7,10 +7,11 @@
 #  LLVM_MODULE_LIBS - list of llvm libs for working with modules.
 #  LLVM_FOUND       - True if llvm found.
 if(WIN32)
-    if( INCLUDE_MIC_DEVICE OR ( CMAKE_SIZEOF_VOID_P EQUAL 8 ) )
+    if (INCLUDE_MIC_DEVICE)
         list(APPEND STATIC_LLVM_MODULE_LIBS
             LLVMY86AsmParser
             LLVMY86CodeGen
+            LLVMMICModuleJIT
             LLVMY86Desc
             LLVMY86AsmPrinter
             LLVMY86Disassembler
@@ -24,50 +25,49 @@ if(WIN32)
             )
     endif()
     list(APPEND STATIC_LLVM_MODULE_LIBS
-        LLVMIRReader 
-        LLVMAsmParser 
-        LLVMTableGen 
-        LLVMMICModuleJIT
-        LLVMDebugInfo 
-        LLVMX86AsmParser 
-        LLVMX86Disassembler 
-        LLVMX86CodeGen 
-        LLVMSelectionDAG 
-        LLVMAsmPrinter 
-        LLVMX86Desc 
-        LLVMX86Info 
-        LLVMX86AsmPrinter 
-        LLVMX86Utils 
-        LLVMJIT 
-        LLVMMCDisassembler 
-        LLVMMCParser 
-        LLVMInstrumentation 
-        LLVMInterpreter 
-        LLVMCodeGen 
-        LLVMipo 
-        LLVMVectorize 
-        LLVMScalarOpts 
-        LLVMInstCombine 
-        LLVMLinker 
-        LLVMTransformUtils 
-        LLVMipa 
-        LLVMAnalysis 
-        LLVMArchive 
-        LLVMBitReader 
-        LLVMBitWriter 
-        LLVMMCJIT 
-        LLVMRuntimeDyld 
-        LLVMExecutionEngine 
-        LLVMTarget 
-        LLVMMC 
-        LLVMObject 
-        LLVMObjCARCOpts 
-        LLVMCore 
+        LLVMIRReader
+        LLVMAsmParser
+        LLVMTableGen
+        LLVMDebugInfo
+        LLVMX86AsmParser
+        LLVMX86Disassembler
+        LLVMX86CodeGen
+        LLVMSelectionDAG
+        LLVMAsmPrinter
+        LLVMX86Desc
+        LLVMX86Info
+        LLVMX86AsmPrinter
+        LLVMX86Utils
+        LLVMJIT
+        LLVMMCDisassembler
+        LLVMMCParser
+        LLVMInstrumentation
+        LLVMInterpreter
+        LLVMCodeGen
+        LLVMipo
+        LLVMVectorize
+        LLVMScalarOpts
+        LLVMInstCombine
+        LLVMLinker
+        LLVMTransformUtils
+        LLVMipa
+        LLVMAnalysis
+        LLVMArchive
+        LLVMBitReader
+        LLVMBitWriter
+        LLVMMCJIT
+        LLVMRuntimeDyld
+        LLVMExecutionEngine
+        LLVMTarget
+        LLVMMC
+        LLVMObject
+        LLVMObjCARCOpts
+        LLVMCore
         LLVMSupport
     )
     if(NOT CMAKE_CROSSCOMPILING)
         list(APPEND STATIC_LLVM_MODULE_LIBS
-            LLVMIntelJITEvents 
+            LLVMIntelJITEvents
         )
     endif()
 
@@ -80,6 +80,7 @@ else()
         list(APPEND STATIC_LLVM_MODULE_LIBS
             LLVMY86AsmParser
             LLVMY86CodeGen
+            LLVMMICModuleJIT
             LLVMY86Desc
             LLVMY86AsmPrinter
             LLVMY86Disassembler
@@ -91,50 +92,49 @@ else()
             )
     endif()
     list(APPEND STATIC_LLVM_MODULE_LIBS
-        LLVMIRReader 
-        LLVMAsmParser 
-        LLVMTableGen 
-        LLVMMICModuleJIT
-        LLVMDebugInfo 
-        LLVMX86AsmParser 
-        LLVMX86Disassembler 
-        LLVMX86CodeGen 
-        LLVMSelectionDAG 
-        LLVMAsmPrinter 
-        LLVMX86Desc 
-        LLVMX86Info 
-        LLVMX86AsmPrinter 
-        LLVMX86Utils 
-        LLVMJIT 
-        LLVMMCDisassembler 
-        LLVMMCParser 
-        LLVMInstrumentation 
-        LLVMInterpreter 
-        LLVMCodeGen 
-        LLVMipo 
-        LLVMVectorize 
-        LLVMScalarOpts 
-        LLVMInstCombine 
-        LLVMLinker 
-        LLVMTransformUtils 
-        LLVMipa 
-        LLVMAnalysis 
-        LLVMArchive 
-        LLVMBitReader 
-        LLVMBitWriter 
-        LLVMMCJIT 
-        LLVMRuntimeDyld 
-        LLVMExecutionEngine 
-        LLVMTarget 
-        LLVMMC 
-        LLVMObject 
-        LLVMObjCARCOpts 
-        LLVMCore 
+        LLVMIRReader
+        LLVMAsmParser
+        LLVMTableGen
+        LLVMDebugInfo
+        LLVMX86AsmParser
+        LLVMX86Disassembler
+        LLVMX86CodeGen
+        LLVMSelectionDAG
+        LLVMAsmPrinter
+        LLVMX86Desc
+        LLVMX86Info
+        LLVMX86AsmPrinter
+        LLVMX86Utils
+        LLVMJIT
+        LLVMMCDisassembler
+        LLVMMCParser
+        LLVMInstrumentation
+        LLVMInterpreter
+        LLVMCodeGen
+        LLVMipo
+        LLVMVectorize
+        LLVMScalarOpts
+        LLVMInstCombine
+        LLVMLinker
+        LLVMTransformUtils
+        LLVMipa
+        LLVMAnalysis
+        LLVMArchive
+        LLVMBitReader
+        LLVMBitWriter
+        LLVMMCJIT
+        LLVMRuntimeDyld
+        LLVMExecutionEngine
+        LLVMTarget
+        LLVMMC
+        LLVMObject
+        LLVMObjCARCOpts
+        LLVMCore
         LLVMSupport
         )
     if(NOT CMAKE_CROSSCOMPILING)
         list(APPEND STATIC_LLVM_MODULE_LIBS
-            LLVMIntelJITEvents 
+            LLVMIntelJITEvents
         )
     endif()
 endif()
@@ -155,7 +155,18 @@ else(BUILD_LLVM_FROM_SOURCE )
 
         if (LLVM_CONFIG_EXECUTABLE)
             message(STATUS "Using llvm-config found at: ${LLVM_CONFIG_EXECUTABLE}")
-            
+
+            execute_process(
+              COMMAND ${LLVM_CONFIG_EXECUTABLE} --components
+              OUTPUT_VARIABLE LLVM_COMPONENTS
+              OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+            string(REPLACE " " ";" REQUIRED_LLVM_COMPONENTS ${LLVM_COMPONENTS})
+            if (NOT ${INCLUDE_MIC_DEVICE})
+              # remove y86 components
+              list(REMOVE_ITEM REQUIRED_LLVM_COMPONENTS all all-targets micmodulejit y86 y86asmparser y86asmprinter y86codegen y86desc y86disassembler y86info y86utils)
+            endif ()
+
             execute_process(
               COMMAND ${LLVM_CONFIG_EXECUTABLE} --includedir
               OUTPUT_VARIABLE LLVM_INCLUDE_DIR
@@ -173,7 +184,7 @@ else(BUILD_LLVM_FROM_SOURCE )
               OUTPUT_VARIABLE LLVM_BINARY_DIR
               OUTPUT_STRIP_TRAILING_WHITESPACE
             )
-            
+
             execute_process(
               COMMAND ${LLVM_CONFIG_EXECUTABLE} --cppflags
               OUTPUT_VARIABLE LLVM_CFLAGS
@@ -187,7 +198,7 @@ else(BUILD_LLVM_FROM_SOURCE )
             )
 
             execute_process(
-              COMMAND ${LLVM_CONFIG_EXECUTABLE} --libs
+              COMMAND ${LLVM_CONFIG_EXECUTABLE} --libs ${REQUIRED_LLVM_COMPONENTS}
               OUTPUT_VARIABLE LLVM_MODULE_LIBS
               OUTPUT_STRIP_TRAILING_WHITESPACE
             )
@@ -199,13 +210,13 @@ else(BUILD_LLVM_FROM_SOURCE )
                     irc
                     )
             endif( INCLUDE_MIC_DEVICE)
-                        
+
         else (LLVM_CONFIG_EXECUTABLE)
 
             if( NOT WIN32 AND NOT ANDROID)
-                message( FATAL_ERROR "Can't find llvm-config. LLVM installation is corrupted or missing" )      
+                message( FATAL_ERROR "Can't find llvm-config. LLVM installation is corrupted or missing" )
             endif()
-            
+
             if( DEFINED LLVM_PATH )
                 set(LLVM_INSTALL_PATH ${LLVM_PATH})
                 message (STATUS "Using LLVM root location specified in LLVM_PATH variable: " ${LLVM_PATH})
@@ -213,9 +224,9 @@ else(BUILD_LLVM_FROM_SOURCE )
                 set(LLVM_INSTALL_PATH $ENV{LLVM_PATH})
                 message (STATUS "Using LLVM location specified in LLVM_PATH environment variable: " $ENV{LLVM_PATH} )
             else()
-                message( FATAL_ERROR "Can't find LLVM library. Please specify LLVM library location using either LLVM_PATH environment variable or defining LLVM_PATH parameter to CMAKE" )     
+                message( FATAL_ERROR "Can't find LLVM library. Please specify LLVM library location using either LLVM_PATH environment variable or defining LLVM_PATH parameter to CMAKE" )
             endif()
-              
+
             set(LLVM_INCLUDE_DIR ${LLVM_INSTALL_PATH}/include)
             set(LLVM_LIBRARY_DIR ${LLVM_INSTALL_PATH}/lib)
             string( CONFIGURE ${LLVM_LIBRARY_DIR} LLVM_LIBRARY_DIR)

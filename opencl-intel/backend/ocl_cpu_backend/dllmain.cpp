@@ -24,16 +24,18 @@ File Name:  dllmain.cpp
 #include "BackendConfiguration.h"
 #include "ServiceFactory.h"
 #include "CPUDeviceBackendFactory.h"
-#include "MICDeviceBackendFactory.h"
 #include "BuiltinModuleManager.h"
 #include "ImageCallbackManager.h"
 #include "Compiler.h"
-#include "MICSerializationService.h"
 #include "llvm/Support/Mutex.h"
 #include "debuggingservicewrapper.h"
 #include "CPUDetect.h"
 #include "cl_shutdown.h"
 #include "ocl_mutex.h"
+#if defined(INCLUDE_MIC_DEVICE)
+#include "MICDeviceBackendFactory.h"
+#include "MICSerializationService.h"
+#endif
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -65,8 +67,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        // FIXME: Calling this from dll_init on Linux can cause problems 
-        //        because the constructors of static objects in other files 
+        // FIXME: Calling this from dll_init on Linux can cause problems
+        //        because the constructors of static objects in other files
         //        haven't necessarily been called before we get there.  By
         //        extension, it seems like a bad idea to call it from here
         //        on Windows.  While it may work, the behavior would be
@@ -129,7 +131,7 @@ extern "C"
     {
         OclAutoMutex lock(&s_init_lock);
 
-        // The compiler can only be initialized once, even if the backend is 
+        // The compiler can only be initialized once, even if the backend is
         //   terminated.  The s_init_count check is not sufficient.
         if (!s_compiler_initialized)
         {
@@ -152,10 +154,14 @@ extern "C"
             Compiler::InitGlobalState( BackendConfiguration::GetInstance().GetGlobalCompilerConfig(pBackendOptions));
             ServiceFactory::Init();
             CPUDeviceBackendFactory::Init();
+#if defined(INCLUDE_MIC_DEVICE)
             MICDeviceBackendFactory::Init();
+#endif
             BuiltinModuleManager::Init();
             ImageCallbackManager::Init();
+#if defined(INCLUDE_MIC_DEVICE)
             DefaultJITMemoryManager::Init();
+#endif
             // Attempt to initialize the debug service. If debugging is
             // disabled this is a no-op returning success.
             //
@@ -190,10 +196,14 @@ extern "C"
             return;
         }
 
+#if defined(INCLUDE_MIC_DEVICE)
         DefaultJITMemoryManager::Terminate();
+#endif
         BuiltinModuleManager::Terminate();
         ImageCallbackManager::Terminate();
+#if defined(INCLUDE_MIC_DEVICE)
         MICDeviceBackendFactory::Terminate();
+#endif
         CPUDeviceBackendFactory::Terminate();
         DebuggingServiceWrapper::GetInstance().Terminate();
         ServiceFactory::Terminate();

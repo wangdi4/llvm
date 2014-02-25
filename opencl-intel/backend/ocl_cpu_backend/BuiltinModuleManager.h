@@ -20,7 +20,7 @@ File Name:  BuiltinModuleManager.h
 #include "CPUDetect.h"
 
 namespace llvm
-{ 
+{
 class LLVMContext;
 }
 
@@ -31,7 +31,7 @@ class BuiltinLibrary;
 
 //*****************************************************************************************
 // Responsible for loading builtin modules in a lazy fashion
-// 
+//
 class BuiltinModuleManager
 {
 private:
@@ -51,21 +51,21 @@ public:
      * Singleton instance
      */
     static BuiltinModuleManager* GetInstance();
-    
+
     /**
      * Returns the \see BuiltinsLibrary for the given cpu. Loads it if necessary
      */
     BuiltinLibrary* GetOrLoadCPULibrary(Intel::CPUId cpuId);
-    
+#if defined(INCLUDE_MIC_DEVICE)
     /**
      * Returns the \see BuiltinsLibrary for the given mic. Loads it if necessary
      */
-    BuiltinLibrary* GetOrLoadMICLibrary(unsigned int targetID, Intel::CPUId cpuId, 
+    BuiltinLibrary* GetOrLoadMICLibrary(unsigned int targetID, Intel::CPUId cpuId,
         const void* targetContext);
-
+#endif
     /**
      * Creates the builtins module for the given cpu using the given LLVMContext
-     */     
+     */
     BuiltinModule*  CreateBuiltinModule(int cpuId, llvm::LLVMContext* pContext);
 
 private:
