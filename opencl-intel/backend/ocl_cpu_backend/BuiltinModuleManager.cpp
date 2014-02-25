@@ -21,7 +21,9 @@ File Name:  BuiltinModuleManager.cpp
 #include <memory>
 #include "BuiltinModuleManager.h"
 #include "BuiltinModule.h"
+#if defined(INCLUDE_MIC_DEVICE)
 #include "MICBuiltinLibrary.h"
+#endif
 #include "CPUBuiltinLibrary.h"
 
 void RegisterCPUBIFunctions(void);
@@ -81,6 +83,7 @@ BuiltinLibrary* BuiltinModuleManager::GetOrLoadCPULibrary(Intel::CPUId cpuId)
     return pLibrary.release();
 }
 
+#if defined(INCLUDE_MIC_DEVICE)
 // TODO: Make this method re-entrable
 BuiltinLibrary* BuiltinModuleManager::GetOrLoadMICLibrary(unsigned int targetID, Intel::CPUId cpuId,
      const void* targetContext)
@@ -91,6 +94,6 @@ BuiltinLibrary* BuiltinModuleManager::GetOrLoadMICLibrary(unsigned int targetID,
 
     return pLibrary.release();
 }
-
+#endif
 
 }}}

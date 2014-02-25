@@ -37,7 +37,7 @@
 
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
-
+/*
 #if defined (_WIN32)
 #define DLL_EXPORT _declspec(dllexport)
 // LLVM libraries
@@ -75,6 +75,13 @@ using namespace Intel::OpenCL::Utils;
 #else
 #define DLL_EXPORT
 #endif
+*/
+
+#if defined (_WIN32)
+#define DLL_EXPORT _declspec(dllexport)
+#else
+#define DLL_EXPORT
+#endif
 
 using namespace Intel::OpenCL::FECompilerAPI;
 
@@ -85,7 +92,7 @@ extern DECLARE_LOGGER_CLIENT;
 
 USE_SHUTDOWN_HANDLER(ClangFECompiler::ShutDown);
 
-#ifdef _WIN32
+#ifdef USE_COMMON_CLANG
 namespace TC
 {
     CTranslationController* g_pTranslationController = NULL;
@@ -127,7 +134,7 @@ ClangFECompiler::ClangFECompiler(const void* pszDeviceInfo)
     long prev = s_llvmReferenceCount++;
     if ( 0 == prev )
     {
-#ifdef _WIN32
+#ifdef USE_COMMON_CLANG
         // Create the translation controller
         TC::g_pTranslationController = TC::CTranslationController::Create();
 #else
@@ -155,7 +162,7 @@ ClangFECompiler::~ClangFECompiler()
     long prev = s_llvmReferenceCount--;
     if ( 1 == prev )
     {
-#ifdef _WIN32
+#ifdef USE_COMMON_CLANG
         if( TC::g_pTranslationController )
         {
             TC::CTranslationController::Delete( TC::g_pTranslationController );

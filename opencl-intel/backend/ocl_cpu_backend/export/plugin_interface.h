@@ -27,7 +27,7 @@ File Name:  plugin_interface.h
 #include <cstdlib>
 
 #ifdef __cplusplus
-extern "C" 
+extern "C"
 {
 #endif
 
@@ -45,30 +45,30 @@ namespace llvm
 
 
 namespace Intel { namespace OpenCL {
- 
+
 namespace DeviceBackend {
 
     class ICLDevBackendKernel_;
     class ICLDevBackendProgram_;
 
     /**
-     * ICLDevBackendPlugin is an interface that each plugin should implement 
+     * ICLDevBackendPlugin is an interface that each plugin should implement
      */
     class ICLDevBackendPlugin
     {
     public:
         virtual ~ICLDevBackendPlugin(){}
 
-        virtual void OnCreateBinary(const ICLDevBackendKernel_* pKernel, 
-                                    const _cl_work_description_type* pWorkDesc, 
-                                    size_t bufSize, 
+        virtual void OnCreateBinary(const ICLDevBackendKernel_* pKernel,
+                                    const _cl_work_description_type* pWorkDesc,
+                                    size_t bufSize,
                                     void* pArgsBuffer) =0;
 
         virtual void OnCreateKernel(const ICLDevBackendProgram_* pProgram,
                                     const ICLDevBackendKernel_* pKernel,
                                     const llvm::Function* pFunction) = 0;
 
-        virtual void OnCreateProgram(const _cl_prog_container_header* pContainer, 
+        virtual void OnCreateProgram(const _cl_prog_container_header* pContainer,
                                      const ICLDevBackendProgram_* pProgram) =0;
 
         virtual void OnReleaseProgram(const ICLDevBackendProgram_* pProgram) =0;
@@ -110,7 +110,7 @@ struct IPlugin{
 
 #ifdef __cplusplus
 extern "C" {
-#endif 
+#endif
 
 //
 //BE factory/release methods
@@ -120,4 +120,4 @@ typedef void (*PLUGIN_RELEASE_FUNCPTR)(Intel::OpenCL::IPlugin*);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif
