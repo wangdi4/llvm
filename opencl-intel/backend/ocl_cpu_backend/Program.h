@@ -15,8 +15,8 @@ Copyright (c) Intel Corporation (2010).
 File Name:  Program.h
 
 \*****************************************************************************/
-// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE 
-//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS  
+// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE
+//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS
 #pragma once
 
 #include <assert.h>
@@ -48,7 +48,7 @@ public:
      * Gets the program build log
      *
      * @Returns
-     *  if the log already exist , pointer to the build log will be returned; otherwise NULL 
+     *  if the log already exist , pointer to the build log will be returned; otherwise NULL
      *  will be returned
      */
     virtual const char* GetBuildLog() const;
@@ -62,7 +62,7 @@ public:
     virtual const ICLDevBackendCodeContainer* GetProgramCodeContainer() const;
 
     /**
-     * Gets the program JIT Code Properties; 
+     * Gets the program JIT Code Properties;
      *
      * @returns JIT Code properties interface, NULL in case of failure
      */
@@ -83,7 +83,7 @@ public:
      *      CL_DEV_NOT_SUPPORTED will be returned
      */
     virtual cl_dev_err_code GetKernelByName(
-        const char* pKernelName, 
+        const char* pKernelName,
         const ICLDevBackendKernel_** ppKernel) const;
 
     /**
@@ -112,8 +112,26 @@ public:
      *      CL_DEV_NOT_SUPPORTED will be returned
      */
     virtual cl_dev_err_code GetKernel(
-        int kernelIndex, 
+        int kernelIndex,
         const ICLDevBackendKernel_** ppKernel) const;
+
+    /**
+     * Gets the total amount of storage, in bytes, used by
+     * program variables in the global address space.
+     *
+     * @returns
+     *  if the program already build:
+     *      the total size of global variables in program
+     *  otherwise
+     *      0 will be returned
+     */
+    virtual size_t GetGlobalVariableTotalSize() const;
+
+    /**
+     * Sets the total amount of storage, in bytes, used by
+     * program variables in the global address space.
+     */
+    void SetGlobalVariableTotalSize(size_t);
 
     /**
      * Sets the Bit Code Container (program will take ownership of the container)
@@ -121,26 +139,26 @@ public:
     void SetBitCodeContainer(BitCodeContainer* bitCodeContainer);
 
     /*
-     * Program specific methods 
+     * Program specific methods
      */
     void SetBuildLog( const std::string& buildLog );
 
     /**
      * Store the given kernel set into the program
-     * 
+     *
      * Note: will take ownership on passed kernel set
      */
-    void SetKernelSet( KernelSet* pKernels); 
+    void SetKernelSet( KernelSet* pKernels);
 
     /**
-     * Store the given LLVM module (as a plain pointer) 
+     * Store the given LLVM module (as a plain pointer)
      * into the program
      *
      * Note: will take ownership on passed module
      */
     void SetModule( void* pModule);
     virtual void SetBuiltinModule(void* pModule) {}
-    
+
     virtual void SetExecutionEngine(void *eE) {}
 
     bool GetDisableOpt() const;
@@ -168,6 +186,7 @@ protected:
     std::auto_ptr<KernelSet> m_kernels;
     /// Runtime service. Reference counted
     RuntimeServiceSharedPtr m_RuntimeService;
+    size_t            m_globalVariableTotalSize;
 
 private:
     // Disable copy ctor and assignment operator

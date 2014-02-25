@@ -142,11 +142,11 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
             pProgram->SetKernelSet( pKernels );
         }
-        
+
         // call post build method
         PostBuildProgramStep( pProgram, spModule.get(), pOptions );
+        updateGlobalVariableTotalSize(pProgram, spModule.get());
         pProgram->SetModule( spModule.release() );
-
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {
@@ -158,6 +158,14 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
     pProgram->SetBuildLog( buildResult.GetBuildLog());
     return buildResult.GetBuildResult();
+}
+
+void ProgramBuilder::updateGlobalVariableTotalSize(Program* pProgram, Module* pModule)
+{
+    MetaDataUtils mdUtils(pModule);
+    if (mdUtils.empty_ModuleInfoList()) return;
+    Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
+    pProgram->SetGlobalVariableTotalSize(handle->getGlobalVariableTotalSize());
 }
 
 KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vectorSize) const
@@ -172,7 +180,6 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
                                                          Function *func,
                                                          const ProgramBuildResult& buildResult) const
 {
-
     // Set optimal WG size
     unsigned int optWGSize = 128; // TODO: to be checked
 
