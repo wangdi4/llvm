@@ -163,8 +163,11 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
           throw Exceptions::DeviceBackendExceptionBase("llvm-dis does not work", CL_DEV_ERROR_FAIL);
         }
 
+        
 //        std::string llcOptions("-mcpu=knl -relocation-model=pic -force-align-stack -fp-contract=fast ");
-        std::string llcOptions("-mcpu=knl -force-align-stack -fp-contract=fast -code-model=large ");
+        std::string llcOptions("-mcpu=knl -force-align-stack -code-model=large ");
+        if (spModule.get()->getNamedMetadata("opencl.enable.FP_CONTRACT"))
+          llcOptions += " -fp-contract=fast ";
         llcOptions += filename + ".ll ";
         llcOptions += "-filetype=obj -o " + filename + ".o";
         res = system((llvmKNLBinPath + "/llc " + llcOptions).c_str());
