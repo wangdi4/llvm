@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2009 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -24,7 +24,7 @@
 
 #include "stdafx.h"
 
-#ifndef _WIN32
+#ifndef USE_COMMON_CLANG
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Driver/Arg.h"
 #include "clang/Driver/ArgList.h"
@@ -66,7 +66,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "mic_dev_limits.h"
 
-#ifdef _WIN32
+#ifdef USE_COMMON_CLANG
 #include "ElfWriter.h"
 #include "os_inc.h"
 #include "tc_common.h"
@@ -90,14 +90,13 @@
 
 using namespace Intel::OpenCL::ClangFE;
 using namespace llvm;
-#ifndef _WIN32
-using namespace clang;
-using namespace clang::frontend;
-#endif
 using namespace Intel::OpenCL::Utils;
 
-#ifdef _WIN32
+#ifdef USE_COMMON_CLANG
 using namespace TC;
+#else
+using namespace clang;
+using namespace clang::frontend;
 #endif
 
 using namespace std;
@@ -113,7 +112,7 @@ namespace llvm {
 //===----------------------------------------------------------------------===//
 // ElfWriterDP- ElfWriter delete policy for autoptr.
 //
-#ifdef _WIN32
+#ifdef USE_COMMON_CLANG
 struct ElfWriterDP
 {
     static void Delete(CLElfLib::CElfWriter* pElfWriter)
@@ -154,7 +153,7 @@ void LLVMErrorHandler(void *UserData, const std::string &Message, bool gen_crash
   exit(1);
 }
 
-// Tokenize a string into tokens separated by any char in 'delims'. 
+// Tokenize a string into tokens separated by any char in 'delims'.
 // Support quoting to allow some tokens to contain delimiters, with possible
 // escape characters to support quotes inside quotes.
 // To disable quoting or escaping, set relevant chars to '\x00'.
@@ -249,13 +248,13 @@ static vector<string> quoted_tokenize(string str, string delims, char quote, cha
 
 
 // ClangFECompilerCompileTask calls implementation
-ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
+ClangFECompilerCompileTask::ClangFECompilerCompileTask(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc,
                                                        Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo,
                                                        const Intel::OpenCL::Utils::BasicCLConfigWrapper& config)
-: m_pProgDesc(pProgDesc), 
-  m_sDeviceInfo(sDeviceInfo), 
-  m_pOutIR(NULL), 
-  m_stOutIRSize(0), 
+: m_pProgDesc(pProgDesc),
+  m_sDeviceInfo(sDeviceInfo),
+  m_pOutIR(NULL),
+  m_stOutIRSize(0),
   m_config(config)
 {
     Twine t(g_uiProgID++);
@@ -348,8 +347,8 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
       list.push_back("__OPENCL_VERSION__=120");
     }
 
-	  list.push_back("-D");
-	  list.push_back("CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE=0x10000");
+      list.push_back("-D");
+      list.push_back("CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE=0x10000");
 
     list.push_back("-D");
     list.push_back("CL_VERSION_1_0=100");
@@ -362,14 +361,14 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     list.push_back("-D");
     list.push_back("__ENDIAN_LITTLE__=1");
     list.push_back("-D");
-    list.push_back("__ROUNDING_MODE__=rte");	
+    list.push_back("__ROUNDING_MODE__=rte");
 
-    if(m_sDeviceInfo.bImageSupport) 
+    if(m_sDeviceInfo.bImageSupport)
     {
         list.push_back("-D");
-        list.push_back("__IMAGE_SUPPORT__=1");	
+        list.push_back("__IMAGE_SUPPORT__=1");
     }
-    if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling) 
+    if (!OptProfiling && m_sDeviceInfo.bEnableSourceLevelProfiling)
     {
         OptProfiling = true;
         if (!OptDebugInfo)
@@ -408,7 +407,7 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
     // Don't optimize in the frontend
     list.push_back("-O0");
     list.push_back("-triple");
-    if(triple.empty()) 
+    if(triple.empty())
     {
 #if defined(_WIN64) || defined(__x86_64__) || defined(_M_AMD64) || defined (_M_X64)
         list.push_back("spir64-unknown-unknown");
@@ -417,7 +416,7 @@ void ClangFECompilerCompileTask::PrepareArgumentList(ArgListType &list, ArgListT
 #else
   #error "Can't define target triple: unknown architecture."
 #endif
-    } 
+    }
     else
     {
         list.push_back(triple);
@@ -434,7 +433,7 @@ void *ClangFECompilerCompileTask::LoadPchResourceBuffer (const char* prc_id)
   HGLOBAL hBytes = NULL;
   char *pData = NULL;
   size_t dResSize = NULL;
- 
+
 #if defined (_WIN32)
 #if defined (_M_X64)
   static const char* sFEModuleName = "clang_compiler64";
@@ -446,8 +445,8 @@ void *ClangFECompilerCompileTask::LoadPchResourceBuffer (const char* prc_id)
 #endif
 
   // Get the handle to the current module
-  GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
-                    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
+  GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                     sFEModuleName,
                     &hMod);
 
@@ -504,7 +503,7 @@ void *ClangFECompilerCompileTask::LoadPchResourceBuffer (const char* prc_id)
   return pchBuff;
 }
 
-#ifdef _WIN32
+#ifdef USE_COMMON_CLANG
 int ClangFECompilerCompileTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType)
 {
     assert(pOutputArgs);
@@ -608,7 +607,7 @@ int ClangFECompilerCompileTask::Compile()
   LOG_INFO(TEXT("%s"), TEXT("enter"));
 
   OclAutoMutex CS(&s_serializingMutex);
-  
+
   try
   {   // create a new scope to make sure the mutex will be released last
 
@@ -618,7 +617,7 @@ int ClangFECompilerCompileTask::Compile()
 
     PrepareArgumentList(ArgList, m_BEArgList, m_pProgDesc->pszOptions);
 
-#ifdef _WIN32
+#ifdef USE_COMMON_CLANG
     // Allocate the new options string and fill it
     std::string compileOptions;
     for( ArgListType::iterator iter = ArgList.begin(); iter != ArgList.end(); ++iter )
@@ -632,8 +631,8 @@ int ClangFECompilerCompileTask::Compile()
     }
 
     // Create the input ELF binary
-    ElfWriterPtr pElfWriter( CLElfLib::CElfWriter::Create( CLElfLib::EH_TYPE_OPENCL_SOURCE, 
-                                                           CLElfLib::EH_MACHINE_NONE, 
+    ElfWriterPtr pElfWriter( CLElfLib::CElfWriter::Create( CLElfLib::EH_TYPE_OPENCL_SOURCE,
+                                                           CLElfLib::EH_MACHINE_NONE,
                                                            0 ) );
     if( !pElfWriter.get() )
     {
@@ -641,7 +640,7 @@ int ClangFECompilerCompileTask::Compile()
     }
 
     char* prc_id = CLSTDSet >= 200 ? "#102" : "#101";
-    
+
     std::auto_ptr<llvm::MemoryBuffer> pchBuff( (llvm::MemoryBuffer *)LoadPchResourceBuffer(prc_id));
     if( !pchBuff.get() )
     {
@@ -750,7 +749,7 @@ int ClangFECompilerCompileTask::Compile()
   llvm::IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
   DiagOpts->ShowCarets = 0;
   TextDiagnosticPrinter *DiagsPrinter = new TextDiagnosticPrinter(errStream, DiagOpts.getPtr());
-  llvm::IntrusiveRefCntPtr<DiagnosticsEngine> Diags = 
+  llvm::IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
     new DiagnosticsEngine(DiagID, &*DiagOpts, DiagsPrinter);
 
   // Prepare Clang
@@ -818,8 +817,8 @@ int ClangFECompilerCompileTask::Compile()
 #endif
 
   // Get the handle to the current module
-  GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
-                    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
+  GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                     sFEModuleName,
                     &hMod);
 
@@ -891,7 +890,7 @@ int ClangFECompilerCompileTask::Compile()
     Success = false;
   }
 #endif
-    
+
     // Execute the frontend actions.
     if (Success)
     {
@@ -901,7 +900,7 @@ int ClangFECompilerCompileTask::Compile()
             Success = false;
             LOG_ERROR(TEXT("CompileTask::Execute() - caught an exception during compilation"), "");
         }
-    }    
+    }
 
     // Our error handler depends on the Diagnostics object, which we're
     // potentially about to delete. Uninstall the handler now so that any
@@ -920,7 +919,7 @@ int ClangFECompilerCompileTask::Compile()
     {
       return CL_BUILD_PROGRAM_FAILURE;
     }
-    
+
     // Add module level SPIR related stuff
     string ErrorMessage;
     const char*  BufferStart = (const char*)IRbinary.begin();
@@ -1008,7 +1007,7 @@ ClangFECompilerLinkTask::~ClangFECompilerLinkTask()
   delete m_pOutIR;
 }
 
-#ifdef _WIN32
+#ifdef USE_COMMON_CLANG
 int ClangFECompilerLinkTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType)
 {
     try
@@ -1021,8 +1020,8 @@ int ClangFECompilerLinkTask::StoreOutput(TC::STB_TranslateOutputArgs* pOutputArg
         m_stOutIRSize = 0;
         if ( pOutputArgs->pOutput && pOutputArgs->OutputSize )
         {
-          m_stOutIRSize = sizeof(cl_prog_container_header) + 
-                          sizeof(cl_llvm_prog_header) + 
+          m_stOutIRSize = sizeof(cl_prog_container_header) +
+                          sizeof(cl_llvm_prog_header) +
                           pOutputArgs->OutputSize;
 
 
@@ -1093,14 +1092,14 @@ int ClangFECompilerLinkTask::Link()
     }
 
     //Don't need actual linker...
-    bool isSPIR = false; 
+    bool isSPIR = false;
     if(1 == m_pProgDesc->uiNumBinaries) {
         isSPIR = (((const char*)(m_pProgDesc->pBinaryContainers[0]))[0] == 'B') &&
         (((const char*)(m_pProgDesc->pBinaryContainers[0]))[1] == 'C');
     }
 
     ParseOptions(m_pProgDesc->pszOptions);
-    
+
     if(!isSPIR)
         ResolveFlags();
 
@@ -1118,7 +1117,7 @@ int ClangFECompilerLinkTask::Link()
             return CL_OUT_OF_HOST_MEMORY;
         }
 
-        if (isSPIR) 
+        if (isSPIR)
         {
             cl_prog_container_header*   pHeader = (cl_prog_container_header*)m_pOutIR;
             MEMCPY_S(pHeader->mask, 4, _CL_CONTAINER_MASK_, 4);
@@ -1138,16 +1137,16 @@ int ClangFECompilerLinkTask::Link()
             void *pIR = (void*)(pProgHeader+1);
 
             string ErrorMessage;
-            MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef((const char *)(m_pProgDesc->pBinaryContainers[0]), m_pProgDesc->puiBinariesSizes[0]));   
+            MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef((const char *)(m_pProgDesc->pBinaryContainers[0]), m_pProgDesc->puiBinariesSizes[0]));
             llvm::Module *M = ParseBitcodeFile(pBinBuff, getGlobalContext(), &ErrorMessage);
 
-            if (NULL == M) 
+            if (NULL == M)
             {
                 LOG_ERROR(TEXT("%s"), TEXT("Cannot parse SPIR binary"));
                 m_stOutIRSize = 0;
                 return CL_LINK_PROGRAM_FAILURE;
             }
-            
+
             if (llvm::NamedMDNode *Opts = M->getNamedMetadata("opencl.compiler.options")){
                 if (llvm::MDNode *OptsMD = Opts->getOperand(0)) {
                     for (unsigned i=0; i<OptsMD->getNumOperands(); ++i){
@@ -1164,8 +1163,8 @@ int ClangFECompilerLinkTask::Link()
 
             MEMCPY_S(pIR, m_pProgDesc->puiBinariesSizes[0],
                 m_pProgDesc->pBinaryContainers[0], m_pProgDesc->puiBinariesSizes[0]);
-        } 
-        else 
+        }
+        else
         {
             MEMCPY_S(m_pOutIR, m_stOutIRSize, m_pProgDesc->pBinaryContainers[0], m_stOutIRSize);
         }
@@ -1186,14 +1185,14 @@ int ClangFECompilerLinkTask::Link()
     }
 
     // We have more the one binary so we need to link
-    
+
 #if 0 /*_WIN32*/
     bool createLibrary = false;
     cl_int retVal = CL_SUCCESS;
     size_t uiBinarySize = 0;
 
     // Create the input ELF binary
-    CLElfLib::CElfWriter* pElfWriter = CLElfLib::CElfWriter::Create( 
+    CLElfLib::CElfWriter* pElfWriter = CLElfLib::CElfWriter::Create(
         CLElfLib::EH_TYPE_OPENCL_OBJECTS, CLElfLib::EH_MACHINE_NONE, 0 );
 
     if( pElfWriter )
@@ -1212,9 +1211,9 @@ int ClangFECompilerLinkTask::Link()
             cl_llvm_prog_header* pProgHeader = (cl_llvm_prog_header*)((char*)pHeader + sizeof(cl_prog_container_header));
 
             uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
-            
+
              pBinary = (char*)pHeader + headerLength; // Skip the container and the build flags for now
-                  
+
             if( ( pBinary != NULL ) )
             {
                 // make sure we get the required data from the program
@@ -1313,7 +1312,7 @@ int ClangFECompilerLinkTask::Link()
 
     } else {
         uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
-        pBinary = (char*)pHeader + 
+        pBinary = (char*)pHeader +
                   sizeof(cl_prog_container_header) + // Skip the container
                   sizeof(cl_llvm_prog_header); //Skip the build flags for now
 
@@ -1321,7 +1320,7 @@ int ClangFECompilerLinkTask::Link()
     std::auto_ptr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize)));
     std::auto_ptr<llvm::Module> composite(ParseBitcodeFile(pBinBuff.get(), Context, &ErrorMessage));
 
-    if (composite.get() == 0) 
+    if (composite.get() == 0)
     {
         if ( !ErrorMessage.empty() )
         {
@@ -1346,7 +1345,7 @@ int ClangFECompilerLinkTask::Link()
 
             uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
 
-            pBinary = (char*)pHeader + 
+            pBinary = (char*)pHeader +
                       sizeof(cl_prog_container_header) + // Skip the container
                       sizeof(cl_llvm_prog_header); //Skip the build flags for now
         }
@@ -1354,7 +1353,7 @@ int ClangFECompilerLinkTask::Link()
         std::auto_ptr<MemoryBuffer> pBinBuff (MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize)));
         std::auto_ptr<llvm::Module> M(ParseBitcodeFile(pBinBuff.get(), Context, &ErrorMessage));
 
-        if (M.get() == 0) 
+        if (M.get() == 0)
         {
             if ( !ErrorMessage.empty() )
             {
@@ -1390,8 +1389,8 @@ int ClangFECompilerLinkTask::Link()
     WriteBitcodeToFile(composite.get(), OS);
     OS.flush();
 
-    m_stOutIRSize = sizeof(cl_prog_container_header) + 
-                    sizeof(cl_llvm_prog_header) + 
+    m_stOutIRSize = sizeof(cl_prog_container_header) +
+                    sizeof(cl_llvm_prog_header) +
                     Buffer.size();
 
     m_pOutIR = new char[m_stOutIRSize];
@@ -1484,7 +1483,7 @@ void ClangFECompilerLinkTask::ResolveFlags()
         break;
     }
 
-    
+
     // Check fast relaxed math
     bFastRelaxedMathFlag = true;
 
@@ -1508,7 +1507,7 @@ void ClangFECompilerLinkTask::ResolveFlags()
         break;
     }
 
-    
+
     // Check disable optimization
     bDisableOptFlag = false;
 
@@ -1522,7 +1521,7 @@ void ClangFECompilerLinkTask::ResolveFlags()
             break;
         }
     }
-    
+
 
     // Check debug info and profiling flags
     bDebugInfoFlag = true;
@@ -1541,7 +1540,7 @@ void ClangFECompilerLinkTask::ResolveFlags()
     }
 }
 
-#ifdef _WIN32
+#ifdef USE_COMMON_CLANG
 int ClangFECompilerGetKernelArgInfoTask::TranslateArgsInfoValues (STB_GetKernelArgsInfoArgs* pKernelArgsInfo)
 {
     switch (pKernelArgsInfo->m_retValue)
@@ -1637,13 +1636,13 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
 
     size_t uiBinarySize = pHeader->container_size - sizeof(cl_llvm_prog_header);
 
-    char* pBinary = (char*)pHeader + 
+    char* pBinary = (char*)pHeader +
                     sizeof(cl_prog_container_header) + // Skip the container
                     sizeof(cl_llvm_prog_header); //Skip the build flags
 
     MemoryBuffer *pBinBuff = MemoryBuffer::getMemBufferCopy(StringRef(pBinary, uiBinarySize));
 
-    #ifdef _WIN32
+    #ifdef USE_COMMON_CLANG
     if( pBin && TC::GetKernelArgsInfoPlugin )
     {
         struct STB_GetKernelArgsInfoArgs KernelArgsInfo;
@@ -1658,7 +1657,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
     #else
     std::auto_ptr<llvm::Module> pModule(ParseIR(pBinBuff, Err, Context));
 
-    if (NULL == pModule.get()) 
+    if (NULL == pModule.get())
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1694,13 +1693,13 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         assert(false && "couldn't find our kernel in the metadata");
         return CL_FE_INTERNAL_ERROR_OHNO;
     }
-      
+
     MDNode* pAddressQualifiers = NULL;
     MDNode* pAccessQualifiers = NULL;
     MDNode* pTypeNames = NULL;
     MDNode* pTypeQualifiers = NULL;
     MDNode* pArgNames = NULL;
-       
+
     for (unsigned int i = 0; i < pKernel->getNumOperands(); ++i)
     {
         MDNode* pTemp = dyn_cast<MDNode>(pKernel->getOperand(i));
@@ -1737,7 +1736,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
             pArgNames = pTemp;
             continue;
         }
-    }    
+    }
 
     // all of the above must be valid
     if ( !( pAddressQualifiers && pAccessQualifiers && pTypeNames && pTypeQualifiers /*&& pArgNames*/ ) ) {
@@ -1748,7 +1747,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
         //assert(pArgNames && "pArgNames is NULL");
         return CL_FE_INTERNAL_ERROR_OHNO;
     }
-        
+
     for (unsigned int i = 1; i < pAddressQualifiers->getNumOperands(); ++i)
     {
         // Since the arg info in the metadata have a string field before the operands
@@ -1819,7 +1818,7 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin, cons
           assert(pArgName && "pArgName is not a valid MDString*");
 
           argInfo.name = pArgName->getString().str();
-        } 
+        }
 
         m_argsInfo.push_back(argInfo);
     }
@@ -1864,7 +1863,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     bool bFastRelaxedMath = false;
     std::string szFileName = "";
     std::string szTriple = "";
-    
+
     if (!szOptions)
         szOptions = "";
 
@@ -1887,7 +1886,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     // Parse the build options - handle the ones we understand and pass the
     // rest into 'ignored'. Use " quoting to accept token with whitespace, but
     // don't use escaping (since we only need path tokens).
-    //    
+    //
     vector<string> opts = quoted_tokenize(szOptions, " \t", '"', '\x00');
     vector<string>::const_iterator opt_i = opts.begin();
     while (opt_i != opts.end()) {
@@ -1931,7 +1930,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 pBEArgList->push_back(*opt_i);
             }
         }
-        else if (opt_i->find("-dump-opt-llvm=") == 0) 
+        else if (opt_i->find("-dump-opt-llvm=") == 0)
         {
             // Dump file must be attached to the flag, but we ignore it for now
         }
@@ -1955,7 +1954,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 UnrecognizedArgsLength += flag.length() + 1;
                 res = false;
             } else {
-               pBEArgList->push_back(*opt_i); 
+               pBEArgList->push_back(*opt_i);
             }
         }
         else if (*opt_i == "-s") {
@@ -1966,8 +1965,8 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 szFileName = *opt_i;
                 // Normalize path to contain forward slashes
                 replace(
-                    szFileName.begin(), 
-                    szFileName.end(), 
+                    szFileName.begin(),
+                    szFileName.end(),
                     '\\', '/');
 
                 // On Windows only, normalize the filename to lowercase, since
@@ -2093,7 +2092,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
                 res = false;
             }
         }
-        else if ((*opt_i == "-spir-std=1.0") || 
+        else if ((*opt_i == "-spir-std=1.0") ||
                  (*opt_i == "-spir-std=1.2")) {
             //ignore SPIR version flag for now
             pBEArgList->push_back(*opt_i);
@@ -2150,17 +2149,17 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
     {
         // if we have -g but we didn't get a -s create a unique name
         Twine t(g_uiProgID++);
-            
+
         pList->push_back("-main-file-name");
         pList->push_back(t.str());
     }
 
     if (bOptProfiling && !bOptDebugInfo && szFileName.empty())
     {
-        // We are in profiling mode without a given source name and we didn't 
+        // We are in profiling mode without a given source name and we didn't
         // already added a unique name
         Twine t(g_uiProgID++);
-            
+
         pList->push_back("-main-file-name");
         pList->push_back(t.str());
     }
@@ -2227,7 +2226,7 @@ bool Intel::OpenCL::ClangFE::ParseLinkOptions(const char* szOptions,
     bool bUnsafeMath = false;
     bool bFiniteMath = false;
     bool bFastRelaxedMath = false;
-    
+
     if (!szOptions)
         szOptions = "";
 
@@ -2242,12 +2241,12 @@ bool Intel::OpenCL::ClangFE::ParseLinkOptions(const char* szOptions,
     vector<string>::const_iterator opt_i = opts.begin();
 
     while (opt_i != opts.end()) {
-        if (*opt_i == "-s") 
+        if (*opt_i == "-s")
         {
             // Expect the file name as the next token and discard it
             //
             string flag = *opt_i;
-            if (++opt_i == opts.end()) 
+            if (++opt_i == opts.end())
             {
               UnrecognizedArgs.push_back(flag);
               UnrecognizedArgsLength += flag.length() + 1;
@@ -2255,39 +2254,39 @@ bool Intel::OpenCL::ClangFE::ParseLinkOptions(const char* szOptions,
               continue;
             }
         }
-        else if (*opt_i == "-cl-denorms-are-zero") 
+        else if (*opt_i == "-cl-denorms-are-zero")
         {
             bDenormsAreZero = true;
         }
-        else if (*opt_i == "-cl-no-signed-zeroes") 
+        else if (*opt_i == "-cl-no-signed-zeroes")
         {
             bNoSignedZeroes = true;
         }
-        else if (*opt_i == "-cl-unsafe-math-optimizations") 
+        else if (*opt_i == "-cl-unsafe-math-optimizations")
         {
             bUnsafeMath = true;
         }
-        else if (*opt_i == "-cl-finite-math-only") 
+        else if (*opt_i == "-cl-finite-math-only")
         {
             bFiniteMath = true;
         }
-        else if (*opt_i == "-cl-fast-relaxed-math") 
+        else if (*opt_i == "-cl-fast-relaxed-math")
         {
             bFastRelaxedMath = true;
         }
-        else if (*opt_i == "-create-library") 
+        else if (*opt_i == "-create-library")
         {
             bCreateLibrary = true;
         }
-        else if (*opt_i == "-enable-link-options") 
+        else if (*opt_i == "-enable-link-options")
         {
             bEnableLinkOptions = true;
         }
-        else if (opt_i->find("-dump-opt-llvm=") == 0) 
+        else if (opt_i->find("-dump-opt-llvm=") == 0)
         {
             // Dump file must be attached to the flag, but we ignore it for now
         }
-        else if (opt_i->find("-dump-opt-asm=") == 0) 
+        else if (opt_i->find("-dump-opt-asm=") == 0)
         {
             // Dump file must be attached to the flag, but we ignore it for now
         }

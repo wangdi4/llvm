@@ -286,6 +286,9 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
           break;
       }
       assert(FuncInfo && "Couldn't find this kernel in the kernel list");
+      if(NULL == FuncInfo)
+        throw Exceptions::CompilerException("Internal Error. FuncInfo is NULL");
+      
       MDNode *MDVecTHint = NULL;
       //look for vec_type_hint metadata
       for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
@@ -297,6 +300,9 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
         }
       }
       assert(MDVecTHint && "vec_type_hint info isn't available for this kernel");
+      if(NULL == MDVecTHint)
+        throw Exceptions::CompilerException("Internal Error. MDVecTHint is NULL");
+
       // Look for operand 2 - isSigned
       ConstantInt *isSigned = dyn_cast<ConstantInt>(MDVecTHint->getOperand(2));
       assert(isSigned && "isSigned should be a constant integer value");

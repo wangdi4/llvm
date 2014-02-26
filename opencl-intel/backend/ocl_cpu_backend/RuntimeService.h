@@ -42,7 +42,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     
     /// dtor
     virtual ~RuntimeServiceImpl(){
-      delete m_pBlockToKernelMapper;
+        delete m_pBlockToKernelMapper;
     }
     
     /// getter for IBlockToKernelMapper
@@ -61,6 +61,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   private:
     /// IBlockToKernelMapper object. This class owns it and is responsible for deleting
     IBlockToKernelMapper * m_pBlockToKernelMapper;
+  private:
+    /// hide copy ctor
+    RuntimeServiceImpl(const RuntimeServiceImpl& s);
+    /// hide assignment
+    void operator =(RuntimeServiceImpl&);
+
   };
 
   /// RuntimeService declaration

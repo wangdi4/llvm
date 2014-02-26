@@ -9,6 +9,7 @@ public:
 private:
     //Disallow copying
     IMutex( const IMutex& im ) {}
+    void operator =(const IMutex&);
 };
 
 

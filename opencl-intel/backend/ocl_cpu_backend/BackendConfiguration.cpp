@@ -20,7 +20,9 @@ File Name:  BackendConfiguration.cpp
 #include "exceptions.h"
 #include "CPUDetect.h"
 #include "cl_dev_backend_api.h"
+#if defined(INCLUDE_MIC_DEVICE)
 #include "MICSerializationService.h"
+#endif
 #include "TargetDescription.h"
 
 #include <assert.h>
@@ -86,28 +88,29 @@ GlobalCompilerConfig BackendConfiguration::GetGlobalCompilerConfig( const ICLDev
 {
     GlobalCompilerConfig config;
     config.LoadDefaults();
-    config.LoadConfig(); 
+    config.LoadConfig();
     config.ApplyRuntimeOptions(pBackendOptions);
     return config;
 }
 
-CompilerConfig BackendConfiguration::GetCPUCompilerConfig(const ICLDevBackendOptions* pBackendOptions ) const 
+CompilerConfig BackendConfiguration::GetCPUCompilerConfig(const ICLDevBackendOptions* pBackendOptions ) const
 {
     CompilerConfig config;
     config.LoadDefaults();
-    config.LoadConfig(); 
+    config.LoadConfig();
     config.ApplyRuntimeOptions(pBackendOptions);
-    return config; 
+    return config;
 }
-
+#if defined(INCLUDE_MIC_DEVICE)
 MICCompilerConfig BackendConfiguration::GetMICCompilerConfig(const ICLDevBackendOptions* pBackendOptions ) const
 {
     MICCompilerConfig config;
     config.LoadDefaults();
-    config.LoadConfig();  
+    config.LoadConfig();
     config.ApplyRuntimeOptions(pBackendOptions);
-    return config; 
+    return config;
 }
+#endif
 
 void GlobalCompilerConfig::LoadDefaults()
 {
@@ -150,17 +153,17 @@ void CompilerConfig::LoadConfig()
         m_cpuArch = pEnv;
     }
 
-    if (const char *pEnv = getenv("VOLCANO_TRANSPOSE_SIZE")) 
+    if (const char *pEnv = getenv("VOLCANO_TRANSPOSE_SIZE"))
     {
         unsigned int size;
-        if ((std::stringstream(pEnv) >> size).fail()) 
+        if ((std::stringstream(pEnv) >> size).fail())
         {
             throw  Exceptions::BadConfigException("Failed to load the transpose size from environment");
         }
         m_transposeSize = ETransposeSize(size);
     }
 
-    if (const char *pEnv = getenv("VOLCANO_CPU_FEATURES")) 
+    if (const char *pEnv = getenv("VOLCANO_CPU_FEATURES"))
     {
         // The validity of the cpud features are checked upon parsing of optimizer options
         m_cpuFeatures = pEnv;
@@ -177,14 +180,15 @@ void CompilerConfig::LoadConfig()
 #endif
 }
 
+#if defined(INCLUDE_MIC_DEVICE)
 void MICCompilerConfig::LoadConfig()
 {
     //TODO: Add validation code
 
-    if (const char *pEnv = getenv("VOLCANO_TRANSPOSE_SIZE")) 
+    if (const char *pEnv = getenv("VOLCANO_TRANSPOSE_SIZE"))
     {
         unsigned int size;
-        if ((std::stringstream(pEnv) >> size).fail()) 
+        if ((std::stringstream(pEnv) >> size).fail())
         {
             throw  Exceptions::BadConfigException("Failed to load the transpose size from environment");
         }
@@ -201,6 +205,7 @@ void MICCompilerConfig::LoadConfig()
     }
 #endif
 }
+#endif
 
 void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
 {
@@ -226,10 +231,10 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
 
 bool CompilerConfig::IsValidTransposeSize()
 {
-    if(m_transposeSize != TRANSPOSE_SIZE_AUTO && 
+    if(m_transposeSize != TRANSPOSE_SIZE_AUTO &&
        m_transposeSize != TRANSPOSE_SIZE_1 &&
        m_transposeSize != TRANSPOSE_SIZE_4 &&
-       m_transposeSize != TRANSPOSE_SIZE_8 && 
+       m_transposeSize != TRANSPOSE_SIZE_8 &&
        m_transposeSize != TRANSPOSE_SIZE_16)
     {
         return false;
@@ -237,6 +242,7 @@ bool CompilerConfig::IsValidTransposeSize()
     return true;
 }
 
+#if defined(INCLUDE_MIC_DEVICE)
 void MICCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
 {
     CompilerConfig::ApplyRuntimeOptions(pBackendOptions);
@@ -250,10 +256,10 @@ void MICCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackend
     if(0 != targetDescriptionSize)
     {
         char* pTargetDescriptionBlob = new char[targetDescriptionSize];
-        
-        bool ret = pBackendOptions->GetValue(CL_DEV_BACKEND_OPTION_TARGET_DESC_BLOB, pTargetDescriptionBlob, 
+
+        bool ret = pBackendOptions->GetValue(CL_DEV_BACKEND_OPTION_TARGET_DESC_BLOB, pTargetDescriptionBlob,
             &targetDescriptionSize);
-        if(!ret) 
+        if(!ret)
         {
             delete[] pTargetDescriptionBlob;
             throw Exceptions::BadConfigException("Failed to get target description");
@@ -261,13 +267,13 @@ void MICCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackend
 
         MICSerializationService mss(NULL);
         TargetDescription* pTarget = NULL;
-        
+
         // check if error
-        cl_dev_err_code errCode = 
+        cl_dev_err_code errCode =
             mss.DeSerializeTargetDescription(&pTarget, pTargetDescriptionBlob, targetDescriptionSize);
         delete[] pTargetDescriptionBlob;
 
-        if(CL_DEV_SUCCESS != errCode) 
+        if(CL_DEV_SUCCESS != errCode)
         {
             throw Exceptions::BadConfigException("Failed to read target description");
         }
@@ -276,5 +282,6 @@ void MICCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackend
         delete pTarget;
     }
 }
+#endif
 
 }}}
