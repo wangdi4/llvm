@@ -1193,29 +1193,32 @@ namespace intel {
     Intel::MetaDataUtils::KernelsInfoMap::const_iterator itr = mdUtils.begin_KernelsInfo();
     Intel::MetaDataUtils::KernelsInfoMap::const_iterator end = mdUtils.end_KernelsInfo();
     for (; itr != end; ++itr) {
-      unsigned int strideSize = 0;
       Intel::KernelInfoMetaDataHandle kimd = itr->second;
-      //Need to check if NoBarrierPath Value exists, it is not guaranteed that
-      //KernelAnalysisPass is running in all scenarios.
-      if (kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath()) {
-        //Kernel that should not be handled in Barrier path,
-        //set barrier buffer stride to default.
-        kimd->setBarrierBufferSize(strideSize);
-        continue;
-      }
       Function* pFunc = itr->first;
       assert( pFunc && "MetaData first operand is not of type Function!" );
       //Need to check if Vectorized Width Value exists, it is not guaranteed that
       //Vectorized is running in all scenarios.
       int vecWidth = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
-      strideSize = m_pDataPerValue->getStrideSize(pFunc);
+      unsigned int strideSize = m_pDataPerValue->getStrideSize(pFunc);
       strideSize = (strideSize + vecWidth - 1) / vecWidth;
-      kimd->setBarrierBufferSize(strideSize);
+
+      //Need to check if NoBarrierPath Value exists, it is not guaranteed that
+      //KernelAnalysisPass is running in all scenarios.
+      if (kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath()) {
+        kimd->setBarrierBufferSize(0);
+      } else {
+        kimd->setBarrierBufferSize(strideSize);
+      }
+
+      // CSSD100016517, CSSD100018743: workaround
+      // Private memory is always considered to be non-uniform. I.e. it is not shared by each WI per vector lane.
+      // If it is uniform (i.e. its content doesn't depend on non-uniform values) the private memory
+      // querry returns a smaller value than actual private memory usage. This sublte is taken into account
+      // in the querry for the maximum work-group.
+      kimd->setPrivateMemorySize(strideSize);
     }
     mdUtils.save(M.getContext());
   }
-
-
 } // namespace intel
 
 

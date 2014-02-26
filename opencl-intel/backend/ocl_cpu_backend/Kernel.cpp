@@ -21,7 +21,16 @@ File Name:  Kernel.cpp
 #include "ImplicitArgsUtils.h"
 #include "TypeAlignment.h"
 #include "exceptions.h"
-#include "cpu_dev_limits.h"
+
+#if defined (__MIC__) || defined(__MIC2__)
+  #include "mic_dev_limits.h"
+  #define MAX_WORK_GROUP_SIZE      MIC_MAX_WORK_GROUP_SIZE
+  #define MAX_WG_PRIVATE_SIZE      MIC_DEV_MAX_WG_PRIVATE_SIZE
+#else
+  #include "cpu_dev_limits.h"
+  #define MAX_WORK_GROUP_SIZE      CPU_MAX_WORK_GROUP_SIZE
+  #define MAX_WG_PRIVATE_SIZE      CPU_DEV_MAX_WG_PRIVATE_SIZE
+#endif
 
 #include <cstring>
 #include <cmath>
@@ -162,14 +171,11 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
         UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i]  = 1;
       }
 
-      const unsigned int kernelPrivateMemSize =
-          (unsigned int)m_pProps->GetPrivateMemorySize();
       unsigned int globalWorkSizeX = UniformImplicitArgs->GlobalSize[0];
-      unsigned int localSizeUpperLimit = min(
-          min(CPU_MAX_WORK_GROUP_SIZE, globalWorkSizeX), // localSizeMaxLimit_1
-          CPU_DEV_MAX_WG_PRIVATE_SIZE / (kernelPrivateMemSize > 0
-                                             ? kernelPrivateMemSize
-                                             : 1)); // localSizeMaxLimit_2
+      unsigned int localSizeUpperLimit = min(globalWorkSizeX,
+            m_pProps->GetMaxWorkGroupSize(MAX_WORK_GROUP_SIZE, MAX_WG_PRIVATE_SIZE));
+      assert(0 < localSizeUpperLimit &&
+             "clEnqueueNDRangeKernel must fail with CL_OUT_OF_RESOURCES earlier.");
 
       unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
       assert(minMultiplyFactor &&
@@ -200,57 +206,61 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs)
       const bool isLargeGlobalWGsize =
           ((workThreadUtils << simdUtilsLog) < globalWorkSize);
       if (isLargeGlobalWGsize) {
-        localSizeMaxLimit = min(
-            localSizeMaxLimit,
-            // Calculating lower bound for [sqrt(global/(WT*SIMD))*SIMD]
-            // Starting the search from this number improves the chances to
-            // find a local size that satisfies the "balance" factor.
-            // Optimal balanced local size applies the following:
-            // Let,
-            //   X - local size
-            //   Y - number of work groups = (global size / local size)
-            // Then: (X * workThreadUtils) == (Y << simdUtilsLog)
-            ((unsigned int)sqrt((float)(globalWorkSize/(workThreadUtils << simdUtilsLog)))) << (simdUtilsLog-minMultiplyFactorLog) );
+        if (m_pProps->HasGlobalSyncOperation()) {
+          localSizeMaxLimit = min(localSizeMaxLimit, globalWorkSize/(workThreadUtils << simdUtilsLog));
         } else {
-          //In this case we have few work-items, try satisfy as much as possible of work threads.
-          const unsigned int workGroupNumMinLimit = (workThreadUtils + (globalWorkSizeYZ-1)) / globalWorkSizeYZ;
-          localSizeMaxLimit = max(1, localSizeMaxLimit / workGroupNumMinLimit);
+          localSizeMaxLimit = min(
+               localSizeMaxLimit,
+               // Calculating lower bound for [sqrt(global/(WT*SIMD))*SIMD]
+               // Starting the search from this number improves the chances to
+               // find a local size that satisfies the "balance" factor.
+               // Optimal balanced local size applies the following:
+               // Let,
+               //   X - local size
+               //   Y - number of work groups = (global size / local size)
+               // Then: (X * workThreadUtils) == (Y << simdUtilsLog)
+               ((unsigned int)sqrt((float)(globalWorkSize/(workThreadUtils << simdUtilsLog)))) << (simdUtilsLog-minMultiplyFactorLog) );
         }
-        assert(localSizeMaxLimit <= globalWorkSizeX && "global size in dim X must be upper bound for local size");
-        //Search for max local size that satisfies the constraints
-        unsigned int newHeuristic = localSizeMaxLimit;
-        for (; newHeuristic>1; newHeuristic--) {
-          if ( globalWorkSizeX % newHeuristic == 0 ) {
-            break;
-          }
+      } else {
+        //In this case we have few work-items, try satisfy as much as possible of work threads.
+        const unsigned int workGroupNumMinLimit = (workThreadUtils + (globalWorkSizeYZ-1)) / globalWorkSizeYZ;
+        localSizeMaxLimit = max(1, localSizeMaxLimit / workGroupNumMinLimit);
+      }
+      assert(localSizeMaxLimit <= globalWorkSizeX && "global size in dim X must be upper bound for local size");
+      //Search for max local size that satisfies the constraints
+      unsigned int newHeuristic = localSizeMaxLimit;
+      for (; newHeuristic>1; newHeuristic--) {
+        if ( globalWorkSizeX % newHeuristic == 0 ) {
+          break;
         }
-        newHeuristic = newHeuristic << minMultiplyFactorLog;
-        //For small global WG size no need for checking the balance cost function
-        if(isLargeGlobalWGsize) {
-          //Cost function: check if we found a balanced local size compared to number of work groups
-          #define BALANCE_FACTOR (2)
-          const unsigned int workGroups = globalWorkSize / newHeuristic;
-          assert((workGroups << simdUtilsLog) >= (newHeuristic * workThreadUtils) && "Wrong balance factor calculation!");
-          const int balanceFactor = (workGroups << simdUtilsLog) - BALANCE_FACTOR * (newHeuristic * workThreadUtils);
-          if ( balanceFactor > 0 ) {
-            localSizeUpperLimit = min(localSizeUpperLimit, (unsigned int)sqrt((float)globalWorkSize));
-            assert(localSizeUpperLimit <= globalWorkSizeX && "global size in dim X must be upper bound for local size");
-            //Try to search better local size
-            unsigned int newHeuristicUp = localSizeMaxLimit+1;
-            for (; newHeuristicUp<=localSizeUpperLimit; newHeuristicUp++) {
-              if ( globalWorkSizeX % newHeuristicUp == 0 ) {
-                newHeuristicUp = newHeuristicUp << minMultiplyFactorLog;
-                //Check cost function and update heuristic if needed
-                const unsigned int workGroupsUp = globalWorkSize / newHeuristicUp;
-                const int balanceFactorUp = (newHeuristicUp * workThreadUtils) >= (workGroupsUp << simdUtilsLog) ?
-                  (newHeuristicUp * workThreadUtils) - BALANCE_FACTOR * (workGroupsUp << simdUtilsLog) :
-                  (workGroupsUp << simdUtilsLog) - BALANCE_FACTOR * (newHeuristicUp * workThreadUtils);
-                if (balanceFactorUp < balanceFactor) {
-                  //Found better local size
-                  newHeuristic = newHeuristicUp;
-                }
-                break;
-
+      }
+      newHeuristic = newHeuristic << minMultiplyFactorLog;
+      //For small global WG size no need for checking the balance cost function
+      if(isLargeGlobalWGsize) {
+        //Cost function: check if we found a balanced local size compared to number of work groups
+        #define BALANCE_FACTOR (2)
+        const unsigned int workGroups = globalWorkSize / newHeuristic;
+        assert((m_pProps->HasGlobalSyncOperation() || // do not check that work is balanced if we are trying to minimize the number of WGs
+            (workGroups << simdUtilsLog) >= (newHeuristic * workThreadUtils)) && "Wrong balance factor calculation!");
+        const int balanceFactor = (workGroups << simdUtilsLog) - BALANCE_FACTOR * (newHeuristic * workThreadUtils);
+        if ( balanceFactor > 0 ) {
+          localSizeUpperLimit = min(localSizeUpperLimit, (unsigned int)sqrt((float)globalWorkSize));
+          assert(localSizeUpperLimit <= globalWorkSizeX && "global size in dim X must be upper bound for local size");
+          //Try to search better local size
+          unsigned int newHeuristicUp = localSizeMaxLimit+1;
+          for (; newHeuristicUp<=localSizeUpperLimit; newHeuristicUp++) {
+            if ( globalWorkSizeX % newHeuristicUp == 0 ) {
+              newHeuristicUp = newHeuristicUp << minMultiplyFactorLog;
+              //Check cost function and update heuristic if needed
+              const unsigned int workGroupsUp = globalWorkSize / newHeuristicUp;
+              const int balanceFactorUp = (newHeuristicUp * workThreadUtils) >= (workGroupsUp << simdUtilsLog) ?
+                (newHeuristicUp * workThreadUtils) - BALANCE_FACTOR * (workGroupsUp << simdUtilsLog) :
+                (workGroupsUp << simdUtilsLog) - BALANCE_FACTOR * (newHeuristicUp * workThreadUtils);
+              if (balanceFactorUp < balanceFactor) {
+                //Found better local size
+                newHeuristic = newHeuristicUp;
+              }
+              break;
             }
           }
         }
@@ -497,7 +507,7 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
   BeforeExecution();
 //#endif
 
-  assert(pKernelUniformImplicitArgs->WorkDim <= CPU_MAX_WORK_GROUP_SIZE);
+  assert(pKernelUniformImplicitArgs->WorkDim <= MAX_WORK_DIM);
   static bool guard = true;
   if (false && guard) {
     guard = false; //Print only first group in NDRange to avoid huge dumps

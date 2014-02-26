@@ -113,7 +113,7 @@ bool cl20ExecutionModel()
 		iRet = clGetCommandQueueInfo(defaultQueue, CL_QUEUE_PROPERTIES, sizeof(reportedProps), &reportedProps, &szPropsSize);
 		CheckException(L"clGetCommandQueueInfo", CL_SUCCESS, iRet);
 		CheckException(L"clGetCommandQueueInfo", sizeof(reportedProps), szPropsSize);
-		CheckException(L"props == props[1]", defaultProps[1], reportedProps);
+		CheckException(L"props == props[1]", (cl_command_queue_properties)defaultProps[1], reportedProps);
 
 		cl_device_id reportedDevice;
 		size_t szDevIdSize;

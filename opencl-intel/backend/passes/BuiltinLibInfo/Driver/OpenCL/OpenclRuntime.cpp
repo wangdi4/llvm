@@ -214,15 +214,18 @@ bool OpenclRuntime::isWorkItemBuiltin(const std::string &name) const {
     CompilationUtils::isGlobalOffset(name) ||
     CompilationUtils::isGetNumGroups(name) || 
     (0 == name.compare("get_base_global_id.")) ||
-    // The following is applicabble for OpenCL 2.0 or more recent versions only.
-    (CompilationUtils::getCLVersionFromModuleOrDefault(*m_runtimeModule) >= OclVersion::CL_VER_2_0 &&
-      CompilationUtils::isGetEnqueuedLocalSize(name));
+    // The following is applicabble for OpenCL 2.0 or more recent versions.
+    CompilationUtils::isGetEnqueuedLocalSize(name);
 }
 
 bool OpenclRuntime::isSyncWithSideEffect(const std::string &func_name) const {
   using namespace Intel::OpenCL::DeviceBackend;
   if (CompilationUtils::isAsyncWorkGroupCopy(func_name)  ||
-      CompilationUtils::isAsyncWorkGroupStridedCopy(func_name) )
+      CompilationUtils::isAsyncWorkGroupStridedCopy(func_name) ||
+      CompilationUtils::isWorkGroupReserveReadPipe(func_name) ||
+      CompilationUtils::isWorkGroupCommitReadPipe(func_name) ||
+      CompilationUtils::isWorkGroupReserveWritePipe(func_name) ||
+      CompilationUtils::isWorkGroupCommitWritePipe(func_name))
     return true;
 
   return false;

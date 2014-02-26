@@ -27,7 +27,6 @@
 
 #include "cl_framework.h"
 #include "framework_proxy.h"
-#include "CL/cl_2_0.h"
 #ifndef _WIN32
 #include <cl_linux_utils.h>
 #include "cl_framework_alias_linux.h"
@@ -381,6 +380,15 @@ cl_sampler CL_API_CALL clCreateSampler(cl_context			context,
 	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_sampler, CreateSampler(context, normalized_coords, addressing_mode, filter_mode, errcode_ret));
 }
 SET_ALIAS(clCreateSampler);
+
+cl_sampler CL_API_CALL clCreateSamplerWithProperties(cl_context context,
+	const cl_sampler_properties *sampler_properties,
+	cl_int *errcode_ret)
+{
+	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_sampler, CreateSamplerWithProperties(context, sampler_properties, errcode_ret));
+}
+SET_ALIAS(clCreateSamplerWithProperties);
+
 cl_int CL_API_CALL clRetainSampler(cl_sampler sampler)
 {
 	CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, RetainSampler(sampler));
@@ -1507,9 +1515,24 @@ SET_ALIAS(clGetPipeInfo);
 
 cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context context,
 																cl_device_id device_id,
-																cl_queue_properties* properties,
+																const cl_queue_properties* properties,
 																cl_int* errcode_ret)
 {
-	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, properties, errcode_ret));
+	const cl_command_queue_properties* pCmdQueueProps = NULL;
+	std::vector<cl_command_queue_properties> propVec;
+	if (NULL != properties)
+	{		
+		const cl_queue_properties* pCurrProp = properties;
+		while (*pCurrProp != 0)
+		{
+			propVec.push_back((cl_command_queue_properties)*pCurrProp);
+			++pCurrProp;
+			propVec.push_back((cl_command_queue_properties)*pCurrProp);
+			++pCurrProp;
+		}
+		propVec.push_back(0);
+		pCmdQueueProps = &propVec[0];
+	}
+	CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, errcode_ret));
 }
 SET_ALIAS(clCreateCommandQueueWithProperties);

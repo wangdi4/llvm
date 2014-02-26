@@ -966,7 +966,7 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
 
     // Get additional info from instruction
     unsigned int vectorSize = m_pDL->getTypeAllocSize(dataType);
-    unsigned int elementSize = m_pDL->getTypeSizeInBits(dataType->getElementType()) / 8;
+    unsigned int elementSize = m_pDL->getTypeAllocSize(dataType->getElementType());
     V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
       "vector size should be a multiply of element size");
     unsigned numElements = vectorSize/elementSize;
@@ -1041,7 +1041,7 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
   if (isScalarizableLoadStoreType(dataType) && m_pDL) {
     // Get additional info from instruction
     unsigned int vectorSize = m_pDL->getTypeAllocSize(dataType);
-    unsigned int elementSize = m_pDL->getTypeSizeInBits(dataType->getElementType()) / 8;
+    unsigned int elementSize = m_pDL->getTypeAllocSize(dataType->getElementType());
     V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
       "vector size should be a multiply of element size");
     unsigned numElements = vectorSize/elementSize;

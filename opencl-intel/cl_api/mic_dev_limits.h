@@ -36,9 +36,6 @@
 #define ADJUST_SIZE_TO_DCU_LINE(X)       (((X)+MIC_DEV_DCU_LINE_SIZE-1) & (~(MIC_DEV_DCU_LINE_SIZE-1)))
 #define MIN_PARAM(X,Y) ((X)<(Y)?(X):(Y))
 
-// Minimum memory size allocate for single WI instance
-#define MIC_DEV_MIN_WI_PRIVATE_SIZE      (1024*sizeof(size_t))
-
 // Maximum number of arguments to be passed to the kernel
 #define MIC_MAX_PARAMETER_SIZE           1024
 #define MIC_MAX_PARAM_COUNT              (MIC_MAX_PARAMETER_SIZE/8)

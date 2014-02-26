@@ -288,6 +288,19 @@ function( remove_path PATHARG )
     set(ENV{PATH} "${NEW_PATH}")
 endfunction( remove_path )
 
+#
+# Adds the given path to the PATH environment 
+# Usage: add_path( PATH )
+#
+function( add_path PATHARG )
+    if(NOT WIN32)
+        set(PATH_DELIMITER ":")
+    endif(NOT WIN32)
+    
+    set( NEW_PATH ${PATHARG}${PATH_DELIMITER} $ENV{PATH})
+    set( ENV{PATH} "${NEW_PATH}")
+endfunction( add_path )
+
 
 #
 # Replaces a compiler option or switch `old' in `var' by `new'.
@@ -329,3 +342,45 @@ function(ocl_replace_compiler_option_to_dynamic)
     set(CMAKE_EXE_LINKER_FLAGS_RELEASE ${CMAKE_EXE_LINKER_FLAGS_RELEASE} PARENT_SCOPE)
     set(CMAKE_EXE_LINKER_FLAGS_DEBUG ${CMAKE_EXE_LINKER_FLAGS_DEBUG} PARENT_SCOPE)
 endfunction(ocl_replace_compiler_option_to_dynamic)
+
+
+#
+# Set compiler RTTI options according to the given flag
+#
+function(use_rtti val)
+    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+        if( ${val} )
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-fno-rtti" "-frtti")
+        else()
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-frtti" "-fno-rtti" )
+        endif()    
+    else(MSVC)
+        if( ${val} )
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR-" "/GR")
+        else()
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR" "/GR-" )
+        endif()    
+    endif()
+    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE )
+endfunction(use_rtti)
+    
+#
+# Set compiler Exception Handling options according to the given flag
+#
+function(use_eh val)
+    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+        if( ${val} )
+            remove_definitions( -fno-exceptions )
+        else()
+            add_definitions( -fno-exceptions )
+        endif()    
+    else(MSVC)
+        if( ${val} )
+              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHs-c-" "/EHsc" )
+              add_definitions( /D_HAS_EXCEPTIONS=1 )
+        else()
+              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHsc" "/EHs-c-")
+              add_definitions( /D_HAS_EXCEPTIONS=0 )
+        endif()    
+    endif()
+endfunction(use_eh)

@@ -278,7 +278,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // workaround to overcome klockwork issue
       return;
     }
-    
+
 #ifdef __APPLE__
       NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
   if( NULL == MDArgInfo )
@@ -366,7 +366,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           // check kernel is block_invoke kernel
           // in that case 0 argument is block_literal pointer
           // update with special type
-          // should be before handling ptrs by addr space 
+          // should be before handling ptrs by addr space
           if((i == 0) && BlockLiteralSize){
             curArg.type = CL_KRNL_ARG_PTR_BLOCK_LITERAL;
             curArg.size_in_bytes = BlockLiteralSize;
@@ -425,11 +425,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                 MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
                 assert(tag->getString() == "image" && "image MD arg type is not 'image'");
                 tag = dyn_cast<MDString>(tmpMD->getOperand(1));
-                curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY : 
+                curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY :
                                 CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
   #else
                 isMemoryObject = true;
-                curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ? 
+                curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ?
                                 CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
   #endif
                 break;
@@ -553,7 +553,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   StringRef CompilationUtils::fetchCompilerOption(const Module &M, char const* prefix) {
-    /*  
+    /*
     Example of the metadata:
     !opencl.compiler.options = !{!0}
     !0 = metadata !{metadata !"-cl-std=CL2.0"}
@@ -920,7 +920,7 @@ bool CompilationUtils::isWorkGroupBuiltin(const std::string& S) {
 }
 
 bool CompilationUtils::isWorkGroupUniformBuiltin(const std::string& S, const Module* pModule) {
-  return CompilationUtils::isAsyncWorkGroupCopy(S) || 
+  return CompilationUtils::isAsyncWorkGroupCopy(S) ||
          CompilationUtils::isAsyncWorkGroupStridedCopy(S) ||
          (OclVersion::CL_VER_2_0 <= getCLVersionFromModuleOrDefault(*pModule) && (
             CompilationUtils::isWorkGroupReserveReadPipe(S) ||
@@ -957,6 +957,15 @@ bool CompilationUtils::isWorkGroupUniform(const std::string& S) {
          isWorkGroupReduceAdd(S) ||
          isWorkGroupReduceMin(S) ||
          isWorkGroupReduceMax(S);
+}
+
+bool CompilationUtils::isAtomicBuiltin(const std::string& funcName){
+  // S is atomic built-in name if
+  // - it's mangled (only built-in function names are mangled)
+  // - it starts with "atom" (only atomic built-ins has "atom" prefix)
+  if (!isMangledName(funcName.c_str()))
+    return false;
+  return std::string(stripName(funcName.c_str())).compare(0, 4, "atom") == 0;
 }
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

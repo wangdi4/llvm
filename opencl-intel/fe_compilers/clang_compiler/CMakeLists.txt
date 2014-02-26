@@ -6,13 +6,16 @@
 use_eh(TRUE)
 use_rtti(FALSE)
 
-if( WIN32 )
+if( USE_COMMON_CLANG )
     add_subdirectory( CLElfLib  )
 endif()
 
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 
+#
+# Source code 
+#
 set(TARGET_INCLUDE_FILES
     clang_compiler.h
     clang_device_info.h
@@ -33,6 +36,15 @@ set(TARGET_SOURCE_FILES
 if (WIN32)
     list( APPEND TARGET_SOURCE_FILES
             dllmain_win32.cpp
+        )
+else()
+    list( APPEND TARGET_SOURCE_FILES
+            dllmain_linux.cpp
+        )
+endif()
+
+if (USE_COMMON_CLANG)
+    list( APPEND TARGET_SOURCE_FILES
             translation_chain.cpp
             translation_controller.cpp
             translator.cpp
@@ -44,19 +56,24 @@ if (WIN32)
             TranslationBlock.h
             translator.h
         )
-else()
-    list( APPEND TARGET_SOURCE_FILES
-            dllmain_linux.cpp
-        )
 endif()
 
+#
+# Compilation flags
+#
 set( CMAKE_CXX_FLAGS_DEBUG
   "${CMAKE_CXX_FLAGS_DEBUG} -D OCL_DEV_BACKEND_PLUGINS -D OCLFRONTEND_PLUGINS"
 )
 
 add_definitions( -D__STDC_LIMIT_MACROS )
 add_definitions( -D__STDC_CONSTANT_MACROS )
+if(USE_COMMON_CLANG)
+    add_definitions( -DUSE_COMMON_CLANG )
+endif()
 
+#
+# Include directories
+#
 include_directories( AFTER
             ${LLVM_INCLUDE_DIR}
             ${CMAKE_SOURCE_DIR}/backend/metadata_api
@@ -68,38 +85,29 @@ include_directories( AFTER
             ${CMAKE_BINARY_DIR}/include
             )
 
-            
 if (WIN32)
-    include_directories( AFTER
+    include_directories( AFTER 
         ../common/windows/headers
-        CLElfLib
     )
 else()
     include_directories( AFTER
         ../common/linux/headers
     )
-endif()    
+endif()
             
-#if (NOT WIN32)
-#    set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
-#    set(HW_UTILS_PROJ_NAME cl_hw_utils)
-#endif (NOT WIN32)
+if (USE_COMMON_CLANG)
+    include_directories( AFTER
+        CLElfLib
+    )
+endif()    
 
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         add_definitions( -DRESOURCE_X64 )
     endif (CMAKE_SIZEOF_VOID_P EQUAL 8) 
-    
-    if (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2008
-        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2008/${OCL_SYS_DEPENDENT_SUBDIR} )
-    else (${MSVC_VERSION} EQUAL 1500)
-        # Visual Studio 2010
-        set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${IMPLIB_SUBDIR}/VS2010/${OCL_SYS_DEPENDENT_SUBDIR} )
-    endif (${MSVC_VERSION} EQUAL 1500)
-else (WIN32)
-    set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
-endif (WIN32)
+endif ()
+
+set( TBB_LIB_DIR ${OCL_SOURCE_DIR}/externals/tbb/${OCL_SYS_DEPENDENT_IMPLIB_SUBDIR} )
 
 link_directories( 
     ${TBB_LIB_DIR}
@@ -116,73 +124,71 @@ install(TARGETS ${TARGET_NAME}
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION bin)
 
-if (WIN32)
-target_link_libraries( ${TARGET_NAME} 
-                       task_executor${BUILD_PLATFORM}
-                       CLElfLib
-                       OclPluginManager
-                       metadataapi
-                       dynamic_load
-                       cl_sys_utils
-                       SPIRMetadataAdder
-                       ${LLVM_MODULE_LIBS}
-)
+if (USE_COMMON_CLANG)
+    target_link_libraries( ${TARGET_NAME} 
+                           CLElfLib
+                           OclPluginManager
+                           metadataapi
+                           dynamic_load
+                           cl_logger
+                           cl_sys_utils
+                           SPIRMetadataAdder
+                           ${LLVM_MODULE_LIBS}
+    )
 else() 
-
-if (NOT ANDROID)
-    list(APPEND LINK_LIBS pthread)
-endif (NOT ANDROID)
-
-
-# The list of clang libraries is taken from clang makefile
-# (build/tools/clang/tools/driver/CMakeFiles/clang.dir/build.make)
-# All duplicate libraries are there on purpose 
-target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
-                                      SPIRMetadataAdder
-                                      cl_sys_utils
-                                      cl_logger
-                                      LLVMCppBackendCodeGen
-                                      LLVMCppBackendInfo
-                                      task_executor${BUILD_PLATFORM}
-                                      clangFrontendTool
-                                      clangAST
-                                      clangAnalysis
-                                      clangBasic
-                                      clangCodeGen
-                                      clangDriver
-                                      clangEdit
-                                      clangFrontend
-                                      clangLex
-                                      clangParse
-                                      clangEdit
-                                      clangARCMigrate
-                                      clangRewriteCore
-                                      clangRewriteFrontend
-                                      clangSema
-                                      clangSerialization
-                                      clangStaticAnalyzerFrontend
-                                      clangStaticAnalyzerCheckers
-                                      clangStaticAnalyzerCore
-                                      clangRewriteFrontend
-                                      clangFrontend
-                                      clangDriver
-                                      clangSerialization
-                                      clangRewriteCore
-                                      clangParse
-                                      clangSema
-                                      clangAnalysis
-                                      clangEdit
-                                      clangAST
-                                      clangLex
-                                      clangBasic
-                                      OclPluginManager
-                                      #CLElfLib
-                                      metadataapi
-                                      dynamic_load
-                                      cl_sys_utils
-                                      ${LLVM_MODULE_LIBS}
-                                      )
+    # The list of clang libraries is taken from clang makefile
+    # (build/tools/clang/tools/driver/CMakeFiles/clang.dir/build.make)
+    # All duplicate libraries are there on purpose 
+    target_link_libraries( ${TARGET_NAME} ${HW_UTILS_PROJ_NAME}
+                                          SPIRMetadataAdder
+                                          cl_sys_utils
+                                          cl_logger
+#                                          LLVMCppBackendCodeGen
+#                                          LLVMCppBackendInfo
+                                          task_executor${BUILD_PLATFORM}
+                                          clangFrontendTool
+                                          clangAST
+                                          clangAnalysis
+                                          clangBasic
+                                          clangCodeGen
+                                          clangDriver
+                                          clangEdit
+                                          clangFrontend
+                                          clangLex
+                                          clangParse
+                                          clangEdit
+                                          clangARCMigrate
+                                          clangRewriteCore
+                                          clangRewriteFrontend
+                                          clangSema
+                                          clangSerialization
+                                          clangStaticAnalyzerFrontend
+                                          clangStaticAnalyzerCheckers
+                                          clangStaticAnalyzerCore
+                                          clangRewriteFrontend
+                                          clangFrontend
+                                          clangDriver
+                                          clangSerialization
+                                          clangRewriteCore
+                                          clangParse
+                                          clangSema
+                                          clangAnalysis
+                                          clangEdit
+                                          clangAST
+                                          clangLex
+                                          clangBasic
+                                          OclPluginManager
+                                          #CLElfLib
+                                          metadataapi
+                                          dynamic_load
+                                          cl_sys_utils
+                                          ${LLVM_MODULE_LIBS}
+                                          )
 endif()
+
+if (NOT ANDROID AND NOT WIN32)
+    list(APPEND LINK_LIBS pthread)
+endif ()
 
 set( OPENCL_PCH_OUT_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
 
@@ -193,13 +199,13 @@ else()
 endif()
 
 set( CLANG_OPTIONS -cc1
-                      -x cl
-                      -O0
-                      -emit-pch 
-                      -I ${OCL_CLANG_HEADERS}
-                      -D __IMAGE2D_DEPTH__
-                      -D __WRITE_IMAGE3D__
-                      )
+                   -x cl
+                   -O0
+                   -emit-pch 
+                   -I ${OCL_CLANG_HEADERS}
+                   -D __IMAGE2D_DEPTH__
+                   -D __WRITE_IMAGE3D__
+                   )
 
 set( CLANG_OPTIONS_OPENCL_12
                     ${CLANG_OPTIONS}
@@ -210,7 +216,6 @@ set( CLANG_OPTIONS_OPENCL_20
                     -cl-std=CL2.0
                     -D__OPENCL_C_VERSION__=200
                       )
-
 
 set( REDIRECTION_OPTION < ${OCL_CLANG_HEADERS}/opencl_.h
 )
@@ -236,15 +241,14 @@ add_custom_command( TARGET ${TARGET_NAME}
                     COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
                     DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
-                   )
-		   
+)
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
                     COMMAND ${CLANG} ${CLANG_OPTIONS_OPENCL_12} -triple i686-pc-linux -o ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch ${REDIRECTION_OPTION}
                     COMMENT "Generate non-optimized Intel OpenCL precompiled headers"
                     DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
-                   )
+)
 
 add_custom_command( TARGET ${TARGET_NAME}
                     PRE_BUILD
@@ -252,13 +256,27 @@ add_custom_command( TARGET ${TARGET_NAME}
                     COMMENT "Generate non-optimized Intel OpenCL20 precompiled headers"
                     DEPENDS ${CLANG} ${OCL_CLANG_HEADERS}/opencl_.h
                     VERBATIM
-                   )
-		   
+)
+
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_.pch DESTINATION bin)
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_.pch DESTINATION bin)
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl_android_.pch DESTINATION bin)
 install(FILES ${OPENCL_PCH_OUT_DIR}/opencl20_android_.pch DESTINATION bin)
 install(DIRECTORY ${OCL_CLANG_HEADERS}/ DESTINATION include/fe_include PATTERN *.h PATTERN .svn EXCLUDE )
+
+if( USE_COMMON_CLANG )
+    string(REPLACE "\${CMAKE_CFG_INTDIR}" "\${BUILD_TYPE}" COMMON_CLANG_INSTALL_PATH ${COMMON_CLANG_PATH})
+
+    install(FILES ${COMMON_CLANG_INSTALL_PATH}/igdfcl${ADDR}.dll 
+            DESTINATION bin 
+            RENAME common_clang${ADDR}.dll)
+    install(FILES ${COMMON_CLANG_INSTALL_PATH}/igdfcl${ADDR}.pdb 
+            DESTINATION bin 
+            RENAME common_clang${ADDR}.pdb)
+    install(FILES ${COMMON_CLANG_INSTALL_PATH}/igdfcl${ADDR}.lib
+            DESTINATION bin 
+            RENAME common_clang${ADDR}.lib)
+endif()
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER clang_compiler )
 

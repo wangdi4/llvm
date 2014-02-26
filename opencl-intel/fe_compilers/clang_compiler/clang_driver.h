@@ -63,7 +63,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
                                    const Intel::OpenCL::Utils::BasicCLConfigWrapper& config);
     
         int Compile();
-        #ifdef _WIN32
+        #ifdef USE_COMMON_CLANG
         int StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType);
         void ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs );
         #endif
@@ -77,7 +77,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         virtual ~ClangFECompilerCompileTask();
 
         void PrepareArgumentList(ArgListType &list, ArgListType &BEArgList, const char *buildOpts);
-        void* LoadPchResourceBuffer();
+        void* LoadPchResourceBuffer(const char* prc_id);
 
         Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* m_pProgDesc;
         Intel::OpenCL::ClangFE::CLANG_DEV_INFO    m_sDeviceInfo;
@@ -111,7 +111,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         ClangFECompilerLinkTask(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc);
         
         int Link();
-        #ifdef _WIN32
+        #ifdef USE_COMMON_CLANG
         int StoreOutput(TC::STB_TranslateOutputArgs* pOutputArgs, TC::TB_DATA_FORMAT llvmBinaryType);
         void ClearOutput( TC::STB_TranslateOutputArgs* pOutputArgs );
         #endif
@@ -165,7 +165,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         int GetKernelArgInfo(const void*    pBin,
                              const char*    szKernelName);
         
-        #ifdef _WIN32
+        #ifdef USE_COMMON_CLANG
         int TranslateArgsInfoValues(TC::STB_GetKernelArgsInfoArgs* pKernelArgsInfo);
         #endif
         

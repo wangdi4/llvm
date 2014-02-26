@@ -12,76 +12,54 @@ set(CMAKE_MODULE_PATH
     "${CMAKE_SOURCE_DIR}/cmake/Modules/"
     "${CMAKE_SOURCE_DIR}/cmake_utils/"
 )
-
-function(use_rtti val)
-    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-        if( ${val} )
-            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-fno-rtti" "-frtti")
-        else()
-            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-frtti" "-fno-rtti" )
-        endif()    
-    else(MSVC)
-        if( ${val} )
-            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR-" "/GR")
-        else()
-            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR" "/GR-" )
-        endif()    
-    endif()
-    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE )
-endfunction(use_rtti)
-    
-function(use_eh val)
-    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-        if( ${val} )
-            remove_definitions( -fno-exceptions )
-        else()
-            add_definitions( -fno-exceptions )
-        endif()    
-    else(MSVC)
-        if( ${val} )
-              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHs-c-" "/EHsc" )
-              add_definitions( /D_HAS_EXCEPTIONS=1 )
-        else()
-              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHsc" "/EHs-c-")
-              add_definitions( /D_HAS_EXCEPTIONS=0 )
-        endif()    
-    endif()
-endfunction(use_eh)
+message(STATUS "CMAKE_MODULE_PATH: ${CMAKE_MODULE_PATH}")
+message(STATUS "CMAKE_ROOT: ${CMAKE_ROOT}")
+include( cmake_utils/CMakeFuncs.txt )
 
 if (WIN32)
-  # Add definitions that make MSVC much less annoying.
-   add_definitions(
-    # For some reason MS wants to deprecate a bunch of standard functions...
-    -D_CRT_SECURE_NO_DEPRECATE
-    -D_CRT_SECURE_NO_WARNINGS
-    -D_CRT_NONSTDC_NO_DEPRECATE
-    -D_CRT_NONSTDC_NO_WARNINGS
-    -D_SCL_SECURE_NO_DEPRECATE
-    -D_SCL_SECURE_NO_WARNINGS
+    include( CMake_windows_tools )
+elseif(APPLE)
+    include( CMake_apple_tools )
+elseif( ANDROID)
+    include( CMake_android_tools )
+else()
+    include( CMake_linux_tools )
+endif ()
 
-    -wd4065 # Suppress 'switch statement contains 'default' but no 'case' labels'
-    -wd4090 # Suppress 'function : different 'const' qualifiers'
-    -wd4146 # Suppress 'unary minus operator applied to unsigned type, result still unsigned'
-    -wd4180 # Suppress 'qualifier applied to function type has no meaning; ignored'
-    -wd4190 # Suppress 'function has C linkage is specified, but returns type which is incompatible with C'
-    -wd4224 # Suppress 'nonstandard extension used : formal parameter 'identifier' was previously defined as a type'
-    -wd4244 # Suppress ''argument' : conversion from 'type1' to 'type2', possible loss of data'
-    -wd4267 # Suppress ''var' : conversion from 'size_t' to 'type', possible loss of data'
-    -wd4275 # Suppress 'An exported class was derived from a class that was not exported.'
-    -wd4291 # Suppress ''declaration' : no matching operator delete found; memory will not be freed if initialization throws an exception'
-    -wd4345 # Suppress 'behavior change: an object of POD type constructed with an initializer of the form () will be default-initialized'
-    -wd4351 # Suppress 'new behavior: elements of array 'array' will be default initialized'
-    -wd4355 # Suppress ''this' : used in base member initializer list'
-    -wd4503 # Suppress ''identifier' : decorated name length exceeded, name was truncated'
-    -wd4551 # Suppress 'function call missing argument list'
-    -wd4624 # Suppress ''derived class' : destructor could not be generated because a base class destructor is inaccessible'
-    -wd4715 # Suppress ''function' : not all control paths return a value'
-    -wd4800 # Suppress ''type' : forcing value to bool 'true' or 'false' (performance warning)'
-    -wd4065 # Suppress 'switch statement contains 'default' but no 'case' labels'
-    -wd4181 # Suppress 'qualifier applied to reference type; ignored'
-    -w14062 # Promote "enumerator in switch of enum is not handled" to level 1 warning.
-      -wd4985 # Supress 'MSVS9 Math.h "ceil": attributes not present on previous declaration'    
-  )
+if (WIN32)
+    # Add definitions that make MSVC much less annoying.
+    add_definitions(
+        # For some reason MS wants to deprecate a bunch of standard functions...
+        -D_CRT_SECURE_NO_DEPRECATE
+        -D_CRT_SECURE_NO_WARNINGS
+        -D_CRT_NONSTDC_NO_DEPRECATE
+        -D_CRT_NONSTDC_NO_WARNINGS
+        -D_SCL_SECURE_NO_DEPRECATE
+        -D_SCL_SECURE_NO_WARNINGS
+
+        -wd4065 # Suppress 'switch statement contains 'default' but no 'case' labels'
+        -wd4090 # Suppress 'function : different 'const' qualifiers'
+        -wd4146 # Suppress 'unary minus operator applied to unsigned type, result still unsigned'
+        -wd4180 # Suppress 'qualifier applied to function type has no meaning; ignored'
+        -wd4190 # Suppress 'function has C linkage is specified, but returns type which is incompatible with C'
+        -wd4224 # Suppress 'nonstandard extension used : formal parameter 'identifier' was previously defined as a type'
+        -wd4244 # Suppress ''argument' : conversion from 'type1' to 'type2', possible loss of data'
+        -wd4267 # Suppress ''var' : conversion from 'size_t' to 'type', possible loss of data'
+        -wd4275 # Suppress 'An exported class was derived from a class that was not exported.'
+        -wd4291 # Suppress ''declaration' : no matching operator delete found; memory will not be freed if initialization throws an exception'
+        -wd4345 # Suppress 'behavior change: an object of POD type constructed with an initializer of the form () will be default-initialized'
+        -wd4351 # Suppress 'new behavior: elements of array 'array' will be default initialized'
+        -wd4355 # Suppress ''this' : used in base member initializer list'
+        -wd4503 # Suppress ''identifier' : decorated name length exceeded, name was truncated'
+        -wd4551 # Suppress 'function call missing argument list'
+        -wd4624 # Suppress ''derived class' : destructor could not be generated because a base class destructor is inaccessible'
+        -wd4715 # Suppress ''function' : not all control paths return a value'
+        -wd4800 # Suppress ''type' : forcing value to bool 'true' or 'false' (performance warning)'
+        -wd4065 # Suppress 'switch statement contains 'default' but no 'case' labels'
+        -wd4181 # Suppress 'qualifier applied to reference type; ignored'
+        -w14062 # Promote "enumerator in switch of enum is not handled" to level 1 warning.
+        -wd4985 # Supress 'MSVS9 Math.h "ceil": attributes not present on previous declaration'    
+    )
   
     #C flags
     set( CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /MTd")
@@ -91,17 +69,6 @@ if (WIN32)
     set( CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   /MTd")
     set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
 endif (WIN32)
-
-include( cmake_utils/CMakeFuncs.txt )
-if (WIN32)
-    include( cmake_utils/CMake_windows_tools.cmake )
-elseif(APPLE)
-    include( cmake_utils/CMake_apple_tools.cmake )
-elseif( ANDROID)
-    include( CMake_android_tools )
-else()
-    include( cmake_utils/CMake_linux_tools.cmake )
-endif ()
 
 if(CMAKE_CROSSCOMPILING)
     set(CX_NATIVE_TG_DIR "${CMAKE_BINARY_DIR}/native")
@@ -216,11 +183,13 @@ option(INCLUDE_MIC_DEVICE "Include MIC device Into Build"  OFF)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
 option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
 option(ENABLE_KNL "Enables KNL device development"  OFF)
+option(USE_COMMON_CLANG "Use VPG supplied common clang dll instead of internale implementation" OFF)
 
 # find the used external packages
 
 # LLVM 
 find_package(LLVM REQUIRED)
+
 # QTGUI
 if (BUILD_QTGUI AND NOT ANDROID)
     set( QT_VERSION "4.8.1" )
@@ -238,15 +207,17 @@ if (BUILD_QTGUI AND NOT ANDROID)
         # to find the appropriate version. 
         # The trick is to set the correct installation directory on the fly
         # by changing the registry information and removing the default paths
-        remove_path("c:\\Qt\\${QT_VERSION}\\VS2010-64\\bin")
-        remove_path("c:\\Qt\\${QT_VERSION}\\VS2010\\bin")
-    execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions /v DefaultQtVersion /d ${QT_VERSION} /f)
+        remove_path("c:\\Qt\\4.8.1\\VS2010-64\\bin")
+        remove_path("c:\\Qt\\4.8.1\\VS2010\\bin")
+        execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions /v DefaultQtVersion /d ${QT_VERSION} /f)
         if(BUILD_X64)
-            execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions\\${QT_VERSION} /v InstallDir /d c:\\qt\\${QT_VERSION}\\vs2010-64 /f)
+            execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions\\${QT_VERSION} /v InstallDir /d c:\\qt\\${QT_VERSION}\\vs2012-64 /f)
         else(BUILD_X64)
-            execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions\\${QT_VERSION} /v InstallDir /d c:\\qt\\${QT_VERSION}\\vs2010 /f)
+            execute_process(COMMAND "reg" add HKCU\\Software\\Trolltech\\Versions\\${QT_VERSION} /v InstallDir /d c:\\qt\\${QT_VERSION}\\vs2012 /f)
         endif(BUILD_X64)
-    endif()
+    else(WIN32)
+        add_path("/usr/local/DigiaQtCommercialSDK/Desktop/${QT_VERSION}/gcc-64/bin")
+    endif(WIN32)
     
     find_package( Qt4 REQUIRED)
 
@@ -304,7 +275,7 @@ project(OCL)
 set( BUILDVER_WC_REVISION 0)
 if (GIT_REVISIONS)
     find_package(Git REQUIRED)
-    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --long
+    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --long --match=trunk
                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                     OUTPUT_VARIABLE GIT_DESCRIPTION)
     STRING(REGEX MATCH ".+-([0-9]*)-[0-9a-zA-Z]+" GIT_VERSION ${GIT_DESCRIPTION})
@@ -331,7 +302,7 @@ file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 #endif\n
 #define BUILDVERSION16BIT_MAJOR ${BUILDVER_16_BIT_MAJOR}\n
 #define BUILDVERSION16BIT_MINOR ${BUILDVER_16_BIT_MINOR}\n
-#define VERSIONSTRING \"4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
+#define VERSIONSTRING \"4.1.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
 #define IOCVERSIONSTRING \"1.4.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
 #define KBVERSIONSTRING \"1.2.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
 
@@ -339,7 +310,7 @@ if(WIN32)
     file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=3.1.${BUILDVER_WC_REVISION}")
     install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
-file(WRITE ${OCL_BINARY_DIR}/version.txt "4.0.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}")
+file(WRITE ${OCL_BINARY_DIR}/version.txt "4.1.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}")
 
 #copy the version file to install folder
 install(FILES ${OCL_BINARY_DIR}/version.txt DESTINATION ./)
@@ -350,7 +321,7 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${OCL_BINARY_DIR}/
 # vars
 
 if(CONFORMANCE_LIST)
-string(REPLACE " " ";" CONFORMANCE_LIST ${CONFORMANCE_LIST})
+    string(REPLACE " " ";" CONFORMANCE_LIST ${CONFORMANCE_LIST})
 endif()
 
 add_definitions (-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
@@ -560,6 +531,9 @@ if (WIN32)
     install(DIRECTORY tools/ocl_dev/OCLConverter2012/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter2012 PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/ocl_dev/OCLConverter2013/bin DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OCLConverter2013 PATTERN .svn EXCLUDE)
 
+    install(DIRECTORY tools/OfflineCompiler/OpenCLWizard/Installer/VS2010    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartInstaller PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OfflineCompiler/OpenCLWizard/Installer/VS2012    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartInstaller PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OfflineCompiler/OpenCLWizard/Installer/VS2013    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartInstaller PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/IncludeFiles/opencv2/core    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples/IncludeFiles/opencv2 PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/IncludeFiles/opencv2/highgui DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples/IncludeFiles/opencv2 PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/IncludeFiles/opencv2/imgproc DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples/IncludeFiles/opencv2 PATTERN .svn EXCLUDE)
@@ -568,11 +542,11 @@ if (WIN32)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/LibFiles/x86/vc10 DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples/LibFiles/x86 PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/LibFiles/x86/vc11 DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples/LibFiles/x86 PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/CommonFiles    DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/ConvertRGB2YUV DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/BlockMaxFilter DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/BoxFilter      DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/DilateFilter   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
-    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/RowFilter      DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/convert_rgb_to_yuv DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/block_max_filter DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/box_filter      DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/dilate_filter   DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
+    install(DIRECTORY tools/OpenCLWizard/JumpStartSamples/row_filter      DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/JumpStartSamples PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/JumpStartTemplate               DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration                  PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/VCProjects_2010  DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard PATTERN .svn EXCLUDE)
     install(DIRECTORY tools/OpenCLWizard/VCProjects_2012  DESTINATION ${MISC_INSTALLER_FOLDER}/VS_Integration/OpenCL_Wizard PATTERN .svn EXCLUDE)

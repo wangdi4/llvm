@@ -279,7 +279,7 @@ clCreateCommandQueue(cl_context                     context,
 CL_API_ENTRY cl_command_queue CL_API_CALL
 clCreateCommandQueueWithProperties(cl_context             context, 
 								   cl_device_id           device, 
-								   cl_queue_properties*   properties,
+								   const cl_queue_properties*   properties,
 								   cl_int *               errcode_ret) CL_API_SUFFIX__VERSION_2_0
 {
 	KHR_ICD_VALIDATE_HANDLE_RETURN_HANDLE(context, CL_INVALID_CONTEXT);
@@ -431,6 +431,18 @@ clCreateSampler(cl_context          context,
         addressing_mode, 
         filter_mode,
         errcode_ret);
+}
+
+CL_API_ENTRY cl_sampler CL_API_CALL
+clCreateSamplerWithProperties(cl_context context,
+							  const cl_sampler_properties *sampler_properties,
+							  cl_int *errcode_ret) CL_API_SUFFIX__VERSION_2_0
+{
+	KHR_ICD_VALIDATE_HANDLE_RETURN_HANDLE(context, CL_INVALID_CONTEXT);
+	return context->dispatch->clCreateSamplerWithProperties(
+		context,
+		sampler_properties,
+		errcode_ret);
 }
 
 CL_API_ENTRY cl_int CL_API_CALL
@@ -1416,6 +1428,14 @@ clGetExtensionFunctionAddressForPlatform(cl_platform_id platform,
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clRetainDeviceEXT);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clReleaseDeviceEXT);
 
+    /* cl_khr_egl_image */
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromEGLImageKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueAcquireEGLObjectsKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueReleaseEGLObjectsKHR);
+
+    /* cl_khr_egl_event */
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateEventFromEGLSyncKHR);
+
     // fall back to vendor extension detection
 
     // FIXME Now that we have a platform id here, we need to validate that it isn't NULL, so shouldn't we have an errcode_ret
@@ -1610,6 +1630,14 @@ clGetExtensionFunctionAddress(const char *function_name) CL_EXT_SUFFIX__VERSION_
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateSubDevicesEXT);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clRetainDeviceEXT);
     CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clReleaseDeviceEXT);
+
+    /* cl_khr_egl_image */
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateFromEGLImageKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueAcquireEGLObjectsKHR);
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clEnqueueReleaseEGLObjectsKHR);
+
+    /* cl_khr_egl_event */
+    CL_COMMON_EXTENSION_ENTRYPOINT_ADD(clCreateEventFromEGLSyncKHR);
 
     // fall back to vendor extension detection
     for (vendor = khrIcdState.vendors; vendor; vendor = vendor->next)
@@ -2194,6 +2222,79 @@ clSetUserEventStatus(
         execution_status);
 }
 
+CL_API_ENTRY cl_mem CL_API_CALL
+clCreateFromEGLImageKHR(
+    cl_context context,
+    CLeglDisplayKHR display,
+    CLeglImageKHR image,
+    cl_mem_flags flags,
+    const cl_egl_image_properties_khr *properties,
+    cl_int *errcode_ret)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_HANDLE(context, CL_INVALID_CONTEXT);
+    return context->dispatch->clCreateFromEGLImageKHR(
+        context,
+        display,
+        image,
+        flags,
+        properties,
+        errcode_ret);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueAcquireEGLObjectsKHR(
+    cl_command_queue command_queue,
+    cl_uint num_objects,
+    const cl_mem *mem_objects,
+    cl_uint num_events_in_wait_list,
+    const cl_event *event_wait_list,
+    cl_event *event)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+    return command_queue->dispatch->clEnqueueAcquireEGLObjectsKHR(
+        command_queue,
+        num_objects,
+        mem_objects,
+        num_events_in_wait_list,
+        event_wait_list,
+        event);
+}
+
+CL_API_ENTRY cl_int CL_API_CALL
+clEnqueueReleaseEGLObjectsKHR(
+    cl_command_queue command_queue,
+    cl_uint num_objects,
+    const cl_mem *mem_objects,
+    cl_uint num_events_in_wait_list,
+    const cl_event *event_wait_list,
+    cl_event *event)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_ERROR(command_queue, CL_INVALID_COMMAND_QUEUE);
+    return command_queue->dispatch->clEnqueueReleaseEGLObjectsKHR(
+        command_queue,
+        num_objects,
+        mem_objects,
+        num_events_in_wait_list,
+        event_wait_list,
+        event);
+}
+
+/* cl_khr_egl_event */
+CL_API_ENTRY cl_event CL_API_CALL
+clCreateEventFromEGLSyncKHR(
+    cl_context context,
+    CLeglSyncKHR sync,
+    CLeglDisplayKHR display,
+    cl_int *errcode_ret)
+{
+    KHR_ICD_VALIDATE_HANDLE_RETURN_HANDLE(context, CL_INVALID_CONTEXT);
+    return context->dispatch->clCreateEventFromEGLSyncKHR(
+        context,
+        sync,
+        display,
+        errcode_ret);
+}
+
 CL_API_ENTRY void* CL_API_CALL
 clSVMAlloc(
 	cl_context context,
@@ -2395,3 +2496,4 @@ clGetPipeInfo(
 		param_value,
 		param_value_size_ret);
 }
+

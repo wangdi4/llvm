@@ -19,8 +19,10 @@ File Name:  ServiceFactory.cpp
 #include "ServiceFactory.h"
 #include "BackendConfiguration.h"
 #include "CPUCompileService.h"
+#if defined(INCLUDE_MIC_DEVICE)
 #include "MICCompileService.h"
 #include "MICSerializationService.h"
+#endif
 #include "ExecutionService.h"
 #include "ImageCallbackServices.h"
 #include "exceptions.h"
@@ -52,7 +54,7 @@ File Name:  ServiceFactory.cpp
  * so for SDE our execution driver (executor) will be compiled for the CPU (x86)
  * and we assume that we will use this path only under SDE so it's okay.
  */
-#ifdef ENABLE_SDE
+#if defined(ENABLE_SDE) && defined(INCLUDE_MIC_DEVICE)
 #include "MICExecutionService.h"
 #endif
 
@@ -117,12 +119,14 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
             std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
             mode = Utils::SelectDevice(device.c_str());
         }
+#if defined(INCLUDE_MIC_DEVICE)
         if(MIC_MODE == mode)
         {
             MICCompilerConfig config( BackendConfiguration::GetInstance().GetMICCompilerConfig(pBackendOptions));
             *ppBackendCompilationService = new MICCompileService(config);
             return CL_DEV_SUCCESS;
         }
+#endif
         //if(CPU_MODE == mode)
         CompilerConfig config(BackendConfiguration::GetInstance().GetCPUCompilerConfig(pBackendOptions));
         *ppBackendCompilationService = new CPUCompileService(config);
@@ -163,7 +167,7 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
 
         if(MIC_MODE == mode)
         {
-        #ifdef ENABLE_SDE
+        #if defined(ENABLE_SDE) && defined(INCLUDE_MIC_DEVICE)
             std::string cpuArch = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_SUBDEVICE, "auto");
             Intel::ECPU cpu = Intel::CPUId::GetCPUByName(cpuArch.c_str());
             Intel::CPUId cpuId(cpu, Intel::CFS_NONE, true);
@@ -208,12 +212,13 @@ cl_dev_err_code ServiceFactory::GetSerializationService(
             std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
             mode = Utils::SelectDevice(device.c_str());
         }
-
+#if defined(INCLUDE_MIC_DEVICE)
         if(MIC_MODE == mode)
         {
             *pBackendSerializationService = new MICSerializationService(pBackendOptions);
             return CL_DEV_SUCCESS;
         }
+#endif
         //if(CPU_MODE == mode)
         throw Exceptions::DeviceBackendExceptionBase("Serialization Service Not Implemented for CPU Device", CL_DEV_INVALID_OPERATION_MODE);
     }

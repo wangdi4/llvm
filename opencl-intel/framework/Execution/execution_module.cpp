@@ -61,7 +61,6 @@
 #include <Logger.h>
 #include <cl_local_array.h>
 #include "cl_shared_ptr.hpp"
-#include "CL/cl_2_0.h"
 #include "device_queue.h"
 
 using namespace Intel::OpenCL::Framework;

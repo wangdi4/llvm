@@ -28,7 +28,7 @@ namespace intel {
   OCL_INITIALIZE_PASS_END(DataPerValue, "B-ValueAnalysis", "Barrier Pass - Collect Data per Value", false, true)
 
   DataPerValue::DataPerValue()
-    : ModulePass(ID), m_pDL(0)
+    : ModulePass(ID), m_pSyncInstructions(NULL), m_pDL(0)
   {
     initializeDataPerValuePass(*llvm::PassRegistry::getPassRegistry());
   }
@@ -84,13 +84,13 @@ namespace intel {
     if (F.isDeclaration())
       return false;
 
-    //Check if function has no synchronize instruction!
-    if ( !m_pDataPerBarrier->hasSyncInstruction(&F) ) {
-      //Function has no synchronize instruction: do nothing!
-      return false;
+    if ( m_pDataPerBarrier->hasSyncInstruction(&F) ) {
+      m_pSyncInstructions = &m_pDataPerBarrier->getSyncInstructions(&F);
+    } else {
+      // CSSD100016517: workaround
+      // a function has no synchronize instruction but it still needs to calculate its private memory size
+      m_pSyncInstructions = NULL;
     }
-
-    m_pSyncInstructions = &m_pDataPerBarrier->getSyncInstructions(&F);
 
     //run over all the values of the function and Cluster into 3 groups
     //Group-A   : Alloca instructions
@@ -186,6 +186,10 @@ namespace intel {
   }
 
   DataPerValue::SPECIAL_VALUE_TYPE DataPerValue::isSpecialValue(Value *pVal, bool isWIRelated) {
+    // CSSD100016517: workaround
+    // SPECIAL_VALUE_TYPE_NONE if there are no synchronize instructions
+    if( !m_pSyncInstructions ) return SPECIAL_VALUE_TYPE_NONE;
+
     //Value "v" is special (cross barrier) if there is
     //one barrier instruction "i" and one value usage "u" such that:
     //BB(v) in BB(i)->predecessors and BB(u) in B(i)->successors
@@ -405,6 +409,12 @@ namespace intel {
       //Check if function has no synchronize instruction!
       if ( !m_pDataPerBarrier->hasSyncInstruction(pFunc) ) {
         //Function has no synchronize instruction: skip it!
+        // CSSD100016517: workaround
+        // Functions with no barrier still need to have an entry
+        // However, it should be a unique entry.
+        assert ( m_functionToEntryMap.count(pFunc) == 0 &&
+          "function with no barrier does not have a unique entry");
+        m_functionToEntryMap[pFunc] = currEntry++;
         continue;
       }
       if ( m_functionToEntryMap.count(pFunc) ) {
@@ -427,7 +437,8 @@ namespace intel {
             //replace all appears of it with the current entry number.
             fixEntryMap(m_functionToEntryMap[pCallerFunc], currEntry);
           } else {
-            //pCallerFunc has no entry number yet, give it the current entry number
+            //pCallerFunc has no entry number yet, give it the current entry
+            //number
             m_functionToEntryMap[pCallerFunc] = currEntry;
           }
       }

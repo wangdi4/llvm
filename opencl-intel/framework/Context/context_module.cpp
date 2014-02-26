@@ -2154,6 +2154,76 @@ cl_int ContextModule::SetMemObjectDestructorCallback (cl_mem memObj,
 }
 
 //////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateSamplerWithProperties
+//////////////////////////////////////////////////////////////////////////
+cl_sampler ContextModule::CreateSamplerWithProperties(cl_context clContext, const cl_sampler_properties *pSamplerProperties, cl_int *pErrcodeRet)
+{ 
+    cl_bool bNormalizedCoords = CL_TRUE;
+    cl_addressing_mode clAddressingMode = CL_ADDRESS_CLAMP;
+    cl_filter_mode clFilterMode = CL_FILTER_NEAREST;
+    std::set<cl_sampler_properties> specifiedNames;
+    cl_int iErrCode = CL_SUCCESS;
+
+	  while (NULL != pSamplerProperties && 0 != *pSamplerProperties && CL_SUCCEEDED(iErrCode))
+	  {
+		    const cl_sampler_properties name = *(pSamplerProperties++);
+		    if (specifiedNames.find(name) != specifiedNames.end())	// the same property name cannot be specified more than once
+		    {
+			      iErrCode = CL_INVALID_VALUE;
+			      break;
+		    }
+		    specifiedNames.insert(name);
+		    const cl_sampler_properties value = *(pSamplerProperties++);
+
+		    switch (name)
+		    {
+		    case CL_SAMPLER_NORMALIZED_COORDS:
+			      if (CL_TRUE != value && CL_FALSE != value)
+			      {
+				    iErrCode = CL_INVALID_VALUE;
+				    break;
+			      }
+			      bNormalizedCoords = (cl_bool)value;
+			      break;
+		    case CL_SAMPLER_ADDRESSING_MODE:
+    		    if (CL_ADDRESS_MIRRORED_REPEAT != value &&
+		            CL_ADDRESS_REPEAT != value &&
+		            CL_ADDRESS_CLAMP_TO_EDGE != value &&
+		            CL_ADDRESS_CLAMP != value &&
+		            CL_ADDRESS_NONE != value)
+		        {
+		        iErrCode = CL_INVALID_VALUE;
+		        break;
+		        }
+			      clAddressingMode = (cl_addressing_mode)value;
+			      break;
+		    case CL_SAMPLER_FILTER_MODE:
+			      if (CL_FILTER_NEAREST != value && CL_FILTER_LINEAR != value)
+			      {
+				    iErrCode = CL_INVALID_VALUE;
+				    break;
+			      }
+			      clFilterMode = (cl_filter_mode)value;
+			      break;
+		    default:
+			      iErrCode = CL_INVALID_VALUE;
+		    }
+    }
+    if (CL_SUCCEEDED(iErrCode))
+    {
+        return CreateSampler(clContext, bNormalizedCoords, clAddressingMode, clFilterMode, pErrcodeRet);
+    }
+    else
+    {
+        if (NULL != pErrcodeRet)
+        {
+		        *pErrcodeRet = iErrCode;
+        }
+        return CL_INVALID_HANDLE;
+    }	
+}
+
+//////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateSampler
 //////////////////////////////////////////////////////////////////////////
 cl_sampler ContextModule::CreateSampler(cl_context clContext, 
@@ -2202,6 +2272,7 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
     }
     return pSampler->GetHandle();
 }
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::RetainSampler
 //////////////////////////////////////////////////////////////////////////

@@ -33,7 +33,6 @@
 #include <cl_shared_ptr.hpp>
 #include <buildversion.h>
 #include <CL/cl_ext.h>
-#include "CL/cl_2_0.h"
 #include <clang_device_info.h>
 #include <cl_sys_info.h>
 #include <cpu_dev_limits.h>
@@ -1525,7 +1524,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             if (NULL != paramVal)
             {
-                *(cl_uint*)paramVal = (cl_uint)-1;    // I don't see a reason to limit this
+                *(cl_uint*)paramVal = 1024;    // The same value as for GEN
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE:
@@ -1564,18 +1563,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             {
                 *(size_t*)paramVal = 64 * 1024; // the same as VPG
             }
-            return CL_DEV_SUCCESS;
-        case CL_DEVICE_GLOBAL_VARIABLE_SHARING:
-            *pinternalRetunedValueSize = sizeof(int);   // the spec has forgotten to define this query
-            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            if (NULL != paramVal)
-            {
-                *(int*)paramVal = CL_PROGRAM_VARIABLE_SHARING_NONE;
-            }
-            return CL_DEV_SUCCESS;        
+            return CL_DEV_SUCCESS;       
         case CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT:
             *pinternalRetunedValueSize = sizeof(cl_uint);
             if (NULL != paramVal && valSize < *pinternalRetunedValueSize)

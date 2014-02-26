@@ -279,7 +279,7 @@ cl_err_code Command::AcquireMemoryObjects( MemoryObjectArgList& argList, const S
     cl_err_code errCode = CL_SUCCESS;
 
     MemoryObjectArgList::iterator it     = argList.begin();
-    MemoryObjectArgList::const_iterator it_end = argList.end();
+    MemoryObjectArgList::iterator it_end = argList.end();
 
     for (; it != it_end; ++it )
     {
@@ -1609,8 +1609,14 @@ cl_err_code NDRangeKernelCommand::Init()
     //
     // Query kernel info to validate input params
     //
-    size_t        szCompiledWorkGroupMaxSize = m_pDeviceKernel->GetKernelWorkGroupSize();
-    const size_t* szCompliedWorkGroupSize     = m_pDeviceKernel->GetKernelCompileWorkGroupSize();
+    size_t szCompiledWorkGroupMaxSize = m_pDeviceKernel->GetKernelWorkGroupSize();
+    if( szCompiledWorkGroupMaxSize == 0 )
+    {
+      // Kernel cannot run if its max. possible work-group size is zero.
+      return CL_OUT_OF_RESOURCES;
+    }
+
+    const size_t* szCompliedWorkGroupSize = m_pDeviceKernel->GetKernelCompileWorkGroupSize();
 
     // If the work-group size is not specified in kernel using the above attribute qualifier (0, 0,0)
     // is returned in szComplieWorkGroupSize

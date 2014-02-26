@@ -344,6 +344,9 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
           break;
       }
       assert(FuncInfo && "Couldn't find this kernel in the kernel list");
+      if(NULL == FuncInfo)
+        throw Exceptions::CompilerException("Internal Error. FuncInfo is NULL");
+      
       MDNode *MDVecTHint = NULL;
       //look for vec_type_hint metadata
       for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
@@ -355,6 +358,9 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
         }
       }
       assert(MDVecTHint && "vec_type_hint info isn't available for this kernel");
+      if(NULL == MDVecTHint)
+        throw Exceptions::CompilerException("Internal Error. MDVecTHint is NULL");
+
       // Look for operand 2 - isSigned
       ConstantInt *isSigned = dyn_cast<ConstantInt>(MDVecTHint->getOperand(2));
       assert(isSigned && "isSigned should be a constant integer value");
@@ -386,8 +392,10 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     const bool HasNoBarrierPath = skimd->isNoBarrierPathHasValue() && skimd->getNoBarrierPath();
     const unsigned int localBufferSize = skimd->getLocalBufferSize();
     const bool hasBarrier = skimd->getKernelHasBarrier();
+    const bool hasGlobalSync = skimd->getKernelHasGlobalSync();
     const size_t scalarExecutionLength = skimd->getKernelExecutionLength();
     const unsigned int scalarBufferStride = skimd->getBarrierBufferSize();
+    unsigned int privateMemorySize = skimd->getPrivateMemorySize();
 
     size_t vectorExecutionLength = 0;
     unsigned int vectorBufferStride = 0;
@@ -397,13 +405,17 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
       KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(skimd->getVectorizedKernel());
       vectorExecutionLength = vkimd->getKernelExecutionLength();
       vectorBufferStride = vkimd->getBarrierBufferSize();
+      privateMemorySize = std::max<unsigned int>(privateMemorySize, vkimd->getPrivateMemorySize());
     }
+
     // Execution length contains the max size between
     // the length of scalar and the length of vectorized versions.
     const size_t executionLength = std::max(scalarExecutionLength, vectorExecutionLength);
     // Private memory size contains the max size between
     // the needed size for scalar and needed size for vectorized versions.
-    unsigned int privateMemorySize = std::max<unsigned int>(scalarBufferStride, vectorBufferStride);
+    unsigned int barrierBufferSize = std::max<unsigned int>(scalarBufferStride, vectorBufferStride);
+    // Aligh barrier buffer and private memory size
+    barrierBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(barrierBufferSize);
     privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(privateMemorySize);
 
     KernelProperties* pProps = new KernelProperties();
@@ -418,6 +430,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     pProps->SetHintWGSize(hintWGSize);
     pProps->SetTotalImplSize(localBufferSize);
     pProps->SetHasBarrier(hasBarrier);
+    pProps->SetHasGlobalSync(hasGlobalSync);
     pProps->SetKernelExecutionLength(executionLength);
     pProps->SetKernelAttributes(kernelAttributes.str());
 
@@ -426,6 +439,10 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     if (HasNoBarrierPath)
       pProps->EnableVectorizedWithTail();
 
+    pProps->SetBarrierBufferSize(barrierBufferSize);
+    // CSSD100016517 workaround:
+    //   GetPrivateMemorySize returns the min. required private memory
+    //   size per work-item even if there are no work-group level built-ins.
     pProps->SetPrivateMemorySize(privateMemorySize);
 
     // set isBlock property

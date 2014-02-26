@@ -28,6 +28,7 @@ EXPORTS
 	clGetMemObjectInfo
 	clGetImageInfo
 	clCreateSampler
+	clCreateSamplerWithProperties
 	clRetainSampler
 	clReleaseSampler
 	clGetSamplerInfo

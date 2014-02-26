@@ -229,61 +229,58 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
         {
             return false;
         }
-        if (pWriteMemObj->isRootBuffer())    /* TODO Remove the 'if' when COI will fix the sub-buffers set buffer state issue */
+        // In case of overwriting the whole buffer, than we should not move the data.
+        COI_BUFFER_MOVE_FLAG moveFlag = ((0 == writeOffset) && (size == pWriteMemObj->GetRawDataSize())) ? COI_BUFFER_NO_MOVE : COI_BUFFER_MOVE;
+        assert(m_processOfTarget && "In case of Write / Copy commands, m_processOfTarget must be set");
+        vector<COIPROCESS> targetBuffProcesses = pWriteMemObj->get_active_processes();
+        // targetBuffProcesses.size() must be greater than 0, becasue it exist at least in the current queue MIC device.
+        assert(targetBuffProcesses.size() > 0 && "targetBuffProcesses must be greater than 0");
+        if (0 == targetBuffProcesses.size())
         {
-            // In case of overwriting the whole buffer, than we should not move the data.
-            COI_BUFFER_MOVE_FLAG moveFlag = ((0 == writeOffset) && (size == pWriteMemObj->GetRawDataSize())) ? COI_BUFFER_NO_MOVE : COI_BUFFER_MOVE;
-            assert(m_processOfTarget && "In case of Write / Copy commands, m_processOfTarget must be set");
-            vector<COIPROCESS> targetBuffProcesses = pWriteMemObj->get_active_processes();
-            // targetBuffProcesses.size() must be greater than 0, becasue it exist at least in the current queue MIC device.
-            assert(targetBuffProcesses.size() > 0 && "targetBuffProcesses must be greater than 0");
-            if (0 == targetBuffProcesses.size())
-            {
-                return false;
-            }
-            targetBuffProcesses.push_back(COI_PROCESS_SOURCE);
-            setStateEventsArr.resize(targetBuffProcesses.size());
-            const COIBUFFER& targetCoiBuffer = pWriteMemObj->clDevMemObjGetCoiBufferHandler();
-            assert(m_processOfTarget != NULL && m_processOfTarget != COI_PROCESS_SOURCE && "m_processOfTarget must be MIC Device process");
-            // Set target buffer valid on m_processOfTarget.
-            coi_result = COIBufferSetState( 
-                                                    targetCoiBuffer,                    // Buffer to transfer
-                                                    m_processOfTarget,                    // Target Device process 
-                                                    COI_BUFFER_VALID,                    // Desired state in the target process
-                                                    moveFlag,                            // Force data movement if required
-                                                    num_dependencies, dependecies,        // array of dependencies
-                                                    &(setStateEventsArr[0]) );
-            assert(COI_SUCCESS == coi_result && "COIBufferSetState failed");
-            if (COI_SUCCESS != coi_result)
-            {
-                return false;
-            }
-            // Set target buffer invalid on all devices that are not m_processOfTarget
-            unsigned int eventsArrIndex = 1;
-            for (unsigned int i = 0; i < targetBuffProcesses.size(); i++)
-            {
-                if (m_processOfTarget != targetBuffProcesses[i])
-                {
-                    coi_result = COIBufferSetState( 
-                                                    targetCoiBuffer,                    // Buffer to transfer
-                                                    targetBuffProcesses[i],                // Target Device process 
-                                                    COI_BUFFER_INVALID,                    // Desired state in the target process
-                                                    COI_BUFFER_NO_MOVE,                    // Force data movement if required
-                                                    1, &(setStateEventsArr[0]),            // array of dependencies
-                                                    &(setStateEventsArr[eventsArrIndex]) );
-                
-                    assert(COI_SUCCESS == coi_result && "COIBufferSetState failed");
-                    if (COI_SUCCESS != coi_result)
-                    {
-                        assert(eventsArrIndex > 0 && "eventsArrIndex must be greater than 0 because the prev. SetBufferState");
-                        *fired_event = setStateEventsArr[eventsArrIndex - 1];
-                        return false;
-                    }
-                    eventsArrIndex ++;
-                }
-            }
-            assert(eventsArrIndex == setStateEventsArr.size() && "eventsArrIndex must be as the size of the ALL COIProcesses");
+            return false;
         }
+        targetBuffProcesses.push_back(COI_PROCESS_SOURCE);
+        setStateEventsArr.resize(targetBuffProcesses.size());
+        const COIBUFFER& targetCoiBuffer = pWriteMemObj->clDevMemObjGetCoiBufferHandler();
+        assert(m_processOfTarget != NULL && m_processOfTarget != COI_PROCESS_SOURCE && "m_processOfTarget must be MIC Device process");
+        // Set target buffer valid on m_processOfTarget.
+        coi_result = COIBufferSetState( 
+                                                targetCoiBuffer,                    // Buffer to transfer
+                                                m_processOfTarget,                    // Target Device process 
+                                                COI_BUFFER_VALID,                    // Desired state in the target process
+                                                moveFlag,                            // Force data movement if required
+                                                num_dependencies, dependecies,        // array of dependencies
+                                                &(setStateEventsArr[0]) );
+        assert(COI_SUCCESS == coi_result && "COIBufferSetState failed");
+        if (COI_SUCCESS != coi_result)
+        {
+            return false;
+        }
+        // Set target buffer invalid on all devices that are not m_processOfTarget
+        unsigned int eventsArrIndex = 1;
+        for (unsigned int i = 0; i < targetBuffProcesses.size(); i++)
+        {
+            if (m_processOfTarget != targetBuffProcesses[i])
+            {
+                coi_result = COIBufferSetState( 
+                                                targetCoiBuffer,                    // Buffer to transfer
+                                                targetBuffProcesses[i],                // Target Device process 
+                                                COI_BUFFER_INVALID,                    // Desired state in the target process
+                                                COI_BUFFER_NO_MOVE,                    // Force data movement if required
+                                                1, &(setStateEventsArr[0]),            // array of dependencies
+                                                &(setStateEventsArr[eventsArrIndex]) );
+                
+                assert(COI_SUCCESS == coi_result && "COIBufferSetState failed");
+                if (COI_SUCCESS != coi_result)
+                {
+                    assert(eventsArrIndex > 0 && "eventsArrIndex must be greater than 0 because the prev. SetBufferState");
+                    *fired_event = setStateEventsArr[eventsArrIndex - 1];
+                    return false;
+                }
+                eventsArrIndex ++;
+            }
+        }
+        assert(eventsArrIndex == setStateEventsArr.size() && "eventsArrIndex must be as the size of the ALL COIProcesses");
     }
     COIEVENT* tDependecies = (COIEVENT*)dependecies;
     uint32_t tNumDependencies = num_dependencies;

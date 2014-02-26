@@ -130,6 +130,13 @@
                         },
                         {
                             "location": "named",
+                            "key":      "kernel_has_global_sync",
+                            "name":     "KernelHasGlobalSync",
+                            "metatype": "bool_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
                             "key":      "no_barrier_path",
                             "name":     "NoBarrierPath",
                             "metatype": "bool_item",
@@ -169,8 +176,14 @@
                             "name":     "BlockLiteralSize",
                             "metatype": "int32_item",
                             "optional": true
+                        },
+                        {
+                            "location": "named",
+                            "key":      "private_memory_size",
+                            "name":     "PrivateMemorySize",
+                            "metatype": "int32_item",
+                            "optional": true
                         }
-
                     ]
                 },
     "WorkGroupSize":{

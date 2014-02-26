@@ -178,9 +178,17 @@ void Compiler::Init()
 {
     //TODO: Add handling of failure of MT init
     llvm::llvm_start_multithreaded();
-    llvm::InitializeAllTargets();
-    llvm::InitializeAllAsmPrinters();
-    llvm::InitializeAllTargetMCs();
+    // Initialize LLVM for X86 target.
+    LLVMInitializeX86TargetInfo();
+    LLVMInitializeX86Target();
+    LLVMInitializeX86AsmPrinter();
+    LLVMInitializeX86TargetMC();
+#if defined(INCLUDE_MIC_DEVICE)
+    LLVMInitializeY86TargetInfo();
+    LLVMInitializeY86Target();
+    LLVMInitializeY86AsmPrinter();
+    LLVMInitializeY86TargetMC();
+#endif
 }
 
 /**

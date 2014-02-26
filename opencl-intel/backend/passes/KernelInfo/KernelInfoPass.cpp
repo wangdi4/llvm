@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "KernelInfoPass.h"
 #include "CompilationUtils.h"
+#include "OCLAddressSpace.h"
 #include "MetaDataApi.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -23,6 +24,30 @@ namespace intel {
   bool KernelInfoPass::runOnFunction(Function &Func) {
     m_mdUtils->getOrInsertKernelsInfoItem(&Func)->setKernelExecutionLength(getExecutionLength(&Func));
     m_mdUtils->getOrInsertKernelsInfoItem(&Func)->setKernelHasBarrier(containsBarrier(&Func));
+    m_mdUtils->getOrInsertKernelsInfoItem(&Func)->setKernelHasGlobalSync(containsGlobalSync(&Func));
+    return false;
+  }
+
+  bool KernelInfoPass::containsGlobalSync(Function *pFunc) {
+    for (inst_iterator ii = inst_begin(pFunc), e = inst_end(pFunc); ii != e; ++ii) {
+      CallInst *pCall = dyn_cast<CallInst>(&*ii);
+      if (!pCall) {
+        continue;
+      }
+      Function *pFunc = pCall->getCalledFunction();
+      if (!pFunc) {
+        // we assume that indirect call can't introduce global synchronization.
+        continue;
+      }
+      std::string calledFuncName = pFunc->getName().str();
+      if (CompilationUtils::isAtomicBuiltin(calledFuncName)) {
+        PointerType* ptr = cast<PointerType>(pCall->getOperand(0)->getType());
+        assert(!IS_ADDR_SPACE_GENERIC(ptr->getAddressSpace()) &&
+              "Generic address space must be resolved before KernelInfoPass.");
+        if (IS_ADDR_SPACE_GLOBAL(ptr->getAddressSpace()))
+          return true;
+      }
+    }
     return false;
   }
 
@@ -32,7 +57,11 @@ namespace intel {
       if ( !pCall ) {
         continue;
       }
-      std::string calledFuncName = pCall->getCalledFunction()->getName().str();
+      Function *pFunc = pCall->getCalledFunction();
+      if (!pFunc) {
+        continue;
+      }
+      std::string calledFuncName = pFunc->getName().str();
       if (calledFuncName.find("barrier") != std::string::npos) {
         return true;
       }
@@ -59,7 +88,7 @@ namespace intel {
   }
 
   char KernelInfoWrapper::ID = 0;
-  
+
   bool KernelInfoWrapper::runOnModule(Module& M) {
     Intel::MetaDataUtils mdUtils(&M);
     KernelInfoPass* pKernelInfoPass = new KernelInfoPass(&mdUtils);

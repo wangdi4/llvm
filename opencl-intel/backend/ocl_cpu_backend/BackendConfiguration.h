@@ -18,7 +18,9 @@ File Name:  BackendConfiguration.h
 #pragma once
 #include "CPUDetect.h"
 #include "CompilerConfig.h"
+#if defined(INCLUDE_MIC_DEVICE)
 #include "MICCompilerConfig.h"
+#endif
 #include "ServiceFactory.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -118,6 +120,7 @@ protected:
 
 };
 
+#if defined(INCLUDE_MIC_DEVICE)
 class MICCompilerConfig: public CompilerConfig, public IMICCompilerConfig
 {
 public:
@@ -141,7 +144,7 @@ protected:
     TargetDescription m_TargetDescription;
 
 };
-
+#endif
 
 //*****************************************************************************************
 // Represents the global backend configuration. 
@@ -176,10 +179,12 @@ public:
      * Returns the compiler instance configuration 
      */
     CompilerConfig GetCPUCompilerConfig(const ICLDevBackendOptions* pBackendOptions) const;
+#if defined(INCLUDE_MIC_DEVICE)
     /**
      * Returns the compiler instance configuration 
      */
     MICCompilerConfig GetMICCompilerConfig(const ICLDevBackendOptions* pBackendOptions) const;
+#endif
 
 private:
     static BackendConfiguration* s_pInstance;

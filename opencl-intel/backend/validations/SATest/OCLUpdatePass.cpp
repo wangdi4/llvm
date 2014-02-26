@@ -398,7 +398,7 @@ namespace Validation {
 
             // Calculate required buffer size
             llvm::TargetData TD(m_pModule);
-            size_t uiArraySize = TD.getTypeSizeInBits(pLclBuff->getType()->getElementType())/8;
+            size_t uiArraySize = TD.getTypeAllocSize(pLclBuff->getType()->getElementType());
             assert ( 0 != uiArraySize );
             // Now retrieve to the offset of the local buffer
             GetElementPtrInst* pLocalAddr =
@@ -603,7 +603,7 @@ namespace Validation {
         for (unsigned numarg = 1; numarg < pCall->getNumArgOperands(); ++numarg)
         {
             Value* arg = pCall->getArgOperand(numarg);
-            unsigned argsize = TD.getTypeSizeInBits(arg->getType()) / 8;
+            unsigned argsize = TD.getTypeAllocSize(arg->getType());
             total_arg_size += argsize;
         }
 
@@ -662,7 +662,7 @@ namespace Validation {
             // Advance the buffer pointer offset by its size to know where the next
             // argument should be placed.
             // 
-            unsigned argsize = TD.getTypeSizeInBits(arg->getType()) / 8;
+            unsigned argsize = TD.getTypeAllocSize(arg->getType());
             buf_pointer_offset += argsize;        
         }    
 
