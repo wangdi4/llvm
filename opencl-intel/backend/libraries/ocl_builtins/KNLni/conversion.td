@@ -80,7 +80,7 @@ OclBuiltinImpl avx512_fp2int_i32_rte_v8f64 = OclBuiltinImpl<convert_i32_rte,
                                                    [v8f64], 0, [{
     double8 rounded = _mm512_roundscale_pd($Arg0VarName,
                                  _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT);
-    return as_$ReturnType(_mm512_cvt_roundpd_epu32(rounded, _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundpd_epi32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 /*****************************************************************\
  * convert_uint_rtz:                                              *
