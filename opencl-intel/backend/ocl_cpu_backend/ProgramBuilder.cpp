@@ -163,6 +163,8 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 void ProgramBuilder::updateGlobalVariableTotalSize(Program* pProgram, Module* pModule)
 {
     MetaDataUtils mdUtils(pModule);
+    // ModuleInfo is missing only when we build image built-ins and we don't
+    // care about the size of global variables in the program.
     if (mdUtils.empty_ModuleInfoList()) return;
     Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
     pProgram->SetGlobalVariableTotalSize(handle->getGlobalVariableTotalSize());
@@ -295,7 +297,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
       assert(FuncInfo && "Couldn't find this kernel in the kernel list");
       if(NULL == FuncInfo)
         throw Exceptions::CompilerException("Internal Error. FuncInfo is NULL");
-      
+
       MDNode *MDVecTHint = NULL;
       //look for vec_type_hint metadata
       for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
