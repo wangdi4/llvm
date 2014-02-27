@@ -6,10 +6,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "GroupBuiltinPass.h"
 #include "OCLPassSupport.h"
+#include "InitializePasses.h"
 #include "CompilationUtils.h"
-#include <NameMangleAPI.h>
-#include <FunctionDescriptor.h>
-#include <ParameterType.h>
+#include "NameMangleAPI.h"
+#include "FunctionDescriptor.h"
+#include "ParameterType.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
@@ -26,7 +27,9 @@ namespace intel {
 
   char GroupBuiltin::ID = 0;
 
-  OCL_INITIALIZE_PASS(GroupBuiltin, "B-GroupBuiltins", "Barrier Pass - Handle WorkGroup BI calls", false, true)
+  OCL_INITIALIZE_PASS_BEGIN(GroupBuiltin, "B-GroupBuiltins", "Barrier Pass - Handle WorkGroup BI calls", false, true)
+  OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+  OCL_INITIALIZE_PASS_END(GroupBuiltin, "B-GroupBuiltins", "Barrier Pass - Handle WorkGroup BI calls", false, true)
 
   GroupBuiltin::GroupBuiltin() : ModulePass(ID) {}
 
@@ -230,6 +233,8 @@ namespace intel {
     m_pSizeT = (m_pModule->getPointerSize() == Module::Pointer64)? 
                                           Type::getInt64Ty(*m_pLLVMContext): 
                                           Type::getInt32Ty(*m_pLLVMContext);
+    Module* builtinModule = getAnalysis<BuiltinLibInfo>().getBuiltinModule();
+    assert(builtinModule && "Builtin module were not initialized!");
 
     //Initialize barrier utils class with current module
     m_util.init(&M);
@@ -276,14 +281,12 @@ namespace intel {
 
       // 3. Extend function parameter list with pointer to of the accumulated result
 
-      //   a. At first - produce argument type & parameter lists for the new callee
-      SmallVector<Type*,  2> argTypes;
+      //   a. At first - produce parameter list for the new callee
       SmallVector<Value*, 2> params;
       if (!CompilationUtils::isWorkGroupBroadCast(funcName)) {
         //    For all WG function, but broadcasts - keep original arguments intact
         for (unsigned idx = 0; idx < numArgs; idx++) {
           Value *pArg = pWgCallInst->getArgOperand(idx);
-          argTypes.push_back(pArg->getType());
           params.push_back(pArg);
         }
       } else {
@@ -291,19 +294,15 @@ namespace intel {
         //    followed by LINEAR local ID of the WI
         //     --- original 'gentype' argument
         Value *pArg = pWgCallInst->getArgOperand(0);
-        argTypes.push_back(pArg->getType());
         params.push_back(pArg);
         //     --- linear form of local_id parameter
         pArg = calculateLinearID(pWgCallInst);
-        argTypes.push_back(m_pSizeT);
         params.push_back(pArg);
        //     --- linear local ID of the WI
         pArg = getLinearID(pWgCallInst);
-        argTypes.push_back(m_pSizeT);
         params.push_back(pArg);
       }
       //      Append pointer to return value accumulator
-      argTypes.push_back(pResult->getType());
       params.push_back(pResult);
 
       //   b. Remangle the function name upon appended accumulated result's pointer
@@ -329,12 +328,13 @@ namespace intel {
       std::string newFuncName = mangle(fd);
 
       //   c. Create function declaration object (unless the module contains it already)
-      FunctionType *pNewFuncType = FunctionType::get(pRetType, argTypes, false);
-      Function *pNewFunc = dyn_cast<Function>(M.getOrInsertFunction(newFuncName, pNewFuncType));
+      //      --- get the new function declaration out of built-in module.
+      Function *LibFunc = builtinModule->getFunction(newFuncName);
+      assert(LibFunc && "WG builtin is not supported in built-in module");
+      Function *pNewFunc = dyn_cast<Function>(m_pModule->getOrInsertFunction(
+        LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes()));
       assert(pNewFunc && "Non-function object with the same signature identified in the module");
-      pNewFunc->setAttributes(pCallee->getAttributes());
-      pNewFunc->setLinkage(pCallee->getLinkage());
-      pNewFunc->setCallingConv(pCallee->getCallingConv());
+
 
       // 4. Prepare the call with that to function with extended parameter list
       CallInst *pNewCall = CallInst::Create(pNewFunc, ArrayRef<Value*>(params), "CallWGForItem", pWgCallInst);
@@ -357,10 +357,8 @@ namespace intel {
         LoadInst *pLoadResult = new LoadInst(pResult, "LoadWGFinalResult", pWgCallInst);
 
         // b. Create finalization function object:
-        //    --- argument and parameter lists
-        SmallVector<Type*,  8> argTypes;
+        //    --- parameter list
         SmallVector<Value*, 8> params;
-        argTypes.push_back(pRetType);
         params.push_back(pLoadResult);
         //    --- remangle with unique name (derived from original WG function name)
         //        [Note that the signature is as of original WG function]
@@ -368,8 +366,11 @@ namespace intel {
         fd.name = FINALIZE_WG_FUNCTION_PREFIX + fd.name;
         std::string finalizeFuncName = mangle(fd);
         //    --- create function
-        FunctionType *pFinalizeFuncType = FunctionType::get(pRetType, argTypes, false);
-        Function *pFinalizeFunc = dyn_cast<Function>(M.getOrInsertFunction(finalizeFuncName, pFinalizeFuncType));
+        //    --- get the new function declaration out of built-in module.
+        Function *LibFunc = builtinModule->getFunction(finalizeFuncName);
+        assert(LibFunc && "WG builtin is not supported in built-in module");
+        Function *pFinalizeFunc = dyn_cast<Function>(m_pModule->getOrInsertFunction(
+          LibFunc->getName(), LibFunc->getFunctionType(), LibFunc->getAttributes()));
         assert(pFinalizeFunc && "Non-function object with the same signature identified in the module");
 
         // c. Create call to finalization function object

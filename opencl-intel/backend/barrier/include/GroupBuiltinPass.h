@@ -8,6 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __GROUP_BUILTIN_PASS_H__
 
 #include "BarrierUtils.h"
+#include "BuiltinLibInfo.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
@@ -39,6 +40,12 @@ namespace intel {
     /// @param M module to optimize
     /// @returns True if module was modified
     virtual bool runOnModule(Module &M);
+
+
+    /// @brief Inform about usage/mofication/dependency of this pass
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addRequired<BuiltinLibInfo>();
+    }
 
   private:
     /// This module
