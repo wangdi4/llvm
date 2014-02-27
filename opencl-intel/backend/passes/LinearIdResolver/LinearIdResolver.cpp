@@ -43,8 +43,6 @@ namespace intel {
 
     std::vector<std::pair<Instruction *, Instruction *> > InstRepVec;
 
-    std::string idName, sizeName;
-
     Module * M = F.getParent();
 
     m_zero = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 0);
@@ -70,19 +68,11 @@ namespace intel {
       std::string funcName = func->getName().str();
 
       if(CompilationUtils::isGetGlobalLinearId(funcName)) {
-        idName = CompilationUtils::mangledGetGID();
-        sizeName = CompilationUtils::mangledGetGlobalSize();
+        InstRepVec.push_back(std::pair<Instruction *, Instruction *> (CI, replaceGetGlobalLinearId(M, CI)));
       }
       else if(CompilationUtils::isGetLocalLinearId(funcName)) {
-        idName = CompilationUtils::mangledGetLID();
-        sizeName = CompilationUtils::mangledGetLocalSize();
+        InstRepVec.push_back(std::pair<Instruction *, Instruction *> (CI, replaceGetLocalLinearId(M, CI)));
       }
-      else {
-        continue;
-      }
-
-      // Making the new calculation.
-      InstRepVec.push_back(std::pair<Instruction *, Instruction *> (CI, replaceGetLinearId(M, CI, idName, sizeName)));
     }
 
     // Updating the usage of the new calculation
@@ -102,45 +92,89 @@ namespace intel {
     return true;
   }
 
-  Instruction * LinearIdResolver::replaceGetLinearId(Module * M, Instruction * insertAfter, std::string idName, std::string sizeName) {
-  // Replace get_{global,local}_linear_id()
-  //  get_{global,local}_linear_id() =
-  // (get_{global,local}_id(2) * get_{global,local}_size(1) * get_{global,local}_size(0)) +
-  // (get_{global,local}_id(1) * get_{global,local}_size (0)) +
-  //  get_{global,local}_id(0) =
-  //  ((get_{global,local}_id(2) * get_{global,local}_size(1)) + get_{global,local}_id(1)) * get_{global,local}_size (0)) +
-  //  get_{global,local}_id(0)
+  Instruction * LinearIdResolver::replaceGetGlobalLinearId(Module * M, Instruction * insertBefore) {
+    // Replace get_global_linear_id() with the following sequence
+    // (get_global_id(2) – get_global_offset(2)) * get_global_size(1) * get_global_size(0) +
+    // (get_global_id(1) – get_global_offset(1)) * get_global_size(0) +
+    // (get_global_id(0) – get_global_offset(0))
+    //    ==
+    // ((get_global_id(2) – get_global_offset(2))
+    //  * get_global_size(1) 
+    //  + (get_global_id(1) – get_global_offset(1)))
+    // * get_global_size(0)
+    // + (get_global_id(0) – get_global_offset(0))
+    std::string idName   = CompilationUtils::mangledGetGID();
+    std::string sizeName = CompilationUtils::mangledGetGlobalSize();
+    std::string offName  = CompilationUtils::mangledGetGlobalOffset();
 
-    // call id functions
-    CallInst * id0 = createWIFunctionCall(M, idName, insertAfter, m_zero);
-    CallInst * id1 = createWIFunctionCall(M, idName, insertAfter, m_one);
-    CallInst * id2 = createWIFunctionCall(M, idName, insertAfter, m_two);
+    // call get_global_id(0), get_global_id(1), get_global_id(2)
+    CallInst * gid2 = createWIFunctionCall(M, "gid2", idName, insertBefore, m_two);
+    CallInst * gid1 = createWIFunctionCall(M, "gid1", idName, insertBefore, m_one);
+    CallInst * gid0 = createWIFunctionCall(M, "gid0", idName, insertBefore, m_zero);
+    assert (gid0 && gid1 && gid2 && "Can't create get_global_id calls");
 
-    assert (id0 && id1 && id2 && "Can't create id call");
+    // call get_global_offset(0), get_global_offset(1), get_global_offset(2)
+    CallInst * gof2 = createWIFunctionCall(M, "gof2", offName, insertBefore, m_two);
+    CallInst * gof1 = createWIFunctionCall(M, "gof1", offName, insertBefore, m_one);
+    CallInst * gof0 = createWIFunctionCall(M, "gof0", offName, insertBefore, m_zero);
+    assert (gof0 && gof1 && gof2 && "Can't create get_global_offset calls");
 
-    // call size functions
-    CallInst * sz0 = createWIFunctionCall(M, sizeName, insertAfter, m_zero);
-    CallInst * sz1 = createWIFunctionCall(M, sizeName, insertAfter, m_one);
+    // call get_global_size(0), get_global_size(1)
+    CallInst * gsz1 = createWIFunctionCall(M, "gsz1", sizeName, insertBefore, m_one);
+    CallInst * gsz0 = createWIFunctionCall(M, "gsz0", sizeName, insertBefore, m_zero);
+    assert (gsz0 && gsz1 && "Can't create get_global_size calls");
 
-    assert (sz0 && sz1 && "Can't create sz call");
-
-    // (get_{global,local}_id(2) * get_{global,local}_size(1))
-    BinaryOperator * id2sz1 = BinaryOperator::Create(Instruction::Mul, id2, sz1, "id2sz1", insertAfter);
-
-    // ((get_{global,local}_id(2) * get_{global,local}_size(1)) + get_{global,local}_id(1))
-    BinaryOperator * add1 = BinaryOperator::Create(Instruction::Add, id2sz1, id1, "add1", insertAfter);
-
-    // ((get_{global,local}_id(2) * get_{global,local}_size(1)) + get_{global,local}_id(1)) * get_{global,local}_size (0))
-    BinaryOperator * add1sz0 = BinaryOperator::Create(Instruction::Mul, add1, sz0 , "add1sz0", insertAfter);
-
-    //  ((get_{global,local}_id(2) * get_{global,local}_size(1)) + get_{global,local}_id(1)) * get_{global,local}_size (0)) +
-    //  get_{global,local}_id(0)
-    BinaryOperator * add2 = BinaryOperator::Create(Instruction::Add, add1sz0, id0, "add2", insertAfter);
-
-    return add2;
+    // ((get_global_id(2) – get_global_offset(2))
+    BinaryOperator * op0 = BinaryOperator::Create(Instruction::Sub, gid2, gof2, "lgid.op0", insertBefore);
+    //  * get_global_size(1) 
+    BinaryOperator * op1 = BinaryOperator::Create(Instruction::Mul, op0,  gsz1, "lgid.op1", insertBefore);
+    //  + (get_global_id(1) – get_global_offset(1)))
+    BinaryOperator * op2 = BinaryOperator::Create(Instruction::Sub, gid1, gof1, "lgid.op2", insertBefore);
+    BinaryOperator * op3 = BinaryOperator::Create(Instruction::Add, op1,  op2,  "lgid.op3", insertBefore);
+    // * get_global_size(0)
+    BinaryOperator * op4 = BinaryOperator::Create(Instruction::Mul, op3,  gsz0, "lgid.op4", insertBefore);
+    // + (get_global_id(0) – get_global_offset(0))
+    BinaryOperator * op5 = BinaryOperator::Create(Instruction::Sub, gid0, gof0, "lgid.op5", insertBefore);
+    BinaryOperator * res = BinaryOperator::Create(Instruction::Add, op4,  op5,  "lgid.res", insertBefore);
+    return res;
   }
 
-  CallInst * LinearIdResolver::createWIFunctionCall(Module * M, std::string name, Instruction * insertAfter, Value *actPar) {
+  Instruction * LinearIdResolver::replaceGetLocalLinearId(Module * M, Instruction * insertBefore) {
+    // Replace get_local_linear_id() with the following sequence.
+    // get_local_id(2) * get_local_size(1) * get_local_size(0) +
+    // get_local_id(1) * get_local_size(0) +
+    // get_local_id(0) 
+    //    == 
+    // (get_local_id(2) * get_local_size(1)
+    //  + get_local_id(1))
+    // * get_local_size(0)
+    // + get_local_id(0) 
+    std::string idName   = CompilationUtils::mangledGetLID();
+    std::string sizeName = CompilationUtils::mangledGetLocalSize();
+
+    // call get_local_id(2), get_local_id(1), get_local_id(0)
+    CallInst * lid2 = createWIFunctionCall(M, "lid2", idName, insertBefore, m_two);
+    CallInst * lid1 = createWIFunctionCall(M, "lid1", idName, insertBefore, m_one);
+    CallInst * lid0 = createWIFunctionCall(M, "lid0", idName, insertBefore, m_zero);
+    assert (lid0 && lid1 && lid2 && "Can't create get_local_id calls");
+
+    // call get_local_size(1), get_local_size(0)
+    CallInst * lsz1 = createWIFunctionCall(M, "lsz1", sizeName, insertBefore, m_one);
+    CallInst * lsz0 = createWIFunctionCall(M, "lsz0", sizeName, insertBefore, m_zero);
+    assert (lsz0 && lsz1 && "Can't create get_local_size calls");
+
+    // (get_local_id(2) * get_local_size(1)
+    BinaryOperator * op0 = BinaryOperator::Create(Instruction::Mul, lid2, lsz1, "llid.op0", insertBefore);
+    //  + get_local_id(1))
+    BinaryOperator * op1 = BinaryOperator::Create(Instruction::Add, op0, lid1, "llid.op1", insertBefore);
+    // * get_local_size(0) 
+    BinaryOperator * op2 = BinaryOperator::Create(Instruction::Mul, op1, lsz0, "llid.op2", insertBefore);
+    // + get_local_id(0) 
+    BinaryOperator * res = BinaryOperator::Create(Instruction::Add, op2, lid0, "llid.res", insertBefore);
+    return res;
+  }
+
+  CallInst * LinearIdResolver::createWIFunctionCall(Module * M, char const* twine, std::string const& name, Instruction * insertBefore, Value *actPar) {
 
     Function * func = M->getFunction(name);
 
@@ -153,7 +187,7 @@ namespace intel {
       assert(func && "Failed creating function");
     }
 
-    return CallInst::Create(func, actPar, "gid", insertAfter);
+    return CallInst::Create(func, actPar, twine, insertBefore);
   }
 
 }
