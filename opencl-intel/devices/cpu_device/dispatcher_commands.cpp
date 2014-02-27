@@ -888,10 +888,7 @@ bool NDRange::Finish(FINISH_REASON reason)
 {
     StopExecutionProfiling();
     // Need to notify all kernel children and wait for their completion
-    if ( IsWaitingChildExist() )
-    {
-        WaitForChildrenCompletion();
-    }
+    WaitForChildrenCompletion();
 
     // regular stuff:
 #ifdef _DEBUG

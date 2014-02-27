@@ -117,7 +117,8 @@ void in_order_executor_task::operator()()
             {
                 // child task (GetNDRangeChildrenTaskGroup() returns the parent's TaskGroup)
                 ExecuteContainerBody functor(currentTask, *m_list);
-                static_cast<TaskGroup*>(currentTask->GetNDRangeChildrenTaskGroup())->EnqueueFunc(functor);
+                TbbTaskGroup& tbbTskGrp = *static_cast<TbbTaskGroup*>(currentTask->GetNDRangeChildrenTaskGroup());
+                tbbTskGrp.Run(functor);
             }
             currentTask = NULL;
         }
@@ -150,7 +151,8 @@ void out_of_order_executor_task::operator()()
             if (pTask->GetNDRangeChildrenTaskGroup() != NULL)
             {
                 // this is a child task - GetNDRangeChildrenTaskGroup() returns its parent TaskGroup
-                static_cast<TaskGroup*>(pTask->GetNDRangeChildrenTaskGroup())->EnqueueFunc(functor);
+                TbbTaskGroup& tbbTskGrp = *static_cast<TbbTaskGroup*>(pTask->GetNDRangeChildrenTaskGroup());
+                tbbTskGrp.Run(functor);
             }
             else
             {
@@ -405,9 +407,9 @@ unsigned int TBBTaskExecutor::GetPosition( unsigned int level ) const
     return (((NULL != tls) && (NULL != tls->device) && (level < tls->device->GetNumOfLevels())) ? tls->position[level] : TE_UNKNOWN);
 }
 
-SharedPtr<ITaskGroup> TBBTaskExecutor::CreateTaskGroup(const SharedPtr<ITEDevice>& device)
+SharedPtr<IThreadLibTaskGroup> TBBTaskExecutor::CreateTaskGroup(const SharedPtr<ITEDevice>& device)
 { 
-    return TaskGroup::Allocate(static_cast<TEDevice*>(device.GetPtr()));
+    return TbbTaskGroup::Allocate();
 }
 
 }}}//namespace Intel, namespace OpenCL, namespace TaskExecutor

@@ -61,12 +61,41 @@ public:
     bool	        Execute() { m_bFired = true; return true;}
     long	        Release() { return 0; }	//Persistent member, don't release
     TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-    Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
 protected:
     SyncTask() {m_bFired = false;}
 
     volatile bool	m_bFired;
+};
+
+/**
+ * This class implements IThreadLibTaskGroup for TBB
+ */
+class TbbTaskGroup : public IThreadLibTaskGroup
+{
+public:
+
+    PREPARE_SHARED_PTR(TbbTaskGroup)
+
+    static SharedPtr<TbbTaskGroup> Allocate() { return new TbbTaskGroup(); }
+
+    /**
+     * run a functor on this TbbTaskGroup
+     * @param Func the class of the functor
+     * @param f the functor object
+     */
+    template<typename Func>
+    void Run(Func& f) { m_tskGrp.run(f); }
+
+    // overriden methods
+
+    virtual TaskGroupStatus Wait();
+
+private:
+
+    tbb::task_group m_tskGrp;
+
 };
 
 /**
@@ -257,7 +286,7 @@ public:
 
     virtual bool IsProfilingEnabled() const { return m_bProfilingEnabled; }
 
-    void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, ITaskGroup& taskGroup);
+    void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup);
 
 protected:
     friend class in_order_executor_task;
@@ -315,7 +344,7 @@ public:
     }
 
     // This is an optimization: since only one NDRange command can Simultaneously run, all NDRange commands can share the same TaskGroup, without the need to allocate a new one for each of them.
-    virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
+    virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
 
     virtual bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
 
@@ -328,10 +357,10 @@ protected:
     virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL );
 
 private:
-    SharedPtr<TaskGroup>			 m_ndrangeChildrenTaskGroup;
+    SharedPtr<IThreadLibTaskGroup>			 m_ndrangeChildrenTaskGroup;
 
     in_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
-		base_command_list(pTBBExec, device, param), m_ndrangeChildrenTaskGroup(TaskGroup::Allocate(device.GetPtr()))  {}
+        base_command_list(pTBBExec, device, param), m_ndrangeChildrenTaskGroup(TbbTaskGroup::Allocate())  {}
 
 };
 
@@ -377,7 +406,7 @@ public:
     void WaitForIdle();
     bool DoesSupportDeviceSideCommandEnqueue() const { return true; }
 
-    virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return TaskGroup::Allocate(GetTEDevice()); }
+    virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() { return TbbTaskGroup::Allocate(); }
 
 private:
     virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL);
@@ -426,7 +455,7 @@ public:
 
     bool Flush() { return true; }
 
-    virtual SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return TaskGroup::Allocate(GetTEDevice()); }
+    virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() { return TbbTaskGroup::Allocate(); }
 
     bool DoesSupportDeviceSideCommandEnqueue() const { return false; }
 

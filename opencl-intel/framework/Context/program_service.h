@@ -169,7 +169,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const
                         { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
 
-        virtual Intel::OpenCL::TaskExecutor::ITaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+        virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
 
         bool            SetAsSyncPoint()            {assert(0&&"Should not be called");return false;}
         bool            IsCompleted() const         {assert(0&&"Should not be called");return true;}
