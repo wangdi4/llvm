@@ -52,32 +52,34 @@ const float WeightedInstCounter::TID_EQUALITY_PENALTY = 0.1f;
 
 // Costs for transpose functions for 64bit systems
 WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB64Bit[] = {
-
-   { "__ocl_load_transpose_char_4x4", 8 },
+  { "__ocl_load_transpose_char_4x4", 8 },
    { "__ocl_transpose_store_char_4x4", 8 },
    { "__ocl_masked_load_transpose_char_4x4", 12 },
    { "__ocl_masked_transpose_store_char_4x4", 12 },
-   { "__ocl_load_transpose_float_4x4", 60 },
-   { "__ocl_transpose_store_float_4x4", 60 },
+//   { "__ocl_load_transpose_float4x4", 60 },
+//   { "__ocl_transpose_store_float4x4", 60 },
    { "__ocl_load_transpose_float_4x8", 70 },
    { "__ocl_transpose_store_float_4x8", 70 },
    { "__ocl_gather_transpose_float_4x4", 200 },
    { "__ocl_transpose_scatter_float_4x4", 200 },
-   { "__ocl_gather_transpose_float_4x8", 250 },
-   { "__ocl_transpose_scatter_float_4x8", 250 },
-   { "__ocl_masked_load_transpose_float_4x4", 70 },
-   { "__ocl_masked_transpose_store_float_4x4", 70 },
+//   { "__ocl_gather_transpose_float4x8", 250 },
+//   { "__ocl_transpose_scatter_float4x8", 250 },
+//   { "__ocl_masked_load_transpose_float4x4", 70 },
+//   { "__ocl_masked_transpose_store_float4x4", 70 },
    { "__ocl_masked_load_transpose_float_4x8", 80},
    { "__ocl_masked_transpose_store_float_4x8", 80},
-   { "__ocl_masked_gather_transpose_float_4x4", 210},
-   { "__ocl_masked_transpose_scatter_float_4x4", 210},
-   { "__ocl_masked_gather_transpose_float_4x8", 260},
-   { "__ocl_masked_transpose_scatter_float_4x8", 260},
+//   { "__ocl_masked_gather_transpose_float4x4", 210},
+//   { "__ocl_masked_transpose_scatter_float4x4", 210},
+//   { "__ocl_masked_gather_transpose_float_4x8", 260},
+//   { "__ocl_masked_transpose_scatter_float_4x8", 260},
+   { "__ocl_masked_gather_transpose_float_4x8", 90},
+   { "__ocl_masked_transpose_scatter_float_4x8", 90},
+
    // The line below must be the last line in the DB,
    // serving as a terminator.
    { 0, 0 }
 };
-
+   
 // Costs for transpose functions for 32bit systems
 WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB32Bit[] = {
 

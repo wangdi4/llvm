@@ -141,7 +141,10 @@ std::string ImageCallbackLibrary::getLibraryBasename()
     Utils::SystemInfo::GetModuleDirectory(szModuleName, MAX_PATH);
 
     //Klocwork warning - false alarm the Id is always in correct bounds
-    const char* pCPUPrefix = m_CpuId.GetCPUPrefix();
+    const char* pCPUPrefix = m_CpuId.GetCPUPrefix(); 
+    if(pCPUPrefix == NULL)
+      throw Exceptions::DeviceBackendExceptionBase(std::string("Internal error. NULL CPU prefix"));
+
 
     std::string ret = std::string(szModuleName)
                     + "clbltfn"
