@@ -211,84 +211,15 @@ void ProcessCommonMemoryChunk::process_chunk( CommonMemoryChunk::Chunk& chunk )
     memcpy(&m_current_chunk, &chunk, sizeof(CommonMemoryChunk::Chunk));
 }
 
-bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void* readBuff, size_t readOffset, void* writeBuff, size_t writeOffset, size_t size,
-    const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event, bool forceValidOnSingleDevice)
+bool ProcessCommonMemoryChunk::processActionOptimized(  cl_dev_cmd_type type, 
+                                                        void* readBuff,     size_t readOffset, 
+                                                        void* writeBuff,    size_t writeOffset, 
+                                                        size_t size,
+                                                        const COIEVENT* dependecies, uint32_t num_dependencies, 
+                                                        COIEVENT* fired_event)
 {
     COIRESULT coi_result = COI_SUCCESS;
-    vector<COIEVENT> setStateEventsArr;
-    if ((CL_DEV_CMD_READ == type) /* TODO Remove '|| (CL_DEV_CMD_COPY == type)' when COI will fix the deadlock */ || (CL_DEV_CMD_COPY == type))
-    {
-        forceValidOnSingleDevice = false;
-    }
-    // Force validity on target device and invalidate on other devices.
-    if (forceValidOnSingleDevice)
-    {
-        MICDevMemoryObject* pWriteMemObj = static_cast<MICDevMemoryObject*>(writeBuff);
-        assert(pWriteMemObj && "Only Write and Copy commands can force transfer, so the writeBuff must be of type MICDevMemoryObject");
-        if (NULL == pWriteMemObj)
-        {
-            return false;
-        }
-        // In case of overwriting the whole buffer, than we should not move the data.
-        COI_BUFFER_MOVE_FLAG moveFlag = ((0 == writeOffset) && (size == pWriteMemObj->GetRawDataSize())) ? COI_BUFFER_NO_MOVE : COI_BUFFER_MOVE;
-        assert(m_processOfTarget && "In case of Write / Copy commands, m_processOfTarget must be set");
-        vector<COIPROCESS> targetBuffProcesses = pWriteMemObj->get_active_processes();
-        // targetBuffProcesses.size() must be greater than 0, becasue it exist at least in the current queue MIC device.
-        assert(targetBuffProcesses.size() > 0 && "targetBuffProcesses must be greater than 0");
-        if (0 == targetBuffProcesses.size())
-        {
-            return false;
-        }
-        targetBuffProcesses.push_back(COI_PROCESS_SOURCE);
-        setStateEventsArr.resize(targetBuffProcesses.size());
-        const COIBUFFER& targetCoiBuffer = pWriteMemObj->clDevMemObjGetCoiBufferHandler();
-        assert(m_processOfTarget != NULL && m_processOfTarget != COI_PROCESS_SOURCE && "m_processOfTarget must be MIC Device process");
-        // Set target buffer valid on m_processOfTarget.
-        coi_result = COIBufferSetState( 
-                                                targetCoiBuffer,                    // Buffer to transfer
-                                                m_processOfTarget,                    // Target Device process 
-                                                COI_BUFFER_VALID,                    // Desired state in the target process
-                                                moveFlag,                            // Force data movement if required
-                                                num_dependencies, dependecies,        // array of dependencies
-                                                &(setStateEventsArr[0]) );
-        assert(COI_SUCCESS == coi_result && "COIBufferSetState failed");
-        if (COI_SUCCESS != coi_result)
-        {
-            return false;
-        }
-        // Set target buffer invalid on all devices that are not m_processOfTarget
-        unsigned int eventsArrIndex = 1;
-        for (unsigned int i = 0; i < targetBuffProcesses.size(); i++)
-        {
-            if (m_processOfTarget != targetBuffProcesses[i])
-            {
-                coi_result = COIBufferSetState( 
-                                                targetCoiBuffer,                    // Buffer to transfer
-                                                targetBuffProcesses[i],                // Target Device process 
-                                                COI_BUFFER_INVALID,                    // Desired state in the target process
-                                                COI_BUFFER_NO_MOVE,                    // Force data movement if required
-                                                1, &(setStateEventsArr[0]),            // array of dependencies
-                                                &(setStateEventsArr[eventsArrIndex]) );
-                
-                assert(COI_SUCCESS == coi_result && "COIBufferSetState failed");
-                if (COI_SUCCESS != coi_result)
-                {
-                    assert(eventsArrIndex > 0 && "eventsArrIndex must be greater than 0 because the prev. SetBufferState");
-                    *fired_event = setStateEventsArr[eventsArrIndex - 1];
-                    return false;
-                }
-                eventsArrIndex ++;
-            }
-        }
-        assert(eventsArrIndex == setStateEventsArr.size() && "eventsArrIndex must be as the size of the ALL COIProcesses");
-    }
-    COIEVENT* tDependecies = (COIEVENT*)dependecies;
-    uint32_t tNumDependencies = num_dependencies;
-    if (setStateEventsArr.size() > 0)
-    {
-        tDependecies = &(setStateEventsArr[0]);
-        tNumDependencies = setStateEventsArr.size();
-    }
+
     switch (type)
     {
     case CL_DEV_CMD_READ:
@@ -308,7 +239,12 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
                 if (((size_t)writeBuff + writeOffset >= (size_t)memObjPtr) && ((size_t)writeBuff + writeOffset + size <= (size_t)memObjPtr + memObjSize))
                 {
                     // Can convert the read operation to COPY operation. (The Buffer 'm_memObjOfTargetPtr' mapped to the host so it must exist in the host)
-                    return processActionOptimized(CL_DEV_CMD_COPY, readBuff, readOffset, m_memObjOfHostPtr, writeOffset + ((size_t)writeBuff - (size_t)memObjPtr), size, tDependecies, tNumDependencies, fired_event, false);
+                    return processActionOptimized(  CL_DEV_CMD_COPY, 
+                                                    readBuff, readOffset, 
+                                                    m_memObjOfHostPtr, writeOffset + ((size_t)writeBuff - (size_t)memObjPtr), 
+                                                    size, 
+                                                    dependecies, num_dependencies, 
+                                                    fired_event);
                 }
             }
             // else execute regular read
@@ -318,14 +254,14 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
             {
                 return false;
             }
-            coi_result = COIBufferRead (pReadMemObj->clDevMemObjGetCoiBufferHandler(),        // Buffer to read from.
-                                        readOffset,                                            // Location in the buffer to start reading from.
-                                        (void*)((size_t)writeBuff + writeOffset),            // A pointer to local memory that should be written into.
-                                        size,                                                // The number of bytes to write from coiBuffer into host
-                                        COI_COPY_UNSPECIFIED,                                // The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
-                                        tNumDependencies,                                    // The number of dependencies specified.
-                                        tDependecies,                                        // An optional array of handles to previously created COIEVENT objects that this read operation will wait for before starting.
-                                        fired_event                                            // An optional event to be signaled when the copy has completed.
+            coi_result = COIBufferRead (pReadMemObj->clDevMemObjGetCoiBufferHandler(),// Buffer to read from.
+                                        readOffset,                                   // Location in the buffer to start reading from.
+                                        (void*)((size_t)writeBuff + writeOffset),     // A pointer to local memory that should be written into.
+                                        size,                                         // The number of bytes to write from coiBuffer into host
+                                        COI_COPY_UNSPECIFIED,                         // The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
+                                        num_dependencies,                             // The number of dependencies specified.
+                                        dependecies,                                  // An optional array of handles to previously created COIEVENT objects that this read operation will wait for before starting.
+                                        fired_event                                   // An optional event to be signaled when the copy has completed.
                                         );
             
             assert(COI_SUCCESS == coi_result && "COIBufferRead failed");
@@ -352,7 +288,12 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
                 if (((size_t)readBuff + readOffset >= (size_t)memObjPtr) && ((size_t)readBuff + readOffset + size <= (size_t)memObjPtr + memObjSize))
                 {
                     // Can convert the write operation to COPY operation.
-                    return processActionOptimized(CL_DEV_CMD_COPY, m_memObjOfHostPtr, readOffset + ((size_t)readBuff - (size_t)memObjPtr), writeBuff, writeOffset, size, tDependecies, tNumDependencies, fired_event, false);
+                    return processActionOptimized(  CL_DEV_CMD_COPY, 
+                                                    m_memObjOfHostPtr, readOffset + ((size_t)readBuff - (size_t)memObjPtr), 
+                                                    writeBuff, writeOffset, 
+                                                    size, 
+                                                    dependecies, num_dependencies, 
+                                                    fired_event );
                 }
             }
             // else execute regular write
@@ -360,29 +301,21 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
             assert(pWriteMemObj && "In Write Command, writeBuff must be of type MICDevMemoryObject");
             if (NULL == pWriteMemObj)
             {
-                if (setStateEventsArr.size() > 0)
-                {
-                    *fired_event = setStateEventsArr[setStateEventsArr.size() - 1];
-                }
                 return false;
             }
-            coi_result = COIBufferWrite (pWriteMemObj->clDevMemObjGetCoiBufferHandler(),    // Buffer to write to.
-                                         writeOffset,                                        // Location in the buffer to start writing from.
-                                         (void*)((size_t)readBuff + readOffset),            // A pointer to local memory that should be read from.
-                                         size,                                                // The number of bytes to write from host into coiBuffer.
-                                         COI_COPY_UNSPECIFIED,                                // The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
-                                         tNumDependencies,                                    // The number of dependencies specified.
-                                         tDependecies,                                        // An optional array of handles to previously created COIEVENT objects that this write operation will wait for before starting.
-                                         fired_event                                        // An optional event to be signaled when the copy has completed.
-                                        );
+            coi_result = COIBufferWriteEx(  pWriteMemObj->clDevMemObjGetCoiBufferHandler(), // Buffer to write to.
+                                            m_processOfTarget,                              // Target device process     
+                                            writeOffset,                                    // Location in the buffer to start writing from.
+                                            (void*)((size_t)readBuff + readOffset),         // A pointer to local memory that should be read from.
+                                            size,                                           // The number of bytes to write from host into coiBuffer.
+                                            COI_COPY_UNSPECIFIED,                           // The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
+                                            num_dependencies,                               // The number of dependencies specified.
+                                            dependecies,                                    // An optional array of handles to previously created COIEVENT objects that this write operation will wait for before starting.
+                                            fired_event );                                  // An optional event to be signaled when the copy has completed.
 
             assert(COI_SUCCESS == coi_result && "COIBufferWrite failed");
             if (COI_SUCCESS != coi_result)
             {
-                if (setStateEventsArr.size() > 0)
-                {
-                    *fired_event = setStateEventsArr[setStateEventsArr.size() - 1];
-                }
                 return false;
             }
             break;
@@ -394,30 +327,21 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
             assert(pWriteMemObj && pReadMemObj && "In Copy Command, both pReadMemObj and writeBuff must be of type MICDevMemoryObject");
             if ((NULL == pWriteMemObj) || (NULL == pReadMemObj))
             {
-                if (setStateEventsArr.size() > 0)
-                {
-                    *fired_event = setStateEventsArr[setStateEventsArr.size() - 1];
-                }
                 return false;
             }
-            coi_result = COIBufferCopy (
-                                        pWriteMemObj->clDevMemObjGetCoiBufferHandler(),         // Buffer to copy into.
-                                        pReadMemObj->clDevMemObjGetCoiBufferHandler(),            // Buffer to copy from.
-                                        writeOffset,                                            // Location in the destination buffer to start writing to.
-                                        readOffset,                                                // Location in the source buffer to start reading from.
-                                        size,                                                    // The number of bytes to copy from coiBufferSrc into coiBufferSrc.
-                                        COI_COPY_UNSPECIFIED,                                    // The type of copy operation to use.
-                                        tNumDependencies,                                        // The number of dependencies.
-                                        tDependecies,                                            // An optional array of handles to previously created COIEVENT objects that this copy operation will wait for before starting.
-                                        fired_event                                                // An optional event to be signaled when the copy has completed.
-                                        );
+            coi_result = COIBufferCopyEx(   pWriteMemObj->clDevMemObjGetCoiBufferHandler(), // Buffer to copy into.
+                                            m_processOfTarget,                              // Target device process     
+                                            pReadMemObj->clDevMemObjGetCoiBufferHandler(),  // Buffer to copy from.
+                                            writeOffset,                                    // Location in the destination buffer to start writing to.
+                                            readOffset,                                     // Location in the source buffer to start reading from.
+                                            size,                                           // The number of bytes to copy from coiBufferSrc into coiBufferSrc.
+                                            COI_COPY_UNSPECIFIED,                           // The type of copy operation to use.
+                                            num_dependencies,                               // The number of dependencies.
+                                            dependecies,                                    // An optional array of handles to previously created COIEVENT objects that this copy operation will wait for before starting.
+                                            fired_event );                                  // An optional event to be signaled when the copy has completed.
             assert(COI_SUCCESS == coi_result && "COIBufferCopy failed");
             if (COI_SUCCESS != coi_result)
             {
-                if (setStateEventsArr.size() > 0)
-                {
-                    *fired_event = setStateEventsArr[setStateEventsArr.size() - 1];
-                }
                 return false;
             }
             break;
@@ -727,12 +651,6 @@ cl_dev_err_code ReadWriteMemObject::execute()
         m_commandTracer.add_delta_buffer_operation_overall_size(size);
 #endif
         m_endEvent.cmdEvent = copier.get_last_event();
-
-        if (( CL_DEV_CMD_WRITE == m_pCmd->type ) && (0 == pMicMemObj->GetWriteMapsCount()))
-        {
-            m_endEvent.cmdEvent = ForceTransferToDevice( pMicMemObj, m_endEvent.cmdEvent );
-        }
-        
         m_lastError = CL_DEV_SUCCESS;
 
     } while (0);
@@ -893,15 +811,15 @@ cl_dev_err_code CopyMemObject::execute()
                 break;
             }
 
-            COIRESULT coiResult = COIBufferRead ( pMicMemObjSrc->clDevMemObjGetCoiBufferHandler(),					// Buffer to read from.
-												 0,																	// Location in the buffer to start reading from.
-												 m_srcBufferMirror,													// A pointer to local memory that should be written into.
-												 pMicMemObjSrc->GetRawDataSize(),									// The number of bytes to write from coiBuffer into host
-												 COI_COPY_UNSPECIFIED,												// The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
-												 numDependecies,													// The number of dependencies specified.
-												 pBarrier,															// An optional array of handles to previously created COIEVENT objects that this read operation will wait for before starting.
-												 &initialReadBarrier										        // An optional event to be signaled when the copy has completed.
-											   );
+            COIRESULT coiResult = COIBufferRead ( pMicMemObjSrc->clDevMemObjGetCoiBufferHandler(), // Buffer to read from.
+                                                 0,                                                // Location in the buffer to start reading from.
+                                                 m_srcBufferMirror,                                // A pointer to local memory that should be written into.
+                                                 pMicMemObjSrc->GetRawDataSize(),                  // The number of bytes to write from coiBuffer into host
+                                                 COI_COPY_UNSPECIFIED,                             // The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
+                                                 numDependecies,                                   // The number of dependencies specified.
+                                                 pBarrier,                                         // An optional array of handles to previously created COIEVENT objects that this read operation will wait for before starting.
+                                                 &initialReadBarrier                               // An optional event to be signaled when the copy has completed.
+                                               );
 
             assert(COI_SUCCESS == coiResult);
             if (COI_SUCCESS != coiResult)
@@ -918,7 +836,7 @@ cl_dev_err_code CopyMemObject::execute()
                                                 m_pCommandList->getDeviceProcess());
 
         }
-        else	// Regular copy from different source and destination COIBuffers.
+        else    // Regular copy from different source and destination COIBuffers.
         {
             pCopier = new CopyMemoryChunk(
                           pBarrier,
@@ -966,12 +884,6 @@ cl_dev_err_code CopyMemObject::execute()
         m_commandTracer.add_delta_buffer_operation_overall_size(size);
 #endif
         m_endEvent.cmdEvent = pCopier->get_last_event();
-        
-        if (0 == pMicMemObjDst->GetWriteMapsCount())
-        {
-            m_endEvent.cmdEvent = ForceTransferToDevice( pMicMemObjDst, m_endEvent.cmdEvent );
-        }
-
         m_lastError = CL_DEV_SUCCESS;
 
     }
@@ -985,7 +897,7 @@ class MapMemoryChunk : public ProcessCommonMemoryChunk
 {
 public:
     MapMemoryChunk( const COIEVENT* external, COIBUFFER buffer, void* ptr, COI_MAP_TYPE map_type, SMemMapParamsList* coiMapParamList ) :
-        ProcessCommonMemoryChunk( external ), 
+        ProcessCommonMemoryChunk( external, NULL ), 
         m_buffer(buffer), m_ptr((char*)ptr), m_mapType(map_type), m_pCoiMapParamList(coiMapParamList) {};
 
     void process_finish( void );
@@ -1018,15 +930,15 @@ bool MapMemoryChunk::fire_action( const CommonMemoryChunk::Chunk& chunk, const C
 {
     COIMAPINSTANCE currentMapInstance;
     void* mapPointer = m_ptr+chunk.to_offset;
-    COIRESULT coiResult = COIBufferMap ( m_buffer,                    // Handle for the buffer to map.
-                               chunk.from_offset,                   // Offset into the buffer that a pointer should be returned for.
-                               chunk.size,                            // Length of the buffer area to map.
-                               m_mapType,                            // The access type that is needed by the application.
-                               num_dependencies,                    // The number of dependencies specified in the barrier array.
-                               dependecies,                            // An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
-                               fired_event,                            // An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
-                               &currentMapInstance,                    // A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
-                               &mapPointer
+    COIRESULT coiResult = COIBufferMap( m_buffer,           // Handle for the buffer to map.
+                                        chunk.from_offset,  // Offset into the buffer that a pointer should be returned for.
+                                        chunk.size,         // Length of the buffer area to map.
+                                        m_mapType,          // The access type that is needed by the application.
+                                        num_dependencies,   // The number of dependencies specified in the barrier array.
+                                        dependecies,        // An optional array of handles to previously created COIEVENT objects that this map operation will wait for before starting.
+                                        fired_event,        // An optional pointer to a COIEVENT object that will be signaled when a map call with the passed in buffer would complete immediately, that is, the buffer memory has been allocated on the host and its contents updated.
+                                        &currentMapInstance,// A pointer to a COIMAPINSTANCE which represents this mapping of the buffer
+                                        &mapPointer
                              );
 
     assert(COI_SUCCESS == coiResult);
@@ -1095,8 +1007,7 @@ cl_dev_err_code MapMemObject::execute()
             break;
         }
 
-        MapMemoryChunk copier(
-                               pBarrier,
+        MapMemoryChunk copier( pBarrier,
                                pMicMemObj->clDevMemObjGetCoiBufferHandler(), // Get the COIBUFFER which represent this memory object
                                cmdParams->ptr,
                                COI_MAP_READ_WRITE, 
@@ -1173,11 +1084,11 @@ bool UnmapMemoryChunk::fire_action( const UnmapMemoryChunkStruct::Chunk& chunk, 
     {
         return false;
     }
-    COIRESULT coiResult = COIBufferUnmap ( chunk.coi_map_instance,                    // Buffer map instance handle to unmap.
-                                            num_dependencies,                        // The number of dependencies specified in the barrier array.
-                                            dependecies,                            // An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
-                                            fired_event                                // An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
-                                          );
+    COIRESULT coiResult = COIBufferUnmap( chunk.coi_map_instance,// Buffer map instance handle to unmap.
+                                          num_dependencies,      // The number of dependencies specified in the barrier array.
+                                          dependecies,           // An optional array of handles to previously created COIEVENT objects that this unmap operation will wait for before starting.
+                                          fired_event            // An optional pointer to a COIEVENT object that will be signaled when the unmap is complete.
+                                        );
 
     assert(COI_SUCCESS == coiResult);
     return (COI_SUCCESS == coiResult);
@@ -1328,7 +1239,7 @@ cl_dev_err_code MigrateMemObject::init(vector<COIBUFFER>&    outCoiBuffsArr,
                                        COIBUFFER&            outLastBufferHandle )
 {
     cl_dev_err_code             returnError = CL_DEV_SUCCESS;
-    cl_dev_cmd_param_migrate*    cmdParams   = (cl_dev_cmd_param_migrate*)m_pCmd->params;
+    cl_dev_cmd_param_migrate*   cmdParams   = (cl_dev_cmd_param_migrate*)m_pCmd->params;
 
     if ((0 == cmdParams->mem_num) || (NULL == cmdParams->memObjs))
     {
@@ -1386,8 +1297,8 @@ cl_dev_err_code MigrateMemObject::execute()
 
     m_lastError = CL_DEV_SUCCESS;
 
-	do
-	{
+    do
+    {
         COIEVENT barrier;
         unsigned int numDependecies = 0;
         m_pCommandList->getLastDependentBarrier(&barrier, &numDependecies, false);
