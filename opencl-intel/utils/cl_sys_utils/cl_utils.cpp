@@ -1497,7 +1497,16 @@ bool GetCpuPath( char *pCpuPath, size_t bufferSize )
     // pCpuPath is expected to be MAX_PATH in size
     if( NULL != pCpuPath )
     {
-        return GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, "cpu_path", pCpuPath, bufferSize );
+		string valueName;
+		if (EmulatorEnabled())
+		{
+			valueName = "cpu_2_0_emulator_path";
+		}
+		else
+		{
+			valueName = "cpu_path";
+		}
+		return GetStringValueFromRegistryOrETC( HKEY_LOCAL_MACHINE, regPath, valueName.c_str(), pCpuPath, bufferSize );
     }
 #endif
     return false;
@@ -1515,5 +1524,20 @@ bool GetCpuVersion( char *pCpuVersion, size_t bufferSize )
     }
 #endif
     return false;
+}
+
+bool EmulatorEnabled()
+{
+#if defined( _WIN32 )
+	char *emulatorVal = getenv("ENABLE_2_0_EMULATOR");
+    if (emulatorVal)
+    {
+		if(_stricmp(emulatorVal, "True") == 0)
+		{
+			return true;
+		}
+    }
+#endif
+	return false;
 }
 

@@ -396,3 +396,12 @@ bool GetCpuPath( char *pCpuPath, size_t bufferSize );
  * @return the version of the CPU runtime
  */
 bool GetCpuVersion( char *pCpuVersion, size_t bufferSize );
+
+/**************************************************************************************************
+* Function: 	EmulatorEnabled
+* Description:	Returns true if and only if the OpenCL 2.0 emulator is enabled
+* Return value:	bool
+* Author:		Oded Perez
+* Date:			March 2014
+**************************************************************************************************/
+bool EmulatorEnabled();
