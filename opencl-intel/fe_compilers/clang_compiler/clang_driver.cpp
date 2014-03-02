@@ -2073,7 +2073,7 @@ bool Intel::OpenCL::ClangFE::ParseCompileOptions(const char*  szOptions,
             pBEArgList->push_back("-cl-std=CL2.0");
         }
         else if (*opt_i == "-cl-uniform-workgroup-size") {
-            // Don't complain, just ignore it for now
+            pBEArgList->push_back("-cl-uniform-workgroup-size");
         }
         else if (*opt_i == "-triple") {
             // Expect the target triple as the next token
