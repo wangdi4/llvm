@@ -16,21 +16,19 @@ File Name:  ServiceFactory.cpp
 
 \*****************************************************************************/
 
-#include "ServiceFactory.h"
 #include "BackendConfiguration.h"
 #include "CPUCompileService.h"
+#include "CPUDetect.h"
+#include "CPUExecutionService.h"
+#include "ExecutionService.h"
+#include "ImageCallbackServices.h"
+#include "ServiceFactory.h"
+#include "debuggingservicewrapper.h"
+#include "exceptions.h"
 #if defined(INCLUDE_MIC_DEVICE)
 #include "MICCompileService.h"
 #include "MICSerializationService.h"
 #endif
-#include "CompilerConfig.h"
-//#include "MICCompilerConfig.h"
-#include "ExecutionService.h"
-#include "ImageCallbackServices.h"
-#include "exceptions.h"
-#include "CPUDetect.h"
-#include "CPUExecutionService.h"
-#include "debuggingservicewrapper.h"
 
 /**
  * Description of ENABLE_SDE mode for MIC:
@@ -63,9 +61,21 @@ File Name:  ServiceFactory.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-extern const char* CPU_DEVICE;
-extern const char* MIC_DEVICE;
+using Utils::CPUDetect;
 
+const char* CPU_DEVICE = "cpu";
+const char* MIC_DEVICE = "mic";
+
+namespace Utils
+{
+    DEVICE_TYPE SelectDevice(const char* cpuArch)
+    {
+        if(0 == strcmp(cpuArch, CPU_DEVICE)) return CPU_MODE;
+        if(0 == strcmp(cpuArch, MIC_DEVICE)) return MIC_MODE;
+
+        throw Exceptions::DeviceBackendExceptionBase("Unsupported device", CL_DEV_INVALID_OPERATION_MODE);
+    }
+}
 
 ServiceFactory* ServiceFactory::s_pInstance = NULL;
 

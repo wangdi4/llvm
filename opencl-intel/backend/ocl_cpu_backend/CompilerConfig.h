@@ -29,8 +29,8 @@ DEFINE_EXCEPTION(BadConfigException)
 class GlobalCompilerConfig: public IGlobalCompilerConfig
 {
 public:
-    void LoadDefaults();
-    void LoadConfig();
+    void LoadDefaults() { m_enableTiming = false; }
+    void LoadConfig() {}
     void SkipBuiltins();
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
 
@@ -66,7 +66,7 @@ public:
     // CompilerConfiguration methods
     void LoadDefaults();
     virtual void LoadConfig();
-    void SkipBuiltins();
+    void SkipBuiltins() { m_loadBuiltins = false; }
     void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
     bool IsValidTransposeSize();
 

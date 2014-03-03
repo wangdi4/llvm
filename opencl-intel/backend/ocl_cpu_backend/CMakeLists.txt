@@ -240,7 +240,7 @@ if (INCLUDE_MIC_DEVICE)
     MICBuiltinLibrary.h
     MICCompileService.h
     MICCompiler.h
-    #MICCompilerConfig.h
+    MICCompilerConfig.h
     MICDeviceBackendFactory.h
     MICJITContainer.h
     MICKernel.h
@@ -255,6 +255,7 @@ if (INCLUDE_MIC_DEVICE)
     MICBuiltinLibrary.cpp
     MICCompileService.cpp
     MICCompiler.cpp
+    MICCompilerConfig.cpp
     MICDeviceBackendFactory.cpp
     MICJITContainer.cpp
     MICKernel.cpp
