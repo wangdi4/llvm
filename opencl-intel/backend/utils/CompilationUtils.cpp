@@ -720,6 +720,10 @@ std::string CompilationUtils::mangledGetGlobalSize() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GLOBAL_SIZE.c_str());
 }
 
+std::string CompilationUtils::mangledGetGlobalOffset() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GLOBAL_OFFSET.c_str());
+}
+
 std::string CompilationUtils::mangledGetLID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LID.c_str());
 }
