@@ -87,6 +87,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_WORK_GROUP_REDUCE_MAX = "work_group_reduce_max";
   const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX = "work_group_scan_exclusive_max";
   const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX = "work_group_scan_inclusive_max";
+  const std::string CompilationUtils::NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
 
   //Images
   const std::string CompilationUtils::OCL_IMG_PREFIX  = "opencl.image";
@@ -907,7 +908,7 @@ bool CompilationUtils::isWorkGroupScanInclusiveMin(const std::string& S) {
 }
 
 bool CompilationUtils::isWorkGroupReduceMax(const std::string& S) {
-  return (S == CompilationUtils::NAME_WORK_GROUP_REDUCE_MAX);
+  return isMangleOf(S, CompilationUtils::NAME_WORK_GROUP_REDUCE_MAX);
 }
 
 bool CompilationUtils::isWorkGroupScanExclusiveMax(const std::string& S) {
@@ -916,6 +917,28 @@ bool CompilationUtils::isWorkGroupScanExclusiveMax(const std::string& S) {
 
 bool CompilationUtils::isWorkGroupScanInclusiveMax(const std::string& S) {
   return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX);
+}
+
+bool CompilationUtils::hasWorkGroupFinalizePrefix(const std::string& S) {
+  if (!isMangledName(S.c_str())) return false;
+  std::string funcName = stripName(S.c_str());
+  return StringRef(funcName).startswith(NAME_FINALIZE_WG_FUNCTION_PREFIX);
+}
+
+std::string CompilationUtils::appendWorkGroupFinalizePrefix(const std::string& S) {
+  assert(isMangledName(S.c_str()) && "expected mangled name of work group built-in");
+  reflection::FunctionDescriptor fd = demangle(S.c_str());
+  fd.name = NAME_FINALIZE_WG_FUNCTION_PREFIX + fd.name;
+  std::string finalizeFuncName = mangle(fd);
+  return finalizeFuncName;
+}
+
+std::string CompilationUtils::removeWorkGroupFinalizePrefix(const std::string& S) {
+  assert(hasWorkGroupFinalizePrefix(S) && "expected finilize prefix");
+  reflection::FunctionDescriptor fd = demangle(S.c_str());
+  fd.name = fd.name.substr(NAME_FINALIZE_WG_FUNCTION_PREFIX.size());
+  std::string funcName = mangle(fd);
+  return funcName;
 }
 
 bool CompilationUtils::isWorkGroupBuiltin(const std::string& S) {
