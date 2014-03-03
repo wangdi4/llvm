@@ -33,7 +33,6 @@ File Name:  ProgramBuilder.cpp
 #include "BuiltinModule.h"
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
-#include "plugin_manager.h"
 #include "MetaDataApi.h"
 #include "BitCodeContainer.h"
 #include "BlockUtils.h"

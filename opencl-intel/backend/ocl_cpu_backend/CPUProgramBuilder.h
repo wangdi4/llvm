@@ -22,6 +22,9 @@ File Name:  CPUProgramBuilder.h
 #include "ICompilerConfig.h"
 #include "ProgramBuilder.h"
 #include "cl_dev_backend_api.h"
+#ifdef OCL_DEV_BACKEND_PLUGINS
+#include "plugin_manager.h"
+#endif
 
 #include <string>
 

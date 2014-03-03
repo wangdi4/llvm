@@ -21,6 +21,8 @@ File Name:  MICCompilerConfig.cpp
 #include "MICSerializationService.h"
 #include "TargetDescription.h"
 
+#include "llvm/Support/Debug.h"
+
 #include <sstream>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

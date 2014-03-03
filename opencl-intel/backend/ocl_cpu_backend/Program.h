@@ -19,13 +19,12 @@ File Name:  Program.h
 //  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS
 #pragma once
 
-#include <assert.h>
-#include <string>
-#include <memory>
 #include "cl_dev_backend_api.h"
 #include "cl_types.h"
 #include "ICLDevBackendProgram.h"
 #include "RuntimeService.h"
+#include <string>
+#include <memory>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

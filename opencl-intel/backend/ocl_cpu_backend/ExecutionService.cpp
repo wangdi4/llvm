@@ -17,14 +17,7 @@ File Name:  ExecutionService.cpp
 \*****************************************************************************/
 
 #include "ExecutionService.h"
-#include "Kernel.h"
-#include "KernelProperties.h"
-#include "exceptions.h"
-
-
-#ifdef OCL_DEV_BACKEND_PLUGINS 
-#include "plugin_manager.h"
-#endif
+#include <assert.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -33,15 +26,15 @@ ExecutionService::ExecutionService(const ICLDevBackendOptions* pOptions)
     // obtain Device Command Manager
     assert(pOptions && "pOptions are NULL");
 }
-        
+
 size_t ExecutionService::GetTargetMachineDescriptionSize() const
 {
     assert(false && "NotImplemented");
-    return 0;    
+    return 0;
 }
 
 cl_dev_err_code ExecutionService::GetTargetMachineDescription(
-        void* pTargetDescription, 
+        void* pTargetDescription,
         size_t descriptionSize) const
 
 {
