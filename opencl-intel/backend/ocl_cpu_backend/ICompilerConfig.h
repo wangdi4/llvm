@@ -26,11 +26,11 @@ File Name:  CompilerConfig.h
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 /**
- * Global compiler configuration interface .
+ * Global compiler configuration interface.
  *
  * This configuration is used for all the instances of the compiler
  * Internally it is mapped to the global LLVM state
- */ 
+ */
 class IGlobalCompilerConfig
 {
 public:
@@ -38,14 +38,14 @@ public:
     /**
      * Time each pass, printing elapsed time for each on exit
      */
-    virtual bool EnableTiming() const = 0; 
+    virtual bool EnableTiming() const = 0;
     /**
      * File to append -stats and -timer output to
      */
     virtual std::string InfoOutputFile() const = 0;
     /**
      * Disables printing the stack dump upon crash - used
-     * primarity to disable the SEH handling by llvm library 
+     * primarity to disable the SEH handling by llvm library
      * usually for SDE tracing support.
      */
     virtual bool DisableStackDump() const = 0;
@@ -54,7 +54,7 @@ public:
 
 /**
  * Compiler configuration interface
- * 
+ *
  * This configuration is used for specific instance of the compiler
  */
 class ICompilerConfig

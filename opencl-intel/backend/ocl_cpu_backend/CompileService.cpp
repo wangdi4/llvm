@@ -22,6 +22,7 @@ File Name:  CompileService.cpp
 #include "Program.h"
 #include "BitCodeContainer.h"
 #include "plugin_manager.h"
+
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Path.h"
@@ -49,7 +50,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 CompileService::CompileService()
 {}
 
-cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* pByteCodeContainer, 
+cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* pByteCodeContainer,
                                                ICLDevBackendProgram_** ppProgram) const
 {
     assert(m_backendFactory);
@@ -64,7 +65,7 @@ cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* p
         BitCodeContainer* bitCodeContainer = new BitCodeContainer(pByteCodeContainer);
         spProgram->SetBitCodeContainer(bitCodeContainer);
         *ppProgram = spProgram.release();
-#ifdef OCL_DEV_BACKEND_PLUGINS  
+#ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin manager
         m_pluginManager.OnCreateProgram(pByteCodeContainer, *ppProgram);
 #endif
@@ -76,16 +77,16 @@ cl_dev_err_code CompileService::CreateProgram( const cl_prog_container_header* p
     }
     catch( std::bad_alloc& )
     {
-        return CL_DEV_OUT_OF_MEMORY; 
+        return CL_DEV_OUT_OF_MEMORY;
     }
 }
 
 void CompileService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
 {
     llvm::MutexGuard lock(m_buildLock);
-#ifdef OCL_DEV_BACKEND_PLUGINS  
+#ifdef OCL_DEV_BACKEND_PLUGINS
     m_pluginManager.OnReleaseProgram(pProgram);
-#endif  
+#endif
     delete pProgram;
 }
 
@@ -109,7 +110,7 @@ cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
     }
     catch( std::bad_alloc& )
     {
-        return CL_DEV_OUT_OF_MEMORY; 
+        return CL_DEV_OUT_OF_MEMORY;
     }
 }
 
@@ -126,7 +127,7 @@ cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContai
         assert(pModule);
 
         std::string fname = pOptions->GetStringValue( CL_DEV_BACKEND_OPTION_DUMPFILE, "");
-        
+
         if( fname.empty() )
         {
             llvm::outs() << *pModule;
@@ -152,7 +153,7 @@ cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContai
     }
     catch( std::bad_alloc& )
     {
-        return CL_DEV_OUT_OF_MEMORY; 
+        return CL_DEV_OUT_OF_MEMORY;
     }
 }
 

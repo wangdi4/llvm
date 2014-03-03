@@ -266,7 +266,7 @@ IBlockToKernelMapper * CPUProgramBuilder::CreateBlockToKernelMapper(Program* pPr
 
 
 void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
-  const ICLDevBackendOptions* pOptions) const 
+  const ICLDevBackendOptions* pOptions) const
 {
   assert(pProgram && pModule && "inputs are NULL");
 

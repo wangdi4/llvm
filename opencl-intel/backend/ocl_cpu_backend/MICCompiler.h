@@ -22,6 +22,7 @@ File Name: MICCompiler.h
 #include "Compiler.h"
 #include "CPUDetect.h"
 #include "exceptions.h"
+#include "ICompilerConfig.h"
 #include "MICCompilerConfig.h"
 #include "MICKernel.h"
 #include "Optimizer.h"
@@ -42,10 +43,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinLibrary;
 class BuiltinModule;
-class MICCompilerConfig;
 
 //*****************************************************************************************
-// Wrapper of the Backend interface IDynamicFunctionsResolver to behave as 
+// Wrapper of the Backend interface IDynamicFunctionsResolver to behave as
 // llvm::IFunctionAddressResolver
 
 class FunctionResolverWrapper : public llvm::IFunctionAddressResolver
@@ -69,8 +69,8 @@ private:
 };
 
 //*****************************************************************************************
-// Provides the module optimization and code generation functionality. 
-// 
+// Provides the module optimization and code generation functionality.
+//
 class MICCompiler: public Compiler
 {
 public:

@@ -23,6 +23,8 @@ File Name:  ServiceFactory.cpp
 #include "MICCompileService.h"
 #include "MICSerializationService.h"
 #endif
+//#include "CompilerConfig.h"
+#include "MICCompilerConfig.h"
 #include "ExecutionService.h"
 #include "ImageCallbackServices.h"
 #include "exceptions.h"
@@ -57,7 +59,6 @@ File Name:  ServiceFactory.cpp
 #if defined(ENABLE_SDE) && defined(INCLUDE_MIC_DEVICE)
 #include "MICExecutionService.h"
 #endif
-
 
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

@@ -23,6 +23,7 @@ File Name:  ProgramBuilder.h
 #include "exceptions.h"
 #include "cl_dev_backend_api.h"
 #include "CompilationUtils.h"
+#include "ICompilerConfig.h"
 
 #include "IAbstractBackendFactory.h"
 #include "Optimizer.h"
@@ -40,7 +41,6 @@ namespace llvm {
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinModule;
-class ICompilerConfig;
 class Program;
 class Kernel;
 class KernelProperties;

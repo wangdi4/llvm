@@ -22,7 +22,7 @@ File Name:  Compiler.h
 #include <set>
 #include "CPUDetect.h"
 #include "exceptions.h"
-#include "CompilerConfig.h"
+#include "ICompilerConfig.h"
 #include "Optimizer.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -41,7 +41,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 class BuiltinLibrary;
 class BuiltinModule;
-class CompilerConfig;
 class ProgramBuildResult;
 
 

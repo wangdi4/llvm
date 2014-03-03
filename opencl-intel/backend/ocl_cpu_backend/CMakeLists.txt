@@ -148,6 +148,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     IAbstractBackendFactory.h
     IDynamicFunctionsResolver.h
     IBlockToKernelMapper.h
+    ICompilerConfig.h
 
     BackendConfiguration.h
     BitCodeContainer.h
@@ -167,7 +168,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     CompileService.h
     CompiledModule.h
     Compiler.h
-    CompilerConfig.h
+    #CompilerConfig.h
     ExecutionService.h
     ImageCallbackLibrary.h
     ImageCallbackManager.h

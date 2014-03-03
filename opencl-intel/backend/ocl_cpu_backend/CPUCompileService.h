@@ -18,7 +18,7 @@ File Name:  CPUCompileService.h
 #pragma once
 
 #include "cl_dev_backend_api.h"
-#include "CompilerConfig.h"
+#include "ICompilerConfig.h"
 #include "ProgramBuilder.h"
 #include "CompileService.h"
 #include "CPUProgramBuilder.h"

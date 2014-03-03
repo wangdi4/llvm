@@ -18,7 +18,7 @@ File Name:  MICCompilerConfig.h
 #pragma once
 
 #include "cl_dev_backend_api.h"
-#include "CompilerConfig.h"
+#include "ICompilerConfig.h"
 #include "TargetDescription.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

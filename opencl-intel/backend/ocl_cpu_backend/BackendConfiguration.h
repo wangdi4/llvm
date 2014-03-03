@@ -17,7 +17,7 @@ File Name:  BackendConfiguration.h
 \*****************************************************************************/
 #pragma once
 #include "CPUDetect.h"
-#include "CompilerConfig.h"
+#include "ICompilerConfig.h"
 #if defined(INCLUDE_MIC_DEVICE)
 #include "MICCompilerConfig.h"
 #endif
@@ -53,19 +53,19 @@ private:
 
 
 //*****************************************************************************************
-// CompilerConfig implementation. 
-// 
-// Responsible for loading both default configuraiton as well as runtime 
+// CompilerConfig implementation.
+//
+// Responsible for loading both default configuraiton as well as runtime
 // configuration passed to the backend.
 //
-// This class is used as an adapter from ICLDevBackendOptions to ICompilerConfig 
+// This class is used as an adapter from ICLDevBackendOptions to ICompilerConfig
 class CompilerConfig: public virtual ICompilerConfig
 {
 public:
     CompilerConfig():m_transposeSize(TRANSPOSE_SIZE_AUTO),
                      m_useVTune(false),
                      m_loadBuiltins(true),
-                     m_DumpIROptionAfter(NULL), 
+                     m_DumpIROptionAfter(NULL),
                      m_DumpIROptionBefore(NULL),
                      m_dumpHeuristicIR(false) {}
 
@@ -147,9 +147,9 @@ protected:
 #endif
 
 //*****************************************************************************************
-// Represents the global backend configuration. 
+// Represents the global backend configuration.
 // It is a singletinon that must be initialized explicitly
-// 
+//
 class BackendConfiguration
 {
 private:
@@ -172,16 +172,16 @@ public:
      */
     static const BackendConfiguration& GetInstance();
     /**
-     * Returns the global compiler configuration 
+     * Returns the global compiler configuration
      */
     GlobalCompilerConfig GetGlobalCompilerConfig( const ICLDevBackendOptions* pBackendOptions ) const;
     /**
-     * Returns the compiler instance configuration 
+     * Returns the compiler instance configuration
      */
     CompilerConfig GetCPUCompilerConfig(const ICLDevBackendOptions* pBackendOptions) const;
 #if defined(INCLUDE_MIC_DEVICE)
     /**
-     * Returns the compiler instance configuration 
+     * Returns the compiler instance configuration
      */
     MICCompilerConfig GetMICCompilerConfig(const ICLDevBackendOptions* pBackendOptions) const;
 #endif
