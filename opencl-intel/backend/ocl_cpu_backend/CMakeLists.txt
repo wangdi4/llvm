@@ -235,10 +235,11 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
 
 if (INCLUDE_MIC_DEVICE)
   list(APPEND OCL_CPU_BACKEND_INCLUDE_FILES
+    IMICCompilerConfig.h
     MICBuiltinLibrary.h
     MICCompileService.h
     MICCompiler.h
-    MICCompilerConfig.h
+    #MICCompilerConfig.h
     MICDeviceBackendFactory.h
     MICJITContainer.h
     MICKernel.h

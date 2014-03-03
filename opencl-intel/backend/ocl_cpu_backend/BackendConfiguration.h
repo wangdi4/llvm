@@ -19,7 +19,7 @@ File Name:  BackendConfiguration.h
 #include "CPUDetect.h"
 #include "ICompilerConfig.h"
 #if defined(INCLUDE_MIC_DEVICE)
-#include "MICCompilerConfig.h"
+#include "IMICCompilerConfig.h"
 #endif
 #include "ServiceFactory.h"
 

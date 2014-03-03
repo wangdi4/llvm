@@ -17,8 +17,7 @@ File Name:  MICCompileService.h
 \*****************************************************************************/
 #pragma once
 
-#include "cl_dev_backend_api.h"
-#include "MICCompilerConfig.h"
+#include "IMICCompilerConfig.h"
 #include "CompileService.h"
 #include "ProgramBuilder.h"
 #include "MICProgramBuilder.h"
@@ -29,7 +28,7 @@ class MICCompileService: public CompileService
 {
 public:
     MICCompileService(const IMICCompilerConfig& config);
-    virtual ~MICCompileService() { }
+    virtual ~MICCompileService() {}
 
     ProgramBuilder* GetProgramBuilder() { return &m_programBuilder; }
 

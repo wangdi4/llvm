@@ -17,17 +17,19 @@ File Name: MICCompiler.h
 \*****************************************************************************/
 #pragma once
 
-#include <assert.h>
-#include <string>
-#include "Compiler.h"
+#include "llvm/Support/raw_ostream.h"
+
 #include "CPUDetect.h"
-#include "exceptions.h"
+#include "Compiler.h"
 #include "ICompilerConfig.h"
-#include "MICCompilerConfig.h"
+#include "IMICCompilerConfig.h"
+#include "MICJITEngine/include/IFunctionAddressResolver.h"
 #include "MICKernel.h"
 #include "Optimizer.h"
-#include "llvm/Support/raw_ostream.h"
-#include "MICJITEngine/include/IFunctionAddressResolver.h"
+#include "exceptions.h"
+
+#include <assert.h>
+#include <string>
 
 namespace llvm {
     class ExecutionEngine;

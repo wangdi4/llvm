@@ -12,12 +12,11 @@ Copyright (c) Intel Corporation (2011).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  MICCompilerConfig.h
+File Name:  IMICCompilerConfig.h
 
 \*****************************************************************************/
 #pragma once
 
-#include "cl_dev_backend_api.h"
 #include "ICompilerConfig.h"
 #include "TargetDescription.h"
 

@@ -24,7 +24,7 @@ File Name:  MICProgramBuilder.h
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
-#include "MICCompilerConfig.h"
+#include "IMICCompilerConfig.h"
 
 #include <string>
 

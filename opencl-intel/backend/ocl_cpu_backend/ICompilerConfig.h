@@ -12,16 +12,17 @@ Copyright (c) Intel Corporation (2010).
     use of the code. No license, express or implied, by estoppels or otherwise,
     to any intellectual property rights is granted herein.
 
-File Name:  CompilerConfig.h
+File Name:  ICompilerConfig.h
 
 \*****************************************************************************/
 #pragma once
 
+#include "cl_dev_backend_api.h"
+
+#include <algorithm>
 #include <assert.h>
 #include <string>
-#include "cl_dev_backend_api.h"
 #include <vector>
-#include <algorithm>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -66,8 +67,7 @@ public:
     virtual std::string GetCpuFeatures() const = 0;
     virtual ETransposeSize GetTransposeSize() const  = 0;
     virtual bool  GetUseVTune() const = 0;
-    // sets whether we need built-in module to be loaded
-    // for current compiler
+    // sets whether we need built-in module to be loaded for current compiler
     virtual bool  GetLoadBuiltins() const = 0;
     virtual std::vector<int> GetIRDumpOptionsAfter() const = 0;
     virtual std::vector<int> GetIRDumpOptionsBefore() const = 0;
