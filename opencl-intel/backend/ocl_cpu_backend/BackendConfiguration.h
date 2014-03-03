@@ -17,7 +17,7 @@ File Name:  BackendConfiguration.h
 \*****************************************************************************/
 #pragma once
 #include "CPUDetect.h"
-#include "ICompilerConfig.h"
+#include "CompilerConfig.h"
 #if defined(INCLUDE_MIC_DEVICE)
 #include "IMICCompilerConfig.h"
 #endif
@@ -31,94 +31,6 @@ namespace Utils
 {
     DEVICE_TYPE SelectDevice(const char* cpuArch);
 }
-
-class GlobalCompilerConfig: public IGlobalCompilerConfig
-{
-public:
-    void LoadDefaults();
-    void LoadConfig();
-    void SkipBuiltins();
-    void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
-
-    bool EnableTiming() const { return m_enableTiming;  }
-    bool DisableStackDump() const { return m_disableStackDump; }
-    std::string InfoOutputFile() const { return m_infoOutputFile; }
-
-private:
-    bool m_enableTiming;
-    bool m_disableStackDump;
-    std::string m_infoOutputFile;
-};
-
-
-
-//*****************************************************************************************
-// CompilerConfig implementation.
-//
-// Responsible for loading both default configuraiton as well as runtime
-// configuration passed to the backend.
-//
-// This class is used as an adapter from ICLDevBackendOptions to ICompilerConfig
-class CompilerConfig: public virtual ICompilerConfig
-{
-public:
-    CompilerConfig():m_transposeSize(TRANSPOSE_SIZE_AUTO),
-                     m_useVTune(false),
-                     m_loadBuiltins(true),
-                     m_DumpIROptionAfter(NULL),
-                     m_DumpIROptionBefore(NULL),
-                     m_dumpHeuristicIR(false) {}
-
-    // CompilerConfiguration methods
-    void LoadDefaults();
-    virtual void LoadConfig();
-    void SkipBuiltins();
-    void ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions);
-    bool IsValidTransposeSize();
-
-    std::string GetCpuArch() const     { return m_cpuArch; }
-    std::string GetCpuFeatures() const { return m_cpuFeatures; }
-    ETransposeSize GetTransposeSize() const   { return m_transposeSize; }
-    bool  GetUseVTune() const                 { return m_useVTune; }
-    bool  GetLoadBuiltins() const             { return m_loadBuiltins; }
-    std::vector<int> GetIRDumpOptionsAfter() const
-    {
-        if(!m_DumpIROptionAfter){
-            std::vector<int> tempVecotr;
-            return tempVecotr;
-        }
-        std::vector<int> optionsVector(m_DumpIROptionAfter->begin(), m_DumpIROptionAfter->end());
-        //sort the vector for later use (binary_search)
-        std::sort(optionsVector.begin(), optionsVector.end());
-        return optionsVector;
-    }
-    std::vector<int> GetIRDumpOptionsBefore() const
-    {
-       if(!m_DumpIROptionBefore){
-            std::vector<int> tempVecotr;
-            return tempVecotr;
-        }
-        std::vector<int> optionsVector(m_DumpIROptionBefore->begin(), m_DumpIROptionBefore->end());
-        //sort the vector for later use (binary_search)
-        std::sort(optionsVector.begin(), optionsVector.end());
-        return optionsVector;
-    }
-    std::string GetDumpIRDir() const { return m_dumpIRDir; }
-
-    bool GetDumpHeuristicIRFlag() const { return m_dumpHeuristicIR; }
-
-protected:
-    std::string m_cpuArch;
-    std::string m_cpuFeatures;
-    ETransposeSize m_transposeSize;
-    bool        m_useVTune;
-    bool        m_loadBuiltins;
-    const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
-    const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
-    std::string m_dumpIRDir;
-    bool m_dumpHeuristicIR;
-
-};
 
 #if defined(INCLUDE_MIC_DEVICE)
 class MICCompilerConfig: public CompilerConfig, public IMICCompilerConfig

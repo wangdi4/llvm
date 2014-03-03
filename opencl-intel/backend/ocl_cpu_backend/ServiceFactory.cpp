@@ -23,7 +23,7 @@ File Name:  ServiceFactory.cpp
 #include "MICCompileService.h"
 #include "MICSerializationService.h"
 #endif
-//#include "CompilerConfig.h"
+#include "CompilerConfig.h"
 //#include "MICCompilerConfig.h"
 #include "ExecutionService.h"
 #include "ImageCallbackServices.h"

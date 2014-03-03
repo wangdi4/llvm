@@ -17,8 +17,8 @@ File Name:  BackendConfiguration.cpp
 \*****************************************************************************/
 
 #include "BackendConfiguration.h"
-#include "exceptions.h"
 #include "CPUDetect.h"
+#include "exceptions.h"
 #include "cl_dev_backend_api.h"
 #if defined(INCLUDE_MIC_DEVICE)
 #include "MICSerializationService.h"
@@ -39,9 +39,6 @@ using Utils::CPUDetect;
 const char* CPU_DEVICE = "cpu";
 const char* MIC_DEVICE = "mic";
 
-
-const char* CPU_ARCH_AUTO = "auto";
-
 namespace Utils
 {
     DEVICE_TYPE SelectDevice(const char* cpuArch)
@@ -52,8 +49,6 @@ namespace Utils
         throw Exceptions::DeviceBackendExceptionBase("Unsupported device", CL_DEV_INVALID_OPERATION_MODE);
         }
 }
-
-DEFINE_EXCEPTION(BadConfigException)
 
 BackendConfiguration* BackendConfiguration::s_pInstance = NULL;
 
@@ -130,54 +125,6 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     m_infoOutputFile = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_TIME_PASSES, "");
     m_enableTiming = !m_infoOutputFile.empty();
     m_disableStackDump = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP, false);
-}
-
-void CompilerConfig::LoadDefaults()
-{
-    m_cpuArch = CPU_ARCH_AUTO;
-    m_transposeSize = TRANSPOSE_SIZE_AUTO;
-    m_cpuFeatures = "";
-    m_useVTune = true;
-}
-
-void CompilerConfig::SkipBuiltins()
-{
-    m_loadBuiltins = false;
-}
-
-void CompilerConfig::LoadConfig()
-{
-    //TODO: Add validation code
-    if (const char *pEnv = getenv("VOLCANO_CPU_ARCH"))
-    {
-        m_cpuArch = pEnv;
-    }
-
-    if (const char *pEnv = getenv("VOLCANO_TRANSPOSE_SIZE"))
-    {
-        unsigned int size;
-        if ((std::stringstream(pEnv) >> size).fail())
-        {
-            throw  Exceptions::BadConfigException("Failed to load the transpose size from environment");
-        }
-        m_transposeSize = ETransposeSize(size);
-    }
-
-    if (const char *pEnv = getenv("VOLCANO_CPU_FEATURES"))
-    {
-        // The validity of the cpud features are checked upon parsing of optimizer options
-        m_cpuFeatures = pEnv;
-    }
-#ifndef NDEBUG
-    if (getenv("VOLCANO_DEBUG"))
-    {
-      llvm::DebugFlag = true;
-    }
-    if (const char *pEnv = getenv("VOLCANO_DEBUG_ONLY"))
-    {
-      llvm::setCurrentDebugType(pEnv);
-    }
-#endif
 }
 
 #if defined(INCLUDE_MIC_DEVICE)
