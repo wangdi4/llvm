@@ -185,7 +185,7 @@ typedef _Atomic(ptrdiff_t) atomic_ptrdiff_t;
 /**
  * A constant expression of type float representing a quiet NaN.
  */
-#define NAN as_float(__builtin_nanf((char const *)""))
+#define NAN as_float(__builtin_nanf((private char const *)""))
 
 #define FP_ILOGB0        INT_MIN
 #define FP_ILOGBNAN      INT_MAX
