@@ -46,7 +46,7 @@ cl::desc("The percentage of load instructions in a basic block which disables "
 
 namespace intel {
 
-SmartGVN::SmartGVN(bool doNoLoadAnalysis) : ModulePass(ID), noLoadAnalysis(doNoLoadAnalysis)
+SmartGVN::SmartGVN(bool doNoLoadAnalysis, unsigned int memDependencyBBThreshold) : ModulePass(ID), noLoadAnalysis(doNoLoadAnalysis), memoryDependencyAnalysisThreshold(memDependencyBBThreshold)
 {}
 
 bool SmartGVN::runOnModule(Module &M)
@@ -73,7 +73,7 @@ bool SmartGVN::runOnModule(Module &M)
     pm.add(new DataLayout(&M));
 #endif
     pm.add(llvm::createBasicAliasAnalysisPass());
-    pm.add(llvm::createMemoryDependenceAnalysisPass(500));
+    pm.add(llvm::createMemoryDependenceAnalysisPass(memoryDependencyAnalysisThreshold));
     pm.add(llvm::createGVNPass(GVNNoLoads));
     pm.run(M);
   }
@@ -119,9 +119,9 @@ OCL_INITIALIZE_PASS(SmartGVN, "SmartGVN", "Smart GVN", false, false)
 } // Namespace intel
 
 extern "C" {
-llvm::ModulePass *createSmartGVNPass(bool doNoLoadAnalysis)
+llvm::ModulePass *createSmartGVNPass(bool doNoLoadAnalysis, unsigned int memDependencyBBThreshold)
 {
-  return new intel::SmartGVN(doNoLoadAnalysis);
+  return new intel::SmartGVN(doNoLoadAnalysis, memDependencyBBThreshold);
 }
 }
 
