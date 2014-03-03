@@ -581,8 +581,8 @@ cl_dev_err_code ReadWriteMemObject::execute()
 
         // In case the pointer parameter (Host pointer) has pitch properties,
         // we need to consider that too.
-        size_t ptrOffset =    cmdParams->ptr_origin[2] * cmdParams->pitch[1] + \
-                            cmdParams->ptr_origin[1] * cmdParams->pitch[0] + \
+        size_t ptrOffset =  cmdParams->ptr_origin[2] * cmdParams->pitch[1] +
+                            cmdParams->ptr_origin[1] * cmdParams->pitch[0] +
                             cmdParams->ptr_origin[0];
 
         ReadWriteMemoryChunk copier(
@@ -680,21 +680,8 @@ bool CopyMemoryChunk::fire_action( const CommonMemoryChunk::Chunk& chunk, const 
     return processActionOptimized(CL_DEV_CMD_COPY, m_from_memObj, chunk.from_offset, m_to_memObj, chunk.to_offset, chunk.size, dependecies, num_dependencies, fired_event);
 }
 
-CopyMemObject::CopyMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd), m_srcBufferMirror(NULL), m_memObjOfHostPtr(NULL)
+CopyMemObject::CopyMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd)
 {
-}
-
-CopyMemObject::~CopyMemObject()
-{
-    if (m_srcBufferMirror)
-    {
-        delete(m_srcBufferMirror);
-    }
-    // If I convert the Read / Write operation to Copy with the mem object m_memObjOfHostPtr, than now I can return it back.
-    if (m_memObjOfHostPtr)
-    {
-        m_memObjOfHostPtr->returnMemObjToMapBuffersPool();
-    }
 }
 
 cl_dev_err_code CopyMemObject::Create(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, SharedPtr<Command>& pOutCommand)
@@ -795,80 +782,27 @@ cl_dev_err_code CopyMemObject::execute()
         // Set command type for the tracer.
         m_commandTracer.set_command_type((char*)"Copy");
 #endif
-        // Work around if the source buffer and the destination buffer are the same COI buffer, then execute the following:
-        //  * Read the whole COIBuffer to temporary host buffer.
-        //  * Write from the temporary host buffer instead of copy from source COIBuffer.
-        ProcessCommonMemoryChunk* pCopier = NULL;
-        COIEVENT initialReadBarrier;
-        if (pMicMemObjSrc->clDevMemObjGetTopLevelCoiBufferHandler() == pMicMemObjDst->clDevMemObjGetTopLevelCoiBufferHandler())
-        {
-            // Allocate memory for source mirror buffer.
-            m_srcBufferMirror = new char[pMicMemObjSrc->GetRawDataSize()];
-            assert(m_srcBufferMirror);
-            if (NULL == m_srcBufferMirror)
-            {
-                m_lastError = CL_DEV_OUT_OF_MEMORY;
-                break;
-            }
 
-            COIRESULT coiResult = COIBufferRead ( pMicMemObjSrc->clDevMemObjGetCoiBufferHandler(), // Buffer to read from.
-                                                 0,                                                // Location in the buffer to start reading from.
-                                                 m_srcBufferMirror,                                // A pointer to local memory that should be written into.
-                                                 pMicMemObjSrc->GetRawDataSize(),                  // The number of bytes to write from coiBuffer into host
-                                                 COI_COPY_UNSPECIFIED,                             // The type of copy operation to use. (//TODO check option to change the type in order to improve performance)
-                                                 numDependecies,                                   // The number of dependencies specified.
-                                                 pBarrier,                                         // An optional array of handles to previously created COIEVENT objects that this read operation will wait for before starting.
-                                                 &initialReadBarrier                               // An optional event to be signaled when the copy has completed.
-                                               );
-
-            assert(COI_SUCCESS == coiResult);
-            if (COI_SUCCESS != coiResult)
-            {
-                m_lastError = CL_DEV_ERROR_FAIL;
-                break;
-            }
-
-            pCopier = new ReadWriteMemoryChunk (
-                                                &initialReadBarrier,
-                                                pMicMemObjDst,
-                                                m_srcBufferMirror,
-                                                false,
-                                                m_pCommandList->getDeviceProcess());
-
-        }
-        else    // Regular copy from different source and destination COIBuffers.
-        {
-            pCopier = new CopyMemoryChunk(
-                          pBarrier,
-                          pMicMemObjSrc,
-                          pMicMemObjDst,
-                          m_pCommandList->getDeviceProcess()
-                         );
-        }
-
-        assert(pCopier);
-        if (NULL == pCopier)
-        {
-            m_lastError = CL_DEV_OUT_OF_MEMORY;
-            break;
-        }
+        CopyMemoryChunk Copier( pBarrier, 
+                                pMicMemObjSrc, 
+                                pMicMemObjDst, 
+                                m_pCommandList->getDeviceProcess() );
 
 #ifdef ENABLE_MIC_TRACER
         // Set start coi execution time for the tracer.
         m_commandTracer.set_current_time_coi_enqueue_command_time_start();
 #endif
-        CopyRegion( &sCpyParam, pCopier );
+        CopyRegion( &sCpyParam, &Copier );
 
-        //TODO Remove it when COI will fix the COIBUFFERCOPY in same COIBUFFER.
-        m_memObjOfHostPtr = pCopier->getUsedMemObjOfHostPtr();
+        assert( NULL == Copier.getUsedMemObjOfHostPtr() && "host mirroring should not be used for direct COIBufferCopyEx" );
 
-        if (pCopier->error_occured())
+        if (Copier.error_occured())
         {
             m_lastError = CL_DEV_ERROR_FAIL;
             break;
         }
 
-        if (!pCopier->work_dispatched())
+        if (!Copier.work_dispatched())
         {
             m_lastError = CL_DEV_SUCCESS;
             error = true;
@@ -877,13 +811,13 @@ cl_dev_err_code CopyMemObject::execute()
 
 #ifdef ENABLE_MIC_TRACER
         // Set total amount of buffer operations for the Tracer.
-        unsigned int amount = pCopier->get_total_amount_of_chunks();
+        unsigned int amount = Copier.get_total_amount_of_chunks();
         m_commandTracer.add_delta_num_of_buffer_operations(amount);
         // Set total size of buffer operations for the Tracer.
-        unsigned long long size = pCopier->get_total_memory_processed_size();
+        unsigned long long size = Copier.get_total_memory_processed_size();
         m_commandTracer.add_delta_buffer_operation_overall_size(size);
 #endif
-        m_endEvent.cmdEvent = pCopier->get_last_event();
+        m_endEvent.cmdEvent = Copier.get_last_event();
         m_lastError = CL_DEV_SUCCESS;
 
     }
