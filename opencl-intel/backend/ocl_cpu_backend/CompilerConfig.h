@@ -22,6 +22,8 @@ File Name:  CompilerConfig.h
 #include "ICompilerConfig.h"
 #include "exceptions.h"
 
+#include <algorithm>
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 DEFINE_EXCEPTION(BadConfigException)

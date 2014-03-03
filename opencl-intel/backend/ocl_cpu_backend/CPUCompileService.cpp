@@ -16,28 +16,12 @@ File Name:  CPUCompileService.cpp
 
 \*****************************************************************************/
 
-#include "exceptions.h"
+#include "BitCodeContainer.h"
 #include "CPUCompileService.h"
-#include "ProgramBuilder.h"
-#include "Program.h"
-#include "BitCodeContainer.h"
-#include "plugin_manager.h"
-#include "BitCodeContainer.h"
 #include "CPUDeviceBackendFactory.h"
+#include "exceptions.h"
 
 #include "llvm/IR/Module.h"
-#include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCDisassembler.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/MC/MCInstPrinter.h"
-#include "llvm/PassManager.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/MemoryObject.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h"
-
-#include <sstream>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

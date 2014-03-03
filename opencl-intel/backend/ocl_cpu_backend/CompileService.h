@@ -20,7 +20,6 @@ File Name:  CompileService.h
 #include "cl_dev_backend_api.h"
 #include "ProgramBuilder.h"
 #include "IAbstractBackendFactory.h"
-#include "IAbstractBackendFactory.h"
 #include "llvm/Support/Mutex.h"
 
 #ifdef OCL_DEV_BACKEND_PLUGINS

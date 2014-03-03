@@ -17,17 +17,13 @@ File Name:  CPUProgramBuilder.h
 \*****************************************************************************/
 #pragma once
 
-#include <assert.h>
-#include <string>
-#include "CPUDetect.h"
-#include "ICompilerConfig.h"
-#include "exceptions.h"
-#include "cl_dev_backend_api.h"
-#include "Kernel.h"
-#include "Optimizer.h"
-#include "ProgramBuilder.h"
 #include "CPUCompiler.h"
 #include "CPUProgram.h"
+#include "ICompilerConfig.h"
+#include "ProgramBuilder.h"
+#include "cl_dev_backend_api.h"
+
+#include <string>
 
 namespace llvm {
     class ExecutionEngine;

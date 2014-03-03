@@ -17,14 +17,12 @@ File Name:  Compiler.h
 \*****************************************************************************/
 #pragma once
 
-#include <assert.h>
-#include <string>
-#include <set>
+#include "cl_dev_backend_api.h"
 #include "CPUDetect.h"
-#include "exceptions.h"
 #include "ICompilerConfig.h"
-#include "Optimizer.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <string>
 
 namespace llvm {
     class ExecutionEngine;

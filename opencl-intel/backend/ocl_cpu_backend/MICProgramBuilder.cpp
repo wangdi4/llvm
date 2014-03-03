@@ -18,18 +18,15 @@ File Name:  MICProgramBuilder.cpp
 
 #include "MICProgramBuilder.h"
 
-#include "Compiler.h"
 #include "IAbstractBackendFactory.h"
+#include "CompilationUtils.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "MetaDataApi.h"
-#include "MICCompiler.h"
 #include "MICJITContainer.h"
 #include "MICKernel.h"
 #include "MICProgram.h"
-#include "ModuleJITHolder.h"
 #include "Program.h"
-#include "ProgramBuilder.h"
 
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -42,20 +39,10 @@ File Name:  MICProgramBuilder.cpp
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/LLVMModuleJITHolder.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/raw_ostream.h"
 
-#include <string>
 #include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-/*
- * Utility methods
- */
-namespace Utils
-{
-
-}
 
 MICProgramBuilder::MICProgramBuilder(IAbstractBackendFactory* pBackendFactory, const IMICCompilerConfig& config):
     ProgramBuilder(pBackendFactory, config),

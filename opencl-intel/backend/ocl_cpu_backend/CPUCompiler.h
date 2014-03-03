@@ -17,16 +17,13 @@ File Name: CPUCompiler.h
 \*****************************************************************************/
 #pragma once
 
-#include <assert.h>
-#include <string>
 #include "Compiler.h"
-#include "CPUDetect.h"
-#include "exceptions.h"
 #include "ICompilerConfig.h"
-#include "Kernel.h"
-#include "Optimizer.h"
+
 #include "llvm/Support/raw_ostream.h"
 
+#include <assert.h>
+#include <string>
 
 namespace llvm {
     class ExecutionEngine;

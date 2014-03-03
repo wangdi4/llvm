@@ -16,7 +16,6 @@ File Name:  CompilerConfig.cpp
 
 \*****************************************************************************/
 
-#include "CPUDetect.h"
 #include "CompilerConfig.h"
 
 #include "llvm/Support/Debug.h"

@@ -17,10 +17,10 @@ File Name:  MICCompileService.h
 \*****************************************************************************/
 #pragma once
 
-#include "IMICCompilerConfig.h"
 #include "CompileService.h"
-#include "ProgramBuilder.h"
+#include "IMICCompilerConfig.h"
 #include "MICProgramBuilder.h"
+#include "ProgramBuilder.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

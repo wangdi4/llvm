@@ -16,15 +16,11 @@ File Name:  ImageCallbackManager.h
 
 \*****************************************************************************/
 #pragma once
-#include <map>
 #include "CPUDetect.h"
 #include "ICompilerConfig.h"
 #include "ImageCallbackLibrary.h"
 
-namespace llvm
-{
-class LLVMContext;
-}
+#include <map>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

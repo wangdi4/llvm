@@ -17,10 +17,8 @@ File Name:  ICompilerConfig.h
 \*****************************************************************************/
 #pragma once
 
-#include "cl_dev_backend_api.h"
+#include "ICLDevBackendOptions.h"
 
-#include <algorithm>
-#include <assert.h>
 #include <string>
 #include <vector>
 
@@ -52,7 +50,6 @@ public:
     virtual bool DisableStackDump() const = 0;
 };
 
-
 /**
  * Compiler configuration interface
  *
@@ -74,7 +71,5 @@ public:
     virtual std::string GetDumpIRDir() const = 0;
     virtual bool GetDumpHeuristicIRFlag() const = 0;
 };
-
-
 
 }}}

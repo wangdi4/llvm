@@ -16,7 +16,7 @@ File Name:  MICCompilerConfig.cpp
 
 \*****************************************************************************/
 
-#include "cl_dev_backend_api.h"
+#include "ICLDevBackendOptions.h"
 #include "MICCompilerConfig.h"
 #include "MICSerializationService.h"
 #include "TargetDescription.h"

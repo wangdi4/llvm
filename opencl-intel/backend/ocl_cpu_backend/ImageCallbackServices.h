@@ -19,16 +19,11 @@ File Name:  ImageCallbackService.h
 #pragma once
 
 #include "cl_dev_backend_api.h"
-#include "ImageCallbackManager.h"
-#include "ICLDevBackendProgram.h"
-#include "BackendConfiguration.h"
-#include "cl_device_api.h"
 #include "cl_types.h"
-#include "ICompilerConfig.h"
-//#include "cl.h"
+#include "CompilerConfig.h"
+#include "CPUDetect.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 
 /**
  * This interface class is responsible for the image callback services, i.e.,

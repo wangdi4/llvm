@@ -17,16 +17,9 @@ File Name:  BackendConfiguration.cpp
 \*****************************************************************************/
 
 #include "BackendConfiguration.h"
-#include "CPUDetect.h"
-#include "exceptions.h"
 #include "cl_dev_backend_api.h"
 
 #include <assert.h>
-#include <string>
-#include <cstring>
-#include <sstream>
-
-#include "llvm/Support/Debug.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

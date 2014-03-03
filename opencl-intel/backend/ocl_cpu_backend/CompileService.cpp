@@ -18,10 +18,8 @@ File Name:  CompileService.cpp
 
 #include "exceptions.h"
 #include "CompileService.h"
-#include "ProgramBuilder.h"
 #include "Program.h"
 #include "BitCodeContainer.h"
-#include "plugin_manager.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
@@ -41,9 +39,6 @@ File Name:  CompileService.cpp
 #include "llvm/MC/MCDisassembler.h"
 #include "llvm/MC/MCInstPrinter.h"
 #include "llvm/PassManager.h"
-
-#include <sstream>
-
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

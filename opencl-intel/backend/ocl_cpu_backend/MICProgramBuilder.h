@@ -84,7 +84,7 @@ private:
 
     void AddKernelJIT( const MICProgram* pProgram, Kernel* pKernel, llvm::Module* pModule, llvm::Function* pFunc, KernelJITProperties* pProps) const;
 
-    void CopyJitHolder(const LLVMModuleJITHolder* from, ModuleJITHolder* to) const;
+    void CopyJitHolder(const llvm::LLVMModuleJITHolder* from, ModuleJITHolder* to) const;
 
     // Klockwork Issue
     MICProgramBuilder ( const MICProgramBuilder& x );

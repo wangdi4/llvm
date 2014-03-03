@@ -16,17 +16,8 @@ File Name:  MICCompileService.cpp
 
 \*****************************************************************************/
 
-#include "BitCodeContainer.h"
-#include "BitCodeContainer.h"
 #include "MICCompileService.h"
 #include "MICDeviceBackendFactory.h"
-#include "MICProgram.h"
-#include "ProgramBuilder.h"
-#include "exceptions.h"
-#include "plugin_manager.h"
-
-#include "llvm/IR/Module.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

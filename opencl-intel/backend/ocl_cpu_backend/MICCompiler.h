@@ -17,16 +17,10 @@ File Name: MICCompiler.h
 \*****************************************************************************/
 #pragma once
 
-#include "llvm/Support/raw_ostream.h"
-
-#include "CPUDetect.h"
 #include "Compiler.h"
 #include "ICompilerConfig.h"
 #include "IMICCompilerConfig.h"
 #include "MICJITEngine/include/IFunctionAddressResolver.h"
-#include "MICKernel.h"
-#include "Optimizer.h"
-#include "exceptions.h"
 
 #include <assert.h>
 #include <string>
@@ -102,7 +96,6 @@ protected:
     // to expose that interface and createExecution engine after constuctor is called.
     virtual void CreateExecutionEngine( llvm::Module* pModule );
 
-
 private:
     // Disable copy ctor and assignment operator
     MICCompiler( const MICCompiler& );
@@ -111,7 +104,6 @@ private:
     void SelectMICConfiguration(const ICompilerConfig& config);
 
     llvm::MICCodeGenerationEngine* CreateMICCodeGenerationEngine( llvm::Module* pRtlModule ) const;
-
 
 private:
     BuiltinModule*           m_pBuiltinModule;
